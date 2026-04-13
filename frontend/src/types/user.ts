@@ -1,0 +1,40 @@
+import type { UserRole, UserStatus } from './auth'
+
+// Matches BE: UserResponse
+export interface User {
+  id: string
+  email: string
+  fullName: string
+  phone: string | null
+  avatarUrl: string | null
+  role: UserRole
+  status: UserStatus
+  companyId: string
+  createdAt: string
+  updatedAt: string
+}
+
+// Matches BE: CreateUserRequest
+export interface CreateUserRequest {
+  fullName: string
+  email: string
+  password: string
+  phone?: string
+  role: UserRole
+}
+
+// Matches BE: UpdateUserRequest
+export interface UpdateUserRequest {
+  fullName?: string
+  email?: string
+  phone?: string
+  role?: UserRole
+  status?: UserStatus
+}
+
+// Matches BE: ImportUserResponse
+export interface ImportUserResult {
+  totalRows: number
+  successfulImports: number
+  errors: string[]
+}
