@@ -10,13 +10,13 @@ export function usePermission() {
 
   const isDirector = user?.role === 'DIRECTOR'
   const isHead = user?.role === 'HEAD'
-  const isDeputyHead = user?.role === 'DEPUTY_HEAD'
+  const isDeputy = user?.role === 'DEPUTY'
   const isStaff = user?.role === 'STAFF'
 
   const canApprove = isDirector || isHead
   const canManage = isDirector
-  const canCreateKpi = isHead || isDeputyHead
+  const canCreateKpi = isHead || isDeputy
   const canSubmit = isStaff
 
-  return { hasRole, isDirector, isHead, isDeputyHead, isStaff, canApprove, canManage, canCreateKpi, canSubmit }
+  return { hasRole, isDirector, isHead, isDeputy, isStaff, canApprove, canManage, canCreateKpi, canSubmit }
 }

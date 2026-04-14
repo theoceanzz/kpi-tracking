@@ -26,4 +26,6 @@ public interface DepartmentMemberRepository extends JpaRepository<DepartmentMemb
     @Query("SELECT dm FROM DepartmentMember dm WHERE dm.department.company.id = :companyId AND dm.user.id = :userId")
     List<DepartmentMember> findByCompanyIdAndUserId(@Param("companyId") UUID companyId,
                                                      @Param("userId") UUID userId);
+
+    long countByDepartmentId(UUID departmentId);
 }

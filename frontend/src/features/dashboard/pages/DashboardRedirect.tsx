@@ -10,7 +10,7 @@ export default function DashboardRedirect() {
     case 'DIRECTOR':
       return <Navigate to="/dashboard/director" replace />
     case 'HEAD':
-    case 'DEPUTY_HEAD':
+    case 'DEPUTY':
       return <Navigate to="/dashboard/head" replace />
     case 'STAFF':
       return <Navigate to="/dashboard/staff" replace />

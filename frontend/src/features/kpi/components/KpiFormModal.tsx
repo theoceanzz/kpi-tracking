@@ -5,6 +5,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { kpiApi } from '../api/kpiApi'
 import { useDepartments } from '@/features/departments/hooks/useDepartments'
 import { useUsers } from '@/features/users/hooks/useUsers'
+import { useAuthStore } from '@/store/authStore'
 import { toast } from 'sonner'
 import { Loader2, X } from 'lucide-react'
 import type { KpiCriteria } from '@/types/kpi'
@@ -26,8 +27,16 @@ const frequencyOptions = [
 export default function KpiFormModal({ open, onClose, editKpi }: KpiFormModalProps) {
   const isEdit = !!editKpi
   const qc = useQueryClient()
+  const { user } = useAuthStore()
   const { data: deptsData } = useDepartments(0, 100)
   const { data: usersData } = useUsers({ page: 0, size: 100 })
+
+  const availableUsers = usersData?.content?.filter(u => {
+    if (user?.role === 'DIRECTOR') return u.role !== 'DIRECTOR'
+    if (user?.role === 'HEAD') return u.role === 'DEPUTY' || u.role === 'STAFF'
+    if (user?.role === 'DEPUTY') return u.role === 'STAFF'
+    return false
+  })
 
   const { register, handleSubmit, formState: { errors }, reset } = useForm<KpiFormData>({
     resolver: zodResolver(kpiSchema),
@@ -115,19 +124,21 @@ export default function KpiFormModal({ open, onClose, editKpi }: KpiFormModalPro
             </div>
           </div>
 
-          <div>
-            <label className="block text-sm font-medium mb-1.5">Phòng ban</label>
-            <select {...register('departmentId')} className={inputCls}>
-              <option value="">— Không chọn —</option>
-              {deptsData?.content?.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
-            </select>
-          </div>
+          {user?.role === 'DIRECTOR' && (
+            <div>
+              <label className="block text-sm font-medium mb-1.5">Phòng ban</label>
+              <select {...register('departmentId')} className={inputCls} disabled={user?.role !== 'DIRECTOR'}>
+                <option value="">— Không chọn —</option>
+                {deptsData?.content?.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
+              </select>
+            </div>
+          )}
 
           <div>
             <label className="block text-sm font-medium mb-1.5">Giao cho</label>
             <select {...register('assignedToId')} className={inputCls}>
               <option value="">— Không chọn —</option>
-              {usersData?.content?.map((u) => <option key={u.id} value={u.id}>{u.fullName} ({u.email})</option>)}
+              {availableUsers?.map((u) => <option key={u.id} value={u.id}>{u.fullName} ({u.email} - {u.role})</option>)}
             </select>
           </div>
 

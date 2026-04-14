@@ -39,6 +39,7 @@ public class KpiCriteriaService {
     private final UserRepository userRepository;
     private final CompanyRepository companyRepository;
     private final DepartmentRepository departmentRepository;
+    private final com.kpitracking.repository.DepartmentMemberRepository departmentMemberRepository;
     private final KpiCriteriaMapper kpiCriteriaMapper;
     private final ApplicationEventPublisher eventPublisher;
 
@@ -60,6 +61,8 @@ public class KpiCriteriaService {
         Company company = companyRepository.findById(companyId)
                 .orElseThrow(() -> new ResourceNotFoundException("Company", "id", companyId));
 
+        KpiStatus initialStatus = (currentUser.getRole() == com.kpitracking.enums.UserRole.DIRECTOR) ? KpiStatus.APPROVED : KpiStatus.DRAFT;
+
         KpiCriteria kpi = KpiCriteria.builder()
                 .company(company)
                 .name(request.getName())
@@ -68,24 +71,56 @@ public class KpiCriteriaService {
                 .targetValue(request.getTargetValue())
                 .unit(request.getUnit())
                 .frequency(request.getFrequency())
-                .status(KpiStatus.DRAFT)
+                .status(initialStatus)
                 .createdBy(currentUser)
                 .startDate(request.getStartDate())
                 .endDate(request.getEndDate())
                 .build();
 
+        if (initialStatus == KpiStatus.APPROVED) {
+            kpi.setApprovedBy(currentUser);
+            kpi.setApprovedAt(Instant.now());
+        }
+
         if (request.getDepartmentId() != null) {
             Department dept = departmentRepository.findByIdAndCompanyId(request.getDepartmentId(), companyId)
                     .orElseThrow(() -> new ResourceNotFoundException("Department", "id", request.getDepartmentId()));
+            
+            
+            // Check if current user belongs to the target department
+            boolean isMemberOfTarget = departmentMemberRepository.existsByDepartmentIdAndUserId(dept.getId(), currentUser.getId());
+            if (currentUser.getRole() != com.kpitracking.enums.UserRole.DIRECTOR && !isMemberOfTarget) {
+                throw new com.kpitracking.exception.ForbiddenException("Trưởng phòng chỉ có thể thêm chỉ tiêu cho phòng ban của mình.");
+            }
             kpi.setDepartment(dept);
+        } else if (currentUser.getRole() != com.kpitracking.enums.UserRole.DIRECTOR) {
+            java.util.List<com.kpitracking.entity.DepartmentMember> userDepts = departmentMemberRepository.findByUserId(currentUser.getId());
+            if (!userDepts.isEmpty()) {
+                kpi.setDepartment(userDepts.get(0).getDepartment());
+            }
         }
+
         if (request.getAssignedToId() != null) {
             User assignee = userRepository.findByIdAndCompanyId(request.getAssignedToId(), companyId)
                     .orElseThrow(() -> new ResourceNotFoundException("User (assignee)", "id", request.getAssignedToId()));
+
+            if (currentUser.getRole() == com.kpitracking.enums.UserRole.DIRECTOR && assignee.getRole() == com.kpitracking.enums.UserRole.DIRECTOR) {
+                throw new com.kpitracking.exception.ForbiddenException("Giám đốc không thể giao chỉ tiêu cho Giám đốc khác.");
+            }
+            if (currentUser.getRole() == com.kpitracking.enums.UserRole.HEAD && 
+                (assignee.getRole() == com.kpitracking.enums.UserRole.DIRECTOR || assignee.getRole() == com.kpitracking.enums.UserRole.HEAD)) {
+                throw new com.kpitracking.exception.ForbiddenException("Trưởng phòng chỉ có thể giao chỉ tiêu cho Phó phòng hoặc Nhân viên.");
+            }
+
             kpi.setAssignedTo(assignee);
         }
 
         kpi = kpiCriteriaRepository.save(kpi);
+
+        if (initialStatus == KpiStatus.APPROVED) {
+            eventPublisher.publishEvent(new KpiCriteriaApprovedEvent(this, kpi));
+        }
+
         return kpiCriteriaMapper.toResponse(kpi);
     }
 
@@ -147,11 +182,33 @@ public class KpiCriteriaService {
         if (request.getDepartmentId() != null) {
             Department dept = departmentRepository.findByIdAndCompanyId(request.getDepartmentId(), companyId)
                     .orElseThrow(() -> new ResourceNotFoundException("Department", "id", request.getDepartmentId()));
+
+            
+            // Check if current user belongs to the target department
+            boolean isMemberOfTarget = departmentMemberRepository.existsByDepartmentIdAndUserId(dept.getId(), currentUser.getId());
+            if (currentUser.getRole() != com.kpitracking.enums.UserRole.DIRECTOR && !isMemberOfTarget) {
+                throw new com.kpitracking.exception.ForbiddenException("Trưởng phòng chỉ có thể thêm chỉ tiêu cho phòng ban của mình.");
+            }
             kpi.setDepartment(dept);
+        } else if (currentUser.getRole() != com.kpitracking.enums.UserRole.DIRECTOR) {
+            java.util.List<com.kpitracking.entity.DepartmentMember> userDepts = departmentMemberRepository.findByUserId(currentUser.getId());
+            if (!userDepts.isEmpty()) {
+                kpi.setDepartment(userDepts.get(0).getDepartment());
+            }
         }
+
         if (request.getAssignedToId() != null) {
             User assignee = userRepository.findByIdAndCompanyId(request.getAssignedToId(), companyId)
                     .orElseThrow(() -> new ResourceNotFoundException("User", "id", request.getAssignedToId()));
+
+            if (currentUser.getRole() == com.kpitracking.enums.UserRole.DIRECTOR && assignee.getRole() == com.kpitracking.enums.UserRole.DIRECTOR) {
+                throw new com.kpitracking.exception.ForbiddenException("Giám đốc không thể giao chỉ tiêu cho Giám đốc khác.");
+            }
+            if (currentUser.getRole() == com.kpitracking.enums.UserRole.HEAD && 
+                (assignee.getRole() == com.kpitracking.enums.UserRole.DIRECTOR || assignee.getRole() == com.kpitracking.enums.UserRole.HEAD)) {
+                throw new com.kpitracking.exception.ForbiddenException("Trưởng phòng chỉ có thể giao chỉ tiêu cho Phó phòng hoặc Nhân viên.");
+            }
+
             kpi.setAssignedTo(assignee);
         }
 
