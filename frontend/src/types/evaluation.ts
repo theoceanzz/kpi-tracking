@@ -24,3 +24,6 @@ export interface CreateEvaluationRequest {
   periodStart?: string
   periodEnd?: string
 }
+
+// Frontend-only: evaluation layer type for UI display
+export type EvaluationLayer = 'self' | 'head' | 'director'

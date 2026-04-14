@@ -2,6 +2,7 @@ package com.kpitracking.controller;
 
 import com.kpitracking.dto.response.ApiResponse;
 import com.kpitracking.dto.response.stats.DeptKpiStatsResponse;
+import com.kpitracking.dto.response.stats.EmployeeKpiStatsResponse;
 import com.kpitracking.dto.response.stats.MyKpiProgressResponse;
 import com.kpitracking.dto.response.stats.OverviewStatsResponse;
 import com.kpitracking.service.StatsService;
@@ -37,6 +38,14 @@ public class StatsController {
     @Operation(summary = "Get KPI statistics by department")
     public ResponseEntity<ApiResponse<List<DeptKpiStatsResponse>>> getDepartmentKpiStats() {
         List<DeptKpiStatsResponse> response = statsService.getDepartmentKpiStats();
+        return ResponseEntity.ok(ApiResponse.success(response));
+    }
+
+    @GetMapping("/employees")
+    @PreAuthorize("hasRole('DIRECTOR')")
+    @Operation(summary = "Get KPI statistics per employee (Director only)")
+    public ResponseEntity<ApiResponse<List<EmployeeKpiStatsResponse>>> getEmployeeKpiStats() {
+        List<EmployeeKpiStatsResponse> response = statsService.getEmployeeKpiStats();
         return ResponseEntity.ok(ApiResponse.success(response));
     }
 

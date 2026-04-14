@@ -29,19 +29,19 @@ interface NavItem {
 }
 
 const navItems: NavItem[] = [
-  { label: 'Tổng quan', path: '/dashboard', icon: <LayoutDashboard size={20} />, roles: ['DIRECTOR', 'HEAD', 'DEPUTY_HEAD', 'STAFF'] },
+  { label: 'Tổng quan', path: '/dashboard', icon: <LayoutDashboard size={20} />, roles: ['DIRECTOR', 'HEAD', 'DEPUTY', 'STAFF'] },
   { label: 'Công ty', path: '/company', icon: <Settings size={20} />, roles: ['DIRECTOR'] },
   { label: 'Phòng ban', path: '/departments', icon: <Building2 size={20} />, roles: ['DIRECTOR'] },
   { label: 'Nhân sự', path: '/users', icon: <Users size={20} />, roles: ['DIRECTOR'] },
   
-  { label: 'Quản lý Chỉ tiêu', path: '/kpi-criteria', icon: <Target size={20} />, roles: ['HEAD', 'DEPUTY_HEAD'], end: true },
+  { label: 'Quản lý Chỉ tiêu', path: '/kpi-criteria', icon: <Target size={20} />, roles: ['DIRECTOR', 'HEAD', 'DEPUTY'], end: true },
   { label: 'Duyệt Chỉ tiêu', path: '/kpi-criteria/pending', icon: <ClipboardCheck size={20} />, roles: ['DIRECTOR'] },
   { label: 'KPI của tôi', path: '/my-kpi', icon: <ListChecks size={20} />, roles: ['STAFF'] },
   
-  { label: 'Duyệt Bài nộp', path: '/submissions/department', icon: <ClipboardCheck size={20} />, roles: ['DIRECTOR', 'HEAD', 'DEPUTY_HEAD'] },
+  { label: 'Duyệt Bài nộp', path: '/submissions/department', icon: <ClipboardCheck size={20} />, roles: ['HEAD', 'DEPUTY'] },
   { label: 'Bài nộp của tôi', path: '/submissions', icon: <FileText size={20} />, roles: ['STAFF'], end: true },
   
-  { label: 'Đánh giá NS', path: '/evaluations', icon: <Star size={20} />, roles: ['DIRECTOR', 'HEAD', 'DEPUTY_HEAD'] },
+  { label: 'Đánh giá NS', path: '/evaluations', icon: <Star size={20} />, roles: ['DIRECTOR', 'HEAD', 'DEPUTY', 'STAFF'] },
 ]
 
 export default function Sidebar({ isMobileOpen, onCloseMobile }: { isMobileOpen?: boolean; onCloseMobile?: () => void }) {

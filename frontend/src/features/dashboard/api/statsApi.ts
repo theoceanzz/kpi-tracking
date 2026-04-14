@@ -1,6 +1,6 @@
 import axiosInstance from '@/lib/axios'
 import type { ApiResponse } from '@/types/api'
-import type { OverviewStats, DepartmentStats, MyKpiProgress } from '@/types/stats'
+import type { OverviewStats, DepartmentStats, EmployeeKpiStats, MyKpiProgress } from '@/types/stats'
 
 export const statsApi = {
   getOverview: () =>
@@ -8,6 +8,9 @@ export const statsApi = {
 
   getDepartmentStats: () =>
     axiosInstance.get<ApiResponse<DepartmentStats[]>>('/stats/departments').then((r) => r.data.data),
+
+  getEmployeeStats: () =>
+    axiosInstance.get<ApiResponse<EmployeeKpiStats[]>>('/stats/employees').then((r) => r.data.data),
 
   getMyProgress: () =>
     axiosInstance.get<ApiResponse<MyKpiProgress>>('/stats/my-progress').then((r) => r.data.data),

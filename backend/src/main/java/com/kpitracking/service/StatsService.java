@@ -1,9 +1,11 @@
 package com.kpitracking.service;
 
 import com.kpitracking.dto.response.stats.DeptKpiStatsResponse;
+import com.kpitracking.dto.response.stats.EmployeeKpiStatsResponse;
 import com.kpitracking.dto.response.stats.MyKpiProgressResponse;
 import com.kpitracking.dto.response.stats.OverviewStatsResponse;
 import com.kpitracking.entity.Department;
+import com.kpitracking.entity.DepartmentMember;
 import com.kpitracking.entity.User;
 import com.kpitracking.enums.KpiStatus;
 import com.kpitracking.enums.SubmissionStatus;
@@ -14,8 +16,8 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.List;
-import java.util.UUID;
+import java.util.*;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -23,6 +25,7 @@ public class StatsService {
 
     private final UserRepository userRepository;
     private final DepartmentRepository departmentRepository;
+    private final DepartmentMemberRepository departmentMemberRepository;
     private final KpiCriteriaRepository kpiCriteriaRepository;
     private final KpiSubmissionRepository submissionRepository;
     private final EvaluationRepository evaluationRepository;
@@ -59,6 +62,7 @@ public class StatsService {
         return departments.stream().map(dept -> DeptKpiStatsResponse.builder()
                 .departmentId(dept.getId())
                 .departmentName(dept.getName())
+                .memberCount(departmentMemberRepository.countByDepartmentId(dept.getId()))
                 .totalKpi(kpiCriteriaRepository.countByCompanyIdAndDepartmentId(companyId, dept.getId()))
                 .approvedKpi(kpiCriteriaRepository.countByCompanyIdAndDepartmentIdAndStatus(
                         companyId, dept.getId(), KpiStatus.APPROVED))
@@ -66,8 +70,55 @@ public class StatsService {
                         companyId, dept.getId(), KpiStatus.PENDING_APPROVAL))
                 .rejectedKpi(kpiCriteriaRepository.countByCompanyIdAndDepartmentIdAndStatus(
                         companyId, dept.getId(), KpiStatus.REJECTED))
+                .totalSubmissions(submissionRepository.countByCompanyIdAndDepartmentId(companyId, dept.getId()))
+                .approvedSubmissions(submissionRepository.countByCompanyIdAndDepartmentIdAndStatus(
+                        companyId, dept.getId(), SubmissionStatus.APPROVED))
+                .pendingSubmissions(submissionRepository.countByCompanyIdAndDepartmentIdAndStatus(
+                        companyId, dept.getId(), SubmissionStatus.PENDING))
+                .rejectedSubmissions(submissionRepository.countByCompanyIdAndDepartmentIdAndStatus(
+                        companyId, dept.getId(), SubmissionStatus.REJECTED))
                 .build()
         ).toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<EmployeeKpiStatsResponse> getEmployeeKpiStats() {
+        User currentUser = getCurrentUser();
+        UUID companyId = currentUser.getCompany().getId();
+
+        List<User> users = userRepository.findAllByCompanyId(companyId);
+
+        List<EmployeeKpiStatsResponse> result = new ArrayList<>();
+
+        for (User u : users) {
+             List<DepartmentMember> dms = departmentMemberRepository.findByUserId(u.getId());
+             String deptName = dms.isEmpty() ? null : dms.get(0).getDepartment().getName();
+
+             long assignedKpi = kpiCriteriaRepository.countMyAssignedKpis(companyId, KpiStatus.APPROVED, u.getId());
+             long totalSub = submissionRepository.countByCompanyIdAndSubmittedById(companyId, u.getId());
+             long approvedSub = submissionRepository.countByCompanyIdAndSubmittedByIdAndStatus(companyId, u.getId(), SubmissionStatus.APPROVED);
+             long pendingSub = submissionRepository.countByCompanyIdAndSubmittedByIdAndStatus(companyId, u.getId(), SubmissionStatus.PENDING);
+             long rejectedSub = submissionRepository.countByCompanyIdAndSubmittedByIdAndStatus(companyId, u.getId(), SubmissionStatus.REJECTED);
+             Double avgScore = evaluationRepository.avgScoreByCompanyIdAndUserId(companyId, u.getId());
+
+             result.add(EmployeeKpiStatsResponse.builder()
+                     .userId(u.getId())
+                     .fullName(u.getFullName())
+                     .email(u.getEmail())
+                     .role(u.getRole().name())
+                     .departmentName(deptName)
+                     .assignedKpi(assignedKpi)
+                     .totalSubmissions(totalSub)
+                     .approvedSubmissions(approvedSub)
+                     .pendingSubmissions(pendingSub)
+                     .rejectedSubmissions(rejectedSub)
+                     .averageScore(avgScore)
+                     .build());
+        }
+
+        // Sort by approvedSubmissions descending (top performers first)
+        result.sort((a, b) -> Long.compare(b.getApprovedSubmissions(), a.getApprovedSubmissions()));
+        return result;
     }
 
     @Transactional(readOnly = true)

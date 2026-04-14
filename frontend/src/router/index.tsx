@@ -69,13 +69,19 @@ export const router = createBrowserRouter([
 
           // Director + Head + Deputy
           {
-            element: <RoleRoute allowedRoles={['DIRECTOR', 'HEAD', 'DEPUTY_HEAD']} />,
+            element: <RoleRoute allowedRoles={['DIRECTOR', 'HEAD', 'DEPUTY']} />,
             children: [
               { path: '/dashboard/head', element: <HeadDashboard /> },
               { path: '/departments/:id', element: <DepartmentDetailPage /> },
-              { path: '/evaluations', element: <EvaluationsPage /> },
-              { path: '/submissions/department', element: <DeptSubmissionsPage /> },
               { path: '/kpi-criteria', element: <KpiCriteriaPage /> },
+            ],
+          },
+
+          // Head + Deputy only (duyệt bài nộp nhân viên)
+          {
+            element: <RoleRoute allowedRoles={['HEAD', 'DEPUTY']} />,
+            children: [
+              { path: '/submissions/department', element: <DeptSubmissionsPage /> },
             ],
           },
 
@@ -88,9 +94,10 @@ export const router = createBrowserRouter([
             ],
           },
 
-          // All roles — submissions
+          // All roles — submissions & evaluations
           { path: '/submissions', element: <MySubmissionsPage /> },
           { path: '/submissions/new', element: <NewSubmissionPage /> },
+          { path: '/evaluations', element: <EvaluationsPage /> },
           { path: '/submissions/:id', element: <SubmissionDetailPage /> },
         ],
       },
