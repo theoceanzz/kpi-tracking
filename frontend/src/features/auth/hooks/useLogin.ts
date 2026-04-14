@@ -17,7 +17,7 @@ export function useLogin() {
       navigate('/dashboard')
     },
     onError: () => {
-      toast.error('Email hoặc mật khẩu không đúng')
+      // toast.error('Email hoặc mật khẩu không đúng') // Removed to use UI alert instead
     },
   })
 }

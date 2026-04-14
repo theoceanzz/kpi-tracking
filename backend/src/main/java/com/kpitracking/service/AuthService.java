@@ -48,6 +48,9 @@ public class AuthService {
         if (userRepository.existsByEmail(request.getEmail())) {
             throw new DuplicateResourceException("User", "email", request.getEmail());
         }
+        if (request.getPhone() != null && !request.getPhone().trim().isEmpty() && userRepository.existsByPhone(request.getPhone())) {
+            throw new DuplicateResourceException("User", "phone", request.getPhone());
+        }
 
         Company company = Company.builder()
                 .name(request.getCompanyName())
@@ -71,16 +74,12 @@ public class AuthService {
                 .build();
         user = userRepository.save(user);
 
-        String accessToken = jwtTokenProvider.generateAccessToken(
-                user.getEmail(), company.getId(), user.getRole().name());
-        RefreshToken refreshToken = refreshTokenService.createOrUpdateRefreshToken(user.getId(), userAgent);
-
         emailService.sendWelcomeEmail(user.getEmail(), user.getFullName());
         emailService.sendVerifyEmail(user.getEmail(), verifyToken);
 
         return AuthResponse.builder()
-                .accessToken(accessToken)
-                .refreshToken(refreshToken.getToken())
+                .accessToken("")
+                .refreshToken("")
                 .tokenType("Bearer")
                 .user(userMapper.toUserInfoResponse(user))
                 .build();
@@ -96,6 +95,10 @@ public class AuthService {
 
         if (user.getStatus() != UserStatus.ACTIVE) {
             throw new BusinessException("Account is not active. Current status: " + user.getStatus());
+        }
+
+        if (Boolean.FALSE.equals(user.getIsEmailVerified())) {
+            throw new BusinessException("Vui lòng xác thực email của bạn trước khi đăng nhập.");
         }
 
         String accessToken = jwtTokenProvider.generateAccessToken(

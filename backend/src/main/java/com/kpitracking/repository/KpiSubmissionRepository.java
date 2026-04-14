@@ -38,4 +38,15 @@ public interface KpiSubmissionRepository extends JpaRepository<KpiSubmission, UU
     @Query("SELECT COUNT(s) FROM KpiSubmission s WHERE s.company.id = :companyId AND s.submittedBy.id = :userId")
     long countByCompanyIdAndSubmittedById(@Param("companyId") UUID companyId,
                                            @Param("userId") UUID userId);
+
+    @Query("SELECT COUNT(s) FROM KpiSubmission s WHERE s.company.id = :companyId " +
+           "AND s.kpiCriteria.department.id = :departmentId")
+    long countByCompanyIdAndDepartmentId(@Param("companyId") UUID companyId,
+                                         @Param("departmentId") UUID departmentId);
+
+    @Query("SELECT COUNT(s) FROM KpiSubmission s WHERE s.company.id = :companyId " +
+           "AND s.kpiCriteria.department.id = :departmentId AND s.status = :status")
+    long countByCompanyIdAndDepartmentIdAndStatus(@Param("companyId") UUID companyId,
+                                                   @Param("departmentId") UUID departmentId,
+                                                   @Param("status") com.kpitracking.enums.SubmissionStatus status);
 }

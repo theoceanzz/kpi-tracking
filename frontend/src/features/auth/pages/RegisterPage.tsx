@@ -1,4 +1,5 @@
-import { useForm } from 'react-hook-form'
+import { useState } from 'react' // 1. Thêm useState
+import { useForm, useWatch } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { registerSchema, type RegisterFormData } from '../schemas/authSchema'
 import { useMutation } from '@tanstack/react-query'
@@ -6,80 +7,297 @@ import { authApi } from '../api/authApi'
 import { useAuthStore } from '@/store/authStore'
 import { useNavigate, Link } from 'react-router-dom'
 import { toast } from 'sonner'
-import { Loader2 } from 'lucide-react'
+// 2. Thêm Eye và EyeOff từ lucide-react
+import { Loader2, Mail, Lock, Building2, User, Phone, Eye, EyeOff, Wand2, Check } from 'lucide-react'
 
 export default function RegisterPage() {
+  const [showPassword, setShowPassword] = useState(false)
+  const [isSuccess, setIsSuccess] = useState(false)
+  const [registeredEmail, setRegisteredEmail] = useState('')
+  const [tokenInput, setTokenInput] = useState('')
   const setAuth = useAuthStore((s) => s.setAuth)
   const navigate = useNavigate()
 
-  const { register, handleSubmit, formState: { errors } } = useForm<RegisterFormData>({
+  const { register, handleSubmit, control, setValue, setError, formState: { errors } } = useForm<RegisterFormData>({
     resolver: zodResolver(registerSchema),
+  })
+
+  const pwd = useWatch({ control, name: 'password', defaultValue: '' })
+
+  const hasLength = pwd.length >= 8
+  const hasUpper = /[A-Z]/.test(pwd)
+  const hasLower = /[a-z]/.test(pwd)
+  const hasNumber = /[0-9]/.test(pwd)
+  const hasSpecial = /[!@#$%^&*(),.?":{}|<>]/.test(pwd)
+
+  const strengthScore = [hasLength, hasUpper, hasLower, hasNumber, hasSpecial].filter(Boolean).length
+
+  let strengthLabel = 'Chưa nhập'
+  let strengthColor = 'bg-gray-200 dark:bg-gray-700'
+  let strengthTextColor = 'text-gray-400'
+
+  if (pwd.length > 0) {
+    if (strengthScore <= 2) {
+      strengthLabel = 'Yếu'
+      strengthColor = 'bg-red-500'
+      strengthTextColor = 'text-red-500'
+    } else if (strengthScore <= 3) {
+      strengthLabel = 'Trung bình'
+      strengthColor = 'bg-yellow-500'
+      strengthTextColor = 'text-yellow-500'
+    } else {
+      strengthLabel = 'Mạnh'
+      strengthColor = 'bg-emerald-500'
+      strengthTextColor = 'text-emerald-500'
+    }
+  }
+
+  const generatePassword = () => {
+    const chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*'
+    let newPwd = 'A' + 'a' + '1' + '!' // Đảm bảo luôn có đủ loại
+    for (let i = 0; i < 8; i++) {
+      newPwd += chars.charAt(Math.floor(Math.random() * chars.length))
+    }
+    newPwd = newPwd.split('').sort(() => 0.5 - Math.random()).join('')
+    setValue('password', newPwd, { shouldValidate: true })
+    setShowPassword(true)
+  }
+
+  const verifyMutation = useMutation({
+    mutationFn: (token: string) => authApi.verifyEmail(token),
+    onSuccess: () => {
+      toast.success('Xác thực email thành công! Đang chuyển hướng...')
+      setTimeout(() => navigate('/login'), 1500)
+    },
+    onError: () => {
+      toast.error('Mã xác thực không hợp lệ hoặc đã hết hạn.')
+    }
   })
 
   const registerMutation = useMutation({
     mutationFn: (data: RegisterFormData) => authApi.register(data),
-    onSuccess: (data) => {
-      setAuth(data.user, data.accessToken, data.refreshToken)
-      toast.success('Đăng ký thành công! Vui lòng xác thực email.')
-      navigate('/dashboard')
+    onSuccess: (data, variables) => {
+      // Xác nhận luồng: Bắt buộc người dùng phải verify email chứ ko tự động login nữa
+      setRegisteredEmail(variables.email)
+      setIsSuccess(true)
     },
-    onError: () => {
-      toast.error('Đăng ký thất bại. Vui lòng thử lại.')
+    onError: (error: any) => {
+      const msg = error?.response?.data?.message || ''
+      if (msg.toLowerCase().includes('email')) {
+        setError('email', { type: 'server', message: 'Email này đã tồn tại trong hệ thống.' })
+      } else if (msg.toLowerCase().includes('phone')) {
+        setError('phone', { type: 'server', message: 'Số điện thoại này đã được tài khoản khác sử dụng.' })
+      } else {
+        toast.error('Đăng ký thất bại. Vui lòng kiểm tra lại thông tin.')
+      }
     },
   })
 
   const onSubmit = (data: RegisterFormData) => registerMutation.mutate(data)
 
+  // Cập nhật pr-12 để text không đè lên icon mắt ở bên phải
+  const inputCls = "w-full pl-10 pr-12 py-3 rounded-xl border border-[var(--color-border)] bg-[var(--color-background)] text-sm focus:ring-2 focus:ring-[var(--color-primary)]/20 focus:border-[var(--color-primary)] outline-none transition-all shadow-sm"
+
+  if (isSuccess) {
+    return (
+      <div className="w-full max-w-sm mx-auto text-center space-y-6 animate-in fade-in zoom-in-95 duration-300">
+        <div className="w-24 h-24 bg-emerald-100 dark:bg-emerald-900/30 rounded-full flex items-center justify-center mx-auto shadow-sm">
+          <Mail className="text-emerald-500 w-10 h-10" />
+        </div>
+        <div>
+          <h2 className="text-3xl font-extrabold tracking-tight text-[var(--color-foreground)] mb-3">Kiểm tra hộp thư</h2>
+          <p className="text-[var(--color-muted-foreground)] mb-6 text-sm">
+            Chúng tôi đã gửi một liên kết xác thực an toàn tới email<br/>
+            <span className="font-bold text-[var(--color-foreground)] mt-2 block">{registeredEmail}</span>
+          </p>
+          <div className="p-4 rounded-xl bg-orange-50 border border-orange-200 dark:bg-orange-500/10 dark:border-orange-500/20 text-orange-700 dark:text-orange-400 text-xs font-medium text-left mb-8 space-y-2">
+            <p>• Mã token gồm các dãy ký tự đã được tự động gửi vào email của bạn.</p>
+            <p>• Nếu không thấy email, hãy kiểm tra lại mục Spam/Thư rác.</p>
+          </div>
+          
+          <div className="mt-4 pt-4 border-t border-[var(--color-border)]/50 text-left">
+            <p className="text-sm font-medium text-[var(--color-foreground)] mb-2">Hoặc nhập mã (token) trực tiếp vào đây:</p>
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={tokenInput}
+                onChange={(e) => setTokenInput(e.target.value)}
+                placeholder="Dán mã UUID..."
+                className="flex-1 px-3 py-2 rounded-xl border border-[var(--color-border)] bg-[var(--color-background)] text-sm focus:ring-2 focus:ring-[var(--color-primary)]/20 outline-none"
+              />
+              <button
+                onClick={() => {
+                  if (!tokenInput.trim()) return toast.warning('Vui lòng nhập mã!')
+                  verifyMutation.mutate(tokenInput.trim())
+                }}
+                disabled={verifyMutation.isPending}
+                className="px-4 py-2 rounded-xl bg-[var(--color-primary)] text-white font-bold hover:shadow-md transition-all flex items-center justify-center min-w-[100px] disabled:opacity-50"
+              >
+                {verifyMutation.isPending ? <Loader2 size={16} className="animate-spin" /> : 'Xác thực'}
+              </button>
+            </div>
+          </div>
+        </div>
+        
+        <button
+          onClick={() => navigate('/login')}
+          className="w-full py-3.5 mt-2 rounded-xl bg-transparent border-2 border-[var(--color-primary)] text-[var(--color-primary)] font-bold hover:bg-[var(--color-primary)]/5 transition-all text-sm"
+        >
+          Trở về màn hình Đăng nhập
+        </button>
+      </div>
+    )
+  }
+
   return (
-    <div>
-      <h2 className="text-xl font-bold text-center mb-6">Đăng ký công ty</h2>
+    <div className="w-full">
+      <div className="mb-8 text-center lg:text-left">
+        <h2 className="text-3xl font-extrabold tracking-tight text-[var(--color-foreground)] mb-2">Đăng ký Cấp Doanh nghiệp</h2>
+        <p className="text-[var(--color-muted-foreground)]">Thiết lập hệ thống KPI chuyên nghiệp ngay hôm nay.</p>
+      </div>
 
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-        <div>
-          <label className="block text-sm font-medium mb-1.5">Tên công ty</label>
-          <input {...register('companyName')} className="w-full px-3 py-2.5 rounded-lg border border-[var(--color-border)] bg-[var(--color-background)] text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]/50" placeholder="VD: Công ty ABC" />
-          {errors.companyName && <p className="text-red-500 text-xs mt-1">{errors.companyName.message}</p>}
+        {/* Tên công ty */}
+        <div className="space-y-2">
+           <label className="text-sm font-bold text-[var(--color-foreground)]">Tên pháp nhân công ty <span className="text-red-500">*</span></label>
+           <div className="relative">
+             <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <Building2 size={18} className="text-[var(--color-muted-foreground)]" />
+             </div>
+             <input {...register('companyName')} className={inputCls} placeholder="VD: Công ty TNHH Giải pháp Số ABC" />
+           </div>
+           {errors.companyName && <p className="text-red-500 text-xs mt-1.5 font-medium">{errors.companyName.message}</p>}
         </div>
 
-        <div>
-          <label className="block text-sm font-medium mb-1.5">Họ và tên</label>
-          <input {...register('fullName')} className="w-full px-3 py-2.5 rounded-lg border border-[var(--color-border)] bg-[var(--color-background)] text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]/50" placeholder="Nguyễn Văn A" />
-          {errors.fullName && <p className="text-red-500 text-xs mt-1">{errors.fullName.message}</p>}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+           {/* Họ tên */}
+           <div className="space-y-2">
+              <label className="text-sm font-bold text-[var(--color-foreground)]">Họ và tên người đại diện</label>
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                   <User size={18} className="text-[var(--color-muted-foreground)]" />
+                </div>
+                <input {...register('fullName')} className={inputCls} placeholder="Nguyễn Văn A" />
+              </div>
+              {errors.fullName && <p className="text-red-500 text-xs mt-1.5 font-medium">{errors.fullName.message}</p>}
+           </div>
+
+           {/* Số điện thoại */}
+           <div className="space-y-2">
+              <label className="text-sm font-bold text-[var(--color-foreground)]">Số điện thoại</label>
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                   <Phone size={18} className="text-[var(--color-muted-foreground)]" />
+                </div>
+                <input {...register('phone')} className={inputCls} placeholder="091xxx..." />
+              </div>
+              {errors.phone && <p className="text-red-500 text-xs mt-1.5 font-medium animate-in slide-in-from-top-1">{errors.phone.message}</p>}
+           </div>
         </div>
 
-        <div>
-          <label className="block text-sm font-medium mb-1.5">Email</label>
-          <input {...register('email')} type="email" className="w-full px-3 py-2.5 rounded-lg border border-[var(--color-border)] bg-[var(--color-background)] text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]/50" placeholder="name@company.com" />
-          {errors.email && <p className="text-red-500 text-xs mt-1">{errors.email.message}</p>}
+        {/* Email */}
+        <div className="space-y-2">
+           <label className="text-sm font-bold text-[var(--color-foreground)]">Email Quản trị viên <span className="text-red-500">*</span></label>
+           <div className="relative">
+             <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <Mail size={18} className="text-[var(--color-muted-foreground)]" />
+             </div>
+             <input {...register('email')} type="email" className={inputCls} placeholder="admin@congty.com" />
+           </div>
+           {errors.email && <p className="text-red-500 text-xs mt-1.5 font-medium">{errors.email.message}</p>}
         </div>
 
-        <div>
-          <label className="block text-sm font-medium mb-1.5">Mật khẩu</label>
-          <input {...register('password')} type="password" className="w-full px-3 py-2.5 rounded-lg border border-[var(--color-border)] bg-[var(--color-background)] text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]/50" placeholder="Tối thiểu 8 ký tự" />
-          {errors.password && <p className="text-red-500 text-xs mt-1">{errors.password.message}</p>}
-        </div>
+        {/* Mật khẩu - Đã thêm ẩn hiện */}
+        <div className="space-y-2">
+           <label className="text-sm font-bold text-[var(--color-foreground)]">Mật khẩu truy cập <span className="text-red-500">*</span></label>
+           <div className="relative">
+             <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <Lock size={18} className="text-[var(--color-muted-foreground)]" />
+             </div>
+             <input 
+              {...register('password')} 
+              // Thay đổi type linh hoạt
+              type={showPassword ? 'text' : 'password'} 
+              className={inputCls + " pr-20"} // Tăng padding bên phải để chứa 2 nút
+              placeholder="Bảo mật tối thiểu 8 ký tự" 
+             />
+             
+             {/* Nút Gợi ý MK */}
+             <button
+              type="button"
+              onClick={generatePassword}
+              className="absolute inset-y-0 right-10 pr-1 flex items-center text-[var(--color-primary)] hover:text-[var(--color-primary)]/80 transition-colors text-xs font-semibold"
+              title="Gợi ý Mật khẩu"
+             >
+                <Wand2 size={16} className="mr-0.5"/> Gợi ý
+             </button>
 
-        <div>
-          <label className="block text-sm font-medium mb-1.5">Số điện thoại</label>
-          <input {...register('phone')} className="w-full px-3 py-2.5 rounded-lg border border-[var(--color-border)] bg-[var(--color-background)] text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]/50" placeholder="0912 345 678" />
+             {/* Nút bật tắt ẩn hiện */}
+             <button
+              type="button"
+              onClick={() => setShowPassword(!showPassword)}
+              className="absolute inset-y-0 right-0 pr-3 flex items-center text-[var(--color-muted-foreground)] hover:text-[var(--color-foreground)] transition-colors"
+             >
+                {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+             </button>
+           </div>
+
+           {/* ProgressBar & Logic hiển thị */}
+           {pwd && (
+             <div className="mt-2.5 p-3 rounded-lg bg-[var(--color-muted)]/30 border border-[var(--color-border)]/50 animate-in fade-in slide-in-from-top-1">
+               <div className="flex justify-between items-center text-xs font-medium mb-2">
+                  <span className="text-[var(--color-muted-foreground)]">Độ mạnh mật khẩu</span>
+                  <span className={strengthTextColor}>{strengthLabel}</span>
+               </div>
+               <div className="h-1.5 w-full bg-gray-200 dark:bg-gray-700/50 rounded-full overflow-hidden flex gap-1 mb-3">
+                 <div className={`h-full flex-1 rounded-full ${strengthScore >= 1 ? strengthColor : 'bg-transparent'} transition-all duration-300`} />
+                 <div className={`h-full flex-1 rounded-full ${strengthScore >= 2 ? strengthColor : 'bg-transparent'} transition-all duration-300`} />
+                 <div className={`h-full flex-1 rounded-full ${strengthScore >= 4 ? strengthColor : 'bg-transparent'} transition-all duration-300`} />
+                 <div className={`h-full flex-1 rounded-full ${strengthScore >= 5 ? strengthColor : 'bg-transparent'} transition-all duration-300`} />
+               </div>
+               
+               <div className="grid grid-cols-2 gap-y-2 gap-x-1 text-xs text-[var(--color-muted-foreground)]">
+                 <div className="flex items-center gap-1.5">
+                   <div className={`w-3.5 h-3.5 rounded-full flex items-center justify-center ${hasLength ? 'bg-emerald-500 text-white' : 'bg-gray-200 dark:bg-gray-700 text-transparent'}`}><Check size={10} strokeWidth={3}/></div>
+                   <span className={hasLength ? "text-[var(--color-foreground)]" : ""}>8+ ký tự</span>
+                 </div>
+                 <div className="flex items-center gap-1.5">
+                   <div className={`w-3.5 h-3.5 rounded-full flex items-center justify-center ${hasUpper && hasLower ? 'bg-emerald-500 text-white' : 'bg-gray-200 dark:bg-gray-700 text-transparent'}`}><Check size={10} strokeWidth={3}/></div>
+                   <span className={(hasUpper && hasLower) ? "text-[var(--color-foreground)]" : ""}>Chữ HOA & thường</span>
+                 </div>
+                 <div className="flex items-center gap-1.5">
+                   <div className={`w-3.5 h-3.5 rounded-full flex items-center justify-center ${hasNumber ? 'bg-emerald-500 text-white' : 'bg-gray-200 dark:bg-gray-700 text-transparent'}`}><Check size={10} strokeWidth={3}/></div>
+                   <span className={hasNumber ? "text-[var(--color-foreground)]" : ""}>Có chữ số (0-9)</span>
+                 </div>
+                 <div className="flex items-center gap-1.5">
+                   <div className={`w-3.5 h-3.5 rounded-full flex items-center justify-center ${hasSpecial ? 'bg-emerald-500 text-white' : 'bg-gray-200 dark:bg-gray-700 text-transparent'}`}><Check size={10} strokeWidth={3}/></div>
+                   <span className={hasSpecial ? "text-[var(--color-foreground)]" : ""}>Ký tự đặc biệt (!@#...)</span>
+                 </div>
+               </div>
+             </div>
+           )}
+
+           {errors.password && !pwd && <p className="text-red-500 text-xs mt-1.5 font-medium">{errors.password.message}</p>}
         </div>
 
         <button
           type="submit"
           disabled={registerMutation.isPending}
-          className="w-full py-2.5 rounded-lg bg-[var(--color-primary)] text-white font-medium text-sm hover:opacity-90 disabled:opacity-50 transition flex items-center justify-center gap-2"
+          className="w-full py-3.5 mt-4 rounded-xl bg-[var(--color-primary)] text-white font-bold hover:shadow-lg hover:shadow-[var(--color-primary)]/20 disabled:opacity-50 transition-all flex items-center justify-center gap-2"
         >
-          {registerMutation.isPending && <Loader2 size={16} className="animate-spin" />}
-          Đăng ký
+          {registerMutation.isPending && <Loader2 size={18} className="animate-spin" />}
+          Khởi tạo Hệ thống
         </button>
       </form>
 
-      <p className="text-center text-sm text-[var(--color-muted-foreground)] mt-6">
-        Đã có tài khoản?{' '}
-        <Link to="/login" className="text-[var(--color-primary)] font-medium hover:underline">
-          Đăng nhập
-        </Link>
-      </p>
+      <div className="mt-8 text-center bg-[var(--color-muted)]/30 rounded-xl p-4 border border-[var(--color-border)]/50">
+        <p className="text-sm text-[var(--color-muted-foreground)]">
+          Đã có tài khoản doanh nghiệp?{' '}
+          <Link to="/login" className="text-[var(--color-foreground)] font-bold hover:text-[var(--color-primary)] transition-colors underline decoration-[var(--color-primary)]/30 underline-offset-4">
+            Trở lại đăng nhập
+          </Link>
+        </p>
+      </div>
     </div>
   )
 }

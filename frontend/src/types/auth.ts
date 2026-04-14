@@ -1,4 +1,4 @@
-export type UserRole = 'DIRECTOR' | 'HEAD' | 'DEPUTY_HEAD' | 'STAFF'
+export type UserRole = 'DIRECTOR' | 'HEAD' | 'DEPUTY' | 'STAFF'
 export type UserStatus = 'ACTIVE' | 'INACTIVE' | 'SUSPENDED'
 
 // Matches BE: UserInfoResponse

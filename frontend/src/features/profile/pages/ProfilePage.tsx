@@ -1,92 +1,96 @@
+import { useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import PageHeader from '@/components/common/PageHeader'
 import { useAuthStore } from '@/store/authStore'
 import { getInitials } from '@/lib/utils'
-import { User, Mail, Phone, Building2, Shield, KeyRound, CheckCircle2, UserCircle2 } from 'lucide-react'
 import { useForm } from 'react-hook-form'
 import { useMutation } from '@tanstack/react-query'
 import { authApi } from '@/features/auth/api/authApi'
+import { userApi } from '@/features/users/api/userApi'
 import { toast } from 'sonner'
-import { Loader2 } from 'lucide-react'
+import {
+  User, Mail, Phone, Building2, Shield, KeyRound,
+  CheckCircle2, UserCircle2, Loader2, Pencil, X, Save,
+  Eye, EyeOff, Lock, AlertTriangle
+} from 'lucide-react'
+
+const roleMap: Record<string, string> = {
+  DIRECTOR: 'Giám đốc', HEAD: 'Trưởng phòng', DEPUTY: 'Phó phòng', STAFF: 'Nhân viên',
+}
 
 export default function ProfilePage() {
-  const user = useAuthStore((s) => s.user)
+  const { user, setUser } = useAuthStore()
   const [searchParams, setSearchParams] = useSearchParams()
   const currentTab = searchParams.get('tab') || 'info'
 
   if (!user) return null
 
-  const roleMap: Record<string, string> = { DIRECTOR: 'Giám đốc', HEAD: 'Trưởng phòng', DEPUTY_HEAD: 'Phó phòng', STAFF: 'Nhân viên' }
-
   return (
-    <div className="max-w-5xl mx-auto space-y-6">
-      <PageHeader title="Cài đặt Tài khoản" description="Quản lý hồ sơ và bảo mật cá nhân của bạn" />
+    <div className="max-w-[1100px] mx-auto p-4 md:p-8 space-y-8 animate-in fade-in duration-500">
 
-      {/* Hero Header */}
-      <div className="relative rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-600 p-8 text-white overflow-hidden shadow-lg">
-        <div className="absolute top-0 right-0 -mr-16 -mt-16 w-64 h-64 rounded-full bg-white/10 blur-3xl"></div>
-        <div className="absolute bottom-0 left-0 -ml-16 -mb-16 w-48 h-48 rounded-full bg-indigo-900/20 blur-2xl"></div>
+      {/* Hero Banner */}
+      <div className="relative rounded-[28px] overflow-hidden shadow-xl">
+        {/* Gradient Background */}
+        <div className="absolute inset-0 bg-gradient-to-r from-indigo-600 via-blue-600 to-purple-600" />
+        <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiNmZmYiIGZpbGwtb3BhY2l0eT0iMC4wNSI+PHBhdGggZD0iTTM2IDM0djJoLTJ2LTJoMnptMC00aDJ2MmgtMnYtMnptLTQgMHYyaC0ydi0yaDJ6bTQgMGgydjJoLTJ2LTJ6Ii8+PC9nPjwvZz48L3N2Zz4=')] opacity-50" />
         
-        <div className="relative z-10 flex flex-col md:flex-row items-center gap-6">
-          <div className="w-24 h-24 rounded-full bg-white shadow-xl flex items-center justify-center text-3xl font-black text-[var(--color-primary)] ring-4 ring-white/30">
-            {getInitials(user.fullName)}
-          </div>
-          <div className="text-center md:text-left flex-1">
-            <h1 className="text-3xl font-bold tracking-tight mb-2">{user.fullName}</h1>
-            <div className="flex flex-wrap items-center justify-center md:justify-start gap-4 text-white/80 text-sm font-medium">
-              <span className="flex items-center gap-1.5 bg-black/20 px-3 py-1 rounded-full"><Shield size={14} /> {roleMap[user.role] ?? user.role}</span>
-              <span className="flex items-center gap-1.5 bg-black/20 px-3 py-1 rounded-full"><Building2 size={14} /> {user.companyName}</span>
-              <span className="flex items-center gap-1.5 bg-black/20 px-3 py-1 rounded-full"><CheckCircle2 size={14} className="text-emerald-400" /> Trạng thái hoạt động</span>
+        <div className="relative z-10 px-8 py-10 md:px-12 md:py-14">
+          <div className="flex flex-col md:flex-row items-center gap-8">
+            {/* Avatar */}
+            <div className="relative">
+              <div className="w-28 h-28 rounded-[32px] bg-white shadow-2xl flex items-center justify-center text-4xl font-black text-indigo-600 ring-4 ring-white/30">
+                {getInitials(user.fullName)}
+              </div>
+              <div className="absolute -bottom-1 -right-1 w-9 h-9 rounded-xl bg-emerald-500 flex items-center justify-center shadow-lg border-2 border-white">
+                <CheckCircle2 size={18} className="text-white" />
+              </div>
+            </div>
+
+            {/* Info */}
+            <div className="text-center md:text-left flex-1 text-white">
+              <h1 className="text-3xl md:text-4xl font-black tracking-tight mb-3">{user.fullName}</h1>
+              <div className="flex flex-wrap items-center justify-center md:justify-start gap-3">
+                <span className="flex items-center gap-1.5 bg-white/15 backdrop-blur-sm px-4 py-1.5 rounded-full text-sm font-bold">
+                  <Shield size={14} /> {roleMap[user.role] ?? user.role}
+                </span>
+                <span className="flex items-center gap-1.5 bg-white/15 backdrop-blur-sm px-4 py-1.5 rounded-full text-sm font-bold">
+                  <Building2 size={14} /> {user.companyName}
+                </span>
+                <span className="flex items-center gap-1.5 bg-emerald-500/30 backdrop-blur-sm px-4 py-1.5 rounded-full text-sm font-bold">
+                  <CheckCircle2 size={14} /> Đang hoạt động
+                </span>
+              </div>
             </div>
           </div>
         </div>
       </div>
 
+      {/* Tab Navigation + Content */}
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-        {/* Navigation Sidebar */}
-        <div className="lg:col-span-1 space-y-1">
-          <button 
+
+        {/* Sidebar Navigation */}
+        <div className="lg:col-span-1 space-y-2">
+          <NavTab
+            active={currentTab === 'info'}
             onClick={() => setSearchParams({ tab: 'info' })}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-colors ${currentTab === 'info' ? 'bg-[var(--color-primary)] text-white shadow-md' : 'text-[var(--color-muted-foreground)] hover:bg-[var(--color-accent)] hover:text-[var(--color-foreground)]'}`}
-          >
-            <UserCircle2 size={18} /> Thông tin cá nhân
-          </button>
-          <button 
+            icon={UserCircle2}
+            label="Thông tin cá nhân"
+            description="Hồ sơ & liên hệ"
+          />
+          <NavTab
+            active={currentTab === 'security'}
             onClick={() => setSearchParams({ tab: 'security' })}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-colors ${currentTab === 'security' ? 'bg-[var(--color-primary)] text-white shadow-md' : 'text-[var(--color-muted-foreground)] hover:bg-[var(--color-accent)] hover:text-[var(--color-foreground)]'}`}
-          >
-            <KeyRound size={18} /> Bảo mật
-          </button>
+            icon={KeyRound}
+            label="Bảo mật"
+            description="Mật khẩu & xác thực"
+          />
         </div>
 
-        {/* Content Area */}
+        {/* Content */}
         <div className="lg:col-span-3">
           {currentTab === 'info' ? (
-            <div className="bg-[var(--color-card)] rounded-2xl border border-[var(--color-border)] shadow-sm overflow-hidden auto-animate">
-              <div className="border-b border-[var(--color-border)] px-6 py-4">
-                <h2 className="text-lg font-semibold tracking-tight">Chi tiết hồ sơ</h2>
-              </div>
-              <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
-                <div>
-                  <p className="flex items-center gap-2 text-sm text-[var(--color-muted-foreground)] mb-1"><User size={14} /> Họ và Tên</p>
-                  <p className="font-medium px-3 py-2 bg-[var(--color-muted)]/50 rounded-lg border border-[var(--color-border)]/50">{user.fullName}</p>
-                </div>
-                <div>
-                  <p className="flex items-center gap-2 text-sm text-[var(--color-muted-foreground)] mb-1"><Mail size={14} /> Địa chỉ Email</p>
-                  <p className="font-medium px-3 py-2 bg-[var(--color-muted)]/50 rounded-lg border border-[var(--color-border)]/50">{user.email}</p>
-                </div>
-                <div>
-                  <p className="flex items-center gap-2 text-sm text-[var(--color-muted-foreground)] mb-1"><Phone size={14} /> Số điện thoại</p>
-                  <p className="font-medium px-3 py-2 bg-[var(--color-muted)]/50 rounded-lg border border-[var(--color-border)]/50">{user.phone || 'Chưa cập nhật'}</p>
-                </div>
-                <div>
-                  <p className="flex items-center gap-2 text-sm text-[var(--color-muted-foreground)] mb-1"><Building2 size={14} /> Công ty / Đơn vị</p>
-                  <p className="font-medium px-3 py-2 bg-[var(--color-muted)]/50 rounded-lg border border-[var(--color-border)]/50">{user.companyName}</p>
-                </div>
-              </div>
-            </div>
+            <ProfileInfoTab user={user} onUserUpdate={setUser} />
           ) : (
-            <ChangePasswordTab />
+            <SecurityTab />
           )}
         </div>
       </div>
@@ -94,50 +98,310 @@ export default function ProfilePage() {
   )
 }
 
-function ChangePasswordTab() {
-  const { register, handleSubmit, formState: { errors }, watch, reset } = useForm<{ currentPassword: string; newPassword: string; confirmPassword: string }>()
+/* ========== Nav Tab ========== */
+function NavTab({ active, onClick, icon: Icon, label, description }: {
+  active: boolean; onClick: () => void; icon: any; label: string; description: string
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={`w-full flex items-center gap-4 p-4 rounded-2xl text-left transition-all ${
+        active
+          ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/20'
+          : 'bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:border-indigo-200 dark:hover:border-indigo-900/50 text-slate-700 dark:text-slate-300'
+      }`}
+    >
+      <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${active ? 'bg-white/20' : 'bg-slate-50 dark:bg-slate-800'}`}>
+        <Icon size={20} className={active ? 'text-white' : 'text-slate-500'} />
+      </div>
+      <div>
+        <p className="text-sm font-bold">{label}</p>
+        <p className={`text-xs ${active ? 'text-white/70' : 'text-slate-400'}`}>{description}</p>
+      </div>
+    </button>
+  )
+}
+
+/* ========== Profile Info Tab ========== */
+function ProfileInfoTab({ user, onUserUpdate }: { user: any; onUserUpdate: (u: any) => void }) {
+  const [editing, setEditing] = useState(false)
+  const { register, handleSubmit, reset } = useForm({
+    defaultValues: {
+      fullName: user.fullName ?? '',
+      phone: user.phone ?? '',
+    },
+  })
+
+  const updateMutation = useMutation({
+    mutationFn: (data: { fullName: string; phone: string }) => userApi.update(user.id, data),
+    onSuccess: (updated) => {
+      toast.success('Hồ sơ đã được cập nhật')
+      onUserUpdate({ ...user, fullName: updated.fullName, phone: updated.phone })
+      setEditing(false)
+    },
+    onError: () => toast.error('Cập nhật thất bại'),
+  })
+
+  return (
+    <div className="bg-white dark:bg-slate-900 rounded-[28px] border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
+      {/* Header */}
+      <div className="border-b border-slate-100 dark:border-slate-800 px-8 py-6 flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-indigo-50 dark:bg-indigo-900/30 flex items-center justify-center text-indigo-600 dark:text-indigo-400">
+            <User size={20} />
+          </div>
+          <div>
+            <h2 className="font-black text-lg text-slate-900 dark:text-white">Thông tin cá nhân</h2>
+            <p className="text-xs font-medium text-slate-500">Thông tin hồ sơ và liên hệ của bạn</p>
+          </div>
+        </div>
+        {!editing ? (
+          <button
+            onClick={() => setEditing(true)}
+            className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-indigo-600 text-white text-sm font-bold hover:bg-indigo-700 transition-all shadow-md shadow-indigo-500/20 active:scale-95"
+          >
+            <Pencil size={14} /> Chỉnh sửa
+          </button>
+        ) : (
+          <button onClick={() => { setEditing(false); reset() }} className="p-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 transition-all">
+            <X size={20} />
+          </button>
+        )}
+      </div>
+
+      {/* Content */}
+      <div className="p-8">
+        {editing ? (
+          <form onSubmit={handleSubmit((data) => updateMutation.mutate(data))} className="space-y-6 max-w-lg animate-in fade-in duration-300">
+            <div className="space-y-2">
+              <label className="flex items-center gap-1.5 text-xs font-bold text-slate-500">
+                <User size={13} /> Họ và tên
+              </label>
+              <input
+                {...register('fullName')}
+                className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-400 transition-all"
+                placeholder="Nguyễn Văn A"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <label className="flex items-center gap-1.5 text-xs font-bold text-slate-500">
+                <Phone size={13} /> Số điện thoại
+              </label>
+              <input
+                {...register('phone')}
+                className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-400 transition-all"
+                placeholder="0912 345 678"
+              />
+            </div>
+
+            {/* Non-editable fields */}
+            <div className="space-y-2">
+              <label className="flex items-center gap-1.5 text-xs font-bold text-slate-400">
+                <Mail size={13} /> Email <span className="text-[10px] ml-1 opacity-60">(không thể thay đổi)</span>
+              </label>
+              <div className="px-4 py-3 rounded-xl bg-slate-100 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-sm font-semibold text-slate-500 cursor-not-allowed">
+                {user.email}
+              </div>
+            </div>
+
+            <div className="flex gap-3 pt-4 border-t border-slate-100 dark:border-slate-800">
+              <button type="button" onClick={() => { setEditing(false); reset() }} className="flex-1 px-4 py-3 rounded-xl text-sm font-bold border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all">
+                Hủy
+              </button>
+              <button type="submit" disabled={updateMutation.isPending} className="flex-1 px-4 py-3 rounded-xl text-sm font-bold bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-50 transition-all flex items-center justify-center gap-2 shadow-lg shadow-indigo-500/20">
+                {updateMutation.isPending ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
+                Lưu thay đổi
+              </button>
+            </div>
+          </form>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5 animate-in fade-in duration-300">
+            <InfoField icon={User} iconColor="text-indigo-500" iconBg="bg-indigo-50 dark:bg-indigo-900/20" label="Họ và tên" value={user.fullName} />
+            <InfoField icon={Mail} iconColor="text-blue-500" iconBg="bg-blue-50 dark:bg-blue-900/20" label="Địa chỉ Email" value={user.email} />
+            <InfoField icon={Phone} iconColor="text-emerald-500" iconBg="bg-emerald-50 dark:bg-emerald-900/20" label="Số điện thoại" value={user.phone || 'Chưa cập nhật'} />
+            <InfoField icon={Building2} iconColor="text-amber-500" iconBg="bg-amber-50 dark:bg-amber-900/20" label="Công ty" value={user.companyName} />
+            <InfoField icon={Shield} iconColor="text-purple-500" iconBg="bg-purple-50 dark:bg-purple-900/20" label="Vai trò" value={roleMap[user.role] ?? user.role} />
+            <InfoField icon={CheckCircle2} iconColor="text-emerald-500" iconBg="bg-emerald-50 dark:bg-emerald-900/20" label="Trạng thái" value="Đang hoạt động" />
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+function InfoField({ icon: Icon, iconColor, iconBg, label, value }: {
+  icon: any; iconColor: string; iconBg: string; label: string; value: string
+}) {
+  return (
+    <div className="flex items-start gap-4 p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 hover:border-indigo-200 dark:hover:border-indigo-900/40 transition-all group">
+      <div className={`w-10 h-10 rounded-xl ${iconBg} flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform`}>
+        <Icon size={20} className={iconColor} />
+      </div>
+      <div className="min-w-0">
+        <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">{label}</p>
+        <p className="text-sm font-bold text-slate-800 dark:text-slate-200 truncate">{value}</p>
+      </div>
+    </div>
+  )
+}
+
+/* ========== Security Tab ========== */
+function SecurityTab() {
+  const { register, handleSubmit, formState: { errors }, watch, reset } = useForm<{
+    currentPassword: string; newPassword: string; confirmPassword: string
+  }>()
+
+  const [showCurrent, setShowCurrent] = useState(false)
+  const [showNew, setShowNew] = useState(false)
+  const [showConfirm, setShowConfirm] = useState(false)
 
   const mutation = useMutation({
     mutationFn: (data: { currentPassword: string; newPassword: string; confirmPassword: string }) => authApi.changePassword(data),
-    onSuccess: () => { toast.success('Đổi mật khẩu bảo mật thành công'); reset() },
-    onError: () => toast.error('Đổi mật khẩu thất bại, vui lòng kiểm tra lại mật khẩu hiện tại.'),
+    onSuccess: () => { toast.success('Đổi mật khẩu thành công'); reset(); setShowCurrent(false); setShowNew(false); setShowConfirm(false) },
+    onError: () => toast.error('Đổi mật khẩu thất bại. Vui lòng kiểm tra mật khẩu hiện tại.'),
   })
 
-  const inputCls = "w-full px-4 py-2.5 rounded-xl border border-[var(--color-border)] bg-[var(--color-background)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]/50 transition-shadow"
+  const newPassword = watch('newPassword')
+
+  // Password strength check
+  const getPasswordStrength = (pw: string | undefined) => {
+    if (!pw) return { level: 0, label: '', color: '' }
+    let score = 0
+    if (pw.length >= 8) score++
+    if (/[A-Z]/.test(pw)) score++
+    if (/[0-9]/.test(pw)) score++
+    if (/[^A-Za-z0-9]/.test(pw)) score++
+    if (score <= 1) return { level: 1, label: 'Yếu', color: 'bg-red-500' }
+    if (score === 2) return { level: 2, label: 'Trung bình', color: 'bg-amber-500' }
+    if (score === 3) return { level: 3, label: 'Tốt', color: 'bg-blue-500' }
+    return { level: 4, label: 'Rất mạnh', color: 'bg-emerald-500' }
+  }
+
+  const strength = getPasswordStrength(newPassword)
 
   return (
-    <div className="bg-[var(--color-card)] rounded-2xl border border-[var(--color-border)] shadow-sm overflow-hidden auto-animate">
-      <div className="border-b border-[var(--color-border)] px-6 py-4">
-        <h2 className="text-lg font-semibold tracking-tight">Thiết lập Mật khẩu</h2>
-        <p className="text-sm text-[var(--color-muted-foreground)] mt-1">Nên sử dụng mật khẩu mạnh với ít nhất 8 ký tự, bao gồm chữ cái và số.</p>
-      </div>
-      
-      <form onSubmit={handleSubmit((data) => mutation.mutate(data))} className="p-6 space-y-6 max-w-xl">
-        <div className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium mb-1.5">Mật khẩu hiện tại</label>
-            <input {...register('currentPassword', { required: 'Vui lòng nhập mật khẩu hiện tại' })} type="password" className={inputCls} placeholder="••••••••" />
-            {errors.currentPassword && <p className="text-red-500 text-xs mt-1.5">{errors.currentPassword.message}</p>}
+    <div className="bg-white dark:bg-slate-900 rounded-[28px] border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
+      {/* Header */}
+      <div className="border-b border-slate-100 dark:border-slate-800 px-8 py-6">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-amber-50 dark:bg-amber-900/30 flex items-center justify-center text-amber-600 dark:text-amber-400">
+            <Lock size={20} />
           </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
-            <div>
-              <label className="block text-sm font-medium mb-1.5">Mật khẩu mới</label>
-              <input {...register('newPassword', { required: 'Vui lòng nhập mật khẩu mới', minLength: { value: 8, message: 'Tối thiểu 8 ký tự' } })} type="password" className={inputCls} placeholder="••••••••" />
-              {errors.newPassword && <p className="text-red-500 text-xs mt-1.5">{errors.newPassword.message}</p>}
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium mb-1.5">Xác nhận mật khẩu</label>
-              <input {...register('confirmPassword', { required: 'Vui lòng xác nhận', validate: (v) => v === watch('newPassword') || 'Mật khẩu không khớp' })} type="password" className={inputCls} placeholder="••••••••" />
-              {errors.confirmPassword && <p className="text-red-500 text-xs mt-1.5">{errors.confirmPassword.message}</p>}
-            </div>
+          <div>
+            <h2 className="font-black text-lg text-slate-900 dark:text-white">Đổi mật khẩu</h2>
+            <p className="text-xs font-medium text-slate-500">Sử dụng mật khẩu mạnh kết hợp chữ hoa, số và ký tự đặc biệt</p>
           </div>
         </div>
+      </div>
 
-        <div className="pt-2 border-t border-[var(--color-border)]">
-          <button type="submit" disabled={mutation.isPending} className="px-6 py-2.5 rounded-xl bg-[var(--color-primary)] text-white font-semibold text-sm hover:opacity-90 hover:shadow-md disabled:opacity-50 transition-all flex items-center justify-center gap-2">
-            {mutation.isPending && <Loader2 size={16} className="animate-spin" />}
+      {/* Security Tips */}
+      <div className="mx-8 mt-6 p-4 rounded-2xl bg-amber-50 dark:bg-amber-900/10 border border-amber-200/50 dark:border-amber-900/30 flex items-start gap-3">
+        <AlertTriangle size={18} className="text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+        <div className="text-xs text-amber-800 dark:text-amber-300 leading-relaxed">
+          <p className="font-bold mb-1">Lưu ý bảo mật</p>
+          <p>Mật khẩu nên có ít nhất 8 ký tự, bao gồm chữ hoa, chữ thường, số và ký tự đặc biệt. Không sử dụng mật khẩu đã dùng ở nơi khác.</p>
+        </div>
+      </div>
+
+      <form onSubmit={handleSubmit((data) => mutation.mutate(data))} className="p-8 space-y-6 max-w-lg">
+        {/* Current Password */}
+        <div className="space-y-2">
+          <label className="flex items-center gap-1.5 text-xs font-bold text-slate-500">
+            <Lock size={13} /> Mật khẩu hiện tại
+          </label>
+          <div className="relative">
+            <input
+              {...register('currentPassword', { required: 'Vui lòng nhập mật khẩu hiện tại' })}
+              type={showCurrent ? 'text' : 'password'}
+              className="w-full px-4 py-3 pr-12 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-400 transition-all"
+              placeholder="••••••••"
+            />
+            <button
+              type="button"
+              onClick={() => setShowCurrent(!showCurrent)}
+              className="absolute right-3 top-1/2 -translate-y-1/2 p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:hover:bg-slate-700 transition-all"
+            >
+              {showCurrent ? <EyeOff size={18} /> : <Eye size={18} />}
+            </button>
+          </div>
+          {errors.currentPassword && <p className="text-red-500 text-xs font-medium">{errors.currentPassword.message}</p>}
+        </div>
+
+        {/* New Password */}
+        <div className="space-y-2">
+          <label className="flex items-center gap-1.5 text-xs font-bold text-slate-500">
+            <KeyRound size={13} /> Mật khẩu mới
+          </label>
+          <div className="relative">
+            <input
+              {...register('newPassword', {
+                required: 'Vui lòng nhập mật khẩu mới',
+                minLength: { value: 8, message: 'Tối thiểu 8 ký tự' },
+              })}
+              type={showNew ? 'text' : 'password'}
+              className="w-full px-4 py-3 pr-12 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-400 transition-all"
+              placeholder="••••••••"
+            />
+            <button
+              type="button"
+              onClick={() => setShowNew(!showNew)}
+              className="absolute right-3 top-1/2 -translate-y-1/2 p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:hover:bg-slate-700 transition-all"
+            >
+              {showNew ? <EyeOff size={18} /> : <Eye size={18} />}
+            </button>
+          </div>
+          {errors.newPassword && <p className="text-red-500 text-xs font-medium">{errors.newPassword.message}</p>}
+
+          {/* Password Strength Meter */}
+          {newPassword && (
+            <div className="space-y-2 pt-1 animate-in fade-in duration-300">
+              <div className="flex gap-1.5">
+                {[1, 2, 3, 4].map(i => (
+                  <div key={i} className={`h-1.5 flex-1 rounded-full transition-all ${strength.level >= i ? strength.color : 'bg-slate-200 dark:bg-slate-700'}`} />
+                ))}
+              </div>
+              <p className={`text-xs font-bold ${strength.level <= 1 ? 'text-red-500' : strength.level === 2 ? 'text-amber-500' : strength.level === 3 ? 'text-blue-500' : 'text-emerald-500'}`}>
+                Độ mạnh: {strength.label}
+              </p>
+            </div>
+          )}
+        </div>
+
+        {/* Confirm Password */}
+        <div className="space-y-2">
+          <label className="flex items-center gap-1.5 text-xs font-bold text-slate-500">
+            <CheckCircle2 size={13} /> Xác nhận mật khẩu mới
+          </label>
+          <div className="relative">
+            <input
+              {...register('confirmPassword', {
+                required: 'Vui lòng xác nhận mật khẩu',
+                validate: (v) => v === watch('newPassword') || 'Mật khẩu không khớp',
+              })}
+              type={showConfirm ? 'text' : 'password'}
+              className="w-full px-4 py-3 pr-12 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-400 transition-all"
+              placeholder="••••••••"
+            />
+            <button
+              type="button"
+              onClick={() => setShowConfirm(!showConfirm)}
+              className="absolute right-3 top-1/2 -translate-y-1/2 p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:hover:bg-slate-700 transition-all"
+            >
+              {showConfirm ? <EyeOff size={18} /> : <Eye size={18} />}
+            </button>
+          </div>
+          {errors.confirmPassword && <p className="text-red-500 text-xs font-medium">{errors.confirmPassword.message}</p>}
+        </div>
+
+        {/* Submit */}
+        <div className="pt-4 border-t border-slate-100 dark:border-slate-800">
+          <button
+            type="submit"
+            disabled={mutation.isPending}
+            className="px-8 py-3 rounded-xl bg-indigo-600 text-white font-bold text-sm hover:bg-indigo-700 shadow-lg shadow-indigo-500/20 disabled:opacity-50 transition-all flex items-center gap-2"
+          >
+            {mutation.isPending ? <Loader2 size={16} className="animate-spin" /> : <Shield size={16} />}
             Cập nhật Mật khẩu
           </button>
         </div>
