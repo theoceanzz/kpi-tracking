@@ -23,7 +23,7 @@ public class UpdateKpiCriteriaRequest {
 
     private KpiFrequency frequency;
 
-    private UUID departmentId;
+    private UUID orgUnitId;
 
     private UUID assignedToId;
 

@@ -3,7 +3,9 @@ package com.kpitracking.service;
 import com.kpitracking.dto.response.PageResponse;
 import com.kpitracking.dto.response.notification.NotificationResponse;
 import com.kpitracking.entity.Notification;
+import com.kpitracking.entity.OrgUnit;
 import com.kpitracking.entity.User;
+import com.kpitracking.exception.ForbiddenException;
 import com.kpitracking.exception.ResourceNotFoundException;
 import com.kpitracking.repository.NotificationRepository;
 import com.kpitracking.repository.UserRepository;
@@ -32,9 +34,9 @@ public class NotificationService {
     }
 
     @Transactional
-    public Notification createNotification(User user, String title, String message, String type, UUID referenceId) {
+    public Notification createNotification(OrgUnit orgUnit, User user, String title, String message, String type, UUID referenceId) {
         Notification notification = Notification.builder()
-                .company(user.getCompany())
+                .orgUnit(orgUnit)
                 .user(user)
                 .title(title)
                 .message(message)
@@ -48,11 +50,10 @@ public class NotificationService {
     @Transactional(readOnly = true)
     public PageResponse<NotificationResponse> getMyNotifications(int page, int size) {
         User currentUser = getCurrentUser();
-        UUID companyId = currentUser.getCompany().getId();
         Pageable pageable = PageRequest.of(page, size);
 
         Page<Notification> notifPage = notificationRepository
-                .findByCompanyIdAndUserIdOrderByCreatedAtDesc(companyId, currentUser.getId(), pageable);
+                .findByUserIdOrderByCreatedAtDesc(currentUser.getId(), pageable);
 
         return PageResponse.<NotificationResponse>builder()
                 .content(notifPage.getContent().stream().map(this::toResponse).toList())
@@ -67,13 +68,12 @@ public class NotificationService {
     @Transactional
     public NotificationResponse markAsRead(UUID notificationId) {
         User currentUser = getCurrentUser();
-        UUID companyId = currentUser.getCompany().getId();
 
-        Notification notification = notificationRepository.findByIdAndCompanyId(notificationId, companyId)
+        Notification notification = notificationRepository.findById(notificationId)
                 .orElseThrow(() -> new ResourceNotFoundException("Notification", "id", notificationId));
 
         if (!notification.getUser().getId().equals(currentUser.getId())) {
-             throw new com.kpitracking.exception.ForbiddenException("Cannot mark another user's notification as read");
+             throw new ForbiddenException("Cannot mark another user's notification as read");
         }
 
         notification.setIsRead(true);
@@ -85,8 +85,7 @@ public class NotificationService {
     @Transactional(readOnly = true)
     public long getUnreadCount() {
         User currentUser = getCurrentUser();
-        UUID companyId = currentUser.getCompany().getId();
-        return notificationRepository.countByCompanyIdAndUserIdAndIsReadFalse(companyId, currentUser.getId());
+        return notificationRepository.countByUserIdAndIsReadFalse(currentUser.getId());
     }
 
     private NotificationResponse toResponse(Notification notification) {

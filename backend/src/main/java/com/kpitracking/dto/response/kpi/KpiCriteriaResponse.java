@@ -18,8 +18,8 @@ public class KpiCriteriaResponse {
     private String unit;
     private KpiFrequency frequency;
     private KpiStatus status;
-    private UUID departmentId;
-    private String departmentName;
+    private UUID orgUnitId;
+    private String orgUnitName;
     private UUID assignedToId;
     private String assignedToName;
     private UUID createdById;

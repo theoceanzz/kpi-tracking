@@ -16,6 +16,6 @@ public class KpiCriteriaSummaryResponse {
     private String unit;
     private KpiFrequency frequency;
     private KpiStatus status;
-    private String departmentName;
+    private String orgUnitName;
     private String assignedToName;
 }

@@ -3,16 +3,17 @@ package com.kpitracking.service;
 import com.kpitracking.dto.request.evaluation.CreateEvaluationRequest;
 import com.kpitracking.dto.response.PageResponse;
 import com.kpitracking.dto.response.evaluation.EvaluationResponse;
-import com.kpitracking.entity.Company;
 import com.kpitracking.entity.Evaluation;
 import com.kpitracking.entity.KpiCriteria;
 import com.kpitracking.entity.User;
+import com.kpitracking.exception.BusinessException;
+import com.kpitracking.exception.ForbiddenException;
 import com.kpitracking.exception.ResourceNotFoundException;
 import com.kpitracking.mapper.EvaluationMapper;
-import com.kpitracking.repository.CompanyRepository;
 import com.kpitracking.repository.EvaluationRepository;
 import com.kpitracking.repository.KpiCriteriaRepository;
 import com.kpitracking.repository.UserRepository;
+import com.kpitracking.repository.UserRoleOrgUnitRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -30,10 +31,8 @@ public class EvaluationService {
 
     private final EvaluationRepository evaluationRepository;
     private final UserRepository userRepository;
-    private final CompanyRepository companyRepository;
     private final KpiCriteriaRepository kpiCriteriaRepository;
-    private final com.kpitracking.repository.DepartmentMemberRepository departmentMemberRepository;
-    private final com.kpitracking.repository.DepartmentRepository departmentRepository;
+    private final UserRoleOrgUnitRepository userRoleOrgUnitRepository;
     private final EvaluationMapper evaluationMapper;
 
     private User getCurrentUser() {
@@ -42,20 +41,22 @@ public class EvaluationService {
                 .orElseThrow(() -> new ResourceNotFoundException("User", "email", email));
     }
 
+    private boolean hasRole(UUID userId, String roleName) {
+        return userRoleOrgUnitRepository.findByUserId(userId).stream()
+                .anyMatch(uro -> uro.getRole().getName().equalsIgnoreCase(roleName));
+    }
+
     @Transactional
     public EvaluationResponse createEvaluation(CreateEvaluationRequest request) {
         User currentUser = getCurrentUser();
-        UUID companyId = currentUser.getCompany().getId();
 
-        Company company = companyRepository.findById(companyId)
-                .orElseThrow(() -> new ResourceNotFoundException("Company", "id", companyId));
-
-        User evaluatedUser = userRepository.findByIdAndCompanyId(request.getUserId(), companyId)
+        User evaluatedUser = userRepository.findById(request.getUserId())
                 .orElseThrow(() -> new ResourceNotFoundException("User", "id", request.getUserId()));
 
-        KpiCriteria kpiCriteria = kpiCriteriaRepository.findByIdAndCompanyId(request.getKpiCriteriaId(), companyId)
+        KpiCriteria kpiCriteria = kpiCriteriaRepository.findById(request.getKpiCriteriaId())
                 .orElseThrow(() -> new ResourceNotFoundException("KPI Criteria", "id", request.getKpiCriteriaId()));
 
+<<<<<<< HEAD
         // Permission check:
         // 1. Director can evaluate anyone.
         // 2. User can evaluate themselves (Self-Evaluation).
@@ -71,10 +72,18 @@ public class EvaluationService {
             if (!isHeadOfEvaluatedUser) {
                 throw new com.kpitracking.exception.ForbiddenException("You can only evaluate yourself or members of your department");
             }
+=======
+        if (currentUser.getId().equals(evaluatedUser.getId())) {
+            throw new BusinessException("Cannot evaluate yourself");
+        }
+
+        if (!hasRole(currentUser.getId(), "DIRECTOR") && !hasRole(currentUser.getId(), "HEAD")) {
+            throw new ForbiddenException("Only DIRECTOR or HEAD can create evaluations");
+>>>>>>> 7681c6edbb52597770fb6dc8246115573f68d03b
         }
 
         Evaluation evaluation = Evaluation.builder()
-                .company(company)
+                .orgUnit(kpiCriteria.getOrgUnit())
                 .user(evaluatedUser)
                 .kpiCriteria(kpiCriteria)
                 .evaluator(currentUser)
@@ -91,11 +100,12 @@ public class EvaluationService {
     @Transactional(readOnly = true)
     public PageResponse<EvaluationResponse> getEvaluations(int page, int size, UUID userId, UUID kpiCriteriaId) {
         User currentUser = getCurrentUser();
-        UUID companyId = currentUser.getCompany().getId();
         Pageable pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
 
-        Page<Evaluation> evalPage;
+        boolean isDirector = hasRole(currentUser.getId(), "DIRECTOR");
+        boolean isHead = hasRole(currentUser.getId(), "HEAD");
 
+<<<<<<< HEAD
         boolean isDirector = currentUser.getRole() == com.kpitracking.enums.UserRole.DIRECTOR;
         boolean isHead = currentUser.getRole() == com.kpitracking.enums.UserRole.HEAD;
         boolean isDeputy = currentUser.getRole() == com.kpitracking.enums.UserRole.DEPUTY;
@@ -120,13 +130,22 @@ public class EvaluationService {
                     throw new com.kpitracking.exception.ForbiddenException("You can only view evaluations for your department members");
                 }
             }
+=======
+        Page<Evaluation> evalPage;
+
+        UUID effectiveUserId = userId;
+
+        if (!isDirector && !isHead) {
+            effectiveUserId = currentUser.getId();
+>>>>>>> 7681c6edbb52597770fb6dc8246115573f68d03b
         }
 
         if (effectiveUserId != null) {
-            evalPage = evaluationRepository.findByCompanyIdAndUserId(companyId, effectiveUserId, pageable);
+            evalPage = evaluationRepository.findByUserId(effectiveUserId, pageable);
         } else if (kpiCriteriaId != null) {
-            evalPage = evaluationRepository.findByCompanyIdAndKpiCriteriaId(companyId, kpiCriteriaId, pageable);
+            evalPage = evaluationRepository.findByKpiCriteriaId(kpiCriteriaId, pageable);
         } else {
+<<<<<<< HEAD
             if (isDirector) {
                 evalPage = evaluationRepository.findByCompanyId(companyId, pageable);
             } else if (isHead || isDeputy) {
@@ -140,6 +159,9 @@ public class EvaluationService {
             } else {
                 throw new com.kpitracking.exception.ForbiddenException("Only DIRECTOR, HEAD or DEPUTY can view all evaluations");
             }
+=======
+            evalPage = evaluationRepository.findAll(pageable);
+>>>>>>> 7681c6edbb52597770fb6dc8246115573f68d03b
         }
 
         return PageResponse.<EvaluationResponse>builder()
@@ -154,17 +176,8 @@ public class EvaluationService {
 
     @Transactional(readOnly = true)
     public EvaluationResponse getEvaluationById(UUID evaluationId) {
-        User currentUser = getCurrentUser();
-        UUID companyId = currentUser.getCompany().getId();
-        Evaluation evaluation = evaluationRepository.findByIdAndCompanyId(evaluationId, companyId)
+        Evaluation evaluation = evaluationRepository.findById(evaluationId)
                 .orElseThrow(() -> new ResourceNotFoundException("Evaluation", "id", evaluationId));
-
-        if (currentUser.getRole() != com.kpitracking.enums.UserRole.DIRECTOR &&
-            currentUser.getRole() != com.kpitracking.enums.UserRole.HEAD &&
-            !evaluation.getUser().getId().equals(currentUser.getId())) {
-             throw new com.kpitracking.exception.ForbiddenException("You do not have permission to view this evaluation");
-        }
-
         return evaluationMapper.toResponse(evaluation);
     }
 }
