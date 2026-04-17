@@ -10,6 +10,11 @@ export interface User {
   role: UserRole
   status: UserStatus
   companyId: string
+  memberships: Array<{
+    departmentId: string
+    departmentName: string
+    position: string
+  }>
   createdAt: string
   updatedAt: string
 }

@@ -38,6 +38,7 @@ export interface CreateKpiRequest {
   frequency: KpiFrequency
   departmentId?: string
   assignedToId?: string
+  assignedToIds?: string[]
   startDate?: string
   endDate?: string
 }
@@ -52,6 +53,7 @@ export interface UpdateKpiRequest {
   frequency?: KpiFrequency
   departmentId?: string
   assignedToId?: string
+  assignedToIds?: string[]
   startDate?: string
   endDate?: string
 }

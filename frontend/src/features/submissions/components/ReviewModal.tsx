@@ -35,7 +35,7 @@ export default function ReviewModal({ open, onClose, submission }: ReviewModalPr
   if (!open || !submission) return null
 
   const isPending = approveMutation.isPending || rejectMutation.isPending
-  const isReviewable = submission.status === 'SUBMITTED'
+  const isReviewable = submission.status === 'PENDING'
   const progress = submission.targetValue ? Math.min(100, Math.round((submission.actualValue / submission.targetValue) * 100)) : null
 
   return (
@@ -51,7 +51,7 @@ export default function ReviewModal({ open, onClose, submission }: ReviewModalPr
             </div>
             <div>
               <h3 className="text-lg font-black text-slate-900 dark:text-white">Xét duyệt Bài nộp</h3>
-              <p className="text-xs font-medium text-slate-500">{submission.status === 'SUBMITTED' ? 'Đang chờ phê duyệt' : submission.status === 'APPROVED' ? 'Đã phê duyệt' : 'Đã từ chối'}</p>
+              <p className="text-xs font-medium text-slate-500">{submission.status === 'PENDING' ? 'Đang chờ phê duyệt' : submission.status === 'APPROVED' ? 'Đã phê duyệt' : 'Đã từ chối'}</p>
             </div>
           </div>
           <button onClick={() => { reset(); onClose() }} className="p-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 transition-all">

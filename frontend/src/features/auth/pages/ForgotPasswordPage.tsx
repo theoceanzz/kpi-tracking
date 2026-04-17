@@ -3,7 +3,7 @@ import { useMutation } from '@tanstack/react-query'
 import { authApi } from '../api/authApi'
 import { toast } from 'sonner'
 import { Link, useNavigate } from 'react-router-dom'
-import { Loader2, Mail, CheckCircle2, ArrowLeft } from 'lucide-react'
+import { Loader2, Mail, ArrowLeft } from 'lucide-react'
 
 export default function ForgotPasswordPage() {
   const navigate = useNavigate()

@@ -43,7 +43,7 @@ public class KpiSubmissionController {
     }
 
     @GetMapping
-    @PreAuthorize("hasAnyRole('DIRECTOR', 'HEAD')")
+    @PreAuthorize("hasAnyRole('DIRECTOR', 'HEAD', 'DEPUTY')")
     @Operation(summary = "List submissions with optional filters")
     public ResponseEntity<ApiResponse<PageResponse<SubmissionResponse>>> getSubmissions(
             @RequestParam(defaultValue = "0") int page,
@@ -62,7 +62,7 @@ public class KpiSubmissionController {
     }
 
     @PostMapping("/{submissionId}/review")
-    @PreAuthorize("hasAnyRole('DIRECTOR', 'HEAD')")
+    @PreAuthorize("hasAnyRole('DIRECTOR', 'HEAD', 'DEPUTY')")
     @Operation(summary = "Review (approve/reject) a submission")
     public ResponseEntity<ApiResponse<SubmissionResponse>> reviewSubmission(
             @PathVariable UUID submissionId,

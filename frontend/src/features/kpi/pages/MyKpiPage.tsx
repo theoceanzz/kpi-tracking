@@ -25,7 +25,7 @@ export default function MyKpiPage() {
   const { data, isLoading } = useMyKpi()
   const [search, setSearch] = useState('')
 
-  const allKpis = data?.content ?? []
+  const allKpis = (data?.content ?? []).filter(k => k.status === 'APPROVED')
   const filteredKpis = allKpis.filter(k => k.name.toLowerCase().includes(search.toLowerCase()))
 
   return (

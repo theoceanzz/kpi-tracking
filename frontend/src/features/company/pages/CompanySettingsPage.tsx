@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { useForm } from 'react-hook-form'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import LoadingSkeleton from '@/components/common/LoadingSkeleton'
@@ -9,7 +9,7 @@ import { toast } from 'sonner'
 import {
   Pencil, Loader2, Building2, Mail, Phone, MapPin,
   ReceiptText, Globe, CheckCircle2, Shield, Clock,
-  X, Save
+  X, Save, Camera
 } from 'lucide-react'
 import type { UpdateCompanyRequest, Company } from '@/types/company'
 import { cn, formatDateTime } from '@/lib/utils'
@@ -18,6 +18,28 @@ export default function CompanySettingsPage() {
   const { data: company, isLoading } = useCompany()
   const [editing, setEditing] = useState(false)
   const qc = useQueryClient()
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
+  const uploadLogoMutation = useMutation({
+    mutationFn: (file: File) => {
+      const formData = new FormData()
+      formData.append('file', file)
+      return companyApi.uploadLogo(formData)
+    },
+    onSuccess: () => {
+      toast.success('Cập nhật logo công ty thành công')
+      qc.invalidateQueries({ queryKey: ['company'] })
+    },
+    onError: () => toast.error('Lỗi khi tải ảnh lên'),
+  })
+
+  const handleLogoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (file) {
+      if (file.size > 5 * 1024 * 1024) return toast.error('Kích thước file không vượt quá 5MB')
+      uploadLogoMutation.mutate(file)
+    }
+  }
 
   if (isLoading) return <div className="p-8"><LoadingSkeleton type="form" rows={6} /></div>
   if (!company) return null
@@ -90,13 +112,39 @@ export default function CompanySettingsPage() {
           <div className="lg:col-span-1 space-y-6">
             {/* Company Identity */}
             <div className="bg-white dark:bg-slate-900 rounded-[28px] border border-slate-200 dark:border-slate-800 shadow-sm p-8 text-center space-y-6">
-              <div className="relative inline-block">
-                <div className="w-24 h-24 rounded-[28px] bg-gradient-to-br from-indigo-500 to-blue-600 flex items-center justify-center shadow-xl shadow-indigo-500/20">
-                  <Building2 size={40} className="text-white" />
+              <div 
+                className="relative inline-block group cursor-pointer"
+                onClick={() => !uploadLogoMutation.isPending && fileInputRef.current?.click()}
+              >
+                {company.logoUrl ? (
+                  <img src={company.logoUrl} alt="Company Logo" className="w-24 h-24 rounded-[28px] object-cover shadow-xl shadow-indigo-500/20" />
+                ) : (
+                  <div className="w-24 h-24 rounded-[28px] bg-gradient-to-br from-indigo-500 to-blue-600 flex items-center justify-center shadow-xl shadow-indigo-500/20">
+                    <Building2 size={40} className="text-white" />
+                  </div>
+                )}
+                
+                <div className="absolute inset-0 bg-black/40 rounded-[28px] items-center justify-center hidden group-hover:flex transition-all">
+                  <Camera size={24} className="text-white" />
                 </div>
-                <div className="absolute -bottom-1 -right-1 w-8 h-8 rounded-xl bg-emerald-500 flex items-center justify-center shadow-lg">
+
+                <div className="absolute -bottom-1 -right-1 w-8 h-8 rounded-xl bg-emerald-500 flex items-center justify-center shadow-lg z-10">
                   <CheckCircle2 size={16} className="text-white" />
                 </div>
+
+                {uploadLogoMutation.isPending && (
+                  <div className="absolute inset-0 bg-white/60 rounded-[28px] flex items-center justify-center backdrop-blur-sm z-20">
+                    <Loader2 size={24} className="text-indigo-600 animate-spin" />
+                  </div>
+                )}
+
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  className="hidden"
+                  accept="image/jpeg,image/png,image/webp"
+                  onChange={handleLogoSelect}
+                />
               </div>
 
               <div>

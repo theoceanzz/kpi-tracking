@@ -43,9 +43,9 @@ public class StatsService {
         return OverviewStatsResponse.builder()
                 .totalUsers(userRepository.countByCompanyId(companyId))
                 .totalDepartments(departmentRepository.countByCompanyId(companyId))
-                .totalKpiCriteria(kpiCriteriaRepository.countByCompanyId(companyId))
+                .totalKpiCriteria(kpiCriteriaRepository.countByCompanyIdAndStatus(companyId, KpiStatus.APPROVED))
                 .approvedKpi(kpiCriteriaRepository.countByCompanyIdAndStatus(companyId, KpiStatus.APPROVED))
-                .pendingKpi(kpiCriteriaRepository.countByCompanyIdAndStatus(companyId, KpiStatus.PENDING_APPROVAL))
+                .pendingKpi(0)
                 .totalSubmissions(submissionRepository.countByCompanyId(companyId))
                 .pendingSubmissions(submissionRepository.countByCompanyIdAndStatus(companyId, SubmissionStatus.PENDING))
                 .approvedSubmissions(submissionRepository.countByCompanyIdAndStatus(companyId, SubmissionStatus.APPROVED))
@@ -63,7 +63,7 @@ public class StatsService {
                 .departmentId(dept.getId())
                 .departmentName(dept.getName())
                 .memberCount(departmentMemberRepository.countByDepartmentId(dept.getId()))
-                .totalKpi(kpiCriteriaRepository.countByCompanyIdAndDepartmentId(companyId, dept.getId()))
+                .totalKpi(kpiCriteriaRepository.countByCompanyIdAndDepartmentIdAndStatus(companyId, dept.getId(), KpiStatus.APPROVED))
                 .approvedKpi(kpiCriteriaRepository.countByCompanyIdAndDepartmentIdAndStatus(
                         companyId, dept.getId(), KpiStatus.APPROVED))
                 .pendingKpi(kpiCriteriaRepository.countByCompanyIdAndDepartmentIdAndStatus(
@@ -86,13 +86,17 @@ public class StatsService {
         User currentUser = getCurrentUser();
         UUID companyId = currentUser.getCompany().getId();
 
-        List<User> users = userRepository.findAllByCompanyId(companyId);
+        List<User> users = userRepository.findAllByCompanyId(companyId).stream()
+                .filter(u -> !u.getId().equals(currentUser.getId()))
+                .collect(Collectors.toList());
 
         List<EmployeeKpiStatsResponse> result = new ArrayList<>();
 
         for (User u : users) {
              List<DepartmentMember> dms = departmentMemberRepository.findByUserId(u.getId());
-             String deptName = dms.isEmpty() ? null : dms.get(0).getDepartment().getName();
+             String deptNames = dms.stream()
+                     .map(dm -> dm.getDepartment().getName())
+                     .collect(Collectors.joining(", "));
 
              long assignedKpi = kpiCriteriaRepository.countMyAssignedKpis(companyId, KpiStatus.APPROVED, u.getId());
              long totalSub = submissionRepository.countByCompanyIdAndSubmittedById(companyId, u.getId());
@@ -106,7 +110,7 @@ public class StatsService {
                      .fullName(u.getFullName())
                      .email(u.getEmail())
                      .role(u.getRole().name())
-                     .departmentName(deptName)
+                     .departmentName(deptNames)
                      .assignedKpi(assignedKpi)
                      .totalSubmissions(totalSub)
                      .approvedSubmissions(approvedSub)

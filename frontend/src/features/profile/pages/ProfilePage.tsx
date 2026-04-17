@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { useAuthStore } from '@/store/authStore'
 import { getInitials } from '@/lib/utils'
@@ -10,7 +10,7 @@ import { toast } from 'sonner'
 import {
   User, Mail, Phone, Building2, Shield, KeyRound,
   CheckCircle2, UserCircle2, Loader2, Pencil, X, Save,
-  Eye, EyeOff, Lock, AlertTriangle
+  Eye, EyeOff, Lock, AlertTriangle, Camera
 } from 'lucide-react'
 
 const roleMap: Record<string, string> = {
@@ -21,6 +21,28 @@ export default function ProfilePage() {
   const { user, setUser } = useAuthStore()
   const [searchParams, setSearchParams] = useSearchParams()
   const currentTab = searchParams.get('tab') || 'info'
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
+  const uploadAvatarMutation = useMutation({
+    mutationFn: (file: File) => {
+      const formData = new FormData()
+      formData.append('file', file)
+      return authApi.uploadAvatar(formData)
+    },
+    onSuccess: (updatedUser) => {
+      toast.success('Cập nhật ảnh đại diện thành công')
+      setUser(updatedUser)
+    },
+    onError: () => toast.error('Lỗi khi tải ảnh lên'),
+  })
+
+  const handleAvatarSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (file) {
+      if (file.size > 5 * 1024 * 1024) return toast.error('Kích thước file không vượt quá 5MB')
+      uploadAvatarMutation.mutate(file)
+    }
+  }
 
   if (!user) return null
 
@@ -36,13 +58,36 @@ export default function ProfilePage() {
         <div className="relative z-10 px-8 py-10 md:px-12 md:py-14">
           <div className="flex flex-col md:flex-row items-center gap-8">
             {/* Avatar */}
-            <div className="relative">
-              <div className="w-28 h-28 rounded-[32px] bg-white shadow-2xl flex items-center justify-center text-4xl font-black text-indigo-600 ring-4 ring-white/30">
-                {getInitials(user.fullName)}
+            <div className="relative group cursor-pointer" onClick={() => !uploadAvatarMutation.isPending && fileInputRef.current?.click()}>
+              {user.avatarUrl ? (
+                <img src={user.avatarUrl} alt="Avatar" className="w-28 h-28 rounded-[32px] object-cover shadow-2xl ring-4 ring-white/30" />
+              ) : (
+                <div className="w-28 h-28 rounded-[32px] bg-white shadow-2xl flex items-center justify-center text-4xl font-black text-indigo-600 ring-4 ring-white/30">
+                  {getInitials(user.fullName)}
+                </div>
+              )}
+              
+              <div className="absolute inset-0 bg-black/40 rounded-[32px] items-center justify-center hidden group-hover:flex transition-all">
+                <Camera size={24} className="text-white" />
               </div>
-              <div className="absolute -bottom-1 -right-1 w-9 h-9 rounded-xl bg-emerald-500 flex items-center justify-center shadow-lg border-2 border-white">
+
+              <div className="absolute -bottom-1 -right-1 w-9 h-9 rounded-xl bg-emerald-500 flex items-center justify-center shadow-lg border-2 border-white z-10">
                 <CheckCircle2 size={18} className="text-white" />
               </div>
+
+              {uploadAvatarMutation.isPending && (
+                <div className="absolute inset-0 bg-white/60 rounded-[32px] flex items-center justify-center backdrop-blur-sm z-20">
+                  <Loader2 size={24} className="text-indigo-600 animate-spin" />
+                </div>
+              )}
+
+              <input
+                type="file"
+                ref={fileInputRef}
+                className="hidden"
+                accept="image/jpeg,image/png,image/webp"
+                onChange={handleAvatarSelect}
+              />
             </div>
 
             {/* Info */}

@@ -39,3 +39,27 @@ export function getInitials(name: string): string {
     .toUpperCase()
     .slice(0, 2)
 }
+
+const ROLE_LEVELS: Record<string, number> = {
+  'DIRECTOR': 4,
+  'HEAD': 3,
+  'DEPUTY': 2,
+  'STAFF': 1
+}
+
+export function getHighestRole(user: { role: string; memberships?: Array<{ position: string }> }): string {
+  let highest = user.role
+  let highestLevel = ROLE_LEVELS[highest] || 0
+
+  if (user.memberships) {
+    user.memberships.forEach(m => {
+      const level = ROLE_LEVELS[m.position] || 0
+      if (level > highestLevel) {
+        highestLevel = level
+        highest = m.position
+      }
+    })
+  }
+
+  return highest
+}

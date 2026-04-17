@@ -74,6 +74,13 @@ public class AuthController {
         return ResponseEntity.ok(ApiResponse.success("Email verified successfully"));
     }
 
+    @PostMapping("/resend-verification")
+    @Operation(summary = "Resend verification email")
+    public ResponseEntity<ApiResponse<Void>> resendVerification(@Valid @RequestBody ForgotPasswordRequest request) {
+        authService.resendVerificationToken(request.getEmail());
+        return ResponseEntity.ok(ApiResponse.success("Verification email resent successfully"));
+    }
+
     @PostMapping("/logout")
     @Operation(summary = "Logout and revoke token")
     public ResponseEntity<ApiResponse<Void>> logout(@Valid @RequestBody RefreshTokenRequest request) {
@@ -86,5 +93,12 @@ public class AuthController {
     public ResponseEntity<ApiResponse<UserInfoResponse>> getCurrentUser() {
         UserInfoResponse response = authService.getCurrentUser();
         return ResponseEntity.ok(ApiResponse.success(response));
+    }
+
+    @PostMapping(value = "/me/avatar", consumes = org.springframework.http.MediaType.MULTIPART_FORM_DATA_VALUE)
+    @Operation(summary = "Upload user avatar")
+    public ResponseEntity<ApiResponse<UserInfoResponse>> uploadAvatar(@RequestParam("file") org.springframework.web.multipart.MultipartFile file) {
+        UserInfoResponse response = authService.uploadAvatar(file);
+        return ResponseEntity.ok(ApiResponse.success("Avatar uploaded successfully", response));
     }
 }

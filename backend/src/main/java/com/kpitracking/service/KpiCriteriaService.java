@@ -63,79 +63,109 @@ public class KpiCriteriaService {
 
         KpiStatus initialStatus = (currentUser.getRole() == com.kpitracking.enums.UserRole.DIRECTOR) ? KpiStatus.APPROVED : KpiStatus.DRAFT;
 
+        // Determine assignees
+        java.util.List<UUID> assigneeIds = new java.util.ArrayList<>();
+        if (request.getAssignedToIds() != null && !request.getAssignedToIds().isEmpty()) {
+            assigneeIds.addAll(request.getAssignedToIds());
+        } else if (request.getAssignedToId() != null) {
+            assigneeIds.add(request.getAssignedToId());
+        }
+
+        Department targetDept = null;
+        if (request.getDepartmentId() != null) {
+            targetDept = departmentRepository.findByIdAndCompanyId(request.getDepartmentId(), companyId)
+                    .orElseThrow(() -> new ResourceNotFoundException("Department", "id", request.getDepartmentId()));
+
+            boolean isManager = (targetDept.getHead() != null && targetDept.getHead().getId().equals(currentUser.getId())) ||
+                                (targetDept.getDeputy() != null && targetDept.getDeputy().getId().equals(currentUser.getId()));
+            boolean isMemberOfTarget = isManager || departmentMemberRepository.existsByDepartmentIdAndUserId(targetDept.getId(), currentUser.getId());
+            
+            if (currentUser.getRole() != com.kpitracking.enums.UserRole.DIRECTOR && !isMemberOfTarget) {
+                throw new com.kpitracking.exception.ForbiddenException("Trưởng phòng chỉ có thể thêm chỉ tiêu cho phòng ban của mình.");
+            }
+        } else if (currentUser.getRole() != com.kpitracking.enums.UserRole.DIRECTOR) {
+            java.util.List<com.kpitracking.entity.DepartmentMember> userDepts = departmentMemberRepository.findByUserId(currentUser.getId());
+            if (!userDepts.isEmpty()) {
+                targetDept = userDepts.get(0).getDepartment();
+            }
+        }
+
+        if (assigneeIds.isEmpty()) {
+            KpiCriteria kpi = buildKpiEntity(request, company, targetDept, null, currentUser, initialStatus);
+            kpi = kpiCriteriaRepository.save(kpi);
+            if (initialStatus == KpiStatus.APPROVED) {
+                eventPublisher.publishEvent(new KpiCriteriaApprovedEvent(this, kpi));
+            }
+            return kpiCriteriaMapper.toResponse(kpi);
+        }
+
+        KpiCriteria lastKpi = null;
+        for (UUID assigneeId : assigneeIds) {
+            User assignee = userRepository.findByIdAndCompanyId(assigneeId, companyId)
+                    .orElseThrow(() -> new ResourceNotFoundException("User (assignee)", "id", assigneeId));
+
+            // Looser role checks: Director can assign to anyone, Head can assign to anyone but Director/Head (unless it's themselves)
+            if (currentUser.getRole() == com.kpitracking.enums.UserRole.HEAD &&
+                    (assignee.getRole() == com.kpitracking.enums.UserRole.DIRECTOR || (assignee.getRole() == com.kpitracking.enums.UserRole.HEAD && !assignee.getId().equals(currentUser.getId())))) {
+                throw new com.kpitracking.exception.ForbiddenException("Trưởng phòng chỉ có thể giao chỉ tiêu cho bản thân hoặc cấp dưới.");
+            }
+
+            KpiCriteria kpi = buildKpiEntity(request, company, targetDept, assignee, currentUser, initialStatus);
+            kpi = kpiCriteriaRepository.save(kpi);
+            if (initialStatus == KpiStatus.APPROVED) {
+                eventPublisher.publishEvent(new KpiCriteriaApprovedEvent(this, kpi));
+            }
+            lastKpi = kpi;
+        }
+
+        return kpiCriteriaMapper.toResponse(lastKpi);
+    }
+
+    private KpiCriteria buildKpiEntity(CreateKpiCriteriaRequest request, Company company, Department department, User assignee, User creator, KpiStatus status) {
         KpiCriteria kpi = KpiCriteria.builder()
                 .company(company)
+                .department(department)
+                .assignedTo(assignee)
                 .name(request.getName())
                 .description(request.getDescription())
                 .weight(request.getWeight())
                 .targetValue(request.getTargetValue())
                 .unit(request.getUnit())
                 .frequency(request.getFrequency())
-                .status(initialStatus)
-                .createdBy(currentUser)
-                .startDate(request.getStartDate())
-                .endDate(request.getEndDate())
+                .status(status)
+                .createdBy(creator)
+                .startDate(request.getStartDate() != null ? request.getStartDate().atStartOfDay(java.time.ZoneOffset.UTC).toInstant() : null)
+                .endDate(request.getEndDate() != null ? request.getEndDate().atStartOfDay(java.time.ZoneOffset.UTC).toInstant() : null)
                 .build();
 
-        if (initialStatus == KpiStatus.APPROVED) {
-            kpi.setApprovedBy(currentUser);
+        if (status == KpiStatus.APPROVED) {
+            kpi.setApprovedBy(creator);
             kpi.setApprovedAt(Instant.now());
         }
-
-        if (request.getDepartmentId() != null) {
-            Department dept = departmentRepository.findByIdAndCompanyId(request.getDepartmentId(), companyId)
-                    .orElseThrow(() -> new ResourceNotFoundException("Department", "id", request.getDepartmentId()));
-            
-            
-            // Check if current user belongs to the target department
-            boolean isMemberOfTarget = departmentMemberRepository.existsByDepartmentIdAndUserId(dept.getId(), currentUser.getId());
-            if (currentUser.getRole() != com.kpitracking.enums.UserRole.DIRECTOR && !isMemberOfTarget) {
-                throw new com.kpitracking.exception.ForbiddenException("Trưởng phòng chỉ có thể thêm chỉ tiêu cho phòng ban của mình.");
-            }
-            kpi.setDepartment(dept);
-        } else if (currentUser.getRole() != com.kpitracking.enums.UserRole.DIRECTOR) {
-            java.util.List<com.kpitracking.entity.DepartmentMember> userDepts = departmentMemberRepository.findByUserId(currentUser.getId());
-            if (!userDepts.isEmpty()) {
-                kpi.setDepartment(userDepts.get(0).getDepartment());
-            }
-        }
-
-        if (request.getAssignedToId() != null) {
-            User assignee = userRepository.findByIdAndCompanyId(request.getAssignedToId(), companyId)
-                    .orElseThrow(() -> new ResourceNotFoundException("User (assignee)", "id", request.getAssignedToId()));
-
-            if (currentUser.getRole() == com.kpitracking.enums.UserRole.DIRECTOR && assignee.getRole() == com.kpitracking.enums.UserRole.DIRECTOR) {
-                throw new com.kpitracking.exception.ForbiddenException("Giám đốc không thể giao chỉ tiêu cho Giám đốc khác.");
-            }
-            if (currentUser.getRole() == com.kpitracking.enums.UserRole.HEAD && 
-                (assignee.getRole() == com.kpitracking.enums.UserRole.DIRECTOR || assignee.getRole() == com.kpitracking.enums.UserRole.HEAD)) {
-                throw new com.kpitracking.exception.ForbiddenException("Trưởng phòng chỉ có thể giao chỉ tiêu cho Phó phòng hoặc Nhân viên.");
-            }
-
-            kpi.setAssignedTo(assignee);
-        }
-
-        kpi = kpiCriteriaRepository.save(kpi);
-
-        if (initialStatus == KpiStatus.APPROVED) {
-            eventPublisher.publishEvent(new KpiCriteriaApprovedEvent(this, kpi));
-        }
-
-        return kpiCriteriaMapper.toResponse(kpi);
+        return kpi;
     }
 
     @Transactional(readOnly = true)
     public PageResponse<KpiCriteriaResponse> getKpiCriteria(int page, int size, KpiStatus status, UUID departmentId) {
-        UUID companyId = getCurrentCompanyId();
+        User currentUser = getCurrentUser();
+        UUID companyId = currentUser.getCompany().getId();
         Pageable pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
 
         Page<KpiCriteria> kpiPage;
-        if (status != null) {
-            kpiPage = kpiCriteriaRepository.findByCompanyIdAndStatus(companyId, status, pageable);
-        } else if (departmentId != null) {
-            kpiPage = kpiCriteriaRepository.findByCompanyIdAndDepartmentId(companyId, departmentId, pageable);
+        boolean isDirector = currentUser.getRole() == com.kpitracking.enums.UserRole.DIRECTOR;
+        boolean isHead = currentUser.getRole() == com.kpitracking.enums.UserRole.HEAD;
+        boolean isDeputy = currentUser.getRole() == com.kpitracking.enums.UserRole.DEPUTY;
+
+        if (isDirector || isHead || isDeputy) {
+            if (status != null) {
+                // If filtering by status (likely for approval), still restrict to what they manage? 
+                // User said "dù là giám đốc hay trưởng phòng thì chỉ thấy kpi mình tự tạo thôi"
+                kpiPage = kpiCriteriaRepository.findByCompanyIdAndStatusAndCreatedById(companyId, status, currentUser.getId(), pageable);
+            } else {
+                kpiPage = kpiCriteriaRepository.findByCompanyIdAndCreatedById(companyId, currentUser.getId(), pageable);
+            }
         } else {
-            kpiPage = kpiCriteriaRepository.findByCompanyId(companyId, pageable);
+            kpiPage = kpiCriteriaRepository.findByCompanyIdAndAssignedToId(companyId, currentUser.getId(), pageable);
         }
 
         return PageResponse.<KpiCriteriaResponse>builder()
@@ -177,8 +207,8 @@ public class KpiCriteriaService {
         if (request.getTargetValue() != null) kpi.setTargetValue(request.getTargetValue());
         if (request.getUnit() != null) kpi.setUnit(request.getUnit());
         if (request.getFrequency() != null) kpi.setFrequency(request.getFrequency());
-        if (request.getStartDate() != null) kpi.setStartDate(request.getStartDate());
-        if (request.getEndDate() != null) kpi.setEndDate(request.getEndDate());
+        if (request.getStartDate() != null) kpi.setStartDate(request.getStartDate().atStartOfDay(java.time.ZoneOffset.UTC).toInstant());
+        if (request.getEndDate() != null) kpi.setEndDate(request.getEndDate().atStartOfDay(java.time.ZoneOffset.UTC).toInstant());
         if (request.getDepartmentId() != null) {
             Department dept = departmentRepository.findByIdAndCompanyId(request.getDepartmentId(), companyId)
                     .orElseThrow(() -> new ResourceNotFoundException("Department", "id", request.getDepartmentId()));
@@ -200,15 +230,6 @@ public class KpiCriteriaService {
         if (request.getAssignedToId() != null) {
             User assignee = userRepository.findByIdAndCompanyId(request.getAssignedToId(), companyId)
                     .orElseThrow(() -> new ResourceNotFoundException("User", "id", request.getAssignedToId()));
-
-            if (currentUser.getRole() == com.kpitracking.enums.UserRole.DIRECTOR && assignee.getRole() == com.kpitracking.enums.UserRole.DIRECTOR) {
-                throw new com.kpitracking.exception.ForbiddenException("Giám đốc không thể giao chỉ tiêu cho Giám đốc khác.");
-            }
-            if (currentUser.getRole() == com.kpitracking.enums.UserRole.HEAD && 
-                (assignee.getRole() == com.kpitracking.enums.UserRole.DIRECTOR || assignee.getRole() == com.kpitracking.enums.UserRole.HEAD)) {
-                throw new com.kpitracking.exception.ForbiddenException("Trưởng phòng chỉ có thể giao chỉ tiêu cho Phó phòng hoặc Nhân viên.");
-            }
-
             kpi.setAssignedTo(assignee);
         }
 
@@ -310,7 +331,7 @@ public class KpiCriteriaService {
         Pageable pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
 
         Page<KpiCriteria> kpiPage = kpiCriteriaRepository.findMyKpis(
-                companyId, currentUser.getId(), pageable);
+                companyId, currentUser.getId(), KpiStatus.APPROVED, pageable);
 
         return PageResponse.<KpiCriteriaResponse>builder()
                 .content(kpiPage.getContent().stream().map(kpiCriteriaMapper::toResponse).toList())

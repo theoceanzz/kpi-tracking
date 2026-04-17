@@ -33,7 +33,14 @@ export default function NewSubmissionPage() {
 
   const createMutation = useMutation({
     mutationFn: async (data: SubmissionFormData) => {
-      const sub = await submissionApi.create(data)
+      // Format dates to ISO-8601 for the backend (Instant)
+      const formattedData = {
+        ...data,
+        periodStart: data.periodStart ? new Date(data.periodStart).toISOString() : undefined,
+        periodEnd: data.periodEnd ? new Date(data.periodEnd).toISOString() : undefined,
+      }
+      
+      const sub = await submissionApi.create(formattedData as any)
       if (files.length > 0) {
         await submissionApi.uploadAttachments(sub.id, files)
       }
@@ -101,7 +108,7 @@ export default function NewSubmissionPage() {
                     className="w-full pl-4 pr-10 py-3.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-400 appearance-none transition-all cursor-pointer"
                   >
                     <option value="" disabled>-- Hãy chọn một KPI bạn đã được giao --</option>
-                    {myKpiData?.content?.map((k) => (
+                    {myKpiData?.content?.filter(k => k.status === 'APPROVED').map((k) => (
                       <option key={k.id} value={k.id}>
                         {k.name} {k.targetValue != null ? `(Mục tiêu: ${formatNumber(k.targetValue)} ${k.unit ?? ''})` : ''}
                       </option>
@@ -126,7 +133,7 @@ export default function NewSubmissionPage() {
                     {...register('actualValue', { valueAsNumber: true })} 
                     type="number" 
                     step="any" 
-                    className="w-full pl-11 pr-4 py-3.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 border-l-4 border-l-indigo-500 text-base font-black focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-400 transition-all placeholder:font-normal placeholder:text-sm" 
+                    className="w-full pl-11 pr-16 py-3.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 border-l-4 border-l-indigo-500 text-base font-black focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-400 transition-all placeholder:font-normal placeholder:text-sm [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" 
                     placeholder="Nhập giá trị bằng số..." 
                   />
                   {selectedKpi?.unit && (

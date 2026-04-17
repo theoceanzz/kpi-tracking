@@ -18,4 +18,5 @@ public class UserInfoResponse {
     private UserStatus status;
     private UUID companyId;
     private String companyName;
+    private java.util.List<com.kpitracking.dto.response.user.UserMembershipResponse> memberships;
 }

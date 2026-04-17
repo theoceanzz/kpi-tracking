@@ -17,7 +17,7 @@ interface UserFormModalProps {
 const roleOptions = [
   { value: 'DIRECTOR', label: 'Giám đốc' },
   { value: 'HEAD', label: 'Trưởng phòng' },
-  { value: 'DEPUTY_HEAD', label: 'Phó phòng' },
+  { value: 'DEPUTY', label: 'Phó phòng' },
   { value: 'STAFF', label: 'Nhân viên' },
 ] as const
 

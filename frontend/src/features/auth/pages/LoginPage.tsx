@@ -4,22 +4,45 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { loginSchema, type LoginFormData } from '../schemas/authSchema'
 import { useLogin } from '../hooks/useLogin'
 import { Link } from 'react-router-dom'
-import { Loader2, Mail, Lock, Eye, EyeOff } from 'lucide-react' // 2. Import thêm Eye, EyeOff
+import { Loader2, Mail, Lock, Eye, EyeOff } from 'lucide-react'
+import { authApi } from '../api/authApi'
+import { toast } from 'sonner'
 
 export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false) // 3. Tạo state quản lý ẩn hiện
 
-  const { register, handleSubmit, formState: { errors } } = useForm<LoginFormData>({
+  const { register, handleSubmit, getValues, formState: { errors } } = useForm<LoginFormData>({
     resolver: zodResolver(loginSchema),
   })
 
   const loginMutation = useLogin()
+  const [isResending, setIsResending] = useState(false)
 
   const onSubmit = (data: LoginFormData) => {
     loginMutation.mutate(data)
   }
 
+  const handleResendVerification = async () => {
+    const email = getValues('email')
+    if (!email) return
+
+    setIsResending(true)
+    try {
+      await authApi.resendVerification(email)
+      toast.success('Mã xác thực mới đã được gửi vào email của bạn!')
+    } catch (err: any) {
+      const msg = err.response?.data?.message || 'Không thể gửi lại mã xác thực.'
+      toast.error(msg)
+    } finally {
+      setIsResending(false)
+    }
+  }
+
   const inputCls = "w-full pl-10 pr-12 py-3 rounded-xl border border-[var(--color-border)] bg-[var(--color-background)] text-sm focus:ring-2 focus:ring-[var(--color-primary)]/20 focus:border-[var(--color-primary)] outline-none transition-all shadow-sm"
+
+  const apiError = loginMutation.error as any
+  const errorMessage = apiError?.response?.data?.message || 'Email hoặc mật khẩu không chính xác. Vui lòng kiểm tra lại!'
+  const isUnverified = errorMessage.includes('xác thực email')
 
   return (
     <div className="w-full">
@@ -80,9 +103,22 @@ export default function LoginPage() {
         </div>
 
         {loginMutation.isError && (
-          <div className="p-3 rounded-lg bg-red-50/80 border border-red-200 dark:bg-red-500/10 dark:border-red-500/20 text-red-600 dark:text-red-400 text-sm font-medium flex items-start gap-2.5 animate-in fade-in slide-in-from-top-1">
-            <div className="h-1.5 w-1.5 rounded-full bg-red-500 shrink-0 mt-1.5" />
-            <p>Email hoặc mật khẩu không chính xác. Vui lòng kiểm tra lại!</p>
+          <div className="p-3 rounded-lg bg-red-50/80 border border-red-200 dark:bg-red-500/10 dark:border-red-500/20 text-red-600 dark:text-red-400 text-sm font-medium flex flex-col gap-2 animate-in fade-in slide-in-from-top-1">
+            <div className="flex items-start gap-2.5">
+              <div className="h-1.5 w-1.5 rounded-full bg-red-500 shrink-0 mt-1.5" />
+              <p>{errorMessage}</p>
+            </div>
+            {isUnverified && (
+              <button
+                type="button"
+                onClick={handleResendVerification}
+                disabled={isResending}
+                className="ml-4 text-xs font-bold text-[var(--color-primary)] hover:underline flex items-center gap-1 cursor-pointer disabled:opacity-50"
+              >
+                {isResending && <Loader2 size={12} className="animate-spin" />}
+                Gửi lại mã xác thực ngay
+              </button>
+            )}
           </div>
         )}
 

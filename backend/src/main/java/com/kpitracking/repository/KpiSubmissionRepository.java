@@ -25,6 +25,14 @@ public interface KpiSubmissionRepository extends JpaRepository<KpiSubmission, UU
 
     Page<KpiSubmission> findByCompanyIdAndKpiCriteriaId(UUID companyId, UUID kpiCriteriaId, Pageable pageable);
 
+    Page<KpiSubmission> findByCompanyIdAndKpiCriteriaDepartmentId(UUID companyId, UUID departmentId, Pageable pageable);
+
+    Page<KpiSubmission> findByCompanyIdAndKpiCriteriaDepartmentIdIn(UUID companyId, java.util.Collection<UUID> departmentIds, Pageable pageable);
+
+    Page<KpiSubmission> findByCompanyIdAndKpiCriteriaDepartmentIdAndStatus(UUID companyId, UUID departmentId, SubmissionStatus status, Pageable pageable);
+
+    Page<KpiSubmission> findByCompanyIdAndKpiCriteriaDepartmentIdInAndStatus(UUID companyId, java.util.Collection<UUID> departmentIds, SubmissionStatus status, Pageable pageable);
+
     long countByCompanyId(UUID companyId);
 
     long countByCompanyIdAndStatus(UUID companyId, SubmissionStatus status);

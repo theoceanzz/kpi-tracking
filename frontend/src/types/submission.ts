@@ -1,4 +1,4 @@
-export type SubmissionStatus = 'DRAFT' | 'SUBMITTED' | 'APPROVED' | 'REJECTED'
+export type SubmissionStatus = 'DRAFT' | 'PENDING' | 'APPROVED' | 'REJECTED'
 
 // Matches BE: SubmissionResponse
 export interface Submission {

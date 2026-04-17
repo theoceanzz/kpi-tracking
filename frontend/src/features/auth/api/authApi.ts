@@ -24,9 +24,17 @@ export const authApi = {
   verifyEmail: (token: string) =>
     axiosInstance.get<ApiResponse<void>>('/auth/verify-email', { params: { token } }).then((r) => r.data),
 
+  resendVerification: (email: string) =>
+    axiosInstance.post<ApiResponse<void>>('/auth/resend-verification', { email }).then((r) => r.data),
+
   logout: (refreshToken: string) =>
     axiosInstance.post<ApiResponse<void>>('/auth/logout', { refreshToken }).then((r) => r.data),
 
   getMe: () =>
     axiosInstance.get<ApiResponse<UserInfo>>('/auth/me').then((r) => r.data.data),
+
+  uploadAvatar: (data: FormData) =>
+    axiosInstance.post<ApiResponse<UserInfo>>('/auth/me/avatar', data, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    }).then((r) => r.data.data),
 }

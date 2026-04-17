@@ -14,14 +14,14 @@ import {
 type TabKey = SubmissionStatus | ''
 
 const TABS: { key: TabKey; label: string; icon: any; color: string }[] = [
-  { key: 'SUBMITTED', label: 'Chờ duyệt', icon: Clock, color: 'text-amber-600 bg-amber-50 border-amber-200 dark:bg-amber-900/20 dark:text-amber-400 dark:border-amber-900/40' },
+  { key: 'PENDING', label: 'Chờ duyệt', icon: Clock, color: 'text-amber-600 bg-amber-50 border-amber-200 dark:bg-amber-900/20 dark:text-amber-400 dark:border-amber-900/40' },
   { key: 'APPROVED', label: 'Đã duyệt', icon: CheckCircle2, color: 'text-emerald-600 bg-emerald-50 border-emerald-200 dark:bg-emerald-900/20 dark:text-emerald-400 dark:border-emerald-900/40' },
   { key: 'REJECTED', label: 'Từ chối', icon: XCircle, color: 'text-red-600 bg-red-50 border-red-200 dark:bg-red-900/20 dark:text-red-400 dark:border-red-900/40' },
   { key: '', label: 'Tất cả', icon: Filter, color: 'text-slate-600 bg-slate-50 border-slate-200 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700' },
 ]
 
 export default function DeptSubmissionsPage() {
-  const [activeTab, setActiveTab] = useState<TabKey>('SUBMITTED')
+  const [activeTab, setActiveTab] = useState<TabKey>('PENDING')
   const { data, isLoading } = useDeptSubmissions(activeTab ? { status: activeTab } : {})
   const [reviewSub, setReviewSub] = useState<Submission | null>(null)
 
@@ -31,7 +31,7 @@ export default function DeptSubmissionsPage() {
     const all = allData?.content ?? []
     return {
       total: all.length,
-      pending: all.filter(s => s.status === 'SUBMITTED').length,
+      pending: all.filter(s => s.status === 'PENDING').length,
       approved: all.filter(s => s.status === 'APPROVED').length,
       rejected: all.filter(s => s.status === 'REJECTED').length,
     }
@@ -83,7 +83,7 @@ export default function DeptSubmissionsPage() {
               {tab.label}
               {tab.key !== '' && (
                 <span className={`ml-1 text-xs px-1.5 py-0.5 rounded-md font-black ${isActive ? 'bg-white/50 dark:bg-black/20' : 'bg-slate-100 dark:bg-slate-800'}`}>
-                  {tab.key === 'SUBMITTED' ? stats.pending : tab.key === 'APPROVED' ? stats.approved : stats.rejected}
+                  {tab.key === 'PENDING' ? stats.pending : tab.key === 'APPROVED' ? stats.approved : stats.rejected}
                 </span>
               )}
             </button>
@@ -97,8 +97,8 @@ export default function DeptSubmissionsPage() {
       ) : items.length === 0 ? (
         <div className="bg-white dark:bg-slate-900 rounded-[32px] border border-dashed border-slate-300 dark:border-slate-800 p-16">
           <EmptyState
-            title={activeTab === 'SUBMITTED' ? 'Tuyệt vời! Đã xử lý hết' : 'Không có bài nộp'}
-            description={activeTab === 'SUBMITTED' ? 'Tất cả bài nộp của nhân viên đã được duyệt xong.' : 'Chưa có bài nộp nào trong danh mục này.'}
+            title={activeTab === 'PENDING' ? 'Tuyệt vời! Đã xử lý hết' : 'Không có bài nộp'}
+            description={activeTab === 'PENDING' ? 'Tất cả bài nộp của nhân viên đã được duyệt xong.' : 'Chưa có bài nộp nào trong danh mục này.'}
           />
         </div>
       ) : (

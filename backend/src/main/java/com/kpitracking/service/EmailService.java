@@ -91,6 +91,20 @@ public class EmailService {
     }
 
     @Async
+    public void sendAccountDetailsEmail(String to, String fullName, String password) {
+        String subject = "Thông tin Truy cập Hệ thống KPI Tracking";
+        String content = "<p>Xin chào <b>" + fullName + "</b>,</p>" +
+                         "<p>Tài khoản của bạn đã được thiết lập thành công trên hệ thống KPI Tracking. Dưới đây là thông tin đăng nhập của bạn:</p>" +
+                         "<div style='background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 20px; margin: 25px 0;'>" +
+                         "<p style='margin: 0 0 10px 0;'><b>Email:</b> " + to + "</p>" +
+                         "<p style='margin: 0;'><b>Mật khẩu:</b> <code style='background: #e2e8f0; padding: 2px 6px; border-radius: 4px; font-weight: bold;'>" + password + "</code></p>" +
+                         "</div>" +
+                         "<p>Vui lòng đăng nhập và thay đổi mật khẩu ngay trong lần sử dụng đầu tiên để đảm bảo tính bảo mật.</p>" +
+                         "<p>Trân trọng,<br><b>Đội ngũ Quản trị Hệ thống</b></p>";
+        sendEmail(to, subject, buildHtmlTemplate("Thông tin Tài khoản", content));
+    }
+
+    @Async
     public void sendNotificationEmail(String to, String title, String message) {
         String content = "<p>Xin chào,</p><p>" + message + "</p>";
         sendEmail(to, title, buildHtmlTemplate("Thông báo Hệ thống", content));

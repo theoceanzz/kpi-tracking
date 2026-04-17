@@ -6,10 +6,10 @@ interface ImportGuideModalProps {
   onSelectFile: () => void
 }
 
-const SAMPLE_CSV_CONTENT = `Email,FullName,Phone,Role
-nguyenvana@company.com,Nguyễn Văn A,0901000001,HEAD
-tranthib@company.com,Trần Thị B,0901000002,STAFF
-levanc@company.com,Lê Văn C,,STAFF`
+const SAMPLE_CSV_CONTENT = `Email,FullName,Phone,Role,Password
+nguyenvana@company.com,Nguyễn Văn A,0901000001,HEAD,A123456Cc
+tranthib@company.com,Trần Thị B,0901000002,DEPUTY,123456bB
+levanc@company.com,Lê Văn C,0901000003,STAFF,123456aA`
 
 function downloadTemplate(type: 'csv' | 'xlsx') {
   if (type === 'csv') {
@@ -36,6 +36,7 @@ const COLUMNS = [
   { name: 'FullName', required: true, desc: 'Họ và tên đầy đủ', example: 'Nguyễn Văn A' },
   { name: 'Phone', required: false, desc: 'Số điện thoại (có thể để trống)', example: '0901000001' },
   { name: 'Role', required: false, desc: 'Vai trò: HEAD, DEPUTY, STAFF (mặc định STAFF)', example: 'STAFF' },
+  { name: 'Password', required: false, desc: 'Mật khẩu đăng nhập (nếu trống sẽ tự động tạo)', example: '123456aA' },
 ]
 
 export default function ImportGuideModal({ open, onClose, onSelectFile }: ImportGuideModalProps) {
@@ -150,7 +151,7 @@ export default function ImportGuideModal({ open, onClose, onSelectFile }: Import
               <div className="flex items-start gap-3 p-3 rounded-xl bg-blue-50 dark:bg-blue-900/10 border border-blue-200/50 dark:border-blue-900/30">
                 <Info size={16} className="text-blue-600 mt-0.5 shrink-0" />
                 <p className="text-xs text-blue-800 dark:text-blue-300 leading-relaxed">
-                  Mật khẩu sẽ được <strong>tự động tạo</strong> và gửi qua email cho từng nhân sự. Người dùng có thể đổi mật khẩu sau khi đăng nhập lần đầu.
+                  Bạn có thể <strong>tự đặt mật khẩu</strong> trong file import. Nếu để trống, hệ thống sẽ tự động tạo ngẫu nhiên và gửi qua email cho nhân sự.
                 </p>
               </div>
               <div className="flex items-start gap-3 p-3 rounded-xl bg-emerald-50 dark:bg-emerald-900/10 border border-emerald-200/50 dark:border-emerald-900/30">

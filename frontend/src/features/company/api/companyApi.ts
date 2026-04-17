@@ -8,4 +8,9 @@ export const companyApi = {
 
   update: (data: UpdateCompanyRequest) =>
     axiosInstance.put<ApiResponse<Company>>('/company', data).then((r) => r.data.data),
+
+  uploadLogo: (data: FormData) =>
+    axiosInstance.post<ApiResponse<Company>>('/company/logo', data, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    }).then((r) => r.data.data),
 }

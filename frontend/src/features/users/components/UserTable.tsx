@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import StatusBadge from '@/components/common/StatusBadge'
 import type { User } from '@/types/user'
 import { Pencil, Trash2, MoreVertical, Shield, User as UserIcon, Mail, Phone, Building2 } from 'lucide-react'
-import { getInitials } from '@/lib/utils'
+import { getInitials, getHighestRole } from '@/lib/utils'
 
 interface UserTableProps {
   users: User[]
@@ -15,11 +15,16 @@ const roleMap: Record<string, { label: string; color: string; icon: any }> = {
   DIRECTOR: { label: 'Giám đốc', color: 'bg-purple-100 text-purple-700 border-purple-200 dark:bg-purple-900/30 dark:text-purple-400', icon: Shield },
   HEAD: { label: 'Trưởng phòng', color: 'bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-900/30 dark:text-amber-400', icon: Shield },
   DEPUTY: { label: 'Phó phòng', color: 'bg-indigo-100 text-indigo-700 border-indigo-200 dark:bg-indigo-900/30 dark:text-indigo-400', icon: Shield },
-  DEPUTY_HEAD: { label: 'Phó phòng', color: 'bg-indigo-100 text-indigo-700 border-indigo-200 dark:bg-indigo-900/30 dark:text-indigo-400', icon: Shield },
   STAFF: { label: 'Nhân viên', color: 'bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-800 dark:text-slate-300', icon: UserIcon },
 }
 
-export default function UserTable({ users, departmentMap, onRowClick, onDelete }: UserTableProps) {
+const positionMap: Record<string, { label: string; color: string }> = {
+  HEAD: { label: 'Trưởng phòng', color: 'bg-amber-50 text-amber-700 border-amber-100 dark:bg-amber-900/20 dark:text-amber-400 dark:border-amber-900/30' },
+  DEPUTY: { label: 'Phó phòng', color: 'bg-indigo-50 text-indigo-700 border-indigo-100 dark:bg-indigo-900/20 dark:text-indigo-400 dark:border-indigo-900/30' },
+  STAFF: { label: 'Thành viên', color: 'bg-slate-50 text-slate-600 border-slate-100 dark:bg-slate-800/40 dark:text-slate-400 dark:border-slate-800' },
+}
+
+export default function UserTable({ users, onRowClick, onDelete }: UserTableProps) {
   const [openActionId, setOpenActionId] = useState<string | null>(null)
   
   // Close popover when clicking outside
@@ -55,7 +60,8 @@ export default function UserTable({ users, departmentMap, onRowClick, onDelete }
         </thead>
         <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60">
           {users.map((u) => {
-            const roleConf = roleMap[u.role] || roleMap['STAFF']!
+            const highestRole = getHighestRole(u)
+            const roleConf = roleMap[highestRole] || roleMap['STAFF']!
             const RoleIcon = roleConf.icon!
 
             const isActionOpen = openActionId === u.id
@@ -92,14 +98,18 @@ export default function UserTable({ users, departmentMap, onRowClick, onDelete }
 
                 {/* 3. Department Col */}
                 <td className="py-4 px-6 hidden md:table-cell">
-                  {departmentMap?.[u.id] ? (
-                     <div className="flex items-center gap-2">
-                        <div className="w-7 h-7 rounded-lg bg-indigo-50 dark:bg-indigo-900/20 flex items-center justify-center shrink-0">
-                           <Building2 size={14} className="text-indigo-500" />
-                        </div>
-                        <span className="text-sm font-semibold text-slate-700 dark:text-slate-300 truncate max-w-[140px]" title={departmentMap[u.id]}>
-                           {departmentMap[u.id]}
-                        </span>
+                  {u.memberships && u.memberships.length > 0 ? (
+                     <div className="flex flex-wrap gap-2 max-w-[280px]">
+                        {u.memberships.map((m, idx) => {
+                           const pos = positionMap[m.position] ?? positionMap['STAFF']!
+                           return (
+                              <div key={idx} className={`flex items-center gap-1.5 px-2 py-0.5 rounded-md border text-[11px] font-semibold ${pos.color}`}>
+                                 <Building2 size={10} className="shrink-0" />
+                                 <span className="truncate max-w-[100px]" title={m.departmentName}>{m.departmentName}</span>
+                                 <span className="opacity-50 text-[10px]">({pos.label})</span>
+                              </div>
+                           )
+                        })}
                      </div>
                   ) : (
                      <span className="text-xs text-slate-400 italic font-medium">Chưa phân bổ</span>

@@ -27,7 +27,9 @@ public class UpdateKpiCriteriaRequest {
 
     private UUID assignedToId;
 
-    private Instant startDate;
+    private java.util.List<UUID> assignedToIds;
 
-    private Instant endDate;
+    private java.time.LocalDate startDate;
+
+    private java.time.LocalDate endDate;
 }

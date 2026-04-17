@@ -16,12 +16,12 @@ interface AddMemberModalProps {
 const positionOptions: { value: DeptMemberPosition; label: string }[] = [
   { value: 'HEAD', label: 'Trưởng phòng' },
   { value: 'DEPUTY', label: 'Phó phòng' },
-  { value: 'MEMBER', label: 'Thành viên' },
+  { value: 'STAFF', label: 'Thành viên' },
 ]
 
 export default function AddMemberModal({ open, onClose, departmentId, currentMemberIds = [] }: AddMemberModalProps) {
   const [userId, setUserId] = useState('')
-  const [position, setPosition] = useState<DeptMemberPosition>('MEMBER')
+  const [position, setPosition] = useState<DeptMemberPosition>('STAFF')
   const qc = useQueryClient()
   const { data: usersData } = useUsers({ page: 0, size: 100 })
 
@@ -29,9 +29,11 @@ export default function AddMemberModal({ open, onClose, departmentId, currentMem
     mutationFn: () => departmentApi.addMember(departmentId, { userId, position }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['departments'] })
+      qc.invalidateQueries({ queryKey: ['departments', departmentId] })
+      qc.invalidateQueries({ queryKey: ['departments', departmentId, 'members'] })
       toast.success('Thêm thành viên thành công')
       setUserId('')
-      setPosition('MEMBER')
+      setPosition('STAFF')
       onClose()
     },
     onError: () => toast.error('Thêm thành viên thất bại'),

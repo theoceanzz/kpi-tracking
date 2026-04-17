@@ -3,7 +3,7 @@ import type { ApiResponse, PageResponse, PageParams } from '@/types/api'
 import type { User, CreateUserRequest, UpdateUserRequest, ImportUserResult } from '@/types/user'
 
 export const userApi = {
-  getAll: (params: PageParams & { keyword?: string }) =>
+  getAll: (params: PageParams & { keyword?: string; departmentId?: string }) =>
     axiosInstance.get<ApiResponse<PageResponse<User>>>('/users', { params }).then((r) => r.data.data),
 
   getById: (id: string) =>

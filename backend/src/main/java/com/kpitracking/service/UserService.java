@@ -4,12 +4,14 @@ import com.kpitracking.dto.request.user.CreateUserRequest;
 import com.kpitracking.dto.request.user.UpdateUserRequest;
 import com.kpitracking.dto.response.PageResponse;
 import com.kpitracking.dto.response.user.UserResponse;
+import com.kpitracking.dto.response.user.UserMembershipResponse;
 import com.kpitracking.entity.Company;
 import com.kpitracking.entity.User;
 import com.kpitracking.exception.DuplicateResourceException;
 import com.kpitracking.exception.ResourceNotFoundException;
 import com.kpitracking.mapper.UserMapper;
 import com.kpitracking.repository.CompanyRepository;
+import com.kpitracking.repository.DepartmentMemberRepository;
 import com.kpitracking.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -51,6 +53,7 @@ public class UserService {
     private final PasswordEncoder passwordEncoder;
     private final UserMapper userMapper;
     private final EmailService emailService;
+    private final DepartmentMemberRepository departmentMemberRepository;
 
     private UUID getCurrentCompanyId() {
         String email = SecurityContextHolder.getContext().getAuthentication().getName();
@@ -64,7 +67,7 @@ public class UserService {
         UUID companyId = getCurrentCompanyId();
 
         if (userRepository.existsByEmail(request.getEmail())) {
-            throw new DuplicateResourceException("User", "email", request.getEmail());
+            throw new DuplicateResourceException("Email này đã tồn tại trong hệ thống: " + request.getEmail());
         }
 
         Company company = companyRepository.findById(companyId)
@@ -77,28 +80,57 @@ public class UserService {
                 .fullName(request.getFullName())
                 .phone(request.getPhone())
                 .role(request.getRole())
+                .isEmailVerified(true)
                 .build();
 
         user = userRepository.save(user);
-        emailService.sendWelcomeEmail(user.getEmail(), user.getFullName());
+        
+        try {
+            emailService.sendAccountDetailsEmail(user.getEmail(), user.getFullName(), request.getPassword());
+        } catch (Exception e) {
+            // Silently log and continue, as the user is already created
+        }
 
-        return userMapper.toResponse(user);
+        return enrichWithMemberships(userMapper.toResponse(user));
+    }
+
+    private UserResponse enrichWithMemberships(UserResponse response) {
+        List<UserMembershipResponse> memberships = departmentMemberRepository.findByUserId(response.getId()).stream()
+                .map(dm -> UserMembershipResponse.builder()
+                        .departmentId(dm.getDepartment().getId())
+                        .departmentName(dm.getDepartment().getName())
+                        .position(dm.getPosition())
+                        .build())
+                .toList();
+        response.setMemberships(memberships);
+        return response;
     }
 
     @Transactional(readOnly = true)
-    public PageResponse<UserResponse> getUsers(int page, int size, String keyword) {
+    public PageResponse<UserResponse> getUsers(int page, int size, String keyword, UUID departmentId) {
         UUID companyId = getCurrentCompanyId();
         Pageable pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
 
         Page<User> userPage;
-        if (keyword != null && !keyword.isBlank()) {
-            userPage = userRepository.searchByCompanyId(companyId, keyword, pageable);
+        if (departmentId != null) {
+            if (keyword != null && !keyword.isBlank()) {
+                userPage = userRepository.searchByDepartmentId(companyId, departmentId, keyword, pageable);
+            } else {
+                userPage = userRepository.findByDepartmentId(companyId, departmentId, pageable);
+            }
         } else {
-            userPage = userRepository.findByCompanyId(companyId, pageable);
+            if (keyword != null && !keyword.isBlank()) {
+                userPage = userRepository.searchByCompanyId(companyId, keyword, pageable);
+            } else {
+                userPage = userRepository.findByCompanyId(companyId, pageable);
+            }
         }
 
         return PageResponse.<UserResponse>builder()
-                .content(userPage.getContent().stream().map(userMapper::toResponse).toList())
+                .content(userPage.getContent().stream()
+                        .map(userMapper::toResponse)
+                        .map(this::enrichWithMemberships)
+                        .toList())
                 .page(userPage.getNumber())
                 .size(userPage.getSize())
                 .totalElements(userPage.getTotalElements())
@@ -112,7 +144,7 @@ public class UserService {
         UUID companyId = getCurrentCompanyId();
         User user = userRepository.findByIdAndCompanyId(userId, companyId)
                 .orElseThrow(() -> new ResourceNotFoundException("User", "id", userId));
-        return userMapper.toResponse(user);
+        return enrichWithMemberships(userMapper.toResponse(user));
     }
 
     @Transactional
@@ -141,7 +173,7 @@ public class UserService {
         }
 
         user = userRepository.save(user);
-        return userMapper.toResponse(user);
+        return enrichWithMemberships(userMapper.toResponse(user));
     }
 
     @Transactional
@@ -188,8 +220,9 @@ public class UserService {
                             String fullName = csvRecord.get("FullName");
                             String phone = csvRecord.isMapped("Phone") ? csvRecord.get("Phone") : null;
                             String roleStr = csvRecord.isMapped("Role") ? csvRecord.get("Role") : "STAFF";
+                            String password = csvRecord.isMapped("Password") ? csvRecord.get("Password") : null;
 
-                            processUserRow(company, email, fullName, phone, roleStr);
+                            processUserRow(company, email, fullName, phone, roleStr, password);
                             successfulImports++;
                         } catch (Exception e) {
                             errors.add("Row " + totalRows + ": " + e.getMessage());
@@ -203,13 +236,14 @@ public class UserService {
 
                     if (headerRow == null) throw new BusinessException("Excel file is empty");
 
-                    int emailIdx = -1, nameIdx = -1, phoneIdx = -1, roleIdx = -1;
+                    int emailIdx = -1, nameIdx = -1, phoneIdx = -1, roleIdx = -1, passIdx = -1;
                     for (int i = 0; i < headerRow.getLastCellNum(); i++) {
                         String header = headerRow.getCell(i).getStringCellValue().trim();
                         if (header.equalsIgnoreCase("Email")) emailIdx = i;
                         else if (header.equalsIgnoreCase("FullName")) nameIdx = i;
                         else if (header.equalsIgnoreCase("Phone")) phoneIdx = i;
                         else if (header.equalsIgnoreCase("Role")) roleIdx = i;
+                        else if (header.equalsIgnoreCase("Password")) passIdx = i;
                     }
 
                     if (emailIdx == -1 || nameIdx == -1) {
@@ -228,8 +262,10 @@ public class UserService {
                                     getCellValueAsString(row.getCell(phoneIdx)) : null;
                             String roleStr = (roleIdx != -1 && row.getCell(roleIdx) != null) ?
                                     row.getCell(roleIdx).getStringCellValue().trim() : "STAFF";
+                            String password = (passIdx != -1 && row.getCell(passIdx) != null) ?
+                                    row.getCell(passIdx).getStringCellValue().trim() : null;
 
-                            processUserRow(company, email, fullName, phone, roleStr);
+                            processUserRow(company, email, fullName, phone, roleStr, password);
                             successfulImports++;
                         } catch (Exception e) {
                             errors.add("Row " + totalRows + ": " + e.getMessage());
@@ -255,7 +291,7 @@ public class UserService {
         return cell.getStringCellValue().trim();
     }
 
-    private void processUserRow(Company company, String email, String fullName, String phone, String roleStr) {
+    private void processUserRow(Company company, String email, String fullName, String phone, String roleStr, String password) {
         if (email == null || email.isBlank()) {
             throw new BusinessException("Email is required");
         }
@@ -264,7 +300,7 @@ public class UserService {
         }
 
         if (userRepository.existsByEmail(email)) {
-             throw new BusinessException("Email already exists: " + email);
+             throw new BusinessException("Email này đã tồn tại trong hệ thống: " + email);
         }
 
         UserRole role;
@@ -274,7 +310,7 @@ public class UserService {
              role = UserRole.STAFF; // Default
         }
 
-        String rawPassword = generateRandomPassword();
+        String rawPassword = (password != null && !password.isBlank()) ? password : generateRandomPassword();
 
         User user = User.builder()
                 .company(company)
@@ -283,11 +319,12 @@ public class UserService {
                 .fullName(fullName)
                 .phone(phone)
                 .role(role)
+                .isEmailVerified(true)
                 .build();
 
         userRepository.save(user);
         
-        // Notify user of their default random password
-        emailService.sendWelcomeEmail(email, rawPassword);
+        // Notify user of their credentials
+        emailService.sendAccountDetailsEmail(email, fullName, rawPassword);
     }
 }

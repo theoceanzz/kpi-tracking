@@ -22,7 +22,7 @@ export default function MySubmissionsPage() {
   const stats = {
     total: allSubmissions.length,
     approved: allSubmissions.filter(s => s.status === 'APPROVED').length,
-    pending: allSubmissions.filter(s => s.status === 'SUBMITTED').length,
+    pending: allSubmissions.filter(s => s.status === 'PENDING').length,
   }
 
   return (

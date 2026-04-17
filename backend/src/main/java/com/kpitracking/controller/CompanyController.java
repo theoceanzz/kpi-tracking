@@ -34,4 +34,12 @@ public class CompanyController {
         CompanyResponse response = companyService.updateCompany(request);
         return ResponseEntity.ok(ApiResponse.success("Company updated successfully", response));
     }
+
+    @PostMapping(value = "/logo", consumes = org.springframework.http.MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PreAuthorize("hasRole('DIRECTOR')")
+    @Operation(summary = "Upload company logo (Director only)")
+    public ResponseEntity<ApiResponse<CompanyResponse>> uploadLogo(@RequestParam("file") org.springframework.web.multipart.MultipartFile file) {
+        CompanyResponse response = companyService.uploadLogo(file);
+        return ResponseEntity.ok(ApiResponse.success("Company logo uploaded successfully", response));
+    }
 }

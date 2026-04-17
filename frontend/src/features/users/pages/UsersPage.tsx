@@ -9,10 +9,10 @@ import { useUsers } from '../hooks/useUsers'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { userApi } from '../api/userApi'
 import { useAuthStore } from '@/store/authStore'
-import { useDepartments } from '@/features/departments/hooks/useDepartments'
-import { toast } from 'sonner'
 import { Plus, Upload, Loader2, Filter, ArrowUpDown } from 'lucide-react'
+import { getHighestRole } from '@/lib/utils'
 import type { User } from '@/types/user'
+import { toast } from 'sonner'
 
 export default function UsersPage() {
   const { user: authUser } = useAuthStore()
@@ -29,19 +29,6 @@ export default function UsersPage() {
 
   // Fetch all users 
   const { data, isLoading } = useUsers({ keyword, page: 0, size: 500 })
-  const { data: deptData } = useDepartments(0, 1000)
-
-  const departmentMap = useMemo(() => {
-     const map: Record<string, string> = {}
-     if (deptData?.content) {
-        deptData.content.forEach(dept => {
-           dept.members?.forEach(m => {
-              map[m.userId] = dept.name
-           })
-        })
-     }
-     return map
-  }, [deptData])
 
   const deleteMutation = useMutation({
     mutationFn: (id: string) => userApi.delete(id),
@@ -81,7 +68,7 @@ export default function UsersPage() {
     let result = data.content.filter(u => u.id !== authUser?.id && u.role !== 'DIRECTOR')
 
     if (roleFilter !== 'ALL') {
-      result = result.filter(u => u.role === roleFilter)
+      result = result.filter(u => getHighestRole(u) === roleFilter)
     }
 
     result.sort((a, b) => {
@@ -168,7 +155,7 @@ export default function UsersPage() {
         {isLoading ? (
           <div className="p-6"><LoadingSkeleton type="table" rows={6} /></div>
         ) : (
-          <UserTable users={processedUsers} departmentMap={departmentMap} onRowClick={handleRowClick} onDelete={(u) => setDeleteUser(u)} />
+          <UserTable users={processedUsers} onRowClick={handleRowClick} onDelete={(u) => setDeleteUser(u)} />
         )}
       </div>
 

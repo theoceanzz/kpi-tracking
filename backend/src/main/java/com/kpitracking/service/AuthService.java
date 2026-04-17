@@ -42,6 +42,8 @@ public class AuthService {
     private final RefreshTokenService refreshTokenService;
     private final EmailService emailService;
     private final UserMapper userMapper;
+    private final CloudinaryStorageService cloudinaryStorageService;
+    private final com.kpitracking.repository.DepartmentMemberRepository departmentMemberRepository;
 
     @Transactional
     public AuthResponse register(RegisterRequest request, String userAgent) {
@@ -55,6 +57,8 @@ public class AuthService {
         Company company = Company.builder()
                 .name(request.getCompanyName())
                 .taxCode(request.getTaxCode())
+                .email(request.getEmail())
+                .phone(request.getPhone())
                 .status(CompanyStatus.TRIAL)
                 .build();
         company = companyRepository.save(company);
@@ -81,7 +85,7 @@ public class AuthService {
                 .accessToken("")
                 .refreshToken("")
                 .tokenType("Bearer")
-                .user(userMapper.toUserInfoResponse(user))
+                .user(enrichUserInfo(userMapper.toUserInfoResponse(user)))
                 .build();
     }
 
@@ -109,7 +113,7 @@ public class AuthService {
                 .accessToken(accessToken)
                 .refreshToken(refreshToken.getToken())
                 .tokenType("Bearer")
-                .user(userMapper.toUserInfoResponse(user))
+                .user(enrichUserInfo(userMapper.toUserInfoResponse(user)))
                 .build();
     }
 
@@ -129,7 +133,7 @@ public class AuthService {
                 .accessToken(accessToken)
                 .refreshToken(newRefreshToken.getToken())
                 .tokenType("Bearer")
-                .user(userMapper.toUserInfoResponse(user))
+                .user(enrichUserInfo(userMapper.toUserInfoResponse(user)))
                 .build();
     }
 
@@ -203,6 +207,23 @@ public class AuthService {
     }
 
     @Transactional
+    public void resendVerificationToken(String email) {
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new ResourceNotFoundException("User", "email", email));
+
+        if (Boolean.TRUE.equals(user.getIsEmailVerified())) {
+            throw new BusinessException("Email already verified");
+        }
+
+        String verifyToken = UUID.randomUUID().toString();
+        user.setVerifyEmailToken(verifyToken);
+        user.setVerifyEmailTokenExpiry(Instant.now().plusSeconds(86400)); // 24 hours
+        userRepository.save(user);
+
+        emailService.sendVerifyEmail(user.getEmail(), verifyToken);
+    }
+
+    @Transactional
     public void logout(String refreshTokenStr) {
         try {
             RefreshToken refreshToken = refreshTokenService.verifyRefreshToken(refreshTokenStr);
@@ -216,6 +237,34 @@ public class AuthService {
         String email = SecurityContextHolder.getContext().getAuthentication().getName();
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new ResourceNotFoundException("User", "email", email));
-        return userMapper.toUserInfoResponse(user);
+        return enrichUserInfo(userMapper.toUserInfoResponse(user));
+    }
+
+    private UserInfoResponse enrichUserInfo(UserInfoResponse response) {
+        java.util.List<com.kpitracking.dto.response.user.UserMembershipResponse> memberships = departmentMemberRepository.findByUserId(response.getId()).stream()
+                .map(dm -> com.kpitracking.dto.response.user.UserMembershipResponse.builder()
+                        .departmentId(dm.getDepartment().getId())
+                        .departmentName(dm.getDepartment().getName())
+                        .position(dm.getPosition())
+                        .build())
+                .toList();
+        response.setMemberships(memberships);
+        return response;
+    }
+
+    @Transactional
+    public UserInfoResponse uploadAvatar(org.springframework.web.multipart.MultipartFile file) {
+        String email = SecurityContextHolder.getContext().getAuthentication().getName();
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new ResourceNotFoundException("User", "email", email));
+
+        try {
+            String avatarUrl = cloudinaryStorageService.uploadFile(file, "avatars");
+            user.setAvatarUrl(avatarUrl);
+            user = userRepository.save(user);
+            return enrichUserInfo(userMapper.toUserInfoResponse(user));
+        } catch (java.io.IOException e) {
+            throw new BusinessException("Failed to upload avatar: " + e.getMessage());
+        }
     }
 }

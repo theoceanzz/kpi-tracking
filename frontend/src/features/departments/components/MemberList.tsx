@@ -5,7 +5,7 @@ import { Trash2, Shield, User, CornerDownRight } from 'lucide-react'
 const positionMap: Record<string, { label: string; color: string; icon: any }> = {
   HEAD: { label: 'Trưởng phòng', color: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 border-amber-200 dark:border-amber-800', icon: Shield },
   DEPUTY: { label: 'Phó phòng', color: 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400 border-indigo-200 dark:border-indigo-800', icon: Shield },
-  MEMBER: { label: 'Thành viên', color: 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300 border-slate-200 dark:border-slate-700', icon: User },
+  STAFF: { label: 'Thành viên', color: 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300 border-slate-200 dark:border-slate-700', icon: User },
 }
 
 interface MemberListProps {
@@ -29,14 +29,14 @@ export default function MemberList({ members, onRemove, canRemove }: MemberListP
 
   // Sắp xếp Trưởng phòng -> Phó phòng -> Thành viên
   const sortedMembers = [...members].sort((a, b) => {
-     const weight: Record<string, number> = { HEAD: 1, DEPUTY: 2, MEMBER: 3 }
+     const weight: Record<string, number> = { HEAD: 1, DEPUTY: 2, STAFF: 3 }
      return (weight[a.position] || 99) - (weight[b.position] || 99)
   })
 
   return (
     <div className="space-y-3">
       {sortedMembers.map((m, index) => {
-         const posConfig = positionMap[m.position as string] || positionMap['MEMBER']!
+         const posConfig = positionMap[m.position as string] || positionMap['STAFF']!
          const PositionIcon = posConfig.icon!
 
          return (

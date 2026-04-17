@@ -85,8 +85,8 @@ public class KpiSubmissionService {
                 .actualValue(request.getActualValue())
                 .note(request.getNote())
                 .status(SubmissionStatus.PENDING)
-                .periodStart(request.getPeriodStart())
-                .periodEnd(request.getPeriodEnd())
+                .periodStart(request.getPeriodStart() != null ? request.getPeriodStart().atStartOfDay(java.time.ZoneOffset.UTC).toInstant() : null)
+                .periodEnd(request.getPeriodEnd() != null ? request.getPeriodEnd().atStartOfDay(java.time.ZoneOffset.UTC).toInstant() : null)
                 .build();
 
         submission = submissionRepository.save(submission);
@@ -103,20 +103,32 @@ public class KpiSubmissionService {
         Pageable pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
 
         boolean isDirector = currentUser.getRole() == com.kpitracking.enums.UserRole.DIRECTOR;
-
-        if (!isDirector) {
-            // If HEAD fetches, they should only see their department's submissions.
-            // For simplicity, unless we add a custom query, we just reject company-wide fetches from HEAD
-            throw new com.kpitracking.exception.ForbiddenException("Only DIRECTOR can view all company submissions. HEAD should use department filters or my-submissions.");
-        }
+        boolean isHead = currentUser.getRole() == com.kpitracking.enums.UserRole.HEAD;
+        boolean isDeputy = currentUser.getRole() == com.kpitracking.enums.UserRole.DEPUTY;
 
         Page<KpiSubmission> subPage;
-        if (status != null) {
-            subPage = submissionRepository.findByCompanyIdAndStatus(companyId, status, pageable);
-        } else if (kpiCriteriaId != null) {
-            subPage = submissionRepository.findByCompanyIdAndKpiCriteriaId(companyId, kpiCriteriaId, pageable);
+        if (isDirector) {
+            if (status != null) {
+                subPage = submissionRepository.findByCompanyIdAndStatus(companyId, status, pageable);
+            } else if (kpiCriteriaId != null) {
+                subPage = submissionRepository.findByCompanyIdAndKpiCriteriaId(companyId, kpiCriteriaId, pageable);
+            } else {
+                subPage = submissionRepository.findByCompanyId(companyId, pageable);
+            }
+        } else if (isHead || isDeputy) {
+            java.util.List<com.kpitracking.entity.Department> managedDepts = departmentRepository.findByHeadIdOrDeputyId(currentUser.getId(), currentUser.getId());
+            if (managedDepts.isEmpty()) {
+                subPage = Page.empty(pageable);
+            } else {
+                java.util.List<UUID> managedDeptIds = managedDepts.stream().map(com.kpitracking.entity.Department::getId).toList();
+                if (status != null) {
+                    subPage = submissionRepository.findByCompanyIdAndKpiCriteriaDepartmentIdInAndStatus(companyId, managedDeptIds, status, pageable);
+                } else {
+                    subPage = submissionRepository.findByCompanyIdAndKpiCriteriaDepartmentIdIn(companyId, managedDeptIds, pageable);
+                }
+            }
         } else {
-            subPage = submissionRepository.findByCompanyId(companyId, pageable);
+            throw new com.kpitracking.exception.ForbiddenException("Only DIRECTOR, HEAD or DEPUTY can view submissions list");
         }
 
         return PageResponse.<SubmissionResponse>builder()

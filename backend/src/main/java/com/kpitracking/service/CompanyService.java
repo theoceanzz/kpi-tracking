@@ -28,6 +28,7 @@ public class CompanyService {
     private final ProvinceRepository provinceRepository;
     private final DistrictRepository districtRepository;
     private final CompanyMapper companyMapper;
+    private final CloudinaryStorageService cloudinaryStorageService;
 
     private UUID getCurrentCompanyId() {
         String email = SecurityContextHolder.getContext().getAuthentication().getName();
@@ -80,5 +81,21 @@ public class CompanyService {
 
         return companyMapper.toResponse(company);
 
+    }
+
+    @Transactional
+    public CompanyResponse uploadLogo(org.springframework.web.multipart.MultipartFile file) {
+        UUID companyId = getCurrentCompanyId();
+        Company company = companyRepository.findById(companyId)
+                .orElseThrow(() -> new ResourceNotFoundException("Company", "id", companyId));
+
+        try {
+            String logoUrl = cloudinaryStorageService.uploadFile(file, "company_logos");
+            company.setLogoUrl(logoUrl);
+            company = companyRepository.save(company);
+            return companyMapper.toResponse(company);
+        } catch (java.io.IOException e) {
+            throw new com.kpitracking.exception.BusinessException("Failed to upload company logo: " + e.getMessage());
+        }
     }
 }

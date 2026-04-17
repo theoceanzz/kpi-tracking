@@ -22,6 +22,10 @@ public interface EvaluationRepository extends JpaRepository<Evaluation, UUID> {
 
     Page<Evaluation> findByCompanyIdAndKpiCriteriaId(UUID companyId, UUID kpiCriteriaId, Pageable pageable);
 
+    Page<Evaluation> findByCompanyIdAndKpiCriteriaDepartmentId(UUID companyId, UUID departmentId, Pageable pageable);
+
+    Page<Evaluation> findByCompanyIdAndKpiCriteriaDepartmentIdIn(UUID companyId, java.util.Collection<UUID> departmentIds, Pageable pageable);
+
     @Query("SELECT AVG(e.score) FROM Evaluation e WHERE e.company.id = :companyId AND e.user.id = :userId")
     Double avgScoreByCompanyIdAndUserId(@Param("companyId") UUID companyId,
                                         @Param("userId") UUID userId);

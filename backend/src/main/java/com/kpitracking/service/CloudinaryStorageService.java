@@ -26,19 +26,26 @@ public class CloudinaryStorageService {
      * @return the secure URL of the uploaded file
      */
     public String uploadFile(MultipartFile file, String folder) throws IOException {
-        String publicId = folder + "/" + UUID.randomUUID();
+        try {
+            // Simplified publicId to just UUID since we are specifying the 'folder' separately
+            String publicId = UUID.randomUUID().toString();
 
-        @SuppressWarnings("unchecked")
-        Map<String, Object> uploadResult = cloudinary.uploader().upload(file.getBytes(),
-                ObjectUtils.asMap(
-                        "public_id", publicId,
-                        "folder", folder,
-                        "resource_type", "auto"
-                ));
+            @SuppressWarnings("unchecked")
+            Map<String, Object> uploadResult = cloudinary.uploader().upload(file.getBytes(),
+                    ObjectUtils.asMap(
+                            "public_id", publicId,
+                            "folder", folder,
+                            "resource_type", "auto"
+                    ));
 
-        String secureUrl = (String) uploadResult.get("secure_url");
-        log.info("File uploaded to Cloudinary successfully: {}", secureUrl);
-        return secureUrl;
+            String secureUrl = (String) uploadResult.get("secure_url");
+            log.info("File uploaded to Cloudinary successfully: {}", secureUrl);
+            return secureUrl;
+        } catch (Exception e) {
+            log.error("Cloudinary upload failed for file {}: {}", file.getOriginalFilename(), e.getMessage());
+            // Throwing a more descriptive exception if it's a Cloudinary specific error
+            throw new IOException("Failed to upload file to Cloudinary: " + e.getMessage(), e);
+        }
     }
 
     /**

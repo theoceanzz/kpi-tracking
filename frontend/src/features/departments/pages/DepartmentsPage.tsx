@@ -4,6 +4,7 @@ import EmptyState from '@/components/common/EmptyState'
 import DepartmentCard from '../components/DepartmentCard'
 import DepartmentFormModal from '../components/DepartmentFormModal'
 import { useDepartments } from '../hooks/useDepartments'
+import { useOverviewStats } from '@/features/dashboard/hooks/useOverviewStats'
 import { 
   Plus, 
   Search, 
@@ -15,7 +16,9 @@ import {
 import { cn } from '@/lib/utils'
 
 export default function DepartmentsPage() {
-  const { data, isLoading } = useDepartments()
+  const { data, isLoading: isDeptsLoading } = useDepartments()
+  const { data: overviewData, isLoading: isStatsLoading } = useOverviewStats()
+  const isLoading = isDeptsLoading || isStatsLoading
   const [showForm, setShowForm] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
   
@@ -55,7 +58,7 @@ export default function DepartmentsPage() {
           />
           <QuickStat 
             label="Nhân sự" 
-            value={departments.reduce((acc, curr) => acc + (curr.memberCount   || 0), 0)} 
+            value={overviewData?.totalUsers || 0} 
             icon={<Users size={20} />} 
             color="emerald" 
           />

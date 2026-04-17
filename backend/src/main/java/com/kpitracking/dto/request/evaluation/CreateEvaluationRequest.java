@@ -24,7 +24,7 @@ public class CreateEvaluationRequest {
 
     private String comment;
 
-    private Instant periodStart;
+    private java.time.LocalDate periodStart;
 
-    private Instant periodEnd;
+    private java.time.LocalDate periodEnd;
 }

@@ -17,7 +17,7 @@ public class CreateSubmissionRequest {
 
     private String note;
 
-    private Instant periodStart;
+    private java.time.LocalDate periodStart;
 
-    private Instant periodEnd;
+    private java.time.LocalDate periodEnd;
 }

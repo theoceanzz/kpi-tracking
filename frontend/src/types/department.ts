@@ -1,4 +1,4 @@
-export type DeptMemberPosition = 'HEAD' | 'DEPUTY' | 'MEMBER'
+export type DeptMemberPosition = 'HEAD' | 'DEPUTY' | 'STAFF'
 
 // Matches BE: DepartmentResponse
 export interface Department {

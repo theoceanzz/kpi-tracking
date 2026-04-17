@@ -18,6 +18,7 @@ public class UserResponse {
     private UserRole role;
     private UserStatus status;
     private UUID companyId;
+    private java.util.List<UserMembershipResponse> memberships;
     private Instant createdAt;
     private Instant updatedAt;
 }

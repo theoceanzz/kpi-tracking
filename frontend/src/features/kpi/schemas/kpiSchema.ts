@@ -9,6 +9,7 @@ export const kpiSchema = z.object({
   frequency: z.enum(['DAILY', 'WEEKLY', 'MONTHLY', 'QUARTERLY', 'YEARLY'], { message: 'Vui lòng chọn tần suất' }),
   departmentId: z.string().optional(),
   assignedToId: z.string().optional(),
+  assignedToIds: z.array(z.string()).optional(),
   startDate: z.string().optional(),
   endDate: z.string().optional(),
 })

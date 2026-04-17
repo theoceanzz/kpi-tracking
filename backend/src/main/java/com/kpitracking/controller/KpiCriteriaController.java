@@ -28,7 +28,7 @@ public class KpiCriteriaController {
     private final KpiCriteriaService kpiCriteriaService;
 
     @PostMapping
-    @PreAuthorize("hasAnyRole('DIRECTOR', 'HEAD')")
+    @PreAuthorize("hasAnyRole('DIRECTOR', 'HEAD', 'DEPUTY')")
     @Operation(summary = "Create KPI criteria")
     public ResponseEntity<ApiResponse<KpiCriteriaResponse>> createKpiCriteria(
             @Valid @RequestBody CreateKpiCriteriaRequest request) {
@@ -56,7 +56,7 @@ public class KpiCriteriaController {
     }
 
     @PutMapping("/{kpiId}")
-    @PreAuthorize("hasAnyRole('DIRECTOR', 'HEAD')")
+    @PreAuthorize("hasAnyRole('DIRECTOR', 'HEAD', 'DEPUTY')")
     @Operation(summary = "Update KPI criteria (DRAFT/REJECTED only)")
     public ResponseEntity<ApiResponse<KpiCriteriaResponse>> updateKpiCriteria(
             @PathVariable UUID kpiId,
@@ -66,7 +66,7 @@ public class KpiCriteriaController {
     }
 
     @PostMapping("/{kpiId}/submit")
-    @PreAuthorize("hasAnyRole('DIRECTOR', 'HEAD')")
+    @PreAuthorize("hasAnyRole('DIRECTOR', 'HEAD', 'DEPUTY')")
     @Operation(summary = "Submit KPI for approval")
     public ResponseEntity<ApiResponse<KpiCriteriaResponse>> submitForApproval(@PathVariable UUID kpiId) {
         KpiCriteriaResponse response = kpiCriteriaService.submitForApproval(kpiId);

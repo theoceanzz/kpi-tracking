@@ -12,7 +12,7 @@ import type { DepartmentStats, EmployeeKpiStats } from '@/types/stats'
 import type { KpiCriteria } from '@/types/kpi'
 import type { Submission } from '@/types/submission'
 import {
-  Users, Target, FileText,
+  Users, Target, FileText, ChevronDown,
   Clock, BarChart3, ShieldCheck, Building2,
   ChevronRight, Search, CheckCircle2, XCircle,
   Star, UserCircle2, Filter, ArrowUpRight,
@@ -28,8 +28,8 @@ export default function DirectorDashboard() {
 
   // Load real KPI and submission data
   const { data: recentKpiData, isLoading: loadingRecentKpis } = useQuery({
-    queryKey: ['kpi-criteria', 'director-dash'],
-    queryFn: () => kpiApi.getAll({ page: 0, size: 10 }),
+    queryKey: ['kpi-criteria', 'director-dash', 'APPROVED'],
+    queryFn: () => kpiApi.getAll({ page: 0, size: 10, status: 'APPROVED' as any }),
   })
   const { data: recentSubData, isLoading: loadingRecentSubs } = useQuery({
     queryKey: ['submissions', 'director-dash'],
@@ -244,9 +244,9 @@ function OverviewTab({ stats, kpiRate, subRate, deptStats, topPerformers, atRisk
               <h3 className="font-black text-base flex items-center gap-2">
                 <Building2 size={20} className="text-indigo-600" /> Tổng quan Phòng ban ({deptStats.length})
               </h3>
-              <button onClick={() => {}} className="text-xs font-bold text-indigo-600 hover:underline flex items-center gap-1">
+              <Link to="/departments" className="text-xs font-bold text-indigo-600 hover:underline flex items-center gap-1">
                 Xem chi tiết <ChevronRight size={14} />
-              </button>
+              </Link>
             </div>
 
             {deptStats.length === 0 ? (
@@ -511,19 +511,38 @@ function EmployeesTab({ employees, loading, search, onSearchChange, deptFilter, 
 
   return (
     <div className="space-y-5 animate-in fade-in duration-300">
-      <div className="flex flex-col sm:flex-row items-center gap-3">
-        <div className="relative flex-1 w-full sm:max-w-md">
-          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-          <input value={search} onChange={e => onSearchChange(e.target.value)} placeholder="Tìm nhân viên theo tên hoặc email..."
-            className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm focus:ring-2 focus:ring-indigo-500/30 outline-none transition-all" />
+      <div className="flex items-center gap-2.5 w-full">
+        <div className="relative flex-1 min-w-0">
+          <Search
+            className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"
+            size={16}
+          />
+          <input
+            value={search}
+            onChange={e => onSearchChange(e.target.value)}
+            placeholder="Tìm nhân viên theo tên hoặc email..."
+            className="w-full pl-9 pr-3.5 h-10 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm focus:ring-2 focus:ring-indigo-500/30 outline-none transition-all"
+          />
         </div>
-        <div className="flex items-center gap-2">
-          <Filter size={16} className="text-slate-400" />
-          <select value={deptFilter} onChange={e => onDeptFilterChange(e.target.value)}
-            className="px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm font-medium focus:ring-2 focus:ring-indigo-500/30 outline-none">
+
+        {/* Department filter */}
+        <div className="relative flex-none w-[200px]">
+          <Filter
+            className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"
+            size={14}
+          />
+          <select
+            value={deptFilter}
+            onChange={e => onDeptFilterChange(e.target.value)}
+            className="w-full pl-8 pr-8 h-10 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm focus:ring-2 focus:ring-indigo-500/30 outline-none appearance-none cursor-pointer"
+          >
             <option value="ALL">Tất cả phòng ban</option>
             {deptNames.map(d => <option key={d} value={d}>{d}</option>)}
           </select>
+          <ChevronDown
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"
+            size={12}
+          />
         </div>
       </div>
 
@@ -643,7 +662,7 @@ function KpiStatusBadge({ status }: { status: string }) {
 function SubmissionStatusBadge({ status }: { status: string }) {
   const cfg: Record<string, { label: string; cls: string }> = {
     DRAFT: { label: 'Nháp', cls: 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400' },
-    SUBMITTED: { label: 'Đã nộp', cls: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' },
+    PENDING: { label: 'Chờ duyệt', cls: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400' },
     APPROVED: { label: 'Đã duyệt', cls: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400' },
     REJECTED: { label: 'Từ chối', cls: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' },
   }

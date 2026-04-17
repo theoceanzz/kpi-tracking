@@ -168,6 +168,19 @@ public class DepartmentService {
             throw new DuplicateResourceException("Member already exists in this department");
         }
 
+        // Sync with Department entity head/deputy fields and User roles
+        if (request.getPosition() == com.kpitracking.enums.DeptMemberPosition.HEAD) {
+            department.setHead(user);
+            user.setRole(com.kpitracking.enums.UserRole.HEAD);
+            userRepository.save(user);
+            departmentRepository.save(department);
+        } else if (request.getPosition() == com.kpitracking.enums.DeptMemberPosition.DEPUTY) {
+            department.setDeputy(user);
+            user.setRole(com.kpitracking.enums.UserRole.DEPUTY);
+            userRepository.save(user);
+            departmentRepository.save(department);
+        }
+
         DepartmentMember member = DepartmentMember.builder()
                 .department(department)
                 .user(user)
@@ -189,6 +202,26 @@ public class DepartmentService {
 
         DepartmentMember member = departmentMemberRepository.findByDepartmentIdAndUserId(departmentId, userId)
                 .orElseThrow(() -> new ResourceNotFoundException("Department member not found"));
+
+        // Clear Department head/deputy if this user was assigned
+        if (department.getHead() != null && department.getHead().getId().equals(userId)) {
+            department.setHead(null);
+            departmentRepository.save(department);
+            
+            // Revert role to STAFF if they are no longer a head (optional security precaution)
+            User user = member.getUser();
+            user.setRole(com.kpitracking.enums.UserRole.STAFF);
+            userRepository.save(user);
+        }
+        if (department.getDeputy() != null && department.getDeputy().getId().equals(userId)) {
+            department.setDeputy(null);
+            departmentRepository.save(department);
+
+            User user = member.getUser();
+            user.setRole(com.kpitracking.enums.UserRole.STAFF);
+            userRepository.save(user);
+        }
+
         departmentMemberRepository.delete(member);
     }
 

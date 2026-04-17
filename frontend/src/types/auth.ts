@@ -12,6 +12,11 @@ export interface UserInfo {
   status: UserStatus
   companyId: string
   companyName: string
+  memberships: Array<{
+    departmentId: string
+    departmentName: string
+    position: string
+  }>
 }
 
 // Matches BE: AuthResponse
