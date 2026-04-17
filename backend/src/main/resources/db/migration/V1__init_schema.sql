@@ -59,7 +59,6 @@ CREATE TABLE org_units (
   email       VARCHAR(255),
   phone       VARCHAR(20),
   address     TEXT,
-  province_id UUID            REFERENCES provinces(id),
   district_id UUID            REFERENCES districts(id),
   logo_url    TEXT,
   status      VARCHAR(20)     NOT NULL DEFAULT 'TRIAL',
@@ -96,22 +95,6 @@ CREATE TABLE users (
 
 CREATE INDEX idx_users_email ON users(email);
 CREATE INDEX idx_users_deleted_at ON users(deleted_at);
-
--- ====================================================
--- User Org Units
--- ====================================================
-CREATE TABLE user_org_units (
-    user_id     UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    org_unit_id UUID NOT NULL REFERENCES org_units(id) ON DELETE CASCADE,
-
-    -- optional (rất quan trọng)
-    role_in_unit VARCHAR(50),   -- MEMBER | MANAGER | HEAD
-    is_primary   BOOLEAN DEFAULT FALSE,
-
-    assigned_at  TIMESTAMPTZ DEFAULT NOW(),
-
-    PRIMARY KEY (user_id, org_unit_id)
-);
 
 -- ====================================================
 -- Roles
@@ -173,8 +156,6 @@ CREATE TABLE policies (
   org_unit_id UUID         NOT NULL REFERENCES org_units(id) ON DELETE CASCADE,
   name       VARCHAR(150) NOT NULL,
   effect     TEXT         NOT NULL CHECK (effect IN ('ALLOW','DENY')),
-  resource   TEXT         NOT NULL,
-  action     TEXT         NOT NULL,
   created_at TIMESTAMPTZ  NOT NULL DEFAULT now(),
   updated_at TIMESTAMPTZ  NOT NULL DEFAULT now()
 );
@@ -187,7 +168,7 @@ CREATE INDEX IF NOT EXISTS idx_policies_org_unit_id ON policies(org_unit_id);
 CREATE TABLE policy_conditions (
   id             UUID  PRIMARY KEY DEFAULT gen_random_uuid(),
   policy_id      UUID  NOT NULL REFERENCES policies(id) ON DELETE CASCADE,
-  type           TEXT  NOT NULL CHECK (type IN ('ATTRIBUTE','TIME','IP_RANGE','ORG_UNIT')),
+  type           TEXT  NOT NULL CHECK (type IN ('ATTRIBUTE','ORG_UNIT')),
   condition_json JSONB NOT NULL
 );
 
@@ -205,16 +186,7 @@ CREATE TABLE role_policies (
 -- ====================================================
 CREATE TABLE scopes (
   id   UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  code TEXT NOT NULL UNIQUE CHECK (code IN ('SELF','NODE','SUBTREE','CUSTOM'))
-);
-
--- ====================================================
--- Role Scopes
--- ====================================================
-CREATE TABLE role_scopes (
-  role_id  UUID NOT NULL REFERENCES roles(id) ON DELETE CASCADE,
-  scope_id UUID NOT NULL REFERENCES scopes(id) ON DELETE CASCADE,
-  PRIMARY KEY (role_id, scope_id)
+  code TEXT NOT NULL UNIQUE CHECK (code IN ('NODE','SUBTREE','CUSTOM'))
 );
 
 -- ====================================================

@@ -9,8 +9,8 @@ import org.mapstruct.Mapping;
 @Mapper(componentModel = "spring")
 public interface KpiCriteriaMapper {
 
-    @Mapping(source = "department.id", target = "departmentId")
-    @Mapping(source = "department.name", target = "departmentName")
+    @Mapping(source = "orgUnit.id", target = "orgUnitId")
+    @Mapping(source = "orgUnit.name", target = "orgUnitName")
     @Mapping(source = "assignedTo.id", target = "assignedToId")
     @Mapping(source = "assignedTo.fullName", target = "assignedToName")
     @Mapping(source = "createdBy.id", target = "createdById")
@@ -19,7 +19,7 @@ public interface KpiCriteriaMapper {
     @Mapping(source = "approvedBy.fullName", target = "approvedByName")
     KpiCriteriaResponse toResponse(KpiCriteria kpiCriteria);
 
-    @Mapping(source = "department.name", target = "departmentName")
+    @Mapping(source = "orgUnit.name", target = "orgUnitName")
     @Mapping(source = "assignedTo.fullName", target = "assignedToName")
     KpiCriteriaSummaryResponse toSummaryResponse(KpiCriteria kpiCriteria);
 }

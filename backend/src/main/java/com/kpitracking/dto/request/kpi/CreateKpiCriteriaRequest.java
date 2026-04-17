@@ -27,7 +27,7 @@ public class CreateKpiCriteriaRequest {
     @NotNull(message = "Frequency is required")
     private KpiFrequency frequency;
 
-    private UUID departmentId;
+    private UUID orgUnitId;
 
     private UUID assignedToId;
 

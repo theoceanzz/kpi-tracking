@@ -39,60 +39,64 @@ INSERT INTO organizations (id, name, code) VALUES
 -- Sample Org Units
 -- ====================================================
 -- Branch A
-INSERT INTO org_units (id, name, organization_id, type)
+INSERT INTO org_units (id, name, organization_id, district_id, type)
 VALUES (
     'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
     'Chi nhánh Hà Nội',
     '11111111-1111-1111-1111-111111111111',
+    'b1000000-0000-0000-0000-000000000001',
     'branch'
 );
 
 -- Department IT
-INSERT INTO org_units (id, name, parent_id, organization_id, type)
+INSERT INTO org_units (id, name, parent_id, organization_id, district_id, type)
 VALUES (
     'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb',
     'Phòng IT',
     'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
     '11111111-1111-1111-1111-111111111111',
+    'b1000000-0000-0000-0000-000000000001',
     'department'
 );
 
 -- Department HR
-INSERT INTO org_units (id, name, parent_id, organization_id, type)
+INSERT INTO org_units (id, name, parent_id, organization_id, district_id, type)
 VALUES (
     'cccccccc-cccc-cccc-cccc-cccccccccccc',
     'Phòng Nhân sự',
     'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
     '11111111-1111-1111-1111-111111111111',
+    'b1000000-0000-0000-0000-000000000001',
     'department'
 );
 
 -- Team Backend
-INSERT INTO org_units (id, name, parent_id, organization_id, type)
+INSERT INTO org_units (id, name, parent_id, organization_id, district_id, type)
 VALUES (
     'dddddddd-dddd-dddd-dddd-dddddddddddd',
     'Team Backend',
     'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb',
     '11111111-1111-1111-1111-111111111111',
+    'b1000000-0000-0000-0000-000000000001',
     'team'
 );
 
-INSERT INTO users (id, email, password, full_name, phone, status) VALUES
+INSERT INTO users (id, email, password, full_name, phone, status, is_email_verified) VALUES
     ('d1000000-0000-0000-0000-000000000001',
      'director@demo.com', '$2a$12$Ab.ay.J8o0ExWqdKKXcpmuhU0Itfrn9eUa05wMQGmLh.nfPf5yD92',
-     'Nguyễn Văn Director', '0901000001', 'ACTIVE'),
+     'Nguyễn Văn Director', '0901000001', 'ACTIVE', true),
 
     ('d1000000-0000-0000-0000-000000000002',
      'head@demo.com', '$2a$12$Mzmf4O7Yqg3NZlHlBA8dt.WZKJRPp4KLU5Hd1YhyQWPYxzHpitZza',
-     'Trần Thị Head', '0901000002', 'ACTIVE'),
+     'Trần Thị Head', '0901000002', 'ACTIVE', true),
 
     ('d1000000-0000-0000-0000-000000000003',
      'deputy@demo.com', '$2a$12$FLg.uqn4LZK9ooFgc12a5.iaH6sfH212mNiPc0Hjt8HaMA5Qh7nMy',
-     'Lê Văn Deputy', '0901000003', 'ACTIVE'),
+     'Lê Văn Deputy', '0901000003', 'ACTIVE', true),
 
     ('d1000000-0000-0000-0000-000000000004',
      'staff@demo.com', '$2a$12$qI4LsOS.rbo/YoyRAJHUduh1PHiYw25CYssLvdV3hyhiN07EFV45G',
-     'Phạm Thị Staff', '0901000004', 'ACTIVE');
+     'Phạm Thị Staff', '0901000004', 'ACTIVE', true);
 
 INSERT INTO roles (id, name)
 VALUES
@@ -176,25 +180,21 @@ INSERT INTO role_permissions VALUES
 -- Sample Policy
 -- ====================================================
 -- Policy: Head chỉ approve trong phòng IT
-INSERT INTO policies (id, org_unit_id, name, effect, resource, action)
+INSERT INTO policies (id, org_unit_id, name, effect)
 VALUES (
 'aaa1aaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb',
 'Head approve KPI IT',
-'ALLOW',
-'KPI',
-'APPROVE'
+'ALLOW'
 );
 
 -- Policy: Staff không được approve
-INSERT INTO policies (id, org_unit_id, name, effect, resource, action)
+INSERT INTO policies (id, org_unit_id, name, effect)
 VALUES (
 'bbb2bbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb',
 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb',
 'Deny staff approve',
-'DENY',
-'KPI',
-'APPROVE'
+'DENY'
 );
 
 -- ====================================================
@@ -231,29 +231,9 @@ INSERT INTO role_policies VALUES
 -- Sample Scopes
 -- ====================================================
 INSERT INTO scopes (id, code) VALUES
-('aaaaa1aa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'SELF'),
 ('bbbbb2bb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', 'NODE'),
 ('ccccc3cc-cccc-cccc-cccc-cccccccccccc', 'SUBTREE'),
 ('ddddd4dd-dddd-dddd-dddd-dddddddddddd', 'CUSTOM');
-
--- ====================================================
--- Sample Role Scopes
--- ====================================================
--- Director: toàn cây
-INSERT INTO role_scopes VALUES
-('a1aaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'ccccc3cc-cccc-cccc-cccc-cccccccccccc');
-
--- Head: subtree
-INSERT INTO role_scopes VALUES
-('b2bbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', 'ccccc3cc-cccc-cccc-cccc-cccccccccccc');
-
--- Deputy: node
-INSERT INTO role_scopes VALUES
-('c3cccccc-cccc-cccc-cccc-cccccccccccc', 'bbbbb2bb-bbbb-bbbb-bbbb-bbbbbbbbbbbb');
-
--- Staff: self
-INSERT INTO role_scopes VALUES
-('d4dddddd-dddd-dddd-dddd-dddddddddddd', 'aaaaa1aa-aaaa-aaaa-aaaa-aaaaaaaaaaaa');
 
 -- ====================================================
 -- Sample KPI Criteria

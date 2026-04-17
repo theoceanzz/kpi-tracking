@@ -11,7 +11,7 @@ public class EmployeeKpiStatsResponse {
     private String fullName;
     private String email;
     private String role;
-    private String departmentName;
+    private String orgUnitName;
     private long assignedKpi;
     private long totalSubmissions;
     private long approvedSubmissions;

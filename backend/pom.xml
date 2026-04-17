@@ -35,7 +35,7 @@
         <cloudinary.version>1.39.0</cloudinary.version>
         <poi.version>5.2.5</poi.version>
         <commons-csv.version>1.10.0</commons-csv.version>
-        <lombok.version>1.18.30</lombok.version>
+        <lombok.version>1.18.36</lombok.version>
     </properties>
     <dependencies>
         <!-- Spring Boot Starters -->

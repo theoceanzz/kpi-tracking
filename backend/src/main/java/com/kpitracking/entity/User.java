@@ -1,5 +1,5 @@
 package com.kpitracking.entity;
-import com.kpitracking.enums.UserRole;
+
 import com.kpitracking.enums.UserStatus;
 import jakarta.persistence.*;
 import lombok.*;
@@ -22,10 +22,6 @@ public class User {
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "company_id", nullable = false)
-    private Company company;
-
     @Column(name = "email", nullable = false, unique = true)
     private String email;
 
@@ -40,10 +36,6 @@ public class User {
 
     @Column(name = "avatar_url")
     private String avatarUrl;
-
-    @Enumerated(EnumType.STRING)
-    @Column(name = "role", nullable = false)
-    private UserRole role;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false)
