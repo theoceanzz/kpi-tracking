@@ -10,6 +10,7 @@ import com.kpitracking.mapper.SubmissionMapper;
 import com.kpitracking.repository.KpiSubmissionRepository;
 import com.kpitracking.repository.SubmissionAttachmentRepository;
 import com.kpitracking.repository.UserRepository;
+import com.kpitracking.repository.UserRoleOrgUnitRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -30,8 +31,7 @@ public class SubmissionAttachmentService {
     private final SubmissionAttachmentRepository attachmentRepository;
     private final KpiSubmissionRepository submissionRepository;
     private final UserRepository userRepository;
-    private final com.kpitracking.repository.DepartmentRepository departmentRepository;
-    private final com.kpitracking.repository.DepartmentMemberRepository departmentMemberRepository;
+    private final UserRoleOrgUnitRepository userRoleOrgUnitRepository;
     private final CloudinaryStorageService cloudinaryStorageService;
     private final SubmissionMapper submissionMapper;
 
@@ -40,13 +40,17 @@ public class SubmissionAttachmentService {
         return userRepository.findByEmail(email)
                 .orElseThrow(() -> new ResourceNotFoundException("User", "email", email));
     }
+    
+    private boolean hasRole(UUID userId, String roleName) {
+        return userRoleOrgUnitRepository.findByUserId(userId).stream()
+                .anyMatch(uro -> uro.getRole().getName().equalsIgnoreCase(roleName));
+    }
 
     @Transactional
     public List<AttachmentResponse> uploadAttachments(UUID submissionId, MultipartFile[] files) throws IOException {
         User currentUser = getCurrentUser();
-        UUID companyId = currentUser.getCompany().getId();
 
-        KpiSubmission submission = submissionRepository.findByIdAndCompanyId(submissionId, companyId)
+        KpiSubmission submission = submissionRepository.findById(submissionId)
                 .orElseThrow(() -> new ResourceNotFoundException("Submission", "id", submissionId));
 
         if (!submission.getSubmittedBy().getId().equals(currentUser.getId())) {
@@ -84,23 +88,16 @@ public class SubmissionAttachmentService {
     @Transactional(readOnly = true)
     public List<AttachmentResponse> getAttachments(UUID submissionId) {
         User currentUser = getCurrentUser();
-        UUID companyId = currentUser.getCompany().getId();
 
-        KpiSubmission submission = submissionRepository.findByIdAndCompanyId(submissionId, companyId)
+        KpiSubmission submission = submissionRepository.findById(submissionId)
                 .orElseThrow(() -> new ResourceNotFoundException("Submission", "id", submissionId));
 
         boolean isSubmitter = submission.getSubmittedBy().getId().equals(currentUser.getId());
-        boolean isDirector = currentUser.getRole() == com.kpitracking.enums.UserRole.DIRECTOR;
+        boolean isDirector = hasRole(currentUser.getId(), "DIRECTOR");
+        boolean isHead = hasRole(currentUser.getId(), "HEAD");
         
-        if (!isSubmitter && !isDirector) {
-             boolean isHeadOfSubmitter = departmentRepository.findByCompanyId(companyId, org.springframework.data.domain.PageRequest.of(0, 100))
-                    .getContent().stream()
-                    .filter(dept -> dept.getHead() != null && dept.getHead().getId().equals(currentUser.getId()))
-                    .anyMatch(dept -> departmentMemberRepository.existsByDepartmentIdAndUserId(dept.getId(), submission.getSubmittedBy().getId()));
-             
-             if (!isHeadOfSubmitter) {
-                 throw new com.kpitracking.exception.ForbiddenException("You can only view attachments for your own or your department's submissions");
-             }
+        if (!isSubmitter && !isDirector && !isHead) {
+             throw new com.kpitracking.exception.ForbiddenException("You can only view attachments for your own or authorized submissions");
         }
 
         List<SubmissionAttachment> attachments = attachmentRepository.findBySubmissionId(submissionId);
@@ -128,4 +125,3 @@ public class SubmissionAttachmentService {
         attachmentRepository.delete(attachment);
     }
 }
-

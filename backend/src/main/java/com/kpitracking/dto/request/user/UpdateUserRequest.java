@@ -1,6 +1,5 @@
 package com.kpitracking.dto.request.user;
 
-import com.kpitracking.enums.UserRole;
 import com.kpitracking.enums.UserStatus;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.Size;
@@ -16,8 +15,6 @@ public class UpdateUserRequest {
     private String email;
 
     private String phone;
-
-    private UserRole role;
 
     private UserStatus status;
 }

@@ -8,11 +8,13 @@ import lombok.*;
 @Getter @Setter @Builder @NoArgsConstructor @AllArgsConstructor
 public class RegisterRequest {
 
-    @NotBlank(message = "Company name is required")
-    @Size(max = 255, message = "Company name must not exceed 255 characters")
-    private String companyName;
+    @NotBlank(message = "Organization name is required")
+    @Size(max = 255, message = "Organization name must not exceed 255 characters")
+    private String organizationName;
 
-    private String taxCode;
+    @NotBlank(message = "Organization code is required")
+    @Size(max = 50, message = "Organization code must not exceed 50 characters")
+    private String organizationCode;
 
     @NotBlank(message = "Full name is required")
     @Size(max = 255, message = "Full name must not exceed 255 characters")

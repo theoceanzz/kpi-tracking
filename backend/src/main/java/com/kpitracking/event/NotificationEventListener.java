@@ -36,7 +36,7 @@ public class NotificationEventListener {
                 submission.getSubmittedBy().getFullName(),
                 submission.getActualValue());
 
-        notificationService.createNotification(creator, title, message, "SUBMISSION", submission.getId());
+        notificationService.createNotification(submission.getOrgUnit(), creator, title, message, "SUBMISSION", submission.getId());
         emailService.sendNotificationEmail(creator.getEmail(), title, message);
     }
 
@@ -59,7 +59,7 @@ public class NotificationEventListener {
             message += " Note: " + submission.getReviewNote();
         }
 
-        notificationService.createNotification(submitter, title, message, "REVIEW", submission.getId());
+        notificationService.createNotification(submission.getOrgUnit(), submitter, title, message, "REVIEW", submission.getId());
         emailService.sendNotificationEmail(submitter.getEmail(), title, message);
     }
 
@@ -76,13 +76,13 @@ public class NotificationEventListener {
                 kpi.getName(),
                 kpi.getApprovedBy().getFullName());
 
-        notificationService.createNotification(creator, title, message, "KPI_APPROVED", kpi.getId());
+        notificationService.createNotification(kpi.getOrgUnit(), creator, title, message, "KPI_APPROVED", kpi.getId());
         emailService.sendNotificationEmail(creator.getEmail(), title, message);
 
         // Also notify the assigned user if applicable
         if (kpi.getAssignedTo() != null && !kpi.getAssignedTo().getId().equals(creator.getId())) {
             String assigneeMessage = String.format("You have been assigned a new KPI: '%s'.", kpi.getName());
-            notificationService.createNotification(kpi.getAssignedTo(), "New KPI Assigned",
+            notificationService.createNotification(kpi.getOrgUnit(), kpi.getAssignedTo(), "New KPI Assigned",
                     assigneeMessage, "KPI_ASSIGNED", kpi.getId());
             emailService.sendNotificationEmail(kpi.getAssignedTo().getEmail(), "New KPI Assigned", assigneeMessage);
         }

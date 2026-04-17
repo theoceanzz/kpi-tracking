@@ -1,9 +1,7 @@
 package com.kpitracking.dto.request.user;
 
-import com.kpitracking.enums.UserRole;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import lombok.*;
 
@@ -23,7 +21,4 @@ public class CreateUserRequest {
     private String password;
 
     private String phone;
-
-    @NotNull(message = "Role is required")
-    private UserRole role;
 }

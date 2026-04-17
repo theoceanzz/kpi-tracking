@@ -13,8 +13,8 @@ import org.springframework.stereotype.Component;
 import javax.crypto.SecretKey;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
-import java.util.UUID;
 import java.util.function.Function;
 
 @Component
@@ -26,18 +26,12 @@ public class JwtTokenProvider {
 
     public String generateAccessToken(Authentication authentication) {
         UserDetails userDetails = (UserDetails) authentication.getPrincipal();
-        return generateAccessToken(userDetails.getUsername());
+        return generateAccessToken(userDetails.getUsername(), List.of());
     }
 
-    public String generateAccessToken(String email) {
+    public String generateAccessToken(String email, List<String> roles) {
         Map<String, Object> claims = new HashMap<>();
-        return buildToken(claims, email, jwtConfig.getAccessTokenExpiry());
-    }
-
-    public String generateAccessToken(String email, UUID companyId, String role) {
-        Map<String, Object> claims = new HashMap<>();
-        claims.put("companyId", companyId.toString());
-        claims.put("role", role);
+        claims.put("roles", roles);
         return buildToken(claims, email, jwtConfig.getAccessTokenExpiry());
     }
 
@@ -55,13 +49,9 @@ public class JwtTokenProvider {
         return extractClaim(token, Claims::getSubject);
     }
 
-    public UUID extractCompanyId(String token) {
-        String companyId = extractClaim(token, claims -> claims.get("companyId", String.class));
-        return companyId != null ? UUID.fromString(companyId) : null;
-    }
-
-    public String extractRole(String token) {
-        return extractClaim(token, claims -> claims.get("role", String.class));
+    @SuppressWarnings("unchecked")
+    public List<String> extractRoles(String token) {
+        return extractClaim(token, claims -> claims.get("roles", List.class));
     }
 
     public <T> T extractClaim(String token, Function<Claims, T> claimsResolver) {
