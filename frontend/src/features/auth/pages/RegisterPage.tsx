@@ -1,25 +1,35 @@
 import { useState } from 'react' // 1. Thêm useState
-import { useForm, useWatch } from 'react-hook-form'
+import { useForm, useWatch, useFieldArray } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { registerSchema, type RegisterFormData } from '../schemas/authSchema'
 import { useMutation } from '@tanstack/react-query'
 import { authApi } from '../api/authApi'
-import { useAuthStore } from '@/store/authStore'
 import { useNavigate, Link } from 'react-router-dom'
 import { toast } from 'sonner'
 // 2. Thêm Eye và EyeOff từ lucide-react
-import { Loader2, Mail, Lock, Building2, User, Phone, Eye, EyeOff, Wand2, Check } from 'lucide-react'
+import { Loader2, Mail, Lock, Building2, User, Phone, Eye, EyeOff, Wand2, Check, Plus, Trash2, ChevronDown, ChevronUp, Layers } from 'lucide-react'
 
 export default function RegisterPage() {
   const [showPassword, setShowPassword] = useState(false)
   const [isSuccess, setIsSuccess] = useState(false)
   const [registeredEmail, setRegisteredEmail] = useState('')
   const [tokenInput, setTokenInput] = useState('')
-  const setAuth = useAuthStore((s) => s.setAuth)
   const navigate = useNavigate()
 
   const { register, handleSubmit, control, setValue, setError, formState: { errors } } = useForm<RegisterFormData>({
     resolver: zodResolver(registerSchema),
+    defaultValues: {
+      hierarchyLevels: [
+        { unitTypeName: 'Chi nhánh', managerRoleLabel: 'Giám đốc chi nhánh' },
+        { unitTypeName: 'Phòng ban', managerRoleLabel: 'Trưởng phòng' },
+        { unitTypeName: 'Tổ', managerRoleLabel: 'Nhân viên' },
+      ]
+    }
+  })
+
+  const { fields, append, prepend, remove } = useFieldArray({
+    control,
+    name: 'hierarchyLevels'
   })
 
   const pwd = useWatch({ control, name: 'password', defaultValue: '' })
@@ -76,7 +86,7 @@ export default function RegisterPage() {
 
   const registerMutation = useMutation({
     mutationFn: (data: RegisterFormData) => authApi.register(data),
-    onSuccess: (data, variables) => {
+    onSuccess: (_, variables) => {
       // Xác nhận luồng: Bắt buộc người dùng phải verify email chứ ko tự động login nữa
       setRegisteredEmail(variables.email)
       setIsSuccess(true)
@@ -152,21 +162,34 @@ export default function RegisterPage() {
   return (
     <div className="w-full">
       <div className="mb-8 text-center lg:text-left">
-        <h2 className="text-3xl font-extrabold tracking-tight text-[var(--color-foreground)] mb-2">Đăng ký Cấp Doanh nghiệp</h2>
-        <p className="text-[var(--color-muted-foreground)]">Thiết lập hệ thống KPI chuyên nghiệp ngay hôm nay.</p>
+        <h2 className="text-3xl font-extrabold tracking-tight text-[var(--color-foreground)] mb-2">Đăng ký Cấp Tổ chức</h2>
+        <p className="text-[var(--color-muted-foreground)]">Thiết lập hệ thống quản trị mục tiêu chuyên nghiệp cho tổ chức.</p>
       </div>
 
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
         {/* Tên công ty */}
-        <div className="space-y-2">
-           <label className="text-sm font-bold text-[var(--color-foreground)]">Tên pháp nhân công ty <span className="text-red-500">*</span></label>
-           <div className="relative">
-             <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <Building2 size={18} className="text-[var(--color-muted-foreground)]" />
-             </div>
-             <input {...register('companyName')} className={inputCls} placeholder="VD: Công ty TNHH Giải pháp Số ABC" />
-           </div>
-           {errors.companyName && <p className="text-red-500 text-xs mt-1.5 font-medium">{errors.companyName.message}</p>}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <label className="text-sm font-bold text-[var(--color-foreground)]">Tên tổ chức <span className="text-red-500">*</span></label>
+            <div className="relative">
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <Building2 size={18} className="text-[var(--color-muted-foreground)]" />
+              </div>
+              <input {...register('organizationName')} className={inputCls} placeholder="VD: Tập đoàn Công nghệ Ánh Trăng" />
+            </div>
+            {errors.organizationName && <p className="text-red-500 text-xs mt-1.5 font-medium">{errors.organizationName.message}</p>}
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-sm font-bold text-[var(--color-foreground)]">Mã tổ chức <span className="text-red-500">*</span></label>
+            <div className="relative">
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <Wand2 size={18} className="text-[var(--color-muted-foreground)]" />
+              </div>
+              <input {...register('organizationCode')} className={inputCls} placeholder="VD: ABC_CORP" />
+            </div>
+            {errors.organizationCode && <p className="text-red-500 text-xs mt-1.5 font-medium">{errors.organizationCode.message}</p>}
+          </div>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -202,7 +225,7 @@ export default function RegisterPage() {
              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                 <Mail size={18} className="text-[var(--color-muted-foreground)]" />
              </div>
-             <input {...register('email')} type="email" className={inputCls} placeholder="admin@congty.com" />
+             <input {...register('email')} type="email" className={inputCls} placeholder="admin@tochuc.com" />
            </div>
            {errors.email && <p className="text-red-500 text-xs mt-1.5 font-medium">{errors.email.message}</p>}
         </div>
@@ -277,7 +300,91 @@ export default function RegisterPage() {
              </div>
            )}
 
-           {errors.password && !pwd && <p className="text-red-500 text-xs mt-1.5 font-medium">{errors.password.message}</p>}
+            {errors.password && !pwd && <p className="text-red-500 text-xs mt-1.5 font-medium">{errors.password.message}</p>}
+        </div>
+
+        {/* CƠ CẤU TỔ CHỨC (NEW) */}
+        <div className="space-y-4 pt-4 border-t border-[var(--color-border)]/50">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Layers size={18} className="text-[var(--color-primary)]" />
+              <h3 className="text-sm font-bold text-[var(--color-foreground)]">Thiết lập Cơ cấu tổ chức</h3>
+            </div>
+            <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-[var(--color-primary)]/10 text-[var(--color-primary)]">Tối thiểu 3 cấp</span>
+          </div>
+
+          <div className="space-y-3">
+            {fields.map((field, index) => (
+              <div 
+                key={field.id} 
+                className="group relative p-4 rounded-xl border border-[var(--color-border)] bg-[var(--color-muted)]/10 hover:border-[var(--color-primary)]/30 transition-all animate-in slide-in-from-right-2"
+                style={{ animationDelay: `${index * 50}ms` }}
+              >
+                <div className="flex items-start gap-4">
+                  <div className="flex flex-col items-center gap-1 mt-1">
+                    <div className="w-6 h-6 rounded-full bg-[var(--color-primary)] text-white text-[10px] font-bold flex items-center justify-center shadow-sm">
+                      {index + 1}
+                    </div>
+                    {index < fields.length - 1 && <div className="w-0.5 h-12 bg-gradient-to-b from-[var(--color-primary)] to-transparent opacity-20" />}
+                  </div>
+
+                  <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div className="space-y-1.5">
+                      <label className="text-[11px] font-bold text-[var(--color-muted-foreground)] uppercase tracking-wider">Tên cấp bậc</label>
+                      <input 
+                        {...register(`hierarchyLevels.${index}.unitTypeName`)} 
+                        className="w-full px-3 py-2 rounded-lg border border-[var(--color-border)] bg-[var(--color-background)] text-sm focus:ring-2 focus:ring-[var(--color-primary)]/10 outline-none transition-all"
+                        placeholder={index === 0 ? "Tổng công ty" : "Tên đơn vị..."}
+                      />
+                      {errors.hierarchyLevels?.[index]?.unitTypeName && (
+                        <p className="text-red-500 text-[10px] font-medium">{errors.hierarchyLevels[index]?.unitTypeName?.message}</p>
+                      )}
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <label className="text-[11px] font-bold text-[var(--color-muted-foreground)] uppercase tracking-wider">
+                        {index === fields.length - 1 ? "Ghi chú (Tùy chọn)" : "Chức danh quản lý"}
+                      </label>
+                      <input 
+                        {...register(`hierarchyLevels.${index}.managerRoleLabel`)} 
+                        className="w-full px-3 py-2 rounded-lg border border-[var(--color-border)] bg-[var(--color-background)] text-sm focus:ring-2 focus:ring-[var(--color-primary)]/10 outline-none transition-all disabled:opacity-50"
+                        placeholder={index === fields.length - 1 ? "Cấp nhân viên thực thi" : "VD: Giám đốc, Trưởng phòng..."}
+                      />
+                    </div>
+                  </div>
+
+                  {fields.length > 3 && (
+                    <button
+                      type="button"
+                      onClick={() => remove(index)}
+                      className="mt-6 p-1.5 text-red-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/10 rounded-lg transition-all"
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div className="flex flex-col sm:flex-row gap-3">
+            <button
+              type="button"
+              onClick={() => prepend({ unitTypeName: '', managerRoleLabel: '' })}
+              className="flex-1 py-2.5 flex items-center justify-center gap-2 border-2 border-dashed border-indigo-200 dark:border-indigo-900/30 hover:border-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/10 text-indigo-500 rounded-xl text-sm font-bold transition-all group"
+            >
+              <ChevronUp size={18} className="group-hover:-translate-y-1 transition-transform" />
+              Thêm cấp bậc CHA
+            </button>
+            <button
+              type="button"
+              onClick={() => append({ unitTypeName: '', managerRoleLabel: '' })}
+              className="flex-1 py-2.5 flex items-center justify-center gap-2 border-2 border-dashed border-[var(--color-border)] hover:border-[var(--color-primary)] hover:bg-[var(--color-primary)]/5 text-[var(--color-muted-foreground)] hover:text-[var(--color-primary)] rounded-xl text-sm font-bold transition-all group"
+            >
+              <ChevronDown size={18} className="group-hover:translate-y-1 transition-transform" />
+              Thêm cấp bậc CON
+            </button>
+          </div>
         </div>
 
         <button
@@ -292,7 +399,7 @@ export default function RegisterPage() {
 
       <div className="mt-8 text-center bg-[var(--color-muted)]/30 rounded-xl p-4 border border-[var(--color-border)]/50">
         <p className="text-sm text-[var(--color-muted-foreground)]">
-          Đã có tài khoản doanh nghiệp?{' '}
+          Đã có tài khoản tổ chức?{' '}
           <Link to="/login" className="text-[var(--color-foreground)] font-bold hover:text-[var(--color-primary)] transition-colors underline decoration-[var(--color-primary)]/30 underline-offset-4">
             Trở lại đăng nhập
           </Link>

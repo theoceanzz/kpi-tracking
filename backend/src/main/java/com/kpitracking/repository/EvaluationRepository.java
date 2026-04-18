@@ -17,22 +17,9 @@ public interface EvaluationRepository extends JpaRepository<Evaluation, UUID> {
 
     Page<Evaluation> findByKpiCriteriaId(UUID kpiCriteriaId, Pageable pageable);
 
-<<<<<<< HEAD
-    Page<Evaluation> findByCompanyIdAndUserId(UUID companyId, UUID userId, Pageable pageable);
-
-    Page<Evaluation> findByCompanyIdAndKpiCriteriaId(UUID companyId, UUID kpiCriteriaId, Pageable pageable);
-
-    Page<Evaluation> findByCompanyIdAndKpiCriteriaDepartmentId(UUID companyId, UUID departmentId, Pageable pageable);
-
-    Page<Evaluation> findByCompanyIdAndKpiCriteriaDepartmentIdIn(UUID companyId, java.util.Collection<UUID> departmentIds, Pageable pageable);
-
-    @Query("SELECT AVG(e.score) FROM Evaluation e WHERE e.company.id = :companyId AND e.user.id = :userId")
-    Double avgScoreByCompanyIdAndUserId(@Param("companyId") UUID companyId,
-                                        @Param("userId") UUID userId);
-
-    long countByCompanyId(UUID companyId);
-=======
     @Query("SELECT AVG(e.score) FROM Evaluation e WHERE e.user.id = :userId")
     Double avgScoreByUserId(@Param("userId") UUID userId);
->>>>>>> 7681c6edbb52597770fb6dc8246115573f68d03b
+
+    @Query("SELECT COUNT(e) FROM Evaluation e WHERE e.orgUnit.orgHierarchyLevel.organization.id = :orgId")
+    long countByOrganizationId(@Param("orgId") UUID orgId);
 }

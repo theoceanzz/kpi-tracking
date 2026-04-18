@@ -43,6 +43,7 @@ export default function AttachmentList({ attachments }: AttachmentListProps) {
                 <div className="absolute inset-0 bg-indigo-600/0 group-hover:bg-indigo-600/60 backdrop-blur-0 group-hover:backdrop-blur-sm transition-all duration-300 flex items-center justify-center gap-3 opacity-0 group-hover:opacity-100">
                   {canPreview && (
                     <button 
+                      type="button"
                       onClick={() => setPreviewFile(a)}
                       className="w-10 h-10 rounded-full bg-white text-indigo-600 flex items-center justify-center shadow-lg hover:bg-indigo-50 transition-colors"
                       title="Xem trước"

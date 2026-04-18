@@ -29,4 +29,6 @@ public class RegisterRequest {
     private String password;
 
     private String phone;
+
+    private java.util.List<HierarchyLevelDTO> hierarchyLevels;
 }

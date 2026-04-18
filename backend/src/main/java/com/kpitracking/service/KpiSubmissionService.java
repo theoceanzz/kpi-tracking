@@ -46,7 +46,7 @@ public class KpiSubmissionService {
     private User getCurrentUser() {
         String email = SecurityContextHolder.getContext().getAuthentication().getName();
         return userRepository.findByEmail(email)
-                .orElseThrow(() -> new ResourceNotFoundException("User", "email", email));
+                .orElseThrow(() -> new ResourceNotFoundException("Người dùng", "email", email));
     }
 
     private boolean hasRole(UUID userId, String roleName) {
@@ -59,10 +59,10 @@ public class KpiSubmissionService {
         User currentUser = getCurrentUser();
 
         KpiCriteria kpi = kpiCriteriaRepository.findById(request.getKpiCriteriaId())
-                .orElseThrow(() -> new ResourceNotFoundException("KPI Criteria", "id", request.getKpiCriteriaId()));
+                .orElseThrow(() -> new ResourceNotFoundException("Chỉ tiêu KPI", "id", request.getKpiCriteriaId()));
 
         if (kpi.getStatus() != KpiStatus.APPROVED) {
-            throw new BusinessException("Can only submit against APPROVED KPI criteria");
+            throw new BusinessException("Chỉ có thể nộp báo cáo cho những chỉ tiêu KPI đã được PHÊ DUYỆT");
         }
 
         boolean isAssignee = kpi.getAssignedTo() != null && kpi.getAssignedTo().getId().equals(currentUser.getId());
@@ -72,9 +72,26 @@ public class KpiSubmissionService {
                     userRoleOrgUnitRepository.findByUserIdAndOrgUnitId(currentUser.getId(), kpi.getOrgUnit().getId())
                             .stream().findAny().isPresent();
             if (!isInSameOrgUnit) {
-                throw new ForbiddenException("You are not assigned to this KPI criteria");
+                throw new ForbiddenException("Bạn không được giao thực hiện chỉ tiêu KPI này");
             }
         }
+
+        // Validation of period dates against KPI range (comparing at LocalDate level to avoid precision issues)
+        java.time.LocalDate kpiStart = kpi.getStartDate() != null ? kpi.getStartDate().atZone(java.time.ZoneOffset.UTC).toLocalDate() : null;
+        java.time.LocalDate kpiEnd = kpi.getEndDate() != null ? kpi.getEndDate().atZone(java.time.ZoneOffset.UTC).toLocalDate() : null;
+
+        if (request.getPeriodStart() != null && kpiStart != null && request.getPeriodStart().isBefore(kpiStart)) {
+            throw new BusinessException("Ngày bắt đầu báo cáo không được trước ngày bắt đầu của KPI (" + kpiStart + ")");
+        }
+        if (request.getPeriodEnd() != null && kpiEnd != null && request.getPeriodEnd().isAfter(kpiEnd)) {
+            throw new BusinessException("Ngày kết thúc báo cáo không được sau ngày kết thúc của KPI (" + kpiEnd + ")");
+        }
+        if (request.getPeriodStart() != null && request.getPeriodEnd() != null && request.getPeriodEnd().isBefore(request.getPeriodStart())) {
+            throw new BusinessException("Ngày kết thúc không được trước ngày bắt đầu");
+        }
+
+        Instant pStart = request.getPeriodStart() != null ? request.getPeriodStart().atStartOfDay(java.time.ZoneOffset.UTC).toInstant() : null;
+        Instant pEnd = request.getPeriodEnd() != null ? request.getPeriodEnd().atStartOfDay(java.time.ZoneOffset.UTC).toInstant() : null;
 
         KpiSubmission submission = KpiSubmission.builder()
                 .orgUnit(kpi.getOrgUnit())
@@ -83,8 +100,8 @@ public class KpiSubmissionService {
                 .actualValue(request.getActualValue())
                 .note(request.getNote())
                 .status(SubmissionStatus.PENDING)
-                .periodStart(request.getPeriodStart() != null ? request.getPeriodStart().atStartOfDay(java.time.ZoneOffset.UTC).toInstant() : null)
-                .periodEnd(request.getPeriodEnd() != null ? request.getPeriodEnd().atStartOfDay(java.time.ZoneOffset.UTC).toInstant() : null)
+                .periodStart(pStart)
+                .periodEnd(pEnd)
                 .build();
 
         submission = submissionRepository.save(submission);
@@ -98,35 +115,6 @@ public class KpiSubmissionService {
     public PageResponse<SubmissionResponse> getSubmissions(int page, int size, SubmissionStatus status, UUID kpiCriteriaId) {
         Pageable pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
 
-<<<<<<< HEAD
-        boolean isDirector = currentUser.getRole() == com.kpitracking.enums.UserRole.DIRECTOR;
-        boolean isHead = currentUser.getRole() == com.kpitracking.enums.UserRole.HEAD;
-        boolean isDeputy = currentUser.getRole() == com.kpitracking.enums.UserRole.DEPUTY;
-
-        Page<KpiSubmission> subPage;
-        if (isDirector) {
-            if (status != null) {
-                subPage = submissionRepository.findByCompanyIdAndStatus(companyId, status, pageable);
-            } else if (kpiCriteriaId != null) {
-                subPage = submissionRepository.findByCompanyIdAndKpiCriteriaId(companyId, kpiCriteriaId, pageable);
-            } else {
-                subPage = submissionRepository.findByCompanyId(companyId, pageable);
-            }
-        } else if (isHead || isDeputy) {
-            java.util.List<com.kpitracking.entity.Department> managedDepts = departmentRepository.findByHeadIdOrDeputyId(currentUser.getId(), currentUser.getId());
-            if (managedDepts.isEmpty()) {
-                subPage = Page.empty(pageable);
-            } else {
-                java.util.List<UUID> managedDeptIds = managedDepts.stream().map(com.kpitracking.entity.Department::getId).toList();
-                if (status != null) {
-                    subPage = submissionRepository.findByCompanyIdAndKpiCriteriaDepartmentIdInAndStatus(companyId, managedDeptIds, status, pageable);
-                } else {
-                    subPage = submissionRepository.findByCompanyIdAndKpiCriteriaDepartmentIdIn(companyId, managedDeptIds, pageable);
-                }
-            }
-        } else {
-            throw new com.kpitracking.exception.ForbiddenException("Only DIRECTOR, HEAD or DEPUTY can view submissions list");
-=======
         Page<KpiSubmission> subPage;
         if (status != null) {
             subPage = submissionRepository.findByStatus(status, pageable);
@@ -134,7 +122,6 @@ public class KpiSubmissionService {
             subPage = submissionRepository.findByKpiCriteriaId(kpiCriteriaId, pageable);
         } else {
             subPage = submissionRepository.findAll(pageable);
->>>>>>> 7681c6edbb52597770fb6dc8246115573f68d03b
         }
 
         return PageResponse.<SubmissionResponse>builder()
@@ -150,7 +137,7 @@ public class KpiSubmissionService {
     @Transactional(readOnly = true)
     public SubmissionResponse getSubmissionById(UUID submissionId) {
         KpiSubmission submission = submissionRepository.findById(submissionId)
-                .orElseThrow(() -> new ResourceNotFoundException("Submission", "id", submissionId));
+                .orElseThrow(() -> new ResourceNotFoundException("Bản nộp", "id", submissionId));
         return submissionMapper.toResponse(submission);
     }
 
@@ -159,14 +146,14 @@ public class KpiSubmissionService {
         User currentUser = getCurrentUser();
 
         KpiSubmission submission = submissionRepository.findById(submissionId)
-                .orElseThrow(() -> new ResourceNotFoundException("Submission", "id", submissionId));
+                .orElseThrow(() -> new ResourceNotFoundException("Bản nộp", "id", submissionId));
 
         if (submission.getStatus() != SubmissionStatus.PENDING) {
-            throw new BusinessException("Can only review PENDING submissions");
+            throw new BusinessException("Chỉ có thể phê duyệt các bản nộp đang ở trạng thái CHỜ DUYỆT");
         }
 
         if (!hasRole(currentUser.getId(), "DIRECTOR") && !hasRole(currentUser.getId(), "HEAD")) {
-            throw new ForbiddenException("Only DIRECTOR or HEAD can review submissions");
+            throw new ForbiddenException("Chỉ GIÁM ĐỐC hoặc TRƯỞNG PHÒNG mới có quyền phê duyệt bản nộp");
         }
 
         submission.setStatus(request.getStatus());
@@ -202,15 +189,15 @@ public class KpiSubmissionService {
     @Transactional
     public void deleteSubmission(UUID submissionId) {
         KpiSubmission submission = submissionRepository.findById(submissionId)
-                .orElseThrow(() -> new ResourceNotFoundException("Submission", "id", submissionId));
+                .orElseThrow(() -> new ResourceNotFoundException("Bản nộp", "id", submissionId));
 
         if (submission.getStatus() != SubmissionStatus.PENDING) {
-            throw new BusinessException("Can only delete PENDING submissions");
+            throw new BusinessException("Chỉ có thể xóa các bản nộp đang ở trạng thái CHỜ DUYỆT");
         }
 
         User currentUser = getCurrentUser();
         if (!submission.getSubmittedBy().getId().equals(currentUser.getId())) {
-             throw new ForbiddenException("Only the original submitter can delete the submission");
+             throw new ForbiddenException("Chỉ người nộp mới có quyền xóa bản nộp này");
         }
 
         submission.setDeletedAt(Instant.now());

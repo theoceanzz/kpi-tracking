@@ -30,55 +30,61 @@ INSERT INTO districts (id, name, code, province_id) VALUES
     ('b1000000-0000-0000-0000-000000000010', 'Thủ Đức', 'HCM-TD', 'a1000000-0000-0000-0000-000000000002');
 
 -- ====================================================
--- Sample Company
+-- 1. Insert Organization
 -- ====================================================
 INSERT INTO organizations (id, name, code) VALUES 
-    ('11111111-1111-1111-1111-111111111111', 'FPT Education', 'FPT');
+('11111111-1111-1111-1111-111111111111', 'FPT Education', 'FPT');
 
 -- ====================================================
--- Sample Org Units
+-- 2. Insert Hierarchy Levels
 -- ====================================================
--- Branch A
-INSERT INTO org_units (id, name, organization_id, district_id, type)
+-- Cấp 1: Chi nhánh
+INSERT INTO org_hierarchy_levels (id, organization_id, level_order, unit_type_name, manager_role_label)
+VALUES ('21111111-1111-1111-1111-111111111111', '11111111-1111-1111-1111-111111111111', 1, 'Chi nhánh', 'Giám đốc chi nhánh');
+
+-- Cấp 2: Phòng ban
+INSERT INTO org_hierarchy_levels (id, organization_id, level_order, unit_type_name, manager_role_label)
+VALUES ('22222222-2222-2222-2222-222222222222', '11111111-1111-1111-1111-111111111111', 2, 'Phòng ban', 'Trưởng phòng');
+
+-- Cấp 3: Tổ đội
+INSERT INTO org_hierarchy_levels (id, organization_id, level_order, unit_type_name, manager_role_label)
+VALUES ('23333333-3333-3333-3333-333333333333', '11111111-1111-1111-1111-111111111111', 3, 'Tổ', 'Nhân viên');
+
+
+-- ====================================================
+-- 3. Insert Sample Org Units
+-- ====================================================
+
+-- Level 1: Chi nhánh Hà Nội
+INSERT INTO org_units (id, name, org_hierarchy_id, district_id, status)
 VALUES (
     'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
     'Chi nhánh Hà Nội',
-    '11111111-1111-1111-1111-111111111111',
+    '21111111-1111-1111-1111-111111111111', -- Đã sửa ID tham chiếu
     'b1000000-0000-0000-0000-000000000001',
-    'branch'
+    'ACTIVE'
 );
 
--- Department IT
-INSERT INTO org_units (id, name, parent_id, organization_id, district_id, type)
+-- Level 2: Phòng IT
+INSERT INTO org_units (id, name, parent_id, org_hierarchy_id, district_id, status)
 VALUES (
     'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb',
     'Phòng IT',
     'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
-    '11111111-1111-1111-1111-111111111111',
+    '22222222-2222-2222-2222-222222222222', -- Đã sửa ID tham chiếu
     'b1000000-0000-0000-0000-000000000001',
-    'department'
+    'ACTIVE'
 );
 
--- Department HR
-INSERT INTO org_units (id, name, parent_id, organization_id, district_id, type)
-VALUES (
-    'cccccccc-cccc-cccc-cccc-cccccccccccc',
-    'Phòng Nhân sự',
-    'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
-    '11111111-1111-1111-1111-111111111111',
-    'b1000000-0000-0000-0000-000000000001',
-    'department'
-);
-
--- Team Backend
-INSERT INTO org_units (id, name, parent_id, organization_id, district_id, type)
+-- Level 3: Team Backend
+INSERT INTO org_units (id, name, parent_id, org_hierarchy_id, district_id, status)
 VALUES (
     'dddddddd-dddd-dddd-dddd-dddddddddddd',
     'Team Backend',
     'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb',
-    '11111111-1111-1111-1111-111111111111',
+    '23333333-3333-3333-3333-333333333333', -- Đã sửa ID tham chiếu
     'b1000000-0000-0000-0000-000000000001',
-    'team'
+    'ACTIVE'
 );
 
 INSERT INTO users (id, email, password, full_name, phone, status, is_email_verified) VALUES

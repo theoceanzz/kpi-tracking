@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { evaluationApi } from '../api/evaluationApi'
 import { useEvaluations } from '../hooks/useEvaluations'
-import { useAuthStore } from '@/store/authStore'
+import { usePermission } from '@/hooks/usePermission'
 import { toast } from 'sonner'
 import { formatDateTime, getInitials } from '@/lib/utils'
 import type { Evaluation, CreateEvaluationRequest } from '@/types/evaluation'
@@ -34,9 +34,8 @@ function getScoreLabel(score: number | null) {
 }
 
 export default function EvaluationDetailModal({ open, onClose, evaluation }: EvaluationDetailModalProps) {
-  const { user } = useAuthStore()
+  const { isDirector, isHead, isDeputy } = usePermission()
   const qc = useQueryClient()
-  const role = user?.role
 
   // Load all evaluations for the same user+KPI to see the evaluation chain
   const { data: relatedData } = useEvaluations(
@@ -101,8 +100,8 @@ export default function EvaluationDetailModal({ open, onClose, evaluation }: Eva
 
   if (!open || !evaluation) return null
 
-  const canGiveFeedback = (role === 'HEAD' || role === 'DEPUTY') && layers.selfEval && !layers.headEval
-  const canDirectorReview = role === 'DIRECTOR' && !layers.directorEval && (layers.selfEval || layers.headEval)
+  const canGiveFeedback = (isHead || isDeputy) && layers.selfEval && !layers.headEval
+  const canDirectorReview = isDirector && !layers.directorEval && (layers.selfEval || layers.headEval)
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">

@@ -37,22 +37,29 @@ public class OrgUnitService {
     private final CloudinaryStorageService cloudinaryStorageService;
     private final OrgUnitMapper orgUnitMapper;
 
+    private final com.kpitracking.repository.OrgHierarchyLevelRepository orgHierarchyLevelRepository;
+
     @Transactional
     public OrgUnitResponse createOrgUnit(UUID orgId, CreateOrgUnitRequest request) {
         Organization organization = organizationRepository.findById(orgId)
-                .orElseThrow(() -> new ResourceNotFoundException("Organization", "id", orgId));
+                .orElseThrow(() -> new ResourceNotFoundException("Tổ chức", "id", orgId));
+
+        com.kpitracking.entity.OrgHierarchyLevel hierarchyLevel = orgHierarchyLevelRepository.findById(request.getOrgHierarchyId())
+                .orElseThrow(() -> new ResourceNotFoundException("Cấp bậc tổ chức", "id", request.getOrgHierarchyId()));
+
+        if (!hierarchyLevel.getOrganization().getId().equals(orgId)) {
+            throw new BusinessException("Cấp bậc không thuộc tổ chức này");
+        }
 
         OrgUnit orgUnit = OrgUnit.builder()
                 .name(request.getName())
-                .organization(organization)
-                .type(request.getType())
+                .orgHierarchyLevel(hierarchyLevel)
                 .path("/temp/")  // DB trigger will set the real path
-                .level(0)        // DB trigger will set the real level
                 .build();
 
         if (request.getParentId() != null) {
-            OrgUnit parent = orgUnitRepository.findByIdAndOrganizationId(request.getParentId(), orgId)
-                    .orElseThrow(() -> new ResourceNotFoundException("Parent OrgUnit", "id", request.getParentId()));
+            OrgUnit parent = orgUnitRepository.findByIdAndOrgHierarchyLevel_Organization_Id(request.getParentId(), orgId)
+                    .orElseThrow(() -> new ResourceNotFoundException("Đơn vị cha", "id", request.getParentId()));
             orgUnit.setParent(parent);
         }
 
@@ -62,12 +69,12 @@ public class OrgUnitService {
 
         if (request.getProvinceId() != null) {
             Province province = provinceRepository.findById(request.getProvinceId())
-                    .orElseThrow(() -> new ResourceNotFoundException("Province", "id", request.getProvinceId()));
+                    .orElseThrow(() -> new ResourceNotFoundException("Tỉnh/Thành phố", "id", request.getProvinceId()));
             orgUnit.setProvince(province);
         }
         if (request.getDistrictId() != null) {
             District district = districtRepository.findById(request.getDistrictId())
-                    .orElseThrow(() -> new ResourceNotFoundException("District", "id", request.getDistrictId()));
+                    .orElseThrow(() -> new ResourceNotFoundException("Quận/Huyện", "id", request.getDistrictId()));
             orgUnit.setDistrict(district);
         }
 
@@ -79,23 +86,22 @@ public class OrgUnitService {
 
     @Transactional
     public OrgUnitResponse updateOrgUnit(UUID orgId, UUID unitId, UpdateOrgUnitRequest request) {
-        OrgUnit orgUnit = orgUnitRepository.findByIdAndOrganizationId(unitId, orgId)
-                .orElseThrow(() -> new ResourceNotFoundException("OrgUnit", "id", unitId));
+        OrgUnit orgUnit = orgUnitRepository.findByIdAndOrgHierarchyLevel_Organization_Id(unitId, orgId)
+                .orElseThrow(() -> new ResourceNotFoundException("Đơn vị", "id", unitId));
 
         if (request.getName() != null) orgUnit.setName(request.getName());
-        if (request.getType() != null) orgUnit.setType(request.getType());
         if (request.getEmail() != null) orgUnit.setEmail(request.getEmail());
         if (request.getPhone() != null) orgUnit.setPhone(request.getPhone());
         if (request.getAddress() != null) orgUnit.setAddress(request.getAddress());
 
         if (request.getProvinceId() != null) {
             Province province = provinceRepository.findById(request.getProvinceId())
-                    .orElseThrow(() -> new ResourceNotFoundException("Province", "id", request.getProvinceId()));
+                    .orElseThrow(() -> new ResourceNotFoundException("Tỉnh/Thành phố", "id", request.getProvinceId()));
             orgUnit.setProvince(province);
         }
         if (request.getDistrictId() != null) {
             District district = districtRepository.findById(request.getDistrictId())
-                    .orElseThrow(() -> new ResourceNotFoundException("District", "id", request.getDistrictId()));
+                    .orElseThrow(() -> new ResourceNotFoundException("Quận/Huyện", "id", request.getDistrictId()));
             orgUnit.setDistrict(district);
         }
 
@@ -105,27 +111,27 @@ public class OrgUnitService {
 
     @Transactional
     public void softDeleteOrgUnit(UUID orgId, UUID unitId) {
-        OrgUnit orgUnit = orgUnitRepository.findByIdAndOrganizationId(unitId, orgId)
-                .orElseThrow(() -> new ResourceNotFoundException("OrgUnit", "id", unitId));
+        OrgUnit orgUnit = orgUnitRepository.findByIdAndOrgHierarchyLevel_Organization_Id(unitId, orgId)
+                .orElseThrow(() -> new ResourceNotFoundException("Đơn vị", "id", unitId));
         orgUnit.setDeletedAt(Instant.now());
         orgUnitRepository.save(orgUnit);
     }
 
     @Transactional
     public OrgUnitResponse moveOrgUnit(UUID orgId, UUID unitId, MoveOrgUnitRequest request) {
-        OrgUnit orgUnit = orgUnitRepository.findByIdAndOrganizationId(unitId, orgId)
-                .orElseThrow(() -> new ResourceNotFoundException("OrgUnit", "id", unitId));
+        OrgUnit orgUnit = orgUnitRepository.findByIdAndOrgHierarchyLevel_Organization_Id(unitId, orgId)
+                .orElseThrow(() -> new ResourceNotFoundException("Đơn vị", "id", unitId));
 
         if (request.getNewParentId() != null) {
             if (request.getNewParentId().equals(unitId)) {
-                throw new BusinessException("Cannot move org unit to itself");
+                throw new BusinessException("Không thể di chuyển đơn vị vào chính nó");
             }
-            OrgUnit newParent = orgUnitRepository.findByIdAndOrganizationId(request.getNewParentId(), orgId)
-                    .orElseThrow(() -> new ResourceNotFoundException("New parent OrgUnit", "id", request.getNewParentId()));
+            OrgUnit newParent = orgUnitRepository.findByIdAndOrgHierarchyLevel_Organization_Id(request.getNewParentId(), orgId)
+                    .orElseThrow(() -> new ResourceNotFoundException("Đơn vị cha mới", "id", request.getNewParentId()));
 
             // Check if newParent is a descendant of this node (would create cycle)
             if (newParent.getPath().startsWith(orgUnit.getPath())) {
-                throw new BusinessException("Cannot move org unit into its own subtree");
+                throw new BusinessException("Không thể di chuyển đơn vị vào trong nhánh con của nó");
             }
             orgUnit.setParent(newParent);
         } else {
@@ -141,16 +147,16 @@ public class OrgUnitService {
     @Transactional(readOnly = true)
     public List<OrgUnitTreeResponse> getOrgUnitTree(UUID orgId) {
         organizationRepository.findById(orgId)
-                .orElseThrow(() -> new ResourceNotFoundException("Organization", "id", orgId));
+                .orElseThrow(() -> new ResourceNotFoundException("Tổ chức", "id", orgId));
 
-        List<OrgUnit> allUnits = orgUnitRepository.findByOrganizationIdAndDeletedAtIsNull(orgId);
+        List<OrgUnit> allUnits = orgUnitRepository.findByOrgHierarchyLevel_Organization_IdAndDeletedAtIsNull(orgId);
         return buildTree(allUnits);
     }
 
     @Transactional(readOnly = true)
     public List<OrgUnitTreeResponse> getSubtree(UUID orgId, UUID unitId) {
-        OrgUnit root = orgUnitRepository.findByIdAndOrganizationId(unitId, orgId)
-                .orElseThrow(() -> new ResourceNotFoundException("OrgUnit", "id", unitId));
+        OrgUnit root = orgUnitRepository.findByIdAndOrgHierarchyLevel_Organization_Id(unitId, orgId)
+                .orElseThrow(() -> new ResourceNotFoundException("Đơn vị", "id", unitId));
 
         List<OrgUnit> subtreeUnits = orgUnitRepository.findSubtree(root.getPath());
         return buildTree(subtreeUnits);
@@ -158,8 +164,8 @@ public class OrgUnitService {
 
     @Transactional
     public OrgUnitResponse uploadLogo(UUID orgId, UUID unitId, MultipartFile file) throws IOException {
-        OrgUnit orgUnit = orgUnitRepository.findByIdAndOrganizationId(unitId, orgId)
-                .orElseThrow(() -> new ResourceNotFoundException("OrgUnit", "id", unitId));
+        OrgUnit orgUnit = orgUnitRepository.findByIdAndOrgHierarchyLevel_Organization_Id(unitId, orgId)
+                .orElseThrow(() -> new ResourceNotFoundException("Đơn vị", "id", unitId));
 
         String logoUrl = cloudinaryStorageService.uploadFile(file, "org-logos");
         orgUnit.setLogoUrl(logoUrl);

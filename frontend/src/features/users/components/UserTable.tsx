@@ -101,11 +101,11 @@ export default function UserTable({ users, onRowClick, onDelete }: UserTableProp
                   {u.memberships && u.memberships.length > 0 ? (
                      <div className="flex flex-wrap gap-2 max-w-[280px]">
                         {u.memberships.map((m, idx) => {
-                           const pos = positionMap[m.position] ?? positionMap['STAFF']!
+                           const pos = positionMap[m.roleName] ?? positionMap['STAFF']!
                            return (
                               <div key={idx} className={`flex items-center gap-1.5 px-2 py-0.5 rounded-md border text-[11px] font-semibold ${pos.color}`}>
                                  <Building2 size={10} className="shrink-0" />
-                                 <span className="truncate max-w-[100px]" title={m.departmentName}>{m.departmentName}</span>
+                                 <span className="truncate max-w-[100px]" title={m.orgUnitName}>{m.orgUnitName}</span>
                                  <span className="opacity-50 text-[10px]">({pos.label})</span>
                               </div>
                            )

@@ -73,7 +73,7 @@ public class RoleService {
 
         if (request.getParentRoleId() != null) {
             if (request.getParentRoleId().equals(roleId)) {
-                throw new BusinessException("Role cannot be its own parent");
+                throw new BusinessException("Vai trò không thể là cấp cha của chính nó");
             }
             Role parentRole = roleRepository.findById(request.getParentRoleId())
                     .orElseThrow(() -> new ResourceNotFoundException("Parent Role", "id", request.getParentRoleId()));

@@ -55,7 +55,7 @@ export default function AddMemberModal({ open, onClose, departmentId, currentMem
             <label className="block text-sm font-medium mb-1.5">Nhân viên <span className="text-red-500">*</span></label>
             <select value={userId} onChange={(e) => setUserId(e.target.value)} className="w-full px-3 py-2.5 rounded-lg border border-[var(--color-border)] bg-[var(--color-background)] text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]/50">
               <option value="">-- Chọn nhân viên --</option>
-              {usersData?.content?.filter(u => u.role !== 'DIRECTOR' && !currentMemberIds.includes(u.id)).map((u) => (
+              {usersData?.content?.filter(u => !u.roles?.includes('DIRECTOR') && !currentMemberIds.includes(u.id)).map((u) => (
                 <option key={u.id} value={u.id}>{u.fullName} ({u.email})</option>
               ))}
             </select>

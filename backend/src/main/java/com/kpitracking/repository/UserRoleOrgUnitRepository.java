@@ -1,5 +1,6 @@
 package com.kpitracking.repository;
 
+
 import com.kpitracking.entity.UserRoleOrgUnit;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
@@ -24,4 +25,10 @@ public interface UserRoleOrgUnitRepository extends JpaRepository<UserRoleOrgUnit
     void deleteByUserIdAndRoleIdAndOrgUnitId(UUID userId, UUID roleId, UUID orgUnitId);
 
     boolean existsByUserIdAndRoleIdAndOrgUnitId(UUID userId, UUID roleId, UUID orgUnitId);
+
+    @Query("SELECT COUNT(DISTINCT uro.user.id) FROM UserRoleOrgUnit uro WHERE uro.orgUnit.orgHierarchyLevel.organization.id = :orgId")
+    long countUsersByOrganizationId(@Param("orgId") UUID orgId);
+
+    @Query("SELECT DISTINCT uro.user FROM UserRoleOrgUnit uro WHERE uro.orgUnit.orgHierarchyLevel.organization.id = :orgId")
+    List<com.kpitracking.entity.User> findUsersByOrganizationId(@Param("orgId") UUID orgId);
 }

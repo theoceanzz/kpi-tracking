@@ -52,6 +52,7 @@ export default function MediaPreviewModal({ url, fileName, contentType, isOpen, 
             <Download size={18} />
           </a>
           <button 
+            type="button"
             onClick={handleShare}
             className="p-2.5 rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors"
             title="Chia sẻ liên kết"
@@ -60,6 +61,7 @@ export default function MediaPreviewModal({ url, fileName, contentType, isOpen, 
           </button>
           {isImage && (
             <button 
+              type="button"
               onClick={() => setIsZoomed(!isZoomed)}
               className="p-2.5 rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors"
               title={isZoomed ? "Thu nhỏ" : "Phóng to"}
@@ -68,6 +70,7 @@ export default function MediaPreviewModal({ url, fileName, contentType, isOpen, 
             </button>
           )}
           <button 
+            type="button"
             onClick={onClose}
             className="p-2.5 rounded-full bg-white/10 hover:bg-red-500 text-white transition-colors ml-2"
             title="Đóng"

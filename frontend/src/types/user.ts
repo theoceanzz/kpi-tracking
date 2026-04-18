@@ -1,4 +1,4 @@
-import type { UserRole, UserStatus } from './auth'
+import type { UserRole, UserStatus, UserMembership } from './auth'
 
 // Matches BE: UserResponse
 export interface User {
@@ -7,14 +7,9 @@ export interface User {
   fullName: string
   phone: string | null
   avatarUrl: string | null
-  role: UserRole
   status: UserStatus
-  companyId: string
-  memberships: Array<{
-    departmentId: string
-    departmentName: string
-    position: string
-  }>
+  memberships: UserMembership[]
+  roles: string[]
   createdAt: string
   updatedAt: string
 }

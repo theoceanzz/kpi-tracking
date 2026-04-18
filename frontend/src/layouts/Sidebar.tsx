@@ -30,8 +30,8 @@ interface NavItem {
 
 const navItems: NavItem[] = [
   { label: 'Tổng quan', path: '/dashboard', icon: <LayoutDashboard size={20} />, roles: ['DIRECTOR', 'HEAD', 'DEPUTY', 'STAFF'] },
-  { label: 'Công ty', path: '/company', icon: <Settings size={20} />, roles: ['DIRECTOR'] },
-  { label: 'Phòng ban', path: '/departments', icon: <Building2 size={20} />, roles: ['DIRECTOR'] },
+  { label: 'Tổ chức', path: '/company', icon: <Settings size={20} />, roles: ['DIRECTOR'] },
+  { label: 'Đơn vị', path: '/departments', icon: <Building2 size={20} />, roles: ['DIRECTOR'] },
   { label: 'Nhân sự', path: '/users', icon: <Users size={20} />, roles: ['DIRECTOR'] },
   
   { label: 'Quản lý Chỉ tiêu', path: '/kpi-criteria', icon: <Target size={20} />, roles: ['DIRECTOR', 'HEAD', 'DEPUTY'], end: true },
@@ -50,7 +50,7 @@ export default function Sidebar({ isMobileOpen, onCloseMobile }: { isMobileOpen?
   const menuRef = useRef<HTMLDivElement>(null)
 
   const filteredItems = navItems.filter(
-    (item) => user && item.roles.includes(user.role)
+    (item) => user && user.roles?.some(r => item.roles.includes(r as any))
   )
 
   useEffect(() => {
@@ -162,7 +162,9 @@ export default function Sidebar({ isMobileOpen, onCloseMobile }: { isMobileOpen?
               </div>
               <div className="flex-1 min-w-0 text-left">
                 <p className="text-sm font-medium truncate group-hover:text-[var(--color-primary)] transition-colors">{user?.fullName}</p>
-                <p className="text-xs text-[var(--color-muted-foreground)] truncate">{user?.email}</p>
+                <p className="text-xs text-[var(--color-muted-foreground)] truncate">
+                  {user?.memberships?.[0]?.roleLabel || user?.email}
+                </p>
               </div>
             </div>
             <MoreVertical size={16} className="text-[var(--color-muted-foreground)] shrink-0" />

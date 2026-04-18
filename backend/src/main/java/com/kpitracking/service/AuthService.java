@@ -3,12 +3,14 @@ package com.kpitracking.service;
 import com.kpitracking.dto.request.auth.*;
 import com.kpitracking.dto.response.auth.AuthResponse;
 import com.kpitracking.dto.response.auth.UserInfoResponse;
+import com.kpitracking.dto.response.user.UserMembershipResponse;
 import com.kpitracking.entity.*;
 import com.kpitracking.enums.OrganizationStatus;
 import com.kpitracking.enums.UserStatus;
 import com.kpitracking.exception.BusinessException;
 import com.kpitracking.exception.DuplicateResourceException;
 import com.kpitracking.exception.ResourceNotFoundException;
+import com.kpitracking.mapper.UserMapper;
 import com.kpitracking.repository.*;
 import com.kpitracking.security.JwtTokenProvider;
 import lombok.RequiredArgsConstructor;
@@ -23,6 +25,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -39,52 +42,58 @@ public class AuthService {
     private final AuthenticationManager authenticationManager;
     private final RefreshTokenService refreshTokenService;
     private final EmailService emailService;
-<<<<<<< HEAD
     private final UserMapper userMapper;
     private final CloudinaryStorageService cloudinaryStorageService;
-    private final com.kpitracking.repository.DepartmentMemberRepository departmentMemberRepository;
-=======
->>>>>>> 7681c6edbb52597770fb6dc8246115573f68d03b
+    private final OrgHierarchyLevelRepository orgHierarchyLevelRepository;
 
     @Transactional
     public AuthResponse register(RegisterRequest request, String userAgent) {
         if (userRepository.existsByEmail(request.getEmail())) {
-            throw new DuplicateResourceException("User", "email", request.getEmail());
+            throw new DuplicateResourceException("Người dùng", "email", request.getEmail());
         }
         if (request.getPhone() != null && !request.getPhone().trim().isEmpty() && userRepository.existsByPhone(request.getPhone())) {
-            throw new DuplicateResourceException("User", "phone", request.getPhone());
+            throw new DuplicateResourceException("Người dùng", "số điện thoại", request.getPhone());
         }
         if (organizationRepository.existsByCode(request.getOrganizationCode())) {
-            throw new DuplicateResourceException("Organization", "code", request.getOrganizationCode());
+            throw new DuplicateResourceException("Tổ chức", "mã", request.getOrganizationCode());
         }
 
-<<<<<<< HEAD
-        Company company = Company.builder()
-                .name(request.getCompanyName())
-                .taxCode(request.getTaxCode())
-                .email(request.getEmail())
-                .phone(request.getPhone())
-                .status(CompanyStatus.TRIAL)
-=======
         // 1. Create Organization
         Organization organization = Organization.builder()
                 .name(request.getOrganizationName())
                 .code(request.getOrganizationCode())
                 .status(OrganizationStatus.ACTIVE)
->>>>>>> 7681c6edbb52597770fb6dc8246115573f68d03b
                 .build();
         organization = organizationRepository.save(organization);
 
-        // 2. Create root OrgUnit (type = "company")
+        // 2. Create Hierarchy Levels and root OrgUnit
+        if (request.getHierarchyLevels() == null || request.getHierarchyLevels().size() < 3) {
+            throw new BusinessException("Cơ cấu tổ chức phải có ít nhất 3 cấp.");
+        }
+
+        for (int i = 0; i < request.getHierarchyLevels().size(); i++) {
+            HierarchyLevelDTO levelDto = request.getHierarchyLevels().get(i);
+            OrgHierarchyLevel level = OrgHierarchyLevel.builder()
+                    .organization(organization)
+                    .levelOrder(i)
+                    .unitTypeName(levelDto.getUnitTypeName())
+                    .managerRoleLabel(levelDto.getManagerRoleLabel())
+                    .build();
+            orgHierarchyLevelRepository.save(level);
+        }
+
+        String rootType = request.getHierarchyLevels().get(0).getUnitTypeName();
+        
+        OrgHierarchyLevel rootLevel = orgHierarchyLevelRepository.findByOrganizationIdOrderByLevelOrderAsc(organization.getId()).get(0);
+
         OrgUnit rootUnit = OrgUnit.builder()
                 .name(request.getOrganizationName())
-                .organization(organization)
-                .type("company")
+                .orgHierarchyLevel(rootLevel)
                 .path("/temp/")  // DB trigger will set the real path
-                .level(0)
                 .build();
         rootUnit = orgUnitRepository.save(rootUnit);
         // Refresh to get trigger-computed path
+        orgUnitRepository.flush();
         rootUnit = orgUnitRepository.findById(rootUnit.getId()).orElseThrow();
 
         // 3. Create User
@@ -116,6 +125,7 @@ public class AuthService {
                 .user(user)
                 .role(directorRole)
                 .orgUnit(rootUnit)
+                .assignedAt(Instant.now())
                 .build();
         userRoleOrgUnitRepository.save(assignment);
 
@@ -126,11 +136,7 @@ public class AuthService {
                 .accessToken("")
                 .refreshToken("")
                 .tokenType("Bearer")
-<<<<<<< HEAD
                 .user(enrichUserInfo(userMapper.toUserInfoResponse(user)))
-=======
-                .user(buildUserInfoResponse(user))
->>>>>>> 7681c6edbb52597770fb6dc8246115573f68d03b
                 .build();
     }
 
@@ -140,10 +146,10 @@ public class AuthService {
                 new UsernamePasswordAuthenticationToken(request.getEmail(), request.getPassword()));
 
         User user = userRepository.findByEmail(request.getEmail())
-                .orElseThrow(() -> new ResourceNotFoundException("User", "email", request.getEmail()));
+                .orElseThrow(() -> new ResourceNotFoundException("Người dùng", "email", request.getEmail()));
 
         if (user.getStatus() != UserStatus.ACTIVE) {
-            throw new BusinessException("Account is not active. Current status: " + user.getStatus());
+            throw new BusinessException("Tài khoản chưa được kích hoạt. Trạng thái hiện tại: " + user.getStatus());
         }
 
         if (Boolean.FALSE.equals(user.getIsEmailVerified())) {
@@ -158,11 +164,7 @@ public class AuthService {
                 .accessToken(accessToken)
                 .refreshToken(refreshToken.getToken())
                 .tokenType("Bearer")
-<<<<<<< HEAD
                 .user(enrichUserInfo(userMapper.toUserInfoResponse(user)))
-=======
-                .user(buildUserInfoResponse(user))
->>>>>>> 7681c6edbb52597770fb6dc8246115573f68d03b
                 .build();
     }
 
@@ -181,11 +183,7 @@ public class AuthService {
                 .accessToken(accessToken)
                 .refreshToken(newRefreshToken.getToken())
                 .tokenType("Bearer")
-<<<<<<< HEAD
                 .user(enrichUserInfo(userMapper.toUserInfoResponse(user)))
-=======
-                .user(buildUserInfoResponse(user))
->>>>>>> 7681c6edbb52597770fb6dc8246115573f68d03b
                 .build();
     }
 
@@ -196,7 +194,11 @@ public class AuthService {
                 .orElseThrow(() -> new ResourceNotFoundException("User", "email", email));
 
         if (!passwordEncoder.matches(request.getCurrentPassword(), user.getPassword())) {
-            throw new BusinessException("Current password is incorrect");
+            throw new BusinessException("Mật khẩu hiện tại không chính xác.");
+        }
+
+        if (passwordEncoder.matches(request.getNewPassword(), user.getPassword())) {
+            throw new BusinessException("Mật khẩu mới phải khác mật khẩu hiện tại.");
         }
 
         if (!request.getNewPassword().equals(request.getConfirmPassword())) {
@@ -229,10 +231,10 @@ public class AuthService {
         }
 
         User user = userRepository.findByResetPasswordToken(request.getToken())
-                .orElseThrow(() -> new BusinessException("Invalid reset token"));
+                .orElseThrow(() -> new BusinessException("Mã đặt lại mật khẩu không hợp lệ"));
 
         if (user.getResetPasswordTokenExpiry() != null && user.getResetPasswordTokenExpiry().isBefore(Instant.now())) {
-            throw new BusinessException("Reset token has expired");
+            throw new BusinessException("Mã đặt lại mật khẩu đã hết hạn");
         }
 
         user.setPassword(passwordEncoder.encode(request.getNewPassword()));
@@ -246,10 +248,10 @@ public class AuthService {
     @Transactional
     public void verifyEmail(String token) {
         User user = userRepository.findByVerifyEmailToken(token)
-                .orElseThrow(() -> new BusinessException("Invalid verification token"));
+                .orElseThrow(() -> new BusinessException("Mã xác thực không hợp lệ"));
 
         if (user.getVerifyEmailTokenExpiry() != null && user.getVerifyEmailTokenExpiry().isBefore(Instant.now())) {
-            throw new BusinessException("Verification token has expired");
+            throw new BusinessException("Mã xác thực đã hết hạn");
         }
 
         user.setIsEmailVerified(true);
@@ -289,19 +291,51 @@ public class AuthService {
         String email = SecurityContextHolder.getContext().getAuthentication().getName();
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new ResourceNotFoundException("User", "email", email));
-<<<<<<< HEAD
         return enrichUserInfo(userMapper.toUserInfoResponse(user));
     }
 
     private UserInfoResponse enrichUserInfo(UserInfoResponse response) {
-        java.util.List<com.kpitracking.dto.response.user.UserMembershipResponse> memberships = departmentMemberRepository.findByUserId(response.getId()).stream()
-                .map(dm -> com.kpitracking.dto.response.user.UserMembershipResponse.builder()
-                        .departmentId(dm.getDepartment().getId())
-                        .departmentName(dm.getDepartment().getName())
-                        .position(dm.getPosition())
-                        .build())
-                .toList();
+        List<UserRoleOrgUnit> assignments = userRoleOrgUnitRepository.findByUserId(response.getId());
+        
+        List<UserMembershipResponse> memberships = assignments.stream()
+                .map(uro -> {
+                    OrgUnit unit = uro.getOrgUnit();
+                    String roleName = uro.getRole().getName();
+                    
+                    // Lookup custom labels from hierarchy
+                    List<OrgHierarchyLevel> levels = orgHierarchyLevelRepository
+                            .findByOrganizationIdOrderByLevelOrderAsc(unit.getOrgHierarchyLevel().getOrganization().getId());
+
+                    String unitTypeLabel = unit.getOrgHierarchyLevel().getUnitTypeName();
+                            
+                    String roleLabel = levels.stream()
+                            .filter(l -> l.getLevelOrder().equals(unit.getOrgHierarchyLevel().getLevelOrder()))
+                            .map(OrgHierarchyLevel::getManagerRoleLabel)
+                            .findFirst()
+                            .orElse(roleName);
+                    
+                    // Fallback for STAFF if no manager role label
+                    if (roleName.equals("STAFF")) {
+                        roleLabel = "Nhân viên";
+                    }
+
+                    return UserMembershipResponse.builder()
+                        .orgUnitId(unit.getId())
+                        .orgUnitName(unit.getName())
+                        .organizationName(unit.getOrgHierarchyLevel().getOrganization().getName())
+                        .roleName(roleName)
+                        .roleLabel(roleLabel)
+                        .unitTypeLabel(unitTypeLabel)
+                        .build();
+                })
+                .collect(Collectors.toList());
+        
         response.setMemberships(memberships);
+        response.setRoles(assignments.stream()
+                .map(uro -> uro.getRole().getName())
+                .distinct()
+                .collect(Collectors.toList()));
+        
         return response;
     }
 
@@ -319,8 +353,6 @@ public class AuthService {
         } catch (java.io.IOException e) {
             throw new BusinessException("Failed to upload avatar: " + e.getMessage());
         }
-=======
-        return buildUserInfoResponse(user);
     }
 
     private List<String> getUserRoleNames(UUID userId) {
@@ -328,19 +360,5 @@ public class AuthService {
                 .map(uro -> uro.getRole().getName())
                 .distinct()
                 .toList();
-    }
-
-    private UserInfoResponse buildUserInfoResponse(User user) {
-        List<String> roleNames = getUserRoleNames(user.getId());
-        return UserInfoResponse.builder()
-                .id(user.getId())
-                .email(user.getEmail())
-                .fullName(user.getFullName())
-                .phone(user.getPhone())
-                .avatarUrl(user.getAvatarUrl())
-                .status(user.getStatus())
-                .roles(roleNames)
-                .build();
->>>>>>> 7681c6edbb52597770fb6dc8246115573f68d03b
     }
 }

@@ -36,18 +36,11 @@ public class OrgUnit {
     private List<OrgUnit> children = new ArrayList<>();
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "organization_id", nullable = false)
-    private Organization organization;
-
-    @Column(name = "type", nullable = false)
-    private String type;
+    @JoinColumn(name = "org_hierarchy_id", nullable = false)
+    private OrgHierarchyLevel orgHierarchyLevel;
 
     @Column(name = "path", nullable = false)
     private String path;
-
-    @Column(name = "level", nullable = false)
-    @Builder.Default
-    private Integer level = 0;
 
     @Column(name = "email")
     private String email;

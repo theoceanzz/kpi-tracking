@@ -30,7 +30,7 @@ public class NotificationService {
     private User getCurrentUser() {
         String email = SecurityContextHolder.getContext().getAuthentication().getName();
         return userRepository.findByEmail(email)
-                .orElseThrow(() -> new ResourceNotFoundException("User", "email", email));
+                .orElseThrow(() -> new ResourceNotFoundException("Người dùng", "email", email));
     }
 
     @Transactional
@@ -70,10 +70,10 @@ public class NotificationService {
         User currentUser = getCurrentUser();
 
         Notification notification = notificationRepository.findById(notificationId)
-                .orElseThrow(() -> new ResourceNotFoundException("Notification", "id", notificationId));
+                .orElseThrow(() -> new ResourceNotFoundException("Thông báo", "id", notificationId));
 
         if (!notification.getUser().getId().equals(currentUser.getId())) {
-             throw new ForbiddenException("Cannot mark another user's notification as read");
+             throw new ForbiddenException("Không thể đánh dấu thông báo của người khác là đã đọc");
         }
 
         notification.setIsRead(true);

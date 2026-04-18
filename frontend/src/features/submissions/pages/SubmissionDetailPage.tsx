@@ -39,7 +39,7 @@ export default function SubmissionDetailPage() {
         <FileText className="w-8 h-8 text-slate-400" />
       </div>
       <p className="text-slate-500">Không tìm thấy bài nộp nào.</p>
-      <button onClick={() => navigate(-1)} className="mt-4 text-indigo-500 font-medium hover:underline">Quay lại</button>
+      <button type="button" onClick={() => navigate(-1)} className="mt-4 text-indigo-500 font-medium hover:underline">Quay lại</button>
     </div>
   )
 
@@ -57,6 +57,7 @@ export default function SubmissionDetailPage() {
     <div className="animate-in fade-in slide-in-from-bottom-2 duration-500 pb-20">
       <div className="flex items-center gap-4 mb-6">
         <button 
+          type="button"
           onClick={() => navigate(-1)}
           className="p-2 mr-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all group"
         >
@@ -287,6 +288,7 @@ export default function SubmissionDetailPage() {
                 Hãy tiếp tục duy trì tiến độ công việc để đạt hiệu quả cao nhất cho chỉ tiêu này.
              </p>
              <button 
+               type="button"
                onClick={() => navigate('/submissions/new')}
                className="w-full py-2 bg-white/20 backdrop-blur-md rounded-xl text-white text-xs font-black shadow-lg hover:bg-white/30 transition-all uppercase tracking-widest"
              >

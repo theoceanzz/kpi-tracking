@@ -38,7 +38,7 @@ public class EvaluationService {
     private User getCurrentUser() {
         String email = SecurityContextHolder.getContext().getAuthentication().getName();
         return userRepository.findByEmail(email)
-                .orElseThrow(() -> new ResourceNotFoundException("User", "email", email));
+                .orElseThrow(() -> new ResourceNotFoundException("Người dùng", "email", email));
     }
 
     private boolean hasRole(UUID userId, String roleName) {
@@ -51,35 +51,30 @@ public class EvaluationService {
         User currentUser = getCurrentUser();
 
         User evaluatedUser = userRepository.findById(request.getUserId())
-                .orElseThrow(() -> new ResourceNotFoundException("User", "id", request.getUserId()));
+                .orElseThrow(() -> new ResourceNotFoundException("Người dùng", "id", request.getUserId()));
 
         KpiCriteria kpiCriteria = kpiCriteriaRepository.findById(request.getKpiCriteriaId())
-                .orElseThrow(() -> new ResourceNotFoundException("KPI Criteria", "id", request.getKpiCriteriaId()));
+                .orElseThrow(() -> new ResourceNotFoundException("Chỉ tiêu KPI", "id", request.getKpiCriteriaId()));
 
-<<<<<<< HEAD
-        // Permission check:
-        // 1. Director can evaluate anyone.
-        // 2. User can evaluate themselves (Self-Evaluation).
-        // 3. Head can evaluate members of their department.
-        boolean isSelfEvaluation = currentUser.getId().equals(evaluatedUser.getId());
-        
-        if (!isSelfEvaluation && currentUser.getRole() != com.kpitracking.enums.UserRole.DIRECTOR) {
-            boolean isHeadOfEvaluatedUser = departmentRepository.findByCompanyId(companyId, PageRequest.of(0, 100))
-                    .getContent().stream()
-                    .filter(dept -> dept.getHead() != null && dept.getHead().getId().equals(currentUser.getId()))
-                    .anyMatch(dept -> departmentMemberRepository.existsByDepartmentIdAndUserId(dept.getId(), evaluatedUser.getId()));
+        boolean isSelfEval = currentUser.getId().equals(evaluatedUser.getId());
+        boolean isManager = hasRole(currentUser.getId(), "DIRECTOR") || hasRole(currentUser.getId(), "HEAD");
 
-            if (!isHeadOfEvaluatedUser) {
-                throw new com.kpitracking.exception.ForbiddenException("You can only evaluate yourself or members of your department");
-            }
-=======
-        if (currentUser.getId().equals(evaluatedUser.getId())) {
-            throw new BusinessException("Cannot evaluate yourself");
+        if (!isSelfEval && !isManager) {
+            throw new ForbiddenException("Bạn không có quyền tạo đánh giá cho người khác");
         }
 
-        if (!hasRole(currentUser.getId(), "DIRECTOR") && !hasRole(currentUser.getId(), "HEAD")) {
-            throw new ForbiddenException("Only DIRECTOR or HEAD can create evaluations");
->>>>>>> 7681c6edbb52597770fb6dc8246115573f68d03b
+        // Validation of period dates against KPI criteria range (comparing at LocalDate level to avoid timezone/precision issues)
+        java.time.LocalDate kpiStart = kpiCriteria.getStartDate() != null ? kpiCriteria.getStartDate().atZone(java.time.ZoneOffset.UTC).toLocalDate() : null;
+        java.time.LocalDate kpiEnd = kpiCriteria.getEndDate() != null ? kpiCriteria.getEndDate().atZone(java.time.ZoneOffset.UTC).toLocalDate() : null;
+
+        if (request.getPeriodStart() != null && kpiStart != null && request.getPeriodStart().isBefore(kpiStart)) {
+            throw new BusinessException("Ngày bắt đầu đánh giá không được trước ngày bắt đầu của KPI (" + kpiStart + ")");
+        }
+        if (request.getPeriodEnd() != null && kpiEnd != null && request.getPeriodEnd().isAfter(kpiEnd)) {
+            throw new BusinessException("Ngày kết thúc đánh giá không được sau ngày kết thúc của KPI (" + kpiEnd + ")");
+        }
+        if (request.getPeriodStart() != null && request.getPeriodEnd() != null && request.getPeriodEnd().isBefore(request.getPeriodStart())) {
+            throw new BusinessException("Ngày kết thúc không được trước ngày bắt đầu");
         }
 
         Evaluation evaluation = Evaluation.builder()
@@ -105,39 +100,12 @@ public class EvaluationService {
         boolean isDirector = hasRole(currentUser.getId(), "DIRECTOR");
         boolean isHead = hasRole(currentUser.getId(), "HEAD");
 
-<<<<<<< HEAD
-        boolean isDirector = currentUser.getRole() == com.kpitracking.enums.UserRole.DIRECTOR;
-        boolean isHead = currentUser.getRole() == com.kpitracking.enums.UserRole.HEAD;
-        boolean isDeputy = currentUser.getRole() == com.kpitracking.enums.UserRole.DEPUTY;
-
-        UUID effectiveUserId = userId;
-
-        if (!isDirector && !isHead && !isDeputy) {
-            if (effectiveUserId != null && !effectiveUserId.equals(currentUser.getId())) {
-                throw new com.kpitracking.exception.ForbiddenException("You can only view your own evaluations");
-            }
-            effectiveUserId = currentUser.getId(); // ✅ OK vì là biến mới
-        } else if ((isHead || isDeputy) && !isDirector) {
-            if (effectiveUserId != null && !effectiveUserId.equals(currentUser.getId())) {
-
-                final UUID finalUserId = effectiveUserId; // ✅ dùng trong lambda
-
-                boolean isEvaluatedMyDept = departmentRepository.findByHeadIdOrDeputyId(currentUser.getId(), currentUser.getId())
-                        .stream()
-                        .anyMatch(dept -> departmentMemberRepository.existsByDepartmentIdAndUserId(dept.getId(), finalUserId));
-
-                if (!isEvaluatedMyDept) {
-                    throw new com.kpitracking.exception.ForbiddenException("You can only view evaluations for your department members");
-                }
-            }
-=======
         Page<Evaluation> evalPage;
 
         UUID effectiveUserId = userId;
 
         if (!isDirector && !isHead) {
             effectiveUserId = currentUser.getId();
->>>>>>> 7681c6edbb52597770fb6dc8246115573f68d03b
         }
 
         if (effectiveUserId != null) {
@@ -145,23 +113,7 @@ public class EvaluationService {
         } else if (kpiCriteriaId != null) {
             evalPage = evaluationRepository.findByKpiCriteriaId(kpiCriteriaId, pageable);
         } else {
-<<<<<<< HEAD
-            if (isDirector) {
-                evalPage = evaluationRepository.findByCompanyId(companyId, pageable);
-            } else if (isHead || isDeputy) {
-                java.util.List<com.kpitracking.entity.Department> managedDepts = departmentRepository.findByHeadIdOrDeputyId(currentUser.getId(), currentUser.getId());
-                if (managedDepts.isEmpty()) {
-                    evalPage = Page.empty(pageable);
-                } else {
-                    java.util.List<UUID> managedDeptIds = managedDepts.stream().map(com.kpitracking.entity.Department::getId).toList();
-                    evalPage = evaluationRepository.findByCompanyIdAndKpiCriteriaDepartmentIdIn(companyId, managedDeptIds, pageable);
-                }
-            } else {
-                throw new com.kpitracking.exception.ForbiddenException("Only DIRECTOR, HEAD or DEPUTY can view all evaluations");
-            }
-=======
             evalPage = evaluationRepository.findAll(pageable);
->>>>>>> 7681c6edbb52597770fb6dc8246115573f68d03b
         }
 
         return PageResponse.<EvaluationResponse>builder()
@@ -177,7 +129,7 @@ public class EvaluationService {
     @Transactional(readOnly = true)
     public EvaluationResponse getEvaluationById(UUID evaluationId) {
         Evaluation evaluation = evaluationRepository.findById(evaluationId)
-                .orElseThrow(() -> new ResourceNotFoundException("Evaluation", "id", evaluationId));
+                .orElseThrow(() -> new ResourceNotFoundException("Bản đánh giá", "id", evaluationId));
         return evaluationMapper.toResponse(evaluation);
     }
 }

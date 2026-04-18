@@ -1,6 +1,5 @@
 package com.kpitracking.entity;
 
-import com.kpitracking.enums.OrganizationStatus;
 import jakarta.persistence.*;
 import lombok.*;
 import org.springframework.data.annotation.CreatedDate;
@@ -11,33 +10,31 @@ import java.time.Instant;
 import java.util.UUID;
 
 @Entity
-@Table(name = "organizations")
+@Table(name = "org_hierarchy_levels")
 @EntityListeners(AuditingEntityListener.class)
 @Getter @Setter @Builder @NoArgsConstructor @AllArgsConstructor
-public class Organization {
+public class OrgHierarchyLevel {
 
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
 
-    @Column(name = "name", nullable = false)
-    private String name;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "organization_id", nullable = false)
+    private Organization organization;
 
-    @Column(name = "code", nullable = false, unique = true)
-    private String code;
+    @Column(name = "level_order", nullable = false)
+    private Integer levelOrder;
 
-    @Enumerated(EnumType.STRING)
-    @Column(name = "status", nullable = false)
-    @Builder.Default
-    private OrganizationStatus status = OrganizationStatus.ACTIVE;
+    @Column(name = "unit_type_name", nullable = false)
+    private String unitTypeName;
+
+    @Column(name = "manager_role_label")
+    private String managerRoleLabel;
 
     @CreatedDate
     @Column(name = "created_at", updatable = false)
     private Instant createdAt;
-
-    @OneToMany(mappedBy = "organization", cascade = CascadeType.ALL, orphanRemoval = true)
-    @OrderBy("levelOrder ASC")
-    private java.util.List<OrgHierarchyLevel> hierarchyLevels;
 
     @LastModifiedDate
     @Column(name = "updated_at")

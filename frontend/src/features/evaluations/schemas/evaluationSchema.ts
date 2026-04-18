@@ -7,6 +7,14 @@ export const evaluationSchema = z.object({
   comment: z.string().optional(),
   periodStart: z.string().optional(),
   periodEnd: z.string().optional(),
+}).refine((data) => {
+  if (data.periodStart && data.periodEnd) {
+    return new Date(data.periodEnd) >= new Date(data.periodStart)
+  }
+  return true
+}, {
+  message: 'Ngày kết thúc không thể trước ngày bắt đầu',
+  path: ['periodEnd'],
 })
 
 export type EvaluationFormData = z.infer<typeof evaluationSchema>

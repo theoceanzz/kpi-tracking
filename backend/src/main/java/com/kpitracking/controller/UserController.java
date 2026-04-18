@@ -54,7 +54,7 @@ public class UserController {
             @RequestParam(defaultValue = "20") int size,
             @RequestParam(required = false) String keyword,
             @RequestParam(required = false) UUID departmentId) {
-        PageResponse<UserResponse> response = userService.getUsers(page, size, keyword, departmentId);
+        PageResponse<UserResponse> response = userService.getUsers(page, size, keyword);
         return ResponseEntity.ok(ApiResponse.success(response));
     }
 

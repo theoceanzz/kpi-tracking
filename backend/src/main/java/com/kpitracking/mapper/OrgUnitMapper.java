@@ -10,7 +10,10 @@ import org.mapstruct.Mapping;
 public interface OrgUnitMapper {
 
     @Mapping(source = "parent.id", target = "parentId")
-    @Mapping(source = "organization.id", target = "organizationId")
+    @Mapping(source = "orgHierarchyLevel.id", target = "orgHierarchyId")
+    @Mapping(source = "orgHierarchyLevel.organization.id", target = "organizationId")
+    @Mapping(source = "orgHierarchyLevel.unitTypeName", target = "type")
+    @Mapping(source = "orgHierarchyLevel.levelOrder", target = "level")
     @Mapping(source = "province.id", target = "provinceId")
     @Mapping(source = "province.name", target = "provinceName")
     @Mapping(source = "district.id", target = "districtId")
@@ -18,6 +21,8 @@ public interface OrgUnitMapper {
     OrgUnitResponse toResponse(OrgUnit orgUnit);
 
     @Mapping(source = "parent.id", target = "parentId")
+    @Mapping(source = "orgHierarchyLevel.unitTypeName", target = "type")
+    @Mapping(source = "orgHierarchyLevel.levelOrder", target = "level")
     @Mapping(target = "children", ignore = true)
     OrgUnitTreeResponse toTreeResponse(OrgUnit orgUnit);
 }

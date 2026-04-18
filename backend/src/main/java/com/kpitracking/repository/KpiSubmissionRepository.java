@@ -22,21 +22,15 @@ public interface KpiSubmissionRepository extends JpaRepository<KpiSubmission, UU
 
     long countByOrgUnitIdAndStatus(UUID orgUnitId, SubmissionStatus status);
 
-<<<<<<< HEAD
-    Page<KpiSubmission> findByCompanyIdAndKpiCriteriaDepartmentId(UUID companyId, UUID departmentId, Pageable pageable);
-
-    Page<KpiSubmission> findByCompanyIdAndKpiCriteriaDepartmentIdIn(UUID companyId, java.util.Collection<UUID> departmentIds, Pageable pageable);
-
-    Page<KpiSubmission> findByCompanyIdAndKpiCriteriaDepartmentIdAndStatus(UUID companyId, UUID departmentId, SubmissionStatus status, Pageable pageable);
-
-    Page<KpiSubmission> findByCompanyIdAndKpiCriteriaDepartmentIdInAndStatus(UUID companyId, java.util.Collection<UUID> departmentIds, SubmissionStatus status, Pageable pageable);
-
-    long countByCompanyId(UUID companyId);
-=======
     long countByStatus(SubmissionStatus status);
->>>>>>> 7681c6edbb52597770fb6dc8246115573f68d03b
 
     long countBySubmittedById(UUID userId);
 
     long countBySubmittedByIdAndStatus(UUID userId, SubmissionStatus status);
+
+    @org.springframework.data.jpa.repository.Query("SELECT COUNT(s) FROM KpiSubmission s WHERE s.orgUnit.orgHierarchyLevel.organization.id = :orgId")
+    long countByOrganizationId(@org.springframework.data.repository.query.Param("orgId") UUID orgId);
+
+    @org.springframework.data.jpa.repository.Query("SELECT COUNT(s) FROM KpiSubmission s WHERE s.orgUnit.orgHierarchyLevel.organization.id = :orgId AND s.status = :status")
+    long countByOrganizationIdAndStatus(@org.springframework.data.repository.query.Param("orgId") UUID orgId, @org.springframework.data.repository.query.Param("status") SubmissionStatus status);
 }

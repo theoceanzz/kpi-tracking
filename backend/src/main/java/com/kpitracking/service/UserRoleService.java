@@ -48,7 +48,7 @@ public class UserRoleService {
 
         if (userRoleOrgUnitRepository.existsByUserIdAndRoleIdAndOrgUnitId(
                 request.getUserId(), request.getRoleId(), request.getOrgUnitId())) {
-            throw new DuplicateResourceException("User already has this role at this org unit");
+            throw new DuplicateResourceException("Người dùng đã có vai trò này tại đơn vị này");
         }
 
         UserRoleOrgUnit assignment = UserRoleOrgUnit.builder()
@@ -66,7 +66,7 @@ public class UserRoleService {
     @Transactional
     public void revokeRole(UUID userId, UUID roleId, UUID orgUnitId) {
         if (!userRoleOrgUnitRepository.existsByUserIdAndRoleIdAndOrgUnitId(userId, roleId, orgUnitId)) {
-            throw new ResourceNotFoundException("User role assignment not found");
+            throw new ResourceNotFoundException("Không tìm thấy thông tin phân quyền của người dùng");
         }
         userRoleOrgUnitRepository.deleteByUserIdAndRoleIdAndOrgUnitId(userId, roleId, orgUnitId);
     }

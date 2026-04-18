@@ -11,13 +11,14 @@ import ConfirmDialog from '@/components/common/ConfirmDialog'
 import { toast } from 'sonner'
 import { Pencil, Trash2, UserPlus, ArrowLeft, Building2, Crown, Award, Grid } from 'lucide-react'
 import { useAuthStore } from '@/store/authStore'
+import { usePermission } from '@/hooks/usePermission'
 
 export default function DepartmentDetailPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const qc = useQueryClient()
   const user = useAuthStore((s) => s.user)
-  const isDirector = user?.role === 'DIRECTOR'
+  const { isDirector, isHead, isDeputy } = usePermission()
 
   const [showEdit, setShowEdit] = useState(false)
   const [showAddMember, setShowAddMember] = useState(false)
@@ -47,7 +48,7 @@ export default function DepartmentDetailPage() {
   if (isLoading) return <div className="p-8"><LoadingSkeleton type="form" rows={6} /></div>
 
   const isMyDepartment = members?.some((m) => m.userId === user?.id)
-  const canManageMembers = isDirector || (isMyDepartment && (user?.role === 'HEAD' || user?.role === 'DEPUTY'))
+  const canManageMembers = isDirector || (isMyDepartment && (isHead || isDeputy))
 
   return (
     <div className="max-w-[1200px] mx-auto p-4 md:p-8 space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500 pb-10">

@@ -30,7 +30,7 @@ public class OrganizationService {
     @Transactional
     public OrganizationResponse createOrganization(CreateOrganizationRequest request) {
         if (organizationRepository.existsByCode(request.getCode())) {
-            throw new DuplicateResourceException("Organization", "code", request.getCode());
+            throw new DuplicateResourceException("Tổ chức", "code", request.getCode());
         }
 
         Organization organization = Organization.builder()
@@ -46,7 +46,7 @@ public class OrganizationService {
     @Transactional(readOnly = true)
     public OrganizationResponse getOrganization(UUID orgId) {
         Organization organization = organizationRepository.findById(orgId)
-                .orElseThrow(() -> new ResourceNotFoundException("Organization", "id", orgId));
+                .orElseThrow(() -> new ResourceNotFoundException("Tổ chức", "id", orgId));
         return organizationMapper.toResponse(organization);
     }
 
@@ -68,7 +68,7 @@ public class OrganizationService {
     @Transactional
     public OrganizationResponse updateOrganization(UUID orgId, UpdateOrganizationRequest request) {
         Organization organization = organizationRepository.findById(orgId)
-                .orElseThrow(() -> new ResourceNotFoundException("Organization", "id", orgId));
+                .orElseThrow(() -> new ResourceNotFoundException("Tổ chức", "id", orgId));
 
         if (request.getName() != null) {
             organization.setName(request.getName());
@@ -84,7 +84,7 @@ public class OrganizationService {
     @Transactional
     public void deleteOrganization(UUID orgId) {
         Organization organization = organizationRepository.findById(orgId)
-                .orElseThrow(() -> new ResourceNotFoundException("Organization", "id", orgId));
+                .orElseThrow(() -> new ResourceNotFoundException("Tổ chức", "id", orgId));
         organization.setStatus(OrganizationStatus.ARCHIVED);
         organizationRepository.save(organization);
     }

@@ -24,22 +24,8 @@ public interface UserRepository extends JpaRepository<User, UUID> {
 
     Optional<User> findByVerifyEmailToken(String verifyEmailToken);
 
-<<<<<<< HEAD
-    long countByCompanyId(UUID companyId);
-
-    List<User> findAllByCompanyId(UUID companyId);
-
-    @Query("SELECT dm.user FROM DepartmentMember dm WHERE dm.department.id = :departmentId AND dm.department.company.id = :companyId")
-    Page<User> findByDepartmentId(@Param("companyId") UUID companyId, @Param("departmentId") UUID departmentId, Pageable pageable);
-
-    @Query("SELECT dm.user FROM DepartmentMember dm WHERE dm.department.id = :departmentId AND dm.department.company.id = :companyId " +
-           "AND (LOWER(dm.user.fullName) LIKE LOWER(CONCAT('%', :keyword, '%')) " +
-           "OR LOWER(dm.user.email) LIKE LOWER(CONCAT('%', :keyword, '%')))")
-    Page<User> searchByDepartmentId(@Param("companyId") UUID companyId, @Param("departmentId") UUID departmentId, @Param("keyword") String keyword, Pageable pageable);
-=======
     @Query("SELECT u FROM User u WHERE " +
            "LOWER(u.fullName) LIKE LOWER(CONCAT('%', :keyword, '%')) " +
            "OR LOWER(u.email) LIKE LOWER(CONCAT('%', :keyword, '%'))")
     Page<User> searchByKeyword(@Param("keyword") String keyword, Pageable pageable);
->>>>>>> 7681c6edbb52597770fb6dc8246115573f68d03b
 }

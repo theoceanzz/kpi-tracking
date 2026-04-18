@@ -10,9 +10,9 @@ export default function AuthLayout() {
   }
 
   return (
-    <div className="min-h-screen w-full flex bg-[var(--color-background)]">
+    <div className="h-screen w-full flex bg-[var(--color-background)] overflow-hidden">
       {/* Left Pane - Branding & Graphic (Visible only on lg screens) */}
-      <div className="hidden lg:flex lg:w-1/2 relative bg-gradient-to-br from-indigo-900 to-slate-900 text-white overflow-hidden items-center justify-center flex-col p-12">
+      <div className="hidden lg:flex lg:w-1/2 h-full relative bg-gradient-to-br from-indigo-900 to-slate-900 text-white overflow-hidden items-center justify-center flex-col p-12">
         {/* Abstract background elements */}
         <div className="absolute top-0 left-0 w-full h-full opacity-20 bg-[radial-gradient(circle_at_top_left,rgba(255,255,255,1)_0%,rgba(0,0,0,0)_50%)]"></div>
         <div className="absolute bottom-0 right-0 w-[800px] h-[800px] bg-indigo-500/30 rounded-full blur-[120px] translate-x-1/3 translate-y-1/3 pointer-events-none"></div>
@@ -52,9 +52,9 @@ export default function AuthLayout() {
       </div>
 
       {/* Right Pane - Form Area */}
-      <div className="w-full lg:w-1/2 flex items-center justify-center p-6 sm:p-12 relative">
+      <div className="w-full lg:w-1/2 h-full flex flex-col items-center overflow-y-auto px-6 py-12 sm:px-12 custom-scrollbar relative">
         <div className="absolute inset-0 bg-slate-50 dark:bg-slate-950 -z-10"></div>
-        <div className="w-full max-w-md animate-in fade-in slide-in-from-bottom-4 duration-700">
+        <div className="w-full max-w-md my-auto animate-in fade-in slide-in-from-bottom-4 duration-700">
           {/* Logo for mobile only */}
           <div className="lg:hidden flex justify-center mb-8">
             <div className="w-12 h-12 rounded-xl bg-[var(--color-primary)] flex items-center justify-center shadow-lg shadow-[var(--color-primary)]/20">

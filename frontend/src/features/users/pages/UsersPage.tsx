@@ -65,7 +65,7 @@ export default function UsersPage() {
   const processedUsers = useMemo(() => {
     if (!data?.content) return []
 
-    let result = data.content.filter(u => u.id !== authUser?.id && u.role !== 'DIRECTOR')
+    let result = data.content.filter(u => u.id !== authUser?.id && !u.roles?.includes('DIRECTOR'))
 
     if (roleFilter !== 'ALL') {
       result = result.filter(u => getHighestRole(u) === roleFilter)

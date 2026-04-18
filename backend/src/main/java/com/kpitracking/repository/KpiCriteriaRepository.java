@@ -16,39 +16,21 @@ public interface KpiCriteriaRepository extends JpaRepository<KpiCriteria, UUID> 
 
     Page<KpiCriteria> findByStatus(KpiStatus status, Pageable pageable);
 
-<<<<<<< HEAD
-    Page<KpiCriteria> findByCompanyIdAndAssignedToId(UUID companyId, UUID assignedToId, Pageable pageable);
-
-    Page<KpiCriteria> findByCompanyIdAndStatus(UUID companyId, KpiStatus status, Pageable pageable);
-
-    Page<KpiCriteria> findByCompanyIdAndStatusAndDepartmentIdIn(UUID companyId, KpiStatus status, java.util.Collection<UUID> departmentIds, Pageable pageable);
-
-    Page<KpiCriteria> findByCompanyIdAndDepartmentId(UUID companyId, UUID departmentId, Pageable pageable);
-
-    Page<KpiCriteria> findByCompanyIdAndDepartmentIdIn(UUID companyId, java.util.Collection<UUID> departmentIds, Pageable pageable);
-
-    Page<KpiCriteria> findByCompanyIdAndCreatedById(UUID companyId, UUID createdById, Pageable pageable);
-
-    Page<KpiCriteria> findByCompanyIdAndStatusAndCreatedById(UUID companyId, KpiStatus status, UUID createdById, Pageable pageable);
-
-    @Query("SELECT k FROM KpiCriteria k WHERE k.company.id = :companyId AND k.status = :status AND " +
-           "(k.assignedTo.id = :userId OR (k.assignedTo IS NULL AND k.department.id IN " +
-           "(SELECT dm.department.id FROM DepartmentMember dm WHERE dm.user.id = :userId)))")
-    Page<KpiCriteria> findMyKpis(@Param("companyId") UUID companyId,
-                                 @Param("userId") UUID userId,
-                                 @Param("status") KpiStatus status,
-                                 Pageable pageable);
-=======
     Page<KpiCriteria> findByOrgUnitIdAndStatus(UUID orgUnitId, KpiStatus status, Pageable pageable);
 
     Page<KpiCriteria> findByAssignedToIdOrCreatedById(UUID assignedToId, UUID createdById, Pageable pageable);
 
     long countByOrgUnitId(UUID orgUnitId);
->>>>>>> 7681c6edbb52597770fb6dc8246115573f68d03b
 
     long countByOrgUnitIdAndStatus(UUID orgUnitId, KpiStatus status);
 
     long countByStatus(KpiStatus status);
 
     long countByAssignedToIdAndStatus(UUID assignedToId, KpiStatus status);
+
+    @org.springframework.data.jpa.repository.Query("SELECT COUNT(k) FROM KpiCriteria k WHERE k.orgUnit.orgHierarchyLevel.organization.id = :orgId")
+    long countByOrganizationId(@org.springframework.data.repository.query.Param("orgId") UUID orgId);
+
+    @org.springframework.data.jpa.repository.Query("SELECT COUNT(k) FROM KpiCriteria k WHERE k.orgUnit.orgHierarchyLevel.organization.id = :orgId AND k.status = :status")
+    long countByOrganizationIdAndStatus(@org.springframework.data.repository.query.Param("orgId") UUID orgId, @org.springframework.data.repository.query.Param("status") KpiStatus status);
 }

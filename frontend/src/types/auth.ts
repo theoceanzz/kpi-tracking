@@ -1,6 +1,15 @@
 export type UserRole = 'DIRECTOR' | 'HEAD' | 'DEPUTY' | 'STAFF'
 export type UserStatus = 'ACTIVE' | 'INACTIVE' | 'SUSPENDED'
 
+export interface UserMembership {
+  orgUnitId: string
+  orgUnitName: string
+  organizationName: string
+  roleName: string
+  roleLabel?: string
+  unitTypeLabel?: string
+}
+
 // Matches BE: UserInfoResponse
 export interface UserInfo {
   id: string
@@ -8,15 +17,9 @@ export interface UserInfo {
   fullName: string
   phone: string | null
   avatarUrl: string | null
-  role: UserRole
   status: UserStatus
-  companyId: string
-  companyName: string
-  memberships: Array<{
-    departmentId: string
-    departmentName: string
-    position: string
-  }>
+  memberships: UserMembership[]
+  roles: string[]
 }
 
 // Matches BE: AuthResponse
@@ -27,6 +30,11 @@ export interface AuthResponse {
   user: UserInfo
 }
 
+export interface HierarchyLevel {
+  unitTypeName: string
+  managerRoleLabel?: string
+}
+
 // Matches BE: LoginRequest
 export interface LoginRequest {
   email: string
@@ -35,12 +43,13 @@ export interface LoginRequest {
 
 // Matches BE: RegisterRequest
 export interface RegisterRequest {
-  companyName: string
-  taxCode?: string
+  organizationName: string
+  organizationCode: string
   fullName: string
   email: string
   password: string
   phone?: string
+  hierarchyLevels: HierarchyLevel[]
 }
 
 // Matches BE: ChangePasswordRequest
@@ -61,3 +70,4 @@ export interface ResetPasswordRequest {
   newPassword: string
   confirmPassword: string
 }
+

@@ -33,11 +33,11 @@ export default function NewSubmissionPage() {
 
   const createMutation = useMutation({
     mutationFn: async (data: SubmissionFormData) => {
-      // Format dates to ISO-8601 for the backend (Instant)
+      // Send dates as YYYY-MM-DD strings directly (as expected by backend LocalDate)
       const formattedData = {
         ...data,
-        periodStart: data.periodStart ? new Date(data.periodStart).toISOString() : undefined,
-        periodEnd: data.periodEnd ? new Date(data.periodEnd).toISOString() : undefined,
+        periodStart: data.periodStart || undefined,
+        periodEnd: data.periodEnd || undefined,
       }
       
       const sub = await submissionApi.create(formattedData as any)
@@ -155,20 +155,26 @@ export default function NewSubmissionPage() {
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                 <div>
-                  <label className="block text-xs font-bold uppercase tracking-widest text-slate-400 mb-2">Từ ngày</label>
+                  <label className="block text-xs font-bold uppercase tracking-widest text-slate-400 mb-2 text-indigo-500">Từ ngày {selectedKpi?.startDate && `(Min: ${new Date(selectedKpi.startDate).toLocaleDateString()})`}</label>
                   <input 
                     {...register('periodStart')} 
                     type="date" 
-                    className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-400 transition-all" 
+                    min={selectedKpi?.startDate ? new Date(selectedKpi.startDate).toISOString().split('T')[0] : undefined}
+                    max={selectedKpi?.endDate ? new Date(selectedKpi.endDate).toISOString().split('T')[0] : undefined}
+                    className={`w-full px-4 py-3 rounded-xl border ${errors.periodStart ? 'border-red-500' : 'border-slate-200 dark:border-slate-700'} bg-white dark:bg-slate-900 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-400 transition-all`} 
                   />
+                  {errors.periodStart && <p className="text-red-500 text-xs mt-1 font-medium">{errors.periodStart.message}</p>}
                 </div>
                 <div>
-                  <label className="block text-xs font-bold uppercase tracking-widest text-slate-400 mb-2">Đến ngày</label>
+                  <label className="block text-xs font-bold uppercase tracking-widest text-slate-400 mb-2 text-indigo-500">Đến ngày {selectedKpi?.endDate && `(Max: ${new Date(selectedKpi.endDate).toLocaleDateString()})`}</label>
                   <input 
                     {...register('periodEnd')} 
                     type="date" 
-                    className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-400 transition-all" 
+                    min={selectedKpi?.startDate ? new Date(selectedKpi.startDate).toISOString().split('T')[0] : undefined}
+                    max={selectedKpi?.endDate ? new Date(selectedKpi.endDate).toISOString().split('T')[0] : undefined}
+                    className={`w-full px-4 py-3 rounded-xl border ${errors.periodEnd ? 'border-red-500' : 'border-slate-200 dark:border-slate-700'} bg-white dark:bg-slate-900 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-400 transition-all`} 
                   />
+                  {errors.periodEnd && <p className="text-red-500 text-xs mt-1 font-medium">{errors.periodEnd.message}</p>}
                 </div>
               </div>
             </div>

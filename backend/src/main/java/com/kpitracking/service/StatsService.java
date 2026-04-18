@@ -35,60 +35,43 @@ public class StatsService {
                 .orElseThrow(() -> new ResourceNotFoundException("User", "email", email));
     }
 
+    private UUID getCurrentUserOrganizationId(User user) {
+        List<UserRoleOrgUnit> roles = userRoleOrgUnitRepository.findByUserId(user.getId());
+        if (roles.isEmpty()) return null;
+        return roles.get(0).getOrgUnit().getOrgHierarchyLevel().getOrganization().getId();
+    }
+
     @Transactional(readOnly = true)
     public OverviewStatsResponse getOverviewStats() {
+        User currentUser = getCurrentUser();
+        UUID orgId = getCurrentUserOrganizationId(currentUser);
+        if (orgId == null) {
+            return OverviewStatsResponse.builder().build();
+        }
+
         return OverviewStatsResponse.builder()
-<<<<<<< HEAD
-                .totalUsers(userRepository.countByCompanyId(companyId))
-                .totalDepartments(departmentRepository.countByCompanyId(companyId))
-                .totalKpiCriteria(kpiCriteriaRepository.countByCompanyIdAndStatus(companyId, KpiStatus.APPROVED))
-                .approvedKpi(kpiCriteriaRepository.countByCompanyIdAndStatus(companyId, KpiStatus.APPROVED))
-                .pendingKpi(0)
-                .totalSubmissions(submissionRepository.countByCompanyId(companyId))
-                .pendingSubmissions(submissionRepository.countByCompanyIdAndStatus(companyId, SubmissionStatus.PENDING))
-                .approvedSubmissions(submissionRepository.countByCompanyIdAndStatus(companyId, SubmissionStatus.APPROVED))
-                .rejectedSubmissions(submissionRepository.countByCompanyIdAndStatus(companyId, SubmissionStatus.REJECTED))
-                .totalEvaluations(evaluationRepository.countByCompanyId(companyId))
-=======
-                .totalUsers(userRepository.count())
-                .totalDepartments(orgUnitRepository.count())
-                .totalKpiCriteria(kpiCriteriaRepository.count())
-                .approvedKpi(kpiCriteriaRepository.countByStatus(KpiStatus.APPROVED))
-                .pendingKpi(kpiCriteriaRepository.countByStatus(KpiStatus.PENDING_APPROVAL))
-                .totalSubmissions(submissionRepository.count())
-                .pendingSubmissions(submissionRepository.countByStatus(SubmissionStatus.PENDING))
-                .approvedSubmissions(submissionRepository.countByStatus(SubmissionStatus.APPROVED))
-                .rejectedSubmissions(submissionRepository.countByStatus(SubmissionStatus.REJECTED))
-                .totalEvaluations(evaluationRepository.count())
->>>>>>> 7681c6edbb52597770fb6dc8246115573f68d03b
+                .totalUsers(userRoleOrgUnitRepository.countUsersByOrganizationId(orgId))
+                .totalDepartments(orgUnitRepository.countByOrgHierarchyLevel_Organization_Id(orgId))
+                .totalKpiCriteria(kpiCriteriaRepository.countByOrganizationId(orgId))
+                .approvedKpi(kpiCriteriaRepository.countByOrganizationIdAndStatus(orgId, KpiStatus.APPROVED))
+                .pendingKpi(kpiCriteriaRepository.countByOrganizationIdAndStatus(orgId, KpiStatus.PENDING_APPROVAL))
+                .totalSubmissions(submissionRepository.countByOrganizationId(orgId))
+                .pendingSubmissions(submissionRepository.countByOrganizationIdAndStatus(orgId, SubmissionStatus.PENDING))
+                .approvedSubmissions(submissionRepository.countByOrganizationIdAndStatus(orgId, SubmissionStatus.APPROVED))
+                .rejectedSubmissions(submissionRepository.countByOrganizationIdAndStatus(orgId, SubmissionStatus.REJECTED))
+                .totalEvaluations(evaluationRepository.countByOrganizationId(orgId))
                 .build();
     }
 
     @Transactional(readOnly = true)
     public List<OrgUnitKpiStatsResponse> getOrgUnitKpiStats() {
-        // For now, return stats per org unit
-        List<OrgUnit> orgUnits = orgUnitRepository.findAll();
+        User currentUser = getCurrentUser();
+        UUID orgId = getCurrentUserOrganizationId(currentUser);
+        if (orgId == null) return Collections.emptyList();
 
-<<<<<<< HEAD
-        return departments.stream().map(dept -> DeptKpiStatsResponse.builder()
-                .departmentId(dept.getId())
-                .departmentName(dept.getName())
-                .memberCount(departmentMemberRepository.countByDepartmentId(dept.getId()))
-                .totalKpi(kpiCriteriaRepository.countByCompanyIdAndDepartmentIdAndStatus(companyId, dept.getId(), KpiStatus.APPROVED))
-                .approvedKpi(kpiCriteriaRepository.countByCompanyIdAndDepartmentIdAndStatus(
-                        companyId, dept.getId(), KpiStatus.APPROVED))
-                .pendingKpi(kpiCriteriaRepository.countByCompanyIdAndDepartmentIdAndStatus(
-                        companyId, dept.getId(), KpiStatus.PENDING_APPROVAL))
-                .rejectedKpi(kpiCriteriaRepository.countByCompanyIdAndDepartmentIdAndStatus(
-                        companyId, dept.getId(), KpiStatus.REJECTED))
-                .totalSubmissions(submissionRepository.countByCompanyIdAndDepartmentId(companyId, dept.getId()))
-                .approvedSubmissions(submissionRepository.countByCompanyIdAndDepartmentIdAndStatus(
-                        companyId, dept.getId(), SubmissionStatus.APPROVED))
-                .pendingSubmissions(submissionRepository.countByCompanyIdAndDepartmentIdAndStatus(
-                        companyId, dept.getId(), SubmissionStatus.PENDING))
-                .rejectedSubmissions(submissionRepository.countByCompanyIdAndDepartmentIdAndStatus(
-                        companyId, dept.getId(), SubmissionStatus.REJECTED))
-=======
+        // For now, return stats per org unit
+        List<OrgUnit> orgUnits = orgUnitRepository.findByOrgHierarchyLevel_Organization_IdAndDeletedAtIsNull(orgId);
+
         return orgUnits.stream().map(unit -> OrgUnitKpiStatsResponse.builder()
                 .orgUnitId(unit.getId())
                 .orgUnitName(unit.getName())
@@ -101,37 +84,24 @@ public class StatsService {
                 .approvedSubmissions(submissionRepository.countByOrgUnitIdAndStatus(unit.getId(), SubmissionStatus.APPROVED))
                 .pendingSubmissions(submissionRepository.countByOrgUnitIdAndStatus(unit.getId(), SubmissionStatus.PENDING))
                 .rejectedSubmissions(submissionRepository.countByOrgUnitIdAndStatus(unit.getId(), SubmissionStatus.REJECTED))
->>>>>>> 7681c6edbb52597770fb6dc8246115573f68d03b
                 .build()
         ).toList();
     }
 
     @Transactional(readOnly = true)
     public List<EmployeeKpiStatsResponse> getEmployeeKpiStats() {
-<<<<<<< HEAD
         User currentUser = getCurrentUser();
-        UUID companyId = currentUser.getCompany().getId();
+        UUID orgId = getCurrentUserOrganizationId(currentUser);
+        if (orgId == null) return Collections.emptyList();
 
-        List<User> users = userRepository.findAllByCompanyId(companyId).stream()
-                .filter(u -> !u.getId().equals(currentUser.getId()))
-                .collect(Collectors.toList());
-=======
-        List<User> users = userRepository.findAll();
->>>>>>> 7681c6edbb52597770fb6dc8246115573f68d03b
+        List<User> users = userRoleOrgUnitRepository.findUsersByOrganizationId(orgId);
 
         List<EmployeeKpiStatsResponse> result = new ArrayList<>();
 
         for (User u : users) {
-<<<<<<< HEAD
-             List<DepartmentMember> dms = departmentMemberRepository.findByUserId(u.getId());
-             String deptNames = dms.stream()
-                     .map(dm -> dm.getDepartment().getName())
-                     .collect(Collectors.joining(", "));
-=======
              List<UserRoleOrgUnit> roles = userRoleOrgUnitRepository.findByUserId(u.getId());
              String roleName = roles.isEmpty() ? "N/A" : roles.get(0).getRole().getName();
              String orgUnitName = roles.isEmpty() ? null : roles.get(0).getOrgUnit().getName();
->>>>>>> 7681c6edbb52597770fb6dc8246115573f68d03b
 
              long assignedKpi = kpiCriteriaRepository.countByAssignedToIdAndStatus(u.getId(), KpiStatus.APPROVED);
              long totalSub = submissionRepository.countBySubmittedById(u.getId());
@@ -144,13 +114,8 @@ public class StatsService {
                      .userId(u.getId())
                      .fullName(u.getFullName())
                      .email(u.getEmail())
-<<<<<<< HEAD
-                     .role(u.getRole().name())
-                     .departmentName(deptNames)
-=======
                      .role(roleName)
                      .orgUnitName(orgUnitName)
->>>>>>> 7681c6edbb52597770fb6dc8246115573f68d03b
                      .assignedKpi(assignedKpi)
                      .totalSubmissions(totalSub)
                      .approvedSubmissions(approvedSub)

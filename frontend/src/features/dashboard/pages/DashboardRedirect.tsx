@@ -1,12 +1,15 @@
 import { Navigate } from 'react-router-dom'
 import { useAuthStore } from '@/store/authStore'
+import { getHighestRole } from '@/lib/utils'
 
 export default function DashboardRedirect() {
   const user = useAuthStore((s) => s.user)
 
   if (!user) return <Navigate to="/login" replace />
 
-  switch (user.role) {
+  const highestRole = getHighestRole(user)
+
+  switch (highestRole) {
     case 'DIRECTOR':
       return <Navigate to="/dashboard/director" replace />
     case 'HEAD':

@@ -4,21 +4,12 @@ import com.kpitracking.dto.request.user.CreateUserRequest;
 import com.kpitracking.dto.request.user.UpdateUserRequest;
 import com.kpitracking.dto.response.PageResponse;
 import com.kpitracking.dto.response.user.UserResponse;
-<<<<<<< HEAD
-import com.kpitracking.dto.response.user.UserMembershipResponse;
-import com.kpitracking.entity.Company;
-=======
->>>>>>> 7681c6edbb52597770fb6dc8246115573f68d03b
+
 import com.kpitracking.entity.User;
 import com.kpitracking.entity.UserRoleOrgUnit;
 import com.kpitracking.exception.DuplicateResourceException;
 import com.kpitracking.exception.ResourceNotFoundException;
-<<<<<<< HEAD
-import com.kpitracking.mapper.UserMapper;
-import com.kpitracking.repository.CompanyRepository;
-import com.kpitracking.repository.DepartmentMemberRepository;
-=======
->>>>>>> 7681c6edbb52597770fb6dc8246115573f68d03b
+
 import com.kpitracking.repository.UserRepository;
 import com.kpitracking.repository.UserRoleOrgUnitRepository;
 import lombok.RequiredArgsConstructor;
@@ -59,12 +50,11 @@ public class UserService {
     private final UserRoleOrgUnitRepository userRoleOrgUnitRepository;
     private final PasswordEncoder passwordEncoder;
     private final EmailService emailService;
-    private final DepartmentMemberRepository departmentMemberRepository;
 
     private User getCurrentUser() {
         String email = SecurityContextHolder.getContext().getAuthentication().getName();
         return userRepository.findByEmail(email)
-                .orElseThrow(() -> new ResourceNotFoundException("User", "email", email));
+                .orElseThrow(() -> new ResourceNotFoundException("Người dùng", "email", email));
     }
 
     private List<String> getUserRoleNames(UUID userId) {
@@ -99,11 +89,7 @@ public class UserService {
                 .password(passwordEncoder.encode(request.getPassword()))
                 .fullName(request.getFullName())
                 .phone(request.getPhone())
-<<<<<<< HEAD
-                .role(request.getRole())
-                .isEmailVerified(true)
-=======
->>>>>>> 7681c6edbb52597770fb6dc8246115573f68d03b
+
                 .build();
 
         user = userRepository.save(user);
@@ -114,48 +100,6 @@ public class UserService {
             // Silently log and continue, as the user is already created
         }
 
-<<<<<<< HEAD
-        return enrichWithMemberships(userMapper.toResponse(user));
-    }
-
-    private UserResponse enrichWithMemberships(UserResponse response) {
-        List<UserMembershipResponse> memberships = departmentMemberRepository.findByUserId(response.getId()).stream()
-                .map(dm -> UserMembershipResponse.builder()
-                        .departmentId(dm.getDepartment().getId())
-                        .departmentName(dm.getDepartment().getName())
-                        .position(dm.getPosition())
-                        .build())
-                .toList();
-        response.setMemberships(memberships);
-        return response;
-    }
-
-    @Transactional(readOnly = true)
-    public PageResponse<UserResponse> getUsers(int page, int size, String keyword, UUID departmentId) {
-        UUID companyId = getCurrentCompanyId();
-        Pageable pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
-
-        Page<User> userPage;
-        if (departmentId != null) {
-            if (keyword != null && !keyword.isBlank()) {
-                userPage = userRepository.searchByDepartmentId(companyId, departmentId, keyword, pageable);
-            } else {
-                userPage = userRepository.findByDepartmentId(companyId, departmentId, pageable);
-            }
-        } else {
-            if (keyword != null && !keyword.isBlank()) {
-                userPage = userRepository.searchByCompanyId(companyId, keyword, pageable);
-            } else {
-                userPage = userRepository.findByCompanyId(companyId, pageable);
-            }
-        }
-
-        return PageResponse.<UserResponse>builder()
-                .content(userPage.getContent().stream()
-                        .map(userMapper::toResponse)
-                        .map(this::enrichWithMemberships)
-                        .toList())
-=======
         return toResponse(user);
     }
 
@@ -172,7 +116,6 @@ public class UserService {
 
         return PageResponse.<UserResponse>builder()
                 .content(userPage.getContent().stream().map(this::toResponse).toList())
->>>>>>> 7681c6edbb52597770fb6dc8246115573f68d03b
                 .page(userPage.getNumber())
                 .size(userPage.getSize())
                 .totalElements(userPage.getTotalElements())
@@ -184,25 +127,21 @@ public class UserService {
     @Transactional(readOnly = true)
     public UserResponse getUserById(UUID userId) {
         User user = userRepository.findById(userId)
-                .orElseThrow(() -> new ResourceNotFoundException("User", "id", userId));
-<<<<<<< HEAD
-        return enrichWithMemberships(userMapper.toResponse(user));
-=======
+                .orElseThrow(() -> new ResourceNotFoundException("Người dùng", "id", userId));
         return toResponse(user);
->>>>>>> 7681c6edbb52597770fb6dc8246115573f68d03b
     }
 
     @Transactional
     public UserResponse updateUser(UUID userId, UpdateUserRequest request) {
         User user = userRepository.findById(userId)
-                .orElseThrow(() -> new ResourceNotFoundException("User", "id", userId));
+                .orElseThrow(() -> new ResourceNotFoundException("Người dùng", "id", userId));
 
         if (request.getFullName() != null) {
             user.setFullName(request.getFullName());
         }
         if (request.getEmail() != null && !request.getEmail().equals(user.getEmail())) {
             if (userRepository.existsByEmail(request.getEmail())) {
-                throw new DuplicateResourceException("User", "email", request.getEmail());
+                throw new DuplicateResourceException("Người dùng", "email", request.getEmail());
             }
             user.setEmail(request.getEmail());
         }
@@ -214,17 +153,13 @@ public class UserService {
         }
 
         user = userRepository.save(user);
-<<<<<<< HEAD
-        return enrichWithMemberships(userMapper.toResponse(user));
-=======
         return toResponse(user);
->>>>>>> 7681c6edbb52597770fb6dc8246115573f68d03b
     }
 
     @Transactional
     public void deleteUser(UUID userId) {
         User user = userRepository.findById(userId)
-                .orElseThrow(() -> new ResourceNotFoundException("User", "id", userId));
+                .orElseThrow(() -> new ResourceNotFoundException("Người dùng", "id", userId));
         user.setDeletedAt(Instant.now());
         userRepository.save(user);
     }
@@ -240,7 +175,7 @@ public class UserService {
     public ImportUserResponse importUsers(MultipartFile file) {
         String filename = file.getOriginalFilename();
         if (filename == null || (!filename.endsWith(".csv") && !filename.endsWith(".xlsx"))) {
-            throw new BusinessException("Only .csv and .xlsx files are supported");
+            throw new BusinessException("Chỉ hỗ trợ tập tin định dạng .csv và .xlsx");
         }
 
         List<String> errors = new ArrayList<>();
@@ -259,15 +194,7 @@ public class UserService {
                             String email = csvRecord.get("Email");
                             String fullName = csvRecord.get("FullName");
                             String phone = csvRecord.isMapped("Phone") ? csvRecord.get("Phone") : null;
-<<<<<<< HEAD
-                            String roleStr = csvRecord.isMapped("Role") ? csvRecord.get("Role") : "STAFF";
-                            String password = csvRecord.isMapped("Password") ? csvRecord.get("Password") : null;
-
-                            processUserRow(company, email, fullName, phone, roleStr, password);
-=======
-
                             processUserRow(email, fullName, phone);
->>>>>>> 7681c6edbb52597770fb6dc8246115573f68d03b
                             successfulImports++;
                         } catch (Exception e) {
                             errors.add("Row " + totalRows + ": " + e.getMessage());
@@ -279,27 +206,19 @@ public class UserService {
                     Sheet sheet = workbook.getSheetAt(0);
                     Row headerRow = sheet.getRow(0);
 
-                    if (headerRow == null) throw new BusinessException("Excel file is empty");
+                    if (headerRow == null) throw new BusinessException("Tập tin Excel trống");
 
-<<<<<<< HEAD
-                    int emailIdx = -1, nameIdx = -1, phoneIdx = -1, roleIdx = -1, passIdx = -1;
-=======
                     int emailIdx = -1, nameIdx = -1, phoneIdx = -1;
->>>>>>> 7681c6edbb52597770fb6dc8246115573f68d03b
                     for (int i = 0; i < headerRow.getLastCellNum(); i++) {
                         String header = headerRow.getCell(i).getStringCellValue().trim();
                         if (header.equalsIgnoreCase("Email")) emailIdx = i;
                         else if (header.equalsIgnoreCase("FullName")) nameIdx = i;
                         else if (header.equalsIgnoreCase("Phone")) phoneIdx = i;
-<<<<<<< HEAD
-                        else if (header.equalsIgnoreCase("Role")) roleIdx = i;
-                        else if (header.equalsIgnoreCase("Password")) passIdx = i;
-=======
->>>>>>> 7681c6edbb52597770fb6dc8246115573f68d03b
+
                     }
 
                     if (emailIdx == -1 || nameIdx == -1) {
-                        throw new BusinessException("Missing required columns: Email, FullName");
+                        throw new BusinessException("Thiếu các cột bắt buộc: Email, FullName");
                     }
 
                     for (int i = 1; i <= sheet.getLastRowNum(); i++) {
@@ -312,17 +231,7 @@ public class UserService {
                             String fullName = row.getCell(nameIdx) != null ? row.getCell(nameIdx).getStringCellValue().trim() : "";
                             String phone = (phoneIdx != -1 && row.getCell(phoneIdx) != null) ?
                                     getCellValueAsString(row.getCell(phoneIdx)) : null;
-<<<<<<< HEAD
-                            String roleStr = (roleIdx != -1 && row.getCell(roleIdx) != null) ?
-                                    row.getCell(roleIdx).getStringCellValue().trim() : "STAFF";
-                            String password = (passIdx != -1 && row.getCell(passIdx) != null) ?
-                                    row.getCell(passIdx).getStringCellValue().trim() : null;
-
-                            processUserRow(company, email, fullName, phone, roleStr, password);
-=======
-
                             processUserRow(email, fullName, phone);
->>>>>>> 7681c6edbb52597770fb6dc8246115573f68d03b
                             successfulImports++;
                         } catch (Exception e) {
                             errors.add("Row " + totalRows + ": " + e.getMessage());
@@ -331,7 +240,7 @@ public class UserService {
                 }
             }
         } catch (Exception e) {
-            throw new BusinessException("Failed to process file: " + e.getMessage());
+            throw new BusinessException("Xử lý tập tin thất bại: " + e.getMessage());
         }
 
         return ImportUserResponse.builder()
@@ -348,45 +257,26 @@ public class UserService {
         return cell.getStringCellValue().trim();
     }
 
-<<<<<<< HEAD
-    private void processUserRow(Company company, String email, String fullName, String phone, String roleStr, String password) {
-=======
     private void processUserRow(String email, String fullName, String phone) {
->>>>>>> 7681c6edbb52597770fb6dc8246115573f68d03b
         if (email == null || email.isBlank()) {
-            throw new BusinessException("Email is required");
+            throw new BusinessException("Email là bắt buộc");
         }
         if (fullName == null || fullName.isBlank()) {
-            throw new BusinessException("FullName is required");
+            throw new BusinessException("Họ tên là bắt buộc");
         }
 
         if (userRepository.existsByEmail(email)) {
              throw new BusinessException("Email này đã tồn tại trong hệ thống: " + email);
         }
 
-<<<<<<< HEAD
-        UserRole role;
-        try {
-             role = UserRole.valueOf(roleStr.toUpperCase());
-        } catch (IllegalArgumentException e) {
-             role = UserRole.STAFF; // Default
-        }
-
-        String rawPassword = (password != null && !password.isBlank()) ? password : generateRandomPassword();
-=======
         String rawPassword = generateRandomPassword();
->>>>>>> 7681c6edbb52597770fb6dc8246115573f68d03b
 
         User user = User.builder()
                 .email(email)
                 .password(passwordEncoder.encode(rawPassword))
                 .fullName(fullName)
                 .phone(phone)
-<<<<<<< HEAD
-                .role(role)
-                .isEmailVerified(true)
-=======
->>>>>>> 7681c6edbb52597770fb6dc8246115573f68d03b
+
                 .build();
 
         userRepository.save(user);

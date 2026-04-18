@@ -5,6 +5,7 @@ import EvaluationFormModal from '../components/EvaluationFormModal'
 import EvaluationDetailModal from '../components/EvaluationDetailModal'
 import { useEvaluations } from '../hooks/useEvaluations'
 import { useAuthStore } from '@/store/authStore'
+import { usePermission } from '@/hooks/usePermission'
 import { formatDateTime, getInitials } from '@/lib/utils'
 import type { Evaluation } from '@/types/evaluation'
 import {
@@ -39,7 +40,7 @@ function getScoreLabel(score: number | null) {
 export default function EvaluationsPage() {
   const { data, isLoading } = useEvaluations({ size: 200 })
   const { user } = useAuthStore()
-  const isStaff = user?.role === 'STAFF'
+  const { isStaff } = usePermission()
 
   const [showForm, setShowForm] = useState(false)
   const [detailEval, setDetailEval] = useState<Evaluation | null>(null)

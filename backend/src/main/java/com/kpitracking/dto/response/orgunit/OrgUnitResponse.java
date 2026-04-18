@@ -11,6 +11,7 @@ public class OrgUnitResponse {
     private UUID id;
     private String name;
     private UUID parentId;
+    private UUID orgHierarchyId;
     private UUID organizationId;
     private String type;
     private String path;

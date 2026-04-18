@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from 'react'
+import { useMemo } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { kpiSchema, type KpiFormData } from '../schemas/kpiSchema'
@@ -7,6 +7,7 @@ import { kpiApi } from '../api/kpiApi'
 import { useDepartments } from '@/features/departments/hooks/useDepartments'
 import { useUsers } from '@/features/users/hooks/useUsers'
 import { useAuthStore } from '@/store/authStore'
+import { usePermission } from '@/hooks/usePermission'
 import { toast } from 'sonner'
 import { Loader2, X, Check } from 'lucide-react'
 import type { KpiCriteria } from '@/types/kpi'
@@ -29,6 +30,7 @@ export default function KpiFormModal({ open, onClose, editKpi }: KpiFormModalPro
   const isEdit = !!editKpi
   const qc = useQueryClient()
   const { user } = useAuthStore()
+  const { isDirector, isHead, isDeputy } = usePermission()
   const { data: deptsData } = useDepartments(0, 100)
 
   const { register, handleSubmit, formState: { errors }, reset, watch, setValue } = useForm<KpiFormData>({
@@ -53,11 +55,11 @@ export default function KpiFormModal({ open, onClose, editKpi }: KpiFormModalPro
 
   // For HEAD/DEPUTY, automatically use their department if not chosen
   const fetchDeptId = useMemo(() => {
-    if (user?.role === 'DIRECTOR') return formDeptId || undefined
+    if (isDirector) return formDeptId || undefined
     // For others, use their own department (assuming they only belong to one for KPI purposes here)
     // In a more complex system we might need to let them choose which of their depts.
-    return formDeptId || user?.memberships?.[0]?.departmentId
-  }, [user, formDeptId])
+    return formDeptId || user?.memberships?.[0]?.orgUnitId
+  }, [isDirector, user, formDeptId])
 
   const { data: usersData, isLoading: isLoadingUsers } = useUsers({ 
     page: 0, 
@@ -68,12 +70,12 @@ export default function KpiFormModal({ open, onClose, editKpi }: KpiFormModalPro
   const availableUsers = useMemo(() => {
     if (!usersData?.content) return []
     return usersData.content.filter(u => {
-      if (user?.role === 'DIRECTOR') return true // Director can assign to anyone including self
-      if (user?.role === 'HEAD') return true // Head can assign to anyone in dept including self
-      if (user?.role === 'DEPUTY') return u.role === 'STAFF' || u.id === user.id
+      if (isDirector) return true // Director can assign to anyone including self
+      if (isHead) return true // Head can assign to anyone in dept including self
+      if (isDeputy) return u.roles?.includes('STAFF') || u.id === user?.id
       return false
     })
-  }, [usersData, user])
+  }, [usersData, isDirector, isHead, isDeputy, user])
 
   const createMutation = useMutation({
     mutationFn: (data: KpiFormData) => kpiApi.create(data),
@@ -195,7 +197,7 @@ export default function KpiFormModal({ open, onClose, editKpi }: KpiFormModalPro
             </div>
           </div>
 
-          {user?.role === 'DIRECTOR' && (
+          {isDirector && (
             <div>
               <label className="block text-sm font-medium mb-1.5">Phòng ban</label>
               <select {...register('departmentId')} className={inputCls}>
@@ -215,7 +217,7 @@ export default function KpiFormModal({ open, onClose, editKpi }: KpiFormModalPro
               <select {...register('assignedToId')} className={inputCls}>
                 <option value="">— Không chọn —</option>
                 {availableUsers?.map((u) => (
-                  <option key={u.id} value={u.id}>{u.fullName} ({u.role})</option>
+                  <option key={u.id} value={u.id}>{u.fullName} ({u.roles?.join(', ')})</option>
                 ))}
               </select>
             ) : (
@@ -238,7 +240,7 @@ export default function KpiFormModal({ open, onClose, editKpi }: KpiFormModalPro
                         >
                           <div className="flex flex-col">
                             <span className="text-sm font-semibold">{u.fullName}</span>
-                            <span className="text-[10px] opacity-70">{u.email} • {u.role}</span>
+                            <span className="text-[10px] opacity-70">{u.email} • {u.roles?.join(', ')}</span>
                           </div>
                           {isSelected && <Check size={16} />}
                         </div>

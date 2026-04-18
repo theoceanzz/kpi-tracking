@@ -24,12 +24,12 @@ public class RefreshTokenService {
 
     @Transactional
     public RefreshToken createOrUpdateRefreshToken(UUID userId, String deviceInfo) {
-        String device = (deviceInfo != null && !deviceInfo.isBlank()) ? deviceInfo : "Unknown Device";
+        String device = (deviceInfo != null && !deviceInfo.isBlank()) ? deviceInfo : "Thiết bị không xác định";
         if (device.length() > 255) {
             device = device.substring(0, 255);
         }
         User user = userRepository.findById(userId)
-                .orElseThrow(() -> new ResourceNotFoundException("User", "id", userId));
+                .orElseThrow(() -> new ResourceNotFoundException("Người dùng", "id", userId));
 
         java.util.Optional<RefreshToken> existingTokenOpt = refreshTokenRepository.findByUserIdAndDeviceInfo(userId, device);
         
@@ -55,11 +55,11 @@ public class RefreshTokenService {
     @Transactional(readOnly = true)
     public RefreshToken verifyRefreshToken(String token) {
         RefreshToken refreshToken = refreshTokenRepository.findByTokenAndRevokedFalse(token)
-                .orElseThrow(() -> new BusinessException("Invalid or revoked refresh token"));
+                .orElseThrow(() -> new BusinessException("Mã làm mới không hợp lệ hoặc đã bị thu hồi"));
 
         if (refreshToken.getExpiresAt().isBefore(Instant.now())) {
             refreshTokenRepository.delete(refreshToken);
-            throw new BusinessException("Refresh token has expired. Please login again.");
+            throw new BusinessException("Mã làm mới đã hết hạn. Vui lòng đăng nhập lại.");
         }
 
         return refreshToken;

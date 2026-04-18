@@ -95,10 +95,10 @@ export default function ProfilePage() {
               <h1 className="text-3xl md:text-4xl font-black tracking-tight mb-3">{user.fullName}</h1>
               <div className="flex flex-wrap items-center justify-center md:justify-start gap-3">
                 <span className="flex items-center gap-1.5 bg-white/15 backdrop-blur-sm px-4 py-1.5 rounded-full text-sm font-bold">
-                  <Shield size={14} /> {roleMap[user.role] ?? user.role}
+                  <Shield size={14} /> {user.roles?.map(r => roleMap[r] || r).join(', ')}
                 </span>
                 <span className="flex items-center gap-1.5 bg-white/15 backdrop-blur-sm px-4 py-1.5 rounded-full text-sm font-bold">
-                  <Building2 size={14} /> {user.companyName}
+                  <Building2 size={14} /> {user.memberships?.[0]?.orgUnitName || 'N/A'}
                 </span>
                 <span className="flex items-center gap-1.5 bg-emerald-500/30 backdrop-blur-sm px-4 py-1.5 rounded-full text-sm font-bold">
                   <CheckCircle2 size={14} /> Đang hoạt động
@@ -265,8 +265,8 @@ function ProfileInfoTab({ user, onUserUpdate }: { user: any; onUserUpdate: (u: a
             <InfoField icon={User} iconColor="text-indigo-500" iconBg="bg-indigo-50 dark:bg-indigo-900/20" label="Họ và tên" value={user.fullName} />
             <InfoField icon={Mail} iconColor="text-blue-500" iconBg="bg-blue-50 dark:bg-blue-900/20" label="Địa chỉ Email" value={user.email} />
             <InfoField icon={Phone} iconColor="text-emerald-500" iconBg="bg-emerald-50 dark:bg-emerald-900/20" label="Số điện thoại" value={user.phone || 'Chưa cập nhật'} />
-            <InfoField icon={Building2} iconColor="text-amber-500" iconBg="bg-amber-50 dark:bg-amber-900/20" label="Công ty" value={user.companyName} />
-            <InfoField icon={Shield} iconColor="text-purple-500" iconBg="bg-purple-50 dark:bg-purple-900/20" label="Vai trò" value={roleMap[user.role] ?? user.role} />
+            <InfoField icon={Building2} iconColor="text-amber-500" iconBg="bg-amber-50 dark:bg-amber-900/20" label="Đơn vị" value={`${user.memberships?.[0]?.orgUnitName || 'Chưa cập nhật'}${user.memberships?.[0]?.unitTypeLabel ? ` (${user.memberships[0].unitTypeLabel})` : ''}`} />
+            <InfoField icon={Shield} iconColor="text-purple-500" iconBg="bg-purple-50 dark:bg-purple-900/20" label="Chức vụ" value={user.memberships?.[0]?.roleLabel || user.roles?.map((r: string) => roleMap[r] || r).join(', ')} />
             <InfoField icon={CheckCircle2} iconColor="text-emerald-500" iconBg="bg-emerald-50 dark:bg-emerald-900/20" label="Trạng thái" value="Đang hoạt động" />
           </div>
         )}
@@ -383,6 +383,7 @@ function SecurityTab() {
               {...register('newPassword', {
                 required: 'Vui lòng nhập mật khẩu mới',
                 minLength: { value: 8, message: 'Tối thiểu 8 ký tự' },
+                validate: (v) => v !== watch('currentPassword') || 'Mật khẩu mới phải khác mật khẩu hiện tại',
               })}
               type={showNew ? 'text' : 'password'}
               className="w-full px-4 py-3 pr-12 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-400 transition-all"

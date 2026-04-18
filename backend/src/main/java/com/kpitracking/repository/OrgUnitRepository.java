@@ -15,21 +15,21 @@ import java.util.UUID;
 @Repository
 public interface OrgUnitRepository extends JpaRepository<OrgUnit, UUID> {
 
-    Optional<OrgUnit> findByIdAndOrganizationId(UUID id, UUID organizationId);
+    Optional<OrgUnit> findByIdAndOrgHierarchyLevel_Organization_Id(UUID id, UUID organizationId);
 
-    Page<OrgUnit> findByOrganizationId(UUID organizationId, Pageable pageable);
+    Page<OrgUnit> findByOrgHierarchyLevel_Organization_Id(UUID organizationId, Pageable pageable);
 
-    List<OrgUnit> findByOrganizationIdAndDeletedAtIsNull(UUID organizationId);
+    List<OrgUnit> findByOrgHierarchyLevel_Organization_IdAndDeletedAtIsNull(UUID organizationId);
 
     List<OrgUnit> findByParentId(UUID parentId);
 
     @Query("SELECT o FROM OrgUnit o WHERE o.path LIKE CONCAT(:pathPrefix, '%') AND o.deletedAt IS NULL")
     List<OrgUnit> findSubtree(@Param("pathPrefix") String pathPrefix);
 
-    boolean existsByNameAndOrganizationIdAndParentId(String name, UUID organizationId, UUID parentId);
+    boolean existsByNameAndOrgHierarchyLevel_Organization_IdAndParentId(String name, UUID organizationId, UUID parentId);
 
-    long countByOrganizationId(UUID organizationId);
+    long countByOrgHierarchyLevel_Organization_Id(UUID organizationId);
 
-    @Query("SELECT o FROM OrgUnit o WHERE o.organization.id = :orgId AND o.parent IS NULL AND o.deletedAt IS NULL")
+    @Query("SELECT o FROM OrgUnit o WHERE o.orgHierarchyLevel.organization.id = :orgId AND o.parent IS NULL AND o.deletedAt IS NULL")
     List<OrgUnit> findRootsByOrganizationId(@Param("orgId") UUID orgId);
 }

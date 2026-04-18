@@ -2,7 +2,7 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { evaluationSchema, type EvaluationFormData } from '../schemas/evaluationSchema'
 import { useCreateEvaluation } from '../hooks/useCreateEvaluation'
-import { useKpiCriteria } from '@/features/kpi/hooks/useKpiCriteria'
+import { useMyKpi } from '@/features/kpi/hooks/useMyKpi'
 import { useAuthStore } from '@/store/authStore'
 import { X, Loader2, Star, Target, Calendar } from 'lucide-react'
 import { useState } from 'react'
@@ -15,7 +15,7 @@ interface EvaluationFormModalProps {
 export default function EvaluationFormModal({ open, onClose }: EvaluationFormModalProps) {
   const { user } = useAuthStore()
   
-  const { data: kpiData } = useKpiCriteria({ status: 'APPROVED', size: 100 })
+  const { data: kpiData } = useMyKpi(0, 100)
   const createMutation = useCreateEvaluation()
   const [hoverScore, setHoverScore] = useState<number | null>(null)
 
@@ -29,6 +29,9 @@ export default function EvaluationFormModal({ open, onClose }: EvaluationFormMod
 
   const currentScore = watch('score')
   const displayScore = hoverScore ?? currentScore
+  
+  const selectedKpiId = watch('kpiCriteriaId')
+  const selectedKpi = kpiData?.content?.find(k => k.id === selectedKpiId)
 
   const onSubmit = (data: EvaluationFormData) => {
     createMutation.mutate(data, {
@@ -82,8 +85,8 @@ export default function EvaluationFormModal({ open, onClose }: EvaluationFormMod
         </div>
 
         <form onSubmit={handleSubmit(onSubmit)} className="px-7 py-6 space-y-6">
-          {/* Hidden userId - always current user */}
-          <input type="hidden" {...register('userId')} value={user?.id ?? ''} />
+          {/* userId - handled in defaultValues, just hidden here */}
+          <input type="hidden" {...register('userId')} />
 
           {/* KPI Select */}
           <div className="space-y-2">
@@ -151,16 +154,34 @@ export default function EvaluationFormModal({ open, onClose }: EvaluationFormMod
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-2">
               <label className="flex items-center gap-1 text-sm font-bold text-slate-700 dark:text-slate-300">
-                <Calendar size={12} /> Từ ngày
+                <Calendar size={12} /> Từ ngày {selectedKpi?.startDate && <span className="text-[10px] text-indigo-500">(Min: {new Date(selectedKpi.startDate).toLocaleDateString()})</span>}
               </label>
-              <input {...register('periodStart')} type="date" className={inputCls} />
+              <input 
+                {...register('periodStart')} 
+                type="date" 
+                min={selectedKpi?.startDate ? new Date(selectedKpi.startDate).toISOString().split('T')[0] : undefined}
+                max={selectedKpi?.endDate ? new Date(selectedKpi.endDate).toISOString().split('T')[0] : undefined}
+                className={inputCls} 
+              />
             </div>
             <div className="space-y-2">
               <label className="flex items-center gap-1 text-sm font-bold text-slate-700 dark:text-slate-300">
-                <Calendar size={12} /> Đến ngày
+                <Calendar size={12} /> Đến ngày {selectedKpi?.endDate && <span className="text-[10px] text-indigo-500">(Max: {new Date(selectedKpi.endDate).toLocaleDateString()})</span>}
               </label>
-              <input {...register('periodEnd')} type="date" className={inputCls} />
+              <input 
+                {...register('periodEnd')} 
+                type="date" 
+                min={selectedKpi?.startDate ? new Date(selectedKpi.startDate).toISOString().split('T')[0] : undefined}
+                max={selectedKpi?.endDate ? new Date(selectedKpi.endDate).toISOString().split('T')[0] : undefined}
+                className={inputCls} 
+              />
             </div>
+            {(errors.periodStart || errors.periodEnd) && (
+              <div className="col-span-2">
+                {errors.periodStart && <p className="text-red-500 text-xs font-medium">{errors.periodStart.message}</p>}
+                {errors.periodEnd && <p className="text-red-500 text-xs font-medium">{errors.periodEnd.message}</p>}
+              </div>
+            )}
           </div>
 
           {/* Actions */}

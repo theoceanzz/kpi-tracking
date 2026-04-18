@@ -40,10 +40,27 @@ CREATE TABLE organizations (
   id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   name        TEXT NOT NULL,
   code        TEXT NOT NULL UNIQUE,
-  status      TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active','suspended','archived')),
+  status      TEXT NOT NULL DEFAULT 'ACTIVE' CHECK (status IN ('ACTIVE','SUSPENDED','ARCHIVED')),
   created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at  TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+-- ====================================================
+-- Organization Hierarchy Levels
+-- ====================================================
+
+CREATE TABLE org_hierarchy_levels (
+    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    organization_id UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+    level_order     INT NOT NULL,
+    unit_type_name   VARCHAR(100) NOT NULL,
+    manager_role_label VARCHAR(100), -- Nullable for the last level
+    created_at      TIMESTAMPTZ DEFAULT NOW(),
+    updated_at      TIMESTAMPTZ DEFAULT NOW(),
+    UNIQUE (organization_id, level_order)
+);
+
+CREATE INDEX idx_org_hierarchy_levels_org_id ON org_hierarchy_levels(organization_id);
 
 -- ====================================================
 -- Organization Units
@@ -52,10 +69,8 @@ CREATE TABLE org_units (
   id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   name            TEXT NOT NULL,
   parent_id       UUID REFERENCES org_units(id),
-  organization_id UUID NOT NULL REFERENCES organizations(id),
-  type            TEXT NOT NULL,
-  path            TEXT NOT NULL,  -- e.g. /uuid1/uuid2/ — cần trigger khi move
-  level           INT NOT NULL DEFAULT 0,
+  org_hierarchy_id UUID NOT NULL REFERENCES org_hierarchy_levels(id),
+  path            TEXT NOT NULL,
   email       VARCHAR(255),
   phone       VARCHAR(20),
   address     TEXT,
@@ -68,9 +83,12 @@ CREATE TABLE org_units (
 );
 CREATE INDEX idx_org_units_status ON org_units(status);
 CREATE INDEX idx_org_units_deleted_at ON org_units(deleted_at);
-CREATE INDEX idx_org_units_org      ON org_units(organization_id);
+CREATE INDEX idx_org_units_org_hierarchy_id ON org_units(org_hierarchy_id);
 CREATE INDEX idx_org_units_parent   ON org_units(parent_id);
 CREATE INDEX idx_org_units_path     ON org_units USING gist(path gist_trgm_ops);
+
+
+
 
 -- ====================================================
 -- Users
@@ -330,18 +348,15 @@ CREATE OR REPLACE FUNCTION fn_set_org_path()
 RETURNS TRIGGER AS $$
 DECLARE
     parent_path TEXT;
-    parent_level INT;
 BEGIN
     IF NEW.parent_id IS NULL THEN
         NEW.path := '/' || NEW.id || '/';
-        NEW.level := 0;
     ELSE
-        SELECT path, level INTO parent_path, parent_level
+        SELECT path INTO parent_path
         FROM org_units
         WHERE id = NEW.parent_id;
 
         NEW.path := parent_path || NEW.id || '/';
-        NEW.level := parent_level + 1;
     END IF;
 
     RETURN NEW;

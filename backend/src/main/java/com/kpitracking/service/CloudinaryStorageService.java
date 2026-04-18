@@ -44,7 +44,7 @@ public class CloudinaryStorageService {
         } catch (Exception e) {
             log.error("Cloudinary upload failed for file {}: {}", file.getOriginalFilename(), e.getMessage());
             // Throwing a more descriptive exception if it's a Cloudinary specific error
-            throw new IOException("Failed to upload file to Cloudinary: " + e.getMessage(), e);
+            throw new IOException("Tải tập tin lên Cloudinary thất bại: " + e.getMessage(), e);
         }
     }
 
@@ -63,7 +63,7 @@ public class CloudinaryStorageService {
             cloudinary.uploader().destroy(storageKey, ObjectUtils.emptyMap());
             log.info("File deleted from Cloudinary: {}", storageKey);
         } catch (Exception e) {
-            log.error("Failed to delete file from Cloudinary: {}", storageKey, e);
+            log.error("Xóa tập tin khỏi Cloudinary thất bại: {}", storageKey, e);
         }
     }
 

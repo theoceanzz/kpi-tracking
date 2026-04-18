@@ -9,7 +9,7 @@ interface RoleRouteProps {
 export default function RoleRoute({ allowedRoles }: RoleRouteProps) {
   const user = useAuthStore((s) => s.user)
 
-  if (!user || !allowedRoles.includes(user.role)) {
+  if (!user || !user.roles?.some(r => allowedRoles.includes(r as any))) {
     return <Navigate to="/dashboard" replace />
   }
 

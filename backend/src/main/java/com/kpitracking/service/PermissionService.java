@@ -37,7 +37,7 @@ public class PermissionService {
     @Transactional(readOnly = true)
     public List<PermissionResponse> getPermissionsByRole(UUID roleId) {
         roleRepository.findById(roleId)
-                .orElseThrow(() -> new ResourceNotFoundException("Role", "id", roleId));
+                .orElseThrow(() -> new ResourceNotFoundException("Vai trò", "id", roleId));
 
         return rolePermissionRepository.findByRoleId(roleId).stream()
                 .map(rp -> permissionMapper.toResponse(rp.getPermission()))
@@ -51,7 +51,7 @@ public class PermissionService {
 
         List<Permission> permissions = permissionRepository.findAllByIdIn(request.getPermissionIds());
         if (permissions.size() != request.getPermissionIds().size()) {
-            throw new ResourceNotFoundException("Some permissions not found");
+            throw new ResourceNotFoundException("Một số quyền hạn không tìm thấy");
         }
 
         for (Permission permission : permissions) {
@@ -68,7 +68,7 @@ public class PermissionService {
     @Transactional
     public void removePermissionFromRole(UUID roleId, UUID permissionId) {
         if (!rolePermissionRepository.existsByRoleIdAndPermissionId(roleId, permissionId)) {
-            throw new ResourceNotFoundException("RolePermission not found");
+            throw new ResourceNotFoundException("Không tìm thấy thông tin quyền hạn của vai trò");
         }
         rolePermissionRepository.deleteByRoleIdAndPermissionId(roleId, permissionId);
     }

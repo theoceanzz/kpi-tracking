@@ -15,8 +15,8 @@ public class CreateOrgUnitRequest {
 
     private UUID parentId;
 
-    @NotBlank(message = "Type is required")
-    private String type;
+    @jakarta.validation.constraints.NotNull(message = "Org Hierarchy Level ID is required")
+    private UUID orgHierarchyId;
 
     private String email;
     private String phone;

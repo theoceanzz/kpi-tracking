@@ -47,19 +47,21 @@ const ROLE_LEVELS: Record<string, number> = {
   'STAFF': 1
 }
 
-export function getHighestRole(user: { role: string; memberships?: Array<{ position: string }> }): string {
-  let highest = user.role
-  let highestLevel = ROLE_LEVELS[highest] || 0
+export function getHighestRole(user: { roles?: string[]; memberships?: Array<{ roleName: string }> }): string {
+  let highest = 'STAFF'
+  let highestLevel = 0
 
-  if (user.memberships) {
-    user.memberships.forEach(m => {
-      const level = ROLE_LEVELS[m.position] || 0
-      if (level > highestLevel) {
-        highestLevel = level
-        highest = m.position
-      }
-    })
-  }
+  const allRoles = new Set<string>()
+  if (user.roles) user.roles.forEach(r => allRoles.add(r))
+  if (user.memberships) user.memberships.forEach(m => allRoles.add(m.roleName))
+
+  allRoles.forEach(role => {
+    const level = ROLE_LEVELS[role] || 0
+    if (level > highestLevel) {
+      highestLevel = level
+      highest = role
+    }
+  })
 
   return highest
 }
