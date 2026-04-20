@@ -144,6 +144,12 @@ CREATE INDEX idx_user_role_org_units_user ON user_role_org_units(user_id);
 CREATE INDEX idx_user_role_org_units_org ON user_role_org_units(org_unit_id);
 CREATE INDEX idx_user_role_org_units_user_org ON user_role_org_units(user_id, org_unit_id);
 
+CREATE TABLE role_scopes (
+   role_id     UUID NOT NULL REFERENCES roles(id) ON DELETE CASCADE,
+   org_unit_id UUID NOT NULL REFERENCES org_units(id) ON DELETE CASCADE,
+   PRIMARY KEY (role_id, org_unit_id)
+);
+
 -- ====================================================
 -- Permissions
 -- ====================================================

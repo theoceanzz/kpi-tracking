@@ -46,6 +46,10 @@ public class UserRoleService {
         OrgUnit orgUnit = orgUnitRepository.findById(request.getOrgUnitId())
                 .orElseThrow(() -> new ResourceNotFoundException("OrgUnit", "id", request.getOrgUnitId()));
 
+        if (!orgUnit.getAllowedRoles().isEmpty() && !orgUnit.getAllowedRoles().contains(role)) {
+            throw new com.kpitracking.exception.BusinessException("Vai trò này không được phép gán trong đơn vị này");
+        }
+
         if (userRoleOrgUnitRepository.existsByUserIdAndRoleIdAndOrgUnitId(
                 request.getUserId(), request.getRoleId(), request.getOrgUnitId())) {
             throw new DuplicateResourceException("Người dùng đã có vai trò này tại đơn vị này");

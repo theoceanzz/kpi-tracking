@@ -6,7 +6,7 @@ import com.kpitracking.entity.OrgUnit;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 
-@Mapper(componentModel = "spring")
+@Mapper(componentModel = "spring", uses = {RoleMapper.class})
 public interface OrgUnitMapper {
 
     @Mapping(source = "parent.id", target = "parentId")
@@ -24,5 +24,6 @@ public interface OrgUnitMapper {
     @Mapping(source = "orgHierarchyLevel.unitTypeName", target = "type")
     @Mapping(source = "orgHierarchyLevel.levelOrder", target = "level")
     @Mapping(target = "children", ignore = true)
+    @Mapping(source = "allowedRoles", target = "allowedRoles")
     OrgUnitTreeResponse toTreeResponse(OrgUnit orgUnit);
 }

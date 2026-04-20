@@ -23,6 +23,8 @@ public interface UserRoleOrgUnitRepository extends JpaRepository<UserRoleOrgUnit
     List<UserRoleOrgUnit> findByOrgUnitId(@Param("orgUnitId") UUID orgUnitId);
 
     void deleteByUserIdAndRoleIdAndOrgUnitId(UUID userId, UUID roleId, UUID orgUnitId);
+    
+    void deleteByOrgUnitIdAndRoleId(UUID orgUnitId, UUID roleId);
 
     boolean existsByUserIdAndRoleIdAndOrgUnitId(UUID userId, UUID roleId, UUID orgUnitId);
 

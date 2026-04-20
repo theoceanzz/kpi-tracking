@@ -1,3 +1,5 @@
+import { RoleResponse } from '../api/role.api'
+
 export interface OrgUnitTreeResponse {
   id: string
   name: string
@@ -7,6 +9,7 @@ export interface OrgUnitTreeResponse {
   level: number
   status: string
   logoUrl: string | null
+  allowedRoles?: RoleResponse[]
   children?: OrgUnitTreeResponse[]
 }
 
@@ -35,6 +38,7 @@ export interface OrgUnitResponse {
   districtName?: string
   logoUrl?: string
   status: string
+  allowedRoles?: RoleResponse[]
   createdAt: string
   updatedAt: string
 }
@@ -60,6 +64,7 @@ export interface CreateOrgUnitRequest {
   address?: string
   provinceId?: string
   districtId?: string
+  roleIds?: string[]
 }
 
 export interface UpdateOrgUnitRequest {
@@ -69,4 +74,5 @@ export interface UpdateOrgUnitRequest {
   address?: string
   provinceId?: string
   districtId?: string
+  roleIds?: string[]
 }

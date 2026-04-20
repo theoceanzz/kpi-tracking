@@ -77,4 +77,13 @@ public class OrgUnit {
 
     @Column(name = "deleted_at")
     private Instant deletedAt;
+
+    @ManyToMany
+    @JoinTable(
+        name = "role_scopes",
+        joinColumns = @JoinColumn(name = "org_unit_id"),
+        inverseJoinColumns = @JoinColumn(name = "role_id")
+    )
+    @Builder.Default
+    private List<Role> allowedRoles = new ArrayList<>();
 }

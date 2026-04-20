@@ -23,4 +23,5 @@ public class CreateOrgUnitRequest {
     private String address;
     private UUID provinceId;
     private UUID districtId;
+    private java.util.List<UUID> roleIds;
 }

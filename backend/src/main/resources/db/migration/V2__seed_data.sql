@@ -146,6 +146,24 @@ VALUES (
 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb'
 );
 
+
+-- Director chỉ ở COMPANY
+INSERT INTO role_scopes (role_id, org_unit_id)
+VALUES ('a1aaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa');
+
+-- Head chỉ ở DEPARTMENT
+INSERT INTO role_scopes (role_id, org_unit_id)
+VALUES ('b2bbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb');
+
+-- Deputy chỉ ở DEPARTMENT
+INSERT INTO role_scopes (role_id, org_unit_id)
+VALUES ('c3cccccc-cccc-cccc-cccc-cccccccccccc', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb');
+
+-- Staff chỉ ở TEAM
+INSERT INTO role_scopes (role_id, org_unit_id)
+VALUES ('d4dddddd-dddd-dddd-dddd-dddddddddddd', 'dddddddd-dddd-dddd-dddd-dddddddddddd');
+
+
 -- ====================================================
 -- Sample Permission
 -- ====================================================
