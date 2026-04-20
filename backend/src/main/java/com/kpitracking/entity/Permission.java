@@ -22,4 +22,7 @@ public class Permission {
 
     @Column(name = "action", nullable = false)
     private String action;
+
+    @Column(name = "description")
+    private String description;
 }

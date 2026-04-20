@@ -127,7 +127,7 @@ public class UserService {
                 .password(passwordEncoder.encode(request.getPassword()))
                 .fullName(request.getFullName())
                 .phone(request.getPhone())
-
+                .isEmailVerified(true)
                 .build();
 
         user = userRepository.save(user);

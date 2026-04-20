@@ -149,9 +149,10 @@ CREATE INDEX idx_user_role_org_units_user_org ON user_role_org_units(user_id, or
 -- ====================================================
 CREATE TABLE permissions (
   id       UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  code     TEXT NOT NULL UNIQUE,          -- e.g. 'KPI:VIEW', 'REPORT:APPROVE'
-  resource TEXT NOT NULL,                 -- KPI | REPORT | DASHBOARD | USER
-  action   TEXT NOT NULL,                 -- VIEW | CREATE | EDIT | DELETE | APPROVE
+  code     TEXT NOT NULL UNIQUE,          
+  resource TEXT NOT NULL,                 
+  action   TEXT NOT NULL,       
+  description TEXT,         
   UNIQUE (resource, action)
 );
 

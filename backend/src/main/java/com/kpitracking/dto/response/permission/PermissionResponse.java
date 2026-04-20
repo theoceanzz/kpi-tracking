@@ -11,4 +11,5 @@ public class PermissionResponse {
     private String code;
     private String resource;
     private String action;
+    private String description;
 }

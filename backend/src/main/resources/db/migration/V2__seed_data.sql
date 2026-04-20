@@ -149,38 +149,103 @@ VALUES (
 -- ====================================================
 -- Sample Permission
 -- ====================================================
-INSERT INTO permissions (id, code, resource, action) VALUES
-('aa1aaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'KPI:VIEW', 'KPI', 'VIEW'),
-('bb2bbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', 'KPI:CREATE', 'KPI', 'CREATE'),
-('cc3ccccc-cccc-cccc-cccc-cccccccccccc', 'KPI:EDIT', 'KPI', 'EDIT'),
-('dd4ddddd-dddd-dddd-dddd-dddddddddddd', 'KPI:APPROVE', 'KPI', 'APPROVE'),
-('ee5eeeee-eeee-eeee-eeee-eeeeeeeeeeee', 'USER:MANAGE', 'USER', 'MANAGE');
+INSERT INTO permissions (id, code, resource, action, description) VALUES
+-- Dashboard
+('7c9e8a1a-4d3b-4f5a-8c9e-1a2b3c4d5e01', 'DASHBOARD:VIEW', 'DASHBOARD', 'VIEW', 'Xem biểu đồ thống kê và báo cáo tổng quan'),
+-- Company
+('7c9e8a1a-4d3b-4f5a-8c9e-1a2b3c4d5e02', 'COMPANY:VIEW', 'COMPANY', 'VIEW', 'Xem thông tin chi tiết và hồ sơ công ty'),
+-- Organization
+('7c9e8a1a-4d3b-4f5a-8c9e-1a2b3c4d5e03', 'ORG:VIEW', 'ORG', 'VIEW', 'Xem sơ đồ tổ chức và danh sách phòng ban'),
+('7c9e8a1a-4d3b-4f5a-8c9e-1a2b3c4d5e04', 'ORG:CREATE', 'ORG', 'CREATE', 'Tạo mới phòng ban, tổ đội trong sơ đồ'),
+('7c9e8a1a-4d3b-4f5a-8c9e-1a2b3c4d5e05', 'ORG:UPDATE', 'ORG', 'UPDATE', 'Cập nhật thông tin phòng ban, tổ đội'),
+('7c9e8a1a-4d3b-4f5a-8c9e-1a2b3c4d5e06', 'ORG:DELETE', 'ORG', 'DELETE', 'Xóa phòng ban, tổ đội khỏi hệ thống'),
+-- Users
+('7c9e8a1a-4d3b-4f5a-8c9e-1a2b3c4d5e07', 'USER:VIEW', 'USER', 'VIEW', 'Xem danh mục và thông tin nhân sự'),
+('7c9e8a1a-4d3b-4f5a-8c9e-1a2b3c4d5e08', 'USER:CREATE', 'USER', 'CREATE', 'Thêm mới tài khoản nhân sự'),
+('7c9e8a1a-4d3b-4f5a-8c9e-1a2b3c4d5e09', 'USER:UPDATE', 'USER', 'UPDATE', 'Cập nhật thông tin tài khoản nhân sự'),
+('7c9e8a1a-4d3b-4f5a-8c9e-1a2b3c4d5e10', 'USER:DELETE', 'USER', 'DELETE', 'Xóa tài khoản nhân sự (Soft delete)'),
+('7c9e8a1a-4d3b-4f5a-8c9e-1a2b3c4d5e11', 'USER:IMPORT', 'USER', 'IMPORT', 'Nhập dữ liệu nhân sự hàng loạt từ file'),
+-- Roles & Permissions
+('7c9e8a1a-4d3b-4f5a-8c9e-1a2b3c4d5e12', 'ROLE:VIEW', 'ROLE', 'VIEW', 'Xem danh sách các vai trò trong hệ thống'),
+('7c9e8a1a-4d3b-4f5a-8c9e-1a2b3c4d5e13', 'ROLE:ASSIGN', 'ROLE', 'ASSIGN', 'Gán vai trò và quyền hạn cho người dùng'),
+('7c9e8a1a-4d3b-4f5a-8c9e-1a2b3c4d5e14', 'PERMISSION:EDIT', 'PERMISSION', 'EDIT', 'Thiết lập chi tiết quyền cho từng vai trò'),
+-- KPI
+('7c9e8a1a-4d3b-4f5a-8c9e-1a2b3c4d5e15', 'KPI:VIEW', 'KPI', 'VIEW', 'Xem danh mục các chỉ tiêu KPI của đơn vị'),
+('7c9e8a1a-4d3b-4f5a-8c9e-1a2b3c4d5e16', 'KPI:CREATE', 'KPI', 'CREATE', 'Thiết lập mới chỉ tiêu KPI cho đơn vị'),
+('7c9e8a1a-4d3b-4f5a-8c9e-1a2b3c4d5e17', 'KPI:UPDATE', 'KPI', 'UPDATE', 'Chỉnh sửa nội dung chỉ tiêu KPI'),
+('7c9e8a1a-4d3b-4f5a-8c9e-1a2b3c4d5e18', 'KPI:DELETE', 'KPI', 'DELETE', 'Xóa bỏ chỉ tiêu KPI khỏi đơn vị'),
+('7c9e8a1a-4d3b-4f5a-8c9e-1a2b3c4d5e19', 'KPI:APPROVE', 'KPI', 'APPROVE', 'Phê duyệt hoặc từ chối chỉ tiêu KPI'),
+('7c9e8a1a-4d3b-4f5a-8c9e-1a2b3c4d5e20', 'KPI:VIEW_MY', 'KPI', 'VIEW_MY', 'Theo dõi các chỉ tiêu KPI cá nhân được giao'),
+-- Submissions
+('7c9e8a1a-4d3b-4f5a-8c9e-1a2b3c4d5e21', 'SUBMISSION:REVIEW', 'SUBMISSION', 'REVIEW', 'Kiểm tra, đánh giá và duyệt bài nộp KPI'),
+('7c9e8a1a-4d3b-4f5a-8c9e-1a2b3c4d5e22', 'SUBMISSION:CREATE', 'SUBMISSION', 'CREATE', 'Nộp báo cáo và minh chứng kết quả KPI'),
+('7c9e8a1a-4d3b-4f5a-8c9e-1a2b3c4d5e23', 'SUBMISSION:VIEW_MY', 'SUBMISSION', 'VIEW_MY', 'Xem lịch sử các bài báo cáo đã nộp'),
+-- Evaluations
+('7c9e8a1a-4d3b-4f5a-8c9e-1a2b3c4d5e24', 'EVALUATION:VIEW', 'EVALUATION', 'VIEW', 'Xem kết quả chấm điểm và xếp loại'),
+('7c9e8a1a-4d3b-4f5a-8c9e-1a2b3c4d5e25', 'EVALUATION:CREATE', 'EVALUATION', 'CREATE', 'Thực hiện chấm điểm, đánh giá xếp loại'),
+-- Notifications
+('7c9e8a1a-4d3b-4f5a-8c9e-1a2b3c4d5e26', 'NOTIF:VIEW', 'NOTIFICATION', 'VIEW', 'Xem danh sách các thông báo hệ thống');
 
 -- ====================================================
--- Sample Role Permissions
+-- Sample Role Permission
 -- ====================================================
--- DIRECTOR: full quyền
-INSERT INTO role_permissions VALUES
-('a1aaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'aa1aaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'),
-('a1aaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'bb2bbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb'),
-('a1aaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'cc3ccccc-cccc-cccc-cccc-cccccccccccc'),
-('a1aaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'dd4ddddd-dddd-dddd-dddd-dddddddddddd'),
-('a1aaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'ee5eeeee-eeee-eeee-eeee-eeeeeeeeeeee');
+INSERT INTO role_permissions (role_id, permission_id) VALUES
+('a1aaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', '7c9e8a1a-4d3b-4f5a-8c9e-1a2b3c4d5e01'), -- DASHBOARD:VIEW
+('a1aaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', '7c9e8a1a-4d3b-4f5a-8c9e-1a2b3c4d5e02'), -- COMPANY:VIEW
+('a1aaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', '7c9e8a1a-4d3b-4f5a-8c9e-1a2b3c4d5e03'), -- ORG:VIEW
+('a1aaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', '7c9e8a1a-4d3b-4f5a-8c9e-1a2b3c4d5e04'), -- ORG:CREATE
+('a1aaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', '7c9e8a1a-4d3b-4f5a-8c9e-1a2b3c4d5e05'), -- ORG:UPDATE
+('a1aaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', '7c9e8a1a-4d3b-4f5a-8c9e-1a2b3c4d5e06'), -- ORG:DELETE
+('a1aaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', '7c9e8a1a-4d3b-4f5a-8c9e-1a2b3c4d5e07'), -- USER:VIEW
+('a1aaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', '7c9e8a1a-4d3b-4f5a-8c9e-1a2b3c4d5e08'), -- USER:CREATE
+('a1aaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', '7c9e8a1a-4d3b-4f5a-8c9e-1a2b3c4d5e09'), -- USER:UPDATE
+('a1aaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', '7c9e8a1a-4d3b-4f5a-8c9e-1a2b3c4d5e10'), -- USER:DELETE
+('a1aaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', '7c9e8a1a-4d3b-4f5a-8c9e-1a2b3c4d5e11'), -- USER:IMPORT
+('a1aaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', '7c9e8a1a-4d3b-4f5a-8c9e-1a2b3c4d5e12'), -- ROLE:VIEW
+('a1aaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', '7c9e8a1a-4d3b-4f5a-8c9e-1a2b3c4d5e13'), -- ROLE:ASSIGN
+('a1aaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', '7c9e8a1a-4d3b-4f5a-8c9e-1a2b3c4d5e14'), -- PERMISSION:EDIT
+('a1aaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', '7c9e8a1a-4d3b-4f5a-8c9e-1a2b3c4d5e15'), -- KPI:VIEW
+('a1aaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', '7c9e8a1a-4d3b-4f5a-8c9e-1a2b3c4d5e16'), -- KPI:CREATE
+('a1aaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', '7c9e8a1a-4d3b-4f5a-8c9e-1a2b3c4d5e17'), -- KPI:UPDATE
+('a1aaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', '7c9e8a1a-4d3b-4f5a-8c9e-1a2b3c4d5e18'), -- KPI:DELETE
+('a1aaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', '7c9e8a1a-4d3b-4f5a-8c9e-1a2b3c4d5e19'), -- KPI:APPROVE
+('a1aaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', '7c9e8a1a-4d3b-4f5a-8c9e-1a2b3c4d5e20'), -- KPI:VIEW_MY
+('a1aaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', '7c9e8a1a-4d3b-4f5a-8c9e-1a2b3c4d5e21'), -- SUBMISSION:REVIEW
+('a1aaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', '7c9e8a1a-4d3b-4f5a-8c9e-1a2b3c4d5e22'), -- SUBMISSION:CREATE
+('a1aaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', '7c9e8a1a-4d3b-4f5a-8c9e-1a2b3c4d5e23'), -- SUBMISSION:VIEW_MY
+('a1aaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', '7c9e8a1a-4d3b-4f5a-8c9e-1a2b3c4d5e24'), -- EVALUATION:VIEW
+('a1aaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', '7c9e8a1a-4d3b-4f5a-8c9e-1a2b3c4d5e25'), -- EVALUATION:CREATE
+('a1aaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', '7c9e8a1a-4d3b-4f5a-8c9e-1a2b3c4d5e26'); -- NOTIF:VIEW
 
--- HEAD
-INSERT INTO role_permissions VALUES
-('b2bbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', 'aa1aaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'),
-('b2bbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', 'bb2bbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb'),
-('b2bbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', 'dd4ddddd-dddd-dddd-dddd-dddddddddddd');
+INSERT INTO role_permissions (role_id, permission_id) VALUES
+('b2bbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', '7c9e8a1a-4d3b-4f5a-8c9e-1a2b3c4d5e01'), -- DASHBOARD:VIEW
+('b2bbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', '7c9e8a1a-4d3b-4f5a-8c9e-1a2b3c4d5e03'), -- ORG:VIEW
+('b2bbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', '7c9e8a1a-4d3b-4f5a-8c9e-1a2b3c4d5e07'), -- USER:VIEW
+('b2bbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', '7c9e8a1a-4d3b-4f5a-8c9e-1a2b3c4d5e15'), -- KPI:VIEW
+('b2bbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', '7c9e8a1a-4d3b-4f5a-8c9e-1a2b3c4d5e16'), -- KPI:CREATE
+('b2bbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', '7c9e8a1a-4d3b-4f5a-8c9e-1a2b3c4d5e17'), -- KPI:UPDATE
+('b2bbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', '7c9e8a1a-4d3b-4f5a-8c9e-1a2b3c4d5e19'), -- KPI:APPROVE
+('b2bbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', '7c9e8a1a-4d3b-4f5a-8c9e-1a2b3c4d5e21'), -- SUBMISSION:REVIEW
+('b2bbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', '7c9e8a1a-4d3b-4f5a-8c9e-1a2b3c4d5e24'), -- EVALUATION:VIEW
+('b2bbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', '7c9e8a1a-4d3b-4f5a-8c9e-1a2b3c4d5e25'), -- EVALUATION:CREATE
+('b2bbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', '7c9e8a1a-4d3b-4f5a-8c9e-1a2b3c4d5e26'); -- NOTIF:VIEW
 
--- DEPUTY
-INSERT INTO role_permissions VALUES
-('c3cccccc-cccc-cccc-cccc-cccccccccccc', 'aa1aaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'),
-('c3cccccc-cccc-cccc-cccc-cccccccccccc', 'bb2bbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb');
+INSERT INTO role_permissions (role_id, permission_id) VALUES
+('c3cccccc-cccc-cccc-cccc-cccccccccccc', '7c9e8a1a-4d3b-4f5a-8c9e-1a2b3c4d5e01'), -- DASHBOARD:VIEW
+('c3cccccc-cccc-cccc-cccc-cccccccccccc', '7c9e8a1a-4d3b-4f5a-8c9e-1a2b3c4d5e03'), -- ORG:VIEW
+('c3cccccc-cccc-cccc-cccc-cccccccccccc', '7c9e8a1a-4d3b-4f5a-8c9e-1a2b3c4d5e15'), -- KPI:VIEW
+('c3cccccc-cccc-cccc-cccc-cccccccccccc', '7c9e8a1a-4d3b-4f5a-8c9e-1a2b3c4d5e17'), -- KPI:UPDATE
+('c3cccccc-cccc-cccc-cccc-cccccccccccc', '7c9e8a1a-4d3b-4f5a-8c9e-1a2b3c4d5e21'), -- SUBMISSION:REVIEW
+('c3cccccc-cccc-cccc-cccc-cccccccccccc', '7c9e8a1a-4d3b-4f5a-8c9e-1a2b3c4d5e24'), -- EVALUATION:VIEW
+('c3cccccc-cccc-cccc-cccc-cccccccccccc', '7c9e8a1a-4d3b-4f5a-8c9e-1a2b3c4d5e26'); -- NOTIF:VIEW
 
--- STAFF
-INSERT INTO role_permissions VALUES
-('d4dddddd-dddd-dddd-dddd-dddddddddddd', 'aa1aaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa');
+INSERT INTO role_permissions (role_id, permission_id) VALUES
+('d4dddddd-dddd-dddd-dddd-dddddddddddd', '7c9e8a1a-4d3b-4f5a-8c9e-1a2b3c4d5e01'), -- DASHBOARD:VIEW (Xem chung)
+('d4dddddd-dddd-dddd-dddd-dddddddddddd', '7c9e8a1a-4d3b-4f5a-8c9e-1a2b3c4d5e20'), -- KPI:VIEW_MY
+('d4dddddd-dddd-dddd-dddd-dddddddddddd', '7c9e8a1a-4d3b-4f5a-8c9e-1a2b3c4d5e22'), -- SUBMISSION:CREATE
+('d4dddddd-dddd-dddd-dddd-dddddddddddd', '7c9e8a1a-4d3b-4f5a-8c9e-1a2b3c4d5e23'), -- SUBMISSION:VIEW_MY
+('d4dddddd-dddd-dddd-dddd-dddddddddddd', '7c9e8a1a-4d3b-4f5a-8c9e-1a2b3c4d5e24'), -- EVALUATION:VIEW (Xem kết quả của mình)
+('d4dddddd-dddd-dddd-dddd-dddddddddddd', '7c9e8a1a-4d3b-4f5a-8c9e-1a2b3c4d5e26'); -- NOTIF:VIEW
 
 -- ====================================================
 -- Sample Policy
