@@ -22,6 +22,7 @@ export interface UserInfo {
   status: UserStatus
   memberships: UserMembership[]
   roles: string[]
+  permissions: string[]
 }
 
 // Matches BE: AuthResponse

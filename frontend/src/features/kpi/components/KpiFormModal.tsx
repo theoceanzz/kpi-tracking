@@ -37,7 +37,7 @@ export default function KpiFormModal({ open, onClose, editKpi }: KpiFormModalPro
   const isEdit = !!editKpi
   const qc = useQueryClient()
   const { user } = useAuthStore()
-  const { isDirector, isHead, isDeputy } = usePermission()
+  const { hasPermission } = usePermission()
   const { data: orgUnitTreeData } = useOrgUnitTree()
   
   // Flatten tree for dropdown
@@ -85,9 +85,9 @@ export default function KpiFormModal({ open, onClose, editKpi }: KpiFormModalPro
 
   // For HEAD/DEPUTY, automatically use their orgUnit if not chosen
   const fetchOrgUnitId = useMemo(() => {
-    if (isDirector) return formOrgUnitId || undefined
+    if (hasPermission('ORG:VIEW')) return formOrgUnitId || undefined
     return formOrgUnitId || user?.memberships?.[0]?.orgUnitId
-  }, [isDirector, user, formOrgUnitId])
+  }, [hasPermission, user, formOrgUnitId])
 
   const { data: usersData, isLoading: isLoadingUsers } = useUsers({ 
     page: 0, 
@@ -106,13 +106,13 @@ export default function KpiFormModal({ open, onClose, editKpi }: KpiFormModalPro
       // Get target user's highest role priority
       const targetPriority = Math.max(...(u.roles || []).map(r => ROLE_PRIORITY[r] || 0), 0)
 
-      if (isDirector) return true // Director can assign to anyone
+      if (hasPermission('USER:VIEW')) return true // Can assign to anyone if they have user view permission
       
       // For others: only assign to people whose highest role is <= their own highest role
       // This prevents a Head from assigning to a Director.
       return targetPriority <= myPriority
     })
-  }, [usersData, isDirector, user])
+  }, [usersData, hasPermission, user])
 
   const createMutation = useMutation({
     mutationFn: (data: KpiFormData) => kpiApi.create(data),
@@ -228,7 +228,7 @@ export default function KpiFormModal({ open, onClose, editKpi }: KpiFormModalPro
             </div>
           </div>
 
-          {isDirector && (
+          {hasPermission('ORG:VIEW') && (
             <div>
               <label className="block text-sm font-medium mb-1.5">Phòng ban / Đơn vị</label>
               <select {...register('orgUnitId')} className={inputCls} defaultValue="">

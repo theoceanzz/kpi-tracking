@@ -1,23 +1,28 @@
 import { Navigate } from 'react-router-dom'
 import { useAuthStore } from '@/store/authStore'
-import { getHighestRole } from '@/lib/utils'
+import { useHasPermission } from '@/components/auth/PermissionGate'
 
+/**
+ * Redirects the user to the appropriate dashboard based on their permissions.
+ * PBAC: We check permissions instead of hardcoded role names.
+ */
 export default function DashboardRedirect() {
-  const user = useAuthStore((s) => s.user)
+  const { user } = useAuthStore()
+  const { hasPermission } = useHasPermission()
 
   if (!user) return <Navigate to="/login" replace />
 
-  const highestRole = getHighestRole(user)
-
-  switch (highestRole) {
-    case 'DIRECTOR':
-      return <Navigate to="/dashboard/director" replace />
-    case 'HEAD':
-    case 'DEPUTY':
-      return <Navigate to="/dashboard/head" replace />
-    case 'STAFF':
-      return <Navigate to="/dashboard/staff" replace />
-    default:
-      return <Navigate to="/login" replace />
+  // Priority check for dashboard access
+  // 1. Director Dashboard (Users with managerial/admin permissions)
+  if (hasPermission(['ORG:CREATE', 'ROLE:VIEW'])) {
+    return <Navigate to="/dashboard/director" replace />
   }
+
+  // 2. Head/Deputy Dashboard (Users with review/approve permissions)
+  if (hasPermission(['KPI:APPROVE', 'SUBMISSION:REVIEW'])) {
+    return <Navigate to="/dashboard/head" replace />
+  }
+
+  // 3. Default to Staff Dashboard
+  return <Navigate to="/dashboard/staff" replace />
 }

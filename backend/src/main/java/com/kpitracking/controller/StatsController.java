@@ -26,7 +26,7 @@ public class StatsController {
     private final StatsService statsService;
 
     @GetMapping("/overview")
-    @PreAuthorize("hasAnyRole('DIRECTOR', 'HEAD')")
+    @PreAuthorize("hasAuthority('DASHBOARD:VIEW')")
     @Operation(summary = "Get organization overview statistics")
     public ResponseEntity<ApiResponse<OverviewStatsResponse>> getOverviewStats() {
         OverviewStatsResponse response = statsService.getOverviewStats();
@@ -34,7 +34,7 @@ public class StatsController {
     }
 
     @GetMapping("/org-units")
-    @PreAuthorize("hasAnyRole('DIRECTOR', 'HEAD')")
+    @PreAuthorize("hasAuthority('ORG:VIEW')")
     @Operation(summary = "Get KPI statistics by org unit")
     public ResponseEntity<ApiResponse<List<OrgUnitKpiStatsResponse>>> getOrgUnitKpiStats() {
         List<OrgUnitKpiStatsResponse> response = statsService.getOrgUnitKpiStats();
@@ -42,8 +42,8 @@ public class StatsController {
     }
 
     @GetMapping("/employees")
-    @PreAuthorize("hasRole('DIRECTOR')")
-    @Operation(summary = "Get KPI statistics per employee (Director only)")
+    @PreAuthorize("hasAuthority('USER:VIEW')")
+    @Operation(summary = "Get KPI statistics per employee")
     public ResponseEntity<ApiResponse<List<EmployeeKpiStatsResponse>>> getEmployeeKpiStats() {
         List<EmployeeKpiStatsResponse> response = statsService.getEmployeeKpiStats();
         return ResponseEntity.ok(ApiResponse.success(response));

@@ -10,7 +10,7 @@ import com.kpitracking.mapper.SubmissionMapper;
 import com.kpitracking.repository.KpiSubmissionRepository;
 import com.kpitracking.repository.SubmissionAttachmentRepository;
 import com.kpitracking.repository.UserRepository;
-import com.kpitracking.repository.UserRoleOrgUnitRepository;
+import com.kpitracking.security.PermissionChecker;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -31,9 +31,9 @@ public class SubmissionAttachmentService {
     private final SubmissionAttachmentRepository attachmentRepository;
     private final KpiSubmissionRepository submissionRepository;
     private final UserRepository userRepository;
-    private final UserRoleOrgUnitRepository userRoleOrgUnitRepository;
     private final CloudinaryStorageService cloudinaryStorageService;
     private final SubmissionMapper submissionMapper;
+    private final PermissionChecker permissionChecker;
 
     private User getCurrentUser() {
         String email = SecurityContextHolder.getContext().getAuthentication().getName();
@@ -41,10 +41,6 @@ public class SubmissionAttachmentService {
                 .orElseThrow(() -> new ResourceNotFoundException("User", "email", email));
     }
     
-    private boolean hasRole(UUID userId, String roleName) {
-        return userRoleOrgUnitRepository.findByUserId(userId).stream()
-                .anyMatch(uro -> uro.getRole().getName().equalsIgnoreCase(roleName));
-    }
 
     @Transactional
     public List<AttachmentResponse> uploadAttachments(UUID submissionId, MultipartFile[] files) throws IOException {
@@ -93,10 +89,9 @@ public class SubmissionAttachmentService {
                 .orElseThrow(() -> new ResourceNotFoundException("Submission", "id", submissionId));
 
         boolean isSubmitter = submission.getSubmittedBy().getId().equals(currentUser.getId());
-        boolean isDirector = hasRole(currentUser.getId(), "DIRECTOR");
-        boolean isHead = hasRole(currentUser.getId(), "HEAD");
+        boolean canReview = permissionChecker.hasPermission(currentUser.getId(), "SUBMISSION:REVIEW");
         
-        if (!isSubmitter && !isDirector && !isHead) {
+        if (!isSubmitter && !canReview) {
              throw new com.kpitracking.exception.ForbiddenException("You can only view attachments for your own or authorized submissions");
         }
 

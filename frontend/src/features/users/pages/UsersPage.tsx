@@ -65,6 +65,8 @@ export default function UsersPage() {
   const processedUsers = useMemo(() => {
     if (!data?.content) return []
 
+    // PBAC: Currently filtering out other admins to prevent unauthorized access to system-level accounts.
+    // In a full PBAC system, this would check for a permission like 'USER:MANAGE_ADMINS'.
     let result = data.content.filter(u => u.id !== authUser?.id && !u.roles?.includes('DIRECTOR'))
 
     if (roleFilter !== 'ALL') {

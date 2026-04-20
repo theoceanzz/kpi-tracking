@@ -13,7 +13,7 @@ import com.kpitracking.mapper.EvaluationMapper;
 import com.kpitracking.repository.EvaluationRepository;
 import com.kpitracking.repository.KpiCriteriaRepository;
 import com.kpitracking.repository.UserRepository;
-import com.kpitracking.repository.UserRoleOrgUnitRepository;
+import com.kpitracking.security.PermissionChecker;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -32,18 +32,13 @@ public class EvaluationService {
     private final EvaluationRepository evaluationRepository;
     private final UserRepository userRepository;
     private final KpiCriteriaRepository kpiCriteriaRepository;
-    private final UserRoleOrgUnitRepository userRoleOrgUnitRepository;
     private final EvaluationMapper evaluationMapper;
+    private final PermissionChecker permissionChecker;
 
     private User getCurrentUser() {
         String email = SecurityContextHolder.getContext().getAuthentication().getName();
         return userRepository.findByEmail(email)
                 .orElseThrow(() -> new ResourceNotFoundException("Người dùng", "email", email));
-    }
-
-    private boolean hasRole(UUID userId, String roleName) {
-        return userRoleOrgUnitRepository.findByUserId(userId).stream()
-                .anyMatch(uro -> uro.getRole().getName().equalsIgnoreCase(roleName));
     }
 
     @Transactional
@@ -57,13 +52,13 @@ public class EvaluationService {
                 .orElseThrow(() -> new ResourceNotFoundException("Chỉ tiêu KPI", "id", request.getKpiCriteriaId()));
 
         boolean isSelfEval = currentUser.getId().equals(evaluatedUser.getId());
-        boolean isManager = hasRole(currentUser.getId(), "DIRECTOR") || hasRole(currentUser.getId(), "HEAD");
+        boolean canEvaluateOthers = permissionChecker.hasPermission(currentUser.getId(), "EVALUATION:CREATE");
 
-        if (!isSelfEval && !isManager) {
+        if (!isSelfEval && !canEvaluateOthers) {
             throw new ForbiddenException("Bạn không có quyền tạo đánh giá cho người khác");
         }
 
-        // Validation of period dates against KPI criteria range (comparing at LocalDate level to avoid timezone/precision issues)
+        // Validation of period dates against KPI criteria range
         java.time.LocalDate kpiStart = kpiCriteria.getStartDate() != null ? kpiCriteria.getStartDate().atZone(java.time.ZoneOffset.UTC).toLocalDate() : null;
         java.time.LocalDate kpiEnd = kpiCriteria.getEndDate() != null ? kpiCriteria.getEndDate().atZone(java.time.ZoneOffset.UTC).toLocalDate() : null;
 
@@ -97,14 +92,13 @@ public class EvaluationService {
         User currentUser = getCurrentUser();
         Pageable pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
 
-        boolean isDirector = hasRole(currentUser.getId(), "DIRECTOR");
-        boolean isHead = hasRole(currentUser.getId(), "HEAD");
+        boolean canViewAll = permissionChecker.hasAnyPermission(currentUser.getId(), "EVALUATION:VIEW", "EVALUATION:CREATE");
 
         Page<Evaluation> evalPage;
 
         UUID effectiveUserId = userId;
 
-        if (!isDirector && !isHead) {
+        if (!canViewAll) {
             effectiveUserId = currentUser.getId();
         }
 

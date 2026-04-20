@@ -29,8 +29,8 @@ public class UserController {
     private final UserService userService;
 
     @PostMapping
-    @PreAuthorize("hasRole('DIRECTOR')")
-    @Operation(summary = "Create a new user (Director only)")
+    @PreAuthorize("hasAuthority('USER:CREATE')")
+    @Operation(summary = "Create a new user")
     public ResponseEntity<ApiResponse<UserResponse>> createUser(@Valid @RequestBody CreateUserRequest request) {
         UserResponse response = userService.createUser(request);
         return ResponseEntity.status(HttpStatus.CREATED)
@@ -38,8 +38,8 @@ public class UserController {
     }
 
     @PostMapping(value = "/import", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    @PreAuthorize("hasRole('DIRECTOR')")
-    @Operation(summary = "Import users via Excel or CSV (Director only)")
+    @PreAuthorize("hasAuthority('USER:IMPORT')")
+    @Operation(summary = "Import users via Excel or CSV")
     public ResponseEntity<ApiResponse<ImportUserResponse>> importUsers(@RequestParam("file") MultipartFile file) {
         ImportUserResponse response = userService.importUsers(file);
         return ResponseEntity.status(HttpStatus.CREATED)
@@ -47,7 +47,7 @@ public class UserController {
     }
 
     @GetMapping
-    @PreAuthorize("hasAnyRole('DIRECTOR', 'HEAD')")
+    @PreAuthorize("hasAuthority('USER:VIEW')")
     @Operation(summary = "List users with optional search")
     public ResponseEntity<ApiResponse<PageResponse<UserResponse>>> getUsers(
             @RequestParam(defaultValue = "0") int page,
@@ -59,7 +59,7 @@ public class UserController {
     }
 
     @GetMapping("/{userId}")
-    @PreAuthorize("hasAnyRole('DIRECTOR', 'HEAD')")
+    @PreAuthorize("hasAuthority('USER:VIEW')")
     @Operation(summary = "Get user by ID")
     public ResponseEntity<ApiResponse<UserResponse>> getUserById(@PathVariable UUID userId) {
         UserResponse response = userService.getUserById(userId);
@@ -67,8 +67,8 @@ public class UserController {
     }
 
     @PutMapping("/{userId}")
-    @PreAuthorize("hasRole('DIRECTOR')")
-    @Operation(summary = "Update user (Director only)")
+    @PreAuthorize("hasAuthority('USER:UPDATE')")
+    @Operation(summary = "Update user")
     public ResponseEntity<ApiResponse<UserResponse>> updateUser(
             @PathVariable UUID userId,
             @Valid @RequestBody UpdateUserRequest request) {
@@ -77,8 +77,8 @@ public class UserController {
     }
 
     @DeleteMapping("/{userId}")
-    @PreAuthorize("hasRole('DIRECTOR')")
-    @Operation(summary = "Soft delete user (Director only)")
+    @PreAuthorize("hasAuthority('USER:DELETE')")
+    @Operation(summary = "Soft delete user")
     public ResponseEntity<ApiResponse<Void>> deleteUser(@PathVariable UUID userId) {
         userService.deleteUser(userId);
         return ResponseEntity.ok(ApiResponse.success("User deleted successfully"));

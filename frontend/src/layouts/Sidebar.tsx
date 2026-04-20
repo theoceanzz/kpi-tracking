@@ -1,6 +1,7 @@
 import { NavLink, Link } from 'react-router-dom'
 import { useAuthStore } from '@/store/authStore'
 import { useState, useRef, useEffect } from 'react'
+import { useHasPermission } from '../components/auth/PermissionGate'
 import {
   LayoutDashboard,
   Building2,
@@ -19,28 +20,27 @@ import {
   Shield
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import type { UserRole } from '@/types/auth'
 
 interface NavItem {
   label: string
   path: string
   icon: React.ReactNode
-  roles: UserRole[]
-  end?: boolean // Thêm thuộc tính này để kiểm soát việc active link chính xác
+  permission: string
+  end?: boolean
 }
 
 const navItems: NavItem[] = [
-  { label: 'Tổng quan', path: '/dashboard', icon: <LayoutDashboard size={20} />, roles: ['DIRECTOR', 'HEAD', 'DEPUTY', 'STAFF'] },
-  { label: 'Công ty', path: '/company', icon: <Building2 size={20} />, roles: ['DIRECTOR'] },
-  { label: 'Cấu trúc thiết lập', path: '/org-structure', icon: <Network size={20} />, roles: ['DIRECTOR'] },
-  { label: 'Nhân sự', path: '/users', icon: <Users size={20} />, roles: ['DIRECTOR'] },
-  { label: 'Vai trò', path: '/roles', icon: <Shield size={20} />, roles: ['DIRECTOR'] },
-  { label: 'Quản lý Chỉ tiêu', path: '/kpi-criteria', icon: <Target size={20} />, roles: ['DIRECTOR', 'HEAD', 'DEPUTY'], end: true },
-  { label: 'Duyệt Chỉ tiêu', path: '/kpi-criteria/pending', icon: <ClipboardCheck size={20} />, roles: ['DIRECTOR'] },
-  { label: 'KPI của tôi', path: '/my-kpi', icon: <ListChecks size={20} />, roles: ['STAFF', 'HEAD', 'DEPUTY'] },
-  { label: 'Duyệt Bài nộp', path: '/submissions/org-unit', icon: <ClipboardCheck size={20} />, roles: ['DIRECTOR', 'HEAD', 'DEPUTY'] },
-  { label: 'Bài nộp của tôi', path: '/submissions', icon: <FileText size={20} />, roles: ['STAFF', 'HEAD', 'DEPUTY'], end: true },
-  { label: 'Đánh giá NS', path: '/evaluations', icon: <Star size={20} />, roles: ['DIRECTOR', 'HEAD', 'DEPUTY', 'STAFF'] },
+  { label: 'Tổng quan', path: '/dashboard', icon: <LayoutDashboard size={20} />, permission: 'DASHBOARD:VIEW' },
+  { label: 'Công ty', path: '/company', icon: <Building2 size={20} />, permission: 'COMPANY:VIEW' },
+  { label: 'Cấu trúc thiết lập', path: '/org-structure', icon: <Network size={20} />, permission: 'ORG:VIEW' },
+  { label: 'Nhân sự', path: '/users', icon: <Users size={20} />, permission: 'USER:VIEW' },
+  { label: 'Vai trò', path: '/roles', icon: <Shield size={20} />, permission: 'ROLE:VIEW' },
+  { label: 'Quản lý Chỉ tiêu', path: '/kpi-criteria', icon: <Target size={20} />, permission: 'KPI:VIEW', end: true },
+  { label: 'Duyệt Chỉ tiêu', path: '/kpi-criteria/pending', icon: <ClipboardCheck size={20} />, permission: 'KPI:APPROVE' },
+  { label: 'KPI của tôi', path: '/my-kpi', icon: <ListChecks size={20} />, permission: 'KPI:VIEW_MY' },
+  { label: 'Duyệt Bài nộp', path: '/submissions/org-unit', icon: <ClipboardCheck size={20} />, permission: 'SUBMISSION:REVIEW' },
+  { label: 'Bài nộp của tôi', path: '/submissions', icon: <FileText size={20} />, permission: 'SUBMISSION:VIEW_MY', end: true },
+  { label: 'Đánh giá NS', path: '/evaluations', icon: <Star size={20} />, permission: 'EVALUATION:VIEW' },
 ]
 
 export default function Sidebar({ isMobileOpen, onCloseMobile }: { isMobileOpen?: boolean; onCloseMobile?: () => void }) {
@@ -48,9 +48,12 @@ export default function Sidebar({ isMobileOpen, onCloseMobile }: { isMobileOpen?
   const [userMenuOpen, setUserMenuOpen] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
 
-  const filteredItems = navItems.filter(
-    (item) => user && user.roles?.some(r => item.roles.includes(r as any))
-  )
+  const { hasPermission } = useHasPermission()
+  
+  const filteredItems = navItems.filter((item) => {
+    if (!user) return false
+    return hasPermission(item.permission)
+  })
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
@@ -99,7 +102,6 @@ export default function Sidebar({ isMobileOpen, onCloseMobile }: { isMobileOpen?
             <NavLink
               key={item.path}
               to={item.path}
-              // SỬA TẠI ĐÂY: Dùng item.end để kiểm soát active chính xác
               end={item.end} 
               onClick={onCloseMobile}
               className={({ isActive }) =>

@@ -26,12 +26,15 @@ public class JwtTokenProvider {
 
     public String generateAccessToken(Authentication authentication) {
         UserDetails userDetails = (UserDetails) authentication.getPrincipal();
-        return generateAccessToken(userDetails.getUsername(), List.of());
+        List<String> authorities = userDetails.getAuthorities().stream()
+                .map(org.springframework.security.core.GrantedAuthority::getAuthority)
+                .toList();
+        return generateAccessToken(userDetails.getUsername(), authorities);
     }
 
-    public String generateAccessToken(String email, List<String> roles) {
+    public String generateAccessToken(String email, List<String> authorities) {
         Map<String, Object> claims = new HashMap<>();
-        claims.put("roles", roles);
+        claims.put("authorities", authorities);
         return buildToken(claims, email, jwtConfig.getAccessTokenExpiry());
     }
 
@@ -50,8 +53,8 @@ public class JwtTokenProvider {
     }
 
     @SuppressWarnings("unchecked")
-    public List<String> extractRoles(String token) {
-        return extractClaim(token, claims -> claims.get("roles", List.class));
+    public List<String> extractAuthorities(String token) {
+        return extractClaim(token, claims -> claims.get("authorities", List.class));
     }
 
     public <T> T extractClaim(String token, Function<Claims, T> claimsResolver) {
