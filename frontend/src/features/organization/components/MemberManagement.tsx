@@ -11,13 +11,9 @@ import {
   Settings2,
   AlertTriangle
 } from 'lucide-react'
-import { 
-  useOrgUnitMembers, 
-  useRoles, 
-  useAssignRole, 
-  useRevokeRole, 
-  useOrganizationUsers 
-} from '../hooks/useUserRoles'
+import { useOrgUnitMembers, useRoles, useAssignRole, useRevokeRole, useOrganizationUsers } from '../hooks/useUserRoles'
+import { useOrgUnit } from '../hooks/useOrganizationStructure'
+import { useAuthStore } from '@/store/authStore'
 import { toast } from 'sonner'
 
 interface MemberManagementProps {
@@ -58,6 +54,10 @@ export function MemberManagement({ orgUnitId }: MemberManagementProps) {
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedUser, setSelectedUser] = useState<string | null>(null)
   const [selectedRole, setSelectedRole] = useState<string | null>(null)
+  
+  const { user } = useAuthStore()
+  const orgId = user?.memberships?.[0]?.organizationId
+  const { data: orgUnit } = useOrgUnit(orgId, orgUnitId)
 
   const { data: members = [], isLoading: isMembersLoading } = useOrgUnitMembers(orgUnitId)
   const { data: roles = [] } = useRoles()
@@ -67,6 +67,15 @@ export function MemberManagement({ orgUnitId }: MemberManagementProps) {
 
   const assignMutation = useAssignRole()
   const revokeMutation = useRevokeRole()
+
+  // Roles available for this specific unit based on scope
+  const filteredRoles = useMemo(() => {
+    if (!orgUnit?.allowedRoles || orgUnit.allowedRoles.length === 0) {
+      return roles
+    }
+    const allowedIds = new Set(orgUnit.allowedRoles.map(r => r.id))
+    return roles.filter(r => allowedIds.has(r.id))
+  }, [roles, orgUnit?.allowedRoles])
 
   // Group members by userId
   const groupedMembers = useMemo(() => {
@@ -130,7 +139,7 @@ export function MemberManagement({ orgUnitId }: MemberManagementProps) {
       
       // Update local state for "instant" update in Manage Modal
       if (showManageModal) {
-          const roleData = roles.find(r => r.id === selectedRole)
+          const roleData = filteredRoles.find(r => r.id === selectedRole)
           setShowManageModal({
               ...showManageModal,
               assignments: [
@@ -288,7 +297,7 @@ export function MemberManagement({ orgUnitId }: MemberManagementProps) {
       {(showAddModal || showManageModal) && (
         <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
             <div className="absolute inset-0 bg-gray-900/60 backdrop-blur-md" onClick={() => { setShowAddModal(false); setShowManageModal(null); }} />
-            <div className="bg-white rounded-[2.5rem] shadow-2xl w-full max-w-xl relative z-[201] overflow-hidden animate-in fade-in zoom-in-95 duration-300">
+            <div className="bg-white rounded-[2.5rem] shadow-2xl w-full max-w-xl max-h-[90vh] relative z-[201] overflow-hidden flex flex-col animate-in fade-in zoom-in-95 duration-300">
                 <div className="p-10 border-b bg-gradient-to-r from-gray-50 to-white">
                     <h3 className="text-2xl font-black text-gray-900 tracking-tight">
                         {showManageModal ? `Quản lý vai trò: ${showManageModal.userFullName}` : 'Phân công nhân sự mới'}
@@ -296,7 +305,7 @@ export function MemberManagement({ orgUnitId }: MemberManagementProps) {
                     <p className="text-sm text-gray-500 mt-2 font-medium">Thiết lập các vai trò cụ thể cho nhân sự trong đơn vị này.</p>
                 </div>
                 
-                <div className="p-10 space-y-8">
+                <div className="flex-1 overflow-y-auto p-10 space-y-8 custom-scrollbar">
                     {!showManageModal && (
                         <div className="space-y-3">
                             <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest pl-1">Chọn nhân sự từ hệ thống</label>
@@ -363,7 +372,7 @@ export function MemberManagement({ orgUnitId }: MemberManagementProps) {
                             {(showManageModal || selectedUserAssignments.length > 0) ? 'Bổ sung vai trò' : 'Vai trò khởi đầu'}
                         </label>
                         <div className="grid grid-cols-2 gap-3">
-                            {roles.map(role => {
+                            {filteredRoles.map(role => {
                                 const isAssigned = (showManageModal?.assignments || selectedUserAssignments).some(a => a.roleId === role.id)
                                 return (
                                     <button

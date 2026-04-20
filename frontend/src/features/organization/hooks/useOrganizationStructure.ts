@@ -43,7 +43,9 @@ export function useUpdateOrgUnit() {
       orgUnitApi.updateNode(orgId, unitId, payload),
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['org-units', 'tree', variables.orgId] })
-      toast.success('Cập nhật thành phần tổ chức thành công')
+      queryClient.invalidateQueries({ queryKey: ['org-units', 'detail', variables.orgId, variables.unitId] })
+      queryClient.invalidateQueries({ queryKey: ['org-unit-members', variables.unitId] })
+      toast.success('Cập nhật thành công')
     },
     onError: (error: any) => {
       toast.error(error?.response?.data?.message || 'Có lỗi xảy ra khi cập nhật thành phần')

@@ -2,6 +2,7 @@ import { useState, useMemo, useCallback } from 'react'
 import { LayoutGrid, List as ListIcon, PlusCircle } from 'lucide-react'
 import { useAuthStore } from '@/store/authStore'
 import { useOrgUnitTree, useOrgHierarchyLevels, useDeleteOrgUnit } from '../hooks/useOrganizationStructure'
+import type { OrgUnitTreeResponse } from '../types/org-unit'
 import { OrgMindmapView } from '../components/OrgMindmapView'
 import { OrgListView } from '../components/OrgListView'
 import { OrgUnitDrawer, DrawerState } from '../components/OrgUnitDrawer'
@@ -59,12 +60,12 @@ export function OrganizationStructurePage() {
     })
   }, [])
 
-  const handleEdit = useCallback((id: string, name: string, type: string, level: number) => {
+  const handleEdit = useCallback((node: OrgUnitTreeResponse) => {
     setDrawerState({
       isOpen: true,
       mode: 'edit',
       parentNode: null,
-      currentNode: { id, name, type, level }
+      currentNode: node
     })
   }, [])
 

@@ -6,7 +6,7 @@ import { useNavigate } from 'react-router-dom'
 interface OrgListViewProps {
   data: OrgUnitTreeResponse[]
   onAddChild: (id: string, name: string, level: number) => void
-  onEdit: (id: string, name: string, type: string, level: number) => void
+  onEdit: (node: OrgUnitTreeResponse) => void
   onDelete: (id: string) => void
   maxDepth: number
 }
@@ -76,7 +76,7 @@ function TreeNodeRow({
   node: OrgUnitTreeResponse; 
   level: number;
   onAddChild: (id: string, name: string, level: number) => void
-  onEdit: (id: string, name: string, type: string, level: number) => void
+  onEdit: (node: OrgUnitTreeResponse) => void
   onDelete: (id: string) => void
   maxDepth: number
 }) {
@@ -143,7 +143,7 @@ function TreeNodeRow({
                     </button>
                   )}
                   <button 
-                    onClick={() => onEdit(node.id, node.name, node.type, node.level)}
+                    onClick={() => onEdit(node)}
                     className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 transition-colors"
                   >
                     <Edit2 className="w-4 h-4 mr-2 text-amber-500" /> Sửa
