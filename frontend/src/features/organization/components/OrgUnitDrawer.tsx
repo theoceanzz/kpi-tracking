@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useForm } from 'react-hook-form'
+import { useForm, SubmitHandler } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import * as z from 'zod'
 import { X, Upload, Building2, MapPin, Phone, Mail, Image as ImageIcon } from 'lucide-react'
@@ -10,6 +10,7 @@ import {
   useDistricts, 
   useUploadLogo 
 } from '../hooks/useOrganizationStructure'
+import { useRoles } from '../hooks/useUserRoles'
 
 export type DrawerMode = 'create-root' | 'create-child' | 'edit'
 
@@ -36,6 +37,7 @@ const schema = z.object({
   address: z.string().optional(),
   provinceId: z.string().optional(),
   districtId: z.string().optional(),
+  roleIds: z.array(z.string()).optional()
 })
 
 type FormData = z.infer<typeof schema>
@@ -48,6 +50,7 @@ export function OrgUnitDrawer({ orgId, drawerState, onClose, hierarchyLevels }: 
   const { data: provinces = [] } = useProvinces()
   const [selectedProvinceId, setSelectedProvinceId] = useState<string | undefined>()
   const { data: districts = [] } = useDistricts(selectedProvinceId)
+  const { data: allRoles = [] } = useRoles()
 
   const [logoFile, setLogoFile] = useState<File | null>(null)
   const [logoPreview, setLogoPreview] = useState<string | null>(null)
@@ -69,7 +72,8 @@ export function OrgUnitDrawer({ orgId, drawerState, onClose, hierarchyLevels }: 
       phone: '',
       address: '',
       provinceId: '',
-      districtId: ''
+      districtId: '',
+      roleIds: []
     }
   })
 
@@ -90,10 +94,12 @@ export function OrgUnitDrawer({ orgId, drawerState, onClose, hierarchyLevels }: 
         setValue('address', drawerState.currentNode.address || '')
         setValue('provinceId', drawerState.currentNode.provinceId || '')
         setValue('districtId', drawerState.currentNode.districtId || '')
+        setValue('roleIds', drawerState.currentNode.allowedRoles?.map((r: any) => r.id) || [])
         setLogoPreview(drawerState.currentNode.logoUrl || null)
       } else {
         setValue('name', '')
         setValue('unitTypeName', hierarchyLevels[calculatedLevel] || '')
+        setValue('roleIds', [])
         setLogoPreview(null)
       }
     } else {
@@ -113,7 +119,7 @@ export function OrgUnitDrawer({ orgId, drawerState, onClose, hierarchyLevels }: 
     }
   }
 
-  const onSubmit = async (data: FormData) => {
+  const onSubmit: SubmitHandler<FormData> = async (data) => {
     const payload = {
       name: data.name,
       unitTypeName: data.unitTypeName,
@@ -123,6 +129,7 @@ export function OrgUnitDrawer({ orgId, drawerState, onClose, hierarchyLevels }: 
       address: data.address,
       provinceId: data.provinceId || undefined,
       districtId: data.districtId || undefined,
+      roleIds: data.roleIds || []
     }
 
     let resultUnit: any = null
@@ -166,7 +173,7 @@ export function OrgUnitDrawer({ orgId, drawerState, onClose, hierarchyLevels }: 
         </div>
 
         <div className="flex-1 overflow-y-auto p-6">
-          <form id="org-form" onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+          <form id="org-form" onSubmit={handleSubmit(onSubmit as any)} className="space-y-6">
             
             {/* Logo Upload Section */}
             <div className="space-y-2">
@@ -305,6 +312,28 @@ export function OrgUnitDrawer({ orgId, drawerState, onClose, hierarchyLevels }: 
               </div>
             </div>
 
+            <div className="pt-4 border-t">
+              <h3 className="text-sm font-bold text-gray-900 mb-4 flex items-center">
+                <Building2 className="w-4 h-4 mr-2 text-gray-400" /> Vai trò được phép (Role Scope)
+              </h3>
+              <p className="text-xs text-gray-500 mb-4 italic">Giới hạn các vai trò có thể gán cho thành viên trong đơn vị này. Để trống để cho phép tất cả.</p>
+              <div className="grid grid-cols-2 gap-3">
+                {allRoles.map(role => (
+                  <label key={role.id} className="flex items-center p-3 rounded-xl border border-gray-100 hover:bg-gray-50 transition-all cursor-pointer group">
+                    <input 
+                      type="checkbox"
+                      className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                      value={role.id}
+                      {...register('roleIds')}
+                    />
+                    <div className="ml-3">
+                      <p className="text-sm font-black text-gray-700 group-hover:text-blue-700 transition-colors uppercase">{role.name}</p>
+                      <p className="text-[10px] text-gray-400 font-bold uppercase">{role.isSystem ? 'System' : 'Custom'}</p>
+                    </div>
+                  </label>
+                ))}
+              </div>
+            </div>
           </form>
         </div>
 

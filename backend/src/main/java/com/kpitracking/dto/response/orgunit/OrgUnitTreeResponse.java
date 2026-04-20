@@ -19,5 +19,8 @@ public class OrgUnitTreeResponse {
     private String logoUrl;
 
     @Builder.Default
+    private List<com.kpitracking.dto.response.role.RoleResponse> allowedRoles = new ArrayList<>();
+
+    @Builder.Default
     private List<OrgUnitTreeResponse> children = new ArrayList<>();
 }

@@ -245,7 +245,7 @@ export default function RoleManagementPage() {
       {isModalOpen && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-gray-900/60 backdrop-blur-md" onClick={() => setIsModalOpen(false)} />
-          <div className="bg-white rounded-[2.5rem] shadow-2xl w-full max-w-lg relative z-[101] overflow-hidden animate-in fade-in zoom-in-95 duration-300">
+          <div className="bg-white rounded-[2.5rem] shadow-2xl w-full max-w-lg max-h-[90vh] relative z-[101] overflow-hidden flex flex-col animate-in fade-in zoom-in-95 duration-300">
             <div className="p-10 border-b bg-gradient-to-r from-gray-50 to-white">
               <h3 className="text-2xl font-black text-gray-900 tracking-tight">
                 {editingRole ? 'Cập nhật vai trò' : 'Thêm vai trò mới'}
@@ -253,8 +253,8 @@ export default function RoleManagementPage() {
               <p className="text-sm text-gray-500 mt-1 font-medium">Thiết lập các thuộc tính cơ bản cho vai trò tổ chức.</p>
             </div>
             
-            <form onSubmit={handleSubmit}>
-              <div className="p-10 space-y-8">
+            <form onSubmit={handleSubmit} className="flex flex-col flex-1 overflow-hidden">
+              <div className="flex-1 overflow-y-auto p-10 space-y-8 custom-scrollbar">
                 <div className="space-y-3">
                   <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest pl-1">Tên vai trò *</label>
                   <input 

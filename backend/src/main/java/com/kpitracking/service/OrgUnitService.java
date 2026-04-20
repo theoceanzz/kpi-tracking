@@ -12,10 +12,7 @@ import com.kpitracking.entity.Province;
 import com.kpitracking.exception.BusinessException;
 import com.kpitracking.exception.ResourceNotFoundException;
 import com.kpitracking.mapper.OrgUnitMapper;
-import com.kpitracking.repository.DistrictRepository;
-import com.kpitracking.repository.OrgUnitRepository;
-import com.kpitracking.repository.OrganizationRepository;
-import com.kpitracking.repository.ProvinceRepository;
+import com.kpitracking.repository.*;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -37,7 +34,9 @@ public class OrgUnitService {
     private final CloudinaryStorageService cloudinaryStorageService;
     private final OrgUnitMapper orgUnitMapper;
 
+    private final RoleRepository roleRepository;
     private final com.kpitracking.repository.OrgHierarchyLevelRepository orgHierarchyLevelRepository;
+    private final UserRoleOrgUnitRepository userRoleOrgUnitRepository;
 
     @Transactional
     public OrgUnitResponse createOrgUnit(UUID orgId, CreateOrgUnitRequest request) {
@@ -91,6 +90,11 @@ public class OrgUnitService {
             orgUnit.setDistrict(district);
         }
 
+        if (request.getRoleIds() != null && !request.getRoleIds().isEmpty()) {
+            List<com.kpitracking.entity.Role> allowedRoles = roleRepository.findAllById(request.getRoleIds());
+            orgUnit.setAllowedRoles(allowedRoles);
+        }
+
         orgUnit = orgUnitRepository.save(orgUnit);
         // Refresh to get trigger-computed path and level
         orgUnit = orgUnitRepository.findById(orgUnit.getId()).orElseThrow();
@@ -116,6 +120,22 @@ public class OrgUnitService {
             District district = districtRepository.findById(request.getDistrictId())
                     .orElseThrow(() -> new ResourceNotFoundException("Quận/Huyện", "id", request.getDistrictId()));
             orgUnit.setDistrict(district);
+        }
+
+        if (request.getRoleIds() != null) {
+            Set<UUID> oldRoleIds = orgUnit.getAllowedRoles().stream()
+                    .map(com.kpitracking.entity.Role::getId)
+                    .collect(Collectors.toSet());
+            
+            List<com.kpitracking.entity.Role> newAllowedRoles = roleRepository.findAllById(request.getRoleIds());
+            orgUnit.setAllowedRoles(newAllowedRoles);
+
+            Set<UUID> newRoleIds = new HashSet<>(request.getRoleIds());
+            
+            // Identify and revoke removed roles
+            oldRoleIds.stream()
+                .filter(id -> !newRoleIds.contains(id))
+                .forEach(roleId -> userRoleOrgUnitRepository.deleteByOrgUnitIdAndRoleId(unitId, roleId));
         }
 
         orgUnit = orgUnitRepository.save(orgUnit);

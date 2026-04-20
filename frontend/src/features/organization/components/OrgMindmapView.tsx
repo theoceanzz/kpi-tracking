@@ -61,9 +61,10 @@ type CustomNodeData = {
   level: number;
   hasChildren: boolean;
   onAddChild: (id: string, name: string, level: number) => void;
-  onEdit: (id: string, name: string, type: string, level: number) => void;
+  onEdit: (node: OrgUnitTreeResponse) => void;
   onDelete: (id: string) => void;
   maxDepth: number;
+  node: OrgUnitTreeResponse;
 };
 
 type AppNode = Node<CustomNodeData, 'custom'>;
@@ -121,7 +122,7 @@ function CustomNode({ data }: NodeProps<AppNode>) {
                   </button>
                 )}
                 <button 
-                  onClick={(e) => { e.stopPropagation(); data.onEdit(data.id, data.name, data.type, data.level); }}
+                  onClick={(e) => { e.stopPropagation(); data.onEdit(data.node); }}
                   className="flex items-center w-full px-4 py-2 text-sm text-left text-gray-700 hover:bg-blue-50 transition-colors"
                 >
                   <Edit2 className="w-4 h-4 mr-2 text-amber-500" /> Sửa
@@ -153,7 +154,7 @@ interface OrgMindmapViewProps {
   data: OrgUnitTreeResponse[];
   maxDepth: number;
   onAddChild: (id: string, name: string, level: number) => void;
-  onEdit: (id: string, name: string, type: string, level: number) => void;
+  onEdit: (node: OrgUnitTreeResponse) => void;
   onDelete: (id: string) => void;
 }
 
@@ -179,6 +180,7 @@ export function OrgMindmapView({ data, maxDepth, onAddChild, onEdit, onDelete }:
           onEdit,
           onDelete,
           maxDepth,
+          node: nodeData,
         },
         position: { x: 0, y: 0 },
       });
