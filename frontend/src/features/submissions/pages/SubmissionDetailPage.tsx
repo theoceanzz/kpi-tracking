@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query'
 import { submissionApi } from '../api/submissionApi'
 import LoadingSkeleton from '@/components/common/LoadingSkeleton'
 import StatusBadge from '@/components/common/StatusBadge'
-import { formatDateTime, formatNumber } from '@/lib/utils'
+import { formatDateTime, formatNumber, downloadFile } from '@/lib/utils'
 import { 
   ArrowLeft, 
   Target, 
@@ -176,7 +176,13 @@ export default function SubmissionDetailPage() {
                           />
                           <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
                             <span className="p-2 bg-white/20 backdrop-blur-md rounded-full text-white hover:bg-white/40"><Eye size={18} /></span>
-                            <a href={file.fileUrl} download onClick={(e) => e.stopPropagation()} className="p-2 bg-white/20 backdrop-blur-md rounded-full text-white hover:bg-white/40"><Download size={18} /></a>
+                            <button 
+                              type="button" 
+                              onClick={(e) => { e.stopPropagation(); downloadFile(file.fileUrl, file.fileName) }} 
+                              className="p-2 bg-white/20 backdrop-blur-md rounded-full text-white hover:bg-white/40"
+                            >
+                              <Download size={18} />
+                            </button>
                           </div>
                         </div>
                       ) : (
@@ -186,14 +192,13 @@ export default function SubmissionDetailPage() {
                           </div>
                           <p className="text-[10px] font-medium text-slate-600 dark:text-slate-400 text-center truncate w-full px-2">{file.fileName}</p>
                           <div className="absolute inset-x-0 bottom-0 p-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                             <a 
-                               href={file.fileUrl} 
-                               download 
-                               onClick={(e) => e.stopPropagation()}
-                               className="w-full flex items-center justify-center gap-1 py-1.5 bg-indigo-500 text-white text-[10px] font-bold rounded-lg shadow-lg shadow-indigo-500/30"
-                             >
-                               <Download size={10} /> Tải xuống
-                             </a>
+                              <button 
+                                type="button"
+                                onClick={(e) => { e.stopPropagation(); downloadFile(file.fileUrl, file.fileName) }}
+                                className="w-full flex items-center justify-center gap-1 py-1.5 bg-indigo-500 text-white text-[10px] font-bold rounded-lg shadow-lg shadow-indigo-500/30"
+                              >
+                                <Download size={10} /> Tải xuống
+                              </button>
                           </div>
                         </div>
                       )}

@@ -1,14 +1,13 @@
 import { Outlet, useLocation } from 'react-router-dom'
 import Sidebar from './Sidebar'
 import { useAuth } from '@/hooks/useAuth'
-import { useThemeStore } from '@/store/themeStore'
-import { LogOut, Moon, Sun, Menu } from 'lucide-react'
+import { LogOut, Menu } from 'lucide-react'
 import NotificationBell from '@/features/notifications/components/NotificationBell'
+import ThemeCustomizer from './components/ThemeCustomizer'
 import { useState, useEffect } from 'react'
 
 export default function AppLayout() {
   const { user, logout } = useAuth()
-  const { isDark, toggleDark } = useThemeStore()
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const location = useLocation()
 
@@ -47,14 +46,7 @@ export default function AppLayout() {
 
           <div className="flex items-center gap-1.5 md:gap-2 ml-auto">
             <NotificationBell />
-
-            <button
-              onClick={toggleDark}
-              className="w-9 h-9 rounded-lg flex items-center justify-center hover:bg-[var(--color-accent)] transition-colors"
-              title="Đổi giao diện"
-            >
-              {isDark ? <Sun size={18} /> : <Moon size={18} />}
-            </button>
+            <ThemeCustomizer />
 
             <button
               onClick={logout}

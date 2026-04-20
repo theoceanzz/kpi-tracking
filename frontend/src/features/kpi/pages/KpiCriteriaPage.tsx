@@ -4,15 +4,20 @@ import EmptyState from '@/components/common/EmptyState'
 import KpiFormModal from '../components/KpiFormModal'
 import ConfirmDialog from '@/components/common/ConfirmDialog'
 import { useKpiCriteria } from '../hooks/useKpiCriteria'
+import { useAuthStore } from '@/store/authStore'
 import { useSubmitKpi } from '../hooks/useSubmitKpi'
 import { useDeleteKpi } from '../hooks/useDeleteKpi'
-import { formatDateTime, formatNumber } from '@/lib/utils'
+import { formatDateTime, formatNumber, formatAssigneeNames } from '@/lib/utils'
 import type { KpiCriteria } from '@/types/kpi'
 import {
   Target, Plus, Send, Pencil, Trash2, MoreVertical,
   Calendar, CheckCircle2, AlertCircle, XCircle, Search, 
-  Filter, UserCircle2
+  Filter, UserCircle2, Upload, Loader2
 } from 'lucide-react'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { kpiApi } from '../api/kpiApi'
+import { toast } from 'sonner'
+import KpiImportGuideModal from '../components/KpiImportGuideModal'
 
 const frequencyMap: Record<string, string> = {
   DAILY: 'Hàng ngày', WEEKLY: 'Hàng tuần', MONTHLY: 'Hàng tháng', QUARTERLY: 'Hàng quý', YEARLY: 'Hàng năm',
@@ -20,7 +25,7 @@ const frequencyMap: Record<string, string> = {
 
 const statusConfig: Record<string, { label: string; color: string; bgColor: string; icon: any }> = {
   DRAFT: { label: 'Bản nháp', color: 'text-slate-600 dark:text-slate-400', bgColor: 'bg-slate-100 border-slate-200 dark:bg-slate-800 dark:border-slate-700', icon: AlertCircle },
-  PENDING: { label: 'Chờ duyệt', color: 'text-amber-600 dark:text-amber-400', bgColor: 'bg-amber-100 border-amber-200 dark:bg-amber-900/30 dark:border-amber-900/40', icon: Calendar },
+  PENDING_APPROVAL: { label: 'Chờ duyệt', color: 'text-amber-600 dark:text-amber-400', bgColor: 'bg-amber-100 border-amber-200 dark:bg-amber-900/30 dark:border-amber-900/40', icon: Calendar },
   APPROVED: { label: 'Đã duyệt', color: 'text-emerald-600 dark:text-emerald-400', bgColor: 'bg-emerald-100 border-emerald-200 dark:bg-emerald-900/30 dark:border-emerald-900/40', icon: CheckCircle2 },
   REJECTED: { label: 'Từ chối', color: 'text-red-600 dark:text-red-400', bgColor: 'bg-red-100 border-red-200 dark:bg-red-900/30 dark:border-red-900/40', icon: XCircle },
 }
@@ -47,23 +52,53 @@ export default function KpiCriteriaPage() {
   const [deleteKpi, setDeleteKpi] = useState<KpiCriteria | null>(null)
   const [submitKpiId, setSubmitKpiId] = useState<string | null>(null)
   
-  const [activeTab, setActiveTab] = useState<'ALL' | 'DRAFT' | 'PENDING' | 'APPROVED' | 'REJECTED'>('ALL')
+  const [activeTab, setActiveTab] = useState<'ALL' | 'DRAFT' | 'PENDING_APPROVAL' | 'APPROVED' | 'REJECTED'>('ALL')
   const [search, setSearch] = useState('')
+  const [showImportGuide, setShowImportGuide] = useState(false)
+  const fileRef = useRef<HTMLInputElement>(null)
+  const qc = useQueryClient()
 
-  const { data, isLoading } = useKpiCriteria({ size: 100 })
+  const user = useAuthStore(s => s.user)
+  const { data, isLoading } = useKpiCriteria(
+    { size: 100, createdById: user?.id },
+    { enabled: !!user?.id }
+  )
   const deleteMutation = useDeleteKpi()
   const submitMutation = useSubmitKpi()
+
+  const importMutation = useMutation({
+    mutationFn: (file: File) => kpiApi.importFile(file),
+    onSuccess: (result) => {
+      qc.invalidateQueries({ queryKey: ['kpi-criteria'] })
+      toast.success(`Import thành công ${result.successfulImports}/${result.totalRows} dòng`)
+      if (result.errors.length > 0) {
+        result.errors.forEach((e) => toast.error(e))
+      }
+    },
+    onError: (error: any) => {
+      toast.error(error?.response?.data?.message || 'Import thất bại')
+    },
+  })
+
+  const handleImport = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (file) {
+      importMutation.mutate(file)
+      e.target.value = ''
+    }
+  }
 
   const allKpis = data?.content || []
   const filteredKpis = allKpis.filter(k => 
     (activeTab === 'ALL' || k.status === activeTab) &&
-    (k.name.toLowerCase().includes(search.toLowerCase()) || (k.assignedToName && k.assignedToName.toLowerCase().includes(search.toLowerCase())))
+    (k.name.toLowerCase().includes(search.toLowerCase()) || 
+     (k.assigneeNames && k.assigneeNames.some(name => name.toLowerCase().includes(search.toLowerCase()))))
   )
 
   const stats = {
     total: allKpis.length,
     draft: allKpis.filter(k => k.status === 'DRAFT').length,
-    pending: allKpis.filter(k => k.status === 'PENDING').length,
+    pending: allKpis.filter(k => k.status === 'PENDING_APPROVAL').length,
   }
 
   return (
@@ -76,7 +111,7 @@ export default function KpiCriteriaPage() {
             <Target size={14} /> Quản lý Chỉ tiêu
           </div>
           <h1 className="text-3xl md:text-4xl font-black tracking-tight text-slate-900 dark:text-white">
-            Danh sách KPI Phòng ban
+            Chỉ tiêu tôi đã tạo
           </h1>
           <p className="text-slate-500 font-medium max-w-lg">
             Thiết lập, phân bổ và theo dõi chi tiết các chỉ tiêu đánh giá hiệu suất.
@@ -115,19 +150,37 @@ export default function KpiCriteriaPage() {
           </button>
         </div>
 
-        {/* Create Button */}
-        <button 
-          onClick={() => { setEditKpi(null); setShowForm(true) }} 
-          className="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-indigo-600 text-white text-sm font-bold hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-500/20 active:scale-95 w-full sm:w-auto justify-center"
-        >
-          <Plus size={18} /> Tạo Chỉ tiêu mới
-        </button>
+        <div className="flex items-center gap-3 shrink-0 w-full sm:w-auto">
+          <button 
+            onClick={() => setShowImportGuide(true)}
+            disabled={importMutation.isPending}
+            className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-sm font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all shadow-sm"
+          >
+            {importMutation.isPending ? <Loader2 size={16} className="animate-spin" /> : <Upload size={16} />}
+            Import Excel
+          </button>
+          
+          <button 
+            onClick={() => { setEditKpi(null); setShowForm(true) }} 
+            className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-6 py-2.5 rounded-xl bg-indigo-600 text-white text-sm font-bold hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-500/20 active:scale-95"
+          >
+            <Plus size={18} /> Tạo Chỉ tiêu mới
+          </button>
+        </div>
+
+        <input 
+          ref={fileRef}
+          type="file" 
+          accept=".xlsx,.xls,.csv" 
+          className="hidden" 
+          onChange={handleImport} 
+        />
       </div>
 
       {/* Tabs */}
       <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-hide">
-        {['ALL', 'DRAFT', 'PENDING', 'APPROVED', 'REJECTED'].map((tab) => {
-          const tabLabels: Record<string, string> = { ALL: 'Tất cả trạng thái', DRAFT: 'Bản nháp', PENDING: 'Đang đợi duyệt', APPROVED: 'Đã phê duyệt', REJECTED: 'Bị từ chối' }
+        {['ALL', 'DRAFT', 'PENDING_APPROVAL', 'APPROVED', 'REJECTED'].map((tab) => {
+          const tabLabels: Record<string, string> = { ALL: 'Tất cả trạng thái', DRAFT: 'Bản nháp', PENDING_APPROVAL: 'Đang đợi duyệt', APPROVED: 'Đã phê duyệt', REJECTED: 'Bị từ chối' }
           const active = activeTab === tab
           return (
             <button
@@ -172,6 +225,11 @@ export default function KpiCriteriaPage() {
 
       {/* Modals */}
       <KpiFormModal open={showForm} onClose={() => { setShowForm(false); setEditKpi(null) }} editKpi={editKpi} />
+      <KpiImportGuideModal 
+        open={showImportGuide} 
+        onClose={() => setShowImportGuide(false)} 
+        onSelectFile={() => fileRef.current?.click()} 
+      />
       <ConfirmDialog 
         open={!!submitKpiId} 
         onClose={() => setSubmitKpiId(null)} 
@@ -295,7 +353,7 @@ function KpiCard({ kpi, delay, onEdit, onDelete, onSubmit }: {
             <UserCircle2 size={12} className="text-slate-500" />
           </div>
           <span className="text-xs font-semibold text-slate-700 dark:text-slate-300 truncate">
-            {kpi.assignedToName ?? 'Chưa giao'}
+            {formatAssigneeNames(kpi.assigneeNames)}
           </span>
         </div>
         <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">

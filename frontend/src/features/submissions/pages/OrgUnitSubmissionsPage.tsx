@@ -3,7 +3,7 @@ import LoadingSkeleton from '@/components/common/LoadingSkeleton'
 import EmptyState from '@/components/common/EmptyState'
 import StatusBadge from '@/components/common/StatusBadge'
 import ReviewModal from '../components/ReviewModal'
-import { useDeptSubmissions } from '../hooks/useDeptSubmissions'
+import { useOrgUnitSubmissions } from '../hooks/useOrgUnitSubmissions'
 import { formatDateTime, getInitials, formatNumber } from '@/lib/utils'
 import type { Submission, SubmissionStatus } from '@/types/submission'
 import {
@@ -20,13 +20,13 @@ const TABS: { key: TabKey; label: string; icon: any; color: string }[] = [
   { key: '', label: 'Tất cả', icon: Filter, color: 'text-slate-600 bg-slate-50 border-slate-200 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700' },
 ]
 
-export default function DeptSubmissionsPage() {
+export default function OrgUnitSubmissionsPage() {
   const [activeTab, setActiveTab] = useState<TabKey>('PENDING')
-  const { data, isLoading } = useDeptSubmissions(activeTab ? { status: activeTab } : {})
+  const { data, isLoading } = useOrgUnitSubmissions(activeTab ? { status: activeTab } : {})
   const [reviewSub, setReviewSub] = useState<Submission | null>(null)
 
   // Quick stats from all data
-  const { data: allData } = useDeptSubmissions({})
+  const { data: allData } = useOrgUnitSubmissions({})
   const stats = useMemo(() => {
     const all = allData?.content ?? []
     return {
@@ -52,7 +52,7 @@ export default function DeptSubmissionsPage() {
             Duyệt Bài nộp KPI
           </h1>
           <p className="text-slate-500 font-medium max-w-lg">
-            Xem xét và phê duyệt các báo cáo KPI do nhân viên trong phòng ban nộp lên.
+            Xem xét và phê duyệt các báo cáo KPI do nhân viên trong đơn vị nộp lên.
           </p>
         </div>
 

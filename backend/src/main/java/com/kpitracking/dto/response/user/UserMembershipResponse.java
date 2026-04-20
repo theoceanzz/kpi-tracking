@@ -7,8 +7,8 @@ import java.util.UUID;
 @Getter @Setter @Builder @NoArgsConstructor @AllArgsConstructor
 public class UserMembershipResponse {
     private UUID orgUnitId;
-    private String orgUnitName;
     private UUID organizationId;
+    private String orgUnitName;
     private String organizationName;
     private String roleName;
     private String roleLabel;

@@ -3,6 +3,7 @@ export type UserStatus = 'ACTIVE' | 'INACTIVE' | 'SUSPENDED'
 
 export interface UserMembership {
   orgUnitId: string
+  organizationId: string
   orgUnitName: string
   organizationId: string
   organizationName: string

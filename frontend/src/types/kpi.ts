@@ -1,4 +1,4 @@
-export type KpiStatus = 'DRAFT' | 'PENDING' | 'APPROVED' | 'REJECTED'
+export type KpiStatus = 'DRAFT' | 'PENDING_APPROVAL' | 'APPROVED' | 'REJECTED'
 export type KpiFrequency = 'DAILY' | 'WEEKLY' | 'MONTHLY' | 'QUARTERLY' | 'YEARLY'
 
 // Matches BE: KpiCriteriaResponse
@@ -11,10 +11,11 @@ export interface KpiCriteria {
   unit: string | null
   frequency: KpiFrequency
   status: KpiStatus
-  departmentId: string | null
-  departmentName: string | null
-  assignedToId: string | null
-  assignedToName: string | null
+  orgUnitId: string | null
+  orgUnitName: string | null
+  assigneeIds: string[]
+  assigneeNames: string[]
+  assignees: import('./auth').UserInfo[]
   createdById: string | null
   createdByName: string | null
   approvedById: string | null
@@ -36,7 +37,7 @@ export interface CreateKpiRequest {
   targetValue?: number
   unit?: string
   frequency: KpiFrequency
-  departmentId?: string
+  orgUnitId?: string
   assignedToId?: string
   assignedToIds?: string[]
   startDate?: string
@@ -51,7 +52,7 @@ export interface UpdateKpiRequest {
   targetValue?: number
   unit?: string
   frequency?: KpiFrequency
-  departmentId?: string
+  orgUnitId?: string
   assignedToId?: string
   assignedToIds?: string[]
   startDate?: string
@@ -61,4 +62,10 @@ export interface UpdateKpiRequest {
 // Matches BE: RejectKpiRequest
 export interface RejectKpiRequest {
   reason: string
+}
+// Matches BE: ImportKpiResponse
+export interface ImportKpiResult {
+  totalRows: number
+  successfulImports: number
+  errors: string[]
 }

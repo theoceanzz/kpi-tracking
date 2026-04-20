@@ -42,4 +42,11 @@ public class NotificationController {
         long count = notificationService.getUnreadCount();
         return ResponseEntity.ok(ApiResponse.success(count));
     }
+
+    @PatchMapping("/read-all")
+    @Operation(summary = "Mark all notifications as read")
+    public ResponseEntity<ApiResponse<Void>> markAllAsRead() {
+        notificationService.markAllAsRead();
+        return ResponseEntity.ok(ApiResponse.success(null));
+    }
 }

@@ -17,7 +17,7 @@ public class UserResponse {
     private String avatarUrl;
     private List<String> roles;
     private UserStatus status;
-    private UUID companyId;
+    private UUID organizationId;
     private java.util.List<UserMembershipResponse> memberships;
     private Instant createdAt;
     private Instant updatedAt;

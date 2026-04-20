@@ -30,8 +30,8 @@ public class NotificationEventListener {
         KpiCriteria kpi = submission.getKpiCriteria();
         User creator = kpi.getCreatedBy();
 
-        String title = "New KPI Submission";
-        String message = String.format("A new submission has been made for KPI '%s' by %s. Actual value: %s",
+        String title = "Báo cáo KPI mới";
+        String message = String.format("KPI '%s' vừa có báo cáo mới từ %s. Giá trị đạt được: %s",
                 kpi.getName(),
                 submission.getSubmittedBy().getFullName(),
                 submission.getActualValue());
@@ -47,16 +47,16 @@ public class NotificationEventListener {
         log.info("Handling submission reviewed event for submission: {}", submission.getId());
 
         User submitter = submission.getSubmittedBy();
-        String statusText = submission.getStatus().name().toLowerCase();
+        String statusText = submission.getStatus().name().equals("APPROVED") ? "chấp nhận" : "từ chối";
 
-        String title = "Submission " + submission.getStatus().name();
-        String message = String.format("Your submission for KPI '%s' has been %s by %s.",
+        String title = "Báo cáo KPI đã được " + statusText;
+        String message = String.format("Báo cáo cho chỉ tiêu '%s' của bạn đã được %s bởi %s.",
                 submission.getKpiCriteria().getName(),
                 statusText,
                 submission.getReviewedBy().getFullName());
 
         if (submission.getReviewNote() != null) {
-            message += " Note: " + submission.getReviewNote();
+            message += " Ghi chú: " + submission.getReviewNote();
         }
 
         notificationService.createNotification(submission.getOrgUnit(), submitter, title, message, "REVIEW", submission.getId());
@@ -71,20 +71,24 @@ public class NotificationEventListener {
 
         User creator = kpi.getCreatedBy();
 
-        String title = "KPI Criteria Approved";
-        String message = String.format("Your KPI criteria '%s' has been approved by %s.",
+        String title = "Chỉ tiêu KPI đã được duyệt";
+        String message = String.format("Chỉ tiêu KPI '%s' do bạn tạo đã được phê duyệt bởi %s.",
                 kpi.getName(),
                 kpi.getApprovedBy().getFullName());
 
         notificationService.createNotification(kpi.getOrgUnit(), creator, title, message, "KPI_APPROVED", kpi.getId());
         emailService.sendNotificationEmail(creator.getEmail(), title, message);
 
-        // Also notify the assigned user if applicable
-        if (kpi.getAssignedTo() != null && !kpi.getAssignedTo().getId().equals(creator.getId())) {
-            String assigneeMessage = String.format("You have been assigned a new KPI: '%s'.", kpi.getName());
-            notificationService.createNotification(kpi.getOrgUnit(), kpi.getAssignedTo(), "New KPI Assigned",
-                    assigneeMessage, "KPI_ASSIGNED", kpi.getId());
-            emailService.sendNotificationEmail(kpi.getAssignedTo().getEmail(), "New KPI Assigned", assigneeMessage);
+        // Also notify all assigned users
+        if (kpi.getAssignees() != null && !kpi.getAssignees().isEmpty()) {
+            for (User assignee : kpi.getAssignees()) {
+                if (!assignee.getId().equals(creator.getId())) {
+                    String assigneeMessage = String.format("Bạn vừa được giao một chỉ tiêu KPI mới: '%s'.", kpi.getName());
+                    notificationService.createNotification(kpi.getOrgUnit(), assignee, "KPI mới được giao",
+                            assigneeMessage, "KPI_ASSIGNED", kpi.getId());
+                    emailService.sendNotificationEmail(assignee.getEmail(), "KPI mới được giao", assigneeMessage);
+                }
+            }
         }
     }
 }

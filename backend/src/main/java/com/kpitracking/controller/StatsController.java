@@ -27,7 +27,7 @@ public class StatsController {
 
     @GetMapping("/overview")
     @PreAuthorize("hasAnyRole('DIRECTOR', 'HEAD')")
-    @Operation(summary = "Get company overview statistics")
+    @Operation(summary = "Get organization overview statistics")
     public ResponseEntity<ApiResponse<OverviewStatsResponse>> getOverviewStats() {
         OverviewStatsResponse response = statsService.getOverviewStats();
         return ResponseEntity.ok(ApiResponse.success(response));

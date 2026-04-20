@@ -12,6 +12,11 @@ import com.kpitracking.exception.ResourceNotFoundException;
 
 import com.kpitracking.repository.UserRepository;
 import com.kpitracking.repository.UserRoleOrgUnitRepository;
+import com.kpitracking.repository.OrgHierarchyLevelRepository;
+import com.kpitracking.entity.OrgUnit;
+import com.kpitracking.entity.OrgHierarchyLevel;
+import com.kpitracking.dto.response.user.UserMembershipResponse;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -25,6 +30,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
+import java.util.Collections;
 
 import com.kpitracking.dto.response.user.ImportUserResponse;
 import com.kpitracking.exception.BusinessException;
@@ -48,6 +54,7 @@ public class UserService {
 
     private final UserRepository userRepository;
     private final UserRoleOrgUnitRepository userRoleOrgUnitRepository;
+    private final OrgHierarchyLevelRepository orgHierarchyLevelRepository;
     private final PasswordEncoder passwordEncoder;
     private final EmailService emailService;
 
@@ -57,22 +64,53 @@ public class UserService {
                 .orElseThrow(() -> new ResourceNotFoundException("Người dùng", "email", email));
     }
 
-    private List<String> getUserRoleNames(UUID userId) {
-        return userRoleOrgUnitRepository.findByUserId(userId).stream()
-                .map(uro -> uro.getRole().getName())
-                .distinct()
-                .toList();
-    }
 
     private UserResponse toResponse(User user) {
+        List<UserRoleOrgUnit> assignments = userRoleOrgUnitRepository.findByUserId(user.getId());
+        
+        List<UserMembershipResponse> memberships = assignments.stream()
+                .map(uro -> {
+                    OrgUnit unit = uro.getOrgUnit();
+                    String roleName = uro.getRole().getName();
+                    
+                    // Lookup custom labels from hierarchy
+                    List<OrgHierarchyLevel> levels = orgHierarchyLevelRepository
+                            .findByOrganizationIdOrderByLevelOrderAsc(unit.getOrgHierarchyLevel().getOrganization().getId());
+
+                    String roleLabel = levels.stream()
+                            .filter(l -> l.getLevelOrder().equals(unit.getOrgHierarchyLevel().getLevelOrder()))
+                            .map(OrgHierarchyLevel::getManagerRoleLabel)
+                            .findFirst()
+                            .orElse(roleName);
+                    
+                    if (roleName.equals("STAFF")) {
+                        roleLabel = "Nhân viên";
+                    }
+
+                    return UserMembershipResponse.builder()
+                        .orgUnitId(unit.getId())
+                        .organizationId(unit.getOrgHierarchyLevel().getOrganization().getId())
+                        .orgUnitName(unit.getName())
+                        .organizationName(unit.getOrgHierarchyLevel().getOrganization().getName())
+                        .roleName(roleName)
+                        .roleLabel(roleLabel)
+                        .unitTypeLabel(unit.getOrgHierarchyLevel().getUnitTypeName())
+                        .build();
+                })
+                .collect(Collectors.toList());
+
+        UUID organizationId = memberships.isEmpty() ? null : memberships.get(0).getOrganizationId();
+
         return UserResponse.builder()
                 .id(user.getId())
                 .email(user.getEmail())
                 .fullName(user.getFullName())
                 .phone(user.getPhone())
                 .avatarUrl(user.getAvatarUrl())
-                .roles(getUserRoleNames(user.getId()))
+                .roles(assignments.stream().map(uro -> uro.getRole().getName()).distinct().toList())
                 .status(user.getStatus())
+                .organizationId(organizationId)
+                .memberships(memberships)
                 .createdAt(user.getCreatedAt())
                 .updatedAt(user.getUpdatedAt())
                 .build();
@@ -89,7 +127,7 @@ public class UserService {
                 .password(passwordEncoder.encode(request.getPassword()))
                 .fullName(request.getFullName())
                 .phone(request.getPhone())
-
+                .isEmailVerified(true)
                 .build();
 
         user = userRepository.save(user);
@@ -104,8 +142,44 @@ public class UserService {
     }
 
     @Transactional(readOnly = true)
-    public PageResponse<UserResponse> getUsers(int page, int size, String keyword) {
+    public PageResponse<UserResponse> getUsers(int page, int size, String keyword, UUID orgUnitId) {
         Pageable pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
+
+        if (orgUnitId != null) {
+            List<UserRoleOrgUnit> memberships = userRoleOrgUnitRepository.findByOrgUnitId(orgUnitId);
+            List<User> users = memberships.stream()
+                    .map(UserRoleOrgUnit::getUser)
+                    .filter(u -> u.getDeletedAt() == null)
+                    .distinct()
+                    .toList();
+            
+            // Basic manual pagination/search for the org unit list for simplicity
+            // In a larger system, we'd use a more efficient query.
+            List<User> filteredUsers = users;
+            if (keyword != null && !keyword.isBlank()) {
+                String search = keyword.toLowerCase();
+                filteredUsers = users.stream()
+                        .filter(u -> u.getFullName().toLowerCase().contains(search) || 
+                                    u.getEmail().toLowerCase().contains(search))
+                        .toList();
+            }
+
+            int start = (int) pageable.getOffset();
+            int end = Math.min((start + pageable.getPageSize()), filteredUsers.size());
+            
+            List<UserResponse> content = (start < filteredUsers.size()) 
+                    ? filteredUsers.subList(start, end).stream().map(this::toResponse).toList()
+                    : Collections.emptyList();
+
+            return PageResponse.<UserResponse>builder()
+                    .content(content)
+                    .page(page)
+                    .size(size)
+                    .totalElements(filteredUsers.size())
+                    .totalPages((int) Math.ceil((double) filteredUsers.size() / size))
+                    .last(end >= filteredUsers.size())
+                    .build();
+        }
 
         Page<User> userPage;
         if (keyword != null && !keyword.isBlank()) {

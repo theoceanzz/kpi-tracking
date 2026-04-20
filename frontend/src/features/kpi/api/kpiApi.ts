@@ -1,10 +1,10 @@
 import axiosInstance from '@/lib/axios'
 import type { ApiResponse, PageResponse } from '@/types/api'
-import type { KpiCriteria, CreateKpiRequest, UpdateKpiRequest, RejectKpiRequest } from '@/types/kpi'
+import type { KpiCriteria, CreateKpiRequest, UpdateKpiRequest, RejectKpiRequest, ImportKpiResult } from '@/types/kpi'
 import type { KpiStatus } from '@/types/kpi'
 
 export const kpiApi = {
-  getAll: (params: { page?: number; size?: number; status?: KpiStatus; departmentId?: string }) =>
+  getAll: (params: { page?: number; size?: number; status?: KpiStatus; orgUnitId?: string; createdById?: string }) =>
     axiosInstance.get<ApiResponse<PageResponse<KpiCriteria>>>('/kpi-criteria', { params }).then((r) => r.data.data),
 
   getById: (id: string) =>
@@ -30,4 +30,12 @@ export const kpiApi = {
 
   reject: (id: string, data: RejectKpiRequest) =>
     axiosInstance.post<ApiResponse<KpiCriteria>>(`/kpi-criteria/${id}/reject`, data).then((r) => r.data.data),
+
+  importFile: (file: File) => {
+    const formData = new FormData()
+    formData.append('file', file)
+    return axiosInstance.post<ApiResponse<ImportKpiResult>>('/kpi-criteria/import', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    }).then((r) => r.data.data)
+  },
 }

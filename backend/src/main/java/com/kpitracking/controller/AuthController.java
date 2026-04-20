@@ -23,7 +23,7 @@ public class AuthController {
     private final AuthService authService;
 
     @PostMapping("/register")
-    @Operation(summary = "Register a new company and director account")
+    @Operation(summary = "Register a new organization and director account")
     public ResponseEntity<ApiResponse<AuthResponse>> register(@Valid @RequestBody RegisterRequest request, HttpServletRequest httpRequest) {
         String userAgent = httpRequest.getHeader("User-Agent");
         AuthResponse response = authService.register(request, userAgent);

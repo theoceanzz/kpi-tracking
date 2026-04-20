@@ -1,6 +1,6 @@
 import { X, Download, Maximize2, Minimize2, Share2 } from 'lucide-react'
 import { useState, useEffect } from 'react'
-import { cn } from '@/lib/utils'
+import { cn, downloadFile } from '@/lib/utils'
 import { toast } from 'sonner'
 
 interface MediaPreviewModalProps {
@@ -43,14 +43,14 @@ export default function MediaPreviewModal({ url, fileName, contentType, isOpen, 
         </div>
 
         <div className="flex items-center gap-2">
-          <a 
-            href={url} 
-            download={fileName}
+          <button 
+            type="button"
+            onClick={() => downloadFile(url, fileName)}
             className="p-2.5 rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors"
             title="Tải về"
           >
             <Download size={18} />
-          </a>
+          </button>
           <button 
             type="button"
             onClick={handleShare}
@@ -114,13 +114,13 @@ export default function MediaPreviewModal({ url, fileName, contentType, isOpen, 
             </div>
             <h4 className="text-white text-lg font-bold mb-2">Định dạng không hỗ trợ xem trước</h4>
             <p className="text-white/60 text-sm mb-8">Bạn có thể tải tệp này về máy để xem nội dung chi tiết.</p>
-            <a 
-              href={url} 
-              download={fileName}
+            <button 
+              type="button"
+              onClick={() => downloadFile(url, fileName)}
               className="w-full py-4 rounded-xl bg-white text-slate-900 font-black text-sm hover:bg-indigo-50 transition-colors flex items-center justify-center gap-2"
             >
               <Download size={18} /> Tải tệp về máy
-            </a>
+            </button>
           </div>
         )}
       </div>

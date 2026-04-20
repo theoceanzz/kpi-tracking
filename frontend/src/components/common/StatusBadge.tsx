@@ -16,6 +16,7 @@ const statusMap: Record<string, { variant: Variant; label: string }> = {
   SUSPENDED: { variant: 'error', label: 'Tạm khóa' },
   DRAFT: { variant: 'default', label: 'Nháp' },
   PENDING: { variant: 'warning', label: 'Chờ duyệt' },
+  PENDING_APPROVAL: { variant: 'warning', label: 'Chờ duyệt' },
   APPROVED: { variant: 'success', label: 'Đã duyệt' },
   REJECTED: { variant: 'error', label: 'Từ chối' },
   TRIAL: { variant: 'info', label: 'Dùng thử' },

@@ -1,10 +1,12 @@
 // Matches BE: OverviewStatsResponse
 export interface OverviewStats {
   totalUsers: number
-  totalDepartments: number
+  totalOrgUnits: number
   totalKpiCriteria: number
   approvedKpi: number
   pendingKpi: number
+  rejectedKpi: number
+  draftKpi: number
   totalSubmissions: number
   pendingSubmissions: number
   approvedSubmissions: number
@@ -13,9 +15,10 @@ export interface OverviewStats {
 }
 
 // Matches BE: DeptKpiStatsResponse
-export interface DepartmentStats {
-  departmentId: string
-  departmentName: string
+export interface OrgUnitStats {
+  orgUnitId: string
+  orgUnitName: string
+  parentOrgUnitId?: string
   memberCount: number
   totalKpi: number
   approvedKpi: number
@@ -33,7 +36,7 @@ export interface EmployeeKpiStats {
   fullName: string
   email: string
   role: string
-  departmentName: string
+  orgUnitName: string
   assignedKpi: number
   totalSubmissions: number
   approvedSubmissions: number

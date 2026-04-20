@@ -8,7 +8,6 @@ import {
   Target,
   FileText,
   Star,
-  Settings,
   ClipboardCheck,
   ListChecks,
   X,
@@ -32,19 +31,15 @@ interface NavItem {
 
 const navItems: NavItem[] = [
   { label: 'Tổng quan', path: '/dashboard', icon: <LayoutDashboard size={20} />, roles: ['DIRECTOR', 'HEAD', 'DEPUTY', 'STAFF'] },
-  { label: 'Tổ chức', path: '/company', icon: <Settings size={20} />, roles: ['DIRECTOR'] },
+  { label: 'Công ty', path: '/company', icon: <Building2 size={20} />, roles: ['DIRECTOR'] },
   { label: 'Cấu trúc thiết lập', path: '/org-structure', icon: <Network size={20} />, roles: ['DIRECTOR'] },
-  { label: 'Cơ sở & Chi nhánh', path: '/departments', icon: <Building2 size={20} />, roles: ['DIRECTOR'] },
   { label: 'Nhân sự', path: '/users', icon: <Users size={20} />, roles: ['DIRECTOR'] },
   { label: 'Vai trò', path: '/roles', icon: <Shield size={20} />, roles: ['DIRECTOR'] },
-  
   { label: 'Quản lý Chỉ tiêu', path: '/kpi-criteria', icon: <Target size={20} />, roles: ['DIRECTOR', 'HEAD', 'DEPUTY'], end: true },
   { label: 'Duyệt Chỉ tiêu', path: '/kpi-criteria/pending', icon: <ClipboardCheck size={20} />, roles: ['DIRECTOR'] },
-  { label: 'KPI của tôi', path: '/my-kpi', icon: <ListChecks size={20} />, roles: ['STAFF'] },
-  
-  { label: 'Duyệt Bài nộp', path: '/submissions/department', icon: <ClipboardCheck size={20} />, roles: ['HEAD', 'DEPUTY'] },
-  { label: 'Bài nộp của tôi', path: '/submissions', icon: <FileText size={20} />, roles: ['STAFF'], end: true },
-  
+  { label: 'KPI của tôi', path: '/my-kpi', icon: <ListChecks size={20} />, roles: ['STAFF', 'HEAD', 'DEPUTY'] },
+  { label: 'Duyệt Bài nộp', path: '/submissions/org-unit', icon: <ClipboardCheck size={20} />, roles: ['DIRECTOR', 'HEAD', 'DEPUTY'] },
+  { label: 'Bài nộp của tôi', path: '/submissions', icon: <FileText size={20} />, roles: ['STAFF', 'HEAD', 'DEPUTY'], end: true },
   { label: 'Đánh giá NS', path: '/evaluations', icon: <Star size={20} />, roles: ['DIRECTOR', 'HEAD', 'DEPUTY', 'STAFF'] },
 ]
 

@@ -92,6 +92,7 @@ public class KpiCriteriaService {
         }
 
         // Determine assignees
+        java.util.List<User> assignees = new java.util.ArrayList<>();
         java.util.List<UUID> assigneeIds = new java.util.ArrayList<>();
         if (request.getAssignedToIds() != null && !request.getAssignedToIds().isEmpty()) {
             assigneeIds.addAll(request.getAssignedToIds());
@@ -99,16 +100,6 @@ public class KpiCriteriaService {
             assigneeIds.add(request.getAssignedToId());
         }
 
-        if (assigneeIds.isEmpty()) {
-            KpiCriteria kpi = buildKpiEntity(request, orgUnit, null, currentUser, initialStatus);
-            kpi = kpiCriteriaRepository.save(kpi);
-            if (initialStatus == KpiStatus.APPROVED) {
-                eventPublisher.publishEvent(new KpiCriteriaApprovedEvent(this, kpi));
-            }
-            return kpiCriteriaMapper.toResponse(kpi);
-        }
-
-        KpiCriteria lastKpi = null;
         for (UUID assigneeId : assigneeIds) {
             User assignee = userRepository.findById(assigneeId)
                     .orElseThrow(() -> new ResourceNotFoundException("Người dùng (người được giao)", "id", assigneeId));
@@ -118,22 +109,23 @@ public class KpiCriteriaService {
                     throw new ForbiddenException("Trưởng phòng chỉ có thể giao chỉ tiêu cho bản thân hoặc cấp dưới.");
                 }
             }
-
-            KpiCriteria kpi = buildKpiEntity(request, orgUnit, assignee, currentUser, initialStatus);
-            kpi = kpiCriteriaRepository.save(kpi);
-            if (initialStatus == KpiStatus.APPROVED) {
-                eventPublisher.publishEvent(new KpiCriteriaApprovedEvent(this, kpi));
-            }
-            lastKpi = kpi;
+            assignees.add(assignee);
         }
 
-        return kpiCriteriaMapper.toResponse(lastKpi);
+        KpiCriteria kpi = buildKpiEntity(request, orgUnit, assignees, currentUser, initialStatus);
+        kpi = kpiCriteriaRepository.save(kpi);
+
+        if (initialStatus == KpiStatus.APPROVED) {
+            eventPublisher.publishEvent(new KpiCriteriaApprovedEvent(this, kpi));
+        }
+
+        return kpiCriteriaMapper.toResponse(kpi);
     }
 
-    private KpiCriteria buildKpiEntity(CreateKpiCriteriaRequest request, OrgUnit orgUnit, User assignee, User creator, KpiStatus status) {
+    private KpiCriteria buildKpiEntity(CreateKpiCriteriaRequest request, OrgUnit orgUnit, java.util.List<User> assignees, User creator, KpiStatus status) {
         KpiCriteria kpi = KpiCriteria.builder()
                 .orgUnit(orgUnit)
-                .assignedTo(assignee)
+                .assignees(assignees)
                 .name(request.getName())
                 .description(request.getDescription())
                 .weight(request.getWeight())
@@ -154,11 +146,21 @@ public class KpiCriteriaService {
     }
 
     @Transactional(readOnly = true)
-    public PageResponse<KpiCriteriaResponse> getKpiCriteria(int page, int size, KpiStatus status, UUID orgUnitId) {
+    public PageResponse<KpiCriteriaResponse> getKpiCriteria(int page, int size, KpiStatus status, UUID orgUnitId, UUID createdById) {
         Pageable pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
 
         Page<KpiCriteria> kpiPage;
-        if (status != null && orgUnitId != null) {
+        if (createdById != null) {
+            if (status != null && orgUnitId != null) {
+                kpiPage = kpiCriteriaRepository.findByCreatedByIdAndOrgUnitIdAndStatus(createdById, orgUnitId, status, pageable);
+            } else if (status != null) {
+                kpiPage = kpiCriteriaRepository.findByCreatedByIdAndStatus(createdById, status, pageable);
+            } else if (orgUnitId != null) {
+                kpiPage = kpiCriteriaRepository.findByCreatedByIdAndOrgUnitId(createdById, orgUnitId, pageable);
+            } else {
+                kpiPage = kpiCriteriaRepository.findByCreatedById(createdById, pageable);
+            }
+        } else if (status != null && orgUnitId != null) {
             kpiPage = kpiCriteriaRepository.findByOrgUnitIdAndStatus(orgUnitId, status, pageable);
         } else if (status != null) {
             kpiPage = kpiCriteriaRepository.findByStatus(status, pageable);
@@ -216,10 +218,20 @@ public class KpiCriteriaService {
             kpi.setOrgUnit(orgUnit);
         }
 
-        if (request.getAssignedToId() != null) {
-            User assignee = userRepository.findById(request.getAssignedToId())
-                    .orElseThrow(() -> new ResourceNotFoundException("Người dùng", "id", request.getAssignedToId()));
-            kpi.setAssignedTo(assignee);
+        if (request.getAssignedToIds() != null || request.getAssignedToId() != null) {
+            java.util.List<UUID> assigneeIds = new java.util.ArrayList<>();
+            if (request.getAssignedToIds() != null) {
+                assigneeIds.addAll(request.getAssignedToIds());
+            } else if (request.getAssignedToId() != null) {
+                assigneeIds.add(request.getAssignedToId());
+            }
+
+            java.util.List<User> assignees = new java.util.ArrayList<>();
+            for (UUID id : assigneeIds) {
+                assignees.add(userRepository.findById(id)
+                        .orElseThrow(() -> new ResourceNotFoundException("Người dùng", "id", id)));
+            }
+            kpi.setAssignees(assignees);
         }
 
         kpi = kpiCriteriaRepository.save(kpi);
@@ -316,8 +328,8 @@ public class KpiCriteriaService {
         User currentUser = getCurrentUser();
         Pageable pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
 
-        Page<KpiCriteria> kpiPage = kpiCriteriaRepository.findByAssignedToIdOrCreatedById(
-                currentUser.getId(), currentUser.getId(), pageable);
+        Page<KpiCriteria> kpiPage = kpiCriteriaRepository.findByUserIdInAssignees(
+                currentUser.getId(), pageable);
 
         return PageResponse.<KpiCriteriaResponse>builder()
                 .content(kpiPage.getContent().stream().map(kpiCriteriaMapper::toResponse).toList())
