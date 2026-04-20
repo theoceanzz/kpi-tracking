@@ -2,6 +2,7 @@ import { useState } from 'react'
 import type { Attachment } from '@/types/submission'
 import { FileIcon, Download, Eye, ExternalLink } from 'lucide-react'
 import MediaPreviewModal from '@/components/common/MediaPreviewModal'
+import { downloadFile } from '@/lib/utils'
 
 interface AttachmentListProps { attachments: Attachment[] }
 
@@ -60,14 +61,14 @@ export default function AttachmentList({ attachments }: AttachmentListProps) {
                   >
                     <ExternalLink size={18} />
                   </a>
-                  <a 
-                    href={a.fileUrl} 
-                    download={a.fileName}
+                  <button 
+                    type="button"
+                    onClick={() => downloadFile(a.fileUrl, a.fileName)}
                     className="w-10 h-10 rounded-full bg-indigo-500 text-white flex items-center justify-center shadow-lg hover:bg-indigo-600 transition-colors"
                     title="Tải về"
                   >
                     <Download size={18} />
-                  </a>
+                  </button>
                 </div>
 
                 {isPdf && (

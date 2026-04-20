@@ -11,4 +11,7 @@ export const notificationApi = {
 
   getUnreadCount: () =>
     axiosInstance.get<ApiResponse<number>>('/notifications/unread-count').then((r) => r.data.data),
+
+  markAllAsRead: () =>
+    axiosInstance.patch<ApiResponse<void>>('/notifications/read-all').then((r) => r.data),
 }

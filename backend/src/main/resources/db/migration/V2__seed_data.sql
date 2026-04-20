@@ -244,19 +244,23 @@ INSERT INTO scopes (id, code) VALUES
 -- ====================================================
 -- Sample KPI Criteria
 -- ====================================================
-INSERT INTO kpi_criteria (id, org_unit_id, assigned_to, name, description, weight, target_value, unit,
+INSERT INTO kpi_criteria (id, org_unit_id, name, description, weight, target_value, unit,
                           frequency, status, created_by, approved_by, submitted_at, approved_at) VALUES
-    ('f1000000-0000-0000-0000-000000000001','bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', 'd1000000-0000-0000-0000-000000000004',
+    ('f1000000-0000-0000-0000-000000000001','bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb',
      'Doanh thu tháng', 'Đạt doanh thu tối thiểu hàng tháng', 30, 100000000, 'VND',
      'MONTHLY', 'APPROVED', 'd1000000-0000-0000-0000-000000000002', 'd1000000-0000-0000-0000-000000000001',
      NOW(), NOW()),
 
-    ('f1000000-0000-0000-0000-000000000002','bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', 'd1000000-0000-0000-0000-000000000004',
+    ('f1000000-0000-0000-0000-000000000002','bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb',
      'Khách hàng mới', 'Số lượng khách hàng mới tiếp cận được', 20, 10, 'khách hàng',
      'MONTHLY', 'APPROVED', 'd1000000-0000-0000-0000-000000000002', 'd1000000-0000-0000-0000-000000000001',
      NOW(), NOW()),
 
-    ('f1000000-0000-0000-0000-000000000003','aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', NULL,
+    ('f1000000-0000-0000-0000-000000000003','aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
      'Tỷ lệ chốt đơn', 'Tỷ lệ chuyển đổi từ khách tiềm năng sang khách hàng', 25, 50, '%',
      'QUARTERLY', 'DRAFT', 'd1000000-0000-0000-0000-000000000002', NULL,
      NULL, NULL);
+
+INSERT INTO kpi_criteria_assignees (kpi_criteria_id, user_id) VALUES
+    ('f1000000-0000-0000-0000-000000000001', 'd1000000-0000-0000-0000-000000000004'),
+    ('f1000000-0000-0000-0000-000000000002', 'd1000000-0000-0000-0000-000000000004');

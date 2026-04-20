@@ -213,7 +213,6 @@ CREATE TABLE scopes (
 CREATE TABLE kpi_criteria (
     id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     org_unit_id      UUID            NOT NULL REFERENCES org_units(id),
-    assigned_to     UUID            REFERENCES users(id),
     name            VARCHAR(255)    NOT NULL,
     description     TEXT,
     weight          DOUBLE PRECISION,
@@ -234,9 +233,17 @@ CREATE TABLE kpi_criteria (
 );
 
 CREATE INDEX idx_kpi_criteria_org_unit_id ON kpi_criteria(org_unit_id);
-CREATE INDEX idx_kpi_criteria_assigned_to ON kpi_criteria(assigned_to);
 CREATE INDEX idx_kpi_criteria_status ON kpi_criteria(status);
 CREATE INDEX idx_kpi_criteria_deleted_at ON kpi_criteria(deleted_at);
+
+CREATE TABLE kpi_criteria_assignees (
+    kpi_criteria_id UUID NOT NULL REFERENCES kpi_criteria(id) ON DELETE CASCADE,
+    user_id         UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    PRIMARY KEY (kpi_criteria_id, user_id)
+);
+
+CREATE INDEX idx_kpi_assignees_kpi_id ON kpi_criteria_assignees(kpi_criteria_id);
+CREATE INDEX idx_kpi_assignees_user_id ON kpi_criteria_assignees(user_id);
 
 -- ====================================================
 -- KPI Submissions

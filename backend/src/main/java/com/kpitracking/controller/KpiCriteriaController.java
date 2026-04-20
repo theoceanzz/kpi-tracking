@@ -43,8 +43,9 @@ public class KpiCriteriaController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size,
             @RequestParam(required = false) KpiStatus status,
-            @RequestParam(required = false) UUID orgUnitId) {
-        PageResponse<KpiCriteriaResponse> response = kpiCriteriaService.getKpiCriteria(page, size, status, orgUnitId);
+            @RequestParam(required = false) UUID orgUnitId,
+            @RequestParam(required = false) UUID createdById) {
+        PageResponse<KpiCriteriaResponse> response = kpiCriteriaService.getKpiCriteria(page, size, status, orgUnitId, createdById);
         return ResponseEntity.ok(ApiResponse.success(response));
     }
 

@@ -82,6 +82,12 @@ public class NotificationService {
         return toResponse(notification);
     }
 
+    @Transactional
+    public void markAllAsRead() {
+        User currentUser = getCurrentUser();
+        notificationRepository.markAllAsReadForUser(currentUser.getId(), Instant.now());
+    }
+
     @Transactional(readOnly = true)
     public long getUnreadCount() {
         User currentUser = getCurrentUser();

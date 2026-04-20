@@ -4,7 +4,7 @@ import EmptyState from '@/components/common/EmptyState'
 import KpiReviewModal from '../components/KpiReviewModal'
 import StatusBadge from '@/components/common/StatusBadge'
 import { useKpiCriteria } from '../hooks/useKpiCriteria'
-import { formatNumber } from '@/lib/utils'
+import { formatNumber, formatAssigneeNames } from '@/lib/utils'
 import type { KpiCriteria } from '@/types/kpi'
 import { 
   ClipboardCheck, Clock, CheckCircle2, XCircle, Filter,
@@ -16,17 +16,17 @@ const frequencyMap: Record<string, string> = {
   QUARTERLY: 'Hàng quý', YEARLY: 'Hàng năm',
 }
 
-type TabKey = 'PENDING' | 'APPROVED' | 'REJECTED' | 'ALL'
+type TabKey = 'PENDING_APPROVAL' | 'APPROVED' | 'REJECTED' | 'ALL'
 
 const TABS: { key: TabKey; label: string; icon: any; color: string }[] = [
-  { key: 'PENDING', label: 'Chờ duyệt', icon: Clock, color: 'text-amber-600 bg-amber-50 border-amber-200 dark:bg-amber-900/20 dark:text-amber-400 dark:border-amber-900/40' },
+  { key: 'PENDING_APPROVAL', label: 'Chờ duyệt', icon: Clock, color: 'text-amber-600 bg-amber-50 border-amber-200 dark:bg-amber-900/20 dark:text-amber-400 dark:border-amber-900/40' },
   { key: 'APPROVED', label: 'Đã duyệt', icon: CheckCircle2, color: 'text-emerald-600 bg-emerald-50 border-emerald-200 dark:bg-emerald-900/20 dark:text-emerald-400 dark:border-emerald-900/40' },
   { key: 'REJECTED', label: 'Từ chối', icon: XCircle, color: 'text-red-600 bg-red-50 border-red-200 dark:bg-red-900/20 dark:text-red-400 dark:border-red-900/40' },
   { key: 'ALL', label: 'Tất cả', icon: Filter, color: 'text-slate-600 bg-slate-50 border-slate-200 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700' },
 ]
 
 export default function KpiApprovalPage() {
-  const [activeTab, setActiveTab] = useState<TabKey>('PENDING')
+  const [activeTab, setActiveTab] = useState<TabKey>('PENDING_APPROVAL')
   const { data, isLoading } = useKpiCriteria(activeTab === 'ALL' ? {} : { status: activeTab })
   const [reviewKpi, setReviewKpi] = useState<KpiCriteria | null>(null)
 
@@ -38,7 +38,7 @@ export default function KpiApprovalPage() {
     const all = allData?.content ?? []
     return {
       total: all.length,
-      pending: all.filter(k => k.status === 'PENDING').length,
+      pending: all.filter(k => k.status === 'PENDING_APPROVAL').length,
       approved: all.filter(k => k.status === 'APPROVED').length,
       rejected: all.filter(k => k.status === 'REJECTED').length,
     }
@@ -88,7 +88,7 @@ export default function KpiApprovalPage() {
               {tab.label}
               {tab.key !== 'ALL' && (
                 <span className={`ml-1 text-xs px-1.5 py-0.5 rounded-md font-black ${isActive ? 'bg-white/50 dark:bg-black/20' : 'bg-slate-100 dark:bg-slate-800'}`}>
-                  {tab.key === 'PENDING' ? stats.pending : tab.key === 'APPROVED' ? stats.approved : stats.rejected}
+                  {tab.key === 'PENDING_APPROVAL' ? stats.pending : tab.key === 'APPROVED' ? stats.approved : stats.rejected}
                 </span>
               )}
             </button>
@@ -102,8 +102,8 @@ export default function KpiApprovalPage() {
       ) : items.length === 0 ? (
         <div className="bg-white dark:bg-slate-900 rounded-[32px] border border-dashed border-slate-300 dark:border-slate-800 p-16">
           <EmptyState 
-            title={activeTab === 'PENDING' ? 'Tuyệt vời! Không còn chỉ tiêu nào chờ xử lý' : 'Không có dữ liệu'} 
-            description={activeTab === 'PENDING' ? 'Tất cả chỉ tiêu đã được bạn phê duyệt hoặc phản hồi.' : 'Chưa có chỉ tiêu nào trong danh mục này.'} 
+            title={activeTab === 'PENDING_APPROVAL' ? 'Tuyệt vời! Không còn chỉ tiêu nào chờ xử lý' : 'Không có dữ liệu'} 
+            description={activeTab === 'PENDING_APPROVAL' ? 'Tất cả chỉ tiêu đã được bạn phê duyệt hoặc phản hồi.' : 'Chưa có chỉ tiêu nào trong danh mục này.'} 
           />
         </div>
       ) : (
@@ -125,11 +125,11 @@ export default function KpiApprovalPage() {
                       {kpi.name}
                     </h4>
                     <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-1 text-xs font-medium text-slate-500">
-                      {kpi.departmentName && (
-                        <span className="flex items-center gap-1"><Building2 size={12} /> {kpi.departmentName}</span>
+                      {kpi.orgUnitName && (
+                        <span className="flex items-center gap-1"><Building2 size={12} /> {kpi.orgUnitName}</span>
                       )}
-                      {kpi.assignedToName && (
-                        <span className="flex items-center gap-1"><Users size={12} /> {kpi.assignedToName}</span>
+                      {kpi.assigneeNames && kpi.assigneeNames.length > 0 && (
+                        <span className="flex items-center gap-1"><Users size={12} /> {formatAssigneeNames(kpi.assigneeNames)}</span>
                       )}
                       <span className="flex items-center gap-1"><BarChart3 size={12} /> {frequencyMap[kpi.frequency] ?? kpi.frequency}</span>
                     </div>

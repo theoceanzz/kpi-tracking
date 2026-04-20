@@ -51,10 +51,12 @@ public class StatsService {
 
         return OverviewStatsResponse.builder()
                 .totalUsers(userRoleOrgUnitRepository.countUsersByOrganizationId(orgId))
-                .totalDepartments(orgUnitRepository.countByOrgHierarchyLevel_Organization_Id(orgId))
+                .totalOrgUnits(orgUnitRepository.countByOrgHierarchyLevel_Organization_Id(orgId))
                 .totalKpiCriteria(kpiCriteriaRepository.countByOrganizationId(orgId))
                 .approvedKpi(kpiCriteriaRepository.countByOrganizationIdAndStatus(orgId, KpiStatus.APPROVED))
                 .pendingKpi(kpiCriteriaRepository.countByOrganizationIdAndStatus(orgId, KpiStatus.PENDING_APPROVAL))
+                .rejectedKpi(kpiCriteriaRepository.countByOrganizationIdAndStatus(orgId, KpiStatus.REJECTED))
+                .draftKpi(kpiCriteriaRepository.countByOrganizationIdAndStatus(orgId, KpiStatus.DRAFT))
                 .totalSubmissions(submissionRepository.countByOrganizationId(orgId))
                 .pendingSubmissions(submissionRepository.countByOrganizationIdAndStatus(orgId, SubmissionStatus.PENDING))
                 .approvedSubmissions(submissionRepository.countByOrganizationIdAndStatus(orgId, SubmissionStatus.APPROVED))
@@ -103,7 +105,7 @@ public class StatsService {
              String roleName = roles.isEmpty() ? "N/A" : roles.get(0).getRole().getName();
              String orgUnitName = roles.isEmpty() ? null : roles.get(0).getOrgUnit().getName();
 
-             long assignedKpi = kpiCriteriaRepository.countByAssignedToIdAndStatus(u.getId(), KpiStatus.APPROVED);
+             long assignedKpi = kpiCriteriaRepository.countByAssigneeAndStatus(u.getId(), KpiStatus.APPROVED);
              long totalSub = submissionRepository.countBySubmittedById(u.getId());
              long approvedSub = submissionRepository.countBySubmittedByIdAndStatus(u.getId(), SubmissionStatus.APPROVED);
              long pendingSub = submissionRepository.countBySubmittedByIdAndStatus(u.getId(), SubmissionStatus.PENDING);
@@ -134,7 +136,7 @@ public class StatsService {
         User currentUser = getCurrentUser();
         UUID userId = currentUser.getId();
 
-        long totalAssigned = kpiCriteriaRepository.countByAssignedToIdAndStatus(userId, KpiStatus.APPROVED);
+        long totalAssigned = kpiCriteriaRepository.countByAssigneeAndStatus(userId, KpiStatus.APPROVED);
         long totalSubmissions = submissionRepository.countBySubmittedById(userId);
         long approved = submissionRepository.countBySubmittedByIdAndStatus(userId, SubmissionStatus.APPROVED);
         long pending = submissionRepository.countBySubmittedByIdAndStatus(userId, SubmissionStatus.PENDING);

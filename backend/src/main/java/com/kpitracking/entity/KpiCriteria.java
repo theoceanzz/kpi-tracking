@@ -29,9 +29,14 @@ public class KpiCriteria {
     @JoinColumn(name = "org_unit_id", nullable = false)
     private OrgUnit orgUnit;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "assigned_to")
-    private User assignedTo;
+    @ManyToMany(fetch = FetchType.LAZY)
+    @JoinTable(
+        name = "kpi_criteria_assignees",
+        joinColumns = @JoinColumn(name = "kpi_criteria_id"),
+        inverseJoinColumns = @JoinColumn(name = "user_id")
+    )
+    @Builder.Default
+    private List<User> assignees = new ArrayList<>();
 
     @Column(name = "name", nullable = false)
     private String name;

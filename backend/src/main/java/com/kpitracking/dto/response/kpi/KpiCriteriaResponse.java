@@ -20,8 +20,9 @@ public class KpiCriteriaResponse {
     private KpiStatus status;
     private UUID orgUnitId;
     private String orgUnitName;
-    private UUID assignedToId;
-    private String assignedToName;
+    private java.util.List<com.kpitracking.dto.response.user.UserResponse> assignees;
+    private java.util.List<UUID> assigneeIds;
+    private java.util.List<String> assigneeNames;
     private UUID createdById;
     private String createdByName;
     private UUID approvedById;

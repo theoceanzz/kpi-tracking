@@ -44,7 +44,7 @@ export default function HeadDashboard() {
               </div>
             </div>
             <div className="flex gap-3">
-              <Link to="/submissions/department" className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-white/15 backdrop-blur-sm text-white text-sm font-bold hover:bg-white/25 transition-all border border-white/10">
+              <Link to="/submissions/org-unit" className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-white/15 backdrop-blur-sm text-white text-sm font-bold hover:bg-white/25 transition-all border border-white/10">
                 <ClipboardCheck size={16} /> Duyệt bài nộp
               </Link>
               <Link to="/kpi-criteria" className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-white text-indigo-700 text-sm font-bold hover:bg-white/90 transition-all shadow-lg">
@@ -71,7 +71,7 @@ export default function HeadDashboard() {
           sub="bài nộp"
           icon={Clock}
           color="amber"
-          link="/submissions/department"
+          link="/submissions/org-unit"
           pulse={pendingSub > 0}
         />
         <StatCard
@@ -80,7 +80,7 @@ export default function HeadDashboard() {
           sub={`${approvalRate}% tỷ lệ`}
           icon={CheckCircle}
           color="emerald"
-          link="/submissions/department"
+          link="/submissions/org-unit"
         />
         <StatCard
           label="Tổng đánh giá"
@@ -110,7 +110,7 @@ export default function HeadDashboard() {
                   <p className="text-xs font-medium text-slate-500">Phân bổ trạng thái bài nộp trong phòng ban</p>
                 </div>
               </div>
-              <Link to="/submissions/department" className="text-xs font-bold text-indigo-600 hover:underline flex items-center gap-1">
+              <Link to="/submissions/org-unit" className="text-xs font-bold text-indigo-600 hover:underline flex items-center gap-1">
                 Xem tất cả <ArrowUpRight size={14} />
               </Link>
             </div>
@@ -153,8 +153,8 @@ export default function HeadDashboard() {
               color="amber"
             />
             <KpiStatusCard
-              label="Từ chối"
-              value={Math.max(0, (stats?.totalKpiCriteria ?? 0) - (stats?.approvedKpi ?? 0) - (stats?.pendingKpi ?? 0))}
+              label="Bị từ chối"
+              value={stats?.rejectedKpi ?? 0}
               total={stats?.totalKpiCriteria ?? 0}
               icon={XCircle}
               color="red"
@@ -178,7 +178,7 @@ export default function HeadDashboard() {
                   <p className="text-white/80 text-sm font-medium">bài nộp đang chờ duyệt</p>
                 </div>
                 <Link
-                  to="/submissions/department"
+                  to="/submissions/org-unit"
                   className="flex items-center justify-center gap-2 w-full py-3 bg-white text-amber-700 rounded-2xl font-black text-sm hover:bg-white/90 transition-all shadow-lg"
                 >
                   Duyệt ngay <ChevronRight size={16} />
@@ -209,7 +209,7 @@ export default function HeadDashboard() {
               description="Xét duyệt KPI chờ phê duyệt"
             />
             <QuickAction
-              to="/submissions/department"
+              to="/submissions/org-unit"
               icon={FileText}
               iconColor="text-amber-500"
               iconBg="bg-amber-50 dark:bg-amber-900/20"

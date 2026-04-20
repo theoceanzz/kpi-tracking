@@ -1,14 +1,14 @@
 import { useState, useMemo } from 'react'
 import LoadingSkeleton from '@/components/common/LoadingSkeleton'
 import { useOverviewStats } from '../hooks/useOverviewStats'
-import { useDeptStats } from '../hooks/useDeptStats'
+import { useOrgUnitStats } from '../hooks/useOrgUnitStats'
 import { useEmployeeStats } from '../hooks/useEmployeeStats'
 import { useQuery } from '@tanstack/react-query'
 import { kpiApi } from '@/features/kpi/api/kpiApi'
 import { submissionApi } from '@/features/submissions/api/submissionApi'
 import { Link } from 'react-router-dom'
-import { cn, getInitials, formatDateTime, formatNumber } from '@/lib/utils'
-import type { DepartmentStats, EmployeeKpiStats } from '@/types/stats'
+import { cn, getInitials, formatDateTime, formatNumber, formatAssigneeNames } from '@/lib/utils'
+import type { OrgUnitStats, EmployeeKpiStats } from '@/types/stats'
 import type { KpiCriteria } from '@/types/kpi'
 import type { Submission } from '@/types/submission'
 import {
@@ -19,11 +19,11 @@ import {
   Activity, AlertTriangle, Zap
 } from 'lucide-react'
 
-type TabView = 'overview' | 'departments' | 'employees'
+type TabView = 'overview' | 'orgUnits' | 'employees'
 
 export default function DirectorDashboard() {
   const { data: stats, isLoading: loadingStats } = useOverviewStats()
-  const { data: deptStats, isLoading: loadingDepts } = useDeptStats()
+  const { data: orgUnitStats, isLoading: loadingOrgUnits } = useOrgUnitStats()
   const { data: empStats, isLoading: loadingEmps } = useEmployeeStats()
 
   // Load real KPI and submission data
@@ -38,9 +38,9 @@ export default function DirectorDashboard() {
 
   const [activeTab, setActiveTab] = useState<TabView>('overview')
   const [empSearch, setEmpSearch] = useState('')
-  const [deptFilter, setDeptFilter] = useState<string>('ALL')
+  const [orgUnitFilter, setOrgUnitFilter] = useState<string>('ALL')
 
-  const isLoading = loadingStats || loadingDepts || loadingEmps || loadingRecentKpis || loadingRecentSubs
+  const isLoading = loadingStats || loadingOrgUnits || loadingEmps || loadingRecentKpis || loadingRecentSubs
 
   const kpiCompletionRate = stats ? (stats.totalKpiCriteria > 0 ? Math.round((stats.approvedKpi / stats.totalKpiCriteria) * 100) : 0) : 0
   const submissionApprovalRate = stats ? (stats.totalSubmissions > 0 ? Math.round((stats.approvedSubmissions / stats.totalSubmissions) * 100) : 0) : 0
@@ -48,15 +48,15 @@ export default function DirectorDashboard() {
   const filteredEmployees = useMemo(() => {
     if (!empStats) return []
     return empStats.filter(e =>
-      (deptFilter === 'ALL' || e.departmentName === deptFilter) &&
+      (orgUnitFilter === 'ALL' || e.orgUnitName === orgUnitFilter) &&
       ((e.fullName || '').toLowerCase().includes(empSearch.toLowerCase()) || 
        (e.email || '').toLowerCase().includes(empSearch.toLowerCase()))
     )
-  }, [empStats, empSearch, deptFilter])
+  }, [empStats, empSearch, orgUnitFilter])
 
-  const deptNames = useMemo(() => {
+  const orgUnitNames = useMemo(() => {
     if (!empStats) return []
-    return [...new Set(empStats.map(e => e.departmentName).filter(Boolean))]
+    return [...new Set(empStats.map(e => e.orgUnitName).filter(Boolean))]
   }, [empStats])
 
   // Top performers (from employee stats)
@@ -82,7 +82,7 @@ export default function DirectorDashboard() {
 
   const tabs: { key: TabView; label: string; icon: any; badge?: number }[] = [
     { key: 'overview', label: 'Tổng quan', icon: BarChart3 },
-    { key: 'departments', label: 'Phòng ban', icon: Building2, badge: deptStats?.length },
+    { key: 'orgUnits', label: 'Đơn vị', icon: Building2, badge: orgUnitStats?.length },
     { key: 'employees', label: 'Nhân viên', icon: Users, badge: empStats?.length },
   ]
 
@@ -99,7 +99,7 @@ export default function DirectorDashboard() {
             Hiệu suất Toàn công ty
           </h1>
           <p className="text-slate-500 font-medium mt-1 max-w-lg">
-            Theo dõi chi tiết các phòng ban, nhân viên và chỉ tiêu KPI trên toàn hệ thống.
+            Theo dõi chi tiết các đơn vị, nhân viên và chỉ tiêu KPI trên toàn hệ thống.
           </p>
         </div>
         <div className="flex items-center gap-3 flex-wrap">
@@ -115,7 +115,7 @@ export default function DirectorDashboard() {
       {/* BIG STAT CARDS */}
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
         <StatCard icon={<Users />} label="Nhân sự" value={stats?.totalUsers ?? 0} color="indigo" />
-        <StatCard icon={<Building2 />} label="Phòng ban" value={stats?.totalDepartments ?? 0} color="emerald" />
+        <StatCard icon={<Building2 />} label="Đơn vị" value={stats?.totalOrgUnits ?? 0} color="emerald" />
         <StatCard icon={<Target />} label="Chỉ tiêu KPI" value={stats?.totalKpiCriteria ?? 0} sub={`${stats?.approvedKpi ?? 0} duyệt • ${stats?.pendingKpi ?? 0} chờ`} color="blue" />
         <StatCard icon={<FileText />} label="Bài nộp" value={stats?.totalSubmissions ?? 0} sub={`${stats?.approvedSubmissions ?? 0} duyệt • ${stats?.pendingSubmissions ?? 0} chờ`} color="amber" />
         <StatCard icon={<Star />} label="Đánh giá" value={stats?.totalEvaluations ?? 0} color="purple" />
@@ -151,23 +151,23 @@ export default function DirectorDashboard() {
           stats={stats}
           kpiRate={kpiCompletionRate}
           subRate={submissionApprovalRate}
-          deptStats={deptStats ?? []}
+          orgUnitStats={orgUnitStats ?? []}
           topPerformers={topPerformers}
           atRiskCount={atRiskEmployees.length}
           recentKpis={recentKpiData?.content ?? []}
           recentSubmissions={recentSubData?.content ?? []}
         />
       )}
-      {activeTab === 'departments' && <DepartmentsTab deptStats={deptStats ?? []} loading={loadingDepts} />}
+      {activeTab === 'orgUnits' && <OrgUnitsTab orgUnitStats={orgUnitStats ?? []} loading={loadingOrgUnits} />}
       {activeTab === 'employees' && (
         <EmployeesTab
           employees={filteredEmployees}
           loading={loadingEmps}
           search={empSearch}
           onSearchChange={setEmpSearch}
-          deptFilter={deptFilter}
-          onDeptFilterChange={setDeptFilter}
-          deptNames={deptNames}
+          orgUnitFilter={orgUnitFilter}
+          onOrgUnitFilterChange={setOrgUnitFilter}
+          orgUnitNames={orgUnitNames}
         />
       )}
     </div>
@@ -196,8 +196,8 @@ function StatCard({ icon, label, value, sub, color }: { icon: React.ReactNode; l
 }
 
 /* =================== OVERVIEW TAB =================== */
-function OverviewTab({ stats, kpiRate, subRate, deptStats, topPerformers, atRiskCount, recentKpis, recentSubmissions }: {
-  stats: any; kpiRate: number; subRate: number; deptStats: DepartmentStats[];
+function OverviewTab({ stats, kpiRate, subRate, orgUnitStats, topPerformers, atRiskCount, recentKpis, recentSubmissions }: {
+  stats: any; kpiRate: number; subRate: number; orgUnitStats: OrgUnitStats[];
   topPerformers: EmployeeKpiStats[]; atRiskCount: number;
   recentKpis: KpiCriteria[]; recentSubmissions: Submission[]
 }) {
@@ -242,21 +242,21 @@ function OverviewTab({ stats, kpiRate, subRate, deptStats, topPerformers, atRisk
           <section className="bg-white dark:bg-slate-900 rounded-[28px] border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
             <div className="p-6 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center">
               <h3 className="font-black text-base flex items-center gap-2">
-                <Building2 size={20} className="text-indigo-600" /> Tổng quan Phòng ban ({deptStats.length})
+                <Building2 size={20} className="text-indigo-600" /> Tổng quan Đơn vị ({orgUnitStats.length})
               </h3>
-              <Link to="/departments" className="text-xs font-bold text-indigo-600 hover:underline flex items-center gap-1">
+              <Link to="/org-units" className="text-xs font-bold text-indigo-600 hover:underline flex items-center gap-1">
                 Xem chi tiết <ChevronRight size={14} />
               </Link>
             </div>
 
-            {deptStats.length === 0 ? (
-              <div className="p-12 text-center text-sm text-slate-400 font-medium">Chưa có phòng ban nào.</div>
+            {orgUnitStats.length === 0 ? (
+              <div className="p-12 text-center text-sm text-slate-400 font-medium">Chưa có đơn vị nào.</div>
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full">
                   <thead>
                     <tr className="text-left text-[10px] font-black uppercase tracking-widest text-slate-400 border-b border-slate-100 dark:border-slate-800">
-                      <th className="px-6 py-3">Phòng ban</th>
+                      <th className="px-6 py-3">Đơn vị</th>
                       <th className="px-3 py-3 text-center">Thành viên</th>
                       <th className="px-3 py-3 text-center">KPI</th>
                       <th className="px-3 py-3 text-center">Bài nộp</th>
@@ -265,29 +265,29 @@ function OverviewTab({ stats, kpiRate, subRate, deptStats, topPerformers, atRisk
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-50 dark:divide-slate-800">
-                    {deptStats.map((dept, i) => {
-                      const kRate = dept.totalKpi > 0 ? Math.round((dept.approvedKpi / dept.totalKpi) * 100) : 0
+                    {orgUnitStats.map((orgUnit, i) => {
+                      const kRate = orgUnit.totalKpi > 0 ? Math.round((orgUnit.approvedKpi / orgUnit.totalKpi) * 100) : 0
                       return (
-                        <tr key={dept.departmentId} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors animate-in fade-in" style={{ animationDelay: `${i * 40}ms` }}>
+                        <tr key={orgUnit.orgUnitId} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors animate-in fade-in" style={{ animationDelay: `${i * 40}ms` }}>
                           <td className="px-6 py-4">
                             <div className="flex items-center gap-3">
                               <div className="w-9 h-9 rounded-xl bg-indigo-600 text-white flex items-center justify-center text-xs font-black shrink-0">
-                                {getInitials(dept.departmentName)}
+                                {getInitials(orgUnit.orgUnitName)}
                               </div>
-                              <Link to={`/departments/${dept.departmentId}`} className="font-bold text-slate-900 dark:text-white hover:text-indigo-600 transition-colors text-sm">
-                                {dept.departmentName}
+                              <Link to={`/org-units/${orgUnit.orgUnitId}`} className="font-bold text-slate-900 dark:text-white hover:text-indigo-600 transition-colors text-sm">
+                                {orgUnit.orgUnitName}
                               </Link>
                             </div>
                           </td>
                           <td className="px-3 py-4 text-center">
-                            <span className="text-sm font-black text-slate-700 dark:text-slate-300">{dept.memberCount}</span>
+                            <span className="text-sm font-black text-slate-700 dark:text-slate-300">{orgUnit.memberCount}</span>
                           </td>
                           <td className="px-3 py-4 text-center">
-                            <span className="text-sm font-black text-slate-900 dark:text-white">{dept.totalKpi}</span>
-                            <span className="text-[10px] text-slate-400 ml-1">({dept.approvedKpi} duyệt)</span>
+                            <span className="text-sm font-black text-slate-900 dark:text-white">{orgUnit.totalKpi}</span>
+                            <span className="text-[10px] text-slate-400 ml-1">({orgUnit.approvedKpi} duyệt)</span>
                           </td>
                           <td className="px-3 py-4 text-center">
-                            <span className="text-sm font-black text-slate-900 dark:text-white">{dept.totalSubmissions}</span>
+                            <span className="text-sm font-black text-slate-900 dark:text-white">{orgUnit.totalSubmissions}</span>
                           </td>
                           <td className="px-3 py-4">
                             <div className="flex items-center gap-2 min-w-[120px]">
@@ -302,9 +302,9 @@ function OverviewTab({ stats, kpiRate, subRate, deptStats, topPerformers, atRisk
                           </td>
                           <td className="px-3 py-4">
                             <div className="flex items-center justify-center gap-3 text-xs font-bold">
-                              <span className="text-emerald-600 flex items-center gap-0.5"><CheckCircle2 size={12} />{dept.approvedSubmissions}</span>
-                              <span className="text-amber-600 flex items-center gap-0.5"><Clock size={12} />{dept.pendingSubmissions}</span>
-                              <span className="text-red-600 flex items-center gap-0.5"><XCircle size={12} />{dept.rejectedSubmissions}</span>
+                              <span className="text-emerald-600 flex items-center gap-0.5"><CheckCircle2 size={12} />{orgUnit.approvedSubmissions}</span>
+                              <span className="text-amber-600 flex items-center gap-0.5"><Clock size={12} />{orgUnit.pendingSubmissions}</span>
+                              <span className="text-red-600 flex items-center gap-0.5"><XCircle size={12} />{orgUnit.rejectedSubmissions}</span>
                             </div>
                           </td>
                         </tr>
@@ -342,7 +342,7 @@ function OverviewTab({ stats, kpiRate, subRate, deptStats, topPerformers, atRisk
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-bold text-slate-900 dark:text-white truncate">{emp.fullName}</p>
-                        <p className="text-[10px] text-slate-500 truncate">{emp.departmentName}</p>
+                        <p className="text-[10px] text-slate-500 truncate">{emp.orgUnitName}</p>
                       </div>
                       <div className="text-right shrink-0">
                         <span className={cn("text-xs font-black px-2 py-0.5 rounded-md", rate >= 80 ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400" : "bg-amber-100 text-amber-700")}>
@@ -366,7 +366,7 @@ function OverviewTab({ stats, kpiRate, subRate, deptStats, topPerformers, atRisk
               </div>
               <div className="space-y-2.5">
                 <ApprovalRow label="Chỉ tiêu KPI" count={stats?.pendingKpi ?? 0} to="/kpi-criteria/pending" />
-                <ApprovalRow label="Bài nộp nhân viên" count={stats?.pendingSubmissions ?? 0} to="/submissions/department" />
+                <ApprovalRow label="Bài nộp nhân viên" count={stats?.pendingSubmissions ?? 0} to="/submissions/org-unit" />
               </div>
               <Link to="/kpi-criteria/pending" className="block w-full py-3 bg-indigo-600 hover:bg-indigo-500 rounded-2xl font-black text-sm text-center transition-all shadow-lg shadow-indigo-600/30">
                 Xử lý ngay ({(stats?.pendingKpi ?? 0) + (stats?.pendingSubmissions ?? 0)})
@@ -394,9 +394,9 @@ function OverviewTab({ stats, kpiRate, subRate, deptStats, topPerformers, atRisk
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-bold text-slate-900 dark:text-white truncate">{kpi.name}</p>
                     <div className="flex items-center gap-2 mt-0.5 text-[11px] text-slate-500">
-                      <span>{kpi.departmentName ?? 'Chưa gán PB'}</span>
+                      <span>{kpi.orgUnitName ?? 'Chưa gán Đơn vị'}</span>
                       <span>•</span>
-                      <span>{kpi.assignedToName ?? 'Chưa giao'}</span>
+                      <span>{formatAssigneeNames(kpi.assigneeNames)}</span>
                       {kpi.targetValue != null && <><span>•</span><span>Mục tiêu: {formatNumber(kpi.targetValue)} {kpi.unit ?? ''}</span></>}
                     </div>
                   </div>
@@ -411,7 +411,7 @@ function OverviewTab({ stats, kpiRate, subRate, deptStats, topPerformers, atRisk
         <section className="bg-white dark:bg-slate-900 rounded-[28px] border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
           <div className="p-5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
             <h3 className="font-black text-sm flex items-center gap-2"><Activity size={18} className="text-emerald-600" /> Bài nộp Gần đây</h3>
-            <Link to="/submissions/department" className="text-xs font-bold text-indigo-600 hover:underline flex items-center gap-1">Xem tất cả <ArrowUpRight size={12} /></Link>
+            <Link to="/submissions/org-unit" className="text-xs font-bold text-indigo-600 hover:underline flex items-center gap-1">Xem tất cả <ArrowUpRight size={12} /></Link>
           </div>
           <div className="divide-y divide-slate-50 dark:divide-slate-800">
             {recentSubmissions.length === 0 ? (
@@ -443,27 +443,27 @@ function OverviewTab({ stats, kpiRate, subRate, deptStats, topPerformers, atRisk
   )
 }
 
-/* =================== DEPARTMENTS TAB =================== */
-function DepartmentsTab({ deptStats, loading }: { deptStats: DepartmentStats[]; loading: boolean }) {
+/* =================== ORG UNITS TAB =================== */
+function OrgUnitsTab({ orgUnitStats, loading }: { orgUnitStats: OrgUnitStats[]; loading: boolean }) {
   if (loading) return <LoadingSkeleton rows={6} />
-  if (deptStats.length === 0) return <EmptyMessage text="Chưa có dữ liệu phòng ban nào." />
+  if (orgUnitStats.length === 0) return <EmptyMessage text="Chưa có dữ liệu đơn vị nào." />
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 animate-in fade-in duration-300">
-      {deptStats.map((dept, i) => {
-        const kRate = dept.totalKpi > 0 ? Math.round((dept.approvedKpi / dept.totalKpi) * 100) : 0
-        const sRate = dept.totalSubmissions > 0 ? Math.round((dept.approvedSubmissions / dept.totalSubmissions) * 100) : 0
+      {orgUnitStats.map((orgUnit, i) => {
+        const kRate = orgUnit.totalKpi > 0 ? Math.round((orgUnit.approvedKpi / orgUnit.totalKpi) * 100) : 0
+        const sRate = orgUnit.totalSubmissions > 0 ? Math.round((orgUnit.approvedSubmissions / orgUnit.totalSubmissions) * 100) : 0
         return (
-          <div key={dept.departmentId}
+          <div key={orgUnit.orgUnitId}
             className="bg-white dark:bg-slate-900 rounded-[28px] border border-slate-200 dark:border-slate-800 shadow-sm hover:shadow-xl hover:border-indigo-200 dark:hover:border-indigo-800 transition-all animate-in fade-in slide-in-from-bottom-4 flex flex-col"
             style={{ animationDelay: `${i * 60}ms` }}
           >
             <div className="p-6 border-b border-slate-100 dark:border-slate-800">
               <div className="flex items-center gap-3">
-                <div className="w-12 h-12 rounded-2xl bg-indigo-600 text-white flex items-center justify-center font-black text-lg">{getInitials(dept.departmentName)}</div>
+                <div className="w-12 h-12 rounded-2xl bg-indigo-600 text-white flex items-center justify-center font-black text-lg">{getInitials(orgUnit.orgUnitName)}</div>
                 <div className="flex-1 min-w-0">
-                  <h3 className="font-black text-slate-900 dark:text-white truncate">{dept.departmentName}</h3>
-                  <p className="text-xs font-medium text-slate-500">{dept.memberCount} thành viên</p>
+                  <h3 className="font-black text-slate-900 dark:text-white truncate">{orgUnit.orgUnitName}</h3>
+                  <p className="text-xs font-medium text-slate-500">{orgUnit.memberCount} thành viên</p>
                 </div>
               </div>
             </div>
@@ -478,22 +478,22 @@ function DepartmentsTab({ deptStats, loading }: { deptStats: DepartmentStats[]; 
                 </div>
               </div>
               <div className="grid grid-cols-3 gap-2">
-                <MiniStatBox label="KPI" value={dept.totalKpi} />
-                <MiniStatBox label="Bài nộp" value={dept.totalSubmissions} />
-                <MiniStatBox label="Chờ duyệt" value={dept.pendingKpi + dept.pendingSubmissions} highlight />
+                <MiniStatBox label="KPI" value={orgUnit.totalKpi} />
+                <MiniStatBox label="Bài nộp" value={orgUnit.totalSubmissions} />
+                <MiniStatBox label="Chờ duyệt" value={orgUnit.pendingKpi + orgUnit.pendingSubmissions} highlight />
               </div>
               <div className="space-y-2">
                 <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Bài nộp chi tiết</p>
                 <div className="flex items-center gap-3 text-xs font-bold">
-                  <span className="flex items-center gap-1 text-emerald-600"><CheckCircle2 size={12} /> {dept.approvedSubmissions}</span>
-                  <span className="flex items-center gap-1 text-amber-600"><Clock size={12} /> {dept.pendingSubmissions}</span>
-                  <span className="flex items-center gap-1 text-red-600"><XCircle size={12} /> {dept.rejectedSubmissions}</span>
+                  <span className="flex items-center gap-1 text-emerald-600"><CheckCircle2 size={12} /> {orgUnit.approvedSubmissions}</span>
+                  <span className="flex items-center gap-1 text-amber-600"><Clock size={12} /> {orgUnit.pendingSubmissions}</span>
+                  <span className="flex items-center gap-1 text-red-600"><XCircle size={12} /> {orgUnit.rejectedSubmissions}</span>
                 </div>
               </div>
             </div>
             <div className="px-6 py-4 bg-slate-50 dark:bg-slate-800/20 border-t border-slate-100 dark:border-slate-800 rounded-b-[28px] flex justify-between items-center text-xs">
               <span className="font-bold text-slate-500">Duyệt bài: <span className={sRate >= 70 ? "text-emerald-600" : "text-amber-600"}>{sRate}%</span></span>
-              <Link to={`/departments/${dept.departmentId}`} className="flex items-center gap-1 font-bold text-indigo-600 hover:underline">Chi tiết <ArrowUpRight size={12} /></Link>
+              <Link to={`/org-units/${orgUnit.orgUnitId}`} className="flex items-center gap-1 font-bold text-indigo-600 hover:underline">Chi tiết <ArrowUpRight size={12} /></Link>
             </div>
           </div>
         )
@@ -503,9 +503,9 @@ function DepartmentsTab({ deptStats, loading }: { deptStats: DepartmentStats[]; 
 }
 
 /* =================== EMPLOYEES TAB =================== */
-function EmployeesTab({ employees, loading, search, onSearchChange, deptFilter, onDeptFilterChange, deptNames }: {
+function EmployeesTab({ employees, loading, search, onSearchChange, orgUnitFilter, onOrgUnitFilterChange, orgUnitNames }: {
   employees: EmployeeKpiStats[]; loading: boolean; search: string; onSearchChange: (s: string) => void;
-  deptFilter: string; onDeptFilterChange: (s: string) => void; deptNames: string[]
+  orgUnitFilter: string; onOrgUnitFilterChange: (s: string) => void; orgUnitNames: string[]
 }) {
   if (loading) return <LoadingSkeleton rows={8} />
 
@@ -525,19 +525,19 @@ function EmployeesTab({ employees, loading, search, onSearchChange, deptFilter, 
           />
         </div>
 
-        {/* Department filter */}
+        {/* OrgUnit filter */}
         <div className="relative flex-none w-[200px]">
           <Filter
             className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"
             size={14}
           />
           <select
-            value={deptFilter}
-            onChange={e => onDeptFilterChange(e.target.value)}
+            value={orgUnitFilter}
+            onChange={e => onOrgUnitFilterChange(e.target.value)}
             className="w-full pl-8 pr-8 h-10 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm focus:ring-2 focus:ring-indigo-500/30 outline-none appearance-none cursor-pointer"
           >
-            <option value="ALL">Tất cả phòng ban</option>
-            {deptNames.map(d => <option key={d} value={d}>{d}</option>)}
+            <option value="ALL">Tất cả đơn vị</option>
+            {orgUnitNames.map(d => <option key={d} value={d}>{d}</option>)}
           </select>
           <ChevronDown
             className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"
@@ -557,7 +557,7 @@ function EmployeesTab({ employees, loading, search, onSearchChange, deptFilter, 
                 <thead>
                   <tr className="text-left text-[10px] font-black uppercase tracking-widest text-slate-400 border-b border-slate-100 dark:border-slate-800">
                     <th className="px-6 py-4">Nhân viên</th>
-                    <th className="px-4 py-4 text-center">Phòng ban</th>
+                    <th className="px-4 py-4 text-center">Đơn vị</th>
                     <th className="px-4 py-4 text-center">KPI giao</th>
                     <th className="px-4 py-4 text-center">Bài nộp</th>
                     <th className="px-4 py-4 text-center">Đã duyệt</th>
@@ -578,7 +578,7 @@ function EmployeesTab({ employees, loading, search, onSearchChange, deptFilter, 
                           </div>
                         </div>
                       </td>
-                      <td className="px-4 py-4 text-center text-xs font-bold text-slate-600 dark:text-slate-400">{emp.departmentName || '—'}</td>
+                      <td className="px-4 py-4 text-center text-xs font-bold text-slate-600 dark:text-slate-400">{emp.orgUnitName || '—'}</td>
                       <td className="px-4 py-4 text-center text-sm font-black text-slate-900 dark:text-white">{emp.assignedKpi}</td>
                       <td className="px-4 py-4 text-center text-sm font-black text-slate-900 dark:text-white">{emp.totalSubmissions}</td>
                       <td className="px-4 py-4 text-center"><span className="inline-flex items-center gap-1 text-xs font-bold text-emerald-600"><CheckCircle2 size={14} />{emp.approvedSubmissions}</span></td>
@@ -651,7 +651,7 @@ function MiniStatBox({ label, value, highlight }: { label: string; value: number
 function KpiStatusBadge({ status }: { status: string }) {
   const cfg: Record<string, { label: string; cls: string }> = {
     DRAFT: { label: 'Nháp', cls: 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400' },
-    PENDING: { label: 'Chờ duyệt', cls: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400' },
+    PENDING_APPROVAL: { label: 'Chờ duyệt', cls: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400' },
     APPROVED: { label: 'Đã duyệt', cls: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400' },
     REJECTED: { label: 'Từ chối', cls: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' },
   }

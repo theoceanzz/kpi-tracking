@@ -32,4 +32,6 @@ public interface OrgUnitRepository extends JpaRepository<OrgUnit, UUID> {
 
     @Query("SELECT o FROM OrgUnit o WHERE o.orgHierarchyLevel.organization.id = :orgId AND o.parent IS NULL AND o.deletedAt IS NULL")
     List<OrgUnit> findRootsByOrganizationId(@Param("orgId") UUID orgId);
+
+    boolean existsByOrgHierarchyLevelId(UUID hierarchyLevelId);
 }

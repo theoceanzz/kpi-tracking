@@ -65,7 +65,8 @@ public class KpiSubmissionService {
             throw new BusinessException("Chỉ có thể nộp báo cáo cho những chỉ tiêu KPI đã được PHÊ DUYỆT");
         }
 
-        boolean isAssignee = kpi.getAssignedTo() != null && kpi.getAssignedTo().getId().equals(currentUser.getId());
+        boolean isAssignee = kpi.getAssignees().stream()
+                .anyMatch(u -> u.getId().equals(currentUser.getId()));
         if (!isAssignee) {
             // Check if user has any role assignment in the same org unit as the KPI
             boolean isInSameOrgUnit = kpi.getOrgUnit() != null &&

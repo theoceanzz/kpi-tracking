@@ -1,10 +1,10 @@
-import { useMemo } from 'react'
+import { useMemo, useEffect } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { kpiSchema, type KpiFormData } from '../schemas/kpiSchema'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { kpiApi } from '../api/kpiApi'
-import { useDepartments } from '@/features/departments/hooks/useDepartments'
+import { useOrgUnitTree } from '@/features/orgunits/hooks/useOrgUnitTree'
 import { useUsers } from '@/features/users/hooks/useUsers'
 import { useAuthStore } from '@/store/authStore'
 import { usePermission } from '@/hooks/usePermission'
@@ -26,56 +26,93 @@ const frequencyOptions = [
   { value: 'YEARLY', label: 'Hàng năm' },
 ] as const
 
+const ROLE_PRIORITY: Record<string, number> = {
+  'DIRECTOR': 4,
+  'HEAD': 3,
+  'DEPUTY': 2,
+  'STAFF': 1,
+}
+
 export default function KpiFormModal({ open, onClose, editKpi }: KpiFormModalProps) {
   const isEdit = !!editKpi
   const qc = useQueryClient()
   const { user } = useAuthStore()
   const { isDirector, isHead, isDeputy } = usePermission()
-  const { data: deptsData } = useDepartments(0, 100)
+  const { data: orgUnitTreeData } = useOrgUnitTree()
+  
+  // Flatten tree for dropdown
+  const flattenTree = (nodes: any[], level = 0): any[] => {
+    let result: any[] = []
+    nodes.forEach(node => {
+      result.push({ ...node, levelLabel: '—'.repeat(level) + (level > 0 ? ' ' : '') + node.name })
+      if (node.children?.length) {
+        result = result.concat(flattenTree(node.children, level + 1))
+      }
+    })
+    return result
+  }
+  const flatOrgUnits = useMemo(() => orgUnitTreeData ? flattenTree(orgUnitTreeData) : [], [orgUnitTreeData])
 
   const { register, handleSubmit, formState: { errors }, reset, watch, setValue } = useForm<KpiFormData>({
     resolver: zodResolver(kpiSchema),
-    values: editKpi ? {
-      name: editKpi.name,
-      description: editKpi.description ?? '',
-      weight: editKpi.weight ?? undefined,
-      targetValue: editKpi.targetValue ?? undefined,
-      unit: editKpi.unit ?? '',
-      frequency: editKpi.frequency,
-      departmentId: editKpi.departmentId ?? '',
-      assignedToId: editKpi.assignedToId ?? '',
-      assignedToIds: editKpi.assignedToId ? [editKpi.assignedToId] : [],
-      startDate: editKpi.startDate ? editKpi.startDate.split('T')[0] : '',
-      endDate: editKpi.endDate ? editKpi.endDate.split('T')[0] : '',
-    } : { name: '', frequency: 'MONTHLY', assignedToIds: [] },
+    defaultValues: { name: '', frequency: 'MONTHLY', assignedToIds: [] },
   })
 
-  const formDeptId = watch('departmentId')
+  // Synchronize form values only when modal opens
+  useEffect(() => {
+    if (!open) return
+
+    if (editKpi) {
+      reset({
+        name: editKpi.name,
+        description: editKpi.description ?? '',
+        weight: editKpi.weight ?? undefined,
+        targetValue: editKpi.targetValue ?? undefined,
+        unit: editKpi.unit ?? '',
+        frequency: editKpi.frequency,
+        orgUnitId: editKpi.orgUnitId ?? '',
+        assignedToIds: editKpi.assigneeIds ?? [],
+        startDate: editKpi.startDate ? editKpi.startDate.split('T')[0] : '',
+        endDate: editKpi.endDate ? editKpi.endDate.split('T')[0] : '',
+      })
+    } else {
+      reset({ name: '', frequency: 'MONTHLY', assignedToIds: [] })
+    }
+  }, [open, reset]) // Removed editKpi to prevent reset on data refetches
+
+  const formOrgUnitId = watch('orgUnitId')
   const selectedAssignees = watch('assignedToIds') || []
 
-  // For HEAD/DEPUTY, automatically use their department if not chosen
-  const fetchDeptId = useMemo(() => {
-    if (isDirector) return formDeptId || undefined
-    // For others, use their own department (assuming they only belong to one for KPI purposes here)
-    // In a more complex system we might need to let them choose which of their depts.
-    return formDeptId || user?.memberships?.[0]?.orgUnitId
-  }, [isDirector, user, formDeptId])
+  // For HEAD/DEPUTY, automatically use their orgUnit if not chosen
+  const fetchOrgUnitId = useMemo(() => {
+    if (isDirector) return formOrgUnitId || undefined
+    return formOrgUnitId || user?.memberships?.[0]?.orgUnitId
+  }, [isDirector, user, formOrgUnitId])
 
   const { data: usersData, isLoading: isLoadingUsers } = useUsers({ 
     page: 0, 
     size: 200, 
-    departmentId: fetchDeptId 
+    orgUnitId: fetchOrgUnitId 
   })
 
   const availableUsers = useMemo(() => {
     if (!usersData?.content) return []
+    
+    // Determine current user's highest role priority
+    const currentUserRoles = user?.roles || []
+    const myPriority = Math.max(...currentUserRoles.map(r => ROLE_PRIORITY[r] || 0), 0)
+
     return usersData.content.filter(u => {
-      if (isDirector) return true // Director can assign to anyone including self
-      if (isHead) return true // Head can assign to anyone in dept including self
-      if (isDeputy) return u.roles?.includes('STAFF') || u.id === user?.id
-      return false
+      // Get target user's highest role priority
+      const targetPriority = Math.max(...(u.roles || []).map(r => ROLE_PRIORITY[r] || 0), 0)
+
+      if (isDirector) return true // Director can assign to anyone
+      
+      // For others: only assign to people whose highest role is <= their own highest role
+      // This prevents a Head from assigning to a Director.
+      return targetPriority <= myPriority
     })
-  }, [usersData, isDirector, isHead, isDeputy, user])
+  }, [usersData, isDirector, user])
 
   const createMutation = useMutation({
     mutationFn: (data: KpiFormData) => kpiApi.create(data),
@@ -110,22 +147,16 @@ export default function KpiFormModal({ open, onClose, editKpi }: KpiFormModalPro
     const payload = { ...data }
     
     // Clean up empty strings and unselected values
-    if (!payload.departmentId) delete payload.departmentId
-    if (!payload.assignedToId) delete payload.assignedToId
+    if (!payload.orgUnitId) delete payload.orgUnitId
     if (!payload.startDate || payload.startDate === "") delete payload.startDate
     if (!payload.endDate || payload.endDate === "") delete payload.endDate
+    
+    // Ensure assignedToIds is an array and remove legacy assignedToId
+    delete payload.assignedToId
     
     if (isEdit) {
       updateMutation.mutate(payload)
     } else {
-      // For creation, ensure assignedToIds is an array
-      if (!payload.assignedToIds || payload.assignedToIds.length === 0) {
-        if (payload.assignedToId) {
-          payload.assignedToIds = [payload.assignedToId]
-        } else {
-          payload.assignedToIds = []
-        }
-      }
       createMutation.mutate(payload)
     }
   }
@@ -199,10 +230,9 @@ export default function KpiFormModal({ open, onClose, editKpi }: KpiFormModalPro
 
           {isDirector && (
             <div>
-              <label className="block text-sm font-medium mb-1.5">Phòng ban</label>
-              <select {...register('departmentId')} className={inputCls}>
-                <option value="">— Toàn công ty —</option>
-                {deptsData?.content?.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
+              <label className="block text-sm font-medium mb-1.5">Phòng ban / Đơn vị</label>
+              <select {...register('orgUnitId')} className={inputCls} defaultValue="">
+                {flatOrgUnits.map((d: any) => <option key={d.id} value={d.id}>{d.levelLabel}</option>)}
               </select>
             </div>
           )}
@@ -210,47 +240,38 @@ export default function KpiFormModal({ open, onClose, editKpi }: KpiFormModalPro
           <div>
             <label className="block text-sm font-medium mb-1.5">
               Giao cho 
-              {!isEdit && <span className="text-[10px] text-[var(--color-muted-foreground)] ml-2 pulse">(Có thể chọn nhiều)</span>}
+              <span className="text-[10px] text-[var(--color-muted-foreground)] ml-2 pulse">(Có thể chọn nhiều)</span>
             </label>
             
-            {isEdit ? (
-              <select {...register('assignedToId')} className={inputCls}>
-                <option value="">— Không chọn —</option>
-                {availableUsers?.map((u) => (
-                  <option key={u.id} value={u.id}>{u.fullName} ({u.roles?.join(', ')})</option>
-                ))}
-              </select>
-            ) : (
-              <div className="border border-[var(--color-border)] rounded-lg overflow-hidden bg-[var(--color-background)]">
-                <div className="max-h-40 overflow-y-auto p-1.5 space-y-1">
-                  {isLoadingUsers ? (
-                    <div className="p-3 text-center text-xs text-[var(--color-muted-foreground)]">Đang tải danh sách...</div>
-                  ) : availableUsers.length === 0 ? (
-                    <div className="p-3 text-center text-xs text-[var(--color-muted-foreground)]">Không có nhân viên phù hợp</div>
-                  ) : (
-                    availableUsers.map((u) => {
-                      const isSelected = selectedAssignees.includes(u.id)
-                      return (
-                        <div 
-                          key={u.id}
-                          onClick={() => toggleAssignee(u.id)}
-                          className={`flex items-center justify-between px-3 py-2 rounded-md cursor-pointer transition-colors ${
-                            isSelected ? 'bg-[var(--color-primary)]/10 text-[var(--color-primary)]' : 'hover:bg-[var(--color-accent)]'
-                          }`}
-                        >
-                          <div className="flex flex-col">
-                            <span className="text-sm font-semibold">{u.fullName}</span>
-                            <span className="text-[10px] opacity-70">{u.email} • {u.roles?.join(', ')}</span>
-                          </div>
-                          {isSelected && <Check size={16} />}
+            <div className="border border-[var(--color-border)] rounded-lg overflow-hidden bg-[var(--color-background)]">
+              <div className="max-h-40 overflow-y-auto p-1.5 space-y-1">
+                {isLoadingUsers ? (
+                  <div className="p-3 text-center text-xs text-[var(--color-muted-foreground)]">Đang tải danh sách...</div>
+                ) : availableUsers.length === 0 ? (
+                  <div className="p-3 text-center text-xs text-[var(--color-muted-foreground)]">Không có nhân viên phù hợp</div>
+                ) : (
+                  availableUsers.map((u) => {
+                    const isSelected = selectedAssignees.includes(u.id)
+                    return (
+                      <div 
+                        key={u.id}
+                        onClick={() => toggleAssignee(u.id)}
+                        className={`flex items-center justify-between px-3 py-2 rounded-md cursor-pointer transition-colors ${
+                          isSelected ? 'bg-[var(--color-primary)]/10 text-[var(--color-primary)]' : 'hover:bg-[var(--color-accent)]'
+                        }`}
+                      >
+                        <div className="flex flex-col">
+                          <span className="text-sm font-semibold">{u.fullName}</span>
+                          <span className="text-[10px] opacity-70">{u.email} • {u.roles?.join(', ')}</span>
                         </div>
-                      )
-                    })
-                  )}
-                </div>
+                        {isSelected && <Check size={16} />}
+                      </div>
+                    )
+                  })
+                )}
               </div>
-            )}
-            {selectedAssignees.length > 0 && !isEdit && (
+            </div>
+            {selectedAssignees.length > 0 && (
               <p className="text-[10px] font-medium text-[var(--color-primary)] mt-1.5">
                 Đã chọn {selectedAssignees.length} nhân viên
               </p>

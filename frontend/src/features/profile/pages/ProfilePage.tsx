@@ -2,15 +2,16 @@ import { useState, useRef } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { useAuthStore } from '@/store/authStore'
 import { getInitials } from '@/lib/utils'
-import { useForm } from 'react-hook-form'
+import { useForm, useWatch } from 'react-hook-form'
+import { cn } from '@/lib/utils'
 import { useMutation } from '@tanstack/react-query'
 import { authApi } from '@/features/auth/api/authApi'
 import { userApi } from '@/features/users/api/userApi'
 import { toast } from 'sonner'
 import {
-  User, Mail, Phone, Building2, Shield, KeyRound,
+  User, Mail, Phone, Building2, Shield,
   CheckCircle2, UserCircle2, Loader2, Pencil, X, Save,
-  Eye, EyeOff, Lock, AlertTriangle, Camera
+  Eye, EyeOff, Lock, Camera, Wand2, Check, KeyRound
 } from 'lucide-react'
 
 const roleMap: Record<string, string> = {
@@ -293,7 +294,7 @@ function InfoField({ icon: Icon, iconColor, iconBg, label, value }: {
 
 /* ========== Security Tab ========== */
 function SecurityTab() {
-  const { register, handleSubmit, formState: { errors }, watch, reset } = useForm<{
+  const { register, handleSubmit, formState: { errors }, watch, control, setValue, reset } = useForm<{
     currentPassword: string; newPassword: string; confirmPassword: string
   }>()
 
@@ -301,32 +302,64 @@ function SecurityTab() {
   const [showNew, setShowNew] = useState(false)
   const [showConfirm, setShowConfirm] = useState(false)
 
+  const pwd = useWatch({ control, name: 'newPassword', defaultValue: '' })
+  const confirmPwd = useWatch({ control, name: 'confirmPassword', defaultValue: '' })
+
+  const hasLength = pwd.length >= 8
+  const hasUpper = /[A-Z]/.test(pwd)
+  const hasLower = /[a-z]/.test(pwd)
+  const hasNumber = /[0-9]/.test(pwd)
+  const hasSpecial = /[!@#$%^&*(),.?":{}|<>]/.test(pwd)
+
+  const strengthScore = [hasLength, hasUpper, hasLower, hasNumber, hasSpecial].filter(Boolean).length
+
+  let strengthLabel = 'Chưa nhập'
+  let strengthColor = 'bg-gray-200 dark:bg-gray-700'
+  let strengthTextColor = 'text-gray-400'
+
+  if (pwd.length > 0) {
+    if (strengthScore <= 2) {
+      strengthLabel = 'Yếu'
+      strengthColor = 'bg-red-500'
+      strengthTextColor = 'text-red-500'
+    } else if (strengthScore <= 3) {
+      strengthLabel = 'Trung bình'
+      strengthColor = 'bg-yellow-500'
+      strengthTextColor = 'text-yellow-500'
+    } else {
+      strengthLabel = 'Mạnh'
+      strengthColor = 'bg-emerald-500'
+      strengthTextColor = 'text-emerald-500'
+    }
+  }
+
+  const generatePassword = () => {
+    const chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*'
+    let newPwd = 'A' + 'a' + '1' + '!' 
+    for (let i = 0; i < 8; i++) {
+      newPwd += chars.charAt(Math.floor(Math.random() * chars.length))
+    }
+    newPwd = newPwd.split('').sort(() => 0.5 - Math.random()).join('')
+    setValue('newPassword', newPwd, { shouldValidate: true })
+    setValue('confirmPassword', newPwd, { shouldValidate: true })
+    setShowNew(true)
+    setShowConfirm(true)
+  }
+
   const mutation = useMutation({
     mutationFn: (data: { currentPassword: string; newPassword: string; confirmPassword: string }) => authApi.changePassword(data),
-    onSuccess: () => { toast.success('Đổi mật khẩu thành công'); reset(); setShowCurrent(false); setShowNew(false); setShowConfirm(false) },
+    onSuccess: () => { 
+      toast.success('Đổi mật khẩu bảo mật thành công')
+      reset()
+      setShowCurrent(false); setShowNew(false); setShowConfirm(false) 
+    },
     onError: () => toast.error('Đổi mật khẩu thất bại. Vui lòng kiểm tra mật khẩu hiện tại.'),
   })
 
-  const newPassword = watch('newPassword')
-
-  // Password strength check
-  const getPasswordStrength = (pw: string | undefined) => {
-    if (!pw) return { level: 0, label: '', color: '' }
-    let score = 0
-    if (pw.length >= 8) score++
-    if (/[A-Z]/.test(pw)) score++
-    if (/[0-9]/.test(pw)) score++
-    if (/[^A-Za-z0-9]/.test(pw)) score++
-    if (score <= 1) return { level: 1, label: 'Yếu', color: 'bg-red-500' }
-    if (score === 2) return { level: 2, label: 'Trung bình', color: 'bg-amber-500' }
-    if (score === 3) return { level: 3, label: 'Tốt', color: 'bg-blue-500' }
-    return { level: 4, label: 'Rất mạnh', color: 'bg-emerald-500' }
-  }
-
-  const strength = getPasswordStrength(newPassword)
+  const inputCls = "w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-400 transition-all"
 
   return (
-    <div className="bg-white dark:bg-slate-900 rounded-[28px] border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
+    <div className="bg-white dark:bg-slate-900 rounded-[28px] border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden animate-in fade-in slide-in-from-right-4 duration-500">
       {/* Header */}
       <div className="border-b border-slate-100 dark:border-slate-800 px-8 py-6">
         <div className="flex items-center gap-3">
@@ -334,124 +367,176 @@ function SecurityTab() {
             <Lock size={20} />
           </div>
           <div>
-            <h2 className="font-black text-lg text-slate-900 dark:text-white">Đổi mật khẩu</h2>
-            <p className="text-xs font-medium text-slate-500">Sử dụng mật khẩu mạnh kết hợp chữ hoa, số và ký tự đặc biệt</p>
+            <h2 className="font-black text-lg text-slate-900 dark:text-white">Bảo mật tài khoản</h2>
+            <p className="text-xs font-medium text-slate-500">Quản lý mật khẩu và các thiết lập an toàn</p>
           </div>
         </div>
       </div>
 
-      {/* Security Tips */}
-      <div className="mx-8 mt-6 p-4 rounded-2xl bg-amber-50 dark:bg-amber-900/10 border border-amber-200/50 dark:border-amber-900/30 flex items-start gap-3">
-        <AlertTriangle size={18} className="text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
-        <div className="text-xs text-amber-800 dark:text-amber-300 leading-relaxed">
-          <p className="font-bold mb-1">Lưu ý bảo mật</p>
-          <p>Mật khẩu nên có ít nhất 8 ký tự, bao gồm chữ hoa, chữ thường, số và ký tự đặc biệt. Không sử dụng mật khẩu đã dùng ở nơi khác.</p>
-        </div>
-      </div>
-
-      <form onSubmit={handleSubmit((data) => mutation.mutate(data))} className="p-8 space-y-6 max-w-lg">
-        {/* Current Password */}
-        <div className="space-y-2">
-          <label className="flex items-center gap-1.5 text-xs font-bold text-slate-500">
-            <Lock size={13} /> Mật khẩu hiện tại
-          </label>
-          <div className="relative">
-            <input
-              {...register('currentPassword', { required: 'Vui lòng nhập mật khẩu hiện tại' })}
-              type={showCurrent ? 'text' : 'password'}
-              className="w-full px-4 py-3 pr-12 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-400 transition-all"
-              placeholder="••••••••"
-            />
-            <button
-              type="button"
-              onClick={() => setShowCurrent(!showCurrent)}
-              className="absolute right-3 top-1/2 -translate-y-1/2 p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:hover:bg-slate-700 transition-all"
-            >
-              {showCurrent ? <EyeOff size={18} /> : <Eye size={18} />}
-            </button>
-          </div>
-          {errors.currentPassword && <p className="text-red-500 text-xs font-medium">{errors.currentPassword.message}</p>}
-        </div>
-
-        {/* New Password */}
-        <div className="space-y-2">
-          <label className="flex items-center gap-1.5 text-xs font-bold text-slate-500">
-            <KeyRound size={13} /> Mật khẩu mới
-          </label>
-          <div className="relative">
-            <input
-              {...register('newPassword', {
-                required: 'Vui lòng nhập mật khẩu mới',
-                minLength: { value: 8, message: 'Tối thiểu 8 ký tự' },
-                validate: (v) => v !== watch('currentPassword') || 'Mật khẩu mới phải khác mật khẩu hiện tại',
-              })}
-              type={showNew ? 'text' : 'password'}
-              className="w-full px-4 py-3 pr-12 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-400 transition-all"
-              placeholder="••••••••"
-            />
-            <button
-              type="button"
-              onClick={() => setShowNew(!showNew)}
-              className="absolute right-3 top-1/2 -translate-y-1/2 p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:hover:bg-slate-700 transition-all"
-            >
-              {showNew ? <EyeOff size={18} /> : <Eye size={18} />}
-            </button>
-          </div>
-          {errors.newPassword && <p className="text-red-500 text-xs font-medium">{errors.newPassword.message}</p>}
-
-          {/* Password Strength Meter */}
-          {newPassword && (
-            <div className="space-y-2 pt-1 animate-in fade-in duration-300">
-              <div className="flex gap-1.5">
-                {[1, 2, 3, 4].map(i => (
-                  <div key={i} className={`h-1.5 flex-1 rounded-full transition-all ${strength.level >= i ? strength.color : 'bg-slate-200 dark:bg-slate-700'}`} />
-                ))}
-              </div>
-              <p className={`text-xs font-bold ${strength.level <= 1 ? 'text-red-500' : strength.level === 2 ? 'text-amber-500' : strength.level === 3 ? 'text-blue-500' : 'text-emerald-500'}`}>
-                Độ mạnh: {strength.label}
-              </p>
+      <div className="p-8">
+        <div className="max-w-lg space-y-8">
+          {/* Security Alert */}
+          <div className="p-4 rounded-2xl bg-indigo-50 dark:bg-indigo-900/10 border border-indigo-100 dark:border-indigo-900/30 flex items-start gap-3">
+            <Shield size={18} className="text-indigo-600 dark:text-indigo-400 shrink-0 mt-0.5" />
+            <div className="text-xs text-indigo-900 dark:text-indigo-300 leading-relaxed font-medium">
+              Bạn nên đổi mật khẩu định kỳ 3 - 6 tháng một lần để đảm bảo an toàn tối đa cho tài khoản tổ chức.
             </div>
-          )}
-        </div>
-
-        {/* Confirm Password */}
-        <div className="space-y-2">
-          <label className="flex items-center gap-1.5 text-xs font-bold text-slate-500">
-            <CheckCircle2 size={13} /> Xác nhận mật khẩu mới
-          </label>
-          <div className="relative">
-            <input
-              {...register('confirmPassword', {
-                required: 'Vui lòng xác nhận mật khẩu',
-                validate: (v) => v === watch('newPassword') || 'Mật khẩu không khớp',
-              })}
-              type={showConfirm ? 'text' : 'password'}
-              className="w-full px-4 py-3 pr-12 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-400 transition-all"
-              placeholder="••••••••"
-            />
-            <button
-              type="button"
-              onClick={() => setShowConfirm(!showConfirm)}
-              className="absolute right-3 top-1/2 -translate-y-1/2 p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:hover:bg-slate-700 transition-all"
-            >
-              {showConfirm ? <EyeOff size={18} /> : <Eye size={18} />}
-            </button>
           </div>
-          {errors.confirmPassword && <p className="text-red-500 text-xs font-medium">{errors.confirmPassword.message}</p>}
-        </div>
 
-        {/* Submit */}
-        <div className="pt-4 border-t border-slate-100 dark:border-slate-800">
-          <button
-            type="submit"
-            disabled={mutation.isPending}
-            className="px-8 py-3 rounded-xl bg-indigo-600 text-white font-bold text-sm hover:bg-indigo-700 shadow-lg shadow-indigo-500/20 disabled:opacity-50 transition-all flex items-center gap-2"
-          >
-            {mutation.isPending ? <Loader2 size={16} className="animate-spin" /> : <Shield size={16} />}
-            Cập nhật Mật khẩu
-          </button>
+          <form onSubmit={handleSubmit((data) => mutation.mutate(data))} className="space-y-6">
+            {/* Current Password */}
+            <div className="space-y-2">
+              <label className="flex items-center gap-1.5 text-xs font-bold text-slate-500 uppercase tracking-widest pl-1">
+                Mật khẩu hiện tại
+              </label>
+              <div className="relative">
+                <input
+                  {...register('currentPassword', { required: 'Vui lòng nhập mật khẩu hiện tại' })}
+                  type={showCurrent ? 'text' : 'password'}
+                  className={inputCls + " pr-12"}
+                  placeholder="••••••••"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowCurrent(!showCurrent)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:hover:bg-slate-700 transition-all"
+                >
+                  {showCurrent ? <EyeOff size={18} /> : <Eye size={18} />}
+                </button>
+              </div>
+              {errors.currentPassword && <p className="text-red-500 text-xs font-medium pl-1">{errors.currentPassword.message}</p>}
+            </div>
+
+            {/* New Password */}
+            <div className="space-y-3">
+              <label className="flex items-center gap-1.5 text-xs font-bold text-slate-500 uppercase tracking-widest pl-1">
+                Mật khẩu mới
+              </label>
+              <div className="relative">
+                <input
+                  {...register('newPassword', {
+                    required: 'Vui lòng nhập mật khẩu mới',
+                    minLength: { value: 8, message: 'Tối thiểu 8 ký tự' },
+                    validate: (v) => v !== watch('currentPassword') || 'Mật khẩu mới phải khác mật khẩu hiện tại',
+                  })}
+                  type={showNew ? 'text' : 'password'}
+                  className={inputCls + " pr-24"}
+                  placeholder="Nhập ít nhất 8 ký tự an toàn"
+                />
+                
+                {/* Suggestion Button */}
+                <button
+                  type="button"
+                  onClick={generatePassword}
+                  className="absolute inset-y-0 right-10 pr-1 flex items-center text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 transition-colors text-xs font-bold"
+                  title="Gợi ý Mật khẩu"
+                >
+                  <Wand2 size={16} className="mr-0.5"/> Gợi ý
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setShowNew(!showNew)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:hover:bg-slate-700 transition-all"
+                >
+                  {showNew ? <EyeOff size={18} /> : <Eye size={18} />}
+                </button>
+              </div>
+
+              {/* Strength Meter & Checklist */}
+              {pwd && (
+                <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 animate-in fade-in slide-in-from-top-2 duration-300">
+                  <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-widest mb-2.5">
+                    <span className="text-slate-400">Độ mạnh mật khẩu</span>
+                    <span className={cn("px-2 py-0.5 rounded-full bg-white dark:bg-slate-900 shadow-sm", strengthTextColor)}>{strengthLabel}</span>
+                  </div>
+                  
+                  <div className="h-1.5 w-full bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden flex gap-1 mb-4">
+                    <div className={`h-full flex-1 rounded-full ${strengthScore >= 1 ? strengthColor : 'bg-transparent'} transition-all duration-300`} />
+                    <div className={`h-full flex-1 rounded-full ${strengthScore >= 2 ? strengthColor : 'bg-transparent'} transition-all duration-300`} />
+                    <div className={`h-full flex-1 rounded-full ${strengthScore >= 4 ? strengthColor : 'bg-transparent'} transition-all duration-300`} />
+                    <div className={`h-full flex-1 rounded-full ${strengthScore >= 5 ? strengthColor : 'bg-transparent'} transition-all duration-300`} />
+                  </div>
+                  
+                  <div className="grid grid-cols-2 gap-y-2.5 gap-x-2 text-[10px] font-bold text-slate-500">
+                    <CheckItem condition={hasLength} label="8+ ký tự" />
+                    <CheckItem condition={hasUpper && hasLower} label="Hoa & thường" />
+                    <CheckItem condition={hasNumber} label="Có chữ số" />
+                    <CheckItem condition={hasSpecial} label="Ký tự đặc biệt" />
+                  </div>
+                </div>
+              )}
+              {errors.newPassword && <p className="text-red-500 text-xs font-medium pl-1">{errors.newPassword.message}</p>}
+            </div>
+
+            {/* Confirm Password */}
+            <div className="space-y-2">
+              <label className="flex items-center gap-1.5 text-xs font-bold text-slate-500 uppercase tracking-widest pl-1">
+                Xác nhận mật khẩu mới
+              </label>
+              <div className="relative">
+                <input
+                  {...register('confirmPassword', {
+                    required: 'Vui lòng xác nhận mật khẩu',
+                    validate: (v) => v === watch('newPassword') || 'Mật khẩu không khớp',
+                  })}
+                  type={showConfirm ? 'text' : 'password'}
+                  className={inputCls + " pr-12"}
+                  placeholder="Nhập lại mật khẩu khớp chính xác"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowConfirm(!showConfirm)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:hover:bg-slate-700 transition-all"
+                >
+                  {showConfirm ? <EyeOff size={18} /> : <Eye size={18} />}
+                </button>
+              </div>
+              
+              {confirmPwd && (
+                <div className={cn(
+                  "mt-2.5 px-3 py-2 rounded-xl flex items-center gap-2 text-[11px] font-bold animate-in fade-in slide-in-from-top-1 duration-200",
+                  pwd === confirmPwd 
+                    ? 'bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-100 dark:border-emerald-500/20' 
+                    : 'bg-red-50 dark:bg-red-500/10 text-red-600 dark:text-red-400 border border-red-100 dark:border-red-500/20'
+                )}>
+                  {pwd === confirmPwd ? <CheckCircle2 size={14} /> : <X size={14} />}
+                  <span>{pwd === confirmPwd ? 'Mật khẩu đã khớp nhau' : 'Hai mật khẩu chưa trùng khớp'}</span>
+                </div>
+              )}
+              {errors.confirmPassword && !confirmPwd && <p className="text-red-500 text-xs font-medium pl-1">{errors.confirmPassword.message}</p>}
+            </div>
+
+            {/* Submit */}
+            <div className="pt-6 border-t border-slate-100 dark:border-slate-800">
+              <button
+                type="submit"
+                disabled={mutation.isPending}
+                className="w-full md:w-auto px-10 py-3.5 rounded-2xl bg-indigo-600 text-white font-black text-sm hover:bg-indigo-700 shadow-xl shadow-indigo-500/30 disabled:opacity-50 transition-all flex items-center justify-center gap-2 active:scale-95"
+              >
+                {mutation.isPending ? <Loader2 size={18} className="animate-spin" /> : <Save size={18} />}
+                Cập nhật bảo mật
+              </button>
+            </div>
+          </form>
         </div>
-      </form>
+      </div>
+    </div>
+  )
+}
+
+function CheckItem({ condition, label }: { condition: boolean; label: string }) {
+  return (
+    <div className="flex items-center gap-2">
+      <div className={cn(
+        "w-4 h-4 rounded-full flex items-center justify-center transition-all duration-300",
+        condition ? "bg-emerald-500 text-white shadow-sm" : "bg-slate-200 dark:bg-slate-700 text-transparent"
+      )}>
+        <Check size={10} strokeWidth={4} />
+      </div>
+      <span className={cn("transition-colors duration-300", condition ? "text-slate-900 dark:text-white" : "text-slate-400")}>
+        {label}
+      </span>
     </div>
   )
 }

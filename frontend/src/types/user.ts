@@ -8,6 +8,7 @@ export interface User {
   phone: string | null
   avatarUrl: string | null
   status: UserStatus
+  organizationId: string
   memberships: UserMembership[]
   roles: string[]
   createdAt: string

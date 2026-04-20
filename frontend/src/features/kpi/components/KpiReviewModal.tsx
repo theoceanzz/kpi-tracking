@@ -37,7 +37,7 @@ export default function KpiReviewModal({ open, onClose, kpi }: KpiReviewModalPro
   if (!open || !kpi) return null
 
   const isPending = approveMutation.isPending || rejectMutation.isPending
-  const isReviewable = kpi.status === 'PENDING'
+  const isReviewable = kpi.status === 'PENDING_APPROVAL'
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -52,7 +52,7 @@ export default function KpiReviewModal({ open, onClose, kpi }: KpiReviewModalPro
             </div>
             <div>
               <h3 className="text-lg font-black text-slate-900 dark:text-white">Xét duyệt Chỉ tiêu</h3>
-              <p className="text-xs font-medium text-slate-500">{kpi.status === 'PENDING' ? 'Đang chờ phê duyệt' : kpi.status === 'APPROVED' ? 'Đã phê duyệt' : 'Đã từ chối'}</p>
+              <p className="text-xs font-medium text-slate-500">{kpi.status === 'PENDING_APPROVAL' ? 'Đang chờ phê duyệt' : kpi.status === 'APPROVED' ? 'Đã phê duyệt' : 'Đã từ chối'}</p>
             </div>
           </div>
           <button onClick={onClose} className="p-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 transition-all">
@@ -70,11 +70,11 @@ export default function KpiReviewModal({ open, onClose, kpi }: KpiReviewModalPro
 
           {/* Detail Grid */}
           <div className="grid grid-cols-2 gap-3">
-            {kpi.departmentName && (
-              <DetailCard icon={Building2} label="Phòng ban" value={kpi.departmentName} />
+            {kpi.orgUnitName && (
+              <DetailCard icon={Building2} label="Phòng ban" value={kpi.orgUnitName} />
             )}
-            {kpi.assignedToName && (
-              <DetailCard icon={Users} label="Giao cho" value={kpi.assignedToName} />
+            {kpi.assigneeNames && kpi.assigneeNames.length > 0 && (
+              <DetailCard icon={Users} label="Giao cho" value={kpi.assigneeNames.join(', ')} />
             )}
             {kpi.targetValue != null && (
               <DetailCard icon={Target} label="Mục tiêu" value={`${formatNumber(kpi.targetValue)} ${kpi.unit ?? ''}`} />

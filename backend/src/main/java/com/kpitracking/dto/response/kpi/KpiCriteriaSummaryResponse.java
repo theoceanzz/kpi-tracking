@@ -17,5 +17,5 @@ public class KpiCriteriaSummaryResponse {
     private KpiFrequency frequency;
     private KpiStatus status;
     private String orgUnitName;
-    private String assignedToName;
+    private java.util.List<String> assigneeNames;
 }
