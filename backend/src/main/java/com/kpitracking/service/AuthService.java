@@ -322,6 +322,7 @@ public class AuthService {
                     return UserMembershipResponse.builder()
                         .orgUnitId(unit.getId())
                         .orgUnitName(unit.getName())
+                        .organizationId(unit.getOrgHierarchyLevel().getOrganization().getId())
                         .organizationName(unit.getOrgHierarchyLevel().getOrganization().getName())
                         .roleName(roleName)
                         .roleLabel(roleLabel)

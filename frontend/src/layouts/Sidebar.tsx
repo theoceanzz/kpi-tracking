@@ -15,7 +15,9 @@ import {
   MoreVertical,
   UserCircle,
   KeyRound,
-  LogOut
+  LogOut,
+  Network,
+  Shield
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { UserRole } from '@/types/auth'
@@ -31,8 +33,10 @@ interface NavItem {
 const navItems: NavItem[] = [
   { label: 'Tổng quan', path: '/dashboard', icon: <LayoutDashboard size={20} />, roles: ['DIRECTOR', 'HEAD', 'DEPUTY', 'STAFF'] },
   { label: 'Tổ chức', path: '/company', icon: <Settings size={20} />, roles: ['DIRECTOR'] },
-  { label: 'Đơn vị', path: '/departments', icon: <Building2 size={20} />, roles: ['DIRECTOR'] },
+  { label: 'Cấu trúc thiết lập', path: '/org-structure', icon: <Network size={20} />, roles: ['DIRECTOR'] },
+  { label: 'Cơ sở & Chi nhánh', path: '/departments', icon: <Building2 size={20} />, roles: ['DIRECTOR'] },
   { label: 'Nhân sự', path: '/users', icon: <Users size={20} />, roles: ['DIRECTOR'] },
+  { label: 'Vai trò', path: '/roles', icon: <Shield size={20} />, roles: ['DIRECTOR'] },
   
   { label: 'Quản lý Chỉ tiêu', path: '/kpi-criteria', icon: <Target size={20} />, roles: ['DIRECTOR', 'HEAD', 'DEPUTY'], end: true },
   { label: 'Duyệt Chỉ tiêu', path: '/kpi-criteria/pending', icon: <ClipboardCheck size={20} />, roles: ['DIRECTOR'] },
