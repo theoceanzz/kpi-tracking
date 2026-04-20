@@ -9,8 +9,9 @@ import { useUsers } from '@/features/users/hooks/useUsers'
 import { useAuthStore } from '@/store/authStore'
 import { usePermission } from '@/hooks/usePermission'
 import { toast } from 'sonner'
-import { Loader2, X, Check } from 'lucide-react'
+import { Loader2, X, Check, Sparkles } from 'lucide-react'
 import type { KpiCriteria } from '@/types/kpi'
+import { useState } from 'react'
 
 interface KpiFormModalProps {
   open: boolean
@@ -141,6 +142,44 @@ export default function KpiFormModal({ open, onClose, editKpi }: KpiFormModalPro
     },
   })
 
+  // AI Suggestion Logic
+  const [aiSuggestions, setAiSuggestions] = useState<any[]>([])
+  const [isSuggesting, setIsSuggesting] = useState(false)
+
+  const handleAiSuggest = async () => {
+    const orgUnitId = watch('orgUnitId') || user?.memberships?.[0]?.orgUnitId
+    if (!orgUnitId) {
+      toast.error('Vui lòng chọn hoặc đảm bảo bạn thuộc một phòng ban để nhận gợi ý chính xác')
+      return
+    }
+
+    setIsSuggesting(true)
+    try {
+      const suggestions = await kpiApi.getAiSuggestions(orgUnitId)
+      setAiSuggestions(suggestions)
+      if (suggestions.length === 0) {
+        toast.info('AI không tìm thấy gợi ý phù hợp lúc này')
+      }
+    } catch (err) {
+      toast.error('Lỗi khi lấy gợi ý từ AI')
+    } finally {
+      setIsSuggesting(false)
+    }
+  }
+
+  const applySuggestion = (sug: any) => {
+    reset({
+      ...watch(),
+      name: sug.name,
+      description: sug.description,
+      unit: sug.unit,
+      targetValue: sug.targetValue,
+      weight: sug.weight,
+      frequency: sug.frequency,
+    })
+    setAiSuggestions([])
+  }
+
   const isPending = createMutation.isPending || updateMutation.isPending
 
   const onSubmit = (data: KpiFormData) => {
@@ -192,10 +231,47 @@ export default function KpiFormModal({ open, onClose, editKpi }: KpiFormModalPro
 
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium mb-1.5">Tên chỉ tiêu <span className="text-red-500">*</span></label>
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="block text-sm font-medium">Tên chỉ tiêu <span className="text-red-500">*</span></label>
+              {(isDirector || isHead || isDeputy) && !isEdit && (
+                <button 
+                  type="button"
+                  onClick={handleAiSuggest}
+                  disabled={isSuggesting}
+                  className="flex items-center gap-1.5 text-[10px] font-bold text-[var(--color-primary)] hover:opacity-80 transition-opacity disabled:opacity-50"
+                >
+                  {isSuggesting ? <Loader2 size={12} className="animate-spin" /> : <Sparkles size={12} />}
+                  Gợi ý bằng AI
+                </button>
+              )}
+            </div>
             <input {...register('name')} className={inputCls} placeholder="VD: Doanh thu tháng" />
             {errors.name && <p className="text-red-500 text-xs mt-1">{errors.name.message}</p>}
           </div>
+
+          {aiSuggestions.length > 0 && (
+            <div className="bg-[var(--color-primary)]/5 border border-[var(--color-primary)]/20 rounded-xl p-3 space-y-2 animate-in fade-in slide-in-from-top-1">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-bold text-[var(--color-primary)] flex items-center gap-1">
+                  <Sparkles size={12} /> Gợi ý dành cho bạn:
+                </span>
+                <button type="button" onClick={() => setAiSuggestions([])} className="text-[10px] hover:underline">Đóng</button>
+              </div>
+              <div className="space-y-1.5">
+                {aiSuggestions.map((s, idx) => (
+                  <button
+                    key={idx}
+                    type="button"
+                    onClick={() => applySuggestion(s)}
+                    className="w-full text-left p-2 rounded-lg bg-[var(--color-background)] border border-[var(--color-border)] hover:border-[var(--color-primary)] transition-all group"
+                  >
+                    <div className="font-semibold text-xs group-hover:text-[var(--color-primary)]">{s.name}</div>
+                    <div className="text-[10px] text-[var(--color-muted-foreground)] line-clamp-1">{s.description}</div>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
 
           <div>
             <label className="block text-sm font-medium mb-1.5">Mô tả</label>

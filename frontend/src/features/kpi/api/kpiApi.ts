@@ -38,4 +38,7 @@ export const kpiApi = {
       headers: { 'Content-Type': 'multipart/form-data' },
     }).then((r) => r.data.data)
   },
+
+  getAiSuggestions: (orgUnitId?: string, context?: string) =>
+    axiosInstance.post<ApiResponse<any[]>>('/ai/suggest-kpi', { orgUnitId, context }).then((r) => r.data.data),
 }
