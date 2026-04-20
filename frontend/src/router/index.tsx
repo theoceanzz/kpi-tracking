@@ -10,17 +10,18 @@ import RegisterPage from '@/features/auth/pages/RegisterPage'
 import VerifyEmailPage from '@/features/auth/pages/VerifyEmailPage'
 import ForgotPasswordPage from '@/features/auth/pages/ForgotPasswordPage'
 import ResetPasswordPage from '@/features/auth/pages/ResetPasswordPage'
+import RoleManagementPage from '@/features/organization/pages/RoleManagementPage'
 
 // Dashboard pages
 import DirectorDashboard from '@/features/dashboard/pages/DirectorDashboard'
 import HeadDashboard from '@/features/dashboard/pages/HeadDashboard'
 import StaffDashboard from '@/features/dashboard/pages/StaffDashboard'
 
-// Feature pages
+import { OrganizationStructurePage } from '@/features/organization/pages/OrganizationStructurePage'
+import OrgUnitDetailPage from '@/features/organization/pages/OrgUnitDetailPage'
 import UsersPage from '@/features/users/pages/UsersPage'
 import OrgUnitsPage from '@/features/orgunits/pages/OrgUnitsPage'
 import CompanyPage from '@/features/orgunits/pages/CompanyPage'
-import OrgUnitDetailPage from '@/features/orgunits/pages/OrgUnitDetailPage'
 import KpiCriteriaPage from '@/features/kpi/pages/KpiCriteriaPage'
 import KpiApprovalPage from '@/features/kpi/pages/KpiApprovalPage'
 import MyKpiPage from '@/features/kpi/pages/MyKpiPage'
@@ -64,6 +65,9 @@ export const router = createBrowserRouter([
               { path: '/users', element: <UsersPage /> },
               { path: '/company', element: <CompanyPage /> },
               { path: '/org-units', element: <OrgUnitsPage /> },
+              { path: '/roles', element: <RoleManagementPage /> },
+              { path: '/org-structure', element: <OrganizationStructurePage /> },
+              { path: '/org-units/:id', element: <OrgUnitDetailPage /> },
               { path: '/kpi-criteria/pending', element: <KpiApprovalPage /> },
             ],
           },

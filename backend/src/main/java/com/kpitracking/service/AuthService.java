@@ -323,6 +323,7 @@ public class AuthService {
                         .orgUnitId(unit.getId())
                         .organizationId(unit.getOrgHierarchyLevel().getOrganization().getId())
                         .orgUnitName(unit.getName())
+                        .organizationId(unit.getOrgHierarchyLevel().getOrganization().getId())
                         .organizationName(unit.getOrgHierarchyLevel().getOrganization().getName())
                         .roleName(roleName)
                         .roleLabel(roleLabel)

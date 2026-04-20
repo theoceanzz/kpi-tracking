@@ -44,11 +44,26 @@ public class OrgUnitService {
         Organization organization = organizationRepository.findById(orgId)
                 .orElseThrow(() -> new ResourceNotFoundException("Tổ chức", "id", orgId));
 
-        com.kpitracking.entity.OrgHierarchyLevel hierarchyLevel = orgHierarchyLevelRepository.findById(request.getOrgHierarchyId())
-                .orElseThrow(() -> new ResourceNotFoundException("Cấp bậc tổ chức", "id", request.getOrgHierarchyId()));
+        OrgUnit parent = null;
+        int levelOrder = 1;
 
-        if (!hierarchyLevel.getOrganization().getId().equals(orgId)) {
-            throw new BusinessException("Cấp bậc không thuộc tổ chức này");
+        if (request.getParentId() != null) {
+            parent = orgUnitRepository.findByIdAndOrgHierarchyLevel_Organization_Id(request.getParentId(), orgId)
+                    .orElseThrow(() -> new ResourceNotFoundException("Đơn vị cha", "id", request.getParentId()));
+            levelOrder = parent.getOrgHierarchyLevel().getLevelOrder() + 1;
+        }
+
+        int finalLevelOrder = levelOrder;
+        com.kpitracking.entity.OrgHierarchyLevel hierarchyLevel = orgHierarchyLevelRepository
+                .findByOrganizationIdOrderByLevelOrderAsc(orgId)
+                .stream()
+                .filter(l -> l.getLevelOrder() == finalLevelOrder)
+                .findFirst()
+                .orElseThrow(() -> new BusinessException("Đã đạt giới hạn số lượng cấp bậc phân cấp của tổ chức"));
+
+        if (!hierarchyLevel.getUnitTypeName().equals(request.getUnitTypeName())) {
+            hierarchyLevel.setUnitTypeName(request.getUnitTypeName());
+            orgHierarchyLevelRepository.save(hierarchyLevel);
         }
 
         OrgUnit orgUnit = OrgUnit.builder()
@@ -57,9 +72,7 @@ public class OrgUnitService {
                 .path("/temp/")  // DB trigger will set the real path
                 .build();
 
-        if (request.getParentId() != null) {
-            OrgUnit parent = orgUnitRepository.findByIdAndOrgHierarchyLevel_Organization_Id(request.getParentId(), orgId)
-                    .orElseThrow(() -> new ResourceNotFoundException("Đơn vị cha", "id", request.getParentId()));
+        if (parent != null) {
             orgUnit.setParent(parent);
         }
 
@@ -141,6 +154,13 @@ public class OrgUnitService {
         orgUnit = orgUnitRepository.save(orgUnit);
         // Refresh to get trigger-updated path
         orgUnit = orgUnitRepository.findById(orgUnit.getId()).orElseThrow();
+        return orgUnitMapper.toResponse(orgUnit);
+    }
+
+    @Transactional(readOnly = true)
+    public OrgUnitResponse getOrgUnit(UUID orgId, UUID unitId) {
+        OrgUnit orgUnit = orgUnitRepository.findByIdAndOrgHierarchyLevel_Organization_Id(unitId, orgId)
+                .orElseThrow(() -> new ResourceNotFoundException("Đơn vị", "id", unitId));
         return orgUnitMapper.toResponse(orgUnit);
     }
 

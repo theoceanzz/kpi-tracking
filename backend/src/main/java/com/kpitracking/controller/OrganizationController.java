@@ -14,6 +14,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
 import java.util.UUID;
 
 @RestController
@@ -63,5 +64,12 @@ public class OrganizationController {
     public ResponseEntity<ApiResponse<Void>> deleteOrganization(@PathVariable UUID orgId) {
         organizationService.deleteOrganization(orgId);
         return ResponseEntity.ok(ApiResponse.success("Organization archived successfully"));
+    }
+
+    @GetMapping("/{orgId}/hierarchy-levels")
+    @Operation(summary = "Get hierarchy levels for an organization")
+    public ResponseEntity<ApiResponse<List<com.kpitracking.dto.response.organization.OrgHierarchyLevelResponse>>> getHierarchyLevels(@PathVariable UUID orgId) {
+        List<com.kpitracking.dto.response.organization.OrgHierarchyLevelResponse> response = organizationService.getHierarchyLevels(orgId);
+        return ResponseEntity.ok(ApiResponse.success(response));
     }
 }

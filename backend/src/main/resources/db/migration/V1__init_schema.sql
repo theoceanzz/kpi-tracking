@@ -88,8 +88,6 @@ CREATE INDEX idx_org_units_parent   ON org_units(parent_id);
 CREATE INDEX idx_org_units_path     ON org_units USING gist(path gist_trgm_ops);
 
 
-
-
 -- ====================================================
 -- Users
 -- ====================================================
