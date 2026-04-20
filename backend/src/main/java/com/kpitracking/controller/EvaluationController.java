@@ -25,7 +25,7 @@ public class EvaluationController {
     private final EvaluationService evaluationService;
 
     @PostMapping
-    @PreAuthorize("hasAnyRole('DIRECTOR', 'HEAD', 'STAFF')")
+    @PreAuthorize("hasAuthority('EVALUATION:CREATE')")
     @Operation(summary = "Create evaluation")
     public ResponseEntity<ApiResponse<EvaluationResponse>> createEvaluation(
             @Valid @RequestBody CreateEvaluationRequest request) {

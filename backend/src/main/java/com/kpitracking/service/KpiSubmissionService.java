@@ -19,6 +19,7 @@ import com.kpitracking.repository.KpiCriteriaRepository;
 import com.kpitracking.repository.KpiSubmissionRepository;
 import com.kpitracking.repository.UserRepository;
 import com.kpitracking.repository.UserRoleOrgUnitRepository;
+import com.kpitracking.security.PermissionChecker;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
@@ -42,6 +43,7 @@ public class KpiSubmissionService {
     private final UserRoleOrgUnitRepository userRoleOrgUnitRepository;
     private final SubmissionMapper submissionMapper;
     private final ApplicationEventPublisher eventPublisher;
+    private final PermissionChecker permissionChecker;
 
     private User getCurrentUser() {
         String email = SecurityContextHolder.getContext().getAuthentication().getName();
@@ -49,10 +51,6 @@ public class KpiSubmissionService {
                 .orElseThrow(() -> new ResourceNotFoundException("Người dùng", "email", email));
     }
 
-    private boolean hasRole(UUID userId, String roleName) {
-        return userRoleOrgUnitRepository.findByUserId(userId).stream()
-                .anyMatch(uro -> uro.getRole().getName().equalsIgnoreCase(roleName));
-    }
 
     @Transactional
     public SubmissionResponse createSubmission(CreateSubmissionRequest request) {
@@ -153,8 +151,8 @@ public class KpiSubmissionService {
             throw new BusinessException("Chỉ có thể phê duyệt các bản nộp đang ở trạng thái CHỜ DUYỆT");
         }
 
-        if (!hasRole(currentUser.getId(), "DIRECTOR") && !hasRole(currentUser.getId(), "HEAD")) {
-            throw new ForbiddenException("Chỉ GIÁM ĐỐC hoặc TRƯỞNG PHÒNG mới có quyền phê duyệt bản nộp");
+        if (!permissionChecker.hasPermission(currentUser.getId(), "SUBMISSION:REVIEW")) {
+            throw new ForbiddenException("Bạn không có quyền phê duyệt bản nộp");
         }
 
         submission.setStatus(request.getStatus());

@@ -1,34 +1,41 @@
 import { useAuthStore } from '@/store/authStore'
-import type { UserRole } from '@/types/auth'
 
+/**
+ * Permission-based access control hook.
+ * All access control is now based on permissions from the `permissions` array, not role names.
+ */
 export function usePermission() {
   const user = useAuthStore((s) => s.user)
 
-  const hasRole = (...roles: UserRole[]): boolean => {
-    if (!user || !user.roles) return false
-    return roles.some(role => user.roles.includes(role))
+  const hasPermission = (permission: string): boolean => {
+    if (!user || !user.permissions) return false
+    return user.permissions.includes(permission)
   }
 
-  const isDirector = hasRole('DIRECTOR')
-  const isHead = hasRole('HEAD')
-  const isDeputy = hasRole('DEPUTY')
-  const isStaff = hasRole('STAFF')
+  const hasAnyPermission = (...permissions: string[]): boolean => {
+    if (!user || !user.permissions) return false
+    return permissions.some(p => user.permissions.includes(p))
+  }
 
-  const canApprove = isDirector || isHead
-  const canManage = isDirector
-  const canCreateKpi = isHead || isDeputy
-  const canSubmit = isStaff
+  // Computed permission checks for common use cases
+  const canApprove = hasPermission('KPI:APPROVE')
+  const canManage = hasPermission('ORG:VIEW') && hasPermission('USER:VIEW')
+  const canCreateKpi = hasPermission('KPI:CREATE')
+  const canSubmit = hasPermission('SUBMISSION:CREATE')
+  const canViewDashboard = hasPermission('DASHBOARD:VIEW')
+  const canCreateEvaluation = hasPermission('EVALUATION:CREATE')
+  const canReviewSubmission = hasPermission('SUBMISSION:REVIEW')
 
   return { 
-    hasRole, 
-    isDirector, 
-    isHead, 
-    isDeputy, 
-    isStaff, 
+    hasPermission, 
+    hasAnyPermission,
     canApprove, 
     canManage, 
     canCreateKpi, 
     canSubmit,
-    userRoles: user?.roles || []
+    canViewDashboard,
+    canCreateEvaluation,
+    canReviewSubmission,
+    permissions: user?.permissions || []
   }
 }

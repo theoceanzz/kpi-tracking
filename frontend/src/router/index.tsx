@@ -2,7 +2,7 @@ import { createBrowserRouter, Navigate } from 'react-router-dom'
 import AuthLayout from '@/layouts/AuthLayout'
 import AppLayout from '@/layouts/AppLayout'
 import ProtectedRoute from './ProtectedRoute'
-import RoleRoute from './RoleRoute'
+import PermissionRoute from './PermissionRoute'
 
 // Auth pages
 import LoginPage from '@/features/auth/pages/LoginPage'
@@ -59,7 +59,7 @@ export const router = createBrowserRouter([
 
           // Director only
           {
-            element: <RoleRoute allowedRoles={['DIRECTOR']} />,
+            element: <PermissionRoute permission={['ORG:VIEW', 'USER:VIEW', 'ROLE:VIEW']} requireAll={true} />,
             children: [
               { path: '/dashboard/director', element: <DirectorDashboard /> },
               { path: '/users', element: <UsersPage /> },
@@ -74,7 +74,7 @@ export const router = createBrowserRouter([
 
           // Director + Head + Deputy
           {
-            element: <RoleRoute allowedRoles={['DIRECTOR', 'HEAD', 'DEPUTY']} />,
+            element: <PermissionRoute permission={['KPI:VIEW', 'SUBMISSION:REVIEW']} />,
             children: [
               { path: '/dashboard/head', element: <HeadDashboard /> },
               { path: '/org-units/:id', element: <OrgUnitDetailPage /> },
@@ -85,7 +85,7 @@ export const router = createBrowserRouter([
 
           // Staff only
           {
-            element: <RoleRoute allowedRoles={['STAFF']} />,
+            element: <PermissionRoute permission="KPI:VIEW_MY" />,
             children: [
               { path: '/dashboard/staff', element: <StaffDashboard /> },
             ],

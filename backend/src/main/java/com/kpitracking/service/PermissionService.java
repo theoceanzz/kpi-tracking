@@ -49,20 +49,38 @@ public class PermissionService {
         Role role = roleRepository.findById(roleId)
                 .orElseThrow(() -> new ResourceNotFoundException("Role", "id", roleId));
 
-        List<Permission> permissions = permissionRepository.findAllByIdIn(request.getPermissionIds());
-        if (permissions.size() != request.getPermissionIds().size()) {
+        if (Boolean.TRUE.equals(role.getIsSystem())) {
+             throw new com.kpitracking.exception.BusinessException("Không thể chỉnh sửa quyền cho vai trò hệ thống");
+        }
+
+        List<Permission> newPermissions = permissionRepository.findAllByIdIn(request.getPermissionIds());
+        if (newPermissions.size() != request.getPermissionIds().size()) {
             throw new ResourceNotFoundException("Một số quyền hạn không tìm thấy");
         }
 
-        for (Permission permission : permissions) {
-            if (!rolePermissionRepository.existsByRoleIdAndPermissionId(roleId, permission.getId())) {
-                RolePermission rolePermission = RolePermission.builder()
-                        .role(role)
-                        .permission(permission)
-                        .build();
-                rolePermissionRepository.save(rolePermission);
-            }
-        }
+        // Get currently assigned permissions
+        List<RolePermission> currentRolePermissions = rolePermissionRepository.findByRoleId(roleId);
+        java.util.Set<UUID> currentPermissionIds = currentRolePermissions.stream()
+                .map(rp -> rp.getPermission().getId())
+                .collect(java.util.stream.Collectors.toSet());
+
+        java.util.Set<UUID> newPermissionIds = new java.util.HashSet<>(request.getPermissionIds());
+
+        // 1. Remove permissions no longer selected
+        currentRolePermissions.stream()
+                .filter(rp -> !newPermissionIds.contains(rp.getPermission().getId()))
+                .forEach(rolePermissionRepository::delete);
+
+        // 2. Add new permissions
+        newPermissions.stream()
+                .filter(p -> !currentPermissionIds.contains(p.getId()))
+                .forEach(p -> {
+                    RolePermission rp = RolePermission.builder()
+                            .role(role)
+                            .permission(p)
+                            .build();
+                    rolePermissionRepository.save(rp);
+                });
     }
 
     @Transactional

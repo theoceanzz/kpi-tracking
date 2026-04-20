@@ -40,7 +40,8 @@ function getScoreLabel(score: number | null) {
 export default function EvaluationsPage() {
   const { data, isLoading } = useEvaluations({ size: 200 })
   const { user } = useAuthStore()
-  const { isStaff } = usePermission()
+  const { hasPermission } = usePermission()
+  const canSelfEvaluate = hasPermission('SUBMISSION:CREATE') // Staff-like: can create submissions and self-evaluate
 
   const [showForm, setShowForm] = useState(false)
   const [detailEval, setDetailEval] = useState<Evaluation | null>(null)
@@ -78,10 +79,10 @@ export default function EvaluationsPage() {
             <Star size={14} /> Hiệu suất nhân sự
           </div>
           <h1 className="text-3xl md:text-4xl font-black tracking-tight text-slate-900 dark:text-white">
-            {isStaff ? 'Tự đánh giá Hiệu suất' : 'Đánh giá Nhân sự'}
+            {canSelfEvaluate ? 'Tự đánh giá Hiệu suất' : 'Đánh giá Nhân sự'}
           </h1>
           <p className="text-slate-500 font-medium max-w-lg">
-            {isStaff 
+            {canSelfEvaluate 
               ? 'Tự chấm điểm và đánh giá bản thân theo từng chỉ tiêu KPI được giao.'
               : 'Xem xét và phản hồi đánh giá hiệu suất do nhân viên tự nộp.'}
           </p>
@@ -127,7 +128,7 @@ export default function EvaluationsPage() {
           </button>
         </div>
 
-        {isStaff && (
+        {canSelfEvaluate && (
           <button 
             onClick={() => setShowForm(true)} 
             className="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-indigo-600 text-white text-sm font-bold hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-500/20 active:scale-95"
@@ -144,7 +145,7 @@ export default function EvaluationsPage() {
         <div className="bg-white dark:bg-slate-900 rounded-[32px] border border-dashed border-slate-300 dark:border-slate-800 p-16">
           <EmptyState 
             title="Chưa có đánh giá nào" 
-            description={isStaff 
+            description={canSelfEvaluate 
               ? 'Hãy bắt đầu tự đánh giá hiệu suất của bạn theo từng chỉ tiêu KPI.' 
               : 'Chưa có nhân viên nào nộp bản tự đánh giá.'
             } 

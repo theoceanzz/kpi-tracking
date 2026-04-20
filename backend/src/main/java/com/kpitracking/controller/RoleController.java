@@ -20,7 +20,7 @@ import java.util.UUID;
 @RestController
 @RequestMapping("/api/v1/roles")
 @RequiredArgsConstructor
-@PreAuthorize("hasRole('DIRECTOR')")
+@PreAuthorize("hasAuthority('ROLE:VIEW')")
 @Tag(name = "Roles", description = "Role management endpoints")
 public class RoleController {
 
