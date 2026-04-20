@@ -50,6 +50,15 @@ public class OrgUnitController {
         return ResponseEntity.ok(ApiResponse.success("Org unit updated successfully", response));
     }
 
+    @GetMapping("/{unitId}")
+    @Operation(summary = "Get org unit details")
+    public ResponseEntity<ApiResponse<OrgUnitResponse>> getOrgUnit(
+            @PathVariable UUID orgId,
+            @PathVariable UUID unitId) {
+        OrgUnitResponse response = orgUnitService.getOrgUnit(orgId, unitId);
+        return ResponseEntity.ok(ApiResponse.success(response));
+    }
+
     @DeleteMapping("/{unitId}")
     @Operation(summary = "Soft delete org unit")
     public ResponseEntity<ApiResponse<Void>> deleteOrgUnit(

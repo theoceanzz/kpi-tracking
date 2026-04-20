@@ -18,13 +18,16 @@ import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
 public class OrganizationService {
 
     private final OrganizationRepository organizationRepository;
+    private final com.kpitracking.repository.OrgHierarchyLevelRepository orgHierarchyLevelRepository;
     private final OrganizationMapper organizationMapper;
 
     @Transactional
@@ -87,5 +90,21 @@ public class OrganizationService {
                 .orElseThrow(() -> new ResourceNotFoundException("Tổ chức", "id", orgId));
         organization.setStatus(OrganizationStatus.ARCHIVED);
         organizationRepository.save(organization);
+    }
+
+    @Transactional(readOnly = true)
+    public List<com.kpitracking.dto.response.organization.OrgHierarchyLevelResponse> getHierarchyLevels(UUID orgId) {
+        organizationRepository.findById(orgId)
+                .orElseThrow(() -> new ResourceNotFoundException("Tổ chức", "id", orgId));
+
+        return orgHierarchyLevelRepository.findByOrganizationIdOrderByLevelOrderAsc(orgId)
+                .stream()
+                .map(level -> com.kpitracking.dto.response.organization.OrgHierarchyLevelResponse.builder()
+                        .id(level.getId())
+                        .levelOrder(level.getLevelOrder())
+                        .unitTypeName(level.getUnitTypeName())
+                        .managerRoleLabel(level.getManagerRoleLabel())
+                        .build())
+                .collect(Collectors.toList());
     }
 }

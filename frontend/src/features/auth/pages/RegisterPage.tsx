@@ -7,7 +7,7 @@ import { authApi } from '../api/authApi'
 import { useNavigate, Link } from 'react-router-dom'
 import { toast } from 'sonner'
 // 2. Thêm Eye và EyeOff từ lucide-react
-import { Loader2, Mail, Lock, Building2, User, Phone, Eye, EyeOff, Wand2, Check, Plus, Trash2, ChevronDown, ChevronUp, Layers } from 'lucide-react'
+import { Loader2, Mail, Lock, Building2, User, Phone, Eye, EyeOff, Wand2, Check, Trash2, ChevronDown, ChevronUp, Layers } from 'lucide-react'
 
 export default function RegisterPage() {
   const [showPassword, setShowPassword] = useState(false)
