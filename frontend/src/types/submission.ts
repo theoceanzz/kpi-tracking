@@ -17,7 +17,9 @@ export interface Submission {
   reviewedAt: string | null
   periodStart: string | null
   periodEnd: string | null
+  autoScore: number | null
   attachments: Attachment[]
+  isSubmittedByManager: boolean
   createdAt: string
   updatedAt: string
 }

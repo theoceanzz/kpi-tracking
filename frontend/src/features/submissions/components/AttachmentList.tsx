@@ -23,7 +23,8 @@ export default function AttachmentList({ attachments }: AttachmentListProps) {
         {attachments.map((a) => {
           const isImage = a.contentType?.startsWith('image/') || /\.(jpg|jpeg|png|webp)$/i.test(a.fileName)
           const isPdf = a.contentType === 'application/pdf' || a.fileName.toLowerCase().endsWith('.pdf')
-          const canPreview = isImage || isPdf
+          const isOffice = /\.(docx?|xlsx?|pptx?)$/i.test(a.fileName)
+          const canPreview = isImage || isPdf || isOffice
 
           return (
             <div 

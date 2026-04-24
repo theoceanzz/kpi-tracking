@@ -1,9 +1,9 @@
 import { useQuery } from '@tanstack/react-query'
 import { statsApi } from '../api/statsApi'
 
-export function useEmployeeStats() {
+export function useEmployeeStats(page = 0, size = 5) {
   return useQuery({
-    queryKey: ['stats', 'employees'],
-    queryFn: () => statsApi.getEmployeeStats(),
+    queryKey: ['stats', 'employees', page, size],
+    queryFn: () => statsApi.getEmployeeStats(page, size),
   })
 }

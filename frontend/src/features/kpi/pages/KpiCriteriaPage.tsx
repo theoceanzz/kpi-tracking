@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useMemo } from 'react'
 import LoadingSkeleton from '@/components/common/LoadingSkeleton'
 import EmptyState from '@/components/common/EmptyState'
 import KpiFormModal from '../components/KpiFormModal'
@@ -12,12 +12,17 @@ import type { KpiCriteria } from '@/types/kpi'
 import {
   Target, Plus, Send, Pencil, Trash2, MoreVertical,
   Calendar, CheckCircle2, AlertCircle, XCircle, Search, 
-  Filter, UserCircle2, Upload, Loader2
+  Filter, UserCircle2, Upload, Gauge, Eye,
+  LayoutGrid, List, ArrowUpDown, ChevronLeft, ChevronRight
 } from 'lucide-react'
+import KpiDetailModal from '../components/KpiDetailModal'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { kpiApi } from '../api/kpiApi'
 import { toast } from 'sonner'
 import KpiImportGuideModal from '../components/KpiImportGuideModal'
+import { useKpiPeriods } from '../hooks/useKpiPeriods'
+import { useKpiTotalWeight } from '../hooks/useKpiTotalWeight'
+import { useOrgUnitTree } from '@/features/orgunits/hooks/useOrgUnitTree'
 
 const frequencyMap: Record<string, string> = {
   DAILY: 'Hàng ngày', WEEKLY: 'Hàng tuần', MONTHLY: 'Hàng tháng', QUARTERLY: 'Hàng quý', YEARLY: 'Hàng năm',
@@ -30,7 +35,6 @@ const statusConfig: Record<string, { label: string; color: string; bgColor: stri
   REJECTED: { label: 'Từ chối', color: 'text-red-600 dark:text-red-400', bgColor: 'bg-red-100 border-red-200 dark:bg-red-900/30 dark:border-red-900/40', icon: XCircle },
 }
 
-// Hook to handle click outside for dropdowns
 function useOnClickOutside(ref: any, handler: any) {
   useEffect(() => {
     const listener = (event: any) => {
@@ -51,23 +55,70 @@ export default function KpiCriteriaPage() {
   const [editKpi, setEditKpi] = useState<KpiCriteria | null>(null)
   const [deleteKpi, setDeleteKpi] = useState<KpiCriteria | null>(null)
   const [submitKpiId, setSubmitKpiId] = useState<string | null>(null)
+  const [selectedKpi, setSelectedKpi] = useState<KpiCriteria | null>(null)
   
   const [activeTab, setActiveTab] = useState<'ALL' | 'DRAFT' | 'PENDING_APPROVAL' | 'APPROVED' | 'REJECTED'>('ALL')
   const [search, setSearch] = useState('')
   const [showImportGuide, setShowImportGuide] = useState(false)
+  const [selectedPeriodId, setSelectedPeriodId] = useState<string>('')
+  const [selectedOrgUnitId, setSelectedOrgUnitId] = useState<string>('')
+  const [viewMode, setViewMode] = useState<'TABLE' | 'CARD'>('TABLE')
+  const [page, setPage] = useState(0)
+  const [pageSize] = useState(5)
+  const [sortBy, setSortBy] = useState('createdAt')
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc')
+  
   const fileRef = useRef<HTMLInputElement>(null)
   const qc = useQueryClient()
 
   const user = useAuthStore(s => s.user)
+  const { data: periodsData } = useKpiPeriods({ organizationId: user?.memberships?.[0]?.organizationId })
+  const { data: orgUnitTreeData } = useOrgUnitTree()
+  
+  const flattenTree = (nodes: any[], level = 0): any[] => {
+    let result: any[] = []
+    nodes.forEach(node => {
+      result.push({ ...node, levelLabel: '—'.repeat(level) + (level > 0 ? ' ' : '') + node.name })
+      if (node.children?.length) {
+        result = result.concat(flattenTree(node.children, level + 1))
+      }
+    })
+    return result
+  }
+  const flatOrgUnits = useMemo(() => orgUnitTreeData ? flattenTree(orgUnitTreeData) : [], [orgUnitTreeData])
+  
+  // Default to root Org Unit on load if not set
+  useEffect(() => {
+    if (flatOrgUnits.length > 0 && !selectedOrgUnitId) {
+      // Find user's primary org unit if possible, otherwise first one (Root)
+      const primaryOrgUnitId = user?.memberships?.[0]?.orgUnitId
+      const existsInList = flatOrgUnits.some(o => o.id === primaryOrgUnitId)
+      setSelectedOrgUnitId(existsInList ? primaryOrgUnitId! : flatOrgUnits[0].id)
+    }
+  }, [flatOrgUnits, user])
+
   const { data, isLoading } = useKpiCriteria(
-    { size: 100, createdById: user?.id },
+    { 
+      page,
+      size: pageSize, 
+      createdById: user?.id,
+      kpiPeriodId: selectedPeriodId || undefined,
+      orgUnitId: selectedOrgUnitId || undefined,
+      sortBy,
+      sortDir
+    },
     { enabled: !!user?.id }
+  )
+
+  const { data: totalWeightData } = useKpiTotalWeight(
+    selectedOrgUnitId || undefined,
+    selectedPeriodId
   )
   const deleteMutation = useDeleteKpi()
   const submitMutation = useSubmitKpi()
 
   const importMutation = useMutation({
-    mutationFn: (file: File) => kpiApi.importFile(file),
+    mutationFn: (file: File) => kpiApi.importFile(file, selectedPeriodId, selectedOrgUnitId),
     onSuccess: (result) => {
       qc.invalidateQueries({ queryKey: ['kpi-criteria'] })
       toast.success(`Import thành công ${result.successfulImports}/${result.totalRows} dòng`)
@@ -95,9 +146,11 @@ export default function KpiCriteriaPage() {
      (k.assigneeNames && k.assigneeNames.some(name => name.toLowerCase().includes(search.toLowerCase()))))
   )
 
+  const displayTotalWeight = totalWeightData ?? 0
+
   const stats = {
-    total: allKpis.length,
-    draft: allKpis.filter(k => k.status === 'DRAFT').length,
+    total: data?.totalElements || 0,
+    draft: allKpis.filter(k => k.status === 'DRAFT').length, // This is still local, but user prioritized weight/total
     pending: allKpis.filter(k => k.status === 'PENDING_APPROVAL').length,
   }
 
@@ -125,59 +178,106 @@ export default function KpiCriteriaPage() {
               <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Chỉ tiêu</p>
             </div>
             <div className="px-5 py-2 text-center">
-              <p className="text-2xl font-black text-amber-600 dark:text-amber-400">{stats.pending}</p>
-              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Chờ duyệt</p>
+              <p className={`text-2xl font-black flex items-center gap-2 justify-center ${
+                displayTotalWeight === 100 ? 'text-emerald-600' : 'text-rose-600'
+              }`}>
+                <Gauge size={20} className="shrink-0" />
+                {displayTotalWeight}%
+              </p>
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Trọng số</p>
             </div>
           </div>
         </div>
       </div>
 
+      {/* Global Warning for Weight */}
+      {selectedPeriodId && displayTotalWeight !== 100 && (
+        <div className="flex items-center gap-3 p-4 rounded-2xl bg-rose-50 dark:bg-rose-900/20 border border-rose-100 dark:border-rose-900/30 text-rose-700 dark:text-rose-400 shadow-sm animate-in fade-in slide-in-from-top-2">
+          <AlertCircle size={20} className="shrink-0" />
+          <p className="text-sm font-bold">
+            Tổng trọng số ({displayTotalWeight}%) chưa đạt hoặc vượt quá 100%. Bạn cần điều chỉnh để có thể gửi duyệt.
+          </p>
+        </div>
+      )}
+
       {/* Toolbar */}
-      <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-        {/* Search & Filter */}
-        <div className="flex items-center gap-3 w-full sm:w-auto">
-          <div className="relative flex-1 sm:w-80">
-            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+      <div className="flex flex-col xl:flex-row items-center justify-between gap-6 bg-white dark:bg-slate-900 p-4 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm">
+        <div className="flex flex-col md:flex-row items-center gap-4 w-full xl:w-auto">
+          <div className="relative flex-1 md:w-80">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
             <input 
               value={search}
-              onChange={e => setSearch(e.target.value)}
+              onChange={e => { setSearch(e.target.value); setPage(0) }}
               placeholder="Tìm theo tên KPI hoặc nhân viên..." 
-              className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm focus:ring-2 focus:ring-indigo-500/30 outline-none transition-all"
+              className="w-full pl-12 pr-4 py-3 rounded-2xl border border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50 text-sm focus:ring-2 focus:ring-indigo-500/20 outline-none transition-all"
             />
           </div>
-          <button className="p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-500 hover:text-indigo-600 shrink-0">
-            <Filter size={18} />
-          </button>
+
+          <div className="flex items-center gap-3 w-full md:w-auto">
+            <div className="relative flex-1 md:w-48">
+              <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+              <select
+                value={selectedPeriodId}
+                onChange={e => { setSelectedPeriodId(e.target.value); setPage(0) }}
+                className="w-full pl-10 pr-4 py-3 rounded-2xl border border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50 text-sm focus:ring-2 focus:ring-indigo-500/20 outline-none appearance-none transition-all"
+              >
+                <option value="">Đợt KPI...</option>
+                {periodsData?.content.map(p => (
+                  <option key={p.id} value={p.id}>{p.name}</option>
+                ))}
+              </select>
+            </div>
+
+            <div className="relative flex-1 md:w-48">
+              <Filter className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+              <select
+                value={selectedOrgUnitId}
+                onChange={e => { setSelectedOrgUnitId(e.target.value); setPage(0) }}
+                className="w-full pl-10 pr-4 py-3 rounded-2xl border border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50 text-sm focus:ring-2 focus:ring-indigo-500/20 outline-none appearance-none transition-all"
+              >
+                {flatOrgUnits.map((o: any) => (
+                  <option key={o.id} value={o.id}>{o.levelLabel}</option>
+                ))}
+              </select>
+            </div>
+          </div>
         </div>
 
-        <div className="flex items-center gap-3 shrink-0 w-full sm:w-auto">
+        <div className="flex items-center gap-3 shrink-0 w-full xl:w-auto">
+          <div className="flex items-center bg-slate-100 dark:bg-slate-800 p-1 rounded-xl mr-2">
+            <button 
+              onClick={() => setViewMode('TABLE')}
+              className={`p-1.5 rounded-lg transition-all ${viewMode === 'TABLE' ? 'bg-white dark:bg-slate-700 shadow-sm text-indigo-600' : 'text-slate-400'}`}
+              title="Xem dạng bảng"
+            >
+              <List size={20} />
+            </button>
+            <button 
+              onClick={() => setViewMode('CARD')}
+              className={`p-1.5 rounded-lg transition-all ${viewMode === 'CARD' ? 'bg-white dark:bg-slate-700 shadow-sm text-indigo-600' : 'text-slate-400'}`}
+              title="Xem dạng thẻ"
+            >
+              <LayoutGrid size={20} />
+            </button>
+          </div>
+
           <button 
             onClick={() => setShowImportGuide(true)}
-            disabled={importMutation.isPending}
-            className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-sm font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all shadow-sm"
+            className="flex-1 md:flex-none flex items-center justify-center gap-2 px-5 py-3 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-sm font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all shadow-sm"
           >
-            {importMutation.isPending ? <Loader2 size={16} className="animate-spin" /> : <Upload size={16} />}
-            Import Excel
+            <Upload size={16} />
+            Import
           </button>
           
           <button 
             onClick={() => { setEditKpi(null); setShowForm(true) }} 
-            className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-6 py-2.5 rounded-xl bg-indigo-600 text-white text-sm font-bold hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-500/20 active:scale-95"
+            className="flex-1 md:flex-none flex items-center justify-center gap-2 px-6 py-3 rounded-2xl bg-indigo-600 text-white text-sm font-black hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-500/20 active:scale-95"
           >
-            <Plus size={18} /> Tạo Chỉ tiêu mới
+            <Plus size={18} /> Tạo mới
           </button>
         </div>
-
-        <input 
-          ref={fileRef}
-          type="file" 
-          accept=".xlsx,.xls,.csv" 
-          className="hidden" 
-          onChange={handleImport} 
-        />
       </div>
 
-      {/* Tabs */}
       <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-hide">
         {['ALL', 'DRAFT', 'PENDING_APPROVAL', 'APPROVED', 'REJECTED'].map((tab) => {
           const tabLabels: Record<string, string> = { ALL: 'Tất cả trạng thái', DRAFT: 'Bản nháp', PENDING_APPROVAL: 'Đang đợi duyệt', APPROVED: 'Đã phê duyệt', REJECTED: 'Bị từ chối' }
@@ -198,15 +298,56 @@ export default function KpiCriteriaPage() {
         })}
       </div>
 
-      {/* Content */}
       {isLoading ? (
-        <LoadingSkeleton type="table" rows={6} />
+        <LoadingSkeleton type="table" rows={8} />
       ) : filteredKpis.length === 0 ? (
-        <div className="bg-white dark:bg-slate-900 rounded-[32px] border border-dashed border-slate-300 dark:border-slate-800 p-16">
+        <div className="bg-white dark:bg-slate-900 rounded-[40px] border border-slate-100 dark:border-slate-800 p-20 shadow-sm">
           <EmptyState 
             title="Không tìm thấy chỉ tiêu" 
-            description={search || activeTab !== 'ALL' ? 'Hãy thử thay đổi bộ lọc hoặc từ khóa tìm kiếm.' : 'Phòng ban chưa có chỉ tiêu KPI nào được thiết lập.'} 
+            description={search || activeTab !== 'ALL' ? 'Hãy thử thay đổi bộ lọc hoặc từ khóa tìm kiếm.' : 'Hệ thống chưa có chỉ tiêu KPI nào.'} 
           />
+        </div>
+      ) : viewMode === 'TABLE' ? (
+        <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-sm">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="bg-slate-50/50 dark:bg-slate-800/50 border-b border-slate-100 dark:border-slate-800">
+                  <th className="px-6 py-4 text-[11px] font-black uppercase tracking-widest text-slate-400">Trạng thái</th>
+                  <th className="px-6 py-4 text-[11px] font-black uppercase tracking-widest text-slate-400">
+                    <button onClick={() => { setSortBy('name'); setSortDir(sortDir === 'asc' ? 'desc' : 'asc') }} className="flex items-center gap-1 hover:text-indigo-600 transition-colors">
+                      Chỉ tiêu <ArrowUpDown size={12} />
+                    </button>
+                  </th>
+                  <th className="px-6 py-4 text-[11px] font-black uppercase tracking-widest text-slate-400">Giao cho</th>
+                  <th className="px-6 py-4 text-[11px] font-black uppercase tracking-widest text-slate-400">
+                    <button onClick={() => { setSortBy('targetValue'); setSortDir(sortDir === 'asc' ? 'desc' : 'asc') }} className="flex items-center gap-1 hover:text-indigo-600 transition-colors text-right w-full justify-end">
+                      Mục tiêu <ArrowUpDown size={12} />
+                    </button>
+                  </th>
+                  <th className="px-6 py-4 text-[11px] font-black uppercase tracking-widest text-slate-400">
+                    <button onClick={() => { setSortBy('weight'); setSortDir(sortDir === 'asc' ? 'desc' : 'asc') }} className="flex items-center gap-1 hover:text-indigo-600 transition-colors">
+                      Trọng số <ArrowUpDown size={12} />
+                    </button>
+                  </th>
+                  <th className="px-6 py-4 text-[11px] font-black uppercase tracking-widest text-slate-400 text-right">Thao tác</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                {filteredKpis.map((kpi) => (
+                  <KpiTableRow 
+                    key={kpi.id} 
+                    kpi={kpi} 
+                    onView={() => setSelectedKpi(kpi)}
+                    onEdit={() => { setEditKpi(kpi); setShowForm(true) }}
+                    onDelete={() => setDeleteKpi(kpi)}
+                    onSubmit={() => setSubmitKpiId(kpi.id)}
+                    totalWeight={displayTotalWeight}
+                  />
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -214,16 +355,56 @@ export default function KpiCriteriaPage() {
             <KpiCard 
               key={kpi.id} 
               kpi={kpi} 
-              delay={idx * 50}
+              delay={idx * 40}
+              onView={() => setSelectedKpi(kpi)}
               onEdit={() => { setEditKpi(kpi); setShowForm(true) }}
               onDelete={() => setDeleteKpi(kpi)}
               onSubmit={() => setSubmitKpiId(kpi.id)}
+              totalWeight={displayTotalWeight}
             />
           ))}
         </div>
       )}
 
-      {/* Modals */}
+      {data && data.totalElements > 0 && (
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-4 border-t border-slate-100 dark:border-slate-800">
+          <p className="text-sm font-medium text-slate-500">
+            Hiển thị <span className="text-slate-900 dark:text-white">{page * pageSize + 1}</span> - <span className="text-slate-900 dark:text-white">{Math.min((page + 1) * pageSize, data.totalElements)}</span> của <span className="text-slate-900 dark:text-white">{data.totalElements}</span> chỉ tiêu
+          </p>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setPage((p: number) => Math.max(0, p - 1))}
+              disabled={page === 0}
+              className="p-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 disabled:opacity-50 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all"
+            >
+              <ChevronLeft size={20} />
+            </button>
+            <div className="flex items-center gap-1">
+              {[...Array(data.totalPages)].map((_, i) => (
+                <button
+                  key={i}
+                  onClick={() => setPage(i)}
+                  className={`w-10 h-10 rounded-xl text-sm font-black transition-all ${
+                    page === i 
+                      ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/20' 
+                      : 'hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-400'
+                  }`}
+                >
+                  {i + 1}
+                </button>
+              ))}
+            </div>
+            <button
+              onClick={() => setPage((p: number) => Math.min(data.totalPages - 1, p + 1))}
+              disabled={page === data.totalPages - 1}
+              className="p-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 disabled:opacity-50 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all"
+            >
+              <ChevronRight size={20} />
+            </button>
+          </div>
+        </div>
+      )}
+
       <KpiFormModal open={showForm} onClose={() => { setShowForm(false); setEditKpi(null) }} editKpi={editKpi} />
       <KpiImportGuideModal 
         open={showImportGuide} 
@@ -248,12 +429,95 @@ export default function KpiCriteriaPage() {
         confirmLabel="Xoá vĩnh viễn" 
         loading={deleteMutation.isPending} 
       />
+      <KpiDetailModal 
+        open={!!selectedKpi} 
+        onClose={() => setSelectedKpi(null)} 
+        kpi={selectedKpi} 
+      />
+       <input 
+          ref={fileRef}
+          type="file" 
+          accept=".xlsx,.xls,.csv" 
+          className="hidden" 
+          onChange={handleImport} 
+        />
     </div>
   )
 }
 
-function KpiCard({ kpi, delay, onEdit, onDelete, onSubmit }: { 
-  kpi: KpiCriteria; delay: number; onEdit: () => void; onDelete: () => void; onSubmit: () => void 
+function KpiTableRow({ kpi, onView, onEdit, onDelete, onSubmit, totalWeight }: { 
+  kpi: KpiCriteria; onView: () => void; onEdit: () => void; onDelete: () => void; onSubmit: () => void; totalWeight: number 
+}) {
+  const status = statusConfig[kpi.status] ?? statusConfig['DRAFT']!
+  const StatusIcon = status.icon
+  
+  return (
+    <tr className="group hover:bg-slate-50/50 dark:hover:bg-slate-800/50 transition-colors">
+      <td className="px-6 py-4">
+        <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-[9px] font-black uppercase tracking-widest ${status.bgColor} ${status.color}`}>
+          <StatusIcon size={10} /> {status.label}
+        </div>
+      </td>
+      <td className="px-6 py-4">
+        <button onClick={onView} className="max-w-md text-left group/name focus:outline-none">
+          <p className="text-sm font-bold text-slate-900 dark:text-white group-hover/name:text-indigo-600 transition-colors truncate">
+            {kpi.name}
+          </p>
+          <p className="text-xs text-slate-500 line-clamp-1 mt-0.5">{kpi.description || '—'}</p>
+        </button>
+      </td>
+      <td className="px-6 py-4">
+        <div className="flex items-center gap-2">
+          <UserCircle2 size={14} className="text-slate-400" />
+          <span className="text-xs font-semibold text-slate-600 dark:text-slate-300">
+            {formatAssigneeNames(kpi.assigneeNames)}
+          </span>
+        </div>
+      </td>
+      <td className="px-6 py-4 text-right">
+        <span className="text-sm font-black text-slate-900 dark:text-white">
+          {formatNumber(kpi.targetValue || 0)} <span className="text-[10px] text-slate-400 font-medium ml-0.5">{kpi.unit}</span>
+        </span>
+      </td>
+      <td className="px-6 py-4">
+        <div className="flex items-center gap-2">
+          <span className="text-sm font-black text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/30 px-2 py-0.5 rounded-md">
+            {kpi.weight}%
+          </span>
+          <span className="text-[10px] text-slate-400 font-bold uppercase">{frequencyMap[kpi.frequency] || kpi.frequency}</span>
+        </div>
+      </td>
+
+      <td className="px-6 py-4 text-right">
+        <div className="flex items-center justify-end gap-1">
+          <button onClick={onView} className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-all" title="Xem chi tiết">
+            <Eye size={16} />
+          </button>
+          {(kpi.status === 'DRAFT' || kpi.status === 'REJECTED') && (
+            <>
+              <button 
+                onClick={onSubmit} 
+                className={`p-2 rounded-lg transition-all ${totalWeight === 100 ? 'text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/30' : 'text-slate-300 cursor-not-allowed'}`}
+                title="Gửi duyệt"
+              >
+                <Send size={16} />
+              </button>
+              <button onClick={onEdit} className="p-2 text-slate-500 hover:text-indigo-600 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-all" title="Sửa">
+                <Pencil size={16} />
+              </button>
+              <button onClick={onDelete} className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition-all" title="Xóa">
+                <Trash2 size={16} />
+              </button>
+            </>
+          )}
+        </div>
+      </td>
+    </tr>
+  )
+}
+
+function KpiCard({ kpi, delay, onView, onEdit, onDelete, onSubmit, totalWeight }: { 
+  kpi: KpiCriteria; delay: number; onView: () => void; onEdit: () => void; onDelete: () => void; onSubmit: () => void; totalWeight: number
 }) {
   const [menuOpen, setMenuOpen] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
@@ -267,13 +531,10 @@ function KpiCard({ kpi, delay, onEdit, onDelete, onSubmit }: {
       className="group bg-white dark:bg-slate-900 rounded-[28px] border border-slate-200 dark:border-slate-800 shadow-sm hover:shadow-xl hover:border-indigo-300 dark:hover:border-indigo-800 transition-all duration-300 animate-in fade-in slide-in-from-bottom-4 flex flex-col"
       style={{ animationDelay: `${delay}ms` }}
     >
-      {/* Card Header & Status */}
       <div className="p-6 border-b border-slate-100 dark:border-slate-800 flex items-start justify-between gap-4">
         <div className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-[10px] font-black uppercase tracking-widest ${status.bgColor} ${status.color}`}>
           <StatusIcon size={12} /> {status.label}
         </div>
-        
-        {/* 3-Dots Dropdown Menu */}
         <div className="relative" ref={menuRef}>
           <button 
             onClick={() => setMenuOpen(!menuOpen)}
@@ -281,17 +542,32 @@ function KpiCard({ kpi, delay, onEdit, onDelete, onSubmit }: {
           >
             <MoreVertical size={18} />
           </button>
-          
           {menuOpen && (
             <div className="absolute right-0 top-full mt-2 w-48 rounded-2xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-xl overflow-hidden z-20 animate-in zoom-in-95 fade-in duration-200">
               <div className="p-1.5">
-                {kpi.status === 'DRAFT' && (
+                <button 
+                  onClick={() => { setMenuOpen(false); onView() }} 
+                  className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-medium text-slate-700 dark:text-slate-200 bg-transparent hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors"
+                >
+                  <Eye size={16} /> Xem chi tiết
+                </button>
+                <div className="h-px bg-slate-100 dark:bg-slate-700 my-1 mx-2" />
+                {(kpi.status === 'DRAFT' || kpi.status === 'REJECTED') && (
                   <>
                     <button 
-                      onClick={() => { setMenuOpen(false); onSubmit() }} 
-                      className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-bold text-blue-600 bg-transparent hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-colors"
+                      onClick={() => { 
+                        if (totalWeight === 100) {
+                          setMenuOpen(false); 
+                          onSubmit() 
+                        } else {
+                          toast.error(`Không thể gửi duyệt. Tổng trọng số của đợt này hiện là ${totalWeight}%, phải là 100% mới có thể nộp.`)
+                        }
+                      }} 
+                      className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-bold transition-colors ${
+                        totalWeight === 100 ? 'text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/30' : 'text-slate-400 cursor-not-allowed'
+                      }`}
                     >
-                      <Send size={16} /> Gửi duyệt
+                      <Send size={16} /> Gửi duyệt {totalWeight !== 100 && <AlertCircle size={12} />}
                     </button>
                     <div className="h-px bg-slate-100 dark:bg-slate-700 my-1 mx-2" />
                     <button 
@@ -300,31 +576,28 @@ function KpiCard({ kpi, delay, onEdit, onDelete, onSubmit }: {
                     >
                       <Pencil size={16} /> Chỉnh sửa
                     </button>
+                    <button 
+                      onClick={() => { setMenuOpen(false); onDelete() }} 
+                      className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-medium text-red-600 bg-transparent hover:bg-red-50 dark:hover:bg-red-900/30 transition-colors"
+                    >
+                      <Trash2 size={16} /> Xóa chỉ tiêu
+                    </button>
                   </>
                 )}
-                <button 
-                  onClick={() => { setMenuOpen(false); onDelete() }} 
-                  className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-medium text-red-600 bg-transparent hover:bg-red-50 dark:hover:bg-red-900/30 transition-colors"
-                >
-                  <Trash2 size={16} /> Xóa chỉ tiêu
-                </button>
               </div>
             </div>
           )}
         </div>
       </div>
-
-      {/* KPI Info */}
       <div className="p-6 flex-1 space-y-5">
-        <div>
-          <h3 className="text-lg font-black text-slate-900 dark:text-white group-hover:text-indigo-600 transition-colors line-clamp-2">
+        <button onClick={onView} className="text-left w-full group/title focus:outline-none">
+          <h3 className="text-lg font-black text-slate-900 dark:text-white group-hover/title:text-indigo-600 transition-colors line-clamp-2">
             {kpi.name}
           </h3>
           <p className="text-sm font-medium text-slate-500 mt-1.5 line-clamp-2">
             {kpi.description || 'Không có mô tả chi tiết'}
           </p>
-        </div>
-
+        </button>
         <div className="grid grid-cols-2 gap-3">
           <div className="p-3 bg-slate-50 dark:bg-slate-800/50 rounded-2xl">
             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Mục tiêu</p>
@@ -345,8 +618,6 @@ function KpiCard({ kpi, delay, onEdit, onDelete, onSubmit }: {
           </div>
         </div>
       </div>
-
-      {/* Footer Info */}
       <div className="px-6 py-4 bg-slate-50 dark:bg-slate-800/20 rounded-b-[28px] border-t border-slate-100 dark:border-slate-800 flex items-center justify-between mt-auto">
         <div className="flex items-center gap-2 max-w-[60%]">
           <div className="w-6 h-6 rounded-full bg-slate-200 dark:bg-slate-700 flex items-center justify-center shrink-0">

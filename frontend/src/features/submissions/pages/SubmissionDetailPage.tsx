@@ -16,7 +16,8 @@ import {
   History,
   Download,
   Eye,
-  File
+  File,
+  Star
 } from 'lucide-react'
 import { useState } from 'react'
 import MediaPreviewModal from '@/components/common/MediaPreviewModal'
@@ -116,6 +117,30 @@ export default function SubmissionDetailPage() {
             </div>
           </div>
 
+          {/* Auto Score Banner */}
+          {submission.autoScore != null && (
+            <div className="bg-gradient-to-r from-indigo-600 to-purple-700 rounded-[32px] p-8 text-white shadow-xl shadow-indigo-500/20 relative overflow-hidden">
+               <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -mr-32 -mt-32" />
+               <div className="relative flex flex-col md:flex-row md:items-center justify-between gap-6">
+                  <div className="space-y-2">
+                     <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/20 backdrop-blur-md text-indigo-100 text-[10px] font-black uppercase tracking-widest">
+                        <Star size={12} className="fill-current" /> Hệ thống chấm điểm tự động
+                     </div>
+                     <h3 className="text-2xl font-black">Kết quả tính toán: {formatNumber(submission.autoScore)} điểm</h3>
+                     <p className="text-indigo-100/80 text-sm font-medium max-w-md">
+                        Điểm số này được tính toán dựa trên Trọng số của chỉ tiêu và Tỷ lệ hoàn thành so với Mục tiêu đề ra.
+                     </p>
+                  </div>
+                  <div className="flex items-center gap-4 bg-black/20 backdrop-blur-xl px-8 py-4 rounded-3xl border border-white/10 shrink-0">
+                     <div className="text-center">
+                        <p className="text-[10px] font-black text-indigo-200 uppercase tracking-[0.2em] mb-1">Điểm KPI</p>
+                        <p className="text-5xl font-black leading-none">{formatNumber(submission.autoScore)}</p>
+                     </div>
+                  </div>
+               </div>
+            </div>
+          )}
+
           {/* Feedback Section (If available) */}
           {(submission.note || submission.reviewNote) && (
             <div className="bg-white dark:bg-slate-900 rounded-3xl p-8 border border-slate-100 dark:border-slate-800 shadow-sm">
@@ -161,6 +186,7 @@ export default function SubmissionDetailPage() {
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
                 {submission.attachments.map((file) => {
                   const isImage = /\.(jpg|jpeg|png|webp|gif)$/i.test(file.fileName)
+                  const isPreviewable = isImage || /\.(pdf|docx?|xlsx?|pptx?)$/i.test(file.fileName)
                   return (
                     <div 
                       key={file.id} 
@@ -191,14 +217,21 @@ export default function SubmissionDetailPage() {
                             <File className="w-8 h-8 text-indigo-500" />
                           </div>
                           <p className="text-[10px] font-medium text-slate-600 dark:text-slate-400 text-center truncate w-full px-2">{file.fileName}</p>
-                          <div className="absolute inset-x-0 bottom-0 p-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                              <button 
-                                type="button"
-                                onClick={(e) => { e.stopPropagation(); downloadFile(file.fileUrl, file.fileName) }}
-                                className="w-full flex items-center justify-center gap-1 py-1.5 bg-indigo-500 text-white text-[10px] font-bold rounded-lg shadow-lg shadow-indigo-500/30"
-                              >
-                                <Download size={10} /> Tải xuống
-                              </button>
+                          
+                          {/* Hover Overlay for non-image previewables */}
+                          <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-2 p-4">
+                            {isPreviewable && (
+                              <span className="w-full h-10 flex items-center justify-center gap-2 bg-white/20 backdrop-blur-md rounded-xl text-white hover:bg-white/40 text-[10px] font-bold">
+                                <Eye size={16} /> Xem trước
+                              </span>
+                            )}
+                            <button 
+                              type="button"
+                              onClick={(e) => { e.stopPropagation(); downloadFile(file.fileUrl, file.fileName) }}
+                              className="w-full flex items-center justify-center gap-1.5 py-2.5 bg-indigo-500 text-white text-[10px] font-bold rounded-xl shadow-lg shadow-indigo-500/30 hover:bg-indigo-600"
+                            >
+                              <Download size={14} /> Tải xuống
+                            </button>
                           </div>
                         </div>
                       )}

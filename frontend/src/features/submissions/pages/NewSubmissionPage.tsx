@@ -10,7 +10,7 @@ import { toast } from 'sonner'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { formatNumber } from '@/lib/utils'
 import { 
-  Loader2, FileText, Target, Activity, Calendar, 
+  Loader2, FileText, Target, Activity, 
   MessageSquare, Paperclip, ChevronLeft, Send, Sparkles, Lightbulb
 } from 'lucide-react'
 
@@ -20,7 +20,7 @@ export default function NewSubmissionPage() {
   const preselectedKpiId = searchParams.get('kpiId') ?? ''
   const qc = useQueryClient()
   const [files, setFiles] = useState<File[]>([])
-  const { data: myKpiData } = useMyKpi(0, 100)
+  const { data: myKpiData } = useMyKpi({ page: 0, size: 100 })
 
   const { register, handleSubmit, watch, formState: { errors } } = useForm<SubmissionFormData>({
     resolver: zodResolver(submissionSchema),
@@ -31,16 +31,17 @@ export default function NewSubmissionPage() {
   const selectedKpiId = watch('kpiCriteriaId')
   const selectedKpi = myKpiData?.content?.find(k => k.id === selectedKpiId)
 
+  // Period Validation
+  const now = new Date()
+  const periodStart = selectedKpi?.kpiPeriod?.startDate ? new Date(selectedKpi.kpiPeriod.startDate) : null
+  const periodEnd = selectedKpi?.kpiPeriod?.endDate ? new Date(selectedKpi.kpiPeriod.endDate) : null
+  const isTooEarly = periodStart && now < periodStart
+  const isTooLate = periodEnd && now > periodEnd
+  const isPeriodClosed = isTooEarly || isTooLate
+
   const createMutation = useMutation({
     mutationFn: async (data: SubmissionFormData) => {
-      // Send dates as YYYY-MM-DD strings directly (as expected by backend LocalDate)
-      const formattedData = {
-        ...data,
-        periodStart: data.periodStart || undefined,
-        periodEnd: data.periodEnd || undefined,
-      }
-      
-      const sub = await submissionApi.create(formattedData as any)
+      const sub = await submissionApi.create(data as any)
       if (files.length > 0) {
         await submissionApi.uploadAttachments(sub.id, files)
       }
@@ -144,42 +145,24 @@ export default function NewSubmissionPage() {
                 </div>
                 {errors.actualValue && <p className="text-red-500 text-xs mt-1.5 font-medium">{errors.actualValue.message}</p>}
               </div>
-            </div>
 
-            {/* Form Section 2: Details */}
-            <div className="p-6 sm:p-8 border-b border-slate-100 dark:border-slate-800 space-y-6 bg-slate-50/50 dark:bg-slate-800/20">
-              <div className="flex items-center gap-2 text-slate-600 dark:text-slate-400 mb-2">
-                <Calendar size={20} />
-                <h3 className="text-lg font-black">Chu kỳ Ghi nhận</h3>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                <div>
-                  <label className="block text-xs font-bold uppercase tracking-widest text-slate-400 mb-2 text-indigo-500">Từ ngày {selectedKpi?.startDate && `(Min: ${new Date(selectedKpi.startDate).toLocaleDateString()})`}</label>
-                  <input 
-                    {...register('periodStart')} 
-                    type="date" 
-                    min={selectedKpi?.startDate ? new Date(selectedKpi.startDate).toISOString().split('T')[0] : undefined}
-                    max={selectedKpi?.endDate ? new Date(selectedKpi.endDate).toISOString().split('T')[0] : undefined}
-                    className={`w-full px-4 py-3 rounded-xl border ${errors.periodStart ? 'border-red-500' : 'border-slate-200 dark:border-slate-700'} bg-white dark:bg-slate-900 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-400 transition-all`} 
-                  />
-                  {errors.periodStart && <p className="text-red-500 text-xs mt-1 font-medium">{errors.periodStart.message}</p>}
+              {selectedKpi && isPeriodClosed && (
+                <div className="p-4 rounded-2xl bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/50 flex gap-3 items-start animate-in zoom-in duration-300">
+                  <Activity size={20} className="text-amber-600 dark:text-amber-400 mt-0.5 shrink-0" />
+                  <div>
+                    <h4 className="text-sm font-black text-amber-800 dark:text-amber-300">Kỳ báo cáo đang đóng</h4>
+                    <p className="text-xs font-medium text-amber-700/80 dark:text-amber-400/70 mt-1 leading-relaxed">
+                      {isTooEarly 
+                        ? `Bạn chỉ có thể bắt đầu nộp báo cáo cho chỉ tiêu này từ ngày ${periodStart?.toLocaleDateString('vi-VN')}.`
+                        : `Thời hạn nộp báo cáo cho chỉ tiêu này đã kết thúc vào ngày ${periodEnd?.toLocaleDateString('vi-VN')}.`
+                      }
+                    </p>
+                  </div>
                 </div>
-                <div>
-                  <label className="block text-xs font-bold uppercase tracking-widest text-slate-400 mb-2 text-indigo-500">Đến ngày {selectedKpi?.endDate && `(Max: ${new Date(selectedKpi.endDate).toLocaleDateString()})`}</label>
-                  <input 
-                    {...register('periodEnd')} 
-                    type="date" 
-                    min={selectedKpi?.startDate ? new Date(selectedKpi.startDate).toISOString().split('T')[0] : undefined}
-                    max={selectedKpi?.endDate ? new Date(selectedKpi.endDate).toISOString().split('T')[0] : undefined}
-                    className={`w-full px-4 py-3 rounded-xl border ${errors.periodEnd ? 'border-red-500' : 'border-slate-200 dark:border-slate-700'} bg-white dark:bg-slate-900 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-400 transition-all`} 
-                  />
-                  {errors.periodEnd && <p className="text-red-500 text-xs mt-1 font-medium">{errors.periodEnd.message}</p>}
-                </div>
-              </div>
+              )}
             </div>
-
-            {/* Form Section 3: Evidence */}
+            
+            {/* Form Section 2: Evidence */}
             <div className="p-6 sm:p-8 space-y-6">
               <div>
                 <label className="flex items-center gap-2 text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">
@@ -218,8 +201,8 @@ export default function NewSubmissionPage() {
               </button>
               <button 
                 type="submit" 
-                disabled={createMutation.isPending} 
-                className="w-full sm:flex-1 px-6 py-3.5 rounded-xl text-sm font-black bg-indigo-600 text-white hover:bg-indigo-700 shadow-lg shadow-indigo-500/20 disabled:opacity-50 transition-all flex items-center justify-center gap-2 md:text-base group"
+                disabled={createMutation.isPending || isPeriodClosed} 
+                className="w-full sm:flex-1 px-6 py-3.5 rounded-xl text-sm font-black bg-indigo-600 text-white hover:bg-indigo-700 shadow-lg shadow-indigo-500/20 disabled:opacity-50 disabled:grayscale transition-all flex items-center justify-center gap-2 md:text-base group"
               >
                 {createMutation.isPending ? (
                   <Loader2 size={18} className="animate-spin" />
@@ -249,20 +232,24 @@ export default function NewSubmissionPage() {
                 <h4 className="text-[10px] font-black uppercase tracking-widest text-indigo-200 mb-2">Đang thiết lập báo cáo cho</h4>
                 <p className="text-2xl font-black leading-tight mb-6">{selectedKpi.name}</p>
                 
-                <div className="mt-auto space-y-4">
                   <div className="bg-black/20 backdrop-blur-md rounded-2xl p-4 border border-white/10">
-                    <p className="text-xs font-bold text-indigo-200 mb-1">Mục tiêu tối thiểu</p>
+                    <p className="text-xs font-bold text-indigo-200 mb-1">Mục tiêu yêu cầu</p>
                     <p className="text-3xl font-black">
                       {selectedKpi.targetValue != null ? formatNumber(selectedKpi.targetValue) : 'Không có'}
                       <span className="text-base font-bold ml-1 text-indigo-200">{selectedKpi.unit ?? ''}</span>
                     </p>
                   </div>
                   
-                  <div className="bg-black/20 backdrop-blur-md rounded-2xl p-4 border border-white/10">
-                    <p className="text-xs font-bold text-indigo-200 mb-1">Trọng số KPI</p>
-                    <p className="text-lg font-black">{selectedKpi.weight != null ? `${selectedKpi.weight}%` : '—'}</p>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="bg-black/20 backdrop-blur-md rounded-2xl p-4 border border-white/10">
+                      <p className="text-xs font-bold text-indigo-200 mb-1">Trọng số</p>
+                      <p className="text-lg font-black">{selectedKpi.weight != null ? `${selectedKpi.weight}%` : '—'}</p>
+                    </div>
+                    <div className="bg-black/20 backdrop-blur-md rounded-2xl p-4 border border-white/10">
+                      <p className="text-xs font-bold text-indigo-200 mb-1">Tối thiểu</p>
+                      <p className="text-lg font-black">{selectedKpi.minimumValue != null ? formatNumber(selectedKpi.minimumValue) : '—'}</p>
+                    </div>
                   </div>
-                </div>
               </div>
             </div>
           ) : (

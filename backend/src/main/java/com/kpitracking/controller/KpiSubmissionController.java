@@ -49,8 +49,12 @@ public class KpiSubmissionController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size,
             @RequestParam(required = false) SubmissionStatus status,
-            @RequestParam(required = false) UUID kpiCriteriaId) {
-        PageResponse<SubmissionResponse> response = submissionService.getSubmissions(page, size, status, kpiCriteriaId);
+            @RequestParam(required = false) UUID kpiCriteriaId,
+            @RequestParam(required = false) UUID submittedById,
+            @RequestParam(required = false) UUID orgUnitId,
+            @RequestParam(defaultValue = "createdAt") String sortBy,
+            @RequestParam(defaultValue = "desc") String sortDir) {
+        PageResponse<SubmissionResponse> response = submissionService.getSubmissions(page, size, status, kpiCriteriaId, submittedById, orgUnitId, sortBy, sortDir);
         return ResponseEntity.ok(ApiResponse.success(response));
     }
 
@@ -75,8 +79,11 @@ public class KpiSubmissionController {
     @Operation(summary = "Get current user's submissions")
     public ResponseEntity<ApiResponse<PageResponse<SubmissionResponse>>> getMySubmissions(
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size) {
-        PageResponse<SubmissionResponse> response = submissionService.getMySubmissions(page, size);
+            @RequestParam(defaultValue = "20") int size,
+            @RequestParam(required = false) SubmissionStatus status,
+            @RequestParam(defaultValue = "createdAt") String sortBy,
+            @RequestParam(defaultValue = "desc") String sortDir) {
+        PageResponse<SubmissionResponse> response = submissionService.getMySubmissions(page, size, status, sortBy, sortDir);
         return ResponseEntity.ok(ApiResponse.success(response));
     }
 

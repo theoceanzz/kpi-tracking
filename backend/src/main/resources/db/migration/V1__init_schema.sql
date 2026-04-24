@@ -97,6 +97,7 @@ CREATE TABLE users (
     password            VARCHAR(255)    NOT NULL,
     full_name           VARCHAR(255)    NOT NULL,
     phone               VARCHAR(20),
+
     avatar_url          TEXT,
     status              VARCHAR(20)     NOT NULL DEFAULT 'ACTIVE',
     is_email_verified   BOOLEAN         DEFAULT FALSE,
@@ -106,11 +107,13 @@ CREATE TABLE users (
     reset_password_token_expiry TIMESTAMPTZ,
     created_at          TIMESTAMPTZ     DEFAULT NOW(),
     updated_at          TIMESTAMPTZ     DEFAULT NOW(),
-    deleted_at          TIMESTAMPTZ
+    deleted_at          TIMESTAMPTZ,
+    employee_code VARCHAR(50)
 );
 
 CREATE INDEX idx_users_email ON users(email);
 CREATE INDEX idx_users_deleted_at ON users(deleted_at);
+CREATE UNIQUE INDEX idx_users_employee_code ON users(employee_code);
 
 -- ====================================================
 -- Roles
@@ -213,15 +216,34 @@ CREATE TABLE scopes (
 );
 
 -- ====================================================
+-- KPI Periods
+-- ====================================================
+CREATE TABLE kpi_periods (
+    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    organization_id UUID            NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+    name            VARCHAR(255)    NOT NULL,
+    period_type     VARCHAR(20)     NOT NULL,
+    start_date      TIMESTAMPTZ,
+    end_date        TIMESTAMPTZ,
+    created_at      TIMESTAMPTZ     DEFAULT NOW(),
+    updated_at      TIMESTAMPTZ     DEFAULT NOW(),
+    deleted_at      TIMESTAMPTZ
+);
+
+CREATE INDEX idx_kpi_periods_org_id ON kpi_periods(organization_id);
+
+-- ====================================================
 -- KPI Criteria
 -- ====================================================
 CREATE TABLE kpi_criteria (
     id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     org_unit_id      UUID            NOT NULL REFERENCES org_units(id),
+    kpi_period_id   UUID            NOT NULL REFERENCES kpi_periods(id),
     name            VARCHAR(255)    NOT NULL,
     description     TEXT,
     weight          DOUBLE PRECISION,
     target_value    DOUBLE PRECISION,
+    minimum_value   DOUBLE PRECISION,
     unit            VARCHAR(50),
     frequency       VARCHAR(20)     NOT NULL,
     status          VARCHAR(20)     NOT NULL DEFAULT 'DRAFT',
@@ -230,8 +252,6 @@ CREATE TABLE kpi_criteria (
     reject_reason   TEXT,
     submitted_at    TIMESTAMPTZ,
     approved_at     TIMESTAMPTZ,
-    start_date      TIMESTAMPTZ,
-    end_date        TIMESTAMPTZ,
     created_at      TIMESTAMPTZ     DEFAULT NOW(),
     updated_at      TIMESTAMPTZ     DEFAULT NOW(),
     deleted_at      TIMESTAMPTZ
@@ -259,6 +279,7 @@ CREATE TABLE kpi_submissions (
     kpi_criteria_id     UUID            NOT NULL REFERENCES kpi_criteria(id),
     submitted_by        UUID            NOT NULL REFERENCES users(id),
     actual_value        DOUBLE PRECISION,
+    auto_score          DOUBLE PRECISION,
     note                TEXT,
     status              VARCHAR(20)     NOT NULL DEFAULT 'PENDING',
     reviewed_by         UUID            REFERENCES users(id),
@@ -302,7 +323,7 @@ CREATE TABLE evaluations (
     id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     org_unit_id          UUID            NOT NULL REFERENCES org_units(id),
     user_id             UUID            NOT NULL REFERENCES users(id),
-    kpi_criteria_id     UUID            NOT NULL REFERENCES kpi_criteria(id),
+    kpi_period_id       UUID            NOT NULL REFERENCES kpi_periods(id),
     evaluator_id        UUID            NOT NULL REFERENCES users(id),
     score               DOUBLE PRECISION,
     comment             TEXT,
@@ -315,7 +336,7 @@ CREATE TABLE evaluations (
 
 CREATE INDEX idx_evaluations_org_unit_id ON evaluations(org_unit_id);
 CREATE INDEX idx_evaluations_user_id ON evaluations(user_id);
-CREATE INDEX idx_evaluations_kpi_criteria_id ON evaluations(kpi_criteria_id);
+CREATE INDEX idx_evaluations_kpi_period_id ON evaluations(kpi_period_id);
 CREATE INDEX idx_evaluations_deleted_at ON evaluations(deleted_at);
 
 -- ====================================================

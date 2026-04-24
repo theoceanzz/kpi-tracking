@@ -1,21 +1,28 @@
 import LoadingSkeleton from '@/components/common/LoadingSkeleton'
 import SubmissionStatusChart from '@/components/charts/SubmissionStatusChart'
+import Pagination from '@/components/common/Pagination'
 import { useOverviewStats } from '../hooks/useOverviewStats'
+import { useEmployeeStats } from '../hooks/useEmployeeStats'
 import { useAuthStore } from '@/store/authStore'
-import { getInitials } from '@/lib/utils'
+import { getInitials, cn } from '@/lib/utils'
 import { Link } from 'react-router-dom'
-import { cn } from '@/lib/utils'
+import { useState } from 'react'
 import {
-  Target, FileText, CheckCircle, Clock, XCircle,
-  Users, Star, ChevronRight, TrendingUp,
-  ClipboardCheck, BarChart3, Award, ArrowUpRight
+  Target, CheckCircle, Clock, 
+  Users, Star, ChevronRight,
+  ClipboardCheck, BarChart3, AlertCircle
 } from 'lucide-react'
+import type { EmployeeKpiStats } from '@/types/stats'
 
 export default function HeadDashboard() {
-  const { data: stats, isLoading } = useOverviewStats()
+  const [page, setPage] = useState(0)
+  const size = 5
+
+  const { data: stats, isLoading: statsLoading } = useOverviewStats()
+  const { data: employeesPage, isLoading: employeesLoading } = useEmployeeStats(page, size)
   const { user } = useAuthStore()
 
-  if (isLoading) return <div className="p-8"><LoadingSkeleton rows={10} /></div>
+  if (statsLoading || employeesLoading) return <div className="p-8"><LoadingSkeleton rows={10} /></div>
 
   const totalSub = stats?.totalSubmissions ?? 0
   const pendingSub = stats?.pendingSubmissions ?? 0
@@ -23,223 +30,318 @@ export default function HeadDashboard() {
   const rejectedSub = stats?.rejectedSubmissions ?? 0
   const approvalRate = totalSub > 0 ? Math.round((approvedSub / totalSub) * 100) : 0
 
+  const employees = employeesPage?.content ?? []
+  const lateEmployeesCount = employees?.filter(e => e.lateSubmissions > 0).length ?? 0
+  
   return (
-    <div className="max-w-[1400px] mx-auto p-4 md:p-8 space-y-8 animate-in fade-in duration-500">
+    <div className="max-w-[1600px] mx-auto p-4 md:p-10 space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-700">
 
-      {/* ===== HEADER ===== */}
-      <div className="relative rounded-[28px] overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-r from-purple-600 via-indigo-600 to-blue-600" />
-        <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiNmZmYiIGZpbGwtb3BhY2l0eT0iMC4wNSI+PHBhdGggZD0iTTM2IDM0djJoLTJ2LTJoMnptMC00aDJ2MmgtMnYtMnptLTQgMHYyaC0ydi0yaDJ6bTQgMGgydjJoLTJ2LTJ6Ii8+PC9nPjwvZz48L3N2Zz4=')] opacity-50" />
-        
-        <div className="relative z-10 px-8 py-10 md:px-12">
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-            <div className="flex items-center gap-5">
-              <div className="w-16 h-16 rounded-2xl bg-white/20 backdrop-blur-sm flex items-center justify-center text-2xl font-black text-white border border-white/20">
-                {getInitials(user?.fullName ?? '')}
+      {/* ===== PREMIUM HEADER ===== */}
+      <div className="relative group">
+        <div className="absolute -inset-1 bg-gradient-to-r from-indigo-500 to-blue-600 rounded-[40px] blur opacity-25 group-hover:opacity-40 transition duration-1000 group-hover:duration-200" />
+        <div className="relative bg-white dark:bg-slate-900 rounded-[38px] p-8 md:p-12 border border-white/20 dark:border-slate-800/50 shadow-2xl overflow-hidden">
+          {/* Decorative elements */}
+          <div className="absolute top-0 right-0 -mt-20 -mr-20 w-80 h-80 bg-indigo-500/10 rounded-full blur-3xl" />
+          <div className="absolute bottom-0 left-0 -mb-20 -ml-20 w-80 h-80 bg-blue-500/10 rounded-full blur-3xl" />
+          
+          <div className="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-8">
+            <div className="flex items-center gap-6">
+              <div className="relative">
+                <div className="w-20 h-20 rounded-[24px] bg-gradient-to-br from-indigo-600 to-blue-600 flex items-center justify-center text-3xl font-black text-white shadow-2xl transform hover:rotate-6 transition-transform duration-300">
+                  {getInitials(user?.fullName ?? '')}
+                </div>
+                <div className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full bg-emerald-500 border-4 border-white dark:border-slate-900 shadow-sm" />
               </div>
-              <div className="text-white">
-                <p className="text-white/70 text-sm font-medium">Xin chào,</p>
-                <h1 className="text-2xl md:text-3xl font-black tracking-tight">{user?.fullName}</h1>
-                <p className="text-white/60 text-sm font-medium mt-1">Quản lý hiệu suất phòng ban hôm nay</p>
+              <div>
+                <div className="flex items-center gap-3">
+                  <span className="px-3 py-1 rounded-full bg-indigo-50 dark:bg-indigo-900/40 text-[10px] font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-widest border border-indigo-100 dark:border-indigo-900/30">
+                    Department Head
+                  </span>
+                </div>
+                <h1 className="text-4xl md:text-5xl font-black tracking-tight text-slate-900 dark:text-white mt-2">
+                  Chào buổi sáng, {user?.fullName?.split(' ').pop()}!
+                </h1>
+                <p className="text-slate-500 dark:text-slate-400 font-medium mt-2 flex items-center gap-2">
+                   <Users size={18} className="text-blue-500" /> Giám sát hiệu suất và quản trị đội ngũ
+                </p>
               </div>
             </div>
-            <div className="flex gap-3">
-              <Link to="/submissions/org-unit" className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-white/15 backdrop-blur-sm text-white text-sm font-bold hover:bg-white/25 transition-all border border-white/10">
-                <ClipboardCheck size={16} /> Duyệt bài nộp
+            <div className="flex flex-wrap gap-4">
+              <Link to="/submissions/org-unit" className="group flex items-center gap-3 px-8 py-4 rounded-2xl bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white text-xs font-black hover:bg-slate-100 dark:hover:bg-slate-700 transition-all border border-slate-200 dark:border-slate-700">
+                <ClipboardCheck size={20} className="text-indigo-500" /> 
+                DUYỆT BÁO CÁO
               </Link>
-              <Link to="/kpi-criteria" className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-white text-indigo-700 text-sm font-bold hover:bg-white/90 transition-all shadow-lg">
-                <Target size={16} /> Quản lý KPI
+              <Link to="/kpi-criteria" className="group flex items-center gap-3 px-8 py-4 rounded-2xl bg-slate-900 dark:bg-white text-white dark:text-slate-900 text-xs font-black hover:scale-[1.02] transition-all shadow-2xl active:scale-95">
+                <Target size={20} className="text-indigo-400 dark:text-indigo-600" /> 
+                QUẢN LÝ KPI
               </Link>
             </div>
           </div>
         </div>
       </div>
 
-      {/* ===== STAT CARDS ===== */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
+      {/* ===== TOP INDICATORS ===== */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
         <StatCard
-          label="Chỉ tiêu KPI"
-          value={stats?.totalKpiCriteria ?? 0}
-          sub={`${stats?.approvedKpi ?? 0} đã duyệt`}
-          icon={Target}
-          color="purple"
-          link="/kpi-criteria"
+          label="Tổng nhân sự"
+          value={stats?.totalUsers ?? 0}
+          sub="thành viên đội ngũ"
+          icon={Users}
+          color="blue"
         />
         <StatCard
-          label="Chờ duyệt"
+          label="KPI Chờ duyệt"
+          value={stats?.pendingKpi ?? 0}
+          sub="yêu cầu phê duyệt"
+          icon={Target}
+          color="indigo"
+          link="/kpi-criteria"
+          alert={(stats?.pendingKpi ?? 0) > 0}
+        />
+        <StatCard
+          label="Báo cáo mới"
           value={pendingSub}
-          sub="bài nộp"
+          sub="cần xem xét ngay"
           icon={Clock}
           color="amber"
           link="/submissions/org-unit"
-          pulse={pendingSub > 0}
+          alert={pendingSub > 0}
         />
         <StatCard
-          label="Đã duyệt"
-          value={approvedSub}
-          sub={`${approvalRate}% tỷ lệ`}
-          icon={CheckCircle}
-          color="emerald"
-          link="/submissions/org-unit"
-        />
-        <StatCard
-          label="Tổng đánh giá"
-          value={stats?.totalEvaluations ?? 0}
-          sub="lượt đánh giá"
-          icon={Star}
-          color="blue"
-          link="/evaluations"
+          label="Vi phạm Deadline"
+          value={lateEmployeesCount}
+          sub="nhân sự trễ hạn"
+          icon={AlertCircle}
+          color="rose"
+          alert={lateEmployeesCount > 0}
         />
       </div>
 
-      {/* ===== MAIN CONTENT ===== */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-
-        {/* LEFT: Charts & Activity */}
-        <div className="lg:col-span-8 space-y-6">
-
-          {/* Submission Status Overview */}
-          <div className="bg-white dark:bg-slate-900 rounded-[28px] border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
-            <div className="border-b border-slate-100 dark:border-slate-800 px-8 py-6 flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-indigo-50 dark:bg-indigo-900/30 flex items-center justify-center text-indigo-600 dark:text-indigo-400">
-                  <BarChart3 size={20} />
+      {/* ===== MAIN DASHBOARD CONTENT ===== */}
+      <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
+        
+        {/* Left Col: Submission Insights & Alerts */}
+        <div className="xl:col-span-1 space-y-8 flex flex-col">
+          
+          {/* Submission Status Chart Card */}
+          <div className="bg-white dark:bg-slate-900 rounded-[40px] border border-slate-200 dark:border-slate-800 shadow-2xl p-10 flex flex-col flex-1 relative overflow-hidden group/card">
+            {/* Glossy decorative backgrounds */}
+            <div className="absolute top-0 right-0 -mt-20 -mr-20 w-64 h-64 bg-indigo-500/5 rounded-full blur-3xl" />
+            <div className="absolute bottom-0 left-0 -mb-20 -ml-20 w-64 h-64 bg-emerald-500/5 rounded-full blur-3xl" />
+            
+            <div className="flex flex-col gap-1 mb-10">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <BarChart3 size={18} className="text-indigo-500" />
+                  <span className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Phân tích Báo cáo</span>
                 </div>
-                <div>
-                  <h3 className="font-black text-lg text-slate-900 dark:text-white">Tổng quan Bài nộp</h3>
-                  <p className="text-xs font-medium text-slate-500">Phân bổ trạng thái bài nộp trong phòng ban</p>
-                </div>
+                {pendingSub > 0 && (
+                  <Link to="/submissions/org-unit" className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400 text-[10px] font-black uppercase tracking-widest border border-amber-500/20 hover:bg-amber-500/20 transition-all">
+                    <Clock size={12} /> {pendingSub} Cần Duyệt
+                  </Link>
+                )}
               </div>
-              <Link to="/submissions/org-unit" className="text-xs font-bold text-indigo-600 hover:underline flex items-center gap-1">
-                Xem tất cả <ArrowUpRight size={14} />
-              </Link>
+              <h3 className="text-2xl font-black text-slate-900 dark:text-white mt-1">Trạng thái Tổng quan</h3>
             </div>
-            <div className="p-8">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
-                {/* Chart */}
-                <div>
-                  <SubmissionStatusChart pending={pendingSub} approved={approvedSub} rejected={rejectedSub} />
-                </div>
-                {/* Progress Bars */}
-                <div className="space-y-5">
-                  <ProgressBar label="Đã phê duyệt" value={approvedSub} total={totalSub} color="bg-emerald-500" textColor="text-emerald-600" />
-                  <ProgressBar label="Đang chờ duyệt" value={pendingSub} total={totalSub} color="bg-amber-500" textColor="text-amber-600" />
-                  <ProgressBar label="Bị từ chối" value={rejectedSub} total={totalSub} color="bg-red-500" textColor="text-red-600" />
-                  <div className="pt-4 border-t border-slate-100 dark:border-slate-800">
-                    <div className="flex justify-between text-sm font-bold">
-                      <span className="text-slate-500">Tổng cộng</span>
-                      <span className="text-slate-900 dark:text-white text-lg">{totalSub}</span>
-                    </div>
+
+            <div className="flex-1 flex flex-col justify-between gap-10">
+              <div className="relative w-full aspect-square max-w-[180px] mx-auto">
+                {/* Visual enhancement for chart */}
+                <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/5 to-emerald-500/5 rounded-full blur-xl" />
+                
+                <SubmissionStatusChart pending={pendingSub} approved={approvedSub} rejected={rejectedSub} />
+                
+                {/* Elegant Center Display */}
+                <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                  <div className="text-center">
+                    <p className="text-4xl font-black text-slate-900 dark:text-white tracking-tighter leading-none">{totalSub}</p>
+                    <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-2">Bản nộp</p>
                   </div>
                 </div>
               </div>
+
+              {/* Rich Detailed Metrics */}
+              <div className="space-y-4">
+                <MetricRow 
+                  label="Đã phê duyệt" 
+                  value={approvedSub} 
+                  total={totalSub} 
+                  color="emerald" 
+                  icon={CheckCircle} 
+                />
+                <MetricRow 
+                  label="Đang chờ duyệt" 
+                  value={pendingSub} 
+                  total={totalSub} 
+                  color="amber" 
+                  icon={Clock} 
+                />
+                <MetricRow 
+                  label="Bị từ chối" 
+                  value={rejectedSub} 
+                  total={totalSub} 
+                  color="rose" 
+                  icon={AlertCircle} 
+                />
+              </div>
+
+              {/* Bottom Quick Summary */}
+              <div className="mt-4 pt-6 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
+                <div>
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Tỷ lệ duyệt</p>
+                  <p className="text-xl font-black text-emerald-500">{approvalRate}%</p>
+                </div>
+                <div className="text-right">
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Cần xử lý</p>
+                  <p className={cn("text-xl font-black", pendingSub > 0 ? "text-amber-500" : "text-slate-300")}>{pendingSub}</p>
+                </div>
+              </div>
             </div>
           </div>
 
-          {/* KPI Status Summary */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <KpiStatusCard
-              label="KPI Đã duyệt"
-              value={stats?.approvedKpi ?? 0}
-              total={stats?.totalKpiCriteria ?? 0}
-              icon={CheckCircle}
-              color="emerald"
-            />
-            <KpiStatusCard
-              label="KPI Chờ duyệt"
-              value={stats?.pendingKpi ?? 0}
-              total={stats?.totalKpiCriteria ?? 0}
-              icon={Clock}
-              color="amber"
-            />
-            <KpiStatusCard
-              label="Bị từ chối"
-              value={stats?.rejectedKpi ?? 0}
-              total={stats?.totalKpiCriteria ?? 0}
-              icon={XCircle}
-              color="red"
-            />
-          </div>
-        </div>
-
-        {/* RIGHT: Actions & Info */}
-        <div className="lg:col-span-4 space-y-6">
-
-          {/* Pending Alert */}
-          {pendingSub > 0 && (
-            <div className="relative overflow-hidden bg-gradient-to-br from-amber-500 to-orange-600 rounded-[28px] p-7 text-white shadow-xl shadow-amber-500/20">
-              <div className="relative z-10 space-y-4">
-                <div className="w-12 h-12 rounded-2xl bg-white/15 backdrop-blur-sm flex items-center justify-center">
-                  <Clock size={24} />
-                </div>
-                <div>
-                  <p className="text-white/80 text-sm font-medium">Cần xử lý ngay</p>
-                  <p className="text-4xl font-black">{pendingSub}</p>
-                  <p className="text-white/80 text-sm font-medium">bài nộp đang chờ duyệt</p>
-                </div>
-                <Link
-                  to="/submissions/org-unit"
-                  className="flex items-center justify-center gap-2 w-full py-3 bg-white text-amber-700 rounded-2xl font-black text-sm hover:bg-white/90 transition-all shadow-lg"
-                >
-                  Duyệt ngay <ChevronRight size={16} />
-                </Link>
-              </div>
-              <FileText size={140} className="absolute -bottom-10 -right-10 opacity-[0.08]" />
+          {/* Actionable Alerts Box */}
+          {(pendingSub > 0 || lateEmployeesCount > 0) && (
+            <div className="p-8 rounded-[40px] bg-slate-900 dark:bg-indigo-950 text-white shadow-2xl relative overflow-hidden">
+               <div className="absolute top-0 right-0 -mt-8 -mr-8 w-32 h-32 bg-white/5 rounded-full blur-2xl" />
+               <div className="relative z-10">
+                 <div className="flex items-center gap-3 mb-6">
+                    <AlertCircle size={22} className="text-rose-400" />
+                    <h4 className="text-xs font-black uppercase tracking-[0.2em]">Cần xử lý khẩn cấp</h4>
+                 </div>
+                 <div className="space-y-3">
+                   {pendingSub > 0 && (
+                     <Link to="/submissions/org-unit" className="flex items-center justify-between p-4 rounded-2xl bg-white/10 hover:bg-white/20 transition-all group backdrop-blur-sm border border-white/5">
+                        <div className="flex items-center gap-4">
+                           <Clock size={18} className="text-amber-400" />
+                           <span className="text-sm font-bold">{pendingSub} báo cáo cần bạn phê duyệt</span>
+                        </div>
+                        <ChevronRight size={18} className="group-hover:translate-x-1 transition-transform" />
+                     </Link>
+                   )}
+                   {lateEmployeesCount > 0 && (
+                     <div className="flex items-center gap-4 p-4 rounded-2xl bg-white/5 border border-white/5">
+                        <Users size={18} className="text-rose-400" />
+                        <span className="text-sm font-bold">{lateEmployeesCount} nhân sự đang trễ hạn nộp bài</span>
+                     </div>
+                   )}
+                 </div>
+               </div>
             </div>
           )}
+        </div>
 
-          {/* Quick Actions */}
-          <div className="bg-white dark:bg-slate-900 rounded-[28px] border border-slate-200 dark:border-slate-800 shadow-sm p-6 space-y-4">
-            <h3 className="text-xs font-black uppercase tracking-widest text-slate-400">Thao tác nhanh</h3>
-
-            <QuickAction
-              to="/kpi-criteria"
-              icon={Target}
-              iconColor="text-purple-500"
-              iconBg="bg-purple-50 dark:bg-purple-900/20"
-              title="Quản lý Chỉ tiêu KPI"
-              description="Tạo, sửa, gửi duyệt chỉ tiêu"
-            />
-            <QuickAction
-              to="/kpi-criteria/pending"
-              icon={ClipboardCheck}
-              iconColor="text-indigo-500"
-              iconBg="bg-indigo-50 dark:bg-indigo-900/20"
-              title="Duyệt Chỉ tiêu"
-              description="Xét duyệt KPI chờ phê duyệt"
-            />
-            <QuickAction
-              to="/submissions/org-unit"
-              icon={FileText}
-              iconColor="text-amber-500"
-              iconBg="bg-amber-50 dark:bg-amber-900/20"
-              title="Duyệt Bài nộp"
-              description="Xem và xử lý bài nộp nhân viên"
-            />
-            <QuickAction
-              to="/evaluations"
-              icon={Award}
-              iconColor="text-blue-500"
-              iconBg="bg-blue-50 dark:bg-blue-900/20"
-              title="Đánh giá Nhân viên"
-              description="Xem và phản hồi đánh giá hiệu suất"
-            />
-          </div>
-
-          {/* Team Overview */}
-          <div className="bg-white dark:bg-slate-900 rounded-[28px] border border-slate-200 dark:border-slate-800 shadow-sm p-6 space-y-4">
-            <h3 className="text-xs font-black uppercase tracking-widest text-slate-400">Tổng quan nhân sự</h3>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="p-4 rounded-2xl bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200/50 dark:border-indigo-900/30 text-center">
-                <Users size={20} className="text-indigo-500 mx-auto mb-2" />
-                <p className="text-2xl font-black text-indigo-700 dark:text-indigo-400">{stats?.totalUsers ?? 0}</p>
-                <p className="text-[10px] font-bold uppercase tracking-widest text-indigo-500/60">Nhân sự</p>
+        {/* Right Col: Detailed Employee Tracking */}
+        <div className="xl:col-span-2 flex flex-col">
+          <div className="bg-white dark:bg-slate-900 rounded-[40px] border border-slate-200 dark:border-slate-800 shadow-xl overflow-hidden flex flex-col h-full">
+            <div className="p-8 border-b border-slate-100 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-slate-50/30 dark:bg-slate-800/20">
+              <div className="flex items-center gap-4">
+                <div className="p-3 rounded-2xl bg-blue-50 dark:bg-blue-900/30">
+                  <Users size={20} className="text-blue-600" />
+                </div>
+                <div>
+                  <h3 className="font-black text-sm uppercase tracking-widest text-slate-900 dark:text-white">Theo dõi Hiệu suất Nhân sự</h3>
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-tight mt-0.5">Dữ liệu thời gian thực của đội ngũ</p>
+                </div>
               </div>
-              <div className="p-4 rounded-2xl bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200/50 dark:border-emerald-900/30 text-center">
-                <TrendingUp size={20} className="text-emerald-500 mx-auto mb-2" />
-                <p className="text-2xl font-black text-emerald-700 dark:text-emerald-400">{approvalRate}%</p>
-                <p className="text-[10px] font-bold uppercase tracking-widest text-emerald-500/60">Tỷ lệ duyệt</p>
-              </div>
+            </div>
+            
+            <div className="flex-1 overflow-x-auto">
+              <table className="w-full text-left border-collapse min-w-[700px]">
+                <thead>
+                  <tr className="bg-slate-50/50 dark:bg-slate-800/30">
+                    <th className="px-8 py-5 text-[10px] font-black uppercase tracking-[0.15em] text-slate-400">Thành viên</th>
+                    <th className="px-6 py-5 text-[10px] font-black uppercase tracking-[0.15em] text-slate-400 text-center">Tiến độ nộp bài</th>
+                    <th className="px-6 py-5 text-[10px] font-black uppercase tracking-[0.15em] text-slate-400 text-center">Trạng thái hạn</th>
+                    <th className="px-6 py-5 text-[10px] font-black uppercase tracking-[0.15em] text-slate-400 text-center">Điểm hiệu suất</th>
+                    <th className="px-8 py-5 text-[10px] font-black uppercase tracking-[0.15em] text-slate-400 text-right">Chi tiết</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                  {employees?.map((emp: EmployeeKpiStats) => (
+                    <tr key={emp.userId} className="group hover:bg-slate-50/50 dark:hover:bg-slate-800/40 transition-all duration-300">
+                      <td className="px-8 py-6">
+                        <div className="flex items-center gap-4">
+                          <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-800 dark:to-slate-700 flex items-center justify-center font-black text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-700">
+                            {getInitials(emp.fullName)}
+                          </div>
+                          <div>
+                            <p className="text-sm font-black text-slate-900 dark:text-white group-hover:text-indigo-600 transition-colors duration-300">{emp.fullName}</p>
+                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{emp.role}</p>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-6 py-6">
+                        <div className="flex flex-col items-center">
+                          <div className="flex justify-between w-full max-w-[120px] mb-2 px-1">
+                             <span className="text-[11px] font-black text-slate-800 dark:text-slate-200">{emp.approvedSubmissions}/{emp.assignedKpi}</span>
+                             <span className="text-[11px] font-black text-indigo-600 dark:text-indigo-400">{emp.assignedKpi > 0 ? Math.round((emp.approvedSubmissions / emp.assignedKpi) * 100) : 0}%</span>
+                          </div>
+                          <div className="w-full max-w-[120px] h-2 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden border border-slate-200 dark:border-slate-700 p-[1px]">
+                            <div 
+                              className={cn(
+                                "h-full rounded-full transition-all duration-1000 ease-out",
+                                (emp.approvedSubmissions / (emp.assignedKpi || 1)) >= 0.8 ? "bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.4)]" : 
+                                (emp.approvedSubmissions / (emp.assignedKpi || 1)) >= 0.4 ? "bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.4)]" : 
+                                "bg-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.4)]"
+                              )}
+                              style={{ width: `${emp.assignedKpi > 0 ? (emp.approvedSubmissions / emp.assignedKpi) * 100 : 0}%` }}
+                            />
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-6 py-6 text-center">
+                        {emp.lateSubmissions > 0 ? (
+                          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-2xl bg-rose-50 dark:bg-rose-900/20 text-rose-600 dark:text-rose-400 border border-rose-100 dark:border-rose-900/30">
+                            <AlertCircle size={14} className="animate-pulse" />
+                            <span className="text-[10px] font-black uppercase tracking-widest">Trễ {emp.lateSubmissions} bài</span>
+                          </div>
+                        ) : (
+                          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-2xl bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400 border border-emerald-100 dark:border-emerald-900/30">
+                            <CheckCircle size={14} />
+                            <span className="text-[10px] font-black uppercase tracking-widest">Đúng hạn</span>
+                          </div>
+                        )}
+                      </td>
+                      <td className="px-6 py-6 text-center">
+                        <div className="flex flex-col items-center">
+                           <div className="flex items-center gap-2">
+                             <div className={cn(
+                               "w-10 h-10 rounded-xl flex items-center justify-center font-black text-sm",
+                               (emp.averageScore ?? 0) >= 80 ? "bg-emerald-50 text-emerald-600 dark:bg-emerald-900/20 dark:text-emerald-400" : 
+                               (emp.averageScore ?? 0) >= 50 ? "bg-amber-50 text-amber-600 dark:bg-amber-900/20 dark:text-amber-400" : 
+                               "bg-slate-50 text-slate-600 dark:bg-slate-800 dark:text-slate-400"
+                             )}>
+                               {emp.averageScore ? emp.averageScore.toFixed(1) : '—'}
+                             </div>
+                             <div className="flex flex-col items-start">
+                               <Star size={12} className={cn((emp.averageScore ?? 0) > 0 ? "text-amber-400 fill-amber-400" : "text-slate-200")} />
+                               <span className="text-[9px] font-bold text-slate-400 uppercase">Điểm TB</span>
+                             </div>
+                           </div>
+                        </div>
+                      </td>
+                      <td className="px-8 py-6 text-right">
+                        <Link to={`/employees/${emp.userId}/performance`} className="w-10 h-10 rounded-2xl bg-slate-50 dark:bg-slate-800 hover:bg-indigo-600 hover:text-white transition-all duration-300 inline-flex items-center justify-center border border-slate-200 dark:border-slate-700 hover:border-indigo-600 hover:shadow-lg hover:shadow-indigo-500/30 active:scale-90">
+                          <ChevronRight size={18} />
+                        </Link>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Pagination */}
+            <div className="p-6 border-t border-slate-100 dark:border-slate-800">
+               {employeesPage && (
+                 <Pagination 
+                   currentPage={page}
+                   totalPages={employeesPage.totalPages}
+                   totalElements={employeesPage.totalElements}
+                   size={size}
+                   onPageChange={setPage}
+                 />
+               )}
             </div>
           </div>
         </div>
@@ -248,92 +350,80 @@ export default function HeadDashboard() {
   )
 }
 
-/* ========== Sub Components ========== */
+/* ========== MODULAR SUB-COMPONENTS ========== */
 
-function StatCard({ label, value, sub, icon: Icon, color, link, pulse }: {
-  label: string; value: number; sub: string; icon: any; color: string; link: string; pulse?: boolean
+function StatCard({ label, value, sub, icon: Icon, color, link, alert }: {
+  label: string; value: number; sub: string; icon: any; color: string; link?: string; alert?: boolean
 }) {
-  const colorMap: Record<string, { bg: string; icon: string; border: string }> = {
-    purple: { bg: 'bg-purple-50 dark:bg-purple-900/20', icon: 'text-purple-600 dark:text-purple-400', border: 'hover:border-purple-300 dark:hover:border-purple-800' },
-    amber: { bg: 'bg-amber-50 dark:bg-amber-900/20', icon: 'text-amber-600 dark:text-amber-400', border: 'hover:border-amber-300 dark:hover:border-amber-800' },
-    emerald: { bg: 'bg-emerald-50 dark:bg-emerald-900/20', icon: 'text-emerald-600 dark:text-emerald-400', border: 'hover:border-emerald-300 dark:hover:border-emerald-800' },
-    blue: { bg: 'bg-blue-50 dark:bg-blue-900/20', icon: 'text-blue-600 dark:text-blue-400', border: 'hover:border-blue-300 dark:hover:border-blue-800' },
+  const colorSchemes: Record<string, string> = {
+    blue: "from-blue-600 to-indigo-600 shadow-blue-500/20",
+    indigo: "from-indigo-600 to-purple-600 shadow-indigo-500/20",
+    amber: "from-amber-500 to-orange-600 shadow-amber-500/20",
+    rose: "from-rose-500 to-red-600 shadow-rose-500/20",
   }
-  const c = colorMap[color] ?? colorMap['purple']!
 
-  return (
-    <Link
-      to={link}
-      className={cn("bg-white dark:bg-slate-900 rounded-[24px] border border-slate-200 dark:border-slate-800 p-6 transition-all hover:shadow-lg group", c.border)}
-    >
-      <div className="flex items-center justify-between mb-4">
-        <div className={cn("w-12 h-12 rounded-2xl flex items-center justify-center", c.bg)}>
-          <Icon size={22} className={c.icon} />
+  const content = (
+    <div className="relative group p-7 rounded-[32px] bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm transition-all duration-500 hover:shadow-2xl hover:-translate-y-2 overflow-hidden h-full">
+      {/* Background Glow */}
+      <div className={cn("absolute -bottom-4 -right-4 w-24 h-24 rounded-full blur-2xl opacity-0 group-hover:opacity-10 transition-opacity duration-700 bg-gradient-to-br", colorSchemes[color])} />
+      
+      <div className="relative z-10">
+        <div className="flex items-center justify-between mb-6">
+          <div className={cn("w-14 h-14 rounded-2xl flex items-center justify-center text-white shadow-xl bg-gradient-to-br", colorSchemes[color])}>
+            <Icon size={24} strokeWidth={2.5} />
+          </div>
+          {alert && (
+            <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-rose-50 dark:bg-rose-900/20 text-rose-600 dark:text-rose-400 text-[10px] font-black uppercase tracking-widest border border-rose-100 dark:border-rose-900/30 animate-pulse">
+              Cảnh báo
+            </div>
+          )}
         </div>
-        {pulse && <div className="w-3 h-3 rounded-full bg-amber-500 animate-pulse shadow-lg shadow-amber-500/50" />}
-      </div>
-      <p className="text-3xl font-black text-slate-900 dark:text-white mb-1">{value}</p>
-      <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">{sub}</p>
-      <p className="text-[10px] font-bold text-slate-400 mt-2">{label}</p>
-    </Link>
-  )
-}
-
-function ProgressBar({ label, value, total, color, textColor }: {
-  label: string; value: number; total: number; color: string; textColor: string
-}) {
-  const pct = total > 0 ? Math.round((value / total) * 100) : 0
-  return (
-    <div className="space-y-2">
-      <div className="flex justify-between text-xs font-bold">
-        <span className="text-slate-500">{label}</span>
-        <span className={textColor}>{value} <span className="text-slate-300">({pct}%)</span></span>
-      </div>
-      <div className="h-2 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
-        <div className={cn("h-full rounded-full transition-all duration-1000", color)} style={{ width: `${pct}%` }} />
+        
+        <p className="text-4xl font-black text-slate-900 dark:text-white tracking-tighter mb-1">{value}</p>
+        <div>
+          <p className="text-xs font-black text-slate-900 dark:text-white uppercase tracking-widest">{label}</p>
+          <p className="text-[10px] font-bold text-slate-400 mt-0.5">{sub}</p>
+        </div>
       </div>
     </div>
   )
+
+  if (link) return <Link to={link} className="block h-full">{content}</Link>
+  return <div className="h-full">{content}</div>
 }
 
-function KpiStatusCard({ label, value, total, icon: Icon, color }: {
-  label: string; value: number; total: number; icon: any; color: string
+function MetricRow({ label, value, total, color, icon: Icon }: {
+    label: string; value: number; total: number; color: 'emerald' | 'amber' | 'rose'; icon: any
 }) {
-  const colorMap: Record<string, string> = {
-    emerald: 'bg-emerald-50 text-emerald-600 border-emerald-200 dark:bg-emerald-900/20 dark:text-emerald-400 dark:border-emerald-900/40',
-    amber: 'bg-amber-50 text-amber-600 border-amber-200 dark:bg-amber-900/20 dark:text-amber-400 dark:border-amber-900/40',
-    red: 'bg-red-50 text-red-600 border-red-200 dark:bg-red-900/20 dark:text-red-400 dark:border-red-900/40',
-  }
-  const pct = total > 0 ? Math.round((value / total) * 100) : 0
+    const pct = total > 0 ? Math.round((value / total) * 100) : 0
+    const colorMap = {
+        emerald: "bg-emerald-500/10 text-emerald-600 border-emerald-500/20",
+        amber: "bg-amber-500/10 text-amber-600 border-amber-500/20",
+        rose: "bg-rose-500/10 text-rose-600 border-rose-500/20"
+    }
+    const barColor = {
+        emerald: "bg-emerald-500",
+        amber: "bg-amber-500",
+        rose: "bg-rose-500"
+    }
 
-  return (
-    <div className={cn("p-5 rounded-2xl border", colorMap[color])}>
-      <div className="flex items-center justify-between mb-3">
-        <Icon size={20} />
-        <span className="text-xs font-black">{pct}%</span>
-      </div>
-      <p className="text-2xl font-black">{value}</p>
-      <p className="text-[10px] font-bold uppercase tracking-widest opacity-60 mt-1">{label}</p>
-    </div>
-  )
-}
-
-function QuickAction({ to, icon: Icon, iconColor, iconBg, title, description }: {
-  to: string; icon: any; iconColor: string; iconBg: string; title: string; description: string
-}) {
-  return (
-    <Link
-      to={to}
-      className="flex items-center gap-4 p-3 rounded-2xl hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-all group"
-    >
-      <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform", iconBg)}>
-        <Icon size={20} className={iconColor} />
-      </div>
-      <div className="flex-1 min-w-0">
-        <p className="text-sm font-bold text-slate-700 dark:text-slate-300 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">{title}</p>
-        <p className="text-xs text-slate-400 truncate">{description}</p>
-      </div>
-      <ChevronRight size={16} className="text-slate-300 group-hover:text-indigo-500 transition-colors shrink-0" />
-    </Link>
-  )
+    return (
+        <div className="flex items-center gap-4 group/row">
+            <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center border shrink-0 transition-transform group-hover/row:scale-110", colorMap[color])}>
+                <Icon size={18} />
+            </div>
+            <div className="flex-1 min-w-0">
+                <div className="flex justify-between items-end mb-1.5">
+                    <span className="text-[11px] font-black text-slate-500 uppercase tracking-wider">{label}</span>
+                    <span className="text-sm font-black text-slate-900 dark:text-white">{value} <span className="text-[10px] text-slate-400 font-bold ml-1">({pct}%)</span></span>
+                </div>
+                <div className="h-1.5 w-full bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden p-[1px]">
+                    <div 
+                        className={cn("h-full rounded-full transition-all duration-1000", barColor[color])} 
+                        style={{ width: `${pct}%` }} 
+                    />
+                </div>
+            </div>
+        </div>
+    )
 }

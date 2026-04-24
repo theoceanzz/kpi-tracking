@@ -1,6 +1,7 @@
 package com.kpitracking.controller;
 
 import com.kpitracking.dto.response.ApiResponse;
+import com.kpitracking.dto.response.PageResponse;
 import com.kpitracking.dto.response.stats.OrgUnitKpiStatsResponse;
 import com.kpitracking.dto.response.stats.EmployeeKpiStatsResponse;
 import com.kpitracking.dto.response.stats.MyKpiProgressResponse;
@@ -42,17 +43,32 @@ public class StatsController {
     }
 
     @GetMapping("/employees")
-    @PreAuthorize("hasRole('DIRECTOR')")
-    @Operation(summary = "Get KPI statistics per employee (Director only)")
-    public ResponseEntity<ApiResponse<List<EmployeeKpiStatsResponse>>> getEmployeeKpiStats() {
-        List<EmployeeKpiStatsResponse> response = statsService.getEmployeeKpiStats();
+    @PreAuthorize("hasAnyRole('DIRECTOR', 'HEAD')")
+    @Operation(summary = "Get KPI statistics per employee")
+    public ResponseEntity<ApiResponse<PageResponse<EmployeeKpiStatsResponse>>> getEmployeeKpiStats(
+            @org.springframework.web.bind.annotation.RequestParam(defaultValue = "0") int page,
+            @org.springframework.web.bind.annotation.RequestParam(defaultValue = "5") int size) {
+        PageResponse<EmployeeKpiStatsResponse> response = statsService.getEmployeeKpiStats(page, size);
         return ResponseEntity.ok(ApiResponse.success(response));
     }
 
     @GetMapping("/my-progress")
     @Operation(summary = "Get current user's KPI progress")
-    public ResponseEntity<ApiResponse<MyKpiProgressResponse>> getMyKpiProgress() {
-        MyKpiProgressResponse response = statsService.getMyKpiProgress();
+    public ResponseEntity<ApiResponse<MyKpiProgressResponse>> getMyKpiProgress(
+            @org.springframework.web.bind.annotation.RequestParam(defaultValue = "0") int page,
+            @org.springframework.web.bind.annotation.RequestParam(defaultValue = "5") int size) {
+        MyKpiProgressResponse response = statsService.getMyKpiProgress(page, size);
+        return ResponseEntity.ok(ApiResponse.success(response));
+    }
+
+    @GetMapping("/employee-progress/{userId}")
+    @PreAuthorize("hasAnyRole('DIRECTOR', 'HEAD')")
+    @Operation(summary = "Get a specific employee's KPI progress")
+    public ResponseEntity<ApiResponse<MyKpiProgressResponse>> getEmployeeKpiProgress(
+            @org.springframework.web.bind.annotation.PathVariable java.util.UUID userId,
+            @org.springframework.web.bind.annotation.RequestParam(defaultValue = "0") int page,
+            @org.springframework.web.bind.annotation.RequestParam(defaultValue = "5") int size) {
+        MyKpiProgressResponse response = statsService.getUserKpiProgress(userId, page, size);
         return ResponseEntity.ok(ApiResponse.success(response));
     }
 }

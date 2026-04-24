@@ -22,6 +22,9 @@ public interface UserRoleOrgUnitRepository extends JpaRepository<UserRoleOrgUnit
     @Query("SELECT uro FROM UserRoleOrgUnit uro JOIN FETCH uro.user JOIN FETCH uro.role WHERE uro.orgUnit.id = :orgUnitId")
     List<UserRoleOrgUnit> findByOrgUnitId(@Param("orgUnitId") UUID orgUnitId);
 
+    @Query("SELECT uro FROM UserRoleOrgUnit uro JOIN FETCH uro.user JOIN FETCH uro.role WHERE uro.orgUnit.id IN :orgUnitIds")
+    List<UserRoleOrgUnit> findByOrgUnitIdIn(@Param("orgUnitIds") List<UUID> orgUnitIds);
+
     void deleteByUserIdAndRoleIdAndOrgUnitId(UUID userId, UUID roleId, UUID orgUnitId);
     
     void deleteByOrgUnitIdAndRoleId(UUID orgUnitId, UUID roleId);
@@ -33,4 +36,7 @@ public interface UserRoleOrgUnitRepository extends JpaRepository<UserRoleOrgUnit
 
     @Query("SELECT DISTINCT uro.user FROM UserRoleOrgUnit uro WHERE uro.orgUnit.orgHierarchyLevel.organization.id = :orgId")
     List<com.kpitracking.entity.User> findUsersByOrganizationId(@Param("orgId") UUID orgId);
+
+    @Query("SELECT DISTINCT uro.user FROM UserRoleOrgUnit uro WHERE uro.orgUnit.path LIKE :path")
+    List<com.kpitracking.entity.User> findUsersByOrgUnitPath(@Param("path") String path);
 }

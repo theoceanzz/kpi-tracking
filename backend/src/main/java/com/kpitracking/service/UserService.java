@@ -10,6 +10,7 @@ import com.kpitracking.entity.UserRoleOrgUnit;
 import com.kpitracking.exception.DuplicateResourceException;
 import com.kpitracking.exception.ResourceNotFoundException;
 
+import com.kpitracking.repository.OrgUnitRepository;
 import com.kpitracking.repository.UserRepository;
 import com.kpitracking.repository.UserRoleOrgUnitRepository;
 import com.kpitracking.repository.OrgHierarchyLevelRepository;
@@ -57,6 +58,7 @@ public class UserService {
     private final OrgHierarchyLevelRepository orgHierarchyLevelRepository;
     private final PasswordEncoder passwordEncoder;
     private final EmailService emailService;
+    private final OrgUnitRepository orgUnitRepository;
 
     private User getCurrentUser() {
         String email = SecurityContextHolder.getContext().getAuthentication().getName();
@@ -83,7 +85,17 @@ public class UserService {
                             .findFirst()
                             .orElse(roleName);
                     
-                    if (roleName.equals("STAFF")) {
+                    if (roleName.equals("DEPUTY")) {
+                        if (roleLabel != null) {
+                            if (roleLabel.contains("Trưởng")) {
+                                roleLabel = roleLabel.replace("Trưởng", "Phó");
+                            } else if (roleLabel.contains("trưởng")) {
+                                roleLabel = roleLabel.replace("trưởng", "phó");
+                            } else {
+                                roleLabel = "Phó " + roleLabel;
+                            }
+                        }
+                    } else if (roleName.equals("STAFF")) {
                         roleLabel = "Nhân viên";
                     }
 
@@ -105,6 +117,7 @@ public class UserService {
                 .id(user.getId())
                 .email(user.getEmail())
                 .fullName(user.getFullName())
+                .employeeCode(user.getEmployeeCode())
                 .phone(user.getPhone())
                 .avatarUrl(user.getAvatarUrl())
                 .roles(assignments.stream().map(uro -> uro.getRole().getName()).distinct().toList())
@@ -126,6 +139,7 @@ public class UserService {
                 .email(request.getEmail())
                 .password(passwordEncoder.encode(request.getPassword()))
                 .fullName(request.getFullName())
+                .employeeCode(request.getEmployeeCode())
                 .phone(request.getPhone())
                 .isEmailVerified(true)
                 .build();
@@ -142,19 +156,38 @@ public class UserService {
     }
 
     @Transactional(readOnly = true)
-    public PageResponse<UserResponse> getUsers(int page, int size, String keyword, UUID orgUnitId) {
-        Pageable pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
+    public PageResponse<UserResponse> getUsers(int page, int size, String keyword, UUID orgUnitId, String role, String sortBy, String direction) {
+        Sort sort = Sort.by(sortBy != null ? sortBy : "createdAt");
+        if ("desc".equalsIgnoreCase(direction)) {
+            sort = sort.descending();
+        } else {
+            sort = sort.ascending();
+        }
+        Pageable pageable = PageRequest.of(page, size, sort);
 
         if (orgUnitId != null) {
-            List<UserRoleOrgUnit> memberships = userRoleOrgUnitRepository.findByOrgUnitId(orgUnitId);
+            OrgUnit targetUnit = orgUnitRepository.findById(orgUnitId)
+                    .orElseThrow(() -> new BusinessException("Không tìm thấy đơn vị"));
+            
+            List<OrgUnit> subtree = orgUnitRepository.findSubtree(targetUnit.getPath());
+            List<UUID> unitIds = subtree.stream().map(OrgUnit::getId).toList();
+            
+            // Fetch all memberships in the subtree
+            List<UserRoleOrgUnit> memberships = userRoleOrgUnitRepository.findByOrgUnitIdIn(unitIds);
+
+            // Find users who have the DIRECTOR role in this subtree
+            java.util.Set<UUID> directorIds = memberships.stream()
+                    .filter(m -> m.getRole().getName().equals("DIRECTOR"))
+                    .map(m -> m.getUser().getId())
+                    .collect(java.util.stream.Collectors.toSet());
+
+            // Get all unique users from these memberships, excluding Directors
             List<User> users = memberships.stream()
                     .map(UserRoleOrgUnit::getUser)
-                    .filter(u -> u.getDeletedAt() == null)
+                    .filter(u -> u.getDeletedAt() == null && !directorIds.contains(u.getId()))
                     .distinct()
                     .toList();
-            
-            // Basic manual pagination/search for the org unit list for simplicity
-            // In a larger system, we'd use a more efficient query.
+
             List<User> filteredUsers = users;
             if (keyword != null && !keyword.isBlank()) {
                 String search = keyword.toLowerCase();
@@ -164,29 +197,50 @@ public class UserService {
                         .toList();
             }
 
+            if (role != null && !role.equals("ALL")) {
+                String targetRole = role;
+                java.util.Set<UUID> roleUserIds = memberships.stream()
+                        .filter(m -> m.getRole().getName().equals(targetRole))
+                        .map(m -> m.getUser().getId())
+                        .collect(java.util.stream.Collectors.toSet());
+
+                filteredUsers = filteredUsers.stream()
+                        .filter(u -> roleUserIds.contains(u.getId()))
+                        .toList();
+            }
+
+            // Apply sorting manually for this case
+            List<User> sortedUsers = new ArrayList<>(filteredUsers);
+            sortedUsers.sort((a, b) -> {
+                int cmp;
+                if ("fullName".equals(sortBy)) {
+                    cmp = a.getFullName().compareToIgnoreCase(b.getFullName());
+                } else {
+                    cmp = (a.getCreatedAt() != null && b.getCreatedAt() != null) 
+                        ? a.getCreatedAt().compareTo(b.getCreatedAt()) : 0;
+                }
+                return "desc".equalsIgnoreCase(direction) ? -cmp : cmp;
+            });
+
             int start = (int) pageable.getOffset();
-            int end = Math.min((start + pageable.getPageSize()), filteredUsers.size());
+            int end = Math.min((start + pageable.getPageSize()), sortedUsers.size());
             
-            List<UserResponse> content = (start < filteredUsers.size()) 
-                    ? filteredUsers.subList(start, end).stream().map(this::toResponse).toList()
+            List<UserResponse> content = (start < sortedUsers.size()) 
+                    ? sortedUsers.subList(start, end).stream().map(this::toResponse).toList()
                     : Collections.emptyList();
 
             return PageResponse.<UserResponse>builder()
                     .content(content)
                     .page(page)
                     .size(size)
-                    .totalElements(filteredUsers.size())
-                    .totalPages((int) Math.ceil((double) filteredUsers.size() / size))
-                    .last(end >= filteredUsers.size())
+                    .totalElements(sortedUsers.size())
+                    .totalPages((int) Math.ceil((double) sortedUsers.size() / size))
+                    .last(end >= sortedUsers.size())
                     .build();
         }
 
-        Page<User> userPage;
-        if (keyword != null && !keyword.isBlank()) {
-            userPage = userRepository.searchByKeyword(keyword, pageable);
-        } else {
-            userPage = userRepository.findAll(pageable);
-        }
+        String roleName = (role == null || role.equals("ALL")) ? null : role;
+        Page<User> userPage = userRepository.searchUsers(keyword, roleName, pageable);
 
         return PageResponse.<UserResponse>builder()
                 .content(userPage.getContent().stream().map(this::toResponse).toList())
@@ -221,6 +275,9 @@ public class UserService {
         }
         if (request.getPhone() != null) {
             user.setPhone(request.getPhone());
+        }
+        if (request.getEmployeeCode() != null) {
+            user.setEmployeeCode(request.getEmployeeCode());
         }
         if (request.getStatus() != null) {
             user.setStatus(request.getStatus());
@@ -268,7 +325,8 @@ public class UserService {
                             String email = csvRecord.get("Email");
                             String fullName = csvRecord.get("FullName");
                             String phone = csvRecord.isMapped("Phone") ? csvRecord.get("Phone") : null;
-                            processUserRow(email, fullName, phone);
+                            String employeeCode = csvRecord.isMapped("EmployeeCode") ? csvRecord.get("EmployeeCode") : null;
+                            processUserRow(email, fullName, phone, employeeCode);
                             successfulImports++;
                         } catch (Exception e) {
                             errors.add("Row " + totalRows + ": " + e.getMessage());
@@ -282,12 +340,13 @@ public class UserService {
 
                     if (headerRow == null) throw new BusinessException("Tập tin Excel trống");
 
-                    int emailIdx = -1, nameIdx = -1, phoneIdx = -1;
+                    int emailIdx = -1, nameIdx = -1, phoneIdx = -1, codeIdx = -1;
                     for (int i = 0; i < headerRow.getLastCellNum(); i++) {
                         String header = headerRow.getCell(i).getStringCellValue().trim();
                         if (header.equalsIgnoreCase("Email")) emailIdx = i;
                         else if (header.equalsIgnoreCase("FullName")) nameIdx = i;
                         else if (header.equalsIgnoreCase("Phone")) phoneIdx = i;
+                        else if (header.equalsIgnoreCase("EmployeeCode")) codeIdx = i;
 
                     }
 
@@ -305,7 +364,9 @@ public class UserService {
                             String fullName = row.getCell(nameIdx) != null ? row.getCell(nameIdx).getStringCellValue().trim() : "";
                             String phone = (phoneIdx != -1 && row.getCell(phoneIdx) != null) ?
                                     getCellValueAsString(row.getCell(phoneIdx)) : null;
-                            processUserRow(email, fullName, phone);
+                            String employeeCode = (codeIdx != -1 && row.getCell(codeIdx) != null) ?
+                                    getCellValueAsString(row.getCell(codeIdx)) : null;
+                            processUserRow(email, fullName, phone, employeeCode);
                             successfulImports++;
                         } catch (Exception e) {
                             errors.add("Row " + totalRows + ": " + e.getMessage());
@@ -331,7 +392,7 @@ public class UserService {
         return cell.getStringCellValue().trim();
     }
 
-    private void processUserRow(String email, String fullName, String phone) {
+    private void processUserRow(String email, String fullName, String phone, String employeeCode) {
         if (email == null || email.isBlank()) {
             throw new BusinessException("Email là bắt buộc");
         }
@@ -350,6 +411,7 @@ public class UserService {
                 .password(passwordEncoder.encode(rawPassword))
                 .fullName(fullName)
                 .phone(phone)
+                .employeeCode(employeeCode)
 
                 .build();
 

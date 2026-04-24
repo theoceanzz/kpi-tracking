@@ -79,7 +79,8 @@ export default function FileDropzone({ onFilesSelected, files, onRemove, accept,
 function FileItem({ file, onRemove, onPreview }: { file: File, onRemove: () => void, onPreview: (url: string) => void }) {
   const isImage = file.type.startsWith('image/')
   const isPdf = file.type === 'application/pdf'
-  const canPreview = isImage || isPdf
+  const isOfficeDoc = /\.(docx?|xlsx?|pptx?)$/i.test(file.name)
+  const canPreview = isImage || isPdf || isOfficeDoc
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
 
   useEffect(() => {

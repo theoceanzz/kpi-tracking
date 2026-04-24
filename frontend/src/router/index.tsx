@@ -16,6 +16,7 @@ import RoleManagementPage from '@/features/organization/pages/RoleManagementPage
 import DirectorDashboard from '@/features/dashboard/pages/DirectorDashboard'
 import HeadDashboard from '@/features/dashboard/pages/HeadDashboard'
 import StaffDashboard from '@/features/dashboard/pages/StaffDashboard'
+import EmployeePerformancePage from '@/features/dashboard/pages/EmployeePerformancePage'
 
 import { OrganizationStructurePage } from '@/features/organization/pages/OrganizationStructurePage'
 import OrgUnitDetailPage from '@/features/organization/pages/OrgUnitDetailPage'
@@ -80,6 +81,7 @@ export const router = createBrowserRouter([
               { path: '/org-units/:id', element: <OrgUnitDetailPage /> },
               { path: '/kpi-criteria', element: <KpiCriteriaPage /> },
               { path: '/submissions/org-unit', element: <OrgUnitSubmissionsPage /> },
+              { path: '/employees/:userId/performance', element: <EmployeePerformancePage /> },
             ],
           },
 

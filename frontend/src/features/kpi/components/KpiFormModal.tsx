@@ -12,6 +12,9 @@ import { toast } from 'sonner'
 import { Loader2, X, Check, Sparkles } from 'lucide-react'
 import type { KpiCriteria } from '@/types/kpi'
 import { useState } from 'react'
+import { useKpiPeriods } from '../hooks/useKpiPeriods'
+import { useKpiTotalWeight } from '../hooks/useKpiTotalWeight'
+import { Gauge } from 'lucide-react'
 
 interface KpiFormModalProps {
   open: boolean
@@ -40,6 +43,7 @@ export default function KpiFormModal({ open, onClose, editKpi }: KpiFormModalPro
   const { user } = useAuthStore()
   const { isDirector, isHead, isDeputy } = usePermission()
   const { data: orgUnitTreeData } = useOrgUnitTree()
+  const { data: periodsData } = useKpiPeriods({ organizationId: user?.memberships?.[0]?.organizationId })
   
   // Flatten tree for dropdown
   const flattenTree = (nodes: any[], level = 0): any[] => {
@@ -56,7 +60,7 @@ export default function KpiFormModal({ open, onClose, editKpi }: KpiFormModalPro
 
   const { register, handleSubmit, formState: { errors }, reset, watch, setValue } = useForm<KpiFormData>({
     resolver: zodResolver(kpiSchema),
-    defaultValues: { name: '', frequency: 'MONTHLY', assignedToIds: [] },
+    defaultValues: { name: '', frequency: 'MONTHLY', assignedToIds: [], kpiPeriodId: '' },
   })
 
   // Synchronize form values only when modal opens
@@ -73,13 +77,19 @@ export default function KpiFormModal({ open, onClose, editKpi }: KpiFormModalPro
         frequency: editKpi.frequency,
         orgUnitId: editKpi.orgUnitId ?? '',
         assignedToIds: editKpi.assigneeIds ?? [],
-        startDate: editKpi.startDate ? editKpi.startDate.split('T')[0] : '',
-        endDate: editKpi.endDate ? editKpi.endDate.split('T')[0] : '',
+        minimumValue: editKpi.minimumValue ?? undefined,
+        kpiPeriodId: editKpi.kpiPeriodId ?? '',
       })
     } else {
-      reset({ name: '', frequency: 'MONTHLY', assignedToIds: [] })
+      reset({ 
+        name: '', 
+        frequency: 'MONTHLY', 
+        assignedToIds: [], 
+        kpiPeriodId: '',
+        orgUnitId: isDirector ? (flatOrgUnits?.[0]?.id || '') : (user?.memberships?.[0]?.orgUnitId || '')
+      })
     }
-  }, [open, reset]) // Removed editKpi to prevent reset on data refetches
+  }, [open, reset, flatOrgUnits]) // Added flatOrgUnits to ensure default ID is set when loaded
 
   const formOrgUnitId = watch('orgUnitId')
   const selectedAssignees = watch('assignedToIds') || []
@@ -115,6 +125,18 @@ export default function KpiFormModal({ open, onClose, editKpi }: KpiFormModalPro
     })
   }, [usersData, isDirector, user])
 
+  const { data: totalWeightData } = useKpiTotalWeight(
+    fetchOrgUnitId,
+    watch('kpiPeriodId')
+  )
+
+  const currentWeight = watch('weight') || 0
+  const oldWeight = editKpi?.weight || 0
+  const projectedWeight = useMemo(() => {
+    const existing = totalWeightData || 0
+    return existing - oldWeight + Number(currentWeight)
+  }, [totalWeightData, oldWeight, currentWeight])
+
   const createMutation = useMutation({
     mutationFn: (data: KpiFormData) => kpiApi.create(data),
     onSuccess: () => { 
@@ -141,6 +163,43 @@ export default function KpiFormModal({ open, onClose, editKpi }: KpiFormModalPro
       toast.error(msg)
     },
   })
+
+  const formKpiPeriodId = watch('kpiPeriodId')
+  const formFrequency = watch('frequency')
+
+  const selectedPeriod = useMemo(() => {
+    return periodsData?.content?.find((p: any) => p.id === formKpiPeriodId)
+  }, [periodsData, formKpiPeriodId])
+
+  const filteredFrequencyOptions = useMemo(() => {
+    if (!selectedPeriod) return frequencyOptions
+    
+    const TYPE_LEVEL: Record<string, number> = {
+      'DAILY': 1,
+      'WEEKLY': 2,
+      'MONTHLY': 3,
+      'QUARTERLY': 4,
+      'YEARLY': 5
+    }
+    const periodLevel = TYPE_LEVEL[selectedPeriod.periodType] || 0
+    return frequencyOptions.filter(opt => (TYPE_LEVEL[opt.value as any] || 0) <= periodLevel)
+  }, [selectedPeriod])
+
+  useEffect(() => {
+    if (selectedPeriod) {
+      const TYPE_LEVEL: Record<string, number> = {
+        'DAILY': 1,
+        'WEEKLY': 2,
+        'MONTHLY': 3,
+        'QUARTERLY': 4,
+        'YEARLY': 5
+      }
+      const periodLevel = TYPE_LEVEL[selectedPeriod.periodType] || 0
+      if ((TYPE_LEVEL[formFrequency] || 0) > periodLevel) {
+        setValue('frequency', selectedPeriod.periodType as any)
+      }
+    }
+  }, [selectedPeriod, formFrequency, setValue])
 
   // AI Suggestion Logic
   const [aiSuggestions, setAiSuggestions] = useState<any[]>([])
@@ -187,8 +246,6 @@ export default function KpiFormModal({ open, onClose, editKpi }: KpiFormModalPro
     
     // Clean up empty strings and unselected values
     if (!payload.orgUnitId) delete payload.orgUnitId
-    if (!payload.startDate || payload.startDate === "") delete payload.startDate
-    if (!payload.endDate || payload.endDate === "") delete payload.endDate
     
     // Ensure assignedToIds is an array and remove legacy assignedToId
     delete payload.assignedToId
@@ -294,11 +351,23 @@ export default function KpiFormModal({ open, onClose, editKpi }: KpiFormModalPro
               <label className="block text-sm font-medium mb-1.5">Trọng số (%)</label>
               <input {...register('weight', { valueAsNumber: true })} type="number" step="any" min={0} max={100} className={inputCls} placeholder="30" />
               {errors.weight && <p className="text-red-500 text-xs mt-1">{errors.weight.message}</p>}
+              
+              {watch('kpiPeriodId') && (
+                <div className={`mt-2 p-2 rounded-lg border text-[10px] font-bold flex items-center gap-1.5 ${
+                  projectedWeight === 100 ? 'bg-emerald-50 border-emerald-100 text-emerald-700' : 
+                  projectedWeight > 100 ? 'bg-rose-50 border-rose-100 text-rose-700' : 
+                  'bg-amber-50 border-amber-100 text-amber-700'
+                }`}>
+                  <Gauge size={12} />
+                  Dự kiến tổng trọng số: {projectedWeight}% 
+                  {projectedWeight === 100 ? ' (Đạt chuẩn)' : projectedWeight > 100 ? ' (Vượt mức!)' : ' (Chưa đủ)'}
+                </div>
+              )}
             </div>
             <div>
               <label className="block text-sm font-medium mb-1.5">Tần suất <span className="text-red-500">*</span></label>
               <select {...register('frequency')} className={inputCls}>
-                {frequencyOptions.map((opt) => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
+                {filteredFrequencyOptions.map((opt) => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
               </select>
               {errors.frequency && <p className="text-red-500 text-xs mt-1">{errors.frequency.message}</p>}
             </div>
@@ -307,7 +376,7 @@ export default function KpiFormModal({ open, onClose, editKpi }: KpiFormModalPro
           {isDirector && (
             <div>
               <label className="block text-sm font-medium mb-1.5">Phòng ban / Đơn vị</label>
-              <select {...register('orgUnitId')} className={inputCls} defaultValue="">
+              <select {...register('orgUnitId')} className={inputCls}>
                 {flatOrgUnits.map((d: any) => <option key={d.id} value={d.id}>{d.levelLabel}</option>)}
               </select>
             </div>
@@ -356,12 +425,18 @@ export default function KpiFormModal({ open, onClose, editKpi }: KpiFormModalPro
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium mb-1.5">Ngày bắt đầu</label>
-              <input {...register('startDate')} type="date" className={inputCls} />
+              <label className="block text-sm font-medium mb-1.5">Kỳ (Đợt) KPI <span className="text-red-500">*</span></label>
+              <select {...register('kpiPeriodId')} className={inputCls}>
+                <option value="">Chọn đợt...</option>
+                {periodsData?.content.map(p => (
+                  <option key={p.id} value={p.id}>{p.name} ({p.periodType})</option>
+                ))}
+              </select>
+              {errors.kpiPeriodId && <p className="text-red-500 text-xs mt-1">{errors.kpiPeriodId.message}</p>}
             </div>
             <div>
-              <label className="block text-sm font-medium mb-1.5">Ngày kết thúc</label>
-              <input {...register('endDate')} type="date" className={inputCls} />
+              <label className="block text-sm font-medium mb-1.5">Giá trị tối thiểu</label>
+              <input {...register('minimumValue', { valueAsNumber: true })} type="number" step="any" className={inputCls} placeholder="VD: 50" />
             </div>
           </div>
 

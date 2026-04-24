@@ -6,10 +6,10 @@ interface KpiImportGuideModalProps {
   onSelectFile: () => void
 }
 
-const SAMPLE_CSV_CONTENT = `Name,Description,Weight,TargetValue,Unit,Frequency,AssigneeEmail
-Doanh số bán hàng,Tổng doanh số trong tháng,40,100000000,VND,MONTHLY,nhanvienA@company.com
-Số cuộc gọi tư vấn,Số cuộc gọi tối thiểu mỗi ngày,30,20,Cuộc,DAILY,nhanvienB@company.com
-Tỉ lệ hài lòng,Kết quả khảo sát từ khách hàng,30,95,%,QUARTERLY,nhanvienA@company.com`
+const SAMPLE_CSV_CONTENT = `Name,Description,Weight,TargetValue,MinimumValue,Unit,Frequency,EmployeeCode
+Doanh số bán hàng,Tổng doanh số trong tháng,40,100000000,80000000,VND,MONTHLY,NV001
+Số cuộc gọi tư vấn,Số cuộc gọi tối thiểu mỗi ngày,30,20,15,Cuộc,DAILY,NV002
+Tỉ lệ hài lòng,Kết quả khảo sát từ khách hàng,30,95,90,%,QUARTERLY,NV001`
 
 function downloadTemplate() {
   const blob = new Blob(['\uFEFF' + SAMPLE_CSV_CONTENT], { type: 'text/csv;charset=utf-8;' })
@@ -23,7 +23,7 @@ function downloadTemplate() {
 
 const STEPS = [
   { num: '01', title: 'Tải file mẫu', desc: 'Nhấn nút bên dưới để tải về file CSV mẫu có sẵn header chuẩn cho KPI.' },
-  { num: '02', title: 'Điền thông tin', desc: 'Mở file bằng Excel, điền thông tin chỉ tiêu và email nhân sự được giao.' },
+  { num: '02', title: 'Điền thông tin', desc: 'Mở file bằng Excel, điền thông tin chỉ tiêu và Mã nhân viên (Employee Code) được giao.' },
   { num: '03', title: 'Lưu & Upload', desc: 'Lưu file ở định dạng .csv hoặc .xlsx, sau đó nhấn "Chọn file & Import" bên dưới.' },
 ]
 
@@ -32,9 +32,10 @@ const COLUMNS = [
   { name: 'Description', required: false, desc: 'Mô tả chi tiết cách tính hoặc yêu cầu', example: 'Tính trên giá trị hợp đồng' },
   { name: 'Weight', required: true, desc: 'Trọng số (tổng các chỉ tiêu của 1 người nên là 100)', example: '30' },
   { name: 'TargetValue', required: true, desc: 'Giá trị mục tiêu cần đạt', example: '500000000' },
+  { name: 'MinimumValue', required: false, desc: 'Giá trị tối thiểu chấp nhận được', example: '400000000' },
   { name: 'Unit', required: true, desc: 'Đơn vị tính', example: 'VND' },
   { name: 'Frequency', required: true, desc: 'DAILY, WEEKLY, MONTHLY, QUARTERLY, YEARLY', example: 'MONTHLY' },
-  { name: 'AssigneeEmail', required: true, desc: 'Email của nhân viên được giao chỉ tiêu này', example: 'nhanvien@company.com' },
+  { name: 'EmployeeCode', required: true, desc: 'Mã nhân viên được giao chỉ tiêu này (Ví dụ: NV001)', example: 'NV001' },
 ]
 
 export default function KpiImportGuideModal({ open, onClose, onSelectFile }: KpiImportGuideModalProps) {
@@ -146,7 +147,7 @@ export default function KpiImportGuideModal({ open, onClose, onSelectFile }: Kpi
               <div className="flex items-start gap-3 p-4 rounded-2xl bg-amber-50 dark:bg-amber-900/10 border border-amber-200/50 dark:border-amber-900/30">
                 <Info size={18} className="text-amber-600 shrink-0 mt-0.5" />
                 <p className="text-xs text-amber-800 dark:text-amber-300 leading-relaxed font-medium">
-                  <strong>AssigneeEmail</strong> phải chính xác và nhân viên đó phải thuộc đơn vị bạn quản lý.
+                  <strong>EmployeeCode</strong> phải chính xác và nhân viên đó phải thuộc đơn vị bạn quản lý.
                 </p>
               </div>
               <div className="flex items-start gap-3 p-4 rounded-2xl bg-blue-50 dark:bg-blue-900/10 border border-blue-200/50 dark:border-blue-900/30">

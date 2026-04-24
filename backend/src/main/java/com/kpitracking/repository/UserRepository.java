@@ -18,14 +18,21 @@ public interface UserRepository extends JpaRepository<User, UUID> {
 
     boolean existsByEmail(String email);
 
+    Optional<User> findByEmployeeCode(String employeeCode);
+
     boolean existsByPhone(String phone);
 
     Optional<User> findByResetPasswordToken(String resetPasswordToken);
 
     Optional<User> findByVerifyEmailToken(String verifyEmailToken);
 
-    @Query("SELECT u FROM User u WHERE " +
-           "LOWER(u.fullName) LIKE LOWER(CONCAT('%', :keyword, '%')) " +
-           "OR LOWER(u.email) LIKE LOWER(CONCAT('%', :keyword, '%'))")
-    Page<User> searchByKeyword(@Param("keyword") String keyword, Pageable pageable);
+    @Query("SELECT DISTINCT u FROM User u " +
+           "LEFT JOIN UserRoleOrgUnit uro ON u.id = uro.user.id " +
+           "LEFT JOIN uro.role r " +
+           "WHERE (:keyword IS NULL OR :keyword = '' OR LOWER(u.fullName) LIKE LOWER(CONCAT('%', :keyword, '%')) " +
+           "OR LOWER(u.email) LIKE LOWER(CONCAT('%', :keyword, '%'))) " +
+           "AND (:roleName IS NULL OR r.name = :roleName) " +
+           "AND (u.deletedAt IS NULL) " +
+           "AND NOT EXISTS (SELECT 1 FROM UserRoleOrgUnit uro2 WHERE uro2.user.id = u.id AND uro2.role.name = 'DIRECTOR')")
+    Page<User> searchUsers(@Param("keyword") String keyword, @Param("roleName") String roleName, Pageable pageable);
 }

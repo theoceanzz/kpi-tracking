@@ -64,17 +64,16 @@ public class SubmissionAttachmentService {
 
         for (MultipartFile file : files) {
             String folder = "submissions/" + submissionId;
-            String fileUrl = cloudinaryStorageService.uploadFile(file, folder);
-            String storageKey = cloudinaryStorageService.getStorageKey(file, folder);
+            java.util.Map<String, String> uploadInfo = cloudinaryStorageService.uploadFile(file, folder);
 
             SubmissionAttachment attachment = SubmissionAttachment.builder()
                     .submission(submission)
                     .fileName(file.getOriginalFilename())
-                    .fileUrl(fileUrl)
+                    .fileUrl(uploadInfo.get("url"))
                     .fileSize(file.getSize())
                     .contentType(file.getContentType())
                     .storageProvider(StorageProvider.CLOUDINARY)
-                    .storageKey(storageKey)
+                    .storageKey(uploadInfo.get("public_id"))
                     .uploadedBy(currentUser)
                     .build();
 

@@ -18,4 +18,6 @@ public class KpiCriteriaSummaryResponse {
     private KpiStatus status;
     private String orgUnitName;
     private java.util.List<String> assigneeNames;
+    private Integer submissionCount;
+    private Integer expectedSubmissions;
 }

@@ -21,6 +21,7 @@ interface KpiCriteriaTableProps {
 export default function KpiCriteriaTable({ data, onAction, onDelete }: KpiCriteriaTableProps) {
   const columns = [
     { key: 'name', header: 'Tên chỉ tiêu', render: (k: KpiCriteria) => <span className="font-medium">{k.name}</span> },
+    { key: 'period', header: 'Đợt KPI', render: (k: KpiCriteria) => k.kpiPeriod?.name ?? '—' },
     { key: 'orgUnit', header: 'Đơn vị', render: (k: KpiCriteria) => k.orgUnitName ?? '—' },
     { key: 'target', header: 'Mục tiêu', render: (k: KpiCriteria) => k.targetValue != null ? `${k.targetValue} ${k.unit ?? ''}` : '—' },
     { key: 'weight', header: 'Trọng số', render: (k: KpiCriteria) => k.weight != null ? `${k.weight}%` : '—' },

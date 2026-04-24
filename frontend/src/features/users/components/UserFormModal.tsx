@@ -119,6 +119,10 @@ function CreateUserForm({ onClose, onSubmit, isPending }: { onClose: () => void;
             {errors.fullName && <p className="text-red-500 text-xs mt-1">{errors.fullName.message}</p>}
           </div>
           <div>
+            <label className="block text-sm font-medium mb-1.5">Mã nhân viên</label>
+            <input {...register('employeeCode')} className={inputCls} placeholder="VD: NV001" />
+          </div>
+          <div>
             <label className="block text-sm font-medium mb-1.5">Email <span className="text-red-500">*</span></label>
             <input {...register('email')} type="email" className={inputCls} placeholder="name@tochuc.com" />
             {errors.email && <p className="text-red-500 text-xs mt-1">{errors.email.message}</p>}
@@ -216,7 +220,14 @@ function CreateUserForm({ onClose, onSubmit, isPending }: { onClose: () => void;
 function EditUserForm({ editUser, onClose, onSubmit, isPending }: { editUser: User; onClose: () => void; onSubmit: (data: UpdateUserFormData) => void; isPending: boolean }) {
   const { register, handleSubmit, formState: { errors } } = useForm<UpdateUserFormData>({
     resolver: zodResolver(updateUserSchema),
-    defaultValues: { email: editUser.email, fullName: editUser.fullName, phone: editUser.phone ?? '', role: (editUser as any).roles?.[0] || 'STAFF', status: editUser.status },
+    defaultValues: { 
+      email: editUser.email, 
+      fullName: editUser.fullName, 
+      employeeCode: editUser.employeeCode ?? '',
+      phone: editUser.phone ?? '', 
+      role: (editUser as any).roles?.[0] || 'STAFF', 
+      status: editUser.status 
+    },
   })
 
   const inputCls = "w-full px-3 py-2.5 rounded-lg border border-[var(--color-border)] bg-[var(--color-background)] text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]/50"
@@ -234,6 +245,10 @@ function EditUserForm({ editUser, onClose, onSubmit, isPending }: { editUser: Us
             <label className="block text-sm font-medium mb-1.5">Họ và tên</label>
             <input {...register('fullName')} className={inputCls} />
             {errors.fullName && <p className="text-red-500 text-xs mt-1">{errors.fullName.message}</p>}
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-1.5">Mã nhân viên</label>
+            <input {...register('employeeCode')} className={inputCls} />
           </div>
           <div>
             <label className="block text-sm font-medium mb-1.5">Email</label>

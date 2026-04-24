@@ -7,27 +7,27 @@ import { authApi } from '../api/authApi'
 import { useNavigate, Link } from 'react-router-dom'
 import { toast } from 'sonner'
 // 2. Thêm Eye và EyeOff từ lucide-react
-import { Loader2, Mail, Lock, Building2, User, Phone, Eye, EyeOff, Wand2, Check, Trash2, ChevronDown, ChevronUp, Layers } from 'lucide-react'
+import { Loader2, Mail, Lock, Building2, User, Phone, Eye, EyeOff, Wand2, Check, Trash2, Layers, Settings2, Clock, ArrowUp, ArrowDown, Plus } from 'lucide-react'
 
 export default function RegisterPage() {
   const [showPassword, setShowPassword] = useState(false)
   const [isSuccess, setIsSuccess] = useState(false)
   const [registeredEmail, setRegisteredEmail] = useState('')
   const [tokenInput, setTokenInput] = useState('')
+  const [setupMode, setSetupMode] = useState<'LATER' | 'NOW'>('LATER')
   const navigate = useNavigate()
 
   const { register, handleSubmit, control, setValue, setError, formState: { errors } } = useForm<RegisterFormData>({
     resolver: zodResolver(registerSchema),
     defaultValues: {
       hierarchyLevels: [
-        { unitTypeName: 'Chi nhánh', managerRoleLabel: 'Giám đốc chi nhánh' },
-        { unitTypeName: 'Phòng ban', managerRoleLabel: 'Trưởng phòng' },
-        { unitTypeName: 'Tổ', managerRoleLabel: 'Nhân viên' },
+        { unitTypeName: 'Chi nhánh', managerRoleLabel: 'Giám đốc' },
+        { unitTypeName: 'Team', managerRoleLabel: 'Nhân viên' },
       ]
     }
   })
 
-  const { fields, append, prepend, remove } = useFieldArray({
+  const { fields, append, remove, move } = useFieldArray({
     control,
     name: 'hierarchyLevels'
   })
@@ -303,89 +303,172 @@ export default function RegisterPage() {
             {errors.password && !pwd && <p className="text-red-500 text-xs mt-1.5 font-medium">{errors.password.message}</p>}
         </div>
 
-        {/* CƠ CẤU TỔ CHỨC (NEW) */}
-        <div className="space-y-4 pt-4 border-t border-[var(--color-border)]/50">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Layers size={18} className="text-[var(--color-primary)]" />
-              <h3 className="text-sm font-bold text-[var(--color-foreground)]">Thiết lập Cơ cấu tổ chức</h3>
-            </div>
-            <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-[var(--color-primary)]/10 text-[var(--color-primary)]">Tối thiểu 3 cấp</span>
-          </div>
-
-          <div className="space-y-3">
-            {fields.map((field, index) => (
-              <div 
-                key={field.id} 
-                className="group relative p-4 rounded-xl border border-[var(--color-border)] bg-[var(--color-muted)]/10 hover:border-[var(--color-primary)]/30 transition-all animate-in slide-in-from-right-2"
-                style={{ animationDelay: `${index * 50}ms` }}
-              >
-                <div className="flex items-start gap-4">
-                  <div className="flex flex-col items-center gap-1 mt-1">
-                    <div className="w-6 h-6 rounded-full bg-[var(--color-primary)] text-white text-[10px] font-bold flex items-center justify-center shadow-sm">
-                      {index + 1}
-                    </div>
-                    {index < fields.length - 1 && <div className="w-0.5 h-12 bg-gradient-to-b from-[var(--color-primary)] to-transparent opacity-20" />}
-                  </div>
-
-                  <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <div className="space-y-1.5">
-                      <label className="text-[11px] font-bold text-[var(--color-muted-foreground)] uppercase tracking-wider">Tên cấp bậc</label>
-                      <input 
-                        {...register(`hierarchyLevels.${index}.unitTypeName`)} 
-                        className="w-full px-3 py-2 rounded-lg border border-[var(--color-border)] bg-[var(--color-background)] text-sm focus:ring-2 focus:ring-[var(--color-primary)]/10 outline-none transition-all"
-                        placeholder={index === 0 ? "Tổng công ty" : "Tên đơn vị..."}
-                      />
-                      {errors.hierarchyLevels?.[index]?.unitTypeName && (
-                        <p className="text-red-500 text-[10px] font-medium">{errors.hierarchyLevels[index]?.unitTypeName?.message}</p>
-                      )}
-                    </div>
-
-                    <div className="space-y-1.5">
-                      <label className="text-[11px] font-bold text-[var(--color-muted-foreground)] uppercase tracking-wider">
-                        {index === fields.length - 1 ? "Ghi chú (Tùy chọn)" : "Chức danh quản lý"}
-                      </label>
-                      <input 
-                        {...register(`hierarchyLevels.${index}.managerRoleLabel`)} 
-                        className="w-full px-3 py-2 rounded-lg border border-[var(--color-border)] bg-[var(--color-background)] text-sm focus:ring-2 focus:ring-[var(--color-primary)]/10 outline-none transition-all disabled:opacity-50"
-                        placeholder={index === fields.length - 1 ? "Cấp nhân viên thực thi" : "VD: Giám đốc, Trưởng phòng..."}
-                      />
-                    </div>
-                  </div>
-
-                  {fields.length > 3 && (
-                    <button
-                      type="button"
-                      onClick={() => remove(index)}
-                      className="mt-6 p-1.5 text-red-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/10 rounded-lg transition-all"
-                    >
-                      <Trash2 size={16} />
-                    </button>
-                  )}
+        {/* LỰA CHỌN THIẾT LẬP (NEW) */}
+        <div className="space-y-3 pt-4 border-t border-[var(--color-border)]/50">
+          <label className="text-sm font-bold text-[var(--color-foreground)] flex items-center gap-2 mb-1">
+            <Settings2 size={18} className="text-[var(--color-primary)]" />
+            Cơ cấu tổ chức
+          </label>
+          
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <button
+              type="button"
+              onClick={() => setSetupMode('LATER')}
+              className={`p-4 rounded-xl border-2 text-left transition-all ${
+                setupMode === 'LATER' 
+                  ? 'border-[var(--color-primary)] bg-[var(--color-primary)]/5 shadow-md shadow-[var(--color-primary)]/10' 
+                  : 'border-[var(--color-border)] bg-transparent hover:border-[var(--color-primary)]/30'
+              }`}
+            >
+              <div className="flex items-center justify-between mb-2">
+                <div className={`p-2 rounded-lg ${setupMode === 'LATER' ? 'bg-[var(--color-primary)] text-white' : 'bg-[var(--color-muted)] text-[var(--color-muted-foreground)]'}`}>
+                  <Clock size={20} />
                 </div>
+                {setupMode === 'LATER' && (
+                  <div className="w-5 h-5 rounded-full bg-[var(--color-primary)] text-white flex items-center justify-center">
+                    <Check size={12} strokeWidth={4} />
+                  </div>
+                )}
               </div>
-            ))}
-          </div>
-
-          <div className="flex flex-col sm:flex-row gap-3">
-            <button
-              type="button"
-              onClick={() => prepend({ unitTypeName: '', managerRoleLabel: '' })}
-              className="flex-1 py-2.5 flex items-center justify-center gap-2 border-2 border-dashed border-indigo-200 dark:border-indigo-900/30 hover:border-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/10 text-indigo-500 rounded-xl text-sm font-bold transition-all group"
-            >
-              <ChevronUp size={18} className="group-hover:-translate-y-1 transition-transform" />
-              Thêm cấp bậc CHA
+              <h4 className={`text-sm font-bold mb-1 ${setupMode === 'LATER' ? 'text-[var(--color-foreground)]' : 'text-[var(--color-muted-foreground)]'}`}>
+                Thiết lập sau
+              </h4>
+              <p className="text-[11px] text-[var(--color-muted-foreground)] leading-relaxed">
+                Sử dụng cấu trúc mặc định (2 cấp: Chi nhánh & Team). Có thể chỉnh sửa sau trong cài đặt.
+              </p>
             </button>
+
             <button
               type="button"
-              onClick={() => append({ unitTypeName: '', managerRoleLabel: '' })}
-              className="flex-1 py-2.5 flex items-center justify-center gap-2 border-2 border-dashed border-[var(--color-border)] hover:border-[var(--color-primary)] hover:bg-[var(--color-primary)]/5 text-[var(--color-muted-foreground)] hover:text-[var(--color-primary)] rounded-xl text-sm font-bold transition-all group"
+              onClick={() => setSetupMode('NOW')}
+              className={`p-4 rounded-xl border-2 text-left transition-all ${
+                setupMode === 'NOW' 
+                  ? 'border-[var(--color-primary)] bg-[var(--color-primary)]/5 shadow-md shadow-[var(--color-primary)]/10' 
+                  : 'border-[var(--color-border)] bg-transparent hover:border-[var(--color-primary)]/30'
+              }`}
             >
-              <ChevronDown size={18} className="group-hover:translate-y-1 transition-transform" />
-              Thêm cấp bậc CON
+              <div className="flex items-center justify-between mb-2">
+                <div className={`p-2 rounded-lg ${setupMode === 'NOW' ? 'bg-[var(--color-primary)] text-white' : 'bg-[var(--color-muted)] text-[var(--color-muted-foreground)]'}`}>
+                  <Layers size={20} />
+                </div>
+                {setupMode === 'NOW' && (
+                  <div className="w-5 h-5 rounded-full bg-[var(--color-primary)] text-white flex items-center justify-center">
+                    <Check size={12} strokeWidth={4} />
+                  </div>
+                )}
+              </div>
+              <h4 className={`text-sm font-bold mb-1 ${setupMode === 'NOW' ? 'text-[var(--color-foreground)]' : 'text-[var(--color-muted-foreground)]'}`}>
+                Thiết lập ngay
+              </h4>
+              <p className="text-[11px] text-[var(--color-muted-foreground)] leading-relaxed">
+                Tự định nghĩa các cấp bậc quản lý phù hợp với đặc thù vận hành của tổ chức.
+              </p>
             </button>
           </div>
         </div>
+
+        {/* CƠ CẤU TỔ CHỨC (MODIFIED) */}
+        {setupMode === 'NOW' && (
+          <div className="space-y-4 pt-4 animate-in fade-in slide-in-from-top-4 duration-500">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Layers size={18} className="text-[var(--color-primary)]" />
+                <h3 className="text-sm font-bold text-[var(--color-foreground)]">Định nghĩa Cấp bậc</h3>
+              </div>
+              <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-[var(--color-primary)]/10 text-[var(--color-primary)]">Tối thiểu 2 cấp</span>
+            </div>
+
+            <div className="space-y-3">
+              {fields.map((field, index) => (
+                <div 
+                  key={field.id} 
+                  className="group relative p-4 rounded-xl border border-[var(--color-border)] bg-[var(--color-muted)]/10 hover:border-[var(--color-primary)]/30 transition-all animate-in slide-in-from-right-2"
+                  style={{ animationDelay: `${index * 50}ms` }}
+                >
+                  <div className="flex items-start gap-4">
+                    <div className="flex flex-col items-center gap-1 mt-1">
+                      <div className="w-6 h-6 rounded-full bg-[var(--color-primary)] text-white text-[10px] font-bold flex items-center justify-center shadow-sm">
+                        {index + 1}
+                      </div>
+                      {index < fields.length - 1 && <div className="w-0.5 h-12 bg-gradient-to-b from-[var(--color-primary)] to-transparent opacity-20" />}
+                    </div>
+
+                    <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div className="space-y-1.5">
+                        <label className="text-[11px] font-bold text-[var(--color-muted-foreground)] uppercase tracking-wider">Tên cấp bậc</label>
+                        <input 
+                          {...register(`hierarchyLevels.${index}.unitTypeName`)} 
+                          className="w-full px-3 py-2 rounded-lg border border-[var(--color-border)] bg-[var(--color-background)] text-sm focus:ring-2 focus:ring-[var(--color-primary)]/10 outline-none transition-all"
+                          placeholder={index === 0 ? "VD: Chi nhánh" : "VD: Team, Tổ..."}
+                        />
+                        {errors.hierarchyLevels?.[index]?.unitTypeName && (
+                          <p className="text-red-500 text-[10px] font-medium">{errors.hierarchyLevels[index]?.unitTypeName?.message}</p>
+                        )}
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <label className="text-[11px] font-bold text-[var(--color-muted-foreground)] uppercase tracking-wider">
+                          {index === fields.length - 1 ? "Ghi chú vai trò" : "Chức danh quản lý"}
+                        </label>
+                        <input 
+                          {...register(`hierarchyLevels.${index}.managerRoleLabel`)} 
+                          className="w-full px-3 py-2 rounded-lg border border-[var(--color-border)] bg-[var(--color-background)] text-sm focus:ring-2 focus:ring-[var(--color-primary)]/10 outline-none transition-all disabled:opacity-50"
+                          placeholder={index === fields.length - 1 ? "Cấp nhân viên thực thi" : "VD: Giám đốc, Trưởng phòng..."}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="flex flex-col gap-1 ml-auto sm:ml-0">
+                      {fields.length > 2 && (
+                        <button
+                          type="button"
+                          onClick={() => remove(index)}
+                          className="p-1.5 text-red-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/10 rounded-lg transition-all"
+                          title="Xóa cấp bậc"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      )}
+                      
+                      <div className="flex flex-col gap-1 mt-auto">
+                        <button
+                          type="button"
+                          disabled={index === 0}
+                          onClick={() => move(index, index - 1)}
+                          className="p-1.5 text-[var(--color-muted-foreground)] hover:text-[var(--color-primary)] hover:bg-[var(--color-primary)]/10 rounded-lg transition-all disabled:opacity-20 disabled:pointer-events-none"
+                          title="Di chuyển lên"
+                        >
+                          <ArrowUp size={16} />
+                        </button>
+                        <button
+                          type="button"
+                          disabled={index === fields.length - 1}
+                          onClick={() => move(index, index + 1)}
+                          className="p-1.5 text-[var(--color-muted-foreground)] hover:text-[var(--color-primary)] hover:bg-[var(--color-primary)]/10 rounded-lg transition-all disabled:opacity-20 disabled:pointer-events-none"
+                          title="Di chuyển xuống"
+                        >
+                          <ArrowDown size={16} />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <button
+              type="button"
+              onClick={() => append({ unitTypeName: '', managerRoleLabel: '' })}
+              className="w-full py-4 flex items-center justify-center gap-2 border-2 border-dashed border-[var(--color-border)] hover:border-[var(--color-primary)] hover:bg-[var(--color-primary)]/5 text-[var(--color-muted-foreground)] hover:text-[var(--color-primary)] rounded-xl text-sm font-bold transition-all group overflow-hidden relative"
+            >
+              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-[var(--color-primary)]/5 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000" />
+              <div className="w-8 h-8 rounded-full bg-[var(--color-muted)] group-hover:bg-[var(--color-primary)] group-hover:text-white flex items-center justify-center transition-colors">
+                <Plus size={18} />
+              </div>
+              Thêm cấp bậc mới
+            </button>
+          </div>
+        )}
 
         <button
           type="submit"

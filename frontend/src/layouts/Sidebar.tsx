@@ -1,5 +1,6 @@
 import { NavLink, Link } from 'react-router-dom'
 import { useAuthStore } from '@/store/authStore'
+import { useSidebarStore } from '@/store/sidebarStore'
 import { useState, useRef, useEffect } from 'react'
 import {
   LayoutDashboard,
@@ -45,6 +46,7 @@ const navItems: NavItem[] = [
 
 export default function Sidebar({ isMobileOpen, onCloseMobile }: { isMobileOpen?: boolean; onCloseMobile?: () => void }) {
   const { user, logout } = useAuthStore()
+  const { isCollapsed } = useSidebarStore()
   const [userMenuOpen, setUserMenuOpen] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
 
@@ -75,16 +77,21 @@ export default function Sidebar({ isMobileOpen, onCloseMobile }: { isMobileOpen?
       {/* Sidebar container */}
       <aside 
         className={cn(
-          "fixed inset-y-0 left-0 z-50 flex flex-col w-64 bg-[var(--color-card)] border-r border-[var(--color-border)] h-screen transition-transform duration-300 ease-in-out lg:translate-x-0 lg:static lg:sticky lg:top-0",
-          isMobileOpen ? "translate-x-0 shadow-2xl" : "-translate-x-full"
+          "fixed inset-y-0 left-0 z-50 flex flex-col bg-[var(--color-card)] border-r border-[var(--color-border)] h-screen transition-all duration-300 ease-in-out lg:translate-x-0 lg:static lg:sticky lg:top-0",
+          isCollapsed ? "w-20" : "w-64",
+          isMobileOpen ? "translate-x-0 shadow-2xl w-64" : "-translate-x-full"
         )}
       >
-        <div className="flex items-center justify-between px-6 py-5 border-b border-[var(--color-border)]">
+        <div className={cn("flex items-center justify-between px-6 py-5 border-b border-[var(--color-border)]", isCollapsed && !isMobileOpen && "px-4")}>
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-lg bg-[var(--color-primary)] flex items-center justify-center">
+            <div className="w-9 h-9 rounded-lg bg-[var(--color-primary)] flex items-center justify-center shrink-0 shadow-lg shadow-[var(--color-primary)]/20">
               <Target className="text-white" size={20} />
             </div>
-            <span className="font-bold text-lg tracking-tight">KPI Tracking</span>
+            {(!isCollapsed || isMobileOpen) && (
+              <span className="font-black text-lg tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-[var(--color-primary)] to-indigo-600">
+                KPI Tracking
+              </span>
+            )}
           </div>
           <button 
             className="lg:hidden p-1.5 rounded-lg text-[var(--color-muted-foreground)] hover:bg-[var(--color-accent)]"
@@ -99,26 +106,29 @@ export default function Sidebar({ isMobileOpen, onCloseMobile }: { isMobileOpen?
             <NavLink
               key={item.path}
               to={item.path}
-              // SỬA TẠI ĐÂY: Dùng item.end để kiểm soát active chính xác
               end={item.end} 
               onClick={onCloseMobile}
               className={({ isActive }) =>
                 cn(
-                  'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors',
+                  'flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-bold transition-all group',
+                  isCollapsed && !isMobileOpen ? 'justify-center px-0 mx-2' : '',
                   isActive
-                    ? 'bg-[var(--color-primary)] text-white shadow-sm'
+                    ? 'bg-[var(--color-primary)] text-white shadow-lg shadow-[var(--color-primary)]/25 scale-[1.02]'
                     : 'text-[var(--color-muted-foreground)] hover:bg-[var(--color-accent)] hover:text-[var(--color-foreground)]'
                 )
               }
+              title={isCollapsed ? item.label : ''}
             >
-              {item.icon}
-              {item.label}
+              <div className={cn("shrink-0 transition-transform group-hover:scale-110", isCollapsed && !isMobileOpen ? "m-0" : "")}>
+                {item.icon}
+              </div>
+              {(!isCollapsed || isMobileOpen) && <span className="truncate">{item.label}</span>}
             </NavLink>
           ))}
         </nav>
 
         {/* User Account Section */}
-        <div className="p-4 border-t border-[var(--color-border)] bg-[var(--color-card)] mt-auto relative" ref={menuRef}>
+        <div className={cn("p-4 border-t border-[var(--color-border)] bg-[var(--color-card)] mt-auto relative", isCollapsed && !isMobileOpen && "p-2")} ref={menuRef}>
           
           {/* Popover Menu */}
           {userMenuOpen && (
@@ -153,20 +163,25 @@ export default function Sidebar({ isMobileOpen, onCloseMobile }: { isMobileOpen?
           {/* Trigger Button */}
           <button 
             onClick={() => setUserMenuOpen(!userMenuOpen)}
-            className="w-full flex items-center justify-between p-2 rounded-lg hover:bg-[var(--color-accent)] transition-colors group"
+            className={cn(
+              "w-full flex items-center justify-between p-2 rounded-xl hover:bg-[var(--color-accent)] transition-all group border border-transparent hover:border-[var(--color-border)]",
+              isCollapsed && !isMobileOpen ? "justify-center" : ""
+            )}
           >
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-full bg-[var(--color-primary)]/20 flex items-center justify-center text-xs font-bold text-[var(--color-primary)] shrink-0">
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[var(--color-primary)] to-indigo-600 flex items-center justify-center text-xs font-black text-white shrink-0 shadow-md">
                 {user?.fullName?.charAt(0) ?? 'U'}
               </div>
-              <div className="flex-1 min-w-0 text-left">
-                <p className="text-sm font-medium truncate group-hover:text-[var(--color-primary)] transition-colors">{user?.fullName}</p>
-                <p className="text-xs text-[var(--color-muted-foreground)] truncate">
-                  {user?.memberships?.[0]?.roleLabel || user?.email}
-                </p>
-              </div>
+              {(!isCollapsed || isMobileOpen) && (
+                <div className="flex-1 min-w-0 text-left">
+                  <p className="text-sm font-black truncate text-[var(--color-foreground)]">{user?.fullName}</p>
+                  <p className="text-[10px] font-bold text-[var(--color-muted-foreground)] uppercase tracking-widest truncate">
+                    {user?.memberships?.[0]?.roleLabel || 'Thành viên'}
+                  </p>
+                </div>
+              )}
             </div>
-            <MoreVertical size={16} className="text-[var(--color-muted-foreground)] shrink-0" />
+            {(!isCollapsed || isMobileOpen) && <MoreVertical size={16} className="text-[var(--color-muted-foreground)] shrink-0" />}
           </button>
         </div>
       </aside>

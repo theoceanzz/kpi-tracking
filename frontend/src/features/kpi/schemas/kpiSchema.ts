@@ -10,8 +10,8 @@ export const kpiSchema = z.object({
   orgUnitId: z.string().optional(),
   assignedToId: z.string().optional(),
   assignedToIds: z.array(z.string()).optional(),
-  startDate: z.string().optional(),
-  endDate: z.string().optional(),
+  minimumValue: z.number().min(0, 'Giá trị tối thiểu không được âm').optional(),
+  kpiPeriodId: z.string().min(1, 'Vui lòng chọn đợt KPI'),
 })
 
 export type KpiFormData = z.infer<typeof kpiSchema>

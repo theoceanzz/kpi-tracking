@@ -1,13 +1,15 @@
 import { Outlet, useLocation } from 'react-router-dom'
 import Sidebar from './Sidebar'
 import { useAuth } from '@/hooks/useAuth'
-import { LogOut, Menu } from 'lucide-react'
+import { useSidebarStore } from '@/store/sidebarStore'
+import { LogOut, Menu, PanelLeft } from 'lucide-react'
 import NotificationBell from '@/features/notifications/components/NotificationBell'
 import ThemeCustomizer from './components/ThemeCustomizer'
 import { useState, useEffect } from 'react'
 
 export default function AppLayout() {
   const { user, logout } = useAuth()
+  const { isCollapsed, toggle: toggleSidebar } = useSidebarStore()
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const location = useLocation()
 
@@ -38,9 +40,16 @@ export default function AppLayout() {
             </div>
           </div>
 
-          <div className="hidden lg:block">
+          <div className="hidden lg:flex items-center gap-4">
+            <button
+              onClick={toggleSidebar}
+              className="p-2 rounded-xl text-[var(--color-muted-foreground)] hover:bg-[var(--color-accent)] hover:text-[var(--color-primary)] transition-all shadow-sm border border-transparent hover:border-[var(--color-border)]"
+              title={isCollapsed ? "Mở rộng menu" : "Thu gọn menu"}
+            >
+              <PanelLeft size={20} className={isCollapsed ? "rotate-180 transition-transform" : "transition-transform"} />
+            </button>
             <p className="text-sm text-[var(--color-muted-foreground)]">
-              Xin chào, <span className="font-semibold text-[var(--color-foreground)]">{user?.fullName}</span>
+              Xin chào, <span className="font-bold text-[var(--color-foreground)]">{user?.fullName}</span>
             </p>
           </div>
 

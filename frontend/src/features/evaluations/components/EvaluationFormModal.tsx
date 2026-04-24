@@ -2,10 +2,11 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { evaluationSchema, type EvaluationFormData } from '../schemas/evaluationSchema'
 import { useCreateEvaluation } from '../hooks/useCreateEvaluation'
+import { useKpiPeriods } from '@/features/kpi/hooks/useKpiPeriods'
 import { useMyKpi } from '@/features/kpi/hooks/useMyKpi'
 import { useAuthStore } from '@/store/authStore'
-import { X, Loader2, Star, Target, Calendar } from 'lucide-react'
-import { useState } from 'react'
+import { X, Loader2, Star, Target, Zap, Info } from 'lucide-react'
+import { useState, useMemo } from 'react'
 
 interface EvaluationFormModalProps {
   open: boolean
@@ -15,9 +16,22 @@ interface EvaluationFormModalProps {
 export default function EvaluationFormModal({ open, onClose }: EvaluationFormModalProps) {
   const { user } = useAuthStore()
   
-  const { data: kpiData } = useMyKpi(0, 100)
+  const { data: periodsData } = useKpiPeriods({ organizationId: user?.memberships?.[0]?.organizationId })
   const createMutation = useCreateEvaluation()
   const [hoverScore, setHoverScore] = useState<number | null>(null)
+
+  // Fetch all my KPIs to know which periods I have been assigned to
+  const { data: myAllKpis } = useMyKpi({ page: 0, size: 500 })
+  const assignedPeriodIds = useMemo(() => {
+    if (!myAllKpis?.content) return new Set<string>()
+    return new Set(myAllKpis.content.map(k => k.kpiPeriodId))
+  }, [myAllKpis])
+
+  const filteredPeriods = useMemo(() => {
+    if (!periodsData?.content) return []
+    // If it's a staff, only show periods where they have KPIs
+    return periodsData.content.filter(p => assignedPeriodIds.has(p.id))
+  }, [periodsData, assignedPeriodIds])
 
   const { register, handleSubmit, formState: { errors }, reset, watch, setValue } = useForm<EvaluationFormData>({
     resolver: zodResolver(evaluationSchema),
@@ -30,8 +44,9 @@ export default function EvaluationFormModal({ open, onClose }: EvaluationFormMod
   const currentScore = watch('score')
   const displayScore = hoverScore ?? currentScore
   
-  const selectedKpiId = watch('kpiCriteriaId')
-  const selectedKpi = kpiData?.content?.find(k => k.id === selectedKpiId)
+  const selectedPeriodId = watch('kpiPeriodId')
+
+  const { data: myKpis, isLoading: isLoadingKpi } = useMyKpi({ page: 0, size: 50, kpiPeriodId: selectedPeriodId })
 
   const onSubmit = (data: EvaluationFormData) => {
     createMutation.mutate(data, {
@@ -72,10 +87,10 @@ export default function EvaluationFormModal({ open, onClose }: EvaluationFormMod
             </div>
             <div>
               <h3 className="text-lg font-black text-slate-900 dark:text-white">
-                Tự đánh giá Bản thân
+                Tự đánh giá Hiệu suất
               </h3>
               <p className="text-xs font-medium text-slate-500">
-                Chấm điểm hiệu suất theo chỉ tiêu KPI được giao
+                Đánh giá tổng thể quá trình làm việc trong kỳ (đợt)
               </p>
             </div>
           </div>
@@ -88,17 +103,60 @@ export default function EvaluationFormModal({ open, onClose }: EvaluationFormMod
           {/* userId - handled in defaultValues, just hidden here */}
           <input type="hidden" {...register('userId')} />
 
-          {/* KPI Select */}
+          {/* Period Select */}
           <div className="space-y-2">
             <label className="flex items-center gap-1.5 text-sm font-bold text-slate-700 dark:text-slate-300">
-              <Target size={14} /> Chỉ tiêu KPI <span className="text-red-500">*</span>
+              <Target size={14} /> Kỳ (Đợt) KPI <span className="text-red-500">*</span>
             </label>
-            <select {...register('kpiCriteriaId')} className={inputCls}>
-              <option value="">-- Chọn chỉ tiêu --</option>
-              {kpiData?.content?.map((k) => <option key={k.id} value={k.id}>{k.name}</option>)}
+            <select {...register('kpiPeriodId')} className={inputCls}>
+              <option value="">-- Chọn đợt đánh giá --</option>
+              {filteredPeriods.map((p) => <option key={p.id} value={p.id}>{p.name} ({p.periodType})</option>)}
             </select>
-            {errors.kpiCriteriaId && <p className="text-red-500 text-xs font-medium">{errors.kpiCriteriaId.message}</p>}
+            {errors.kpiPeriodId && <p className="text-red-500 text-xs font-medium">{errors.kpiPeriodId.message}</p>}
           </div>
+
+          {/* KPI Summary View (Optional Context) */}
+          {selectedPeriodId && (
+            <div className="space-y-3 p-5 rounded-2xl bg-amber-50/30 dark:bg-amber-900/10 border border-amber-100 dark:border-amber-900/30">
+              <div className="flex items-center justify-between">
+                <h4 className="text-xs font-black uppercase tracking-widest text-amber-700 dark:text-amber-400 flex items-center gap-2">
+                  <Zap size={14} /> Tóm tắt kết quả trong đợt
+                </h4>
+                <span className="text-[10px] font-bold text-amber-600/70">{myKpis?.totalElements ?? 0} chỉ tiêu</span>
+              </div>
+              
+              {isLoadingKpi ? (
+                <div className="flex items-center gap-2 text-xs text-slate-400 italic">
+                  <Loader2 size={12} className="animate-spin" /> Đang tải dữ liệu...
+                </div>
+              ) : myKpis?.content && myKpis.content.length > 0 ? (
+                <div className="space-y-2 max-h-[160px] overflow-y-auto pr-2 custom-scrollbar">
+                  {myKpis.content.map(kpi => (
+                    <div key={kpi.id} className="p-3 rounded-xl bg-white dark:bg-slate-800 border border-amber-100 dark:border-amber-900/20 shadow-sm">
+                      <div className="flex justify-between gap-2">
+                        <span className="text-xs font-bold text-slate-700 dark:text-slate-200 line-clamp-1">{kpi.name}</span>
+                        <span className="text-[10px] font-black text-indigo-600 dark:text-indigo-400 whitespace-nowrap">{kpi.weight}%</span>
+                      </div>
+                      <div className="mt-2 flex items-center gap-2">
+                        <div className="flex-1 h-1.5 rounded-full bg-slate-100 dark:bg-slate-700 overflow-hidden">
+                          <div 
+                            className="h-full bg-amber-500 rounded-full transition-all duration-500" 
+                            style={{ width: `${Math.min(100, (kpi.targetValue ? (100) : 0))}%` }} 
+                          />
+                        </div>
+                        <span className="text-[10px] font-medium text-slate-500">Mục tiêu: {kpi.targetValue} {kpi.unit}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="flex items-center gap-2 p-3 rounded-xl bg-white/50 dark:bg-slate-800/30 border border-dashed border-amber-200 dark:border-amber-900/40">
+                  <Info size={14} className="text-amber-500" />
+                  <p className="text-[10px] font-medium text-slate-500 italic">Không tìm thấy chỉ tiêu KPI nào được giao trong đợt này</p>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Score with visual slider */}
           <div className="space-y-3">
@@ -150,40 +208,6 @@ export default function EvaluationFormModal({ open, onClose }: EvaluationFormMod
             />
           </div>
 
-          {/* Period */}
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-2">
-              <label className="flex items-center gap-1 text-sm font-bold text-slate-700 dark:text-slate-300">
-                <Calendar size={12} /> Từ ngày {selectedKpi?.startDate && <span className="text-[10px] text-indigo-500">(Min: {new Date(selectedKpi.startDate).toLocaleDateString()})</span>}
-              </label>
-              <input 
-                {...register('periodStart')} 
-                type="date" 
-                min={selectedKpi?.startDate ? new Date(selectedKpi.startDate).toISOString().split('T')[0] : undefined}
-                max={selectedKpi?.endDate ? new Date(selectedKpi.endDate).toISOString().split('T')[0] : undefined}
-                className={inputCls} 
-              />
-            </div>
-            <div className="space-y-2">
-              <label className="flex items-center gap-1 text-sm font-bold text-slate-700 dark:text-slate-300">
-                <Calendar size={12} /> Đến ngày {selectedKpi?.endDate && <span className="text-[10px] text-indigo-500">(Max: {new Date(selectedKpi.endDate).toLocaleDateString()})</span>}
-              </label>
-              <input 
-                {...register('periodEnd')} 
-                type="date" 
-                min={selectedKpi?.startDate ? new Date(selectedKpi.startDate).toISOString().split('T')[0] : undefined}
-                max={selectedKpi?.endDate ? new Date(selectedKpi.endDate).toISOString().split('T')[0] : undefined}
-                className={inputCls} 
-              />
-            </div>
-            {(errors.periodStart || errors.periodEnd) && (
-              <div className="col-span-2">
-                {errors.periodStart && <p className="text-red-500 text-xs font-medium">{errors.periodStart.message}</p>}
-                {errors.periodEnd && <p className="text-red-500 text-xs font-medium">{errors.periodEnd.message}</p>}
-              </div>
-            )}
-          </div>
-
           {/* Actions */}
           <div className="flex gap-3 pt-2">
             <button 
@@ -195,7 +219,7 @@ export default function EvaluationFormModal({ open, onClose }: EvaluationFormMod
             </button>
             <button 
               type="submit" 
-              disabled={createMutation.isPending} 
+              disabled={createMutation.isPending || !selectedPeriodId || (myKpis?.totalElements === 0)} 
               className="flex-1 px-4 py-3 rounded-xl text-sm font-bold bg-amber-600 text-white hover:bg-amber-700 disabled:opacity-50 transition-all flex items-center justify-center gap-2 shadow-lg shadow-amber-500/20"
             >
               {createMutation.isPending && <Loader2 size={16} className="animate-spin" />}

@@ -4,11 +4,26 @@ import type { Submission, CreateSubmissionRequest, ReviewSubmissionRequest, Atta
 import type { SubmissionStatus } from '@/types/submission'
 
 export const submissionApi = {
-  getAll: (params: { page?: number; size?: number; status?: SubmissionStatus; kpiCriteriaId?: string }) =>
+  getAll: (params: { 
+    page?: number; 
+    size?: number; 
+    status?: SubmissionStatus; 
+    kpiCriteriaId?: string;
+    submittedById?: string;
+    orgUnitId?: string;
+    sortBy?: string;
+    sortDir?: string;
+  }) =>
     axiosInstance.get<ApiResponse<PageResponse<Submission>>>('/submissions', { params }).then((r) => r.data.data),
 
-  getMy: (page = 0, size = 20) =>
-    axiosInstance.get<ApiResponse<PageResponse<Submission>>>('/submissions/my', { params: { page, size } }).then((r) => r.data.data),
+  getMy: (params: { 
+    page?: number; 
+    size?: number; 
+    status?: SubmissionStatus; 
+    sortBy?: string;
+    sortDir?: string;
+  } = {}) =>
+    axiosInstance.get<ApiResponse<PageResponse<Submission>>>('/submissions/my', { params }).then((r) => r.data.data),
 
   getById: (id: string) =>
     axiosInstance.get<ApiResponse<Submission>>(`/submissions/${id}`).then((r) => r.data.data),

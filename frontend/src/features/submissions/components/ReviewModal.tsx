@@ -2,10 +2,11 @@ import { useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { submissionApi } from '../api/submissionApi'
 import { toast } from 'sonner'
-import { X, Loader2, CheckCircle, XCircle, User, Calendar, Paperclip, FileText, MessageSquare } from 'lucide-react'
+import { X, Loader2, CheckCircle, XCircle, User, Calendar, Paperclip, FileText, MessageSquare, Info } from 'lucide-react'
 import { formatDateTime, formatNumber } from '@/lib/utils'
 import type { Submission } from '@/types/submission'
 import AttachmentList from './AttachmentList'
+import { useAuth } from '@/hooks/useAuth'
 
 interface ReviewModalProps {
   open: boolean
@@ -14,9 +15,14 @@ interface ReviewModalProps {
 }
 
 export default function ReviewModal({ open, onClose, submission }: ReviewModalProps) {
+  const { user } = useAuth()
   const [reviewNote, setReviewNote] = useState('')
   const [mode, setMode] = useState<'view' | 'reject'>('view')
   const qc = useQueryClient()
+
+  const isDirector = user?.roles.includes('DIRECTOR')
+  const isOwnSubmission = submission?.submittedById === user?.id
+  const canReviewThis = (!submission?.isSubmittedByManager || isDirector) && !isOwnSubmission
 
   const approveMutation = useMutation({
     mutationFn: () => submissionApi.review(submission!.id, { status: 'APPROVED', reviewNote: reviewNote || undefined }),
@@ -35,7 +41,7 @@ export default function ReviewModal({ open, onClose, submission }: ReviewModalPr
   if (!open || !submission) return null
 
   const isPending = approveMutation.isPending || rejectMutation.isPending
-  const isReviewable = submission.status === 'PENDING'
+  const isReviewable = submission.status === 'PENDING' && canReviewThis
   const progress = submission.targetValue ? Math.min(100, Math.round((submission.actualValue / submission.targetValue) * 100)) : null
 
   return (
@@ -82,6 +88,22 @@ export default function ReviewModal({ open, onClose, submission }: ReviewModalPr
             </div>
           </div>
 
+          {/* Auto Score Display */}
+          {submission.autoScore != null && (
+            <div className="p-5 rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 text-white shadow-lg shadow-indigo-500/20">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-[10px] font-black uppercase tracking-widest text-indigo-100 mb-1">Điểm tính toán tự động</p>
+                  <p className="text-sm font-medium text-indigo-50 opacity-80">Dựa trên kết quả thực tế và trọng số</p>
+                </div>
+                <div className="text-right">
+                  <p className="text-4xl font-black">{formatNumber(submission.autoScore)}</p>
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-indigo-200">điểm</p>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Progress bar */}
           {progress !== null && (
             <div className="space-y-2">
@@ -126,6 +148,17 @@ export default function ReviewModal({ open, onClose, submission }: ReviewModalPr
                 <Paperclip size={12} /> Tệp đính kèm ({submission.attachments.length})
               </div>
               <AttachmentList attachments={submission.attachments} />
+            </div>
+          )}
+
+          {/* Restriction Notice */}
+          {!canReviewThis && submission.status === 'PENDING' && (
+            <div className="p-4 rounded-2xl bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 flex gap-3 animate-in slide-in-from-top-2 duration-300">
+              <Info className="text-amber-600 shrink-0" size={20} />
+              <div className="text-xs font-medium text-amber-800 dark:text-amber-300 leading-relaxed">
+                <span className="block font-black uppercase tracking-widest text-[10px] mb-1">Quyền hạn hạn chế</span>
+                Bản nộp này của cấp quản lý (Trưởng/Phó phòng). Theo quy định, chỉ Giám đốc mới có quyền phê duyệt các báo cáo này.
+              </div>
             </div>
           )}
 

@@ -46,6 +46,7 @@ export default function UserTable({ users, onRowClick, onDelete }: UserTableProp
         <thead>
           <tr className="border-b border-slate-200 dark:border-slate-800">
             <th className="py-4 px-6 text-xs font-black uppercase tracking-widest text-[var(--color-muted-foreground)]">Định danh Cán bộ</th>
+            <th className="py-4 px-6 text-xs font-black uppercase tracking-widest text-[var(--color-muted-foreground)]">Mã NV</th>
             <th className="py-4 px-6 text-xs font-black uppercase tracking-widest text-[var(--color-muted-foreground)]">Vai trò</th>
             <th className="py-4 px-6 text-xs font-black uppercase tracking-widest text-[var(--color-muted-foreground)] hidden md:table-cell">Đơn vị</th>
             <th className="py-4 px-6 text-xs font-black uppercase tracking-widest text-[var(--color-muted-foreground)] hidden sm:table-cell">Liên lạc</th>
@@ -82,6 +83,13 @@ export default function UserTable({ users, onRowClick, onDelete }: UserTableProp
                         </p>
                      </div>
                   </div>
+                </td>
+
+                {/* 1.5. Employee Code Col */}
+                <td className="py-4 px-6">
+                   <span className="text-sm font-black text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded-lg">
+                      {u.employeeCode || '---'}
+                   </span>
                 </td>
 
                 {/* 2. Role Col */}

@@ -38,14 +38,17 @@ public class KpiCriteriaController {
     }
 
     @GetMapping
-    @Operation(summary = "List KPI criteria with optional filters")
+    @Operation(summary = "Get all KPI criteria with filtering, sorting and pagination")
     public ResponseEntity<ApiResponse<PageResponse<KpiCriteriaResponse>>> getKpiCriteria(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size,
             @RequestParam(required = false) KpiStatus status,
             @RequestParam(required = false) UUID orgUnitId,
-            @RequestParam(required = false) UUID createdById) {
-        PageResponse<KpiCriteriaResponse> response = kpiCriteriaService.getKpiCriteria(page, size, status, orgUnitId, createdById);
+            @RequestParam(required = false) UUID createdById,
+            @RequestParam(required = false) UUID kpiPeriodId,
+            @RequestParam(defaultValue = "createdAt") String sortBy,
+            @RequestParam(defaultValue = "desc") String sortDir) {
+        PageResponse<KpiCriteriaResponse> response = kpiCriteriaService.getKpiCriteria(page, size, status, orgUnitId, createdById, kpiPeriodId, sortBy, sortDir);
         return ResponseEntity.ok(ApiResponse.success(response));
     }
 
@@ -101,11 +104,34 @@ public class KpiCriteriaController {
     }
 
     @GetMapping("/my")
-    @Operation(summary = "Get KPI assigned to current user")
+    @Operation(summary = "Get KPIs assigned to current user with sorting and pagination")
     public ResponseEntity<ApiResponse<PageResponse<KpiCriteriaResponse>>> getMyKpi(
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size) {
-        PageResponse<KpiCriteriaResponse> response = kpiCriteriaService.getMyKpi(page, size);
+            @RequestParam(defaultValue = "20") int size,
+            @RequestParam(required = false) UUID kpiPeriodId,
+            @RequestParam(defaultValue = "createdAt") String sortBy,
+            @RequestParam(defaultValue = "desc") String sortDir) {
+        PageResponse<KpiCriteriaResponse> response = kpiCriteriaService.getMyKpi(page, size, kpiPeriodId, sortBy, sortDir);
         return ResponseEntity.ok(ApiResponse.success(response));
+    }
+
+    @GetMapping("/total-weight")
+    @Operation(summary = "Get total weight of KPIs for an org unit and period")
+    public ResponseEntity<ApiResponse<Double>> getTotalWeight(
+            @RequestParam UUID orgUnitId,
+            @RequestParam(required = false) UUID kpiPeriodId) {
+        Double totalWeight = kpiCriteriaService.getTotalWeight(orgUnitId, kpiPeriodId);
+        return ResponseEntity.ok(ApiResponse.success(totalWeight != null ? totalWeight : 0.0));
+    }
+
+    @PostMapping(value = "/import", consumes = org.springframework.http.MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PreAuthorize("hasAnyRole('DIRECTOR', 'HEAD', 'DEPUTY')")
+    @Operation(summary = "Import KPI criteria from CSV or Excel")
+    public ResponseEntity<ApiResponse<com.kpitracking.dto.response.kpi.ImportKpiResponse>> importKpis(
+            @RequestParam("file") org.springframework.web.multipart.MultipartFile file,
+            @RequestParam(required = false) UUID kpiPeriodId,
+            @RequestParam(required = false) UUID orgUnitId) {
+        com.kpitracking.dto.response.kpi.ImportKpiResponse response = kpiCriteriaService.importKpis(file, kpiPeriodId, orgUnitId);
+        return ResponseEntity.ok(ApiResponse.success("Import processed", response));
     }
 }

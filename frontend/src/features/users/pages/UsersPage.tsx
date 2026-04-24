@@ -1,24 +1,27 @@
-import { useState, useRef, useMemo } from 'react'
+import { useState, useRef, useMemo, useEffect } from 'react'
 import PageHeader from '@/components/common/PageHeader'
 import LoadingSkeleton from '@/components/common/LoadingSkeleton'
 import UserTable from '../components/UserTable'
 import UserFormModal from '../components/UserFormModal'
 import ImportGuideModal from '../components/ImportGuideModal'
 import ConfirmDialog from '@/components/common/ConfirmDialog'
+import Pagination from '@/components/common/Pagination'
 import { useUsers } from '../hooks/useUsers'
+import { useOrgUnitTree } from '@/features/orgunits/hooks/useOrgUnitTree'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { userApi } from '../api/userApi'
-import { useAuthStore } from '@/store/authStore'
-import { Plus, Upload, Loader2, Filter, ArrowUpDown } from 'lucide-react'
-import { getHighestRole } from '@/lib/utils'
+import { Plus, Upload, Loader2, Filter, ArrowUpDown, Briefcase } from 'lucide-react'
 import type { User } from '@/types/user'
+import type { OrgUnitTreeResponse } from '@/types/orgUnit'
 import { toast } from 'sonner'
 
 export default function UsersPage() {
-  const { user: authUser } = useAuthStore()
   const [keyword, setKeyword] = useState('')
   const [roleFilter, setRoleFilter] = useState<string>('ALL')
+  const [orgUnitFilter, setOrgUnitFilter] = useState<string>('ALL')
   const [sortOrder, setSortOrder] = useState<'A-Z' | 'Z-A'>('A-Z')
+  const [page, setPage] = useState(0)
+  const size = 5
 
   const [showForm, setShowForm] = useState(false)
   const [showImportGuide, setShowImportGuide] = useState(false)
@@ -27,8 +30,41 @@ export default function UsersPage() {
   const fileRef = useRef<HTMLInputElement>(null)
   const qc = useQueryClient()
 
-  // Fetch all users 
-  const { data, isLoading } = useUsers({ keyword, page: 0, size: 500 })
+  // Fetch Org Units for filter
+  const { data: orgTree } = useOrgUnitTree()
+  const allUnits = useMemo(() => {
+    const flatten = (items: OrgUnitTreeResponse[]): OrgUnitTreeResponse[] => {
+      return items.reduce((acc, item) => [
+        ...acc, 
+        item, 
+        ...flatten(item.children || [])
+      ], [] as OrgUnitTreeResponse[])
+    }
+    return flatten(orgTree || [])
+  }, [orgTree])
+
+  // Set default org unit to the first one (Chi nhánh Hà Nội)
+  useEffect(() => {
+    const firstUnitId = orgTree?.[0]?.id
+    if (firstUnitId && orgUnitFilter === 'ALL') {
+      setOrgUnitFilter(firstUnitId)
+    }
+  }, [orgTree, orgUnitFilter])
+
+  // Map sort order to backend parameters
+  const sortBy = 'fullName'
+  const direction = sortOrder === 'A-Z' ? 'asc' : 'desc'
+
+  // Fetch users with full parameters
+  const { data, isLoading } = useUsers({ 
+    keyword, 
+    page, 
+    size, 
+    role: roleFilter, 
+    orgUnitId: orgUnitFilter === 'ALL' ? undefined : orgUnitFilter,
+    sortBy, 
+    direction 
+  })
 
   const deleteMutation = useMutation({
     mutationFn: (id: string) => userApi.delete(id),
@@ -61,25 +97,25 @@ export default function UsersPage() {
     setShowForm(true)
   }
 
-  // Client-side filtering & sorting
-  const processedUsers = useMemo(() => {
-    if (!data?.content) return []
+  const handleKeywordChange = (val: string) => {
+    setKeyword(val)
+    setPage(0)
+  }
 
-    let result = data.content.filter(u => u.id !== authUser?.id && !u.roles?.includes('DIRECTOR'))
+  const handleRoleChange = (val: string) => {
+    setRoleFilter(val)
+    setPage(0)
+  }
 
-    if (roleFilter !== 'ALL') {
-      result = result.filter(u => getHighestRole(u) === roleFilter)
-    }
+  const handleOrgUnitChange = (val: string) => {
+    setOrgUnitFilter(val)
+    setPage(0)
+  }
 
-    result.sort((a, b) => {
-      const nameA = a.fullName?.toLowerCase() || ''
-      const nameB = b.fullName?.toLowerCase() || ''
-      if (sortOrder === 'A-Z') return nameA.localeCompare(nameB)
-      return nameB.localeCompare(nameA)
-    })
-
-    return result
-  }, [data?.content, authUser?.id, roleFilter, sortOrder])
+  const handleSortChange = (val: 'A-Z' | 'Z-A') => {
+    setSortOrder(val)
+    setPage(0)
+  }
 
   return (
     <div className="space-y-6">
@@ -113,7 +149,7 @@ export default function UsersPage() {
             type="text"
             placeholder="Tìm kiếm theo Tên hoặc Email..."
             value={keyword}
-            onChange={(e) => setKeyword(e.target.value)}
+            onChange={(e) => handleKeywordChange(e.target.value)}
             className="w-full min-w-[300px] px-4 py-2.5 rounded-xl border border-[var(--color-border)] bg-[var(--color-background)] font-medium text-sm focus:ring-2 focus:ring-[var(--color-primary)]/30 focus:border-[var(--color-primary)] outline-none transition-all"
           />
         </div>
@@ -125,13 +161,28 @@ export default function UsersPage() {
                 </div>
                 <select 
                     value={roleFilter} 
-                    onChange={e => setRoleFilter(e.target.value)}
+                    onChange={e => handleRoleChange(e.target.value)}
                     className="pl-9 pr-8 py-2.5 rounded-xl border border-[var(--color-border)] bg-[var(--color-background)] font-semibold text-sm appearance-none outline-none focus:ring-2 focus:ring-[var(--color-primary)]/30 transition-all cursor-pointer"
                 >
-                    <option value="ALL">Tất cả chức vụ</option>
+                    <option value="ALL">Lọc theo chức danh</option>
                     <option value="HEAD">Trưởng phòng</option>
                     <option value="DEPUTY">Phó phòng</option>
                     <option value="STAFF">Nhân viên</option>
+                </select>
+            </div>
+
+            <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <Briefcase size={14} className="text-[var(--color-muted-foreground)]" />
+                </div>
+                <select 
+                    value={orgUnitFilter} 
+                    onChange={e => handleOrgUnitChange(e.target.value)}
+                    className="pl-9 pr-8 py-2.5 rounded-xl border border-[var(--color-border)] bg-[var(--color-background)] font-semibold text-sm appearance-none outline-none focus:ring-2 focus:ring-[var(--color-primary)]/30 transition-all cursor-pointer min-w-[240px]"
+                >
+                    {allUnits.map((unit: OrgUnitTreeResponse) => (
+                        <option key={unit.id} value={unit.id}>{unit.name}</option>
+                    ))}
                 </select>
             </div>
 
@@ -141,7 +192,7 @@ export default function UsersPage() {
                 </div>
                 <select 
                     value={sortOrder} 
-                    onChange={e => setSortOrder(e.target.value as 'A-Z' | 'Z-A')}
+                    onChange={e => handleSortChange(e.target.value as 'A-Z' | 'Z-A')}
                     className="pl-9 pr-8 py-2.5 rounded-xl border border-[var(--color-border)] bg-[var(--color-background)] font-semibold text-sm appearance-none outline-none focus:ring-2 focus:ring-[var(--color-primary)]/30 transition-all cursor-pointer"
                 >
                     <option value="A-Z">Tên A đến Z</option>
@@ -155,7 +206,18 @@ export default function UsersPage() {
         {isLoading ? (
           <div className="p-6"><LoadingSkeleton type="table" rows={6} /></div>
         ) : (
-          <UserTable users={processedUsers} onRowClick={handleRowClick} onDelete={(u) => setDeleteUser(u)} />
+          <>
+            <UserTable users={data?.content || []} onRowClick={handleRowClick} onDelete={(u) => setDeleteUser(u)} />
+            {data && (
+               <Pagination 
+                currentPage={page}
+                totalPages={data.totalPages}
+                totalElements={data.totalElements}
+                size={size}
+                onPageChange={setPage}
+               />
+            )}
+          </>
         )}
       </div>
 

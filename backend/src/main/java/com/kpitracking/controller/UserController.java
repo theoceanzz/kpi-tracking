@@ -48,13 +48,16 @@ public class UserController {
 
     @GetMapping
     @PreAuthorize("hasAnyRole('DIRECTOR', 'HEAD')")
-    @Operation(summary = "List users with optional search")
+    @Operation(summary = "List users with optional search, filter and sort")
     public ResponseEntity<ApiResponse<PageResponse<UserResponse>>> getUsers(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size,
             @RequestParam(required = false) String keyword,
-            @RequestParam(required = false) UUID orgUnitId) {
-        PageResponse<UserResponse> response = userService.getUsers(page, size, keyword, orgUnitId);
+            @RequestParam(required = false) UUID orgUnitId,
+            @RequestParam(required = false) String role,
+            @RequestParam(required = false) String sortBy,
+            @RequestParam(required = false) String direction) {
+        PageResponse<UserResponse> response = userService.getUsers(page, size, keyword, orgUnitId, role, sortBy, direction);
         return ResponseEntity.ok(ApiResponse.success(response));
     }
 

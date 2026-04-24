@@ -15,10 +15,7 @@ import com.kpitracking.exception.BusinessException;
 import com.kpitracking.exception.ForbiddenException;
 import com.kpitracking.exception.ResourceNotFoundException;
 import com.kpitracking.mapper.SubmissionMapper;
-import com.kpitracking.repository.KpiCriteriaRepository;
-import com.kpitracking.repository.KpiSubmissionRepository;
-import com.kpitracking.repository.UserRepository;
-import com.kpitracking.repository.UserRoleOrgUnitRepository;
+import com.kpitracking.repository.*;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
@@ -38,6 +35,7 @@ public class KpiSubmissionService {
 
     private final KpiSubmissionRepository submissionRepository;
     private final KpiCriteriaRepository kpiCriteriaRepository;
+    private final OrgUnitRepository orgUnitRepository;
     private final UserRepository userRepository;
     private final UserRoleOrgUnitRepository userRoleOrgUnitRepository;
     private final SubmissionMapper submissionMapper;
@@ -77,15 +75,25 @@ public class KpiSubmissionService {
             }
         }
 
-        // Validation of period dates against KPI range (comparing at LocalDate level to avoid precision issues)
-        java.time.LocalDate kpiStart = kpi.getStartDate() != null ? kpi.getStartDate().atZone(java.time.ZoneOffset.UTC).toLocalDate() : null;
-        java.time.LocalDate kpiEnd = kpi.getEndDate() != null ? kpi.getEndDate().atZone(java.time.ZoneOffset.UTC).toLocalDate() : null;
-
-        if (request.getPeriodStart() != null && kpiStart != null && request.getPeriodStart().isBefore(kpiStart)) {
-            throw new BusinessException("Ngày bắt đầu báo cáo không được trước ngày bắt đầu của KPI (" + kpiStart + ")");
+        // --- NEW: Period Open Check ---
+        Instant now = Instant.now();
+        if (kpi.getKpiPeriod().getStartDate() != null && now.isBefore(kpi.getKpiPeriod().getStartDate())) {
+            throw new BusinessException("Kỳ đánh giá chưa bắt đầu. Bạn chỉ có thể nộp từ ngày " + kpi.getKpiPeriod().getStartDate());
         }
-        if (request.getPeriodEnd() != null && kpiEnd != null && request.getPeriodEnd().isAfter(kpiEnd)) {
-            throw new BusinessException("Ngày kết thúc báo cáo không được sau ngày kết thúc của KPI (" + kpiEnd + ")");
+        if (kpi.getKpiPeriod().getEndDate() != null && now.isAfter(kpi.getKpiPeriod().getEndDate())) {
+            throw new BusinessException("Kỳ đánh giá đã kết thúc. Bạn không thể nộp báo cáo cho kỳ này nữa.");
+        }
+
+
+        // Validation of period dates against KPI range (comparing at LocalDate level to avoid precision issues)
+        java.time.LocalDate periodStart = kpi.getKpiPeriod().getStartDate() != null ? kpi.getKpiPeriod().getStartDate().atZone(java.time.ZoneOffset.UTC).toLocalDate() : null;
+        java.time.LocalDate periodEnd = kpi.getKpiPeriod().getEndDate() != null ? kpi.getKpiPeriod().getEndDate().atZone(java.time.ZoneOffset.UTC).toLocalDate() : null;
+
+        if (request.getPeriodStart() != null && periodStart != null && request.getPeriodStart().isBefore(periodStart)) {
+            throw new BusinessException("Ngày bắt đầu báo cáo không được trước ngày bắt đầu của kỳ đánh giá (" + periodStart + ")");
+        }
+        if (request.getPeriodEnd() != null && periodEnd != null && request.getPeriodEnd().isAfter(periodEnd)) {
+            throw new BusinessException("Ngày kết thúc báo cáo không được sau ngày kết thúc của kỳ đánh giá (" + periodEnd + ")");
         }
         if (request.getPeriodStart() != null && request.getPeriodEnd() != null && request.getPeriodEnd().isBefore(request.getPeriodStart())) {
             throw new BusinessException("Ngày kết thúc không được trước ngày bắt đầu");
@@ -94,15 +102,80 @@ public class KpiSubmissionService {
         Instant pStart = request.getPeriodStart() != null ? request.getPeriodStart().atStartOfDay(java.time.ZoneOffset.UTC).toInstant() : null;
         Instant pEnd = request.getPeriodEnd() != null ? request.getPeriodEnd().atStartOfDay(java.time.ZoneOffset.UTC).toInstant() : null;
 
+        // --- NEW: Frequency Rules & Submission Limit ---
+        long currentCount = kpi.getSubmissions().stream()
+                .filter(s -> s.getDeletedAt() == null &&
+                        s.getSubmittedBy().getId().equals(currentUser.getId()) &&
+                        (s.getStatus() == SubmissionStatus.PENDING || s.getStatus() == SubmissionStatus.APPROVED))
+                .count();
+
+        int expected = 1;
+        if (kpi.getFrequency() != null && kpi.getKpiPeriod() != null) {
+            // Re-using the logic from mapper to calculate expected count
+            expected = calculateExpected(kpi.getFrequency(), kpi.getKpiPeriod().getPeriodType());
+        }
+
+        if (currentCount >= expected) {
+            throw new BusinessException("Bạn đã nộp đủ số lượng báo cáo cho chỉ tiêu này (" + currentCount + "/" + expected + ").");
+        }
+
+        if (kpi.getFrequency() == com.kpitracking.enums.KpiFrequency.MONTHLY) {
+            java.util.List<KpiSubmission> existing = submissionRepository.findByKpiCriteriaIdAndDeletedAtIsNull(kpi.getId());
+            
+            // Rule 1: Monthly KPI in Monthly Period -> Max 1 submission
+            if (kpi.getKpiPeriod().getPeriodType() == com.kpitracking.enums.KpiFrequency.MONTHLY && !existing.isEmpty()) {
+                throw new BusinessException("Chỉ tiêu tháng này đã được nộp báo cáo.");
+            }
+            
+            // Rule 2: Monthly KPI in Quarterly Period -> Max 3 submissions (once per month)
+            if (kpi.getKpiPeriod().getPeriodType() == com.kpitracking.enums.KpiFrequency.QUARTERLY) {
+                if (existing.size() >= 3) {
+                    throw new BusinessException("Chỉ tiêu tháng này đã nộp đủ 3 lần báo cáo cho kỳ Quý.");
+                }
+                
+                // Check for overlapping periods
+                if (pStart != null && pEnd != null) {
+                    for (KpiSubmission s : existing) {
+                        if (pStart.isBefore(s.getPeriodEnd()) && pEnd.isAfter(s.getPeriodStart())) {
+                            throw new BusinessException("Thời gian báo cáo bị trùng lặp với bản nộp trước đó (" + s.getPeriodStart() + " - " + s.getPeriodEnd() + ")");
+                        }
+                    }
+                }
+            }
+        }
+
+        Double autoScore = 0.0;
+        SubmissionStatus finalStatus = SubmissionStatus.PENDING;
+        String autoReviewNote = null;
+        User reviewer = null;
+        Instant reviewedAt = null;
+
+        if (request.getActualValue() != null && kpi.getTargetValue() != null && kpi.getWeight() != null && kpi.getTargetValue() != 0) {
+            Double minVal = kpi.getMinimumValue() != null ? kpi.getMinimumValue() : 0.0;
+            
+            // --- NEW: Auto-rejection Rule ---
+            if (request.getActualValue() < minVal) {
+                finalStatus = SubmissionStatus.REJECTED;
+                autoReviewNote = "Hệ thống tự động TỪ CHỐI do số liệu thực tế (" + request.getActualValue() + 
+                                 ") thấp hơn mức tối thiểu yêu cầu (" + minVal + ").";
+                reviewedAt = Instant.now();
+            } else {
+                autoScore = (request.getActualValue() / kpi.getTargetValue()) * kpi.getWeight();
+            }
+        }
+
         KpiSubmission submission = KpiSubmission.builder()
                 .orgUnit(kpi.getOrgUnit())
                 .kpiCriteria(kpi)
                 .submittedBy(currentUser)
                 .actualValue(request.getActualValue())
                 .note(request.getNote())
-                .status(SubmissionStatus.PENDING)
+                .status(finalStatus)
+                .reviewNote(autoReviewNote)
+                .reviewedAt(reviewedAt)
                 .periodStart(pStart)
                 .periodEnd(pEnd)
+                .autoScore(autoScore)
                 .build();
 
         submission = submissionRepository.save(submission);
@@ -112,21 +185,31 @@ public class KpiSubmissionService {
         return submissionMapper.toResponse(submission);
     }
 
-    @Transactional(readOnly = true)
-    public PageResponse<SubmissionResponse> getSubmissions(int page, int size, SubmissionStatus status, UUID kpiCriteriaId) {
-        Pageable pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
+    private SubmissionResponse mapToResponse(KpiSubmission submission) {
+        SubmissionResponse res = submissionMapper.toResponse(submission);
+        boolean isManager = hasRole(submission.getSubmittedBy().getId(), "HEAD") || 
+                           hasRole(submission.getSubmittedBy().getId(), "DEPUTY");
+        res.setSubmittedByManager(isManager);
+        return res;
+    }
 
-        Page<KpiSubmission> subPage;
-        if (status != null) {
-            subPage = submissionRepository.findByStatus(status, pageable);
-        } else if (kpiCriteriaId != null) {
-            subPage = submissionRepository.findByKpiCriteriaId(kpiCriteriaId, pageable);
-        } else {
-            subPage = submissionRepository.findAll(pageable);
+    @Transactional(readOnly = true)
+    public PageResponse<SubmissionResponse> getSubmissions(int page, int size, SubmissionStatus status, UUID kpiCriteriaId, UUID submittedById, UUID orgUnitId, String sortBy, String sortDir) {
+        Sort sort = Sort.by(sortDir.equalsIgnoreCase("asc") ? Sort.Direction.ASC : Sort.Direction.DESC, sortBy != null ? sortBy : "createdAt");
+        Pageable pageable = PageRequest.of(page, size, sort);
+
+        String orgUnitPath = null;
+        if (orgUnitId != null) {
+            orgUnitPath = orgUnitRepository.findById(orgUnitId)
+                    .map(com.kpitracking.entity.OrgUnit::getPath)
+                    .map(path -> path + "%")
+                    .orElse(null);
         }
 
+        Page<KpiSubmission> subPage = submissionRepository.findAllWithFilters(status, kpiCriteriaId, submittedById, orgUnitPath, pageable);
+
         return PageResponse.<SubmissionResponse>builder()
-                .content(subPage.getContent().stream().map(submissionMapper::toResponse).toList())
+                .content(subPage.getContent().stream().map(this::mapToResponse).toList())
                 .page(subPage.getNumber())
                 .size(subPage.getSize())
                 .totalElements(subPage.getTotalElements())
@@ -139,7 +222,7 @@ public class KpiSubmissionService {
     public SubmissionResponse getSubmissionById(UUID submissionId) {
         KpiSubmission submission = submissionRepository.findById(submissionId)
                 .orElseThrow(() -> new ResourceNotFoundException("Bản nộp", "id", submissionId));
-        return submissionMapper.toResponse(submission);
+        return mapToResponse(submission);
     }
 
     @Transactional
@@ -153,8 +236,20 @@ public class KpiSubmissionService {
             throw new BusinessException("Chỉ có thể phê duyệt các bản nộp đang ở trạng thái CHỜ DUYỆT");
         }
 
-        if (!hasRole(currentUser.getId(), "DIRECTOR") && !hasRole(currentUser.getId(), "HEAD")) {
-            throw new ForbiddenException("Chỉ GIÁM ĐỐC hoặc TRƯỞNG PHÒNG mới có quyền phê duyệt bản nộp");
+        boolean isDirector = hasRole(currentUser.getId(), "DIRECTOR");
+        boolean isHead = hasRole(currentUser.getId(), "HEAD");
+        boolean isDeputy = hasRole(currentUser.getId(), "DEPUTY");
+
+        if (!isDirector && !isHead && !isDeputy) {
+            throw new ForbiddenException("Bạn không có quyền phê duyệt bản nộp này");
+        }
+
+        // New Hierarchical Rule: Heads/Deputies can only be reviewed by Directors
+        User submitter = submission.getSubmittedBy();
+        boolean submitterIsManager = hasRole(submitter.getId(), "HEAD") || hasRole(submitter.getId(), "DEPUTY");
+
+        if (submitterIsManager && !isDirector) {
+            throw new ForbiddenException("Chỉ Giám đốc mới có quyền phê duyệt bản nộp của Trưởng/Phó phòng");
         }
 
         submission.setStatus(request.getStatus());
@@ -166,19 +261,19 @@ public class KpiSubmissionService {
 
         eventPublisher.publishEvent(new SubmissionReviewedEvent(this, submission));
 
-        return submissionMapper.toResponse(submission);
+        return mapToResponse(submission);
     }
 
     @Transactional(readOnly = true)
-    public PageResponse<SubmissionResponse> getMySubmissions(int page, int size) {
+    public PageResponse<SubmissionResponse> getMySubmissions(int page, int size, SubmissionStatus status, String sortBy, String sortDir) {
         User currentUser = getCurrentUser();
-        Pageable pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
+        Sort sort = Sort.by(sortDir.equalsIgnoreCase("asc") ? Sort.Direction.ASC : Sort.Direction.DESC, sortBy != null ? sortBy : "createdAt");
+        Pageable pageable = PageRequest.of(page, size, sort);
 
-        Page<KpiSubmission> subPage = submissionRepository.findBySubmittedById(
-                currentUser.getId(), pageable);
+        Page<KpiSubmission> subPage = submissionRepository.findAllWithFilters(status, null, currentUser.getId(), null, pageable);
 
         return PageResponse.<SubmissionResponse>builder()
-                .content(subPage.getContent().stream().map(submissionMapper::toResponse).toList())
+                .content(subPage.getContent().stream().map(this::mapToResponse).toList())
                 .page(subPage.getNumber())
                 .size(subPage.getSize())
                 .totalElements(subPage.getTotalElements())
@@ -203,5 +298,25 @@ public class KpiSubmissionService {
 
         submission.setDeletedAt(Instant.now());
         submissionRepository.save(submission);
+    }
+
+    private int calculateExpected(com.kpitracking.enums.KpiFrequency kpiFreq, com.kpitracking.enums.KpiFrequency periodType) {
+        if (kpiFreq == periodType) return 1;
+        if (kpiFreq == com.kpitracking.enums.KpiFrequency.DAILY) {
+            if (periodType == com.kpitracking.enums.KpiFrequency.MONTHLY) return 30;
+            if (periodType == com.kpitracking.enums.KpiFrequency.QUARTERLY) return 90;
+            if (periodType == com.kpitracking.enums.KpiFrequency.YEARLY) return 365;
+        }
+        if (kpiFreq == com.kpitracking.enums.KpiFrequency.WEEKLY) {
+            if (periodType == com.kpitracking.enums.KpiFrequency.MONTHLY) return 4;
+            if (periodType == com.kpitracking.enums.KpiFrequency.QUARTERLY) return 13;
+            if (periodType == com.kpitracking.enums.KpiFrequency.YEARLY) return 52;
+        }
+        if (kpiFreq == com.kpitracking.enums.KpiFrequency.MONTHLY) {
+            if (periodType == com.kpitracking.enums.KpiFrequency.QUARTERLY) return 3;
+            if (periodType == com.kpitracking.enums.KpiFrequency.YEARLY) return 12;
+        }
+        if (kpiFreq == com.kpitracking.enums.KpiFrequency.QUARTERLY && periodType == com.kpitracking.enums.KpiFrequency.YEARLY) return 4;
+        return 1;
     }
 }

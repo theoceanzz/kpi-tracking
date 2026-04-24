@@ -30,8 +30,8 @@ public class Evaluation {
     private User user;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "kpi_criteria_id", nullable = false)
-    private KpiCriteria kpiCriteria;
+    @JoinColumn(name = "kpi_period_id", nullable = false)
+    private KpiPeriod kpiPeriod;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "evaluator_id", nullable = false)

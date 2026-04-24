@@ -31,6 +31,9 @@ public class User {
     @Column(name = "full_name", nullable = false)
     private String fullName;
 
+    @Column(name = "employee_code", unique = true)
+    private String employeeCode;
+
     @Column(name = "phone")
     private String phone;
 

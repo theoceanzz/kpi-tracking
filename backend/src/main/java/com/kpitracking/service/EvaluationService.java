@@ -10,10 +10,7 @@ import com.kpitracking.exception.BusinessException;
 import com.kpitracking.exception.ForbiddenException;
 import com.kpitracking.exception.ResourceNotFoundException;
 import com.kpitracking.mapper.EvaluationMapper;
-import com.kpitracking.repository.EvaluationRepository;
-import com.kpitracking.repository.KpiCriteriaRepository;
-import com.kpitracking.repository.UserRepository;
-import com.kpitracking.repository.UserRoleOrgUnitRepository;
+import com.kpitracking.repository.*;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -31,7 +28,8 @@ public class EvaluationService {
 
     private final EvaluationRepository evaluationRepository;
     private final UserRepository userRepository;
-    private final KpiCriteriaRepository kpiCriteriaRepository;
+    private final KpiPeriodRepository kpiPeriodRepository;
+    private final OrgUnitRepository orgUnitRepository;
     private final UserRoleOrgUnitRepository userRoleOrgUnitRepository;
     private final EvaluationMapper evaluationMapper;
 
@@ -53,8 +51,8 @@ public class EvaluationService {
         User evaluatedUser = userRepository.findById(request.getUserId())
                 .orElseThrow(() -> new ResourceNotFoundException("Người dùng", "id", request.getUserId()));
 
-        KpiCriteria kpiCriteria = kpiCriteriaRepository.findById(request.getKpiCriteriaId())
-                .orElseThrow(() -> new ResourceNotFoundException("Chỉ tiêu KPI", "id", request.getKpiCriteriaId()));
+        com.kpitracking.entity.KpiPeriod kpiPeriod = kpiPeriodRepository.findById(request.getKpiPeriodId())
+                .orElseThrow(() -> new ResourceNotFoundException("Kỳ đánh giá (Đợt)", "id", request.getKpiPeriodId()));
 
         boolean isSelfEval = currentUser.getId().equals(evaluatedUser.getId());
         boolean isManager = hasRole(currentUser.getId(), "DIRECTOR") || hasRole(currentUser.getId(), "HEAD");
@@ -63,29 +61,27 @@ public class EvaluationService {
             throw new ForbiddenException("Bạn không có quyền tạo đánh giá cho người khác");
         }
 
-        // Validation of period dates against KPI criteria range (comparing at LocalDate level to avoid timezone/precision issues)
-        java.time.LocalDate kpiStart = kpiCriteria.getStartDate() != null ? kpiCriteria.getStartDate().atZone(java.time.ZoneOffset.UTC).toLocalDate() : null;
-        java.time.LocalDate kpiEnd = kpiCriteria.getEndDate() != null ? kpiCriteria.getEndDate().atZone(java.time.ZoneOffset.UTC).toLocalDate() : null;
+        if (isSelfEval) {
+            boolean exists = evaluationRepository.existsByUserIdAndKpiPeriodIdAndEvaluatorId(
+                    evaluatedUser.getId(), kpiPeriod.getId(), currentUser.getId());
+            if (exists) {
+                throw new com.kpitracking.exception.BusinessException("Bạn đã thực hiện tự đánh giá cho đợt này rồi.");
+            }
+        }
 
-        if (request.getPeriodStart() != null && kpiStart != null && request.getPeriodStart().isBefore(kpiStart)) {
-            throw new BusinessException("Ngày bắt đầu đánh giá không được trước ngày bắt đầu của KPI (" + kpiStart + ")");
-        }
-        if (request.getPeriodEnd() != null && kpiEnd != null && request.getPeriodEnd().isAfter(kpiEnd)) {
-            throw new BusinessException("Ngày kết thúc đánh giá không được sau ngày kết thúc của KPI (" + kpiEnd + ")");
-        }
-        if (request.getPeriodStart() != null && request.getPeriodEnd() != null && request.getPeriodEnd().isBefore(request.getPeriodStart())) {
-            throw new BusinessException("Ngày kết thúc không được trước ngày bắt đầu");
+        // Get user's primary org unit for linking
+        java.util.List<com.kpitracking.entity.UserRoleOrgUnit> uro = userRoleOrgUnitRepository.findByUserId(evaluatedUser.getId());
+        if (uro.isEmpty()) {
+            throw new BusinessException("Người dùng chưa được phân bổ vào đơn vị nào");
         }
 
         Evaluation evaluation = Evaluation.builder()
-                .orgUnit(kpiCriteria.getOrgUnit())
+                .orgUnit(uro.get(0).getOrgUnit())
                 .user(evaluatedUser)
-                .kpiCriteria(kpiCriteria)
+                .kpiPeriod(kpiPeriod)
                 .evaluator(currentUser)
                 .score(request.getScore())
                 .comment(request.getComment())
-                .periodStart(request.getPeriodStart() != null ? request.getPeriodStart().atStartOfDay(java.time.ZoneOffset.UTC).toInstant() : null)
-                .periodEnd(request.getPeriodEnd() != null ? request.getPeriodEnd().atStartOfDay(java.time.ZoneOffset.UTC).toInstant() : null)
                 .build();
 
         evaluation = evaluationRepository.save(evaluation);
@@ -93,28 +89,39 @@ public class EvaluationService {
     }
 
     @Transactional(readOnly = true)
-    public PageResponse<EvaluationResponse> getEvaluations(int page, int size, UUID userId, UUID kpiCriteriaId) {
+    public PageResponse<EvaluationResponse> getEvaluations(int page, int size, String sortBy, String sortDir, UUID userId, UUID kpiPeriodId, UUID orgUnitId) {
         User currentUser = getCurrentUser();
-        Pageable pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
+        Sort sort = Sort.by(sortDir.equalsIgnoreCase("asc") ? Sort.Direction.ASC : Sort.Direction.DESC, sortBy != null ? sortBy : "createdAt");
+        Pageable pageable = PageRequest.of(page, size, sort);
 
         boolean isDirector = hasRole(currentUser.getId(), "DIRECTOR");
         boolean isHead = hasRole(currentUser.getId(), "HEAD");
 
-        Page<Evaluation> evalPage;
-
         UUID effectiveUserId = userId;
+        UUID effectiveOrgUnitId = orgUnitId;
 
+        // Force scope filtering for STAFF
         if (!isDirector && !isHead) {
             effectiveUserId = currentUser.getId();
+            effectiveOrgUnitId = null;
         }
 
-        if (effectiveUserId != null) {
-            evalPage = evaluationRepository.findByUserId(effectiveUserId, pageable);
-        } else if (kpiCriteriaId != null) {
-            evalPage = evaluationRepository.findByKpiCriteriaId(kpiCriteriaId, pageable);
-        } else {
-            evalPage = evaluationRepository.findAll(pageable);
+        String orgUnitPath = null;
+        if (effectiveOrgUnitId != null) {
+            orgUnitPath = orgUnitRepository.findById(effectiveOrgUnitId)
+                    .map(com.kpitracking.entity.OrgUnit::getPath)
+                    .map(path -> path + "%")
+                    .orElse(null);
+        } else if (isHead && effectiveUserId == null) {
+            // Heads see their department evaluations by default
+            effectiveOrgUnitId = userRoleOrgUnitRepository.findByUserId(currentUser.getId()).get(0).getOrgUnit().getId();
+            orgUnitPath = orgUnitRepository.findById(effectiveOrgUnitId)
+                    .map(com.kpitracking.entity.OrgUnit::getPath)
+                    .map(path -> path + "%")
+                    .orElse(null);
         }
+
+        Page<Evaluation> evalPage = evaluationRepository.findAllWithFilters(effectiveUserId, kpiPeriodId, orgUnitPath, null, pageable);
 
         return PageResponse.<EvaluationResponse>builder()
                 .content(evalPage.getContent().stream().map(evaluationMapper::toResponse).toList())

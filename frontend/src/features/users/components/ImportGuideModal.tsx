@@ -6,10 +6,10 @@ interface ImportGuideModalProps {
   onSelectFile: () => void
 }
 
-const SAMPLE_CSV_CONTENT = `Email,FullName,Phone,Role,Password
-nguyenvana@company.com,Nguyễn Văn A,0901000001,HEAD,A123456Cc
-tranthib@company.com,Trần Thị B,0901000002,DEPUTY,123456bB
-levanc@company.com,Lê Văn C,0901000003,STAFF,123456aA`
+const SAMPLE_CSV_CONTENT = `Email,FullName,EmployeeCode,Phone,Role,Password
+nguyenvana@company.com,Nguyễn Văn A,NV001,0901000001,HEAD,A123456Cc
+tranthib@company.com,Trần Thị B,NV002,0901000002,DEPUTY,123456bB
+levanc@company.com,Lê Văn C,NV003,0901000003,STAFF,123456aA`
 
 function downloadTemplate(type: 'csv' | 'xlsx') {
   if (type === 'csv') {
@@ -34,6 +34,7 @@ const STEPS = [
 const COLUMNS = [
   { name: 'Email', required: true, desc: 'Email đăng nhập, phải là duy nhất trong hệ thống', example: 'abc@company.com' },
   { name: 'FullName', required: true, desc: 'Họ và tên đầy đủ', example: 'Nguyễn Văn A' },
+  { name: 'EmployeeCode', required: false, desc: 'Mã số nhân viên', example: 'NV001' },
   { name: 'Phone', required: false, desc: 'Số điện thoại (có thể để trống)', example: '0901000001' },
   { name: 'Role', required: false, desc: 'Vai trò: HEAD, DEPUTY, STAFF (mặc định STAFF)', example: 'STAFF' },
   { name: 'Password', required: false, desc: 'Mật khẩu đăng nhập (nếu trống sẽ tự động tạo)', example: '123456aA' },

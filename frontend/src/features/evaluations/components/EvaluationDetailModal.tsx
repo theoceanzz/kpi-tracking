@@ -7,7 +7,7 @@ import { toast } from 'sonner'
 import { formatDateTime, getInitials } from '@/lib/utils'
 import type { Evaluation, CreateEvaluationRequest } from '@/types/evaluation'
 import {
-  X, Star, User, Calendar, MessageSquare, TrendingUp,
+  X, Star, User, MessageSquare, TrendingUp,
   CheckCircle, Loader2, Award, Target
 } from 'lucide-react'
 
@@ -37,14 +37,14 @@ export default function EvaluationDetailModal({ open, onClose, evaluation }: Eva
   const { isDirector, isHead, isDeputy } = usePermission()
   const qc = useQueryClient()
 
-  // Load all evaluations for the same user+KPI to see the evaluation chain
+  // Load all evaluations for the same user+Period to see the evaluation chain
   const { data: relatedData } = useEvaluations(
-    evaluation ? { userId: evaluation.userId, kpiCriteriaId: evaluation.kpiCriteriaId, size: 50 } : {}
+    evaluation ? { userId: evaluation.userId, kpiPeriodId: evaluation.kpiPeriodId, size: 50 } : {}
   )
 
   const layers = useMemo(() => {
     if (!relatedData?.content || !evaluation) return { selfEval: null, headEval: null, directorEval: null }
-    const all = relatedData.content.filter(e => e.kpiCriteriaId === evaluation.kpiCriteriaId && e.userId === evaluation.userId)
+    const all = relatedData.content.filter((e: any) => e.kpiPeriodId === evaluation.kpiPeriodId && e.userId === evaluation.userId)
     
     const selfEval = all.find(e => e.evaluatorId === e.userId) ?? null
     const headEval = all.find(e => e.evaluatorId !== e.userId && e.evaluatorId !== null && e.evaluatorName !== e.userName) ?? null
@@ -90,11 +90,9 @@ export default function EvaluationDetailModal({ open, onClose, evaluation }: Eva
 
     feedbackMutation.mutate({
       userId: evaluation.userId,
-      kpiCriteriaId: evaluation.kpiCriteriaId,
+      kpiPeriodId: evaluation.kpiPeriodId,
       score,
       comment: comment || undefined,
-      periodStart: evaluation.periodStart ?? undefined,
-      periodEnd: evaluation.periodEnd ?? undefined,
     })
   }
 
@@ -116,7 +114,7 @@ export default function EvaluationDetailModal({ open, onClose, evaluation }: Eva
             </div>
             <div>
               <h3 className="text-lg font-black text-slate-900 dark:text-white">Chi tiết Đánh giá</h3>
-              <p className="text-xs font-medium text-slate-500">{evaluation.kpiCriteriaName}</p>
+              <p className="text-xs font-medium text-slate-500">{evaluation.kpiPeriodName}</p>
             </div>
           </div>
           <button onClick={onClose} className="p-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 transition-all">
@@ -135,10 +133,7 @@ export default function EvaluationDetailModal({ open, onClose, evaluation }: Eva
               <div>
                 <h4 className="text-lg font-black text-slate-900 dark:text-white">{evaluation.userName}</h4>
                 <div className="flex items-center gap-3 mt-1 text-xs font-medium text-slate-500">
-                  <span className="flex items-center gap-1"><Target size={12} /> {evaluation.kpiCriteriaName}</span>
-                  {evaluation.periodStart && (
-                    <span className="flex items-center gap-1"><Calendar size={12} /> {evaluation.periodStart} → {evaluation.periodEnd ?? '...'}</span>
-                  )}
+                  <span className="flex items-center gap-1"><Target size={12} /> {evaluation.kpiPeriodName}</span>
                 </div>
               </div>
             </div>

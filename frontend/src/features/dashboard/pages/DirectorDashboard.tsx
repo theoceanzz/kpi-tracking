@@ -16,15 +16,17 @@ import {
   Clock, BarChart3, ShieldCheck, Building2,
   ChevronRight, Search, CheckCircle2, XCircle,
   Star, UserCircle2, Filter, ArrowUpRight,
-  Activity, AlertTriangle, Zap
+  Activity, AlertTriangle, Zap, ChevronLeft
 } from 'lucide-react'
 
 type TabView = 'overview' | 'orgUnits' | 'employees'
 
 export default function DirectorDashboard() {
+  const [empPage, setEmpPage] = useState(0)
+  const empSize = 10
   const { data: stats, isLoading: loadingStats } = useOverviewStats()
   const { data: orgUnitStats, isLoading: loadingOrgUnits } = useOrgUnitStats()
-  const { data: empStats, isLoading: loadingEmps } = useEmployeeStats()
+  const { data: empStats, isLoading: loadingEmps } = useEmployeeStats(empPage, empSize)
 
   // Load real KPI and submission data
   const { data: recentKpiData, isLoading: loadingRecentKpis } = useQuery({
@@ -46,8 +48,8 @@ export default function DirectorDashboard() {
   const submissionApprovalRate = stats ? (stats.totalSubmissions > 0 ? Math.round((stats.approvedSubmissions / stats.totalSubmissions) * 100) : 0) : 0
 
   const filteredEmployees = useMemo(() => {
-    if (!empStats) return []
-    return empStats.filter(e =>
+    const list = empStats?.content ?? []
+    return list.filter(e =>
       (orgUnitFilter === 'ALL' || e.orgUnitName === orgUnitFilter) &&
       ((e.fullName || '').toLowerCase().includes(empSearch.toLowerCase()) || 
        (e.email || '').toLowerCase().includes(empSearch.toLowerCase()))
@@ -55,14 +57,14 @@ export default function DirectorDashboard() {
   }, [empStats, empSearch, orgUnitFilter])
 
   const orgUnitNames = useMemo(() => {
-    if (!empStats) return []
-    return [...new Set(empStats.map(e => e.orgUnitName).filter(Boolean))]
+    const list = empStats?.content ?? []
+    return [...new Set(list.map(e => e.orgUnitName).filter(Boolean))]
   }, [empStats])
 
   // Top performers (from employee stats)
   const topPerformers = useMemo(() => {
-    if (!empStats) return []
-    return empStats
+    const list = empStats?.content ?? []
+    return list
       .filter(e => e.totalSubmissions > 0)
       .sort((a, b) => {
         const rateA = a.totalSubmissions > 0 ? a.approvedSubmissions / a.totalSubmissions : 0
@@ -74,8 +76,8 @@ export default function DirectorDashboard() {
 
   // At-risk employees (rejected > 0 or no submissions)
   const atRiskEmployees = useMemo(() => {
-    if (!empStats) return []
-    return empStats.filter(e => e.rejectedSubmissions > 0 || (e.assignedKpi > 0 && e.totalSubmissions === 0))
+    const list = empStats?.content ?? []
+    return list.filter(e => e.rejectedSubmissions > 0 || (e.assignedKpi > 0 && e.totalSubmissions === 0))
   }, [empStats])
 
   if (isLoading) return <div className="p-8"><LoadingSkeleton rows={10} /></div>
@@ -83,7 +85,7 @@ export default function DirectorDashboard() {
   const tabs: { key: TabView; label: string; icon: any; badge?: number }[] = [
     { key: 'overview', label: 'Tổng quan', icon: BarChart3 },
     { key: 'orgUnits', label: 'Đơn vị', icon: Building2, badge: orgUnitStats?.length },
-    { key: 'employees', label: 'Nhân viên', icon: Users, badge: empStats?.length },
+    { key: 'employees', label: 'Nhân viên', icon: Users, badge: empStats?.totalElements },
   ]
 
   return (
@@ -168,6 +170,9 @@ export default function DirectorDashboard() {
           orgUnitFilter={orgUnitFilter}
           onOrgUnitFilterChange={setOrgUnitFilter}
           orgUnitNames={orgUnitNames}
+          page={empPage}
+          totalPages={empStats?.totalPages ?? 0}
+          onPageChange={setEmpPage}
         />
       )}
     </div>
@@ -503,9 +508,10 @@ function OrgUnitsTab({ orgUnitStats, loading }: { orgUnitStats: OrgUnitStats[]; 
 }
 
 /* =================== EMPLOYEES TAB =================== */
-function EmployeesTab({ employees, loading, search, onSearchChange, orgUnitFilter, onOrgUnitFilterChange, orgUnitNames }: {
+function EmployeesTab({ employees, loading, search, onSearchChange, orgUnitFilter, onOrgUnitFilterChange, orgUnitNames, page, totalPages, onPageChange }: {
   employees: EmployeeKpiStats[]; loading: boolean; search: string; onSearchChange: (s: string) => void;
-  orgUnitFilter: string; onOrgUnitFilterChange: (s: string) => void; orgUnitNames: string[]
+  orgUnitFilter: string; onOrgUnitFilterChange: (s: string) => void; orgUnitNames: string[];
+  page: number; totalPages: number; onPageChange: (p: number) => void
 }) {
   if (loading) return <LoadingSkeleton rows={8} />
 
@@ -601,6 +607,31 @@ function EmployeesTab({ employees, loading, search, onSearchChange, orgUnitFilte
               </table>
             </div>
           </div>
+
+          {/* Pagination Controls */}
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between pt-4">
+              <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">
+                Trang {page + 1} / {totalPages}
+              </p>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => onPageChange(Math.max(0, page - 1))}
+                  disabled={page === 0}
+                  className="p-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 disabled:opacity-30 hover:bg-slate-50 transition-all"
+                >
+                  <ChevronLeft size={20} />
+                </button>
+                <button
+                  onClick={() => onPageChange(Math.min(totalPages - 1, page + 1))}
+                  disabled={page >= totalPages - 1}
+                  className="p-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 disabled:opacity-30 hover:bg-slate-50 transition-all"
+                >
+                  <ChevronRight size={20} />
+                </button>
+              </div>
+            </div>
+          )}
         </>
       )}
     </div>

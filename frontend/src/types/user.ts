@@ -5,6 +5,7 @@ export interface User {
   id: string
   email: string
   fullName: string
+  employeeCode?: string
   phone: string | null
   avatarUrl: string | null
   status: UserStatus
@@ -19,6 +20,7 @@ export interface User {
 export interface CreateUserRequest {
   fullName: string
   email: string
+  employeeCode?: string
   password: string
   phone?: string
   role: UserRole

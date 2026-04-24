@@ -25,7 +25,9 @@ public class SubmissionResponse {
     private Instant reviewedAt;
     private Instant periodStart;
     private Instant periodEnd;
+    private Double autoScore;
     private List<AttachmentResponse> attachments;
+    private boolean isSubmittedByManager;
     private Instant createdAt;
     private Instant updatedAt;
 }

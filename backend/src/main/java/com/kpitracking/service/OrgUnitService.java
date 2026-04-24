@@ -207,7 +207,7 @@ public class OrgUnitService {
         OrgUnit orgUnit = orgUnitRepository.findByIdAndOrgHierarchyLevel_Organization_Id(unitId, orgId)
                 .orElseThrow(() -> new ResourceNotFoundException("Đơn vị", "id", unitId));
 
-        String logoUrl = cloudinaryStorageService.uploadFile(file, "org-logos");
+        String logoUrl = cloudinaryStorageService.uploadFile(file, "org-logos").get("url");
         orgUnit.setLogoUrl(logoUrl);
         orgUnit = orgUnitRepository.save(orgUnit);
         return orgUnitMapper.toResponse(orgUnit);

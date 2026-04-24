@@ -7,14 +7,32 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import java.util.UUID;
+import java.util.List;
 
 @Repository
 public interface KpiCriteriaRepository extends JpaRepository<KpiCriteria, UUID> {
 
+    @Query("SELECT k FROM KpiCriteria k JOIN FETCH k.kpiPeriod WHERE " +
+           "(:createdById IS NULL OR k.createdBy.id = :createdById) AND " +
+           "(:orgUnitPath IS NULL OR k.orgUnit.path LIKE :orgUnitPath) AND " +
+           "(:status IS NULL OR k.status = :status) AND " +
+           "(:kpiPeriodId IS NULL OR k.kpiPeriod.id = :kpiPeriodId)")
+    Page<KpiCriteria> findAllWithFilters(
+            @Param("createdById") UUID createdById,
+            @Param("orgUnitPath") String orgUnitPath,
+            @Param("status") KpiStatus status,
+            @Param("kpiPeriodId") UUID kpiPeriodId,
+            Pageable pageable
+    );
+
     Page<KpiCriteria> findByOrgUnitId(UUID orgUnitId, Pageable pageable);
 
     Page<KpiCriteria> findByStatus(KpiStatus status, Pageable pageable);
+
+    List<KpiCriteria> findByStatus(KpiStatus status);
 
     Page<KpiCriteria> findByOrgUnitIdAndStatus(UUID orgUnitId, KpiStatus status, Pageable pageable);
 
@@ -36,11 +54,20 @@ public interface KpiCriteriaRepository extends JpaRepository<KpiCriteria, UUID> 
     @org.springframework.data.jpa.repository.Query("SELECT DISTINCT k FROM KpiCriteria k JOIN k.assignees a WHERE a.id = :userId")
     Page<KpiCriteria> findByUserIdInAssignees(@org.springframework.data.repository.query.Param("userId") UUID userId, Pageable pageable);
 
+    @org.springframework.data.jpa.repository.Query("SELECT DISTINCT k FROM KpiCriteria k JOIN FETCH k.kpiPeriod JOIN k.assignees a WHERE a.id = :userId AND k.kpiPeriod.id = :kpiPeriodId")
+    Page<KpiCriteria> findByUserIdInAssigneesAndKpiPeriodId(@org.springframework.data.repository.query.Param("userId") UUID userId, @org.springframework.data.repository.query.Param("kpiPeriodId") UUID kpiPeriodId, Pageable pageable);
+
     long countByOrgUnitId(UUID orgUnitId);
 
     long countByOrgUnitIdAndStatus(UUID orgUnitId, KpiStatus status);
 
     long countByStatus(KpiStatus status);
+
+    @org.springframework.data.jpa.repository.Query("SELECT COALESCE(SUM(k.weight), 0.0) FROM KpiCriteria k WHERE k.orgUnit.id = :orgUnitId AND (:kpiPeriodId IS NULL OR k.kpiPeriod.id = :kpiPeriodId) AND k.status IN :statuses")
+    Double sumWeightByOrgUnitIdAndKpiPeriodIdAndStatusIn(@org.springframework.data.repository.query.Param("orgUnitId") UUID orgUnitId, @org.springframework.data.repository.query.Param("kpiPeriodId") UUID kpiPeriodId, @org.springframework.data.repository.query.Param("statuses") java.util.List<KpiStatus> statuses);
+    
+    @org.springframework.data.jpa.repository.Query("SELECT COALESCE(SUM(k.weight), 0.0) FROM KpiCriteria k WHERE (:orgUnitPath IS NULL OR k.orgUnit.path LIKE :orgUnitPath) AND (:kpiPeriodId IS NULL OR k.kpiPeriod.id = :kpiPeriodId) AND k.status IN :statuses")
+    Double sumWeightByOrgUnitPathAndKpiPeriodIdAndStatusIn(@org.springframework.data.repository.query.Param("orgUnitPath") String orgUnitPath, @org.springframework.data.repository.query.Param("kpiPeriodId") UUID kpiPeriodId, @org.springframework.data.repository.query.Param("statuses") java.util.List<KpiStatus> statuses);
 
     @org.springframework.data.jpa.repository.Query("SELECT COUNT(DISTINCT k) FROM KpiCriteria k JOIN k.assignees a WHERE a.id = :userId AND k.status = :status")
     long countByAssigneeAndStatus(@org.springframework.data.repository.query.Param("userId") UUID userId, @org.springframework.data.repository.query.Param("status") KpiStatus status);
@@ -50,4 +77,10 @@ public interface KpiCriteriaRepository extends JpaRepository<KpiCriteria, UUID> 
 
     @org.springframework.data.jpa.repository.Query("SELECT COUNT(k) FROM KpiCriteria k WHERE k.orgUnit.orgHierarchyLevel.organization.id = :orgId AND k.status = :status")
     long countByOrganizationIdAndStatus(@org.springframework.data.repository.query.Param("orgId") UUID orgId, @org.springframework.data.repository.query.Param("status") KpiStatus status);
+
+    @org.springframework.data.jpa.repository.Query("SELECT COUNT(k) FROM KpiCriteria k WHERE k.orgUnit.path LIKE :path")
+    long countByOrgUnitPath(@org.springframework.data.repository.query.Param("path") String path);
+
+    @org.springframework.data.jpa.repository.Query("SELECT COUNT(k) FROM KpiCriteria k WHERE k.orgUnit.path LIKE :path AND k.status = :status")
+    long countByOrgUnitPathAndStatus(@org.springframework.data.repository.query.Param("path") String path, @org.springframework.data.repository.query.Param("status") KpiStatus status);
 }

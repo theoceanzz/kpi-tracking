@@ -42,7 +42,18 @@ export interface EmployeeKpiStats {
   approvedSubmissions: number
   pendingSubmissions: number
   rejectedSubmissions: number
+  lateSubmissions: number
   averageScore: number | null
+}
+
+export interface KpiTask {
+  id: string
+  name: string
+  periodName: string
+  deadline: string | null
+  status: 'NOT_STARTED' | 'PENDING' | 'OVERDUE' | 'APPROVED'
+  submissionCount: number
+  expectedSubmissions: number
 }
 
 // Matches BE: MyKpiProgressResponse
@@ -52,5 +63,14 @@ export interface MyKpiProgress {
   approvedSubmissions: number
   pendingSubmissions: number
   rejectedSubmissions: number
+  lateSubmissions: number
   averageScore: number | null
+  tasks: {
+    content: KpiTask[]
+    page: number
+    size: number
+    totalElements: number
+    totalPages: number
+    last: boolean
+  }
 }

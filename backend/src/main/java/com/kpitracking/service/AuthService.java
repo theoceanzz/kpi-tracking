@@ -67,8 +67,8 @@ public class AuthService {
         organization = organizationRepository.save(organization);
 
         // 2. Create Hierarchy Levels and root OrgUnit
-        if (request.getHierarchyLevels() == null || request.getHierarchyLevels().size() < 3) {
-            throw new BusinessException("Cơ cấu tổ chức phải có ít nhất 3 cấp.");
+        if (request.getHierarchyLevels() == null || request.getHierarchyLevels().size() < 2) {
+            throw new BusinessException("Cơ cấu tổ chức phải có ít nhất 2 cấp.");
         }
 
         for (int i = 0; i < request.getHierarchyLevels().size(); i++) {
@@ -314,8 +314,17 @@ public class AuthService {
                             .findFirst()
                             .orElse(roleName);
                     
-                    // Fallback for STAFF if no manager role label
-                    if (roleName.equals("STAFF")) {
+                    if (roleName.equals("DEPUTY")) {
+                        if (roleLabel != null) {
+                            if (roleLabel.contains("Trưởng")) {
+                                roleLabel = roleLabel.replace("Trưởng", "Phó");
+                            } else if (roleLabel.contains("trưởng")) {
+                                roleLabel = roleLabel.replace("trưởng", "phó");
+                            } else {
+                                roleLabel = "Phó " + roleLabel;
+                            }
+                        }
+                    } else if (roleName.equals("STAFF")) {
                         roleLabel = "Nhân viên";
                     }
 
@@ -348,7 +357,7 @@ public class AuthService {
                 .orElseThrow(() -> new ResourceNotFoundException("User", "email", email));
 
         try {
-            String avatarUrl = cloudinaryStorageService.uploadFile(file, "avatars");
+            String avatarUrl = cloudinaryStorageService.uploadFile(file, "avatars").get("url");
             user.setAvatarUrl(avatarUrl);
             user = userRepository.save(user);
             return enrichUserInfo(userMapper.toUserInfoResponse(user));

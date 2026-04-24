@@ -12,11 +12,28 @@ import java.util.UUID;
 @Repository
 public interface KpiSubmissionRepository extends JpaRepository<KpiSubmission, UUID> {
 
+    @org.springframework.data.jpa.repository.Query("SELECT s FROM KpiSubmission s WHERE " +
+            "(:status IS NULL OR s.status = :status) AND " +
+            "(:kpiCriteriaId IS NULL OR s.kpiCriteria.id = :kpiCriteriaId) AND " +
+            "(:submittedById IS NULL OR s.submittedBy.id = :submittedById) AND " +
+            "(:orgUnitPath IS NULL OR s.orgUnit.path LIKE :orgUnitPath)")
+    Page<KpiSubmission> findAllWithFilters(
+            @org.springframework.data.repository.query.Param("status") SubmissionStatus status,
+            @org.springframework.data.repository.query.Param("kpiCriteriaId") UUID kpiCriteriaId,
+            @org.springframework.data.repository.query.Param("submittedById") UUID submittedById,
+            @org.springframework.data.repository.query.Param("orgUnitPath") String orgUnitPath,
+            Pageable pageable
+    );
+
     Page<KpiSubmission> findByStatus(SubmissionStatus status, Pageable pageable);
 
     Page<KpiSubmission> findByKpiCriteriaId(UUID kpiCriteriaId, Pageable pageable);
 
     Page<KpiSubmission> findBySubmittedById(UUID userId, Pageable pageable);
+    
+    java.util.List<KpiSubmission> findByKpiCriteriaIdAndDeletedAtIsNull(UUID kpiCriteriaId);
+    
+    long countByKpiCriteriaIdAndSubmittedByIdAndDeletedAtIsNull(UUID kpiCriteriaId, UUID userId);
 
     long countByOrgUnitId(UUID orgUnitId);
 
@@ -33,4 +50,10 @@ public interface KpiSubmissionRepository extends JpaRepository<KpiSubmission, UU
 
     @org.springframework.data.jpa.repository.Query("SELECT COUNT(s) FROM KpiSubmission s WHERE s.orgUnit.orgHierarchyLevel.organization.id = :orgId AND s.status = :status")
     long countByOrganizationIdAndStatus(@org.springframework.data.repository.query.Param("orgId") UUID orgId, @org.springframework.data.repository.query.Param("status") SubmissionStatus status);
+
+    @org.springframework.data.jpa.repository.Query("SELECT COUNT(s) FROM KpiSubmission s WHERE s.orgUnit.path LIKE :path")
+    long countByOrgUnitPath(@org.springframework.data.repository.query.Param("path") String path);
+
+    @org.springframework.data.jpa.repository.Query("SELECT COUNT(s) FROM KpiSubmission s WHERE s.orgUnit.path LIKE :path AND s.status = :status")
+    long countByOrgUnitPathAndStatus(@org.springframework.data.repository.query.Param("path") String path, @org.springframework.data.repository.query.Param("status") SubmissionStatus status);
 }

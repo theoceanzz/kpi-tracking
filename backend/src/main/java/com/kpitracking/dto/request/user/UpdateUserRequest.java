@@ -11,6 +11,8 @@ public class UpdateUserRequest {
     @Size(max = 255, message = "Full name must not exceed 255 characters")
     private String fullName;
 
+    private String employeeCode;
+
     @Email(message = "Invalid email format")
     private String email;
 
