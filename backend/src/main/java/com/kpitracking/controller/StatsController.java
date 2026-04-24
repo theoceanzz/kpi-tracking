@@ -27,7 +27,7 @@ public class StatsController {
     private final StatsService statsService;
 
     @GetMapping("/overview")
-    @PreAuthorize("hasAnyRole('DIRECTOR', 'HEAD')")
+    @PreAuthorize("hasAuthority('DASHBOARD:VIEW')")
     @Operation(summary = "Get organization overview statistics")
     public ResponseEntity<ApiResponse<OverviewStatsResponse>> getOverviewStats() {
         OverviewStatsResponse response = statsService.getOverviewStats();
@@ -35,7 +35,7 @@ public class StatsController {
     }
 
     @GetMapping("/org-units")
-    @PreAuthorize("hasAnyRole('DIRECTOR', 'HEAD')")
+    @PreAuthorize("hasAuthority('ORG:VIEW')")
     @Operation(summary = "Get KPI statistics by org unit")
     public ResponseEntity<ApiResponse<List<OrgUnitKpiStatsResponse>>> getOrgUnitKpiStats() {
         List<OrgUnitKpiStatsResponse> response = statsService.getOrgUnitKpiStats();
@@ -43,7 +43,7 @@ public class StatsController {
     }
 
     @GetMapping("/employees")
-    @PreAuthorize("hasAnyRole('DIRECTOR', 'HEAD')")
+    @PreAuthorize("hasAuthority('USER:VIEW')")
     @Operation(summary = "Get KPI statistics per employee")
     public ResponseEntity<ApiResponse<PageResponse<EmployeeKpiStatsResponse>>> getEmployeeKpiStats(
             @org.springframework.web.bind.annotation.RequestParam(defaultValue = "0") int page,
@@ -62,7 +62,7 @@ public class StatsController {
     }
 
     @GetMapping("/employee-progress/{userId}")
-    @PreAuthorize("hasAnyRole('DIRECTOR', 'HEAD')")
+    @PreAuthorize("hasAuthority('USER:VIEW')")
     @Operation(summary = "Get a specific employee's KPI progress")
     public ResponseEntity<ApiResponse<MyKpiProgressResponse>> getEmployeeKpiProgress(
             @org.springframework.web.bind.annotation.PathVariable java.util.UUID userId,

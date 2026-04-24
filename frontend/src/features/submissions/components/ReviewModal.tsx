@@ -20,9 +20,10 @@ export default function ReviewModal({ open, onClose, submission }: ReviewModalPr
   const [mode, setMode] = useState<'view' | 'reject'>('view')
   const qc = useQueryClient()
 
-  const isDirector = user?.roles.includes('DIRECTOR')
+  const { hasPermission } = usePermission()
+  const isHighAuthority = hasPermission('ROLE:ASSIGN') // Proxy for Director/Admin level
   const isOwnSubmission = submission?.submittedById === user?.id
-  const canReviewThis = (!submission?.isSubmittedByManager || isDirector) && !isOwnSubmission
+  const canReviewThis = (!submission?.isSubmittedByManager || isHighAuthority) && !isOwnSubmission
 
   const approveMutation = useMutation({
     mutationFn: () => submissionApi.review(submission!.id, { status: 'APPROVED', reviewNote: reviewNote || undefined }),

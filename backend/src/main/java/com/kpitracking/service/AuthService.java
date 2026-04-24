@@ -45,6 +45,7 @@ public class AuthService {
     private final UserMapper userMapper;
     private final CloudinaryStorageService cloudinaryStorageService;
     private final OrgHierarchyLevelRepository orgHierarchyLevelRepository;
+    private final RolePermissionRepository rolePermissionRepository;
 
     @Transactional
     public AuthResponse register(RegisterRequest request, String userAgent) {
@@ -156,8 +157,8 @@ public class AuthService {
             throw new BusinessException("Vui lòng xác thực email của bạn trước khi đăng nhập.");
         }
 
-        List<String> roleNames = getUserRoleNames(user.getId());
-        String accessToken = jwtTokenProvider.generateAccessToken(user.getEmail(), roleNames);
+        List<String> authorities = getUserAuthorities(user.getId());
+        String accessToken = jwtTokenProvider.generateAccessToken(user.getEmail(), authorities);
         RefreshToken refreshToken = refreshTokenService.createOrUpdateRefreshToken(user.getId(), userAgent);
 
         return AuthResponse.builder()
@@ -176,8 +177,8 @@ public class AuthService {
 
         RefreshToken newRefreshToken = refreshTokenService.createOrUpdateRefreshToken(user.getId(), currentDevice);
 
-        List<String> roleNames = getUserRoleNames(user.getId());
-        String accessToken = jwtTokenProvider.generateAccessToken(user.getEmail(), roleNames);
+        List<String> authorities = getUserAuthorities(user.getId());
+        String accessToken = jwtTokenProvider.generateAccessToken(user.getEmail(), authorities);
 
         return AuthResponse.builder()
                 .accessToken(accessToken)
@@ -342,8 +343,14 @@ public class AuthService {
                 .collect(Collectors.toList());
         
         response.setMemberships(memberships);
-        response.setRoles(assignments.stream()
-                .map(uro -> uro.getRole().getName())
+        List<String> authorities = getUserAuthorities(response.getId());
+        response.setRoles(authorities.stream()
+                .filter(a -> a.startsWith("ROLE_"))
+                .map(a -> a.substring(5))
+                .distinct()
+                .collect(Collectors.toList()));
+        response.setPermissions(authorities.stream()
+                .filter(a -> !a.startsWith("ROLE_"))
                 .distinct()
                 .collect(Collectors.toList()));
         
@@ -366,10 +373,23 @@ public class AuthService {
         }
     }
 
-    private List<String> getUserRoleNames(UUID userId) {
-        return userRoleOrgUnitRepository.findByUserId(userId).stream()
-                .map(uro -> uro.getRole().getName())
+    private List<String> getUserAuthorities(UUID userId) {
+        List<UserRoleOrgUnit> assignments = userRoleOrgUnitRepository.findByUserId(userId);
+        
+        List<String> roles = assignments.stream()
+                .map(uro -> "ROLE_" + uro.getRole().getName())
                 .distinct()
-                .toList();
+                .collect(Collectors.toList());
+                
+        List<String> permissions = assignments.stream()
+                .map(UserRoleOrgUnit::getRole)
+                .distinct()
+                .flatMap(role -> rolePermissionRepository.findByRoleId(role.getId()).stream())
+                .map(rp -> rp.getPermission().getCode())
+                .distinct()
+                .collect(Collectors.toList());
+                
+        roles.addAll(permissions);
+        return roles;
     }
 }

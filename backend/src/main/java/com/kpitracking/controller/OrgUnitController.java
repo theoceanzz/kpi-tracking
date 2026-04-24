@@ -16,6 +16,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -25,13 +26,15 @@ import java.util.UUID;
 @RestController
 @RequestMapping("/api/v1/organizations/{orgId}/units")
 @RequiredArgsConstructor
-@Tag(name = "Org Units", description = "Organization unit tree management endpoints")
+@PreAuthorize("hasAuthority('ORG:VIEW')")
+@Tag(name = "Organization Units", description = "Organizational unit management endpoints")
 public class OrgUnitController {
 
     private final OrgUnitService orgUnitService;
 
     @PostMapping
-    @Operation(summary = "Create org unit")
+    @PreAuthorize("hasAuthority('ORG:CREATE')")
+    @Operation(summary = "Create organizational unit")
     public ResponseEntity<ApiResponse<OrgUnitResponse>> createOrgUnit(
             @PathVariable UUID orgId,
             @Valid @RequestBody CreateOrgUnitRequest request) {
@@ -41,6 +44,7 @@ public class OrgUnitController {
     }
 
     @PutMapping("/{unitId}")
+    @PreAuthorize("hasAuthority('ORG:UPDATE')")
     @Operation(summary = "Update org unit")
     public ResponseEntity<ApiResponse<OrgUnitResponse>> updateOrgUnit(
             @PathVariable UUID orgId,
@@ -60,6 +64,7 @@ public class OrgUnitController {
     }
 
     @DeleteMapping("/{unitId}")
+    @PreAuthorize("hasAuthority('ORG:DELETE')")
     @Operation(summary = "Soft delete org unit")
     public ResponseEntity<ApiResponse<Void>> deleteOrgUnit(
             @PathVariable UUID orgId,
@@ -69,6 +74,7 @@ public class OrgUnitController {
     }
 
     @PutMapping("/{unitId}/move")
+    @PreAuthorize("hasAuthority('ORG:UPDATE')")
     @Operation(summary = "Move org unit to new parent")
     public ResponseEntity<ApiResponse<OrgUnitResponse>> moveOrgUnit(
             @PathVariable UUID orgId,
@@ -95,6 +101,7 @@ public class OrgUnitController {
     }
 
     @PostMapping(value = "/{unitId}/logo", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PreAuthorize("hasAuthority('ORG:UPDATE')")
     @Operation(summary = "Upload org unit logo")
     public ResponseEntity<ApiResponse<OrgUnitResponse>> uploadLogo(
             @PathVariable UUID orgId,

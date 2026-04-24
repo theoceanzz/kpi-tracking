@@ -40,6 +40,7 @@ public class KpiSubmissionService {
     private final UserRoleOrgUnitRepository userRoleOrgUnitRepository;
     private final SubmissionMapper submissionMapper;
     private final ApplicationEventPublisher eventPublisher;
+    private final PermissionChecker permissionChecker;
 
     private User getCurrentUser() {
         String email = SecurityContextHolder.getContext().getAuthentication().getName();
@@ -47,10 +48,6 @@ public class KpiSubmissionService {
                 .orElseThrow(() -> new ResourceNotFoundException("Người dùng", "email", email));
     }
 
-    private boolean hasRole(UUID userId, String roleName) {
-        return userRoleOrgUnitRepository.findByUserId(userId).stream()
-                .anyMatch(uro -> uro.getRole().getName().equalsIgnoreCase(roleName));
-    }
 
     @Transactional
     public SubmissionResponse createSubmission(CreateSubmissionRequest request) {
@@ -187,14 +184,18 @@ public class KpiSubmissionService {
 
     private SubmissionResponse mapToResponse(KpiSubmission submission) {
         SubmissionResponse res = submissionMapper.toResponse(submission);
-        boolean isManager = hasRole(submission.getSubmittedBy().getId(), "HEAD") || 
-                           hasRole(submission.getSubmittedBy().getId(), "DEPUTY");
+        boolean isManager = permissionChecker.hasRole(submission.getSubmittedBy().getId(), "HEAD") || 
+                           permissionChecker.hasRole(submission.getSubmittedBy().getId(), "DEPUTY");
         res.setSubmittedByManager(isManager);
         return res;
     }
 
     @Transactional(readOnly = true)
     public PageResponse<SubmissionResponse> getSubmissions(int page, int size, SubmissionStatus status, UUID kpiCriteriaId, UUID submittedById, UUID orgUnitId, String sortBy, String sortDir) {
+        User currentUser = getCurrentUser();
+        boolean isGlobalAdmin = permissionChecker.isGlobalAdmin(currentUser.getId());
+        java.util.List<UUID> allowedOrgUnitIds = permissionChecker.getOrgUnitsWithPermission(currentUser.getId(), "SUBMISSION:REVIEW");
+
         Sort sort = Sort.by(sortDir.equalsIgnoreCase("asc") ? Sort.Direction.ASC : Sort.Direction.DESC, sortBy != null ? sortBy : "createdAt");
         Pageable pageable = PageRequest.of(page, size, sort);
 
@@ -206,7 +207,16 @@ public class KpiSubmissionService {
                     .orElse(null);
         }
 
-        Page<KpiSubmission> subPage = submissionRepository.findAllWithFilters(status, kpiCriteriaId, submittedById, orgUnitPath, pageable);
+        Page<KpiSubmission> subPage = submissionRepository.findAllWithFilters(
+                isGlobalAdmin,
+                currentUser.getId(),
+                allowedOrgUnitIds,
+                status,
+                kpiCriteriaId,
+                submittedById,
+                orgUnitPath,
+                pageable
+        );
 
         return PageResponse.<SubmissionResponse>builder()
                 .content(subPage.getContent().stream().map(this::mapToResponse).toList())
@@ -220,8 +230,18 @@ public class KpiSubmissionService {
 
     @Transactional(readOnly = true)
     public SubmissionResponse getSubmissionById(UUID submissionId) {
+        User currentUser = getCurrentUser();
         KpiSubmission submission = submissionRepository.findById(submissionId)
                 .orElseThrow(() -> new ResourceNotFoundException("Bản nộp", "id", submissionId));
+
+        boolean isGlobalAdmin = permissionChecker.isGlobalAdmin(currentUser.getId());
+        boolean hasReviewPermission = permissionChecker.hasPermissionInOrgUnit(currentUser.getId(), "SUBMISSION:REVIEW", submission.getOrgUnit().getId());
+        boolean isSubmitter = submission.getSubmittedBy().getId().equals(currentUser.getId());
+
+        if (!isGlobalAdmin && !hasReviewPermission && !isSubmitter) {
+            throw new ForbiddenException("Bạn không có quyền xem bản nộp này");
+        }
+
         return mapToResponse(submission);
     }
 
@@ -236,20 +256,21 @@ public class KpiSubmissionService {
             throw new BusinessException("Chỉ có thể phê duyệt các bản nộp đang ở trạng thái CHỜ DUYỆT");
         }
 
-        boolean isDirector = hasRole(currentUser.getId(), "DIRECTOR");
-        boolean isHead = hasRole(currentUser.getId(), "HEAD");
-        boolean isDeputy = hasRole(currentUser.getId(), "DEPUTY");
+        // Hierarchical Permission Check
+        if (!permissionChecker.isGlobalAdmin(currentUser.getId())) {
+            boolean hasReviewPermission = permissionChecker.hasPermissionInOrgUnit(currentUser.getId(), "SUBMISSION:REVIEW", submission.getOrgUnit().getId());
+            if (!hasReviewPermission) {
+                throw new ForbiddenException("Bạn không có quyền phê duyệt bản nộp của đơn vị này");
+            }
 
-        if (!isDirector && !isHead && !isDeputy) {
-            throw new ForbiddenException("Bạn không có quyền phê duyệt bản nộp này");
-        }
+            // Additional Hierarchical Rule: Managers (those who can review others) can only be reviewed by Global Admins
+            User submitter = submission.getSubmittedBy();
+            boolean submitterIsManager = permissionChecker.hasPermission(submitter.getId(), "SUBMISSION:REVIEW");
+            boolean reviewerIsGlobalAdmin = permissionChecker.isGlobalAdmin(currentUser.getId());
 
-        // New Hierarchical Rule: Heads/Deputies can only be reviewed by Directors
-        User submitter = submission.getSubmittedBy();
-        boolean submitterIsManager = hasRole(submitter.getId(), "HEAD") || hasRole(submitter.getId(), "DEPUTY");
-
-        if (submitterIsManager && !isDirector) {
-            throw new ForbiddenException("Chỉ Giám đốc mới có quyền phê duyệt bản nộp của Trưởng/Phó phòng");
+            if (submitterIsManager && !reviewerIsGlobalAdmin) {
+                throw new ForbiddenException("Chỉ cấp lãnh đạo cao nhất mới có quyền phê duyệt bản nộp của quản lý đơn vị");
+            }
         }
 
         submission.setStatus(request.getStatus());

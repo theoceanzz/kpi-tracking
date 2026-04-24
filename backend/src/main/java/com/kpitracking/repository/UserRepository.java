@@ -29,10 +29,19 @@ public interface UserRepository extends JpaRepository<User, UUID> {
     @Query("SELECT DISTINCT u FROM User u " +
            "LEFT JOIN UserRoleOrgUnit uro ON u.id = uro.user.id " +
            "LEFT JOIN uro.role r " +
-           "WHERE (:keyword IS NULL OR :keyword = '' OR LOWER(u.fullName) LIKE LOWER(CONCAT('%', :keyword, '%')) " +
+           "WHERE (:isGlobalAdmin = true OR EXISTS (SELECT 1 FROM UserRoleOrgUnit uro2 JOIN uro2.orgUnit ou WHERE uro2.user.id = u.id AND EXISTS (SELECT 1 FROM OrgUnit p WHERE ou.path LIKE CONCAT(p.path, '%') AND p.id IN :allowedOrgUnitIds))) " +
+           "AND (:keyword IS NULL OR :keyword = '' OR LOWER(u.fullName) LIKE LOWER(CONCAT('%', :keyword, '%')) " +
            "OR LOWER(u.email) LIKE LOWER(CONCAT('%', :keyword, '%'))) " +
            "AND (:roleName IS NULL OR r.name = :roleName) " +
+           "AND (:orgUnitPath IS NULL OR uro.orgUnit.path LIKE :orgUnitPath) " +
            "AND (u.deletedAt IS NULL) " +
-           "AND NOT EXISTS (SELECT 1 FROM UserRoleOrgUnit uro2 WHERE uro2.user.id = u.id AND uro2.role.name = 'DIRECTOR')")
-    Page<User> searchUsers(@Param("keyword") String keyword, @Param("roleName") String roleName, Pageable pageable);
+           "AND (:isGlobalAdmin = true OR NOT EXISTS (SELECT 1 FROM UserRoleOrgUnit uro2 WHERE uro2.user.id = u.id AND uro2.role.name = 'DIRECTOR'))")
+    Page<User> searchUsers(
+            @Param("isGlobalAdmin") boolean isGlobalAdmin,
+            @Param("allowedOrgUnitIds") java.util.Collection<UUID> allowedOrgUnitIds,
+            @Param("keyword") String keyword, 
+            @Param("roleName") String roleName, 
+            @Param("orgUnitPath") String orgUnitPath,
+            Pageable pageable
+    );
 }

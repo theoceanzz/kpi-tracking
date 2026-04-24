@@ -38,7 +38,8 @@ export default function OrgUnitSubmissionsPage() {
   const [selectedSubmittedById, setSelectedSubmittedById] = useState(initialUserId)
   const [selectedOrgUnitId, setSelectedOrgUnitId] = useState('')
   const { user } = useAuthStore()
-  const { isDirector } = usePermission()
+  const { hasPermission } = usePermission()
+  const canManageOrg = hasPermission('ORG:VIEW')
 
   // Org Unit Tree for filter
   const { data: orgUnitTreeData } = useOrgUnitTree()
@@ -57,13 +58,13 @@ export default function OrgUnitSubmissionsPage() {
   // Default selection logic
   useEffect(() => {
     if (!selectedOrgUnitId) {
-      if (isDirector && flatOrgUnits.length > 0) {
+      if (canManageOrg && flatOrgUnits.length > 0) {
         setSelectedOrgUnitId(flatOrgUnits[0].id)
-      } else if (!isDirector && user?.memberships?.[0]?.orgUnitId) {
+      } else if (!canManageOrg && user?.memberships?.[0]?.orgUnitId) {
         setSelectedOrgUnitId(user.memberships[0].orgUnitId)
       }
     }
-  }, [flatOrgUnits, selectedOrgUnitId, isDirector, user])
+  }, [flatOrgUnits, selectedOrgUnitId, canManageOrg, user])
 
   // Fetch employees based on selected Org Unit
   const { data: usersData } = useUsers({ 
@@ -152,7 +153,7 @@ export default function OrgUnitSubmissionsPage() {
             />
           </div>
           
-          {isDirector && (
+          {canManageOrg && (
             <div className="relative flex-1 md:w-64">
               <Building2 className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
               <select

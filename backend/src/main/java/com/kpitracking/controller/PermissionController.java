@@ -18,7 +18,7 @@ import java.util.UUID;
 @RestController
 @RequestMapping("/api/v1/permissions")
 @RequiredArgsConstructor
-@PreAuthorize("hasRole('DIRECTOR')")
+@PreAuthorize("hasAuthority('PERMISSION:EDIT')")
 @Tag(name = "Permissions", description = "Permission management endpoints")
 public class PermissionController {
 

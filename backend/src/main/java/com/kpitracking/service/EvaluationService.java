@@ -32,16 +32,12 @@ public class EvaluationService {
     private final OrgUnitRepository orgUnitRepository;
     private final UserRoleOrgUnitRepository userRoleOrgUnitRepository;
     private final EvaluationMapper evaluationMapper;
+    private final PermissionChecker permissionChecker;
 
     private User getCurrentUser() {
         String email = SecurityContextHolder.getContext().getAuthentication().getName();
         return userRepository.findByEmail(email)
                 .orElseThrow(() -> new ResourceNotFoundException("Người dùng", "email", email));
-    }
-
-    private boolean hasRole(UUID userId, String roleName) {
-        return userRoleOrgUnitRepository.findByUserId(userId).stream()
-                .anyMatch(uro -> uro.getRole().getName().equalsIgnoreCase(roleName));
     }
 
     @Transactional
@@ -54,11 +50,18 @@ public class EvaluationService {
         com.kpitracking.entity.KpiPeriod kpiPeriod = kpiPeriodRepository.findById(request.getKpiPeriodId())
                 .orElseThrow(() -> new ResourceNotFoundException("Kỳ đánh giá (Đợt)", "id", request.getKpiPeriodId()));
 
-        boolean isSelfEval = currentUser.getId().equals(evaluatedUser.getId());
-        boolean isManager = hasRole(currentUser.getId(), "DIRECTOR") || hasRole(currentUser.getId(), "HEAD");
+        // Get user's primary org unit for linking
+        java.util.List<com.kpitracking.entity.UserRoleOrgUnit> uro = userRoleOrgUnitRepository.findByUserId(evaluatedUser.getId());
+        if (uro.isEmpty()) {
+            throw new BusinessException("Người dùng chưa được phân bổ vào đơn vị nào");
+        }
+        OrgUnit targetOrgUnit = uro.get(0).getOrgUnit();
 
-        if (!isSelfEval && !isManager) {
-            throw new ForbiddenException("Bạn không có quyền tạo đánh giá cho người khác");
+        boolean isSelfEval = currentUser.getId().equals(evaluatedUser.getId());
+        boolean canEvaluateOthers = permissionChecker.hasPermissionInOrgUnit(currentUser.getId(), "EVALUATION:CREATE", targetOrgUnit.getId());
+
+        if (!isSelfEval && !canEvaluateOthers) {
+            throw new ForbiddenException("Bạn không có quyền tạo đánh giá cho nhân viên này");
         }
 
         if (isSelfEval) {
@@ -69,14 +72,8 @@ public class EvaluationService {
             }
         }
 
-        // Get user's primary org unit for linking
-        java.util.List<com.kpitracking.entity.UserRoleOrgUnit> uro = userRoleOrgUnitRepository.findByUserId(evaluatedUser.getId());
-        if (uro.isEmpty()) {
-            throw new BusinessException("Người dùng chưa được phân bổ vào đơn vị nào");
-        }
-
         Evaluation evaluation = Evaluation.builder()
-                .orgUnit(uro.get(0).getOrgUnit())
+                .orgUnit(targetOrgUnit)
                 .user(evaluatedUser)
                 .kpiPeriod(kpiPeriod)
                 .evaluator(currentUser)
@@ -91,37 +88,30 @@ public class EvaluationService {
     @Transactional(readOnly = true)
     public PageResponse<EvaluationResponse> getEvaluations(int page, int size, String sortBy, String sortDir, UUID userId, UUID kpiPeriodId, UUID orgUnitId) {
         User currentUser = getCurrentUser();
+        boolean isGlobalAdmin = permissionChecker.isGlobalAdmin(currentUser.getId());
+        java.util.List<UUID> allowedOrgUnitIds = permissionChecker.getOrgUnitsWithPermission(currentUser.getId(), "EVALUATION:VIEW");
+
         Sort sort = Sort.by(sortDir.equalsIgnoreCase("asc") ? Sort.Direction.ASC : Sort.Direction.DESC, sortBy != null ? sortBy : "createdAt");
         Pageable pageable = PageRequest.of(page, size, sort);
 
-        boolean isDirector = hasRole(currentUser.getId(), "DIRECTOR");
-        boolean isHead = hasRole(currentUser.getId(), "HEAD");
-
-        UUID effectiveUserId = userId;
-        UUID effectiveOrgUnitId = orgUnitId;
-
-        // Force scope filtering for STAFF
-        if (!isDirector && !isHead) {
-            effectiveUserId = currentUser.getId();
-            effectiveOrgUnitId = null;
-        }
-
         String orgUnitPath = null;
-        if (effectiveOrgUnitId != null) {
-            orgUnitPath = orgUnitRepository.findById(effectiveOrgUnitId)
-                    .map(com.kpitracking.entity.OrgUnit::getPath)
-                    .map(path -> path + "%")
-                    .orElse(null);
-        } else if (isHead && effectiveUserId == null) {
-            // Heads see their department evaluations by default
-            effectiveOrgUnitId = userRoleOrgUnitRepository.findByUserId(currentUser.getId()).get(0).getOrgUnit().getId();
-            orgUnitPath = orgUnitRepository.findById(effectiveOrgUnitId)
+        if (orgUnitId != null) {
+            orgUnitPath = orgUnitRepository.findById(orgUnitId)
                     .map(com.kpitracking.entity.OrgUnit::getPath)
                     .map(path -> path + "%")
                     .orElse(null);
         }
 
-        Page<Evaluation> evalPage = evaluationRepository.findAllWithFilters(effectiveUserId, kpiPeriodId, orgUnitPath, null, pageable);
+        Page<Evaluation> evalPage = evaluationRepository.findAllWithFilters(
+                isGlobalAdmin,
+                currentUser.getId(),
+                allowedOrgUnitIds,
+                userId,
+                kpiPeriodId,
+                orgUnitPath,
+                null,
+                pageable
+        );
 
         return PageResponse.<EvaluationResponse>builder()
                 .content(evalPage.getContent().stream().map(evaluationMapper::toResponse).toList())
@@ -135,8 +125,19 @@ public class EvaluationService {
 
     @Transactional(readOnly = true)
     public EvaluationResponse getEvaluationById(UUID evaluationId) {
+        User currentUser = getCurrentUser();
         Evaluation evaluation = evaluationRepository.findById(evaluationId)
                 .orElseThrow(() -> new ResourceNotFoundException("Bản đánh giá", "id", evaluationId));
+
+        boolean isGlobalAdmin = permissionChecker.isGlobalAdmin(currentUser.getId());
+        boolean hasViewPermission = permissionChecker.hasPermissionInOrgUnit(currentUser.getId(), "EVALUATION:VIEW", evaluation.getOrgUnit().getId());
+        boolean isEvaluatedUser = evaluation.getUser().getId().equals(currentUser.getId());
+        boolean isEvaluator = evaluation.getEvaluator().getId().equals(currentUser.getId());
+
+        if (!isGlobalAdmin && !hasViewPermission && !isEvaluatedUser && !isEvaluator) {
+            throw new ForbiddenException("Bạn không có quyền xem bản đánh giá này");
+        }
+
         return evaluationMapper.toResponse(evaluation);
     }
 }

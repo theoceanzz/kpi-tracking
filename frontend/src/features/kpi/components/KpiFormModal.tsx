@@ -41,7 +41,11 @@ export default function KpiFormModal({ open, onClose, editKpi }: KpiFormModalPro
   const isEdit = !!editKpi
   const qc = useQueryClient()
   const { user } = useAuthStore()
-  const { isDirector, isHead, isDeputy } = usePermission()
+  const { hasPermission } = usePermission()
+  const canManageOrg = hasPermission('ORG:VIEW')
+  const canReview = hasPermission('SUBMISSION:REVIEW')
+  const canAssignRoles = hasPermission('ROLE:ASSIGN')
+
   const { data: orgUnitTreeData } = useOrgUnitTree()
   const { data: periodsData } = useKpiPeriods({ organizationId: user?.memberships?.[0]?.organizationId })
   
@@ -86,19 +90,19 @@ export default function KpiFormModal({ open, onClose, editKpi }: KpiFormModalPro
         frequency: 'MONTHLY', 
         assignedToIds: [], 
         kpiPeriodId: '',
-        orgUnitId: isDirector ? (flatOrgUnits?.[0]?.id || '') : (user?.memberships?.[0]?.orgUnitId || '')
+        orgUnitId: canManageOrg ? (flatOrgUnits?.[0]?.id || '') : (user?.memberships?.[0]?.orgUnitId || '')
       })
     }
-  }, [open, reset, flatOrgUnits]) // Added flatOrgUnits to ensure default ID is set when loaded
+  }, [open, reset, flatOrgUnits, canManageOrg]) 
 
   const formOrgUnitId = watch('orgUnitId')
   const selectedAssignees = watch('assignedToIds') || []
 
   // For HEAD/DEPUTY, automatically use their orgUnit if not chosen
   const fetchOrgUnitId = useMemo(() => {
-    if (isDirector) return formOrgUnitId || undefined
+    if (canManageOrg) return formOrgUnitId || undefined
     return formOrgUnitId || user?.memberships?.[0]?.orgUnitId
-  }, [isDirector, user, formOrgUnitId])
+  }, [canManageOrg, user, formOrgUnitId])
 
   const { data: usersData, isLoading: isLoadingUsers } = useUsers({ 
     page: 0, 
@@ -109,21 +113,18 @@ export default function KpiFormModal({ open, onClose, editKpi }: KpiFormModalPro
   const availableUsers = useMemo(() => {
     if (!usersData?.content) return []
     
-    // Determine current user's highest role priority
-    const currentUserRoles = user?.roles || []
-    const myPriority = Math.max(...currentUserRoles.map(r => ROLE_PRIORITY[r] || 0), 0)
-
     return usersData.content.filter(u => {
-      // Get target user's highest role priority
-      const targetPriority = Math.max(...(u.roles || []).map(r => ROLE_PRIORITY[r] || 0), 0)
-
-      if (isDirector) return true // Director can assign to anyone
+      // If user has USER:VIEW or ROLE:ASSIGN, they can see everyone in the list
+      if (hasPermission('USER:VIEW') || canAssignRoles) return true
       
-      // For others: only assign to people whose highest role is <= their own highest role
-      // This prevents a Head from assigning to a Director.
-      return targetPriority <= myPriority
+      // Otherwise, only allow assigning to people who don't have management/review permissions 
+      // if the current user themselves is just a lower-level manager
+      const targetIsManager = u.permissions?.includes('SUBMISSION:REVIEW')
+      if (targetIsManager && !canAssignRoles) return false
+
+      return true
     })
-  }, [usersData, isDirector, user])
+  }, [usersData, hasPermission, canAssignRoles])
 
   const { data: totalWeightData } = useKpiTotalWeight(
     fetchOrgUnitId,
@@ -290,7 +291,7 @@ export default function KpiFormModal({ open, onClose, editKpi }: KpiFormModalPro
           <div>
             <div className="flex items-center justify-between mb-1.5">
               <label className="block text-sm font-medium">Tên chỉ tiêu <span className="text-red-500">*</span></label>
-              {(isDirector || isHead || isDeputy) && !isEdit && (
+              {(canManageOrg || canReview) && !isEdit && (
                 <button 
                   type="button"
                   onClick={handleAiSuggest}
@@ -373,7 +374,7 @@ export default function KpiFormModal({ open, onClose, editKpi }: KpiFormModalPro
             </div>
           </div>
 
-          {isDirector && (
+          {hasPermission('ORG:VIEW') && (
             <div>
               <label className="block text-sm font-medium mb-1.5">Phòng ban / Đơn vị</label>
               <select {...register('orgUnitId')} className={inputCls}>

@@ -34,7 +34,7 @@ function getScoreLabel(score: number | null) {
 }
 
 export default function EvaluationDetailModal({ open, onClose, evaluation }: EvaluationDetailModalProps) {
-  const { isDirector, isHead, isDeputy } = usePermission()
+  const { hasPermission } = usePermission()
   const qc = useQueryClient()
 
   // Load all evaluations for the same user+Period to see the evaluation chain
@@ -98,8 +98,8 @@ export default function EvaluationDetailModal({ open, onClose, evaluation }: Eva
 
   if (!open || !evaluation) return null
 
-  const canGiveFeedback = (isHead || isDeputy) && layers.selfEval && !layers.headEval
-  const canDirectorReview = isDirector && !layers.directorEval && (layers.selfEval || layers.headEval)
+  const canGiveFeedback = hasPermission('SUBMISSION:REVIEW') && layers.selfEval && !layers.headEval
+  const canDirectorReview = hasPermission('KPI:APPROVE') && !layers.directorEval && (layers.selfEval || layers.headEval)
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">

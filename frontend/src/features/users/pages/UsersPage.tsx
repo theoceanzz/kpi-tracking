@@ -14,6 +14,7 @@ import { Plus, Upload, Loader2, Filter, ArrowUpDown, Briefcase } from 'lucide-re
 import type { User } from '@/types/user'
 import type { OrgUnitTreeResponse } from '@/types/orgUnit'
 import { toast } from 'sonner'
+import { usePermission } from '@/hooks/usePermission'
 
 export default function UsersPage() {
   const [keyword, setKeyword] = useState('')
@@ -102,6 +103,12 @@ export default function UsersPage() {
     setPage(0)
   }
 
+  const { hasPermission } = usePermission()
+  const canCreate = hasPermission('USER:CREATE')
+  const canImport = hasPermission('USER:IMPORT')
+  const canUpdate = hasPermission('USER:UPDATE')
+  const canDelete = hasPermission('USER:DELETE')
+
   const handleRoleChange = (val: string) => {
     setRoleFilter(val)
     setPage(0)
@@ -124,20 +131,24 @@ export default function UsersPage() {
         description="Cơ sở dữ liệu toàn bộ cán bộ nhân viên"
         action={
           <div className="flex gap-3">
-            <button
-              onClick={() => setShowImportGuide(true)}
-              disabled={importMutation.isPending}
-              className="flex items-center gap-2 px-5 py-2.5 rounded-xl border border-[var(--color-border)] text-sm font-semibold hover:bg-[var(--color-accent)] transition-all shadow-sm bg-[var(--color-card)]"
-            >
-              {importMutation.isPending ? <Loader2 size={16} className="animate-spin" /> : <Upload size={16} />}
-              Import Hệ thống
-            </button>
-            <button
-              onClick={() => { setEditUser(null); setShowForm(true) }}
-              className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[var(--color-primary)] text-white text-sm font-semibold hover:opacity-90 transition-all shadow-md"
-            >
-              <Plus size={16} /> Bổ sung Nhân sự
-            </button>
+            {canImport && (
+              <button
+                onClick={() => setShowImportGuide(true)}
+                disabled={importMutation.isPending}
+                className="flex items-center gap-2 px-5 py-2.5 rounded-xl border border-[var(--color-border)] text-sm font-semibold hover:bg-[var(--color-accent)] transition-all shadow-sm bg-[var(--color-card)]"
+              >
+                {importMutation.isPending ? <Loader2 size={16} className="animate-spin" /> : <Upload size={16} />}
+                Import Hệ thống
+              </button>
+            )}
+            {canCreate && (
+              <button
+                onClick={() => { setEditUser(null); setShowForm(true) }}
+                className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[var(--color-primary)] text-white text-sm font-semibold hover:opacity-90 transition-all shadow-md"
+              >
+                <Plus size={16} /> Bổ sung Nhân sự
+              </button>
+            )}
             <input ref={fileRef} type="file" accept=".xlsx,.xls,.csv" className="hidden" onChange={handleImport} />
           </div>
         }
@@ -207,7 +218,13 @@ export default function UsersPage() {
           <div className="p-6"><LoadingSkeleton type="table" rows={6} /></div>
         ) : (
           <>
-            <UserTable users={data?.content || []} onRowClick={handleRowClick} onDelete={(u) => setDeleteUser(u)} />
+            <UserTable 
+              users={data?.content || []} 
+              onRowClick={handleRowClick} 
+              onDelete={(u) => setDeleteUser(u)}
+              canUpdate={canUpdate}
+              canDelete={canDelete}
+            />
             {data && (
                <Pagination 
                 currentPage={page}

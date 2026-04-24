@@ -33,5 +33,8 @@ public interface OrgUnitRepository extends JpaRepository<OrgUnit, UUID> {
     @Query("SELECT o FROM OrgUnit o WHERE o.orgHierarchyLevel.organization.id = :orgId AND o.parent IS NULL AND o.deletedAt IS NULL")
     List<OrgUnit> findRootsByOrganizationId(@Param("orgId") UUID orgId);
 
+    @Query("SELECT o FROM OrgUnit o WHERE o.deletedAt IS NULL AND EXISTS (SELECT 1 FROM OrgUnit p WHERE o.path LIKE CONCAT(p.path, '%') AND p.id IN :parentIds)")
+    List<OrgUnit> findAllInSubtrees(@Param("parentIds") java.util.Collection<UUID> parentIds);
+
     boolean existsByOrgHierarchyLevelId(UUID hierarchyLevelId);
 }

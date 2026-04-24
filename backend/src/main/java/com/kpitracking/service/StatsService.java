@@ -35,6 +35,7 @@ public class StatsService {
     private final KpiCriteriaRepository kpiCriteriaRepository;
     private final KpiSubmissionRepository submissionRepository;
     private final EvaluationRepository evaluationRepository;
+    private final PermissionChecker permissionChecker;
 
     private User getCurrentUser() {
         String email = SecurityContextHolder.getContext().getAuthentication().getName();
@@ -48,18 +49,30 @@ public class StatsService {
         return roles.get(0).getOrgUnit().getOrgHierarchyLevel().getOrganization().getId();
     }
 
+    private List<OrgUnit> getAuthorizedOrgUnits(User user, String permissionCode) {
+        if (permissionChecker.isGlobalAdmin(user.getId())) {
+            UUID orgId = getCurrentUserOrganizationId(user);
+            if (orgId == null) return Collections.emptyList();
+            return orgUnitRepository.findByOrgHierarchyLevel_Organization_IdAndDeletedAtIsNull(orgId);
+        }
+        List<UUID> baseOrgUnitIds = permissionChecker.getOrgUnitsWithPermission(user.getId(), permissionCode);
+        if (baseOrgUnitIds.isEmpty()) return Collections.emptyList();
+        return orgUnitRepository.findAllInSubtrees(baseOrgUnitIds);
+    }
+
     @Transactional(readOnly = true)
     public OverviewStatsResponse getOverviewStats() {
         User currentUser = getCurrentUser();
-        UUID orgId = getCurrentUserOrganizationId(currentUser);
-        if (orgId == null) {
+        List<OrgUnit> authorizedUnits = getAuthorizedOrgUnits(currentUser, "DASHBOARD:VIEW");
+        
+        if (authorizedUnits.isEmpty()) {
             return OverviewStatsResponse.builder().build();
         }
 
-        List<UserRoleOrgUnit> currentUserRoles = userRoleOrgUnitRepository.findByUserId(currentUser.getId());
-        boolean isDirector = currentUserRoles.stream().anyMatch(r -> r.getRole().getName().equals("DIRECTOR"));
+        boolean isGlobalAdmin = permissionChecker.isGlobalAdmin(currentUser.getId());
+        UUID orgId = getCurrentUserOrganizationId(currentUser);
 
-        if (isDirector) {
+        if (isGlobalAdmin && orgId != null) {
             return OverviewStatsResponse.builder()
                     .totalUsers(userRoleOrgUnitRepository.countUsersByOrganizationId(orgId))
                     .totalOrgUnits(orgUnitRepository.countByOrgHierarchyLevel_Organization_Id(orgId))
@@ -75,24 +88,27 @@ public class StatsService {
                     .totalEvaluations(evaluationRepository.countByOrganizationId(orgId))
                     .build();
         } else {
-            // For HEAD or other roles, filter by department
-            if (currentUserRoles.isEmpty()) return OverviewStatsResponse.builder().build();
-            OrgUnit dept = currentUserRoles.get(0).getOrgUnit();
-            String path = dept.getPath() + "%";
-
+            // Aggregate stats for authorized units
+            List<UUID> unitIds = authorizedUnits.stream().map(OrgUnit::getId).toList();
+            
+            long totalUsers = userRoleOrgUnitRepository.findByOrgUnitIdIn(unitIds).stream()
+                    .map(uro -> uro.getUser().getId())
+                    .distinct()
+                    .count();
+            
             return OverviewStatsResponse.builder()
-                    .totalUsers(userRoleOrgUnitRepository.findUsersByOrgUnitPath(path).size())
-                    .totalOrgUnits(orgUnitRepository.findSubtree(dept.getPath()).size())
-                    .totalKpiCriteria(kpiCriteriaRepository.countByOrgUnitPath(path))
-                    .approvedKpi(kpiCriteriaRepository.countByOrgUnitPathAndStatus(path, KpiStatus.APPROVED))
-                    .pendingKpi(kpiCriteriaRepository.countByOrgUnitPathAndStatus(path, KpiStatus.PENDING_APPROVAL))
-                    .rejectedKpi(kpiCriteriaRepository.countByOrgUnitPathAndStatus(path, KpiStatus.REJECTED))
-                    .draftKpi(kpiCriteriaRepository.countByOrgUnitPathAndStatus(path, KpiStatus.DRAFT))
-                    .totalSubmissions(submissionRepository.countByOrgUnitPath(path))
-                    .pendingSubmissions(submissionRepository.countByOrgUnitPathAndStatus(path, SubmissionStatus.PENDING))
-                    .approvedSubmissions(submissionRepository.countByOrgUnitPathAndStatus(path, SubmissionStatus.APPROVED))
-                    .rejectedSubmissions(submissionRepository.countByOrgUnitPathAndStatus(path, SubmissionStatus.REJECTED))
-                    .totalEvaluations(evaluationRepository.countByOrgUnitPath(path))
+                    .totalUsers((int) totalUsers)
+                    .totalOrgUnits(authorizedUnits.size())
+                    .totalKpiCriteria(kpiCriteriaRepository.countByOrgUnitIdIn(unitIds))
+                    .approvedKpi(kpiCriteriaRepository.countByOrgUnitIdInAndStatus(unitIds, KpiStatus.APPROVED))
+                    .pendingKpi(kpiCriteriaRepository.countByOrgUnitIdInAndStatus(unitIds, KpiStatus.PENDING_APPROVAL))
+                    .rejectedKpi(kpiCriteriaRepository.countByOrgUnitIdInAndStatus(unitIds, KpiStatus.REJECTED))
+                    .draftKpi(kpiCriteriaRepository.countByOrgUnitIdInAndStatus(unitIds, KpiStatus.DRAFT))
+                    .totalSubmissions(submissionRepository.countByOrgUnitIdIn(unitIds))
+                    .pendingSubmissions(submissionRepository.countByOrgUnitIdInAndStatus(unitIds, com.kpitracking.enums.SubmissionStatus.PENDING))
+                    .approvedSubmissions(submissionRepository.countByOrgUnitIdInAndStatus(unitIds, com.kpitracking.enums.SubmissionStatus.APPROVED))
+                    .rejectedSubmissions(submissionRepository.countByOrgUnitIdInAndStatus(unitIds, com.kpitracking.enums.SubmissionStatus.REJECTED))
+                    .totalEvaluations(evaluationRepository.countByOrgUnitIdIn(unitIds))
                     .build();
         }
     }
@@ -100,13 +116,9 @@ public class StatsService {
     @Transactional(readOnly = true)
     public List<OrgUnitKpiStatsResponse> getOrgUnitKpiStats() {
         User currentUser = getCurrentUser();
-        UUID orgId = getCurrentUserOrganizationId(currentUser);
-        if (orgId == null) return Collections.emptyList();
+        List<OrgUnit> authorizedUnits = getAuthorizedOrgUnits(currentUser, "ORG:VIEW");
 
-        // For now, return stats per org unit
-        List<OrgUnit> orgUnits = orgUnitRepository.findByOrgHierarchyLevel_Organization_IdAndDeletedAtIsNull(orgId);
-
-        return orgUnits.stream().map(unit -> OrgUnitKpiStatsResponse.builder()
+        return authorizedUnits.stream().map(unit -> OrgUnitKpiStatsResponse.builder()
                 .orgUnitId(unit.getId())
                 .orgUnitName(unit.getName())
                 .memberCount(userRoleOrgUnitRepository.findByOrgUnitId(unit.getId()).size())
@@ -125,28 +137,19 @@ public class StatsService {
     @Transactional(readOnly = true)
     public PageResponse<EmployeeKpiStatsResponse> getEmployeeKpiStats(int page, int size) {
         User currentUser = getCurrentUser();
-        UUID orgId = getCurrentUserOrganizationId(currentUser);
-        if (orgId == null) {
+        List<OrgUnit> authorizedUnits = getAuthorizedOrgUnits(currentUser, "USER:VIEW");
+        
+        if (authorizedUnits.isEmpty()) {
             return PageResponse.<EmployeeKpiStatsResponse>builder()
                     .content(Collections.emptyList())
-                    .totalElements(0)
-                    .totalPages(0)
                     .build();
         }
 
-        List<UserRoleOrgUnit> currentUserRoles = userRoleOrgUnitRepository.findByUserId(currentUser.getId());
-        boolean isDirector = currentUserRoles.stream().anyMatch(r -> r.getRole().getName().equals("DIRECTOR"));
-        
-        List<User> allUsers;
-        if (isDirector) {
-            allUsers = userRoleOrgUnitRepository.findUsersByOrganizationId(orgId);
-        } else {
-            if (currentUserRoles.isEmpty()) {
-                return PageResponse.<EmployeeKpiStatsResponse>builder().content(Collections.emptyList()).build();
-            }
-            OrgUnit dept = currentUserRoles.get(0).getOrgUnit();
-            allUsers = userRoleOrgUnitRepository.findUsersByOrgUnitPath(dept.getPath() + "%");
-        }
+        List<UUID> unitIds = authorizedUnits.stream().map(OrgUnit::getId).toList();
+        List<User> allUsers = userRoleOrgUnitRepository.findByOrgUnitIdIn(unitIds).stream()
+                .map(UserRoleOrgUnit::getUser)
+                .distinct()
+                .toList();
 
         List<EmployeeKpiStatsResponse> allStats = new ArrayList<>();
 
@@ -220,6 +223,21 @@ public class StatsService {
 
     @Transactional(readOnly = true)
     public MyKpiProgressResponse getUserKpiProgress(UUID userId, int page, int size) {
+        User currentUser = getCurrentUser();
+        
+        // 0. Permission check
+        if (!currentUser.getId().equals(userId)) {
+            // Check if current user is global admin or has USER:VIEW in target user's org units
+            if (!permissionChecker.isGlobalAdmin(currentUser.getId())) {
+                List<UserRoleOrgUnit> targetUserAssignments = userRoleOrgUnitRepository.findByUserId(userId);
+                boolean hasAccess = targetUserAssignments.stream()
+                        .anyMatch(a -> permissionChecker.hasPermissionInOrgUnit(currentUser.getId(), "USER:VIEW", a.getOrgUnit().getId()));
+                
+                if (!hasAccess) {
+                    throw new com.kpitracking.exception.ForbiddenException("Bạn không có quyền xem tiến độ của nhân viên này");
+                }
+            }
+        }
 
         // 1. Basic counts
         long totalAssigned = kpiCriteriaRepository.countByAssigneeAndStatus(userId, KpiStatus.APPROVED);

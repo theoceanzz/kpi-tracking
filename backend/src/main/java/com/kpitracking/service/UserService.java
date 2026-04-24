@@ -59,6 +59,7 @@ public class UserService {
     private final PasswordEncoder passwordEncoder;
     private final EmailService emailService;
     private final OrgUnitRepository orgUnitRepository;
+    private final PermissionChecker permissionChecker;
 
     private User getCurrentUser() {
         String email = SecurityContextHolder.getContext().getAuthentication().getName();
@@ -157,90 +158,23 @@ public class UserService {
 
     @Transactional(readOnly = true)
     public PageResponse<UserResponse> getUsers(int page, int size, String keyword, UUID orgUnitId, String role, String sortBy, String direction) {
-        Sort sort = Sort.by(sortBy != null ? sortBy : "createdAt");
-        if ("desc".equalsIgnoreCase(direction)) {
-            sort = sort.descending();
-        } else {
-            sort = sort.ascending();
-        }
+        User currentUser = getCurrentUser();
+        boolean isGlobalAdmin = permissionChecker.isGlobalAdmin(currentUser.getId());
+        List<UUID> allowedOrgUnitIds = permissionChecker.getOrgUnitsWithPermission(currentUser.getId(), "USER:VIEW");
+
+        Sort sort = Sort.by(direction.equalsIgnoreCase("desc") ? Sort.Direction.DESC : Sort.Direction.ASC, sortBy != null ? sortBy : "createdAt");
         Pageable pageable = PageRequest.of(page, size, sort);
 
+        String orgUnitPath = null;
         if (orgUnitId != null) {
-            OrgUnit targetUnit = orgUnitRepository.findById(orgUnitId)
-                    .orElseThrow(() -> new BusinessException("Không tìm thấy đơn vị"));
-            
-            List<OrgUnit> subtree = orgUnitRepository.findSubtree(targetUnit.getPath());
-            List<UUID> unitIds = subtree.stream().map(OrgUnit::getId).toList();
-            
-            // Fetch all memberships in the subtree
-            List<UserRoleOrgUnit> memberships = userRoleOrgUnitRepository.findByOrgUnitIdIn(unitIds);
-
-            // Find users who have the DIRECTOR role in this subtree
-            java.util.Set<UUID> directorIds = memberships.stream()
-                    .filter(m -> m.getRole().getName().equals("DIRECTOR"))
-                    .map(m -> m.getUser().getId())
-                    .collect(java.util.stream.Collectors.toSet());
-
-            // Get all unique users from these memberships, excluding Directors
-            List<User> users = memberships.stream()
-                    .map(UserRoleOrgUnit::getUser)
-                    .filter(u -> u.getDeletedAt() == null && !directorIds.contains(u.getId()))
-                    .distinct()
-                    .toList();
-
-            List<User> filteredUsers = users;
-            if (keyword != null && !keyword.isBlank()) {
-                String search = keyword.toLowerCase();
-                filteredUsers = users.stream()
-                        .filter(u -> u.getFullName().toLowerCase().contains(search) || 
-                                    u.getEmail().toLowerCase().contains(search))
-                        .toList();
-            }
-
-            if (role != null && !role.equals("ALL")) {
-                String targetRole = role;
-                java.util.Set<UUID> roleUserIds = memberships.stream()
-                        .filter(m -> m.getRole().getName().equals(targetRole))
-                        .map(m -> m.getUser().getId())
-                        .collect(java.util.stream.Collectors.toSet());
-
-                filteredUsers = filteredUsers.stream()
-                        .filter(u -> roleUserIds.contains(u.getId()))
-                        .toList();
-            }
-
-            // Apply sorting manually for this case
-            List<User> sortedUsers = new ArrayList<>(filteredUsers);
-            sortedUsers.sort((a, b) -> {
-                int cmp;
-                if ("fullName".equals(sortBy)) {
-                    cmp = a.getFullName().compareToIgnoreCase(b.getFullName());
-                } else {
-                    cmp = (a.getCreatedAt() != null && b.getCreatedAt() != null) 
-                        ? a.getCreatedAt().compareTo(b.getCreatedAt()) : 0;
-                }
-                return "desc".equalsIgnoreCase(direction) ? -cmp : cmp;
-            });
-
-            int start = (int) pageable.getOffset();
-            int end = Math.min((start + pageable.getPageSize()), sortedUsers.size());
-            
-            List<UserResponse> content = (start < sortedUsers.size()) 
-                    ? sortedUsers.subList(start, end).stream().map(this::toResponse).toList()
-                    : Collections.emptyList();
-
-            return PageResponse.<UserResponse>builder()
-                    .content(content)
-                    .page(page)
-                    .size(size)
-                    .totalElements(sortedUsers.size())
-                    .totalPages((int) Math.ceil((double) sortedUsers.size() / size))
-                    .last(end >= sortedUsers.size())
-                    .build();
+            orgUnitPath = orgUnitRepository.findById(orgUnitId)
+                    .map(OrgUnit::getPath)
+                    .map(path -> path + "%")
+                    .orElse(null);
         }
 
         String roleName = (role == null || role.equals("ALL")) ? null : role;
-        Page<User> userPage = userRepository.searchUsers(keyword, roleName, pageable);
+        Page<User> userPage = userRepository.searchUsers(isGlobalAdmin, allowedOrgUnitIds, keyword, roleName, orgUnitPath, pageable);
 
         return PageResponse.<UserResponse>builder()
                 .content(userPage.getContent().stream().map(this::toResponse).toList())
@@ -254,15 +188,37 @@ public class UserService {
 
     @Transactional(readOnly = true)
     public UserResponse getUserById(UUID userId) {
-        User user = userRepository.findById(userId)
+        User currentUser = getCurrentUser();
+        User targetUser = userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("Người dùng", "id", userId));
-        return toResponse(user);
+
+        if (!currentUser.getId().equals(userId) && !permissionChecker.isGlobalAdmin(currentUser.getId())) {
+            List<UserRoleOrgUnit> targetUserAssignments = userRoleOrgUnitRepository.findByUserId(userId);
+            boolean hasAccess = targetUserAssignments.stream()
+                    .anyMatch(a -> permissionChecker.hasPermissionInOrgUnit(currentUser.getId(), "USER:VIEW", a.getOrgUnit().getId()));
+            
+            if (!hasAccess) {
+                throw new com.kpitracking.exception.ForbiddenException("Bạn không có quyền xem thông tin người dùng này");
+            }
+        }
+        return toResponse(targetUser);
     }
 
     @Transactional
     public UserResponse updateUser(UUID userId, UpdateUserRequest request) {
+        User currentUser = getCurrentUser();
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("Người dùng", "id", userId));
+
+        if (!currentUser.getId().equals(userId) && !permissionChecker.isGlobalAdmin(currentUser.getId())) {
+            List<UserRoleOrgUnit> targetUserAssignments = userRoleOrgUnitRepository.findByUserId(userId);
+            boolean hasAccess = targetUserAssignments.stream()
+                    .anyMatch(a -> permissionChecker.hasPermissionInOrgUnit(currentUser.getId(), "USER:UPDATE", a.getOrgUnit().getId()));
+            
+            if (!hasAccess) {
+                throw new com.kpitracking.exception.ForbiddenException("Bạn không có quyền chỉnh sửa người dùng này");
+            }
+        }
 
         if (request.getFullName() != null) {
             user.setFullName(request.getFullName());
@@ -289,8 +245,20 @@ public class UserService {
 
     @Transactional
     public void deleteUser(UUID userId) {
+        User currentUser = getCurrentUser();
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("Người dùng", "id", userId));
+
+        if (!permissionChecker.isGlobalAdmin(currentUser.getId())) {
+            List<UserRoleOrgUnit> targetUserAssignments = userRoleOrgUnitRepository.findByUserId(userId);
+            boolean hasAccess = targetUserAssignments.stream()
+                    .anyMatch(a -> permissionChecker.hasPermissionInOrgUnit(currentUser.getId(), "USER:DELETE", a.getOrgUnit().getId()));
+            
+            if (!hasAccess) {
+                throw new com.kpitracking.exception.ForbiddenException("Bạn không có quyền xoá người dùng này");
+            }
+        }
+
         user.setDeletedAt(Instant.now());
         userRepository.save(user);
     }

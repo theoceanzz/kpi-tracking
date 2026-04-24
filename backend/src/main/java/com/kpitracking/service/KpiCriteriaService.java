@@ -22,6 +22,7 @@ import com.kpitracking.repository.OrgUnitRepository;
 import com.kpitracking.repository.UserRepository;
 import com.kpitracking.repository.UserRoleOrgUnitRepository;
 import com.kpitracking.mapper.KpiCriteriaMapper;
+import com.kpitracking.security.PermissionChecker;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
@@ -56,6 +57,7 @@ public class KpiCriteriaService {
     private final KpiPeriodRepository kpiPeriodRepository;
     private final KpiCriteriaMapper kpiCriteriaMapper;
     private final ApplicationEventPublisher eventPublisher;
+    private final PermissionChecker permissionChecker;
 
     private User getCurrentUser() {
         String email = SecurityContextHolder.getContext().getAuthentication().getName();
@@ -63,23 +65,12 @@ public class KpiCriteriaService {
                 .orElseThrow(() -> new ResourceNotFoundException("Người dùng", "email", email));
     }
 
-    private boolean hasRole(UUID userId, String roleName) {
-        return userRoleOrgUnitRepository.findByUserId(userId).stream()
-                .anyMatch(uro -> uro.getRole().getName().equalsIgnoreCase(roleName));
-    }
-
-    private boolean hasAnyRole(UUID userId, String... roleNames) {
-        List<String> names = List.of(roleNames);
-        return userRoleOrgUnitRepository.findByUserId(userId).stream()
-                .anyMatch(uro -> names.stream().anyMatch(n -> n.equalsIgnoreCase(uro.getRole().getName())));
-    }
-
     @Transactional
     public KpiCriteriaResponse createKpiCriteria(CreateKpiCriteriaRequest request) {
         User currentUser = getCurrentUser();
-        boolean isDirector = hasRole(currentUser.getId(), "DIRECTOR");
+        boolean canApprove = permissionChecker.hasPermission(currentUser.getId(), "KPI:APPROVE");
 
-        KpiStatus initialStatus = isDirector ? KpiStatus.APPROVED : KpiStatus.DRAFT;
+        KpiStatus initialStatus = canApprove ? KpiStatus.APPROVED : KpiStatus.DRAFT;
 
         // Determine OrgUnit
         OrgUnit orgUnit = null;
@@ -95,13 +86,9 @@ public class KpiCriteriaService {
             }
         }
 
-        // Logic check: only Director or Head of that OrgUnit can assign
-        if (!isDirector) {
-            boolean isHeadOfOrg = userRoleOrgUnitRepository.findByUserIdAndOrgUnitId(currentUser.getId(), orgUnit.getId())
-                   .stream().anyMatch(uro -> uro.getRole().getName().equalsIgnoreCase("HEAD"));
-            if (!isHeadOfOrg) {
-                 throw new ForbiddenException("Trưởng phòng chỉ có thể thêm chỉ tiêu cho phòng ban của mình.");
-            }
+        // Permission check: only users with KPI:CREATE in the target OrgUnit can create
+        if (!permissionChecker.hasPermissionInOrgUnit(currentUser.getId(), "KPI:CREATE", orgUnit.getId())) {
+            throw new ForbiddenException("Bạn không có quyền tạo chỉ tiêu cho đơn vị này.");
         }
 
         // Determine assignees
@@ -116,12 +103,6 @@ public class KpiCriteriaService {
         for (UUID assigneeId : assigneeIds) {
             User assignee = userRepository.findById(assigneeId)
                     .orElseThrow(() -> new ResourceNotFoundException("Người dùng (người được giao)", "id", assigneeId));
-
-            if (!isDirector) {
-                if (hasAnyRole(assignee.getId(), "DIRECTOR") || (hasAnyRole(assignee.getId(), "HEAD") && !assignee.getId().equals(currentUser.getId()))) {
-                    throw new ForbiddenException("Trưởng phòng chỉ có thể giao chỉ tiêu cho bản thân hoặc cấp dưới.");
-                }
-            }
             assignees.add(assignee);
         }
 
@@ -167,6 +148,10 @@ public class KpiCriteriaService {
 
     @Transactional(readOnly = true)
     public PageResponse<KpiCriteriaResponse> getKpiCriteria(int page, int size, KpiStatus status, UUID orgUnitId, UUID createdById, UUID kpiPeriodId, String sortBy, String sortDir) {
+        User currentUser = getCurrentUser();
+        boolean isGlobalAdmin = permissionChecker.isGlobalAdmin(currentUser.getId());
+        List<UUID> allowedOrgUnitIds = permissionChecker.getOrgUnitsWithPermission(currentUser.getId(), "KPI:VIEW");
+
         Sort sort = Sort.by(sortDir.equalsIgnoreCase("asc") ? Sort.Direction.ASC : Sort.Direction.DESC, sortBy != null ? sortBy : "createdAt");
         Pageable pageable = PageRequest.of(page, size, sort);
 
@@ -178,7 +163,15 @@ public class KpiCriteriaService {
                     .orElse(null);
         }
 
-        Page<KpiCriteria> kpiPage = kpiCriteriaRepository.findAllWithFilters(createdById, orgUnitPath, status, kpiPeriodId, pageable);
+        Page<KpiCriteria> kpiPage = kpiCriteriaRepository.findAllWithFilters(
+                isGlobalAdmin, 
+                allowedOrgUnitIds, 
+                createdById, 
+                orgUnitPath, 
+                status, 
+                kpiPeriodId, 
+                pageable
+        );
 
         return PageResponse.<KpiCriteriaResponse>builder()
                 .content(kpiPage.getContent().stream().map(kpiCriteriaMapper::toResponse).toList())
@@ -192,21 +185,33 @@ public class KpiCriteriaService {
 
     @Transactional(readOnly = true)
     public KpiCriteriaResponse getKpiCriteriaById(UUID kpiId) {
+        User currentUser = getCurrentUser();
         KpiCriteria kpi = kpiCriteriaRepository.findById(kpiId)
                 .orElseThrow(() -> new ResourceNotFoundException("Chỉ tiêu KPI", "id", kpiId));
+        
+        // Permission check for viewing single KPI
+        boolean isGlobalAdmin = permissionChecker.isGlobalAdmin(currentUser.getId());
+        boolean hasViewPermission = permissionChecker.hasPermissionInOrgUnit(currentUser.getId(), "KPI:VIEW", kpi.getOrgUnit().getId());
+        boolean isAssignee = kpi.getAssignees().stream().anyMatch(a -> a.getId().equals(currentUser.getId()));
+        
+        if (!isGlobalAdmin && !hasViewPermission && !isAssignee && !kpi.getCreatedBy().getId().equals(currentUser.getId())) {
+            throw new ForbiddenException("Bạn không có quyền xem KPI này");
+        }
+        
         return kpiCriteriaMapper.toResponse(kpi);
     }
 
     @Transactional
     public KpiCriteriaResponse updateKpiCriteria(UUID kpiId, UpdateKpiCriteriaRequest request) {
         User currentUser = getCurrentUser();
-        boolean isDirector = hasRole(currentUser.getId(), "DIRECTOR");
-
         KpiCriteria kpi = kpiCriteriaRepository.findById(kpiId)
                 .orElseThrow(() -> new ResourceNotFoundException("Chỉ tiêu KPI", "id", kpiId));
 
-        if (!kpi.getCreatedBy().getId().equals(currentUser.getId()) && !isDirector) {
-            throw new BusinessException("Chỉ người tạo hoặc GIÁM ĐỐC mới có quyền chỉnh sửa KPI này");
+        boolean canUpdate = permissionChecker.hasPermissionInOrgUnit(currentUser.getId(), "KPI:UPDATE", kpi.getOrgUnit().getId());
+        boolean isCreator = kpi.getCreatedBy().getId().equals(currentUser.getId());
+
+        if (!isCreator && !canUpdate) {
+            throw new ForbiddenException("Bạn không có quyền chỉnh sửa KPI này");
         }
 
         if (kpi.getStatus() != KpiStatus.DRAFT && kpi.getStatus() != KpiStatus.REJECTED) {
@@ -236,6 +241,11 @@ public class KpiCriteriaService {
         if (request.getOrgUnitId() != null) {
             OrgUnit orgUnit = orgUnitRepository.findById(request.getOrgUnitId())
                     .orElseThrow(() -> new ResourceNotFoundException("Đơn vị", "id", request.getOrgUnitId()));
+            
+            // Check if user has permission to move KPI to this new OrgUnit
+            if (!permissionChecker.hasPermissionInOrgUnit(currentUser.getId(), "KPI:CREATE", orgUnit.getId())) {
+                throw new ForbiddenException("Bạn không có quyền tạo/chuyển KPI cho đơn vị mới này");
+            }
             kpi.setOrgUnit(orgUnit);
         }
 
@@ -295,13 +305,12 @@ public class KpiCriteriaService {
     @Transactional
     public KpiCriteriaResponse approveKpi(UUID kpiId) {
         User currentUser = getCurrentUser();
-
-        if (!hasAnyRole(currentUser.getId(), "DIRECTOR", "HEAD")) {
-            throw new ForbiddenException("Chỉ GIÁM ĐỐC hoặc TRƯỞNG PHÒNG mới có quyền phê duyệt chỉ tiêu KPI");
-        }
-
         KpiCriteria kpi = kpiCriteriaRepository.findById(kpiId)
                 .orElseThrow(() -> new ResourceNotFoundException("Chỉ tiêu KPI", "id", kpiId));
+
+        if (!permissionChecker.hasPermissionInOrgUnit(currentUser.getId(), "KPI:APPROVE", kpi.getOrgUnit().getId())) {
+            throw new ForbiddenException("Bạn không có quyền phê duyệt chỉ tiêu KPI cho đơn vị này");
+        }
 
         if (kpi.getStatus() != KpiStatus.PENDING_APPROVAL) {
             throw new BusinessException("Chỉ có thể phê duyệt KPI ở trạng thái CHỜ PHÊ DUYỆT");
@@ -320,13 +329,12 @@ public class KpiCriteriaService {
     @Transactional
     public KpiCriteriaResponse rejectKpi(UUID kpiId, RejectKpiRequest request) {
         User currentUser = getCurrentUser();
-
-        if (!hasAnyRole(currentUser.getId(), "DIRECTOR", "HEAD")) {
-            throw new ForbiddenException("Chỉ GIÁM ĐỐC hoặc TRƯỞNG PHÒNG mới có quyền từ chối chỉ tiêu KPI");
-        }
-
         KpiCriteria kpi = kpiCriteriaRepository.findById(kpiId)
                 .orElseThrow(() -> new ResourceNotFoundException("Chỉ tiêu KPI", "id", kpiId));
+
+        if (!permissionChecker.hasPermissionInOrgUnit(currentUser.getId(), "KPI:APPROVE", kpi.getOrgUnit().getId())) {
+            throw new ForbiddenException("Bạn không có quyền từ chối chỉ tiêu KPI cho đơn vị này");
+        }
 
         if (kpi.getStatus() != KpiStatus.PENDING_APPROVAL) {
             throw new BusinessException("Chỉ có thể từ chối KPI ở trạng thái CHỜ PHÊ DUYỆT");
@@ -343,13 +351,14 @@ public class KpiCriteriaService {
     @Transactional
     public void deleteKpiCriteria(UUID kpiId) {
         User currentUser = getCurrentUser();
-        boolean isDirector = hasRole(currentUser.getId(), "DIRECTOR");
-
         KpiCriteria kpi = kpiCriteriaRepository.findById(kpiId)
                 .orElseThrow(() -> new ResourceNotFoundException("Chỉ tiêu KPI", "id", kpiId));
 
-        if (!kpi.getCreatedBy().getId().equals(currentUser.getId()) && !isDirector) {
-            throw new BusinessException("Chỉ người tạo hoặc GIÁM ĐỐC mới có quyền xóa KPI này");
+        boolean canDelete = permissionChecker.hasPermissionInOrgUnit(currentUser.getId(), "KPI:DELETE", kpi.getOrgUnit().getId());
+        boolean isCreator = kpi.getCreatedBy().getId().equals(currentUser.getId());
+
+        if (!isCreator && !canDelete) {
+            throw new ForbiddenException("Bạn không có quyền xoá KPI này");
         }
         kpi.setDeletedAt(Instant.now());
         kpiCriteriaRepository.save(kpi);
@@ -398,6 +407,12 @@ public class KpiCriteriaService {
 
     @Transactional(readOnly = true)
     public Double getTotalWeight(UUID orgUnitId, UUID kpiPeriodId) {
+        User currentUser = getCurrentUser();
+        if (!permissionChecker.isGlobalAdmin(currentUser.getId()) && 
+            !permissionChecker.hasPermissionInOrgUnit(currentUser.getId(), "KPI:VIEW", orgUnitId)) {
+            throw new ForbiddenException("Bạn không có quyền xem thông tin trọng số của đơn vị này");
+        }
+
         return kpiCriteriaRepository.sumWeightByOrgUnitIdAndKpiPeriodIdAndStatusIn(
                 orgUnitId,
                 kpiPeriodId,
@@ -410,6 +425,11 @@ public class KpiCriteriaService {
         User currentUser = getCurrentUser();
         if (kpiPeriodId == null) throw new BusinessException("Vui lòng chọn Kỳ đánh giá trước khi import");
         if (orgUnitId == null) throw new BusinessException("Vui lòng chọn Đơn vị trước khi import");
+
+        // Permission check for import
+        if (!permissionChecker.hasPermissionInOrgUnit(currentUser.getId(), "KPI:CREATE", orgUnitId)) {
+            throw new ForbiddenException("Bạn không có quyền import KPI cho đơn vị này");
+        }
 
         com.kpitracking.entity.KpiPeriod kpiPeriod = kpiPeriodRepository.findById(kpiPeriodId)
                 .orElseThrow(() -> new ResourceNotFoundException("Kỳ đánh giá", "id", kpiPeriodId));
@@ -425,6 +445,8 @@ public class KpiCriteriaService {
         int successfulImports = 0;
         int totalRows = 0;
 
+        boolean canApprove = permissionChecker.hasPermissionInOrgUnit(currentUser.getId(), "KPI:APPROVE", orgUnitId);
+
         try {
             if (filename.endsWith(".csv")) {
                 try (BufferedReader fileReader = new BufferedReader(new InputStreamReader(file.getInputStream(), "UTF-8"));
@@ -435,7 +457,7 @@ public class KpiCriteriaService {
                             processKpiRow(record.get("Name"), record.get("Description"), record.get("Weight"), 
                                 record.get("TargetValue"), record.isMapped("MinimumValue") ? record.get("MinimumValue") : null, 
                                 record.get("Unit"), record.get("Frequency"), 
-                                record.get("EmployeeCode"), kpiPeriod, orgUnit, currentUser);
+                                record.get("EmployeeCode"), kpiPeriod, orgUnit, currentUser, canApprove);
                             successfulImports++;
                         } catch (Exception e) {
                             errors.add("Dòng " + totalRows + ": " + e.getMessage());
@@ -479,7 +501,7 @@ public class KpiCriteriaService {
                                 unitIdx != -1 ? getCellValueAsString(row.getCell(unitIdx)) : null,
                                 getCellValueAsString(row.getCell(freqIdx)),
                                 getCellValueAsString(row.getCell(codeIdx)),
-                                kpiPeriod, orgUnit, currentUser
+                                kpiPeriod, orgUnit, currentUser, canApprove
                             );
                             successfulImports++;
                         } catch (Exception e) {
@@ -500,7 +522,7 @@ public class KpiCriteriaService {
     }
 
     private void processKpiRow(String name, String desc, String weight, String target, String min, String unit, String freq, String empCode, 
-                              com.kpitracking.entity.KpiPeriod period, OrgUnit unitEntity, User creator) {
+                               com.kpitracking.entity.KpiPeriod period, OrgUnit unitEntity, User creator, boolean canApprove) {
         if (name == null || name.isBlank()) throw new BusinessException("Tên chỉ tiêu là bắt buộc");
         
         User assignee = userRepository.findByEmployeeCode(empCode)
@@ -525,7 +547,7 @@ public class KpiCriteriaService {
                 .orgUnit(unitEntity)
                 .kpiPeriod(period)
                 .createdBy(creator)
-                .status(hasRole(creator.getId(), "DIRECTOR") ? KpiStatus.APPROVED : KpiStatus.DRAFT)
+                .status(canApprove ? KpiStatus.APPROVED : KpiStatus.DRAFT)
                 .build();
         
         if (kpi.getStatus() == KpiStatus.APPROVED) {

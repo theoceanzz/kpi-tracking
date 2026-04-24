@@ -20,11 +20,15 @@ public interface EvaluationRepository extends JpaRepository<Evaluation, UUID> {
     Page<Evaluation> findByUserIdAndKpiPeriodId(UUID userId, UUID kpiPeriodId, Pageable pageable);
 
     @Query("SELECT e FROM Evaluation e WHERE " +
-            "(:userId IS NULL OR e.user.id = :userId) AND " +
-            "(:kpiPeriodId IS NULL OR e.kpiPeriod.id = :kpiPeriodId) AND " +
-            "(:orgUnitPath IS NULL OR e.orgUnit.path LIKE :orgUnitPath) AND " +
-            "(:evaluatorId IS NULL OR e.evaluator.id = :evaluatorId)")
+           "(:isGlobalAdmin = true OR e.user.id = :currentUserId OR EXISTS (SELECT 1 FROM OrgUnit au WHERE e.orgUnit.path LIKE CONCAT(au.path, '%') AND au.id IN :allowedOrgUnitIds)) AND " +
+           "(:userId IS NULL OR e.user.id = :userId) AND " +
+           "(:kpiPeriodId IS NULL OR e.kpiPeriod.id = :kpiPeriodId) AND " +
+           "(:orgUnitPath IS NULL OR e.orgUnit.path LIKE :orgUnitPath) AND " +
+           "(:evaluatorId IS NULL OR e.evaluator.id = :evaluatorId)")
     Page<Evaluation> findAllWithFilters(
+            @Param("isGlobalAdmin") boolean isGlobalAdmin,
+            @Param("currentUserId") UUID currentUserId,
+            @Param("allowedOrgUnitIds") java.util.Collection<UUID> allowedOrgUnitIds,
             @Param("userId") UUID userId,
             @Param("kpiPeriodId") UUID kpiPeriodId,
             @Param("orgUnitPath") String orgUnitPath,
@@ -47,4 +51,6 @@ public interface EvaluationRepository extends JpaRepository<Evaluation, UUID> {
 
     @Query("SELECT COUNT(e) FROM Evaluation e WHERE e.orgUnit.path LIKE :path")
     long countByOrgUnitPath(@Param("path") String path);
+    @Query("SELECT COUNT(e) FROM Evaluation e WHERE e.orgUnit.id IN :orgUnitIds")
+    long countByOrgUnitIdIn(@Param("orgUnitIds") java.util.Collection<UUID> orgUnitIds);
 }

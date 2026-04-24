@@ -8,6 +8,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { userApi } from '../api/userApi'
 import { toast } from 'sonner'
 import { Loader2, X, Eye, EyeOff, Wand2, Check } from 'lucide-react'
+import { usePermission } from '@/hooks/usePermission'
 import type { User } from '@/types/user'
 
 interface UserFormModalProps {
@@ -32,6 +33,8 @@ const statusOptions = [
 export default function UserFormModal({ open, onClose, editUser }: UserFormModalProps) {
   const isEdit = !!editUser
   const qc = useQueryClient()
+  const { hasPermission } = usePermission()
+  const canAssignRoles = hasPermission('ROLE:ASSIGN')
 
   const createMutation = useCreateUser()
 
@@ -48,13 +51,13 @@ export default function UserFormModal({ open, onClose, editUser }: UserFormModal
   if (!open) return null
 
   return isEdit ? (
-    <EditUserForm editUser={editUser!} onClose={onClose} onSubmit={(data) => updateMutation.mutate(data)} isPending={updateMutation.isPending} />
+    <EditUserForm editUser={editUser!} onClose={onClose} onSubmit={(data) => updateMutation.mutate(data)} isPending={updateMutation.isPending} canAssignRoles={canAssignRoles} />
   ) : (
-    <CreateUserForm onClose={onClose} onSubmit={(data) => createMutation.mutate(data, { onSuccess: () => onClose() })} isPending={createMutation.isPending} />
+    <CreateUserForm onClose={onClose} onSubmit={(data) => createMutation.mutate(data, { onSuccess: () => onClose() })} isPending={createMutation.isPending} canAssignRoles={canAssignRoles} />
   )
 }
 
-function CreateUserForm({ onClose, onSubmit, isPending }: { onClose: () => void; onSubmit: (data: UserFormData) => void; isPending: boolean }) {
+function CreateUserForm({ onClose, onSubmit, isPending, canAssignRoles }: { onClose: () => void; onSubmit: (data: UserFormData) => void; isPending: boolean; canAssignRoles: boolean }) {
   const [showPassword, setShowPassword] = useState(false)
   const { register, handleSubmit, control, setValue, formState: { errors } } = useForm<UserFormData>({
     resolver: zodResolver(userSchema),
@@ -196,9 +199,10 @@ function CreateUserForm({ onClose, onSubmit, isPending }: { onClose: () => void;
           </div>
           <div>
             <label className="block text-sm font-medium mb-1.5">Vai trò <span className="text-red-500">*</span></label>
-            <select {...register('role')} className={inputCls}>
+            <select {...register('role')} className={inputCls} disabled={!canAssignRoles}>
               {roleOptions.map((opt) => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
             </select>
+            {!canAssignRoles && <p className="text-[10px] text-amber-600 mt-1 font-medium">Bạn không có quyền thay đổi vai trò hệ thống</p>}
           </div>
           <div className="flex gap-4 pt-4 border-t border-slate-100 dark:border-slate-800">
             <button type="button" onClick={onClose} className="flex-1 px-6 py-3.5 rounded-2xl text-sm font-bold text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all">Hủy</button>
@@ -217,7 +221,7 @@ function CreateUserForm({ onClose, onSubmit, isPending }: { onClose: () => void;
   )
 }
 
-function EditUserForm({ editUser, onClose, onSubmit, isPending }: { editUser: User; onClose: () => void; onSubmit: (data: UpdateUserFormData) => void; isPending: boolean }) {
+function EditUserForm({ editUser, onClose, onSubmit, isPending, canAssignRoles }: { editUser: User; onClose: () => void; onSubmit: (data: UpdateUserFormData) => void; isPending: boolean; canAssignRoles: boolean }) {
   const { register, handleSubmit, formState: { errors } } = useForm<UpdateUserFormData>({
     resolver: zodResolver(updateUserSchema),
     defaultValues: { 
@@ -261,9 +265,10 @@ function EditUserForm({ editUser, onClose, onSubmit, isPending }: { editUser: Us
           </div>
           <div>
             <label className="block text-sm font-medium mb-1.5">Vai trò</label>
-            <select {...register('role')} className={inputCls}>
+            <select {...register('role')} className={inputCls} disabled={!canAssignRoles}>
               {roleOptions.map((opt) => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
             </select>
+            {!canAssignRoles && <p className="text-[10px] text-amber-600 mt-1 font-medium">Bạn không có quyền thay đổi vai trò hệ thống</p>}
           </div>
           <div>
             <label className="block text-sm font-medium mb-1.5">Trạng thái</label>

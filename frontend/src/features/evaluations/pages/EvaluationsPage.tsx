@@ -44,7 +44,11 @@ function getScoreLabel(score: number | null) {
 
 export default function EvaluationsPage() {
   const { user } = useAuthStore()
-  const { isStaff, isDirector } = usePermission()
+  const { hasPermission } = usePermission()
+
+  const canCreate = hasPermission('EVALUATION:CREATE')
+  const canViewAll = hasPermission('EVALUATION:VIEW')
+  const canManageOrg = hasPermission('ORG:VIEW')
 
   // Control states
   const [page, setPage] = useState(0)
@@ -177,12 +181,12 @@ export default function EvaluationsPage() {
             <Star size={14} /> Hiệu suất nhân sự
           </div>
           <h1 className="text-3xl md:text-4xl font-black tracking-tight text-slate-900 dark:text-white">
-            {isStaff ? 'Tự đánh giá Định kỳ' : 'Đánh giá Nhân sự'}
+            {canViewAll ? 'Quản lý Đánh giá' : 'Tự đánh giá Hiệu suất'}
           </h1>
           <p className="text-slate-500 font-medium max-w-lg">
-            {isStaff 
-              ? 'Tự chấm điểm và đánh giá hiệu suất tổng thể của bản thân theo từng đợt (kỳ) KPI.'
-              : 'Xem xét và phản hồi đánh giá hiệu suất định kỳ của nhân viên.'}
+            {canViewAll 
+              ? 'Xem xét và phản hồi kết quả đánh giá hiệu suất định kỳ của nhân viên trong phạm vi quản lý.'
+              : 'Tự chấm điểm và đánh giá hiệu suất tổng thể của bản thân theo từng đợt (kỳ) KPI.'}
           </p>
         </div>
 
@@ -218,9 +222,9 @@ export default function EvaluationsPage() {
             </select>
           </div>
 
-          {!isStaff && (
+          {canViewAll && (
             <>
-              {isDirector && (
+              {canManageOrg && (
                 <div className="relative flex-1 md:w-64">
                   <Building2 className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
                   <select
@@ -253,7 +257,7 @@ export default function EvaluationsPage() {
           )}
         </div>
 
-        {isStaff && (
+        {canCreate && (
           <button 
             onClick={() => setShowForm(true)} 
             disabled={hasSelfEvalForActivePeriod || !hasKpiInActivePeriod}
@@ -276,9 +280,9 @@ export default function EvaluationsPage() {
         <div className="bg-white dark:bg-slate-900 rounded-[32px] border border-dashed border-slate-300 dark:border-slate-800 p-20">
           <EmptyState 
             title="Chưa có đánh giá nào" 
-            description={isStaff 
-              ? 'Hãy bắt đầu tự đánh giá hiệu suất của bạn theo từng đợt (kỳ) KPI.' 
-              : 'Chưa tìm thấy bản đánh giá định kỳ nào khớp với bộ lọc.'
+            description={canViewAll 
+              ? 'Chưa tìm thấy bản đánh giá định kỳ nào khớp với bộ lọc.'
+              : 'Hãy bắt đầu tự đánh giá hiệu suất của bạn theo từng đợt (kỳ) KPI.'
             } 
           />
         </div>

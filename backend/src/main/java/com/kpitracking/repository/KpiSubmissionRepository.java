@@ -13,11 +13,15 @@ import java.util.UUID;
 public interface KpiSubmissionRepository extends JpaRepository<KpiSubmission, UUID> {
 
     @org.springframework.data.jpa.repository.Query("SELECT s FROM KpiSubmission s WHERE " +
-            "(:status IS NULL OR s.status = :status) AND " +
-            "(:kpiCriteriaId IS NULL OR s.kpiCriteria.id = :kpiCriteriaId) AND " +
-            "(:submittedById IS NULL OR s.submittedBy.id = :submittedById) AND " +
-            "(:orgUnitPath IS NULL OR s.orgUnit.path LIKE :orgUnitPath)")
+           "(:isGlobalAdmin = true OR s.submittedBy.id = :currentUserId OR EXISTS (SELECT 1 FROM OrgUnit au WHERE s.orgUnit.path LIKE CONCAT(au.path, '%') AND au.id IN :allowedOrgUnitIds)) AND " +
+           "(:status IS NULL OR s.status = :status) AND " +
+           "(:kpiCriteriaId IS NULL OR s.kpiCriteria.id = :kpiCriteriaId) AND " +
+           "(:submittedById IS NULL OR s.submittedBy.id = :submittedById) AND " +
+           "(:orgUnitPath IS NULL OR s.orgUnit.path LIKE :orgUnitPath)")
     Page<KpiSubmission> findAllWithFilters(
+            @org.springframework.data.repository.query.Param("isGlobalAdmin") boolean isGlobalAdmin,
+            @org.springframework.data.repository.query.Param("currentUserId") UUID currentUserId,
+            @org.springframework.data.repository.query.Param("allowedOrgUnitIds") java.util.Collection<UUID> allowedOrgUnitIds,
             @org.springframework.data.repository.query.Param("status") SubmissionStatus status,
             @org.springframework.data.repository.query.Param("kpiCriteriaId") UUID kpiCriteriaId,
             @org.springframework.data.repository.query.Param("submittedById") UUID submittedById,
@@ -40,6 +44,10 @@ public interface KpiSubmissionRepository extends JpaRepository<KpiSubmission, UU
     long countByOrgUnitIdAndStatus(UUID orgUnitId, SubmissionStatus status);
 
     long countByStatus(SubmissionStatus status);
+
+    long countByOrgUnitIdIn(java.util.Collection<UUID> orgUnitIds);
+
+    long countByOrgUnitIdInAndStatus(java.util.Collection<UUID> orgUnitIds, SubmissionStatus status);
 
     long countBySubmittedById(UUID userId);
 
