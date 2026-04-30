@@ -190,6 +190,14 @@
                     </annotationProcessorPaths>
                 </configuration>
             </plugin>
+            <plugin>
+                <groupId>org.flywaydb</groupId>
+                <artifactId>flyway-maven-plugin</artifactId>
+                <version>10.10.0</version>
+                <configuration>
+                    <!-- Flyway will automatically read flyway.conf if present in the same directory -->
+                </configuration>
+            </plugin>
         </plugins>
     </build>
 

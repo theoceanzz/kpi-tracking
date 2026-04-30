@@ -1,21 +1,19 @@
 package com.kpitracking.controller;
 
 import com.kpitracking.dto.response.ApiResponse;
-import com.kpitracking.dto.response.stats.OrgUnitKpiStatsResponse;
-import com.kpitracking.dto.response.stats.EmployeeKpiStatsResponse;
-import com.kpitracking.dto.response.stats.MyKpiProgressResponse;
-import com.kpitracking.dto.response.stats.OverviewStatsResponse;
+import com.kpitracking.dto.response.PageResponse;
+import com.kpitracking.dto.response.stats.*;
 import com.kpitracking.service.StatsService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
+import java.time.Instant;
 import java.util.List;
+import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/v1/stats")
@@ -55,4 +53,82 @@ public class StatsController {
         MyKpiProgressResponse response = statsService.getMyKpiProgress();
         return ResponseEntity.ok(ApiResponse.success(response));
     }
+
+    // ============================================================
+    // ANALYTICS ENDPOINTS
+    // ============================================================
+
+    @GetMapping("/my-analytics")
+    @Operation(summary = "Get current user's detailed analytics")
+    public ResponseEntity<ApiResponse<AnalyticsMyStatsResponse>> getMyAnalytics(
+            @RequestParam(required = false) Instant from,
+            @RequestParam(required = false) Instant to) {
+        AnalyticsMyStatsResponse response = statsService.getMyAnalytics(from, to);
+        return ResponseEntity.ok(ApiResponse.success(response));
+    }
+
+    @GetMapping("/drill-down")
+    @PreAuthorize("hasAuthority('KPI:VIEW')")
+    @Operation(summary = "Get drill-down analytics by org unit hierarchy")
+    public ResponseEntity<ApiResponse<AnalyticsDrillDownResponse>> getDrillDown(
+            @RequestParam(required = false) UUID orgUnitId) {
+        AnalyticsDrillDownResponse response = statsService.getDrillDown(orgUnitId);
+        return ResponseEntity.ok(ApiResponse.success(response));
+    }
+
+    @GetMapping("/detail-table")
+    @PreAuthorize("hasAuthority('ORG:VIEW')")
+    @Operation(summary = "Get detailed analytics table with sorting and filtering")
+    public ResponseEntity<ApiResponse<PageResponse<AnalyticsDetailRow>>> getDetailTable(
+            @RequestParam(required = false) UUID orgUnitId,
+            @RequestParam(required = false) String search,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        PageResponse<AnalyticsDetailRow> response = statsService.getDetailTable(orgUnitId, search, page, size);
+        return ResponseEntity.ok(ApiResponse.success(response));
+    }
+    @GetMapping("/summary")
+    @PreAuthorize("hasAuthority('KPI:VIEW')")
+    @Operation(summary = "Get overall summary analytics (Initial load)")
+    public ResponseEntity<ApiResponse<AnalyticsSummaryResponse>> getSummary(
+            @RequestParam(required = false) UUID orgUnitId,
+            @RequestParam(required = false) UUID rankingUnitId,
+            @RequestParam(defaultValue = "DESC") String direction) {
+        AnalyticsSummaryResponse response = statsService.getSummary(orgUnitId, rankingUnitId, direction);
+        return ResponseEntity.ok(ApiResponse.success(response));
+    }
+
+    @GetMapping("/summary/trend")
+    @PreAuthorize("hasAuthority('KPI:VIEW')")
+    public ResponseEntity<ApiResponse<List<AnalyticsSummaryResponse.TrendPoint>>> getTrend(
+            @RequestParam(required = false) UUID orgUnitId,
+            @RequestParam(defaultValue = "5_MONTHS") String period) {
+        return ResponseEntity.ok(ApiResponse.success(statsService.getTrend(orgUnitId, period)));
+    }
+
+    @GetMapping("/summary/unit-comparison")
+    @PreAuthorize("hasAuthority('KPI:VIEW')")
+    public ResponseEntity<ApiResponse<SummarySubData.UnitComparisonData>> getUnitComparison(
+            @RequestParam(required = false) UUID orgUnitId,
+            @RequestParam(defaultValue = "MONTH") String period) {
+        return ResponseEntity.ok(ApiResponse.success(statsService.getUnitComparison(orgUnitId, period)));
+    }
+
+    @GetMapping("/summary/risks")
+    @PreAuthorize("hasAuthority('KPI:VIEW')")
+    public ResponseEntity<ApiResponse<SummarySubData.RiskData>> getRisks(
+            @RequestParam(required = false) UUID orgUnitId,
+            @RequestParam(defaultValue = "MONTH") String period) {
+        return ResponseEntity.ok(ApiResponse.success(statsService.getRisks(orgUnitId, period)));
+    }
+
+    @GetMapping("/summary/rankings")
+    @PreAuthorize("hasAuthority('KPI:VIEW')")
+    public ResponseEntity<ApiResponse<SummarySubData.RankingData>> getRankings(
+            @RequestParam(required = false) UUID orgUnitId,
+            @RequestParam(required = false) UUID rankingUnitId,
+            @RequestParam(defaultValue = "MONTH") String period) {
+        return ResponseEntity.ok(ApiResponse.success(statsService.getRankings(orgUnitId, rankingUnitId, period)));
+    }
 }
+

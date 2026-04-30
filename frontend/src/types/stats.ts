@@ -54,3 +54,172 @@ export interface MyKpiProgress {
   rejectedSubmissions: number
   averageScore: number | null
 }
+
+// ============================================================
+// Analytics Types
+// ============================================================
+
+export interface KpiProgressItem {
+  kpiId: string
+  kpiName: string
+  unit: string | null
+  targetValue: number | null
+  actualValue: number | null
+  completionRate: number
+  status: string
+  orgUnitName: string
+}
+
+export interface EvaluationItem {
+  id: string
+  kpiName: string
+  score: number | null
+  comment: string | null
+  evaluatorName: string
+  createdAt: string
+}
+
+export interface AnalyticsMyStats {
+  totalAssignedKpi: number
+  totalSubmissions: number
+  approvedSubmissions: number
+  pendingSubmissions: number
+  rejectedSubmissions: number
+  averageScore: number | null
+  kpiItems: KpiProgressItem[]
+  evaluationHistory: EvaluationItem[]
+}
+
+export interface OrgUnitDrillSummary {
+  orgUnitId: string
+  orgUnitName: string
+  levelName: string
+  memberCount: number
+  totalKpi: number
+  approvedKpi: number
+  completionRate: number
+  totalSubmissions: number
+  approvedSubmissions: number
+  pendingSubmissions: number
+  rejectedSubmissions: number
+  avgScore: number | null
+  hasChildren: boolean
+}
+
+export interface EmployeeDrillSummary {
+  userId: string
+  fullName: string
+  email: string
+  roleName: string
+  assignedKpi: number
+  totalSubmissions: number
+  approvedSubmissions: number
+  pendingSubmissions: number
+  rejectedSubmissions: number
+  avgScore: number | null
+}
+
+export interface DrillDownResponse {
+  orgUnitId: string | null
+  orgUnitName: string | null
+  levelName: string | null
+  totalKpi: number
+  approvedKpi: number
+  totalSubmissions: number
+  approvedSubmissions: number
+  pendingSubmissions: number
+  rejectedSubmissions: number
+  avgScore: number | null
+  memberCount: number
+  childUnits: OrgUnitDrillSummary[]
+  employees: EmployeeDrillSummary[]
+  heatmapData: HeatmapPoint[]
+}
+
+export interface AnalyticsDetailRow {
+  userId: string
+  fullName: string
+  email: string
+  orgUnitName: string | null
+  roleName: string
+  assignedKpi: number
+  completedKpi: number
+  completionRate: number
+  totalSubmissions: number
+  approvedSubmissions: number
+  pendingSubmissions: number
+  rejectedSubmissions: number
+  avgScore: number | null
+  lastSubmissionDate: string | null
+}
+
+export interface AnalyticsSummary {
+  orgUnitId: string;
+  orgUnitName: string;
+  levelName: string;
+  kpiCompletionRate: number;
+  avgPerformanceScore: number;
+  overdueKpiRate: number;
+  totalMembers: number;
+  activeKpis: number;
+  trendData: {
+    period: string;
+    kpiCompletion: number;
+    performance: number;
+  }[];
+  topPerformingUnits: UnitComparison[];
+  worstPerformingUnits: UnitComparison[];
+  unitKpiData: UnitKpiComparison[];
+  memberDistribution: { name: string; value: number }[];
+  roleDistribution: {
+    unitName: string;
+    directorCount: number;
+    headCount: number;
+    staffCount: number;
+  }[];
+  unitRisks: RiskInfo[];
+  userRisks: RiskInfo[];
+  rankings: RankingItem[];
+  kpiRankings: RankingItem[];
+  rankingOptions: RankingOption[];
+}
+
+export interface RiskInfo {
+  name: string;
+  type: 'UNIT' | 'USER';
+  performance: number;
+  overdueCount: number;
+  riskLevel: 'LOW' | 'MEDIUM' | 'HIGH';
+}
+
+export interface RankingOption {
+  id: string;
+  name: string;
+}
+
+export interface UnitComparison {
+  unitName: string;
+  performance: number;
+  completionRate: number;
+}
+
+export interface UnitKpiComparison {
+  unitName: string;
+  totalKpi: number;
+  approvedKpi: number;
+}
+
+export interface RankingItem {
+  name: string;
+  avatar: string | null;
+  score: number;
+  performance: number;
+  kpiCount: number;
+  subText: string;
+}
+
+export interface HeatmapPoint {
+  x: string;
+  y: string;
+  value: number;
+}
