@@ -36,6 +36,7 @@ export interface EmployeeKpiStats {
   fullName: string
   email: string
   role: string
+  rank: number
   orgUnitName: string
   assignedKpi: number
   totalSubmissions: number
@@ -51,7 +52,7 @@ export interface KpiTask {
   name: string
   periodName: string
   deadline: string | null
-  status: 'NOT_STARTED' | 'PENDING' | 'OVERDUE' | 'APPROVED'
+  status: 'NOT_STARTED' | 'PENDING' | 'OVERDUE' | 'APPROVED' | 'REJECTED'
   submissionCount: number
   expectedSubmissions: number
 }

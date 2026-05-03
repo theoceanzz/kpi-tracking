@@ -20,19 +20,20 @@ public interface EvaluationRepository extends JpaRepository<Evaluation, UUID> {
     Page<Evaluation> findByUserIdAndKpiPeriodId(UUID userId, UUID kpiPeriodId, Pageable pageable);
 
     @Query("SELECT e FROM Evaluation e WHERE " +
-           "(:isGlobalAdmin = true OR e.user.id = :currentUserId OR EXISTS (SELECT 1 FROM OrgUnit au WHERE e.orgUnit.path LIKE CONCAT(au.path, '%') AND au.id IN :allowedOrgUnitIds)) AND " +
+           "(e.user.id = :currentUserId OR EXISTS (SELECT 1 FROM OrgUnit au WHERE e.orgUnit.path LIKE CONCAT(au.path, '%') AND au.id IN :allowedOrgUnitIds)) AND " +
            "(:userId IS NULL OR e.user.id = :userId) AND " +
            "(:kpiPeriodId IS NULL OR e.kpiPeriod.id = :kpiPeriodId) AND " +
            "(:orgUnitPath IS NULL OR e.orgUnit.path LIKE :orgUnitPath) AND " +
-           "(:evaluatorId IS NULL OR e.evaluator.id = :evaluatorId)")
+           "(:evaluatorId IS NULL OR e.evaluator.id = :evaluatorId) AND " +
+           "(:currentUserRank IS NULL OR :currentUserRank = 0 OR e.user.id = :currentUserId OR EXISTS (SELECT 1 FROM UserRoleOrgUnit uro JOIN uro.role r WHERE uro.user.id = e.user.id AND uro.orgUnit.id = e.orgUnit.id AND r.rank > :currentUserRank))")
     Page<Evaluation> findAllWithFilters(
-            @Param("isGlobalAdmin") boolean isGlobalAdmin,
             @Param("currentUserId") UUID currentUserId,
             @Param("allowedOrgUnitIds") java.util.Collection<UUID> allowedOrgUnitIds,
             @Param("userId") UUID userId,
             @Param("kpiPeriodId") UUID kpiPeriodId,
             @Param("orgUnitPath") String orgUnitPath,
             @Param("evaluatorId") UUID evaluatorId,
+            @Param("currentUserRank") Integer currentUserRank,
             Pageable pageable
     );
 

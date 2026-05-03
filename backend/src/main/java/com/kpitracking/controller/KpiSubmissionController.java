@@ -1,6 +1,7 @@
 package com.kpitracking.controller;
 
 import com.kpitracking.dto.request.submission.CreateSubmissionRequest;
+import com.kpitracking.dto.request.submission.UpdateSubmissionRequest;
 import com.kpitracking.dto.request.submission.ReviewSubmissionRequest;
 import com.kpitracking.dto.response.ApiResponse;
 import com.kpitracking.dto.response.PageResponse;
@@ -40,6 +41,15 @@ public class KpiSubmissionController {
         SubmissionResponse response = submissionService.createSubmission(request);
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.success("Submission created successfully", response));
+    }
+
+    @PutMapping("/{submissionId}")
+    @Operation(summary = "Update a submission (draft or rejected)")
+    public ResponseEntity<ApiResponse<SubmissionResponse>> updateSubmission(
+            @PathVariable UUID submissionId,
+            @Valid @RequestBody UpdateSubmissionRequest request) {
+        SubmissionResponse response = submissionService.updateSubmission(submissionId, request);
+        return ResponseEntity.ok(ApiResponse.success("Submission updated successfully", response));
     }
 
     @GetMapping

@@ -13,13 +13,12 @@ import java.util.UUID;
 public interface KpiSubmissionRepository extends JpaRepository<KpiSubmission, UUID> {
 
     @org.springframework.data.jpa.repository.Query("SELECT s FROM KpiSubmission s WHERE " +
-           "(:isGlobalAdmin = true OR s.submittedBy.id = :currentUserId OR EXISTS (SELECT 1 FROM OrgUnit au WHERE s.orgUnit.path LIKE CONCAT(au.path, '%') AND au.id IN :allowedOrgUnitIds)) AND " +
+           "(s.submittedBy.id = :currentUserId OR EXISTS (SELECT 1 FROM OrgUnit au WHERE s.orgUnit.path LIKE CONCAT(au.path, '%') AND au.id IN :allowedOrgUnitIds)) AND " +
            "(:status IS NULL OR s.status = :status) AND " +
            "(:kpiCriteriaId IS NULL OR s.kpiCriteria.id = :kpiCriteriaId) AND " +
            "(:submittedById IS NULL OR s.submittedBy.id = :submittedById) AND " +
            "(:orgUnitPath IS NULL OR s.orgUnit.path LIKE :orgUnitPath)")
     Page<KpiSubmission> findAllWithFilters(
-            @org.springframework.data.repository.query.Param("isGlobalAdmin") boolean isGlobalAdmin,
             @org.springframework.data.repository.query.Param("currentUserId") UUID currentUserId,
             @org.springframework.data.repository.query.Param("allowedOrgUnitIds") java.util.Collection<UUID> allowedOrgUnitIds,
             @org.springframework.data.repository.query.Param("status") SubmissionStatus status,
@@ -38,6 +37,10 @@ public interface KpiSubmissionRepository extends JpaRepository<KpiSubmission, UU
     java.util.List<KpiSubmission> findByKpiCriteriaIdAndDeletedAtIsNull(UUID kpiCriteriaId);
     
     long countByKpiCriteriaIdAndSubmittedByIdAndDeletedAtIsNull(UUID kpiCriteriaId, UUID userId);
+    
+    long countByKpiCriteriaIdAndSubmittedByIdAndStatusAndDeletedAtIsNull(UUID kpiCriteriaId, UUID userId, SubmissionStatus status);
+    
+    long countByKpiCriteriaIdAndSubmittedByIdAndStatusNotAndDeletedAtIsNull(UUID kpiCriteriaId, UUID userId, SubmissionStatus status);
 
     long countByOrgUnitId(UUID orgUnitId);
 

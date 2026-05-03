@@ -4,8 +4,10 @@ import LoadingSkeleton from '@/components/common/LoadingSkeleton'
 import UserTable from '../components/UserTable'
 import UserFormModal from '../components/UserFormModal'
 import ImportGuideModal from '../components/ImportGuideModal'
+import ExcelPreviewModal from '../components/ExcelPreviewModal'
 import ConfirmDialog from '@/components/common/ConfirmDialog'
 import Pagination from '@/components/common/Pagination'
+import { ROLE_MAP } from '@/constants/roles'
 import { useUsers } from '../hooks/useUsers'
 import { useOrgUnitTree } from '@/features/orgunits/hooks/useOrgUnitTree'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
@@ -15,6 +17,10 @@ import type { User } from '@/types/user'
 import type { OrgUnitTreeResponse } from '@/types/orgUnit'
 import { toast } from 'sonner'
 import { usePermission } from '@/hooks/usePermission'
+import { useAuthStore } from '@/store/authStore'
+import { useOrgHierarchyLevels } from '@/features/organization/hooks/useOrganizationStructure'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { useRoles } from '@/features/organization/hooks/useRoles'
 
 export default function UsersPage() {
   const [keyword, setKeyword] = useState('')
@@ -22,13 +28,19 @@ export default function UsersPage() {
   const [orgUnitFilter, setOrgUnitFilter] = useState<string>('ALL')
   const [sortOrder, setSortOrder] = useState<'A-Z' | 'Z-A'>('A-Z')
   const [page, setPage] = useState(0)
-  const size = 5
+  const size = 10
 
   const [showForm, setShowForm] = useState(false)
   const [showImportGuide, setShowImportGuide] = useState(false)
+  const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [editUser, setEditUser] = useState<User | null>(null)
   const [deleteUser, setDeleteUser] = useState<User | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
+  const user = useAuthStore(state => state.user)
+  const organizationId = user?.memberships?.[0]?.organizationId
+  const { data: hierarchyLevels } = useOrgHierarchyLevels(organizationId)
+  const isSimplifiedHierarchy = (hierarchyLevels?.length || 0) <= 2
+  const { data: allRoles } = useRoles()
   const qc = useQueryClient()
 
   // Fetch Org Units for filter
@@ -63,34 +75,58 @@ export default function UsersPage() {
     size, 
     role: roleFilter, 
     orgUnitId: orgUnitFilter === 'ALL' ? undefined : orgUnitFilter,
+    organizationId,
     sortBy, 
     direction 
   })
 
   const deleteMutation = useMutation({
     mutationFn: (id: string) => userApi.delete(id),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['users'] }); toast.success('Đã xoá nhân sự'); setDeleteUser(null) },
+    onSuccess: () => { 
+      qc.invalidateQueries({ queryKey: ['users'] }); 
+      qc.invalidateQueries({ queryKey: ['organization-users'] }); 
+      qc.invalidateQueries({ queryKey: ['stats'] }); 
+      toast.success('Đã xoá nhân sự'); 
+      setDeleteUser(null) 
+    },
     onError: () => toast.error('Xoá thất bại'),
   })
 
   const importMutation = useMutation({
-    mutationFn: (file: File) => userApi.importFile(file),
+    mutationFn: (file: File) => {
+      const rootUnitId = orgTree?.[0]?.id
+      return userApi.importFile(file, rootUnitId)
+    },
     onSuccess: (result) => {
       qc.invalidateQueries({ queryKey: ['users'] })
+      qc.invalidateQueries({ queryKey: ['organization-users'] })
+      qc.invalidateQueries({ queryKey: ['stats'] })
       toast.success(`Import thành công ${result.successfulImports}/${result.totalRows} dòng`)
       if (result.errors.length > 0) {
         result.errors.forEach((e) => toast.error(e))
       }
     },
-    onError: () => toast.error('Import thất bại'),
+    onError: (error: any) => {
+      const errorMessage = error?.response?.data?.message || error?.message || 'Import thất bại'
+      toast.error(errorMessage)
+    },
   })
 
   const handleImport = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (file) {
-      importMutation.mutate(file)
+      setSelectedFile(file)
       e.target.value = ''
+      setShowImportGuide(false)
     }
+  }
+
+  const handleConfirmImport = (modifiedFile: File) => {
+    importMutation.mutate(modifiedFile, {
+      onSuccess: () => {
+        setSelectedFile(null)
+      }
+    })
   }
 
   const handleRowClick = (user: User) => {
@@ -130,7 +166,7 @@ export default function UsersPage() {
         title="Quản lý Nhân sự"
         description="Cơ sở dữ liệu toàn bộ cán bộ nhân viên"
         action={
-          <div className="flex gap-3">
+          <div className="flex flex-wrap gap-3">
             {canImport && (
               <button
                 onClick={() => setShowImportGuide(true)}
@@ -154,61 +190,76 @@ export default function UsersPage() {
         }
       />
 
-      <div className="bg-[var(--color-card)] border border-[var(--color-border)] rounded-2xl p-4 shadow-sm flex flex-col md:flex-row gap-4 items-center justify-between">
-        <div className="w-full md:w-auto">
+      <div className="bg-[var(--color-card)] border border-[var(--color-border)] rounded-2xl p-4 shadow-sm flex flex-col xl:flex-row flex-wrap gap-4 items-stretch xl:items-center justify-between">
+        <div className="flex-1 min-w-[280px]">
           <input
             type="text"
             placeholder="Tìm kiếm theo Tên hoặc Email..."
             value={keyword}
             onChange={(e) => handleKeywordChange(e.target.value)}
-            className="w-full min-w-[300px] px-4 py-2.5 rounded-xl border border-[var(--color-border)] bg-[var(--color-background)] font-medium text-sm focus:ring-2 focus:ring-[var(--color-primary)]/30 focus:border-[var(--color-primary)] outline-none transition-all"
+            className="w-full px-4 py-2.5 rounded-xl border border-[var(--color-border)] bg-[var(--color-background)] font-medium text-sm focus:ring-2 focus:ring-[var(--color-primary)]/30 focus:border-[var(--color-primary)] outline-none transition-all shadow-sm"
           />
         </div>
 
-        <div className="flex w-full md:w-auto gap-3 items-center">
-            <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <Filter size={14} className="text-[var(--color-muted-foreground)]" />
-                </div>
-                <select 
-                    value={roleFilter} 
-                    onChange={e => handleRoleChange(e.target.value)}
-                    className="pl-9 pr-8 py-2.5 rounded-xl border border-[var(--color-border)] bg-[var(--color-background)] font-semibold text-sm appearance-none outline-none focus:ring-2 focus:ring-[var(--color-primary)]/30 transition-all cursor-pointer"
-                >
-                    <option value="ALL">Lọc theo chức danh</option>
-                    <option value="HEAD">Trưởng phòng</option>
-                    <option value="DEPUTY">Phó phòng</option>
-                    <option value="STAFF">Nhân viên</option>
-                </select>
+        <div className="flex flex-wrap items-center gap-3">
+            <div className="relative flex-1 sm:flex-none">
+                <Select value={roleFilter} onValueChange={handleRoleChange}>
+                    <SelectTrigger className="w-full sm:w-[180px] pl-9 py-2.5 rounded-xl border border-[var(--color-border)] bg-[var(--color-background)] font-semibold text-sm shadow-sm h-11">
+                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                            <Filter size={14} className="text-[var(--color-muted-foreground)]" />
+                        </div>
+                        <SelectValue placeholder="Chức danh" />
+                    </SelectTrigger>
+                    <SelectContent className="rounded-xl border-[var(--color-border)] shadow-lg">
+                        <SelectItem value="ALL" className="font-medium cursor-pointer rounded-lg">Chức danh</SelectItem>
+                        {allRoles?.filter(role => {
+                          if (!role.name) return false;
+                          if (role.name === 'STAFF') return true;
+                          if (isSimplifiedHierarchy) {
+                            return role.level === 2;
+                          } else {
+                            return role.level === 1 || role.level === 2;
+                          }
+                        }).map(role => (
+                          <SelectItem key={role.id} value={role.name} className="font-medium cursor-pointer rounded-lg">
+                            {ROLE_MAP[role.name] || role.name}
+                          </SelectItem>
+                        ))}
+                    </SelectContent>
+                </Select>
             </div>
 
-            <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <Briefcase size={14} className="text-[var(--color-muted-foreground)]" />
-                </div>
-                <select 
-                    value={orgUnitFilter} 
-                    onChange={e => handleOrgUnitChange(e.target.value)}
-                    className="pl-9 pr-8 py-2.5 rounded-xl border border-[var(--color-border)] bg-[var(--color-background)] font-semibold text-sm appearance-none outline-none focus:ring-2 focus:ring-[var(--color-primary)]/30 transition-all cursor-pointer min-w-[240px]"
-                >
-                    {allUnits.map((unit: OrgUnitTreeResponse) => (
-                        <option key={unit.id} value={unit.id}>{unit.name}</option>
-                    ))}
-                </select>
+            <div className="relative flex-1 sm:flex-none">
+                <Select value={orgUnitFilter} onValueChange={handleOrgUnitChange}>
+                    <SelectTrigger className="w-full sm:w-[220px] pl-9 py-2.5 rounded-xl border border-[var(--color-border)] bg-[var(--color-background)] font-semibold text-sm shadow-sm h-11">
+                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                            <Briefcase size={14} className="text-[var(--color-muted-foreground)]" />
+                        </div>
+                        <SelectValue placeholder="Đơn vị" />
+                    </SelectTrigger>
+                    <SelectContent className="rounded-xl border-[var(--color-border)] shadow-lg max-h-[300px]">
+                        {allUnits.filter(u => !!u.id).map((unit: OrgUnitTreeResponse) => (
+                            <SelectItem key={unit.id} value={unit.id} className="font-medium cursor-pointer rounded-lg">
+                                {unit.name}
+                            </SelectItem>
+                        ))}
+                    </SelectContent>
+                </Select>
             </div>
 
-            <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <ArrowUpDown size={14} className="text-[var(--color-muted-foreground)]" />
-                </div>
-                <select 
-                    value={sortOrder} 
-                    onChange={e => handleSortChange(e.target.value as 'A-Z' | 'Z-A')}
-                    className="pl-9 pr-8 py-2.5 rounded-xl border border-[var(--color-border)] bg-[var(--color-background)] font-semibold text-sm appearance-none outline-none focus:ring-2 focus:ring-[var(--color-primary)]/30 transition-all cursor-pointer"
-                >
-                    <option value="A-Z">Tên A đến Z</option>
-                    <option value="Z-A">Tên Z đến A</option>
-                </select>
+            <div className="relative flex-1 sm:flex-none">
+                <Select value={sortOrder} onValueChange={(v) => handleSortChange(v as 'A-Z' | 'Z-A')}>
+                    <SelectTrigger className="w-full sm:w-[150px] pl-9 py-2.5 rounded-xl border border-[var(--color-border)] bg-[var(--color-background)] font-semibold text-sm shadow-sm h-11">
+                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                            <ArrowUpDown size={14} className="text-[var(--color-muted-foreground)]" />
+                        </div>
+                        <SelectValue placeholder="Sắp xếp" />
+                    </SelectTrigger>
+                    <SelectContent className="rounded-xl border-[var(--color-border)] shadow-lg">
+                        <SelectItem value="A-Z" className="font-medium cursor-pointer rounded-lg">A → Z</SelectItem>
+                        <SelectItem value="Z-A" className="font-medium cursor-pointer rounded-lg">Z → A</SelectItem>
+                    </SelectContent>
+                </Select>
             </div>
         </div>
       </div>
@@ -240,6 +291,13 @@ export default function UsersPage() {
 
       <UserFormModal open={showForm} onClose={() => { setShowForm(false); setEditUser(null) }} editUser={editUser} />
       <ImportGuideModal open={showImportGuide} onClose={() => setShowImportGuide(false)} onSelectFile={() => fileRef.current?.click()} />
+      <ExcelPreviewModal 
+        open={!!selectedFile} 
+        file={selectedFile} 
+        onClose={() => setSelectedFile(null)} 
+        onImport={handleConfirmImport} 
+        isImporting={importMutation.isPending} 
+      />
 
       <ConfirmDialog
         open={!!deleteUser}

@@ -11,6 +11,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -25,6 +26,7 @@ public class PolicyController {
     private final PolicyService policyService;
 
     @PostMapping
+    @PreAuthorize("hasAuthority('POLICY:CREATE')")
     @Operation(summary = "Create policy")
     public ResponseEntity<ApiResponse<PolicyResponse>> createPolicy(
             @Valid @RequestBody CreatePolicyRequest request) {
@@ -34,6 +36,7 @@ public class PolicyController {
     }
 
     @GetMapping("/{policyId}")
+    @PreAuthorize("hasAuthority('POLICY:VIEW')")
     @Operation(summary = "Get policy detail with conditions")
     public ResponseEntity<ApiResponse<PolicyResponse>> getPolicyDetail(@PathVariable UUID policyId) {
         PolicyResponse response = policyService.getPolicyDetail(policyId);
@@ -41,6 +44,7 @@ public class PolicyController {
     }
 
     @PostMapping("/{policyId}/conditions")
+    @PreAuthorize("hasAuthority('POLICY:UPDATE')")
     @Operation(summary = "Add condition to policy")
     public ResponseEntity<ApiResponse<PolicyResponse>> addCondition(
             @PathVariable UUID policyId,
@@ -50,6 +54,7 @@ public class PolicyController {
     }
 
     @PostMapping("/role/{roleId}/{policyId}")
+    @PreAuthorize("hasAuthority('POLICY:ASSIGN')")
     @Operation(summary = "Assign policy to role")
     public ResponseEntity<ApiResponse<Void>> assignPolicyToRole(
             @PathVariable UUID roleId,
@@ -59,6 +64,7 @@ public class PolicyController {
     }
 
     @DeleteMapping("/role/{roleId}/{policyId}")
+    @PreAuthorize("hasAuthority('POLICY:ASSIGN')")
     @Operation(summary = "Remove policy from role")
     public ResponseEntity<ApiResponse<Void>> removePolicyFromRole(
             @PathVariable UUID roleId,
@@ -68,6 +74,7 @@ public class PolicyController {
     }
 
     @GetMapping("/role/{roleId}")
+    @PreAuthorize("hasAuthority('POLICY:VIEW')")
     @Operation(summary = "Get policies by role")
     public ResponseEntity<ApiResponse<List<PolicyResponse>>> getPoliciesByRole(@PathVariable UUID roleId) {
         List<PolicyResponse> response = policyService.getPoliciesByRole(roleId);

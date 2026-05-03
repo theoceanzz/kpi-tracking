@@ -46,6 +46,7 @@ public class AuthService {
     private final CloudinaryStorageService cloudinaryStorageService;
     private final OrgHierarchyLevelRepository orgHierarchyLevelRepository;
     private final RolePermissionRepository rolePermissionRepository;
+    private final PermissionRepository permissionRepository;
 
     @Transactional
     public AuthResponse register(RegisterRequest request, String userAgent) {
@@ -89,6 +90,7 @@ public class AuthService {
 
         OrgUnit rootUnit = OrgUnit.builder()
                 .name(request.getOrganizationName())
+                .code(request.getOrganizationCode())
                 .orgHierarchyLevel(rootLevel)
                 .path("/temp/")  // DB trigger will set the real path
                 .build();
@@ -98,7 +100,7 @@ public class AuthService {
         rootUnit = orgUnitRepository.findById(rootUnit.getId()).orElseThrow();
 
         // 3. Create User
-        String verifyToken = UUID.randomUUID().toString();
+        String verifyToken = generateAlphanumericOTP(6);
         User user = User.builder()
                 .email(request.getEmail())
                 .password(passwordEncoder.encode(request.getPassword()))
@@ -111,20 +113,20 @@ public class AuthService {
                 .build();
         user = userRepository.save(user);
 
-        // 4. Find or create DIRECTOR role
-        Role directorRole = roleRepository.findByName("DIRECTOR")
+        // 4. Find or create default admin role
+        Role adminRole = roleRepository.findByName("Giám đốc")
                 .orElseGet(() -> {
                     Role newRole = Role.builder()
-                            .name("DIRECTOR")
+                            .name("Giám đốc")
                             .isSystem(true)
                             .build();
                     return roleRepository.save(newRole);
                 });
 
-        // 5. Assign DIRECTOR role to user at root org unit
+        // 5. Assign admin role to user at root org unit
         UserRoleOrgUnit assignment = UserRoleOrgUnit.builder()
                 .user(user)
-                .role(directorRole)
+                .role(adminRole)
                 .orgUnit(rootUnit)
                 .assignedAt(Instant.now())
                 .build();
@@ -217,7 +219,7 @@ public class AuthService {
         User user = userRepository.findByEmail(request.getEmail())
                 .orElseThrow(() -> new ResourceNotFoundException("User", "email", request.getEmail()));
 
-        String resetPasswordToken = UUID.randomUUID().toString();
+        String resetPasswordToken = generateAlphanumericOTP(6);
         user.setResetPasswordToken(resetPasswordToken);
         user.setResetPasswordTokenExpiry(Instant.now().plusSeconds(3600)); // 1 hour
         userRepository.save(user);
@@ -270,7 +272,7 @@ public class AuthService {
             throw new BusinessException("Email already verified");
         }
 
-        String verifyToken = UUID.randomUUID().toString();
+        String verifyToken = generateAlphanumericOTP(6);
         user.setVerifyEmailToken(verifyToken);
         user.setVerifyEmailTokenExpiry(Instant.now().plusSeconds(86400)); // 24 hours
         userRepository.save(user);
@@ -309,24 +311,19 @@ public class AuthService {
 
                     String unitTypeLabel = unit.getOrgHierarchyLevel().getUnitTypeName();
                             
-                    String roleLabel = levels.stream()
-                            .filter(l -> l.getLevelOrder().equals(unit.getOrgHierarchyLevel().getLevelOrder()))
-                            .map(OrgHierarchyLevel::getManagerRoleLabel)
-                            .findFirst()
-                            .orElse(roleName);
+                    String roleLabel = roleName;
                     
-                    if (roleName.equals("DEPUTY")) {
-                        if (roleLabel != null) {
-                            if (roleLabel.contains("Trưởng")) {
-                                roleLabel = roleLabel.replace("Trưởng", "Phó");
-                            } else if (roleLabel.contains("trưởng")) {
-                                roleLabel = roleLabel.replace("trưởng", "phó");
-                            } else {
-                                roleLabel = "Phó " + roleLabel;
-                            }
+                    // Only override with hierarchy manager label if it's a management role
+                    if ("Trưởng phòng".equals(roleName) || "Giám đốc".equals(roleName)) {
+                        String managerLabel = levels.stream()
+                                .filter(l -> l.getLevelOrder().equals(unit.getOrgHierarchyLevel().getLevelOrder()))
+                                .map(OrgHierarchyLevel::getManagerRoleLabel)
+                                .findFirst()
+                                .orElse(null);
+                        
+                        if (managerLabel != null && !managerLabel.isBlank()) {
+                            roleLabel = managerLabel;
                         }
-                    } else if (roleName.equals("STAFF")) {
-                        roleLabel = "Nhân viên";
                     }
 
                     return UserMembershipResponse.builder()
@@ -337,6 +334,7 @@ public class AuthService {
                         .organizationName(unit.getOrgHierarchyLevel().getOrganization().getName())
                         .roleName(roleName)
                         .roleLabel(roleLabel)
+                        .roleRank(uro.getRole().getRank())
                         .unitTypeLabel(unitTypeLabel)
                         .build();
                 })
@@ -391,5 +389,15 @@ public class AuthService {
                 
         roles.addAll(permissions);
         return roles;
+    }
+
+    private String generateAlphanumericOTP(int length) {
+        String chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+        java.security.SecureRandom random = new java.security.SecureRandom();
+        StringBuilder sb = new StringBuilder(length);
+        for (int i = 0; i < length; i++) {
+            sb.append(chars.charAt(random.nextInt(chars.length())));
+        }
+        return sb.toString();
     }
 }

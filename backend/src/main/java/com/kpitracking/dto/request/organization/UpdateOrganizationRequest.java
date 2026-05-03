@@ -18,4 +18,12 @@ public class UpdateOrganizationRequest {
     private String status;
 
     private List<HierarchyLevelDTO> hierarchyLevels;
+
+    private Double evaluationMaxScore;
+    private Double excellentThreshold;
+    private Double goodThreshold;
+    private Double fairThreshold;
+    private Double averageThreshold;
+    
+    private Integer kpiReminderPercentage;
 }

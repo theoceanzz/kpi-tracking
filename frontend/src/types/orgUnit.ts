@@ -3,6 +3,7 @@ export type OrgUnitStatus = 'TRIAL' | 'ACTIVE' | 'INACTIVE' | 'ARCHIVED'
 export interface OrgUnitTreeResponse {
   id: string
   name: string
+  code: string
   parentId: string | null
   type: string
   path: string
@@ -15,6 +16,7 @@ export interface OrgUnitTreeResponse {
 export interface OrgUnitResponse {
   id: string
   name: string
+  code: string
   parentId: string | null
   orgHierarchyId: string
   organizationId: string
@@ -30,6 +32,7 @@ export interface OrgUnitResponse {
   districtName: string | null
   status: string
   logoUrl: string | null
+  allowedRoles?: { id: string; name: string; isSystem: boolean }[]
   createdAt: string
   updatedAt: string
 }
@@ -43,6 +46,7 @@ export interface OrgHierarchyLevelResponse {
 
 export interface CreateOrgUnitRequest {
   name: string
+  code: string
   parentId?: string
   orgHierarchyId: string
   email?: string
@@ -54,6 +58,7 @@ export interface CreateOrgUnitRequest {
 
 export interface UpdateOrgUnitRequest {
   name?: string
+  code?: string
   orgHierarchyId?: string
   email?: string
   phone?: string

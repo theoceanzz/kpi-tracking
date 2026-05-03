@@ -55,8 +55,10 @@ public class DeadlineReminderService {
                     long batchStart = start + (nextBatch - 1) * batchDuration;
                     long batchEnd = start + nextBatch * batchDuration;
                     
-                    // Halfway point: Start + 50% of batch duration
-                    long reminderTime = batchStart + (batchDuration / 2);
+                    // Customizable reminder point
+                    Integer percentage = kpi.getOrgUnit().getOrgHierarchyLevel().getOrganization().getKpiReminderPercentage();
+                    if (percentage == null) percentage = 50;
+                    long reminderTime = batchStart + (batchDuration * percentage / 100);
                     Instant reminderInstant = Instant.ofEpochMilli(reminderTime);
 
                     if (now.isAfter(reminderInstant) && now.isBefore(Instant.ofEpochMilli(batchEnd))) {
@@ -74,9 +76,12 @@ public class DeadlineReminderService {
     }
 
     private void sendReminder(KpiCriteria kpi, User user, int batchNumber) {
+        Integer percentage = kpi.getOrgUnit().getOrgHierarchyLevel().getOrganization().getKpiReminderPercentage();
+        if (percentage == null) percentage = 50;
+
         String title = "Nhắc nhở Deadline: " + kpi.getName();
-        String message = String.format("Bạn đã đi qua một nửa thời gian của đợt nộp KPI thứ %d cho chỉ tiêu '%s'. Vui lòng hoàn thành báo cáo sớm nhất có thể!", 
-                batchNumber, kpi.getName());
+        String message = String.format("Bạn đã đi qua %d%% thời gian của đợt nộp KPI thứ %d cho chỉ tiêu '%s'. Vui lòng hoàn thành báo cáo sớm nhất có thể!", 
+                percentage, batchNumber, kpi.getName());
 
         // 1. Create In-App Notification
         notificationService.createNotification(kpi.getOrgUnit(), user, title, message, "DEADLINE_REMINDER", kpi.getId());
@@ -91,8 +96,7 @@ public class DeadlineReminderService {
                 .batchNumber(batchNumber)
                 .build();
         kpiReminderRepository.save(reminder);
-        
-        log.info("Sent halfway reminder to {} for KPI '{}' (Batch {})", user.getEmail(), kpi.getName(), batchNumber);
+        log.info("Sent {}% reminder to {} for KPI '{}' (Batch {})", percentage, user.getEmail(), kpi.getName(), batchNumber);
     }
 
     private int calculateExpected(KpiCriteria kpi) {

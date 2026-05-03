@@ -22,20 +22,40 @@ public interface UserRoleOrgUnitRepository extends JpaRepository<UserRoleOrgUnit
     @Query("SELECT uro FROM UserRoleOrgUnit uro JOIN FETCH uro.user JOIN FETCH uro.role WHERE uro.orgUnit.id = :orgUnitId")
     List<UserRoleOrgUnit> findByOrgUnitId(@Param("orgUnitId") UUID orgUnitId);
 
-    @Query("SELECT uro FROM UserRoleOrgUnit uro JOIN FETCH uro.user JOIN FETCH uro.role WHERE uro.orgUnit.id IN :orgUnitIds")
-    List<UserRoleOrgUnit> findByOrgUnitIdIn(@Param("orgUnitIds") List<UUID> orgUnitIds);
+    @Query("SELECT uro FROM UserRoleOrgUnit uro JOIN FETCH uro.user JOIN FETCH uro.role JOIN FETCH uro.orgUnit ou JOIN FETCH ou.orgHierarchyLevel WHERE ou.id IN :orgUnitIds")
+    List<UserRoleOrgUnit> findByOrgUnitIdIn(@Param("orgUnitIds") java.util.Collection<UUID> orgUnitIds);
+
+    @Query("SELECT uro FROM UserRoleOrgUnit uro JOIN FETCH uro.user JOIN FETCH uro.role WHERE uro.orgUnit.id = :orgUnitId AND uro.role.rank <= 1")
+    List<UserRoleOrgUnit> findManagersByOrgUnitId(@Param("orgUnitId") UUID orgUnitId);
 
     void deleteByUserIdAndRoleIdAndOrgUnitId(UUID userId, UUID roleId, UUID orgUnitId);
+
+    void deleteByUserId(UUID userId);
     
     void deleteByOrgUnitIdAndRoleId(UUID orgUnitId, UUID roleId);
 
     boolean existsByUserIdAndRoleIdAndOrgUnitId(UUID userId, UUID roleId, UUID orgUnitId);
+
+    @Query("SELECT CASE WHEN COUNT(uro) > 0 THEN true ELSE false END FROM UserRoleOrgUnit uro WHERE uro.orgUnit.id = :orgUnitId AND uro.role.name = :roleName")
+    boolean existsByOrgUnitIdAndRoleName(@Param("orgUnitId") UUID orgUnitId, @Param("roleName") String roleName);
+
+    @Query("SELECT CASE WHEN COUNT(uro) > 0 THEN true ELSE false END FROM UserRoleOrgUnit uro WHERE uro.orgUnit.id = :orgUnitId AND uro.role.name = :roleName AND uro.user.id <> :excludeUserId")
+    boolean existsByOrgUnitIdAndRoleNameAndUserIdNot(@Param("orgUnitId") UUID orgUnitId, @Param("roleName") String roleName, @Param("excludeUserId") UUID excludeUserId);
+
+    @Query("SELECT CASE WHEN COUNT(uro) > 0 THEN true ELSE false END FROM UserRoleOrgUnit uro WHERE uro.orgUnit.id = :orgUnitId AND uro.role.rank = :rank")
+    boolean existsByOrgUnitIdAndRoleRank(@Param("orgUnitId") UUID orgUnitId, @Param("rank") Integer rank);
+
+    @Query("SELECT CASE WHEN COUNT(uro) > 0 THEN true ELSE false END FROM UserRoleOrgUnit uro WHERE uro.orgUnit.id = :orgUnitId AND uro.role.rank = :rank AND uro.user.id <> :excludeUserId")
+    boolean existsByOrgUnitIdAndRoleRankAndUserIdNot(@Param("orgUnitId") UUID orgUnitId, @Param("rank") Integer rank, @Param("excludeUserId") UUID excludeUserId);
 
     @Query("SELECT COUNT(DISTINCT uro.user.id) FROM UserRoleOrgUnit uro WHERE uro.orgUnit.orgHierarchyLevel.organization.id = :orgId")
     long countUsersByOrganizationId(@Param("orgId") UUID orgId);
 
     @Query("SELECT DISTINCT uro.user FROM UserRoleOrgUnit uro WHERE uro.orgUnit.orgHierarchyLevel.organization.id = :orgId")
     List<com.kpitracking.entity.User> findUsersByOrganizationId(@Param("orgId") UUID orgId);
+
+    @Query("SELECT COUNT(DISTINCT uro.user.id) FROM UserRoleOrgUnit uro WHERE uro.orgUnit.id IN :orgUnitIds")
+    long countUsersByOrgUnitIdIn(@Param("orgUnitIds") java.util.Collection<UUID> orgUnitIds);
 
     @Query("SELECT DISTINCT uro.user FROM UserRoleOrgUnit uro WHERE uro.orgUnit.path LIKE :path")
     List<com.kpitracking.entity.User> findUsersByOrgUnitPath(@Param("path") String path);

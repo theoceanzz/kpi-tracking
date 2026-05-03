@@ -3,6 +3,7 @@ import { RoleResponse } from '../api/role.api'
 export interface OrgUnitTreeResponse {
   id: string
   name: string
+  code: string
   parentId: string | null
   type: string // This maps to unitTypeName from backend
   path: string
@@ -23,6 +24,7 @@ export interface HierarchyLevelResponse {
 export interface OrgUnitResponse {
   id: string
   name: string
+  code: string
   parentId: string | null
   organizationId: string
   orgHierarchyId: string
@@ -57,6 +59,7 @@ export interface DistrictResponse {
 
 export interface CreateOrgUnitRequest {
   name: string
+  code: string
   parentId?: string | null
   unitTypeName: string
   email?: string
@@ -69,6 +72,7 @@ export interface CreateOrgUnitRequest {
 
 export interface UpdateOrgUnitRequest {
   name?: string
+  code?: string
   email?: string
   phone?: string
   address?: string

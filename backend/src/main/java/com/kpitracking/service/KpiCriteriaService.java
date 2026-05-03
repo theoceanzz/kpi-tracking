@@ -42,6 +42,7 @@ import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
 import java.time.Instant;
+import org.apache.poi.ss.usermodel.DataFormatter;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -147,9 +148,8 @@ public class KpiCriteriaService {
     }
 
     @Transactional(readOnly = true)
-    public PageResponse<KpiCriteriaResponse> getKpiCriteria(int page, int size, KpiStatus status, UUID orgUnitId, UUID createdById, UUID kpiPeriodId, String sortBy, String sortDir) {
+    public PageResponse<KpiCriteriaResponse> getKpiCriteria(int page, int size, KpiStatus status, UUID orgUnitId, UUID createdById, UUID kpiPeriodId, String keyword, String sortBy, String sortDir) {
         User currentUser = getCurrentUser();
-        boolean isGlobalAdmin = permissionChecker.isGlobalAdmin(currentUser.getId());
         List<UUID> allowedOrgUnitIds = permissionChecker.getOrgUnitsWithPermission(currentUser.getId(), "KPI:VIEW");
 
         Sort sort = Sort.by(sortDir.equalsIgnoreCase("asc") ? Sort.Direction.ASC : Sort.Direction.DESC, sortBy != null ? sortBy : "createdAt");
@@ -164,12 +164,12 @@ public class KpiCriteriaService {
         }
 
         Page<KpiCriteria> kpiPage = kpiCriteriaRepository.findAllWithFilters(
-                isGlobalAdmin, 
                 allowedOrgUnitIds, 
                 createdById, 
-                orgUnitPath, 
+                orgUnitId, 
                 status, 
                 kpiPeriodId, 
+                keyword,
                 pageable
         );
 
@@ -190,11 +190,10 @@ public class KpiCriteriaService {
                 .orElseThrow(() -> new ResourceNotFoundException("Chỉ tiêu KPI", "id", kpiId));
         
         // Permission check for viewing single KPI
-        boolean isGlobalAdmin = permissionChecker.isGlobalAdmin(currentUser.getId());
         boolean hasViewPermission = permissionChecker.hasPermissionInOrgUnit(currentUser.getId(), "KPI:VIEW", kpi.getOrgUnit().getId());
         boolean isAssignee = kpi.getAssignees().stream().anyMatch(a -> a.getId().equals(currentUser.getId()));
         
-        if (!isGlobalAdmin && !hasViewPermission && !isAssignee && !kpi.getCreatedBy().getId().equals(currentUser.getId())) {
+        if (!hasViewPermission && !isAssignee && !kpi.getCreatedBy().getId().equals(currentUser.getId())) {
             throw new ForbiddenException("Bạn không có quyền xem KPI này");
         }
         
@@ -287,7 +286,7 @@ public class KpiCriteriaService {
         Double totalWeight = kpiCriteriaRepository.sumWeightByOrgUnitIdAndKpiPeriodIdAndStatusIn(
                 kpi.getOrgUnit().getId(),
                 kpi.getKpiPeriod().getId(),
-                java.util.Arrays.asList(KpiStatus.DRAFT, KpiStatus.PENDING_APPROVAL, KpiStatus.APPROVED, KpiStatus.REJECTED)
+                java.util.Arrays.asList(KpiStatus.DRAFT, KpiStatus.PENDING_APPROVAL, KpiStatus.APPROVED, KpiStatus.REJECTED, KpiStatus.EDIT, KpiStatus.EDITED)
         );
 
         if (totalWeight == null || Math.abs(totalWeight - 100.0) > 0.001) {
@@ -370,13 +369,14 @@ public class KpiCriteriaService {
         Sort sort = Sort.by(sortDir.equalsIgnoreCase("asc") ? Sort.Direction.ASC : Sort.Direction.DESC, sortBy != null ? sortBy : "createdAt");
         Pageable pageable = PageRequest.of(page, size, sort);
 
+        java.util.List<KpiStatus> activeStatuses = java.util.Arrays.asList(KpiStatus.APPROVED, KpiStatus.EDITED, KpiStatus.EDIT);
         Page<KpiCriteria> kpiPage;
         if (kpiPeriodId != null) {
             kpiPage = kpiCriteriaRepository.findByUserIdInAssigneesAndKpiPeriodId(
-                    currentUser.getId(), kpiPeriodId, pageable);
+                    currentUser.getId(), kpiPeriodId, activeStatuses, pageable);
         } else {
             kpiPage = kpiCriteriaRepository.findByUserIdInAssignees(
-                    currentUser.getId(), pageable);
+                    currentUser.getId(), activeStatuses, pageable);
         }
 
         List<KpiCriteriaResponse> content = kpiPage.getContent().stream()
@@ -387,7 +387,8 @@ public class KpiCriteriaService {
                                 .filter(s -> s.getDeletedAt() == null && 
                                         s.getSubmittedBy().getId().equals(currentUser.getId()) &&
                                         (s.getStatus() == com.kpitracking.enums.SubmissionStatus.PENDING || 
-                                         s.getStatus() == com.kpitracking.enums.SubmissionStatus.APPROVED))
+                                         s.getStatus() == com.kpitracking.enums.SubmissionStatus.APPROVED ||
+                                         s.getStatus() == com.kpitracking.enums.SubmissionStatus.REJECTED))
                                 .count();
                         response.setSubmissionCount(userSubCount);
                     }
@@ -408,33 +409,26 @@ public class KpiCriteriaService {
     @Transactional(readOnly = true)
     public Double getTotalWeight(UUID orgUnitId, UUID kpiPeriodId) {
         User currentUser = getCurrentUser();
-        if (!permissionChecker.isGlobalAdmin(currentUser.getId()) && 
-            !permissionChecker.hasPermissionInOrgUnit(currentUser.getId(), "KPI:VIEW", orgUnitId)) {
+        if (!permissionChecker.hasPermissionInOrgUnit(currentUser.getId(), "KPI:VIEW", orgUnitId)) {
             throw new ForbiddenException("Bạn không có quyền xem thông tin trọng số của đơn vị này");
         }
 
         return kpiCriteriaRepository.sumWeightByOrgUnitIdAndKpiPeriodIdAndStatusIn(
                 orgUnitId,
                 kpiPeriodId,
-                java.util.Arrays.asList(KpiStatus.DRAFT, KpiStatus.PENDING_APPROVAL, KpiStatus.APPROVED, KpiStatus.REJECTED)
+                java.util.Arrays.asList(KpiStatus.DRAFT, KpiStatus.PENDING_APPROVAL, KpiStatus.APPROVED, KpiStatus.REJECTED, KpiStatus.EDIT, KpiStatus.EDITED)
         );
     }
 
     @Transactional
     public ImportKpiResponse importKpis(MultipartFile file, UUID kpiPeriodId, UUID orgUnitId) {
         User currentUser = getCurrentUser();
-        if (kpiPeriodId == null) throw new BusinessException("Vui lòng chọn Kỳ đánh giá trước khi import");
-        if (orgUnitId == null) throw new BusinessException("Vui lòng chọn Đơn vị trước khi import");
-
-        // Permission check for import
-        if (!permissionChecker.hasPermissionInOrgUnit(currentUser.getId(), "KPI:CREATE", orgUnitId)) {
-            throw new ForbiddenException("Bạn không có quyền import KPI cho đơn vị này");
-        }
-
-        com.kpitracking.entity.KpiPeriod kpiPeriod = kpiPeriodRepository.findById(kpiPeriodId)
-                .orElseThrow(() -> new ResourceNotFoundException("Kỳ đánh giá", "id", kpiPeriodId));
-        OrgUnit orgUnit = orgUnitRepository.findById(orgUnitId)
-                .orElseThrow(() -> new ResourceNotFoundException("Đơn vị", "id", orgUnitId));
+        // Track modified units and periods to validate weight after import
+        java.util.Set<String> affectedPairs = new java.util.HashSet<>();
+        com.kpitracking.entity.KpiPeriod kpiPeriod = kpiPeriodId != null ? 
+                kpiPeriodRepository.findById(kpiPeriodId).orElse(null) : null;
+        OrgUnit orgUnit = orgUnitId != null ? 
+                orgUnitRepository.findById(orgUnitId).orElse(null) : null;
 
         String filename = file.getOriginalFilename();
         if (filename == null || (!filename.endsWith(".csv") && !filename.endsWith(".xlsx"))) {
@@ -445,7 +439,7 @@ public class KpiCriteriaService {
         int successfulImports = 0;
         int totalRows = 0;
 
-        boolean canApprove = permissionChecker.hasPermissionInOrgUnit(currentUser.getId(), "KPI:APPROVE", orgUnitId);
+        // canApprove will be determined per unit in processKpiRow
 
         try {
             if (filename.endsWith(".csv")) {
@@ -454,10 +448,18 @@ public class KpiCriteriaService {
                     for (CSVRecord record : csvParser) {
                         totalRows++;
                         try {
-                            processKpiRow(record.get("Name"), record.get("Description"), record.get("Weight"), 
-                                record.get("TargetValue"), record.isMapped("MinimumValue") ? record.get("MinimumValue") : null, 
-                                record.get("Unit"), record.get("Frequency"), 
-                                record.get("EmployeeCode"), kpiPeriod, orgUnit, currentUser, canApprove);
+                            processKpiRow(
+                                record.get("Name"), 
+                                record.isMapped("Description") ? record.get("Description") : null, 
+                                record.get("Weight"), 
+                                record.get("TargetValue"),
+                                record.isMapped("MinimumValue") ? record.get("MinimumValue") : null,
+                                record.isMapped("Unit") ? record.get("Unit") : null, 
+                                record.get("Frequency"), 
+                                record.get("EmployeeCode"), 
+                                record.isMapped("Period") ? record.get("Period") : null,
+                                record.isMapped("OrgUnit") ? record.get("OrgUnit") : null,
+                                kpiPeriod, orgUnit, currentUser, affectedPairs);
                             successfulImports++;
                         } catch (Exception e) {
                             errors.add("Dòng " + totalRows + ": " + e.getMessage());
@@ -470,7 +472,7 @@ public class KpiCriteriaService {
                     Row headerRow = sheet.getRow(0);
                     if (headerRow == null) throw new BusinessException("File Excel trống");
 
-                    int nameIdx = -1, descIdx = -1, weightIdx = -1, targetIdx = -1, minIdx = -1, unitIdx = -1, freqIdx = -1, codeIdx = -1;
+                    int nameIdx = -1, descIdx = -1, weightIdx = -1, targetIdx = -1, minIdx = -1, unitIdx = -1, freqIdx = -1, codeIdx = -1, namePeriodIdx = -1, nameOrgIdx = -1;
                     for (int i = 0; i < headerRow.getLastCellNum(); i++) {
                         String header = headerRow.getCell(i).getStringCellValue().trim();
                         if (header.equalsIgnoreCase("Name")) nameIdx = i;
@@ -478,9 +480,11 @@ public class KpiCriteriaService {
                         else if (header.equalsIgnoreCase("Weight")) weightIdx = i;
                         else if (header.equalsIgnoreCase("TargetValue")) targetIdx = i;
                         else if (header.equalsIgnoreCase("MinimumValue")) minIdx = i;
-                        else if (header.equalsIgnoreCase("Unit")) unitIdx = i;
                         else if (header.equalsIgnoreCase("Frequency")) freqIdx = i;
                         else if (header.equalsIgnoreCase("EmployeeCode")) codeIdx = i;
+                        else if (header.equalsIgnoreCase("Unit")) unitIdx = i;
+                        else if (header.equalsIgnoreCase("Period")) namePeriodIdx = i;
+                        else if (header.equalsIgnoreCase("OrgUnit")) nameOrgIdx = i;
                     }
 
                     if (nameIdx == -1 || weightIdx == -1 || targetIdx == -1 || freqIdx == -1 || codeIdx == -1) {
@@ -501,7 +505,9 @@ public class KpiCriteriaService {
                                 unitIdx != -1 ? getCellValueAsString(row.getCell(unitIdx)) : null,
                                 getCellValueAsString(row.getCell(freqIdx)),
                                 getCellValueAsString(row.getCell(codeIdx)),
-                                kpiPeriod, orgUnit, currentUser, canApprove
+                                namePeriodIdx != -1 ? getCellValueAsString(row.getCell(namePeriodIdx)) : null,
+                                nameOrgIdx != -1 ? getCellValueAsString(row.getCell(nameOrgIdx)) : null,
+                                kpiPeriod, orgUnit, currentUser, affectedPairs
                             );
                             successfulImports++;
                         } catch (Exception e) {
@@ -514,6 +520,25 @@ public class KpiCriteriaService {
             throw new BusinessException("Lỗi xử lý file: " + e.getMessage());
         }
 
+        // Post-import validation: Check total weight for all modified unit-period pairs
+        for (String pair : affectedPairs) {
+            String[] ids = pair.split(":");
+            UUID uId = UUID.fromString(ids[0]);
+            UUID pId = UUID.fromString(ids[1]);
+
+            Double totalWeight = kpiCriteriaRepository.sumWeightByOrgUnitIdAndKpiPeriodIdAndStatusIn(
+                uId, pId, java.util.Arrays.asList(KpiStatus.DRAFT, KpiStatus.PENDING_APPROVAL, KpiStatus.APPROVED, KpiStatus.REJECTED, KpiStatus.EDIT, KpiStatus.EDITED)
+            );
+
+            if (totalWeight == null || Math.abs(totalWeight - 100.0) > 0.001) {
+                // Weight is not 100% -> THROW EXCEPTION to rollback the entire transaction
+                String unitName = orgUnitRepository.findById(uId).map(OrgUnit::getName).orElse("Unknown");
+                throw new BusinessException("Lỗi Import: Đơn vị '" + unitName + "' có tổng trọng số là " + 
+                          (totalWeight != null ? totalWeight : 0) + "%. Quy tắc bắt buộc phải bằng chính xác 100%. " +
+                          "Vui lòng chỉnh sửa lại file Excel và thực hiện Import lại.");
+            }
+        }
+
         return ImportKpiResponse.builder()
                 .totalRows(totalRows)
                 .successfulImports(successfulImports)
@@ -522,11 +547,41 @@ public class KpiCriteriaService {
     }
 
     private void processKpiRow(String name, String desc, String weight, String target, String min, String unit, String freq, String empCode, 
-                               com.kpitracking.entity.KpiPeriod period, OrgUnit unitEntity, User creator, boolean canApprove) {
+                              String periodName, String orgName,
+                              com.kpitracking.entity.KpiPeriod defaultPeriod, OrgUnit defaultUnit, User creator, java.util.Set<String> affectedPairs) {
         if (name == null || name.isBlank()) throw new BusinessException("Tên chỉ tiêu là bắt buộc");
+        if (weight == null || weight.isBlank()) throw new BusinessException("Trọng số là bắt buộc");
+        if (target == null || target.isBlank()) throw new BusinessException("Chỉ tiêu (Target) là bắt buộc");
+
+        com.kpitracking.entity.KpiPeriod finalPeriod = defaultPeriod;
+        if (periodName != null && !periodName.isBlank()) {
+            finalPeriod = kpiPeriodRepository.findByName(periodName)
+                    .orElseThrow(() -> new BusinessException("Không tìm thấy đợt KPI: " + periodName));
+        }
+
+        OrgUnit finalUnit = defaultUnit;
+        if (orgName != null && !orgName.isBlank()) {
+            finalUnit = orgUnitRepository.findByName(orgName)
+                    .orElseThrow(() -> new BusinessException("Không tìm thấy đơn vị: " + orgName));
+        }
         
-        User assignee = userRepository.findByEmployeeCode(empCode)
-                .orElseThrow(() -> new BusinessException("Không tìm thấy nhân viên với mã: " + empCode));
+        // Check permission for the final unit
+        if (!permissionChecker.hasPermissionInOrgUnit(creator.getId(), "KPI:CREATE", finalUnit.getId())) {
+            throw new ForbiddenException("Bạn không có quyền tạo KPI cho đơn vị: " + finalUnit.getName());
+        }
+
+        java.util.List<User> assignees = new java.util.ArrayList<>();
+        if (empCode != null && !empCode.isBlank()) {
+            String[] codes = empCode.split(",");
+            for (String code : codes) {
+                String trimmedCode = code.trim();
+                if (trimmedCode.isEmpty()) continue;
+                User user = userRepository.findByEmployeeCode(trimmedCode)
+                        .orElseThrow(() -> new BusinessException("Không tìm thấy nhân viên với mã: " + trimmedCode));
+                assignees.add(user);
+            }
+        }
+        if (assignees.isEmpty()) throw new BusinessException("Vui lòng cung cấp ít nhất một mã nhân viên để giao chỉ tiêu");
 
         KpiFrequency frequency;
         try {
@@ -535,17 +590,29 @@ public class KpiCriteriaService {
             throw new BusinessException("Tần suất không hợp lệ: " + freq);
         }
 
+        double weightVal;
+        double targetVal;
+        try {
+            weightVal = Double.parseDouble(weight);
+            targetVal = Double.parseDouble(target);
+        } catch (NumberFormatException e) {
+            throw new BusinessException("Trọng số và Chỉ tiêu phải là định dạng số");
+        }
+
+        // Check if user has permission to approve for this unit
+        boolean canApprove = permissionChecker.hasPermissionInOrgUnit(creator.getId(), "KPI:APPROVE", finalUnit.getId());
+        
         KpiCriteria kpi = KpiCriteria.builder()
                 .name(name)
                 .description(desc)
-                .weight(Double.parseDouble(weight))
-                .targetValue(Double.parseDouble(target))
+                .weight(weightVal)
+                .targetValue(targetVal)
                 .minimumValue(min != null && !min.isBlank() ? Double.parseDouble(min) : null)
                 .unit(unit)
                 .frequency(frequency)
-                .assignees(java.util.List.of(assignee))
-                .orgUnit(unitEntity)
-                .kpiPeriod(period)
+                .assignees(assignees)
+                .orgUnit(finalUnit)
+                .kpiPeriod(finalPeriod)
                 .createdBy(creator)
                 .status(canApprove ? KpiStatus.APPROVED : KpiStatus.DRAFT)
                 .build();
@@ -556,17 +623,14 @@ public class KpiCriteriaService {
         }
 
         kpiCriteriaRepository.save(kpi);
+
+        // Track the unit and period
+        affectedPairs.add(finalUnit.getId().toString() + ":" + finalPeriod.getId().toString());
     }
 
     private String getCellValueAsString(Cell cell) {
         if (cell == null) return null;
-        switch (cell.getCellType()) {
-            case STRING: return cell.getStringCellValue().trim();
-            case NUMERIC: 
-                if (DateUtil.isCellDateFormatted(cell)) return cell.getDateCellValue().toString();
-                return String.valueOf((long) cell.getNumericCellValue());
-            case BOOLEAN: return String.valueOf(cell.getBooleanCellValue());
-            default: return "";
-        }
+        DataFormatter formatter = new DataFormatter();
+        return formatter.formatCellValue(cell).trim();
     }
 }

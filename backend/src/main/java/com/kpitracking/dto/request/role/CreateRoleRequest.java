@@ -13,5 +13,7 @@ public class CreateRoleRequest {
     @Size(max = 100, message = "Role name must not exceed 100 characters")
     private String name;
 
+    private Integer level;
+    private Integer rank;
     private UUID parentRoleId;
 }

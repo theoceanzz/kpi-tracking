@@ -23,4 +23,8 @@ public class CreateUserRequest {
     private String password;
 
     private String phone;
+
+    private String role;
+
+    private java.util.UUID orgUnitId;
 }

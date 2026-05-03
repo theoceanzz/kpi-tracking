@@ -29,8 +29,9 @@ public class StatsController {
     @GetMapping("/overview")
     @PreAuthorize("hasAuthority('DASHBOARD:VIEW')")
     @Operation(summary = "Get organization overview statistics")
-    public ResponseEntity<ApiResponse<OverviewStatsResponse>> getOverviewStats() {
-        OverviewStatsResponse response = statsService.getOverviewStats();
+    public ResponseEntity<ApiResponse<OverviewStatsResponse>> getOverviewStats(
+            @org.springframework.web.bind.annotation.RequestParam(required = false) java.util.UUID orgUnitId) {
+        OverviewStatsResponse response = statsService.getOverviewStats(orgUnitId);
         return ResponseEntity.ok(ApiResponse.success(response));
     }
 
@@ -47,8 +48,9 @@ public class StatsController {
     @Operation(summary = "Get KPI statistics per employee")
     public ResponseEntity<ApiResponse<PageResponse<EmployeeKpiStatsResponse>>> getEmployeeKpiStats(
             @org.springframework.web.bind.annotation.RequestParam(defaultValue = "0") int page,
-            @org.springframework.web.bind.annotation.RequestParam(defaultValue = "5") int size) {
-        PageResponse<EmployeeKpiStatsResponse> response = statsService.getEmployeeKpiStats(page, size);
+            @org.springframework.web.bind.annotation.RequestParam(defaultValue = "5") int size,
+            @org.springframework.web.bind.annotation.RequestParam(required = false) java.util.UUID orgUnitId) {
+        PageResponse<EmployeeKpiStatsResponse> response = statsService.getEmployeeKpiStats(page, size, orgUnitId);
         return ResponseEntity.ok(ApiResponse.success(response));
     }
 

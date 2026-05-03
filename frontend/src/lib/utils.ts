@@ -23,12 +23,18 @@ export function formatNumber(value: number): string {
   return new Intl.NumberFormat('vi-VN').format(value)
 }
 
-export function formatDate(date: string | Date): string {
-  return format(new Date(date), 'dd/MM/yyyy', { locale: vi })
+export function formatDate(date: string | Date | null | undefined): string {
+  if (!date) return '—'
+  const d = new Date(date)
+  if (isNaN(d.getTime())) return '—'
+  return format(d, 'dd/MM/yyyy', { locale: vi })
 }
 
-export function formatDateTime(date: string | Date): string {
-  return format(new Date(date), 'dd/MM/yyyy HH:mm', { locale: vi })
+export function formatDateTime(date: string | Date | null | undefined): string {
+  if (!date) return '—'
+  const d = new Date(date)
+  if (isNaN(d.getTime())) return '—'
+  return format(d, 'dd/MM/yyyy HH:mm', { locale: vi })
 }
 
 export function getInitials(name: string): string {
@@ -40,30 +46,19 @@ export function getInitials(name: string): string {
     .slice(0, 2)
 }
 
-const ROLE_LEVELS: Record<string, number> = {
-  'DIRECTOR': 4,
-  'HEAD': 3,
-  'DEPUTY': 2,
-  'STAFF': 1
-}
-
+/**
+ * Get the primary role for display purposes.
+ * Since roles are dynamic and user-defined, there's no fixed hierarchy.
+ * Access control is handled entirely through permissions, not role names.
+ */
 export function getHighestRole(user: { roles?: string[]; memberships?: Array<{ roleName: string }> }): string {
-  let highest = 'STAFF'
-  let highestLevel = 0
-
-  const allRoles = new Set<string>()
-  if (user.roles) user.roles.forEach(r => allRoles.add(r))
-  if (user.memberships) user.memberships.forEach(m => allRoles.add(m.roleName))
-
-  allRoles.forEach(role => {
-    const level = ROLE_LEVELS[role] || 0
-    if (level > highestLevel) {
-      highestLevel = level
-      highest = role
-    }
-  })
-
-  return highest
+  if (user.memberships && user.memberships.length > 0) {
+    return user.memberships[0]!.roleName
+  }
+  if (user.roles && user.roles.length > 0) {
+    return user.roles[0]!
+  }
+  return 'N/A'
 }
 
 export function formatAssigneeNames(names: string[] | null | undefined): string {

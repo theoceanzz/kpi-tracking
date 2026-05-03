@@ -170,7 +170,6 @@ export function OrganizationStructurePage() {
           orgId={orgId}
           drawerState={drawerState}
           onClose={handleCloseDrawer}
-          maxDepth={maxDepth}
           hierarchyLevels={hierarchyLevelsMap}
         />
       )}

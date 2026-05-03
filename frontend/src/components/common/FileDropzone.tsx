@@ -2,6 +2,7 @@ import { useCallback, useState, useEffect } from 'react'
 import { useDropzone, type Accept } from 'react-dropzone'
 import { Upload, X, FileIcon, Eye } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { toast } from 'sonner'
 import MediaPreviewModal from '@/components/common/MediaPreviewModal'
 
 interface FileDropzoneProps {
@@ -17,40 +18,57 @@ export default function FileDropzone({ onFilesSelected, files, onRemove, accept,
   const [previewFile, setPreviewFile] = useState<{ url: string, name: string, type: string } | null>(null)
   
   const onDrop = useCallback((accepted: File[]) => {
+    if (files.length + accepted.length > maxFiles) {
+       toast.error(`Chỉ được phép tải lên tối đa ${maxFiles} tệp`);
+       return;
+    }
     onFilesSelected(accepted)
-  }, [onFilesSelected])
+  }, [onFilesSelected, files, maxFiles])
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
     accept,
-    maxFiles,
+    maxFiles: maxFiles - files.length,
+    disabled: files.length >= maxFiles
   })
 
   return (
-    <div className={className}>
+    <div className={cn("space-y-4", className)}>
       <div
         {...getRootProps()}
         className={cn(
-          'border-2 border-dashed rounded-2xl p-8 text-center cursor-pointer transition-all duration-300 group',
+          'relative border-2 border-dashed rounded-[28px] p-6 transition-all duration-500 group overflow-hidden',
           isDragActive
-            ? 'border-indigo-500 bg-indigo-50/50 dark:bg-indigo-900/10'
-            : 'border-slate-200 dark:border-slate-800 hover:border-indigo-400 hover:bg-slate-50 dark:hover:bg-slate-800/50'
+            ? 'border-indigo-500 bg-indigo-50/30 dark:bg-indigo-500/5 scale-[0.99] shadow-inner'
+            : files.length >= maxFiles 
+              ? 'border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 cursor-not-allowed opacity-60'
+              : 'border-slate-200 dark:border-slate-800 hover:border-indigo-400 hover:bg-slate-50/50 dark:hover:bg-indigo-500/5 cursor-pointer'
         )}
       >
         <input {...getInputProps()} />
-        <div className="w-12 h-12 rounded-2xl bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 flex items-center justify-center mx-auto mb-4 group-hover:scale-110 group-hover:text-indigo-500 transition-all">
-          <Upload size={24} />
+        <div className="relative z-10 flex flex-col items-center justify-center">
+          <div className={cn(
+            "w-14 h-14 rounded-2xl flex items-center justify-center mb-4 transition-all duration-500",
+            isDragActive ? "bg-indigo-500 text-white rotate-12 scale-110" : "bg-slate-100 dark:bg-slate-800 text-slate-400 group-hover:bg-indigo-50 dark:group-hover:bg-indigo-900/30 group-hover:text-indigo-600 group-hover:-translate-y-1"
+          )}>
+            <Upload size={24} />
+          </div>
+          <div className="space-y-1 text-center">
+            <p className="text-sm font-black text-slate-900 dark:text-white">
+              {isDragActive ? 'Thả để tải lên' : files.length >= maxFiles ? 'Đã đạt giới hạn tệp' : 'Chọn tài liệu minh chứng'}
+            </p>
+            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">
+              JPG, PNG, PDF (Tối đa {maxFiles} tệp)
+            </p>
+          </div>
         </div>
-        <p className="text-sm font-bold text-slate-700 dark:text-slate-200 mb-1">
-          {isDragActive ? 'Thả file vào đây...' : 'Kéo thả hoặc nhấn để chọn tài liệu'}
-        </p>
-        <p className="text-xs text-slate-500 font-medium">
-          Hỗ trợ JPG, PNG, PDF, DOCX (Tối đa {maxFiles} tệp)
-        </p>
+        
+        {/* Decorative background element */}
+        <div className="absolute -bottom-6 -right-6 w-24 h-24 bg-indigo-500/5 rounded-full blur-2xl group-hover:bg-indigo-500/10 transition-colors" />
       </div>
 
       {files.length > 0 && (
-        <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 gap-2 animate-in fade-in slide-in-from-top-2 duration-500">
           {files.map((file, i) => (
             <FileItem 
               key={i} 
@@ -90,20 +108,20 @@ function FileItem({ file, onRemove, onPreview }: { file: File, onRemove: () => v
   }, [file])
 
   return (
-    <div className="group relative flex items-center gap-3 p-3 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 hover:border-indigo-200 dark:hover:border-indigo-900/50 transition-all shadow-sm">
-      <div className="w-12 h-12 rounded-xl bg-slate-100 dark:bg-slate-800 overflow-hidden flex items-center justify-center shrink-0">
+    <div className="group flex items-center gap-3 p-3 bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 hover:border-indigo-200 dark:hover:border-indigo-800 transition-all shadow-sm hover:shadow-md">
+      <div className="w-10 h-10 rounded-xl bg-slate-50 dark:bg-slate-800 flex items-center justify-center shrink-0 border border-slate-100 dark:border-slate-700 overflow-hidden">
         {isImage && previewUrl ? (
           <img src={previewUrl} alt={file.name} className="w-full h-full object-cover" />
         ) : (
-          <FileIcon size={20} className="text-slate-400" />
+          <FileIcon size={18} className="text-indigo-500" />
         )}
       </div>
       
       <div className="flex-1 min-w-0">
-        <p className="text-xs font-bold text-slate-900 dark:text-white truncate" title={file.name}>
+        <p className="text-[11px] font-black text-slate-900 dark:text-white truncate" title={file.name}>
           {file.name}
         </p>
-        <p className="text-[10px] font-medium text-slate-400 uppercase tracking-tight">
+        <p className="text-[9px] font-bold text-slate-400 uppercase tracking-tighter">
           {(file.size / 1024).toFixed(1)} KB
         </p>
       </div>
@@ -116,10 +134,9 @@ function FileItem({ file, onRemove, onPreview }: { file: File, onRemove: () => v
               e.stopPropagation()
               onPreview(previewUrl)
             }} 
-            className="p-2 rounded-lg text-slate-400 hover:text-indigo-500 hover:bg-indigo-50 dark:hover:bg-indigo-500/10 transition-colors"
-            title="Xem trước"
+            className="w-8 h-8 flex items-center justify-center rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/40 transition-all"
           >
-            <Eye size={16} />
+            <Eye size={14} />
           </button>
         )}
         <button 
@@ -128,10 +145,9 @@ function FileItem({ file, onRemove, onPreview }: { file: File, onRemove: () => v
             e.stopPropagation()
             onRemove()
           }} 
-          className="p-2 rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors"
-          title="Xóa"
+          className="w-8 h-8 flex items-center justify-center rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/40 transition-all"
         >
-          <X size={16} />
+          <X size={14} />
         </button>
       </div>
     </div>

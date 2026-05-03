@@ -21,4 +21,6 @@ public class EvaluationResponse {
     private String comment;
     private Instant createdAt;
     private Instant updatedAt;
+    private String evaluatorRole;
+    private Integer orgUnitLevel;
 }

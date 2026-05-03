@@ -10,6 +10,7 @@ import com.kpitracking.entity.OrgUnit;
 import com.kpitracking.entity.Organization;
 import com.kpitracking.entity.Province;
 import com.kpitracking.exception.BusinessException;
+import com.kpitracking.exception.DuplicateResourceException;
 import com.kpitracking.exception.ResourceNotFoundException;
 import com.kpitracking.mapper.OrgUnitMapper;
 import com.kpitracking.repository.*;
@@ -65,8 +66,19 @@ public class OrgUnitService {
             orgHierarchyLevelRepository.save(hierarchyLevel);
         }
 
+        String code = request.getCode();
+        if (parent == null) {
+            code = organization.getCode();
+        } else {
+            // Kiểm tra trùng mã thành phần cho các đơn vị con
+            if (orgUnitRepository.existsByCode(code)) {
+                throw new DuplicateResourceException("Thành phần tổ chức", "mã", code);
+            }
+        }
+
         OrgUnit orgUnit = OrgUnit.builder()
                 .name(request.getName())
+                .code(code)
                 .orgHierarchyLevel(hierarchyLevel)
                 .path("/temp/")  // DB trigger will set the real path
                 .build();
@@ -107,6 +119,12 @@ public class OrgUnitService {
                 .orElseThrow(() -> new ResourceNotFoundException("Đơn vị", "id", unitId));
 
         if (request.getName() != null) orgUnit.setName(request.getName());
+        if (request.getCode() != null && !request.getCode().equals(orgUnit.getCode())) {
+            if (orgUnitRepository.existsByCode(request.getCode())) {
+                throw new DuplicateResourceException("Thành phần tổ chức", "mã", request.getCode());
+            }
+            orgUnit.setCode(request.getCode());
+        }
         if (request.getEmail() != null) orgUnit.setEmail(request.getEmail());
         if (request.getPhone() != null) orgUnit.setPhone(request.getPhone());
         if (request.getAddress() != null) orgUnit.setAddress(request.getAddress());
@@ -136,6 +154,14 @@ public class OrgUnitService {
             oldRoleIds.stream()
                 .filter(id -> !newRoleIds.contains(id))
                 .forEach(roleId -> userRoleOrgUnitRepository.deleteByOrgUnitIdAndRoleId(unitId, roleId));
+        }
+        
+        if (request.getStatus() != null) {
+            try {
+                orgUnit.setStatus(com.kpitracking.enums.OrgUnitStatus.valueOf(request.getStatus().toUpperCase()));
+            } catch (Exception e) {
+                // Ignore invalid status
+            }
         }
 
         orgUnit = orgUnitRepository.save(orgUnit);

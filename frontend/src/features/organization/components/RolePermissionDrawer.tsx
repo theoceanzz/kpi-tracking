@@ -8,10 +8,14 @@ import {
   Loader2,
   Save,
   ShieldCheck,
-  Search
+  Search,
+  Zap
 } from 'lucide-react'
 import { useAllPermissions, useRolePermissions, useUpdateRolePermissions } from '../hooks/useRolePermissions'
+import { useRoles } from '../hooks/useRoles'
 import { RoleResponse } from '../api/role.api'
+import { permissionApi } from '../api/permission.api'
+import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 
 interface RolePermissionDrawerProps {
@@ -23,6 +27,7 @@ interface RolePermissionDrawerProps {
 export default function RolePermissionDrawer({ role, isOpen, onClose }: RolePermissionDrawerProps) {
   const { data: allPermissions = [], isLoading: isLoadingAll } = useAllPermissions()
   const { data: rolePermissions, isLoading: isLoadingRole } = useRolePermissions(role?.id)
+  const { data: roles = [] } = useRoles()
   const updateMutation = useUpdateRolePermissions()
 
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
@@ -86,6 +91,32 @@ export default function RolePermissionDrawer({ role, isOpen, onClose }: RolePerm
     onClose()
   }
 
+  const applyDefaults = async () => {
+    if (!role) return;
+    
+    // Logic: Rank 0 -> Take from rank 0 level 1. Rank 1 -> Take from rank 1 level 1.
+    const targetRank = role.rank;
+    if (targetRank === undefined || targetRank > 1) {
+      toast.info('Tính năng này chỉ áp dụng cho vai trò Trưởng hoặc Phó.');
+      return;
+    }
+
+    const refRole = roles.find(r => r.rank === targetRank && r.level === 1);
+    
+    if (!refRole) {
+      toast.error(`Không tìm thấy vai trò ${targetRank === 0 ? 'Trưởng' : 'Phó'} cấp 1 mẫu để sao chép quyền.`);
+      return;
+    }
+
+    try {
+      const perms = await permissionApi.getRolePermissions(refRole.id);
+      setSelectedIds(new Set(perms.map(p => p.id)));
+      toast.success(`Đã áp dụng quyền hạn mặc định từ "${refRole.name}"`);
+    } catch (err) {
+      toast.error('Có lỗi xảy ra khi lấy quyền hạn mặc định.');
+    }
+  };
+
   if (!isOpen) return null
 
   return (
@@ -114,12 +145,20 @@ export default function RolePermissionDrawer({ role, isOpen, onClose }: RolePerm
               </p>
             </div>
           </div>
-          <button 
-            onClick={onClose}
-            className="p-3 text-gray-400 hover:text-gray-900 hover:bg-gray-100 rounded-2xl transition-all"
-          >
-            <X className="w-6 h-6" />
-          </button>
+          <div className="flex items-center gap-3">
+            <button 
+              onClick={applyDefaults}
+              className="flex items-center gap-2 px-4 py-2.5 bg-amber-50 text-amber-700 border border-amber-200 rounded-xl hover:bg-amber-100 transition-all font-black text-[10px] uppercase tracking-wider shadow-sm"
+            >
+              <Zap size={14} fill="currentColor" /> Áp dụng quyền mặc định
+            </button>
+            <button 
+              onClick={onClose}
+              className="p-3 text-gray-400 hover:text-gray-900 hover:bg-gray-100 rounded-2xl transition-all"
+            >
+              <X className="w-6 h-6" />
+            </button>
+          </div>
         </div>
 
         {/* Search */}

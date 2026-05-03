@@ -9,12 +9,16 @@ import {
   Loader2,
   X,
   Settings2,
-  AlertTriangle
+  AlertTriangle,
+  CheckCircle2
 } from 'lucide-react'
-import { useOrgUnitMembers, useRoles, useAssignRole, useRevokeRole, useOrganizationUsers } from '../hooks/useUserRoles'
-import { useOrgUnit } from '../hooks/useOrganizationStructure'
+import { useOrgUnitMembers, useRoles, useAssignRole, useRevokeRole, useOrganizationUsers, useBulkAssignRole } from '../hooks/useUserRoles'
+import { useOrgUnit, useOrgHierarchyLevels } from '../hooks/useOrganizationStructure'
+import { useUpdateUser } from '@/features/users/hooks/useUsers'
 import { useAuthStore } from '@/store/authStore'
 import { toast } from 'sonner'
+import { useOrgUnitTree } from '@/features/orgunits/hooks/useOrgUnitTree'
+import { ROLE_MAP } from '@/constants/roles'
 
 interface MemberManagementProps {
   orgUnitId: string
@@ -24,6 +28,7 @@ type GroupedMember = {
   userId: string
   userFullName: string
   userEmail: string
+  userStatus?: string
   assignments: {
     roleId: string
     roleName: string
@@ -52,40 +57,76 @@ export function MemberManagement({ orgUnitId }: MemberManagementProps) {
   })
   
   const [searchQuery, setSearchQuery] = useState('')
-  const [selectedUser, setSelectedUser] = useState<string | null>(null)
+  const [selectedUsers, setSelectedUsers] = useState<string[]>([])
   const [selectedRole, setSelectedRole] = useState<string | null>(null)
   
   const { user } = useAuthStore()
   const orgId = user?.memberships?.[0]?.organizationId
   const { data: orgUnit } = useOrgUnit(orgId, orgUnitId)
 
+  const { data: orgUnitTree } = useOrgUnitTree()
+  const rootUnitId = orgUnitTree?.[0]?.id
+
   const { data: members = [], isLoading: isMembersLoading } = useOrgUnitMembers(orgUnitId)
   const { data: roles = [] } = useRoles()
-  const { data: orgUsersData } = useOrganizationUsers()
+  const { data: orgUsersData } = useOrganizationUsers(rootUnitId)
   
   const orgUsers = orgUsersData?.content || []
 
   const assignMutation = useAssignRole()
+  const bulkAssignMutation = useBulkAssignRole()
   const revokeMutation = useRevokeRole()
+  const updateUserMutation = useUpdateUser()
+
+  const { data: hierarchyLevels = [] } = useOrgHierarchyLevels(orgId)
 
   // Roles available for this specific unit based on scope
   const filteredRoles = useMemo(() => {
+    let result = roles
+
+    // 1. Filter by hierarchy level count
+    if (hierarchyLevels.length > 0) {
+      const levelCount = hierarchyLevels.length
+      result = result.filter(r => {
+        if (r.isSystem) {
+          return r.name !== 'DIRECTOR_SYSTEM'
+        }
+        
+        // Staff (rank 2) always shown
+        if (r.rank === 2) return true
+        
+        // Director-level (level 0, rank 0)
+        if (r.level === 0 && r.rank === 0) return levelCount >= 1
+        
+        // Mid-level (level 1) only if 3+ hierarchy levels
+        if (r.level === 1) return levelCount > 2
+        
+        // Team-level (level 2, rank 0 or 1) always shown
+        if (r.level === 2 && (r.rank === 0 || r.rank === 1)) return true
+        
+        return true
+      })
+    }
+
+    // 2. Filter by unit allowed roles
     if (!orgUnit?.allowedRoles || orgUnit.allowedRoles.length === 0) {
-      return roles
+      return result
     }
     const allowedIds = new Set(orgUnit.allowedRoles.map(r => r.id))
-    return roles.filter(r => allowedIds.has(r.id))
-  }, [roles, orgUnit?.allowedRoles])
+    return result.filter(r => allowedIds.has(r.id))
+  }, [roles, orgUnit?.allowedRoles, hierarchyLevels])
 
   // Group members by userId
   const groupedMembers = useMemo(() => {
     const groups: Record<string, GroupedMember> = {}
     members.forEach(m => {
       if (!groups[m.userId]) {
+        const userGlobal = orgUsers.find(u => u.id === m.userId)
         groups[m.userId] = {
           userId: m.userId,
           userFullName: m.userFullName,
           userEmail: m.userEmail,
+          userStatus: userGlobal?.status || 'ACTIVE',
           assignments: []
         }
       }
@@ -99,42 +140,73 @@ export function MemberManagement({ orgUnitId }: MemberManagementProps) {
       }
     })
     return Object.values(groups)
-  }, [members])
+  }, [members, orgUsers])
 
-  // Filter users for selection
+  // Filter users for selection (exclude existing members)
   const eligibleUsers = useMemo(() => {
+    const memberUserIds = new Set(members.map(m => m.userId))
     return orgUsers.filter(u => 
-      u.fullName.toLowerCase().includes(searchQuery.toLowerCase()) || 
-      u.email.toLowerCase().includes(searchQuery.toLowerCase())
+      !memberUserIds.has(u.id) && (
+        u.fullName.toLowerCase().includes(searchQuery.toLowerCase()) || 
+        u.email.toLowerCase().includes(searchQuery.toLowerCase())
+      )
     )
-  }, [orgUsers, searchQuery])
+  }, [orgUsers, searchQuery, members])
 
-  // Get assignments for selected user (for Add Member flow)
+  // Get assignments for selected user (for role exclusion in Manage Modal)
   const selectedUserAssignments = useMemo(() => {
-    if (!selectedUser) return []
-    return groupedMembers.find(m => m.userId === selectedUser)?.assignments || []
-  }, [selectedUser, groupedMembers])
+    const firstSelected = selectedUsers[0]
+    if (!firstSelected) return []
+    return groupedMembers.find(m => m.userId === firstSelected)?.assignments || []
+  }, [selectedUsers, groupedMembers])
+
+  // Track which ranks (0/1) are already taken by other users in this unit
+  const takenRanks = useMemo(() => {
+    const ranksByUserId: Record<number, string> = {}
+    members.forEach(m => {
+      const role = roles.find(r => r.id === m.roleId)
+      if (role && (role.rank === 0 || role.rank === 1)) {
+        ranksByUserId[role.rank] = m.userId
+      }
+    })
+    return ranksByUserId
+  }, [members, roles])
 
   const handleAddMember = async () => {
-    const userId = showManageModal?.userId || selectedUser
-    if (!userId || !selectedRole) {
-      toast.error('Vui lòng chọn người dùng và vai trò')
+    if (!selectedRole) {
+      toast.error('Vui lòng chọn vai trò')
       return
     }
-
-    // Check if user already has this role
-    const existingEntry = members.find(m => m.userId === userId && m.roleId === selectedRole)
-    if (existingEntry) {
-      toast.error('Người dùng đã có vai trò này trong đơn vị')
-      return
-    }
-
+    
     try {
-      await assignMutation.mutateAsync({
-        userId,
-        roleId: selectedRole,
-        orgUnitId
-      })
+      if (showManageModal) {
+        // Single assignment for management modal
+        await assignMutation.mutateAsync({
+          userId: showManageModal.userId,
+          roleId: selectedRole,
+          orgUnitId
+        })
+      } else {
+        // Bulk assignment for new members
+        if (selectedUsers.length === 0) {
+          toast.error('Vui lòng chọn ít nhất một nhân sự')
+          return
+        }
+
+        // Prevent bulk assigning manager/deputy roles
+        const selectedRoleObj = roles.find(r => r.id === selectedRole)
+        if (selectedRoleObj && (selectedRoleObj.rank === 0 || selectedRoleObj.rank === 1) && selectedUsers.length > 1) {
+            toast.error(`Mỗi đơn vị chỉ được phép có tối đa một ${selectedRoleObj.rank === 0 ? 'Trưởng' : 'Phó'}. Không thể gán hàng loạt.`)
+            return
+        }
+
+        await bulkAssignMutation.mutateAsync({
+          userIds: selectedUsers,
+          roleId: selectedRole,
+          orgUnitId
+        })
+      }
+      
       toast.success('Gán vai trò thành công')
       
       // Update local state for "instant" update in Manage Modal
@@ -146,7 +218,7 @@ export function MemberManagement({ orgUnitId }: MemberManagementProps) {
                   ...showManageModal.assignments,
                   { 
                       roleId: selectedRole, 
-                      roleName: roleData?.name || 'Unknown', 
+                      roleName: ROLE_MAP[roleData?.name || ''] || roleData?.name || 'Unknown', 
                       assignedAt: new Date().toISOString() 
                   }
               ]
@@ -156,7 +228,7 @@ export function MemberManagement({ orgUnitId }: MemberManagementProps) {
       setSelectedRole(null)
       if (!showManageModal) {
         setShowAddModal(false)
-        setSelectedUser(null)
+        setSelectedUsers([])
       }
     } catch (error) {
       toast.error('Không thể gán vai trò')
@@ -190,6 +262,22 @@ export function MemberManagement({ orgUnitId }: MemberManagementProps) {
     } catch (error) {
         toast.error('Không thể thu hồi vai trò')
     }
+  }
+
+  const handleStatusChange = async (newStatus: 'ACTIVE' | 'INACTIVE') => {
+      if (!showManageModal) return
+      try {
+          await updateUserMutation.mutateAsync({
+              id: showManageModal.userId,
+              data: { status: newStatus }
+          })
+          setShowManageModal({
+              ...showManageModal,
+              userStatus: newStatus
+          })
+      } catch (error) {
+          // Error handled by mutation
+      }
   }
 
   return (
@@ -264,7 +352,7 @@ export function MemberManagement({ orgUnitId }: MemberManagementProps) {
                           {member.assignments.map((asgn) => (
                             <span key={asgn.roleId} className="inline-flex items-center px-3 py-1.5 rounded-full bg-white border border-gray-100 text-gray-700 text-[10px] font-black shadow-sm group/badge hover:border-red-200 hover:bg-red-50 transition-all">
                               <Shield className="w-3 h-3 mr-2 text-blue-500 group-hover/badge:text-red-500" />
-                              {asgn.roleName}
+                              {ROLE_MAP[asgn.roleName] || asgn.roleName}
                               <button 
                                 onClick={() => triggerRemoveConfirm({ userId: member.userId, userFullName: member.userFullName }, { roleId: asgn.roleId, roleName: asgn.roleName })}
                                 className="ml-2 hover:text-red-600 opacity-0 group-hover/badge:opacity-100 transition-opacity"
@@ -277,7 +365,10 @@ export function MemberManagement({ orgUnitId }: MemberManagementProps) {
                       </td>
                       <td className="px-8 py-5 text-right">
                         <button 
-                          onClick={() => setShowManageModal(member)}
+                          onClick={() => {
+                             setSelectedRole(null)
+                             setShowManageModal(member)
+                          }}
                           className="p-3 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-2xl transition-all"
                           title="Quản lý vai trò"
                         >
@@ -296,7 +387,7 @@ export function MemberManagement({ orgUnitId }: MemberManagementProps) {
       {/* Add/Update Member Modal */}
       {(showAddModal || showManageModal) && (
         <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
-            <div className="absolute inset-0 bg-gray-900/60 backdrop-blur-md" onClick={() => { setShowAddModal(false); setShowManageModal(null); }} />
+            <div className="absolute inset-0 bg-gray-900/60 backdrop-blur-md" onClick={() => { setShowAddModal(false); setShowManageModal(null); setSelectedRole(null); }} />
             <div className="bg-white rounded-[2.5rem] shadow-2xl w-full max-w-xl max-h-[90vh] relative z-[201] overflow-hidden flex flex-col animate-in fade-in zoom-in-95 duration-300">
                 <div className="p-10 border-b bg-gradient-to-r from-gray-50 to-white">
                     <h3 className="text-2xl font-black text-gray-900 tracking-tight">
@@ -324,45 +415,79 @@ export function MemberManagement({ orgUnitId }: MemberManagementProps) {
                                 {eligibleUsers.length === 0 ? (
                                     <p className="p-8 text-sm text-gray-400 text-center font-bold italic">Không tìm thấy người dùng phù hợp</p>
                                 ) : (
-                                    eligibleUsers.map(user => (
-                                        <div 
-                                            key={user.id}
-                                            onClick={() => setSelectedUser(user.id)}
-                                            className={`p-4 cursor-pointer flex items-center justify-between transition-all ${selectedUser === user.id ? 'bg-blue-600 text-white shadow-lg scale-[0.98]' : 'hover:bg-blue-50 text-gray-700'}`}
-                                        >
-                                            <div className="flex items-center space-x-3">
-                                                <div className={`w-8 h-8 rounded-full flex items-center justify-center text-[10px] font-black ${selectedUser === user.id ? 'bg-white/20' : 'bg-gray-100'}`}>
-                                                    {user.fullName.charAt(0)}
+                                    eligibleUsers.map(user => {
+                                        const isSelected = selectedUsers.includes(user.id)
+                                        return (
+                                            <div 
+                                                key={user.id}
+                                                onClick={() => {
+                                                    setSelectedUsers(prev => 
+                                                        isSelected ? prev.filter(id => id !== user.id) : [...prev, user.id]
+                                                    )
+                                                }}
+                                                className={`p-4 cursor-pointer flex items-center justify-between transition-all ${isSelected ? 'bg-blue-600 text-white shadow-lg scale-[0.98]' : 'hover:bg-blue-50 text-gray-700'}`}
+                                            >
+                                                <div className="flex items-center space-x-3">
+                                                    <div className={`w-8 h-8 rounded-full flex items-center justify-center text-[10px] font-black ${isSelected ? 'bg-white/20' : 'bg-gray-100'}`}>
+                                                        {user.fullName.charAt(0)}
+                                                    </div>
+                                                    <div>
+                                                        <p className={`text-sm font-black ${isSelected ? 'text-white' : 'text-gray-900'}`}>{user.fullName}</p>
+                                                        <p className={`text-[10px] font-bold ${isSelected ? 'text-blue-100' : 'text-gray-400'}`}>{user.email}</p>
+                                                    </div>
                                                 </div>
-                                                <div>
-                                                    <p className={`text-sm font-black ${selectedUser === user.id ? 'text-white' : 'text-gray-900'}`}>{user.fullName}</p>
-                                                    <p className={`text-[10px] font-bold ${selectedUser === user.id ? 'text-blue-100' : 'text-gray-400'}`}>{user.email}</p>
-                                                </div>
+                                                {isSelected && <CheckCircle2 className="w-4 h-4 text-white animate-pulse" />}
                                             </div>
-                                            {selectedUser === user.id && <Shield className="w-4 h-4 text-white animate-pulse" />}
-                                        </div>
-                                    ))
+                                        )
+                                    })
                                 )}
                             </div>
                         </div>
                     )}
 
                     {showManageModal && (
-                        <div className="space-y-4">
-                             <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest pl-1">Vai trò đang đảm nhiệm</label>
-                             <div className="flex flex-wrap gap-3">
-                                {showManageModal.assignments.map(asgn => (
-                                    <div key={asgn.roleId} className="flex items-center px-4 py-2.5 bg-blue-50 rounded-2xl border border-blue-100 group">
-                                        <Shield className="w-4 h-4 mr-2 text-blue-600" />
-                                        <span className="text-sm font-black text-blue-700 mr-4">{asgn.roleName}</span>
-                                        <button 
-                                            onClick={() => triggerRemoveConfirm({ userId: showManageModal.userId, userFullName: showManageModal.userFullName }, { roleId: asgn.roleId, roleName: asgn.roleName })}
-                                            className="p-1 hover:bg-red-100 hover:text-red-600 rounded-lg transition-colors"
-                                        >
-                                            <X className="w-4 h-4" />
-                                        </button>
+                        <div className="space-y-6">
+                             {/* Global Status Toggle */}
+                             <div className="p-6 rounded-2xl bg-gray-50 border border-gray-100 flex items-center justify-between">
+                                <div>
+                                    <h4 className="text-sm font-black text-gray-900">Trạng thái tài khoản (Toàn hệ thống)</h4>
+                                    <p className="text-[10px] text-gray-500 font-medium mt-1 pr-4">
+                                        Vô hiệu hóa sẽ chặn quyền truy cập của người dùng này vào toàn bộ hệ thống.
+                                    </p>
+                                </div>
+                                <button
+                                    onClick={() => handleStatusChange(showManageModal.userStatus === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE')}
+                                    disabled={updateUserMutation.isPending}
+                                    className={`relative inline-flex h-7 w-12 items-center rounded-full transition-colors focus:outline-none ${showManageModal.userStatus === 'ACTIVE' ? 'bg-blue-600' : 'bg-gray-300'}`}
+                                >
+                                    <span className={`inline-block h-5 w-5 transform rounded-full bg-white transition-transform ${showManageModal.userStatus === 'ACTIVE' ? 'translate-x-6' : 'translate-x-1'}`} />
+                                </button>
+                             </div>
+
+                             <div className="space-y-4">
+                                <div className="flex items-center justify-between">
+                                    <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest pl-1">Vai trò đang đảm nhiệm</label>
+                                    <div className="group relative">
+                                        <AlertTriangle className="w-4 h-4 text-orange-400 cursor-help" />
+                                        <div className="absolute bottom-full right-0 mb-2 w-64 p-3 bg-gray-900 text-white text-[10px] rounded-xl opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10 shadow-xl font-medium leading-relaxed">
+                                            Lưu ý: "Thu hồi" chỉ gỡ vai trò tại đơn vị này. Để chặn hoàn toàn hãy dùng mục Trạng thái ở trên.
+                                        </div>
                                     </div>
-                                ))}
+                                </div>
+                                <div className="flex flex-wrap gap-3">
+                                    {showManageModal.assignments.map(asgn => (
+                                        <div key={asgn.roleId} className="flex items-center px-4 py-2.5 bg-blue-50 rounded-2xl border border-blue-100 group">
+                                            <Shield className="w-4 h-4 mr-2 text-blue-600" />
+                                            <span className="text-sm font-black text-blue-700 mr-4">{ROLE_MAP[asgn.roleName] || asgn.roleName}</span>
+                                            <button 
+                                                onClick={() => triggerRemoveConfirm({ userId: showManageModal.userId, userFullName: showManageModal.userFullName }, { roleId: asgn.roleId, roleName: asgn.roleName })}
+                                                className="p-1 hover:bg-red-100 hover:text-red-600 rounded-lg transition-colors"
+                                            >
+                                                <X className="w-4 h-4" />
+                                            </button>
+                                        </div>
+                                    ))}
+                                </div>
                              </div>
                         </div>
                     )}
@@ -374,13 +499,23 @@ export function MemberManagement({ orgUnitId }: MemberManagementProps) {
                         <div className="grid grid-cols-2 gap-3">
                             {filteredRoles.map(role => {
                                 const isAssigned = (showManageModal?.assignments || selectedUserAssignments).some(a => a.roleId === role.id)
+                                
+                                // NEW LOGIC: Check if rank (0/1) is taken by ANOTHER user
+                                const currentUserId = showManageModal?.userId || (selectedUsers.length === 1 ? selectedUsers[0] : null)
+                                const rankTakenByUserId = role.rank !== undefined ? takenRanks[role.rank] : undefined
+                                const isRankTakenByOther = (role.rank === 0 || role.rank === 1) && 
+                                                         rankTakenByUserId && 
+                                                         rankTakenByUserId !== currentUserId
+
+                                const isDisabled = isAssigned || isRankTakenByOther || (selectedUsers.length > 1 && (role.rank === 0 || role.rank === 1))
+                                
                                 return (
                                     <button
                                         key={role.id}
-                                        disabled={isAssigned}
+                                        disabled={isDisabled}
                                         onClick={() => setSelectedRole(role.id)}
-                                        className={`flex items-center p-4 rounded-[1.25rem] border-2 transition-all text-left ${
-                                            isAssigned 
+                                        className={`flex items-center p-4 rounded-[1.25rem] border-2 transition-all text-left relative ${
+                                            isDisabled 
                                             ? 'bg-gray-50 border-gray-100 opacity-50 cursor-not-allowed'
                                             : selectedRole === role.id 
                                                 ? 'border-blue-600 bg-blue-50 shadow-md ring-2 ring-blue-600/10' 
@@ -390,10 +525,15 @@ export function MemberManagement({ orgUnitId }: MemberManagementProps) {
                                         <div className={`w-8 h-8 rounded-xl flex items-center justify-center mr-3 ${selectedRole === role.id ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-400'}`}>
                                             <Shield className="w-4 h-4" />
                                         </div>
-                                        <div>
-                                            <p className="text-sm font-black text-gray-900">{role.name}</p>
-                                            <p className="text-[10px] text-gray-400 font-bold uppercase truncate max-w-[120px]">{role.id.split('-')[0]}</p>
+                                        <div className="flex-1 overflow-hidden">
+                                            <p className="text-sm font-black text-gray-900 truncate">{ROLE_MAP[role.name] || role.name}</p>
+                                            <p className="text-[10px] text-gray-400 font-bold uppercase truncate">
+                                                {isRankTakenByOther ? 'Đã có người đảm nhiệm' : (selectedUsers.length > 1 && (role.rank === 0 || role.rank === 1)) ? 'Không thể gán hàng loạt' : role.id.split('-')[0]}
+                                            </p>
                                         </div>
+                                        {isRankTakenByOther && (
+                                            <AlertTriangle className="w-4 h-4 text-orange-400 absolute top-2 right-2" />
+                                        )}
                                     </button>
                                 )
                             })}
@@ -409,11 +549,11 @@ export function MemberManagement({ orgUnitId }: MemberManagementProps) {
                         Đóng
                     </button>
                     <button 
-                        disabled={(!showManageModal && !selectedUser) || !selectedRole || assignMutation.isPending}
+                        disabled={(!showManageModal && selectedUsers.length === 0) || !selectedRole || assignMutation.isPending || bulkAssignMutation.isPending}
                         onClick={handleAddMember}
                         className="flex-1 px-8 py-4 bg-blue-600 text-white rounded-[1.25rem] hover:bg-blue-700 font-black transition-all shadow-xl shadow-blue-200 disabled:opacity-50 flex items-center justify-center"
                     >
-                        {assignMutation.isPending ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Xác nhận gán'}
+                        {(assignMutation.isPending || bulkAssignMutation.isPending) ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Xác nhận gán'}
                     </button>
                 </div>
             </div>

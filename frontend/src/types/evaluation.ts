@@ -13,6 +13,8 @@ export interface Evaluation {
   comment: string | null
   createdAt: string
   updatedAt: string
+  evaluatorRole: 'SELF' | 'MANAGER' | 'DIRECTOR' | 'TEAM_LEADER' | 'DEPT_HEAD'
+  orgUnitLevel?: number
 }
 
 // Matches BE: CreateEvaluationRequest

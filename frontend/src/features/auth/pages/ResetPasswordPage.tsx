@@ -10,6 +10,7 @@ export default function ResetPasswordPage() {
   const [params] = useSearchParams()
   const urlToken = params.get('token') ?? ''
   const navigate = useNavigate()
+  const [isRedirecting, setIsRedirecting] = useState(false)
 
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
@@ -65,11 +66,42 @@ export default function ResetPasswordPage() {
   const mutation = useMutation({
     mutationFn: (data: { token: string; newPassword: string; confirmPassword: string }) =>
       authApi.resetPassword({ token: data.token, newPassword: data.newPassword, confirmPassword: data.confirmPassword }),
-    onSuccess: () => { toast.success('Cập nhật mật khẩu bảo mật diện rộng thành công!'); navigate('/login') },
+    onSuccess: (_, variables) => { 
+      setIsRedirecting(true)
+      toast.success('Cập nhật mật khẩu bảo mật diện rộng thành công!')
+      setTimeout(() => navigate('/login', {
+        state: { password: variables.newPassword }
+      }), 2000) 
+    },
     onError: () => toast.error('Cập nhật thất bại. Vui lòng xác minh lại mã khôi phục.'),
   })
 
   const inputCls = "w-full pl-10 pr-4 py-3 rounded-xl border border-[var(--color-border)] bg-[var(--color-background)] text-sm focus:ring-2 focus:ring-[var(--color-primary)]/20 focus:border-[var(--color-primary)] outline-none transition-all shadow-sm"
+
+  if (isRedirecting) {
+    return (
+      <div className="w-full max-w-sm mx-auto text-center space-y-8 animate-in fade-in duration-500">
+        <div className="relative">
+          <div className="w-24 h-24 rounded-full border-4 border-indigo-500/20 border-t-indigo-500 animate-spin mx-auto" />
+          <div className="absolute inset-0 flex items-center justify-center">
+             <ShieldCheck className="text-indigo-500 w-10 h-10 animate-pulse" />
+          </div>
+        </div>
+        <div className="space-y-3">
+          <h2 className="text-2xl font-extrabold text-[var(--color-foreground)]">Đặt lại thành công!</h2>
+          <p className="text-[var(--color-muted-foreground)] text-sm">
+            Mật khẩu của bạn đã được cập nhật an toàn. <br/>
+            Đang chuyển hướng bạn đến trang đăng nhập...
+          </p>
+        </div>
+        <div className="flex justify-center gap-1.5">
+           <div className="w-2 h-2 rounded-full bg-indigo-500 animate-bounce [animation-delay:-0.3s]" />
+           <div className="w-2 h-2 rounded-full bg-indigo-500 animate-bounce [animation-delay:-0.15s]" />
+           <div className="w-2 h-2 rounded-full bg-indigo-500 animate-bounce" />
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="w-full">
@@ -85,12 +117,21 @@ export default function ResetPasswordPage() {
 
       <form onSubmit={handleSubmit((data) => mutation.mutate(data))} className="space-y-6">
         <div className="space-y-2">
-          <label className="text-sm font-bold text-[var(--color-foreground)]">Mã khôi phục (Token) <span className="text-red-500">*</span></label>
+          <label className="text-sm font-bold text-[var(--color-foreground)]">Mã khôi phục (OTP) <span className="text-red-500">*</span></label>
           <div className="relative">
              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                 <Key size={18} className="text-[var(--color-muted-foreground)]" />
              </div>
-             <input {...register('token', { required: 'Vui lòng cung cấp mã khôi phục từ email' })} type="text" className={inputCls} placeholder="Dán mã UUID gồm các ký tự..." />
+             <input 
+               {...register('token', { 
+                 required: 'Vui lòng cung cấp mã OTP từ email',
+                 onChange: (e) => e.target.value = e.target.value.toUpperCase()
+               })} 
+               type="text" 
+               maxLength={6}
+               className={inputCls + " uppercase tracking-widest"} 
+               placeholder="Nhập mã OTP 6 ký tự..." 
+             />
           </div>
           {errors.token && <p className="text-red-500 text-xs mt-1.5 font-medium">{errors.token.message}</p>}
         </div>

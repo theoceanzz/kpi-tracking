@@ -39,6 +39,30 @@ public class Organization {
     @OrderBy("levelOrder ASC")
     private java.util.List<OrgHierarchyLevel> hierarchyLevels;
 
+    @Column(name = "evaluation_max_score")
+    @Builder.Default
+    private Double evaluationMaxScore = 100.0;
+
+    @Column(name = "excellent_threshold")
+    @Builder.Default
+    private Double excellentThreshold = 90.0;
+
+    @Column(name = "good_threshold")
+    @Builder.Default
+    private Double goodThreshold = 80.0;
+
+    @Column(name = "fair_threshold")
+    @Builder.Default
+    private Double fairThreshold = 70.0;
+
+    @Column(name = "average_threshold")
+    @Builder.Default
+    private Double averageThreshold = 50.0;
+
+    @Column(name = "kpi_reminder_percentage")
+    @Builder.Default
+    private Integer kpiReminderPercentage = 50;
+
     @LastModifiedDate
     @Column(name = "updated_at")
     private Instant updatedAt;

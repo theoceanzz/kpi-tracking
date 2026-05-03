@@ -9,6 +9,7 @@ export function useOrgUnitSubmissions(params: {
   kpiCriteriaId?: string;
   submittedById?: string;
   orgUnitId?: string;
+  organizationId?: string;
   sortBy?: string;
   sortDir?: string;
 } = {}) {

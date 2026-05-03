@@ -1,14 +1,14 @@
-export type UserRole = 'DIRECTOR' | 'HEAD' | 'DEPUTY' | 'STAFF'
+export type UserRole = string // Roles are dynamic and user-defined
 export type UserStatus = 'ACTIVE' | 'INACTIVE' | 'SUSPENDED'
 
 export interface UserMembership {
   orgUnitId: string
   organizationId: string
   orgUnitName: string
-  organizationId: string
   organizationName: string
   roleName: string
   roleLabel?: string
+  roleRank?: number
   unitTypeLabel?: string
 }
 

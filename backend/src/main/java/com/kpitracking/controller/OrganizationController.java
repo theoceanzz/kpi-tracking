@@ -12,6 +12,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -26,6 +27,7 @@ public class OrganizationController {
     private final OrganizationService organizationService;
 
     @PostMapping
+    @PreAuthorize("hasAuthority('COMPANY:UPDATE')")
     @Operation(summary = "Create organization")
     public ResponseEntity<ApiResponse<OrganizationResponse>> createOrganization(
             @Valid @RequestBody CreateOrganizationRequest request) {
@@ -35,6 +37,7 @@ public class OrganizationController {
     }
 
     @GetMapping("/{orgId}")
+    @PreAuthorize("hasAuthority('COMPANY:VIEW')")
     @Operation(summary = "Get organization by ID")
     public ResponseEntity<ApiResponse<OrganizationResponse>> getOrganization(@PathVariable UUID orgId) {
         OrganizationResponse response = organizationService.getOrganization(orgId);
@@ -42,6 +45,7 @@ public class OrganizationController {
     }
 
     @GetMapping
+    @PreAuthorize("hasAuthority('COMPANY:VIEW')")
     @Operation(summary = "List organizations")
     public ResponseEntity<ApiResponse<PageResponse<OrganizationResponse>>> listOrganizations(
             @RequestParam(defaultValue = "0") int page,
@@ -51,6 +55,7 @@ public class OrganizationController {
     }
 
     @PutMapping("/{orgId}")
+    @PreAuthorize("hasAuthority('COMPANY:UPDATE')")
     @Operation(summary = "Update organization")
     public ResponseEntity<ApiResponse<OrganizationResponse>> updateOrganization(
             @PathVariable UUID orgId,
@@ -60,6 +65,7 @@ public class OrganizationController {
     }
 
     @DeleteMapping("/{orgId}")
+    @PreAuthorize("hasAuthority('COMPANY:DELETE')")
     @Operation(summary = "Archive organization")
     public ResponseEntity<ApiResponse<Void>> deleteOrganization(@PathVariable UUID orgId) {
         organizationService.deleteOrganization(orgId);
@@ -67,6 +73,7 @@ public class OrganizationController {
     }
 
     @GetMapping("/{orgId}/hierarchy-levels")
+    @PreAuthorize("hasAuthority('ORG:VIEW')")
     @Operation(summary = "Get hierarchy levels for an organization")
     public ResponseEntity<ApiResponse<List<com.kpitracking.dto.response.organization.OrgHierarchyLevelResponse>>> getHierarchyLevels(@PathVariable UUID orgId) {
         List<com.kpitracking.dto.response.organization.OrgHierarchyLevelResponse> response = organizationService.getHierarchyLevels(orgId);

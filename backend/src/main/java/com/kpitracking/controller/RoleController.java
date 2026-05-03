@@ -27,6 +27,7 @@ public class RoleController {
     private final RoleService roleService;
 
     @PostMapping
+    @PreAuthorize("hasAuthority('ROLE:CREATE')")
     @Operation(summary = "Create role")
     public ResponseEntity<ApiResponse<RoleResponse>> createRole(@Valid @RequestBody CreateRoleRequest request) {
         RoleResponse response = roleService.createRole(request);
@@ -35,6 +36,7 @@ public class RoleController {
     }
 
     @PutMapping("/{roleId}")
+    @PreAuthorize("hasAuthority('ROLE:UPDATE')")
     @Operation(summary = "Update role")
     public ResponseEntity<ApiResponse<RoleResponse>> updateRole(
             @PathVariable UUID roleId,
@@ -44,6 +46,7 @@ public class RoleController {
     }
 
     @DeleteMapping("/{roleId}")
+    @PreAuthorize("hasAuthority('ROLE:DELETE')")
     @Operation(summary = "Soft delete role")
     public ResponseEntity<ApiResponse<Void>> deleteRole(@PathVariable UUID roleId) {
         roleService.deleteRole(roleId);

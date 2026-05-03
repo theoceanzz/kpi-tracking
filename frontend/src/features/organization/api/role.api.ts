@@ -7,17 +7,23 @@ export interface RoleResponse {
   parentRoleName?: string
   parentRoleId?: string
   isSystem: boolean
+  level?: number
+  rank?: number
   createdAt: string
   updatedAt: string
 }
 
 export interface CreateRoleRequest {
   name: string
+  level: number
+  rank: number
   parentRoleId?: string
 }
 
 export interface UpdateRoleRequest {
   name?: string
+  level?: number
+  rank?: number
   parentRoleId?: string
 }
 

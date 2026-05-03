@@ -30,12 +30,6 @@ const frequencyOptions = [
   { value: 'YEARLY', label: 'Hàng năm' },
 ] as const
 
-const ROLE_PRIORITY: Record<string, number> = {
-  'DIRECTOR': 4,
-  'HEAD': 3,
-  'DEPUTY': 2,
-  'STAFF': 1,
-}
 
 export default function KpiFormModal({ open, onClose, editKpi }: KpiFormModalProps) {
   const isEdit = !!editKpi
@@ -90,7 +84,7 @@ export default function KpiFormModal({ open, onClose, editKpi }: KpiFormModalPro
         frequency: 'MONTHLY', 
         assignedToIds: [], 
         kpiPeriodId: '',
-        orgUnitId: canManageOrg ? (flatOrgUnits?.[0]?.id || '') : (user?.memberships?.[0]?.orgUnitId || '')
+        orgUnitId: canAssignRoles ? (flatOrgUnits?.[0]?.id || '') : (user?.memberships?.[0]?.orgUnitId || '')
       })
     }
   }, [open, reset, flatOrgUnits, canManageOrg]) 
@@ -98,11 +92,11 @@ export default function KpiFormModal({ open, onClose, editKpi }: KpiFormModalPro
   const formOrgUnitId = watch('orgUnitId')
   const selectedAssignees = watch('assignedToIds') || []
 
-  // For HEAD/DEPUTY, automatically use their orgUnit if not chosen
+  // For HEAD/DEPUTY, automatically use their orgUnit if not allowed to switch
   const fetchOrgUnitId = useMemo(() => {
-    if (canManageOrg) return formOrgUnitId || undefined
-    return formOrgUnitId || user?.memberships?.[0]?.orgUnitId
-  }, [canManageOrg, user, formOrgUnitId])
+    if (canAssignRoles) return formOrgUnitId || undefined
+    return user?.memberships?.[0]?.orgUnitId
+  }, [canAssignRoles, user, formOrgUnitId])
 
   const { data: usersData, isLoading: isLoadingUsers } = useUsers({ 
     page: 0, 
@@ -119,7 +113,8 @@ export default function KpiFormModal({ open, onClose, editKpi }: KpiFormModalPro
       
       // Otherwise, only allow assigning to people who don't have management/review permissions 
       // if the current user themselves is just a lower-level manager
-      const targetIsManager = u.permissions?.includes('SUBMISSION:REVIEW')
+      const targetIsManager = u.permissions?.includes('SUBMISSION:REVIEW') || 
+                               u.roles?.some(r => ['DIRECTOR', 'HEAD', 'DEPUTY'].includes(r))
       if (targetIsManager && !canAssignRoles) return false
 
       return true
@@ -374,7 +369,7 @@ export default function KpiFormModal({ open, onClose, editKpi }: KpiFormModalPro
             </div>
           </div>
 
-          {hasPermission('ORG:VIEW') && (
+          {canAssignRoles && (
             <div>
               <label className="block text-sm font-medium mb-1.5">Phòng ban / Đơn vị</label>
               <select {...register('orgUnitId')} className={inputCls}>

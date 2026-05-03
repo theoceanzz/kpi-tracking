@@ -52,8 +52,10 @@ public class SubmissionAttachmentService {
         if (!submission.getSubmittedBy().getId().equals(currentUser.getId())) {
             throw new com.kpitracking.exception.ForbiddenException("Only the original submitter can upload attachments");
         }
-        if (submission.getStatus() != com.kpitracking.enums.SubmissionStatus.PENDING) {
-            throw new com.kpitracking.exception.BusinessException("Can only upload attachments to PENDING submissions");
+        if (submission.getStatus() != com.kpitracking.enums.SubmissionStatus.PENDING && 
+            submission.getStatus() != com.kpitracking.enums.SubmissionStatus.DRAFT &&
+            submission.getStatus() != com.kpitracking.enums.SubmissionStatus.REJECTED) {
+            throw new com.kpitracking.exception.BusinessException("Chỉ có thể tải tài liệu cho báo cáo ở trạng thái Chờ duyệt, Nháp hoặc Tự động từ chối");
         }
 
         List<AttachmentResponse> responses = new ArrayList<>();
@@ -108,8 +110,10 @@ public class SubmissionAttachmentService {
              throw new com.kpitracking.exception.ForbiddenException("Only the user who uploaded the attachment can delete it");
         }
 
-        if (attachment.getSubmission().getStatus() != com.kpitracking.enums.SubmissionStatus.PENDING) {
-             throw new com.kpitracking.exception.BusinessException("Cannot delete attachments from non-pending submissions");
+        if (attachment.getSubmission().getStatus() != com.kpitracking.enums.SubmissionStatus.PENDING &&
+            attachment.getSubmission().getStatus() != com.kpitracking.enums.SubmissionStatus.DRAFT &&
+            attachment.getSubmission().getStatus() != com.kpitracking.enums.SubmissionStatus.REJECTED) {
+             throw new com.kpitracking.exception.BusinessException("Chỉ có thể xóa tài liệu của báo cáo ở trạng thái Chờ duyệt, Nháp hoặc Tự động từ chối");
         }
 
         if (attachment.getStorageKey() != null) {

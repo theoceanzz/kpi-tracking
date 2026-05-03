@@ -57,6 +57,7 @@ const getLayoutedElements = <T extends Node>(nodes: T[], edges: Edge[], directio
 type CustomNodeData = {
   id: string;
   name: string;
+  code?: string;
   type: string;
   level: number;
   hasChildren: boolean;
@@ -99,6 +100,11 @@ function CustomNode({ data }: NodeProps<AppNode>) {
         <div className="flex-1 min-w-0 pr-6">
           <div className="text-[10px] font-bold uppercase tracking-wider text-blue-600 mb-0.5">{data.type}</div>
           <div className="text-sm font-bold text-gray-800 truncate">{data.name}</div>
+          {data.code && (
+            <div className="text-[10px] font-mono text-gray-400 mt-0.5 truncate bg-gray-50 px-1.5 py-0.5 rounded border border-gray-100 w-fit">
+              {data.code}
+            </div>
+          )}
         </div>
 
         {/* Action Menu - Only visible on hover */}
@@ -173,6 +179,7 @@ export function OrgMindmapView({ data, maxDepth, onAddChild, onEdit, onDelete }:
         data: {
           id: nodeData.id,
           name: nodeData.name,
+          code: nodeData.code,
           type: nodeData.type,
           level: nodeData.level,
           hasChildren: !!nodeData.children && nodeData.children.length > 0,

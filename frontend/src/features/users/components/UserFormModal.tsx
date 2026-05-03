@@ -1,15 +1,28 @@
-import { useState } from 'react'
-import { useForm, useWatch } from 'react-hook-form'
+import { useState, useEffect } from 'react'
+import { useForm, useWatch, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import { userSchema, type UserFormData, updateUserSchema, type UpdateUserFormData } from '../schemas/userSchema'
-import { cn } from '@/lib/utils'
+import { cn, getHighestRole } from '@/lib/utils'
 import { useCreateUser } from '../hooks/useCreateUser'
-import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { userApi } from '../api/userApi'
+import { roleApi } from '@/features/organization/api/role.api'
 import { toast } from 'sonner'
 import { Loader2, X, Eye, EyeOff, Wand2, Check } from 'lucide-react'
 import { usePermission } from '@/hooks/usePermission'
+import { useAuthStore } from '@/store/authStore'
+import { useOrgHierarchyLevels, useOrgUnitTree } from '@/features/organization/hooks/useOrganizationStructure'
 import type { User } from '@/types/user'
+import { ROLE_MAP } from '@/constants/roles'
+import type { OrgUnitTreeResponse } from '@/features/organization/types/org-unit'
+import { useMemo } from 'react'
 
 interface UserFormModalProps {
   open: boolean
@@ -17,12 +30,11 @@ interface UserFormModalProps {
   editUser?: User | null
 }
 
-const roleOptions = [
-  { value: 'DIRECTOR', label: 'Giám đốc' },
-  { value: 'HEAD', label: 'Trưởng phòng' },
-  { value: 'DEPUTY', label: 'Phó phòng' },
-  { value: 'STAFF', label: 'Nhân viên' },
-] as const
+// Roles are loaded dynamically from the API
+interface RoleOption {
+  id: string
+  name: string
+}
 
 const statusOptions = [
   { value: 'ACTIVE', label: 'Hoạt động' },
@@ -30,11 +42,95 @@ const statusOptions = [
   { value: 'SUSPENDED', label: 'Tạm khóa' },
 ] as const
 
+
 export default function UserFormModal({ open, onClose, editUser }: UserFormModalProps) {
   const isEdit = !!editUser
   const qc = useQueryClient()
   const { hasPermission } = usePermission()
   const canAssignRoles = hasPermission('ROLE:ASSIGN')
+
+  // Load roles dynamically
+  const { data: rolesData } = useQuery({
+    queryKey: ['roles'],
+    queryFn: () => roleApi.listRoles(),
+  })
+
+  const user = useAuthStore(state => state.user)
+  const organizationId = user?.memberships?.[0]?.organizationId
+  const { data: hierarchyLevels = [] } = useOrgHierarchyLevels(organizationId)
+  const { data: orgTree } = useOrgUnitTree(organizationId)
+  const currentUser = useAuthStore(state => state.user)
+
+  // Find the highest rank (lowest level number) of the current user
+  const { currentUserLevel, currentUserRank } = useMemo(() => {
+    if (!currentUser || !rolesData) return { currentUserLevel: 999, currentUserRank: 999 }
+    
+    const userRoleNames = currentUser.memberships?.map(m => m.roleName) || []
+    const userRoles = rolesData.filter(r => userRoleNames.includes(r.name))
+    
+    const level = userRoles.length > 0 ? Math.min(...userRoles.map(r => r.level ?? 999)) : 999
+    const rank = userRoles.length > 0 
+      ? Math.min(...userRoles.filter(r => r.level === level).map(r => r.rank ?? 999)) 
+      : 999
+    
+    return { currentUserLevel: level, currentUserRank: rank }
+  }, [currentUser, rolesData])
+
+  const isAdmin = useMemo(() => {
+    return currentUser?.memberships?.some(m => m.roleName === 'ADMIN' || m.roleName === 'DIRECTOR_SYSTEM') || false
+  }, [currentUser])
+
+  const flattenedUnits = useMemo(() => {
+    const list: { id: string, name: string, level: number }[] = []
+    const flatten = (nodes: OrgUnitTreeResponse[]) => {
+      nodes.forEach(node => {
+        list.push({ id: node.id, name: node.name, level: node.level })
+        if (node.children) flatten(node.children)
+      })
+    }
+    if (orgTree) flatten(orgTree)
+    return list
+  }, [orgTree])
+
+  const dynamicRoles = useMemo(() => {
+    if (!rolesData) return []
+    
+    const filtered = rolesData.filter((r: any) => {
+      // System Protection
+      if (r.name === 'DIRECTOR_SYSTEM' && !currentUser?.memberships?.some(m => m.roleName === 'DIRECTOR_SYSTEM')) {
+        return false
+      }
+
+      if (isAdmin) {
+        // Even Admins shouldn't see themselves or higher roles if hierarchy is strictly enforced
+        // But usually Admins can manage almost everyone except the System Director
+        return r.name !== 'DIRECTOR_SYSTEM' || currentUser?.memberships?.some(m => m.roleName === 'DIRECTOR_SYSTEM')
+      }
+
+      if (hierarchyLevels.length > 0) {
+        const levelCount = hierarchyLevels.length
+        
+        // 1. Strictly lower level check (e.g. Level 2 can't see Level 1)
+        if (r.level !== undefined && r.level < currentUserLevel) {
+          return false
+        }
+
+        // 2. Same level rank check (e.g. Leader Rank 0 can't see Leader Rank 0)
+        if (r.level === currentUserLevel && r.rank !== undefined && r.rank <= currentUserRank) {
+          return false
+        }
+
+        // 3. Hierarchy structural filters
+        if (r.rank === 2) return true
+        if (r.level === 0 && r.rank === 0) return levelCount >= 1
+        if (r.level === 1) return levelCount > 2
+        if (r.level === 2 && (r.rank === 0 || r.rank === 1)) return true
+      }
+      return true
+    })
+
+    return filtered.map((r: any) => ({ id: r.id, name: r.name }))
+  }, [rolesData, hierarchyLevels, currentUserLevel, currentUserRank, isAdmin, currentUser])
 
   const createMutation = useCreateUser()
 
@@ -42,27 +138,61 @@ export default function UserFormModal({ open, onClose, editUser }: UserFormModal
     mutationFn: (data: UpdateUserFormData) => userApi.update(editUser!.id, data),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['users'] })
+      qc.invalidateQueries({ queryKey: ['organization-users'] })
+      qc.invalidateQueries({ queryKey: ['org-unit-members'] })
+      qc.invalidateQueries({ queryKey: ['stats'] })
       toast.success('Cập nhật nhân sự thành công')
       onClose()
     },
-    onError: () => toast.error('Cập nhật thất bại'),
+    onError: (error: any) => {
+      toast.error(error?.response?.data?.message || 'Cập nhật thất bại')
+    },
   })
 
   if (!open) return null
 
   return isEdit ? (
-    <EditUserForm editUser={editUser!} onClose={onClose} onSubmit={(data) => updateMutation.mutate(data)} isPending={updateMutation.isPending} canAssignRoles={canAssignRoles} />
+    <EditUserForm editUser={editUser!} onClose={onClose} onSubmit={(data) => updateMutation.mutate(data)} isPending={updateMutation.isPending} canAssignRoles={canAssignRoles} dynamicRoles={dynamicRoles} flattenedUnits={flattenedUnits} orgTree={orgTree || []} rolesData={rolesData || []} />
   ) : (
-    <CreateUserForm onClose={onClose} onSubmit={(data) => createMutation.mutate(data, { onSuccess: () => onClose() })} isPending={createMutation.isPending} canAssignRoles={canAssignRoles} />
+    <CreateUserForm onClose={onClose} onSubmit={(data) => createMutation.mutate(data, { onSuccess: () => onClose() })} isPending={createMutation.isPending} canAssignRoles={canAssignRoles} dynamicRoles={dynamicRoles} flattenedUnits={flattenedUnits} orgTree={orgTree || []} rolesData={rolesData || []} />
   )
 }
 
-function CreateUserForm({ onClose, onSubmit, isPending, canAssignRoles }: { onClose: () => void; onSubmit: (data: UserFormData) => void; isPending: boolean; canAssignRoles: boolean }) {
+function CreateUserForm({ onClose, onSubmit, isPending, canAssignRoles, dynamicRoles, flattenedUnits, orgTree, rolesData }: { onClose: () => void; onSubmit: (data: UserFormData) => void; isPending: boolean; canAssignRoles: boolean; dynamicRoles: RoleOption[]; flattenedUnits: { id: string, name: string, level: number }[]; orgTree: OrgUnitTreeResponse[]; rolesData: any[] }) {
   const [showPassword, setShowPassword] = useState(false)
   const { register, handleSubmit, control, setValue, formState: { errors } } = useForm<UserFormData>({
     resolver: zodResolver(userSchema),
-    defaultValues: { email: '', fullName: '', password: '', phone: '', role: 'STAFF' },
+    defaultValues: { email: '', fullName: '', password: '', phone: '', role: dynamicRoles?.[dynamicRoles.length - 1]?.name || '', orgUnitId: '' },
   })
+
+  // Watch selected unit to filter roles by allowedRoles
+  const selectedOrgUnitId = useWatch({ control, name: 'orgUnitId' })
+
+  const filteredRoles = useMemo(() => {
+    if (!selectedOrgUnitId || !orgTree) return dynamicRoles
+    
+    // Find the selected node in the tree
+    let selectedNode: OrgUnitTreeResponse | undefined
+    const findNode = (nodes: OrgUnitTreeResponse[]) => {
+      for (const node of nodes) {
+        if (node.id === selectedOrgUnitId) {
+          selectedNode = node
+          return
+        }
+        if (node.children) findNode(node.children)
+      }
+    }
+    findNode(orgTree)
+
+    if (!selectedNode || !selectedNode.allowedRoles || selectedNode.allowedRoles.length === 0) {
+      return dynamicRoles
+    }
+
+    const allowedIds = new Set(selectedNode.allowedRoles.map(r => r.id))
+    return dynamicRoles.filter(r => {
+      return allowedIds.has(r.id) || rolesData?.find(rd => rd.id === r.id)?.rank === 2
+    })
+  }, [selectedOrgUnitId, orgTree, dynamicRoles])
 
   const pwd = useWatch({ control, name: 'password', defaultValue: '' })
 
@@ -198,10 +328,50 @@ function CreateUserForm({ onClose, onSubmit, isPending, canAssignRoles }: { onCl
             <input {...register('phone')} className={inputCls} placeholder="0912 345 678" />
           </div>
           <div>
+            <label className="block text-sm font-medium mb-1.5">Đơn vị <span className="text-red-500">*</span></label>
+            <Controller
+              name="orgUnitId"
+              control={control}
+              render={({ field }) => (
+                <Select onValueChange={field.onChange} value={field.value}>
+                  <SelectTrigger className={inputCls}>
+                    <SelectValue placeholder="Chọn đơn vị" />
+                  </SelectTrigger>
+                  <SelectContent className="max-h-[300px]">
+                    {flattenedUnits.map((unit) => (
+                      <SelectItem key={unit.id} value={unit.id}>
+                        <span className="flex items-center">
+                          {'\u00A0'.repeat(Math.max(0, unit.level * 2))}
+                          {unit.name}
+                        </span>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+            />
+            {errors.orgUnitId && <p className="text-red-500 text-xs mt-1">{errors.orgUnitId.message}</p>}
+          </div>
+          <div>
             <label className="block text-sm font-medium mb-1.5">Vai trò <span className="text-red-500">*</span></label>
-            <select {...register('role')} className={inputCls} disabled={!canAssignRoles}>
-              {roleOptions.map((opt) => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
-            </select>
+            <Controller
+              name="role"
+              control={control}
+              render={({ field }) => (
+                <Select onValueChange={field.onChange} value={field.value} disabled={!canAssignRoles}>
+                  <SelectTrigger className={inputCls}>
+                    <SelectValue placeholder="Chọn vai trò" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {filteredRoles.map((opt) => (
+                      <SelectItem key={opt.id} value={opt.name}>
+                        {ROLE_MAP[opt.name] || opt.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+            />
             {!canAssignRoles && <p className="text-[10px] text-amber-600 mt-1 font-medium">Bạn không có quyền thay đổi vai trò hệ thống</p>}
           </div>
           <div className="flex gap-4 pt-4 border-t border-slate-100 dark:border-slate-800">
@@ -221,18 +391,71 @@ function CreateUserForm({ onClose, onSubmit, isPending, canAssignRoles }: { onCl
   )
 }
 
-function EditUserForm({ editUser, onClose, onSubmit, isPending, canAssignRoles }: { editUser: User; onClose: () => void; onSubmit: (data: UpdateUserFormData) => void; isPending: boolean; canAssignRoles: boolean }) {
-  const { register, handleSubmit, formState: { errors } } = useForm<UpdateUserFormData>({
+function EditUserForm({ editUser, onClose, onSubmit, isPending, canAssignRoles, dynamicRoles, flattenedUnits, orgTree, rolesData }: { editUser: User; onClose: () => void; onSubmit: (data: UpdateUserFormData) => void; isPending: boolean; canAssignRoles: boolean; dynamicRoles: RoleOption[]; flattenedUnits: { id: string, name: string, level: number }[]; orgTree: OrgUnitTreeResponse[]; rolesData: any[] }) {
+  const { register, handleSubmit, control, reset, formState: { errors } } = useForm<UpdateUserFormData>({
     resolver: zodResolver(updateUserSchema),
     defaultValues: { 
       email: editUser.email, 
       fullName: editUser.fullName, 
       employeeCode: editUser.employeeCode ?? '',
       phone: editUser.phone ?? '', 
-      role: (editUser as any).roles?.[0] || 'STAFF', 
-      status: editUser.status 
+      role: getHighestRole(editUser) || dynamicRoles?.[dynamicRoles.length - 1]?.name || '', 
+      status: editUser.status,
+      orgUnitId: editUser.memberships?.[0]?.orgUnitId || ''
     },
   })
+
+  // Ensure form resets when editUser changes
+  useEffect(() => {
+    reset({
+      email: editUser.email,
+      fullName: editUser.fullName,
+      employeeCode: editUser.employeeCode ?? '',
+      phone: editUser.phone ?? '',
+      role: getHighestRole(editUser) || dynamicRoles?.[dynamicRoles.length - 1]?.name || '',
+      status: editUser.status,
+      orgUnitId: editUser.memberships?.[0]?.orgUnitId || ''
+    })
+  }, [editUser, reset, dynamicRoles])
+
+  // Watch selected unit to filter roles by allowedRoles
+  const selectedOrgUnitId = useWatch({ control, name: 'orgUnitId' })
+
+  const filteredRoles = useMemo(() => {
+    let roles = dynamicRoles
+    if (selectedOrgUnitId && orgTree) {
+      // Find the selected node in the tree
+      let selectedNode: OrgUnitTreeResponse | undefined
+      const findNode = (nodes: OrgUnitTreeResponse[]) => {
+        for (const node of nodes) {
+          if (node.id === selectedOrgUnitId) {
+            selectedNode = node
+            return
+          }
+          if (node.children) findNode(node.children)
+        }
+      }
+      findNode(orgTree)
+
+      if (selectedNode && selectedNode.allowedRoles && selectedNode.allowedRoles.length > 0) {
+        const allowedIds = new Set(selectedNode.allowedRoles.map(r => r.id))
+        roles = dynamicRoles.filter(r => {
+          return allowedIds.has(r.id) || rolesData?.find(rd => rd.id === r.id)?.rank === 2
+        })
+      }
+    }
+
+    // IMPORTANT: Always ensure the user's current role is in the list so it's not blank
+    const currentRoleName = getHighestRole(editUser)
+    if (currentRoleName && !roles.find(r => r.name === currentRoleName)) {
+      const actualRole = rolesData?.find(rd => rd.name === currentRoleName)
+      if (actualRole) {
+        roles = [...roles, { id: actualRole.id, name: actualRole.name }]
+      }
+    }
+
+    return roles
+  }, [selectedOrgUnitId, orgTree, dynamicRoles, editUser, rolesData])
 
   const inputCls = "w-full px-3 py-2.5 rounded-lg border border-[var(--color-border)] bg-[var(--color-background)] text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]/50"
 
@@ -264,17 +487,71 @@ function EditUserForm({ editUser, onClose, onSubmit, isPending, canAssignRoles }
             <input {...register('phone')} className={inputCls} />
           </div>
           <div>
+            <label className="block text-sm font-medium mb-1.5">Đơn vị</label>
+            <Controller
+              name="orgUnitId"
+              control={control}
+              render={({ field }) => (
+                <Select onValueChange={field.onChange} value={field.value}>
+                  <SelectTrigger className={inputCls}>
+                    <SelectValue placeholder="Chọn đơn vị" />
+                  </SelectTrigger>
+                  <SelectContent className="max-h-[300px]">
+                    {flattenedUnits.map((unit) => (
+                      <SelectItem key={unit.id} value={unit.id}>
+                        <span className="flex items-center">
+                          {'\u00A0'.repeat(Math.max(0, unit.level * 2))}
+                          {unit.name}
+                        </span>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+            />
+          </div>
+          <div>
             <label className="block text-sm font-medium mb-1.5">Vai trò</label>
-            <select {...register('role')} className={inputCls} disabled={!canAssignRoles}>
-              {roleOptions.map((opt) => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
-            </select>
+            <Controller
+              name="role"
+              control={control}
+              render={({ field }) => (
+                <Select onValueChange={field.onChange} value={field.value} disabled={!canAssignRoles}>
+                  <SelectTrigger className={inputCls}>
+                    <SelectValue placeholder="Chọn vai trò" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {filteredRoles.map((opt) => (
+                      <SelectItem key={opt.id} value={opt.name}>
+                        {ROLE_MAP[opt.name] || opt.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+            />
             {!canAssignRoles && <p className="text-[10px] text-amber-600 mt-1 font-medium">Bạn không có quyền thay đổi vai trò hệ thống</p>}
           </div>
           <div>
             <label className="block text-sm font-medium mb-1.5">Trạng thái</label>
-            <select {...register('status')} className={inputCls}>
-              {statusOptions.map((opt) => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
-            </select>
+            <Controller
+              name="status"
+              control={control}
+              render={({ field }) => (
+                <Select onValueChange={field.onChange} value={field.value}>
+                  <SelectTrigger className={inputCls}>
+                    <SelectValue placeholder="Trạng thái" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {statusOptions.map((opt) => (
+                      <SelectItem key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+            />
           </div>
           <div className="flex gap-4 pt-4 border-t border-slate-100 dark:border-slate-800">
             <button type="button" onClick={onClose} className="flex-1 px-6 py-3.5 rounded-2xl text-sm font-bold text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all">Hủy</button>

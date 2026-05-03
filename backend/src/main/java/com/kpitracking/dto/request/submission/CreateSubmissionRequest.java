@@ -20,4 +20,6 @@ public class CreateSubmissionRequest {
     private java.time.LocalDate periodStart;
 
     private java.time.LocalDate periodEnd;
+
+    private Boolean isDraft;
 }

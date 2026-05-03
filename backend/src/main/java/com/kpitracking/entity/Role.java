@@ -24,6 +24,12 @@ public class Role {
     @Column(name = "name", nullable = false, unique = true)
     private String name;
 
+    @Column(name = "level")
+    private Integer level;
+
+    @Column(name = "rank")
+    private Integer rank; // 0: Manager, 1: Deputy, 2: Staff/Other
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "parent_role_id")
     private Role parentRole;

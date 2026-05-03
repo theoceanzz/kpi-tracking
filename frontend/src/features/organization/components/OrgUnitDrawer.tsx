@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo } from 'react'
 import { useForm, SubmitHandler } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import * as z from 'zod'
@@ -8,9 +8,13 @@ import {
   useUpdateOrgUnit, 
   useProvinces, 
   useDistricts, 
-  useUploadLogo 
+  useUploadLogo,
+  useOrganization
 } from '../hooks/useOrganizationStructure'
 import { useRoles } from '../hooks/useUserRoles'
+import { ROLE_MAP } from '@/constants/roles'
+import { cn } from '@/lib/utils'
+
 
 export type DrawerMode = 'create-root' | 'create-child' | 'edit'
 
@@ -25,19 +29,20 @@ interface OrgUnitDrawerProps {
   orgId: string
   drawerState: DrawerState
   onClose: () => void
-  maxDepth: number
   hierarchyLevels: Record<number, string> // level -> unitTypeName
 }
 
 const schema = z.object({
   name: z.string().min(1, 'Vui lòng nhập tên.'),
+  code: z.string().min(1, 'Vui lòng nhập mã.'),
   unitTypeName: z.string().min(1, 'Vui lòng nhập loại tổ chức.'),
   email: z.string().email('Email không hợp lệ.').optional().or(z.literal('')),
   phone: z.string().optional(),
   address: z.string().optional(),
   provinceId: z.string().optional(),
   districtId: z.string().optional(),
-  roleIds: z.array(z.string()).optional()
+  roleIds: z.array(z.string()).optional(),
+  status: z.string().optional()
 })
 
 type FormData = z.infer<typeof schema>
@@ -51,29 +56,69 @@ export function OrgUnitDrawer({ orgId, drawerState, onClose, hierarchyLevels }: 
   const [selectedProvinceId, setSelectedProvinceId] = useState<string | undefined>()
   const { data: districts = [] } = useDistricts(selectedProvinceId)
   const { data: allRoles = [] } = useRoles()
+  const { data: organization } = useOrganization(orgId)
 
   const [logoFile, setLogoFile] = useState<File | null>(null)
   const [logoPreview, setLogoPreview] = useState<string | null>(null)
 
+  const { minDepth, maxDepth } = useMemo(() => {
+    const levels = Object.keys(hierarchyLevels || {}).map(Number)
+    return {
+      minDepth: levels.length > 0 ? Math.min(...levels) : 1,
+      maxDepth: levels.length > 0 ? Math.max(...levels) : 5
+    }
+  }, [hierarchyLevels])
+
   const calculatedLevel = drawerState.mode === 'create-root' 
-    ? 1 
+    ? minDepth 
     : drawerState.mode === 'create-child' && drawerState.parentNode
-      ? drawerState.parentNode.level + 1
-      : drawerState.currentNode?.level || 1
+      ? Number(drawerState.parentNode.level) + 1
+      : Number(drawerState.currentNode?.level) ?? minDepth
       
   const parentName = drawerState.parentNode?.name || 'Không có (Root)'
+  
+  const totalLevels = Object.keys(hierarchyLevels || {}).length
+  
+  const isRoot = calculatedLevel === minDepth
+  const isBottom = calculatedLevel === maxDepth
+  const isMiddle = !isRoot && !isBottom
+
+  const filteredRoles = allRoles.filter(role => {
+    const roleLevel = role.level
+    if (roleLevel === undefined || roleLevel === null) return false
+    
+    // Trường hợp 1: Công ty có 2 phân cấp (vd: Công ty -> Team)
+    if (totalLevels === 2) {
+      if (isRoot) return roleLevel === 0 || roleLevel === 2
+      if (isBottom) return roleLevel === 2
+      return roleLevel === 2
+    }
+    
+    // Trường hợp 2: Công ty có 3 phân cấp trở lên (vd: Công ty -> Phòng -> Team)
+    if (totalLevels >= 3) {
+      if (isRoot) return roleLevel === 0 || roleLevel === 1 || roleLevel === 2
+      if (isMiddle) return roleLevel === 1 || roleLevel === 2
+      if (isBottom) return roleLevel === 2
+    }
+    
+    // Mặc định
+    if (isRoot) return true
+    return roleLevel === 2
+  })
       
   const { register, handleSubmit, formState: { errors }, reset, setValue, watch } = useForm<FormData>({
     resolver: zodResolver(schema),
     defaultValues: {
       name: '',
+      code: '',
       unitTypeName: '',
       email: '',
       phone: '',
       address: '',
       provinceId: '',
       districtId: '',
-      roleIds: []
+      roleIds: [],
+      status: 'ACTIVE'
     }
   })
 
@@ -88,6 +133,7 @@ export function OrgUnitDrawer({ orgId, drawerState, onClose, hierarchyLevels }: 
     if (drawerState.isOpen) {
       if (drawerState.mode === 'edit' && drawerState.currentNode) {
         setValue('name', drawerState.currentNode.name)
+        setValue('code', drawerState.currentNode.code || '')
         setValue('unitTypeName', drawerState.currentNode.type || hierarchyLevels[calculatedLevel] || '')
         setValue('email', drawerState.currentNode.email || '')
         setValue('phone', drawerState.currentNode.phone || '')
@@ -95,9 +141,11 @@ export function OrgUnitDrawer({ orgId, drawerState, onClose, hierarchyLevels }: 
         setValue('provinceId', drawerState.currentNode.provinceId || '')
         setValue('districtId', drawerState.currentNode.districtId || '')
         setValue('roleIds', drawerState.currentNode.allowedRoles?.map((r: any) => r.id) || [])
+        setValue('status', drawerState.currentNode.status || 'ACTIVE')
         setLogoPreview(drawerState.currentNode.logoUrl || null)
       } else {
         setValue('name', '')
+        setValue('code', drawerState.mode === 'create-root' && organization ? organization.code : '')
         setValue('unitTypeName', hierarchyLevels[calculatedLevel] || '')
         setValue('roleIds', [])
         setLogoPreview(null)
@@ -122,6 +170,7 @@ export function OrgUnitDrawer({ orgId, drawerState, onClose, hierarchyLevels }: 
   const onSubmit: SubmitHandler<FormData> = async (data) => {
     const payload = {
       name: data.name,
+      code: data.code,
       unitTypeName: data.unitTypeName,
       parentId: drawerState.mode === 'create-child' ? drawerState.parentNode?.id : null,
       email: data.email,
@@ -129,7 +178,8 @@ export function OrgUnitDrawer({ orgId, drawerState, onClose, hierarchyLevels }: 
       address: data.address,
       provinceId: data.provinceId || undefined,
       districtId: data.districtId || undefined,
-      roleIds: data.roleIds || []
+      roleIds: data.roleIds || [],
+      status: data.status
     }
 
     let resultUnit: any = null
@@ -231,6 +281,18 @@ export function OrgUnitDrawer({ orgId, drawerState, onClose, hierarchyLevels }: 
             </div>
 
             <div className="space-y-1">
+              <label className="text-sm font-semibold text-gray-700">Mã thành phần <span className="text-red-500">*</span></label>
+              <input 
+                type="text" 
+                {...register('code')}
+                disabled={drawerState.mode === 'create-root'}
+                placeholder="VD: PKT, ACC, HR..."
+                className={`w-full px-3 py-2 border rounded-lg outline-none transition-all ${drawerState.mode === 'create-root' ? 'bg-gray-50 text-gray-500 border-gray-200' : 'border-gray-300 focus:ring-2 focus:ring-blue-500 font-medium'}`}
+              />
+              {errors.code && <p className="text-xs text-red-500 mt-1">{errors.code.message}</p>}
+            </div>
+
+            <div className="space-y-1">
               <label className="text-sm font-semibold text-gray-700">Loại thành phần <span className="text-red-500">*</span></label>
               <input 
                 type="text" 
@@ -241,6 +303,21 @@ export function OrgUnitDrawer({ orgId, drawerState, onClose, hierarchyLevels }: 
               />
               {errors.unitTypeName && <p className="text-xs text-red-500 mt-1">{errors.unitTypeName.message}</p>}
             </div>
+
+            {drawerState.mode === 'edit' && (
+              <div className="space-y-1">
+                <label className="text-sm font-semibold text-gray-700">Trạng thái vận hành</label>
+                <select 
+                  {...register('status')}
+                  className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none border-gray-300 bg-white transition-all text-sm font-bold"
+                >
+                  <option value="ACTIVE">HOẠT ĐỘNG</option>
+                  <option value="TRIAL">DÙNG THỬ (MỚI)</option>
+                  <option value="INACTIVE">TẠM DỪNG / NGƯNG</option>
+                  <option value="SUSPENDED">ĐÌNH CHỈ / KHÓA</option>
+                </select>
+              </div>
+            )}
 
             <div className="pt-4 border-t">
               <h3 className="text-sm font-bold text-gray-900 mb-4 flex items-center">
@@ -314,11 +391,11 @@ export function OrgUnitDrawer({ orgId, drawerState, onClose, hierarchyLevels }: 
 
             <div className="pt-4 border-t">
               <h3 className="text-sm font-bold text-gray-900 mb-4 flex items-center">
-                <Building2 className="w-4 h-4 mr-2 text-gray-400" /> Vai trò được phép (Role Scope)
+                <Building2 className="w-4 h-4 mr-2 text-gray-400" /> Phạm vi vai trò được phép
               </h3>
               <p className="text-xs text-gray-500 mb-4 italic">Giới hạn các vai trò có thể gán cho thành viên trong đơn vị này. Để trống để cho phép tất cả.</p>
               <div className="grid grid-cols-2 gap-3">
-                {allRoles.map(role => (
+                {filteredRoles.map(role => (
                   <label key={role.id} className="flex items-center p-3 rounded-xl border border-gray-100 hover:bg-gray-50 transition-all cursor-pointer group">
                     <input 
                       type="checkbox"
@@ -327,8 +404,18 @@ export function OrgUnitDrawer({ orgId, drawerState, onClose, hierarchyLevels }: 
                       {...register('roleIds')}
                     />
                     <div className="ml-3">
-                      <p className="text-sm font-black text-gray-700 group-hover:text-blue-700 transition-colors uppercase">{role.name}</p>
-                      <p className="text-[10px] text-gray-400 font-bold uppercase">{role.isSystem ? 'System' : 'Custom'}</p>
+                      <p className="text-sm font-black text-gray-700 group-hover:text-blue-700 transition-colors uppercase">{ROLE_MAP[role.name] || role.name}</p>
+                      <div className="flex items-center space-x-2">
+                        <p className="text-[10px] text-gray-400 font-bold uppercase">{role.isSystem ? 'Hệ thống' : 'Tùy chỉnh'}</p>
+                        <span className={cn(
+                          "text-[9px] px-1.5 py-0.5 rounded font-black uppercase",
+                          role.level === 0 ? "bg-red-100 text-red-600" :
+                          role.level === 1 ? "bg-amber-100 text-amber-600" :
+                          "bg-emerald-100 text-emerald-600"
+                        )}>
+                          Level {role.level}
+                        </span>
+                      </div>
                     </div>
                   </label>
                 ))}

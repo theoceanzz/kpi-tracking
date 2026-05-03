@@ -102,6 +102,17 @@ public class GlobalExceptionHandler {
                 .body(ApiResponse.error("Kích thước tập tin vượt quá giới hạn cho phép"));
     }
 
+    @ExceptionHandler(org.springframework.dao.DataIntegrityViolationException.class)
+    public ResponseEntity<ApiResponse<Void>> handleDataIntegrityViolation(org.springframework.dao.DataIntegrityViolationException ex) {
+        log.warn("Data integrity violation: {}", ex.getMessage());
+        String message = "Dữ liệu đã tồn tại hoặc vi phạm ràng buộc hệ thống";
+        if (ex.getMessage() != null && ex.getMessage().contains("Duplicate entry")) {
+            message = "Dữ liệu này đã tồn tại trong hệ thống";
+        }
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(ApiResponse.error(message));
+    }
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ApiResponse<Void>> handleGeneral(Exception ex) {
         log.error("Unexpected error: ", ex);

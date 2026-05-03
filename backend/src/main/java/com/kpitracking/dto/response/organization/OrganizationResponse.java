@@ -14,6 +14,12 @@ public class OrganizationResponse {
     private String code;
     private String status;
     private List<HierarchyLevelResponse> hierarchyLevels;
+    private Double evaluationMaxScore;
+    private Double excellentThreshold;
+    private Double goodThreshold;
+    private Double fairThreshold;
+    private Double averageThreshold;
+    private Integer kpiReminderPercentage;
     private Instant createdAt;
     private Instant updatedAt;
 }

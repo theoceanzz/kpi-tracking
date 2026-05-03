@@ -10,6 +10,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -24,6 +25,7 @@ public class UserRoleController {
     private final UserRoleService userRoleService;
 
     @PostMapping("/assign")
+    @PreAuthorize("hasAuthority('ROLE:ASSIGN')")
     @Operation(summary = "Assign role to user at org unit")
     public ResponseEntity<ApiResponse<UserRoleOrgUnitResponse>> assignRole(
             @Valid @RequestBody AssignRoleRequest request) {
@@ -32,7 +34,18 @@ public class UserRoleController {
                 .body(ApiResponse.success("Role assigned successfully", response));
     }
 
+    @PostMapping("/assign/bulk")
+    @PreAuthorize("hasAuthority('ROLE:ASSIGN')")
+    @Operation(summary = "Assign role to multiple users at org unit")
+    public ResponseEntity<ApiResponse<List<UserRoleOrgUnitResponse>>> bulkAssignRole(
+            @Valid @RequestBody com.kpitracking.dto.request.userrole.BulkAssignRoleRequest request) {
+        List<UserRoleOrgUnitResponse> response = userRoleService.bulkAssignRole(request);
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(ApiResponse.success("Roles assigned successfully to " + response.size() + " users", response));
+    }
+
     @DeleteMapping("/revoke")
+    @PreAuthorize("hasAuthority('ROLE:ASSIGN')")
     @Operation(summary = "Revoke role from user at org unit")
     public ResponseEntity<ApiResponse<Void>> revokeRole(
             @RequestParam UUID userId,
@@ -43,6 +56,7 @@ public class UserRoleController {
     }
 
     @GetMapping("/user/{userId}")
+    @PreAuthorize("hasAuthority('ROLE:VIEW')")
     @Operation(summary = "Get user's roles across org units")
     public ResponseEntity<ApiResponse<List<UserRoleOrgUnitResponse>>> getUserRoles(@PathVariable UUID userId) {
         List<UserRoleOrgUnitResponse> response = userRoleService.getUserRoles(userId);
@@ -50,6 +64,7 @@ public class UserRoleController {
     }
 
     @GetMapping("/org-unit/{orgUnitId}")
+    @PreAuthorize("hasAuthority('ROLE:VIEW')")
     @Operation(summary = "Get users in an org unit with their roles")
     public ResponseEntity<ApiResponse<List<UserRoleOrgUnitResponse>>> getUsersByOrgUnit(
             @PathVariable UUID orgUnitId) {

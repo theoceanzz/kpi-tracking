@@ -1,10 +1,15 @@
 import { useState, useMemo } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useKpiCriteria } from '@/features/kpi/hooks/useKpiCriteria'
+import { useSubmissions } from '@/features/submissions/hooks/useSubmissions'
 import { evaluationApi } from '../api/evaluationApi'
 import { useEvaluations } from '../hooks/useEvaluations'
 import { usePermission } from '@/hooks/usePermission'
 import { toast } from 'sonner'
-import { formatDateTime, getInitials } from '@/lib/utils'
+import { useAuthStore } from '@/store/authStore'
+import { useOrganization } from '@/features/orgunits/hooks/useOrganization'
+import { getScoringFunctions } from '@/lib/scoring'
+import { formatDateTime, getInitials, cn } from '@/lib/utils'
 import type { Evaluation, CreateEvaluationRequest } from '@/types/evaluation'
 import {
   X, Star, User, MessageSquare, TrendingUp,
@@ -17,23 +22,12 @@ interface EvaluationDetailModalProps {
   evaluation: Evaluation | null
 }
 
-function getScoreColor(score: number | null) {
-  if (score == null) return 'text-slate-400'
-  if (score >= 90) return 'text-emerald-600'
-  if (score >= 70) return 'text-blue-600'
-  if (score >= 50) return 'text-amber-600'
-  return 'text-red-600'
-}
 
-function getScoreLabel(score: number | null) {
-  if (score == null) return 'Chưa chấm'
-  if (score >= 90) return 'Xuất sắc'
-  if (score >= 70) return 'Tốt'
-  if (score >= 50) return 'Đạt'
-  return 'Cần cải thiện'
-}
 
 export default function EvaluationDetailModal({ open, onClose, evaluation }: EvaluationDetailModalProps) {
+  const { user } = useAuthStore()
+  const { data: org } = useOrganization(user?.memberships?.[0]?.organizationId)
+  const { getScoreColor, getScoreLabel, maxScore } = getScoringFunctions(org)
   const { hasPermission } = usePermission()
   const qc = useQueryClient()
 
@@ -43,17 +37,40 @@ export default function EvaluationDetailModal({ open, onClose, evaluation }: Eva
   )
 
   const layers = useMemo(() => {
-    if (!relatedData?.content || !evaluation) return { selfEval: null, headEval: null, directorEval: null }
+    if (!relatedData?.content || !evaluation) return { selfEval: null, teamEval: null, headEval: null, directorEval: null }
     const all = relatedData.content.filter((e: any) => e.kpiPeriodId === evaluation.kpiPeriodId && e.userId === evaluation.userId)
     
-    const selfEval = all.find(e => e.evaluatorId === e.userId) ?? null
-    const headEval = all.find(e => e.evaluatorId !== e.userId && e.evaluatorId !== null && e.evaluatorName !== e.userName) ?? null
-    // Director eval would be a third evaluation
-    const remaining = all.filter(e => e.id !== selfEval?.id && e.id !== headEval?.id)
-    const directorEval: Evaluation | null = remaining[0] ?? null
+    const selfEval = all.find(e => e.evaluatorRole === 'SELF') ?? null
+    const teamEval = all.find(e => e.evaluatorRole === 'TEAM_LEADER') ?? null
+    const headEval = all.find(e => e.evaluatorRole === 'DEPT_HEAD' || (e.evaluatorRole === 'MANAGER' && evaluation.orgUnitLevel && evaluation.orgUnitLevel <= 2)) ?? null
+    const directorEval = all.find(e => e.evaluatorRole === 'DIRECTOR') ?? null
 
-    return { selfEval, headEval, directorEval }
+    return { selfEval, teamEval, headEval, directorEval }
   }, [relatedData, evaluation])
+
+  // System Score Calculation
+  const { data: myKpis, isLoading: loadingKpis } = useKpiCriteria({ 
+    page: 0, size: 50, 
+    kpiPeriodId: evaluation?.kpiPeriodId,
+    organizationId: undefined, // ensure we get the right set
+  })
+  const { data: mySubmissions, isLoading: loadingSubs } = useSubmissions({ 
+    page: 0, size: 500,
+    submittedById: evaluation?.userId 
+  })
+
+  const calculatedScore = useMemo(() => {
+    if (loadingKpis || loadingSubs || !evaluation || !myKpis?.content || !mySubmissions?.content) return null
+    
+    const periodKpiIds = new Set(myKpis.content.map(k => k.id))
+    const relevantSubs = mySubmissions.content.filter(s => 
+      periodKpiIds.has(s.kpiCriteriaId) && 
+      (s.status === 'APPROVED' || s.status === 'PENDING')
+    )
+    
+    const total = relevantSubs.reduce((sum, s) => sum + (s.autoScore || 0), 0)
+    return Math.min(maxScore, Math.round(total))
+  }, [evaluation, myKpis, mySubmissions, loadingKpis, loadingSubs, maxScore])
 
   // Feedback form state
   const [feedbackScore, setFeedbackScore] = useState(0)
@@ -98,7 +115,7 @@ export default function EvaluationDetailModal({ open, onClose, evaluation }: Eva
 
   if (!open || !evaluation) return null
 
-  const canGiveFeedback = hasPermission('SUBMISSION:REVIEW') && layers.selfEval && !layers.headEval
+  const canGiveFeedback = hasPermission('SUBMISSION:REVIEW') && layers.selfEval && !layers.headEval && !hasPermission('KPI:APPROVE')
   const canDirectorReview = hasPermission('KPI:APPROVE') && !layers.directorEval && (layers.selfEval || layers.headEval)
 
   return (
@@ -147,23 +164,42 @@ export default function EvaluationDetailModal({ open, onClose, evaluation }: Eva
             <EvalLayerCard
               title="Nhân viên tự đánh giá"
               icon={User}
-              iconBg="bg-blue-50 dark:bg-blue-900/20"
-              iconColor="text-blue-600 dark:text-blue-400"
+              iconBg="bg-slate-50 dark:bg-slate-800/50"
+              iconColor="text-slate-600 dark:text-slate-400"
               evaluation={layers.selfEval}
-              lineActive={!!layers.headEval}
+              calculatedScore={calculatedScore}
+              lineActive={!!layers.teamEval || !!layers.headEval || !!layers.directorEval}
+              getScoreColor={getScoreColor}
+              getScoreLabel={getScoreLabel}
             />
 
-            {/* Layer 2: Head Evaluation */}
+            {/* Layer 2: Team Leader Evaluation */}
+            {(evaluation.orgUnitLevel != null && evaluation.orgUnitLevel >= 3) && (
+              <EvalLayerCard
+                title="Trưởng nhóm đánh giá"
+                icon={Award}
+                iconBg="bg-blue-100 dark:bg-blue-900/30"
+                iconColor="text-blue-600 dark:text-blue-400"
+                evaluation={layers.teamEval}
+                lineActive={!!layers.headEval || !!layers.directorEval}
+                getScoreColor={getScoreColor}
+                getScoreLabel={getScoreLabel}
+              />
+            )}
+
+            {/* Layer 3: Department Head Evaluation */}
             <EvalLayerCard
-              title="Trưởng phòng đánh giá"
+              title={evaluation.orgUnitLevel && evaluation.orgUnitLevel >= 3 ? "Trưởng phòng đánh giá" : "Trưởng nhóm đánh giá"}
               icon={Award}
               iconBg="bg-purple-50 dark:bg-purple-900/20"
               iconColor="text-purple-600 dark:text-purple-400"
               evaluation={layers.headEval}
               lineActive={!!layers.directorEval}
+              getScoreColor={getScoreColor}
+              getScoreLabel={getScoreLabel}
             />
 
-            {/* Layer 3: Director Final */}
+            {/* Layer 4: Director Final */}
             <EvalLayerCard
               title="Giám đốc Quyết định"
               icon={Star}
@@ -171,6 +207,8 @@ export default function EvaluationDetailModal({ open, onClose, evaluation }: Eva
               iconColor="text-amber-600 dark:text-amber-400"
               evaluation={layers.directorEval}
               isLast
+              getScoreColor={getScoreColor}
+              getScoreLabel={getScoreLabel}
             />
           </div>
 
@@ -195,6 +233,9 @@ export default function EvaluationDetailModal({ open, onClose, evaluation }: Eva
               onCancel={() => setShowFeedbackForm(false)}
               isPending={feedbackMutation.isPending}
               placeholder="Nhận xét hiệu suất nhân viên, điểm mạnh và hướng phát triển..."
+              getScoreColor={getScoreColor}
+              getScoreLabel={getScoreLabel}
+              maxScore={maxScore}
             />
           )}
 
@@ -247,6 +288,9 @@ export default function EvaluationDetailModal({ open, onClose, evaluation }: Eva
               isPending={feedbackMutation.isPending}
               placeholder="Nhận xét cuối cùng của Giám đốc..."
               readonlyScore={directorChoice !== 'own'}
+              getScoreColor={getScoreColor}
+              getScoreLabel={getScoreLabel}
+              maxScore={maxScore}
             />
           )}
 
@@ -258,9 +302,12 @@ export default function EvaluationDetailModal({ open, onClose, evaluation }: Eva
 
 // --- Sub Components ---
 
-function EvalLayerCard({ title, icon: Icon, iconBg, iconColor, evaluation, lineActive, isLast }: {
+function EvalLayerCard({ title, icon: Icon, iconBg, iconColor, evaluation, lineActive, isLast, calculatedScore, getScoreColor, getScoreLabel }: {
   title: string; icon: any; iconBg: string; iconColor: string; 
-  evaluation: Evaluation | null; lineActive?: boolean; isLast?: boolean
+  evaluation: Evaluation | null; lineActive?: boolean; isLast?: boolean;
+  calculatedScore?: number | null;
+  getScoreColor: (s: number | null) => string;
+  getScoreLabel: (s: number | null) => string;
 }) {
   return (
     <div className="relative flex gap-4">
@@ -290,6 +337,17 @@ function EvalLayerCard({ title, icon: Icon, iconBg, iconColor, evaluation, lineA
                 <TrendingUp size={16} className={getScoreColor(evaluation.score)} />
                 <span className={`text-2xl font-black ${getScoreColor(evaluation.score)}`}>{evaluation.score ?? '—'}</span>
                 <span className={`text-xs font-bold uppercase tracking-widest ${getScoreColor(evaluation.score)}`}>{getScoreLabel(evaluation.score)}</span>
+                
+                {evaluation.evaluatorRole === 'SELF' && calculatedScore != null && evaluation.score !== calculatedScore && (
+                   <div className={cn(
+                     "ml-2 inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-widest",
+                     evaluation.score! > calculatedScore 
+                      ? "bg-emerald-500/10 text-emerald-600" 
+                      : "bg-amber-500/10 text-amber-600"
+                   )}>
+                     {evaluation.score! > calculatedScore ? '+' : ''}{evaluation.score! - calculatedScore} so với điểm hệ thống
+                   </div>
+                )}
               </div>
               {evaluation.evaluatorName && (
                 <span className="text-xs font-medium text-slate-400">bởi {evaluation.evaluatorName}</span>
@@ -312,11 +370,14 @@ function EvalLayerCard({ title, icon: Icon, iconBg, iconColor, evaluation, lineA
   )
 }
 
-function FeedbackForm({ title, score, comment, onScoreChange, onCommentChange, onSubmit, onCancel, isPending, placeholder, readonlyScore }: {
+function FeedbackForm({ title, score, comment, onScoreChange, onCommentChange, onSubmit, onCancel, isPending, placeholder, readonlyScore, getScoreColor, getScoreLabel, maxScore }: {
   title: string; score: number; comment: string;
   onScoreChange?: (v: number) => void; onCommentChange: (v: string) => void;
   onSubmit: () => void; onCancel: () => void; isPending: boolean;
-  placeholder: string; readonlyScore?: boolean
+  placeholder: string; readonlyScore?: boolean;
+  getScoreColor: (s: number | null) => string;
+  getScoreLabel: (s: number | null) => string;
+  maxScore: number;
 }) {
   return (
     <div className="p-5 rounded-2xl bg-gradient-to-r from-indigo-50/50 to-purple-50/50 dark:from-indigo-900/10 dark:to-purple-900/10 border border-indigo-200/50 dark:border-indigo-900/30 space-y-4">
@@ -327,7 +388,7 @@ function FeedbackForm({ title, score, comment, onScoreChange, onCommentChange, o
         <p className={`text-xs font-bold uppercase tracking-widest ${getScoreColor(score)}`}>{getScoreLabel(score)}</p>
         {!readonlyScore && onScoreChange && (
           <input
-            type="range" min={0} max={100} step={1}
+            type="range" min={0} max={maxScore} step={1}
             value={score}
             onChange={(e) => onScoreChange(Number(e.target.value))}
             className="w-full accent-indigo-500 cursor-pointer"

@@ -12,6 +12,8 @@ const statusConfig: Record<string, { label: string; color: string; bgColor: stri
   PENDING_APPROVAL: { label: 'Chờ duyệt', color: 'text-amber-600 dark:text-amber-400', bgColor: 'bg-amber-100 border-amber-200 dark:bg-amber-900/30 dark:border-amber-900/40', icon: Clock },
   APPROVED: { label: 'Đang thực hiện', color: 'text-emerald-600 dark:text-emerald-400', bgColor: 'bg-emerald-100 border-emerald-200 dark:bg-emerald-900/30 dark:border-emerald-900/40', icon: CheckCircle2 },
   REJECTED: { label: 'Từ chối', color: 'text-red-600 dark:text-red-400', bgColor: 'bg-red-100 border-red-200 dark:bg-red-900/30 dark:border-red-900/40', icon: X },
+  EDIT: { label: 'Đang sửa', color: 'text-purple-600 dark:text-purple-400', bgColor: 'bg-purple-100 border-purple-200 dark:bg-purple-900/30 dark:border-purple-900/40', icon: Clock },
+  EDITED: { label: 'Đã sửa', color: 'text-blue-600 dark:text-blue-400', bgColor: 'bg-blue-100 border-blue-200 dark:bg-blue-900/30 dark:border-blue-900/40', icon: CheckCircle2 },
 }
 
 interface KpiDetailModalProps {
@@ -84,22 +86,23 @@ export default function KpiDetailModal({ open, onClose, kpi }: KpiDetailModalPro
               color="text-indigo-600"
             />
             <MetricBox 
+              icon={BarChart3} 
+              label="Tối thiểu" 
+              value={kpi.minimumValue != null ? formatNumber(kpi.minimumValue) : '0'}
+              unit={kpi.unit ?? ''}
+              color="text-rose-600"
+            />
+            <MetricBox 
               icon={Award} 
               label="Trọng số (%)" 
               value={`${kpi.weight ?? '—'}%`}
               color="text-blue-600"
             />
             <MetricBox 
-              icon={BarChart3} 
+              icon={Calendar} 
               label="Tần suất báo cáo" 
               value={frequencyMap[kpi.frequency] ?? kpi.frequency}
               color="text-purple-600"
-            />
-            <MetricBox 
-              icon={Clock} 
-              label="Thời hạn kỳ này" 
-              value={kpi.kpiPeriod?.endDate ? new Date(kpi.kpiPeriod.endDate).toLocaleDateString('vi-VN') : '—'}
-              color="text-amber-600"
             />
           </div>
 

@@ -19,6 +19,13 @@ export interface AssignRoleRequest {
   expiresAt?: string
 }
 
+export interface BulkAssignRoleRequest {
+  userIds: string[]
+  roleId: string
+  orgUnitId: string
+  expiresAt?: string
+}
+
 export const userRoleApi = {
   getByOrgUnit: async (orgUnitId: string) => {
     const response = await axiosInstance.get<ApiResponse<UserRoleOrgUnitResponse[]>>(`/user-roles/org-unit/${orgUnitId}`)
@@ -32,6 +39,11 @@ export const userRoleApi = {
 
   assignRole: async (request: AssignRoleRequest) => {
     const response = await axiosInstance.post<ApiResponse<UserRoleOrgUnitResponse>>('/user-roles/assign', request)
+    return response.data.data
+  },
+
+  bulkAssignRole: async (request: BulkAssignRoleRequest) => {
+    const response = await axiosInstance.post<ApiResponse<UserRoleOrgUnitResponse[]>>('/user-roles/assign/bulk', request)
     return response.data.data
   },
 

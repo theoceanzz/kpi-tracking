@@ -98,13 +98,32 @@ public class OrganizationService {
             syncHierarchyLevels(organization, request.getHierarchyLevels());
         }
 
+        if (request.getEvaluationMaxScore() != null) {
+            organization.setEvaluationMaxScore(request.getEvaluationMaxScore());
+        }
+        if (request.getExcellentThreshold() != null) {
+            organization.setExcellentThreshold(request.getExcellentThreshold());
+        }
+        if (request.getGoodThreshold() != null) {
+            organization.setGoodThreshold(request.getGoodThreshold());
+        }
+        if (request.getFairThreshold() != null) {
+            organization.setFairThreshold(request.getFairThreshold());
+        }
+        if (request.getAverageThreshold() != null) {
+            organization.setAverageThreshold(request.getAverageThreshold());
+        }
+        if (request.getKpiReminderPercentage() != null) {
+            organization.setKpiReminderPercentage(request.getKpiReminderPercentage());
+        }
+
         organization = organizationRepository.save(organization);
         return organizationMapper.toResponse(organization);
     }
 
     private void syncHierarchyLevels(Organization organization, List<HierarchyLevelDTO> newLevels) {
-        if (newLevels.size() < 3) {
-            throw new BusinessException("Cơ cấu tổ chức phải có ít nhất 3 cấp.");
+        if (newLevels.size() < 2) {
+            throw new BusinessException("Cơ cấu tổ chức phải có ít nhất 2 cấp.");
         }
 
         List<OrgHierarchyLevel> currentLevels = orgHierarchyLevelRepository.findByOrganizationIdOrderByLevelOrderAsc(organization.getId());

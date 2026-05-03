@@ -18,6 +18,9 @@ export interface Submission {
   periodStart: string | null
   periodEnd: string | null
   autoScore: number | null
+  unit: string | null
+  weight: number | null
+  kpiPeriod: { id: string; name: string } | null
   attachments: Attachment[]
   isSubmittedByManager: boolean
   createdAt: string
@@ -35,13 +38,21 @@ export interface Attachment {
   createdAt: string
 }
 
-// Matches BE: CreateSubmissionRequest
 export interface CreateSubmissionRequest {
   kpiCriteriaId: string
   actualValue: number
   note?: string
   periodStart?: string
   periodEnd?: string
+  isDraft?: boolean
+}
+
+export interface UpdateSubmissionRequest {
+  actualValue?: number
+  note?: string
+  periodStart?: string
+  periodEnd?: string
+  isDraft?: boolean
 }
 
 // Matches BE: ReviewSubmissionRequest

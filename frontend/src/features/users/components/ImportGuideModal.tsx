@@ -1,4 +1,5 @@
-import { X, Download, FileSpreadsheet, AlertTriangle, CheckCircle2, Info, FileText } from 'lucide-react'
+import { X, Download, FileSpreadsheet, AlertTriangle, CheckCircle2, Info, FileText, FileBarChart } from 'lucide-react'
+import ExcelJS from 'exceljs'
 
 interface ImportGuideModalProps {
   open: boolean
@@ -6,12 +7,15 @@ interface ImportGuideModalProps {
   onSelectFile: () => void
 }
 
-const SAMPLE_CSV_CONTENT = `Email,FullName,EmployeeCode,Phone,Role,Password
-nguyenvana@company.com,Nguyễn Văn A,NV001,0901000001,HEAD,A123456Cc
-tranthib@company.com,Trần Thị B,NV002,0901000002,DEPUTY,123456bB
-levanc@company.com,Lê Văn C,NV003,0901000003,STAFF,123456aA`
+const SAMPLE_CSV_CONTENT = `Email,FullName,EmployeeCode,Phone,Role,Password,OrgUnitCode
+hai@keyperson.com,Hải,KP001,0972867825,STAFF,Haikp123@,
+nghia@keyperson.com,Nghĩa,KP002,0325614226,STAFF,Nghiakp123@,
+xuan@keyperson.com,Xuân,KP003,0354744854,STAFF,Xuankp123@,HN01
+khoa@keyperson.com,Khoa,KP004,0342719583,STAFF,Khoakp123@,
+duc@keyperson.com,Đức,KP005,0972458591,STAFF,Duckp123@,HCM01
+phuonganh@keyperson.com,Phương Anh,KP006,0968078673,STAFF,Phuonganhkp123@,`
 
-function downloadTemplate(type: 'csv' | 'xlsx') {
+async function downloadTemplate(type: 'csv' | 'xlsx') {
   if (type === 'csv') {
     const blob = new Blob(['\uFEFF' + SAMPLE_CSV_CONTENT], { type: 'text/csv;charset=utf-8;' })
     const url = URL.createObjectURL(blob)
@@ -20,9 +24,71 @@ function downloadTemplate(type: 'csv' | 'xlsx') {
     a.download = 'mau_import_nhan_su.csv'
     a.click()
     URL.revokeObjectURL(url)
+    return
   }
-  // For xlsx we also generate a CSV since building real xlsx in browser needs a lib
-  // The backend accepts both formats so CSV template is sufficient
+
+  // Professional XLSX using ExcelJS
+  const workbook = new ExcelJS.Workbook()
+  const worksheet = workbook.addWorksheet('Danh sách nhân sự')
+
+  // Define columns
+  worksheet.columns = [
+    { header: 'Email', key: 'Email', width: 30 },
+    { header: 'FullName', key: 'FullName', width: 25 },
+    { header: 'EmployeeCode', key: 'EmployeeCode', width: 15 },
+    { header: 'Phone', key: 'Phone', width: 15 },
+    { header: 'Role', key: 'Role', width: 15 },
+    { header: 'Password', key: 'Password', width: 20 },
+    { header: 'OrgUnitCode', key: 'OrgUnitCode', width: 20 },
+  ]
+
+  // Add data rows
+  const data = [
+    ['hai@keyperson.com', 'Hải', 'KP001', '0972867825', 'STAFF', 'Haikp123@', ''],
+    ['nghia@keyperson.com', 'Nghĩa', 'KP002', '0325614226', 'STAFF', 'Nghiakp123@', ''],
+    ['xuan@keyperson.com', 'Xuân', 'KP003', '0354744854', 'STAFF', 'Xuankp123@', 'HN01'],
+    ['khoa@keyperson.com', 'Khoa', 'KP004', '0342719583', 'STAFF', 'Khoakp123@', ''],
+    ['duc@keyperson.com', 'Đức', 'KP005', '0972458591', 'STAFF', 'Duckp123@', 'HCM01'],
+    ['phuonganh@keyperson.com', 'Phương Anh', 'KP006', '0968078673', 'STAFF', 'Phuonganhkp123@', ''],
+  ]
+  worksheet.addRows(data)
+
+  // Style the header row
+  const headerRow = worksheet.getRow(1)
+  headerRow.font = { bold: true, color: { argb: 'FFFFFFFF' }, size: 12 }
+  headerRow.fill = {
+    type: 'pattern',
+    pattern: 'solid',
+    fgColor: { argb: 'FF1E293B' } // Slate 800
+  }
+  headerRow.alignment = { vertical: 'middle', horizontal: 'center' }
+  headerRow.height = 30
+
+  // Style data rows
+  worksheet.eachRow((row, rowNumber) => {
+    row.eachCell((cell) => {
+      cell.border = {
+        top: { style: 'thin', color: { argb: 'FFCBD5E1' } },
+        left: { style: 'thin', color: { argb: 'FFCBD5E1' } },
+        bottom: { style: 'thin', color: { argb: 'FFCBD5E1' } },
+        right: { style: 'thin', color: { argb: 'FFCBD5E1' } }
+      }
+      if (rowNumber > 1) {
+        cell.alignment = { vertical: 'middle' }
+        cell.font = { size: 11 }
+      }
+    })
+  })
+
+  // Generate and download
+  const buffer = await workbook.xlsx.writeBuffer()
+  const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = 'mau_import_nhan_su_pro.xlsx'
+  a.click()
+  URL.revokeObjectURL(url)
 }
 
 const STEPS = [
@@ -36,8 +102,9 @@ const COLUMNS = [
   { name: 'FullName', required: true, desc: 'Họ và tên đầy đủ', example: 'Nguyễn Văn A' },
   { name: 'EmployeeCode', required: false, desc: 'Mã số nhân viên', example: 'NV001' },
   { name: 'Phone', required: false, desc: 'Số điện thoại (có thể để trống)', example: '0901000001' },
-  { name: 'Role', required: false, desc: 'Vai trò: HEAD, DEPUTY, STAFF (mặc định STAFF)', example: 'STAFF' },
+  { name: 'Role', required: false, desc: 'Vai trò: DIRECTOR, HEAD, DEPUTY, LEADER, STAFF (mặc định STAFF)', example: 'STAFF' },
   { name: 'Password', required: false, desc: 'Mật khẩu đăng nhập (nếu trống sẽ tự động tạo)', example: '123456aA' },
+  { name: 'OrgUnitCode', required: false, desc: 'Mã đơn vị để gán nhân sự (vd: HN01). Nếu trống sẽ chỉ gán vào công ty.', example: 'HN01' },
 ]
 
 export default function ImportGuideModal({ open, onClose, onSelectFile }: ImportGuideModalProps) {
@@ -86,20 +153,44 @@ export default function ImportGuideModal({ open, onClose, onSelectFile }: Import
           </div>
 
           {/* Download Template */}
-          <div className="p-5 rounded-2xl bg-gradient-to-r from-emerald-50 to-teal-50 dark:from-emerald-900/20 dark:to-teal-900/10 border border-emerald-200/50 dark:border-emerald-900/30 flex flex-col sm:flex-row items-center justify-between gap-4">
-            <div className="flex items-center gap-3">
-              <Download size={20} className="text-emerald-600 shrink-0" />
-              <div>
-                <p className="font-bold text-sm text-slate-900 dark:text-emerald-100">Tải file mẫu CSV</p>
-                <p className="text-xs text-slate-500 dark:text-emerald-300/60">Đã bao gồm header chuẩn và 3 dòng dữ liệu ví dụ</p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {/* XLSX Pro */}
+            <div className="p-5 rounded-2xl bg-gradient-to-br from-indigo-50 to-blue-50 dark:from-indigo-900/20 dark:to-blue-900/10 border border-indigo-200/50 dark:border-indigo-900/30 space-y-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-indigo-600 flex items-center justify-center text-white">
+                  <FileBarChart size={20} />
+                </div>
+                <div>
+                  <p className="font-bold text-sm text-slate-900 dark:text-indigo-100">Template XLSX Pro</p>
+                  <p className="text-xs text-slate-500 dark:text-indigo-300/60">Có màu sắc, định dạng chuẩn</p>
+                </div>
               </div>
+              <button
+                onClick={() => downloadTemplate('xlsx')}
+                className="w-full flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-indigo-600 text-white font-bold text-sm hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-500/20 active:scale-95"
+              >
+                <Download size={16} /> Tải mẫu .XLSX
+              </button>
             </div>
-            <button
-              onClick={() => downloadTemplate('csv')}
-              className="shrink-0 flex items-center gap-2 px-5 py-2.5 rounded-xl bg-emerald-600 text-white font-bold text-sm hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-500/20 active:scale-95"
-            >
-              <FileText size={16} /> Tải mẫu .CSV
-            </button>
+
+            {/* CSV Simple */}
+            <div className="p-5 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-800 space-y-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-slate-200 dark:bg-slate-700 flex items-center justify-center text-slate-600 dark:text-slate-400">
+                  <FileText size={20} />
+                </div>
+                <div>
+                  <p className="font-bold text-sm text-slate-900 dark:text-white">Mẫu CSV cơ bản</p>
+                  <p className="text-xs text-slate-500">Tương thích mọi thiết bị</p>
+                </div>
+              </div>
+              <button
+                onClick={() => downloadTemplate('csv')}
+                className="w-full flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 font-bold text-sm hover:bg-slate-100 dark:hover:bg-slate-800 transition-all active:scale-95"
+              >
+                <Download size={16} /> Tải mẫu .CSV
+              </button>
+            </div>
           </div>
 
           {/* Column Specification */}

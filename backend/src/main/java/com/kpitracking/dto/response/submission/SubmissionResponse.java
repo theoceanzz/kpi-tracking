@@ -26,7 +26,16 @@ public class SubmissionResponse {
     private Instant periodStart;
     private Instant periodEnd;
     private Double autoScore;
+    private String unit;
+    private Double weight;
+    private KpiPeriodInfo kpiPeriod;
     private List<AttachmentResponse> attachments;
+
+    @Getter @Setter @Builder @NoArgsConstructor @AllArgsConstructor
+    public static class KpiPeriodInfo {
+        private UUID id;
+        private String name;
+    }
     private boolean isSubmittedByManager;
     private Instant createdAt;
     private Instant updatedAt;

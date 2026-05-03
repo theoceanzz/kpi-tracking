@@ -18,12 +18,12 @@ public class OpenApiConfig {
 
         return new OpenAPI()
                 .info(new Info()
-                        .title("KPI Tracking API")
+                        .title("KeyGo API")
                         .version("1.0.0")
-                        .description("KPI Tracking SaaS Multi-Tenant System API Documentation")
+                        .description("KeyGo SaaS Multi-Tenant System API Documentation")
                         .contact(new Contact()
-                                .name("KPI Tracking Team")
-                                .email("support@kpitracking.com")))
+                                .name("KeyGo Team")
+                                .email("support@keygo.com")))
                 .addSecurityItem(new SecurityRequirement().addList(securitySchemeName))
                 .components(new Components()
                         .addSecuritySchemes(securitySchemeName,

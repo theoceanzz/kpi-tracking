@@ -12,7 +12,9 @@ import { Loader2, Mail, Lock, Building2, User, Phone, Eye, EyeOff, Wand2, Check,
 export default function RegisterPage() {
   const [showPassword, setShowPassword] = useState(false)
   const [isSuccess, setIsSuccess] = useState(false)
+  const [isRedirecting, setIsRedirecting] = useState(false) // Thêm state redirecting
   const [registeredEmail, setRegisteredEmail] = useState('')
+  const [registeredPassword, setRegisteredPassword] = useState('') // Thêm state lưu mật khẩu để auto-fill
   const [tokenInput, setTokenInput] = useState('')
   const [setupMode, setSetupMode] = useState<'LATER' | 'NOW'>('LATER')
   const navigate = useNavigate()
@@ -76,8 +78,11 @@ export default function RegisterPage() {
   const verifyMutation = useMutation({
     mutationFn: (token: string) => authApi.verifyEmail(token),
     onSuccess: () => {
-      toast.success('Xác thực email thành công! Đang chuyển hướng...')
-      setTimeout(() => navigate('/login'), 1500)
+      setIsRedirecting(true)
+      toast.success('Xác thực email thành công!')
+      setTimeout(() => navigate('/login', { 
+        state: { email: registeredEmail, password: registeredPassword } 
+      }), 2000)
     },
     onError: () => {
       toast.error('Mã xác thực không hợp lệ hoặc đã hết hạn.')
@@ -89,6 +94,7 @@ export default function RegisterPage() {
     onSuccess: (_, variables) => {
       // Xác nhận luồng: Bắt buộc người dùng phải verify email chứ ko tự động login nữa
       setRegisteredEmail(variables.email)
+      setRegisteredPassword(variables.password) // Lưu lại mật khẩu để sau này tự điền ở trang login
       setIsSuccess(true)
     },
     onError: (error: any) => {
@@ -108,6 +114,32 @@ export default function RegisterPage() {
   // Cập nhật pr-12 để text không đè lên icon mắt ở bên phải
   const inputCls = "w-full pl-10 pr-12 py-3 rounded-xl border border-[var(--color-border)] bg-[var(--color-background)] text-sm focus:ring-2 focus:ring-[var(--color-primary)]/20 focus:border-[var(--color-primary)] outline-none transition-all shadow-sm"
 
+  // Màn hình loading chuyển hướng chuyên nghiệp
+  if (isRedirecting) {
+    return (
+      <div className="w-full max-w-sm mx-auto text-center space-y-8 animate-in fade-in duration-500">
+        <div className="relative">
+          <div className="w-24 h-24 rounded-full border-4 border-[var(--color-primary)]/20 border-t-[var(--color-primary)] animate-spin mx-auto" />
+          <div className="absolute inset-0 flex items-center justify-center">
+             <Check className="text-[var(--color-primary)] w-10 h-10 animate-pulse" />
+          </div>
+        </div>
+        <div className="space-y-3">
+          <h2 className="text-2xl font-extrabold text-[var(--color-foreground)]">Xác thực thành công!</h2>
+          <p className="text-[var(--color-muted-foreground)] text-sm">
+            Tài khoản của bạn đã sẵn sàng. <br/>
+            Đang chuyển hướng bạn đến trang đăng nhập...
+          </p>
+        </div>
+        <div className="flex justify-center gap-1.5">
+           <div className="w-2 h-2 rounded-full bg-[var(--color-primary)] animate-bounce [animation-delay:-0.3s]" />
+           <div className="w-2 h-2 rounded-full bg-[var(--color-primary)] animate-bounce [animation-delay:-0.15s]" />
+           <div className="w-2 h-2 rounded-full bg-[var(--color-primary)] animate-bounce" />
+        </div>
+      </div>
+    )
+  }
+
   if (isSuccess) {
     return (
       <div className="w-full max-w-sm mx-auto text-center space-y-6 animate-in fade-in zoom-in-95 duration-300">
@@ -121,19 +153,20 @@ export default function RegisterPage() {
             <span className="font-bold text-[var(--color-foreground)] mt-2 block">{registeredEmail}</span>
           </p>
           <div className="p-4 rounded-xl bg-orange-50 border border-orange-200 dark:bg-orange-500/10 dark:border-orange-500/20 text-orange-700 dark:text-orange-400 text-xs font-medium text-left mb-8 space-y-2">
-            <p>• Mã token gồm các dãy ký tự đã được tự động gửi vào email của bạn.</p>
+            <p>• Mã OTP xác thực đã được tự động gửi vào email của bạn.</p>
             <p>• Nếu không thấy email, hãy kiểm tra lại mục Spam/Thư rác.</p>
           </div>
           
           <div className="mt-4 pt-4 border-t border-[var(--color-border)]/50 text-left">
-            <p className="text-sm font-medium text-[var(--color-foreground)] mb-2">Hoặc nhập mã (token) trực tiếp vào đây:</p>
+            <p className="text-sm font-medium text-[var(--color-foreground)] mb-2">Nhập mã OTP 6 ký tự vào đây:</p>
             <div className="flex gap-2">
               <input
                 type="text"
                 value={tokenInput}
-                onChange={(e) => setTokenInput(e.target.value)}
-                placeholder="Dán mã UUID..."
-                className="flex-1 px-3 py-2 rounded-xl border border-[var(--color-border)] bg-[var(--color-background)] text-sm focus:ring-2 focus:ring-[var(--color-primary)]/20 outline-none"
+                onChange={(e) => setTokenInput(e.target.value.toUpperCase())}
+                placeholder="Nhập mã OTP..."
+                maxLength={6}
+                className="flex-1 px-3 py-2 rounded-xl border border-[var(--color-border)] bg-[var(--color-background)] text-sm focus:ring-2 focus:ring-[var(--color-primary)]/20 outline-none uppercase font-bold tracking-widest text-center"
               />
               <button
                 onClick={() => {

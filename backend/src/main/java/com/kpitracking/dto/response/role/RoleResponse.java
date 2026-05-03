@@ -13,6 +13,8 @@ public class RoleResponse {
     private UUID parentRoleId;
     private String parentRoleName;
     private Boolean isSystem;
+    private Integer level;
+    private Integer rank;
     private Instant createdAt;
     private Instant updatedAt;
 }

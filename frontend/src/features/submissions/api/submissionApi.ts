@@ -1,6 +1,6 @@
 import axiosInstance from '@/lib/axios'
 import type { ApiResponse, PageResponse } from '@/types/api'
-import type { Submission, CreateSubmissionRequest, ReviewSubmissionRequest, Attachment } from '@/types/submission'
+import type { Submission, CreateSubmissionRequest, UpdateSubmissionRequest, ReviewSubmissionRequest, Attachment } from '@/types/submission'
 import type { SubmissionStatus } from '@/types/submission'
 
 export const submissionApi = {
@@ -11,6 +11,7 @@ export const submissionApi = {
     kpiCriteriaId?: string;
     submittedById?: string;
     orgUnitId?: string;
+    organizationId?: string;
     sortBy?: string;
     sortDir?: string;
   }) =>
@@ -22,6 +23,7 @@ export const submissionApi = {
     status?: SubmissionStatus; 
     sortBy?: string;
     sortDir?: string;
+    submittedById?: string;
   } = {}) =>
     axiosInstance.get<ApiResponse<PageResponse<Submission>>>('/submissions/my', { params }).then((r) => r.data.data),
 
@@ -30,6 +32,9 @@ export const submissionApi = {
 
   create: (data: CreateSubmissionRequest) =>
     axiosInstance.post<ApiResponse<Submission>>('/submissions', data).then((r) => r.data.data),
+
+  update: (id: string, data: UpdateSubmissionRequest) =>
+    axiosInstance.put<ApiResponse<Submission>>(`/submissions/${id}`, data).then((r) => r.data.data),
 
   review: (id: string, data: ReviewSubmissionRequest) =>
     axiosInstance.post<ApiResponse<Submission>>(`/submissions/${id}/review`, data).then((r) => r.data.data),

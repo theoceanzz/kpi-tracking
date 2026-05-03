@@ -14,6 +14,12 @@ export interface OrganizationResponse {
   code: string
   status: string
   hierarchyLevels: HierarchyLevel[]
+  evaluationMaxScore: number
+  excellentThreshold: number
+  goodThreshold: number
+  fairThreshold: number
+  averageThreshold: number
+  kpiReminderPercentage: number
   createdAt: string
   updatedAt: string
 }
@@ -23,6 +29,12 @@ export interface UpdateOrganizationRequest {
   code?: string
   status?: string
   hierarchyLevels?: Omit<HierarchyLevel, 'id' | 'levelOrder'>[]
+  evaluationMaxScore?: number
+  excellentThreshold?: number
+  goodThreshold?: number
+  fairThreshold?: number
+  averageThreshold?: number
+  kpiReminderPercentage?: number
 }
 
 export const organizationApi = {

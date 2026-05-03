@@ -3,7 +3,7 @@ import type { ApiResponse, PageResponse, PageParams } from '@/types/api'
 import type { User, CreateUserRequest, UpdateUserRequest, ImportUserResult } from '@/types/user'
 
 export const userApi = {
-  getAll: (params: PageParams & { keyword?: string; orgUnitId?: string; role?: string; sortBy?: string; direction?: string }) =>
+  getAll: (params: PageParams & { keyword?: string; orgUnitId?: string; organizationId?: string; role?: string; sortBy?: string; direction?: string }) =>
     axiosInstance.get<ApiResponse<PageResponse<User>>>('/users', { params }).then((r) => r.data.data),
 
   getById: (id: string) =>
@@ -18,10 +18,11 @@ export const userApi = {
   delete: (id: string) =>
     axiosInstance.delete<ApiResponse<void>>(`/users/${id}`).then((r) => r.data),
 
-  importFile: (file: File) => {
+  importFile: (file: File, orgUnitId?: string) => {
     const formData = new FormData()
     formData.append('file', file)
     return axiosInstance.post<ApiResponse<ImportUserResult>>('/users/import', formData, {
+      params: { orgUnitId },
       headers: { 'Content-Type': 'multipart/form-data' },
     }).then((r) => r.data.data)
   },

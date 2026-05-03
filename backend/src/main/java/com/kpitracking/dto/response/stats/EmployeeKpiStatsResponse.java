@@ -18,5 +18,6 @@ public class EmployeeKpiStatsResponse {
     private long pendingSubmissions;
     private long rejectedSubmissions;
     private long lateSubmissions;
+    private Integer rank;
     private Double averageScore;
 }

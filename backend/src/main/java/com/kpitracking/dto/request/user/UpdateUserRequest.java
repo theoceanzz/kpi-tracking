@@ -19,4 +19,8 @@ public class UpdateUserRequest {
     private String phone;
 
     private UserStatus status;
+
+    private String role;
+
+    private java.util.UUID orgUnitId;
 }

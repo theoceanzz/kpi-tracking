@@ -12,6 +12,7 @@ export interface User {
   organizationId: string
   memberships: UserMembership[]
   roles: string[]
+  permissions?: string[]
   createdAt: string
   updatedAt: string
 }
@@ -24,6 +25,7 @@ export interface CreateUserRequest {
   password: string
   phone?: string
   role: UserRole
+  orgUnitId: string
 }
 
 // Matches BE: UpdateUserRequest
@@ -33,6 +35,7 @@ export interface UpdateUserRequest {
   phone?: string
   role?: UserRole
   status?: UserStatus
+  orgUnitId?: string
 }
 
 // Matches BE: ImportUserResponse

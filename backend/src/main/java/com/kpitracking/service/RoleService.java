@@ -42,6 +42,8 @@ public class RoleService {
 
         Role role = Role.builder()
                 .name(request.getName())
+                .level(request.getLevel())
+                .rank(request.getRank())
                 .createdBy(getCurrentUser())
                 .build();
 
@@ -69,6 +71,14 @@ public class RoleService {
                 throw new DuplicateResourceException("Role", "name", request.getName());
             }
             role.setName(request.getName());
+        }
+        
+        if (request.getLevel() != null) {
+            role.setLevel(request.getLevel());
+        }
+
+        if (request.getRank() != null) {
+            role.setRank(request.getRank());
         }
 
         if (request.getParentRoleId() != null) {

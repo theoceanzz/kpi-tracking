@@ -9,8 +9,12 @@ export function useCreateUser() {
     mutationFn: (data: CreateUserRequest) => userApi.create(data),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['users'] })
+      qc.invalidateQueries({ queryKey: ['organization-users'] })
+      qc.invalidateQueries({ queryKey: ['stats'] })
       toast.success('Tạo nhân sự thành công')
     },
-    onError: () => toast.error('Tạo nhân sự thất bại'),
+    onError: (error: any) => {
+      toast.error(error?.response?.data?.message || 'Tạo nhân sự thất bại')
+    },
   })
 }

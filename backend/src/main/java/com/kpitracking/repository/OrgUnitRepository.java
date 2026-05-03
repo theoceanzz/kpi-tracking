@@ -15,6 +15,9 @@ import java.util.UUID;
 @Repository
 public interface OrgUnitRepository extends JpaRepository<OrgUnit, UUID> {
 
+    Optional<OrgUnit> findByName(String name);
+    Optional<OrgUnit> findByCode(String code);
+    boolean existsByCode(String code);
     Optional<OrgUnit> findByIdAndOrgHierarchyLevel_Organization_Id(UUID id, UUID organizationId);
 
     Page<OrgUnit> findByOrgHierarchyLevel_Organization_Id(UUID organizationId, Pageable pageable);
@@ -33,8 +36,11 @@ public interface OrgUnitRepository extends JpaRepository<OrgUnit, UUID> {
     @Query("SELECT o FROM OrgUnit o WHERE o.orgHierarchyLevel.organization.id = :orgId AND o.parent IS NULL AND o.deletedAt IS NULL")
     List<OrgUnit> findRootsByOrganizationId(@Param("orgId") UUID orgId);
 
-    @Query("SELECT o FROM OrgUnit o WHERE o.deletedAt IS NULL AND EXISTS (SELECT 1 FROM OrgUnit p WHERE o.path LIKE CONCAT(p.path, '%') AND p.id IN :parentIds)")
+    @Query("SELECT o FROM OrgUnit o WHERE o.deletedAt IS NULL AND EXISTS (SELECT 1 FROM OrgUnit p WHERE (o.path LIKE CONCAT(p.path, '%')) AND p.id IN :parentIds)")
     List<OrgUnit> findAllInSubtrees(@Param("parentIds") java.util.Collection<UUID> parentIds);
+
+    @Query("SELECT o FROM OrgUnit o WHERE o.deletedAt IS NULL AND EXISTS (SELECT 1 FROM OrgUnit p WHERE (o.path LIKE CONCAT(p.path, '%')) AND p.id IN :parentIds)")
+    List<OrgUnit> findAllInSubtreesForExecutive(@Param("parentIds") java.util.Collection<UUID> parentIds);
 
     boolean existsByOrgHierarchyLevelId(UUID hierarchyLevelId);
 }

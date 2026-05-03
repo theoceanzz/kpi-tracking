@@ -1,5 +1,5 @@
 -- ====================================================
--- V1: KPI Tracking - Initial Schema
+-- V1: KeyGo - Initial Schema
 -- ====================================================
 
 -- Enable UUID extension
@@ -41,6 +41,12 @@ CREATE TABLE organizations (
   name        TEXT NOT NULL,
   code        TEXT NOT NULL UNIQUE,
   status      TEXT NOT NULL DEFAULT 'ACTIVE' CHECK (status IN ('ACTIVE','SUSPENDED','ARCHIVED')),
+  evaluation_max_score DOUBLE PRECISION DEFAULT 100.0,
+  excellent_threshold DOUBLE PRECISION DEFAULT 90.0,
+  good_threshold DOUBLE PRECISION DEFAULT 80.0,
+  fair_threshold DOUBLE PRECISION DEFAULT 70.0,
+  average_threshold DOUBLE PRECISION DEFAULT 50.0,
+  kpi_reminder_percentage INT DEFAULT 50,
   created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at  TIMESTAMPTZ NOT NULL DEFAULT now()
 );
@@ -68,6 +74,7 @@ CREATE INDEX idx_org_hierarchy_levels_org_id ON org_hierarchy_levels(organizatio
 CREATE TABLE org_units (
   id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   name            TEXT NOT NULL,
+  code            VARCHAR(50) UNIQUE,
   parent_id       UUID REFERENCES org_units(id),
   org_hierarchy_id UUID NOT NULL REFERENCES org_hierarchy_levels(id),
   path            TEXT NOT NULL,
@@ -127,6 +134,8 @@ CREATE TABLE roles (
   created_at TIMESTAMPTZ  NOT NULL DEFAULT now(),
   updated_at TIMESTAMPTZ  NOT NULL DEFAULT now(),
   deleted_at TIMESTAMPTZ,
+  level      INT,
+  rank       INT,
   UNIQUE (name)
 );
 
@@ -269,6 +278,20 @@ CREATE TABLE kpi_criteria_assignees (
 
 CREATE INDEX idx_kpi_assignees_kpi_id ON kpi_criteria_assignees(kpi_criteria_id);
 CREATE INDEX idx_kpi_assignees_user_id ON kpi_criteria_assignees(user_id);
+
+-- ====================================================
+-- KPI Reminders
+-- ====================================================
+CREATE TABLE kpi_reminders (
+    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    kpi_criteria_id UUID NOT NULL REFERENCES kpi_criteria(id) ON DELETE CASCADE,
+    user_id         UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    batch_number    INT NOT NULL,
+    sent_at         TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX idx_kpi_reminders_kpi_id ON kpi_reminders(kpi_criteria_id);
+CREATE INDEX idx_kpi_reminders_user_id ON kpi_reminders(user_id);
 
 -- ====================================================
 -- KPI Submissions

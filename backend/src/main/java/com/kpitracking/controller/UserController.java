@@ -40,8 +40,10 @@ public class UserController {
     @PostMapping(value = "/import", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @PreAuthorize("hasAuthority('USER:IMPORT')")
     @Operation(summary = "Import users via Excel or CSV")
-    public ResponseEntity<ApiResponse<ImportUserResponse>> importUsers(@RequestParam("file") MultipartFile file) {
-        ImportUserResponse response = userService.importUsers(file);
+    public ResponseEntity<ApiResponse<ImportUserResponse>> importUsers(
+            @RequestParam("file") MultipartFile file,
+            @RequestParam(value = "orgUnitId", required = false) java.util.UUID orgUnitId) {
+        ImportUserResponse response = userService.importUsers(file, orgUnitId);
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.success("Users imported successfully", response));
     }

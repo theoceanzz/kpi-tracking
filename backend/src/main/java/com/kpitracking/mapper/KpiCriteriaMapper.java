@@ -40,7 +40,8 @@ public interface KpiCriteriaMapper {
         return (int) kpi.getSubmissions().stream()
                 .filter(s -> s.getDeletedAt() == null && 
                              (s.getStatus() == com.kpitracking.enums.SubmissionStatus.PENDING || 
-                              s.getStatus() == com.kpitracking.enums.SubmissionStatus.APPROVED))
+                              s.getStatus() == com.kpitracking.enums.SubmissionStatus.APPROVED ||
+                              s.getStatus() == com.kpitracking.enums.SubmissionStatus.REJECTED))
                 .count();
     }
 

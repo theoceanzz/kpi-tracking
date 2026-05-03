@@ -7,6 +7,7 @@ import { formatDateTime, formatNumber } from '@/lib/utils'
 import type { Submission } from '@/types/submission'
 import AttachmentList from './AttachmentList'
 import { useAuth } from '@/hooks/useAuth'
+import { usePermission } from '@/hooks/usePermission'
 
 interface ReviewModalProps {
   open: boolean
@@ -158,7 +159,7 @@ export default function ReviewModal({ open, onClose, submission }: ReviewModalPr
               <Info className="text-amber-600 shrink-0" size={20} />
               <div className="text-xs font-medium text-amber-800 dark:text-amber-300 leading-relaxed">
                 <span className="block font-black uppercase tracking-widest text-[10px] mb-1">Quyền hạn hạn chế</span>
-                Bản nộp này của cấp quản lý (Trưởng/Phó phòng). Theo quy định, chỉ Giám đốc mới có quyền phê duyệt các báo cáo này.
+                Bản nộp này của cấp quản lý (Trưởng/Phó). Theo quy định, chỉ Giám đốc mới có quyền phê duyệt các báo cáo này.
               </div>
             </div>
           )}

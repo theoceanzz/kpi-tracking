@@ -9,6 +9,7 @@ public class OrgUnitKpiStatsResponse {
 
     private UUID orgUnitId;
     private String orgUnitName;
+    private UUID parentOrgUnitId;
     private long memberCount;
     
     private long totalKpi;

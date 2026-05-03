@@ -47,9 +47,10 @@ public class KpiCriteriaController {
             @RequestParam(required = false) UUID orgUnitId,
             @RequestParam(required = false) UUID createdById,
             @RequestParam(required = false) UUID kpiPeriodId,
+            @RequestParam(required = false) String keyword,
             @RequestParam(defaultValue = "createdAt") String sortBy,
             @RequestParam(defaultValue = "desc") String sortDir) {
-        PageResponse<KpiCriteriaResponse> response = kpiCriteriaService.getKpiCriteria(page, size, status, orgUnitId, createdById, kpiPeriodId, sortBy, sortDir);
+        PageResponse<KpiCriteriaResponse> response = kpiCriteriaService.getKpiCriteria(page, size, status, orgUnitId, createdById, kpiPeriodId, keyword, sortBy, sortDir);
         return ResponseEntity.ok(ApiResponse.success(response));
     }
 

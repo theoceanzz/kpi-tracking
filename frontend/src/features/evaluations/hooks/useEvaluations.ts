@@ -7,6 +7,7 @@ export function useEvaluations(params: {
   userId?: string; 
   kpiPeriodId?: string;
   orgUnitId?: string;
+  organizationId?: string;
   sortBy?: string;
   sortDir?: string;
 } = {}) {

@@ -28,7 +28,7 @@ public class AiController {
     }
 
     @PostMapping("/suggest-kpi")
-    @PreAuthorize("hasAnyRole('DIRECTOR', 'HEAD', 'DEPUTY')")
+    @PreAuthorize("hasAuthority('AI:SUGGEST_KPI')")
     @Operation(summary = "Get KPI suggestions from AI")
     public ResponseEntity<ApiResponse<List<AiKpiSuggestionResponse>>> suggestKpi(
             @RequestBody AiKpiSuggestionRequest request) {

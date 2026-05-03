@@ -5,5 +5,7 @@ public enum KpiStatus {
     PENDING_APPROVAL,
     APPROVED,
     REJECTED,
-    INACTIVE
+    INACTIVE,
+    EDIT,
+    EDITED
 }

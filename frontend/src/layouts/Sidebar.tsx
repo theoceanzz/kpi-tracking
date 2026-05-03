@@ -18,7 +18,10 @@ import {
   KeyRound,
   LogOut,
   Network,
-  Shield
+  Shield,
+  Layers,
+  MessageSquare,
+  History
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -31,14 +34,18 @@ interface NavItem {
 }
 
 const navItems: NavItem[] = [
-  { label: 'Tổng quan', path: '/dashboard', icon: <LayoutDashboard size={20} />, permission: 'DASHBOARD:VIEW' },
+  { label: 'Tổng quan', path: '/dashboard', icon: <LayoutDashboard size={20} />, permission: 'DASHBOARD:VIEW', end: true },
+  { label: 'Dashboard cá nhân', path: '/dashboard/staff', icon: <UserCircle size={20} />, permission: 'KPI:VIEW_MY', end: true },
   { label: 'Công ty', path: '/company', icon: <Building2 size={20} />, permission: 'COMPANY:VIEW' },
-  { label: 'Cấu trúc thiết lập', path: '/org-structure', icon: <Network size={20} />, permission: 'ORG:VIEW' },
-  { label: 'Nhân sự', path: '/users', icon: <Users size={20} />, permission: 'USER:VIEW' },
+  { label: 'Cấu trúc thiết lập', path: '/org-structure', icon: <Network size={20} />, permission: 'ORG:CREATE' },
+  { label: 'Nhân sự', path: '/users', icon: <Users size={20} />, permission: 'USER:CREATE' },
   { label: 'Vai trò', path: '/roles', icon: <Shield size={20} />, permission: 'ROLE:VIEW' },
   { label: 'Quản lý Chỉ tiêu', path: '/kpi-criteria', icon: <Target size={20} />, permission: 'KPI:VIEW', end: true },
   { label: 'Duyệt Chỉ tiêu', path: '/kpi-criteria/pending', icon: <ClipboardCheck size={20} />, permission: 'KPI:APPROVE' },
+  { label: 'Duyệt Điều chỉnh', path: '/kpi-adjustments/pending', icon: <MessageSquare size={20} />, permission: 'KPI:APPROVE' },
+  { label: 'Quản lý Đợt KPI', path: '/kpi-periods', icon: <Layers size={20} />, permission: 'KPI_PERIOD:CREATE' },
   { label: 'KPI của tôi', path: '/my-kpi', icon: <ListChecks size={20} />, permission: 'KPI:VIEW_MY' },
+  { label: 'Điều chỉnh của tôi', path: '/my-adjustments', icon: <History size={20} />, permission: 'KPI:VIEW_MY' },
   { label: 'Duyệt Bài nộp', path: '/submissions/org-unit', icon: <ClipboardCheck size={20} />, permission: 'SUBMISSION:REVIEW' },
   { label: 'Bài nộp của tôi', path: '/submissions', icon: <FileText size={20} />, permission: 'SUBMISSION:VIEW_MY', end: true },
   { label: 'Đánh giá NS', path: '/evaluations', icon: <Star size={20} />, permission: 'EVALUATION:VIEW' },
@@ -54,7 +61,31 @@ export default function Sidebar({ isMobileOpen, onCloseMobile }: { isMobileOpen?
   
   const filteredItems = navItems.filter((item) => {
     if (!user) return false
+    // Special case for evaluations: show if can view all or just view own
+    // Special case for evaluations: show if can view all or just view own
+    if (item.path === '/evaluations') {
+      return hasPermission('EVALUATION:VIEW') || hasPermission('EVALUATION:VIEW_MY')
+    }
+
+    // Special case for Staff Dashboard: Only show it for managers who also have personal KPIs
+    // (Staff already use "Tổng quan" which points to /dashboard/staff)
+    if (item.path === '/dashboard/staff') {
+      const isManager = hasPermission(['KPI:APPROVE', 'SUBMISSION:REVIEW', 'ORG:CREATE'])
+      return isManager && hasPermission('KPI:VIEW_MY')
+    }
+
     return hasPermission(item.permission)
+  }).map(item => {
+    // Dynamic path for "Tổng quan" to match specific dashboard
+    if (item.path === '/dashboard') {
+      const dashboardPath = hasPermission(['ORG:CREATE', 'ROLE:VIEW']) 
+        ? '/dashboard/director' 
+        : hasPermission(['KPI:APPROVE', 'SUBMISSION:REVIEW']) 
+          ? '/dashboard/head' 
+          : '/dashboard/staff'
+      return { ...item, path: dashboardPath }
+    }
+    return item
   })
 
   useEffect(() => {
@@ -92,7 +123,7 @@ export default function Sidebar({ isMobileOpen, onCloseMobile }: { isMobileOpen?
             </div>
             {(!isCollapsed || isMobileOpen) && (
               <span className="font-black text-lg tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-[var(--color-primary)] to-indigo-600">
-                KPI Tracking
+                KeyGo
               </span>
             )}
           </div>

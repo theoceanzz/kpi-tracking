@@ -2,7 +2,9 @@ import { useState, useEffect } from 'react'
 import StatusBadge from '@/components/common/StatusBadge'
 import type { User } from '@/types/user'
 import { Pencil, Trash2, MoreVertical, Shield, User as UserIcon, Mail, Phone, Building2 } from 'lucide-react'
-import { getInitials, getHighestRole } from '@/lib/utils'
+import { getInitials, getHighestRole, cn } from '@/lib/utils'
+import { ROLE_MAP } from '@/constants/roles'
+
 
 interface UserTableProps {
   users: User[]
@@ -13,11 +15,28 @@ interface UserTableProps {
   canDelete?: boolean
 }
 
-const roleMap: Record<string, { label: string; color: string; icon: any }> = {
-  DIRECTOR: { label: 'Giám đốc', color: 'bg-purple-100 text-purple-700 border-purple-200 dark:bg-purple-900/30 dark:text-purple-400', icon: Shield },
-  HEAD: { label: 'Trưởng đơn vị', color: 'bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-900/30 dark:text-amber-400', icon: Shield },
-  DEPUTY: { label: 'Phó đơn vị', color: 'bg-indigo-100 text-indigo-700 border-indigo-200 dark:bg-indigo-900/30 dark:text-indigo-400', icon: Shield },
-  STAFF: { label: 'Nhân viên', color: 'bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-800 dark:text-slate-300', icon: UserIcon },
+// Dynamic role styling - generates consistent colors for any role name
+const roleColorPalette = [
+  'bg-purple-100 text-purple-700 border-purple-200 dark:bg-purple-900/30 dark:text-purple-400',
+  'bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-900/30 dark:text-amber-400',
+  'bg-indigo-100 text-indigo-700 border-indigo-200 dark:bg-indigo-900/30 dark:text-indigo-400',
+  'bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-400',
+  'bg-rose-100 text-rose-700 border-rose-200 dark:bg-rose-900/30 dark:text-rose-400',
+  'bg-cyan-100 text-cyan-700 border-cyan-200 dark:bg-cyan-900/30 dark:text-cyan-400',
+  'bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-800 dark:text-slate-300',
+]
+
+function getRoleStyle(roleName: string) {
+  // Simple hash to consistently assign color
+  let hash = 0
+  for (let i = 0; i < roleName.length; i++) {
+    hash = roleName.charCodeAt(i) + ((hash << 5) - hash)
+  }
+  const colorIdx = Math.abs(hash) % roleColorPalette.length
+  return {
+    color: roleColorPalette[colorIdx]!,
+    icon: Shield,
+  }
 }
 
 
@@ -46,22 +65,22 @@ export default function UserTable({ users, onRowClick, onDelete, canUpdate, canD
 
   return (
     <div className="overflow-x-auto pb-10">
-      <table className="w-full text-left border-collapse">
+      <table className="w-full min-w-[1000px] text-left border-collapse">
         <thead>
           <tr className="border-b border-slate-200 dark:border-slate-800">
-            <th className="py-4 px-6 text-xs font-black uppercase tracking-widest text-[var(--color-muted-foreground)]">Định danh Cán bộ</th>
-            <th className="py-4 px-6 text-xs font-black uppercase tracking-widest text-[var(--color-muted-foreground)]">Mã NV</th>
-            <th className="py-4 px-6 text-xs font-black uppercase tracking-widest text-[var(--color-muted-foreground)]">Vai trò</th>
-            <th className="py-4 px-6 text-xs font-black uppercase tracking-widest text-[var(--color-muted-foreground)] hidden md:table-cell">Đơn vị</th>
-            <th className="py-4 px-6 text-xs font-black uppercase tracking-widest text-[var(--color-muted-foreground)] hidden sm:table-cell">Liên lạc</th>
-            <th className="py-4 px-6 text-xs font-black uppercase tracking-widest text-[var(--color-muted-foreground)]">Trạng thái</th>
+            <th className="py-4 px-6 text-xs font-black uppercase tracking-widest text-[var(--color-muted-foreground)] whitespace-nowrap">Thông tin</th>
+            <th className="py-4 px-6 text-xs font-black uppercase tracking-widest text-[var(--color-muted-foreground)] whitespace-nowrap">Mã NV</th>
+            <th className="py-4 px-6 text-xs font-black uppercase tracking-widest text-[var(--color-muted-foreground)] whitespace-nowrap">Vai trò</th>
+            <th className="py-4 px-6 text-xs font-black uppercase tracking-widest text-[var(--color-muted-foreground)] hidden md:table-cell whitespace-nowrap">Đơn vị</th>
+            <th className="py-4 px-6 text-xs font-black uppercase tracking-widest text-[var(--color-muted-foreground)] hidden sm:table-cell whitespace-nowrap">Liên lạc</th>
+            <th className="py-4 px-6 text-xs font-black uppercase tracking-widest text-[var(--color-muted-foreground)] whitespace-nowrap">Trạng thái</th>
             {hasAnyAction && <th className="py-4 px-4 text-xs font-black uppercase tracking-widest text-right text-[var(--color-muted-foreground)] whitespace-nowrap">Công cụ</th>}
           </tr>
         </thead>
         <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60">
-          {users.map((u) => {
+          {users.map((u, index) => {
             const highestRole = getHighestRole(u)
-            const roleConf = roleMap[highestRole] || roleMap['STAFF']!
+            const roleConf = getRoleStyle(highestRole)
             const RoleIcon = roleConf.icon!
 
             const isActionOpen = openActionId === u.id
@@ -97,9 +116,9 @@ export default function UserTable({ users, onRowClick, onDelete, canUpdate, canD
                 </td>
 
                 {/* 2. Role Col */}
-                <td className="py-4 px-6">
+                 <td className="py-4 px-6 whitespace-nowrap">
                   <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold border ${roleConf.color}`}>
-                     <RoleIcon size={12} /> {roleConf.label}
+                     <RoleIcon size={12} /> {ROLE_MAP[highestRole] || highestRole}
                   </span>
                 </td>
 
@@ -134,7 +153,7 @@ export default function UserTable({ users, onRowClick, onDelete, canUpdate, canD
                 </td>
 
                 {/* 4. Status Col */}
-                <td className="py-4 px-6">
+                <td className="py-4 px-6 whitespace-nowrap">
                   <StatusBadge status={u.status} />
                 </td>
 
@@ -151,7 +170,10 @@ export default function UserTable({ users, onRowClick, onDelete, canUpdate, canD
 
                       {/* Popover Menu */}
                       {isActionOpen && (
-                        <div className="absolute right-0 mt-2 w-56 rounded-[20px] bg-white dark:bg-slate-800 shadow-2xl border border-slate-200/60 dark:border-slate-700 overflow-hidden z-50 animate-in fade-in zoom-in-95 duration-200 origin-top-right">
+                        <div className={cn(
+                          "absolute right-0 w-56 rounded-[20px] bg-white dark:bg-slate-800 shadow-2xl border border-slate-200/60 dark:border-slate-700 overflow-hidden z-50 animate-in fade-in zoom-in-95 duration-200",
+                          index >= users.length / 2 ? "bottom-full mb-2 origin-bottom-right" : "top-full mt-2 origin-top-right"
+                        )}>
                             <div className="p-2 space-y-1">
                               {canUpdate && (
                                 <button 

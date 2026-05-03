@@ -10,5 +10,6 @@ public interface RoleMapper {
 
     @Mapping(source = "parentRole.id", target = "parentRoleId")
     @Mapping(source = "parentRole.name", target = "parentRoleName")
+    @Mapping(source = "level", target = "level")
     RoleResponse toResponse(Role role);
 }

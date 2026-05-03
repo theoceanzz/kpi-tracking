@@ -23,9 +23,36 @@ public class KpiPeriodController {
     public ResponseEntity<ApiResponse<PageResponse<KpiPeriodResponse>>> getKpiPeriods(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size,
+            @RequestParam(defaultValue = "startDate") String sortBy,
+            @RequestParam(defaultValue = "desc") String direction,
+            @RequestParam(required = false) String keyword,
+            @RequestParam(required = false) com.kpitracking.enums.KpiFrequency periodType,
             @RequestParam(required = false) UUID organizationId) {
 
-        PageResponse<KpiPeriodResponse> response = kpiPeriodService.getKpiPeriods(page, size, organizationId);
+        PageResponse<KpiPeriodResponse> response = kpiPeriodService.getKpiPeriods(
+                page, size, sortBy, direction, keyword, periodType, organizationId);
         return ResponseEntity.ok(ApiResponse.success(response));
+    }
+
+    @PostMapping
+    @PreAuthorize("hasAuthority('KPI_PERIOD:CREATE')")
+    public ResponseEntity<ApiResponse<KpiPeriodResponse>> createKpiPeriod(
+            @RequestBody @jakarta.validation.Valid com.kpitracking.dto.request.kpi.KpiPeriodRequest request) {
+        return ResponseEntity.ok(ApiResponse.success(kpiPeriodService.createKpiPeriod(request)));
+    }
+
+    @PutMapping("/{id}")
+    @PreAuthorize("hasAuthority('KPI_PERIOD:UPDATE')")
+    public ResponseEntity<ApiResponse<KpiPeriodResponse>> updateKpiPeriod(
+            @PathVariable UUID id,
+            @RequestBody @jakarta.validation.Valid com.kpitracking.dto.request.kpi.KpiPeriodRequest request) {
+        return ResponseEntity.ok(ApiResponse.success(kpiPeriodService.updateKpiPeriod(id, request)));
+    }
+
+    @DeleteMapping("/{id}")
+    @PreAuthorize("hasAuthority('KPI_PERIOD:DELETE')")
+    public ResponseEntity<ApiResponse<Void>> deleteKpiPeriod(@PathVariable UUID id) {
+        kpiPeriodService.deleteKpiPeriod(id);
+        return ResponseEntity.ok(ApiResponse.success(null));
     }
 }
