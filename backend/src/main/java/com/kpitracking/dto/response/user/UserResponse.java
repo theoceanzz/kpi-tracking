@@ -19,6 +19,7 @@ public class UserResponse {
     private UserStatus status;
     private UUID organizationId;
     private java.util.List<UserMembershipResponse> memberships;
+    private Boolean isEmailVerified;
     private Instant createdAt;
     private Instant updatedAt;
 }

@@ -5,8 +5,12 @@ import com.kpitracking.enums.KpiStatus;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.time.Instant;
+import java.util.List;
 import java.util.UUID;
 
 @Repository
@@ -50,4 +54,24 @@ public interface KpiCriteriaRepository extends JpaRepository<KpiCriteria, UUID> 
 
     @org.springframework.data.jpa.repository.Query("SELECT COUNT(k) FROM KpiCriteria k WHERE k.orgUnit.orgHierarchyLevel.organization.id = :orgId AND k.status = :status")
     long countByOrganizationIdAndStatus(@org.springframework.data.repository.query.Param("orgId") UUID orgId, @org.springframework.data.repository.query.Param("status") KpiStatus status);
+
+    // ===== Analytics queries =====
+
+    @Query("SELECT DISTINCT k FROM KpiCriteria k JOIN k.assignees a WHERE a.id = :userId AND k.status = 'APPROVED'")
+    List<KpiCriteria> findApprovedByAssigneeId(@Param("userId") UUID userId);
+
+    @Query("SELECT DISTINCT k FROM KpiCriteria k JOIN k.assignees a WHERE a.id = :userId AND k.status = 'APPROVED' AND k.createdAt >= :from AND k.createdAt <= :to")
+    List<KpiCriteria> findApprovedByAssigneeIdAndPeriod(@Param("userId") UUID userId, @Param("from") Instant from, @Param("to") Instant to);
+
+    @Query("SELECT COUNT(k) FROM KpiCriteria k WHERE k.orgUnit.id IN :orgUnitIds")
+    long countByOrgUnitIdIn(@Param("orgUnitIds") List<UUID> orgUnitIds);
+
+    @Query("SELECT COUNT(k) FROM KpiCriteria k WHERE k.orgUnit.id IN :orgUnitIds AND k.status = :status")
+    long countByOrgUnitIdInAndStatus(@Param("orgUnitIds") List<UUID> orgUnitIds, @Param("status") KpiStatus status);
+
+    @Query("SELECT COUNT(DISTINCT k) FROM KpiCriteria k JOIN k.assignees a WHERE a.id = :userId")
+    long countByAssigneeId(@Param("userId") UUID userId);
+
+    @Query("SELECT k FROM KpiCriteria k WHERE k.orgUnit.id IN :orgUnitIds AND k.status = :status")
+    List<KpiCriteria> findByOrgUnitIdInAndStatus(@Param("orgUnitIds") List<UUID> orgUnitIds, @Param("status") KpiStatus status);
 }

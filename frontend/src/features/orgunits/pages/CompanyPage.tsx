@@ -24,7 +24,7 @@ export default function CompanyPage() {
 
   const [isEditingHierarchy, setIsEditingHierarchy] = useState(false)
 
-  const { register, control, handleSubmit, reset, formState: { errors } } = useForm({
+  const { register, control, handleSubmit, reset } = useForm({
     defaultValues: {
       hierarchyLevels: [] as { unitTypeName: string; managerRoleLabel: string }[]
     }

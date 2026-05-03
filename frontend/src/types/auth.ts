@@ -5,7 +5,6 @@ export interface UserMembership {
   orgUnitId: string
   organizationId: string
   orgUnitName: string
-  organizationId: string
   organizationName: string
   roleName: string
   roleLabel?: string
@@ -23,6 +22,8 @@ export interface UserInfo {
   memberships: UserMembership[]
   roles: string[]
   permissions: string[]
+  createdAt: string
+  updatedAt?: string
 }
 
 // Matches BE: AuthResponse

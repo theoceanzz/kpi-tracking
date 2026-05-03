@@ -18,7 +18,7 @@ const typeConfig: Record<string, { icon: any, color: string, label: string }> = 
 }
 
 export default function NotificationsPage() {
-  const [page, setPage] = useState(0)
+  const [page] = useState(0)
   const { data, isLoading } = useNotifications(page, 50)
   const markAllRead = useMarkAllRead()
   const markRead = useMarkAsRead()

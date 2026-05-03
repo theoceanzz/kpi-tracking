@@ -1,19 +1,38 @@
+import { useMemo } from 'react'
 import LoadingSkeleton from '@/components/common/LoadingSkeleton'
 import SubmissionStatusChart from '@/components/charts/SubmissionStatusChart'
 import { useOverviewStats } from '../hooks/useOverviewStats'
 import { useAuthStore } from '@/store/authStore'
-import { getInitials } from '@/lib/utils'
 import { Link } from 'react-router-dom'
-import { cn } from '@/lib/utils'
+import { cn, getInitials } from '@/lib/utils'
 import {
   Target, FileText, CheckCircle, Clock, XCircle,
   Users, Star, ChevronRight, TrendingUp,
-  ClipboardCheck, BarChart3, Award, ArrowUpRight
+  ClipboardCheck, BarChart3, Award, ArrowUpRight, Pin, PinOff
 } from 'lucide-react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { reportApi } from '@/features/reports/api/reportApi'
+import { toast } from 'sonner'
+import { 
+  XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, 
+  BarChart, Bar, PieChart, Pie, Cell, AreaChart, Area, Legend
+} from 'recharts'
+import type { ReportWidget } from '@/types/datasource'
+import { useSummaryStats, useSummaryTrend, useSummaryComparison, useSummaryRisks } from '@/features/analytics/hooks/useAnalytics'
+
+const COLORS = ['#6366f1', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'];
 
 export default function HeadDashboard() {
-  const { data: stats, isLoading } = useOverviewStats()
+  const { data: stats, isLoading: statsLoading } = useOverviewStats()
   const { user } = useAuthStore()
+  const queryClient = useQueryClient()
+
+  const { data: pinnedWidgets, isLoading: pinnedLoading, refetch: refetchPinned } = useQuery({
+    queryKey: ['reports', 'widgets', 'pinned'],
+    queryFn: () => reportApi.getPinnedWidgets(),
+  })
+
+  const isLoading = statsLoading || pinnedLoading
 
   if (isLoading) return <div className="p-8"><LoadingSkeleton rows={10} /></div>
 
@@ -91,6 +110,22 @@ export default function HeadDashboard() {
           link="/evaluations"
         />
       </div>
+
+      {/* ===== PINNED WIDGETS ===== */}
+      {pinnedWidgets && pinnedWidgets.length > 0 && (
+        <section className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h3 className="font-black text-slate-900 dark:text-white flex items-center gap-2">
+              <Pin size={18} className="text-indigo-600 rotate-45" /> Thống kê đã ghim
+            </h3>
+          </div>
+          <div className="grid grid-cols-12 gap-6">
+            {pinnedWidgets.map((widget) => (
+              <PinnedWidgetCard key={widget.id} widget={widget} onUnpin={refetchPinned} />
+            ))}
+          </div>
+        </section>
+      )}
 
       {/* ===== MAIN CONTENT ===== */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
@@ -304,14 +339,9 @@ function KpiStatusCard({ label, value, total, icon: Icon, color }: {
     amber: 'bg-amber-50 text-amber-600 border-amber-200 dark:bg-amber-900/20 dark:text-amber-400 dark:border-amber-900/40',
     red: 'bg-red-50 text-red-600 border-red-200 dark:bg-red-900/20 dark:text-red-400 dark:border-red-900/40',
   }
-  const pct = total > 0 ? Math.round((value / total) * 100) : 0
 
   return (
     <div className={cn("p-5 rounded-2xl border", colorMap[color])}>
-      <div className="flex items-center justify-between mb-3">
-        <Icon size={20} />
-        <span className="text-xs font-black">{pct}%</span>
-      </div>
       <p className="text-2xl font-black">{value}</p>
       <p className="text-[10px] font-bold uppercase tracking-widest opacity-60 mt-1">{label}</p>
     </div>
@@ -336,4 +366,204 @@ function QuickAction({ to, icon: Icon, iconColor, iconBg, title, description }: 
       <ChevronRight size={16} className="text-slate-300 group-hover:text-indigo-500 transition-colors shrink-0" />
     </Link>
   )
+}
+function PinnedWidgetCard({ widget, onUnpin }: { widget: ReportWidget; onUnpin: () => void }) {
+  const queryClient = useQueryClient()
+  const handleUnpin = async () => {
+    try {
+      await reportApi.togglePinWidget(widget.id)
+      toast.success("Đã bỏ ghim")
+      queryClient.invalidateQueries({ queryKey: ['reports', 'widgets', 'pinned'] })
+      onUnpin()
+    } catch (err) {
+      toast.error("Không thể bỏ ghim")
+    }
+  }
+
+  const pos = useMemo(() => {
+    try {
+      return JSON.parse(widget.position)
+    } catch {
+      return { w: 4, h: 10 }
+    }
+  }, [widget.position])
+
+  const colSpan = pos.w || 4
+  const height = (pos.h || 10) * 32 + 60 // Base height + header
+
+  return (
+    <div 
+      className={cn(
+        "bg-white dark:bg-slate-900 rounded-[28px] border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden flex flex-col group transition-all hover:shadow-xl",
+        colSpan >= 12 ? "col-span-12" : 
+        colSpan >= 8 ? "col-span-12 lg:col-span-8" :
+        colSpan >= 6 ? "col-span-12 lg:col-span-6" :
+        "col-span-12 md:col-span-6 lg:col-span-4"
+      )}
+      style={{ height: `${height}px` }}
+    >
+      <div className="p-5 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center">
+        <h4 className="font-black text-sm text-slate-800 dark:text-white truncate">{widget.title}</h4>
+        <button onClick={handleUnpin} className="p-1.5 text-slate-300 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-all opacity-0 group-hover:opacity-100">
+          <PinOff size={14} />
+        </button>
+      </div>
+      <div className="flex-1 p-5 overflow-hidden">
+        <PinnedWidgetContent type={widget.widgetType} />
+      </div>
+    </div>
+  )
+}
+
+function PinnedWidgetContent({ type }: { type: string }) {
+  const { data: trendData } = useSummaryTrend()
+  const { data: comparisonData } = useSummaryComparison()
+  const { data: riskData } = useSummaryRisks()
+  const { data: stats } = useSummaryStats()
+
+  switch (type) {
+    case 'TREND_CHART':
+      return (
+        <div className="h-full w-full min-h-[220px]">
+          <ResponsiveContainer width="100%" height="100%">
+            <AreaChart data={trendData || []}>
+              <defs><linearGradient id="colorPerfH" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#6366f1" stopOpacity={0.1}/><stop offset="95%" stopColor="#6366f1" stopOpacity={0}/></linearGradient></defs>
+              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+              <XAxis dataKey="period" axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 700 }} />
+              <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 700 }} />
+              <RechartsTooltip />
+              <Legend verticalAlign="top" align="right" iconType="circle" wrapperStyle={{ paddingBottom: '10px', fontSize: '10px', fontWeight: 700 }} />
+              <Area type="monotone" dataKey="performance" stroke="#6366f1" strokeWidth={3} fillOpacity={1} fill="url(#colorPerfH)" name="Hiệu suất (%)" />
+              <Area type="monotone" dataKey="kpiCompletion" stroke="#10b981" strokeWidth={3} fillOpacity={0} name="Hoàn thành KPI (%)" />
+            </AreaChart>
+          </ResponsiveContainer>
+        </div>
+      )
+    case 'TOP_UNITS':
+      return (
+        <div className="space-y-4 overflow-auto max-h-full pr-2">
+          {(comparisonData?.topPerformingUnits || []).map((unit: any, i: number) => (
+            <div key={i} className="flex items-center gap-3 p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-transparent">
+              <div className="w-8 h-8 rounded-lg flex items-center justify-center font-black text-xs bg-amber-100 text-amber-600">#{i + 1}</div>
+              <div className="flex-1 min-w-0">
+                <p className="font-black text-xs text-slate-800 dark:text-white truncate">{unit.unitName}</p>
+                <div className="flex items-center gap-2 mt-1">
+                  <div className="flex-1 h-1 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
+                    <div className="h-full bg-indigo-500" style={{ width: `${unit.performance}%` }} />
+                  </div>
+                  <span className="text-[10px] font-black text-indigo-600">{unit.performance.toFixed(0)}%</span>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )
+    case 'UNIT_PERFORMANCE':
+      return (
+        <div className="h-full w-full min-h-[220px]">
+          <ResponsiveContainer width="100%" height="100%">
+            <AreaChart data={comparisonData?.topPerformingUnits || []}>
+              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+              <XAxis dataKey="unitName" axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 700 }} />
+              <YAxis domain={[0, 100]} axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 700 }} />
+              <RechartsTooltip />
+              <Area type="monotone" dataKey="performance" stroke="#10b981" fill="#10b981" fillOpacity={0.1} strokeWidth={3} name="Hiệu suất:" />
+            </AreaChart>
+          </ResponsiveContainer>
+        </div>
+      )
+    case 'UNIT_KPI':
+      return (
+        <div className="h-full w-full min-h-[220px]">
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={comparisonData?.unitKpiData || []}>
+              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+              <XAxis dataKey="unitName" axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 700 }} />
+              <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 700 }} />
+              <RechartsTooltip />
+              <Legend iconType="circle" wrapperStyle={{ fontSize: '10px', fontWeight: 800, paddingTop: '10px' }} />
+              <Bar dataKey="totalKpi" fill="#6366f1" radius={[4, 4, 0, 0]} name="Tổng KPI" barSize={15} />
+              <Bar dataKey="approvedKpi" fill="#10b981" radius={[4, 4, 0, 0]} name="Đã duyệt" barSize={15} />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      )
+    case 'MEMBER_DIST':
+      return (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-center h-full overflow-hidden">
+          <div className="h-full min-h-[180px]">
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie 
+                  data={stats?.memberDistribution || []} 
+                  innerRadius="50%" 
+                  outerRadius="80%" 
+                  paddingAngle={5} 
+                  dataKey="value"
+                >
+                  {(stats?.memberDistribution || []).map((entry: any, index: number) => (
+                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                  ))}
+                </Pie>
+                <RechartsTooltip />
+              </PieChart>
+            </ResponsiveContainer>
+          </div>
+          <div className="space-y-2 overflow-auto max-h-full pr-1">
+            {(stats?.memberDistribution || []).map((entry: any, index: number) => (
+              <div key={entry.name} className="flex items-center justify-between">
+                <div className="flex items-center gap-2 min-w-0">
+                  <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: COLORS[index % COLORS.length] }} />
+                  <span className="text-[10px] font-bold text-slate-500 truncate">{entry.name}</span>
+                </div>
+                <span className="text-[10px] font-black text-slate-900 dark:text-white shrink-0">{entry.value} người</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )
+    case 'ROLE_DIST':
+      return (
+        <div className="h-full w-full min-h-[220px]">
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={stats?.roleDistribution || []} layout="vertical" margin={{ left: 10 }}>
+              <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f1f5f9" />
+              <XAxis type="number" axisLine={false} tickLine={false} tick={{ fontSize: 9, fontWeight: 700 }} />
+              <YAxis dataKey="unitName" type="category" axisLine={false} tickLine={false} tick={{ fontSize: 9, fontWeight: 700 }} width={70} />
+              <RechartsTooltip />
+              <Legend iconType="circle" wrapperStyle={{ fontSize: '9px', fontWeight: 800, paddingTop: '5px' }} />
+              <Bar dataKey="directorCount" stackId="a" fill="#6366f1" name="Giám đốc" barSize={12} />
+              <Bar dataKey="headCount" stackId="a" fill="#f59e0b" name="Trưởng phòng" />
+              <Bar dataKey="staffCount" stackId="a" fill="#94a3b8" name="Nhân viên" />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      )
+    case 'UNIT_RISK':
+      return (
+        <div className="h-full flex flex-col">
+          <div className="h-[150px] mb-4">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={riskData?.unitRisks || []} layout="vertical">
+                <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#fef2f2" />
+                <XAxis type="number" hide domain={[0, 100]} />
+                <YAxis dataKey="name" type="category" width={60} axisLine={false} tickLine={false} tick={{ fontSize: 9, fontWeight: 700, fill: '#ef4444' }} />
+                <RechartsTooltip />
+                <Bar dataKey="performance" fill="#ef4444" radius={[0, 4, 4, 0]} name="Hiệu suất (%)" barSize={10} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+          <div className="space-y-2 overflow-auto max-h-full pr-1">
+            {(riskData?.unitRisks || []).map((risk: any, i: number) => (
+              <div key={i} className="flex items-center justify-between p-2 rounded-xl bg-red-50 dark:bg-red-900/10 border border-red-100 dark:border-red-900/20">
+                <span className="text-[10px] font-black text-slate-800 dark:text-white">{risk.name}</span>
+                <span className="text-[10px] font-black text-red-600">{risk.performance.toFixed(1)}%</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )
+    default:
+      return <div className="h-full flex items-center justify-center text-xs font-bold text-slate-300 italic">Chi tiết biểu đồ xem tại trang Thống kê</div>
+  }
 }

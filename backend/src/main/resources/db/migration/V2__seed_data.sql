@@ -87,6 +87,71 @@ VALUES (
     'ACTIVE'
 );
 
+-- Level 2: Phòng Marketing
+INSERT INTO org_units (id, name, parent_id, org_hierarchy_id, district_id, status)
+VALUES (
+    'cccccccc-cccc-cccc-cccc-cccccccccccc',
+    'Phòng Marketing',
+    'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
+    '22222222-2222-2222-2222-222222222222',
+    'b1000000-0000-0000-0000-000000000001',
+    'ACTIVE'
+);
+
+-- Level 2: Phòng Nhân sự
+INSERT INTO org_units (id, name, parent_id, org_hierarchy_id, district_id, status)
+VALUES (
+    'eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee',
+    'Phòng Nhân sự',
+    'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
+    '22222222-2222-2222-2222-222222222222',
+    'b1000000-0000-0000-0000-000000000001',
+    'ACTIVE'
+);
+
+-- Level 3: Team Frontend
+INSERT INTO org_units (id, name, parent_id, org_hierarchy_id, district_id, status)
+VALUES (
+    'ffffffff-ffff-ffff-ffff-ffffffffffff',
+    'Team Frontend',
+    'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb',
+    '23333333-3333-3333-3333-333333333333',
+    'b1000000-0000-0000-0000-000000000001',
+    'ACTIVE'
+);
+
+-- Level 3: Team Content
+INSERT INTO org_units (id, name, parent_id, org_hierarchy_id, district_id, status)
+VALUES (
+    '11111111-2222-3333-4444-555555555555',
+    'Team Content',
+    'cccccccc-cccc-cccc-cccc-cccccccccccc',
+    '23333333-3333-3333-3333-333333333333',
+    'b1000000-0000-0000-0000-000000000001',
+    'ACTIVE'
+);
+
+-- Level 1: Chi nhánh Hồ Chí Minh
+INSERT INTO org_units (id, name, org_hierarchy_id, district_id, status)
+VALUES (
+    'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee',
+    'Chi nhánh Hồ Chí Minh',
+    '21111111-1111-1111-1111-111111111111',
+    'b1000000-0000-0000-0000-000000000006',
+    'ACTIVE'
+);
+
+-- Level 2: Phòng Kinh doanh (HCM)
+INSERT INTO org_units (id, name, parent_id, org_hierarchy_id, district_id, status)
+VALUES (
+    'bbbbbbbb-cccc-dddd-eeee-ffffffffffff',
+    'Phòng Kinh doanh',
+    'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee',
+    '22222222-2222-2222-2222-222222222222',
+    'b1000000-0000-0000-0000-000000000006',
+    'ACTIVE'
+);
+
 INSERT INTO users (id, email, password, full_name, phone, status, is_email_verified) VALUES
     ('d1000000-0000-0000-0000-000000000001',
      'director@demo.com', '$2a$12$Ab.ay.J8o0ExWqdKKXcpmuhU0Itfrn9eUa05wMQGmLh.nfPf5yD92',
@@ -102,7 +167,27 @@ INSERT INTO users (id, email, password, full_name, phone, status, is_email_verif
 
     ('d1000000-0000-0000-0000-000000000004',
      'staff@demo.com', '$2a$12$qI4LsOS.rbo/YoyRAJHUduh1PHiYw25CYssLvdV3hyhiN07EFV45G',
-     'Phạm Thị Staff', '0901000004', 'ACTIVE', true);
+     'Phạm Thị Staff', '0901000004', 'ACTIVE', true),
+
+    ('d1000000-0000-0000-0000-000000000005',
+     'marketing_head@demo.com', '$2a$12$Ab.ay.J8o0ExWqdKKXcpmuhU0Itfrn9eUa05wMQGmLh.nfPf5yD92',
+     'Lê Marketing', '0901000005', 'ACTIVE', true),
+
+    ('d1000000-0000-0000-0000-000000000006',
+     'hr_head@demo.com', '$2a$12$Ab.ay.J8o0ExWqdKKXcpmuhU0Itfrn9eUa05wMQGmLh.nfPf5yD92',
+     'Hoàng Nhân Sự', '0901000006', 'ACTIVE', true),
+
+    ('d1000000-0000-0000-0000-000000000007',
+     'it_staff1@demo.com', '$2a$12$qI4LsOS.rbo/YoyRAJHUduh1PHiYw25CYssLvdV3hyhiN07EFV45G',
+     'Nguyễn IT 1', '0901000007', 'ACTIVE', true),
+
+    ('d1000000-0000-0000-0000-000000000008',
+     'it_staff2@demo.com', '$2a$12$qI4LsOS.rbo/YoyRAJHUduh1PHiYw25CYssLvdV3hyhiN07EFV45G',
+     'Trần IT 2', '0901000008', 'ACTIVE', true),
+
+    ('d1000000-0000-0000-0000-000000000009',
+     'sale_head@demo.com', '$2a$12$Ab.ay.J8o0ExWqdKKXcpmuhU0Itfrn9eUa05wMQGmLh.nfPf5yD92',
+     'Phạm Kinh Doanh', '0901000009', 'ACTIVE', true);
 
 INSERT INTO roles (id, name)
 VALUES
@@ -145,6 +230,34 @@ VALUES (
 'd4dddddd-dddd-dddd-dddd-dddddddddddd',
 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb'
 );
+
+-- Marketing Head
+INSERT INTO user_role_org_units (user_id, role_id, org_unit_id)
+VALUES (
+'d1000000-0000-0000-0000-000000000005',
+'b2bbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb',
+'cccccccc-cccc-cccc-cccc-cccccccccccc'
+);
+
+-- HR Head
+INSERT INTO user_role_org_units (user_id, role_id, org_unit_id)
+VALUES (
+'d1000000-0000-0000-0000-000000000006',
+'b2bbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb',
+'eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee'
+);
+
+-- IT Staff 1
+INSERT INTO user_role_org_units (user_id, role_id, org_unit_id)
+VALUES ('d1000000-0000-0000-0000-000000000007', 'd4dddddd-dddd-dddd-dddd-dddddddddddd', 'dddddddd-dddd-dddd-dddd-dddddddddddd');
+
+-- IT Staff 2
+INSERT INTO user_role_org_units (user_id, role_id, org_unit_id)
+VALUES ('d1000000-0000-0000-0000-000000000008', 'd4dddddd-dddd-dddd-dddd-dddddddddddd', 'ffffffff-ffff-ffff-ffff-ffffffffffff');
+
+-- Sale Head (HCM)
+INSERT INTO user_role_org_units (user_id, role_id, org_unit_id)
+VALUES ('d1000000-0000-0000-0000-000000000009', 'b2bbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', 'bbbbbbbb-cccc-dddd-eeee-ffffffffffff');
 
 
 -- Director chỉ ở COMPANY
@@ -318,16 +431,96 @@ INSERT INTO kpi_criteria (id, org_unit_id, name, description, weight, target_val
      'MONTHLY', 'APPROVED', 'd1000000-0000-0000-0000-000000000002', 'd1000000-0000-0000-0000-000000000001',
      NOW(), NOW()),
 
-    ('f1000000-0000-0000-0000-000000000002','bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb',
+    ('f1000000-0000-0000-0000-000000000002', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb',
      'Khách hàng mới', 'Số lượng khách hàng mới tiếp cận được', 20, 10, 'khách hàng',
      'MONTHLY', 'APPROVED', 'd1000000-0000-0000-0000-000000000002', 'd1000000-0000-0000-0000-000000000001',
      NOW(), NOW()),
 
-    ('f1000000-0000-0000-0000-000000000003','aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
+    ('f1000000-0000-0000-0000-000000000003', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
      'Tỷ lệ chốt đơn', 'Tỷ lệ chuyển đổi từ khách tiềm năng sang khách hàng', 25, 50, '%',
      'QUARTERLY', 'DRAFT', 'd1000000-0000-0000-0000-000000000002', NULL,
-     NULL, NULL);
+     NULL, NULL),
+
+    ('f1000000-0000-0000-0000-000000000004', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb',
+     'Chất lượng code', 'Tỷ lệ lỗi trên mỗi 1000 dòng code', 15, 5, 'lỗi',
+     'MONTHLY', 'APPROVED', 'd1000000-0000-0000-0000-000000000002', 'd1000000-0000-0000-0000-000000000001',
+     NOW(), NOW()),
+
+    ('f1000000-0000-0000-0000-000000000005', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb',
+     'Thời gian phản hồi', 'Thời gian trung bình xử lý ticket hỗ trợ', 10, 2, 'giờ',
+     'MONTHLY', 'APPROVED', 'd1000000-0000-0000-0000-000000000002', 'd1000000-0000-0000-0000-000000000001',
+     NOW(), NOW()),
+
+    ('f1000000-0000-0000-0000-000000000006', 'cccccccc-cccc-cccc-cccc-cccccccccccc',
+     'Chiến dịch quảng cáo', 'Số lượng chiến dịch triển khai', 40, 5, 'chiến dịch',
+     'MONTHLY', 'APPROVED', 'd1000000-0000-0000-0000-000000000005', 'd1000000-0000-0000-0000-000000000001',
+     NOW(), NOW()),
+
+    ('f1000000-0000-0000-0000-000000000007', 'eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee',
+     'Tuyển dụng nhân sự', 'Số lượng nhân sự tuyển mới', 50, 10, 'người',
+     'MONTHLY', 'APPROVED', 'd1000000-0000-0000-0000-000000000006', 'd1000000-0000-0000-0000-000000000001',
+     NOW(), NOW()),
+
+    ('f1000000-0000-0000-0000-000000000008', 'dddddddd-dddd-dddd-dddd-dddddddddddd',
+     'Uptime Server', 'Tỷ lệ hoạt động của server', 20, 99.9, '%',
+     'MONTHLY', 'APPROVED', 'd1000000-0000-0000-0000-000000000002', 'd1000000-0000-0000-0000-000000000001',
+     NOW(), NOW()),
+
+    ('f1000000-0000-0000-0000-000000000009', 'ffffffff-ffff-ffff-ffff-ffffffffffff',
+     'Tốc độ tải trang', 'Thời gian tải trang LCP', 25, 2.5, 's',
+     'MONTHLY', 'APPROVED', 'd1000000-0000-0000-0000-000000000002', 'd1000000-0000-0000-0000-000000000001',
+     NOW(), NOW()),
+
+    ('f1000000-0000-0000-0000-000000000010', '11111111-2222-3333-4444-555555555555',
+     'Số bài viết SEO', 'Số bài viết được index Google', 30, 20, 'bài',
+     'MONTHLY', 'APPROVED', 'd1000000-0000-0000-0000-000000000005', 'd1000000-0000-0000-0000-000000000001',
+     NOW(), NOW()),
+
+    ('f1000000-0000-0000-0000-000000000011', 'bbbbbbbb-cccc-dddd-eeee-ffffffffffff',
+     'Doanh số bán hàng', 'Chỉ tiêu doanh số chi nhánh HCM', 60, 500000000, 'VND',
+     'MONTHLY', 'APPROVED', 'd1000000-0000-0000-0000-000000000009', 'd1000000-0000-0000-0000-000000000001',
+     NOW(), NOW());
 
 INSERT INTO kpi_criteria_assignees (kpi_criteria_id, user_id) VALUES
     ('f1000000-0000-0000-0000-000000000001', 'd1000000-0000-0000-0000-000000000004'),
-    ('f1000000-0000-0000-0000-000000000002', 'd1000000-0000-0000-0000-000000000004');
+    ('f1000000-0000-0000-0000-000000000002', 'd1000000-0000-0000-0000-000000000004'),
+    ('f1000000-0000-0000-0000-000000000004', 'd1000000-0000-0000-0000-000000000004'),
+    ('f1000000-0000-0000-0000-000000000005', 'd1000000-0000-0000-0000-000000000004');
+
+-- ====================================================
+-- Sample Submissions
+-- ====================================================
+INSERT INTO kpi_submissions (id, org_unit_id, kpi_criteria_id, submitted_by, actual_value, note, status, reviewed_by, reviewed_at, created_at) VALUES
+    ('e1000000-0000-0000-0000-000000000001', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', 'f1000000-0000-0000-0000-000000000001', 'd1000000-0000-0000-0000-000000000004', 85000000, 'Báo cáo doanh thu tháng 1', 'APPROVED', 'd1000000-0000-0000-0000-000000000002', NOW(), NOW() - INTERVAL '30 days'),
+    ('e1000000-0000-0000-0000-000000000002', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', 'f1000000-0000-0000-0000-000000000001', 'd1000000-0000-0000-0000-000000000004', 120000000, 'Báo cáo doanh thu tháng 2', 'APPROVED', 'd1000000-0000-0000-0000-000000000002', NOW(), NOW() - INTERVAL '10 days'),
+    ('e1000000-0000-0000-0000-000000000003', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', 'f1000000-0000-0000-0000-000000000002', 'd1000000-0000-0000-0000-000000000004', 8, 'Tiếp cận được 8 khách hàng', 'PENDING', NULL, NULL, NOW() - INTERVAL '2 days'),
+    ('e1000000-0000-0000-0000-000000000004', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', 'f1000000-0000-0000-0000-000000000004', 'd1000000-0000-0000-0000-000000000004', 2, 'Hoàn thành sprint không lỗi nghiêm trọng', 'APPROVED', 'd1000000-0000-0000-0000-000000000002', NOW(), NOW() - INTERVAL '5 days'),
+    ('e1000000-0000-0000-0000-000000000005', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', 'f1000000-0000-0000-0000-000000000005', 'd1000000-0000-0000-0000-000000000004', 3, 'Ticket phức tạp cần nhiều thời gian', 'REJECTED', 'd1000000-0000-0000-0000-000000000002', NOW(), NOW() - INTERVAL '1 days'),
+    -- Marketing Submissions
+    ('e1000000-0000-0000-0000-000000000006', 'cccccccc-cccc-cccc-cccc-cccccccccccc', 'f1000000-0000-0000-0000-000000000006', 'd1000000-0000-0000-0000-000000000005', 4, 'Đã chạy 4 chiến dịch', 'APPROVED', 'd1000000-0000-0000-0000-000000000001', NOW(), NOW()),
+    -- HR Submissions
+    ('e1000000-0000-0000-0000-000000000007', 'eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee', 'f1000000-0000-0000-0000-000000000007', 'd1000000-0000-0000-0000-000000000006', 2, 'Mới tuyển được 2 người', 'APPROVED', 'd1000000-0000-0000-0000-000000000001', NOW(), NOW()),
+    -- Backend Team Submissions
+    ('e1000000-0000-0000-0000-000000000008', 'dddddddd-dddd-dddd-dddd-dddddddddddd', 'f1000000-0000-0000-0000-000000000008', 'd1000000-0000-0000-0000-000000000004', 100, 'Uptime tuyệt đối', 'APPROVED', 'd1000000-0000-0000-0000-000000000002', NOW(), NOW()),
+    -- Frontend Team Submissions
+    ('e1000000-0000-0000-0000-000000000009', 'ffffffff-ffff-ffff-ffff-ffffffffffff', 'f1000000-0000-0000-0000-000000000009', 'd1000000-0000-0000-0000-000000000002', 1.2, 'Tối ưu ảnh thành công', 'APPROVED', 'd1000000-0000-0000-0000-000000000001', NOW(), NOW()),
+    -- Content Team Submissions
+    ('e1000000-0000-0000-0000-000000000010', '11111111-2222-3333-4444-555555555555', 'f1000000-0000-0000-0000-000000000010', 'd1000000-0000-0000-0000-000000000005', 15, 'Mới index được 15 bài', 'APPROVED', 'd1000000-0000-0000-0000-000000000001', NOW(), NOW()),
+    ('e1000000-0000-0000-0000-000000000011', 'bbbbbbbb-cccc-dddd-eeee-ffffffffffff', 'f1000000-0000-0000-0000-000000000011', 'd1000000-0000-0000-0000-000000000009', 480000000, 'Sắp đạt chỉ tiêu tháng', 'APPROVED', 'd1000000-0000-0000-0000-000000000001', NOW(), NOW());
+
+-- ====================================================
+-- Sample Evaluations
+-- ====================================================
+INSERT INTO evaluations (id, org_unit_id, user_id, kpi_criteria_id, evaluator_id, score, comment, created_at) VALUES
+    ('c1000000-0000-0000-0000-000000000001', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', 'd1000000-0000-0000-0000-000000000004', 'f1000000-0000-0000-0000-000000000001', 'd1000000-0000-0000-0000-000000000002', 8.5, 'Làm việc rất tốt, vượt chỉ tiêu doanh thu', NOW() - INTERVAL '5 days'),
+    ('c1000000-0000-0000-0000-000000000002', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', 'd1000000-0000-0000-0000-000000000004', 'f1000000-0000-0000-0000-000000000004', 'd1000000-0000-0000-0000-000000000002', 9.0, 'Code sạch, ít bug', NOW() - INTERVAL '10 days'),
+    ('c1000000-0000-0000-0000-000000000003', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', 'd1000000-0000-0000-0000-000000000004', 'f1000000-0000-0000-0000-000000000001', 'd1000000-0000-0000-0000-000000000002', 7.0, 'Cần cố gắng hơn trong tháng tới', NOW() - INTERVAL '40 days');
+
+-- ====================================================
+-- Sample Notifications
+-- ====================================================
+INSERT INTO notifications (id, org_unit_id, user_id, title, message, type, reference_id, is_read, created_at) VALUES
+    ('71000000-0000-0000-0000-000000000001', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', 'd1000000-0000-0000-0000-000000000004', 'KPI mới được giao', 'Bạn được giao KPI mới: Chất lượng code', 'KPI_ASSIGNED', 'f1000000-0000-0000-0000-000000000004', false, NOW() - INTERVAL '1 hour'),
+    ('71000000-0000-0000-0000-000000000002', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', 'd1000000-0000-0000-0000-000000000004', 'Bài nộp bị từ chối', 'Báo cáo Thời gian phản hồi đã bị từ chối bởi Head', 'SUBMISSION_REJECTED', 'e1000000-0000-0000-0000-000000000005', false, NOW() - INTERVAL '2 hours'),
+    ('71000000-0000-0000-0000-000000000003', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', 'd1000000-0000-0000-0000-000000000004', 'Đánh giá mới', 'Trần Thị Head đã đánh giá kết quả của bạn', 'EVALUATION_COMPLETED', 'c1000000-0000-0000-0000-000000000001', true, NOW() - INTERVAL '1 day'),
+    ('71000000-0000-0000-0000-000000000004', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', 'd1000000-0000-0000-0000-000000000004', 'Hệ thống bảo trì', 'Hệ thống sẽ bảo trì vào lúc 2h sáng mai', 'SYSTEM', NULL, false, NOW() - INTERVAL '5 hours');

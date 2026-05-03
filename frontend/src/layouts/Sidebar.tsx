@@ -17,7 +17,10 @@ import {
   KeyRound,
   LogOut,
   Network,
-  Shield
+  Shield,
+  Database,
+  BarChart3,
+  TrendingUp
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -41,6 +44,9 @@ const navItems: NavItem[] = [
   { label: 'Duyệt Bài nộp', path: '/submissions/org-unit', icon: <ClipboardCheck size={20} />, permission: 'SUBMISSION:REVIEW' },
   { label: 'Bài nộp của tôi', path: '/submissions', icon: <FileText size={20} />, permission: 'SUBMISSION:VIEW_MY', end: true },
   { label: 'Đánh giá NS', path: '/evaluations', icon: <Star size={20} />, permission: 'EVALUATION:VIEW' },
+  { label: 'Nguồn dữ liệu', path: '/datasources', icon: <Database size={20} />, permission: 'DASHBOARD:VIEW', end: true },
+  { label: 'Báo cáo', path: '/reports', icon: <BarChart3 size={20} />, permission: 'DASHBOARD:VIEW', end: true },
+  { label: 'Thống kê', path: '/analytics', icon: <TrendingUp size={20} />, permission: 'DASHBOARD:VIEW', end: true },
 ]
 
 export default function Sidebar({ isMobileOpen, onCloseMobile }: { isMobileOpen?: boolean; onCloseMobile?: () => void }) {

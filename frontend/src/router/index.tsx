@@ -32,6 +32,11 @@ import OrgUnitSubmissionsPage from '@/features/submissions/pages/OrgUnitSubmissi
 import EvaluationsPage from '@/features/evaluations/pages/EvaluationsPage'
 import ProfilePage from '@/features/profile/pages/ProfilePage'
 import NotificationsPage from '@/features/notifications/pages/NotificationsPage'
+import DatasourcesPage from '@/features/datasources/pages/DatasourcesPage'
+import DatasourceDetailPage from '@/features/datasources/pages/DatasourceDetailPage'
+import ReportsPage from '@/features/reports/pages/ReportsPage'
+import ReportDetailPage from '@/features/reports/pages/ReportDetailPage'
+import AnalyticsPage from '@/features/analytics/pages/AnalyticsPage'
 
 // Dashboard router helper
 import DashboardRedirect from '@/features/dashboard/pages/DashboardRedirect'
@@ -90,6 +95,13 @@ export const router = createBrowserRouter([
               { path: '/dashboard/staff', element: <StaffDashboard /> },
             ],
           },
+
+          // Datasources & Reports
+          { path: '/datasources', element: <DatasourcesPage /> },
+          { path: '/datasources/:id', element: <DatasourceDetailPage /> },
+          { path: '/reports', element: <ReportsPage /> },
+          { path: '/reports/:id', element: <ReportDetailPage /> },
+          { path: '/analytics', element: <AnalyticsPage /> },
 
           // All roles — my KPI, submissions & evaluations
           { path: '/my-kpi', element: <MyKpiPage /> },

@@ -3,9 +3,6 @@ import { useThemeStore, THEME_COLORS } from '@/store/themeStore'
 import { cn } from '@/lib/utils'
 import { Sun, Moon, Palette, Check, Pipette } from 'lucide-react'
 
-interface ThemeCustomizerProps {
-  onClose?: () => void
-}
 
 export default function ThemeCustomizer() {
   const { isDark, setDark, primaryColor, setPrimaryColor } = useThemeStore()
