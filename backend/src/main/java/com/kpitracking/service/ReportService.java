@@ -257,6 +257,30 @@ public class ReportService {
         reportWidgetRepository.deleteById(widgetId);
     }
 
+    @Transactional(readOnly = true)
+    public List<ReportWidgetResponse> getPinnedWidgets() {
+        User currentUser = getCurrentUser();
+        return reportWidgetRepository.findByIsPinnedAndReportCreatedById(true, currentUser.getId())
+                .stream()
+                .map(this::toWidgetResponse)
+                .toList();
+    }
+
+    @Transactional
+    public ReportWidgetResponse togglePinWidget(UUID widgetId) {
+        ReportWidget widget = reportWidgetRepository.findById(widgetId)
+                .orElseThrow(() -> new ResourceNotFoundException("Widget", "id", widgetId));
+
+        User currentUser = getCurrentUser();
+        if (!widget.getReport().getCreatedBy().getId().equals(currentUser.getId())) {
+            throw new BusinessException("Bạn không có quyền ghim biểu đồ này");
+        }
+
+        widget.setPinned(!widget.isPinned());
+        widget = reportWidgetRepository.save(widget);
+        return toWidgetResponse(widget);
+    }
+
     // ============================================================
     // MAPPERS
     // ============================================================
@@ -306,7 +330,8 @@ public class ReportService {
                 .description(widget.getDescription())
                 .chartConfig(widget.getChartConfig())
                 .position(widget.getPosition())
-                .widgetOrder(widget.getWidgetOrder());
+                .widgetOrder(widget.getWidgetOrder())
+                .isPinned(widget.isPinned());
 
         if (widget.getReportDatasource() != null) {
             builder.reportDatasourceId(widget.getReportDatasource().getId());

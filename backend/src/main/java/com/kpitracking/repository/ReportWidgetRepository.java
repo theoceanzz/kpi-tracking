@@ -12,5 +12,7 @@ public interface ReportWidgetRepository extends JpaRepository<ReportWidget, UUID
 
     List<ReportWidget> findByReportIdOrderByWidgetOrderAsc(UUID reportId);
 
+    List<ReportWidget> findByIsPinnedAndReportCreatedById(boolean isPinned, UUID createdById);
+
     void deleteByReportId(UUID reportId);
 }

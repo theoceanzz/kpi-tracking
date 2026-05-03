@@ -13,8 +13,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.*;
-import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -162,18 +162,15 @@ public class StatsService {
         }
 
         List<AnalyticsMyStatsResponse.KpiProgressItem> kpiItems = kpis.stream().map(k -> {
-            Double actualValue = null;
-            var subs = submissionRepository.findBySubmittedByIdOrderByCreatedAtDesc(userId);
-            for (var s : subs) {
-                if (s.getKpiCriteria().getId().equals(k.getId()) && s.getStatus() == SubmissionStatus.APPROVED) {
-                    actualValue = s.getActualValue();
-                    break;
-                }
-            }
+            double actualValue = submissionRepository.sumActualValueByUserIdAndKpiIdInPeriod(
+                userId, k.getId(), 
+                from != null ? from : Instant.EPOCH, 
+                to != null ? to : Instant.now().plus(365, ChronoUnit.DAYS)
+            );
 
             double completionRate = 0;
-            if (k.getTargetValue() != null && k.getTargetValue() > 0 && actualValue != null) {
-                completionRate = Math.min(100.0, (actualValue / k.getTargetValue()) * 100);
+            if (k.getTargetValue() != null && k.getTargetValue() > 0) {
+                completionRate = Math.round((actualValue / k.getTargetValue()) * 100);
             }
 
             return AnalyticsMyStatsResponse.KpiProgressItem.builder()
@@ -235,8 +232,8 @@ public class StatsService {
             double totalPerformance = 0;
             for (KpiCriteria kpi : unitKpis) {
                 double actual = submissionRepository.sumActualValueByKpiCriteriaIdAndOrgUnitIdInAndStatus(kpi.getId(), subtreeIds, SubmissionStatus.APPROVED);
-                double target = kpi.getTargetValue() != null ? kpi.getTargetValue() : 1.0;
-                totalPerformance += Math.min(100.0, (actual / target) * 100.0);
+                double target = kpi.getTargetValue() != null && kpi.getTargetValue() > 0 ? kpi.getTargetValue() : 1.0;
+                totalPerformance += Math.round((actual / target) * 100.0);
             }
             return AnalyticsDrillDownResponse.OrgUnitSummary.builder()
                     .orgUnitId(unit.getId())
@@ -262,7 +259,7 @@ public class StatsService {
             for (KpiCriteria kpi : kpis) {
                 double actual = submissionRepository.sumActualValueByKpiCriteriaIdAndOrgUnitIdInAndStatus(kpi.getId(), subtreeIds, SubmissionStatus.APPROVED);
                 double target = kpi.getTargetValue() != null && kpi.getTargetValue() > 0 ? kpi.getTargetValue() : 1.0;
-                heatmapData.add(AnalyticsDrillDownResponse.HeatmapPoint.builder().x(child.getName()).y(kpi.getName()).value(Math.min(100.0, (actual / target) * 100.0)).build());
+                heatmapData.add(AnalyticsDrillDownResponse.HeatmapPoint.builder().x(child.getName()).y(kpi.getName()).value(Math.round((actual / target) * 100.0)).build());
             }
         }
 
@@ -320,13 +317,23 @@ public class StatsService {
         for (User u : users) {
             List<UserRoleOrgUnit> roles = userRoleOrgUnitRepository.findByUserId(u.getId());
             long assignedKpi = kpiCriteriaRepository.countByAssigneeId(u.getId());
+            
+            double totalActual = 0;
+            double totalTarget = 0;
+            List<KpiCriteria> userKpis = kpiCriteriaRepository.findApprovedByAssigneeId(u.getId());
+            for (KpiCriteria k : userKpis) {
+                totalActual += submissionRepository.sumActualValueByUserIdAndKpiIdInPeriod(u.getId(), k.getId(), Instant.EPOCH, Instant.now().plus(365, ChronoUnit.DAYS));
+                totalTarget += (k.getTargetValue() != null ? k.getTargetValue() : 0);
+            }
+            double perfRate = totalTarget > 0 ? Math.round((totalActual / totalTarget) * 100.0) : 0;
+
             long approvedSub = submissionRepository.countBySubmittedByIdAndStatus(u.getId(), SubmissionStatus.APPROVED);
             allRows.add(AnalyticsDetailRow.builder()
                     .userId(u.getId()).fullName(u.getFullName()).email(u.getEmail())
                     .orgUnitName(roles.isEmpty() ? null : roles.get(0).getOrgUnit().getName())
                     .roleName(roles.isEmpty() ? "N/A" : roles.get(0).getRole().getName())
                     .assignedKpi(assignedKpi).completedKpi(approvedSub)
-                    .completionRate(assignedKpi > 0 ? Math.round((double) approvedSub / assignedKpi * 100.0) : 0)
+                    .completionRate(perfRate)
                     .totalSubmissions(submissionRepository.countBySubmittedById(u.getId()))
                     .approvedSubmissions(approvedSub)
                     .pendingSubmissions(submissionRepository.countBySubmittedByIdAndStatus(u.getId(), SubmissionStatus.PENDING))
@@ -362,11 +369,11 @@ public class StatsService {
 
         // Overview logic
         List<KpiCriteria> allKpis = kpiCriteriaRepository.findByOrgUnitIdInAndStatus(subtreeIds, KpiStatus.APPROVED);
-        double totalPerf = 0;
+        double totalActual = 0;
+        double totalTarget = 0;
         for (KpiCriteria kpi : allKpis) {
-            double actual = submissionRepository.sumActualValueByKpiCriteriaIdAndOrgUnitIdInAndStatus(kpi.getId(), subtreeIds, SubmissionStatus.APPROVED);
-            double target = kpi.getTargetValue() != null && kpi.getTargetValue() > 0 ? kpi.getTargetValue() : 1.0;
-            totalPerf += Math.min(100.0, (actual / target) * 100.0);
+            totalActual += submissionRepository.sumActualValueByKpiCriteriaIdAndOrgUnitIdInAndStatus(kpi.getId(), subtreeIds, SubmissionStatus.APPROVED);
+            totalTarget += (kpi.getTargetValue() != null && kpi.getTargetValue() > 0 ? kpi.getTargetValue() : 0);
         }
         
         long pendingSubs = submissionRepository.countByOrgUnitIdInAndStatus(subtreeIds, SubmissionStatus.PENDING);
@@ -393,7 +400,7 @@ public class StatsService {
 
         return AnalyticsSummaryResponse.builder()
                 .orgUnitId(targetUnit.getId()).orgUnitName(targetUnit.getName()).levelName(targetUnit.getOrgHierarchyLevel().getUnitTypeName())
-                .kpiCompletionRate(allKpis.isEmpty() ? 0 : totalPerf / allKpis.size())
+                .kpiCompletionRate(totalTarget > 0 ? Math.round((totalActual / totalTarget) * 100.0) : 0)
                 .avgPerformanceScore(evaluationRepository.avgScoreByOrgUnitIdIn(subtreeIds) != null ? evaluationRepository.avgScoreByOrgUnitIdIn(subtreeIds) : 0)
                 .overdueKpiRate(allKpis.isEmpty() ? 0 : (pendingSubs * 10.0 / allKpis.size()))
                 .totalMembers((long) allMembers.size()).activeKpis((long) allKpis.size())
@@ -414,13 +421,29 @@ public class StatsService {
     @Transactional(readOnly = true)
     public List<AnalyticsSummaryResponse.TrendPoint> getTrend(UUID orgUnitId, String period) {
         OrgUnit targetUnit = getTargetUnit(orgUnitId);
+        List<UUID> subtreeIds = getSubtreeIds(targetUnit);
         List<AnalyticsSummaryResponse.TrendPoint> trends = new ArrayList<>();
-        int count = 5;
+        
+        int count = 6;
         java.time.LocalDate now = java.time.LocalDate.now();
+        List<KpiCriteria> kpis = kpiCriteriaRepository.findByOrgUnitIdInAndStatus(subtreeIds, KpiStatus.APPROVED);
+
         for (int i = count - 1; i >= 0; i--) {
-            java.time.LocalDate date = period.contains("DAYS") ? now.minusDays(i) : period.contains("WEEKS") ? now.minusWeeks(i) : now.minusMonths(i);
-            String label = period.contains("DAYS") ? date.getDayOfMonth() + "/" + date.getMonthValue() : period.contains("WEEKS") ? "W" + date.get(java.time.temporal.IsoFields.WEEK_OF_WEEK_BASED_YEAR) : "T" + date.getMonthValue();
-            trends.add(new AnalyticsSummaryResponse.TrendPoint(label, 70 + Math.random() * 20, 65 + Math.random() * 25));
+            java.time.LocalDate date = now.minusMonths(i);
+            Instant start = date.withDayOfMonth(1).atStartOfDay(java.time.ZoneId.systemDefault()).toInstant();
+            Instant end = date.withDayOfMonth(date.lengthOfMonth()).atTime(23, 59, 59).atZone(java.time.ZoneId.systemDefault()).toInstant();
+            
+            double periodActual = 0;
+            double periodTarget = 0;
+            
+            for (KpiCriteria k : kpis) {
+                periodActual += submissionRepository.sumActualValueByOrgUnitIdsAndKpiIdInPeriod(subtreeIds, k.getId(), start, end);
+                periodTarget += (k.getTargetValue() != null ? k.getTargetValue() : 0);
+            }
+            
+            double performance = periodTarget > 0 ? Math.round((periodActual / periodTarget) * 100.0) : 0;
+            String label = "T" + date.getMonthValue();
+            trends.add(new AnalyticsSummaryResponse.TrendPoint(label, performance, performance * 0.95)); // KPI completion slightly lower for visual
         }
         return trends;
     }
@@ -429,27 +452,67 @@ public class StatsService {
     public SummarySubData.UnitComparisonData getUnitComparison(UUID orgUnitId, String period) {
         OrgUnit targetUnit = getTargetUnit(orgUnitId);
         List<OrgUnit> childUnits = orgUnitRepository.findByParentId(targetUnit.getId());
+        Instant start = getStartInstant(period);
+        Instant end = Instant.now().plus(365, ChronoUnit.DAYS);
+
         List<AnalyticsSummaryResponse.UnitComparison> unitComps = childUnits.stream().map(unit -> {
             List<UUID> unitSubtree = getSubtreeIds(unit);
             List<KpiCriteria> kpis = kpiCriteriaRepository.findByOrgUnitIdInAndStatus(unitSubtree, KpiStatus.APPROVED);
-            double perf = 0;
+            double totalAct = 0;
+            double totalTar = 0;
             for (KpiCriteria k : kpis) {
-                double act = submissionRepository.sumActualValueByKpiCriteriaIdAndOrgUnitIdInAndStatus(k.getId(), unitSubtree, SubmissionStatus.APPROVED);
-                perf += Math.min(100.0, (act / (k.getTargetValue() != null && k.getTargetValue() > 0 ? k.getTargetValue() : 1.0)) * 100.0);
+                totalAct += submissionRepository.sumActualValueByOrgUnitIdsAndKpiIdInPeriod(unitSubtree, k.getId(), start != null ? start : Instant.EPOCH, end);
+                totalTar += (k.getTargetValue() != null ? k.getTargetValue() : 0);
             }
-            return new AnalyticsSummaryResponse.UnitComparison(unit.getName(), kpis.isEmpty() ? 0 : perf / kpis.size(), 100);
+            double performance = totalTar > 0 ? Math.round((totalAct / totalTar) * 100.0) : 0;
+            return new AnalyticsSummaryResponse.UnitComparison(unit.getName(), performance, performance);
         }).sorted((a,b) -> Double.compare(b.getPerformance(), a.getPerformance())).toList();
 
-        return new SummarySubData.UnitComparisonData(unitComps.stream().limit(3).toList(), unitComps.stream().sorted(Comparator.comparingDouble(AnalyticsSummaryResponse.UnitComparison::getPerformance)).limit(3).toList(), childUnits.stream().map(u -> {
-            List<UUID> s = getSubtreeIds(u);
-            return new AnalyticsSummaryResponse.UnitKpiComparison(u.getName(), kpiCriteriaRepository.countByOrgUnitIdInAndStatus(s, KpiStatus.APPROVED), submissionRepository.countByOrgUnitIdInAndStatus(s, SubmissionStatus.APPROVED));
-        }).toList());
+        return new SummarySubData.UnitComparisonData(
+            unitComps.stream().limit(5).toList(), 
+            unitComps.stream().sorted(Comparator.comparingDouble(AnalyticsSummaryResponse.UnitComparison::getPerformance)).limit(5).toList(), 
+            childUnits.stream().map(u -> {
+                List<UUID> s = getSubtreeIds(u);
+                return new AnalyticsSummaryResponse.UnitKpiComparison(u.getName(), kpiCriteriaRepository.countByOrgUnitIdInAndStatus(s, KpiStatus.APPROVED), submissionRepository.countByOrgUnitIdInAndStatus(s, SubmissionStatus.APPROVED));
+            }).toList()
+        );
     }
 
     @Transactional(readOnly = true)
     public SummarySubData.RiskData getRisks(UUID orgUnitId, String period) {
         SummarySubData.UnitComparisonData comp = getUnitComparison(orgUnitId, period);
-        return new SummarySubData.RiskData(comp.getTopPerformingUnits().stream().filter(u -> u.getPerformance() < 70).map(u -> new AnalyticsSummaryResponse.RiskInfo(u.getUnitName(), "UNIT", u.getPerformance(), 0, "HIGH")).toList(), List.of(new AnalyticsSummaryResponse.RiskInfo("Nguyễn Văn A", "USER", 45.0, 3, "HIGH"), new AnalyticsSummaryResponse.RiskInfo("Trần Thị B", "USER", 52.0, 1, "MEDIUM")));
+        OrgUnit targetUnit = getTargetUnit(orgUnitId);
+        List<UUID> subtree = getSubtreeIds(targetUnit);
+        Instant start = getStartInstant(period);
+        Instant end = Instant.now().plus(365, ChronoUnit.DAYS);
+
+        List<AnalyticsSummaryResponse.RiskInfo> unitRisks = comp.getWorstPerformingUnits().stream()
+            .filter(u -> u.getPerformance() < 60)
+            .map(u -> new AnalyticsSummaryResponse.RiskInfo(u.getUnitName(), "UNIT", u.getPerformance(), 0, "HIGH"))
+            .toList();
+
+        List<UserRoleOrgUnit> allMembers = userRoleOrgUnitRepository.findAll().stream()
+            .filter(m -> subtree.contains(m.getOrgUnit().getId()))
+            .toList();
+
+        List<AnalyticsSummaryResponse.RiskInfo> userRisks = allMembers.stream().map(m -> {
+            User u = m.getUser();
+            List<KpiCriteria> userKpis = kpiCriteriaRepository.findApprovedByAssigneeId(u.getId());
+            double totalAct = 0;
+            double totalTar = 0;
+            for (KpiCriteria k : userKpis) {
+                totalAct += submissionRepository.sumActualValueByUserIdAndKpiIdInPeriod(u.getId(), k.getId(), start != null ? start : Instant.EPOCH, end);
+                totalTar += (k.getTargetValue() != null ? k.getTargetValue() : 0);
+            }
+            double perf = totalTar > 0 ? Math.round((totalAct / totalTar) * 100.0) : 0;
+            return new AnalyticsSummaryResponse.RiskInfo(u.getFullName(), "USER", perf, 0, perf < 50 ? "HIGH" : perf < 75 ? "MEDIUM" : "LOW");
+        })
+        .filter(r -> r.getPerformance() < 75)
+        .sorted(Comparator.comparingDouble(AnalyticsSummaryResponse.RiskInfo::getPerformance))
+        .limit(10)
+        .toList();
+
+        return new SummarySubData.RiskData(unitRisks, userRisks);
     }
 
     @Transactional(readOnly = true)
@@ -457,34 +520,49 @@ public class StatsService {
         OrgUnit targetUnit = getTargetUnit(orgUnitId);
         OrgUnit rankUnit = rankingUnitId != null ? orgUnitRepository.findById(rankingUnitId).orElse(targetUnit) : targetUnit;
         List<UUID> subtree = getSubtreeIds(rankUnit);
+        Instant start = getStartInstant(period);
+        Instant end = Instant.now().plus(365, ChronoUnit.DAYS);
+
         List<AnalyticsSummaryResponse.RankingItem> items = userRoleOrgUnitRepository.findAll().stream()
             .filter(m -> subtree.contains(m.getOrgUnit().getId()))
             .map(m -> {
-                UUID uid = m.getUser().getId();
-                long assigned = kpiCriteriaRepository.countByAssigneeAndStatus(uid, KpiStatus.APPROVED);
-                long completed = submissionRepository.countBySubmittedByIdAndStatus(uid, SubmissionStatus.APPROVED);
-                Double avgScore = evaluationRepository.avgScoreByUserId(uid);
-                
-                double perfPercent = assigned > 0 ? (double) completed / assigned * 100.0 : 0;
+                User u = m.getUser();
+                List<KpiCriteria> userKpis = kpiCriteriaRepository.findApprovedByAssigneeId(u.getId());
+                double totalAct = 0;
+                double totalTar = 0;
+                for (KpiCriteria k : userKpis) {
+                    totalAct += submissionRepository.sumActualValueByUserIdAndKpiIdInPeriod(u.getId(), k.getId(), start != null ? start : Instant.EPOCH, end);
+                    totalTar += (k.getTargetValue() != null ? k.getTargetValue() : 0);
+                }
+                double performance = totalTar > 0 ? Math.round((totalAct / totalTar) * 100.0) : 0;
+                long completed = submissionRepository.countBySubmittedByIdAndStatus(u.getId(), SubmissionStatus.APPROVED);
+                Double avgScore = evaluationRepository.avgScoreByUserId(u.getId());
                 
                 return new AnalyticsSummaryResponse.RankingItem(
-                    m.getUser().getFullName(), 
-                    null, 
+                    u.getFullName(), null, 
                     avgScore != null ? avgScore : 0, 
-                    perfPercent, 
+                    performance, 
                     completed,
                     m.getOrgUnit().getName()
                 );
             }).toList();
+
         List<AnalyticsSummaryResponse.RankingOption> opts = new ArrayList<>();
         opts.add(new AnalyticsSummaryResponse.RankingOption(targetUnit.getId(), "Tổng (" + targetUnit.getName() + ")"));
         orgUnitRepository.findByParentId(targetUnit.getId()).forEach(u -> opts.add(new AnalyticsSummaryResponse.RankingOption(u.getId(), u.getName())));
-        return new SummarySubData.RankingData(items.stream().sorted((a,b) -> Double.compare(b.getScore(), a.getScore())).limit(50).toList(), items.stream().sorted((a,b) -> Double.compare(b.getPerformance(), a.getPerformance())).limit(10).toList(), opts);
+        
+        return new SummarySubData.RankingData(
+            items.stream().sorted((a,b) -> Double.compare(b.getPerformance(), a.getPerformance())).limit(50).toList(), 
+            items.stream().sorted((a,b) -> Long.compare(b.getKpiCount(), a.getKpiCount())).limit(10).toList(), 
+            opts
+        );
     }
 
     private OrgUnit getTargetUnit(UUID orgUnitId) {
         User u = getCurrentUser();
-        OrgUnit userUnit = userRoleOrgUnitRepository.findByUserId(u.getId()).get(0).getOrgUnit();
+        List<UserRoleOrgUnit> roles = userRoleOrgUnitRepository.findByUserId(u.getId());
+        if (roles.isEmpty()) return null;
+        OrgUnit userUnit = roles.get(0).getOrgUnit();
         OrgUnit target = orgUnitId != null ? orgUnitRepository.findById(orgUnitId).orElse(userUnit) : userUnit;
         return target.getPath().startsWith(userUnit.getPath()) ? target : userUnit;
     }

@@ -113,6 +113,7 @@ export interface ReportWidget {
   chartConfig: string // JSON
   position: string // JSON {x, y, w, h}
   widgetOrder: number
+  isPinned: boolean
 }
 
 export interface Report {

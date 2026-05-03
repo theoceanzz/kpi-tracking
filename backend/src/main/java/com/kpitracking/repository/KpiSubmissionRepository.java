@@ -55,4 +55,10 @@ public interface KpiSubmissionRepository extends JpaRepository<KpiSubmission, UU
 
     @org.springframework.data.jpa.repository.Query("SELECT COALESCE(SUM(s.actualValue), 0) FROM KpiSubmission s WHERE s.kpiCriteria.id = :kpiId AND s.orgUnit.id IN :orgUnitIds AND s.status = :status")
     double sumActualValueByKpiCriteriaIdAndOrgUnitIdInAndStatus(@org.springframework.data.repository.query.Param("kpiId") UUID kpiId, @org.springframework.data.repository.query.Param("orgUnitIds") java.util.List<UUID> orgUnitIds, @org.springframework.data.repository.query.Param("status") SubmissionStatus status);
+
+    @org.springframework.data.jpa.repository.Query("SELECT COALESCE(SUM(s.actualValue), 0) FROM KpiSubmission s WHERE s.submittedBy.id = :userId AND s.kpiCriteria.id = :kpiId AND s.status = 'APPROVED' AND s.createdAt >= :from AND s.createdAt <= :to")
+    double sumActualValueByUserIdAndKpiIdInPeriod(@org.springframework.data.repository.query.Param("userId") UUID userId, @org.springframework.data.repository.query.Param("kpiId") UUID kpiId, @org.springframework.data.repository.query.Param("from") java.time.Instant from, @org.springframework.data.repository.query.Param("to") java.time.Instant to);
+
+    @org.springframework.data.jpa.repository.Query("SELECT COALESCE(SUM(s.actualValue), 0) FROM KpiSubmission s WHERE s.orgUnit.id IN :orgUnitIds AND s.kpiCriteria.id = :kpiId AND s.status = 'APPROVED' AND s.createdAt >= :from AND s.createdAt <= :to")
+    double sumActualValueByOrgUnitIdsAndKpiIdInPeriod(@org.springframework.data.repository.query.Param("orgUnitIds") java.util.List<UUID> orgUnitIds, @org.springframework.data.repository.query.Param("kpiId") UUID kpiId, @org.springframework.data.repository.query.Param("from") java.time.Instant from, @org.springframework.data.repository.query.Param("to") java.time.Instant to);
 }

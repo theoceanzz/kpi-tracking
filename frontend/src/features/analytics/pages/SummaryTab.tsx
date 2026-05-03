@@ -1,12 +1,15 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react'
 import { useSummaryStats, useSummaryTrend, useSummaryComparison, useSummaryRisks, useSummaryRankings } from '../hooks/useAnalytics'
+import { useQueryClient } from '@tanstack/react-query'
 import { cn, getInitials } from '@/lib/utils'
 import { 
   Target, Star, AlertCircle, Users, TrendingUp, BarChart3, PieChart as PieChartIcon, 
   ChevronRight, AlertTriangle, Trophy, Medal, ArrowUpRight, ArrowDownRight, Layers,
   ChevronDown, Filter, SortDesc, SortAsc, ArrowUpDown, Loader2, Calendar,
-  Settings2, Save, RotateCcw, Plus, Layout, X, Eye, EyeOff, GripVertical, Trash2
+  Settings2, Save, RotateCcw, Plus, Layout, X, Eye, EyeOff, GripVertical, Trash2,
+  Pin, PinOff
 } from 'lucide-react'
+import { toast } from 'sonner'
 import LoadingSkeleton from '@/components/common/LoadingSkeleton'
 import { CopyButton } from '@/components/common/CopyButton'
 import { 
@@ -16,6 +19,7 @@ import {
 import { Responsive, WidthProvider } from 'react-grid-layout/legacy'
 import { reportApi } from '@/features/reports/api/reportApi'
 import type { RankingItem } from '@/types/stats'
+import AiAssistantWidget from '../components/AiAssistantWidget'
 
 const ResponsiveGridLayout = WidthProvider(Responsive)
 const CONFIG_REPORT_NAME = '__SUMMARY_DASHBOARD_CONFIG__'
@@ -62,6 +66,7 @@ interface SummaryWidget {
   w: number
   h: number
   visible: boolean
+  isPinned?: boolean
 }
 
 const DEFAULT_SUMMARY_WIDGETS: SummaryWidget[] = [
@@ -80,6 +85,44 @@ const DEFAULT_SUMMARY_WIDGETS: SummaryWidget[] = [
 
 export default function SummaryTab() {
   const [selectedUnitId] = useState<string | undefined>(undefined)
+  const DistributionWrapper = ({ children, title, icon, widget, onTogglePin, isEditMode }: { 
+    children: React.ReactNode, 
+    title: string, 
+    icon: React.ReactNode,
+    widget: SummaryWidget,
+    onTogglePin: (w: SummaryWidget) => void,
+    isEditMode: boolean
+  }) => {
+    const sectionRef = useRef<HTMLDivElement>(null)
+    return (
+      <div className="bg-white dark:bg-slate-900 p-6 rounded-[32px] border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden h-full flex flex-col" ref={sectionRef}>
+        <div className="flex items-center justify-between mb-6">
+          <h3 className="text-lg font-black text-slate-900 dark:text-white flex items-center gap-2">{icon} {title}</h3>
+          <div className="flex items-center gap-2">
+            {!isEditMode && (
+              <>
+                <button 
+                  onClick={() => onTogglePin(widget)}
+                  className={cn(
+                    "p-1.5 rounded-lg transition-all",
+                    widget.isPinned 
+                      ? "bg-indigo-600 text-white shadow-md shadow-indigo-200 dark:shadow-none" 
+                      : "text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"
+                  )}
+                  title={widget.isPinned ? "Bỏ ghim khỏi trang chủ" : "Ghim vào trang chủ"}
+                >
+                  <Pin size={16} fill={widget.isPinned ? "currentColor" : "none"} className={cn(widget.isPinned && "rotate-45")} />
+                </button>
+                <CopyButton targetRef={sectionRef} />
+              </>
+            )}
+          </div>
+        </div>
+        {children}
+      </div>
+    )
+  }
+
   const { data: mainData, isLoading: isMainLoading } = useSummaryStats(selectedUnitId)
   
   const [isEditMode, setIsEditMode] = useState(false)
@@ -87,6 +130,7 @@ export default function SummaryTab() {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false)
   const [widgets, setWidgets] = useState<SummaryWidget[]>(DEFAULT_SUMMARY_WIDGETS)
   const [configReportId, setConfigReportId] = useState<string | null>(null)
+  const queryClient = useQueryClient()
 
   useEffect(() => {
     const loadConfig = async () => {
@@ -111,7 +155,8 @@ export default function SummaryTab() {
                   i: cfg.i || sw.id,
                   type: sw.widgetType as SummaryWidgetType,
                   title: sw.title,
-                  visible: cfg.visible !== false
+                  visible: cfg.visible !== false,
+                  isPinned: sw.isPinned
                 } as SummaryWidget
               } catch { return null }
             }).filter(Boolean) as SummaryWidget[]
@@ -192,21 +237,28 @@ export default function SummaryTab() {
     }])
     setIsAddModalOpen(false)
   }
+  
+  const handleTogglePin = async (widget: SummaryWidget) => {
+    if (!widget.id) {
+      toast.error("Vui lòng lưu cấu hình dashboard trước khi ghim")
+      return
+    }
+    try {
+      const updated = await reportApi.togglePinWidget(widget.id)
+      // Update local state immediately
+      setWidgets(prev => prev.map(w => w.id === widget.id ? { ...w, isPinned: updated.isPinned } : w))
+      
+      // Invalidate queries to refresh dashboard
+      queryClient.invalidateQueries({ queryKey: ['reports', 'widgets', 'pinned'] })
+      
+      toast.success(updated.isPinned ? "Đã ghim vào trang chủ" : "Đã bỏ ghim khỏi trang chủ")
+    } catch (err) {
+      console.error(err)
+      toast.error("Không thể thay đổi trạng thái ghim")
+    }
+  }
 
   const renderWidgetContent = (widget: SummaryWidget) => {
-    const DistributionWrapper = ({ children, title, icon }: { children: React.ReactNode, title: string, icon: React.ReactNode }) => {
-      const sectionRef = useRef<HTMLDivElement>(null)
-      return (
-        <div className="bg-white dark:bg-slate-900 p-6 rounded-[32px] border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden h-full flex flex-col" ref={sectionRef}>
-          <div className="flex items-center justify-between mb-6">
-            <h3 className="text-lg font-black text-slate-900 dark:text-white flex items-center gap-2">{icon} {title}</h3>
-            {!isEditMode && <CopyButton targetRef={sectionRef} />}
-          </div>
-          {children}
-        </div>
-      )
-    }
-
     switch (widget.type) {
       case 'OVERVIEW_CARDS':
         return (
@@ -223,7 +275,13 @@ export default function SummaryTab() {
       case 'UNIT_KPI': return <UnitKpiSection orgUnitId={selectedUnitId} isEditMode={isEditMode} />
       case 'MEMBER_DIST': {
         return (
-          <DistributionWrapper title="Số lượng nhân sự" icon={<PieChartIcon size={20} className="text-purple-600" />}>
+          <DistributionWrapper 
+            title="Số lượng nhân sự" 
+            icon={<PieChartIcon size={20} className="text-purple-600" />}
+            widget={widget}
+            onTogglePin={handleTogglePin}
+            isEditMode={isEditMode}
+          >
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-center flex-1">
               <div className="h-full min-h-[200px]"><ResponsiveContainer width="100%" height="100%"><PieChart><Pie data={mainData?.memberDistribution || []} innerRadius="50%" outerRadius="80%" paddingAngle={5} dataKey="value">{(mainData?.memberDistribution || []).map((entry: any, index: number) => (<Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />))}</Pie><Tooltip /></PieChart></ResponsiveContainer></div>
               <div className="space-y-3">{(mainData?.memberDistribution || []).map((entry: any, index: number) => (<div key={entry.name} className="flex items-center justify-between"><div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full" style={{ backgroundColor: COLORS[index % COLORS.length] }} /><span className="text-xs font-bold text-slate-500">{entry.name}</span></div><span className="text-xs font-black text-slate-900 dark:text-white">{entry.value} người</span></div>))}</div>
@@ -233,7 +291,13 @@ export default function SummaryTab() {
       }
       case 'ROLE_DIST': {
         return (
-          <DistributionWrapper title="Phân bổ vai trò" icon={<Layers size={20} className="text-orange-500" />}>
+          <DistributionWrapper 
+            title="Phân bổ vai trò" 
+            icon={<Layers size={20} className="text-orange-500" />}
+            widget={widget}
+            onTogglePin={handleTogglePin}
+            isEditMode={isEditMode}
+          >
             <div className="flex-1"><ResponsiveContainer width="100%" height="100%"><BarChart data={mainData?.roleDistribution || []} layout="vertical" margin={{ left: 20 }}><CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f1f5f9" /><XAxis type="number" axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 700 }} /><YAxis dataKey="unitName" type="category" axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 700 }} width={80} /><Tooltip /><Legend iconType="circle" wrapperStyle={{ fontSize: '10px', fontWeight: 800, paddingTop: '10px' }} /><Bar dataKey="directorCount" stackId="a" fill="#6366f1" name="Giám đốc" barSize={15} /><Bar dataKey="headCount" stackId="a" fill="#f59e0b" name="Trưởng phòng" /><Bar dataKey="staffCount" stackId="a" fill="#94a3b8" name="Nhân viên" /></BarChart></ResponsiveContainer></div>
           </DistributionWrapper>
         )
@@ -419,6 +483,9 @@ export default function SummaryTab() {
           </div>
         </div>
       )}
+
+      {/* AI Assistant Widget */}
+      <AiAssistantWidget />
     </div>
   )
 }
@@ -473,20 +540,20 @@ function TopUnitsSection({ orgUnitId, isEditMode }: { orgUnitId?: string, isEdit
           <PeriodSelect value={period} onChange={setPeriod} options={STANDARD_PERIODS} />
         </div>
       </div>
-      <div className="space-y-5 flex-1">
+      <div className="space-y-5 flex-1 overflow-auto custom-scrollbar">
         {(data?.topPerformingUnits || []).map((unit: any, i: number) => (
           <div key={unit.unitName} className="flex items-center gap-4 p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-transparent hover:border-indigo-200 transition-all">
             <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center font-black text-sm", i === 0 ? "bg-amber-100 text-amber-600" : i === 1 ? "bg-slate-200 text-slate-600" : "bg-orange-100 text-orange-600")}>#{i + 1}</div>
             <div className="flex-1">
               <p className="font-black text-sm text-slate-800 dark:text-white">{unit.unitName}</p>
               <div className="flex items-center gap-2 mt-1">
-                <div className="flex-1 h-1.5 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden"><div className="h-full bg-indigo-500 rounded-full" style={{ width: `${unit.performance}%` }} /></div>
-                <span className="text-[10px] font-black text-indigo-600">{unit.performance.toFixed(0)}%</span>
+                <div className="flex-1 h-1.5 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden"><div className="h-full bg-indigo-500 rounded-full" style={{ width: `${Math.min(unit.performance, 100)}%` }} /></div>
+                <span className="text-[10px] font-black text-indigo-600">{unit.performance.toFixed(1)}%</span>
               </div>
             </div>
           </div>
         ))}
-        {(data?.topPerformingUnits || []).length === 0 && <div className="h-full flex items-center justify-center text-xs font-bold text-slate-300 italic">Không có dữ liệu</div>}
+        {(data?.topPerformingUnits || []).length === 0 && <div className="h-full flex items-center justify-center text-xs font-bold text-slate-300 italic py-10">Không có dữ liệu</div>}
       </div>
     </div>
   );

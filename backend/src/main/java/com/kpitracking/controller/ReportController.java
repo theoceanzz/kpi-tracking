@@ -130,4 +130,22 @@ public class ReportController {
         reportService.deleteWidget(widgetId);
         return ResponseEntity.ok(ApiResponse.success("Xóa widget thành công"));
     }
+
+    @GetMapping("/widgets/pinned")
+    @PreAuthorize("hasAuthority('DASHBOARD:VIEW')")
+    @Operation(summary = "Get pinned widgets for current user")
+    public ResponseEntity<ApiResponse<java.util.List<ReportWidgetResponse>>> getPinnedWidgets() {
+        return ResponseEntity.ok(ApiResponse.success(reportService.getPinnedWidgets()));
+    }
+
+    @PatchMapping("/widgets/{widgetId}/toggle-pin")
+    @PreAuthorize("hasAuthority('DASHBOARD:VIEW')")
+    @Operation(summary = "Toggle pinned status of a widget")
+    public ResponseEntity<ApiResponse<ReportWidgetResponse>> togglePinWidget(@PathVariable UUID widgetId) {
+        ReportWidgetResponse response = reportService.togglePinWidget(widgetId);
+        return ResponseEntity.ok(ApiResponse.success(
+                response.isPinned() ? "Đã ghim biểu đồ vào trang chủ" : "Đã bỏ ghim biểu đồ khỏi trang chủ",
+                response
+        ));
+    }
 }

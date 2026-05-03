@@ -15,6 +15,7 @@ import com.kpitracking.mapper.OrganizationMapper;
 import com.kpitracking.repository.OrgHierarchyLevelRepository;
 import com.kpitracking.repository.OrgUnitRepository;
 import com.kpitracking.repository.OrganizationRepository;
+import com.kpitracking.repository.UserRoleOrgUnitRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -37,6 +38,7 @@ public class OrganizationService {
     private final OrganizationMapper organizationMapper;
     private final OrgHierarchyLevelRepository orgHierarchyLevelRepository;
     private final OrgUnitRepository orgUnitRepository;
+    private final UserRoleOrgUnitRepository userRoleOrgUnitRepository;
 
     @Transactional
     public OrganizationResponse createOrganization(CreateOrganizationRequest request) {
@@ -162,5 +164,62 @@ public class OrganizationService {
                         .managerRoleLabel(level.getManagerRoleLabel())
                         .build())
                 .collect(Collectors.toList());
+    }
+
+    @Transactional(readOnly = true)
+    public long countMembers(UUID orgId) {
+        if (!organizationRepository.existsById(orgId)) {
+            throw new ResourceNotFoundException("Tổ chức", "id", orgId);
+        }
+        return userRoleOrgUnitRepository.countUsersByOrganizationId(orgId);
+    }
+
+    @Transactional(readOnly = true)
+    public String findOrgUnitIdByName(String name) {
+        List<com.kpitracking.entity.OrgUnit> units = orgUnitRepository.findByNameContainingIgnoreCaseAndDeletedAtIsNull(name);
+        if (units.isEmpty()) {
+            return null;
+        }
+        // Return the first match's ID as a string
+        return units.get(0).getId().toString();
+    }
+
+    @Transactional(readOnly = true)
+    public String listAllOrgUnitNamesAndIds() {
+        List<com.kpitracking.entity.OrgUnit> units = orgUnitRepository.findAll()
+                .stream()
+                .filter(u -> u.getDeletedAt() == null)
+                .toList();
+        if (units.isEmpty()) {
+            return "Hiện tại không có đơn vị tổ chức nào trong hệ thống.";
+        }
+        StringBuilder sb = new StringBuilder("Danh sách đơn vị tổ chức:\n");
+        for (com.kpitracking.entity.OrgUnit unit : units) {
+            sb.append("- ").append(unit.getName())
+              .append(" (ID: ").append(unit.getId()).append(")")
+              .append(" [Trạng thái: ").append(unit.getStatus()).append("]")
+              .append("\n");
+        }
+        return sb.toString();
+    }
+
+    @Transactional(readOnly = true)
+    public String getOrgUnitDetailInfo(UUID orgUnitId) {
+        com.kpitracking.entity.OrgUnit unit = orgUnitRepository.findById(orgUnitId)
+                .orElse(null);
+        if (unit == null || unit.getDeletedAt() != null) {
+            return "Không tìm thấy đơn vị tổ chức với ID: " + orgUnitId;
+        }
+        StringBuilder sb = new StringBuilder();
+        sb.append("Thông tin đơn vị: ").append(unit.getName()).append("\n");
+        sb.append("- ID: ").append(unit.getId()).append("\n");
+        sb.append("- Email: ").append(unit.getEmail() != null ? unit.getEmail() : "Chưa cập nhật").append("\n");
+        sb.append("- Số điện thoại: ").append(unit.getPhone() != null ? unit.getPhone() : "Chưa cập nhật").append("\n");
+        sb.append("- Địa chỉ: ").append(unit.getAddress() != null ? unit.getAddress() : "Chưa cập nhật").append("\n");
+        sb.append("- Trạng thái: ").append(unit.getStatus()).append("\n");
+        if (unit.getParent() != null) {
+            sb.append("- Thuộc đơn vị cha: ").append(unit.getParent().getName()).append("\n");
+        }
+        return sb.toString();
     }
 }

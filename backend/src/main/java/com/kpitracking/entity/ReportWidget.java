@@ -53,6 +53,10 @@ public class ReportWidget {
     @Builder.Default
     private Integer widgetOrder = 0;
 
+    @Column(name = "is_pinned", nullable = false)
+    @Builder.Default
+    private boolean isPinned = false;
+
     @CreatedDate
     @Column(name = "created_at", updatable = false)
     private Instant createdAt;

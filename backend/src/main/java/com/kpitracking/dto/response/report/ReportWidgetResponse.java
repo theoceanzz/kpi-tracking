@@ -1,5 +1,6 @@
 package com.kpitracking.dto.response.report;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.kpitracking.enums.WidgetType;
 import lombok.*;
 
@@ -17,4 +18,7 @@ public class ReportWidgetResponse {
     private String chartConfig;
     private String position;
     private Integer widgetOrder;
+
+    @JsonProperty("isPinned")
+    private boolean isPinned;
 }

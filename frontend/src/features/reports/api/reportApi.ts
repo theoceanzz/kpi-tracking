@@ -39,4 +39,10 @@ export const reportApi = {
 
   deleteWidget: (widgetId: string) =>
     axiosInstance.delete<ApiResponse<void>>(`/reports/widgets/${widgetId}`).then(r => r.data),
+
+  getPinnedWidgets: () =>
+    axiosInstance.get<ApiResponse<ReportWidget[]>>('/reports/widgets/pinned').then(r => r.data.data),
+
+  togglePinWidget: (widgetId: string) =>
+    axiosInstance.patch<ApiResponse<ReportWidget>>(`/reports/widgets/${widgetId}/toggle-pin`).then(r => r.data.data),
 }
