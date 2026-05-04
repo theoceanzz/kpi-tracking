@@ -11,6 +11,7 @@ public class KpiTaskResponse {
     private String periodName;
     private Instant deadline;
     private String status; // NOT_STARTED, PENDING, OVERDUE, APPROVED
+    private Instant startDate;
     private Integer submissionCount;
     private Integer expectedSubmissions;
 }

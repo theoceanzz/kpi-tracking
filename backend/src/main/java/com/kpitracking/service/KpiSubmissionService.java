@@ -123,14 +123,14 @@ public class KpiSubmissionService {
         }
 
         if (kpi.getFrequency() == KpiFrequency.MONTHLY) {
-            java.util.List<KpiSubmission> existing = submissionRepository.findByKpiCriteriaIdAndDeletedAtIsNull(kpi.getId())
+            java.util.List<KpiSubmission> existing = submissionRepository.findByKpiCriteriaIdAndSubmittedByIdAndDeletedAtIsNull(kpi.getId(), currentUser.getId())
                     .stream()
                     .filter(s -> s.getStatus() != SubmissionStatus.REJECTED)
                     .toList();
             
             // Rule 1: Monthly KPI in Monthly Period -> Max 1 submission
             if (kpi.getKpiPeriod().getPeriodType() == KpiFrequency.MONTHLY && !existing.isEmpty()) {
-                throw new BusinessException("Chỉ tiêu tháng này đã được nộp báo cáo.");
+                throw new BusinessException("Bạn đã nộp báo cáo cho chỉ tiêu này trong tháng này.");
             }
             
             // Rule 2: Monthly KPI in Quarterly Period -> Max 3 submissions (once per month)
@@ -222,6 +222,13 @@ public class KpiSubmissionService {
                     .orElse(null);
         }
 
+        java.util.List<com.kpitracking.entity.UserRoleOrgUnit> currentAssignments = userRoleOrgUnitRepository.findByUserId(currentUser.getId());
+        Integer currentUserRank = currentAssignments.stream()
+                .map(a -> a.getRole().getRank())
+                .filter(java.util.Objects::nonNull)
+                .min(Integer::compare)
+                .orElse(2);
+
         Page<KpiSubmission> subPage = submissionRepository.findAllWithFilters(
                 currentUser.getId(),
                 allowedOrgUnitIds,
@@ -229,6 +236,7 @@ public class KpiSubmissionService {
                 kpiCriteriaId,
                 submittedById,
                 orgUnitPath,
+                currentUserRank,
                 pageable
         );
 
@@ -326,13 +334,16 @@ public class KpiSubmissionService {
                 throw new ForbiddenException("Bạn không có quyền phê duyệt bản nộp của đơn vị này");
             }
 
-            // Additional Hierarchical Rule: Managers (those who can review others) can only be reviewed by Global Admins
+            // Enhanced Hierarchical Rule: Check rank relative to submitter
             User submitter = submission.getSubmittedBy();
-            boolean submitterIsManager = permissionChecker.hasPermission(submitter.getId(), "SUBMISSION:REVIEW");
-            boolean reviewerIsGlobalAdmin = permissionChecker.isGlobalAdmin(currentUser.getId());
+            int submitterRank = permissionChecker.getMinRankInOrgUnit(submitter.getId(), submission.getOrgUnit().getId());
+            int reviewerRank = permissionChecker.getMinRankInOrgUnit(currentUser.getId(), submission.getOrgUnit().getId());
 
-            if (submitterIsManager && !reviewerIsGlobalAdmin) {
-                throw new ForbiddenException("Chỉ cấp lãnh đạo cao nhất mới có quyền phê duyệt bản nộp của quản lý đơn vị");
+            if (reviewerRank > submitterRank) {
+                throw new ForbiddenException("Bạn không thể phê duyệt bản nộp của người có chức vụ cao hơn bạn (Rank " + reviewerRank + " vs " + submitterRank + ")");
+            }
+            if (reviewerRank == submitterRank && !permissionChecker.isGlobalAdmin(currentUser.getId())) {
+                throw new ForbiddenException("Bạn không thể phê duyệt bản nộp của người có cùng chức vụ");
             }
         }
 
@@ -363,6 +374,7 @@ public class KpiSubmissionService {
                 null, // kpiCriteriaId
                 currentUser.getId(), // submittedById
                 null, // orgUnitPath
+                0, // rank doesn't matter for self-submissions
                 pageable
         );
 

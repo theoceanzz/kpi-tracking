@@ -100,9 +100,23 @@ public class KpiAdjustmentService {
         }
 
         // Check permission to review (Manager of the org unit)
-        boolean hasPermission = permissionChecker.hasPermissionInOrgUnit(currentUser.getId(), "KPI:APPROVE", adj.getKpiCriteria().getOrgUnit().getId());
-        if (!hasPermission && !permissionChecker.isGlobalAdmin(currentUser.getId())) {
-            throw new ForbiddenException("Bạn không có quyền phê duyệt yêu cầu điều chỉnh của đơn vị này.");
+        if (!permissionChecker.isGlobalAdmin(currentUser.getId())) {
+            boolean hasPermission = permissionChecker.hasPermissionInOrgUnit(currentUser.getId(), "KPI:APPROVE", adj.getKpiCriteria().getOrgUnit().getId());
+            if (!hasPermission) {
+                throw new ForbiddenException("Bạn không có quyền phê duyệt yêu cầu điều chỉnh của đơn vị này.");
+            }
+
+            // Enhanced Hierarchical Rule: Check rank relative to requester
+            User requester = adj.getRequester();
+            int requesterRank = permissionChecker.getMinRankInOrgUnit(requester.getId(), adj.getKpiCriteria().getOrgUnit().getId());
+            int reviewerRank = permissionChecker.getMinRankInOrgUnit(currentUser.getId(), adj.getKpiCriteria().getOrgUnit().getId());
+
+            if (reviewerRank > requesterRank) {
+                throw new ForbiddenException("Bạn không thể phê duyệt yêu cầu của người có chức vụ cao hơn bạn");
+            }
+            if (reviewerRank == requesterRank) {
+                throw new ForbiddenException("Bạn không thể phê duyệt yêu cầu của người có cùng chức vụ");
+            }
         }
 
         adj.setStatus(request.getStatus());
@@ -168,8 +182,25 @@ public class KpiAdjustmentService {
 
     @Transactional(readOnly = true)
     public PageResponse<AdjustmentRequestResponse> getAllRequests(int page, int size, AdjustmentStatus status, UUID orgUnitId, UUID kpiPeriodId) {
+        User currentUser = getCurrentUser();
+        java.util.List<UUID> allowedOrgUnitIds = permissionChecker.getOrgUnitsWithPermission(currentUser.getId(), "KPI:APPROVE");
+        
+        java.util.List<com.kpitracking.entity.UserRoleOrgUnit> currentAssignments = userRoleOrgUnitRepository.findByUserId(currentUser.getId());
+        Integer currentUserRank = currentAssignments.stream()
+                .map(a -> a.getRole().getRank())
+                .filter(java.util.Objects::nonNull)
+                .min(Integer::compare)
+                .orElse(2);
+
         Pageable pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
-        Page<KpiAdjustmentRequest> adjPage = adjustmentRepository.findAllWithFilters(status, orgUnitId, kpiPeriodId, pageable);
+        Page<KpiAdjustmentRequest> adjPage = adjustmentRepository.findAllWithFilters(
+                currentUser.getId(),
+                allowedOrgUnitIds,
+                status,
+                orgUnitId,
+                kpiPeriodId,
+                currentUserRank,
+                pageable);
         return PageResponse.<AdjustmentRequestResponse>builder()
                 .content(adjPage.getContent().stream().map(this::mapToResponse).toList())
                 .page(adjPage.getNumber())

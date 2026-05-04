@@ -163,6 +163,13 @@ public class KpiCriteriaService {
                     .orElse(null);
         }
 
+        java.util.List<com.kpitracking.entity.UserRoleOrgUnit> currentAssignments = userRoleOrgUnitRepository.findByUserId(currentUser.getId());
+        Integer currentUserRank = currentAssignments.stream()
+                .map(a -> a.getRole().getRank())
+                .filter(java.util.Objects::nonNull)
+                .min(Integer::compare)
+                .orElse(2);
+
         Page<KpiCriteria> kpiPage = kpiCriteriaRepository.findAllWithFilters(
                 allowedOrgUnitIds, 
                 createdById, 
@@ -170,6 +177,8 @@ public class KpiCriteriaService {
                 status, 
                 kpiPeriodId, 
                 keyword,
+                currentUser.getId(),
+                currentUserRank,
                 pageable
         );
 
@@ -307,8 +316,22 @@ public class KpiCriteriaService {
         KpiCriteria kpi = kpiCriteriaRepository.findById(kpiId)
                 .orElseThrow(() -> new ResourceNotFoundException("Chỉ tiêu KPI", "id", kpiId));
 
-        if (!permissionChecker.hasPermissionInOrgUnit(currentUser.getId(), "KPI:APPROVE", kpi.getOrgUnit().getId())) {
-            throw new ForbiddenException("Bạn không có quyền phê duyệt chỉ tiêu KPI cho đơn vị này");
+        if (!permissionChecker.isGlobalAdmin(currentUser.getId())) {
+            if (!permissionChecker.hasPermissionInOrgUnit(currentUser.getId(), "KPI:APPROVE", kpi.getOrgUnit().getId())) {
+                throw new ForbiddenException("Bạn không có quyền phê duyệt chỉ tiêu KPI cho đơn vị này");
+            }
+
+            // Enhanced Hierarchical Rule: Check rank relative to creator
+            User creator = kpi.getCreatedBy();
+            int creatorRank = permissionChecker.getMinRankInOrgUnit(creator.getId(), kpi.getOrgUnit().getId());
+            int reviewerRank = permissionChecker.getMinRankInOrgUnit(currentUser.getId(), kpi.getOrgUnit().getId());
+
+            if (reviewerRank > creatorRank) {
+                throw new ForbiddenException("Bạn không thể phê duyệt chỉ tiêu của người có chức vụ cao hơn bạn");
+            }
+            if (reviewerRank == creatorRank) {
+                throw new ForbiddenException("Bạn không thể phê duyệt chỉ tiêu của người có cùng chức vụ");
+            }
         }
 
         if (kpi.getStatus() != KpiStatus.PENDING_APPROVAL) {
@@ -331,8 +354,22 @@ public class KpiCriteriaService {
         KpiCriteria kpi = kpiCriteriaRepository.findById(kpiId)
                 .orElseThrow(() -> new ResourceNotFoundException("Chỉ tiêu KPI", "id", kpiId));
 
-        if (!permissionChecker.hasPermissionInOrgUnit(currentUser.getId(), "KPI:APPROVE", kpi.getOrgUnit().getId())) {
-            throw new ForbiddenException("Bạn không có quyền từ chối chỉ tiêu KPI cho đơn vị này");
+        if (!permissionChecker.isGlobalAdmin(currentUser.getId())) {
+            if (!permissionChecker.hasPermissionInOrgUnit(currentUser.getId(), "KPI:APPROVE", kpi.getOrgUnit().getId())) {
+                throw new ForbiddenException("Bạn không có quyền từ chối chỉ tiêu KPI cho đơn vị này");
+            }
+
+            // Enhanced Hierarchical Rule: Check rank relative to creator
+            User creator = kpi.getCreatedBy();
+            int creatorRank = permissionChecker.getMinRankInOrgUnit(creator.getId(), kpi.getOrgUnit().getId());
+            int reviewerRank = permissionChecker.getMinRankInOrgUnit(currentUser.getId(), kpi.getOrgUnit().getId());
+
+            if (reviewerRank > creatorRank) {
+                throw new ForbiddenException("Bạn không thể từ chối chỉ tiêu của người có chức vụ cao hơn bạn");
+            }
+            if (reviewerRank == creatorRank) {
+                throw new ForbiddenException("Bạn không thể từ chối chỉ tiêu của người có cùng chức vụ");
+            }
         }
 
         if (kpi.getStatus() != KpiStatus.PENDING_APPROVAL) {

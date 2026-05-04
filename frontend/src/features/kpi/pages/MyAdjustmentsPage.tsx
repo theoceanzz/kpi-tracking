@@ -103,7 +103,7 @@ export default function MyAdjustmentsPage() {
                     </div>
                   </td>
                   <td className="px-6 py-4">
-                    <p className="text-xs text-slate-600 dark:text-slate-400 line-clamp-2 max-w-xs italic">
+                    <p className="text-xs text-slate-600 dark:text-slate-400 truncate max-w-[250px] italic whitespace-nowrap">
                       "{adj.reason}"
                     </p>
                   </td>
@@ -115,7 +115,7 @@ export default function MyAdjustmentsPage() {
                   </td>
                   <td className="px-6 py-4 text-right">
                     {adj.reviewerNote ? (
-                      <p className="text-xs font-medium text-slate-500 max-w-[200px] ml-auto line-clamp-2 italic">
+                      <p className="text-xs font-medium text-slate-500 max-w-[200px] ml-auto truncate italic whitespace-nowrap">
                         "{adj.reviewerNote}"
                       </p>
                     ) : (

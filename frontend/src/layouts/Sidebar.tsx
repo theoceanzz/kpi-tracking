@@ -21,7 +21,8 @@ import {
   Shield,
   Layers,
   MessageSquare,
-  History
+  History,
+  TrendingUp
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -49,6 +50,9 @@ const navItems: NavItem[] = [
   { label: 'Duyệt Bài nộp', path: '/submissions/org-unit', icon: <ClipboardCheck size={20} />, permission: 'SUBMISSION:REVIEW' },
   { label: 'Bài nộp của tôi', path: '/submissions', icon: <FileText size={20} />, permission: 'SUBMISSION:VIEW_MY', end: true },
   { label: 'Đánh giá NS', path: '/evaluations', icon: <Star size={20} />, permission: 'EVALUATION:VIEW' },
+  // { label: 'Nguồn dữ liệu', path: '/datasources', icon: <Database size={20} />, permission: 'DASHBOARD:VIEW', end: true },
+  // { label: 'Báo cáo', path: '/reports', icon: <BarChart3 size={20} />, permission: 'DASHBOARD:VIEW', end: true },
+  { label: 'Thống kê', path: '/analytics', icon: <TrendingUp size={20} />, permission: 'DASHBOARD:VIEW', end: true },
 ]
 
 export default function Sidebar({ isMobileOpen, onCloseMobile }: { isMobileOpen?: boolean; onCloseMobile?: () => void }) {
@@ -210,7 +214,11 @@ export default function Sidebar({ isMobileOpen, onCloseMobile }: { isMobileOpen?
                 <div className="flex-1 min-w-0 text-left">
                   <p className="text-sm font-black truncate text-[var(--color-foreground)]">{user?.fullName}</p>
                   <p className="text-[10px] font-bold text-[var(--color-muted-foreground)] uppercase tracking-widest truncate">
-                    {user?.memberships?.[0]?.roleLabel || 'Thành viên'}
+                    {(() => {
+                      if (!user?.memberships || user.memberships.length === 0) return 'Thành viên';
+                      const sorted = [...(user.memberships || [])].sort((a, b) => (a.roleRank ?? 99) - (b.roleRank ?? 99));
+                      return sorted[0]?.roleLabel || 'Thành viên';
+                    })()}
                   </p>
                 </div>
               )}

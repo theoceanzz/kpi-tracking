@@ -13,8 +13,10 @@ export interface Evaluation {
   comment: string | null
   createdAt: string
   updatedAt: string
-  evaluatorRole: 'SELF' | 'MANAGER' | 'DIRECTOR' | 'TEAM_LEADER' | 'DEPT_HEAD'
+  evaluatorRole: 'SELF' | 'MANAGER' | 'DIRECTOR' | 'TEAM_LEADER' | 'DEPT_HEAD' | 'DEPT_DEPUTY' | 'TEAM_DEPUTY'
   orgUnitLevel?: number
+  userLevel?: number
+  userRank?: number
 }
 
 // Matches BE: CreateEvaluationRequest

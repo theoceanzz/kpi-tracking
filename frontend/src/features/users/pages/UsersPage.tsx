@@ -9,16 +9,15 @@ import ConfirmDialog from '@/components/common/ConfirmDialog'
 import Pagination from '@/components/common/Pagination'
 import { ROLE_MAP } from '@/constants/roles'
 import { useUsers } from '../hooks/useUsers'
-import { useOrgUnitTree } from '@/features/orgunits/hooks/useOrgUnitTree'
+import { useOrgUnitTree, useOrgHierarchyLevels } from '@/features/organization/hooks/useOrganizationStructure'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { userApi } from '../api/userApi'
 import { Plus, Upload, Loader2, Filter, ArrowUpDown, Briefcase } from 'lucide-react'
 import type { User } from '@/types/user'
-import type { OrgUnitTreeResponse } from '@/types/orgUnit'
+import type { OrgUnitTreeResponse } from '@/features/organization/types/org-unit'
 import { toast } from 'sonner'
 import { usePermission } from '@/hooks/usePermission'
 import { useAuthStore } from '@/store/authStore'
-import { useOrgHierarchyLevels } from '@/features/organization/hooks/useOrganizationStructure'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { useRoles } from '@/features/organization/hooks/useRoles'
 
@@ -39,12 +38,47 @@ export default function UsersPage() {
   const user = useAuthStore(state => state.user)
   const organizationId = user?.memberships?.[0]?.organizationId
   const { data: hierarchyLevels } = useOrgHierarchyLevels(organizationId)
-  const isSimplifiedHierarchy = (hierarchyLevels?.length || 0) <= 2
+  const { data: orgTree } = useOrgUnitTree(organizationId)
   const { data: allRoles } = useRoles()
   const qc = useQueryClient()
 
+  const isAdmin = useMemo(() => {
+    return user?.memberships?.some(m => m.roleName === 'ADMIN' || m.roleName === 'DIRECTOR_SYSTEM') || false
+  }, [user])
+
+  const { currentUserLevel, currentUserRank } = useMemo(() => {
+    if (!user || !allRoles) return { currentUserLevel: 999, currentUserRank: 999 }
+    const userRoleNames = user.memberships?.map(m => m.roleName) || []
+    const userRoles = allRoles.filter((r: any) => userRoleNames.includes(r.name))
+    const level = userRoles.length > 0 ? Math.min(...userRoles.map((r: any) => r.level ?? 999)) : 999
+    const rank = userRoles.length > 0 
+      ? Math.min(...userRoles.filter((r: any) => r.level === level).map((r: any) => r.rank ?? 999)) 
+      : 999
+    return { currentUserLevel: level, currentUserRank: rank }
+  }, [user, allRoles])
+
+  const assignableRoles = useMemo(() => {
+    if (!allRoles) return []
+    const levelCount = hierarchyLevels?.length || 0
+
+    return allRoles.filter((r: any) => {
+      if (isAdmin) return r.name !== 'DIRECTOR_SYSTEM' || user?.memberships?.some(m => m.roleName === 'DIRECTOR_SYSTEM')
+      
+      // 1. Authority check
+      if (r.level !== undefined && r.level < currentUserLevel) return false
+      if (r.level === currentUserLevel && r.rank !== undefined && r.rank <= currentUserRank) return false
+      
+      // 2. Hierarchy structural filters
+      if (r.rank === 2) return true // Staff always allowed
+      if (r.level === 0 && r.rank === 0) return levelCount >= 1
+      if (r.level === 1) return levelCount > 2
+      if (r.level === 2 && (r.rank === 0 || r.rank === 1)) return true
+      
+      return true
+    })
+  }, [allRoles, currentUserLevel, currentUserRank, isAdmin, user, hierarchyLevels])
+
   // Fetch Org Units for filter
-  const { data: orgTree } = useOrgUnitTree()
   const allUnits = useMemo(() => {
     const flatten = (items: OrgUnitTreeResponse[]): OrgUnitTreeResponse[] => {
       return items.reduce((acc, item) => [
@@ -212,15 +246,7 @@ export default function UsersPage() {
                     </SelectTrigger>
                     <SelectContent className="rounded-xl border-[var(--color-border)] shadow-lg">
                         <SelectItem value="ALL" className="font-medium cursor-pointer rounded-lg">Chức danh</SelectItem>
-                        {allRoles?.filter(role => {
-                          if (!role.name) return false;
-                          if (role.name === 'STAFF') return true;
-                          if (isSimplifiedHierarchy) {
-                            return role.level === 2;
-                          } else {
-                            return role.level === 1 || role.level === 2;
-                          }
-                        }).map(role => (
+                        {assignableRoles.map(role => (
                           <SelectItem key={role.id} value={role.name} className="font-medium cursor-pointer rounded-lg">
                             {ROLE_MAP[role.name] || role.name}
                           </SelectItem>

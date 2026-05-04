@@ -397,8 +397,8 @@ function PeriodFormModal({ onClose, editPeriod, organizationId, onSubmit, isSubm
   const [formData, setFormData] = useState({
     name: editPeriod?.name || '',
     periodType: (editPeriod?.periodType as KpiFrequency) || 'MONTHLY',
-    startDate: editPeriod?.startDate ? format(parseISO(editPeriod.startDate), 'yyyy-MM-dd') : format(new Date(), 'yyyy-MM-dd'),
-    endDate: editPeriod?.endDate ? format(parseISO(editPeriod.endDate), 'yyyy-MM-dd') : '',
+    startDate: editPeriod?.startDate ? format(parseISO(editPeriod.startDate), "yyyy-MM-dd'T'HH:mm") : format(new Date(), "yyyy-MM-dd'T'07:00"),
+    endDate: editPeriod?.endDate ? format(parseISO(editPeriod.endDate), "yyyy-MM-dd'T'HH:mm") : '',
   })
 
   // Auto calculate end date on mount if creating new
@@ -421,8 +421,11 @@ function PeriodFormModal({ onClose, editPeriod, organizationId, onSubmit, isSubm
       case 'YEARLY': end = subDays(addYears(start, 1), 1); break
       default: end = start
     }
+    
+    // Set time to end of day 23:59 for end date by default
+    end.setHours(23, 59, 59, 999)
 
-    setFormData(prev => ({ ...prev, endDate: format(end, 'yyyy-MM-dd') }))
+    setFormData(prev => ({ ...prev, endDate: format(end, "yyyy-MM-dd'T'HH:mm") }))
   }
 
   const handleFieldChange = (field: string, value: string) => {
@@ -442,7 +445,10 @@ function PeriodFormModal({ onClose, editPeriod, organizationId, onSubmit, isSubm
           case 'YEARLY': endDateObj = subDays(addYears(startDateObj, 1), 1); break
           default: endDateObj = startDateObj
         }
-        next.endDate = format(endDateObj, 'yyyy-MM-dd')
+
+        // Set time to end of day for end date
+        endDateObj.setHours(23, 59, 59, 999)
+        next.endDate = format(endDateObj, "yyyy-MM-dd'T'HH:mm")
 
         if (!next.name || next.name.includes('Tháng') || next.name.includes('Quý') || next.name.includes('Năm')) {
           if (type === 'MONTHLY') next.name = `Tháng ${format(startDateObj, 'MM/yyyy')}`
@@ -468,7 +474,7 @@ function PeriodFormModal({ onClose, editPeriod, organizationId, onSubmit, isSubm
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-slate-950/40 backdrop-blur-md animate-in fade-in duration-300" onClick={onClose} />
-      <div className="relative bg-white dark:bg-slate-900 rounded-[40px] shadow-2xl w-full max-w-md mx-auto animate-in zoom-in-95 fade-in duration-500 overflow-hidden border border-slate-200 dark:border-slate-800">
+      <div className="relative bg-white dark:bg-slate-900 rounded-[40px] shadow-2xl w-full max-w-lg mx-auto animate-in zoom-in-95 fade-in duration-500 overflow-hidden border border-slate-200 dark:border-slate-800">
         <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-500/5 rounded-full -translate-y-1/2 translate-x-1/2 blur-3xl" />
         
         <div className="p-10 space-y-8 relative">
@@ -480,7 +486,7 @@ function PeriodFormModal({ onClose, editPeriod, organizationId, onSubmit, isSubm
               <h3 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">
                 {editPeriod ? 'Chỉnh sửa đợt' : 'Tạo đợt mới'}
               </h3>
-              <p className="text-xs font-black text-slate-400 uppercase tracking-widest mt-1">Cấu hình chu kỳ đánh giá</p>
+              <p className="text-xs font-black text-slate-400 uppercase tracking-widest mt-1">Cấu hình chu kỳ đánh giá & thời gian</p>
             </div>
           </div>
 
@@ -510,27 +516,30 @@ function PeriodFormModal({ onClose, editPeriod, organizationId, onSubmit, isSubm
               </Select>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-6">
               <div className="space-y-2">
                 <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 ml-1">Bắt đầu</label>
-                <input 
-                  type="date"
-                  value={formData.startDate}
-                  onChange={e => handleFieldChange('startDate', e.target.value)}
-                  required
-                  className="w-full px-5 py-4 rounded-[20px] border border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50 focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500/50 outline-none text-sm font-bold transition-all"
-                />
+                <div className="relative group/input">
+                  <input 
+                    type="datetime-local"
+                    value={formData.startDate}
+                    onChange={e => handleFieldChange('startDate', e.target.value)}
+                    required
+                    className="w-full px-6 py-4 rounded-[22px] border border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50 focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500/50 outline-none text-sm font-bold transition-all"
+                  />
+                </div>
               </div>
               <div className="space-y-2">
-                <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 ml-1">Kết thúc</label>
-                <input 
-                  type="date"
-                  value={formData.endDate}
-                  onChange={e => handleFieldChange('endDate', e.target.value)}
-                  required
-                  className="w-full px-5 py-4 rounded-[20px] border border-slate-100 dark:border-slate-800 bg-slate-100/80 dark:bg-slate-800/80 focus:ring-0 outline-none text-sm font-bold transition-all cursor-not-allowed opacity-60"
-                  readOnly
-                />
+                <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 ml-1">Kết thúc (Tự động tính)</label>
+                <div className="relative group/input">
+                  <input 
+                    type="datetime-local"
+                    value={formData.endDate}
+                    readOnly
+                    required
+                    className="w-full px-6 py-4 rounded-[22px] border border-slate-100 dark:border-slate-800 bg-slate-100/50 dark:bg-slate-800/50 outline-none text-sm font-bold transition-all cursor-not-allowed opacity-60"
+                  />
+                </div>
               </div>
             </div>
 

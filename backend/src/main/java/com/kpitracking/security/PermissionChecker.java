@@ -148,4 +148,24 @@ public class PermissionChecker {
     public List<UUID> getOrgUnitsWithPermission(UUID userId, String permissionCode) {
         return getEffectiveOrgUnitsWithPermission(userId, permissionCode);
     }
+
+    /**
+     * Get the minimum (best) rank of a user in a specific OrgUnit.
+     * Considers inheritance: rank in a parent unit applies to all child units.
+     * Ranks: 0 (Manager), 1 (Deputy), 2 (Staff).
+     */
+    public int getMinRankInOrgUnit(UUID userId, UUID orgUnitId) {
+        List<UserRoleOrgUnit> assignments = userRoleOrgUnitRepository.findByUserId(userId);
+        if (assignments.isEmpty()) return 2; // Default to staff rank
+
+        OrgUnit targetUnit = orgUnitRepository.findById(orgUnitId).orElse(null);
+        if (targetUnit == null) return 2;
+
+        return assignments.stream()
+                .filter(a -> targetUnit.getPath().startsWith(a.getOrgUnit().getPath())) // Target is in subtree of assignment
+                .map(a -> a.getRole().getRank())
+                .filter(Objects::nonNull)
+                .min(Integer::compare)
+                .orElse(2);
+    }
 }

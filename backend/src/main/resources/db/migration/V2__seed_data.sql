@@ -28,7 +28,6 @@ INSERT INTO org_units (id, name, code, parent_id, org_hierarchy_id, district_id,
     ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', 'Phòng IT', 'IT-DEPT', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', '22222222-2222-2222-2222-222222222222', 'b1000000-0000-0000-0000-000000000001', 'ACTIVE'),
     ('dddddddd-dddd-dddd-dddd-dddddddddddd', 'Team Backend', 'BE-TEAM', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', '23333333-3333-3333-3333-333333333333', 'b1000000-0000-0000-0000-000000000001', 'ACTIVE');
 
-
 -- 3. ROLES & PERMISSIONS
 -- ============================================================================
 INSERT INTO roles (id, name, level, rank) VALUES

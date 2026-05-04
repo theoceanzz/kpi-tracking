@@ -50,10 +50,17 @@ export default function EvaluationFormModal({ open, onClose, readOnly = false, i
   })
 
   useEffect(() => {
-    if (initialPeriodId) {
-      setValue('kpiPeriodId', initialPeriodId)
+    if (open) {
+      if (initialPeriodId) {
+        setValue('kpiPeriodId', initialPeriodId)
+      } else if (filteredPeriods.length > 0 && !watch('kpiPeriodId')) {
+        const firstPeriod = filteredPeriods[0]
+        if (firstPeriod) {
+          setValue('kpiPeriodId', firstPeriod.id)
+        }
+      }
     }
-  }, [initialPeriodId, setValue])
+  }, [open, initialPeriodId, filteredPeriods, setValue, watch])
 
   const currentScore = watch('score')
   const displayScore = currentScore

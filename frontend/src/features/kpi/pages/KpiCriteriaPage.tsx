@@ -89,7 +89,11 @@ export default function KpiCriteriaPage() {
   const flattenTree = (nodes: any[], level = 0): any[] => {
     let result: any[] = []
     nodes.forEach(node => {
-      result.push({ ...node, levelLabel: '—'.repeat(level) + (level > 0 ? ' ' : '') + node.name })
+      result.push({ 
+        ...node, 
+        level,
+        levelLabel: '—'.repeat(level) + (level > 0 ? ' ' : '') + node.name 
+      })
       if (node.children?.length) {
         result = result.concat(flattenTree(node.children, level + 1))
       }
@@ -100,11 +104,17 @@ export default function KpiCriteriaPage() {
   
   useEffect(() => {
     if (flatOrgUnits.length > 0 && !selectedOrgUnitId) {
-      const primaryOrgUnitId = user?.memberships?.[0]?.orgUnitId
-      const existsInList = flatOrgUnits.some(o => o.id === primaryOrgUnitId)
-      setSelectedOrgUnitId(existsInList ? primaryOrgUnitId! : flatOrgUnits[0].id)
+      const userUnitIds = user?.memberships?.map(m => m.orgUnitId) || []
+      const myUnitsInTree = flatOrgUnits.filter(u => userUnitIds.includes(u.id))
+      
+      if (myUnitsInTree.length > 0) {
+        const deepestUnit = myUnitsInTree.reduce((prev, curr) => (curr.level > prev.level ? curr : prev), myUnitsInTree[0])
+        setSelectedOrgUnitId(deepestUnit.id)
+      } else {
+        setSelectedOrgUnitId(flatOrgUnits[0].id)
+      }
     }
-  }, [flatOrgUnits, user])
+  }, [flatOrgUnits, user, selectedOrgUnitId])
 
   const { data, isLoading } = useKpiCriteria(
     { 

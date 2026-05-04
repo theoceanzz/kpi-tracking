@@ -49,53 +49,42 @@ export default function ExcelPreviewModal({ open, file, onClose, onImport, isImp
   const { data: orgTree } = useOrgUnitTree(organizationId)
   const { data: rolesData } = useRoles()
 
-  // Find the highest rank (lowest level number) of the current user
-  const currentUserLevel = useMemo(() => {
-    if (!user || !rolesData) return 999
+  const { currentUserLevel, currentUserRank } = useMemo(() => {
+    if (!user || !rolesData) return { currentUserLevel: 999, currentUserRank: 999 }
     const userRoleNames = user.memberships?.map(m => m.roleName) || []
-    const levels = rolesData
-      .filter(r => userRoleNames.includes(r.name))
-      .map(r => r.level ?? 999)
-    return levels.length > 0 ? Math.min(...levels) : 999
+    const userRoles = rolesData.filter(r => userRoleNames.includes(r.name))
+    const level = userRoles.length > 0 ? Math.min(...userRoles.map(r => r.level ?? 999)) : 999
+    const rank = userRoles.length > 0 
+      ? Math.min(...userRoles.filter(r => r.level === level).map(r => r.rank ?? 999)) 
+      : 999
+    return { currentUserLevel: level, currentUserRank: rank }
   }, [user, rolesData])
+
+  const isAdmin = useMemo(() => {
+    return user?.memberships?.some(m => m.roleName === 'ADMIN' || m.roleName === 'DIRECTOR_SYSTEM') || false
+  }, [user])
 
   const assignableRoles = useMemo(() => {
     if (!rolesData) return []
-    
-    const filtered = rolesData.filter(r => {
-      // Rule: Cannot assign a role of equal or higher level
-      if (r.level !== undefined && r.level <= currentUserLevel) {
-        return false
-      }
+    const levelCount = hierarchyLevels?.length || 0
 
-      // Filter by rank instead of name
-      if (hierarchyLevels && hierarchyLevels.length > 0) {
-        const levelCount = hierarchyLevels.length
-        
-        // Staff roles (rank 2) are always allowed
-        if (r.rank === 2) return true
-        
-        // Director-level roles (level 0, rank 0)
-        if (r.level === 0 && r.rank === 0) return levelCount >= 1
-        
-        // Mid-level roles (level 1) only shown when hierarchy has 3+ levels
-        if (r.level === 1) return levelCount > 2
-        
-        // Team-level roles (level 2, rank 0 or 1) always shown
-        if (r.level === 2 && (r.rank === 0 || r.rank === 1)) return true
-      }
+    return rolesData.filter((r: any) => {
+      if (isAdmin) return r.name !== 'DIRECTOR_SYSTEM' || user?.memberships?.some(m => m.roleName === 'DIRECTOR_SYSTEM')
+      
+      // 1. Authority check
+      if (r.level !== undefined && r.level < currentUserLevel) return false
+      if (r.level === currentUserLevel && r.rank !== undefined && r.rank <= currentUserRank) return false
+
+      // 2. Hierarchy structural filters
+      if (r.rank === 2) return true // Staff always allowed
+      if (r.level === 0 && r.rank === 0) return levelCount >= 1
+      if (r.level === 1) return levelCount > 2
+      if (r.level === 2 && (r.rank === 0 || r.rank === 1)) return true
+      
       return true
     })
+  }, [rolesData, currentUserLevel, currentUserRank, isAdmin, user, hierarchyLevels])
 
-    // Remove duplicates by display label
-    const seen = new Set<string>()
-    return filtered.filter(r => {
-      const label = ROLE_MAP[r.name] || r.name
-      if (seen.has(label)) return false
-      seen.add(label)
-      return true
-    })
-  }, [rolesData, currentUserLevel, hierarchyLevels])
 
   // Flatten tree to get all valid unit codes
   const validUnitCodes = useMemo(() => {
@@ -215,12 +204,22 @@ export default function ExcelPreviewModal({ open, file, onClose, onImport, isImp
       }
     }
 
-    // Kiểm tra quyền hạn gán vai trò (theo rank)
     let roleObj = rolesData?.find(r => 
       r.id === row.Role || 
       r.name.toLowerCase() === row.Role.toLowerCase() || 
       (ROLE_MAP[r.name] || r.name).toLowerCase() === row.Role.toLowerCase()
     )
+
+    // Fallback: Partial matching for renamed roles (e.g., "Trưởng phòng" matches "Trưởng phòng 1")
+    if (!roleObj && rolesData && row.Role) {
+      const excelRole = row.Role.toLowerCase().trim()
+      roleObj = rolesData.find(r => {
+        const dbRole = r.name.toLowerCase().trim()
+        const mappedRole = (ROLE_MAP[r.name] || r.name).toLowerCase().trim()
+        return dbRole.includes(excelRole) || excelRole.includes(dbRole) || 
+               mappedRole.includes(excelRole) || excelRole.includes(mappedRole)
+      })
+    }
 
     // Fallback to the lowest role in hierarchy if not found
     if (!roleObj && rolesData && rolesData.length > 0) {
@@ -266,11 +265,32 @@ export default function ExcelPreviewModal({ open, file, onClose, onImport, isImp
   const validateAllRows = (rows: UserRow[]): UserRow[] => {
     // Group by (OrgUnitCode, Rank) for manager/deputy roles
     const managerCounts = new Map<string, number>();
+    // Group by EmployeeCode to detect duplicates in file
+    const codeCounts = new Map<string, number>();
+    // Units that have a manager (Rank 0) in the file
+    const unitsWithManager = new Set<string>();
+
     rows.forEach(row => {
-      const roleObj = rolesData?.find(r => r.name.toLowerCase() === row.Role.toLowerCase());
-      if (row.OrgUnitCode && roleObj && (roleObj.rank === 0 || roleObj.rank === 1)) {
-        const key = `${row.OrgUnitCode}-${roleObj.rank}`;
-        managerCounts.set(key, (managerCounts.get(key) || 0) + 1);
+      // Determine role from row.Role (could be ID or Name)
+      const roleObj = rolesData?.find(r => 
+        r.id === row.Role || 
+        r.name.toLowerCase() === row.Role.toLowerCase() || 
+        (ROLE_MAP[r.name] || r.name).toLowerCase() === row.Role.toLowerCase()
+      );
+
+      if (row.OrgUnitCode) {
+        if (roleObj && (roleObj.rank === 0 || roleObj.rank === 1)) {
+          const key = `${row.OrgUnitCode}-${roleObj.rank}`;
+          managerCounts.set(key, (managerCounts.get(key) || 0) + 1);
+        }
+        if (roleObj && roleObj.rank === 0) {
+          unitsWithManager.add(row.OrgUnitCode);
+        }
+      }
+
+      if (row.EmployeeCode && row.EmployeeCode.trim()) {
+        const code = row.EmployeeCode.trim().toLowerCase();
+        codeCounts.set(code, (codeCounts.get(code) || 0) + 1);
       }
     });
 
@@ -278,12 +298,30 @@ export default function ExcelPreviewModal({ open, file, onClose, onImport, isImp
       const validated = validateRow(row);
       const errors = { ...(validated._errors || {}) };
 
+      // Manager/Deputy count check
       const roleObj = rolesData?.find(r => r.id === validated.Role);
-      if (row.OrgUnitCode && roleObj && (roleObj.rank === 0 || roleObj.rank === 1)) {
-        const key = `${row.OrgUnitCode}-${roleObj.rank}`;
-        if ((managerCounts.get(key) || 0) > 1) {
-          const rankName = roleObj.rank === 0 ? 'Trưởng' : 'Phó';
-          errors['Role'] = `Đơn vị này đang được gán nhiều hơn một ${rankName.toLowerCase()} trong tệp tin`;
+      if (row.OrgUnitCode && roleObj) {
+        // Check for multiple managers/deputies
+        if (roleObj.rank === 0 || roleObj.rank === 1) {
+          const key = `${row.OrgUnitCode}-${roleObj.rank}`;
+          if ((managerCounts.get(key) || 0) > 1) {
+            const rankName = roleObj.rank === 0 ? 'Trưởng' : 'Phó';
+            errors['Role'] = `Đơn vị này đang được gán nhiều hơn một ${rankName.toLowerCase()} trong tệp tin`;
+          }
+        }
+
+        // Check if unit has at least one manager in the file
+        // (Note: This is a strict check, if it exists in DB but not in file, it will still show error)
+        if (!unitsWithManager.has(row.OrgUnitCode)) {
+          errors['OrgUnitCode'] = 'Đơn vị cần tối thiểu 1 Trưởng đơn vị trong danh sách import';
+        }
+      }
+
+      // Duplicate employee code check in file
+      if (row.EmployeeCode && row.EmployeeCode.trim()) {
+        const code = row.EmployeeCode.trim().toLowerCase();
+        if ((codeCounts.get(code) || 0) > 1) {
+          errors['EmployeeCode'] = 'Mã nhân viên bị trùng lặp trong tệp tin';
         }
       }
 
@@ -452,9 +490,15 @@ export default function ExcelPreviewModal({ open, file, onClose, onImport, isImp
                             <input
                               value={row.EmployeeCode}
                               onChange={e => handleCellChange(row.id, 'EmployeeCode', e.target.value)}
-                              className="w-full px-3 py-1.5 rounded-lg border border-transparent hover:border-gray-300 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 bg-transparent hover:bg-white focus:bg-white text-sm transition-colors"
+                              className={cn(
+                                "w-full px-3 py-1.5 rounded-lg border text-sm transition-colors",
+                                row._errors?.EmployeeCode 
+                                  ? "border-red-300 bg-red-50 focus:border-red-500 focus:ring-1 focus:ring-red-500" 
+                                  : "border-transparent hover:border-gray-300 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 bg-transparent hover:bg-white focus:bg-white"
+                              )}
                               placeholder="Trống..."
                             />
+                            {row._errors?.EmployeeCode && <p className="text-[10px] text-red-500 mt-1 font-medium px-1">{row._errors.EmployeeCode}</p>}
                           </td>
                           <td className="px-4 py-2">
                             <select
@@ -465,36 +509,9 @@ export default function ExcelPreviewModal({ open, file, onClose, onImport, isImp
                                 row._errors?.Role ? "border-red-300 bg-red-50" : "border-transparent hover:border-gray-300"
                               )}
                             >
-                              {(() => {
-                                // Filter assignableRoles by the unit's allowedRoles if specified
-                                let unitAllowedRoles = assignableRoles
-                                if (row.OrgUnitCode && orgTree) {
-                                  let node: OrgUnitTreeResponse | undefined
-                                  const findNode = (nodes: OrgUnitTreeResponse[]) => {
-                                    for (const n of nodes) {
-                                      if (n.code === row.OrgUnitCode) { node = n; return }
-                                      if (n.children) findNode(n.children)
-                                    }
-                                  }
-                                  findNode(orgTree)
-                                  if (node && node.allowedRoles && node.allowedRoles.length > 0) {
-                                    const allowedNames = node.allowedRoles.map(r => r.name.toLowerCase())
-                                    unitAllowedRoles = assignableRoles.filter(r => allowedNames.includes(r.name.toLowerCase()) || r.rank === 2)
-                                  }
-                                }
-
-                                return (
-                                  <>
-                                    {unitAllowedRoles.map(role => (
-                                      <option key={role.id} value={role.id}>{ROLE_MAP[role.name] || role.name}</option>
-                                    ))}
-                                    {/* Fallback if current row has an unassignable role, to show the error */}
-                                    {!unitAllowedRoles.some(r => r.id === row.Role) && (
-                                      <option value={row.Role}>{rolesData?.find(r => r.id === row.Role)?.name || row.Role}</option>
-                                    )}
-                                  </>
-                                )
-                              })()}
+                              {assignableRoles.map(role => (
+                                <option key={role.id} value={role.id}>{ROLE_MAP[role.name] || role.name}</option>
+                              ))}
                             </select>
                             {row._errors?.Role && <p className="text-[10px] text-red-500 mt-1 font-medium px-1">{row._errors.Role}</p>}
                           </td>

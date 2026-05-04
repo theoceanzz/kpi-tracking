@@ -24,6 +24,8 @@ public interface OrgUnitRepository extends JpaRepository<OrgUnit, UUID> {
 
     List<OrgUnit> findByOrgHierarchyLevel_Organization_IdAndDeletedAtIsNull(UUID organizationId);
 
+    List<OrgUnit> findByNameContainingIgnoreCaseAndDeletedAtIsNull(String name);
+
     List<OrgUnit> findByParentId(UUID parentId);
 
     @Query("SELECT o FROM OrgUnit o WHERE o.path LIKE CONCAT(:pathPrefix, '%') AND o.deletedAt IS NULL")

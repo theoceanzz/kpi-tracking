@@ -36,17 +36,99 @@ export default function EvaluationDetailModal({ open, onClose, evaluation }: Eva
     evaluation ? { userId: evaluation.userId, kpiPeriodId: evaluation.kpiPeriodId, size: 50 } : {}
   )
 
-  const layers = useMemo(() => {
-    if (!relatedData?.content || !evaluation) return { selfEval: null, teamEval: null, headEval: null, directorEval: null }
-    const all = relatedData.content.filter((e: any) => e.kpiPeriodId === evaluation.kpiPeriodId && e.userId === evaluation.userId)
+  const timelineSteps = useMemo(() => {
+    if (!evaluation || !org?.hierarchyLevels || !relatedData?.content) return []
     
-    const selfEval = all.find(e => e.evaluatorRole === 'SELF') ?? null
-    const teamEval = all.find(e => e.evaluatorRole === 'TEAM_LEADER') ?? null
-    const headEval = all.find(e => e.evaluatorRole === 'DEPT_HEAD' || (e.evaluatorRole === 'MANAGER' && evaluation.orgUnitLevel && evaluation.orgUnitLevel <= 2)) ?? null
-    const directorEval = all.find(e => e.evaluatorRole === 'DIRECTOR') ?? null
+    const steps: any[] = []
+    
+    // 1. Self Evaluation (Always first)
+    const selfEval = relatedData.content.find((e: any) => e.userId === evaluation.userId && e.evaluatorRole === 'SELF')
+    steps.push({
+      id: 'self',
+      title: 'Nhân viên tự đánh giá',
+      icon: User,
+      iconBg: "bg-slate-50 dark:bg-slate-800/50",
+      iconColor: "text-slate-600 dark:text-slate-400",
+      evaluation: selfEval || null,
+      role: 'SELF'
+    })
 
-    return { selfEval, teamEval, headEval, directorEval }
-  }, [relatedData, evaluation])
+    // 2. Manager Evaluations based on hierarchy
+    // Sort levels to ensure we go from current level down to 0
+    const sortedLevels = [...org.hierarchyLevels].sort((a, b) => b.levelOrder - a.levelOrder)
+    
+    // We only show levels that are strictly higher (lower number) or equal to the evaluation unit level
+    // But typically, a manager at level N evaluates their subordinates.
+    // If evaluation is at Level 2 (Team), managers at L2, L1, L0 can evaluate.
+    
+    const evalUnitLevel = evaluation.orgUnitLevel ?? 2
+    
+    const isTwoLevelOrg = org.hierarchyLevels.length <= 2
+    
+    sortedLevels.forEach(hl => {
+      // Only show levels relevant to the evaluation path (from eval level down to director)
+      if (hl.levelOrder > evalUnitLevel) return
+
+      // SKIP this level if the evaluated user themselves is the manager (Rank 0) at this level
+      // This handles: "nếu role là trưởng team thì hiện đến giám đốc luôn"
+      const isUserManagerAtThisLevel = 
+        evaluation.userLevel !== undefined && 
+        evaluation.userLevel === hl.levelOrder && 
+        evaluation.userRank === 0;
+
+      if (isUserManagerAtThisLevel) {
+        return
+      }
+
+      let roleCode = ''
+      let stepTitle = ''
+      let icon = Award
+      let iconBg = "bg-blue-100 dark:bg-blue-900/30"
+      let iconColor = "text-blue-600 dark:text-blue-400"
+
+      if (hl.levelOrder === 0) {
+        roleCode = 'DIRECTOR'
+        stepTitle = 'Giám đốc Quyết định'
+        icon = Star
+        iconBg = "bg-amber-50 dark:bg-amber-900/20"
+        iconColor = "text-amber-600 dark:text-amber-400"
+      } else if (hl.levelOrder === 1) {
+        roleCode = 'DEPT_HEAD'
+        stepTitle = isTwoLevelOrg ? 'Trưởng nhóm đánh giá' : (hl.managerRoleLabel || 'Trưởng phòng đánh giá')
+        iconBg = "bg-purple-50 dark:bg-purple-900/20"
+        iconColor = "text-purple-600 dark:text-purple-400"
+      } else if (hl.levelOrder === 2) {
+        roleCode = 'TEAM_LEADER'
+        stepTitle = hl.managerRoleLabel || 'Trưởng nhóm đánh giá'
+      } else {
+        roleCode = 'MANAGER'
+        stepTitle = `${hl.managerRoleLabel || 'Quản lý'} đánh giá`
+      }
+
+      const evalAtLevel = relatedData.content.find((e: any) => e.userId === evaluation.userId && e.evaluatorRole === roleCode)
+      
+      steps.push({
+        id: roleCode,
+        title: stepTitle,
+        icon,
+        iconBg,
+        iconColor,
+        evaluation: evalAtLevel || null,
+        role: roleCode
+      })
+    })
+
+    return steps
+  }, [evaluation, org, relatedData])
+
+  const layers = useMemo(() => {
+    return {
+      selfEval: timelineSteps.find(s => s.role === 'SELF')?.evaluation ?? null,
+      teamEval: timelineSteps.find(s => s.role === 'TEAM_LEADER')?.evaluation ?? null,
+      headEval: timelineSteps.find(s => s.role === 'DEPT_HEAD')?.evaluation ?? null,
+      directorEval: timelineSteps.find(s => s.role === 'DIRECTOR')?.evaluation ?? null,
+    }
+  }, [timelineSteps])
 
   // System Score Calculation
   const { data: myKpis, isLoading: loadingKpis } = useKpiCriteria({ 
@@ -102,7 +184,8 @@ export default function EvaluationDetailModal({ open, onClose, evaluation }: Eva
       comment = `[Đồng ý với nhân viên] ${feedbackComment}`.trim()
     } else if (directorChoice === 'head' && layers.headEval) {
       score = layers.headEval.score ?? 0
-      comment = `[Đồng ý với trưởng phòng] ${feedbackComment}`.trim()
+      const reviewerLabel = org?.hierarchyLevels?.length === 2 ? 'trưởng team' : 'trưởng phòng'
+      comment = `[Đồng ý với ${reviewerLabel}] ${feedbackComment}`.trim()
     }
 
     feedbackMutation.mutate({
@@ -156,60 +239,24 @@ export default function EvaluationDetailModal({ open, onClose, evaluation }: Eva
             </div>
           </div>
 
-          {/* Evaluation Layers Timeline */}
           <div className="space-y-4">
             <h4 className="text-xs font-black uppercase tracking-widest text-slate-400">Dòng thời gian đánh giá</h4>
 
-            {/* Layer 1: Self Evaluation */}
-            <EvalLayerCard
-              title="Nhân viên tự đánh giá"
-              icon={User}
-              iconBg="bg-slate-50 dark:bg-slate-800/50"
-              iconColor="text-slate-600 dark:text-slate-400"
-              evaluation={layers.selfEval}
-              calculatedScore={calculatedScore}
-              lineActive={!!layers.teamEval || !!layers.headEval || !!layers.directorEval}
-              getScoreColor={getScoreColor}
-              getScoreLabel={getScoreLabel}
-            />
-
-            {/* Layer 2: Team Leader Evaluation */}
-            {(evaluation.orgUnitLevel != null && evaluation.orgUnitLevel >= 3) && (
+            {timelineSteps.map((step, idx) => (
               <EvalLayerCard
-                title="Trưởng nhóm đánh giá"
-                icon={Award}
-                iconBg="bg-blue-100 dark:bg-blue-900/30"
-                iconColor="text-blue-600 dark:text-blue-400"
-                evaluation={layers.teamEval}
-                lineActive={!!layers.headEval || !!layers.directorEval}
+                key={step.id}
+                title={step.title}
+                icon={step.icon}
+                iconBg={step.iconBg}
+                iconColor={step.iconColor}
+                evaluation={step.evaluation}
+                calculatedScore={step.role === 'SELF' ? calculatedScore : undefined}
+                lineActive={idx < timelineSteps.length - 1 && !!timelineSteps[idx + 1].evaluation}
+                isLast={idx === timelineSteps.length - 1}
                 getScoreColor={getScoreColor}
                 getScoreLabel={getScoreLabel}
               />
-            )}
-
-            {/* Layer 3: Department Head Evaluation */}
-            <EvalLayerCard
-              title={evaluation.orgUnitLevel && evaluation.orgUnitLevel >= 3 ? "Trưởng phòng đánh giá" : "Trưởng nhóm đánh giá"}
-              icon={Award}
-              iconBg="bg-purple-50 dark:bg-purple-900/20"
-              iconColor="text-purple-600 dark:text-purple-400"
-              evaluation={layers.headEval}
-              lineActive={!!layers.directorEval}
-              getScoreColor={getScoreColor}
-              getScoreLabel={getScoreLabel}
-            />
-
-            {/* Layer 4: Director Final */}
-            <EvalLayerCard
-              title="Giám đốc Quyết định"
-              icon={Star}
-              iconBg="bg-amber-50 dark:bg-amber-900/20"
-              iconColor="text-amber-600 dark:text-amber-400"
-              evaluation={layers.directorEval}
-              isLast
-              getScoreColor={getScoreColor}
-              getScoreLabel={getScoreLabel}
-            />
+            ))}
           </div>
 
           {/* HEAD/DEPUTY Feedback Form */}
@@ -224,7 +271,7 @@ export default function EvaluationDetailModal({ open, onClose, evaluation }: Eva
 
           {canGiveFeedback && showFeedbackForm && (
             <FeedbackForm
-              title="Phản hồi của Trưởng phòng"
+              title={`Phản hồi của ${org?.hierarchyLevels?.length === 2 ? 'Trưởng team' : 'Trưởng phòng'}`}
               score={feedbackScore}
               comment={feedbackComment}
               onScoreChange={setFeedbackScore}
@@ -260,7 +307,7 @@ export default function EvaluationDetailModal({ open, onClose, evaluation }: Eva
                     className="p-4 rounded-2xl border-2 border-purple-200 dark:border-purple-900/50 hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-all text-center group"
                   >
                     <Award size={20} className="text-purple-500 mx-auto mb-2 group-hover:scale-110 transition-transform" />
-                    <p className="text-sm font-bold text-slate-700 dark:text-slate-300">Đồng ý TP</p>
+                    <p className="text-sm font-bold text-slate-700 dark:text-slate-300">Đồng ý {org?.hierarchyLevels?.length === 2 ? 'TT' : 'TP'}</p>
                     <p className="text-2xl font-black text-purple-600 mt-1">{layers.headEval.score ?? '—'}</p>
                   </button>
                 )}
@@ -278,7 +325,7 @@ export default function EvaluationDetailModal({ open, onClose, evaluation }: Eva
 
           {canDirectorReview && showFeedbackForm && (
             <FeedbackForm
-              title={directorChoice === 'staff' ? 'Đồng ý với Nhân viên' : directorChoice === 'head' ? 'Đồng ý với Trưởng phòng' : 'Ý kiến của Giám đốc'}
+              title={directorChoice === 'staff' ? 'Đồng ý với Nhân viên' : directorChoice === 'head' ? `Đồng ý với ${org?.hierarchyLevels?.length === 2 ? 'Trưởng team' : 'Trưởng phòng'}` : 'Ý kiến của Giám đốc'}
               score={feedbackScore}
               comment={feedbackComment}
               onScoreChange={directorChoice === 'own' ? setFeedbackScore : undefined}

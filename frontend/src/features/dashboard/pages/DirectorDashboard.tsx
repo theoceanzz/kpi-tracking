@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import LoadingSkeleton from '@/components/common/LoadingSkeleton'
 import { useOrganization } from '@/features/orgunits/hooks/useOrganization'
 import { useOverviewStats } from '../hooks/useOverviewStats'
@@ -8,17 +9,23 @@ import { Link } from 'react-router-dom'
 import { cn, getInitials } from '@/lib/utils'
 import { useAuthStore } from '@/store/authStore'
 import { useKpiPeriods } from '@/features/kpi/hooks/useKpiPeriods'
+import { reportApi } from '@/features/reports/api/reportApi'
+import { toast } from 'sonner'
 import type { OrgUnitStats, EmployeeKpiStats } from '@/types/stats'
+import type { ReportWidget } from '@/types/datasource'
+import { useSummaryTrend, useSummaryComparison, useSummaryRisks, useSummaryStats } from '@/features/analytics/hooks/useAnalytics'
 import {
   Users, Target, FileText,
-  Clock, BarChart3, ShieldCheck, Building2,   
-  ChevronRight, Search,
-  AlertTriangle, ChevronLeft,
-  Zap, Trophy, ArrowUpRight
+  Clock, BarChart3, ShieldCheck, Building2,
+  ChevronRight, Search, 
+  ChevronLeft, ArrowUpRight, Pin, PinOff, TriangleAlert, Award
 } from 'lucide-react'
-import {
-  PieChart, Pie, Cell, ResponsiveContainer, Tooltip
+import { 
+  XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, 
+  BarChart, Bar, PieChart, Pie, Cell, AreaChart, Area, Legend, Tooltip
 } from 'recharts'
+
+const COLORS = ['#6366f1', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'];
 
 type TabView = 'overview' | 'orgUnits' | 'employees'
 
@@ -28,8 +35,26 @@ export default function DirectorDashboard() {
   const { data: stats, isLoading: loadingStats } = useOverviewStats()
   const { data: orgUnitStats, isLoading: loadingOrgUnits } = useOrgUnitStats()
   const { data: empStats, isLoading: loadingEmps } = useEmployeeStats(empPage, empSize)
-  const { data: allEmpStats } = useEmployeeStats(0, 200) // For global calculations - safer size
-  
+  const { data: allEmpStats } = useEmployeeStats(0, 500)
+  // const queryClient = useQueryClient()
+
+  // Load real KPI and submission data
+  /*
+  const { data: recentKpiData, isLoading: loadingRecentKpis } = useQuery({
+    queryKey: ['kpi-criteria', 'director-dash', 'APPROVED'],
+    queryFn: () => kpiApi.getAll({ page: 0, size: 10, status: 'APPROVED' as any }),
+  })
+  const { data: recentSubData, isLoading: loadingRecentSubs } = useQuery({
+    queryKey: ['submissions', 'director-dash'],
+    queryFn: () => submissionApi.getAll({ page: 0, size: 10 }),
+  })
+  */
+
+  const { data: pinnedWidgets, isLoading: loadingPinned, refetch: refetchPinned } = useQuery({
+    queryKey: ['reports', 'widgets', 'pinned'],
+    queryFn: () => reportApi.getPinnedWidgets(),
+  })
+
   const [activeTab, setActiveTab] = useState<TabView>('overview')
   const [empSearch, setEmpSearch] = useState('')
   const [orgUnitFilter] = useState<string>('ALL')
@@ -53,13 +78,12 @@ export default function DirectorDashboard() {
     return Math.max(0, Math.ceil(diff / (1000 * 60 * 60 * 24)))
   }, [activePeriod])
 
-  const isLoading = loadingStats || loadingOrgUnits || loadingEmps
+  const isLoading = loadingStats || loadingOrgUnits || loadingEmps || loadingPinned
 
   const { companyWeightedAvg, groupRates: groups } = useMemo(() => {
     const emps = allEmpStats?.content || empStats?.content || []
     if (emps.length === 0) return { companyWeightedAvg: 0, groupRates: {} }
 
-    // Group by department with employee details
     const groups: Record<string, { empName: string, rate: number }[]> = {}
     emps.forEach(e => {
       if (e.assignedKpi > 0) {
@@ -78,7 +102,6 @@ export default function DirectorDashboard() {
     return { companyWeightedAvg: avg, groupRates: groups }
   }, [allEmpStats, empStats])
 
-
   const filteredEmployees = useMemo(() => {
     const list = empStats?.content ?? []
     return list.filter(e =>
@@ -96,7 +119,6 @@ export default function DirectorDashboard() {
     const unitTotals: Record<string, number> = {}
     const emps = allEmpStats?.content || []
     
-    // Sum up completion rates for all active employees
     emps.forEach(emp => {
       const name = (emp.orgUnitName || 'Chưa gán').trim()
       const rate = emp.assignedKpi > 0 ? (emp.approvedSubmissions / emp.assignedKpi) * 100 : 0
@@ -104,11 +126,10 @@ export default function DirectorDashboard() {
     })
 
     const result: Record<string, number> = {}
-    // Calculate average based on TOTAL member count of the unit
     orgUnitStats?.forEach(unit => {
       const name = (unit.orgUnitName || 'Chưa gán').trim()
       const totalRate = unitTotals[name] || 0
-      const count = unit.memberCount || 1 // Avoid division by zero
+      const count = unit.memberCount || 1
       result[name] = totalRate / count
     })
     return result
@@ -176,251 +197,247 @@ export default function DirectorDashboard() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 xl:grid-cols-4 gap-4">
-        <PremiumStatCard 
-          icon={<Building2 size={20} />} 
-          label="Phòng ban" 
-          value={stats?.totalOrgUnits ?? 0} 
-          color="emerald"
-          trend="Active"
-        />
-        <PremiumStatCard 
-          icon={<Users size={20} />} 
-          label="Nhân sự" 
-          value={empStats?.totalElements ?? 0} 
-          color="indigo"
-        />
-        <PremiumStatCard 
-          icon={<Target size={20} />} 
-          label="Chỉ tiêu KPI" 
-          value={stats?.totalKpiCriteria ?? 0} 
-          sub={`${stats?.approvedKpi ?? 0} đã duyệt`}
-          color="blue"
-        />
-        <PremiumStatCard 
-          icon={<Trophy size={20} />} 
-          label="Đánh giá" 
-          value={stats?.totalEvaluations ?? 0} 
-          color="purple"
-        />
+        <PremiumStatCard icon={<Building2 size={20} />} label="Phòng ban" value={stats?.totalOrgUnits ?? 0} color="emerald" trend="Active" />
+        <PremiumStatCard icon={<Users size={20} />} label="Nhân sự" value={empStats?.totalElements ?? 0} color="indigo" />
+        <PremiumStatCard icon={<Target size={20} />} label="Chỉ tiêu KPI" value={stats?.totalKpiCriteria ?? 0} sub={`${stats?.approvedKpi ?? 0} đã duyệt`} color="blue" />
+        <PremiumStatCard icon={<Award size={20} />} label="Đánh giá" value={stats?.totalEvaluations ?? 0} color="purple" />
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-stretch">
-        {/* Row 1: Key Performance Indicators & Alerts */}
-        <div className="bg-white dark:bg-slate-900 p-8 rounded-[40px] border border-slate-200/60 dark:border-slate-800 shadow-[0_8px_30px_rgb(0,0,0,0.04)] relative group transition-all hover:shadow-[0_20px_50px_rgba(99,102,241,0.1)] flex flex-col justify-between min-h-[520px] hover:z-50">
-          <div className="absolute top-0 left-0 w-1.5 h-1/2 mt-[25%] bg-gradient-to-b from-indigo-500 to-purple-600 rounded-full opacity-0 group-hover:opacity-100 transition-all duration-500"></div>
-          <div className="flex items-center justify-between mb-6">
-            <div className="space-y-1">
-              <p className="text-xl font-black tracking-tight text-slate-900 dark:text-white">Tỷ lệ Hoàn thành</p>
-            </div>
-          </div>
+      {activeTab === 'overview' && (
+        <>
+          {pinnedWidgets && pinnedWidgets.length > 0 && (
+            <section className="space-y-4">
+              <div className="flex items-center justify-between">
+                <h3 className="font-black text-slate-900 dark:text-white flex items-center gap-2">
+                  <Pin size={18} className="text-indigo-600 rotate-45" /> Thống kê đã ghim
+                </h3>
+              </div>
+              <div className="grid grid-cols-12 gap-6">
+                {pinnedWidgets.map((widget: ReportWidget) => (
+                  <PinnedWidgetCard key={widget.id} widget={widget} onUnpin={refetchPinned} />
+                ))}
+              </div>
+            </section>
+          )}
 
-          <div className="flex flex-col items-center flex-1 justify-center py-4">
-            <div className="relative w-64 h-64 flex items-center justify-center group/radial cursor-pointer">
-              <div className="absolute inset-0 bg-indigo-500/5 dark:bg-indigo-500/10 rounded-full blur-3xl scale-75 opacity-0 group-hover/radial:opacity-100 transition-opacity duration-700"></div>
-              <svg viewBox="0 0 100 100" className="w-full h-full transform -rotate-90 relative z-10">
-                <defs>
-                  <linearGradient id="radialGradient" x1="0%" y1="0%" x2="100%" y2="0%">
-                    <stop offset="0%" stopColor="#6366f1" />
-                    <stop offset="100%" stopColor="#8b5cf6" />
-                  </linearGradient>
-                </defs>
-                <circle cx="50" cy="50" r="42" stroke="#f1f5f9" strokeWidth="6" fill="transparent" className="dark:stroke-slate-800/50" />
-                <circle 
-                  cx="50" cy="50" r="42" 
-                  stroke="url(#radialGradient)" 
-                  strokeWidth="6" 
-                  fill="transparent" 
-                  strokeDasharray={263.8}
-                  strokeDashoffset={263.8 - (263.8 * companyWeightedAvg) / 100}
-                  strokeLinecap="round"
-                  className="transition-all duration-[2000ms] ease-in-out"
-                />
-              </svg>
-              <div className="absolute inset-0 flex flex-col items-center justify-center z-20 transition-all duration-500 group-hover/radial:scale-110">
-                <div className="relative">
-                  <span className="text-7xl font-black tracking-tighter text-slate-900 dark:text-white leading-none drop-shadow-sm">{companyWeightedAvg}%</span>
-                  <div className="absolute -top-2 -right-4 w-3 h-3 rounded-full bg-emerald-500 animate-ping"></div>
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-stretch">
+            {/* Row 1: Key Performance Indicators & Alerts */}
+            <div className="bg-white dark:bg-slate-900 p-8 rounded-[40px] border border-slate-200/60 dark:border-slate-800 shadow-[0_8px_30px_rgb(0,0,0,0.04)] relative group transition-all hover:shadow-[0_20px_50px_rgba(99,102,241,0.1)] flex flex-col justify-between min-h-[520px] hover:z-50">
+              <div className="absolute top-0 left-0 w-1.5 h-1/2 mt-[25%] bg-gradient-to-b from-indigo-500 to-purple-600 rounded-full opacity-0 group-hover:opacity-100 transition-all duration-500"></div>
+              <div className="flex items-center justify-between mb-6">
+                <div className="space-y-1">
+                  <p className="text-xl font-black tracking-tight text-slate-900 dark:text-white">Tỷ lệ Hoàn thành</p>
                 </div>
               </div>
 
-              {/* Premium Glassmorphism Hover Popup */}
-              <div className="absolute top-[80%] left-1/2 -translate-x-1/2 mt-4 w-72 backdrop-blur-xl bg-white/95 dark:bg-slate-900/95 p-5 rounded-[28px] shadow-[0_30px_60px_rgba(0,0,0,0.2)] border border-slate-100 dark:border-slate-800 opacity-0 invisible group-hover/radial:opacity-100 group-hover/radial:visible transition-all duration-300 z-[100] translate-y-2 group-hover/radial:translate-y-0">
-                  <div className="flex items-center gap-2 mb-4 px-2">
-                    <div className="w-1 h-4 bg-indigo-500 rounded-full"></div>
-                    <span className="text-[10px] font-black text-slate-900 dark:text-white uppercase tracking-widest">Nhân viên đóng góp</span>
-                  </div>
-                  <div className="space-y-1.5 max-h-72 overflow-y-auto pr-1 custom-scrollbar">
-                    {Object.values(groups).flat().filter(m => m.rate > 0).length > 0 ? (
-                      Object.values(groups).flat().filter(m => m.rate > 0).map((m, i) => (
-                        <div key={`${m.empName}-${i}`} className="flex justify-between items-center p-3 rounded-2xl hover:bg-indigo-50/50 dark:hover:bg-indigo-500/10 transition-all group/emp border border-transparent hover:border-indigo-100/50 dark:hover:border-indigo-500/20">
-                          <div className="flex items-center gap-2">
-                            <div className="w-1.5 h-1.5 rounded-full bg-indigo-400"></div>
-                            <span className="text-[11px] font-bold text-slate-600 dark:text-slate-400 group-hover/emp:text-slate-900 dark:group-hover/emp:text-white transition-colors">{m.empName}</span>
-                          </div>
-                          <span className="text-[11px] font-black text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-500/10 px-2 py-0.5 rounded-lg">{Math.round(m.rate * 100)}%</span>
-                        </div>
-                      ))
-                    ) : (
-                      <div className="py-8 text-center bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-dashed border-slate-200 dark:border-slate-700">
-                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Chưa có đóng góp</p>
-                      </div>
-                    )}
-                  </div>
-              </div>
-            </div>
-          </div>
-
-          <div className="w-full grid grid-cols-2 gap-0 border-t border-slate-100 dark:border-slate-800 pt-6">
-            <div className="flex flex-col items-center justify-center space-y-1 border-r border-slate-100 dark:border-slate-800 px-4">
-              <div className="flex items-center gap-1.5 text-slate-400 mb-1">
-                <Building2 size={12} />
-                <span className="text-[9px] font-black uppercase tracking-widest">Cơ cấu Đơn vị</span>
-              </div>
-              <p className="text-base font-black text-slate-900 dark:text-white">{Object.keys(groups).length} Phòng ban</p>
-            </div>
-            <div className="flex flex-col items-center justify-center space-y-1 px-4">
-              <div className="flex items-center gap-1.5 text-slate-400 mb-1">
-                <Users size={12} />
-                <span className="text-[9px] font-black uppercase tracking-widest">Đối tượng KPI</span>
-              </div>
-              <p className="text-base font-black text-slate-900 dark:text-white">{(empStats?.content || []).filter(e => e.assignedKpi > 0).length} Nhân sự</p>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white dark:bg-slate-900 p-8 rounded-[40px] border border-slate-200/60 dark:border-slate-800 shadow-[0_8px_30px_rgb(0,0,0,0.04)] relative group transition-all hover:shadow-[0_20px_50px_rgba(16,185,129,0.1)] flex flex-col min-h-[520px] hover:z-50">
-          <div className="absolute top-0 left-0 w-1.5 h-1/2 mt-[25%] bg-gradient-to-b from-emerald-500 to-teal-600 rounded-full opacity-0 group-hover:opacity-100 transition-all duration-500"></div>
-          <div className="flex items-center justify-between mb-8">
-            <div className="space-y-1">
-              <p className="text-xl font-black tracking-tight text-slate-900 dark:text-white">Phân tích Bài nộp</p>
-            </div>
-            <div className="w-10 h-10 rounded-2xl bg-emerald-50 dark:bg-emerald-900/40 flex items-center justify-center text-emerald-600 dark:text-emerald-400 border border-emerald-100/50 dark:border-emerald-500/20">
-              <FileText size={20} />
-            </div>
-          </div>
-
-          <div className="h-[280px] w-full relative mb-8 flex-1">
-            <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none z-0">
-              <div className="bg-slate-50 dark:bg-slate-800/50 w-28 h-28 rounded-full flex flex-col items-center justify-center border border-slate-100 dark:border-slate-700 shadow-inner">
-                <span className="text-4xl font-black text-slate-900 dark:text-white leading-none tracking-tighter">
-                  {(stats?.approvedSubmissions ?? 0) + (stats?.pendingSubmissions ?? 0) + (stats?.rejectedSubmissions ?? 0)}
-                </span>
-                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-2">Tổng nộp</span>
-              </div>
-            </div>
-            <ResponsiveContainer width="100%" height="100%" className="relative z-10">
-              <PieChart margin={{ top: 10, right: 10, bottom: 10, left: 10 }}>
-                <Pie
-                  data={submissionChartData}
-                  cx="50%"
-                  cy="50%"
-                  innerRadius="60%"
-                  outerRadius="90%"
-                  paddingAngle={5}
-                  dataKey="value"
-                  stroke="none"
-                  animationBegin={200}
-                  animationDuration={1500}
-                >
-                  {submissionChartData.map((entry, index) => (
-                    <Cell 
-                      key={`cell-${index}`} 
-                      fill={entry.color} 
-                      className="hover:opacity-80 transition-all duration-300 cursor-pointer"
+              <div className="flex flex-col items-center flex-1 justify-center py-4">
+                <div className="relative w-64 h-64 flex items-center justify-center group/radial cursor-pointer">
+                  <div className="absolute inset-0 bg-indigo-500/5 dark:bg-indigo-500/10 rounded-full blur-3xl scale-75 opacity-0 group-hover/radial:opacity-100 transition-opacity duration-700"></div>
+                  <svg viewBox="0 0 100 100" className="w-full h-full transform -rotate-90 relative z-10">
+                    <defs>
+                      <linearGradient id="radialGradientD" x1="0%" y1="0%" x2="100%" y2="0%">
+                        <stop offset="0%" stopColor="#6366f1" />
+                        <stop offset="100%" stopColor="#8b5cf6" />
+                      </linearGradient>
+                    </defs>
+                    <circle cx="50" cy="50" r="42" stroke="#f1f5f9" strokeWidth="6" fill="transparent" className="dark:stroke-slate-800/50" />
+                    <circle 
+                      cx="50" cy="50" r="42" 
+                      stroke="url(#radialGradientD)" 
+                      strokeWidth="6" 
+                      fill="transparent" 
+                      strokeDasharray={263.8}
+                      strokeDashoffset={263.8 - (263.8 * companyWeightedAvg) / 100}
+                      strokeLinecap="round"
+                      className="transition-all duration-[2000ms] ease-in-out"
                     />
-                  ))}
-                </Pie>
-                <Tooltip 
-                  contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 20px 25px -5px rgb(0 0 0 / 0.1)', fontSize: '11px', fontWeight: 'bold' }}
-                  wrapperStyle={{ zIndex: 1000 }}
-                />
-              </PieChart>
-            </ResponsiveContainer>
-          </div>
+                  </svg>
+                  <div className="absolute inset-0 flex flex-col items-center justify-center z-20 transition-all duration-500 group-hover/radial:scale-110">
+                    <div className="relative">
+                      <span className="text-7xl font-black tracking-tighter text-slate-900 dark:text-white leading-none drop-shadow-sm">{companyWeightedAvg}%</span>
+                      <div className="absolute -top-2 -right-4 w-3 h-3 rounded-full bg-emerald-500 animate-ping"></div>
+                    </div>
+                  </div>
 
-          <div className="grid grid-cols-1 gap-2 pt-6 border-t border-slate-100 dark:border-slate-800">
-            {submissionChartData.map(item => (
-              <div key={item.name} className="flex items-center justify-between p-2.5 rounded-[18px] bg-slate-50 dark:bg-slate-800/40 border border-transparent hover:border-slate-200 dark:hover:border-slate-700 transition-all group/item">
-                <div className="flex items-center gap-3">
-                  <div className="w-2.5 h-2.5 rounded-full shadow-[0_0_8px_rgba(0,0,0,0.1)]" style={{ backgroundColor: item.color }} />
-                  <span className="text-[11px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider">{item.name}</span>
-                </div>
-                <div className="flex items-center gap-3">
-                  <span className="text-sm font-black text-slate-900 dark:text-white">{item.value}</span>
-                  <div className="px-2 py-0.5 rounded-lg bg-white dark:bg-slate-900 text-[10px] font-black text-slate-400 border border-slate-100 dark:border-slate-800">
-                    {stats?.totalSubmissions ? Math.round((item.value / stats.totalSubmissions) * 100) : 0}%
+                  <div className="absolute top-[80%] left-1/2 -translate-x-1/2 mt-4 w-72 backdrop-blur-xl bg-white/95 dark:bg-slate-900/95 p-5 rounded-[28px] shadow-[0_30px_60px_rgba(0,0,0,0.2)] border border-slate-100 dark:border-slate-800 opacity-0 invisible group-hover/radial:opacity-100 group-hover/radial:visible transition-all duration-300 z-[100] translate-y-2 group-hover/radial:translate-y-0">
+                      <div className="flex items-center gap-2 mb-4 px-2">
+                        <div className="w-1 h-4 bg-indigo-500 rounded-full"></div>
+                        <span className="text-[10px] font-black text-slate-900 dark:text-white uppercase tracking-widest">Nhân viên đóng góp</span>
+                      </div>
+                      <div className="space-y-1.5 max-h-72 overflow-y-auto pr-1 custom-scrollbar">
+                        {Object.values(groups).flat().filter(m => m.rate > 0).length > 0 ? (
+                          Object.values(groups).flat().filter(m => m.rate > 0).map((m, i) => (
+                            <div key={`${m.empName}-${i}`} className="flex justify-between items-center p-3 rounded-2xl hover:bg-indigo-50/50 dark:hover:bg-indigo-500/10 transition-all group/emp border border-transparent hover:border-indigo-100/50 dark:hover:border-indigo-500/20">
+                              <div className="flex items-center gap-2">
+                                <div className="w-1.5 h-1.5 rounded-full bg-indigo-400"></div>
+                                <span className="text-[11px] font-bold text-slate-600 dark:text-slate-400 group-hover/emp:text-slate-900 dark:group-hover/emp:text-white transition-colors">{m.empName}</span>
+                              </div>
+                              <span className="text-[11px] font-black text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-500/10 px-2 py-0.5 rounded-lg">{Math.round(m.rate * 100)}%</span>
+                            </div>
+                          ))
+                        ) : (
+                          <div className="py-8 text-center bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-dashed border-slate-200 dark:border-slate-700">
+                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Chưa có đóng góp</p>
+                          </div>
+                        )}
+                      </div>
                   </div>
                 </div>
               </div>
-            ))}
-          </div>
-        </div>
 
-        <div className="bg-gradient-to-br from-indigo-700 via-indigo-800 to-violet-900 p-8 rounded-[40px] shadow-2xl relative transition-all hover:shadow-[0_20px_50px_rgba(99,102,241,0.2)] text-white flex flex-col min-h-[520px] hover:z-50">
-          <div className="absolute top-0 right-0 -mr-12 -mt-12 w-48 h-48 bg-white/10 rounded-full blur-3xl"></div>
-          <div className="absolute bottom-0 left-0 -ml-12 -mb-12 w-48 h-48 bg-white/5 rounded-full blur-3xl"></div>
-          
-          <div className="relative flex items-center gap-4 mb-8">
-            <div className="w-12 h-12 rounded-2xl bg-white/10 border border-white/20 flex items-center justify-center text-red-300">
-              <AlertTriangle size={24} />
-            </div>
-            <div>
-              <h3 className="text-sm font-black uppercase tracking-widest text-white">Tiêu điểm Tiêu cực</h3>
-              <p className="text-[10px] text-white/60 font-bold uppercase tracking-widest mt-1">Cần Giám đốc can thiệp</p>
-            </div>
-          </div>
-
-          <div className="relative space-y-4 flex-1 overflow-y-auto pr-2 custom-scrollbar">
-            {stats?.pendingKpi && stats.pendingKpi > 0 ? (
-              <AlertItem 
-                icon={<Zap size={18} />}
-                title={`${stats.pendingKpi} yêu cầu KPI chờ duyệt`}
-                sub="Ảnh hưởng đến tiến độ toàn công ty"
-                color="red"
-                link="/kpi-criteria/pending"
-              />
-            ) : null}
-            
-            {orgUnitStats?.filter(u => (u.totalKpi > 0 && (u.approvedKpi / u.totalKpi) < 0.3)).map(unit => (
-              <AlertItem 
-                key={unit.orgUnitId}
-                icon={<Building2 size={18} />}
-                title={`${unit.orgUnitName} tiến độ quá thấp`}
-                sub={`Chỉ mới đạt ${Math.round((unit.approvedKpi / unit.totalKpi) * 100)}% chỉ tiêu`}
-                color="amber"
-                link={`/org-units/${unit.orgUnitId}`}
-              />
-            ))}
-
-            {empStats?.content?.filter(e => e.assignedKpi > 0 && e.approvedSubmissions < e.assignedKpi).map(emp => (
-              <AlertItem 
-                key={emp.userId}
-                icon={<Users size={18} />}
-                title={`${emp.fullName} chưa hoàn thành`}
-                sub={`Giao ${emp.assignedKpi}, còn ${emp.assignedKpi - emp.approvedSubmissions} KPI • ${daysRemaining !== null ? `Còn ${daysRemaining} ngày` : 'N/A'}`}
-                color="blue"
-                link={`/employees/${emp.userId}/performance`}
-              />
-            ))}
-
-            {(!stats?.pendingKpi && !orgUnitStats?.some(u => (u.approvedKpi / u.totalKpi) < 0.3) && !empStats?.content?.some(e => e.assignedKpi > 0 && e.approvedSubmissions < e.assignedKpi)) && (
-              <div className="py-12 text-center h-full flex flex-col items-center justify-center">
-                <div className="w-16 h-16 rounded-full bg-emerald-500/10 flex items-center justify-center mx-auto mb-4 text-emerald-400 border border-emerald-500/20">
-                  <ShieldCheck size={32} />
+              <div className="w-full grid grid-cols-2 gap-0 border-t border-slate-100 dark:border-slate-800 pt-6">
+                <div className="flex flex-col items-center justify-center space-y-1 border-r border-slate-100 dark:border-slate-800 px-4">
+                  <div className="flex items-center gap-1.5 text-slate-400 mb-1">
+                    <Building2 size={12} />
+                    <span className="text-[9px] font-black uppercase tracking-widest">Cơ cấu Đơn vị</span>
+                  </div>
+                  <p className="text-base font-black text-slate-900 dark:text-white">{Object.keys(groups).length} Phòng ban</p>
                 </div>
-                <p className="text-sm font-bold text-slate-300">Hệ thống đang vận hành ổn định</p>
-                <p className="text-[10px] text-slate-500 uppercase tracking-widest mt-2">Không có cảnh báo mới</p>
+                <div className="flex flex-col items-center justify-center space-y-1 px-4">
+                  <div className="flex items-center gap-1.5 text-slate-400 mb-1">
+                    <Users size={12} />
+                    <span className="text-[9px] font-black uppercase tracking-widest">Đối tượng KPI</span>
+                  </div>
+                  <p className="text-base font-black text-slate-900 dark:text-white">{(allEmpStats?.content || []).filter(e => e.assignedKpi > 0).length} Nhân sự</p>
+                </div>
               </div>
-            )}
+            </div>
+
+            <div className="bg-white dark:bg-slate-900 p-8 rounded-[40px] border border-slate-200/60 dark:border-slate-800 shadow-[0_8px_30px_rgb(0,0,0,0.04)] relative group transition-all hover:shadow-[0_20px_50px_rgba(16,185,129,0.1)] flex flex-col min-h-[520px] hover:z-50">
+              <div className="absolute top-0 left-0 w-1.5 h-1/2 mt-[25%] bg-gradient-to-b from-emerald-500 to-teal-600 rounded-full opacity-0 group-hover:opacity-100 transition-all duration-500"></div>
+              <div className="flex items-center justify-between mb-8">
+                <div className="space-y-1">
+                  <p className="text-xl font-black tracking-tight text-slate-900 dark:text-white">Phân tích Bài nộp</p>
+                </div>
+                <div className="w-10 h-10 rounded-2xl bg-emerald-50 dark:bg-emerald-900/40 flex items-center justify-center text-emerald-600 dark:text-emerald-400 border border-emerald-100/50 dark:border-emerald-500/20">
+                  <FileText size={20} />
+                </div>
+              </div>
+
+              <div className="h-[280px] w-full relative mb-8 flex-1">
+                <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none z-0">
+                  <div className="bg-slate-50 dark:bg-slate-800/50 w-28 h-28 rounded-full flex flex-col items-center justify-center border border-slate-100 dark:border-slate-700 shadow-inner">
+                    <span className="text-4xl font-black text-slate-900 dark:text-white leading-none tracking-tighter">
+                      {(stats?.approvedSubmissions ?? 0) + (stats?.pendingSubmissions ?? 0) + (stats?.rejectedSubmissions ?? 0)}
+                    </span>
+                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-2">Tổng nộp</span>
+                  </div>
+                </div>
+                <ResponsiveContainer width="100%" height="100%" className="relative z-10">
+                  <PieChart margin={{ top: 10, right: 10, bottom: 10, left: 10 }}>
+                    <Pie
+                      data={submissionChartData}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius="60%"
+                      outerRadius="90%"
+                      paddingAngle={5}
+                      dataKey="value"
+                      stroke="none"
+                      animationBegin={200}
+                      animationDuration={1500}
+                    >
+                      {submissionChartData.map((entry, index) => (
+                        <Cell 
+                          key={`cell-${index}`} 
+                          fill={entry.color} 
+                          className="hover:opacity-80 transition-all duration-300 cursor-pointer"
+                        />
+                      ))}
+                    </Pie>
+                    <Tooltip 
+                      contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 20px 25px -5px rgb(0 0 0 / 0.1)', fontSize: '11px', fontWeight: 'bold' }}
+                      wrapperStyle={{ zIndex: 1000 }}
+                    />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+
+              <div className="grid grid-cols-1 gap-2 pt-6 border-t border-slate-100 dark:border-slate-800">
+                {submissionChartData.map(item => (
+                  <div key={item.name} className="flex items-center justify-between p-2.5 rounded-[18px] bg-slate-50 dark:bg-slate-800/40 border border-transparent hover:border-slate-200 dark:hover:border-slate-700 transition-all group/item">
+                    <div className="flex items-center gap-3">
+                      <div className="w-2.5 h-2.5 rounded-full shadow-[0_0_8px_rgba(0,0,0,0.1)]" style={{ backgroundColor: item.color }} />
+                      <span className="text-[11px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider">{item.name}</span>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <span className="text-sm font-black text-slate-900 dark:text-white">{item.value}</span>
+                      <div className="px-2 py-0.5 rounded-lg bg-white dark:bg-slate-900 text-[10px] font-black text-slate-400 border border-slate-100 dark:border-slate-800">
+                        {stats?.totalSubmissions ? Math.round((item.value / stats.totalSubmissions) * 100) : 0}%
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="bg-gradient-to-br from-indigo-700 via-indigo-800 to-violet-900 p-8 rounded-[40px] shadow-2xl relative transition-all hover:shadow-[0_20px_50px_rgba(99,102,241,0.2)] text-white flex flex-col min-h-[520px] hover:z-50">
+              <div className="absolute top-0 right-0 -mr-12 -mt-12 w-48 h-48 bg-white/10 rounded-full blur-3xl"></div>
+              <div className="absolute bottom-0 left-0 -ml-12 -mb-12 w-48 h-48 bg-white/5 rounded-full blur-3xl"></div>
+              
+              <div className="relative flex items-center gap-4 mb-8">
+                <div className="w-12 h-12 rounded-2xl bg-white/10 border border-white/20 flex items-center justify-center text-red-300">
+                  <TriangleAlert size={24} />
+                </div>
+                <div>
+                  <h3 className="text-sm font-black uppercase tracking-widest text-white">Tiêu điểm Tiêu cực</h3>
+                  <p className="text-[10px] text-white/60 font-bold uppercase tracking-widest mt-1">Cần Giám đốc can thiệp</p>
+                </div>
+              </div>
+
+              <div className="relative space-y-4 flex-1 overflow-y-auto pr-2 custom-scrollbar">
+                {stats?.pendingKpi && stats.pendingKpi > 0 ? (
+                  <AlertItem 
+                    icon={<Clock size={18} />}
+                    title={`${stats.pendingKpi} yêu cầu KPI chờ duyệt`}
+                    sub="Ảnh hưởng đến tiến độ toàn công ty"
+                    color="red"
+                    link="/kpi-criteria/pending"
+                  />
+                ) : null}
+                
+                {orgUnitStats?.filter(u => (u.totalKpi > 0 && (u.approvedKpi / u.totalKpi) < 0.3)).map(unit => (
+                  <AlertItem 
+                    key={unit.orgUnitId}
+                    icon={<Building2 size={18} />}
+                    title={`${unit.orgUnitName} tiến độ quá thấp`}
+                    sub={`Chỉ mới đạt ${Math.round((unit.approvedKpi / unit.totalKpi) * 100)}% chỉ tiêu`}
+                    color="amber"
+                    link={`/org-units/${unit.orgUnitId}`}
+                  />
+                ))}
+
+                {empStats?.content?.filter(e => e.assignedKpi > 0 && e.approvedSubmissions < e.assignedKpi).map(emp => (
+                  <AlertItem 
+                    key={emp.userId}
+                    icon={<Users size={18} />}
+                    title={`${emp.fullName} chưa hoàn thành`}
+                    sub={`Giao ${emp.assignedKpi}, còn ${emp.assignedKpi - emp.approvedSubmissions} KPI • ${daysRemaining !== null ? `Còn ${daysRemaining} ngày` : 'N/A'}`}
+                    color="blue"
+                    link={`/employees/${emp.userId}/performance`}
+                  />
+                ))}
+
+                {(!stats?.pendingKpi && !orgUnitStats?.some(u => (u.approvedKpi / u.totalKpi) < 0.3) && !empStats?.content?.some(e => e.assignedKpi > 0 && e.approvedSubmissions < e.assignedKpi)) && (
+                  <div className="py-12 text-center h-full flex flex-col items-center justify-center">
+                    <div className="w-16 h-16 rounded-full bg-emerald-500/10 flex items-center justify-center mx-auto mb-4 text-emerald-400 border border-emerald-500/20">
+                      <ShieldCheck size={32} />
+                    </div>
+                    <p className="text-sm font-bold text-slate-300">Hệ thống đang vận hành ổn định</p>
+                    <p className="text-[10px] text-slate-500 uppercase tracking-widest mt-2">Không có cảnh báo mới</p>
+                  </div>
+                )}
+              </div>
+              
+              <div className="mt-8 pt-6 border-t border-white/10 relative z-10 text-center">
+                 <Link to="/submissions/org-unit" className="inline-flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.2em] text-white/60 hover:text-white transition-colors group">
+                    Quản lý phê duyệt <ChevronRight size={14} className="group-hover:translate-x-1 transition-transform" />
+                 </Link>
+              </div>
+            </div>
           </div>
-          
-          <div className="mt-8 pt-6 border-t border-white/10 relative z-10 text-center">
-             <Link to="/submissions/org-unit" className="inline-flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.2em] text-white/60 hover:text-white transition-colors group">
-                Quản lý phê duyệt <ChevronRight size={14} className="group-hover:translate-x-1 transition-transform" />
-             </Link>
-          </div>
-        </div>
-      </div>
+        </>
+      )}
 
       <div className="space-y-6">
         <div className="flex items-center justify-between">
@@ -580,7 +597,7 @@ function PremiumRankingTable({ employees }: { employees: EmployeeKpiStats[] }) {
       <div className="p-8 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50/30 dark:bg-slate-800/30">
         <h3 className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-500 flex items-center gap-3">
            <div className="w-8 h-8 rounded-xl bg-amber-500/10 flex items-center justify-center text-amber-500 border border-amber-500/20">
-             <Trophy size={16} />
+             <Award size={16} />
            </div>
            TOP HIỆU SUẤT
         </h3>
@@ -842,4 +859,205 @@ function EmployeesExecutiveTable({ employees, loading, search, onSearchChange, p
        </div>
     </div>
   )
+}
+
+function PinnedWidgetCard({ widget, onUnpin }: { widget: ReportWidget; onUnpin: () => void }) {
+  const queryClient = useQueryClient()
+  const handleUnpin = async () => {
+    try {
+      await reportApi.togglePinWidget(widget.id)
+      toast.success("Đã bỏ ghim")
+      queryClient.invalidateQueries({ queryKey: ['reports', 'widgets', 'pinned'] })
+      onUnpin()
+    } catch (err) {
+      toast.error("Không thể bỏ ghim")
+    }
+  }
+
+  const pos = useMemo(() => {
+    try {
+      return JSON.parse(widget.position)
+    } catch {
+      return { w: 4, h: 10 }
+    }
+  }, [widget.position])
+
+  const colSpan = pos.w || 4
+  const height = (pos.h || 10) * 32 + 60 
+
+  return (
+    <div 
+      className={cn(
+        "bg-white dark:bg-slate-900 rounded-[28px] border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden flex flex-col group transition-all hover:shadow-xl",
+        colSpan >= 12 ? "col-span-12" : 
+        colSpan >= 8 ? "col-span-12 lg:col-span-8" :
+        colSpan >= 6 ? "col-span-12 lg:col-span-6" :
+        "col-span-12 md:col-span-6 lg:col-span-4"
+      )}
+      style={{ height: `${height}px` }}
+    >
+      <div className="p-5 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center">
+        <h4 className="font-black text-sm text-slate-800 dark:text-white truncate">{widget.title}</h4>
+        <button onClick={handleUnpin} className="p-1.5 text-slate-300 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-all opacity-0 group-hover:opacity-100">
+          <PinOff size={14} />
+        </button>
+      </div>
+      <div className="flex-1 p-5 overflow-hidden">
+        <PinnedWidgetContent type={widget.widgetType} />
+      </div>
+    </div>
+  )
+}
+
+function PinnedWidgetContent({ type }: { type: string }) {
+  const { data: trendData } = useSummaryTrend()
+  const { data: comparisonData } = useSummaryComparison()
+  const { data: riskData } = useSummaryRisks()
+  const { data: stats } = useSummaryStats()
+
+  switch (type) {
+    case 'TREND_CHART':
+      return (
+        <div className="h-full w-full min-h-[220px]">
+          <ResponsiveContainer width="100%" height="100%">
+            <AreaChart data={trendData || []}>
+              <defs><linearGradient id="colorPerfD" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#6366f1" stopOpacity={0.1}/><stop offset="95%" stopColor="#6366f1" stopOpacity={0}/></linearGradient></defs>
+              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+              <XAxis dataKey="period" axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 700 }} />
+              <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 700 }} />
+              <RechartsTooltip />
+              <Legend verticalAlign="top" align="right" iconType="circle" wrapperStyle={{ paddingBottom: '10px', fontSize: '10px', fontWeight: 700 }} />
+              <Area type="monotone" dataKey="performance" stroke="#6366f1" strokeWidth={3} fillOpacity={1} fill="url(#colorPerfD)" name="Hiệu suất (%)" />
+              <Area type="monotone" dataKey="kpiCompletion" stroke="#10b981" strokeWidth={3} fillOpacity={0} name="Hoàn thành KPI (%)" />
+            </AreaChart>
+          </ResponsiveContainer>
+        </div>
+      )
+    case 'TOP_UNITS':
+      return (
+        <div className="space-y-4 overflow-auto max-h-full pr-2">
+          {(comparisonData?.topPerformingUnits || []).map((unit: any, i: number) => (
+            <div key={i} className="flex items-center gap-3 p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-transparent">
+              <div className="w-8 h-8 rounded-lg flex items-center justify-center font-black text-xs bg-amber-100 text-amber-600">#{i + 1}</div>
+              <div className="flex-1 min-w-0">
+                <p className="font-black text-xs text-slate-800 dark:text-white truncate">{unit.unitName}</p>
+                <div className="flex items-center gap-2 mt-1">
+                  <div className="flex-1 h-1 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
+                    <div className="h-full bg-indigo-500" style={{ width: `${unit.performance}%` }} />
+                  </div>
+                  <span className="text-[10px] font-black text-indigo-600">{unit.performance.toFixed(0)}%</span>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )
+    case 'UNIT_PERFORMANCE':
+      return (
+        <div className="h-full w-full min-h-[220px]">
+          <ResponsiveContainer width="100%" height="100%">
+            <AreaChart data={comparisonData?.topPerformingUnits || []}>
+              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+              <XAxis dataKey="unitName" axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 700 }} />
+              <YAxis domain={[0, 100]} axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 700 }} />
+              <RechartsTooltip />
+              <Area type="monotone" dataKey="performance" stroke="#10b981" fill="#10b981" fillOpacity={0.1} strokeWidth={3} name="Hiệu suất:" />
+            </AreaChart>
+          </ResponsiveContainer>
+        </div>
+      )
+    case 'UNIT_KPI':
+      return (
+        <div className="h-full w-full min-h-[220px]">
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={comparisonData?.unitKpiData || []}>
+              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+              <XAxis dataKey="unitName" axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 700 }} />
+              <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 700 }} />
+              <RechartsTooltip />
+              <Legend iconType="circle" wrapperStyle={{ fontSize: '10px', fontWeight: 800, paddingTop: '10px' }} />
+              <Bar dataKey="totalKpi" fill="#6366f1" radius={[4, 4, 0, 0]} name="Tổng KPI" barSize={15} />
+              <Bar dataKey="approvedKpi" fill="#10b981" radius={[4, 4, 0, 0]} name="Đã duyệt" barSize={15} />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      )
+    case 'MEMBER_DIST':
+      return (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-center h-full overflow-hidden">
+          <div className="h-full min-h-[180px]">
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie 
+                  data={stats?.memberDistribution || []} 
+                  innerRadius="50%" 
+                  outerRadius="80%" 
+                  paddingAngle={5} 
+                  dataKey="value"
+                >
+                  {(stats?.memberDistribution || []).map((_: any, index: number) => (
+                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                  ))}
+                </Pie>
+                <RechartsTooltip />
+              </PieChart>
+            </ResponsiveContainer>
+          </div>
+          <div className="space-y-2 overflow-auto max-h-full pr-1">
+            {(stats?.memberDistribution || []).map((entry: any, index: number) => (
+              <div key={entry.name} className="flex items-center justify-between">
+                <div className="flex items-center gap-2 min-w-0">
+                  <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: COLORS[index % COLORS.length] }} />
+                  <span className="text-[10px] font-bold text-slate-500 truncate">{entry.name}</span>
+                </div>
+                <span className="text-[10px] font-black text-slate-900 dark:text-white shrink-0">{entry.value} người</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )
+    case 'ROLE_DIST':
+      return (
+        <div className="h-full w-full min-h-[220px]">
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={stats?.roleDistribution || []} layout="vertical" margin={{ left: 10 }}>
+              <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f1f5f9" />
+              <XAxis type="number" axisLine={false} tickLine={false} tick={{ fontSize: 9, fontWeight: 700 }} />
+              <YAxis dataKey="unitName" type="category" axisLine={false} tickLine={false} tick={{ fontSize: 9, fontWeight: 700 }} width={70} />
+              <RechartsTooltip />
+              <Legend iconType="circle" wrapperStyle={{ fontSize: '9px', fontWeight: 800, paddingTop: '5px' }} />
+              <Bar dataKey="directorCount" stackId="a" fill="#6366f1" name="Giám đốc" barSize={12} />
+              <Bar dataKey="headCount" stackId="a" fill="#f59e0b" name="Trưởng phòng" />
+              <Bar dataKey="staffCount" stackId="a" fill="#94a3b8" name="Nhân viên" />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      )
+    case 'UNIT_RISK':
+      return (
+        <div className="h-full flex flex-col">
+          <div className="h-[150px] mb-4">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={riskData?.unitRisks || []} layout="vertical">
+                <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#fef2f2" />
+                <XAxis type="number" hide domain={[0, 100]} />
+                <YAxis dataKey="name" type="category" width={60} axisLine={false} tickLine={false} tick={{ fontSize: 9, fontWeight: 700, fill: '#ef4444' }} />
+                <RechartsTooltip />
+                <Bar dataKey="performance" fill="#ef4444" radius={[0, 4, 4, 0]} name="Hiệu suất (%)" barSize={10} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+          <div className="space-y-2 overflow-auto max-h-full pr-1">
+            {(riskData?.unitRisks || []).map((risk: any, i: number) => (
+              <div key={i} className="flex items-center justify-between p-2 rounded-xl bg-red-50 dark:bg-red-900/10 border border-red-100 dark:border-red-900/20">
+                <span className="text-[10px] font-black text-slate-800 dark:text-white">{risk.name}</span>
+                <span className="text-[10px] font-black text-red-600">{risk.performance.toFixed(1)}%</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )
+    default:
+      return <div className="h-full flex items-center justify-center text-xs font-bold text-slate-300 italic">Chi tiết biểu đồ xem tại trang Thống kê</div>
+  }
 }

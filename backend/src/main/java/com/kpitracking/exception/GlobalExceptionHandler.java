@@ -106,8 +106,17 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ApiResponse<Void>> handleDataIntegrityViolation(org.springframework.dao.DataIntegrityViolationException ex) {
         log.warn("Data integrity violation: {}", ex.getMessage());
         String message = "Dữ liệu đã tồn tại hoặc vi phạm ràng buộc hệ thống";
-        if (ex.getMessage() != null && ex.getMessage().contains("Duplicate entry")) {
-            message = "Dữ liệu này đã tồn tại trong hệ thống";
+        String detail = ex.getMessage();
+        if (detail != null) {
+            if (detail.contains("Duplicate entry") || detail.contains("duplicate key") || detail.contains("violates unique constraint")) {
+                if (detail.contains("users_email_key") || detail.contains("email")) {
+                    message = "Email này đã tồn tại trong hệ thống";
+                } else if (detail.contains("employee_code")) {
+                    message = "Mã nhân viên này đã tồn tại trong hệ thống";
+                } else {
+                    message = "Dữ liệu này đã tồn tại trong hệ thống";
+                }
+            }
         }
         return ResponseEntity.status(HttpStatus.CONFLICT)
                 .body(ApiResponse.error(message));

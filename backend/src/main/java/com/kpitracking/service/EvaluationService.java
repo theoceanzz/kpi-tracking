@@ -22,6 +22,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Objects;
 import java.util.UUID;
 
 @Service
@@ -53,11 +54,11 @@ public class EvaluationService {
                 .orElseThrow(() -> new ResourceNotFoundException("Kỳ đánh giá (Đợt)", "id", request.getKpiPeriodId()));
 
         // Get user's primary org unit for linking
-        java.util.List<com.kpitracking.entity.UserRoleOrgUnit> uro = userRoleOrgUnitRepository.findByUserId(evaluatedUser.getId());
-        if (uro.isEmpty()) {
+        java.util.List<com.kpitracking.entity.UserRoleOrgUnit> evaluatedUserAssignments = userRoleOrgUnitRepository.findByUserId(evaluatedUser.getId());
+        if (evaluatedUserAssignments.isEmpty()) {
             throw new BusinessException("Người dùng chưa được phân bổ vào đơn vị nào");
         }
-        OrgUnit targetOrgUnit = uro.get(0).getOrgUnit();
+        OrgUnit targetOrgUnit = evaluatedUserAssignments.get(0).getOrgUnit();
         com.kpitracking.entity.Organization org = targetOrgUnit.getOrgHierarchyLevel().getOrganization();
 
         if (request.getScore() > org.getEvaluationMaxScore()) {
@@ -67,8 +68,25 @@ public class EvaluationService {
         boolean isSelfEval = currentUser.getId().equals(evaluatedUser.getId());
         boolean canEvaluateOthers = permissionChecker.hasPermissionInOrgUnit(currentUser.getId(), "EVALUATION:CREATE", targetOrgUnit.getId());
 
-        if (!isSelfEval && !canEvaluateOthers) {
-            throw new ForbiddenException("Bạn không có quyền tạo đánh giá cho nhân viên này");
+        if (!isSelfEval) {
+            if (!canEvaluateOthers) {
+                throw new ForbiddenException("Bạn không có quyền tạo đánh giá cho người khác");
+            }
+            
+            // Hierarchy check: can only evaluate subordinates
+            java.util.List<com.kpitracking.entity.UserRoleOrgUnit> currentAssignments = userRoleOrgUnitRepository.findByUserId(currentUser.getId());
+            Integer viewerRank = currentAssignments.stream().map(a -> a.getRole().getRank()).filter(Objects::nonNull).min(Integer::compare).orElse(2);
+            Integer viewerLevel = currentAssignments.stream().map(a -> a.getRole().getLevel()).filter(Objects::nonNull).min(Integer::compare).orElse(2);
+
+            boolean isSubordinate = evaluatedUserAssignments.stream().anyMatch(assignment -> {
+                Integer subRank = assignment.getRole().getRank();
+                Integer subLevel = assignment.getRole().getLevel();
+                return (subLevel > viewerLevel || (subLevel.equals(viewerLevel) && subRank > viewerRank));
+            });
+
+            if (!isSubordinate) {
+                throw new ForbiddenException("Bạn chỉ có quyền đánh giá cấp dưới");
+            }
         }
 
         if (isSelfEval) {
@@ -109,11 +127,18 @@ public class EvaluationService {
         }
 
         java.util.List<com.kpitracking.entity.UserRoleOrgUnit> currentAssignments = userRoleOrgUnitRepository.findByUserId(currentUser.getId());
-        Integer currentUserRank = currentAssignments.stream()
-                .map(a -> a.getRole().getRank())
+        
+        // Find the single most senior role (lowest level, then lowest rank)
+        com.kpitracking.entity.Role bestRole = currentAssignments.stream()
+                .map(com.kpitracking.entity.UserRoleOrgUnit::getRole)
                 .filter(java.util.Objects::nonNull)
-                .min(Integer::compare)
-                .orElse(2);
+                .sorted(java.util.Comparator.comparing(com.kpitracking.entity.Role::getLevel)
+                        .thenComparing(com.kpitracking.entity.Role::getRank))
+                .findFirst()
+                .orElse(null);
+
+        Integer viewerLevel = (bestRole != null) ? bestRole.getLevel() : 2;
+        Integer viewerRank = (bestRole != null) ? bestRole.getRank() : 2;
 
         Page<Evaluation> evalPage = evaluationRepository.findAllWithFilters(
                 currentUser.getId(),
@@ -122,7 +147,8 @@ public class EvaluationService {
                 kpiPeriodId,
                 orgUnitPath,
                 null,
-                currentUserRank,
+                viewerRank,
+                viewerLevel,
                 pageable
         );
 
@@ -137,51 +163,118 @@ public class EvaluationService {
     }
 
     @Transactional(readOnly = true)
-    public EvaluationResponse getEvaluationById(UUID evaluationId) {
-        User currentUser = getCurrentUser();
-        Evaluation evaluation = evaluationRepository.findById(evaluationId)
-                .orElseThrow(() -> new ResourceNotFoundException("Bản đánh giá", "id", evaluationId));
+    public EvaluationResponse getEvaluationById(UUID id) {
+        Evaluation evaluation = evaluationRepository.findById(id)
+                .orElseThrow(() -> new com.kpitracking.exception.ResourceNotFoundException("Evaluation", "id", id));
 
+        com.kpitracking.entity.User currentUser = getCurrentUser();
+        
+        // Grant access if it's the user's own evaluation
+        if (evaluation.getUser().getId().equals(currentUser.getId())) {
+            return enrichResponse(evaluation);
+        }
+
+        // Director or Global Admin can see everything
         boolean isGlobalAdmin = permissionChecker.isGlobalAdmin(currentUser.getId());
-        boolean hasViewPermission = permissionChecker.hasPermissionInOrgUnit(currentUser.getId(), "EVALUATION:VIEW", evaluation.getOrgUnit().getId());
-        boolean isEvaluatedUser = evaluation.getUser().getId().equals(currentUser.getId());
-        boolean isEvaluator = evaluation.getEvaluator().getId().equals(currentUser.getId());
+        if (isGlobalAdmin) {
+            return enrichResponse(evaluation);
+        }
 
-        if (!isGlobalAdmin && !hasViewPermission && !isEvaluatedUser && !isEvaluator) {
-            throw new ForbiddenException("Bạn không có quyền xem bản đánh giá này");
+        // Otherwise check hierarchy
+        java.util.List<com.kpitracking.entity.UserRoleOrgUnit> currentAssignments = userRoleOrgUnitRepository.findByUserId(currentUser.getId());
+        
+        // Find the single most senior role (lowest level, then lowest rank)
+        com.kpitracking.entity.Role bestRole = currentAssignments.stream()
+                .map(com.kpitracking.entity.UserRoleOrgUnit::getRole)
+                .filter(java.util.Objects::nonNull)
+                .sorted(java.util.Comparator.comparing(com.kpitracking.entity.Role::getLevel)
+                        .thenComparing(com.kpitracking.entity.Role::getRank))
+                .findFirst()
+                .orElse(null);
+
+        Integer viewerLevel = (bestRole != null) ? bestRole.getLevel() : 2;
+        Integer viewerRank = (bestRole != null) ? bestRole.getRank() : 2;
+
+        if (viewerLevel == 0) {
+            return enrichResponse(evaluation);
+        }
+
+        java.util.List<com.kpitracking.entity.UserRoleOrgUnit> evaluatedAssignments = userRoleOrgUnitRepository.findByUserId(evaluation.getUser().getId());
+        
+        boolean hasSubordinateRole = evaluatedAssignments.stream().anyMatch(uro -> {
+            Integer subLevel = uro.getRole().getLevel();
+            Integer subRank = uro.getRole().getRank();
+            if (subLevel == null || subRank == null) return false;
+            return subLevel > viewerLevel || (subLevel.equals(viewerLevel) && subRank > viewerRank);
+        });
+
+        boolean hasSuperiorOrEqualRole = evaluatedAssignments.stream().anyMatch(uro -> {
+            Integer subLevel = uro.getRole().getLevel();
+            Integer subRank = uro.getRole().getRank();
+            if (subLevel == null || subRank == null) return false;
+            return subLevel < viewerLevel || (subLevel.equals(viewerLevel) && subRank <= viewerRank);
+        });
+
+        if (!hasSubordinateRole || hasSuperiorOrEqualRole) {
+            throw new com.kpitracking.exception.ForbiddenException("Bạn không có quyền xem bản đánh giá này");
         }
 
         return enrichResponse(evaluation);
     }
 
     private EvaluationResponse enrichResponse(Evaluation evaluation) {
-        EvaluationResponse resp = evaluationMapper.toResponse(evaluation);
+        EvaluationResponse response = evaluationMapper.toResponse(evaluation);
+        
+        // Populate evaluated user's best position
+        java.util.List<com.kpitracking.entity.UserRoleOrgUnit> userUro = userRoleOrgUnitRepository.findByUserId(evaluation.getUser().getId());
+        com.kpitracking.entity.Role userBestRole = userUro.stream()
+                .map(com.kpitracking.entity.UserRoleOrgUnit::getRole)
+                .filter(java.util.Objects::nonNull)
+                .sorted(java.util.Comparator.comparing(com.kpitracking.entity.Role::getLevel)
+                        .thenComparing(com.kpitracking.entity.Role::getRank))
+                .findFirst()
+                .orElse(null);
+
+        if (userBestRole != null) {
+            response.setUserLevel(userBestRole.getLevel());
+            response.setUserRank(userBestRole.getRank());
+        }
+
+        // Set evaluator label based on role
         if (evaluation.getEvaluator() != null) {
             if (evaluation.getEvaluator().getId().equals(evaluation.getUser().getId())) {
-                resp.setEvaluatorRole("SELF");
-            } else if (permissionChecker.isGlobalAdmin(evaluation.getEvaluator().getId())) {
-                resp.setEvaluatorRole("DIRECTOR");
+                response.setEvaluatorRole("SELF");
             } else {
-                // Determine if it's TEAM_LEADER or DEPT_HEAD based on evaluator's org unit level
                 java.util.List<com.kpitracking.entity.UserRoleOrgUnit> evaluatorUro = userRoleOrgUnitRepository.findByUserId(evaluation.getEvaluator().getId());
-                if (!evaluatorUro.isEmpty()) {
-                    int level = evaluatorUro.get(0).getOrgUnit().getOrgHierarchyLevel().getLevelOrder();
-                    // Level 2 is typically Department, Level 3+ is Team
-                    if (level >= 3) {
-                        resp.setEvaluatorRole("TEAM_LEADER");
-                    } else if (level == 2) {
-                        resp.setEvaluatorRole("DEPT_HEAD");
-                    } else {
-                        resp.setEvaluatorRole("MANAGER");
+                
+                // Find the single most senior role of the evaluator
+                com.kpitracking.entity.Role bestRole = evaluatorUro.stream()
+                        .map(com.kpitracking.entity.UserRoleOrgUnit::getRole)
+                        .filter(java.util.Objects::nonNull)
+                        .sorted(java.util.Comparator.comparing(com.kpitracking.entity.Role::getLevel)
+                                .thenComparing(com.kpitracking.entity.Role::getRank))
+                        .findFirst()
+                        .orElse(null);
+
+                String roleLabel = "MANAGER"; // Default
+                
+                if (bestRole != null) {
+                    Integer minLevel = bestRole.getLevel();
+                    Integer minRank = bestRole.getRank();
+
+                    if (minLevel == 0 && minRank == 0) {
+                        roleLabel = "DIRECTOR";
+                    } else if (minLevel == 1) {
+                        roleLabel = minRank == 0 ? "DEPT_HEAD" : "DEPT_DEPUTY";
+                    } else if (minLevel == 2) {
+                        roleLabel = minRank == 0 ? "TEAM_LEADER" : (minRank == 1 ? "TEAM_DEPUTY" : "STAFF");
                     }
-                } else {
-                    resp.setEvaluatorRole("MANAGER");
                 }
+                
+                response.setEvaluatorRole(roleLabel);
             }
         }
-        if (evaluation.getOrgUnit() != null && evaluation.getOrgUnit().getOrgHierarchyLevel() != null) {
-            resp.setOrgUnitLevel(evaluation.getOrgUnit().getOrgHierarchyLevel().getLevelOrder());
-        }
-        return resp;
+        
+        return response;
     }
 }

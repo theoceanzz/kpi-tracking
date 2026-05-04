@@ -1,3 +1,4 @@
+import { useState, useMemo, useEffect } from 'react'
 import LoadingSkeleton from '@/components/common/LoadingSkeleton'
 import StatusBadge from '@/components/common/StatusBadge'
 import { useMyKpiProgress } from '../hooks/useMyKpiProgress'
@@ -7,21 +8,32 @@ import { Link } from 'react-router-dom'
 import { getInitials, formatDateTime, cn } from '@/lib/utils'
 import type { KpiTask } from '@/types/stats'
 import { useMyKpi } from '@/features/kpi/hooks/useMyKpi'
-import { useState, useMemo, useEffect } from 'react'
 import {
   Target, FileText, CheckCircle, Clock, Plus,
   TrendingUp, Award, ArrowUpRight,
   ChevronLeft, ChevronRight, Pencil,
-  Calendar, Zap
+  Calendar, Zap, Pin, PinOff
 } from 'lucide-react'
 import { useKpiPeriods } from '@/features/kpi/hooks/useKpiPeriods'
 import { useEvaluations } from '@/features/evaluations/hooks/useEvaluations'
 import EvaluationFormModal from '@/features/evaluations/components/EvaluationFormModal'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { reportApi } from '@/features/reports/api/reportApi'
+import { toast } from 'sonner'
+import { 
+  XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, 
+  BarChart, Bar, PieChart, Pie, Cell, AreaChart, Area, Legend
+} from 'recharts'
+import type { ReportWidget } from '@/types/datasource'
+import { useSummaryTrend, useSummaryComparison, useSummaryRisks, useSummaryStats } from '@/features/analytics/hooks/useAnalytics'
+
+const COLORS = ['#6366f1', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'];
 
 export default function StaffDashboard() {
   const [taskPage, setTaskPage] = useState(0)
   const taskSize = 10
   const { user } = useAuthStore()
+  // const queryClient = useQueryClient()
 
   const { data: progress, isLoading: progressLoading } = useMyKpiProgress(taskPage, taskSize)
   const { data: submissions, isLoading: subLoading } = useMySubmissions({ page: 0, size: 10 })
@@ -29,6 +41,11 @@ export default function StaffDashboard() {
   const { data: myKpis } = useMyKpi({ size: 100 })
   const { data: periodsData } = useKpiPeriods({ organizationId: user?.memberships?.[0]?.organizationId })
   const { data: evaluations } = useEvaluations({ userId: user?.id, size: 50 })
+
+  const { data: pinnedWidgets, isLoading: pinnedLoading, refetch: refetchPinned } = useQuery({
+    queryKey: ['reports', 'widgets', 'pinned'],
+    queryFn: () => reportApi.getPinnedWidgets(),
+  })
 
   // Auto-popup states
   const [showAutoEval, setShowAutoEval] = useState(false)
@@ -46,35 +63,42 @@ export default function StaffDashboard() {
     })
   }, [periodsData])
 
-  // Logic: Check if all KPIs in active period are fully submitted and approved
-  const isPeriodCompleted = useMemo(() => {
-    if (!activePeriod || !myKpis?.content || !allSubmissions?.content) return false
+  // 1. Period for auto-popup: Only if 100% completed and not evaluated
+  const completedPeriodToEval = useMemo(() => {
+    if (!periodsData?.content || !myKpis?.content || !allSubmissions?.content || !evaluations?.content) return null
     
-    const periodKpis = myKpis.content.filter(k => k.kpiPeriodId === activePeriod.id)
-    if (periodKpis.length === 0) return false
-
-    // All assigned KPIs must be fully submitted (count >= expected) and submissions approved
-    // Actually, checking if ALL submissions for these KPIs are approved and count is met
-    return periodKpis.every(kpi => {
-       const approvedSubs = allSubmissions.content.filter(s => s.kpiCriteriaId === kpi.id && s.status === 'APPROVED')
-       return approvedSubs.length >= kpi.expectedSubmissions
+    const sortedPeriods = [...periodsData.content].sort((a, b) => {
+      const dateA = new Date(a.endDate || 0).getTime()
+      const dateB = new Date(b.endDate || 0).getTime()
+      return dateB - dateA
     })
-  }, [activePeriod, myKpis, allSubmissions])
 
-  // Check if evaluation already exists for this period
-  const hasEvaluation = useMemo(() => {
-    if (!activePeriod || !evaluations?.content) return false
-    return evaluations.content.some(e => e.kpiPeriodId === activePeriod.id && e.evaluatorRole === 'SELF')
-  }, [activePeriod, evaluations])
+    for (const period of sortedPeriods) {
+       if (evaluations.content.some(e => e.kpiPeriodId === period.id)) continue
 
-  // Trigger auto-popup
+       const periodKpis = myKpis.content.filter(k => k.kpiPeriodId === period.id)
+       if (periodKpis.length === 0) continue
+
+       const isCompleted = periodKpis.every(kpi => {
+          const approvedSubs = allSubmissions.content.filter(s => s.kpiCriteriaId === kpi.id && s.status === 'APPROVED')
+          return approvedSubs.length >= kpi.expectedSubmissions
+       })
+
+       if (isCompleted) return period
+    }
+    return null
+  }, [periodsData, myKpis, allSubmissions, evaluations])
+
+  // 2. Default period for the form (can include active period even if not completed)
+  const defaultPeriodForForm = completedPeriodToEval || activePeriod
+
+  // Trigger auto-popup ONLY for completed periods
   useEffect(() => {
-    // Only trigger if data is loaded, period is completed, NO evaluation exists yet, and we haven't shown it this mount
-    if (evaluations && isPeriodCompleted && !hasEvaluation && !hasShownAutoEval) {
+    if (completedPeriodToEval && !hasShownAutoEval) {
       setShowAutoEval(true)
       setHasShownAutoEval(true)
     }
-  }, [evaluations, isPeriodCompleted, hasEvaluation, hasShownAutoEval])
+  }, [completedPeriodToEval, hasShownAutoEval])
 
   // Calculate overall average percentage across all KPIs
   const overallAvgScore = useMemo(() => {
@@ -98,7 +122,9 @@ export default function StaffDashboard() {
     return (totalPercentage / kpis.length).toFixed(1)
   }, [myKpis, allSubmissions])
 
-  if (progressLoading) return <div className="p-6"><LoadingSkeleton rows={10} /></div>
+  const isLoading = progressLoading || subLoading || pinnedLoading
+
+  if (isLoading) return <div className="p-8"><LoadingSkeleton rows={10} /></div>
 
   const totalAssigned = progress?.totalAssignedKpi ?? 0
   const totalSub = progress?.totalSubmissions ?? 0
@@ -109,6 +135,9 @@ export default function StaffDashboard() {
   const totalPages = tasksData?.totalPages ?? 0
 
   const approvalRate = totalSub > 0 ? Math.round((approvedSub / totalSub) * 100) : 0
+
+  const completedCount = (progress?.pendingSubmissions ?? 0) + (progress?.approvedSubmissions ?? 0) + (progress?.rejectedSubmissions ?? 0)
+  const inProgressCount = Math.max(0, totalAssigned - completedCount)
 
   return (
     <div className="max-w-[1440px] mx-auto p-4 md:p-6 space-y-6 animate-in fade-in duration-500 transition-all">
@@ -144,17 +173,44 @@ export default function StaffDashboard() {
 
       {/* Stats Overview */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
-        <StatCard label="Đang thực hiện" value={totalAssigned} icon={Target} color="indigo" />
+        <StatCard 
+          label={inProgressCount > 0 ? `${inProgressCount} Đang thực hiện` : "Mục tiêu KPI"} 
+          value={
+            <div className="flex items-baseline gap-1.5 overflow-hidden">
+              <span className="text-2xl font-black">{completedCount}</span>
+              <span className="text-[10px] font-bold text-slate-400 uppercase truncate">Hoàn thành</span>
+            </div>
+          } 
+          icon={Target} 
+          color="indigo" 
+        />
         <StatCard label="Quá hạn" value={lateSub} icon={Clock} color="red" highlight={lateSub > 0} />
         <StatCard label="Tỷ lệ Duyệt" value={`${approvalRate}%`} icon={TrendingUp} color="emerald" />
         <StatCard label="Bài đã nộp" value={totalSub} icon={FileText} color="amber" />
         <StatCard label="Điểm TB" value={`${overallAvgScore}%`} icon={Award} color="blue" />
       </div>
 
-      <div className="grid grid-cols-1 xl:grid-cols-12 gap-6">
+      {/* ===== PINNED WIDGETS ===== */}
+      {pinnedWidgets && pinnedWidgets.length > 0 && (
+        <section className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h3 className="font-black text-slate-900 dark:text-white flex items-center gap-2">
+              <Pin size={18} className="text-indigo-600 rotate-45" /> Thống kê đã ghim
+            </h3>
+          </div>
+          <div className="grid grid-cols-12 gap-6">
+            {pinnedWidgets.map((widget: ReportWidget) => (
+              <PinnedWidgetCard key={widget.id} widget={widget} onUnpin={refetchPinned} />
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* ===== OVERVIEW GRID ===== */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         
         {/* Main Section: Tasks */}
-        <div className="xl:col-span-8 space-y-6">
+        <div className="lg:col-span-8 space-y-6">
           <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden transition-all">
             <div className="px-6 py-5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50/30 dark:bg-slate-800/20">
               <div className="flex items-center gap-3">
@@ -188,10 +244,12 @@ export default function StaffDashboard() {
                         "w-12 h-12 rounded-xl flex items-center justify-center shrink-0 transition-all group-hover:scale-105",
                         task.status === 'OVERDUE' ? "bg-red-50 text-red-500" :
                         task.status === 'APPROVED' ? "bg-emerald-50 text-emerald-500" :
+                        task.status === 'EDIT' ? "bg-amber-50 text-amber-500" :
                         "bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400"
                       )}>
                         {task.status === 'OVERDUE' ? <Clock size={22} /> :
                          task.status === 'APPROVED' ? <CheckCircle size={22} /> :
+                         task.status === 'EDIT' ? <Pencil size={22} /> :
                          <Target size={22} />}
                       </div>
                       <div className="min-w-0">
@@ -214,7 +272,12 @@ export default function StaffDashboard() {
                     
                     <div className="flex items-center gap-3">
                       <StatusBadge status={task.status} />
-                      {task.submissionCount < task.expectedSubmissions && task.status !== 'APPROVED' && task.status !== 'PENDING' && task.status !== 'REJECTED' && (
+                      {task.submissionCount < task.expectedSubmissions && 
+                       task.status !== 'APPROVED' && 
+                       task.status !== 'PENDING' && 
+                       task.status !== 'REJECTED' && 
+                       task.status !== 'EDIT' && 
+                       (!task.startDate || new Date(task.startDate) <= new Date()) && (
                         <Link 
                           to={`/submissions/new?kpiId=${task.id}`}
                           className="px-4 py-2 rounded-lg bg-indigo-600 text-white text-[10px] font-black hover:bg-indigo-700 transition-all uppercase tracking-widest"
@@ -245,7 +308,7 @@ export default function StaffDashboard() {
         </div>
 
         {/* Sidebar: Activity */}
-        <div className="xl:col-span-4 space-y-6">
+        <div className="lg:col-span-4 space-y-6">
           <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden flex flex-col h-full">
             <div className="px-6 py-5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50/30 dark:bg-slate-800/20">
               <h3 className="font-black text-lg text-slate-900 dark:text-white">Lịch sử bài nộp</h3>
@@ -312,11 +375,11 @@ export default function StaffDashboard() {
       </div>
 
       {/* Completion Auto-Popup */}
-      {showAutoEval && activePeriod && (
+      {showAutoEval && defaultPeriodForForm && (
         <EvaluationFormModal 
           open={showAutoEval} 
           onClose={() => setShowAutoEval(false)} 
-          initialPeriodId={activePeriod.id}
+          initialPeriodId={defaultPeriodForForm.id}
           readOnly={false} // Allow evaluation if not done yet
         />
       )}
@@ -325,7 +388,7 @@ export default function StaffDashboard() {
 }
 
 function StatCard({ label, value, icon: Icon, color, highlight }: {
-  label: string; value: number | string; icon: any; color: string; highlight?: boolean
+  label: string; value: React.ReactNode; icon: any; color: string; highlight?: boolean
 }) {
   const colorMap: Record<string, { bg: string; icon: string; text: string }> = {
     indigo: { bg: 'bg-indigo-50 dark:bg-indigo-900/30', icon: 'text-indigo-600', text: 'text-indigo-700 dark:text-indigo-300' },
@@ -338,17 +401,23 @@ function StatCard({ label, value, icon: Icon, color, highlight }: {
 
   return (
     <div className={cn(
-      "bg-white dark:bg-slate-900 rounded-2xl border p-5 transition-all hover:shadow-lg relative overflow-hidden",
+      "bg-white dark:bg-slate-900 rounded-2xl border p-5 transition-all hover:shadow-lg relative overflow-hidden group",
       highlight ? "border-red-200 bg-red-50/30 dark:border-red-900/50" : "border-slate-200 dark:border-slate-800"
     )}>
-      <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center mb-4 shadow-sm", c.bg)}>
+      <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center mb-4 shadow-sm transition-transform group-hover:scale-110", c.bg)}>
         <Icon size={18} className={c.icon} />
       </div>
-      <p className={cn(
-        "text-2xl font-black tracking-tight",
+      <div className={cn(
+        "flex items-baseline gap-1.5 truncate",
         highlight ? "text-red-600" : "text-slate-900 dark:text-white"
-      )}>{value}</p>
-      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">{label}</p>
+      )}>
+        {typeof value === 'string' || typeof value === 'number' ? (
+          <p className="text-2xl font-black tracking-tight">{value}</p>
+        ) : (
+          value
+        )}
+      </div>
+      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1 truncate">{label}</p>
     </div>
   )
 }
@@ -400,4 +469,206 @@ function ProgressCircle({ percentage, size = 32, strokeWidth = 3 }: {
       </span>
     </div>
   )
+}
+
+function PinnedWidgetCard({ widget, onUnpin }: { widget: ReportWidget; onUnpin: () => void }) {
+  const queryClient = useQueryClient()
+  const handleUnpin = async () => {
+    try {
+      await reportApi.togglePinWidget(widget.id)
+      toast.success("Đã bỏ ghim")
+      queryClient.invalidateQueries({ queryKey: ['reports', 'widgets', 'pinned'] })
+      onUnpin()
+    } catch (err) {
+      toast.error("Không thể bỏ ghim")
+    }
+  }
+
+  const pos = useMemo(() => {
+    try {
+      return JSON.parse(widget.position)
+    } catch {
+      return { w: 4, h: 10 }
+    }
+  }, [widget.position])
+
+  const colSpan = pos.w || 4
+  const height = (pos.h || 10) * 32 + 60 
+
+  return (
+    <div 
+      className={cn(
+        "bg-white dark:bg-slate-900 rounded-[28px] border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden flex flex-col group transition-all hover:shadow-xl",
+        colSpan >= 12 ? "col-span-12" : 
+        colSpan >= 8 ? "col-span-12 lg:col-span-8" :
+        colSpan >= 6 ? "col-span-12 lg:col-span-6" :
+        "col-span-12 md:col-span-6 lg:col-span-4"
+      )}
+      style={{ height: `${height}px` }}
+    >
+      <div className="p-5 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center">
+        <h4 className="font-black text-sm text-slate-800 dark:text-white truncate">{widget.title}</h4>
+        <button onClick={handleUnpin} className="p-1.5 text-slate-300 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-all opacity-0 group-hover:opacity-100">
+          <PinOff size={14} />
+        </button>
+      </div>
+      <div className="flex-1 p-5 overflow-hidden">
+        <PinnedWidgetContent type={widget.widgetType} />
+      </div>
+    </div>
+  )
+}
+
+
+function PinnedWidgetContent({ type }: { type: string }) {
+  const { data: trendData } = useSummaryTrend()
+  const { data: comparisonData } = useSummaryComparison()
+  const { data: riskData } = useSummaryRisks()
+  const { data: stats } = useSummaryStats()
+
+  switch (type) {
+    case 'TREND_CHART':
+      return (
+        <div className="h-full w-full min-h-[220px]">
+          <ResponsiveContainer width="100%" height="100%">
+            <AreaChart data={trendData || []}>
+              <defs><linearGradient id="colorPerfS" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#6366f1" stopOpacity={0.1}/><stop offset="95%" stopColor="#6366f1" stopOpacity={0}/></linearGradient></defs>
+              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+              <XAxis dataKey="period" axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 700 }} />
+              <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 700 }} />
+              <RechartsTooltip />
+              <Legend verticalAlign="top" align="right" iconType="circle" wrapperStyle={{ paddingBottom: '10px', fontSize: '10px', fontWeight: 700 }} />
+              <Area type="monotone" dataKey="performance" stroke="#6366f1" strokeWidth={3} fillOpacity={1} fill="url(#colorPerfS)" name="Hiệu suất (%)" />
+              <Area type="monotone" dataKey="kpiCompletion" stroke="#10b981" strokeWidth={3} fillOpacity={0} name="Hoàn thành KPI (%)" />
+            </AreaChart>
+          </ResponsiveContainer>
+        </div>
+      )
+    case 'TOP_UNITS':
+      return (
+        <div className="space-y-4 overflow-auto max-h-full pr-2">
+          {(comparisonData?.topPerformingUnits || []).map((unit: any, i: number) => (
+            <div key={i} className="flex items-center gap-3 p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-transparent">
+              <div className="w-8 h-8 rounded-lg flex items-center justify-center font-black text-xs bg-amber-100 text-amber-600">#{i + 1}</div>
+              <div className="flex-1 min-w-0">
+                <p className="font-black text-xs text-slate-800 dark:text-white truncate">{unit.unitName}</p>
+                <div className="flex items-center gap-2 mt-1">
+                  <div className="flex-1 h-1 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
+                    <div className="h-full bg-indigo-500" style={{ width: `${unit.performance}%` }} />
+                  </div>
+                  <span className="text-[10px] font-black text-indigo-600">{unit.performance.toFixed(0)}%</span>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )
+    case 'UNIT_PERFORMANCE':
+      return (
+        <div className="h-full w-full min-h-[220px]">
+          <ResponsiveContainer width="100%" height="100%">
+            <AreaChart data={comparisonData?.topPerformingUnits || []}>
+              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+              <XAxis dataKey="unitName" axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 700 }} />
+              <YAxis domain={[0, 100]} axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 700 }} />
+              <RechartsTooltip />
+              <Area type="monotone" dataKey="performance" stroke="#10b981" fill="#10b981" fillOpacity={0.1} strokeWidth={3} name="Hiệu suất:" />
+            </AreaChart>
+          </ResponsiveContainer>
+        </div>
+      )
+    case 'UNIT_KPI':
+      return (
+        <div className="h-full w-full min-h-[220px]">
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={comparisonData?.unitKpiData || []}>
+              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+              <XAxis dataKey="unitName" axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 700 }} />
+              <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 700 }} />
+              <RechartsTooltip />
+              <Legend iconType="circle" wrapperStyle={{ fontSize: '10px', fontWeight: 800, paddingTop: '10px' }} />
+              <Bar dataKey="totalKpi" fill="#6366f1" radius={[4, 4, 0, 0]} name="Tổng KPI" barSize={15} />
+              <Bar dataKey="approvedKpi" fill="#10b981" radius={[4, 4, 0, 0]} name="Đã duyệt" barSize={15} />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      )
+    case 'MEMBER_DIST':
+      return (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-center h-full overflow-hidden">
+          <div className="h-full min-h-[180px]">
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie 
+                  data={stats?.memberDistribution || []} 
+                  innerRadius="50%" 
+                  outerRadius="80%" 
+                  paddingAngle={5} 
+                  dataKey="value"
+                >
+                  {(stats?.memberDistribution || []).map((_: any, index: number) => (
+                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                  ))}
+                </Pie>
+                <RechartsTooltip />
+              </PieChart>
+            </ResponsiveContainer>
+          </div>
+          <div className="space-y-2 overflow-auto max-h-full pr-1">
+            {(stats?.memberDistribution || []).map((entry: any, index: number) => (
+              <div key={entry.name} className="flex items-center justify-between">
+                <div className="flex items-center gap-2 min-w-0">
+                  <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: COLORS[index % COLORS.length] }} />
+                  <span className="text-[10px] font-bold text-slate-500 truncate">{entry.name}</span>
+                </div>
+                <span className="text-[10px] font-black text-slate-900 dark:text-white shrink-0">{entry.value} người</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )
+    case 'ROLE_DIST':
+      return (
+        <div className="h-full w-full min-h-[220px]">
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={stats?.roleDistribution || []} layout="vertical" margin={{ left: 10 }}>
+              <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f1f5f9" />
+              <XAxis type="number" axisLine={false} tickLine={false} tick={{ fontSize: 9, fontWeight: 700 }} />
+              <YAxis dataKey="unitName" type="category" axisLine={false} tickLine={false} tick={{ fontSize: 9, fontWeight: 700 }} width={70} />
+              <RechartsTooltip />
+              <Legend iconType="circle" wrapperStyle={{ fontSize: '9px', fontWeight: 800, paddingTop: '5px' }} />
+              <Bar dataKey="directorCount" stackId="a" fill="#6366f1" name="Giám đốc" barSize={12} />
+              <Bar dataKey="headCount" stackId="a" fill="#f59e0b" name="Trưởng phòng" />
+              <Bar dataKey="staffCount" stackId="a" fill="#94a3b8" name="Nhân viên" />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      )
+    case 'UNIT_RISK':
+      return (
+        <div className="h-full flex flex-col">
+          <div className="h-[150px] mb-4">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={riskData?.unitRisks || []} layout="vertical">
+                <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#fef2f2" />
+                <XAxis type="number" hide domain={[0, 100]} />
+                <YAxis dataKey="name" type="category" width={60} axisLine={false} tickLine={false} tick={{ fontSize: 9, fontWeight: 700, fill: '#ef4444' }} />
+                <RechartsTooltip />
+                <Bar dataKey="performance" fill="#ef4444" radius={[0, 4, 4, 0]} name="Hiệu suất (%)" barSize={10} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+          <div className="space-y-2 overflow-auto max-h-full pr-1">
+            {(riskData?.unitRisks || []).map((risk: any, i: number) => (
+              <div key={i} className="flex items-center justify-between p-2 rounded-xl bg-red-50 dark:bg-red-900/10 border border-red-100 dark:border-red-900/20">
+                <span className="text-[10px] font-black text-slate-800 dark:text-white">{risk.name}</span>
+                <span className="text-[10px] font-black text-red-600">{risk.performance.toFixed(1)}%</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )
+    default:
+      return <div className="h-full flex items-center justify-center text-xs font-bold text-slate-300 italic">Chi tiết biểu đồ xem tại trang Thống kê</div>
+  }
 }

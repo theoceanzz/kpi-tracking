@@ -1,5 +1,5 @@
 export const ROLE_MAP: Record<string, string> = {
-  // English Keys
+  // English System Keys (mapping to Vietnamese labels)
   DIRECTOR: 'Giám đốc',
   HEAD: 'Trưởng phòng',
   DEPUTY: 'Phó phòng',
@@ -7,15 +7,7 @@ export const ROLE_MAP: Record<string, string> = {
   STAFF: 'Nhân viên',
   HR: 'Nhân sự',
   ADMIN: 'Quản trị viên',
-  
-  // Vietnamese Keys (for consistency)
-  'Giám đốc': 'Giám đốc',
-  'Trưởng phòng': 'Trưởng phòng',
-  'Phó phòng': 'Phó phòng',
-  'Trưởng nhóm': 'Trưởng nhóm',
-  'Nhân viên': 'Nhân viên',
-  'Nhân sự': 'Nhân sự',
-  'Quản trị viên': 'Quản trị viên'
+  DIRECTOR_SYSTEM: 'Quản trị hệ thống'
 }
 
 export const getRoleLabel = (role: string) => ROLE_MAP[role] || role

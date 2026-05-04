@@ -23,6 +23,8 @@ export interface UserInfo {
   memberships: UserMembership[]
   roles: string[]
   permissions: string[]
+  createdAt: string
+  updatedAt?: string
 }
 
 // Matches BE: AuthResponse

@@ -9,6 +9,11 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import com.kpitracking.dto.request.ai.AiChatRequest;
+import com.kpitracking.dto.response.ApiResponse;
+import com.kpitracking.dto.response.ai.AiChatResponse;
+import com.kpitracking.service.AiService;
+import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -19,12 +24,20 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/v1/ai")
 @Tag(name = "AI", description = "AI-powered assistance endpoints")
+@RequiredArgsConstructor
 public class AiController {
 
     private final GeminiService geminiService;
 
-    public AiController(GeminiService geminiService) {
-        this.geminiService = geminiService;
+    private final AiService aiService;
+
+    @PostMapping("/chat")
+    public ApiResponse<AiChatResponse> chat(@RequestBody AiChatRequest request) {
+        String result = aiService.processChat(request.getMessage());
+        AiChatResponse response = AiChatResponse.builder()
+                .text(result)
+                .build();
+        return ApiResponse.success(response);
     }
 
     @PostMapping("/suggest-kpi")

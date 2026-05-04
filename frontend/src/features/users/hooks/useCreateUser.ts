@@ -14,7 +14,8 @@ export function useCreateUser() {
       toast.success('Tạo nhân sự thành công')
     },
     onError: (error: any) => {
-      toast.error(error?.response?.data?.message || 'Tạo nhân sự thất bại')
+      const errorMessage = error?.response?.data?.message || error?.message || 'Tạo nhân sự thất bại'
+      toast.error(errorMessage)
     },
   })
 }

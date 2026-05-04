@@ -393,9 +393,17 @@ export default function EvaluationsPage() {
                             ? 'bg-blue-50 text-blue-600 border-blue-100 dark:bg-blue-900/20' 
                             : ev.evaluatorRole === 'DIRECTOR'
                             ? 'bg-amber-50 text-amber-600 border-amber-100 dark:bg-amber-900/20'
+                            : (ev.evaluatorRole === 'DEPT_HEAD' || ev.evaluatorRole === 'TEAM_LEADER')
+                            ? 'bg-emerald-50 text-emerald-600 border-emerald-100 dark:bg-emerald-900/20'
                             : 'bg-purple-50 text-purple-600 border-purple-100 dark:bg-purple-900/20'
                         )}>
-                          {ev.evaluatorRole === 'SELF' ? 'Tự đánh giá' : ev.evaluatorRole === 'DIRECTOR' ? 'Giám đốc chốt' : 'Quản lý chấm'}
+                          {ev.evaluatorRole === 'SELF' ? 'Tự đánh giá' : 
+                           ev.evaluatorRole === 'DIRECTOR' ? 'Giám đốc chốt' : 
+                           ev.evaluatorRole === 'DEPT_HEAD' ? 'Trưởng phòng chấm' : 
+                           ev.evaluatorRole === 'DEPT_DEPUTY' ? 'Phó phòng chấm' :
+                           ev.evaluatorRole === 'TEAM_LEADER' ? 'Trưởng nhóm chấm' :
+                           ev.evaluatorRole === 'TEAM_DEPUTY' ? 'Phó nhóm chấm' :
+                           'Quản lý chấm'}
                         </span>
                       </td>
                       <td className="px-6 py-6 whitespace-nowrap">

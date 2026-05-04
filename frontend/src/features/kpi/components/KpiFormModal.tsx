@@ -334,7 +334,7 @@ export default function KpiFormModal({ open, onClose, editKpi }: KpiFormModalPro
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium mb-1.5">Mục tiêu</label>
-              <input {...register('targetValue', { valueAsNumber: true })} type="number" step="any" className={inputCls} placeholder="100" />
+              <input {...register('targetValue', { valueAsNumber: true })} type="number" step="any" onWheel={(e) => (e.target as HTMLInputElement).blur()} className={inputCls} placeholder="100" />
             </div>
             <div>
               <label className="block text-sm font-medium mb-1.5">Đơn vị</label>
@@ -345,7 +345,7 @@ export default function KpiFormModal({ open, onClose, editKpi }: KpiFormModalPro
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium mb-1.5">Trọng số (%)</label>
-              <input {...register('weight', { valueAsNumber: true })} type="number" step="any" min={0} max={100} className={inputCls} placeholder="30" />
+              <input {...register('weight', { valueAsNumber: true })} type="number" step="any" min={0} max={100} onWheel={(e) => (e.target as HTMLInputElement).blur()} className={inputCls} placeholder="30" />
               {errors.weight && <p className="text-red-500 text-xs mt-1">{errors.weight.message}</p>}
               
               {watch('kpiPeriodId') && (
@@ -432,7 +432,7 @@ export default function KpiFormModal({ open, onClose, editKpi }: KpiFormModalPro
             </div>
             <div>
               <label className="block text-sm font-medium mb-1.5">Giá trị tối thiểu</label>
-              <input {...register('minimumValue', { valueAsNumber: true })} type="number" step="any" className={inputCls} placeholder="VD: 50" />
+              <input {...register('minimumValue', { valueAsNumber: true })} type="number" step="any" onWheel={(e) => (e.target as HTMLInputElement).blur()} className={inputCls} placeholder="VD: 50" />
             </div>
           </div>
 

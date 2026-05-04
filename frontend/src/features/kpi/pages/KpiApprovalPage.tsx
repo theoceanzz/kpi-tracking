@@ -223,26 +223,26 @@ export default function KpiApprovalPage() {
         {/* Bulk Action Bar */}
         {selectedKpis.length > 0 && (
           <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-50 animate-in slide-in-from-bottom-8 duration-500">
-            <div className="bg-slate-900 dark:bg-indigo-950 text-white px-8 py-4 rounded-[28px] shadow-2xl flex items-center gap-8 border border-white/10 backdrop-blur-xl">
-              <div className="flex items-center gap-3 border-r border-white/10 pr-8">
-                <div className="w-10 h-10 rounded-full bg-indigo-500 flex items-center justify-center font-black text-sm">
-                  {selectedKpis.length}
+            <div className="bg-slate-900 dark:bg-indigo-950 text-white px-8 py-3.5 rounded-[24px] shadow-2xl flex items-center gap-6 border border-white/10 backdrop-blur-xl">
+              <div className="flex items-center gap-3 border-r border-white/10 pr-6 whitespace-nowrap">
+                <div className="flex flex-col items-start">
+                  <span className="text-[10px] font-black uppercase tracking-widest text-indigo-500/50">Đã chọn</span>
+                  <span className="text-sm font-black tracking-tight">{selectedKpis.length} mục</span>
                 </div>
-                <p className="text-sm font-bold uppercase tracking-widest text-indigo-200">Đã chọn</p>
+                <button 
+                  onClick={() => setSelectedKpis([])}
+                  className="text-[10px] font-black uppercase tracking-widest bg-white/10 px-2 py-1 rounded-lg hover:bg-white/20 transition-all ml-2"
+                >
+                  Bỏ chọn
+                </button>
               </div>
               <div className="flex items-center gap-3">
                 <button 
                   onClick={() => bulkApproveMutation.mutate(selectedKpis)}
                   disabled={bulkApproveMutation.isPending}
-                  className="px-6 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-black uppercase tracking-widest transition-all flex items-center gap-2 shadow-lg shadow-emerald-500/20 disabled:opacity-50"
+                  className="px-6 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2 shadow-lg shadow-emerald-500/20 disabled:opacity-50 whitespace-nowrap"
                 >
-                  {bulkApproveMutation.isPending ? <Loader2 size={16} className="animate-spin" /> : <CheckCircle size={16} />} Duyệt hàng loạt
-                </button>
-                <button 
-                  onClick={() => setSelectedKpis([])}
-                  className="px-6 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-black uppercase tracking-widest transition-all flex items-center gap-2"
-                >
-                  <X size={16} /> Huỷ bỏ
+                   {bulkApproveMutation.isPending ? <Loader2 size={16} className="animate-spin" /> : <CheckCircle size={16} />} Duyệt hàng loạt
                 </button>
               </div>
             </div>

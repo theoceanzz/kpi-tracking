@@ -133,6 +133,7 @@ export default function KpiAdjustmentModal({ open, onClose, kpi }: KpiAdjustment
                     type="number"
                     step="any"
                     {...register('requestedTargetValue', { valueAsNumber: true })}
+                    onWheel={(e) => (e.target as HTMLInputElement).blur()}
                     placeholder={kpi.targetValue?.toString()}
                     className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-sm font-bold focus:ring-2 focus:ring-indigo-500/20 outline-none"
                   />
@@ -149,6 +150,7 @@ export default function KpiAdjustmentModal({ open, onClose, kpi }: KpiAdjustment
                     type="number"
                     step="any"
                     {...register('requestedWeight', { valueAsNumber: true })}
+                    onWheel={(e) => (e.target as HTMLInputElement).blur()}
                     placeholder={kpi.weight?.toString()}
                     className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-sm font-bold focus:ring-2 focus:ring-indigo-500/20 outline-none"
                   />
@@ -165,6 +167,7 @@ export default function KpiAdjustmentModal({ open, onClose, kpi }: KpiAdjustment
                     type="number"
                     step="any"
                     {...register('requestedMinimumValue', { valueAsNumber: true })}
+                    onWheel={(e) => (e.target as HTMLInputElement).blur()}
                     placeholder={kpi.minimumValue?.toString() || "0"}
                     className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-sm font-bold focus:ring-2 focus:ring-indigo-500/20 outline-none"
                   />

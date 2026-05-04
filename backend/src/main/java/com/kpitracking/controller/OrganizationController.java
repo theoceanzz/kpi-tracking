@@ -37,7 +37,7 @@ public class OrganizationController {
     }
 
     @GetMapping("/{orgId}")
-    @PreAuthorize("hasAuthority('COMPANY:VIEW')")
+    @PreAuthorize("hasAnyAuthority('COMPANY:VIEW', 'EVALUATION:VIEW', 'DASHBOARD:VIEW')")
     @Operation(summary = "Get organization by ID")
     public ResponseEntity<ApiResponse<OrganizationResponse>> getOrganization(@PathVariable UUID orgId) {
         OrganizationResponse response = organizationService.getOrganization(orgId);

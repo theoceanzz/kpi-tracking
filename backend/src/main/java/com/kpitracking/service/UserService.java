@@ -145,6 +145,12 @@ public class UserService {
             throw new DuplicateResourceException("Email này đã tồn tại trong hệ thống: " + request.getEmail());
         }
 
+        if (request.getEmployeeCode() != null && !request.getEmployeeCode().isBlank()) {
+            if (userRepository.existsByEmployeeCode(request.getEmployeeCode().trim())) {
+                throw new BusinessException("Mã nhân viên '" + request.getEmployeeCode() + "' đã được sử dụng");
+            }
+        }
+
         User user = User.builder()
                 .email(request.getEmail())
                 .password(passwordEncoder.encode(request.getPassword()))
@@ -185,18 +191,22 @@ public class UserService {
                 .build();
         userRoleOrgUnitRepository.save(assignment);
 
-        // If it's a child unit, also assign to its parent (if not already assigned)
+        // If it's a child unit, also assign to its parent as "Nhân viên" (if not already assigned)
         if (orgUnit.getParent() != null) {
-            // Root check is implicit: root has no parent.
-            // We assign to immediate parent.
-            UserRoleOrgUnit parentAssignment = UserRoleOrgUnit.builder()
-                    .user(user)
-                    .role(role)
-                    .orgUnit(orgUnit.getParent())
-                    .assignedBy(assignedBy)
-                    .assignedAt(Instant.now())
-                    .build();
-            userRoleOrgUnitRepository.save(parentAssignment);
+            com.kpitracking.entity.Role staffRole = roleRepository.findByName("Nhân viên")
+                    .orElse(role); // Fallback to current role if "Nhân viên" not found
+
+            // Only assign if not already present
+            if (!userRoleOrgUnitRepository.existsByUserIdAndRoleIdAndOrgUnitId(user.getId(), staffRole.getId(), orgUnit.getParent().getId())) {
+                UserRoleOrgUnit parentAssignment = UserRoleOrgUnit.builder()
+                        .user(user)
+                        .role(staffRole)
+                        .orgUnit(orgUnit.getParent())
+                        .assignedBy(assignedBy)
+                        .assignedAt(Instant.now())
+                        .build();
+                userRoleOrgUnitRepository.save(parentAssignment);
+            }
         }
     }
 
@@ -323,7 +333,11 @@ public class UserService {
             user.setPhone(request.getPhone());
         }
         if (request.getEmployeeCode() != null) {
-            user.setEmployeeCode(request.getEmployeeCode());
+            String code = request.getEmployeeCode().trim();
+            if (!code.isBlank() && userRepository.existsByEmployeeCodeAndIdNot(code, userId)) {
+                throw new BusinessException("Mã nhân viên '" + code + "' đã được sử dụng bởi nhân sự khác");
+            }
+            user.setEmployeeCode(code);
         }
         if (request.getStatus() != null) {
             user.setStatus(request.getStatus());
@@ -483,12 +497,16 @@ public class UserService {
         // Validate that all modified units have at least one manager (Rank 0)
         for (UUID uid : modifiedUnitIds) {
             OrgUnit unit = orgUnitRepository.findById(uid).orElse(null);
-            // Rule: Sub-units MUST have a manager (Rank 0). Root unit (parent == null) is exempt.
-            if (unit != null && unit.getParent() != null && unit.getOrgHierarchyLevel() != null) {
+            // Rule: Sub-units MUST have a manager (Rank 0). 
+            // We check this for all units except root units (where parent is null)
+            if (unit != null && unit.getParent() != null) {
                 boolean hasManager = userRoleOrgUnitRepository.existsByOrgUnitIdAndRoleRank(uid, 0);
                 
                 if (!hasManager) {
-                    throw new BusinessException("Cấu trúc chưa hợp lệ: Đơn vị '" + unit.getName() + "' (Mã: " + unit.getCode() + ") chưa có nhân sự đảm nhiệm vai trò đứng đầu (Cấp trưởng - Rank 0). Vui lòng bổ sung quản lý vào file dữ liệu hoặc hệ thống.");
+                    throw new BusinessException(String.format(
+                        "Đơn vị '%s' (%s) chưa có nhân sự đảm nhiệm vai trò Trưởng đơn vị (Rank 0). Vui lòng bổ sung quản lý trong tệp tin hoặc hệ thống.",
+                        unit.getName(), unit.getCode()
+                    ));
                 }
             }
         }
@@ -501,6 +519,8 @@ public class UserService {
                 .build();
     }
 
+
+
     private String getCellValueAsString(org.apache.poi.ss.usermodel.Cell cell) {
         if (cell.getCellType() == org.apache.poi.ss.usermodel.CellType.NUMERIC) {
             return String.valueOf((long) cell.getNumericCellValue());
@@ -508,143 +528,151 @@ public class UserService {
         return cell.getStringCellValue().trim();
     }
 
-    private List<UUID> processUserRow(String email, String fullName, String phone, String employeeCode, String roleName, String password, String orgUnitCode, UUID orgUnitId) {
-        if (email == null || email.isBlank()) {
-            throw new BusinessException("Email là bắt buộc");
-        }
-        if (fullName == null || fullName.isBlank()) {
-            throw new BusinessException("Họ tên là bắt buộc");
-        }
+    private List<UUID> processUserRow(String email, String fullName, String phone, String employeeCode, String roleIdStr, String password, String orgUnitCode, UUID orgUnitId) {
+        if (email == null || email.isBlank()) throw new BusinessException("Email là bắt buộc");
+        if (fullName == null || fullName.isBlank()) throw new BusinessException("Họ tên là bắt buộc");
 
-        if (userRepository.existsByEmail(email)) {
-             throw new BusinessException("Email này đã tồn tại trong hệ thống: " + email);
-        }
+        User user = createOrUpdateUserInternal(email, fullName, phone, employeeCode, password);
+        com.kpitracking.entity.Role role = resolveRoleInternal(roleIdStr);
 
-        String rawPassword = (password != null && !password.isBlank()) ? password : generateRandomPassword();
-
-        User user = User.builder()
-                .email(email)
-                .password(passwordEncoder.encode(rawPassword))
-                .fullName(fullName)
-                .phone(phone)
-                .employeeCode(employeeCode)
-                .isEmailVerified(true) // Auto-verify for bulk imports
-                .build();
-
-        user = userRepository.save(user);
-
-        com.kpitracking.entity.Role resolvedRole = resolveRole(roleName);
-
-        // Assign to OrgUnit if provided
+        List<UUID> assignedUnits = new ArrayList<>();
         if (orgUnitId != null) {
-            OrgUnit unit = orgUnitRepository.findById(orgUnitId)
-                    .orElseThrow(() -> new BusinessException("Đơn vị không tồn tại"));
+            assignUserToUnitInternal(user, role, orgUnitId);
+            assignedUnits.add(orgUnitId);
+        }
+
+        if (orgUnitCode != null && !orgUnitCode.isBlank()) {
+            OrgUnit specificUnit = orgUnitRepository.findByCode(orgUnitCode.trim())
+                    .orElseThrow(() -> new BusinessException("Mã đơn vị không tồn tại: " + orgUnitCode));
             
-            // NEW LOGIC: If importing to the ROOT unit, force role to be "Nhân viên"
-            com.kpitracking.entity.Role finalRole = resolvedRole;
-            if (unit.getParent() == null) {
-                finalRole = resolveRole("Nhân viên");
+            if (orgUnitId == null || !specificUnit.getId().equals(orgUnitId)) {
+                assignUserToUnitInternal(user, role, specificUnit.getId());
+                assignedUnits.add(specificUnit.getId());
+            }
+        }
+        return assignedUnits;
+    }
+
+    private User createOrUpdateUserInternal(String email, String fullName, String phone, String employeeCode, String password) {
+        Optional<User> existingUser = userRepository.findByEmail(email);
+        if (existingUser.isPresent()) {
+            User user = existingUser.get();
+            if (fullName != null && !fullName.isBlank()) user.setFullName(fullName);
+            if (phone != null) user.setPhone(phone);
+            if (employeeCode != null && !employeeCode.isBlank()) {
+                String code = employeeCode.trim();
+                if (userRepository.existsByEmployeeCodeAndIdNot(code, user.getId())) {
+                    throw new BusinessException("Mã nhân viên '" + code + "' đã được sử dụng bởi nhân sự khác (" + email + ")");
+                }
+                user.setEmployeeCode(code);
+            }
+            
+            if (password != null && !password.isBlank()) {
+                user.setPassword(passwordEncoder.encode(password));
+                try {
+                    emailService.sendAccountDetailsEmail(email, user.getFullName(), password);
+                } catch (Exception e) {}
+            }
+            return userRepository.save(user);
+        } else {
+            if (employeeCode != null && !employeeCode.isBlank()) {
+                String code = employeeCode.trim();
+                if (userRepository.existsByEmployeeCode(code)) {
+                    throw new BusinessException("Mã nhân viên '" + code + "' đã được sử dụng bởi nhân sự khác (" + email + ")");
+                }
             }
 
-            validateManagerAssignment(unit.getId(), finalRole, user.getId());
+            String rawPassword = (password != null && !password.isBlank()) ? password : generateRandomPassword();
+            User user = User.builder()
+                    .email(email)
+                    .password(passwordEncoder.encode(rawPassword))
+                    .fullName(fullName)
+                    .phone(phone)
+                    .employeeCode(employeeCode)
+                    .isEmailVerified(true)
+                    .build();
+            User saved = userRepository.save(user);
+            emailService.sendAccountDetailsEmail(email, fullName, rawPassword);
+            return saved;
+        }
+    }
 
+    private void assignUserToUnitInternal(User user, com.kpitracking.entity.Role role, UUID orgUnitId) {
+        OrgUnit unit = orgUnitRepository.findById(orgUnitId)
+                .orElseThrow(() -> new BusinessException("Đơn vị không tồn tại"));
+        
+        com.kpitracking.entity.Role finalRole = (unit.getParent() == null) 
+            ? roleRepository.findByName("Nhân viên").orElse(role) 
+            : role;
+
+        if (!userRoleOrgUnitRepository.existsByUserIdAndRoleIdAndOrgUnitId(user.getId(), finalRole.getId(), unit.getId())) {
+            validateManagerAssignment(unit.getId(), finalRole, user.getId());
             UserRoleOrgUnit assignment = UserRoleOrgUnit.builder()
                     .user(user)
                     .role(finalRole)
                     .orgUnit(unit)
                     .assignedAt(Instant.now())
                     .build();
-            
             userRoleOrgUnitRepository.save(assignment);
         }
-        
-        // Also assign to the specific unit code
-        if (orgUnitCode != null && !orgUnitCode.isBlank()) {
-            OrgUnit specificUnit = orgUnitRepository.findByCode(orgUnitCode.trim())
-                    .orElseThrow(() -> new BusinessException("Mã đơn vị không tồn tại: " + orgUnitCode));
-            
-            com.kpitracking.entity.Role finalRole = resolvedRole;
-            if (specificUnit.getParent() == null) {
-                finalRole = resolveRole("Nhân viên");
-            }
-
-            if (orgUnitId == null || !specificUnit.getId().equals(orgUnitId)) {
-                validateManagerAssignment(specificUnit.getId(), finalRole, user.getId());
-                UserRoleOrgUnit assignment = UserRoleOrgUnit.builder()
-                        .user(user)
-                        .role(finalRole)
-                        .orgUnit(specificUnit)
-                        .assignedAt(Instant.now())
-                        .build();
-                
-                userRoleOrgUnitRepository.save(assignment);
-            }
-        }
-        
-        // Notify user of their credentials
-        emailService.sendAccountDetailsEmail(email, fullName, rawPassword);
-        
-        List<UUID> assignedUnits = new ArrayList<>();
-        if (orgUnitId != null) assignedUnits.add(orgUnitId);
-        if (orgUnitCode != null && !orgUnitCode.isBlank()) {
-            Optional<OrgUnit> u = orgUnitRepository.findByCode(orgUnitCode.trim());
-            u.ifPresent(orgUnit -> assignedUnits.add(orgUnit.getId()));
-        }
-        return assignedUnits;
     }
 
     private void validateManagerAssignment(UUID orgUnitId, com.kpitracking.entity.Role role, UUID excludeUserId) {
         if (role.getRank() != null && (role.getRank() == 0 || role.getRank() == 1)) {
-            OrgUnit unit = orgUnitRepository.findById(orgUnitId).orElse(null);
+            Integer rank = role.getRank();
             
-            // Check "Only one manager/deputy" for ALL units (including Root)
-            if (unit != null) {
-                Integer rank = role.getRank();
-                boolean exists = (excludeUserId != null) 
-                    ? userRoleOrgUnitRepository.existsByOrgUnitIdAndRoleRankAndUserIdNot(orgUnitId, rank, excludeUserId)
-                    : userRoleOrgUnitRepository.existsByOrgUnitIdAndRoleRank(orgUnitId, rank);
+            List<UserRoleOrgUnit> existing = (excludeUserId != null) 
+                ? userRoleOrgUnitRepository.findByOrgUnitIdAndRoleRankAndUserIdNot(orgUnitId, rank, excludeUserId)
+                : userRoleOrgUnitRepository.findByOrgUnitIdAndRoleRank(orgUnitId, rank);
+            
+            if (!existing.isEmpty()) {
+                UserRoleOrgUnit first = existing.get(0);
+                String currentName = first.getUser().getFullName();
+                String currentRole = first.getRole().getName();
+                String rankName = (rank == 0) ? "Cấp Trưởng" : "Cấp Phó";
                 
-                if (exists) {
-                    String unitName = unit.getName();
-                    String rankName = (rank == 0) ? "Trưởng" : "Phó";
-                    throw new BusinessException("Đơn vị '" + unitName + "' đã có nhân sự đảm nhiệm vai trò " + rankName + ". Mỗi đơn vị chỉ được phép có tối đa một " + rankName.toLowerCase() + ".");
-                }
+                throw new BusinessException(String.format(
+                    "Đơn vị này đã có %s đảm nhiệm vai trò %s (%s). Mỗi đơn vị chỉ được phép có tối đa một nhân sự ở cấp độ này.",
+                    currentName, currentRole, rankName
+                ));
             }
         }
     }
 
-    private com.kpitracking.entity.Role resolveRole(String roleName) {
-        String finalRoleName = (roleName != null && !roleName.isBlank()) ? roleName.trim() : "Nhân viên";
-        
-        // Comprehensive Mapping
-        String mappedName = finalRoleName;
-        if (finalRoleName.equalsIgnoreCase("STAFF") || finalRoleName.equalsIgnoreCase("NHAN_VIEN")) {
-            mappedName = "Nhân viên";
-        } else if (finalRoleName.equalsIgnoreCase("HEAD") || finalRoleName.equalsIgnoreCase("TRUONG_PHONG")) {
-            mappedName = "Trưởng phòng";
-        } else if (finalRoleName.equalsIgnoreCase("DEPUTY") || finalRoleName.equalsIgnoreCase("PHO_PHONG")) {
-            mappedName = "Phó phòng";
-        } else if (finalRoleName.equalsIgnoreCase("LEADER") || finalRoleName.equalsIgnoreCase("TRUONG_NHOM")) {
-            mappedName = "Trưởng nhóm";
-        } else if (finalRoleName.equalsIgnoreCase("DIRECTOR") || finalRoleName.equalsIgnoreCase("GIAM_DOC")) {
-            mappedName = "Giám đốc";
+    private com.kpitracking.entity.Role resolveRoleInternal(String identifier) {
+        if (identifier == null || identifier.isBlank()) {
+            return roleRepository.findByName("Nhân viên")
+                    .orElseThrow(() -> new BusinessException("Vai trò mặc định 'Nhân viên' không tồn tại"));
         }
 
-        // Try mapped name first, then original name, then case-insensitive fallback
-        return roleRepository.findByName(mappedName)
-                .or(() -> roleRepository.findByName(finalRoleName))
-                .or(() -> roleRepository.findByNameIgnoreCase(finalRoleName))
-                .orElseThrow(() -> new BusinessException("Chức danh không tồn tại: " + finalRoleName));
+        if (identifier.matches("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$")) {
+            return roleRepository.findById(UUID.fromString(identifier))
+                    .orElseThrow(() -> new BusinessException("Mã vai trò (UUID) không tồn tại: " + identifier));
+        }
+
+        return resolveRole(identifier);
     }
+
+    private com.kpitracking.entity.Role resolveRole(String roleName) {
+        String name = (roleName != null && !roleName.isBlank()) ? roleName.trim() : "Nhân viên";
+        String mappedName = name;
+        if (name.equalsIgnoreCase("STAFF") || name.equalsIgnoreCase("NHAN_VIEN")) mappedName = "Nhân viên";
+        else if (name.equalsIgnoreCase("HEAD") || name.equalsIgnoreCase("TRUONG_PHONG")) mappedName = "Trưởng phòng";
+        else if (name.equalsIgnoreCase("DEPUTY") || name.equalsIgnoreCase("PHO_PHONG")) mappedName = "Phó phòng";
+        else if (name.equalsIgnoreCase("LEADER") || name.equalsIgnoreCase("TRUONG_NHOM")) mappedName = "Trưởng nhóm";
+        else if (name.equalsIgnoreCase("DIRECTOR") || name.equalsIgnoreCase("GIAM_DOC")) mappedName = "Giám đốc";
+
+        return roleRepository.findByName(mappedName)
+                .or(() -> roleRepository.findByName(name))
+                .or(() -> roleRepository.findByNameIgnoreCase(name))
+                .orElseThrow(() -> new BusinessException("Chức danh không tồn tại: " + name));
+    }
+
     private void validateManagerRequirement(OrgUnit orgUnit, com.kpitracking.entity.Role role) {
-        // Only check when adding Staff (Rank 2)
         if (role.getRank() != null && role.getRank() == 2) {
-            // Skip check for root unit (parent to nhất - no parent)
             if (orgUnit.getParent() != null && orgUnit.getOrgHierarchyLevel() != null) {
-                // Check if unit has any Manager (Rank 0)
-                boolean hasManager = userRoleOrgUnitRepository.existsByOrgUnitIdAndRoleRank(orgUnit.getId(), 0);
-                if (!hasManager) {
-                    throw new BusinessException("Đơn vị '" + orgUnit.getName() + "' chưa có người quản lý (Cấp trưởng - Rank 0). Bạn phải chỉ định quản lý trước khi thêm nhân viên.");
+                if (!userRoleOrgUnitRepository.existsByOrgUnitIdAndRoleRank(orgUnit.getId(), 0)) {
+                    throw new BusinessException("Đơn vị '" + orgUnit.getName() + "' chưa có người quản lý (Cấp trưởng - Rank 0).");
                 }
             }
         }

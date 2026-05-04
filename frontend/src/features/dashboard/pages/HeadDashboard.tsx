@@ -1,3 +1,4 @@
+import { useMemo, useState } from 'react'
 import LoadingSkeleton from '@/components/common/LoadingSkeleton'
 import SubmissionStatusChart from '@/components/charts/SubmissionStatusChart'
 import Pagination from '@/components/common/Pagination'
@@ -6,27 +7,45 @@ import { useEmployeeStats } from '../hooks/useEmployeeStats'
 import { useAuthStore } from '@/store/authStore'
 import { getInitials, cn } from '@/lib/utils'
 import { Link } from 'react-router-dom'
-import { useState } from 'react'
 import {
   Target, CheckCircle, Clock, 
   Users, ChevronRight,
-  ClipboardCheck, BarChart3, AlertCircle,
+  ClipboardCheck, BarChart3, AlertCircle, Pin, PinOff
 } from 'lucide-react'
 import type { EmployeeKpiStats } from '@/types/stats'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { reportApi } from '@/features/reports/api/reportApi'
+import { toast } from 'sonner'
+import { 
+  XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, 
+  BarChart, Bar, PieChart, Pie, Cell, AreaChart, Area, Legend
+} from 'recharts'
+import type { ReportWidget } from '@/types/datasource'
+import { useSummaryTrend, useSummaryComparison, useSummaryRisks, useSummaryStats } from '@/features/analytics/hooks/useAnalytics'
+
+const COLORS = ['#6366f1', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'];
 
 export default function HeadDashboard() {
   const [page, setPage] = useState(0)
   const size = 10
   const { user } = useAuthStore()
+  // const queryClient = useQueryClient()
+  
   const primaryMembership = user?.memberships?.find(m => m.roleRank === 0 || m.roleRank === 1) || user?.memberships?.[0]
   const orgUnitId = primaryMembership?.orgUnitId
 
   const { data: stats, isLoading: statsLoading } = useOverviewStats(orgUnitId)
   const { data: employeesPage, isLoading: employeesLoading } = useEmployeeStats(page, size, orgUnitId)
+  
+  const { data: pinnedWidgets, isLoading: pinnedLoading, refetch: refetchPinned } = useQuery({
+    queryKey: ['reports', 'widgets', 'pinned'],
+    queryFn: () => reportApi.getPinnedWidgets(),
+  })
+
   const roleLabel = primaryMembership?.roleLabel || primaryMembership?.roleName || 'Quản lý'
   const unitName = primaryMembership?.orgUnitName || 'Đơn vị'
 
-  const statsLoadingState = statsLoading || employeesLoading
+  const isLoading = statsLoading || employeesLoading || pinnedLoading
 
   const pendingSub = stats?.pendingSubmissions ?? 0
   const approvedSub = stats?.approvedSubmissions ?? 0
@@ -37,7 +56,7 @@ export default function HeadDashboard() {
   const employees = employeesPage?.content ?? []
   const lateEmployeesCount = stats?.totalUsers ? (employees?.filter(e => e.lateSubmissions > 0).length ?? 0) : 0
   
-  if (statsLoadingState) {
+  if (isLoading) {
     return (
       <div className="min-h-screen bg-[#f8fafc] dark:bg-[#020617] p-6 space-y-6">
         <div className="h-48 rounded-[32px] bg-white dark:bg-slate-900 animate-pulse border border-slate-200 dark:border-slate-800" />
@@ -102,53 +121,70 @@ export default function HeadDashboard() {
           <StatCard label="Vi phạm Deadline" value={lateEmployeesCount} sub="Trễ hạn nộp" icon={AlertCircle} color="rose" alert={lateEmployeesCount > 0} />
         </div>
 
-        {/* ===== MAIN CONTENT ===== */}
-        <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
-          
-          {/* Insights Chart (More Compact) */}
-          <div className="xl:col-span-1 space-y-6 flex flex-col">
-            <div className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl rounded-[32px] border border-slate-200 dark:border-slate-800 shadow-xl p-8 flex flex-col flex-1 relative overflow-hidden">
-              <div className="flex flex-col gap-1 mb-8">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <BarChart3 size={18} className="text-blue-600" />
-                    <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">Báo cáo & Phân tích</span>
-                  </div>
-                </div>
-                <h3 className="text-xl font-black text-slate-900 dark:text-white mt-1">Trạng thái Báo cáo</h3>
-              </div>
-
-              <div className="flex-1 flex flex-col justify-between gap-8">
-                <div className="relative w-full aspect-square max-w-[160px] mx-auto">
-                  <SubmissionStatusChart pending={pendingSub} approved={approvedSub} rejected={rejectedSub} />
-                  <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                    <span className="text-4xl font-black text-slate-900 dark:text-white leading-none tracking-tighter">{totalSubCount}</span>
-                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-2">Tổng nộp</span>
-                  </div>
-                </div>
-
-                <div className="space-y-3">
-                  <MetricRow label="Đã phê duyệt" value={approvedSub} total={totalSubCount} color="emerald" icon={CheckCircle} />
-                  <MetricRow label="Đang chờ duyệt" value={pendingSub} total={totalSubCount} color="amber" icon={Clock} />
-                  <MetricRow label="Bị từ chối" value={rejectedSub} total={totalSubCount} color="rose" icon={AlertCircle} />
-                </div>
-
-                <div className="mt-2 pt-6 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
-                  <div>
-                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Tỷ lệ duyệt</p>
-                    <span className="text-2xl font-black text-emerald-500">{approvalRate}%</span>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Cần xử lý</p>
-                    <span className={cn("text-2xl font-black", pendingSub > 0 ? "text-amber-500" : "text-slate-300")}>{pendingSub}</span>
-                  </div>
-                </div>
-              </div>
+        {/* ===== PINNED WIDGETS ===== */}
+        {pinnedWidgets && pinnedWidgets.length > 0 && (
+          <section className="space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="font-black text-slate-900 dark:text-white flex items-center gap-2">
+                <Pin size={18} className="text-indigo-600 rotate-45" /> Thống kê đã ghim
+              </h3>
             </div>
+            <div className="grid grid-cols-12 gap-6">
+              {pinnedWidgets.map((widget: ReportWidget) => (
+                <PinnedWidgetCard key={widget.id} widget={widget} onUnpin={refetchPinned} />
+              ))}
+            </div>
+          </section>
+        )}
+
+        {/* ===== MAIN CONTENT ===== */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+
+          {/* LEFT: Charts & Activity */}
+          <div className="lg:col-span-12 xl:col-span-4 space-y-6">
+             {/* Submission Status Overview */}
+             <div className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl rounded-[32px] border border-slate-200 dark:border-slate-800 shadow-xl p-8 relative overflow-hidden h-full flex flex-col">
+                <div className="flex flex-col gap-1 mb-8">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <BarChart3 size={18} className="text-blue-600" />
+                      <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">Báo cáo & Phân tích</span>
+                    </div>
+                  </div>
+                  <h3 className="text-xl font-black text-slate-900 dark:text-white mt-1">Trạng thái Báo cáo</h3>
+                </div>
+
+                <div className="flex-1 flex flex-col justify-between gap-8">
+                  <div className="relative w-full aspect-square max-w-[160px] mx-auto">
+                    <SubmissionStatusChart pending={pendingSub} approved={approvedSub} rejected={rejectedSub} />
+                    <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                      <span className="text-4xl font-black text-slate-900 dark:text-white leading-none tracking-tighter">{totalSubCount}</span>
+                      <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-2">Tổng nộp</span>
+                    </div>
+                  </div>
+
+                  <div className="space-y-3">
+                    <MetricRow label="Đã phê duyệt" value={approvedSub} total={totalSubCount} color="emerald" icon={CheckCircle} />
+                    <MetricRow label="Đang chờ duyệt" value={pendingSub} total={totalSubCount} color="amber" icon={Clock} />
+                    <MetricRow label="Bị từ chối" value={rejectedSub} total={totalSubCount} color="rose" icon={AlertCircle} />
+                  </div>
+
+                  <div className="mt-2 pt-6 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
+                    <div>
+                      <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Tỷ lệ duyệt</p>
+                      <span className="text-2xl font-black text-emerald-500">{approvalRate}%</span>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Cần xử lý</p>
+                      <span className={cn("text-2xl font-black", pendingSub > 0 ? "text-amber-500" : "text-slate-300")}>{pendingSub}</span>
+                    </div>
+                  </div>
+                </div>
+             </div>
           </div>
 
           {/* Employee Table (Clean & Professional) */}
-          <div className="xl:col-span-2 flex flex-col">
+          <div className="lg:col-span-12 xl:col-span-8 flex flex-col">
             <div className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl rounded-[32px] border border-slate-200 dark:border-slate-800 shadow-xl overflow-hidden flex flex-col h-full">
               <div className="p-8 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50/20 dark:bg-slate-800/20">
                 <div className="flex items-center gap-3">
@@ -177,7 +213,6 @@ export default function HeadDashboard() {
                       const isDeputy = currentRoleRank === 1
                       
                       if (isDeputy) {
-                        // Phó (Rank 1) chỉ thấy Nhân viên (Rank > 1)
                         return emp.rank > 1
                       }
                       
@@ -310,4 +345,206 @@ function MetricRow({ label, value, total, color, icon: Icon }: {
             </div>
         </div>
     )
+}
+
+
+function PinnedWidgetCard({ widget, onUnpin }: { widget: ReportWidget; onUnpin: () => void }) {
+  const queryClient = useQueryClient()
+  const handleUnpin = async () => {
+    try {
+      await reportApi.togglePinWidget(widget.id)
+      toast.success("Đã bỏ ghim")
+      queryClient.invalidateQueries({ queryKey: ['reports', 'widgets', 'pinned'] })
+      onUnpin()
+    } catch (err) {
+      toast.error("Không thể bỏ ghim")
+    }
+  }
+
+  const pos = useMemo(() => {
+    try {
+      return JSON.parse(widget.position)
+    } catch {
+      return { w: 4, h: 10 }
+    }
+  }, [widget.position])
+
+  const colSpan = pos.w || 4
+  const height = (pos.h || 10) * 32 + 60 // Base height + header
+
+  return (
+    <div 
+      className={cn(
+        "bg-white dark:bg-slate-900 rounded-[28px] border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden flex flex-col group transition-all hover:shadow-xl",
+        colSpan >= 12 ? "col-span-12" : 
+        colSpan >= 8 ? "col-span-12 lg:col-span-8" :
+        colSpan >= 6 ? "col-span-12 lg:col-span-6" :
+        "col-span-12 md:col-span-6 lg:col-span-4"
+      )}
+      style={{ height: `${height}px` }}
+    >
+      <div className="p-5 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center">
+        <h4 className="font-black text-sm text-slate-800 dark:text-white truncate">{widget.title}</h4>
+        <button onClick={handleUnpin} className="p-1.5 text-slate-300 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-all opacity-0 group-hover:opacity-100">
+          <PinOff size={14} />
+        </button>
+      </div>
+      <div className="flex-1 p-5 overflow-hidden">
+        <PinnedWidgetContent type={widget.widgetType} />
+      </div>
+    </div>
+  )
+}
+
+function PinnedWidgetContent({ type }: { type: string }) {
+  const { data: trendData } = useSummaryTrend()
+  const { data: comparisonData } = useSummaryComparison()
+  const { data: riskData } = useSummaryRisks()
+  const { data: stats } = useSummaryStats()
+
+  switch (type) {
+    case 'TREND_CHART':
+      return (
+        <div className="h-full w-full min-h-[220px]">
+          <ResponsiveContainer width="100%" height="100%">
+            <AreaChart data={trendData || []}>
+              <defs><linearGradient id="colorPerfH" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#6366f1" stopOpacity={0.1}/><stop offset="95%" stopColor="#6366f1" stopOpacity={0}/></linearGradient></defs>
+              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+              <XAxis dataKey="period" axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 700 }} />
+              <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 700 }} />
+              <RechartsTooltip />
+              <Legend verticalAlign="top" align="right" iconType="circle" wrapperStyle={{ paddingBottom: '10px', fontSize: '10px', fontWeight: 700 }} />
+              <Area type="monotone" dataKey="performance" stroke="#6366f1" strokeWidth={3} fillOpacity={1} fill="url(#colorPerfH)" name="Hiệu suất (%)" />
+              <Area type="monotone" dataKey="kpiCompletion" stroke="#10b981" strokeWidth={3} fillOpacity={0} name="Hoàn thành KPI (%)" />
+            </AreaChart>
+          </ResponsiveContainer>
+        </div>
+      )
+    case 'TOP_UNITS':
+      return (
+        <div className="space-y-4 overflow-auto max-h-full pr-2">
+          {(comparisonData?.topPerformingUnits || []).map((unit: any, i: number) => (
+            <div key={i} className="flex items-center gap-3 p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-transparent">
+              <div className="w-8 h-8 rounded-lg flex items-center justify-center font-black text-xs bg-amber-100 text-amber-600">#{i + 1}</div>
+              <div className="flex-1 min-w-0">
+                <p className="font-black text-xs text-slate-800 dark:text-white truncate">{unit.unitName}</p>
+                <div className="flex items-center gap-2 mt-1">
+                  <div className="flex-1 h-1 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
+                    <div className="h-full bg-indigo-500" style={{ width: `${unit.performance}%` }} />
+                  </div>
+                  <span className="text-[10px] font-black text-indigo-600">{unit.performance.toFixed(0)}%</span>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )
+    case 'UNIT_PERFORMANCE':
+      return (
+        <div className="h-full w-full min-h-[220px]">
+          <ResponsiveContainer width="100%" height="100%">
+            <AreaChart data={comparisonData?.topPerformingUnits || []}>
+              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+              <XAxis dataKey="unitName" axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 700 }} />
+              <YAxis domain={[0, 100]} axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 700 }} />
+              <RechartsTooltip />
+              <Area type="monotone" dataKey="performance" stroke="#10b981" fill="#10b981" fillOpacity={0.1} strokeWidth={3} name="Hiệu suất:" />
+            </AreaChart>
+          </ResponsiveContainer>
+        </div>
+      )
+    case 'UNIT_KPI':
+      return (
+        <div className="h-full w-full min-h-[220px]">
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={comparisonData?.unitKpiData || []}>
+              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+              <XAxis dataKey="unitName" axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 700 }} />
+              <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 700 }} />
+              <RechartsTooltip />
+              <Legend iconType="circle" wrapperStyle={{ fontSize: '10px', fontWeight: 800, paddingTop: '10px' }} />
+              <Bar dataKey="totalKpi" fill="#6366f1" radius={[4, 4, 0, 0]} name="Tổng KPI" barSize={15} />
+              <Bar dataKey="approvedKpi" fill="#10b981" radius={[4, 4, 0, 0]} name="Đã duyệt" barSize={15} />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      )
+    case 'MEMBER_DIST':
+      return (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-center h-full overflow-hidden">
+          <div className="h-full min-h-[180px]">
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie 
+                  data={stats?.memberDistribution || []} 
+                  innerRadius="50%" 
+                  outerRadius="80%" 
+                  paddingAngle={5} 
+                  dataKey="value"
+                >
+                  {(stats?.memberDistribution || []).map((_: any, index: number) => (
+                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                  ))}
+                </Pie>
+                <RechartsTooltip />
+              </PieChart>
+            </ResponsiveContainer>
+          </div>
+          <div className="space-y-2 overflow-auto max-h-full pr-1">
+            {(stats?.memberDistribution || []).map((entry: any, index: number) => (
+              <div key={entry.name} className="flex items-center justify-between">
+                <div className="flex items-center gap-2 min-w-0">
+                  <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: COLORS[index % COLORS.length] }} />
+                  <span className="text-[10px] font-bold text-slate-500 truncate">{entry.name}</span>
+                </div>
+                <span className="text-[10px] font-black text-slate-900 dark:text-white shrink-0">{entry.value} người</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )
+    case 'ROLE_DIST':
+      return (
+        <div className="h-full w-full min-h-[220px]">
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={stats?.roleDistribution || []} layout="vertical" margin={{ left: 10 }}>
+              <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f1f5f9" />
+              <XAxis type="number" axisLine={false} tickLine={false} tick={{ fontSize: 9, fontWeight: 700 }} />
+              <YAxis dataKey="unitName" type="category" axisLine={false} tickLine={false} tick={{ fontSize: 9, fontWeight: 700 }} width={70} />
+              <RechartsTooltip />
+              <Legend iconType="circle" wrapperStyle={{ fontSize: '9px', fontWeight: 800, paddingTop: '5px' }} />
+              <Bar dataKey="directorCount" stackId="a" fill="#6366f1" name="Giám đốc" barSize={12} />
+              <Bar dataKey="headCount" stackId="a" fill="#f59e0b" name="Trưởng phòng" />
+              <Bar dataKey="staffCount" stackId="a" fill="#94a3b8" name="Nhân viên" />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      )
+    case 'UNIT_RISK':
+      return (
+        <div className="h-full flex flex-col">
+          <div className="h-[150px] mb-4">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={riskData?.unitRisks || []} layout="vertical">
+                <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#fef2f2" />
+                <XAxis type="number" hide domain={[0, 100]} />
+                <YAxis dataKey="name" type="category" width={60} axisLine={false} tickLine={false} tick={{ fontSize: 9, fontWeight: 700, fill: '#ef4444' }} />
+                <RechartsTooltip />
+                <Bar dataKey="performance" fill="#ef4444" radius={[0, 4, 4, 0]} name="Hiệu suất (%)" barSize={10} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+          <div className="space-y-2 overflow-auto max-h-full pr-1">
+            {(riskData?.unitRisks || []).map((risk: any, i: number) => (
+              <div key={i} className="flex items-center justify-between p-2 rounded-xl bg-red-50 dark:bg-red-900/10 border border-red-100 dark:border-red-900/20">
+                <span className="text-[10px] font-black text-slate-800 dark:text-white">{risk.name}</span>
+                <span className="text-[10px] font-black text-red-600">{risk.performance.toFixed(1)}%</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )
+    default:
+      return <div className="h-full flex items-center justify-center text-xs font-bold text-slate-300 italic">Chi tiết biểu đồ xem tại trang Thống kê</div>
+  }
 }

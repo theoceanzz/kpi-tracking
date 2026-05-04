@@ -5,7 +5,7 @@ import { useUpdateOrganization } from '../hooks/useUpdateOrganization'
 import { useForm, useFieldArray } from 'react-hook-form'
 import {  Edit3, ShieldCheck, 
   Calendar, Hash, Layers, Trash2,
-  Info, ArrowUp, ArrowDown, Plus, Target, Sparkles, CheckCircle, TrendingUp, BarChart3, AlertCircle, ChevronUp, BellRing, Clock, ArrowLeft, ArrowRight
+  Info, ArrowUp, ArrowDown, Plus, Target, Sparkles, CheckCircle, TrendingUp, BarChart3, AlertCircle, ChevronUp, BellRing, Clock, ArrowLeft, ArrowRight, RotateCcw
 } from 'lucide-react'
 import LoadingSkeleton from '@/components/common/LoadingSkeleton'
 import { formatDateTime, cn } from '@/lib/utils'
@@ -383,6 +383,25 @@ function ScoringConfigSection({ org }: { org: any }) {
     })
   }
 
+  const handleResetTo100 = () => {
+    const defaultData = {
+      evaluationMaxScore: 100,
+      excellentThreshold: 90,
+      goodThreshold: 80,
+      fairThreshold: 70,
+      averageThreshold: 50,
+    }
+    setFormData(defaultData)
+    
+    updateMutation.mutate(defaultData, {
+      onSuccess: () => {
+        setIsEditing(false)
+        toast.success('Đã đặt lại về thang 100 điểm chuẩn thành công')
+      },
+      onError: () => toast.error('Không thể tự động đặt lại thang điểm')
+    })
+  }
+
   return (
     <section className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden flex flex-col h-full animate-in slide-in-from-left-4 duration-700 delay-75">
         <div className="px-8 py-6 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
@@ -396,12 +415,24 @@ function ScoringConfigSection({ org }: { org: any }) {
                 </div>
             </div>
             {!isEditing && (
-              <button 
-                  onClick={() => setIsEditing(true)}
-                  className="w-9 h-9 rounded-lg bg-slate-50 dark:bg-slate-800 text-slate-500 hover:text-indigo-600 border border-slate-200 dark:border-slate-700 transition-all flex items-center justify-center group"
-              >
-                  <Edit3 size={16} />
-              </button>
+              <div className="flex items-center gap-2">
+                <button 
+                    onClick={() => {
+                      setIsEditing(true);
+                      handleResetTo100();
+                    }}
+                    className="w-9 h-9 rounded-lg bg-slate-50 dark:bg-slate-800 text-slate-400 hover:text-indigo-600 border border-slate-200 dark:border-slate-700 transition-all flex items-center justify-center group"
+                    title="Đặt lại về thang 100 điểm"
+                >
+                    <RotateCcw size={16} />
+                </button>
+                <button 
+                    onClick={() => setIsEditing(true)}
+                    className="w-9 h-9 rounded-lg bg-slate-50 dark:bg-slate-800 text-slate-500 hover:text-indigo-600 border border-slate-200 dark:border-slate-700 transition-all flex items-center justify-center group"
+                >
+                    <Edit3 size={16} />
+                </button>
+              </div>
             )}
         </div>
 
@@ -447,6 +478,7 @@ function ScoringConfigSection({ org }: { org: any }) {
                            }
                          }}
                         className="w-16 bg-white/10 border border-white/10 rounded-lg py-2 px-2 text-center text-sm font-bold focus:outline-none focus:ring-1 focus:ring-amber-500"
+                        onWheel={(e) => (e.target as HTMLInputElement).blur()}
                      />
                    ) : (
                      <div className="px-4 py-2 bg-white/10 rounded-lg text-sm font-black border border-white/10">
@@ -533,7 +565,7 @@ function ScoringConfigSection({ org }: { org: any }) {
                   className="flex-[2] py-2.5 bg-indigo-600 text-white rounded-xl text-[11px] font-bold uppercase tracking-wider shadow-lg hover:bg-indigo-700 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
                 >
                   {updateMutation.isPending && <div className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" />}
-                  Lưu
+                  Lưu cấu hình
                 </button>
               </div>
             )}
@@ -568,6 +600,7 @@ function ThresholdItem({ label, value, onChange, icon, isEditing, maxScore }: { 
                           ? "border-red-500 focus:ring-red-500/20 text-red-600" 
                           : "border-slate-200 dark:border-slate-700 focus:border-indigo-500 focus:ring-indigo-500/5"
                       )}
+                      onWheel={(e) => (e.target as HTMLInputElement).blur()}
                   />
                 ) : (
                   <div className="w-full px-4 py-2.5 rounded-xl bg-slate-50/50 dark:bg-slate-800/20 border border-slate-100 dark:border-slate-800/50 font-black text-sm text-slate-700 dark:text-slate-200">

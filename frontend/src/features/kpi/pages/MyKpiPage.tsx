@@ -240,9 +240,15 @@ function MyKpiTableRow({ kpi, onView, onAdjust }: { kpi: KpiCriteria; onView: ()
             </button>
           )}
           {kpi.submissionCount < (kpi.expectedSubmissions || 1) ? (
-            <Link to={`/submissions/new?kpiId=${kpi.id}`} className="px-4 py-2 bg-slate-900 dark:bg-slate-700 text-white hover:bg-indigo-600 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all">
-              Nộp bài
-            </Link>
+            (!kpi.kpiPeriod?.startDate || new Date(kpi.kpiPeriod.startDate) <= new Date()) ? (
+              <Link to={`/submissions/new?kpiId=${kpi.id}`} className="px-4 py-2 bg-slate-900 dark:bg-slate-700 text-white hover:bg-indigo-600 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all">
+                Nộp bài
+              </Link>
+            ) : (
+              <div className="px-4 py-2 bg-slate-100 dark:bg-slate-800 text-slate-400 rounded-xl text-[10px] font-black uppercase tracking-widest border border-slate-200 dark:border-slate-700 cursor-not-allowed">
+                Chưa mở
+              </div>
+            )
           ) : (
              <div className="px-4 py-2 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 border border-emerald-100 dark:border-emerald-900/30 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center gap-1.5">
                <CheckCircle2 size={12} /> Đã Xong
@@ -296,9 +302,15 @@ function MyKpiCard({ kpi, delay, onView, onAdjust }: { kpi: KpiCriteria; delay: 
           </button>
         )}
         {kpi.submissionCount < (kpi.expectedSubmissions || 1) ? (
-          <Link to={`/submissions/new?kpiId=${kpi.id}`} className="flex-1 px-6 py-3 bg-slate-900 dark:bg-slate-800 text-white hover:bg-indigo-600 rounded-2xl font-black text-xs text-center transition-all uppercase tracking-widest">
-            Nộp báo cáo
-          </Link>
+          (!kpi.kpiPeriod?.startDate || new Date(kpi.kpiPeriod.startDate) <= new Date()) ? (
+            <Link to={`/submissions/new?kpiId=${kpi.id}`} className="flex-1 px-6 py-3 bg-slate-900 dark:bg-slate-800 text-white hover:bg-indigo-600 rounded-2xl font-black text-xs text-center transition-all uppercase tracking-widest">
+              Nộp báo cáo
+            </Link>
+          ) : (
+            <div className="flex-1 px-6 py-3 bg-slate-100 dark:bg-slate-800 text-slate-400 rounded-2xl font-black text-xs text-center uppercase tracking-widest border border-slate-200 dark:border-slate-700 cursor-not-allowed">
+              Chưa mở nộp
+            </div>
+          )
         ) : (
           <div className="flex-1 px-6 py-3 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 border border-emerald-100 dark:border-emerald-900/30 rounded-2xl font-black text-xs text-center flex items-center justify-center gap-2 uppercase tracking-widest">
             <CheckCircle2 size={16} /> Hoàn thành

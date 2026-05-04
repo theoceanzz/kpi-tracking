@@ -145,7 +145,8 @@ export default function UserFormModal({ open, onClose, editUser }: UserFormModal
       onClose()
     },
     onError: (error: any) => {
-      toast.error(error?.response?.data?.message || 'Cập nhật thất bại')
+      const errorMessage = error?.response?.data?.message || error?.message || 'Cập nhật thất bại'
+      toast.error(errorMessage)
     },
   })
 

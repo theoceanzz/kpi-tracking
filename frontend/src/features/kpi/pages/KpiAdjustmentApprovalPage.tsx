@@ -1,5 +1,6 @@
 import { useState, useMemo, useEffect } from 'react'
 import { useSearchParams } from 'react-router-dom'
+import { toast } from 'sonner'
 import LoadingSkeleton from '@/components/common/LoadingSkeleton'
 import EmptyState from '@/components/common/EmptyState'
 import KpiAdjustmentReviewModal from '../components/KpiAdjustmentReviewModal'
@@ -86,10 +87,19 @@ export default function KpiAdjustmentApprovalPage() {
   }
 
   const handleBulkReview = (status: AdjustmentStatus) => {
+    if (status === 'REJECTED' && !bulkNote.trim()) {
+      toast.error('Vui lòng nhập lý do từ chối')
+      return
+    }
+
     bulkReviewMutation.mutate({ ids: selectedIds, status, reviewerNote: bulkNote }, {
       onSuccess: () => {
+        toast.success(`Đã ${status === 'APPROVED' ? 'duyệt' : 'từ chối'} ${selectedIds.length} yêu cầu thành công`)
         setSelectedIds([])
         setBulkNote('')
+      },
+      onError: () => {
+        toast.error('Có lỗi xảy ra khi xử lý hàng loạt')
       }
     })
   }
@@ -231,6 +241,9 @@ export default function KpiAdjustmentApprovalPage() {
                     <th className="px-6 py-5 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 whitespace-nowrap">Chỉ tiêu đề xuất</th>
                     <th className="px-6 py-5 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 whitespace-nowrap">Người yêu cầu</th>
                     <th className="px-6 py-5 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 whitespace-nowrap">Lý do điều chỉnh</th>
+                    {(activeTab === 'APPROVED' || activeTab === 'REJECTED' || activeTab === 'ALL') && (
+                      <th className="px-6 py-5 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 whitespace-nowrap">Phản hồi của bạn</th>
+                    )}
                     <th className="px-8 py-5 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 text-right whitespace-nowrap">Thao tác</th>
                   </tr>
                 </thead>
@@ -288,6 +301,15 @@ export default function KpiAdjustmentApprovalPage() {
                         <td className="px-6 py-5">
                            <p className="text-xs text-slate-500 font-medium line-clamp-1 italic">"{request.reason}"</p>
                         </td>
+                        {(activeTab === 'APPROVED' || activeTab === 'REJECTED' || activeTab === 'ALL') && (
+                          <td className="px-6 py-5">
+                            {request.reviewerNote ? (
+                              <p className="text-xs text-emerald-600 dark:text-emerald-400 font-bold line-clamp-1">{request.reviewerNote}</p>
+                            ) : (
+                              <span className="text-[10px] text-slate-400 italic">Không có phản hồi</span>
+                            )}
+                          </td>
+                        )}
                         <td className="px-8 py-5 text-right">
                           <button 
                             onClick={() => setReviewAdjustment(request)}
@@ -307,33 +329,36 @@ export default function KpiAdjustmentApprovalPage() {
 
         {/* Bulk Actions Bar */}
         {selectedIds.length > 0 && (
-          <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-50 bg-slate-900 dark:bg-white text-white dark:text-slate-900 px-6 py-4 rounded-3xl shadow-2xl flex flex-col md:flex-row items-center gap-6 animate-in slide-in-from-bottom-10 duration-500 border border-slate-700/50 dark:border-slate-200/50">
-             <div className="flex items-center gap-3 pr-6 md:border-r border-slate-700/50 dark:border-slate-200/50">
-                <span className="text-xs font-black uppercase tracking-widest">Đã chọn {selectedIds.length} mục</span>
-                <button onClick={() => { setSelectedIds([]); setBulkNote('') }} className="text-[10px] font-black uppercase tracking-widest opacity-60 hover:opacity-100">Bỏ chọn</button>
+          <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-50 bg-slate-900 dark:bg-white text-white dark:text-slate-900 px-6 py-3 rounded-[24px] shadow-2xl flex items-center gap-5 animate-in slide-in-from-bottom-10 duration-500 border border-slate-700/50 dark:border-slate-200/50 backdrop-blur-xl">
+             <div className="flex items-center gap-4 pr-5 border-r border-slate-700/50 dark:border-slate-200/50 whitespace-nowrap">
+                <div className="flex flex-col items-start">
+                  <span className="text-[10px] font-black uppercase tracking-widest text-white/50 dark:text-slate-400">Đã chọn</span>
+                  <span className="text-sm font-black uppercase tracking-tight">{selectedIds.length} mục</span>
+                </div>
+                <button onClick={() => { setSelectedIds([]); setBulkNote('') }} className="text-[10px] font-black uppercase tracking-widest bg-white/10 dark:bg-slate-100 px-2 py-1 rounded-lg hover:bg-white/20 transition-all">Bỏ chọn</button>
              </div>
              
-             <div className="flex items-center gap-3 w-full md:w-auto">
+             <div className="flex items-center gap-3">
                <input 
                  value={bulkNote}
                  onChange={e => setBulkNote(e.target.value)}
-                 placeholder="Nhập phản hồi chung cho các mục đã chọn..."
-                 className="bg-slate-800 dark:bg-slate-100 text-xs font-medium px-4 py-2.5 rounded-xl border border-slate-700 dark:border-slate-200 outline-none focus:ring-2 focus:ring-amber-500/50 w-full md:w-80"
+                 placeholder="Nhập phản hồi chung..."
+                 className="bg-slate-800 dark:bg-slate-50 text-[11px] font-bold px-4 py-2.5 rounded-xl border border-slate-700 dark:border-slate-200 outline-none focus:ring-2 focus:ring-amber-500/50 w-64 transition-all"
                />
              </div>
 
-             <div className="flex items-center gap-3">
+             <div className="flex items-center gap-2">
                 <button 
                   onClick={() => handleBulkReview('REJECTED')}
                   disabled={bulkReviewMutation.isPending}
-                  className="px-5 py-2.5 rounded-xl bg-red-500/10 text-red-500 hover:bg-red-500 text-[10px] font-black uppercase tracking-widest hover:text-white transition-all disabled:opacity-50"
+                  className="px-5 py-2.5 rounded-xl bg-red-500/10 text-red-500 hover:bg-red-500 text-[10px] font-black uppercase tracking-widest hover:text-white transition-all disabled:opacity-50 whitespace-nowrap"
                 >
                    Từ chối
                 </button>
                 <button 
                   onClick={() => handleBulkReview('APPROVED')}
                   disabled={bulkReviewMutation.isPending}
-                  className="px-5 py-2.5 rounded-xl bg-emerald-500 text-white hover:bg-emerald-600 text-[10px] font-black uppercase tracking-widest shadow-lg shadow-emerald-500/20 transition-all disabled:opacity-50"
+                  className="px-5 py-2.5 rounded-xl bg-emerald-500 text-white hover:bg-emerald-600 text-[10px] font-black uppercase tracking-widest shadow-lg shadow-emerald-500/20 transition-all disabled:opacity-50 whitespace-nowrap"
                 >
                    Duyệt hàng loạt
                 </button>

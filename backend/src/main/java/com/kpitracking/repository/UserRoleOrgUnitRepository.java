@@ -48,6 +48,12 @@ public interface UserRoleOrgUnitRepository extends JpaRepository<UserRoleOrgUnit
     @Query("SELECT CASE WHEN COUNT(uro) > 0 THEN true ELSE false END FROM UserRoleOrgUnit uro WHERE uro.orgUnit.id = :orgUnitId AND uro.role.rank = :rank AND uro.user.id <> :excludeUserId")
     boolean existsByOrgUnitIdAndRoleRankAndUserIdNot(@Param("orgUnitId") UUID orgUnitId, @Param("rank") Integer rank, @Param("excludeUserId") UUID excludeUserId);
 
+    @Query("SELECT uro FROM UserRoleOrgUnit uro JOIN FETCH uro.user JOIN FETCH uro.role WHERE uro.orgUnit.id = :orgUnitId AND uro.role.rank = :rank")
+    List<UserRoleOrgUnit> findByOrgUnitIdAndRoleRank(@Param("orgUnitId") UUID orgUnitId, @Param("rank") Integer rank);
+
+    @Query("SELECT uro FROM UserRoleOrgUnit uro JOIN FETCH uro.user JOIN FETCH uro.role WHERE uro.orgUnit.id = :orgUnitId AND uro.role.rank = :rank AND uro.user.id <> :excludeUserId")
+    List<UserRoleOrgUnit> findByOrgUnitIdAndRoleRankAndUserIdNot(@Param("orgUnitId") UUID orgUnitId, @Param("rank") Integer rank, @Param("excludeUserId") UUID excludeUserId);
+
     @Query("SELECT COUNT(DISTINCT uro.user.id) FROM UserRoleOrgUnit uro WHERE uro.orgUnit.orgHierarchyLevel.organization.id = :orgId")
     long countUsersByOrganizationId(@Param("orgId") UUID orgId);
 
