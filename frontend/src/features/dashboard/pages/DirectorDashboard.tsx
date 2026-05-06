@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import LoadingSkeleton from '@/components/common/LoadingSkeleton'
 import { useOrganization } from '@/features/orgunits/hooks/useOrganization'
@@ -12,6 +12,7 @@ import { useKpiPeriods } from '@/features/kpi/hooks/useKpiPeriods'
 import { reportApi } from '@/features/reports/api/reportApi'
 import { toast } from 'sonner'
 import type { OrgUnitStats, EmployeeKpiStats } from '@/types/stats'
+import { exportPerformanceToExcel } from '@/utils/performanceExport'
 import type { ReportWidget } from '@/types/datasource'
 import { useSummaryTrend, useSummaryComparison, useSummaryRisks, useSummaryStats } from '@/features/analytics/hooks/useAnalytics'
 import {
@@ -24,6 +25,7 @@ import {
   XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, 
   BarChart, Bar, PieChart, Pie, Cell, AreaChart, Area, Legend, Tooltip
 } from 'recharts'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 
 const COLORS = ['#6366f1', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'];
 
@@ -31,33 +33,30 @@ type TabView = 'overview' | 'orgUnits' | 'employees'
 
 export default function DirectorDashboard() {
   const [empPage, setEmpPage] = useState(0)
+  const [isExporting, setIsExporting] = useState(false)
+  const [activeTab, setActiveTab] = useState<TabView>('overview')
+  const [empSearch, setEmpSearch] = useState('')
+  const [orgUnitFilter, setOrgUnitFilter] = useState<string>('ALL')
   const empSize = 10
+
   const { data: stats, isLoading: loadingStats } = useOverviewStats()
   const { data: orgUnitStats, isLoading: loadingOrgUnits } = useOrgUnitStats()
-  const { data: empStats, isLoading: loadingEmps } = useEmployeeStats(empPage, empSize)
-  const { data: allEmpStats } = useEmployeeStats(0, 500)
-  // const queryClient = useQueryClient()
-
-  // Load real KPI and submission data
-  /*
-  const { data: recentKpiData, isLoading: loadingRecentKpis } = useQuery({
-    queryKey: ['kpi-criteria', 'director-dash', 'APPROVED'],
-    queryFn: () => kpiApi.getAll({ page: 0, size: 10, status: 'APPROVED' as any }),
-  })
-  const { data: recentSubData, isLoading: loadingRecentSubs } = useQuery({
-    queryKey: ['submissions', 'director-dash'],
-    queryFn: () => submissionApi.getAll({ page: 0, size: 10 }),
-  })
-  */
+  const { data: empStats, isLoading: loadingEmps } = useEmployeeStats(empPage, empSize, orgUnitFilter !== 'ALL' ? orgUnitFilter : undefined)
+  const { data: allEmpStats } = useEmployeeStats(0, 500, orgUnitFilter !== 'ALL' ? orgUnitFilter : undefined)
 
   const { data: pinnedWidgets, isLoading: loadingPinned, refetch: refetchPinned } = useQuery({
     queryKey: ['reports', 'widgets', 'pinned'],
     queryFn: () => reportApi.getPinnedWidgets(),
   })
 
-  const [activeTab, setActiveTab] = useState<TabView>('overview')
-  const [empSearch, setEmpSearch] = useState('')
-  const [orgUnitFilter] = useState<string>('ALL')
+
+
+  useEffect(() => {
+    if (orgUnitStats && orgUnitStats.length > 0 && orgUnitFilter === 'ALL') {
+      const root = orgUnitStats.find(u => u.parentOrgUnitId === null)
+      if (root) setOrgUnitFilter(root.orgUnitId)
+    }
+  }, [orgUnitStats])
 
   const { user } = useAuthStore()
   const orgId = user?.memberships?.[0]?.organizationId
@@ -105,15 +104,19 @@ export default function DirectorDashboard() {
   const filteredEmployees = useMemo(() => {
     const list = empStats?.content ?? []
     return list.filter(e =>
-      (orgUnitFilter === 'ALL' || e.orgUnitName === orgUnitFilter) &&
       ((e.fullName || '').toLowerCase().includes(empSearch.toLowerCase()) || 
        (e.email || '').toLowerCase().includes(empSearch.toLowerCase()))
     )
   }, [empStats, empSearch, orgUnitFilter])
 
   const filteredOrgUnits = useMemo(() => {
-    return (orgUnitStats ?? []).filter(ou => ou.parentOrgUnitId != null)
-  }, [orgUnitStats])
+    if (!orgUnitStats) return []
+    // Filter units that have assignments and are NOT the currently selected root unit
+    return orgUnitStats.filter(ou => 
+      ou.totalAssignments > 0 && 
+      (orgUnitFilter === 'ALL' || ou.orgUnitId !== orgUnitFilter)
+    )
+  }, [orgUnitStats, orgUnitFilter])
 
   const unitAverageScores = useMemo(() => {
     const unitTotals: Record<string, number> = {}
@@ -140,6 +143,23 @@ export default function DirectorDashboard() {
     { name: 'Chờ duyệt', value: stats?.pendingSubmissions ?? 0, color: '#f59e0b' },
     { name: 'Từ chối', value: stats?.rejectedSubmissions ?? 0, color: '#ef4444' },
   ]
+
+  const handleExport = async () => {
+    if (!allEmpStats?.content || allEmpStats.content.length === 0) {
+      toast.error('Không có dữ liệu để xuất')
+      return
+    }
+    setIsExporting(true)
+    try {
+      await exportPerformanceToExcel(allEmpStats.content)
+      toast.success('Đã xuất báo cáo thành công')
+    } catch (error) {
+      console.error('Export error:', error)
+      toast.error('Có lỗi xảy ra khi xuất báo cáo')
+    } finally {
+      setIsExporting(false)
+    }
+  }
 
   if (isLoading) return (
     <div className="max-w-[1600px] mx-auto p-8 space-y-8">
@@ -291,7 +311,7 @@ export default function DirectorDashboard() {
                     <Building2 size={12} />
                     <span className="text-[9px] font-black uppercase tracking-widest">Cơ cấu Đơn vị</span>
                   </div>
-                  <p className="text-base font-black text-slate-900 dark:text-white">{Object.keys(groups).length} Phòng ban</p>
+                  <p className="text-base font-black text-slate-900 dark:text-white">{stats?.totalOrgUnits ?? 0} Phòng ban</p>
                 </div>
                 <div className="flex flex-col items-center justify-center space-y-1 px-4">
                   <div className="flex items-center gap-1.5 text-slate-400 mb-1">
@@ -396,12 +416,12 @@ export default function DirectorDashboard() {
                   />
                 ) : null}
                 
-                {orgUnitStats?.filter(u => (u.totalKpi > 0 && (u.approvedKpi / u.totalKpi) < 0.3)).map(unit => (
+                {orgUnitStats?.filter(u => (u.totalAssignments > 0 && (u.totalSubmissions / u.totalAssignments) < 0.3)).map(unit => (
                   <AlertItem 
                     key={unit.orgUnitId}
                     icon={<Building2 size={18} />}
                     title={`${unit.orgUnitName} tiến độ quá thấp`}
-                    sub={`Chỉ mới đạt ${Math.round((unit.approvedKpi / unit.totalKpi) * 100)}% chỉ tiêu`}
+                    sub={`Chỉ mới đạt ${Math.round((unit.totalSubmissions / (unit.totalAssignments || 1)) * 100)}% chỉ tiêu`}
                     color="amber"
                     link={`/org-units/${unit.orgUnitId}`}
                   />
@@ -418,7 +438,7 @@ export default function DirectorDashboard() {
                   />
                 ))}
 
-                {(!stats?.pendingKpi && !orgUnitStats?.some(u => (u.approvedKpi / u.totalKpi) < 0.3) && !empStats?.content?.some(e => e.assignedKpi > 0 && e.approvedSubmissions < e.assignedKpi)) && (
+                {(!stats?.pendingKpi && !orgUnitStats?.some(u => (u.totalAssignments > 0 && (u.totalSubmissions / u.totalAssignments) < 0.3)) && !empStats?.content?.some(e => e.assignedKpi > 0 && e.approvedSubmissions < e.assignedKpi)) && (
                   <div className="py-12 text-center h-full flex flex-col items-center justify-center">
                     <div className="w-16 h-16 rounded-full bg-emerald-500/10 flex items-center justify-center mx-auto mb-4 text-emerald-400 border border-emerald-500/20">
                       <ShieldCheck size={32} />
@@ -481,6 +501,11 @@ export default function DirectorDashboard() {
                 page={empPage}
                 totalPages={empStats?.totalPages ?? 1}
                 onPageChange={setEmpPage}
+                onExport={handleExport}
+                isExporting={isExporting}
+                orgUnitFilter={orgUnitFilter}
+                onOrgUnitFilterChange={setOrgUnitFilter}
+                orgUnits={orgUnitStats || []}
             />
           )}
         </div>
@@ -687,7 +712,7 @@ function OrgUnitsGrid({ units, averageScores }: { units: OrgUnitStats[], average
          const avgScore = averageScores[unitName]
          const kRate = (avgScore !== undefined && avgScore !== null && avgScore > 0) 
            ? Math.round(avgScore) 
-           : (unit.totalKpi > 0 ? Math.round((unit.approvedSubmissions / unit.totalKpi) * 100) : 0)
+           : (unit.totalAssignments > 0 ? Math.round((unit.totalSubmissions / unit.totalAssignments) * 100) : 0)
          
          return (
            <div key={unit.orgUnitId} className="group relative bg-white dark:bg-slate-900 rounded-[32px] border border-slate-200/50 dark:border-slate-800/50 p-8 hover:shadow-[0_30px_60px_-15px_rgba(99,102,241,0.15)] transition-all duration-500 flex flex-col justify-between overflow-hidden hover:-translate-y-2">
@@ -750,7 +775,11 @@ function OrgUnitsGrid({ units, averageScores }: { units: OrgUnitStats[], average
   )
 }
 
-function EmployeesExecutiveTable({ employees, loading, search, onSearchChange, page, totalPages, onPageChange }: any) {
+function EmployeesExecutiveTable({ 
+  employees, loading, search, onSearchChange, 
+  page, totalPages, onPageChange, onExport, 
+  isExporting, orgUnitFilter, onOrgUnitFilterChange, orgUnits 
+}: any) {
   if (loading) return (
     <div className="space-y-6">
        {[1,2,3,4,5].map(i => (
@@ -770,14 +799,42 @@ function EmployeesExecutiveTable({ employees, loading, search, onSearchChange, p
                <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mt-0.5">Thống kê hiệu suất cá nhân</p>
              </div>
           </div>
-          <div className="relative w-full lg:w-[400px] group">
-            <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-500 transition-colors" size={18} />
-            <input 
-              value={search}
-              onChange={e => onSearchChange(e.target.value)}
-              placeholder="Search by name or email..."
-              className="w-full pl-14 pr-8 py-4 rounded-[22px] bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/5 outline-none text-sm transition-all shadow-sm"
-            />
+          <div className="flex flex-col md:flex-row items-center gap-4 w-full lg:w-auto">
+            <div className="relative w-full lg:w-[350px] group">
+              <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-500 transition-colors" size={18} />
+              <input 
+                value={search}
+                onChange={e => onSearchChange(e.target.value)}
+                placeholder="Search by name or email..."
+                className="w-full pl-14 pr-8 py-3.5 rounded-[22px] bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/5 outline-none text-sm transition-all shadow-sm"
+              />
+            </div>
+            <div className="w-full md:w-[220px]">
+              <Select value={orgUnitFilter} onValueChange={onOrgUnitFilterChange}>
+                <SelectTrigger className="w-full h-[54px] rounded-[22px] bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 font-bold text-xs uppercase tracking-widest px-6">
+                  <SelectValue placeholder="Tất cả đơn vị" />
+                </SelectTrigger>
+                <SelectContent className="rounded-2xl shadow-2xl border-slate-100 dark:border-slate-800">
+                  {orgUnits.map((u: any) => (
+                    <SelectItem key={u.orgUnitId} value={u.orgUnitId} className="text-xs font-bold uppercase tracking-widest py-3">
+                      {u.orgUnitName}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <button
+              onClick={onExport}
+              disabled={isExporting}
+              className="w-full md:w-auto flex items-center justify-center gap-2 px-6 py-3.5 rounded-[22px] bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-black uppercase tracking-widest transition-all shadow-lg shadow-emerald-500/20 disabled:opacity-50 active:scale-95 shrink-0"
+            >
+              {isExporting ? (
+                <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+              ) : (
+                <FileText size={16} />
+              )}
+              {isExporting ? 'Đang xuất...' : 'Xuất báo cáo'}
+            </button>
           </div>
        </div>
        <div className="overflow-x-auto">

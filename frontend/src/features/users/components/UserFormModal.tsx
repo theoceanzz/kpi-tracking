@@ -108,23 +108,14 @@ export default function UserFormModal({ open, onClose, editUser }: UserFormModal
       }
 
       if (hierarchyLevels.length > 0) {
-        const levelCount = hierarchyLevels.length
+        const activeRoleLevels = new Set(hierarchyLevels.map(l => l.roleLevel))
         
-        // 1. Strictly lower level check (e.g. Level 2 can't see Level 1)
-        if (r.level !== undefined && r.level < currentUserLevel) {
-          return false
-        }
+        // 1. Structural check: Must be in company hierarchy
+        if (r.level === undefined || !activeRoleLevels.has(r.level)) return false
 
-        // 2. Same level rank check (e.g. Leader Rank 0 can't see Leader Rank 0)
-        if (r.level === currentUserLevel && r.rank !== undefined && r.rank <= currentUserRank) {
-          return false
-        }
-
-        // 3. Hierarchy structural filters
-        if (r.rank === 2) return true
-        if (r.level === 0 && r.rank === 0) return levelCount >= 1
-        if (r.level === 1) return levelCount > 2
-        if (r.level === 2 && (r.rank === 0 || r.rank === 1)) return true
+        // 2. Authority check: Cannot assign roles above or equal to own level/rank
+        if (r.level !== undefined && r.level < currentUserLevel) return false
+        if (r.level === currentUserLevel && r.rank !== undefined && r.rank <= currentUserRank) return false
       }
       return true
     })

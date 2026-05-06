@@ -15,5 +15,4 @@ public class CreateRoleRequest {
 
     private Integer level;
     private Integer rank;
-    private UUID parentRoleId;
 }

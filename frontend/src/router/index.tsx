@@ -33,6 +33,7 @@ import OrgUnitSubmissionsPage from '@/features/submissions/pages/OrgUnitSubmissi
 import EvaluationsPage from '@/features/evaluations/pages/EvaluationsPage'
 import ProfilePage from '@/features/profile/pages/ProfilePage'
 import NotificationsPage from '@/features/notifications/pages/NotificationsPage'
+import ForceChangePasswordPage from '@/features/auth/pages/ForceChangePasswordPage'
 import MyAdjustmentsPage from '../features/kpi/pages/MyAdjustmentsPage'
 import KpiPeriodsPage from '@/features/kpi/pages/KpiPeriodsPage'
 import DatasourcesPage from '@/features/datasources/pages/DatasourcesPage'
@@ -40,6 +41,7 @@ import DatasourceDetailPage from '@/features/datasources/pages/DatasourceDetailP
 import ReportsPage from '@/features/reports/pages/ReportsPage'
 import ReportDetailPage from '@/features/reports/pages/ReportDetailPage'
 import AnalyticsPage from '@/features/analytics/pages/AnalyticsPage'
+import SystemSettingsPage from '@/features/organization/pages/SystemSettingsPage'
 
 // Dashboard router helper
 import DashboardRedirect from '@/features/dashboard/pages/DashboardRedirect'
@@ -58,6 +60,7 @@ export const router = createBrowserRouter([
   {
     element: <ProtectedRoute />,
     children: [
+      { path: '/force-password-change', element: <ForceChangePasswordPage /> },
       {
         element: <AppLayout />,
         children: [
@@ -85,12 +88,13 @@ export const router = createBrowserRouter([
               { path: '/roles', element: <RoleManagementPage /> },
               { path: '/org-structure', element: <OrganizationStructurePage /> },
               { path: '/org-units/:id', element: <OrgUnitDetailPage /> },
+              { path: '/settings', element: <SystemSettingsPage /> },
             ],
           },
 
           // Director + Head + Deputy
           {
-            element: <PermissionRoute permission={['KPI:VIEW', 'SUBMISSION:REVIEW']} />,
+            element: <PermissionRoute permission={['KPI:VIEW', 'SUBMISSION:REVIEW', 'USER:VIEW_LIST']} />,
             children: [
               { path: '/dashboard/head', element: <HeadDashboard /> },
               { path: '/org-units/:id', element: <OrgUnitDetailPage /> },

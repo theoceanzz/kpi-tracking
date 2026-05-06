@@ -28,6 +28,7 @@ export interface OrgUnitStats {
   approvedSubmissions: number
   pendingSubmissions: number
   rejectedSubmissions: number
+  totalAssignments: number
 }
 
 // Matches BE: EmployeeKpiStatsResponse
@@ -66,6 +67,7 @@ export interface MyKpiProgress {
   pendingSubmissions: number
   rejectedSubmissions: number
   lateSubmissions: number
+  pendingTaskCount: number
   averageScore: number | null
   tasks: {
     content: KpiTask[]

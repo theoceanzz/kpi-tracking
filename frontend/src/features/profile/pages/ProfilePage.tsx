@@ -12,7 +12,7 @@ import { toast } from 'sonner'
 import {
   User, Mail, Phone, Building2, Shield,
   CheckCircle2, UserCircle2, Loader2, Pencil, X, Save,
-  Eye, EyeOff, Lock, Camera, Wand2, Check, KeyRound
+  Eye, EyeOff, Lock, Camera, Wand2, Check, KeyRound, AlertCircle
 } from 'lucide-react'
 
 
@@ -94,7 +94,7 @@ export default function ProfilePage() {
               <h1 className="text-3xl md:text-4xl font-black tracking-tight mb-3">{user.fullName}</h1>
               <div className="flex flex-wrap items-center justify-center md:justify-start gap-3">
                 <span className="flex items-center gap-1.5 bg-white/15 backdrop-blur-sm px-4 py-1.5 rounded-full text-sm font-bold">
-                  <Shield size={14} /> {user.memberships?.[0]?.roleLabel || ROLE_MAP[user.roles?.[0] || ''] || user.roles?.[0] || 'N/A'}
+                  <Shield size={14} /> {user.memberships?.[0]?.roleName || ROLE_MAP[user.roles?.[0] || ''] || user.roles?.[0] || 'N/A'}
                 </span>
                 <span className="flex items-center gap-1.5 bg-white/15 backdrop-blur-sm px-4 py-1.5 rounded-full text-sm font-bold">
                   <Building2 size={14} /> {user.memberships?.[0]?.orgUnitName || 'N/A'}
@@ -265,7 +265,7 @@ function ProfileInfoTab({ user, onUserUpdate }: { user: any; onUserUpdate: (u: a
             <InfoField icon={Mail} iconColor="text-blue-500" iconBg="bg-blue-50 dark:bg-blue-900/20" label="Địa chỉ Email" value={user.email} />
             <InfoField icon={Phone} iconColor="text-emerald-500" iconBg="bg-emerald-50 dark:bg-emerald-900/20" label="Số điện thoại" value={user.phone || 'Chưa cập nhật'} />
             <InfoField icon={Building2} iconColor="text-amber-500" iconBg="bg-amber-50 dark:bg-amber-900/20" label="Đơn vị" value={`${user.memberships?.[0]?.orgUnitName || 'Chưa cập nhật'}${user.memberships?.[0]?.unitTypeLabel ? ` (${user.memberships[0].unitTypeLabel})` : ''}`} />
-            <InfoField icon={Shield} iconColor="text-purple-500" iconBg="bg-purple-50 dark:bg-purple-900/20" label="Chức vụ" value={user.memberships?.[0]?.roleLabel || ROLE_MAP[user.roles?.[0] || ''] || user.roles?.[0] || 'N/A'} />
+            <InfoField icon={Shield} iconColor="text-purple-500" iconBg="bg-purple-50 dark:bg-purple-900/20" label="Chức vụ" value={user.memberships?.[0]?.roleName || ROLE_MAP[user.roles?.[0] || ''] || user.roles?.[0] || 'N/A'} />
             <InfoField icon={CheckCircle2} iconColor="text-emerald-500" iconBg="bg-emerald-50 dark:bg-emerald-900/20" label="Trạng thái" value="Đang hoạt động" />
           </div>
         )}
@@ -292,7 +292,8 @@ function InfoField({ icon: Icon, iconColor, iconBg, label, value }: {
 
 /* ========== Security Tab ========== */
 function SecurityTab() {
-  const { register, handleSubmit, formState: { errors }, watch, control, setValue, reset } = useForm<{
+  const { user, setUser } = useAuthStore()
+  const { register, handleSubmit, formState: { errors }, watch, control, setValue, reset, setError } = useForm<{
     currentPassword: string; newPassword: string; confirmPassword: string
   }>()
 
@@ -348,10 +349,20 @@ function SecurityTab() {
     mutationFn: (data: { currentPassword: string; newPassword: string; confirmPassword: string }) => authApi.changePassword(data),
     onSuccess: () => { 
       toast.success('Đổi mật khẩu bảo mật thành công')
+      if (user) {
+        setUser({ ...user, requirePasswordChange: false })
+      }
       reset()
       setShowCurrent(false); setShowNew(false); setShowConfirm(false) 
     },
-    onError: () => toast.error('Đổi mật khẩu thất bại. Vui lòng kiểm tra mật khẩu hiện tại.'),
+    onError: (error: any) => {
+      const message = error.response?.data?.message || 'Đổi mật khẩu thất bại. Vui lòng thử lại.'
+      if (message.includes('Mật khẩu hiện tại')) {
+        setError('currentPassword', { type: 'manual', message: message })
+      } else {
+        toast.error(message)
+      }
+    },
   })
 
   const inputCls = "w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-400 transition-all"
@@ -441,6 +452,14 @@ function SecurityTab() {
                 </button>
               </div>
 
+              {/* Match Current Password Error */}
+              {pwd && watch('currentPassword') && pwd === watch('currentPassword') && (
+                <div className="mt-2.5 px-3 py-2 rounded-xl flex items-center gap-2 text-[11px] font-bold bg-red-50 dark:bg-red-500/10 text-red-600 border border-red-100 dark:border-red-500/20 animate-in fade-in slide-in-from-top-1 duration-200">
+                  <AlertCircle size={14} />
+                  <span>Mật khẩu mới không được trùng với mật khẩu hiện tại</span>
+                </div>
+              )}
+
               {/* Strength Meter & Checklist */}
               {pwd && (
                 <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 animate-in fade-in slide-in-from-top-2 duration-300">
@@ -509,7 +528,7 @@ function SecurityTab() {
             <div className="pt-6 border-t border-slate-100 dark:border-slate-800">
               <button
                 type="submit"
-                disabled={mutation.isPending}
+                disabled={mutation.isPending || (pwd.length > 0 && (pwd !== confirmPwd || pwd === watch('currentPassword') || strengthScore < 3))}
                 className="w-full md:w-auto px-10 py-3.5 rounded-2xl bg-indigo-600 text-white font-black text-sm hover:bg-indigo-700 shadow-xl shadow-indigo-500/30 disabled:opacity-50 transition-all flex items-center justify-center gap-2 active:scale-95"
               >
                 {mutation.isPending ? <Loader2 size={18} className="animate-spin" /> : <Save size={18} />}

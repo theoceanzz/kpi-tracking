@@ -52,6 +52,21 @@ CREATE TABLE organizations (
 );
 
 -- ====================================================
+-- Sidebar Settings
+-- ====================================================
+CREATE TABLE sidebar_settings (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    organization_id UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+    menu_key VARCHAR(255) NOT NULL,
+    custom_label VARCHAR(255) NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    deleted_at TIMESTAMP WITH TIME ZONE
+);
+
+CREATE INDEX idx_sidebar_settings_org_key ON sidebar_settings(organization_id, menu_key);
+
+-- ====================================================
 -- Organization Hierarchy Levels
 -- ====================================================
 
@@ -61,6 +76,7 @@ CREATE TABLE org_hierarchy_levels (
     level_order     INT NOT NULL,
     unit_type_name   VARCHAR(100) NOT NULL,
     manager_role_label VARCHAR(100), -- Nullable for the last level
+    role_level      INT NOT NULL,
     created_at      TIMESTAMPTZ DEFAULT NOW(),
     updated_at      TIMESTAMPTZ DEFAULT NOW(),
     UNIQUE (organization_id, level_order)
@@ -115,7 +131,8 @@ CREATE TABLE users (
     created_at          TIMESTAMPTZ     DEFAULT NOW(),
     updated_at          TIMESTAMPTZ     DEFAULT NOW(),
     deleted_at          TIMESTAMPTZ,
-    employee_code VARCHAR(50)
+    employee_code       VARCHAR(50),
+    require_password_change BOOLEAN     NOT NULL DEFAULT FALSE
 );
 
 CREATE INDEX idx_users_email ON users(email);
@@ -126,17 +143,17 @@ CREATE UNIQUE INDEX idx_users_employee_code ON users(employee_code);
 -- Roles
 -- ====================================================
 CREATE TABLE roles (
-  id         UUID         PRIMARY KEY DEFAULT gen_random_uuid(),
-  name       VARCHAR(100) NOT NULL,
-  parent_role_id UUID     REFERENCES roles(id) ON DELETE SET NULL,
-  is_system  BOOLEAN      NOT NULL DEFAULT false,
-  created_by UUID         REFERENCES users(id) ON DELETE SET NULL,
-  created_at TIMESTAMPTZ  NOT NULL DEFAULT now(),
-  updated_at TIMESTAMPTZ  NOT NULL DEFAULT now(),
-  deleted_at TIMESTAMPTZ,
-  level      INT,
-  rank       INT,
-  UNIQUE (name)
+  id              UUID         PRIMARY KEY DEFAULT gen_random_uuid(),
+  organization_id UUID         REFERENCES organizations(id) ON DELETE CASCADE,
+  name            VARCHAR(100) NOT NULL,
+  is_system       BOOLEAN      NOT NULL DEFAULT false,
+  created_by      UUID         REFERENCES users(id) ON DELETE SET NULL,
+  created_at      TIMESTAMPTZ  NOT NULL DEFAULT now(),
+  updated_at      TIMESTAMPTZ  NOT NULL DEFAULT now(),
+  deleted_at      TIMESTAMPTZ,
+  level           INT,
+  rank            INT,
+  UNIQUE (name, organization_id)
 );
 
 -- ====================================================
@@ -234,6 +251,7 @@ CREATE TABLE kpi_periods (
     period_type     VARCHAR(20)     NOT NULL,
     start_date      TIMESTAMPTZ,
     end_date        TIMESTAMPTZ,
+    notification_date TIMESTAMPTZ,
     created_at      TIMESTAMPTZ     DEFAULT NOW(),
     updated_at      TIMESTAMPTZ     DEFAULT NOW(),
     deleted_at      TIMESTAMPTZ
@@ -350,6 +368,7 @@ CREATE TABLE evaluations (
     evaluator_id        UUID            NOT NULL REFERENCES users(id),
     score               DOUBLE PRECISION,
     comment             TEXT,
+    system_score        DOUBLE PRECISION,
     period_start        TIMESTAMPTZ,
     period_end          TIMESTAMPTZ,
     created_at          TIMESTAMPTZ     DEFAULT NOW(),

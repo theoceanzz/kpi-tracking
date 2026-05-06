@@ -73,7 +73,7 @@ export default function EvaluationFormModal({ open, onClose, readOnly = false, i
     if (!selectedPeriodId || !myKpis?.content || !mySubmissions?.content) return 0
     const periodKpiIds = new Set(myKpis.content.map(k => k.id))
     const total = mySubmissions.content
-      .filter(s => periodKpiIds.has(s.kpiCriteriaId) && (s.status === 'APPROVED' || s.status === 'PENDING'))
+      .filter(s => periodKpiIds.has(s.kpiCriteriaId) && (s.status === 'APPROVED' || s.status === 'PENDING' || s.status === 'REJECTED'))
       .reduce((sum, s) => sum + (s.autoScore || 0), 0)
     return Math.min(maxScore, Math.round(total))
   }, [selectedPeriodId, myKpis, mySubmissions, maxScore])

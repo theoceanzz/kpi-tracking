@@ -24,6 +24,7 @@ public interface SubmissionMapper {
     @Mapping(source = "kpiCriteria.kpiPeriod.id", target = "kpiPeriod.id")
     @Mapping(source = "kpiCriteria.kpiPeriod.name", target = "kpiPeriod.name")
     @Mapping(source = "attachments", target = "attachments")
+    @Mapping(target = "isSubmittedByManager", ignore = true)
     SubmissionResponse toResponse(KpiSubmission submission);
 
     AttachmentResponse toAttachmentResponse(SubmissionAttachment attachment);

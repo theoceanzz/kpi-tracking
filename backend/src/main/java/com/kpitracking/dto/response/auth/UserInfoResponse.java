@@ -19,4 +19,5 @@ public class UserInfoResponse {
     private java.util.List<com.kpitracking.dto.response.user.UserMembershipResponse> memberships;
     private List<String> roles;
     private List<String> permissions;
+    private Boolean requirePasswordChange;
 }

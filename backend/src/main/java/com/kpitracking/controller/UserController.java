@@ -49,7 +49,7 @@ public class UserController {
     }
 
     @GetMapping
-    @PreAuthorize("hasAuthority('USER:VIEW')")
+    @PreAuthorize("hasAnyAuthority('USER:VIEW', 'USER:VIEW_LIST')")
     @Operation(summary = "List users with optional search")
     public ResponseEntity<ApiResponse<PageResponse<UserResponse>>> getUsers(
             @RequestParam(defaultValue = "0") int page,
@@ -64,7 +64,7 @@ public class UserController {
     }
 
     @GetMapping("/{userId}")
-    @PreAuthorize("hasAuthority('USER:VIEW')")
+    @PreAuthorize("hasAnyAuthority('USER:VIEW', 'USER:VIEW_LIST')")
     @Operation(summary = "Get user by ID")
     public ResponseEntity<ApiResponse<UserResponse>> getUserById(@PathVariable UUID userId) {
         UserResponse response = userService.getUserById(userId);

@@ -1,13 +1,60 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import LoadingSkeleton from '@/components/common/LoadingSkeleton'
 import EmptyState from '@/components/common/EmptyState'
 import StatusBadge from '@/components/common/StatusBadge'
 import { useMyAdjustments } from '../hooks/useMyAdjustments'
-import { formatDateTime, formatNumber } from '@/lib/utils'
+import { cn, formatDateTime, formatNumber } from '@/lib/utils'
 import {
   AlertCircle, ChevronRight, ChevronLeft, 
   Target, Award, Clock, History
 } from 'lucide-react'
+
+const CountdownTimer = ({ createdAt, status }: { createdAt: string, status: string }) => {
+  const [timeLeft, setTimeLeft] = useState<string>('')
+
+  useEffect(() => {
+    if (status !== 'PENDING') {
+      setTimeLeft('---')
+      return
+    }
+
+    const targetTime = new Date(createdAt).getTime() + 24 * 60 * 60 * 1000
+    
+    const update = () => {
+      const now = new Date().getTime()
+      const diff = targetTime - now
+      
+      if (diff <= 0) {
+        setTimeLeft('Hết hạn')
+        return
+      }
+      
+      const hours = Math.floor(diff / (1000 * 60 * 60))
+      const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60))
+      const seconds = Math.floor((diff % (1000 * 60)) / 1000)
+      
+      setTimeLeft(`${hours}h ${minutes}m ${seconds}s`)
+    }
+    
+    update()
+    const timer = setInterval(update, 1000)
+    return () => clearInterval(timer)
+  }, [createdAt, status])
+
+  if (status !== 'PENDING') return <span className="text-slate-300">---</span>
+
+  return (
+    <div className="flex flex-col">
+      <span className={cn(
+        "text-[11px] font-black tracking-tighter",
+        timeLeft === 'Hết hạn' ? 'text-red-500' : 'text-amber-500 animate-pulse'
+      )}>
+        {timeLeft}
+      </span>
+      <span className="text-[9px] text-slate-400 font-bold uppercase tracking-widest">Còn lại</span>
+    </div>
+  )
+}
 
 export default function MyAdjustmentsPage() {
   const [page, setPage] = useState(0)
@@ -55,8 +102,9 @@ export default function MyAdjustmentsPage() {
                 <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400">Trạng thái</th>
                 <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400">Chỉ tiêu</th>
                 <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400">Thay đổi</th>
+                <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400">Đếm ngược (24h)</th>
                 <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400">Lý do</th>
-                <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400">Thời gian</th>
+                <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400">Ngày gửi</th>
                 <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400 text-right">Phản hồi</th>
               </tr>
             </thead>
@@ -103,7 +151,10 @@ export default function MyAdjustmentsPage() {
                     </div>
                   </td>
                   <td className="px-6 py-4">
-                    <p className="text-xs text-slate-600 dark:text-slate-400 truncate max-w-[250px] italic whitespace-nowrap">
+                    <CountdownTimer createdAt={adj.createdAt} status={adj.status} />
+                  </td>
+                  <td className="px-6 py-4">
+                    <p className="text-xs text-slate-600 dark:text-slate-400 truncate max-w-[200px] italic whitespace-nowrap">
                       "{adj.reason}"
                     </p>
                   </td>

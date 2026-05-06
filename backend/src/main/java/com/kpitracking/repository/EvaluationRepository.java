@@ -20,12 +20,12 @@ public interface EvaluationRepository extends JpaRepository<Evaluation, UUID> {
     Page<Evaluation> findByUserIdAndKpiPeriodId(UUID userId, UUID kpiPeriodId, Pageable pageable);
 
     @Query("SELECT e FROM Evaluation e WHERE " +
-           "(e.user.id = :currentUserId OR EXISTS (SELECT 1 FROM OrgUnit au WHERE e.orgUnit.path LIKE CONCAT(au.path, '%') AND au.id IN :allowedOrgUnitIds)) AND " +
+           "(e.user.id = :currentUserId OR EXISTS (SELECT 1 FROM UserRoleOrgUnit uro_perm WHERE uro_perm.user.id = e.user.id AND uro_perm.orgUnit.id IN :allowedOrgUnitIds) OR EXISTS (SELECT 1 FROM OrgUnit au WHERE e.orgUnit.path LIKE CONCAT(au.path, '%') AND au.id IN :allowedOrgUnitIds)) AND " +
            "(:userId IS NULL OR e.user.id = :userId) AND " +
            "(:kpiPeriodId IS NULL OR e.kpiPeriod.id = :kpiPeriodId) AND " +
            "(:orgUnitPath IS NULL OR e.orgUnit.path LIKE :orgUnitPath) AND " +
            "(:evaluatorId IS NULL OR e.evaluator.id = :evaluatorId) AND " +
-           "(:currentUserRank IS NULL OR :currentUserLevel = 0 OR e.user.id = :currentUserId OR (EXISTS (SELECT 1 FROM UserRoleOrgUnit uro1 JOIN uro1.role r1 WHERE uro1.user.id = e.user.id AND (r1.level > :currentUserLevel OR (r1.level = :currentUserLevel AND r1.rank > :currentUserRank))) AND NOT EXISTS (SELECT 1 FROM UserRoleOrgUnit uro2 JOIN uro2.role r2 WHERE uro2.user.id = e.user.id AND (r2.level < :currentUserLevel OR (r2.level = :currentUserLevel AND r2.rank <= :currentUserRank)))))")
+           "(:currentUserRank IS NULL OR :currentUserLevel = 0 OR e.user.id = :currentUserId OR (SELECT MIN(uro_sub.role.level * 100 + uro_sub.role.rank) FROM UserRoleOrgUnit uro_sub WHERE uro_sub.user.id = e.user.id) > (:currentUserLevel * 100 + :currentUserRank))")
     Page<Evaluation> findAllWithFilters(
             @Param("currentUserId") UUID currentUserId,
             @Param("allowedOrgUnitIds") java.util.Collection<UUID> allowedOrgUnitIds,

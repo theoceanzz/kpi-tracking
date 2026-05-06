@@ -66,6 +66,9 @@ public class KpiSubmission {
     @Column(name = "auto_score")
     private Double autoScore;
 
+    @Column(name = "manager_score")
+    private Double managerScore;
+
     @OneToMany(mappedBy = "submission", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     @Builder.Default
     private List<SubmissionAttachment> attachments = new ArrayList<>();

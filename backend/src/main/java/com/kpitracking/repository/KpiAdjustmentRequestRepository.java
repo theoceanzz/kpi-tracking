@@ -17,15 +17,17 @@ public interface KpiAdjustmentRequestRepository extends JpaRepository<KpiAdjustm
     @Query("SELECT r FROM KpiAdjustmentRequest r " +
            "WHERE (r.requester.id = :currentUserId OR EXISTS (SELECT 1 FROM OrgUnit au WHERE r.kpiCriteria.orgUnit.path LIKE CONCAT(au.path, '%') AND au.id IN :allowedOrgUnitIds)) " +
            "AND (:status IS NULL OR r.status = :status) " +
-           "AND (:orgUnitId IS NULL OR r.kpiCriteria.orgUnit.id = :orgUnitId) " +
+           "AND (:orgUnitPath IS NULL OR r.kpiCriteria.orgUnit.path LIKE :orgUnitPath) " +
            "AND (:kpiPeriodId IS NULL OR r.kpiCriteria.kpiPeriod.id = :kpiPeriodId) " +
            "AND (:currentUserRank IS NULL OR :currentUserRank = 0 OR r.requester.id = :currentUserId OR EXISTS (SELECT 1 FROM UserRoleOrgUnit uro JOIN uro.role r2 WHERE uro.user.id = r.requester.id AND uro.orgUnit.id = r.kpiCriteria.orgUnit.id AND r2.rank > :currentUserRank))")
     Page<KpiAdjustmentRequest> findAllWithFilters(
             @Param("currentUserId") UUID currentUserId,
             @Param("allowedOrgUnitIds") java.util.Collection<UUID> allowedOrgUnitIds,
             @Param("status") AdjustmentStatus status,
-            @Param("orgUnitId") UUID orgUnitId,
+            @Param("orgUnitPath") String orgUnitPath,
             @Param("kpiPeriodId") UUID kpiPeriodId,
             @Param("currentUserRank") Integer currentUserRank,
             Pageable pageable);
+
+    java.util.List<KpiAdjustmentRequest> findByStatusAndCreatedAtBefore(AdjustmentStatus status, java.time.Instant expiryTime);
 }

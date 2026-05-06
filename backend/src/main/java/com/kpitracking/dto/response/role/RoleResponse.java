@@ -10,8 +10,6 @@ public class RoleResponse {
 
     private UUID id;
     private String name;
-    private UUID parentRoleId;
-    private String parentRoleName;
     private Boolean isSystem;
     private Integer level;
     private Integer rank;

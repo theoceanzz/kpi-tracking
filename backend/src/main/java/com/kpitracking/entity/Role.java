@@ -16,12 +16,16 @@ import java.util.UUID;
 @SQLRestriction("deleted_at IS NULL")
 @Getter @Setter @Builder @NoArgsConstructor @AllArgsConstructor
 public class Role {
-
+    
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
 
-    @Column(name = "name", nullable = false, unique = true)
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "organization_id")
+    private Organization organization;
+
+    @Column(name = "name", nullable = false)
     private String name;
 
     @Column(name = "level")
@@ -29,10 +33,6 @@ public class Role {
 
     @Column(name = "rank")
     private Integer rank; // 0: Manager, 1: Deputy, 2: Staff/Other
-
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "parent_role_id")
-    private Role parentRole;
 
     @Column(name = "is_system", nullable = false)
     @Builder.Default

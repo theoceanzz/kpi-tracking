@@ -49,7 +49,7 @@ public class StatsController {
     }
 
     @GetMapping("/employees")
-    @PreAuthorize("hasAuthority('USER:VIEW')")
+    @PreAuthorize("hasAnyAuthority('USER:VIEW', 'USER:VIEW_LIST')")
     @Operation(summary = "Get KPI statistics per employee")
     public ResponseEntity<ApiResponse<PageResponse<EmployeeKpiStatsResponse>>> getEmployeeKpiStats(
             @org.springframework.web.bind.annotation.RequestParam(defaultValue = "0") int page,
@@ -69,7 +69,7 @@ public class StatsController {
     }
 
     @GetMapping("/employee-progress/{userId}")
-    @PreAuthorize("hasAuthority('USER:VIEW')")
+    @PreAuthorize("hasAnyAuthority('USER:VIEW', 'USER:VIEW_LIST')")
     @Operation(summary = "Get a specific employee's KPI progress")
     public ResponseEntity<ApiResponse<MyKpiProgressResponse>> getEmployeeKpiProgress(
             @org.springframework.web.bind.annotation.PathVariable java.util.UUID userId,

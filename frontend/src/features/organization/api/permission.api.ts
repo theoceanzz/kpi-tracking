@@ -6,6 +6,7 @@ export interface PermissionResponse {
   code: string
   resource: string
   action: string
+  description?: string
 }
 
 export interface AssignPermissionRequest {

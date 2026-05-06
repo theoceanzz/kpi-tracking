@@ -10,8 +10,9 @@ import { Link } from 'react-router-dom'
 import {
   Target, CheckCircle, Clock, 
   Users, ChevronRight,
-  ClipboardCheck, BarChart3, AlertCircle, Pin, PinOff
+  ClipboardCheck, BarChart3, AlertCircle, Pin, PinOff, FileText
 } from 'lucide-react'
+import { exportPerformanceToExcel } from '@/utils/performanceExport'
 import type { EmployeeKpiStats } from '@/types/stats'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { reportApi } from '@/features/reports/api/reportApi'
@@ -27,22 +28,30 @@ const COLORS = ['#6366f1', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'
 
 export default function HeadDashboard() {
   const [page, setPage] = useState(0)
+  const [isExporting, setIsExporting] = useState(false)
   const size = 10
   const { user } = useAuthStore()
   // const queryClient = useQueryClient()
   
-  const primaryMembership = user?.memberships?.find(m => m.roleRank === 0 || m.roleRank === 1) || user?.memberships?.[0]
+  const primaryMembership = useMemo(() => {
+    const ms = user?.memberships || [];
+    if (ms.length <= 1) return ms[0];
+    return ms.find(m => (m.levelOrder ?? 0) > 0) || ms[0];
+  }, [user?.memberships]);
+
+  const roleLabel = primaryMembership?.roleName || 'Quản lý'
+
   const orgUnitId = primaryMembership?.orgUnitId
 
   const { data: stats, isLoading: statsLoading } = useOverviewStats(orgUnitId)
   const { data: employeesPage, isLoading: employeesLoading } = useEmployeeStats(page, size, orgUnitId)
+  const { data: allEmployees } = useEmployeeStats(0, 1000, orgUnitId)
   
   const { data: pinnedWidgets, isLoading: pinnedLoading, refetch: refetchPinned } = useQuery({
     queryKey: ['reports', 'widgets', 'pinned'],
     queryFn: () => reportApi.getPinnedWidgets(),
   })
 
-  const roleLabel = primaryMembership?.roleLabel || primaryMembership?.roleName || 'Quản lý'
   const unitName = primaryMembership?.orgUnitName || 'Đơn vị'
 
   const isLoading = statsLoading || employeesLoading || pinnedLoading
@@ -55,6 +64,23 @@ export default function HeadDashboard() {
 
   const employees = employeesPage?.content ?? []
   const lateEmployeesCount = stats?.totalUsers ? (employees?.filter(e => e.lateSubmissions > 0).length ?? 0) : 0
+  
+  const handleExport = async () => {
+    if (!allEmployees?.content || allEmployees.content.length === 0) {
+      toast.error('Không có dữ liệu để xuất')
+      return
+    }
+    setIsExporting(true)
+    try {
+      await exportPerformanceToExcel(allEmployees.content, `BÁO CÁO HIỆU SUẤT - ${unitName.toUpperCase()}`)
+      toast.success('Đã xuất báo cáo thành công')
+    } catch (error) {
+      console.error('Export error:', error)
+      toast.error('Có lỗi xảy ra khi xuất báo cáo')
+    } finally {
+      setIsExporting(false)
+    }
+  }
   
   if (isLoading) {
     return (
@@ -187,9 +213,23 @@ export default function HeadDashboard() {
           <div className="lg:col-span-12 xl:col-span-8 flex flex-col">
             <div className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl rounded-[32px] border border-slate-200 dark:border-slate-800 shadow-xl overflow-hidden flex flex-col h-full">
               <div className="p-8 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50/20 dark:bg-slate-800/20">
-                <div className="flex items-center gap-3">
-                  <Users size={18} className="text-blue-600" />
-                  <h3 className="font-black text-sm uppercase tracking-widest text-slate-900 dark:text-white">Hiệu suất Đội ngũ</h3>
+                <div className="flex items-center gap-4">
+                  <div className="flex items-center gap-3">
+                    <Users size={18} className="text-blue-600" />
+                    <h3 className="font-black text-sm uppercase tracking-widest text-slate-900 dark:text-white">Hiệu suất Đội ngũ</h3>
+                  </div>
+                  <button
+                    onClick={handleExport}
+                    disabled={isExporting}
+                    className="flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 text-[10px] font-black uppercase tracking-widest hover:bg-emerald-100 dark:hover:bg-emerald-900/40 transition-all disabled:opacity-50"
+                  >
+                    {isExporting ? (
+                      <div className="w-3 h-3 border-2 border-emerald-600/30 border-t-emerald-600 rounded-full animate-spin" />
+                    ) : (
+                      <FileText size={14} />
+                    )}
+                    {isExporting ? 'Đang xuất...' : 'Xuất Excel'}
+                  </button>
                 </div>
                 <Link to="/submissions/org-unit" className="text-[9px] font-black text-blue-600 uppercase tracking-widest hover:underline">XEM TẤT CẢ</Link>
               </div>

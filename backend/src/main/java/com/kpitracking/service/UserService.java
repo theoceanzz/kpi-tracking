@@ -4,10 +4,9 @@ import com.kpitracking.dto.request.user.CreateUserRequest;
 import com.kpitracking.dto.request.user.UpdateUserRequest;
 import com.kpitracking.dto.response.PageResponse;
 import com.kpitracking.dto.response.user.UserResponse;
+import com.kpitracking.entity.*;
 import jakarta.persistence.EntityManager;
 
-import com.kpitracking.entity.User;
-import com.kpitracking.entity.UserRoleOrgUnit;
 import com.kpitracking.exception.DuplicateResourceException;
 import com.kpitracking.exception.ResourceNotFoundException;
 
@@ -16,10 +15,14 @@ import com.kpitracking.repository.UserRepository;
 import com.kpitracking.repository.UserRoleOrgUnitRepository;
 import com.kpitracking.repository.RoleRepository;
 import com.kpitracking.repository.OrgHierarchyLevelRepository;
-import com.kpitracking.entity.OrgUnit;
-import com.kpitracking.entity.OrgHierarchyLevel;
 import com.kpitracking.dto.response.user.UserMembershipResponse;
 import java.util.stream.Collectors;
+import java.util.Set;
+import java.util.HashSet;
+import java.util.UUID;
+import java.util.List;
+import java.util.ArrayList;
+import java.util.Optional;
 
 import com.kpitracking.security.PermissionChecker;
 import lombok.RequiredArgsConstructor;
@@ -79,48 +82,31 @@ public class UserService {
         List<UserRoleOrgUnit> assignments = userRoleOrgUnitRepository.findByUserId(user.getId());
         
         List<UserMembershipResponse> memberships = assignments.stream()
-                .sorted((a, b) -> {
-                    Integer l1 = a.getOrgUnit().getOrgHierarchyLevel() != null ? a.getOrgUnit().getOrgHierarchyLevel().getLevelOrder() : 0;
-                    Integer l2 = b.getOrgUnit().getOrgHierarchyLevel() != null ? b.getOrgUnit().getOrgHierarchyLevel().getLevelOrder() : 0;
-                    return l2.compareTo(l1);
-                })
                 .map(uro -> {
                     OrgUnit unit = uro.getOrgUnit();
                     String roleName = uro.getRole().getName();
-                    
+
+
                     // Lookup custom labels from hierarchy
                     List<OrgHierarchyLevel> levels = unit.getOrgHierarchyLevel() != null 
                         ? orgHierarchyLevelRepository.findByOrganizationIdOrderByLevelOrderAsc(unit.getOrgHierarchyLevel().getOrganization().getId())
                         : java.util.Collections.emptyList();
                     
-                    String roleLabel = roleName;
-                    
-                    // Only override with hierarchy manager label if it's a management role
-                    if (unit.getOrgHierarchyLevel() != null && ("Trưởng phòng".equals(roleName) || "Giám đốc".equals(roleName))) {
-                        String managerLabel = levels.stream()
-                                .filter(l -> l.getLevelOrder().equals(unit.getOrgHierarchyLevel().getLevelOrder()))
-                                .map(OrgHierarchyLevel::getManagerRoleLabel)
-                                .findFirst()
-                                .orElse(null);
-                        
-                        if (managerLabel != null && !managerLabel.isBlank()) {
-                            roleLabel = managerLabel;
-                        }
-                    }
-
                     return UserMembershipResponse.builder()
                         .orgUnitId(unit.getId())
                         .organizationId(unit.getOrgHierarchyLevel() != null ? unit.getOrgHierarchyLevel().getOrganization().getId() : null)
                         .orgUnitName(unit.getName())
                         .organizationName(unit.getOrgHierarchyLevel() != null ? unit.getOrgHierarchyLevel().getOrganization().getName() : null)
                         .roleName(roleName)
-                        .roleLabel(roleLabel)
                         .roleRank(uro.getRole().getRank())
                         .unitTypeLabel(unit.getOrgHierarchyLevel() != null ? unit.getOrgHierarchyLevel().getUnitTypeName() : null)
+                        .levelOrder(unit.getOrgHierarchyLevel() != null ? unit.getOrgHierarchyLevel().getLevelOrder() : null)
+                        .roleLevel(uro.getRole().getLevel())
                         .build();
                 })
                 .collect(Collectors.toList());
 
+        // Just return memberships as they are
         UUID organizationId = memberships.isEmpty() ? null : memberships.get(0).getOrganizationId();
 
         return UserResponse.builder()
@@ -136,6 +122,7 @@ public class UserService {
                 .memberships(memberships)
                 .createdAt(user.getCreatedAt())
                 .updatedAt(user.getUpdatedAt())
+                .requirePasswordChange(user.getRequirePasswordChange())
                 .build();
     }
 
@@ -158,6 +145,7 @@ public class UserService {
                 .employeeCode(request.getEmployeeCode())
                 .phone(request.getPhone())
                 .isEmailVerified(true)
+                .requirePasswordChange(true)
                 .build();
 
         user = userRepository.save(user);
@@ -166,7 +154,8 @@ public class UserService {
             OrgUnit orgUnit = orgUnitRepository.findById(request.getOrgUnitId())
                     .orElseThrow(() -> new ResourceNotFoundException("Đơn vị", "id", request.getOrgUnitId()));
             
-            com.kpitracking.entity.Role role = resolveRole(request.getRole());
+            UUID orgId = orgUnit.getOrgHierarchyLevel().getOrganization().getId();
+            com.kpitracking.entity.Role role = resolveRole(request.getRole(), orgId);
             validateManagerAssignment(request.getOrgUnitId(), role, null);
             assignToUnitAndImmediateParent(user, orgUnit, role, getCurrentUser());
         }
@@ -193,7 +182,8 @@ public class UserService {
 
         // If it's a child unit, also assign to its parent as "Nhân viên" (if not already assigned)
         if (orgUnit.getParent() != null) {
-            com.kpitracking.entity.Role staffRole = roleRepository.findByName("Nhân viên")
+            UUID orgId = orgUnit.getOrgHierarchyLevel().getOrganization().getId();
+            com.kpitracking.entity.Role staffRole = roleRepository.findByNameAndOrganizationId("Nhân viên", orgId)
                     .orElse(role); // Fallback to current role if "Nhân viên" not found
 
             // Only assign if not already present
@@ -215,6 +205,9 @@ public class UserService {
         User currentUser = getCurrentUser();
         boolean isGlobalAdmin = permissionChecker.isGlobalAdmin(currentUser.getId());
         List<UUID> allowedOrgUnitIds = permissionChecker.getOrgUnitsWithPermission(currentUser.getId(), "USER:VIEW");
+        if (allowedOrgUnitIds == null || allowedOrgUnitIds.isEmpty()) {
+            allowedOrgUnitIds = permissionChecker.getOrgUnitsWithPermission(currentUser.getId(), "USER:VIEW_LIST");
+        }
         
         if (!isGlobalAdmin && (allowedOrgUnitIds == null || allowedOrgUnitIds.isEmpty())) {
             return PageResponse.<UserResponse>builder()
@@ -356,7 +349,8 @@ public class UserService {
             }
 
             if (request.getRole() != null) {
-                role = resolveRole(request.getRole());
+                UUID orgId = unit.getOrgHierarchyLevel().getOrganization().getId();
+                role = resolveRole(request.getRole(), orgId);
             } else if (!assignments.isEmpty()) {
                 role = assignments.get(0).getRole();
             }
@@ -460,6 +454,48 @@ public class UserService {
                         throw new BusinessException("Thiếu các cột bắt buộc: Email, FullName");
                     }
 
+                    Set<String> orgCodesInFile = new HashSet<>();
+                    Set<String> unitsWithManagerInFile = new HashSet<>();
+                    UUID currentOrgId = getCurrentUserOrgId();
+
+                    for (int i = 1; i <= sheet.getLastRowNum(); i++) {
+                        Row row = sheet.getRow(i);
+                        if (row == null) continue;
+
+                        String roleName = (roleIdx != -1 && row.getCell(roleIdx) != null) ? getCellValueAsString(row.getCell(roleIdx)) : null;
+                        String orgUnitCode = (orgCodeIdx != -1 && row.getCell(orgCodeIdx) != null) ? getCellValueAsString(row.getCell(orgCodeIdx)) : null;
+
+                        if (orgUnitCode != null && !orgUnitCode.isBlank()) {
+                            String code = orgUnitCode.trim();
+                            orgCodesInFile.add(code);
+
+                            try {
+                                UUID organizationId = (orgUnitId != null) ? orgUnitId : currentOrgId;
+                                com.kpitracking.entity.Role role = resolveRoleInternal(roleName, organizationId);
+                                if (role != null && role.getRank() != null && role.getRank() == 0) {
+                                    unitsWithManagerInFile.add(code);
+                                }
+                            } catch (Exception e) { /* Ignore here */ }
+                        }
+                    }
+
+                    // Validate managers for all sub-units in file
+                    for (String code : orgCodesInFile) {
+                        OrgUnit unit = orgUnitRepository.findByCode(code).orElse(null);
+                        if (unit != null && unit.getOrgHierarchyLevel() != null && unit.getOrgHierarchyLevel().getLevelOrder() > 0) {
+                            boolean hasManagerInFile = unitsWithManagerInFile.contains(code);
+                            boolean hasManagerInDb = userRoleOrgUnitRepository.existsByOrgUnitIdAndRoleRank(unit.getId(), 0);
+
+                            if (!hasManagerInFile && !hasManagerInDb) {
+                                throw new BusinessException(String.format(
+                                    "Đơn vị '%s' (%s) chưa có nhân sự đảm nhiệm vai trò Trưởng đơn vị (Rank 0). Vui lòng bổ sung quản lý trong tệp tin hoặc hệ thống.",
+                                    unit.getName(), unit.getCode()
+                                ));
+                            }
+                        }
+                    }
+
+                    // Main processing loop
                     for (int i = 1; i <= sheet.getLastRowNum(); i++) {
                         Row row = sheet.getRow(i);
                         if (row == null) continue;
@@ -468,18 +504,13 @@ public class UserService {
                         try {
                             String email = row.getCell(emailIdx) != null ? row.getCell(emailIdx).getStringCellValue().trim() : "";
                             String fullName = row.getCell(nameIdx) != null ? row.getCell(nameIdx).getStringCellValue().trim() : "";
-                            String phone = (phoneIdx != -1 && row.getCell(phoneIdx) != null) ?
-                                    getCellValueAsString(row.getCell(phoneIdx)) : null;
-                            String employeeCode = (codeIdx != -1 && row.getCell(codeIdx) != null) ?
-                                    getCellValueAsString(row.getCell(codeIdx)) : null;
-                            String roleName = (roleIdx != -1 && row.getCell(roleIdx) != null) ?
-                                    getCellValueAsString(row.getCell(roleIdx)) : null;
-                            String password = (passIdx != -1 && row.getCell(passIdx) != null) ?
-                                    getCellValueAsString(row.getCell(passIdx)) : null;
-                            String orgUnitCode = (orgCodeIdx != -1 && row.getCell(orgCodeIdx) != null) ?
-                                    getCellValueAsString(row.getCell(orgCodeIdx)) : null;
-                            List<UUID> assignedTo = processUserRow(email, fullName, phone, employeeCode, roleName, password, orgUnitCode, orgUnitId);
-                            modifiedUnitIds.addAll(assignedTo);
+                            String phone = (phoneIdx != -1 && row.getCell(phoneIdx) != null) ? getCellValueAsString(row.getCell(phoneIdx)) : null;
+                            String employeeCode = (codeIdx != -1 && row.getCell(codeIdx) != null) ? getCellValueAsString(row.getCell(codeIdx)) : null;
+                            String roleName = (roleIdx != -1 && row.getCell(roleIdx) != null) ? getCellValueAsString(row.getCell(roleIdx)) : null;
+                            String password = (passIdx != -1 && row.getCell(passIdx) != null) ? getCellValueAsString(row.getCell(passIdx)) : null;
+                            String orgUnitCode = (orgCodeIdx != -1 && row.getCell(orgCodeIdx) != null) ? getCellValueAsString(row.getCell(orgCodeIdx)) : null;
+
+                            processUserRow(email, fullName, phone, employeeCode, roleName, password, orgUnitCode, orgUnitId);
                             successfulImports++;
                         } catch (Exception e) {
                             errors.add("Row " + totalRows + ": " + e.getMessage());
@@ -490,27 +521,6 @@ public class UserService {
         } catch (Exception e) {
             throw new BusinessException("Xử lý tập tin thất bại: " + e.getMessage());
         }
-
-        // Force flush to DB so the manager existence check sees the new assignments
-        entityManager.flush();
-
-        // Validate that all modified units have at least one manager (Rank 0)
-        for (UUID uid : modifiedUnitIds) {
-            OrgUnit unit = orgUnitRepository.findById(uid).orElse(null);
-            // Rule: Sub-units MUST have a manager (Rank 0). 
-            // We check this for all units except root units (where parent is null)
-            if (unit != null && unit.getParent() != null) {
-                boolean hasManager = userRoleOrgUnitRepository.existsByOrgUnitIdAndRoleRank(uid, 0);
-                
-                if (!hasManager) {
-                    throw new BusinessException(String.format(
-                        "Đơn vị '%s' (%s) chưa có nhân sự đảm nhiệm vai trò Trưởng đơn vị (Rank 0). Vui lòng bổ sung quản lý trong tệp tin hoặc hệ thống.",
-                        unit.getName(), unit.getCode()
-                    ));
-                }
-            }
-        }
-
 
         return ImportUserResponse.builder()
                 .totalRows(totalRows)
@@ -533,20 +543,46 @@ public class UserService {
         if (fullName == null || fullName.isBlank()) throw new BusinessException("Họ tên là bắt buộc");
 
         User user = createOrUpdateUserInternal(email, fullName, phone, employeeCode, password);
-        com.kpitracking.entity.Role role = resolveRoleInternal(roleIdStr);
+        UUID organizationId = orgUnitId; // Simplified, in processUserRow we might need to lookup the orgId from orgUnitId
+        // Let's get the organization ID from the unit
+        if (orgUnitId == null && orgUnitCode != null && !orgUnitCode.isBlank()) {
+             OrgUnit u = orgUnitRepository.findByCode(orgUnitCode.trim()).orElse(null);
+             if (u != null) organizationId = u.getOrgHierarchyLevel().getOrganization().getId();
+        } else if (orgUnitId != null) {
+             OrgUnit u = orgUnitRepository.findById(orgUnitId).orElse(null);
+             if (u != null) organizationId = u.getOrgHierarchyLevel().getOrganization().getId();
+        }
+
+        if (organizationId == null) {
+             // Fallback to current user's org
+             User cur = getCurrentUser();
+             organizationId = userRoleOrgUnitRepository.findByUserId(cur.getId()).get(0).getOrgUnit().getOrgHierarchyLevel().getOrganization().getId();
+        }
+
+        com.kpitracking.entity.Role role = resolveRoleInternal(roleIdStr, (UUID)organizationId);
 
         List<UUID> assignedUnits = new ArrayList<>();
+        
+        // 1. Assign to Default Unit (usually Root) as a Staff-level role ALWAYS
         if (orgUnitId != null) {
-            assignUserToUnitInternal(user, role, orgUnitId);
+            // Find any role with Rank 2 (Staff) in this organization to use as the default root role
+            Role staffRole = roleRepository.findByOrganizationIdAndRank(organizationId, 2)
+                    .stream().findFirst()
+                    .orElse(role); // Fallback to the role from Excel if no Rank 2 role exists
+            
+            assignUserToUnitInternal(user, staffRole, orgUnitId);
             assignedUnits.add(orgUnitId);
         }
 
+        // 2. Assign to Specific Unit (from Excel) with the selected Role
         if (orgUnitCode != null && !orgUnitCode.isBlank()) {
             OrgUnit specificUnit = orgUnitRepository.findByCode(orgUnitCode.trim())
                     .orElseThrow(() -> new BusinessException("Mã đơn vị không tồn tại: " + orgUnitCode));
             
-            if (orgUnitId == null || !specificUnit.getId().equals(orgUnitId)) {
-                assignUserToUnitInternal(user, role, specificUnit.getId());
+            // Only assign if it's different from the default unit OR if we want to ensure the role is applied here
+            // To be safe, if it's the same unit, the Role in Excel should override the Staff role
+            assignUserToUnitInternal(user, role, specificUnit.getId());
+            if (!assignedUnits.contains(specificUnit.getId())) {
                 assignedUnits.add(specificUnit.getId());
             }
         }
@@ -590,6 +626,7 @@ public class UserService {
                     .phone(phone)
                     .employeeCode(employeeCode)
                     .isEmailVerified(true)
+                    .requirePasswordChange(true)
                     .build();
             User saved = userRepository.save(user);
             emailService.sendAccountDetailsEmail(email, fullName, rawPassword);
@@ -601,8 +638,10 @@ public class UserService {
         OrgUnit unit = orgUnitRepository.findById(orgUnitId)
                 .orElseThrow(() -> new BusinessException("Đơn vị không tồn tại"));
         
-        com.kpitracking.entity.Role finalRole = (unit.getParent() == null) 
-            ? roleRepository.findByName("Nhân viên").orElse(role) 
+        UUID orgId = unit.getOrgHierarchyLevel().getOrganization().getId();
+        // Root unit (Level 0) always gets Staff role by default in bulk operations
+        com.kpitracking.entity.Role finalRole = (unit.getOrgHierarchyLevel() != null && unit.getOrgHierarchyLevel().getLevelOrder() == 0) 
+            ? roleRepository.findByNameAndOrganizationId("Nhân viên", orgId).orElse(role) 
             : role;
 
         if (!userRoleOrgUnitRepository.existsByUserIdAndRoleIdAndOrgUnitId(user.getId(), finalRole.getId(), unit.getId())) {
@@ -632,17 +671,17 @@ public class UserService {
                 String rankName = (rank == 0) ? "Cấp Trưởng" : "Cấp Phó";
                 
                 throw new BusinessException(String.format(
-                    "Đơn vị này đã có %s đảm nhiệm vai trò %s (%s). Mỗi đơn vị chỉ được phép có tối đa một nhân sự ở cấp độ này.",
-                    currentName, currentRole, rankName
+                    "Đơn vị '%s' đã có %s đảm nhiệm vai trò %s (%s). Mỗi đơn vị chỉ được phép có tối đa một nhân sự ở cấp độ này.",
+                    first.getOrgUnit().getName(), currentName, currentRole, rankName
                 ));
             }
         }
     }
 
-    private com.kpitracking.entity.Role resolveRoleInternal(String identifier) {
+    private com.kpitracking.entity.Role resolveRoleInternal(String identifier, UUID organizationId) {
         if (identifier == null || identifier.isBlank()) {
-            return roleRepository.findByName("Nhân viên")
-                    .orElseThrow(() -> new BusinessException("Vai trò mặc định 'Nhân viên' không tồn tại"));
+            return roleRepository.findByNameAndOrganizationId("Nhân viên", organizationId)
+                    .orElseThrow(() -> new BusinessException("Vai trò mặc định 'Nhân viên' không tồn tại cho tổ chức này"));
         }
 
         if (identifier.matches("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$")) {
@@ -650,10 +689,10 @@ public class UserService {
                     .orElseThrow(() -> new BusinessException("Mã vai trò (UUID) không tồn tại: " + identifier));
         }
 
-        return resolveRole(identifier);
+        return resolveRole(identifier, organizationId);
     }
 
-    private com.kpitracking.entity.Role resolveRole(String roleName) {
+    private com.kpitracking.entity.Role resolveRole(String roleName, UUID organizationId) {
         String name = (roleName != null && !roleName.isBlank()) ? roleName.trim() : "Nhân viên";
         String mappedName = name;
         if (name.equalsIgnoreCase("STAFF") || name.equalsIgnoreCase("NHAN_VIEN")) mappedName = "Nhân viên";
@@ -662,10 +701,10 @@ public class UserService {
         else if (name.equalsIgnoreCase("LEADER") || name.equalsIgnoreCase("TRUONG_NHOM")) mappedName = "Trưởng nhóm";
         else if (name.equalsIgnoreCase("DIRECTOR") || name.equalsIgnoreCase("GIAM_DOC")) mappedName = "Giám đốc";
 
-        return roleRepository.findByName(mappedName)
-                .or(() -> roleRepository.findByName(name))
-                .or(() -> roleRepository.findByNameIgnoreCase(name))
-                .orElseThrow(() -> new BusinessException("Chức danh không tồn tại: " + name));
+        return roleRepository.findByNameAndOrganizationId(mappedName, organizationId)
+                .or(() -> roleRepository.findByNameAndOrganizationId(name, organizationId))
+                .or(() -> roleRepository.findByNameIgnoreCaseAndOrganizationId(name, organizationId))
+                .orElseThrow(() -> new BusinessException("Chức danh '" + name + "' không tồn tại trong tổ chức này"));
     }
 
     private void validateManagerRequirement(OrgUnit orgUnit, com.kpitracking.entity.Role role) {
@@ -676,5 +715,12 @@ public class UserService {
                 }
             }
         }
+    }
+
+    private UUID getCurrentUserOrgId() {
+        User cur = getCurrentUser();
+        List<UserRoleOrgUnit> assignments = userRoleOrgUnitRepository.findByUserId(cur.getId());
+        if (assignments.isEmpty()) throw new BusinessException("Người dùng hiện tại không thuộc tổ chức nào");
+        return assignments.get(0).getOrgUnit().getOrgHierarchyLevel().getOrganization().getId();
     }
 }

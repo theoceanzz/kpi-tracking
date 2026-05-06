@@ -59,20 +59,21 @@ export default function UsersPage() {
 
   const assignableRoles = useMemo(() => {
     if (!allRoles) return []
-    const levelCount = hierarchyLevels?.length || 0
+    const activeRoleLevels = new Set(hierarchyLevels?.map(l => l.roleLevel) || [])
 
     return allRoles.filter((r: any) => {
-      if (isAdmin) return r.name !== 'DIRECTOR_SYSTEM' || user?.memberships?.some(m => m.roleName === 'DIRECTOR_SYSTEM')
+      if (isAdmin) {
+        if (r.name === 'DIRECTOR_SYSTEM' && !user?.memberships?.some(m => m.roleName === 'DIRECTOR_SYSTEM')) return false
+        // For admins, show all roles that exist in the company's hierarchy
+        return (r.level !== undefined && activeRoleLevels.has(r.level)) || r.isSystem
+      }
       
-      // 1. Authority check
+      // 1. Structural check: Must be in company hierarchy
+      if (r.level === undefined || !activeRoleLevels.has(r.level)) return false
+
+      // 2. Authority check: Cannot assign roles above or equal to own level/rank
       if (r.level !== undefined && r.level < currentUserLevel) return false
       if (r.level === currentUserLevel && r.rank !== undefined && r.rank <= currentUserRank) return false
-      
-      // 2. Hierarchy structural filters
-      if (r.rank === 2) return true // Staff always allowed
-      if (r.level === 0 && r.rank === 0) return levelCount >= 1
-      if (r.level === 1) return levelCount > 2
-      if (r.level === 2 && (r.rank === 0 || r.rank === 1)) return true
       
       return true
     })

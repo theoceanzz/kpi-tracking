@@ -23,5 +23,7 @@ public class KpiPeriodRequest {
     @NotNull(message = "Ngày kết thúc không được để trống")
     private Instant endDate;
 
+    private Instant notificationDate;
+
     private UUID organizationId;
 }

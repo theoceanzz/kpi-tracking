@@ -19,10 +19,12 @@ public class EvaluationResponse {
     private String evaluatorName;
     private Double score;
     private String comment;
+    private Double systemScore;
     private Instant createdAt;
     private Instant updatedAt;
     private String evaluatorRole;
     private Integer orgUnitLevel;
     private Integer userLevel;
     private Integer userRank;
+    private String userRoleName;
 }

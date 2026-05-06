@@ -45,6 +45,19 @@ function downloadCsvTemplate() {
   URL.revokeObjectURL(url)
 }
 
+const COLUMNS = [
+  { name: 'Name', required: true, desc: 'Tên chỉ tiêu KPI', example: 'Doanh số tháng 10' },
+  { name: 'Description', required: false, desc: 'Mô tả chi tiết', example: 'Tính trên giá trị hợp đồng' },
+  { name: 'Weight', required: true, desc: 'Trọng số (Ví dụ: 30 cho 30%)', example: '30' },
+  { name: 'TargetValue', required: true, desc: 'Giá trị mục tiêu cần đạt', example: '500000000' },
+  { name: 'MinimumValue', required: false, desc: 'Giá trị tối thiểu', example: '400000000' },
+  { name: 'Unit', required: true, desc: 'Đơn vị tính', example: 'VND' },
+  { name: 'Frequency', required: false, desc: 'Tần suất (Chọn nhanh trong giao diện Xem trước)', example: 'MONTHLY' },
+  { name: 'EmployeeCode', required: false, desc: 'Mã nhân viên (Chọn/Nhập trong giao diện Xem trước)', example: 'NV001' },
+  { name: 'Period', required: false, desc: 'Đợt KPI (Chọn nhanh trong giao diện Xem trước)', example: 'Tháng 10/2026' },
+  { name: 'OrgUnitCode', required: false, desc: 'Mã đơn vị (Hệ thống sẽ tự động tìm tên phòng ban tương ứng)', example: 'MKT01' },
+]
+
 async function downloadXlsxTemplate() {
   const workbook = new ExcelJS.Workbook()
   const worksheet = workbook.addWorksheet('KPI Template')
@@ -103,6 +116,40 @@ async function downloadXlsxTemplate() {
     }
   })
 
+  // Add Guide Sheet
+  const guideSheet = workbook.addWorksheet('Hướng dẫn chi tiết')
+  guideSheet.columns = [
+    { header: 'Tên cột', key: 'name', width: 20 },
+    { header: 'Bắt buộc', key: 'req', width: 15 },
+    { header: 'Mô tả', key: 'desc', width: 50 },
+    { header: 'Ví dụ', key: 'ex', width: 25 },
+  ]
+  const guideHeader = guideSheet.getRow(1)
+  guideHeader.font = { bold: true, color: { argb: 'FFFFFFFF' }, size: 12 }
+  guideHeader.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF4F46E5' } }
+  guideHeader.alignment = { vertical: 'middle', horizontal: 'center' }
+  guideHeader.height = 30
+
+  COLUMNS.forEach(c => {
+    const row = guideSheet.addRow([c.name, c.required ? 'CÓ' : 'KHÔNG', c.desc, c.example])
+    row.font = { size: 11 }
+    row.alignment = { vertical: 'middle', horizontal: 'left', wrapText: true }
+    row.eachCell(cell => {
+      cell.border = {
+        top: { style: 'thin', color: { argb: 'FFE2E8F0' } }, left: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+        bottom: { style: 'thin', color: { argb: 'FFE2E8F0' } }, right: { style: 'thin', color: { argb: 'FFE2E8F0' } }
+      }
+    })
+  })
+
+  guideSheet.addRow([])
+  const noteTitleRow = guideSheet.addRow(['LƯU Ý CHUNG CHO IMPORT EXCEL & CSV'])
+  noteTitleRow.font = { bold: true, size: 12, color: { argb: 'FFDC2626' } }
+  guideSheet.addRow(['1. File mẫu này hỗ trợ import cả định dạng .xlsx và .csv.'])
+  guideSheet.addRow(['2. Nếu import bằng CSV, bạn vui lòng xuất dữ liệu từ tab "KPI Template" ra file .csv (UTF-8).'])
+  guideSheet.addRow(['3. EmployeeCode: Mã nhân viên (tùy chọn, bạn có thể tự map trên giao diện).'])
+  guideSheet.addRow(['4. Trọng số (Weight): Là số từ 1-100, tổng trọng số của một nhân sự nên là 100%.'])
+  guideSheet.addRow(['5. OrgUnitCode: Mã phòng ban. Hệ thống sẽ gán KPI cho phòng ban đó.'])
 
   // Generate buffer and download
   const buffer = await workbook.xlsx.writeBuffer()
@@ -121,18 +168,7 @@ const STEPS = [
   { num: '03', title: 'Lưu & Upload', desc: 'Lưu file ở định dạng .csv hoặc .xlsx, sau đó nhấn "Chọn file & Import" bên dưới.' },
 ]
 
-const COLUMNS = [
-  { name: 'Name', required: true, desc: 'Tên chỉ tiêu KPI', example: 'Doanh số tháng 10' },
-  { name: 'Description', required: false, desc: 'Mô tả chi tiết', example: 'Tính trên giá trị hợp đồng' },
-  { name: 'Weight', required: true, desc: 'Trọng số (Ví dụ: 30 cho 30%)', example: '30' },
-  { name: 'TargetValue', required: true, desc: 'Giá trị mục tiêu cần đạt', example: '500000000' },
-  { name: 'MinimumValue', required: false, desc: 'Giá trị tối thiểu', example: '400000000' },
-  { name: 'Unit', required: true, desc: 'Đơn vị tính', example: 'VND' },
-  { name: 'Frequency', required: false, desc: 'Tần suất (Chọn nhanh trong giao diện Xem trước)', example: 'MONTHLY' },
-  { name: 'EmployeeCode', required: false, desc: 'Mã nhân viên (Chọn/Nhập trong giao diện Xem trước)', example: 'NV001' },
-  { name: 'Period', required: false, desc: 'Đợt KPI (Chọn nhanh trong giao diện Xem trước)', example: 'Tháng 10/2026' },
-  { name: 'OrgUnitCode', required: false, desc: 'Mã đơn vị (Hệ thống sẽ tự động tìm tên phòng ban tương ứng)', example: 'MKT01' },
-]
+
 
 export default function KpiImportGuideModal({ open, onClose, onSelectFile }: KpiImportGuideModalProps) {
   if (!open) return null

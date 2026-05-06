@@ -7,8 +7,9 @@ export interface UserMembership {
   orgUnitName: string
   organizationName: string
   roleName: string
-  roleLabel?: string
   roleRank?: number
+  levelOrder?: number
+  roleLevel?: number
   unitTypeLabel?: string
 }
 
@@ -25,6 +26,7 @@ export interface UserInfo {
   permissions: string[]
   createdAt: string
   updatedAt?: string
+  requirePasswordChange?: boolean
 }
 
 // Matches BE: AuthResponse

@@ -113,6 +113,9 @@ export default function KpiCriteriaPage() {
       } else {
         setSelectedOrgUnitId(flatOrgUnits[0].id)
       }
+    } else if (flatOrgUnits.length === 0 && !selectedOrgUnitId && user?.memberships?.length) {
+      // Fallback: no org tree access, use user's own org unit from membership
+      setSelectedOrgUnitId(user?.memberships?.[0]?.orgUnitId ?? '')
     }
   }, [flatOrgUnits, user, selectedOrgUnitId])
 
@@ -265,7 +268,7 @@ export default function KpiCriteriaPage() {
                   </SelectContent>
                 </Select>
 
-                {canManageOrg && (
+                {canManageOrg && flatOrgUnits.length > 0 && (
                   <Select value={selectedOrgUnitId} onValueChange={val => { setSelectedOrgUnitId(val); setPage(0) }}>
                     <SelectTrigger className="flex-1 md:w-56 h-[52px] rounded-[20px] border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50 font-bold text-sm">
                       <Filter size={16} className="text-slate-400 mr-2" />
@@ -319,20 +322,26 @@ export default function KpiCriteriaPage() {
             </div>
           </div>
 
-          {/* Status Tabs */}
-          <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-hide">
+          {/* Status Tabs Row */}
+          <div className="flex flex-wrap items-center gap-3 py-2">
             {['ALL', 'DRAFT', 'PENDING_APPROVAL', 'APPROVED', 'REJECTED'].map((tab) => {
-              const tabLabels: Record<string, string> = { ALL: 'Tất cả', DRAFT: 'Bản nháp', PENDING_APPROVAL: 'Chờ duyệt', APPROVED: 'Đã duyệt', REJECTED: 'Từ chối' }
+              const tabLabels: Record<string, string> = { 
+                ALL: 'Tất cả', 
+                DRAFT: 'Bản nháp', 
+                PENDING_APPROVAL: 'Chờ duyệt', 
+                APPROVED: 'Đã duyệt', 
+                REJECTED: 'Từ chối' 
+              }
               const active = activeTab === tab
               return (
                 <button
                   key={tab}
                   onClick={() => { setActiveTab(tab as any); setPage(0) }}
                   className={cn(
-                    "px-6 py-2.5 rounded-2xl text-xs font-black uppercase tracking-widest transition-all duration-300 border-2",
+                    "px-7 py-3 rounded-full text-[11px] font-black uppercase tracking-[0.15em] transition-all duration-300 border-2 shadow-sm whitespace-nowrap",
                     active 
-                      ? 'bg-slate-900 border-slate-900 text-white dark:bg-white dark:border-white dark:text-slate-900 shadow-xl scale-105' 
-                      : 'bg-white/50 border-transparent text-slate-500 hover:bg-white hover:border-slate-200 dark:bg-slate-900/50 dark:hover:bg-slate-800 dark:text-slate-400'
+                      ? 'bg-slate-900 border-slate-900 text-white dark:bg-white dark:border-white dark:text-slate-900 shadow-indigo-500/10 scale-105' 
+                      : 'bg-white border-transparent text-slate-500 hover:border-slate-200 hover:text-slate-900 dark:bg-slate-900 dark:text-slate-400 dark:hover:text-white'
                   )}
                 >
                   {tabLabels[tab]}

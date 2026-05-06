@@ -150,9 +150,9 @@ public class PermissionChecker {
     }
 
     /**
-     * Get the minimum (best) rank of a user in a specific OrgUnit.
+     * Get the minimum (best/highest) rank of a user in a specific OrgUnit.
      * Considers inheritance: rank in a parent unit applies to all child units.
-     * Ranks: 0 (Manager), 1 (Deputy), 2 (Staff).
+     * Ranks: 0 (Head), 1 (Deputy), 2 (Staff).
      */
     public int getMinRankInOrgUnit(UUID userId, UUID orgUnitId) {
         List<UserRoleOrgUnit> assignments = userRoleOrgUnitRepository.findByUserId(userId);
@@ -167,5 +167,24 @@ public class PermissionChecker {
                 .filter(Objects::nonNull)
                 .min(Integer::compare)
                 .orElse(2);
+    }
+
+    /**
+     * Get the minimum (best/highest) level of a user in a specific OrgUnit.
+     * Levels: 0 (Group), 1 (Region), 2 (Company), 3 (Department), 4 (Team).
+     */
+    public int getMinLevelInOrgUnit(UUID userId, UUID orgUnitId) {
+        List<UserRoleOrgUnit> assignments = userRoleOrgUnitRepository.findByUserId(userId);
+        if (assignments.isEmpty()) return 4; // Default to lowest level
+
+        OrgUnit targetUnit = orgUnitRepository.findById(orgUnitId).orElse(null);
+        if (targetUnit == null) return 4;
+
+        return assignments.stream()
+                .filter(a -> targetUnit.getPath().startsWith(a.getOrgUnit().getPath()))
+                .map(a -> a.getRole().getLevel())
+                .filter(Objects::nonNull)
+                .min(Integer::compare)
+                .orElse(4);
     }
 }

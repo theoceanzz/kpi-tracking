@@ -1,5 +1,6 @@
 package com.kpitracking.service;
 
+import com.kpitracking.constant.RolePermissionConstants;
 import com.kpitracking.dto.request.auth.*;
 import com.kpitracking.dto.response.auth.AuthResponse;
 import com.kpitracking.dto.response.auth.UserInfoResponse;
@@ -23,6 +24,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -80,6 +82,7 @@ public class AuthService {
                     .levelOrder(i)
                     .unitTypeName(levelDto.getUnitTypeName())
                     .managerRoleLabel(levelDto.getManagerRoleLabel())
+                    .roleLevel(mapRoleLevel(i, request.getHierarchyLevels().size()))
                     .build();
             orgHierarchyLevelRepository.save(level);
         }
@@ -113,17 +116,15 @@ public class AuthService {
                 .build();
         user = userRepository.save(user);
 
-        // 4. Find or create default admin role
-        Role adminRole = roleRepository.findByName("Giám đốc")
-                .orElseGet(() -> {
-                    Role newRole = Role.builder()
-                            .name("Giám đốc")
-                            .isSystem(true)
-                            .build();
-                    return roleRepository.save(newRole);
-                });
+        // 4. Initialize roles for the organization
+        initializeOrganizationRoles(organization, request.getHierarchyLevels());
+        
+        // 5. Find the admin role (Top level, Rank 0) for this organization
+        int topRoleLevel = mapRoleLevel(0, request.getHierarchyLevels().size());
+        Role adminRole = roleRepository.findByLevelAndRankAndOrganizationId(topRoleLevel, 0, organization.getId())
+                .orElseThrow(() -> new BusinessException("Không thể khởi tạo vai trò quản trị cho tổ chức."));
 
-        // 5. Assign admin role to user at root org unit
+        // 6. Assign admin role to user at root org unit
         UserRoleOrgUnit assignment = UserRoleOrgUnit.builder()
                 .user(user)
                 .role(adminRole)
@@ -209,6 +210,7 @@ public class AuthService {
         }
 
         user.setPassword(passwordEncoder.encode(request.getNewPassword()));
+        user.setRequirePasswordChange(false);
         userRepository.save(user);
 
         refreshTokenService.revokeAllUserTokens(user.getId());
@@ -304,42 +306,28 @@ public class AuthService {
                 .map(uro -> {
                     OrgUnit unit = uro.getOrgUnit();
                     String roleName = uro.getRole().getName();
-                    
-                    // Lookup custom labels from hierarchy
-                    List<OrgHierarchyLevel> levels = orgHierarchyLevelRepository
-                            .findByOrganizationIdOrderByLevelOrderAsc(unit.getOrgHierarchyLevel().getOrganization().getId());
-
                     String unitTypeLabel = unit.getOrgHierarchyLevel().getUnitTypeName();
-                            
-                    String roleLabel = roleName;
                     
-                    // Only override with hierarchy manager label if it's a management role
-                    if ("Trưởng phòng".equals(roleName) || "Giám đốc".equals(roleName)) {
-                        String managerLabel = levels.stream()
-                                .filter(l -> l.getLevelOrder().equals(unit.getOrgHierarchyLevel().getLevelOrder()))
-                                .map(OrgHierarchyLevel::getManagerRoleLabel)
-                                .findFirst()
-                                .orElse(null);
-                        
-                        if (managerLabel != null && !managerLabel.isBlank()) {
-                            roleLabel = managerLabel;
-                        }
-                    }
-
+                    log.info("Membership: User={}, RoleName={}, RoleId={}, Rank={}, Level={}, Unit={}", 
+                             response.getEmail(), roleName, uro.getRole().getId(), uro.getRole().getRank(), 
+                             unit.getOrgHierarchyLevel().getLevelOrder(), unit.getName());
+                            
                     return UserMembershipResponse.builder()
                         .orgUnitId(unit.getId())
                         .organizationId(unit.getOrgHierarchyLevel().getOrganization().getId())
                         .orgUnitName(unit.getName())
-                        .organizationId(unit.getOrgHierarchyLevel().getOrganization().getId())
                         .organizationName(unit.getOrgHierarchyLevel().getOrganization().getName())
                         .roleName(roleName)
-                        .roleLabel(roleLabel)
                         .roleRank(uro.getRole().getRank())
                         .unitTypeLabel(unitTypeLabel)
+                        .levelOrder(unit.getOrgHierarchyLevel().getLevelOrder())
+                        .roleLevel(uro.getRole().getLevel())
                         .build();
                 })
                 .collect(Collectors.toList());
         
+        // Custom sorting logic based on user request:
+        // If > 1 memberships, prioritize non-root memberships with smallest level number
         response.setMemberships(memberships);
         List<String> authorities = getUserAuthorities(response.getId());
         response.setRoles(authorities.stream()
@@ -399,5 +387,64 @@ public class AuthService {
             sb.append(chars.charAt(random.nextInt(chars.length())));
         }
         return sb.toString();
+    }
+    private void initializeOrganizationRoles(Organization organization, List<HierarchyLevelDTO> levels) {
+        int total = levels.size();
+        List<Permission> allPerms = permissionRepository.findAll();
+        
+        for (int i = 0; i < total; i++) {
+            HierarchyLevelDTO levelDto = levels.get(i);
+            int roleLevel = mapRoleLevel(i, total);
+            boolean isTop = (i == 0);
+            boolean isBottom = (i == total - 1);
+            boolean isManagementLevel = (roleLevel <= 2);
+            
+            // Create Head (Rank 0)
+            String headName = isTop ? (levelDto.getManagerRoleLabel() != null ? levelDto.getManagerRoleLabel() : "GIÁM ĐỐC") : "TRƯỞNG " + levelDto.getUnitTypeName().toUpperCase();
+            Role headRole = createRole(organization, headName, roleLevel, 0, isTop);
+            assignDefaultPermissions(headRole, allPerms, isManagementLevel ? "director" : "manager", i + 1, total);
+
+            // Create Deputy (Rank 1)
+            String deputyName = "PHÓ " + (isTop ? (levelDto.getManagerRoleLabel() != null ? levelDto.getManagerRoleLabel() : "GIÁM ĐỐC") : levelDto.getUnitTypeName().toUpperCase());
+            Role deputyRole = createRole(organization, deputyName, roleLevel, 1, false);
+            assignDefaultPermissions(deputyRole, allPerms, isManagementLevel ? "deputy_director" : "deputy", i + 1, total);
+
+            // Create Staff (Rank 2) for bottom level
+            if (isBottom) {
+                Role staffRole = createRole(organization, "NHÂN VIÊN", roleLevel, 2, false);
+                assignDefaultPermissions(staffRole, allPerms, "staff", i + 1, total);
+            }
+        }
+    }
+
+    private Role createRole(Organization organization, String name, int level, int rank, boolean isSystem) {
+        Role role = Role.builder()
+                .organization(organization)
+                .name(name)
+                .level(level)
+                .rank(rank)
+                .isSystem(isSystem)
+                .build();
+        return roleRepository.save(role);
+    }
+
+    private void assignDefaultPermissions(Role role, List<Permission> allPerms, String archetype, int tierLevel, int numTiers) {
+        List<String> allowedCodes = RolePermissionConstants.getPermissions(archetype, tierLevel, numTiers);
+        
+        List<Permission> toAssign = allPerms.stream()
+                .filter(p -> allowedCodes.contains(p.getCode()))
+                .collect(Collectors.toList());
+
+        for (Permission p : toAssign) {
+            rolePermissionRepository.save(RolePermission.builder().role(role).permission(p).build());
+        }
+    }
+
+    private int mapRoleLevel(int order, int totalLevels) {
+        if (totalLevels == 5) return order;
+        if (totalLevels == 4) return order + 1;
+        if (totalLevels == 3) return order + 2;
+        if (totalLevels == 2) return order == 0 ? 2 : 4;
+        return order + (5 - totalLevels);
     }
 }

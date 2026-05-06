@@ -11,6 +11,7 @@ export const submissionApi = {
     kpiCriteriaId?: string;
     submittedById?: string;
     orgUnitId?: string;
+    kpiPeriodId?: string;
     organizationId?: string;
     sortBy?: string;
     sortDir?: string;
@@ -38,6 +39,13 @@ export const submissionApi = {
 
   review: (id: string, data: ReviewSubmissionRequest) =>
     axiosInstance.post<ApiResponse<Submission>>(`/submissions/${id}/review`, data).then((r) => r.data.data),
+
+  bulkReview: (data: { 
+    submissionIds: string[], 
+    commonReview: ReviewSubmissionRequest,
+    individualReviews?: { submissionId: string, managerScore?: number, reviewNote?: string }[]
+  }) =>
+    axiosInstance.post<ApiResponse<Submission[]>>('/submissions/bulk-review', data).then((r) => r.data.data),
 
   delete: (id: string) =>
     axiosInstance.delete<ApiResponse<void>>(`/submissions/${id}`).then((r) => r.data),

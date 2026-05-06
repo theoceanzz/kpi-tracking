@@ -170,15 +170,22 @@ public class KpiCriteriaService {
                 .min(Integer::compare)
                 .orElse(2);
 
+        Integer currentUserLevel = currentAssignments.stream()
+                .map(a -> a.getRole().getLevel())
+                .filter(java.util.Objects::nonNull)
+                .min(Integer::compare)
+                .orElse(4);
+
         Page<KpiCriteria> kpiPage = kpiCriteriaRepository.findAllWithFilters(
                 allowedOrgUnitIds, 
                 createdById, 
-                orgUnitId, 
+                orgUnitPath, 
                 status, 
                 kpiPeriodId, 
                 keyword,
                 currentUser.getId(),
                 currentUserRank,
+                currentUserLevel,
                 pageable
         );
 
@@ -321,16 +328,25 @@ public class KpiCriteriaService {
                 throw new ForbiddenException("Bạn không có quyền phê duyệt chỉ tiêu KPI cho đơn vị này");
             }
 
-            // Enhanced Hierarchical Rule: Check rank relative to creator
+            // Enhanced Hierarchical Rule: Check level and rank relative to creator
             User creator = kpi.getCreatedBy();
+            int creatorLevel = permissionChecker.getMinLevelInOrgUnit(creator.getId(), kpi.getOrgUnit().getId());
             int creatorRank = permissionChecker.getMinRankInOrgUnit(creator.getId(), kpi.getOrgUnit().getId());
+            
+            int reviewerLevel = permissionChecker.getMinLevelInOrgUnit(currentUser.getId(), kpi.getOrgUnit().getId());
             int reviewerRank = permissionChecker.getMinRankInOrgUnit(currentUser.getId(), kpi.getOrgUnit().getId());
 
-            if (reviewerRank > creatorRank) {
-                throw new ForbiddenException("Bạn không thể phê duyệt chỉ tiêu của người có chức vụ cao hơn bạn");
-            }
-            if (reviewerRank == creatorRank) {
-                throw new ForbiddenException("Bạn không thể phê duyệt chỉ tiêu của người có cùng chức vụ");
+            // Reviewer must have a better level (lower number) OR same level and better rank
+            boolean isSuperior = reviewerLevel < creatorLevel || (reviewerLevel == creatorLevel && reviewerRank < creatorRank);
+
+            if (!isSuperior) {
+                if (reviewerLevel > creatorLevel) {
+                    throw new ForbiddenException("Bạn không thể phê duyệt chỉ tiêu của người có cấp bậc cao hơn bạn");
+                } else if (reviewerLevel == creatorLevel && reviewerRank == creatorRank) {
+                    throw new ForbiddenException("Bạn không thể phê duyệt chỉ tiêu của người có cùng chức vụ");
+                } else {
+                    throw new ForbiddenException("Bạn không đủ thẩm quyền để phê duyệt chỉ tiêu này");
+                }
             }
         }
 
@@ -359,16 +375,25 @@ public class KpiCriteriaService {
                 throw new ForbiddenException("Bạn không có quyền từ chối chỉ tiêu KPI cho đơn vị này");
             }
 
-            // Enhanced Hierarchical Rule: Check rank relative to creator
+            // Enhanced Hierarchical Rule: Check level and rank relative to creator
             User creator = kpi.getCreatedBy();
+            int creatorLevel = permissionChecker.getMinLevelInOrgUnit(creator.getId(), kpi.getOrgUnit().getId());
             int creatorRank = permissionChecker.getMinRankInOrgUnit(creator.getId(), kpi.getOrgUnit().getId());
+            
+            int reviewerLevel = permissionChecker.getMinLevelInOrgUnit(currentUser.getId(), kpi.getOrgUnit().getId());
             int reviewerRank = permissionChecker.getMinRankInOrgUnit(currentUser.getId(), kpi.getOrgUnit().getId());
 
-            if (reviewerRank > creatorRank) {
-                throw new ForbiddenException("Bạn không thể từ chối chỉ tiêu của người có chức vụ cao hơn bạn");
-            }
-            if (reviewerRank == creatorRank) {
-                throw new ForbiddenException("Bạn không thể từ chối chỉ tiêu của người có cùng chức vụ");
+            // Reviewer must have a better level (lower number) OR same level and better rank
+            boolean isSuperior = reviewerLevel < creatorLevel || (reviewerLevel == creatorLevel && reviewerRank < creatorRank);
+
+            if (!isSuperior) {
+                if (reviewerLevel > creatorLevel) {
+                    throw new ForbiddenException("Bạn không thể từ chối chỉ tiêu của người có cấp bậc cao hơn bạn");
+                } else if (reviewerLevel == creatorLevel && reviewerRank == creatorRank) {
+                    throw new ForbiddenException("Bạn không thể từ chối chỉ tiêu của người có cùng chức vụ");
+                } else {
+                    throw new ForbiddenException("Bạn không đủ thẩm quyền để từ chối chỉ tiêu này");
+                }
             }
         }
 
@@ -466,6 +491,17 @@ public class KpiCriteriaService {
                 kpiPeriodRepository.findById(kpiPeriodId).orElse(null) : null;
         OrgUnit orgUnit = orgUnitId != null ? 
                 orgUnitRepository.findById(orgUnitId).orElse(null) : null;
+        
+        // Get current user's organization ID for lookups
+        UUID userOrgId = null;
+        if (orgUnit != null) {
+            userOrgId = orgUnit.getOrgHierarchyLevel().getOrganization().getId();
+        } else {
+            java.util.List<UserRoleOrgUnit> assignments = userRoleOrgUnitRepository.findByUserId(currentUser.getId());
+            if (!assignments.isEmpty()) {
+                userOrgId = assignments.get(0).getOrgUnit().getOrgHierarchyLevel().getOrganization().getId();
+            }
+        }
 
         String filename = file.getOriginalFilename();
         if (filename == null || (!filename.endsWith(".csv") && !filename.endsWith(".xlsx"))) {
@@ -496,7 +532,7 @@ public class KpiCriteriaService {
                                 record.get("EmployeeCode"), 
                                 record.isMapped("Period") ? record.get("Period") : null,
                                 record.isMapped("OrgUnit") ? record.get("OrgUnit") : null,
-                                kpiPeriod, orgUnit, currentUser, affectedPairs);
+                                kpiPeriod, orgUnit, currentUser, affectedPairs, userOrgId);
                             successfulImports++;
                         } catch (Exception e) {
                             errors.add("Dòng " + totalRows + ": " + e.getMessage());
@@ -544,7 +580,7 @@ public class KpiCriteriaService {
                                 getCellValueAsString(row.getCell(codeIdx)),
                                 namePeriodIdx != -1 ? getCellValueAsString(row.getCell(namePeriodIdx)) : null,
                                 nameOrgIdx != -1 ? getCellValueAsString(row.getCell(nameOrgIdx)) : null,
-                                kpiPeriod, orgUnit, currentUser, affectedPairs
+                                kpiPeriod, orgUnit, currentUser, affectedPairs, userOrgId
                             );
                             successfulImports++;
                         } catch (Exception e) {
@@ -562,6 +598,13 @@ public class KpiCriteriaService {
             String[] ids = pair.split(":");
             UUID uId = UUID.fromString(ids[0]);
             UUID pId = UUID.fromString(ids[1]);
+            
+            OrgUnit unit = orgUnitRepository.findById(uId).orElse(null);
+            
+            // SKIP weight validation for Root units (units with no parent)
+            if (unit == null || unit.getParent() == null) {
+                continue;
+            }
 
             Double totalWeight = kpiCriteriaRepository.sumWeightByOrgUnitIdAndKpiPeriodIdAndStatusIn(
                 uId, pId, java.util.Arrays.asList(KpiStatus.DRAFT, KpiStatus.PENDING_APPROVAL, KpiStatus.APPROVED, KpiStatus.REJECTED, KpiStatus.EDIT, KpiStatus.EDITED)
@@ -569,8 +612,7 @@ public class KpiCriteriaService {
 
             if (totalWeight == null || Math.abs(totalWeight - 100.0) > 0.001) {
                 // Weight is not 100% -> THROW EXCEPTION to rollback the entire transaction
-                String unitName = orgUnitRepository.findById(uId).map(OrgUnit::getName).orElse("Unknown");
-                throw new BusinessException("Lỗi Import: Đơn vị '" + unitName + "' có tổng trọng số là " + 
+                throw new BusinessException("Lỗi Import: Đơn vị '" + unit.getName() + "' có tổng trọng số là " + 
                           (totalWeight != null ? totalWeight : 0) + "%. Quy tắc bắt buộc phải bằng chính xác 100%. " +
                           "Vui lòng chỉnh sửa lại file Excel và thực hiện Import lại.");
             }
@@ -585,21 +627,51 @@ public class KpiCriteriaService {
 
     private void processKpiRow(String name, String desc, String weight, String target, String min, String unit, String freq, String empCode, 
                               String periodName, String orgName,
-                              com.kpitracking.entity.KpiPeriod defaultPeriod, OrgUnit defaultUnit, User creator, java.util.Set<String> affectedPairs) {
+                              com.kpitracking.entity.KpiPeriod defaultPeriod, OrgUnit defaultUnit, User creator, java.util.Set<String> affectedPairs, UUID organizationId) {
         if (name == null || name.isBlank()) throw new BusinessException("Tên chỉ tiêu là bắt buộc");
         if (weight == null || weight.isBlank()) throw new BusinessException("Trọng số là bắt buộc");
         if (target == null || target.isBlank()) throw new BusinessException("Chỉ tiêu (Target) là bắt buộc");
 
-        com.kpitracking.entity.KpiPeriod finalPeriod = defaultPeriod;
+        // Priority: Use the period name from Excel/Preview first if provided
+        com.kpitracking.entity.KpiPeriod finalPeriod = null;
         if (periodName != null && !periodName.isBlank()) {
-            finalPeriod = kpiPeriodRepository.findByName(periodName)
-                    .orElseThrow(() -> new BusinessException("Không tìm thấy đợt KPI: " + periodName));
+            String cleanPeriod = periodName.trim().replaceAll("\\s+", " ");
+            java.util.Optional<com.kpitracking.entity.KpiPeriod> foundPeriod = java.util.Optional.empty();
+            if (organizationId != null) {
+                foundPeriod = kpiPeriodRepository.findByNameSmart(cleanPeriod, organizationId);
+            }
+            finalPeriod = foundPeriod
+                    .or(() -> kpiPeriodRepository.findByNameIgnoreCase(cleanPeriod))
+                    .orElse(null); // Don't throw yet, try default
         }
 
-        OrgUnit finalUnit = defaultUnit;
+        if (finalPeriod == null) {
+            finalPeriod = defaultPeriod;
+        }
+        
+        if (finalPeriod == null) {
+            throw new BusinessException("Vui lòng chọn đợt KPI hoặc cung cấp tên đợt trong file Excel");
+        }
+
+        // Same priority logic for OrgUnit: Row data first, then default
+        OrgUnit finalUnit = null;
         if (orgName != null && !orgName.isBlank()) {
-            finalUnit = orgUnitRepository.findByName(orgName)
-                    .orElseThrow(() -> new BusinessException("Không tìm thấy đơn vị: " + orgName));
+            String cleanOrg = orgName.trim().replaceAll("\\s+", " ");
+            java.util.Optional<OrgUnit> foundUnit = java.util.Optional.empty();
+            if (organizationId != null) {
+                foundUnit = orgUnitRepository.findByNameSmart(cleanOrg, organizationId);
+            }
+            finalUnit = foundUnit
+                    .or(() -> orgUnitRepository.findByNameIgnoreCase(cleanOrg))
+                    .orElse(null); // Try default if not found by name
+        }
+
+        if (finalUnit == null) {
+            finalUnit = defaultUnit;
+        }
+
+        if (finalUnit == null) {
+            throw new BusinessException("Vui lòng chọn đơn vị hoặc cung cấp tên đơn vị trong file Excel");
         }
         
         // Check permission for the final unit

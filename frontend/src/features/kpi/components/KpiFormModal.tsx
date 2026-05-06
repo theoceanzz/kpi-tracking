@@ -319,7 +319,9 @@ export default function KpiFormModal({ open, onClose, editKpi }: KpiFormModalPro
                     className="w-full text-left p-2 rounded-lg bg-[var(--color-background)] border border-[var(--color-border)] hover:border-[var(--color-primary)] transition-all group"
                   >
                     <div className="font-semibold text-xs group-hover:text-[var(--color-primary)]">{s.name}</div>
-                    <div className="text-[10px] text-[var(--color-muted-foreground)] line-clamp-1">{s.description}</div>
+                    <div className="text-[10px] text-[var(--color-muted-foreground)] line-clamp-1">
+                      Mục tiêu: <span className="text-[var(--color-foreground)] font-medium">{s.targetValue} {s.unit}</span> • {s.description}
+                    </div>
                   </button>
                 ))}
               </div>

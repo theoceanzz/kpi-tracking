@@ -1,13 +1,14 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { submissionApi } from '../api/submissionApi'
 import { toast } from 'sonner'
 import { X, Loader2, CheckCircle, XCircle, User, Calendar, Paperclip, FileText, MessageSquare, Info } from 'lucide-react'
-import { formatDateTime, formatNumber } from '@/lib/utils'
+import { formatDateTime, formatNumber, cn } from '@/lib/utils'
 import type { Submission } from '@/types/submission'
 import AttachmentList from './AttachmentList'
 import { useAuth } from '@/hooks/useAuth'
 import { usePermission } from '@/hooks/usePermission'
+import StaffEvaluationModal from './StaffEvaluationModal'
 
 interface ReviewModalProps {
   open: boolean
@@ -18,16 +19,29 @@ interface ReviewModalProps {
 export default function ReviewModal({ open, onClose, submission }: ReviewModalProps) {
   const { user } = useAuth()
   const [reviewNote, setReviewNote] = useState('')
+  const [managerScore, setManagerScore] = useState<number | undefined>(undefined)
   const [mode, setMode] = useState<'view' | 'reject'>('view')
+  const [showStaffEval, setShowStaffEval] = useState(false)
   const qc = useQueryClient()
 
   const { hasPermission } = usePermission()
-  const isHighAuthority = hasPermission('ROLE:ASSIGN') // Proxy for Director/Admin level
+  const isHighAuthority = hasPermission('ROLE:ASSIGN')
   const isOwnSubmission = submission?.submittedById === user?.id
   const canReviewThis = (!submission?.isSubmittedByManager || isHighAuthority) && !isOwnSubmission
 
+  // Initialize managerScore with autoScore when modal opens
+  useEffect(() => {
+    if (submission && managerScore === undefined) {
+      setManagerScore(submission.managerScore ?? submission.autoScore ?? 0)
+    }
+  }, [submission])
+
   const approveMutation = useMutation({
-    mutationFn: () => submissionApi.review(submission!.id, { status: 'APPROVED', reviewNote: reviewNote || undefined }),
+    mutationFn: () => submissionApi.review(submission!.id, { 
+      status: 'APPROVED', 
+      reviewNote: reviewNote || undefined,
+      managerScore: managerScore 
+    }),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['submissions'] }); toast.success('Đã phê duyệt bài nộp'); reset(); onClose() },
     onError: () => toast.error('Duyệt thất bại'),
   })
@@ -38,7 +52,7 @@ export default function ReviewModal({ open, onClose, submission }: ReviewModalPr
     onError: () => toast.error('Từ chối thất bại'),
   })
 
-  const reset = () => { setReviewNote(''); setMode('view') }
+  const reset = () => { setReviewNote(''); setManagerScore(undefined); setMode('view') }
 
   if (!open || !submission) return null
 
@@ -90,21 +104,48 @@ export default function ReviewModal({ open, onClose, submission }: ReviewModalPr
             </div>
           </div>
 
-          {/* Auto Score Display */}
-          {submission.autoScore != null && (
-            <div className="p-5 rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 text-white shadow-lg shadow-indigo-500/20">
-              <div className="flex items-center justify-between">
+          {/* Scoring Section */}
+          <div className="space-y-3">
+            <div className="flex items-center justify-between px-1">
+              <span className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Đánh giá điểm số</span>
+              <div className="h-px flex-1 mx-4 bg-slate-100 dark:bg-slate-800" />
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Auto Score Display */}
+              <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-800 flex items-center justify-between">
                 <div>
-                  <p className="text-[10px] font-black uppercase tracking-widest text-indigo-100 mb-1">Điểm tính toán tự động</p>
-                  <p className="text-sm font-medium text-indigo-50 opacity-80">Dựa trên kết quả thực tế và trọng số</p>
+                  <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-0.5">Điểm hệ thống</p>
+                  <p className="text-xs font-medium text-slate-500">Tự động tính</p>
                 </div>
                 <div className="text-right">
-                  <p className="text-4xl font-black">{formatNumber(submission.autoScore)}</p>
-                  <p className="text-[10px] font-bold uppercase tracking-widest text-indigo-200">điểm</p>
+                  <p className="text-2xl font-black text-slate-700 dark:text-slate-300">{submission.autoScore != null ? formatNumber(submission.autoScore) : '0'}</p>
+                </div>
+              </div>
+
+              {/* Manager Score Input */}
+              <div className={cn(
+                "p-4 rounded-2xl border transition-all duration-300 flex items-center justify-between",
+                isReviewable 
+                  ? "bg-indigo-50/50 border-indigo-200 dark:bg-indigo-900/10 dark:border-indigo-800 ring-2 ring-indigo-500/5"
+                  : "bg-slate-50 dark:bg-slate-800/50 border-slate-200 dark:border-slate-800"
+              )}>
+                <div>
+                  <p className="text-[9px] font-black uppercase tracking-widest text-indigo-600 dark:text-indigo-400 mb-0.5">Điểm chốt cuối</p>
+                  <p className="text-xs font-medium text-slate-500">Trưởng phòng chấm</p>
+                </div>
+                <div className="w-20">
+                  <input 
+                    type="number"
+                    value={managerScore}
+                    onChange={e => setManagerScore(Number(e.target.value))}
+                    readOnly={!isReviewable}
+                    className="w-full bg-transparent text-right text-2xl font-black text-indigo-600 dark:text-indigo-400 outline-none focus:ring-0"
+                  />
                 </div>
               </div>
             </div>
-          )}
+          </div>
 
           {/* Progress bar */}
           {progress !== null && (
@@ -151,6 +192,27 @@ export default function ReviewModal({ open, onClose, submission }: ReviewModalPr
               </div>
               <AttachmentList attachments={submission.attachments} />
             </div>
+          )}
+
+          {/* View Detailed Evaluation Button */}
+          <button 
+            onClick={() => setShowStaffEval(true)}
+            className="w-full py-3.5 rounded-2xl border-2 border-dashed border-slate-200 dark:border-slate-800 text-slate-500 hover:text-indigo-600 hover:border-indigo-500 hover:bg-indigo-50/50 transition-all flex items-center justify-center gap-3 group"
+          >
+            <Info size={18} className="group-hover:animate-bounce" />
+            <span className="text-sm font-bold">Xem chi tiết đợt đánh giá của nhân viên này</span>
+          </button>
+
+          {/* Aggregated Evaluation Modal */}
+          {submission && (
+            <StaffEvaluationModal
+              open={showStaffEval}
+              onClose={() => setShowStaffEval(false)}
+              userId={submission.submittedById}
+              userName={submission.submittedByName}
+              periodId={submission.kpiPeriod?.id || ''}
+              periodName={submission.kpiPeriod?.name || ''}
+            />
           )}
 
           {/* Restriction Notice */}

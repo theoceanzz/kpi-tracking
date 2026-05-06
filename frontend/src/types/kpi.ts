@@ -7,6 +7,7 @@ export interface KpiPeriod {
   periodType: KpiFrequency
   startDate: string | null
   endDate: string | null
+  notificationDate: string | null
   organizationId: string
 }
 

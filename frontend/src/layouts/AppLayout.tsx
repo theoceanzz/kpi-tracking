@@ -1,4 +1,4 @@
-import { Outlet, useLocation } from 'react-router-dom'
+import { Outlet, useLocation, Navigate } from 'react-router-dom'
 import Sidebar from './Sidebar'
 import { useAuth } from '@/hooks/useAuth'
 import { useSidebarStore } from '@/store/sidebarStore'
@@ -17,6 +17,10 @@ export default function AppLayout() {
   useEffect(() => {
     setIsMobileMenuOpen(false)
   }, [location.pathname])
+
+  if (user?.requirePasswordChange) {
+    return <Navigate to="/force-password-change" replace />
+  }
 
   return (
     <div className="flex min-h-screen bg-[var(--color-background)]">

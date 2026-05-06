@@ -15,6 +15,16 @@ khoa@keyperson.com,Khoa,KP004,0342719583,STAFF,Khoakp123@,
 duc@keyperson.com,Đức,KP005,0972458591,STAFF,Duckp123@,HCM01
 phuonganh@keyperson.com,Phương Anh,KP006,0968078673,STAFF,Phuonganhkp123@,`
 
+const COLUMNS = [
+  { name: 'Email', required: true, desc: 'Email đăng nhập, phải là duy nhất trong hệ thống', example: 'abc@company.com' },
+  { name: 'FullName', required: true, desc: 'Họ và tên đầy đủ', example: 'Nguyễn Văn A' },
+  { name: 'EmployeeCode', required: false, desc: 'Mã số nhân viên', example: 'NV001' },
+  { name: 'Phone', required: false, desc: 'Số điện thoại (có thể để trống)', example: '0901000001' },
+  { name: 'Role', required: false, desc: 'Vai trò: DIRECTOR, HEAD, DEPUTY, LEADER, STAFF (mặc định STAFF)', example: 'STAFF' },
+  { name: 'Password', required: false, desc: 'Mật khẩu đăng nhập (nếu trống sẽ tự động tạo)', example: '123456aA' },
+  { name: 'OrgUnitCode', required: false, desc: 'Mã đơn vị để gán nhân sự (vd: HN01). Nếu trống sẽ chỉ gán vào công ty.', example: 'HN01' },
+]
+
 async function downloadTemplate(type: 'csv' | 'xlsx') {
   if (type === 'csv') {
     const blob = new Blob(['\uFEFF' + SAMPLE_CSV_CONTENT], { type: 'text/csv;charset=utf-8;' })
@@ -80,6 +90,41 @@ async function downloadTemplate(type: 'csv' | 'xlsx') {
     })
   })
 
+  // Add Guide Sheet
+  const guideSheet = workbook.addWorksheet('Hướng dẫn chi tiết')
+  guideSheet.columns = [
+    { header: 'Tên cột', key: 'name', width: 20 },
+    { header: 'Bắt buộc', key: 'req', width: 15 },
+    { header: 'Mô tả', key: 'desc', width: 50 },
+    { header: 'Ví dụ', key: 'ex', width: 25 },
+  ]
+  const guideHeader = guideSheet.getRow(1)
+  guideHeader.font = { bold: true, color: { argb: 'FFFFFFFF' }, size: 12 }
+  guideHeader.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E293B' } }
+  guideHeader.alignment = { vertical: 'middle', horizontal: 'center' }
+  guideHeader.height = 30
+
+  COLUMNS.forEach(c => {
+    const row = guideSheet.addRow([c.name, c.required ? 'CÓ' : 'KHÔNG', c.desc, c.example])
+    row.font = { size: 11 }
+    row.alignment = { vertical: 'middle', horizontal: 'left', wrapText: true }
+    row.eachCell(cell => {
+      cell.border = {
+        top: { style: 'thin', color: { argb: 'FFCBD5E1' } }, left: { style: 'thin', color: { argb: 'FFCBD5E1' } },
+        bottom: { style: 'thin', color: { argb: 'FFCBD5E1' } }, right: { style: 'thin', color: { argb: 'FFCBD5E1' } }
+      }
+    })
+  })
+
+  guideSheet.addRow([])
+  const noteTitleRow = guideSheet.addRow(['LƯU Ý CHUNG CHO IMPORT EXCEL & CSV'])
+  noteTitleRow.font = { bold: true, size: 12, color: { argb: 'FFDC2626' } }
+  guideSheet.addRow(['1. File mẫu này hỗ trợ import cả định dạng .xlsx và .csv.'])
+  guideSheet.addRow(['2. Nếu import bằng CSV, bạn vui lòng xuất dữ liệu từ tab "Danh sách nhân sự" ra file .csv (UTF-8).'])
+  guideSheet.addRow(['3. Email là duy nhất, không được trùng với tài khoản đã có trên hệ thống.'])
+  guideSheet.addRow(['4. Password có thể để trống. Hệ thống sẽ tự tạo mật khẩu mạnh và gửi email cho người dùng.'])
+  guideSheet.addRow(['5. OrgUnitCode là mã phòng ban. Nếu trống, nhân sự sẽ thuộc cấp toàn công ty.'])
+
   // Generate and download
   const buffer = await workbook.xlsx.writeBuffer()
   const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
@@ -97,15 +142,7 @@ const STEPS = [
   { num: '03', title: 'Lưu & Upload', desc: 'Lưu file ở định dạng .csv hoặc .xlsx, sau đó nhấn "Chọn file & Import" bên dưới.' },
 ]
 
-const COLUMNS = [
-  { name: 'Email', required: true, desc: 'Email đăng nhập, phải là duy nhất trong hệ thống', example: 'abc@company.com' },
-  { name: 'FullName', required: true, desc: 'Họ và tên đầy đủ', example: 'Nguyễn Văn A' },
-  { name: 'EmployeeCode', required: false, desc: 'Mã số nhân viên', example: 'NV001' },
-  { name: 'Phone', required: false, desc: 'Số điện thoại (có thể để trống)', example: '0901000001' },
-  { name: 'Role', required: false, desc: 'Vai trò: DIRECTOR, HEAD, DEPUTY, LEADER, STAFF (mặc định STAFF)', example: 'STAFF' },
-  { name: 'Password', required: false, desc: 'Mật khẩu đăng nhập (nếu trống sẽ tự động tạo)', example: '123456aA' },
-  { name: 'OrgUnitCode', required: false, desc: 'Mã đơn vị để gán nhân sự (vd: HN01). Nếu trống sẽ chỉ gán vào công ty.', example: 'HN01' },
-]
+
 
 export default function ImportGuideModal({ open, onClose, onSelectFile }: ImportGuideModalProps) {
   if (!open) return null

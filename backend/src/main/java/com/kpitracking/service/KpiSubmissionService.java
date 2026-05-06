@@ -1,5 +1,6 @@
 package com.kpitracking.service;
 
+import com.kpitracking.dto.request.submission.BulkReviewRequest;
 import com.kpitracking.dto.request.submission.CreateSubmissionRequest;
 import com.kpitracking.dto.request.submission.UpdateSubmissionRequest;
 import com.kpitracking.dto.request.submission.ReviewSubmissionRequest;
@@ -30,7 +31,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.Collections;
+import java.util.List;
 import java.util.UUID;
 
 @Service
@@ -166,7 +169,9 @@ public class KpiSubmissionService {
                                  ") thấp hơn mức tối thiểu yêu cầu (" + minVal + ").";
                 reviewedAt = Instant.now();
             } else {
-                autoScore = (request.getActualValue() / kpi.getTargetValue()) * kpi.getWeight();
+                com.kpitracking.entity.Organization org = kpi.getOrgUnit().getOrgHierarchyLevel().getOrganization();
+                double multiplier = org.getEvaluationMaxScore() / 100.0;
+                autoScore = (request.getActualValue() / kpi.getTargetValue()) * kpi.getWeight() * multiplier;
             }
         }
         
@@ -207,7 +212,7 @@ public class KpiSubmissionService {
     }
 
     @Transactional(readOnly = true)
-    public PageResponse<SubmissionResponse> getSubmissions(int page, int size, SubmissionStatus status, UUID kpiCriteriaId, UUID submittedById, UUID orgUnitId, String sortBy, String sortDir) {
+    public PageResponse<SubmissionResponse> getSubmissions(int page, int size, SubmissionStatus status, UUID kpiPeriodId, UUID kpiCriteriaId, UUID submittedById, UUID orgUnitId, String sortBy, String sortDir) {
         User currentUser = getCurrentUser();
         java.util.List<UUID> allowedOrgUnitIds = permissionChecker.getOrgUnitsWithPermission(currentUser.getId(), "SUBMISSION:REVIEW");
 
@@ -233,6 +238,7 @@ public class KpiSubmissionService {
                 currentUser.getId(),
                 allowedOrgUnitIds,
                 status,
+                kpiPeriodId,
                 kpiCriteriaId,
                 submittedById,
                 orgUnitPath,
@@ -288,7 +294,9 @@ public class KpiSubmissionService {
                                      ") thấp hơn mức tối thiểu yêu cầu (" + minVal + ").");
                     submission.setReviewedAt(Instant.now());
                 } else {
-                    submission.setAutoScore((submission.getActualValue() / kpi.getTargetValue()) * kpi.getWeight());
+                    com.kpitracking.entity.Organization org = kpi.getOrgUnit().getOrgHierarchyLevel().getOrganization();
+                    double multiplier = org.getEvaluationMaxScore() / 100.0;
+                    submission.setAutoScore((submission.getActualValue() / kpi.getTargetValue()) * kpi.getWeight() * multiplier);
                 }
             }
         } else if (Boolean.TRUE.equals(request.getIsDraft())) {
@@ -334,16 +342,19 @@ public class KpiSubmissionService {
                 throw new ForbiddenException("Bạn không có quyền phê duyệt bản nộp của đơn vị này");
             }
 
-            // Enhanced Hierarchical Rule: Check rank relative to submitter
+            // Enhanced Hierarchical Rule: Check rank AND level relative to submitter
             User submitter = submission.getSubmittedBy();
             int submitterRank = permissionChecker.getMinRankInOrgUnit(submitter.getId(), submission.getOrgUnit().getId());
             int reviewerRank = permissionChecker.getMinRankInOrgUnit(currentUser.getId(), submission.getOrgUnit().getId());
+            
+            int submitterLevel = permissionChecker.getMinLevelInOrgUnit(submitter.getId(), submission.getOrgUnit().getId());
+            int reviewerLevel = permissionChecker.getMinLevelInOrgUnit(currentUser.getId(), submission.getOrgUnit().getId());
 
-            if (reviewerRank > submitterRank) {
-                throw new ForbiddenException("Bạn không thể phê duyệt bản nộp của người có chức vụ cao hơn bạn (Rank " + reviewerRank + " vs " + submitterRank + ")");
-            }
-            if (reviewerRank == submitterRank && !permissionChecker.isGlobalAdmin(currentUser.getId())) {
-                throw new ForbiddenException("Bạn không thể phê duyệt bản nộp của người có cùng chức vụ");
+            // Seniority check: Reviewer must have smaller level number (Higher unit) OR same level but smaller rank number
+            boolean isSuperior = (reviewerLevel < submitterLevel) || (reviewerLevel == submitterLevel && reviewerRank < submitterRank);
+
+            if (!isSuperior) {
+                throw new ForbiddenException("Bạn không thể phê duyệt bản nộp của người có cấp bậc hoặc chức vụ tương đương/cao hơn bạn");
             }
         }
 
@@ -351,12 +362,53 @@ public class KpiSubmissionService {
         submission.setReviewedBy(currentUser);
         submission.setReviewNote(request.getReviewNote());
         submission.setReviewedAt(Instant.now());
+        submission.setManagerScore(request.getManagerScore());
 
         submission = submissionRepository.save(submission);
 
         eventPublisher.publishEvent(new SubmissionReviewedEvent(this, submission));
 
         return mapToResponse(submission);
+    }
+
+    @Transactional
+    public List<SubmissionResponse> bulkReview(BulkReviewRequest request) {
+        User currentUser = getCurrentUser();
+        List<SubmissionResponse> results = new ArrayList<>();
+
+        for (UUID id : request.getSubmissionIds()) {
+            KpiSubmission submission = submissionRepository.findById(id)
+                    .orElseThrow(() -> new ResourceNotFoundException("Submission not found: " + id));
+
+            // Apply individual overrides
+            if (request.getIndividualReviews() != null) {
+                request.getIndividualReviews().stream()
+                        .filter(ir -> ir.getSubmissionId().equals(id))
+                        .findFirst()
+                        .ifPresent(ir -> {
+                            if (ir.getManagerScore() != null) submission.setManagerScore(ir.getManagerScore());
+                            if (ir.getReviewNote() != null) submission.setReviewNote(ir.getReviewNote());
+                        });
+            }
+
+            // Fallback to common review if individual not provided
+            if (submission.getManagerScore() == null && request.getCommonReview() != null) {
+                submission.setManagerScore(request.getCommonReview().getManagerScore());
+            }
+            if (submission.getReviewNote() == null && request.getCommonReview() != null) {
+                submission.setReviewNote(request.getCommonReview().getReviewNote());
+            }
+
+            submission.setStatus(request.getCommonReview() != null ? request.getCommonReview().getStatus() : SubmissionStatus.APPROVED);
+            submission.setReviewedBy(currentUser);
+            submission.setReviewedAt(Instant.now());
+
+            final KpiSubmission savedSubmission = submissionRepository.save(submission);
+            eventPublisher.publishEvent(new SubmissionReviewedEvent(this, savedSubmission));
+            results.add(mapToResponse(savedSubmission));
+        }
+
+        return results;
     }
 
     @Transactional(readOnly = true)
@@ -371,6 +423,7 @@ public class KpiSubmissionService {
                 currentUser.getId(), // currentUserId
                 Collections.emptyList(), // allowedOrgUnitIds
                 status,
+                null, // kpiPeriodId
                 null, // kpiCriteriaId
                 currentUser.getId(), // submittedById
                 null, // orgUnitPath

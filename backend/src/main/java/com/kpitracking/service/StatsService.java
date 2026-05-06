@@ -85,21 +85,23 @@ public class StatsService {
                 .distinct()
                 .count();
 
-        long pendingSub = submissionRepository.countByOrgUnitIdInAndStatus(unitIds, SubmissionStatus.PENDING);
-        long approvedSub = submissionRepository.countByOrgUnitIdInAndStatus(unitIds, SubmissionStatus.APPROVED);
-        long rejectedSub = submissionRepository.countByOrgUnitIdInAndStatus(unitIds, SubmissionStatus.REJECTED);
+        long pendingSub = submissionRepository.countBySubmittedByUserOrgUnitInAndStatus(unitIds, SubmissionStatus.PENDING);
+        long approvedSub = submissionRepository.countBySubmittedByUserOrgUnitInAndStatus(unitIds, SubmissionStatus.APPROVED);
+        long rejectedSub = submissionRepository.countBySubmittedByUserOrgUnitInAndStatus(unitIds, SubmissionStatus.REJECTED);
+
+        java.util.List<KpiStatus> activeStatuses = java.util.Arrays.asList(KpiStatus.APPROVED, KpiStatus.EDITED, KpiStatus.EDIT, KpiStatus.PENDING_APPROVAL);
 
         return OverviewStatsResponse.builder()
                 .totalUsers(totalPersonnelCount)
-                .totalOrgUnits((int) authorizedUnits.stream().filter(u -> u.getParent() != null).count())
-                .totalKpiCriteria(kpiCriteriaRepository.countByOrgUnitIdIn(unitIds))
+                .totalOrgUnits((int) kpiCriteriaRepository.countDistinctOrgUnitsOfAssigneesIn(unitIds, activeStatuses))
+                .totalKpiCriteria(kpiCriteriaRepository.countTotalKpiCriteriaIn(unitIds, activeStatuses))
                 .approvedKpi(kpiCriteriaRepository.countByOrgUnitIdInAndStatus(unitIds, KpiStatus.APPROVED))
                 .pendingKpi(kpiCriteriaRepository.countByOrgUnitIdInAndStatus(unitIds, KpiStatus.PENDING_APPROVAL))
                 .rejectedKpi(kpiCriteriaRepository.countByOrgUnitIdInAndStatus(unitIds, KpiStatus.REJECTED))
                 .draftKpi(kpiCriteriaRepository.countByOrgUnitIdInAndStatus(unitIds, KpiStatus.DRAFT))
                 .totalSubmissions((int) (pendingSub + approvedSub + rejectedSub))
-                .pendingSubmissions((int) pendingSub)
                 .approvedSubmissions((int) approvedSub)
+                .pendingSubmissions((int) pendingSub)
                 .rejectedSubmissions((int) rejectedSub)
                 .totalEvaluations(evaluationRepository.countByOrgUnitIdIn(unitIds))
                 .build();
@@ -108,27 +110,36 @@ public class StatsService {
     @Transactional(readOnly = true)
     public List<OrgUnitKpiStatsResponse> getOrgUnitKpiStats() {
         User currentUser = getCurrentUser();
-        List<OrgUnit> authorizedUnits = getAuthorizedOrgUnits(currentUser, "ORG:VIEW");
+        // Get all units that the user has dashboard view access to, including their subtrees
+        List<UUID> rootIds = permissionChecker.getOrgUnitsWithPermission(currentUser.getId(), "DASHBOARD:VIEW");
+        List<OrgUnit> authorizedUnits = orgUnitRepository.findAllInSubtrees(rootIds);
 
-        return authorizedUnits.stream().map(unit -> OrgUnitKpiStatsResponse.builder()
+        return authorizedUnits.stream().map(unit -> {
+            List<UUID> subtreeIds = getSubtreeIds(unit);
+            
+            long approvedSub = submissionRepository.countBySubmittedByUserOrgUnitInAndStatus(subtreeIds, SubmissionStatus.APPROVED);
+            long pendingSub = submissionRepository.countBySubmittedByUserOrgUnitInAndStatus(subtreeIds, SubmissionStatus.PENDING);
+            long rejectedSub = submissionRepository.countBySubmittedByUserOrgUnitInAndStatus(subtreeIds, SubmissionStatus.REJECTED);
+            long totalSub = approvedSub + pendingSub + rejectedSub;
+
+            java.util.List<KpiStatus> activeStatuses = java.util.Arrays.asList(KpiStatus.APPROVED, KpiStatus.EDITED, KpiStatus.EDIT, KpiStatus.PENDING_APPROVAL);
+
+            return OrgUnitKpiStatsResponse.builder()
                 .orgUnitId(unit.getId())
                 .orgUnitName(unit.getName())
                 .parentOrgUnitId(unit.getParent() != null ? unit.getParent().getId() : null)
-                .memberCount(userRoleOrgUnitRepository.findByOrgUnitId(unit.getId()).size())
-                .totalKpi(kpiCriteriaRepository.countByOrgUnitId(unit.getId()))
-                .approvedKpi(kpiCriteriaRepository.countByOrgUnitIdAndStatus(unit.getId(), KpiStatus.APPROVED))
-                .pendingKpi(kpiCriteriaRepository.countByOrgUnitIdAndStatus(unit.getId(), KpiStatus.PENDING_APPROVAL))
-                .rejectedKpi(kpiCriteriaRepository.countByOrgUnitIdAndStatus(unit.getId(), KpiStatus.REJECTED))
-                .totalSubmissions(
-                    submissionRepository.countByOrgUnitIdAndStatus(unit.getId(), SubmissionStatus.APPROVED) +
-                    submissionRepository.countByOrgUnitIdAndStatus(unit.getId(), SubmissionStatus.PENDING) +
-                    submissionRepository.countByOrgUnitIdAndStatus(unit.getId(), SubmissionStatus.REJECTED)
-                )
-                .approvedSubmissions(submissionRepository.countByOrgUnitIdAndStatus(unit.getId(), SubmissionStatus.APPROVED))
-                .pendingSubmissions(submissionRepository.countByOrgUnitIdAndStatus(unit.getId(), SubmissionStatus.PENDING))
-                .rejectedSubmissions(submissionRepository.countByOrgUnitIdAndStatus(unit.getId(), SubmissionStatus.REJECTED))
-                .build()
-        ).toList();
+                .memberCount(userRoleOrgUnitRepository.findByOrgUnitIdIn(subtreeIds).stream().map(uro -> uro.getUser().getId()).distinct().toList().size())
+                .totalKpi(kpiCriteriaRepository.countByOrgUnitIdIn(subtreeIds))
+                .totalAssignments(kpiCriteriaRepository.countTotalAssignmentsIn(subtreeIds, activeStatuses))
+                .approvedKpi(kpiCriteriaRepository.countByOrgUnitIdInAndStatus(subtreeIds, KpiStatus.APPROVED))
+                .pendingKpi(kpiCriteriaRepository.countByOrgUnitIdInAndStatus(subtreeIds, KpiStatus.PENDING_APPROVAL))
+                .rejectedKpi(kpiCriteriaRepository.countByOrgUnitIdInAndStatus(subtreeIds, KpiStatus.REJECTED))
+                .totalSubmissions((int) totalSub)
+                .approvedSubmissions(approvedSub)
+                .pendingSubmissions(pendingSub)
+                .rejectedSubmissions(rejectedSub)
+                .build();
+        }).toList();
     }
 
     @Transactional(readOnly = true)
@@ -184,7 +195,9 @@ public class StatsService {
              if (primary == null) continue;
 
              // Filter by rank: Deputy (1) only sees Staff (> 1)
-             if (currentUserRank == 1 && primary.getRole().getRank() != null && primary.getRole().getRank() <= 1) {
+             // EXCEPT for senior management (Level 0, 1, 2) who should see everyone
+             boolean isSeniorManagement = primary.getOrgUnit().getOrgHierarchyLevel().getRoleLevel() <= 2;
+             if (!isSeniorManagement && currentUserRank == 1 && primary.getRole().getRank() != null && primary.getRole().getRank() <= 1) {
                  continue;
              }
 
@@ -198,7 +211,7 @@ public class StatsService {
              String roleName = primary.getRole().getName();
              String orgUnitName = primary.getOrgUnit().getName();
 
-             java.util.List<KpiStatus> activeStatuses = java.util.Arrays.asList(KpiStatus.APPROVED, KpiStatus.EDITED, KpiStatus.EDIT);
+             java.util.List<KpiStatus> activeStatuses = java.util.Arrays.asList(KpiStatus.APPROVED, KpiStatus.EDITED, KpiStatus.EDIT, KpiStatus.PENDING_APPROVAL);
              long assignedKpi = kpiCriteriaRepository.countByAssigneeAndStatusIn(u.getId(), activeStatuses);
              
              // Fetch criteria to check submission status per criteria
@@ -292,7 +305,7 @@ public class StatsService {
         }
 
         // 1. Basic counts
-        java.util.List<KpiStatus> activeStatuses = java.util.Arrays.asList(KpiStatus.APPROVED, KpiStatus.EDITED, KpiStatus.EDIT);
+        java.util.List<KpiStatus> activeStatuses = java.util.Arrays.asList(KpiStatus.APPROVED, KpiStatus.EDITED, KpiStatus.EDIT, KpiStatus.PENDING_APPROVAL);
         long totalAssigned = kpiCriteriaRepository.countByAssigneeAndStatusIn(userId, activeStatuses);
         long approved = submissionRepository.countBySubmittedByIdAndStatus(userId, SubmissionStatus.APPROVED);
         long pending = submissionRepository.countBySubmittedByIdAndStatus(userId, SubmissionStatus.PENDING);
@@ -309,6 +322,7 @@ public class StatsService {
 
         List<KpiTaskResponse> allTasks = new ArrayList<>();
         long lateCount = 0;
+        long pendingTaskCount = 0;
         Instant now = Instant.now();
 
         for (KpiCriteria criteria : assignedCriteria) {
@@ -342,6 +356,10 @@ public class StatsService {
                     long subDuration = duration / totalExpected;
                     actualDeadline = Instant.ofEpochMilli(start + (currentSub + 1) * subDuration);
                 }
+            }
+
+            if (status.equals("NOT_STARTED") || status.equals("OVERDUE") || status.equals("REJECTED") || status.equals("EDIT")) {
+                pendingTaskCount++;
             }
 
             if (status.equals("NOT_STARTED") && actualDeadline != null && actualDeadline.isBefore(now)) {
@@ -393,6 +411,7 @@ public class StatsService {
                 .pendingSubmissions(pending)
                 .rejectedSubmissions(rejected)
                 .lateSubmissions(lateCount)
+                .pendingTaskCount(pendingTaskCount)
                 .averageScore(avgScore)
                 .tasks(taskPage)
                 .build();
@@ -681,11 +700,16 @@ public class StatsService {
 
         List<AnalyticsSummaryResponse.RoleDistribution> roleDist = childUnits.stream().map(u -> {
             List<UUID> subtree = getSubtreeIds(u);
-            List<UserRoleOrgUnit> members = userRoleOrgUnitRepository.findAll().stream()
-                .filter(m -> subtree.contains(m.getOrgUnit().getId())).toList();
-            long directors = members.stream().filter(m -> m.getRole().getName().contains("DIRECTOR")).count();
-            long heads = members.stream().filter(m -> m.getRole().getName().contains("HEAD") || m.getRole().getName().contains("MANAGER")).count();
-            return new AnalyticsSummaryResponse.RoleDistribution(u.getName(), directors, heads, members.size() - directors - heads);
+            List<UserRoleOrgUnit> members = userRoleOrgUnitRepository.findByOrgUnitIdIn(subtree);
+            
+            long l0 = members.stream().filter(m -> m.getRole().getLevel() != null && m.getRole().getLevel() == 0).count();
+            long l1 = members.stream().filter(m -> m.getRole().getLevel() != null && m.getRole().getLevel() == 1).count();
+            long l2 = members.stream().filter(m -> m.getRole().getLevel() != null && m.getRole().getLevel() == 2).count();
+            long l3 = members.stream().filter(m -> m.getRole().getLevel() != null && m.getRole().getLevel() == 3).count();
+            long l4 = members.stream().filter(m -> m.getRole().getLevel() != null && m.getRole().getLevel() == 4).count();
+            long other = members.size() - l0 - l1 - l2 - l3 - l4;
+            
+            return new AnalyticsSummaryResponse.RoleDistribution(u.getName(), l0, l1, l2, l3, l4, other);
         }).toList();
 
         // Data for initial load

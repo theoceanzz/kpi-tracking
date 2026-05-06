@@ -10,18 +10,19 @@ import {
   Loader2,
   Key,
   Layers,
-  ChevronRight,
   Filter,
   History,
   Lock,
   ArrowRight,
-  MoreVertical
+  MoreVertical,
+  Zap
 } from 'lucide-react'
 import { useRoles, useCreateRole, useUpdateRole, useDeleteRole } from '../hooks/useRoles'
 import { useOrgHierarchyLevels } from '../hooks/useOrganizationStructure'
 import { useAuthStore } from '@/store/authStore'
 import { RoleResponse } from '../api/role.api'
 import RolePermissionDrawer from '../components/RolePermissionDrawer'
+import HierarchyPermissionModal from '../components/HierarchyPermissionModal'
 import ConfirmDialog from '@/components/common/ConfirmDialog'
 import { format } from 'date-fns'
 import { vi } from 'date-fns/locale'
@@ -40,10 +41,10 @@ export default function RoleManagementPage() {
     isOpen: false,
     role: null
   })
+  const [isHierarchyModalOpen, setIsHierarchyModalOpen] = useState(false)
   const [activeMenuId, setActiveMenuId] = useState<string | null>(null)
-  const [formData, setFormData] = useState<{ name: string; parentRoleId: string | undefined; level: number; rank: number }>({ 
+  const [formData, setFormData] = useState<{ name: string; level: number; rank: number }>({ 
     name: '', 
-    parentRoleId: undefined, 
     level: 2,
     rank: 2
   })
@@ -57,26 +58,39 @@ export default function RoleManagementPage() {
   const orgId = user?.memberships?.[0]?.organizationId
   const { data: hierarchyLevels = [] } = useOrgHierarchyLevels(orgId)
 
-  const filteredRoles = roles.filter(r => {
-    const matchesSearch = r.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                         (ROLE_MAP[r.name] || '').toLowerCase().includes(searchQuery.toLowerCase())
-    if (!matchesSearch) return false
+  const filteredRoles = useMemo(() => {
+    // Get unique role levels from organization hierarchy
+    const activeRoleLevels = new Set(hierarchyLevels.map(l => l.roleLevel))
+    
+    return roles.filter(r => {
+      const matchesSearch = r.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
+                           (ROLE_MAP[r.name] || '').toLowerCase().includes(searchQuery.toLowerCase())
+      if (!matchesSearch) return false
 
-    if (hierarchyLevels.length > 0) {
-      const levelCount = hierarchyLevels.length
-      if (r.isSystem) return r.name !== 'DIRECTOR_SYSTEM'
-      
-      // Staff (rank 2) always visible
-      if (r.rank === 2) return true
-      // Director-level (level 0) always visible if hierarchy exists
-      if (r.level === 0) return levelCount >= 1
-      // Mid-level (level 1) roles only if 3+ hierarchy levels
-      if (r.level === 1) return levelCount > 2
-      // Team-level (level 2, rank 0 or 1) always visible
-      if (r.level === 2 && (r.rank === 0 || r.rank === 1)) return true
-    }
-    return true
-  })
+      if (activeRoleLevels.size > 0) {
+        // Only show roles that belong to the active hierarchy levels
+        if (r.isSystem && r.name === 'DIRECTOR_SYSTEM') return false
+        
+        if (r.level === undefined) return false
+        return activeRoleLevels.has(r.level as number)
+      }
+      return true
+    })
+  }, [roles, hierarchyLevels, searchQuery])
+  
+  const getLevelInfo = (level: number | undefined) => {
+    if (level === undefined) return { label: 'N/A', color: 'gray' }
+    const hl = hierarchyLevels.find(l => l.roleLevel === level)
+    if (!hl) return { label: 'Khác', color: 'gray' }
+    
+    // Determine relative position for colors
+    const levels = [...new Set(hierarchyLevels.map(l => l.roleLevel))].sort((a, b) => a - b)
+    const index = levels.indexOf(level)
+    
+    if (index === 0) return { label: hl.unitTypeName, color: 'rose' }
+    if (index === levels.length - 1) return { label: hl.unitTypeName, color: 'emerald' }
+    return { label: hl.unitTypeName, color: 'amber' }
+  }
 
   // Stats calculation
   const stats = useMemo(() => ({
@@ -86,41 +100,19 @@ export default function RoleManagementPage() {
     highLevel: filteredRoles.filter(r => r.level === 0).length
   }), [filteredRoles])
 
-  const parentOptions = useMemo(() => {
-    const getRankValue = (r: RoleResponse) => {
-      // Use the new rank field if available, otherwise fallback to level-based logic
-      const level = r.level ?? 0;
-      if (r.rank !== undefined && r.rank !== null) return level * 10 + r.rank;
-      
-      const n = (r.name || '').toUpperCase();
-      let internalRank = 2; // Default to Staff/Other
-      if (n.includes('ADMIN')) return 0;
-      if (n === 'DIRECTOR' || n === 'GIÁM ĐỐC') internalRank = 0;
-      else if (n === 'HEAD' || n === 'TRƯỞNG PHÒNG') internalRank = 0;
-      else if (n === 'DEPUTY' || n === 'PHÓ PHÒNG') internalRank = 1;
-      
-      return level * 10 + internalRank;
-    };
-    
-    const currentRankValue = editingRole ? getRankValue(editingRole) : (formData.level * 10 + formData.rank);
-    return roles.filter(r => {
-      if (r.id === editingRole?.id) return false;
-      return getRankValue(r) < currentRankValue;
-    });
-  }, [roles, formData.name, editingRole])
+
 
   const handleOpenModal = (role?: RoleResponse) => {
     if (role) {
       setEditingRole(role)
       setFormData({ 
         name: role.name, 
-        parentRoleId: role.parentRoleId || undefined, 
         level: role.level ?? 2,
         rank: role.rank ?? 2
       })
     } else {
       setEditingRole(null)
-      setFormData({ name: '', parentRoleId: undefined, level: 2, rank: 2 })
+      setFormData({ name: '', level: 2, rank: 2 })
     }
     setIsModalOpen(true)
   }
@@ -131,23 +123,35 @@ export default function RoleManagementPage() {
       toast.error('Vui lòng nhập tên vai trò')
       return
     }
+
+    // Validation: 1 level can only have 1 rank 0 and 1 rank 1
+    if (formData.rank !== 2) {
+      const duplicate = roles.find(r => 
+        r.level === formData.level && 
+        r.rank === formData.rank && 
+        r.id !== editingRole?.id
+      )
+      if (duplicate) {
+        const rankName = formData.rank === 0 ? "TRƯỞNG (Rank 0)" : "PHÓ (Rank 1)"
+        toast.error(`Mỗi phân cấp chỉ được phép có tối đa 1 ${rankName}. Hiện tại đã có vai trò "${duplicate.name}" ở phân cấp này.`)
+        return
+      }
+    }
     try {
-      if (editingRole) {
+        if (editingRole) {
         await updateMutation.mutateAsync({
           roleId: editingRole.id,
           payload: { 
             name: formData.name, 
             level: formData.level, 
-            rank: formData.rank,
-            parentRoleId: formData.parentRoleId || undefined 
+            rank: formData.rank
           }
         })
       } else {
         await createMutation.mutateAsync({ 
           name: formData.name, 
           level: formData.level, 
-          rank: formData.rank,
-          parentRoleId: formData.parentRoleId || undefined 
+          rank: formData.rank
         })
       }
       setIsModalOpen(false)
@@ -194,15 +198,23 @@ export default function RoleManagementPage() {
             </p>
           </div>
           
-          <button 
-            onClick={() => handleOpenModal()}
-            className="group flex items-center justify-center gap-3 px-8 py-4 bg-white text-indigo-600 rounded-2xl hover:bg-indigo-50 font-black transition-all shadow-xl shadow-black/10 hover:scale-[1.03] active:scale-95"
-          >
-            <div className="w-8 h-8 rounded-lg bg-indigo-100 flex items-center justify-center group-hover:bg-indigo-200 transition-colors">
+          <div className="flex flex-col xl:flex-row items-center gap-4 shrink-0">
+            <button 
+              onClick={() => setIsHierarchyModalOpen(true)}
+              className="group flex items-center justify-center gap-3 px-6 py-4 bg-white/10 text-white border border-white/20 rounded-[1.25rem] hover:bg-white/20 font-black transition-all shadow-xl hover:scale-[1.02] active:scale-95 text-sm whitespace-nowrap backdrop-blur-md"
+            >
+              <Zap size={18} className="text-amber-300" fill="currentColor" />
+              Thiết lập Quyền theo Phân cấp
+            </button>
+
+            <button 
+              onClick={() => handleOpenModal()}
+              className="group flex items-center justify-center gap-3 px-8 py-4 bg-white text-indigo-600 rounded-[1.25rem] hover:bg-indigo-50 font-black transition-all shadow-xl shadow-black/10 hover:scale-[1.02] active:scale-95 text-sm whitespace-nowrap"
+            >
               <Plus className="w-5 h-5" />
-            </div>
-            Thêm vai trò mới
-          </button>
+              Thêm vai trò mới
+            </button>
+          </div>
         </div>
 
         {/* Stats Summary Area */}
@@ -261,7 +273,6 @@ export default function RoleManagementPage() {
                 <th className="px-8 py-6 border-b border-gray-100">Thông tin vai trò</th>
                 <th className="px-8 py-6 border-b border-gray-100 text-center">Vị trí</th>
                 <th className="px-8 py-6 border-b border-gray-100">Phân cấp hệ thống</th>
-                <th className="px-8 py-6 border-b border-gray-100">Cấu trúc phân cấp</th>
                 <th className="px-8 py-6 border-b border-gray-100">Ngày tạo</th>
                 <th className="px-8 py-6 border-b border-gray-100 text-right">Quản lý</th>
               </tr>
@@ -328,38 +339,25 @@ export default function RoleManagementPage() {
                       </div>
                     </td>
                     <td className="px-8 py-6">
-                      <div className={cn(
-                        "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-wider border transition-colors whitespace-nowrap",
-                        role.level === 0 ? "bg-rose-50 text-rose-700 border-rose-100" :
-                        role.level === 1 ? "bg-amber-50 text-amber-700 border-amber-100" :
-                        "bg-emerald-50 text-emerald-700 border-emerald-100"
-                      )}>
-                        <div className={cn("w-1.5 h-1.5 rounded-full animate-pulse", 
-                          role.level === 0 ? "bg-rose-500" : role.level === 1 ? "bg-amber-500" : "bg-emerald-500"
-                        )} />
-                        {role.level === 0 ? 'Cấp quản lý cao' : role.level === 1 ? 'Cấp quản lý trung' : 'Cấp thực thi cơ sở'}
-                      </div>
+                      {(() => {
+                        const info = getLevelInfo(role.level);
+                        return (
+                          <div className={cn(
+                            "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-wider border transition-colors whitespace-nowrap",
+                            info.color === 'rose' ? "bg-rose-50 text-rose-700 border-rose-100" :
+                            info.color === 'amber' ? "bg-amber-50 text-amber-700 border-amber-100" :
+                            "bg-emerald-50 text-emerald-700 border-emerald-100"
+                          )}>
+                            <div className={cn("w-1.5 h-1.5 rounded-full animate-pulse", 
+                              info.color === 'rose' ? "bg-rose-500" : 
+                              info.color === 'amber' ? "bg-amber-500" : "bg-emerald-500"
+                            )} />
+                            {info.label}
+                          </div>
+                        );
+                      })()}
                     </td>
-                    <td className="px-8 py-6">
-                      {role.parentRoleName ? (
-                        <div className="flex items-center gap-2 group/parent">
-                          <div className="w-8 h-8 rounded-lg bg-gray-100 flex items-center justify-center group-hover/parent:bg-indigo-100 transition-colors">
-                            <ChevronRight size={14} className="text-gray-400 group-hover/parent:text-indigo-600" />
-                          </div>
-                          <div className="flex flex-col">
-                            <span className="text-xs font-bold text-gray-400 uppercase tracking-tight">Cấp cha</span>
-                            <span className="text-sm font-black text-gray-700">{ROLE_MAP[role.parentRoleName] || role.parentRoleName}</span>
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="flex items-center gap-2 opacity-50">
-                          <div className="w-8 h-8 rounded-lg bg-gray-50 flex items-center justify-center border border-dashed border-gray-300">
-                             <ArrowRight size={14} className="text-gray-300" />
-                          </div>
-                          <span className="text-[11px] italic font-bold text-gray-400">Gốc hệ thống</span>
-                        </div>
-                      )}
-                    </td>
+
                     <td className="px-8 py-6">
                        <div className="flex items-center gap-2 text-gray-500 whitespace-nowrap">
                          <History size={14} className="text-gray-300" />
@@ -502,11 +500,15 @@ export default function RoleManagementPage() {
                         <SelectValue placeholder="Chọn cấp độ" />
                       </SelectTrigger>
                       <SelectContent className="rounded-2xl border-gray-100 shadow-2xl z-[110] p-1">
-                        <SelectItem value="0" className="font-bold cursor-pointer rounded-xl py-3 focus:bg-rose-50 focus:text-rose-600">Cấp lãnh đạo (0)</SelectItem>
-                        {hierarchyLevels.length > 2 && (
-                          <SelectItem value="1" className="font-bold cursor-pointer rounded-xl py-3 focus:bg-amber-50 focus:text-amber-600">Cấp trung gian (1)</SelectItem>
-                        )}
-                        <SelectItem value="2" className="font-bold cursor-pointer rounded-xl py-3 focus:bg-emerald-50 focus:text-emerald-600">Cấp thực thi (2)</SelectItem>
+                        {hierarchyLevels.map((lvl) => (
+                          <SelectItem 
+                            key={lvl.id} 
+                            value={String(lvl.roleLevel)} 
+                            className="font-bold cursor-pointer rounded-xl py-3 focus:bg-indigo-50 focus:text-indigo-600"
+                          >
+                            {lvl.unitTypeName} (LEVEL {lvl.roleLevel})
+                          </SelectItem>
+                        ))}
                       </SelectContent>
                     </Select>
                   </div>
@@ -528,27 +530,7 @@ export default function RoleManagementPage() {
                   </div>
                 </div>
 
-                <div className="space-y-3">
-                  <label className="flex items-center gap-2 text-[10px] font-black text-indigo-600 uppercase tracking-[0.2em] ml-1">
-                    <ArrowRight size={12} /> Vai trò cấp cha
-                  </label>
-                  <Select 
-                    value={formData.parentRoleId || 'none'} 
-                    onValueChange={(val) => setFormData({ ...formData, parentRoleId: val === 'none' ? undefined : val })}
-                  >
-                    <SelectTrigger className="w-full px-6 py-5 bg-gray-50 border-none rounded-[1.5rem] text-sm font-black h-[64px] shadow-sm">
-                      <SelectValue placeholder="Chọn cấp cha" />
-                    </SelectTrigger>
-                    <SelectContent className="rounded-2xl border-gray-100 shadow-2xl z-[110] p-1">
-                      <SelectItem value="none" className="font-bold cursor-pointer rounded-xl py-3 italic text-gray-400">Không có cấp cha</SelectItem>
-                      {parentOptions.filter(r => !!r.id).map(r => (
-                        <SelectItem key={r.id} value={r.id} className="font-bold cursor-pointer rounded-xl py-3">
-                          {ROLE_MAP[r.name] || r.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
+
               </div>
 
               <div className="flex gap-4 pt-4">
@@ -583,6 +565,13 @@ export default function RoleManagementPage() {
         role={selectedRoleForPerms}
         isOpen={isPermissionDrawerOpen}
         onClose={() => setIsPermissionDrawerOpen(false)}
+        hierarchyLevels={hierarchyLevels}
+      />
+
+      <HierarchyPermissionModal 
+        isOpen={isHierarchyModalOpen}
+        onClose={() => setIsHierarchyModalOpen(false)}
+        hierarchyLevels={hierarchyLevels}
       />
 
       <ConfirmDialog 

@@ -10,4 +10,5 @@ public class OrgHierarchyLevelResponse {
     private Integer levelOrder;
     private String unitTypeName;
     private String managerRoleLabel;
+    private Integer roleLevel;
 }

@@ -1,4 +1,4 @@
-import { NavLink, Link } from 'react-router-dom'
+import { NavLink, Link, useLocation } from 'react-router-dom'
 import { useAuthStore } from '@/store/authStore'
 import { useSidebarStore } from '@/store/sidebarStore'
 import { useState, useRef, useEffect } from 'react'
@@ -22,36 +22,53 @@ import {
   Layers,
   MessageSquare,
   History,
-  TrendingUp
+  TrendingUp,
+  ChevronDown,
+  ChevronUp,
+  Settings
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { useNotificationDots } from '../hooks/useNotificationDots'
+import { useSidebarSettings } from '@/features/organization/hooks/useSidebarSettings'
 
 interface NavItem {
   label: string
-  path: string
+  path?: string
   icon: React.ReactNode
-  permission: string
+  permission?: string
   end?: boolean
+  children?: NavItem[]
 }
 
 const navItems: NavItem[] = [
   { label: 'Tổng quan', path: '/dashboard', icon: <LayoutDashboard size={20} />, permission: 'DASHBOARD:VIEW', end: true },
   { label: 'Dashboard cá nhân', path: '/dashboard/staff', icon: <UserCircle size={20} />, permission: 'KPI:VIEW_MY', end: true },
-  { label: 'Công ty', path: '/company', icon: <Building2 size={20} />, permission: 'COMPANY:VIEW' },
-  { label: 'Cấu trúc thiết lập', path: '/org-structure', icon: <Network size={20} />, permission: 'ORG:CREATE' },
-  { label: 'Nhân sự', path: '/users', icon: <Users size={20} />, permission: 'USER:CREATE' },
-  { label: 'Vai trò', path: '/roles', icon: <Shield size={20} />, permission: 'ROLE:VIEW' },
-  { label: 'Quản lý Chỉ tiêu', path: '/kpi-criteria', icon: <Target size={20} />, permission: 'KPI:VIEW', end: true },
-  { label: 'Duyệt Chỉ tiêu', path: '/kpi-criteria/pending', icon: <ClipboardCheck size={20} />, permission: 'KPI:APPROVE' },
-  { label: 'Duyệt Điều chỉnh', path: '/kpi-adjustments/pending', icon: <MessageSquare size={20} />, permission: 'KPI:APPROVE' },
-  { label: 'Quản lý Đợt KPI', path: '/kpi-periods', icon: <Layers size={20} />, permission: 'KPI_PERIOD:CREATE' },
+  {
+    label: 'Thiết lập công ty',
+    icon: <Building2 size={20} />,
+    children: [
+      { label: 'Công ty', path: '/company', icon: <Building2 size={18} />, permission: 'COMPANY:VIEW' },
+      { label: 'Vai trò', path: '/roles', icon: <Shield size={18} />, permission: 'ROLE:VIEW' },
+      { label: 'Thiết lập cấu trúc', path: '/org-structure', icon: <Network size={18} />, permission: 'ORG:VIEW' },
+      { label: 'Nhân sự', path: '/users', icon: <Users size={18} />, permission: 'USER:VIEW' },
+      { label: 'Cấu hình hệ thống', path: '/settings', icon: <Settings size={18} />, permission: 'COMPANY:UPDATE' },
+    ]
+  },
+  {
+    label: 'Quản lý KPI',
+    icon: <Target size={20} />,
+    children: [
+      { label: 'Quản lý đợt ', path: '/kpi-periods', icon: <Layers size={18} />, permission: 'KPI_PERIOD:CREATE' },
+      { label: 'Quản lý chỉ tiêu', path: '/kpi-criteria', icon: <Target size={18} />, permission: 'KPI:VIEW', end: true },
+      { label: 'Duyệt chỉ tiêu', path: '/kpi-criteria/pending', icon: <ClipboardCheck size={18} />, permission: 'KPI:APPROVE' },
+      { label: 'Duyệt điều chỉnh', path: '/kpi-adjustments/pending', icon: <MessageSquare size={18} />, permission: 'KPI:APPROVE' },
+      { label: 'Phê duyệt & Đánh giá', path: '/submissions/org-unit', icon: <ClipboardCheck size={18} />, permission: 'SUBMISSION:REVIEW' },
+      { label: 'Kết quả đánh giá', path: '/evaluations', icon: <Star size={18} />, permission: 'EVALUATION:VIEW_MY' },
+    ]
+  },
   { label: 'KPI của tôi', path: '/my-kpi', icon: <ListChecks size={20} />, permission: 'KPI:VIEW_MY' },
-  { label: 'Điều chỉnh của tôi', path: '/my-adjustments', icon: <History size={20} />, permission: 'KPI:VIEW_MY' },
-  { label: 'Duyệt Bài nộp', path: '/submissions/org-unit', icon: <ClipboardCheck size={20} />, permission: 'SUBMISSION:REVIEW' },
   { label: 'Bài nộp của tôi', path: '/submissions', icon: <FileText size={20} />, permission: 'SUBMISSION:VIEW_MY', end: true },
-  { label: 'Đánh giá NS', path: '/evaluations', icon: <Star size={20} />, permission: 'EVALUATION:VIEW' },
-  // { label: 'Nguồn dữ liệu', path: '/datasources', icon: <Database size={20} />, permission: 'DASHBOARD:VIEW', end: true },
-  // { label: 'Báo cáo', path: '/reports', icon: <BarChart3 size={20} />, permission: 'DASHBOARD:VIEW', end: true },
+  { label: 'Điều chỉnh của tôi', path: '/my-adjustments', icon: <History size={20} />, permission: 'KPI:VIEW_MY' },
   { label: 'Thống kê', path: '/analytics', icon: <TrendingUp size={20} />, permission: 'DASHBOARD:VIEW', end: true },
 ]
 
@@ -62,35 +79,84 @@ export default function Sidebar({ isMobileOpen, onCloseMobile }: { isMobileOpen?
   const menuRef = useRef<HTMLDivElement>(null)
 
   const { hasPermission } = useHasPermission()
+  const location = useLocation()
   
-  const filteredItems = navItems.filter((item) => {
-    if (!user) return false
-    // Special case for evaluations: show if can view all or just view own
-    // Special case for evaluations: show if can view all or just view own
-    if (item.path === '/evaluations') {
-      return hasPermission('EVALUATION:VIEW') || hasPermission('EVALUATION:VIEW_MY')
-    }
+  const organizationId = user?.memberships?.[0]?.organizationId
+  const { data: customLabels = {} } = useSidebarSettings(organizationId!)
 
-    // Special case for Staff Dashboard: Only show it for managers who also have personal KPIs
-    // (Staff already use "Tổng quan" which points to /dashboard/staff)
-    if (item.path === '/dashboard/staff') {
-      const isManager = hasPermission(['KPI:APPROVE', 'SUBMISSION:REVIEW', 'ORG:CREATE'])
-      return isManager && hasPermission('KPI:VIEW_MY')
-    }
-
-    return hasPermission(item.permission)
-  }).map(item => {
-    // Dynamic path for "Tổng quan" to match specific dashboard
-    if (item.path === '/dashboard') {
-      const dashboardPath = hasPermission(['ORG:CREATE', 'ROLE:VIEW']) 
-        ? '/dashboard/director' 
-        : hasPermission(['KPI:APPROVE', 'SUBMISSION:REVIEW']) 
-          ? '/dashboard/head' 
-          : '/dashboard/staff'
-      return { ...item, path: dashboardPath }
-    }
-    return item
+  const [expandedMenus, setExpandedMenus] = useState<Record<string, boolean>>(() => {
+    const initialState: Record<string, boolean> = {}
+    navItems.forEach(item => {
+      if (item.children && item.children.some(child => location.pathname.startsWith(child.path || ''))) {
+        initialState[item.label] = true
+      }
+    })
+    return initialState
   })
+
+  const toggleMenu = (label: string) => {
+    setExpandedMenus(prev => ({
+      ...prev,
+      [label]: !prev[label]
+    }))
+  }
+
+  const isAnyChildActive = (item: NavItem) => {
+    return item.children?.some(child => location.pathname.startsWith(child.path || ''))
+  }
+
+  const getLabel = (item: NavItem) => {
+    const key = item.path || item.label
+    return (customLabels as Record<string, string>)[key] || item.label
+  }
+
+  const filteredItems = navItems.map((item) => {
+    // Override main item label
+    const updatedItem = { ...item, label: getLabel(item) }
+
+    if (item.children) {
+      const filteredChildren = item.children
+        .filter(child => {
+          if (!user) return false
+          const hasPerm = hasPermission(child.permission!)
+          return hasPerm
+        })
+        .map(child => ({ ...child, label: getLabel(child) })) // Override child labels
+
+      if (filteredChildren.length > 0) {
+        return { ...updatedItem, children: filteredChildren }
+      }
+      return null
+    }
+
+    if (!user) return null
+    
+    let processedItem: NavItem | null = updatedItem
+
+    if (item.path === '/evaluations') {
+      if (!(hasPermission('EVALUATION:VIEW') || hasPermission('EVALUATION:VIEW_MY'))) {
+        processedItem = null
+      }
+    } else if (item.path === '/dashboard/staff') {
+      const isManager = hasPermission(['KPI:APPROVE', 'SUBMISSION:REVIEW', 'ORG:CREATE', 'USER:VIEW_LIST'])
+      if (!(isManager && hasPermission('KPI:VIEW_MY'))) {
+        processedItem = null
+      }
+    } else if (item.permission && hasPermission(item.permission)) {
+      if (item.path === '/dashboard') {
+        const dashboardPath = hasPermission(['ORG:CREATE', 'ROLE:VIEW']) 
+          ? '/dashboard/director' 
+          : hasPermission(['KPI:APPROVE', 'SUBMISSION:REVIEW', 'USER:VIEW_LIST']) 
+            ? '/dashboard/head' 
+            : '/dashboard/staff'
+        processedItem = { ...updatedItem, path: dashboardPath }
+      }
+    } else {
+      processedItem = null
+    }
+
+    return processedItem
+  }).filter(Boolean) as NavItem[]
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
@@ -101,6 +167,16 @@ export default function Sidebar({ isMobileOpen, onCloseMobile }: { isMobileOpen?
     document.addEventListener('mousedown', handleClickOutside)
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
+
+  const { counts } = useNotificationDots()
+
+  const getBadge = (path: string) => {
+    if (path === '/kpi-criteria/pending' && counts.pendingKpis > 0) return counts.pendingKpis
+    if (path === '/kpi-adjustments/pending' && counts.pendingAdjustments > 0) return counts.pendingAdjustments
+    if (path === '/submissions/org-unit' && counts.pendingSubmissions > 0) return counts.pendingSubmissions
+    if (path === '/my-kpi' && counts.myPendingTasks > 0) return true // Just a dot for staff tasks
+    return null
+  }
 
   return (
     <>
@@ -140,29 +216,123 @@ export default function Sidebar({ isMobileOpen, onCloseMobile }: { isMobileOpen?
         </div>
 
         <nav className="flex-1 py-4 px-3 space-y-1 overflow-y-auto custom-scrollbar">
-          {filteredItems.map((item) => (
-            <NavLink
-              key={item.path}
-              to={item.path}
-              end={item.end} 
-              onClick={onCloseMobile}
-              className={({ isActive }) =>
-                cn(
-                  'flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-bold transition-all group',
-                  isCollapsed && !isMobileOpen ? 'justify-center px-0 mx-2' : '',
-                  isActive
-                    ? 'bg-[var(--color-primary)] text-white shadow-lg shadow-[var(--color-primary)]/25 scale-[1.02]'
-                    : 'text-[var(--color-muted-foreground)] hover:bg-[var(--color-accent)] hover:text-[var(--color-foreground)]'
-                )
-              }
-              title={isCollapsed ? item.label : ''}
-            >
-              <div className={cn("shrink-0 transition-transform group-hover:scale-110", isCollapsed && !isMobileOpen ? "m-0" : "")}>
-                {item.icon}
-              </div>
-              {(!isCollapsed || isMobileOpen) && <span className="truncate">{item.label}</span>}
-            </NavLink>
-          ))}
+          {filteredItems.map((item) => {
+            if (item.children) {
+              const isExpanded = expandedMenus[item.label] || isAnyChildActive(item)
+              const hasActiveChild = isAnyChildActive(item)
+              const hasChildBadge = item.children.some(child => !!getBadge(child.path || ''))
+              
+              return (
+                <div key={item.label} className="space-y-1">
+                  <button
+                    onClick={() => toggleMenu(item.label)}
+                    className={cn(
+                      'w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-bold transition-all group relative',
+                      isCollapsed && !isMobileOpen ? 'justify-center px-0 mx-2' : '',
+                      hasActiveChild 
+                        ? 'text-[var(--color-primary)] bg-[var(--color-primary)]/5' 
+                        : 'text-[var(--color-muted-foreground)] hover:bg-[var(--color-accent)] hover:text-[var(--color-foreground)]'
+                    )}
+                    title={isCollapsed ? item.label : ''}
+                  >
+                    <div className={cn("shrink-0 transition-transform group-hover:scale-110 relative", isCollapsed && !isMobileOpen ? "m-0" : "")}>
+                      {item.icon}
+                      {hasChildBadge && isCollapsed && !isMobileOpen && (
+                        <div className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-[var(--color-card)] animate-pulse shadow-[0_0_8px_rgba(239,68,68,0.8)]" />
+                      )}
+                    </div>
+                    {(!isCollapsed || isMobileOpen) && (
+                      <>
+                        <span className="truncate flex-1 text-left">{item.label}</span>
+                        {hasChildBadge && !isExpanded && (
+                          <div className="w-2 h-2 rounded-full bg-red-500 mr-2 animate-pulse shadow-[0_0_8px_rgba(239,68,68,0.8)]" />
+                        )}
+                        {isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                      </>
+                    )}
+                  </button>
+                  
+                  {isExpanded && (!isCollapsed || isMobileOpen) && (
+                    <div className="ml-4 space-y-1 border-l border-[var(--color-border)] pl-3">
+                      {item.children.map((child) => {
+                        const childBadgeValue = child.path ? getBadge(child.path) : null
+                        return (
+                          <NavLink
+                            key={child.path}
+                            to={child.path!}
+                            end={child.end} 
+                            onClick={onCloseMobile}
+                            className={({ isActive }) =>
+                              cn(
+                                'flex items-center gap-3 px-3 py-2 rounded-lg text-[13px] font-bold transition-all group relative',
+                                isActive
+                                  ? 'text-[var(--color-primary)] bg-[var(--color-primary)]/5'
+                                  : 'text-[var(--color-muted-foreground)] hover:text-[var(--color-foreground)] hover:bg-[var(--color-accent)]'
+                              )
+                            }
+                          >
+                            <div className="shrink-0 opacity-70 group-hover:opacity-100 transition-opacity">
+                              {child.icon}
+                            </div>
+                            <span className="truncate flex-1">{child.label}</span>
+                            {typeof childBadgeValue === 'number' && (
+                              <span className="px-1.5 py-0.5 rounded-full bg-red-500 text-[9px] text-white font-black shadow-lg shadow-red-500/20">
+                                {childBadgeValue}
+                              </span>
+                            )}
+                            {typeof childBadgeValue === 'boolean' && childBadgeValue && (
+                              <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse shadow-[0_0_8px_rgba(239,68,68,0.8)]" />
+                            )}
+                          </NavLink>
+                        )
+                      })}
+                    </div>
+                  )}
+                </div>
+              )
+            }
+
+            const badgeValue = item.path ? getBadge(item.path) : null
+            
+            return (
+              <NavLink
+                key={item.path}
+                to={item.path!}
+                end={item.end} 
+                onClick={onCloseMobile}
+                className={({ isActive }) =>
+                  cn(
+                    'flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-bold transition-all group relative',
+                    isCollapsed && !isMobileOpen ? 'justify-center px-0 mx-2' : '',
+                    isActive
+                      ? 'bg-[var(--color-primary)] text-white shadow-lg shadow-[var(--color-primary)]/25 scale-[1.02]'
+                      : 'text-[var(--color-muted-foreground)] hover:bg-[var(--color-accent)] hover:text-[var(--color-foreground)]'
+                  )
+                }
+                title={isCollapsed ? item.label : ''}
+              >
+                <div className={cn("shrink-0 transition-transform group-hover:scale-110 relative", isCollapsed && !isMobileOpen ? "m-0" : "")}>
+                  {item.icon}
+                  {badgeValue && isCollapsed && !isMobileOpen && (
+                    <div className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-[var(--color-card)] animate-pulse shadow-[0_0_8px_rgba(239,68,68,0.8)]" />
+                  )}
+                </div>
+                {(!isCollapsed || isMobileOpen) && (
+                  <>
+                    <span className="truncate flex-1">{item.label}</span>
+                    {typeof badgeValue === 'number' && (
+                      <span className="px-2 py-0.5 rounded-full bg-red-500 text-[10px] text-white font-black shadow-lg shadow-red-500/20 animate-pulse">
+                        {badgeValue}
+                      </span>
+                    )}
+                    {typeof badgeValue === 'boolean' && badgeValue && (
+                      <div className="w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse shadow-[0_0_8px_rgba(239,68,68,0.8)]" />
+                    )}
+                  </>
+                )}
+              </NavLink>
+            )
+          })}
         </nav>
 
         {/* User Account Section */}
@@ -215,9 +385,13 @@ export default function Sidebar({ isMobileOpen, onCloseMobile }: { isMobileOpen?
                   <p className="text-sm font-black truncate text-[var(--color-foreground)]">{user?.fullName}</p>
                   <p className="text-[10px] font-bold text-[var(--color-muted-foreground)] uppercase tracking-widest truncate">
                     {(() => {
-                      if (!user?.memberships || user.memberships.length === 0) return 'Thành viên';
-                      const sorted = [...(user.memberships || [])].sort((a, b) => (a.roleRank ?? 99) - (b.roleRank ?? 99));
-                      return sorted[0]?.roleLabel || 'Thành viên';
+                      const membership = (() => {
+                        const ms = user?.memberships || [];
+                        if (ms.length <= 1) return ms[0];
+                        // Just pick the first non-root one, or the first one
+                        return ms.find(m => (m.levelOrder ?? 0) > 0) || ms[0];
+                      })();
+                      return membership?.roleName || 'Thành viên';
                     })()}
                   </p>
                 </div>

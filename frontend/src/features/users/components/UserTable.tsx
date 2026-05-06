@@ -130,8 +130,8 @@ export default function UserTable({ users, onRowClick, onDelete, canUpdate, canD
                            <div key={idx} className="flex items-center gap-1.5 px-2 py-0.5 rounded-md border border-slate-200 dark:border-slate-800 bg-slate-50 text-slate-600 dark:bg-slate-800/40 dark:text-slate-400 text-[11px] font-semibold">
                               <Building2 size={10} className="shrink-0" />
                               <span className="truncate max-w-[100px]" title={m.orgUnitName}>{m.orgUnitName}</span>
-                              {m.roleLabel && (
-                                <span className="opacity-50 text-[10px]">({m.roleLabel})</span>
+                              {m.roleName && (
+                                <span className="opacity-50 text-[10px]">({m.roleName})</span>
                               )}
                            </div>
                         ))}

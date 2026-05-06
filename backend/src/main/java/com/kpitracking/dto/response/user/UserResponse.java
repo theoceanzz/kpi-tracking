@@ -23,4 +23,5 @@ public class UserResponse {
     private Boolean isEmailVerified;
     private Instant createdAt;
     private Instant updatedAt;
+    private Boolean requirePasswordChange;
 }

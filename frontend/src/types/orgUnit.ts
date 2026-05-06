@@ -42,6 +42,7 @@ export interface OrgHierarchyLevelResponse {
   unitTypeName: string
   managerRoleLabel: string | null
   levelOrder: number
+  roleLevel: number
 }
 
 export interface CreateOrgUnitRequest {

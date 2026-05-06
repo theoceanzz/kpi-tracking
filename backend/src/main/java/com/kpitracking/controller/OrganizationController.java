@@ -75,8 +75,8 @@ public class OrganizationController {
     @GetMapping("/{orgId}/hierarchy-levels")
     @PreAuthorize("hasAuthority('ORG:VIEW')")
     @Operation(summary = "Get hierarchy levels for an organization")
-    public ResponseEntity<ApiResponse<List<com.kpitracking.dto.response.organization.OrgHierarchyLevelResponse>>> getHierarchyLevels(@PathVariable UUID orgId) {
-        List<com.kpitracking.dto.response.organization.OrgHierarchyLevelResponse> response = organizationService.getHierarchyLevels(orgId);
+    public ResponseEntity<ApiResponse<List<com.kpitracking.dto.response.organization.HierarchyLevelResponse>>> getHierarchyLevels(@PathVariable UUID orgId) {
+        List<com.kpitracking.dto.response.organization.HierarchyLevelResponse> response = organizationService.getHierarchyLevels(orgId);
         return ResponseEntity.ok(ApiResponse.success(response));
     }
 }

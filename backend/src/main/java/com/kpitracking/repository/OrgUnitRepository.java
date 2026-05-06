@@ -16,6 +16,12 @@ import java.util.UUID;
 public interface OrgUnitRepository extends JpaRepository<OrgUnit, UUID> {
 
     Optional<OrgUnit> findByName(String name);
+    Optional<OrgUnit> findByNameIgnoreCase(String name);
+    
+    @Query("SELECT o FROM OrgUnit o WHERE TRIM(LOWER(o.name)) = TRIM(LOWER(:name)) AND o.orgHierarchyLevel.organization.id = :orgId AND o.deletedAt IS NULL")
+    Optional<OrgUnit> findByNameSmart(@Param("name") String name, @Param("orgId") UUID orgId);
+
+    Optional<OrgUnit> findByNameIgnoreCaseAndOrgHierarchyLevel_Organization_Id(String name, UUID organizationId);
     Optional<OrgUnit> findByCode(String code);
     boolean existsByCode(String code);
     Optional<OrgUnit> findByIdAndOrgHierarchyLevel_Organization_Id(UUID id, UUID organizationId);

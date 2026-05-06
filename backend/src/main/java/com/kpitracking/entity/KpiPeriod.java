@@ -39,6 +39,9 @@ public class KpiPeriod {
     @Column(name = "end_date")
     private Instant endDate;
 
+    @Column(name = "notification_date")
+    private Instant notificationDate;
+
     @CreatedDate
     @Column(name = "created_at", updatable = false)
     private Instant createdAt;

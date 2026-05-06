@@ -19,6 +19,7 @@ import {
 import { useAuthStore } from '@/store/authStore'
 import { useKpiPeriods } from '../hooks/useKpiPeriods'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { useOrgUnitTree } from '@/features/orgunits/hooks/useOrgUnitTree'
 
 const frequencyMap: Record<string, string> = {
   DAILY: 'Hàng ngày', WEEKLY: 'Hàng tuần', MONTHLY: 'Hàng tháng',
@@ -45,6 +46,7 @@ export default function KpiApprovalPage() {
   const [pageSize] = useState(10)
   const [sortBy, setSortBy] = useState('updatedAt')
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc')
+  const [selectedOrgUnitId, setSelectedOrgUnitId] = useState<string>('ALL')
   
   // Selection state
   const [selectedKpis, setSelectedKpis] = useState<string[]>([])
@@ -52,6 +54,27 @@ export default function KpiApprovalPage() {
   const user = useAuthStore(s => s.user)
   const qc = useQueryClient()
   const { data: periodsData } = useKpiPeriods({ organizationId: user?.memberships?.[0]?.organizationId })
+  const { data: orgUnitTreeData } = useOrgUnitTree()
+
+  // Flatten tree for dropdown
+  const flattenTree = (nodes: any[], level = 0): any[] => {
+    let result: any[] = []
+    nodes.forEach(node => {
+      result.push({ ...node, levelLabel: '—'.repeat(level) + (level > 0 ? ' ' : '') + node.name })
+      if (node.children?.length) {
+        result = result.concat(flattenTree(node.children, level + 1))
+      }
+    })
+    return result
+  }
+  const flatOrgUnits = useMemo(() => orgUnitTreeData ? flattenTree(orgUnitTreeData) : [], [orgUnitTreeData])
+
+  // Default to Root unit
+  useEffect(() => {
+    if (flatOrgUnits.length > 0 && selectedOrgUnitId === 'ALL') {
+      setSelectedOrgUnitId(flatOrgUnits[0].id)
+    }
+  }, [flatOrgUnits])
 
   useEffect(() => {
     const tab = searchParams.get('tab')
@@ -72,6 +95,7 @@ export default function KpiApprovalPage() {
     { 
       status: activeTab === 'ALL' ? undefined : activeTab,
       kpiPeriodId: selectedPeriodId === 'ALL' ? undefined : selectedPeriodId,
+      orgUnitId: selectedOrgUnitId === 'ALL' ? undefined : selectedOrgUnitId,
       organizationId: user?.memberships?.[0]?.organizationId,
       page,
       size: pageSize,
@@ -174,6 +198,22 @@ export default function KpiApprovalPage() {
                 className="w-full pl-12 pr-4 h-12 rounded-[18px] border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 text-sm font-medium focus:ring-2 focus:ring-indigo-500/20 outline-none transition-all"
               />
             </div>
+            
+            <div className="w-full md:w-64">
+              <Select value={selectedOrgUnitId} onValueChange={(v) => { setSelectedOrgUnitId(v); setPage(0) }}>
+                <SelectTrigger className="h-12 rounded-[18px] border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 font-bold text-sm">
+                  <div className="flex items-center gap-2">
+                    <Building2 size={16} className="text-slate-400" />
+                    <SelectValue placeholder="Chọn đơn vị" />
+                  </div>
+                </SelectTrigger>
+                <SelectContent className="rounded-2xl border-slate-200 dark:border-slate-800">
+                  {flatOrgUnits.map(unit => (
+                    <SelectItem key={unit.id} value={unit.id} className="font-medium">{unit.levelLabel}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
 
             <div className="w-full md:w-64">
               <Select value={selectedPeriodId} onValueChange={(v) => { setSelectedPeriodId(v); setPage(0) }}>
@@ -192,32 +232,33 @@ export default function KpiApprovalPage() {
               </Select>
             </div>
           </div>
+        </div>
 
-          <div className="flex items-center gap-1.5 p-1.5 bg-slate-100/50 dark:bg-slate-800/50 rounded-[20px] border border-slate-200 dark:border-slate-700 shadow-inner overflow-x-auto scrollbar-none">
-            {(['PENDING_APPROVAL', 'APPROVED', 'REJECTED', 'ALL'] as const).map((tab) => {
-              const labels: Record<string, string> = { 
-                PENDING_APPROVAL: 'Đợi duyệt', 
-                APPROVED: 'Đã duyệt', 
-                REJECTED: 'Từ chối', 
-                ALL: 'Tất cả' 
-              }
-              const active = activeTab === tab
-              return (
-                <button
-                  key={tab}
-                  onClick={() => handleTabChange(tab)}
-                  className={cn(
-                    "px-5 py-2.5 rounded-[14px] text-[10px] font-black uppercase tracking-widest transition-all duration-300 whitespace-nowrap",
-                    active 
-                      ? 'bg-white dark:bg-slate-700 shadow-md text-indigo-600 dark:text-white scale-105' 
-                      : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'
-                  )}
-                >
-                  {labels[tab]}
-                </button>
-              )
-            })}
-          </div>
+        {/* Status Tabs Row */}
+        <div className="flex flex-wrap items-center gap-3 py-2">
+          {(['PENDING_APPROVAL', 'APPROVED', 'REJECTED', 'ALL'] as const).map((tab) => {
+            const labels: Record<string, string> = { 
+              PENDING_APPROVAL: 'Đợi duyệt', 
+              APPROVED: 'Đã duyệt', 
+              REJECTED: 'Từ chối', 
+              ALL: 'Tất cả' 
+            }
+            const active = activeTab === tab
+            return (
+              <button
+                key={tab}
+                onClick={() => handleTabChange(tab)}
+                className={cn(
+                  "px-7 py-3 rounded-full text-[11px] font-black uppercase tracking-[0.15em] transition-all duration-300 border-2 shadow-sm whitespace-nowrap",
+                  active 
+                    ? 'bg-slate-900 border-slate-900 text-white dark:bg-white dark:border-white dark:text-slate-900 shadow-indigo-500/10 scale-105' 
+                    : 'bg-white border-transparent text-slate-500 hover:border-slate-200 hover:text-slate-900 dark:bg-slate-900 dark:text-slate-400 dark:hover:text-white'
+                )}
+              >
+                {labels[tab]}
+              </button>
+            )
+          })}
         </div>
 
         {/* Bulk Action Bar */}

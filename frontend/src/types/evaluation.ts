@@ -11,12 +11,14 @@ export interface Evaluation {
   orgUnitName: string | null
   score: number | null
   comment: string | null
+  systemScore: number | null
   createdAt: string
   updatedAt: string
-  evaluatorRole: 'SELF' | 'MANAGER' | 'DIRECTOR' | 'TEAM_LEADER' | 'DEPT_HEAD' | 'DEPT_DEPUTY' | 'TEAM_DEPUTY'
+  evaluatorRole: 'SELF' | 'MANAGER' | 'DIRECTOR' | 'TEAM_LEADER' | 'DEPT_HEAD' | 'DEPT_DEPUTY' | 'TEAM_DEPUTY' | 'REGIONAL_DIRECTOR'
   orgUnitLevel?: number
   userLevel?: number
   userRank?: number
+  userRoleName?: string
 }
 
 // Matches BE: CreateEvaluationRequest

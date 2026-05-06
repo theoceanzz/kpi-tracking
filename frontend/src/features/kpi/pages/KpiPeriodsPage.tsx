@@ -224,6 +224,7 @@ export default function KpiPeriodsPage() {
                   <th className="px-8 py-5 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 cursor-pointer group whitespace-nowrap" onClick={() => toggleSort('endDate')}>
                     <div className="flex items-center gap-2">Kết thúc <SortIcon field="endDate" /></div>
                   </th>
+                  <th className="px-8 py-5 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 whitespace-nowrap">Thông báo</th>
                   <th className="px-8 py-5 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 text-right whitespace-nowrap">Thao tác</th>
                   </tr>
                 </thead>
@@ -248,6 +249,11 @@ export default function KpiPeriodsPage() {
                       </td>
                       <td className="px-8 py-5">
                         <span className="text-xs font-bold text-slate-500 dark:text-slate-400">{period.endDate ? formatDateTime(period.endDate) : '—'}</span>
+                      </td>
+                      <td className="px-8 py-5">
+                        <span className="text-[10px] font-black text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 px-2 py-1 rounded-lg border border-amber-100 dark:border-amber-800/50">
+                          {period.notificationDate ? format(parseISO(period.notificationDate), 'HH:mm dd/MM') : '—'}
+                        </span>
                       </td>
                       <td className="px-8 py-5 text-right">
                         <div className="flex items-center justify-end gap-1.5">
@@ -304,6 +310,10 @@ export default function KpiPeriodsPage() {
                   <div className="flex items-center justify-between">
                     <span className="text-[10px] font-black text-slate-400 uppercase tracking-tighter">Kết thúc</span>
                     <span className="text-xs font-bold text-slate-700 dark:text-slate-200">{period.endDate ? formatDateTime(period.endDate).split(' ')[0] : '—'}</span>
+                  </div>
+                  <div className="flex items-center justify-between pt-2">
+                    <span className="text-[10px] font-black text-amber-500 uppercase tracking-tighter">Thông báo</span>
+                    <span className="text-[10px] font-black text-amber-600 dark:text-amber-400">{period.notificationDate ? format(parseISO(period.notificationDate), 'HH:mm dd/MM') : '—'}</span>
                   </div>
                 </div>
               </div>
@@ -399,6 +409,7 @@ function PeriodFormModal({ onClose, editPeriod, organizationId, onSubmit, isSubm
     periodType: (editPeriod?.periodType as KpiFrequency) || 'MONTHLY',
     startDate: editPeriod?.startDate ? format(parseISO(editPeriod.startDate), "yyyy-MM-dd'T'HH:mm") : format(new Date(), "yyyy-MM-dd'T'07:00"),
     endDate: editPeriod?.endDate ? format(parseISO(editPeriod.endDate), "yyyy-MM-dd'T'HH:mm") : '',
+    notificationDate: editPeriod?.notificationDate ? format(parseISO(editPeriod.notificationDate), "yyyy-MM-dd'T'HH:mm") : '',
   })
 
   // Auto calculate end date on mount if creating new
@@ -425,7 +436,13 @@ function PeriodFormModal({ onClose, editPeriod, organizationId, onSubmit, isSubm
     // Set time to end of day 23:59 for end date by default
     end.setHours(23, 59, 59, 999)
 
-    setFormData(prev => ({ ...prev, endDate: format(end, "yyyy-MM-dd'T'HH:mm") }))
+    const notification = new Date(start.getTime() + (end.getTime() - start.getTime()) / 2)
+
+    setFormData(prev => ({ 
+      ...prev, 
+      endDate: format(end, "yyyy-MM-dd'T'HH:mm"),
+      notificationDate: format(notification, "yyyy-MM-dd'T'HH:mm")
+    }))
   }
 
   const handleFieldChange = (field: string, value: string) => {
@@ -450,6 +467,10 @@ function PeriodFormModal({ onClose, editPeriod, organizationId, onSubmit, isSubm
         endDateObj.setHours(23, 59, 59, 999)
         next.endDate = format(endDateObj, "yyyy-MM-dd'T'HH:mm")
 
+        // Auto calculate notification date (50% of period)
+        const notificationDateObj = new Date(startDateObj.getTime() + (endDateObj.getTime() - startDateObj.getTime()) / 2)
+        next.notificationDate = format(notificationDateObj, "yyyy-MM-dd'T'HH:mm")
+
         if (!next.name || next.name.includes('Tháng') || next.name.includes('Quý') || next.name.includes('Năm')) {
           if (type === 'MONTHLY') next.name = `Tháng ${format(startDateObj, 'MM/yyyy')}`
           else if (type === 'QUARTERLY') next.name = `Quý ${Math.floor(startDateObj.getMonth() / 3) + 1} / ${format(startDateObj, 'yyyy')}`
@@ -466,6 +487,7 @@ function PeriodFormModal({ onClose, editPeriod, organizationId, onSubmit, isSubm
       ...formData,
       startDate: new Date(formData.startDate).toISOString(),
       endDate: new Date(formData.endDate).toISOString(),
+      notificationDate: formData.notificationDate ? new Date(formData.notificationDate).toISOString() : null,
       organizationId
     })
     onClose()
@@ -538,6 +560,18 @@ function PeriodFormModal({ onClose, editPeriod, organizationId, onSubmit, isSubm
                     readOnly
                     required
                     className="w-full px-6 py-4 rounded-[22px] border border-slate-100 dark:border-slate-800 bg-slate-100/50 dark:bg-slate-800/50 outline-none text-sm font-bold transition-all cursor-not-allowed opacity-60"
+                  />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 ml-1">Thông báo nhắc nhở (Mặc định 50% thời gian)</label>
+                <div className="relative group/input">
+                  <input 
+                    type="datetime-local"
+                    value={formData.notificationDate}
+                    onChange={e => handleFieldChange('notificationDate', e.target.value)}
+                    required
+                    className="w-full px-6 py-4 rounded-[22px] border border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50 focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500/50 outline-none text-sm font-bold transition-all"
                   />
                 </div>
               </div>

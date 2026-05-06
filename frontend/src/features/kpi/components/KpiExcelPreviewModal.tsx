@@ -13,6 +13,7 @@ import { useKpiPeriods } from '@/features/kpi/hooks/useKpiPeriods'
 import { useOrgUnitTree } from '@/features/orgunits/hooks/useOrgUnitTree'
 import { useUsers } from '@/features/users/hooks/useUsers'
 import { useAuthStore } from '@/store/authStore'
+import { kpiApi } from '@/features/kpi/api/kpiApi'
 
 interface KpiExcelPreviewModalProps {
   open: boolean
@@ -199,6 +200,8 @@ export default function KpiExcelPreviewModal({ open, file, onClose, onImport, is
         
         if (matchedByCode) {
           item.OrgUnit = matchedByCode.name
+        } else if (bulkOrgUnit) {
+          item.OrgUnit = bulkOrgUnit
         }
 
         return validateRow(item)
@@ -516,15 +519,19 @@ export default function KpiExcelPreviewModal({ open, file, onClose, onImport, is
                           const selectedCodes = bulkEmpCode.split(',').map(s => s.trim()).filter(Boolean)
                           const parts = bulkEmpCode.split(',')
                           const lastPart = (parts[parts.length - 1] ?? '').trim().toLowerCase()
+                          
+                          // If last part is an exact match of an already selected code, treat it as "not searching"
+                          const isExactMatch = selectedCodes.some(c => c.toLowerCase() === lastPart)
+                          const effectiveSearch = isExactMatch ? '' : lastPart
 
                           const filtered = allUsers.filter(u => {
                             const matchesOrg = !bulkOrgUnit || u.memberships?.some(m => 
                               m.orgUnitName?.toLowerCase().trim() === bulkOrgUnit.toLowerCase().trim()
                             )
                             const isSelected = u.employeeCode && selectedCodes.includes(u.employeeCode)
-                            const matchesSearch = !lastPart || 
-                              u.fullName.toLowerCase().includes(lastPart) || 
-                              u.employeeCode?.toLowerCase().includes(lastPart)
+                            const matchesSearch = !effectiveSearch || 
+                              u.fullName.toLowerCase().includes(effectiveSearch) || 
+                              u.employeeCode?.toLowerCase().includes(effectiveSearch)
                             
                             return matchesOrg && (isSelected || matchesSearch)
                           })
@@ -697,14 +704,18 @@ export default function KpiExcelPreviewModal({ open, file, onClose, onImport, is
                                   const parts = row.EmployeeCode.split(',')
                                   const lastPart = (parts[parts.length - 1] ?? '').trim().toLowerCase()
 
+                                  // If last part is an exact match of an already selected code, treat it as "not searching"
+                                  const isExactMatch = selectedCodes.some(c => c.toLowerCase() === lastPart)
+                                  const effectiveSearch = isExactMatch ? '' : lastPart
+
                                   const filtered = allUsers.filter(u => {
                                     const matchesOrg = !row.OrgUnit || u.memberships?.some(m => 
                                       m.orgUnitName?.toLowerCase().trim() === row.OrgUnit.toLowerCase().trim()
                                     )
                                     const isSelected = u.employeeCode && selectedCodes.includes(u.employeeCode)
-                                    const matchesSearch = !lastPart || 
-                                      u.fullName.toLowerCase().includes(lastPart) || 
-                                      u.employeeCode?.toLowerCase().includes(lastPart)
+                                    const matchesSearch = !effectiveSearch || 
+                                      u.fullName.toLowerCase().includes(effectiveSearch) || 
+                                      u.employeeCode?.toLowerCase().includes(effectiveSearch)
                                     
                                     return matchesOrg && (isSelected || matchesSearch)
                                   })

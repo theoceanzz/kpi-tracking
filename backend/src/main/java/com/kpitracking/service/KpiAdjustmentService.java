@@ -35,6 +35,7 @@ public class KpiAdjustmentService {
     private final KpiAdjustmentRequestRepository adjustmentRepository;
     private final KpiCriteriaRepository kpiRepository;
     private final UserRepository userRepository;
+    private final com.kpitracking.repository.OrgUnitRepository orgUnitRepository;
     private final PermissionChecker permissionChecker;
     private final NotificationService notificationService;
     private final com.kpitracking.repository.UserRoleOrgUnitRepository userRoleOrgUnitRepository;
@@ -43,6 +44,26 @@ public class KpiAdjustmentService {
         String email = SecurityContextHolder.getContext().getAuthentication().getName();
         return userRepository.findByEmail(email)
                 .orElseThrow(() -> new ResourceNotFoundException("Người dùng", "email", email));
+    }
+
+    private void autoRejectExpiredRequests() {
+        java.time.Instant twentyFourHoursAgo = java.time.Instant.now().minus(java.time.Duration.ofDays(1));
+        java.util.List<KpiAdjustmentRequest> expiredRequests = adjustmentRepository.findByStatusAndCreatedAtBefore(
+                AdjustmentStatus.PENDING, twentyFourHoursAgo);
+        
+        if (expiredRequests.isEmpty()) return;
+
+        for (KpiAdjustmentRequest adj : expiredRequests) {
+            adj.setStatus(AdjustmentStatus.REJECTED);
+            adj.setReviewerNote("Tự động từ chối do quá hạn 24h. Vui lòng lên gặp trực tiếp giám đốc.");
+            
+            // Revert KPI status
+            KpiCriteria kpi = adj.getKpiCriteria();
+            kpi.setStatus(KpiStatus.APPROVED);
+            kpiRepository.save(kpi);
+            
+            adjustmentRepository.save(adj);
+        }
     }
 
     @Transactional
@@ -166,8 +187,9 @@ public class KpiAdjustmentService {
         }
     }
 
-    @Transactional(readOnly = true)
+    @Transactional
     public PageResponse<AdjustmentRequestResponse> getMyRequests(int page, int size) {
+        autoRejectExpiredRequests();
         User currentUser = getCurrentUser();
         Pageable pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
         Page<KpiAdjustmentRequest> adjPage = adjustmentRepository.findByRequesterId(currentUser.getId(), pageable);
@@ -180,8 +202,9 @@ public class KpiAdjustmentService {
                 .build();
     }
 
-    @Transactional(readOnly = true)
+    @Transactional
     public PageResponse<AdjustmentRequestResponse> getAllRequests(int page, int size, AdjustmentStatus status, UUID orgUnitId, UUID kpiPeriodId) {
+        autoRejectExpiredRequests();
         User currentUser = getCurrentUser();
         java.util.List<UUID> allowedOrgUnitIds = permissionChecker.getOrgUnitsWithPermission(currentUser.getId(), "KPI:APPROVE");
         
@@ -192,12 +215,20 @@ public class KpiAdjustmentService {
                 .min(Integer::compare)
                 .orElse(2);
 
+        String orgUnitPath = null;
+        if (orgUnitId != null) {
+            orgUnitPath = orgUnitRepository.findById(orgUnitId)
+                    .map(com.kpitracking.entity.OrgUnit::getPath)
+                    .map(path -> path + "%")
+                    .orElse(null);
+        }
+
         Pageable pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
         Page<KpiAdjustmentRequest> adjPage = adjustmentRepository.findAllWithFilters(
                 currentUser.getId(),
                 allowedOrgUnitIds,
                 status,
-                orgUnitId,
+                orgUnitPath,
                 kpiPeriodId,
                 currentUserRank,
                 pageable);

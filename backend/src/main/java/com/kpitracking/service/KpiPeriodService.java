@@ -17,6 +17,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
+import java.time.Instant;
 import java.util.UUID;
 
 @Service
@@ -66,11 +67,18 @@ public class KpiPeriodService {
         Organization organization = organizationRepository.findById(request.getOrganizationId())
                 .orElseThrow(() -> new ResourceNotFoundException("Tổ chức", "id", request.getOrganizationId()));
 
+        Instant notificationDate = request.getNotificationDate();
+        if (notificationDate == null && request.getStartDate() != null && request.getEndDate() != null) {
+            long mid = (request.getEndDate().toEpochMilli() + request.getStartDate().toEpochMilli()) / 2;
+            notificationDate = java.time.Instant.ofEpochMilli(mid);
+        }
+
         KpiPeriod period = KpiPeriod.builder()
                 .name(request.getName())
                 .periodType(request.getPeriodType())
                 .startDate(request.getStartDate())
                 .endDate(request.getEndDate())
+                .notificationDate(notificationDate)
                 .organization(organization)
                 .build();
 
@@ -87,6 +95,13 @@ public class KpiPeriodService {
         period.setPeriodType(request.getPeriodType());
         period.setStartDate(request.getStartDate());
         period.setEndDate(request.getEndDate());
+
+        Instant notificationDate = request.getNotificationDate();
+        if (notificationDate == null && request.getStartDate() != null && request.getEndDate() != null) {
+            long mid = (request.getEndDate().toEpochMilli() + request.getStartDate().toEpochMilli()) / 2;
+            notificationDate = java.time.Instant.ofEpochMilli(mid);
+        }
+        period.setNotificationDate(notificationDate);
 
         if (request.getOrganizationId() != null && !request.getOrganizationId().equals(period.getOrganization().getId())) {
             Organization organization = organizationRepository.findById(request.getOrganizationId())
@@ -113,6 +128,7 @@ public class KpiPeriodService {
                 .periodType(period.getPeriodType())
                 .startDate(period.getStartDate())
                 .endDate(period.getEndDate())
+                .notificationDate(period.getNotificationDate())
                 .organizationId(period.getOrganization().getId())
                 .build();
     }

@@ -13,5 +13,6 @@ public class KpiPeriodResponse {
     private KpiFrequency periodType;
     private Instant startDate;
     private Instant endDate;
+    private Instant notificationDate;
     private UUID organizationId;
 }

@@ -99,6 +99,20 @@ export default function ExcelPreviewModal({ open, file, onClose, onImport, isImp
     return codes
   }, [orgTree])
 
+  const unitInfoMap = useMemo(() => {
+    const map = new Map<string, { level: number; allowedRoles?: any[] }>()
+    const traverse = (nodes: OrgUnitTreeResponse[]) => {
+      nodes.forEach(node => {
+        const info = { level: node.level, allowedRoles: node.allowedRoles }
+        if (node.code) map.set(node.code, info)
+        map.set(node.id, info)
+        if (node.children) traverse(node.children)
+      })
+    }
+    if (orgTree) traverse(orgTree)
+    return map
+  }, [orgTree])
+
 
   useEffect(() => {
     if (open && file) {
@@ -298,22 +312,20 @@ export default function ExcelPreviewModal({ open, file, onClose, onImport, isImp
       const validated = validateRow(row);
       const errors = { ...(validated._errors || {}) };
 
-      // Manager/Deputy count check
       const roleObj = rolesData?.find(r => r.id === validated.Role);
       if (row.OrgUnitCode && roleObj) {
-        // Check for multiple managers/deputies
         if (roleObj.rank === 0 || roleObj.rank === 1) {
           const key = `${row.OrgUnitCode}-${roleObj.rank}`;
           if ((managerCounts.get(key) || 0) > 1) {
-            const rankName = roleObj.rank === 0 ? 'Trưởng' : 'Phó';
-            errors['Role'] = `Đơn vị này đang được gán nhiều hơn một ${rankName.toLowerCase()} trong tệp tin`;
+            const rankName = roleObj.rank === 0 ? 'Trưởng đơn vị' : 'Phó đơn vị';
+            errors['Role'] = `Đơn vị này đang được gán nhiều hơn một ${rankName} trong tệp tin`;
           }
         }
 
-        // Check if unit has at least one manager in the file
-        // (Note: This is a strict check, if it exists in DB but not in file, it will still show error)
-        if (!unitsWithManager.has(row.OrgUnitCode)) {
-          errors['OrgUnitCode'] = 'Đơn vị cần tối thiểu 1 Trưởng đơn vị trong danh sách import';
+        if (roleObj.rank === 1 || roleObj.rank === 2) {
+          if (!unitsWithManager.has(row.OrgUnitCode)) {
+            errors['OrgUnitCode'] = 'Đơn vị cần có 1 Trưởng đơn vị đảm nhiệm (Rank 0) trong danh sách import';
+          }
         }
       }
 
@@ -438,8 +450,8 @@ export default function ExcelPreviewModal({ open, file, onClose, onImport, isImp
                         <th className="px-4 py-3 min-w-[220px] bg-gray-50">Họ Tên <span className="text-red-500">*</span></th>
                         <th className="px-4 py-3 min-w-[150px] bg-gray-50">Số điện thoại</th>
                         <th className="px-4 py-3 min-w-[150px] bg-gray-50">Mã NV</th>
-                        <th className="px-4 py-3 min-w-[160px] bg-gray-50">Chức danh <span className="text-red-500">*</span></th>
-                        <th className="px-4 py-3 min-w-[160px] bg-gray-50">Mật khẩu</th>
+                        <th className="px-4 py-3 min-w-[200px] bg-gray-50">Chức danh <span className="text-red-500">*</span></th>
+                        <th className="px-4 py-3 min-w-[200px] bg-gray-50">Mật khẩu</th>
                         <th className="px-4 py-3 min-w-[300px] bg-gray-50">Phòng ban / Đơn vị</th>
                         <th className="px-4 py-3 w-16 text-center bg-gray-50">Xóa</th>
                       </tr>
@@ -501,18 +513,42 @@ export default function ExcelPreviewModal({ open, file, onClose, onImport, isImp
                             {row._errors?.EmployeeCode && <p className="text-[10px] text-red-500 mt-1 font-medium px-1">{row._errors.EmployeeCode}</p>}
                           </td>
                           <td className="px-4 py-2">
-                            <select
-                              value={row.Role}
-                              onChange={e => handleCellChange(row.id, 'Role', e.target.value)}
-                              className={cn(
-                                "w-full px-3 py-1.5 rounded-lg border text-sm transition-colors bg-transparent hover:bg-white focus:bg-white",
-                                row._errors?.Role ? "border-red-300 bg-red-50" : "border-transparent hover:border-gray-300"
-                              )}
-                            >
-                              {assignableRoles.map(role => (
-                                <option key={role.id} value={role.id}>{ROLE_MAP[role.name] || role.name}</option>
-                              ))}
-                            </select>
+                            {(() => {
+                              const unitInfo = unitInfoMap.get(row.OrgUnitCode || '')
+                              const filteredRoles = assignableRoles.filter(role => {
+                                if (!unitInfo) return true // Show all if unit not selected yet
+                                
+                                // 1. If explicit allowedRoles exists on unit, use it
+                                if (unitInfo.allowedRoles && unitInfo.allowedRoles.length > 0) {
+                                  return unitInfo.allowedRoles.some(ar => ar.id === role.id)
+                                }
+
+                                // 2. Fallback to level-based logic
+                                // Staff (Rank 2) is always allowed at level 4
+                                if (role.rank === 2) return true
+                                // Role matches unit level (Manager/Deputy)
+                                if (role.level === unitInfo.level) return true
+                                
+                                return false
+                              })
+
+                              return (
+                                <select
+                                  value={row.Role}
+                                  onChange={e => handleCellChange(row.id, 'Role', e.target.value)}
+                                  className={cn(
+                                    "w-full px-4 py-3 rounded-xl border text-sm font-bold transition-all bg-white shadow-sm",
+                                    row._errors?.Role 
+                                      ? "border-red-300 bg-red-50 text-red-900" 
+                                      : "border-gray-200 hover:border-blue-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
+                                  )}
+                                >
+                                  {filteredRoles.map(role => (
+                                    <option key={role.id} value={role.id}>{ROLE_MAP[role.name] || role.name}</option>
+                                  ))}
+                                </select>
+                              )
+                            })()}
                             {row._errors?.Role && <p className="text-[10px] text-red-500 mt-1 font-medium px-1">{row._errors.Role}</p>}
                           </td>
                           <td className="px-4 py-2">
@@ -521,8 +557,10 @@ export default function ExcelPreviewModal({ open, file, onClose, onImport, isImp
                               value={row.Password}
                               onChange={e => handleCellChange(row.id, 'Password', e.target.value)}
                               className={cn(
-                                "w-full px-3 py-1.5 rounded-lg border text-sm transition-colors bg-transparent hover:bg-white focus:bg-white",
-                                row._errors?.Password ? "border-red-300 bg-red-50" : "border-transparent hover:border-gray-300"
+                                "w-full px-4 py-3 rounded-xl border text-sm font-bold transition-all bg-white shadow-sm",
+                                row._errors?.Password 
+                                  ? "border-red-300 bg-red-50 text-red-900" 
+                                  : "border-gray-200 hover:border-blue-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
                               )}
                               placeholder="Tự động sinh..."
                             />

@@ -26,6 +26,7 @@ public class SubmissionResponse {
     private Instant periodStart;
     private Instant periodEnd;
     private Double autoScore;
+    private Double managerScore;
     private String unit;
     private Double weight;
     private KpiPeriodInfo kpiPeriod;

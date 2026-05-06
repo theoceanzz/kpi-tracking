@@ -66,16 +66,18 @@ public class GeminiService {
             "[\n" +
             "  {\n" +
             "    \"name\": \"Tên chỉ tiêu\",\n" +
-            "    \"description\": \"Mô tả\",\n" +
+            "    \"description\": \"Mô tả chi tiết\",\n" +
             "    \"unit\": \"Đơn vị tính\",\n" +
-            "    \"target_value\": 100.0,\n" +
+            "    \"targetValue\": 100.0,\n" +
             "    \"weight\": 20.0,\n" +
             "    \"frequency\": \"MONTHLY\"\n" +
             "  }\n" +
             "]\n" +
+            "Lưu ý quan trọng: Hãy đưa ra con số targetValue THỰC TẾ và PHÙ HỢP với %s dựa trên kinh nghiệm quản trị. " +
             "Các giá trị frequency chỉ được dùng: DAILY, WEEKLY, MONTHLY, QUARTERLY, YEARLY.",
             orgInfo, 
-            (context != null && !context.isEmpty()) ? context : "Thiết lập chỉ tiêu hoạt động định kỳ"
+            (context != null && !context.isEmpty()) ? context : "Thiết lập chỉ tiêu hoạt động định kỳ",
+            orgInfo
         );
 
         try {

@@ -13,8 +13,14 @@ export function useLogin() {
     mutationFn: (data: LoginFormData) => authApi.login(data),
     onSuccess: (data) => {
       setAuth(data.user, data.accessToken, data.refreshToken)
-      toast.success('Đăng nhập thành công!')
-      navigate('/dashboard')
+      
+      if (data.user.requirePasswordChange) {
+        toast.info('Bạn cần đổi mật khẩu trong lần đăng nhập đầu tiên để bảo mật tài khoản.')
+        navigate('/force-password-change')
+      } else {
+        toast.success('Đăng nhập thành công!')
+        navigate('/dashboard')
+      }
     },
     onError: () => {
       // toast.error('Email hoặc mật khẩu không đúng') // Removed to use UI alert instead

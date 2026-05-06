@@ -21,4 +21,5 @@ public class OrgUnitKpiStatsResponse {
     private long approvedSubmissions;
     private long pendingSubmissions;
     private long rejectedSubmissions;
+    private long totalAssignments;
 }

@@ -89,21 +89,33 @@ export function OrgUnitDrawer({ orgId, drawerState, onClose, hierarchyLevels }: 
     
     // Trường hợp 1: Công ty có 2 phân cấp (vd: Công ty -> Team)
     if (totalLevels === 2) {
-      if (isRoot) return roleLevel === 0 || roleLevel === 2
-      if (isBottom) return roleLevel === 2
-      return roleLevel === 2
+      if (isRoot) return roleLevel === 2 || roleLevel === 4
+      if (isBottom) return roleLevel === 4
     }
     
-    // Trường hợp 2: Công ty có 3 phân cấp trở lên (vd: Công ty -> Phòng -> Team)
-    if (totalLevels >= 3) {
-      if (isRoot) return roleLevel === 0 || roleLevel === 1 || roleLevel === 2
-      if (isMiddle) return roleLevel === 1 || roleLevel === 2
-      if (isBottom) return roleLevel === 2
+    // Trường hợp 2: Công ty có 3 phân cấp (vd: Công ty -> Phòng -> Team)
+    if (totalLevels === 3) {
+      if (isRoot) return roleLevel === 2 || roleLevel === 4
+      if (isMiddle) return roleLevel === 3
+      if (isBottom) return roleLevel === 4
+    }
+
+    // Trường hợp 3: Công ty có 4 phân cấp
+    if (totalLevels === 4) {
+      if (isRoot) return roleLevel === 1 || roleLevel === 4
+      if (calculatedLevel === minDepth + 1) return roleLevel === 2
+      if (calculatedLevel === minDepth + 2) return roleLevel === 3
+      if (isBottom) return roleLevel === 4
     }
     
-    // Mặc định
-    if (isRoot) return true
-    return roleLevel === 2
+    // Trường hợp 4: Công ty có 5 phân cấp
+    if (totalLevels === 5) {
+      if (isRoot) return roleLevel === 0 || roleLevel === 4
+      if (calculatedLevel === minDepth + 1) return roleLevel === 1
+      if (calculatedLevel === minDepth + 2) return roleLevel === 2
+      if (calculatedLevel === minDepth + 3) return roleLevel === 3
+      if (isBottom) return roleLevel === 4
+    }
   })
       
   const { register, handleSubmit, formState: { errors }, reset, setValue, watch } = useForm<FormData>({
@@ -123,10 +135,26 @@ export function OrgUnitDrawer({ orgId, drawerState, onClose, hierarchyLevels }: 
   })
 
   const formProvinceId = watch('provinceId')
+  const selectedRoleIds = watch('roleIds') || []
 
   useEffect(() => {
     setSelectedProvinceId(formProvinceId)
   }, [formProvinceId])
+
+  // Manager/Deputy validation logic
+  const selectedRolesDetails = useMemo(() => {
+    return allRoles.filter(r => selectedRoleIds.includes(r.id))
+  }, [allRoles, selectedRoleIds])
+
+  const hasManagerSelected = selectedRolesDetails.some(r => r.rank === 0)
+  const hasDeputySelected = selectedRolesDetails.some(r => r.rank === 1)
+
+  const getRoleDisableReason = (role: any) => {
+    if (selectedRoleIds.includes(role.id)) return null // Never disable if already selected
+    if (role.rank === 0 && hasManagerSelected) return "Đã chọn 1 vai trò TRƯỞNG"
+    if (role.rank === 1 && hasDeputySelected) return "Đã chọn 1 vai trò PHÓ"
+    return null
+  }
 
   // Pre-fill
   useEffect(() => {
@@ -395,30 +423,49 @@ export function OrgUnitDrawer({ orgId, drawerState, onClose, hierarchyLevels }: 
               </h3>
               <p className="text-xs text-gray-500 mb-4 italic">Giới hạn các vai trò có thể gán cho thành viên trong đơn vị này. Để trống để cho phép tất cả.</p>
               <div className="grid grid-cols-2 gap-3">
-                {filteredRoles.map(role => (
-                  <label key={role.id} className="flex items-center p-3 rounded-xl border border-gray-100 hover:bg-gray-50 transition-all cursor-pointer group">
-                    <input 
-                      type="checkbox"
-                      className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                      value={role.id}
-                      {...register('roleIds')}
-                    />
-                    <div className="ml-3">
-                      <p className="text-sm font-black text-gray-700 group-hover:text-blue-700 transition-colors uppercase">{ROLE_MAP[role.name] || role.name}</p>
-                      <div className="flex items-center space-x-2">
-                        <p className="text-[10px] text-gray-400 font-bold uppercase">{role.isSystem ? 'Hệ thống' : 'Tùy chỉnh'}</p>
-                        <span className={cn(
-                          "text-[9px] px-1.5 py-0.5 rounded font-black uppercase",
-                          role.level === 0 ? "bg-red-100 text-red-600" :
-                          role.level === 1 ? "bg-amber-100 text-amber-600" :
-                          "bg-emerald-100 text-emerald-600"
-                        )}>
-                          Level {role.level}
-                        </span>
+                {filteredRoles.map(role => {
+                  const disableReason = getRoleDisableReason(role)
+                  const isDisabled = !!disableReason
+
+                  return (
+                    <label 
+                      key={role.id} 
+                      className={cn(
+                        "flex items-center p-3 rounded-xl border border-gray-100 transition-all cursor-pointer group",
+                        isDisabled ? "opacity-50 cursor-not-allowed bg-gray-50" : "hover:bg-gray-50"
+                      )}
+                    >
+                      <input 
+                        type="checkbox"
+                        className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 disabled:opacity-50"
+                        value={role.id}
+                        disabled={isDisabled}
+                        {...register('roleIds')}
+                      />
+                      <div className="ml-3">
+                        <p className="text-sm font-black text-gray-700 group-hover:text-blue-700 transition-colors uppercase">
+                          {ROLE_MAP[role.name] || role.name}
+                        </p>
+                        <div className="flex items-center space-x-2">
+                          <p className="text-[10px] text-gray-400 font-bold uppercase">{role.isSystem ? 'Hệ thống' : 'Tùy chỉnh'}</p>
+                          <span className={cn(
+                            "text-[9px] px-1.5 py-0.5 rounded font-black uppercase",
+                            role.level === 0 ? "bg-red-100 text-red-600" :
+                            role.level === 1 ? "bg-orange-100 text-orange-600" :
+                            role.level === 2 ? "bg-amber-100 text-amber-600" :
+                            role.level === 3 ? "bg-blue-100 text-blue-600" :
+                            "bg-emerald-100 text-emerald-600"
+                          )}>
+                            Level {role.level}
+                          </span>
+                        </div>
+                        {isDisabled && (
+                          <p className="text-[9px] text-red-500 font-bold mt-1 uppercase">{disableReason}</p>
+                        )}
                       </div>
-                    </div>
-                  </label>
-                ))}
+                    </label>
+                  )
+                })}
               </div>
             </div>
           </form>

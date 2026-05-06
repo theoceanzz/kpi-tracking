@@ -13,5 +13,4 @@ public class UpdateRoleRequest {
 
     private Integer level;
     private Integer rank;
-    private UUID parentRoleId;
 }

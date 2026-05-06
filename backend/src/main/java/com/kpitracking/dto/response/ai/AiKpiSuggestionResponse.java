@@ -14,7 +14,7 @@ public class AiKpiSuggestionResponse {
     @JsonProperty("unit")
     private String unit;
 
-    @JsonProperty("target_value")
+    @JsonProperty("targetValue")
     private Double targetValue;
 
     @JsonProperty("weight")

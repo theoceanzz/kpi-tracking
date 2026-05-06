@@ -33,7 +33,7 @@ export default function EvaluationsPage() {
 
   const isGlobalAdmin = hasPermission('SYSTEM:ADMIN')
   const canCreate = hasPermission('EVALUATION:CREATE') && !isGlobalAdmin
-  const canViewAll = hasPermission('EVALUATION:VIEW')
+  const canViewAll = hasPermission('EVALUATION:VIEW') || hasPermission('SUBMISSION:REVIEW')
   const canManageOrg = hasPermission('ROLE:ASSIGN')
 
   // Control states
@@ -162,15 +162,19 @@ export default function EvaluationsPage() {
   const stats = useMemo(() => {
     const all = data?.content ?? []
     const totalCount = data?.totalElements || 0
-    const scoredEvals = all.filter(e => e.score != null)
-    const avgScore = scoredEvals.length > 0 
-      ? Math.round(scoredEvals.reduce((acc, e) => acc + (e.score ?? 0), 0) / scoredEvals.length) 
+    
+    // Tính điểm trung bình dựa trên danh sách đang hiển thị
+    const validEvals = all.filter((e: any) => e.score != null)
+    
+    const avgScore = validEvals.length > 0 
+      ? Math.round(validEvals.reduce((acc: number, e: any) => acc + (e.score ?? 0), 0) / validEvals.length) 
       : 0
+      
     return {
       total: totalCount,
       avgScore
     }
-  }, [data])
+  }, [data, user])
 
   return (
     <div className="max-w-[1440px] mx-auto p-4 md:p-6 space-y-6 animate-in fade-in duration-700 transition-all">
@@ -374,7 +378,12 @@ export default function EvaluationsPage() {
                             <p className="text-sm font-black text-slate-900 dark:text-white group-hover:text-indigo-600 transition-colors">
                               {ev.userName}
                             </p>
-                            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-tighter">{ev.orgUnitName}</p>
+                            <div className="flex items-center gap-2 mt-0.5">
+                              <span className="px-1.5 py-0.5 rounded-md bg-blue-50 dark:bg-blue-900/30 text-[8px] font-black text-blue-600 dark:text-blue-400 uppercase tracking-widest border border-blue-100 dark:border-blue-800/50">
+                                {ev.userRoleName || 'NHÂN VIÊN'}
+                              </span>
+                              <span className="text-[9px] text-slate-400 font-bold uppercase tracking-tighter">{ev.orgUnitName}</span>
+                            </div>
                           </div>
                         </div>
                       </td>
@@ -393,12 +402,14 @@ export default function EvaluationsPage() {
                             ? 'bg-blue-50 text-blue-600 border-blue-100 dark:bg-blue-900/20' 
                             : ev.evaluatorRole === 'DIRECTOR'
                             ? 'bg-amber-50 text-amber-600 border-amber-100 dark:bg-amber-900/20'
-                            : (ev.evaluatorRole === 'DEPT_HEAD' || ev.evaluatorRole === 'TEAM_LEADER')
+                            : (ev.evaluatorRole === 'DEPT_HEAD' || ev.evaluatorRole === 'TEAM_LEADER' || ev.evaluatorRole === 'MANAGER' || ev.evaluatorRole === 'REGIONAL_DIRECTOR')
                             ? 'bg-emerald-50 text-emerald-600 border-emerald-100 dark:bg-emerald-900/20'
                             : 'bg-purple-50 text-purple-600 border-purple-100 dark:bg-purple-900/20'
                         )}>
                           {ev.evaluatorRole === 'SELF' ? 'Tự đánh giá' : 
-                           ev.evaluatorRole === 'DIRECTOR' ? 'Giám đốc chốt' : 
+                           ev.evaluatorRole === 'DIRECTOR' ? 'Tổng GĐ chốt' : 
+                           ev.evaluatorRole === 'REGIONAL_DIRECTOR' ? 'GĐ Vùng chấm' :
+                           ev.evaluatorRole === 'MANAGER' ? 'Giám đốc chấm' :
                            ev.evaluatorRole === 'DEPT_HEAD' ? 'Trưởng phòng chấm' : 
                            ev.evaluatorRole === 'DEPT_DEPUTY' ? 'Phó phòng chấm' :
                            ev.evaluatorRole === 'TEAM_LEADER' ? 'Trưởng nhóm chấm' :

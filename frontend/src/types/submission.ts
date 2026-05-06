@@ -18,6 +18,7 @@ export interface Submission {
   periodStart: string | null
   periodEnd: string | null
   autoScore: number | null
+  managerScore: number | null
   unit: string | null
   weight: number | null
   kpiPeriod: { id: string; name: string } | null
@@ -59,4 +60,5 @@ export interface UpdateSubmissionRequest {
 export interface ReviewSubmissionRequest {
   status: 'APPROVED' | 'REJECTED'
   reviewNote?: string
+  managerScore?: number
 }

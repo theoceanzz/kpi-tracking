@@ -49,6 +49,6 @@ export const kpiApi = {
   getAiSuggestions: (orgUnitId?: string, context?: string) =>
     axiosInstance.post<ApiResponse<any[]>>('/ai/suggest-kpi', { orgUnitId, context }).then((r) => r.data.data),
 
-  getTotalWeight: (orgUnitId: string, kpiPeriodId: string) =>
+  getTotalWeight: (orgUnitId: string, kpiPeriodId?: string) =>
     axiosInstance.get<ApiResponse<number>>('/kpi-criteria/total-weight', { params: { orgUnitId, kpiPeriodId } }).then(r => r.data.data),
 }

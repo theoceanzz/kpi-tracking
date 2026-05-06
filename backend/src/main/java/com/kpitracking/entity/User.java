@@ -71,4 +71,8 @@ public class User {
 
     @Column(name = "deleted_at")
     private Instant deletedAt;
+
+    @Column(name = "require_password_change", nullable = false)
+    @Builder.Default
+    private Boolean requirePasswordChange = false;
 }

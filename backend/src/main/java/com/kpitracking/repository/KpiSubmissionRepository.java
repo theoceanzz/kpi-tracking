@@ -15,6 +15,7 @@ public interface KpiSubmissionRepository extends JpaRepository<KpiSubmission, UU
     @org.springframework.data.jpa.repository.Query("SELECT s FROM KpiSubmission s WHERE " +
            "(s.submittedBy.id = :currentUserId OR EXISTS (SELECT 1 FROM OrgUnit au WHERE s.orgUnit.path LIKE CONCAT(au.path, '%') AND au.id IN :allowedOrgUnitIds)) AND " +
            "(:status IS NULL OR s.status = :status) AND " +
+           "(:kpiPeriodId IS NULL OR s.kpiCriteria.kpiPeriod.id = :kpiPeriodId) AND " +
            "(:kpiCriteriaId IS NULL OR s.kpiCriteria.id = :kpiCriteriaId) AND " +
            "(:submittedById IS NULL OR s.submittedBy.id = :submittedById) AND " +
            "(:orgUnitPath IS NULL OR s.orgUnit.path LIKE :orgUnitPath) AND " +
@@ -23,6 +24,7 @@ public interface KpiSubmissionRepository extends JpaRepository<KpiSubmission, UU
             @org.springframework.data.repository.query.Param("currentUserId") UUID currentUserId,
             @org.springframework.data.repository.query.Param("allowedOrgUnitIds") java.util.Collection<UUID> allowedOrgUnitIds,
             @org.springframework.data.repository.query.Param("status") SubmissionStatus status,
+            @org.springframework.data.repository.query.Param("kpiPeriodId") UUID kpiPeriodId,
             @org.springframework.data.repository.query.Param("kpiCriteriaId") UUID kpiCriteriaId,
             @org.springframework.data.repository.query.Param("submittedById") UUID submittedById,
             @org.springframework.data.repository.query.Param("orgUnitPath") String orgUnitPath,
@@ -35,6 +37,9 @@ public interface KpiSubmissionRepository extends JpaRepository<KpiSubmission, UU
     Page<KpiSubmission> findByKpiCriteriaId(UUID kpiCriteriaId, Pageable pageable);
 
     Page<KpiSubmission> findBySubmittedById(UUID userId, Pageable pageable);
+
+    @org.springframework.data.jpa.repository.Query("SELECT s FROM KpiSubmission s WHERE s.submittedBy.id = :userId AND s.kpiCriteria.id IN :kpiIds AND s.deletedAt IS NULL")
+    java.util.List<KpiSubmission> findBySubmittedByUserIdAndKpiCriteriaIdIn(@org.springframework.data.repository.query.Param("userId") UUID userId, @org.springframework.data.repository.query.Param("kpiIds") java.util.Collection<UUID> kpiIds);
     
     java.util.List<KpiSubmission> findByKpiCriteriaIdAndDeletedAtIsNull(UUID kpiCriteriaId);
     
@@ -98,4 +103,13 @@ public interface KpiSubmissionRepository extends JpaRepository<KpiSubmission, UU
 
     @org.springframework.data.jpa.repository.Query("SELECT COALESCE(SUM(s.actualValue), 0) FROM KpiSubmission s WHERE s.orgUnit.id IN :orgUnitIds AND s.kpiCriteria.id = :kpiId AND s.status = 'APPROVED' AND s.createdAt >= :from AND s.createdAt <= :to")
     double sumActualValueByOrgUnitIdsAndKpiIdInPeriod(@org.springframework.data.repository.query.Param("orgUnitIds") java.util.List<UUID> orgUnitIds, @org.springframework.data.repository.query.Param("kpiId") UUID kpiId, @org.springframework.data.repository.query.Param("from") java.time.Instant from, @org.springframework.data.repository.query.Param("to") java.time.Instant to);
+
+    @org.springframework.data.jpa.repository.Query("SELECT COUNT(DISTINCT s.kpiCriteria.id) FROM KpiSubmission s WHERE s.orgUnit.id IN :orgUnitIds AND s.status != 'DRAFT' AND s.deletedAt IS NULL")
+    long countDistinctKpiCriteriaWithSubmissionsIn(@org.springframework.data.repository.query.Param("orgUnitIds") java.util.Collection<UUID> orgUnitIds);
+
+    @org.springframework.data.jpa.repository.Query("SELECT COUNT(DISTINCT CONCAT(s.kpiCriteria.id, '_', s.submittedBy.id)) FROM KpiSubmission s WHERE s.orgUnit.id IN :orgUnitIds AND s.status != 'DRAFT' AND s.deletedAt IS NULL")
+    long countDistinctAssignmentsWithSubmissionsIn(@org.springframework.data.repository.query.Param("orgUnitIds") java.util.Collection<UUID> orgUnitIds);
+
+    @org.springframework.data.jpa.repository.Query("SELECT COUNT(DISTINCT s.id) FROM KpiSubmission s JOIN UserRoleOrgUnit uro ON uro.user.id = s.submittedBy.id WHERE (uro.orgUnit.id IN :orgUnitIds OR EXISTS (SELECT 1 FROM OrgUnit au WHERE uro.orgUnit.path LIKE CONCAT(au.path, '%') AND au.id IN :orgUnitIds)) AND s.status = :status AND s.deletedAt IS NULL")
+    long countBySubmittedByUserOrgUnitInAndStatus(@org.springframework.data.repository.query.Param("orgUnitIds") java.util.Collection<UUID> orgUnitIds, @org.springframework.data.repository.query.Param("status") SubmissionStatus status);
 }

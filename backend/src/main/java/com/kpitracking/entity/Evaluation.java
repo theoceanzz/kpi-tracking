@@ -43,6 +43,9 @@ public class Evaluation {
     @Column(name = "comment", columnDefinition = "TEXT")
     private String comment;
 
+    @Column(name = "system_score")
+    private Double systemScore;
+
     @Column(name = "period_start")
     private Instant periodStart;
 

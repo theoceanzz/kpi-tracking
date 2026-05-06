@@ -4,8 +4,6 @@ import { ApiResponse } from '@/types/api'
 export interface RoleResponse {
   id: string
   name: string
-  parentRoleName?: string
-  parentRoleId?: string
   isSystem: boolean
   level?: number
   rank?: number
@@ -17,14 +15,12 @@ export interface CreateRoleRequest {
   name: string
   level: number
   rank: number
-  parentRoleId?: string
 }
 
 export interface UpdateRoleRequest {
   name?: string
   level?: number
   rank?: number
-  parentRoleId?: string
 }
 
 export const roleApi = {

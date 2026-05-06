@@ -12,6 +12,7 @@ public class MyKpiProgressResponse {
     private long pendingSubmissions;
     private long rejectedSubmissions;
     private long lateSubmissions;
+    private long pendingTaskCount;
     private Double averageScore;
     private PageResponse<KpiTaskResponse> tasks;
 }
