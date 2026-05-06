@@ -13,7 +13,7 @@ import {
   Clock, CheckCircle2, XCircle, 
   Users, Building2, ChevronRight, ArrowUpDown,
   Calendar, ChevronLeft, Search, CheckCircle, 
-  ShieldCheck, X, 
+  ShieldCheck, 
   Loader2
 } from 'lucide-react'
 import { useAuthStore } from '@/store/authStore'

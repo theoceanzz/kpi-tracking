@@ -856,19 +856,4 @@ function MiniCard({ icon, label, value, color }: { icon: React.ReactNode; label:
   )
 }
 
-function ProgressRow({ label, value, total, icon, color }: { label: string; value: number; total: number; icon: React.ReactNode; color: string }) {
-  const pct = total > 0 ? Math.round((value / total) * 100) : 0
-  const barColors: Record<string, string> = { emerald: 'bg-emerald-500', amber: 'bg-amber-500', red: 'bg-red-500' }
-  const textColors: Record<string, string> = { emerald: 'text-emerald-600', amber: 'text-amber-600', red: 'text-red-600' }
-  return (
-    <div className="space-y-1.5">
-      <div className="flex justify-between text-[11px] font-bold">
-        <span className={cn("flex items-center gap-1.5", textColors[color])}>{icon} {label}</span>
-        <span className="text-slate-600">{value} <span className="text-slate-400">({pct}%)</span></span>
-      </div>
-      <div className="h-2 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
-        <div className={cn("h-full rounded-full transition-all duration-700", barColors[color])} style={{ width: `${pct}%` }} />
-      </div>
-    </div>
-  )
-}
+

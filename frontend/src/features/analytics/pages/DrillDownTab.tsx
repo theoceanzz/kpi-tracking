@@ -35,7 +35,7 @@ export default function DrillDownTab() {
   const portalComparisonRef = useRef<HTMLDivElement>(null)
   const portalHeatmapRef = useRef<HTMLDivElement>(null)
 
-  const drillInto = (id: string, name: string) => {
+  const drillInto = (id: string, _name: string) => {
     setSearchParams({ unitId: id })
   }
 
@@ -214,7 +214,7 @@ export default function DrillDownTab() {
                   </tr>
                 </thead>
                 <tbody>
-                  {heatmapY.map((y, yIdx) => (
+                  {heatmapY.map((y) => (
                     <tr key={y}>
                       <td className="sticky left-0 bg-white dark:bg-slate-900 z-10 text-[9px] font-bold text-slate-500 pr-2 max-w-[100px] truncate">
                         {y}

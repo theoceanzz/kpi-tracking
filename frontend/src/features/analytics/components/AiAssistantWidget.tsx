@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react'
 import { Bot, Send, X, Loader2, Minimize2, Maximize2, CheckCircle2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { aiApi, AiChatResponse } from '../api/aiApi'
+import { aiApi } from '../api/aiApi'
 
 interface Message {
   id: string;
