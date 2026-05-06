@@ -7,6 +7,11 @@ target/
 application.yaml
 flyway.conf
 
+# Local env files
+.env
+.env.*
+!.env.example
+
 ### STS ###
 .apt_generated
 .classpath

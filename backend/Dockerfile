@@ -23,5 +23,8 @@ EXPOSE 8080
 # Copy the generated JAR file from the build stage
 COPY --from=build /app/target/*.jar app.jar
 
+# Set default Spring profile to prod
+ENV SPRING_PROFILES_ACTIVE=prod
+
 # Run the Spring Boot application
 ENTRYPOINT ["java", "-jar", "app.jar"]

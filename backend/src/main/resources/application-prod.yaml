@@ -1,0 +1,113 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: kpi-tracking
+
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/kpitracking}
+    username: ${DB_USERNAME:postgres}
+    password: ${DB_PASSWORD:postgres}
+    hikari:
+      maximum-pool-size: 20
+      minimum-idle: 5
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: true
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    baseline-on-migrate: true
+    repair-on-migrate: true
+    clean-disabled: false
+
+  mail:
+    host: ${MAIL_HOST:smtp.gmail.com}
+    port: ${MAIL_PORT:587}
+    username: ${MAIL_USERNAME:your-email@gmail.com}
+    password: ${MAIL_PASSWORD:your-app-password}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 50MB
+
+  ai:
+    google:
+      genai:
+        api-key: ${gemini.api.key}
+        chat:
+          options:
+            model: ${gemini.api.model}
+            temperature: 0.0
+            include-thoughts: false
+      retry:
+        max-attempts: 1
+        on-http-codes-to-retry:
+    openai:
+      api-key: ${huggingface.api.key:your-hf-key}
+      base-url: ${huggingface.api.url:https://router.huggingface.co}
+      chat:
+        options:
+          model: ${huggingface.api.model:Qwen/Qwen2.5-72B-Instruct:novita}
+          temperature: 0
+          max-tokens: 500
+    retry:
+      max-attempts: 1
+      on-http-codes-to-retry:
+
+jwt:
+  secret: ${JWT_SECRET:your-256-bit-secret-your-256-bit-secret}
+  access-token-expiry: ${JWT_ACCESS_EXPIRY:9000000}
+  refresh-token-expiry: ${JWT_REFRESH_EXPIRY:604800000}
+
+cloudinary:
+  cloud-name: ${CLOUDINARY_CLOUD_NAME:your-cloud-name}
+  api-key: ${CLOUDINARY_API_KEY:your-api-key}
+  api-secret: ${CLOUDINARY_API_SECRET:your-api-secret}
+
+app:
+  cors:
+    allowed-origins: ${CORS_ORIGINS:http://localhost:3000,https://your-frontend-domain.vercel.app}
+  rate-limit:
+    login-per-minute: ${RATE_LIMIT_LOGIN:5}
+    email-per-hour: ${RATE_LIMIT_EMAIL:3}
+  mail:
+    from: ${MAIL_FROM:noreply@kpitracking.com}
+
+gemini:
+  api:
+    key: ${GEMINI_API_KEY:your-gemini-key}
+    model: ${GEMINI_MODEL:gemini-3-flash-preview}
+
+claude:
+  api:
+    key: ${CLAUDE_API_KEY:your-claude-key}
+    model: ${CLAUDE_MODEL:claude-3-5-sonnet-20241022}
+
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    operations-sorter: method
+
+logging:
+  level:
+    root: INFO
+    com.kpitracking: DEBUG
+    org.springframework.security: DEBUG
