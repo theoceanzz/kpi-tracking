@@ -18,7 +18,7 @@ FROM eclipse-temurin:17-jre-jammy
 WORKDIR /app
 
 # Expose the port your Spring Boot app runs on
-EXPOSE 8080
+EXPOSE 8081
 
 # Copy the generated JAR file from the build stage
 COPY --from=build /app/target/*.jar app.jar
