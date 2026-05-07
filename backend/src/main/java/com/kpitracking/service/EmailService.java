@@ -19,7 +19,7 @@ public class EmailService {
     @Value("${app.mail.from}")
     private String fromEmail;
 
-    @Value("${app.cors.allowed-origins}")
+    @Value("${app.frontend-url:${app.cors.allowed-origins:http://localhost:3000}}")
     private String frontendUrl;
 
     @Async
