@@ -27,7 +27,6 @@ import java.util.stream.Collectors;
 import com.kpitracking.enums.KpiStatus;
 import com.kpitracking.enums.SubmissionStatus;
 import com.kpitracking.entity.KpiSubmission;
-
 @Service
 @RequiredArgsConstructor
 public class EvaluationService {
@@ -63,9 +62,11 @@ public class EvaluationService {
         if (evaluatedUserAssignments.isEmpty()) {
             throw new BusinessException("Người dùng chưa được phân bổ vào đơn vị nào");
         }
-        java.util.List<UUID> allowedOrgUnitIds = permissionChecker.getOrgUnitsWithPermission(currentUser.getId(), "EVALUATION:CREATE");
+        // Get authorized units considering hierarchy inheritance
+        // Prioritize units where the viewer is actually a "Trưởng" (Rank 0)
         OrgUnit targetOrgUnit = evaluatedUserAssignments.stream()
-                .filter(a -> allowedOrgUnitIds.contains(a.getOrgUnit().getId()))
+                .filter(a -> permissionChecker.hasPermissionInOrgUnit(currentUser.getId(), "EVALUATION:CREATE", a.getOrgUnit().getId()))
+                .sorted(java.util.Comparator.comparingInt(a -> permissionChecker.getMinRankInOrgUnit(currentUser.getId(), a.getOrgUnit().getId())))
                 .map(com.kpitracking.entity.UserRoleOrgUnit::getOrgUnit)
                 .findFirst()
                 .orElse(evaluatedUserAssignments.get(0).getOrgUnit());
@@ -83,45 +84,46 @@ public class EvaluationService {
                 throw new ForbiddenException("Bạn không có quyền tạo đánh giá cho người khác");
             }
             
-            // Hierarchy check: can only evaluate subordinates
-            // Hierarchy check: can only evaluate subordinates
-            int viewerLevel = permissionChecker.getMinLevelInOrgUnit(currentUser.getId(), targetOrgUnit.getId());
-            int viewerRank = permissionChecker.getMinRankInOrgUnit(currentUser.getId(), targetOrgUnit.getId());
+            if (targetOrgUnit != null) {
+                int viewerLevel = permissionChecker.getMinLevelInOrgUnit(currentUser.getId(), targetOrgUnit.getId());
+                int viewerRank = permissionChecker.getMinRankInOrgUnit(currentUser.getId(), targetOrgUnit.getId());
 
-            // Deputy (Rank 1) and Staff (Rank 2) cannot evaluate others
-            if (viewerRank > 0) {
-                throw new ForbiddenException("Chỉ cấp Trưởng mới có quyền thực hiện đánh giá cho nhân viên.");
-            }
+                // 1. Chỉ cấp Trưởng (Rank 0) mới có quyền thực hiện đánh giá cho người khác
+                if (viewerRank > 0) {
+                    throw new ForbiddenException("Chỉ cấp Trưởng mới có quyền thực hiện đánh giá cho nhân viên.");
+                }
 
-            boolean isSubordinate = evaluatedUserAssignments.stream().anyMatch(assignment -> {
-                int subLevel = assignment.getRole().getLevel();
-                int subRank = assignment.getRole().getRank();
-                // Subordinate is lower level OR same level but lower rank
-                return (subLevel > viewerLevel || (subLevel == viewerLevel && subRank > viewerRank));
-            });
+                // 2. Kiểm tra quan hệ cấp trên - cấp dưới
+                boolean isSubordinate = evaluatedUserAssignments.stream().anyMatch(assignment -> {
+                    Integer subLevel = assignment.getRole().getLevel();
+                    Integer subRank = assignment.getRole().getRank();
+                    
+                    if (subLevel == null || subRank == null) return false;
+                    
+                    // Cấp dưới là người có Level thấp hơn (số lớn hơn) 
+                    // HOẶC cùng Level nhưng có Rank thấp hơn (số lớn hơn)
+                    return (subLevel > viewerLevel || (subLevel == viewerLevel && subRank > viewerRank));
+                });
 
-            if (!isSubordinate) {
-                throw new ForbiddenException("Bạn chỉ có quyền đánh giá cấp dưới trực tiếp trong sơ đồ tổ chức.");
-            }
-        }
-
-        if (isSelfEval) {
-            boolean exists = evaluationRepository.existsByUserIdAndKpiPeriodIdAndEvaluatorId(
-                    evaluatedUser.getId(), kpiPeriod.getId(), currentUser.getId());
-            if (exists) {
-                throw new com.kpitracking.exception.BusinessException("Bạn đã thực hiện tự đánh giá cho đợt này rồi.");
+                if (!isSubordinate) {
+                    throw new ForbiddenException("Bạn chỉ có quyền đánh giá nhân viên cấp dưới trong sơ đồ tổ chức.");
+                }
             }
         }
 
-        Evaluation evaluation = Evaluation.builder()
-                .orgUnit(targetOrgUnit)
-                .user(evaluatedUser)
-                .kpiPeriod(kpiPeriod)
-                .evaluator(currentUser)
-                .score(request.getScore())
-                .comment(request.getComment())
-                .systemScore(calculateSystemScore(evaluatedUser.getId(), kpiPeriod.getId(), (double) org.getEvaluationMaxScore()))
-                .build();
+        // Check if an evaluation already exists for this user, period, and evaluator
+        // If it exists, update it instead of creating a new one
+        Evaluation evaluation = evaluationRepository.findByUserIdAndKpiPeriodIdAndEvaluatorId(
+                evaluatedUser.getId(), kpiPeriod.getId(), currentUser.getId())
+                .orElse(new Evaluation());
+
+        evaluation.setUser(evaluatedUser);
+        evaluation.setEvaluator(currentUser);
+        evaluation.setKpiPeriod(kpiPeriod);
+        evaluation.setOrgUnit(targetOrgUnit);
+        evaluation.setScore(request.getScore());
+        evaluation.setComment(request.getComment());
+        evaluation.setSystemScore(calculateSystemScore(evaluatedUser.getId(), kpiPeriod.getId(), (double) org.getEvaluationMaxScore()));
 
         evaluation = evaluationRepository.save(evaluation);
         return enrichResponse(evaluation);

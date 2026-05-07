@@ -431,12 +431,24 @@ public class AuthService {
     private void assignDefaultPermissions(Role role, List<Permission> allPerms, String archetype, int tierLevel, int numTiers) {
         List<String> allowedCodes = RolePermissionConstants.getPermissions(archetype, tierLevel, numTiers);
         
-        List<Permission> toAssign = allPerms.stream()
-                .filter(p -> allowedCodes.contains(p.getCode()))
-                .collect(Collectors.toList());
+        for (String code : allowedCodes) {
+            Permission p = allPerms.stream()
+                    .filter(perm -> perm.getCode().equals(code))
+                    .findFirst()
+                    .orElseGet(() -> permissionRepository.findByCode(code).orElse(null));
 
-        for (Permission p : toAssign) {
-            rolePermissionRepository.save(RolePermission.builder().role(role).permission(p).build());
+            if (p == null && "ORG:VIEW_TREE".equals(code)) {
+                p = permissionRepository.save(Permission.builder()
+                        .code("ORG:VIEW_TREE")
+                        .resource("ORG")
+                        .action("VIEW_TREE")
+                        .description("Xem sơ đồ tổ chức (không có quyền quản trị)")
+                        .build());
+            }
+
+            if (p != null) {
+                rolePermissionRepository.save(RolePermission.builder().role(role).permission(p).build());
+            }
         }
     }
 

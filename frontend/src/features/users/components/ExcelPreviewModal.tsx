@@ -532,6 +532,7 @@ export default function ExcelPreviewModal({ open, file, onClose, onImport, isImp
                                 return false
                               })
 
+                              const isCurrentRoleMissing = !filteredRoles.some(r => r.id === row.Role);
                               return (
                                 <select
                                   value={row.Role}
@@ -543,6 +544,14 @@ export default function ExcelPreviewModal({ open, file, onClose, onImport, isImp
                                       : "border-gray-200 hover:border-blue-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
                                   )}
                                 >
+                                  {isCurrentRoleMissing && (
+                                    <option value={row.Role} className="hidden">
+                                      {(() => {
+                                        const r = rolesData?.find(x => x.id === row.Role || x.name === row.Role);
+                                        return r ? `${ROLE_MAP[r.name] || r.name} (Không hợp lệ)` : 'Chọn chức danh...';
+                                      })()}
+                                    </option>
+                                  )}
                                   {filteredRoles.map(role => (
                                     <option key={role.id} value={role.id}>{ROLE_MAP[role.name] || role.name}</option>
                                   ))}

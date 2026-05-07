@@ -99,7 +99,12 @@ export default function KpiExcelPreviewModal({ open, file, onClose, onImport, is
     // and EXCLUDE the root organization (parent is null) because managers 
     // usually only manage specific teams/departments, not the whole company unit.
     const userUnitIds = user?.memberships?.map(m => m.orgUnitId) || []
-    return allUnits.filter(u => userUnitIds.includes(u.id) && u.parentId !== null)
+    const userMemberUnits = allUnits.filter(u => userUnitIds.includes(u.id))
+    
+    return allUnits.filter(u => {
+      if (u.parentId === null) return false
+      return userMemberUnits.some(uu => u.path.startsWith(uu.path))
+    })
   })()
 
   // Set default bulk settings once data is loaded
@@ -603,6 +608,7 @@ export default function KpiExcelPreviewModal({ open, file, onClose, onImport, is
                         <th className="px-5 py-4 min-w-[200px]">Tên chỉ tiêu <span className="text-rose-500">*</span></th>
                         <th className="px-5 py-4 min-w-[150px]">Trọng số <span className="text-rose-500">*</span></th>
                         <th className="px-5 py-4 min-w-[150px]">Mục tiêu <span className="text-rose-500">*</span></th>
+                        <th className="px-5 py-4 min-w-[150px]">Tối thiểu <span className="text-rose-500">*</span></th>
                         <th className="px-5 py-4 min-w-[120px]">Đơn vị <span className="text-rose-500">*</span></th>
                         <th className="px-5 py-4 min-w-[150px]">Tần suất <span className="text-rose-500">*</span></th>
                         <th className="px-5 py-4 min-w-[160px]">Mã nhân viên <span className="text-rose-500">*</span></th>
@@ -655,6 +661,17 @@ export default function KpiExcelPreviewModal({ open, file, onClose, onImport, is
                               )}
                             />
                             {row._errors?.TargetValue && <p className="text-[9px] text-rose-500 mt-1 font-black uppercase px-2">{row._errors.TargetValue}</p>}
+                          </td>
+                          <td className="px-5 py-3">
+                            <input
+                              value={row.MinimumValue || ''}
+                              onChange={e => handleCellChange(row.id, 'MinimumValue', e.target.value)}
+                              className={cn(
+                                "w-full px-4 py-2 rounded-xl border text-sm font-black transition-all",
+                                row._errors?.MinimumValue ? "border-rose-300 bg-rose-50 dark:bg-rose-900/10" : "border-transparent hover:border-slate-200 focus:border-indigo-500"
+                              )}
+                            />
+                            {row._errors?.MinimumValue && <p className="text-[9px] text-rose-500 mt-1 font-black uppercase px-2">{row._errors.MinimumValue}</p>}
                           </td>
                           <td className="px-5 py-3">
                             <input

@@ -57,9 +57,14 @@ public class StatsService {
         List<OrgUnit> authorizedUnits = getAuthorizedOrgUnits(currentUser, "DASHBOARD:VIEW");
         
         if (orgUnitId != null) {
-            authorizedUnits = authorizedUnits.stream()
-                    .filter(u -> u.getId().equals(orgUnitId))
-                    .toList();
+            OrgUnit targetUnit = authorizedUnits.stream().filter(u -> u.getId().equals(orgUnitId)).findFirst().orElse(null);
+            if (targetUnit != null) {
+                authorizedUnits = authorizedUnits.stream()
+                        .filter(u -> u.getPath().startsWith(targetUnit.getPath()))
+                        .toList();
+            } else {
+                authorizedUnits = Collections.emptyList();
+            }
         }
 
         if (authorizedUnits.isEmpty()) {
@@ -148,9 +153,14 @@ public class StatsService {
         List<OrgUnit> authorizedUnits = getAuthorizedOrgUnits(currentUser, "DASHBOARD:VIEW");
         
         if (orgUnitId != null) {
-            authorizedUnits = authorizedUnits.stream()
-                    .filter(u -> u.getId().equals(orgUnitId))
-                    .toList();
+            OrgUnit targetUnit = authorizedUnits.stream().filter(u -> u.getId().equals(orgUnitId)).findFirst().orElse(null);
+            if (targetUnit != null) {
+                authorizedUnits = authorizedUnits.stream()
+                        .filter(u -> u.getPath().startsWith(targetUnit.getPath()))
+                        .toList();
+            } else {
+                authorizedUnits = Collections.emptyList();
+            }
         }
         
         if (authorizedUnits.isEmpty()) {
@@ -194,15 +204,45 @@ public class StatsService {
              UserRoleOrgUnit primary = primaryAssignmentMap.get(u.getId());
              if (primary == null) continue;
 
-             // Filter by rank: Deputy (1) only sees Staff (> 1)
-             // EXCEPT for senior management (Level 0, 1, 2) who should see everyone
-             boolean isSeniorManagement = primary.getOrgUnit().getOrgHierarchyLevel().getRoleLevel() <= 2;
-             if (!isSeniorManagement && currentUserRank == 1 && primary.getRole().getRank() != null && primary.getRole().getRank() <= 1) {
-                 continue;
-             }
+             int targetRoleLevel = primary.getOrgUnit().getOrgHierarchyLevel().getRoleLevel();
+             // Hierarchy-based filtering (Simple Numeric Logic)
+             if (!permissionChecker.isGlobalAdmin(currentUser.getId())) {
+                 // Find the MOST SPECIFIC (deepest) assignment I have for this context
+                 UserRoleOrgUnit myPrimary = currentUserAssignments.stream()
+                         .filter(a -> u.getId().equals(currentUser.getId()) || primary.getOrgUnit().getPath().startsWith(a.getOrgUnit().getPath()))
+                         .sorted((a, b) -> Integer.compare(b.getOrgUnit().getOrgHierarchyLevel().getLevelOrder(), 
+                                                        a.getOrgUnit().getOrgHierarchyLevel().getLevelOrder()))
+                         .findFirst().orElse(null);
 
-             if (u.getId().equals(currentUser.getId())) {
-                 continue; // Exclude self
+                 int myLevel = (myPrimary != null) ? myPrimary.getOrgUnit().getOrgHierarchyLevel().getRoleLevel() : 99;
+                 int myRank = (myPrimary != null && myPrimary.getRole().getRank() != null) ? myPrimary.getRole().getRank() : 2;
+
+                 Integer targetRank = primary.getRole().getRank();
+                 if (targetRank == null) targetRank = 2;
+
+                 System.out.print("DEBUG: [ME: " + currentUser.getFullName() + " (L:" + myLevel + ", R:" + myRank + ")] ");
+                 System.out.print("-> [TARGET: " + u.getFullName() + " (L:" + targetRoleLevel + ", R:" + targetRank + ")] ");
+
+                 // 1. Hide people at higher levels (smaller level number)
+                 if (targetRoleLevel < myLevel) {
+                     System.out.println("SKIPPED (Higher Level)");
+                     continue;
+                 }
+                 
+                 // 2. At the same level, hide people with higher position (smaller rank number)
+                 if (targetRoleLevel == myLevel && targetRank < myRank) {
+                     System.out.println("SKIPPED (Superior Rank)");
+                     continue;
+                 }
+                 
+                 // 3. Exclude self
+                 if (u.getId().equals(currentUser.getId())) {
+                     System.out.println("SKIPPED (Self)");
+                     continue;
+                 }
+                 System.out.println("INCLUDED");
+             } else {
+                 if (u.getId().equals(currentUser.getId())) continue;
              }
              // Exclude users with SYSTEM:ADMIN if current user is not a global admin
              if (!permissionChecker.isGlobalAdmin(currentUser.getId()) && permissionChecker.isGlobalAdmin(u.getId())) {

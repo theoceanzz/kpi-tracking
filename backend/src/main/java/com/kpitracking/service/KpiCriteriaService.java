@@ -593,6 +593,14 @@ public class KpiCriteriaService {
             throw new BusinessException("Lỗi xử lý file: " + e.getMessage());
         }
 
+        if (!errors.isEmpty()) {
+            String errorMsg = errors.stream().limit(5).collect(java.util.stream.Collectors.joining("\n"));
+            if (errors.size() > 5) {
+                errorMsg += "\n... và " + (errors.size() - 5) + " lỗi khác.";
+            }
+            throw new BusinessException("Lỗi dữ liệu các dòng trong file:\n" + errorMsg);
+        }
+
         // Post-import validation: Check total weight for all modified unit-period pairs
         for (String pair : affectedPairs) {
             String[] ids = pair.split(":");

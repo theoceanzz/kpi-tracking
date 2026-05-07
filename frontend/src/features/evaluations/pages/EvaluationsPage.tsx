@@ -122,9 +122,10 @@ export default function EvaluationsPage() {
   const flatOrgUnits = useMemo(() => orgUnitTreeData ? flattenTree(orgUnitTreeData) : [], [orgUnitTreeData])
   
   // Set default org unit to root
+  // Set default org unit to root only if none selected
   useEffect(() => {
-    if (flatOrgUnits.length > 0 && !selectedOrgUnitId) {
-      setSelectedOrgUnitId(flatOrgUnits[0].id)
+    if (flatOrgUnits.length > 0 && selectedOrgUnitId === '') {
+      setSelectedOrgUnitId('ALL')
     }
   }, [flatOrgUnits, selectedOrgUnitId])
 
@@ -266,6 +267,7 @@ export default function EvaluationsPage() {
                       <SelectValue placeholder="Chọn phòng ban..." />
                     </SelectTrigger>
                     <SelectContent className="rounded-xl border-[var(--color-border)] shadow-lg max-h-[300px]">
+                      <SelectItem value="ALL" className="font-medium cursor-pointer rounded-lg text-xs italic opacity-70">Tất cả đơn vị quản lý...</SelectItem>
                       {flatOrgUnits.map(unit => (
                         <SelectItem key={unit.id} value={unit.id} className="font-medium cursor-pointer rounded-lg text-xs">{unit.levelLabel}</SelectItem>
                       ))}

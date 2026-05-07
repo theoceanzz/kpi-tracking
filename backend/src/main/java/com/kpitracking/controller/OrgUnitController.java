@@ -26,7 +26,7 @@ import java.util.UUID;
 @RestController
 @RequestMapping("/api/v1/organizations/{orgId}/units")
 @RequiredArgsConstructor
-@PreAuthorize("hasAuthority('ORG:VIEW')")
+@PreAuthorize("hasAnyAuthority('ORG:VIEW', 'ORG:VIEW_TREE')")
 @Tag(name = "Organization Units", description = "Organizational unit management endpoints")
 public class OrgUnitController {
 

@@ -9,7 +9,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { userSchema, type UserFormData, updateUserSchema, type UpdateUserFormData } from '../schemas/userSchema'
-import { cn, getHighestRole } from '@/lib/utils'
+import { cn, getHighestRole, getPrimaryMembership } from '@/lib/utils'
 import { useCreateUser } from '../hooks/useCreateUser'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { userApi } from '../api/userApi'
@@ -393,7 +393,7 @@ function EditUserForm({ editUser, onClose, onSubmit, isPending, canAssignRoles, 
       phone: editUser.phone ?? '', 
       role: getHighestRole(editUser) || dynamicRoles?.[dynamicRoles.length - 1]?.name || '', 
       status: editUser.status,
-      orgUnitId: editUser.memberships?.[0]?.orgUnitId || ''
+      orgUnitId: getPrimaryMembership(editUser)?.orgUnitId || ''
     },
   })
 
@@ -406,7 +406,7 @@ function EditUserForm({ editUser, onClose, onSubmit, isPending, canAssignRoles, 
       phone: editUser.phone ?? '',
       role: getHighestRole(editUser) || dynamicRoles?.[dynamicRoles.length - 1]?.name || '',
       status: editUser.status,
-      orgUnitId: editUser.memberships?.[0]?.orgUnitId || ''
+      orgUnitId: getPrimaryMembership(editUser)?.orgUnitId || ''
     })
   }, [editUser, reset, dynamicRoles])
 

@@ -29,7 +29,7 @@ const COLORS = ['#6366f1', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'
 export default function HeadDashboard() {
   const [page, setPage] = useState(0)
   const [isExporting, setIsExporting] = useState(false)
-  const size = 10
+  const size = 5
   const { user } = useAuthStore()
   // const queryClient = useQueryClient()
   
@@ -46,7 +46,7 @@ export default function HeadDashboard() {
   const { data: stats, isLoading: statsLoading } = useOverviewStats(orgUnitId)
   const { data: employeesPage, isLoading: employeesLoading } = useEmployeeStats(page, size, orgUnitId)
   const { data: allEmployees } = useEmployeeStats(0, 1000, orgUnitId)
-  
+
   const { data: pinnedWidgets, isLoading: pinnedLoading, refetch: refetchPinned } = useQuery({
     queryKey: ['reports', 'widgets', 'pinned'],
     queryFn: () => reportApi.getPinnedWidgets(),
@@ -246,18 +246,7 @@ export default function HeadDashboard() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-50 dark:divide-slate-800/50">
-                    {employees?.filter(emp => {
-                      if (emp.userId === user?.id) return false
-                      
-                      const currentRoleRank = primaryMembership?.roleRank
-                      const isDeputy = currentRoleRank === 1
-                      
-                      if (isDeputy) {
-                        return emp.rank > 1
-                      }
-                      
-                      return true
-                    }).map((emp: EmployeeKpiStats) => (
+                    {employees.map((emp: EmployeeKpiStats) => (
                       <tr key={emp.userId} className="group hover:bg-slate-100/30 dark:hover:bg-slate-800/30 transition-all duration-300">
                         <td className="px-8 py-4">
                           <div className="flex items-center gap-3">

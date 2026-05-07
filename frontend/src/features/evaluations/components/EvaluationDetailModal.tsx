@@ -105,11 +105,13 @@ export default function EvaluationDetailModal({ open, onClose, evaluation }: Eva
       role: 'SELF'
     })
 
-    // 2. Manager Evaluations based on hierarchy
-    const sortedLevels = [...org.hierarchyLevels].sort((a, b) => b.levelOrder - a.levelOrder)
+    // 2. Manager Evaluations based on hierarchy - TOP DOWN priority for matching
+    const sortedLevelsMatching = [...org.hierarchyLevels].sort((a, b) => a.levelOrder - b.levelOrder)
     
-    sortedLevels.forEach(hl => {
-      // Use roleLevel from backend if available, otherwise fallback to mapping
+    const consumedIds = new Set<string>()
+    const managerSteps: any[] = []
+
+    sortedLevelsMatching.forEach(hl => {
       let mappedRoleLevel = hl.roleLevel !== undefined ? hl.roleLevel : hl.levelOrder;
       const totalLevels = org.hierarchyLevels.length;
       
@@ -119,6 +121,11 @@ export default function EvaluationDetailModal({ open, onClose, evaluation }: Eva
         else if (totalLevels === 3) mappedRoleLevel = hl.levelOrder + 2;
         else if (totalLevels === 2) mappedRoleLevel = hl.levelOrder === 0 ? 2 : 4;
         else mappedRoleLevel = hl.levelOrder + (5 - totalLevels);
+      }
+
+      // Only include managers at or above the user's level
+      if (Number(mappedRoleLevel) > Number(evalUserLevel)) {
+        return
       }
 
       // SKIP this level if the evaluated user themselves is the manager (Rank 0) at this level
@@ -168,47 +175,48 @@ export default function EvaluationDetailModal({ open, onClose, evaluation }: Eva
       }
 
       const evalAtLevel = relatedData.content.find((e: any) => {
+        if (consumedIds.has(e.id)) return false
         if (e.userId !== evaluation.userId) return false
 
-        // 1. If this is the current user's evaluation, match it EXCLUSIVELY to their designated step
-        // to prevent double-matching in 2-level organizations.
+        let matches = false
         if (e.evaluatorId === user?.id && roleCode !== 'SELF' && e.evaluatorRole !== 'SELF') {
-          const isMyStep = (canReviewSubmission && mappedRoleLevel === 2) || 
-                           (!canReviewSubmission && canCreateEvaluation && mappedRoleLevel === 4) ||
-                           (canReviewSubmission && roleCode === 'DIRECTOR') ||
-                           (!canReviewSubmission && canCreateEvaluation && roleCode === 'TEAM_LEADER');
-          return isMyStep;
-        }
-
-        // 2. Role-based matching (for evaluations from other users)
-        if (roleCode === 'SELF') return e.evaluatorRole === 'SELF'
-        if (e.evaluatorRole === roleCode) return true
-
-        // 3. Flexible matching for 2-level orgs or related roles (fallback)
-        if (isTwoLevelOrg) {
-          if (roleCode === 'DIRECTOR') {
-            return ['DIRECTOR', 'REGIONAL_DIRECTOR'].includes(e.evaluatorRole)
-          }
-          if (roleCode === 'TEAM_LEADER') {
-            return ['TEAM_LEADER', 'DEPT_HEAD', 'MANAGER', 'TEAM_DEPUTY', 'DEPT_DEPUTY'].includes(e.evaluatorRole)
+          matches = (canReviewSubmission && [0, 1, 2].includes(mappedRoleLevel)) || 
+                    (!canReviewSubmission && canCreateEvaluation && [3, 4].includes(mappedRoleLevel)) ||
+                    (canReviewSubmission && ['DIRECTOR', 'MANAGER', 'REGIONAL_DIRECTOR'].includes(roleCode)) ||
+                    (!canReviewSubmission && canCreateEvaluation && ['TEAM_LEADER', 'DEPT_HEAD'].includes(roleCode));
+        } else {
+          if (roleCode === 'SELF') matches = e.evaluatorRole === 'SELF'
+          else if (e.evaluatorRole === roleCode) matches = true
+          else if (isTwoLevelOrg) {
+            if (roleCode === 'DIRECTOR') matches = ['DIRECTOR', 'REGIONAL_DIRECTOR'].includes(e.evaluatorRole)
+            else if (roleCode === 'TEAM_LEADER') matches = ['TEAM_LEADER', 'DEPT_HEAD', 'MANAGER', 'TEAM_DEPUTY', 'DEPT_DEPUTY'].includes(e.evaluatorRole)
           }
         }
 
+        if (matches) {
+          consumedIds.add(e.id)
+          return true
+        }
         return false
       })
       
-      steps.push({
+      managerSteps.push({
         id: roleCode,
         title: stepTitle,
         icon,
         iconBg,
         iconColor,
         evaluation: evalAtLevel || null,
-        role: roleCode
+        role: roleCode,
+        level: mappedRoleLevel
       })
     })
 
-    return steps
+    // Final visual order: Self -> Managers from bottom up (highest levelOrder first)
+    return [
+      steps[0],
+      ...managerSteps.sort((a, b) => b.level - a.level)
+    ]
   }, [evaluation, org, relatedData])
 
   const layers = useMemo(() => {
@@ -266,7 +274,7 @@ export default function EvaluationDetailModal({ open, onClose, evaluation }: Eva
       <div className="relative bg-white dark:bg-slate-900 rounded-[28px] shadow-2xl w-full max-w-2xl mx-4 animate-in zoom-in-95 fade-in duration-300 max-h-[90vh] overflow-y-auto border border-slate-200 dark:border-slate-800">
 
         {/* Header */}
-        <div className="sticky top-0 z-10 bg-white dark:bg-slate-900 border-b border-slate-100 dark:border-slate-800 px-7 py-5 flex items-center justify-between rounded-t-[28px]">
+        <div className="sticky top-0 z-20 bg-white dark:bg-slate-900 border-b border-slate-100 dark:border-slate-800 px-7 py-5 flex items-center justify-between rounded-t-[28px]">
           <div className="flex items-center gap-3">
             <div className="w-12 h-12 rounded-2xl bg-amber-50 dark:bg-amber-900/30 flex items-center justify-center">
               <Star size={24} className="text-amber-600 dark:text-amber-400" />

@@ -65,6 +65,7 @@ public class RolePermissionConstants {
     // ----------------------------------------------------------------
     public static final List<String> MANAGER_PERMS = Arrays.asList(
             "DASHBOARD:VIEW",
+            "ORG:VIEW_TREE",
             "USER:VIEW_LIST",
             "KPI:VIEW", "KPI:CREATE", "KPI:UPDATE", "KPI:DELETE",
             "KPI:IMPORT", "KPI:SUBMIT", "KPI:REJECT",
@@ -81,10 +82,11 @@ public class RolePermissionConstants {
     // ----------------------------------------------------------------
     public static final List<String> DEPUTY_PERMS = Arrays.asList(
             "DASHBOARD:VIEW",
+            "ORG:VIEW_TREE",
             "USER:VIEW_LIST",
             "KPI:SUBMIT", "KPI:REJECT",
             "SUBMISSION:VIEW",
-            "EVALUATION:VIEW",
+            "EVALUATION:VIEW", "EVALUATION:CREATE",
             "NOTIF:VIEW", "KPI_PERIOD:VIEW",
             "AI:SUGGEST_KPI",
             "STATS:VIEW_EMPLOYEE",
@@ -98,7 +100,7 @@ public class RolePermissionConstants {
             "DASHBOARD:VIEW",
             "KPI:SUBMIT",
             "SUBMISSION:CREATE",
-            "EVALUATION:VIEW",
+            "EVALUATION:VIEW","EVALUATION:CREATE",
             "NOTIF:VIEW", "KPI_PERIOD:VIEW",
             "ATTACHMENT:UPLOAD"
     );

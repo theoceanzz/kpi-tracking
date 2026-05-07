@@ -46,17 +46,26 @@ export function getInitials(name: string): string {
     .slice(0, 2)
 }
 
+export function getPrimaryMembership(user: { memberships?: Array<any> }): any | undefined {
+  if (!user.memberships || user.memberships.length === 0) return undefined;
+  return user.memberships.reduce((prev, current) => {
+    // Prioritize the deepest unit (highest levelOrder)
+    const prevLevel = prev.levelOrder ?? -1;
+    const currLevel = current.levelOrder ?? -1;
+    return currLevel > prevLevel ? current : prev;
+  });
+}
+
 /**
  * Get the primary role for display purposes.
- * Since roles are dynamic and user-defined, there's no fixed hierarchy.
- * Access control is handled entirely through permissions, not role names.
  */
-export function getHighestRole(user: { roles?: string[]; memberships?: Array<{ roleName: string }> }): string {
-  if (user.memberships && user.memberships.length > 0) {
-    return user.memberships[0]!.roleName
+export function getHighestRole(user: { roles?: string[]; memberships?: Array<any> }): string {
+  const primaryMembership = getPrimaryMembership(user);
+  if (primaryMembership) {
+    return primaryMembership.roleName;
   }
   if (user.roles && user.roles.length > 0) {
-    return user.roles[0]!
+    return user.roles[0]!;
   }
   return 'N/A'
 }

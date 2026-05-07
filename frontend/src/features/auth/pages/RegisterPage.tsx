@@ -24,7 +24,7 @@ export default function RegisterPage() {
     defaultValues: {
       hierarchyLevels: [
         { unitTypeName: 'Chi nhánh', managerRoleLabel: 'Giám đốc' },
-        { unitTypeName: 'Team', managerRoleLabel: 'Nhân viên' },
+        { unitTypeName: 'Nhóm', managerRoleLabel: 'Trưởng nhóm' },
       ]
     }
   })

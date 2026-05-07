@@ -20,12 +20,15 @@ public interface EvaluationRepository extends JpaRepository<Evaluation, UUID> {
     Page<Evaluation> findByUserIdAndKpiPeriodId(UUID userId, UUID kpiPeriodId, Pageable pageable);
 
     @Query("SELECT e FROM Evaluation e WHERE " +
-           "(e.user.id = :currentUserId OR EXISTS (SELECT 1 FROM UserRoleOrgUnit uro_perm WHERE uro_perm.user.id = e.user.id AND uro_perm.orgUnit.id IN :allowedOrgUnitIds) OR EXISTS (SELECT 1 FROM OrgUnit au WHERE e.orgUnit.path LIKE CONCAT(au.path, '%') AND au.id IN :allowedOrgUnitIds)) AND " +
+           "(e.user.id = :currentUserId OR e.evaluator.id = :currentUserId OR EXISTS (SELECT 1 FROM UserRoleOrgUnit uro_sub WHERE uro_sub.user.id = e.user.id AND EXISTS (SELECT 1 FROM OrgUnit au_perm WHERE uro_sub.orgUnit.path LIKE CONCAT(au_perm.path, '%') AND au_perm.id IN :allowedOrgUnitIds)) OR EXISTS (SELECT 1 FROM OrgUnit au WHERE e.orgUnit.path LIKE CONCAT(au.path, '%') AND au.id IN :allowedOrgUnitIds)) AND " +
            "(:userId IS NULL OR e.user.id = :userId) AND " +
            "(:kpiPeriodId IS NULL OR e.kpiPeriod.id = :kpiPeriodId) AND " +
            "(:orgUnitPath IS NULL OR e.orgUnit.path LIKE :orgUnitPath) AND " +
            "(:evaluatorId IS NULL OR e.evaluator.id = :evaluatorId) AND " +
-           "(:currentUserRank IS NULL OR :currentUserLevel = 0 OR e.user.id = :currentUserId OR (SELECT MIN(uro_sub.role.level * 100 + uro_sub.role.rank) FROM UserRoleOrgUnit uro_sub WHERE uro_sub.user.id = e.user.id) > (:currentUserLevel * 100 + :currentUserRank))")
+           "(:currentUserRank IS NULL OR :currentUserLevel = 0 OR e.user.id = :currentUserId OR e.evaluator.id = :currentUserId OR " +
+           "(SELECT MIN(COALESCE(uro_sub.role.level, 4)) FROM UserRoleOrgUnit uro_sub WHERE uro_sub.user.id = e.user.id AND e.orgUnit.path LIKE CONCAT(uro_sub.orgUnit.path, '%')) > :currentUserLevel OR " +
+           "((SELECT MIN(COALESCE(uro_sub.role.level, 4)) FROM UserRoleOrgUnit uro_sub WHERE uro_sub.user.id = e.user.id AND e.orgUnit.path LIKE CONCAT(uro_sub.orgUnit.path, '%')) = :currentUserLevel AND " +
+           "(SELECT MIN(COALESCE(uro_sub.role.rank, 2)) FROM UserRoleOrgUnit uro_sub WHERE uro_sub.user.id = e.user.id AND e.orgUnit.path LIKE CONCAT(uro_sub.orgUnit.path, '%')) > :currentUserRank))")
     Page<Evaluation> findAllWithFilters(
             @Param("currentUserId") UUID currentUserId,
             @Param("allowedOrgUnitIds") java.util.Collection<UUID> allowedOrgUnitIds,
@@ -44,8 +47,8 @@ public interface EvaluationRepository extends JpaRepository<Evaluation, UUID> {
     @Query("SELECT COUNT(e) FROM Evaluation e WHERE e.orgUnit.orgHierarchyLevel.organization.id = :orgId")
     long countByOrganizationId(@Param("orgId") UUID orgId);
 
-    @Query("SELECT COUNT(e) > 0 FROM Evaluation e WHERE e.user.id = :userId AND e.kpiPeriod.id = :kpiPeriodId AND e.evaluator.id = :evaluatorId")
-    boolean existsByUserIdAndKpiPeriodIdAndEvaluatorId(
+    @Query("SELECT e FROM Evaluation e WHERE e.user.id = :userId AND e.kpiPeriod.id = :kpiPeriodId AND e.evaluator.id = :evaluatorId")
+    java.util.Optional<Evaluation> findByUserIdAndKpiPeriodIdAndEvaluatorId(
             @Param("userId") UUID userId,
             @Param("kpiPeriodId") UUID kpiPeriodId,
             @Param("evaluatorId") UUID evaluatorId

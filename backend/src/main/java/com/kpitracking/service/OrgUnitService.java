@@ -14,6 +14,7 @@ import com.kpitracking.exception.DuplicateResourceException;
 import com.kpitracking.exception.ResourceNotFoundException;
 import com.kpitracking.mapper.OrgUnitMapper;
 import com.kpitracking.repository.*;
+import com.kpitracking.security.PermissionChecker;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -38,6 +39,8 @@ public class OrgUnitService {
     private final RoleRepository roleRepository;
     private final com.kpitracking.repository.OrgHierarchyLevelRepository orgHierarchyLevelRepository;
     private final UserRoleOrgUnitRepository userRoleOrgUnitRepository;
+    private final UserRepository userRepository;
+    private final PermissionChecker permissionChecker;
 
     @Transactional
     public OrgUnitResponse createOrgUnit(UUID orgId, CreateOrgUnitRequest request) {
@@ -210,13 +213,35 @@ public class OrgUnitService {
         return orgUnitMapper.toResponse(orgUnit);
     }
 
+    private com.kpitracking.entity.User getCurrentUser() {
+        String email = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication().getName();
+        return userRepository.findByEmail(email)
+                .orElseThrow(() -> new ResourceNotFoundException("User", "email", email));
+    }
+
     @Transactional(readOnly = true)
     public List<OrgUnitTreeResponse> getOrgUnitTree(UUID orgId) {
         organizationRepository.findById(orgId)
                 .orElseThrow(() -> new ResourceNotFoundException("Tổ chức", "id", orgId));
 
-        List<OrgUnit> allUnits = orgUnitRepository.findByOrgHierarchyLevel_Organization_IdAndDeletedAtIsNull(orgId);
-        return buildTree(allUnits);
+        com.kpitracking.entity.User currentUser = getCurrentUser();
+        
+        // 1. If user has ORG:VIEW (Global Admin/Director), show everything
+        if (permissionChecker.hasPermission(currentUser.getId(), "ORG:VIEW")) {
+            List<OrgUnit> allUnits = orgUnitRepository.findByOrgHierarchyLevel_Organization_IdAndDeletedAtIsNull(orgId);
+            return buildTree(allUnits);
+        }
+
+        // 2. If user has ORG:VIEW_TREE (Manager/Deputy), show their units + descendants
+        if (permissionChecker.hasPermission(currentUser.getId(), "ORG:VIEW_TREE")) {
+            List<UUID> baseUnitIds = permissionChecker.getOrgUnitsWithPermission(currentUser.getId(), "ORG:VIEW_TREE");
+            if (baseUnitIds.isEmpty()) return Collections.emptyList();
+            
+            List<OrgUnit> authorizedUnits = orgUnitRepository.findAllInSubtrees(baseUnitIds);
+            return buildTree(authorizedUnits);
+        }
+
+        return Collections.emptyList();
     }
 
     @Transactional(readOnly = true)

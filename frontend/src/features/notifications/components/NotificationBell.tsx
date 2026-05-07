@@ -15,7 +15,7 @@ export default function NotificationBell() {
       >
         <Bell size={18} />
         {unreadCount != null && unreadCount > 0 && (
-          <span className="absolute -top-0.5 -right-0.5 w-4 h-4 rounded-full bg-red-500 text-white text-[10px] flex items-center justify-center font-bold">
+          <span className="absolute -top-1 -right-1 min-w-[16px] h-4 px-1 rounded-full bg-red-600 text-white text-[9px] flex items-center justify-center font-black border-2 border-white dark:border-slate-900 shadow-sm leading-none translate-x-1/4 -translate-y-1/4">
             {unreadCount > 9 ? '9+' : unreadCount}
           </span>
         )}
