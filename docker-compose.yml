@@ -43,6 +43,7 @@ services:
       - CLAUDE_MODEL=${CLAUDE_MODEL}
       - RATE_LIMIT_LOGIN=${RATE_LIMIT_LOGIN:-5}
       - RATE_LIMIT_EMAIL=${RATE_LIMIT_EMAIL:-3}
+      - 
     depends_on:
       postgres:
         condition: service_healthy
