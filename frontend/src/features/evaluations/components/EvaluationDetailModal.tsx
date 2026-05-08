@@ -31,6 +31,7 @@ export default function EvaluationDetailModal({ open, onClose, evaluation }: Eva
   const { data: org } = useOrganization(user?.memberships?.[0]?.organizationId)
   const { getScoreColor, getScoreLabel, maxScore } = getScoringFunctions(org)
   const { canReviewSubmission, canCreateEvaluation } = usePermission()
+  const isManager = useMemo(() => user?.memberships?.some(m => m.roleRank === 0), [user])
   const qc = useQueryClient()
 
   const { data: relatedData } = useEvaluations(
@@ -41,6 +42,15 @@ export default function EvaluationDetailModal({ open, onClose, evaluation }: Eva
   const [inlineScoreInitialized, setInlineScoreInitialized] = useState(false)
   const [inlineScore, setInlineScore] = useState<number>(0)
   const [inlineComment, setInlineComment] = useState('')
+
+  // Reset internal form state when evaluation changes to avoid data leakage between users
+  useEffect(() => {
+    if (evaluation?.id) {
+      setInlineScore(0)
+      setInlineComment('')
+      setInlineScoreInitialized(false)
+    }
+  }, [evaluation?.id])
 
   // Determine if current user already evaluated at their level  
   const myEvalAtLevel = useMemo(() => {
@@ -145,28 +155,28 @@ export default function EvaluationDetailModal({ open, onClose, evaluation }: Eva
 
       if (mappedRoleLevel === 0) {
         roleCode = 'DIRECTOR'
-        stepTitle = 'Tổng Giám đốc Quyết định'
+        stepTitle = `${hl.managerRoleLabel || 'Tổng Giám đốc'} Quyết định`
         icon = Star
         iconBg = "bg-amber-50 dark:bg-amber-900/20"
         iconColor = "text-amber-600 dark:text-amber-400"
       } else if (mappedRoleLevel === 1) {
         roleCode = 'REGIONAL_DIRECTOR'
-        stepTitle = 'Giám đốc Vùng đánh giá'
+        stepTitle = `${hl.managerRoleLabel || 'Giám đốc Vùng'} đánh giá`
         iconBg = "bg-purple-50 dark:bg-purple-900/20"
         iconColor = "text-purple-600 dark:text-purple-400"
       } else if (mappedRoleLevel === 2) {
         roleCode = 'MANAGER'
-        stepTitle = 'Giám đốc đánh giá'
+        stepTitle = `${hl.managerRoleLabel || 'Giám đốc'} đánh giá`
         iconBg = "bg-blue-50 dark:bg-blue-900/20"
         iconColor = "text-blue-600 dark:text-blue-400"
       } else if (mappedRoleLevel === 3) {
         roleCode = 'DEPT_HEAD'
-        stepTitle = 'Trưởng phòng đánh giá'
+        stepTitle = `${hl.managerRoleLabel || 'Trưởng phòng'} đánh giá`
         iconBg = "bg-indigo-50 dark:bg-indigo-900/20"
         iconColor = "text-indigo-600 dark:text-indigo-400"
       } else if (mappedRoleLevel === 4) {
         roleCode = 'TEAM_LEADER'
-        stepTitle = 'Trưởng nhóm đánh giá'
+        stepTitle = `${hl.managerRoleLabel || 'Trưởng nhóm'} đánh giá`
         iconBg = "bg-emerald-50 dark:bg-emerald-900/20"
         iconColor = "text-emerald-600 dark:text-emerald-400"
       } else {
@@ -179,15 +189,29 @@ export default function EvaluationDetailModal({ open, onClose, evaluation }: Eva
         if (e.userId !== evaluation.userId) return false
 
         let matches = false
-        if (e.evaluatorId === user?.id && roleCode !== 'SELF' && e.evaluatorRole !== 'SELF') {
-          matches = (canReviewSubmission && [0, 1, 2].includes(mappedRoleLevel)) || 
-                    (!canReviewSubmission && canCreateEvaluation && [3, 4].includes(mappedRoleLevel)) ||
-                    (canReviewSubmission && ['DIRECTOR', 'MANAGER', 'REGIONAL_DIRECTOR'].includes(roleCode)) ||
-                    (!canReviewSubmission && canCreateEvaluation && ['TEAM_LEADER', 'DEPT_HEAD'].includes(roleCode));
-        } else {
-          if (roleCode === 'SELF') matches = e.evaluatorRole === 'SELF'
-          else if (e.evaluatorRole === roleCode) matches = true
-          else if (isTwoLevelOrg) {
+        // 1. Check for exact role match (Highest Priority)
+        if (e.evaluatorRole === roleCode) {
+          matches = true
+        } 
+        // 2. Special case for current user if role match failed (e.g. role is missing or generic)
+        else if (e.evaluatorId === user?.id && roleCode !== 'SELF' && e.evaluatorRole !== 'SELF') {
+          const myMembership = user?.memberships?.[0]
+          if (myMembership) {
+            const myLevel = myMembership.roleLevel ?? myMembership.levelOrder
+            const myRank = myMembership.roleRank
+            
+            // Strictly match level AND ensure it's a manager role (Rank 0)
+            if (myLevel === mappedRoleLevel && myRank === 0) {
+              matches = true
+            }
+          }
+        }
+        
+        // 3. Special cases for self-evaluation and organization-specific overrides
+        if (!matches) {
+          if (roleCode === 'SELF') {
+            matches = e.evaluatorRole === 'SELF'
+          } else if (isTwoLevelOrg) {
             if (roleCode === 'DIRECTOR') matches = ['DIRECTOR', 'REGIONAL_DIRECTOR'].includes(e.evaluatorRole)
             else if (roleCode === 'TEAM_LEADER') matches = ['TEAM_LEADER', 'DEPT_HEAD', 'MANAGER', 'TEAM_DEPUTY', 'DEPT_DEPUTY'].includes(e.evaluatorRole)
           }
@@ -335,7 +359,7 @@ export default function EvaluationDetailModal({ open, onClose, evaluation }: Eva
 
 
           {/* === Director: Drill-down to StaffEvaluationModal === */}
-          {canReviewSubmission && mySubmissions && mySubmissions.content.length > 0 && (
+          {canReviewSubmission && isManager && mySubmissions && mySubmissions.content.length > 0 && (
             <div className="pt-4 border-t border-slate-100 dark:border-slate-800">
               <button 
                 onClick={() => setShowStaffEval(true)}
@@ -353,7 +377,7 @@ export default function EvaluationDetailModal({ open, onClose, evaluation }: Eva
           )}
 
           {/* === Mid-level managers (Trưởng nhóm/Trưởng phòng): Inline evaluation form === */}
-          {!canReviewSubmission && canCreateEvaluation && evaluation?.userId !== user?.id && !myEvalAtLevel && (
+          {!canReviewSubmission && canCreateEvaluation && isManager && evaluation?.userId !== user?.id && !myEvalAtLevel && (
             <div className="pt-6 border-t border-slate-100 dark:border-slate-800 space-y-6">
               <div className="flex items-center justify-between">
                 <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 flex items-center gap-2">

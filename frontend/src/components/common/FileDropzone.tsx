@@ -58,7 +58,7 @@ export default function FileDropzone({ onFilesSelected, files, onRemove, accept,
               {isDragActive ? 'Thả để tải lên' : files.length >= maxFiles ? 'Đã đạt giới hạn tệp' : 'Chọn tài liệu minh chứng'}
             </p>
             <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">
-              JPG, PNG, PDF (Tối đa {maxFiles} tệp)
+              Ảnh, PDF, Word, Excel (Tối đa {maxFiles} tệp)
             </p>
           </div>
         </div>

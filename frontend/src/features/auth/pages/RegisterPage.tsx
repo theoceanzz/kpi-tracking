@@ -441,7 +441,7 @@ export default function RegisterPage() {
 
                       <div className="space-y-1.5">
                         <label className="text-[11px] font-bold text-[var(--color-muted-foreground)] uppercase tracking-wider">
-                          {index === fields.length - 1 ? "Ghi chú vai trò" : "Chức danh quản lý"}
+                         Chức danh quản lý
                         </label>
                         <input 
                           {...register(`hierarchyLevels.${index}.managerRoleLabel`)} 

@@ -13,6 +13,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { submissionApi } from '../api/submissionApi'
 import { useMyKpi } from '@/features/kpi/hooks/useMyKpi'
 import FileDropzone from '@/components/common/FileDropzone'
+import { useUploadStore } from '@/store/uploadStore'
 import { toast } from 'sonner'
 import { useNavigate, useSearchParams, useParams } from 'react-router-dom'
 import { formatNumber } from '@/lib/utils'
@@ -93,27 +94,28 @@ export default function NewSubmissionPage() {
   const selectedKpiId = watch('kpiCriteriaId')
   const selectedKpi = myKpiData?.content?.find(k => k.id === selectedKpiId)
 
+  const { addUpload } = useUploadStore()
+
   const mutation = useMutation({
-    mutationFn: async ({ data, isDraft }: { data: SubmissionFormData, isDraft: boolean }) => {
-      let sub;
+    mutationFn: async ({ data }: { data: SubmissionFormData, isDraft: boolean }) => {
       if (isEdit) {
-        sub = await submissionApi.update(id!, { ...data, isDraft } as any)
+        return await submissionApi.update(id!, data as any)
       } else {
-        sub = await submissionApi.create({ ...data, isDraft } as any)
+        return await submissionApi.create(data as any)
       }
-      
-      if (files.length > 0) {
-        await submissionApi.uploadAttachments(sub.id, files)
-      }
-      return sub
     },
-    onSuccess: (_, variables) => {
+    onSuccess: (sub, variables) => {
       qc.invalidateQueries({ queryKey: ['submissions'] })
       qc.invalidateQueries({ queryKey: ['stats'] })
       qc.invalidateQueries({ queryKey: ['kpi-criteria'] })
+
+      // Handle background upload if there are files
+      if (files.length > 0) {
+        addUpload(sub.id, files)
+        toast.info('Đang bắt đầu tải lên tài liệu minh chứng...')
+      }
       
       if (!variables.isDraft) {
-        // Check if all KPIs in this period are now completed
         const periodId = selectedKpi?.kpiPeriod?.id
         const periodKpis = myKpiData?.content?.filter(k => k.kpiPeriodId === periodId) || []
         
@@ -395,7 +397,7 @@ export default function NewSubmissionPage() {
              </div>
              <ul className="space-y-4">
                 <ListItem icon={CheckCircle2} text="Dữ liệu thực tế phải được nhập bằng số để hệ thống có thể tính toán điểm thưởng." />
-                <ListItem icon={CheckCircle2} text="Hãy đính kèm hình ảnh hoặc file tài liệu (PDF/XLS) để tăng độ tin cậy của báo cáo." />
+                <ListItem icon={CheckCircle2} text="Hãy đính kèm hình ảnh hoặc file tài liệu (PDF, Word, Excel...) để tăng độ tin cậy của báo cáo." />
                 <ListItem icon={CheckCircle2} text="Báo cáo ở trạng thái Nháp có thể chỉnh sửa bất cứ lúc nào trước khi Gửi duyệt." />
              </ul>
           </div>

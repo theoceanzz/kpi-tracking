@@ -33,10 +33,12 @@ type TabView = 'overview' | 'orgUnits' | 'employees'
 
 export default function DirectorDashboard() {
   const [empPage, setEmpPage] = useState(0)
+  const [alertPage, setAlertPage] = useState(0)
   const [isExporting, setIsExporting] = useState(false)
   const [activeTab, setActiveTab] = useState<TabView>('overview')
   const [empSearch, setEmpSearch] = useState('')
-  const [orgUnitFilter, setOrgUnitFilter] = useState<string>('ALL')
+  const { user } = useAuthStore()
+  const [orgUnitFilter, setOrgUnitFilter] = useState<string>(user?.memberships?.[0]?.orgUnitId || 'ALL')
   const empSize = 10
 
   const { data: stats, isLoading: loadingStats } = useOverviewStats()
@@ -49,16 +51,13 @@ export default function DirectorDashboard() {
     queryFn: () => reportApi.getPinnedWidgets(),
   })
 
-
-
   useEffect(() => {
     if (orgUnitStats && orgUnitStats.length > 0 && orgUnitFilter === 'ALL') {
       const root = orgUnitStats.find(u => u.parentOrgUnitId === null)
       if (root) setOrgUnitFilter(root.orgUnitId)
     }
-  }, [orgUnitStats])
+  }, [orgUnitStats, orgUnitFilter])
 
-  const { user } = useAuthStore()
   const orgId = user?.memberships?.[0]?.organizationId
   const { data: periodsData } = useKpiPeriods({ organizationId: orgId })
 
@@ -395,65 +394,127 @@ export default function DirectorDashboard() {
               <div className="absolute top-0 right-0 -mr-12 -mt-12 w-48 h-48 bg-white/10 rounded-full blur-3xl"></div>
               <div className="absolute bottom-0 left-0 -ml-12 -mb-12 w-48 h-48 bg-white/5 rounded-full blur-3xl"></div>
               
-              <div className="relative flex items-center gap-4 mb-8">
-                <div className="w-12 h-12 rounded-2xl bg-white/10 border border-white/20 flex items-center justify-center text-red-300">
-                  <TriangleAlert size={24} />
+              <div className="relative flex items-center justify-between mb-8">
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 rounded-2xl bg-white/10 border border-white/20 flex items-center justify-center text-red-300">
+                    <TriangleAlert size={24} />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-black uppercase tracking-widest text-white">Tiêu điểm Tiêu cực</h3>
+                    <p className="text-[10px] text-white/60 font-bold uppercase tracking-widest mt-1">Cần Giám đốc can thiệp</p>
+                  </div>
                 </div>
-                <div>
-                  <h3 className="text-sm font-black uppercase tracking-widest text-white">Tiêu điểm Tiêu cực</h3>
-                  <p className="text-[10px] text-white/60 font-bold uppercase tracking-widest mt-1">Cần Giám đốc can thiệp</p>
-                </div>
+                <Link 
+                  to="/submissions/org-unit" 
+                  className="w-10 h-10 rounded-xl bg-white/10 border border-white/10 flex items-center justify-center text-white/60 hover:text-white hover:bg-white/20 transition-all active:scale-95 group"
+                  title="Quản lý phê duyệt"
+                >
+                  <ArrowUpRight size={20} className="group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
+                </Link>
               </div>
 
               <div className="relative space-y-4 flex-1 overflow-y-auto pr-2 custom-scrollbar">
-                {stats?.pendingKpi && stats.pendingKpi > 0 ? (
-                  <AlertItem 
-                    icon={<Clock size={18} />}
-                    title={`${stats.pendingKpi} yêu cầu KPI chờ duyệt`}
-                    sub="Ảnh hưởng đến tiến độ toàn công ty"
-                    color="red"
-                    link="/kpi-criteria/pending"
-                  />
-                ) : null}
-                
-                {orgUnitStats?.filter(u => (u.totalAssignments > 0 && (u.totalSubmissions / u.totalAssignments) < 0.3)).map(unit => (
-                  <AlertItem 
-                    key={unit.orgUnitId}
-                    icon={<Building2 size={18} />}
-                    title={`${unit.orgUnitName} tiến độ quá thấp`}
-                    sub={`Chỉ mới đạt ${Math.round((unit.totalSubmissions / (unit.totalAssignments || 1)) * 100)}% chỉ tiêu`}
-                    color="amber"
-                    link={`/org-units/${unit.orgUnitId}`}
-                  />
-                ))}
+                {(() => {
+                  const alerts: React.ReactNode[] = []
+                  
+                  if (stats?.pendingKpi && stats.pendingKpi > 0) {
+                    alerts.push(
+                      <AlertItem 
+                        key="pending-kpi"
+                        icon={<Clock size={18} />}
+                        title={`${stats.pendingKpi} yêu cầu KPI chờ duyệt`}
+                        sub="Ảnh hưởng đến tiến độ toàn công ty"
+                        color="red"
+                        link="/kpi-criteria/pending"
+                      />
+                    )
+                  }
 
-                {empStats?.content?.filter(e => e.assignedKpi > 0 && e.approvedSubmissions < e.assignedKpi).map(emp => (
-                  <AlertItem 
-                    key={emp.userId}
-                    icon={<Users size={18} />}
-                    title={`${emp.fullName} chưa hoàn thành`}
-                    sub={`Giao ${emp.assignedKpi}, còn ${emp.assignedKpi - emp.approvedSubmissions} KPI • ${daysRemaining !== null ? `Còn ${daysRemaining} ngày` : 'N/A'}`}
-                    color="blue"
-                    link={`/employees/${emp.userId}/performance`}
-                  />
-                ))}
+                  const lowProgressUnits = orgUnitStats?.filter(u => (u.totalAssignments > 0 && (u.totalSubmissions / u.totalAssignments) < 0.3)) || []
+                  lowProgressUnits.forEach(unit => {
+                    alerts.push(
+                      <AlertItem 
+                        key={unit.orgUnitId}
+                        icon={<Building2 size={18} />}
+                        title={`${unit.orgUnitName} tiến độ quá thấp`}
+                        sub={`Chỉ mới đạt ${Math.round((unit.totalSubmissions / (unit.totalAssignments || 1)) * 100)}% chỉ tiêu`}
+                        color="amber"
+                        link={`/org-units/${unit.orgUnitId}`}
+                      />
+                    )
+                  })
 
-                {(!stats?.pendingKpi && !orgUnitStats?.some(u => (u.totalAssignments > 0 && (u.totalSubmissions / u.totalAssignments) < 0.3)) && !empStats?.content?.some(e => e.assignedKpi > 0 && e.approvedSubmissions < e.assignedKpi)) && (
-                  <div className="py-12 text-center h-full flex flex-col items-center justify-center">
-                    <div className="w-16 h-16 rounded-full bg-emerald-500/10 flex items-center justify-center mx-auto mb-4 text-emerald-400 border border-emerald-500/20">
-                      <ShieldCheck size={32} />
+                  const incompleteEmps = empStats?.content?.filter(e => e.assignedKpi > 0 && e.approvedSubmissions < e.assignedKpi) || []
+                  incompleteEmps.forEach(emp => {
+                    alerts.push(
+                      <AlertItem 
+                        key={emp.userId}
+                        icon={<Users size={18} />}
+                        title={`${emp.fullName} chưa hoàn thành`}
+                        sub={`Giao ${emp.assignedKpi}, còn ${emp.assignedKpi - emp.approvedSubmissions} KPI • ${daysRemaining !== null ? `Còn ${daysRemaining} ngày` : 'N/A'}`}
+                        color="blue"
+                        link={`/employees/${emp.userId}/performance`}
+                      />
+                    )
+                  })
+
+                  if (alerts.length === 0) {
+                    return (
+                      <div className="py-12 text-center h-full flex flex-col items-center justify-center">
+                        <div className="w-16 h-16 rounded-full bg-emerald-500/10 flex items-center justify-center mx-auto mb-4 text-emerald-400 border border-emerald-500/20">
+                          <ShieldCheck size={32} />
+                        </div>
+                        <p className="text-sm font-bold text-slate-300">Hệ thống đang vận hành ổn định</p>
+                        <p className="text-[10px] text-slate-500 uppercase tracking-widest mt-2">Không có cảnh báo mới</p>
+                      </div>
+                    )
+                  }
+
+                  const totalAlertPages = Math.ceil(alerts.length / 5)
+                  const pagedAlerts = alerts.slice(alertPage * 5, (alertPage + 1) * 5)
+
+                  return (
+                    <div className="space-y-4 flex flex-col h-full">
+                      <div className="flex-1 space-y-4">
+                        {pagedAlerts}
+                      </div>
+                      
+                      {totalAlertPages > 1 && (
+                        <div className="flex items-center justify-between pt-6 border-t border-white/10 mt-auto px-2">
+                          <button 
+                            onClick={() => setAlertPage(p => Math.max(0, p - 1))}
+                            disabled={alertPage === 0}
+                            className="w-10 h-10 flex items-center justify-center rounded-2xl bg-white/5 hover:bg-white/10 border border-white/10 disabled:opacity-20 transition-all active:scale-90 shadow-lg"
+                          >
+                            <ChevronLeft size={20} className="text-white" />
+                          </button>
+                          
+                          <div className="flex flex-col items-center gap-1">
+                            <span className="text-[10px] font-black text-white uppercase tracking-[0.3em] opacity-80">
+                              Trang
+                            </span>
+                            <div className="flex items-center gap-2">
+                              <span className="text-sm font-black text-white">{alertPage + 1}</span>
+                              <span className="text-[10px] font-black text-white/30">/</span>
+                              <span className="text-[10px] font-black text-white/40">{totalAlertPages}</span>
+                            </div>
+                          </div>
+
+                          <button 
+                            onClick={() => setAlertPage(p => Math.min(totalAlertPages - 1, p + 1))}
+                            disabled={alertPage >= totalAlertPages - 1}
+                            className="w-10 h-10 flex items-center justify-center rounded-2xl bg-white/5 hover:bg-white/10 border border-white/10 disabled:opacity-20 transition-all active:scale-90 shadow-lg"
+                          >
+                            <ChevronRight size={20} className="text-white" />
+                          </button>
+                        </div>
+                      )}
                     </div>
-                    <p className="text-sm font-bold text-slate-300">Hệ thống đang vận hành ổn định</p>
-                    <p className="text-[10px] text-slate-500 uppercase tracking-widest mt-2">Không có cảnh báo mới</p>
-                  </div>
-                )}
+                  )
+                })()}
               </div>
               
-              <div className="mt-8 pt-6 border-t border-white/10 relative z-10 text-center">
-                 <Link to="/submissions/org-unit" className="inline-flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.2em] text-white/60 hover:text-white transition-colors group">
-                    Quản lý phê duyệt <ChevronRight size={14} className="group-hover:translate-x-1 transition-transform" />
-                 </Link>
-              </div>
+
             </div>
           </div>
         </>
@@ -812,7 +873,7 @@ function EmployeesExecutiveTable({
             <div className="w-full md:w-[220px]">
               <Select value={orgUnitFilter} onValueChange={onOrgUnitFilterChange}>
                 <SelectTrigger className="w-full h-[54px] rounded-[22px] bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 font-bold text-xs uppercase tracking-widest px-6">
-                  <SelectValue placeholder="Tất cả đơn vị" />
+                   <SelectValue placeholder="Chọn đơn vị..." />
                 </SelectTrigger>
                 <SelectContent className="rounded-2xl shadow-2xl border-slate-100 dark:border-slate-800">
                   {orgUnits.map((u: any) => (

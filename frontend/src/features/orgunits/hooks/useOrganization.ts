@@ -15,6 +15,9 @@ export function useOrganization(id?: string) {
     mutationFn: (data: UpdateOrganizationRequest) => organizationApi.update(id!, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['organization', id] })
+      queryClient.invalidateQueries({ queryKey: ['hierarchyLevels', id] })
+      queryClient.invalidateQueries({ queryKey: ['hierarchy-levels', id] })
+      queryClient.invalidateQueries({ queryKey: ['orgUnits'] })
       toast.success('Cập nhật thông tin công ty thành công')
     },
     onError: (error: any) => {

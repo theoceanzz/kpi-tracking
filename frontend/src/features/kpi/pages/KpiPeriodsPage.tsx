@@ -433,8 +433,8 @@ function PeriodFormModal({ onClose, editPeriod, organizationId, onSubmit, isSubm
       default: end = start
     }
     
-    // Set time to end of day 23:59 for end date by default
-    end.setHours(23, 59, 59, 999)
+    // Set time to match start date time (7h sáng mặc định)
+    end.setHours(start.getHours(), start.getMinutes(), 0, 0)
 
     const notification = new Date(start.getTime() + (end.getTime() - start.getTime()) / 2)
 
@@ -463,8 +463,8 @@ function PeriodFormModal({ onClose, editPeriod, organizationId, onSubmit, isSubm
           default: endDateObj = startDateObj
         }
 
-        // Set time to end of day for end date
-        endDateObj.setHours(23, 59, 59, 999)
+        // Set time to match start date time
+        endDateObj.setHours(startDateObj.getHours(), startDateObj.getMinutes(), 0, 0)
         next.endDate = format(endDateObj, "yyyy-MM-dd'T'HH:mm")
 
         // Auto calculate notification date (50% of period)

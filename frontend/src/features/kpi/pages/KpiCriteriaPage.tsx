@@ -146,6 +146,9 @@ export default function KpiCriteriaPage() {
     mutationFn: (file: File) => kpiApi.importFile(file, selectedPeriodId === 'ALL' ? undefined : selectedPeriodId, selectedOrgUnitId === 'ALL' ? undefined : selectedOrgUnitId),
     onSuccess: (result) => {
       qc.invalidateQueries({ queryKey: ['kpi-criteria'] })
+      qc.invalidateQueries({ queryKey: ['stats'] })
+      setActiveTab('ALL')
+      setPage(0)
       toast.success(`Import thành công ${result.successfulImports}/${result.totalRows} dòng`)
       if (result.errors.length > 0) {
         result.errors.forEach((e) => toast.error(e))

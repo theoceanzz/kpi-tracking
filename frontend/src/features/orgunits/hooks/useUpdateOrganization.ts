@@ -7,7 +7,10 @@ export function useUpdateOrganization(id: string | undefined) {
   return useMutation({
     mutationFn: (data: UpdateOrganizationRequest) => organizationApi.update(id!, data),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['organizations', id] })
+      qc.invalidateQueries({ queryKey: ['organization', id] })
+      qc.invalidateQueries({ queryKey: ['hierarchyLevels', id] })
+      qc.invalidateQueries({ queryKey: ['hierarchy-levels', id] })
+      qc.invalidateQueries({ queryKey: ['orgUnits'] })
       qc.invalidateQueries({ queryKey: ['organization-users'] })
       qc.invalidateQueries({ queryKey: ['stats'] })
     },

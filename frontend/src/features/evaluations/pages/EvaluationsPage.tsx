@@ -267,7 +267,6 @@ export default function EvaluationsPage() {
                       <SelectValue placeholder="Chọn phòng ban..." />
                     </SelectTrigger>
                     <SelectContent className="rounded-xl border-[var(--color-border)] shadow-lg max-h-[300px]">
-                      <SelectItem value="ALL" className="font-medium cursor-pointer rounded-lg text-xs italic opacity-70">Tất cả đơn vị quản lý...</SelectItem>
                       {flatOrgUnits.map(unit => (
                         <SelectItem key={unit.id} value={unit.id} className="font-medium cursor-pointer rounded-lg text-xs">{unit.levelLabel}</SelectItem>
                       ))}
@@ -355,83 +354,94 @@ export default function EvaluationsPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                {(data?.content ?? []).map((ev, idx) => {
-                  return (
-                    <tr 
-                      key={ev.id} 
-                      onClick={() => setDetailEval(ev)}
-                      className="group hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-all cursor-pointer animate-in fade-in slide-in-from-bottom-2 duration-300"
-                      style={{ animationDelay: `${idx * 40}ms` }}
-                    >
-                      <td className="px-8 py-6 whitespace-nowrap">
-                        <div className={cn("inline-flex items-center gap-3 px-4 py-2 rounded-2xl border shadow-sm", getScoreBg(ev.score))}>
-                          <span className={cn("text-lg font-black", getScoreColor(ev.score))}>{ev.score ?? '—'}</span>
-                          <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 border-l border-slate-200 dark:border-slate-700 pl-3 leading-none">
-                            {getScoreLabel(ev.score)}
-                          </span>
-                        </div>
-                      </td>
-                      <td className="px-6 py-6">
-                        <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-800 dark:to-slate-700 flex items-center justify-center font-black text-xs text-slate-600 dark:text-slate-300 shadow-inner">
-                            {getInitials(ev.userName)}
+                {(() => {
+                  const list = [...(data?.content ?? [])].sort((a, b) => {
+                    if (a.userName !== b.userName) return a.userName.localeCompare(b.userName)
+                    return b.kpiPeriodName.localeCompare(a.kpiPeriodName)
+                  })
+
+                  return list.map((ev, idx) => {
+                    const isNewGroup = idx === 0 || ev.userId !== list[idx - 1]?.userId || ev.kpiPeriodId !== list[idx - 1]?.kpiPeriodId
+
+                    return (
+                      <tr 
+                        key={ev.id} 
+                        onClick={() => setDetailEval(ev)}
+                        className={cn(
+                          "group hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-all cursor-pointer animate-in fade-in slide-in-from-bottom-2 duration-300",
+                          isNewGroup && idx > 0 && "border-t-4 border-slate-100/50 dark:border-slate-800/50"
+                        )}
+                        style={{ animationDelay: `${idx * 40}ms` }}
+                      >
+                        <td className="px-8 py-6 whitespace-nowrap">
+                          <div className={cn("inline-flex items-center gap-3 px-4 py-2 rounded-2xl border shadow-sm", getScoreBg(ev.score))}>
+                            <span className={cn("text-lg font-black", getScoreColor(ev.score))}>{ev.score ?? '—'}</span>
+                            <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 border-l border-slate-200 dark:border-slate-700 pl-3 leading-none">
+                              {getScoreLabel(ev.score)}
+                            </span>
                           </div>
-                          <div>
-                            <p className="text-sm font-black text-slate-900 dark:text-white group-hover:text-indigo-600 transition-colors">
-                              {ev.userName}
-                            </p>
-                            <div className="flex items-center gap-2 mt-0.5">
-                              <span className="px-1.5 py-0.5 rounded-md bg-blue-50 dark:bg-blue-900/30 text-[8px] font-black text-blue-600 dark:text-blue-400 uppercase tracking-widest border border-blue-100 dark:border-blue-800/50">
-                                {ev.userRoleName || 'NHÂN VIÊN'}
-                              </span>
-                              <span className="text-[9px] text-slate-400 font-bold uppercase tracking-tighter">{ev.orgUnitName}</span>
+                        </td>
+                        <td className="px-6 py-6">
+                          <div className="flex items-center gap-3">
+                            <div className={cn(
+                              "w-10 h-10 rounded-2xl flex items-center justify-center font-black text-xs shadow-inner transition-opacity",
+                              isNewGroup ? "bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-800 dark:to-slate-700 text-slate-600 dark:text-slate-300" : "opacity-0"
+                            )}>
+                              {isNewGroup ? getInitials(ev.userName) : ''}
+                            </div>
+                            <div>
+                              <p className={cn("text-sm font-black text-slate-900 dark:text-white group-hover:text-indigo-600 transition-all", !isNewGroup && "opacity-40")}>
+                                {ev.userName}
+                              </p>
+                              {isNewGroup && (
+                                <div className="flex items-center gap-2 mt-0.5">
+                                  <span className="px-1.5 py-0.5 rounded-md bg-blue-50 dark:bg-blue-900/30 text-[8px] font-black text-blue-600 dark:text-blue-400 uppercase tracking-widest border border-blue-100 dark:border-blue-800/50">
+                                    {ev.userRoleName || 'NHÂN VIÊN'}
+                                  </span>
+                                  <span className="text-[9px] text-slate-400 font-bold uppercase tracking-tighter">{ev.orgUnitName}</span>
+                                </div>
+                              )}
                             </div>
                           </div>
-                        </div>
-                      </td>
-                      <td className="px-6 py-6">
-                        <div className="flex items-center gap-2">
-                          <Calendar size={14} className="text-slate-400" />
-                          <p className="text-sm font-bold text-slate-700 dark:text-slate-300">
-                            {ev.kpiPeriodName}
-                          </p>
-                        </div>
-                      </td>
-                      <td className="px-6 py-6 text-center">
-                        <span className={cn(
-                          "inline-block text-[9px] font-black uppercase tracking-widest px-3 py-1.5 rounded-xl border",
-                          ev.evaluatorRole === 'SELF'
-                            ? 'bg-blue-50 text-blue-600 border-blue-100 dark:bg-blue-900/20' 
-                            : ev.evaluatorRole === 'DIRECTOR'
-                            ? 'bg-amber-50 text-amber-600 border-amber-100 dark:bg-amber-900/20'
-                            : (ev.evaluatorRole === 'DEPT_HEAD' || ev.evaluatorRole === 'TEAM_LEADER' || ev.evaluatorRole === 'MANAGER' || ev.evaluatorRole === 'REGIONAL_DIRECTOR')
-                            ? 'bg-emerald-50 text-emerald-600 border-emerald-100 dark:bg-emerald-900/20'
-                            : 'bg-purple-50 text-purple-600 border-purple-100 dark:bg-purple-900/20'
-                        )}>
-                          {ev.evaluatorRole === 'SELF' ? 'Tự đánh giá' : 
-                           ev.evaluatorRole === 'DIRECTOR' ? 'Tổng GĐ chốt' : 
-                           ev.evaluatorRole === 'REGIONAL_DIRECTOR' ? 'GĐ Vùng chấm' :
-                           ev.evaluatorRole === 'MANAGER' ? 'Giám đốc chấm' :
-                           ev.evaluatorRole === 'DEPT_HEAD' ? 'Trưởng phòng chấm' : 
-                           ev.evaluatorRole === 'DEPT_DEPUTY' ? 'Phó phòng chấm' :
-                           ev.evaluatorRole === 'TEAM_LEADER' ? 'Trưởng nhóm chấm' :
-                           ev.evaluatorRole === 'TEAM_DEPUTY' ? 'Phó nhóm chấm' :
-                           'Quản lý chấm'}
-                        </span>
-                      </td>
-                      <td className="px-6 py-6 whitespace-nowrap">
-                        <span className="text-xs font-bold text-slate-500">
-                          {formatDateTime(ev.createdAt).split(' ')[0]}
-                        </span>
-                      </td>
-                      <td className="px-8 py-6 text-right">
-                        <button className="w-10 h-10 flex items-center justify-center rounded-2xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-800 text-slate-400 group-hover:text-indigo-600 group-hover:border-indigo-200 shadow-sm transition-all active:scale-90">
-                          <ChevronRight size={20} />
-                        </button>
-                      </td>
-                    </tr>
-                  )
-                })}
+                        </td>
+                        <td className="px-6 py-6">
+                          <div className={cn("flex items-center gap-2 transition-opacity", !isNewGroup && "opacity-40")}>
+                            <Calendar size={14} className="text-slate-400" />
+                            <p className="text-sm font-bold text-slate-700 dark:text-slate-300">
+                              {ev.kpiPeriodName}
+                            </p>
+                          </div>
+                        </td>
+                        <td className="px-6 py-6 text-center">
+                          <span className={cn(
+                            "inline-block text-[9px] font-black uppercase tracking-widest px-3 py-1.5 rounded-xl border",
+                            ev.evaluatorRole === 'SELF'
+                              ? 'bg-blue-50 text-blue-600 border-blue-100 dark:bg-blue-900/20' 
+                              : ev.evaluatorRole === 'DIRECTOR'
+                              ? 'bg-amber-50 text-amber-600 border-amber-100 dark:bg-amber-900/20'
+                              : 'bg-emerald-50 text-emerald-600 border-emerald-100 dark:bg-emerald-900/20'
+                          )}>
+                            {ev.evaluatorRole === 'SELF' ? 'Tự đánh giá' : 
+                             ev.evaluatorRole === 'DIRECTOR' ? 'Tổng GĐ chốt' : 
+                             ev.evaluatorRole === 'TEAM_LEADER' ? 'Trưởng nhóm chấm' :
+                             ev.evaluatorRole === 'DEPT_HEAD' ? 'Trưởng phòng chấm' : 
+                             'Quản lý chấm'}
+                          </span>
+                        </td>
+                        <td className="px-6 py-6 whitespace-nowrap text-center">
+                          <span className="text-xs font-bold text-slate-500">
+                            {formatDateTime(ev.createdAt).split(' ')[0]}
+                          </span>
+                        </td>
+                        <td className="px-8 py-6 text-right">
+                          <button className="w-10 h-10 flex items-center justify-center rounded-2xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-800 text-slate-400 group-hover:text-indigo-600 group-hover:border-indigo-200 shadow-sm transition-all active:scale-90">
+                            <ChevronRight size={20} />
+                          </button>
+                        </td>
+                      </tr>
+                    )
+                  })
+                })()}
               </tbody>
             </table>
           </div>

@@ -277,68 +277,65 @@ export default function ExcelPreviewModal({ open, file, onClose, onImport, isImp
   }
 
   const validateAllRows = (rows: UserRow[]): UserRow[] => {
-    // Group by (OrgUnitCode, Rank) for manager/deputy roles
-    const managerCounts = new Map<string, number>();
-    // Group by EmployeeCode to detect duplicates in file
-    const codeCounts = new Map<string, number>();
-    // Units that have a manager (Rank 0) in the file
-    const unitsWithManager = new Set<string>();
+    // 1. First pass: validate individual rows and resolve role IDs/unit codes
+    const validatedRows = rows.map(row => validateRow(row))
 
-    rows.forEach(row => {
-      // Determine role from row.Role (could be ID or Name)
-      const roleObj = rolesData?.find(r => 
-        r.id === row.Role || 
-        r.name.toLowerCase() === row.Role.toLowerCase() || 
-        (ROLE_MAP[r.name] || r.name).toLowerCase() === row.Role.toLowerCase()
-      );
+    // 2. Second pass: collect statistics for cross-row validation
+    const managerCounts = new Map<string, number>()
+    const codeCounts = new Map<string, number>()
+    const unitsWithManager = new Set<string>()
+
+    validatedRows.forEach(row => {
+      // At this point, row.Role is expected to be an ID if found by validateRow
+      const roleObj = rolesData?.find(r => r.id === row.Role)
 
       if (row.OrgUnitCode) {
         if (roleObj && (roleObj.rank === 0 || roleObj.rank === 1)) {
-          const key = `${row.OrgUnitCode}-${roleObj.rank}`;
-          managerCounts.set(key, (managerCounts.get(key) || 0) + 1);
+          const key = `${row.OrgUnitCode}-${roleObj.rank}`
+          managerCounts.set(key, (managerCounts.get(key) || 0) + 1)
         }
         if (roleObj && roleObj.rank === 0) {
-          unitsWithManager.add(row.OrgUnitCode);
+          unitsWithManager.add(row.OrgUnitCode)
         }
       }
 
       if (row.EmployeeCode && row.EmployeeCode.trim()) {
-        const code = row.EmployeeCode.trim().toLowerCase();
-        codeCounts.set(code, (codeCounts.get(code) || 0) + 1);
+        const code = row.EmployeeCode.trim().toLowerCase()
+        codeCounts.set(code, (codeCounts.get(code) || 0) + 1)
       }
-    });
+    })
 
-    return rows.map(row => {
-      const validated = validateRow(row);
-      const errors = { ...(validated._errors || {}) };
+    // 3. Third pass: apply cross-row errors
+    return validatedRows.map(row => {
+      const errors = { ...(row._errors || {}) }
+      const roleObj = rolesData?.find(r => r.id === row.Role)
 
-      const roleObj = rolesData?.find(r => r.id === validated.Role);
       if (row.OrgUnitCode && roleObj) {
         if (roleObj.rank === 0 || roleObj.rank === 1) {
-          const key = `${row.OrgUnitCode}-${roleObj.rank}`;
+          const key = `${row.OrgUnitCode}-${roleObj.rank}`
           if ((managerCounts.get(key) || 0) > 1) {
-            const rankName = roleObj.rank === 0 ? 'Trưởng đơn vị' : 'Phó đơn vị';
-            errors['Role'] = `Đơn vị này đang được gán nhiều hơn một ${rankName} trong tệp tin`;
+            const rankName = roleObj.rank === 0 ? 'Trưởng đơn vị' : 'Phó đơn vị'
+            errors['Role'] = `Đơn vị này đang được gán nhiều hơn một ${rankName} trong tệp tin`
           }
         }
 
         if (roleObj.rank === 1 || roleObj.rank === 2) {
           if (!unitsWithManager.has(row.OrgUnitCode)) {
-            errors['OrgUnitCode'] = 'Đơn vị cần có 1 Trưởng đơn vị đảm nhiệm (Rank 0) trong danh sách import';
+            errors['OrgUnitCode'] = 'Đơn vị cần có 1 Trưởng đơn vị đảm nhiệm (Rank 0) trong danh sách import'
           }
         }
       }
 
       // Duplicate employee code check in file
       if (row.EmployeeCode && row.EmployeeCode.trim()) {
-        const code = row.EmployeeCode.trim().toLowerCase();
+        const code = row.EmployeeCode.trim().toLowerCase()
         if ((codeCounts.get(code) || 0) > 1) {
-          errors['EmployeeCode'] = 'Mã nhân viên bị trùng lặp trong tệp tin';
+          errors['EmployeeCode'] = 'Mã nhân viên bị trùng lặp trong tệp tin'
         }
       }
 
-      return { ...validated, _errors: Object.keys(errors).length > 0 ? errors : undefined };
-    });
+      return { ...row, _errors: Object.keys(errors).length > 0 ? errors : undefined }
+    })
   }
 
   const handleCellChange = (id: string, field: keyof UserRow, value: string) => {

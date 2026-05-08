@@ -22,16 +22,16 @@ export default function OrgUnitSubmissionsPage() {
   const [search, setSearch] = useState('')
   const [page, setPage] = useState(0)
   const [pageSize] = useState(10)
-  const [selectedOrgUnitId, setSelectedOrgUnitId] = useState('ALL')
-  const [selectedPeriodId, setSelectedPeriodId] = useState('ALL')
-  
   const { user } = useAuthStore()
+  const [selectedOrgUnitId, setSelectedOrgUnitId] = useState(user?.memberships?.[0]?.orgUnitId || 'ALL')
+  const [selectedPeriodId, setSelectedPeriodId] = useState('ALL')
   const { hasPermission } = usePermission()
   const canManageOrg = hasPermission('ROLE:ASSIGN')
   
   const orgId = user?.memberships?.[0]?.organizationId
   const { data: org } = useOrganization(orgId)
   const { getScoreColor, getScoreBg, getScoreLabel } = getScoringFunctions(org)
+  const isManager = useMemo(() => user?.memberships?.some(m => m.roleRank === 0), [user])
 
   const { data: orgUnitTreeData } = useOrgUnitTree()
   const { data: periodsData } = useKpiPeriods({ organizationId: orgId })
@@ -78,16 +78,17 @@ export default function OrgUnitSubmissionsPage() {
   const { data: usersData, isLoading: isLoadingUsers } = useUsers({ 
     page, 
     size: pageSize, 
-    orgUnitId: (selectedOrgUnitId === 'ALL' ? undefined : selectedOrgUnitId) || user?.memberships?.[0]?.orgUnitId,
-    keyword: search || undefined
+    orgUnitId: selectedOrgUnitId === 'ALL' ? undefined : selectedOrgUnitId,
+    keyword: search || undefined,
+    organizationId: orgId
   })
   const employees = usersData?.content ?? []
 
   // Fetch Evaluations for the selected period
   const { data: evaluationsData, isLoading: isLoadingEvals } = useEvaluations({
-    size: 500,
+    size: 1000,
     kpiPeriodId: selectedPeriodId === 'ALL' ? undefined : selectedPeriodId,
-    orgUnitId: (selectedOrgUnitId === 'ALL' ? undefined : selectedOrgUnitId) || user?.memberships?.[0]?.orgUnitId,
+    orgUnitId: selectedOrgUnitId === 'ALL' ? undefined : selectedOrgUnitId,
     organizationId: orgId
   })
 
@@ -95,7 +96,7 @@ export default function OrgUnitSubmissionsPage() {
   const { data: submissionsData, isLoading: isLoadingSubs } = useOrgUnitSubmissions({
     size: 1000,
     kpiPeriodId: selectedPeriodId === 'ALL' ? undefined : selectedPeriodId,
-    orgUnitId: (selectedOrgUnitId === 'ALL' ? undefined : selectedOrgUnitId) || user?.memberships?.[0]?.orgUnitId,
+    orgUnitId: selectedOrgUnitId === 'ALL' ? undefined : selectedOrgUnitId,
     organizationId: orgId,
     status: 'PENDING'
   })
@@ -131,7 +132,7 @@ export default function OrgUnitSubmissionsPage() {
     const evaluation = evaluationsByUserId[emp.id]
     if (evaluation) {
       setDetailEval(evaluation)
-    } else {
+    } else if (isManager) {
       setStaffEvalUser(emp)
     }
   }
@@ -197,11 +198,10 @@ export default function OrgUnitSubmissionsPage() {
                     <SelectTrigger className="h-13 rounded-2xl border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950/50 font-bold text-sm">
                       <div className="flex items-center gap-2">
                         <Building2 size={16} className="text-slate-400" />
-                        <SelectValue placeholder="Đơn vị" />
+                        <SelectValue placeholder="Chọn đơn vị..." />
                       </div>
                     </SelectTrigger>
                     <SelectContent className="rounded-2xl border-slate-200 dark:border-slate-800 shadow-2xl p-2">
-                      <SelectItem value="ALL" className="font-black text-[10px] uppercase tracking-widest rounded-xl focus:bg-emerald-50">Tất cả đơn vị</SelectItem>
                       {flatOrgUnits.map(unit => (
                         <SelectItem key={unit.id} value={unit.id} className="font-medium rounded-xl focus:bg-emerald-50">{unit.levelLabel}</SelectItem>
                       ))}
@@ -275,7 +275,53 @@ export default function OrgUnitSubmissionsPage() {
                               <span className="text-sm font-bold text-slate-900 dark:text-white group-hover:text-emerald-600 transition-colors block">
                                 {emp.fullName}
                               </span>
-                              <span className="text-[10px] text-slate-400 font-medium">{emp.memberships?.[0]?.roleName || 'Nhân viên'}</span>
+                              {(() => {
+                                // Priority 1: If evaluation exists, use its stored role name (most accurate for the period)
+                                if (evaluation?.userRoleName) {
+                                  return <span className="text-[10px] text-slate-400 font-medium">{evaluation.userRoleName}</span>
+                                }
+
+                                // Priority 2: Pick the best membership based on a robust multi-criteria sort (data-driven)
+                                const memberships = [...(emp.memberships || [])]
+                                if (memberships.length === 0) return <span className="text-[10px] text-slate-400 font-medium">Nhân viên</span>
+                                
+                                // Find the "Root" level for this specific employee (the highest unit they belong to)
+                                const levels = memberships.map((m: any) => m.levelOrder ?? m.roleLevel ?? 0)
+                                const minLevel = Math.min(...levels)
+                                const hasDeeperLevel = levels.some(l => l > minLevel)
+
+                                const bestMembership = memberships.sort((a: any, b: any) => {
+                                  // 1. Deprioritize the root-most unit if deeper memberships exist
+                                  if (hasDeeperLevel) {
+                                    const isMinA = (a.levelOrder ?? a.roleLevel ?? 0) === minLevel ? 1 : 0
+                                    const isMinB = (b.levelOrder ?? b.roleLevel ?? 0) === minLevel ? 1 : 0
+                                    if (isMinA !== isMinB) return isMinA - isMinB
+                                  }
+
+                                  // 2. Rank priority (roleRank 0: Trưởng, 1: Phó, 2+: Nhân viên)
+                                  const rankA = typeof a.roleRank === 'number' ? a.roleRank : 99
+                                  const rankB = typeof b.roleRank === 'number' ? b.roleRank : 99
+                                  if (rankA !== rankB) return rankA - rankB
+
+                                  // 3. Current unit match
+                                  if (selectedOrgUnitId !== 'ALL') {
+                                    const matchA = String(a.orgUnitId) === String(selectedOrgUnitId) ? 0 : 1
+                                    const matchB = String(b.orgUnitId) === String(selectedOrgUnitId) ? 0 : 1
+                                    if (matchA !== matchB) return matchA - matchB
+                                  }
+
+                                  // 4. Depth priority (Deeper units like Dept/Team preferred)
+                                  const levelA = a.levelOrder ?? a.roleLevel ?? 0
+                                  const levelB = b.levelOrder ?? b.roleLevel ?? 0
+                                  if (levelA !== levelB) return levelB - levelA // Higher number = deeper
+
+                                  return 0
+                                })[0]
+                                
+                                return (
+                                  <span className="text-[10px] text-slate-400 font-medium">{bestMembership?.roleName || 'Nhân viên'}</span>
+                                )
+                              })()}
                             </div>
                           </div>
                         </td>
@@ -344,7 +390,7 @@ export default function OrgUnitSubmissionsPage() {
           </div>
         </div>
 
-        {staffEvalUser && selectedPeriodId !== 'ALL' && (
+        {staffEvalUser && isManager && selectedPeriodId !== 'ALL' && (
           <StaffEvaluationModal
             open={!!staffEvalUser}
             onClose={() => setStaffEvalUser(null)}

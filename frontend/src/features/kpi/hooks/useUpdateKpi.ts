@@ -7,7 +7,11 @@ export function useUpdateKpi() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: ({ id, data }: { id: string; data: UpdateKpiRequest }) => kpiApi.update(id, data),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['kpi-criteria'] }); toast.success('Cập nhật chỉ tiêu thành công') },
+    onSuccess: () => { 
+      qc.invalidateQueries({ queryKey: ['kpi-criteria'] }); 
+      qc.invalidateQueries({ queryKey: ['stats'] });
+      toast.success('Cập nhật chỉ tiêu thành công') 
+    },
     onError: () => toast.error('Cập nhật thất bại'),
   })
 }
