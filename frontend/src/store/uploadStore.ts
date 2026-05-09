@@ -1,6 +1,5 @@
 import { create } from 'zustand'
 import axiosInstance from '@/lib/axios'
-import { toast } from 'sonner'
 
 interface UploadTask {
   id: string
@@ -19,7 +18,7 @@ export const useUploadStore = create<UploadStore>((set, get) => ({
   tasks: [],
   addUpload: async (submissionId, files) => {
     const taskId = `${submissionId}-${Date.now()}`
-    const taskName = files.length > 1 ? `${files.length} tệp minh chứng` : files[0].name
+    const taskName = files.length > 1 ? `${files.length} tệp minh chứng` : (files[0]?.name || 'Tệp đính kèm')
     
     const newTask: UploadTask = {
       id: taskId,
