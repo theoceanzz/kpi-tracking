@@ -5,13 +5,19 @@ import { useSidebarStore } from '@/store/sidebarStore'
 import { LogOut, Menu, PanelLeft } from 'lucide-react'
 import NotificationBell from '@/features/notifications/components/NotificationBell'
 import ThemeCustomizer from './components/ThemeCustomizer'
+import OnboardingTour from '@/components/common/OnboardingTour'
 import { useState, useEffect } from 'react'
 
 export default function AppLayout() {
-  const { user, logout } = useAuth()
+  const { user, logout, refreshUser } = useAuth()
   const { isCollapsed, toggle: toggleSidebar } = useSidebarStore()
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const location = useLocation()
+
+  // Refresh user info on mount to ensure roles/names are up to date
+  useEffect(() => {
+    refreshUser()
+  }, [refreshUser])
 
   // Close mobile menu on route change
   useEffect(() => {
@@ -24,6 +30,7 @@ export default function AppLayout() {
 
   return (
     <div className="flex min-h-screen bg-[var(--color-background)]">
+      <OnboardingTour />
       <Sidebar isMobileOpen={isMobileMenuOpen} onCloseMobile={() => setIsMobileMenuOpen(false)} />
 
       <div className="flex-1 flex flex-col min-w-0 md:pl-0">

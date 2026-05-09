@@ -64,6 +64,8 @@ public class KpiPeriodService {
 
     @Transactional
     public KpiPeriodResponse createKpiPeriod(com.kpitracking.dto.request.kpi.KpiPeriodRequest request) {
+        validateDates(request.getStartDate(), request.getEndDate(), request.getNotificationDate());
+        
         Organization organization = organizationRepository.findById(request.getOrganizationId())
                 .orElseThrow(() -> new ResourceNotFoundException("Tổ chức", "id", request.getOrganizationId()));
 
@@ -88,6 +90,8 @@ public class KpiPeriodService {
 
     @Transactional
     public KpiPeriodResponse updateKpiPeriod(UUID id, com.kpitracking.dto.request.kpi.KpiPeriodRequest request) {
+        validateDates(request.getStartDate(), request.getEndDate(), request.getNotificationDate());
+
         KpiPeriod period = kpiPeriodRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Đợt KPI", "id", id));
 
@@ -111,6 +115,20 @@ public class KpiPeriodService {
 
         period = kpiPeriodRepository.save(period);
         return toResponse(period);
+    }
+
+    private void validateDates(Instant start, Instant end, Instant notification) {
+        if (start == null || end == null) return;
+        
+        if (!end.isAfter(start)) {
+            throw new IllegalArgumentException("Thời gian kết thúc phải sau thời gian bắt đầu");
+        }
+        
+        if (notification != null) {
+            if (!notification.isAfter(start) || !notification.isBefore(end)) {
+                throw new IllegalArgumentException("Thời gian thông báo phải nằm trong khoảng thời gian bắt đầu và kết thúc");
+            }
+        }
     }
 
     @Transactional

@@ -10,6 +10,7 @@ import {  Edit3, ShieldCheck,
 import LoadingSkeleton from '@/components/common/LoadingSkeleton'
 import { formatDateTime, cn } from '@/lib/utils'
 import { toast } from 'sonner'
+import { useAuth } from '@/hooks/useAuth'
 
 export default function CompanyPage() {
   const { user } = useAuthStore()
@@ -17,6 +18,7 @@ export default function CompanyPage() {
   
   const { data: org, isLoading: loadingOrg } = useOrganization(orgId)
   const updateMutation = useUpdateOrganization(orgId)
+  const { refreshUser } = useAuth()
 
   const [isEditingInfo, setIsEditingInfo] = useState(false)
   const [infoFormData, setInfoFormData] = useState({ name: '', code: '' })
@@ -55,6 +57,7 @@ export default function CompanyPage() {
     updateMutation.mutate({ name: infoFormData.name, code: infoFormData.code }, {
       onSuccess: () => {
         setIsEditingInfo(false)
+        refreshUser()
         toast.success('Cập nhật thông tin doanh nghiệp thành công')
       },
       onError: () => toast.error('Không thể cập nhật thông tin')
@@ -69,6 +72,7 @@ export default function CompanyPage() {
     updateMutation.mutate({ hierarchyLevels: data.hierarchyLevels }, {
       onSuccess: () => {
         setIsEditingHierarchy(false)
+        refreshUser()
         toast.success('Cập nhật cơ cấu tổ chức thành công')
       },
       onError: (error: any) => {
@@ -84,7 +88,7 @@ export default function CompanyPage() {
     <div className="max-w-6xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700 pb-20 px-4 md:px-0">
       
       {/* Refined Hero Section with Vibrant Gradient */}
-      <section className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-indigo-600 via-indigo-700 to-violet-800 border border-white/10 shadow-2xl shadow-indigo-500/20">
+      <section id="tour-company-hero" className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-indigo-600 via-indigo-700 to-violet-800 border border-white/10 shadow-2xl shadow-indigo-500/20">
         {/* Subtle Ambient Background */}
         <div className="absolute top-0 right-0 w-[400px] h-[400px] bg-indigo-500/10 rounded-full blur-[100px] -mr-20 -mt-20" />
         <div className="absolute bottom-0 left-0 w-[300px] h-[300px] bg-purple-500/5 rounded-full blur-[80px] -ml-20 -mb-20" />
@@ -172,10 +176,10 @@ export default function CompanyPage() {
       </section>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-stretch">
-        {org && <ScoringConfigSection org={org} />}
+        {org && <div id="tour-company-scoring" className="h-full"><ScoringConfigSection org={org} /></div>}
 
         {/* Professional Hierarchy Section */}
-        <section className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden flex flex-col h-full animate-in slide-in-from-right-4 duration-700 delay-150">
+        <section id="tour-company-hierarchy" className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden flex flex-col h-full animate-in slide-in-from-right-4 duration-700 delay-150">
            <div className="px-8 py-6 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
               <div className="flex items-center gap-4">
                 <div className="w-10 h-10 rounded-xl bg-indigo-50 dark:bg-indigo-900/30 flex items-center justify-center text-indigo-600 dark:text-indigo-400">

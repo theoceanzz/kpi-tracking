@@ -132,7 +132,8 @@ CREATE TABLE users (
     updated_at          TIMESTAMPTZ     DEFAULT NOW(),
     deleted_at          TIMESTAMPTZ,
     employee_code       VARCHAR(50),
-    require_password_change BOOLEAN     NOT NULL DEFAULT FALSE
+    require_password_change BOOLEAN     NOT NULL DEFAULT FALSE,
+    has_seen_onboarding BOOLEAN         NOT NULL DEFAULT FALSE
 );
 
 CREATE INDEX idx_users_email ON users(email);

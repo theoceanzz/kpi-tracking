@@ -84,15 +84,15 @@ export default function Sidebar({ isMobileOpen, onCloseMobile }: { isMobileOpen?
   const organizationId = user?.memberships?.[0]?.organizationId
   const { data: customLabels = {} } = useSidebarSettings(organizationId!)
 
-  const [expandedMenus, setExpandedMenus] = useState<Record<string, boolean>>(() => {
-    const initialState: Record<string, boolean> = {}
+  const [expandedMenus, setExpandedMenus] = useState<Record<string, boolean>>({})
+
+  useEffect(() => {
     navItems.forEach(item => {
       if (item.children && item.children.some(child => location.pathname.startsWith(child.path || ''))) {
-        initialState[item.label] = true
+        setExpandedMenus(prev => ({ ...prev, [item.label]: true }))
       }
     })
-    return initialState
-  })
+  }, [location.pathname])
 
   const toggleMenu = (label: string) => {
     setExpandedMenus(prev => ({
@@ -190,6 +190,7 @@ export default function Sidebar({ isMobileOpen, onCloseMobile }: { isMobileOpen?
 
       {/* Sidebar container */}
       <aside 
+        id="sidebar-container"
         className={cn(
           "fixed inset-y-0 left-0 z-50 flex flex-col bg-[var(--color-card)] border-r border-[var(--color-border)] h-screen transition-all duration-300 ease-in-out lg:translate-x-0 lg:static lg:sticky lg:top-0",
           isCollapsed ? "w-20" : "w-64",
@@ -225,6 +226,7 @@ export default function Sidebar({ isMobileOpen, onCloseMobile }: { isMobileOpen?
               return (
                 <div key={item.label} className="space-y-1">
                   <button
+                    id={item.label === 'Thiết lập công ty' ? 'tour-company-nav-group' : `nav-group-${item.label.toLowerCase().replace(/\s+/g, '-')}`}
                     onClick={() => toggleMenu(item.label)}
                     className={cn(
                       'w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-bold transition-all group relative',
@@ -258,6 +260,7 @@ export default function Sidebar({ isMobileOpen, onCloseMobile }: { isMobileOpen?
                         const childBadgeValue = child.path ? getBadge(child.path) : null
                         return (
                           <NavLink
+                            id={`nav-item-${child.path?.replace(/\//g, '-')}`}
                             key={child.path}
                             to={child.path!}
                             end={child.end} 
@@ -296,6 +299,7 @@ export default function Sidebar({ isMobileOpen, onCloseMobile }: { isMobileOpen?
             
             return (
               <NavLink
+                id={item.path?.startsWith('/dashboard') ? 'tour-dashboard-nav' : `nav-item-${item.path?.replace(/\//g, '-')}`}
                 key={item.path}
                 to={item.path!}
                 end={item.end} 
@@ -336,7 +340,7 @@ export default function Sidebar({ isMobileOpen, onCloseMobile }: { isMobileOpen?
         </nav>
 
         {/* User Account Section */}
-        <div className={cn("p-4 border-t border-[var(--color-border)] bg-[var(--color-card)] mt-auto relative", isCollapsed && !isMobileOpen && "p-2")} ref={menuRef}>
+        <div id="user-section" className={cn("p-4 border-t border-[var(--color-border)] bg-[var(--color-card)] mt-auto relative", isCollapsed && !isMobileOpen && "p-2")} ref={menuRef}>
           
           {/* Popover Menu */}
           {userMenuOpen && (
@@ -391,7 +395,7 @@ export default function Sidebar({ isMobileOpen, onCloseMobile }: { isMobileOpen?
                         // Just pick the first non-root one, or the first one
                         return ms.find(m => (m.levelOrder ?? 0) > 0) || ms[0];
                       })();
-                      return membership?.roleName || 'Thành viên';
+                      return membership?.roleDisplayName || membership?.roleName || 'Thành viên';
                     })()}
                   </p>
                 </div>

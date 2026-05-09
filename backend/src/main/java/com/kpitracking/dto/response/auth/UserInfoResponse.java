@@ -20,4 +20,5 @@ public class UserInfoResponse {
     private List<String> roles;
     private List<String> permissions;
     private Boolean requirePasswordChange;
+    private Boolean hasSeenOnboarding;
 }

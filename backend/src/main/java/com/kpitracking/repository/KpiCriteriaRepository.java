@@ -130,4 +130,7 @@ public interface KpiCriteriaRepository extends JpaRepository<KpiCriteria, UUID> 
 
     @Query("SELECT k FROM KpiCriteria k WHERE k.orgUnit.id IN :orgUnitIds AND k.status = :status")
     List<KpiCriteria> findByOrgUnitIdInAndStatus(@Param("orgUnitIds") List<UUID> orgUnitIds, @Param("status") KpiStatus status);
+
+    @Query("SELECT COALESCE(SUM(k.weight), 0.0) FROM KpiCriteria k JOIN k.assignees a WHERE a.id = :userId AND (:kpiPeriodId IS NULL OR k.kpiPeriod.id = :kpiPeriodId) AND k.status IN :statuses")
+    Double sumWeightByUserIdAndKpiPeriodIdAndStatusIn(@Param("userId") UUID userId, @Param("kpiPeriodId") UUID kpiPeriodId, @Param("statuses") List<KpiStatus> statuses);
 }

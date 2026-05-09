@@ -109,7 +109,7 @@ export function OrganizationStructurePage() {
         </div>
         
         {treeData.length > 0 && (
-          <div className="flex items-center space-x-2 bg-gray-100 p-1 rounded-xl w-full sm:w-auto">
+          <div id="tour-org-view-mode" className="flex items-center space-x-2 bg-gray-100 p-1 rounded-xl w-full sm:w-auto">
             <button 
               onClick={() => setViewMode('mindmap')}
               className={`flex-1 sm:flex-none flex items-center justify-center px-4 py-2 rounded-lg text-sm font-semibold transition-all ${viewMode === 'mindmap' ? 'bg-white shadow-sm text-blue-600' : 'text-gray-600 hover:text-gray-900'}`}
@@ -144,7 +144,7 @@ export function OrganizationStructurePage() {
           </button>
         </div>
       ) : (
-        <div className="fade-in">
+        <div id="tour-org-content" className="fade-in">
           {viewMode === 'mindmap' ? (
             <OrgMindmapView 
               data={treeData} 

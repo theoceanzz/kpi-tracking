@@ -7,6 +7,7 @@ export interface UserMembership {
   orgUnitName: string
   organizationName: string
   roleName: string
+  roleDisplayName?: string
   roleRank?: number
   levelOrder?: number
   roleLevel?: number
@@ -27,6 +28,7 @@ export interface UserInfo {
   createdAt: string
   updatedAt?: string
   requirePasswordChange?: boolean
+  hasSeenOnboarding?: boolean
 }
 
 // Matches BE: AuthResponse
@@ -35,6 +37,7 @@ export interface AuthResponse {
   refreshToken: string
   tokenType: string
   user: UserInfo
+  hasSeenOnboarding?: boolean
 }
 
 export interface HierarchyLevel {

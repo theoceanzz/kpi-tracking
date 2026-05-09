@@ -469,17 +469,51 @@ public class KpiCriteriaService {
     }
 
     @Transactional(readOnly = true)
-    public Double getTotalWeight(UUID orgUnitId, UUID kpiPeriodId) {
+    public Double getTotalWeight(UUID orgUnitId, UUID userId, UUID kpiPeriodId) {
         User currentUser = getCurrentUser();
-        if (!permissionChecker.hasPermissionInOrgUnit(currentUser.getId(), "KPI:VIEW", orgUnitId)) {
-            throw new ForbiddenException("Bạn không có quyền xem thông tin trọng số của đơn vị này");
+        
+        List<KpiStatus> statuses = java.util.Arrays.asList(
+                KpiStatus.DRAFT, 
+                KpiStatus.PENDING_APPROVAL, 
+                KpiStatus.APPROVED, 
+                KpiStatus.REJECTED, 
+                KpiStatus.EDIT, 
+                KpiStatus.EDITED
+        );
+
+        if (userId != null) {
+            // Permission check: can only see other user's weight if has KPI:VIEW for their org unit
+            // or if it's the current user themselves
+            if (!currentUser.getId().equals(userId)) {
+                User targetUser = userRepository.findById(userId)
+                        .orElseThrow(() -> new ResourceNotFoundException("Người dùng", "id", userId));
+                
+                // Simplified: if they have any permission in any of the target user's units
+                boolean hasPermission = false;
+                List<UserRoleOrgUnit> assignments = userRoleOrgUnitRepository.findByUserId(targetUser.getId());
+                for (UserRoleOrgUnit assignment : assignments) {
+                    if (permissionChecker.hasPermissionInOrgUnit(currentUser.getId(), "KPI:VIEW", assignment.getOrgUnit().getId())) {
+                        hasPermission = true;
+                        break;
+                    }
+                }
+                
+                if (!hasPermission && !permissionChecker.isGlobalAdmin(currentUser.getId())) {
+                    throw new ForbiddenException("Bạn không có quyền xem thông tin trọng số của người dùng này");
+                }
+            }
+            return kpiCriteriaRepository.sumWeightByUserIdAndKpiPeriodIdAndStatusIn(userId, kpiPeriodId, statuses);
         }
 
-        return kpiCriteriaRepository.sumWeightByOrgUnitIdAndKpiPeriodIdAndStatusIn(
-                orgUnitId,
-                kpiPeriodId,
-                java.util.Arrays.asList(KpiStatus.DRAFT, KpiStatus.PENDING_APPROVAL, KpiStatus.APPROVED, KpiStatus.REJECTED, KpiStatus.EDIT, KpiStatus.EDITED)
-        );
+        if (orgUnitId != null) {
+            if (!permissionChecker.hasPermissionInOrgUnit(currentUser.getId(), "KPI:VIEW", orgUnitId)) {
+                throw new ForbiddenException("Bạn không có quyền xem thông tin trọng số của đơn vị này");
+            }
+
+            return kpiCriteriaRepository.sumWeightByOrgUnitIdAndKpiPeriodIdAndStatusIn(orgUnitId, kpiPeriodId, statuses);
+        }
+        
+        return 0.0;
     }
 
     @Transactional
@@ -487,6 +521,7 @@ public class KpiCriteriaService {
         User currentUser = getCurrentUser();
         // Track modified units and periods to validate weight after import
         java.util.Set<String> affectedPairs = new java.util.HashSet<>();
+        java.util.Set<String> affectedUserPairs = new java.util.HashSet<>();
         com.kpitracking.entity.KpiPeriod kpiPeriod = kpiPeriodId != null ? 
                 kpiPeriodRepository.findById(kpiPeriodId).orElse(null) : null;
         OrgUnit orgUnit = orgUnitId != null ? 
@@ -532,7 +567,7 @@ public class KpiCriteriaService {
                                 record.get("EmployeeCode"), 
                                 record.isMapped("Period") ? record.get("Period") : null,
                                 record.isMapped("OrgUnit") ? record.get("OrgUnit") : null,
-                                kpiPeriod, orgUnit, currentUser, affectedPairs, userOrgId);
+                                kpiPeriod, orgUnit, currentUser, affectedPairs, affectedUserPairs, userOrgId);
                             successfulImports++;
                         } catch (Exception e) {
                             errors.add("Dòng " + totalRows + ": " + e.getMessage());
@@ -580,7 +615,7 @@ public class KpiCriteriaService {
                                 getCellValueAsString(row.getCell(codeIdx)),
                                 namePeriodIdx != -1 ? getCellValueAsString(row.getCell(namePeriodIdx)) : null,
                                 nameOrgIdx != -1 ? getCellValueAsString(row.getCell(nameOrgIdx)) : null,
-                                kpiPeriod, orgUnit, currentUser, affectedPairs, userOrgId
+                                kpiPeriod, orgUnit, currentUser, affectedPairs, affectedUserPairs, userOrgId
                             );
                             successfulImports++;
                         } catch (Exception e) {
@@ -626,6 +661,26 @@ public class KpiCriteriaService {
             }
         }
 
+        // Post-import validation: Check total weight for all modified user-period pairs
+        for (String pair : affectedUserPairs) {
+            String[] ids = pair.split(":");
+            UUID uId = UUID.fromString(ids[0]);
+            UUID pId = UUID.fromString(ids[1]);
+            
+            User user = userRepository.findById(uId).orElse(null);
+            
+            List<KpiStatus> activeStatuses = java.util.Arrays.asList(
+                KpiStatus.DRAFT, KpiStatus.PENDING_APPROVAL, KpiStatus.APPROVED, KpiStatus.REJECTED, KpiStatus.EDIT, KpiStatus.EDITED
+            );
+
+            Double totalWeight = kpiCriteriaRepository.sumWeightByUserIdAndKpiPeriodIdAndStatusIn(uId, pId, activeStatuses);
+
+            if (totalWeight == null || Math.abs(totalWeight - 100.0) > 0.001) {
+                throw new BusinessException("Lỗi Import: Nhân viên '" + (user != null ? user.getFullName() : uId) + "' có tổng trọng số là " + 
+                          (totalWeight != null ? totalWeight : 0) + "%. Quy tắc bắt buộc phải bằng chính xác 100%.");
+            }
+        }
+
         return ImportKpiResponse.builder()
                 .totalRows(totalRows)
                 .successfulImports(successfulImports)
@@ -635,7 +690,8 @@ public class KpiCriteriaService {
 
     private void processKpiRow(String name, String desc, String weight, String target, String min, String unit, String freq, String empCode, 
                               String periodName, String orgName,
-                              com.kpitracking.entity.KpiPeriod defaultPeriod, OrgUnit defaultUnit, User creator, java.util.Set<String> affectedPairs, UUID organizationId) {
+                              com.kpitracking.entity.KpiPeriod defaultPeriod, OrgUnit defaultUnit, User creator, 
+                              java.util.Set<String> affectedPairs, java.util.Set<String> affectedUserPairs, UUID organizationId) {
         if (name == null || name.isBlank()) throw new BusinessException("Tên chỉ tiêu là bắt buộc");
         if (weight == null || weight.isBlank()) throw new BusinessException("Trọng số là bắt buộc");
         if (target == null || target.isBlank()) throw new BusinessException("Chỉ tiêu (Target) là bắt buộc");
@@ -743,6 +799,11 @@ public class KpiCriteriaService {
 
         // Track the unit and period
         affectedPairs.add(finalUnit.getId().toString() + ":" + finalPeriod.getId().toString());
+        
+        // Track each user and period
+        for (User assignee : assignees) {
+            affectedUserPairs.add(assignee.getId().toString() + ":" + finalPeriod.getId().toString());
+        }
     }
 
     private String getCellValueAsString(Cell cell) {

@@ -13,6 +13,7 @@ export function useUpdateOrganization(id: string | undefined) {
       qc.invalidateQueries({ queryKey: ['orgUnits'] })
       qc.invalidateQueries({ queryKey: ['organization-users'] })
       qc.invalidateQueries({ queryKey: ['stats'] })
+      qc.invalidateQueries({ queryKey: ['roles'] })
     },
   })
 }

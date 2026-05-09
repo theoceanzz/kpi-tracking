@@ -37,4 +37,7 @@ export const authApi = {
     axiosInstance.post<ApiResponse<UserInfo>>('/auth/me/avatar', data, {
       headers: { 'Content-Type': 'multipart/form-data' }
     }).then((r) => r.data.data),
+  
+  completeOnboarding: () =>
+    axiosInstance.post<ApiResponse<void>>('/auth/me/onboarding').then((r) => r.data),
 }

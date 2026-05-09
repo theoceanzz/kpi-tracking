@@ -195,11 +195,21 @@ public class OrganizationService {
 
     private void syncRolesForLevel(Organization org, int roleLevel, HierarchyLevelDTO dto, boolean isTop, boolean isBottom, List<Permission> allPerms, int tierLevel, int numTiers) {
         // Head (Rank 0)
-        String headName = isTop ? (dto.getManagerRoleLabel() != null ? dto.getManagerRoleLabel() : "GIÁM ĐỐC") : "TRƯỞNG " + dto.getUnitTypeName().toUpperCase();
+        String headName;
+        if (dto.getManagerRoleLabel() != null && !dto.getManagerRoleLabel().trim().isEmpty()) {
+            headName = dto.getManagerRoleLabel();
+        } else {
+            headName = isTop ? "GIÁM ĐỐC" : "TRƯỞNG " + dto.getUnitTypeName().toUpperCase();
+        }
         syncSingleRole(org, headName, roleLevel, 0, isTop ? "director" : "manager", allPerms, tierLevel, numTiers);
 
         // Deputy (Rank 1)
-        String deputyName = "PHÓ " + (isTop ? (dto.getManagerRoleLabel() != null ? dto.getManagerRoleLabel() : "GIÁM ĐỐC") : dto.getUnitTypeName().toUpperCase());
+        String deputyName;
+        if (dto.getManagerRoleLabel() != null && !dto.getManagerRoleLabel().trim().isEmpty()) {
+            deputyName = "Phó " + dto.getManagerRoleLabel();
+        } else {
+            deputyName = "Phó " + (isTop ? "Giám Đốc" : dto.getUnitTypeName().toUpperCase());
+        }
         syncSingleRole(org, deputyName, roleLevel, 1, isTop ? "deputy_director" : "deputy", allPerms, tierLevel, numTiers);
 
         // Staff (Rank 2) - only for bottom level

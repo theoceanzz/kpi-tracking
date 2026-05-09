@@ -63,22 +63,23 @@ export default function UserFormModal({ open, onClose, editUser }: UserFormModal
 
   // Find the highest rank (lowest level number) of the current user
   const { currentUserLevel, currentUserRank } = useMemo(() => {
-    if (!currentUser || !rolesData) return { currentUserLevel: 999, currentUserRank: 999 }
+    if (!currentUser) return { currentUserLevel: 999, currentUserRank: 999 }
     
-    const userRoleNames = currentUser.memberships?.map(m => m.roleName) || []
-    const userRoles = rolesData.filter(r => userRoleNames.includes(r.name))
+    // Use the values directly from the user memberships instead of looking up by name in rolesData
+    const levels = currentUser.memberships?.map(m => m.roleLevel ?? 999) || []
+    const level = levels.length > 0 ? Math.min(...levels) : 999
     
-    const level = userRoles.length > 0 ? Math.min(...userRoles.map(r => r.level ?? 999)) : 999
-    const rank = userRoles.length > 0 
-      ? Math.min(...userRoles.filter(r => r.level === level).map(r => r.rank ?? 999)) 
-      : 999
+    const ranks = currentUser.memberships?.filter(m => (m.roleLevel ?? 999) === level).map(m => m.roleRank ?? 999) || []
+    const rank = ranks.length > 0 ? Math.min(...ranks) : 999
     
     return { currentUserLevel: level, currentUserRank: rank }
-  }, [currentUser, rolesData])
+  }, [currentUser])
 
   const isAdmin = useMemo(() => {
-    return currentUser?.memberships?.some(m => m.roleName === 'ADMIN' || m.roleName === 'DIRECTOR_SYSTEM') || false
-  }, [currentUser])
+    // Admins are those who have specific system management permissions
+    return hasPermission('ROLE:CREATE') || hasPermission('COMPANY:UPDATE') || 
+           currentUser?.memberships?.some(m => m.roleName === 'ADMIN' || m.roleName === 'DIRECTOR_SYSTEM') || false
+  }, [hasPermission, currentUser])
 
   const flattenedUnits = useMemo(() => {
     const list: { id: string, name: string, level: number }[] = []
@@ -101,11 +102,15 @@ export default function UserFormModal({ open, onClose, editUser }: UserFormModal
         return false
       }
 
-      if (isAdmin) {
-        // Even Admins shouldn't see themselves or higher roles if hierarchy is strictly enforced
-        // But usually Admins can manage almost everyone except the System Director
-        return r.name !== 'DIRECTOR_SYSTEM' || currentUser?.memberships?.some(m => m.roleName === 'DIRECTOR_SYSTEM')
+      // 2. Authority check: Cannot assign roles above or equal to own level/rank
+      // DIRECTOR_SYSTEM bypasses this check
+      const isDirectorSystem = currentUser?.memberships?.some(m => m.roleName === 'DIRECTOR_SYSTEM')
+      if (!isDirectorSystem) {
+        if (r.level !== undefined && r.level < currentUserLevel) return false
+        if (r.level === currentUserLevel && r.rank !== undefined && r.rank <= currentUserRank) return false
       }
+
+      if (isAdmin) return true
 
       if (hierarchyLevels.length > 0) {
         const activeRoleLevels = new Set(hierarchyLevels.map(l => l.roleLevel))
@@ -146,15 +151,22 @@ export default function UserFormModal({ open, onClose, editUser }: UserFormModal
   return isEdit ? (
     <EditUserForm editUser={editUser!} onClose={onClose} onSubmit={(data) => updateMutation.mutate(data)} isPending={updateMutation.isPending} canAssignRoles={canAssignRoles} dynamicRoles={dynamicRoles} flattenedUnits={flattenedUnits} orgTree={orgTree || []} rolesData={rolesData || []} />
   ) : (
-    <CreateUserForm onClose={onClose} onSubmit={(data) => createMutation.mutate(data, { onSuccess: () => onClose() })} isPending={createMutation.isPending} canAssignRoles={canAssignRoles} dynamicRoles={dynamicRoles} flattenedUnits={flattenedUnits} orgTree={orgTree || []} rolesData={rolesData || []} />
+    <CreateUserForm onClose={onClose} onSubmit={(data) => createMutation.mutate(data, { onSuccess: () => onClose() })} isPending={createMutation.isPending} canAssignRoles={canAssignRoles} dynamicRoles={dynamicRoles} flattenedUnits={flattenedUnits} orgTree={orgTree || []} />
   )
 }
 
-function CreateUserForm({ onClose, onSubmit, isPending, canAssignRoles, dynamicRoles, flattenedUnits, orgTree, rolesData }: { onClose: () => void; onSubmit: (data: UserFormData) => void; isPending: boolean; canAssignRoles: boolean; dynamicRoles: RoleOption[]; flattenedUnits: { id: string, name: string, level: number }[]; orgTree: OrgUnitTreeResponse[]; rolesData: any[] }) {
+function CreateUserForm({ onClose, onSubmit, isPending, canAssignRoles, dynamicRoles, flattenedUnits, orgTree }: { onClose: () => void; onSubmit: (data: UserFormData) => void; isPending: boolean; canAssignRoles: boolean; dynamicRoles: RoleOption[]; flattenedUnits: { id: string, name: string, level: number }[]; orgTree: OrgUnitTreeResponse[] }) {
   const [showPassword, setShowPassword] = useState(false)
-  const { register, handleSubmit, control, setValue, formState: { errors } } = useForm<UserFormData>({
+  const { register, handleSubmit, control, setValue, getValues, formState: { errors } } = useForm<UserFormData>({
     resolver: zodResolver(userSchema),
-    defaultValues: { email: '', fullName: '', password: '', phone: '', role: dynamicRoles?.[dynamicRoles.length - 1]?.name || '', orgUnitId: '' },
+    defaultValues: { 
+      email: '', 
+      fullName: '', 
+      password: '', 
+      phone: '', 
+      role: '', 
+      orgUnitId: orgTree?.[0]?.id || '' 
+    },
   })
 
   // Watch selected unit to filter roles by allowedRoles
@@ -181,10 +193,19 @@ function CreateUserForm({ onClose, onSubmit, isPending, canAssignRoles, dynamicR
     }
 
     const allowedIds = new Set(selectedNode.allowedRoles.map(r => r.id))
-    return dynamicRoles.filter(r => {
-      return allowedIds.has(r.id) || rolesData?.find(rd => rd.id === r.id)?.rank === 2
-    })
+    return dynamicRoles.filter(r => allowedIds.has(r.id))
   }, [selectedOrgUnitId, orgTree, dynamicRoles])
+
+  // Auto-select first role when filtered list changes
+  useEffect(() => {
+    const roles = filteredRoles
+    if (roles.length > 0) {
+      const currentRole = getValues('role')
+      if (!currentRole || !roles.find(r => r.name === currentRole)) {
+        setValue('role', roles[0]?.name || '')
+      }
+    }
+  }, [filteredRoles, setValue, getValues])
 
   const pwd = useWatch({ control, name: 'password', defaultValue: '' })
 
@@ -327,7 +348,7 @@ function CreateUserForm({ onClose, onSubmit, isPending, canAssignRoles, dynamicR
               render={({ field }) => (
                 <Select onValueChange={field.onChange} value={field.value}>
                   <SelectTrigger className={inputCls}>
-                    <SelectValue placeholder="Chọn đơn vị" />
+                    <SelectValue placeholder="Chọn vai trò" />
                   </SelectTrigger>
                   <SelectContent className="max-h-[300px]">
                     {flattenedUnits.map((unit) => (
@@ -431,16 +452,14 @@ function EditUserForm({ editUser, onClose, onSubmit, isPending, canAssignRoles, 
 
       if (selectedNode && selectedNode.allowedRoles && selectedNode.allowedRoles.length > 0) {
         const allowedIds = new Set(selectedNode.allowedRoles.map(r => r.id))
-        roles = dynamicRoles.filter(r => {
-          return allowedIds.has(r.id) || rolesData?.find(rd => rd.id === r.id)?.rank === 2
-        })
+        roles = dynamicRoles.filter(r => allowedIds.has(r.id))
       }
     }
 
     // IMPORTANT: Always ensure the user's current role is in the list so it's not blank
     const currentRoleName = getHighestRole(editUser)
     if (currentRoleName && !roles.find(r => r.name === currentRoleName)) {
-      const actualRole = rolesData?.find(rd => rd.name === currentRoleName)
+      const actualRole = rolesData?.find((rd: any) => rd.name === currentRoleName)
       if (actualRole) {
         roles = [...roles, { id: actualRole.id, name: actualRole.name }]
       }

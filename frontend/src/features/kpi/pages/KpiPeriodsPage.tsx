@@ -16,6 +16,7 @@ import {
 import { useDebounce } from '@/hooks/useDebounce'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { cn } from '@/lib/utils'
+import { toast } from 'sonner'
 
 export default function KpiPeriodsPage() {
   const [showForm, setShowForm] = useState(false)
@@ -425,16 +426,25 @@ function PeriodFormModal({ onClose, editPeriod, organizationId, onSubmit, isSubm
     let end: Date
 
     switch (type) {
-      case 'DAILY': end = start; break
-      case 'WEEKLY': end = addDays(start, 6); break
-      case 'MONTHLY': end = subDays(addMonths(start, 1), 1); break
-      case 'QUARTERLY': end = subDays(addMonths(start, 3), 1); break
-      case 'YEARLY': end = subDays(addYears(start, 1), 1); break
-      default: end = start
+      case 'DAILY': 
+        end = new Date(start)
+        break
+      case 'WEEKLY': 
+        end = addDays(start, 6)
+        break
+      case 'MONTHLY': 
+        end = subDays(addMonths(start, 1), 1)
+        break
+      case 'QUARTERLY': 
+        end = subDays(addMonths(start, 3), 1)
+        break
+      case 'YEARLY': 
+        end = subDays(addYears(start, 1), 1)
+        break
+      default: 
+        end = new Date(start)
     }
-    
-    // Set time to match start date time (7h sáng mặc định)
-    end.setHours(start.getHours(), start.getMinutes(), 0, 0)
+    end.setHours(23, 59, 59, 999)
 
     const notification = new Date(start.getTime() + (end.getTime() - start.getTime()) / 2)
 
@@ -455,16 +465,26 @@ function PeriodFormModal({ onClose, editPeriod, organizationId, onSubmit, isSubm
         const startDateObj = new Date(start)
         let endDateObj: Date
         switch (type) {
-          case 'DAILY': endDateObj = startDateObj; break
-          case 'WEEKLY': endDateObj = addDays(startDateObj, 6); break
-          case 'MONTHLY': endDateObj = subDays(addMonths(startDateObj, 1), 1); break
-          case 'QUARTERLY': endDateObj = subDays(addMonths(startDateObj, 3), 1); break
-          case 'YEARLY': endDateObj = subDays(addYears(startDateObj, 1), 1); break
-          default: endDateObj = startDateObj
+          case 'DAILY': 
+            endDateObj = new Date(startDateObj)
+            break
+          case 'WEEKLY': 
+            endDateObj = addDays(startDateObj, 6)
+            break
+          case 'MONTHLY': 
+            endDateObj = subDays(addMonths(startDateObj, 1), 1)
+            break
+          case 'QUARTERLY': 
+            endDateObj = subDays(addMonths(startDateObj, 3), 1)
+            break
+          case 'YEARLY': 
+            endDateObj = subDays(addYears(startDateObj, 1), 1)
+            break
+          default: 
+            endDateObj = new Date(startDateObj)
         }
+        endDateObj.setHours(23, 59, 59, 999)
 
-        // Set time to match start date time
-        endDateObj.setHours(startDateObj.getHours(), startDateObj.getMinutes(), 0, 0)
         next.endDate = format(endDateObj, "yyyy-MM-dd'T'HH:mm")
 
         // Auto calculate notification date (50% of period)
@@ -483,6 +503,23 @@ function PeriodFormModal({ onClose, editPeriod, organizationId, onSubmit, isSubm
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    
+    const start = new Date(formData.startDate).getTime()
+    const end = new Date(formData.endDate).getTime()
+    const notification = formData.notificationDate ? new Date(formData.notificationDate).getTime() : null
+
+    if (end <= start) {
+      toast.error('Thời gian kết thúc phải sau thời gian bắt đầu')
+      return
+    }
+
+    if (notification) {
+      if (notification <= start || notification >= end) {
+        toast.error('Thời gian thông báo phải nằm trong khoảng thời gian bắt đầu và kết thúc')
+        return
+      }
+    }
+
     await onSubmit({
       ...formData,
       startDate: new Date(formData.startDate).toISOString(),

@@ -9,6 +9,7 @@ import { useAuthStore } from '@/store/authStore'
 import { useOrgHierarchyLevels, useOrgUnitTree } from '@/features/organization/hooks/useOrganizationStructure'
 import { OrgUnitTreeResponse } from '@/features/organization/types/org-unit'
 import { useRoles } from '@/features/organization/hooks/useRoles'
+import { usePermission } from '@/hooks/usePermission'
 
 interface ExcelPreviewModalProps {
   open: boolean
@@ -48,32 +49,40 @@ export default function ExcelPreviewModal({ open, file, onClose, onImport, isImp
   const { data: hierarchyLevels } = useOrgHierarchyLevels(organizationId)
   const { data: orgTree } = useOrgUnitTree(organizationId)
   const { data: rolesData } = useRoles()
+  const { hasPermission } = usePermission()
 
   const { currentUserLevel, currentUserRank } = useMemo(() => {
-    if (!user || !rolesData) return { currentUserLevel: 999, currentUserRank: 999 }
-    const userRoleNames = user.memberships?.map(m => m.roleName) || []
-    const userRoles = rolesData.filter(r => userRoleNames.includes(r.name))
-    const level = userRoles.length > 0 ? Math.min(...userRoles.map(r => r.level ?? 999)) : 999
-    const rank = userRoles.length > 0 
-      ? Math.min(...userRoles.filter(r => r.level === level).map(r => r.rank ?? 999)) 
-      : 999
+    if (!user) return { currentUserLevel: 999, currentUserRank: 999 }
+    
+    // Use the values directly from the user memberships instead of looking up by name in rolesData
+    const levels = user.memberships?.map(m => m.roleLevel ?? 999) || []
+    const level = levels.length > 0 ? Math.min(...levels) : 999
+    
+    const ranks = user.memberships?.filter(m => (m.roleLevel ?? 999) === level).map(m => m.roleRank ?? 999) || []
+    const rank = ranks.length > 0 ? Math.min(...ranks) : 999
+    
     return { currentUserLevel: level, currentUserRank: rank }
-  }, [user, rolesData])
+  }, [user])
 
   const isAdmin = useMemo(() => {
-    return user?.memberships?.some(m => m.roleName === 'ADMIN' || m.roleName === 'DIRECTOR_SYSTEM') || false
-  }, [user])
+    return hasPermission('ROLE:CREATE') || hasPermission('COMPANY:UPDATE') || 
+           user?.memberships?.some(m => m.roleName === 'ADMIN' || m.roleName === 'DIRECTOR_SYSTEM') || false
+  }, [user, hasPermission])
 
   const assignableRoles = useMemo(() => {
     if (!rolesData) return []
     const levelCount = hierarchyLevels?.length || 0
 
     return rolesData.filter((r: any) => {
-      if (isAdmin) return r.name !== 'DIRECTOR_SYSTEM' || user?.memberships?.some(m => m.roleName === 'DIRECTOR_SYSTEM')
-      
-      // 1. Authority check
-      if (r.level !== undefined && r.level < currentUserLevel) return false
-      if (r.level === currentUserLevel && r.rank !== undefined && r.rank <= currentUserRank) return false
+      if (r.name === 'DIRECTOR_SYSTEM' && !user?.memberships?.some(m => m.roleName === 'DIRECTOR_SYSTEM')) return false
+
+      const isDirectorSystem = user?.memberships?.some(m => m.roleName === 'DIRECTOR_SYSTEM')
+      if (!isDirectorSystem) {
+        if (r.level !== undefined && r.level < currentUserLevel) return false
+        if (r.level === currentUserLevel && r.rank !== undefined && r.rank <= currentUserRank) return false
+      }
+
+      if (isAdmin) return true
 
       // 2. Hierarchy structural filters
       if (r.rank === 2) return true // Staff always allowed
@@ -179,31 +188,34 @@ export default function ExcelPreviewModal({ open, file, onClose, onImport, isImp
 
     // Kiểm tra Mã đơn vị tồn tại và lấy thông tin đơn vị
     let selectedNode: OrgUnitTreeResponse | undefined
-    if (row.OrgUnitCode) {
-      // Try matching by code first
-      if (validUnitCodes.has(row.OrgUnitCode)) {
-        // Already a valid code
-      } else {
-        // Try matching by name
-        const findByName = (nodes: OrgUnitTreeResponse[]): string | null => {
-          for (const n of nodes) {
-            if (n.name.toLowerCase().trim() === row.OrgUnitCode?.toLowerCase().trim()) return n.code
-            if (n.children) {
-              const res = findByName(n.children)
-              if (res) return res
-            }
+    if (row.OrgUnitCode && !validUnitCodes.has(row.OrgUnitCode)) {
+      // Try matching by name
+      const findByName = (nodes: OrgUnitTreeResponse[]): string | null => {
+        for (const n of nodes) {
+          if (n.name.toLowerCase().trim() === row.OrgUnitCode?.toLowerCase().trim()) return n.code
+          if (n.children) {
+            const res = findByName(n.children)
+            if (res) return res
           }
-          return null
         }
-        const matchedCode = orgTree ? findByName(orgTree) : null
-        if (matchedCode) {
-          row.OrgUnitCode = matchedCode
-        }
+        return null
       }
+      const matchedCode = orgTree ? findByName(orgTree) : null
+      if (matchedCode) {
+        row.OrgUnitCode = matchedCode
+      }
+    }
 
-      if (!validUnitCodes.has(row.OrgUnitCode)) {
-        errors['OrgUnitCode'] = 'Đơn vị không hợp lệ'
+    if (!row.OrgUnitCode || !validUnitCodes.has(row.OrgUnitCode)) {
+      // Fallback to root unit if not matched or missing
+      if (orgTree && orgTree.length > 0) {
+        row.OrgUnitCode = orgTree[0]?.code
       } else {
+        errors['OrgUnitCode'] = 'Đơn vị không hợp lệ'
+      }
+    }
+    
+    if (row.OrgUnitCode && validUnitCodes.has(row.OrgUnitCode)) {
         // Tìm node tương ứng để lấy allowedRoles
         const findNode = (nodes: OrgUnitTreeResponse[]) => {
           for (const node of nodes) {
@@ -214,8 +226,7 @@ export default function ExcelPreviewModal({ open, file, onClose, onImport, isImp
             if (node.children) findNode(node.children)
           }
         }
-        if (orgTree) findNode(orgTree)
-      }
+      if (orgTree) findNode(orgTree)
     }
 
     let roleObj = rolesData?.find(r => 
@@ -247,8 +258,13 @@ export default function ExcelPreviewModal({ open, file, onClose, onImport, isImp
       roleObj = sortedRoles[0];
     }
 
-    if (roleObj && roleObj.level !== undefined && roleObj.level <= currentUserLevel) {
-      errors['Role'] = `Bạn không có quyền gán vai trò ngang hoặc cao hơn mình (${ROLE_MAP[roleObj.name] || roleObj.name})`
+    if (roleObj && roleObj.level !== undefined) {
+      const isDirectorSystem = user?.memberships?.some(m => m.roleName === 'DIRECTOR_SYSTEM')
+      if (!isDirectorSystem) {
+        if (roleObj.level < currentUserLevel || (roleObj.level === currentUserLevel && roleObj.rank !== undefined && roleObj.rank <= currentUserRank)) {
+          errors['Role'] = `Bạn không có quyền gán vai trò ngang hoặc cao hơn mình (${ROLE_MAP[roleObj.name] || roleObj.name})`
+        }
+      }
     }
 
     // Kiểm tra phạm vi vai trò của Đơn vị (allowedRoles)
@@ -258,13 +274,10 @@ export default function ExcelPreviewModal({ open, file, onClose, onImport, isImp
     }
 
     if (selectedNode && selectedNode.allowedRoles && selectedNode.allowedRoles.length > 0) {
-      const allowedIds = new Set(selectedNode.allowedRoles.map(r => r.id))
-      // Nhân viên (Rank 2) luôn được phép ở mọi đơn vị
-      const isStaffRole = roleObj?.rank === 2
-      
+      const allowedIds = new Set(selectedNode.allowedRoles.map((r: any) => r.id))
       const isRoleAllowed = roleObj ? allowedIds.has(roleObj.id) : false
       
-      if (!isRoleAllowed && !isStaffRole) {
+      if (!isRoleAllowed) {
         errors['Role'] = `Vai trò ${roleObj ? (ROLE_MAP[roleObj.name] || roleObj.name) : row.Role} không được phép gán trong đơn vị ${selectedNode.name}`
       }
     }
@@ -287,7 +300,7 @@ export default function ExcelPreviewModal({ open, file, onClose, onImport, isImp
 
     validatedRows.forEach(row => {
       // At this point, row.Role is expected to be an ID if found by validateRow
-      const roleObj = rolesData?.find(r => r.id === row.Role)
+      const roleObj = rolesData?.find((r: any) => r.id === row.Role)
 
       if (row.OrgUnitCode) {
         if (roleObj && (roleObj.rank === 0 || roleObj.rank === 1)) {
@@ -308,7 +321,7 @@ export default function ExcelPreviewModal({ open, file, onClose, onImport, isImp
     // 3. Third pass: apply cross-row errors
     return validatedRows.map(row => {
       const errors = { ...(row._errors || {}) }
-      const roleObj = rolesData?.find(r => r.id === row.Role)
+      const roleObj = rolesData?.find((r: any) => r.id === row.Role)
 
       if (row.OrgUnitCode && roleObj) {
         if (roleObj.rank === 0 || roleObj.rank === 1) {
@@ -320,7 +333,8 @@ export default function ExcelPreviewModal({ open, file, onClose, onImport, isImp
         }
 
         if (roleObj.rank === 1 || roleObj.rank === 2) {
-          if (!unitsWithManager.has(row.OrgUnitCode)) {
+          const rootCode = orgTree && orgTree.length > 0 ? orgTree[0]?.code : null
+          if (!unitsWithManager.has(row.OrgUnitCode) && row.OrgUnitCode !== rootCode) {
             errors['OrgUnitCode'] = 'Đơn vị cần có 1 Trưởng đơn vị đảm nhiệm (Rank 0) trong danh sách import'
           }
         }
@@ -339,14 +353,14 @@ export default function ExcelPreviewModal({ open, file, onClose, onImport, isImp
   }
 
   const handleCellChange = (id: string, field: keyof UserRow, value: string) => {
-    setData(prev => {
-      const updatedRows = prev.map(row => row.id === id ? { ...row, [field]: value } : row);
+    setData((prev: any[]) => {
+      const updatedRows = prev.map((row: any) => row.id === id ? { ...row, [field]: value } : row);
       return validateAllRows(updatedRows);
     })
   }
 
   const handleRemoveRow = (id: string) => {
-    setData(prev => validateAllRows(prev.filter(r => r.id !== id)))
+    setData((prev: any[]) => validateAllRows(prev.filter((r: any) => r.id !== id)))
   }
 
   const handleAddRow = () => {
@@ -360,7 +374,7 @@ export default function ExcelPreviewModal({ open, file, onClose, onImport, isImp
       Password: '',
       OrgUnitCode: '',
     }
-    setData(prev => validateAllRows([...prev, newRow]))
+    setData((prev: any[]) => validateAllRows([...prev, newRow]))
   }
 
   const handleSave = () => {
@@ -520,13 +534,7 @@ export default function ExcelPreviewModal({ open, file, onClose, onImport, isImp
                                   return unitInfo.allowedRoles.some(ar => ar.id === role.id)
                                 }
 
-                                // 2. Fallback to level-based logic
-                                // Staff (Rank 2) is always allowed at level 4
-                                if (role.rank === 2) return true
-                                // Role matches unit level (Manager/Deputy)
-                                if (role.level === unitInfo.level) return true
-                                
-                                return false
+                                return true
                               })
 
                               const isCurrentRoleMissing = !filteredRoles.some(r => r.id === row.Role);
@@ -544,8 +552,8 @@ export default function ExcelPreviewModal({ open, file, onClose, onImport, isImp
                                   {isCurrentRoleMissing && (
                                     <option value={row.Role} className="hidden">
                                       {(() => {
-                                        const r = rolesData?.find(x => x.id === row.Role || x.name === row.Role);
-                                        return r ? `${ROLE_MAP[r.name] || r.name} (Không hợp lệ)` : 'Chọn chức danh...';
+                                        const r = rolesData?.find((x: any) => x.id === row.Role || x.name === row.Role);
+                                        return r ? (ROLE_MAP[r.name] || r.name) : 'Chọn chức danh...';
                                       })()}
                                     </option>
                                   )}
@@ -581,7 +589,6 @@ export default function ExcelPreviewModal({ open, file, onClose, onImport, isImp
                                 row._errors?.OrgUnitCode ? "border-red-300 bg-red-50" : "border-transparent hover:border-gray-300"
                               )}
                             >
-                              <option value="">-- Chọn đơn vị --</option>
                               {Array.from(validUnitCodes).map(code => {
                                 // Try to find the name for this code from orgTree
                                 let name = code

@@ -131,7 +131,7 @@ export default function UserTable({ users, onRowClick, onDelete, canUpdate, canD
                               <Building2 size={10} className="shrink-0" />
                               <span className="truncate max-w-[100px]" title={m.orgUnitName}>{m.orgUnitName}</span>
                               {m.roleName && (
-                                <span className="opacity-50 text-[10px]">({m.roleName})</span>
+                                <span className="opacity-50 text-[10px]">({m.roleDisplayName || m.roleName})</span>
                               )}
                            </div>
                         ))}

@@ -136,12 +136,7 @@ public class AuthService {
         emailService.sendWelcomeEmail(user.getEmail(), user.getFullName());
         emailService.sendVerifyEmail(user.getEmail(), verifyToken);
 
-        return AuthResponse.builder()
-                .accessToken("")
-                .refreshToken("")
-                .tokenType("Bearer")
-                .user(enrichUserInfo(userMapper.toUserInfoResponse(user)))
-                .build();
+        return AuthResponse.builder().accessToken("").refreshToken("").tokenType("Bearer").user(enrichUserInfo(userMapper.toUserInfoResponse(user))).requirePasswordChange(user.getRequirePasswordChange()).hasSeenOnboarding(Boolean.TRUE.equals(user.getHasSeenOnboarding())).build();
     }
 
     @Transactional
@@ -164,12 +159,7 @@ public class AuthService {
         String accessToken = jwtTokenProvider.generateAccessToken(user.getEmail(), authorities);
         RefreshToken refreshToken = refreshTokenService.createOrUpdateRefreshToken(user.getId(), userAgent);
 
-        return AuthResponse.builder()
-                .accessToken(accessToken)
-                .refreshToken(refreshToken.getToken())
-                .tokenType("Bearer")
-                .user(enrichUserInfo(userMapper.toUserInfoResponse(user)))
-                .build();
+        return AuthResponse.builder().accessToken(accessToken).refreshToken(refreshToken.getToken()).tokenType("Bearer").user(enrichUserInfo(userMapper.toUserInfoResponse(user))).requirePasswordChange(user.getRequirePasswordChange()).hasSeenOnboarding(Boolean.TRUE.equals(user.getHasSeenOnboarding())).build();
     }
 
     @Transactional
@@ -183,12 +173,7 @@ public class AuthService {
         List<String> authorities = getUserAuthorities(user.getId());
         String accessToken = jwtTokenProvider.generateAccessToken(user.getEmail(), authorities);
 
-        return AuthResponse.builder()
-                .accessToken(accessToken)
-                .refreshToken(newRefreshToken.getToken())
-                .tokenType("Bearer")
-                .user(enrichUserInfo(userMapper.toUserInfoResponse(user)))
-                .build();
+        return AuthResponse.builder().accessToken(accessToken).refreshToken(newRefreshToken.getToken()).tokenType("Bearer").user(enrichUserInfo(userMapper.toUserInfoResponse(user))).requirePasswordChange(user.getRequirePasswordChange()).hasSeenOnboarding(Boolean.TRUE.equals(user.getHasSeenOnboarding())).build();
     }
 
     @Transactional
@@ -308,16 +293,13 @@ public class AuthService {
                     String roleName = uro.getRole().getName();
                     String unitTypeLabel = unit.getOrgHierarchyLevel().getUnitTypeName();
                     
-                    log.info("Membership: User={}, RoleName={}, RoleId={}, Rank={}, Level={}, Unit={}", 
-                             response.getEmail(), roleName, uro.getRole().getId(), uro.getRole().getRank(), 
-                             unit.getOrgHierarchyLevel().getLevelOrder(), unit.getName());
-                            
                     return UserMembershipResponse.builder()
                         .orgUnitId(unit.getId())
                         .organizationId(unit.getOrgHierarchyLevel().getOrganization().getId())
                         .orgUnitName(unit.getName())
                         .organizationName(unit.getOrgHierarchyLevel().getOrganization().getName())
                         .roleName(roleName)
+                        .roleDisplayName(roleName)
                         .roleRank(uro.getRole().getRank())
                         .unitTypeLabel(unitTypeLabel)
                         .levelOrder(unit.getOrgHierarchyLevel().getLevelOrder())
@@ -357,6 +339,15 @@ public class AuthService {
         } catch (java.io.IOException e) {
             throw new BusinessException("Failed to upload avatar: " + e.getMessage());
         }
+    }
+
+    @Transactional
+    public void completeOnboarding() {
+        String email = SecurityContextHolder.getContext().getAuthentication().getName();
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new ResourceNotFoundException("User", "email", email));
+        user.setHasSeenOnboarding(true);
+        userRepository.save(user);
     }
 
     private List<String> getUserAuthorities(UUID userId) {

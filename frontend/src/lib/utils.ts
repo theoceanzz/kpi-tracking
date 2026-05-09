@@ -62,7 +62,7 @@ export function getPrimaryMembership(user: { memberships?: Array<any> }): any | 
 export function getHighestRole(user: { roles?: string[]; memberships?: Array<any> }): string {
   const primaryMembership = getPrimaryMembership(user);
   if (primaryMembership) {
-    return primaryMembership.roleName;
+    return primaryMembership.roleDisplayName || primaryMembership.roleName;
   }
   if (user.roles && user.roles.length > 0) {
     return user.roles[0]!;

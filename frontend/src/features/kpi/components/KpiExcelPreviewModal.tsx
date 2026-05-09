@@ -3,7 +3,7 @@ import { read, write, utils } from 'xlsx'
 import { 
   X, Save, AlertCircle, Trash2, Plus, FileSpreadsheet, 
   ListPlus, Search, User, UserCheck, Check,
-  Scale, ArrowRight
+  Scale, ArrowRight, ChevronDown, ChevronUp
 } from 'lucide-react'
 import { useKpiTotalWeight } from '@/features/kpi/hooks/useKpiTotalWeight'
 import { toast } from 'sonner'
@@ -66,6 +66,7 @@ export default function KpiExcelPreviewModal({ open, file, onClose, onImport, is
   const [bulkPeriod, setBulkPeriod] = useState('')
   const [bulkOrgUnit, setBulkOrgUnit] = useState('')
   const [bulkEmpCode, setBulkEmpCode] = useState('')
+  const [isEmpTableOpen, setIsEmpTableOpen] = useState(false)
 
   // Fetch data for dropdowns
   const { data: periodsData } = useKpiPeriods({ 
@@ -336,10 +337,18 @@ export default function KpiExcelPreviewModal({ open, file, onClose, onImport, is
     // Check total weight per unit (OrgUnit + Period)
     const uniqueGroups = Array.from(new Set(data.map(r => `${r.OrgUnit}|${r.Period}`)))
     
+    // Check total weight per employee (Employee + Period)
+    const employeeGroups = Array.from(new Set(data.flatMap(r => {
+      const codes = r.EmployeeCode.split(',').map(s => s.trim()).filter(Boolean)
+      return codes.map(c => `${c}|${r.Period}`)
+    })))
+
     setLoading(true)
-    const validations = await Promise.all(uniqueGroups.map(async (groupKey) => {
+    
+    // Validate OrgUnits
+    const unitValidations = await Promise.all(uniqueGroups.map(async (groupKey) => {
       const [unitName, periodName] = groupKey.split('|')
-      if (!unitName || !periodName) return { unitName, total: 0, isValid: true }
+      if (!unitName || !periodName) return { name: unitName, total: 0, isValid: true }
 
       const excelWeight = data
         .filter(r => r.OrgUnit === unitName && r.Period === periodName)
@@ -352,20 +361,50 @@ export default function KpiExcelPreviewModal({ open, file, onClose, onImport, is
       if (unitId && periodId) {
         try {
           systemWeight = await kpiApi.getTotalWeight(unitId, periodId)
-        } catch (e) {
-          // Fallback if API fails
-        }
+        } catch (e) {}
       }
 
       const total = systemWeight + excelWeight
-      return { unitName, total, isValid: Math.abs(total - 100) < 0.01 }
+      return { name: unitName, total, isValid: Math.abs(total - 100) < 0.01 }
     }))
 
-    const invalidGroups = validations.filter(v => !v.isValid)
-    if (invalidGroups.length > 0) {
+    // Validate Employees
+    const empValidations = await Promise.all(employeeGroups.map(async (groupKey) => {
+      const [empCode, periodName] = groupKey.split('|')
+      if (!empCode || !periodName) return { name: empCode, total: 0, isValid: true }
+
+      const excelWeight = data
+        .filter(r => r.EmployeeCode.includes(empCode) && r.Period === periodName)
+        .reduce((sum, r) => sum + (parseFloat(r.Weight) || 0), 0)
+      
+      const userObj = allUsers.find(u => u.employeeCode === empCode)
+      const periodId = periodsData?.content?.find((p: any) => p.name === periodName)?.id
+
+      let systemWeight = 0
+      if (userObj?.id && periodId) {
+        try {
+          systemWeight = await kpiApi.getTotalWeight(undefined, periodId, userObj.id)
+        } catch (e) {}
+      }
+
+      const total = systemWeight + excelWeight
+      const fullName = userObj?.fullName || empCode
+      return { name: fullName, code: empCode, total, isValid: Math.abs(total - 100) < 0.01 }
+    }))
+
+    const invalidUnits = unitValidations.filter(v => !v.isValid)
+    const invalidEmps = empValidations.filter(v => !v.isValid)
+
+    if (invalidUnits.length > 0 || invalidEmps.length > 0) {
       setLoading(false)
-      const errorMsg = invalidGroups.map(v => `${v.unitName} (${v.total.toFixed(1)}%)`).join(', ')
-      toast.error(`Tổng trọng số mỗi đơn vị phải đạt 100%. Kiểm tra: ${errorMsg}`)
+      if (invalidUnits.length > 0) {
+        const errorMsg = invalidUnits.map(v => `${v.name} (${v.total.toFixed(1)}%)`).join(', ')
+        toast.error(`Tổng trọng số mỗi đơn vị phải đạt 100%. Kiểm tra: ${errorMsg}`)
+      }
+      if (invalidEmps.length > 0) {
+        const errorMsg = invalidEmps.map(v => `${v.name} [${v.code}] (${v.total.toFixed(1)}%)`).join(', ')
+        toast.error(`Tổng trọng số mỗi nhân viên phải đạt 100%. Kiểm tra: ${errorMsg}`)
+      }
       return
     }
 
@@ -424,32 +463,106 @@ export default function KpiExcelPreviewModal({ open, file, onClose, onImport, is
           ) : (
             <div className="space-y-6">
               {/* Real-time Weight Summary Panel */}
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {(() => {
-                  const uniquePairs = Array.from(new Set(data.map(r => `${r.OrgUnit}|${r.Period}`)))
-                  return uniquePairs.map(pair => {
-                    const [unitName, periodName] = pair.split('|')
-                    if (!unitName || !periodName) return null
-                    
-                    const unitId = flatOrgUnits.find(u => u.name === unitName)?.id
-                    const periodId = periodsData?.content?.find((p: any) => p.name === periodName)?.id
-                    
-                    const excelWeight = data
-                      .filter(r => r.OrgUnit === unitName && r.Period === periodName)
-                      .reduce((sum, r) => sum + (parseFloat(r.Weight) || 0), 0)
-                    
-                    return (
-                      <UnitWeightStatus 
-                        key={pair}
-                        unitId={unitId}
-                        unitName={unitName}
-                        periodId={periodId}
-                        periodName={periodName}
-                        excelWeight={excelWeight}
-                      />
-                    )
-                  })
-                })()}
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-sm font-black text-slate-900 dark:text-white uppercase tracking-tight flex items-center gap-2">
+                    <Scale size={18} className="text-indigo-600" />
+                    Trạng thái trọng số
+                  </h3>
+                </div>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {(() => {
+                    const uniquePairs = Array.from(new Set(data.map(r => `${r.OrgUnit}|${r.Period}`)))
+                    return uniquePairs.map(pair => {
+                      const [unitName, periodName] = pair.split('|')
+                      if (!unitName || !periodName) return null
+                      
+                      const unitId = flatOrgUnits.find(u => u.name === unitName)?.id
+                      const periodId = periodsData?.content?.find((p: any) => p.name === periodName)?.id
+                      
+                      const excelWeight = data
+                        .filter(r => r.OrgUnit === unitName && r.Period === periodName)
+                        .reduce((sum, r) => sum + (parseFloat(r.Weight) || 0), 0)
+                      
+                      return (
+                        <UnitWeightStatus 
+                          key={`unit-${pair}`}
+                          unitId={unitId}
+                          unitName={unitName}
+                          periodId={periodId}
+                          periodName={periodName}
+                          excelWeight={excelWeight}
+                        />
+                      )
+                    })
+                  })()}
+                </div>
+
+                {/* Employee Weight Table */}
+                <div className="mt-8 space-y-4">
+                  <button 
+                    onClick={() => setIsEmpTableOpen(!isEmpTableOpen)}
+                    className="flex items-center gap-3 group"
+                  >
+                    <h4 className="text-[10px] font-black text-slate-400 group-hover:text-indigo-600 transition-colors uppercase tracking-[0.2em] px-1">Chi tiết trọng số theo nhân viên</h4>
+                    <div className="w-5 h-5 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-400 group-hover:bg-indigo-600 group-hover:text-white transition-all">
+                      {isEmpTableOpen ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+                    </div>
+                  </button>
+
+                  {isEmpTableOpen && (
+                    <div className="border border-slate-200 dark:border-slate-800 rounded-[24px] overflow-hidden shadow-sm bg-white dark:bg-slate-900 animate-in slide-in-from-top-2 duration-300">
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-sm text-left">
+                          <thead className="bg-slate-50 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-700 text-slate-400 font-black uppercase text-[9px] tracking-widest">
+                            <tr>
+                              <th className="px-6 py-4">Nhân viên</th>
+                              <th className="px-6 py-4">Đợt / Đơn vị</th>
+                              <th className="px-6 py-4 text-center">Hiện tại</th>
+                              <th className="px-6 py-4 text-center">Excel</th>
+                              <th className="px-6 py-4 text-center">Tổng cộng</th>
+                              <th className="px-6 py-4">Trạng thái</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                            {(() => {
+                              const uniqueEmpPairs = Array.from(new Set(data.flatMap(r => {
+                                const codes = r.EmployeeCode.split(',').map(s => s.trim()).filter(Boolean)
+                                return codes.map(c => `${c}|${r.Period}|${r.OrgUnit}`)
+                              })))
+
+                              return uniqueEmpPairs.map(pair => {
+                                const [empCode, periodName, unitName] = pair.split('|')
+                                if (!empCode || !periodName) return null
+                                
+                                const userObj = allUsers.find(u => u.employeeCode === empCode)
+                                const periodId = periodsData?.content?.find((p: any) => p.name === periodName)?.id
+                                
+                                const excelWeight = data
+                                  .filter(r => r.EmployeeCode.includes(empCode) && r.Period === periodName)
+                                  .reduce((sum, r) => sum + (parseFloat(r.Weight) || 0), 0)
+                                
+                                return (
+                                  <EmployeeWeightRow 
+                                    key={`emp-row-${pair}`}
+                                    userId={userObj?.id}
+                                    fullName={userObj?.fullName || empCode}
+                                    empCode={empCode}
+                                    unitName={unitName || ''}
+                                    periodId={periodId}
+                                    periodName={periodName}
+                                    excelWeight={excelWeight}
+                                  />
+                                )
+                              })
+                            })()}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
               {hasAnyErrors && (
                 <div className="p-5 bg-rose-50 dark:bg-rose-900/20 text-rose-600 dark:text-rose-400 rounded-3xl flex items-start gap-4 border border-rose-100 dark:border-rose-900/30 shadow-sm animate-in shake duration-500">
@@ -947,5 +1060,69 @@ function UnitWeightStatus({ unitId, unitName, periodId, periodName, excelWeight 
         </p>
       )}
     </div>
+  )
+}
+
+function EmployeeWeightRow({ userId, fullName, empCode, unitName, periodId, periodName, excelWeight }: { 
+  userId?: string, fullName: string, empCode: string, unitName: string, periodId?: string, periodName: string, excelWeight: number 
+}) {
+  const { data: systemWeight = 0 } = useKpiTotalWeight(undefined, periodId, userId)
+  const total = systemWeight + excelWeight
+  const isPerfect = Math.abs(total - 100) < 0.01
+  const isOver = total > 100.01
+
+  return (
+    <tr className="hover:bg-slate-50/50 dark:hover:bg-slate-800/20 transition-colors">
+      <td className="px-6 py-4">
+        <div className="flex items-center gap-3">
+          <div className={cn(
+            "w-8 h-8 rounded-lg flex items-center justify-center text-[10px] font-black",
+            isPerfect ? "bg-emerald-100 text-emerald-600" : isOver ? "bg-rose-100 text-rose-600" : "bg-amber-100 text-amber-600"
+          )}>
+            {fullName.charAt(0)}
+          </div>
+          <div>
+            <p className="text-sm font-black text-slate-900 dark:text-white">{fullName}</p>
+            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-tight">{empCode}</p>
+          </div>
+        </div>
+      </td>
+      <td className="px-6 py-4">
+        <p className="text-xs font-bold text-slate-600 dark:text-slate-400">{periodName}</p>
+        <p className="text-[10px] font-medium text-slate-400 truncate max-w-[150px]">{unitName}</p>
+      </td>
+      <td className="px-6 py-4 text-center">
+        <span className="text-xs font-bold text-slate-500">{systemWeight}%</span>
+      </td>
+      <td className="px-6 py-4 text-center">
+        <span className="text-xs font-black text-indigo-600">{excelWeight}%</span>
+      </td>
+      <td className="px-6 py-4 text-center">
+        <span className={cn(
+          "text-sm font-black",
+          isPerfect ? "text-emerald-600" : isOver ? "text-rose-600" : "text-amber-600"
+        )}>
+          {total.toFixed(1)}%
+        </span>
+      </td>
+      <td className="px-6 py-4">
+        <div className={cn(
+          "inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-wider",
+          isPerfect 
+            ? "bg-emerald-100 text-emerald-600 dark:bg-emerald-900/30" 
+            : isOver
+              ? "bg-rose-100 text-rose-600 dark:bg-rose-900/30"
+              : "bg-amber-100 text-amber-600 dark:bg-amber-900/30"
+        )}>
+          {isPerfect ? (
+            <><Check size={10} /> Đạt 100%</>
+          ) : isOver ? (
+            <><AlertCircle size={10} /> Vượt quá</>
+          ) : (
+            <><Plus size={10} /> Thiếu {(100 - total).toFixed(1)}%</>
+          )}
+        </div>
+      </td>
+    </tr>
   )
 }

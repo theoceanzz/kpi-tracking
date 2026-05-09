@@ -81,7 +81,13 @@ public class RoleService {
                 .orElseThrow(() -> new ResourceNotFoundException("Role", "id", roleId));
 
         if (Boolean.TRUE.equals(role.getIsSystem())) {
-            throw new BusinessException("Cannot modify system role: " + role.getName());
+            // Allow renaming system roles, but protect level/rank changes
+            boolean levelChanged = request.getLevel() != null && !request.getLevel().equals(role.getLevel());
+            boolean rankChanged = request.getRank() != null && !request.getRank().equals(role.getRank());
+            
+            if (levelChanged || rankChanged) {
+                throw new BusinessException("Cannot modify hierarchy (level/rank) of system role: " + role.getName());
+            }
         }
 
         if (request.getName() != null) {
@@ -97,7 +103,8 @@ public class RoleService {
 
         if (request.getRank() != null) {
             role.setRank(request.getRank());
-        } else if (request.getName() != null) {
+        } else if (request.getName() != null && !Boolean.TRUE.equals(role.getIsSystem())) {
+            // Only auto-derive rank for non-system roles to avoid messing up system roles
             String lowerName = request.getName().toLowerCase();
             if (lowerName.contains("trưởng") || lowerName.contains("giám đốc") || lowerName.contains("head") || lowerName.contains("director")) role.setRank(0);
             else if (lowerName.contains("phó") || lowerName.contains("deputy")) role.setRank(1);

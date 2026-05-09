@@ -423,7 +423,7 @@ export function OrgUnitDrawer({ orgId, drawerState, onClose, hierarchyLevels }: 
               </h3>
               <p className="text-xs text-gray-500 mb-4 italic">Giới hạn các vai trò có thể gán cho thành viên trong đơn vị này. Để trống để cho phép tất cả.</p>
               <div className="grid grid-cols-2 gap-3">
-                {filteredRoles.map(role => {
+                {[...filteredRoles].sort((a, b) => (a.level ?? 0) - (b.level ?? 0)).map(role => {
                   const disableReason = getRoleDisableReason(role)
                   const isDisabled = !!disableReason
 

@@ -120,11 +120,12 @@ public class KpiCriteriaController {
     }
 
     @GetMapping("/total-weight")
-    @Operation(summary = "Get total weight of KPIs for an org unit and period")
+    @Operation(summary = "Get total weight of KPIs for an org unit or user and period")
     public ResponseEntity<ApiResponse<Double>> getTotalWeight(
-            @RequestParam UUID orgUnitId,
+            @RequestParam(required = false) UUID orgUnitId,
+            @RequestParam(required = false) UUID userId,
             @RequestParam(required = false) UUID kpiPeriodId) {
-        Double totalWeight = kpiCriteriaService.getTotalWeight(orgUnitId, kpiPeriodId);
+        Double totalWeight = kpiCriteriaService.getTotalWeight(orgUnitId, userId, kpiPeriodId);
         return ResponseEntity.ok(ApiResponse.success(totalWeight != null ? totalWeight : 0.0));
     }
 

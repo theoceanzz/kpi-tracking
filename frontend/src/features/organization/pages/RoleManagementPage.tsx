@@ -17,6 +17,7 @@ import {
   MoreVertical,
   Zap
 } from 'lucide-react'
+import { useAuth } from '@/hooks/useAuth'
 import { useRoles, useCreateRole, useUpdateRole, useDeleteRole } from '../hooks/useRoles'
 import { useOrgHierarchyLevels } from '../hooks/useOrganizationStructure'
 import { useAuthStore } from '@/store/authStore'
@@ -32,6 +33,7 @@ import { ROLE_MAP } from '@/constants/roles'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 
 export default function RoleManagementPage() {
+  const { refreshUser } = useAuth()
   const [searchQuery, setSearchQuery] = useState('')
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [isPermissionDrawerOpen, setIsPermissionDrawerOpen] = useState(false)
@@ -155,6 +157,8 @@ export default function RoleManagementPage() {
         })
       }
       setIsModalOpen(false)
+      // Refresh current user info in case their own role was renamed
+      refreshUser()
     } catch (error) {}
   }
 
@@ -180,7 +184,7 @@ export default function RoleManagementPage() {
   return (
     <div className="max-w-7xl mx-auto space-y-6 pb-12 animate-in fade-in slide-in-from-bottom-4 duration-700">
       {/* Header Section */}
-      <div className="relative overflow-hidden bg-gradient-to-br from-indigo-700 via-indigo-600 to-violet-700 rounded-[2.5rem] p-8 md:p-12 shadow-2xl shadow-indigo-200/50">
+      <div id="tour-roles-header" className="relative overflow-hidden bg-gradient-to-br from-indigo-700 via-indigo-600 to-violet-700 rounded-[2.5rem] p-8 md:p-12 shadow-2xl shadow-indigo-200/50">
         <div className="absolute top-0 right-0 -mt-12 -mr-12 w-64 h-64 bg-white/10 rounded-full blur-3xl" />
         <div className="absolute bottom-0 left-0 -mb-12 -ml-12 w-48 h-48 bg-indigo-400/20 rounded-full blur-2xl" />
         
@@ -201,6 +205,7 @@ export default function RoleManagementPage() {
           <div className="flex flex-col xl:flex-row items-center gap-4 shrink-0">
             <button 
               onClick={() => setIsHierarchyModalOpen(true)}
+              id="tour-roles-hierarchy-btn"
               className="group flex items-center justify-center gap-3 px-6 py-4 bg-white/10 text-white border border-white/20 rounded-[1.25rem] hover:bg-white/20 font-black transition-all shadow-xl hover:scale-[1.02] active:scale-95 text-sm whitespace-nowrap backdrop-blur-md"
             >
               <Zap size={18} className="text-amber-300" fill="currentColor" />
@@ -218,7 +223,7 @@ export default function RoleManagementPage() {
         </div>
 
         {/* Stats Summary Area */}
-        <div className="relative z-10 grid grid-cols-2 md:grid-cols-4 gap-4 mt-12 pt-8 border-t border-white/10">
+        <div id="tour-roles-stats" className="relative z-10 grid grid-cols-2 md:grid-cols-4 gap-4 mt-12 pt-8 border-t border-white/10">
           {[
             { label: 'Tổng số vai trò', value: stats.total, icon: Layers },
             { label: 'Vai trò hệ thống', value: stats.system, icon: Lock },
@@ -237,7 +242,7 @@ export default function RoleManagementPage() {
       </div>
 
       {/* Main Content Area */}
-      <div className="bg-white rounded-[2.5rem] shadow-xl shadow-indigo-100/30 border border-indigo-50 overflow-hidden">
+      <div id="tour-roles-table" className="bg-white rounded-[2.5rem] shadow-xl shadow-indigo-100/30 border border-indigo-50 overflow-hidden">
         {/* Advanced Toolbar */}
         <div className="p-6 md:p-8 bg-gray-50/50 flex flex-col md:flex-row gap-6 justify-between items-center border-b border-gray-100">
           <div className="relative w-full md:w-[450px] group">
@@ -402,20 +407,21 @@ export default function RoleManagementPage() {
                                   Phân quyền
                                 </button>
                                 
+                                <button 
+                                  onClick={() => {
+                                    handleOpenModal(role);
+                                    setActiveMenuId(null);
+                                  }}
+                                  className="w-full px-4 py-3 text-left text-sm font-bold text-gray-700 hover:bg-indigo-50 hover:text-indigo-600 flex items-center gap-3 transition-colors"
+                                >
+                                  <div className="w-8 h-8 rounded-lg bg-gray-50 text-gray-500 flex items-center justify-center">
+                                    <Edit2 size={16} />
+                                  </div>
+                                  Chỉnh sửa
+                                </button>
+
                                 {!role.isSystem ? (
                                   <>
-                                    <button 
-                                      onClick={() => {
-                                        handleOpenModal(role);
-                                        setActiveMenuId(null);
-                                      }}
-                                      className="w-full px-4 py-3 text-left text-sm font-bold text-gray-700 hover:bg-indigo-50 hover:text-indigo-600 flex items-center gap-3 transition-colors"
-                                    >
-                                      <div className="w-8 h-8 rounded-lg bg-gray-50 text-gray-500 flex items-center justify-center">
-                                        <Edit2 size={16} />
-                                      </div>
-                                      Chỉnh sửa
-                                    </button>
                                     <div className="h-px bg-gray-100 my-1 mx-4" />
                                     <button 
                                       onClick={() => {
@@ -495,7 +501,7 @@ export default function RoleManagementPage() {
                     <label className="flex items-center gap-2 text-[10px] font-black text-indigo-600 uppercase tracking-[0.2em] ml-1">
                       <Layers size={12} /> Phân lớp quản lý *
                     </label>
-                    <Select value={String(formData.level)} onValueChange={(val) => setFormData({ ...formData, level: Number(val) })}>
+                    <Select value={String(formData.level)} onValueChange={(val) => setFormData({ ...formData, level: Number(val) })} disabled={editingRole?.isSystem}>
                       <SelectTrigger className="w-full px-6 py-5 bg-gray-50 border-none rounded-[1.5rem] text-sm font-black h-[64px] shadow-sm">
                         <SelectValue placeholder="Chọn cấp độ" />
                       </SelectTrigger>
@@ -517,7 +523,7 @@ export default function RoleManagementPage() {
                     <label className="flex items-center gap-2 text-[10px] font-black text-indigo-600 uppercase tracking-[0.2em] ml-1">
                       <Shield size={12} /> Định danh vị trí *
                     </label>
-                    <Select value={String(formData.rank)} onValueChange={(val) => setFormData({ ...formData, rank: Number(val) })}>
+                    <Select value={String(formData.rank)} onValueChange={(val) => setFormData({ ...formData, rank: Number(val) })} disabled={editingRole?.isSystem}>
                       <SelectTrigger className="w-full px-6 py-5 bg-gray-50 border-none rounded-[1.5rem] text-sm font-black h-[64px] shadow-sm">
                         <SelectValue placeholder="Chọn vị trí" />
                       </SelectTrigger>
@@ -542,7 +548,7 @@ export default function RoleManagementPage() {
                   Đóng
                 </button>
                 <button 
-                  type="submit"
+                  type="submit" 
                   disabled={createMutation.isPending || updateMutation.isPending}
                   className="flex-[2] px-8 py-5 bg-indigo-600 text-white rounded-3xl hover:bg-indigo-700 font-black transition-all shadow-xl shadow-indigo-200 disabled:opacity-50 flex items-center justify-center gap-3"
                 >

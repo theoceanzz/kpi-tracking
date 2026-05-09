@@ -42,31 +42,35 @@ export default function UsersPage() {
   const { data: allRoles } = useRoles()
   const qc = useQueryClient()
 
+  const { hasPermission } = usePermission()
   const isAdmin = useMemo(() => {
-    return user?.memberships?.some(m => m.roleName === 'ADMIN' || m.roleName === 'DIRECTOR_SYSTEM') || false
-  }, [user])
+    return hasPermission('ROLE:CREATE') || hasPermission('COMPANY:UPDATE') || 
+           user?.memberships?.some(m => m.roleName === 'ADMIN' || m.roleName === 'DIRECTOR_SYSTEM') || false
+  }, [user, hasPermission])
 
   const { currentUserLevel, currentUserRank } = useMemo(() => {
-    if (!user || !allRoles) return { currentUserLevel: 999, currentUserRank: 999 }
-    const userRoleNames = user.memberships?.map(m => m.roleName) || []
-    const userRoles = allRoles.filter((r: any) => userRoleNames.includes(r.name))
-    const level = userRoles.length > 0 ? Math.min(...userRoles.map((r: any) => r.level ?? 999)) : 999
-    const rank = userRoles.length > 0 
-      ? Math.min(...userRoles.filter((r: any) => r.level === level).map((r: any) => r.rank ?? 999)) 
-      : 999
+    if (!user) return { currentUserLevel: 999, currentUserRank: 999 }
+    const levels = user.memberships?.map(m => m.roleLevel ?? 999) || []
+    const level = levels.length > 0 ? Math.min(...levels) : 999
+    const ranks = user.memberships?.filter(m => (m.roleLevel ?? 999) === level).map(m => m.roleRank ?? 999) || []
+    const rank = ranks.length > 0 ? Math.min(...ranks) : 999
     return { currentUserLevel: level, currentUserRank: rank }
-  }, [user, allRoles])
+  }, [user])
 
   const assignableRoles = useMemo(() => {
     if (!allRoles) return []
     const activeRoleLevels = new Set(hierarchyLevels?.map(l => l.roleLevel) || [])
 
     return allRoles.filter((r: any) => {
-      if (isAdmin) {
-        if (r.name === 'DIRECTOR_SYSTEM' && !user?.memberships?.some(m => m.roleName === 'DIRECTOR_SYSTEM')) return false
-        // For admins, show all roles that exist in the company's hierarchy
-        return (r.level !== undefined && activeRoleLevels.has(r.level)) || r.isSystem
+      // 2. Authority check: Cannot assign roles above or equal to own level/rank
+      // DIRECTOR_SYSTEM bypasses this check
+      const isDirectorSystem = user?.memberships?.some(m => m.roleName === 'DIRECTOR_SYSTEM')
+      if (!isDirectorSystem) {
+        if (r.level !== undefined && r.level < currentUserLevel) return false
+        if (r.level === currentUserLevel && r.rank !== undefined && r.rank <= currentUserRank) return false
       }
+
+      if (isAdmin) return true
       
       // 1. Structural check: Must be in company hierarchy
       if (r.level === undefined || !activeRoleLevels.has(r.level)) return false
@@ -174,7 +178,6 @@ export default function UsersPage() {
     setPage(0)
   }
 
-  const { hasPermission } = usePermission()
   const canCreate = hasPermission('USER:CREATE')
   const canImport = hasPermission('USER:IMPORT')
   const canUpdate = hasPermission('USER:UPDATE')
@@ -197,35 +200,39 @@ export default function UsersPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader
-        title="Quản lý Nhân sự"
-        description="Cơ sở dữ liệu toàn bộ cán bộ nhân viên"
-        action={
-          <div className="flex flex-wrap gap-3">
-            {canImport && (
-              <button
-                onClick={() => setShowImportGuide(true)}
-                disabled={importMutation.isPending}
-                className="flex items-center gap-2 px-5 py-2.5 rounded-xl border border-[var(--color-border)] text-sm font-semibold hover:bg-[var(--color-accent)] transition-all shadow-sm bg-[var(--color-card)]"
-              >
-                {importMutation.isPending ? <Loader2 size={16} className="animate-spin" /> : <Upload size={16} />}
-                Import Hệ thống
-              </button>
-            )}
-            {canCreate && (
-              <button
-                onClick={() => { setEditUser(null); setShowForm(true) }}
-                className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[var(--color-primary)] text-white text-sm font-semibold hover:opacity-90 transition-all shadow-md"
-              >
-                <Plus size={16} /> Bổ sung Nhân sự
-              </button>
-            )}
-            <input ref={fileRef} type="file" accept=".xlsx,.xls,.csv" className="hidden" onChange={handleImport} />
-          </div>
-        }
-      />
+      <div id="tour-users-header">
+        <PageHeader
+          title="Quản lý Nhân sự"
+          description="Cơ sở dữ liệu toàn bộ cán bộ nhân viên"
+          action={
+            <div className="flex flex-wrap gap-3">
+              {canImport && (
+                <button
+                  id="tour-users-import"
+                  onClick={() => setShowImportGuide(true)}
+                  disabled={importMutation.isPending}
+                  className="flex items-center gap-2 px-5 py-2.5 rounded-xl border border-[var(--color-border)] text-sm font-semibold hover:bg-[var(--color-accent)] transition-all shadow-sm bg-[var(--color-card)]"
+                >
+                  {importMutation.isPending ? <Loader2 size={16} className="animate-spin" /> : <Upload size={16} />}
+                  Import Hệ thống
+                </button>
+              )}
+              {canCreate && (
+                <button
+                  id="tour-users-add"
+                  onClick={() => { setEditUser(null); setShowForm(true) }}
+                  className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[var(--color-primary)] text-white text-sm font-semibold hover:opacity-90 transition-all shadow-md"
+                >
+                  <Plus size={16} /> Bổ sung Nhân sự
+                </button>
+              )}
+              <input ref={fileRef} type="file" accept=".xlsx,.xls,.csv" className="hidden" onChange={handleImport} />
+            </div>
+          }
+        />
+      </div>
 
-      <div className="bg-[var(--color-card)] border border-[var(--color-border)] rounded-2xl p-4 shadow-sm flex flex-col xl:flex-row flex-wrap gap-4 items-stretch xl:items-center justify-between">
+      <div id="tour-users-filters" className="bg-[var(--color-card)] border border-[var(--color-border)] rounded-2xl p-4 shadow-sm flex flex-col xl:flex-row flex-wrap gap-4 items-stretch xl:items-center justify-between">
         <div className="flex-1 min-w-[280px]">
           <input
             type="text"
@@ -291,7 +298,7 @@ export default function UsersPage() {
         </div>
       </div>
 
-      <div className="bg-[var(--color-card)] border border-[var(--color-border)] rounded-2xl overflow-hidden shadow-sm">
+      <div id="tour-users-table" className="bg-[var(--color-card)] border border-[var(--color-border)] rounded-2xl overflow-hidden shadow-sm">
         {isLoading ? (
           <div className="p-6"><LoadingSkeleton type="table" rows={6} /></div>
         ) : (

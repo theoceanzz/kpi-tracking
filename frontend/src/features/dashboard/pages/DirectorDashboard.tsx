@@ -181,7 +181,7 @@ export default function DirectorDashboard() {
       
       <div className="relative group">
         <div className="absolute -inset-1 bg-gradient-to-r from-indigo-500 to-purple-600 rounded-[32px] blur opacity-10 group-hover:opacity-20 transition duration-1000 group-hover:duration-200"></div>
-        <div className="relative flex flex-col lg:flex-row justify-between items-center gap-6 bg-white dark:bg-slate-900 p-6 md:p-8 rounded-[32px] border border-slate-200 dark:border-slate-800 shadow-xl overflow-hidden">
+        <div id="tour-dashboard-header" className="relative flex flex-col lg:flex-row justify-between items-center gap-6 bg-white dark:bg-slate-900 p-6 md:p-8 rounded-[32px] border border-slate-200 dark:border-slate-800 shadow-xl overflow-hidden">
           <div className="absolute top-0 right-0 -mr-12 -mt-12 w-48 h-48 bg-indigo-500/5 rounded-full blur-3xl"></div>
           
           <div className="flex-1 space-y-3 text-center lg:text-left">
@@ -202,6 +202,7 @@ export default function DirectorDashboard() {
               </span>
             </div>
             <Link 
+              id="tour-dashboard-approve-btn"
               to="/kpi-criteria/pending" 
               className="flex items-center gap-2 px-6 py-3.5 rounded-[20px] bg-indigo-600 hover:bg-indigo-700 text-white shadow-lg shadow-indigo-500/20 transition-all active:scale-95 group"
             >
@@ -215,7 +216,7 @@ export default function DirectorDashboard() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 xl:grid-cols-4 gap-4">
+      <div id="tour-dashboard-stats" className="grid grid-cols-1 md:grid-cols-3 xl:grid-cols-4 gap-4">
         <PremiumStatCard icon={<Building2 size={20} />} label="Phòng ban" value={stats?.totalOrgUnits ?? 0} color="emerald" trend="Active" />
         <PremiumStatCard icon={<Users size={20} />} label="Nhân sự" value={empStats?.totalElements ?? 0} color="indigo" />
         <PremiumStatCard icon={<Target size={20} />} label="Chỉ tiêu KPI" value={stats?.totalKpiCriteria ?? 0} sub={`${stats?.approvedKpi ?? 0} đã duyệt`} color="blue" />
@@ -241,7 +242,7 @@ export default function DirectorDashboard() {
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-stretch">
             {/* Row 1: Key Performance Indicators & Alerts */}
-            <div className="bg-white dark:bg-slate-900 p-8 rounded-[40px] border border-slate-200/60 dark:border-slate-800 shadow-[0_8px_30px_rgb(0,0,0,0.04)] relative group transition-all hover:shadow-[0_20px_50px_rgba(99,102,241,0.1)] flex flex-col justify-between min-h-[520px] hover:z-50">
+            <div id="tour-dashboard-completion" className="bg-white dark:bg-slate-900 p-8 rounded-[40px] border border-slate-200/60 dark:border-slate-800 shadow-[0_8px_30px_rgb(0,0,0,0.04)] relative group transition-all hover:shadow-[0_20px_50px_rgba(99,102,241,0.1)] flex flex-col justify-between min-h-[520px] hover:z-50">
               <div className="absolute top-0 left-0 w-1.5 h-1/2 mt-[25%] bg-gradient-to-b from-indigo-500 to-purple-600 rounded-full opacity-0 group-hover:opacity-100 transition-all duration-500"></div>
               <div className="flex items-center justify-between mb-6">
                 <div className="space-y-1">
@@ -390,7 +391,7 @@ export default function DirectorDashboard() {
               </div>
             </div>
 
-            <div className="bg-gradient-to-br from-indigo-700 via-indigo-800 to-violet-900 p-8 rounded-[40px] shadow-2xl relative transition-all hover:shadow-[0_20px_50px_rgba(99,102,241,0.2)] text-white flex flex-col min-h-[520px] hover:z-50">
+            <div id="tour-dashboard-alerts" className="bg-gradient-to-br from-indigo-700 via-indigo-800 to-violet-900 p-8 rounded-[40px] shadow-2xl relative transition-all hover:shadow-[0_20px_50px_rgba(99,102,241,0.2)] text-white flex flex-col min-h-[520px] hover:z-50">
               <div className="absolute top-0 right-0 -mr-12 -mt-12 w-48 h-48 bg-white/10 rounded-full blur-3xl"></div>
               <div className="absolute bottom-0 left-0 -ml-12 -mb-12 w-48 h-48 bg-white/5 rounded-full blur-3xl"></div>
               
@@ -522,7 +523,7 @@ export default function DirectorDashboard() {
 
       <div className="space-y-6">
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2 bg-slate-100 dark:bg-slate-800 p-2 rounded-[22px]">
+          <div id="tour-dashboard-tabs" className="flex items-center gap-2 bg-slate-100 dark:bg-slate-800 p-2 rounded-[22px]">
             {tabs.map(t => {
               const Icon = t.icon
               const active = activeTab === t.key
@@ -864,6 +865,7 @@ function EmployeesExecutiveTable({
             <div className="relative w-full lg:w-[350px] group">
               <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-500 transition-colors" size={18} />
               <input 
+                id="tour-dashboard-search"
                 value={search}
                 onChange={e => onSearchChange(e.target.value)}
                 placeholder="Search by name or email..."
@@ -885,6 +887,7 @@ function EmployeesExecutiveTable({
               </Select>
             </div>
             <button
+              id="tour-dashboard-export-btn"
               onClick={onExport}
               disabled={isExporting}
               className="w-full md:w-auto flex items-center justify-center gap-2 px-6 py-3.5 rounded-[22px] bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-black uppercase tracking-widest transition-all shadow-lg shadow-emerald-500/20 disabled:opacity-50 active:scale-95 shrink-0"
