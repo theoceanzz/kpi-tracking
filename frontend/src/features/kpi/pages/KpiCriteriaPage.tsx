@@ -363,16 +363,16 @@ export default function KpiCriteriaPage() {
                 <table className="w-full text-left border-collapse">
                   <thead>
                     <tr className="bg-slate-50/50 dark:bg-slate-800/50 border-b border-slate-100 dark:border-slate-800">
-                      <th className="px-8 py-5 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 whitespace-nowrap">Trạng thái</th>
-                      <th className="px-8 py-5 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 whitespace-nowrap">
+                      <th className="px-4 py-5 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 whitespace-nowrap">Trạng thái</th>
+                      <th className="px-4 py-5 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 whitespace-nowrap">
                         <button onClick={() => { setSortBy('name'); setSortDir(sortDir === 'asc' ? 'desc' : 'asc') }} className="flex items-center gap-2 hover:text-indigo-600 transition-colors group">
                           Chỉ tiêu <ArrowUpDown size={12} className="opacity-0 group-hover:opacity-100 transition-opacity" />
                         </button>
                       </th>
-                      <th className="px-8 py-5 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 whitespace-nowrap">Giao cho</th>
-                      <th className="px-8 py-5 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 text-right whitespace-nowrap">Mục tiêu</th>
-                      <th className="px-8 py-5 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 whitespace-nowrap">Trọng số / Tần suất</th>
-                      <th className="px-8 py-5 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 text-right whitespace-nowrap">Thao tác</th>
+                      <th className="px-4 py-5 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 whitespace-nowrap">Giao cho</th>
+                      <th className="px-4 py-5 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 text-right whitespace-nowrap">Mục tiêu</th>
+                      <th className="px-4 py-5 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 whitespace-nowrap">Trọng số / Tần suất</th>
+                      <th className="px-4 py-5 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 text-right whitespace-nowrap">Thao tác</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-50 dark:divide-slate-800/50">
@@ -498,7 +498,7 @@ function KpiTableRow({ kpi, index, onView, onEdit, onDelete, onSubmit, totalWeig
   
   return (
     <tr className="group hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-all duration-300 animate-in fade-in slide-in-from-left-4" style={{ animationDelay: `${index * 30}ms` }}>
-      <td className="px-8 py-5">
+      <td className="px-4 py-5">
         <div className={cn(
           "inline-flex items-center gap-2 px-3 py-1.5 rounded-full border text-[10px] font-black uppercase tracking-widest shadow-sm whitespace-nowrap",
           status.bgColor, status.color
@@ -506,8 +506,8 @@ function KpiTableRow({ kpi, index, onView, onEdit, onDelete, onSubmit, totalWeig
           <StatusIcon size={12} className={kpi.status === 'PENDING_APPROVAL' ? 'animate-spin-slow' : ''} /> {status.label}
         </div>
       </td>
-      <td className="px-8 py-5">
-        <button onClick={onView} className="max-w-md text-left group/name focus:outline-none">
+      <td className="px-4 py-5">
+        <button onClick={onView} className="max-w-[280px] text-left group/name focus:outline-none">
           <p className="text-sm font-black text-slate-900 dark:text-white group-hover/name:text-indigo-600 transition-colors line-clamp-1">
             {kpi.name}
           </p>
@@ -516,15 +516,15 @@ function KpiTableRow({ kpi, index, onView, onEdit, onDelete, onSubmit, totalWeig
           </p>
         </button>
       </td>
-      <td className="px-8 py-5">
-        <div className="flex items-center gap-2 bg-slate-50 dark:bg-slate-800/50 px-3 py-1.5 rounded-xl w-fit border border-slate-100 dark:border-slate-800 shadow-sm whitespace-nowrap">
-          <UserCircle2 size={14} className="text-slate-400" />
-          <span className="text-xs font-bold text-slate-700 dark:text-slate-200">
+      <td className="px-4 py-5">
+        <div className="flex items-center gap-2 bg-slate-50 dark:bg-slate-800/50 px-3 py-1.5 rounded-xl w-fit max-w-[200px] border border-slate-100 dark:border-slate-800 shadow-sm" title={formatAssigneeNames(kpi.assigneeNames)}>
+          <UserCircle2 size={14} className="text-slate-400 shrink-0" />
+          <span className="text-xs font-bold text-slate-700 dark:text-slate-200 truncate">
             {formatAssigneeNames(kpi.assigneeNames)}
           </span>
         </div>
       </td>
-      <td className="px-8 py-5 text-right whitespace-nowrap">
+      <td className="px-4 py-5 text-right whitespace-nowrap">
         <div className="flex items-baseline justify-end gap-1">
           <span className="text-sm font-black text-slate-900 dark:text-white">
             {formatNumber(kpi.targetValue || 0)}
@@ -532,7 +532,7 @@ function KpiTableRow({ kpi, index, onView, onEdit, onDelete, onSubmit, totalWeig
           <span className="text-[10px] font-black uppercase tracking-tighter text-slate-400">{kpi.unit}</span>
         </div>
       </td>
-      <td className="px-8 py-5 whitespace-nowrap">
+      <td className="px-4 py-5 whitespace-nowrap">
         <div className="flex items-center gap-3">
           <div className="px-3 py-1.5 rounded-xl bg-indigo-50 dark:bg-indigo-900/30 border border-indigo-100/50 dark:border-indigo-800/50 flex items-center gap-2 whitespace-nowrap">
             <span className="text-xs font-black text-indigo-600 dark:text-indigo-400">{kpi.weight}%</span>
@@ -543,7 +543,7 @@ function KpiTableRow({ kpi, index, onView, onEdit, onDelete, onSubmit, totalWeig
         </div>
       </td>
 
-      <td className="px-8 py-5 text-right">
+      <td className="px-4 py-5 text-right">
         <div className="flex items-center justify-end gap-1.5">
           <button onClick={onView} className="p-2.5 text-slate-400 hover:text-indigo-600 hover:bg-white dark:hover:bg-slate-800 rounded-xl transition-all shadow-sm border border-transparent hover:border-slate-200 dark:hover:border-slate-700" title="Chi tiết">
             <Eye size={18} />

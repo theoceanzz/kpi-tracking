@@ -256,6 +256,9 @@ export function OrgMindmapView({ data, maxDepth, onAddChild, onEdit, onDelete }:
         .react-flow__controls-button:hover {
           background-color: #f8fafc !important;
         }
+        .react-flow__node:hover {
+          z-index: 40 !important;
+        }
       `}</style>
       <ReactFlow
         nodes={nodes}

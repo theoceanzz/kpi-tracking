@@ -421,7 +421,7 @@ export function OrgUnitDrawer({ orgId, drawerState, onClose, hierarchyLevels }: 
               <h3 className="text-sm font-bold text-gray-900 mb-4 flex items-center">
                 <Building2 className="w-4 h-4 mr-2 text-gray-400" /> Phạm vi vai trò được phép
               </h3>
-              <p className="text-xs text-gray-500 mb-4 italic">Giới hạn các vai trò có thể gán cho thành viên trong đơn vị này. Để trống để cho phép tất cả.</p>
+              <p className="text-xs text-gray-500 mb-4 italic">Giới hạn các vai trò có thể gán cho thành viên trong đơn vị này. Nếu không chọn, sẽ không có vai trò nào được phép gán.</p>
               <div className="grid grid-cols-2 gap-3">
                 {[...filteredRoles].sort((a, b) => (a.level ?? 0) - (b.level ?? 0)).map(role => {
                   const disableReason = getRoleDisableReason(role)

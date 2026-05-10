@@ -15,7 +15,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { userApi } from '../api/userApi'
 import { roleApi } from '@/features/organization/api/role.api'
 import { toast } from 'sonner'
-import { Loader2, X, Eye, EyeOff, Wand2, Check } from 'lucide-react'
+import { Loader2, X, Eye, EyeOff, Wand2, Check, AlertCircle } from 'lucide-react'
 import { usePermission } from '@/hooks/usePermission'
 import { useAuthStore } from '@/store/authStore'
 import { useOrgHierarchyLevels, useOrgUnitTree } from '@/features/organization/hooks/useOrganizationStructure'
@@ -188,8 +188,12 @@ function CreateUserForm({ onClose, onSubmit, isPending, canAssignRoles, dynamicR
     }
     findNode(orgTree)
 
-    if (!selectedNode || !selectedNode.allowedRoles || selectedNode.allowedRoles.length === 0) {
+    if (!selectedNode || !selectedNode.allowedRoles) {
       return dynamicRoles
+    }
+
+    if (selectedNode.allowedRoles.length === 0) {
+      return []
     }
 
     const allowedIds = new Set(selectedNode.allowedRoles.map(r => r.id))
@@ -386,6 +390,11 @@ function CreateUserForm({ onClose, onSubmit, isPending, canAssignRoles, dynamicR
               )}
             />
             {!canAssignRoles && <p className="text-[10px] text-amber-600 mt-1 font-medium">Bạn không có quyền thay đổi vai trò hệ thống</p>}
+            {filteredRoles.length === 0 && selectedOrgUnitId && (
+              <p className="text-[10px] text-red-500 mt-1 font-bold italic animate-pulse flex items-center gap-1">
+                <AlertCircle size={12} /> Đơn vị này chưa được thiết lập phạm vi vai trò. Hãy cấu hình ở mục "Thiết lập cấu trúc".
+              </p>
+            )}
           </div>
           <div className="flex gap-4 pt-4 border-t border-slate-100 dark:border-slate-800">
             <button type="button" onClick={onClose} className="flex-1 px-6 py-3.5 rounded-2xl text-sm font-bold text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all">Hủy</button>
@@ -450,9 +459,13 @@ function EditUserForm({ editUser, onClose, onSubmit, isPending, canAssignRoles, 
       }
       findNode(orgTree)
 
-      if (selectedNode && selectedNode.allowedRoles && selectedNode.allowedRoles.length > 0) {
-        const allowedIds = new Set(selectedNode.allowedRoles.map(r => r.id))
-        roles = dynamicRoles.filter(r => allowedIds.has(r.id))
+      if (selectedNode && selectedNode.allowedRoles) {
+        if (selectedNode.allowedRoles.length === 0) {
+          roles = []
+        } else {
+          const allowedIds = new Set(selectedNode.allowedRoles.map(r => r.id))
+          roles = dynamicRoles.filter(r => allowedIds.has(r.id))
+        }
       }
     }
 
@@ -542,6 +555,11 @@ function EditUserForm({ editUser, onClose, onSubmit, isPending, canAssignRoles, 
               )}
             />
             {!canAssignRoles && <p className="text-[10px] text-amber-600 mt-1 font-medium">Bạn không có quyền thay đổi vai trò hệ thống</p>}
+            {filteredRoles.length === 0 && selectedOrgUnitId && (
+              <p className="text-[10px] text-red-500 mt-1 font-bold italic animate-pulse flex items-center gap-1">
+                <AlertCircle size={12} /> Đơn vị này chưa được thiết lập phạm vi vai trò. Hãy cấu hình ở mục "Thiết lập cấu trúc".
+              </p>
+            )}
           </div>
           <div>
             <label className="block text-sm font-medium mb-1.5">Trạng thái</label>

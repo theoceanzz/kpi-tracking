@@ -109,11 +109,13 @@ export function MemberManagement({ orgUnitId }: MemberManagementProps) {
     }
 
     // 2. Filter by unit allowed roles
-    if (!orgUnit?.allowedRoles || orgUnit.allowedRoles.length === 0) {
-      return result
+    if (orgUnit?.allowedRoles) {
+      if (orgUnit.allowedRoles.length === 0) return []
+      const allowedIds = new Set(orgUnit.allowedRoles.map(r => r.id))
+      return result.filter(r => allowedIds.has(r.id))
     }
-    const allowedIds = new Set(orgUnit.allowedRoles.map(r => r.id))
-    return result.filter(r => allowedIds.has(r.id))
+
+    return result
   }, [roles, orgUnit?.allowedRoles, hierarchyLevels])
 
   // Group members by userId
@@ -497,6 +499,14 @@ export function MemberManagement({ orgUnitId }: MemberManagementProps) {
                             {(showManageModal || selectedUserAssignments.length > 0) ? 'Bổ sung vai trò' : 'Vai trò khởi đầu'}
                         </label>
                         <div className="grid grid-cols-2 gap-3">
+                            {filteredRoles.length === 0 && (
+                                <div className="col-span-2 p-4 rounded-2xl bg-red-50 border border-red-100 flex items-center gap-3 text-red-600">
+                                    <AlertTriangle className="w-5 h-5 shrink-0" />
+                                    <p className="text-xs font-bold italic">
+                                        Đơn vị này chưa được thiết lập phạm vi vai trò. Vui lòng quay lại mục "Thiết lập cấu trúc" để cấu hình trước khi gán nhân sự.
+                                    </p>
+                                </div>
+                            )}
                             {filteredRoles.map(role => {
                                 const isAssigned = (showManageModal?.assignments || selectedUserAssignments).some(a => a.roleId === role.id)
                                 

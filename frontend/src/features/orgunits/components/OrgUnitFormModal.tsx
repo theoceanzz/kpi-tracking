@@ -273,7 +273,7 @@ export default function OrgUnitFormModal({ open, onClose, editUnit, initialParen
               <Shield size={16} className="text-indigo-600" />
               Phạm vi vai trò được phép
             </label>
-            <p className="text-[10px] text-[var(--color-muted-foreground)] mb-4 italic">Giới hạn các vai trò có thể gán cho thành viên trong đơn vị này.</p>
+            <p className="text-[10px] text-[var(--color-muted-foreground)] mb-4 italic">Giới hạn các vai trò có thể gán cho thành viên trong đơn vị này. Nếu không chọn, sẽ không có vai trò nào được phép gán.</p>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {filteredRoles.map((role: any) => (
                 <label key={role.id} className="flex items-center p-3 rounded-xl border border-[var(--color-border)] hover:bg-[var(--color-accent)] transition-all cursor-pointer group">

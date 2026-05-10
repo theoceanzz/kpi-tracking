@@ -530,7 +530,8 @@ export default function ExcelPreviewModal({ open, file, onClose, onImport, isImp
                                 if (!unitInfo) return true // Show all if unit not selected yet
                                 
                                 // 1. If explicit allowedRoles exists on unit, use it
-                                if (unitInfo.allowedRoles && unitInfo.allowedRoles.length > 0) {
+                                if (unitInfo.allowedRoles) {
+                                  if (unitInfo.allowedRoles.length === 0) return false
                                   return unitInfo.allowedRoles.some(ar => ar.id === role.id)
                                 }
 
@@ -564,6 +565,18 @@ export default function ExcelPreviewModal({ open, file, onClose, onImport, isImp
                               )
                             })()}
                             {row._errors?.Role && <p className="text-[10px] text-red-500 mt-1 font-medium px-1">{row._errors.Role}</p>}
+                            {(() => {
+                              const unitInfo = unitInfoMap.get(row.OrgUnitCode || '')
+                              const hasNoRoles = unitInfo?.allowedRoles && unitInfo.allowedRoles.length === 0
+                              if (hasNoRoles) {
+                                return (
+                                  <p className="text-[9px] text-red-500 mt-1 font-bold italic px-1 flex items-center gap-1">
+                                    <AlertCircle size={10} /> Đơn vị này chưa được thiết lập phạm vi vai trò. Hãy cấu hình ở mục "Thiết lập cấu trúc".
+                                  </p>
+                                )
+                              }
+                              return null
+                            })()}
                           </td>
                           <td className="px-4 py-2">
                             <input

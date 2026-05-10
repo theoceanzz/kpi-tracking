@@ -216,26 +216,26 @@ export default function KpiPeriodsPage() {
               <table className="w-full text-left border-collapse">
                 <thead>
                   <tr className="bg-slate-50/50 dark:bg-slate-800/50 border-b border-slate-100 dark:border-slate-800">
-                  <th className="px-8 py-5 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 cursor-pointer group whitespace-nowrap" onClick={() => toggleSort('name')}>
+                  <th className="px-4 py-5 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 cursor-pointer group whitespace-nowrap" onClick={() => toggleSort('name')}>
                     <div className="flex items-center gap-2">Tên Đợt <SortIcon field="name" /></div>
                   </th>
-                  <th className="px-8 py-5 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 cursor-pointer group whitespace-nowrap" onClick={() => toggleSort('periodType')}>
+                  <th className="px-4 py-5 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 cursor-pointer group whitespace-nowrap" onClick={() => toggleSort('periodType')}>
                     <div className="flex items-center gap-2">Loại kỳ <SortIcon field="periodType" /></div>
                   </th>
-                  <th className="px-8 py-5 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 cursor-pointer group whitespace-nowrap" onClick={() => toggleSort('startDate')}>
+                  <th className="px-4 py-5 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 cursor-pointer group whitespace-nowrap" onClick={() => toggleSort('startDate')}>
                     <div className="flex items-center gap-2">Bắt đầu <SortIcon field="startDate" /></div>
                   </th>
-                  <th className="px-8 py-5 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 cursor-pointer group whitespace-nowrap" onClick={() => toggleSort('endDate')}>
+                  <th className="px-4 py-5 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 cursor-pointer group whitespace-nowrap" onClick={() => toggleSort('endDate')}>
                     <div className="flex items-center gap-2">Kết thúc <SortIcon field="endDate" /></div>
                   </th>
-                  <th className="px-8 py-5 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 whitespace-nowrap">Thông báo</th>
-                  <th className="px-8 py-5 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 text-right whitespace-nowrap">Thao tác</th>
+                  <th className="px-4 py-5 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 whitespace-nowrap">Thông báo</th>
+                  <th className="px-4 py-5 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 text-right whitespace-nowrap">Thao tác</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-50 dark:divide-slate-800/50">
                   {data.content.map((period, index) => (
                     <tr key={period.id} className="group hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-all duration-300 animate-in fade-in slide-in-from-left-4" style={{ animationDelay: `${index * 30}ms` }}>
-                      <td className="px-8 py-5">
+                      <td className="px-4 py-5">
                         <div className="flex items-center gap-4">
                           <div className="w-12 h-12 rounded-2xl bg-indigo-50 dark:bg-indigo-900/30 flex items-center justify-center text-indigo-600 dark:text-indigo-400 shrink-0 shadow-sm border border-indigo-100/50 dark:border-indigo-800/50 group-hover:scale-110 transition-transform duration-500">
                             <Calendar size={20} />
@@ -243,23 +243,23 @@ export default function KpiPeriodsPage() {
                           <span className="text-sm font-black text-slate-900 dark:text-white">{period.name}</span>
                         </div>
                       </td>
-                      <td className="px-8 py-5">
+                      <td className="px-4 py-5">
                         <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-50 dark:bg-slate-800 text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-400 border border-slate-100 dark:border-slate-700 shadow-sm">
                           <Clock size={12} /> {FREQUENCY_MAP[period.periodType as KpiFrequency]}
                         </div>
                       </td>
-                      <td className="px-8 py-5">
+                      <td className="px-4 py-5">
                         <span className="text-xs font-bold text-slate-500 dark:text-slate-400">{period.startDate ? formatDateTime(period.startDate) : '—'}</span>
                       </td>
-                      <td className="px-8 py-5">
+                      <td className="px-4 py-5">
                         <span className="text-xs font-bold text-slate-500 dark:text-slate-400">{period.endDate ? formatDateTime(period.endDate) : '—'}</span>
                       </td>
-                      <td className="px-8 py-5">
+                      <td className="px-4 py-5">
                         <span className="text-[10px] font-black text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 px-2 py-1 rounded-lg border border-amber-100 dark:border-amber-800/50">
                           {period.notificationDate ? format(parseISO(period.notificationDate), 'HH:mm dd/MM') : '—'}
                         </span>
                       </td>
-                      <td className="px-8 py-5 text-right">
+                      <td className="px-4 py-5 text-right">
                         <div className="flex items-center justify-end gap-1.5">
                           <button 
                             onClick={() => { setEditPeriod(period); setShowForm(true) }}

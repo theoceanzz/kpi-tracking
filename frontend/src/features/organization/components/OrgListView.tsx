@@ -98,7 +98,7 @@ function TreeNodeRow({
 
   return (
     <>
-      <tr className="border-b hover:bg-gray-50/50 transition-colors group relative hover:z-10">
+      <tr className="border-b hover:bg-gray-50/50 transition-colors group relative hover:z-20">
         <td className="px-4 py-3">
           <div className="flex items-center" style={{ paddingLeft: `${level * 24}px` }}>
             <button 
