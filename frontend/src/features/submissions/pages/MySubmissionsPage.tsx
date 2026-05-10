@@ -184,7 +184,7 @@ export default function MySubmissionsPage() {
           </div>
         </div>
 
-        <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-hide">
+        <div id="tour-my-sub-tabs" className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-hide">
           {TABS.map(tab => (
             <button
               key={tab.key}
@@ -204,19 +204,20 @@ export default function MySubmissionsPage() {
       </div>
 
       {/* Content Area */}
-      {isLoading ? (
-        <LoadingSkeleton type="table" rows={10} />
-      ) : filteredItems.length === 0 ? (
-        <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 p-20 shadow-sm transition-all">
-          <EmptyState
-            title="Không có bài nộp nào"
-            description="Hãy thử thay đổi bộ lọc hoặc nộp báo cáo mới để bắt đầu theo dõi hiệu suất."
-          />
-        </div>
-      ) : (
-        <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-sm transition-all">
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse min-w-[900px]">
+      <div id="tour-my-sub-list" className="min-h-[400px]">
+        {isLoading ? (
+          <LoadingSkeleton type="table" rows={10} />
+        ) : filteredItems.length === 0 ? (
+          <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 p-20 shadow-sm transition-all">
+            <EmptyState
+              title="Không có bài nộp nào"
+              description="Hãy thử thay đổi bộ lọc hoặc nộp báo cáo mới để bắt đầu theo dõi hiệu suất."
+            />
+          </div>
+        ) : (
+          <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-sm transition-all">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse min-w-[900px]">
               <thead>
                 <tr className="bg-slate-50/50 dark:bg-slate-800/40 border-b border-slate-100 dark:border-slate-800">
                   <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400">Trạng thái</th>
@@ -337,6 +338,7 @@ export default function MySubmissionsPage() {
           </div>
         </div>
       )}
+      </div>
 
       {/* Confirmation Modal - Premium Dangerous Style */}
       {showConfirm && (

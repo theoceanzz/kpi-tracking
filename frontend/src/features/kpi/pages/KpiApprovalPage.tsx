@@ -5,12 +5,11 @@ import LoadingSkeleton from '@/components/common/LoadingSkeleton'
 import EmptyState from '@/components/common/EmptyState'
 import KpiReviewModal from '../components/KpiReviewModal'
 import { useKpiCriteria } from '../hooks/useKpiCriteria'
-import { formatNumber, formatAssigneeNames, cn } from '@/lib/utils'
+import { formatNumber, formatAssigneeNames, cn, FREQUENCY_MAP, STATUS_CONFIG } from '@/lib/utils'
 import type { KpiCriteria } from '@/types/kpi'
 import { kpiApi } from '../api/kpiApi'
 import { toast } from 'sonner'
 import { 
-  Clock, CheckCircle2, XCircle, 
   Users, Building2, ChevronRight, ArrowUpDown,
   Calendar, ChevronLeft, Search, CheckCircle, 
   ShieldCheck, 
@@ -21,18 +20,9 @@ import { useKpiPeriods } from '../hooks/useKpiPeriods'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { useOrgUnitTree } from '@/features/orgunits/hooks/useOrgUnitTree'
 
-const frequencyMap: Record<string, string> = {
-  DAILY: 'Hàng ngày', WEEKLY: 'Hàng tuần', MONTHLY: 'Hàng tháng',
-  QUARTERLY: 'Hàng quý', YEARLY: 'Hàng năm',
-}
 
-const statusConfig: Record<string, { label: string; color: string; bgColor: string; icon: any }> = {
-  PENDING_APPROVAL: { label: 'Chờ duyệt', color: 'text-amber-600 dark:text-amber-400', bgColor: 'bg-amber-50/50 border-amber-200/50 dark:bg-amber-900/20 dark:border-amber-900/30', icon: Clock },
-  APPROVED: { label: 'Đã duyệt', color: 'text-emerald-600 dark:text-emerald-400', bgColor: 'bg-emerald-50/50 border-emerald-200/50 dark:bg-emerald-900/20 dark:border-amber-900/30', icon: CheckCircle2 },
-  REJECTED: { label: 'Từ chối', color: 'text-red-600 dark:text-red-400', bgColor: 'bg-red-50/50 border-red-200/50 dark:bg-red-900/20 dark:border-red-900/30', icon: XCircle },
-  EDIT: { label: 'Đang sửa', color: 'text-purple-600 dark:text-purple-400', bgColor: 'bg-purple-100 border-purple-200 dark:bg-purple-900/30 dark:border-purple-900/40', icon: Clock },
-  EDITED: { label: 'Đã sửa', color: 'text-blue-600 dark:text-blue-400', bgColor: 'bg-blue-100 border-blue-200 dark:bg-blue-900/30 dark:border-blue-900/40', icon: CheckCircle2 },
-}
+
+
 
 export default function KpiApprovalPage() {
   const [searchParams, setSearchParams] = useSearchParams()
@@ -335,7 +325,7 @@ export default function KpiApprovalPage() {
                 <tbody className="divide-y divide-slate-50 dark:divide-slate-800/50">
                   {items.map((item: any, i: number) => {
                     const kpi = item as KpiCriteria
-                    const status = statusConfig[kpi.status] ?? statusConfig['PENDING_APPROVAL']!
+                    const status = STATUS_CONFIG[kpi.status as keyof typeof STATUS_CONFIG] ?? STATUS_CONFIG['PENDING_APPROVAL']!
                     const StatusIcon = status.icon
                     const isSelected = selectedKpis.includes(kpi.id)
 
@@ -371,7 +361,7 @@ export default function KpiApprovalPage() {
                             <p className="text-sm font-black text-slate-900 dark:text-white group-hover/name:text-indigo-600 transition-colors line-clamp-1">
                               {kpi.name}
                             </p>
-                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-tighter mt-1">{frequencyMap[kpi.frequency] || kpi.frequency}</p>
+                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-tighter mt-1">{FREQUENCY_MAP[kpi.frequency as keyof typeof FREQUENCY_MAP] || kpi.frequency}</p>
                           </button>
                         </td>
                         <td className="px-6 py-5">

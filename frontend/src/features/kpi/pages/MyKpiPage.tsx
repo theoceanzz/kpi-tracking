@@ -3,10 +3,10 @@ import LoadingSkeleton from '@/components/common/LoadingSkeleton'
 import EmptyState from '@/components/common/EmptyState'
 import { useMyKpi } from '../hooks/useMyKpi'
 import { Link } from 'react-router-dom'
-import { formatNumber } from '@/lib/utils'
+import { formatNumber, FREQUENCY_MAP, STATUS_CONFIG } from '@/lib/utils'
 import {
   Target, Search,
-  Calendar, CheckCircle2, ChevronRight, XCircle, AlertCircle,
+  CheckCircle2, ChevronRight,
   LayoutGrid, List, ChevronLeft, Settings2, Filter
 } from 'lucide-react'
 import { useAuthStore } from '@/store/authStore'
@@ -16,18 +16,9 @@ import KpiAdjustmentModal from '../components/KpiAdjustmentModal'
 import type { KpiCriteria } from '@/types/kpi'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 
-const frequencyMap: Record<string, string> = {
-  DAILY: 'Hàng ngày', WEEKLY: 'Hàng tuần', MONTHLY: 'Hàng tháng', QUARTERLY: 'Hàng quý', YEARLY: 'Hàng năm',
-}
 
-const statusConfig: Record<string, { label: string; color: string; bgColor: string; icon: any }> = {
-  DRAFT: { label: 'Bản nháp', color: 'text-slate-600', bgColor: 'bg-slate-100 border-slate-200', icon: AlertCircle },
-  PENDING_APPROVAL: { label: 'Chờ duyệt', color: 'text-amber-600', bgColor: 'bg-amber-100 border-amber-200', icon: Calendar },
-  APPROVED: { label: 'Đang thực hiện', color: 'text-emerald-600', bgColor: 'bg-emerald-100 border-emerald-200', icon: CheckCircle2 },
-  REJECTED: { label: 'Từ chối', color: 'text-red-600', bgColor: 'bg-red-100 border-red-200', icon: XCircle },
-  EDIT: { label: 'Đang sửa', color: 'text-purple-600', bgColor: 'bg-purple-100 border-purple-200', icon: AlertCircle },
-  EDITED: { label: 'Đã sửa', color: 'text-blue-600', bgColor: 'bg-blue-100 border-blue-200', icon: CheckCircle2 },
-}
+
+
 
 export default function MyKpiPage() {
   const user = useAuthStore(s => s.user)
@@ -71,7 +62,7 @@ export default function MyKpiPage() {
           </h1>
         </div>
 
-        <div className="flex flex-col md:flex-row items-center gap-3 w-full lg:w-auto">
+        <div id="tour-my-kpi-toolbar" className="flex flex-col md:flex-row items-center gap-3 w-full lg:w-auto">
           <div className="relative flex-1 md:w-72">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
             <input 
@@ -114,18 +105,19 @@ export default function MyKpiPage() {
         </div>
       </div>
 
-      {isLoading ? (
-        <LoadingSkeleton type="table" rows={6} />
-      ) : filteredKpis.length === 0 ? (
-        <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 p-20 shadow-sm transition-all">
-          <EmptyState 
-            title={search || selectedPeriodId ? "Không tìm thấy" : "Trống"} 
-            description="Bạn chưa có chỉ tiêu KPI nào trong danh sách hiện tại." 
-          />
-        </div>
-      ) : viewMode === 'TABLE' ? (
-        <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-sm transition-all overflow-x-auto">
-          <table className="w-full text-left border-collapse min-w-[1000px]">
+      <div id="tour-my-kpi-table" className="min-h-[400px]">
+        {isLoading ? (
+          <LoadingSkeleton type="table" rows={6} />
+        ) : filteredKpis.length === 0 ? (
+          <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 p-20 shadow-sm transition-all">
+            <EmptyState 
+              title={search || selectedPeriodId ? "Không tìm thấy" : "Trống"} 
+              description="Bạn chưa có chỉ tiêu KPI nào trong danh sách hiện tại." 
+            />
+          </div>
+        ) : viewMode === 'TABLE' ? (
+          <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-sm transition-all overflow-x-auto">
+            <table className="w-full text-left border-collapse min-w-[1000px]">
             <thead>
               <tr className="bg-slate-50/50 dark:bg-slate-800/50 border-b border-slate-100 dark:border-slate-800">
                 <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400">Trạng thái</th>
@@ -162,6 +154,7 @@ export default function MyKpiPage() {
           ))}
         </div>
       )}
+      </div>
 
       {/* Pagination & Modals (remains similar but refined) */}
       <KpiDetailModal open={!!viewKpi} onClose={() => setViewKpi(null)} kpi={viewKpi} />
@@ -195,7 +188,7 @@ export default function MyKpiPage() {
 }
 
 function MyKpiTableRow({ kpi, onView, onAdjust }: { kpi: KpiCriteria; onView: () => void; onAdjust: () => void }) {
-  const status = statusConfig[kpi.status] ?? statusConfig['DRAFT']!
+  const status = STATUS_CONFIG[kpi.status as keyof typeof STATUS_CONFIG] ?? STATUS_CONFIG['DRAFT']!
   const nextDeadline = getNextDeadline(kpi)
   const isOverdue = nextDeadline && nextDeadline < new Date()
   
@@ -209,7 +202,7 @@ function MyKpiTableRow({ kpi, onView, onAdjust }: { kpi: KpiCriteria; onView: ()
       <td className="px-6 py-4">
         <button onClick={onView} className="text-left focus:outline-none max-w-xs truncate">
           <p className="text-sm font-bold text-slate-900 dark:text-white group-hover:text-indigo-600 transition-colors truncate">{kpi.name}</p>
-          <p className="text-[10px] text-slate-400 font-bold uppercase mt-0.5">{frequencyMap[kpi.frequency]}</p>
+          <p className="text-[10px] text-slate-400 font-bold uppercase mt-0.5">{FREQUENCY_MAP[kpi.frequency as keyof typeof FREQUENCY_MAP]}</p>
         </button>
       </td>
       <td className="px-6 py-4 text-right">
@@ -261,7 +254,7 @@ function MyKpiTableRow({ kpi, onView, onAdjust }: { kpi: KpiCriteria; onView: ()
 }
 
 function MyKpiCard({ kpi, delay, onView, onAdjust }: { kpi: KpiCriteria; delay: number; onView: () => void; onAdjust: () => void }) {
-  const status = statusConfig[kpi.status] ?? statusConfig['DRAFT']!
+  const status = STATUS_CONFIG[kpi.status as keyof typeof STATUS_CONFIG] ?? STATUS_CONFIG['DRAFT']!
 
   return (
     <div 
@@ -280,7 +273,7 @@ function MyKpiCard({ kpi, delay, onView, onAdjust }: { kpi: KpiCriteria; delay: 
 
         <button onClick={onView} className="text-left w-full group-hover:text-indigo-600 transition-colors">
           <h3 className="text-lg font-black text-slate-900 dark:text-white line-clamp-2 leading-tight">{kpi.name}</h3>
-          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">{frequencyMap[kpi.frequency]}</p>
+          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">{FREQUENCY_MAP[kpi.frequency as keyof typeof FREQUENCY_MAP]}</p>
         </button>
 
         <div className="grid grid-cols-2 gap-3">

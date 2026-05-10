@@ -57,6 +57,7 @@ export interface KpiTask {
   status: 'NOT_STARTED' | 'PENDING' | 'OVERDUE' | 'APPROVED' | 'REJECTED' | 'EDIT'
   submissionCount: number
   expectedSubmissions: number
+  managerScore?: number | null
 }
 
 // Matches BE: MyKpiProgressResponse

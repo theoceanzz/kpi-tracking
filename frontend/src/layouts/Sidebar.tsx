@@ -226,7 +226,7 @@ export default function Sidebar({ isMobileOpen, onCloseMobile }: { isMobileOpen?
               return (
                 <div key={item.label} className="space-y-1">
                   <button
-                    id={item.label === 'Thiết lập công ty' ? 'tour-company-nav-group' : `nav-group-${item.label.toLowerCase().replace(/\s+/g, '-')}`}
+                    id={item.label === 'Thiết lập công ty' ? 'tour-company-nav-group' : item.label === 'Quản lý KPI' ? 'tour-kpi-nav-group' : item.label.includes('Phê duyệt') ? 'tour-approve-nav-group' : `nav-group-${item.label.toLowerCase().replace(/\s+/g, '-')}`}
                     onClick={() => toggleMenu(item.label)}
                     className={cn(
                       'w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-bold transition-all group relative',
@@ -299,7 +299,7 @@ export default function Sidebar({ isMobileOpen, onCloseMobile }: { isMobileOpen?
             
             return (
               <NavLink
-                id={item.path?.startsWith('/dashboard') ? 'tour-dashboard-nav' : `nav-item-${item.path?.replace(/\//g, '-')}`}
+                id={item.path?.startsWith('/dashboard') && item.path !== '/dashboard/staff' ? 'tour-dashboard-nav' : `nav-item-${item.path?.replace(/\//g, '-')}`}
                 key={item.path}
                 to={item.path!}
                 end={item.end} 

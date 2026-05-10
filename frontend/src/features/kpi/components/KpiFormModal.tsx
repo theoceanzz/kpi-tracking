@@ -9,6 +9,7 @@ import { useUsers } from '@/features/users/hooks/useUsers'
 import { useAuthStore } from '@/store/authStore'
 import { usePermission } from '@/hooks/usePermission'
 import { toast } from 'sonner'
+import { FREQUENCY_MAP } from '@/lib/utils'
 import { Loader2, X, Check, Sparkles } from 'lucide-react'
 import type { KpiCriteria } from '@/types/kpi'
 import { useState } from 'react'
@@ -22,13 +23,10 @@ interface KpiFormModalProps {
   editKpi?: KpiCriteria | null
 }
 
-const frequencyOptions = [
-  { value: 'DAILY', label: 'Hàng ngày' },
-  { value: 'WEEKLY', label: 'Hàng tuần' },
-  { value: 'MONTHLY', label: 'Hàng tháng' },
-  { value: 'QUARTERLY', label: 'Hàng quý' },
-  { value: 'YEARLY', label: 'Hàng năm' },
-] as const
+const frequencyOptions = (['DAILY', 'WEEKLY', 'MONTHLY', 'QUARTERLY', 'SEMI_ANNUALLY', 'YEARLY'] as const).map(value => ({
+  value,
+  label: FREQUENCY_MAP[value]
+}))
 
 
 export default function KpiFormModal({ open, onClose, editKpi }: KpiFormModalProps) {
@@ -63,7 +61,10 @@ export default function KpiFormModal({ open, onClose, editKpi }: KpiFormModalPro
 
   // Synchronize form values only when modal opens
   useEffect(() => {
-    if (!open) return
+    if (!open) {
+      setUserSearch('')
+      return
+    }
 
     if (editKpi) {
       reset({
@@ -175,7 +176,8 @@ export default function KpiFormModal({ open, onClose, editKpi }: KpiFormModalPro
       'WEEKLY': 2,
       'MONTHLY': 3,
       'QUARTERLY': 4,
-      'YEARLY': 5
+      'SEMI_ANNUALLY': 5,
+      'YEARLY': 6
     }
     const periodLevel = TYPE_LEVEL[selectedPeriod.periodType] || 0
     return frequencyOptions.filter(opt => (TYPE_LEVEL[opt.value as any] || 0) <= periodLevel)
@@ -188,7 +190,8 @@ export default function KpiFormModal({ open, onClose, editKpi }: KpiFormModalPro
         'WEEKLY': 2,
         'MONTHLY': 3,
         'QUARTERLY': 4,
-        'YEARLY': 5
+        'SEMI_ANNUALLY': 5,
+        'YEARLY': 6
       }
       const periodLevel = TYPE_LEVEL[selectedPeriod.periodType] || 0
       if ((TYPE_LEVEL[formFrequency] || 0) > periodLevel) {
@@ -200,6 +203,16 @@ export default function KpiFormModal({ open, onClose, editKpi }: KpiFormModalPro
   // AI Suggestion Logic
   const [aiSuggestions, setAiSuggestions] = useState<any[]>([])
   const [isSuggesting, setIsSuggesting] = useState(false)
+  const [userSearch, setUserSearch] = useState('')
+
+  const displayUsers = useMemo(() => {
+    if (!userSearch.trim()) return availableUsers
+    const search = userSearch.toLowerCase()
+    return availableUsers.filter(u => 
+      u.fullName.toLowerCase().includes(search) || 
+      u.email.toLowerCase().includes(search)
+    )
+  }, [availableUsers, userSearch])
 
   const handleAiSuggest = async () => {
     const orgUnitId = watch('orgUnitId') || user?.memberships?.[0]?.orgUnitId
@@ -363,11 +376,8 @@ export default function KpiFormModal({ open, onClose, editKpi }: KpiFormModalPro
               )}
             </div>
             <div>
-              <label className="block text-sm font-medium mb-1.5">Tần suất <span className="text-red-500">*</span></label>
-              <select {...register('frequency')} className={inputCls}>
-                {filteredFrequencyOptions.map((opt) => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
-              </select>
-              {errors.frequency && <p className="text-red-500 text-xs mt-1">{errors.frequency.message}</p>}
+              <label className="block text-sm font-medium mb-1.5">Giá trị tối thiểu</label>
+              <input {...register('minimumValue', { valueAsNumber: true })} type="number" step="any" onWheel={(e) => (e.target as HTMLInputElement).blur()} className={inputCls} placeholder="VD: 50" />
             </div>
           </div>
 
@@ -387,13 +397,24 @@ export default function KpiFormModal({ open, onClose, editKpi }: KpiFormModalPro
             </label>
             
             <div className="border border-[var(--color-border)] rounded-lg overflow-hidden bg-[var(--color-background)]">
+              <div className="p-2 border-b border-[var(--color-border)] bg-[var(--color-accent)]/30">
+                <input 
+                  type="text"
+                  placeholder="Tìm tên hoặc email nhân viên..."
+                  value={userSearch}
+                  onChange={(e) => setUserSearch(e.target.value)}
+                  className="w-full px-3 py-1.5 text-xs rounded-md border border-[var(--color-border)] bg-[var(--color-background)] outline-none focus:ring-1 focus:ring-[var(--color-primary)]"
+                />
+              </div>
               <div className="max-h-40 overflow-y-auto p-1.5 space-y-1">
                 {isLoadingUsers ? (
                   <div className="p-3 text-center text-xs text-[var(--color-muted-foreground)]">Đang tải danh sách...</div>
-                ) : availableUsers.length === 0 ? (
-                  <div className="p-3 text-center text-xs text-[var(--color-muted-foreground)]">Không có nhân viên phù hợp</div>
+                ) : displayUsers.length === 0 ? (
+                  <div className="p-3 text-center text-xs text-[var(--color-muted-foreground)]">
+                    {userSearch ? 'Không tìm thấy nhân viên' : 'Không có nhân viên phù hợp'}
+                  </div>
                 ) : (
-                  availableUsers.map((u) => {
+                  displayUsers.map((u) => {
                     const isSelected = selectedAssignees.includes(u.id)
                     return (
                       <div 
@@ -433,8 +454,11 @@ export default function KpiFormModal({ open, onClose, editKpi }: KpiFormModalPro
               {errors.kpiPeriodId && <p className="text-red-500 text-xs mt-1">{errors.kpiPeriodId.message}</p>}
             </div>
             <div>
-              <label className="block text-sm font-medium mb-1.5">Giá trị tối thiểu</label>
-              <input {...register('minimumValue', { valueAsNumber: true })} type="number" step="any" onWheel={(e) => (e.target as HTMLInputElement).blur()} className={inputCls} placeholder="VD: 50" />
+              <label className="block text-sm font-medium mb-1.5">Tần suất <span className="text-red-500">*</span></label>
+              <select {...register('frequency')} className={inputCls}>
+                {filteredFrequencyOptions.map((opt) => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
+              </select>
+              {errors.frequency && <p className="text-red-500 text-xs mt-1">{errors.frequency.message}</p>}
             </div>
           </div>
 

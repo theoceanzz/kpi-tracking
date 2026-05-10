@@ -7,11 +7,11 @@ import { useKpiCriteria } from '../hooks/useKpiCriteria'
 import { useAuthStore } from '@/store/authStore'
 import { useSubmitKpi } from '../hooks/useSubmitKpi'
 import { useDeleteKpi } from '../hooks/useDeleteKpi'
-import { formatNumber, formatAssigneeNames } from '@/lib/utils'
+import { formatNumber, formatAssigneeNames, FREQUENCY_MAP, STATUS_CONFIG } from '@/lib/utils'
 import type { KpiCriteria } from '@/types/kpi'
 import {
   Target, Plus, Send, Pencil, Trash2, MoreVertical,
-  Calendar, CheckCircle2, AlertCircle, XCircle, Search, 
+  Calendar, AlertCircle, Search, 
   Filter, UserCircle2, Upload, Gauge, Eye,
   LayoutGrid, List, ArrowUpDown, ChevronLeft, ChevronRight
 } from 'lucide-react'
@@ -28,18 +28,9 @@ import KpiExcelPreviewModal from '../components/KpiExcelPreviewModal'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { cn } from '@/lib/utils'
 
-const frequencyMap: Record<string, string> = {
-  DAILY: 'Hàng ngày', WEEKLY: 'Hàng tuần', MONTHLY: 'Hàng tháng', QUARTERLY: 'Hàng quý', YEARLY: 'Hàng năm',
-}
 
-const statusConfig: Record<string, { label: string; color: string; bgColor: string; icon: any }> = {
-  DRAFT: { label: 'Bản nháp', color: 'text-slate-600 dark:text-slate-400', bgColor: 'bg-slate-100 border-slate-200 dark:bg-slate-800 dark:border-slate-700', icon: AlertCircle },
-  PENDING_APPROVAL: { label: 'Chờ duyệt', color: 'text-amber-600 dark:text-amber-400', bgColor: 'bg-amber-100 border-amber-200 dark:bg-amber-900/30 dark:border-amber-900/40', icon: Calendar },
-  APPROVED: { label: 'Đã duyệt', color: 'text-emerald-600 dark:text-emerald-400', bgColor: 'bg-emerald-100 border-emerald-200 dark:bg-emerald-900/30 dark:border-emerald-900/40', icon: CheckCircle2 },
-  REJECTED: { label: 'Từ chối', color: 'text-red-600 dark:text-red-400', bgColor: 'bg-red-100 border-red-200 dark:bg-red-900/30 dark:border-red-900/40', icon: XCircle },
-  EDIT: { label: 'Đang sửa', color: 'text-purple-600 dark:text-purple-400', bgColor: 'bg-purple-100 border-purple-200 dark:bg-purple-900/30 dark:border-purple-900/40', icon: AlertCircle },
-  EDITED: { label: 'Đã sửa', color: 'text-blue-600 dark:text-blue-400', bgColor: 'bg-blue-100 border-blue-200 dark:bg-blue-900/30 dark:border-blue-900/40', icon: CheckCircle2 },
-}
+
+
 
 function useOnClickOutside(ref: any, handler: any) {
   useEffect(() => {
@@ -245,7 +236,7 @@ export default function KpiCriteriaPage() {
         {/* Main Content Area */}
         <div className="space-y-6">
           {/* Advanced Toolbar */}
-          <div className="flex flex-col xl:flex-row items-stretch justify-between gap-4 p-4 bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl rounded-[32px] border border-slate-200 dark:border-slate-800 shadow-sm">
+          <div id="tour-kpi-toolbar" className="flex flex-col xl:flex-row items-stretch justify-between gap-4 p-4 bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl rounded-[32px] border border-slate-200 dark:border-slate-800 shadow-sm">
             <div className="flex flex-col md:flex-row items-center gap-3 flex-1">
               <div className="relative group flex-1 w-full md:max-w-md">
                 <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-500 transition-colors" size={18} />
@@ -317,6 +308,7 @@ export default function KpiCriteriaPage() {
               </button>
               
               <button 
+                id="tour-kpi-add-btn"
                 onClick={() => { setEditKpi(null); setShowForm(true) }} 
                 className="flex items-center gap-2 px-8 h-[52px] rounded-[20px] bg-indigo-600 text-white text-sm font-black hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-500/20 active:scale-95 group"
               >
@@ -326,7 +318,7 @@ export default function KpiCriteriaPage() {
           </div>
 
           {/* Status Tabs Row */}
-          <div className="flex flex-wrap items-center gap-3 py-2">
+          <div id="tour-kpi-tabs" className="flex flex-wrap items-center gap-3 py-2">
             {['ALL', 'DRAFT', 'PENDING_APPROVAL', 'APPROVED', 'REJECTED'].map((tab) => {
               const tabLabels: Record<string, string> = { 
                 ALL: 'Tất cả', 
@@ -501,7 +493,7 @@ export default function KpiCriteriaPage() {
 function KpiTableRow({ kpi, index, onView, onEdit, onDelete, onSubmit, totalWeight }: { 
   kpi: KpiCriteria; index: number; onView: () => void; onEdit: () => void; onDelete: () => void; onSubmit: () => void; totalWeight: number 
 }) {
-  const status = statusConfig[kpi.status] ?? statusConfig['DRAFT']!
+  const status = STATUS_CONFIG[kpi.status as keyof typeof STATUS_CONFIG] ?? STATUS_CONFIG['DRAFT']!
   const StatusIcon = status.icon
   
   return (
@@ -546,7 +538,7 @@ function KpiTableRow({ kpi, index, onView, onEdit, onDelete, onSubmit, totalWeig
             <span className="text-xs font-black text-indigo-600 dark:text-indigo-400">{kpi.weight}%</span>
           </div>
           <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest bg-slate-100 dark:bg-slate-800 px-2 py-1.5 rounded-lg whitespace-nowrap">
-            {frequencyMap[kpi.frequency] || kpi.frequency}
+            {FREQUENCY_MAP[kpi.frequency as keyof typeof FREQUENCY_MAP] || kpi.frequency}
           </div>
         </div>
       </td>
@@ -589,7 +581,7 @@ function KpiCard({ kpi, delay, onView, onEdit, onDelete, onSubmit, totalWeight }
   const menuRef = useRef<HTMLDivElement>(null)
   useOnClickOutside(menuRef, () => setMenuOpen(false))
 
-  const status = statusConfig[kpi.status] ?? statusConfig['DRAFT']!
+  const status = STATUS_CONFIG[kpi.status as keyof typeof STATUS_CONFIG] ?? STATUS_CONFIG['DRAFT']!
   const StatusIcon = status.icon
 
   return (
@@ -702,7 +694,7 @@ function KpiCard({ kpi, delay, onView, onEdit, onDelete, onSubmit, totalWeight }
         <div className="flex flex-col items-end">
           <span className="text-[10px] font-black text-slate-400 uppercase tracking-tighter">Tần suất</span>
           <span className="text-[11px] font-black text-indigo-600 dark:text-indigo-400 uppercase">
-            {frequencyMap[kpi.frequency] || kpi.frequency}
+            {FREQUENCY_MAP[kpi.frequency as keyof typeof FREQUENCY_MAP] || kpi.frequency}
           </span>
         </div>
       </div>

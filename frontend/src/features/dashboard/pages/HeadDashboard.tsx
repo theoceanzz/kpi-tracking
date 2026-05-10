@@ -86,7 +86,7 @@ export default function HeadDashboard() {
     return (
       <div className="min-h-screen bg-[#f8fafc] dark:bg-[#020617] p-6 space-y-6">
         <div className="h-48 rounded-[32px] bg-white dark:bg-slate-900 animate-pulse border border-slate-200 dark:border-slate-800" />
-        <div className="grid grid-cols-4 gap-4">
+        <div id="tour-dashboard-stats" className="grid grid-cols-4 gap-4">
           {[1,2,3,4].map(i => <div key={i} className="h-28 rounded-2xl bg-white dark:bg-slate-900 animate-pulse border border-slate-200 dark:border-slate-800" />)}
         </div>
         <LoadingSkeleton type="table" rows={8} />
@@ -128,7 +128,7 @@ export default function HeadDashboard() {
                 </div>
               </div>
               <div className="flex gap-3">
-                <Link to="/submissions/org-unit" className="flex items-center gap-2 px-6 py-3 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-white text-[11px] font-black hover:bg-slate-200 dark:hover:bg-slate-700 transition-all border border-slate-200 dark:border-slate-700 shadow-sm">
+                <Link id="tour-dashboard-approve-btn" to="/submissions/org-unit" className="flex items-center gap-2 px-6 py-3 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-white text-[11px] font-black hover:bg-slate-200 dark:hover:bg-slate-700 transition-all border border-slate-200 dark:border-slate-700 shadow-sm">
                   <ClipboardCheck size={16} className="text-blue-600" /> DUYỆT BÁO CÁO
                 </Link>
                 <Link to="/kpi-criteria" className="flex items-center gap-2 px-6 py-3 rounded-xl bg-slate-900 dark:bg-white text-white dark:text-slate-900 text-[11px] font-black hover:scale-105 transition-all shadow-xl active:scale-95">
@@ -140,7 +140,7 @@ export default function HeadDashboard() {
         </div>
 
         {/* ===== TOP INDICATORS (Smaller) ===== */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div id="tour-dashboard-stats" className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <StatCard label="Tổng nhân sự" value={stats?.totalUsers ?? 0} sub={unitName} icon={Users} color="blue" />
           <StatCard label="KPI Chờ duyệt" value={stats?.pendingKpi ?? 0} sub="Cần xử lý ngay" icon={Target} color="indigo" link="/kpi-criteria" alert={(stats?.pendingKpi ?? 0) > 0} />
           <StatCard label="Báo cáo mới" value={pendingSub} sub="Chờ đánh giá" icon={Clock} color="amber" link="/submissions/org-unit" alert={pendingSub > 0} />
@@ -167,7 +167,7 @@ export default function HeadDashboard() {
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
 
           {/* LEFT: Charts & Activity */}
-          <div className="lg:col-span-12 xl:col-span-4 space-y-6">
+          <div id="tour-dashboard-completion" className="lg:col-span-12 xl:col-span-4 space-y-6">
              {/* Submission Status Overview */}
              <div className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl rounded-[32px] border border-slate-200 dark:border-slate-800 shadow-xl p-8 relative overflow-hidden h-full flex flex-col">
                 <div className="flex flex-col gap-1 mb-8">
@@ -216,7 +216,7 @@ export default function HeadDashboard() {
                 <div className="flex items-center gap-4">
                   <div className="flex items-center gap-3">
                     <Users size={18} className="text-blue-600" />
-                    <h3 className="font-black text-sm uppercase tracking-widest text-slate-900 dark:text-white">Hiệu suất Đội ngũ</h3>
+                    <h3 id="tour-dashboard-tabs" className="font-black text-sm uppercase tracking-widest text-slate-900 dark:text-white">Hiệu suất Đội ngũ</h3>
                   </div>
                   <button
                     onClick={handleExport}

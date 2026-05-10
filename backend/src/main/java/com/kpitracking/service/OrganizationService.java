@@ -206,7 +206,13 @@ public class OrganizationService {
         // Deputy (Rank 1)
         String deputyName;
         if (dto.getManagerRoleLabel() != null && !dto.getManagerRoleLabel().trim().isEmpty()) {
-            deputyName = "Phó " + dto.getManagerRoleLabel();
+            String managerLabel = dto.getManagerRoleLabel().trim();
+            if (!isTop) {
+                String baseLabel = managerLabel.replaceFirst("(?i)^Trưởng\\s*", "").trim();
+                deputyName = baseLabel.isEmpty() ? "Phó" : "Phó " + baseLabel;
+            } else {
+                deputyName = "Phó " + managerLabel;
+            }
         } else {
             deputyName = "Phó " + (isTop ? "Giám Đốc" : dto.getUnitTypeName().toUpperCase());
         }

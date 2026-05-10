@@ -20,9 +20,10 @@ export default function App() {
       <RouterProvider router={router} />
       <GlobalUploadProgress />
       <Toaster
-        position="top-right"
+        position="top-center"
         richColors
         closeButton
+        duration={4000}
         toastOptions={{
           style: { fontFamily: 'Inter, sans-serif' },
         }}

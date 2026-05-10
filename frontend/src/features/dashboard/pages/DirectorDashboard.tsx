@@ -26,6 +26,7 @@ import {
   BarChart, Bar, PieChart, Pie, Cell, AreaChart, Area, Legend, Tooltip
 } from 'recharts'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import StaffPerformanceDetailModal from '@/features/submissions/components/StaffPerformanceDetailModal'
 
 const COLORS = ['#6366f1', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'];
 
@@ -37,6 +38,9 @@ export default function DirectorDashboard() {
   const [isExporting, setIsExporting] = useState(false)
   const [activeTab, setActiveTab] = useState<TabView>('overview')
   const [empSearch, setEmpSearch] = useState('')
+  const [evaluatingUser, setEvaluatingUser] = useState<{ id: string, name: string } | null>(null)
+  const [hoveredEmpId, setHoveredEmpId] = useState<string | null>(null)
+  const [showRadialTooltip, setShowRadialTooltip] = useState(false)
   const { user } = useAuthStore()
   const [orgUnitFilter, setOrgUnitFilter] = useState<string>(user?.memberships?.[0]?.orgUnitId || 'ALL')
   const empSize = 10
@@ -82,13 +86,13 @@ export default function DirectorDashboard() {
     const emps = allEmpStats?.content || empStats?.content || []
     if (emps.length === 0) return { companyWeightedAvg: 0, groupRates: {} }
 
-    const groups: Record<string, { empName: string, rate: number }[]> = {}
+    const groups: Record<string, { userId: string, empName: string, rate: number }[]> = {}
     emps.forEach(e => {
       if (e.assignedKpi > 0) {
         const unitName = (e.orgUnitName || 'Chưa gán').trim()
         const rate = e.approvedSubmissions / (e.assignedKpi || 1)
         if (!groups[unitName]) groups[unitName] = []
-        groups[unitName].push({ empName: e.fullName, rate })
+        groups[unitName].push({ userId: e.userId, empName: e.fullName, rate })
       }
     })
 
@@ -251,8 +255,15 @@ export default function DirectorDashboard() {
               </div>
 
               <div className="flex flex-col items-center flex-1 justify-center py-4">
-                <div className="relative w-64 h-64 flex items-center justify-center group/radial cursor-pointer">
-                  <div className="absolute inset-0 bg-indigo-500/5 dark:bg-indigo-500/10 rounded-full blur-3xl scale-75 opacity-0 group-hover/radial:opacity-100 transition-opacity duration-700"></div>
+                <div 
+                  onMouseEnter={() => !evaluatingUser && setShowRadialTooltip(true)}
+                  onMouseLeave={() => setShowRadialTooltip(false)}
+                  className="relative w-64 h-64 flex items-center justify-center group/radial cursor-pointer"
+                >
+                  <div className={cn(
+                    "absolute inset-0 bg-indigo-500/5 dark:bg-indigo-500/10 rounded-full blur-3xl scale-75 transition-opacity duration-700",
+                    showRadialTooltip ? "opacity-100" : "opacity-0"
+                  )}></div>
                   <svg viewBox="0 0 100 100" className="w-full h-full transform -rotate-90 relative z-10">
                     <defs>
                       <linearGradient id="radialGradientD" x1="0%" y1="0%" x2="100%" y2="0%">
@@ -279,7 +290,10 @@ export default function DirectorDashboard() {
                     </div>
                   </div>
 
-                  <div className="absolute top-[80%] left-1/2 -translate-x-1/2 mt-4 w-72 backdrop-blur-xl bg-white/95 dark:bg-slate-900/95 p-5 rounded-[28px] shadow-[0_30px_60px_rgba(0,0,0,0.2)] border border-slate-100 dark:border-slate-800 opacity-0 invisible group-hover/radial:opacity-100 group-hover/radial:visible transition-all duration-300 z-[100] translate-y-2 group-hover/radial:translate-y-0">
+                  <div className={cn(
+                    "absolute top-[80%] left-1/2 -translate-x-1/2 mt-4 w-72 backdrop-blur-xl bg-white/95 dark:bg-slate-900/95 p-5 rounded-[28px] shadow-[0_30px_60px_rgba(0,0,0,0.2)] border border-slate-100 dark:border-slate-800 transition-all duration-300 z-[100]",
+                    showRadialTooltip && !evaluatingUser ? "opacity-100 visible translate-y-0" : "opacity-0 invisible translate-y-2"
+                  )}>
                       <div className="flex items-center gap-2 mb-4 px-2">
                         <div className="w-1 h-4 bg-indigo-500 rounded-full"></div>
                         <span className="text-[10px] font-black text-slate-900 dark:text-white uppercase tracking-widest">Nhân viên đóng góp</span>
@@ -287,7 +301,15 @@ export default function DirectorDashboard() {
                       <div className="space-y-1.5 max-h-72 overflow-y-auto pr-1 custom-scrollbar">
                         {Object.values(groups).flat().filter(m => m.rate > 0).length > 0 ? (
                           Object.values(groups).flat().filter(m => m.rate > 0).map((m, i) => (
-                            <div key={`${m.empName}-${i}`} className="flex justify-between items-center p-3 rounded-2xl hover:bg-indigo-50/50 dark:hover:bg-indigo-500/10 transition-all group/emp border border-transparent hover:border-indigo-100/50 dark:hover:border-indigo-500/20">
+                            <div 
+                              key={`${m.empName}-${i}`} 
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setShowRadialTooltip(false);
+                                setEvaluatingUser({ id: m.userId, name: m.empName });
+                              }}
+                              className="flex justify-between items-center p-3 rounded-2xl hover:bg-indigo-50/50 dark:hover:bg-indigo-500/10 transition-all group/emp border border-transparent hover:border-indigo-100/50 dark:hover:border-indigo-500/20 cursor-pointer"
+                            >
                               <div className="flex items-center gap-2">
                                 <div className="w-1.5 h-1.5 rounded-full bg-indigo-400"></div>
                                 <span className="text-[11px] font-bold text-slate-600 dark:text-slate-400 group-hover/emp:text-slate-900 dark:group-hover/emp:text-white transition-colors">{m.empName}</span>
@@ -550,6 +572,9 @@ export default function DirectorDashboard() {
             <div className="grid grid-cols-1 gap-8">
                 <PremiumRankingTable 
                   employees={allEmpStats?.content || empStats?.content || []} 
+                  onSelectUser={(id, name) => setEvaluatingUser({ id, name })}
+                  hoveredUserId={hoveredEmpId}
+                  onHoverUser={setHoveredEmpId}
                 />
             </div>
           )}
@@ -572,6 +597,17 @@ export default function DirectorDashboard() {
           )}
         </div>
       </div>
+
+      {evaluatingUser && activePeriod && (
+        <StaffPerformanceDetailModal
+          open={!!evaluatingUser}
+          onClose={() => setEvaluatingUser(null)}
+          userId={evaluatingUser.id}
+          userName={evaluatingUser.name}
+          periodId={activePeriod.id}
+          periodName={activePeriod.name}
+        />
+      )}
     </div>
   )
 }
@@ -657,7 +693,14 @@ function AlertItem({ icon, title, sub, color, link }: { icon: any, title: string
   return Content
 }
 
-function PremiumRankingTable({ employees }: { employees: EmployeeKpiStats[] }) {
+function PremiumRankingTable({ 
+  employees, onSelectUser, hoveredUserId, onHoverUser 
+}: { 
+  employees: EmployeeKpiStats[], 
+  onSelectUser: (id: string, name: string) => void,
+  hoveredUserId: string | null,
+  onHoverUser: (id: string | null) => void
+}) {
   const { user } = useAuthStore()
   const orgId = user?.memberships?.[0]?.organizationId
   const { data: org } = useOrganization(orgId)
@@ -708,7 +751,13 @@ function PremiumRankingTable({ employees }: { employees: EmployeeKpiStats[] }) {
           </thead>
           <tbody className="divide-y divide-slate-50 dark:divide-slate-800">
             {sorted.map((emp, index) => (
-              <tr key={emp.userId} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/50 transition-all group cursor-pointer">
+              <tr 
+                key={emp.userId} 
+                onMouseEnter={() => onHoverUser(emp.userId)}
+                onMouseLeave={() => onHoverUser(null)}
+                onClick={() => onSelectUser(emp.userId, emp.fullName)}
+                className="hover:bg-slate-50/80 dark:hover:bg-slate-800/50 transition-all group cursor-pointer relative"
+              >
                 <td className="px-10 py-6">
                   <div className="flex items-center gap-4">
                     <div className="relative">
@@ -730,6 +779,30 @@ function PremiumRankingTable({ employees }: { employees: EmployeeKpiStats[] }) {
                         <Building2 size={10} /> {emp.orgUnitName}
                       </p>
                     </div>
+                  </div>
+
+                  {/* Hover Detail Tooltip for Ranking Table */}
+                  <div className={cn(
+                    "absolute left-full top-0 ml-4 w-72 backdrop-blur-xl bg-white/95 dark:bg-slate-900/95 p-5 rounded-[28px] shadow-[0_30px_60px_rgba(0,0,0,0.2)] border border-slate-100 dark:border-slate-800 transition-all duration-300 z-[100]",
+                    hoveredUserId === emp.userId ? "opacity-100 visible translate-x-0" : "opacity-0 invisible -translate-x-2"
+                  )}>
+                      <div className="flex items-center gap-2 mb-4 px-2">
+                        <div className="w-1 h-4 bg-emerald-500 rounded-full"></div>
+                        <span className="text-[10px] font-black text-slate-900 dark:text-white uppercase tracking-widest">Đóng góp chi tiết</span>
+                      </div>
+                      <div className="space-y-1.5">
+                        <div className="flex justify-between items-center p-3 rounded-2xl bg-indigo-50/50 dark:bg-indigo-500/10 border border-indigo-100/30">
+                           <span className="text-[11px] font-bold text-slate-600 dark:text-slate-400">KPI Hoàn thành</span>
+                           <span className="text-[11px] font-black text-indigo-600">{emp.approvedSubmissions}/{emp.assignedKpi}</span>
+                        </div>
+                        <div className="flex justify-between items-center p-3 rounded-2xl bg-emerald-50/50 dark:bg-emerald-500/10 border border-emerald-100/30">
+                           <span className="text-[11px] font-bold text-slate-600 dark:text-slate-400">Điểm trung bình</span>
+                           <span className="text-[11px] font-black text-emerald-600">{(emp.averageScore ?? 0).toFixed(1)}</span>
+                        </div>
+                        <div className="p-3 text-center">
+                           <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest italic">* Nhấn để xem chi tiết bài nộp</p>
+                        </div>
+                      </div>
                   </div>
                 </td>
                 <td className="px-6 py-6 text-center">

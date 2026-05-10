@@ -5,7 +5,7 @@ import { useEvaluations } from '../hooks/useEvaluations'
 import { useAuthStore } from '@/store/authStore'
 import { useOrganization } from '@/features/orgunits/hooks/useOrganization'
 import { getScoringFunctions } from '@/lib/scoring'
-import { formatDateTime, getInitials, cn } from '@/lib/utils'
+import { formatNumber, formatDateTime, getInitials, cn } from '@/lib/utils'
 import type { Evaluation } from '@/types/evaluation'
 import {
   X, Star, User, MessageSquare, TrendingUp,
@@ -408,7 +408,7 @@ export default function EvaluationDetailModal({ open, onClose, evaluation }: Eva
                               : "bg-amber-50 text-amber-600 border border-amber-100 dark:bg-amber-900/20 dark:border-amber-900/30"
                           )}>
                             {inlineScore > layers.selfEval.score ? <TrendingUp size={10} /> : <Target size={10} />}
-                            {inlineScore > layers.selfEval.score ? '+' : ''}{inlineScore - layers.selfEval.score} so với tự đánh giá
+                            {inlineScore > layers.selfEval.score ? '+' : ''}{Math.round(inlineScore - layers.selfEval.score)} so với tự đánh giá
                           </div>
                         )}
                       </div>
@@ -529,7 +529,7 @@ function EvalLayerCard({ title, icon: Icon, iconBg, iconColor, evaluation, lineA
                 </div>
                 <div className="flex flex-col">
                   <div className="flex items-baseline gap-2">
-                    <span className={`text-3xl font-black tracking-tighter ${getScoreColor(evaluation.score)}`}>{evaluation.score ?? '—'}</span>
+                    <span className={`text-3xl font-black tracking-tighter ${getScoreColor(evaluation.score)}`}>{evaluation.score != null ? formatNumber(evaluation.score) : '—'}</span>
                     <span className={`text-[10px] font-black uppercase tracking-[0.15em] ${getScoreColor(evaluation.score)}`}>{getScoreLabel(evaluation.score)}</span>
                   </div>
                   

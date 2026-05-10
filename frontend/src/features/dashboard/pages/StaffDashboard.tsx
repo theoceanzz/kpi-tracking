@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react'
+import { useState, useMemo, useEffect, type ReactNode } from 'react'
 import LoadingSkeleton from '@/components/common/LoadingSkeleton'
 import StatusBadge from '@/components/common/StatusBadge'
 import { useMyKpiProgress } from '../hooks/useMyKpiProgress'
@@ -124,7 +124,15 @@ export default function StaffDashboard() {
 
   const isLoading = progressLoading || subLoading || pinnedLoading
 
-  if (isLoading) return <div className="p-8"><LoadingSkeleton rows={10} /></div>
+  if (isLoading) return (
+    <div className="max-w-[1440px] mx-auto p-6 space-y-8 animate-pulse">
+      <div className="h-24 bg-slate-100 dark:bg-slate-800 rounded-3xl" />
+      <div id="tour-staff-stats" className="grid grid-cols-2 md:grid-cols-5 gap-4">
+        {[1,2,3,4,5].map(i => <div key={i} className="h-32 bg-slate-100 dark:bg-slate-800 rounded-2xl" />)}
+      </div>
+      <div id="tour-staff-tasks" className="h-96 bg-slate-100 dark:bg-slate-800 rounded-3xl" />
+    </div>
+  )
 
   const totalAssigned = progress?.totalAssignedKpi ?? 0
   const totalSub = progress?.totalSubmissions ?? 0
@@ -163,6 +171,7 @@ export default function StaffDashboard() {
 
         <div className="flex items-center gap-3">
            <Link 
+            id="tour-staff-submit"
             to="/submissions/new" 
             className="flex items-center gap-2 px-6 py-3 rounded-xl bg-slate-900 dark:bg-white dark:text-slate-900 text-white text-sm font-black hover:bg-indigo-600 dark:hover:bg-indigo-50 transition-all shadow-md active:scale-95"
           >
@@ -172,7 +181,7 @@ export default function StaffDashboard() {
       </div>
 
       {/* Stats Overview */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+      <div id="tour-staff-stats" className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
         <StatCard 
           label={inProgressCount > 0 ? `${inProgressCount} Đang thực hiện` : "Mục tiêu KPI"} 
           value={
@@ -210,7 +219,7 @@ export default function StaffDashboard() {
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         
         {/* Main Section: Tasks */}
-        <div className="lg:col-span-8 space-y-6">
+        <div id="tour-staff-tasks" className="lg:col-span-8 space-y-6">
           <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden transition-all">
             <div className="px-6 py-5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50/30 dark:bg-slate-800/20">
               <div className="flex items-center gap-3">
@@ -269,22 +278,29 @@ export default function StaffDashboard() {
                         </div>
                       </div>
                     </div>
-                    
-                    <div className="flex items-center gap-3">
-                      <StatusBadge status={task.status} />
-                      {task.submissionCount < task.expectedSubmissions && 
-                       task.status !== 'APPROVED' && 
-                       task.status !== 'PENDING' && 
-                       task.status !== 'REJECTED' && 
-                       task.status !== 'EDIT' && 
-                       (!task.startDate || new Date(task.startDate) <= new Date()) && (
-                        <Link 
-                          to={`/submissions/new?kpiId=${task.id}`}
-                          className="px-4 py-2 rounded-lg bg-indigo-600 text-white text-[10px] font-black hover:bg-indigo-700 transition-all uppercase tracking-widest"
-                        >
-                          Nộp ngay
-                        </Link>
-                      )}
+
+                    <div className="flex items-center gap-6">
+                      {/* Scores Section */}
+                      <div className="hidden md:flex items-center gap-4">
+                        <ProgressCircle percentage={task.managerScore ?? 0} size={42} strokeWidth={4} color="text-indigo-500" />
+                      </div>
+                      
+                      <div className="flex items-center gap-3">
+                        <StatusBadge status={task.status} />
+                        {task.submissionCount < task.expectedSubmissions && 
+                         task.status !== 'APPROVED' && 
+                         task.status !== 'PENDING' && 
+                         task.status !== 'REJECTED' && 
+                         task.status !== 'EDIT' && 
+                         (!task.startDate || new Date(task.startDate) <= new Date()) && (
+                          <Link 
+                            to={`/submissions/new?kpiId=${task.id}`}
+                            className="px-4 py-2 rounded-lg bg-indigo-600 text-white text-[10px] font-black hover:bg-indigo-700 transition-all uppercase tracking-widest"
+                          >
+                            Nộp ngay
+                          </Link>
+                        )}
+                      </div>
                     </div>
                   </div>
                 ))
@@ -388,7 +404,7 @@ export default function StaffDashboard() {
 }
 
 function StatCard({ label, value, icon: Icon, color, highlight }: {
-  label: string; value: React.ReactNode; icon: any; color: string; highlight?: boolean
+  label: string; value: ReactNode; icon: any; color: string; highlight?: boolean
 }) {
   const colorMap: Record<string, { bg: string; icon: string; text: string }> = {
     indigo: { bg: 'bg-indigo-50 dark:bg-indigo-900/30', icon: 'text-indigo-600', text: 'text-indigo-700 dark:text-indigo-300' },
@@ -422,16 +438,17 @@ function StatCard({ label, value, icon: Icon, color, highlight }: {
   )
 }
 
-function ProgressCircle({ percentage, size = 32, strokeWidth = 3 }: { 
+function ProgressCircle({ percentage, size = 32, strokeWidth = 3, color }: { 
   percentage: number; 
   size?: number; 
   strokeWidth?: number;
+  color?: string;
 }) {
   const radius = (size - strokeWidth) / 2
   const circumference = radius * 2 * Math.PI
-  const offset = circumference - (percentage / 100) * circumference
+  const offset = circumference - (Math.min(percentage, 100) / 100) * circumference
   
-  const getColor = () => {
+  const defaultColor = () => {
     if (percentage >= 100) return 'text-emerald-500'
     if (percentage >= 70) return 'text-indigo-500'
     if (percentage >= 40) return 'text-blue-500'
@@ -440,7 +457,7 @@ function ProgressCircle({ percentage, size = 32, strokeWidth = 3 }: {
   }
 
   return (
-    <div className="relative inline-flex items-center justify-center shrink-0" style={{ width: size, height: size }}>
+    <div className="relative inline-flex items-center justify-center shrink-0 transition-transform hover:scale-110 duration-500" style={{ width: size, height: size }}>
       <svg className="transform -rotate-90" width={size} height={size}>
         <circle
           className="text-slate-100 dark:text-slate-800"
@@ -452,7 +469,7 @@ function ProgressCircle({ percentage, size = 32, strokeWidth = 3 }: {
           cy={size / 2}
         />
         <circle
-          className={cn(getColor(), "transition-all duration-700 ease-out")}
+          className={cn(color || defaultColor(), "transition-all duration-1000 ease-out")}
           strokeWidth={strokeWidth}
           strokeDasharray={circumference}
           strokeDashoffset={offset}
@@ -464,7 +481,7 @@ function ProgressCircle({ percentage, size = 32, strokeWidth = 3 }: {
           cy={size / 2}
         />
       </svg>
-      <span className="absolute text-[7px] font-black text-slate-700 dark:text-slate-300">
+      <span className="absolute text-[8px] md:text-[10px] font-black text-slate-700 dark:text-slate-300">
         {Math.round(percentage)}%
       </span>
     </div>
@@ -518,7 +535,6 @@ function PinnedWidgetCard({ widget, onUnpin }: { widget: ReportWidget; onUnpin: 
     </div>
   )
 }
-
 
 function PinnedWidgetContent({ type }: { type: string }) {
   const { data: trendData } = useSummaryTrend()

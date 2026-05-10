@@ -5,7 +5,7 @@ import ConfirmDialog from '@/components/common/ConfirmDialog'
 import { format, addDays, parseISO, addMonths, addYears, subDays } from 'date-fns'
 import { useKpiPeriods } from '../hooks/useKpiPeriods'
 import { useAuthStore } from '@/store/authStore'
-import { formatDateTime } from '@/lib/utils'
+import { formatDateTime, FREQUENCY_MAP } from '@/lib/utils'
 import type { KpiPeriod, KpiFrequency } from '@/types/kpi'
 import {
   Calendar, Plus, Pencil, Trash2, Clock, 
@@ -73,12 +73,13 @@ export default function KpiPeriodsPage() {
   }
 
   const stats = useMemo(() => {
-    if (!data) return { total: 0, monthly: 0, quarterly: 0 }
+    if (!data) return { total: 0, monthly: 0, quarterly: 0, semiAnnually: 0 }
     const items = data.content || []
     return {
       total: data.totalElements || 0,
       monthly: items.filter(p => p.periodType === 'MONTHLY').length,
       quarterly: items.filter(p => p.periodType === 'QUARTERLY').length,
+      semiAnnually: items.filter(p => p.periodType === 'SEMI_ANNUALLY').length,
     }
   }, [data])
 
@@ -117,7 +118,7 @@ export default function KpiPeriodsPage() {
                   <div className="px-6 py-2 text-center">
                     <div className="flex items-center gap-2 justify-center text-indigo-600 dark:text-indigo-400">
                       <Target size={18} />
-                      <p className="text-2xl font-black tracking-tighter">{stats.monthly + stats.quarterly}</p>
+                      <p className="text-2xl font-black tracking-tighter">{stats.monthly + stats.quarterly + stats.semiAnnually}</p>
                     </div>
                     <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Chu kỳ phổ biến</p>
                   </div>
@@ -164,8 +165,10 @@ export default function KpiPeriodsPage() {
               </SelectTrigger>
               <SelectContent className="rounded-2xl border-slate-200 dark:border-slate-800 shadow-2xl p-2">
                 <SelectItem value="ALL" className="rounded-xl focus:bg-indigo-50 dark:focus:bg-indigo-900/30 text-xs font-black uppercase">Tất cả loại kỳ</SelectItem>
-                {['DAILY', 'WEEKLY', 'MONTHLY', 'QUARTERLY', 'YEARLY'].map(type => (
-                  <SelectItem key={type} value={type} className="rounded-xl focus:bg-indigo-50 dark:focus:bg-indigo-900/30 text-sm font-bold">{type}</SelectItem>
+                {['DAILY', 'WEEKLY', 'MONTHLY', 'QUARTERLY', 'SEMI_ANNUALLY', 'YEARLY'].map(type => (
+                  <SelectItem key={type} value={type} className="rounded-xl focus:bg-indigo-50 dark:focus:bg-indigo-900/30 text-sm font-bold">
+                    {FREQUENCY_MAP[type as KpiFrequency]}
+                  </SelectItem>
                 ))}
               </SelectContent>
             </Select>
@@ -242,7 +245,7 @@ export default function KpiPeriodsPage() {
                       </td>
                       <td className="px-8 py-5">
                         <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-50 dark:bg-slate-800 text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-400 border border-slate-100 dark:border-slate-700 shadow-sm">
-                          <Clock size={12} /> {period.periodType}
+                          <Clock size={12} /> {FREQUENCY_MAP[period.periodType as KpiFrequency]}
                         </div>
                       </td>
                       <td className="px-8 py-5">
@@ -300,7 +303,7 @@ export default function KpiPeriodsPage() {
 
                 <h3 className="text-lg font-black text-slate-900 dark:text-white mb-2 line-clamp-1">{period.name}</h3>
                 <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-50 dark:bg-slate-800 text-[9px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400 border border-slate-100 dark:border-slate-800 mb-6">
-                  <Clock size={10} /> {period.periodType}
+                  <Clock size={10} /> {FREQUENCY_MAP[period.periodType as KpiFrequency]}
                 </div>
 
                 <div className="space-y-3 pt-4 border-t border-slate-50 dark:border-slate-800">
@@ -438,6 +441,9 @@ function PeriodFormModal({ onClose, editPeriod, organizationId, onSubmit, isSubm
       case 'QUARTERLY': 
         end = subDays(addMonths(start, 3), 1)
         break
+      case 'SEMI_ANNUALLY': 
+        end = subDays(addMonths(start, 6), 1)
+        break
       case 'YEARLY': 
         end = subDays(addYears(start, 1), 1)
         break
@@ -477,6 +483,9 @@ function PeriodFormModal({ onClose, editPeriod, organizationId, onSubmit, isSubm
           case 'QUARTERLY': 
             endDateObj = subDays(addMonths(startDateObj, 3), 1)
             break
+          case 'SEMI_ANNUALLY': 
+            endDateObj = subDays(addMonths(startDateObj, 6), 1)
+            break
           case 'YEARLY': 
             endDateObj = subDays(addYears(startDateObj, 1), 1)
             break
@@ -491,9 +500,10 @@ function PeriodFormModal({ onClose, editPeriod, organizationId, onSubmit, isSubm
         const notificationDateObj = new Date(startDateObj.getTime() + (endDateObj.getTime() - startDateObj.getTime()) / 2)
         next.notificationDate = format(notificationDateObj, "yyyy-MM-dd'T'HH:mm")
 
-        if (!next.name || next.name.includes('Tháng') || next.name.includes('Quý') || next.name.includes('Năm')) {
+        if (!next.name || next.name.includes('Tháng') || next.name.includes('Quý') || next.name.includes('6 Tháng') || next.name.includes('Năm')) {
           if (type === 'MONTHLY') next.name = `Tháng ${format(startDateObj, 'MM/yyyy')}`
           else if (type === 'QUARTERLY') next.name = `Quý ${Math.floor(startDateObj.getMonth() / 3) + 1} / ${format(startDateObj, 'yyyy')}`
+          else if (type === 'SEMI_ANNUALLY') next.name = `6 Tháng ${Math.floor(startDateObj.getMonth() / 6) + 1} / ${format(startDateObj, 'yyyy')}`
           else if (type === 'YEARLY') next.name = `Năm ${format(startDateObj, 'yyyy')}`
         }
       }
@@ -568,8 +578,10 @@ function PeriodFormModal({ onClose, editPeriod, organizationId, onSubmit, isSubm
                   <SelectValue placeholder="Chọn loại chu kỳ" />
                 </SelectTrigger>
                 <SelectContent className="rounded-2xl border-slate-200 dark:border-slate-800 shadow-2xl p-2">
-                  {['DAILY', 'WEEKLY', 'MONTHLY', 'QUARTERLY', 'YEARLY'].map(type => (
-                    <SelectItem key={type} value={type} className="rounded-xl focus:bg-indigo-50 dark:focus:bg-indigo-900/30 text-sm font-bold">{type}</SelectItem>
+                  {['DAILY', 'WEEKLY', 'MONTHLY', 'QUARTERLY', 'SEMI_ANNUALLY', 'YEARLY'].map(type => (
+                    <SelectItem key={type} value={type} className="rounded-xl focus:bg-indigo-50 dark:focus:bg-indigo-900/30 text-sm font-bold">
+                      {FREQUENCY_MAP[type as KpiFrequency]}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>

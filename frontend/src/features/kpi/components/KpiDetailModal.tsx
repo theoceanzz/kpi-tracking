@@ -1,20 +1,10 @@
-import { X, Target, Building2, Users, BarChart3, Award, Calendar, Info, Clock, CheckCircle2 } from 'lucide-react'
-import { formatNumber, formatDateTime } from '@/lib/utils'
+import { X, Target, Building2, Users, BarChart3, Award, Calendar, CheckCircle2 } from 'lucide-react'
+import { formatNumber, formatDateTime, FREQUENCY_MAP, STATUS_CONFIG } from '@/lib/utils'
 import type { KpiCriteria } from '@/types/kpi'
 
-const frequencyMap: Record<string, string> = {
-  DAILY: 'Hàng ngày', WEEKLY: 'Hàng tuần', MONTHLY: 'Hàng tháng',
-  QUARTERLY: 'Hàng quý', YEARLY: 'Hàng năm',
-}
 
-const statusConfig: Record<string, { label: string; color: string; bgColor: string; icon: any }> = {
-  DRAFT: { label: 'Bản nháp', color: 'text-slate-600 dark:text-slate-400', bgColor: 'bg-slate-100 border-slate-200 dark:bg-slate-800 dark:border-slate-700', icon: Info },
-  PENDING_APPROVAL: { label: 'Chờ duyệt', color: 'text-amber-600 dark:text-amber-400', bgColor: 'bg-amber-100 border-amber-200 dark:bg-amber-900/30 dark:border-amber-900/40', icon: Clock },
-  APPROVED: { label: 'Đang thực hiện', color: 'text-emerald-600 dark:text-emerald-400', bgColor: 'bg-emerald-100 border-emerald-200 dark:bg-emerald-900/30 dark:border-emerald-900/40', icon: CheckCircle2 },
-  REJECTED: { label: 'Từ chối', color: 'text-red-600 dark:text-red-400', bgColor: 'bg-red-100 border-red-200 dark:bg-red-900/30 dark:border-red-900/40', icon: X },
-  EDIT: { label: 'Đang sửa', color: 'text-purple-600 dark:text-purple-400', bgColor: 'bg-purple-100 border-purple-200 dark:bg-purple-900/30 dark:border-purple-900/40', icon: Clock },
-  EDITED: { label: 'Đã sửa', color: 'text-blue-600 dark:text-blue-400', bgColor: 'bg-blue-100 border-blue-200 dark:bg-blue-900/30 dark:border-blue-900/40', icon: CheckCircle2 },
-}
+
+
 
 interface KpiDetailModalProps {
   open: boolean
@@ -25,7 +15,7 @@ interface KpiDetailModalProps {
 export default function KpiDetailModal({ open, onClose, kpi }: KpiDetailModalProps) {
   if (!open || !kpi) return null
 
-  const status = statusConfig[kpi.status] ?? statusConfig['DRAFT']!
+  const status = STATUS_CONFIG[kpi.status as keyof typeof STATUS_CONFIG] ?? STATUS_CONFIG['DRAFT']!
   const StatusIcon = status.icon
 
   return (
@@ -101,7 +91,7 @@ export default function KpiDetailModal({ open, onClose, kpi }: KpiDetailModalPro
             <MetricBox 
               icon={Calendar} 
               label="Tần suất báo cáo" 
-              value={frequencyMap[kpi.frequency] ?? kpi.frequency}
+              value={FREQUENCY_MAP[kpi.frequency as keyof typeof FREQUENCY_MAP] ?? kpi.frequency}
               color="text-purple-600"
             />
           </div>

@@ -97,11 +97,12 @@ export default function NewSubmissionPage() {
   const { addUpload } = useUploadStore()
 
   const mutation = useMutation({
-    mutationFn: async ({ data }: { data: SubmissionFormData, isDraft: boolean }) => {
+    mutationFn: async ({ data, isDraft }: { data: SubmissionFormData, isDraft: boolean }) => {
+      const payload = { ...data, isDraft }
       if (isEdit) {
-        return await submissionApi.update(id!, data as any)
+        return await submissionApi.update(id!, payload as any)
       } else {
-        return await submissionApi.create(data as any)
+        return await submissionApi.create(payload as any)
       }
     },
     onSuccess: (sub, variables) => {
@@ -467,7 +468,7 @@ export default function NewSubmissionPage() {
             <div className="space-y-4">
               <h3 className="text-3xl font-black text-slate-900 dark:text-white tracking-tight uppercase">Ghi nhận hiệu suất</h3>
               <p className="text-slate-500 dark:text-slate-400 font-medium leading-relaxed">
-                Dữ liệu báo cáo của bạn đã được hệ thống ghi nhận thành công. Để hoàn tất quy trình, mời bạn thực hiện bước **Tự đánh giá** cho chu kỳ này.
+                Dữ liệu báo cáo của bạn đã được hệ thống ghi nhận thành công. Để hoàn tất quy trình, mời bạn thực hiện bước <strong>"Tự đánh giá"</strong> cho chu kỳ này.
               </p>
             </div>
 

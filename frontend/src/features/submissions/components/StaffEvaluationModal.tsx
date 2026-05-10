@@ -9,7 +9,8 @@ import {
   AlertCircle
 } from 'lucide-react'
 import { useAuthStore } from '@/store/authStore'
-import { formatNumber } from '@/lib/utils'
+import { formatNumber, cn } from '@/lib/utils'
+import { useOrganization } from '@/features/orgunits/hooks/useOrganization'
 
 interface StaffEvaluationModalProps {
   open: boolean
@@ -25,10 +26,21 @@ export default function StaffEvaluationModal({
   open, onClose, userId, userName, periodId, periodName, readOnly = false, evaluationComment 
 }: StaffEvaluationModalProps) {
   const { user } = useAuthStore()
+  const orgId = user?.memberships?.[0]?.organizationId
+  const { data: org } = useOrganization(orgId)
   const userRoleName = user?.memberships?.[0]?.roleName || 'Quản lý'
   const qc = useQueryClient()
   const [individualScores, setIndividualScores] = useState<Record<string, number>>({})
   const [overallComment, setOverallComment] = useState(evaluationComment || '')
+
+  const getGrade = (score: number) => {
+    if (!org) return '—'
+    if (score >= (org.excellentThreshold ?? 90)) return 'XUẤT SẮC'
+    if (score >= (org.goodThreshold ?? 80)) return 'TỐT'
+    if (score >= (org.fairThreshold ?? 70)) return 'KHÁ'
+    if (score >= (org.averageThreshold ?? 50)) return 'TRUNG BÌNH'
+    return 'YẾU'
+  }
 
   // Fetch all submissions for this user in this period
   const { data: submissions, isLoading } = useQuery({
@@ -38,6 +50,13 @@ export default function StaffEvaluationModal({
       kpiPeriodId: periodId,
       size: 100 
     }),
+    enabled: open
+  })
+
+  // Fetch existing evaluation if any
+  const { data: existingEval } = useQuery({
+    queryKey: ['evaluations', 'staff-eval', userId, periodId],
+    queryFn: () => evaluationApi.getAll({ userId, kpiPeriodId: periodId, size: 1 }),
     enabled: open
   })
 
@@ -53,6 +72,16 @@ export default function StaffEvaluationModal({
       setIndividualScores(scores)
     }
   }, [submissions])
+
+  // Initialize comment from existing evaluation
+  useEffect(() => {
+    const evalData = existingEval?.content?.[0]
+    if (evalData?.comment) {
+      setOverallComment(evalData.comment)
+    } else if (evaluationComment) {
+      setOverallComment(evaluationComment)
+    }
+  }, [existingEval, evaluationComment])
 
   // Calculation logic
   const totalAutoScore = useMemo(() => 
@@ -95,6 +124,10 @@ export default function StaffEvaluationModal({
     }
   })
 
+  const isFullyApproved = useMemo(() => 
+    submissionList.length > 0 && submissionList.every(s => s.status === 'APPROVED'),
+  [submissionList])
+
   if (!open) return null
 
   return (
@@ -117,7 +150,11 @@ export default function StaffEvaluationModal({
               </h2>
               <p className="text-slate-400 text-xs font-medium">
                 Kỳ đánh giá: <b className="text-white">{periodName}</b> • Đang xem xét {submissionList.length} chỉ tiêu KPI
-                {readOnly && <span className="ml-2 px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 text-[9px] font-black uppercase tracking-widest">Đã chấm điểm</span>}
+                {isFullyApproved ? (
+                  <span className="ml-2 px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 text-[9px] font-black uppercase tracking-widest">Đã chấm điểm</span>
+                ) : (
+                  <span className="ml-2 px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 text-[9px] font-black uppercase tracking-widest">Chưa chấm điểm</span>
+                )}
               </p>
             </div>
             <button onClick={onClose} className="w-12 h-12 flex items-center justify-center rounded-2xl bg-white/5 hover:bg-white/10 transition-all">
@@ -152,7 +189,9 @@ export default function StaffEvaluationModal({
                       <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400 text-left">Chỉ tiêu KPI</th>
                       <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400 text-center">Kết quả / Mục tiêu</th>
                       <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400 text-right">Điểm hệ thống</th>
-                      <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-indigo-400 text-right">{userRoleName} chấm</th>
+                      {(isFullyApproved || !readOnly) && (
+                        <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-indigo-400 text-right">{userRoleName} chấm</th>
+                      )}
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-50 dark:divide-slate-800/50">
@@ -179,20 +218,27 @@ export default function StaffEvaluationModal({
                         <td className="px-6 py-5 text-right">
                           <span className="text-sm font-bold text-slate-400">{formatNumber(s.autoScore ?? 0)}</span>
                         </td>
-                        <td className="px-6 py-5 text-right">
-                          <div className="flex justify-end">
-                            <div className="w-24 relative group/input">
-                              <input 
-                                type="number"
-                                value={individualScores[s.id] ?? 0}
-                                onChange={e => setIndividualScores(prev => ({ ...prev, [s.id]: Number(e.target.value) }))}
-                                onWheel={(e) => e.currentTarget.blur()}
-                                disabled={readOnly}
-                                className={`w-full px-3 py-2 rounded-xl text-right text-sm font-black outline-none transition-all ${readOnly ? 'bg-slate-50 dark:bg-slate-800/30 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 cursor-not-allowed' : 'bg-indigo-50/50 dark:bg-indigo-900/10 border border-indigo-100 dark:border-indigo-800 text-indigo-600 dark:text-indigo-400 focus:ring-2 focus:ring-indigo-500/20'}`}
-                              />
+                        {(isFullyApproved || !readOnly) && (
+                          <td className="px-6 py-5 text-right">
+                            <div className="flex justify-end">
+                              <div className="w-24 relative group/input">
+                                <input 
+                                  type="number"
+                                  value={individualScores[s.id] ?? 0}
+                                  onChange={e => setIndividualScores(prev => ({ ...prev, [s.id]: Number(e.target.value) }))}
+                                  onWheel={(e) => e.currentTarget.blur()}
+                                  disabled={readOnly}
+                                  className={cn(
+                                    "w-full px-3 py-2 rounded-xl text-right text-sm font-black outline-none transition-all",
+                                    readOnly 
+                                      ? "bg-slate-50 dark:bg-slate-800/30 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 cursor-not-allowed"
+                                      : "bg-indigo-50/50 dark:bg-indigo-900/10 border border-indigo-100 dark:border-indigo-800 text-indigo-600 dark:text-indigo-400 focus:ring-2 focus:ring-indigo-500/20"
+                                  )}
+                                />
+                              </div>
                             </div>
-                          </div>
-                        </td>
+                          </td>
+                        )}
                       </tr>
                     ))}
                   </tbody>
@@ -201,21 +247,31 @@ export default function StaffEvaluationModal({
 
               {/* Summary and Comment */}
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-                <div className="lg:col-span-7 space-y-4">
-                  <label className="flex items-center gap-2 text-xs font-black text-slate-400 uppercase tracking-widest">
-                    <MessageSquare size={14} /> Nhận xét chung của {userRoleName}
-                  </label>
-                  <textarea 
-                    value={overallComment}
-                    onChange={e => setOverallComment(e.target.value)}
-                    rows={4}
-                    disabled={readOnly}
-                    className={`w-full px-6 py-5 rounded-[32px] border text-sm font-medium resize-none transition-all ${readOnly ? 'bg-slate-50 dark:bg-slate-800/30 border-slate-200 dark:border-slate-700 cursor-not-allowed' : 'border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800 focus:ring-4 focus:ring-indigo-500/10 outline-none'}`}
-                    placeholder="Đánh giá tổng quát thái độ, nỗ lực và kết quả làm việc của nhân sự trong đợt này..."
-                  />
-                </div>
+                {(isFullyApproved || !readOnly) && (
+                  <div className="lg:col-span-7 space-y-4">
+                    <label className="flex items-center gap-2 text-xs font-black text-slate-400 uppercase tracking-widest">
+                      <MessageSquare size={14} /> Nhận xét chung của {userRoleName}
+                    </label>
+                    <textarea 
+                      value={overallComment}
+                      onChange={e => setOverallComment(e.target.value)}
+                      rows={4}
+                      disabled={readOnly}
+                      className={cn(
+                        "w-full px-6 py-5 rounded-[32px] border text-sm font-medium resize-none transition-all",
+                        readOnly
+                          ? "bg-slate-50 dark:bg-slate-800/30 border-slate-200 dark:border-slate-700 cursor-not-allowed"
+                          : "border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800 focus:ring-4 focus:ring-indigo-500/10 outline-none"
+                      )}
+                      placeholder={readOnly ? "Chưa có nhận xét nào..." : "Đánh giá tổng quát thái độ, nỗ lực và kết quả làm việc của nhân sự trong đợt này..."}
+                    />
+                  </div>
+                )}
 
-                <div className="lg:col-span-5">
+                <div className={cn(
+                  "lg:col-span-5",
+                  !(isFullyApproved || !readOnly) && "lg:col-span-12"
+                )}>
                    <div className="p-8 rounded-[40px] bg-gradient-to-br from-indigo-600 to-indigo-800 text-white shadow-2xl shadow-indigo-500/20 space-y-6 relative overflow-hidden group">
                       <div className="absolute -bottom-10 -right-10 opacity-10 group-hover:scale-110 transition-transform duration-700">
                          <TrendingUp size={200} />
@@ -242,7 +298,7 @@ export default function StaffEvaluationModal({
 
                       <div className="pt-2 relative z-10">
                          <div className="px-4 py-2 rounded-xl bg-white/10 backdrop-blur-md text-[10px] font-black uppercase tracking-widest inline-flex items-center gap-2">
-                            <Award size={14} /> Tự động xếp loại: {totalManagerScore >= 100 ? 'XUẤT SẮC' : totalManagerScore >= 80 ? 'TỐT' : 'HOÀN THÀNH'}
+                            <Award size={14} /> Tự động xếp loại: {getGrade(totalManagerScore)}
                          </div>
                       </div>
                    </div>

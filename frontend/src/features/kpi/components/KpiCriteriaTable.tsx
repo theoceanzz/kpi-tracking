@@ -2,15 +2,9 @@ import DataTable from '@/components/common/DataTable'
 import StatusBadge from '@/components/common/StatusBadge'
 import type { KpiCriteria } from '@/types/kpi'
 import { Trash2 } from 'lucide-react'
-import { formatAssigneeNames } from '@/lib/utils'
+import { formatAssigneeNames, FREQUENCY_MAP } from '@/lib/utils'
 
-const frequencyMap: Record<string, string> = {
-  DAILY: 'Hàng ngày',
-  WEEKLY: 'Hàng tuần',
-  MONTHLY: 'Hàng tháng',
-  QUARTERLY: 'Hàng quý',
-  YEARLY: 'Hàng năm',
-}
+
 
 interface KpiCriteriaTableProps {
   data: KpiCriteria[]
@@ -25,7 +19,7 @@ export default function KpiCriteriaTable({ data, onAction, onDelete }: KpiCriter
     { key: 'orgUnit', header: 'Đơn vị', render: (k: KpiCriteria) => k.orgUnitName ?? '—' },
     { key: 'target', header: 'Mục tiêu', render: (k: KpiCriteria) => k.targetValue != null ? `${k.targetValue} ${k.unit ?? ''}` : '—' },
     { key: 'weight', header: 'Trọng số', render: (k: KpiCriteria) => k.weight != null ? `${k.weight}%` : '—' },
-    { key: 'frequency', header: 'Tần suất', render: (k: KpiCriteria) => frequencyMap[k.frequency] ?? k.frequency },
+    { key: 'frequency', header: 'Tần suất', render: (k: KpiCriteria) => FREQUENCY_MAP[k.frequency as keyof typeof FREQUENCY_MAP] ?? k.frequency },
     { key: 'assignedTo', header: 'Giao cho', render: (k: KpiCriteria) => formatAssigneeNames(k.assigneeNames) },
     { key: 'status', header: 'Trạng thái', render: (k: KpiCriteria) => <StatusBadge status={k.status} /> },
     ...(onDelete ? [{

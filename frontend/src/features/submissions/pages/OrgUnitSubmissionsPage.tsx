@@ -169,7 +169,7 @@ export default function OrgUnitSubmissionsPage() {
                 </div>
               </div>
 
-              <div className="flex items-center gap-3">
+              <div id="tour-approve-stats" className="flex items-center gap-3">
                 <StatChip label="Nhân sự" value={stats.totalEmployees} color="indigo" />
                 <StatChip label="Chờ duyệt" value={stats.totalPending} color="amber" />
                 <StatChip label="Đã đánh giá" value={stats.totalEvaluated} color="emerald" />
@@ -179,7 +179,7 @@ export default function OrgUnitSubmissionsPage() {
         </div>
 
         {/* Toolbar */}
-        <div className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-md p-5 rounded-[32px] border border-slate-200 dark:border-slate-800 shadow-sm space-y-5">
+        <div id="tour-approve-toolbar" className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-md p-5 rounded-[32px] border border-slate-200 dark:border-slate-800 shadow-sm space-y-5">
           <div className="flex flex-col lg:flex-row items-center gap-4 w-full">
             <div className="relative flex-1 w-full lg:max-w-md group">
               <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-emerald-500 transition-colors" size={18} />
@@ -243,7 +243,7 @@ export default function OrgUnitSubmissionsPage() {
             />
           </div>
         ) : (
-          <div className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl rounded-[32px] border border-slate-200 dark:border-slate-800 overflow-hidden shadow-2xl animate-in zoom-in-95 duration-500">
+          <div id="tour-approve-table" className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl rounded-[32px] border border-slate-200 dark:border-slate-800 overflow-hidden shadow-2xl animate-in zoom-in-95 duration-500">
             <div className="overflow-x-auto scrollbar-thin">
               <table className="w-full text-left border-collapse">
                 <thead>
