@@ -3,12 +3,14 @@ import { useMyAnalytics } from '../hooks/useAnalytics'
 import { useAuthStore } from '@/store/authStore'
 import { reportApi } from '@/features/reports/api/reportApi'
 import { getInitials, cn } from '@/lib/utils'
-import { Target, Award, TrendingUp, Star, Settings, Settings2, GripVertical, X, Eye, EyeOff, Layout, Save, RotateCcw, Hash, Table2, BarChart3 as BarChartIcon, Plus, Trash2, PieChart as PieChartIcon, Bell, Activity, Info, ArrowUpDown, Search, ChevronLeft, ChevronRight } from 'lucide-react'
-import LoadingSkeleton from '@/components/common/LoadingSkeleton'
+import { Target, Award, TrendingUp, Star, Settings, Settings2, GripVertical, X, Eye, EyeOff, Layout, Save, RotateCcw, Hash, Table2, BarChart3 as BarChartIcon, Plus, Trash2, PieChart as PieChartIcon, Bell, Activity, Info, ArrowUpDown, Search, ChevronLeft, ChevronRight, Pin } from 'lucide-react'
+import { toast } from 'sonner'
 import { Responsive, WidthProvider } from 'react-grid-layout/legacy'
 import { BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, AreaChart, Area, LineChart, Line } from 'recharts'
+import { useQueryClient } from '@tanstack/react-query'
 import { useNotifications } from '@/features/notifications/hooks/useNotifications'
 import { CopyButton } from '@/components/common/CopyButton'
+import LoadingSkeleton from '@/components/common/LoadingSkeleton'
 
 const ResponsiveGridLayout = WidthProvider(Responsive)
 const CONFIG_REPORT_NAME = '__PERSONAL_DASHBOARD_CONFIG__'
@@ -261,26 +263,27 @@ interface PersonalWidget {
   w: number
   h: number
   visible: boolean
+  isPinned?: boolean
 }
 
 const DEFAULT_WIDGETS: PersonalWidget[] = [
   // Hàng 1: Tổng quan
-  { i: 'top-stats', type: 'TOP_STATS_GRID', metric: 'KPI_SUMMARY', title: 'Chỉ số tổng hợp', x: 0, y: 0, w: 12, h: 4, visible: true },
+  { i: 'top-stats', type: 'TOP_STATS_GRID', metric: 'KPI_SUMMARY', title: 'Chỉ số tổng hợp', x: 0, y: 0, w: 12, h: 4, visible: true, isPinned: false },
   
   // Hàng 2: Chi tiết KPI
-  { i: 'kpi-table', type: 'TABLE', metric: 'KPI_PERFORMANCE', title: 'Chi tiết mục tiêu KPI', x: 0, y: 4, w: 12, h: 10, visible: true },
+  { i: 'kpi-table', type: 'TABLE', metric: 'KPI_PERFORMANCE', title: 'Chi tiết mục tiêu KPI', x: 0, y: 4, w: 12, h: 10, visible: true, isPinned: false },
   
   // Hàng 3: Trạng thái bài nộp & Phân bổ KPI
-  { i: 'submissions-pie', type: 'PIE', metric: 'SUBMISSIONS_STATUS', title: 'Trạng thái bài nộp', x: 0, y: 14, w: 6, h: 8, visible: true },
-  { i: 'kpi-dist-bar', type: 'BAR', metric: 'KPI_STATUS_DIST', title: 'Phân bổ trạng thái KPI', x: 6, y: 14, w: 6, h: 8, visible: true },
+  { i: 'submissions-pie', type: 'PIE', metric: 'SUBMISSIONS_STATUS', title: 'Trạng thái bài nộp', x: 0, y: 14, w: 6, h: 8, visible: true, isPinned: false },
+  { i: 'kpi-dist-bar', type: 'BAR', metric: 'KPI_STATUS_DIST', title: 'Phân bổ trạng thái KPI', x: 6, y: 14, w: 6, h: 8, visible: true, isPinned: false },
   
   // Hàng 4: Thông báo & Thống kê thông báo
-  { i: 'notif-list', type: 'TABLE', metric: 'NOTIFICATION_LATEST', title: 'Thông báo mới nhất', x: 0, y: 22, w: 8, h: 8, visible: true },
-  { i: 'notif-pie', type: 'PIE', metric: 'NOTIFICATION_STATS', title: 'Thống kê thông báo', x: 8, y: 22, w: 4, h: 8, visible: true },
+  { i: 'notif-list', type: 'TABLE', metric: 'NOTIFICATION_LATEST', title: 'Thông báo mới nhất', x: 0, y: 22, w: 8, h: 8, visible: true, isPinned: false },
+  { i: 'notif-pie', type: 'PIE', metric: 'NOTIFICATION_STATS', title: 'Thống kê thông báo', x: 8, y: 22, w: 4, h: 8, visible: true, isPinned: false },
   
   // Hàng 5: Lịch sử đánh giá (Bảng & Biểu đồ)
-  { i: 'eval-history-table', type: 'TABLE', metric: 'EVALUATION_HISTORY', title: 'Lịch sử đánh giá (Danh sách)', x: 0, y: 30, w: 6, h: 8, visible: true },
-  { i: 'eval-history-chart', type: 'AREA', metric: 'EVALUATION_HISTORY', title: 'Xu hướng điểm số', x: 6, y: 30, w: 6, h: 8, visible: true }
+  { i: 'eval-history-table', type: 'TABLE', metric: 'EVALUATION_HISTORY', title: 'Lịch sử đánh giá (Danh sách)', x: 0, y: 30, w: 6, h: 8, visible: true, isPinned: false },
+  { i: 'eval-history-chart', type: 'AREA', metric: 'EVALUATION_HISTORY', title: 'Xu hướng điểm số', x: 6, y: 30, w: 6, h: 8, visible: true, isPinned: false }
 ]
 
 export default function MyStatsTab() {
@@ -291,6 +294,7 @@ export default function MyStatsTab() {
   const [widgets, setWidgets] = useState<PersonalWidget[]>(DEFAULT_WIDGETS)
   const [editingWidget, setEditingWidget] = useState<PersonalWidget | null>(null)
   const [configReportId, setConfigReportId] = useState<string | null>(null)
+  const queryClient = useQueryClient()
   
   const { from, to } = useMemo(() => {
     const selectedRange = QUICK_RANGES[range] || QUICK_RANGES[0]
@@ -303,6 +307,30 @@ export default function MyStatsTab() {
   const { data: analyticsData, isLoading: isAnalyticsLoading } = useMyAnalytics(from, to)
   const { data: notificationsData, isLoading: isNotifLoading } = useNotifications(0, 50)
 
+  const mapWidgetsFromReport = (report: any): PersonalWidget[] => {
+    if (!report.widgets || report.widgets.length === 0) return DEFAULT_WIDGETS;
+    
+    return report.widgets.map((sw: any) => {
+      try {
+        const pos = JSON.parse(sw.position || '{}')
+        const cfg = JSON.parse(sw.chartConfig || '{}')
+        const def = DEFAULT_WIDGETS.find(dw => dw.i === cfg.i)
+        
+        return { 
+          ...(def || {}), 
+          ...pos, 
+          ...cfg, 
+          id: sw.id,
+          i: cfg.i || sw.id,
+          type: sw.widgetType as WidgetType,
+          title: sw.title,
+          visible: cfg.visible !== false,
+          isPinned: sw.isPinned
+        } as PersonalWidget
+      } catch { return null }
+    }).filter(Boolean) as PersonalWidget[]
+  }
+
   useEffect(() => {
     const loadConfig = async () => {
       try {
@@ -311,32 +339,8 @@ export default function MyStatsTab() {
         
         if (configReport) {
           setConfigReportId(configReport.id)
-          if (configReport.widgets && configReport.widgets.length > 0) {
-            // Dashboard is already customized, use DB as source of truth
-            const savedWidgets = configReport.widgets.map(sw => {
-              try {
-                const pos = JSON.parse(sw.position)
-                const cfg = JSON.parse(sw.chartConfig)
-                const def = DEFAULT_WIDGETS.find(dw => dw.i === cfg.i)
-                
-                return { 
-                  ...(def || {}), 
-                  ...pos, 
-                  ...cfg, 
-                  id: sw.id,
-                  i: cfg.i || sw.id,
-                  type: sw.widgetType as WidgetType,
-                  title: sw.title,
-                  visible: cfg.visible !== false
-                } as PersonalWidget
-              } catch { return null }
-            }).filter(Boolean) as PersonalWidget[]
-
-            setWidgets(savedWidgets)
-          } else {
-            // New dashboard, show all defaults
-            setWidgets(DEFAULT_WIDGETS)
-          }
+          const savedWidgets = mapWidgetsFromReport(configReport)
+          setWidgets(savedWidgets)
         }
       } catch (e) {
         console.error("Failed to load dashboard config", e)
@@ -353,23 +357,59 @@ export default function MyStatsTab() {
         title: w.title,
         position: JSON.stringify({ x: w.x, y: w.y, w: w.w, h: w.h }),
         chartConfig: JSON.stringify({ i: w.i, metric: w.metric, visible: w.visible }),
-        widgetOrder: index
+        widgetOrder: index,
+        isPinned: w.isPinned
       }))
 
+      let updatedReport;
       if (configReportId) {
-        await reportApi.update(configReportId, { widgets: widgetRequests })
+        updatedReport = await reportApi.update(configReportId, { widgets: widgetRequests })
       } else {
         const newReport = await reportApi.create({
           name: CONFIG_REPORT_NAME,
           description: 'Cấu hình giao diện thống kê cá nhân'
         })
-        await reportApi.update(newReport.id, { widgets: widgetRequests })
+        updatedReport = await reportApi.update(newReport.id, { widgets: widgetRequests })
         setConfigReportId(newReport.id)
       }
+      
+      const newWidgets = mapWidgetsFromReport(updatedReport)
+      setWidgets(newWidgets)
       setIsEditMode(false)
+      return newWidgets
     } catch (err) {
       console.error(err)
-      alert("Không thể lưu cấu hình")
+      toast.error("Không thể lưu cấu hình")
+      throw err
+    }
+  }
+
+  const handleTogglePin = async (widget: PersonalWidget) => {
+    let targetWidgetId = widget.id;
+    
+    if (!targetWidgetId) {
+      try {
+        const savedWidgets = await saveConfig();
+        const found = savedWidgets.find(w => w.i === widget.i);
+        if (found?.id) {
+          targetWidgetId = found.id;
+        } else {
+          toast.error("Không thể ghim: Lỗi khởi tạo cấu hình");
+          return;
+        }
+      } catch (err) {
+        return;
+      }
+    }
+ 
+    try {
+      const updated = await reportApi.togglePinWidget(targetWidgetId)
+      setWidgets(prev => prev.map(w => w.id === targetWidgetId ? { ...w, isPinned: updated.isPinned } : w))
+      queryClient.invalidateQueries({ queryKey: ['reports', 'widgets', 'pinned'] })
+      toast.success(updated.isPinned ? "Đã ghim vào trang chủ" : "Đã bỏ ghim khỏi trang chủ")
+    } catch (err) {
+      console.error(err)
+      toast.error("Không thể thay đổi trạng thái ghim")
     }
   }
 
@@ -457,13 +497,29 @@ export default function MyStatsTab() {
 
   const renderWidgetContent = (widget: PersonalWidget) => {
     // We use a functional component inside renderWidgetContent to handle local state/refs
-    const WidgetWrapper = ({ children, title, icon }: { children: React.ReactNode, title: string, icon?: React.ReactNode }) => {
+    const WidgetWrapper = ({ children, title, icon, widget }: { children: React.ReactNode, title: string, icon?: React.ReactNode, widget: PersonalWidget }) => {
       const sectionRef = useRef<HTMLDivElement>(null);
       return (
-        <section ref={sectionRef} className="bg-white dark:bg-slate-900 rounded-[24px] border border-slate-200 dark:border-slate-800 shadow-sm p-5 flex flex-col h-full overflow-hidden">
+        <section ref={sectionRef} className="bg-white dark:bg-slate-900 rounded-[24px] border border-slate-200 dark:border-slate-800 shadow-sm p-5 flex flex-col h-full overflow-hidden relative">
           <div className="flex items-center justify-between mb-4">
             <h3 className="font-black text-sm flex items-center gap-2">{icon}{title}</h3>
-            {!isEditMode && <CopyButton targetRef={sectionRef} />}
+            {!isEditMode && (
+              <div className="flex items-center gap-2">
+                <button 
+                  onClick={() => handleTogglePin(widget)}
+                  className={cn(
+                    "p-1.5 rounded-lg transition-all",
+                    widget.isPinned 
+                      ? "bg-indigo-600 text-white shadow-md shadow-indigo-200 dark:shadow-none" 
+                      : "text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"
+                  )}
+                  title={widget.isPinned ? "Bỏ ghim khỏi trang chủ" : "Ghim vào trang chủ"}
+                >
+                  <Pin size={14} fill={widget.isPinned ? "currentColor" : "none"} className={cn(widget.isPinned && "rotate-45")} />
+                </button>
+                <CopyButton targetRef={sectionRef} />
+              </div>
+            )}
           </div>
           <div className="flex-1 min-h-0">
             {children}
@@ -514,7 +570,7 @@ export default function MyStatsTab() {
         }
 
         return (
-          <WidgetWrapper title={widget.title}>
+          <WidgetWrapper title={widget.title} widget={widget}>
             {chartData.length === 0 ? (
               <div className="h-full flex flex-col items-center justify-center text-slate-400 gap-2">
                 <Info size={24} className="opacity-20" />
@@ -577,7 +633,7 @@ export default function MyStatsTab() {
         }
         if (widget.metric === 'NOTIFICATION_LATEST') {
           return (
-            <WidgetWrapper title={widget.title}>
+            <WidgetWrapper title={widget.title} widget={widget}>
               <div className="flex-1 overflow-auto custom-scrollbar space-y-2">
                 {notificationsData?.content.slice(0, 10).map(n => (
                   <div key={n.id} className={cn("p-3 rounded-xl border transition-all", n.isRead ? "bg-slate-50 dark:bg-slate-800/20 border-transparent opacity-70" : "bg-white dark:bg-slate-800 border-indigo-100 dark:border-indigo-900 shadow-sm")}>
@@ -605,7 +661,7 @@ export default function MyStatsTab() {
           default: val = 0
         }
         return (
-          <WidgetWrapper title={widget.title}>
+          <WidgetWrapper title={widget.title} widget={widget}>
             <div className="flex flex-col items-center justify-center h-full">
               <span className="text-4xl font-black text-indigo-600">{val}</span>
             </div>

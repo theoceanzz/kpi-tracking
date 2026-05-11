@@ -8,9 +8,8 @@ import { useAuthStore } from '@/store/authStore'
 import { getInitials, cn } from '@/lib/utils'
 import { Link } from 'react-router-dom'
 import {
-  Target, CheckCircle, Clock, 
-  Users, ChevronRight,
-  ClipboardCheck, BarChart3, AlertCircle, Pin, PinOff, FileText
+  ClipboardCheck, BarChart3, AlertCircle, Pin, PinOff, FileText, Star, Target, TrendingUp,
+  Users, Clock, CheckCircle, ChevronRight
 } from 'lucide-react'
 import { exportPerformanceToExcel } from '@/utils/performanceExport'
 import type { EmployeeKpiStats } from '@/types/stats'
@@ -22,7 +21,8 @@ import {
   BarChart, Bar, PieChart, Pie, Cell, AreaChart, Area, Legend
 } from 'recharts'
 import type { ReportWidget } from '@/types/datasource'
-import { useSummaryTrend, useSummaryComparison, useSummaryRisks, useSummaryStats } from '@/features/analytics/hooks/useAnalytics'
+import { useSummaryTrend, useSummaryComparison, useSummaryRisks, useSummaryStats, useMyAnalytics } from '@/features/analytics/hooks/useAnalytics'
+import { useNotifications } from '@/features/notifications/hooks/useNotifications'
 import PageTour from '@/components/common/PageTour'
 import { headDashboardSteps } from '@/components/common/tourSteps'
 
@@ -401,6 +401,14 @@ function PinnedWidgetCard({ widget, onUnpin }: { widget: ReportWidget; onUnpin: 
     }
   }, [widget.position])
 
+  const config = useMemo(() => {
+    try {
+      return JSON.parse(widget.chartConfig)
+    } catch {
+      return {}
+    }
+  }, [widget.chartConfig])
+
   const colSpan = pos.w || 4
   const height = (pos.h || 10) * 32 + 60 // Base height + header
 
@@ -422,17 +430,20 @@ function PinnedWidgetCard({ widget, onUnpin }: { widget: ReportWidget; onUnpin: 
         </button>
       </div>
       <div className="flex-1 p-5 overflow-hidden">
-        <PinnedWidgetContent type={widget.widgetType} />
+        <PinnedWidgetContent type={widget.widgetType} config={config} />
       </div>
     </div>
   )
 }
 
-function PinnedWidgetContent({ type }: { type: string }) {
+function PinnedWidgetContent({ type, config }: { type: string, config?: any }) {
   const { data: trendData } = useSummaryTrend()
   const { data: comparisonData } = useSummaryComparison()
   const { data: riskData } = useSummaryRisks()
   const { data: stats } = useSummaryStats()
+
+  const { data: myStats } = useMyAnalytics()
+  const { data: notificationsData } = useNotifications(0, 10)
 
   switch (type) {
     case 'TREND_CHART':
@@ -576,6 +587,112 @@ function PinnedWidgetContent({ type }: { type: string }) {
           </div>
         </div>
       )
+    case 'TOP_STATS_GRID': {
+      if (!myStats) return null;
+      return (
+        <div className="grid grid-cols-2 gap-3 h-full">
+          {[
+            { label: 'KPI Hoàn thành', val: `${myStats.approvedSubmissions}/${myStats.totalAssignedKpi}`, icon: <Target className="text-indigo-600" size={14} /> },
+            { label: 'Điểm TB', val: (myStats.averageScore ?? 0).toFixed(1), icon: <Star className="text-amber-500" size={14} /> },
+            { label: 'Tiến độ', val: `${Math.round((myStats.approvedSubmissions / (myStats.totalAssignedKpi || 1)) * 100)}%`, icon: <TrendingUp className="text-emerald-500" size={14} /> },
+            { label: 'Bài nộp', val: myStats.totalSubmissions, icon: <FileText className="text-purple-500" size={14} /> }
+          ].map((item, i) => (
+            <div key={i} className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-700/50 flex flex-col justify-between">
+              <div className="flex items-center gap-2 mb-1 opacity-60">{item.icon} <span className="text-[9px] font-black uppercase">{item.label}</span></div>
+              <p className="text-sm font-black text-slate-900 dark:text-white">{item.val}</p>
+            </div>
+          ))}
+        </div>
+      )
+    }
+    case 'PIE': {
+      let chartData: any[] = []
+      if (config?.metric === 'SUBMISSIONS_STATUS' && myStats) {
+        chartData = [
+          { name: 'Đã duyệt', value: myStats.approvedSubmissions, color: '#10b981' },
+          { name: 'Chờ duyệt', value: myStats.pendingSubmissions, color: '#f59e0b' },
+          { name: 'Từ chối', value: myStats.rejectedSubmissions, color: '#ef4444' }
+        ]
+      } else if (config?.metric === 'NOTIFICATION_STATS' && notificationsData) {
+         const unreadCount = notificationsData.content.filter(n => !n.isRead).length
+         chartData = [
+           { name: 'Đã đọc', value: notificationsData.totalElements - unreadCount, color: '#94a3b8' },
+           { name: 'Chưa đọc', value: unreadCount, color: '#6366f1' }
+         ]
+      }
+      return (
+        <div className="h-full w-full">
+          <ResponsiveContainer width="100%" height="100%">
+            <PieChart>
+              <Pie data={chartData} innerRadius="40%" outerRadius="70%" paddingAngle={5} dataKey="value">
+                {chartData.map((entry, index) => <Cell key={`cell-${index}`} fill={entry.color} />)}
+              </Pie>
+              <RechartsTooltip />
+            </PieChart>
+          </ResponsiveContainer>
+        </div>
+      )
+    }
+    case 'BAR': {
+       if (config?.metric === 'KPI_STATUS_DIST' && myStats) {
+         const data = [
+           { name: 'Đã duyệt', val: myStats.approvedSubmissions },
+           { name: 'Chờ duyệt', val: myStats.pendingSubmissions }
+         ]
+         return (
+           <div className="h-full w-full">
+             <ResponsiveContainer width="100%" height="100%">
+               <BarChart data={data}>
+                 <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 9, fontWeight: 700 }} />
+                 <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 9, fontWeight: 700 }} />
+                 <RechartsTooltip />
+                 <Bar dataKey="val" fill="#6366f1" radius={[4, 4, 0, 0]} barSize={30} />
+               </BarChart>
+             </ResponsiveContainer>
+           </div>
+         )
+       }
+       return null
+    }
+    case 'AREA': {
+       if (config?.metric === 'EVALUATION_HISTORY' && myStats) {
+         const chartData = myStats.evaluationHistory.map(e => ({
+            periodName: new Date(e.createdAt).toLocaleDateString('vi-VN'),
+            score: e.score
+         })).reverse()
+         return (
+           <div className="h-full w-full">
+             <ResponsiveContainer width="100%" height="100%">
+               <AreaChart data={chartData}>
+                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                 <XAxis dataKey="periodName" axisLine={false} tickLine={false} tick={{ fontSize: 9, fontWeight: 700 }} />
+                 <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 9, fontWeight: 700 }} />
+                 <RechartsTooltip />
+                 <Area type="monotone" dataKey="score" stroke="#6366f1" fill="#6366f1" fillOpacity={0.1} strokeWidth={2} name="Điểm" />
+               </AreaChart>
+             </ResponsiveContainer>
+           </div>
+         )
+       }
+       return null
+    }
+    case 'TABLE': {
+       if (config?.metric === 'KPI_PERFORMANCE' && myStats) {
+         return (
+           <div className="h-full overflow-auto text-[10px]">
+             <table className="w-full">
+               <thead><tr className="text-left border-b border-slate-100 dark:border-slate-800 opacity-50"><th className="pb-2">KPI</th><th className="pb-2 text-center">Tiến độ</th></tr></thead>
+               <tbody className="divide-y divide-slate-50 dark:divide-slate-800">
+                 {myStats.kpiItems.slice(0, 5).map((k: any, i: number) => (
+                   <tr key={i}><td className="py-2 pr-2 font-bold truncate max-w-[120px]">{k.kpiName}</td><td className="py-2 text-center font-black text-indigo-600">{Math.round(k.completionRate)}%</td></tr>
+                 ))}
+               </tbody>
+             </table>
+           </div>
+         )
+       }
+       return null
+    }
     default:
       return <div className="h-full flex items-center justify-center text-xs font-bold text-slate-300 italic">Chi tiết biểu đồ xem tại trang Thống kê</div>
   }

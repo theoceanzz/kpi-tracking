@@ -73,45 +73,48 @@ const DEFAULT_SUMMARY_WIDGETS: SummaryWidget[] = [
   { i: 'rank-table', type: 'RANKING_TABLE', title: 'Bảng xếp hạng', x: 0, y: 64, w: 12, h: 18, visible: true },
 ]
 
+const ChartWrapper = ({ children, title, icon, widget, onTogglePin, isEditMode, extraHeaderContent }: { 
+  children: React.ReactNode, 
+  title: string, 
+  icon: React.ReactNode,
+  widget: SummaryWidget,
+  onTogglePin: (w: SummaryWidget) => void,
+  isEditMode: boolean,
+  extraHeaderContent?: React.ReactNode
+}) => {
+  const sectionRef = useRef<HTMLDivElement>(null)
+  return (
+    <div className="bg-white dark:bg-slate-900 p-6 rounded-[32px] border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden h-full flex flex-col relative" ref={sectionRef}>
+      <div className="flex items-center justify-between mb-6">
+        <h3 className="text-lg font-black text-slate-900 dark:text-white flex items-center gap-2">{icon} {title}</h3>
+        <div className="flex items-center gap-2">
+          {extraHeaderContent}
+          {!isEditMode && (
+            <>
+              <button 
+                onClick={() => onTogglePin(widget)}
+                className={cn(
+                  "p-1.5 rounded-lg transition-all",
+                  widget.isPinned 
+                    ? "bg-indigo-600 text-white shadow-md shadow-indigo-200 dark:shadow-none" 
+                    : "text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"
+                )}
+                title={widget.isPinned ? "Bỏ ghim khỏi trang chủ" : "Ghim vào trang chủ"}
+              >
+                <Pin size={16} fill={widget.isPinned ? "currentColor" : "none"} className={cn(widget.isPinned && "rotate-45")} />
+              </button>
+              <CopyButton targetRef={sectionRef} />
+            </>
+          )}
+        </div>
+      </div>
+      {children}
+    </div>
+  )
+}
+
 export default function SummaryTab() {
   const [selectedUnitId] = useState<string | undefined>(undefined)
-  const DistributionWrapper = ({ children, title, icon, widget, onTogglePin, isEditMode }: { 
-    children: React.ReactNode, 
-    title: string, 
-    icon: React.ReactNode,
-    widget: SummaryWidget,
-    onTogglePin: (w: SummaryWidget) => void,
-    isEditMode: boolean
-  }) => {
-    const sectionRef = useRef<HTMLDivElement>(null)
-    return (
-      <div className="bg-white dark:bg-slate-900 p-6 rounded-[32px] border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden h-full flex flex-col" ref={sectionRef}>
-        <div className="flex items-center justify-between mb-6">
-          <h3 className="text-lg font-black text-slate-900 dark:text-white flex items-center gap-2">{icon} {title}</h3>
-          <div className="flex items-center gap-2">
-            {!isEditMode && (
-              <>
-                <button 
-                  onClick={() => onTogglePin(widget)}
-                  className={cn(
-                    "p-1.5 rounded-lg transition-all",
-                    widget.isPinned 
-                      ? "bg-indigo-600 text-white shadow-md shadow-indigo-200 dark:shadow-none" 
-                      : "text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"
-                  )}
-                  title={widget.isPinned ? "Bỏ ghim khỏi trang chủ" : "Ghim vào trang chủ"}
-                >
-                  <Pin size={16} fill={widget.isPinned ? "currentColor" : "none"} className={cn(widget.isPinned && "rotate-45")} />
-                </button>
-                <CopyButton targetRef={sectionRef} />
-              </>
-            )}
-          </div>
-        </div>
-        {children}
-      </div>
-    )
-  }
 
    const { data: mainData, isLoading: isMainLoading } = useSummaryStats(selectedUnitId)
   const { data: kpiPeriodsData } = useKpiPeriods({ size: 100 })
@@ -181,7 +184,8 @@ export default function SummaryTab() {
         title: w.title,
         position: JSON.stringify({ x: w.x, y: w.y, w: w.w, h: w.h }),
         chartConfig: JSON.stringify({ i: w.i, visible: w.visible }),
-        widgetOrder: index
+        widgetOrder: index,
+        isPinned: w.isPinned
       }))
 
       let updatedReport;
@@ -291,13 +295,13 @@ export default function SummaryTab() {
             <StatCard title="Tổng nhân sự" value={mainData?.totalMembers.toString()} icon={<Users className="text-amber-600" />} trend="Toàn hệ thống" trendType="neutral" color="amber" />
           </div>
         )
-      case 'TREND_CHART': return <TrendSection orgUnitId={selectedUnitId} isEditMode={isEditMode} />
-      case 'TOP_UNITS': return <TopUnitsSection orgUnitId={selectedUnitId} isEditMode={isEditMode} periods={periodOptions} />
-      case 'UNIT_PERFORMANCE': return <UnitPerformanceSection orgUnitId={selectedUnitId} isEditMode={isEditMode} periods={periodOptions} />
-      case 'UNIT_KPI': return <UnitKpiSection orgUnitId={selectedUnitId} isEditMode={isEditMode} periods={periodOptions} />
+      case 'TREND_CHART': return <TrendSection orgUnitId={selectedUnitId} isEditMode={isEditMode} widget={widget} onTogglePin={handleTogglePin} />
+      case 'TOP_UNITS': return <TopUnitsSection orgUnitId={selectedUnitId} isEditMode={isEditMode} periods={periodOptions} widget={widget} onTogglePin={handleTogglePin} />
+      case 'UNIT_PERFORMANCE': return <UnitPerformanceSection orgUnitId={selectedUnitId} isEditMode={isEditMode} periods={periodOptions} widget={widget} onTogglePin={handleTogglePin} />
+      case 'UNIT_KPI': return <UnitKpiSection orgUnitId={selectedUnitId} isEditMode={isEditMode} periods={periodOptions} widget={widget} onTogglePin={handleTogglePin} />
       case 'MEMBER_DIST': {
         return (
-          <DistributionWrapper 
+          <ChartWrapper 
             title="Số lượng nhân sự" 
             icon={<PieChartIcon size={20} className="text-purple-600" />}
             widget={widget}
@@ -308,12 +312,12 @@ export default function SummaryTab() {
               <div className="h-full min-h-[200px]"><ResponsiveContainer width="100%" height="100%"><PieChart><Pie data={mainData?.memberDistribution || []} innerRadius="50%" outerRadius="80%" paddingAngle={5} dataKey="value">{(mainData?.memberDistribution || []).map((_: any, index: number) => (<Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />))}</Pie><Tooltip /></PieChart></ResponsiveContainer></div>
               <div className="space-y-3">{(mainData?.memberDistribution || []).map((entry: any, index: number) => (<div key={entry.name} className="flex items-center justify-between"><div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full" style={{ backgroundColor: COLORS[index % COLORS.length] }} /><span className="text-xs font-bold text-slate-500">{entry.name}</span></div><span className="text-xs font-black text-slate-900 dark:text-white">{entry.value} người</span></div>))}</div>
             </div>
-          </DistributionWrapper>
+          </ChartWrapper>
         )
       }
       case 'ROLE_DIST': {
         return (
-          <DistributionWrapper 
+          <ChartWrapper 
             title="Phân bổ vai trò" 
             icon={<Layers size={20} className="text-orange-500" />}
             widget={widget}
@@ -321,13 +325,13 @@ export default function SummaryTab() {
             isEditMode={isEditMode}
           >
             <div className="flex-1"><ResponsiveContainer width="100%" height="100%"><BarChart data={mainData?.roleDistribution || []} layout="vertical" margin={{ left: 20 }}><CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f1f5f9" /><XAxis type="number" axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 700 }} /><YAxis dataKey="unitName" type="category" axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 700 }} width={80} /><Tooltip /><Legend iconType="circle" wrapperStyle={{ fontSize: '10px', fontWeight: 800, paddingTop: '10px' }} /><Bar dataKey="directorCount" stackId="a" fill="#6366f1" name="Giám đốc" barSize={15} /><Bar dataKey="headCount" stackId="a" fill="#f59e0b" name="Trưởng phòng" /><Bar dataKey="staffCount" stackId="a" fill="#94a3b8" name="Nhân viên" /></BarChart></ResponsiveContainer></div>
-          </DistributionWrapper>
+          </ChartWrapper>
         )
       }
-      case 'UNIT_RISK': return <UnitRiskSection orgUnitId={selectedUnitId} isEditMode={isEditMode} periods={periodOptions} />
-      case 'WARNING_LIST': return <WarningListSection orgUnitId={selectedUnitId} isEditMode={isEditMode} periods={periodOptions} />
-      case 'KPI_PODIUM': return <KpiPodiumSection orgUnitId={selectedUnitId} isEditMode={isEditMode} periods={periodOptions} />
-      case 'RANKING_TABLE': return <EmployeeRankingTableSection orgUnitId={selectedUnitId} isEditMode={isEditMode} periods={periodOptions} />
+      case 'UNIT_RISK': return <UnitRiskSection orgUnitId={selectedUnitId} isEditMode={isEditMode} periods={periodOptions} widget={widget} onTogglePin={handleTogglePin} />
+      case 'WARNING_LIST': return <WarningListSection orgUnitId={selectedUnitId} isEditMode={isEditMode} periods={periodOptions} widget={widget} onTogglePin={handleTogglePin} />
+      case 'KPI_PODIUM': return <KpiPodiumSection orgUnitId={selectedUnitId} isEditMode={isEditMode} periods={periodOptions} widget={widget} onTogglePin={handleTogglePin} />
+      case 'RANKING_TABLE': return <EmployeeRankingTableSection orgUnitId={selectedUnitId} isEditMode={isEditMode} periods={periodOptions} widget={widget} onTogglePin={handleTogglePin} />
       default: return null
     }
   }
@@ -514,209 +518,215 @@ export default function SummaryTab() {
 
 // --- SUB-COMPONENTS ---
 
-function TrendSection({ orgUnitId, isEditMode }: { orgUnitId?: string, isEditMode?: boolean }) {
+function TrendSection({ orgUnitId, isEditMode, widget, onTogglePin }: { orgUnitId?: string, isEditMode?: boolean, widget: SummaryWidget, onTogglePin: (w: SummaryWidget) => void }) {
   const [period, setPeriod] = useState('LAST_5');
   const { data, isFetching } = useSummaryTrend(orgUnitId, period);
-  const sectionRef = useRef<HTMLDivElement>(null);
 
   return (
-    <div ref={sectionRef} className="lg:col-span-2 bg-white dark:bg-slate-900 p-6 rounded-[32px] border border-slate-200 dark:border-slate-800 shadow-sm relative overflow-hidden h-full">
-      <SectionLoader isFetching={isFetching} message="Đang cập nhật xu hướng..." />
-      <div className="flex items-center justify-between mb-6">
-        <h3 className="text-lg font-black text-slate-900 dark:text-white flex items-center gap-2"><TrendingUp size={20} className="text-indigo-600" /> Xu hướng hiệu suất</h3>
-        <div className="flex items-center gap-3">
-          {!isEditMode && <CopyButton targetRef={sectionRef} />}
-          <PeriodSelect value={period} onChange={setPeriod} options={TREND_PERIODS} />
+    <ChartWrapper 
+      title="Xu hướng hiệu suất" 
+      icon={<TrendingUp size={20} className="text-indigo-600" />}
+      widget={widget}
+      onTogglePin={onTogglePin}
+      isEditMode={!!isEditMode}
+      extraHeaderContent={<PeriodSelect value={period} onChange={setPeriod} options={TREND_PERIODS} />}
+    >
+      <div className="relative flex-1">
+        <SectionLoader isFetching={isFetching} message="Đang cập nhật xu hướng..." />
+        <div className="h-[320px] w-full">
+          <ResponsiveContainer width="100%" height="100%">
+            <AreaChart data={data || []}>
+              <defs><linearGradient id="colorPerf" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#6366f1" stopOpacity={0.1}/><stop offset="95%" stopColor="#6366f1" stopOpacity={0}/></linearGradient></defs>
+              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+              <XAxis dataKey="period" axisLine={false} tickLine={false} tick={{ fontSize: 11, fontWeight: 700, fill: '#94a3b8' }} dy={10} />
+              <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 11, fontWeight: 700, fill: '#94a3b8' }} />
+              <Tooltip contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 20px 25px -5px rgb(0 0 0 / 0.1)' }} />
+              <Legend verticalAlign="top" align="right" iconType="circle" wrapperStyle={{ paddingBottom: '20px', fontSize: '12px', fontWeight: 700 }} />
+              <Area type="monotone" dataKey="performance" stroke="#6366f1" strokeWidth={4} fillOpacity={1} fill="url(#colorPerf)" name="Hiệu suất (%)" />
+              <Area type="monotone" dataKey="kpiCompletion" stroke="#10b981" strokeWidth={4} fillOpacity={0} name="Hoàn thành KPI (%)" />
+            </AreaChart>
+          </ResponsiveContainer>
         </div>
       </div>
-      <div className="h-[320px] w-full">
-        <ResponsiveContainer width="100%" height="100%">
-          <AreaChart data={data || []}>
-            <defs><linearGradient id="colorPerf" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#6366f1" stopOpacity={0.1}/><stop offset="95%" stopColor="#6366f1" stopOpacity={0}/></linearGradient></defs>
-            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-            <XAxis dataKey="period" axisLine={false} tickLine={false} tick={{ fontSize: 11, fontWeight: 700, fill: '#94a3b8' }} dy={10} />
-            <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 11, fontWeight: 700, fill: '#94a3b8' }} />
-            <Tooltip contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 20px 25px -5px rgb(0 0 0 / 0.1)' }} />
-            <Legend verticalAlign="top" align="right" iconType="circle" wrapperStyle={{ paddingBottom: '20px', fontSize: '12px', fontWeight: 700 }} />
-            <Area type="monotone" dataKey="performance" stroke="#6366f1" strokeWidth={4} fillOpacity={1} fill="url(#colorPerf)" name="Hiệu suất (%)" />
-            <Area type="monotone" dataKey="kpiCompletion" stroke="#10b981" strokeWidth={4} fillOpacity={0} name="Hoàn thành KPI (%)" />
-          </AreaChart>
-        </ResponsiveContainer>
-      </div>
-    </div>
+    </ChartWrapper>
   );
 }
 
-function TopUnitsSection({ orgUnitId, isEditMode, periods }: { orgUnitId?: string, isEditMode?: boolean, periods: any[] }) {
+function TopUnitsSection({ orgUnitId, isEditMode, periods, widget, onTogglePin }: { orgUnitId?: string, isEditMode?: boolean, periods: any[], widget: SummaryWidget, onTogglePin: (w: SummaryWidget) => void }) {
   const [period, setPeriod] = useState(periods[1]?.value || 'ALL');
   const { data, isFetching } = useSummaryComparison(orgUnitId, period);
-  const sectionRef = useRef<HTMLDivElement>(null);
 
   return (
-    <div ref={sectionRef} className="bg-white dark:bg-slate-900 p-6 rounded-[32px] border border-slate-200 dark:border-slate-800 shadow-sm relative overflow-hidden flex flex-col h-full">
-      <SectionLoader isFetching={isFetching} message="Cập nhật đơn vị..." />
-      <div className="flex items-center justify-between mb-4">
-        <h3 className="text-lg font-black text-slate-900 dark:text-white flex items-center gap-2"><Trophy size={20} className="text-amber-500" /> Đơn vị tiêu biểu</h3>
-        <div className="flex items-center gap-3">
-          {!isEditMode && <CopyButton targetRef={sectionRef} />}
-          <PeriodSelect value={period} onChange={setPeriod} options={periods} />
-        </div>
-      </div>
-      <div className="space-y-5 flex-1 overflow-auto custom-scrollbar">
-        {(data?.topPerformingUnits || []).map((unit: any, i: number) => (
-          <div key={unit.unitName} className="flex items-center gap-4 p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-transparent hover:border-indigo-200 transition-all">
-            <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center font-black text-sm", i === 0 ? "bg-amber-100 text-amber-600" : i === 1 ? "bg-slate-200 text-slate-600" : "bg-orange-100 text-orange-600")}>#{i + 1}</div>
-            <div className="flex-1">
-              <p className="font-black text-sm text-slate-800 dark:text-white">{unit.unitName}</p>
-              <div className="flex items-center gap-2 mt-1">
-                <div className="flex-1 h-1.5 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden"><div className="h-full bg-indigo-500 rounded-full" style={{ width: `${Math.min(unit.performance, 100)}%` }} /></div>
-                <span className="text-[10px] font-black text-indigo-600">{unit.performance.toFixed(1)}%</span>
+    <ChartWrapper 
+      title="Đơn vị tiêu biểu" 
+      icon={<Trophy size={20} className="text-amber-500" />}
+      widget={widget}
+      onTogglePin={onTogglePin}
+      isEditMode={!!isEditMode}
+      extraHeaderContent={<PeriodSelect value={period} onChange={setPeriod} options={periods} />}
+    >
+      <div className="relative flex-1 overflow-hidden flex flex-col">
+        <SectionLoader isFetching={isFetching} message="Cập nhật đơn vị..." />
+        <div className="space-y-5 flex-1 overflow-auto custom-scrollbar">
+          {(data?.topPerformingUnits || []).map((unit: any, i: number) => (
+            <div key={unit.unitName} className="flex items-center gap-4 p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-transparent hover:border-indigo-200 transition-all">
+              <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center font-black text-sm", i === 0 ? "bg-amber-100 text-amber-600" : i === 1 ? "bg-slate-200 text-slate-600" : "bg-orange-100 text-orange-600")}>#{i + 1}</div>
+              <div className="flex-1">
+                <p className="font-black text-sm text-slate-800 dark:text-white">{unit.unitName}</p>
+                <div className="flex items-center gap-2 mt-1">
+                  <div className="flex-1 h-1.5 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden"><div className="h-full bg-indigo-500 rounded-full" style={{ width: `${Math.min(unit.performance, 100)}%` }} /></div>
+                  <span className="text-[10px] font-black text-indigo-600">{unit.performance.toFixed(1)}%</span>
+                </div>
               </div>
             </div>
-          </div>
-        ))}
-        {(data?.topPerformingUnits || []).length === 0 && <div className="h-full flex items-center justify-center text-xs font-bold text-slate-300 italic py-10">Không có dữ liệu</div>}
+          ))}
+          {(data?.topPerformingUnits || []).length === 0 && <div className="h-full flex items-center justify-center text-xs font-bold text-slate-300 italic py-10">Không có dữ liệu</div>}
+        </div>
       </div>
-    </div>
+    </ChartWrapper>
   );
 }
 
-function UnitPerformanceSection({ orgUnitId, isEditMode, periods }: { orgUnitId?: string, isEditMode?: boolean, periods: any[] }) {
+function UnitPerformanceSection({ orgUnitId, isEditMode, periods, widget, onTogglePin }: { orgUnitId?: string, isEditMode?: boolean, periods: any[], widget: SummaryWidget, onTogglePin: (w: SummaryWidget) => void }) {
   const [period, setPeriod] = useState(periods[1]?.value || 'ALL');
   const { data, isFetching } = useSummaryComparison(orgUnitId, period);
-  const sectionRef = useRef<HTMLDivElement>(null);
 
   return (
-    <div ref={sectionRef} className="bg-white dark:bg-slate-900 p-6 rounded-[32px] border border-slate-200 dark:border-slate-800 shadow-sm relative overflow-hidden h-full">
-      <SectionLoader isFetching={isFetching} message="Đang cập nhật..." />
-      <div className="flex items-center justify-between mb-6">
-        <h3 className="text-lg font-black text-slate-900 dark:text-white flex items-center gap-2"><TrendingUp size={20} className="text-emerald-500" /> Hiệu suất giữa các đơn vị</h3>
-        <div className="flex items-center gap-3">
-          {!isEditMode && <CopyButton targetRef={sectionRef} />}
-          <PeriodSelect value={period} onChange={setPeriod} options={periods} />
-        </div>
+    <ChartWrapper 
+      title="Hiệu suất giữa các đơn vị" 
+      icon={<TrendingUp size={20} className="text-emerald-500" />}
+      widget={widget}
+      onTogglePin={onTogglePin}
+      isEditMode={!!isEditMode}
+      extraHeaderContent={<PeriodSelect value={period} onChange={setPeriod} options={periods} />}
+    >
+      <div className="relative flex-1">
+        <SectionLoader isFetching={isFetching} message="Đang cập nhật..." />
+        <div className="h-[300px]"><ResponsiveContainer width="100%" height="100%"><AreaChart data={data?.topPerformingUnits || []}><CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" /><XAxis dataKey="unitName" axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 700 }} /><YAxis dataKey="performance" domain={[0, 100]} axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 700 }} /><Tooltip /><Area type="monotone" dataKey="performance" stroke="#10b981" fill="#10b981" fillOpacity={0.1} strokeWidth={3} name="Hiệu suất:" /></AreaChart></ResponsiveContainer></div>
       </div>
-      <div className="h-[300px]"><ResponsiveContainer width="100%" height="100%"><AreaChart data={data?.topPerformingUnits || []}><CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" /><XAxis dataKey="unitName" axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 700 }} /><YAxis dataKey="performance" domain={[0, 100]} axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 700 }} /><Tooltip /><Area type="monotone" dataKey="performance" stroke="#10b981" fill="#10b981" fillOpacity={0.1} strokeWidth={3} name="Hiệu suất:" /></AreaChart></ResponsiveContainer></div>
-    </div>
+    </ChartWrapper>
   );
 }
 
-function UnitKpiSection({ orgUnitId, isEditMode, periods }: { orgUnitId?: string, isEditMode?: boolean, periods: any[] }) {
+function UnitKpiSection({ orgUnitId, isEditMode, periods, widget, onTogglePin }: { orgUnitId?: string, isEditMode?: boolean, periods: any[], widget: SummaryWidget, onTogglePin: (w: SummaryWidget) => void }) {
   const [period, setPeriod] = useState(periods[1]?.value || 'ALL');
   const { data, isFetching } = useSummaryComparison(orgUnitId, period);
-  const sectionRef = useRef<HTMLDivElement>(null);
 
   return (
-    <div ref={sectionRef} className="bg-white dark:bg-slate-900 p-6 rounded-[32px] border border-slate-200 dark:border-slate-800 shadow-sm relative overflow-hidden h-full">
-      <SectionLoader isFetching={isFetching} message="Đang cập nhật..." />
-      <div className="flex items-center justify-between mb-6">
-        <h3 className="text-lg font-black text-slate-900 dark:text-white flex items-center gap-2"><BarChart3 size={20} className="text-indigo-600" /> KPI giữa các đơn vị</h3>
-        <div className="flex items-center gap-3">
-          {!isEditMode && <CopyButton targetRef={sectionRef} />}
-          <PeriodSelect value={period} onChange={setPeriod} options={periods} />
-        </div>
+    <ChartWrapper 
+      title="KPI giữa các đơn vị" 
+      icon={<BarChart3 size={20} className="text-indigo-600" />}
+      widget={widget}
+      onTogglePin={onTogglePin}
+      isEditMode={!!isEditMode}
+      extraHeaderContent={<PeriodSelect value={period} onChange={setPeriod} options={periods} />}
+    >
+      <div className="relative flex-1">
+        <SectionLoader isFetching={isFetching} message="Đang cập nhật..." />
+        <div className="h-[300px]"><ResponsiveContainer width="100%" height="100%"><BarChart data={data?.unitKpiData || []}><CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" /><XAxis dataKey="unitName" axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 700 }} /><YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 700 }} /><Tooltip /><Legend iconType="circle" wrapperStyle={{ fontSize: '10px', fontWeight: 800, paddingTop: '20px' }} /><Bar dataKey="totalKpi" fill="#6366f1" radius={[4, 4, 0, 0]} name="Tổng KPI" barSize={20} /><Bar dataKey="approvedKpi" fill="#10b981" radius={[4, 4, 0, 0]} name="Đã duyệt" barSize={20} /></BarChart></ResponsiveContainer></div>
       </div>
-      <div className="h-[300px]"><ResponsiveContainer width="100%" height="100%"><BarChart data={data?.unitKpiData || []}><CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" /><XAxis dataKey="unitName" axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 700 }} /><YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 700 }} /><Tooltip /><Legend iconType="circle" wrapperStyle={{ fontSize: '10px', fontWeight: 800, paddingTop: '20px' }} /><Bar dataKey="totalKpi" fill="#6366f1" radius={[4, 4, 0, 0]} name="Tổng KPI" barSize={20} /><Bar dataKey="approvedKpi" fill="#10b981" radius={[4, 4, 0, 0]} name="Đã duyệt" barSize={20} /></BarChart></ResponsiveContainer></div>
-    </div>
+    </ChartWrapper>
   );
 }
 
-function UnitRiskSection({ orgUnitId, isEditMode, periods }: { orgUnitId?: string, isEditMode?: boolean, periods: any[] }) {
+function UnitRiskSection({ orgUnitId, isEditMode, periods, widget, onTogglePin }: { orgUnitId?: string, isEditMode?: boolean, periods: any[], widget: SummaryWidget, onTogglePin: (w: SummaryWidget) => void }) {
   const [period, setPeriod] = useState(periods[1]?.value || 'ALL');
   const { data, isFetching } = useSummaryRisks(orgUnitId, period);
-  const sectionRef = useRef<HTMLDivElement>(null);
 
   return (
-    <div ref={sectionRef} className="bg-white dark:bg-slate-900 p-6 rounded-[32px] border border-slate-200 dark:border-slate-800 shadow-sm relative overflow-hidden h-full">
-      <SectionLoader isFetching={isFetching} message="Đang cập nhật rủi ro..." />
-      <div className="flex items-center justify-between mb-4">
-        <h3 className="text-lg font-black text-slate-900 dark:text-white flex items-center gap-2"><AlertTriangle size={20} className="text-red-500" /> Rủi ro đơn vị</h3>
-        <div className="flex items-center gap-3">
-          {!isEditMode && <CopyButton targetRef={sectionRef} />}
-          <PeriodSelect value={period} onChange={setPeriod} options={periods} />
-        </div>
+    <ChartWrapper 
+      title="Rủi ro đơn vị" 
+      icon={<AlertTriangle size={20} className="text-red-500" />}
+      widget={widget}
+      onTogglePin={onTogglePin}
+      isEditMode={!!isEditMode}
+      extraHeaderContent={<PeriodSelect value={period} onChange={setPeriod} options={periods} />}
+    >
+      <div className="relative flex-1">
+        <SectionLoader isFetching={isFetching} message="Đang cập nhật rủi ro..." />
+        <div className="h-[250px] mb-6"><ResponsiveContainer width="100%" height="100%"><BarChart data={data?.unitRisks || []} layout="vertical"><CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#fef2f2" /><XAxis type="number" hide domain={[0, 100]} /><YAxis dataKey="name" type="category" width={80} axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 700, fill: '#ef4444' }} /><Tooltip /><Bar dataKey="performance" fill="#ef4444" radius={[0, 4, 4, 0]} name="Hiệu suất (%)" barSize={12} /></BarChart></ResponsiveContainer></div>
+        <div className="space-y-3">{(data?.unitRisks || []).map((risk: any, i: number) => (<div key={i} className="flex items-center justify-between p-3 rounded-xl bg-red-50 dark:bg-red-900/10 border border-red-100 dark:border-red-900/20"><span className="text-xs font-black text-slate-800 dark:text-white">{risk.name}</span><span className="text-xs font-black text-red-600">{risk.performance.toFixed(1)}%</span></div>))}</div>
       </div>
-      <div className="h-[250px] mb-6"><ResponsiveContainer width="100%" height="100%"><BarChart data={data?.unitRisks || []} layout="vertical"><CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#fef2f2" /><XAxis type="number" hide domain={[0, 100]} /><YAxis dataKey="name" type="category" width={80} axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 700, fill: '#ef4444' }} /><Tooltip /><Bar dataKey="performance" fill="#ef4444" radius={[0, 4, 4, 0]} name="Hiệu suất (%)" barSize={12} /></BarChart></ResponsiveContainer></div>
-      <div className="space-y-3">{(data?.unitRisks || []).map((risk: any, i: number) => (<div key={i} className="flex items-center justify-between p-3 rounded-xl bg-red-50 dark:bg-red-900/10 border border-red-100 dark:border-red-900/20"><span className="text-xs font-black text-slate-800 dark:text-white">{risk.name}</span><span className="text-xs font-black text-red-600">{risk.performance.toFixed(1)}%</span></div>))}</div>
-    </div>
+    </ChartWrapper>
   );
 }
 
-function WarningListSection({ orgUnitId, isEditMode, periods }: { orgUnitId?: string, isEditMode?: boolean, periods: any[] }) {
+function WarningListSection({ orgUnitId, isEditMode, periods, widget, onTogglePin }: { orgUnitId?: string, isEditMode?: boolean, periods: any[], widget: SummaryWidget, onTogglePin: (w: SummaryWidget) => void }) {
   const [period, setPeriod] = useState(periods[1]?.value || 'ALL');
   const { data, isFetching } = useSummaryRisks(orgUnitId, period);
-  const sectionRef = useRef<HTMLDivElement>(null);
 
   return (
-    <div ref={sectionRef} className="bg-white dark:bg-slate-900 p-6 rounded-[32px] border border-slate-200 dark:border-slate-800 shadow-sm relative overflow-hidden h-full">
-      <SectionLoader isFetching={isFetching} message="Đang cập nhật Warning..." />
-      <div className="flex items-center justify-between mb-4">
-        <h3 className="text-lg font-black text-slate-900 dark:text-white flex items-center gap-2"><AlertCircle size={20} className="text-orange-500" /> Warning List</h3>
-        <div className="flex items-center gap-3">
-          {!isEditMode && <CopyButton targetRef={sectionRef} />}
-          <PeriodSelect value={period} onChange={setPeriod} options={periods} />
-        </div>
-      </div>
-      <div className="overflow-hidden border border-slate-100 dark:border-slate-800 rounded-2xl">
-        <table className="w-full text-xs">
-          <thead className="bg-slate-50 dark:bg-slate-800/50">
-            <tr className="text-[9px] font-black uppercase text-slate-400">
-              <th className="px-4 py-3 text-left">Nhân viên</th>
-              <th className="px-4 py-3 text-center">Trễ hạn</th>
-              <th className="px-4 py-3 text-center">Hiệu suất</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-            {(data?.userRisks || []).map((risk: any, i: number) => (
-              <tr key={i} className="hover:bg-red-50/30 transition-colors">
-                <td className="px-4 py-3 font-bold">{risk.name}</td>
-                <td className="px-4 py-3 text-center">
-                  <span className="px-2 py-0.5 bg-red-100 text-red-700 rounded-md font-black">{risk.overdueCount}</span>
-                </td>
-                <td className="px-4 py-3 text-center font-black text-slate-500">
-                  <span>{risk.performance.toFixed(1)}%</span>
-                </td>
+    <ChartWrapper 
+      title="Warning List" 
+      icon={<AlertCircle size={20} className="text-orange-500" />}
+      widget={widget}
+      onTogglePin={onTogglePin}
+      isEditMode={!!isEditMode}
+      extraHeaderContent={<PeriodSelect value={period} onChange={setPeriod} options={periods} />}
+    >
+      <div className="relative flex-1">
+        <SectionLoader isFetching={isFetching} message="Đang cập nhật Warning..." />
+        <div className="overflow-hidden border border-slate-100 dark:border-slate-800 rounded-2xl">
+          <table className="w-full text-xs">
+            <thead className="bg-slate-50 dark:bg-slate-800/50">
+              <tr className="text-[9px] font-black uppercase text-slate-400">
+                <th className="px-4 py-3 text-left">Nhân viên</th>
+                <th className="px-4 py-3 text-center">Trễ hạn</th>
+                <th className="px-4 py-3 text-center">Hiệu suất</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+              {(data?.userRisks || []).map((risk: any, i: number) => (
+                <tr key={i} className="hover:bg-red-50/30 transition-colors">
+                  <td className="px-4 py-3 font-bold">{risk.name}</td>
+                  <td className="px-4 py-3 text-center">
+                    <span className="px-2 py-0.5 bg-red-100 text-red-700 rounded-md font-black">{risk.overdueCount}</span>
+                  </td>
+                  <td className="px-4 py-3 text-center font-black text-slate-500">
+                    <span>{risk.performance.toFixed(1)}%</span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
-    </div>
+    </ChartWrapper>
   );
 }
 
-function KpiPodiumSection({ orgUnitId, isEditMode, periods }: { orgUnitId?: string, isEditMode?: boolean, periods: any[] }) {
+function KpiPodiumSection({ orgUnitId, isEditMode, periods, widget, onTogglePin }: { orgUnitId?: string, isEditMode?: boolean, periods: any[], widget: SummaryWidget, onTogglePin: (w: SummaryWidget) => void }) {
   const [period, setPeriod] = useState(periods[1]?.value || 'ALL');
   const { data, isFetching } = useSummaryRankings(orgUnitId, undefined, period);
-  const sectionRef = useRef<HTMLDivElement>(null);
 
   return (
-    <div ref={sectionRef} className="bg-white dark:bg-slate-900 p-6 rounded-[32px] border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden relative h-full">
-      <SectionLoader isFetching={isFetching} message="Đang cập nhật bục vinh danh..." />
-      <div className="flex items-center justify-between mb-8">
-        <h3 className="text-lg font-black text-slate-900 dark:text-white flex items-center gap-2"><Medal size={20} className="text-amber-500" /> Xếp hạng số KPI hoàn thành</h3>
-        <div className="flex items-center gap-3">
-          {!isEditMode && <CopyButton targetRef={sectionRef} />}
-          <PeriodSelect value={period} onChange={setPeriod} options={periods} />
+    <ChartWrapper 
+      title="Xếp hạng số KPI hoàn thành" 
+      icon={<Medal size={20} className="text-amber-500" />}
+      widget={widget}
+      onTogglePin={onTogglePin}
+      isEditMode={!!isEditMode}
+      extraHeaderContent={<PeriodSelect value={period} onChange={setPeriod} options={periods} />}
+    >
+      <div className="relative flex-1 flex flex-col justify-center">
+        <SectionLoader isFetching={isFetching} message="Đang cập nhật bục vinh danh..." />
+        <div className="flex flex-col md:flex-row items-end justify-center gap-4 md:gap-0 pb-6">
+          {(data?.kpiRankings || [])[1] && <PodiumStep item={data.kpiRankings[1]} rank={2} height="h-40" color="bg-slate-300" textColor="text-slate-600" />}
+          {(data?.kpiRankings || [])[0] && <PodiumStep item={data.kpiRankings[0]} rank={1} height="h-56" color="bg-amber-400" textColor="text-amber-800" />}
+          {(data?.kpiRankings || [])[2] && <PodiumStep item={data.kpiRankings[2]} rank={3} height="h-32" color="bg-orange-400" textColor="text-orange-900" />}
+          {(data?.kpiRankings || []).length === 0 && <div className="text-slate-400 font-bold py-10 w-full text-center">Chưa có dữ liệu xếp hạng</div>}
         </div>
       </div>
-      <div className="flex flex-col md:flex-row items-end justify-center gap-4 md:gap-0 pb-6">
-        {(data?.kpiRankings || [])[1] && <PodiumStep item={data.kpiRankings[1]} rank={2} height="h-40" color="bg-slate-300" textColor="text-slate-600" />}
-        {(data?.kpiRankings || [])[0] && <PodiumStep item={data.kpiRankings[0]} rank={1} height="h-56" color="bg-amber-400" textColor="text-amber-800" />}
-        {(data?.kpiRankings || [])[2] && <PodiumStep item={data.kpiRankings[2]} rank={3} height="h-32" color="bg-orange-400" textColor="text-orange-900" />}
-        {(data?.kpiRankings || []).length === 0 && <div className="text-slate-400 font-bold py-10 w-full text-center">Chưa có dữ liệu xếp hạng</div>}
-      </div>
-    </div>
+    </ChartWrapper>
   );
 }
 
-function EmployeeRankingTableSection({ orgUnitId, isEditMode, periods }: { orgUnitId?: string, isEditMode?: boolean, periods: any[] }) {
+function EmployeeRankingTableSection({ orgUnitId, isEditMode, periods, widget, onTogglePin }: { orgUnitId?: string, isEditMode?: boolean, periods: any[], widget: SummaryWidget, onTogglePin: (w: SummaryWidget) => void }) {
   const [period, setPeriod] = useState(periods[1]?.value || 'ALL');
   const [rankingUnitId, setRankingUnitId] = useState<string | undefined>(undefined)
   const [displayOrder, setDisplayOrder] = useState<'BEST' | 'WORST'>('BEST')
   const [sortField, setSortField] = useState<keyof RankingItem>('score')
   const [sortDirection, setSortDirection] = useState<'ASC' | 'DESC'>('DESC')
-  const sectionRef = useRef<HTMLDivElement>(null);
 
   const { data, isFetching } = useSummaryRankings(orgUnitId, rankingUnitId, period);
 
@@ -747,25 +757,31 @@ function EmployeeRankingTableSection({ orgUnitId, isEditMode, periods }: { orgUn
   }
 
   return (
-    <section ref={sectionRef} className="bg-white dark:bg-slate-900 rounded-[32px] border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden relative h-full">
-      <SectionLoader isFetching={isFetching} message="Đang lọc bảng xếp hạng..." />
-      <div className="p-6 border-b border-slate-100 dark:border-slate-800 flex flex-col lg:flex-row lg:items-center justify-between gap-6 bg-slate-50/50 dark:bg-slate-800/30">
-        <div><h3 className="text-lg font-black text-slate-900 dark:text-white flex items-center gap-2"><Medal size={20} className="text-indigo-600" /> Bảng xếp hạng hiệu suất nhân sự</h3><p className="text-xs font-bold text-slate-400 mt-1">Sắp xếp theo các cột dữ liệu quan trọng</p></div>
+    <ChartWrapper 
+      title="Bảng xếp hạng hiệu suất nhân sự" 
+      icon={<Medal size={20} className="text-indigo-600" />}
+      widget={widget}
+      onTogglePin={onTogglePin}
+      isEditMode={!!isEditMode}
+      extraHeaderContent={
         <div className="flex flex-wrap items-center gap-3">
-          {!isEditMode && <CopyButton targetRef={sectionRef} />}
           <PeriodSelect value={period} onChange={setPeriod} options={periods} />
           <div className="relative"><select value={rankingUnitId || ''} onChange={(e) => setRankingUnitId(e.target.value || undefined)} className="appearance-none pl-10 pr-10 py-2.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl text-xs font-black focus:ring-2 focus:ring-indigo-500 outline-none transition-all shadow-sm">{(data?.rankingOptions || []).map((opt: any) => (<option key={opt.id} value={opt.id}>{opt.name}</option>))}</select><Filter size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" /><ChevronDown size={14} className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" /></div>
           <button onClick={() => setDisplayOrder(prev => prev === 'BEST' ? 'WORST' : 'BEST')} className={cn("flex items-center gap-2 px-4 py-2.5 rounded-2xl text-xs font-black transition-all shadow-sm border", displayOrder === 'BEST' ? "bg-emerald-50 text-emerald-700 border-emerald-100" : "bg-red-50 text-red-700 border-red-100")}>{displayOrder === 'BEST' ? <SortDesc size={14} /> : <SortAsc size={14} />} {displayOrder === 'BEST' ? 'Hạng tốt nhất' : 'Hạng yếu nhất'}</button>
         </div>
+      }
+    >
+      <div className="relative flex-1 overflow-auto">
+        <SectionLoader isFetching={isFetching} message="Đang lọc bảng xếp hạng..." />
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead><tr className="text-left text-[10px] font-black uppercase tracking-widest text-slate-400 border-b border-slate-100 dark:border-slate-800"><th className="px-8 py-5">Hạng</th><th className="px-8 py-5 cursor-pointer hover:text-indigo-600" onClick={() => handleSort('name')}>Nhân viên {sortField === 'name' && <ArrowUpDown size={10} className="inline ml-1" />}</th><th className="px-8 py-5 cursor-pointer hover:text-indigo-600" onClick={() => handleSort('subText')}>Đơn vị {sortField === 'subText' && <ArrowUpDown size={10} className="inline ml-1" />}</th><th className="px-8 py-5 text-center cursor-pointer hover:text-indigo-600" onClick={() => handleSort('performance')}>Hiệu suất {sortField === 'performance' && <ArrowUpDown size={10} className="inline ml-1" />}</th><th className="px-8 py-5 text-center cursor-pointer hover:text-indigo-600" onClick={() => handleSort('score')}>Điểm TB {sortField === 'score' && <ArrowUpDown size={10} className="inline ml-1" />}</th><th className="px-8 py-5"></th></tr></thead>
+            <tbody className="divide-y divide-slate-50 dark:divide-slate-800">{processedRankings.map((item, i) => (<tr key={i} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors group"><td className="px-8 py-5"><div className={cn("w-8 h-8 rounded-lg flex items-center justify-center font-black text-xs", displayOrder === 'BEST' ? (i === 0 ? "bg-amber-500 text-white shadow-lg shadow-amber-200" : i === 1 ? "bg-slate-400 text-white shadow-lg shadow-slate-200" : i === 2 ? "bg-orange-400 text-white shadow-lg shadow-orange-200" : "bg-slate-100 dark:bg-slate-800 text-slate-400") : (i === 0 ? "bg-red-500 text-white shadow-lg shadow-red-200" : "bg-slate-100 dark:bg-slate-800 text-slate-400"))}>{i + 1}</div></td><td className="px-8 py-5"><div className="flex items-center gap-4"><div className="w-10 h-10 rounded-xl bg-indigo-50 dark:bg-indigo-900/20 flex items-center justify-center font-black text-indigo-600">{getInitials(item.name)}</div><div><p className="font-black text-slate-900 dark:text-white group-hover:text-indigo-600 transition-colors">{item.name}</p></div></div></td><td className="px-8 py-5 font-bold text-slate-500">{item.subText}</td><td className="px-8 py-5 text-center"><span className={cn("px-3 py-1 rounded-full text-xs font-black", item.performance >= 80 ? "bg-emerald-50 text-emerald-600" : item.performance >= 50 ? "bg-amber-50 text-amber-600" : "bg-red-50 text-red-600")}>{item.performance.toFixed(1)}%</span></td><td className="px-8 py-5 text-center"><p className="text-sm font-black text-slate-900 dark:text-white">{item.score.toFixed(1)}</p></td><td className="px-8 py-5 text-right"><button className="p-2 rounded-xl text-slate-300 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 transition-all"><ChevronRight size={18} /></button></td></tr>))}</tbody>
+          </table>
+          {processedRankings.length === 0 && <div className="py-20 text-center text-slate-400 font-bold italic">Không có dữ liệu xếp hạng cho đơn vị này</div>}
+        </div>
       </div>
-      <div className="overflow-x-auto">
-        <table className="w-full">
-          <thead><tr className="text-[10px] font-black uppercase tracking-widest text-slate-400 border-b border-slate-100 dark:border-slate-800"><th className="px-8 py-5 text-left">Hạng</th><th className="px-8 py-5 text-left cursor-pointer hover:text-indigo-600" onClick={() => handleSort('name')}>Nhân viên {sortField === 'name' && <ArrowUpDown size={10} className="inline ml-1" />}</th><th className="px-8 py-5 text-left cursor-pointer hover:text-indigo-600" onClick={() => handleSort('subText')}>Đơn vị {sortField === 'subText' && <ArrowUpDown size={10} className="inline ml-1" />}</th><th className="px-8 py-5 text-center cursor-pointer hover:text-indigo-600" onClick={() => handleSort('performance')}>Hiệu suất {sortField === 'performance' && <ArrowUpDown size={10} className="inline ml-1" />}</th><th className="px-8 py-5 text-center cursor-pointer hover:text-indigo-600" onClick={() => handleSort('score')}>Điểm TB {sortField === 'score' && <ArrowUpDown size={10} className="inline ml-1" />}</th><th className="px-8 py-5"></th></tr></thead>
-          <tbody className="divide-y divide-slate-50 dark:divide-slate-800">{processedRankings.map((item, i) => (<tr key={i} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors group"><td className="px-8 py-5"><div className={cn("w-8 h-8 rounded-lg flex items-center justify-center font-black text-xs", displayOrder === 'BEST' ? (i === 0 ? "bg-amber-500 text-white shadow-lg shadow-amber-200" : i === 1 ? "bg-slate-400 text-white shadow-lg shadow-slate-200" : i === 2 ? "bg-orange-400 text-white shadow-lg shadow-orange-200" : "bg-slate-100 dark:bg-slate-800 text-slate-400") : (i === 0 ? "bg-red-500 text-white shadow-lg shadow-red-200" : "bg-slate-100 dark:bg-slate-800 text-slate-400"))}>{i + 1}</div></td><td className="px-8 py-5"><div className="flex items-center gap-4"><div className="w-10 h-10 rounded-xl bg-indigo-50 dark:bg-indigo-900/20 flex items-center justify-center font-black text-indigo-600">{getInitials(item.name)}</div><div><p className="font-black text-slate-900 dark:text-white group-hover:text-indigo-600 transition-colors">{item.name}</p></div></div></td><td className="px-8 py-5 font-bold text-slate-500">{item.subText}</td><td className="px-8 py-5 text-center"><span className={cn("px-3 py-1 rounded-full text-xs font-black", item.performance >= 80 ? "bg-emerald-50 text-emerald-600" : item.performance >= 50 ? "bg-amber-50 text-amber-600" : "bg-red-50 text-red-600")}>{item.performance.toFixed(1)}%</span></td><td className="px-8 py-5 text-center"><p className="text-sm font-black text-slate-900 dark:text-white">{item.score.toFixed(1)}</p></td><td className="px-8 py-5 text-right"><button className="p-2 rounded-xl text-slate-300 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 transition-all"><ChevronRight size={18} /></button></td></tr>))}</tbody>
-        </table>
-        {processedRankings.length === 0 && <div className="py-20 text-center text-slate-400 font-bold italic">Không có dữ liệu xếp hạng cho đơn vị này</div>}
-      </div>
-    </section>
+    </ChartWrapper>
   );
 }
 
