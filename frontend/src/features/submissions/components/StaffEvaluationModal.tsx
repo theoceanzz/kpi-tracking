@@ -12,6 +12,8 @@ import { useAuthStore } from '@/store/authStore'
 import { formatNumber, cn } from '@/lib/utils'
 import { useOrganization } from '@/features/orgunits/hooks/useOrganization'
 
+import { getScoringFunctions } from '@/lib/scoring'
+
 interface StaffEvaluationModalProps {
   open: boolean
   onClose: () => void
@@ -28,18 +30,14 @@ export default function StaffEvaluationModal({
   const { user } = useAuthStore()
   const orgId = user?.memberships?.[0]?.organizationId
   const { data: org } = useOrganization(orgId)
+  const { getScoreLabel } = getScoringFunctions(org)
   const userRoleName = user?.memberships?.[0]?.roleName || 'Quản lý'
   const qc = useQueryClient()
   const [individualScores, setIndividualScores] = useState<Record<string, number>>({})
   const [overallComment, setOverallComment] = useState(evaluationComment || '')
 
   const getGrade = (score: number) => {
-    if (!org) return '—'
-    if (score >= (org.excellentThreshold ?? 90)) return 'XUẤT SẮC'
-    if (score >= (org.goodThreshold ?? 80)) return 'TỐT'
-    if (score >= (org.fairThreshold ?? 70)) return 'KHÁ'
-    if (score >= (org.averageThreshold ?? 50)) return 'TRUNG BÌNH'
-    return 'YẾU'
+    return getScoreLabel(score)
   }
 
   // Fetch all submissions for this user in this period
@@ -67,7 +65,7 @@ export default function StaffEvaluationModal({
     if (submissionList.length > 0) {
       const scores: Record<string, number> = {}
       submissionList.forEach(s => {
-        scores[s.id] = s.managerScore ?? s.autoScore ?? 0
+        scores[s.id] = Math.round(s.managerScore ?? s.autoScore ?? 0)
       })
       setIndividualScores(scores)
     }

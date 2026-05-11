@@ -18,6 +18,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Checkbox } from '../../../components/ui/checkbox'
 import { useOrgUnitTree } from '@/features/orgunits/hooks/useOrgUnitTree'
 import { Building2 } from 'lucide-react'
+import PageTour from '@/components/common/PageTour'
+import { kpiAdjustmentsSteps } from '@/components/common/tourSteps'
 
 const statusConfig: Record<string, { label: string; color: string; bgColor: string; icon: any }> = {
   PENDING: { label: 'Đợi xử lý', color: 'text-amber-600 dark:text-amber-400', bgColor: 'bg-amber-50/50 border-amber-200/50 dark:bg-amber-900/20 dark:border-amber-900/30', icon: Clock },
@@ -193,9 +195,10 @@ export default function KpiAdjustmentApprovalPage() {
   return (
     <div className="min-h-screen bg-[#f8fafc] dark:bg-[#020617] p-4 md:p-8">
       <div className="max-w-[1600px] mx-auto space-y-8 animate-in fade-in duration-700">
+        <PageTour pageKey="kpi-adjustments" steps={kpiAdjustmentsSteps} />
         
         {/* Header Section with Glass Card */}
-        <div className="relative group">
+        <div className="relative group" id="tour-adj-header">
           <div className="absolute -inset-1 bg-gradient-to-r from-amber-500 via-orange-500 to-red-500 rounded-[40px] blur opacity-10 group-hover:opacity-20 transition duration-1000"></div>
           <div className="relative bg-white dark:bg-slate-900 rounded-[28px] p-6 border border-slate-200 dark:border-slate-800 shadow-lg overflow-hidden">
             <div className="absolute top-0 right-0 w-64 h-64 bg-amber-500/5 rounded-full -translate-y-1/2 translate-x-1/2 blur-3xl" />
@@ -226,7 +229,7 @@ export default function KpiAdjustmentApprovalPage() {
         </div>
 
         {/* Toolbar */}
-        <div className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-md p-4 rounded-[24px] border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col lg:flex-row items-center justify-between gap-4">
+        <div id="tour-adj-toolbar" className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-md p-4 rounded-[24px] border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col lg:flex-row items-center justify-between gap-4">
           <div className="flex flex-col md:flex-row items-center gap-3 w-full lg:w-auto">
             <div className="relative flex-1 md:w-80">
               <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
@@ -274,7 +277,7 @@ export default function KpiAdjustmentApprovalPage() {
         </div>
 
         {/* Status Tabs Row */}
-        <div className="flex flex-wrap items-center gap-3 py-2">
+        <div id="tour-adj-tabs" className="flex flex-wrap items-center gap-3 py-2">
           {(['PENDING', 'APPROVED', 'REJECTED', 'ALL'] as const).map((tab) => {
             const labels: Record<string, string> = { 
               PENDING: 'Đợi xử lý', 

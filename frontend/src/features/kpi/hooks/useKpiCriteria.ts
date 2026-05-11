@@ -13,6 +13,8 @@ export function useKpiCriteria(params: {
   createdById?: string; 
   kpiPeriodId?: string; 
   keyword?: string; 
+  startDate?: string;
+  endDate?: string;
   sortBy?: string; 
   sortDir?: string 
 } = {}, options: any = {}) {

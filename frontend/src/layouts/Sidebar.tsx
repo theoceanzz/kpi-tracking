@@ -25,11 +25,15 @@ import {
   TrendingUp,
   ChevronDown,
   ChevronUp,
-  Settings
+  Settings,
+  Lightbulb,
+  CircleHelp
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useNotificationDots } from '../hooks/useNotificationDots'
 import { useSidebarSettings } from '@/features/organization/hooks/useSidebarSettings'
+import { useTourStore } from '@/store/tourStore'
+import { pathToTourKey } from '@/components/common/tourSteps'
 
 interface NavItem {
   label: string
@@ -48,8 +52,14 @@ const navItems: NavItem[] = [
     icon: <Building2 size={20} />,
     children: [
       { label: 'Công ty', path: '/company', icon: <Building2 size={18} />, permission: 'COMPANY:VIEW' },
-      { label: 'Vai trò', path: '/roles', icon: <Shield size={18} />, permission: 'ROLE:VIEW' },
-      { label: 'Thiết lập cấu trúc', path: '/org-structure', icon: <Network size={18} />, permission: 'ORG:VIEW' },
+      {
+        label: 'Tổ chức',
+        icon: <Network size={18} />,
+        children: [
+          { label: 'Vai trò', path: '/roles', icon: <Shield size={18} />, permission: 'ROLE:VIEW' },
+          { label: 'Sơ đồ tổ chức', path: '/org-structure', icon: <Network size={18} />, permission: 'ORG:VIEW' },
+        ]
+      },
       { label: 'Nhân sự', path: '/users', icon: <Users size={18} />, permission: 'USER:VIEW' },
       { label: 'Cấu hình hệ thống', path: '/settings', icon: <Settings size={18} />, permission: 'COMPANY:UPDATE' },
     ]
@@ -72,14 +82,60 @@ const navItems: NavItem[] = [
   { label: 'Thống kê', path: '/analytics', icon: <TrendingUp size={20} />, permission: 'DASHBOARD:VIEW', end: true },
 ]
 
+/* ─── Tour Replay Button ─── */
+function TourReplayButton({ path }: { path: string }) {
+  const { user } = useAuthStore()
+  const tourKey = pathToTourKey[path]
+  const { startTour, activeTour, hasSeen } = useTourStore()
+  
+  if (!tourKey || !user?.id) return null
+  
+  const seen = hasSeen(tourKey, user.id)
+  const isActive = activeTour === tourKey
+  
+  return (
+    <button
+      onClick={(e) => {
+        e.preventDefault()
+        e.stopPropagation()
+        if (!isActive) startTour(tourKey)
+      }}
+      className={cn(
+        'shrink-0 p-1 rounded-full transition-all border',
+        isActive
+          ? 'text-indigo-500 bg-indigo-50 border-indigo-200 dark:bg-indigo-900/30 dark:border-indigo-800'
+          : seen 
+            ? 'text-slate-400 border-transparent opacity-40 group-hover:opacity-100 hover:text-indigo-500 hover:bg-indigo-50 hover:border-indigo-100 dark:hover:bg-indigo-900/20'
+            : 'text-amber-500 border-amber-200 bg-amber-50 animate-pulse opacity-100 dark:bg-amber-900/20 dark:border-amber-800'
+      )}
+      title={seen ? "Xem lại hướng dẫn" : "Trang này có hướng dẫn mới"}
+    >
+      {seen ? <CircleHelp size={13} /> : <Lightbulb size={13} />}
+    </button>
+  )
+}
+
 export default function Sidebar({ isMobileOpen, onCloseMobile }: { isMobileOpen?: boolean; onCloseMobile?: () => void }) {
   const { user, logout } = useAuthStore()
   const { isCollapsed } = useSidebarStore()
+  const { hasSeen, startTour, stopTour } = useTourStore()
   const [userMenuOpen, setUserMenuOpen] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
 
   const { hasPermission } = useHasPermission()
   const location = useLocation()
+
+  const handleNavClick = (path?: string) => {
+    if (!path) return
+    onCloseMobile?.()
+    
+    const tourKey = pathToTourKey[path]
+    if (tourKey && user?.id && !hasSeen(tourKey, user.id)) {
+      // Force stop any existing tour and restart the specific one
+      stopTour()
+      setTimeout(() => startTour(tourKey), 10)
+    }
+  }
   
   const organizationId = user?.memberships?.[0]?.organizationId
   const { data: customLabels = {} } = useSidebarSettings(organizationId!)
@@ -101,8 +157,12 @@ export default function Sidebar({ isMobileOpen, onCloseMobile }: { isMobileOpen?
     }))
   }
 
-  const isAnyChildActive = (item: NavItem) => {
-    return item.children?.some(child => location.pathname.startsWith(child.path || ''))
+  const isAnyChildActive = (item: NavItem): boolean => {
+    return !!item.children?.some(child => {
+      if (child.path && location.pathname.startsWith(child.path)) return true
+      if (child.children) return isAnyChildActive(child)
+      return false
+    })
   }
 
   const getLabel = (item: NavItem) => {
@@ -116,12 +176,20 @@ export default function Sidebar({ isMobileOpen, onCloseMobile }: { isMobileOpen?
 
     if (item.children) {
       const filteredChildren = item.children
-        .filter(child => {
-          if (!user) return false
-          const hasPerm = hasPermission(child.permission!)
-          return hasPerm
+        .map(child => {
+          if (child.children) {
+            const filteredSubChildren = child.children.filter(sub => !sub.permission || hasPermission(sub.permission))
+            if (filteredSubChildren.length > 0) {
+              return { ...child, label: getLabel(child), children: filteredSubChildren }
+            }
+            return null
+          }
+          if (!child.permission || hasPermission(child.permission)) {
+            return { ...child, label: getLabel(child) }
+          }
+          return null
         })
-        .map(child => ({ ...child, label: getLabel(child) })) // Override child labels
+        .filter(Boolean) as NavItem[]
 
       if (filteredChildren.length > 0) {
         return { ...updatedItem, children: filteredChildren }
@@ -197,7 +265,7 @@ export default function Sidebar({ isMobileOpen, onCloseMobile }: { isMobileOpen?
           isMobileOpen ? "translate-x-0 shadow-2xl w-64" : "-translate-x-full"
         )}
       >
-        <div className={cn("flex items-center justify-between px-6 py-5 border-b border-[var(--color-border)]", isCollapsed && !isMobileOpen && "px-4")}>
+        <Link to="/" className={cn("flex items-center justify-between px-6 py-5 border-b border-[var(--color-border)]", isCollapsed && !isMobileOpen && "px-4")}>
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 rounded-lg bg-[var(--color-primary)] flex items-center justify-center shrink-0 shadow-lg shadow-[var(--color-primary)]/20">
               <Target className="text-white" size={20} />
@@ -210,11 +278,11 @@ export default function Sidebar({ isMobileOpen, onCloseMobile }: { isMobileOpen?
           </div>
           <button 
             className="lg:hidden p-1.5 rounded-lg text-[var(--color-muted-foreground)] hover:bg-[var(--color-accent)]"
-            onClick={onCloseMobile}
+            onClick={(e) => { e.preventDefault(); e.stopPropagation(); onCloseMobile?.() }}
           >
             <X size={20} />
           </button>
-        </div>
+        </Link>
 
         <nav className="flex-1 py-4 px-3 space-y-1 overflow-y-auto custom-scrollbar">
           {filteredItems.map((item) => {
@@ -258,13 +326,63 @@ export default function Sidebar({ isMobileOpen, onCloseMobile }: { isMobileOpen?
                     <div className="ml-4 space-y-1 border-l border-[var(--color-border)] pl-3">
                       {item.children.map((child) => {
                         const childBadgeValue = child.path ? getBadge(child.path) : null
+                        
+                        // Handle sub-children (2nd level)
+                        if (child.children) {
+                          const isSubExpanded = expandedMenus[child.label] || child.children.some(c => location.pathname.startsWith(c.path || ''))
+                          
+                          return (
+                            <div key={child.label} className="space-y-1 my-1">
+                              <button
+                                onClick={() => toggleMenu(child.label)}
+                                className={cn(
+                                  'w-full flex items-center gap-3 px-3 py-2 rounded-lg text-[13px] font-bold transition-all group',
+                                  child.children.some(c => location.pathname.startsWith(c.path || ''))
+                                    ? 'text-[var(--color-primary)]'
+                                    : 'text-[var(--color-muted-foreground)] hover:text-[var(--color-foreground)] hover:bg-[var(--color-accent)]'
+                                )}
+                              >
+                                <div className="shrink-0 opacity-70 group-hover:opacity-100">{child.icon}</div>
+                                <span className="truncate flex-1 text-left">{child.label}</span>
+                                {isSubExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                              </button>
+                              
+                              {isSubExpanded && (
+                                <div className="ml-3 space-y-1 border-l border-[var(--color-border)]/50 pl-3">
+                                  {child.children.map((subChild) => (
+                                    <NavLink
+                                      key={subChild.path}
+                                      to={subChild.path!}
+                                      onClick={() => handleNavClick(subChild.path)}
+                                      className={({ isActive }) =>
+                                        cn(
+                                          'flex items-center gap-3 px-3 py-1.5 rounded-lg text-[12px] font-bold transition-all group',
+                                          isActive
+                                            ? 'text-[var(--color-primary)] bg-[var(--color-primary)]/5'
+                                            : 'text-[var(--color-muted-foreground)] hover:text-[var(--color-foreground)] hover:bg-[var(--color-accent)]'
+                                        )
+                                      }
+                                    >
+                                      <div className="shrink-0 opacity-70 group-hover:opacity-100">
+                                        {subChild.icon}
+                                      </div>
+                                      <span className="truncate flex-1">{subChild.label}</span>
+                                      {subChild.path && <TourReplayButton path={subChild.path} />}
+                                    </NavLink>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          )
+                        }
+
                         return (
                           <NavLink
                             id={`nav-item-${child.path?.replace(/\//g, '-')}`}
                             key={child.path}
                             to={child.path!}
                             end={child.end} 
-                            onClick={onCloseMobile}
+                            onClick={() => handleNavClick(child.path)}
                             className={({ isActive }) =>
                               cn(
                                 'flex items-center gap-3 px-3 py-2 rounded-lg text-[13px] font-bold transition-all group relative',
@@ -278,6 +396,7 @@ export default function Sidebar({ isMobileOpen, onCloseMobile }: { isMobileOpen?
                               {child.icon}
                             </div>
                             <span className="truncate flex-1">{child.label}</span>
+                            {child.path && <TourReplayButton path={child.path} />}
                             {typeof childBadgeValue === 'number' && (
                               <span className="px-1.5 py-0.5 rounded-full bg-red-500 text-[9px] text-white font-black shadow-lg shadow-red-500/20">
                                 {childBadgeValue}
@@ -303,7 +422,7 @@ export default function Sidebar({ isMobileOpen, onCloseMobile }: { isMobileOpen?
                 key={item.path}
                 to={item.path!}
                 end={item.end} 
-                onClick={onCloseMobile}
+                onClick={() => handleNavClick(item.path)}
                 className={({ isActive }) =>
                   cn(
                     'flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-bold transition-all group relative',
@@ -324,6 +443,7 @@ export default function Sidebar({ isMobileOpen, onCloseMobile }: { isMobileOpen?
                 {(!isCollapsed || isMobileOpen) && (
                   <>
                     <span className="truncate flex-1">{item.label}</span>
+                    {item.path && <TourReplayButton path={item.path} />}
                     {typeof badgeValue === 'number' && (
                       <span className="px-2 py-0.5 rounded-full bg-red-500 text-[10px] text-white font-black shadow-lg shadow-red-500/20 animate-pulse">
                         {badgeValue}

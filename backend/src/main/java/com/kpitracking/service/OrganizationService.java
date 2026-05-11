@@ -1,5 +1,7 @@
 package com.kpitracking.service;
 
+import com.kpitracking.constant.EvaluationConstants;
+
 import com.kpitracking.constant.RolePermissionConstants;
 import com.kpitracking.dto.request.auth.HierarchyLevelDTO;
 import com.kpitracking.dto.request.organization.CreateOrganizationRequest;
@@ -45,6 +47,8 @@ public class OrganizationService {
     private final com.kpitracking.repository.RoleRepository roleRepository;
     private final com.kpitracking.repository.PermissionRepository permissionRepository;
     private final com.kpitracking.repository.RolePermissionRepository rolePermissionRepository;
+    private final com.kpitracking.repository.EvaluationLevelRepository evaluationLevelRepository;
+    private final com.kpitracking.mapper.EvaluationLevelMapper evaluationLevelMapper;
 
     @Transactional
     public OrganizationResponse createOrganization(CreateOrganizationRequest request) {
@@ -58,14 +62,29 @@ public class OrganizationService {
                 .status(OrganizationStatus.ACTIVE)
                 .build();
 
-        organization = organizationRepository.save(organization);
-        return organizationMapper.toResponse(organization);
+        Organization savedOrg = organizationRepository.save(organization);
+
+        // Add default evaluation levels
+        List<EvaluationLevel> defaultLevels = EvaluationConstants.DEFAULT_LEVELS.stream()
+            .map(lvl -> EvaluationLevel.builder()
+                .organization(savedOrg)
+                .name(lvl.getName())
+                .threshold(lvl.getThreshold())
+                .color(lvl.getColor())
+                .build())
+            .toList();
+        
+        evaluationLevelRepository.saveAll(defaultLevels);
+        savedOrg.setEvaluationLevels(new ArrayList<>(defaultLevels));
+
+        return organizationMapper.toResponse(savedOrg);
     }
 
     @Transactional(readOnly = true)
     public OrganizationResponse getOrganization(UUID orgId) {
         Organization organization = organizationRepository.findById(orgId)
                 .orElseThrow(() -> new ResourceNotFoundException("Tổ chức", "id", orgId));
+
         return organizationMapper.toResponse(organization);
     }
 
@@ -109,24 +128,27 @@ public class OrganizationService {
         if (request.getEvaluationMaxScore() != null) {
             organization.setEvaluationMaxScore(request.getEvaluationMaxScore());
         }
-        if (request.getExcellentThreshold() != null) {
-            organization.setExcellentThreshold(request.getExcellentThreshold());
-        }
-        if (request.getGoodThreshold() != null) {
-            organization.setGoodThreshold(request.getGoodThreshold());
-        }
-        if (request.getFairThreshold() != null) {
-            organization.setFairThreshold(request.getFairThreshold());
-        }
-        if (request.getAverageThreshold() != null) {
-            organization.setAverageThreshold(request.getAverageThreshold());
-        }
+
         if (request.getKpiReminderPercentage() != null) {
             organization.setKpiReminderPercentage(request.getKpiReminderPercentage());
         }
 
-        organization = organizationRepository.save(organization);
-        return organizationMapper.toResponse(organization);
+        if (request.getEvaluationLevels() != null) {
+            organization.getEvaluationLevels().clear();
+            organizationRepository.saveAndFlush(organization);
+            
+            List<EvaluationLevel> newEntities = request.getEvaluationLevels().stream()
+                    .map(req -> {
+                        EvaluationLevel level = evaluationLevelMapper.toEntity(req);
+                        level.setOrganization(organization);
+                        return level;
+                    })
+                    .collect(Collectors.toList());
+            organization.getEvaluationLevels().addAll(newEntities);
+        }
+
+        Organization savedOrganization = organizationRepository.save(organization);
+        return organizationMapper.toResponse(savedOrganization);
     }
 
     private void syncHierarchyLevels(Organization organization, List<HierarchyLevelDTO> newLevels) {

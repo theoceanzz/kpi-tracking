@@ -538,7 +538,7 @@ export function MemberManagement({ orgUnitId }: MemberManagementProps) {
                                         <div className="flex-1 overflow-hidden">
                                             <p className="text-sm font-black text-gray-900 truncate">{ROLE_MAP[role.name] || role.name}</p>
                                             <p className="text-[10px] text-gray-400 font-bold uppercase truncate">
-                                                {isRankTakenByOther ? 'Đã có người đảm nhiệm' : (selectedUsers.length > 1 && (role.rank === 0 || role.rank === 1)) ? 'Không thể gán hàng loạt' : role.id.split('-')[0]}
+                                                {isRankTakenByOther ? 'Đã có người đảm nhiệm' : (selectedUsers.length > 1 && (role.rank === 0 || role.rank === 1)) ? 'Không thể gán hàng loạt' : ''}
                                             </p>
                                         </div>
                                         {isRankTakenByOther && (

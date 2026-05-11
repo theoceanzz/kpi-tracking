@@ -29,8 +29,9 @@ public class KpiPeriodService {
 
     @Transactional(readOnly = true)
     public PageResponse<KpiPeriodResponse> getKpiPeriods(
-            int page, int size, String sortBy, String direction,
-            String keyword, com.kpitracking.enums.KpiFrequency periodType, UUID organizationId) {
+            int page, int size, String sortBy, String direction, String keyword, 
+            com.kpitracking.enums.KpiFrequency periodType, 
+            java.time.Instant startDate, java.time.Instant endDate, UUID organizationId) {
         
         Sort sort = direction.equalsIgnoreCase("asc") ? Sort.by(sortBy).ascending() : Sort.by(sortBy).descending();
         Pageable pageable = PageRequest.of(page, size, sort);
@@ -48,6 +49,14 @@ public class KpiPeriodService {
 
         if (organizationId != null) {
             spec = spec.and((root, query, cb) -> cb.equal(root.get("organization").get("id"), organizationId));
+        }
+
+        if (startDate != null) {
+            spec = spec.and((root, query, cb) -> cb.greaterThanOrEqualTo(root.get("startDate"), startDate));
+        }
+
+        if (endDate != null) {
+            spec = spec.and((root, query, cb) -> cb.lessThanOrEqualTo(root.get("endDate"), endDate));
         }
 
         Page<KpiPeriod> pagedResult = kpiPeriodRepository.findAll(spec, pageable);

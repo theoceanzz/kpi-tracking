@@ -6,6 +6,8 @@ import MyStatsTab from './MyStatsTab'
 import DrillDownTab from './DrillDownTab'
 import DetailTableTab from './DetailTableTab'
 import SummaryTab from './SummaryTab'
+import PageTour from '@/components/common/PageTour'
+import { analyticsSteps } from '@/components/common/tourSteps'
 
 type TabKey = 'my' | 'summary' | 'drilldown' | 'detail'
 
@@ -27,8 +29,9 @@ export default function AnalyticsPage() {
 
   return (
     <div className="max-w-[1600px] mx-auto p-4 md:p-8 space-y-6 animate-in fade-in duration-500">
+      <PageTour pageKey="analytics" steps={analyticsSteps} />
       {/* Header */}
-      <div>
+      <div id="tour-analytics-header">
         <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 text-xs font-black uppercase tracking-widest mb-3">
           <TrendingUp size={14} /> Thống kê & Phân tích
         </div>
@@ -37,7 +40,7 @@ export default function AnalyticsPage() {
       </div>
 
       {/* Tabs */}
-      <div className="flex items-center gap-1 border-b border-slate-200 dark:border-slate-800">
+      <div id="tour-analytics-tabs" className="flex items-center gap-1 border-b border-slate-200 dark:border-slate-800">
         {visibleTabs.map(t => {
           const Icon = t.icon
           return (

@@ -9,6 +9,7 @@ export function useMySubmissions(params: {
   sortBy?: string;
   sortDir?: string;
   submittedById?: string;
+  kpiPeriodId?: string;
 } = {}) {
   return useQuery({
     queryKey: ['submissions', 'my', params],

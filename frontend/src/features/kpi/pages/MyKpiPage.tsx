@@ -15,6 +15,8 @@ import KpiDetailModal from '../components/KpiDetailModal'
 import KpiAdjustmentModal from '../components/KpiAdjustmentModal'
 import type { KpiCriteria } from '@/types/kpi'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import PageTour from '@/components/common/PageTour'
+import { myKpiSteps } from '@/components/common/tourSteps'
 
 
 
@@ -49,6 +51,7 @@ export default function MyKpiPage() {
 
   return (
     <div className="max-w-[1440px] mx-auto p-4 md:p-6 space-y-6 animate-in fade-in duration-500 transition-all duration-500 ease-in-out">
+      <PageTour pageKey="my-kpi" steps={myKpiSteps} />
       
       {/* Refined Header */}
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm transition-all">

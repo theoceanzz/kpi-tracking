@@ -1,9 +1,11 @@
 import { useState, useRef } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { useAuthStore } from '@/store/authStore'
-import { getInitials } from '@/lib/utils'
+import { getInitials, formatPhoneNumber } from '@/lib/utils'
 import { ROLE_MAP } from '@/constants/roles'
 import { useForm, useWatch } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
+import * as z from 'zod'
 import { cn } from '@/lib/utils'
 import { useMutation } from '@tanstack/react-query'
 import { authApi } from '@/features/auth/api/authApi'
@@ -169,7 +171,11 @@ function NavTab({ active, onClick, icon: Icon, label, description }: {
 /* ========== Profile Info Tab ========== */
 function ProfileInfoTab({ user, onUserUpdate }: { user: any; onUserUpdate: (u: any) => void }) {
   const [editing, setEditing] = useState(false)
-  const { register, handleSubmit, reset } = useForm({
+  const { register, handleSubmit, reset, formState: { errors } } = useForm({
+    resolver: zodResolver(z.object({
+      fullName: z.string().min(1, 'Vui lòng nhập họ tên'),
+      phone: z.string().regex(/^0\d{9}$/, 'Số điện thoại phải gồm 10 chữ số và bắt đầu bằng số 0 (VD: 0912345678)').optional().or(z.literal('')),
+    })),
     defaultValues: {
       fullName: user.fullName ?? '',
       phone: user.phone ?? '',
@@ -177,7 +183,10 @@ function ProfileInfoTab({ user, onUserUpdate }: { user: any; onUserUpdate: (u: a
   })
 
   const updateMutation = useMutation({
-    mutationFn: (data: { fullName: string; phone: string }) => userApi.update(user.id, data),
+    mutationFn: (data: { fullName: string; phone?: string }) => userApi.update(user.id, {
+      fullName: data.fullName,
+      phone: data.phone || ''
+    }),
     onSuccess: (updated) => {
       toast.success('Hồ sơ đã được cập nhật')
       onUserUpdate({ ...user, fullName: updated.fullName, phone: updated.phone })
@@ -226,6 +235,7 @@ function ProfileInfoTab({ user, onUserUpdate }: { user: any; onUserUpdate: (u: a
                 className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-400 transition-all"
                 placeholder="Nguyễn Văn A"
               />
+              {errors.fullName && <p className="text-red-500 text-xs mt-1">{(errors.fullName as any).message}</p>}
             </div>
 
             <div className="space-y-2">
@@ -237,6 +247,7 @@ function ProfileInfoTab({ user, onUserUpdate }: { user: any; onUserUpdate: (u: a
                 className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-400 transition-all"
                 placeholder="0912 345 678"
               />
+              {errors.phone && <p className="text-red-500 text-xs mt-1">{(errors.phone as any).message}</p>}
             </div>
 
             {/* Non-editable fields */}
@@ -263,7 +274,7 @@ function ProfileInfoTab({ user, onUserUpdate }: { user: any; onUserUpdate: (u: a
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5 animate-in fade-in duration-300">
             <InfoField icon={User} iconColor="text-indigo-500" iconBg="bg-indigo-50 dark:bg-indigo-900/20" label="Họ và tên" value={user.fullName} />
             <InfoField icon={Mail} iconColor="text-blue-500" iconBg="bg-blue-50 dark:bg-blue-900/20" label="Địa chỉ Email" value={user.email} />
-            <InfoField icon={Phone} iconColor="text-emerald-500" iconBg="bg-emerald-50 dark:bg-emerald-900/20" label="Số điện thoại" value={user.phone || 'Chưa cập nhật'} />
+            <InfoField icon={Phone} iconColor="text-emerald-500" iconBg="bg-emerald-50 dark:bg-emerald-900/20" label="Số điện thoại" value={formatPhoneNumber(user.phone) || 'Chưa cập nhật'} />
             <InfoField icon={Building2} iconColor="text-amber-500" iconBg="bg-amber-50 dark:bg-amber-900/20" label="Đơn vị" value={`${user.memberships?.[0]?.orgUnitName || 'Chưa cập nhật'}${user.memberships?.[0]?.unitTypeLabel ? ` (${user.memberships[0].unitTypeLabel})` : ''}`} />
             <InfoField icon={Shield} iconColor="text-purple-500" iconBg="bg-purple-50 dark:bg-purple-900/20" label="Chức vụ" value={user.memberships?.[0]?.roleName || ROLE_MAP[user.roles?.[0] || ''] || user.roles?.[0] || 'N/A'} />
             <InfoField icon={CheckCircle2} iconColor="text-emerald-500" iconBg="bg-emerald-50 dark:bg-emerald-900/20" label="Trạng thái" value="Đang hoạt động" />

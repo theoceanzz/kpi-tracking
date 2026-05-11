@@ -10,12 +10,14 @@ import type { KpiPeriod, KpiFrequency } from '@/types/kpi'
 import {
   Calendar, Plus, Pencil, Trash2, Clock, 
   ChevronLeft, ChevronRight,
-  Search, Filter, ArrowUpDown, ArrowUp, ArrowDown, X,
+  Search, Filter, ArrowUpDown, ArrowUp, ArrowDown, X, ArrowRight,
   LayoutGrid, List, Sparkles, Target
 } from 'lucide-react'
 import { useDebounce } from '@/hooks/useDebounce'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { cn } from '@/lib/utils'
+import PageTour from '@/components/common/PageTour'
+import { kpiPeriodsSteps } from '@/components/common/tourSteps'
 import { toast } from 'sonner'
 
 export default function KpiPeriodsPage() {
@@ -30,6 +32,8 @@ export default function KpiPeriodsPage() {
   const [sortBy, setSortBy] = useState('startDate')
   const [direction, setDirection] = useState<'asc' | 'desc'>('desc')
   const [viewMode, setViewMode] = useState<'TABLE' | 'CARD'>('TABLE')
+  const [startDateFilter, setStartDateFilter] = useState('')
+  const [endDateFilter, setEndDateFilter] = useState('')
 
   const debouncedKeyword = useDebounce(keyword, 500)
   
@@ -45,6 +49,8 @@ export default function KpiPeriodsPage() {
     organizationId,
     keyword: debouncedKeyword,
     periodType: periodType === 'ALL' ? undefined : periodType,
+    startDate: startDateFilter ? new Date(startDateFilter).toISOString() : undefined,
+    endDate: endDateFilter ? new Date(endDateFilter).toISOString() : undefined,
     sortBy,
     direction
   })
@@ -86,9 +92,10 @@ export default function KpiPeriodsPage() {
   return (
     <div className="min-h-screen bg-slate-50/50 dark:bg-slate-950/50">
       <div className="max-w-[1600px] mx-auto p-4 md:p-8 space-y-8 animate-in fade-in duration-700">
+        <PageTour pageKey="kpi-periods" steps={kpiPeriodsSteps} />
         
         {/* Header Section with Glass Card */}
-        <div className="relative group">
+        <div className="relative group" id="tour-periods-header">
           <div className="absolute -inset-1 bg-gradient-to-r from-blue-500 via-indigo-500 to-purple-500 rounded-[40px] blur opacity-10 group-hover:opacity-20 transition duration-1000"></div>
           <div className="relative bg-white dark:bg-slate-900 rounded-[28px] p-6 border border-slate-200 dark:border-slate-800 shadow-lg overflow-hidden">
             <div className="absolute top-0 right-0 w-64 h-64 bg-blue-500/5 rounded-full -translate-y-1/2 translate-x-1/2 blur-3xl" />
@@ -137,7 +144,7 @@ export default function KpiPeriodsPage() {
         </div>
 
         {/* Toolbar & Filters */}
-        <div className="flex flex-col xl:flex-row items-stretch justify-between gap-4 p-4 bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl rounded-[32px] border border-slate-200 dark:border-slate-800 shadow-sm">
+        <div id="tour-periods-toolbar" className="flex flex-col xl:flex-row items-stretch justify-between gap-4 p-4 bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl rounded-[32px] border border-slate-200 dark:border-slate-800 shadow-sm">
           <div className="flex flex-col md:flex-row items-center gap-3 flex-1">
             <div className="relative group flex-1 w-full md:max-w-md">
               <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-500 transition-colors" size={18} />
@@ -172,6 +179,30 @@ export default function KpiPeriodsPage() {
                 ))}
               </SelectContent>
             </Select>
+            
+            <div className="flex items-center gap-2">
+              <div className="relative">
+                <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
+                <input 
+                  type="date"
+                  value={startDateFilter}
+                  onChange={(e) => { setStartDateFilter(e.target.value); setPage(0) }}
+                  className="pl-9 pr-3 py-3 rounded-xl border border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50 text-[11px] font-black uppercase outline-none focus:ring-2 focus:ring-indigo-500/20 transition-all"
+                  title="Từ ngày"
+                />
+              </div>
+              <ArrowRight size={12} className="text-slate-300" />
+              <div className="relative">
+                <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
+                <input 
+                  type="date"
+                  value={endDateFilter}
+                  onChange={(e) => { setEndDateFilter(e.target.value); setPage(0) }}
+                  className="pl-9 pr-3 py-3 rounded-xl border border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50 text-[11px] font-black uppercase outline-none focus:ring-2 focus:ring-indigo-500/20 transition-all"
+                  title="Đến ngày"
+                />
+              </div>
+            </div>
           </div>
 
           <div className="flex items-center gap-3">
@@ -199,6 +230,7 @@ export default function KpiPeriodsPage() {
         </div>
 
         {/* Main Content */}
+        <div id="tour-periods-content">
         {isLoading ? (
           <div className="bg-white dark:bg-slate-900 rounded-[32px] p-8 border border-slate-100 dark:border-slate-800 shadow-sm">
             <LoadingSkeleton type="table" rows={pageSize} />
@@ -365,6 +397,7 @@ export default function KpiPeriodsPage() {
             </div>
           </div>
         )}
+        </div>
 
         {/* Form Modal */}
         {showForm && (

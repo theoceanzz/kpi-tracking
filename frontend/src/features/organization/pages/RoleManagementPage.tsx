@@ -31,6 +31,8 @@ import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import { ROLE_MAP } from '@/constants/roles'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import PageTour from '@/components/common/PageTour'
+import { rolesSteps } from '@/components/common/tourSteps'
 
 export default function RoleManagementPage() {
   const { refreshUser } = useAuth()
@@ -134,7 +136,7 @@ export default function RoleManagementPage() {
         r.id !== editingRole?.id
       )
       if (duplicate) {
-        const rankName = formData.rank === 0 ? "TRƯỞNG (Rank 0)" : "PHÓ (Rank 1)"
+        const rankName = formData.rank === 0 ? "TRƯỞNG" : "PHÓ"
         toast.error(`Mỗi phân cấp chỉ được phép có tối đa 1 ${rankName}. Hiện tại đã có vai trò "${duplicate.name}" ở phân cấp này.`)
         return
       }
@@ -183,6 +185,7 @@ export default function RoleManagementPage() {
 
   return (
     <div className="max-w-7xl mx-auto space-y-6 pb-12 animate-in fade-in slide-in-from-bottom-4 duration-700">
+      <PageTour pageKey="roles" steps={rolesSteps} />
       {/* Header Section */}
       <div id="tour-roles-header" className="relative overflow-hidden bg-gradient-to-br from-indigo-700 via-indigo-600 to-violet-700 rounded-[2.5rem] p-8 md:p-12 shadow-2xl shadow-indigo-200/50">
         <div className="absolute top-0 right-0 -mt-12 -mr-12 w-64 h-64 bg-white/10 rounded-full blur-3xl" />
@@ -512,7 +515,7 @@ export default function RoleManagementPage() {
                             value={String(lvl.roleLevel)} 
                             className="font-bold cursor-pointer rounded-xl py-3 focus:bg-indigo-50 focus:text-indigo-600"
                           >
-                            {lvl.unitTypeName} (LEVEL {lvl.roleLevel})
+                            {lvl.unitTypeName}
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -528,9 +531,9 @@ export default function RoleManagementPage() {
                         <SelectValue placeholder="Chọn vị trí" />
                       </SelectTrigger>
                       <SelectContent className="rounded-2xl border-gray-100 shadow-2xl z-[110] p-1">
-                        <SelectItem value="0" className="font-bold cursor-pointer rounded-xl py-3">Trưởng (0)</SelectItem>
-                        <SelectItem value="1" className="font-bold cursor-pointer rounded-xl py-3">Phó (1)</SelectItem>
-                        <SelectItem value="2" className="font-bold cursor-pointer rounded-xl py-3">Khác (2)</SelectItem>
+                        <SelectItem value="0" className="font-bold cursor-pointer rounded-xl py-3">Trưởng</SelectItem>
+                        <SelectItem value="1" className="font-bold cursor-pointer rounded-xl py-3">Phó</SelectItem>
+                        <SelectItem value="2" className="font-bold cursor-pointer rounded-xl py-3">Thành viên</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>

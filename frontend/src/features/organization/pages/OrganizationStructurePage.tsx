@@ -7,6 +7,8 @@ import { OrgMindmapView } from '../components/OrgMindmapView'
 import { OrgListView } from '../components/OrgListView'
 import { OrgUnitDrawer, DrawerState } from '../components/OrgUnitDrawer'
 import ConfirmDialog from '@/components/common/ConfirmDialog'
+import PageTour from '@/components/common/PageTour'
+import { orgStructureSteps } from '@/components/common/tourSteps'
 
 export function OrganizationStructurePage() {
   const { user } = useAuthStore()
@@ -102,6 +104,7 @@ export function OrganizationStructurePage() {
 
   return (
     <div className="space-y-6 container mx-auto px-4 md:px-0">
+      <PageTour pageKey="org-structure" steps={orgStructureSteps} />
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Quản lý Cấu trúc Tổ chức</h1>

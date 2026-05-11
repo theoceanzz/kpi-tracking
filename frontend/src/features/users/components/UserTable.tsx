@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import StatusBadge from '@/components/common/StatusBadge'
 import type { User } from '@/types/user'
 import { Pencil, Trash2, MoreVertical, Shield, User as UserIcon, Mail, Phone, Building2 } from 'lucide-react'
-import { getInitials, getHighestRole, cn } from '@/lib/utils'
+import { getInitials, getHighestRole, cn, formatPhoneNumber } from '@/lib/utils'
 import { ROLE_MAP } from '@/constants/roles'
 
 
@@ -144,8 +144,8 @@ export default function UserTable({ users, onRowClick, onDelete, canUpdate, canD
                 {/* 3. Contact Col */}
                 <td className="py-4 px-6 hidden sm:table-cell">
                   {u.phone ? (
-                     <div className="flex items-center gap-1.5 text-sm font-medium text-slate-600 dark:text-slate-400">
-                        <Phone size={14} className="text-slate-400" /> {u.phone}
+                     <div className="flex items-center gap-1.5 text-sm font-medium text-slate-600 dark:text-slate-400 whitespace-nowrap">
+                        <Phone size={14} className="text-slate-400" /> {formatPhoneNumber(u.phone)}
                      </div>
                   ) : (
                      <span className="text-xs text-slate-400 italic font-medium">Chưa cung cấp</span>

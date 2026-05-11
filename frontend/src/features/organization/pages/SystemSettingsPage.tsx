@@ -7,12 +7,15 @@ import { cn } from '@/lib/utils'
 import { useSidebarSettings, useUpdateSidebarSettings } from '../hooks/useSidebarSettings'
 import { useAuthStore } from '@/store/authStore'
 import { toast } from 'sonner'
+import PageTour from '@/components/common/PageTour'
+import { settingsSteps } from '@/components/common/tourSteps'
 
 export default function SystemSettingsPage() {
   const [activeTab, setActiveTab] = useState<'sidebar' | 'notifications'>('sidebar')
 
   return (
     <div className="max-w-6xl mx-auto space-y-8 animate-in fade-in duration-500">
+      <PageTour pageKey="settings" steps={settingsSteps} />
       {/* Header */}
       <div id="tour-settings-header" className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
@@ -105,8 +108,9 @@ function SidebarSettingsTab() {
     { key: '/dashboard/staff', defaultLabel: 'Dashboard cá nhân', category: 'Dashboard' },
     { key: 'Thiết lập công ty', defaultLabel: 'Thiết lập công ty', category: 'Hệ thống' },
     { key: '/company', defaultLabel: 'Công ty', category: 'Hệ thống' },
+    { key: 'Tổ chức', defaultLabel: 'Tổ chức', category: 'Hệ thống' },
     { key: '/roles', defaultLabel: 'Vai trò', category: 'Hệ thống' },
-    { key: '/org-structure', defaultLabel: 'Thiết lập cấu trúc', category: 'Hệ thống' },
+    { key: '/org-structure', defaultLabel: 'Sơ đồ tổ chức', category: 'Hệ thống' },
     { key: '/users', defaultLabel: 'Nhân sự', category: 'Hệ thống' },
     { key: '/settings', defaultLabel: 'Cấu hình hệ thống', category: 'Hệ thống' },
     { key: 'Quản lý KPI', defaultLabel: 'Quản lý KPI', category: 'KPI' },

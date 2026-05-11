@@ -14,12 +14,12 @@ public interface KpiSubmissionRepository extends JpaRepository<KpiSubmission, UU
 
     @org.springframework.data.jpa.repository.Query("SELECT s FROM KpiSubmission s WHERE " +
            "(s.submittedBy.id = :currentUserId OR EXISTS (SELECT 1 FROM OrgUnit au WHERE s.orgUnit.path LIKE CONCAT(au.path, '%') AND au.id IN :allowedOrgUnitIds)) AND " +
-           "(:status IS NULL OR s.status = :status) AND " +
-           "(:kpiPeriodId IS NULL OR s.kpiCriteria.kpiPeriod.id = :kpiPeriodId) AND " +
-           "(:kpiCriteriaId IS NULL OR s.kpiCriteria.id = :kpiCriteriaId) AND " +
-           "(:submittedById IS NULL OR s.submittedBy.id = :submittedById) AND " +
-           "(:orgUnitPath IS NULL OR s.orgUnit.path LIKE :orgUnitPath) AND " +
-           "(:currentUserRank IS NULL OR :currentUserRank = 0 OR s.submittedBy.id = :currentUserId OR EXISTS (SELECT 1 FROM UserRoleOrgUnit uro JOIN uro.role r WHERE uro.user.id = s.submittedBy.id AND uro.orgUnit.id = s.orgUnit.id AND r.rank > :currentUserRank))")
+           "(s.status = COALESCE(:status, s.status)) AND " +
+           "(s.kpiCriteria.kpiPeriod.id = COALESCE(:kpiPeriodId, s.kpiCriteria.kpiPeriod.id)) AND " +
+           "(s.kpiCriteria.id = COALESCE(:kpiCriteriaId, s.kpiCriteria.id)) AND " +
+           "(s.submittedBy.id = COALESCE(:submittedById, s.submittedBy.id)) AND " +
+           "(s.orgUnit.path LIKE COALESCE(:orgUnitPath, s.orgUnit.path)) AND " +
+           "(COALESCE(:currentUserRank, 0) = 0 OR s.submittedBy.id = :currentUserId OR EXISTS (SELECT 1 FROM UserRoleOrgUnit uro JOIN uro.role r WHERE uro.user.id = s.submittedBy.id AND uro.orgUnit.id = s.orgUnit.id AND r.rank > :currentUserRank))")
     Page<KpiSubmission> findAllWithFilters(
             @org.springframework.data.repository.query.Param("currentUserId") UUID currentUserId,
             @org.springframework.data.repository.query.Param("allowedOrgUnitIds") java.util.Collection<UUID> allowedOrgUnitIds,

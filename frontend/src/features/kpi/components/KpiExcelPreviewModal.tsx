@@ -204,13 +204,29 @@ export default function KpiExcelPreviewModal({ open, file, onClose, onImport, is
           u.name?.toLowerCase() === item.OrgUnit.toLowerCase()
         )
         
+        const errors: Record<string, string> = {}
+        const oldOrg = item.OrgUnit || 'Trống'
+
         if (matchedByCode) {
           item.OrgUnit = matchedByCode.name
-        } else if (bulkOrgUnit) {
-          item.OrgUnit = bulkOrgUnit
+        } else {
+          // Fallback logic
+          if (bulkOrgUnit) {
+            item.OrgUnit = bulkOrgUnit
+            errors['OrgUnit'] = `Đơn vị '${oldOrg}' không khớp, đã tự động gán vào '${bulkOrgUnit}'`
+          } else if (flatOrgUnits.length > 0) {
+            item.OrgUnit = flatOrgUnits[0].name
+            errors['OrgUnit'] = `Đơn vị '${oldOrg}' không khớp, đã tự động gán vào '${flatOrgUnits[0].name}'`
+          } else {
+            errors['OrgUnit'] = `Đơn vị '${oldOrg}' không tồn tại trong hệ thống`
+          }
         }
 
-        return validateRow(item)
+        const rowWithFallback = validateRow(item)
+        if (Object.keys(errors).length > 0) {
+          rowWithFallback._errors = { ...(rowWithFallback._errors || {}), ...errors }
+        }
+        return rowWithFallback
       })
 
       if (parsed.length === 0) {
@@ -327,10 +343,15 @@ export default function KpiExcelPreviewModal({ open, file, onClose, onImport, is
       return
     }
 
-    // Validate all rows first
-    const invalidRows = data.filter(row => row._errors && Object.keys(row._errors).length > 0)
+    // Validate all rows first (Check for critical errors)
+    const criticalErrorFields = ['Name', 'Weight', 'TargetValue', 'Unit', 'Frequency', 'EmployeeCode', 'Period']
+    const invalidRows = data.filter(row => {
+      if (!row._errors) return false
+      return Object.keys(row._errors).some(field => criticalErrorFields.includes(field))
+    })
+    
     if (invalidRows.length > 0) {
-      toast.error(`Còn ${invalidRows.length} dòng dữ liệu chưa hợp lệ. Vui lòng kiểm tra lại.`)
+      toast.error(`Còn ${invalidRows.length} dòng dữ liệu có lỗi nghiêm trọng. Vui lòng kiểm tra lại.`)
       return
     }
 
@@ -432,6 +453,11 @@ export default function KpiExcelPreviewModal({ open, file, onClose, onImport, is
 
   if (!open) return null
 
+  const criticalErrorFields = ['Name', 'Weight', 'TargetValue', 'Unit', 'Frequency', 'EmployeeCode', 'Period']
+  const hasCriticalErrors = data.some((r: KpiRow) => {
+    if (!r._errors) return false
+    return Object.keys(r._errors).some(field => criticalErrorFields.includes(field))
+  })
   const hasAnyErrors = data.some(r => r._errors && Object.keys(r._errors).length > 0)
 
   return (
@@ -974,7 +1000,7 @@ export default function KpiExcelPreviewModal({ open, file, onClose, onImport, is
             </button>
             <button
               onClick={handleSave}
-              disabled={isImporting || hasAnyErrors || data.length === 0}
+              disabled={isImporting || hasCriticalErrors || data.length === 0}
               className="flex items-center gap-2 px-10 py-3 rounded-2xl bg-indigo-600 text-white text-sm font-black hover:bg-indigo-700 shadow-xl shadow-indigo-500/20 disabled:opacity-50 transition-all active:scale-95"
             >
               {isImporting ? (

@@ -135,25 +135,29 @@ export default function VerifyEmailPage() {
              </div>
              <input 
                value={otp}
-               onChange={(e) => setOtp(e.target.value.toUpperCase())}
+               onChange={(e) => {
+                 const val = e.target.value.toUpperCase()
+                 setOtp(val)
+                 if (val.length === 6) {
+                   verifyMutation.mutate(val)
+                 }
+               }}
                type="text" 
                maxLength={6}
                required
-               className="w-full pl-10 pr-4 py-3 rounded-xl border border-[var(--color-border)] bg-[var(--color-background)] text-sm focus:ring-2 focus:ring-[var(--color-primary)]/20 focus:border-[var(--color-primary)] outline-none uppercase font-bold tracking-widest text-center transition-all shadow-sm" 
+               className="w-full pl-10 pr-10 py-3 rounded-xl border border-[var(--color-border)] bg-[var(--color-background)] text-sm focus:ring-2 focus:ring-[var(--color-primary)]/20 focus:border-[var(--color-primary)] outline-none uppercase font-bold tracking-widest text-center transition-all shadow-sm" 
                placeholder="Nhập mã OTP..." 
              />
+             {verifyMutation.isPending && (
+               <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                 <Loader2 size={18} className="animate-spin text-[var(--color-primary)]" />
+               </div>
+             )}
           </div>
           {(errorMsg || isAutoError) && <p className="text-red-500 text-xs mt-1.5 font-medium">{errorMsg || 'Xác thực thất bại'}</p>}
         </div>
 
-        <button 
-          type="submit" 
-          disabled={verifyMutation.isPending || otp.length !== 6} 
-          className="w-full py-3.5 rounded-xl bg-[var(--color-primary)] text-white font-bold hover:shadow-lg hover:shadow-[var(--color-primary)]/20 disabled:opacity-50 transition-all flex items-center justify-center gap-2"
-        >
-          {verifyMutation.isPending && <Loader2 size={18} className="animate-spin" />}
-          Xác thực mã OTP
-        </button>
+        {/* Nút xác thực đã được gỡ bỏ vì hệ thống tự động kiểm tra khi nhập đủ 6 ký tự */}
       </form>
 
       <div className="mt-8 flex flex-col gap-3">

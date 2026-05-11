@@ -260,7 +260,8 @@ export default function OrgUnitFormModal({ open, onClose, editUnit, initialParen
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium mb-1.5">Số điện thoại</label>
-              <input {...register('phone')} className={inputCls} placeholder="0123 456 789" />
+              <input {...register('phone')} className={inputCls} placeholder="0912 345 678" />
+              {errors.phone && <p className="text-red-500 text-xs mt-1">{errors.phone.message}</p>}
             </div>
             <div>
               <label className="block text-sm font-medium mb-1.5">Địa chỉ</label>

@@ -26,7 +26,7 @@ import { vi } from 'date-fns/locale'
 import { MemberManagement } from '../components/MemberManagement'
 import { SubUnitList } from '../components/SubUnitList'
 import { OrgUnitDrawer, DrawerState } from '../components/OrgUnitDrawer'
-import { cn } from '@/lib/utils'
+import { cn, formatPhoneNumber } from '@/lib/utils'
 
 export default function OrgUnitDetailPage() {
   const { id } = useParams<{ id: string }>()
@@ -249,7 +249,7 @@ export default function OrgUnitDetailPage() {
                   </div>
                   <div className="flex-1">
                     <p className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] mb-2">Hotline nội bộ</p>
-                    <p className="text-gray-900 font-black text-xl leading-tight">{unit.phone || 'Chưa cập nhật'}</p>
+                    <p className="text-gray-900 font-black text-xl leading-tight">{formatPhoneNumber(unit.phone) || 'Chưa cập nhật'}</p>
                   </div>
                 </div>
               </div>

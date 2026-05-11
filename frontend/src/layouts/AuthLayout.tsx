@@ -1,4 +1,4 @@
-import { Outlet, Navigate } from 'react-router-dom'
+import { Outlet, Navigate, Link } from 'react-router-dom'
 import { useAuthStore } from '@/store/authStore'
 import { Target, CheckCircle2 } from 'lucide-react'
 
@@ -19,12 +19,12 @@ export default function AuthLayout() {
         <div className="absolute top-1/4 right-1/4 w-[400px] h-[400px] bg-cyan-400/20 rounded-full blur-[100px] pointer-events-none"></div>
 
         <div className="relative z-10 max-w-xl w-full">
-          <div className="flex items-center gap-3 mb-10">
+          <Link to="/" className="flex items-center gap-3 mb-10 hover:opacity-80 transition-opacity">
             <div className="w-10 h-10 rounded-xl bg-white/10 backdrop-blur-md flex items-center justify-center border border-white/20 shadow-xl shadow-black/20">
               <Target className="text-cyan-400" size={24} />
             </div>
             <span className="font-extrabold text-2xl tracking-tight text-white">KeyGo</span>
-          </div>
+          </Link>
 
           <h1 className="text-4xl md:text-5xl font-extrabold tracking-tight leading-[1.1] mb-6">
             Key Insights.<br/>
@@ -38,7 +38,7 @@ export default function AuthLayout() {
           <div className="space-y-4">
             {[
               'Theo dõi hiệu suất theo thời gian thực',
-              'Đánh giá chéo 360 độ minh bạch',
+              'Tích hợp Trí tuệ Nhân tạo (AI)',
               'Tự động hóa chu trình duyệt chỉ tiêu',
               'Báo cáo tự động bằng đồ thị trực quan'
             ].map((feature, idx) => (
@@ -56,11 +56,11 @@ export default function AuthLayout() {
         <div className="absolute inset-0 bg-slate-50 dark:bg-slate-950 -z-10"></div>
         <div className="w-full max-w-md my-auto animate-in fade-in slide-in-from-bottom-4 duration-700">
           {/* Logo for mobile only */}
-          <div className="lg:hidden flex justify-center mb-8">
+          <Link to="/" className="lg:hidden flex justify-center mb-8 hover:scale-105 transition-transform">
             <div className="w-12 h-12 rounded-xl bg-[var(--color-primary)] flex items-center justify-center shadow-lg shadow-[var(--color-primary)]/20">
               <Target className="text-white" size={26} />
             </div>
-          </div>
+          </Link>
           <Outlet />
         </div>
       </div>

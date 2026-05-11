@@ -412,18 +412,16 @@ public class KpiSubmissionService {
     }
 
     @Transactional(readOnly = true)
-    public PageResponse<SubmissionResponse> getMySubmissions(int page, int size, SubmissionStatus status, String sortBy, String sortDir) {
+    public PageResponse<SubmissionResponse> getMySubmissions(int page, int size, SubmissionStatus status, UUID kpiPeriodId, String sortBy, String sortDir) {
         User currentUser = getCurrentUser();
         Sort sort = Sort.by(sortDir.equalsIgnoreCase("asc") ? Sort.Direction.ASC : Sort.Direction.DESC, sortBy != null ? sortBy : "createdAt");
         Pageable pageable = PageRequest.of(page, size, sort);
 
-        // Fix: Call repository with correct number of arguments (8)
-        // Correct call with 7 parameters
         Page<KpiSubmission> subPage = submissionRepository.findAllWithFilters(
                 currentUser.getId(), // currentUserId
                 Collections.emptyList(), // allowedOrgUnitIds
                 status,
-                null, // kpiPeriodId
+                kpiPeriodId, // kpiPeriodId
                 null, // kpiCriteriaId
                 currentUser.getId(), // submittedById
                 null, // orgUnitPath

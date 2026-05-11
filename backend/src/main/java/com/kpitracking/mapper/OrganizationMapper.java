@@ -4,7 +4,7 @@ import com.kpitracking.dto.response.organization.OrganizationResponse;
 import com.kpitracking.entity.Organization;
 import org.mapstruct.Mapper;
 
-@Mapper(componentModel = "spring", uses = {OrgHierarchyLevelMapper.class})
+@Mapper(componentModel = "spring", uses = {OrgHierarchyLevelMapper.class, EvaluationLevelMapper.class})
 public interface OrganizationMapper {
 
     OrganizationResponse toResponse(Organization organization);

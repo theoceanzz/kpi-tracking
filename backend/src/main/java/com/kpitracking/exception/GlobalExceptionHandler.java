@@ -113,6 +113,10 @@ public class GlobalExceptionHandler {
                     message = "Email này đã tồn tại trong hệ thống";
                 } else if (detail.contains("employee_code")) {
                     message = "Mã nhân viên này đã tồn tại trong hệ thống";
+                } else if (detail.contains("organizations_name_key") || detail.contains("organizations_name")) {
+                    message = "Tên tổ chức này đã tồn tại trong hệ thống";
+                } else if (detail.contains("organizations_code_key") || detail.contains("organizations_code")) {
+                    message = "Mã tổ chức này đã tồn tại trong hệ thống";
                 } else {
                     message = "Dữ liệu này đã tồn tại trong hệ thống";
                 }

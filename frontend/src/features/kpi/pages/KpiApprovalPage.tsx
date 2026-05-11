@@ -19,6 +19,8 @@ import { useAuthStore } from '@/store/authStore'
 import { useKpiPeriods } from '../hooks/useKpiPeriods'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { useOrgUnitTree } from '@/features/orgunits/hooks/useOrgUnitTree'
+import PageTour from '@/components/common/PageTour'
+import { kpiPendingSteps } from '@/components/common/tourSteps'
 
 
 
@@ -144,9 +146,10 @@ export default function KpiApprovalPage() {
   return (
     <div className="min-h-screen bg-[#f8fafc] dark:bg-[#020617] p-4 md:p-8">
       <div className="max-w-[1600px] mx-auto space-y-8 animate-in fade-in duration-700">
+        <PageTour pageKey="kpi-pending" steps={kpiPendingSteps} />
         
         {/* Header Section with Glass Card */}
-        <div className="relative group">
+        <div className="relative group" id="tour-pending-header">
           <div className="absolute -inset-1 bg-gradient-to-r from-blue-500 via-indigo-500 to-purple-500 rounded-[40px] blur opacity-10 group-hover:opacity-20 transition duration-1000"></div>
           <div className="relative bg-white dark:bg-slate-900 rounded-[28px] p-6 border border-slate-200 dark:border-slate-800 shadow-lg overflow-hidden">
             <div className="absolute top-0 right-0 w-64 h-64 bg-blue-500/5 rounded-full -translate-y-1/2 translate-x-1/2 blur-3xl" />
@@ -177,7 +180,7 @@ export default function KpiApprovalPage() {
         </div>
 
         {/* Toolbar */}
-        <div className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-md p-4 rounded-[24px] border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col lg:flex-row items-center justify-between gap-4">
+        <div id="tour-pending-toolbar" className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-md p-4 rounded-[24px] border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col lg:flex-row items-center justify-between gap-4">
           <div className="flex flex-col md:flex-row items-center gap-3 w-full lg:w-auto">
             <div className="relative flex-1 md:w-80">
               <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
@@ -225,7 +228,7 @@ export default function KpiApprovalPage() {
         </div>
 
         {/* Status Tabs Row */}
-        <div className="flex flex-wrap items-center gap-3 py-2">
+        <div id="tour-pending-tabs" className="flex flex-wrap items-center gap-3 py-2">
           {(['PENDING_APPROVAL', 'APPROVED', 'REJECTED', 'ALL'] as const).map((tab) => {
             const labels: Record<string, string> = { 
               PENDING_APPROVAL: 'Đợi duyệt', 

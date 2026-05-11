@@ -51,4 +51,7 @@ public interface OrgUnitRepository extends JpaRepository<OrgUnit, UUID> {
     List<OrgUnit> findAllInSubtreesForExecutive(@Param("parentIds") java.util.Collection<UUID> parentIds);
 
     boolean existsByOrgHierarchyLevelId(UUID hierarchyLevelId);
+    
+    boolean existsByEmailAndDeletedAtIsNull(String email);
+    boolean existsByPhoneAndDeletedAtIsNull(String phone);
 }

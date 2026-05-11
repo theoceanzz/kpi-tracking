@@ -20,7 +20,7 @@ public class Organization {
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
 
-    @Column(name = "name", nullable = false)
+    @Column(name = "name", nullable = false, unique = true)
     private String name;
 
     @Column(name = "code", nullable = false, unique = true)
@@ -43,21 +43,9 @@ public class Organization {
     @Builder.Default
     private Double evaluationMaxScore = 100.0;
 
-    @Column(name = "excellent_threshold")
-    @Builder.Default
-    private Double excellentThreshold = 90.0;
-
-    @Column(name = "good_threshold")
-    @Builder.Default
-    private Double goodThreshold = 80.0;
-
-    @Column(name = "fair_threshold")
-    @Builder.Default
-    private Double fairThreshold = 70.0;
-
-    @Column(name = "average_threshold")
-    @Builder.Default
-    private Double averageThreshold = 50.0;
+    @OneToMany(mappedBy = "organization", cascade = CascadeType.ALL, orphanRemoval = true)
+    @OrderBy("threshold DESC")
+    private java.util.List<EvaluationLevel> evaluationLevels;
 
     @Column(name = "kpi_reminder_percentage")
     @Builder.Default

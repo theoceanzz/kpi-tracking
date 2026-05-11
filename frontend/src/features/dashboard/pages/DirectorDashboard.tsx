@@ -27,6 +27,9 @@ import {
 } from 'recharts'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import StaffPerformanceDetailModal from '@/features/submissions/components/StaffPerformanceDetailModal'
+import { getScoringFunctions } from '@/lib/scoring'
+import PageTour from '@/components/common/PageTour'
+import { directorDashboardSteps } from '@/components/common/tourSteps'
 
 const COLORS = ['#6366f1', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'];
 
@@ -182,6 +185,7 @@ export default function DirectorDashboard() {
 
   return (
     <div className="max-w-[1600px] mx-auto p-4 md:p-8 space-y-10 animate-in fade-in duration-700">
+      <PageTour pageKey="dashboard-director" steps={directorDashboardSteps} />
       
       <div className="relative group">
         <div className="absolute -inset-1 bg-gradient-to-r from-indigo-500 to-purple-600 rounded-[32px] blur opacity-10 group-hover:opacity-20 transition duration-1000 group-hover:duration-200"></div>
@@ -704,21 +708,10 @@ function PremiumRankingTable({
   const { user } = useAuthStore()
   const orgId = user?.memberships?.[0]?.organizationId
   const { data: org } = useOrganization(orgId)
-  
-  const maxScore = org?.evaluationMaxScore || 100
-  const thresholds = {
-    excellent: org?.excellentThreshold || 90,
-    good: org?.goodThreshold || 80,
-    fair: org?.fairThreshold || 70,
-    average: org?.averageThreshold || 50,
-  }
+  const { getScoreLabel, getScoreColor, maxScore } = getScoringFunctions(org)
 
   const getPerformanceInfo = (score: number) => {
-    if (score >= thresholds.excellent) return { color: 'text-amber-500', label: 'Xuất sắc' }
-    if (score >= thresholds.good) return { color: 'text-emerald-500', label: 'Tốt' }
-    if (score >= thresholds.fair) return { color: 'text-blue-500', label: 'Khá' }
-    if (score >= thresholds.average) return { color: 'text-indigo-500', label: 'Trung bình' }
-    return { color: 'text-red-500', label: 'Yếu' }
+    return { color: getScoreColor(score), label: getScoreLabel(score) }
   }
 
   const sorted = [...employees].sort((a, b) => (b.averageScore ?? 0) - (a.averageScore ?? 0)).slice(0, 5)

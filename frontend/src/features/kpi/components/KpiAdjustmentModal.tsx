@@ -5,14 +5,13 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { adjustmentApi } from '../api/adjustmentApi'
 import { toast } from 'sonner'
 import { 
-  X, AlertCircle, Target, Award, MessageSquare, 
+  X, AlertCircle, Target, MessageSquare, 
   Send, Loader2, Info, BarChart3
 } from 'lucide-react'
 import type { KpiCriteria } from '@/types/kpi'
 
 const adjustmentSchema = z.object({
   requestedTargetValue: z.any().optional(),
-  requestedWeight: z.any().optional(),
   requestedMinimumValue: z.any().optional(),
   deactivationRequest: z.boolean(),
   reason: z.string().min(10, 'Lý do phải ít nhất 10 ký tự'),
@@ -86,7 +85,6 @@ export default function KpiAdjustmentModal({ open, onClose, kpi }: KpiAdjustment
             const formattedData = {
               ...data,
               requestedTargetValue: (isNaN(data.requestedTargetValue as any) || data.requestedTargetValue === kpi.targetValue) ? undefined : data.requestedTargetValue,
-              requestedWeight: (isNaN(data.requestedWeight as any) || data.requestedWeight === kpi.weight) ? undefined : data.requestedWeight,
               requestedMinimumValue: (isNaN(data.requestedMinimumValue as any) || data.requestedMinimumValue === kpi.minimumValue) ? undefined : data.requestedMinimumValue,
             }
             mutation.mutate(formattedData)
@@ -97,7 +95,7 @@ export default function KpiAdjustmentModal({ open, onClose, kpi }: KpiAdjustment
           <div className="p-4 rounded-2xl bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/50 flex gap-3 items-start">
             <Info size={18} className="text-amber-600 mt-0.5" />
             <p className="text-xs font-medium text-amber-800 dark:text-amber-300 leading-relaxed">
-              Bạn có thể yêu cầu thay đổi mục tiêu, trọng số hoặc xin tạm dừng chỉ tiêu này. 
+              Bạn có thể yêu cầu thay đổi mục tiêu, giá trị tối thiểu hoặc xin tạm dừng chỉ tiêu này. 
               Yêu cầu sẽ được gửi tới quản lý trực tiếp phê duyệt.
             </p>
           </div>
@@ -124,7 +122,7 @@ export default function KpiAdjustmentModal({ open, onClose, kpi }: KpiAdjustment
 
           {!deactivationRequest ? (
             <div className="grid grid-cols-2 gap-4 animate-in fade-in duration-300">
-              <div className="space-y-2">
+              <div className="space-y-2 col-span-2">
                 <label className="flex items-center gap-2 text-xs font-black text-slate-500 uppercase tracking-widest">
                   <Target size={14} /> Mục tiêu mới
                 </label>
@@ -138,23 +136,6 @@ export default function KpiAdjustmentModal({ open, onClose, kpi }: KpiAdjustment
                     className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-sm font-bold focus:ring-2 focus:ring-indigo-500/20 outline-none"
                   />
                   <div className="absolute right-4 top-1/2 -translate-y-1/2 text-[10px] font-bold text-slate-400">{kpi.unit}</div>
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <label className="flex items-center gap-2 text-xs font-black text-slate-500 uppercase tracking-widest">
-                  <Award size={14} /> Trọng số mới (%)
-                </label>
-                <div className="relative">
-                  <input
-                    type="number"
-                    step="any"
-                    {...register('requestedWeight', { valueAsNumber: true })}
-                    onWheel={(e) => (e.target as HTMLInputElement).blur()}
-                    placeholder={kpi.weight?.toString()}
-                    className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-sm font-bold focus:ring-2 focus:ring-indigo-500/20 outline-none"
-                  />
-                  <div className="absolute right-4 top-1/2 -translate-y-1/2 text-[10px] font-bold text-slate-400">%</div>
                 </div>
               </div>
 

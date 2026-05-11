@@ -18,8 +18,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import type { Evaluation } from '@/types/evaluation'
 import {
   Star, Plus, ChevronRight, User, Calendar,
-  Building2, ArrowUpDown, ChevronLeft, Award, TrendingUp, Activity
+  Building2, ArrowUpDown, ChevronLeft, Award, TrendingUp, Activity, X
 } from 'lucide-react'
+import PageTour from '@/components/common/PageTour'
+import { evaluationsSteps } from '@/components/common/tourSteps'
 
 
 
@@ -47,6 +49,7 @@ export default function EvaluationsPage() {
   const [selectedUserId, setSelectedUserId] = useState('ALL')
   const [selectedOrgUnitId, setSelectedOrgUnitId] = useState('')
 
+
   const { data, isLoading } = useEvaluations({
     page,
     size: pageSize,
@@ -55,7 +58,7 @@ export default function EvaluationsPage() {
     userId: selectedUserId === 'ALL' ? undefined : selectedUserId,
     kpiPeriodId: selectedKpiPeriodId === 'ALL' ? undefined : selectedKpiPeriodId,
     orgUnitId: selectedOrgUnitId === 'ALL' ? undefined : selectedOrgUnitId,
-    organizationId: user?.memberships?.[0]?.organizationId
+    organizationId: user?.memberships?.[0]?.organizationId,
   })
 
   // Modal states
@@ -179,9 +182,10 @@ export default function EvaluationsPage() {
 
   return (
     <div className="max-w-[1440px] mx-auto p-4 md:p-6 space-y-6 animate-in fade-in duration-700 transition-all">
+      <PageTour pageKey="evaluations" steps={evaluationsSteps} />
       
       {/* Dynamic Header */}
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 bg-white dark:bg-slate-900 p-8 rounded-[40px] border border-slate-200 dark:border-slate-800 shadow-sm relative overflow-hidden">
+      <div id="tour-eval-header" className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 bg-white dark:bg-slate-900 p-8 rounded-[40px] border border-slate-200 dark:border-slate-800 shadow-sm relative overflow-hidden">
         <div className="absolute top-0 right-0 p-10 opacity-5 pointer-events-none">
            <Award size={120} className="text-indigo-600" />
         </div>
@@ -236,7 +240,7 @@ export default function EvaluationsPage() {
       )}
 
       {/* Filter Bar */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-center">
+      <div id="tour-eval-filters" className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-center">
         <div className="lg:col-span-8 flex flex-col md:flex-row items-center gap-3">
           <div className="relative w-full md:w-64">
             <Select value={selectedKpiPeriodId} onValueChange={val => { setSelectedKpiPeriodId(val); setPage(0) }}>
@@ -293,6 +297,24 @@ export default function EvaluationsPage() {
               </div>
             </>
           )}
+
+
+          <div className="flex items-center gap-2">
+            {(selectedKpiPeriodId !== 'ALL' || selectedUserId !== 'ALL' || (selectedOrgUnitId !== 'ALL' && selectedOrgUnitId !== '')) && (
+              <button 
+                onClick={() => {
+                  setSelectedKpiPeriodId('ALL');
+                  setSelectedUserId('ALL');
+                  setSelectedOrgUnitId('ALL');
+                  setPage(0);
+                }}
+                className="p-2 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/20 rounded-xl transition-all border border-transparent hover:border-rose-100"
+                title="Xóa bộ lọc"
+              >
+                <X size={18} />
+              </button>
+            )}
+          </div>
         </div>
 
         <div className="lg:col-span-4 flex justify-end">
@@ -328,7 +350,7 @@ export default function EvaluationsPage() {
           />
         </div>
       ) : (
-        <div className="bg-white dark:bg-slate-900 rounded-[40px] border border-slate-200 dark:border-slate-800 overflow-hidden shadow-sm transition-all">
+        <div id="tour-eval-table" className="bg-white dark:bg-slate-900 rounded-[40px] border border-slate-200 dark:border-slate-800 overflow-hidden shadow-sm transition-all">
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse min-w-[1000px]">
               <thead>

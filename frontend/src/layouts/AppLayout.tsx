@@ -1,4 +1,4 @@
-import { Outlet, useLocation, Navigate } from 'react-router-dom'
+import { Outlet, useLocation, Navigate, Link } from 'react-router-dom'
 import Sidebar from './Sidebar'
 import { useAuth } from '@/hooks/useAuth'
 import { useSidebarStore } from '@/store/sidebarStore'
@@ -43,12 +43,12 @@ export default function AppLayout() {
             >
               <Menu size={24} />
             </button>
-            <div className="flex items-center gap-2">
+            <Link to="/" className="flex items-center gap-2">
               <div className="w-8 h-8 rounded-lg bg-[var(--color-primary)] flex items-center justify-center">
                 <span className="text-white text-sm font-bold">K</span>
               </div>
               <span className="font-bold hidden sm:inline-block">KPI</span>
-            </div>
+            </Link>
           </div>
 
           <div className="hidden lg:flex items-center gap-4">

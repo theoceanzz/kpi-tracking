@@ -16,9 +16,9 @@ public interface RoleRepository extends JpaRepository<Role, UUID> {
     Optional<Role> findByNameIgnoreCaseAndOrganizationId(String name, UUID organizationId);
 
     boolean existsByNameAndOrganizationId(String name, UUID organizationId);
-    boolean existsByNameIgnoreCaseAndOrganizationId(String name, UUID organizationId);
+    boolean existsByNameIgnoreCaseAndOrganizationIdAndDeletedAtIsNull(String name, UUID organizationId);
     
-    boolean existsByNameIgnoreCaseAndOrganizationIdAndIdNot(String name, UUID organizationId, UUID id);
+    boolean existsByNameIgnoreCaseAndOrganizationIdAndIdNotAndDeletedAtIsNull(String name, UUID organizationId, UUID id);
     
     Optional<Role> findFirstByIsSystemTrueOrderByLevelAscRankAsc();
 

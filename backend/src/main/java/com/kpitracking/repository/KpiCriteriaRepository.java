@@ -28,6 +28,8 @@ public interface KpiCriteriaRepository extends JpaRepository<KpiCriteria, UUID> 
            "OR LOWER(CAST(k.orgUnit.name AS string)) LIKE LOWER(CONCAT('%', CAST(:keyword AS string), '%')) " +
            "OR LOWER(CAST(a.fullName AS string)) LIKE LOWER(CONCAT('%', CAST(:keyword AS string), '%')) " +
            "OR LOWER(CAST(a.employeeCode AS string)) LIKE LOWER(CONCAT('%', CAST(:keyword AS string), '%'))) AND " +
+           "(cast(:startDate as timestamp) IS NULL OR k.createdAt >= :startDate) AND " +
+           "(cast(:endDate as timestamp) IS NULL OR k.createdAt <= :endDate) AND " +
            "(:currentUserRank IS NULL OR :currentUserRank = 0 OR k.createdBy.id = :currentUserId OR " +
            "EXISTS (SELECT 1 FROM UserRoleOrgUnit uro JOIN uro.role r WHERE uro.user.id = k.createdBy.id " +
            "AND (r.level > :currentUserLevel OR (uro.orgUnit.id = k.orgUnit.id AND r.rank > :currentUserRank))))")
@@ -41,6 +43,8 @@ public interface KpiCriteriaRepository extends JpaRepository<KpiCriteria, UUID> 
             @Param("currentUserId") UUID currentUserId,
             @Param("currentUserRank") Integer currentUserRank,
             @Param("currentUserLevel") Integer currentUserLevel,
+            @Param("startDate") Instant startDate,
+            @Param("endDate") Instant endDate,
             Pageable pageable
     );
 
@@ -70,8 +74,18 @@ public interface KpiCriteriaRepository extends JpaRepository<KpiCriteria, UUID> 
     @Query("SELECT DISTINCT k FROM KpiCriteria k JOIN k.assignees a WHERE a.id = :userId AND k.status IN :statuses")
     Page<KpiCriteria> findByUserIdInAssignees(@Param("userId") UUID userId, @Param("statuses") List<KpiStatus> statuses, Pageable pageable);
 
+    @Query("SELECT DISTINCT k FROM KpiCriteria k JOIN k.assignees a WHERE a.id = :userId AND k.status IN :statuses AND " +
+           "(cast(:startDate as timestamp) IS NULL OR k.createdAt >= :startDate) AND (cast(:endDate as timestamp) IS NULL OR k.createdAt <= :endDate)")
+    Page<KpiCriteria> findByUserIdInAssigneesWithDate(@Param("userId") UUID userId, @Param("statuses") List<KpiStatus> statuses, 
+                                                     @Param("startDate") Instant startDate, @Param("endDate") Instant endDate, Pageable pageable);
+
     @Query("SELECT DISTINCT k FROM KpiCriteria k JOIN FETCH k.kpiPeriod JOIN k.assignees a WHERE a.id = :userId AND k.kpiPeriod.id = :kpiPeriodId AND k.status IN :statuses")
     Page<KpiCriteria> findByUserIdInAssigneesAndKpiPeriodId(@Param("userId") UUID userId, @Param("kpiPeriodId") UUID kpiPeriodId, @Param("statuses") List<KpiStatus> statuses, Pageable pageable);
+
+    @Query("SELECT DISTINCT k FROM KpiCriteria k JOIN FETCH k.kpiPeriod JOIN k.assignees a WHERE a.id = :userId AND k.kpiPeriod.id = :kpiPeriodId AND k.status IN :statuses AND " +
+           "(cast(:startDate as timestamp) IS NULL OR k.createdAt >= :startDate) AND (cast(:endDate as timestamp) IS NULL OR k.createdAt <= :endDate)")
+    Page<KpiCriteria> findByUserIdInAssigneesAndKpiPeriodIdWithDate(@Param("userId") UUID userId, @Param("kpiPeriodId") UUID kpiPeriodId, @Param("statuses") List<KpiStatus> statuses, 
+                                                                   @Param("startDate") Instant startDate, @Param("endDate") Instant endDate, Pageable pageable);
 
     long countByOrgUnitId(UUID orgUnitId);
 

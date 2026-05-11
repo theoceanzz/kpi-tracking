@@ -10,6 +10,8 @@ interface UseKpiPeriodsOptions {
   direction?: string
   keyword?: string
   periodType?: string
+  startDate?: string
+  endDate?: string
   organizationId?: string
 }
 

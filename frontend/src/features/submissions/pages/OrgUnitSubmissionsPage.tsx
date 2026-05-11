@@ -15,8 +15,10 @@ import { useOrganization } from '@/features/orgunits/hooks/useOrganization'
 import { usePermission } from '@/hooks/usePermission'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import {
-  FileCheck, Clock, ChevronRight, Search, Building2, Calendar, ChevronLeft
+  FileCheck, Search, Building2, Calendar, Clock, ChevronRight, ChevronLeft
 } from 'lucide-react'
+import PageTour from '@/components/common/PageTour'
+import { orgUnitSubmissionsSteps } from '@/components/common/tourSteps'
 
 export default function OrgUnitSubmissionsPage() {
   const [search, setSearch] = useState('')
@@ -27,6 +29,7 @@ export default function OrgUnitSubmissionsPage() {
   const [selectedPeriodId, setSelectedPeriodId] = useState('ALL')
   const { hasPermission } = usePermission()
   const canManageOrg = hasPermission('ROLE:ASSIGN')
+
   
   const orgId = user?.memberships?.[0]?.organizationId
   const { data: org } = useOrganization(orgId)
@@ -98,6 +101,7 @@ export default function OrgUnitSubmissionsPage() {
     kpiPeriodId: selectedPeriodId === 'ALL' ? undefined : selectedPeriodId,
     orgUnitId: selectedOrgUnitId === 'ALL' ? undefined : selectedOrgUnitId,
     organizationId: orgId,
+
     status: 'PENDING'
   })
 
@@ -148,6 +152,7 @@ export default function OrgUnitSubmissionsPage() {
   return (
     <div className="min-h-screen bg-[#f8fafc] dark:bg-[#020617] p-4 md:p-8">
       <div className="max-w-[1600px] mx-auto space-y-8 animate-in fade-in duration-700">
+        <PageTour pageKey="submissions-org" steps={orgUnitSubmissionsSteps} />
         
         {/* Header Section */}
         <div className="relative group">
@@ -226,6 +231,8 @@ export default function OrgUnitSubmissionsPage() {
                   </SelectContent>
                 </Select>
               </div>
+
+
             </div>
           </div>
         </div>

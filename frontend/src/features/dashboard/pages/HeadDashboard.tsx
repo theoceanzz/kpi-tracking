@@ -23,6 +23,8 @@ import {
 } from 'recharts'
 import type { ReportWidget } from '@/types/datasource'
 import { useSummaryTrend, useSummaryComparison, useSummaryRisks, useSummaryStats } from '@/features/analytics/hooks/useAnalytics'
+import PageTour from '@/components/common/PageTour'
+import { headDashboardSteps } from '@/components/common/tourSteps'
 
 const COLORS = ['#6366f1', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'];
 
@@ -97,6 +99,7 @@ export default function HeadDashboard() {
   return (
     <div className="min-h-screen bg-[#f8fafc] dark:bg-[#020617] p-4 md:p-6 lg:p-8">
       <div className="max-w-[1400px] mx-auto space-y-6 animate-in fade-in duration-500">
+        <PageTour pageKey="dashboard-head" steps={headDashboardSteps} />
 
         {/* ===== COMPACT HEADER ===== */}
         <div className="relative group">

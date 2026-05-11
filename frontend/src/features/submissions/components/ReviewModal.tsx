@@ -32,7 +32,7 @@ export default function ReviewModal({ open, onClose, submission }: ReviewModalPr
   // Initialize managerScore with autoScore when modal opens
   useEffect(() => {
     if (submission && managerScore === undefined) {
-      setManagerScore(submission.managerScore ?? submission.autoScore ?? 0)
+      setManagerScore(Math.round(submission.managerScore ?? submission.autoScore ?? 0))
     }
   }, [submission])
 

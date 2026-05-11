@@ -42,10 +42,6 @@ CREATE TABLE organizations (
   code        TEXT NOT NULL UNIQUE,
   status      TEXT NOT NULL DEFAULT 'ACTIVE' CHECK (status IN ('ACTIVE','SUSPENDED','ARCHIVED')),
   evaluation_max_score DOUBLE PRECISION DEFAULT 100.0,
-  excellent_threshold DOUBLE PRECISION DEFAULT 90.0,
-  good_threshold DOUBLE PRECISION DEFAULT 80.0,
-  fair_threshold DOUBLE PRECISION DEFAULT 70.0,
-  average_threshold DOUBLE PRECISION DEFAULT 50.0,
   kpi_reminder_percentage INT DEFAULT 50,
   created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at  TIMESTAMPTZ NOT NULL DEFAULT now()
@@ -65,6 +61,21 @@ CREATE TABLE sidebar_settings (
 );
 
 CREATE INDEX idx_sidebar_settings_org_key ON sidebar_settings(organization_id, menu_key);
+
+-- ====================================================
+-- Evaluation Levels
+-- ====================================================
+CREATE TABLE evaluation_levels (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    organization_id UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+    name TEXT NOT NULL,
+    threshold DOUBLE PRECISION NOT NULL,
+    color TEXT,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX idx_evaluation_levels_org_id ON evaluation_levels(organization_id);
 
 -- ====================================================
 -- Organization Hierarchy Levels

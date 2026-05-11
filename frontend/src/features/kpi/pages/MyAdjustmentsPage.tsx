@@ -8,6 +8,8 @@ import {
   AlertCircle, ChevronRight, ChevronLeft, 
   Target, Award, Clock, History
 } from 'lucide-react'
+import PageTour from '@/components/common/PageTour'
+import { myAdjustmentsSteps } from '@/components/common/tourSteps'
 
 const CountdownTimer = ({ createdAt, status }: { createdAt: string, status: string }) => {
   const [timeLeft, setTimeLeft] = useState<string>('')
@@ -69,9 +71,10 @@ export default function MyAdjustmentsPage() {
 
   return (
     <div className="max-w-[1440px] mx-auto p-4 md:p-6 space-y-6 animate-in fade-in duration-500">
+      <PageTour pageKey="my-adjustments" steps={myAdjustmentsSteps} />
       
       {/* Header Section */}
-      <div className="bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm transition-all">
+      <div id="tour-myadj-header" className="bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm transition-all">
         <div className="space-y-1">
           <div className="flex items-center gap-2 text-indigo-600 dark:text-indigo-400">
             <History size={20} />
@@ -88,14 +91,14 @@ export default function MyAdjustmentsPage() {
       {isLoading ? (
         <LoadingSkeleton type="table" rows={6} />
       ) : adjustments.length === 0 ? (
-        <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 p-20 shadow-sm">
+        <div id="tour-myadj-table" className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 p-20 shadow-sm">
           <EmptyState
             title="Chưa có yêu cầu nào"
             description="Bạn chưa gửi yêu cầu điều chỉnh KPI nào. Các yêu cầu sẽ xuất hiện tại đây sau khi bạn thực hiện điều chỉnh từ danh sách KPI."
           />
         </div>
       ) : (
-        <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-sm transition-all overflow-x-auto">
+        <div id="tour-myadj-table" className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-sm transition-all overflow-x-auto">
           <table className="w-full text-left border-collapse min-w-[1000px]">
             <thead>
               <tr className="bg-slate-50/50 dark:bg-slate-800/50 border-b border-slate-100 dark:border-slate-800">

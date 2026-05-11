@@ -10,6 +10,8 @@ export const kpiPeriodApi = {
     direction?: string; 
     keyword?: string; 
     periodType?: string; 
+    startDate?: string;
+    endDate?: string;
     organizationId?: string 
   }) =>
     axiosInstance.get<ApiResponse<PageResponse<KpiPeriod>>>('/kpi-periods', { params }).then((r) => r.data.data),

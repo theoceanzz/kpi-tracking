@@ -343,6 +343,7 @@ function CreateUserForm({ onClose, onSubmit, isPending, canAssignRoles, dynamicR
           <div>
             <label className="block text-sm font-medium mb-1.5">Số điện thoại</label>
             <input {...register('phone')} className={inputCls} placeholder="0912 345 678" />
+            {errors.phone && <p className="text-red-500 text-xs mt-1">{errors.phone.message}</p>}
           </div>
           <div>
             <label className="block text-sm font-medium mb-1.5">Đơn vị <span className="text-red-500">*</span></label>
@@ -508,7 +509,8 @@ function EditUserForm({ editUser, onClose, onSubmit, isPending, canAssignRoles, 
           </div>
           <div>
             <label className="block text-sm font-medium mb-1.5">Số điện thoại</label>
-            <input {...register('phone')} className={inputCls} />
+            <input {...register('phone')} className={inputCls} placeholder="0912 345 678" />
+            {errors.phone && <p className="text-red-500 text-xs mt-1">{errors.phone.message}</p>}
           </div>
           <div>
             <label className="block text-sm font-medium mb-1.5">Đơn vị</label>

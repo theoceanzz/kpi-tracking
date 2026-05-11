@@ -90,19 +90,34 @@ export default function EvaluationDetailModal({ open, onClose, evaluation }: Eva
 
     const isTwoLevelOrg = org.hierarchyLevels.length <= 2
 
-    let selfTitle = 'Nhân viên tự đánh giá'
-    if (evalUserRank === 0) {
-      if (evalUserLevel === 0) selfTitle = 'Tổng Giám đốc tự nhận xét'
-      else if (evalUserLevel === 1) selfTitle = 'Giám đốc Vùng tự đánh giá'
-      else if (evalUserLevel === 2) selfTitle = 'Giám đốc tự đánh giá'
-      else if (evalUserLevel === 3) selfTitle = 'Trưởng phòng tự đánh giá'
-      else if (evalUserLevel === 4) selfTitle = 'Trưởng nhóm tự đánh giá'
-    } else if (evalUserRank === 1) {
-      if (evalUserLevel === 0) selfTitle = 'Phó Tổng Giám đốc tự nhận xét'
-      else if (evalUserLevel === 1) selfTitle = 'Phó Giám đốc Vùng tự đánh giá'
-      else if (evalUserLevel === 2) selfTitle = 'Phó Giám đốc tự đánh giá'
-      else if (evalUserLevel === 3) selfTitle = 'Phó phòng tự đánh giá'
-      else if (evalUserLevel === 4) selfTitle = 'Phó nhóm tự đánh giá'
+    const roleLabel = evaluation.userRoleName || selfEval?.evaluatorRole || 'Nhân viên'
+    const verb = (evalUserLevel <= 1) ? 'tự nhận xét' : 'tự đánh giá'
+    let selfTitle = `${roleLabel} ${verb}`
+
+    // Try to derive generic title from hierarchy levels for Managers (Rank 0, 1)
+    const userHl = org.hierarchyLevels?.find(hl => {
+      let mapped = hl.roleLevel !== undefined ? hl.roleLevel : hl.levelOrder;
+      const totalLevels = org.hierarchyLevels.length;
+      if (hl.roleLevel === undefined) {
+        if (totalLevels === 5) mapped = hl.levelOrder;
+        else if (totalLevels === 4) mapped = hl.levelOrder + 1;
+        else if (totalLevels === 3) mapped = hl.levelOrder + 2;
+        else if (totalLevels === 2) mapped = hl.levelOrder === 0 ? 2 : 4;
+        else mapped = hl.levelOrder + (5 - totalLevels);
+      }
+      return Number(mapped) === Number(evalUserLevel);
+    });
+
+    if (userHl && (evalUserRank === 0 || evalUserRank === 1)) {
+      const baseLabel = userHl.managerRoleLabel || userHl.unitTypeName;
+      if (evalUserRank === 0) {
+        selfTitle = `${baseLabel} ${verb}`;
+      } else if (evalUserRank === 1) {
+        const phoSuffix = baseLabel.toLowerCase().startsWith('trưởng') 
+          ? baseLabel.replace(/Trưởng/i, 'Phó') 
+          : `Phó ${baseLabel}`;
+        selfTitle = `${phoSuffix} ${verb}`;
+      }
     }
 
     steps.push({

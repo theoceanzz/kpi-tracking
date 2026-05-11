@@ -31,9 +31,6 @@ public class KpiAdjustmentRequest {
     @Column(name = "requested_target_value")
     private Double requestedTargetValue;
 
-    @Column(name = "requested_weight")
-    private Double requestedWeight;
-
     @Column(name = "requested_minimum_value")
     private Double requestedMinimumValue;
 

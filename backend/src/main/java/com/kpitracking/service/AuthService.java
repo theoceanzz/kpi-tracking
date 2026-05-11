@@ -1,5 +1,7 @@
 package com.kpitracking.service;
 
+import com.kpitracking.constant.EvaluationConstants;
+
 import com.kpitracking.constant.RolePermissionConstants;
 import com.kpitracking.dto.request.auth.*;
 import com.kpitracking.dto.response.auth.AuthResponse;
@@ -49,17 +51,21 @@ public class AuthService {
     private final OrgHierarchyLevelRepository orgHierarchyLevelRepository;
     private final RolePermissionRepository rolePermissionRepository;
     private final PermissionRepository permissionRepository;
+    private final EvaluationLevelRepository evaluationLevelRepository;
 
     @Transactional
     public AuthResponse register(RegisterRequest request, String userAgent) {
-        if (userRepository.existsByEmail(request.getEmail())) {
-            throw new DuplicateResourceException("Người dùng", "email", request.getEmail());
-        }
-        if (request.getPhone() != null && !request.getPhone().trim().isEmpty() && userRepository.existsByPhone(request.getPhone())) {
-            throw new DuplicateResourceException("Người dùng", "số điện thoại", request.getPhone());
+        if (organizationRepository.existsByName(request.getOrganizationName())) {
+            throw new DuplicateResourceException("Tổ chức", "tên", request.getOrganizationName());
         }
         if (organizationRepository.existsByCode(request.getOrganizationCode())) {
             throw new DuplicateResourceException("Tổ chức", "mã", request.getOrganizationCode());
+        }
+        if (userRepository.existsByEmailAndDeletedAtIsNull(request.getEmail())) {
+            throw new DuplicateResourceException("Người dùng", "email", request.getEmail());
+        }
+        if (request.getPhone() != null && !request.getPhone().trim().isEmpty() && userRepository.existsByPhoneAndDeletedAtIsNull(request.getPhone())) {
+            throw new DuplicateResourceException("Người dùng", "số điện thoại", request.getPhone());
         }
 
         // 1. Create Organization
@@ -69,6 +75,18 @@ public class AuthService {
                 .status(OrganizationStatus.ACTIVE)
                 .build();
         organization = organizationRepository.save(organization);
+
+        // 1.5 Add default evaluation levels
+        final Organization finalOrganization = organization;
+        List<EvaluationLevel> defaultLevels = EvaluationConstants.DEFAULT_LEVELS.stream()
+                .map(lvl -> EvaluationLevel.builder()
+                        .organization(finalOrganization)
+                        .name(lvl.getName())
+                        .threshold(lvl.getThreshold())
+                        .color(lvl.getColor())
+                        .build())
+                .collect(Collectors.toList());
+        evaluationLevelRepository.saveAll(defaultLevels);
 
         // 2. Create Hierarchy Levels and root OrgUnit
         if (request.getHierarchyLevels() == null || request.getHierarchyLevels().size() < 2) {

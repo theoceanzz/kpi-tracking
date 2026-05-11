@@ -12,7 +12,6 @@ public class CreateAdjustmentRequest {
     private UUID kpiCriteriaId;
 
     private Double requestedTargetValue;
-    private Double requestedWeight;
     private Double requestedMinimumValue;
     private boolean deactivationRequest;
 

@@ -82,7 +82,6 @@ public class KpiAdjustmentService {
                 .kpiCriteria(kpi)
                 .requester(currentUser)
                 .requestedTargetValue(request.getRequestedTargetValue())
-                .requestedWeight(request.getRequestedWeight())
                 .requestedMinimumValue(request.getRequestedMinimumValue())
                 .isDeactivationRequest(request.isDeactivationRequest())
                 .reason(request.getReason())
@@ -154,7 +153,6 @@ public class KpiAdjustmentService {
                 kpi.setStatus(KpiStatus.INACTIVE); // Optional: depends on business if we want to hide it
             } else {
                 if (adj.getRequestedTargetValue() != null) kpi.setTargetValue(adj.getRequestedTargetValue());
-                if (adj.getRequestedWeight() != null) kpi.setWeight(adj.getRequestedWeight());
                 if (adj.getRequestedMinimumValue() != null) kpi.setMinimumValue(adj.getRequestedMinimumValue());
             }
             kpiRepository.save(kpi);
@@ -250,7 +248,6 @@ public class KpiAdjustmentService {
                 .currentWeight(adj.getKpiCriteria().getWeight())
                 .currentMinimumValue(adj.getKpiCriteria().getMinimumValue())
                 .requestedTargetValue(adj.getRequestedTargetValue())
-                .requestedWeight(adj.getRequestedWeight())
                 .requestedMinimumValue(adj.getRequestedMinimumValue())
                 .deactivationRequest(adj.isDeactivationRequest())
                 .reason(adj.getReason())

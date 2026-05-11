@@ -13,7 +13,7 @@ import {
   Target, Plus, Send, Pencil, Trash2, MoreVertical,
   Calendar, AlertCircle, Search, 
   Filter, UserCircle2, Upload, Gauge, Eye,
-  LayoutGrid, List, ArrowUpDown, ChevronLeft, ChevronRight
+  LayoutGrid, List, ArrowUpDown, ChevronLeft, ChevronRight, ArrowRight
 } from 'lucide-react'
 import KpiDetailModal from '../components/KpiDetailModal'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
@@ -27,6 +27,8 @@ import { usePermission } from '@/hooks/usePermission'
 import KpiExcelPreviewModal from '../components/KpiExcelPreviewModal'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { cn } from '@/lib/utils'
+import PageTour from '@/components/common/PageTour'
+import { kpiCriteriaSteps } from '@/components/common/tourSteps'
 
 
 
@@ -64,6 +66,8 @@ export default function KpiCriteriaPage() {
   const [pageSize] = useState(10)
   const [sortBy, setSortBy] = useState('createdAt')
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc')
+  const [startDateFilter, setStartDateFilter] = useState('')
+  const [endDateFilter, setEndDateFilter] = useState('')
   
   const [importFile, setImportFile] = useState<File | null>(null)
   const [showPreview, setShowPreview] = useState(false)
@@ -120,6 +124,8 @@ export default function KpiCriteriaPage() {
       organizationId: user?.memberships?.[0]?.organizationId,
       status: activeTab === 'ALL' ? undefined : activeTab as any,
       keyword: search,
+      startDate: startDateFilter ? new Date(startDateFilter).toISOString() : undefined,
+      endDate: endDateFilter ? new Date(endDateFilter).toISOString() : undefined,
       sortBy,
       sortDir
     },
@@ -174,6 +180,7 @@ export default function KpiCriteriaPage() {
   return (
     <div className="min-h-screen bg-slate-50/50 dark:bg-slate-950/50">
       <div className="max-w-[1600px] mx-auto p-4 md:p-8 space-y-8 animate-in fade-in duration-700">
+        <PageTour pageKey="kpi-criteria" steps={kpiCriteriaSteps} />
         
         {/* Header Section with Glass Card */}
         <div className="relative group">
@@ -236,84 +243,138 @@ export default function KpiCriteriaPage() {
         {/* Main Content Area */}
         <div className="space-y-6">
           {/* Advanced Toolbar */}
-          <div id="tour-kpi-toolbar" className="flex flex-col xl:flex-row items-stretch justify-between gap-4 p-4 bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl rounded-[32px] border border-slate-200 dark:border-slate-800 shadow-sm">
-            <div className="flex flex-col md:flex-row items-center gap-3 flex-1">
-              <div className="relative group flex-1 w-full md:max-w-md">
+          <div id="tour-kpi-toolbar" className="flex flex-col gap-4 p-5 bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl rounded-[32px] border border-slate-200 dark:border-slate-800 shadow-sm transition-all">
+            {/* Row 1: Search & Actions */}
+            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+              <div className="relative group flex-1 w-full lg:max-w-2xl">
                 <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-500 transition-colors" size={18} />
                 <input 
                   value={search}
                   onChange={e => { setSearch(e.target.value); setPage(0) }}
                   placeholder="Tìm KPI, nhân viên..." 
-                  className="w-full pl-12 pr-4 py-3.5 rounded-[20px] border border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50 text-sm font-medium focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500/50 outline-none transition-all placeholder:text-slate-400"
+                  className="w-full pl-12 pr-4 h-12 rounded-[20px] border border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50 text-sm font-medium focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500/50 outline-none transition-all placeholder:text-slate-400 shadow-inner"
                 />
               </div>
 
-              <div className="flex items-center gap-2 w-full md:w-auto">
-                <Select value={selectedPeriodId} onValueChange={val => { setSelectedPeriodId(val); setPage(0) }}>
-                  <SelectTrigger className="flex-1 md:w-48 h-[52px] rounded-[20px] border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50 font-bold text-sm">
-                    <Calendar size={16} className="text-slate-400 mr-2" />
-                    <SelectValue placeholder="Đợt KPI..." />
-                  </SelectTrigger>
-                  <SelectContent className="rounded-2xl border-slate-200 dark:border-slate-800 shadow-2xl p-2">
-                    <SelectItem value="ALL" className="rounded-xl focus:bg-indigo-50 dark:focus:bg-indigo-900/30 text-xs font-black uppercase">Tất cả các đợt</SelectItem>
-                    {periodsData?.content.map(p => (
-                      <SelectItem key={p.id} value={p.id} className="rounded-xl focus:bg-indigo-50 dark:focus:bg-indigo-900/30 text-sm font-bold">{p.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+              <div className="flex items-center gap-3 w-full lg:w-auto justify-end">
+                <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-[18px]">
+                  <button 
+                    onClick={() => setViewMode('TABLE')}
+                    className={cn(
+                      "p-2.5 rounded-xl transition-all duration-300",
+                      viewMode === 'TABLE' ? 'bg-white dark:bg-slate-700 shadow-md text-indigo-600 scale-105' : 'text-slate-400 hover:text-slate-600'
+                    )}
+                  >
+                    <List size={20} />
+                  </button>
+                  <button 
+                    onClick={() => setViewMode('CARD')}
+                    className={cn(
+                      "p-2.5 rounded-xl transition-all duration-300",
+                      viewMode === 'CARD' ? 'bg-white dark:bg-slate-700 shadow-md text-indigo-600 scale-105' : 'text-slate-400 hover:text-slate-600'
+                    )}
+                  >
+                    <LayoutGrid size={20} />
+                  </button>
+                </div>
 
-                {canManageOrg && flatOrgUnits.length > 0 && (
-                  <Select value={selectedOrgUnitId} onValueChange={val => { setSelectedOrgUnitId(val); setPage(0) }}>
-                    <SelectTrigger className="flex-1 md:w-56 h-[52px] rounded-[20px] border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50 font-bold text-sm">
-                      <Filter size={16} className="text-slate-400 mr-2" />
-                      <SelectValue placeholder="Phòng ban..." />
-                    </SelectTrigger>
-                    <SelectContent className="rounded-2xl border-slate-200 dark:border-slate-800 shadow-2xl p-2 max-h-[400px]">
-                      {flatOrgUnits.map((o: any) => (
-                        <SelectItem key={o.id} value={o.id} className="rounded-xl focus:bg-indigo-50 dark:focus:bg-indigo-900/30 text-sm font-medium">{o.levelLabel}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                )}
+                <button 
+                  onClick={() => setShowImportGuide(true)}
+                  className="flex items-center gap-2 px-5 h-[52px] rounded-[20px] border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm font-black text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all active:scale-95 shadow-sm"
+                >
+                  <Upload size={18} /> Import
+                </button>
+
+                <button 
+                  id="tour-kpi-add-btn"
+                  onClick={() => { setEditKpi(null); setShowForm(true) }} 
+                  className="flex items-center gap-2 px-8 h-[52px] rounded-[20px] bg-indigo-600 text-white text-sm font-black hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-500/20 active:scale-95 group"
+                >
+                  <Plus size={20} className="group-hover:rotate-90 transition-transform duration-500" /> Tạo mới
+                </button>
               </div>
             </div>
 
-            <div className="flex items-center gap-3">
-              <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-[18px]">
-                <button 
-                  onClick={() => setViewMode('TABLE')}
-                  className={cn(
-                    "p-2.5 rounded-xl transition-all duration-300",
-                    viewMode === 'TABLE' ? 'bg-white dark:bg-slate-700 shadow-md text-indigo-600 scale-105' : 'text-slate-400 hover:text-slate-600'
-                  )}
-                >
-                  <List size={20} />
-                </button>
-                <button 
-                  onClick={() => setViewMode('CARD')}
-                  className={cn(
-                    "p-2.5 rounded-xl transition-all duration-300",
-                    viewMode === 'CARD' ? 'bg-white dark:bg-slate-700 shadow-md text-indigo-600 scale-105' : 'text-slate-400 hover:text-slate-600'
-                  )}
-                >
-                  <LayoutGrid size={20} />
-                </button>
+            {/* Row 2: Filters */}
+            <div className="flex flex-wrap items-center gap-3 pt-4 border-t border-slate-100 dark:border-slate-800/50">
+              <Select value={selectedPeriodId} onValueChange={val => { setSelectedPeriodId(val); setPage(0) }}>
+                <SelectTrigger className="w-full sm:w-48 h-11 rounded-xl border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50 font-bold text-xs">
+                  <Calendar size={14} className="text-slate-400 mr-2" />
+                  <SelectValue placeholder="Đợt KPI..." />
+                </SelectTrigger>
+                <SelectContent className="rounded-2xl border-slate-200 dark:border-slate-800 shadow-2xl p-2">
+                  <SelectItem value="ALL" className="rounded-xl focus:bg-indigo-50 dark:focus:bg-indigo-900/30 text-xs font-black uppercase">Tất cả các đợt</SelectItem>
+                  {periodsData?.content.map(p => (
+                    <SelectItem key={p.id} value={p.id} className="rounded-xl focus:bg-indigo-50 dark:focus:bg-indigo-900/30 text-sm font-bold">{p.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              {canManageOrg && flatOrgUnits.length > 0 && (
+                <Select value={selectedOrgUnitId} onValueChange={val => { setSelectedOrgUnitId(val); setPage(0) }}>
+                  <SelectTrigger className="w-full sm:w-56 h-11 rounded-xl border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50 font-bold text-xs">
+                    <Filter size={14} className="text-slate-400 mr-2" />
+                    <SelectValue placeholder="Phòng ban..." />
+                  </SelectTrigger>
+                  <SelectContent className="rounded-2xl border-slate-200 dark:border-slate-800 shadow-2xl p-2 max-h-[400px]">
+                    {flatOrgUnits.map((o: any) => (
+                      <SelectItem key={o.id} value={o.id} className="rounded-xl focus:bg-indigo-50 dark:focus:bg-indigo-900/30 text-sm font-medium">{o.levelLabel}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+
+              <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
+                <div className="relative">
+                  <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
+                  <input 
+                    type="date"
+                    value={startDateFilter}
+                    onChange={(e) => { setStartDateFilter(e.target.value); setPage(0) }}
+                    className="pl-9 pr-3 h-11 rounded-xl border border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50 text-[10px] font-black uppercase outline-none focus:ring-2 focus:ring-indigo-500/20 transition-all"
+                    title="Từ ngày"
+                  />
+                </div>
+                <ArrowRight size={12} className="text-slate-300 hidden sm:block" />
+                <div className="relative">
+                  <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
+                  <input 
+                    type="date"
+                    value={endDateFilter}
+                    onChange={(e) => { setEndDateFilter(e.target.value); setPage(0) }}
+                    className="pl-9 pr-3 h-11 rounded-xl border border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50 text-[10px] font-black uppercase outline-none focus:ring-2 focus:ring-indigo-500/20 transition-all"
+                    title="Đến ngày"
+                  />
+                </div>
               </div>
 
-              <button 
-                onClick={() => setShowImportGuide(true)}
-                className="flex items-center gap-2 px-5 h-[52px] rounded-[20px] border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm font-black text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all active:scale-95 shadow-sm"
-              >
-                <Upload size={18} /> Import
-              </button>
-              
-              <button 
-                id="tour-kpi-add-btn"
-                onClick={() => { setEditKpi(null); setShowForm(true) }} 
-                className="flex items-center gap-2 px-8 h-[52px] rounded-[20px] bg-indigo-600 text-white text-sm font-black hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-500/20 active:scale-95 group"
-              >
-                <Plus size={20} className="group-hover:rotate-90 transition-transform duration-500" /> Tạo mới
-              </button>
+              {/* Sort Dropdown */}
+              <div className="ml-auto flex items-center gap-2">
+                <Select value={`${sortBy}-${sortDir}`} onValueChange={(val) => {
+                  const [field, dir] = val.split('-')
+                  if (field && dir) {
+                    setSortBy(field)
+                    setSortDir(dir as 'asc' | 'desc')
+                    setPage(0)
+                  }
+                }}>
+                  <SelectTrigger className="w-full sm:w-48 h-11 rounded-xl border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50 font-bold text-xs">
+                    <ArrowUpDown size={14} className="text-slate-400 mr-2" />
+                    <SelectValue placeholder="Sắp xếp..." />
+                  </SelectTrigger>
+                  <SelectContent className="rounded-2xl border-slate-200 dark:border-slate-800 shadow-2xl p-2">
+                    <SelectItem value="createdAt-desc" className="rounded-xl focus:bg-indigo-50 dark:focus:bg-indigo-900/30 text-xs font-bold">Mới nhất</SelectItem>
+                    <SelectItem value="createdAt-asc" className="rounded-xl focus:bg-indigo-50 dark:focus:bg-indigo-900/30 text-xs font-bold">Cũ nhất</SelectItem>
+                    <SelectItem value="name-asc" className="rounded-xl focus:bg-indigo-50 dark:focus:bg-indigo-900/30 text-xs font-bold">Tên A-Z</SelectItem>
+                    <SelectItem value="name-desc" className="rounded-xl focus:bg-indigo-50 dark:focus:bg-indigo-900/30 text-xs font-bold">Tên Z-A</SelectItem>
+                    <SelectItem value="weight-desc" className="rounded-xl focus:bg-indigo-50 dark:focus:bg-indigo-900/30 text-xs font-bold">Trọng số cao</SelectItem>
+                    <SelectItem value="weight-asc" className="rounded-xl focus:bg-indigo-50 dark:focus:bg-indigo-900/30 text-xs font-bold">Trọng số thấp</SelectItem>
+                    <SelectItem value="targetValue-desc" className="rounded-xl focus:bg-indigo-50 dark:focus:bg-indigo-900/30 text-xs font-bold">Mục tiêu cao</SelectItem>
+                    <SelectItem value="targetValue-asc" className="rounded-xl focus:bg-indigo-50 dark:focus:bg-indigo-900/30 text-xs font-bold">Mục tiêu thấp</SelectItem>
+                    <SelectItem value="status-asc" className="rounded-xl focus:bg-indigo-50 dark:focus:bg-indigo-900/30 text-xs font-bold">Theo trạng thái</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
           </div>
 
@@ -363,15 +424,27 @@ export default function KpiCriteriaPage() {
                 <table className="w-full text-left border-collapse">
                   <thead>
                     <tr className="bg-slate-50/50 dark:bg-slate-800/50 border-b border-slate-100 dark:border-slate-800">
-                      <th className="px-4 py-5 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 whitespace-nowrap">Trạng thái</th>
+                      <th className="px-4 py-5 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 whitespace-nowrap">
+                        <button onClick={() => { setSortBy('status'); setSortDir(sortDir === 'asc' ? 'desc' : 'asc') }} className="flex items-center gap-2 hover:text-indigo-600 transition-colors group">
+                          Trạng thái <ArrowUpDown size={12} className={cn("transition-opacity", sortBy === 'status' ? "opacity-100 text-indigo-600" : "opacity-0 group-hover:opacity-100")} />
+                        </button>
+                      </th>
                       <th className="px-4 py-5 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 whitespace-nowrap">
                         <button onClick={() => { setSortBy('name'); setSortDir(sortDir === 'asc' ? 'desc' : 'asc') }} className="flex items-center gap-2 hover:text-indigo-600 transition-colors group">
-                          Chỉ tiêu <ArrowUpDown size={12} className="opacity-0 group-hover:opacity-100 transition-opacity" />
+                          Chỉ tiêu <ArrowUpDown size={12} className={cn("transition-opacity", sortBy === 'name' ? "opacity-100 text-indigo-600" : "opacity-0 group-hover:opacity-100")} />
                         </button>
                       </th>
                       <th className="px-4 py-5 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 whitespace-nowrap">Giao cho</th>
-                      <th className="px-4 py-5 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 text-right whitespace-nowrap">Mục tiêu</th>
-                      <th className="px-4 py-5 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 whitespace-nowrap">Trọng số / Tần suất</th>
+                      <th className="px-4 py-5 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 text-right whitespace-nowrap">
+                        <button onClick={() => { setSortBy('targetValue'); setSortDir(sortDir === 'asc' ? 'desc' : 'asc') }} className="flex items-center justify-end gap-2 hover:text-indigo-600 transition-colors group w-full">
+                          Mục tiêu <ArrowUpDown size={12} className={cn("transition-opacity", sortBy === 'targetValue' ? "opacity-100 text-indigo-600" : "opacity-0 group-hover:opacity-100")} />
+                        </button>
+                      </th>
+                      <th className="px-4 py-5 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 whitespace-nowrap">
+                        <button onClick={() => { setSortBy('weight'); setSortDir(sortDir === 'asc' ? 'desc' : 'asc') }} className="flex items-center gap-2 hover:text-indigo-600 transition-colors group">
+                          Trọng số <ArrowUpDown size={12} className={cn("transition-opacity", sortBy === 'weight' ? "opacity-100 text-indigo-600" : "opacity-0 group-hover:opacity-100")} />
+                        </button>
+                      </th>
                       <th className="px-4 py-5 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 text-right whitespace-nowrap">Thao tác</th>
                     </tr>
                   </thead>

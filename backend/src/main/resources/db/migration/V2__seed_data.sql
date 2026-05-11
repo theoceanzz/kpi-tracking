@@ -15,8 +15,15 @@ INSERT INTO districts (id, name, code, province_id) VALUES
 
 -- 2. ORGANIZATIONAL STRUCTURE
 -- ============================================================================
-INSERT INTO organizations (id, name, code, evaluation_max_score, excellent_threshold, good_threshold, fair_threshold, average_threshold, kpi_reminder_percentage) VALUES 
-    ('11111111-1111-1111-1111-111111111111', 'FPT Education', 'FPT', 100.0, 90.0, 80.0, 70.0, 50.0, 50);
+INSERT INTO organizations (id, name, code, evaluation_max_score, kpi_reminder_percentage) VALUES 
+    ('11111111-1111-1111-1111-111111111111', 'FPT Education', 'FPT', 100.0, 50);
+
+INSERT INTO evaluation_levels (organization_id, name, threshold, color) VALUES
+    ('11111111-1111-1111-1111-111111111111', 'XUẤT SẮC', 90.0, '#10b981'),
+    ('11111111-1111-1111-1111-111111111111', 'TỐT', 80.0, '#3b82f6'),
+    ('11111111-1111-1111-1111-111111111111', 'KHÁ', 70.0, '#f59e0b'),
+    ('11111111-1111-1111-1111-111111111111', 'TRUNG BÌNH', 50.0, '#6366f1'),
+    ('11111111-1111-1111-1111-111111111111', 'YẾU', 0.0, '#ef4444');
 
 INSERT INTO org_hierarchy_levels (id, organization_id, level_order, unit_type_name, manager_role_label, role_level) VALUES 
     ('21111111-1111-1111-1111-111111111111', '11111111-1111-1111-1111-111111111111', 0, 'Chi nhánh', 'Giám đốc chi nhánh', 2),

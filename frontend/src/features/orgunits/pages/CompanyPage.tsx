@@ -5,12 +5,14 @@ import { useUpdateOrganization } from '../hooks/useUpdateOrganization'
 import { useForm, useFieldArray } from 'react-hook-form'
 import {  Edit3, ShieldCheck, 
   Calendar, Hash, Layers, Trash2,
-  Info, ArrowUp, ArrowDown, Plus, Target, Sparkles, CheckCircle, TrendingUp, BarChart3, AlertCircle, ChevronUp, RotateCcw
+  Info, ArrowUp, ArrowDown, Plus, Target, Sparkles, ChevronUp, RotateCcw
 } from 'lucide-react'
 import LoadingSkeleton from '@/components/common/LoadingSkeleton'
 import { formatDateTime, cn } from '@/lib/utils'
 import { toast } from 'sonner'
 import { useAuth } from '@/hooks/useAuth'
+import PageTour from '@/components/common/PageTour'
+import { companySteps } from '@/components/common/tourSteps'
 
 export default function CompanyPage() {
   const { user } = useAuthStore()
@@ -86,6 +88,7 @@ export default function CompanyPage() {
 
   return (
     <div className="max-w-6xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700 pb-20 px-4 md:px-0">
+      <PageTour pageKey="company" steps={companySteps} />
       
       {/* Refined Hero Section with Vibrant Gradient */}
       <section id="tour-company-hero" className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-indigo-600 via-indigo-700 to-violet-800 border border-white/10 shadow-2xl shadow-indigo-500/20">
@@ -285,10 +288,6 @@ export default function CompanyPage() {
                               <span className="text-[10px] font-medium text-slate-500">
                                 {level.managerRoleLabel || (idx === (org.hierarchyLevels?.length || 0) - 1 ? 'Nhân viên' : 'N/A')}
                               </span>
-                              <div className="w-1 h-1 rounded-full bg-slate-300 mx-1" />
-                              <span className="text-[9px] font-bold text-indigo-400 uppercase tracking-tighter">
-                                LEVEL {level.roleLevel}
-                              </span>
                             </div>
                           </div>
                           <div className="text-slate-300 dark:text-slate-700">
@@ -324,54 +323,61 @@ function HeroStat({ icon: Icon, label, value, valueColor = "text-white/90" }: { 
 function ScoringConfigSection({ org }: { org: any }) {
   const updateMutation = useUpdateOrganization(org.id)
   const [isEditing, setIsEditing] = useState(false)
-  const [formData, setFormData] = useState({
-    evaluationMaxScore: org?.evaluationMaxScore || 100,
-    excellentThreshold: org?.excellentThreshold || 90,
-    goodThreshold: org?.goodThreshold || 80,
-    fairThreshold: org?.fairThreshold || 70,
-    averageThreshold: org?.averageThreshold || 50,
+  const [maxScore, setMaxScore] = useState(org?.evaluationMaxScore || 100)
+
+  const { register, control, handleSubmit, reset, watch } = useForm({
+    defaultValues: {
+      evaluationLevels: (org?.evaluationLevels || []).map((l: any) => ({
+        id: l.id,
+        name: l.name,
+        threshold: l.threshold,
+        color: l.color || '#10b981'
+      }))
+    }
   })
-  // State lưu lại cấu hình gốc trước khi bắt đầu thay đổi thang điểm để tính tỷ lệ chính xác
-  const [baseConfig, setBaseConfig] = useState<typeof formData | null>(null)
+
+  const { fields, append, remove } = useFieldArray({
+    control,
+    name: "evaluationLevels"
+  })
+
+  const watchedLevels = watch("evaluationLevels")
 
   useEffect(() => {
-    if (org) {
-      setFormData({
-        evaluationMaxScore: org.evaluationMaxScore || 100,
-        excellentThreshold: org.excellentThreshold || 90,
-        goodThreshold: org.goodThreshold || 80,
-        fairThreshold: org.fairThreshold || 70,
-        averageThreshold: org.averageThreshold || 50,
+    if (org?.evaluationLevels) {
+      reset({
+        evaluationLevels: org.evaluationLevels.map((l: any) => ({
+          id: l.id,
+          name: l.name,
+          threshold: l.threshold,
+          color: l.color || '#10b981'
+        }))
       })
+      setMaxScore(org.evaluationMaxScore || 100)
     }
-  }, [org])
+  }, [org, reset])
 
-  const handleSave = () => {
+  const handleSave = (data: any) => {
     // Validation
-    const { evaluationMaxScore, excellentThreshold, goodThreshold, fairThreshold, averageThreshold } = formData
-
-    if (evaluationMaxScore <= 0) {
+    if (maxScore <= 0) {
       toast.error('Thang điểm tối đa phải lớn hơn 0')
       return
     }
 
-    if (excellentThreshold > evaluationMaxScore || goodThreshold > evaluationMaxScore || 
-        fairThreshold > evaluationMaxScore || averageThreshold > evaluationMaxScore) {
-      toast.error('Điểm các mức không được vượt quá Thang điểm tối đa (' + evaluationMaxScore + ')')
+    const invalidLevel = data.evaluationLevels.find((l: any) => l.threshold > maxScore)
+    if (invalidLevel) {
+      toast.error(`Điểm mức "${invalidLevel.name}" không được vượt quá Thang điểm tối đa (${maxScore})`)
       return
     }
 
-    if (!(excellentThreshold > goodThreshold && goodThreshold > fairThreshold && fairThreshold > averageThreshold)) {
-      toast.error('Thứ tự điểm phải hợp lý: Xuất sắc > Tốt > Khá > Trung bình')
-      return
-    }
-
-    if (averageThreshold <= 0) {
-      toast.error('Điểm tối thiểu phải lớn hơn 0')
-      return
-    }
-
-    updateMutation.mutate(formData, {
+    updateMutation.mutate({ 
+      evaluationMaxScore: maxScore,
+      evaluationLevels: data.evaluationLevels.map((l: any) => ({
+        name: l.name,
+        threshold: Number(l.threshold),
+        color: l.color
+      }))
+    }, {
       onSuccess: () => {
         setIsEditing(false)
         toast.success('Cập nhật thang điểm thành công')
@@ -380,22 +386,24 @@ function ScoringConfigSection({ org }: { org: any }) {
     })
   }
 
-  const handleResetTo100 = () => {
-    const defaultData = {
-      evaluationMaxScore: 100,
-      excellentThreshold: 90,
-      goodThreshold: 80,
-      fairThreshold: 70,
-      averageThreshold: 50,
-    }
-    setFormData(defaultData)
+  const handleResetToDefault = () => {
+    const defaultLevels = [
+      { name: 'XUẤT SẮC', threshold: 90, color: '#10b981' },
+      { name: 'TỐT', threshold: 80, color: '#3b82f6' },
+      { name: 'KHÁ', threshold: 70, color: '#f59e0b' },
+      { name: 'TRUNG BÌNH', threshold: 50, color: '#6366f1' },
+      { name: 'YẾU', threshold: 0, color: '#ef4444' },
+    ]
     
-    updateMutation.mutate(defaultData, {
+    updateMutation.mutate({
+      evaluationMaxScore: 100,
+      evaluationLevels: defaultLevels
+    }, {
       onSuccess: () => {
         setIsEditing(false)
-        toast.success('Đã đặt lại về thang 100 điểm chuẩn thành công')
+        toast.success('Đã đặt lại về thang điểm mặc định thành công')
       },
-      onError: () => toast.error('Không thể tự động đặt lại thang điểm')
+      onError: () => toast.error('Không thể đặt lại thang điểm')
     })
   }
 
@@ -414,12 +422,9 @@ function ScoringConfigSection({ org }: { org: any }) {
             {!isEditing && (
               <div className="flex items-center gap-2">
                 <button 
-                    onClick={() => {
-                      setIsEditing(true);
-                      handleResetTo100();
-                    }}
+                    onClick={handleResetToDefault}
                     className="w-9 h-9 rounded-lg bg-slate-50 dark:bg-slate-800 text-slate-400 hover:text-indigo-600 border border-slate-200 dark:border-slate-700 transition-all flex items-center justify-center group"
-                    title="Đặt lại về thang 100 điểm"
+                    title="Đặt lại về mặc định"
                 >
                     <RotateCcw size={16} />
                 </button>
@@ -438,101 +443,96 @@ function ScoringConfigSection({ org }: { org: any }) {
                <div className="absolute top-0 right-0 w-24 h-24 bg-amber-500/10 rounded-full blur-2xl" />
                <div className="flex justify-between items-center relative z-10">
                  <div className="space-y-0.5">
-                   <p className="text-[9px] font-bold text-amber-500 uppercase tracking-widest">
-                     Hệ số tối đa
-                     {isEditing && baseConfig && baseConfig.evaluationMaxScore !== formData.evaluationMaxScore && (
-                       <span className="ml-2 lowercase text-white/60">
-                         (x{(formData.evaluationMaxScore / baseConfig.evaluationMaxScore).toFixed(2)})
-                       </span>
-                     )}
-                   </p>
-                   <h4 className="text-xl font-black">Thang {formData.evaluationMaxScore} điểm</h4>
+                   <p className="text-[9px] font-bold text-amber-500 uppercase tracking-widest">Hệ số tối đa</p>
+                   <h4 className="text-xl font-black">Thang {maxScore} điểm</h4>
                  </div>
                  <div className="flex items-center">
                    {isEditing ? (
                      <input 
                         type="number"
-                        value={formData.evaluationMaxScore}
-                         onFocus={() => {
-                           // Khi focus, chốt lại cấu hình hiện tại làm mốc để nhân tỷ lệ
-                           setBaseConfig({ ...formData });
-                         }}
-                         onChange={e => {
-                           const newMax = Number(e.target.value);
-                           // Sử dụng baseConfig để tính toán từ mốc ban đầu, tránh sai số cộng dồn
-                           if (baseConfig && baseConfig.evaluationMaxScore > 0 && newMax > 0) {
-                             const ratio = newMax / baseConfig.evaluationMaxScore;
-                             setFormData({
-                               ...formData,
-                               evaluationMaxScore: newMax,
-                               excellentThreshold: Math.round(baseConfig.excellentThreshold * ratio),
-                               goodThreshold: Math.round(baseConfig.goodThreshold * ratio),
-                               fairThreshold: Math.round(baseConfig.fairThreshold * ratio),
-                               averageThreshold: Math.round(baseConfig.averageThreshold * ratio),
-                             });
-                           } else {
-                             setFormData({...formData, evaluationMaxScore: newMax});
-                           }
-                         }}
-                        className="w-16 bg-white/10 border border-white/10 rounded-lg py-2 px-2 text-center text-sm font-bold focus:outline-none focus:ring-1 focus:ring-amber-500"
+                        value={maxScore}
+                        onChange={e => setMaxScore(Number(e.target.value))}
+                        className="w-20 bg-white/10 border border-white/10 rounded-lg py-2 px-2 text-center text-sm font-bold focus:outline-none focus:ring-1 focus:ring-amber-500"
                         onWheel={(e) => (e.target as HTMLInputElement).blur()}
                      />
                    ) : (
                      <div className="px-4 py-2 bg-white/10 rounded-lg text-sm font-black border border-white/10">
-                        {formData.evaluationMaxScore}
+                        {maxScore}
                      </div>
                    )}
                  </div>
                </div>
-               <div className="mt-4 h-1 w-full bg-white/5 rounded-full overflow-hidden">
-                  <div className="h-full bg-amber-500 w-full opacity-50" />
-               </div>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-6">
-                <ThresholdItem 
-                    label="Xuất sắc" 
-                    value={formData.excellentThreshold} 
-                    onChange={val => setFormData({...formData, excellentThreshold: val})}
-                    icon={<Sparkles className="text-amber-500" size={16} />}
-                    isEditing={isEditing}
-                    maxScore={formData.evaluationMaxScore}
-                />
-                <ThresholdItem 
-                    label="Tốt" 
-                    value={formData.goodThreshold} 
-                    onChange={val => setFormData({...formData, goodThreshold: val})}
-                    icon={<CheckCircle className="text-emerald-500" size={16} />}
-                    isEditing={isEditing}
-                    maxScore={formData.evaluationMaxScore}
-                />
-                <ThresholdItem 
-                    label="Khá" 
-                    value={formData.fairThreshold} 
-                    onChange={val => setFormData({...formData, fairThreshold: val})}
-                    icon={<TrendingUp className="text-blue-500" size={16} />}
-                    isEditing={isEditing}
-                    maxScore={formData.evaluationMaxScore}
-                />
-                <ThresholdItem 
-                    label="Trung bình" 
-                    value={formData.averageThreshold} 
-                    onChange={val => setFormData({...formData, averageThreshold: val})}
-                    icon={<BarChart3 className="text-slate-500" size={16} />}
-                    isEditing={isEditing}
-                    maxScore={formData.evaluationMaxScore}
-                />
-            </div>
+            <div className="space-y-4">
+                <div className="flex items-center justify-between px-2">
+                  <h4 className="text-[11px] font-black text-slate-400 uppercase tracking-widest">Các mức xếp loại</h4>
+                  {isEditing && (
+                    <button 
+                      type="button"
+                      onClick={() => append({ name: 'MỨC MỚI', threshold: 0, color: '#3b82f6' })}
+                      className="text-[10px] font-bold text-indigo-600 hover:text-indigo-700 flex items-center gap-1"
+                    >
+                      <Plus size={14} /> Thêm mức
+                    </button>
+                  )}
+                </div>
 
-            <div className="p-4 rounded-2xl bg-red-50/50 dark:bg-red-950/10 border border-red-100/50 dark:border-red-900/20 flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-xl bg-red-100/50 dark:bg-red-900/30 flex items-center justify-center text-red-600">
-                    <AlertCircle size={18} />
-                  </div>
-                  <div>
-                    <p className="text-[9px] font-bold text-red-400 uppercase tracking-widest">Loại Yếu</p>
-                    <p className="text-sm font-bold text-red-600 tracking-tight">Dưới {formData.averageThreshold} điểm</p>
-                  </div>
+                <div className="space-y-3">
+                  {fields.map((field, index) => (
+                    <div key={field.id} className="group relative bg-slate-50 dark:bg-slate-800/40 p-4 rounded-2xl border border-slate-100 dark:border-slate-800 transition-all hover:shadow-md">
+                      <div className="flex items-center gap-4">
+                        {isEditing ? (
+                          <>
+                            <div className="flex-1 space-y-1">
+                               <label className="text-[9px] font-bold text-slate-400 uppercase">Tên mức</label>
+                               <input 
+                                 {...register(`evaluationLevels.${index}.name` as const)}
+                                 className="w-full bg-white dark:bg-slate-900 px-3 py-2 rounded-lg text-xs font-bold border border-slate-100 dark:border-slate-800 outline-none focus:border-indigo-500"
+                               />
+                            </div>
+                            <div className="w-24 space-y-1">
+                               <label className="text-[9px] font-bold text-slate-400 uppercase">Điểm ≥</label>
+                               <input 
+                                 type="number"
+                                 {...register(`evaluationLevels.${index}.threshold` as const)}
+                                 className="w-full bg-white dark:bg-slate-900 px-3 py-2 rounded-lg text-xs font-bold border border-slate-100 dark:border-slate-800 outline-none focus:border-indigo-500"
+                               />
+                            </div>
+                            <div className="w-16 space-y-1">
+                               <label className="text-[9px] font-bold text-slate-400 uppercase">Màu</label>
+                               <input 
+                                 type="color"
+                                 {...register(`evaluationLevels.${index}.color` as const)}
+                                 className="w-full h-8 bg-transparent border-none outline-none cursor-pointer p-0"
+                               />
+                            </div>
+                            <button 
+                              type="button" 
+                              onClick={() => remove(index)}
+                              className="mt-4 p-2 text-red-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+                            >
+                              <Trash2 size={14} />
+                            </button>
+                          </>
+                        ) : (
+                          <>
+                            <div className="w-10 h-10 rounded-xl flex items-center justify-center text-white shadow-sm" style={{ backgroundColor: watchedLevels[index]?.color || '#cbd5e1' }}>
+                              <Sparkles size={18} />
+                            </div>
+                            <div className="flex-1">
+                              <p className="text-sm font-bold text-slate-900 dark:text-white uppercase">{watchedLevels[index]?.name}</p>
+                              <p className="text-[10px] font-medium text-slate-400 uppercase tracking-widest">Xếp loại cho điểm ≥ {watchedLevels[index]?.threshold}</p>
+                            </div>
+                            <div className="text-right">
+                              <span className="text-lg font-black text-slate-900 dark:text-white">{watchedLevels[index]?.threshold}</span>
+                              <span className="text-[10px] font-bold text-slate-400 ml-1">đ</span>
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  ))}
                 </div>
             </div>
 
@@ -542,14 +542,7 @@ function ScoringConfigSection({ org }: { org: any }) {
                   type="button" 
                   onClick={() => {
                     setIsEditing(false);
-                    // Reset to original values
-                    setFormData({
-                      evaluationMaxScore: org?.evaluationMaxScore || 100,
-                      excellentThreshold: org?.excellentThreshold || 90,
-                      goodThreshold: org?.goodThreshold || 80,
-                      fairThreshold: org?.fairThreshold || 70,
-                      averageThreshold: org?.averageThreshold || 50,
-                    });
+                    reset();
                   }} 
                   className="flex-1 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 text-[11px] font-bold uppercase tracking-wider hover:bg-slate-50 dark:hover:bg-slate-800 transition-all"
                 >
@@ -557,7 +550,7 @@ function ScoringConfigSection({ org }: { org: any }) {
                 </button>
                 <button 
                   type="button" 
-                  onClick={handleSave}
+                  onClick={handleSubmit(handleSave)}
                   disabled={updateMutation.isPending}
                   className="flex-[2] py-2.5 bg-indigo-600 text-white rounded-xl text-[11px] font-bold uppercase tracking-wider shadow-lg hover:bg-indigo-700 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
                 >
@@ -569,44 +562,4 @@ function ScoringConfigSection({ org }: { org: any }) {
         </div>
     </section>
   )
-}
-
-function ThresholdItem({ label, value, onChange, icon, isEditing, maxScore }: { label: string; value: number; onChange: (val: number) => void; icon: any; isEditing: boolean; maxScore: number }) {
-    const safeValue = value || 0;
-    const isError = value > maxScore;
-
-    return (
-        <div className="space-y-2 group">
-            <div className="flex items-center gap-2">
-              <div className="p-1.5 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-800 transition-transform">
-                {icon}
-              </div>
-              <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
-                  {label}
-              </label>
-            </div>
-            <div className="relative">
-                {isEditing ? (
-                  <input 
-                      type="number"
-                      value={value}
-                      onChange={e => onChange(Number(e.target.value))}
-                      className={cn(
-                        "w-full px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border focus:ring-2 outline-none transition-all font-bold text-sm",
-                        isError 
-                          ? "border-red-500 focus:ring-red-500/20 text-red-600" 
-                          : "border-slate-200 dark:border-slate-700 focus:border-indigo-500 focus:ring-indigo-500/5"
-                      )}
-                      onWheel={(e) => (e.target as HTMLInputElement).blur()}
-                  />
-                ) : (
-                  <div className="w-full px-4 py-2.5 rounded-xl bg-slate-50/50 dark:bg-slate-800/20 border border-slate-100 dark:border-slate-800/50 font-black text-sm text-slate-700 dark:text-slate-200">
-                    {safeValue}
-                  </div>
-                )}
-                <div className="absolute right-4 top-1/2 -translate-y-1/2 text-[9px] font-bold text-slate-400 uppercase">Điểm</div>
-            </div>
-            <p className="text-[9px] font-bold text-slate-400 px-1 uppercase tracking-tight">≥ {safeValue}đ</p>
-        </div>
-    )
 }

@@ -93,9 +93,10 @@ public class KpiSubmissionController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size,
             @RequestParam(required = false) SubmissionStatus status,
+            @RequestParam(required = false) UUID kpiPeriodId,
             @RequestParam(defaultValue = "createdAt") String sortBy,
             @RequestParam(defaultValue = "desc") String sortDir) {
-        PageResponse<SubmissionResponse> response = submissionService.getMySubmissions(page, size, status, sortBy, sortDir);
+        PageResponse<SubmissionResponse> response = submissionService.getMySubmissions(page, size, status, kpiPeriodId, sortBy, sortDir);
         return ResponseEntity.ok(ApiResponse.success(response));
     }
 

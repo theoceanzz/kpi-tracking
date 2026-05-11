@@ -20,10 +20,7 @@ public class UpdateOrganizationRequest {
     private List<HierarchyLevelDTO> hierarchyLevels;
 
     private Double evaluationMaxScore;
-    private Double excellentThreshold;
-    private Double goodThreshold;
-    private Double fairThreshold;
-    private Double averageThreshold;
+    private java.util.List<EvaluationLevelRequest> evaluationLevels;
     
     private Integer kpiReminderPercentage;
 }

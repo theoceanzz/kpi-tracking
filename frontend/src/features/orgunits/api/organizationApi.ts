@@ -9,6 +9,13 @@ export interface HierarchyLevel {
   roleLevel: number
 }
 
+export interface EvaluationLevel {
+  id?: string
+  name: string
+  threshold: number
+  color?: string
+}
+
 export interface OrganizationResponse {
   id: string
   name: string
@@ -16,10 +23,7 @@ export interface OrganizationResponse {
   status: string
   hierarchyLevels: HierarchyLevel[]
   evaluationMaxScore: number
-  excellentThreshold: number
-  goodThreshold: number
-  fairThreshold: number
-  averageThreshold: number
+  evaluationLevels?: EvaluationLevel[]
   kpiReminderPercentage: number
   createdAt: string
   updatedAt: string
@@ -31,10 +35,7 @@ export interface UpdateOrganizationRequest {
   status?: string
   hierarchyLevels?: Omit<HierarchyLevel, 'id' | 'levelOrder'>[]
   evaluationMaxScore?: number
-  excellentThreshold?: number
-  goodThreshold?: number
-  fairThreshold?: number
-  averageThreshold?: number
+  evaluationLevels?: EvaluationLevel[]
   kpiReminderPercentage?: number
 }
 

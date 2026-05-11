@@ -15,10 +15,7 @@ public class OrganizationResponse {
     private String status;
     private List<HierarchyLevelResponse> hierarchyLevels;
     private Double evaluationMaxScore;
-    private Double excellentThreshold;
-    private Double goodThreshold;
-    private Double fairThreshold;
-    private Double averageThreshold;
+    private java.util.List<EvaluationLevelResponse> evaluationLevels;
     private Integer kpiReminderPercentage;
     private Instant createdAt;
     private Instant updatedAt;

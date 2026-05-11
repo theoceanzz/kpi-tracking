@@ -26,6 +26,8 @@ import {
 } from 'recharts'
 import type { ReportWidget } from '@/types/datasource'
 import { useSummaryTrend, useSummaryComparison, useSummaryRisks, useSummaryStats } from '@/features/analytics/hooks/useAnalytics'
+import PageTour from '@/components/common/PageTour'
+import { staffDashboardSteps } from '@/components/common/tourSteps'
 
 const COLORS = ['#6366f1', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'];
 
@@ -149,6 +151,7 @@ export default function StaffDashboard() {
 
   return (
     <div className="max-w-[1440px] mx-auto p-4 md:p-6 space-y-6 animate-in fade-in duration-500 transition-all">
+      <PageTour pageKey="dashboard-staff" steps={staffDashboardSteps} />
       
       {/* Header & Quick Action */}
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">

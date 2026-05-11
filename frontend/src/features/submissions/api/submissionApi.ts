@@ -25,6 +25,7 @@ export const submissionApi = {
     sortBy?: string;
     sortDir?: string;
     submittedById?: string;
+    kpiPeriodId?: string;
   } = {}) =>
     axiosInstance.get<ApiResponse<PageResponse<Submission>>>('/submissions/my', { params }).then((r) => r.data.data),
 

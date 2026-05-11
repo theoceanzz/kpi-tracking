@@ -46,7 +46,7 @@ public class RoleService {
                 .findFirst()
                 .orElseThrow(() -> new BusinessException("User does not belong to any organization"));
 
-        if (roleRepository.existsByNameIgnoreCaseAndOrganizationId(request.getName(), orgId)) {
+        if (roleRepository.existsByNameIgnoreCaseAndOrganizationIdAndDeletedAtIsNull(request.getName(), orgId)) {
             throw new DuplicateResourceException("Vai trò", "tên", request.getName());
         }
 
@@ -91,7 +91,7 @@ public class RoleService {
         }
 
         if (request.getName() != null) {
-            if (roleRepository.existsByNameIgnoreCaseAndOrganizationIdAndIdNot(request.getName(), role.getOrganization().getId(), roleId)) {
+            if (roleRepository.existsByNameIgnoreCaseAndOrganizationIdAndIdNotAndDeletedAtIsNull(request.getName(), role.getOrganization().getId(), roleId)) {
                 throw new DuplicateResourceException("Vai trò", "tên", request.getName());
             }
             role.setName(request.getName());

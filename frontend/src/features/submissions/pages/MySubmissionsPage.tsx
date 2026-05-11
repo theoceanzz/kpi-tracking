@@ -7,14 +7,15 @@ import { Link, useNavigate } from 'react-router-dom'
 import { formatDateTime, formatNumber, cn } from '@/lib/utils'
 import type { SubmissionStatus } from '@/types/submission'
 import {
-  FileText, Plus, Search, ChevronRight, ArrowUpDown, ChevronLeft, Filter, 
-  Clock, CheckCircle2, XCircle, Pencil, Send, Loader2, ShieldAlert, Sparkles
+  FileText, Plus, Search, ChevronRight, ArrowUpDown, ChevronLeft, Filter, Calendar,
+  Clock, CheckCircle2, XCircle, Pencil, Send, Loader2, ShieldAlert, Sparkles, X
 } from 'lucide-react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { submissionApi } from '../api/submissionApi'
 import { toast } from 'sonner'
 import { useMyKpi } from '@/features/kpi/hooks/useMyKpi'
-
+import { useKpiPeriods } from '@/features/kpi/hooks/useKpiPeriods'
+import { useAuthStore } from '@/store/authStore'
 import {
   Select,
   SelectContent,
@@ -22,6 +23,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import PageTour from '@/components/common/PageTour'
+import { mySubmissionsSteps } from '@/components/common/tourSteps'
 
 type TabKey = SubmissionStatus | ''
 
@@ -43,6 +46,11 @@ export default function MySubmissionsPage() {
   const [pendingId, setPendingId] = useState<string | null>(null)
   const [showSuccess, setShowSuccess] = useState(false)
   const [finishedPeriodId, setFinishedPeriodId] = useState<string | null>(null)
+  const [selectedPeriodId, setSelectedPeriodId] = useState('ALL')
+  
+  const { user } = useAuthStore()
+  const orgId = user?.memberships?.[0]?.organizationId
+  const { data: periodsData } = useKpiPeriods({ organizationId: orgId })
   
   const navigate = useNavigate()
   const qc = useQueryClient()
@@ -53,6 +61,7 @@ export default function MySubmissionsPage() {
     status: activeTab || undefined,
     page,
     size: pageSize,
+    kpiPeriodId: selectedPeriodId === 'ALL' ? undefined : selectedPeriodId,
     sortBy,
     sortDir
   })
@@ -126,6 +135,7 @@ export default function MySubmissionsPage() {
 
   return (
     <div className="max-w-[1440px] mx-auto p-4 md:p-6 space-y-6 animate-in fade-in duration-500 transition-all duration-500 ease-in-out">
+      <PageTour pageKey="my-submissions" steps={mySubmissionsSteps} />
       
       {/* Header Section */}
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm transition-all">
@@ -181,6 +191,37 @@ export default function MySubmissionsPage() {
                 <SelectItem value="kpiCriteriaName:desc" className="text-[10px] font-black uppercase tracking-widest rounded-xl focus:bg-indigo-50">Tên KPI (Z-A)</SelectItem>
               </SelectContent>
             </Select>
+            
+            <div className="flex items-center gap-3">
+              <Select value={selectedPeriodId} onValueChange={val => { setSelectedPeriodId(val); setPage(0) }}>
+                <SelectTrigger className="w-full md:w-[200px] h-12 rounded-2xl bg-slate-50/50 dark:bg-slate-800 border-none text-[10px] font-black uppercase tracking-[0.15em] shadow-sm">
+                  <div className="flex items-center gap-2">
+                    <Calendar size={14} className="text-slate-400" />
+                    <SelectValue placeholder="Đợt KPI" />
+                  </div>
+                </SelectTrigger>
+                <SelectContent className="rounded-2xl border-slate-200 dark:border-slate-800 shadow-2xl p-2">
+                  <SelectItem value="ALL" className="text-[10px] font-black uppercase tracking-widest rounded-xl focus:bg-indigo-50">Tất cả các đợt</SelectItem>
+                  {periodsData?.content.map((p: any) => (
+                    <SelectItem key={p.id} value={p.id} className="text-[10px] font-black uppercase tracking-widest rounded-xl focus:bg-indigo-50">{p.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              {(search || selectedPeriodId !== 'ALL') && (
+                <button 
+                  onClick={() => {
+                    setSearch('');
+                    setSelectedPeriodId('ALL');
+                    setPage(0);
+                  }}
+                  className="p-3 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/20 rounded-2xl transition-all border border-transparent hover:border-rose-100"
+                  title="Xóa bộ lọc"
+                >
+                  <X size={18} />
+                </button>
+              )}
+            </div>
           </div>
         </div>
 

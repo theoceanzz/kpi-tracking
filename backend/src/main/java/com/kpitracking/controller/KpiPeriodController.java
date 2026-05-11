@@ -27,10 +27,12 @@ public class KpiPeriodController {
             @RequestParam(defaultValue = "desc") String direction,
             @RequestParam(required = false) String keyword,
             @RequestParam(required = false) com.kpitracking.enums.KpiFrequency periodType,
+            @RequestParam(required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE_TIME) java.time.Instant startDate,
+            @RequestParam(required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE_TIME) java.time.Instant endDate,
             @RequestParam(required = false) UUID organizationId) {
 
         PageResponse<KpiPeriodResponse> response = kpiPeriodService.getKpiPeriods(
-                page, size, sortBy, direction, keyword, periodType, organizationId);
+                page, size, sortBy, direction, keyword, periodType, startDate, endDate, organizationId);
         return ResponseEntity.ok(ApiResponse.success(response));
     }
 

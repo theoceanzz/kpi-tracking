@@ -1,4 +1,4 @@
-import { useState } from 'react' // 1. Thêm useState
+import { useState, useRef } from 'react' // 1. Thêm useState
 import { useForm, useWatch, useFieldArray } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { registerSchema, type RegisterFormData } from '../schemas/authSchema'
@@ -14,8 +14,9 @@ export default function RegisterPage() {
   const [isSuccess, setIsSuccess] = useState(false)
   const [isRedirecting, setIsRedirecting] = useState(false) // Thêm state redirecting
   const [registeredEmail, setRegisteredEmail] = useState('')
-  const [registeredPassword, setRegisteredPassword] = useState('') // Thêm state lưu mật khẩu để auto-fill
-  const [tokenInput, setTokenInput] = useState('')
+  const [registeredPassword, setRegisteredPassword] = useState('')
+  const [otp, setOtp] = useState(['', '', '', '', '', ''])
+  const otpRefs = useRef<(HTMLInputElement | null)[]>([])
   const [setupMode, setSetupMode] = useState<'LATER' | 'NOW'>('LATER')
   const navigate = useNavigate()
 
@@ -86,8 +87,44 @@ export default function RegisterPage() {
     },
     onError: () => {
       toast.error('Mã xác thực không hợp lệ hoặc đã hết hạn.')
+      setOtp(['', '', '', '', '', ''])
+      otpRefs.current[0]?.focus()
     }
   })
+
+  const handleOtpChange = (index: number, value: string) => {
+    const char = value.slice(-1).toUpperCase()
+    if (!char.match(/[A-Z0-9]/) && char !== '') return
+
+    const newOtp = [...otp]
+    newOtp[index] = char
+    setOtp(newOtp)
+
+    if (char && index < 5) {
+      otpRefs.current[index + 1]?.focus()
+    }
+
+    const fullCode = newOtp.join('')
+    if (fullCode.length === 6) {
+      verifyMutation.mutate(fullCode)
+    }
+  }
+
+  const handleKeyDown = (index: number, e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Backspace' && !otp[index] && index > 0) {
+      otpRefs.current[index - 1]?.focus()
+    }
+  }
+
+  const handlePaste = (e: React.ClipboardEvent) => {
+    e.preventDefault()
+    const data = e.clipboardData.getData('text').trim().toUpperCase()
+    if (data.length === 6) {
+      const newOtp = data.split('')
+      setOtp(newOtp)
+      verifyMutation.mutate(data)
+    }
+  }
 
   const registerMutation = useMutation({
     mutationFn: (data: RegisterFormData) => authApi.register(data),
@@ -99,12 +136,18 @@ export default function RegisterPage() {
     },
     onError: (error: any) => {
       const msg = error?.response?.data?.message || ''
-      if (msg.toLowerCase().includes('email')) {
+      const lowerMsg = msg.toLowerCase()
+      
+      if (lowerMsg.includes('email')) {
         setError('email', { type: 'server', message: 'Email này đã tồn tại trong hệ thống.' })
-      } else if (msg.toLowerCase().includes('phone')) {
+      } else if (lowerMsg.includes('phone') || lowerMsg.includes('số điện thoại')) {
         setError('phone', { type: 'server', message: 'Số điện thoại này đã được tài khoản khác sử dụng.' })
+      } else if (lowerMsg.includes('tổ chức') && lowerMsg.includes('tên')) {
+        setError('organizationName', { type: 'server', message: 'Tên tổ chức này đã được đăng ký.' })
+      } else if (lowerMsg.includes('tổ chức') && lowerMsg.includes('mã')) {
+        setError('organizationCode', { type: 'server', message: 'Mã tổ chức này đã được đăng ký.' })
       } else {
-        toast.error('Đăng ký thất bại. Vui lòng kiểm tra lại thông tin.')
+        toast.error(msg || 'Đăng ký thất bại. Vui lòng kiểm tra lại thông tin.')
       }
     },
   })
@@ -157,28 +200,35 @@ export default function RegisterPage() {
             <p>• Nếu không thấy email, hãy kiểm tra lại mục Spam/Thư rác.</p>
           </div>
           
-          <div className="mt-4 pt-4 border-t border-[var(--color-border)]/50 text-left">
-            <p className="text-sm font-medium text-[var(--color-foreground)] mb-2">Nhập mã OTP 6 ký tự vào đây:</p>
-            <div className="flex gap-2">
-              <input
-                type="text"
-                value={tokenInput}
-                onChange={(e) => setTokenInput(e.target.value.toUpperCase())}
-                placeholder="Nhập mã OTP..."
-                maxLength={6}
-                className="flex-1 px-3 py-2 rounded-xl border border-[var(--color-border)] bg-[var(--color-background)] text-sm focus:ring-2 focus:ring-[var(--color-primary)]/20 outline-none uppercase font-bold tracking-widest text-center"
-              />
-              <button
-                onClick={() => {
-                  if (!tokenInput.trim()) return toast.warning('Vui lòng nhập mã!')
-                  verifyMutation.mutate(tokenInput.trim())
-                }}
-                disabled={verifyMutation.isPending}
-                className="px-4 py-2 rounded-xl bg-[var(--color-primary)] text-white font-bold hover:shadow-md transition-all flex items-center justify-center min-w-[100px] disabled:opacity-50"
-              >
-                {verifyMutation.isPending ? <Loader2 size={16} className="animate-spin" /> : 'Xác thực'}
-              </button>
+          <div className="mt-6 pt-6 border-t border-[var(--color-border)]/50 text-left">
+            <p className="text-sm font-bold text-[var(--color-foreground)] mb-4 text-center">Nhập mã xác thực (OTP)</p>
+            <div className="flex justify-between gap-2 max-w-xs mx-auto mb-6">
+              {otp.map((digit, index) => (
+                <input
+                  key={index}
+                  ref={(el) => { otpRefs.current[index] = el }}
+                  type="text"
+                  maxLength={1}
+                  value={digit}
+                  onChange={(e) => handleOtpChange(index, e.target.value)}
+                  onKeyDown={(e) => handleKeyDown(index, e)}
+                  onPaste={index === 0 ? handlePaste : undefined}
+                  className="w-11 h-14 text-center text-xl font-black rounded-xl border-2 border-[var(--color-border)] bg-[var(--color-background)] focus:border-[var(--color-primary)] focus:ring-4 focus:ring-[var(--color-primary)]/10 outline-none transition-all shadow-sm disabled:opacity-50"
+                  autoFocus={index === 0}
+                  disabled={verifyMutation.isPending}
+                />
+              ))}
             </div>
+
+            {verifyMutation.isPending && (
+              <div className="flex items-center justify-center gap-2 text-[var(--color-primary)] font-bold text-sm mb-6 animate-pulse">
+                <Loader2 size={18} className="animate-spin" />
+                Đang xác thực mã OTP...
+              </div>
+            )}
+
+            {/* Nút xác thực đã được gỡ bỏ vì hệ thống tự động kiểm tra khi nhập đủ 6 ký tự */}
+
           </div>
         </div>
         

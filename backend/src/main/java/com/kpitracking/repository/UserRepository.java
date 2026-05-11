@@ -16,15 +16,15 @@ public interface UserRepository extends JpaRepository<User, UUID> {
 
     Optional<User> findByEmail(String email);
 
-    boolean existsByEmail(String email);
+    boolean existsByEmailAndDeletedAtIsNull(String email);
 
     Optional<User> findByEmployeeCode(String employeeCode);
     
-    boolean existsByEmployeeCode(String employeeCode);
+    boolean existsByEmployeeCodeAndDeletedAtIsNull(String employeeCode);
 
-    boolean existsByEmployeeCodeAndIdNot(String employeeCode, UUID id);
+    boolean existsByEmployeeCodeAndIdNotAndDeletedAtIsNull(String employeeCode, UUID id);
 
-    boolean existsByPhone(String phone);
+    boolean existsByPhoneAndDeletedAtIsNull(String phone);
 
     Optional<User> findByResetPasswordToken(String resetPasswordToken);
 

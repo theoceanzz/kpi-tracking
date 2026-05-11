@@ -15,7 +15,6 @@ public class AdjustmentRequestResponse {
     private Double currentWeight;
     private Double currentMinimumValue;
     private Double requestedTargetValue;
-    private Double requestedWeight;
     private Double requestedMinimumValue;
     private boolean deactivationRequest;
     private String reason;

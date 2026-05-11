@@ -129,12 +129,12 @@ public class UserService {
 
     @Transactional
     public UserResponse createUser(CreateUserRequest request) {
-        if (userRepository.existsByEmail(request.getEmail())) {
+        if (userRepository.existsByEmailAndDeletedAtIsNull(request.getEmail())) {
             throw new DuplicateResourceException("Email này đã tồn tại trong hệ thống: " + request.getEmail());
         }
 
         if (request.getEmployeeCode() != null && !request.getEmployeeCode().isBlank()) {
-            if (userRepository.existsByEmployeeCode(request.getEmployeeCode().trim())) {
+            if (userRepository.existsByEmployeeCodeAndDeletedAtIsNull(request.getEmployeeCode().trim())) {
                 throw new BusinessException("Mã nhân viên '" + request.getEmployeeCode() + "' đã được sử dụng");
             }
         }
@@ -318,7 +318,7 @@ public class UserService {
             user.setFullName(request.getFullName());
         }
         if (request.getEmail() != null && !request.getEmail().equals(user.getEmail())) {
-            if (userRepository.existsByEmail(request.getEmail())) {
+            if (userRepository.existsByEmailAndDeletedAtIsNull(request.getEmail())) {
                 throw new DuplicateResourceException("Người dùng", "email", request.getEmail());
             }
             user.setEmail(request.getEmail());
@@ -328,7 +328,7 @@ public class UserService {
         }
         if (request.getEmployeeCode() != null) {
             String code = request.getEmployeeCode().trim();
-            if (!code.isBlank() && userRepository.existsByEmployeeCodeAndIdNot(code, userId)) {
+            if (!code.isBlank() && userRepository.existsByEmployeeCodeAndIdNotAndDeletedAtIsNull(code, userId)) {
                 throw new BusinessException("Mã nhân viên '" + code + "' đã được sử dụng bởi nhân sự khác");
             }
             user.setEmployeeCode(code);
@@ -598,7 +598,7 @@ public class UserService {
             if (phone != null) user.setPhone(phone);
             if (employeeCode != null && !employeeCode.isBlank()) {
                 String code = employeeCode.trim();
-                if (userRepository.existsByEmployeeCodeAndIdNot(code, user.getId())) {
+                if (userRepository.existsByEmployeeCodeAndIdNotAndDeletedAtIsNull(code, user.getId())) {
                     throw new BusinessException("Mã nhân viên '" + code + "' đã được sử dụng bởi nhân sự khác (" + email + ")");
                 }
                 user.setEmployeeCode(code);
@@ -614,7 +614,7 @@ public class UserService {
         } else {
             if (employeeCode != null && !employeeCode.isBlank()) {
                 String code = employeeCode.trim();
-                if (userRepository.existsByEmployeeCode(code)) {
+                if (userRepository.existsByEmployeeCodeAndDeletedAtIsNull(code)) {
                     throw new BusinessException("Mã nhân viên '" + code + "' đã được sử dụng bởi nhân sự khác (" + email + ")");
                 }
             }

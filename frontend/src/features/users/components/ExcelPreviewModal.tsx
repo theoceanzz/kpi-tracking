@@ -207,11 +207,13 @@ export default function ExcelPreviewModal({ open, file, onClose, onImport, isImp
     }
 
     if (!row.OrgUnitCode || !validUnitCodes.has(row.OrgUnitCode)) {
+      const oldCode = row.OrgUnitCode || 'Trống'
       // Fallback to root unit if not matched or missing
       if (orgTree && orgTree.length > 0) {
         row.OrgUnitCode = orgTree[0]?.code
+        errors['OrgUnitCode'] = `Mã đơn vị '${oldCode}' không tồn tại, đã tự động gán vào '${orgTree[0]?.name}'`
       } else {
-        errors['OrgUnitCode'] = 'Đơn vị không hợp lệ'
+        errors['OrgUnitCode'] = `Mã đơn vị '${oldCode}' không tồn tại trong hệ thống`
       }
     }
     
@@ -246,16 +248,23 @@ export default function ExcelPreviewModal({ open, file, onClose, onImport, isImp
       })
     }
 
-    // Fallback to the lowest role in hierarchy if not found
-    if (!roleObj && rolesData && rolesData.length > 0) {
-      // Find role with highest level, then highest rank
-      const sortedRoles = [...rolesData].sort((a, b) => {
-        const levelA = a.level ?? 0;
-        const levelB = b.level ?? 0;
-        if (levelB !== levelA) return levelB - levelA;
-        return (b.rank ?? 0) - (a.rank ?? 0);
-      });
-      roleObj = sortedRoles[0];
+    if (!roleObj) {
+      const oldRole = row.Role || 'Trống'
+      // Fallback to the lowest role in hierarchy if not found
+      if (rolesData && rolesData.length > 0) {
+        const sortedRoles = [...rolesData].sort((a, b) => {
+          const levelA = a.level ?? 0;
+          const levelB = b.level ?? 0;
+          if (levelB !== levelA) return levelB - levelA;
+          return (b.rank ?? 0) - (a.rank ?? 0);
+        });
+        roleObj = sortedRoles[0];
+        if (roleObj) {
+          errors['Role'] = `Chức danh '${oldRole}' không tồn tại, đã tự động gán vai trò '${ROLE_MAP[roleObj.name] || roleObj.name}'`
+        }
+      } else {
+        errors['Role'] = `Chức danh '${oldRole}' không tồn tại trong hệ thống`
+      }
     }
 
     if (roleObj && roleObj.level !== undefined) {
@@ -411,6 +420,11 @@ export default function ExcelPreviewModal({ open, file, onClose, onImport, isImp
 
   if (!open) return null
 
+  const criticalErrorFields = ['Email', 'FullName']
+  const hasCriticalErrors = data.some((r: UserRow) => {
+    if (!r._errors) return false
+    return Object.keys(r._errors).some(field => criticalErrorFields.includes(field))
+  })
   const hasAnyErrors = data.some((r: UserRow) => r._errors && Object.keys(r._errors).length > 0)
 
   return (
@@ -663,7 +677,7 @@ export default function ExcelPreviewModal({ open, file, onClose, onImport, isImp
             </button>
             <button
               onClick={handleSave}
-              disabled={isImporting || hasAnyErrors || data.length === 0}
+              disabled={isImporting || hasCriticalErrors || data.length === 0}
               className="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-blue-600 text-white text-sm font-bold hover:bg-blue-700 shadow-lg shadow-blue-500/30 disabled:opacity-50 transition-all active:scale-95"
             >
               {isImporting ? (

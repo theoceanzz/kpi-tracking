@@ -37,7 +37,7 @@ const schema = z.object({
   code: z.string().min(1, 'Vui lòng nhập mã.'),
   unitTypeName: z.string().min(1, 'Vui lòng nhập loại tổ chức.'),
   email: z.string().email('Email không hợp lệ.').optional().or(z.literal('')),
-  phone: z.string().optional(),
+  phone: z.string().regex(/^0\d{9}$/, 'Số điện thoại phải gồm 10 chữ số và bắt đầu bằng số 0 (VD: 0912345678)').optional().or(z.literal('')),
   address: z.string().optional(),
   provinceId: z.string().optional(),
   districtId: z.string().optional(),
@@ -291,8 +291,8 @@ export function OrgUnitDrawer({ orgId, drawerState, onClose, hierarchyLevels }: 
               </div>
               <div className="space-y-1">
                 <label className="text-sm font-semibold text-gray-700">Cấp bậc</label>
-                <div className="px-3 py-2 border rounded-lg bg-blue-50 text-blue-700 text-sm border-blue-100 font-medium">
-                  Level {calculatedLevel}
+                <div className="px-3 py-2 border rounded-lg bg-blue-50 text-blue-700 text-sm border-blue-100 font-bold uppercase tracking-widest">
+                  Phân cấp
                 </div>
               </div>
             </div>
@@ -369,10 +369,11 @@ export function OrgUnitDrawer({ orgId, drawerState, onClose, hierarchyLevels }: 
                     <input 
                       type="text" 
                       {...register('phone')}
-                      placeholder="0123 456 789"
+                      placeholder="0912 345 678"
                       className="w-full pl-9 pr-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none border-gray-300 transition-all"
                     />
                   </div>
+                  {errors.phone && <p className="text-xs text-red-500 mt-1">{errors.phone.message}</p>}
                 </div>
               </div>
             </div>
@@ -448,16 +449,6 @@ export function OrgUnitDrawer({ orgId, drawerState, onClose, hierarchyLevels }: 
                         </p>
                         <div className="flex items-center space-x-2">
                           <p className="text-[10px] text-gray-400 font-bold uppercase">{role.isSystem ? 'Hệ thống' : 'Tùy chỉnh'}</p>
-                          <span className={cn(
-                            "text-[9px] px-1.5 py-0.5 rounded font-black uppercase",
-                            role.level === 0 ? "bg-red-100 text-red-600" :
-                            role.level === 1 ? "bg-orange-100 text-orange-600" :
-                            role.level === 2 ? "bg-amber-100 text-amber-600" :
-                            role.level === 3 ? "bg-blue-100 text-blue-600" :
-                            "bg-emerald-100 text-emerald-600"
-                          )}>
-                            Level {role.level}
-                          </span>
                         </div>
                         {isDisabled && (
                           <p className="text-[9px] text-red-500 font-bold mt-1 uppercase">{disableReason}</p>

@@ -148,7 +148,7 @@ public class KpiCriteriaService {
     }
 
     @Transactional(readOnly = true)
-    public PageResponse<KpiCriteriaResponse> getKpiCriteria(int page, int size, KpiStatus status, UUID orgUnitId, UUID createdById, UUID kpiPeriodId, String keyword, String sortBy, String sortDir) {
+    public PageResponse<KpiCriteriaResponse> getKpiCriteria(int page, int size, KpiStatus status, UUID orgUnitId, UUID createdById, UUID kpiPeriodId, String keyword, Instant startDate, Instant endDate, String sortBy, String sortDir) {
         User currentUser = getCurrentUser();
         List<UUID> allowedOrgUnitIds = permissionChecker.getOrgUnitsWithPermission(currentUser.getId(), "KPI:VIEW");
 
@@ -186,6 +186,8 @@ public class KpiCriteriaService {
                 currentUser.getId(),
                 currentUserRank,
                 currentUserLevel,
+                startDate,
+                endDate,
                 pageable
         );
 
@@ -426,7 +428,7 @@ public class KpiCriteriaService {
     }
 
     @Transactional(readOnly = true)
-    public PageResponse<KpiCriteriaResponse> getMyKpi(int page, int size, UUID kpiPeriodId, String sortBy, String sortDir) {
+    public PageResponse<KpiCriteriaResponse> getMyKpi(int page, int size, UUID kpiPeriodId, Instant startDate, Instant endDate, String sortBy, String sortDir) {
         User currentUser = getCurrentUser();
         Sort sort = Sort.by(sortDir.equalsIgnoreCase("asc") ? Sort.Direction.ASC : Sort.Direction.DESC, sortBy != null ? sortBy : "createdAt");
         Pageable pageable = PageRequest.of(page, size, sort);
@@ -434,11 +436,11 @@ public class KpiCriteriaService {
         java.util.List<KpiStatus> activeStatuses = java.util.Arrays.asList(KpiStatus.APPROVED, KpiStatus.EDITED, KpiStatus.EDIT);
         Page<KpiCriteria> kpiPage;
         if (kpiPeriodId != null) {
-            kpiPage = kpiCriteriaRepository.findByUserIdInAssigneesAndKpiPeriodId(
-                    currentUser.getId(), kpiPeriodId, activeStatuses, pageable);
+            kpiPage = kpiCriteriaRepository.findByUserIdInAssigneesAndKpiPeriodIdWithDate(
+                    currentUser.getId(), kpiPeriodId, activeStatuses, startDate, endDate, pageable);
         } else {
-            kpiPage = kpiCriteriaRepository.findByUserIdInAssignees(
-                    currentUser.getId(), activeStatuses, pageable);
+            kpiPage = kpiCriteriaRepository.findByUserIdInAssigneesWithDate(
+                    currentUser.getId(), activeStatuses, startDate, endDate, pageable);
         }
 
         List<KpiCriteriaResponse> content = kpiPage.getContent().stream()
