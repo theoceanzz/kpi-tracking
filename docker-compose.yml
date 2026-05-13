@@ -6,19 +6,28 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
     ports:
-      - "3000:80"
+      - "80:80"
     depends_on:
       backend:
-        condition: service_healthy   # chờ backend healthy mới start
+        condition: service_healthy
     restart: unless-stopped
     networks:
       - app-network
+      - coolify
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://localhost:80"]
       interval: 10s
       timeout: 5s
       retries: 3
-      start_period: 15s
+      start_period: 30s
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.frontend.rule=Host(`keygo.vn`)"
+      - "traefik.http.routers.frontend.entrypoints=https"
+      - "traefik.http.routers.frontend.tls=true"
+      - "traefik.http.routers.frontend.tls.certresolver=letsencrypt"
+      - "traefik.http.services.frontend.loadbalancer.server.port=80"
+      - "traefik.docker.network=coolify"
 
   backend:
     build:
@@ -50,19 +59,27 @@ services:
       - CLAUDE_MODEL=${CLAUDE_MODEL}
       - RATE_LIMIT_LOGIN=${RATE_LIMIT_LOGIN:-5}
       - RATE_LIMIT_EMAIL=${RATE_LIMIT_EMAIL:-3}
-      # XÓA dòng "- " trống ở đây
     depends_on:
       postgres:
         condition: service_healthy
     restart: unless-stopped
     networks:
       - app-network
+      - coolify
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8081/actuator/health"]
       interval: 15s
       timeout: 10s
       retries: 5
-      start_period: 60s   # Spring Boot khởi động chậm, cần thời gian
+      start_period: 90s
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.backend.rule=(Host(`keygo.vn`) && PathPrefix(`/api`)"
+      - "traefik.http.routers.backend.entrypoints=https"
+      - "traefik.http.routers.backend.tls=true"
+      - "traefik.http.routers.backend.tls.certresolver=letsencrypt"
+      - "traefik.http.services.backend.loadbalancer.server.port=8081"
+      - "traefik.docker.network=coolify"
 
   postgres:
     image: postgres:15-alpine
@@ -86,6 +103,8 @@ services:
 networks:
   app-network:
     driver: bridge
+  coolify:
+    external: true
 
 volumes:
   postgres_data:
