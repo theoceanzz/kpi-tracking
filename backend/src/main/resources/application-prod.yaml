@@ -30,7 +30,7 @@ spring:
     locations: classpath:db/migration
     baseline-on-migrate: true
     repair-on-migrate: true
-    clean-disabled: false
+    clean-disabled: true
 
   mail:
     host: ${MAIL_HOST:smtp.gmail.com}

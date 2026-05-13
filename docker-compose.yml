@@ -8,21 +8,14 @@ services:
     ports:
       - "80:80"
     depends_on:
-      backend:
-        condition: service_healthy
+      - backend
     restart: unless-stopped
     networks:
       - app-network
       - coolify
-    healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://localhost:80"]
-      interval: 10s
-      timeout: 5s
-      retries: 3
-      start_period: 30s
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.frontend.rule=Host(`keygo.vn`)"
+      - "traefik.http.routers.frontend.rule=Host(`keygo.vn`) || Host(`www.keygo.vn`)"
       - "traefik.http.routers.frontend.entrypoints=https"
       - "traefik.http.routers.frontend.tls=true"
       - "traefik.http.routers.frontend.tls.certresolver=letsencrypt"
@@ -44,7 +37,7 @@ services:
       - JWT_ACCESS_EXPIRY=${JWT_ACCESS_EXPIRY:-9000000}
       - JWT_REFRESH_EXPIRY=${JWT_REFRESH_EXPIRY:-604800000}
       - CORS_ORIGINS=${CORS_ORIGINS:-*}
-      - APP_FRONTEND_URL=${FRONTEND_URL:-http://localhost:3000}
+      - APP_FRONTEND_URL=${FRONTEND_URL:-https://keygo.vn}
       - CLOUDINARY_CLOUD_NAME=${CLOUDINARY_CLOUD_NAME}
       - CLOUDINARY_API_KEY=${CLOUDINARY_API_KEY}
       - CLOUDINARY_API_SECRET=${CLOUDINARY_API_SECRET}
@@ -66,15 +59,9 @@ services:
     networks:
       - app-network
       - coolify
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8081/actuator/health"]
-      interval: 15s
-      timeout: 10s
-      retries: 5
-      start_period: 90s
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.backend.rule=(Host(`keygo.vn`) && PathPrefix(`/api`)"
+      - "traefik.http.routers.backend.rule=(Host(`keygo.vn`) || Host(`www.keygo.vn`)) && PathPrefix(`/api`)"
       - "traefik.http.routers.backend.entrypoints=https"
       - "traefik.http.routers.backend.tls=true"
       - "traefik.http.routers.backend.tls.certresolver=letsencrypt"
