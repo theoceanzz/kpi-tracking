@@ -114,3 +114,11 @@ logging:
     root: INFO
     com.kpitracking: DEBUG
     org.springframework.security: DEBUG
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      show-details: never
