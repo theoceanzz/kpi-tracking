@@ -5,8 +5,6 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
-    ports:
-      - "80:80"
     depends_on:
       - backend
     restart: unless-stopped
@@ -15,7 +13,7 @@ services:
       - coolify
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.frontend.rule=Host(`keygo.vn`) || Host(`www.keygo.vn`)"
+      - "traefik.http.routers.frontend.rule=Host(`keygo.vn`)"
       - "traefik.http.routers.frontend.entrypoints=https"
       - "traefik.http.routers.frontend.tls=true"
       - "traefik.http.routers.frontend.tls.certresolver=letsencrypt"
@@ -26,8 +24,6 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    ports:
-      - "8081:8081"
     environment:
       - SPRING_PROFILES_ACTIVE=prod
       - DB_URL=jdbc:postgresql://postgres:5432/kpitracking
@@ -61,7 +57,7 @@ services:
       - coolify
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.backend.rule=(Host(`keygo.vn`) || Host(`www.keygo.vn`)) && PathPrefix(`/api`)"
+      - "traefik.http.routers.backend.rule=(Host(`keygo.vn`) && PathPrefix(`/api`)"
       - "traefik.http.routers.backend.entrypoints=https"
       - "traefik.http.routers.backend.tls=true"
       - "traefik.http.routers.backend.tls.certresolver=letsencrypt"
@@ -74,8 +70,6 @@ services:
       POSTGRES_DB: kpitracking
       POSTGRES_USER: ${DB_USERNAME:-postgres}
       POSTGRES_PASSWORD: ${DB_PASSWORD:-123456}
-    ports:
-      - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
