@@ -50,6 +50,18 @@ public interface OrgUnitRepository extends JpaRepository<OrgUnit, UUID> {
     @Query("SELECT o FROM OrgUnit o WHERE o.deletedAt IS NULL AND EXISTS (SELECT 1 FROM OrgUnit p WHERE (o.path LIKE CONCAT(p.path, '%')) AND p.id IN :parentIds)")
     List<OrgUnit> findAllInSubtreesForExecutive(@Param("parentIds") java.util.Collection<UUID> parentIds);
 
+    @Query("SELECT COUNT(o) > 0 FROM OrgUnit o WHERE TRIM(LOWER(o.code)) = TRIM(LOWER(:code)) AND o.orgHierarchyLevel.organization.id = :orgId AND o.deletedAt IS NULL")
+    boolean existsByCodeSmart(@Param("code") String code, @Param("orgId") UUID orgId);
+
+    @Query(value = "SELECT ou.* FROM org_units ou " +
+            "JOIN org_hierarchy_levels ohl ON ou.org_hierarchy_id = ohl.id " +
+            "WHERE TRIM(LOWER(ou.code)) = TRIM(LOWER(:code)) " +
+            "AND ohl.organization_id = :orgId " +
+            "AND ou.deleted_at IS NOT NULL LIMIT 1", nativeQuery = true)
+    Optional<OrgUnit> findDeletedByCodeSmart(@Param("code") String code, @Param("orgId") UUID orgId);
+
+    boolean existsByNameIgnoreCaseAndOrgHierarchyLevel_Organization_IdAndDeletedAtIsNull(String name, UUID organizationId);
+
     boolean existsByOrgHierarchyLevelId(UUID hierarchyLevelId);
     
     boolean existsByEmailAndDeletedAtIsNull(String email);

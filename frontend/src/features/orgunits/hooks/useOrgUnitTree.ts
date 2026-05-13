@@ -13,6 +13,7 @@ export function useOrgUnitTree() {
       return orgUnitApi.getTree(organizationId)
     },
     enabled: !!organizationId,
+    staleTime: 0,
   })
 }
 
@@ -27,5 +28,6 @@ export function useOrgUnitSubtree(unitId: string | null) {
       return orgUnitApi.getSubtree(organizationId, unitId!)
     },
     enabled: !!organizationId && !!unitId,
+    staleTime: 0,
   })
 }

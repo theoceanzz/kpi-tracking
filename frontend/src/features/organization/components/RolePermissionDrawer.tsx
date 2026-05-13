@@ -148,14 +148,14 @@ export default function RolePermissionDrawer({ role, isOpen, onClose, hierarchyL
 
     if (role.level === minRoleLevel && role.rank === 0) {
       targetType = 'director';
-      label = 'Giám đốc';
+      label = role.name;
     } else if (role.level === maxRoleLevel && role.rank === 2) {
       targetType = 'staff';
-      label = 'Nhân viên';
+      label = role.name;
     } else {
-      if (role.rank === 0) { targetType = 'manager'; label = 'Quản lý'; }
-      else if (role.rank === 1) { targetType = 'deputy'; label = 'Phó quản lý'; }
-      else { targetType = 'staff'; label = 'Nhân viên'; }
+      if (role.rank === 0) { targetType = 'manager'; label = role.name; }
+      else if (role.rank === 1) { targetType = 'deputy'; label = role.name; }
+      else { targetType = 'staff'; label = role.name; }
     }
 
     // Use the same definitions as the global modal (strictly following SQL V2 logic)

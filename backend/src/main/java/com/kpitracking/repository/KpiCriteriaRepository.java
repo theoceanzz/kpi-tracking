@@ -17,7 +17,8 @@ import java.util.Collection;
 @Repository
 public interface KpiCriteriaRepository extends JpaRepository<KpiCriteria, UUID> {
 
-    @Query("SELECT DISTINCT k FROM KpiCriteria k LEFT JOIN k.assignees a JOIN FETCH k.kpiPeriod WHERE " +
+    @Query("SELECT DISTINCT k FROM KpiCriteria k LEFT JOIN k.assignees a JOIN FETCH k.kpiPeriod " +
+           "LEFT JOIN FETCH k.keyResult kr LEFT JOIN FETCH kr.objective obj WHERE " +
            "(EXISTS (SELECT 1 FROM OrgUnit au WHERE k.orgUnit.path LIKE CONCAT(au.path, '%') AND au.id IN :allowedOrgUnitIds)) AND " +
            "(:createdById IS NULL OR k.createdBy.id = :createdById) AND " +
            "(:orgUnitPath IS NULL OR k.orgUnit.path LIKE :orgUnitPath) AND " +
@@ -30,6 +31,8 @@ public interface KpiCriteriaRepository extends JpaRepository<KpiCriteria, UUID> 
            "OR LOWER(CAST(a.employeeCode AS string)) LIKE LOWER(CONCAT('%', CAST(:keyword AS string), '%'))) AND " +
            "(cast(:startDate as timestamp) IS NULL OR k.createdAt >= :startDate) AND " +
            "(cast(:endDate as timestamp) IS NULL OR k.createdAt <= :endDate) AND " +
+           "(:objectiveId IS NULL OR k.keyResult.objective.id = :objectiveId) AND " +
+           "(:keyResultId IS NULL OR k.keyResult.id = :keyResultId) AND " +
            "(:currentUserRank IS NULL OR :currentUserRank = 0 OR k.createdBy.id = :currentUserId OR " +
            "EXISTS (SELECT 1 FROM UserRoleOrgUnit uro JOIN uro.role r WHERE uro.user.id = k.createdBy.id " +
            "AND (r.level > :currentUserLevel OR (uro.orgUnit.id = k.orgUnit.id AND r.rank > :currentUserRank))))")
@@ -45,6 +48,8 @@ public interface KpiCriteriaRepository extends JpaRepository<KpiCriteria, UUID> 
             @Param("currentUserLevel") Integer currentUserLevel,
             @Param("startDate") Instant startDate,
             @Param("endDate") Instant endDate,
+            @Param("objectiveId") UUID objectiveId,
+            @Param("keyResultId") UUID keyResultId,
             Pageable pageable
     );
 
@@ -147,4 +152,28 @@ public interface KpiCriteriaRepository extends JpaRepository<KpiCriteria, UUID> 
 
     @Query("SELECT COALESCE(SUM(k.weight), 0.0) FROM KpiCriteria k JOIN k.assignees a WHERE a.id = :userId AND (:kpiPeriodId IS NULL OR k.kpiPeriod.id = :kpiPeriodId) AND k.status IN :statuses")
     Double sumWeightByUserIdAndKpiPeriodIdAndStatusIn(@Param("userId") UUID userId, @Param("kpiPeriodId") UUID kpiPeriodId, @Param("statuses") List<KpiStatus> statuses);
+
+    @Query("SELECT DISTINCT k FROM KpiCriteria k LEFT JOIN k.assignees a JOIN FETCH k.kpiPeriod " +
+           "LEFT JOIN FETCH k.keyResult kr LEFT JOIN FETCH kr.objective obj WHERE " +
+           "(a.id = :userId OR k.createdBy.id = :userId) AND " +
+           "(:status IS NULL OR k.status = :status) AND " +
+           "(:statuses IS NULL OR k.status IN :statuses) AND " +
+           "(:kpiPeriodId IS NULL OR k.kpiPeriod.id = :kpiPeriodId) AND " +
+           "(cast(:startDate as timestamp) IS NULL OR k.createdAt >= :startDate) AND " +
+           "(cast(:endDate as timestamp) IS NULL OR k.createdAt <= :endDate) AND " +
+           "(:objectiveId IS NULL OR k.keyResult.objective.id = :objectiveId) AND " +
+           "(:keyResultId IS NULL OR k.keyResult.id = :keyResultId)")
+    Page<KpiCriteria> findMyWithFilters(
+            @Param("userId") UUID userId,
+            @Param("status") KpiStatus status,
+            @Param("statuses") Collection<KpiStatus> statuses,
+            @Param("kpiPeriodId") UUID kpiPeriodId,
+            @Param("startDate") Instant startDate,
+            @Param("endDate") Instant endDate,
+            @Param("objectiveId") UUID objectiveId,
+            @Param("keyResultId") UUID keyResultId,
+            Pageable pageable
+    );
+
+    List<KpiCriteria> findByParentId(UUID parentId);
 }

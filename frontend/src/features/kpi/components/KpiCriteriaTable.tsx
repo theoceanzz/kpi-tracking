@@ -10,11 +10,22 @@ interface KpiCriteriaTableProps {
   data: KpiCriteria[]
   onAction?: (kpi: KpiCriteria) => void
   onDelete?: (kpi: KpiCriteria) => void
+  enableOkr?: boolean
 }
 
-export default function KpiCriteriaTable({ data, onAction, onDelete }: KpiCriteriaTableProps) {
+export default function KpiCriteriaTable({ data, onAction, onDelete, enableOkr }: KpiCriteriaTableProps) {
   const columns = [
-    { key: 'name', header: 'Tên chỉ tiêu', render: (k: KpiCriteria) => <span className="font-medium">{k.name}</span> },
+    { key: 'name', header: 'Tên chỉ tiêu', render: (k: KpiCriteria) => (
+      <div className="flex flex-col">
+        <span className="font-bold text-slate-900 dark:text-white">{k.name}</span>
+        {enableOkr && k.keyResultName && (
+          <span className="text-[10px] font-black text-violet-600 dark:text-violet-400 uppercase tracking-tight flex items-center gap-1 mt-0.5">
+            <span className="w-1.5 h-1.5 rounded-full bg-violet-500" />
+            KR: {k.keyResultName}
+          </span>
+        )}
+      </div>
+    )},
     { key: 'period', header: 'Đợt KPI', render: (k: KpiCriteria) => k.kpiPeriod?.name ?? '—' },
     { key: 'orgUnit', header: 'Đơn vị', render: (k: KpiCriteria) => k.orgUnitName ?? '—' },
     { key: 'target', header: 'Mục tiêu', render: (k: KpiCriteria) => k.targetValue != null ? `${k.targetValue} ${k.unit ?? ''}` : '—' },

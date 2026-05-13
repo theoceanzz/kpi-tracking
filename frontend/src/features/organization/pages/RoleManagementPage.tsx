@@ -29,7 +29,7 @@ import { format } from 'date-fns'
 import { vi } from 'date-fns/locale'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
-import { ROLE_MAP } from '@/constants/roles'
+
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import PageTour from '@/components/common/PageTour'
 import { rolesSteps } from '@/components/common/tourSteps'
@@ -67,8 +67,7 @@ export default function RoleManagementPage() {
     const activeRoleLevels = new Set(hierarchyLevels.map(l => l.roleLevel))
     
     return roles.filter(r => {
-      const matchesSearch = r.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                           (ROLE_MAP[r.name] || '').toLowerCase().includes(searchQuery.toLowerCase())
+      const matchesSearch = r.name.toLowerCase().includes(searchQuery.toLowerCase())
       if (!matchesSearch) return false
 
       if (activeRoleLevels.size > 0) {
@@ -325,7 +324,7 @@ export default function RoleManagementPage() {
                         </div>
                         <div className="flex flex-col">
                            <div className="flex items-center gap-2">
-                             <span className="font-black text-gray-900 text-base whitespace-nowrap">{ROLE_MAP[role.name] || role.name}</span>
+                             <span className="font-black text-gray-900 text-base whitespace-nowrap">{role.name}</span>
                              {role.isSystem && (
                                <span className="px-2 py-0.5 bg-indigo-50 text-indigo-700 text-[8px] font-black rounded-lg border border-indigo-100 flex items-center gap-1 uppercase tracking-tighter">
                                  <Lock size={8} /> Hệ thống

@@ -11,9 +11,12 @@ import { z } from 'zod'
 import { cn } from '@/lib/utils'
 import { useKpiPeriods } from '@/features/kpi/hooks/useKpiPeriods'
 import { useOrgUnitTree } from '@/features/orgunits/hooks/useOrgUnitTree'
+import { useOrganization } from '@/features/orgunits/hooks/useOrganization'
 import { useUsers } from '@/features/users/hooks/useUsers'
 import { useAuthStore } from '@/store/authStore'
+import { FREQUENCY_MAP } from '@/lib/utils'
 import { kpiApi } from '@/features/kpi/api/kpiApi'
+import { useObjectives } from '@/features/okr/hooks/useOkr'
 
 interface KpiExcelPreviewModalProps {
   open: boolean
@@ -35,10 +38,12 @@ interface KpiRow {
   EmployeeCode: string
   Period: string
   OrgUnit: string
+  ObjectiveCode?: string
+  KeyResultCode?: string
   _errors?: Record<string, string>
 }
 
-const frequencyOptions = ['DAILY', 'WEEKLY', 'MONTHLY', 'QUARTERLY', 'YEARLY']
+const frequencyOptions = ['DAILY', 'WEEKLY', 'MONTHLY', 'QUARTERLY', 'SEMI_ANNUALLY', 'YEARLY']
 
 const kpiRowSchema = z.object({
   Name: z.string().min(1, 'Tên chỉ tiêu là bắt buộc'),
@@ -62,11 +67,14 @@ export default function KpiExcelPreviewModal({ open, file, onClose, onImport, is
   const { user } = useAuthStore()
   
   // Bulk settings state
-  const [bulkFreq, setBulkFreq] = useState('MONTHLY')
+  const [bulkFreq, setBulkFreq] = useState('')
   const [bulkPeriod, setBulkPeriod] = useState('')
   const [bulkOrgUnit, setBulkOrgUnit] = useState('')
   const [bulkEmpCode, setBulkEmpCode] = useState('')
   const [isEmpTableOpen, setIsEmpTableOpen] = useState(false)
+
+  const { data: objectivesData } = useObjectives(user?.memberships?.[0]?.organizationId)
+  const objectives = objectivesData || []
 
   // Fetch data for dropdowns
   const { data: periodsData } = useKpiPeriods({ 
@@ -74,6 +82,9 @@ export default function KpiExcelPreviewModal({ open, file, onClose, onImport, is
     organizationId: user?.memberships?.[0]?.organizationId 
   })
   const { data: orgTree } = useOrgUnitTree()
+  const { data: org } = useOrganization(user?.memberships?.[0]?.organizationId)
+  const enableOkr = org?.enableOkr || false
+
   const { data: usersData } = useUsers({ 
     page: 0, 
     size: 1000,
@@ -108,22 +119,21 @@ export default function KpiExcelPreviewModal({ open, file, onClose, onImport, is
     })
   })()
 
-  // Set default bulk settings once data is loaded
+  // Default selections
   useEffect(() => {
-    if (flatOrgUnits.length > 0) {
-      const isCurrentValid = flatOrgUnits.some(u => u.name === bulkOrgUnit)
-      if (!bulkOrgUnit || !isCurrentValid) {
-        setBulkOrgUnit(flatOrgUnits[0].name)
-      }
+    if (open && periodsData?.content && periodsData.content.length > 0 && !bulkPeriod) {
+      // Find current or most recent period
+      const sorted = [...periodsData.content].sort((a, b) => {
+        const timeA = a.startDate ? new Date(a.startDate).getTime() : 0
+        const timeB = b.startDate ? new Date(b.startDate).getTime() : 0
+        return timeB - timeA
+      })
+      if (sorted[0]) setBulkPeriod(sorted[0].name)
     }
-  }, [flatOrgUnits, bulkOrgUnit])
-
-  useEffect(() => {
-    const firstPeriod = periodsData?.content?.[0]
-    if (firstPeriod && !bulkPeriod) {
-      setBulkPeriod(firstPeriod.name)
+    if (open && flatOrgUnits.length > 0 && !bulkOrgUnit) {
+      setBulkOrgUnit(flatOrgUnits[0].name)
     }
-  }, [periodsData, bulkPeriod])
+  }, [open, periodsData, flatOrgUnits])
 
   // Automatically apply defaults to rows with empty values
   useEffect(() => {
@@ -192,33 +202,45 @@ export default function KpiExcelPreviewModal({ open, file, onClose, onImport, is
           TargetValue: (row['TargetValue'] || '').toString().trim(),
           MinimumValue: (row['MinimumValue'] || '').toString().trim(),
           Unit: (row['Unit'] || '').toString().trim(),
-          Frequency: (row['Frequency'] || bulkFreq || 'MONTHLY').toString().toUpperCase().trim(),
+          Frequency: (row['Frequency'] || bulkFreq || '').toString().toUpperCase().trim(),
           EmployeeCode: (row['EmployeeCode'] || bulkEmpCode || '').toString().trim(),
           Period: (row['Period'] || bulkPeriod || '').toString().trim(),
           OrgUnit: rawOrgValue,
+          ObjectiveCode: (row['ObjectiveCode'] || '').toString().trim(),
+          KeyResultCode: (row['KeyResultCode'] || '').toString().trim(),
         }
 
-        // Smart Matching: Check if item.OrgUnit is a Code or a Name (Case-insensitive)
+        const errors: Record<string, string> = {}
+
+        // Smart Matching for Period
+        const oldPeriod = item.Period || 'Trống'
+        const matchedPeriod = periodsData?.content?.find((p: any) => p.name.toLowerCase() === item.Period.toLowerCase())
+        if (matchedPeriod) {
+          item.Period = matchedPeriod.name
+        } else {
+          item.Period = ''
+          if (oldPeriod !== 'Trống') {
+            errors['Period'] = `Đợt '${oldPeriod}' không tồn tại trong hệ thống`
+          }
+        }
+
+        // Smart Matching for OrgUnit: Check if item.OrgUnit is a Code or a Name (Case-insensitive)
         const matchedByCode = flatOrgUnits.find(u => 
           u.code?.toLowerCase() === item.OrgUnit.toLowerCase() || 
           u.name?.toLowerCase() === item.OrgUnit.toLowerCase()
         )
         
-        const errors: Record<string, string> = {}
         const oldOrg = item.OrgUnit || 'Trống'
 
         if (matchedByCode) {
           item.OrgUnit = matchedByCode.name
         } else {
-          // Fallback logic
-          if (bulkOrgUnit) {
-            item.OrgUnit = bulkOrgUnit
-            errors['OrgUnit'] = `Đơn vị '${oldOrg}' không khớp, đã tự động gán vào '${bulkOrgUnit}'`
-          } else if (flatOrgUnits.length > 0) {
-            item.OrgUnit = flatOrgUnits[0].name
-            errors['OrgUnit'] = `Đơn vị '${oldOrg}' không khớp, đã tự động gán vào '${flatOrgUnits[0].name}'`
-          } else {
+          // Fallback logic to empty string
+          item.OrgUnit = ''
+          if (oldOrg !== 'Trống') {
             errors['OrgUnit'] = `Đơn vị '${oldOrg}' không tồn tại trong hệ thống`
+          } else {
+            errors['OrgUnit'] = `Phòng ban là bắt buộc`
           }
         }
 
@@ -281,8 +303,38 @@ export default function KpiExcelPreviewModal({ open, file, onClose, onImport, is
       }
     }
 
+    // 3. Check Frequency compatibility with Period
+    if (row.Frequency && row.Period && periodsData?.content) {
+      const periodObj = periodsData.content.find((p: any) => p.name.toLowerCase() === row.Period.toLowerCase())
+      if (periodObj) {
+        const TYPE_LEVEL: Record<string, number> = {
+          'DAILY': 1, 'WEEKLY': 2, 'MONTHLY': 3, 'QUARTERLY': 4, 'SEMI_ANNUALLY': 5, 'YEARLY': 6
+        }
+        const periodLevel = TYPE_LEVEL[periodObj.periodType] || 0
+        const kpiLevel = TYPE_LEVEL[row.Frequency.toUpperCase()] || 0
+        if (kpiLevel > periodLevel) {
+          errors['Frequency'] = `Tần suất không phù hợp với đợt ${periodObj.periodType}`
+        }
+      }
+    }
+
+    // 4. Check OKR codes if enabled
+    if (enableOkr && row.ObjectiveCode) {
+      const obj = objectives.find(o => o.code?.toLowerCase() === row.ObjectiveCode?.toLowerCase())
+      if (!obj) {
+        errors['ObjectiveCode'] = `Mã mục tiêu không tồn tại`
+      } else if (row.KeyResultCode) {
+        const kr = obj.keyResults?.find(k => k.code?.toLowerCase() === row.KeyResultCode?.toLowerCase())
+        if (!kr) {
+          errors['KeyResultCode'] = `KR không thuộc mục tiêu này`
+        }
+      }
+    } else if (enableOkr && row.KeyResultCode && !row.ObjectiveCode) {
+      errors['ObjectiveCode'] = `Cần nhập mã mục tiêu để tìm KR`
+    }
+
     if (Object.keys(errors).length > 0) {
-      return { ...row, _errors: errors }
+      return { ...row, _errors: { ...(row._errors || {}), ...errors } }
     }
     return { ...row, _errors: undefined }
   }
@@ -314,6 +366,8 @@ export default function KpiExcelPreviewModal({ open, file, onClose, onImport, is
       EmployeeCode: bulkEmpCode || '',
       Period: bulkPeriod || '',
       OrgUnit: bulkOrgUnit || '',
+      ObjectiveCode: '',
+      KeyResultCode: '',
     })
     setData([...data, newRow])
   }
@@ -386,8 +440,9 @@ export default function KpiExcelPreviewModal({ open, file, onClose, onImport, is
       }
 
       const total = systemWeight + excelWeight
-      return { name: unitName, total, isValid: Math.abs(total - 100) < 0.01 }
+      return { name: unitName, periodName, total, isValid: Math.abs(total - 100) < 0.01 }
     }))
+
 
     // Validate Employees
     const empValidations = await Promise.all(employeeGroups.map(async (groupKey) => {
@@ -410,8 +465,9 @@ export default function KpiExcelPreviewModal({ open, file, onClose, onImport, is
 
       const total = systemWeight + excelWeight
       const fullName = userObj?.fullName || empCode
-      return { name: fullName, code: empCode, total, isValid: Math.abs(total - 100) < 0.01 }
+      return { name: fullName, code: empCode, periodName, total, isValid: Math.abs(total - 100) < 0.01 }
     }))
+
 
     const invalidUnits = unitValidations.filter(v => !v.isValid)
     const invalidEmps = empValidations.filter(v => !v.isValid)
@@ -419,20 +475,22 @@ export default function KpiExcelPreviewModal({ open, file, onClose, onImport, is
     if (invalidUnits.length > 0 || invalidEmps.length > 0) {
       setLoading(false)
       if (invalidUnits.length > 0) {
-        const errorMsg = invalidUnits.map(v => `${v.name} (${v.total.toFixed(1)}%)`).join(', ')
+        const errorMsg = invalidUnits.map(v => `${v.name} [${v.periodName}] (${v.total.toFixed(1)}%)`).join(', ')
         toast.error(`Tổng trọng số mỗi đơn vị phải đạt 100%. Kiểm tra: ${errorMsg}`)
       }
+
       if (invalidEmps.length > 0) {
-        const errorMsg = invalidEmps.map(v => `${v.name} [${v.code}] (${v.total.toFixed(1)}%)`).join(', ')
+        const errorMsg = invalidEmps.map(v => `${v.name} [${v.periodName}] (${v.total.toFixed(1)}%)`).join(', ')
         toast.error(`Tổng trọng số mỗi nhân viên phải đạt 100%. Kiểm tra: ${errorMsg}`)
       }
+
       return
     }
 
 
     try {
-      const exportData = data.map(({ Name, Description, Weight, TargetValue, MinimumValue, Unit, Frequency, EmployeeCode, Period, OrgUnit }) => ({
-        Name, Description, Weight, TargetValue, MinimumValue, Unit, Frequency, EmployeeCode, Period, OrgUnit
+      const exportData = data.map(({ Name, Description, Weight, TargetValue, MinimumValue, Unit, Frequency, EmployeeCode, Period, OrgUnit, ObjectiveCode, KeyResultCode }) => ({
+        Name, Description, Weight, TargetValue, MinimumValue, Unit, Frequency, EmployeeCode, Period, OrgUnit, ObjectiveCode, KeyResultCode
       }))
       
       const ws = utils.json_to_sheet(exportData)
@@ -461,7 +519,7 @@ export default function KpiExcelPreviewModal({ open, file, onClose, onImport, is
   const hasAnyErrors = data.some(r => r._errors && Object.keys(r._errors).length > 0)
 
   return (
-    <div className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-[200] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
       <div className="bg-white dark:bg-slate-900 rounded-[32px] shadow-2xl w-full max-w-[95vw] lg:max-w-7xl max-h-[90vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200 border border-slate-200 dark:border-slate-800">
         {/* Header */}
         <div className="px-8 py-6 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50/50 dark:bg-slate-800/50">
@@ -620,7 +678,12 @@ export default function KpiExcelPreviewModal({ open, file, onClose, onImport, is
                       onChange={e => setBulkFreq(e.target.value)}
                       className="w-full px-4 py-2.5 rounded-2xl bg-white dark:bg-slate-800 border-none shadow-sm text-sm font-bold focus:ring-2 focus:ring-indigo-500"
                     >
-                      {frequencyOptions.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                      <option value="">-- Chọn tần suất --</option>
+                      {frequencyOptions.map(opt => (
+                        <option key={opt} value={opt}>
+                          {FREQUENCY_MAP[opt as keyof typeof FREQUENCY_MAP] || opt}
+                        </option>
+                      ))}
                     </select>
                   </div>
 
@@ -631,6 +694,7 @@ export default function KpiExcelPreviewModal({ open, file, onClose, onImport, is
                       onChange={e => setBulkPeriod(e.target.value)}
                       className="w-full px-4 py-2.5 rounded-2xl bg-white dark:bg-slate-800 border-none shadow-sm text-sm font-bold focus:ring-2 focus:ring-indigo-500"
                     >
+                      <option value="">-- Chọn đợt --</option>
                       {periodsData?.content?.map((p: any) => <option key={p.id} value={p.name}>{p.name}</option>)}
                     </select>
                   </div>
@@ -642,6 +706,7 @@ export default function KpiExcelPreviewModal({ open, file, onClose, onImport, is
                       onChange={e => setBulkOrgUnit(e.target.value)}
                       className="w-full px-4 py-2.5 rounded-2xl bg-white dark:bg-slate-800 border-none shadow-sm text-sm font-bold focus:ring-2 focus:ring-indigo-500"
                     >
+                      <option value="">-- Chọn phòng ban --</option>
                       {flatOrgUnits.map((u: any) => <option key={u.id} value={u.name}>{u.name} ({u.code})</option>)}
                     </select>
                   </div>
@@ -753,6 +818,12 @@ export default function KpiExcelPreviewModal({ open, file, onClose, onImport, is
                         <th className="px-5 py-4 min-w-[160px]">Mã nhân viên <span className="text-rose-500">*</span></th>
                         <th className="px-5 py-4 min-w-[220px]">Đợt KPI <span className="text-rose-500">*</span></th>
                         <th className="px-5 py-4 min-w-[300px]">Phòng ban / Đơn vị <span className="text-rose-500">*</span></th>
+                        {enableOkr && (
+                          <>
+                            <th className="px-5 py-4 min-w-[200px]">Mã Mục tiêu</th>
+                            <th className="px-5 py-4 min-w-[200px]">Mã KR</th>
+                          </>
+                        )}
                         <th className="px-5 py-4 w-16 text-center">Xóa</th>
                       </tr>
                     </thead>
@@ -834,7 +905,11 @@ export default function KpiExcelPreviewModal({ open, file, onClose, onImport, is
                               )}
                             >
                               <option value="">-- Chọn --</option>
-                              {frequencyOptions.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                              {frequencyOptions.map(opt => (
+                                <option key={opt} value={opt}>
+                                  {FREQUENCY_MAP[opt as keyof typeof FREQUENCY_MAP] || opt}
+                                </option>
+                              ))}
                             </select>
                             {row._errors?.Frequency && <p className="text-[9px] text-rose-500 mt-1 font-black uppercase px-2">{row._errors.Frequency}</p>}
                           </td>
@@ -937,6 +1012,7 @@ export default function KpiExcelPreviewModal({ open, file, onClose, onImport, is
                                 row._errors?.Period ? "border-rose-300 bg-rose-50" : "border-transparent hover:border-slate-200 focus:border-indigo-500"
                               )}
                             >
+                              <option value="">-- Chọn đợt --</option>
                               {periodsData?.content?.map((p: any) => <option key={p.id} value={p.name}>{p.name}</option>)}
                             </select>
                             {row._errors?.Period && <p className="text-[9px] text-rose-500 mt-1 font-black uppercase px-2">{row._errors.Period}</p>}
@@ -950,10 +1026,44 @@ export default function KpiExcelPreviewModal({ open, file, onClose, onImport, is
                                 row._errors?.OrgUnit ? "border-rose-300 bg-rose-50" : "border-transparent hover:border-slate-200 focus:border-indigo-500"
                               )}
                             >
+                              <option value="">-- Chọn phòng ban --</option>
                               {flatOrgUnits.map((u: any) => <option key={u.id} value={u.name}>{u.name} ({u.code})</option>)}
                             </select>
                             {row._errors?.OrgUnit && <p className="text-[9px] text-rose-500 mt-1 font-black uppercase px-2">{row._errors.OrgUnit}</p>}
                           </td>
+                          {enableOkr && (
+                            <>
+                              <td className="px-5 py-3">
+                                <select
+                                  value={row.ObjectiveCode || ''}
+                                  onChange={e => handleCellChange(row.id, 'ObjectiveCode', e.target.value)}
+                                  className="w-full px-4 py-2 rounded-xl border border-transparent hover:border-slate-200 focus:border-indigo-500 text-sm font-bold transition-all bg-transparent outline-none"
+                                >
+                                  <option value="">-- Trống --</option>
+                                  {objectives.map((obj: any) => (
+                                    <option key={obj.id} value={obj.code}>{obj.name} ({obj.code})</option>
+                                  ))}
+                                </select>
+                              </td>
+                              <td className="px-5 py-3">
+                                <select
+                                  value={row.KeyResultCode || ''}
+                                  onChange={e => handleCellChange(row.id, 'KeyResultCode', e.target.value)}
+                                  className="w-full px-4 py-2 rounded-xl border border-transparent hover:border-slate-200 focus:border-indigo-500 text-sm font-bold transition-all bg-transparent outline-none"
+                                  disabled={!row.ObjectiveCode}
+                                >
+                                  <option value="">-- Trống --</option>
+                                  {(() => {
+                                    const selectedObj = objectives.find((obj: any) => obj.code === row.ObjectiveCode)
+                                    if (!selectedObj || !selectedObj.keyResults) return null
+                                    return selectedObj.keyResults.map((kr: any) => (
+                                      <option key={kr.id} value={kr.code}>{kr.name} ({kr.code})</option>
+                                    ))
+                                  })()}
+                                </select>
+                              </td>
+                            </>
+                          )}
                           <td className="px-5 py-3 text-center">
                             <button
                               onClick={() => handleRemoveRow(row.id)}

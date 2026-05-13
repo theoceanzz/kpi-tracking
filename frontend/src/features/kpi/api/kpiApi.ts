@@ -4,13 +4,13 @@ import type { KpiCriteria, CreateKpiRequest, UpdateKpiRequest, RejectKpiRequest,
 import type { KpiStatus } from '@/types/kpi'
 
 export const kpiApi = {
-  getAll: (params: { page?: number; size?: number; status?: KpiStatus; orgUnitId?: string; organizationId?: string; createdById?: string; kpiPeriodId?: string; keyword?: string; startDate?: string; endDate?: string; sortBy?: string; sortDir?: string }) =>
+  getAll: (params: { page?: number; size?: number; status?: KpiStatus; orgUnitId?: string; organizationId?: string; createdById?: string; kpiPeriodId?: string; keyword?: string; startDate?: string; endDate?: string; sortBy?: string; sortDir?: string; objectiveId?: string; keyResultId?: string }) =>
     axiosInstance.get<ApiResponse<PageResponse<KpiCriteria>>>('/kpi-criteria', { params }).then((r) => r.data.data),
 
   getById: (id: string) =>
     axiosInstance.get<ApiResponse<KpiCriteria>>(`/kpi-criteria/${id}`).then((r) => r.data.data),
 
-  getMy: (params: { page?: number; size?: number; kpiPeriodId?: string; startDate?: string; endDate?: string; sortBy?: string; sortDir?: string; userId?: string }) =>
+  getMy: (params: { page?: number; size?: number; kpiPeriodId?: string; startDate?: string; endDate?: string; sortBy?: string; sortDir?: string; userId?: string; objectiveId?: string; keyResultId?: string }) =>
     axiosInstance.get<ApiResponse<PageResponse<KpiCriteria>>>('/kpi-criteria/my', { params }).then((r) => r.data.data),
 
   create: (data: CreateKpiRequest) =>

@@ -12,7 +12,7 @@ import {
   useOrganization
 } from '../hooks/useOrganizationStructure'
 import { useRoles } from '../hooks/useUserRoles'
-import { ROLE_MAP } from '@/constants/roles'
+
 import { cn } from '@/lib/utils'
 
 
@@ -118,7 +118,7 @@ export function OrgUnitDrawer({ orgId, drawerState, onClose, hierarchyLevels }: 
     }
   })
       
-  const { register, handleSubmit, formState: { errors }, reset, setValue, watch } = useForm<FormData>({
+  const { register, handleSubmit, formState: { errors }, reset, setValue, watch, setError } = useForm<FormData>({
     resolver: zodResolver(schema),
     defaultValues: {
       name: '',
@@ -210,26 +210,36 @@ export function OrgUnitDrawer({ orgId, drawerState, onClose, hierarchyLevels }: 
       status: data.status
     }
 
-    let resultUnit: any = null
+    try {
+      let resultUnit: any = null
 
-    if (drawerState.mode === 'create-root' || drawerState.mode === 'create-child') {
-      resultUnit = await createMutation.mutateAsync({ orgId, payload })
-    } else if (drawerState.mode === 'edit' && drawerState.currentNode) {
-      resultUnit = await updateMutation.mutateAsync({ orgId, unitId: drawerState.currentNode.id, payload })
+      if (drawerState.mode === 'create-root' || drawerState.mode === 'create-child') {
+        resultUnit = await createMutation.mutateAsync({ orgId, payload })
+      } else if (drawerState.mode === 'edit' && drawerState.currentNode) {
+        resultUnit = await updateMutation.mutateAsync({ orgId, unitId: drawerState.currentNode.id, payload })
+      }
+
+      if (resultUnit && logoFile) {
+        await uploadLogoMutation.mutateAsync({ orgId, unitId: resultUnit.id, file: logoFile })
+      }
+
+      onClose()
+    } catch (error: any) {
+      const message = error?.response?.data?.message || ''
+      if (message.toLowerCase().includes('tên')) {
+        setError('name', { type: 'manual', message: message })
+      } else if (message.toLowerCase().includes('mã')) {
+        setError('code', { type: 'manual', message: message })
+      }
+      // Toast is already handled by the hook, but setError provides better UX on the field
     }
-
-    if (resultUnit && logoFile) {
-      await uploadLogoMutation.mutateAsync({ orgId, unitId: resultUnit.id, file: logoFile })
-    }
-
-    onClose()
   }
 
   if (!drawerState.isOpen) return null
 
   return (
     <div 
-      className="fixed inset-0 z-50 flex justify-end bg-black/50 transition-opacity"
+      className="fixed inset-0 z-[200] flex justify-end bg-black/50 transition-opacity"
       onClick={onClose}
     >
       <div 
@@ -445,7 +455,7 @@ export function OrgUnitDrawer({ orgId, drawerState, onClose, hierarchyLevels }: 
                       />
                       <div className="ml-3">
                         <p className="text-sm font-black text-gray-700 group-hover:text-blue-700 transition-colors uppercase">
-                          {ROLE_MAP[role.name] || role.name}
+                          {role.name}
                         </p>
                         <div className="flex items-center space-x-2">
                           <p className="text-[10px] text-gray-400 font-bold uppercase">{role.isSystem ? 'Hệ thống' : 'Tùy chỉnh'}</p>

@@ -151,8 +151,7 @@ public class AuthService {
                 .build();
         userRoleOrgUnitRepository.save(assignment);
 
-        emailService.sendWelcomeEmail(user.getEmail(), user.getFullName());
-        emailService.sendVerifyEmail(user.getEmail(), verifyToken);
+        emailService.sendWelcomeAndVerifyEmail(user.getEmail(), user.getFullName(), verifyToken);
 
         return AuthResponse.builder().accessToken("").refreshToken("").tokenType("Bearer").user(enrichUserInfo(userMapper.toUserInfoResponse(user))).requirePasswordChange(user.getRequirePasswordChange()).hasSeenOnboarding(Boolean.TRUE.equals(user.getHasSeenOnboarding())).build();
     }
@@ -326,8 +325,14 @@ public class AuthService {
                 })
                 .collect(Collectors.toList());
         
-        // Custom sorting logic based on user request:
-        // If > 1 memberships, prioritize non-root memberships with smallest level number
+
+        memberships.sort((a, b) -> {
+            if (a.getLevelOrder() != b.getLevelOrder()) {
+                return Integer.compare(b.getLevelOrder(), a.getLevelOrder());
+            }
+            return Integer.compare(a.getRoleRank(), b.getRoleRank());
+        });
+        
         response.setMemberships(memberships);
         List<String> authorities = getUserAuthorities(response.getId());
         response.setRoles(authorities.stream()
@@ -371,12 +376,38 @@ public class AuthService {
     private List<String> getUserAuthorities(UUID userId) {
         List<UserRoleOrgUnit> assignments = userRoleOrgUnitRepository.findByUserId(userId);
         
-        List<String> roles = assignments.stream()
+        if (assignments.isEmpty()) return new ArrayList<>();
+
+        // 1. Find the highest Level Order (the most specific/deepest unit in the hierarchy)
+        // e.g., Group (Level 4) > Room (Level 3) > Company (Level 2)
+        int maxLevelOrder = assignments.stream()
+                .map(uro -> uro.getOrgUnit().getOrgHierarchyLevel().getLevelOrder())
+                .max(Integer::compare)
+                .orElse(0);
+
+        // 2. Filter assignments at this most specific level
+        List<UserRoleOrgUnit> deepestAssignments = assignments.stream()
+                .filter(uro -> uro.getOrgUnit().getOrgHierarchyLevel().getLevelOrder() == maxLevelOrder)
+                .collect(Collectors.toList());
+
+        // 3. Within this level, find the best (minimum) rank (0=Head, 1=Deputy, 2=Staff)
+        int bestRankAtThisLevel = deepestAssignments.stream()
+                .map(uro -> uro.getRole().getRank())
+                .filter(java.util.Objects::nonNull)
+                .min(Integer::compare)
+                .orElse(2);
+
+        List<UserRoleOrgUnit> finalAssignments = deepestAssignments.stream()
+                .filter(uro -> uro.getRole().getRank() != null && uro.getRole().getRank() == bestRankAtThisLevel)
+                .collect(Collectors.toList());
+
+        // 4. Extract Roles and Permissions
+        List<String> roles = finalAssignments.stream()
                 .map(uro -> "ROLE_" + uro.getRole().getName())
                 .distinct()
                 .collect(Collectors.toList());
                 
-        List<String> permissions = assignments.stream()
+        List<String> permissions = finalAssignments.stream()
                 .map(UserRoleOrgUnit::getRole)
                 .distinct()
                 .flatMap(role -> rolePermissionRepository.findByRoleId(role.getId()).stream())

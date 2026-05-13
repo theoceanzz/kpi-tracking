@@ -656,23 +656,47 @@ function PinnedWidgetContent({ type, config }: { type: string, config?: any }) {
           </div>
         </div>
       )
-    case 'ROLE_DIST':
+    case 'ROLE_DIST': {
+      // 1. Extract all unique role names to create Bar components
+      const allRoles = new Set<string>();
+      stats?.roleDistribution?.forEach((item: any) => {
+        item.roles?.forEach((r: any) => allRoles.add(r.roleName));
+      });
+      const uniqueRoleNames = Array.from(allRoles);
+
+      // 2. Transform data for Recharts (each item needs roleName: count pairs)
+      const chartData = stats?.roleDistribution?.map((item: any) => {
+        const dataPoint: any = { unitName: item.unitName };
+        item.roles?.forEach((r: any) => {
+          dataPoint[r.roleName] = r.count;
+        });
+        return dataPoint;
+      }) || [];
+
       return (
         <div className="h-full w-full min-h-[220px]">
           <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={stats?.roleDistribution || []} layout="vertical" margin={{ left: 10 }}>
+            <BarChart data={chartData} layout="vertical" margin={{ left: 10 }}>
               <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f1f5f9" />
               <XAxis type="number" axisLine={false} tickLine={false} tick={{ fontSize: 9, fontWeight: 700 }} />
               <YAxis dataKey="unitName" type="category" axisLine={false} tickLine={false} tick={{ fontSize: 9, fontWeight: 700 }} width={70} />
               <RechartsTooltip />
               <Legend iconType="circle" wrapperStyle={{ fontSize: '9px', fontWeight: 800, paddingTop: '5px' }} />
-              <Bar dataKey="directorCount" stackId="a" fill="#6366f1" name="Giám đốc" barSize={12} />
-              <Bar dataKey="headCount" stackId="a" fill="#f59e0b" name="Trưởng phòng" />
-              <Bar dataKey="staffCount" stackId="a" fill="#94a3b8" name="Nhân viên" />
+              {uniqueRoleNames.map((roleName, index) => (
+                <Bar 
+                  key={roleName} 
+                  dataKey={roleName} 
+                  stackId="a" 
+                  fill={COLORS[index % COLORS.length]} 
+                  name={roleName} 
+                  barSize={12} 
+                />
+              ))}
             </BarChart>
           </ResponsiveContainer>
         </div>
-      )
+      );
+    }
     case 'UNIT_RISK':
       return (
         <div className="h-full flex flex-col">

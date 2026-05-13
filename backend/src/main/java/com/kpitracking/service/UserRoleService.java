@@ -125,6 +125,16 @@ public class UserRoleService {
         userRoleOrgUnitRepository.deleteByUserIdAndRoleIdAndOrgUnitId(userId, roleId, orgUnitId);
     }
 
+    @Transactional
+    public void removeBulkUsersFromOrgUnit(List<UUID> userIds, UUID orgUnitId) {
+        userRoleOrgUnitRepository.deleteByUserIdInAndOrgUnitId(userIds, orgUnitId);
+    }
+
+    @Transactional
+    public void removeAllUsersFromOrgUnit(UUID orgUnitId) {
+        userRoleOrgUnitRepository.deleteByOrgUnitId(orgUnitId);
+    }
+
     @Transactional(readOnly = true)
     public List<UserRoleOrgUnitResponse> getUserRoles(UUID userId) {
         userRepository.findById(userId)

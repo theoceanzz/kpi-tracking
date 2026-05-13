@@ -303,7 +303,7 @@ export default function DrillDownTab() {
               <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
             </div>
           </div>
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto lg:overflow-x-hidden scrollbar-hide custom-scrollbar">
             <table className="w-full text-sm">
               <thead>
                 <tr className="text-[10px] font-black uppercase tracking-widest text-slate-400 border-b border-slate-100 dark:border-slate-800">

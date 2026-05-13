@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from 'react'
 import { read, write, utils } from 'xlsx'
 import { X, Save, AlertCircle, Trash2, Plus, FileSpreadsheet } from 'lucide-react'
 import { toast } from 'sonner'
-import { ROLE_MAP } from '@/constants/roles'
+
 import { z } from 'zod'
 import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/store/authStore'
@@ -234,7 +234,7 @@ export default function ExcelPreviewModal({ open, file, onClose, onImport, isImp
     let roleObj = rolesData?.find(r => 
       r.id === row.Role || 
       r.name.toLowerCase() === row.Role.toLowerCase() || 
-      (ROLE_MAP[r.name] || r.name).toLowerCase() === row.Role.toLowerCase()
+      r.name.toLowerCase() === row.Role.toLowerCase()
     )
 
     // Fallback: Partial matching for renamed roles (e.g., "Trưởng phòng" matches "Trưởng phòng 1")
@@ -242,7 +242,7 @@ export default function ExcelPreviewModal({ open, file, onClose, onImport, isImp
       const excelRole = row.Role.toLowerCase().trim()
       roleObj = rolesData.find(r => {
         const dbRole = r.name.toLowerCase().trim()
-        const mappedRole = (ROLE_MAP[r.name] || r.name).toLowerCase().trim()
+        const mappedRole = r.name.toLowerCase().trim()
         return dbRole.includes(excelRole) || excelRole.includes(dbRole) || 
                mappedRole.includes(excelRole) || excelRole.includes(mappedRole)
       })
@@ -260,7 +260,7 @@ export default function ExcelPreviewModal({ open, file, onClose, onImport, isImp
         });
         roleObj = sortedRoles[0];
         if (roleObj) {
-          errors['Role'] = `Chức danh '${oldRole}' không tồn tại, đã tự động gán vai trò '${ROLE_MAP[roleObj.name] || roleObj.name}'`
+          errors['Role'] = `Chức danh '${oldRole}' không tồn tại, đã tự động gán vai trò '${roleObj.name}'`
         }
       } else {
         errors['Role'] = `Chức danh '${oldRole}' không tồn tại trong hệ thống`
@@ -271,7 +271,7 @@ export default function ExcelPreviewModal({ open, file, onClose, onImport, isImp
       const isDirectorSystem = user?.memberships?.some(m => m.roleName === 'DIRECTOR_SYSTEM')
       if (!isDirectorSystem) {
         if (roleObj.level < currentUserLevel || (roleObj.level === currentUserLevel && roleObj.rank !== undefined && roleObj.rank <= currentUserRank)) {
-          errors['Role'] = `Bạn không có quyền gán vai trò ngang hoặc cao hơn mình (${ROLE_MAP[roleObj.name] || roleObj.name})`
+          errors['Role'] = `Bạn không có quyền gán vai trò ngang hoặc cao hơn mình (${roleObj.name})`
         }
       }
     }
@@ -287,7 +287,7 @@ export default function ExcelPreviewModal({ open, file, onClose, onImport, isImp
       const isRoleAllowed = roleObj ? allowedIds.has(roleObj.id) : false
       
       if (!isRoleAllowed) {
-        errors['Role'] = `Vai trò ${roleObj ? (ROLE_MAP[roleObj.name] || roleObj.name) : row.Role} không được phép gán trong đơn vị ${selectedNode.name}`
+        errors['Role'] = `Vai trò ${roleObj ? roleObj.name : row.Role} không được phép gán trong đơn vị ${selectedNode.name}`
       }
     }
 
@@ -428,7 +428,7 @@ export default function ExcelPreviewModal({ open, file, onClose, onImport, isImp
   const hasAnyErrors = data.some((r: UserRow) => r._errors && Object.keys(r._errors).length > 0)
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-[200] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
       <div className="bg-white rounded-[24px] shadow-2xl w-full max-w-[95vw] lg:max-w-6xl max-h-[90vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200">
         {/* Header */}
         <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between bg-gray-50/50">
@@ -568,12 +568,12 @@ export default function ExcelPreviewModal({ open, file, onClose, onImport, isImp
                                     <option value={row.Role} className="hidden">
                                       {(() => {
                                         const r = rolesData?.find((x: any) => x.id === row.Role || x.name === row.Role);
-                                        return r ? (ROLE_MAP[r.name] || r.name) : 'Chọn chức danh...';
+                                        return r ? r.name : 'Chọn chức danh...';
                                       })()}
                                     </option>
                                   )}
                                   {filteredRoles.map(role => (
-                                    <option key={role.id} value={role.id}>{ROLE_MAP[role.name] || role.name}</option>
+                                    <option key={role.id} value={role.id}>{role.name}</option>
                                   ))}
                                 </select>
                               )

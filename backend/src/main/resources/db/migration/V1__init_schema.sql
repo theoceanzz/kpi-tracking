@@ -43,6 +43,8 @@ CREATE TABLE organizations (
   status      TEXT NOT NULL DEFAULT 'ACTIVE' CHECK (status IN ('ACTIVE','SUSPENDED','ARCHIVED')),
   evaluation_max_score DOUBLE PRECISION DEFAULT 100.0,
   kpi_reminder_percentage INT DEFAULT 50,
+  enable_okr BOOLEAN DEFAULT FALSE,
+  enable_waterfall BOOLEAN DEFAULT FALSE,
   created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at  TIMESTAMPTZ NOT NULL DEFAULT now()
 );
@@ -272,6 +274,44 @@ CREATE TABLE kpi_periods (
 CREATE INDEX idx_kpi_periods_org_id ON kpi_periods(organization_id);
 
 -- ====================================================
+-- OKR (Objectives and Key Results)
+-- ====================================================
+
+CREATE TABLE objectives (
+    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    organization_id UUID            NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+    org_unit_id      UUID            REFERENCES org_units(id) ON DELETE SET NULL,
+    code            VARCHAR(50),
+    name            VARCHAR(255)    NOT NULL,
+    description     TEXT,
+    start_date      DATE,
+    end_date        DATE,
+    status          VARCHAR(50)     DEFAULT 'ACTIVE',
+    created_at      TIMESTAMPTZ     DEFAULT NOW(),
+    updated_at      TIMESTAMPTZ     DEFAULT NOW(),
+    deleted_at      TIMESTAMPTZ
+);
+
+CREATE INDEX idx_objectives_org_id ON objectives(organization_id);
+CREATE INDEX idx_objectives_org_unit_id ON objectives(org_unit_id);
+
+CREATE TABLE key_results (
+    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    objective_id    UUID            NOT NULL REFERENCES objectives(id) ON DELETE CASCADE,
+    code            VARCHAR(50),
+    name            VARCHAR(255)    NOT NULL,
+    description     TEXT,
+    target_value    DOUBLE PRECISION,
+    current_value   DOUBLE PRECISION DEFAULT 0,
+    unit            VARCHAR(50),
+    created_at      TIMESTAMPTZ     DEFAULT NOW(),
+    updated_at      TIMESTAMPTZ     DEFAULT NOW(),
+    deleted_at      TIMESTAMPTZ
+);
+
+CREATE INDEX idx_key_results_objective_id ON key_results(objective_id);
+
+-- ====================================================
 -- KPI Criteria
 -- ====================================================
 CREATE TABLE kpi_criteria (
@@ -285,6 +325,8 @@ CREATE TABLE kpi_criteria (
     minimum_value   DOUBLE PRECISION,
     unit            VARCHAR(50),
     frequency       VARCHAR(20)     NOT NULL,
+    key_result_id   UUID            REFERENCES key_results(id) ON DELETE SET NULL,
+    parent_id       UUID            REFERENCES kpi_criteria(id) ON DELETE SET NULL,
     status          VARCHAR(20)     NOT NULL DEFAULT 'DRAFT',
     created_by      UUID            NOT NULL REFERENCES users(id),
     approved_by     UUID            REFERENCES users(id),

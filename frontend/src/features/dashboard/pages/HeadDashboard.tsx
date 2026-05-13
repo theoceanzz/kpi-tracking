@@ -131,12 +131,26 @@ export default function HeadDashboard() {
                 </div>
               </div>
               <div className="flex gap-3">
-                <Link id="tour-dashboard-approve-btn" to="/submissions/org-unit" className="flex items-center gap-2 px-6 py-3 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-white text-[11px] font-black hover:bg-slate-200 dark:hover:bg-slate-700 transition-all border border-slate-200 dark:border-slate-700 shadow-sm">
-                  <ClipboardCheck size={16} className="text-blue-600" /> DUYỆT BÁO CÁO
+                <Link 
+                  id="tour-dashboard-approve-btn" 
+                  to={primaryMembership?.roleRank === 1 ? "/evaluations" : "/submissions/org-unit"} 
+                  className="flex items-center gap-2 px-6 py-3 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-white text-[11px] font-black hover:bg-slate-200 dark:hover:bg-slate-700 transition-all border border-slate-200 dark:border-slate-700 shadow-sm"
+                >
+                  {primaryMembership?.roleRank === 1 ? (
+                    <>
+                      <Star size={16} className="text-amber-500" /> KẾT QUẢ ĐÁNH GIÁ
+                    </>
+                  ) : (
+                    <>
+                      <ClipboardCheck size={16} className="text-blue-600" /> DUYỆT BÁO CÁO
+                    </>
+                  )}
                 </Link>
-                <Link to="/kpi-criteria" className="flex items-center gap-2 px-6 py-3 rounded-xl bg-slate-900 dark:bg-white text-white dark:text-slate-900 text-[11px] font-black hover:scale-105 transition-all shadow-xl active:scale-95">
-                  <Target size={16} className="text-blue-400 dark:text-blue-600" /> QUẢN LÝ KPI
-                </Link>
+                {primaryMembership?.roleRank === 0 && (
+                  <Link to="/kpi-criteria" className="flex items-center gap-2 px-6 py-3 rounded-xl bg-slate-900 dark:bg-white text-white dark:text-slate-900 text-[11px] font-black hover:scale-105 transition-all shadow-xl active:scale-95">
+                    <Target size={16} className="text-blue-400 dark:text-blue-600" /> QUẢN LÝ KPI
+                  </Link>
+                )}
               </div>
             </div>
           </div>
@@ -145,8 +159,8 @@ export default function HeadDashboard() {
         {/* ===== TOP INDICATORS (Smaller) ===== */}
         <div id="tour-dashboard-stats" className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <StatCard label="Tổng nhân sự" value={stats?.totalUsers ?? 0} sub={unitName} icon={Users} color="blue" />
-          <StatCard label="KPI Chờ duyệt" value={stats?.pendingKpi ?? 0} sub="Cần xử lý ngay" icon={Target} color="indigo" link="/kpi-criteria" alert={(stats?.pendingKpi ?? 0) > 0} />
-          <StatCard label="Báo cáo mới" value={pendingSub} sub="Chờ đánh giá" icon={Clock} color="amber" link="/submissions/org-unit" alert={pendingSub > 0} />
+          <StatCard label="KPI Chờ duyệt" value={stats?.pendingKpi ?? 0} sub="Cần xử lý ngay" icon={Target} color="indigo" link={primaryMembership?.roleRank === 0 ? "/kpi-criteria" : undefined} alert={(stats?.pendingKpi ?? 0) > 0} />
+          <StatCard label="Báo cáo mới" value={pendingSub} sub="Chờ đánh giá" icon={Clock} color="amber" link={primaryMembership?.roleRank === 1 ? "/evaluations" : "/submissions/org-unit"} alert={pendingSub > 0} />
           <StatCard label="Vi phạm Deadline" value={lateEmployeesCount} sub="Trễ hạn nộp" icon={AlertCircle} color="rose" alert={lateEmployeesCount > 0} />
         </div>
 
@@ -234,11 +248,10 @@ export default function HeadDashboard() {
                     {isExporting ? 'Đang xuất...' : 'Xuất Excel'}
                   </button>
                 </div>
-                <Link to="/submissions/org-unit" className="text-[9px] font-black text-blue-600 uppercase tracking-widest hover:underline">XEM TẤT CẢ</Link>
               </div>
               
-              <div className="flex-1 overflow-x-auto">
-                <table className="w-full text-left border-collapse">
+              <div className="flex-1 overflow-x-auto lg:overflow-x-hidden scrollbar-hide custom-scrollbar">
+                <table className="w-full min-w-[700px] lg:min-w-full text-left border-collapse">
                   <thead>
                     <tr className="bg-slate-50/50 dark:bg-slate-800/40">
                       <th className="px-8 py-4 text-[9px] font-black uppercase tracking-widest text-slate-400">Thành viên</th>
@@ -546,23 +559,47 @@ function PinnedWidgetContent({ type, config }: { type: string, config?: any }) {
           </div>
         </div>
       )
-    case 'ROLE_DIST':
+    case 'ROLE_DIST': {
+      // 1. Extract all unique role names to create Bar components
+      const allRoles = new Set<string>();
+      stats?.roleDistribution?.forEach((item: any) => {
+        item.roles?.forEach((r: any) => allRoles.add(r.roleName));
+      });
+      const uniqueRoleNames = Array.from(allRoles);
+
+      // 2. Transform data for Recharts (each item needs roleName: count pairs)
+      const chartData = stats?.roleDistribution?.map((item: any) => {
+        const dataPoint: any = { unitName: item.unitName };
+        item.roles?.forEach((r: any) => {
+          dataPoint[r.roleName] = r.count;
+        });
+        return dataPoint;
+      }) || [];
+
       return (
         <div className="h-full w-full min-h-[220px]">
           <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={stats?.roleDistribution || []} layout="vertical" margin={{ left: 10 }}>
+            <BarChart data={chartData} layout="vertical" margin={{ left: 10 }}>
               <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f1f5f9" />
               <XAxis type="number" axisLine={false} tickLine={false} tick={{ fontSize: 9, fontWeight: 700 }} />
               <YAxis dataKey="unitName" type="category" axisLine={false} tickLine={false} tick={{ fontSize: 9, fontWeight: 700 }} width={70} />
               <RechartsTooltip />
               <Legend iconType="circle" wrapperStyle={{ fontSize: '9px', fontWeight: 800, paddingTop: '5px' }} />
-              <Bar dataKey="directorCount" stackId="a" fill="#6366f1" name="Giám đốc" barSize={12} />
-              <Bar dataKey="headCount" stackId="a" fill="#f59e0b" name="Trưởng phòng" />
-              <Bar dataKey="staffCount" stackId="a" fill="#94a3b8" name="Nhân viên" />
+              {uniqueRoleNames.map((roleName, index) => (
+                <Bar 
+                  key={roleName} 
+                  dataKey={roleName} 
+                  stackId="a" 
+                  fill={COLORS[index % COLORS.length]} 
+                  name={roleName} 
+                  barSize={12} 
+                />
+              ))}
             </BarChart>
           </ResponsiveContainer>
         </div>
-      )
+      );
+    }
     case 'UNIT_RISK':
       return (
         <div className="h-full flex flex-col">

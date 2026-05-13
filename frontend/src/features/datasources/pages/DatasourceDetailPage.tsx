@@ -4,7 +4,9 @@ import { ArrowLeft, Plus, Trash2, Type, Hash, Calendar, Link2, CheckCircle2, Lis
 import { useDatasource, useDatasourceRows } from '../hooks/useDatasources'
 import { useAddColumn, useDeleteColumn, useAddRow, useUpdateRow, useDeleteRow, useUpdateDatasource } from '../hooks/useDatasourceMutations'
 import { useUsers } from '@/features/users/hooks/useUsers'
+import { format } from 'date-fns'
 import type { ColumnDataType, CellValueRequest, DsColumn } from '@/types/datasource'
+
 
 const DATA_TYPE_OPTIONS: { value: ColumnDataType; label: string; icon: React.ReactNode }[] = [
   { value: 'TEXT', label: 'Văn bản', icon: <Type size={14} /> },
@@ -212,17 +214,23 @@ export default function DatasourceDetailPage() {
 
     if (col.dataType === 'DATE') {
       return (
-        <input 
-          type="date" 
-          value={draft}
-          onChange={e => setDraft(e.target.value)}
-          onBlur={() => save(draft)}
-          onKeyDown={e => { if(e.key === 'Enter') save(draft); if(e.key === 'Escape') onClose() }}
-          className="w-full h-full min-w-[120px] bg-transparent outline-none ring-2 ring-indigo-500 rounded px-2 py-1 text-xs" 
-          autoFocus 
-        />
+        <div className="relative w-full h-full min-w-[120px]">
+          <input 
+            type="date" 
+            value={draft}
+            onChange={e => setDraft(e.target.value)}
+            onBlur={() => save(draft)}
+            onKeyDown={e => { if(e.key === 'Enter') save(draft); if(e.key === 'Escape') onClose() }}
+            className="w-full h-full bg-transparent outline-none ring-2 ring-indigo-500 rounded px-2 py-1 text-xs text-transparent" 
+            autoFocus 
+          />
+          <div className="absolute inset-0 left-2 flex items-center pointer-events-none text-xs font-medium text-slate-900 dark:text-white">
+            {draft ? format(new Date(draft), 'dd/MM/yyyy') : ''}
+          </div>
+        </div>
       )
     }
+
 
     if (col.dataType === 'TEXT' || col.dataType === 'NUMBER' || col.dataType === 'URL') {
       return (

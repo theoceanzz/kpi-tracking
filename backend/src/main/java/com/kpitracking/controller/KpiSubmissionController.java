@@ -54,7 +54,7 @@ public class KpiSubmissionController {
     }
 
     @GetMapping
-    @PreAuthorize("hasAuthority('SUBMISSION:REVIEW')")
+    @PreAuthorize("hasAnyAuthority('SUBMISSION:REVIEW', 'SUBMISSION:REVIEW_KPI')")
     @Operation(summary = "List submissions with optional filters")
     public ResponseEntity<ApiResponse<PageResponse<SubmissionResponse>>> getSubmissions(
             @RequestParam(defaultValue = "0") int page,

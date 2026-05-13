@@ -7,9 +7,9 @@ export function useOrgUnitStats() {
   const organizationId = user?.memberships?.[0]?.organizationId
 
   return useQuery({
-    queryKey: ['stats', 'org-units', organizationId],
+    queryKey: ['stats', 'orgUnits', organizationId],
     queryFn: () => statsApi.getOrgUnitStats(organizationId),
     enabled: !!organizationId,
-    staleTime: 5 * 60 * 1000,
+    staleTime: 0,
   })
 }

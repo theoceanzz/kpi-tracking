@@ -51,5 +51,15 @@ export const userRoleApi = {
     await axiosInstance.delete('/user-roles/revoke', {
       params: { userId, roleId, orgUnitId }
     })
+  },
+
+  removeAllFromUnit: async (orgUnitId: string) => {
+    await axiosInstance.delete(`/user-roles/org-unit/${orgUnitId}/remove-all`)
+  },
+
+  removeBulkFromUnit: async (userIds: string[], orgUnitId: string) => {
+    await axiosInstance.delete(`/user-roles/org-unit/${orgUnitId}/remove-bulk`, {
+        data: userIds
+    })
   }
 }

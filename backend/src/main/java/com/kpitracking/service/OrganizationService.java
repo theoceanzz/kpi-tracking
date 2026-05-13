@@ -133,6 +133,14 @@ public class OrganizationService {
             organization.setKpiReminderPercentage(request.getKpiReminderPercentage());
         }
 
+        if (request.getEnableOkr() != null) {
+            organization.setEnableOkr(request.getEnableOkr());
+        }
+
+        if (request.getEnableWaterfall() != null) {
+            organization.setEnableWaterfall(request.getEnableWaterfall());
+        }
+
         if (request.getEvaluationLevels() != null) {
             organization.getEvaluationLevels().clear();
             organizationRepository.saveAndFlush(organization);
@@ -159,9 +167,17 @@ public class OrganizationService {
         List<OrgHierarchyLevel> currentLevels = orgHierarchyLevelRepository.findByOrganizationIdOrderByLevelOrderAsc(organization.getId());
         List<Permission> allPerms = permissionRepository.findAll();
         
-        // 1. Check for removals and if they are in use
-        for (int i = newLevels.size(); i < currentLevels.size(); i++) {
-            OrgHierarchyLevel levelToRemove = currentLevels.get(i);
+        // 1. Identify levels to remove
+        java.util.Set<UUID> newIds = newLevels.stream()
+                .map(HierarchyLevelDTO::getId)
+                .filter(java.util.Objects::nonNull)
+                .collect(java.util.stream.Collectors.toSet());
+        
+        List<OrgHierarchyLevel> toRemove = currentLevels.stream()
+                .filter(l -> !newIds.contains(l.getId()))
+                .toList();
+
+        for (OrgHierarchyLevel levelToRemove : toRemove) {
             if (orgUnitRepository.existsByOrgHierarchyLevelId(levelToRemove.getId())) {
                 throw new BusinessException("Không thể xóa cấp bậc '" + levelToRemove.getUnitTypeName() + "' vì đang có đơn vị sử dụng.");
             }
@@ -180,7 +196,16 @@ public class OrganizationService {
             orgHierarchyLevelRepository.delete(levelToRemove);
         }
 
-        // 2. Update or Add
+        // Shift existing level orders to temporary values to avoid unique constraint violations during update
+        for (OrgHierarchyLevel lvl : currentLevels) {
+            if (!toRemove.contains(lvl)) {
+                lvl.setLevelOrder(lvl.getLevelOrder() + 1000);
+                orgHierarchyLevelRepository.save(lvl);
+            }
+        }
+        orgHierarchyLevelRepository.flush();
+
+        // 2. Sync levels
         int totalLevels = newLevels.size();
         for (int i = 0; i < totalLevels; i++) {
             HierarchyLevelDTO dto = newLevels.get(i);
@@ -188,19 +213,25 @@ public class OrganizationService {
             boolean isTop = (i == 0);
             boolean isBottom = (i == totalLevels - 1);
             
-            if (i < currentLevels.size()) {
-                // Update existing level
-                OrgHierarchyLevel level = currentLevels.get(i);
+            OrgHierarchyLevel level;
+            if (dto.getId() != null) {
+                // Update existing
+                level = orgHierarchyLevelRepository.findById(dto.getId())
+                        .orElseThrow(() -> new ResourceNotFoundException("Cấp bậc", "id", dto.getId()));
+                
+                // If roleLevel changes, we need to update existing roles for this level
+                if (!level.getRoleLevel().equals(roleLevel)) {
+                    updateExistingRolesLevel(organization, level.getRoleLevel(), roleLevel);
+                }
+                
                 level.setUnitTypeName(dto.getUnitTypeName());
                 level.setManagerRoleLabel(dto.getManagerRoleLabel());
+                level.setLevelOrder(i);
                 level.setRoleLevel(roleLevel);
                 orgHierarchyLevelRepository.save(level);
-                
-                // Sync Roles for this level
-                syncRolesForLevel(organization, roleLevel, dto, isTop, isBottom, allPerms, i + 1, totalLevels);
             } else {
-                // Add new level
-                OrgHierarchyLevel level = OrgHierarchyLevel.builder()
+                // Create new
+                level = OrgHierarchyLevel.builder()
                         .organization(organization)
                         .levelOrder(i)
                         .unitTypeName(dto.getUnitTypeName())
@@ -208,10 +239,22 @@ public class OrganizationService {
                         .roleLevel(roleLevel)
                         .build();
                 orgHierarchyLevelRepository.save(level);
-                
-                // Create Roles for this new level
-                syncRolesForLevel(organization, roleLevel, dto, isTop, isBottom, allPerms, i + 1, totalLevels);
             }
+            
+            // Sync Roles for this level
+            syncRolesForLevel(organization, roleLevel, dto, isTop, isBottom, allPerms, i + 1, totalLevels);
+        }
+    }
+
+    private void updateExistingRolesLevel(Organization org, Integer oldLevel, Integer newLevel) {
+        List<Role> roles = roleRepository.findAllByDeletedAtIsNull().stream()
+                .filter(r -> r.getOrganization() != null && r.getOrganization().getId().equals(org.getId()))
+                .filter(r -> r.getLevel() != null && r.getLevel().equals(oldLevel))
+                .toList();
+        
+        for (Role r : roles) {
+            r.setLevel(newLevel);
+            roleRepository.save(r);
         }
     }
 

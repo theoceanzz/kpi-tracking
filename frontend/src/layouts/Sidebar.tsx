@@ -34,6 +34,7 @@ import { useNotificationDots } from '../hooks/useNotificationDots'
 import { useSidebarSettings } from '@/features/organization/hooks/useSidebarSettings'
 import { useTourStore } from '@/store/tourStore'
 import { pathToTourKey } from '@/components/common/tourSteps'
+import { useOrganization } from '@/features/orgunits/hooks/useOrganization'
 
 interface NavItem {
   label: string
@@ -42,6 +43,7 @@ interface NavItem {
   permission?: string
   end?: boolean
   children?: NavItem[]
+  okrOnly?: boolean
 }
 
 const navItems: NavItem[] = [
@@ -52,6 +54,7 @@ const navItems: NavItem[] = [
     icon: <Building2 size={20} />,
     children: [
       { label: 'Công ty', path: '/company', icon: <Building2 size={18} />, permission: 'COMPANY:VIEW' },
+      { label: 'Quản lý OKR', path: '/okr', icon: <Target size={18} />, permission: 'COMPANY:VIEW', okrOnly: true },
       {
         label: 'Tổ chức',
         icon: <Network size={18} />,
@@ -70,9 +73,9 @@ const navItems: NavItem[] = [
     children: [
       { label: 'Quản lý đợt ', path: '/kpi-periods', icon: <Layers size={18} />, permission: 'KPI_PERIOD:CREATE' },
       { label: 'Quản lý chỉ tiêu', path: '/kpi-criteria', icon: <Target size={18} />, permission: 'KPI:VIEW', end: true },
-      { label: 'Duyệt chỉ tiêu', path: '/kpi-criteria/pending', icon: <ClipboardCheck size={18} />, permission: 'KPI:APPROVE' },
-      { label: 'Duyệt điều chỉnh', path: '/kpi-adjustments/pending', icon: <MessageSquare size={18} />, permission: 'KPI:APPROVE' },
-      { label: 'Phê duyệt & Đánh giá', path: '/submissions/org-unit', icon: <ClipboardCheck size={18} />, permission: 'SUBMISSION:REVIEW' },
+      { label: 'Duyệt chỉ tiêu', path: '/kpi-criteria/pending', icon: <ClipboardCheck size={18} />, permission: 'KPI:APPROVE_CRITERIA' },
+      { label: 'Duyệt điều chỉnh', path: '/kpi-adjustments/pending', icon: <MessageSquare size={18} />, permission: 'KPI:APPROVE_ADJUSTMENT' },
+      { label: 'Phê duyệt & đánh giá ', path: '/submissions/org-unit', icon: <ClipboardCheck size={18} />, permission: 'SUBMISSION:REVIEW' },
       { label: 'Kết quả đánh giá', path: '/evaluations', icon: <Star size={18} />, permission: 'EVALUATION:VIEW_MY' },
     ]
   },
@@ -139,6 +142,8 @@ export default function Sidebar({ isMobileOpen, onCloseMobile }: { isMobileOpen?
   
   const organizationId = user?.memberships?.[0]?.organizationId
   const { data: customLabels = {} } = useSidebarSettings(organizationId!)
+  const { data: org } = useOrganization(organizationId)
+  const enableOkr = org?.enableOkr
 
   const [expandedMenus, setExpandedMenus] = useState<Record<string, boolean>>({})
 
@@ -184,6 +189,15 @@ export default function Sidebar({ isMobileOpen, onCloseMobile }: { isMobileOpen?
             }
             return null
           }
+          if (child.okrOnly && !enableOkr) return null
+
+          if (child.path === '/evaluations') {
+            if (! hasPermission('EVALUATION:VIEW_MY')) {
+              return null
+            }
+            return { ...child, label: getLabel(child) }
+          }
+
           if (!child.permission || hasPermission(child.permission)) {
             return { ...child, label: getLabel(child) }
           }
@@ -201,11 +215,7 @@ export default function Sidebar({ isMobileOpen, onCloseMobile }: { isMobileOpen?
     
     let processedItem: NavItem | null = updatedItem
 
-    if (item.path === '/evaluations') {
-      if (!(hasPermission('EVALUATION:VIEW') || hasPermission('EVALUATION:VIEW_MY'))) {
-        processedItem = null
-      }
-    } else if (item.path === '/dashboard/staff') {
+    if (item.path === '/dashboard/staff') {
       const isManager = hasPermission(['KPI:APPROVE', 'SUBMISSION:REVIEW', 'ORG:CREATE', 'USER:VIEW_LIST'])
       if (!(isManager && hasPermission('KPI:VIEW_MY'))) {
         processedItem = null

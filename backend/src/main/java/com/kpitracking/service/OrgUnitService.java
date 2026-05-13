@@ -69,22 +69,40 @@ public class OrgUnitService {
             orgHierarchyLevelRepository.save(hierarchyLevel);
         }
 
+        // 1. Kiểm tra trùng tên (Case-insensitive) trong cùng tổ chức
+        if (orgUnitRepository.existsByNameIgnoreCaseAndOrgHierarchyLevel_Organization_IdAndDeletedAtIsNull(request.getName(), orgId)) {
+            throw new DuplicateResourceException("Thành phần tổ chức", "tên", request.getName());
+        }
+
         String code = request.getCode();
         if (parent == null) {
             code = organization.getCode();
-        } else {
-            // Kiểm tra trùng mã thành phần cho các đơn vị con
-            if (orgUnitRepository.existsByCode(code)) {
-                throw new DuplicateResourceException("Thành phần tổ chức", "mã", code);
-            }
         }
 
-        OrgUnit orgUnit = OrgUnit.builder()
-                .name(request.getName())
-                .code(code)
-                .orgHierarchyLevel(hierarchyLevel)
-                .path("/temp/")  // DB trigger will set the real path
-                .build();
+        // 2. Kiểm tra trùng mã (Smart check: Nếu đã xóa thì KHÔI PHỤC, nếu đang dùng thì BÁO LỖI)
+        if (orgUnitRepository.existsByCodeSmart(code, orgId)) {
+            throw new DuplicateResourceException("Thành phần tổ chức", "mã", code);
+        }
+
+        Optional<OrgUnit> deletedUnitOpt = orgUnitRepository.findDeletedByCodeSmart(code, orgId);
+        OrgUnit orgUnit;
+
+        if (deletedUnitOpt.isPresent()) {
+            // KHÔI PHỤC đơn vị đã xóa
+            orgUnit = deletedUnitOpt.get();
+            orgUnit.setName(request.getName());
+            orgUnit.setOrgHierarchyLevel(hierarchyLevel);
+            orgUnit.setDeletedAt(null);
+            orgUnit.setStatus(com.kpitracking.enums.OrgUnitStatus.ACTIVE);
+        } else {
+            // TẠO MỚI đơn vị
+            orgUnit = OrgUnit.builder()
+                    .name(request.getName())
+                    .code(code)
+                    .orgHierarchyLevel(hierarchyLevel)
+                    .path("/temp/")  // DB trigger will set the real path
+                    .build();
+        }
 
         if (parent != null) {
             orgUnit.setParent(parent);
@@ -132,9 +150,15 @@ public class OrgUnitService {
         OrgUnit orgUnit = orgUnitRepository.findByIdAndOrgHierarchyLevel_Organization_Id(unitId, orgId)
                 .orElseThrow(() -> new ResourceNotFoundException("Đơn vị", "id", unitId));
 
-        if (request.getName() != null) orgUnit.setName(request.getName());
+        if (request.getName() != null && !request.getName().equalsIgnoreCase(orgUnit.getName())) {
+            if (orgUnitRepository.existsByNameIgnoreCaseAndOrgHierarchyLevel_Organization_IdAndDeletedAtIsNull(request.getName(), orgId)) {
+                throw new DuplicateResourceException("Thành phần tổ chức", "tên", request.getName());
+            }
+            orgUnit.setName(request.getName());
+        }
+
         if (request.getCode() != null && !request.getCode().equals(orgUnit.getCode())) {
-            if (orgUnitRepository.existsByCode(request.getCode())) {
+            if (orgUnitRepository.existsByCodeSmart(request.getCode(), orgId)) {
                 throw new DuplicateResourceException("Thành phần tổ chức", "mã", request.getCode());
             }
             orgUnit.setCode(request.getCode());
@@ -172,14 +196,26 @@ public class OrgUnitService {
                     .collect(Collectors.toSet());
             
             List<com.kpitracking.entity.Role> newAllowedRoles = roleRepository.findAllById(request.getRoleIds());
-            orgUnit.setAllowedRoles(newAllowedRoles);
-
+            
             Set<UUID> newRoleIds = new HashSet<>(request.getRoleIds());
             
             // Identify and revoke removed roles
-            oldRoleIds.stream()
-                .filter(id -> !newRoleIds.contains(id))
-                .forEach(roleId -> userRoleOrgUnitRepository.deleteByOrgUnitIdAndRoleId(unitId, roleId));
+            for (UUID oldRoleId : oldRoleIds) {
+                if (!newRoleIds.contains(oldRoleId)) {
+                    // Check if any user is still using this role in this unit
+                    if (userRoleOrgUnitRepository.existsByOrgUnitIdAndRoleId(unitId, oldRoleId)) {
+                        com.kpitracking.entity.Role role = newAllowedRoles.stream()
+                                .filter(r -> r.getId().equals(oldRoleId))
+                                .findFirst()
+                                .orElse(null);
+                        String roleName = role != null ? role.getName() : "này";
+                        throw new BusinessException("Không thể bỏ vai trò '" + roleName + "' vì vẫn còn nhân viên đang giữ vai trò này trong đơn vị.");
+                    }
+                    userRoleOrgUnitRepository.deleteByOrgUnitIdAndRoleId(unitId, oldRoleId);
+                }
+            }
+            
+            orgUnit.setAllowedRoles(newAllowedRoles);
         }
         
         if (request.getStatus() != null) {
@@ -198,6 +234,17 @@ public class OrgUnitService {
     public void softDeleteOrgUnit(UUID orgId, UUID unitId) {
         OrgUnit orgUnit = orgUnitRepository.findByIdAndOrgHierarchyLevel_Organization_Id(unitId, orgId)
                 .orElseThrow(() -> new ResourceNotFoundException("Đơn vị", "id", unitId));
+
+        // 1. Kiểm tra nếu có đơn vị con
+        if (!orgUnit.getChildren().isEmpty()) {
+            throw new BusinessException("Không thể xóa đơn vị này vì vẫn còn các đơn vị con bên trong. Vui lòng xóa hoặc di chuyển các đơn vị con trước.");
+        }
+
+        // 2. Kiểm tra nếu có nhân viên đang gán vào đơn vị này
+        if (userRoleOrgUnitRepository.existsByOrgUnitId(unitId)) {
+            throw new BusinessException("Không thể xóa đơn vị này vì vẫn còn nhân viên/chức vụ đang hoạt động. Vui lòng gỡ bỏ nhân viên khỏi đơn vị trước khi xóa.");
+        }
+
         orgUnit.setDeletedAt(Instant.now());
         orgUnitRepository.save(orgUnit);
     }

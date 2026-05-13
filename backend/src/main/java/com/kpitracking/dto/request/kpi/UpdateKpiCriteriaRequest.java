@@ -32,4 +32,6 @@ public class UpdateKpiCriteriaRequest {
     private UUID kpiPeriodId;
 
     private Double minimumValue;
+    private UUID keyResultId;
+    private UUID parentId;
 }

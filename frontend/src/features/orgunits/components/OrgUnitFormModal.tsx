@@ -190,7 +190,7 @@ export default function OrgUnitFormModal({ open, onClose, editUnit, initialParen
   const inputCls = "w-full px-3 py-2.5 rounded-lg border border-[var(--color-border)] bg-[var(--color-background)] text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]/50"
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
+    <div className="fixed inset-0 z-[200] flex items-center justify-center">
       <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
       <div className="relative bg-[var(--color-card)] rounded-2xl shadow-xl p-6 max-w-lg w-full mx-4 animate-in zoom-in-95 max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between mb-5">
@@ -286,10 +286,7 @@ export default function OrgUnitFormModal({ open, onClose, editUnit, initialParen
                   />
                   <div className="ml-3">
                     <p className="text-sm font-bold text-[var(--color-foreground)] group-hover:text-[var(--color-primary)] transition-colors uppercase">
-                      {role.name === 'DIRECTOR' ? 'Giám đốc' : 
-                       role.name === 'HEAD' ? 'Trưởng phòng' :
-                       role.name === 'DEPUTY' ? 'Phó phòng' :
-                       role.name === 'STAFF' ? 'Nhân viên' : role.name}
+                      {role.name}
                     </p>
                     <p className="text-[10px] text-[var(--color-muted-foreground)] font-bold uppercase">{role.isSystem ? 'Hệ thống' : 'Tùy chỉnh'}</p>
                   </div>

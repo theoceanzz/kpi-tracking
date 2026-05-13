@@ -1,3 +1,4 @@
+import { useNavigate } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { evaluationSchema, type EvaluationFormData } from '../schemas/evaluationSchema'
@@ -89,10 +90,28 @@ export default function EvaluationFormModal({ open, onClose, readOnly = false, i
     }
   }, [calculatedScore, setValue, currentScore, readOnly])
 
+  const navigate = useNavigate()
+
+  const primaryMembership = useMemo(() => {
+    const ms = user?.memberships || [];
+    if (ms.length <= 1) return ms[0];
+    return ms.find(m => (m.levelOrder ?? 0) > 0) || ms[0];
+  }, [user?.memberships]);
+
+  const isHead = primaryMembership?.roleRank === 0;
+
   const onSubmit = (data: EvaluationFormData) => {
     if (readOnly) return
     createMutation.mutate(data, {
-      onSuccess: () => { reset(); onClose() },
+      onSuccess: () => { 
+        reset(); 
+        onClose();
+        if (isHead) {
+          navigate('/submissions/org-unit')
+        } else {
+          navigate('/evaluations')
+        }
+      },
     })
   }
 

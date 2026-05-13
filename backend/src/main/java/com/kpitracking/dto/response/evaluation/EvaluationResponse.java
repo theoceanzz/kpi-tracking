@@ -27,4 +27,5 @@ public class EvaluationResponse {
     private Integer userLevel;
     private Integer userRank;
     private String userRoleName;
+    private String evaluatorRoleName;
 }

@@ -74,7 +74,7 @@ export const headDashboardSteps: Step[] = [
     title: '👥 Hiệu suất Đội ngũ',
     content: (
       <div className="space-y-2">
-        <p>Chào Trưởng phòng! Hãy tập trung vào 3 con số ảnh hưởng trực tiếp đến hiệu quả vận hành của bộ phận bạn:</p>
+        <p>Chào Trưởng đơn vị! Hãy tập trung vào 3 con số ảnh hưởng trực tiếp đến hiệu quả vận hành của bộ phận bạn:</p>
         <ul className="text-[11px] space-y-2 list-disc pl-4 text-slate-500 font-medium">
           <li><strong className="text-slate-900">KPI Chờ duyệt:</strong> Các mục tiêu nhân viên vừa thiết lập, cần bạn kiểm tra và xác nhận tính thực tế.</li>
           <li><strong className="text-slate-900">Báo cáo mới:</strong> Các kết quả công việc nhân viên vừa nộp, hãy đánh giá chúng ngay.</li>
@@ -200,6 +200,32 @@ export const companySteps: Step[] = [
       </div>
     ),
     placement: 'bottom',
+  },
+  {
+    target: '#tour-company-okr',
+    title: '🎯 Mô hình OKR',
+    content: (
+      <div className="space-y-2">
+        <p>Kích hoạt tính năng **OKR (Objectives and Key Results)** để liên kết chiến lược với vận hành.</p>
+        <p className="text-[11px] text-slate-500">
+          Khi bật, bạn có thể tạo các Mục tiêu định hướng và kết nối chúng trực tiếp với các chỉ số KPI đo lường hàng ngày.
+        </p>
+      </div>
+    ),
+    placement: 'right',
+  },
+  {
+    target: '#tour-company-waterfall',
+    title: '🌊 Mô hình Thác nước (Waterfall)',
+    content: (
+      <div className="space-y-2">
+        <p>Bật tính năng này để cho phép <strong>Phân rã mục tiêu</strong> từ trên xuống dưới.</p>
+        <p className="text-[11px] text-slate-500">
+          Khi được bật, Quản lý có thể giao lại chỉ tiêu của mình cho cấp dưới và kết quả của nhân viên sẽ tự động cộng dồn ngược lên cho Quản lý.
+        </p>
+      </div>
+    ),
+    placement: 'right',
   },
 ]
 
@@ -381,6 +407,19 @@ export const kpiCriteriaSteps: Step[] = [
       </div>
     ),
     placement: 'bottom',
+  },
+  {
+    target: '#tour-kpi-delegate-btn',
+    title: '🌿 Phân rã Mục tiêu (Delegate)',
+    content: (
+      <div className="space-y-2">
+        <p>Đây là phím tắt nhanh để <strong>ủy quyền/giao việc</strong> cho cấp dưới.</p>
+        <p className="text-[11px] bg-cyan-50 dark:bg-cyan-900/20 p-2 rounded-lg text-cyan-700 italic border-l-4 border-cyan-400">
+          Mẹo: Hệ thống sẽ tự động tạo một chỉ tiêu con liên kết với chỉ tiêu này, giúp việc theo dõi dòng chảy chỉ tiêu trở nên minh bạch và tự động hoàn toàn.
+        </p>
+      </div>
+    ),
+    placement: 'left',
   },
 ]
 
@@ -665,11 +704,49 @@ export const analyticsSteps: Step[] = [
   },
 ]
 
+/* ─── OKR Management Page ─── */
+export const okrManagementSteps: Step[] = [
+  {
+    target: '#tour-okr-header',
+    title: '🎯 Quản trị Chiến lược (OKR)',
+    content: (
+      <div className="space-y-2">
+        <p>Đây là nơi thiết lập các <strong>Mục tiêu (Objectives)</strong> mang tính chiến lược và các <strong>Kết quả then chốt (Key Results)</strong> định lượng để đo lường thành công.</p>
+        <p className="text-[11px] text-indigo-600 font-bold italic">💡 OKR giúp toàn bộ tổ chức tập trung vào những việc thực sự quan trọng và có tác động lớn nhất.</p>
+      </div>
+    ),
+    placement: 'bottom',
+  },
+  {
+    target: '#tour-okr-add-btn',
+    title: '➕ Thiết lập Mục tiêu mới',
+    content: (
+      <div className="space-y-2">
+        <p>Bắt đầu bằng cách tạo một <strong>Objective</strong> truyền cảm hứng. Sau đó, bạn sẽ thêm các <strong>Key Results</strong> cụ thể để đo lường Objective đó.</p>
+      </div>
+    ),
+    placement: 'bottom',
+  },
+  {
+    target: '#tour-okr-list',
+    title: '📊 Theo dõi Tiến độ Chiến lược',
+    content: (
+      <div className="space-y-2">
+        <p>Hệ thống tự động tính toán tiến độ của Objective dựa trên các Key Results liên quan.</p>
+        <p className="text-[11px] bg-amber-50 dark:bg-amber-900/20 p-2 rounded-lg text-amber-700 italic border-l-4 border-amber-400">
+          Mẹo: Khi các KPI liên kết với Key Result được cập nhật, tiến độ tại đây cũng sẽ thay đổi theo thời gian thực.
+        </p>
+      </div>
+    ),
+    placement: 'bottom',
+  },
+]
+
 
 /* ─── Map page keys to their labels (for sidebar replay button tooltips) ─── */
 export const tourPageLabels: Record<TourPageKey, string> = {
   'dashboard-director': 'Tổng quan (Giám đốc)',
-  'dashboard-head': 'Tổng quan (Trưởng phòng)',
+  'dashboard-head': 'Tổng quan (Trưởng đơn vị)',
   'dashboard-staff': 'Dashboard cá nhân',
   'company': 'Công ty',
   'roles': 'Vai trò',
@@ -686,6 +763,7 @@ export const tourPageLabels: Record<TourPageKey, string> = {
   'my-adjustments': 'Điều chỉnh của tôi',
   'evaluations': 'Kết quả đánh giá',
   'analytics': 'Thống kê',
+  'okr-management': 'Quản lý OKR',
 }
 
 /** Map URL paths to tour page keys */
@@ -708,4 +786,5 @@ export const pathToTourKey: Record<string, TourPageKey> = {
   '/my-adjustments': 'my-adjustments',
   '/evaluations': 'evaluations',
   '/analytics': 'analytics',
+  '/okr': 'okr-management',
 }

@@ -20,6 +20,7 @@ export type TourPageKey =
   | 'my-adjustments'
   | 'evaluations'
   | 'analytics'
+  | 'okr-management'
 
 interface TourState {
   /** Map of userId → (map of pageKey → whether tour has been seen) */

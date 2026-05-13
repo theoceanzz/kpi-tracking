@@ -39,6 +39,7 @@ public class EvaluationService {
     private final UserRoleOrgUnitRepository userRoleOrgUnitRepository;
     private final KpiCriteriaRepository kpiCriteriaRepository;
     private final KpiSubmissionRepository kpiSubmissionRepository;
+    private final KpiCriteriaService kpiCriteriaService;
     private final EvaluationMapper evaluationMapper;
     private final PermissionChecker permissionChecker;
 
@@ -143,20 +144,46 @@ public class EvaluationService {
         
         if (kpis.isEmpty()) return 0.0;
         
-        Set<UUID> kpiIds = kpis.stream()
-                .map(KpiCriteria::getId)
-                .collect(Collectors.toSet());
+        OrgUnit userUnit = kpis.get(0).getOrgUnit();
+        boolean enableWaterfall = userUnit.getOrgHierarchyLevel().getOrganization().getEnableWaterfall();
         
-        // Find all submissions for these KPIs by this user
-        List<KpiSubmission> submissions = kpiSubmissionRepository.findBySubmittedByUserIdAndKpiCriteriaIdIn(
-                userId, kpiIds);
+        double total = 0.0;
+        for (KpiCriteria kpi : kpis) {
+            if (kpi.getTargetValue() != null && kpi.getTargetValue() > 0 && kpi.getWeight() != null) {
+                double actual = calculateKpiActualValue(kpi, userId, enableWaterfall);
                 
-        double total = submissions.stream()
-                .filter(s -> s.getStatus() != SubmissionStatus.DRAFT)
-                .mapToDouble(s -> s.getAutoScore() != null ? s.getAutoScore() : 0.0)
-                .sum();
+                double score = (actual / kpi.getTargetValue()) * kpi.getWeight() * (maxScore / 100.0);
+                total += score;
+            }
+        }
                 
         return Math.min(maxScore, (double) Math.round(total));
+    }
+
+    private double calculateKpiActualValue(KpiCriteria kpi, UUID targetUserId, boolean enableWaterfall) {
+        // Waterfall logic: If enabled and has children, calculate AVERAGE of their values
+        if (enableWaterfall) {
+            List<KpiCriteria> children = kpiCriteriaRepository.findByParentId(kpi.getId());
+            if (!children.isEmpty()) {
+                // When flowing up, we want the AVERAGE value of child KPIs
+                return children.stream()
+                        .mapToDouble(child -> calculateKpiActualValue(child, null, true))
+                        .average()
+                        .orElse(0.0);
+            }
+        }
+
+        // Base case: Sum submissions for this specific KPI
+        // If targetUserId is provided, we only count their personal contribution (Personal Evaluation)
+        // If targetUserId is null, we count everyone (Unit performance flowing up in Waterfall)
+        return kpi.getSubmissions().stream()
+                .filter(s -> s.getDeletedAt() == null && 
+                        (targetUserId == null || s.getSubmittedBy().getId().equals(targetUserId)) &&
+                        (s.getStatus() == SubmissionStatus.APPROVED || 
+                         s.getStatus() == SubmissionStatus.PENDING || 
+                         s.getStatus() == SubmissionStatus.REJECTED))
+                .mapToDouble(s -> s.getActualValue() != null ? s.getActualValue() : 0.0)
+                .sum();
     }
 
     @Transactional(readOnly = true)
@@ -304,11 +331,11 @@ public class EvaluationService {
                     response.setOrgUnitLevel(evaluation.getOrgUnit().getOrgHierarchyLevel().getLevelOrder());
 
                     if (roleLevel == 0) {
-                        response.setEvaluatorRole("DIRECTOR");
+                        response.setEvaluatorRole("CEO");
                     } else if (roleLevel == 1) {
                         response.setEvaluatorRole("REGIONAL_DIRECTOR");
                     } else if (roleLevel == 2) {
-                        response.setEvaluatorRole("MANAGER");
+                        response.setEvaluatorRole("DIRECTOR"); // Company level head is a Director
                     } else if (roleLevel == 3) {
                         response.setEvaluatorRole("DEPT_HEAD");
                     } else if (roleLevel == 4) {
@@ -316,6 +343,7 @@ public class EvaluationService {
                     } else {
                         response.setEvaluatorRole("MANAGER");
                     }
+                    response.setEvaluatorRoleName(r.getName());
                 } else {
                     response.setEvaluatorRole("MANAGER");
                 }

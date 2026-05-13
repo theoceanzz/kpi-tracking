@@ -20,7 +20,7 @@ import { usePermission } from '@/hooks/usePermission'
 import { useAuthStore } from '@/store/authStore'
 import { useOrgHierarchyLevels, useOrgUnitTree } from '@/features/organization/hooks/useOrganizationStructure'
 import type { User } from '@/types/user'
-import { ROLE_MAP } from '@/constants/roles'
+
 import type { OrgUnitTreeResponse } from '@/features/organization/types/org-unit'
 import { useMemo } from 'react'
 
@@ -255,7 +255,7 @@ function CreateUserForm({ onClose, onSubmit, isPending, canAssignRoles, dynamicR
   const inputCls = "w-full px-3 py-2.5 rounded-lg border border-[var(--color-border)] bg-[var(--color-background)] text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]/50 transition-all shadow-sm"
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
+    <div className="fixed inset-0 z-[200] flex items-center justify-center">
       <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
       <div className="relative bg-[var(--color-card)] rounded-2xl shadow-xl p-6 max-w-md w-full mx-4 animate-in zoom-in-95 max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between mb-6">
@@ -383,7 +383,7 @@ function CreateUserForm({ onClose, onSubmit, isPending, canAssignRoles, dynamicR
                   <SelectContent>
                     {filteredRoles.map((opt) => (
                       <SelectItem key={opt.id} value={opt.name}>
-                        {ROLE_MAP[opt.name] || opt.name}
+                        {opt.name}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -485,7 +485,7 @@ function EditUserForm({ editUser, onClose, onSubmit, isPending, canAssignRoles, 
   const inputCls = "w-full px-3 py-2.5 rounded-lg border border-[var(--color-border)] bg-[var(--color-background)] text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]/50"
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
+    <div className="fixed inset-0 z-[200] flex items-center justify-center">
       <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
       <div className="relative bg-[var(--color-card)] rounded-2xl shadow-xl p-6 max-w-md w-full mx-4 animate-in zoom-in-95 max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between mb-6">
@@ -549,7 +549,7 @@ function EditUserForm({ editUser, onClose, onSubmit, isPending, canAssignRoles, 
                   <SelectContent>
                     {filteredRoles.map((opt) => (
                       <SelectItem key={opt.id} value={opt.name}>
-                        {ROLE_MAP[opt.name] || opt.name}
+                        {opt.name}
                       </SelectItem>
                     ))}
                   </SelectContent>

@@ -14,7 +14,8 @@ export interface Evaluation {
   systemScore: number | null
   createdAt: string
   updatedAt: string
-  evaluatorRole: 'SELF' | 'MANAGER' | 'DIRECTOR' | 'TEAM_LEADER' | 'DEPT_HEAD' | 'DEPT_DEPUTY' | 'TEAM_DEPUTY' | 'REGIONAL_DIRECTOR'
+  evaluatorRole: 'SELF' | 'MANAGER' | 'DIRECTOR' | 'TEAM_LEADER' | 'DEPT_HEAD' | 'DEPT_DEPUTY' | 'TEAM_DEPUTY' | 'REGIONAL_DIRECTOR' | 'CEO'
+  evaluatorRoleName?: string
   orgUnitLevel?: number
   userLevel?: number
   userRank?: number

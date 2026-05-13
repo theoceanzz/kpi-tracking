@@ -83,9 +83,11 @@ INSERT INTO permissions (id, code, resource, action, description) VALUES
     ('00000000-0000-0000-0000-000000000116', 'KPI:CREATE',            'KPI',          'CREATE',       'Thiết lập KPI'),
     ('00000000-0000-0000-0000-000000000117', 'KPI:UPDATE',            'KPI',          'UPDATE',       'Sửa chỉ tiêu KPI'),
     ('00000000-0000-0000-0000-000000000118', 'KPI:DELETE',            'KPI',          'DELETE',       'Xóa chỉ tiêu KPI'),
-    ('00000000-0000-0000-0000-000000000119', 'KPI:APPROVE',           'KPI',          'APPROVE',      'Phê duyệt chỉ tiêu KPI'),
+    ('00000000-0000-0000-0000-000000000119', 'KPI:APPROVE_CRITERIA',  'KPI',          'APPROVE_CRITERIA',      'Phê duyệt chỉ tiêu KPI'),
+    ('00000000-0000-0000-0000-000000000132', 'KPI:APPROVE_ADJUSTMENT','KPI',          'APPROVE_ADJUSTMENT',    'Phê duyệt điều chỉnh KPI'),
     ('00000000-0000-0000-0000-000000000120', 'KPI:VIEW_MY',           'KPI',          'VIEW_MY',      'Xem KPI cá nhân'),
     ('00000000-0000-0000-0000-000000000121', 'SUBMISSION:REVIEW',     'SUBMISSION',   'REVIEW',       'Duyệt bài nộp KPI'),
+    ('00000000-0000-0000-0000-000000000127', 'SUBMISSION:REVIEW_KPI', 'SUBMISSION',   'REVIEW_KPI',   'Xem bài nộp KPI'),
     ('00000000-0000-0000-0000-000000000122', 'SUBMISSION:CREATE',     'SUBMISSION',   'CREATE',       'Nộp báo cáo KPI'),
     ('00000000-0000-0000-0000-000000000123', 'SUBMISSION:VIEW_MY',    'SUBMISSION',   'VIEW_MY',      'Xem lịch sử nộp báo cáo'),
     ('00000000-0000-0000-0000-000000000124', 'EVALUATION:VIEW',       'EVALUATION',   'VIEW',         'Xem kết quả đánh giá'),
@@ -126,7 +128,8 @@ INSERT INTO permissions (id, code, resource, action, description) VALUES
     ('00000000-0000-0000-0000-000000000233', 'USER_ROLE:REVOKE',      'USER_ROLE',    'REVOKE',       'Thu hồi vai trò người dùng'),
     ('00000000-0000-0000-0000-000000000234', 'ATTACHMENT:UPLOAD',     'ATTACHMENT',   'UPLOAD',       'Upload tệp đính kèm'),
     ('00000000-0000-0000-0000-000000000235', 'ATTACHMENT:DELETE',     'ATTACHMENT',   'DELETE',       'Xoá tệp đính kèm'),
-    ('00000000-0000-0000-0000-000000000236', 'USER:VIEW_LIST',       'USER',         'VIEW_LIST',    'Xem danh sách nhân sự rút gọn (cho Dashboard)')
+    ('00000000-0000-0000-0000-000000000236', 'USER:VIEW_LIST',       'USER',         'VIEW_LIST',    'Xem danh sách nhân sự rút gọn (cho Dashboard)'),
+    ('00000000-0000-0000-0000-000000000237', 'REMINDER:SEND',        'REMINDER',     'SEND',         'Gửi thông báo nhắc nhở nhân viên')
 ON CONFLICT (code) DO NOTHING;
 
 -- ================================================================

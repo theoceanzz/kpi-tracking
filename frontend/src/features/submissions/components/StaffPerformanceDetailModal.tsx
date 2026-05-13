@@ -5,8 +5,10 @@ import { evaluationApi } from '@/features/evaluations/api/evaluationApi'
 import { 
   X, Loader2, Target, TrendingUp, 
   Award, Star, AlertCircle, Calendar,
-  CheckCircle2, Clock, MessageSquare
+  CheckCircle2, Clock, MessageSquare,
+  Paperclip, ExternalLink
 } from 'lucide-react'
+
 import { formatNumber, cn } from '@/lib/utils'
 
 interface StaffPerformanceDetailModalProps {
@@ -46,7 +48,7 @@ export default function StaffPerformanceDetailModal({
   const isLoading = loadingSubs || loadingEval
   const submissionList = submissions?.content ?? []
   const officialEval = useMemo(() => 
-    evaluations?.content?.find((e: any) => e.evaluatorRole === 'DIRECTOR' || e.evaluatorRole === 'MANAGER'),
+    evaluations?.content?.sort((a, b) => (b.score || 0) - (a.score || 0)).find((e: any) => e.evaluatorRole !== 'SELF'),
   [evaluations])
 
   const pendingCount = useMemo(() => 
@@ -187,7 +189,7 @@ export default function StaffPerformanceDetailModal({
                     <div className="relative z-10">
                        <div className="flex items-center gap-3 mb-4">
                           <div className="w-1.5 h-6 bg-emerald-500 rounded-full" />
-                          <h4 className="text-xs font-black uppercase tracking-widest text-emerald-600 dark:text-emerald-400">Nhận xét từ Quản lý</h4>
+                          <h4 className="text-xs font-black uppercase tracking-widest text-emerald-600 dark:text-emerald-400">Nhận xét từ {officialEval?.evaluatorRoleName || 'Quản lý'}</h4>
                        </div>
                        <p className="text-lg font-medium text-slate-700 dark:text-slate-300 italic leading-relaxed">
                           "{officialEval.comment}"
@@ -223,8 +225,37 @@ export default function StaffPerformanceDetailModal({
                               </div>
                               <div>
                                 <p className="text-sm font-black text-slate-900 dark:text-white group-hover:text-indigo-600 transition-colors">{s.kpiCriteriaName}</p>
-                                <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1">Trọng số: {s.weight}%</p>
+                                <div className="flex items-center gap-3 mt-1">
+                                  <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Trọng số: {s.weight}%</p>
+                                  {s.attachments && s.attachments.length > 0 && (
+                                    <div className="flex items-center gap-2">
+                                      <span className="text-[10px] text-slate-300">•</span>
+                                      <div className="flex flex-wrap gap-1.5">
+                                        {s.attachments.map(att => (
+                                          <a 
+                                            key={att.id} 
+                                            href={att.fileUrl} 
+                                            target="_blank" 
+                                            rel="noopener noreferrer"
+                                            title={att.fileName}
+                                            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 text-[9px] font-black uppercase tracking-wider hover:bg-indigo-500 hover:text-white transition-all"
+                                          >
+                                            <Paperclip size={10} />
+                                            <span className="truncate max-w-[80px]">{att.fileName}</span>
+                                            <ExternalLink size={10} />
+                                          </a>
+                                        ))}
+                                      </div>
+                                    </div>
+                                  )}
+                                </div>
+                                {s.note && (
+                                  <p className="text-[10px] text-slate-500 font-medium mt-1.5 italic line-clamp-1 group-hover:line-clamp-none transition-all">
+                                    " {s.note} "
+                                  </p>
+                                )}
                               </div>
+
                             </div>
                           </td>
                           <td className="px-8 py-6 text-center">

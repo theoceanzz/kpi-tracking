@@ -1,4 +1,6 @@
 import { useState, useRef, useEffect, useMemo } from 'react'
+import { format } from 'date-fns'
+
 import LoadingSkeleton from '@/components/common/LoadingSkeleton'
 import EmptyState from '@/components/common/EmptyState'
 import KpiFormModal from '../components/KpiFormModal'
@@ -13,7 +15,7 @@ import {
   Target, Plus, Send, Pencil, Trash2, MoreVertical,
   Calendar, AlertCircle, Search, 
   Filter, UserCircle2, Upload, Gauge, Eye,
-  LayoutGrid, List, ArrowUpDown, ChevronLeft, ChevronRight, ArrowRight
+  LayoutGrid, List, ArrowUpDown, ChevronLeft, ChevronRight, ArrowRight, GitBranch
 } from 'lucide-react'
 import KpiDetailModal from '../components/KpiDetailModal'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
@@ -24,11 +26,14 @@ import { useKpiPeriods } from '../hooks/useKpiPeriods'
 import { useKpiTotalWeight } from '../hooks/useKpiTotalWeight'
 import { useOrgUnitTree } from '@/features/orgunits/hooks/useOrgUnitTree'
 import { usePermission } from '@/hooks/usePermission'
+import { useOrganization } from '@/features/orgunits/hooks/useOrganization'
+import { useObjectives } from '../../okr/hooks/useOkr'
 import KpiExcelPreviewModal from '../components/KpiExcelPreviewModal'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { cn } from '@/lib/utils'
 import PageTour from '@/components/common/PageTour'
 import { kpiCriteriaSteps } from '@/components/common/tourSteps'
+import { ObjectiveResponse } from '@/features/okr/types'
 
 
 
@@ -55,6 +60,7 @@ export default function KpiCriteriaPage() {
   const [deleteKpi, setDeleteKpi] = useState<KpiCriteria | null>(null)
   const [submitKpiId, setSubmitKpiId] = useState<string | null>(null)
   const [selectedKpi, setSelectedKpi] = useState<KpiCriteria | null>(null)
+  const [delegateKpi, setDelegateKpi] = useState<KpiCriteria | null>(null)
   
   const [activeTab, setActiveTab] = useState<'ALL' | 'DRAFT' | 'PENDING_APPROVAL' | 'APPROVED' | 'REJECTED'>('ALL')
   const [search, setSearch] = useState('')
@@ -68,6 +74,8 @@ export default function KpiCriteriaPage() {
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc')
   const [startDateFilter, setStartDateFilter] = useState('')
   const [endDateFilter, setEndDateFilter] = useState('')
+  const [selectedObjectiveId, setSelectedObjectiveId] = useState<string>('ALL')
+  const [selectedKeyResultId, setSelectedKeyResultId] = useState<string>('ALL')
   
   const [importFile, setImportFile] = useState<File | null>(null)
   const [showPreview, setShowPreview] = useState(false)
@@ -78,7 +86,11 @@ export default function KpiCriteriaPage() {
   const canManageOrg = hasPermission('ORG:VIEW')
 
   const user = useAuthStore(s => s.user)
-  const { data: periodsData } = useKpiPeriods({ organizationId: user?.memberships?.[0]?.organizationId })
+  const organizationId = user?.memberships?.[0]?.organizationId
+  const { data: org } = useOrganization(organizationId)
+  const enableOkr = org?.enableOkr
+  const enableWaterfall = org?.enableWaterfall
+  const { data: periodsData } = useKpiPeriods({ organizationId })
   const { data: orgUnitTreeData } = useOrgUnitTree()
   
   const flattenTree = (nodes: any[], level = 0): any[] => {
@@ -127,10 +139,17 @@ export default function KpiCriteriaPage() {
       startDate: startDateFilter ? new Date(startDateFilter).toISOString() : undefined,
       endDate: endDateFilter ? new Date(endDateFilter).toISOString() : undefined,
       sortBy,
-      sortDir
+      sortDir,
+      objectiveId: selectedObjectiveId === 'ALL' ? undefined : selectedObjectiveId,
+      keyResultId: selectedKeyResultId === 'ALL' ? undefined : selectedKeyResultId
     },
     { enabled: !!user?.id }
   )
+
+  const { data: objectivesData } = useObjectives(user?.memberships?.[0]?.organizationId)
+  
+  const selectedObjective = objectivesData?.find((o: ObjectiveResponse) => o.id === selectedObjectiveId)
+  const keyResults = selectedObjective?.keyResults || []
 
   const { data: totalWeightData } = useKpiTotalWeight(
     selectedOrgUnitId === 'ALL' ? undefined : selectedOrgUnitId,
@@ -288,68 +307,111 @@ export default function KpiCriteriaPage() {
                 <button 
                   id="tour-kpi-add-btn"
                   onClick={() => { setEditKpi(null); setShowForm(true) }} 
-                  className="flex items-center gap-2 px-8 h-[52px] rounded-[20px] bg-indigo-600 text-white text-sm font-black hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-500/20 active:scale-95 group"
+                  className="cursor-pointer relative z-10 flex items-center gap-2 px-8 h-[52px] rounded-[20px] bg-indigo-600 text-white text-sm font-black hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-500/20 active:scale-95 group"
                 >
                   <Plus size={20} className="group-hover:rotate-90 transition-transform duration-500" /> Tạo mới
                 </button>
               </div>
             </div>
 
-            {/* Row 2: Filters */}
+            {/* Filters Row 1: Period, Org Unit, Date Range */}
             <div className="flex flex-wrap items-center gap-3 pt-4 border-t border-slate-100 dark:border-slate-800/50">
-              <Select value={selectedPeriodId} onValueChange={val => { setSelectedPeriodId(val); setPage(0) }}>
-                <SelectTrigger className="w-full sm:w-48 h-11 rounded-xl border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50 font-bold text-xs">
-                  <Calendar size={14} className="text-slate-400 mr-2" />
-                  <SelectValue placeholder="Đợt KPI..." />
-                </SelectTrigger>
-                <SelectContent className="rounded-2xl border-slate-200 dark:border-slate-800 shadow-2xl p-2">
-                  <SelectItem value="ALL" className="rounded-xl focus:bg-indigo-50 dark:focus:bg-indigo-900/30 text-xs font-black uppercase">Tất cả các đợt</SelectItem>
-                  {periodsData?.content.map(p => (
-                    <SelectItem key={p.id} value={p.id} className="rounded-xl focus:bg-indigo-50 dark:focus:bg-indigo-900/30 text-sm font-bold">{p.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-
-              {canManageOrg && flatOrgUnits.length > 0 && (
-                <Select value={selectedOrgUnitId} onValueChange={val => { setSelectedOrgUnitId(val); setPage(0) }}>
-                  <SelectTrigger className="w-full sm:w-56 h-11 rounded-xl border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50 font-bold text-xs">
-                    <Filter size={14} className="text-slate-400 mr-2" />
-                    <SelectValue placeholder="Phòng ban..." />
+              <div className="flex items-center gap-3">
+                <Select value={selectedPeriodId} onValueChange={val => { setSelectedPeriodId(val); setPage(0) }}>
+                  <SelectTrigger className="w-full sm:w-48 h-11 rounded-xl border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50 font-bold text-xs">
+                    <Calendar size={14} className="text-slate-400 mr-2" />
+                    <SelectValue placeholder="Đợt KPI..." />
                   </SelectTrigger>
-                  <SelectContent className="rounded-2xl border-slate-200 dark:border-slate-800 shadow-2xl p-2 max-h-[400px]">
-                    {flatOrgUnits.map((o: any) => (
-                      <SelectItem key={o.id} value={o.id} className="rounded-xl focus:bg-indigo-50 dark:focus:bg-indigo-900/30 text-sm font-medium">{o.levelLabel}</SelectItem>
+                  <SelectContent className="rounded-2xl border-slate-200 dark:border-slate-800 shadow-2xl p-2">
+                    <SelectItem value="ALL" className="rounded-xl focus:bg-indigo-50 dark:focus:bg-indigo-900/30 text-xs font-black uppercase">Tất cả các đợt</SelectItem>
+                    {periodsData?.content.map(p => (
+                      <SelectItem key={p.id} value={p.id} className="rounded-xl focus:bg-indigo-50 dark:focus:bg-indigo-900/30 text-sm font-bold">{p.name}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
-              )}
 
-              <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
+                {canManageOrg && flatOrgUnits.length > 0 && (
+                  <Select value={selectedOrgUnitId} onValueChange={val => { setSelectedOrgUnitId(val); setPage(0) }}>
+                    <SelectTrigger className="w-full sm:w-60 h-11 rounded-xl border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50 font-bold text-xs">
+                      <Filter size={14} className="text-slate-400 mr-2" />
+                      <SelectValue placeholder="Phòng ban..." />
+                    </SelectTrigger>
+                    <SelectContent className="rounded-2xl border-slate-200 dark:border-slate-800 shadow-2xl p-2 max-h-[400px]">
+                      <SelectItem value="ALL" className="rounded-xl focus:bg-indigo-50 dark:focus:bg-indigo-900/30 text-xs font-black uppercase">Tất cả đơn vị</SelectItem>
+                      {flatOrgUnits.map((o: any) => (
+                        <SelectItem key={o.id} value={o.id} className="rounded-xl focus:bg-indigo-50 dark:focus:bg-indigo-900/30 text-sm font-medium">{o.levelLabel}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+              </div>
+
+              <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap ml-auto">
                 <div className="relative">
-                  <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
+                  <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 z-10" size={14} />
                   <input 
                     type="date"
                     value={startDateFilter}
                     onChange={(e) => { setStartDateFilter(e.target.value); setPage(0) }}
-                    className="pl-9 pr-3 h-11 rounded-xl border border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50 text-[10px] font-black uppercase outline-none focus:ring-2 focus:ring-indigo-500/20 transition-all"
+                    className="pl-9 pr-3 h-11 rounded-xl border border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50 text-[10px] font-black uppercase outline-none focus:ring-2 focus:ring-indigo-500/20 transition-all text-transparent w-[160px]"
                     title="Từ ngày"
                   />
+                  <div className="absolute inset-0 left-9 flex items-center pointer-events-none text-[10px] font-black uppercase text-slate-600 dark:text-slate-400">
+                    {startDateFilter ? format(new Date(startDateFilter), 'dd/MM/yyyy') : 'Từ ngày'}
+                  </div>
                 </div>
                 <ArrowRight size={12} className="text-slate-300 hidden sm:block" />
                 <div className="relative">
-                  <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
+                  <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 z-10" size={14} />
                   <input 
                     type="date"
                     value={endDateFilter}
                     onChange={(e) => { setEndDateFilter(e.target.value); setPage(0) }}
-                    className="pl-9 pr-3 h-11 rounded-xl border border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50 text-[10px] font-black uppercase outline-none focus:ring-2 focus:ring-indigo-500/20 transition-all"
+                    className="pl-9 pr-3 h-11 rounded-xl border border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50 text-[10px] font-black uppercase outline-none focus:ring-2 focus:ring-indigo-500/20 transition-all text-transparent w-[160px]"
                     title="Đến ngày"
                   />
+                  <div className="absolute inset-0 left-9 flex items-center pointer-events-none text-[10px] font-black uppercase text-slate-600 dark:text-slate-400">
+                    {endDateFilter ? format(new Date(endDateFilter), 'dd/MM/yyyy') : 'Đến ngày'}
+                  </div>
                 </div>
               </div>
+            </div>
 
-              {/* Sort Dropdown */}
-              <div className="ml-auto flex items-center gap-2">
+            {/* Filters Row 2: OKR & Sorting */}
+            <div className="flex flex-wrap items-center gap-3 pt-4 border-t border-slate-50 dark:border-slate-800/30">
+              <div className="flex items-center gap-3">
+                {enableOkr && (
+                  <>
+                    <Select value={selectedObjectiveId} onValueChange={(v) => { setSelectedObjectiveId(v); setSelectedKeyResultId('ALL'); setPage(0) }}>
+                      <SelectTrigger className="w-full sm:w-80 h-11 rounded-xl border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50 font-bold text-xs">
+                        <Target size={14} className="text-slate-400 mr-2" />
+                        <SelectValue placeholder="Chọn Mục tiêu" />
+                      </SelectTrigger>
+                      <SelectContent className="rounded-2xl border-slate-200 dark:border-slate-800">
+                        <SelectItem value="ALL" className="font-bold">Tất cả Mục tiêu</SelectItem>
+                        {objectivesData?.map(obj => (
+                          <SelectItem key={obj.id} value={obj.id} className="font-medium">[{obj.code}] {obj.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+
+                    <Select value={selectedKeyResultId} onValueChange={(v) => { setSelectedKeyResultId(v); setPage(0) }} disabled={selectedObjectiveId === 'ALL'}>
+                      <SelectTrigger className="w-full sm:w-80 h-11 rounded-xl border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50 font-bold text-xs">
+                        <GitBranch size={14} className="text-slate-400 mr-2" />
+                        <SelectValue placeholder="Chọn Kết quả" />
+                      </SelectTrigger>
+                      <SelectContent className="rounded-2xl border-slate-200 dark:border-slate-800">
+                        <SelectItem value="ALL" className="font-bold">Tất cả Kết quả</SelectItem>
+                        {keyResults.map(kr => (
+                          <SelectItem key={kr.id} value={kr.id} className="font-medium">[{kr.code}] {kr.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </>
+                )}
+              </div>
+
+              <div className="ml-auto">
                 <Select value={`${sortBy}-${sortDir}`} onValueChange={(val) => {
                   const [field, dir] = val.split('-')
                   if (field && dir) {
@@ -366,7 +428,7 @@ export default function KpiCriteriaPage() {
                     <SelectItem value="createdAt-desc" className="rounded-xl focus:bg-indigo-50 dark:focus:bg-indigo-900/30 text-xs font-bold">Mới nhất</SelectItem>
                     <SelectItem value="createdAt-asc" className="rounded-xl focus:bg-indigo-50 dark:focus:bg-indigo-900/30 text-xs font-bold">Cũ nhất</SelectItem>
                     <SelectItem value="name-asc" className="rounded-xl focus:bg-indigo-50 dark:focus:bg-indigo-900/30 text-xs font-bold">Tên A-Z</SelectItem>
-                    <SelectItem value="name-desc" className="rounded-xl focus:bg-indigo-50 dark:focus:bg-indigo-900/30 text-xs font-bold">Tên Z-A</SelectItem>
+                    <SelectItem value="name-desc" className="rounded-xl focus:bg-indigo-50 dark:focus:bg-indigo-900/30 text-xs font-black uppercase">Tên Z-A</SelectItem>
                     <SelectItem value="weight-desc" className="rounded-xl focus:bg-indigo-50 dark:focus:bg-indigo-900/30 text-xs font-bold">Trọng số cao</SelectItem>
                     <SelectItem value="weight-asc" className="rounded-xl focus:bg-indigo-50 dark:focus:bg-indigo-900/30 text-xs font-bold">Trọng số thấp</SelectItem>
                     <SelectItem value="targetValue-desc" className="rounded-xl focus:bg-indigo-50 dark:focus:bg-indigo-900/30 text-xs font-bold">Mục tiêu cao</SelectItem>
@@ -434,6 +496,12 @@ export default function KpiCriteriaPage() {
                           Chỉ tiêu <ArrowUpDown size={12} className={cn("transition-opacity", sortBy === 'name' ? "opacity-100 text-indigo-600" : "opacity-0 group-hover:opacity-100")} />
                         </button>
                       </th>
+                      {enableOkr && (
+                        <>
+                          <th className="px-4 py-5 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 whitespace-nowrap">Mục tiêu (OKR)</th>
+                          <th className="px-4 py-5 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 whitespace-nowrap">Kết quả (KR)</th>
+                        </>
+                      )}
                       <th className="px-4 py-5 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 whitespace-nowrap">Giao cho</th>
                       <th className="px-4 py-5 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 text-right whitespace-nowrap">
                         <button onClick={() => { setSortBy('targetValue'); setSortDir(sortDir === 'asc' ? 'desc' : 'asc') }} className="flex items-center justify-end gap-2 hover:text-indigo-600 transition-colors group w-full">
@@ -458,7 +526,10 @@ export default function KpiCriteriaPage() {
                         onEdit={() => { setEditKpi(kpi); setShowForm(true) }}
                         onDelete={() => setDeleteKpi(kpi)}
                         onSubmit={() => setSubmitKpiId(kpi.id)}
+                        onDelegate={() => { setDelegateKpi(kpi); setShowForm(true) }}
                         totalWeight={displayTotalWeight}
+                        enableOkr={enableOkr}
+                        enableWaterfall={enableWaterfall}
                       />
                     ))}
                   </tbody>
@@ -476,7 +547,10 @@ export default function KpiCriteriaPage() {
                   onEdit={() => { setEditKpi(kpi); setShowForm(true) }}
                   onDelete={() => setDeleteKpi(kpi)}
                   onSubmit={() => setSubmitKpiId(kpi.id)}
+                  onDelegate={() => { setDelegateKpi(kpi); setShowForm(true) }}
                   totalWeight={displayTotalWeight}
+                  enableOkr={enableOkr}
+                  enableWaterfall={enableWaterfall}
                 />
               ))}
             </div>
@@ -525,7 +599,12 @@ export default function KpiCriteriaPage() {
         </div>
 
         {/* Modals & Inputs */}
-        <KpiFormModal open={showForm} onClose={() => { setShowForm(false); setEditKpi(null) }} editKpi={editKpi} />
+        <KpiFormModal 
+          open={showForm} 
+          onClose={() => { setShowForm(false); setEditKpi(null); setDelegateKpi(null) }} 
+          editKpi={editKpi} 
+          parentKpi={delegateKpi}
+        />
         <KpiImportGuideModal 
           open={showImportGuide} 
           onClose={() => setShowImportGuide(false)} 
@@ -563,8 +642,8 @@ export default function KpiCriteriaPage() {
   )
 }
 
-function KpiTableRow({ kpi, index, onView, onEdit, onDelete, onSubmit, totalWeight }: { 
-  kpi: KpiCriteria; index: number; onView: () => void; onEdit: () => void; onDelete: () => void; onSubmit: () => void; totalWeight: number 
+function KpiTableRow({ kpi, index, onView, onEdit, onDelete, onSubmit, onDelegate, totalWeight, enableOkr, enableWaterfall }: { 
+  kpi: KpiCriteria; index: number; onView: () => void; onEdit: () => void; onDelete: () => void; onSubmit: () => void; onDelegate: () => void; totalWeight: number; enableOkr?: boolean; enableWaterfall?: boolean
 }) {
   const status = STATUS_CONFIG[kpi.status as keyof typeof STATUS_CONFIG] ?? STATUS_CONFIG['DRAFT']!
   const StatusIcon = status.icon
@@ -584,11 +663,60 @@ function KpiTableRow({ kpi, index, onView, onEdit, onDelete, onSubmit, totalWeig
           <p className="text-sm font-black text-slate-900 dark:text-white group-hover/name:text-indigo-600 transition-colors line-clamp-1">
             {kpi.name}
           </p>
+          {/* We hide the inline KR name if enableOkr is true because it now has its own column */}
+          {!enableOkr && kpi.keyResultName && (
+            <div className="flex items-center gap-1.5 mt-0.5">
+              <div className="w-1.5 h-1.5 rounded-full bg-violet-500 shadow-[0_0_8px_rgba(139,92,246,0.5)]" />
+              <span className="text-[10px] font-black text-violet-600 dark:text-violet-400 uppercase tracking-tight">
+                KR: {kpi.keyResultName}
+              </span>
+            </div>
+          )}
+          {enableWaterfall && kpi.parentName && (
+            <div className="flex items-center gap-1.5 mt-0.5">
+              <div className="w-1.5 h-1.5 rounded-full bg-cyan-500 shadow-[0_0_8px_rgba(6,182,212,0.5)]" />
+              <span className="text-[10px] font-black text-cyan-600 dark:text-cyan-400 uppercase tracking-tight">
+                Parent: {kpi.parentName}
+              </span>
+            </div>
+          )}
           <p className="text-xs text-slate-400 font-medium line-clamp-1 mt-1 group-hover/name:text-slate-500 transition-colors">
             {kpi.description || 'Không có mô tả chi tiết'}
           </p>
         </button>
       </td>
+      {enableOkr && (
+        <>
+          <td className="px-4 py-5">
+            {kpi.objectiveName ? (
+              <div className="flex flex-col max-w-[150px]">
+                <span className="text-[10px] font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-tight truncate" title={kpi.objectiveCode || ''}>
+                  {kpi.objectiveCode || 'N/A'}
+                </span>
+                <span className="text-xs font-bold text-slate-700 dark:text-slate-300 line-clamp-1" title={kpi.objectiveName}>
+                  {kpi.objectiveName}
+                </span>
+              </div>
+            ) : (
+              <span className="text-xs text-slate-400 italic">N/A</span>
+            )}
+          </td>
+          <td className="px-4 py-5">
+            {kpi.keyResultName ? (
+              <div className="flex flex-col max-w-[150px]">
+                <span className="text-[10px] font-black text-violet-600 dark:text-violet-400 uppercase tracking-tight truncate" title={kpi.keyResultCode || ''}>
+                  {kpi.keyResultCode || 'N/A'}
+                </span>
+                <span className="text-xs font-bold text-slate-700 dark:text-slate-300 line-clamp-1" title={kpi.keyResultName}>
+                  {kpi.keyResultName}
+                </span>
+              </div>
+            ) : (
+              <span className="text-xs text-slate-400 italic">N/A</span>
+            )}
+          </td>
+        </>
+      )}
       <td className="px-4 py-5">
         <div className="flex items-center gap-2 bg-slate-50 dark:bg-slate-800/50 px-3 py-1.5 rounded-xl w-fit max-w-[200px] border border-slate-100 dark:border-slate-800 shadow-sm" title={formatAssigneeNames(kpi.assigneeNames)}>
           <UserCircle2 size={14} className="text-slate-400 shrink-0" />
@@ -621,6 +749,16 @@ function KpiTableRow({ kpi, index, onView, onEdit, onDelete, onSubmit, totalWeig
           <button onClick={onView} className="p-2.5 text-slate-400 hover:text-indigo-600 hover:bg-white dark:hover:bg-slate-800 rounded-xl transition-all shadow-sm border border-transparent hover:border-slate-200 dark:hover:border-slate-700" title="Chi tiết">
             <Eye size={18} />
           </button>
+          {enableWaterfall && kpi.status === 'APPROVED' && (
+            <button 
+              id={index === 0 ? "tour-kpi-delegate-btn" : undefined}
+              onClick={onDelegate}
+              className="p-2.5 text-cyan-500 hover:text-cyan-600 hover:bg-cyan-50 dark:hover:bg-cyan-900/30 rounded-xl transition-all shadow-sm border border-transparent hover:border-cyan-200"
+              title="Phân rã chỉ tiêu (Delegate)"
+            >
+              <GitBranch size={18} />
+            </button>
+          )}
           {(kpi.status === 'DRAFT' || kpi.status === 'REJECTED') && (
             <>
               <button 
@@ -647,8 +785,8 @@ function KpiTableRow({ kpi, index, onView, onEdit, onDelete, onSubmit, totalWeig
   )
 }
 
-function KpiCard({ kpi, delay, onView, onEdit, onDelete, onSubmit, totalWeight }: { 
-  kpi: KpiCriteria; delay: number; onView: () => void; onEdit: () => void; onDelete: () => void; onSubmit: () => void; totalWeight: number
+function KpiCard({ kpi, delay, onView, onEdit, onDelete, onSubmit, onDelegate, totalWeight, enableOkr, enableWaterfall }: { 
+  kpi: KpiCriteria; delay: number; onView: () => void; onEdit: () => void; onDelete: () => void; onSubmit: () => void; onDelegate: () => void; totalWeight: number; enableOkr?: boolean; enableWaterfall?: boolean
 }) {
   const [menuOpen, setMenuOpen] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
@@ -687,6 +825,14 @@ function KpiCard({ kpi, delay, onView, onEdit, onDelete, onSubmit, totalWeight }
                 >
                   <Eye size={18} className="text-slate-400" /> Chi tiết
                 </button>
+                {enableWaterfall && kpi.status === 'APPROVED' && (
+                  <button 
+                    onClick={() => { setMenuOpen(false); onDelegate() }} 
+                    className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold text-cyan-600 hover:bg-cyan-50 dark:hover:bg-cyan-900/30 transition-colors"
+                  >
+                    <GitBranch size={18} /> Phân rã (Delegate)
+                  </button>
+                )}
                 {(kpi.status === 'DRAFT' || kpi.status === 'REJECTED') && (
                   <>
                     <button 
@@ -730,6 +876,22 @@ function KpiCard({ kpi, delay, onView, onEdit, onDelete, onSubmit, totalWeight }
           <h3 className="text-xl font-black text-slate-900 dark:text-white leading-tight group-hover/title:text-indigo-600 transition-colors line-clamp-2">
             {kpi.name}
           </h3>
+          {enableOkr && kpi.keyResultName && (
+            <div className="flex items-center gap-2 mt-2 px-3 py-1 bg-violet-50 dark:bg-violet-900/20 rounded-lg w-fit border border-violet-100 dark:border-violet-800/50">
+              <Target size={12} className="text-violet-600" />
+              <span className="text-[10px] font-black text-violet-600 dark:text-violet-400 uppercase tracking-widest">
+                {kpi.keyResultName}
+              </span>
+            </div>
+          )}
+          {enableWaterfall && kpi.parentName && (
+            <div className="flex items-center gap-2 mt-2 px-3 py-1 bg-cyan-50 dark:bg-cyan-900/20 rounded-lg w-fit border border-cyan-100 dark:border-cyan-800/50">
+              <GitBranch size={12} className="text-cyan-600" />
+              <span className="text-[10px] font-black text-cyan-600 dark:text-cyan-400 uppercase tracking-widest">
+                Parent: {kpi.parentName}
+              </span>
+            </div>
+          )}
           <p className="text-sm font-medium text-slate-400 mt-3 line-clamp-2 leading-relaxed">
             {kpi.description || 'Không có mô tả bổ sung cho chỉ tiêu này'}
           </p>

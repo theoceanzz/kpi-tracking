@@ -119,14 +119,18 @@ public class KpiAdjustmentService {
             throw new BusinessException("Yêu cầu này đã được xử lý.");
         }
 
-        // Check permission to review (Manager of the org unit)
-        if (!permissionChecker.isGlobalAdmin(currentUser.getId())) {
-            boolean hasPermission = permissionChecker.hasPermissionInOrgUnit(currentUser.getId(), "KPI:APPROVE", adj.getKpiCriteria().getOrgUnit().getId());
+        // Check permission to review
+        boolean isCreator = adj.getKpiCriteria().getCreatedBy() != null &&
+                           adj.getKpiCriteria().getCreatedBy().getId().equals(currentUser.getId());
+
+        if (!permissionChecker.isGlobalAdmin(currentUser.getId()) && !isCreator) {
+            // Manager check: must have KPI:APPROVE in the org unit
+            boolean hasPermission = permissionChecker.hasPermissionInOrgUnit(currentUser.getId(), "KPI:APPROVE_ADJUSTMENT", adj.getKpiCriteria().getOrgUnit().getId());
             if (!hasPermission) {
-                throw new ForbiddenException("Bạn không có quyền phê duyệt yêu cầu điều chỉnh của đơn vị này.");
+                throw new ForbiddenException("Bạn không có quyền phê duyệt yêu cầu điều chỉnh cho chỉ tiêu này.");
             }
 
-            // Enhanced Hierarchical Rule: Check rank relative to requester
+            // Hierarchical Rule: Check rank relative to requester
             User requester = adj.getRequester();
             int requesterRank = permissionChecker.getMinRankInOrgUnit(requester.getId(), adj.getKpiCriteria().getOrgUnit().getId());
             int reviewerRank = permissionChecker.getMinRankInOrgUnit(currentUser.getId(), adj.getKpiCriteria().getOrgUnit().getId());
@@ -204,7 +208,7 @@ public class KpiAdjustmentService {
     public PageResponse<AdjustmentRequestResponse> getAllRequests(int page, int size, AdjustmentStatus status, UUID orgUnitId, UUID kpiPeriodId) {
         autoRejectExpiredRequests();
         User currentUser = getCurrentUser();
-        java.util.List<UUID> allowedOrgUnitIds = permissionChecker.getOrgUnitsWithPermission(currentUser.getId(), "KPI:APPROVE");
+        java.util.List<UUID> allowedOrgUnitIds = permissionChecker.getOrgUnitsWithPermission(currentUser.getId(), "KPI:APPROVE_ADJUSTMENT");
         
         java.util.List<com.kpitracking.entity.UserRoleOrgUnit> currentAssignments = userRoleOrgUnitRepository.findByUserId(currentUser.getId());
         Integer currentUserRank = currentAssignments.stream()

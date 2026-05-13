@@ -1,7 +1,8 @@
 import { clsx, type ClassValue } from 'clsx'
 import { twMerge } from 'tailwind-merge'
-import { format } from 'date-fns'
+import { format, parseISO } from 'date-fns'
 import { vi } from 'date-fns/locale'
+
 import { AlertCircle, CheckCircle2, XCircle, Clock, X } from 'lucide-react'
 import { KpiFrequency, KpiStatus } from '@/types/kpi'
 
@@ -83,17 +84,19 @@ export function formatNumber(value: number): string {
 
 export function formatDate(date: string | Date | null | undefined): string {
   if (!date) return '—'
-  const d = new Date(date)
+  const d = typeof date === 'string' ? parseISO(date) : new Date(date)
   if (isNaN(d.getTime())) return '—'
   return format(d, 'dd/MM/yyyy', { locale: vi })
 }
 
 export function formatDateTime(date: string | Date | null | undefined): string {
   if (!date) return '—'
-  const d = new Date(date)
+  const d = typeof date === 'string' ? parseISO(date) : new Date(date)
   if (isNaN(d.getTime())) return '—'
   return format(d, 'dd/MM/yyyy HH:mm', { locale: vi })
 }
+
+
 
 export function getInitials(name: string): string {
   return name

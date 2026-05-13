@@ -25,6 +25,8 @@ export interface OrganizationResponse {
   evaluationMaxScore: number
   evaluationLevels?: EvaluationLevel[]
   kpiReminderPercentage: number
+  enableOkr: boolean
+  enableWaterfall: boolean
   createdAt: string
   updatedAt: string
 }
@@ -37,6 +39,8 @@ export interface UpdateOrganizationRequest {
   evaluationMaxScore?: number
   evaluationLevels?: EvaluationLevel[]
   kpiReminderPercentage?: number
+  enableOkr?: boolean
+  enableWaterfall?: boolean
 }
 
 export const organizationApi = {

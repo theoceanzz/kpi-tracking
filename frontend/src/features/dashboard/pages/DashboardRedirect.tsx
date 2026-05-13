@@ -19,7 +19,7 @@ export default function DashboardRedirect() {
   }
 
   // 2. Head/Deputy Dashboard (Users with review/approve permissions)
-  if (hasPermission(['KPI:APPROVE', 'SUBMISSION:REVIEW', 'USER:VIEW_LIST'])) {
+  if (hasPermission(['KPI:APPROVE_CRITERIA', 'KPI:APPROVE_ADJUSTMENT', 'SUBMISSION:REVIEW', 'USER:VIEW_LIST'])) {
     return <Navigate to="/dashboard/head" replace />
   }
 

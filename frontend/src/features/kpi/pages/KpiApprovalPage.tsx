@@ -12,15 +12,18 @@ import { toast } from 'sonner'
 import { 
   Users, Building2, ChevronRight, ArrowUpDown,
   Calendar, ChevronLeft, Search, CheckCircle, 
-  ShieldCheck, 
+  ShieldCheck, Target, GitBranch,
   Loader2
 } from 'lucide-react'
 import { useAuthStore } from '@/store/authStore'
 import { useKpiPeriods } from '../hooks/useKpiPeriods'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { useOrgUnitTree } from '@/features/orgunits/hooks/useOrgUnitTree'
+import { useOrganization } from '@/features/orgunits/hooks/useOrganization'
+import { useObjectives } from '../../okr/hooks/useOkr'
 import PageTour from '@/components/common/PageTour'
 import { kpiPendingSteps } from '@/components/common/tourSteps'
+import { ObjectiveResponse } from '@/features/okr/types'
 
 
 
@@ -39,13 +42,18 @@ export default function KpiApprovalPage() {
   const [sortBy, setSortBy] = useState('updatedAt')
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc')
   const [selectedOrgUnitId, setSelectedOrgUnitId] = useState<string>('ALL')
+  const [selectedObjectiveId, setSelectedObjectiveId] = useState<string>('ALL')
+  const [selectedKeyResultId, setSelectedKeyResultId] = useState<string>('ALL')
   
   // Selection state
   const [selectedKpis, setSelectedKpis] = useState<string[]>([])
   
   const user = useAuthStore(s => s.user)
+  const organizationId = user?.memberships?.[0]?.organizationId
+  const { data: org } = useOrganization(organizationId)
+  const enableOkr = org?.enableOkr
   const qc = useQueryClient()
-  const { data: periodsData } = useKpiPeriods({ organizationId: user?.memberships?.[0]?.organizationId })
+  const { data: periodsData } = useKpiPeriods({ organizationId })
   const { data: orgUnitTreeData } = useOrgUnitTree()
 
   // Flatten tree for dropdown
@@ -92,9 +100,15 @@ export default function KpiApprovalPage() {
       page,
       size: pageSize,
       sortBy,
-      sortDir
+      sortDir,
+      objectiveId: selectedObjectiveId === 'ALL' ? undefined : selectedObjectiveId,
+      keyResultId: selectedKeyResultId === 'ALL' ? undefined : selectedKeyResultId
     }
   )
+
+  const { data: objectivesData } = useObjectives(user?.memberships?.[0]?.organizationId)
+  const selectedObjective = objectivesData?.find((o: ObjectiveResponse) => o.id === selectedObjectiveId)
+  const keyResults = selectedObjective?.keyResults || []
 
   const [reviewKpi, setReviewKpi] = useState<KpiCriteria | null>(null)
 
@@ -224,6 +238,44 @@ export default function KpiApprovalPage() {
                 </SelectContent>
               </Select>
             </div>
+
+            {enableOkr && (
+              <>
+                <div className="w-full md:w-64">
+                  <Select value={selectedObjectiveId} onValueChange={(v) => { setSelectedObjectiveId(v); setSelectedKeyResultId('ALL'); setPage(0) }}>
+                    <SelectTrigger className="h-12 rounded-[18px] border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 font-bold text-sm">
+                      <div className="flex items-center gap-2">
+                        <Target size={16} className="text-slate-400" />
+                        <SelectValue placeholder="Chọn Mục tiêu" />
+                      </div>
+                    </SelectTrigger>
+                    <SelectContent className="rounded-2xl border-slate-200 dark:border-slate-800">
+                      <SelectItem value="ALL" className="font-bold">Tất cả Mục tiêu</SelectItem>
+                      {objectivesData?.map(obj => (
+                        <SelectItem key={obj.id} value={obj.id} className="font-medium">[{obj.code}] {obj.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="w-full md:w-64">
+                  <Select value={selectedKeyResultId} onValueChange={(v) => { setSelectedKeyResultId(v); setPage(0) }} disabled={selectedObjectiveId === 'ALL'}>
+                    <SelectTrigger className="h-12 rounded-[18px] border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 font-bold text-sm">
+                      <div className="flex items-center gap-2">
+                        <GitBranch size={16} className="text-slate-400" />
+                        <SelectValue placeholder="Chọn Kết quả" />
+                      </div>
+                    </SelectTrigger>
+                    <SelectContent className="rounded-2xl border-slate-200 dark:border-slate-800">
+                      <SelectItem value="ALL" className="font-bold">Tất cả Kết quả</SelectItem>
+                      {keyResults.map(kr => (
+                        <SelectItem key={kr.id} value={kr.id} className="font-medium">[{kr.code}] {kr.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </>
+            )}
           </div>
         </div>
 
@@ -317,6 +369,12 @@ export default function KpiApprovalPage() {
                         Chỉ tiêu <ArrowUpDown size={12} className="opacity-0 group-hover:opacity-100 transition-opacity" />
                       </button>
                     </th>
+                    {enableOkr && (
+                      <>
+                        <th className="px-4 py-5 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 whitespace-nowrap">Mục tiêu (OKR)</th>
+                        <th className="px-4 py-5 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 whitespace-nowrap">Kết quả (KR)</th>
+                      </>
+                    )}
                     <th className="px-4 py-5 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 whitespace-nowrap">
                       Phòng ban / Nhân sự
                     </th>
@@ -367,6 +425,22 @@ export default function KpiApprovalPage() {
                             <p className="text-[10px] font-black text-slate-400 uppercase tracking-tighter mt-1">{FREQUENCY_MAP[kpi.frequency as keyof typeof FREQUENCY_MAP] || kpi.frequency}</p>
                           </button>
                         </td>
+                        {enableOkr && (
+                          <>
+                            <td className="px-4 py-5">
+                              <div className="flex flex-col max-w-[150px]">
+                                <span className="text-[10px] font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-tight truncate">{kpi.objectiveCode || 'N/A'}</span>
+                                <span className="text-xs font-bold text-slate-700 dark:text-slate-300 line-clamp-1">{kpi.objectiveName || 'N/A'}</span>
+                              </div>
+                            </td>
+                            <td className="px-4 py-5">
+                              <div className="flex flex-col max-w-[150px]">
+                                <span className="text-[10px] font-black text-violet-600 dark:text-violet-400 uppercase tracking-tight truncate">{kpi.keyResultCode || 'N/A'}</span>
+                                <span className="text-xs font-bold text-slate-700 dark:text-slate-300 line-clamp-1">{kpi.keyResultName || 'N/A'}</span>
+                              </div>
+                            </td>
+                          </>
+                        )}
                         <td className="px-4 py-5">
                           <div className="space-y-1.5 max-w-[200px]">
                             <div className="flex items-center gap-2 bg-slate-50 dark:bg-slate-800/50 px-2.5 py-1 rounded-lg w-fit border border-slate-100 dark:border-slate-800 shadow-sm">

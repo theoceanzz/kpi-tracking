@@ -2,7 +2,7 @@ import { useState, useRef } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { useAuthStore } from '@/store/authStore'
 import { getInitials, formatPhoneNumber } from '@/lib/utils'
-import { ROLE_MAP } from '@/constants/roles'
+
 import { useForm, useWatch } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import * as z from 'zod'
@@ -96,7 +96,7 @@ export default function ProfilePage() {
               <h1 className="text-3xl md:text-4xl font-black tracking-tight mb-3">{user.fullName}</h1>
               <div className="flex flex-wrap items-center justify-center md:justify-start gap-3">
                 <span className="flex items-center gap-1.5 bg-white/15 backdrop-blur-sm px-4 py-1.5 rounded-full text-sm font-bold">
-                  <Shield size={14} /> {user.memberships?.[0]?.roleName || ROLE_MAP[user.roles?.[0] || ''] || user.roles?.[0] || 'N/A'}
+                  <Shield size={14} /> {user.memberships?.[0]?.roleName || user.roles?.[0] || 'N/A'}
                 </span>
                 <span className="flex items-center gap-1.5 bg-white/15 backdrop-blur-sm px-4 py-1.5 rounded-full text-sm font-bold">
                   <Building2 size={14} /> {user.memberships?.[0]?.orgUnitName || 'N/A'}
@@ -276,7 +276,7 @@ function ProfileInfoTab({ user, onUserUpdate }: { user: any; onUserUpdate: (u: a
             <InfoField icon={Mail} iconColor="text-blue-500" iconBg="bg-blue-50 dark:bg-blue-900/20" label="Địa chỉ Email" value={user.email} />
             <InfoField icon={Phone} iconColor="text-emerald-500" iconBg="bg-emerald-50 dark:bg-emerald-900/20" label="Số điện thoại" value={formatPhoneNumber(user.phone) || 'Chưa cập nhật'} />
             <InfoField icon={Building2} iconColor="text-amber-500" iconBg="bg-amber-50 dark:bg-amber-900/20" label="Đơn vị" value={`${user.memberships?.[0]?.orgUnitName || 'Chưa cập nhật'}${user.memberships?.[0]?.unitTypeLabel ? ` (${user.memberships[0].unitTypeLabel})` : ''}`} />
-            <InfoField icon={Shield} iconColor="text-purple-500" iconBg="bg-purple-50 dark:bg-purple-900/20" label="Chức vụ" value={user.memberships?.[0]?.roleName || ROLE_MAP[user.roles?.[0] || ''] || user.roles?.[0] || 'N/A'} />
+            <InfoField icon={Shield} iconColor="text-purple-500" iconBg="bg-purple-50 dark:bg-purple-900/20" label="Chức vụ" value={user.memberships?.[0]?.roleName || user.roles?.[0] || 'N/A'} />
             <InfoField icon={CheckCircle2} iconColor="text-emerald-500" iconBg="bg-emerald-50 dark:bg-emerald-900/20" label="Trạng thái" value="Đang hoạt động" />
           </div>
         )}

@@ -109,7 +109,7 @@ export default function PageTour({ pageKey, steps, autoStartDelay = 300 }: PageT
 
   // Auto-start tour on first visit
   useEffect(() => {
-    if (user?.id && !hasSeen(pageKey, user.id) && activeTour === null) {
+    if (user?.id && user.hasSeenOnboarding && !hasSeen(pageKey, user.id) && activeTour === null) {
       const timer = setTimeout(() => {
         useTourStore.getState().startTour(pageKey)
       }, autoStartDelay)
@@ -154,24 +154,22 @@ export default function PageTour({ pageKey, steps, autoStartDelay = 300 }: PageT
       run={run}
       stepIndex={stepIndex}
       continuous
-      scrollToFirstStep
+      options={{
+        primaryColor: '#3b82f6',
+        textColor: '#1e293b',
+        zIndex: 40,
+        backgroundColor: '#fff',
+        arrowColor: '#fff',
+        showProgress: false,
+        spotlightRadius: 16,
+        overlayColor: 'rgba(0, 0, 0, 0.3)',
+        scrollOffset: 120,
+      }}
       onEvent={handleJoyrideEvent}
       tooltipComponent={CustomTooltip}
       floatingOptions={{
         middleware: [],
         hideArrow: true,
-      }}
-      options={{
-        primaryColor: '#6366f1',
-        textColor: '#1e293b',
-        zIndex: 10000,
-        backgroundColor: '#fff',
-        arrowColor: '#fff',
-        showProgress: false,
-        buttons: ['back', 'primary', 'skip'],
-        spotlightRadius: 16,
-        overlayColor: 'rgba(15, 23, 42, 0.65)',
-        scrollOffset: 120,
       }}
     />
   )

@@ -125,7 +125,12 @@ public class RoleService {
                 .orElseThrow(() -> new ResourceNotFoundException("Role", "id", roleId));
 
         if (Boolean.TRUE.equals(role.getIsSystem())) {
-            throw new BusinessException("Cannot delete system role: " + role.getName());
+            throw new BusinessException("Không thể xóa vai trò hệ thống: " + role.getName());
+        }
+
+        // Kiểm tra xem có bất kỳ nhân viên nào đang giữ vai trò này không
+        if (userRoleOrgUnitRepository.existsByRoleId(roleId)) {
+            throw new BusinessException("Không thể xóa vai trò '" + role.getName() + "' vì vẫn còn nhân viên đang giữ vai trò này trong tổ chức.");
         }
 
         role.setDeletedAt(Instant.now());

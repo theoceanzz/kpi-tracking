@@ -7,7 +7,7 @@ import ImportGuideModal from '../components/ImportGuideModal'
 import ExcelPreviewModal from '../components/ExcelPreviewModal'
 import ConfirmDialog from '@/components/common/ConfirmDialog'
 import Pagination from '@/components/common/Pagination'
-import { ROLE_MAP } from '@/constants/roles'
+
 import { useUsers } from '../hooks/useUsers'
 import { useOrgUnitTree, useOrgHierarchyLevels } from '@/features/organization/hooks/useOrganizationStructure'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
@@ -142,9 +142,22 @@ export default function UsersPage() {
       qc.invalidateQueries({ queryKey: ['users'] })
       qc.invalidateQueries({ queryKey: ['organization-users'] })
       qc.invalidateQueries({ queryKey: ['stats'] })
-      toast.success(`Import thành công ${result.successfulImports}/${result.totalRows} dòng`)
-      if (result.errors.length > 0) {
-        result.errors.forEach((e) => toast.error(e))
+
+      // Only show success toast if at least one row was actually imported
+      if (result.successfulImports > 0) {
+        toast.success(`Import thành công ${result.successfulImports}/${result.totalRows} dòng`)
+      }
+
+      // Handle errors more gracefully to avoid toast spam
+      if (result.errors && result.errors.length > 0) {
+        if (result.errors.length <= 3) {
+          // If only a few errors, show them individually
+          result.errors.forEach((e) => toast.error(e))
+        } else {
+          // If many errors, show a summary and log details to console (or could show in a modal)
+          toast.error(`Phát hiện ${result.errors.length} lỗi trong quá trình import. Vui lòng kiểm tra lại dữ liệu.`)
+          console.error('Import Errors:', result.errors)
+        }
       }
     },
     onError: (error: any) => {
@@ -259,7 +272,7 @@ export default function UsersPage() {
                         <SelectItem value="ALL" className="font-medium cursor-pointer rounded-lg">Chức danh</SelectItem>
                         {assignableRoles.map(role => (
                           <SelectItem key={role.id} value={role.name} className="font-medium cursor-pointer rounded-lg">
-                            {ROLE_MAP[role.name] || role.name}
+                            {role.name}
                           </SelectItem>
                         ))}
                     </SelectContent>

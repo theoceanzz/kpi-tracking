@@ -132,7 +132,7 @@ export default function ReviewModal({ open, onClose, submission }: ReviewModalPr
               )}>
                 <div>
                   <p className="text-[9px] font-black uppercase tracking-widest text-indigo-600 dark:text-indigo-400 mb-0.5">Điểm chốt cuối</p>
-                  <p className="text-xs font-medium text-slate-500">Trưởng phòng chấm</p>
+                  <p className="text-xs font-medium text-slate-500">{user?.memberships?.[0]?.roleName || 'Quản lý'} chấm</p>
                 </div>
                 <div className="w-20">
                   <input 
@@ -221,7 +221,7 @@ export default function ReviewModal({ open, onClose, submission }: ReviewModalPr
               <Info className="text-amber-600 shrink-0" size={20} />
               <div className="text-xs font-medium text-amber-800 dark:text-amber-300 leading-relaxed">
                 <span className="block font-black uppercase tracking-widest text-[10px] mb-1">Quyền hạn hạn chế</span>
-                Bản nộp này của cấp quản lý (Trưởng/Phó). Theo quy định, chỉ Giám đốc mới có quyền phê duyệt các báo cáo này.
+                Bản nộp này của cấp quản lý. Theo quy định, chỉ cấp trên có thẩm quyền tương ứng mới có quyền phê duyệt các báo cáo này.
               </div>
             </div>
           )}

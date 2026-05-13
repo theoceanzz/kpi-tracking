@@ -51,6 +51,14 @@ public class Organization {
     @Builder.Default
     private Integer kpiReminderPercentage = 50;
 
+    @Column(name = "enable_okr")
+    @Builder.Default
+    private Boolean enableOkr = false;
+
+    @Column(name = "enable_waterfall")
+    @Builder.Default
+    private Boolean enableWaterfall = false;
+
     @LastModifiedDate
     @Column(name = "updated_at")
     private Instant updatedAt;

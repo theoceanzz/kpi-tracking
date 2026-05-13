@@ -66,28 +66,6 @@ public class PermissionChecker {
     }
 
     /**
-     * Check if a user has a specific permission code for a specific OrgUnit.
-     * Supports inheritance: permission in a parent unit applies to all child units.
-     * SYSTEM:ADMIN permission acts as a super-permission within its scope (unit + children).
-     */
-    public boolean hasPermissionInOrgUnit(UUID userId, String permissionCode, UUID orgUnitId) {
-        List<UserRoleOrgUnit> assignments = userRoleOrgUnitRepository.findByUserId(userId);
-        if (assignments.isEmpty()) return false;
-
-        OrgUnit targetUnit = orgUnitRepository.findById(orgUnitId).orElse(null);
-        if (targetUnit == null) return false;
-
-        Map<UUID, Set<String>> rolePerms = getPermissionsByRole(assignments);
-
-        return assignments.stream()
-                .filter(a -> targetUnit.getPath().startsWith(a.getOrgUnit().getPath())) // Target is in subtree of assignment
-                .anyMatch(a -> {
-                    Set<String> perms = rolePerms.getOrDefault(a.getRole().getId(), Collections.emptySet());
-                    return perms.contains(permissionCode) || perms.contains("SYSTEM:ADMIN");
-                });
-    }
-
-    /**
      * Check if a user has any of the given permission codes globally.
      */
     public boolean hasAnyPermission(UUID userId, String... permissionCodes) {
@@ -104,6 +82,36 @@ public class PermissionChecker {
                     Set<String> perms = rolePerms.getOrDefault(roleId, Collections.emptySet());
                     if (perms.contains("SYSTEM:ADMIN")) return true;
                     return perms.stream().anyMatch(targetCodes::contains);
+                });
+    }
+
+    /**
+     * Check if a user has a specific permission code for a specific OrgUnit.
+     * Supports inheritance: permission in a parent unit applies to all child units.
+     * SYSTEM:ADMIN permission acts as a super-permission within its scope (unit + children).
+     */
+    public boolean hasPermissionInOrgUnit(UUID userId, String permissionCode, UUID orgUnitId) {
+        return hasAnyPermissionInOrgUnit(userId, orgUnitId, permissionCode);
+    }
+
+    /**
+     * Check if a user has any of the specific permission codes for a specific OrgUnit.
+     */
+    public boolean hasAnyPermissionInOrgUnit(UUID userId, UUID orgUnitId, String... permissionCodes) {
+        List<UserRoleOrgUnit> assignments = userRoleOrgUnitRepository.findByUserId(userId);
+        if (assignments.isEmpty()) return false;
+
+        OrgUnit targetUnit = orgUnitRepository.findById(orgUnitId).orElse(null);
+        if (targetUnit == null) return false;
+
+        Map<UUID, Set<String>> rolePerms = getPermissionsByRole(assignments);
+        Set<String> targetCodes = Set.of(permissionCodes);
+
+        return assignments.stream()
+                .filter(a -> targetUnit.getPath().startsWith(a.getOrgUnit().getPath()))
+                .anyMatch(a -> {
+                    Set<String> perms = rolePerms.getOrDefault(a.getRole().getId(), Collections.emptySet());
+                    return perms.contains("SYSTEM:ADMIN") || perms.stream().anyMatch(targetCodes::contains);
                 });
     }
 
@@ -147,6 +155,26 @@ public class PermissionChecker {
 
     public List<UUID> getOrgUnitsWithPermission(UUID userId, String permissionCode) {
         return getEffectiveOrgUnitsWithPermission(userId, permissionCode);
+    }
+
+    /**
+     * Get list of all OrgUnit IDs where the user has any of the specific permissions.
+     */
+    public List<UUID> getOrgUnitsWithAnyPermission(UUID userId, String... permissionCodes) {
+        List<UserRoleOrgUnit> assignments = userRoleOrgUnitRepository.findByUserId(userId);
+        if (assignments.isEmpty()) return Collections.emptyList();
+
+        Map<UUID, Set<String>> rolePerms = getPermissionsByRole(assignments);
+        Set<String> targetCodes = Set.of(permissionCodes);
+
+        return assignments.stream()
+                .filter(a -> {
+                    Set<String> perms = rolePerms.getOrDefault(a.getRole().getId(), Collections.emptySet());
+                    return perms.contains("SYSTEM:ADMIN") || perms.stream().anyMatch(targetCodes::contains);
+                })
+                .map(a -> a.getOrgUnit().getId())
+                .distinct()
+                .toList();
     }
 
     /**

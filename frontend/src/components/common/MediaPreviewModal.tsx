@@ -36,7 +36,7 @@ export default function MediaPreviewModal({ url, fileName, contentType, isOpen, 
   const isLocalFile = url.startsWith('blob:')
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur-sm animate-in fade-in duration-200">
+    <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/90 backdrop-blur-sm animate-in fade-in duration-200">
       {/* Header / Toolbar */}
       <div className="absolute top-0 left-0 right-0 h-16 flex items-center justify-between px-6 bg-gradient-to-b from-black/60 to-transparent z-20">
         <div className="flex flex-col">

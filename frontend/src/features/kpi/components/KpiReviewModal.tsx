@@ -52,7 +52,7 @@ export default function KpiReviewModal({ open, onClose, kpi }: KpiReviewModalPro
   const StatusIcon = status.icon
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm transition-opacity" onClick={onClose} />
       
       <div className="relative bg-white dark:bg-slate-900 rounded-[32px] shadow-2xl w-full max-w-2xl mx-4 animate-in zoom-in-95 fade-in duration-300 max-h-[90vh] overflow-hidden border border-slate-200 dark:border-slate-800 flex flex-col">
@@ -156,6 +156,31 @@ export default function KpiReviewModal({ open, onClose, kpi }: KpiReviewModalPro
               </div>
             </div>
           </div>
+
+          {/* OKR Info */}
+          {kpi.keyResultName && (
+            <div className="space-y-4">
+              <h5 className="text-xs font-black uppercase tracking-widest text-slate-400 flex items-center gap-2">
+                <Target size={14} className="text-violet-500" /> Liên kết OKR
+              </h5>
+              <div className="space-y-4 p-6 rounded-[24px] bg-violet-50/30 dark:bg-violet-900/10 border border-violet-100 dark:border-violet-900/20">
+                <div>
+                  <p className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 mb-1.5">Mục tiêu (Objective)</p>
+                  <p className="text-sm font-black text-indigo-600 dark:text-indigo-400 leading-tight">
+                    {kpi.objectiveCode && <span className="bg-indigo-100 dark:bg-indigo-900/40 px-1.5 py-0.5 rounded mr-1.5">{kpi.objectiveCode}</span>}
+                    {kpi.objectiveName || '—'}
+                  </p>
+                </div>
+                <div className="pt-4 border-t border-violet-100 dark:border-violet-900/20">
+                  <p className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 mb-1.5">Kết quả then chốt (Key Result)</p>
+                  <p className="text-sm font-bold text-violet-600 dark:text-violet-400 leading-tight">
+                    {kpi.keyResultCode && <span className="bg-violet-100 dark:bg-violet-900/40 px-1.5 py-0.5 rounded mr-1.5">{kpi.keyResultCode}</span>}
+                    {kpi.keyResultName}
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Reject Reason History if any */}
           {kpi.rejectReason && (

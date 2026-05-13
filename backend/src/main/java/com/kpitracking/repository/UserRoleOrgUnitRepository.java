@@ -13,6 +13,10 @@ import java.util.UUID;
 @Repository
 public interface UserRoleOrgUnitRepository extends JpaRepository<UserRoleOrgUnit, UserRoleOrgUnit.UserRoleOrgUnitId> {
 
+    boolean existsByOrgUnitId(UUID orgUnitId);
+    boolean existsByOrgUnitIdAndRoleId(UUID orgUnitId, UUID roleId);
+    boolean existsByRoleId(UUID roleId);
+
     @Query("SELECT uro FROM UserRoleOrgUnit uro JOIN FETCH uro.role JOIN FETCH uro.orgUnit WHERE uro.user.id = :userId")
     List<UserRoleOrgUnit> findByUserId(@Param("userId") UUID userId);
 
@@ -29,6 +33,10 @@ public interface UserRoleOrgUnitRepository extends JpaRepository<UserRoleOrgUnit
     List<UserRoleOrgUnit> findManagersByOrgUnitId(@Param("orgUnitId") UUID orgUnitId);
 
     void deleteByUserIdAndRoleIdAndOrgUnitId(UUID userId, UUID roleId, UUID orgUnitId);
+
+    void deleteByUserIdInAndOrgUnitId(List<UUID> userIds, UUID orgUnitId);
+
+    void deleteByOrgUnitId(UUID orgUnitId);
 
     void deleteByUserId(UUID userId);
     

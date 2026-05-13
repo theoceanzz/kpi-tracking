@@ -4,6 +4,7 @@ import com.kpitracking.dto.request.user.CreateUserRequest;
 import com.kpitracking.dto.request.user.UpdateUserRequest;
 import com.kpitracking.dto.response.PageResponse;
 import com.kpitracking.dto.response.user.UserResponse;
+import com.kpitracking.enums.UserStatus;
 import com.kpitracking.entity.*;
 import jakarta.persistence.EntityManager;
 
@@ -184,8 +185,9 @@ public class UserService {
         // If it's a child unit, also assign to its parent as "Nhân viên" (if not already assigned)
         if (orgUnit.getParent() != null) {
             UUID orgId = orgUnit.getOrgHierarchyLevel().getOrganization().getId();
-            com.kpitracking.entity.Role staffRole = roleRepository.findByNameAndOrganizationId("Nhân viên", orgId)
-                    .orElse(role); // Fallback to current role if "Nhân viên" not found
+            com.kpitracking.entity.Role staffRole = roleRepository.findByOrganizationIdAndRank(orgId, 2)
+                    .stream().findFirst()
+                    .orElse(role); // Fallback to current role if no Staff role found
 
             // Only assign if not already present
             if (!userRoleOrgUnitRepository.existsByUserIdAndRoleIdAndOrgUnitId(user.getId(), staffRole.getId(), orgUnit.getParent().getId())) {
@@ -239,7 +241,7 @@ public class UserService {
         // If I am NOT a Director, I should NOT see Directors.
         excludeAdmin = !isGlobalAdmin;
         
-        boolean isManager = permissionChecker.hasAnyPermission(currentUser.getId(), "KPI:APPROVE");
+        boolean isManager = permissionChecker.hasAnyPermission(currentUser.getId(), "KPI:APPROVE_CRITERIA", "KPI:APPROVE_ADJUSTMENT");
         boolean excludeManager = !isGlobalAdmin && isManager; // If I am a Head, I don't see other Heads
         boolean excludeSelf = isGlobalAdmin; // Director excludes self, Head includes self
 
@@ -289,7 +291,9 @@ public class UserService {
         if (!currentUser.getId().equals(userId) && !permissionChecker.isGlobalAdmin(currentUser.getId())) {
             List<UserRoleOrgUnit> targetUserAssignments = userRoleOrgUnitRepository.findByUserId(userId);
             boolean hasAccess = targetUserAssignments.stream()
-                    .anyMatch(a -> permissionChecker.hasPermissionInOrgUnit(currentUser.getId(), "USER:VIEW", a.getOrgUnit().getId()));
+                    .anyMatch(a -> permissionChecker.hasPermissionInOrgUnit(currentUser.getId(), "USER:VIEW", a.getOrgUnit().getId()) ||
+                                   permissionChecker.hasPermissionInOrgUnit(currentUser.getId(), "USER:VIEW_LIST", a.getOrgUnit().getId()));
+
             
             if (!hasAccess) {
                 throw new com.kpitracking.exception.ForbiddenException("Bạn không có quyền xem thông tin người dùng này");
@@ -594,6 +598,11 @@ public class UserService {
         Optional<User> existingUser = userRepository.findByEmail(email);
         if (existingUser.isPresent()) {
             User user = existingUser.get();
+            
+            if (user.getStatus() == UserStatus.ACTIVE) {
+                throw new BusinessException("Email '" + email + "' đã tồn tại và đang hoạt động trên hệ thống. Không thể ghi đè nhân sự đang hoạt động.");
+            }
+
             if (fullName != null && !fullName.isBlank()) user.setFullName(fullName);
             if (phone != null) user.setPhone(phone);
             if (employeeCode != null && !employeeCode.isBlank()) {
@@ -642,7 +651,7 @@ public class UserService {
         UUID orgId = unit.getOrgHierarchyLevel().getOrganization().getId();
         // Root unit (Level 0) always gets Staff role by default in bulk operations
         com.kpitracking.entity.Role finalRole = (unit.getOrgHierarchyLevel() != null && unit.getOrgHierarchyLevel().getLevelOrder() == 0) 
-            ? roleRepository.findByNameAndOrganizationId("Nhân viên", orgId).orElse(role) 
+            ? roleRepository.findByOrganizationIdAndRank(orgId, 2).stream().findFirst().orElse(role) 
             : role;
 
         if (!userRoleOrgUnitRepository.existsByUserIdAndRoleIdAndOrgUnitId(user.getId(), finalRole.getId(), unit.getId())) {
@@ -681,8 +690,9 @@ public class UserService {
 
     private com.kpitracking.entity.Role resolveRoleInternal(String identifier, UUID organizationId) {
         if (identifier == null || identifier.isBlank()) {
-            return roleRepository.findByNameAndOrganizationId("Nhân viên", organizationId)
-                    .orElseThrow(() -> new BusinessException("Vai trò mặc định 'Nhân viên' không tồn tại cho tổ chức này"));
+            return roleRepository.findByOrganizationIdAndRank(organizationId, 2)
+                    .stream().findFirst()
+                    .orElseThrow(() -> new BusinessException("Vai trò nhân viên mặc định (Rank 2) không tồn tại cho tổ chức này"));
         }
 
         if (identifier.matches("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$")) {
@@ -694,18 +704,16 @@ public class UserService {
     }
 
     private com.kpitracking.entity.Role resolveRole(String roleName, UUID organizationId) {
-        String name = (roleName != null && !roleName.isBlank()) ? roleName.trim() : "Nhân viên";
-        String mappedName = name;
-        if (name.equalsIgnoreCase("STAFF") || name.equalsIgnoreCase("NHAN_VIEN")) mappedName = "Nhân viên";
-        else if (name.equalsIgnoreCase("HEAD") || name.equalsIgnoreCase("TRUONG_PHONG")) mappedName = "Trưởng phòng";
-        else if (name.equalsIgnoreCase("DEPUTY") || name.equalsIgnoreCase("PHO_PHONG")) mappedName = "Phó phòng";
-        else if (name.equalsIgnoreCase("LEADER") || name.equalsIgnoreCase("TRUONG_NHOM")) mappedName = "Trưởng nhóm";
-        else if (name.equalsIgnoreCase("DIRECTOR") || name.equalsIgnoreCase("GIAM_DOC")) mappedName = "Giám đốc";
+        if (roleName == null || roleName.isBlank()) {
+            return roleRepository.findByOrganizationIdAndRank(organizationId, 2)
+                    .stream().findFirst()
+                    .orElseThrow(() -> new BusinessException("Không tìm thấy vai trò nhân viên mặc định"));
+        }
+        String name = roleName.trim();
 
-        return roleRepository.findByNameAndOrganizationId(mappedName, organizationId)
-                .or(() -> roleRepository.findByNameAndOrganizationId(name, organizationId))
+        return roleRepository.findByNameAndOrganizationId(name, organizationId)
                 .or(() -> roleRepository.findByNameIgnoreCaseAndOrganizationId(name, organizationId))
-                .orElseThrow(() -> new BusinessException("Chức danh '" + name + "' không tồn tại trong tổ chức này"));
+                .orElseThrow(() -> new BusinessException("Chức danh '" + name + "' không tồn tại trong hệ thống. Vui lòng nhập đúng tên vai trò đã thiết lập."));
     }
 
     private void validateManagerRequirement(OrgUnit orgUnit, com.kpitracking.entity.Role role) {

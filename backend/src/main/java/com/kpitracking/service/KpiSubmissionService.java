@@ -206,7 +206,7 @@ public class KpiSubmissionService {
     private SubmissionResponse mapToResponse(KpiSubmission submission) {
         SubmissionResponse res = submissionMapper.toResponse(submission);
         // PBAC: Check if submitter has review permission to label them as a manager in UI
-        boolean isManager = permissionChecker.hasPermission(submission.getSubmittedBy().getId(), "SUBMISSION:REVIEW");
+        boolean isManager = permissionChecker.hasAnyPermission(submission.getSubmittedBy().getId(), "SUBMISSION:REVIEW");
         res.setSubmittedByManager(isManager);
         return res;
     }
@@ -214,7 +214,8 @@ public class KpiSubmissionService {
     @Transactional(readOnly = true)
     public PageResponse<SubmissionResponse> getSubmissions(int page, int size, SubmissionStatus status, UUID kpiPeriodId, UUID kpiCriteriaId, UUID submittedById, UUID orgUnitId, String sortBy, String sortDir) {
         User currentUser = getCurrentUser();
-        java.util.List<UUID> allowedOrgUnitIds = permissionChecker.getOrgUnitsWithPermission(currentUser.getId(), "SUBMISSION:REVIEW");
+        java.util.List<UUID> allowedOrgUnitIds = permissionChecker.getOrgUnitsWithAnyPermission(currentUser.getId(), "SUBMISSION:REVIEW", "SUBMISSION:REVIEW_KPI");
+
 
         Sort sort = Sort.by(sortDir.equalsIgnoreCase("asc") ? Sort.Direction.ASC : Sort.Direction.DESC, sortBy != null ? sortBy : "createdAt");
         Pageable pageable = PageRequest.of(page, size, sort);
@@ -314,7 +315,7 @@ public class KpiSubmissionService {
                 .orElseThrow(() -> new ResourceNotFoundException("Bản nộp", "id", submissionId));
 
         boolean isGlobalAdmin = permissionChecker.isGlobalAdmin(currentUser.getId());
-        boolean hasReviewPermission = permissionChecker.hasPermissionInOrgUnit(currentUser.getId(), "SUBMISSION:REVIEW", submission.getOrgUnit().getId());
+        boolean hasReviewPermission = permissionChecker.hasAnyPermissionInOrgUnit(currentUser.getId(), submission.getOrgUnit().getId(), "SUBMISSION:REVIEW");
         boolean isSubmitter = submission.getSubmittedBy().getId().equals(currentUser.getId());
 
         if (!isGlobalAdmin && !hasReviewPermission && !isSubmitter) {
@@ -331,13 +332,9 @@ public class KpiSubmissionService {
         KpiSubmission submission = submissionRepository.findById(submissionId)
                 .orElseThrow(() -> new ResourceNotFoundException("Bản nộp", "id", submissionId));
 
-        if (submission.getStatus() != SubmissionStatus.PENDING) {
-            throw new BusinessException("Chỉ có thể phê duyệt các bản nộp đang ở trạng thái CHỜ DUYỆT");
-        }
-
         // Hierarchical Permission Check
         if (!permissionChecker.isGlobalAdmin(currentUser.getId())) {
-            boolean hasReviewPermission = permissionChecker.hasPermissionInOrgUnit(currentUser.getId(), "SUBMISSION:REVIEW", submission.getOrgUnit().getId());
+            boolean hasReviewPermission = permissionChecker.hasAnyPermissionInOrgUnit(currentUser.getId(), submission.getOrgUnit().getId(), "SUBMISSION:REVIEW");
             if (!hasReviewPermission) {
                 throw new ForbiddenException("Bạn không có quyền phê duyệt bản nộp của đơn vị này");
             }
@@ -351,11 +348,32 @@ public class KpiSubmissionService {
             int reviewerLevel = permissionChecker.getMinLevelInOrgUnit(currentUser.getId(), submission.getOrgUnit().getId());
 
             // Seniority check: Reviewer must have smaller level number (Higher unit) OR same level but smaller rank number
-            boolean isSuperior = (reviewerLevel < submitterLevel) || (reviewerLevel == submitterLevel && reviewerRank < submitterRank);
+            boolean isSuperiorToSubmitter = (reviewerLevel < submitterLevel) || (reviewerLevel == submitterLevel && reviewerRank < submitterRank);
 
-            if (!isSuperior) {
+            if (!isSuperiorToSubmitter) {
                 throw new ForbiddenException("Bạn không thể phê duyệt bản nộp của người có cấp bậc hoặc chức vụ tương đương/cao hơn bạn");
             }
+
+            // Check against previous reviewer if already approved
+            if (submission.getStatus() == SubmissionStatus.APPROVED && submission.getReviewedBy() != null) {
+                User prevReviewer = submission.getReviewedBy();
+                int prevReviewerRank = permissionChecker.getMinRankInOrgUnit(prevReviewer.getId(), submission.getOrgUnit().getId());
+                int prevReviewerLevel = permissionChecker.getMinLevelInOrgUnit(prevReviewer.getId(), submission.getOrgUnit().getId());
+                
+                // New reviewer must be STRICTLY superior to previous reviewer to override
+                boolean isSuperiorToPrevReviewer = (reviewerLevel < prevReviewerLevel) || (reviewerLevel == prevReviewerLevel && reviewerRank < prevReviewerRank);
+                
+                if (!isSuperiorToPrevReviewer) {
+                    throw new BusinessException("Bản nộp này đã được cấp quản lý tương đương hoặc cao hơn phê duyệt.");
+                }
+            }
+        } else if (submission.getStatus() == SubmissionStatus.APPROVED && submission.getReviewedBy() != null) {
+             // Global Admin can always override, unless it was another Global Admin? 
+             // Usually Global Admin is top, so we allow.
+        }
+
+        if (submission.getStatus() != SubmissionStatus.PENDING && submission.getStatus() != SubmissionStatus.APPROVED) {
+            throw new BusinessException("Chỉ có thể phê duyệt các bản nộp đang ở trạng thái CHỜ DUYỆT hoặc đã ĐÃ DUYỆT (để ghi đè)");
         }
 
         submission.setStatus(request.getStatus());

@@ -78,6 +78,7 @@ function CustomNode({ data }: NodeProps<AppNode>) {
   const canAddChild = data.level < data.maxDepth;
   const navigate = useNavigate();
   const [openUp, setOpenUp] = useState(false);
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
   const handleMouseEnter = () => {
@@ -92,7 +93,13 @@ function CustomNode({ data }: NodeProps<AppNode>) {
   return (
     <div 
       className="px-4 py-3 shadow-md rounded-lg bg-white border border-gray-200 w-[220px] relative group hover:border-blue-400 hover:shadow-lg transition-all cursor-pointer z-0 hover:z-[1000]"
-      onClick={() => navigate(`/org-units/${data.id}`)}
+      onClick={() => {
+        if (isMenuOpen) {
+          setIsMenuOpen(false);
+        } else {
+          navigate(`/org-units/${data.id}`);
+        }
+      }}
     >
       <Handle type="target" position={Position.Left} className="w-2 h-2 !bg-gray-400" />
       
@@ -107,42 +114,56 @@ function CustomNode({ data }: NodeProps<AppNode>) {
           )}
         </div>
 
-        {/* Action Menu - Only visible on hover */}
-        <div className="opacity-0 group-hover:opacity-100 transition-opacity absolute top-2 right-2 flex z-[100]">
-          <div className="relative inline-block text-left group/menu" onClick={(e) => e.stopPropagation()} ref={menuRef} onMouseEnter={handleMouseEnter}>
-            <button className="p-1.5 hover:bg-gray-100 rounded-lg text-gray-500 bg-white border shadow-sm transition-colors">
-              <MoreVertical className="w-4 h-4" />
+        {/* Action Menu */}
+        <div className="absolute top-2 right-2 flex z-[100]">
+          <div className="relative inline-block text-left" onClick={(e) => e.stopPropagation()} ref={menuRef}>
+            <button 
+              onClick={(e) => {
+                e.stopPropagation();
+                handleMouseEnter(); // Calculate openUp direction
+                setIsMenuOpen(!isMenuOpen);
+              }}
+              className={`p-1.5 rounded-lg transition-all duration-200 border shadow-sm ${
+                isMenuOpen 
+                  ? 'bg-blue-600 border-blue-600 text-white scale-110 shadow-lg' 
+                  : 'bg-white/80 backdrop-blur-sm border-gray-200 text-gray-400 opacity-0 group-hover:opacity-100 hover:text-gray-600 hover:border-gray-300 hover:bg-white'
+              }`}
+              title="Thao tác"
+            >
+              <MoreVertical className={`w-4 h-4 transition-transform duration-300 ${isMenuOpen ? 'rotate-90' : ''}`} />
             </button>
             
-            {/* Transparent bridge to prevent losing hover state */}
-            <div className="absolute right-0 h-2 w-10 -bottom-2 bg-transparent hidden group-hover/menu:block" />
-
-            <div className={`absolute right-0 w-40 ${openUp ? 'bottom-full mb-1.5 origin-bottom-right' : 'top-full mt-1.5 origin-top-right'} bg-white border border-gray-200 rounded-xl shadow-xl hidden group-hover/menu:block z-[110] animate-in fade-in zoom-in-95 duration-100`}>
-              <div className="py-2">
-                {canAddChild && (
-                  <button 
-                    onClick={(e) => { e.stopPropagation(); data.onAddChild(data.id, data.name, data.level); }}
-                    className="flex items-center w-full px-4 py-2 text-sm text-left text-gray-700 hover:bg-blue-50 transition-colors"
-                  >
-                    <Plus className="w-4 h-4 mr-2 text-blue-500" /> Thêm con
-                  </button>
-                )}
-                <button 
-                  onClick={(e) => { e.stopPropagation(); data.onEdit(data.node); }}
-                  className="flex items-center w-full px-4 py-2 text-sm text-left text-gray-700 hover:bg-blue-50 transition-colors"
-                >
-                  <Edit2 className="w-4 h-4 mr-2 text-amber-500" /> Sửa
-                </button>
-                <div className="h-px bg-gray-100 my-1" />
-                <button 
-                  onClick={(e) => { e.stopPropagation(); data.onDelete(data.id); }}
-                  disabled={data.hasChildren}
-                  className={`flex items-center w-full px-4 py-2 text-sm text-left transition-colors ${!data.hasChildren ? 'text-red-600 hover:bg-red-50' : 'text-gray-300 cursor-not-allowed'}`}
-                >
-                  <Trash2 className="w-4 h-4 mr-2" /> Xoá
-                </button>
-              </div>
-            </div>
+            {isMenuOpen && (
+              <div className={`absolute right-0 w-40 ${openUp ? 'bottom-full mb-2 origin-bottom-right' : 'top-full mt-2 origin-top-right'} bg-white border border-gray-200 rounded-xl shadow-2xl z-[110] animate-in fade-in zoom-in-95 duration-200 ring-1 ring-black/5`}>
+                  <div className="py-2">
+                    {canAddChild && (
+                      <button 
+                        onClick={(e) => { e.stopPropagation(); setIsMenuOpen(false); data.onAddChild(data.id, data.name, data.level); }}
+                        className="flex items-center w-full px-4 py-2.5 text-sm text-left text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors group/item"
+                      >
+                        <Plus className="w-4 h-4 mr-2.5 text-blue-500 group-hover/item:scale-110 transition-transform" /> 
+                        <span className="font-medium">Thêm con</span>
+                      </button>
+                    )}
+                    <button 
+                      onClick={(e) => { e.stopPropagation(); setIsMenuOpen(false); data.onEdit(data.node); }}
+                      className="flex items-center w-full px-4 py-2.5 text-sm text-left text-gray-700 hover:bg-amber-50 hover:text-amber-600 transition-colors group/item"
+                    >
+                      <Edit2 className="w-4 h-4 mr-2.5 text-amber-500 group-hover/item:scale-110 transition-transform" /> 
+                      <span className="font-medium">Sửa</span>
+                    </button>
+                    <div className="h-px bg-gray-100 my-1 mx-2" />
+                    <button 
+                      onClick={(e) => { e.stopPropagation(); setIsMenuOpen(false); data.onDelete(data.id); }}
+                      disabled={data.hasChildren}
+                      className={`flex items-center w-full px-4 py-2.5 text-sm text-left transition-colors group/item ${!data.hasChildren ? 'text-red-600 hover:bg-red-50' : 'text-gray-300 cursor-not-allowed'}`}
+                    >
+                      <Trash2 className={`w-4 h-4 mr-2.5 ${!data.hasChildren ? 'group-hover/item:scale-110 transition-transform' : ''}`} /> 
+                      <span className="font-medium">Xoá</span>
+                    </button>
+                  </div>
+                </div>
+            )}
           </div>
         </div>
       </div>

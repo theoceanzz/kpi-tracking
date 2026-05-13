@@ -20,7 +20,7 @@ public class ReminderController {
     private final ReminderService reminderService;
 
     @PostMapping("/assigned-kpi/{assignedKpiId}/user/{userId}")
-    @PreAuthorize("hasAuthority('USER:VIEW')")
+    @PreAuthorize("hasAuthority('REMINDER:SEND')")
     @Operation(summary = "Send a reminder to a user for a specific assigned KPI")
     public ResponseEntity<ApiResponse<Void>> sendReminder(
             @PathVariable UUID assignedKpiId,

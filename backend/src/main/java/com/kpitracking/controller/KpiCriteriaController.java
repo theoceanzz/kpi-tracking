@@ -51,8 +51,10 @@ public class KpiCriteriaController {
             @RequestParam(required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE_TIME) java.time.Instant startDate,
             @RequestParam(required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE_TIME) java.time.Instant endDate,
             @RequestParam(defaultValue = "createdAt") String sortBy,
-            @RequestParam(defaultValue = "desc") String sortDir) {
-        PageResponse<KpiCriteriaResponse> response = kpiCriteriaService.getKpiCriteria(page, size, status, orgUnitId, createdById, kpiPeriodId, keyword, startDate, endDate, sortBy, sortDir);
+            @RequestParam(defaultValue = "desc") String sortDir,
+            @RequestParam(required = false) UUID objectiveId,
+            @RequestParam(required = false) UUID keyResultId) {
+        PageResponse<KpiCriteriaResponse> response = kpiCriteriaService.getKpiCriteria(page, size, status, orgUnitId, createdById, kpiPeriodId, keyword, startDate, endDate, sortBy, sortDir, objectiveId, keyResultId);
         return ResponseEntity.ok(ApiResponse.success(response));
     }
 
@@ -83,7 +85,7 @@ public class KpiCriteriaController {
     }
 
     @PostMapping("/{kpiId}/approve")
-    @PreAuthorize("hasAuthority('KPI:APPROVE')")
+    @PreAuthorize("hasAuthority('KPI:APPROVE_CRITERIA')")
     @Operation(summary = "Approve KPI criteria")
     public ResponseEntity<ApiResponse<KpiCriteriaResponse>> approveKpi(@PathVariable UUID kpiId) {
         KpiCriteriaResponse response = kpiCriteriaService.approveKpi(kpiId);
@@ -91,7 +93,7 @@ public class KpiCriteriaController {
     }
 
     @PostMapping("/{kpiId}/reject")
-    @PreAuthorize("hasAuthority('KPI:APPROVE')")
+    @PreAuthorize("hasAuthority('KPI:APPROVE_CRITERIA')")
     @Operation(summary = "Reject KPI criteria")
     public ResponseEntity<ApiResponse<KpiCriteriaResponse>> rejectKpi(
             @PathVariable UUID kpiId,
@@ -118,8 +120,10 @@ public class KpiCriteriaController {
             @RequestParam(required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE_TIME) java.time.Instant startDate,
             @RequestParam(required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE_TIME) java.time.Instant endDate,
             @RequestParam(defaultValue = "createdAt") String sortBy,
-            @RequestParam(defaultValue = "desc") String sortDir) {
-        PageResponse<KpiCriteriaResponse> response = kpiCriteriaService.getMyKpi(page, size, kpiPeriodId, startDate, endDate, sortBy, sortDir);
+            @RequestParam(defaultValue = "desc") String sortDir,
+            @RequestParam(required = false) UUID objectiveId,
+            @RequestParam(required = false) UUID keyResultId) {
+        PageResponse<KpiCriteriaResponse> response = kpiCriteriaService.getMyKpi(page, size, kpiPeriodId, startDate, endDate, sortBy, sortDir, objectiveId, keyResultId);
         return ResponseEntity.ok(ApiResponse.success(response));
     }
 

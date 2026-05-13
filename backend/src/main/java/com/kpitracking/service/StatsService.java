@@ -19,6 +19,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.*;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -90,7 +91,7 @@ public class StatsService {
                 .distinct()
                 .count();
 
-        long pendingSub = submissionRepository.countBySubmittedByUserOrgUnitInAndStatus(unitIds, SubmissionStatus.PENDING);
+        long pendingSub = submissionRepository.countBySubmittedByUserOrgUnitInAndStatusExcludingUser(unitIds, SubmissionStatus.PENDING, currentUser.getId());
         long approvedSub = submissionRepository.countBySubmittedByUserOrgUnitInAndStatus(unitIds, SubmissionStatus.APPROVED);
         long rejectedSub = submissionRepository.countBySubmittedByUserOrgUnitInAndStatus(unitIds, SubmissionStatus.REJECTED);
 
@@ -336,7 +337,9 @@ public class StatsService {
             if (!permissionChecker.isGlobalAdmin(currentUser.getId())) {
                 List<UserRoleOrgUnit> targetUserAssignments = userRoleOrgUnitRepository.findByUserId(userId);
                 boolean hasAccess = targetUserAssignments.stream()
-                        .anyMatch(a -> permissionChecker.hasPermissionInOrgUnit(currentUser.getId(), "USER:VIEW", a.getOrgUnit().getId()));
+                        .anyMatch(a -> permissionChecker.hasPermissionInOrgUnit(currentUser.getId(), "USER:VIEW", a.getOrgUnit().getId()) ||
+                                       permissionChecker.hasPermissionInOrgUnit(currentUser.getId(), "USER:VIEW_LIST", a.getOrgUnit().getId()));
+
                 
                 if (!hasAccess) {
                     throw new com.kpitracking.exception.ForbiddenException("Bạn không có quyền xem tiến độ của nhân viên này");
@@ -742,14 +745,19 @@ public class StatsService {
             List<UUID> subtree = getSubtreeIds(u);
             List<UserRoleOrgUnit> members = userRoleOrgUnitRepository.findByOrgUnitIdIn(subtree);
             
-            long l0 = members.stream().filter(m -> m.getRole().getLevel() != null && m.getRole().getLevel() == 0).count();
-            long l1 = members.stream().filter(m -> m.getRole().getLevel() != null && m.getRole().getLevel() == 1).count();
-            long l2 = members.stream().filter(m -> m.getRole().getLevel() != null && m.getRole().getLevel() == 2).count();
-            long l3 = members.stream().filter(m -> m.getRole().getLevel() != null && m.getRole().getLevel() == 3).count();
-            long l4 = members.stream().filter(m -> m.getRole().getLevel() != null && m.getRole().getLevel() == 4).count();
-            long other = members.size() - l0 - l1 - l2 - l3 - l4;
+            // Map each role name to its count
+            java.util.Map<String, Long> roleCounts = members.stream()
+                .filter(m -> m.getRole() != null)
+                .collect(Collectors.groupingBy(
+                    m -> m.getRole().getName(), 
+                    Collectors.counting()
+                ));
             
-            return new AnalyticsSummaryResponse.RoleDistribution(u.getName(), l0, l1, l2, l3, l4, other);
+            List<AnalyticsSummaryResponse.RoleCount> roleCountList = roleCounts.entrySet().stream()
+                .map(e -> new AnalyticsSummaryResponse.RoleCount(e.getKey(), e.getValue()))
+                .toList();
+            
+            return new AnalyticsSummaryResponse.RoleDistribution(u.getName(), roleCountList);
         }).toList();
 
         // Data for initial load

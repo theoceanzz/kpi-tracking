@@ -19,7 +19,7 @@ export function useNotificationDots() {
   const { data: overview } = useQuery({
     queryKey: ['stats', 'overview', user?.id],
     queryFn: () => statsApi.getOverview(),
-    enabled: !!user && hasPermission(['KPI:APPROVE', 'SUBMISSION:REVIEW']),
+    enabled: !!user && hasPermission(['KPI:APPROVE_CRITERIA', 'KPI:APPROVE_ADJUSTMENT', 'SUBMISSION:REVIEW']),
     refetchInterval: 60000, // Refresh every minute
   })
 
@@ -27,7 +27,7 @@ export function useNotificationDots() {
   const { data: adjustments } = useQuery({
     queryKey: ['kpi-adjustments', 'pending-count', user?.id],
     queryFn: () => adjustmentApi.getAll({ status: 'PENDING', size: 1 }),
-    enabled: !!user && hasPermission('KPI:APPROVE'),
+    enabled: !!user && hasPermission('KPI:APPROVE_ADJUSTMENT'),
     refetchInterval: 60000,
   })
 

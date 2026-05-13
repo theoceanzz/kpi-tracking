@@ -37,7 +37,7 @@ public class KpiAdjustmentController {
     }
 
     @PostMapping("/bulk-review")
-    @PreAuthorize("hasAuthority('KPI:APPROVE')")
+    @PreAuthorize("hasAuthority('KPI:APPROVE_ADJUSTMENT')")
     @Operation(summary = "Approve or reject multiple adjustment requests")
     public ResponseEntity<ApiResponse<Void>> bulkReviewRequests(
             @Valid @RequestBody BulkReviewAdjustmentRequest request) {
@@ -46,7 +46,7 @@ public class KpiAdjustmentController {
     }
 
     @PostMapping("/{requestId}/review")
-    @PreAuthorize("hasAuthority('KPI:APPROVE')")
+    @PreAuthorize("hasAuthority('KPI:APPROVE_ADJUSTMENT')")
     @Operation(summary = "Approve or reject an adjustment request")
     public ResponseEntity<ApiResponse<AdjustmentRequestResponse>> reviewRequest(
             @PathVariable UUID requestId,
@@ -65,7 +65,7 @@ public class KpiAdjustmentController {
     }
 
     @GetMapping
-    @PreAuthorize("hasAuthority('KPI:APPROVE')")
+    @PreAuthorize("hasAuthority('KPI:APPROVE_ADJUSTMENT')")
     @Operation(summary = "List all adjustment requests (for managers)")
     public ResponseEntity<ApiResponse<PageResponse<AdjustmentRequestResponse>>> getAllRequests(
             @RequestParam(defaultValue = "0") int page,

@@ -14,6 +14,10 @@ public class RolePermissionConstants {
             "KPI:VIEW_MY", "SUBMISSION:VIEW_MY", "EVALUATION:VIEW_MY", "STATS:VIEW_MY", "ADJUSTMENT:VIEW_MY"
     );
 
+    public static final List<String> UNIT_HEAD_PERSONAL_PERMS = Arrays.asList(
+            "KPI:VIEW_MY", "SUBMISSION:VIEW_MY", "STATS:VIEW_MY", "ADJUSTMENT:VIEW_MY"
+    );
+
     // ----------------------------------------------------------------
     // Archetype DIRECTOR: quyền quản lý toàn phần (không có SYSTEM_ONLY)
     // Khi isTopLevel=true → sẽ cộng thêm SYSTEM_ONLY ở bên dưới
@@ -24,7 +28,7 @@ public class RolePermissionConstants {
             "USER:VIEW", "USER:CREATE", "USER:UPDATE", "USER:DELETE", "USER:IMPORT",
             "ROLE:VIEW", "ROLE:ASSIGN", "ROLE:CREATE", "ROLE:UPDATE",
             "PERMISSION:VIEW",
-            "KPI:VIEW", "KPI:CREATE", "KPI:UPDATE", "KPI:DELETE", "KPI:APPROVE",
+            "KPI:VIEW", "KPI:CREATE", "KPI:UPDATE", "KPI:DELETE", "KPI:APPROVE_CRITERIA", "KPI:APPROVE_ADJUSTMENT",
             "KPI:IMPORT", "KPI:SUBMIT", "KPI:REJECT",
             "SUBMISSION:REVIEW", "SUBMISSION:VIEW", "SUBMISSION:DELETE", "SUBMISSION:UPDATE",
             "EVALUATION:VIEW", "EVALUATION:CREATE", "EVALUATION:UPDATE", "EVALUATION:DELETE",
@@ -34,7 +38,8 @@ public class RolePermissionConstants {
             "POLICY:VIEW", "POLICY:CREATE", "POLICY:UPDATE", "POLICY:ASSIGN",
             "STATS:VIEW_ORG", "STATS:VIEW_EMPLOYEE",
             "USER_ROLE:VIEW", "USER_ROLE:ASSIGN", "USER_ROLE:REVOKE",
-            "ATTACHMENT:UPLOAD", "ATTACHMENT:DELETE"
+            "ATTACHMENT:UPLOAD", "ATTACHMENT:DELETE",
+            "REMINDER:SEND"
     );
 
     // ----------------------------------------------------------------
@@ -47,7 +52,7 @@ public class RolePermissionConstants {
             "USER:VIEW", "USER:CREATE", "USER:UPDATE", "USER:IMPORT",
             "ROLE:VIEW", "ROLE:ASSIGN", "ROLE:CREATE", "ROLE:UPDATE",
             "PERMISSION:VIEW",
-            "KPI:VIEW", "KPI:CREATE", "KPI:UPDATE", "KPI:APPROVE",
+            "KPI:VIEW", "KPI:CREATE", "KPI:UPDATE", "KPI:APPROVE_CRITERIA", "KPI:APPROVE_ADJUSTMENT",
             "KPI:IMPORT", "KPI:SUBMIT", "KPI:REJECT",
             "SUBMISSION:REVIEW", "SUBMISSION:VIEW", "SUBMISSION:UPDATE",
             "EVALUATION:VIEW", "EVALUATION:CREATE", "EVALUATION:UPDATE",
@@ -57,7 +62,8 @@ public class RolePermissionConstants {
             "POLICY:VIEW", "POLICY:CREATE", "POLICY:UPDATE", "POLICY:ASSIGN",
             "STATS:VIEW_ORG", "STATS:VIEW_EMPLOYEE",
             "USER_ROLE:VIEW", "USER_ROLE:ASSIGN",
-            "ATTACHMENT:UPLOAD"
+            "ATTACHMENT:UPLOAD",
+            "REMINDER:SEND"
     );
 
     // ----------------------------------------------------------------
@@ -67,14 +73,15 @@ public class RolePermissionConstants {
             "DASHBOARD:VIEW",
             "ORG:VIEW_TREE",
             "USER:VIEW_LIST",
-            "KPI:VIEW", "KPI:CREATE", "KPI:UPDATE", "KPI:DELETE",
+            "KPI:VIEW", "KPI:CREATE", "KPI:UPDATE", "KPI:DELETE", "KPI:APPROVE_ADJUSTMENT",
             "KPI:IMPORT", "KPI:SUBMIT", "KPI:REJECT",
-            "SUBMISSION:VIEW",
+            "SUBMISSION:VIEW", "SUBMISSION:REVIEW", "SUBMISSION:REVIEW_KPI",
             "EVALUATION:VIEW", "EVALUATION:CREATE",
             "NOTIF:VIEW", "KPI_PERIOD:VIEW",
             "AI:SUGGEST_KPI",
             "STATS:VIEW_EMPLOYEE",
-            "ATTACHMENT:UPLOAD"
+            "ATTACHMENT:UPLOAD",
+            "REMINDER:SEND"
     );
 
     // ----------------------------------------------------------------
@@ -85,7 +92,7 @@ public class RolePermissionConstants {
             "ORG:VIEW_TREE",
             "USER:VIEW_LIST",
             "KPI:SUBMIT", "KPI:REJECT",
-            "SUBMISSION:VIEW",
+            "SUBMISSION:VIEW", "SUBMISSION:REVIEW_KPI",
             "EVALUATION:VIEW", "EVALUATION:CREATE",
             "NOTIF:VIEW", "KPI_PERIOD:VIEW",
             "AI:SUGGEST_KPI",
@@ -117,8 +124,13 @@ public class RolePermissionConstants {
         List<String> perms = new ArrayList<>(resolveBasePerms(archetype));
 
         // Mọi role (trừ Giám đốc) đều có PERSONAL_PERMS (xem dữ liệu của chính mình)
+        // Riêng trưởng đơn vị (manager) dùng UNIT_HEAD_PERSONAL_PERMS (không có EVALUATION:VIEW_MY)
         if (!"director".equals(archetype) && !"deputy_director".equals(archetype)) {
-            addIfAbsent(perms, PERSONAL_PERMS);
+            if ("manager".equals(archetype)) {
+                addIfAbsent(perms, UNIT_HEAD_PERSONAL_PERMS);
+            } else {
+                addIfAbsent(perms, PERSONAL_PERMS);
+            }
         }
 
         // Role cao nhất của công ty → có thêm SYSTEM_ONLY

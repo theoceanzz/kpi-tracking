@@ -108,17 +108,23 @@ public class GlobalExceptionHandler {
         String message = "Dữ liệu đã tồn tại hoặc vi phạm ràng buộc hệ thống";
         String detail = ex.getMessage();
         if (detail != null) {
-            if (detail.contains("Duplicate entry") || detail.contains("duplicate key") || detail.contains("violates unique constraint")) {
-                if (detail.contains("users_email_key") || detail.contains("email")) {
-                    message = "Email này đã tồn tại trong hệ thống";
+            if (detail.contains("duplicate key") || detail.contains("violates unique constraint")) {
+                if (detail.contains("users_email_key")) {
+                    message = "Email người dùng này đã tồn tại trong hệ thống";
                 } else if (detail.contains("employee_code")) {
                     message = "Mã nhân viên này đã tồn tại trong hệ thống";
                 } else if (detail.contains("organizations_name_key") || detail.contains("organizations_name")) {
                     message = "Tên tổ chức này đã tồn tại trong hệ thống";
                 } else if (detail.contains("organizations_code_key") || detail.contains("organizations_code")) {
                     message = "Mã tổ chức này đã tồn tại trong hệ thống";
+                } else if (detail.contains("idx_org_units_code_unique") || detail.contains("org_units_code_key")) {
+                    message = "Mã thành phần tổ chức này đã tồn tại (đang hoạt động)";
+                } else if (detail.contains("org_units") && detail.contains("email")) {
+                    message = "Email của thành phần tổ chức này đã được sử dụng";
+                } else if (detail.contains("email")) {
+                    message = "Email này đã tồn tại trong hệ thống";
                 } else {
-                    message = "Dữ liệu này đã tồn tại trong hệ thống";
+                    message = "Dữ liệu này đã tồn tại hoặc vi phạm ràng buộc";
                 }
             }
         }

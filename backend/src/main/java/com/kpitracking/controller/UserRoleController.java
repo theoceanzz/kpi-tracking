@@ -55,6 +55,25 @@ public class UserRoleController {
         return ResponseEntity.ok(ApiResponse.success("Role revoked successfully"));
     }
 
+    @DeleteMapping("/org-unit/{orgUnitId}/remove-all")
+    @PreAuthorize("hasAuthority('ROLE:ASSIGN')")
+    @Operation(summary = "Remove all users from org unit")
+    public ResponseEntity<ApiResponse<Void>> removeAllUsersFromOrgUnit(
+            @PathVariable UUID orgUnitId) {
+        userRoleService.removeAllUsersFromOrgUnit(orgUnitId);
+        return ResponseEntity.ok(ApiResponse.success("All users removed from organization unit successfully"));
+    }
+
+    @DeleteMapping("/org-unit/{orgUnitId}/remove-bulk")
+    @PreAuthorize("hasAuthority('ROLE:ASSIGN')")
+    @Operation(summary = "Remove bulk users from org unit")
+    public ResponseEntity<ApiResponse<Void>> removeBulkUsersFromOrgUnit(
+            @PathVariable UUID orgUnitId,
+            @RequestBody List<UUID> userIds) {
+        userRoleService.removeBulkUsersFromOrgUnit(userIds, orgUnitId);
+        return ResponseEntity.ok(ApiResponse.success("Selected users removed from organization unit successfully"));
+    }
+
     @GetMapping("/user/{userId}")
     @PreAuthorize("hasAuthority('ROLE:VIEW')")
     @Operation(summary = "Get user's roles across org units")

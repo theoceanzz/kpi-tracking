@@ -13,7 +13,9 @@ import {
 } from 'lucide-react'
 import ReviewModal from '@/features/submissions/components/ReviewModal'
 import StaffEvaluationModal from '@/features/submissions/components/StaffEvaluationModal'
+import StaffPerformanceDetailModal from '@/features/submissions/components/StaffPerformanceDetailModal'
 import { usePermission } from '@/hooks/usePermission'
+
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { evaluationApi } from '../api/evaluationApi'
 import { toast } from 'sonner'
@@ -32,6 +34,7 @@ export default function EvaluationDetailModal({ open, onClose, evaluation }: Eva
   const { getScoreColor, getScoreLabel, maxScore } = getScoringFunctions(org)
   const { canReviewSubmission, canCreateEvaluation } = usePermission()
   const isManager = useMemo(() => user?.memberships?.some(m => m.roleRank === 0), [user])
+  const isDeputy = useMemo(() => user?.memberships?.some(m => m.roleRank === 1), [user])
   const qc = useQueryClient()
 
   const { data: relatedData } = useEvaluations(
@@ -39,7 +42,9 @@ export default function EvaluationDetailModal({ open, onClose, evaluation }: Eva
   )
 
   const [showStaffEval, setShowStaffEval] = useState(false)
+  const [showPerfDetail, setShowPerfDetail] = useState(false)
   const [inlineScoreInitialized, setInlineScoreInitialized] = useState(false)
+
   const [inlineScore, setInlineScore] = useState<number>(0)
   const [inlineComment, setInlineComment] = useState('')
 
@@ -90,7 +95,7 @@ export default function EvaluationDetailModal({ open, onClose, evaluation }: Eva
 
     const isTwoLevelOrg = org.hierarchyLevels.length <= 2
 
-    const roleLabel = evaluation.userRoleName || selfEval?.evaluatorRole || 'Nhân viên'
+    const roleLabel = evaluation.userRoleName || (selfEval?.evaluatorRoleName || (selfEval?.evaluatorRole === 'SELF' ? 'Nhân viên' : 'Thành viên'))
     const verb = (evalUserLevel <= 1) ? 'tự nhận xét' : 'tự đánh giá'
     let selfTitle = `${roleLabel} ${verb}`
 
@@ -169,34 +174,34 @@ export default function EvaluationDetailModal({ open, onClose, evaluation }: Eva
       let iconColor = "text-blue-600 dark:text-blue-400"
 
       if (mappedRoleLevel === 0) {
-        roleCode = 'DIRECTOR'
-        stepTitle = `${hl.managerRoleLabel || 'Tổng Giám đốc'} Quyết định`
+        roleCode = 'CEO'
+        stepTitle = `${hl.managerRoleLabel || 'Cấp quản lý cao nhất'} Quyết định`
         icon = Star
         iconBg = "bg-amber-50 dark:bg-amber-900/20"
         iconColor = "text-amber-600 dark:text-amber-400"
       } else if (mappedRoleLevel === 1) {
         roleCode = 'REGIONAL_DIRECTOR'
-        stepTitle = `${hl.managerRoleLabel || 'Giám đốc Vùng'} đánh giá`
+        stepTitle = `${hl.managerRoleLabel || 'Cấp quản lý vùng'} đánh giá`
         iconBg = "bg-purple-50 dark:bg-purple-900/20"
         iconColor = "text-purple-600 dark:text-purple-400"
       } else if (mappedRoleLevel === 2) {
-        roleCode = 'MANAGER'
-        stepTitle = `${hl.managerRoleLabel || 'Giám đốc'} đánh giá`
+        roleCode = 'DIRECTOR'
+        stepTitle = `${hl.managerRoleLabel || 'Quản lý cấp cao'} đánh giá`
         iconBg = "bg-blue-50 dark:bg-blue-900/20"
         iconColor = "text-blue-600 dark:text-blue-400"
       } else if (mappedRoleLevel === 3) {
         roleCode = 'DEPT_HEAD'
-        stepTitle = `${hl.managerRoleLabel || 'Trưởng phòng'} đánh giá`
+        stepTitle = `${hl.managerRoleLabel || 'Quản lý đơn vị'} đánh giá`
         iconBg = "bg-indigo-50 dark:bg-indigo-900/20"
         iconColor = "text-indigo-600 dark:text-indigo-400"
       } else if (mappedRoleLevel === 4) {
         roleCode = 'TEAM_LEADER'
-        stepTitle = `${hl.managerRoleLabel || 'Trưởng nhóm'} đánh giá`
+        stepTitle = `${hl.managerRoleLabel || 'Quản lý trực tiếp'} đánh giá`
         iconBg = "bg-emerald-50 dark:bg-emerald-900/20"
         iconColor = "text-emerald-600 dark:text-emerald-400"
       } else {
         roleCode = `LEVEL_${mappedRoleLevel}`
-        stepTitle = `${hl.managerRoleLabel || 'Quản lý'} đánh giá`
+        stepTitle = `${hl.managerRoleLabel || 'Cấp quản lý'} đánh giá`
       }
 
       const evalAtLevel = relatedData.content.find((e: any) => {
@@ -226,9 +231,12 @@ export default function EvaluationDetailModal({ open, onClose, evaluation }: Eva
         if (!matches) {
           if (roleCode === 'SELF') {
             matches = e.evaluatorRole === 'SELF'
-          } else if (isTwoLevelOrg) {
-            if (roleCode === 'DIRECTOR') matches = ['DIRECTOR', 'REGIONAL_DIRECTOR'].includes(e.evaluatorRole)
-            else if (roleCode === 'TEAM_LEADER') matches = ['TEAM_LEADER', 'DEPT_HEAD', 'MANAGER', 'TEAM_DEPUTY', 'DEPT_DEPUTY'].includes(e.evaluatorRole)
+          } else if (roleCode === 'CEO') {
+            matches = ['CEO', 'DIRECTOR', 'REGIONAL_DIRECTOR'].includes(e.evaluatorRole)
+          } else if (roleCode === 'DIRECTOR') {
+            matches = ['DIRECTOR', 'MANAGER', 'REGIONAL_DIRECTOR'].includes(e.evaluatorRole)
+          } else if (isTwoLevelOrg && roleCode === 'TEAM_LEADER') {
+            matches = ['TEAM_LEADER', 'DEPT_HEAD', 'MANAGER', 'TEAM_DEPUTY', 'DEPT_DEPUTY'].includes(e.evaluatorRole)
           }
         }
 
@@ -308,7 +316,7 @@ export default function EvaluationDetailModal({ open, onClose, evaluation }: Eva
 
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
       <div className="relative bg-white dark:bg-slate-900 rounded-[28px] shadow-2xl w-full max-w-2xl mx-4 animate-in zoom-in-95 fade-in duration-300 max-h-[90vh] overflow-y-auto border border-slate-200 dark:border-slate-800">
 
@@ -367,7 +375,10 @@ export default function EvaluationDetailModal({ open, onClose, evaluation }: Eva
                 isLast={idx === timelineSteps.length - 1}
                 getScoreColor={getScoreColor}
                 getScoreLabel={getScoreLabel}
+                onClick={step.role === 'SELF' && isDeputy ? () => setShowPerfDetail(true) : undefined}
               />
+
+
             ))}
           </div>
 
@@ -381,10 +392,10 @@ export default function EvaluationDetailModal({ open, onClose, evaluation }: Eva
                 className="w-full py-4 rounded-[20px] bg-slate-900 dark:bg-white text-white dark:text-slate-900 text-[10px] font-black uppercase tracking-widest hover:bg-indigo-600 dark:hover:bg-indigo-50 transition-all flex items-center justify-center gap-2 group"
               >
                 <Target size={14} className="group-hover:rotate-45 transition-transform" />
-                {layers.directorEval ? 'Xem Chi tiết bài nộp KPI' : 'Phê duyệt & Đánh giá bài nộp'} ({mySubmissions.content.length})
+                {(layers.directorEval || myEvalAtLevel) ? 'Xem Chi tiết bài nộp KPI' : 'Phê duyệt & Đánh giá bài nộp'} ({mySubmissions.content.length})
               </button>
               <p className="text-[10px] text-slate-400 mt-2 text-center italic font-medium">
-                {layers.directorEval 
+                {(layers.directorEval || myEvalAtLevel)
                   ? 'Nhấn để xem lại danh sách chỉ tiêu KPI đã đánh giá.' 
                   : 'Nhấn để xem danh sách chỉ tiêu KPI và thực hiện đánh giá chính thức.'}
               </p>
@@ -484,8 +495,19 @@ export default function EvaluationDetailModal({ open, onClose, evaluation }: Eva
           userName={evaluation.userName}
           periodId={evaluation.kpiPeriodId}
           periodName={evaluation.kpiPeriodName}
-          readOnly={!!layers.directorEval}
+          readOnly={!!(layers.directorEval || myEvalAtLevel)}
           evaluationComment={layers.directorEval?.comment || ''}
+        />
+      )}
+
+      {showPerfDetail && evaluation && (
+        <StaffPerformanceDetailModal
+          open={showPerfDetail}
+          onClose={() => setShowPerfDetail(false)}
+          userId={evaluation.userId}
+          userName={evaluation.userName}
+          periodId={evaluation.kpiPeriodId}
+          periodName={evaluation.kpiPeriodName}
         />
       )}
 
@@ -498,15 +520,18 @@ export default function EvaluationDetailModal({ open, onClose, evaluation }: Eva
   )
 }
 
+
 // --- Sub Components ---
 
-function EvalLayerCard({ title, icon: Icon, iconBg, iconColor, evaluation, lineActive, isLast, calculatedScore, getScoreColor, getScoreLabel }: {
+function EvalLayerCard({ title, icon: Icon, iconBg, iconColor, evaluation, lineActive, isLast, calculatedScore, getScoreColor, getScoreLabel, onClick }: {
   title: string; icon: any; iconBg: string; iconColor: string; 
   evaluation: Evaluation | null; lineActive?: boolean; isLast?: boolean;
   calculatedScore?: number | null;
   getScoreColor: (s: number | null) => string;
   getScoreLabel: (s: number | null) => string;
+  onClick?: () => void;
 }) {
+
   return (
     <div className="relative flex gap-5 group/card">
       {/* Timeline line */}
@@ -536,7 +561,15 @@ function EvalLayerCard({ title, icon: Icon, iconBg, iconColor, evaluation, lineA
         </div>
         
         {evaluation ? (
-          <div className="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 shadow-sm transition-all duration-300 group-hover/card:shadow-md group-hover/card:border-slate-200 dark:group-hover/card:border-slate-700">
+          <div 
+            onClick={onClick}
+            className={cn(
+              "p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 shadow-sm transition-all duration-300 group-hover/card:shadow-md",
+              onClick 
+                ? "cursor-pointer hover:border-indigo-500 hover:ring-4 hover:ring-indigo-500/5" 
+                : "group-hover/card:border-slate-200 dark:group-hover/card:border-slate-700"
+            )}
+          >
             <div className="flex items-center justify-between gap-4">
               <div className="flex items-center gap-3">
                 <div className={cn("p-2 rounded-xl bg-slate-50 dark:bg-slate-800/50", getScoreColor(evaluation.score).replace('text-', 'text-opacity-20 bg-'))}>

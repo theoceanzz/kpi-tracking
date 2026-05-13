@@ -6,8 +6,9 @@ import { toast } from 'sonner'
 import { 
   X, Loader2, CheckCircle, Target, TrendingUp, 
   MessageSquare, Award, Star,
-  AlertCircle
+  AlertCircle, Paperclip, ExternalLink
 } from 'lucide-react'
+
 import { useAuthStore } from '@/store/authStore'
 import { formatNumber, cn } from '@/lib/utils'
 import { useOrganization } from '@/features/orgunits/hooks/useOrganization'
@@ -149,9 +150,13 @@ export default function StaffEvaluationModal({
               <p className="text-slate-400 text-xs font-medium">
                 Kỳ đánh giá: <b className="text-white">{periodName}</b> • Đang xem xét {submissionList.length} chỉ tiêu KPI
                 {isFullyApproved ? (
-                  <span className="ml-2 px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 text-[9px] font-black uppercase tracking-widest">Đã chấm điểm</span>
+                  <span className="ml-2 px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 text-[9px] font-black uppercase tracking-widest border border-emerald-500/30">
+                    Đã được {submissionList.find(s => s.reviewedByName)?.reviewedByName || 'Quản lý'} phê duyệt
+                  </span>
                 ) : (
-                  <span className="ml-2 px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 text-[9px] font-black uppercase tracking-widest">Chưa chấm điểm</span>
+                  <span className="ml-2 px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 text-[9px] font-black uppercase tracking-widest border border-amber-500/30">
+                    Đang chờ chấm điểm
+                  </span>
                 )}
               </p>
             </div>
@@ -202,7 +207,35 @@ export default function StaffEvaluationModal({
                             </div>
                             <div>
                               <p className="text-sm font-black text-slate-900 dark:text-white">{s.kpiCriteriaName}</p>
-                              <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-0.5">Trọng số: {s.weight}%</p>
+                              <div className="flex items-center gap-3 mt-0.5">
+                                <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Trọng số: {s.weight}%</p>
+                                {s.attachments && s.attachments.length > 0 && (
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-[10px] text-slate-300">•</span>
+                                    <div className="flex flex-wrap gap-1.5">
+                                      {s.attachments.map(att => (
+                                        <a 
+                                          key={att.id} 
+                                          href={att.fileUrl} 
+                                          target="_blank" 
+                                          rel="noopener noreferrer"
+                                          title={att.fileName}
+                                          className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 text-[9px] font-black uppercase tracking-wider hover:bg-indigo-500 hover:text-white transition-all"
+                                        >
+                                          <Paperclip size={10} />
+                                          <span className="truncate max-w-[80px]">{att.fileName}</span>
+                                          <ExternalLink size={10} />
+                                        </a>
+                                      ))}
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                              {s.note && (
+                                <p className="text-[10px] text-slate-500 font-medium mt-1 italic line-clamp-1 group-hover:line-clamp-none transition-all">
+                                  " {s.note} "
+                                </p>
+                              )}
                             </div>
                           </div>
                         </td>

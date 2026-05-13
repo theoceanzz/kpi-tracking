@@ -133,10 +133,10 @@ export default function KpiPeriodsPage() {
                 
                 <button 
                   onClick={() => { setEditPeriod(null); setShowForm(true) }}
-                  className="flex items-center gap-2 px-6 h-12 rounded-[18px] bg-indigo-600 text-white text-xs font-black uppercase tracking-widest hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-500/20 active:scale-95 group whitespace-nowrap shrink-0"
+                  className="cursor-pointer relative z-10 flex items-center gap-2 px-8 h-12 rounded-[20px] bg-indigo-600 text-white text-[11px] font-black uppercase tracking-widest hover:bg-indigo-700 hover:shadow-indigo-500/40 transition-all shadow-lg shadow-indigo-500/20 active:scale-95 group whitespace-nowrap shrink-0"
                 >
                   <Plus size={16} className="group-hover:rotate-90 transition-transform duration-500" />
-                  <span>Tạo đợt mới</span>
+                  Tạo đợt mới
                 </button>
               </div>
             </div>
@@ -182,26 +182,33 @@ export default function KpiPeriodsPage() {
             
             <div className="flex items-center gap-2">
               <div className="relative">
-                <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
+                <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 z-10" size={14} />
                 <input 
                   type="date"
                   value={startDateFilter}
                   onChange={(e) => { setStartDateFilter(e.target.value); setPage(0) }}
-                  className="pl-9 pr-3 py-3 rounded-xl border border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50 text-[11px] font-black uppercase outline-none focus:ring-2 focus:ring-indigo-500/20 transition-all"
+                  className="pl-9 pr-3 py-3 rounded-xl border border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50 text-[11px] font-black uppercase outline-none focus:ring-2 focus:ring-indigo-500/20 transition-all text-transparent w-[140px]"
                   title="Từ ngày"
                 />
+                <div className="absolute inset-0 left-9 flex items-center pointer-events-none text-[11px] font-black uppercase text-slate-600 dark:text-slate-400">
+                  {startDateFilter ? format(new Date(startDateFilter), 'dd/MM/yyyy') : 'Từ ngày'}
+                </div>
               </div>
               <ArrowRight size={12} className="text-slate-300" />
               <div className="relative">
-                <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
+                <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 z-10" size={14} />
                 <input 
                   type="date"
                   value={endDateFilter}
                   onChange={(e) => { setEndDateFilter(e.target.value); setPage(0) }}
-                  className="pl-9 pr-3 py-3 rounded-xl border border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50 text-[11px] font-black uppercase outline-none focus:ring-2 focus:ring-indigo-500/20 transition-all"
+                  className="pl-9 pr-3 py-3 rounded-xl border border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50 text-[11px] font-black uppercase outline-none focus:ring-2 focus:ring-indigo-500/20 transition-all text-transparent w-[140px]"
                   title="Đến ngày"
                 />
+                <div className="absolute inset-0 left-9 flex items-center pointer-events-none text-[11px] font-black uppercase text-slate-600 dark:text-slate-400">
+                  {endDateFilter ? format(new Date(endDateFilter), 'dd/MM/yyyy') : 'Đến ngày'}
+                </div>
               </div>
+
             </div>
           </div>
 
@@ -623,40 +630,43 @@ function PeriodFormModal({ onClose, editPeriod, organizationId, onSubmit, isSubm
             <div className="space-y-6">
               <div className="space-y-2">
                 <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 ml-1">Bắt đầu</label>
-                <div className="relative group/input">
+                <div className="relative">
                   <input 
                     type="datetime-local"
                     value={formData.startDate}
                     onChange={e => handleFieldChange('startDate', e.target.value)}
                     required
-                    className="w-full px-6 py-4 rounded-[22px] border border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50 focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500/50 outline-none text-sm font-bold transition-all"
+                    className="w-full px-6 py-4 rounded-[22px] border border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50 focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500/50 outline-none text-sm font-bold transition-all text-transparent"
                   />
+                  <div className="absolute inset-0 left-6 flex items-center pointer-events-none text-sm font-bold text-slate-900 dark:text-white">
+                    {formData.startDate ? format(new Date(formData.startDate), 'dd/MM/yyyy HH:mm') : ''}
+                  </div>
                 </div>
               </div>
+
               <div className="space-y-2">
                 <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 ml-1">Kết thúc (Tự động tính)</label>
-                <div className="relative group/input">
-                  <input 
-                    type="datetime-local"
-                    value={formData.endDate}
-                    readOnly
-                    required
-                    className="w-full px-6 py-4 rounded-[22px] border border-slate-100 dark:border-slate-800 bg-slate-100/50 dark:bg-slate-800/50 outline-none text-sm font-bold transition-all cursor-not-allowed opacity-60"
-                  />
+                <div className="h-[52px] flex items-center px-6 rounded-[22px] border border-slate-100 dark:border-slate-800 bg-slate-100/50 dark:bg-slate-800/50 text-sm font-bold opacity-60">
+                  {formData.endDate ? format(new Date(formData.endDate), 'dd/MM/yyyy HH:mm') : '—'}
                 </div>
               </div>
+
               <div className="space-y-2">
                 <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 ml-1">Thông báo nhắc nhở (Mặc định 50% thời gian)</label>
-                <div className="relative group/input">
+                <div className="relative">
                   <input 
                     type="datetime-local"
                     value={formData.notificationDate}
                     onChange={e => handleFieldChange('notificationDate', e.target.value)}
                     required
-                    className="w-full px-6 py-4 rounded-[22px] border border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50 focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500/50 outline-none text-sm font-bold transition-all"
+                    className="w-full px-6 py-4 rounded-[22px] border border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50 focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500/50 outline-none text-sm font-bold transition-all text-transparent"
                   />
+                  <div className="absolute inset-0 left-6 flex items-center pointer-events-none text-sm font-bold text-slate-900 dark:text-white">
+                    {formData.notificationDate ? format(new Date(formData.notificationDate), 'dd/MM/yyyy HH:mm') : ''}
+                  </div>
                 </div>
               </div>
+
             </div>
 
             <div className="flex gap-4 pt-6">

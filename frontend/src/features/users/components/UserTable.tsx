@@ -3,7 +3,7 @@ import StatusBadge from '@/components/common/StatusBadge'
 import type { User } from '@/types/user'
 import { Pencil, Trash2, MoreVertical, Shield, User as UserIcon, Mail, Phone, Building2 } from 'lucide-react'
 import { getInitials, getHighestRole, cn, formatPhoneNumber } from '@/lib/utils'
-import { ROLE_MAP } from '@/constants/roles'
+
 
 
 interface UserTableProps {
@@ -118,7 +118,7 @@ export default function UserTable({ users, onRowClick, onDelete, canUpdate, canD
                 {/* 2. Role Col */}
                  <td className="py-4 px-6 whitespace-nowrap">
                   <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold border ${roleConf.color}`}>
-                     <RoleIcon size={12} /> {ROLE_MAP[highestRole] || highestRole}
+                     <RoleIcon size={12} /> {highestRole}
                   </span>
                 </td>
 
@@ -127,13 +127,13 @@ export default function UserTable({ users, onRowClick, onDelete, canUpdate, canD
                   {u.memberships && u.memberships.length > 0 ? (
                      <div className="flex flex-wrap gap-2 max-w-[280px]">
                         {u.memberships.map((m, idx) => (
-                           <div key={idx} className="flex items-center gap-1.5 px-2 py-0.5 rounded-md border border-slate-200 dark:border-slate-800 bg-slate-50 text-slate-600 dark:bg-slate-800/40 dark:text-slate-400 text-[11px] font-semibold">
-                              <Building2 size={10} className="shrink-0" />
-                              <span className="truncate max-w-[100px]" title={m.orgUnitName}>{m.orgUnitName}</span>
-                              {m.roleName && (
-                                <span className="opacity-50 text-[10px]">({m.roleDisplayName || m.roleName})</span>
-                              )}
-                           </div>
+                            <div key={idx} className="flex items-center gap-1.5 px-2 py-0.5 rounded-md border border-slate-200 dark:border-slate-800 bg-slate-50 text-slate-600 dark:bg-slate-800/40 dark:text-slate-400 text-[11px] font-semibold whitespace-nowrap">
+                               <Building2 size={10} className="shrink-0" />
+                               <span className="truncate max-w-[150px]" title={m.orgUnitName}>{m.orgUnitName}</span>
+                               {m.roleName && (
+                                 <span className="opacity-50 text-[10px] whitespace-nowrap">({m.roleDisplayName || m.roleName})</span>
+                               )}
+                            </div>
                         ))}
                      </div>
                   ) : (

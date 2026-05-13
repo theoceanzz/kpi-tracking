@@ -17,6 +17,8 @@ public class OrganizationResponse {
     private Double evaluationMaxScore;
     private java.util.List<EvaluationLevelResponse> evaluationLevels;
     private Integer kpiReminderPercentage;
+    private Boolean enableOkr;
+    private Boolean enableWaterfall;
     private Instant createdAt;
     private Instant updatedAt;
 }

@@ -74,6 +74,7 @@ export default function OnboardingTour() {
         </div>
       ),
       placement: 'center',
+      disableBeacon: true,
     },
   ], [user])
 
@@ -115,14 +116,14 @@ export default function OnboardingTour() {
         hideArrow: true,
       }}
       options={{
-        primaryColor: '#6366f1',
+        primaryColor: '#3b82f6',
         textColor: '#1e293b',
-        zIndex: 10000,
+        zIndex: 200,
         backgroundColor: '#fff',
         arrowColor: '#fff',
         showProgress: false,
         spotlightRadius: 24,
-        overlayColor: 'rgba(15, 23, 42, 0.7)',
+        overlayColor: 'rgba(0, 0, 0, 0.3)',
       }}
     />
   )

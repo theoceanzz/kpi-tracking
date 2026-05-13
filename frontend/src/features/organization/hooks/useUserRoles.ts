@@ -64,3 +64,30 @@ export function useRevokeRole() {
     }
   })
 }
+
+export function useRemoveAllFromUnit() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (orgUnitId: string) => userRoleApi.removeAllFromUnit(orgUnitId),
+    onSuccess: (_, orgUnitId) => {
+      queryClient.invalidateQueries({ queryKey: ['org-unit-members', orgUnitId] })
+      queryClient.invalidateQueries({ queryKey: ['organization-users'] })
+      queryClient.invalidateQueries({ queryKey: ['users'] })
+      queryClient.invalidateQueries({ queryKey: ['stats'] })
+    }
+  })
+}
+
+export function useRemoveBulkFromUnit() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ userIds, orgUnitId }: { userIds: string[], orgUnitId: string }) => 
+      userRoleApi.removeBulkFromUnit(userIds, orgUnitId),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['org-unit-members', variables.orgUnitId] })
+      queryClient.invalidateQueries({ queryKey: ['organization-users'] })
+      queryClient.invalidateQueries({ queryKey: ['users'] })
+      queryClient.invalidateQueries({ queryKey: ['stats'] })
+    }
+  })
+}

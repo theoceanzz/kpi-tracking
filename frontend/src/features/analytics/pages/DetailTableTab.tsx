@@ -89,7 +89,7 @@ export default function DetailTableTab() {
         <>
           <p className="text-xs font-bold text-slate-400">{data.totalElements} nhân viên</p>
           <div className="bg-white dark:bg-slate-900 rounded-[24px] border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto lg:overflow-x-hidden scrollbar-hide custom-scrollbar">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="text-[10px] font-black uppercase tracking-widest text-slate-400 border-b border-slate-100 dark:border-slate-800">

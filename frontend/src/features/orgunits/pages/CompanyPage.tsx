@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react'
+import { Link } from 'react-router-dom'
 import { useAuthStore } from '@/store/authStore'
 import { useOrganization } from '../hooks/useOrganization'
 import { useUpdateOrganization } from '../hooks/useUpdateOrganization'
 import { useForm, useFieldArray } from 'react-hook-form'
 import {  Edit3, ShieldCheck, 
   Calendar, Hash, Layers, Trash2,
-  Info, ArrowUp, ArrowDown, Plus, Target, Sparkles, ChevronUp, RotateCcw
+  Info, ArrowUp, ArrowDown, Plus, Target, Sparkles, ChevronUp, RotateCcw, GitBranch
 } from 'lucide-react'
 import LoadingSkeleton from '@/components/common/LoadingSkeleton'
 import { formatDateTime, cn } from '@/lib/utils'
@@ -28,7 +29,7 @@ export default function CompanyPage() {
 
   const { register, control, handleSubmit, reset } = useForm({
     defaultValues: {
-      hierarchyLevels: [] as { unitTypeName: string; managerRoleLabel: string }[]
+      hierarchyLevels: [] as { id?: string; unitTypeName: string; managerRoleLabel: string }[]
     }
   })
 
@@ -41,6 +42,7 @@ export default function CompanyPage() {
     if (org?.hierarchyLevels) {
       reset({
         hierarchyLevels: org.hierarchyLevels.map(l => ({
+          id: l.id,
           unitTypeName: l.unitTypeName,
           managerRoleLabel: l.managerRoleLabel || ''
         }))
@@ -141,6 +143,8 @@ export default function CompanyPage() {
                       <HeroStat icon={Hash} label="Mã DN" value={org?.code || 'N/A'} valueColor="text-white" />
                       <HeroStat icon={Calendar} label="Thành lập" value={(org?.createdAt ? formatDateTime(org.createdAt).split(' ')[0] : 'N/A') || 'N/A'} valueColor="text-white" />
                       <HeroStat icon={ShieldCheck} label="Trạng thái" value={org?.status === 'Active' ? 'Hoạt động' : (org?.status || 'Hoạt động')} valueColor="text-emerald-400" />
+                      <HeroStat icon={Target} label="OKR" value={org?.enableOkr ? 'Đang bật' : 'Đang tắt'} valueColor={org?.enableOkr ? "text-amber-400" : "text-white/40"} />
+                      <HeroStat icon={GitBranch} label="Waterfall" value={org?.enableWaterfall ? 'Đang bật' : 'Đang tắt'} valueColor={org?.enableWaterfall ? "text-cyan-400" : "text-white/40"} />
                     </div>
                   </>
                 )}
@@ -183,6 +187,7 @@ export default function CompanyPage() {
 
         {/* Professional Hierarchy Section */}
         <section id="tour-company-hierarchy" className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden flex flex-col h-full animate-in slide-in-from-right-4 duration-700 delay-150">
+           {/* ... existing hierarchy code ... */}
            <div className="px-8 py-6 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
               <div className="flex items-center gap-4">
                 <div className="w-10 h-10 rounded-xl bg-indigo-50 dark:bg-indigo-900/30 flex items-center justify-center text-indigo-600 dark:text-indigo-400">
@@ -223,6 +228,7 @@ export default function CompanyPage() {
                           </div>
                           
                           <div className="flex-1 bg-slate-50 dark:bg-slate-800/40 p-4 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm transition-all group-hover:border-indigo-300 dark:group-hover:border-indigo-800">
+                             <input type="hidden" {...register(`hierarchyLevels.${index}.id` as const)} />
                              <div className="flex flex-col sm:flex-row items-center gap-4">
                                <div className="flex-1 w-full space-y-1">
                                  <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Đơn vị</label>
@@ -301,6 +307,9 @@ export default function CompanyPage() {
              )}
            </div>
         </section>
+
+        {org && <OkrConfigSection org={org} />}
+        {org && <WaterfallConfigSection org={org} />}
       </div>
     </div>
   )
@@ -560,6 +569,193 @@ function ScoringConfigSection({ org }: { org: any }) {
               </div>
             )}
         </div>
+    </section>
+  )
+}
+
+function OkrConfigSection({ org }: { org: any }) {
+  const updateMutation = useUpdateOrganization(org.id)
+  const [enabled, setEnabled] = useState(org?.enableOkr || false)
+
+  useEffect(() => {
+    setEnabled(org?.enableOkr || false)
+  }, [org])
+
+  const handleToggle = () => {
+    const newValue = !enabled
+    setEnabled(newValue)
+    updateMutation.mutate({ enableOkr: newValue }, {
+      onSuccess: () => {
+        toast.success(`Đã ${newValue ? 'bật' : 'tắt'} tính năng OKR`)
+      },
+      onError: () => {
+        setEnabled(!newValue)
+        toast.error('Không thể cập nhật cấu hình OKR')
+      }
+    })
+  }
+
+  return (
+    <section id="tour-company-okr" className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden flex flex-col h-full animate-in slide-in-from-right-4 duration-700 delay-300">
+      <div className="px-8 py-6 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          <div className="w-10 h-10 rounded-xl bg-violet-50 dark:bg-violet-900/30 flex items-center justify-center text-violet-600 dark:text-violet-400">
+            <Target size={20} />
+          </div>
+          <div>
+            <h3 className="text-lg font-bold text-slate-900 dark:text-white uppercase tracking-tight">Cấu hình OKR</h3>
+            <p className="text-[10px] font-medium text-slate-400 uppercase tracking-widest">Mục tiêu & Kết quả then chốt</p>
+          </div>
+        </div>
+        <button
+          onClick={handleToggle}
+          disabled={updateMutation.isPending}
+          className={cn(
+            "w-12 h-6 rounded-full relative transition-all duration-300",
+            enabled ? "bg-emerald-500" : "bg-slate-200 dark:bg-slate-700"
+          )}
+        >
+          <div className={cn(
+            "absolute top-1 w-4 h-4 rounded-full bg-white transition-all duration-300 shadow-sm",
+            enabled ? "left-7" : "left-1"
+          )} />
+        </button>
+      </div>
+
+      <div className="p-8 space-y-6">
+        <div className="p-4 rounded-2xl bg-violet-50 dark:bg-violet-900/10 border border-violet-100 dark:border-violet-900/30 flex items-start gap-3">
+          <Info size={18} className="text-violet-600 shrink-0 mt-0.5" />
+          <div className="space-y-1">
+            <p className="text-xs text-violet-800 dark:text-violet-300 font-bold">Mô hình OKR & KPI kết hợp</p>
+            <p className="text-[11px] text-violet-700/70 dark:text-violet-400/70 font-medium leading-relaxed">
+              Khi bật tính năng này, bạn có thể thiết lập các Mục tiêu chiến lược (Objectives) và các Kết quả then chốt (Key Results). 
+              KPI sẽ được liên kết trực tiếp với các Kết quả then chốt để đo lường tiến độ thực hiện mục tiêu.
+            </p>
+          </div>
+        </div>
+
+        <div className="space-y-4">
+          <div className="flex items-center gap-4 p-4 rounded-2xl border border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/40">
+            <div className="w-10 h-10 rounded-full bg-white dark:bg-slate-900 flex items-center justify-center text-violet-600 shadow-sm font-black text-xs">1</div>
+            <div>
+              <p className="text-xs font-bold text-slate-700 dark:text-slate-200 uppercase tracking-tight">Objective (Định tính)</p>
+              <p className="text-[10px] text-slate-400 font-medium">Xác định các mục tiêu chiến lược của tổ chức.</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-4 p-4 rounded-2xl border border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/40">
+            <div className="w-10 h-10 rounded-full bg-white dark:bg-slate-900 flex items-center justify-center text-violet-600 shadow-sm font-black text-xs">2</div>
+            <div>
+              <p className="text-xs font-bold text-slate-700 dark:text-slate-200 uppercase tracking-tight">Key Result (Định lượng)</p>
+              <p className="text-[10px] text-slate-400 font-medium">Các chỉ số then chốt để đo lường việc hoàn thành Objective.</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-4 p-4 rounded-2xl border border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/40">
+            <div className="w-10 h-10 rounded-full bg-white dark:bg-slate-900 flex items-center justify-center text-violet-600 shadow-sm font-black text-xs">3</div>
+            <div>
+              <p className="text-xs font-bold text-slate-700 dark:text-slate-200 uppercase tracking-tight">KPI (Vận hành)</p>
+              <p className="text-[10px] text-slate-400 font-medium">Liên kết KPI vào Key Result để theo dõi tự động hàng ngày.</p>
+            </div>
+          </div>
+        </div>
+
+        {enabled && (
+           <Link 
+            to="/okr" 
+            className="w-full py-3 flex items-center justify-center gap-2 bg-slate-900 dark:bg-white text-white dark:text-slate-900 rounded-xl text-[11px] font-black uppercase tracking-widest hover:opacity-90 transition-all shadow-xl shadow-slate-900/10 dark:shadow-white/5"
+           >
+             Đi đến quản lý OKR
+           </Link>
+        )}
+      </div>
+    </section>
+  )
+}
+
+function WaterfallConfigSection({ org }: { org: any }) {
+  const updateMutation = useUpdateOrganization(org.id)
+  const [enabled, setEnabled] = useState(org?.enableWaterfall || false)
+
+  useEffect(() => {
+    setEnabled(org?.enableWaterfall || false)
+  }, [org])
+
+  const handleToggle = () => {
+    const newValue = !enabled
+    setEnabled(newValue)
+    updateMutation.mutate({ enableWaterfall: newValue }, {
+      onSuccess: () => {
+        toast.success(`Đã ${newValue ? 'bật' : 'tắt'} tính năng KPI Thác nước`)
+      },
+      onError: () => {
+        setEnabled(!newValue)
+        toast.error('Không thể cập nhật cấu hình Waterfall')
+      }
+    })
+  }
+
+  return (
+    <section id="tour-company-waterfall" className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden flex flex-col h-full animate-in slide-in-from-right-4 duration-700 delay-500">
+      <div className="px-8 py-6 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          <div className="w-10 h-10 rounded-xl bg-cyan-50 dark:bg-cyan-900/30 flex items-center justify-center text-cyan-600 dark:text-cyan-400">
+            <GitBranch size={20} />
+          </div>
+          <div>
+            <h3 className="text-lg font-bold text-slate-900 dark:text-white uppercase tracking-tight">KPI Thác nước</h3>
+            <p className="text-[10px] font-medium text-slate-400 uppercase tracking-widest">Phân rã & Cộng dồn chỉ tiêu</p>
+          </div>
+        </div>
+        <button
+          onClick={handleToggle}
+          disabled={updateMutation.isPending}
+          className={cn(
+            "w-12 h-6 rounded-full relative transition-all duration-300",
+            enabled ? "bg-emerald-500" : "bg-slate-200 dark:bg-slate-700"
+          )}
+        >
+          <div className={cn(
+            "absolute top-1 w-4 h-4 rounded-full bg-white transition-all duration-300 shadow-sm",
+            enabled ? "left-7" : "left-1"
+          )} />
+        </button>
+      </div>
+
+      <div className="p-8 space-y-6">
+        <div className="p-4 rounded-2xl bg-cyan-50 dark:bg-cyan-900/10 border border-cyan-100 dark:border-cyan-900/30 flex items-start gap-3">
+          <Info size={18} className="text-cyan-600 shrink-0 mt-0.5" />
+          <div className="space-y-1">
+            <p className="text-xs text-cyan-800 dark:text-cyan-300 font-bold">Mô hình phân rã mục tiêu (Waterfall)</p>
+            <p className="text-[11px] text-cyan-700/70 dark:text-cyan-400/70 font-medium leading-relaxed">
+              Cho phép Trưởng đơn vị giao lại (Delegate) một phần hoặc toàn bộ chỉ tiêu của mình cho cấp dưới. 
+              Kết quả của nhân viên sẽ tự động được cộng dồn (Roll-up) lên kết quả của cấp quản lý.
+            </p>
+          </div>
+        </div>
+
+        <div className="space-y-4">
+          <div className="flex items-center gap-4 p-4 rounded-2xl border border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/40">
+            <div className="w-10 h-10 rounded-full bg-white dark:bg-slate-900 flex items-center justify-center text-cyan-600 shadow-sm font-black text-xs">1</div>
+            <div>
+              <p className="text-xs font-bold text-slate-700 dark:text-slate-200 uppercase tracking-tight">Giao xuống (Delegate)</p>
+              <p className="text-[10px] text-slate-400 font-medium">Trưởng đơn vị chia nhỏ 1 tỷ doanh số cho 3 nhân viên.</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-4 p-4 rounded-2xl border border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/40">
+            <div className="w-10 h-10 rounded-full bg-white dark:bg-slate-900 flex items-center justify-center text-cyan-600 shadow-sm font-black text-xs">2</div>
+            <div>
+              <p className="text-xs font-bold text-slate-700 dark:text-slate-200 uppercase tracking-tight">Thực hiện (Staff)</p>
+              <p className="text-[10px] text-slate-400 font-medium">Nhân viên nộp báo cáo kết quả thực hiện phần việc được giao.</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-4 p-4 rounded-2xl border border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/40">
+            <div className="w-10 h-10 rounded-full bg-white dark:bg-slate-900 flex items-center justify-center text-cyan-600 shadow-sm font-black text-xs">3</div>
+            <div>
+              <p className="text-xs font-bold text-slate-700 dark:text-slate-200 uppercase tracking-tight">Cộng dồn (Roll-up)</p>
+              <p className="text-[10px] text-slate-400 font-medium">Hệ thống tự tổng hợp kết quả nhân viên cho Trưởng đơn vị.</p>
+            </div>
+          </div>
+        </div>
+      </div>
     </section>
   )
 }

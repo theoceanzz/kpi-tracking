@@ -198,9 +198,7 @@ export interface AnalyticsSummary {
   memberDistribution: { name: string; value: number }[];
   roleDistribution: {
     unitName: string;
-    directorCount: number;
-    headCount: number;
-    staffCount: number;
+    roles: { roleName: string; count: number }[];
   }[];
   unitRisks: RiskInfo[];
   userRisks: RiskInfo[];

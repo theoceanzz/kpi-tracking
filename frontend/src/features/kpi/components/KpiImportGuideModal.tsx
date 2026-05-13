@@ -1,5 +1,7 @@
 import { X, Download, FileSpreadsheet, AlertTriangle, CheckCircle2, Info, FileText, FileBox } from 'lucide-react'
 import ExcelJS from 'exceljs'
+import { useAuthStore } from '@/store/authStore'
+import { useOrganization } from '@/features/orgunits/hooks/useOrganization'
 
 interface KpiImportGuideModalProps {
   open: boolean
@@ -17,6 +19,8 @@ const SAMPLE_DATA = [
     Unit: 'VND',
     EmployeeCode: 'NV001',
     OrgUnitCode: 'MKT001',
+    ObjectiveCode: 'OBJ001',
+    KeyResultCode: 'KR001',
   },
   {
     Name: 'Số cuộc gọi tư vấn',
@@ -27,25 +31,12 @@ const SAMPLE_DATA = [
     Unit: 'Cuộc',
     EmployeeCode: 'NV002, NV003',
     OrgUnitCode: 'KD002',
+    ObjectiveCode: '',
+    KeyResultCode: '',
   }
 ]
 
-function downloadCsvTemplate() {
-  const headers = 'Name,Description,Weight,TargetValue,MinimumValue,Unit,EmployeeCode,OrgUnitCode'
-  const rows = SAMPLE_DATA.map(row => 
-    Object.values(row).map(val => `"${val}"`).join(',')
-  ).join('\n')
-  const content = headers + '\n' + rows
-  const blob = new Blob(['\uFEFF' + content], { type: 'text/csv;charset=utf-8;' })
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url
-  a.download = 'mau_import_chi_tieu_kpi.csv'
-  a.click()
-  URL.revokeObjectURL(url)
-}
-
-const COLUMNS = [
+const BASE_COLUMNS = [
   { name: 'Name', required: true, desc: 'Tên chỉ tiêu KPI', example: 'Doanh số tháng 10' },
   { name: 'Description', required: false, desc: 'Mô tả chi tiết', example: 'Tính trên giá trị hợp đồng' },
   { name: 'Weight', required: true, desc: 'Trọng số (Ví dụ: 30 cho 30%)', example: '30' },
@@ -58,110 +49,6 @@ const COLUMNS = [
   { name: 'OrgUnitCode', required: false, desc: 'Mã đơn vị (Hệ thống sẽ tự động tìm tên phòng ban tương ứng)', example: 'MKT01' },
 ]
 
-async function downloadXlsxTemplate() {
-  const workbook = new ExcelJS.Workbook()
-  const worksheet = workbook.addWorksheet('KPI Template')
-
-  worksheet.columns = [
-    { header: 'Name', key: 'Name', width: 30 },
-    { header: 'Description', key: 'Description', width: 40 },
-    { header: 'Weight', key: 'Weight', width: 12 },
-    { header: 'TargetValue', key: 'TargetValue', width: 18 },
-    { header: 'MinimumValue', key: 'MinimumValue', width: 18 },
-    { header: 'Unit', key: 'Unit', width: 12 },
-    { header: 'EmployeeCode', key: 'EmployeeCode', width: 25 },
-    { header: 'OrgUnitCode', key: 'OrgUnitCode', width: 15 },
-  ]
-
-  // Add data
-  worksheet.addRows(SAMPLE_DATA)
-
-  // Style the header
-  const headerRow = worksheet.getRow(1)
-  headerRow.eachCell((cell) => {
-    cell.fill = {
-      type: 'pattern',
-      pattern: 'solid',
-      fgColor: { argb: 'FF4F46E5' }, // Indigo-600
-    }
-    cell.font = {
-      name: 'Arial',
-      size: 11,
-      bold: true,
-      color: { argb: 'FFFFFFFF' },
-    }
-    cell.alignment = { vertical: 'middle', horizontal: 'center' }
-    cell.border = {
-      top: { style: 'thin' },
-      left: { style: 'thin' },
-      bottom: { style: 'thin' },
-      right: { style: 'thin' },
-    }
-  })
-  headerRow.height = 25
-
-  // Style data rows
-  worksheet.eachRow((row, rowNumber) => {
-    if (rowNumber > 1) {
-      row.eachCell((cell) => {
-        cell.font = { name: 'Arial', size: 10 }
-        cell.alignment = { vertical: 'middle', horizontal: 'left' }
-        cell.border = {
-          top: { style: 'thin', color: { argb: 'FFE2E8F0' } },
-          left: { style: 'thin', color: { argb: 'FFE2E8F0' } },
-          bottom: { style: 'thin', color: { argb: 'FFE2E8F0' } },
-          right: { style: 'thin', color: { argb: 'FFE2E8F0' } },
-        }
-      })
-    }
-  })
-
-  // Add Guide Sheet
-  const guideSheet = workbook.addWorksheet('Hướng dẫn chi tiết')
-  guideSheet.columns = [
-    { header: 'Tên cột', key: 'name', width: 20 },
-    { header: 'Bắt buộc', key: 'req', width: 15 },
-    { header: 'Mô tả', key: 'desc', width: 50 },
-    { header: 'Ví dụ', key: 'ex', width: 25 },
-  ]
-  const guideHeader = guideSheet.getRow(1)
-  guideHeader.font = { bold: true, color: { argb: 'FFFFFFFF' }, size: 12 }
-  guideHeader.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF4F46E5' } }
-  guideHeader.alignment = { vertical: 'middle', horizontal: 'center' }
-  guideHeader.height = 30
-
-  COLUMNS.forEach(c => {
-    const row = guideSheet.addRow([c.name, c.required ? 'CÓ' : 'KHÔNG', c.desc, c.example])
-    row.font = { size: 11 }
-    row.alignment = { vertical: 'middle', horizontal: 'left', wrapText: true }
-    row.eachCell(cell => {
-      cell.border = {
-        top: { style: 'thin', color: { argb: 'FFE2E8F0' } }, left: { style: 'thin', color: { argb: 'FFE2E8F0' } },
-        bottom: { style: 'thin', color: { argb: 'FFE2E8F0' } }, right: { style: 'thin', color: { argb: 'FFE2E8F0' } }
-      }
-    })
-  })
-
-  guideSheet.addRow([])
-  const noteTitleRow = guideSheet.addRow(['LƯU Ý CHUNG CHO IMPORT EXCEL & CSV'])
-  noteTitleRow.font = { bold: true, size: 12, color: { argb: 'FFDC2626' } }
-  guideSheet.addRow(['1. File mẫu này hỗ trợ import cả định dạng .xlsx và .csv.'])
-  guideSheet.addRow(['2. Nếu import bằng CSV, bạn vui lòng xuất dữ liệu từ tab "KPI Template" ra file .csv (UTF-8).'])
-  guideSheet.addRow(['3. EmployeeCode: Mã nhân viên (tùy chọn, bạn có thể tự map trên giao diện).'])
-  guideSheet.addRow(['4. Trọng số (Weight): Là số từ 1-100, tổng trọng số của một nhân sự nên là 100%.'])
-  guideSheet.addRow(['5. OrgUnitCode: Mã phòng ban. Hệ thống sẽ gán KPI cho phòng ban đó.'])
-
-  // Generate buffer and download
-  const buffer = await workbook.xlsx.writeBuffer()
-  const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url
-  a.download = 'mau_import_chi_tieu_kpi.xlsx'
-  a.click()
-  URL.revokeObjectURL(url)
-}
-
 const STEPS = [
   { num: '01', title: 'Tải file mẫu', desc: 'Nhấn nút bên dưới để tải về file CSV mẫu có sẵn header chuẩn cho KPI.' },
   { num: '02', title: 'Điền thông tin', desc: 'Mở file bằng Excel, điền thông tin chỉ tiêu và Mã nhân viên (Employee Code) được giao.' },
@@ -171,10 +58,139 @@ const STEPS = [
 
 
 export default function KpiImportGuideModal({ open, onClose, onSelectFile }: KpiImportGuideModalProps) {
+  const { user } = useAuthStore()
+  const { data: org } = useOrganization(user?.memberships?.[0]?.organizationId)
+  const enableOkr = org?.enableOkr || false
+
+  const COLUMNS = [
+    ...BASE_COLUMNS,
+    ...(enableOkr ? [
+      { name: 'ObjectiveCode', required: false, desc: 'Mã Mục tiêu (OKR)', example: 'OBJ001' },
+      { name: 'KeyResultCode', required: false, desc: 'Mã KR (OKR)', example: 'KR001' },
+    ] : [])
+  ]
+
+  const getSampleData = () => {
+    return SAMPLE_DATA.map(row => {
+      const newRow: Record<string, any> = { ...row }
+      if (!enableOkr) {
+        delete newRow.ObjectiveCode
+        delete newRow.KeyResultCode
+      }
+      return newRow
+    })
+  }
+
+  function downloadCsvTemplate() {
+    const data = getSampleData()
+    if (data.length === 0) return
+    const headers = Object.keys(data[0] || {}).join(',')
+    const rows = data.map(row => 
+      Object.values(row).map(val => `"${val}"`).join(',')
+    ).join('\n')
+    const content = headers + '\n' + rows
+    const blob = new Blob(['\uFEFF' + content], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = 'mau_import_chi_tieu_kpi.csv'
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
+  async function downloadXlsxTemplate() {
+    const workbook = new ExcelJS.Workbook()
+    const worksheet = workbook.addWorksheet('KPI Template')
+
+    const baseColumns = [
+      { header: 'Name', key: 'Name', width: 30 },
+      { header: 'Description', key: 'Description', width: 40 },
+      { header: 'Weight', key: 'Weight', width: 12 },
+      { header: 'TargetValue', key: 'TargetValue', width: 18 },
+      { header: 'MinimumValue', key: 'MinimumValue', width: 18 },
+      { header: 'Unit', key: 'Unit', width: 12 },
+      { header: 'EmployeeCode', key: 'EmployeeCode', width: 25 },
+      { header: 'OrgUnitCode', key: 'OrgUnitCode', width: 15 },
+    ]
+
+    worksheet.columns = enableOkr ? [
+      ...baseColumns,
+      { header: 'ObjectiveCode', key: 'ObjectiveCode', width: 20 },
+      { header: 'KeyResultCode', key: 'KeyResultCode', width: 20 },
+    ] : baseColumns
+
+    worksheet.addRows(getSampleData())
+
+    const headerRow = worksheet.getRow(1)
+    headerRow.eachCell((cell) => {
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF4F46E5' } }
+      cell.font = { name: 'Arial', size: 11, bold: true, color: { argb: 'FFFFFFFF' } }
+      cell.alignment = { vertical: 'middle', horizontal: 'center' }
+      cell.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } }
+    })
+    headerRow.height = 25
+
+    worksheet.eachRow((row, rowNumber) => {
+      if (rowNumber > 1) {
+        row.eachCell((cell) => {
+          cell.font = { name: 'Arial', size: 10 }
+          cell.alignment = { vertical: 'middle', horizontal: 'left' }
+          cell.border = {
+            top: { style: 'thin', color: { argb: 'FFE2E8F0' } }, left: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+            bottom: { style: 'thin', color: { argb: 'FFE2E8F0' } }, right: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+          }
+        })
+      }
+    })
+
+    const guideSheet = workbook.addWorksheet('Hướng dẫn chi tiết')
+    guideSheet.columns = [
+      { header: 'Tên cột', key: 'name', width: 20 },
+      { header: 'Bắt buộc', key: 'req', width: 15 },
+      { header: 'Mô tả', key: 'desc', width: 50 },
+      { header: 'Ví dụ', key: 'ex', width: 25 },
+    ]
+    const guideHeader = guideSheet.getRow(1)
+    guideHeader.font = { bold: true, color: { argb: 'FFFFFFFF' }, size: 12 }
+    guideHeader.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF4F46E5' } }
+    guideHeader.alignment = { vertical: 'middle', horizontal: 'center' }
+    guideHeader.height = 30
+
+    COLUMNS.forEach(c => {
+      const row = guideSheet.addRow([c.name, c.required ? 'CÓ' : 'KHÔNG', c.desc, c.example])
+      row.font = { size: 11 }
+      row.alignment = { vertical: 'middle', horizontal: 'left', wrapText: true }
+      row.eachCell(cell => {
+        cell.border = {
+          top: { style: 'thin', color: { argb: 'FFE2E8F0' } }, left: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+          bottom: { style: 'thin', color: { argb: 'FFE2E8F0' } }, right: { style: 'thin', color: { argb: 'FFE2E8F0' } }
+        }
+      })
+    })
+
+    guideSheet.addRow([])
+    const noteTitleRow = guideSheet.addRow(['LƯU Ý CHUNG CHO IMPORT EXCEL & CSV'])
+    noteTitleRow.font = { bold: true, size: 12, color: { argb: 'FFDC2626' } }
+    guideSheet.addRow(['1. File mẫu này hỗ trợ import cả định dạng .xlsx và .csv.'])
+    guideSheet.addRow(['2. Nếu import bằng CSV, bạn vui lòng xuất dữ liệu từ tab "KPI Template" ra file .csv (UTF-8).'])
+    guideSheet.addRow(['3. EmployeeCode: Mã nhân viên (tùy chọn, bạn có thể tự map trên giao diện).'])
+    guideSheet.addRow(['4. Trọng số (Weight): Là số từ 1-100, tổng trọng số của một nhân sự nên là 100%.'])
+    guideSheet.addRow(['5. OrgUnitCode: Mã phòng ban. Hệ thống sẽ gán KPI cho phòng ban đó.'])
+
+    const buffer = await workbook.xlsx.writeBuffer()
+    const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = 'mau_import_chi_tieu_kpi.xlsx'
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
   if (!open) return null
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
       {/* Overlay */}
       <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
 

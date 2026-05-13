@@ -10,17 +10,21 @@ import { useAuthStore } from '@/store/authStore'
 import { usePermission } from '@/hooks/usePermission'
 import { toast } from 'sonner'
 import { FREQUENCY_MAP } from '@/lib/utils'
-import { Loader2, X, Check, Sparkles } from 'lucide-react'
+import { Loader2, X, Check, Sparkles, Target, GitBranch } from 'lucide-react'
 import type { KpiCriteria } from '@/types/kpi'
 import { useState } from 'react'
 import { useKpiPeriods } from '../hooks/useKpiPeriods'
 import { useKpiTotalWeight } from '../hooks/useKpiTotalWeight'
-import { Gauge } from 'lucide-react'
+import { Gauge, Info } from 'lucide-react'
+import { useOrganization } from '@/features/orgunits/hooks/useOrganization'
+import { useObjectives } from '@/features/okr/hooks/useOkr'
+import { useKpiCriteria } from '../hooks/useKpiCriteria'
 
 interface KpiFormModalProps {
   open: boolean
   onClose: () => void
   editKpi?: KpiCriteria | null
+  parentKpi?: KpiCriteria | null
 }
 
 const frequencyOptions = (['DAILY', 'WEEKLY', 'MONTHLY', 'QUARTERLY', 'SEMI_ANNUALLY', 'YEARLY'] as const).map(value => ({
@@ -29,7 +33,7 @@ const frequencyOptions = (['DAILY', 'WEEKLY', 'MONTHLY', 'QUARTERLY', 'SEMI_ANNU
 }))
 
 
-export default function KpiFormModal({ open, onClose, editKpi }: KpiFormModalProps) {
+export default function KpiFormModal({ open, onClose, editKpi, parentKpi }: KpiFormModalProps) {
   const isEdit = !!editKpi
   const qc = useQueryClient()
   const { user } = useAuthStore()
@@ -39,8 +43,14 @@ export default function KpiFormModal({ open, onClose, editKpi }: KpiFormModalPro
   const canAssignRoles = hasPermission('ROLE:ASSIGN')
 
   const { data: orgUnitTreeData } = useOrgUnitTree()
-  const { data: periodsData } = useKpiPeriods({ organizationId: user?.memberships?.[0]?.organizationId })
+  const organizationId = user?.memberships?.[0]?.organizationId
+  const { data: org } = useOrganization(organizationId)
+  const { data: periodsData } = useKpiPeriods({ organizationId })
   
+  const enableOkr = org?.enableOkr
+  const enableWaterfall = org?.enableWaterfall
+  const { data: objectives } = useObjectives(enableOkr ? organizationId : undefined)
+
   // Flatten tree for dropdown
   const flattenTree = (nodes: any[], level = 0): any[] => {
     let result: any[] = []
@@ -56,8 +66,17 @@ export default function KpiFormModal({ open, onClose, editKpi }: KpiFormModalPro
 
   const { register, handleSubmit, formState: { errors }, reset, watch, setValue } = useForm<KpiFormData>({
     resolver: zodResolver(kpiSchema),
-    defaultValues: { name: '', frequency: 'MONTHLY', assignedToIds: [], kpiPeriodId: '' },
+    defaultValues: { name: '', frequency: 'MONTHLY', assignedToIds: [], kpiPeriodId: '', keyResultId: null, parentId: null },
   })
+
+  const formKpiPeriodId = watch('kpiPeriodId')
+
+  // Fetch potential parent KPIs (Approved KPIs for the same period)
+  const { data: potentialParents } = useKpiCriteria({
+    status: 'APPROVED',
+    kpiPeriodId: formKpiPeriodId || undefined,
+    size: 100
+  }, !!(enableWaterfall && formKpiPeriodId))
 
   // Synchronize form values only when modal opens
   useEffect(() => {
@@ -78,17 +97,22 @@ export default function KpiFormModal({ open, onClose, editKpi }: KpiFormModalPro
         assignedToIds: editKpi.assigneeIds ?? [],
         minimumValue: editKpi.minimumValue ?? undefined,
         kpiPeriodId: editKpi.kpiPeriodId ?? '',
+        keyResultId: editKpi.keyResultId ?? null,
+        parentId: editKpi.parentId ?? null,
       })
     } else {
       reset({ 
-        name: '', 
+        name: parentKpi ? `[${parentKpi.name}] ` : '', 
         frequency: 'MONTHLY', 
         assignedToIds: [], 
-        kpiPeriodId: '',
+        kpiPeriodId: parentKpi?.kpiPeriodId ?? '',
+        keyResultId: null,
+        parentId: parentKpi?.id ?? null,
+        unit: parentKpi?.unit ?? '',
         orgUnitId: canAssignRoles ? (flatOrgUnits?.[0]?.id || '') : (user?.memberships?.[0]?.orgUnitId || '')
       })
     }
-  }, [open, reset, flatOrgUnits, canManageOrg]) 
+  }, [open, reset, flatOrgUnits, canManageOrg, parentKpi]) 
 
   const formOrgUnitId = watch('orgUnitId')
   const selectedAssignees = watch('assignedToIds') || []
@@ -161,7 +185,6 @@ export default function KpiFormModal({ open, onClose, editKpi }: KpiFormModalPro
     },
   })
 
-  const formKpiPeriodId = watch('kpiPeriodId')
   const formFrequency = watch('frequency')
 
   const selectedPeriod = useMemo(() => {
@@ -255,6 +278,8 @@ export default function KpiFormModal({ open, onClose, editKpi }: KpiFormModalPro
     
     // Clean up empty strings and unselected values
     if (!payload.orgUnitId) delete payload.orgUnitId
+    if (payload.keyResultId === '') payload.keyResultId = null
+    if (payload.parentId === '') payload.parentId = null
     
     // Ensure assignedToIds is an array and remove legacy assignedToId
     delete payload.assignedToId
@@ -282,7 +307,7 @@ export default function KpiFormModal({ open, onClose, editKpi }: KpiFormModalPro
   const inputCls = "w-full px-3 py-2.5 rounded-lg border border-[var(--color-border)] bg-[var(--color-background)] text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]/50"
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
+    <div className="fixed inset-0 z-[200] flex items-center justify-center">
       <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
       <div className="relative bg-[var(--color-card)] rounded-2xl shadow-xl p-6 max-w-lg w-full mx-4 animate-in zoom-in-95 max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between mb-5">
@@ -345,6 +370,57 @@ export default function KpiFormModal({ open, onClose, editKpi }: KpiFormModalPro
             <label className="block text-sm font-medium mb-1.5">Mô tả</label>
             <textarea {...register('description')} rows={2} className={inputCls + ' resize-none'} placeholder="Chi tiết chỉ tiêu..." />
           </div>
+
+          {enableOkr && (
+            // ... existing OKR section ...
+            <div className="bg-violet-50 dark:bg-violet-900/10 p-4 rounded-xl border border-violet-100 dark:border-violet-800 space-y-3">
+              <div className="flex items-center gap-2 text-violet-600 dark:text-violet-400">
+                <Target size={16} />
+                <span className="text-xs font-black uppercase tracking-tight">Liên kết chiến lược (OKR)</span>
+              </div>
+              <div>
+                <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Kết quả then chốt (Key Result)</label>
+                <select {...register('keyResultId')} className={inputCls + " border-violet-200 dark:border-violet-800 focus:ring-violet-500/50"}>
+                  <option value="">-- Không liên kết --</option>
+                  {objectives?.map(obj => (
+                    <optgroup key={obj.id} label={obj.name}>
+                      {obj.keyResults.map(kr => (
+                        <option key={kr.id} value={kr.id}>{kr.name} ({kr.progress}%)</option>
+                      ))}
+                    </optgroup>
+                  ))}
+                </select>
+                <p className="text-[10px] text-slate-400 mt-1 flex items-center gap-1">
+                  <Info size={10} /> KPI sẽ đóng góp trực tiếp vào tiến độ của Key Result này.
+                </p>
+              </div>
+            </div>
+          )}
+
+          {enableWaterfall && (
+            <div className="bg-cyan-50 dark:bg-cyan-900/10 p-4 rounded-xl border border-cyan-100 dark:border-cyan-800 space-y-3">
+              <div className="flex items-center gap-2 text-cyan-600 dark:text-cyan-400">
+                <GitBranch size={16} />
+                <span className="text-xs font-black uppercase tracking-tight">Cấu trúc thác nước (Waterfall)</span>
+              </div>
+              <div>
+                <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Chỉ tiêu Cha (Parent KPI)</label>
+                <select {...register('parentId')} className={inputCls + " border-cyan-200 dark:border-cyan-800 focus:ring-cyan-500/50"}>
+                  <option value="">-- Chỉ tiêu độc lập --</option>
+                  {potentialParents?.content
+                    ?.filter(k => k.id !== editKpi?.id) // Prevent self-parenting
+                    ?.map(k => (
+                    <option key={k.id} value={k.id}>
+                      {k.name} ({k.orgUnitName})
+                    </option>
+                  ))}
+                </select>
+                <p className="text-[10px] text-slate-400 mt-1 flex items-center gap-1">
+                  <Info size={10} /> Kết quả của chỉ tiêu này sẽ được cộng dồn lên chỉ tiêu cha đã chọn.
+                </p>
+              </div>
+            </div>
+          )}
 
           <div className="grid grid-cols-2 gap-4">
             <div>

@@ -18,7 +18,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import type { Evaluation } from '@/types/evaluation'
 import {
   Star, Plus, ChevronRight, User, Calendar,
-  Building2, ArrowUpDown, ChevronLeft, Award, TrendingUp, Activity, X
+  Building2, ArrowUpDown, ChevronLeft, Award, TrendingUp, Activity, X, Loader2
 } from 'lucide-react'
 import PageTour from '@/components/common/PageTour'
 import { evaluationsSteps } from '@/components/common/tourSteps'
@@ -205,8 +205,8 @@ export default function EvaluationsPage() {
         </div>
 
         <div className="flex items-center gap-4 relative z-10 shrink-0">
-          <EvaluationStat label="Tổng đánh giá" value={stats.total} color="indigo" icon={Activity} />
-          <EvaluationStat label="Điểm trung bình" value={stats.avgScore} color="amber" icon={TrendingUp} isScore />
+          <EvaluationStat label="Tổng đánh giá" value={stats.total} color="indigo" icon={Activity} isLoading={isLoading} />
+          <EvaluationStat label="Điểm trung bình" value={stats.avgScore} color="amber" icon={TrendingUp} isScore isLoading={isLoading} />
         </div>
       </div>
 
@@ -321,16 +321,20 @@ export default function EvaluationsPage() {
           {canCreate && (
             <button 
               onClick={() => setShowForm(true)} 
-              disabled={hasSelfEvalForActivePeriod || !hasKpiInActivePeriod || !isPeriodCompleted}
+              disabled={isLoading || !periodsData || !myAllKpis || hasSelfEvalForActivePeriod || !hasKpiInActivePeriod || !isPeriodCompleted}
               className={cn(
                 "flex items-center gap-2 px-8 py-3 rounded-2xl text-xs font-black uppercase tracking-[2px] transition-all shadow-xl active:scale-95 w-full md:w-auto justify-center",
-                (hasSelfEvalForActivePeriod || !hasKpiInActivePeriod || !isPeriodCompleted)
+                (isLoading || !periodsData || !myAllKpis || hasSelfEvalForActivePeriod || !hasKpiInActivePeriod || !isPeriodCompleted)
                 ? 'bg-slate-100 dark:bg-slate-800 text-slate-400 cursor-not-allowed shadow-none border border-slate-200 dark:border-slate-700'
                 : 'bg-slate-900 dark:bg-white text-white dark:text-slate-900 hover:bg-indigo-600 dark:hover:bg-indigo-50 shadow-indigo-500/10'
               )}
             >
-              <Plus size={18} /> 
-              {hasSelfEvalForActivePeriod ? 'Đã tự đánh giá' : !hasKpiInActivePeriod ? 'Không có KPI' : !isPeriodCompleted ? 'Chưa hoàn thành KPI' : 'Tự đánh giá mới'}
+              {isLoading || !periodsData || !myAllKpis ? (
+                <Loader2 size={18} className="animate-spin" />
+              ) : (
+                <Plus size={18} />
+              )}
+              {isLoading || !periodsData || !myAllKpis ? 'Đang tải...' : hasSelfEvalForActivePeriod ? 'Đã tự đánh giá' : !hasKpiInActivePeriod ? 'Không có KPI' : !isPeriodCompleted ? 'Chưa hoàn thành KPI' : 'Tự đánh giá mới'}
             </button>
           )}
         </div>
@@ -439,15 +443,16 @@ export default function EvaluationsPage() {
                             "inline-block text-[9px] font-black uppercase tracking-widest px-3 py-1.5 rounded-xl border",
                             ev.evaluatorRole === 'SELF'
                               ? 'bg-blue-50 text-blue-600 border-blue-100 dark:bg-blue-900/20' 
-                              : ev.evaluatorRole === 'DIRECTOR'
+                              : (ev.evaluatorRole === 'CEO' || ev.evaluatorRole === 'DIRECTOR')
                               ? 'bg-amber-50 text-amber-600 border-amber-100 dark:bg-amber-900/20'
                               : 'bg-emerald-50 text-emerald-600 border-emerald-100 dark:bg-emerald-900/20'
                           )}>
                             {ev.evaluatorRole === 'SELF' ? 'Tự đánh giá' : 
-                             ev.evaluatorRole === 'DIRECTOR' ? 'Tổng GĐ chốt' : 
-                             ev.evaluatorRole === 'TEAM_LEADER' ? 'Trưởng nhóm chấm' :
-                             ev.evaluatorRole === 'DEPT_HEAD' ? 'Trưởng phòng chấm' : 
-                             'Quản lý chấm'}
+                             ev.evaluatorRoleName ? (
+                               (ev.evaluatorRole === 'CEO' || ev.evaluatorRole === 'DIRECTOR' || ev.evaluatorRole === 'REGIONAL_DIRECTOR') 
+                                 ? `${ev.evaluatorRoleName} chốt` 
+                                 : `${ev.evaluatorRoleName} chấm`
+                             ) : 'Quản lý chấm'}
                           </span>
                         </td>
                         <td className="px-6 py-6 whitespace-nowrap text-center">
@@ -512,20 +517,26 @@ export default function EvaluationsPage() {
   )
 }
 
-function EvaluationStat({ label, value, color, icon: Icon, isScore }: { label: string; value: number; color: string; icon: any; isScore?: boolean }) {
+function EvaluationStat({ label, value, color, icon: Icon, isScore, isLoading }: { label: string; value: number; color: string; icon: any; isScore?: boolean; isLoading?: boolean }) {
   const colors: Record<string, string> = {
     indigo: "text-indigo-600 bg-indigo-50 dark:bg-indigo-900/20 border-indigo-100 dark:border-indigo-900/40",
     amber: "text-amber-600 bg-amber-50 dark:bg-amber-900/20 border-amber-100 dark:border-amber-900/40",
   }
   return (
-    <div className={cn("px-6 py-4 rounded-[28px] border flex items-center gap-4 shadow-sm", colors[color])}>
+    <div className={cn("px-6 py-4 rounded-[28px] border flex items-center gap-4 shadow-sm min-w-[180px]", colors[color])}>
       <div className={cn("w-10 h-10 rounded-2xl flex items-center justify-center bg-white dark:bg-slate-800 shadow-sm text-current")}>
         <Icon size={18} />
       </div>
       <div>
         <div className="flex items-baseline gap-1">
-          <span className="text-2xl font-black">{value}</span>
-          {isScore && <span className="text-xs font-bold opacity-60">pts</span>}
+          {isLoading ? (
+            <div className="h-8 w-12 bg-current/10 animate-pulse rounded-lg" />
+          ) : (
+            <>
+              <span className="text-2xl font-black">{value}</span>
+              {isScore && <span className="text-xs font-bold opacity-60">pts</span>}
+            </>
+          )}
         </div>
         <p className="text-[9px] font-black uppercase tracking-widest opacity-60 leading-none mt-0.5">{label}</p>
       </div>

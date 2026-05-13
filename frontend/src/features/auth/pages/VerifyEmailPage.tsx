@@ -1,13 +1,13 @@
 import { useSearchParams, Link, useNavigate, useLocation } from 'react-router-dom'
 import { useQuery, useMutation } from '@tanstack/react-query'
 import { authApi } from '../api/authApi'
-import { CheckCircle, XCircle, Loader2, Key } from 'lucide-react'
+import { CheckCircle, XCircle, Loader2 } from 'lucide-react'
 import { useState } from 'react'
 
 export default function VerifyEmailPage() {
   const [params] = useSearchParams()
   const tokenFromUrl = params.get('token')
-  const [otp, setOtp] = useState('')
+  const [otpValues, setOtpValues] = useState(['', '', '', '', '', ''])
   const [isRedirecting, setIsRedirecting] = useState(false)
   const [errorMsg, setErrorMsg] = useState('')
   const navigate = useNavigate()
@@ -37,6 +37,8 @@ export default function VerifyEmailPage() {
     },
     onError: () => {
       setErrorMsg('Xác thực thất bại. Mã OTP không hợp lệ hoặc đã hết hạn.')
+      setOtpValues(['', '', '', '', '', ''])
+      document.getElementById('otp-0')?.focus()
     }
   })
 
@@ -45,8 +47,6 @@ export default function VerifyEmailPage() {
     mutationFn: (email: string) => authApi.resendVerification(email),
     onSuccess: () => {
       setErrorMsg('')
-      // Hiển thị thông báo thành công (có thể dùng toast nếu có)
-      // Ở đây ta đơn giản là clear lỗi cũ
     },
     onError: (err: any) => {
       const msg = err.response?.data?.message || 'Không thể gửi lại mã xác thực.'
@@ -54,16 +54,56 @@ export default function VerifyEmailPage() {
     }
   })
 
-  const handleResend = () => {
-    if (contextData?.email) {
-      resendMutation.mutate(contextData.email)
+  const handleChange = (index: number, value: string) => {
+    if (!/^[a-zA-Z0-9]*$/.test(value)) return
+    
+    const newOtpValues = [...otpValues]
+    // Only take the last character if multiple are entered
+    newOtpValues[index] = value.slice(-1).toUpperCase()
+    setOtpValues(newOtpValues)
+
+    // Auto-focus next
+    if (value && index < 5) {
+      const nextInput = document.getElementById(`otp-${index + 1}`)
+      nextInput?.focus()
+    }
+
+    // Auto-submit if complete
+    const currentOtp = newOtpValues.join('')
+    if (currentOtp.length === 6) {
+      verifyMutation.mutate(currentOtp)
     }
   }
 
-  const handleVerify = (e: React.FormEvent) => {
+  const handleKeyDown = (index: number, e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Backspace' && !otpValues[index] && index > 0) {
+      const prevInput = document.getElementById(`otp-${index - 1}`)
+      prevInput?.focus()
+    }
+  }
+
+  const handlePaste = (e: React.ClipboardEvent) => {
     e.preventDefault()
-    if (otp.length === 6) {
-      verifyMutation.mutate(otp)
+    const pastedData = e.clipboardData.getData('text').toUpperCase().slice(0, 6)
+    if (!/^[a-zA-Z0-9]+$/.test(pastedData)) return
+
+    const newOtpValues = [...otpValues]
+    pastedData.split('').forEach((char, i) => {
+      if (i < 6) newOtpValues[i] = char
+    })
+    setOtpValues(newOtpValues)
+    
+    if (pastedData.length === 6) {
+      verifyMutation.mutate(pastedData)
+    } else {
+      const nextIndex = Math.min(pastedData.length, 5)
+      document.getElementById(`otp-${nextIndex}`)?.focus()
+    }
+  }
+
+  const handleResend = () => {
+    if (contextData?.email) {
+      resendMutation.mutate(contextData.email)
     }
   }
 
@@ -118,47 +158,46 @@ export default function VerifyEmailPage() {
   }
 
   return (
-    <div className="text-center w-full max-w-sm mx-auto">
-      <h2 className="text-2xl font-extrabold mb-2 text-[var(--color-foreground)]">Xác thực tài khoản</h2>
-      <p className="text-[var(--color-muted-foreground)] text-sm mb-2">Nhập mã OTP 6 ký tự đã được gửi đến email của bạn.</p>
+    <div className="text-center w-full max-w-md mx-auto">
+      <h2 className="text-3xl font-extrabold mb-2 text-[var(--color-foreground)] tracking-tight">Xác thực tài khoản</h2>
+      <p className="text-[var(--color-muted-foreground)] text-sm mb-2">
+        Nhập mã OTP 6 ký tự đã được gửi đến email của bạn.
+      </p>
       {contextData?.email && (
-        <p className="text-[var(--color-primary)] font-bold text-sm mb-6 animate-in fade-in zoom-in-95">{contextData.email}</p>
+        <p className="text-[var(--color-primary)] font-bold text-base mb-8 animate-in fade-in slide-in-from-top-2">{contextData.email}</p>
       )}
       {!contextData?.email && <div className="mb-8" />}
 
-      <form onSubmit={handleVerify} className="space-y-6">
-        <div className="space-y-2 text-left">
-          <label className="text-sm font-bold text-[var(--color-foreground)]">Mã OTP <span className="text-red-500">*</span></label>
-          <div className="relative">
-             <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <Key size={18} className="text-[var(--color-muted-foreground)]" />
-             </div>
-             <input 
-               value={otp}
-               onChange={(e) => {
-                 const val = e.target.value.toUpperCase()
-                 setOtp(val)
-                 if (val.length === 6) {
-                   verifyMutation.mutate(val)
-                 }
-               }}
-               type="text" 
-               maxLength={6}
-               required
-               className="w-full pl-10 pr-10 py-3 rounded-xl border border-[var(--color-border)] bg-[var(--color-background)] text-sm focus:ring-2 focus:ring-[var(--color-primary)]/20 focus:border-[var(--color-primary)] outline-none uppercase font-bold tracking-widest text-center transition-all shadow-sm" 
-               placeholder="Nhập mã OTP..." 
-             />
-             {verifyMutation.isPending && (
-               <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
-                 <Loader2 size={18} className="animate-spin text-[var(--color-primary)]" />
-               </div>
-             )}
-          </div>
-          {(errorMsg || isAutoError) && <p className="text-red-500 text-xs mt-1.5 font-medium">{errorMsg || 'Xác thực thất bại'}</p>}
+      <div className="space-y-6">
+        <div className="flex justify-between gap-2 sm:gap-3" onPaste={handlePaste}>
+          {otpValues.map((value, index) => (
+            <input
+              key={index}
+              id={`otp-${index}`}
+              type="text"
+              maxLength={1}
+              value={value}
+              onChange={(e) => handleChange(index, e.target.value)}
+              onKeyDown={(e) => handleKeyDown(index, e)}
+              className="w-12 h-14 sm:w-14 sm:h-16 text-center text-xl font-bold border-2 rounded-xl border-[var(--color-border)] bg-[var(--color-background)] focus:border-[var(--color-primary)] focus:ring-4 focus:ring-[var(--color-primary)]/10 outline-none transition-all shadow-sm uppercase"
+              autoComplete="one-time-code"
+            />
+          ))}
         </div>
 
-        {/* Nút xác thực đã được gỡ bỏ vì hệ thống tự động kiểm tra khi nhập đủ 6 ký tự */}
-      </form>
+        {verifyMutation.isPending && (
+          <div className="flex items-center justify-center gap-2 text-[var(--color-primary)] font-medium animate-pulse">
+            <Loader2 size={18} className="animate-spin" />
+            <span>Đang kiểm tra...</span>
+          </div>
+        )}
+
+        {(errorMsg || isAutoError) && (
+          <div className="p-3 rounded-lg bg-red-50 dark:bg-red-900/10 border border-red-200 dark:border-red-900/30">
+            <p className="text-red-500 text-sm font-semibold">{errorMsg || 'Xác thực thất bại. Vui lòng thử lại.'}</p>
+          </div>
+        )}
+      </div>
 
       <div className="mt-8 flex flex-col gap-3">
         {contextData?.email && (

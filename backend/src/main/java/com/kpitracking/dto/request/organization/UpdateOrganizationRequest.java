@@ -23,4 +23,6 @@ public class UpdateOrganizationRequest {
     private java.util.List<EvaluationLevelRequest> evaluationLevels;
     
     private Integer kpiReminderPercentage;
+    private Boolean enableOkr;
+    private Boolean enableWaterfall;
 }

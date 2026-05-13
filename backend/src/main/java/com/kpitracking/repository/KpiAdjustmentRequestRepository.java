@@ -15,11 +15,11 @@ public interface KpiAdjustmentRequestRepository extends JpaRepository<KpiAdjustm
     Page<KpiAdjustmentRequest> findByRequesterId(UUID requesterId, Pageable pageable);
     
     @Query("SELECT r FROM KpiAdjustmentRequest r " +
-           "WHERE (r.requester.id = :currentUserId OR EXISTS (SELECT 1 FROM OrgUnit au WHERE r.kpiCriteria.orgUnit.path LIKE CONCAT(au.path, '%') AND au.id IN :allowedOrgUnitIds)) " +
+           "WHERE (r.requester.id = :currentUserId OR r.kpiCriteria.createdBy.id = :currentUserId OR EXISTS (SELECT 1 FROM OrgUnit au WHERE r.kpiCriteria.orgUnit.path LIKE CONCAT(au.path, '%') AND au.id IN :allowedOrgUnitIds)) " +
            "AND (:status IS NULL OR r.status = :status) " +
            "AND (:orgUnitPath IS NULL OR r.kpiCriteria.orgUnit.path LIKE :orgUnitPath) " +
            "AND (:kpiPeriodId IS NULL OR r.kpiCriteria.kpiPeriod.id = :kpiPeriodId) " +
-           "AND (:currentUserRank IS NULL OR :currentUserRank = 0 OR r.requester.id = :currentUserId OR EXISTS (SELECT 1 FROM UserRoleOrgUnit uro JOIN uro.role r2 WHERE uro.user.id = r.requester.id AND uro.orgUnit.id = r.kpiCriteria.orgUnit.id AND r2.rank > :currentUserRank))")
+           "AND (:currentUserRank IS NULL OR :currentUserRank = 0 OR r.requester.id = :currentUserId OR r.kpiCriteria.createdBy.id = :currentUserId OR EXISTS (SELECT 1 FROM UserRoleOrgUnit uro JOIN uro.role r2 WHERE uro.user.id = r.requester.id AND uro.orgUnit.id = r.kpiCriteria.orgUnit.id AND r2.rank > :currentUserRank))")
     Page<KpiAdjustmentRequest> findAllWithFilters(
             @Param("currentUserId") UUID currentUserId,
             @Param("allowedOrgUnitIds") java.util.Collection<UUID> allowedOrgUnitIds,

@@ -12,7 +12,7 @@ import {
 import { toast } from 'sonner'
 import { useAllPermissions, useUpdateRolePermissions } from '../hooks/useRolePermissions'
 import { useRoles } from '../hooks/useRoles'
-import { ROLE_MAP } from '@/constants/roles'
+
 
 interface HierarchyPermissionModalProps {
   isOpen: boolean
@@ -126,7 +126,7 @@ export default function HierarchyPermissionModal({ isOpen, onClose, hierarchyLev
         
         let label = ''
         if (actualRole) {
-          label = ROLE_MAP[actualRole.name] || actualRole.name
+          label = actualRole.name
         } else {
           // Fallback labels based on hierarchy info
           if (rank === 0) {
@@ -231,7 +231,7 @@ export default function HierarchyPermissionModal({ isOpen, onClose, hierarchyLev
         <div className="flex-1 overflow-y-auto p-6 md:p-10 space-y-10 custom-scrollbar bg-slate-50/30">
           
           {/* Permission Matrix Preview */}
-          <div className="space-y-8">
+          <div className="space-y-6">
             <div className="flex items-center justify-between px-2">
                <h4 className="text-xs font-black text-slate-400 uppercase tracking-[0.2em] flex items-center gap-2">
                  <Zap size={14} className="text-amber-500" /> Ma trận quyền hạn chi tiết
@@ -252,70 +252,78 @@ export default function HierarchyPermissionModal({ isOpen, onClose, hierarchyLev
                </div>
             </div>
 
-            <div className="space-y-4">
-              {Object.entries(groupedPermissions).map(([resource, codes]) => (
-                <div key={resource} className="bg-white dark:bg-slate-800 rounded-[2rem] border border-slate-100 dark:border-slate-700 shadow-sm overflow-hidden">
-                  <div className="px-8 py-4 bg-slate-50/80 dark:bg-slate-800/80 border-b border-slate-100 dark:border-slate-700 flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <Lock size={14} className="text-indigo-500" />
-                      <span className="text-[11px] font-black text-slate-900 dark:text-white uppercase tracking-widest">{resource}</span>
+            <div className="overflow-x-auto pb-4 -mx-2 px-2 custom-scrollbar">
+              <div className="min-width-max space-y-3" style={{ minWidth: `${180 + 250 + (displayRoles.length * 75)}px` }}>
+                {Object.entries(groupedPermissions).map(([resource, codes]) => (
+                  <div key={resource} className="bg-white dark:bg-slate-800 rounded-[1.5rem] border border-slate-100 dark:border-slate-700 shadow-sm overflow-hidden">
+                    <div className="px-6 py-2.5 bg-slate-50/80 dark:bg-slate-800/80 border-b border-slate-100 dark:border-slate-700 flex items-center">
+                      <div className="w-[180px] shrink-0 flex items-center gap-2">
+                        <Lock size={12} className="text-indigo-500" />
+                        <span className="text-[10px] font-black text-slate-900 dark:text-white uppercase tracking-wider truncate">{resource}</span>
+                      </div>
+                      
+                      <div className="w-[250px] shrink-0 text-left text-[8px] font-black text-slate-400 uppercase tracking-tighter pl-4 border-l border-slate-200/50 dark:border-slate-700/50 ml-2">
+                        Mô tả chi tiết quyền hạn
+                      </div>
+                      
+                      <div className="flex items-center gap-2">
+                        {displayRoles.map(r => (
+                          <div key={r.key} className="w-[70px] text-center text-[8px] font-black text-slate-400 uppercase tracking-tighter whitespace-normal leading-tight">
+                            {r.label}
+                          </div>
+                        ))}
+                      </div>
                     </div>
-                    <div className="flex items-center gap-12 mr-4">
-                       <div className="w-48 text-left text-[9px] font-black text-slate-400 uppercase tracking-tighter">
-                         Mô tả chi tiết quyền hạn
-                       </div>
-                       {displayRoles.map(r => (
-                         <div key={r.key} className="w-20 text-center text-[9px] font-black text-slate-400 uppercase tracking-tighter">
-                           {r.label}
-                         </div>
-                       ))}
-                    </div>
-                  </div>
-                  <div className="divide-y divide-slate-50 dark:divide-slate-700/50">
-                    {codes.map(code => (
-                      <div key={code} className="px-8 py-4 flex items-center justify-between hover:bg-slate-50/50 dark:hover:bg-slate-700/30 transition-colors">
-                        <div className="flex flex-col flex-1">
-                          <span className="text-[13px] font-bold text-slate-700 dark:text-slate-300">{code}</span>
-                          <span className="text-[10px] text-slate-400 font-medium">{code.split(':')[1]} action</span>
-                        </div>
-                        <div className="flex items-center gap-12 mr-4">
-                          <div className="w-48 text-left text-[10px] text-slate-500 font-medium leading-relaxed pr-4">
+                    
+                    <div className="divide-y divide-slate-50 dark:divide-slate-700/50">
+                      {codes.map(code => (
+                        <div key={code} className="px-6 py-2 flex items-center hover:bg-slate-50/50 dark:hover:bg-slate-700/30 transition-colors">
+                          <div className="w-[180px] shrink-0 flex flex-col pr-4">
+                            <span className="text-[11px] font-bold text-slate-700 dark:text-slate-300 truncate" title={code}>{code}</span>
+                            <span className="text-[8px] text-slate-400 font-medium uppercase tracking-tighter">{code.split(':')[1]} action</span>
+                          </div>
+                          
+                          <div className="w-[250px] shrink-0 text-left text-[9px] text-slate-500 font-medium leading-tight pr-6 border-l border-slate-100 dark:border-slate-700/50 pl-4 ml-2">
                             {allPermissions.find(p => p.code === code)?.description || PERMISSION_DESCRIPTIONS[code] || 'Mô tả đang được cập nhật...'}
                           </div>
-                          {displayRoles.map(r => {
-                            // Align preview logic with handleApply logic
-                            const activeRoleLevels = Array.from(new Set(hierarchyLevels.map(l => l.roleLevel))).sort((a, b) => a - b)
-                            const minRoleLevel = activeRoleLevels[0]
-                            const maxRoleLevel = activeRoleLevels[activeRoleLevels.length - 1]
-                            
-                            let targetCodes: string[] = []
-                            if (r.roleLevel === minRoleLevel && r.rank === 0) {
-                              targetCodes = roleTypeDefinitions.director
-                            } else if (r.roleLevel === maxRoleLevel && r.rank === 2) {
-                              targetCodes = roleTypeDefinitions.staff
-                            } else {
-                              targetCodes = r.rank === 0 ? roleTypeDefinitions.manager : roleTypeDefinitions.deputy
-                            }
-                            
-                            const has = targetCodes.includes(code)
-                            return (
-                              <div key={r.key} className="w-20 flex justify-center">
-                                {has ? (
-                                  <div className="w-6 h-6 rounded-lg bg-emerald-50 dark:bg-emerald-500/10 flex items-center justify-center text-emerald-600">
-                                    <Check size={14} strokeWidth={3} />
-                                  </div>
-                                ) : (
-                                  <X size={14} className="text-slate-200 dark:text-slate-700" />
-                                )}
-                              </div>
-                            )
-                          })}
+                          
+                          <div className="flex items-center gap-2">
+                            {displayRoles.map(r => {
+                              const activeRoleLevels = Array.from(new Set(hierarchyLevels.map(l => l.roleLevel))).sort((a, b) => a - b)
+                              const minRoleLevel = activeRoleLevels[0]
+                              const maxRoleLevel = activeRoleLevels[activeRoleLevels.length - 1]
+                              
+                              let targetCodes: string[] = []
+                              if (r.roleLevel === minRoleLevel && r.rank === 0) {
+                                targetCodes = roleTypeDefinitions.director
+                              } else if (r.roleLevel === maxRoleLevel && r.rank === 2) {
+                                targetCodes = roleTypeDefinitions.staff
+                              } else {
+                                targetCodes = r.rank === 0 ? roleTypeDefinitions.manager : roleTypeDefinitions.deputy
+                              }
+                              
+                              const has = targetCodes.includes(code)
+                              return (
+                                <div key={r.key} className="w-[70px] flex justify-center shrink-0">
+                                  {has ? (
+                                    <div className="w-5 h-5 rounded bg-emerald-50 dark:bg-emerald-500/10 flex items-center justify-center text-emerald-600 shadow-sm border border-emerald-100/50">
+                                      <Check size={12} strokeWidth={3} />
+                                    </div>
+                                  ) : (
+                                    <div className="w-5 h-5 flex items-center justify-center">
+                                      <X size={12} className="text-slate-200 dark:text-slate-700 opacity-50" />
+                                    </div>
+                                  )}
+                                </div>
+                              )
+                            })}
+                          </div>
                         </div>
-                      </div>
-                    ))}
+                      ))}
+                    </div>
                   </div>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
           </div>
         </div>

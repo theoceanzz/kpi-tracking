@@ -177,7 +177,7 @@ export default function EmployeePerformancePage() {
               return (
                 <div 
                   key={task.id} 
-                  className="p-8 flex flex-col xl:flex-row xl:items-center justify-between gap-8 hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-all cursor-pointer group animate-in slide-in-from-bottom-2 duration-500"
+                  className="p-8 flex flex-col xl:flex-row xl:items-center justify-between gap-8 hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-all group animate-in slide-in-from-bottom-2 duration-500"
                   style={{ animationDelay: `${idx * 50}ms` }}
                 >
                   <div className="flex items-center gap-6 flex-1 min-w-0">
@@ -258,13 +258,7 @@ export default function EmployeePerformancePage() {
                         <span className="text-[10px] font-black uppercase tracking-widest">Nhắc nhở</span>
                       </button>
                     )}
-                    <Link 
-                      to={`/submissions/org-unit?userId=${userId}`}
-                      onClick={(e) => e.stopPropagation()}
-                      className="w-12 h-12 rounded-2xl flex items-center justify-center bg-white dark:bg-slate-800 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition-all border border-slate-200 dark:border-slate-700 shadow-sm active:scale-90"
-                    >
-                      <ChevronRight size={22} />
-                    </Link>
+
                   </div>
                 </div>
               );

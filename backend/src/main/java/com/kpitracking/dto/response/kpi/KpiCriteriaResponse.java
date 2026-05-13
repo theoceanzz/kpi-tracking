@@ -35,6 +35,14 @@ public class KpiCriteriaResponse {
     private KpiPeriodResponse kpiPeriod;
     private Integer submissionCount;
     private Integer expectedSubmissions;
+    private UUID keyResultId;
+    private String keyResultName;
+    private String keyResultCode;
+    private UUID objectiveId;
+    private String objectiveName;
+    private String objectiveCode;
+    private UUID parentId;
+    private String parentName;
     private Instant createdAt;
     private Instant updatedAt;
 }

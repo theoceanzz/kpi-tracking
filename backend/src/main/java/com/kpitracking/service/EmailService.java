@@ -40,21 +40,34 @@ public class EmailService {
 
     private String buildHtmlTemplate(String title, String content) {
         return "<!DOCTYPE html>" +
-               "<html><head><style>" +
-               "body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f1f5f9; margin: 0; padding: 40px 0; }" +
-               ".container { max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); }" +
-               ".header { background: linear-gradient(135deg, #0ea5e9, #2563eb); color: white; padding: 35px 30px; text-align: center; border-bottom: 4px solid #38bdf8; }" +
-               ".content { padding: 40px 40px; color: #334155; line-height: 1.7; font-size: 16px; }" +
-               ".token-box { background: #f8fafc; border: 2px dashed #94a3b8; border-radius: 12px; padding: 25px; text-align: center; font-size: 26px; font-weight: 800; color: #0284c7; margin: 35px 0; letter-spacing: 2px; word-break: break-all; }" +
-               ".footer { background-color: #f8fafc; padding: 25px; text-align: center; color: #64748b; font-size: 13px; border-top: 1px solid #e2e8f0; }" +
-               "h1 { margin: 0; font-size: 26px; letter-spacing: 1px; }" +
-               "p { margin-top: 0; margin-bottom: 20px; }" +
+               "<html><head><meta charset='UTF-8'><meta name='viewport' content='width=device-width, initial-scale=1.0'>" +
+               "<style>" +
+               "  body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background-color: #f8fafc; margin: 0; padding: 0; -webkit-font-smoothing: antialiased; }" +
+               "  .wrapper { width: 100%; table-layout: fixed; background-color: #f8fafc; padding: 40px 0; }" +
+               "  .main { max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06); }" +
+               "  .header { background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%); padding: 40px 30px; text-align: center; }" +
+               "  .header h1 { color: #ffffff; margin: 0; font-size: 24px; font-weight: 700; letter-spacing: -0.025em; text-transform: uppercase; }" +
+               "  .body { padding: 40px; color: #1e293b; line-height: 1.6; }" +
+               "  .body p { margin-top: 0; margin-bottom: 16px; font-size: 16px; color: #475569; }" +
+               "  .token-container { background-color: #f1f5f9; border-radius: 12px; padding: 30px; text-align: center; margin: 32px 0; border: 1px solid #e2e8f0; }" +
+               "  .token-label { font-size: 14px; font-weight: 600; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 12px; display: block; }" +
+               "  .token-value { font-family: 'Courier New', monospace; font-size: 36px; font-weight: 800; color: #2563eb; letter-spacing: 8px; margin: 0; }" +
+               "  .footer { padding: 30px 40px; background-color: #f8fafc; border-top: 1px solid #e2e8f0; text-align: center; }" +
+               "  .footer p { margin: 0; font-size: 13px; color: #94a3b8; }" +
+               "  .btn { display: inline-block; padding: 12px 24px; background-color: #2563eb; color: #ffffff !important; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 14px; transition: background-color 0.2s; }" +
+               "  @media (max-width: 600px) { .main { border-radius: 0; } .body { padding: 30px 20px; } }" +
                "</style></head><body>" +
-               "<div class='container'>" +
-               "<div class='header'><h1>" + title + "</h1></div>" +
-               "<div class='content'>" + content + "</div>" +
-               "<div class='footer'><p>Được gửi tự động từ <b>Hệ thống Quản trị KeyGo</b>.<br>Vui lòng không cung cấp mã này cho bất kỳ ai.</p></div>" +
-               "</div></body></html>";
+               "<div class='wrapper'>" +
+               "  <div class='main'>" +
+               "    <div class='header'><h1>" + title + "</h1></div>" +
+               "    <div class='body'>" + content + "</div>" +
+               "    <div class='footer'>" +
+               "      <p>© 2026 KeyGo Performance Tracking. Mọi quyền được bảo lưu.</p>" +
+               "      <p style='margin-top: 8px;'>Email này được gửi tự động, vui lòng không phản hồi.</p>" +
+               "    </div>" +
+               "  </div>" +
+               "</div>" +
+               "</body></html>";
     }
 
     @Async
@@ -63,10 +76,12 @@ public class EmailService {
         String content = "<p>Xin chào,</p>" +
                          "<p>Gần đây chúng tôi nhận được yêu cầu <b>khôi phục mật khẩu</b> cho tài khoản gắn liền với địa chỉ email này.</p>" +
                          "<p>Mã bảo mật để thiết lập lại mật khẩu của bạn là:</p>" +
-                         "<div class='token-box'>" + resetPasswordToken + "</div>" +
-                         "<p>⚠️ Mã này chỉ có hiệu lực duy nhất trong vòng <b>1 giờ (60 phút)</b> nhằm đảm bảo an toàn.</p>" +
-                         "<p>Nếu bạn không thực hiện yêu cầu này, hãy bảo mật tài khoản của mình và xóa email này ngay.</p>" +
-                         "<p>Trân trọng,<br><b>Ban Quản trị An ninh KeyGo</b></p>";
+                         "<div class='token-container'>" +
+                         "  <span class='token-label'>Mã xác thực bảo mật</span>" +
+                         "  <div class='token-value'>" + resetPasswordToken + "</div>" +
+                         "</div>" +
+                         "<p style='color: #ef4444; font-weight: 600;'>⚠️ Mã này chỉ có hiệu lực trong vòng 60 phút.</p>" +
+                         "<p>Nếu bạn không thực hiện yêu cầu này, vui lòng bỏ qua email này để đảm bảo an toàn.</p>";
         sendEmail(to, subject, buildHtmlTemplate("Bảo mật Tài khoản", content));
     }
 
@@ -74,12 +89,27 @@ public class EmailService {
     public void sendVerifyEmail(String to, String verifyEmailToken) {
         String subject = "Xác nhận Tham gia Mạng lưới KeyGo";
         String content = "<p>Chào mừng bạn đã gia nhập,</p>" +
-                         "<p>Hệ thống giám sát KPI Cấp Doanh nghiệp rất hân hạnh được đồng hành cùng sự phát triển dự án của bạn.</p>" +
-                         "<p>Để hoàn tất thủ tục đăng ký, vui lòng sử dụng <b>Mã OTP xác thực</b> dưới đây để kích hoạt:</p>" +
-                         "<div class='token-box'>" + verifyEmailToken + "</div>" +
-                         "<p>Mã này tự động hết hạn trong <b>24 giờ</b> tiếp theo. Quá thời gian này, bạn sẽ cần đăng ký cấp lại.</p>" +
-                         "<p>Trân trọng,<br><b>Hệ thống Quản lý Tự động</b></p>";
+                         "<p>Để hoàn tất thủ tục đăng ký và kích hoạt tài khoản trên hệ thống KeyGo, vui lòng sử dụng mã OTP dưới đây:</p>" +
+                         "<div class='token-container'>" +
+                         "  <span class='token-label'>Mã OTP kích hoạt</span>" +
+                         "  <div class='token-value'>" + verifyEmailToken + "</div>" +
+                         "</div>" +
+                         "<p>Mã này sẽ hết hạn sau 24 giờ kể từ khi được gửi.</p>";
         sendEmail(to, subject, buildHtmlTemplate("Xác nhận Email", content));
+    }
+
+    @Async
+    public void sendWelcomeAndVerifyEmail(String to, String fullName, String verifyEmailToken) {
+        String subject = "Chào mừng tới KeyGo - Xác thực Tài khoản";
+        String content = "<p>Xin chào <b>" + fullName + "</b>,</p>" +
+                         "<p>Chúc mừng! Hồ sơ và dữ liệu hệ thống của công ty đã được khởi tạo thành công trên nền tảng KeyGo.</p>" +
+                         "<p>Để bắt đầu trải nghiệm, vui lòng xác thực tài khoản của bạn bằng mã OTP bên dưới:</p>" +
+                         "<div class='token-container'>" +
+                         "  <span class='token-label'>Mã OTP xác thực</span>" +
+                         "  <div class='token-value'>" + verifyEmailToken + "</div>" +
+                         "</div>" +
+                         "<p>Sau khi xác thực, bạn có thể đăng nhập để quản lý KPI và trao quyền cho đội ngũ của mình.</p>";
+        sendEmail(to, subject, buildHtmlTemplate("Chào mừng & Xác thực", content));
     }
 
     @Async
@@ -97,16 +127,15 @@ public class EmailService {
     public void sendAccountDetailsEmail(String to, String fullName, String password) {
         String subject = "Thông tin Truy cập Hệ thống KeyGo";
         String content = "<p>Xin chào <b>" + fullName + "</b>,</p>" +
-                         "<p>Tài khoản của bạn đã được thiết lập thành công trên hệ thống KeyGo. Dưới đây là thông tin đăng nhập của bạn:</p>" +
-                         "<div style='background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 20px; margin: 25px 0;'>" +
-                         "<p style='margin: 0 0 10px 0;'><b>Email:</b> " + to + "</p>" +
-                         "<p style='margin: 0;'><b>Mật khẩu:</b> <code style='background: #e2e8f0; padding: 2px 6px; border-radius: 4px; font-weight: bold;'>" + password + "</code></p>" +
+                         "<p>Tài khoản của bạn đã được khởi tạo thành công trên hệ thống quản trị KeyGo. Dưới đây là thông tin đăng nhập cá nhân của bạn:</p>" +
+                         "<div style='background-color: #f1f5f9; border-radius: 12px; padding: 24px; margin: 24px 0; border: 1px solid #e2e8f0;'>" +
+                         "  <p style='margin-bottom: 8px;'><strong>Email:</strong> " + to + "</p>" +
+                         "  <p style='margin: 0;'><strong>Mật khẩu:</strong> <code style='background: #e2e8f0; padding: 2px 6px; border-radius: 4px;'>" + password + "</code></p>" +
                          "</div>" +
-                         "<p style='text-align: center; margin: 30px 0;'>" +
-                         "<a href='" + frontendUrl + "/login' style='background: #2563eb; color: white; padding: 12px 30px; text-decoration: none; border-radius: 8px; font-weight: bold; display: inline-block; box-shadow: 0 4px 6px rgba(37, 99, 235, 0.2);'>Đăng nhập Hệ thống</a>" +
+                         "<p style='text-align: center; margin: 32px 0;'>" +
+                         "  <a href='" + frontendUrl + "/login' class='btn'>Đăng nhập ngay</a>" +
                          "</p>" +
-                         "<p>Vui lòng đăng nhập và thay đổi mật khẩu ngay trong lần sử dụng đầu tiên để đảm bảo tính bảo mật.</p>" +
-                         "<p>Trân trọng,<br><b>Đội ngũ Quản trị Hệ thống</b></p>";
+                         "<p>Vì lý do an toàn, chúng tôi khuyên bạn nên thay đổi mật khẩu ngay sau khi đăng nhập lần đầu.</p>";
         sendEmail(to, subject, buildHtmlTemplate("Thông tin Tài khoản", content));
     }
 

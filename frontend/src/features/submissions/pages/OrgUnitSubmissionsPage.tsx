@@ -107,7 +107,26 @@ export default function OrgUnitSubmissionsPage() {
 
   const evaluationsByUserId = useMemo(() => {
     const map: Record<string, any> = {}
-    evaluationsData?.content.forEach(ev => map[ev.userId] = ev)
+    if (!evaluationsData?.content) return map
+
+    const getAuthorityWeight = (role?: string) => {
+      switch (role) {
+        case 'CEO': return 100
+        case 'REGIONAL_DIRECTOR': return 90
+        case 'DIRECTOR': return 80
+        case 'DEPT_HEAD': return 40
+        case 'TEAM_LEADER': return 20
+        case 'SELF': return 0
+        default: return 10
+      }
+    }
+
+    // Sort evaluations so higher authority comes LAST (to overwrite in the map)
+    const sortedEvals = [...evaluationsData.content].sort((a, b) => {
+      return getAuthorityWeight(a.evaluatorRole) - getAuthorityWeight(b.evaluatorRole)
+    })
+
+    sortedEvals.forEach(ev => map[ev.userId] = ev)
     return map
   }, [evaluationsData])
 
@@ -145,7 +164,7 @@ export default function OrgUnitSubmissionsPage() {
     return {
       totalEmployees: usersData?.totalElements || 0,
       totalPending: Object.values(pendingByUserId).reduce((sum, count) => sum + count, 0),
-      totalEvaluated: evaluationsData?.totalElements || 0
+      totalEvaluated: Object.keys(evaluationsByUserId).length
     }
   }, [usersData, pendingByUserId, evaluationsData])
 
@@ -258,6 +277,7 @@ export default function OrgUnitSubmissionsPage() {
                     <th className="px-6 py-5 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 whitespace-nowrap">Nhân viên</th>
                     <th className="px-6 py-5 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 text-center whitespace-nowrap">Bài nộp chờ duyệt</th>
                     <th className="px-6 py-5 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 text-center whitespace-nowrap">Đánh giá</th>
+                    <th className="px-6 py-5 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 text-center whitespace-nowrap">Người chấm</th>
                     <th className="px-8 py-5 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 text-right whitespace-nowrap">Thao tác</th>
                   </tr>
                 </thead>
@@ -354,6 +374,22 @@ export default function OrgUnitSubmissionsPage() {
                             <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 border border-slate-200 dark:border-slate-700">
                               <span className="text-[10px] font-black uppercase tracking-widest">Chưa đánh giá</span>
                             </div>
+                          )}
+                        </td>
+                        <td className="px-6 py-5 text-center">
+                          {evaluation ? (
+                            <div className="flex flex-col items-center gap-1">
+                               <span className="text-xs font-bold text-slate-700 dark:text-slate-300">{evaluation.evaluatorName}</span>
+                               <span className={cn(
+                                "text-[8px] font-black uppercase tracking-widest px-2 py-0.5 rounded-md border",
+                                evaluation.evaluatorRole === 'SELF' ? 'bg-blue-50 text-blue-600 border-blue-100' : 'bg-emerald-50 text-emerald-600 border-emerald-100'
+                               )}>
+                                {evaluation.evaluatorRole === 'SELF' ? 'Tự chấm' : 
+                                  evaluation.evaluatorRoleName || 'Quản lý'}
+                               </span>
+                            </div>
+                          ) : (
+                            <span className="text-[10px] text-slate-400 italic">—</span>
                           )}
                         </td>
                         <td className="px-8 py-5 text-right">

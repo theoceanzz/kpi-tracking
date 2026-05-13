@@ -316,6 +316,22 @@ export default function SummaryTab() {
         )
       }
       case 'ROLE_DIST': {
+        // 1. Extract all unique role names to create Bar components
+        const allRoles = new Set<string>();
+        mainData?.roleDistribution?.forEach((item: any) => {
+          item.roles?.forEach((r: any) => allRoles.add(r.roleName));
+        });
+        const uniqueRoleNames = Array.from(allRoles);
+
+        // 2. Transform data for Recharts (each item needs roleName: count pairs)
+        const chartData = mainData?.roleDistribution?.map((item: any) => {
+          const dataPoint: any = { unitName: item.unitName };
+          item.roles?.forEach((r: any) => {
+            dataPoint[r.roleName] = r.count;
+          });
+          return dataPoint;
+        }) || [];
+
         return (
           <ChartWrapper 
             title="Phân bổ vai trò" 
@@ -324,7 +340,27 @@ export default function SummaryTab() {
             onTogglePin={handleTogglePin}
             isEditMode={isEditMode}
           >
-            <div className="flex-1"><ResponsiveContainer width="100%" height="100%"><BarChart data={mainData?.roleDistribution || []} layout="vertical" margin={{ left: 20 }}><CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f1f5f9" /><XAxis type="number" axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 700 }} /><YAxis dataKey="unitName" type="category" axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 700 }} width={80} /><Tooltip /><Legend iconType="circle" wrapperStyle={{ fontSize: '10px', fontWeight: 800, paddingTop: '10px' }} /><Bar dataKey="directorCount" stackId="a" fill="#6366f1" name="Giám đốc" barSize={15} /><Bar dataKey="headCount" stackId="a" fill="#f59e0b" name="Trưởng phòng" /><Bar dataKey="staffCount" stackId="a" fill="#94a3b8" name="Nhân viên" /></BarChart></ResponsiveContainer></div>
+            <div className="flex-1">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={chartData} layout="vertical" margin={{ left: 20 }}>
+                  <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f1f5f9" />
+                  <XAxis type="number" axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 700 }} />
+                  <YAxis dataKey="unitName" type="category" axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 700 }} width={80} />
+                  <Tooltip />
+                  <Legend iconType="circle" wrapperStyle={{ fontSize: '10px', fontWeight: 800, paddingTop: '10px' }} />
+                  {uniqueRoleNames.map((roleName, index) => (
+                    <Bar 
+                      key={roleName} 
+                      dataKey={roleName} 
+                      stackId="a" 
+                      fill={COLORS[index % COLORS.length]} 
+                      name={roleName} 
+                      barSize={15} 
+                    />
+                  ))}
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
           </ChartWrapper>
         )
       }
@@ -771,10 +807,10 @@ function EmployeeRankingTableSection({ orgUnitId, isEditMode, periods, widget, o
         </div>
       }
     >
-      <div className="relative flex-1 overflow-auto">
+      <div className="relative flex-1 overflow-auto scrollbar-hide custom-scrollbar">
         <SectionLoader isFetching={isFetching} message="Đang lọc bảng xếp hạng..." />
-        <div className="overflow-x-auto">
-          <table className="w-full">
+        <div className="overflow-x-auto lg:overflow-x-hidden scrollbar-hide custom-scrollbar">
+          <table className="w-full min-w-[800px] lg:min-w-full">
             <thead><tr className="text-left text-[10px] font-black uppercase tracking-widest text-slate-400 border-b border-slate-100 dark:border-slate-800"><th className="px-8 py-5">Hạng</th><th className="px-8 py-5 cursor-pointer hover:text-indigo-600" onClick={() => handleSort('name')}>Nhân viên {sortField === 'name' && <ArrowUpDown size={10} className="inline ml-1" />}</th><th className="px-8 py-5 cursor-pointer hover:text-indigo-600" onClick={() => handleSort('subText')}>Đơn vị {sortField === 'subText' && <ArrowUpDown size={10} className="inline ml-1" />}</th><th className="px-8 py-5 text-center cursor-pointer hover:text-indigo-600" onClick={() => handleSort('performance')}>Hiệu suất {sortField === 'performance' && <ArrowUpDown size={10} className="inline ml-1" />}</th><th className="px-8 py-5 text-center cursor-pointer hover:text-indigo-600" onClick={() => handleSort('score')}>Điểm TB {sortField === 'score' && <ArrowUpDown size={10} className="inline ml-1" />}</th><th className="px-8 py-5"></th></tr></thead>
             <tbody className="divide-y divide-slate-50 dark:divide-slate-800">{processedRankings.map((item, i) => (<tr key={i} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors group"><td className="px-8 py-5"><div className={cn("w-8 h-8 rounded-lg flex items-center justify-center font-black text-xs", displayOrder === 'BEST' ? (i === 0 ? "bg-amber-500 text-white shadow-lg shadow-amber-200" : i === 1 ? "bg-slate-400 text-white shadow-lg shadow-slate-200" : i === 2 ? "bg-orange-400 text-white shadow-lg shadow-orange-200" : "bg-slate-100 dark:bg-slate-800 text-slate-400") : (i === 0 ? "bg-red-500 text-white shadow-lg shadow-red-200" : "bg-slate-100 dark:bg-slate-800 text-slate-400"))}>{i + 1}</div></td><td className="px-8 py-5"><div className="flex items-center gap-4"><div className="w-10 h-10 rounded-xl bg-indigo-50 dark:bg-indigo-900/20 flex items-center justify-center font-black text-indigo-600">{getInitials(item.name)}</div><div><p className="font-black text-slate-900 dark:text-white group-hover:text-indigo-600 transition-colors">{item.name}</p></div></div></td><td className="px-8 py-5 font-bold text-slate-500">{item.subText}</td><td className="px-8 py-5 text-center"><span className={cn("px-3 py-1 rounded-full text-xs font-black", item.performance >= 80 ? "bg-emerald-50 text-emerald-600" : item.performance >= 50 ? "bg-amber-50 text-amber-600" : "bg-red-50 text-red-600")}>{item.performance.toFixed(1)}%</span></td><td className="px-8 py-5 text-center"><p className="text-sm font-black text-slate-900 dark:text-white">{item.score.toFixed(1)}</p></td><td className="px-8 py-5 text-right"><button className="p-2 rounded-xl text-slate-300 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 transition-all"><ChevronRight size={18} /></button></td></tr>))}</tbody>
           </table>

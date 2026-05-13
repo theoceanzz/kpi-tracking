@@ -1,7 +1,8 @@
 import { useState, useMemo } from 'react'
 import { 
   Users, 
-  UserPlus, 
+  UserPlus,
+  UserMinus, 
   ChevronDown, 
   ChevronUp, 
   Shield,  
@@ -12,13 +13,13 @@ import {
   AlertTriangle,
   CheckCircle2
 } from 'lucide-react'
-import { useOrgUnitMembers, useRoles, useAssignRole, useRevokeRole, useOrganizationUsers, useBulkAssignRole } from '../hooks/useUserRoles'
+import { useOrgUnitMembers, useRoles, useAssignRole, useRevokeRole, useOrganizationUsers, useBulkAssignRole, useRemoveAllFromUnit, useRemoveBulkFromUnit } from '../hooks/useUserRoles'
 import { useOrgUnit, useOrgHierarchyLevels } from '../hooks/useOrganizationStructure'
 import { useUpdateUser } from '@/features/users/hooks/useUsers'
 import { useAuthStore } from '@/store/authStore'
 import { toast } from 'sonner'
 import { useOrgUnitTree } from '@/features/orgunits/hooks/useOrgUnitTree'
-import { ROLE_MAP } from '@/constants/roles'
+
 
 interface MemberManagementProps {
   orgUnitId: string
@@ -55,9 +56,11 @@ export function MemberManagement({ orgUnitId }: MemberManagementProps) {
       roleName: '',
       userFullName: ''
   })
+  const [showRemoveAllConfirm, setShowRemoveAllConfirm] = useState(false)
   
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedUsers, setSelectedUsers] = useState<string[]>([])
+  const [selectedMemberIds, setSelectedMemberIds] = useState<string[]>([])
   const [selectedRole, setSelectedRole] = useState<string | null>(null)
   
   const { user } = useAuthStore()
@@ -76,6 +79,8 @@ export function MemberManagement({ orgUnitId }: MemberManagementProps) {
   const assignMutation = useAssignRole()
   const bulkAssignMutation = useBulkAssignRole()
   const revokeMutation = useRevokeRole()
+  const removeAllMutation = useRemoveAllFromUnit()
+  const removeBulkMutation = useRemoveBulkFromUnit()
   const updateUserMutation = useUpdateUser()
 
   const { data: hierarchyLevels = [] } = useOrgHierarchyLevels(orgId)
@@ -220,7 +225,7 @@ export function MemberManagement({ orgUnitId }: MemberManagementProps) {
                   ...showManageModal.assignments,
                   { 
                       roleId: selectedRole, 
-                      roleName: ROLE_MAP[roleData?.name || ''] || roleData?.name || 'Unknown', 
+                      roleName: roleData?.name || 'Unknown', 
                       assignedAt: new Date().toISOString() 
                   }
               ]
@@ -266,6 +271,22 @@ export function MemberManagement({ orgUnitId }: MemberManagementProps) {
     }
   }
 
+  const handleRemoveAllFromUnit = async () => {
+    try {
+        if (selectedMemberIds.length > 0 && selectedMemberIds.length < groupedMembers.length) {
+            await removeBulkMutation.mutateAsync({ userIds: selectedMemberIds, orgUnitId })
+            toast.success(`Đã xóa ${selectedMemberIds.length} nhân sự khỏi đơn vị`)
+        } else {
+            await removeAllMutation.mutateAsync(orgUnitId)
+            toast.success(`Đã xóa toàn bộ nhân sự khỏi đơn vị`)
+        }
+        setShowRemoveAllConfirm(false)
+        setSelectedMemberIds([])
+    } catch (error) {
+        toast.error('Không thể xóa nhân sự')
+    }
+  }
+
   const handleStatusChange = async (newStatus: 'ACTIVE' | 'INACTIVE') => {
       if (!showManageModal) return
       try {
@@ -298,6 +319,19 @@ export function MemberManagement({ orgUnitId }: MemberManagementProps) {
           </div>
         </div>
         <div className="flex items-center space-x-4">
+          {selectedMemberIds.length > 0 && (
+            <button 
+              onClick={(e) => {
+                e.stopPropagation()
+                setShowRemoveAllConfirm(true)
+              }}
+              disabled={removeAllMutation.isPending || removeBulkMutation.isPending}
+              className="flex items-center px-5 py-2.5 bg-red-50 text-red-600 rounded-2xl hover:bg-red-100 text-sm font-black transition-all animate-in fade-in zoom-in-95 duration-200"
+            >
+              <UserMinus className="w-4 h-4 mr-2" />
+              {selectedMemberIds.length === groupedMembers.length ? 'Xóa toàn bộ' : `Xóa (${selectedMemberIds.length})`}
+            </button>
+          )}
           <button 
             onClick={(e) => {
               e.stopPropagation()
@@ -330,6 +364,20 @@ export function MemberManagement({ orgUnitId }: MemberManagementProps) {
               <table className="w-full text-left border-collapse">
                 <thead>
                   <tr className="bg-gray-50/30 text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] border-b">
+                    <th className="px-8 py-5 w-10">
+                      <input 
+                        type="checkbox"
+                        className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                        checked={groupedMembers.length > 0 && selectedMemberIds.length === groupedMembers.length}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setSelectedMemberIds(groupedMembers.map(m => m.userId))
+                          } else {
+                            setSelectedMemberIds([])
+                          }
+                        }}
+                      />
+                    </th>
                     <th className="px-8 py-5">Nhân sự</th>
                     <th className="px-8 py-5">Vai trò đảm nhiệm</th>
                     <th className="px-8 py-5 text-right">Thao tác</th>
@@ -337,7 +385,21 @@ export function MemberManagement({ orgUnitId }: MemberManagementProps) {
                 </thead>
                 <tbody className="divide-y divide-gray-100">
                   {groupedMembers.map((member) => (
-                    <tr key={member.userId} className="hover:bg-gray-50/50 transition-colors group">
+                    <tr key={member.userId} className={`hover:bg-gray-50/50 transition-colors group ${selectedMemberIds.includes(member.userId) ? 'bg-blue-50/30' : ''}`}>
+                      <td className="px-8 py-5">
+                        <input 
+                          type="checkbox"
+                          className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                          checked={selectedMemberIds.includes(member.userId)}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setSelectedMemberIds(prev => [...prev, member.userId])
+                            } else {
+                              setSelectedMemberIds(prev => prev.filter(id => id !== member.userId))
+                            }
+                          }}
+                        />
+                      </td>
                       <td className="px-8 py-5">
                         <div className="flex items-center space-x-3">
                             <div className="w-10 h-10 rounded-full bg-blue-50 flex items-center justify-center text-blue-600 font-black text-sm">
@@ -354,7 +416,7 @@ export function MemberManagement({ orgUnitId }: MemberManagementProps) {
                           {member.assignments.map((asgn) => (
                             <span key={asgn.roleId} className="inline-flex items-center px-3 py-1.5 rounded-full bg-white border border-gray-100 text-gray-700 text-[10px] font-black shadow-sm group/badge hover:border-red-200 hover:bg-red-50 transition-all">
                               <Shield className="w-3 h-3 mr-2 text-blue-500 group-hover/badge:text-red-500" />
-                              {ROLE_MAP[asgn.roleName] || asgn.roleName}
+                              {asgn.roleName}
                               <button 
                                 onClick={() => triggerRemoveConfirm({ userId: member.userId, userFullName: member.userFullName }, { roleId: asgn.roleId, roleName: asgn.roleName })}
                                 className="ml-2 hover:text-red-600 opacity-0 group-hover/badge:opacity-100 transition-opacity"
@@ -365,7 +427,7 @@ export function MemberManagement({ orgUnitId }: MemberManagementProps) {
                           ))}
                         </div>
                       </td>
-                      <td className="px-8 py-5 text-right">
+                      <td className="px-8 py-5 text-right flex items-center justify-end space-x-2">
                         <button 
                           onClick={() => {
                              setSelectedRole(null)
@@ -480,7 +542,7 @@ export function MemberManagement({ orgUnitId }: MemberManagementProps) {
                                     {showManageModal.assignments.map(asgn => (
                                         <div key={asgn.roleId} className="flex items-center px-4 py-2.5 bg-blue-50 rounded-2xl border border-blue-100 group">
                                             <Shield className="w-4 h-4 mr-2 text-blue-600" />
-                                            <span className="text-sm font-black text-blue-700 mr-4">{ROLE_MAP[asgn.roleName] || asgn.roleName}</span>
+                                            <span className="text-sm font-black text-blue-700 mr-4">{asgn.roleName}</span>
                                             <button 
                                                 onClick={() => triggerRemoveConfirm({ userId: showManageModal.userId, userFullName: showManageModal.userFullName }, { roleId: asgn.roleId, roleName: asgn.roleName })}
                                                 className="p-1 hover:bg-red-100 hover:text-red-600 rounded-lg transition-colors"
@@ -536,7 +598,7 @@ export function MemberManagement({ orgUnitId }: MemberManagementProps) {
                                             <Shield className="w-4 h-4" />
                                         </div>
                                         <div className="flex-1 overflow-hidden">
-                                            <p className="text-sm font-black text-gray-900 truncate">{ROLE_MAP[role.name] || role.name}</p>
+                                            <p className="text-sm font-black text-gray-900 truncate">{role.name}</p>
                                             <p className="text-[10px] text-gray-400 font-bold uppercase truncate">
                                                 {isRankTakenByOther ? 'Đã có người đảm nhiệm' : (selectedUsers.length > 1 && (role.rank === 0 || role.rank === 1)) ? 'Không thể gán hàng loạt' : ''}
                                             </p>
@@ -597,6 +659,45 @@ export function MemberManagement({ orgUnitId }: MemberManagementProps) {
                         className="flex-1 px-4 py-3 bg-red-600 text-white rounded-xl hover:bg-red-700 font-bold transition-all shadow-lg shadow-red-200 flex items-center justify-center"
                     >
                         {revokeMutation.isPending ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Xác nhận xóa'}
+                    </button>
+                </div>
+            </div>
+        </div>
+      )}
+
+      {/* Remove All Confirmation Modal */}
+      {showRemoveAllConfirm && (
+        <div className="fixed inset-0 z-[300] flex items-center justify-center p-4">
+            <div className="absolute inset-0 bg-gray-900/60 backdrop-blur-sm" onClick={() => setShowRemoveAllConfirm(false)} />
+            <div className="bg-white rounded-[2rem] shadow-2xl w-full max-w-md relative z-[301] overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+                <div className="p-8 text-center">
+                    <div className="w-16 h-16 bg-red-100 text-red-600 rounded-full flex items-center justify-center mx-auto mb-6">
+                        <AlertTriangle className="w-8 h-8" />
+                    </div>
+                    <h3 className="text-xl font-black text-gray-900 mb-2">
+                        {selectedMemberIds.length > 0 && selectedMemberIds.length < groupedMembers.length ? 'Xóa nhân sự đã chọn' : 'Xóa toàn bộ nhân sự'}
+                    </h3>
+                    <p className="text-gray-500 font-medium">
+                        {selectedMemberIds.length > 0 && selectedMemberIds.length < groupedMembers.length ? (
+                            <>Hành động này sẽ thu hồi <span className="text-red-600 font-black">TẤT CẢ</span> vai trò của <span className="text-gray-900 font-black">{selectedMemberIds.length} nhân viên đã chọn</span>. Bạn có chắc chắn?</>
+                        ) : (
+                            <>Hành động này sẽ thu hồi <span className="text-red-600 font-black">TẤT CẢ</span> vai trò của <span className="text-gray-900 font-black">{groupedMembers.length} nhân viên</span> trong đơn vị này. Bạn có chắc chắn?</>
+                        )}
+                    </p>
+                </div>
+                <div className="p-6 bg-gray-50 flex space-x-3">
+                    <button 
+                        onClick={() => setShowRemoveAllConfirm(false)}
+                        className="flex-1 px-4 py-3 bg-white border border-gray-200 text-gray-700 rounded-xl hover:bg-gray-100 font-bold transition-all"
+                    >
+                        Hủy
+                    </button>
+                    <button 
+                        onClick={handleRemoveAllFromUnit}
+                        disabled={removeAllMutation.isPending || removeBulkMutation.isPending}
+                        className="flex-1 px-4 py-3 bg-red-600 text-white rounded-xl hover:bg-red-700 font-bold transition-all shadow-lg shadow-red-200 flex items-center justify-center"
+                    >
+                        {removeAllMutation.isPending || removeBulkMutation.isPending ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Xác nhận xóa'}
                     </button>
                 </div>
             </div>

@@ -38,6 +38,14 @@ export interface KpiCriteria {
   kpiPeriod: KpiPeriod
   submissionCount: number
   expectedSubmissions: number
+  keyResultId: string | null
+  keyResultName: string | null
+  keyResultCode: string | null
+  objectiveId: string | null
+  objectiveName: string | null
+  objectiveCode: string | null
+  parentId: string | null
+  parentName: string | null
   createdAt: string
   updatedAt: string
 }
@@ -55,6 +63,8 @@ export interface CreateKpiRequest {
   assignedToIds?: string[]
   minimumValue?: number
   kpiPeriodId: string
+  keyResultId?: string | null
+  parentId?: string | null
 }
 
 // Matches BE: UpdateKpiCriteriaRequest
@@ -70,6 +80,8 @@ export interface UpdateKpiRequest {
   assignedToIds?: string[]
   minimumValue?: number
   kpiPeriodId?: string
+  keyResultId?: string | null
+  parentId?: string | null
 }
 
 // Matches BE: RejectKpiRequest

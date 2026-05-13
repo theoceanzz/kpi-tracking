@@ -83,6 +83,14 @@ public class KpiCriteria {
     @JoinColumn(name = "kpi_period_id")
     private KpiPeriod kpiPeriod;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "key_result_id")
+    private KeyResult keyResult;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "parent_id")
+    private KpiCriteria parent;
+
     @Column(name = "minimum_value")
     private Double minimumValue;
 

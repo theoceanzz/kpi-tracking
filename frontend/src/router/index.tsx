@@ -42,6 +42,7 @@ import ReportsPage from '@/features/reports/pages/ReportsPage'
 import ReportDetailPage from '@/features/reports/pages/ReportDetailPage'
 import AnalyticsPage from '@/features/analytics/pages/AnalyticsPage'
 import SystemSettingsPage from '@/features/organization/pages/SystemSettingsPage'
+import OkrManagementPage from '@/features/okr/pages/OkrManagementPage'
 
 // Dashboard router helper
 import DashboardRedirect from '@/features/dashboard/pages/DashboardRedirect'
@@ -70,7 +71,7 @@ export const router = createBrowserRouter([
 
           // Director & KPI Managers
           {
-            element: <PermissionRoute permission={['KPI:APPROVE', 'KPI_PERIOD:CREATE']} />,
+            element: <PermissionRoute permission={['KPI:APPROVE_CRITERIA', 'KPI:APPROVE_ADJUSTMENT', 'KPI_PERIOD:CREATE']} />,
             children: [
               { path: '/kpi-criteria/pending', element: <KpiApprovalPage /> },
               { path: '/kpi-adjustments/pending', element: <KpiAdjustmentApprovalPage /> },
@@ -89,6 +90,7 @@ export const router = createBrowserRouter([
               { path: '/org-structure', element: <OrganizationStructurePage /> },
               { path: '/org-units/:id', element: <OrgUnitDetailPage /> },
               { path: '/settings', element: <SystemSettingsPage /> },
+              { path: '/okr', element: <OkrManagementPage /> },
             ],
           },
 
