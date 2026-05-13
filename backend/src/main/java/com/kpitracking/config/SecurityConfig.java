@@ -62,6 +62,7 @@ public class SecurityConfig {
                         "/api/v1/auth/resend-verification"
                 ).permitAll()
                 .requestMatchers("/api/v1/provinces/**").permitAll()
+                .requestMatchers("/actuator/health").permitAll()
                 .requestMatchers("/swagger-ui/**", "/v3/api-docs/**", "/swagger-ui.html").permitAll()
                 .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                 .anyRequest().authenticated()
