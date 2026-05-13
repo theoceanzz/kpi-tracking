@@ -7,7 +7,7 @@ spring:
     name: kpi-tracking
 
   datasource:
-    url: ${DB_URL:jdbc:postgresql://localhost:5432/kpitracking}
+    url: ${DB_URL:jdbc:postgresql://kpitracking-db:5432/kpitracking}
     username: ${DB_USERNAME:postgres}
     password: ${DB_PASSWORD:123456}
     hikari:
