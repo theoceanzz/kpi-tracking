@@ -310,9 +310,9 @@ export default function OkrExcelPreviewModal({ open, file, onClose, onImport, is
                         <th className="px-4 py-3 min-w-[250px]">Tên Mục tiêu <span className="text-rose-500">*</span></th>
                         <th className="px-4 py-3 min-w-[150px]">Mã KR <span className="text-rose-500">*</span></th>
                         <th className="px-4 py-3 min-w-[250px]">Tên KR <span className="text-rose-500">*</span></th>
-                        <th className="px-4 py-3 min-w-[150px]">Phòng ban</th>
-                        <th className="px-4 py-3 min-w-[120px]">Target KR</th>
-                        <th className="px-4 py-3 min-w-[100px]">Đơn vị KR</th>
+                        <th className="px-4 py-3 min-w-[300px]">Phòng ban</th>
+                        <th className="px-4 py-3 min-w-[180px]">Target KR</th>
+                        <th className="px-4 py-3 min-w-[150px]">Đơn vị KR</th>
                         <th className="px-4 py-3 w-16 text-center">Xóa</th>
                       </tr>
                     </thead>
@@ -379,7 +379,7 @@ export default function OkrExcelPreviewModal({ open, file, onClose, onImport, is
                               <SelectTrigger className="w-full h-9 rounded-lg border-transparent hover:border-slate-300 dark:hover:border-slate-700 bg-transparent hover:bg-white dark:hover:bg-slate-900 text-sm font-bold transition-all focus:ring-1 focus:ring-indigo-500">
                                 <SelectValue placeholder="Chọn phòng ban" />
                               </SelectTrigger>
-                              <SelectContent className="rounded-xl border-slate-200 dark:border-slate-800 max-h-[250px]">
+                              <SelectContent className="rounded-xl border-slate-200 dark:border-slate-800 max-h-[250px] z-[300]">
                                 {allOrgUnits.map((unit) => (
                                   <SelectItem key={unit.id} value={unit.code} className="text-sm font-bold">
                                     {Array(unit.level).fill('\u00A0\u00A0').join('')} {unit.name}

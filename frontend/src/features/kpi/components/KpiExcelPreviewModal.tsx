@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { read, write, utils } from 'xlsx'
 import { 
   X, Save, AlertCircle, Trash2, Plus, FileSpreadsheet, 
@@ -81,6 +81,16 @@ export default function KpiExcelPreviewModal({ open, file, onClose, onImport, is
     size: 100, 
     organizationId: user?.memberships?.[0]?.organizationId 
   })
+
+  const newestPeriod = useMemo(() => {
+    if (!periodsData?.content || periodsData.content.length === 0) return ''
+    const sorted = [...periodsData.content].sort((a, b) => {
+      const timeA = a.startDate ? new Date(a.startDate).getTime() : 0
+      const timeB = b.startDate ? new Date(b.startDate).getTime() : 0
+      return timeB - timeA
+    })
+    return sorted[0]?.name || ''
+  }, [periodsData])
   const { data: orgTree } = useOrgUnitTree()
   const { data: org } = useOrganization(user?.memberships?.[0]?.organizationId)
   const enableOkr = org?.enableOkr || false
@@ -119,20 +129,9 @@ export default function KpiExcelPreviewModal({ open, file, onClose, onImport, is
     })
   })()
 
-  // Default selections
+  // Default selections - Removed automatic defaults as per user request
   useEffect(() => {
-    if (open && periodsData?.content && periodsData.content.length > 0 && !bulkPeriod) {
-      // Find current or most recent period
-      const sorted = [...periodsData.content].sort((a, b) => {
-        const timeA = a.startDate ? new Date(a.startDate).getTime() : 0
-        const timeB = b.startDate ? new Date(b.startDate).getTime() : 0
-        return timeB - timeA
-      })
-      if (sorted[0]) setBulkPeriod(sorted[0].name)
-    }
-    if (open && flatOrgUnits.length > 0 && !bulkOrgUnit) {
-      setBulkOrgUnit(flatOrgUnits[0].name)
-    }
+    // We no longer auto-select period and org unit
   }, [open, periodsData, flatOrgUnits])
 
   // Automatically apply defaults to rows with empty values
@@ -204,7 +203,7 @@ export default function KpiExcelPreviewModal({ open, file, onClose, onImport, is
           Unit: (row['Unit'] || '').toString().trim(),
           Frequency: (row['Frequency'] || bulkFreq || '').toString().toUpperCase().trim(),
           EmployeeCode: (row['EmployeeCode'] || bulkEmpCode || '').toString().trim(),
-          Period: (row['Period'] || bulkPeriod || '').toString().trim(),
+          Period: (row['Period'] || bulkPeriod || newestPeriod || '').toString().trim(),
           OrgUnit: rawOrgValue,
           ObjectiveCode: (row['ObjectiveCode'] || '').toString().trim(),
           KeyResultCode: (row['KeyResultCode'] || '').toString().trim(),
@@ -218,7 +217,7 @@ export default function KpiExcelPreviewModal({ open, file, onClose, onImport, is
         if (matchedPeriod) {
           item.Period = matchedPeriod.name
         } else {
-          item.Period = ''
+          item.Period = newestPeriod
           if (oldPeriod !== 'Trống') {
             errors['Period'] = `Đợt '${oldPeriod}' không tồn tại trong hệ thống`
           }
@@ -323,10 +322,17 @@ export default function KpiExcelPreviewModal({ open, file, onClose, onImport, is
       const obj = objectives.find(o => o.code?.toLowerCase() === row.ObjectiveCode?.toLowerCase())
       if (!obj) {
         errors['ObjectiveCode'] = `Mã mục tiêu không tồn tại`
-      } else if (row.KeyResultCode) {
-        const kr = obj.keyResults?.find(k => k.code?.toLowerCase() === row.KeyResultCode?.toLowerCase())
-        if (!kr) {
-          errors['KeyResultCode'] = `KR không thuộc mục tiêu này`
+      } else {
+        // Validation: OrgUnit mismatch check
+        if (row.OrgUnit && obj.orgUnitName && row.OrgUnit.toLowerCase().trim() !== obj.orgUnitName.toLowerCase().trim()) {
+          errors['ObjectiveCode'] = `Mục tiêu này thuộc ${obj.orgUnitName}, không khớp với đơn vị ${row.OrgUnit}`
+        }
+
+        if (row.KeyResultCode) {
+          const kr = obj.keyResults?.find(k => k.code?.toLowerCase() === row.KeyResultCode?.toLowerCase())
+          if (!kr) {
+            errors['KeyResultCode'] = `KR không thuộc mục tiêu này`
+          }
         }
       }
     } else if (enableOkr && row.KeyResultCode && !row.ObjectiveCode) {
@@ -334,7 +340,7 @@ export default function KpiExcelPreviewModal({ open, file, onClose, onImport, is
     }
 
     if (Object.keys(errors).length > 0) {
-      return { ...row, _errors: { ...(row._errors || {}), ...errors } }
+      return { ...row, _errors: errors }
     }
     return { ...row, _errors: undefined }
   }
@@ -813,8 +819,8 @@ export default function KpiExcelPreviewModal({ open, file, onClose, onImport, is
                         <th className="px-5 py-4 min-w-[150px]">Trọng số <span className="text-rose-500">*</span></th>
                         <th className="px-5 py-4 min-w-[150px]">Mục tiêu <span className="text-rose-500">*</span></th>
                         <th className="px-5 py-4 min-w-[150px]">Tối thiểu <span className="text-rose-500">*</span></th>
-                        <th className="px-5 py-4 min-w-[120px]">Đơn vị <span className="text-rose-500">*</span></th>
-                        <th className="px-5 py-4 min-w-[150px]">Tần suất <span className="text-rose-500">*</span></th>
+                        <th className="px-5 py-4 min-w-[150px]">Đơn vị <span className="text-rose-500">*</span></th>
+                        <th className="px-5 py-4 min-w-[180px]">Tần suất <span className="text-rose-500">*</span></th>
                         <th className="px-5 py-4 min-w-[160px]">Mã nhân viên <span className="text-rose-500">*</span></th>
                         <th className="px-5 py-4 min-w-[220px]">Đợt KPI <span className="text-rose-500">*</span></th>
                         <th className="px-5 py-4 min-w-[300px]">Phòng ban / Đơn vị <span className="text-rose-500">*</span></th>
@@ -1012,7 +1018,7 @@ export default function KpiExcelPreviewModal({ open, file, onClose, onImport, is
                                 row._errors?.Period ? "border-rose-300 bg-rose-50" : "border-transparent hover:border-slate-200 focus:border-indigo-500"
                               )}
                             >
-                              <option value="">-- Chọn đợt --</option>
+
                               {periodsData?.content?.map((p: any) => <option key={p.id} value={p.name}>{p.name}</option>)}
                             </select>
                             {row._errors?.Period && <p className="text-[9px] text-rose-500 mt-1 font-black uppercase px-2">{row._errors.Period}</p>}

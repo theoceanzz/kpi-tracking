@@ -355,7 +355,7 @@ function CreateUserForm({ onClose, onSubmit, isPending, canAssignRoles, dynamicR
                   <SelectTrigger className={inputCls}>
                     <SelectValue placeholder="Chọn vai trò" />
                   </SelectTrigger>
-                  <SelectContent className="max-h-[300px]">
+                  <SelectContent className="max-h-[300px] z-[300]">
                     {flattenedUnits.map((unit) => (
                       <SelectItem key={unit.id} value={unit.id}>
                         <span className="flex items-center">
@@ -380,7 +380,7 @@ function CreateUserForm({ onClose, onSubmit, isPending, canAssignRoles, dynamicR
                   <SelectTrigger className={inputCls}>
                     <SelectValue placeholder="Chọn vai trò" />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="z-[300]">
                     {filteredRoles.map((opt) => (
                       <SelectItem key={opt.id} value={opt.name}>
                         {opt.name}
@@ -522,7 +522,7 @@ function EditUserForm({ editUser, onClose, onSubmit, isPending, canAssignRoles, 
                   <SelectTrigger className={inputCls}>
                     <SelectValue placeholder="Chọn đơn vị" />
                   </SelectTrigger>
-                  <SelectContent className="max-h-[300px]">
+                  <SelectContent className="max-h-[300px] z-[300]">
                     {flattenedUnits.map((unit) => (
                       <SelectItem key={unit.id} value={unit.id}>
                         <span className="flex items-center">
@@ -546,7 +546,7 @@ function EditUserForm({ editUser, onClose, onSubmit, isPending, canAssignRoles, 
                   <SelectTrigger className={inputCls}>
                     <SelectValue placeholder="Chọn vai trò" />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="z-[300]">
                     {filteredRoles.map((opt) => (
                       <SelectItem key={opt.id} value={opt.name}>
                         {opt.name}
@@ -573,7 +573,7 @@ function EditUserForm({ editUser, onClose, onSubmit, isPending, canAssignRoles, 
                   <SelectTrigger className={inputCls}>
                     <SelectValue placeholder="Trạng thái" />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="z-[300]">
                     {statusOptions.map((opt) => (
                       <SelectItem key={opt.value} value={opt.value}>
                         {opt.label}
