@@ -15,7 +15,8 @@ import { useOrganization } from '@/features/orgunits/hooks/useOrganization'
 import { usePermission } from '@/hooks/usePermission'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import {
-  FileCheck, Search, Building2, Calendar, Clock, ChevronRight, ChevronLeft
+  FileCheck, Search, Building2, Calendar, Clock, ChevronRight, ChevronLeft,
+  ArrowUpDown, ArrowUp, ArrowDown
 } from 'lucide-react'
 import PageTour from '@/components/common/PageTour'
 import { orgUnitSubmissionsSteps } from '@/components/common/tourSteps'
@@ -30,7 +31,11 @@ export default function OrgUnitSubmissionsPage() {
   const { hasPermission } = usePermission()
   const canManageOrg = hasPermission('ROLE:ASSIGN')
 
-  
+  const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' | null }>({
+    key: 'fullName',
+    direction: null
+  })
+
   const orgId = user?.memberships?.[0]?.organizationId
   const { data: org } = useOrganization(orgId)
   const { getScoreColor, getScoreBg, getScoreLabel } = getScoringFunctions(org)
@@ -85,7 +90,6 @@ export default function OrgUnitSubmissionsPage() {
     keyword: search || undefined,
     organizationId: orgId
   })
-  const employees = usersData?.content ?? []
 
   // Fetch Evaluations for the selected period
   const { data: evaluationsData, isLoading: isLoadingEvals } = useEvaluations({
@@ -144,6 +148,37 @@ export default function OrgUnitSubmissionsPage() {
     return map
   }, [submissionsData, user, canManageOrg])
 
+  const employees = useMemo(() => {
+    const items = [...(usersData?.content ?? [])]
+    if (!sortConfig.key || !sortConfig.direction) return items
+
+    return items.sort((a, b) => {
+      let aValue: any
+      let bValue: any
+
+      switch (sortConfig.key) {
+        case 'fullName':
+          aValue = a.fullName
+          bValue = b.fullName
+          break
+        case 'pending':
+          aValue = pendingByUserId[a.id] || 0
+          bValue = pendingByUserId[b.id] || 0
+          break
+        case 'score':
+          aValue = evaluationsByUserId[a.id]?.score ?? -1
+          bValue = evaluationsByUserId[b.id]?.score ?? -1
+          break
+        default:
+          return 0
+      }
+
+      if (aValue < bValue) return sortConfig.direction === 'asc' ? -1 : 1
+      if (aValue > bValue) return sortConfig.direction === 'asc' ? 1 : -1
+      return 0
+    })
+  }, [usersData?.content, sortConfig, pendingByUserId, evaluationsByUserId])
+
   const isLoading = isLoadingUsers || isLoadingEvals || isLoadingSubs
 
   const [staffEvalUser, setStaffEvalUser] = useState<any>(null)
@@ -166,7 +201,14 @@ export default function OrgUnitSubmissionsPage() {
       totalPending: Object.values(pendingByUserId).reduce((sum, count) => sum + count, 0),
       totalEvaluated: Object.keys(evaluationsByUserId).length
     }
-  }, [usersData, pendingByUserId, evaluationsData])
+  }, [usersData, pendingByUserId, evaluationsByUserId])
+
+  const handleSort = (key: string) => {
+    setSortConfig(prev => ({
+      key,
+      direction: prev.key === key && prev.direction === 'asc' ? 'desc' : 'asc'
+    }))
+  }
 
   return (
     <div className="min-h-screen bg-[#f8fafc] dark:bg-[#020617] p-4 md:p-8">
@@ -250,8 +292,6 @@ export default function OrgUnitSubmissionsPage() {
                   </SelectContent>
                 </Select>
               </div>
-
-
             </div>
           </div>
         </div>
@@ -274,9 +314,33 @@ export default function OrgUnitSubmissionsPage() {
               <table className="w-full text-left border-collapse">
                 <thead>
                   <tr className="bg-slate-50/50 dark:bg-slate-800/50 border-b border-slate-100 dark:border-slate-800">
-                    <th className="px-6 py-5 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 whitespace-nowrap">Nhân viên</th>
-                    <th className="px-6 py-5 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 text-center whitespace-nowrap">Bài nộp chờ duyệt</th>
-                    <th className="px-6 py-5 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 text-center whitespace-nowrap">Đánh giá</th>
+                    <th 
+                      className="px-6 py-5 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 whitespace-nowrap cursor-pointer hover:text-emerald-600 transition-colors"
+                      onClick={() => handleSort('fullName')}
+                    >
+                      <div className="flex items-center gap-2">
+                        Nhân viên
+                        <SortIcon column="fullName" current={sortConfig} />
+                      </div>
+                    </th>
+                    <th 
+                      className="px-6 py-5 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 text-center whitespace-nowrap cursor-pointer hover:text-emerald-600 transition-colors"
+                      onClick={() => handleSort('pending')}
+                    >
+                      <div className="flex items-center justify-center gap-2">
+                        Bài nộp chờ duyệt
+                        <SortIcon column="pending" current={sortConfig} />
+                      </div>
+                    </th>
+                    <th 
+                      className="px-6 py-5 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 text-center whitespace-nowrap cursor-pointer hover:text-emerald-600 transition-colors"
+                      onClick={() => handleSort('score')}
+                    >
+                      <div className="flex items-center justify-center gap-2">
+                        Đánh giá
+                        <SortIcon column="score" current={sortConfig} />
+                      </div>
+                    </th>
                     <th className="px-6 py-5 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 text-center whitespace-nowrap">Người chấm</th>
                     <th className="px-8 py-5 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 text-right whitespace-nowrap">Thao tác</th>
                   </tr>
@@ -303,48 +367,33 @@ export default function OrgUnitSubmissionsPage() {
                                 {emp.fullName}
                               </span>
                               {(() => {
-                                // Priority 1: If evaluation exists, use its stored role name (most accurate for the period)
                                 if (evaluation?.userRoleName) {
                                   return <span className="text-[10px] text-slate-400 font-medium">{evaluation.userRoleName}</span>
                                 }
-
-                                // Priority 2: Pick the best membership based on a robust multi-criteria sort (data-driven)
                                 const memberships = [...(emp.memberships || [])]
                                 if (memberships.length === 0) return <span className="text-[10px] text-slate-400 font-medium">Nhân viên</span>
-                                
-                                // Find the "Root" level for this specific employee (the highest unit they belong to)
                                 const levels = memberships.map((m: any) => m.levelOrder ?? m.roleLevel ?? 0)
                                 const minLevel = Math.min(...levels)
                                 const hasDeeperLevel = levels.some(l => l > minLevel)
-
                                 const bestMembership = memberships.sort((a: any, b: any) => {
-                                  // 1. Deprioritize the root-most unit if deeper memberships exist
                                   if (hasDeeperLevel) {
                                     const isMinA = (a.levelOrder ?? a.roleLevel ?? 0) === minLevel ? 1 : 0
                                     const isMinB = (b.levelOrder ?? b.roleLevel ?? 0) === minLevel ? 1 : 0
                                     if (isMinA !== isMinB) return isMinA - isMinB
                                   }
-
-                                  // 2. Rank priority (roleRank 0: Trưởng, 1: Phó, 2+: Nhân viên)
                                   const rankA = typeof a.roleRank === 'number' ? a.roleRank : 99
                                   const rankB = typeof b.roleRank === 'number' ? b.roleRank : 99
                                   if (rankA !== rankB) return rankA - rankB
-
-                                  // 3. Current unit match
                                   if (selectedOrgUnitId !== 'ALL') {
                                     const matchA = String(a.orgUnitId) === String(selectedOrgUnitId) ? 0 : 1
                                     const matchB = String(b.orgUnitId) === String(selectedOrgUnitId) ? 0 : 1
                                     if (matchA !== matchB) return matchA - matchB
                                   }
-
-                                  // 4. Depth priority (Deeper units like Dept/Team preferred)
                                   const levelA = a.levelOrder ?? a.roleLevel ?? 0
                                   const levelB = b.levelOrder ?? b.roleLevel ?? 0
-                                  if (levelA !== levelB) return levelB - levelA // Higher number = deeper
-
+                                  if (levelA !== levelB) return levelB - levelA
                                   return 0
                                 })[0]
-                                
                                 return (
                                   <span className="text-[10px] text-slate-400 font-medium">{bestMembership?.roleName || 'Nhân viên'}</span>
                                 )
@@ -454,6 +503,13 @@ export default function OrgUnitSubmissionsPage() {
       </div>
     </div>
   )
+}
+
+function SortIcon({ column, current }: { column: string; current: { key: string; direction: 'asc' | 'desc' | null } }) {
+  if (current.key !== column) return <ArrowUpDown size={12} className="opacity-40" />
+  return current.direction === 'asc' 
+    ? <ArrowUp size={12} className="text-emerald-500" /> 
+    : <ArrowDown size={12} className="text-emerald-500" />
 }
 
 function StatChip({ label, value, color }: { label: string; value: number; color: 'amber' | 'emerald' | 'red' | 'indigo' }) {

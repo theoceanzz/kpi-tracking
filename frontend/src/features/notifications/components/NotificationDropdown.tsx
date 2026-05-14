@@ -75,8 +75,6 @@ export default function NotificationDropdown({ onClose }: NotificationDropdownPr
   }
 
   return (
-    <>
-      <div className="fixed inset-0 z-40 bg-black/5 dark:bg-black/20" onClick={onClose} />
       <div className="absolute right-0 top-12 z-50 w-[380px] bg-white dark:bg-slate-900 rounded-[24px] shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
         
         {/* Header */}
@@ -140,6 +138,5 @@ export default function NotificationDropdown({ onClose }: NotificationDropdownPr
           )}
         </div>
       </div>
-    </>
   )
 }

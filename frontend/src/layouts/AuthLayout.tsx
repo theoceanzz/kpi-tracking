@@ -32,7 +32,7 @@ export default function AuthLayout() {
           </h1>
           
           <p className="text-lg text-indigo-100/80 mb-12 leading-relaxed max-w-md">
-            Hệ sinh thái quản trị mục tiêu chuyên nghiệp dành riêng cho chủ doanh nghiệp và thế hệ quản lý hiện đại.
+            Nền tảng quản trị mục tiêu & hiệu suất hiện đại
           </p>
 
           <div className="space-y-4">

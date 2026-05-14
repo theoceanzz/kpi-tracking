@@ -1,8 +1,9 @@
-import { createBrowserRouter, Navigate } from 'react-router-dom'
+import { createBrowserRouter } from 'react-router-dom'
 import AuthLayout from '@/layouts/AuthLayout'
 import AppLayout from '@/layouts/AppLayout'
 import ProtectedRoute from './ProtectedRoute'
 import PermissionRoute from './PermissionRoute'
+import LandingPage from '@/features/landing/pages/LandingPage'
 
 // Auth pages
 import LoginPage from '@/features/auth/pages/LoginPage'
@@ -49,6 +50,10 @@ import DashboardRedirect from '@/features/dashboard/pages/DashboardRedirect'
 
 export const router = createBrowserRouter([
   {
+    path: '/',
+    element: <LandingPage />,
+  },
+  {
     element: <AuthLayout />,
     children: [
       { path: '/login', element: <LoginPage /> },
@@ -65,7 +70,6 @@ export const router = createBrowserRouter([
       {
         element: <AppLayout />,
         children: [
-          { path: '/', element: <Navigate to="/dashboard" replace /> },
           { path: '/dashboard', element: <DashboardRedirect /> },
           { path: '/profile', element: <ProfilePage /> },
 
