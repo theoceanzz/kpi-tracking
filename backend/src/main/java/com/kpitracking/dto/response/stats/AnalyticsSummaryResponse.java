@@ -99,9 +99,16 @@ public class AnalyticsSummaryResponse {
     @AllArgsConstructor
     public static class RoleDistribution {
         private String unitName;
-        private long directorCount;
-        private long headCount;
-        private long staffCount;
+        private List<RoleCount> roles;
+    }
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class RoleCount {
+        private String roleName;
+        private long count;
     }
 
     @Data

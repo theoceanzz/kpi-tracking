@@ -1,11 +1,14 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { submissionApi } from '../api/submissionApi'
 import { toast } from 'sonner'
-import { X, Loader2, CheckCircle, XCircle, User, Calendar, Paperclip, FileText, MessageSquare } from 'lucide-react'
-import { formatDateTime, formatNumber } from '@/lib/utils'
+import { X, Loader2, CheckCircle, XCircle, User, Calendar, Paperclip, FileText, MessageSquare, Info } from 'lucide-react'
+import { formatDateTime, formatNumber, cn } from '@/lib/utils'
 import type { Submission } from '@/types/submission'
 import AttachmentList from './AttachmentList'
+import { useAuth } from '@/hooks/useAuth'
+import { usePermission } from '@/hooks/usePermission'
+import StaffEvaluationModal from './StaffEvaluationModal'
 
 interface ReviewModalProps {
   open: boolean
@@ -14,12 +17,31 @@ interface ReviewModalProps {
 }
 
 export default function ReviewModal({ open, onClose, submission }: ReviewModalProps) {
+  const { user } = useAuth()
   const [reviewNote, setReviewNote] = useState('')
+  const [managerScore, setManagerScore] = useState<number | undefined>(undefined)
   const [mode, setMode] = useState<'view' | 'reject'>('view')
+  const [showStaffEval, setShowStaffEval] = useState(false)
   const qc = useQueryClient()
 
+  const { hasPermission } = usePermission()
+  const isHighAuthority = hasPermission('ROLE:ASSIGN')
+  const isOwnSubmission = submission?.submittedById === user?.id
+  const canReviewThis = (!submission?.isSubmittedByManager || isHighAuthority) && !isOwnSubmission
+
+  // Initialize managerScore with autoScore when modal opens
+  useEffect(() => {
+    if (submission && managerScore === undefined) {
+      setManagerScore(Math.round(submission.managerScore ?? submission.autoScore ?? 0))
+    }
+  }, [submission])
+
   const approveMutation = useMutation({
-    mutationFn: () => submissionApi.review(submission!.id, { status: 'APPROVED', reviewNote: reviewNote || undefined }),
+    mutationFn: () => submissionApi.review(submission!.id, { 
+      status: 'APPROVED', 
+      reviewNote: reviewNote || undefined,
+      managerScore: managerScore 
+    }),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['submissions'] }); toast.success('Đã phê duyệt bài nộp'); reset(); onClose() },
     onError: () => toast.error('Duyệt thất bại'),
   })
@@ -30,12 +52,12 @@ export default function ReviewModal({ open, onClose, submission }: ReviewModalPr
     onError: () => toast.error('Từ chối thất bại'),
   })
 
-  const reset = () => { setReviewNote(''); setMode('view') }
+  const reset = () => { setReviewNote(''); setManagerScore(undefined); setMode('view') }
 
   if (!open || !submission) return null
 
   const isPending = approveMutation.isPending || rejectMutation.isPending
-  const isReviewable = submission.status === 'PENDING'
+  const isReviewable = submission.status === 'PENDING' && canReviewThis
   const progress = submission.targetValue ? Math.min(100, Math.round((submission.actualValue / submission.targetValue) * 100)) : null
 
   return (
@@ -79,6 +101,49 @@ export default function ReviewModal({ open, onClose, submission }: ReviewModalPr
             <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-800 text-center">
               <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">Mục tiêu</p>
               <p className="text-3xl font-black text-slate-600 dark:text-slate-300">{submission.targetValue != null ? formatNumber(submission.targetValue) : '—'}</p>
+            </div>
+          </div>
+
+          {/* Scoring Section */}
+          <div className="space-y-3">
+            <div className="flex items-center justify-between px-1">
+              <span className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Đánh giá điểm số</span>
+              <div className="h-px flex-1 mx-4 bg-slate-100 dark:bg-slate-800" />
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Auto Score Display */}
+              <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-800 flex items-center justify-between">
+                <div>
+                  <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-0.5">Điểm hệ thống</p>
+                  <p className="text-xs font-medium text-slate-500">Tự động tính</p>
+                </div>
+                <div className="text-right">
+                  <p className="text-2xl font-black text-slate-700 dark:text-slate-300">{submission.autoScore != null ? formatNumber(submission.autoScore) : '0'}</p>
+                </div>
+              </div>
+
+              {/* Manager Score Input */}
+              <div className={cn(
+                "p-4 rounded-2xl border transition-all duration-300 flex items-center justify-between",
+                isReviewable 
+                  ? "bg-indigo-50/50 border-indigo-200 dark:bg-indigo-900/10 dark:border-indigo-800 ring-2 ring-indigo-500/5"
+                  : "bg-slate-50 dark:bg-slate-800/50 border-slate-200 dark:border-slate-800"
+              )}>
+                <div>
+                  <p className="text-[9px] font-black uppercase tracking-widest text-indigo-600 dark:text-indigo-400 mb-0.5">Điểm chốt cuối</p>
+                  <p className="text-xs font-medium text-slate-500">{user?.memberships?.[0]?.roleName || 'Quản lý'} chấm</p>
+                </div>
+                <div className="w-20">
+                  <input 
+                    type="number"
+                    value={managerScore}
+                    onChange={e => setManagerScore(Number(e.target.value))}
+                    readOnly={!isReviewable}
+                    className="w-full bg-transparent text-right text-2xl font-black text-indigo-600 dark:text-indigo-400 outline-none focus:ring-0"
+                  />
+                </div>
+              </div>
             </div>
           </div>
 
@@ -126,6 +191,38 @@ export default function ReviewModal({ open, onClose, submission }: ReviewModalPr
                 <Paperclip size={12} /> Tệp đính kèm ({submission.attachments.length})
               </div>
               <AttachmentList attachments={submission.attachments} />
+            </div>
+          )}
+
+          {/* View Detailed Evaluation Button */}
+          <button 
+            onClick={() => setShowStaffEval(true)}
+            className="w-full py-3.5 rounded-2xl border-2 border-dashed border-slate-200 dark:border-slate-800 text-slate-500 hover:text-indigo-600 hover:border-indigo-500 hover:bg-indigo-50/50 transition-all flex items-center justify-center gap-3 group"
+          >
+            <Info size={18} className="group-hover:animate-bounce" />
+            <span className="text-sm font-bold">Xem chi tiết đợt đánh giá của nhân viên này</span>
+          </button>
+
+          {/* Aggregated Evaluation Modal */}
+          {submission && (
+            <StaffEvaluationModal
+              open={showStaffEval}
+              onClose={() => setShowStaffEval(false)}
+              userId={submission.submittedById}
+              userName={submission.submittedByName}
+              periodId={submission.kpiPeriod?.id || ''}
+              periodName={submission.kpiPeriod?.name || ''}
+            />
+          )}
+
+          {/* Restriction Notice */}
+          {!canReviewThis && submission.status === 'PENDING' && (
+            <div className="p-4 rounded-2xl bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 flex gap-3 animate-in slide-in-from-top-2 duration-300">
+              <Info className="text-amber-600 shrink-0" size={20} />
+              <div className="text-xs font-medium text-amber-800 dark:text-amber-300 leading-relaxed">
+                <span className="block font-black uppercase tracking-widest text-[10px] mb-1">Quyền hạn hạn chế</span>
+                Bản nộp này của cấp quản lý. Theo quy định, chỉ cấp trên có thẩm quyền tương ứng mới có quyền phê duyệt các báo cáo này.
+              </div>
             </div>
           )}
 

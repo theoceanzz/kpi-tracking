@@ -14,7 +14,7 @@ export default function ConfirmDialog({ open, onClose, onConfirm, title, descrip
   if (!open) return null
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
+    <div className="fixed inset-0 z-[1000] flex items-center justify-center">
       <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
       <div className="relative bg-[var(--color-card)] rounded-2xl shadow-xl p-6 max-w-sm w-full mx-4 animate-in zoom-in-95">
         <div className="flex items-center gap-3 mb-4">

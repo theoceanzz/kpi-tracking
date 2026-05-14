@@ -26,6 +26,7 @@ public class RoleService {
 
     private final RoleRepository roleRepository;
     private final UserRepository userRepository;
+    private final com.kpitracking.repository.UserRoleOrgUnitRepository userRoleOrgUnitRepository;
     private final RoleMapper roleMapper;
 
     private User getCurrentUser() {
@@ -36,20 +37,39 @@ public class RoleService {
 
     @Transactional
     public RoleResponse createRole(CreateRoleRequest request) {
-        if (roleRepository.existsByName(request.getName())) {
-            throw new DuplicateResourceException("Role", "name", request.getName());
+        User user = getCurrentUser();
+        // For simplicity, we take the organization from the user's first membership
+        // In a production app, you might get this from a header or a selected context
+        UUID orgId = userRoleOrgUnitRepository.findByUserId(user.getId())
+                .stream()
+                .map(uro -> uro.getOrgUnit().getOrgHierarchyLevel().getOrganization().getId())
+                .findFirst()
+                .orElseThrow(() -> new BusinessException("User does not belong to any organization"));
+
+        if (roleRepository.existsByNameIgnoreCaseAndOrganizationIdAndDeletedAtIsNull(request.getName(), orgId)) {
+            throw new DuplicateResourceException("Vai trò", "tên", request.getName());
+        }
+
+        Integer rank = request.getRank();
+        if (rank == null || rank == 2) {
+            String lowerName = request.getName().toLowerCase();
+            if (lowerName.contains("trưởng") || lowerName.contains("giám đốc") || lowerName.contains("head") || lowerName.contains("director")) rank = 0;
+            else if (lowerName.contains("phó") || lowerName.contains("deputy")) rank = 1;
+            else rank = 2;
+        }
+
+        if (rank != 2 && roleRepository.existsByLevelAndRankAndOrganizationIdAndDeletedAtIsNull(request.getLevel(), rank, orgId)) {
+            String rankName = (rank == 0) ? "TRƯỞNG (Rank 0)" : "PHÓ (Rank 1)";
+            throw new BusinessException("Mỗi phân cấp chỉ được phép có tối đa 1 " + rankName);
         }
 
         Role role = Role.builder()
+                .organization(com.kpitracking.entity.Organization.builder().id(orgId).build())
                 .name(request.getName())
-                .createdBy(getCurrentUser())
+                .level(request.getLevel())
+                .rank(rank)
+                .createdBy(user)
                 .build();
-
-        if (request.getParentRoleId() != null) {
-            Role parentRole = roleRepository.findById(request.getParentRoleId())
-                    .orElseThrow(() -> new ResourceNotFoundException("Parent Role", "id", request.getParentRoleId()));
-            role.setParentRole(parentRole);
-        }
 
         role = roleRepository.save(role);
         return roleMapper.toResponse(role);
@@ -61,23 +81,38 @@ public class RoleService {
                 .orElseThrow(() -> new ResourceNotFoundException("Role", "id", roleId));
 
         if (Boolean.TRUE.equals(role.getIsSystem())) {
-            throw new BusinessException("Cannot modify system role: " + role.getName());
+            // Allow renaming system roles, but protect level/rank changes
+            boolean levelChanged = request.getLevel() != null && !request.getLevel().equals(role.getLevel());
+            boolean rankChanged = request.getRank() != null && !request.getRank().equals(role.getRank());
+            
+            if (levelChanged || rankChanged) {
+                throw new BusinessException("Cannot modify hierarchy (level/rank) of system role: " + role.getName());
+            }
         }
 
         if (request.getName() != null) {
-            if (!request.getName().equals(role.getName()) && roleRepository.existsByName(request.getName())) {
-                throw new DuplicateResourceException("Role", "name", request.getName());
+            if (roleRepository.existsByNameIgnoreCaseAndOrganizationIdAndIdNotAndDeletedAtIsNull(request.getName(), role.getOrganization().getId(), roleId)) {
+                throw new DuplicateResourceException("Vai trò", "tên", request.getName());
             }
             role.setName(request.getName());
         }
+        
+        if (request.getLevel() != null) {
+            role.setLevel(request.getLevel());
+        }
 
-        if (request.getParentRoleId() != null) {
-            if (request.getParentRoleId().equals(roleId)) {
-                throw new BusinessException("Vai trò không thể là cấp cha của chính nó");
-            }
-            Role parentRole = roleRepository.findById(request.getParentRoleId())
-                    .orElseThrow(() -> new ResourceNotFoundException("Parent Role", "id", request.getParentRoleId()));
-            role.setParentRole(parentRole);
+        if (request.getRank() != null) {
+            role.setRank(request.getRank());
+        } else if (request.getName() != null && !Boolean.TRUE.equals(role.getIsSystem())) {
+            // Only auto-derive rank for non-system roles to avoid messing up system roles
+            String lowerName = request.getName().toLowerCase();
+            if (lowerName.contains("trưởng") || lowerName.contains("giám đốc") || lowerName.contains("head") || lowerName.contains("director")) role.setRank(0);
+            else if (lowerName.contains("phó") || lowerName.contains("deputy")) role.setRank(1);
+        }
+
+        if (role.getRank() != 2 && roleRepository.existsByLevelAndRankAndOrganizationIdAndIdNotAndDeletedAtIsNull(role.getLevel(), role.getRank(), role.getOrganization().getId(), roleId)) {
+            String rankName = (role.getRank() == 0) ? "TRƯỞNG (Rank 0)" : "PHÓ (Rank 1)";
+            throw new BusinessException("Mỗi phân cấp chỉ được phép có tối đa 1 " + rankName);
         }
 
         role = roleRepository.save(role);
@@ -90,7 +125,12 @@ public class RoleService {
                 .orElseThrow(() -> new ResourceNotFoundException("Role", "id", roleId));
 
         if (Boolean.TRUE.equals(role.getIsSystem())) {
-            throw new BusinessException("Cannot delete system role: " + role.getName());
+            throw new BusinessException("Không thể xóa vai trò hệ thống: " + role.getName());
+        }
+
+        // Kiểm tra xem có bất kỳ nhân viên nào đang giữ vai trò này không
+        if (userRoleOrgUnitRepository.existsByRoleId(roleId)) {
+            throw new BusinessException("Không thể xóa vai trò '" + role.getName() + "' vì vẫn còn nhân viên đang giữ vai trò này trong tổ chức.");
         }
 
         role.setDeletedAt(Instant.now());
@@ -99,7 +139,14 @@ public class RoleService {
 
     @Transactional(readOnly = true)
     public List<RoleResponse> listRoles() {
-        return roleRepository.findAllByDeletedAtIsNull().stream()
+        User user = getCurrentUser();
+        UUID orgId = userRoleOrgUnitRepository.findByUserId(user.getId())
+                .stream()
+                .map(uro -> uro.getOrgUnit().getOrgHierarchyLevel().getOrganization().getId())
+                .findFirst()
+                .orElseThrow(() -> new BusinessException("User does not belong to any organization"));
+                
+        return roleRepository.findAllByOrganizationIdAndDeletedAtIsNull(orgId).stream()
                 .map(roleMapper::toResponse)
                 .toList();
     }

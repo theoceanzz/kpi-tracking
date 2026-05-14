@@ -1,9 +1,9 @@
 import { useQuery } from '@tanstack/react-query'
 import { kpiApi } from '../api/kpiApi'
 
-export function useMyKpi(page = 0, size = 20) {
+export function useMyKpi(params: { page?: number; size?: number; kpiPeriodId?: string; sortBy?: string; sortDir?: string; userId?: string; objectiveId?: string; keyResultId?: string } = {}) {
   return useQuery({
-    queryKey: ['kpi-criteria', 'my', page, size],
-    queryFn: () => kpiApi.getMy(page, size),
+    queryKey: ['kpi-criteria', 'my', params],
+    queryFn: () => kpiApi.getMy(params),
   })
 }

@@ -5,9 +5,10 @@ import { toast } from 'sonner'
 
 export function useOrgUnitTree(orgId: string | undefined) {
   return useQuery({
-    queryKey: ['org-units', 'tree', orgId],
+    queryKey: ['orgUnits', 'tree', orgId],
     queryFn: () => orgUnitApi.getTree(orgId!),
-    enabled: !!orgId
+    enabled: !!orgId,
+    staleTime: 0,
   })
 }
 
@@ -19,14 +20,23 @@ export function useOrgHierarchyLevels(orgId: string | undefined) {
   })
 }
 
+export function useOrganization(orgId: string | undefined) {
+  return useQuery({
+    queryKey: ['organization', orgId],
+    queryFn: () => orgUnitApi.getOrganization(orgId!),
+    enabled: !!orgId
+  })
+}
+
 export function useCreateOrgUnit() {
   const queryClient = useQueryClient()
 
   return useMutation({
     mutationFn: ({ orgId, payload }: { orgId: string; payload: CreateOrgUnitRequest }) => 
       orgUnitApi.createNode(orgId, payload),
-    onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: ['org-units', 'tree', variables.orgId] })
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['orgUnits'] })
+      queryClient.invalidateQueries({ queryKey: ['stats'] })
       toast.success('Thêm thành phần tổ chức thành công')
     },
     onError: (error: any) => {
@@ -42,9 +52,12 @@ export function useUpdateOrgUnit() {
     mutationFn: ({ orgId, unitId, payload }: { orgId: string; unitId: string; payload: UpdateOrgUnitRequest }) => 
       orgUnitApi.updateNode(orgId, unitId, payload),
     onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: ['org-units', 'tree', variables.orgId] })
-      queryClient.invalidateQueries({ queryKey: ['org-units', 'detail', variables.orgId, variables.unitId] })
+      queryClient.invalidateQueries({ queryKey: ['orgUnits'] })
+      queryClient.invalidateQueries({ queryKey: ['orgUnits', 'detail', variables.orgId, variables.unitId] })
       queryClient.invalidateQueries({ queryKey: ['org-unit-members', variables.unitId] })
+      queryClient.invalidateQueries({ queryKey: ['organization-users'] })
+      queryClient.invalidateQueries({ queryKey: ['users'] })
+      queryClient.invalidateQueries({ queryKey: ['stats'] })
       toast.success('Cập nhật thành công')
     },
     onError: (error: any) => {
@@ -55,7 +68,7 @@ export function useUpdateOrgUnit() {
 
 export function useOrgUnit(orgId: string | undefined, unitId: string | undefined) {
   return useQuery({
-    queryKey: ['org-units', 'detail', orgId, unitId],
+    queryKey: ['orgUnits', 'detail', orgId, unitId],
     queryFn: () => orgUnitApi.getById(orgId!, unitId!),
     enabled: !!orgId && !!unitId
   })
@@ -63,9 +76,10 @@ export function useOrgUnit(orgId: string | undefined, unitId: string | undefined
 
 export function useOrgUnitSubtree(orgId: string | undefined, unitId: string | undefined) {
   return useQuery({
-    queryKey: ['org-units', 'subtree', orgId, unitId],
+    queryKey: ['orgUnits', 'subtree', orgId, unitId],
     queryFn: () => orgUnitApi.getSubtree(orgId!, unitId!),
-    enabled: !!orgId && !!unitId
+    enabled: !!orgId && !!unitId,
+    staleTime: 0,
   })
 }
 
@@ -91,8 +105,8 @@ export function useUploadLogo() {
     mutationFn: ({ orgId, unitId, file }: { orgId: string; unitId: string; file: File }) => 
       orgUnitApi.uploadLogo(orgId, unitId, file),
     onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: ['org-units', 'tree', variables.orgId] })
-      queryClient.invalidateQueries({ queryKey: ['org-units', 'detail', variables.orgId, variables.unitId] })
+      queryClient.invalidateQueries({ queryKey: ['orgUnits'] })
+      queryClient.invalidateQueries({ queryKey: ['orgUnits', 'detail', variables.orgId, variables.unitId] })
       toast.success('Tải logo lên thành công')
     },
     onError: (error: any) => {
@@ -107,8 +121,11 @@ export function useDeleteOrgUnit() {
   return useMutation({
     mutationFn: ({ orgId, unitId }: { orgId: string; unitId: string }) => 
       orgUnitApi.deleteNode(orgId, unitId),
-    onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: ['org-units', 'tree', variables.orgId] })
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['orgUnits'] })
+      queryClient.invalidateQueries({ queryKey: ['organization-users'] })
+      queryClient.invalidateQueries({ queryKey: ['users'] })
+      queryClient.invalidateQueries({ queryKey: ['stats'] })
       toast.success('Xoá thành phần tổ chức thành công')
     },
     onError: (error: any) => {

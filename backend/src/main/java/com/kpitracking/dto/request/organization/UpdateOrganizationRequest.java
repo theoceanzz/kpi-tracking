@@ -18,4 +18,11 @@ public class UpdateOrganizationRequest {
     private String status;
 
     private List<HierarchyLevelDTO> hierarchyLevels;
+
+    private Double evaluationMaxScore;
+    private java.util.List<EvaluationLevelRequest> evaluationLevels;
+    
+    private Integer kpiReminderPercentage;
+    private Boolean enableOkr;
+    private Boolean enableWaterfall;
 }

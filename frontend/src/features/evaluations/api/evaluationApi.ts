@@ -3,7 +3,16 @@ import type { ApiResponse, PageResponse } from '@/types/api'
 import type { Evaluation, CreateEvaluationRequest } from '@/types/evaluation'
 
 export const evaluationApi = {
-  getAll: (params: { page?: number; size?: number; userId?: string; kpiCriteriaId?: string }) =>
+  getAll: (params: { 
+    page?: number; 
+    size?: number; 
+    userId?: string; 
+    kpiPeriodId?: string;
+    orgUnitId?: string;
+    organizationId?: string;
+    sortBy?: string;
+    sortDir?: string;
+  } = {}) =>
     axiosInstance.get<ApiResponse<PageResponse<Evaluation>>>('/evaluations', { params }).then((r) => r.data.data),
 
   getById: (id: string) =>

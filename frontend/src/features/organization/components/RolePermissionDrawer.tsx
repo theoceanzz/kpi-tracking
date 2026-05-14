@@ -8,25 +8,74 @@ import {
   Loader2,
   Save,
   ShieldCheck,
-  Search
+  Search,
+  Zap,
+  Check
 } from 'lucide-react'
 import { useAllPermissions, useRolePermissions, useUpdateRolePermissions } from '../hooks/useRolePermissions'
 import { RoleResponse } from '../api/role.api'
+import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 
 interface RolePermissionDrawerProps {
   role: RoleResponse | null
   isOpen: boolean
   onClose: () => void
+  hierarchyLevels: any[]
 }
 
-export default function RolePermissionDrawer({ role, isOpen, onClose }: RolePermissionDrawerProps) {
+const PERMISSION_DESCRIPTIONS: Record<string, string> = {
+  'DASHBOARD:VIEW': 'Cho phép xem bảng điều khiển tổng quan và các báo cáo nhanh về hiệu suất.',
+  'KPI:VIEW': 'Quyền xem danh sách các chỉ tiêu KPI của bản thân hoặc đơn vị.',
+  'KPI:CREATE': 'Cho phép tạo mới các chỉ tiêu KPI cho cá nhân hoặc nhóm.',
+  'KPI:UPDATE': 'Quyền chỉnh sửa nội dung, trọng số của các chỉ tiêu KPI đã tạo.',
+  'KPI:DELETE': 'Quyền xóa bỏ các chỉ tiêu KPI (chỉ áp dụng khi chưa được phê duyệt).',
+  'KPI:APPROVE': 'Quyền phê duyệt hoặc từ chối các chỉ tiêu KPI của cấp dưới.',
+  'SUBMISSION:VIEW': 'Xem các bài nộp, bằng chứng kết quả công việc của nhân viên.',
+  'SUBMISSION:CREATE': 'Cho phép nhân viên nộp kết quả thực hiện KPI cho cấp trên.',
+  'SUBMISSION:REVIEW': 'Quyền kiểm tra và chấm điểm cho các bài nộp của nhân viên.',
+  'EVALUATION:VIEW': 'Xem các bản đánh giá hiệu suất định kỳ của cá nhân hoặc đơn vị.',
+  'EVALUATION:CREATE': 'Cho phép thực hiện tự đánh giá hoặc đánh giá nhân viên cấp dưới.',
+  'ROLE:VIEW': 'Xem danh sách các vai trò và cấp bậc trong hệ thống.',
+  'ROLE:ASSIGN': 'Quyền phân bổ vai trò và quyền hạn cho người dùng trong đơn vị.',
+  'ORG:VIEW': 'Xem sơ đồ tổ chức, danh sách phòng ban và đội nhóm.',
+  'USER:VIEW': 'Xem thông tin danh sách nhân viên trong hệ thống.',
+  'SYSTEM:ADMIN': 'Quyền quản trị toàn diện hệ thống (Cẩn trọng khi cấp quyền này).',
+  'REPORT:VIEW': 'Quyền xem và xuất các báo cáo phân tích nâng cao.',
+  'ADJUSTMENT:CREATE': 'Cho phép tạo yêu cầu điều chỉnh KPI sau khi đã chốt.',
+  'ADJUSTMENT:APPROVE': 'Quyền phê duyệt các yêu cầu điều chỉnh KPI của cấp dưới.'
+};
+
+function PermissionTooltip({ text, children }: { text: string; children: React.ReactNode }) {
+  const [visible, setVisible] = useState(false);
+  
+  return (
+    <div className="relative" onMouseEnter={() => setVisible(true)} onMouseLeave={() => setVisible(false)}>
+      {children}
+      {visible && (
+        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-3 w-64 p-4 bg-gray-900/90 backdrop-blur-md text-white text-[11px] font-medium rounded-2xl shadow-2xl z-[200] animate-in fade-in zoom-in-95 duration-200 pointer-events-none">
+          <div className="relative">
+            {text}
+            <div className="absolute top-full left-1/2 -translate-x-1/2 w-0 h-0 border-l-[6px] border-l-transparent border-r-[6px] border-r-transparent border-t-[6px] border-t-gray-900/90" />
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+export default function RolePermissionDrawer({ role, isOpen, onClose, hierarchyLevels }: RolePermissionDrawerProps) {
   const { data: allPermissions = [], isLoading: isLoadingAll } = useAllPermissions()
   const { data: rolePermissions, isLoading: isLoadingRole } = useRolePermissions(role?.id)
   const updateMutation = useUpdateRolePermissions()
 
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [searchQuery, setSearchQuery] = useState('')
+  const [showDefaultPreview, setShowDefaultPreview] = useState<{ isOpen: boolean; type: string; codes: string[] }>({
+    isOpen: false,
+    type: '',
+    codes: []
+  })
 
   // Sync role permissions to local state when loaded
   useEffect(() => {
@@ -86,6 +135,56 @@ export default function RolePermissionDrawer({ role, isOpen, onClose }: RolePerm
     onClose()
   }
 
+  const handleApplyDefaults = () => {
+    if (!role) return;
+
+    let targetType = 'staff';
+    let label = 'Nhân viên';
+
+    // Get the set of active role levels for this company
+    const activeRoleLevels = Array.from(new Set(hierarchyLevels.map((l: any) => l.roleLevel)) as Set<number>).sort((a: number, b: number) => a - b)
+    const minRoleLevel = activeRoleLevels[0]
+    const maxRoleLevel = activeRoleLevels[activeRoleLevels.length - 1]
+
+    if (role.level === minRoleLevel && role.rank === 0) {
+      targetType = 'director';
+      label = role.name;
+    } else if (role.level === maxRoleLevel && role.rank === 2) {
+      targetType = 'staff';
+      label = role.name;
+    } else {
+      if (role.rank === 0) { targetType = 'manager'; label = role.name; }
+      else if (role.rank === 1) { targetType = 'deputy'; label = role.name; }
+      else { targetType = 'staff'; label = role.name; }
+    }
+
+    // Use the same definitions as the global modal (strictly following SQL V2 logic)
+    const EXCLUDES = ['KPI:VIEW_MY', 'SUBMISSION:VIEW_MY', 'EVALUATION:VIEW_MY', 'STATS:VIEW_MY'];
+    const MANAGER = ['DASHBOARD:VIEW', 'KPI:VIEW', 'KPI:CREATE', 'KPI:UPDATE', 'KPI:DELETE', 'KPI:APPROVE', 'KPI:REJECT', 'KPI:SUBMIT', 'KPI:IMPORT', 'KPI:VIEW_MY', 'SUBMISSION:VIEW', 'SUBMISSION:REVIEW', 'SUBMISSION:VIEW_MY', 'EVALUATION:VIEW', 'EVALUATION:CREATE', 'EVALUATION:VIEW_MY', 'ORG:VIEW', 'USER:VIEW', 'NOTIF:VIEW', 'AI:SUGGEST_KPI', 'ATTACHMENT:UPLOAD', 'STATS:VIEW_ORG', 'STATS:VIEW_EMPLOYEE', 'STATS:VIEW_MY'];
+    const DEPUTY = ['DASHBOARD:VIEW', 'KPI:VIEW', 'KPI:UPDATE', 'KPI:SUBMIT', 'KPI:VIEW_MY', 'SUBMISSION:VIEW', 'SUBMISSION:REVIEW', 'SUBMISSION:VIEW_MY', 'EVALUATION:VIEW', 'EVALUATION:CREATE', 'EVALUATION:VIEW_MY', 'ORG:VIEW', 'USER:VIEW', 'NOTIF:VIEW', 'AI:SUGGEST_KPI', 'ATTACHMENT:UPLOAD', 'STATS:VIEW_ORG', 'STATS:VIEW_EMPLOYEE', 'STATS:VIEW_MY'];
+    const STAFF = ['DASHBOARD:VIEW', 'KPI:VIEW_MY', 'KPI:SUBMIT', 'KPI_PERIOD:VIEW', 'SUBMISSION:CREATE', 'SUBMISSION:VIEW_MY', 'EVALUATION:VIEW_MY', 'EVALUATION:CREATE', 'NOTIF:VIEW', 'ATTACHMENT:UPLOAD', 'STATS:VIEW_MY'];
+
+    let codes: string[] = [];
+    if (targetType === 'director') codes = allPermissions.filter(p => !EXCLUDES.includes(p.code)).map(p => p.code);
+    else if (targetType === 'manager') codes = MANAGER;
+    else if (targetType === 'deputy') codes = DEPUTY;
+    else codes = STAFF;
+
+    setShowDefaultPreview({ isOpen: true, type: label, codes });
+  };
+
+  const confirmApplyDefaults = () => {
+    const nextIds = new Set(selectedIds);
+    const suggestedIds = allPermissions
+      .filter(p => showDefaultPreview.codes.includes(p.code))
+      .map(p => p.id);
+    
+    suggestedIds.forEach(id => nextIds.add(id));
+    setSelectedIds(nextIds);
+    setShowDefaultPreview({ ...showDefaultPreview, isOpen: false });
+    toast.success(`Đã đề xuất bộ quyền hạn cho "${showDefaultPreview.type}"`);
+  };
+
   if (!isOpen) return null
 
   return (
@@ -114,12 +213,20 @@ export default function RolePermissionDrawer({ role, isOpen, onClose }: RolePerm
               </p>
             </div>
           </div>
-          <button 
-            onClick={onClose}
-            className="p-3 text-gray-400 hover:text-gray-900 hover:bg-gray-100 rounded-2xl transition-all"
-          >
-            <X className="w-6 h-6" />
-          </button>
+          <div className="flex items-center gap-3">
+            <button 
+              onClick={handleApplyDefaults}
+              className="flex items-center gap-2 px-4 py-2.5 bg-amber-50 text-amber-700 border border-amber-200 rounded-xl hover:bg-amber-100 transition-all font-black text-[10px] uppercase tracking-wider shadow-sm"
+            >
+              <Zap size={14} fill="currentColor" /> Áp dụng quyền mặc định
+            </button>
+            <button 
+              onClick={onClose}
+              className="p-3 text-gray-400 hover:text-gray-900 hover:bg-gray-100 rounded-2xl transition-all"
+            >
+              <X className="w-6 h-6" />
+            </button>
+          </div>
         </div>
 
         {/* Search */}
@@ -168,26 +275,27 @@ export default function RolePermissionDrawer({ role, isOpen, onClose }: RolePerm
                   </div>
                   <div className="p-4 grid grid-cols-1 sm:grid-cols-2 gap-2">
                     {permissions.map(p => (
-                      <button
-                        key={p.id}
-                        onClick={() => togglePermission(p.id)}
-                        className={cn(
-                          "flex items-center space-x-3 px-4 py-3 rounded-2xl border transition-all text-left",
-                          selectedIds.has(p.id) 
-                            ? "bg-indigo-50/50 border-indigo-200 text-indigo-900 shadow-sm" 
-                            : "bg-white border-gray-100 text-gray-600 hover:border-gray-200"
-                        )}
-                      >
-                        {selectedIds.has(p.id) ? (
-                          <CheckSquare className="w-5 h-5 text-indigo-600 shrink-0" />
-                        ) : (
-                          <Square className="w-5 h-5 text-gray-300 shrink-0" />
-                        )}
-                        <div>
-                          <div className="text-sm font-bold truncate tracking-tight">{p.code}</div>
-                          <div className="text-[10px] font-black text-gray-400 uppercase tracking-tighter">{p.action}</div>
-                        </div>
-                      </button>
+                      <PermissionTooltip key={p.id} text={PERMISSION_DESCRIPTIONS[p.code] || `Quyền hạn thực hiện hành động ${p.action} trên tài nguyên ${p.resource}.`}>
+                        <button
+                          onClick={() => togglePermission(p.id)}
+                          className={cn(
+                            "w-full flex items-center space-x-3 px-4 py-3 rounded-2xl border transition-all text-left",
+                            selectedIds.has(p.id) 
+                              ? "bg-indigo-50/50 border-indigo-200 text-indigo-900 shadow-sm" 
+                              : "bg-white border-gray-100 text-gray-600 hover:border-gray-200"
+                          )}
+                        >
+                          {selectedIds.has(p.id) ? (
+                            <CheckSquare className="w-5 h-5 text-indigo-600 shrink-0" />
+                          ) : (
+                            <Square className="w-5 h-5 text-gray-300 shrink-0" />
+                          )}
+                          <div>
+                            <div className="text-sm font-bold truncate tracking-tight">{p.code}</div>
+                            <div className="text-[10px] font-black text-gray-400 uppercase tracking-tighter">{p.action}</div>
+                          </div>
+                        </button>
+                      </PermissionTooltip>
                     ))}
                   </div>
                 </div>
@@ -224,6 +332,52 @@ export default function RolePermissionDrawer({ role, isOpen, onClose }: RolePerm
           </div>
         </div>
       </div>
+
+      {/* Default Permission Preview Modal */}
+      {showDefaultPreview.isOpen && (
+        <div className="fixed inset-0 z-[250] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-300" onClick={() => setShowDefaultPreview({ ...showDefaultPreview, isOpen: false })} />
+          <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] shadow-2xl w-full max-w-lg relative z-[251] flex flex-col overflow-hidden animate-in zoom-in-95 duration-300">
+            <div className="p-8 border-b border-slate-100 dark:border-slate-800 bg-amber-50/50">
+               <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 rounded-2xl bg-amber-500 text-white flex items-center justify-center shadow-lg shadow-amber-200">
+                    <Zap size={24} fill="currentColor" />
+                  </div>
+                  <div>
+                    <h4 className="text-xl font-black text-slate-900 dark:text-white">Xem trước quyền mặc định</h4>
+                    <p className="text-sm text-slate-500 font-medium">Gợi ý cho vai trò: <span className="text-amber-600 font-bold uppercase">{showDefaultPreview.type}</span></p>
+                  </div>
+               </div>
+            </div>
+            <div className="p-8 max-h-[400px] overflow-y-auto custom-scrollbar">
+               <div className="space-y-2">
+                 <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-4">Danh sách mã quyền sẽ được gán:</p>
+                 <div className="grid grid-cols-2 gap-2">
+                   {showDefaultPreview.codes.map(code => (
+                     <div key={code} className="px-3 py-2 bg-slate-50 dark:bg-slate-800 rounded-xl border border-slate-100 dark:border-slate-700 text-[10px] font-bold text-slate-600 dark:text-slate-400 flex items-center gap-2">
+                        <Check size={12} className="text-emerald-500" strokeWidth={3} /> {code}
+                     </div>
+                   ))}
+                 </div>
+               </div>
+            </div>
+            <div className="p-8 border-t border-slate-100 dark:border-slate-800 flex gap-3">
+              <button 
+                onClick={() => setShowDefaultPreview({ ...showDefaultPreview, isOpen: false })}
+                className="flex-1 px-6 py-4 bg-slate-100 text-slate-600 rounded-2xl font-black text-sm hover:bg-slate-200 transition-all"
+              >
+                Hủy bỏ
+              </button>
+              <button 
+                onClick={confirmApplyDefaults}
+                className="flex-[2] px-6 py-4 bg-amber-500 text-white rounded-2xl font-black text-sm hover:bg-amber-600 transition-all shadow-lg shadow-amber-200"
+              >
+                Xác nhận áp dụng
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

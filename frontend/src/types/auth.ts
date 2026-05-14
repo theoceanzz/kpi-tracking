@@ -1,4 +1,4 @@
-export type UserRole = 'DIRECTOR' | 'HEAD' | 'DEPUTY' | 'STAFF'
+export type UserRole = string // Roles are dynamic and user-defined
 export type UserStatus = 'ACTIVE' | 'INACTIVE' | 'SUSPENDED'
 
 export interface UserMembership {
@@ -7,7 +7,10 @@ export interface UserMembership {
   orgUnitName: string
   organizationName: string
   roleName: string
-  roleLabel?: string
+  roleDisplayName?: string
+  roleRank?: number
+  levelOrder?: number
+  roleLevel?: number
   unitTypeLabel?: string
 }
 
@@ -24,6 +27,8 @@ export interface UserInfo {
   permissions: string[]
   createdAt: string
   updatedAt?: string
+  requirePasswordChange?: boolean
+  hasSeenOnboarding?: boolean
 }
 
 // Matches BE: AuthResponse
@@ -32,6 +37,7 @@ export interface AuthResponse {
   refreshToken: string
   tokenType: string
   user: UserInfo
+  hasSeenOnboarding?: boolean
 }
 
 export interface HierarchyLevel {

@@ -10,6 +10,7 @@ public class OrgUnitResponse {
 
     private UUID id;
     private String name;
+    private String code;
     private UUID parentId;
     private UUID orgHierarchyId;
     private UUID organizationId;

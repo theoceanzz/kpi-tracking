@@ -1,15 +1,19 @@
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { useThemeStore, THEME_COLORS } from '@/store/themeStore'
 import { cn } from '@/lib/utils'
 import { Sun, Moon, Palette, Check, Pipette } from 'lucide-react'
+import { useOnClickOutside } from '@/hooks/useOnClickOutside'
 
 
 export default function ThemeCustomizer() {
   const { isDark, setDark, primaryColor, setPrimaryColor } = useThemeStore()
   const [isOpen, setIsOpen] = useState(false)
+  const containerRef = useRef<HTMLDivElement>(null)
+
+  useOnClickOutside(containerRef, () => setIsOpen(false))
 
   return (
-    <div className="relative">
+    <div className="relative" ref={containerRef}>
       <button
         onClick={() => setIsOpen(!isOpen)}
         className="w-9 h-9 rounded-lg flex items-center justify-center hover:bg-[var(--color-accent)] transition-all active:scale-95"
@@ -19,9 +23,7 @@ export default function ThemeCustomizer() {
       </button>
 
       {isOpen && (
-        <>
-          <div className="fixed inset-0 z-40" onClick={() => setIsOpen(false)} />
-          <div className="absolute right-0 top-12 z-50 w-72 bg-white dark:bg-slate-900 rounded-[24px] shadow-2xl border border-slate-200 dark:border-slate-800 p-6 animate-in fade-in zoom-in-95 duration-200">
+        <div className="absolute right-0 top-12 z-50 w-72 bg-white dark:bg-slate-900 rounded-[24px] shadow-2xl border border-slate-200 dark:border-slate-800 p-6 animate-in fade-in zoom-in-95 duration-200">
             
             <div className="space-y-6">
               {/* Theme Mode */}
@@ -94,7 +96,6 @@ export default function ThemeCustomizer() {
               </p>
             </div>
           </div>
-        </>
       )}
     </div>
   )

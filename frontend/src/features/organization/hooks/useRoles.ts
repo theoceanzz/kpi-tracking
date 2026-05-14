@@ -30,6 +30,13 @@ export function useUpdateRole() {
       roleApi.updateRole(roleId, payload),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['roles'] })
+      queryClient.invalidateQueries({ queryKey: ['users'] })
+      queryClient.invalidateQueries({ queryKey: ['org-unit-members'] })
+      queryClient.invalidateQueries({ queryKey: ['organization-users'] })
+      queryClient.invalidateQueries({ queryKey: ['stats'] })
+      queryClient.invalidateQueries({ queryKey: ['evaluations'] })
+      queryClient.invalidateQueries({ queryKey: ['submissions'] })
+      queryClient.invalidateQueries({ queryKey: ['auth-user'] }) // Refresh current user roles if needed
       toast.success('Cập nhật vai trò thành công')
     },
     onError: (error: any) => {
@@ -44,6 +51,13 @@ export function useDeleteRole() {
     mutationFn: (roleId: string) => roleApi.deleteRole(roleId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['roles'] })
+      queryClient.invalidateQueries({ queryKey: ['users'] })
+      queryClient.invalidateQueries({ queryKey: ['org-unit-members'] })
+      queryClient.invalidateQueries({ queryKey: ['organization-users'] })
+      queryClient.invalidateQueries({ queryKey: ['stats'] })
+      queryClient.invalidateQueries({ queryKey: ['evaluations'] })
+      queryClient.invalidateQueries({ queryKey: ['submissions'] })
+      queryClient.invalidateQueries({ queryKey: ['auth-user'] })
       toast.success('Xoá vai trò thành công')
     },
     onError: (error: any) => {

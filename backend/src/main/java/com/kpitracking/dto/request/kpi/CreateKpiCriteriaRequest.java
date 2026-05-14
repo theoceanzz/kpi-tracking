@@ -33,7 +33,10 @@ public class CreateKpiCriteriaRequest {
 
     private java.util.List<UUID> assignedToIds;
 
-    private java.time.LocalDate startDate;
+    @NotNull(message = "KPI Period is required")
+    private UUID kpiPeriodId;
 
-    private java.time.LocalDate endDate;
+    private Double minimumValue;
+    private UUID keyResultId;
+    private UUID parentId;
 }

@@ -11,4 +11,5 @@ public class ReviewSubmissionRequest {
     private SubmissionStatus status;
 
     private String reviewNote;
+    private Double managerScore;
 }

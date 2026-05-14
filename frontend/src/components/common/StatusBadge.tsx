@@ -21,6 +21,9 @@ const statusMap: Record<string, { variant: Variant; label: string }> = {
   REJECTED: { variant: 'error', label: 'Từ chối' },
   TRIAL: { variant: 'info', label: 'Dùng thử' },
   EXPIRED: { variant: 'error', label: 'Hết hạn' },
+  OVERDUE: { variant: 'error', label: 'Quá hạn' },
+  NOT_STARTED: { variant: 'default', label: 'Chưa nộp' },
+  EDIT: { variant: 'warning', label: 'Đang yêu cầu chỉnh sửa' },
 }
 
 interface StatusBadgeProps {

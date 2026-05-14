@@ -17,7 +17,7 @@ export const registerSchema = z.object({
   hierarchyLevels: z.array(z.object({
     unitTypeName: z.string().min(1, 'Vui lòng nhập tên cấp bậc'),
     managerRoleLabel: z.string().optional(),
-  })).min(3, 'Cơ cấu tổ chức phải có ít nhất 3 cấp'),
+  })).min(2, 'Cơ cấu tổ chức phải có ít nhất 2 cấp'),
 })
 
 export type RegisterFormData = z.infer<typeof registerSchema>

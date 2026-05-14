@@ -52,25 +52,26 @@ public class SubmissionAttachmentService {
         if (!submission.getSubmittedBy().getId().equals(currentUser.getId())) {
             throw new com.kpitracking.exception.ForbiddenException("Only the original submitter can upload attachments");
         }
-        if (submission.getStatus() != com.kpitracking.enums.SubmissionStatus.PENDING) {
-            throw new com.kpitracking.exception.BusinessException("Can only upload attachments to PENDING submissions");
+        if (submission.getStatus() != com.kpitracking.enums.SubmissionStatus.PENDING && 
+            submission.getStatus() != com.kpitracking.enums.SubmissionStatus.DRAFT &&
+            submission.getStatus() != com.kpitracking.enums.SubmissionStatus.REJECTED) {
+            throw new com.kpitracking.exception.BusinessException("Chỉ có thể tải tài liệu cho báo cáo ở trạng thái Chờ duyệt, Nháp hoặc Tự động từ chối");
         }
 
         List<AttachmentResponse> responses = new ArrayList<>();
 
         for (MultipartFile file : files) {
             String folder = "submissions/" + submissionId;
-            String fileUrl = cloudinaryStorageService.uploadFile(file, folder);
-            String storageKey = cloudinaryStorageService.getStorageKey(file, folder);
+            java.util.Map<String, String> uploadInfo = cloudinaryStorageService.uploadFile(file, folder);
 
             SubmissionAttachment attachment = SubmissionAttachment.builder()
                     .submission(submission)
                     .fileName(file.getOriginalFilename())
-                    .fileUrl(fileUrl)
+                    .fileUrl(uploadInfo.get("url"))
                     .fileSize(file.getSize())
                     .contentType(file.getContentType())
                     .storageProvider(StorageProvider.CLOUDINARY)
-                    .storageKey(storageKey)
+                    .storageKey(uploadInfo.get("public_id"))
                     .uploadedBy(currentUser)
                     .build();
 
@@ -89,7 +90,7 @@ public class SubmissionAttachmentService {
                 .orElseThrow(() -> new ResourceNotFoundException("Submission", "id", submissionId));
 
         boolean isSubmitter = submission.getSubmittedBy().getId().equals(currentUser.getId());
-        boolean canReview = permissionChecker.hasPermission(currentUser.getId(), "SUBMISSION:REVIEW");
+        boolean canReview = permissionChecker.hasAnyPermission(currentUser.getId(), "SUBMISSION:REVIEW", "SUBMISSION:REVIEW_KPI");
         
         if (!isSubmitter && !canReview) {
              throw new com.kpitracking.exception.ForbiddenException("You can only view attachments for your own or authorized submissions");
@@ -109,8 +110,10 @@ public class SubmissionAttachmentService {
              throw new com.kpitracking.exception.ForbiddenException("Only the user who uploaded the attachment can delete it");
         }
 
-        if (attachment.getSubmission().getStatus() != com.kpitracking.enums.SubmissionStatus.PENDING) {
-             throw new com.kpitracking.exception.BusinessException("Cannot delete attachments from non-pending submissions");
+        if (attachment.getSubmission().getStatus() != com.kpitracking.enums.SubmissionStatus.PENDING &&
+            attachment.getSubmission().getStatus() != com.kpitracking.enums.SubmissionStatus.DRAFT &&
+            attachment.getSubmission().getStatus() != com.kpitracking.enums.SubmissionStatus.REJECTED) {
+             throw new com.kpitracking.exception.BusinessException("Chỉ có thể xóa tài liệu của báo cáo ở trạng thái Chờ duyệt, Nháp hoặc Tự động từ chối");
         }
 
         if (attachment.getStorageKey() != null) {

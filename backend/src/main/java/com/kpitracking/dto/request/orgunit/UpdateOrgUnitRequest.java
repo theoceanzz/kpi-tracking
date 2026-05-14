@@ -11,6 +11,9 @@ public class UpdateOrgUnitRequest {
     @Size(max = 255, message = "Org unit name must not exceed 255 characters")
     private String name;
 
+    @Size(max = 50, message = "Org unit code must not exceed 50 characters")
+    private String code;
+
     private String type;
     private String email;
     private String phone;
@@ -18,4 +21,5 @@ public class UpdateOrgUnitRequest {
     private UUID provinceId;
     private UUID districtId;
     private java.util.List<UUID> roleIds;
+    private String status;
 }

@@ -1,4 +1,7 @@
-import { X, Download, FileSpreadsheet, AlertTriangle, CheckCircle2, Info, FileText } from 'lucide-react'
+import { X, Download, FileSpreadsheet, AlertTriangle, CheckCircle2, Info, FileText, FileBox } from 'lucide-react'
+import ExcelJS from 'exceljs'
+import { useAuthStore } from '@/store/authStore'
+import { useOrganization } from '@/features/orgunits/hooks/useOrganization'
 
 interface KpiImportGuideModalProps {
   open: boolean
@@ -6,42 +9,188 @@ interface KpiImportGuideModalProps {
   onSelectFile: () => void
 }
 
-const SAMPLE_CSV_CONTENT = `Name,Description,Weight,TargetValue,Unit,Frequency,AssigneeEmail
-Doanh số bán hàng,Tổng doanh số trong tháng,40,100000000,VND,MONTHLY,nhanvienA@company.com
-Số cuộc gọi tư vấn,Số cuộc gọi tối thiểu mỗi ngày,30,20,Cuộc,DAILY,nhanvienB@company.com
-Tỉ lệ hài lòng,Kết quả khảo sát từ khách hàng,30,95,%,QUARTERLY,nhanvienA@company.com`
+const SAMPLE_DATA = [
+  {
+    Name: 'Doanh số bán hàng',
+    Description: 'Tổng doanh số trong tháng',
+    Weight: 40,
+    TargetValue: 100000000,
+    MinimumValue: 80000000,
+    Unit: 'VND',
+    EmployeeCode: 'NV001',
+    OrgUnitCode: 'MKT001',
+    ObjectiveCode: 'OBJ001',
+    KeyResultCode: 'KR001',
+  },
+  {
+    Name: 'Số cuộc gọi tư vấn',
+    Description: 'Số cuộc gọi tối thiểu mỗi ngày',
+    Weight: 30,
+    TargetValue: 20,
+    MinimumValue: 15,
+    Unit: 'Cuộc',
+    EmployeeCode: 'NV002, NV003',
+    OrgUnitCode: 'KD002',
+    ObjectiveCode: '',
+    KeyResultCode: '',
+  }
+]
 
-function downloadTemplate() {
-  const blob = new Blob(['\uFEFF' + SAMPLE_CSV_CONTENT], { type: 'text/csv;charset=utf-8;' })
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url
-  a.download = 'mau_import_chi_tieu_kpi.csv'
-  a.click()
-  URL.revokeObjectURL(url)
-}
+const BASE_COLUMNS = [
+  { name: 'Name', required: true, desc: 'Tên chỉ tiêu KPI', example: 'Doanh số tháng 10' },
+  { name: 'Description', required: false, desc: 'Mô tả chi tiết', example: 'Tính trên giá trị hợp đồng' },
+  { name: 'Weight', required: true, desc: 'Trọng số (Ví dụ: 30 cho 30%)', example: '30' },
+  { name: 'TargetValue', required: true, desc: 'Giá trị mục tiêu cần đạt', example: '500000000' },
+  { name: 'MinimumValue', required: false, desc: 'Giá trị tối thiểu', example: '400000000' },
+  { name: 'Unit', required: true, desc: 'Đơn vị tính', example: 'VND' },
+  { name: 'Frequency', required: false, desc: 'Tần suất (Chọn nhanh trong giao diện Xem trước)', example: 'MONTHLY' },
+  { name: 'EmployeeCode', required: false, desc: 'Mã nhân viên (Chọn/Nhập trong giao diện Xem trước)', example: 'NV001' },
+  { name: 'Period', required: false, desc: 'Đợt KPI (Chọn nhanh trong giao diện Xem trước)', example: 'Tháng 10/2026' },
+  { name: 'OrgUnitCode', required: false, desc: 'Mã đơn vị (Hệ thống sẽ tự động tìm tên phòng ban tương ứng)', example: 'MKT01' },
+]
 
 const STEPS = [
   { num: '01', title: 'Tải file mẫu', desc: 'Nhấn nút bên dưới để tải về file CSV mẫu có sẵn header chuẩn cho KPI.' },
-  { num: '02', title: 'Điền thông tin', desc: 'Mở file bằng Excel, điền thông tin chỉ tiêu và email nhân sự được giao.' },
+  { num: '02', title: 'Điền thông tin', desc: 'Mở file bằng Excel, điền thông tin chỉ tiêu và Mã nhân viên (Employee Code) được giao.' },
   { num: '03', title: 'Lưu & Upload', desc: 'Lưu file ở định dạng .csv hoặc .xlsx, sau đó nhấn "Chọn file & Import" bên dưới.' },
 ]
 
-const COLUMNS = [
-  { name: 'Name', required: true, desc: 'Tên chỉ tiêu KPI', example: 'Doanh số tháng 10' },
-  { name: 'Description', required: false, desc: 'Mô tả chi tiết cách tính hoặc yêu cầu', example: 'Tính trên giá trị hợp đồng' },
-  { name: 'Weight', required: true, desc: 'Trọng số (tổng các chỉ tiêu của 1 người nên là 100)', example: '30' },
-  { name: 'TargetValue', required: true, desc: 'Giá trị mục tiêu cần đạt', example: '500000000' },
-  { name: 'Unit', required: true, desc: 'Đơn vị tính', example: 'VND' },
-  { name: 'Frequency', required: true, desc: 'DAILY, WEEKLY, MONTHLY, QUARTERLY, YEARLY', example: 'MONTHLY' },
-  { name: 'AssigneeEmail', required: true, desc: 'Email của nhân viên được giao chỉ tiêu này', example: 'nhanvien@company.com' },
-]
+
 
 export default function KpiImportGuideModal({ open, onClose, onSelectFile }: KpiImportGuideModalProps) {
+  const { user } = useAuthStore()
+  const { data: org } = useOrganization(user?.memberships?.[0]?.organizationId)
+  const enableOkr = org?.enableOkr || false
+
+  const COLUMNS = [
+    ...BASE_COLUMNS,
+    ...(enableOkr ? [
+      { name: 'ObjectiveCode', required: false, desc: 'Mã Mục tiêu (OKR)', example: 'OBJ001' },
+      { name: 'KeyResultCode', required: false, desc: 'Mã KR (OKR)', example: 'KR001' },
+    ] : [])
+  ]
+
+  const getSampleData = () => {
+    return SAMPLE_DATA.map(row => {
+      const newRow: Record<string, any> = { ...row }
+      if (!enableOkr) {
+        delete newRow.ObjectiveCode
+        delete newRow.KeyResultCode
+      }
+      return newRow
+    })
+  }
+
+  function downloadCsvTemplate() {
+    const data = getSampleData()
+    if (data.length === 0) return
+    const headers = Object.keys(data[0] || {}).join(',')
+    const rows = data.map(row => 
+      Object.values(row).map(val => `"${val}"`).join(',')
+    ).join('\n')
+    const content = headers + '\n' + rows
+    const blob = new Blob(['\uFEFF' + content], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = 'mau_import_chi_tieu_kpi.csv'
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
+  async function downloadXlsxTemplate() {
+    const workbook = new ExcelJS.Workbook()
+    const worksheet = workbook.addWorksheet('KPI Template')
+
+    const baseColumns = [
+      { header: 'Name', key: 'Name', width: 30 },
+      { header: 'Description', key: 'Description', width: 40 },
+      { header: 'Weight', key: 'Weight', width: 12 },
+      { header: 'TargetValue', key: 'TargetValue', width: 18 },
+      { header: 'MinimumValue', key: 'MinimumValue', width: 18 },
+      { header: 'Unit', key: 'Unit', width: 12 },
+      { header: 'EmployeeCode', key: 'EmployeeCode', width: 25 },
+      { header: 'OrgUnitCode', key: 'OrgUnitCode', width: 15 },
+    ]
+
+    worksheet.columns = enableOkr ? [
+      ...baseColumns,
+      { header: 'ObjectiveCode', key: 'ObjectiveCode', width: 20 },
+      { header: 'KeyResultCode', key: 'KeyResultCode', width: 20 },
+    ] : baseColumns
+
+    worksheet.addRows(getSampleData())
+
+    const headerRow = worksheet.getRow(1)
+    headerRow.eachCell((cell) => {
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF4F46E5' } }
+      cell.font = { name: 'Arial', size: 11, bold: true, color: { argb: 'FFFFFFFF' } }
+      cell.alignment = { vertical: 'middle', horizontal: 'center' }
+      cell.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } }
+    })
+    headerRow.height = 25
+
+    worksheet.eachRow((row, rowNumber) => {
+      if (rowNumber > 1) {
+        row.eachCell((cell) => {
+          cell.font = { name: 'Arial', size: 10 }
+          cell.alignment = { vertical: 'middle', horizontal: 'left' }
+          cell.border = {
+            top: { style: 'thin', color: { argb: 'FFE2E8F0' } }, left: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+            bottom: { style: 'thin', color: { argb: 'FFE2E8F0' } }, right: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+          }
+        })
+      }
+    })
+
+    const guideSheet = workbook.addWorksheet('Hướng dẫn chi tiết')
+    guideSheet.columns = [
+      { header: 'Tên cột', key: 'name', width: 20 },
+      { header: 'Bắt buộc', key: 'req', width: 15 },
+      { header: 'Mô tả', key: 'desc', width: 50 },
+      { header: 'Ví dụ', key: 'ex', width: 25 },
+    ]
+    const guideHeader = guideSheet.getRow(1)
+    guideHeader.font = { bold: true, color: { argb: 'FFFFFFFF' }, size: 12 }
+    guideHeader.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF4F46E5' } }
+    guideHeader.alignment = { vertical: 'middle', horizontal: 'center' }
+    guideHeader.height = 30
+
+    COLUMNS.forEach(c => {
+      const row = guideSheet.addRow([c.name, c.required ? 'CÓ' : 'KHÔNG', c.desc, c.example])
+      row.font = { size: 11 }
+      row.alignment = { vertical: 'middle', horizontal: 'left', wrapText: true }
+      row.eachCell(cell => {
+        cell.border = {
+          top: { style: 'thin', color: { argb: 'FFE2E8F0' } }, left: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+          bottom: { style: 'thin', color: { argb: 'FFE2E8F0' } }, right: { style: 'thin', color: { argb: 'FFE2E8F0' } }
+        }
+      })
+    })
+
+    guideSheet.addRow([])
+    const noteTitleRow = guideSheet.addRow(['LƯU Ý CHUNG CHO IMPORT EXCEL & CSV'])
+    noteTitleRow.font = { bold: true, size: 12, color: { argb: 'FFDC2626' } }
+    guideSheet.addRow(['1. File mẫu này hỗ trợ import cả định dạng .xlsx và .csv.'])
+    guideSheet.addRow(['2. Nếu import bằng CSV, bạn vui lòng xuất dữ liệu từ tab "KPI Template" ra file .csv (UTF-8).'])
+    guideSheet.addRow(['3. EmployeeCode: Mã nhân viên (tùy chọn, bạn có thể tự map trên giao diện).'])
+    guideSheet.addRow(['4. Trọng số (Weight): Là số từ 1-100, tổng trọng số của một nhân sự nên là 100%.'])
+    guideSheet.addRow(['5. OrgUnitCode: Mã phòng ban. Hệ thống sẽ gán KPI cho phòng ban đó.'])
+
+    const buffer = await workbook.xlsx.writeBuffer()
+    const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = 'mau_import_chi_tieu_kpi.xlsx'
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
   if (!open) return null
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
       {/* Overlay */}
       <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
 
@@ -83,20 +232,29 @@ export default function KpiImportGuideModal({ open, onClose, onSelectFile }: Kpi
           </div>
 
           {/* Download Template */}
-          <div className="p-5 rounded-2xl bg-gradient-to-r from-indigo-50 to-blue-50 dark:from-indigo-900/20 dark:to-blue-900/10 border border-indigo-200/50 dark:border-indigo-900/30 flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div className="p-6 rounded-[24px] bg-slate-50 dark:bg-slate-800/30 border border-slate-100 dark:border-slate-800 shadow-sm space-y-4">
             <div className="flex items-center gap-3">
               <Download size={20} className="text-indigo-600 shrink-0" />
               <div>
-                <p className="font-bold text-sm text-slate-900 dark:text-indigo-100">Tải file mẫu CSV</p>
-                <p className="text-xs text-slate-500 dark:text-indigo-300/60">Định dạng chuẩn để hệ thống nhận diện đúng cột</p>
+                <p className="font-black text-sm text-slate-900 dark:text-white uppercase tracking-tight">Tải file mẫu nhập liệu</p>
+                <p className="text-xs text-slate-500 font-medium mt-0.5">Chọn định dạng phù hợp với công cụ của bạn</p>
               </div>
             </div>
-            <button
-              onClick={downloadTemplate}
-              className="shrink-0 flex items-center gap-2 px-5 py-2.5 rounded-xl bg-indigo-600 text-white font-bold text-sm hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-500/20 active:scale-95"
-            >
-              <FileText size={16} /> Tải mẫu .CSV
-            </button>
+            
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <button
+                    onClick={downloadXlsxTemplate}
+                    className="flex items-center justify-center gap-2 px-6 py-3.5 rounded-2xl bg-emerald-600 text-white font-black text-sm hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-500/20 active:scale-95 group"
+                >
+                    <FileBox size={18} className="group-hover:rotate-12 transition-transform" /> Tải mẫu .XLSX (Excel)
+                </button>
+                <button
+                    onClick={downloadCsvTemplate}
+                    className="flex items-center justify-center gap-2 px-6 py-3.5 rounded-2xl bg-indigo-600 text-white font-black text-sm hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-500/20 active:scale-95 group"
+                >
+                    <FileText size={18} className="group-hover:rotate-12 transition-transform" /> Tải mẫu .CSV (Text)
+                </button>
+            </div>
           </div>
 
           {/* Column Specification */}
@@ -146,7 +304,7 @@ export default function KpiImportGuideModal({ open, onClose, onSelectFile }: Kpi
               <div className="flex items-start gap-3 p-4 rounded-2xl bg-amber-50 dark:bg-amber-900/10 border border-amber-200/50 dark:border-amber-900/30">
                 <Info size={18} className="text-amber-600 shrink-0 mt-0.5" />
                 <p className="text-xs text-amber-800 dark:text-amber-300 leading-relaxed font-medium">
-                  <strong>AssigneeEmail</strong> phải chính xác và nhân viên đó phải thuộc đơn vị bạn quản lý.
+                  <strong>EmployeeCode</strong> phải chính xác và nhân viên đó phải thuộc đơn vị bạn quản lý.
                 </p>
               </div>
               <div className="flex items-start gap-3 p-4 rounded-2xl bg-blue-50 dark:bg-blue-900/10 border border-blue-200/50 dark:border-blue-900/30">

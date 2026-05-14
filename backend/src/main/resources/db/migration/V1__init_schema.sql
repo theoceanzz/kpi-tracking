@@ -1,5 +1,5 @@
 -- ====================================================
--- V1: KPI Tracking - Initial Schema
+-- V1: KeyGo - Initial Schema
 -- ====================================================
 
 -- Enable UUID extension
@@ -41,9 +41,43 @@ CREATE TABLE organizations (
   name        TEXT NOT NULL,
   code        TEXT NOT NULL UNIQUE,
   status      TEXT NOT NULL DEFAULT 'ACTIVE' CHECK (status IN ('ACTIVE','SUSPENDED','ARCHIVED')),
+  evaluation_max_score DOUBLE PRECISION DEFAULT 100.0,
+  kpi_reminder_percentage INT DEFAULT 50,
+  enable_okr BOOLEAN DEFAULT FALSE,
+  enable_waterfall BOOLEAN DEFAULT FALSE,
   created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at  TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+-- ====================================================
+-- Sidebar Settings
+-- ====================================================
+CREATE TABLE sidebar_settings (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    organization_id UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+    menu_key VARCHAR(255) NOT NULL,
+    custom_label VARCHAR(255) NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    deleted_at TIMESTAMP WITH TIME ZONE
+);
+
+CREATE INDEX idx_sidebar_settings_org_key ON sidebar_settings(organization_id, menu_key);
+
+-- ====================================================
+-- Evaluation Levels
+-- ====================================================
+CREATE TABLE evaluation_levels (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    organization_id UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+    name TEXT NOT NULL,
+    threshold DOUBLE PRECISION NOT NULL,
+    color TEXT,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX idx_evaluation_levels_org_id ON evaluation_levels(organization_id);
 
 -- ====================================================
 -- Organization Hierarchy Levels
@@ -55,6 +89,7 @@ CREATE TABLE org_hierarchy_levels (
     level_order     INT NOT NULL,
     unit_type_name   VARCHAR(100) NOT NULL,
     manager_role_label VARCHAR(100), -- Nullable for the last level
+    role_level      INT NOT NULL,
     created_at      TIMESTAMPTZ DEFAULT NOW(),
     updated_at      TIMESTAMPTZ DEFAULT NOW(),
     UNIQUE (organization_id, level_order)
@@ -68,6 +103,7 @@ CREATE INDEX idx_org_hierarchy_levels_org_id ON org_hierarchy_levels(organizatio
 CREATE TABLE org_units (
   id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   name            TEXT NOT NULL,
+  code            VARCHAR(50) UNIQUE,
   parent_id       UUID REFERENCES org_units(id),
   org_hierarchy_id UUID NOT NULL REFERENCES org_hierarchy_levels(id),
   path            TEXT NOT NULL,
@@ -97,6 +133,7 @@ CREATE TABLE users (
     password            VARCHAR(255)    NOT NULL,
     full_name           VARCHAR(255)    NOT NULL,
     phone               VARCHAR(20),
+
     avatar_url          TEXT,
     status              VARCHAR(20)     NOT NULL DEFAULT 'ACTIVE',
     is_email_verified   BOOLEAN         DEFAULT FALSE,
@@ -106,25 +143,31 @@ CREATE TABLE users (
     reset_password_token_expiry TIMESTAMPTZ,
     created_at          TIMESTAMPTZ     DEFAULT NOW(),
     updated_at          TIMESTAMPTZ     DEFAULT NOW(),
-    deleted_at          TIMESTAMPTZ
+    deleted_at          TIMESTAMPTZ,
+    employee_code       VARCHAR(50),
+    require_password_change BOOLEAN     NOT NULL DEFAULT FALSE,
+    has_seen_onboarding BOOLEAN         NOT NULL DEFAULT FALSE
 );
 
 CREATE INDEX idx_users_email ON users(email);
 CREATE INDEX idx_users_deleted_at ON users(deleted_at);
+CREATE UNIQUE INDEX idx_users_employee_code ON users(employee_code);
 
 -- ====================================================
 -- Roles
 -- ====================================================
 CREATE TABLE roles (
-  id         UUID         PRIMARY KEY DEFAULT gen_random_uuid(),
-  name       VARCHAR(100) NOT NULL,
-  parent_role_id UUID     REFERENCES roles(id) ON DELETE SET NULL,
-  is_system  BOOLEAN      NOT NULL DEFAULT false,
-  created_by UUID         REFERENCES users(id) ON DELETE SET NULL,
-  created_at TIMESTAMPTZ  NOT NULL DEFAULT now(),
-  updated_at TIMESTAMPTZ  NOT NULL DEFAULT now(),
-  deleted_at TIMESTAMPTZ,
-  UNIQUE (name)
+  id              UUID         PRIMARY KEY DEFAULT gen_random_uuid(),
+  organization_id UUID         REFERENCES organizations(id) ON DELETE CASCADE,
+  name            VARCHAR(100) NOT NULL,
+  is_system       BOOLEAN      NOT NULL DEFAULT false,
+  created_by      UUID         REFERENCES users(id) ON DELETE SET NULL,
+  created_at      TIMESTAMPTZ  NOT NULL DEFAULT now(),
+  updated_at      TIMESTAMPTZ  NOT NULL DEFAULT now(),
+  deleted_at      TIMESTAMPTZ,
+  level           INT,
+  rank            INT,
+  UNIQUE (name, organization_id)
 );
 
 -- ====================================================
@@ -213,25 +256,83 @@ CREATE TABLE scopes (
 );
 
 -- ====================================================
+-- KPI Periods
+-- ====================================================
+CREATE TABLE kpi_periods (
+    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    organization_id UUID            NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+    name            VARCHAR(255)    NOT NULL,
+    period_type     VARCHAR(20)     NOT NULL,
+    start_date      TIMESTAMPTZ,
+    end_date        TIMESTAMPTZ,
+    notification_date TIMESTAMPTZ,
+    created_at      TIMESTAMPTZ     DEFAULT NOW(),
+    updated_at      TIMESTAMPTZ     DEFAULT NOW(),
+    deleted_at      TIMESTAMPTZ
+);
+
+CREATE INDEX idx_kpi_periods_org_id ON kpi_periods(organization_id);
+
+-- ====================================================
+-- OKR (Objectives and Key Results)
+-- ====================================================
+
+CREATE TABLE objectives (
+    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    organization_id UUID            NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+    org_unit_id      UUID            REFERENCES org_units(id) ON DELETE SET NULL,
+    code            VARCHAR(50),
+    name            VARCHAR(255)    NOT NULL,
+    description     TEXT,
+    start_date      DATE,
+    end_date        DATE,
+    status          VARCHAR(50)     DEFAULT 'ACTIVE',
+    created_at      TIMESTAMPTZ     DEFAULT NOW(),
+    updated_at      TIMESTAMPTZ     DEFAULT NOW(),
+    deleted_at      TIMESTAMPTZ
+);
+
+CREATE INDEX idx_objectives_org_id ON objectives(organization_id);
+CREATE INDEX idx_objectives_org_unit_id ON objectives(org_unit_id);
+
+CREATE TABLE key_results (
+    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    objective_id    UUID            NOT NULL REFERENCES objectives(id) ON DELETE CASCADE,
+    code            VARCHAR(50),
+    name            VARCHAR(255)    NOT NULL,
+    description     TEXT,
+    target_value    DOUBLE PRECISION,
+    current_value   DOUBLE PRECISION DEFAULT 0,
+    unit            VARCHAR(50),
+    created_at      TIMESTAMPTZ     DEFAULT NOW(),
+    updated_at      TIMESTAMPTZ     DEFAULT NOW(),
+    deleted_at      TIMESTAMPTZ
+);
+
+CREATE INDEX idx_key_results_objective_id ON key_results(objective_id);
+
+-- ====================================================
 -- KPI Criteria
 -- ====================================================
 CREATE TABLE kpi_criteria (
     id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     org_unit_id      UUID            NOT NULL REFERENCES org_units(id),
+    kpi_period_id   UUID            NOT NULL REFERENCES kpi_periods(id),
     name            VARCHAR(255)    NOT NULL,
     description     TEXT,
     weight          DOUBLE PRECISION,
     target_value    DOUBLE PRECISION,
+    minimum_value   DOUBLE PRECISION,
     unit            VARCHAR(50),
     frequency       VARCHAR(20)     NOT NULL,
+    key_result_id   UUID            REFERENCES key_results(id) ON DELETE SET NULL,
+    parent_id       UUID            REFERENCES kpi_criteria(id) ON DELETE SET NULL,
     status          VARCHAR(20)     NOT NULL DEFAULT 'DRAFT',
     created_by      UUID            NOT NULL REFERENCES users(id),
     approved_by     UUID            REFERENCES users(id),
     reject_reason   TEXT,
     submitted_at    TIMESTAMPTZ,
     approved_at     TIMESTAMPTZ,
-    start_date      TIMESTAMPTZ,
-    end_date        TIMESTAMPTZ,
     created_at      TIMESTAMPTZ     DEFAULT NOW(),
     updated_at      TIMESTAMPTZ     DEFAULT NOW(),
     deleted_at      TIMESTAMPTZ
@@ -251,6 +352,20 @@ CREATE INDEX idx_kpi_assignees_kpi_id ON kpi_criteria_assignees(kpi_criteria_id)
 CREATE INDEX idx_kpi_assignees_user_id ON kpi_criteria_assignees(user_id);
 
 -- ====================================================
+-- KPI Reminders
+-- ====================================================
+CREATE TABLE kpi_reminders (
+    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    kpi_criteria_id UUID NOT NULL REFERENCES kpi_criteria(id) ON DELETE CASCADE,
+    user_id         UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    batch_number    INT NOT NULL,
+    sent_at         TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX idx_kpi_reminders_kpi_id ON kpi_reminders(kpi_criteria_id);
+CREATE INDEX idx_kpi_reminders_user_id ON kpi_reminders(user_id);
+
+-- ====================================================
 -- KPI Submissions
 -- ====================================================
 CREATE TABLE kpi_submissions (
@@ -259,6 +374,7 @@ CREATE TABLE kpi_submissions (
     kpi_criteria_id     UUID            NOT NULL REFERENCES kpi_criteria(id),
     submitted_by        UUID            NOT NULL REFERENCES users(id),
     actual_value        DOUBLE PRECISION,
+    auto_score          DOUBLE PRECISION,
     note                TEXT,
     status              VARCHAR(20)     NOT NULL DEFAULT 'PENDING',
     reviewed_by         UUID            REFERENCES users(id),
@@ -302,10 +418,11 @@ CREATE TABLE evaluations (
     id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     org_unit_id          UUID            NOT NULL REFERENCES org_units(id),
     user_id             UUID            NOT NULL REFERENCES users(id),
-    kpi_criteria_id     UUID            NOT NULL REFERENCES kpi_criteria(id),
+    kpi_period_id       UUID            NOT NULL REFERENCES kpi_periods(id),
     evaluator_id        UUID            NOT NULL REFERENCES users(id),
     score               DOUBLE PRECISION,
     comment             TEXT,
+    system_score        DOUBLE PRECISION,
     period_start        TIMESTAMPTZ,
     period_end          TIMESTAMPTZ,
     created_at          TIMESTAMPTZ     DEFAULT NOW(),
@@ -315,7 +432,7 @@ CREATE TABLE evaluations (
 
 CREATE INDEX idx_evaluations_org_unit_id ON evaluations(org_unit_id);
 CREATE INDEX idx_evaluations_user_id ON evaluations(user_id);
-CREATE INDEX idx_evaluations_kpi_criteria_id ON evaluations(kpi_criteria_id);
+CREATE INDEX idx_evaluations_kpi_period_id ON evaluations(kpi_period_id);
 CREATE INDEX idx_evaluations_deleted_at ON evaluations(deleted_at);
 
 -- ====================================================

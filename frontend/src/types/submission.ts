@@ -17,7 +17,13 @@ export interface Submission {
   reviewedAt: string | null
   periodStart: string | null
   periodEnd: string | null
+  autoScore: number | null
+  managerScore: number | null
+  unit: string | null
+  weight: number | null
+  kpiPeriod: { id: string; name: string } | null
   attachments: Attachment[]
+  isSubmittedByManager: boolean
   createdAt: string
   updatedAt: string
 }
@@ -33,17 +39,26 @@ export interface Attachment {
   createdAt: string
 }
 
-// Matches BE: CreateSubmissionRequest
 export interface CreateSubmissionRequest {
   kpiCriteriaId: string
   actualValue: number
   note?: string
   periodStart?: string
   periodEnd?: string
+  isDraft?: boolean
+}
+
+export interface UpdateSubmissionRequest {
+  actualValue?: number
+  note?: string
+  periodStart?: string
+  periodEnd?: string
+  isDraft?: boolean
 }
 
 // Matches BE: ReviewSubmissionRequest
 export interface ReviewSubmissionRequest {
   status: 'APPROVED' | 'REJECTED'
   reviewNote?: string
+  managerScore?: number
 }

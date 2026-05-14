@@ -102,6 +102,36 @@ public class GlobalExceptionHandler {
                 .body(ApiResponse.error("Kích thước tập tin vượt quá giới hạn cho phép"));
     }
 
+    @ExceptionHandler(org.springframework.dao.DataIntegrityViolationException.class)
+    public ResponseEntity<ApiResponse<Void>> handleDataIntegrityViolation(org.springframework.dao.DataIntegrityViolationException ex) {
+        log.warn("Data integrity violation: {}", ex.getMessage());
+        String message = "Dữ liệu đã tồn tại hoặc vi phạm ràng buộc hệ thống";
+        String detail = ex.getMessage();
+        if (detail != null) {
+            if (detail.contains("duplicate key") || detail.contains("violates unique constraint")) {
+                if (detail.contains("users_email_key")) {
+                    message = "Email người dùng này đã tồn tại trong hệ thống";
+                } else if (detail.contains("employee_code")) {
+                    message = "Mã nhân viên này đã tồn tại trong hệ thống";
+                } else if (detail.contains("organizations_name_key") || detail.contains("organizations_name")) {
+                    message = "Tên tổ chức này đã tồn tại trong hệ thống";
+                } else if (detail.contains("organizations_code_key") || detail.contains("organizations_code")) {
+                    message = "Mã tổ chức này đã tồn tại trong hệ thống";
+                } else if (detail.contains("idx_org_units_code_unique") || detail.contains("org_units_code_key")) {
+                    message = "Mã thành phần tổ chức này đã tồn tại (đang hoạt động)";
+                } else if (detail.contains("org_units") && detail.contains("email")) {
+                    message = "Email của thành phần tổ chức này đã được sử dụng";
+                } else if (detail.contains("email")) {
+                    message = "Email này đã tồn tại trong hệ thống";
+                } else {
+                    message = "Dữ liệu này đã tồn tại hoặc vi phạm ràng buộc";
+                }
+            }
+        }
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(ApiResponse.error(message));
+    }
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ApiResponse<Void>> handleGeneral(Exception ex) {
         log.error("Unexpected error: ", ex);

@@ -6,6 +6,14 @@ export interface HierarchyLevel {
   levelOrder: number
   unitTypeName: string
   managerRoleLabel: string
+  roleLevel: number
+}
+
+export interface EvaluationLevel {
+  id?: string
+  name: string
+  threshold: number
+  color?: string
 }
 
 export interface OrganizationResponse {
@@ -14,6 +22,11 @@ export interface OrganizationResponse {
   code: string
   status: string
   hierarchyLevels: HierarchyLevel[]
+  evaluationMaxScore: number
+  evaluationLevels?: EvaluationLevel[]
+  kpiReminderPercentage: number
+  enableOkr: boolean
+  enableWaterfall: boolean
   createdAt: string
   updatedAt: string
 }
@@ -23,6 +36,11 @@ export interface UpdateOrganizationRequest {
   code?: string
   status?: string
   hierarchyLevels?: Omit<HierarchyLevel, 'id' | 'levelOrder'>[]
+  evaluationMaxScore?: number
+  evaluationLevels?: EvaluationLevel[]
+  kpiReminderPercentage?: number
+  enableOkr?: boolean
+  enableWaterfall?: boolean
 }
 
 export const organizationApi = {

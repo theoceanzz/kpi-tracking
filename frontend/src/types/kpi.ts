@@ -1,5 +1,15 @@
-export type KpiStatus = 'DRAFT' | 'PENDING_APPROVAL' | 'APPROVED' | 'REJECTED'
-export type KpiFrequency = 'DAILY' | 'WEEKLY' | 'MONTHLY' | 'QUARTERLY' | 'YEARLY'
+export type KpiStatus = 'DRAFT' | 'PENDING_APPROVAL' | 'APPROVED' | 'REJECTED' | 'INACTIVE' | 'EDIT' | 'EDITED'
+export type KpiFrequency = 'DAILY' | 'WEEKLY' | 'MONTHLY' | 'QUARTERLY' | 'SEMI_ANNUALLY' | 'YEARLY'
+
+export interface KpiPeriod {
+  id: string
+  name: string
+  periodType: KpiFrequency
+  startDate: string | null
+  endDate: string | null
+  notificationDate: string | null
+  organizationId: string
+}
 
 // Matches BE: KpiCriteriaResponse
 export interface KpiCriteria {
@@ -23,8 +33,19 @@ export interface KpiCriteria {
   rejectReason: string | null
   submittedAt: string | null
   approvedAt: string | null
-  startDate: string | null
-  endDate: string | null
+  minimumValue: number | null
+  kpiPeriodId: string
+  kpiPeriod: KpiPeriod
+  submissionCount: number
+  expectedSubmissions: number
+  keyResultId: string | null
+  keyResultName: string | null
+  keyResultCode: string | null
+  objectiveId: string | null
+  objectiveName: string | null
+  objectiveCode: string | null
+  parentId: string | null
+  parentName: string | null
   createdAt: string
   updatedAt: string
 }
@@ -40,8 +61,10 @@ export interface CreateKpiRequest {
   orgUnitId?: string
   assignedToId?: string
   assignedToIds?: string[]
-  startDate?: string
-  endDate?: string
+  minimumValue?: number
+  kpiPeriodId: string
+  keyResultId?: string | null
+  parentId?: string | null
 }
 
 // Matches BE: UpdateKpiCriteriaRequest
@@ -55,8 +78,10 @@ export interface UpdateKpiRequest {
   orgUnitId?: string
   assignedToId?: string
   assignedToIds?: string[]
-  startDate?: string
-  endDate?: string
+  minimumValue?: number
+  kpiPeriodId?: string
+  keyResultId?: string | null
+  parentId?: string | null
 }
 
 // Matches BE: RejectKpiRequest

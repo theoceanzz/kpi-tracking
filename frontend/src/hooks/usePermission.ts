@@ -18,7 +18,7 @@ export function usePermission() {
   }
 
   // Computed permission checks for common use cases
-  const canApprove = hasPermission('KPI:APPROVE')
+  const canApprove = hasAnyPermission('KPI:APPROVE_CRITERIA', 'KPI:APPROVE_ADJUSTMENT')
   const canManage = hasPermission('ORG:VIEW') && hasPermission('USER:VIEW')
   const canCreateKpi = hasPermission('KPI:CREATE')
   const canSubmit = hasPermission('SUBMISSION:CREATE')

@@ -1,23 +1,36 @@
-import { Outlet, useLocation } from 'react-router-dom'
+import { Outlet, useLocation, Navigate, Link } from 'react-router-dom'
 import Sidebar from './Sidebar'
 import { useAuth } from '@/hooks/useAuth'
-import { LogOut, Menu } from 'lucide-react'
+import { useSidebarStore } from '@/store/sidebarStore'
+import { LogOut, Menu, PanelLeft } from 'lucide-react'
 import NotificationBell from '@/features/notifications/components/NotificationBell'
 import ThemeCustomizer from './components/ThemeCustomizer'
+import OnboardingTour from '@/components/common/OnboardingTour'
 import { useState, useEffect } from 'react'
 
 export default function AppLayout() {
-  const { user, logout } = useAuth()
+  const { user, logout, refreshUser } = useAuth()
+  const { isCollapsed, toggle: toggleSidebar } = useSidebarStore()
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const location = useLocation()
+
+  // Refresh user info on mount to ensure roles/names are up to date
+  useEffect(() => {
+    refreshUser()
+  }, [refreshUser])
 
   // Close mobile menu on route change
   useEffect(() => {
     setIsMobileMenuOpen(false)
   }, [location.pathname])
 
+  if (user?.requirePasswordChange) {
+    return <Navigate to="/force-password-change" replace />
+  }
+
   return (
     <div className="flex min-h-screen bg-[var(--color-background)]">
+      <OnboardingTour />
       <Sidebar isMobileOpen={isMobileMenuOpen} onCloseMobile={() => setIsMobileMenuOpen(false)} />
 
       <div className="flex-1 flex flex-col min-w-0 md:pl-0">
@@ -30,17 +43,24 @@ export default function AppLayout() {
             >
               <Menu size={24} />
             </button>
-            <div className="flex items-center gap-2">
+            <Link to="/" className="flex items-center gap-2">
               <div className="w-8 h-8 rounded-lg bg-[var(--color-primary)] flex items-center justify-center">
                 <span className="text-white text-sm font-bold">K</span>
               </div>
               <span className="font-bold hidden sm:inline-block">KPI</span>
-            </div>
+            </Link>
           </div>
 
-          <div className="hidden lg:block">
+          <div className="hidden lg:flex items-center gap-4">
+            <button
+              onClick={toggleSidebar}
+              className="p-2 rounded-xl text-[var(--color-muted-foreground)] hover:bg-[var(--color-accent)] hover:text-[var(--color-primary)] transition-all shadow-sm border border-transparent hover:border-[var(--color-border)]"
+              title={isCollapsed ? "Mở rộng menu" : "Thu gọn menu"}
+            >
+              <PanelLeft size={20} className={isCollapsed ? "rotate-180 transition-transform" : "transition-transform"} />
+            </button>
             <p className="text-sm text-[var(--color-muted-foreground)]">
-              Xin chào, <span className="font-semibold text-[var(--color-foreground)]">{user?.fullName}</span>
+              Xin chào, <span className="font-bold text-[var(--color-foreground)]">{user?.fullName}</span>
             </p>
           </div>
 

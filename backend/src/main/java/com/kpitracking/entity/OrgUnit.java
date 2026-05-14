@@ -27,6 +27,9 @@ public class OrgUnit {
     @Column(name = "name", nullable = false)
     private String name;
 
+    @Column(name = "code", unique = true)
+    private String code;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "parent_id")
     private OrgUnit parent;
@@ -65,7 +68,7 @@ public class OrgUnit {
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false)
     @Builder.Default
-    private OrgUnitStatus status = OrgUnitStatus.TRIAL;
+    private OrgUnitStatus status = OrgUnitStatus.ACTIVE;
 
     @CreatedDate
     @Column(name = "created_at", updatable = false)

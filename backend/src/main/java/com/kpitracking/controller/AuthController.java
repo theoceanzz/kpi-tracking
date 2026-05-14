@@ -101,4 +101,11 @@ public class AuthController {
         UserInfoResponse response = authService.uploadAvatar(file);
         return ResponseEntity.ok(ApiResponse.success("Avatar uploaded successfully", response));
     }
+
+    @PostMapping("/me/onboarding")
+    @Operation(summary = "Mark onboarding as completed")
+    public ResponseEntity<ApiResponse<Void>> completeOnboarding() {
+        authService.completeOnboarding();
+        return ResponseEntity.ok(ApiResponse.success("Onboarding marked as completed"));
+    }
 }

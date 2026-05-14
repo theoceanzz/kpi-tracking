@@ -60,6 +60,7 @@ body {
 
 .custom-scrollbar::-webkit-scrollbar {
   width: 6px;
+  height: 6px;
 }
 
 .custom-scrollbar::-webkit-scrollbar-track {
@@ -83,6 +84,25 @@ body {
   background: rgba(255, 255, 255, 0.2);
 }
 
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* Hide number input spinners */
+input::-webkit-outer-spin-button,
+input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+input[type=number] {
+  -moz-appearance: textfield;
+  appearance: textfield;
 /* react-grid-layout required styles */
 .react-grid-layout {
   position: relative;
@@ -130,4 +150,5 @@ body {
   border-right: 2px solid var(--color-muted-foreground);
   border-bottom: 2px solid var(--color-muted-foreground);
   opacity: 0.5;
+}
 }

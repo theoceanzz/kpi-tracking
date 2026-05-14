@@ -28,6 +28,7 @@ export interface OrgUnitStats {
   approvedSubmissions: number
   pendingSubmissions: number
   rejectedSubmissions: number
+  totalAssignments: number
 }
 
 // Matches BE: EmployeeKpiStatsResponse
@@ -36,13 +37,27 @@ export interface EmployeeKpiStats {
   fullName: string
   email: string
   role: string
+  rank: number
   orgUnitName: string
   assignedKpi: number
   totalSubmissions: number
   approvedSubmissions: number
   pendingSubmissions: number
   rejectedSubmissions: number
+  lateSubmissions: number
   averageScore: number | null
+}
+
+export interface KpiTask {
+  id: string
+  name: string
+  periodName: string
+  deadline: string | null
+  startDate: string | null
+  status: 'NOT_STARTED' | 'PENDING' | 'OVERDUE' | 'APPROVED' | 'REJECTED' | 'EDIT'
+  submissionCount: number
+  expectedSubmissions: number
+  managerScore?: number | null
 }
 
 // Matches BE: MyKpiProgressResponse
@@ -52,7 +67,17 @@ export interface MyKpiProgress {
   approvedSubmissions: number
   pendingSubmissions: number
   rejectedSubmissions: number
+  lateSubmissions: number
+  pendingTaskCount: number
   averageScore: number | null
+  tasks: {
+    content: KpiTask[]
+    page: number
+    size: number
+    totalElements: number
+    totalPages: number
+    last: boolean
+  }
 }
 
 // ============================================================
@@ -173,9 +198,7 @@ export interface AnalyticsSummary {
   memberDistribution: { name: string; value: number }[];
   roleDistribution: {
     unitName: string;
-    directorCount: number;
-    headCount: number;
-    staffCount: number;
+    roles: { roleName: string; count: number }[];
   }[];
   unitRisks: RiskInfo[];
   userRisks: RiskInfo[];

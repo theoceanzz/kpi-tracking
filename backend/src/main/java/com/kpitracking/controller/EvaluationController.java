@@ -40,8 +40,11 @@ public class EvaluationController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size,
             @RequestParam(required = false) UUID userId,
-            @RequestParam(required = false) UUID kpiCriteriaId) {
-        PageResponse<EvaluationResponse> response = evaluationService.getEvaluations(page, size, userId, kpiCriteriaId);
+            @RequestParam(required = false) UUID kpiPeriodId,
+            @RequestParam(required = false) UUID orgUnitId,
+            @RequestParam(defaultValue = "createdAt") String sortBy,
+            @RequestParam(defaultValue = "desc") String sortDir) {
+        PageResponse<EvaluationResponse> response = evaluationService.getEvaluations(page, size, sortBy, sortDir, userId, kpiPeriodId, orgUnitId);
         return ResponseEntity.ok(ApiResponse.success(response));
     }
 

@@ -15,6 +15,15 @@ import java.util.UUID;
 @Repository
 public interface OrgUnitRepository extends JpaRepository<OrgUnit, UUID> {
 
+    Optional<OrgUnit> findByName(String name);
+    Optional<OrgUnit> findByNameIgnoreCase(String name);
+    
+    @Query("SELECT o FROM OrgUnit o WHERE TRIM(LOWER(o.name)) = TRIM(LOWER(:name)) AND o.orgHierarchyLevel.organization.id = :orgId AND o.deletedAt IS NULL")
+    Optional<OrgUnit> findByNameSmart(@Param("name") String name, @Param("orgId") UUID orgId);
+
+    Optional<OrgUnit> findByNameIgnoreCaseAndOrgHierarchyLevel_Organization_Id(String name, UUID organizationId);
+    Optional<OrgUnit> findByCode(String code);
+    boolean existsByCode(String code);
     Optional<OrgUnit> findByIdAndOrgHierarchyLevel_Organization_Id(UUID id, UUID organizationId);
 
     Page<OrgUnit> findByOrgHierarchyLevel_Organization_Id(UUID organizationId, Pageable pageable);
@@ -67,4 +76,24 @@ public interface OrgUnitRepository extends JpaRepository<OrgUnit, UUID> {
     @Deprecated
     @Query("SELECT COUNT(o) FROM OrgUnit o WHERE o.deletedAt IS NULL")
     long countAllActive();
+    @Query("SELECT o FROM OrgUnit o WHERE o.deletedAt IS NULL AND EXISTS (SELECT 1 FROM OrgUnit p WHERE (o.path LIKE CONCAT(p.path, '%')) AND p.id IN :parentIds)")
+    List<OrgUnit> findAllInSubtrees(@Param("parentIds") java.util.Collection<UUID> parentIds);
+
+    @Query("SELECT o FROM OrgUnit o WHERE o.deletedAt IS NULL AND EXISTS (SELECT 1 FROM OrgUnit p WHERE (o.path LIKE CONCAT(p.path, '%')) AND p.id IN :parentIds)")
+    List<OrgUnit> findAllInSubtreesForExecutive(@Param("parentIds") java.util.Collection<UUID> parentIds);
+
+    @Query("SELECT COUNT(o) > 0 FROM OrgUnit o WHERE TRIM(LOWER(o.code)) = TRIM(LOWER(:code)) AND o.orgHierarchyLevel.organization.id = :orgId AND o.deletedAt IS NULL")
+    boolean existsByCodeSmart(@Param("code") String code, @Param("orgId") UUID orgId);
+
+    @Query(value = "SELECT ou.* FROM org_units ou " +
+            "JOIN org_hierarchy_levels ohl ON ou.org_hierarchy_id = ohl.id " +
+            "WHERE TRIM(LOWER(ou.code)) = TRIM(LOWER(:code)) " +
+            "AND ohl.organization_id = :orgId " +
+            "AND ou.deleted_at IS NOT NULL LIMIT 1", nativeQuery = true)
+    Optional<OrgUnit> findDeletedByCodeSmart(@Param("code") String code, @Param("orgId") UUID orgId);
+
+    boolean existsByNameIgnoreCaseAndOrgHierarchyLevel_Organization_IdAndDeletedAtIsNull(String name, UUID organizationId);
+
+    boolean existsByEmailAndDeletedAtIsNull(String email);
+    boolean existsByPhoneAndDeletedAtIsNull(String phone);
 }

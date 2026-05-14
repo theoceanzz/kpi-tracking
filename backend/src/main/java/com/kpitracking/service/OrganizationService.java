@@ -1,16 +1,20 @@
 package com.kpitracking.service;
 
+import com.kpitracking.constant.EvaluationConstants;
+
+import com.kpitracking.constant.RolePermissionConstants;
 import com.kpitracking.dto.request.auth.HierarchyLevelDTO;
 import com.kpitracking.dto.request.organization.CreateOrganizationRequest;
 import com.kpitracking.dto.request.organization.UpdateOrganizationRequest;
 import com.kpitracking.dto.response.PageResponse;
+import com.kpitracking.dto.response.organization.HierarchyLevelResponse;
 import com.kpitracking.dto.response.organization.OrganizationResponse;
-import com.kpitracking.entity.OrgHierarchyLevel;
-import com.kpitracking.entity.Organization;
+import com.kpitracking.entity.*;
 import com.kpitracking.enums.OrganizationStatus;
 import com.kpitracking.exception.BusinessException;
 import com.kpitracking.exception.DuplicateResourceException;
 import com.kpitracking.exception.ResourceNotFoundException;
+import com.kpitracking.mapper.OrgHierarchyLevelMapper;
 import com.kpitracking.mapper.OrganizationMapper;
 import com.kpitracking.repository.OrgHierarchyLevelRepository;
 import com.kpitracking.repository.OrgUnitRepository;
@@ -36,9 +40,15 @@ public class OrganizationService {
 
     private final OrganizationRepository organizationRepository;
     private final OrganizationMapper organizationMapper;
+    private final OrgHierarchyLevelMapper orgHierarchyLevelMapper;
     private final OrgHierarchyLevelRepository orgHierarchyLevelRepository;
     private final OrgUnitRepository orgUnitRepository;
     private final UserRoleOrgUnitRepository userRoleOrgUnitRepository;
+    private final com.kpitracking.repository.RoleRepository roleRepository;
+    private final com.kpitracking.repository.PermissionRepository permissionRepository;
+    private final com.kpitracking.repository.RolePermissionRepository rolePermissionRepository;
+    private final com.kpitracking.repository.EvaluationLevelRepository evaluationLevelRepository;
+    private final com.kpitracking.mapper.EvaluationLevelMapper evaluationLevelMapper;
 
     @Transactional
     public OrganizationResponse createOrganization(CreateOrganizationRequest request) {
@@ -52,14 +62,29 @@ public class OrganizationService {
                 .status(OrganizationStatus.ACTIVE)
                 .build();
 
-        organization = organizationRepository.save(organization);
-        return organizationMapper.toResponse(organization);
+        Organization savedOrg = organizationRepository.save(organization);
+
+        // Add default evaluation levels
+        List<EvaluationLevel> defaultLevels = EvaluationConstants.DEFAULT_LEVELS.stream()
+            .map(lvl -> EvaluationLevel.builder()
+                .organization(savedOrg)
+                .name(lvl.getName())
+                .threshold(lvl.getThreshold())
+                .color(lvl.getColor())
+                .build())
+            .toList();
+        
+        evaluationLevelRepository.saveAll(defaultLevels);
+        savedOrg.setEvaluationLevels(new ArrayList<>(defaultLevels));
+
+        return organizationMapper.toResponse(savedOrg);
     }
 
     @Transactional(readOnly = true)
     public OrganizationResponse getOrganization(UUID orgId) {
         Organization organization = organizationRepository.findById(orgId)
                 .orElseThrow(() -> new ResourceNotFoundException("Tổ chức", "id", orgId));
+
         return organizationMapper.toResponse(organization);
     }
 
@@ -100,45 +125,234 @@ public class OrganizationService {
             syncHierarchyLevels(organization, request.getHierarchyLevels());
         }
 
-        organization = organizationRepository.save(organization);
-        return organizationMapper.toResponse(organization);
+        if (request.getEvaluationMaxScore() != null) {
+            organization.setEvaluationMaxScore(request.getEvaluationMaxScore());
+        }
+
+        if (request.getKpiReminderPercentage() != null) {
+            organization.setKpiReminderPercentage(request.getKpiReminderPercentage());
+        }
+
+        if (request.getEnableOkr() != null) {
+            organization.setEnableOkr(request.getEnableOkr());
+        }
+
+        if (request.getEnableWaterfall() != null) {
+            organization.setEnableWaterfall(request.getEnableWaterfall());
+        }
+
+        if (request.getEvaluationLevels() != null) {
+            organization.getEvaluationLevels().clear();
+            organizationRepository.saveAndFlush(organization);
+            
+            List<EvaluationLevel> newEntities = request.getEvaluationLevels().stream()
+                    .map(req -> {
+                        EvaluationLevel level = evaluationLevelMapper.toEntity(req);
+                        level.setOrganization(organization);
+                        return level;
+                    })
+                    .collect(Collectors.toList());
+            organization.getEvaluationLevels().addAll(newEntities);
+        }
+
+        Organization savedOrganization = organizationRepository.save(organization);
+        return organizationMapper.toResponse(savedOrganization);
     }
 
     private void syncHierarchyLevels(Organization organization, List<HierarchyLevelDTO> newLevels) {
-        if (newLevels.size() < 3) {
-            throw new BusinessException("Cơ cấu tổ chức phải có ít nhất 3 cấp.");
+        if (newLevels.size() < 2) {
+            throw new BusinessException("Cơ cấu tổ chức phải có ít nhất 2 cấp.");
         }
 
         List<OrgHierarchyLevel> currentLevels = orgHierarchyLevelRepository.findByOrganizationIdOrderByLevelOrderAsc(organization.getId());
+        List<Permission> allPerms = permissionRepository.findAll();
         
-        // 1. Check for removals and if they are in use
-        for (int i = newLevels.size(); i < currentLevels.size(); i++) {
-            OrgHierarchyLevel levelToRemove = currentLevels.get(i);
+        // 1. Identify levels to remove
+        java.util.Set<UUID> newIds = newLevels.stream()
+                .map(HierarchyLevelDTO::getId)
+                .filter(java.util.Objects::nonNull)
+                .collect(java.util.stream.Collectors.toSet());
+        
+        List<OrgHierarchyLevel> toRemove = currentLevels.stream()
+                .filter(l -> !newIds.contains(l.getId()))
+                .toList();
+
+        for (OrgHierarchyLevel levelToRemove : toRemove) {
             if (orgUnitRepository.existsByOrgHierarchyLevelId(levelToRemove.getId())) {
                 throw new BusinessException("Không thể xóa cấp bậc '" + levelToRemove.getUnitTypeName() + "' vì đang có đơn vị sử dụng.");
             }
+            
+            // Delete roles associated with this level
+            List<Role> rolesToRemove = roleRepository.findAllByDeletedAtIsNull().stream()
+                    .filter(r -> r.getOrganization() != null && r.getOrganization().getId().equals(organization.getId()))
+                    .filter(r -> r.getLevel() != null && r.getLevel().equals(levelToRemove.getRoleLevel()))
+                    .toList();
+            
+            for (Role r : rolesToRemove) {
+                r.setDeletedAt(java.time.Instant.now());
+                roleRepository.save(r);
+            }
+
             orgHierarchyLevelRepository.delete(levelToRemove);
         }
 
-        // 2. Update or Add
-        for (int i = 0; i < newLevels.size(); i++) {
+        // Shift existing level orders to temporary values to avoid unique constraint violations during update
+        for (OrgHierarchyLevel lvl : currentLevels) {
+            if (!toRemove.contains(lvl)) {
+                lvl.setLevelOrder(lvl.getLevelOrder() + 1000);
+                orgHierarchyLevelRepository.save(lvl);
+            }
+        }
+        orgHierarchyLevelRepository.flush();
+
+        // 2. Sync levels
+        int totalLevels = newLevels.size();
+        for (int i = 0; i < totalLevels; i++) {
             HierarchyLevelDTO dto = newLevels.get(i);
-            if (i < currentLevels.size()) {
+            int roleLevel = mapRoleLevel(i, totalLevels);
+            boolean isTop = (i == 0);
+            boolean isBottom = (i == totalLevels - 1);
+            
+            OrgHierarchyLevel level;
+            if (dto.getId() != null) {
                 // Update existing
-                OrgHierarchyLevel level = currentLevels.get(i);
+                level = orgHierarchyLevelRepository.findById(dto.getId())
+                        .orElseThrow(() -> new ResourceNotFoundException("Cấp bậc", "id", dto.getId()));
+                
+                // If roleLevel changes, we need to update existing roles for this level
+                if (!level.getRoleLevel().equals(roleLevel)) {
+                    updateExistingRolesLevel(organization, level.getRoleLevel(), roleLevel);
+                }
+                
                 level.setUnitTypeName(dto.getUnitTypeName());
                 level.setManagerRoleLabel(dto.getManagerRoleLabel());
+                level.setLevelOrder(i);
+                level.setRoleLevel(roleLevel);
                 orgHierarchyLevelRepository.save(level);
             } else {
-                // Add new
-                OrgHierarchyLevel level = OrgHierarchyLevel.builder()
+                // Create new
+                level = OrgHierarchyLevel.builder()
                         .organization(organization)
                         .levelOrder(i)
                         .unitTypeName(dto.getUnitTypeName())
                         .managerRoleLabel(dto.getManagerRoleLabel())
+                        .roleLevel(roleLevel)
                         .build();
                 orgHierarchyLevelRepository.save(level);
             }
+            
+            // Sync Roles for this level
+            syncRolesForLevel(organization, roleLevel, dto, isTop, isBottom, allPerms, i + 1, totalLevels);
+        }
+    }
+
+    private void updateExistingRolesLevel(Organization org, Integer oldLevel, Integer newLevel) {
+        List<Role> roles = roleRepository.findAllByDeletedAtIsNull().stream()
+                .filter(r -> r.getOrganization() != null && r.getOrganization().getId().equals(org.getId()))
+                .filter(r -> r.getLevel() != null && r.getLevel().equals(oldLevel))
+                .toList();
+        
+        for (Role r : roles) {
+            r.setLevel(newLevel);
+            roleRepository.save(r);
+        }
+    }
+
+    private void syncRolesForLevel(Organization org, int roleLevel, HierarchyLevelDTO dto, boolean isTop, boolean isBottom, List<Permission> allPerms, int tierLevel, int numTiers) {
+        // Head (Rank 0)
+        String headName;
+        if (dto.getManagerRoleLabel() != null && !dto.getManagerRoleLabel().trim().isEmpty()) {
+            headName = dto.getManagerRoleLabel();
+        } else {
+            headName = isTop ? "GIÁM ĐỐC" : "TRƯỞNG " + dto.getUnitTypeName().toUpperCase();
+        }
+        syncSingleRole(org, headName, roleLevel, 0, isTop ? "director" : "manager", allPerms, tierLevel, numTiers);
+
+        // Deputy (Rank 1)
+        String deputyName;
+        if (dto.getManagerRoleLabel() != null && !dto.getManagerRoleLabel().trim().isEmpty()) {
+            String managerLabel = dto.getManagerRoleLabel().trim();
+            if (!isTop) {
+                String baseLabel = managerLabel.replaceFirst("(?i)^Trưởng\\s*", "").trim();
+                deputyName = baseLabel.isEmpty() ? "Phó" : "Phó " + baseLabel;
+            } else {
+                deputyName = "Phó " + managerLabel;
+            }
+        } else {
+            deputyName = "Phó " + (isTop ? "Giám Đốc" : dto.getUnitTypeName().toUpperCase());
+        }
+        syncSingleRole(org, deputyName, roleLevel, 1, isTop ? "deputy_director" : "deputy", allPerms, tierLevel, numTiers);
+
+        // Staff (Rank 2) - only for bottom level
+        if (isBottom) {
+            syncSingleRole(org, "NHÂN VIÊN", roleLevel, 2, "staff", allPerms, tierLevel, numTiers);
+        }
+    }
+
+    private void syncSingleRole(Organization org, String name, int level, int rank, String archetype, List<Permission> allPerms, int tierLevel, int numTiers) {
+        Role role = roleRepository.findByLevelAndRankAndOrganizationId(level, rank, org.getId())
+                .orElse(null);
+        
+        if (role == null) {
+            role = Role.builder()
+                    .organization(org)
+                    .name(name)
+                    .level(level)
+                    .rank(rank)
+                    .isSystem(level == 0 && rank == 0)
+                    .build();
+            role = roleRepository.save(role);
+        } else {
+            role.setName(name);
+            role.setLevel(level);
+            roleRepository.save(role);
+        }
+
+        // Re-sync permissions
+        updateRolePermissions(role, archetype, allPerms, tierLevel, numTiers);
+    }
+
+    private void updateRolePermissions(Role role, String archetype, List<Permission> allPerms, int tierLevel, int numTiers) {
+        List<String> allowedCodes = RolePermissionConstants.getPermissions(archetype, tierLevel, numTiers);
+        
+        // Remove existing ones
+        rolePermissionRepository.deleteByRoleId(role.getId());
+        rolePermissionRepository.flush();
+
+        for (String code : allowedCodes) {
+            Permission p = allPerms.stream()
+                    .filter(perm -> perm.getCode().equals(code))
+                    .findFirst()
+                    .orElseGet(() -> permissionRepository.findByCode(code).orElse(null));
+
+            if (p == null && "ORG:VIEW_TREE".equals(code)) {
+                p = permissionRepository.save(Permission.builder()
+                        .code("ORG:VIEW_TREE")
+                        .resource("ORG")
+                        .action("VIEW_TREE")
+                        .description("Xem sơ đồ tổ chức (không có quyền quản trị)")
+                        .build());
+            }
+
+            if (p != null) {
+                rolePermissionRepository.save(RolePermission.builder().role(role).permission(p).build());
+            }
+        }
+    }
+
+    private int mapRoleLevel(int order, int total) {
+        switch (total) {
+            case 2:
+                return order == 0 ? 2 : 4;
+            case 3:
+                return order + 2; // 0->2, 1->3, 2->4
+            case 4:
+                return order + 1; // 0->1, 1->2, 2->3, 3->4
+            case 5:
+                return order;     // 0->0, 1->1, 2->2, 3->3, 4->4
+            default:
+                // Fallback for unexpected cases
+                return Math.min(4, order + (5 - total));
         }
     }
 
@@ -151,18 +365,13 @@ public class OrganizationService {
     }
 
     @Transactional(readOnly = true)
-    public List<com.kpitracking.dto.response.organization.OrgHierarchyLevelResponse> getHierarchyLevels(UUID orgId) {
+    public List<HierarchyLevelResponse> getHierarchyLevels(UUID orgId) {
         organizationRepository.findById(orgId)
                 .orElseThrow(() -> new ResourceNotFoundException("Tổ chức", "id", orgId));
 
         return orgHierarchyLevelRepository.findByOrganizationIdOrderByLevelOrderAsc(orgId)
                 .stream()
-                .map(level -> com.kpitracking.dto.response.organization.OrgHierarchyLevelResponse.builder()
-                        .id(level.getId())
-                        .levelOrder(level.getLevelOrder())
-                        .unitTypeName(level.getUnitTypeName())
-                        .managerRoleLabel(level.getManagerRoleLabel())
-                        .build())
+                .map(orgHierarchyLevelMapper::toResponse)
                 .collect(Collectors.toList());
     }
 

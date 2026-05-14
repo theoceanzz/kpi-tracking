@@ -1,9 +1,16 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { useDetailTable } from '../hooks/useAnalytics'
 import { useOrgUnitStats } from '@/features/dashboard/hooks/useOrgUnitStats'
 import { cn, getInitials, formatDateTime } from '@/lib/utils'
-import { Search, Filter, ChevronDown, CheckCircle2, Clock, XCircle, Star, ChevronLeft, ChevronRight } from 'lucide-react'
+import { Search, ChevronDown, CheckCircle2, Clock, XCircle, Star, ChevronLeft, ChevronRight } from 'lucide-react'
 import LoadingSkeleton from '@/components/common/LoadingSkeleton'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 
 type SortKey = 'fullName' | 'assignedKpi' | 'completionRate' | 'totalSubmissions' | 'avgScore'
 
@@ -15,6 +22,16 @@ export default function DetailTableTab() {
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc')
 
   const { data: orgUnits } = useOrgUnitStats()
+  
+  // Set root as default
+  useEffect(() => {
+    if (orgUnits && orgUnits.length > 0 && !orgUnitId) {
+      const root = orgUnits.find(u => !u.parentOrgUnitId)
+      if (root) setOrgUnitId(root.orgUnitId)
+      else setOrgUnitId(orgUnits[0]!.orgUnitId)
+    }
+  }, [orgUnits, orgUnitId])
+
   const { data, isLoading } = useDetailTable({ orgUnitId: orgUnitId || undefined, search: search || undefined, page, size: 15 })
 
   const rows = useMemo(() => {
@@ -49,14 +66,19 @@ export default function DetailTableTab() {
           <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
           <input value={search} onChange={e => { setSearch(e.target.value); setPage(0) }} placeholder="Tìm theo tên, email..." className="w-full pl-9 pr-4 h-10 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm focus:ring-2 focus:ring-indigo-500/30 outline-none" />
         </div>
-        <div className="relative w-[220px]">
-          <Filter size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-          <select value={orgUnitId} onChange={e => { setOrgUnitId(e.target.value); setPage(0) }} className="w-full pl-8 pr-8 h-10 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm outline-none appearance-none cursor-pointer">
-            <option value="">Tất cả đơn vị</option>
-            {orgUnits?.map(u => <option key={u.orgUnitId} value={u.orgUnitId}>{u.orgUnitName}</option>)}
-          </select>
-          <ChevronDown size={12} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
-        </div>
+        
+        <Select value={orgUnitId} onValueChange={(val) => { setOrgUnitId(val); setPage(0) }}>
+          <SelectTrigger className="w-[240px] h-10 rounded-xl border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm">
+            <SelectValue placeholder="Chọn đơn vị" />
+          </SelectTrigger>
+          <SelectContent className="rounded-xl border-slate-200 dark:border-slate-800">
+            {orgUnits?.map(u => (
+              <SelectItem key={u.orgUnitId} value={u.orgUnitId} className="text-sm">
+                {u.orgUnitName}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
 
       {isLoading ? <LoadingSkeleton rows={8} /> : !data || rows.length === 0 ? (
@@ -67,7 +89,7 @@ export default function DetailTableTab() {
         <>
           <p className="text-xs font-bold text-slate-400">{data.totalElements} nhân viên</p>
           <div className="bg-white dark:bg-slate-900 rounded-[24px] border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto lg:overflow-x-hidden scrollbar-hide custom-scrollbar">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="text-[10px] font-black uppercase tracking-widest text-slate-400 border-b border-slate-100 dark:border-slate-800">

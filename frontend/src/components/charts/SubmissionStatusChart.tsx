@@ -1,4 +1,4 @@
-import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts'
+import { PieChart, Pie, Cell, ResponsiveContainer} from 'recharts'
 
 interface SubmissionStatusChartProps {
   pending: number
@@ -21,15 +21,26 @@ export default function SubmissionStatusChart({ pending, approved, rejected }: S
   }
 
   return (
-    <ResponsiveContainer width="100%" height={250}>
+    <ResponsiveContainer width="100%" height="100%">
       <PieChart>
-        <Pie data={data} cx="50%" cy="50%" innerRadius={55} outerRadius={85} paddingAngle={4} dataKey="value">
+        <Pie 
+          data={data} 
+          cx="50%" 
+          cy="50%" 
+          innerRadius="65%" 
+          outerRadius="90%" 
+          paddingAngle={8} 
+          dataKey="value"
+          stroke="none"
+        >
           {data.map((_, index) => (
-            <Cell key={index} fill={COLORS[index % COLORS.length]} />
+            <Cell 
+              key={index} 
+              fill={COLORS[index % COLORS.length]} 
+              className="outline-none"
+            />
           ))}
         </Pie>
-        <Tooltip />
-        <Legend />
       </PieChart>
     </ResponsiveContainer>
   )

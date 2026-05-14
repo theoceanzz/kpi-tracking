@@ -5,12 +5,14 @@ export interface User {
   id: string
   email: string
   fullName: string
+  employeeCode?: string
   phone: string | null
   avatarUrl: string | null
   status: UserStatus
   organizationId: string
   memberships: UserMembership[]
   roles: string[]
+  permissions?: string[]
   createdAt: string
   updatedAt: string
 }
@@ -19,9 +21,11 @@ export interface User {
 export interface CreateUserRequest {
   fullName: string
   email: string
+  employeeCode?: string
   password: string
   phone?: string
   role: UserRole
+  orgUnitId: string
 }
 
 // Matches BE: UpdateUserRequest
@@ -31,6 +35,7 @@ export interface UpdateUserRequest {
   phone?: string
   role?: UserRole
   status?: UserStatus
+  orgUnitId?: string
 }
 
 // Matches BE: ImportUserResponse

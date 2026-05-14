@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo } from 'react'
 import { useForm, SubmitHandler } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import * as z from 'zod'
@@ -8,9 +8,13 @@ import {
   useUpdateOrgUnit, 
   useProvinces, 
   useDistricts, 
-  useUploadLogo 
+  useUploadLogo,
+  useOrganization
 } from '../hooks/useOrganizationStructure'
 import { useRoles } from '../hooks/useUserRoles'
+
+import { cn } from '@/lib/utils'
+
 
 export type DrawerMode = 'create-root' | 'create-child' | 'edit'
 
@@ -25,19 +29,20 @@ interface OrgUnitDrawerProps {
   orgId: string
   drawerState: DrawerState
   onClose: () => void
-  maxDepth: number
   hierarchyLevels: Record<number, string> // level -> unitTypeName
 }
 
 const schema = z.object({
   name: z.string().min(1, 'Vui lòng nhập tên.'),
+  code: z.string().min(1, 'Vui lòng nhập mã.'),
   unitTypeName: z.string().min(1, 'Vui lòng nhập loại tổ chức.'),
   email: z.string().email('Email không hợp lệ.').optional().or(z.literal('')),
-  phone: z.string().optional(),
+  phone: z.string().regex(/^0\d{9}$/, 'Số điện thoại phải gồm 10 chữ số và bắt đầu bằng số 0 (VD: 0912345678)').optional().or(z.literal('')),
   address: z.string().optional(),
   provinceId: z.string().optional(),
   districtId: z.string().optional(),
-  roleIds: z.array(z.string()).optional()
+  roleIds: z.array(z.string()).optional(),
+  status: z.string().optional()
 })
 
 type FormData = z.infer<typeof schema>
@@ -51,43 +56,112 @@ export function OrgUnitDrawer({ orgId, drawerState, onClose, hierarchyLevels }: 
   const [selectedProvinceId, setSelectedProvinceId] = useState<string | undefined>()
   const { data: districts = [] } = useDistricts(selectedProvinceId)
   const { data: allRoles = [] } = useRoles()
+  const { data: organization } = useOrganization(orgId)
 
   const [logoFile, setLogoFile] = useState<File | null>(null)
   const [logoPreview, setLogoPreview] = useState<string | null>(null)
 
+  const { minDepth, maxDepth } = useMemo(() => {
+    const levels = Object.keys(hierarchyLevels || {}).map(Number)
+    return {
+      minDepth: levels.length > 0 ? Math.min(...levels) : 1,
+      maxDepth: levels.length > 0 ? Math.max(...levels) : 5
+    }
+  }, [hierarchyLevels])
+
   const calculatedLevel = drawerState.mode === 'create-root' 
-    ? 1 
+    ? minDepth 
     : drawerState.mode === 'create-child' && drawerState.parentNode
-      ? drawerState.parentNode.level + 1
-      : drawerState.currentNode?.level || 1
+      ? Number(drawerState.parentNode.level) + 1
+      : Number(drawerState.currentNode?.level) ?? minDepth
       
   const parentName = drawerState.parentNode?.name || 'Không có (Root)'
+  
+  const totalLevels = Object.keys(hierarchyLevels || {}).length
+  
+  const isRoot = calculatedLevel === minDepth
+  const isBottom = calculatedLevel === maxDepth
+  const isMiddle = !isRoot && !isBottom
+
+  const filteredRoles = allRoles.filter(role => {
+    const roleLevel = role.level
+    if (roleLevel === undefined || roleLevel === null) return false
+    
+    // Trường hợp 1: Công ty có 2 phân cấp (vd: Công ty -> Team)
+    if (totalLevels === 2) {
+      if (isRoot) return roleLevel === 2 || roleLevel === 4
+      if (isBottom) return roleLevel === 4
+    }
+    
+    // Trường hợp 2: Công ty có 3 phân cấp (vd: Công ty -> Phòng -> Team)
+    if (totalLevels === 3) {
+      if (isRoot) return roleLevel === 2 || roleLevel === 4
+      if (isMiddle) return roleLevel === 3
+      if (isBottom) return roleLevel === 4
+    }
+
+    // Trường hợp 3: Công ty có 4 phân cấp
+    if (totalLevels === 4) {
+      if (isRoot) return roleLevel === 1 || roleLevel === 4
+      if (calculatedLevel === minDepth + 1) return roleLevel === 2
+      if (calculatedLevel === minDepth + 2) return roleLevel === 3
+      if (isBottom) return roleLevel === 4
+    }
+    
+    // Trường hợp 4: Công ty có 5 phân cấp
+    if (totalLevels === 5) {
+      if (isRoot) return roleLevel === 0 || roleLevel === 4
+      if (calculatedLevel === minDepth + 1) return roleLevel === 1
+      if (calculatedLevel === minDepth + 2) return roleLevel === 2
+      if (calculatedLevel === minDepth + 3) return roleLevel === 3
+      if (isBottom) return roleLevel === 4
+    }
+  })
       
-  const { register, handleSubmit, formState: { errors }, reset, setValue, watch } = useForm<FormData>({
+  const { register, handleSubmit, formState: { errors }, reset, setValue, watch, setError } = useForm<FormData>({
     resolver: zodResolver(schema),
     defaultValues: {
       name: '',
+      code: '',
       unitTypeName: '',
       email: '',
       phone: '',
       address: '',
       provinceId: '',
       districtId: '',
-      roleIds: []
+      roleIds: [],
+      status: 'ACTIVE'
     }
   })
 
   const formProvinceId = watch('provinceId')
+  const selectedRoleIds = watch('roleIds') || []
 
   useEffect(() => {
     setSelectedProvinceId(formProvinceId)
   }, [formProvinceId])
+
+  // Manager/Deputy validation logic
+  const selectedRolesDetails = useMemo(() => {
+    return allRoles.filter(r => selectedRoleIds.includes(r.id))
+  }, [allRoles, selectedRoleIds])
+
+  const hasManagerSelected = selectedRolesDetails.some(r => r.rank === 0)
+  const hasDeputySelected = selectedRolesDetails.some(r => r.rank === 1)
+
+  const getRoleDisableReason = (role: any) => {
+    if (selectedRoleIds.includes(role.id)) return null // Never disable if already selected
+    if (role.rank === 0 && hasManagerSelected) return "Đã chọn 1 vai trò TRƯỞNG"
+    if (role.rank === 1 && hasDeputySelected) return "Đã chọn 1 vai trò PHÓ"
+    return null
+  }
 
   // Pre-fill
   useEffect(() => {
     if (drawerState.isOpen) {
       if (drawerState.mode === 'edit' && drawerState.currentNode) {
         setValue('name', drawerState.currentNode.name)
+        setValue('code', drawerState.currentNode.code || '')
         setValue('unitTypeName', drawerState.currentNode.type || hierarchyLevels[calculatedLevel] || '')
         setValue('email', drawerState.currentNode.email || '')
         setValue('phone', drawerState.currentNode.phone || '')
@@ -95,9 +169,11 @@ export function OrgUnitDrawer({ orgId, drawerState, onClose, hierarchyLevels }: 
         setValue('provinceId', drawerState.currentNode.provinceId || '')
         setValue('districtId', drawerState.currentNode.districtId || '')
         setValue('roleIds', drawerState.currentNode.allowedRoles?.map((r: any) => r.id) || [])
+        setValue('status', drawerState.currentNode.status || 'ACTIVE')
         setLogoPreview(drawerState.currentNode.logoUrl || null)
       } else {
         setValue('name', '')
+        setValue('code', drawerState.mode === 'create-root' && organization ? organization.code : '')
         setValue('unitTypeName', hierarchyLevels[calculatedLevel] || '')
         setValue('roleIds', [])
         setLogoPreview(null)
@@ -122,6 +198,7 @@ export function OrgUnitDrawer({ orgId, drawerState, onClose, hierarchyLevels }: 
   const onSubmit: SubmitHandler<FormData> = async (data) => {
     const payload = {
       name: data.name,
+      code: data.code,
       unitTypeName: data.unitTypeName,
       parentId: drawerState.mode === 'create-child' ? drawerState.parentNode?.id : null,
       email: data.email,
@@ -129,29 +206,40 @@ export function OrgUnitDrawer({ orgId, drawerState, onClose, hierarchyLevels }: 
       address: data.address,
       provinceId: data.provinceId || undefined,
       districtId: data.districtId || undefined,
-      roleIds: data.roleIds || []
+      roleIds: data.roleIds || [],
+      status: data.status
     }
 
-    let resultUnit: any = null
+    try {
+      let resultUnit: any = null
 
-    if (drawerState.mode === 'create-root' || drawerState.mode === 'create-child') {
-      resultUnit = await createMutation.mutateAsync({ orgId, payload })
-    } else if (drawerState.mode === 'edit' && drawerState.currentNode) {
-      resultUnit = await updateMutation.mutateAsync({ orgId, unitId: drawerState.currentNode.id, payload })
+      if (drawerState.mode === 'create-root' || drawerState.mode === 'create-child') {
+        resultUnit = await createMutation.mutateAsync({ orgId, payload })
+      } else if (drawerState.mode === 'edit' && drawerState.currentNode) {
+        resultUnit = await updateMutation.mutateAsync({ orgId, unitId: drawerState.currentNode.id, payload })
+      }
+
+      if (resultUnit && logoFile) {
+        await uploadLogoMutation.mutateAsync({ orgId, unitId: resultUnit.id, file: logoFile })
+      }
+
+      onClose()
+    } catch (error: any) {
+      const message = error?.response?.data?.message || ''
+      if (message.toLowerCase().includes('tên')) {
+        setError('name', { type: 'manual', message: message })
+      } else if (message.toLowerCase().includes('mã')) {
+        setError('code', { type: 'manual', message: message })
+      }
+      // Toast is already handled by the hook, but setError provides better UX on the field
     }
-
-    if (resultUnit && logoFile) {
-      await uploadLogoMutation.mutateAsync({ orgId, unitId: resultUnit.id, file: logoFile })
-    }
-
-    onClose()
   }
 
   if (!drawerState.isOpen) return null
 
   return (
     <div 
-      className="fixed inset-0 z-50 flex justify-end bg-black/50 transition-opacity"
+      className="fixed inset-0 z-[200] flex justify-end bg-black/50 transition-opacity"
       onClick={onClose}
     >
       <div 
@@ -213,8 +301,8 @@ export function OrgUnitDrawer({ orgId, drawerState, onClose, hierarchyLevels }: 
               </div>
               <div className="space-y-1">
                 <label className="text-sm font-semibold text-gray-700">Cấp bậc</label>
-                <div className="px-3 py-2 border rounded-lg bg-blue-50 text-blue-700 text-sm border-blue-100 font-medium">
-                  Level {calculatedLevel}
+                <div className="px-3 py-2 border rounded-lg bg-blue-50 text-blue-700 text-sm border-blue-100 font-bold uppercase tracking-widest">
+                  Phân cấp
                 </div>
               </div>
             </div>
@@ -231,6 +319,18 @@ export function OrgUnitDrawer({ orgId, drawerState, onClose, hierarchyLevels }: 
             </div>
 
             <div className="space-y-1">
+              <label className="text-sm font-semibold text-gray-700">Mã thành phần <span className="text-red-500">*</span></label>
+              <input 
+                type="text" 
+                {...register('code')}
+                disabled={drawerState.mode === 'create-root'}
+                placeholder="VD: PKT, ACC, HR..."
+                className={`w-full px-3 py-2 border rounded-lg outline-none transition-all ${drawerState.mode === 'create-root' ? 'bg-gray-50 text-gray-500 border-gray-200' : 'border-gray-300 focus:ring-2 focus:ring-blue-500 font-medium'}`}
+              />
+              {errors.code && <p className="text-xs text-red-500 mt-1">{errors.code.message}</p>}
+            </div>
+
+            <div className="space-y-1">
               <label className="text-sm font-semibold text-gray-700">Loại thành phần <span className="text-red-500">*</span></label>
               <input 
                 type="text" 
@@ -241,6 +341,21 @@ export function OrgUnitDrawer({ orgId, drawerState, onClose, hierarchyLevels }: 
               />
               {errors.unitTypeName && <p className="text-xs text-red-500 mt-1">{errors.unitTypeName.message}</p>}
             </div>
+
+            {drawerState.mode === 'edit' && (
+              <div className="space-y-1">
+                <label className="text-sm font-semibold text-gray-700">Trạng thái vận hành</label>
+                <select 
+                  {...register('status')}
+                  className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none border-gray-300 bg-white transition-all text-sm font-bold"
+                >
+                  <option value="ACTIVE">HOẠT ĐỘNG</option>
+                  <option value="TRIAL">DÙNG THỬ (MỚI)</option>
+                  <option value="INACTIVE">TẠM DỪNG / NGƯNG</option>
+                  <option value="SUSPENDED">ĐÌNH CHỈ / KHÓA</option>
+                </select>
+              </div>
+            )}
 
             <div className="pt-4 border-t">
               <h3 className="text-sm font-bold text-gray-900 mb-4 flex items-center">
@@ -264,10 +379,11 @@ export function OrgUnitDrawer({ orgId, drawerState, onClose, hierarchyLevels }: 
                     <input 
                       type="text" 
                       {...register('phone')}
-                      placeholder="0123 456 789"
+                      placeholder="0912 345 678"
                       className="w-full pl-9 pr-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none border-gray-300 transition-all"
                     />
                   </div>
+                  {errors.phone && <p className="text-xs text-red-500 mt-1">{errors.phone.message}</p>}
                 </div>
               </div>
             </div>
@@ -314,24 +430,43 @@ export function OrgUnitDrawer({ orgId, drawerState, onClose, hierarchyLevels }: 
 
             <div className="pt-4 border-t">
               <h3 className="text-sm font-bold text-gray-900 mb-4 flex items-center">
-                <Building2 className="w-4 h-4 mr-2 text-gray-400" /> Vai trò được phép (Role Scope)
+                <Building2 className="w-4 h-4 mr-2 text-gray-400" /> Phạm vi vai trò được phép
               </h3>
-              <p className="text-xs text-gray-500 mb-4 italic">Giới hạn các vai trò có thể gán cho thành viên trong đơn vị này. Để trống để cho phép tất cả.</p>
+              <p className="text-xs text-gray-500 mb-4 italic">Giới hạn các vai trò có thể gán cho thành viên trong đơn vị này. Nếu không chọn, sẽ không có vai trò nào được phép gán.</p>
               <div className="grid grid-cols-2 gap-3">
-                {allRoles.map(role => (
-                  <label key={role.id} className="flex items-center p-3 rounded-xl border border-gray-100 hover:bg-gray-50 transition-all cursor-pointer group">
-                    <input 
-                      type="checkbox"
-                      className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                      value={role.id}
-                      {...register('roleIds')}
-                    />
-                    <div className="ml-3">
-                      <p className="text-sm font-black text-gray-700 group-hover:text-blue-700 transition-colors uppercase">{role.name}</p>
-                      <p className="text-[10px] text-gray-400 font-bold uppercase">{role.isSystem ? 'System' : 'Custom'}</p>
-                    </div>
-                  </label>
-                ))}
+                {[...filteredRoles].sort((a, b) => (a.level ?? 0) - (b.level ?? 0)).map(role => {
+                  const disableReason = getRoleDisableReason(role)
+                  const isDisabled = !!disableReason
+
+                  return (
+                    <label 
+                      key={role.id} 
+                      className={cn(
+                        "flex items-center p-3 rounded-xl border border-gray-100 transition-all cursor-pointer group",
+                        isDisabled ? "opacity-50 cursor-not-allowed bg-gray-50" : "hover:bg-gray-50"
+                      )}
+                    >
+                      <input 
+                        type="checkbox"
+                        className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 disabled:opacity-50"
+                        value={role.id}
+                        disabled={isDisabled}
+                        {...register('roleIds')}
+                      />
+                      <div className="ml-3">
+                        <p className="text-sm font-black text-gray-700 group-hover:text-blue-700 transition-colors uppercase">
+                          {role.name}
+                        </p>
+                        <div className="flex items-center space-x-2">
+                          <p className="text-[10px] text-gray-400 font-bold uppercase">{role.isSystem ? 'Hệ thống' : 'Tùy chỉnh'}</p>
+                        </div>
+                        {isDisabled && (
+                          <p className="text-[9px] text-red-500 font-bold mt-1 uppercase">{disableReason}</p>
+                        )}
+                      </div>
+                    </label>
+                  )
+                })}
               </div>
             </div>
           </form>

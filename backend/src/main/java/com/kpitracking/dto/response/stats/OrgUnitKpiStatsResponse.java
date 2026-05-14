@@ -9,6 +9,7 @@ public class OrgUnitKpiStatsResponse {
 
     private UUID orgUnitId;
     private String orgUnitName;
+    private UUID parentOrgUnitId;
     private long memberCount;
     
     private long totalKpi;
@@ -20,4 +21,5 @@ public class OrgUnitKpiStatsResponse {
     private long approvedSubmissions;
     private long pendingSubmissions;
     private long rejectedSubmissions;
+    private long totalAssignments;
 }

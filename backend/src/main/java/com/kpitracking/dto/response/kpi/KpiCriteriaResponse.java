@@ -30,8 +30,19 @@ public class KpiCriteriaResponse {
     private String rejectReason;
     private Instant submittedAt;
     private Instant approvedAt;
-    private Instant startDate;
-    private Instant endDate;
+    private Double minimumValue;
+    private UUID kpiPeriodId;
+    private KpiPeriodResponse kpiPeriod;
+    private Integer submissionCount;
+    private Integer expectedSubmissions;
+    private UUID keyResultId;
+    private String keyResultName;
+    private String keyResultCode;
+    private UUID objectiveId;
+    private String objectiveName;
+    private String objectiveCode;
+    private UUID parentId;
+    private String parentName;
     private Instant createdAt;
     private Instant updatedAt;
 }

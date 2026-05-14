@@ -10,6 +10,12 @@ import type {
 } from '@/types/orgUnit'
 
 export const orgUnitApi = {
+  getRoles: () =>
+    axiosInstance.get<ApiResponse<any[]>>('/roles').then((r) => r.data.data),
+
+  getOrganization: (organizationId: string) =>
+    axiosInstance.get<ApiResponse<any>>(`/organizations/${organizationId}`).then((r) => r.data.data),
+
   getTree: (organizationId: string) =>
     axiosInstance
       .get<ApiResponse<OrgUnitTreeResponse[]>>(`/organizations/${organizationId}/units/tree`)

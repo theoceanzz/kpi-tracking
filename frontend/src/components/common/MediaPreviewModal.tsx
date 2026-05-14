@@ -1,4 +1,4 @@
-import { X, Download, Maximize2, Minimize2, Share2 } from 'lucide-react'
+import { X, Download, Maximize2, Minimize2, Share2, FileText } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { cn, downloadFile } from '@/lib/utils'
 import { toast } from 'sonner'
@@ -30,13 +30,15 @@ export default function MediaPreviewModal({ url, fileName, contentType, isOpen, 
 
   if (!isOpen) return null
 
-  const isImage = contentType?.startsWith('image/') || /\.(jpg|jpeg|png|webp|gif|svg)$/i.test(url)
-  const isPdf = contentType === 'application/pdf' || url.toLowerCase().endsWith('.pdf')
+  const isImage = contentType?.startsWith('image/') || /\.(jpg|jpeg|png|webp|gif|svg)$/i.test(fileName || url)
+  const isPdf = contentType === 'application/pdf' || (fileName || '').toLowerCase().endsWith('.pdf') || url.toLowerCase().endsWith('.pdf')
+  const isOfficeDoc = /\.(docx?|xlsx?|pptx?)$/i.test(fileName || url)
+  const isLocalFile = url.startsWith('blob:')
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur-sm animate-in fade-in duration-200">
+    <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/90 backdrop-blur-sm animate-in fade-in duration-200">
       {/* Header / Toolbar */}
-      <div className="absolute top-0 left-0 right-0 h-16 flex items-center justify-between px-6 bg-gradient-to-b from-black/60 to-transparent z-10">
+      <div className="absolute top-0 left-0 right-0 h-16 flex items-center justify-between px-6 bg-gradient-to-b from-black/60 to-transparent z-20">
         <div className="flex flex-col">
           <h3 className="text-white font-bold text-sm truncate max-w-[200px] md:max-w-md">{fileName}</h3>
           <span className="text-white/60 text-[10px] uppercase font-bold tracking-widest">Xem trước minh chứng</span>
@@ -82,7 +84,7 @@ export default function MediaPreviewModal({ url, fileName, contentType, isOpen, 
 
       {/* Content Area */}
       <div className={cn(
-        "w-full h-full p-4 md:p-12 flex items-center justify-center overflow-auto",
+        "w-full h-full p-4 md:p-12 flex items-center justify-center overflow-auto z-10",
         isZoomed ? "cursor-zoom-out" : "cursor-default"
       )} onClick={isZoomed ? () => setIsZoomed(false) : undefined}>
         
@@ -107,6 +109,27 @@ export default function MediaPreviewModal({ url, fileName, contentType, isOpen, 
             className="w-full max-w-5xl h-full bg-white rounded-lg shadow-2xl"
             title={fileName}
           />
+        ) : isOfficeDoc ? (
+          isLocalFile ? (
+            <div className="bg-white/5 backdrop-blur-md p-12 rounded-3xl border border-white/10 flex flex-col items-center text-center max-w-sm">
+              <div className="w-20 h-20 rounded-2xl bg-amber-500/20 flex items-center justify-center text-amber-400 mb-6">
+                <FileText size={40} />
+              </div>
+              <h4 className="text-white text-lg font-bold mb-2">Chưa thể xem trước nội dung</h4>
+              <p className="text-white/60 text-sm mb-8 leading-relaxed">
+                Các tệp tin tài liệu (Word/Excel) chỉ có thể xem trước sau khi bạn đã nộp báo cáo lên hệ thống.
+              </p>
+              <div className="bg-white/10 p-4 rounded-xl text-xs text-white/80 font-medium italic border border-white/5 w-full">
+                Mẹo: Bạn có thể tải tệp về để kiểm tra nhanh trước khi gửi.
+              </div>
+            </div>
+          ) : (
+            <iframe 
+              src={`https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(url)}`} 
+              className="w-full max-w-5xl h-full bg-white rounded-lg shadow-2xl"
+              title={fileName}
+            />
+          )
         ) : (
           <div className="bg-white/5 backdrop-blur-md p-12 rounded-3xl border border-white/10 flex flex-col items-center text-center max-w-sm">
             <div className="w-20 h-20 rounded-2xl bg-indigo-500/20 flex items-center justify-center text-indigo-400 mb-6">

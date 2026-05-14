@@ -1,6 +1,8 @@
 package com.kpitracking.controller;
 
+import com.kpitracking.dto.request.submission.BulkReviewRequest;
 import com.kpitracking.dto.request.submission.CreateSubmissionRequest;
+import com.kpitracking.dto.request.submission.UpdateSubmissionRequest;
 import com.kpitracking.dto.request.submission.ReviewSubmissionRequest;
 import com.kpitracking.dto.response.ApiResponse;
 import com.kpitracking.dto.response.PageResponse;
@@ -42,15 +44,29 @@ public class KpiSubmissionController {
                 .body(ApiResponse.success("Submission created successfully", response));
     }
 
+    @PutMapping("/{submissionId}")
+    @Operation(summary = "Update a submission (draft or rejected)")
+    public ResponseEntity<ApiResponse<SubmissionResponse>> updateSubmission(
+            @PathVariable UUID submissionId,
+            @Valid @RequestBody UpdateSubmissionRequest request) {
+        SubmissionResponse response = submissionService.updateSubmission(submissionId, request);
+        return ResponseEntity.ok(ApiResponse.success("Submission updated successfully", response));
+    }
+
     @GetMapping
-    @PreAuthorize("hasAuthority('SUBMISSION:REVIEW')")
+    @PreAuthorize("hasAnyAuthority('SUBMISSION:REVIEW', 'SUBMISSION:REVIEW_KPI')")
     @Operation(summary = "List submissions with optional filters")
     public ResponseEntity<ApiResponse<PageResponse<SubmissionResponse>>> getSubmissions(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size,
             @RequestParam(required = false) SubmissionStatus status,
-            @RequestParam(required = false) UUID kpiCriteriaId) {
-        PageResponse<SubmissionResponse> response = submissionService.getSubmissions(page, size, status, kpiCriteriaId);
+            @RequestParam(required = false) UUID kpiPeriodId,
+            @RequestParam(required = false) UUID kpiCriteriaId,
+            @RequestParam(required = false) UUID submittedById,
+            @RequestParam(required = false) UUID orgUnitId,
+            @RequestParam(defaultValue = "createdAt") String sortBy,
+            @RequestParam(defaultValue = "desc") String sortDir) {
+        PageResponse<SubmissionResponse> response = submissionService.getSubmissions(page, size, status, kpiPeriodId, kpiCriteriaId, submittedById, orgUnitId, sortBy, sortDir);
         return ResponseEntity.ok(ApiResponse.success(response));
     }
 
@@ -75,8 +91,12 @@ public class KpiSubmissionController {
     @Operation(summary = "Get current user's submissions")
     public ResponseEntity<ApiResponse<PageResponse<SubmissionResponse>>> getMySubmissions(
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size) {
-        PageResponse<SubmissionResponse> response = submissionService.getMySubmissions(page, size);
+            @RequestParam(defaultValue = "20") int size,
+            @RequestParam(required = false) SubmissionStatus status,
+            @RequestParam(required = false) UUID kpiPeriodId,
+            @RequestParam(defaultValue = "createdAt") String sortBy,
+            @RequestParam(defaultValue = "desc") String sortDir) {
+        PageResponse<SubmissionResponse> response = submissionService.getMySubmissions(page, size, status, kpiPeriodId, sortBy, sortDir);
         return ResponseEntity.ok(ApiResponse.success(response));
     }
 
@@ -109,5 +129,11 @@ public class KpiSubmissionController {
     public ResponseEntity<ApiResponse<Void>> deleteAttachment(@PathVariable UUID attachmentId) {
         attachmentService.deleteAttachment(attachmentId);
         return ResponseEntity.ok(ApiResponse.success("Attachment deleted successfully"));
+    }
+
+    @PostMapping("/bulk-review")
+    public ResponseEntity<ApiResponse<List<SubmissionResponse>>> bulkReview(@RequestBody BulkReviewRequest request) {
+        List<SubmissionResponse> response = submissionService.bulkReview(request);
+        return ResponseEntity.ok(ApiResponse.success(response));
     }
 }

@@ -4,6 +4,7 @@ import { Toaster } from 'sonner'
 import { queryClient } from '@/lib/queryClient'
 import { router } from '@/router'
 import { useEffect } from 'react'
+import GlobalUploadProgress from '@/components/common/GlobalUploadProgress'
 import { useThemeStore } from '@/store/themeStore'
 
 export default function App() {
@@ -17,10 +18,12 @@ export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <RouterProvider router={router} />
+      <GlobalUploadProgress />
       <Toaster
-        position="top-right"
+        position="top-center"
         richColors
         closeButton
+        duration={4000}
         toastOptions={{
           style: { fontFamily: 'Inter, sans-serif' },
         }}

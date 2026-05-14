@@ -31,6 +31,9 @@ public class User {
     @Column(name = "full_name", nullable = false)
     private String fullName;
 
+    @Column(name = "employee_code", unique = true)
+    private String employeeCode;
+
     @Column(name = "phone")
     private String phone;
 
@@ -68,4 +71,12 @@ public class User {
 
     @Column(name = "deleted_at")
     private Instant deletedAt;
+
+    @Column(name = "require_password_change", nullable = false)
+    @Builder.Default
+    private Boolean requirePasswordChange = false;
+
+    @Column(name = "has_seen_onboarding", nullable = false)
+    @Builder.Default
+    private Boolean hasSeenOnboarding = false;
 }

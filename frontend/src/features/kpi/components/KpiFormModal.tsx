@@ -9,37 +9,48 @@ import { useUsers } from '@/features/users/hooks/useUsers'
 import { useAuthStore } from '@/store/authStore'
 import { usePermission } from '@/hooks/usePermission'
 import { toast } from 'sonner'
-import { Loader2, X, Check } from 'lucide-react'
+import { FREQUENCY_MAP } from '@/lib/utils'
+import { Loader2, X, Check, Sparkles, Target, GitBranch } from 'lucide-react'
 import type { KpiCriteria } from '@/types/kpi'
+import { useState } from 'react'
+import { useKpiPeriods } from '../hooks/useKpiPeriods'
+import { useKpiTotalWeight } from '../hooks/useKpiTotalWeight'
+import { Gauge, Info } from 'lucide-react'
+import { useOrganization } from '@/features/orgunits/hooks/useOrganization'
+import { useObjectives } from '@/features/okr/hooks/useOkr'
+import { useKpiCriteria } from '../hooks/useKpiCriteria'
 
 interface KpiFormModalProps {
   open: boolean
   onClose: () => void
   editKpi?: KpiCriteria | null
+  parentKpi?: KpiCriteria | null
 }
 
-const frequencyOptions = [
-  { value: 'DAILY', label: 'Hàng ngày' },
-  { value: 'WEEKLY', label: 'Hàng tuần' },
-  { value: 'MONTHLY', label: 'Hàng tháng' },
-  { value: 'QUARTERLY', label: 'Hàng quý' },
-  { value: 'YEARLY', label: 'Hàng năm' },
-] as const
+const frequencyOptions = (['DAILY', 'WEEKLY', 'MONTHLY', 'QUARTERLY', 'SEMI_ANNUALLY', 'YEARLY'] as const).map(value => ({
+  value,
+  label: FREQUENCY_MAP[value]
+}))
 
-const ROLE_PRIORITY: Record<string, number> = {
-  'DIRECTOR': 4,
-  'HEAD': 3,
-  'DEPUTY': 2,
-  'STAFF': 1,
-}
 
-export default function KpiFormModal({ open, onClose, editKpi }: KpiFormModalProps) {
+export default function KpiFormModal({ open, onClose, editKpi, parentKpi }: KpiFormModalProps) {
   const isEdit = !!editKpi
   const qc = useQueryClient()
   const { user } = useAuthStore()
   const { hasPermission } = usePermission()
+  const canManageOrg = hasPermission('ORG:VIEW')
+  const canReview = hasPermission('SUBMISSION:REVIEW')
+  const canAssignRoles = hasPermission('ROLE:ASSIGN')
+
   const { data: orgUnitTreeData } = useOrgUnitTree()
+  const organizationId = user?.memberships?.[0]?.organizationId
+  const { data: org } = useOrganization(organizationId)
+  const { data: periodsData } = useKpiPeriods({ organizationId })
   
+  const enableOkr = org?.enableOkr
+  const enableWaterfall = org?.enableWaterfall
+  const { data: objectives } = useObjectives(enableOkr ? organizationId : undefined)
+
   // Flatten tree for dropdown
   const flattenTree = (nodes: any[], level = 0): any[] => {
     let result: any[] = []
@@ -55,12 +66,24 @@ export default function KpiFormModal({ open, onClose, editKpi }: KpiFormModalPro
 
   const { register, handleSubmit, formState: { errors }, reset, watch, setValue } = useForm<KpiFormData>({
     resolver: zodResolver(kpiSchema),
-    defaultValues: { name: '', frequency: 'MONTHLY', assignedToIds: [] },
+    defaultValues: { name: '', frequency: 'MONTHLY', assignedToIds: [], kpiPeriodId: '', keyResultId: null, parentId: null },
   })
+
+  const formKpiPeriodId = watch('kpiPeriodId')
+
+  // Fetch potential parent KPIs (Approved KPIs for the same period)
+  const { data: potentialParents } = useKpiCriteria({
+    status: 'APPROVED',
+    kpiPeriodId: formKpiPeriodId || undefined,
+    size: 100
+  }, !!(enableWaterfall && formKpiPeriodId))
 
   // Synchronize form values only when modal opens
   useEffect(() => {
-    if (!open) return
+    if (!open) {
+      setUserSearch('')
+      return
+    }
 
     if (editKpi) {
       reset({
@@ -72,22 +95,33 @@ export default function KpiFormModal({ open, onClose, editKpi }: KpiFormModalPro
         frequency: editKpi.frequency,
         orgUnitId: editKpi.orgUnitId ?? '',
         assignedToIds: editKpi.assigneeIds ?? [],
-        startDate: editKpi.startDate ? editKpi.startDate.split('T')[0] : '',
-        endDate: editKpi.endDate ? editKpi.endDate.split('T')[0] : '',
+        minimumValue: editKpi.minimumValue ?? undefined,
+        kpiPeriodId: editKpi.kpiPeriodId ?? '',
+        keyResultId: editKpi.keyResultId ?? null,
+        parentId: editKpi.parentId ?? null,
       })
     } else {
-      reset({ name: '', frequency: 'MONTHLY', assignedToIds: [] })
+      reset({ 
+        name: parentKpi ? `[${parentKpi.name}] ` : '', 
+        frequency: 'MONTHLY', 
+        assignedToIds: [], 
+        kpiPeriodId: parentKpi?.kpiPeriodId ?? '',
+        keyResultId: null,
+        parentId: parentKpi?.id ?? null,
+        unit: parentKpi?.unit ?? '',
+        orgUnitId: canAssignRoles ? (flatOrgUnits?.[0]?.id || '') : (user?.memberships?.[0]?.orgUnitId || '')
+      })
     }
-  }, [open, reset]) // Removed editKpi to prevent reset on data refetches
+  }, [open, reset, flatOrgUnits, canManageOrg, parentKpi]) 
 
   const formOrgUnitId = watch('orgUnitId')
   const selectedAssignees = watch('assignedToIds') || []
 
-  // For HEAD/DEPUTY, automatically use their orgUnit if not chosen
+  // For HEAD/DEPUTY, automatically use their orgUnit if not allowed to switch
   const fetchOrgUnitId = useMemo(() => {
-    if (hasPermission('ORG:VIEW')) return formOrgUnitId || undefined
-    return formOrgUnitId || user?.memberships?.[0]?.orgUnitId
-  }, [hasPermission, user, formOrgUnitId])
+    if (canAssignRoles) return formOrgUnitId || undefined
+    return user?.memberships?.[0]?.orgUnitId
+  }, [canAssignRoles, user, formOrgUnitId])
 
   const { data: usersData, isLoading: isLoadingUsers } = useUsers({ 
     page: 0, 
@@ -98,21 +132,31 @@ export default function KpiFormModal({ open, onClose, editKpi }: KpiFormModalPro
   const availableUsers = useMemo(() => {
     if (!usersData?.content) return []
     
-    // Determine current user's highest role priority
-    const currentUserRoles = user?.roles || []
-    const myPriority = Math.max(...currentUserRoles.map(r => ROLE_PRIORITY[r] || 0), 0)
-
     return usersData.content.filter(u => {
-      // Get target user's highest role priority
-      const targetPriority = Math.max(...(u.roles || []).map(r => ROLE_PRIORITY[r] || 0), 0)
-
-      if (hasPermission('USER:VIEW')) return true // Can assign to anyone if they have user view permission
+      // If user has USER:VIEW or ROLE:ASSIGN, they can see everyone in the list
+      if (hasPermission('USER:VIEW') || canAssignRoles) return true
       
-      // For others: only assign to people whose highest role is <= their own highest role
-      // This prevents a Head from assigning to a Director.
-      return targetPriority <= myPriority
+      // Otherwise, only allow assigning to people who don't have management/review permissions 
+      // if the current user themselves is just a lower-level manager
+      const targetIsManager = u.permissions?.includes('SUBMISSION:REVIEW') || 
+                               u.roles?.some(r => ['DIRECTOR', 'HEAD', 'DEPUTY'].includes(r))
+      if (targetIsManager && !canAssignRoles) return false
+
+      return true
     })
-  }, [usersData, hasPermission, user])
+  }, [usersData, hasPermission, canAssignRoles])
+
+  const { data: totalWeightData } = useKpiTotalWeight(
+    fetchOrgUnitId,
+    watch('kpiPeriodId')
+  )
+
+  const currentWeight = watch('weight') || 0
+  const oldWeight = editKpi?.weight || 0
+  const projectedWeight = useMemo(() => {
+    const existing = totalWeightData || 0
+    return existing - oldWeight + Number(currentWeight)
+  }, [totalWeightData, oldWeight, currentWeight])
 
   const createMutation = useMutation({
     mutationFn: (data: KpiFormData) => kpiApi.create(data),
@@ -141,6 +185,92 @@ export default function KpiFormModal({ open, onClose, editKpi }: KpiFormModalPro
     },
   })
 
+  const formFrequency = watch('frequency')
+
+  const selectedPeriod = useMemo(() => {
+    return periodsData?.content?.find((p: any) => p.id === formKpiPeriodId)
+  }, [periodsData, formKpiPeriodId])
+
+  const filteredFrequencyOptions = useMemo(() => {
+    if (!selectedPeriod) return frequencyOptions
+    
+    const TYPE_LEVEL: Record<string, number> = {
+      'DAILY': 1,
+      'WEEKLY': 2,
+      'MONTHLY': 3,
+      'QUARTERLY': 4,
+      'SEMI_ANNUALLY': 5,
+      'YEARLY': 6
+    }
+    const periodLevel = TYPE_LEVEL[selectedPeriod.periodType] || 0
+    return frequencyOptions.filter(opt => (TYPE_LEVEL[opt.value as any] || 0) <= periodLevel)
+  }, [selectedPeriod])
+
+  useEffect(() => {
+    if (selectedPeriod) {
+      const TYPE_LEVEL: Record<string, number> = {
+        'DAILY': 1,
+        'WEEKLY': 2,
+        'MONTHLY': 3,
+        'QUARTERLY': 4,
+        'SEMI_ANNUALLY': 5,
+        'YEARLY': 6
+      }
+      const periodLevel = TYPE_LEVEL[selectedPeriod.periodType] || 0
+      if ((TYPE_LEVEL[formFrequency] || 0) > periodLevel) {
+        setValue('frequency', selectedPeriod.periodType as any)
+      }
+    }
+  }, [selectedPeriod, formFrequency, setValue])
+
+  // AI Suggestion Logic
+  const [aiSuggestions, setAiSuggestions] = useState<any[]>([])
+  const [isSuggesting, setIsSuggesting] = useState(false)
+  const [userSearch, setUserSearch] = useState('')
+
+  const displayUsers = useMemo(() => {
+    if (!userSearch.trim()) return availableUsers
+    const search = userSearch.toLowerCase()
+    return availableUsers.filter(u => 
+      u.fullName.toLowerCase().includes(search) || 
+      u.email.toLowerCase().includes(search)
+    )
+  }, [availableUsers, userSearch])
+
+  const handleAiSuggest = async () => {
+    const orgUnitId = watch('orgUnitId') || user?.memberships?.[0]?.orgUnitId
+    if (!orgUnitId) {
+      toast.error('Vui lòng chọn hoặc đảm bảo bạn thuộc một phòng ban để nhận gợi ý chính xác')
+      return
+    }
+
+    setIsSuggesting(true)
+    try {
+      const suggestions = await kpiApi.getAiSuggestions(orgUnitId)
+      setAiSuggestions(suggestions)
+      if (suggestions.length === 0) {
+        toast.info('AI không tìm thấy gợi ý phù hợp lúc này')
+      }
+    } catch (err) {
+      toast.error('Lỗi khi lấy gợi ý từ AI')
+    } finally {
+      setIsSuggesting(false)
+    }
+  }
+
+  const applySuggestion = (sug: any) => {
+    reset({
+      ...watch(),
+      name: sug.name,
+      description: sug.description,
+      unit: sug.unit,
+      targetValue: sug.targetValue,
+      weight: sug.weight,
+      frequency: sug.frequency,
+    })
+    setAiSuggestions([])
+  }
+
   const isPending = createMutation.isPending || updateMutation.isPending
 
   const onSubmit = (data: KpiFormData) => {
@@ -148,8 +278,8 @@ export default function KpiFormModal({ open, onClose, editKpi }: KpiFormModalPro
     
     // Clean up empty strings and unselected values
     if (!payload.orgUnitId) delete payload.orgUnitId
-    if (!payload.startDate || payload.startDate === "") delete payload.startDate
-    if (!payload.endDate || payload.endDate === "") delete payload.endDate
+    if (payload.keyResultId === '') payload.keyResultId = null
+    if (payload.parentId === '') payload.parentId = null
     
     // Ensure assignedToIds is an array and remove legacy assignedToId
     delete payload.assignedToId
@@ -177,7 +307,7 @@ export default function KpiFormModal({ open, onClose, editKpi }: KpiFormModalPro
   const inputCls = "w-full px-3 py-2.5 rounded-lg border border-[var(--color-border)] bg-[var(--color-background)] text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]/50"
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
+    <div className="fixed inset-0 z-[200] flex items-center justify-center">
       <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
       <div className="relative bg-[var(--color-card)] rounded-2xl shadow-xl p-6 max-w-lg w-full mx-4 animate-in zoom-in-95 max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between mb-5">
@@ -192,20 +322,110 @@ export default function KpiFormModal({ open, onClose, editKpi }: KpiFormModalPro
 
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium mb-1.5">Tên chỉ tiêu <span className="text-red-500">*</span></label>
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="block text-sm font-medium">Tên chỉ tiêu <span className="text-red-500">*</span></label>
+              {(canManageOrg || canReview) && !isEdit && (
+                <button 
+                  type="button"
+                  onClick={handleAiSuggest}
+                  disabled={isSuggesting}
+                  className="flex items-center gap-1.5 text-[10px] font-bold text-[var(--color-primary)] hover:opacity-80 transition-opacity disabled:opacity-50"
+                >
+                  {isSuggesting ? <Loader2 size={12} className="animate-spin" /> : <Sparkles size={12} />}
+                  Gợi ý bằng AI
+                </button>
+              )}
+            </div>
             <input {...register('name')} className={inputCls} placeholder="VD: Doanh thu tháng" />
             {errors.name && <p className="text-red-500 text-xs mt-1">{errors.name.message}</p>}
           </div>
+
+          {aiSuggestions.length > 0 && (
+            <div className="bg-[var(--color-primary)]/5 border border-[var(--color-primary)]/20 rounded-xl p-3 space-y-2 animate-in fade-in slide-in-from-top-1">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-bold text-[var(--color-primary)] flex items-center gap-1">
+                  <Sparkles size={12} /> Gợi ý dành cho bạn:
+                </span>
+                <button type="button" onClick={() => setAiSuggestions([])} className="text-[10px] hover:underline">Đóng</button>
+              </div>
+              <div className="space-y-1.5">
+                {aiSuggestions.map((s, idx) => (
+                  <button
+                    key={idx}
+                    type="button"
+                    onClick={() => applySuggestion(s)}
+                    className="w-full text-left p-2 rounded-lg bg-[var(--color-background)] border border-[var(--color-border)] hover:border-[var(--color-primary)] transition-all group"
+                  >
+                    <div className="font-semibold text-xs group-hover:text-[var(--color-primary)]">{s.name}</div>
+                    <div className="text-[10px] text-[var(--color-muted-foreground)] line-clamp-1">
+                      Mục tiêu: <span className="text-[var(--color-foreground)] font-medium">{s.targetValue} {s.unit}</span> • {s.description}
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
 
           <div>
             <label className="block text-sm font-medium mb-1.5">Mô tả</label>
             <textarea {...register('description')} rows={2} className={inputCls + ' resize-none'} placeholder="Chi tiết chỉ tiêu..." />
           </div>
 
+          {enableOkr && (
+            // ... existing OKR section ...
+            <div className="bg-violet-50 dark:bg-violet-900/10 p-4 rounded-xl border border-violet-100 dark:border-violet-800 space-y-3">
+              <div className="flex items-center gap-2 text-violet-600 dark:text-violet-400">
+                <Target size={16} />
+                <span className="text-xs font-black uppercase tracking-tight">Liên kết chiến lược (OKR)</span>
+              </div>
+              <div>
+                <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Kết quả then chốt (Key Result)</label>
+                <select {...register('keyResultId')} className={inputCls + " border-violet-200 dark:border-violet-800 focus:ring-violet-500/50"}>
+                  <option value="">-- Không liên kết --</option>
+                  {objectives?.map(obj => (
+                    <optgroup key={obj.id} label={obj.name}>
+                      {obj.keyResults.map(kr => (
+                        <option key={kr.id} value={kr.id}>{kr.name} ({kr.progress}%)</option>
+                      ))}
+                    </optgroup>
+                  ))}
+                </select>
+                <p className="text-[10px] text-slate-400 mt-1 flex items-center gap-1">
+                  <Info size={10} /> KPI sẽ đóng góp trực tiếp vào tiến độ của Key Result này.
+                </p>
+              </div>
+            </div>
+          )}
+
+          {enableWaterfall && (
+            <div className="bg-cyan-50 dark:bg-cyan-900/10 p-4 rounded-xl border border-cyan-100 dark:border-cyan-800 space-y-3">
+              <div className="flex items-center gap-2 text-cyan-600 dark:text-cyan-400">
+                <GitBranch size={16} />
+                <span className="text-xs font-black uppercase tracking-tight">Cấu trúc thác nước (Waterfall)</span>
+              </div>
+              <div>
+                <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Chỉ tiêu Cha (Parent KPI)</label>
+                <select {...register('parentId')} className={inputCls + " border-cyan-200 dark:border-cyan-800 focus:ring-cyan-500/50"}>
+                  <option value="">-- Chỉ tiêu độc lập --</option>
+                  {potentialParents?.content
+                    ?.filter(k => k.id !== editKpi?.id) // Prevent self-parenting
+                    ?.map(k => (
+                    <option key={k.id} value={k.id}>
+                      {k.name} ({k.orgUnitName})
+                    </option>
+                  ))}
+                </select>
+                <p className="text-[10px] text-slate-400 mt-1 flex items-center gap-1">
+                  <Info size={10} /> Kết quả của chỉ tiêu này sẽ được cộng dồn lên chỉ tiêu cha đã chọn.
+                </p>
+              </div>
+            </div>
+          )}
+
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium mb-1.5">Mục tiêu</label>
-              <input {...register('targetValue', { valueAsNumber: true })} type="number" step="any" className={inputCls} placeholder="100" />
+              <input {...register('targetValue', { valueAsNumber: true })} type="number" step="any" onWheel={(e) => (e.target as HTMLInputElement).blur()} className={inputCls} placeholder="100" />
             </div>
             <div>
               <label className="block text-sm font-medium mb-1.5">Đơn vị</label>
@@ -216,22 +436,31 @@ export default function KpiFormModal({ open, onClose, editKpi }: KpiFormModalPro
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium mb-1.5">Trọng số (%)</label>
-              <input {...register('weight', { valueAsNumber: true })} type="number" step="any" min={0} max={100} className={inputCls} placeholder="30" />
+              <input {...register('weight', { valueAsNumber: true })} type="number" step="any" min={0} max={100} onWheel={(e) => (e.target as HTMLInputElement).blur()} className={inputCls} placeholder="30" />
               {errors.weight && <p className="text-red-500 text-xs mt-1">{errors.weight.message}</p>}
+              
+              {watch('kpiPeriodId') && (
+                <div className={`mt-2 p-2 rounded-lg border text-[10px] font-bold flex items-center gap-1.5 ${
+                  projectedWeight === 100 ? 'bg-emerald-50 border-emerald-100 text-emerald-700' : 
+                  projectedWeight > 100 ? 'bg-rose-50 border-rose-100 text-rose-700' : 
+                  'bg-amber-50 border-amber-100 text-amber-700'
+                }`}>
+                  <Gauge size={12} />
+                  Dự kiến tổng trọng số: {projectedWeight}% 
+                  {projectedWeight === 100 ? ' (Đạt chuẩn)' : projectedWeight > 100 ? ' (Vượt mức!)' : ' (Chưa đủ)'}
+                </div>
+              )}
             </div>
             <div>
-              <label className="block text-sm font-medium mb-1.5">Tần suất <span className="text-red-500">*</span></label>
-              <select {...register('frequency')} className={inputCls}>
-                {frequencyOptions.map((opt) => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
-              </select>
-              {errors.frequency && <p className="text-red-500 text-xs mt-1">{errors.frequency.message}</p>}
+              <label className="block text-sm font-medium mb-1.5">Giá trị tối thiểu</label>
+              <input {...register('minimumValue', { valueAsNumber: true })} type="number" step="any" onWheel={(e) => (e.target as HTMLInputElement).blur()} className={inputCls} placeholder="VD: 50" />
             </div>
           </div>
 
-          {hasPermission('ORG:VIEW') && (
+          {canAssignRoles && (
             <div>
               <label className="block text-sm font-medium mb-1.5">Phòng ban / Đơn vị</label>
-              <select {...register('orgUnitId')} className={inputCls} defaultValue="">
+              <select {...register('orgUnitId')} className={inputCls}>
                 {flatOrgUnits.map((d: any) => <option key={d.id} value={d.id}>{d.levelLabel}</option>)}
               </select>
             </div>
@@ -244,13 +473,24 @@ export default function KpiFormModal({ open, onClose, editKpi }: KpiFormModalPro
             </label>
             
             <div className="border border-[var(--color-border)] rounded-lg overflow-hidden bg-[var(--color-background)]">
+              <div className="p-2 border-b border-[var(--color-border)] bg-[var(--color-accent)]/30">
+                <input 
+                  type="text"
+                  placeholder="Tìm tên hoặc email nhân viên..."
+                  value={userSearch}
+                  onChange={(e) => setUserSearch(e.target.value)}
+                  className="w-full px-3 py-1.5 text-xs rounded-md border border-[var(--color-border)] bg-[var(--color-background)] outline-none focus:ring-1 focus:ring-[var(--color-primary)]"
+                />
+              </div>
               <div className="max-h-40 overflow-y-auto p-1.5 space-y-1">
                 {isLoadingUsers ? (
                   <div className="p-3 text-center text-xs text-[var(--color-muted-foreground)]">Đang tải danh sách...</div>
-                ) : availableUsers.length === 0 ? (
-                  <div className="p-3 text-center text-xs text-[var(--color-muted-foreground)]">Không có nhân viên phù hợp</div>
+                ) : displayUsers.length === 0 ? (
+                  <div className="p-3 text-center text-xs text-[var(--color-muted-foreground)]">
+                    {userSearch ? 'Không tìm thấy nhân viên' : 'Không có nhân viên phù hợp'}
+                  </div>
                 ) : (
-                  availableUsers.map((u) => {
+                  displayUsers.map((u) => {
                     const isSelected = selectedAssignees.includes(u.id)
                     return (
                       <div 
@@ -280,12 +520,21 @@ export default function KpiFormModal({ open, onClose, editKpi }: KpiFormModalPro
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium mb-1.5">Ngày bắt đầu</label>
-              <input {...register('startDate')} type="date" className={inputCls} />
+              <label className="block text-sm font-medium mb-1.5">Kỳ (Đợt) KPI <span className="text-red-500">*</span></label>
+              <select {...register('kpiPeriodId')} className={inputCls}>
+                <option value="">Chọn đợt...</option>
+                {periodsData?.content.map(p => (
+                  <option key={p.id} value={p.id}>{p.name} ({p.periodType})</option>
+                ))}
+              </select>
+              {errors.kpiPeriodId && <p className="text-red-500 text-xs mt-1">{errors.kpiPeriodId.message}</p>}
             </div>
             <div>
-              <label className="block text-sm font-medium mb-1.5">Ngày kết thúc</label>
-              <input {...register('endDate')} type="date" className={inputCls} />
+              <label className="block text-sm font-medium mb-1.5">Tần suất <span className="text-red-500">*</span></label>
+              <select {...register('frequency')} className={inputCls}>
+                {filteredFrequencyOptions.map((opt) => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
+              </select>
+              {errors.frequency && <p className="text-red-500 text-xs mt-1">{errors.frequency.message}</p>}
             </div>
           </div>
 

@@ -14,6 +14,11 @@ public class OrganizationResponse {
     private String code;
     private String status;
     private List<HierarchyLevelResponse> hierarchyLevels;
+    private Double evaluationMaxScore;
+    private java.util.List<EvaluationLevelResponse> evaluationLevels;
+    private Integer kpiReminderPercentage;
+    private Boolean enableOkr;
+    private Boolean enableWaterfall;
     private Instant createdAt;
     private Instant updatedAt;
 }

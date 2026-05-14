@@ -19,6 +19,13 @@ export interface AssignRoleRequest {
   expiresAt?: string
 }
 
+export interface BulkAssignRoleRequest {
+  userIds: string[]
+  roleId: string
+  orgUnitId: string
+  expiresAt?: string
+}
+
 export const userRoleApi = {
   getByOrgUnit: async (orgUnitId: string) => {
     const response = await axiosInstance.get<ApiResponse<UserRoleOrgUnitResponse[]>>(`/user-roles/org-unit/${orgUnitId}`)
@@ -35,9 +42,24 @@ export const userRoleApi = {
     return response.data.data
   },
 
+  bulkAssignRole: async (request: BulkAssignRoleRequest) => {
+    const response = await axiosInstance.post<ApiResponse<UserRoleOrgUnitResponse[]>>('/user-roles/assign/bulk', request)
+    return response.data.data
+  },
+
   revokeRole: async (userId: string, roleId: string, orgUnitId: string) => {
     await axiosInstance.delete('/user-roles/revoke', {
       params: { userId, roleId, orgUnitId }
+    })
+  },
+
+  removeAllFromUnit: async (orgUnitId: string) => {
+    await axiosInstance.delete(`/user-roles/org-unit/${orgUnitId}/remove-all`)
+  },
+
+  removeBulkFromUnit: async (userIds: string[], orgUnitId: string) => {
+    await axiosInstance.delete(`/user-roles/org-unit/${orgUnitId}/remove-bulk`, {
+        data: userIds
     })
   }
 }

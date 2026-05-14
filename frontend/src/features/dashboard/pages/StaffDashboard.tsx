@@ -1,15 +1,20 @@
-import { useMemo } from 'react'
+import { useState, useMemo, useEffect, type ReactNode } from 'react'
 import LoadingSkeleton from '@/components/common/LoadingSkeleton'
 import StatusBadge from '@/components/common/StatusBadge'
 import { useMyKpiProgress } from '../hooks/useMyKpiProgress'
 import { useMySubmissions } from '@/features/submissions/hooks/useMySubmissions'
 import { useAuthStore } from '@/store/authStore'
 import { Link } from 'react-router-dom'
-import { getInitials, formatDateTime, formatNumber, cn } from '@/lib/utils'
+import { getInitials, formatDateTime, cn } from '@/lib/utils'
+import type { KpiTask } from '@/types/stats'
+import { useMyKpi } from '@/features/kpi/hooks/useMyKpi'
 import {
-  Target, FileText, CheckCircle, XCircle, Clock, Plus,
-  TrendingUp, Award, ArrowUpRight, Flame, BarChart3, ListChecks, Pin, PinOff
+  Calendar, Zap, Pin, PinOff, Star, Target, TrendingUp, Award,
+  Plus, Clock, FileText, CheckCircle, Pencil, ChevronLeft, ChevronRight, ArrowUpRight
 } from 'lucide-react'
+import { useKpiPeriods } from '@/features/kpi/hooks/useKpiPeriods'
+import { useEvaluations } from '@/features/evaluations/hooks/useEvaluations'
+import EvaluationFormModal from '@/features/evaluations/components/EvaluationFormModal'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { reportApi } from '@/features/reports/api/reportApi'
 import { toast } from 'sonner'
@@ -18,67 +23,182 @@ import {
   BarChart, Bar, PieChart, Pie, Cell, AreaChart, Area, Legend
 } from 'recharts'
 import type { ReportWidget } from '@/types/datasource'
-import { useSummaryStats, useSummaryTrend, useSummaryComparison, useSummaryRisks } from '@/features/analytics/hooks/useAnalytics'
-import { useOverviewStats } from '../hooks/useOverviewStats'
+import { useSummaryTrend, useSummaryComparison, useSummaryRisks, useSummaryStats, useMyAnalytics } from '@/features/analytics/hooks/useAnalytics'
+import { useNotifications } from '@/features/notifications/hooks/useNotifications'
+import PageTour from '@/components/common/PageTour'
+import { staffDashboardSteps } from '@/components/common/tourSteps'
 
 const COLORS = ['#6366f1', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'];
 
 export default function StaffDashboard() {
-  const { data: progress, isLoading: progressLoading } = useMyKpiProgress()
-  const { data: submissions, isLoading: subLoading } = useMySubmissions(0, 5)
+  const [taskPage, setTaskPage] = useState(0)
+  const taskSize = 10
   const { user } = useAuthStore()
-  const queryClient = useQueryClient()
+  // const queryClient = useQueryClient()
+
+  const { data: progress, isLoading: progressLoading } = useMyKpiProgress(taskPage, taskSize)
+  const { data: submissions, isLoading: subLoading } = useMySubmissions({ page: 0, size: 10 })
+  const { data: allSubmissions } = useMySubmissions({ size: 100 })
+  const { data: myKpis } = useMyKpi({ size: 100 })
+  const { data: periodsData } = useKpiPeriods({ organizationId: user?.memberships?.[0]?.organizationId })
+  const { data: evaluations } = useEvaluations({ userId: user?.id, size: 50 })
 
   const { data: pinnedWidgets, isLoading: pinnedLoading, refetch: refetchPinned } = useQuery({
     queryKey: ['reports', 'widgets', 'pinned'],
     queryFn: () => reportApi.getPinnedWidgets(),
   })
 
+  // Auto-popup states
+  const [showAutoEval, setShowAutoEval] = useState(false)
+  const [hasShownAutoEval, setHasShownAutoEval] = useState(false)
+
+  // Find active period
+  const activePeriod = useMemo(() => {
+    if (!periodsData?.content) return null
+    const now = new Date()
+    return periodsData.content.find(p => {
+       if (!p.startDate || !p.endDate) return false
+       const start = new Date(p.startDate)
+       const end = new Date(p.endDate)
+       return now >= start && now <= end
+    })
+  }, [periodsData])
+
+  // 1. Period for auto-popup: Only if 100% completed and not evaluated
+  const completedPeriodToEval = useMemo(() => {
+    if (!periodsData?.content || !myKpis?.content || !allSubmissions?.content || !evaluations?.content) return null
+    
+    const sortedPeriods = [...periodsData.content].sort((a, b) => {
+      const dateA = new Date(a.endDate || 0).getTime()
+      const dateB = new Date(b.endDate || 0).getTime()
+      return dateB - dateA
+    })
+
+    for (const period of sortedPeriods) {
+       if (evaluations.content.some(e => e.kpiPeriodId === period.id)) continue
+
+       const periodKpis = myKpis.content.filter(k => k.kpiPeriodId === period.id)
+       if (periodKpis.length === 0) continue
+
+       const isCompleted = periodKpis.every(kpi => {
+          const approvedSubs = allSubmissions.content.filter(s => s.kpiCriteriaId === kpi.id && s.status === 'APPROVED')
+          return approvedSubs.length >= kpi.expectedSubmissions
+       })
+
+       if (isCompleted) return period
+    }
+    return null
+  }, [periodsData, myKpis, allSubmissions, evaluations])
+
+  // 2. Default period for the form (can include active period even if not completed)
+  const defaultPeriodForForm = completedPeriodToEval || activePeriod
+
+  // Trigger auto-popup ONLY for completed periods
+  useEffect(() => {
+    if (completedPeriodToEval && !hasShownAutoEval) {
+      setShowAutoEval(true)
+      setHasShownAutoEval(true)
+    }
+  }, [completedPeriodToEval, hasShownAutoEval])
+
+  // Calculate overall average percentage across all KPIs
+  const overallAvgScore = useMemo(() => {
+    if (!myKpis || !allSubmissions) return '0'
+    const kpis = myKpis.content
+    const subs = allSubmissions.content
+    
+    if (kpis.length === 0) return '0'
+
+    const totalPercentage = kpis.reduce((acc, kpi) => {
+      const latestSub = subs.find(s => s.kpiCriteriaId === kpi.id)
+      if (!latestSub) return acc
+      
+      const percentage = latestSub.targetValue 
+        ? Math.min((latestSub.actualValue / latestSub.targetValue) * 100, 100)
+        : (latestSub.actualValue <= 100 ? latestSub.actualValue : 0)
+        
+      return acc + percentage
+    }, 0)
+
+    return (totalPercentage / kpis.length).toFixed(1)
+  }, [myKpis, allSubmissions])
+
   const isLoading = progressLoading || subLoading || pinnedLoading
+
+  if (isLoading) return (
+    <div className="max-w-[1440px] mx-auto p-6 space-y-8 animate-pulse">
+      <div className="h-24 bg-slate-100 dark:bg-slate-800 rounded-3xl" />
+      <div id="tour-staff-stats" className="grid grid-cols-2 md:grid-cols-5 gap-4">
+        {[1,2,3,4,5].map(i => <div key={i} className="h-32 bg-slate-100 dark:bg-slate-800 rounded-2xl" />)}
+      </div>
+      <div id="tour-staff-tasks" className="h-96 bg-slate-100 dark:bg-slate-800 rounded-3xl" />
+    </div>
+  )
 
   const totalAssigned = progress?.totalAssignedKpi ?? 0
   const totalSub = progress?.totalSubmissions ?? 0
   const approvedSub = progress?.approvedSubmissions ?? 0
-  const pendingSub = progress?.pendingSubmissions ?? 0
-  const rejectedSub = progress?.rejectedSubmissions ?? 0
-  const avgScore = progress?.averageScore != null ? Number(progress.averageScore).toFixed(1) : '—'
+  const lateSub = progress?.lateSubmissions ?? 0
+  const tasksData = progress?.tasks
+  const tasks = tasksData?.content ?? []
+  const totalPages = tasksData?.totalPages ?? 0
 
-  // Calculate approval rate
   const approvalRate = totalSub > 0 ? Math.round((approvedSub / totalSub) * 100) : 0
 
-  if (isLoading) return <div className="p-8"><LoadingSkeleton rows={10} /></div>
+  const completedCount = (progress?.pendingSubmissions ?? 0) + (progress?.approvedSubmissions ?? 0) + (progress?.rejectedSubmissions ?? 0)
+  const inProgressCount = Math.max(0, totalAssigned - completedCount)
 
   return (
-    <div className="max-w-[1200px] mx-auto p-4 md:p-8 space-y-8 animate-in fade-in duration-500">
-
-      {/* ===== HERO BANNER ===== */}
-      <div className="relative rounded-[32px] overflow-hidden shadow-xl">
-        <div className="absolute inset-0 bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600" />
-        <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiNmZmYiIGZpbGwtb3BhY2l0eT0iMC4wNSI+PHBhdGggZD0iTTM2IDM0djJoLTJ2LTJoMnptMC00aDJ2MmgtMnYtMnptLTQgMHYyaC0ydi0yaDJ6bTQgMGgydjJoLTJ2LTJ6Ii8+PC9nPjwvZz48L3N2Zz4=')] opacity-30 mix-blend-overlay" />
-        
-        <div className="relative z-10 px-8 py-10 md:p-12">
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-            <div className="flex items-center gap-5">
-              <div className="w-16 h-16 rounded-2xl bg-white/20 backdrop-blur-md flex items-center justify-center text-2xl font-black text-white border border-white/30 shadow-inner">
-                {getInitials(user?.fullName ?? '')}
-              </div>
-              <div className="text-white">
-                <p className="text-white/80 text-sm font-semibold uppercase tracking-wider">Không gian làm việc</p>
-                <h1 className="text-3xl md:text-4xl font-black tracking-tight mt-1">Xin chào, {user?.fullName?.split(' ').pop()}!</h1>
-                <p className="text-white/70 text-sm font-medium mt-1.5 flex items-center gap-2">
-                  <Flame size={16} className="text-amber-400" /> Tiếp tục duy trì phong độ làm việc xuất sắc nhé!
-                </p>
-              </div>
+    <div className="max-w-[1440px] mx-auto p-4 md:p-6 space-y-6 animate-in fade-in duration-500 transition-all">
+      <PageTour pageKey="dashboard-staff" steps={staffDashboardSteps} />
+      
+      {/* Header & Quick Action */}
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+        <div className="flex items-center gap-4">
+          <div className="relative group">
+            <div className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-indigo-600 to-violet-500 flex items-center justify-center text-xl font-black text-white shadow-lg group-hover:rotate-6 transition-transform">
+              {getInitials(user?.fullName ?? '')}
             </div>
-            
-            <Link 
-              to="/submissions/new" 
-              className="flex items-center justify-center gap-2 px-6 py-3.5 rounded-2xl bg-white text-indigo-700 text-sm font-black hover:bg-white/90 hover:scale-[1.02] transition-all shadow-xl hover:shadow-2xl hover:shadow-white/20 shrink-0"
-            >
-              <Plus size={18} /> Nộp Báo cáo KPI
-            </Link>
+            <div className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-emerald-500 border-4 border-white dark:border-slate-900" />
+          </div>
+          <div>
+            <h1 className="text-2xl md:text-3xl font-black tracking-tight text-slate-900 dark:text-white">
+              Xin chào, <span className="text-indigo-600 dark:text-indigo-400">{user?.fullName?.split(' ').pop()}!</span>
+            </h1>
+            <p className="text-sm font-medium text-slate-500 flex items-center gap-2 mt-1">
+              <Calendar size={14} /> Hôm nay là {new Date().toLocaleDateString('vi-VN', { weekday: 'long', day: 'numeric', month: 'long' })}
+            </p>
           </div>
         </div>
+
+        <div className="flex items-center gap-3">
+           <Link 
+            id="tour-staff-submit"
+            to="/submissions/new" 
+            className="flex items-center gap-2 px-6 py-3 rounded-xl bg-slate-900 dark:bg-white dark:text-slate-900 text-white text-sm font-black hover:bg-indigo-600 dark:hover:bg-indigo-50 transition-all shadow-md active:scale-95"
+          >
+            <Plus size={18} /> NỘP KPI MỚI
+          </Link>
+        </div>
+      </div>
+
+      {/* Stats Overview */}
+      <div id="tour-staff-stats" className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+        <StatCard 
+          label={inProgressCount > 0 ? `${inProgressCount} Đang thực hiện` : "Mục tiêu KPI"} 
+          value={
+            <div className="flex items-baseline gap-1.5 overflow-hidden">
+              <span className="text-2xl font-black">{completedCount}</span>
+              <span className="text-[10px] font-bold text-slate-400 uppercase truncate">Hoàn thành</span>
+            </div>
+          } 
+          icon={Target} 
+          color="indigo" 
+        />
+        <StatCard label="Quá hạn" value={lateSub} icon={Clock} color="red" highlight={lateSub > 0} />
+        <StatCard label="Tỷ lệ Duyệt" value={`${approvalRate}%`} icon={TrendingUp} color="emerald" />
+        <StatCard label="Bài đã nộp" value={totalSub} icon={FileText} color="amber" />
+        <StatCard label="Điểm TB" value={`${overallAvgScore}%`} icon={Award} color="blue" />
       </div>
 
       {/* ===== PINNED WIDGETS ===== */}
@@ -90,7 +210,7 @@ export default function StaffDashboard() {
             </h3>
           </div>
           <div className="grid grid-cols-12 gap-6">
-            {pinnedWidgets.map((widget) => (
+            {pinnedWidgets.map((widget: ReportWidget) => (
               <PinnedWidgetCard key={widget.id} widget={widget} onUnpin={refetchPinned} />
             ))}
           </div>
@@ -100,177 +220,272 @@ export default function StaffDashboard() {
       {/* ===== OVERVIEW GRID ===== */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         
-        {/* Left Column - Stats */}
-        <div className="lg:col-span-8 space-y-6">
-          
-          {/* Main Stats */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <StatCard 
-              label="KPI Được giao" 
-              value={totalAssigned} 
-              icon={Target} 
-              color="indigo" 
-            />
-            <StatCard 
-              label="Tổng Bài nộp" 
-              value={totalSub} 
-              icon={FileText} 
-              color="blue" 
-            />
-            <StatCard 
-              label="Tỷ lệ Duyệt" 
-              value={`${approvalRate}%`} 
-              icon={TrendingUp} 
-              color="emerald" 
-            />
-            <StatCard 
-              label="Bị Từ chối" 
-              value={rejectedSub} 
-              icon={XCircle} 
-              color="red" 
-            />
-          </div>
-
-          {/* Progress Details */}
-          <div className="bg-white dark:bg-slate-900 rounded-[28px] border border-slate-200 dark:border-slate-800 shadow-sm p-6 md:p-8 flex flex-col md:flex-row items-center gap-8">
-            <div className="flex-1 space-y-6 w-full">
-              <div className="flex items-center justify-between">
+        {/* Main Section: Tasks */}
+        <div id="tour-staff-tasks" className="lg:col-span-8 space-y-6">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden transition-all">
+            <div className="px-6 py-5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50/30 dark:bg-slate-800/20">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-indigo-50 dark:bg-indigo-900/30 flex items-center justify-center text-indigo-600 dark:text-indigo-400">
+                  <Zap size={20} />
+                </div>
                 <div>
-                  <h3 className="font-black text-lg text-slate-900 dark:text-white flex items-center gap-2">
-                    <BarChart3 size={20} className="text-indigo-500" /> Trạng thái Bài nộp
-                  </h3>
-                  <p className="text-xs font-medium text-slate-500 mt-1">Phân bổ kết quả các báo cáo bạn đã nộp</p>
-                </div>
-                <div className="flex -space-x-2">
-                  <div className="w-8 h-8 rounded-full border-2 border-white dark:border-slate-900 bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center text-emerald-600"><CheckCircle size={14} /></div>
-                  <div className="w-8 h-8 rounded-full border-2 border-white dark:border-slate-900 bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center text-amber-600"><Clock size={14} /></div>
-                  <div className="w-8 h-8 rounded-full border-2 border-white dark:border-slate-900 bg-red-100 dark:bg-red-900/30 flex items-center justify-center text-red-600"><XCircle size={14} /></div>
+                  <h3 className="font-black text-lg text-slate-900 dark:text-white">Nhiệm vụ tiêu điểm</h3>
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Cần hoàn thành sớm</p>
                 </div>
               </div>
-              
-              <div className="space-y-4">
-                <ProgressBar label="Đã phê duyệt" value={approvedSub} total={totalSub} color="bg-emerald-500" textColor="text-emerald-700 dark:text-emerald-400" />
-                <ProgressBar label="Đang chờ duyệt" value={pendingSub} total={totalSub} color="bg-amber-500" textColor="text-amber-700 dark:text-amber-400" />
+              <div className="px-3 py-1 rounded-lg bg-indigo-100 dark:bg-indigo-900/40 text-[10px] font-black text-indigo-700 dark:text-indigo-300">
+                {tasksData?.totalElements ?? 0} MỤC
               </div>
             </div>
 
-            {/* Score Highlight */}
-            <div className="w-full md:w-48 bg-slate-50 dark:bg-slate-800/50 rounded-3xl p-6 text-center border border-slate-100 dark:border-slate-700 flex flex-col items-center justify-center shrink-0">
-              <Award size={28} className="text-amber-500 mb-2" />
-              <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Điểm Đánh giá TB</p>
-              <div className="flex items-baseline justify-center gap-1 mt-1">
-                <span className="text-4xl font-black text-slate-900 dark:text-white">{avgScore}</span>
-                <span className="text-sm font-bold text-slate-500">/100</span>
-              </div>
-              <Link to="/evaluations" className="text-[10px] font-bold text-indigo-600 hover:underline mt-3">Xem chi tiết &rarr;</Link>
-            </div>
-          </div>
-        </div>
-
-        {/* Right Column - Recent Activity */}
-        <div className="lg:col-span-4">
-          <div className="bg-white dark:bg-slate-900 rounded-[28px] border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden h-full flex flex-col">
-            <div className="p-6 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50/50 dark:bg-slate-800/10">
-              <div className="flex items-center gap-2">
-                <ListChecks size={18} className="text-blue-500" />
-                <h3 className="font-black text-sm text-slate-900 dark:text-white">Giao dịch gần đây</h3>
-              </div>
-              <Link to="/submissions" className="text-xs font-bold text-indigo-600 hover:text-indigo-700 flex items-center">
-                Lịch sử <ArrowUpRight size={14} />
-              </Link>
-            </div>
-            
-            <div className="p-2 flex-1">
-              {subLoading ? (
-                <div className="p-4"><LoadingSkeleton type="table" rows={4} /></div>
-              ) : !submissions || submissions.content.length === 0 ? (
-                <div className="h-full flex flex-col items-center justify-center p-8 text-center opacity-60">
-                  <FileText size={48} className="text-slate-300 mb-4" />
-                  <p className="text-sm font-bold text-slate-500">Chưa có bài nộp nào</p>
-                  <p className="text-xs text-slate-400 mt-1">Các bài nộp KPI của bạn sẽ hiển thị tại đây.</p>
+            <div className="divide-y divide-slate-100 dark:divide-slate-800">
+              {tasks.length === 0 ? (
+                <div className="p-16 text-center">
+                  <div className="w-16 h-16 rounded-full bg-emerald-50 dark:bg-emerald-900/20 flex items-center justify-center mx-auto mb-4">
+                    <CheckCircle size={32} className="text-emerald-500" />
+                  </div>
+                  <p className="text-lg font-black text-slate-900 dark:text-white">Tuyệt vời!</p>
+                  <p className="text-sm text-slate-500 font-medium">Bạn đã hoàn tất mọi nhiệm vụ.</p>
                 </div>
               ) : (
-                <div className="space-y-1">
-                  {submissions.content.map((s) => (
-                    <Link 
-                      key={s.id} 
-                      to={`/submissions/${s.id}`} 
-                      className="flex items-center gap-3 p-4 rounded-2xl hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors group"
-                    >
-                      <div className="w-10 h-10 rounded-xl bg-indigo-50 dark:bg-indigo-900/20 text-indigo-500 flex items-center justify-center shrink-0">
-                        <FileText size={18} />
+                tasks.map((task: KpiTask) => (
+                  <div key={task.id} className="p-5 flex flex-col md:flex-row md:items-center justify-between gap-4 hover:bg-slate-50/50 dark:hover:bg-slate-800/20 transition-all cursor-pointer group">
+                    <div className="flex items-center gap-4 flex-1 min-w-0">
+                      <div className={cn(
+                        "w-12 h-12 rounded-xl flex items-center justify-center shrink-0 transition-all group-hover:scale-105",
+                        task.status === 'OVERDUE' ? "bg-red-50 text-red-500" :
+                        task.status === 'APPROVED' ? "bg-emerald-50 text-emerald-500" :
+                        task.status === 'EDIT' ? "bg-amber-50 text-amber-500" :
+                        "bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400"
+                      )}>
+                        {task.status === 'OVERDUE' ? <Clock size={22} /> :
+                         task.status === 'APPROVED' ? <CheckCircle size={22} /> :
+                         task.status === 'EDIT' ? <Pencil size={22} /> :
+                         <Target size={22} />}
                       </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-bold text-slate-900 dark:text-slate-200 truncate group-hover:text-indigo-600 transition-colors">
-                          {s.kpiCriteriaName}
+                      <div className="min-w-0">
+                        <p className="text-base font-bold text-slate-900 dark:text-white truncate group-hover:text-indigo-600 transition-colors">
+                          {task.name}
                         </p>
-                        <div className="flex items-center gap-2 text-xs font-medium text-slate-500 mt-0.5">
-                          <span>{formatDateTime(s.createdAt).split(' ')[0]}</span>
-                          <span>•</span>
-                          <span className="truncate">Thực tế: {formatNumber(s.actualValue)}</span>
+                        <div className="flex items-center gap-3 mt-0.5">
+                          <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{task.periodName}</span>
+                          {task.deadline && (
+                            <span className={cn(
+                              "text-[10px] font-black flex items-center gap-1",
+                              task.status === 'OVERDUE' ? "text-red-500" : "text-slate-400"
+                            )}>
+                              <Calendar size={12} /> {formatDateTime(task.deadline).split(' ')[0]}
+                            </span>
+                          )}
                         </div>
                       </div>
-                      <div className="shrink-0">
-                        <StatusBadge status={s.status} />
+                    </div>
+
+                    <div className="flex items-center gap-6">
+                      {/* Scores Section */}
+                      <div className="hidden md:flex items-center gap-4">
+                        <ProgressCircle percentage={task.managerScore ?? 0} size={42} strokeWidth={4} color="text-indigo-500" />
                       </div>
-                    </Link>
-                  ))}
-                </div>
+                      
+                      <div className="flex items-center gap-3">
+                        <StatusBadge status={task.status} />
+                        {task.submissionCount < task.expectedSubmissions && 
+                         task.status !== 'APPROVED' && 
+                         task.status !== 'PENDING' && 
+                         task.status !== 'REJECTED' && 
+                         task.status !== 'EDIT' && 
+                         (!task.startDate || new Date(task.startDate) <= new Date()) && (
+                          <Link 
+                            to={`/submissions/new?kpiId=${task.id}`}
+                            className="px-4 py-2 rounded-lg bg-indigo-600 text-white text-[10px] font-black hover:bg-indigo-700 transition-all uppercase tracking-widest"
+                          >
+                            Nộp ngay
+                          </Link>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))
               )}
             </div>
-            
-            {!subLoading && submissions && submissions.content.length > 0 && (
-              <div className="p-4 border-t border-slate-100 dark:border-slate-800">
-                <Link to="/submissions" className="block w-full py-2.5 text-center text-xs font-bold text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 rounded-xl transition-colors">
-                  Xem toàn bộ danh sách
-                </Link>
+
+            {totalPages > 1 && (
+              <div className="px-6 py-4 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
+                <span className="text-[10px] font-black text-slate-400 uppercase">Trang {taskPage + 1} / {totalPages}</span>
+                <div className="flex items-center gap-2">
+                  <button onClick={() => setTaskPage(p => Math.max(0, p - 1))} disabled={taskPage === 0} className="p-2 rounded-lg border border-slate-200 dark:border-slate-700 disabled:opacity-30">
+                    <ChevronLeft size={16} />
+                  </button>
+                  <button onClick={() => setTaskPage(p => Math.min(totalPages - 1, p + 1))} disabled={taskPage >= totalPages - 1} className="p-2 rounded-lg border border-slate-200 dark:border-slate-700 disabled:opacity-30">
+                    <ChevronRight size={16} />
+                  </button>
+                </div>
               </div>
             )}
           </div>
         </div>
-        
+
+        {/* Sidebar: Activity */}
+        <div className="lg:col-span-4 space-y-6">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden flex flex-col h-full">
+            <div className="px-6 py-5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50/30 dark:bg-slate-800/20">
+              <h3 className="font-black text-lg text-slate-900 dark:text-white">Lịch sử bài nộp</h3>
+              <Link to="/submissions" className="p-2 rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-indigo-600">
+                <ArrowUpRight size={18} />
+              </Link>
+            </div>
+            
+            <div className="p-2 flex-1 max-h-[500px] overflow-y-auto custom-scrollbar">
+              {subLoading ? (
+                <div className="p-4"><LoadingSkeleton type="table" rows={4} /></div>
+              ) : !submissions || submissions.content.length === 0 ? (
+                <div className="py-20 text-center opacity-40">
+                  <FileText size={48} className="mx-auto mb-4" />
+                  <p className="text-sm font-black text-slate-400">Trống</p>
+                </div>
+              ) : (
+                <div className="space-y-1">
+                  {submissions.content.map((s) => {
+                    const percentage = s.targetValue ? Math.min(Math.round((s.actualValue / s.targetValue) * 100), 100) : (s.actualValue <= 100 ? s.actualValue : 0)
+                    return (
+                      <Link 
+                        key={s.id} 
+                        to={`/submissions/${s.id}`} 
+                        className="flex items-center gap-3 p-4 rounded-2xl hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-all group"
+                      >
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-black text-slate-900 dark:text-slate-200 truncate group-hover:text-indigo-600 transition-colors">
+                            {s.kpiCriteriaName}
+                          </p>
+                          <p className="text-[10px] font-bold text-slate-400 mt-0.5">
+                            {formatDateTime(s.createdAt).split(' ')[0]}
+                          </p>
+                        </div>
+                        
+                        <div className="flex items-center gap-3 shrink-0">
+                          <ProgressCircle percentage={percentage} size={32} strokeWidth={3} />
+                          {s.status === 'DRAFT' ? (
+                            <Link 
+                              to={`/submissions/edit/${s.id}`}
+                              className="p-1.5 text-indigo-600 bg-indigo-50 dark:bg-indigo-900/30 rounded-lg hover:bg-indigo-100 transition-all"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <Pencil size={14} />
+                            </Link>
+                          ) : (
+                            <StatusBadge status={s.status} />
+                          )}
+                        </div>
+                      </Link>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+            
+            <div className="p-4 border-t border-slate-100 dark:border-slate-800">
+              <Link to="/submissions" className="block w-full py-3 text-center text-[10px] font-black text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-xl transition-all uppercase tracking-widest border border-dashed border-slate-200 dark:border-slate-800">
+                Xem tất cả báo cáo
+              </Link>
+            </div>
+          </div>
+        </div>
       </div>
+
+      {/* Completion Auto-Popup */}
+      {showAutoEval && defaultPeriodForForm && (
+        <EvaluationFormModal 
+          open={showAutoEval} 
+          onClose={() => setShowAutoEval(false)} 
+          initialPeriodId={defaultPeriodForForm.id}
+          readOnly={false} // Allow evaluation if not done yet
+        />
+      )}
     </div>
   )
 }
 
-/* ========== Sub Components ========== */
-
-function StatCard({ label, value, icon: Icon, color }: {
-  label: string; value: number | string; icon: any; color: string
+function StatCard({ label, value, icon: Icon, color, highlight }: {
+  label: string; value: ReactNode; icon: any; color: string; highlight?: boolean
 }) {
-  const colorMap: Record<string, { bg: string; icon: string }> = {
-    indigo: { bg: 'bg-indigo-50 dark:bg-indigo-900/20', icon: 'text-indigo-600 dark:text-indigo-400' },
-    blue: { bg: 'bg-blue-50 dark:bg-blue-900/20', icon: 'text-blue-600 dark:text-blue-400' },
-    emerald: { bg: 'bg-emerald-50 dark:bg-emerald-900/20', icon: 'text-emerald-600 dark:text-emerald-400' },
-    red: { bg: 'bg-red-50 dark:bg-red-900/20', icon: 'text-red-600 dark:text-red-400' },
+  const colorMap: Record<string, { bg: string; icon: string; text: string }> = {
+    indigo: { bg: 'bg-indigo-50 dark:bg-indigo-900/30', icon: 'text-indigo-600', text: 'text-indigo-700 dark:text-indigo-300' },
+    blue: { bg: 'bg-blue-50 dark:bg-blue-900/30', icon: 'text-blue-600', text: 'text-blue-700 dark:text-blue-300' },
+    emerald: { bg: 'bg-emerald-50 dark:bg-emerald-900/30', icon: 'text-emerald-600', text: 'text-emerald-700 dark:text-emerald-300' },
+    red: { bg: 'bg-red-50 dark:bg-red-900/30', icon: 'text-red-600', text: 'text-red-700 dark:text-red-300' },
+    amber: { bg: 'bg-amber-50 dark:bg-amber-900/30', icon: 'text-amber-600', text: 'text-amber-700 dark:text-amber-300' },
   }
   const c = colorMap[color] ?? colorMap['indigo']!
 
   return (
-    <div className="bg-white dark:bg-slate-900 rounded-[24px] border border-slate-200 dark:border-slate-800 p-5 transition-all hover:shadow-lg hover:border-indigo-200 dark:hover:border-indigo-800 group">
-      <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center mb-4 transition-transform group-hover:scale-110", c.bg)}>
+    <div className={cn(
+      "bg-white dark:bg-slate-900 rounded-2xl border p-5 transition-all hover:shadow-lg relative overflow-hidden group",
+      highlight ? "border-red-200 bg-red-50/30 dark:border-red-900/50" : "border-slate-200 dark:border-slate-800"
+    )}>
+      <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center mb-4 shadow-sm transition-transform group-hover:scale-110", c.bg)}>
         <Icon size={18} className={c.icon} />
       </div>
-      <p className="text-2xl font-black text-slate-900 dark:text-white mb-1">{value}</p>
-      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-tight">{label}</p>
+      <div className={cn(
+        "flex items-baseline gap-1.5 truncate",
+        highlight ? "text-red-600" : "text-slate-900 dark:text-white"
+      )}>
+        {typeof value === 'string' || typeof value === 'number' ? (
+          <p className="text-2xl font-black tracking-tight">{value}</p>
+        ) : (
+          value
+        )}
+      </div>
+      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1 truncate">{label}</p>
     </div>
   )
 }
 
-function ProgressBar({ label, value, total, color, textColor }: {
-  label: string; value: number; total: number; color: string; textColor: string
+function ProgressCircle({ percentage, size = 32, strokeWidth = 3, color }: { 
+  percentage: number; 
+  size?: number; 
+  strokeWidth?: number;
+  color?: string;
 }) {
-  const pct = total > 0 ? Math.round((value / total) * 100) : 0
+  const radius = (size - strokeWidth) / 2
+  const circumference = radius * 2 * Math.PI
+  const offset = circumference - (Math.min(percentage, 100) / 100) * circumference
+  
+  const defaultColor = () => {
+    if (percentage >= 100) return 'text-emerald-500'
+    if (percentage >= 70) return 'text-indigo-500'
+    if (percentage >= 40) return 'text-blue-500'
+    if (percentage > 0) return 'text-amber-500'
+    return 'text-slate-200 dark:text-slate-700'
+  }
+
   return (
-    <div className="space-y-2">
-      <div className="flex justify-between text-xs font-bold">
-        <span className="text-slate-500">{label}</span>
-        <span className={textColor}>{value} <span className="text-slate-400 dark:text-slate-500 opacity-70">({pct}%)</span></span>
-      </div>
-      <div className="h-2.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
-        <div className={cn("h-full rounded-full transition-all duration-1000", color)} style={{ width: `${pct}%` }} />
-      </div>
+    <div className="relative inline-flex items-center justify-center shrink-0 transition-transform hover:scale-110 duration-500" style={{ width: size, height: size }}>
+      <svg className="transform -rotate-90" width={size} height={size}>
+        <circle
+          className="text-slate-100 dark:text-slate-800"
+          strokeWidth={strokeWidth}
+          stroke="currentColor"
+          fill="transparent"
+          r={radius}
+          cx={size / 2}
+          cy={size / 2}
+        />
+        <circle
+          className={cn(color || defaultColor(), "transition-all duration-1000 ease-out")}
+          strokeWidth={strokeWidth}
+          strokeDasharray={circumference}
+          strokeDashoffset={offset}
+          strokeLinecap="round"
+          stroke="currentColor"
+          fill="transparent"
+          r={radius}
+          cx={size / 2}
+          cy={size / 2}
+        />
+      </svg>
+      <span className="absolute text-[8px] md:text-[10px] font-black text-slate-700 dark:text-slate-300">
+        {Math.round(percentage)}%
+      </span>
     </div>
   )
 }
@@ -296,6 +511,14 @@ function PinnedWidgetCard({ widget, onUnpin }: { widget: ReportWidget; onUnpin: 
     }
   }, [widget.position])
 
+  const config = useMemo(() => {
+    try {
+      return JSON.parse(widget.chartConfig)
+    } catch {
+      return {}
+    }
+  }, [widget.chartConfig])
+
   const colSpan = pos.w || 4
   const height = (pos.h || 10) * 32 + 60 
 
@@ -317,18 +540,20 @@ function PinnedWidgetCard({ widget, onUnpin }: { widget: ReportWidget; onUnpin: 
         </button>
       </div>
       <div className="flex-1 p-5 overflow-hidden">
-        <PinnedWidgetContent type={widget.widgetType} />
+        <PinnedWidgetContent type={widget.widgetType} config={config} />
       </div>
     </div>
   )
 }
 
-
-function PinnedWidgetContent({ type }: { type: string }) {
+function PinnedWidgetContent({ type, config }: { type: string, config?: any }) {
   const { data: trendData } = useSummaryTrend()
   const { data: comparisonData } = useSummaryComparison()
   const { data: riskData } = useSummaryRisks()
   const { data: stats } = useSummaryStats()
+
+  const { data: myStats } = useMyAnalytics()
+  const { data: notificationsData } = useNotifications(0, 10)
 
   switch (type) {
     case 'TREND_CHART':
@@ -410,7 +635,7 @@ function PinnedWidgetContent({ type }: { type: string }) {
                   paddingAngle={5} 
                   dataKey="value"
                 >
-                  {(stats?.memberDistribution || []).map((entry: any, index: number) => (
+                  {(stats?.memberDistribution || []).map((_: any, index: number) => (
                     <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                   ))}
                 </Pie>
@@ -431,23 +656,47 @@ function PinnedWidgetContent({ type }: { type: string }) {
           </div>
         </div>
       )
-    case 'ROLE_DIST':
+    case 'ROLE_DIST': {
+      // 1. Extract all unique role names to create Bar components
+      const allRoles = new Set<string>();
+      stats?.roleDistribution?.forEach((item: any) => {
+        item.roles?.forEach((r: any) => allRoles.add(r.roleName));
+      });
+      const uniqueRoleNames = Array.from(allRoles);
+
+      // 2. Transform data for Recharts (each item needs roleName: count pairs)
+      const chartData = stats?.roleDistribution?.map((item: any) => {
+        const dataPoint: any = { unitName: item.unitName };
+        item.roles?.forEach((r: any) => {
+          dataPoint[r.roleName] = r.count;
+        });
+        return dataPoint;
+      }) || [];
+
       return (
         <div className="h-full w-full min-h-[220px]">
           <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={stats?.roleDistribution || []} layout="vertical" margin={{ left: 10 }}>
+            <BarChart data={chartData} layout="vertical" margin={{ left: 10 }}>
               <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f1f5f9" />
               <XAxis type="number" axisLine={false} tickLine={false} tick={{ fontSize: 9, fontWeight: 700 }} />
               <YAxis dataKey="unitName" type="category" axisLine={false} tickLine={false} tick={{ fontSize: 9, fontWeight: 700 }} width={70} />
               <RechartsTooltip />
               <Legend iconType="circle" wrapperStyle={{ fontSize: '9px', fontWeight: 800, paddingTop: '5px' }} />
-              <Bar dataKey="directorCount" stackId="a" fill="#6366f1" name="Giám đốc" barSize={12} />
-              <Bar dataKey="headCount" stackId="a" fill="#f59e0b" name="Trưởng phòng" />
-              <Bar dataKey="staffCount" stackId="a" fill="#94a3b8" name="Nhân viên" />
+              {uniqueRoleNames.map((roleName, index) => (
+                <Bar 
+                  key={roleName} 
+                  dataKey={roleName} 
+                  stackId="a" 
+                  fill={COLORS[index % COLORS.length]} 
+                  name={roleName} 
+                  barSize={12} 
+                />
+              ))}
             </BarChart>
           </ResponsiveContainer>
         </div>
-      )
+      );
+    }
     case 'UNIT_RISK':
       return (
         <div className="h-full flex flex-col">
@@ -472,6 +721,112 @@ function PinnedWidgetContent({ type }: { type: string }) {
           </div>
         </div>
       )
+    case 'TOP_STATS_GRID': {
+      if (!myStats) return null;
+      return (
+        <div className="grid grid-cols-2 gap-3 h-full">
+          {[
+            { label: 'KPI Hoàn thành', val: `${myStats.approvedSubmissions}/${myStats.totalAssignedKpi}`, icon: <Target className="text-indigo-600" size={14} /> },
+            { label: 'Điểm TB', val: (myStats.averageScore ?? 0).toFixed(1), icon: <Star className="text-amber-500" size={14} /> },
+            { label: 'Tiến độ', val: `${Math.round((myStats.approvedSubmissions / (myStats.totalAssignedKpi || 1)) * 100)}%`, icon: <TrendingUp className="text-emerald-500" size={14} /> },
+            { label: 'Bài nộp', val: myStats.totalSubmissions, icon: <FileText className="text-purple-500" size={14} /> }
+          ].map((item, i) => (
+            <div key={i} className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-700/50 flex flex-col justify-between">
+              <div className="flex items-center gap-2 mb-1 opacity-60">{item.icon} <span className="text-[9px] font-black uppercase">{item.label}</span></div>
+              <p className="text-sm font-black text-slate-900 dark:text-white">{item.val}</p>
+            </div>
+          ))}
+        </div>
+      )
+    }
+    case 'PIE': {
+      let chartData: any[] = []
+      if (config?.metric === 'SUBMISSIONS_STATUS' && myStats) {
+        chartData = [
+          { name: 'Đã duyệt', value: myStats.approvedSubmissions, color: '#10b981' },
+          { name: 'Chờ duyệt', value: myStats.pendingSubmissions, color: '#f59e0b' },
+          { name: 'Từ chối', value: myStats.rejectedSubmissions, color: '#ef4444' }
+        ]
+      } else if (config?.metric === 'NOTIFICATION_STATS' && notificationsData) {
+         const unreadCount = notificationsData.content.filter(n => !n.isRead).length
+         chartData = [
+           { name: 'Đã đọc', value: notificationsData.totalElements - unreadCount, color: '#94a3b8' },
+           { name: 'Chưa đọc', value: unreadCount, color: '#6366f1' }
+         ]
+      }
+      return (
+        <div className="h-full w-full">
+          <ResponsiveContainer width="100%" height="100%">
+            <PieChart>
+              <Pie data={chartData} innerRadius="40%" outerRadius="70%" paddingAngle={5} dataKey="value">
+                {chartData.map((entry, index) => <Cell key={`cell-${index}`} fill={entry.color} />)}
+              </Pie>
+              <RechartsTooltip />
+            </PieChart>
+          </ResponsiveContainer>
+        </div>
+      )
+    }
+    case 'BAR': {
+       if (config?.metric === 'KPI_STATUS_DIST' && myStats) {
+         const data = [
+           { name: 'Đã duyệt', val: myStats.approvedSubmissions },
+           { name: 'Chờ duyệt', val: myStats.pendingSubmissions }
+         ]
+         return (
+           <div className="h-full w-full">
+             <ResponsiveContainer width="100%" height="100%">
+               <BarChart data={data}>
+                 <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 9, fontWeight: 700 }} />
+                 <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 9, fontWeight: 700 }} />
+                 <RechartsTooltip />
+                 <Bar dataKey="val" fill="#6366f1" radius={[4, 4, 0, 0]} barSize={30} />
+               </BarChart>
+             </ResponsiveContainer>
+           </div>
+         )
+       }
+       return null
+    }
+    case 'AREA': {
+       if (config?.metric === 'EVALUATION_HISTORY' && myStats) {
+         const chartData = myStats.evaluationHistory.map(e => ({
+            periodName: new Date(e.createdAt).toLocaleDateString('vi-VN'),
+            score: e.score
+         })).reverse()
+         return (
+           <div className="h-full w-full">
+             <ResponsiveContainer width="100%" height="100%">
+               <AreaChart data={chartData}>
+                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                 <XAxis dataKey="periodName" axisLine={false} tickLine={false} tick={{ fontSize: 9, fontWeight: 700 }} />
+                 <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 9, fontWeight: 700 }} />
+                 <RechartsTooltip />
+                 <Area type="monotone" dataKey="score" stroke="#6366f1" fill="#6366f1" fillOpacity={0.1} strokeWidth={2} name="Điểm" />
+               </AreaChart>
+             </ResponsiveContainer>
+           </div>
+         )
+       }
+       return null
+    }
+    case 'TABLE': {
+       if (config?.metric === 'KPI_PERFORMANCE' && myStats) {
+         return (
+           <div className="h-full overflow-auto text-[10px]">
+             <table className="w-full">
+               <thead><tr className="text-left border-b border-slate-100 dark:border-slate-800 opacity-50"><th className="pb-2">KPI</th><th className="pb-2 text-center">Tiến độ</th></tr></thead>
+               <tbody className="divide-y divide-slate-50 dark:divide-slate-800">
+                 {myStats.kpiItems.slice(0, 5).map((k: any, i: number) => (
+                   <tr key={i}><td className="py-2 pr-2 font-bold truncate max-w-[120px]">{k.kpiName}</td><td className="py-2 text-center font-black text-indigo-600">{Math.round(k.completionRate)}%</td></tr>
+                 ))}
+               </tbody>
+             </table>
+           </div>
+         )
+       }
+       return null
+    }
     default:
       return <div className="h-full flex items-center justify-center text-xs font-bold text-slate-300 italic">Chi tiết biểu đồ xem tại trang Thống kê</div>
   }

@@ -2,7 +2,15 @@ package com.kpitracking.controller;
 
 import com.kpitracking.dto.response.ApiResponse;
 import com.kpitracking.dto.response.PageResponse;
-import com.kpitracking.dto.response.stats.*;
+import com.kpitracking.dto.response.stats.OrgUnitKpiStatsResponse;
+import com.kpitracking.dto.response.stats.EmployeeKpiStatsResponse;
+import com.kpitracking.dto.response.stats.MyKpiProgressResponse;
+import com.kpitracking.dto.response.stats.OverviewStatsResponse;
+import com.kpitracking.dto.response.stats.AnalyticsMyStatsResponse;
+import com.kpitracking.dto.response.stats.AnalyticsDrillDownResponse;
+import com.kpitracking.dto.response.stats.AnalyticsDetailRow;
+import com.kpitracking.dto.response.stats.AnalyticsSummaryResponse;
+import com.kpitracking.dto.response.stats.SummarySubData;
 import com.kpitracking.service.StatsService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -26,8 +34,9 @@ public class StatsController {
     @GetMapping("/overview")
     @PreAuthorize("hasAuthority('DASHBOARD:VIEW')")
     @Operation(summary = "Get organization overview statistics")
-    public ResponseEntity<ApiResponse<OverviewStatsResponse>> getOverviewStats() {
-        OverviewStatsResponse response = statsService.getOverviewStats();
+    public ResponseEntity<ApiResponse<OverviewStatsResponse>> getOverviewStats(
+            @org.springframework.web.bind.annotation.RequestParam(required = false) java.util.UUID orgUnitId) {
+        OverviewStatsResponse response = statsService.getOverviewStats(orgUnitId);
         return ResponseEntity.ok(ApiResponse.success(response));
     }
 
@@ -40,17 +49,33 @@ public class StatsController {
     }
 
     @GetMapping("/employees")
-    @PreAuthorize("hasAuthority('USER:VIEW')")
+    @PreAuthorize("hasAnyAuthority('USER:VIEW', 'USER:VIEW_LIST')")
     @Operation(summary = "Get KPI statistics per employee")
-    public ResponseEntity<ApiResponse<List<EmployeeKpiStatsResponse>>> getEmployeeKpiStats() {
-        List<EmployeeKpiStatsResponse> response = statsService.getEmployeeKpiStats();
+    public ResponseEntity<ApiResponse<PageResponse<EmployeeKpiStatsResponse>>> getEmployeeKpiStats(
+            @org.springframework.web.bind.annotation.RequestParam(defaultValue = "0") int page,
+            @org.springframework.web.bind.annotation.RequestParam(defaultValue = "5") int size,
+            @org.springframework.web.bind.annotation.RequestParam(required = false) java.util.UUID orgUnitId) {
+        PageResponse<EmployeeKpiStatsResponse> response = statsService.getEmployeeKpiStats(page, size, orgUnitId);
         return ResponseEntity.ok(ApiResponse.success(response));
     }
 
     @GetMapping("/my-progress")
     @Operation(summary = "Get current user's KPI progress")
-    public ResponseEntity<ApiResponse<MyKpiProgressResponse>> getMyKpiProgress() {
-        MyKpiProgressResponse response = statsService.getMyKpiProgress();
+    public ResponseEntity<ApiResponse<MyKpiProgressResponse>> getMyKpiProgress(
+            @org.springframework.web.bind.annotation.RequestParam(defaultValue = "0") int page,
+            @org.springframework.web.bind.annotation.RequestParam(defaultValue = "5") int size) {
+        MyKpiProgressResponse response = statsService.getMyKpiProgress(page, size);
+        return ResponseEntity.ok(ApiResponse.success(response));
+    }
+
+    @GetMapping("/employee-progress/{userId}")
+    @PreAuthorize("hasAnyAuthority('USER:VIEW', 'USER:VIEW_LIST')")
+    @Operation(summary = "Get a specific employee's KPI progress")
+    public ResponseEntity<ApiResponse<MyKpiProgressResponse>> getEmployeeKpiProgress(
+            @org.springframework.web.bind.annotation.PathVariable java.util.UUID userId,
+            @org.springframework.web.bind.annotation.RequestParam(defaultValue = "0") int page,
+            @org.springframework.web.bind.annotation.RequestParam(defaultValue = "5") int size) {
+        MyKpiProgressResponse response = statsService.getUserKpiProgress(userId, page, size);
         return ResponseEntity.ok(ApiResponse.success(response));
     }
 

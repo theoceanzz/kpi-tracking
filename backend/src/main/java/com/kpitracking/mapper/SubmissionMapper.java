@@ -19,7 +19,12 @@ public interface SubmissionMapper {
     @Mapping(source = "submittedBy.fullName", target = "submittedByName")
     @Mapping(source = "reviewedBy.id", target = "reviewedById")
     @Mapping(source = "reviewedBy.fullName", target = "reviewedByName")
+    @Mapping(source = "kpiCriteria.unit", target = "unit")
+    @Mapping(source = "kpiCriteria.weight", target = "weight")
+    @Mapping(source = "kpiCriteria.kpiPeriod.id", target = "kpiPeriod.id")
+    @Mapping(source = "kpiCriteria.kpiPeriod.name", target = "kpiPeriod.name")
     @Mapping(source = "attachments", target = "attachments")
+    @Mapping(target = "isSubmittedByManager", ignore = true)
     SubmissionResponse toResponse(KpiSubmission submission);
 
     AttachmentResponse toAttachmentResponse(SubmissionAttachment attachment);

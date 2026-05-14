@@ -40,26 +40,31 @@ public class UserController {
     @PostMapping(value = "/import", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @PreAuthorize("hasAuthority('USER:IMPORT')")
     @Operation(summary = "Import users via Excel or CSV")
-    public ResponseEntity<ApiResponse<ImportUserResponse>> importUsers(@RequestParam("file") MultipartFile file) {
-        ImportUserResponse response = userService.importUsers(file);
+    public ResponseEntity<ApiResponse<ImportUserResponse>> importUsers(
+            @RequestParam("file") MultipartFile file,
+            @RequestParam(value = "orgUnitId", required = false) java.util.UUID orgUnitId) {
+        ImportUserResponse response = userService.importUsers(file, orgUnitId);
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.success("Users imported successfully", response));
     }
 
     @GetMapping
-    @PreAuthorize("hasAuthority('USER:VIEW')")
+    @PreAuthorize("hasAnyAuthority('USER:VIEW', 'USER:VIEW_LIST')")
     @Operation(summary = "List users with optional search")
     public ResponseEntity<ApiResponse<PageResponse<UserResponse>>> getUsers(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size,
             @RequestParam(required = false) String keyword,
-            @RequestParam(required = false) UUID orgUnitId) {
-        PageResponse<UserResponse> response = userService.getUsers(page, size, keyword, orgUnitId);
+            @RequestParam(required = false) UUID orgUnitId,
+            @RequestParam(required = false) String role,
+            @RequestParam(required = false) String sortBy,
+            @RequestParam(required = false) String direction) {
+        PageResponse<UserResponse> response = userService.getUsers(page, size, keyword, orgUnitId, role, sortBy, direction);
         return ResponseEntity.ok(ApiResponse.success(response));
     }
 
     @GetMapping("/{userId}")
-    @PreAuthorize("hasAuthority('USER:VIEW')")
+    @PreAuthorize("hasAnyAuthority('USER:VIEW', 'USER:VIEW_LIST')")
     @Operation(summary = "Get user by ID")
     public ResponseEntity<ApiResponse<UserResponse>> getUserById(@PathVariable UUID userId) {
         UserResponse response = userService.getUserById(userId);

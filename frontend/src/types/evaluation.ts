@@ -3,26 +3,31 @@ export interface Evaluation {
   id: string
   userId: string
   userName: string
-  kpiCriteriaId: string
-  kpiCriteriaName: string
+  kpiPeriodId: string
+  kpiPeriodName: string
   evaluatorId: string | null
   evaluatorName: string | null
+  orgUnitId: string | null
+  orgUnitName: string | null
   score: number | null
   comment: string | null
-  periodStart: string | null
-  periodEnd: string | null
+  systemScore: number | null
   createdAt: string
   updatedAt: string
+  evaluatorRole: 'SELF' | 'MANAGER' | 'DIRECTOR' | 'TEAM_LEADER' | 'DEPT_HEAD' | 'DEPT_DEPUTY' | 'TEAM_DEPUTY' | 'REGIONAL_DIRECTOR' | 'CEO'
+  evaluatorRoleName?: string
+  orgUnitLevel?: number
+  userLevel?: number
+  userRank?: number
+  userRoleName?: string
 }
 
 // Matches BE: CreateEvaluationRequest
 export interface CreateEvaluationRequest {
   userId: string
-  kpiCriteriaId: string
+  kpiPeriodId: string
   score: number
   comment?: string
-  periodStart?: string
-  periodEnd?: string
 }
 
 // Frontend-only: evaluation layer type for UI display

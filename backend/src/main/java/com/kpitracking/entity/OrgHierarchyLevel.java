@@ -32,6 +32,9 @@ public class OrgHierarchyLevel {
     @Column(name = "manager_role_label")
     private String managerRoleLabel;
 
+    @Column(name = "role_level", nullable = false)
+    private Integer roleLevel;
+
     @CreatedDate
     @Column(name = "created_at", updatable = false)
     private Instant createdAt;

@@ -11,6 +11,9 @@ public class UserMembershipResponse {
     private String orgUnitName;
     private String organizationName;
     private String roleName;
-    private String roleLabel;
+    private String roleDisplayName;
+    private Integer roleRank;
     private String unitTypeLabel;
+    private Integer levelOrder;
+    private Integer roleLevel;
 }

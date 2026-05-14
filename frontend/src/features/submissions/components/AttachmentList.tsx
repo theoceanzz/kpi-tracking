@@ -23,7 +23,8 @@ export default function AttachmentList({ attachments }: AttachmentListProps) {
         {attachments.map((a) => {
           const isImage = a.contentType?.startsWith('image/') || /\.(jpg|jpeg|png|webp)$/i.test(a.fileName)
           const isPdf = a.contentType === 'application/pdf' || a.fileName.toLowerCase().endsWith('.pdf')
-          const canPreview = isImage || isPdf
+          const isOffice = /\.(docx?|xlsx?|pptx?)$/i.test(a.fileName)
+          const canPreview = isImage || isPdf || isOffice
 
           return (
             <div 
@@ -84,7 +85,14 @@ export default function AttachmentList({ attachments }: AttachmentListProps) {
                   {a.fileName}
                 </h5>
                 <div className="flex items-center justify-between text-[10px] font-bold text-slate-400 uppercase tracking-tight">
-                  <span>{a.contentType?.split('/')[1] || 'FILE'}</span>
+                  <span>
+                    {isImage ? 'Ảnh' : 
+                     isPdf ? 'PDF' : 
+                     a.fileName.toLowerCase().endsWith('.docx') || a.fileName.toLowerCase().endsWith('.doc') ? 'Word' :
+                     a.fileName.toLowerCase().endsWith('.xlsx') || a.fileName.toLowerCase().endsWith('.xls') ? 'Excel' :
+                     a.fileName.toLowerCase().endsWith('.pptx') || a.fileName.toLowerCase().endsWith('.ppt') ? 'PowerPoint' :
+                     'Tài liệu'}
+                  </span>
                   <span>{(a.fileSize / 1024).toFixed(1)} KB</span>
                 </div>
               </div>

@@ -7,6 +7,8 @@ import { OrgMindmapView } from '../components/OrgMindmapView'
 import { OrgListView } from '../components/OrgListView'
 import { OrgUnitDrawer, DrawerState } from '../components/OrgUnitDrawer'
 import ConfirmDialog from '@/components/common/ConfirmDialog'
+import PageTour from '@/components/common/PageTour'
+import { orgStructureSteps } from '@/components/common/tourSteps'
 
 export function OrganizationStructurePage() {
   const { user } = useAuthStore()
@@ -102,6 +104,7 @@ export function OrganizationStructurePage() {
 
   return (
     <div className="space-y-6 container mx-auto px-4 md:px-0">
+      <PageTour pageKey="org-structure" steps={orgStructureSteps} />
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Quản lý Cấu trúc Tổ chức</h1>
@@ -109,7 +112,7 @@ export function OrganizationStructurePage() {
         </div>
         
         {treeData.length > 0 && (
-          <div className="flex items-center space-x-2 bg-gray-100 p-1 rounded-xl w-full sm:w-auto">
+          <div id="tour-org-view-mode" className="flex items-center space-x-2 bg-gray-100 p-1 rounded-xl w-full sm:w-auto">
             <button 
               onClick={() => setViewMode('mindmap')}
               className={`flex-1 sm:flex-none flex items-center justify-center px-4 py-2 rounded-lg text-sm font-semibold transition-all ${viewMode === 'mindmap' ? 'bg-white shadow-sm text-blue-600' : 'text-gray-600 hover:text-gray-900'}`}
@@ -144,7 +147,7 @@ export function OrganizationStructurePage() {
           </button>
         </div>
       ) : (
-        <div className="fade-in">
+        <div id="tour-org-content" className="fade-in">
           {viewMode === 'mindmap' ? (
             <OrgMindmapView 
               data={treeData} 
@@ -170,7 +173,6 @@ export function OrganizationStructurePage() {
           orgId={orgId}
           drawerState={drawerState}
           onClose={handleCloseDrawer}
-          maxDepth={maxDepth}
           hierarchyLevels={hierarchyLevelsMap}
         />
       )}

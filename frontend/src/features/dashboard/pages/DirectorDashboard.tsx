@@ -1,194 +1,1049 @@
-import { useState, useMemo } from 'react'
-import { useQueryClient } from '@tanstack/react-query'
+import { useState, useMemo, useEffect } from 'react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import LoadingSkeleton from '@/components/common/LoadingSkeleton'
+import { useOrganization } from '@/features/orgunits/hooks/useOrganization'
 import { useOverviewStats } from '../hooks/useOverviewStats'
 import { useOrgUnitStats } from '../hooks/useOrgUnitStats'
 import { useEmployeeStats } from '../hooks/useEmployeeStats'
-import { useQuery } from '@tanstack/react-query'
-import { kpiApi } from '@/features/kpi/api/kpiApi'
-import { submissionApi } from '@/features/submissions/api/submissionApi'
 import { Link } from 'react-router-dom'
-import { cn, getInitials, formatDateTime, formatNumber, formatAssigneeNames } from '@/lib/utils'
-import type { OrgUnitStats, EmployeeKpiStats } from '@/types/stats'
-import type { KpiCriteria } from '@/types/kpi'
-import type { Submission } from '@/types/submission'
-import {
-  Users, Target, FileText, ChevronDown,
-  Clock, BarChart3, ShieldCheck, Building2,
-  ChevronRight, Search, CheckCircle2, XCircle,
-  Star, UserCircle2, Filter, ArrowUpRight,
-  Activity, AlertTriangle, Zap, Pin, PinOff
-} from 'lucide-react'
+import { cn, getInitials } from '@/lib/utils'
+import { useAuthStore } from '@/store/authStore'
+import { useKpiPeriods } from '@/features/kpi/hooks/useKpiPeriods'
 import { reportApi } from '@/features/reports/api/reportApi'
 import { toast } from 'sonner'
+import type { OrgUnitStats, EmployeeKpiStats } from '@/types/stats'
+import { exportPerformanceToExcel } from '@/utils/performanceExport'
+import type { ReportWidget } from '@/types/datasource'
+import { useSummaryTrend, useSummaryComparison, useSummaryRisks, useSummaryStats, useMyAnalytics } from '@/features/analytics/hooks/useAnalytics'
+import { useNotifications } from '@/features/notifications/hooks/useNotifications'
+import {
+  Users, Target, FileText, Clock, BarChart3, ShieldCheck, Building2,
+  ChevronRight, Search, ChevronLeft, ArrowUpRight, Pin, PinOff, 
+  TriangleAlert, Award, Star, TrendingUp
+} from 'lucide-react'
 import { 
   XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, 
-  BarChart, Bar, PieChart, Pie, Cell, AreaChart, Area, Legend
+  BarChart, Bar, PieChart, Pie, Cell, AreaChart, Area, Legend, Tooltip
 } from 'recharts'
-import type { ReportWidget } from '@/types/datasource'
-import { useSummaryStats, useSummaryTrend, useSummaryComparison, useSummaryRisks } from '@/features/analytics/hooks/useAnalytics'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import StaffPerformanceDetailModal from '@/features/submissions/components/StaffPerformanceDetailModal'
+import { getScoringFunctions } from '@/lib/scoring'
+import PageTour from '@/components/common/PageTour'
+import { directorDashboardSteps } from '@/components/common/tourSteps'
 
 const COLORS = ['#6366f1', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'];
 
 type TabView = 'overview' | 'orgUnits' | 'employees'
 
 export default function DirectorDashboard() {
+  const [empPage, setEmpPage] = useState(0)
+  const [alertPage, setAlertPage] = useState(0)
+  const [isExporting, setIsExporting] = useState(false)
+  const [activeTab, setActiveTab] = useState<TabView>('overview')
+  const [empSearch, setEmpSearch] = useState('')
+  const [evaluatingUser, setEvaluatingUser] = useState<{ id: string, name: string } | null>(null)
+  const [hoveredEmpId, setHoveredEmpId] = useState<string | null>(null)
+  const [showRadialTooltip, setShowRadialTooltip] = useState(false)
+  const { user } = useAuthStore()
+  const [orgUnitFilter, setOrgUnitFilter] = useState<string>(user?.memberships?.[0]?.orgUnitId || 'ALL')
+  const empSize = 10
+
   const { data: stats, isLoading: loadingStats } = useOverviewStats()
   const { data: orgUnitStats, isLoading: loadingOrgUnits } = useOrgUnitStats()
-  const { data: empStats, isLoading: loadingEmps } = useEmployeeStats()
-  const queryClient = useQueryClient()
-
-  // Load real KPI and submission data
-  const { data: recentKpiData, isLoading: loadingRecentKpis } = useQuery({
-    queryKey: ['kpi-criteria', 'director-dash', 'APPROVED'],
-    queryFn: () => kpiApi.getAll({ page: 0, size: 10, status: 'APPROVED' as any }),
-  })
-  const { data: recentSubData, isLoading: loadingRecentSubs } = useQuery({
-    queryKey: ['submissions', 'director-dash'],
-    queryFn: () => submissionApi.getAll({ page: 0, size: 10 }),
-  })
+  const { data: empStats, isLoading: loadingEmps } = useEmployeeStats(empPage, empSize, orgUnitFilter !== 'ALL' ? orgUnitFilter : undefined)
+  const { data: allEmpStats } = useEmployeeStats(0, 500, orgUnitFilter !== 'ALL' ? orgUnitFilter : undefined)
 
   const { data: pinnedWidgets, isLoading: loadingPinned, refetch: refetchPinned } = useQuery({
     queryKey: ['reports', 'widgets', 'pinned'],
     queryFn: () => reportApi.getPinnedWidgets(),
   })
 
-  const [activeTab, setActiveTab] = useState<TabView>('overview')
-  const [empSearch, setEmpSearch] = useState('')
-  const [orgUnitFilter, setOrgUnitFilter] = useState<string>('ALL')
+  useEffect(() => {
+    if (orgUnitStats && orgUnitStats.length > 0 && orgUnitFilter === 'ALL') {
+      const root = orgUnitStats.find(u => u.parentOrgUnitId === null)
+      if (root) setOrgUnitFilter(root.orgUnitId)
+    }
+  }, [orgUnitStats, orgUnitFilter])
 
-  const isLoading = loadingStats || loadingOrgUnits || loadingEmps || loadingRecentKpis || loadingRecentSubs || loadingPinned
+  const orgId = user?.memberships?.[0]?.organizationId
+  const { data: periodsData } = useKpiPeriods({ organizationId: orgId })
 
-  const kpiCompletionRate = stats ? (stats.totalKpiCriteria > 0 ? Math.round((stats.approvedKpi / stats.totalKpiCriteria) * 100) : 0) : 0
-  const submissionApprovalRate = stats ? (stats.totalSubmissions > 0 ? Math.round((stats.approvedSubmissions / stats.totalSubmissions) * 100) : 0) : 0
+  const activePeriod = useMemo(() => {
+    if (!periodsData?.content) return null
+    const now = new Date()
+    return periodsData.content.find(p => {
+       if (!p.startDate || !p.endDate) return false
+       return now >= new Date(p.startDate) && now <= new Date(p.endDate)
+    })
+  }, [periodsData])
+
+  const daysRemaining = useMemo(() => {
+    if (!activePeriod?.endDate) return null
+    const diff = new Date(activePeriod.endDate).getTime() - new Date().getTime()
+    return Math.max(0, Math.ceil(diff / (1000 * 60 * 60 * 24)))
+  }, [activePeriod])
+
+  const isLoading = loadingStats || loadingOrgUnits || loadingEmps || loadingPinned
+
+  const { companyWeightedAvg, groupRates: groups } = useMemo(() => {
+    const emps = allEmpStats?.content || empStats?.content || []
+    if (emps.length === 0) return { companyWeightedAvg: 0, groupRates: {} }
+
+    const groups: Record<string, { userId: string, empName: string, rate: number }[]> = {}
+    emps.forEach(e => {
+      if (e.assignedKpi > 0) {
+        const unitName = (e.orgUnitName || 'Chưa gán').trim()
+        const rate = e.approvedSubmissions / (e.assignedKpi || 1)
+        if (!groups[unitName]) groups[unitName] = []
+        groups[unitName].push({ userId: e.userId, empName: e.fullName, rate })
+      }
+    })
+
+    const deptScores = Object.values(groups).map(members => 
+      members.reduce((a, b) => a + b.rate, 0) / members.length
+    )
+
+    const avg = deptScores.length === 0 ? 0 : Math.round((deptScores.reduce((a, b) => a + b, 0) / deptScores.length) * 100)
+    return { companyWeightedAvg: avg, groupRates: groups }
+  }, [allEmpStats, empStats])
 
   const filteredEmployees = useMemo(() => {
-    if (!empStats) return []
-    return empStats.filter(e =>
-      (orgUnitFilter === 'ALL' || e.orgUnitName === orgUnitFilter) &&
+    const list = empStats?.content ?? []
+    return list.filter(e =>
       ((e.fullName || '').toLowerCase().includes(empSearch.toLowerCase()) || 
        (e.email || '').toLowerCase().includes(empSearch.toLowerCase()))
     )
   }, [empStats, empSearch, orgUnitFilter])
 
-  const orgUnitNames = useMemo(() => {
-    if (!empStats) return []
-    return [...new Set(empStats.map(e => e.orgUnitName).filter(Boolean))]
-  }, [empStats])
+  const filteredOrgUnits = useMemo(() => {
+    if (!orgUnitStats) return []
+    // Filter units that have assignments and are NOT the currently selected root unit
+    return orgUnitStats.filter(ou => 
+      ou.totalAssignments > 0 && 
+      (orgUnitFilter === 'ALL' || ou.orgUnitId !== orgUnitFilter)
+    )
+  }, [orgUnitStats, orgUnitFilter])
 
-  // Top performers (from employee stats)
-  const topPerformers = useMemo(() => {
-    if (!empStats) return []
-    return empStats
-      .filter(e => e.totalSubmissions > 0)
-      .sort((a, b) => {
-        const rateA = a.totalSubmissions > 0 ? a.approvedSubmissions / a.totalSubmissions : 0
-        const rateB = b.totalSubmissions > 0 ? b.approvedSubmissions / b.totalSubmissions : 0
-        return rateB - rateA
-      })
-      .slice(0, 5)
-  }, [empStats])
+  const unitAverageScores = useMemo(() => {
+    const unitTotals: Record<string, number> = {}
+    const emps = allEmpStats?.content || []
+    
+    emps.forEach(emp => {
+      const name = (emp.orgUnitName || 'Chưa gán').trim()
+      const rate = emp.assignedKpi > 0 ? (emp.approvedSubmissions / emp.assignedKpi) * 100 : 0
+      unitTotals[name] = (unitTotals[name] || 0) + rate
+    })
 
-  // At-risk employees (rejected > 0 or no submissions)
-  const atRiskEmployees = useMemo(() => {
-    if (!empStats) return []
-    return empStats.filter(e => e.rejectedSubmissions > 0 || (e.assignedKpi > 0 && e.totalSubmissions === 0))
-  }, [empStats])
+    const result: Record<string, number> = {}
+    orgUnitStats?.forEach(unit => {
+      const name = (unit.orgUnitName || 'Chưa gán').trim()
+      const totalRate = unitTotals[name] || 0
+      const count = unit.memberCount || 1
+      result[name] = totalRate / count
+    })
+    return result
+  }, [allEmpStats, orgUnitStats])
 
-  if (isLoading) return <div className="p-8"><LoadingSkeleton rows={10} /></div>
+  const submissionChartData = [
+    { name: 'Đã duyệt', value: stats?.approvedSubmissions ?? 0, color: '#10b981' },
+    { name: 'Chờ duyệt', value: stats?.pendingSubmissions ?? 0, color: '#f59e0b' },
+    { name: 'Từ chối', value: stats?.rejectedSubmissions ?? 0, color: '#ef4444' },
+  ]
 
-  const tabs: { key: TabView; label: string; icon: any; badge?: number }[] = [
+  const handleExport = async () => {
+    if (!allEmpStats?.content || allEmpStats.content.length === 0) {
+      toast.error('Không có dữ liệu để xuất')
+      return
+    }
+    setIsExporting(true)
+    try {
+      await exportPerformanceToExcel(allEmpStats.content)
+      toast.success('Đã xuất báo cáo thành công')
+    } catch (error) {
+      console.error('Export error:', error)
+      toast.error('Có lỗi xảy ra khi xuất báo cáo')
+    } finally {
+      setIsExporting(false)
+    }
+  }
+
+  if (isLoading) return (
+    <div className="max-w-[1600px] mx-auto p-8 space-y-8">
+      <div className="h-32 bg-slate-100 dark:bg-slate-800 rounded-[40px] animate-pulse" />
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+        {[1,2,3,4].map(i => <div key={i} className="h-40 bg-slate-100 dark:bg-slate-800 rounded-[32px] animate-pulse" />)}
+      </div>
+      <LoadingSkeleton rows={10} />
+    </div>
+  )
+
+  const tabs: { key: TabView; label: string; icon: any }[] = [
     { key: 'overview', label: 'Tổng quan', icon: BarChart3 },
-    { key: 'orgUnits', label: 'Đơn vị', icon: Building2, badge: orgUnitStats?.length },
-    { key: 'employees', label: 'Nhân viên', icon: Users, badge: empStats?.length },
+    { key: 'orgUnits', label: 'Cơ cấu đơn vị', icon: Building2 },
+    { key: 'employees', label: 'Bảng nhân sự', icon: Users },
   ]
 
   return (
-    <div className="max-w-[1600px] mx-auto p-4 md:p-8 space-y-8 animate-in fade-in duration-500">
-
-      {/* HEADER */}
-      <div className="flex flex-col lg:flex-row justify-between items-start lg:items-end gap-6">
-        <div>
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 text-xs font-black uppercase tracking-widest mb-3">
-            <ShieldCheck size={14} /> Bảng điều hành Giám đốc
+    <div className="max-w-[1600px] mx-auto p-4 md:p-8 space-y-10 animate-in fade-in duration-700">
+      <PageTour pageKey="dashboard-director" steps={directorDashboardSteps} />
+      
+      <div className="relative group">
+        <div className="absolute -inset-1 bg-gradient-to-r from-indigo-500 to-purple-600 rounded-[32px] blur opacity-10 group-hover:opacity-20 transition duration-1000 group-hover:duration-200"></div>
+        <div id="tour-dashboard-header" className="relative flex flex-col lg:flex-row justify-between items-center gap-6 bg-white dark:bg-slate-900 p-6 md:p-8 rounded-[32px] border border-slate-200 dark:border-slate-800 shadow-xl overflow-hidden">
+          <div className="absolute top-0 right-0 -mr-12 -mt-12 w-48 h-48 bg-indigo-500/5 rounded-full blur-3xl"></div>
+          
+          <div className="flex-1 space-y-3 text-center lg:text-left">
+            <h1 className="text-3xl md:text-4xl font-black tracking-tighter text-slate-900 dark:text-white">
+              Hệ thống <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 to-purple-600">Quản trị Hiệu suất</span>
+            </h1>
+            <p className="text-slate-500 font-medium text-base max-w-2xl leading-relaxed">
+              Dữ liệu tổng quát về KPIs, bài nộp và đánh giá nhân sự. 
+              Cập nhật lúc: {new Date().toLocaleTimeString('vi-VN')}
+            </p>
           </div>
-          <h1 className="text-3xl md:text-4xl font-black tracking-tight text-slate-900 dark:text-white">
-            Hiệu suất Toàn công ty
-          </h1>
-          <p className="text-slate-500 font-medium mt-1 max-w-lg">
-            Theo dõi chi tiết các đơn vị, nhân viên và chỉ tiêu KPI trên toàn hệ thống.
-          </p>
-        </div>
-        <div className="flex items-center gap-3 flex-wrap">
-          <Link to="/kpi-criteria" className="flex items-center gap-2 px-5 py-2.5 text-sm font-bold rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-50 transition-all">
-            <Target size={16} /> Quản lý KPI
-          </Link>
-          <Link to="/kpi-criteria/pending" className="flex items-center gap-2 px-5 py-2.5 text-sm font-bold rounded-xl bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 text-amber-700 dark:text-amber-400 hover:bg-amber-100 transition-all">
-            <Clock size={16} /> Duyệt KPI ({stats?.pendingKpi ?? 0})
-          </Link>
-        </div>
-      </div>
 
-      {/* BIG STAT CARDS */}
-      <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
-        <StatCard icon={<Users />} label="Nhân sự" value={stats?.totalUsers ?? 0} color="indigo" />
-        <StatCard icon={<Building2 />} label="Đơn vị" value={stats?.totalOrgUnits ?? 0} color="emerald" />
-        <StatCard icon={<Target />} label="Chỉ tiêu KPI" value={stats?.totalKpiCriteria ?? 0} sub={`${stats?.approvedKpi ?? 0} duyệt • ${stats?.pendingKpi ?? 0} chờ`} color="blue" />
-        <StatCard icon={<FileText />} label="Bài nộp" value={stats?.totalSubmissions ?? 0} sub={`${stats?.approvedSubmissions ?? 0} duyệt • ${stats?.pendingSubmissions ?? 0} chờ`} color="amber" />
-        <StatCard icon={<Star />} label="Đánh giá" value={stats?.totalEvaluations ?? 0} color="purple" />
-      </div>
-
-      {/* TABS */}
-      <div className="flex items-center gap-1 border-b border-slate-200 dark:border-slate-800 overflow-x-auto">
-        {tabs.map(t => {
-          const Icon = t.icon
-          return (
-            <button
-              key={t.key}
-              onClick={() => setActiveTab(t.key)}
-              className={cn(
-                "flex items-center gap-2 px-5 py-3 text-sm font-bold whitespace-nowrap border-b-2 transition-all -mb-px",
-                activeTab === t.key
-                  ? "border-indigo-600 text-indigo-600 dark:text-indigo-400 dark:border-indigo-400"
-                  : "border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
-              )}
+          <div className="flex items-center gap-3 shrink-0 bg-slate-50 dark:bg-slate-800/50 p-2.5 rounded-[24px] border border-slate-100 dark:border-slate-700/50">
+            <div className="flex flex-col items-end px-3">
+              <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Hôm nay</span>
+              <span className="text-xs font-bold text-slate-900 dark:text-white">
+                {new Date().toLocaleDateString('vi-VN', { day: 'numeric', month: 'long' })}
+              </span>
+            </div>
+            <Link 
+              id="tour-dashboard-approve-btn"
+              to="/kpi-criteria/pending" 
+              className="flex items-center gap-2 px-6 py-3.5 rounded-[20px] bg-indigo-600 hover:bg-indigo-700 text-white shadow-lg shadow-indigo-500/20 transition-all active:scale-95 group"
             >
-              <Icon size={18} /> {t.label}
-              {t.badge != null && (
-                <span className="ml-1 px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-[10px] font-black">{t.badge}</span>
-              )}
-            </button>
-          )
-        })}
+              <div className="relative">
+                <Clock size={18} />
+              </div>
+              <span className="font-black text-xs uppercase tracking-widest">Duyệt ({stats?.pendingKpi ?? 0})</span>
+              <ChevronRight size={16} className="group-hover:translate-x-1 transition-transform" />
+            </Link>
+          </div>
+        </div>
       </div>
 
-      {/* TAB CONTENT */}
+      <div id="tour-dashboard-stats" className="grid grid-cols-1 md:grid-cols-3 xl:grid-cols-4 gap-4">
+        <PremiumStatCard icon={<Building2 size={20} />} label="Phòng ban" value={stats?.totalOrgUnits ?? 0} color="emerald" trend="Active" />
+        <PremiumStatCard icon={<Users size={20} />} label="Nhân sự" value={empStats?.totalElements ?? 0} color="indigo" />
+        <PremiumStatCard icon={<Target size={20} />} label="Chỉ tiêu KPI" value={stats?.totalKpiCriteria ?? 0} sub={`${stats?.approvedKpi ?? 0} đã duyệt`} color="blue" />
+        <PremiumStatCard icon={<Award size={20} />} label="Đánh giá" value={stats?.totalEvaluations ?? 0} color="purple" />
+      </div>
+
       {activeTab === 'overview' && (
-        <OverviewTab
-          stats={stats}
-          kpiRate={kpiCompletionRate}
-          subRate={submissionApprovalRate}
-          orgUnitStats={orgUnitStats ?? []}
-          topPerformers={topPerformers}
-          atRiskCount={atRiskEmployees.length}
-          recentKpis={recentKpiData?.content ?? []}
-          recentSubmissions={recentSubData?.content ?? []}
-          pinnedWidgets={pinnedWidgets ?? []}
-          onRefreshPinned={refetchPinned}
+        <>
+          {pinnedWidgets && pinnedWidgets.length > 0 && (
+            <section className="space-y-4">
+              <div className="flex items-center justify-between">
+                <h3 className="font-black text-slate-900 dark:text-white flex items-center gap-2">
+                  <Pin size={18} className="text-indigo-600 rotate-45" /> Thống kê đã ghim
+                </h3>
+              </div>
+              <div className="grid grid-cols-12 gap-6">
+                {pinnedWidgets.map((widget: ReportWidget) => (
+                  <PinnedWidgetCard key={widget.id} widget={widget} onUnpin={refetchPinned} />
+                ))}
+              </div>
+            </section>
+          )}
+
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-stretch">
+            {/* Row 1: Key Performance Indicators & Alerts */}
+            <div id="tour-dashboard-completion" className="bg-white dark:bg-slate-900 p-8 rounded-[40px] border border-slate-200/60 dark:border-slate-800 shadow-[0_8px_30px_rgb(0,0,0,0.04)] relative group transition-all hover:shadow-[0_20px_50px_rgba(99,102,241,0.1)] flex flex-col justify-between min-h-[520px] hover:z-50">
+              <div className="absolute top-0 left-0 w-1.5 h-1/2 mt-[25%] bg-gradient-to-b from-indigo-500 to-purple-600 rounded-full opacity-0 group-hover:opacity-100 transition-all duration-500"></div>
+              <div className="flex items-center justify-between mb-6">
+                <div className="space-y-1">
+                  <p className="text-xl font-black tracking-tight text-slate-900 dark:text-white">Tỷ lệ Hoàn thành</p>
+                </div>
+              </div>
+
+              <div className="flex flex-col items-center flex-1 justify-center py-4">
+                <div 
+                  onMouseEnter={() => !evaluatingUser && setShowRadialTooltip(true)}
+                  onMouseLeave={() => setShowRadialTooltip(false)}
+                  className="relative w-64 h-64 flex items-center justify-center group/radial cursor-pointer"
+                >
+                  <div className={cn(
+                    "absolute inset-0 bg-indigo-500/5 dark:bg-indigo-500/10 rounded-full blur-3xl scale-75 transition-opacity duration-700",
+                    showRadialTooltip ? "opacity-100" : "opacity-0"
+                  )}></div>
+                  <svg viewBox="0 0 100 100" className="w-full h-full transform -rotate-90 relative z-10">
+                    <defs>
+                      <linearGradient id="radialGradientD" x1="0%" y1="0%" x2="100%" y2="0%">
+                        <stop offset="0%" stopColor="#6366f1" />
+                        <stop offset="100%" stopColor="#8b5cf6" />
+                      </linearGradient>
+                    </defs>
+                    <circle cx="50" cy="50" r="42" stroke="#f1f5f9" strokeWidth="6" fill="transparent" className="dark:stroke-slate-800/50" />
+                    <circle 
+                      cx="50" cy="50" r="42" 
+                      stroke="url(#radialGradientD)" 
+                      strokeWidth="6" 
+                      fill="transparent" 
+                      strokeDasharray={263.8}
+                      strokeDashoffset={263.8 - (263.8 * companyWeightedAvg) / 100}
+                      strokeLinecap="round"
+                      className="transition-all duration-[2000ms] ease-in-out"
+                    />
+                  </svg>
+                  <div className="absolute inset-0 flex flex-col items-center justify-center z-20 transition-all duration-500 group-hover/radial:scale-110">
+                    <div className="relative">
+                      <span className="text-7xl font-black tracking-tighter text-slate-900 dark:text-white leading-none drop-shadow-sm">{companyWeightedAvg}%</span>
+                      <div className="absolute -top-2 -right-4 w-3 h-3 rounded-full bg-emerald-500 animate-ping"></div>
+                    </div>
+                  </div>
+
+                  <div className={cn(
+                    "absolute top-[80%] left-1/2 -translate-x-1/2 mt-4 w-72 backdrop-blur-xl bg-white/95 dark:bg-slate-900/95 p-5 rounded-[28px] shadow-[0_30px_60px_rgba(0,0,0,0.2)] border border-slate-100 dark:border-slate-800 transition-all duration-300 z-[100]",
+                    showRadialTooltip && !evaluatingUser ? "opacity-100 visible translate-y-0" : "opacity-0 invisible translate-y-2"
+                  )}>
+                      <div className="flex items-center gap-2 mb-4 px-2">
+                        <div className="w-1 h-4 bg-indigo-500 rounded-full"></div>
+                        <span className="text-[10px] font-black text-slate-900 dark:text-white uppercase tracking-widest">Nhân viên đóng góp</span>
+                      </div>
+                      <div className="space-y-1.5 max-h-72 overflow-y-auto pr-1 custom-scrollbar">
+                        {Object.values(groups).flat().filter(m => m.rate > 0).length > 0 ? (
+                          Object.values(groups).flat().filter(m => m.rate > 0).map((m, i) => (
+                            <div 
+                              key={`${m.empName}-${i}`} 
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setShowRadialTooltip(false);
+                                setEvaluatingUser({ id: m.userId, name: m.empName });
+                              }}
+                              className="flex justify-between items-center p-3 rounded-2xl hover:bg-indigo-50/50 dark:hover:bg-indigo-500/10 transition-all group/emp border border-transparent hover:border-indigo-100/50 dark:hover:border-indigo-500/20 cursor-pointer"
+                            >
+                              <div className="flex items-center gap-2">
+                                <div className="w-1.5 h-1.5 rounded-full bg-indigo-400"></div>
+                                <span className="text-[11px] font-bold text-slate-600 dark:text-slate-400 group-hover/emp:text-slate-900 dark:group-hover/emp:text-white transition-colors">{m.empName}</span>
+                              </div>
+                              <span className="text-[11px] font-black text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-500/10 px-2 py-0.5 rounded-lg">{Math.round(m.rate * 100)}%</span>
+                            </div>
+                          ))
+                        ) : (
+                          <div className="py-8 text-center bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-dashed border-slate-200 dark:border-slate-700">
+                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Chưa có đóng góp</p>
+                          </div>
+                        )}
+                      </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="w-full grid grid-cols-2 gap-0 border-t border-slate-100 dark:border-slate-800 pt-6">
+                <div className="flex flex-col items-center justify-center space-y-1 border-r border-slate-100 dark:border-slate-800 px-4">
+                  <div className="flex items-center gap-1.5 text-slate-400 mb-1">
+                    <Building2 size={12} />
+                    <span className="text-[9px] font-black uppercase tracking-widest">Cơ cấu Đơn vị</span>
+                  </div>
+                  <p className="text-base font-black text-slate-900 dark:text-white">{stats?.totalOrgUnits ?? 0} Phòng ban</p>
+                </div>
+                <div className="flex flex-col items-center justify-center space-y-1 px-4">
+                  <div className="flex items-center gap-1.5 text-slate-400 mb-1">
+                    <Users size={12} />
+                    <span className="text-[9px] font-black uppercase tracking-widest">Đối tượng KPI</span>
+                  </div>
+                  <p className="text-base font-black text-slate-900 dark:text-white">{(allEmpStats?.content || []).filter(e => e.assignedKpi > 0).length} Nhân sự</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-white dark:bg-slate-900 p-8 rounded-[40px] border border-slate-200/60 dark:border-slate-800 shadow-[0_8px_30px_rgb(0,0,0,0.04)] relative group transition-all hover:shadow-[0_20px_50px_rgba(16,185,129,0.1)] flex flex-col min-h-[520px] hover:z-50">
+              <div className="absolute top-0 left-0 w-1.5 h-1/2 mt-[25%] bg-gradient-to-b from-emerald-500 to-teal-600 rounded-full opacity-0 group-hover:opacity-100 transition-all duration-500"></div>
+              <div className="flex items-center justify-between mb-8">
+                <div className="space-y-1">
+                  <p className="text-xl font-black tracking-tight text-slate-900 dark:text-white">Phân tích Bài nộp</p>
+                </div>
+                <div className="w-10 h-10 rounded-2xl bg-emerald-50 dark:bg-emerald-900/40 flex items-center justify-center text-emerald-600 dark:text-emerald-400 border border-emerald-100/50 dark:border-emerald-500/20">
+                  <FileText size={20} />
+                </div>
+              </div>
+
+              <div className="h-[280px] w-full relative mb-8 flex-1">
+                <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none z-0">
+                  <div className="bg-slate-50 dark:bg-slate-800/50 w-28 h-28 rounded-full flex flex-col items-center justify-center border border-slate-100 dark:border-slate-700 shadow-inner">
+                    <span className="text-4xl font-black text-slate-900 dark:text-white leading-none tracking-tighter">
+                      {(stats?.approvedSubmissions ?? 0) + (stats?.pendingSubmissions ?? 0) + (stats?.rejectedSubmissions ?? 0)}
+                    </span>
+                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-2">Tổng nộp</span>
+                  </div>
+                </div>
+                <ResponsiveContainer width="100%" height="100%" className="relative z-10">
+                  <PieChart margin={{ top: 10, right: 10, bottom: 10, left: 10 }}>
+                    <Pie
+                      data={submissionChartData}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius="60%"
+                      outerRadius="90%"
+                      paddingAngle={5}
+                      dataKey="value"
+                      stroke="none"
+                      animationBegin={200}
+                      animationDuration={1500}
+                    >
+                      {submissionChartData.map((entry, index) => (
+                        <Cell 
+                          key={`cell-${index}`} 
+                          fill={entry.color} 
+                          className="hover:opacity-80 transition-all duration-300 cursor-pointer"
+                        />
+                      ))}
+                    </Pie>
+                    <Tooltip 
+                      contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 20px 25px -5px rgb(0 0 0 / 0.1)', fontSize: '11px', fontWeight: 'bold' }}
+                      wrapperStyle={{ zIndex: 1000 }}
+                    />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+
+              <div className="grid grid-cols-1 gap-2 pt-6 border-t border-slate-100 dark:border-slate-800">
+                {submissionChartData.map(item => (
+                  <div key={item.name} className="flex items-center justify-between p-2.5 rounded-[18px] bg-slate-50 dark:bg-slate-800/40 border border-transparent hover:border-slate-200 dark:hover:border-slate-700 transition-all group/item">
+                    <div className="flex items-center gap-3">
+                      <div className="w-2.5 h-2.5 rounded-full shadow-[0_0_8px_rgba(0,0,0,0.1)]" style={{ backgroundColor: item.color }} />
+                      <span className="text-[11px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider">{item.name}</span>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <span className="text-sm font-black text-slate-900 dark:text-white">{item.value}</span>
+                      <div className="px-2 py-0.5 rounded-lg bg-white dark:bg-slate-900 text-[10px] font-black text-slate-400 border border-slate-100 dark:border-slate-800">
+                        {stats?.totalSubmissions ? Math.round((item.value / stats.totalSubmissions) * 100) : 0}%
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div id="tour-dashboard-alerts" className="bg-gradient-to-br from-indigo-700 via-indigo-800 to-violet-900 p-8 rounded-[40px] shadow-2xl relative transition-all hover:shadow-[0_20px_50px_rgba(99,102,241,0.2)] text-white flex flex-col min-h-[520px] hover:z-50">
+              <div className="absolute top-0 right-0 -mr-12 -mt-12 w-48 h-48 bg-white/10 rounded-full blur-3xl"></div>
+              <div className="absolute bottom-0 left-0 -ml-12 -mb-12 w-48 h-48 bg-white/5 rounded-full blur-3xl"></div>
+              
+              <div className="relative flex items-center justify-between mb-8">
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 rounded-2xl bg-white/10 border border-white/20 flex items-center justify-center text-red-300">
+                    <TriangleAlert size={24} />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-black uppercase tracking-widest text-white">Tiêu điểm Tiêu cực</h3>
+                    <p className="text-[10px] text-white/60 font-bold uppercase tracking-widest mt-1">Cần   can thiệp</p>
+                  </div>
+                </div>
+                <Link 
+                  to="/submissions/org-unit" 
+                  className="w-10 h-10 rounded-xl bg-white/10 border border-white/10 flex items-center justify-center text-white/60 hover:text-white hover:bg-white/20 transition-all active:scale-95 group"
+                  title="Quản lý phê duyệt"
+                >
+                  <ArrowUpRight size={20} className="group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
+                </Link>
+              </div>
+
+              <div className="relative space-y-4 flex-1 overflow-y-auto pr-2 custom-scrollbar">
+                {(() => {
+                  const alerts: React.ReactNode[] = []
+                  
+                  if (stats?.pendingKpi && stats.pendingKpi > 0) {
+                    alerts.push(
+                      <AlertItem 
+                        key="pending-kpi"
+                        icon={<Clock size={18} />}
+                        title={`${stats.pendingKpi} yêu cầu KPI chờ duyệt`}
+                        sub="Ảnh hưởng đến tiến độ toàn công ty"
+                        color="red"
+                        link="/kpi-criteria/pending"
+                      />
+                    )
+                  }
+
+                  const lowProgressUnits = orgUnitStats?.filter(u => (u.totalAssignments > 0 && (u.totalSubmissions / u.totalAssignments) < 0.3)) || []
+                  lowProgressUnits.forEach(unit => {
+                    alerts.push(
+                      <AlertItem 
+                        key={unit.orgUnitId}
+                        icon={<Building2 size={18} />}
+                        title={`${unit.orgUnitName} tiến độ quá thấp`}
+                        sub={`Chỉ mới đạt ${Math.round((unit.totalSubmissions / (unit.totalAssignments || 1)) * 100)}% chỉ tiêu`}
+                        color="amber"
+                        link={`/org-units/${unit.orgUnitId}`}
+                      />
+                    )
+                  })
+
+                  const incompleteEmps = empStats?.content?.filter(e => e.assignedKpi > 0 && e.approvedSubmissions < e.assignedKpi) || []
+                  incompleteEmps.forEach(emp => {
+                    alerts.push(
+                      <AlertItem 
+                        key={emp.userId}
+                        icon={<Users size={18} />}
+                        title={`${emp.fullName} chưa hoàn thành`}
+                        sub={`Giao ${emp.assignedKpi}, còn ${emp.assignedKpi - emp.approvedSubmissions} KPI • ${daysRemaining !== null ? `Còn ${daysRemaining} ngày` : 'N/A'}`}
+                        color="blue"
+                        link={`/employees/${emp.userId}/performance`}
+                      />
+                    )
+                  })
+
+                  if (alerts.length === 0) {
+                    return (
+                      <div className="py-12 text-center h-full flex flex-col items-center justify-center">
+                        <div className="w-16 h-16 rounded-full bg-emerald-500/10 flex items-center justify-center mx-auto mb-4 text-emerald-400 border border-emerald-500/20">
+                          <ShieldCheck size={32} />
+                        </div>
+                        <p className="text-sm font-bold text-slate-300">Hệ thống đang vận hành ổn định</p>
+                        <p className="text-[10px] text-slate-500 uppercase tracking-widest mt-2">Không có cảnh báo mới</p>
+                      </div>
+                    )
+                  }
+
+                  const totalAlertPages = Math.ceil(alerts.length / 5)
+                  const pagedAlerts = alerts.slice(alertPage * 5, (alertPage + 1) * 5)
+
+                  return (
+                    <div className="space-y-4 flex flex-col h-full">
+                      <div className="flex-1 space-y-4">
+                        {pagedAlerts}
+                      </div>
+                      
+                      {totalAlertPages > 1 && (
+                        <div className="flex items-center justify-between pt-6 border-t border-white/10 mt-auto px-2">
+                          <button 
+                            onClick={() => setAlertPage(p => Math.max(0, p - 1))}
+                            disabled={alertPage === 0}
+                            className="w-10 h-10 flex items-center justify-center rounded-2xl bg-white/5 hover:bg-white/10 border border-white/10 disabled:opacity-20 transition-all active:scale-90 shadow-lg"
+                          >
+                            <ChevronLeft size={20} className="text-white" />
+                          </button>
+                          
+                          <div className="flex flex-col items-center gap-1">
+                            <span className="text-[10px] font-black text-white uppercase tracking-[0.3em] opacity-80">
+                              Trang
+                            </span>
+                            <div className="flex items-center gap-2">
+                              <span className="text-sm font-black text-white">{alertPage + 1}</span>
+                              <span className="text-[10px] font-black text-white/30">/</span>
+                              <span className="text-[10px] font-black text-white/40">{totalAlertPages}</span>
+                            </div>
+                          </div>
+
+                          <button 
+                            onClick={() => setAlertPage(p => Math.min(totalAlertPages - 1, p + 1))}
+                            disabled={alertPage >= totalAlertPages - 1}
+                            className="w-10 h-10 flex items-center justify-center rounded-2xl bg-white/5 hover:bg-white/10 border border-white/10 disabled:opacity-20 transition-all active:scale-90 shadow-lg"
+                          >
+                            <ChevronRight size={20} className="text-white" />
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  )
+                })()}
+              </div>
+              
+
+            </div>
+          </div>
+        </>
+      )}
+
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <div id="tour-dashboard-tabs" className="flex items-center gap-2 bg-slate-100 dark:bg-slate-800 p-2 rounded-[22px]">
+            {tabs.map(t => {
+              const Icon = t.icon
+              const active = activeTab === t.key
+              return (
+                <button
+                  key={t.key}
+                  onClick={() => setActiveTab(t.key)}
+                  className={cn(
+                    "flex items-center gap-2 px-6 py-2.5 text-[11px] font-black uppercase tracking-widest rounded-[14px] transition-all",
+                    active 
+                      ? "bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 shadow-sm scale-105" 
+                      : "text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
+                  )}
+                >
+                  <Icon size={16} /> {t.label}
+                </button>
+              )
+            })}
+          </div>
+        </div>
+
+        <div className="animate-in slide-in-from-bottom-4 duration-500">
+          {activeTab === 'overview' && (
+            <div className="grid grid-cols-1 gap-8">
+                <PremiumRankingTable 
+                  employees={allEmpStats?.content || empStats?.content || []} 
+                  onSelectUser={(id, name) => setEvaluatingUser({ id, name })}
+                  hoveredUserId={hoveredEmpId}
+                  onHoverUser={setHoveredEmpId}
+                />
+            </div>
+          )}
+          {activeTab === 'orgUnits' && <OrgUnitsGrid units={filteredOrgUnits} averageScores={unitAverageScores} />}
+          {activeTab === 'employees' && (
+            <EmployeesExecutiveTable 
+                employees={filteredEmployees}
+                loading={loadingEmps}
+                search={empSearch}
+                onSearchChange={setEmpSearch}
+                page={empPage}
+                totalPages={empStats?.totalPages ?? 1}
+                onPageChange={setEmpPage}
+                onExport={handleExport}
+                isExporting={isExporting}
+                orgUnitFilter={orgUnitFilter}
+                onOrgUnitFilterChange={setOrgUnitFilter}
+                orgUnits={orgUnitStats || []}
+            />
+          )}
+        </div>
+      </div>
+
+      {evaluatingUser && activePeriod && (
+        <StaffPerformanceDetailModal
+          open={!!evaluatingUser}
+          onClose={() => setEvaluatingUser(null)}
+          userId={evaluatingUser.id}
+          userName={evaluatingUser.name}
+          periodId={activePeriod.id}
+          periodName={activePeriod.name}
         />
       )}
-      {activeTab === 'orgUnits' && <OrgUnitsTab orgUnitStats={orgUnitStats ?? []} loading={loadingOrgUnits} />}
-      {activeTab === 'employees' && (
-        <EmployeesTab
-          employees={filteredEmployees}
-          loading={loadingEmps}
-          search={empSearch}
-          onSearchChange={setEmpSearch}
-          orgUnitFilter={orgUnitFilter}
-          onOrgUnitFilterChange={setOrgUnitFilter}
-          orgUnitNames={orgUnitNames}
-        />
-      )}
+    </div>
+  )
+}
+
+function PremiumStatCard({ icon, label, value, sub, color, trend, progress }: any) {
+  const colors: Record<string, string> = {
+    indigo: "from-indigo-500/20 to-indigo-600/20 text-indigo-600 dark:text-indigo-400",
+    emerald: "from-emerald-500/20 to-emerald-600/20 text-emerald-600 dark:text-emerald-400",
+    blue: "from-blue-500/20 to-blue-600/20 text-blue-600 dark:text-blue-400",
+    amber: "from-amber-500/20 to-amber-600/20 text-amber-600 dark:text-amber-400",
+    purple: "from-purple-500/20 to-purple-600/20 text-purple-600 dark:text-purple-400",
+  }
+
+  const iconColors: Record<string, string> = {
+    indigo: "bg-indigo-500 shadow-indigo-500/40",
+    emerald: "bg-emerald-500 shadow-emerald-500/40",
+    blue: "bg-blue-500 shadow-blue-500/40",
+    amber: "bg-amber-500 shadow-amber-500/40",
+    purple: "bg-purple-500 shadow-purple-500/40",
+  }
+
+  return (
+    <div className="group relative h-full">
+       <div className="bg-white dark:bg-slate-900 p-6 rounded-[32px] border border-slate-200/60 dark:border-slate-800 shadow-sm hover:shadow-2xl hover:-translate-y-1 transition-all duration-500 overflow-hidden h-full flex flex-col justify-between">
+          <div className={cn("absolute -top-12 -right-12 w-32 h-32 bg-gradient-to-br opacity-10 rounded-full transition-all duration-700 group-hover:scale-150 group-hover:opacity-20", colors[color])}></div>
+          
+          <div>
+            <div className={cn("w-12 h-12 rounded-2xl flex items-center justify-center mb-6 text-white bg-gradient-to-br shadow-lg transition-transform duration-500 group-hover:rotate-6", iconColors[color])}>
+              {icon}
+            </div>
+            <div className="space-y-1.5 relative z-10">
+               <p className="text-[10px] font-black uppercase tracking-[0.25em] text-slate-400 group-hover:text-slate-600 dark:group-hover:text-slate-300 transition-colors">{label}</p>
+               <div className="flex items-baseline gap-3">
+                  <h4 className="text-4xl font-black tracking-tighter text-slate-900 dark:text-white transition-all duration-500 group-hover:tracking-normal">{value}</h4>
+                  {trend && (
+                    <span className="text-[10px] font-black text-emerald-600 bg-emerald-50 dark:bg-emerald-500/10 px-2.5 py-1 rounded-full border border-emerald-100 dark:border-emerald-500/20">
+                      {trend}
+                    </span>
+                  )}
+               </div>
+               {sub && <p className="text-xs font-bold text-slate-500 mt-1">{sub}</p>}
+            </div>
+          </div>
+
+          {progress != null && (
+            <div className="mt-8 pt-5 border-t border-slate-100 dark:border-slate-800 space-y-2.5">
+              <div className="flex justify-between text-[10px] font-black uppercase tracking-widest text-slate-400">
+                <span>Tiến độ</span>
+                <span className="text-indigo-600 dark:text-indigo-400 font-black">{progress}%</span>
+              </div>
+              <div className="h-2 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                <div className="h-full bg-gradient-to-r from-indigo-500 to-purple-600 rounded-full transition-all duration-[1500ms] ease-out shadow-[0_0_8px_rgba(99,102,241,0.4)]" style={{ width: `${progress}%` }} />
+              </div>
+            </div>
+          )}
+       </div>
+    </div>
+  )
+}
+
+function AlertItem({ icon, title, sub, color, link }: { icon: any, title: string, sub: string, color: 'red' | 'amber' | 'blue', link?: string }) {
+  const colors = {
+    red: 'bg-red-500/10 text-red-500',
+    amber: 'bg-amber-500/10 text-amber-500',
+    blue: 'bg-blue-500/10 text-blue-500',
+  }
+  const Content = (
+    <div className="flex items-start gap-3 p-3.5 rounded-[20px] bg-white/5 hover:bg-white/10 transition-all border border-white/5 group cursor-pointer">
+      <div className={cn("w-9 h-9 rounded-xl flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform", colors[color])}>
+        {icon}
+      </div>
+      <div className="min-w-0 flex-1">
+        <p className="text-[13px] font-bold text-white truncate">{title}</p>
+        <p className="text-[10px] text-white/50 truncate font-medium">{sub}</p>
+      </div>
+      <ChevronRight size={14} className="text-slate-600 group-hover:text-white transition-colors" />
+    </div>
+  )
+
+  if (link) {
+    return <Link to={link}>{Content}</Link>
+  }
+  return Content
+}
+
+function PremiumRankingTable({ 
+  employees, onSelectUser, hoveredUserId, onHoverUser 
+}: { 
+  employees: EmployeeKpiStats[], 
+  onSelectUser: (id: string, name: string) => void,
+  hoveredUserId: string | null,
+  onHoverUser: (id: string | null) => void
+}) {
+  const { user } = useAuthStore()
+  const orgId = user?.memberships?.[0]?.organizationId
+  const { data: org } = useOrganization(orgId)
+  const { getScoreLabel, getScoreColor, maxScore } = getScoringFunctions(org)
+
+  const getPerformanceInfo = (score: number) => {
+    return { color: getScoreColor(score), label: getScoreLabel(score) }
+  }
+
+  const sorted = [...employees].sort((a, b) => (b.averageScore ?? 0) - (a.averageScore ?? 0)).slice(0, 5)
+  return (
+    <div className="bg-white dark:bg-slate-900 rounded-[32px] border border-slate-200/60 dark:border-slate-800 shadow-[0_8px_30px_rgb(0,0,0,0.02)] overflow-hidden transition-all hover:shadow-[0_20px_50px_rgba(0,0,0,0.05)]">
+      <div className="p-8 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50/30 dark:bg-slate-800/30">
+        <h3 className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-500 flex items-center gap-3">
+           <div className="w-8 h-8 rounded-xl bg-amber-500/10 flex items-center justify-center text-amber-500 border border-amber-500/20">
+             <Award size={16} />
+           </div>
+           TOP HIỆU SUẤT
+        </h3>
+        <div className="flex -space-x-2">
+          {sorted.slice(0, 3).map((emp, i) => (
+            <div key={i} className="w-8 h-8 rounded-full border-2 border-white dark:border-slate-900 bg-slate-200 dark:bg-slate-800 flex items-center justify-center text-[10px] font-black">
+              {getInitials(emp.fullName)}
+            </div>
+          ))}
+        </div>
+      </div>
+      <div className="overflow-x-auto lg:overflow-x-hidden scrollbar-hide custom-scrollbar">
+        <table className="w-full min-w-[800px] lg:min-w-full">
+          <thead>
+            <tr className="text-left text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 border-b border-slate-50 dark:border-slate-800/50">
+              <th className="px-10 py-6">Nhân viên</th>
+              <th className="px-6 py-6 text-center">Hoàn thành</th>
+              <th className="px-6 py-6 text-center">KPI Duyệt</th>
+              <th className="px-10 py-6 text-right">Điểm TB</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-50 dark:divide-slate-800">
+            {sorted.map((emp, index) => (
+              <tr 
+                key={emp.userId} 
+                onMouseEnter={() => onHoverUser(emp.userId)}
+                onMouseLeave={() => onHoverUser(null)}
+                onClick={() => onSelectUser(emp.userId, emp.fullName)}
+                className="hover:bg-slate-50/80 dark:hover:bg-slate-800/50 transition-all group cursor-pointer relative"
+              >
+                <td className="px-10 py-6">
+                  <div className="flex items-center gap-4">
+                    <div className="relative">
+                      <div className="w-12 h-12 rounded-2xl bg-indigo-100 dark:bg-indigo-900/40 flex items-center justify-center font-black text-sm text-indigo-600 group-hover:scale-110 transition-transform">
+                        {getInitials(emp.fullName)}
+                      </div>
+                      {index < 3 && (
+                        <div className={cn(
+                          "absolute -top-2 -right-2 w-5 h-5 rounded-full flex items-center justify-center text-[10px] border-2 border-white dark:border-slate-900 shadow-sm",
+                          index === 0 ? "bg-amber-400 text-white" : index === 1 ? "bg-slate-300 text-slate-700" : "bg-orange-400 text-white"
+                        )}>
+                          {index + 1}
+                        </div>
+                      )}
+                    </div>
+                    <div>
+                      <p className="text-sm font-black text-slate-900 dark:text-white group-hover:text-indigo-600 transition-colors">{emp.fullName}</p>
+                      <p className="text-[11px] text-slate-500 font-bold flex items-center gap-1.5 mt-0.5">
+                        <Building2 size={10} /> {emp.orgUnitName}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Hover Detail Tooltip for Ranking Table */}
+                  <div className={cn(
+                    "absolute left-full top-0 ml-4 w-72 backdrop-blur-xl bg-white/95 dark:bg-slate-900/95 p-5 rounded-[28px] shadow-[0_30px_60px_rgba(0,0,0,0.2)] border border-slate-100 dark:border-slate-800 transition-all duration-300 z-[100]",
+                    hoveredUserId === emp.userId ? "opacity-100 visible translate-x-0" : "opacity-0 invisible -translate-x-2"
+                  )}>
+                      <div className="flex items-center gap-2 mb-4 px-2">
+                        <div className="w-1 h-4 bg-emerald-500 rounded-full"></div>
+                        <span className="text-[10px] font-black text-slate-900 dark:text-white uppercase tracking-widest">Đóng góp chi tiết</span>
+                      </div>
+                      <div className="space-y-1.5">
+                        <div className="flex justify-between items-center p-3 rounded-2xl bg-indigo-50/50 dark:bg-indigo-500/10 border border-indigo-100/30">
+                           <span className="text-[11px] font-bold text-slate-600 dark:text-slate-400">KPI Hoàn thành</span>
+                           <span className="text-[11px] font-black text-indigo-600">{emp.approvedSubmissions}/{emp.assignedKpi}</span>
+                        </div>
+                        <div className="flex justify-between items-center p-3 rounded-2xl bg-emerald-50/50 dark:bg-emerald-500/10 border border-emerald-100/30">
+                           <span className="text-[11px] font-bold text-slate-600 dark:text-slate-400">Điểm trung bình</span>
+                           <span className="text-[11px] font-black text-emerald-600">{(emp.averageScore ?? 0).toFixed(1)}</span>
+                        </div>
+                        <div className="p-3 text-center">
+                           <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest italic">* Nhấn để xem chi tiết bài nộp</p>
+                        </div>
+                      </div>
+                  </div>
+                </td>
+                <td className="px-6 py-6 text-center">
+                  <div className="flex flex-col items-center gap-2">
+                    <div className="w-24 h-2 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden shadow-inner">
+                       <div className="h-full bg-gradient-to-r from-emerald-400 to-emerald-500 transition-all duration-1000 shadow-[0_0_8px_rgba(16,185,129,0.3)]" style={{ width: `${Math.round((emp.approvedSubmissions / (emp.assignedKpi || 1)) * 100)}%` }} />
+                    </div>
+                    <span className="text-[11px] font-black text-slate-600 dark:text-slate-400">
+                      {Math.round((emp.approvedSubmissions / (emp.assignedKpi || 1)) * 100)}%
+                    </span>
+                  </div>
+                </td>
+                <td className="px-6 py-6 text-center">
+                  <span className="text-[11px] font-black text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-500/10 px-3 py-1.5 rounded-xl border border-indigo-100/50 dark:border-indigo-500/20">
+                    {emp.approvedSubmissions}/{emp.assignedKpi}
+                  </span>
+                </td>
+                <td className="px-10 py-6 text-right">
+                   <div className="flex flex-col items-end">
+                     <span className={cn("text-2xl font-black tracking-tighter", getPerformanceInfo(emp.averageScore ?? 0).color)}>
+                       {(emp.averageScore ?? 0).toFixed(1)}
+                     </span>
+                     <span className="text-[9px] font-black uppercase text-slate-400 tracking-widest mt-1">
+                        {getPerformanceInfo(emp.averageScore ?? 0).label} • Hệ số {maxScore}
+                     </span>
+                   </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  )
+}
+
+function OrgUnitsGrid({ units, averageScores }: { units: OrgUnitStats[], averageScores: Record<string, number> }) {
+  return (
+    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
+       {units.map((unit) => {
+         const unitName = (unit.orgUnitName || 'Chưa gán').trim()
+         const avgScore = averageScores[unitName]
+         const kRate = (avgScore !== undefined && avgScore !== null && avgScore > 0) 
+           ? Math.round(avgScore) 
+           : (unit.totalAssignments > 0 ? Math.round((unit.totalSubmissions / unit.totalAssignments) * 100) : 0)
+         
+         return (
+           <div key={unit.orgUnitId} className="group relative bg-white dark:bg-slate-900 rounded-[32px] border border-slate-200/50 dark:border-slate-800/50 p-8 hover:shadow-[0_30px_60px_-15px_rgba(99,102,241,0.15)] transition-all duration-500 flex flex-col justify-between overflow-hidden hover:-translate-y-2">
+              <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-500/5 rounded-full -mr-16 -mt-16 group-hover:scale-150 transition-transform duration-1000"></div>
+              
+              <div className="relative z-10">
+                <div className="flex items-center justify-between mb-8">
+                  <div className="flex items-center gap-4">
+                    <div className="w-14 h-14 rounded-2xl bg-indigo-600 flex items-center justify-center text-white font-black text-xl shadow-lg shadow-indigo-500/20 group-hover:rotate-6 transition-all">
+                      {getInitials(unit.orgUnitName)}
+                    </div>
+                    <div>
+                      <h4 className="font-black text-slate-900 dark:text-white text-lg leading-tight group-hover:text-indigo-600 transition-colors">{unit.orgUnitName}</h4>
+                      <div className="flex items-center gap-2 mt-1">
+                        <Users size={14} className="text-slate-400" />
+                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{unit.memberCount} Nhân viên</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex flex-col items-end">
+                    <span className="text-3xl font-black text-slate-900 dark:text-white tracking-tighter">{kRate}%</span>
+                    <span className="text-[9px] font-black text-indigo-500 uppercase tracking-[0.2em]">Hiệu suất</span>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-3 gap-3 mb-8">
+                  {[
+                    { label: 'KPIs', val: unit.totalKpi, color: 'indigo' },
+                    { label: 'Đã nộp', val: unit.totalSubmissions, color: 'blue' },
+                    { label: 'Đã duyệt', val: unit.approvedSubmissions, color: 'emerald' }
+                  ].map((stat, i) => (
+                    <div key={i} className="bg-slate-50/50 dark:bg-slate-800/40 p-4 rounded-2xl border border-slate-100 dark:border-slate-700/30 text-center group/stat hover:bg-white dark:hover:bg-slate-800 transition-all">
+                      <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1 group-hover/stat:text-indigo-500 transition-colors">{stat.label}</p>
+                      <p className="text-base font-black text-slate-900 dark:text-white">{stat.val}</p>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="space-y-3 mb-8">
+                  <div className="flex justify-between items-end">
+                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Tiến độ hoàn thành</span>
+                    <span className="text-xs font-black text-indigo-600">{kRate}%</span>
+                  </div>
+                  <div className="h-1.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                    <div 
+                      className="h-full bg-gradient-to-r from-indigo-500 to-indigo-700 rounded-full transition-all duration-[1500ms] shadow-[0_0_8px_rgba(79,70,229,0.4)]" 
+                      style={{ width: `${kRate}%` }} 
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <Link to={`/org-units/${unit.orgUnitId}`} className="relative z-10 w-full py-4 rounded-2xl bg-slate-900 dark:bg-white text-white dark:text-slate-900 text-[11px] font-black uppercase tracking-[0.2em] flex items-center justify-center gap-2 hover:bg-indigo-600 dark:hover:bg-indigo-600 hover:text-white transition-all shadow-xl hover:shadow-indigo-500/20 active:scale-95">
+                Quản lý Đơn vị <ArrowUpRight size={16} />
+              </Link>
+           </div>
+         )
+       })}
+    </div>
+  )
+}
+
+function EmployeesExecutiveTable({ 
+  employees, loading, search, onSearchChange, 
+  page, totalPages, onPageChange, onExport, 
+  isExporting, orgUnitFilter, onOrgUnitFilterChange, orgUnits 
+}: any) {
+  if (loading) return (
+    <div className="space-y-6">
+       {[1,2,3,4,5].map(i => (
+         <div key={i} className="h-20 bg-slate-100 dark:bg-slate-800 rounded-[24px] animate-pulse" />
+       ))}
+    </div>
+  )
+  return (
+    <div className="bg-white dark:bg-slate-900 rounded-[40px] border border-slate-200/60 dark:border-slate-800 shadow-[0_8px_30px_rgb(0,0,0,0.02)] overflow-hidden">
+       <div className="p-8 border-b border-slate-100 dark:border-slate-800 flex flex-col lg:flex-row items-center justify-between gap-6 bg-slate-50/30 dark:bg-slate-800/30">
+          <div className="flex items-center gap-3">
+             <div className="w-10 h-10 rounded-xl bg-indigo-600 flex items-center justify-center text-white shadow-lg shadow-indigo-500/20">
+               <Users size={20} />
+             </div>
+             <div>
+               <h3 className="text-sm font-black uppercase tracking-widest text-slate-900 dark:text-white">Quản lý Nhân sự</h3>
+               <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mt-0.5">Thống kê hiệu suất cá nhân</p>
+             </div>
+          </div>
+          <div className="flex flex-col md:flex-row items-center gap-4 w-full lg:w-auto">
+            <div className="relative w-full lg:w-[350px] group">
+              <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-500 transition-colors" size={18} />
+              <input 
+                id="tour-dashboard-search"
+                value={search}
+                onChange={e => onSearchChange(e.target.value)}
+                placeholder="Search by name or email..."
+                className="w-full pl-14 pr-8 py-3.5 rounded-[22px] bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/5 outline-none text-sm transition-all shadow-sm"
+              />
+            </div>
+            <div className="w-full md:w-[220px]">
+              <Select value={orgUnitFilter} onValueChange={onOrgUnitFilterChange}>
+                <SelectTrigger className="w-full h-[54px] rounded-[22px] bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 font-bold text-xs uppercase tracking-widest px-6">
+                   <SelectValue placeholder="Chọn đơn vị..." />
+                </SelectTrigger>
+                <SelectContent className="rounded-2xl shadow-2xl border-slate-100 dark:border-slate-800">
+                  {orgUnits.map((u: any) => (
+                    <SelectItem key={u.orgUnitId} value={u.orgUnitId} className="text-xs font-bold uppercase tracking-widest py-3">
+                      {u.orgUnitName}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <button
+              id="tour-dashboard-export-btn"
+              onClick={onExport}
+              disabled={isExporting}
+              className="w-full md:w-auto flex items-center justify-center gap-2 px-6 py-3.5 rounded-[22px] bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-black uppercase tracking-widest transition-all shadow-lg shadow-emerald-500/20 disabled:opacity-50 active:scale-95 shrink-0"
+            >
+              {isExporting ? (
+                <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+              ) : (
+                <FileText size={16} />
+              )}
+              {isExporting ? 'Đang xuất...' : 'Xuất báo cáo'}
+            </button>
+          </div>
+       </div>
+        <div className="overflow-x-auto lg:overflow-x-hidden scrollbar-hide custom-scrollbar">
+          <table className="w-full min-w-[800px] lg:min-w-full text-left">
+            <thead>
+               <tr className="text-[10px] font-black uppercase tracking-[0.25em] text-slate-400 border-b border-slate-50 dark:border-slate-800/50">
+                  <th className="px-10 py-6">Nhân viên</th>
+                  <th className="px-6 py-6 text-center">Đơn vị</th>
+                  <th className="px-6 py-6 text-center">Tiến độ Hoàn thành</th>
+                  <th className="px-10 py-6 text-right">Thao tác</th>
+               </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-50 dark:divide-slate-800">
+               {employees.map((emp: any) => (
+                 <tr key={emp.userId} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-all group">
+                    <td className="px-10 py-6">
+                      <div className="flex items-center gap-4">
+                        <div className="w-12 h-12 rounded-[18px] bg-slate-100 dark:bg-slate-800 flex items-center justify-center font-black text-sm text-slate-500 group-hover:bg-indigo-600 group-hover:text-white transition-all duration-300">
+                          {getInitials(emp.fullName)}
+                        </div>
+                        <div>
+                          <p className="text-sm font-black text-slate-900 dark:text-white group-hover:text-indigo-600 transition-colors">{emp.fullName}</p>
+                          <p className="text-[11px] text-slate-500 font-bold mt-0.5">{emp.email}</p>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-6 py-6 text-center">
+                       <span className="text-[11px] font-black text-slate-500 bg-slate-100 dark:bg-slate-800/80 px-3 py-1.5 rounded-xl border border-slate-200/50 dark:border-slate-700/50 uppercase tracking-widest">
+                         {emp.orgUnitName}
+                       </span>
+                    </td>
+                    <td className="px-6 py-6">
+                       <div className="flex flex-col items-center gap-2">
+                          <div className="w-40 h-2 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden shadow-inner">
+                             <div 
+                               className="h-full bg-gradient-to-r from-indigo-500 to-purple-600 rounded-full transition-all duration-[2000ms] shadow-[0_0_8px_rgba(99,102,241,0.3)]" 
+                               style={{ width: `${Math.round((emp.approvedSubmissions / (emp.assignedKpi || 1)) * 100)}%` }} 
+                             />
+                          </div>
+                          <span className="text-[11px] font-black text-slate-600 dark:text-slate-400">
+                            {Math.round((emp.approvedSubmissions / (emp.assignedKpi || 1)) * 100)}% • {emp.approvedSubmissions}/{emp.assignedKpi} KPIs
+                          </span>
+                       </div>
+                    </td>
+                    <td className="px-10 py-6 text-right">
+                       <div className="flex items-center justify-end">
+                          <Link 
+                            to={`/employees/${emp.userId}/performance`} 
+                            className="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-slate-900 dark:bg-white text-[10px] font-black uppercase tracking-widest text-white dark:text-slate-900 hover:bg-indigo-600 dark:hover:bg-indigo-600 hover:text-white transition-all shadow-md group/btn"
+                          >
+                            Chi tiết <ChevronRight size={14} className="group-hover/btn:translate-x-1 transition-transform" />
+                          </Link>
+                       </div>
+                    </td>
+                 </tr>
+               ))}
+            </tbody>
+          </table>
+       </div>
+       
+       <div className="p-8 bg-slate-50/50 dark:bg-slate-800/30 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
+          <p className="text-xs font-black text-slate-400 uppercase tracking-widest">Trang {page + 1}/{totalPages}</p>
+          <div className="flex items-center gap-3">
+             <button 
+               onClick={() => onPageChange(Math.max(0, page - 1))}
+               disabled={page === 0}
+               className="p-3 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-600 disabled:opacity-40 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 transition-all shadow-sm"
+             >
+               <ChevronLeft size={20} />
+             </button>
+             <button 
+               onClick={() => onPageChange(Math.min(totalPages - 1, page + 1))}
+               disabled={page >= totalPages - 1}
+               className="p-3 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-600 disabled:opacity-40 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 transition-all shadow-sm"
+             >
+               <ChevronRight size={20} />
+             </button>
+          </div>
+       </div>
     </div>
   )
 }
@@ -214,8 +1069,16 @@ function PinnedWidgetCard({ widget, onUnpin }: { widget: ReportWidget; onUnpin: 
     }
   }, [widget.position])
 
+  const config = useMemo(() => {
+    try {
+      return JSON.parse(widget.chartConfig)
+    } catch {
+      return {}
+    }
+  }, [widget.chartConfig])
+
   const colSpan = pos.w || 4
-  const height = (pos.h || 10) * 32 + 60 // Base height + header
+  const height = (pos.h || 10) * 32 + 60 
 
   return (
     <div 
@@ -235,18 +1098,21 @@ function PinnedWidgetCard({ widget, onUnpin }: { widget: ReportWidget; onUnpin: 
         </button>
       </div>
       <div className="flex-1 p-5 overflow-hidden">
-        <PinnedWidgetContent type={widget.widgetType} />
+        <PinnedWidgetContent type={widget.widgetType} config={config} />
       </div>
     </div>
   )
 }
 
-
-function PinnedWidgetContent({ type }: { type: string }) {
+function PinnedWidgetContent({ type, config }: { type: string, config?: any }) {
   const { data: trendData } = useSummaryTrend()
   const { data: comparisonData } = useSummaryComparison()
   const { data: riskData } = useSummaryRisks()
   const { data: stats } = useSummaryStats()
+
+  // For Personal Stats (MyStatsTab)
+  const { data: myStats } = useMyAnalytics()
+  const { data: notificationsData } = useNotifications(0, 10)
 
   switch (type) {
     case 'TREND_CHART':
@@ -328,7 +1194,7 @@ function PinnedWidgetContent({ type }: { type: string }) {
                   paddingAngle={5} 
                   dataKey="value"
                 >
-                  {(stats?.memberDistribution || []).map((entry: any, index: number) => (
+                  {(stats?.memberDistribution || []).map((_: any, index: number) => (
                     <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                   ))}
                 </Pie>
@@ -349,23 +1215,47 @@ function PinnedWidgetContent({ type }: { type: string }) {
           </div>
         </div>
       )
-    case 'ROLE_DIST':
+    case 'ROLE_DIST': {
+      // 1. Extract all unique role names to create Bar components
+      const allRoles = new Set<string>();
+      stats?.roleDistribution?.forEach((item: any) => {
+        item.roles?.forEach((r: any) => allRoles.add(r.roleName));
+      });
+      const uniqueRoleNames = Array.from(allRoles);
+
+      // 2. Transform data for Recharts (each item needs roleName: count pairs)
+      const chartData = stats?.roleDistribution?.map((item: any) => {
+        const dataPoint: any = { unitName: item.unitName };
+        item.roles?.forEach((r: any) => {
+          dataPoint[r.roleName] = r.count;
+        });
+        return dataPoint;
+      }) || [];
+
       return (
         <div className="h-full w-full min-h-[220px]">
           <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={stats?.roleDistribution || []} layout="vertical" margin={{ left: 10 }}>
+            <BarChart data={chartData} layout="vertical" margin={{ left: 10 }}>
               <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f1f5f9" />
               <XAxis type="number" axisLine={false} tickLine={false} tick={{ fontSize: 9, fontWeight: 700 }} />
               <YAxis dataKey="unitName" type="category" axisLine={false} tickLine={false} tick={{ fontSize: 9, fontWeight: 700 }} width={70} />
               <RechartsTooltip />
               <Legend iconType="circle" wrapperStyle={{ fontSize: '9px', fontWeight: 800, paddingTop: '5px' }} />
-              <Bar dataKey="directorCount" stackId="a" fill="#6366f1" name="Giám đốc" barSize={12} />
-              <Bar dataKey="headCount" stackId="a" fill="#f59e0b" name="Trưởng phòng" />
-              <Bar dataKey="staffCount" stackId="a" fill="#94a3b8" name="Nhân viên" />
+              {uniqueRoleNames.map((roleName, index) => (
+                <Bar 
+                  key={roleName} 
+                  dataKey={roleName} 
+                  stackId="a" 
+                  fill={COLORS[index % COLORS.length]} 
+                  name={roleName} 
+                  barSize={12} 
+                />
+              ))}
             </BarChart>
           </ResponsiveContainer>
         </div>
-      )
+      );
+    }
     case 'UNIT_RISK':
       return (
         <div className="h-full flex flex-col">
@@ -390,529 +1280,114 @@ function PinnedWidgetContent({ type }: { type: string }) {
           </div>
         </div>
       )
+    case 'TOP_STATS_GRID': {
+      if (!myStats) return null;
+      return (
+        <div className="grid grid-cols-2 gap-3 h-full">
+          {[
+            { label: 'KPI Hoàn thành', val: `${myStats.approvedSubmissions}/${myStats.totalAssignedKpi}`, icon: <Target className="text-indigo-600" size={14} /> },
+            { label: 'Điểm TB', val: (myStats.averageScore ?? 0).toFixed(1), icon: <Star className="text-amber-500" size={14} /> },
+            { label: 'Tiến độ', val: `${Math.round((myStats.approvedSubmissions / (myStats.totalAssignedKpi || 1)) * 100)}%`, icon: <TrendingUp className="text-emerald-500" size={14} /> },
+            { label: 'Bài nộp', val: myStats.totalSubmissions, icon: <FileText className="text-purple-500" size={14} /> }
+          ].map((item, i) => (
+            <div key={i} className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-700/50 flex flex-col justify-between">
+              <div className="flex items-center gap-2 mb-1 opacity-60">{item.icon} <span className="text-[9px] font-black uppercase">{item.label}</span></div>
+              <p className="text-sm font-black text-slate-900 dark:text-white">{item.val}</p>
+            </div>
+          ))}
+        </div>
+      )
+    }
+    case 'PIE': {
+      let chartData: any[] = []
+      if (config?.metric === 'SUBMISSIONS_STATUS' && myStats) {
+        chartData = [
+          { name: 'Đã duyệt', value: myStats.approvedSubmissions, color: '#10b981' },
+          { name: 'Chờ duyệt', value: myStats.pendingSubmissions, color: '#f59e0b' },
+          { name: 'Từ chối', value: myStats.rejectedSubmissions, color: '#ef4444' }
+        ]
+      } else if (config?.metric === 'NOTIFICATION_STATS' && notificationsData) {
+         const unreadCount = notificationsData.content.filter(n => !n.isRead).length
+         chartData = [
+           { name: 'Đã đọc', value: notificationsData.totalElements - unreadCount, color: '#94a3b8' },
+           { name: 'Chưa đọc', value: unreadCount, color: '#6366f1' }
+         ]
+      }
+      return (
+        <div className="h-full w-full">
+          <ResponsiveContainer width="100%" height="100%">
+            <PieChart>
+              <Pie data={chartData} innerRadius="40%" outerRadius="70%" paddingAngle={5} dataKey="value">
+                {chartData.map((entry, index) => <Cell key={`cell-${index}`} fill={entry.color} />)}
+              </Pie>
+              <RechartsTooltip />
+            </PieChart>
+          </ResponsiveContainer>
+        </div>
+      )
+    }
+    case 'BAR': {
+       if (config?.metric === 'KPI_STATUS_DIST' && myStats) {
+         // Fallback to submissions if no direct dist
+         const data = [
+           { name: 'Đã duyệt', val: myStats.approvedSubmissions },
+           { name: 'Chờ duyệt', val: myStats.pendingSubmissions }
+         ]
+         return (
+           <div className="h-full w-full">
+             <ResponsiveContainer width="100%" height="100%">
+               <BarChart data={data}>
+                 <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 9, fontWeight: 700 }} />
+                 <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 9, fontWeight: 700 }} />
+                 <RechartsTooltip />
+                 <Bar dataKey="val" fill="#6366f1" radius={[4, 4, 0, 0]} barSize={30} />
+               </BarChart>
+             </ResponsiveContainer>
+           </div>
+         )
+       }
+       return null
+    }
+    case 'AREA': {
+       if (config?.metric === 'EVALUATION_HISTORY' && myStats) {
+         const chartData = myStats.evaluationHistory.map(e => ({
+            periodName: new Date(e.createdAt).toLocaleDateString('vi-VN'),
+            score: e.score
+         })).reverse()
+         return (
+           <div className="h-full w-full">
+             <ResponsiveContainer width="100%" height="100%">
+               <AreaChart data={chartData}>
+                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                 <XAxis dataKey="periodName" axisLine={false} tickLine={false} tick={{ fontSize: 9, fontWeight: 700 }} />
+                 <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 9, fontWeight: 700 }} />
+                 <RechartsTooltip />
+                 <Area type="monotone" dataKey="score" stroke="#6366f1" fill="#6366f1" fillOpacity={0.1} strokeWidth={2} name="Điểm" />
+               </AreaChart>
+             </ResponsiveContainer>
+           </div>
+         )
+       }
+       return null
+    }
+    case 'TABLE': {
+       if (config?.metric === 'KPI_PERFORMANCE' && myStats) {
+         return (
+           <div className="h-full overflow-auto text-[10px]">
+             <table className="w-full">
+               <thead><tr className="text-left border-b border-slate-100 dark:border-slate-800 opacity-50"><th className="pb-2">KPI</th><th className="pb-2 text-center">Tiến độ</th></tr></thead>
+               <tbody className="divide-y divide-slate-50 dark:divide-slate-800">
+                 {myStats.kpiItems.slice(0, 5).map((k: any, i: number) => (
+                   <tr key={i}><td className="py-2 pr-2 font-bold truncate max-w-[120px]">{k.kpiName}</td><td className="py-2 text-center font-black text-indigo-600">{Math.round(k.completionRate)}%</td></tr>
+                 ))}
+               </tbody>
+             </table>
+           </div>
+         )
+       }
+       return null
+    }
     default:
       return <div className="h-full flex items-center justify-center text-xs font-bold text-slate-300 italic">Chi tiết biểu đồ xem tại trang Thống kê</div>
   }
-}
-
-/* =================== STAT CARD =================== */
-function StatCard({ icon, label, value, sub, color }: { icon: React.ReactNode; label: string; value: number; sub?: string; color: string }) {
-  const colors: Record<string, string> = {
-    indigo: "text-indigo-600 bg-indigo-50 dark:bg-indigo-900/20",
-    emerald: "text-emerald-600 bg-emerald-50 dark:bg-emerald-900/20",
-    blue: "text-blue-600 bg-blue-50 dark:bg-blue-900/20",
-    amber: "text-amber-600 bg-amber-50 dark:bg-amber-900/20",
-    purple: "text-purple-600 bg-purple-50 dark:bg-purple-900/20",
-  }
-  return (
-    <div className="bg-white dark:bg-slate-900 p-5 rounded-[24px] border border-slate-200 dark:border-slate-800 shadow-sm hover:shadow-lg hover:border-indigo-200 dark:hover:border-indigo-900 transition-all">
-      <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center mb-3", colors[color])}>
-        {icon}
-      </div>
-      <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-0.5">{label}</p>
-      <h4 className="text-2xl font-black text-slate-900 dark:text-white">{value}</h4>
-      {sub && <p className="text-[11px] font-medium text-slate-500 mt-1">{sub}</p>}
-    </div>
-  )
-}
-
-/* =================== OVERVIEW TAB =================== */
-function OverviewTab({ stats, kpiRate, subRate, orgUnitStats, topPerformers, atRiskCount, recentKpis, recentSubmissions, pinnedWidgets, onRefreshPinned }: {
-  stats: any; kpiRate: number; subRate: number; orgUnitStats: OrgUnitStats[];
-  topPerformers: EmployeeKpiStats[]; atRiskCount: number;
-  recentKpis: KpiCriteria[]; recentSubmissions: Submission[];
-  pinnedWidgets: ReportWidget[]; onRefreshPinned: () => void;
-}) {
-  return (
-    <div className="space-y-8 animate-in fade-in duration-300">
-
-      {/* Row 0: Pinned Widgets */}
-      {pinnedWidgets.length > 0 && (
-        <section className="space-y-4">
-          <div className="flex items-center justify-between">
-            <h3 className="font-black text-slate-900 dark:text-white flex items-center gap-2">
-              <Pin size={18} className="text-indigo-600 rotate-45" /> Thống kê đã ghim
-            </h3>
-          </div>
-          <div className="grid grid-cols-12 gap-6">
-            {pinnedWidgets.map((widget) => (
-              <PinnedWidgetCard key={widget.id} widget={widget} onUnpin={onRefreshPinned} />
-            ))}
-          </div>
-        </section>
-      )}
-
-      {/* Row 1: Rate Cards + Alerts */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
-        <RateCard label="Tỷ lệ duyệt KPI" rate={kpiRate} num={stats?.approvedKpi ?? 0} denom={stats?.totalKpiCriteria ?? 0} color="emerald" />
-        <RateCard label="Tỷ lệ duyệt Bài nộp" rate={subRate} num={stats?.approvedSubmissions ?? 0} denom={stats?.totalSubmissions ?? 0} color="blue" />
-
-        {/* Alert: Pending */}
-        <div className="p-5 bg-amber-50 dark:bg-amber-900/10 rounded-[24px] border border-amber-200 dark:border-amber-900/30 flex flex-col justify-between">
-          <div className="flex items-center gap-2 text-amber-600 font-bold text-sm mb-2">
-            <Clock size={18} /> Chờ xử lý
-          </div>
-          <div className="flex items-end gap-2">
-            <span className="text-3xl font-black text-amber-700 dark:text-amber-400">{(stats?.pendingKpi ?? 0) + (stats?.pendingSubmissions ?? 0)}</span>
-            <span className="text-xs font-bold text-amber-600 mb-1">mục</span>
-          </div>
-          <p className="text-[11px] text-amber-600/70 font-medium mt-1">{stats?.pendingKpi ?? 0} KPI + {stats?.pendingSubmissions ?? 0} bài nộp</p>
-        </div>
-
-        {/* Alert: At Risk */}
-        <div className="p-5 bg-red-50 dark:bg-red-900/10 rounded-[24px] border border-red-200 dark:border-red-900/30 flex flex-col justify-between">
-          <div className="flex items-center gap-2 text-red-600 font-bold text-sm mb-2">
-            <AlertTriangle size={18} /> Cần theo dõi
-          </div>
-          <div className="flex items-end gap-2">
-            <span className="text-3xl font-black text-red-700 dark:text-red-400">{atRiskCount}</span>
-            <span className="text-xs font-bold text-red-600 mb-1">nhân viên</span>
-          </div>
-          <p className="text-[11px] text-red-600/70 font-medium mt-1">Bài nộp bị từ chối hoặc chưa nộp</p>
-        </div>
-      </div>
-
-      {/* Row 2: Department Overview + Top Performers */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-
-        {/* Department Details Table */}
-        <div className="lg:col-span-8">
-          <section className="bg-white dark:bg-slate-900 rounded-[28px] border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
-            <div className="p-6 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center">
-              <h3 className="font-black text-base flex items-center gap-2">
-                <Building2 size={20} className="text-indigo-600" /> Tổng quan Đơn vị ({orgUnitStats.length})
-              </h3>
-              <Link to="/org-units" className="text-xs font-bold text-indigo-600 hover:underline flex items-center gap-1">
-                Xem chi tiết <ChevronRight size={14} />
-              </Link>
-            </div>
-
-            {orgUnitStats.length === 0 ? (
-              <div className="p-12 text-center text-sm text-slate-400 font-medium">Chưa có đơn vị nào.</div>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead>
-                    <tr className="text-left text-[10px] font-black uppercase tracking-widest text-slate-400 border-b border-slate-100 dark:border-slate-800">
-                      <th className="px-6 py-3">Đơn vị</th>
-                      <th className="px-3 py-3 text-center">Thành viên</th>
-                      <th className="px-3 py-3 text-center">KPI</th>
-                      <th className="px-3 py-3 text-center">Bài nộp</th>
-                      <th className="px-3 py-3">Tiến độ KPI duyệt</th>
-                      <th className="px-3 py-3 text-center">Duyệt / Chờ / Từ chối</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-50 dark:divide-slate-800">
-                    {orgUnitStats.map((orgUnit, i) => {
-                      const kRate = orgUnit.totalKpi > 0 ? Math.round((orgUnit.approvedKpi / orgUnit.totalKpi) * 100) : 0
-                      return (
-                        <tr key={orgUnit.orgUnitId} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors animate-in fade-in" style={{ animationDelay: `${i * 40}ms` }}>
-                          <td className="px-6 py-4">
-                            <div className="flex items-center gap-3">
-                              <div className="w-9 h-9 rounded-xl bg-indigo-600 text-white flex items-center justify-center text-xs font-black shrink-0">
-                                {getInitials(orgUnit.orgUnitName)}
-                              </div>
-                              <Link to={`/org-units/${orgUnit.orgUnitId}`} className="font-bold text-slate-900 dark:text-white hover:text-indigo-600 transition-colors text-sm">
-                                {orgUnit.orgUnitName}
-                              </Link>
-                            </div>
-                          </td>
-                          <td className="px-3 py-4 text-center">
-                            <span className="text-sm font-black text-slate-700 dark:text-slate-300">{orgUnit.memberCount}</span>
-                          </td>
-                          <td className="px-3 py-4 text-center">
-                            <span className="text-sm font-black text-slate-900 dark:text-white">{orgUnit.totalKpi}</span>
-                            <span className="text-[10px] text-slate-400 ml-1">({orgUnit.approvedKpi} duyệt)</span>
-                          </td>
-                          <td className="px-3 py-4 text-center">
-                            <span className="text-sm font-black text-slate-900 dark:text-white">{orgUnit.totalSubmissions}</span>
-                          </td>
-                          <td className="px-3 py-4">
-                            <div className="flex items-center gap-2 min-w-[120px]">
-                              <div className="flex-1 h-2 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
-                                <div
-                                  className={cn("h-full rounded-full transition-all duration-700", kRate >= 70 ? "bg-emerald-500" : kRate >= 40 ? "bg-amber-500" : "bg-red-500")}
-                                  style={{ width: `${kRate}%` }}
-                                />
-                              </div>
-                              <span className={cn("text-xs font-black w-10 text-right", kRate >= 70 ? "text-emerald-600" : kRate >= 40 ? "text-amber-600" : "text-red-600")}>{kRate}%</span>
-                            </div>
-                          </td>
-                          <td className="px-3 py-4">
-                            <div className="flex items-center justify-center gap-3 text-xs font-bold">
-                              <span className="text-emerald-600 flex items-center gap-0.5"><CheckCircle2 size={12} />{orgUnit.approvedSubmissions}</span>
-                              <span className="text-amber-600 flex items-center gap-0.5"><Clock size={12} />{orgUnit.pendingSubmissions}</span>
-                              <span className="text-red-600 flex items-center gap-0.5"><XCircle size={12} />{orgUnit.rejectedSubmissions}</span>
-                            </div>
-                          </td>
-                        </tr>
-                      )
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </section>
-        </div>
-
-        {/* Right: Top Performers + Quick Actions */}
-        <div className="lg:col-span-4 space-y-6">
-
-          {/* Top Performers */}
-          <section className="bg-white dark:bg-slate-900 rounded-[28px] border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
-            <div className="p-5 border-b border-slate-100 dark:border-slate-800 flex items-center gap-2">
-              <Zap size={18} className="text-amber-500" />
-              <h3 className="font-black text-sm">Top Nhân viên Xuất sắc</h3>
-            </div>
-            <div className="divide-y divide-slate-50 dark:divide-slate-800">
-              {topPerformers.length === 0 ? (
-                <p className="p-6 text-center text-sm text-slate-400">Chưa có dữ liệu</p>
-              ) : (
-                topPerformers.map((emp, i) => {
-                  const rate = emp.totalSubmissions > 0 ? Math.round((emp.approvedSubmissions / emp.totalSubmissions) * 100) : 0
-                  return (
-                    <div key={emp.userId} className="px-5 py-3.5 flex items-center gap-3 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
-                      <div className="w-8 h-8 rounded-full flex items-center justify-center text-[10px] font-black shrink-0" style={{
-                        background: i === 0 ? 'linear-gradient(135deg, #f59e0b, #f97316)' : i === 1 ? 'linear-gradient(135deg, #94a3b8, #64748b)' : i === 2 ? 'linear-gradient(135deg, #d97706, #b45309)' : '#e2e8f0',
-                        color: i < 3 ? 'white' : '#64748b'
-                      }}>
-                        {i + 1}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-bold text-slate-900 dark:text-white truncate">{emp.fullName}</p>
-                        <p className="text-[10px] text-slate-500 truncate">{emp.orgUnitName}</p>
-                      </div>
-                      <div className="text-right shrink-0">
-                        <span className={cn("text-xs font-black px-2 py-0.5 rounded-md", rate >= 80 ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400" : "bg-amber-100 text-amber-700")}>
-                          {rate}%
-                        </span>
-                      </div>
-                    </div>
-                  )
-                })
-              )}
-            </div>
-          </section>
-
-          {/* Pending Approvals */}
-          <section className="bg-slate-900 dark:bg-slate-950 rounded-[28px] p-6 text-white shadow-2xl relative overflow-hidden">
-            <div className="absolute top-0 right-0 w-40 h-40 bg-indigo-500/10 rounded-full -mr-20 -mt-20 blur-3xl" />
-            <div className="relative z-10 space-y-4">
-              <div className="flex justify-between items-start">
-                <h3 className="text-sm font-black">Phê duyệt tồn đọng</h3>
-                <div className="p-2 bg-white/10 rounded-xl text-amber-400"><Clock size={16} /></div>
-              </div>
-              <div className="space-y-2.5">
-                <ApprovalRow label="Chỉ tiêu KPI" count={stats?.pendingKpi ?? 0} to="/kpi-criteria/pending" />
-                <ApprovalRow label="Bài nộp nhân viên" count={stats?.pendingSubmissions ?? 0} to="/submissions/org-unit" />
-              </div>
-              <Link to="/kpi-criteria/pending" className="block w-full py-3 bg-indigo-600 hover:bg-indigo-500 rounded-2xl font-black text-sm text-center transition-all shadow-lg shadow-indigo-600/30">
-                Xử lý ngay ({(stats?.pendingKpi ?? 0) + (stats?.pendingSubmissions ?? 0)})
-              </Link>
-            </div>
-          </section>
-        </div>
-      </div>
-
-      {/* Row 3: Recent KPIs + Recent Submissions */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-
-        {/* Recent KPIs */}
-        <section className="bg-white dark:bg-slate-900 rounded-[28px] border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
-          <div className="p-5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
-            <h3 className="font-black text-sm flex items-center gap-2"><Target size={18} className="text-indigo-600" /> Chỉ tiêu KPI Gần đây</h3>
-            <Link to="/kpi-criteria" className="text-xs font-bold text-indigo-600 hover:underline flex items-center gap-1">Xem tất cả <ArrowUpRight size={12} /></Link>
-          </div>
-          <div className="divide-y divide-slate-50 dark:divide-slate-800">
-            {recentKpis.length === 0 ? (
-              <p className="p-8 text-center text-sm text-slate-400">Chưa có chỉ tiêu nào</p>
-            ) : (
-              recentKpis.slice(0, 5).map(kpi => (
-                <div key={kpi.id} className="px-5 py-3.5 flex items-center gap-3 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-bold text-slate-900 dark:text-white truncate">{kpi.name}</p>
-                    <div className="flex items-center gap-2 mt-0.5 text-[11px] text-slate-500">
-                      <span>{kpi.orgUnitName ?? 'Chưa gán Đơn vị'}</span>
-                      <span>•</span>
-                      <span>{formatAssigneeNames(kpi.assigneeNames)}</span>
-                      {kpi.targetValue != null && <><span>•</span><span>Mục tiêu: {formatNumber(kpi.targetValue)} {kpi.unit ?? ''}</span></>}
-                    </div>
-                  </div>
-                  <KpiStatusBadge status={kpi.status} />
-                </div>
-              ))
-            )}
-          </div>
-        </section>
-
-        {/* Recent Submissions */}
-        <section className="bg-white dark:bg-slate-900 rounded-[28px] border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
-          <div className="p-5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
-            <h3 className="font-black text-sm flex items-center gap-2"><Activity size={18} className="text-emerald-600" /> Bài nộp Gần đây</h3>
-            <Link to="/submissions/org-unit" className="text-xs font-bold text-indigo-600 hover:underline flex items-center gap-1">Xem tất cả <ArrowUpRight size={12} /></Link>
-          </div>
-          <div className="divide-y divide-slate-50 dark:divide-slate-800">
-            {recentSubmissions.length === 0 ? (
-              <p className="p-8 text-center text-sm text-slate-400">Chưa có bài nộp nào</p>
-            ) : (
-              recentSubmissions.slice(0, 5).map(sub => (
-                <Link to={`/submissions/${sub.id}`} key={sub.id} className="px-5 py-3.5 flex items-center gap-3 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors block">
-                  <div className="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-[10px] font-black text-slate-500 shrink-0">
-                    {getInitials(sub.submittedByName)}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-bold text-slate-900 dark:text-white truncate">{sub.kpiCriteriaName}</p>
-                    <div className="flex items-center gap-2 mt-0.5 text-[11px] text-slate-500">
-                      <span>{sub.submittedByName}</span>
-                      <span>•</span>
-                      <span>Thực tế: {formatNumber(sub.actualValue)}</span>
-                      <span>•</span>
-                      <span>{formatDateTime(sub.createdAt).split(' ')[0]}</span>
-                    </div>
-                  </div>
-                  <SubmissionStatusBadge status={sub.status} />
-                </Link>
-              ))
-            )}
-          </div>
-        </section>
-      </div>
-    </div>
-  )
-}
-
-/* =================== ORG UNITS TAB =================== */
-function OrgUnitsTab({ orgUnitStats, loading }: { orgUnitStats: OrgUnitStats[]; loading: boolean }) {
-  if (loading) return <LoadingSkeleton rows={6} />
-  if (orgUnitStats.length === 0) return <EmptyMessage text="Chưa có dữ liệu đơn vị nào." />
-
-  return (
-    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 animate-in fade-in duration-300">
-      {orgUnitStats.map((orgUnit, i) => {
-        const kRate = orgUnit.totalKpi > 0 ? Math.round((orgUnit.approvedKpi / orgUnit.totalKpi) * 100) : 0
-        const sRate = orgUnit.totalSubmissions > 0 ? Math.round((orgUnit.approvedSubmissions / orgUnit.totalSubmissions) * 100) : 0
-        return (
-          <div key={orgUnit.orgUnitId}
-            className="bg-white dark:bg-slate-900 rounded-[28px] border border-slate-200 dark:border-slate-800 shadow-sm hover:shadow-xl hover:border-indigo-200 dark:hover:border-indigo-800 transition-all animate-in fade-in slide-in-from-bottom-4 flex flex-col"
-            style={{ animationDelay: `${i * 60}ms` }}
-          >
-            <div className="p-6 border-b border-slate-100 dark:border-slate-800">
-              <div className="flex items-center gap-3">
-                <div className="w-12 h-12 rounded-2xl bg-indigo-600 text-white flex items-center justify-center font-black text-lg">{getInitials(orgUnit.orgUnitName)}</div>
-                <div className="flex-1 min-w-0">
-                  <h3 className="font-black text-slate-900 dark:text-white truncate">{orgUnit.orgUnitName}</h3>
-                  <p className="text-xs font-medium text-slate-500">{orgUnit.memberCount} thành viên</p>
-                </div>
-              </div>
-            </div>
-            <div className="p-6 flex-1 space-y-5">
-              <div>
-                <div className="flex justify-between text-xs font-bold mb-2">
-                  <span className="text-slate-500">KPI đã duyệt</span>
-                  <span className={kRate >= 70 ? "text-emerald-600" : kRate >= 40 ? "text-amber-600" : "text-red-600"}>{kRate}%</span>
-                </div>
-                <div className="h-2.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
-                  <div className={cn("h-full rounded-full transition-all duration-700", kRate >= 70 ? "bg-emerald-500" : kRate >= 40 ? "bg-amber-500" : "bg-red-500")} style={{ width: `${kRate}%` }} />
-                </div>
-              </div>
-              <div className="grid grid-cols-3 gap-2">
-                <MiniStatBox label="KPI" value={orgUnit.totalKpi} />
-                <MiniStatBox label="Bài nộp" value={orgUnit.totalSubmissions} />
-                <MiniStatBox label="Chờ duyệt" value={orgUnit.pendingKpi + orgUnit.pendingSubmissions} highlight />
-              </div>
-              <div className="space-y-2">
-                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Bài nộp chi tiết</p>
-                <div className="flex items-center gap-3 text-xs font-bold">
-                  <span className="flex items-center gap-1 text-emerald-600"><CheckCircle2 size={12} /> {orgUnit.approvedSubmissions}</span>
-                  <span className="flex items-center gap-1 text-amber-600"><Clock size={12} /> {orgUnit.pendingSubmissions}</span>
-                  <span className="flex items-center gap-1 text-red-600"><XCircle size={12} /> {orgUnit.rejectedSubmissions}</span>
-                </div>
-              </div>
-            </div>
-            <div className="px-6 py-4 bg-slate-50 dark:bg-slate-800/20 border-t border-slate-100 dark:border-slate-800 rounded-b-[28px] flex justify-between items-center text-xs">
-              <span className="font-bold text-slate-500">Duyệt bài: <span className={sRate >= 70 ? "text-emerald-600" : "text-amber-600"}>{sRate}%</span></span>
-              <Link to={`/org-units/${orgUnit.orgUnitId}`} className="flex items-center gap-1 font-bold text-indigo-600 hover:underline">Chi tiết <ArrowUpRight size={12} /></Link>
-            </div>
-          </div>
-        )
-      })}
-    </div>
-  )
-}
-
-/* =================== EMPLOYEES TAB =================== */
-function EmployeesTab({ employees, loading, search, onSearchChange, orgUnitFilter, onOrgUnitFilterChange, orgUnitNames }: {
-  employees: EmployeeKpiStats[]; loading: boolean; search: string; onSearchChange: (s: string) => void;
-  orgUnitFilter: string; onOrgUnitFilterChange: (s: string) => void; orgUnitNames: string[]
-}) {
-  if (loading) return <LoadingSkeleton rows={8} />
-
-  return (
-    <div className="space-y-5 animate-in fade-in duration-300">
-      <div className="flex items-center gap-2.5 w-full">
-        <div className="relative flex-1 min-w-0">
-          <Search
-            className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"
-            size={16}
-          />
-          <input
-            value={search}
-            onChange={e => onSearchChange(e.target.value)}
-            placeholder="Tìm nhân viên theo tên hoặc email..."
-            className="w-full pl-9 pr-3.5 h-10 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm focus:ring-2 focus:ring-indigo-500/30 outline-none transition-all"
-          />
-        </div>
-
-        {/* OrgUnit filter */}
-        <div className="relative flex-none w-[200px]">
-          <Filter
-            className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"
-            size={14}
-          />
-          <select
-            value={orgUnitFilter}
-            onChange={e => onOrgUnitFilterChange(e.target.value)}
-            className="w-full pl-8 pr-8 h-10 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm focus:ring-2 focus:ring-indigo-500/30 outline-none appearance-none cursor-pointer"
-          >
-            <option value="ALL">Tất cả đơn vị</option>
-            {orgUnitNames.map(d => <option key={d} value={d}>{d}</option>)}
-          </select>
-          <ChevronDown
-            className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"
-            size={12}
-          />
-        </div>
-      </div>
-
-      {employees.length === 0 ? (
-        <EmptyMessage text="Không tìm thấy nhân viên phù hợp." />
-      ) : (
-        <>
-          <p className="text-xs font-bold text-slate-400">{employees.length} nhân viên</p>
-          <div className="bg-white dark:bg-slate-900 rounded-[28px] border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead>
-                  <tr className="text-left text-[10px] font-black uppercase tracking-widest text-slate-400 border-b border-slate-100 dark:border-slate-800">
-                    <th className="px-6 py-4">Nhân viên</th>
-                    <th className="px-4 py-4 text-center">Đơn vị</th>
-                    <th className="px-4 py-4 text-center">KPI giao</th>
-                    <th className="px-4 py-4 text-center">Bài nộp</th>
-                    <th className="px-4 py-4 text-center">Đã duyệt</th>
-                    <th className="px-4 py-4 text-center">Chờ duyệt</th>
-                    <th className="px-4 py-4 text-center">Từ chối</th>
-                    <th className="px-4 py-4 text-center">Điểm TB</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-50 dark:divide-slate-800">
-                  {employees.map((emp, idx) => (
-                    <tr key={emp.userId} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors animate-in fade-in" style={{ animationDelay: `${idx * 30}ms` }}>
-                      <td className="px-6 py-4">
-                        <div className="flex items-center gap-3">
-                          <div className="w-9 h-9 rounded-full bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center text-xs font-black text-indigo-600 shrink-0">{getInitials(emp.fullName)}</div>
-                          <div className="min-w-0">
-                            <p className="font-bold text-slate-900 dark:text-white truncate text-sm">{emp.fullName}</p>
-                            <p className="text-[11px] text-slate-500 truncate">{emp.email}</p>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-4 py-4 text-center text-xs font-bold text-slate-600 dark:text-slate-400">{emp.orgUnitName || '—'}</td>
-                      <td className="px-4 py-4 text-center text-sm font-black text-slate-900 dark:text-white">{emp.assignedKpi}</td>
-                      <td className="px-4 py-4 text-center text-sm font-black text-slate-900 dark:text-white">{emp.totalSubmissions}</td>
-                      <td className="px-4 py-4 text-center"><span className="inline-flex items-center gap-1 text-xs font-bold text-emerald-600"><CheckCircle2 size={14} />{emp.approvedSubmissions}</span></td>
-                      <td className="px-4 py-4 text-center"><span className="inline-flex items-center gap-1 text-xs font-bold text-amber-600"><Clock size={14} />{emp.pendingSubmissions}</span></td>
-                      <td className="px-4 py-4 text-center"><span className="inline-flex items-center gap-1 text-xs font-bold text-red-600"><XCircle size={14} />{emp.rejectedSubmissions}</span></td>
-                      <td className="px-4 py-4 text-center">
-                        {emp.averageScore != null ? (
-                          <span className={cn("inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-black",
-                            emp.averageScore >= 8 ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400" :
-                            emp.averageScore >= 5 ? "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400" :
-                            "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
-                          )}>
-                            <Star size={12} /> {emp.averageScore.toFixed(1)}
-                          </span>
-                        ) : <span className="text-xs text-slate-400">—</span>}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </>
-      )}
-    </div>
-  )
-}
-
-/* =================== SUB COMPONENTS =================== */
-
-function RateCard({ label, rate, num, denom, color }: { label: string; rate: number; num: number; denom: number; color: string }) {
-  const colorCfg: Record<string, { text: string; bg: string; bar: string }> = {
-    emerald: { text: 'text-emerald-600', bg: 'bg-emerald-50 dark:bg-emerald-900/10 border-emerald-100 dark:border-emerald-900/30', bar: 'bg-emerald-500' },
-    blue: { text: 'text-blue-600', bg: 'bg-blue-50 dark:bg-blue-900/10 border-blue-100 dark:border-blue-900/30', bar: 'bg-blue-500' },
-  }
-  const c = colorCfg[color] ?? colorCfg['emerald']!
-  return (
-    <div className={cn("p-5 rounded-[24px] border shadow-sm", c.bg)}>
-      <p className="text-xs font-bold text-slate-500 mb-2">{label}</p>
-      <div className="flex items-end gap-2 mb-3">
-        <span className={cn("text-4xl font-black", c.text)}>{rate}</span>
-        <span className={cn("text-xl font-black mb-0.5", c.text)}>%</span>
-      </div>
-      <div className="h-2 bg-white/60 dark:bg-slate-800 rounded-full overflow-hidden mb-2">
-        <div className={cn("h-full rounded-full transition-all duration-1000", c.bar)} style={{ width: `${rate}%` }} />
-      </div>
-      <p className="text-[11px] text-slate-500 font-medium">{num} / {denom}</p>
-    </div>
-  )
-}
-
-function ApprovalRow({ label, count, to }: { label: string; count: number; to: string }) {
-  return (
-    <Link to={to} className="flex justify-between items-center group hover:bg-white/5 rounded-xl px-2 py-1.5 -mx-2 transition-colors">
-      <span className="text-sm font-medium text-slate-400 group-hover:text-white transition-colors">{label}</span>
-      <span className="px-3 py-1 bg-white/10 rounded-lg text-xs font-bold">{count}</span>
-    </Link>
-  )
-}
-
-function MiniStatBox({ label, value, highlight }: { label: string; value: number; highlight?: boolean }) {
-  return (
-    <div className={cn("p-3 rounded-2xl text-center", highlight ? "bg-amber-50 dark:bg-amber-900/10" : "bg-slate-50 dark:bg-slate-800/50")}>
-      <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-0.5">{label}</p>
-      <p className={cn("text-lg font-black", highlight ? "text-amber-600" : "text-slate-900 dark:text-white")}>{value}</p>
-    </div>
-  )
-}
-
-function KpiStatusBadge({ status }: { status: string }) {
-  const cfg: Record<string, { label: string; cls: string }> = {
-    DRAFT: { label: 'Nháp', cls: 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400' },
-    PENDING_APPROVAL: { label: 'Chờ duyệt', cls: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400' },
-    APPROVED: { label: 'Đã duyệt', cls: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400' },
-    REJECTED: { label: 'Từ chối', cls: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' },
-  }
-  const c = cfg[status] ?? cfg['DRAFT']!
-  return <span className={cn("text-[10px] font-black px-2.5 py-1 rounded-lg uppercase shrink-0", c.cls)}>{c.label}</span>
-}
-
-function SubmissionStatusBadge({ status }: { status: string }) {
-  const cfg: Record<string, { label: string; cls: string }> = {
-    DRAFT: { label: 'Nháp', cls: 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400' },
-    PENDING: { label: 'Chờ duyệt', cls: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400' },
-    APPROVED: { label: 'Đã duyệt', cls: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400' },
-    REJECTED: { label: 'Từ chối', cls: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' },
-  }
-  const c = cfg[status] ?? cfg['DRAFT']!
-  return <span className={cn("text-[10px] font-black px-2.5 py-1 rounded-lg uppercase shrink-0", c.cls)}>{c.label}</span>
-}
-
-function EmptyMessage({ text }: { text: string }) {
-  return (
-    <div className="bg-white dark:bg-slate-900 rounded-[28px] border border-dashed border-slate-300 dark:border-slate-700 p-16 text-center">
-      <UserCircle2 size={48} className="text-slate-300 mx-auto mb-4" />
-      <p className="font-bold text-slate-500">{text}</p>
-    </div>
-  )
 }

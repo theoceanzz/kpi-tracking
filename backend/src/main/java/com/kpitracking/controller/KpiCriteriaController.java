@@ -45,8 +45,16 @@ public class KpiCriteriaController {
             @RequestParam(defaultValue = "20") int size,
             @RequestParam(required = false) KpiStatus status,
             @RequestParam(required = false) UUID orgUnitId,
-            @RequestParam(required = false) UUID createdById) {
-        PageResponse<KpiCriteriaResponse> response = kpiCriteriaService.getKpiCriteria(page, size, status, orgUnitId, createdById);
+            @RequestParam(required = false) UUID createdById,
+            @RequestParam(required = false) UUID kpiPeriodId,
+            @RequestParam(required = false) String keyword,
+            @RequestParam(required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE_TIME) java.time.Instant startDate,
+            @RequestParam(required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE_TIME) java.time.Instant endDate,
+            @RequestParam(defaultValue = "createdAt") String sortBy,
+            @RequestParam(defaultValue = "desc") String sortDir,
+            @RequestParam(required = false) UUID objectiveId,
+            @RequestParam(required = false) UUID keyResultId) {
+        PageResponse<KpiCriteriaResponse> response = kpiCriteriaService.getKpiCriteria(page, size, status, orgUnitId, createdById, kpiPeriodId, keyword, startDate, endDate, sortBy, sortDir, objectiveId, keyResultId);
         return ResponseEntity.ok(ApiResponse.success(response));
     }
 
@@ -77,7 +85,7 @@ public class KpiCriteriaController {
     }
 
     @PostMapping("/{kpiId}/approve")
-    @PreAuthorize("hasAuthority('KPI:APPROVE')")
+    @PreAuthorize("hasAuthority('KPI:APPROVE_CRITERIA')")
     @Operation(summary = "Approve KPI criteria")
     public ResponseEntity<ApiResponse<KpiCriteriaResponse>> approveKpi(@PathVariable UUID kpiId) {
         KpiCriteriaResponse response = kpiCriteriaService.approveKpi(kpiId);
@@ -85,7 +93,7 @@ public class KpiCriteriaController {
     }
 
     @PostMapping("/{kpiId}/reject")
-    @PreAuthorize("hasAuthority('KPI:APPROVE')")
+    @PreAuthorize("hasAuthority('KPI:APPROVE_CRITERIA')")
     @Operation(summary = "Reject KPI criteria")
     public ResponseEntity<ApiResponse<KpiCriteriaResponse>> rejectKpi(
             @PathVariable UUID kpiId,
@@ -107,8 +115,36 @@ public class KpiCriteriaController {
     @Operation(summary = "Get KPI assigned to current user")
     public ResponseEntity<ApiResponse<PageResponse<KpiCriteriaResponse>>> getMyKpi(
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size) {
-        PageResponse<KpiCriteriaResponse> response = kpiCriteriaService.getMyKpi(page, size);
+            @RequestParam(defaultValue = "20") int size,
+            @RequestParam(required = false) UUID kpiPeriodId,
+            @RequestParam(required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE_TIME) java.time.Instant startDate,
+            @RequestParam(required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE_TIME) java.time.Instant endDate,
+            @RequestParam(defaultValue = "createdAt") String sortBy,
+            @RequestParam(defaultValue = "desc") String sortDir,
+            @RequestParam(required = false) UUID objectiveId,
+            @RequestParam(required = false) UUID keyResultId) {
+        PageResponse<KpiCriteriaResponse> response = kpiCriteriaService.getMyKpi(page, size, kpiPeriodId, startDate, endDate, sortBy, sortDir, objectiveId, keyResultId);
         return ResponseEntity.ok(ApiResponse.success(response));
+    }
+
+    @GetMapping("/total-weight")
+    @Operation(summary = "Get total weight of KPIs for an org unit or user and period")
+    public ResponseEntity<ApiResponse<Double>> getTotalWeight(
+            @RequestParam(required = false) UUID orgUnitId,
+            @RequestParam(required = false) UUID userId,
+            @RequestParam(required = false) UUID kpiPeriodId) {
+        Double totalWeight = kpiCriteriaService.getTotalWeight(orgUnitId, userId, kpiPeriodId);
+        return ResponseEntity.ok(ApiResponse.success(totalWeight != null ? totalWeight : 0.0));
+    }
+
+    @PostMapping(value = "/import", consumes = org.springframework.http.MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PreAuthorize("hasAuthority('KPI:CREATE')")
+    @Operation(summary = "Import KPI criteria from CSV or Excel")
+    public ResponseEntity<ApiResponse<com.kpitracking.dto.response.kpi.ImportKpiResponse>> importKpis(
+            @RequestParam("file") org.springframework.web.multipart.MultipartFile file,
+            @RequestParam(required = false) UUID kpiPeriodId,
+            @RequestParam(required = false) UUID orgUnitId) {
+        com.kpitracking.dto.response.kpi.ImportKpiResponse response = kpiCriteriaService.importKpis(file, kpiPeriodId, orgUnitId);
+        return ResponseEntity.ok(ApiResponse.success("Import processed", response));
     }
 }

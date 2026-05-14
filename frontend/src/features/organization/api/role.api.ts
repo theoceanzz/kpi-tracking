@@ -4,21 +4,23 @@ import { ApiResponse } from '@/types/api'
 export interface RoleResponse {
   id: string
   name: string
-  parentRoleName?: string
-  parentRoleId?: string
   isSystem: boolean
+  level?: number
+  rank?: number
   createdAt: string
   updatedAt: string
 }
 
 export interface CreateRoleRequest {
   name: string
-  parentRoleId?: string
+  level: number
+  rank: number
 }
 
 export interface UpdateRoleRequest {
   name?: string
-  parentRoleId?: string
+  level?: number
+  rank?: number
 }
 
 export const roleApi = {

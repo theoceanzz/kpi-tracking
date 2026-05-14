@@ -79,11 +79,23 @@ public class KpiCriteria {
     @Column(name = "approved_at")
     private Instant approvedAt;
 
-    @Column(name = "start_date")
-    private Instant startDate;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "kpi_period_id")
+    private KpiPeriod kpiPeriod;
 
-    @Column(name = "end_date")
-    private Instant endDate;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "key_result_id")
+    private KeyResult keyResult;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "parent_id")
+    private KpiCriteria parent;
+
+    @Column(name = "minimum_value")
+    private Double minimumValue;
+
+    @Column(name = "expected_submissions")
+    private Integer expectedSubmissions;
 
     @OneToMany(mappedBy = "kpiCriteria", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     @Builder.Default

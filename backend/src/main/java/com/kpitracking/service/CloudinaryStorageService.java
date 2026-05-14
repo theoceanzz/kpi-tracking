@@ -19,16 +19,24 @@ public class CloudinaryStorageService {
     private final Cloudinary cloudinary;
 
     /**
-     * Upload a file to Cloudinary.
+     * Upload a file to Cloudinary and return information about the upload.
+     * Includes extension in public_id for better support in Office viewers.
      *
      * @param file   the multipart file to upload
      * @param folder the folder path in Cloudinary (e.g. "submissions/{id}")
-     * @return the secure URL of the uploaded file
+     * @return a Map containing "url" and "public_id"
      */
-    public String uploadFile(MultipartFile file, String folder) throws IOException {
+    public Map<String, String> uploadFile(MultipartFile file, String folder) throws IOException {
         try {
-            // Simplified publicId to just UUID since we are specifying the 'folder' separately
-            String publicId = UUID.randomUUID().toString();
+            String originalName = file.getOriginalFilename();
+            String extension = "";
+            if (originalName != null && originalName.lastIndexOf(".") != -1) {
+                extension = originalName.substring(originalName.lastIndexOf("."));
+            }
+
+            // Important: Include extension in public_id for raw files (Office docs)
+            // so the generated URL ends with .docx/.xlsx etc.
+            String publicId = UUID.randomUUID().toString() + extension;
 
             @SuppressWarnings("unchecked")
             Map<String, Object> uploadResult = cloudinary.uploader().upload(file.getBytes(),
@@ -39,38 +47,37 @@ public class CloudinaryStorageService {
                     ));
 
             String secureUrl = (String) uploadResult.get("secure_url");
+            // The stored public_id includes the folder
+            String fullPublicId = (String) uploadResult.get("public_id");
+
             log.info("File uploaded to Cloudinary successfully: {}", secureUrl);
-            return secureUrl;
+            return Map.of(
+                    "url", secureUrl,
+                    "public_id", fullPublicId
+            );
         } catch (Exception e) {
             log.error("Cloudinary upload failed for file {}: {}", file.getOriginalFilename(), e.getMessage());
-            // Throwing a more descriptive exception if it's a Cloudinary specific error
             throw new IOException("Tải tập tin lên Cloudinary thất bại: " + e.getMessage(), e);
         }
     }
 
     /**
-     * Generate a storage key (public_id) for a file.
+     * Delete a file from Cloudinary by its public_id.
      */
-    public String getStorageKey(MultipartFile file, String folder) {
-        return folder + "/" + UUID.randomUUID() + "_" + file.getOriginalFilename();
-    }
-
-    /**
-     * Delete a file from Cloudinary by its public_id (storageKey).
-     */
-    public void deleteFile(String storageKey) {
+    public void deleteFile(String publicId) {
         try {
-            cloudinary.uploader().destroy(storageKey, ObjectUtils.emptyMap());
-            log.info("File deleted from Cloudinary: {}", storageKey);
+            // Need to specify resource_type: auto or raw for non-images
+            cloudinary.uploader().destroy(publicId, ObjectUtils.asMap("resource_type", "auto"));
+            log.info("File deleted from Cloudinary: {}", publicId);
         } catch (Exception e) {
-            log.error("Xóa tập tin khỏi Cloudinary thất bại: {}", storageKey, e);
+            log.error("Xóa tập tin khỏi Cloudinary thất bại: {}", publicId, e);
         }
     }
 
     /**
      * Get the URL for a file by its public_id.
      */
-    public String getFileUrl(String storageKey) {
-        return cloudinary.url().generate(storageKey);
+    public String getFileUrl(String publicId) {
+        return cloudinary.url().generate(publicId);
     }
 }

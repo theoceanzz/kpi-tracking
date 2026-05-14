@@ -31,6 +31,7 @@ export function OrgListView({ data, onAddChild, onEdit, onDelete, maxDepth }: Or
           <thead className="bg-gray-50 border-b">
             <tr>
               <th className="px-4 py-3 font-medium text-gray-600">Tên</th>
+              <th className="px-4 py-3 font-medium text-gray-600">Mã</th>
               <th className="px-4 py-3 font-medium text-gray-600">Phân loại</th>
               <th className="px-4 py-3 font-medium text-gray-600">Cấp bậc</th>
               <th className="px-4 py-3 font-medium text-gray-600">Trạng thái</th>
@@ -40,7 +41,7 @@ export function OrgListView({ data, onAddChild, onEdit, onDelete, maxDepth }: Or
           <tbody>
             {data.length === 0 && (
               <tr>
-                <td colSpan={5} className="px-4 py-8 text-center text-gray-500">
+                <td colSpan={6} className="px-4 py-8 text-center text-gray-500">
                   Chưa có dữ liệu
                 </td>
               </tr>
@@ -97,7 +98,7 @@ function TreeNodeRow({
 
   return (
     <>
-      <tr className="border-b hover:bg-gray-50/50 transition-colors group relative hover:z-10">
+      <tr className="border-b hover:bg-gray-50/50 transition-colors group relative hover:z-20">
         <td className="px-4 py-3">
           <div className="flex items-center" style={{ paddingLeft: `${level * 24}px` }}>
             <button 
@@ -113,6 +114,9 @@ function TreeNodeRow({
               {node.name}
             </span>
           </div>
+        </td>
+        <td className="px-4 py-3 text-gray-600">
+          <code className="text-xs font-mono bg-gray-50 px-1.5 py-0.5 rounded border border-gray-100">{node.code || '—'}</code>
         </td>
         <td className="px-4 py-3 text-gray-600">
           <span className="px-2.5 py-1 bg-gray-100 text-gray-700 rounded-lg text-[10px] font-bold uppercase tracking-wider">{node.type}</span>

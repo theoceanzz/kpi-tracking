@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom'
 import { useSearchParams } from 'react-router-dom'
 import { useDrillDown } from '../hooks/useAnalytics'
 import { cn, getInitials } from '@/lib/utils'
-import { Building2, ChevronRight, Users, Target, CheckCircle2, Clock, XCircle, Star, ArrowLeft, X, BarChart3, LayoutGrid, Search, ArrowUpDown, Maximize2, Minimize2 } from 'lucide-react'
+import { ChevronRight, Users, CheckCircle2, Clock, Star, ArrowLeft, X, BarChart3, LayoutGrid, Search, ArrowUpDown, Maximize2} from 'lucide-react'
 import LoadingSkeleton from '@/components/common/LoadingSkeleton'
 import type { EmployeeDrillSummary } from '@/types/stats'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts'
@@ -35,7 +35,7 @@ export default function DrillDownTab() {
   const portalComparisonRef = useRef<HTMLDivElement>(null)
   const portalHeatmapRef = useRef<HTMLDivElement>(null)
 
-  const drillInto = (id: string, name: string) => {
+  const drillInto = (id: string, _name: string) => {
     setSearchParams({ unitId: id })
   }
 
@@ -214,7 +214,7 @@ export default function DrillDownTab() {
                   </tr>
                 </thead>
                 <tbody>
-                  {heatmapY.map((y, yIdx) => (
+                  {heatmapY.map((y) => (
                     <tr key={y}>
                       <td className="sticky left-0 bg-white dark:bg-slate-900 z-10 text-[9px] font-bold text-slate-500 pr-2 max-w-[100px] truncate">
                         {y}
@@ -303,7 +303,7 @@ export default function DrillDownTab() {
               <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
             </div>
           </div>
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto lg:overflow-x-hidden scrollbar-hide custom-scrollbar">
             <table className="w-full text-sm">
               <thead>
                 <tr className="text-[10px] font-black uppercase tracking-widest text-slate-400 border-b border-slate-100 dark:border-slate-800">

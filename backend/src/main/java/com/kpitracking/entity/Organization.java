@@ -20,7 +20,7 @@ public class Organization {
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
 
-    @Column(name = "name", nullable = false)
+    @Column(name = "name", nullable = false, unique = true)
     private String name;
 
     @Column(name = "code", nullable = false, unique = true)
@@ -38,6 +38,26 @@ public class Organization {
     @OneToMany(mappedBy = "organization", cascade = CascadeType.ALL, orphanRemoval = true)
     @OrderBy("levelOrder ASC")
     private java.util.List<OrgHierarchyLevel> hierarchyLevels;
+
+    @Column(name = "evaluation_max_score")
+    @Builder.Default
+    private Double evaluationMaxScore = 100.0;
+
+    @OneToMany(mappedBy = "organization", cascade = CascadeType.ALL, orphanRemoval = true)
+    @OrderBy("threshold DESC")
+    private java.util.List<EvaluationLevel> evaluationLevels;
+
+    @Column(name = "kpi_reminder_percentage")
+    @Builder.Default
+    private Integer kpiReminderPercentage = 50;
+
+    @Column(name = "enable_okr")
+    @Builder.Default
+    private Boolean enableOkr = false;
+
+    @Column(name = "enable_waterfall")
+    @Builder.Default
+    private Boolean enableWaterfall = false;
 
     @LastModifiedDate
     @Column(name = "updated_at")
