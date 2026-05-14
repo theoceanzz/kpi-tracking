@@ -27,7 +27,8 @@ import {
   ChevronUp,
   Settings,
   Lightbulb,
-  CircleHelp
+  CircleHelp,
+  Bot
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useNotificationDots } from '../hooks/useNotificationDots'
@@ -83,6 +84,7 @@ const navItems: NavItem[] = [
   { label: 'Bài nộp của tôi', path: '/submissions', icon: <FileText size={20} />, permission: 'SUBMISSION:VIEW_MY', end: true },
   { label: 'Điều chỉnh của tôi', path: '/my-adjustments', icon: <History size={20} />, permission: 'KPI:VIEW_MY' },
   { label: 'Thống kê', path: '/analytics', icon: <TrendingUp size={20} />, permission: 'DASHBOARD:VIEW', end: true },
+  { label: 'Trợ lý AI', path: '/ai-assistant', icon: <Bot size={20} />, permission: 'DASHBOARD:VIEW', end: true },
 ]
 
 /* ─── Tour Replay Button ─── */

@@ -111,7 +111,7 @@ springdoc:
 
 logging:
   level:
-    root: INFO
+    root: info
     com.kpitracking: DEBUG
     org.springframework.security: DEBUG
 management:

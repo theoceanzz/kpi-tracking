@@ -1,7 +1,10 @@
 import React, { useState, useRef, useEffect } from 'react'
-import { Bot, Send, X, Loader2, Minimize2, Maximize2, CheckCircle2 } from 'lucide-react'
+import { Bot, Send, X, Loader2, Minimize2, Maximize2, CheckCircle2, Expand } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { aiApi } from '../api/aiApi'
+import ReactMarkdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
+import { useNavigate } from 'react-router-dom'
 
 interface Message {
   id: string;
@@ -20,6 +23,7 @@ export default function AiAssistantWidget() {
   ])
   const [isLoading, setIsLoading] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
+  const navigate = useNavigate()
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -86,8 +90,8 @@ export default function AiAssistantWidget() {
 
   return (
     <div className={cn(
-      "fixed right-6 bottom-6 w-[380px] bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 flex flex-col overflow-hidden transition-all duration-300 z-50",
-      isMinimized ? "h-[60px]" : "h-[600px] max-h-[80vh]"
+      "fixed right-6 bottom-6 w-[450px] bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 flex flex-col overflow-hidden transition-all duration-300 z-50",
+      isMinimized ? "h-[60px]" : "h-[700px] max-h-[85vh]"
     )}>
       {/* Header */}
       <div className="h-[60px] bg-indigo-600 px-4 flex items-center justify-between shrink-0 cursor-pointer select-none" onClick={() => setIsMinimized(!isMinimized)}>
@@ -101,6 +105,13 @@ export default function AiAssistantWidget() {
           </div>
         </div>
         <div className="flex items-center gap-1">
+          <button 
+            onClick={(e) => { e.stopPropagation(); setIsOpen(false); navigate('/ai-assistant') }} 
+            className="p-2 text-white/70 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
+            title="Mở toàn màn hình"
+          >
+            <Expand size={15} />
+          </button>
           <button onClick={(e) => { e.stopPropagation(); setIsMinimized(!isMinimized) }} className="p-2 text-white/70 hover:text-white hover:bg-white/10 rounded-lg transition-colors">
             {isMinimized ? <Maximize2 size={16} /> : <Minimize2 size={16} />}
           </button>
@@ -117,12 +128,20 @@ export default function AiAssistantWidget() {
             {messages.map((msg) => (
               <div key={msg.id} className={cn("flex flex-col", msg.role === 'user' ? "items-end" : "items-start")}>
                 <div className={cn(
-                  "max-w-[85%] rounded-2xl px-4 py-2.5 text-sm",
+                  "max-w-[90%] rounded-2xl px-4 py-3 text-sm",
                   msg.role === 'user' 
                     ? "bg-indigo-600 text-white rounded-tr-sm" 
                     : "bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 border border-slate-100 dark:border-slate-700 rounded-tl-sm shadow-sm"
                 )}>
-                  {msg.content}
+                  {msg.role === 'user' ? (
+                    <div className="whitespace-pre-wrap">{msg.content}</div>
+                  ) : (
+                    <div className="prose prose-sm dark:prose-invert prose-indigo max-w-none">
+                      <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                        {msg.content}
+                      </ReactMarkdown>
+                    </div>
+                  )}
                 </div>
                 
                 {msg.toolResult && (
@@ -130,7 +149,7 @@ export default function AiAssistantWidget() {
                     <div className="flex items-center gap-1.5 text-xs font-bold text-slate-500 dark:text-slate-400 mb-2">
                       <CheckCircle2 size={14} className="text-emerald-500" /> Đã sử dụng tool: {msg.toolUsed}
                     </div>
-                    <div className="bg-slate-50 dark:bg-slate-900 rounded-lg p-2 font-mono text-[11px] text-slate-600 dark:text-slate-300 break-all">
+                    <div className="bg-slate-50 dark:bg-slate-900 rounded-lg p-2 font-mono text-[11px] text-slate-600 dark:text-slate-300 break-all max-h-32 overflow-y-auto custom-scrollbar">
                       {msg.toolResult.message}
                     </div>
                   </div>
