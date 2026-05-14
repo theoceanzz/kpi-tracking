@@ -20,7 +20,8 @@ import {
   Shield,
   Database,
   BarChart3,
-  TrendingUp
+  TrendingUp,
+  Bot
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -47,6 +48,7 @@ const navItems: NavItem[] = [
   { label: 'Nguồn dữ liệu', path: '/datasources', icon: <Database size={20} />, permission: 'DASHBOARD:VIEW', end: true },
   { label: 'Báo cáo', path: '/reports', icon: <BarChart3 size={20} />, permission: 'DASHBOARD:VIEW', end: true },
   { label: 'Thống kê', path: '/analytics', icon: <TrendingUp size={20} />, permission: 'DASHBOARD:VIEW', end: true },
+  { label: 'Trợ lý AI', path: '/ai-assistant', icon: <Bot size={20} />, permission: 'DASHBOARD:VIEW', end: true },
 ]
 
 export default function Sidebar({ isMobileOpen, onCloseMobile }: { isMobileOpen?: boolean; onCloseMobile?: () => void }) {

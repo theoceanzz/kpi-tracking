@@ -37,6 +37,7 @@ import DatasourceDetailPage from '@/features/datasources/pages/DatasourceDetailP
 import ReportsPage from '@/features/reports/pages/ReportsPage'
 import ReportDetailPage from '@/features/reports/pages/ReportDetailPage'
 import AnalyticsPage from '@/features/analytics/pages/AnalyticsPage'
+import AiAssistantPage from '@/features/analytics/pages/AiAssistantPage'
 
 // Dashboard router helper
 import DashboardRedirect from '@/features/dashboard/pages/DashboardRedirect'
@@ -102,6 +103,7 @@ export const router = createBrowserRouter([
           { path: '/reports', element: <ReportsPage /> },
           { path: '/reports/:id', element: <ReportDetailPage /> },
           { path: '/analytics', element: <AnalyticsPage /> },
+          { path: '/ai-assistant', element: <AiAssistantPage /> },
 
           // All roles — my KPI, submissions & evaluations
           { path: '/my-kpi', element: <MyKpiPage /> },

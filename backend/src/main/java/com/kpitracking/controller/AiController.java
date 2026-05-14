@@ -5,10 +5,7 @@ import com.kpitracking.dto.response.ApiResponse;
 import com.kpitracking.dto.response.ai.AiChatResponse;
 import com.kpitracking.service.AiService;
 import lombok.RequiredArgsConstructor;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/api/v1/ai")
@@ -17,9 +14,18 @@ public class AiController {
 
     private final AiService aiService;
 
-    @PostMapping("/chat")
-    public ApiResponse<AiChatResponse> chat(@RequestBody AiChatRequest request) {
-        String result = aiService.processChat(request.getMessage());
+    @PostMapping("/chat-org")
+    public ApiResponse<AiChatResponse> chatOrg(@RequestBody AiChatRequest request) {
+        String result = aiService.processOrgChat(request.getMessage());
+        AiChatResponse response = AiChatResponse.builder()
+                .text(result)
+                .build();
+        return ApiResponse.success(response);
+    }
+
+    @PostMapping("/chat-org-unit")
+    public ApiResponse<AiChatResponse> chatOrgUnit(@RequestBody AiChatRequest request) {
+        String result = aiService.processOrgUnitChat(request.getMessage());
         AiChatResponse response = AiChatResponse.builder()
                 .text(result)
                 .build();

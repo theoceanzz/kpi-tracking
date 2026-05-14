@@ -13,5 +13,5 @@ export interface AiChatResponse {
 
 export const aiApi = {
   chat: (request: AiChatRequest) =>
-    axiosInstance.post<ApiResponse<AiChatResponse>>('/ai/chat', request, { timeout: 120000 }).then(res => res.data.data),
+    axiosInstance.post<ApiResponse<AiChatResponse>>('/ai/chat-org-unit', request).then(res => res.data.data),
 }

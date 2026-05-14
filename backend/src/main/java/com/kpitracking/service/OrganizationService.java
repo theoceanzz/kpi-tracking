@@ -175,6 +175,13 @@ public class OrganizationService {
     }
 
     @Transactional(readOnly = true)
+    public long countMembersByOrgUnit(UUID orgUnitId) {
+        com.kpitracking.entity.OrgUnit unit = orgUnitRepository.findById(orgUnitId)
+                .orElseThrow(() -> new ResourceNotFoundException("Đơn vị tổ chức", "id", orgUnitId));
+        return userRoleOrgUnitRepository.countUsersInSubtree(unit.getPath());
+    }
+
+    @Transactional(readOnly = true)
     public String findOrgUnitIdByName(String name) {
         List<com.kpitracking.entity.OrgUnit> units = orgUnitRepository.findByNameContainingIgnoreCaseAndDeletedAtIsNull(name);
         if (units.isEmpty()) {

@@ -74,4 +74,23 @@ public interface KpiCriteriaRepository extends JpaRepository<KpiCriteria, UUID> 
 
     @Query("SELECT k FROM KpiCriteria k WHERE k.orgUnit.id IN :orgUnitIds AND k.status = :status")
     List<KpiCriteria> findByOrgUnitIdInAndStatus(@Param("orgUnitIds") List<UUID> orgUnitIds, @Param("status") KpiStatus status);
+
+    @Query(value = "SELECT COUNT(k.id) FROM kpi_criteria k " +
+            "JOIN org_units ou ON k.org_unit_id = ou.id " +
+            "WHERE ou.path LIKE CONCAT(:pathPrefix, '%') AND k.deleted_at IS NULL " +
+            "AND k.created_at >= :startDate AND k.created_at <= :endDate", nativeQuery = true)
+    long countInSubtree(@Param("pathPrefix") String pathPrefix, @Param("startDate") Instant startDate, @Param("endDate") Instant endDate);
+
+    @Query(value = "SELECT u.id, u.full_name, u.email, COUNT(ka.kpi_criteria_id) AS missing_count " +
+            "FROM kpi_criteria_assignees ka " +
+            "JOIN users u ON ka.user_id = u.id " +
+            "JOIN kpi_criteria k ON ka.kpi_criteria_id = k.id " +
+            "JOIN org_units ou ON k.org_unit_id = ou.id " +
+            "LEFT JOIN kpi_submissions s ON s.kpi_criteria_id = k.id AND s.submitted_by = u.id " +
+            "AND s.created_at >= :startDate AND s.created_at <= :endDate AND s.deleted_at IS NULL " +
+            "WHERE ou.path LIKE CONCAT(:pathPrefix, '%') AND k.deleted_at IS NULL AND u.deleted_at IS NULL " +
+            "AND s.id IS NULL " +
+            "GROUP BY u.id, u.full_name, u.email " +
+            "ORDER BY missing_count DESC LIMIT :limit", nativeQuery = true)
+    java.util.List<Object[]> findTopNonSubmittersInSubtree(@Param("pathPrefix") String pathPrefix, @Param("startDate") Instant startDate, @Param("endDate") Instant endDate, @Param("limit") int limit);
 }
