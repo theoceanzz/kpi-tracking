@@ -208,11 +208,11 @@ public class StatsService {
              int targetRoleLevel = primary.getOrgUnit().getOrgHierarchyLevel().getRoleLevel();
              // Hierarchy-based filtering (Simple Numeric Logic)
              if (!permissionChecker.isGlobalAdmin(currentUser.getId())) {
-                 // Find the MOST SPECIFIC (deepest) assignment I have for this context
+                 // Find the MOST POWERFUL assignment I have for this context (lowest level, then lowest rank)
                  UserRoleOrgUnit myPrimary = currentUserAssignments.stream()
                          .filter(a -> u.getId().equals(currentUser.getId()) || primary.getOrgUnit().getPath().startsWith(a.getOrgUnit().getPath()))
-                         .sorted((a, b) -> Integer.compare(b.getOrgUnit().getOrgHierarchyLevel().getLevelOrder(), 
-                                                        a.getOrgUnit().getOrgHierarchyLevel().getLevelOrder()))
+                         .sorted(java.util.Comparator.comparingInt((UserRoleOrgUnit a) -> a.getOrgUnit().getOrgHierarchyLevel().getLevelOrder())
+                                 .thenComparingInt(a -> a.getRole().getRank()))
                          .findFirst().orElse(null);
 
                  int myLevel = (myPrimary != null) ? myPrimary.getOrgUnit().getOrgHierarchyLevel().getRoleLevel() : 99;
@@ -290,6 +290,7 @@ public class StatsService {
 
              allStats.add(EmployeeKpiStatsResponse.builder()
                      .userId(u.getId())
+                     .employeeCode(u.getEmployeeCode())
                      .fullName(u.getFullName())
                      .email(u.getEmail())
                      .role(roleName)
@@ -410,6 +411,48 @@ public class StatsService {
                 lateCount++;
             }
 
+            // 1. Find the best manager score from approved submissions for this specific KPI
+            KpiSubmission bestSubmission = criteriaSubs.stream()
+                    .filter(s -> s.getStatus() == SubmissionStatus.APPROVED && s.getManagerScore() != null)
+                    .max(java.util.Comparator.comparingDouble(KpiSubmission::getManagerScore))
+                    .orElse(null);
+
+            Double mScore = null;
+            String mName = null;
+            double achievementRate = 0;
+
+            if (bestSubmission != null) {
+                mScore = bestSubmission.getManagerScore();
+                mName = bestSubmission.getReviewedBy() != null ? bestSubmission.getReviewedBy().getFullName() : null;
+                
+                // Calculate achievement rate based on manager score, weight and organization multiplier
+                if (criteria.getWeight() != null && criteria.getWeight() > 0) {
+                    double multiplier = 1.0;
+                    try {
+                        Organization org = criteria.getOrgUnit().getOrgHierarchyLevel().getOrganization();
+                        if (org.getEvaluationMaxScore() != null) {
+                            multiplier = org.getEvaluationMaxScore() / 100.0;
+                        }
+                    } catch (Exception e) {
+                        // Fallback to 1.0 if any association is missing
+                    }
+                    
+                    achievementRate = Math.min(100.0, (mScore / (criteria.getWeight() * multiplier)) * 100.0);
+                } else {
+                    achievementRate = mScore;
+                }
+            } else {
+                // If not scored yet, calculate progress from actual vs target
+                double totalActual = criteriaSubs.stream()
+                        .filter(s -> s.getStatus() != SubmissionStatus.REJECTED)
+                        .mapToDouble(s -> s.getActualValue() != null ? s.getActualValue() : 0.0)
+                        .sum();
+                
+                if (criteria.getTargetValue() != null && criteria.getTargetValue() > 0) {
+                    achievementRate = Math.min(100.0, (totalActual / criteria.getTargetValue()) * 100.0);
+                }
+            }
+
             allTasks.add(KpiTaskResponse.builder()
                     .id(criteria.getId())
                     .name(criteria.getName())
@@ -419,6 +462,8 @@ public class StatsService {
                     .status(status)
                     .submissionCount(criteriaSubs.size())
                     .expectedSubmissions(criteria.getExpectedSubmissions() != null ? criteria.getExpectedSubmissions() : calculateExpectedSubmissions(criteria))
+                    .managerScore(achievementRate) // We send the achievement percentage to the frontend circle
+                    .managerName(mName)
                     .build());
         }
 
@@ -676,7 +721,7 @@ public class StatsService {
 
             long approvedSub = submissionRepository.countBySubmittedByIdAndStatus(u.getId(), SubmissionStatus.APPROVED);
             allRows.add(AnalyticsDetailRow.builder()
-                    .userId(u.getId()).fullName(u.getFullName()).email(u.getEmail())
+                    .userId(u.getId()).employeeCode(u.getEmployeeCode()).fullName(u.getFullName()).email(u.getEmail())
                     .orgUnitName(roles.isEmpty() ? null : roles.get(0).getOrgUnit().getName())
                     .roleName(roles.isEmpty() ? "N/A" : roles.get(0).getRole().getName())
                     .assignedKpi(assignedKpi).completedKpi(approvedSub)
@@ -987,5 +1032,115 @@ public class StatsService {
             case "YEAR": return now.minusYears(1).toInstant();
             default: return now.minusMonths(1).toInstant();
         }
+    }
+
+    @Transactional(readOnly = true)
+    public List<ExportDetailedPerformanceResponse> getDetailedExportStats(UUID orgUnitId, UUID kpiPeriodId) {
+        User currentUser = getCurrentUser();
+        OrgUnit targetUnit = orgUnitId != null ? orgUnitRepository.findById(orgUnitId)
+                .orElseThrow(() -> new ResourceNotFoundException("OrgUnit", "id", orgUnitId)) : null;
+        
+        if (targetUnit == null) {
+            List<UserRoleOrgUnit> userRoles = userRoleOrgUnitRepository.findByUserId(currentUser.getId());
+            if (userRoles.isEmpty()) return Collections.emptyList();
+            targetUnit = userRoles.get(0).getOrgUnit();
+        }
+
+        List<UUID> subtreeIds = getSubtreeIds(targetUnit);
+        List<UserRoleOrgUnit> allAssignments = userRoleOrgUnitRepository.findByOrgUnitIdIn(subtreeIds);
+        
+        // Use a map to keep only the "best" assignment per user (highest unit or lowest rank)
+        Map<UUID, UserRoleOrgUnit> memberMap = new HashMap<>();
+        for (UserRoleOrgUnit m : allAssignments) {
+            UUID userId = m.getUser().getId();
+            UserRoleOrgUnit existing = memberMap.get(userId);
+            if (existing == null || m.getOrgUnit().getOrgHierarchyLevel().getLevelOrder() > 
+                                   existing.getOrgUnit().getOrgHierarchyLevel().getLevelOrder()) {
+                memberMap.put(userId, m);
+            }
+        }
+
+        List<ExportDetailedPerformanceResponse> result = new ArrayList<>();
+        for (UserRoleOrgUnit assignment : memberMap.values()) {
+            User user = assignment.getUser();
+            
+            // 1. Fetch KPIs for this user and period
+            List<KpiCriteria> userKpis = kpiCriteriaRepository.findByUserIdInAssigneesAndKpiPeriodId(
+                    user.getId(), kpiPeriodId, List.of(KpiStatus.APPROVED, KpiStatus.EDITED), Pageable.unpaged()).getContent();
+            
+            // Skip users with no KPIs for this period (e.g., Directors or managers who only evaluate)
+            if (userKpis.isEmpty()) continue;
+
+            List<KpiDetailRow> kpiDetails = new ArrayList<>();
+            for (KpiCriteria kpi : userKpis) {
+                // Get approved submissions for this user and KPI
+                List<KpiSubmission> submissions = submissionRepository.findByKpiCriteriaIdAndSubmittedByIdAndDeletedAtIsNull(kpi.getId(), user.getId());
+                
+                double actual = submissions.stream()
+                        .filter(s -> s.getStatus() == SubmissionStatus.APPROVED)
+                        .mapToDouble(s -> s.getActualValue() != null ? s.getActualValue() : 0.0)
+                        .sum();
+                
+                Double managerScore = submissions.stream()
+                        .filter(s -> s.getStatus() == SubmissionStatus.APPROVED && s.getManagerScore() != null)
+                        .mapToDouble(KpiSubmission::getManagerScore)
+                        .findFirst() // Usually there's one final approved submission for the period
+                        .stream().boxed().findFirst().orElse(null);
+
+                String objectiveName = null;
+                String keyResultName = null;
+                if (kpi.getKeyResult() != null) {
+                    keyResultName = kpi.getKeyResult().getName();
+                    if (kpi.getKeyResult().getObjective() != null) {
+                        objectiveName = kpi.getKeyResult().getObjective().getName();
+                    }
+                }
+
+                kpiDetails.add(KpiDetailRow.builder()
+                        .kpiName(kpi.getName())
+                        .weight(kpi.getWeight())
+                        .unit(kpi.getUnit())
+                        .targetValue(kpi.getTargetValue())
+                        .actualValue(actual)
+                        .completionRate(kpi.getTargetValue() != null && kpi.getTargetValue() > 0 ? (actual / kpi.getTargetValue()) * 100 : 0)
+                        .managerScore(managerScore)
+                        .objectiveName(objectiveName)
+                        .keyResultName(keyResultName)
+                        .build());
+            }
+            
+            // 2. Fetch all evaluations for this user in this period
+            List<Evaluation> evaluations = evaluationRepository.findByUserIdAndKpiPeriodId(user.getId(), kpiPeriodId);
+            
+            ExportDetailedPerformanceResponse row = ExportDetailedPerformanceResponse.builder()
+                    .userId(user.getId())
+                    .employeeCode(user.getEmployeeCode())
+                    .fullName(user.getFullName())
+                    .email(user.getEmail())
+                    .role(assignment.getRole() != null ? assignment.getRole().getName() : "N/A")
+                    .orgUnitName(assignment.getOrgUnit().getName())
+                    .kpis(kpiDetails)
+                    .build();
+            
+            // 3. Map evaluations to Role Levels
+            for (Evaluation eval : evaluations) {
+                User evaluator = eval.getEvaluator();
+                // We check evaluator's role level. Note: A user might have roles in multiple units.
+                // We try to find the level relative to the target org unit or the evaluated user's unit.
+                int level = permissionChecker.getMinLevelInOrgUnit(evaluator.getId(), assignment.getOrgUnit().getId());
+                
+                if (level >= 4) { // Team Leader Level or lower (Staff self-eval not included as it's separate in some systems, but here Evaluation usually means manager eval)
+                    row.setTeamLeaderScore(eval.getScore());
+                } else if (level == 3) { // Dept Head Level
+                    row.setDeptHeadScore(eval.getScore());
+                } else if (level <= 2) { // Director Level and above
+                    row.setDirectorScore(eval.getScore());
+                }
+            }
+            
+            result.add(row);
+        }
+        
+        return result;
     }
 }

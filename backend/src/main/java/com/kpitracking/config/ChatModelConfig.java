@@ -1,11 +1,9 @@
 package com.kpitracking.config;
 
 import com.kpitracking.advisor.TokenUsageAuditAdvisor;
-import com.kpitracking.tool.OrgStatisticTool;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.client.advisor.SimpleLoggerAdvisor;
 import org.springframework.ai.chat.client.advisor.api.Advisor;
-import org.springframework.ai.google.genai.GoogleGenAiChatModel;
 import org.springframework.ai.ollama.OllamaChatModel;
 import org.springframework.ai.openai.OpenAiChatModel;
 import org.springframework.beans.factory.annotation.Value;
@@ -20,24 +18,9 @@ public class ChatModelConfig {
     Resource systemPrompt;
 
     @Bean(name = "ollamaChatClient")
-    public ChatClient ollamaChatClient(OllamaChatModel ollamaChatModel,
-                                 OrgStatisticTool orgStatisticTool){
-        ChatClient.Builder chatClientBuilder = ChatClient.builder(ollamaChatModel);
+    public ChatClient ollamaChatClient(OllamaChatModel ollamaChatModel){
         Advisor logAdvisor = new SimpleLoggerAdvisor();
-        return chatClientBuilder
-//                .defaultSystem(systemPrompt)
-//                .defaultTools(statisticTool)
-                .defaultAdvisors(logAdvisor)
-                .build();
-    }
-
-    @Bean(name = "geminiChatClient")
-    public ChatClient geminiChatClient(GoogleGenAiChatModel googleGenAiChatModel,
-                                 OrgStatisticTool orgStatisticTool){
-        Advisor logAdvisor = new SimpleLoggerAdvisor();
-        return ChatClient.builder(googleGenAiChatModel)
-//                .defaultSystem(systemPrompt)
-//                .defaultTools(statisticTool)
+        return ChatClient.builder(ollamaChatModel)
                 .defaultAdvisors(logAdvisor)
                 .build();
     }

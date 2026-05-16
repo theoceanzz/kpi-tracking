@@ -22,18 +22,21 @@ public interface KpiSubmissionRepository extends JpaRepository<KpiSubmission, UU
            "(s.kpiCriteria.id = COALESCE(:kpiCriteriaId, s.kpiCriteria.id)) AND " +
            "(s.submittedBy.id = COALESCE(:submittedById, s.submittedBy.id)) AND " +
            "(s.orgUnit.path LIKE COALESCE(:orgUnitPath, s.orgUnit.path)) AND " +
-           "(COALESCE(:currentUserRank, 0) = 0 OR s.submittedBy.id = :currentUserId OR EXISTS (SELECT 1 FROM UserRoleOrgUnit uro JOIN uro.role r WHERE uro.user.id = s.submittedBy.id AND uro.orgUnit.id = s.orgUnit.id AND r.rank > :currentUserRank))")
-    Page<KpiSubmission> findAllWithFilters(
-            @org.springframework.data.repository.query.Param("currentUserId") UUID currentUserId,
-            @org.springframework.data.repository.query.Param("allowedOrgUnitIds") java.util.Collection<UUID> allowedOrgUnitIds,
-            @org.springframework.data.repository.query.Param("status") SubmissionStatus status,
-            @org.springframework.data.repository.query.Param("kpiPeriodId") UUID kpiPeriodId,
-            @org.springframework.data.repository.query.Param("kpiCriteriaId") UUID kpiCriteriaId,
-            @org.springframework.data.repository.query.Param("submittedById") UUID submittedById,
-            @org.springframework.data.repository.query.Param("orgUnitPath") String orgUnitPath,
-            @org.springframework.data.repository.query.Param("currentUserRank") Integer currentUserRank,
-            Pageable pageable
-    );
+           "(COALESCE(:currentUserLevel, 4) = 0 OR s.submittedBy.id = :currentUserId OR " +
+           "EXISTS (SELECT 1 FROM UserRoleOrgUnit uro JOIN uro.role r WHERE uro.user.id = s.submittedBy.id AND uro.orgUnit.id = s.orgUnit.id AND " +
+           "(r.level > :currentUserLevel OR (r.level = :currentUserLevel AND r.rank > :currentUserRank))))")
+     Page<KpiSubmission> findAllWithFilters(
+             @org.springframework.data.repository.query.Param("currentUserId") UUID currentUserId,
+             @org.springframework.data.repository.query.Param("allowedOrgUnitIds") java.util.Collection<UUID> allowedOrgUnitIds,
+             @org.springframework.data.repository.query.Param("status") SubmissionStatus status,
+             @org.springframework.data.repository.query.Param("kpiPeriodId") UUID kpiPeriodId,
+             @org.springframework.data.repository.query.Param("kpiCriteriaId") UUID kpiCriteriaId,
+             @org.springframework.data.repository.query.Param("submittedById") UUID submittedById,
+             @org.springframework.data.repository.query.Param("orgUnitPath") String orgUnitPath,
+             @org.springframework.data.repository.query.Param("currentUserRank") Integer currentUserRank,
+             @org.springframework.data.repository.query.Param("currentUserLevel") Integer currentUserLevel,
+             Pageable pageable
+     );
 
     Page<KpiSubmission> findByStatus(SubmissionStatus status, Pageable pageable);
 

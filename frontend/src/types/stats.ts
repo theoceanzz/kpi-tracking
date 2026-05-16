@@ -34,6 +34,7 @@ export interface OrgUnitStats {
 // Matches BE: EmployeeKpiStatsResponse
 export interface EmployeeKpiStats {
   userId: string
+  employeeCode: string | null
   fullName: string
   email: string
   role: string
@@ -58,6 +59,7 @@ export interface KpiTask {
   submissionCount: number
   expectedSubmissions: number
   managerScore?: number | null
+  managerName?: string | null
 }
 
 // Matches BE: MyKpiProgressResponse
@@ -163,6 +165,7 @@ export interface DrillDownResponse {
 
 export interface AnalyticsDetailRow {
   userId: string
+  employeeCode: string | null
   fullName: string
   email: string
   orgUnitName: string | null
@@ -245,4 +248,29 @@ export interface HeatmapPoint {
   x: string;
   y: string;
   value: number;
+}
+
+export interface KpiDetailRow {
+  kpiName: string;
+  weight: number | null;
+  unit: string | null;
+  targetValue: number | null;
+  actualValue: number | null;
+  completionRate: number;
+  managerScore: number | null;
+  objectiveName?: string | null;
+  keyResultName?: string | null;
+}
+
+export interface ExportDetailedPerformanceResponse {
+  userId: string;
+  employeeCode: string | null;
+  fullName: string;
+  email: string;
+  role: string;
+  orgUnitName: string;
+  kpis: KpiDetailRow[];
+  teamLeaderScore: number | null;
+  deptHeadScore: number | null;
+  directorScore: number | null;
 }

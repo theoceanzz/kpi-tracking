@@ -326,20 +326,25 @@ public class EvaluationService {
 
                 if (bestEvalUro != null && bestEvalUro.getRole() != null) {
                     com.kpitracking.entity.Role r = bestEvalUro.getRole();
-                    int roleLevel = r.getLevel();
-                    int roleRank = r.getRank();
+                    Integer roleLevel = r.getLevel();
+                    Integer roleRank = r.getRank();
+                    response.setEvaluatorRoleLevel(roleLevel);
                     response.setOrgUnitLevel(evaluation.getOrgUnit().getOrgHierarchyLevel().getLevelOrder());
 
-                    if (roleLevel == 0) {
-                        response.setEvaluatorRole("CEO");
-                    } else if (roleLevel == 1) {
-                        response.setEvaluatorRole("REGIONAL_DIRECTOR");
-                    } else if (roleLevel == 2) {
-                        response.setEvaluatorRole("DIRECTOR"); // Company level head is a Director
-                    } else if (roleLevel == 3) {
-                        response.setEvaluatorRole("DEPT_HEAD");
-                    } else if (roleLevel == 4) {
-                        response.setEvaluatorRole("TEAM_LEADER");
+                    if (roleLevel != null) {
+                        if (roleLevel == 0) {
+                            response.setEvaluatorRole("CEO");
+                        } else if (roleLevel == 1) {
+                            response.setEvaluatorRole("REGIONAL_DIRECTOR");
+                        } else if (roleLevel == 2) {
+                            response.setEvaluatorRole("DIRECTOR"); 
+                        } else if (roleLevel == 3) {
+                            response.setEvaluatorRole("DEPT_HEAD");
+                        } else if (roleLevel == 4) {
+                            response.setEvaluatorRole("TEAM_LEADER");
+                        } else {
+                            response.setEvaluatorRole("MANAGER");
+                        }
                     } else {
                         response.setEvaluatorRole("MANAGER");
                     }

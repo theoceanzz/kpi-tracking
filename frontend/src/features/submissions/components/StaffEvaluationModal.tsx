@@ -14,6 +14,7 @@ import { formatNumber, cn } from '@/lib/utils'
 import { useOrganization } from '@/features/orgunits/hooks/useOrganization'
 
 import { getScoringFunctions } from '@/lib/scoring'
+import EvaluationFormModal from '@/features/evaluations/components/EvaluationFormModal'
 
 interface StaffEvaluationModalProps {
   open: boolean
@@ -66,7 +67,7 @@ export default function StaffEvaluationModal({
     if (submissionList.length > 0) {
       const scores: Record<string, number> = {}
       submissionList.forEach(s => {
-        scores[s.id] = Math.round(s.managerScore ?? s.autoScore ?? 0)
+        scores[s.id] = Math.round(s.autoScore ?? 0)
       })
       setIndividualScores(scores)
     }
@@ -95,7 +96,7 @@ export default function StaffEvaluationModal({
   const submitMutation = useMutation({
     mutationFn: async () => {
       // 1. Bulk Review Submissions
-      await submissionApi.bulkReview({
+      const reviewResults = await submissionApi.bulkReview({
         submissionIds: submissionList.map(s => s.id),
         commonReview: { status: 'APPROVED', reviewNote: 'Phê duyệt tổng hợp qua bảng đánh giá' },
         individualReviews: Object.entries(individualScores).map(([id, score]) => ({
@@ -111,17 +112,28 @@ export default function StaffEvaluationModal({
         score: totalManagerScore,
         comment: overallComment || `${userRoleName} đánh giá kết quả đợt ${periodName}`
       })
+
+      return reviewResults
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       qc.invalidateQueries({ queryKey: ['submissions'] })
       qc.invalidateQueries({ queryKey: ['evaluations'] })
       toast.success('Đã hoàn tất đánh giá và phê duyệt cho nhân viên')
-      onClose()
+
+      const autoApproved = data?.find(s => s.allChildrenApproved)
+      if (autoApproved) {
+        setShowAllApproved(true)
+      } else {
+        onClose()
+      }
     },
     onError: () => {
       toast.error('Có lỗi xảy ra khi lưu đánh giá')
     }
   })
+
+  const [showAllApproved, setShowAllApproved] = useState(false)
+  const [showEvalForm, setShowEvalForm] = useState(false)
 
   const isFullyApproved = useMemo(() => 
     submissionList.length > 0 && submissionList.every(s => s.status === 'APPROVED'),
@@ -370,6 +382,43 @@ export default function StaffEvaluationModal({
         </div>
         )}
       </div>
+
+      {/* Đã duyệt hết KPI con → hỏi tự đánh giá */}
+      {showAllApproved && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 animate-in fade-in duration-300">
+          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
+          <div className="relative bg-white dark:bg-slate-900 rounded-3xl shadow-2xl max-w-sm w-full p-8 text-center space-y-6 animate-in zoom-in-95 duration-300 border border-slate-200 dark:border-slate-800">
+            <div className="w-16 h-16 bg-emerald-100 dark:bg-emerald-900/30 rounded-2xl flex items-center justify-center mx-auto">
+              <CheckCircle className="w-8 h-8 text-emerald-600" />
+            </div>
+            <div className="space-y-2">
+              <h3 className="text-lg font-black text-slate-900 dark:text-white">Đã chấm xong!</h3>
+              <p className="text-sm text-slate-500">Bạn đã duyệt hết KPI đã giao. Bạn có muốn tự đánh giá luôn không?</p>
+            </div>
+            <div className="flex gap-3">
+              <button
+                onClick={() => { setShowAllApproved(false); onClose() }}
+                className="flex-1 py-3 rounded-xl text-sm font-bold border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all"
+              >
+                Để sau
+              </button>
+              <button
+                onClick={() => { setShowAllApproved(false); setShowEvalForm(true) }}
+                className="flex-1 py-3 rounded-xl text-sm font-bold bg-emerald-600 text-white hover:bg-emerald-700 transition-all"
+              >
+                Tự đánh giá ngay
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Form tự đánh giá */}
+      <EvaluationFormModal
+        open={showEvalForm}
+        onClose={() => { setShowEvalForm(false); onClose() }}
+        initialPeriodId={periodId}
+      />
     </div>
   )
 }

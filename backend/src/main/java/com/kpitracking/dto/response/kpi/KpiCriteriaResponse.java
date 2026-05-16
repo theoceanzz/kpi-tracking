@@ -45,4 +45,7 @@ public class KpiCriteriaResponse {
     private String parentName;
     private Instant createdAt;
     private Instant updatedAt;
+    private Boolean hasChildren;
+    private java.util.List<String> delegatedToNames;
+    private java.util.List<UUID> delegatedToIds;
 }

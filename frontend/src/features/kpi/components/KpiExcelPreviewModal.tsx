@@ -93,6 +93,7 @@ export default function KpiExcelPreviewModal({ open, file, onClose, onImport, is
   }, [periodsData])
   const { data: orgTree } = useOrgUnitTree()
   const { data: org } = useOrganization(user?.memberships?.[0]?.organizationId)
+  const enableWaterfall = org?.enableWaterfall || false
   const enableOkr = org?.enableOkr || false
 
   const { data: usersData } = useUsers({ 
@@ -172,12 +173,13 @@ export default function KpiExcelPreviewModal({ open, file, onClose, onImport, is
     }
   }, [open, file])
 
-  // Re-validate when users are loaded to check EmployeeCode existence
+  // Re-validate when users or assignment type changes
   useEffect(() => {
     if (allUsers.length > 0 && data.length > 0) {
       setData(prev => prev.map(row => validateRow(row)))
     }
   }, [allUsers.length])
+  
 
   const parseFile = async (f: File) => {
     setLoading(true)
@@ -216,6 +218,10 @@ export default function KpiExcelPreviewModal({ open, file, onClose, onImport, is
         const matchedPeriod = periodsData?.content?.find((p: any) => p.name.toLowerCase() === item.Period.toLowerCase())
         if (matchedPeriod) {
           item.Period = matchedPeriod.name
+          // Default frequency to period type if missing
+          if (!item.Frequency) {
+            item.Frequency = matchedPeriod.periodType
+          }
         } else {
           item.Period = newestPeriod
           if (oldPeriod !== 'Trống') {
@@ -338,6 +344,21 @@ export default function KpiExcelPreviewModal({ open, file, onClose, onImport, is
     } else if (enableOkr && row.KeyResultCode && !row.ObjectiveCode) {
       errors['ObjectiveCode'] = `Cần nhập mã mục tiêu để tìm KR`
     }
+    
+    // 5. Waterfall specific validation: If waterfall is enabled, only allow assignment to unit leaders
+    if (enableWaterfall && row.EmployeeCode) {
+      const codes = row.EmployeeCode.split(',').map(s => s.trim()).filter(Boolean)
+      const nonLeaders = codes.filter(code => {
+        const u = allUsers.find(user => user.employeeCode === code)
+        if (!u) return true // Let zod handle existence check, but filter out here for logic
+        return !u.memberships?.some(m => m.roleRank === 0) && 
+               !u.permissions?.includes('SUBMISSION:REVIEW')
+      })
+      if (nonLeaders.length > 0) {
+        errors['EmployeeCode'] = `Mô hình Thác nước đang bật: Chỉ có thể giao chỉ tiêu cho Lãnh đạo đơn vị để họ phân bổ tiếp. Mã không hợp lệ: ${nonLeaders.join(', ')}`
+      }
+    }
+
 
     if (Object.keys(errors).length > 0) {
       return { ...row, _errors: errors }
@@ -368,9 +389,9 @@ export default function KpiExcelPreviewModal({ open, file, onClose, onImport, is
       TargetValue: '0',
       MinimumValue: '0',
       Unit: '',
-      Frequency: bulkFreq || 'MONTHLY',
+      Frequency: bulkFreq || (periodsData?.content?.find((p: any) => p.name === bulkPeriod)?.periodType) || 'MONTHLY',
       EmployeeCode: bulkEmpCode || '',
-      Period: bulkPeriod || '',
+      Period: bulkPeriod || newestPeriod || '',
       OrgUnit: bulkOrgUnit || '',
       ObjectiveCode: '',
       KeyResultCode: '',
@@ -674,7 +695,7 @@ export default function KpiExcelPreviewModal({ open, file, onClose, onImport, is
                     <h3 className="text-sm font-black text-slate-900 dark:text-white uppercase tracking-tight">Thiết lập hàng loạt</h3>
                     <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Gán nhanh thông tin cho tất cả các dòng</p>
                   </div>
-                </div>
+                  </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-4 lg:grid-cols-5 gap-4">
                   <div className="space-y-1.5">
@@ -747,8 +768,10 @@ export default function KpiExcelPreviewModal({ open, file, onClose, onImport, is
                             const matchesSearch = !effectiveSearch || 
                               u.fullName.toLowerCase().includes(effectiveSearch) || 
                               u.employeeCode?.toLowerCase().includes(effectiveSearch)
+                            const isLeader = u.memberships?.some(m => m.roleRank === 0) || u.permissions?.includes('SUBMISSION:REVIEW')
+                            const waterfallCheck = !enableWaterfall || isLeader || isSelected
                             
-                            return matchesOrg && (isSelected || matchesSearch)
+                            return matchesOrg && (isSelected || matchesSearch) && waterfallCheck
                           })
 
                           // Sort: selected ones first
@@ -953,8 +976,10 @@ export default function KpiExcelPreviewModal({ open, file, onClose, onImport, is
                                     const matchesSearch = !effectiveSearch || 
                                       u.fullName.toLowerCase().includes(effectiveSearch) || 
                                       u.employeeCode?.toLowerCase().includes(effectiveSearch)
+                                    const isLeader = u.memberships?.some(m => m.roleRank === 0) || u.permissions?.includes('SUBMISSION:REVIEW')
+                                    const waterfallCheck = !enableWaterfall || isLeader || isSelected
                                     
-                                    return matchesOrg && (isSelected || matchesSearch)
+                                    return matchesOrg && (isSelected || matchesSearch) && waterfallCheck
                                   })
 
                                   return filtered.sort((a, b) => {

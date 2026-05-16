@@ -9,6 +9,8 @@ export function useKpiAdjustments(params: {
   status?: AdjustmentStatus; 
   orgUnitId?: string;
   kpiPeriodId?: string;
+  objectiveId?: string;
+  keyResultId?: string;
 } = {}, options: { enabled?: boolean } = {}) {
   return useQuery({ 
     queryKey: ['kpi-adjustments', params], 

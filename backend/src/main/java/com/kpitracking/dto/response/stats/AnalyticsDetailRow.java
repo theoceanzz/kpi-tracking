@@ -9,6 +9,7 @@ import java.util.UUID;
 public class AnalyticsDetailRow {
 
     private UUID userId;
+    private String employeeCode;
     private String fullName;
     private String email;
     private String orgUnitName;

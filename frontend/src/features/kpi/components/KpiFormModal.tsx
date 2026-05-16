@@ -1,5 +1,5 @@
 import { useMemo, useEffect } from 'react'
-import { useForm } from 'react-hook-form'
+import { useForm, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { kpiSchema, type KpiFormData } from '../schemas/kpiSchema'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
@@ -9,16 +9,14 @@ import { useUsers } from '@/features/users/hooks/useUsers'
 import { useAuthStore } from '@/store/authStore'
 import { usePermission } from '@/hooks/usePermission'
 import { toast } from 'sonner'
-import { FREQUENCY_MAP } from '@/lib/utils'
-import { Loader2, X, Check, Sparkles, Target, GitBranch } from 'lucide-react'
+import { FREQUENCY_MAP, cn } from '@/lib/utils'
+import { Loader2, X, Check, Sparkles, Target } from 'lucide-react'
 import type { KpiCriteria } from '@/types/kpi'
 import { useState } from 'react'
 import { useKpiPeriods } from '../hooks/useKpiPeriods'
-import { useKpiTotalWeight } from '../hooks/useKpiTotalWeight'
-import { Gauge, Info } from 'lucide-react'
 import { useOrganization } from '@/features/orgunits/hooks/useOrganization'
 import { useObjectives } from '@/features/okr/hooks/useOkr'
-import { useKpiCriteria } from '../hooks/useKpiCriteria'
+import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from '@/components/ui/select'
 
 interface KpiFormModalProps {
   open: boolean
@@ -48,7 +46,6 @@ export default function KpiFormModal({ open, onClose, editKpi, parentKpi }: KpiF
   const { data: periodsData } = useKpiPeriods({ organizationId })
   
   const enableOkr = org?.enableOkr
-  const enableWaterfall = org?.enableWaterfall
   const { data: objectives } = useObjectives(enableOkr ? organizationId : undefined)
 
   // Flatten tree for dropdown
@@ -64,19 +61,13 @@ export default function KpiFormModal({ open, onClose, editKpi, parentKpi }: KpiF
   }
   const flatOrgUnits = useMemo(() => orgUnitTreeData ? flattenTree(orgUnitTreeData) : [], [orgUnitTreeData])
 
-  const { register, handleSubmit, formState: { errors }, reset, watch, setValue } = useForm<KpiFormData>({
+  const { register, handleSubmit, formState: { errors }, reset, watch, setValue, control } = useForm<KpiFormData>({
     resolver: zodResolver(kpiSchema),
     defaultValues: { name: '', frequency: 'MONTHLY', assignedToIds: [], kpiPeriodId: '', keyResultId: null, parentId: null },
   })
 
   const formKpiPeriodId = watch('kpiPeriodId')
 
-  // Fetch potential parent KPIs (Approved KPIs for the same period)
-  const { data: potentialParents } = useKpiCriteria({
-    status: 'APPROVED',
-    kpiPeriodId: formKpiPeriodId || undefined,
-    size: 100
-  }, !!(enableWaterfall && formKpiPeriodId))
 
   // Synchronize form values only when modal opens
   useEffect(() => {
@@ -139,24 +130,13 @@ export default function KpiFormModal({ open, onClose, editKpi, parentKpi }: KpiF
       // Otherwise, only allow assigning to people who don't have management/review permissions 
       // if the current user themselves is just a lower-level manager
       const targetIsManager = u.permissions?.includes('SUBMISSION:REVIEW') || 
-                               u.roles?.some(r => ['DIRECTOR', 'HEAD', 'DEPUTY'].includes(r))
+                               u.memberships?.some(m => m.roleRank === 0)
       if (targetIsManager && !canAssignRoles) return false
 
       return true
     })
   }, [usersData, hasPermission, canAssignRoles])
 
-  const { data: totalWeightData } = useKpiTotalWeight(
-    fetchOrgUnitId,
-    watch('kpiPeriodId')
-  )
-
-  const currentWeight = watch('weight') || 0
-  const oldWeight = editKpi?.weight || 0
-  const projectedWeight = useMemo(() => {
-    const existing = totalWeightData || 0
-    return existing - oldWeight + Number(currentWeight)
-  }, [totalWeightData, oldWeight, currentWeight])
 
   const createMutation = useMutation({
     mutationFn: (data: KpiFormData) => kpiApi.create(data),
@@ -222,6 +202,26 @@ export default function KpiFormModal({ open, onClose, editKpi, parentKpi }: KpiF
       }
     }
   }, [selectedPeriod, formFrequency, setValue])
+  
+  const filteredObjectives = useMemo(() => {
+    if (!objectives) return []
+    // If no org unit selected, don't show any OKRs to prevent mismatch
+    if (!formOrgUnitId) return []
+    return objectives.filter((obj: any) => obj.orgUnitId === formOrgUnitId)
+  }, [objectives, formOrgUnitId])
+
+  // Clear Key Result if OrgUnit changes to a different one
+  useEffect(() => {
+    if (formOrgUnitId && watch('keyResultId')) {
+      const currentKrId = watch('keyResultId')
+      const isStillValid = filteredObjectives.some(obj => 
+        obj.keyResults.some((kr: any) => kr.id === currentKrId)
+      )
+      if (!isStillValid) {
+        setValue('keyResultId', null)
+      }
+    }
+  }, [formOrgUnitId, filteredObjectives, setValue, watch])
 
   // AI Suggestion Logic
   const [aiSuggestions, setAiSuggestions] = useState<any[]>([])
@@ -229,9 +229,11 @@ export default function KpiFormModal({ open, onClose, editKpi, parentKpi }: KpiF
   const [userSearch, setUserSearch] = useState('')
 
   const displayUsers = useMemo(() => {
-    if (!userSearch.trim()) return availableUsers
+    let filtered = availableUsers
+
+    if (!userSearch.trim()) return filtered
     const search = userSearch.toLowerCase()
-    return availableUsers.filter(u => 
+    return filtered.filter(u => 
       u.fullName.toLowerCase().includes(search) || 
       u.email.toLowerCase().includes(search)
     )
@@ -274,7 +276,21 @@ export default function KpiFormModal({ open, onClose, editKpi, parentKpi }: KpiF
   const isPending = createMutation.isPending || updateMutation.isPending
 
   const onSubmit = (data: KpiFormData) => {
-    const payload = { ...data }
+    const payload = { 
+      ...data,
+      // Ensure disabled fields are preserved during update
+      name: isEdit ? editKpi?.name : data.name,
+      description: isEdit ? editKpi?.description : data.description,
+      targetValue: isEdit ? editKpi?.targetValue : data.targetValue,
+      unit: isEdit ? editKpi?.unit : data.unit,
+      weight: isEdit ? editKpi?.weight : data.weight,
+      minimumValue: isEdit ? editKpi?.minimumValue : data.minimumValue,
+      kpiPeriodId: isEdit ? editKpi?.kpiPeriodId : data.kpiPeriodId,
+      frequency: isEdit ? editKpi?.frequency : data.frequency,
+      orgUnitId: isEdit ? editKpi?.orgUnitId : data.orgUnitId,
+      keyResultId: isEdit ? editKpi?.keyResultId : data.keyResultId,
+      parentId: isEdit ? editKpi?.parentId : data.parentId,
+    }
     
     // Clean up empty strings and unselected values
     if (!payload.orgUnitId) delete payload.orgUnitId
@@ -285,9 +301,9 @@ export default function KpiFormModal({ open, onClose, editKpi, parentKpi }: KpiF
     delete payload.assignedToId
     
     if (isEdit) {
-      updateMutation.mutate(payload)
+      updateMutation.mutate(payload as any)
     } else {
-      createMutation.mutate(payload)
+      createMutation.mutate(payload as any)
     }
   }
 
@@ -336,7 +352,11 @@ export default function KpiFormModal({ open, onClose, editKpi, parentKpi }: KpiF
                 </button>
               )}
             </div>
-            <input {...register('name')} className={inputCls} placeholder="VD: Doanh thu tháng" />
+            <input 
+              {...register('name')} 
+              className={inputCls} 
+              placeholder="VD: Doanh thu tháng" 
+            />
             {errors.name && <p className="text-red-500 text-xs mt-1">{errors.name.message}</p>}
           </div>
 
@@ -368,11 +388,15 @@ export default function KpiFormModal({ open, onClose, editKpi, parentKpi }: KpiF
 
           <div>
             <label className="block text-sm font-medium mb-1.5">Mô tả</label>
-            <textarea {...register('description')} rows={2} className={inputCls + ' resize-none'} placeholder="Chi tiết chỉ tiêu..." />
+            <textarea 
+              {...register('description')} 
+              rows={2} 
+              className={inputCls + ' resize-none'} 
+              placeholder="Chi tiết chỉ tiêu..." 
+            />
           </div>
 
           {enableOkr && (
-            // ... existing OKR section ...
             <div className="bg-violet-50 dark:bg-violet-900/10 p-4 rounded-xl border border-violet-100 dark:border-violet-800 space-y-3">
               <div className="flex items-center gap-2 text-violet-600 dark:text-violet-400">
                 <Target size={16} />
@@ -380,80 +404,91 @@ export default function KpiFormModal({ open, onClose, editKpi, parentKpi }: KpiF
               </div>
               <div>
                 <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Kết quả then chốt (Key Result)</label>
-                <select {...register('keyResultId')} className={inputCls + " border-violet-200 dark:border-violet-800 focus:ring-violet-500/50"}>
-                  <option value="">-- Không liên kết --</option>
-                  {objectives?.map(obj => (
-                    <optgroup key={obj.id} label={obj.name}>
-                      {obj.keyResults.map(kr => (
-                        <option key={kr.id} value={kr.id}>{kr.name} ({kr.progress}%)</option>
-                      ))}
-                    </optgroup>
-                  ))}
-                </select>
-                <p className="text-[10px] text-slate-400 mt-1 flex items-center gap-1">
-                  <Info size={10} /> KPI sẽ đóng góp trực tiếp vào tiến độ của Key Result này.
-                </p>
+                <Controller
+                  name="keyResultId"
+                  control={control}
+                  render={({ field }) => (
+                    <Select 
+                      onValueChange={field.onChange} 
+                      value={field.value || "NONE"}
+                      disabled={isEdit && !!editKpi?.keyResultId}
+                    >
+                      <SelectTrigger className={cn(
+                        "w-full rounded-xl border-violet-200 dark:border-violet-800 bg-white dark:bg-slate-900 focus:ring-violet-500/50 transition-all h-10",
+                        isEdit && !!editKpi?.keyResultId && "bg-slate-50 dark:bg-slate-800/50 cursor-not-allowed opacity-70"
+                      )}>
+                        <SelectValue placeholder="-- Không liên kết --" />
+                      </SelectTrigger>
+                      <SelectContent className="rounded-xl border-violet-100 dark:border-violet-800 shadow-xl max-h-[300px]">
+                        <SelectItem value="NONE" className="font-medium">-- Không liên kết --</SelectItem>
+                        {filteredObjectives.map(obj => (
+                          <SelectGroup key={obj.id}>
+                            <SelectLabel className="px-2 py-1.5 text-[10px] font-black uppercase tracking-widest text-violet-600 dark:text-violet-400 bg-violet-50/50 dark:bg-violet-900/20 rounded-md my-1">
+                              {obj.name}
+                            </SelectLabel>
+                            {obj.keyResults.map((kr: any) => (
+                              <SelectItem key={kr.id} value={kr.id} className="rounded-lg">
+                                {kr.name} ({kr.progress}%)
+                              </SelectItem>
+                            ))}
+                          </SelectGroup>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
+                />
               </div>
             </div>
           )}
 
-          {enableWaterfall && (
-            <div className="bg-cyan-50 dark:bg-cyan-900/10 p-4 rounded-xl border border-cyan-100 dark:border-cyan-800 space-y-3">
-              <div className="flex items-center gap-2 text-cyan-600 dark:text-cyan-400">
-                <GitBranch size={16} />
-                <span className="text-xs font-black uppercase tracking-tight">Cấu trúc thác nước (Waterfall)</span>
-              </div>
-              <div>
-                <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Chỉ tiêu Cha (Parent KPI)</label>
-                <select {...register('parentId')} className={inputCls + " border-cyan-200 dark:border-cyan-800 focus:ring-cyan-500/50"}>
-                  <option value="">-- Chỉ tiêu độc lập --</option>
-                  {potentialParents?.content
-                    ?.filter(k => k.id !== editKpi?.id) // Prevent self-parenting
-                    ?.map(k => (
-                    <option key={k.id} value={k.id}>
-                      {k.name} ({k.orgUnitName})
-                    </option>
-                  ))}
-                </select>
-                <p className="text-[10px] text-slate-400 mt-1 flex items-center gap-1">
-                  <Info size={10} /> Kết quả của chỉ tiêu này sẽ được cộng dồn lên chỉ tiêu cha đã chọn.
-                </p>
-              </div>
-            </div>
-          )}
 
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium mb-1.5">Mục tiêu</label>
-              <input {...register('targetValue', { valueAsNumber: true })} type="number" step="any" onWheel={(e) => (e.target as HTMLInputElement).blur()} className={inputCls} placeholder="100" />
+              <input 
+                {...register('targetValue', { valueAsNumber: true })} 
+                type="number" 
+                step="any" 
+                onWheel={(e) => (e.target as HTMLInputElement).blur()} 
+                className={inputCls} 
+                placeholder="100" 
+              />
             </div>
             <div>
               <label className="block text-sm font-medium mb-1.5">Đơn vị</label>
-              <input {...register('unit')} className={inputCls} placeholder="VD: triệu, %, cái" />
+              <input 
+                {...register('unit')} 
+                className={inputCls} 
+                placeholder="VD: triệu, %, cái" 
+              />
             </div>
           </div>
 
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium mb-1.5">Trọng số (%)</label>
-              <input {...register('weight', { valueAsNumber: true })} type="number" step="any" min={0} max={100} onWheel={(e) => (e.target as HTMLInputElement).blur()} className={inputCls} placeholder="30" />
+              <input 
+                {...register('weight', { valueAsNumber: true })} 
+                type="number" 
+                step="any" 
+                min={0} 
+                max={100} 
+                onWheel={(e) => (e.target as HTMLInputElement).blur()} 
+                className={inputCls} 
+                placeholder="30" 
+              />
               {errors.weight && <p className="text-red-500 text-xs mt-1">{errors.weight.message}</p>}
-              
-              {watch('kpiPeriodId') && (
-                <div className={`mt-2 p-2 rounded-lg border text-[10px] font-bold flex items-center gap-1.5 ${
-                  projectedWeight === 100 ? 'bg-emerald-50 border-emerald-100 text-emerald-700' : 
-                  projectedWeight > 100 ? 'bg-rose-50 border-rose-100 text-rose-700' : 
-                  'bg-amber-50 border-amber-100 text-amber-700'
-                }`}>
-                  <Gauge size={12} />
-                  Dự kiến tổng trọng số: {projectedWeight}% 
-                  {projectedWeight === 100 ? ' (Đạt chuẩn)' : projectedWeight > 100 ? ' (Vượt mức!)' : ' (Chưa đủ)'}
-                </div>
-              )}
             </div>
             <div>
               <label className="block text-sm font-medium mb-1.5">Giá trị tối thiểu</label>
-              <input {...register('minimumValue', { valueAsNumber: true })} type="number" step="any" onWheel={(e) => (e.target as HTMLInputElement).blur()} className={inputCls} placeholder="VD: 50" />
+              <input 
+                {...register('minimumValue', { valueAsNumber: true })} 
+                type="number" 
+                step="any" 
+                onWheel={(e) => (e.target as HTMLInputElement).blur()} 
+                className={inputCls} 
+                placeholder="VD: 50" 
+              />
             </div>
           </div>
 
@@ -472,11 +507,12 @@ export default function KpiFormModal({ open, onClose, editKpi, parentKpi }: KpiF
               <span className="text-[10px] text-[var(--color-muted-foreground)] ml-2 pulse">(Có thể chọn nhiều)</span>
             </label>
             
+
             <div className="border border-[var(--color-border)] rounded-lg overflow-hidden bg-[var(--color-background)]">
               <div className="p-2 border-b border-[var(--color-border)] bg-[var(--color-accent)]/30">
                 <input 
                   type="text"
-                  placeholder="Tìm tên hoặc email nhân viên..."
+                  placeholder="Tìm tên hoặc email..."
                   value={userSearch}
                   onChange={(e) => setUserSearch(e.target.value)}
                   className="w-full px-3 py-1.5 text-xs rounded-md border border-[var(--color-border)] bg-[var(--color-background)] outline-none focus:ring-1 focus:ring-[var(--color-primary)]"
@@ -484,38 +520,26 @@ export default function KpiFormModal({ open, onClose, editKpi, parentKpi }: KpiF
               </div>
               <div className="max-h-40 overflow-y-auto p-1.5 space-y-1">
                 {isLoadingUsers ? (
-                  <div className="p-3 text-center text-xs text-[var(--color-muted-foreground)]">Đang tải danh sách...</div>
-                ) : displayUsers.length === 0 ? (
-                  <div className="p-3 text-center text-xs text-[var(--color-muted-foreground)]">
-                    {userSearch ? 'Không tìm thấy nhân viên' : 'Không có nhân viên phù hợp'}
-                  </div>
+                  <div className="p-3 text-center text-xs text-[var(--color-muted-foreground)]">Đang tải...</div>
                 ) : (
-                  displayUsers.map((u) => {
-                    const isSelected = selectedAssignees.includes(u.id)
-                    return (
-                      <div 
-                        key={u.id}
-                        onClick={() => toggleAssignee(u.id)}
-                        className={`flex items-center justify-between px-3 py-2 rounded-md cursor-pointer transition-colors ${
-                          isSelected ? 'bg-[var(--color-primary)]/10 text-[var(--color-primary)]' : 'hover:bg-[var(--color-accent)]'
-                        }`}
-                      >
-                        <div className="flex flex-col">
-                          <span className="text-sm font-semibold">{u.fullName}</span>
-                          <span className="text-[10px] opacity-70">{u.email} • {u.roles?.join(', ')}</span>
-                        </div>
-                        {isSelected && <Check size={16} />}
+                  displayUsers.map((u) => (
+                    <div 
+                      key={u.id}
+                      onClick={() => toggleAssignee(u.id)}
+                      className={`flex items-center justify-between px-3 py-2 rounded-md cursor-pointer transition-colors ${
+                        selectedAssignees.includes(u.id) ? 'bg-[var(--color-primary)]/10 text-[var(--color-primary)]' : 'hover:bg-[var(--color-accent)]'
+                      }`}
+                    >
+                      <div className="flex flex-col">
+                        <span className="text-sm font-semibold">{u.fullName}</span>
+                        <span className="text-[10px] opacity-70">{u.email}</span>
                       </div>
-                    )
-                  })
+                      {selectedAssignees.includes(u.id) && <Check size={16} />}
+                    </div>
+                  ))
                 )}
               </div>
             </div>
-            {selectedAssignees.length > 0 && (
-              <p className="text-[10px] font-medium text-[var(--color-primary)] mt-1.5">
-                Đã chọn {selectedAssignees.length} nhân viên
-              </p>
-            )}
           </div>
 
           <div className="grid grid-cols-2 gap-4">
@@ -523,24 +547,20 @@ export default function KpiFormModal({ open, onClose, editKpi, parentKpi }: KpiF
               <label className="block text-sm font-medium mb-1.5">Kỳ (Đợt) KPI <span className="text-red-500">*</span></label>
               <select {...register('kpiPeriodId')} className={inputCls}>
                 <option value="">Chọn đợt...</option>
-                {periodsData?.content.map(p => (
-                  <option key={p.id} value={p.id}>{p.name} ({p.periodType})</option>
-                ))}
+                {periodsData?.content.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
               </select>
-              {errors.kpiPeriodId && <p className="text-red-500 text-xs mt-1">{errors.kpiPeriodId.message}</p>}
             </div>
             <div>
               <label className="block text-sm font-medium mb-1.5">Tần suất <span className="text-red-500">*</span></label>
               <select {...register('frequency')} className={inputCls}>
                 {filteredFrequencyOptions.map((opt) => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
               </select>
-              {errors.frequency && <p className="text-red-500 text-xs mt-1">{errors.frequency.message}</p>}
             </div>
           </div>
 
           <div className="flex gap-3 pt-4">
             <button type="button" onClick={onClose} className="flex-1 px-4 py-2.5 rounded-xl text-sm font-bold hover:bg-[var(--color-accent)] transition-all">Hủy</button>
-            <button type="submit" disabled={isPending} className="flex-1 px-4 py-2.5 rounded-xl text-sm font-bold bg-[var(--color-primary)] text-white hover:opacity-90 disabled:opacity-50 transition-all flex items-center justify-center gap-2 shadow-lg shadow-[var(--color-primary)]/20">
+            <button type="submit" disabled={isPending} className="flex-1 px-4 py-2.5 rounded-xl text-sm font-bold bg-[var(--color-primary)] text-white hover:opacity-90 disabled:opacity-50 transition-all flex items-center justify-center gap-2">
               {isPending && <Loader2 size={16} className="animate-spin" />}
               {isEdit ? 'Cập nhật' : 'Tạo mới'}
             </button>

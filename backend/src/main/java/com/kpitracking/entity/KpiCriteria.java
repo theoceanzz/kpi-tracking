@@ -101,6 +101,10 @@ public class KpiCriteria {
     @Builder.Default
     private List<KpiSubmission> submissions = new ArrayList<>();
 
+    @OneToMany(mappedBy = "parent", fetch = FetchType.LAZY)
+    @Builder.Default
+    private List<KpiCriteria> children = new ArrayList<>();
+
     @CreatedDate
     @Column(name = "created_at", updatable = false)
     private Instant createdAt;

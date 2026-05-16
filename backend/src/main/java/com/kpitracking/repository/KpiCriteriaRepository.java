@@ -194,4 +194,6 @@ public interface KpiCriteriaRepository extends JpaRepository<KpiCriteria, UUID> 
     );
 
     List<KpiCriteria> findByParentId(UUID parentId);
+
+    boolean existsByParentAndAssigneesContains(com.kpitracking.entity.KpiCriteria parent, com.kpitracking.entity.User assignee);
 }

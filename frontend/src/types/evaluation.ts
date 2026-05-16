@@ -15,6 +15,7 @@ export interface Evaluation {
   createdAt: string
   updatedAt: string
   evaluatorRole: 'SELF' | 'MANAGER' | 'DIRECTOR' | 'TEAM_LEADER' | 'DEPT_HEAD' | 'DEPT_DEPUTY' | 'TEAM_DEPUTY' | 'REGIONAL_DIRECTOR' | 'CEO'
+  evaluatorRoleLevel?: number
   evaluatorRoleName?: string
   orgUnitLevel?: number
   userLevel?: number

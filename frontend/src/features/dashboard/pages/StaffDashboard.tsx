@@ -284,7 +284,14 @@ export default function StaffDashboard() {
                     <div className="flex items-center gap-6">
                       {/* Scores Section */}
                       <div className="hidden md:flex items-center gap-4">
-                        <ProgressCircle percentage={task.managerScore ?? 0} size={42} strokeWidth={4} color="text-indigo-500" />
+                        <div className="flex flex-col items-center">
+                          <ProgressCircle percentage={task.managerScore ?? 0} size={42} strokeWidth={4} color="text-indigo-500" />
+                          {task.managerName && (
+                            <span className="text-[9px] font-bold text-slate-400 mt-1 uppercase tracking-tight">
+                              {task.managerName.split(' ').pop()} chấm
+                            </span>
+                          )}
+                        </div>
                       </div>
                       
                       <div className="flex items-center gap-3">
@@ -363,7 +370,7 @@ export default function StaffDashboard() {
                         </div>
                         
                         <div className="flex items-center gap-3 shrink-0">
-                          <ProgressCircle percentage={percentage} size={32} strokeWidth={3} />
+                          <ProgressCircle percentage={percentage} size={42} strokeWidth={4} />
                           {s.status === 'DRAFT' ? (
                             <Link 
                               to={`/submissions/edit/${s.id}`}

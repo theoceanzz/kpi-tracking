@@ -88,12 +88,21 @@ export default function EvaluationDetailModal({ open, onClose, evaluation }: Eva
     
     const selfEval = relatedData.content.find((e: any) => e.userId === evaluation.userId && e.evaluatorRole === 'SELF')
     
-    const firstEval = relatedData.content[0]
-    const maxLevel = Math.max(...org.hierarchyLevels.map(hl => hl.levelOrder), 0)
-    const evalUserLevel = [evaluation.userLevel, selfEval?.userLevel, firstEval?.userLevel].find(l => l != null) ?? maxLevel
-    const evalUserRank = [evaluation.userRank, selfEval?.userRank, firstEval?.userRank].find(r => r != null) ?? 2
-
     const isTwoLevelOrg = org.hierarchyLevels.length <= 2
+    const totalLevels = org.hierarchyLevels.length
+
+    const mapLevel = (levelOrder: number) => {
+      // Anchoring logic: The last level (Staff) always maps to 5 (virtual SELF).
+      // The level immediately above it (Direct Manager) maps to 4 (TEAM_LEADER).
+      // This ensures consistent timeline positions across different org sizes.
+      return 5 - (totalLevels - 1 - levelOrder);
+    }
+
+    const firstEval = relatedData.content[0]
+    const maxLevelRaw = Math.max(...org.hierarchyLevels.map(hl => hl.levelOrder), 0)
+    const rawEvalUserLevel = [evaluation.userLevel, selfEval?.userLevel, firstEval?.userLevel].find(l => l != null) ?? maxLevelRaw
+    const evalUserLevel = mapLevel(rawEvalUserLevel)
+    const evalUserRank = [evaluation.userRank, selfEval?.userRank, firstEval?.userRank].find(r => r != null) ?? 2
 
     const roleLabel = evaluation.userRoleName || (selfEval?.evaluatorRoleName || (selfEval?.evaluatorRole === 'SELF' ? 'Nhân viên' : 'Thành viên'))
     const verb = (evalUserLevel <= 1) ? 'tự nhận xét' : 'tự đánh giá'
@@ -142,16 +151,8 @@ export default function EvaluationDetailModal({ open, onClose, evaluation }: Eva
     const managerSteps: any[] = []
 
     sortedLevelsMatching.forEach(hl => {
-      let mappedRoleLevel = hl.roleLevel !== undefined ? hl.roleLevel : hl.levelOrder;
-      const totalLevels = org.hierarchyLevels.length;
-      
-      if (hl.roleLevel === undefined) {
-        if (totalLevels === 5) mappedRoleLevel = hl.levelOrder;
-        else if (totalLevels === 4) mappedRoleLevel = hl.levelOrder + 1;
-        else if (totalLevels === 3) mappedRoleLevel = hl.levelOrder + 2;
-        else if (totalLevels === 2) mappedRoleLevel = hl.levelOrder === 0 ? 2 : 4;
-        else mappedRoleLevel = hl.levelOrder + (5 - totalLevels);
-      }
+      const hlRawLevel = hl.roleLevel !== undefined ? hl.roleLevel : hl.levelOrder;
+      const mappedRoleLevel = mapLevel(hlRawLevel);
 
       // Only include managers at or above the user's level
       if (Number(mappedRoleLevel) > Number(evalUserLevel)) {
@@ -213,16 +214,26 @@ export default function EvaluationDetailModal({ open, onClose, evaluation }: Eva
         if (e.evaluatorRole === roleCode) {
           matches = true
         } 
-        // 2. Special case for current user if role match failed (e.g. role is missing or generic)
+        // 2. Check for Role Level match (New robust method)
+        else if (e.evaluatorRoleLevel != null) {
+          const mappedEvalLevel = mapLevel(e.evaluatorRoleLevel)
+          if (mappedEvalLevel === mappedRoleLevel) {
+            matches = true
+          }
+        }
+        // 3. Special case for current user if role match failed
         else if (e.evaluatorId === user?.id && roleCode !== 'SELF' && e.evaluatorRole !== 'SELF') {
           const myMembership = user?.memberships?.[0]
           if (myMembership) {
-            const myLevel = myMembership.roleLevel ?? myMembership.levelOrder
-            const myRank = myMembership.roleRank
-            
-            // Strictly match level AND ensure it's a manager role (Rank 0)
-            if (myLevel === mappedRoleLevel && myRank === 0) {
-              matches = true
+            const rawMyLevel = myMembership.roleLevel ?? myMembership.levelOrder
+            if (rawMyLevel != null) {
+              const myLevel = mapLevel(rawMyLevel)
+              const myRank = myMembership.roleRank
+              
+              // Strictly match level AND ensure it's a manager role (Rank 0)
+              if (myLevel === mappedRoleLevel && myRank === 0) {
+                matches = true
+              }
             }
           }
         }
@@ -247,9 +258,13 @@ export default function EvaluationDetailModal({ open, onClose, evaluation }: Eva
         return false
       })
       
+      const displayTitle = evalAtLevel?.evaluatorRoleName 
+        ? `${evalAtLevel.evaluatorRoleName.toUpperCase()} ĐÁNH GIÁ`
+        : stepTitle;
+
       managerSteps.push({
         id: roleCode,
-        title: stepTitle,
+        title: displayTitle,
         icon,
         iconBg,
         iconColor,
@@ -385,7 +400,7 @@ export default function EvaluationDetailModal({ open, onClose, evaluation }: Eva
 
 
           {/* === Director: Drill-down to StaffEvaluationModal === */}
-          {canReviewSubmission && isManager && mySubmissions && mySubmissions.content.length > 0 && (
+          {canReviewSubmission && isManager && evaluation?.userId !== user?.id && mySubmissions && mySubmissions.content.length > 0 && (
             <div className="pt-4 border-t border-slate-100 dark:border-slate-800">
               <button 
                 onClick={() => setShowStaffEval(true)}

@@ -48,6 +48,9 @@ export interface KpiCriteria {
   parentName: string | null
   createdAt: string
   updatedAt: string
+  hasChildren?: boolean
+  delegatedToNames?: string[]
+  delegatedToIds?: string[]
 }
 
 // Matches BE: CreateKpiCriteriaRequest

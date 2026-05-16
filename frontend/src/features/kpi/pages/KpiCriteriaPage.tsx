@@ -314,9 +314,9 @@ export default function KpiCriteriaPage() {
               </div>
             </div>
 
-            {/* Filters Row 1: Period, Org Unit, Date Range */}
+            {/* Filters Row 1: Period, Org Unit, Date Range & Sort */}
             <div className="flex flex-wrap items-center gap-3 pt-4 border-t border-slate-100 dark:border-slate-800/50">
-              <div className="flex items-center gap-3">
+              <div className="flex flex-wrap items-center gap-3 flex-1">
                 <Select value={selectedPeriodId} onValueChange={val => { setSelectedPeriodId(val); setPage(0) }}>
                   <SelectTrigger className="w-full sm:w-48 h-11 rounded-xl border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50 font-bold text-xs">
                     <Calendar size={14} className="text-slate-400 mr-2" />
@@ -344,71 +344,36 @@ export default function KpiCriteriaPage() {
                     </SelectContent>
                   </Select>
                 )}
-              </div>
 
-              <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap ml-auto">
-                <div className="relative">
-                  <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 z-10" size={14} />
-                  <input 
-                    type="date"
-                    value={startDateFilter}
-                    onChange={(e) => { setStartDateFilter(e.target.value); setPage(0) }}
-                    className="pl-9 pr-3 h-11 rounded-xl border border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50 text-[10px] font-black uppercase outline-none focus:ring-2 focus:ring-indigo-500/20 transition-all text-transparent w-[160px]"
-                    title="Từ ngày"
-                  />
-                  <div className="absolute inset-0 left-9 flex items-center pointer-events-none text-[10px] font-black uppercase text-slate-600 dark:text-slate-400">
-                    {startDateFilter ? format(new Date(startDateFilter), 'dd/MM/yyyy') : 'Từ ngày'}
+                <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
+                  <div className="relative">
+                    <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 z-10" size={14} />
+                    <input 
+                      type="date"
+                      value={startDateFilter}
+                      onChange={(e) => { setStartDateFilter(e.target.value); setPage(0) }}
+                      className="pl-9 pr-3 h-11 rounded-xl border border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50 text-[10px] font-black uppercase outline-none focus:ring-2 focus:ring-indigo-500/20 transition-all text-transparent w-[160px]"
+                      title="Từ ngày"
+                    />
+                    <div className="absolute inset-0 left-9 flex items-center pointer-events-none text-[10px] font-black uppercase text-slate-600 dark:text-slate-400">
+                      {startDateFilter ? format(new Date(startDateFilter), 'dd/MM/yyyy') : 'Từ ngày'}
+                    </div>
+                  </div>
+                  <ArrowRight size={12} className="text-slate-300 hidden sm:block" />
+                  <div className="relative">
+                    <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 z-10" size={14} />
+                    <input 
+                      type="date"
+                      value={endDateFilter}
+                      onChange={(e) => { setEndDateFilter(e.target.value); setPage(0) }}
+                      className="pl-9 pr-3 h-11 rounded-xl border border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50 text-[10px] font-black uppercase outline-none focus:ring-2 focus:ring-indigo-500/20 transition-all text-transparent w-[160px]"
+                      title="Đến ngày"
+                    />
+                    <div className="absolute inset-0 left-9 flex items-center pointer-events-none text-[10px] font-black uppercase text-slate-600 dark:text-slate-400">
+                      {endDateFilter ? format(new Date(endDateFilter), 'dd/MM/yyyy') : 'Đến ngày'}
+                    </div>
                   </div>
                 </div>
-                <ArrowRight size={12} className="text-slate-300 hidden sm:block" />
-                <div className="relative">
-                  <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 z-10" size={14} />
-                  <input 
-                    type="date"
-                    value={endDateFilter}
-                    onChange={(e) => { setEndDateFilter(e.target.value); setPage(0) }}
-                    className="pl-9 pr-3 h-11 rounded-xl border border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50 text-[10px] font-black uppercase outline-none focus:ring-2 focus:ring-indigo-500/20 transition-all text-transparent w-[160px]"
-                    title="Đến ngày"
-                  />
-                  <div className="absolute inset-0 left-9 flex items-center pointer-events-none text-[10px] font-black uppercase text-slate-600 dark:text-slate-400">
-                    {endDateFilter ? format(new Date(endDateFilter), 'dd/MM/yyyy') : 'Đến ngày'}
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Filters Row 2: OKR & Sorting */}
-            <div className="flex flex-wrap items-center gap-3 pt-4 border-t border-slate-50 dark:border-slate-800/30">
-              <div className="flex items-center gap-3">
-                {enableOkr && (
-                  <>
-                    <Select value={selectedObjectiveId} onValueChange={(v) => { setSelectedObjectiveId(v); setSelectedKeyResultId('ALL'); setPage(0) }}>
-                      <SelectTrigger className="w-full sm:w-80 h-11 rounded-xl border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50 font-bold text-xs">
-                        <Target size={14} className="text-slate-400 mr-2" />
-                        <SelectValue placeholder="Chọn Mục tiêu" />
-                      </SelectTrigger>
-                      <SelectContent className="rounded-2xl border-slate-200 dark:border-slate-800">
-                        <SelectItem value="ALL" className="font-bold">Tất cả Mục tiêu</SelectItem>
-                        {objectivesData?.map(obj => (
-                          <SelectItem key={obj.id} value={obj.id} className="font-medium">[{obj.code}] {obj.name}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-
-                    <Select value={selectedKeyResultId} onValueChange={(v) => { setSelectedKeyResultId(v); setPage(0) }} disabled={selectedObjectiveId === 'ALL'}>
-                      <SelectTrigger className="w-full sm:w-80 h-11 rounded-xl border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50 font-bold text-xs">
-                        <GitBranch size={14} className="text-slate-400 mr-2" />
-                        <SelectValue placeholder="Chọn Kết quả" />
-                      </SelectTrigger>
-                      <SelectContent className="rounded-2xl border-slate-200 dark:border-slate-800">
-                        <SelectItem value="ALL" className="font-bold">Tất cả Kết quả</SelectItem>
-                        {keyResults.map(kr => (
-                          <SelectItem key={kr.id} value={kr.id} className="font-medium">[{kr.code}] {kr.name}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </>
-                )}
               </div>
 
               <div className="ml-auto">
@@ -438,7 +403,55 @@ export default function KpiCriteriaPage() {
                 </Select>
               </div>
             </div>
-          </div>
+
+            {/* Filters Row 2: Strategic Filters (OKR) */}
+            {enableOkr && (
+              <div className="flex flex-wrap items-center gap-3 pt-4 border-t border-slate-50 dark:border-slate-800/30 animate-in slide-in-from-top-2 duration-500">
+                <div className="flex items-center gap-2 text-indigo-600 dark:text-indigo-400 min-w-[140px] px-2">
+                  <Target size={18} className="animate-bounce" />
+                  <span className="text-[10px] font-black uppercase tracking-[0.2em] whitespace-nowrap">Bộ lọc OKR</span>
+                </div>
+
+                <div className="flex-1 md:max-w-[480px]">
+                  <Select value={selectedObjectiveId} onValueChange={(v) => { setSelectedObjectiveId(v); setSelectedKeyResultId('ALL'); setPage(0) }}>
+                    <SelectTrigger className="h-11 rounded-xl border-indigo-100 dark:border-indigo-900/50 bg-indigo-50/30 dark:bg-indigo-900/10 font-bold text-xs text-indigo-900 dark:text-indigo-100">
+                      <div className="flex items-center gap-2 overflow-hidden">
+                        <Target size={14} className="text-indigo-400 shrink-0" />
+                        <div className="truncate">
+                          <SelectValue placeholder="Chọn Mục tiêu chiến lược" />
+                        </div>
+                      </div>
+                    </SelectTrigger>
+                    <SelectContent className="rounded-2xl border-slate-200 dark:border-slate-800">
+                      <SelectItem value="ALL" className="font-bold">Tất cả Mục tiêu</SelectItem>
+                      {objectivesData?.map(obj => (
+                        <SelectItem key={obj.id} value={obj.id} className="font-medium">[{obj.code}] {obj.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="flex-1 md:max-w-[480px]">
+                  <Select value={selectedKeyResultId} onValueChange={(v) => { setSelectedKeyResultId(v); setPage(0) }} disabled={selectedObjectiveId === 'ALL'}>
+                    <SelectTrigger className="h-11 rounded-xl border-indigo-100 dark:border-indigo-900/50 bg-indigo-50/30 dark:bg-indigo-900/10 font-bold text-xs text-indigo-900 dark:text-indigo-100 disabled:opacity-50 transition-all">
+                      <div className="flex items-center gap-2 overflow-hidden">
+                        <GitBranch size={14} className="text-indigo-400 shrink-0" />
+                        <div className="truncate">
+                          <SelectValue placeholder="Chọn Kết quả then chốt" />
+                        </div>
+                      </div>
+                    </SelectTrigger>
+                    <SelectContent className="rounded-2xl border-slate-200 dark:border-slate-800">
+                      <SelectItem value="ALL" className="font-bold">Tất cả Kết quả</SelectItem>
+                      {keyResults.map(kr => (
+                        <SelectItem key={kr.id} value={kr.id} className="font-medium">[{kr.code}] {kr.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+            </div>
+          )}
+        </div>
 
           {/* Status Tabs Row */}
           <div id="tour-kpi-tabs" className="flex flex-wrap items-center gap-3 py-2">

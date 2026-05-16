@@ -1,6 +1,6 @@
 import axiosInstance from '@/lib/axios'
 import type { ApiResponse, PageResponse } from '@/types/api'
-import type { OverviewStats, OrgUnitStats, EmployeeKpiStats, MyKpiProgress, AnalyticsMyStats, DrillDownResponse, AnalyticsDetailRow, AnalyticsSummary } from '@/types/stats'
+import type { OverviewStats, OrgUnitStats, EmployeeKpiStats, MyKpiProgress, AnalyticsMyStats, DrillDownResponse, AnalyticsDetailRow, AnalyticsSummary, ExportDetailedPerformanceResponse } from '@/types/stats'
 
 export const statsApi = {
   getOverview: (organizationId?: string, orgUnitId?: string) =>
@@ -42,4 +42,7 @@ export const statsApi = {
 
   getSummaryRankings: (orgUnitId?: string, rankingUnitId?: string, period: string = 'MONTH') =>
     axiosInstance.get<ApiResponse<any>>('/stats/summary/rankings', { params: { orgUnitId, rankingUnitId, period } }).then((r) => r.data.data),
+
+  getDetailedExportStats: (orgUnitId: string | undefined, kpiPeriodId: string) =>
+    axiosInstance.get<ApiResponse<ExportDetailedPerformanceResponse[]>>('/stats/detailed-export', { params: { orgUnitId, kpiPeriodId } }).then((r) => r.data.data),
 }

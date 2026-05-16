@@ -23,6 +23,7 @@ public class EvaluationResponse {
     private Instant createdAt;
     private Instant updatedAt;
     private String evaluatorRole;
+    private Integer evaluatorRoleLevel;
     private Integer orgUnitLevel;
     private Integer userLevel;
     private Integer userRank;

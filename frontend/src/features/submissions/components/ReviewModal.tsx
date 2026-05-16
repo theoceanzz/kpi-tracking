@@ -9,13 +9,13 @@ import AttachmentList from './AttachmentList'
 import { useAuth } from '@/hooks/useAuth'
 import { usePermission } from '@/hooks/usePermission'
 import StaffEvaluationModal from './StaffEvaluationModal'
+import EvaluationFormModal from '@/features/evaluations/components/EvaluationFormModal'
 
 interface ReviewModalProps {
   open: boolean
   onClose: () => void
   submission: Submission | null
 }
-
 export default function ReviewModal({ open, onClose, submission }: ReviewModalProps) {
   const { user } = useAuth()
   const [reviewNote, setReviewNote] = useState('')
@@ -36,13 +36,26 @@ export default function ReviewModal({ open, onClose, submission }: ReviewModalPr
     }
   }, [submission])
 
+  const [showAllApproved, setShowAllApproved] = useState(false)
+  const [showEvalForm, setShowEvalForm] = useState(false)
+
   const approveMutation = useMutation({
     mutationFn: () => submissionApi.review(submission!.id, { 
       status: 'APPROVED', 
       reviewNote: reviewNote || undefined,
       managerScore: managerScore 
     }),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['submissions'] }); toast.success('Đã phê duyệt bài nộp'); reset(); onClose() },
+    onSuccess: (data) => { 
+      qc.invalidateQueries({ queryKey: ['submissions'] })
+      toast.success('Đã phê duyệt bài nộp')
+      reset()
+      
+      if (data.allChildrenApproved) {
+        setShowAllApproved(true)
+      } else {
+        onClose()
+      }
+    },
     onError: () => toast.error('Duyệt thất bại'),
   })
 
@@ -294,6 +307,43 @@ export default function ReviewModal({ open, onClose, submission }: ReviewModalPr
           )}
         </div>
       </div>
+
+      {/* Đã duyệt hết KPI con → hỏi tự đánh giá */}
+      {showAllApproved && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 animate-in fade-in duration-300">
+          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
+          <div className="relative bg-white dark:bg-slate-900 rounded-3xl shadow-2xl max-w-sm w-full p-8 text-center space-y-6 animate-in zoom-in-95 duration-300 border border-slate-200 dark:border-slate-800">
+            <div className="w-16 h-16 bg-emerald-100 dark:bg-emerald-900/30 rounded-2xl flex items-center justify-center mx-auto">
+              <CheckCircle className="w-8 h-8 text-emerald-600" />
+            </div>
+            <div className="space-y-2">
+              <h3 className="text-lg font-black text-slate-900 dark:text-white">Đã chấm xong!</h3>
+              <p className="text-sm text-slate-500">Bạn đã duyệt hết KPI đã giao. Bạn có muốn tự đánh giá luôn không?</p>
+            </div>
+            <div className="flex gap-3">
+              <button
+                onClick={() => { setShowAllApproved(false); onClose() }}
+                className="flex-1 py-3 rounded-xl text-sm font-bold border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all"
+              >
+                Để sau
+              </button>
+              <button
+                onClick={() => { setShowAllApproved(false); setShowEvalForm(true) }}
+                className="flex-1 py-3 rounded-xl text-sm font-bold bg-emerald-600 text-white hover:bg-emerald-700 transition-all"
+              >
+                Tự đánh giá ngay
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Form tự đánh giá */}
+      <EvaluationFormModal
+        open={showEvalForm}
+        onClose={() => { setShowEvalForm(false); onClose() }}
+        initialPeriodId={submission?.kpiPeriod?.id}
+      />
     </div>
   )
 }

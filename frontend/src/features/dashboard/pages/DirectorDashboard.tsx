@@ -12,7 +12,8 @@ import { useKpiPeriods } from '@/features/kpi/hooks/useKpiPeriods'
 import { reportApi } from '@/features/reports/api/reportApi'
 import { toast } from 'sonner'
 import type { OrgUnitStats, EmployeeKpiStats } from '@/types/stats'
-import { exportPerformanceToExcel } from '@/utils/performanceExport'
+import { exportDetailedPerformanceToExcel } from '@/utils/performanceExport'
+import { statsApi } from '../api/statsApi'
 import type { ReportWidget } from '@/types/datasource'
 import { useSummaryTrend, useSummaryComparison, useSummaryRisks, useSummaryStats, useMyAnalytics } from '@/features/analytics/hooks/useAnalytics'
 import { useNotifications } from '@/features/notifications/hooks/useNotifications'
@@ -66,6 +67,7 @@ export default function DirectorDashboard() {
   }, [orgUnitStats, orgUnitFilter])
 
   const orgId = user?.memberships?.[0]?.organizationId
+  const { data: organization } = useOrganization(orgId)
   const { data: periodsData } = useKpiPeriods({ organizationId: orgId })
 
   const activePeriod = useMemo(() => {
@@ -151,17 +153,38 @@ export default function DirectorDashboard() {
   ]
 
   const handleExport = async () => {
-    if (!allEmpStats?.content || allEmpStats.content.length === 0) {
-      toast.error('Không có dữ liệu để xuất')
+    if (!activePeriod) {
+      toast.error('Không xác định được chu kỳ hiện tại')
       return
     }
+
     setIsExporting(true)
     try {
-      await exportPerformanceToExcel(allEmpStats.content)
-      toast.success('Đã xuất báo cáo thành công')
+      // 1. Fetch detailed hierarchical data from the new endpoint
+      const detailedData = await statsApi.getDetailedExportStats(
+        orgUnitFilter !== 'ALL' ? orgUnitFilter : undefined,
+        activePeriod.id
+      )
+
+      if (!detailedData || detailedData.length === 0) {
+        toast.error('Không có dữ liệu chi tiết để xuất')
+        return
+      }
+
+      // 2. Call the specialized export utility
+      // Director level is 2 or lower
+      const userLevel = user?.memberships?.[0]?.levelOrder ?? 2
+      await exportDetailedPerformanceToExcel(
+        detailedData, 
+        userLevel, 
+        `BÁO CÁO CHI TIẾT KPI - ${activePeriod.name.toUpperCase()}`,
+        organization?.enableOkr
+      )
+      
+      toast.success('Đã xuất báo cáo chi tiết thành công')
     } catch (error) {
       console.error('Export error:', error)
-      toast.error('Có lỗi xảy ra khi xuất báo cáo')
+      toast.error('Có lỗi xảy ra khi xuất báo cáo chi tiết')
     } finally {
       setIsExporting(false)
     }

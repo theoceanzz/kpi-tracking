@@ -20,8 +20,8 @@ public interface KpiCriteriaMapper {
     @Mapping(source = "createdBy.fullName", target = "createdByName")
     @Mapping(source = "approvedBy.id", target = "approvedById")
     @Mapping(source = "approvedBy.fullName", target = "approvedByName")
-    @Mapping(source = "assignees", target = "assigneeIds")
-    @Mapping(source = "assignees", target = "assigneeNames")
+    @Mapping(source = "assignees", target = "assigneeIds", qualifiedByName = "mapAssigneeIds")
+    @Mapping(source = "assignees", target = "assigneeNames", qualifiedByName = "mapAssigneeNames")
     @Mapping(source = "kpiPeriod.id", target = "kpiPeriodId")
     @Mapping(source = "keyResult.id", target = "keyResultId")
     @Mapping(source = "keyResult.name", target = "keyResultName")
@@ -33,10 +33,13 @@ public interface KpiCriteriaMapper {
     @Mapping(source = "parent.name", target = "parentName")
     @Mapping(target = "submissionCount", expression = "java(countActiveSubmissions(kpiCriteria))")
     @Mapping(target = "expectedSubmissions", expression = "java(calculateExpected(kpiCriteria))")
+    @Mapping(target = "hasChildren", expression = "java(kpiCriteria.getChildren() != null && !kpiCriteria.getChildren().isEmpty())")
+    @Mapping(target = "delegatedToNames", expression = "java(mapDelegatedNames(kpiCriteria))")
+    @Mapping(target = "delegatedToIds", expression = "java(mapDelegatedIds(kpiCriteria))")
     KpiCriteriaResponse toResponse(KpiCriteria kpiCriteria);
 
     @Mapping(source = "orgUnit.name", target = "orgUnitName")
-    @Mapping(source = "assignees", target = "assigneeNames")
+    @Mapping(source = "assignees", target = "assigneeNames", qualifiedByName = "mapAssigneeNames")
     @Mapping(target = "submissionCount", expression = "java(countActiveSubmissions(kpiCriteria))")
     @Mapping(target = "expectedSubmissions", expression = "java(calculateExpected(kpiCriteria))")
     KpiCriteriaSummaryResponse toSummaryResponse(KpiCriteria kpiCriteria);
@@ -85,6 +88,7 @@ public interface KpiCriteriaMapper {
     @Mapping(source = "organization.id", target = "organizationId")
     KpiPeriodResponse toKpiPeriodResponse(KpiPeriod kpiPeriod);
 
+    @org.mapstruct.Named("mapAssigneeNames")
     default java.util.List<String> mapAssigneeNames(java.util.List<com.kpitracking.entity.User> assignees) {
         if (assignees == null) return java.util.Collections.emptyList();
         return assignees.stream()
@@ -92,10 +96,29 @@ public interface KpiCriteriaMapper {
                 .toList();
     }
 
+    @org.mapstruct.Named("mapAssigneeIds")
     default java.util.List<java.util.UUID> mapAssigneeIds(java.util.List<com.kpitracking.entity.User> assignees) {
         if (assignees == null) return java.util.Collections.emptyList();
         return assignees.stream()
                 .map(com.kpitracking.entity.User::getId)
+                .toList();
+    }
+
+    default java.util.List<String> mapDelegatedNames(com.kpitracking.entity.KpiCriteria kpi) {
+        if (kpi.getChildren() == null || kpi.getChildren().isEmpty()) return java.util.Collections.emptyList();
+        return kpi.getChildren().stream()
+                .flatMap(child -> child.getAssignees().stream())
+                .map(com.kpitracking.entity.User::getFullName)
+                .distinct()
+                .toList();
+    }
+
+    default java.util.List<java.util.UUID> mapDelegatedIds(com.kpitracking.entity.KpiCriteria kpi) {
+        if (kpi.getChildren() == null || kpi.getChildren().isEmpty()) return java.util.Collections.emptyList();
+        return kpi.getChildren().stream()
+                .flatMap(child -> child.getAssignees().stream())
+                .map(com.kpitracking.entity.User::getId)
+                .distinct()
                 .toList();
     }
 }

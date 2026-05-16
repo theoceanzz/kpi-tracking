@@ -10,7 +10,7 @@ import { useAuthStore } from '@/store/authStore'
 import { useOrganization } from '@/features/orgunits/hooks/useOrganization'
 import { getScoringFunctions } from '@/lib/scoring'
 import { X, Loader2, Star, Target, Zap, Trophy, CheckCircle2, MessageSquare, Sparkles } from 'lucide-react'
-import { useMemo, useEffect } from 'react'
+import { useMemo, useEffect, useRef } from 'react'
 import { cn } from '@/lib/utils'
 
 interface EvaluationFormModalProps {
@@ -50,8 +50,11 @@ export default function EvaluationFormModal({ open, onClose, readOnly = false, i
     },
   })
 
+  const hasManuallyEditedScore = useRef(false)
+
   useEffect(() => {
     if (open) {
+      hasManuallyEditedScore.current = false
       if (initialPeriodId) {
         setValue('kpiPeriodId', initialPeriodId)
       } else if (filteredPeriods.length > 0 && !watch('kpiPeriodId')) {
@@ -74,21 +77,22 @@ export default function EvaluationFormModal({ open, onClose, readOnly = false, i
     if (!selectedPeriodId || !myKpis?.content || !mySubmissions?.content) return 0
     const periodKpiIds = new Set(myKpis.content.map(k => k.id))
     const total = mySubmissions.content
-      .filter(s => periodKpiIds.has(s.kpiCriteriaId) && (s.status === 'APPROVED' || s.status === 'PENDING' || s.status === 'REJECTED'))
+      .filter(s => periodKpiIds.has(s.kpiCriteriaId) && (s.status === 'APPROVED' || s.status === 'PENDING' || s.status === 'REJECTED' || s.status === 'DRAFT'))
       .reduce((sum, s) => sum + (s.autoScore || 0), 0)
     return Math.min(maxScore, Math.round(total))
   }, [selectedPeriodId, myKpis, mySubmissions, maxScore])
 
   const handleApplyCalculatedScore = () => {
     if (readOnly) return
+    hasManuallyEditedScore.current = false
     setValue('score', calculatedScore)
   }
 
   useEffect(() => {
-    if (calculatedScore > 0 && currentScore === 0 && !readOnly) {
+    if (calculatedScore > 0 && !hasManuallyEditedScore.current && !readOnly) {
       setValue('score', calculatedScore)
     }
-  }, [calculatedScore, setValue, currentScore, readOnly])
+  }, [calculatedScore, setValue, readOnly])
 
   const navigate = useNavigate()
 
@@ -231,7 +235,10 @@ export default function EvaluationFormModal({ open, onClose, readOnly = false, i
                            <input 
                              type="range" min={0} max={maxScore} step={1}
                              value={currentScore}
-                            onChange={(e) => setValue('score', Number(e.target.value))}
+                            onChange={(e) => {
+                              hasManuallyEditedScore.current = true
+                              setValue('score', Number(e.target.value))
+                            }}
                             className="w-full accent-indigo-600 h-2 bg-slate-200 rounded-full appearance-none cursor-pointer"
                           />
                            <div className="flex justify-between mt-3 text-[9px] font-black text-slate-400 uppercase tracking-widest">

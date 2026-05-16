@@ -234,6 +234,12 @@ public class KpiSubmissionService {
                 .filter(java.util.Objects::nonNull)
                 .min(Integer::compare)
                 .orElse(2);
+        
+        Integer currentUserLevel = currentAssignments.stream()
+                .map(a -> a.getRole().getLevel())
+                .filter(java.util.Objects::nonNull)
+                .min(Integer::compare)
+                .orElse(4);
 
         Page<KpiSubmission> subPage = submissionRepository.findAllWithFilters(
                 currentUser.getId(),
@@ -244,6 +250,7 @@ public class KpiSubmissionService {
                 submittedById,
                 orgUnitPath,
                 currentUserRank,
+                currentUserLevel,
                 pageable
         );
 
@@ -386,7 +393,90 @@ public class KpiSubmissionService {
 
         eventPublisher.publishEvent(new SubmissionReviewedEvent(this, submission));
 
-        return mapToResponse(submission);
+        // Auto-rollup for Waterfall Mode
+        com.kpitracking.entity.KpiCriteria kpi = submission.getKpiCriteria();
+        KpiSubmission parentSub = null;
+        Boolean allChildrenApproved = false;
+
+        if (kpi.getParent() != null) {
+            com.kpitracking.entity.Organization org = kpi.getOrgUnit().getOrgHierarchyLevel().getOrganization();
+            if (org != null && Boolean.TRUE.equals(org.getEnableWaterfall())) {
+                parentSub = aggregateToParentKpi(kpi.getParent(), submission.getPeriodStart(), submission.getPeriodEnd());
+                
+                // Check if all children of the parent KPI are approved
+                List<com.kpitracking.entity.KpiCriteria> children = kpiCriteriaRepository.findByParentId(kpi.getParent().getId());
+                boolean allApproved = true;
+                for (com.kpitracking.entity.KpiCriteria child : children) {
+                    List<KpiSubmission> childSubs = submissionRepository.findByKpiCriteriaIdAndDeletedAtIsNull(child.getId());
+                    if (childSubs.isEmpty() || childSubs.stream().noneMatch(s -> s.getStatus() == SubmissionStatus.APPROVED)) {
+                        allApproved = false;
+                        break;
+                    }
+                }
+                allChildrenApproved = allApproved;
+            }
+        }
+
+        SubmissionResponse response = mapToResponse(submission);
+        if (parentSub != null) {
+            response.setParentSubmissionId(parentSub.getId());
+            response.setAllChildrenApproved(allChildrenApproved);
+        }
+
+        return response;
+    }
+
+    private KpiSubmission aggregateToParentKpi(com.kpitracking.entity.KpiCriteria parentKpi, Instant periodStart, Instant periodEnd) {
+        // Sum all APPROVED actual values of child KPIs
+        List<com.kpitracking.entity.KpiCriteria> children = kpiCriteriaRepository.findByParentId(parentKpi.getId());
+        double totalActual = 0.0;
+        for (com.kpitracking.entity.KpiCriteria child : children) {
+            List<KpiSubmission> childSubs = submissionRepository.findByKpiCriteriaIdAndDeletedAtIsNull(child.getId());
+            totalActual += childSubs.stream()
+                    .filter(s -> s.getStatus() == SubmissionStatus.APPROVED)
+                    .mapToDouble(s -> s.getActualValue() != null ? s.getActualValue() : 0.0)
+                    .sum();
+        }
+
+        // Get the leader (the creator or the first assignee of the parent KPI)
+        User parentAssignee = parentKpi.getAssignees().isEmpty() ? parentKpi.getCreatedBy() : parentKpi.getAssignees().get(0);
+
+        // Find existing parent submission
+        List<KpiSubmission> parentSubs = submissionRepository.findByKpiCriteriaIdAndSubmittedByIdAndDeletedAtIsNull(parentKpi.getId(), parentAssignee.getId());
+        KpiSubmission parentSub;
+        if (!parentSubs.isEmpty()) {
+            parentSub = parentSubs.get(0);
+            if (parentSub.getStatus() == SubmissionStatus.DRAFT) {
+                parentSub.setStatus(SubmissionStatus.PENDING);
+            }
+        } else {
+            parentSub = KpiSubmission.builder()
+                    .orgUnit(parentKpi.getOrgUnit())
+                    .kpiCriteria(parentKpi)
+                    .submittedBy(parentAssignee)
+                    .periodStart(periodStart)
+                    .periodEnd(periodEnd)
+                    .status(SubmissionStatus.PENDING) // Auto-created as pending for upper review
+                    .build();
+        }
+
+        parentSub.setActualValue(totalActual);
+        
+        com.kpitracking.entity.Organization org = parentKpi.getOrgUnit().getOrgHierarchyLevel().getOrganization();
+        Double autoScore = 0.0;
+        if (parentKpi.getTargetValue() != null && parentKpi.getWeight() != null && parentKpi.getTargetValue() != 0) {
+            double multiplier = org.getEvaluationMaxScore() / 100.0;
+            autoScore = (totalActual / parentKpi.getTargetValue()) * parentKpi.getWeight() * multiplier;
+        }
+        parentSub.setAutoScore(autoScore);
+
+        if (parentSub.getId() == null) {
+            parentSub.setNote("Tự động tổng hợp từ kết quả của nhân viên");
+        } else {
+            parentSub.setNote("Đã cập nhật tự động từ kết quả của nhân viên");
+        }
+
+        return submissionRepository.save(parentSub);
     }
 
     @Transactional
@@ -423,7 +513,37 @@ public class KpiSubmissionService {
 
             final KpiSubmission savedSubmission = submissionRepository.save(submission);
             eventPublisher.publishEvent(new SubmissionReviewedEvent(this, savedSubmission));
-            results.add(mapToResponse(savedSubmission));
+            
+            // Auto-rollup for Waterfall Mode
+            com.kpitracking.entity.KpiCriteria kpi = savedSubmission.getKpiCriteria();
+            KpiSubmission parentSub = null;
+            Boolean allChildrenApproved = false;
+
+            if (kpi.getParent() != null) {
+                com.kpitracking.entity.Organization org = kpi.getOrgUnit().getOrgHierarchyLevel().getOrganization();
+                if (org != null && Boolean.TRUE.equals(org.getEnableWaterfall())) {
+                    parentSub = aggregateToParentKpi(kpi.getParent(), savedSubmission.getPeriodStart(), savedSubmission.getPeriodEnd());
+                    
+                    // Check if all children of the parent KPI have approved submissions
+                    List<com.kpitracking.entity.KpiCriteria> children = kpiCriteriaRepository.findByParentId(kpi.getParent().getId());
+                    boolean allApproved = true;
+                    for (com.kpitracking.entity.KpiCriteria child : children) {
+                        List<KpiSubmission> childSubs = submissionRepository.findByKpiCriteriaIdAndDeletedAtIsNull(child.getId());
+                        if (childSubs.isEmpty() || childSubs.stream().noneMatch(s -> s.getStatus() == SubmissionStatus.APPROVED)) {
+                            allApproved = false;
+                            break;
+                        }
+                    }
+                    allChildrenApproved = allApproved;
+                }
+            }
+
+            SubmissionResponse resp = mapToResponse(savedSubmission);
+            if (parentSub != null) {
+                resp.setParentSubmissionId(parentSub.getId());
+                resp.setAllChildrenApproved(allChildrenApproved);
+            }
+            results.add(resp);
         }
 
         return results;
@@ -443,7 +563,8 @@ public class KpiSubmissionService {
                 null, // kpiCriteriaId
                 currentUser.getId(), // submittedById
                 null, // orgUnitPath
-                0, // rank doesn't matter for self-submissions
+                0, // rank
+                0, // level (0 means bypass hierarchical checks since it's self-submission)
                 pageable
         );
 

@@ -3,7 +3,7 @@ import { Link, Navigate } from 'react-router-dom'
 import { 
   Target, ShieldCheck, Users, ArrowRight, CheckCircle2,
   BarChart3, Zap, LayoutDashboard, Database, Key, Check, X,
-  Sparkles, Building2, Globe, Server, Search
+  Sparkles, Building2, Globe, Server, Search, Phone
 } from 'lucide-react'
 import { useAuthStore } from '@/store/authStore'
 import { cn } from '@/lib/utils'
@@ -68,6 +68,48 @@ export default function LandingPage() {
           </div>
         </div>
       </nav>
+
+      {/* Floating Contact Buttons */}
+      <div className="fixed bottom-8 right-8 z-[100] flex flex-col gap-5 items-center">
+        {/* Zalo Button */}
+        <a 
+          href="https://zalo.me/0904871813" 
+          target="_blank" 
+          rel="noopener noreferrer"
+          className="group relative flex items-center justify-center"
+        >
+          <div className="absolute -inset-2 bg-blue-500/20 rounded-full blur-xl opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+          <div className="absolute inset-0 bg-[#0068ff] rounded-full animate-ping opacity-20" />
+          <div className="relative w-14 h-14 bg-[#0068ff] rounded-full flex items-center justify-center shadow-lg shadow-blue-600/30 group-hover:scale-110 group-hover:-rotate-12 transition-all duration-300">
+             <svg viewBox="0 0 24 24" className="w-8 h-8 fill-white">
+                <path d="M12.015 2c-5.523 0-10 4.029-10 9s4.477 9 10 9c.594 0 1.173-.046 1.733-.133l4.316 2.054a.5.5 0 0 0 .708-.553l-.841-3.693C19.782 16.34 22.015 13.88 22.015 11c0-4.971-4.477-9-10-9zm5.342 12.06c-.145.145-.34.226-.542.226-.203 0-.397-.081-.542-.226l-1.5-1.5a.765.765 0 0 1 0-1.085l1.5-1.5c.3-.3.784-.3 1.085 0 .299.3.299.784 0 1.085L16.35 12l1.007.915c.3.3.3.784 0 1.085v.06z"/>
+             </svg>
+          </div>
+          {/* QR Code Tooltip - Visible on Hover */}
+          <div className="absolute bottom-full right-0 mb-4 px-3 py-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl opacity-0 group-hover:opacity-100 transition-all translate-y-4 group-hover:translate-y-0 pointer-events-none w-56">
+            <img src="/zalo-qr.png" alt="Zalo QR" className="w-full h-auto rounded-lg mb-2" />
+            <div className="text-[10px] font-black text-center text-slate-500 dark:text-slate-400 uppercase tracking-wider">Quét mã để nhắn tin</div>
+          </div>
+          <div className="absolute right-full mr-4 px-4 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-xl text-xs font-black text-slate-900 dark:text-white whitespace-nowrap opacity-0 group-hover:opacity-100 transition-all translate-x-4 group-hover:translate-x-0 pointer-events-none">
+            Chat Zalo: 090 4871813
+          </div>
+        </a>
+
+        {/* Phone Button */}
+        <a 
+          href="tel:0904871813"
+          className="group relative flex items-center justify-center"
+        >
+          <div className="absolute -inset-2 bg-emerald-500/20 rounded-full blur-xl opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+          <div className="absolute inset-0 bg-emerald-500 rounded-full animate-ping opacity-25" />
+          <div className="relative w-14 h-14 bg-emerald-500 rounded-full flex items-center justify-center shadow-lg shadow-emerald-600/30 group-hover:scale-110 group-hover:rotate-12 transition-all duration-300">
+            <Phone className="text-white fill-white/20" size={26} />
+          </div>
+          <div className="absolute right-full mr-4 px-4 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-xl text-xs font-black text-slate-900 dark:text-white whitespace-nowrap opacity-0 group-hover:opacity-100 transition-all translate-x-4 group-hover:translate-x-0 pointer-events-none">
+            Hotline: 090 4871813
+          </div>
+        </a>
+      </div>
 
       {/* Hero Section */}
       <section className="relative pt-40 pb-20 lg:pt-52 lg:pb-32 px-6 overflow-hidden">
@@ -212,7 +254,7 @@ export default function LandingPage() {
         <div className="max-w-[1200px] mx-auto px-6 flex flex-col md:flex-row items-center justify-center gap-10 opacity-60 grayscale hover:grayscale-0 transition-all duration-500">
           <p className="text-sm font-bold uppercase tracking-widest text-slate-500 mr-8 shrink-0">Được tin dùng bởi</p>
           <div className="flex flex-wrap justify-center gap-12 text-slate-400 font-black text-xl tracking-tighter">
-            <span className="flex items-center gap-2"><Building2 size={24}/> NLU</span>
+            <span className="flex items-center gap-2"><Building2 size={24}/> GlobalSoft</span>
             <span className="flex items-center gap-2"><Globe size={24}/> TechCorp</span>
             <span className="flex items-center gap-2"><LayoutDashboard size={24}/> StartupInc</span>
             <span className="flex items-center gap-2"><Database size={24}/> DataSystem</span>
@@ -336,8 +378,8 @@ export default function LandingPage() {
             {/* Standard Plan */}
             <PricingCard 
               tier="Standard"
-              price="49.000"
-              unit="VNĐ/user/tháng"
+              price="Liên hệ"
+              unit=""
               description="Phù hợp cho các nhóm nhỏ (< 200 user) cần số hóa đánh giá nhân sự cơ bản."
               features={[
                 { text: "SaaS Multi-tenant, dùng chung Domain", included: true },
@@ -355,8 +397,8 @@ export default function LandingPage() {
             {/* Professional Plan */}
             <PricingCard 
               tier="Professional"
-              price="99.000"
-              unit="VNĐ/user/tháng"
+              price="Liên hệ"
+              unit=""
               description="Giải pháp toàn diện cho doanh nghiệp tầm trung (< 500 user) quản trị OKR & KPI."
               isPopular
               features={[
@@ -375,8 +417,8 @@ export default function LandingPage() {
             {/* Enterprise Plan */}
             <PricingCard 
               tier="Enterprise"
-              price="450 Triệu"
-              unit="VNĐ/năm"
+              price="Liên hệ"
+              unit=""
               description="Giải pháp Dedicated / Onsite cho các tổ chức lớn, bảo mật cao (> 500 user)."
               features={[
                 { text: "Subdomain riêng hoặc Onsite triển khai", included: true },
@@ -384,7 +426,7 @@ export default function LandingPage() {
                 { text: "Tùy chỉnh Dashboard không giới hạn", included: true },
                 { text: "White Label toàn diện (Màu sắc, Login page)", included: true },
                 { text: "SLA hỗ trợ Online 12h / Online-meeting", included: true },
-                { text: "Chi phí nền tảng/nâng cấp: 320tr/năm", included: true },
+                { text: "Hỗ trợ kỹ thuật & Nâng cấp định kỳ", included: true },
                 { text: "Tùy chỉnh luồng nghiệp vụ mức độ cao", included: true },
               ]}
               buttonText="Liên hệ chuyên viên"
@@ -394,7 +436,7 @@ export default function LandingPage() {
           </div>
 
           <div className="mt-16 text-center text-sm font-medium text-slate-500 dark:text-slate-400">
-            * Giá chưa bao gồm VAT. Đối với tính năng <span className="font-bold text-slate-700 dark:text-slate-300">AI Assistant / AI Insight</span> sẽ được tính phí riêng theo nhu cầu thực tế của từng doanh nghiệp.
+            * Vui lòng liên hệ để nhận báo giá chi tiết. Các tính năng <span className="font-bold text-slate-700 dark:text-slate-300">AI Assistant / AI Insight</span> sẽ được tư vấn theo nhu cầu thực tế của từng doanh nghiệp.
           </div>
         </div>
       </section>
@@ -464,7 +506,7 @@ export default function LandingPage() {
         </div>
         <div className="max-w-[1200px] mx-auto border-t border-slate-200 dark:border-slate-800 pt-8 flex flex-col md:flex-row items-center justify-between gap-4">
           <p className="text-slate-500 dark:text-slate-400 font-bold text-sm">
-            © {new Date().getFullYear()} KeyGo Platform. Bản quyền thuộc về Trường ĐH Nông Lâm.
+            © {new Date().getFullYear()} KeyGo Platform.
           </p>
           <div className="flex gap-4">
             <div className="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 cursor-pointer transition-colors">

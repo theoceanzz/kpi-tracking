@@ -1,9 +1,9 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import LoadingSkeleton from '@/components/common/LoadingSkeleton'
 import EmptyState from '@/components/common/EmptyState'
 import { useMyKpi } from '../hooks/useMyKpi'
 import { Link } from 'react-router-dom'
-import { formatNumber, FREQUENCY_MAP, STATUS_CONFIG } from '@/lib/utils'
+import { cn, formatNumber, FREQUENCY_MAP, STATUS_CONFIG } from '@/lib/utils'
 import { parseISO, isAfter } from 'date-fns'
 
 import {
@@ -15,12 +15,13 @@ import {
 import { useAuthStore } from '@/store/authStore'
 import { useKpiPeriods } from '../hooks/useKpiPeriods'
 import { useOrganization } from '@/features/orgunits/hooks/useOrganization'
-import { useObjectives } from '../../okr/hooks/useOkr'
+import { useObjectives } from '@/features/okr/hooks/useOkr'
 import { useEvaluations } from '@/features/evaluations/hooks/useEvaluations'
 import { useNavigate } from 'react-router-dom'
 import KpiDetailModal from '../components/KpiDetailModal'
 
 import KpiAdjustmentModal from '../components/KpiAdjustmentModal'
+import KpiDelegationModal from '../components/KpiDelegationModal'
 import type { KpiCriteria } from '@/types/kpi'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import PageTour from '@/components/common/PageTour'
@@ -44,12 +45,14 @@ export default function MyKpiPage() {
   const [sortDir] = useState<'asc' | 'desc'>('desc')
   const [viewKpi, setViewKpi] = useState<KpiCriteria | null>(null)
   const [adjustKpi, setAdjustKpi] = useState<KpiCriteria | null>(null)
+  const [editKpi, setEditKpi] = useState<KpiCriteria | null>(null)
   const [selectedObjectiveId, setSelectedObjectiveId] = useState<string>('ALL')
   const [selectedKeyResultId, setSelectedKeyResultId] = useState<string>('ALL')
 
   const { data: periodsData } = useKpiPeriods({ organizationId: user?.memberships?.[0]?.organizationId })
   const organizationId = user?.memberships?.[0]?.organizationId
   const { data: org } = useOrganization(organizationId)
+  const enableWaterfall = org?.enableWaterfall
   const enableOkr = org?.enableOkr
   
   const { data, isLoading } = useMyKpi({
@@ -73,7 +76,10 @@ export default function MyKpiPage() {
   })
 
 
-  const allKpis = (data?.content ?? []).filter(k => k.status === 'APPROVED' || k.status === 'EDITED')
+  const allKpis = (data?.content ?? []).filter(k => 
+    (k.status === 'APPROVED' || k.status === 'EDITED') &&
+    k.assigneeIds?.includes(user?.id || '')
+  )
   const filteredKpis = allKpis.filter(k => 
     k.name.toLowerCase().includes(search.toLowerCase())
   )
@@ -92,6 +98,9 @@ export default function MyKpiPage() {
     if (!periodA || !periodB) return 0
     return new Date(periodB.startDate || 0).getTime() - new Date(periodA.startDate || 0).getTime()
   })
+  const isUserLeader = useMemo(() => {
+    return user?.memberships?.some(m => m.roleRank === 0)
+  }, [user])
 
 
   return (
@@ -266,8 +275,11 @@ export default function MyKpiPage() {
                             key={kpi.id} 
                             kpi={kpi}
                             enableOkr={enableOkr}
+                            enableWaterfall={enableWaterfall}
                             onView={() => setViewKpi(kpi)} 
                             onAdjust={() => setAdjustKpi(kpi)}
+                            onAssign={() => setEditKpi(kpi)}
+                            isLeader={isUserLeader}
                           />
                         ))}
                       </tbody>
@@ -320,8 +332,11 @@ export default function MyKpiPage() {
                       key={kpi.id} 
                       kpi={kpi} 
                       delay={idx * 40} 
+                      enableWaterfall={enableWaterfall}
                       onView={() => setViewKpi(kpi)} 
                       onAdjust={() => setAdjustKpi(kpi)}
+                      onAssign={() => setEditKpi(kpi)}
+                      isLeader={isUserLeader}
                     />
                   ))}
                 </div>
@@ -336,6 +351,7 @@ export default function MyKpiPage() {
       {/* Pagination & Modals (remains similar but refined) */}
       <KpiDetailModal open={!!viewKpi} onClose={() => setViewKpi(null)} kpi={viewKpi} />
       <KpiAdjustmentModal open={!!adjustKpi} onClose={() => setAdjustKpi(null)} kpi={adjustKpi} />
+      {editKpi && <KpiDelegationModal open={!!editKpi} onClose={() => setEditKpi(null)} kpi={editKpi} />}
 
       {data && data.totalElements > 0 && (
         <div className="flex items-center justify-between pt-4 transition-all">
@@ -364,13 +380,14 @@ export default function MyKpiPage() {
   )
 }
 
-function MyKpiTableRow({ kpi, enableOkr, onView, onAdjust }: { kpi: KpiCriteria; enableOkr?: boolean; onView: () => void; onAdjust: () => void }) {
+function MyKpiTableRow({ kpi, enableOkr, enableWaterfall, onView, onAdjust, onAssign, isLeader }: { kpi: KpiCriteria; enableOkr?: boolean; enableWaterfall?: boolean; onView: () => void; onAdjust: () => void; onAssign: () => void; isLeader?: boolean }) {
   const status = STATUS_CONFIG[kpi.status as keyof typeof STATUS_CONFIG] ?? STATUS_CONFIG['DRAFT']!
   const nextDeadline = getNextDeadline(kpi)
   const now = new Date()
   const isOverdue = nextDeadline && isAfter(now, nextDeadline)
   
   const isStarted = !kpi.kpiPeriod?.startDate || !isAfter(parseISO(kpi.kpiPeriod.startDate), now)
+  const isDelegated = !!kpi.hasChildren
 
   
   return (
@@ -429,11 +446,30 @@ function MyKpiTableRow({ kpi, enableOkr, onView, onAdjust }: { kpi: KpiCriteria;
               <Settings2 size={16} />
             </button>
           )}
+          {isLeader && enableWaterfall && (
+            <button 
+              onClick={onAssign} 
+              className={cn(
+                "p-2 rounded-lg transition-all",
+                isDelegated ? "text-emerald-500 bg-emerald-50 hover:bg-emerald-100" : "text-indigo-500 hover:text-indigo-700 hover:bg-indigo-50 dark:hover:bg-indigo-900/40"
+              )} 
+              title={isDelegated ? "Đã giao việc - Nhấn để điều chỉnh" : "Giao cho nhân viên"}
+            >
+              <GitBranch size={16} />
+            </button>
+          )}
           {kpi.submissionCount < (kpi.expectedSubmissions || 1) ? (
             isStarted ? (
-              <Link to={`/submissions/new?kpiId=${kpi.id}`} className="px-4 py-2 bg-slate-900 dark:bg-slate-700 text-white hover:bg-indigo-600 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all">
-                Nộp bài
-              </Link>
+              // Hide Submit button if it's already delegated to others when Waterfall is ON
+              (!enableWaterfall || !isLeader) ? (
+                <Link to={`/submissions/new?kpiId=${kpi.id}`} className="px-4 py-2 bg-slate-900 dark:bg-slate-700 text-white hover:bg-indigo-600 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all">
+                  Nộp bài
+                </Link>
+              ) : (
+                <div className="px-4 py-2 bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 border border-indigo-100 dark:border-indigo-900/30 rounded-xl text-[10px] font-black uppercase tracking-widest italic shadow-sm" title="Kết quả sẽ được tự động cộng dồn từ nhân viên đã được giao">
+                  Đang theo dõi
+                </div>
+              )
             ) : (
               <div className="px-4 py-2 bg-slate-100 dark:bg-slate-800 text-slate-400 rounded-xl text-[10px] font-black uppercase tracking-widest border border-slate-200 dark:border-slate-700 cursor-not-allowed">
                 Chưa mở
@@ -451,10 +487,10 @@ function MyKpiTableRow({ kpi, enableOkr, onView, onAdjust }: { kpi: KpiCriteria;
   )
 }
 
-function MyKpiCard({ kpi, delay, onView, onAdjust }: { kpi: KpiCriteria; delay: number; onView: () => void; onAdjust: () => void }) {
+function MyKpiCard({ kpi, delay, onView, onAdjust, onAssign, isLeader, enableWaterfall }: { kpi: KpiCriteria; delay: number; onView: () => void; onAdjust: () => void; onAssign: () => void; isLeader?: boolean; enableWaterfall?: boolean }) {
   const status = STATUS_CONFIG[kpi.status as keyof typeof STATUS_CONFIG] ?? STATUS_CONFIG['DRAFT']!
   const now = new Date()
-
+  const isDelegated = !!kpi.hasChildren
 
   return (
     <div 
@@ -494,11 +530,29 @@ function MyKpiCard({ kpi, delay, onView, onAdjust }: { kpi: KpiCriteria; delay: 
             <Settings2 size={18} />
           </button>
         )}
+        {isLeader && (
+          <button 
+            onClick={onAssign} 
+            className={cn(
+              "p-3 rounded-2xl transition-all",
+              isDelegated ? "bg-emerald-50 text-emerald-600 hover:bg-emerald-100" : "bg-indigo-50 dark:bg-indigo-900/40 text-indigo-600 hover:bg-indigo-100"
+            )} 
+            title={isDelegated ? "Đã giao việc - Nhấn để điều chỉnh" : "Giao cho nhân viên"}
+          >
+            <GitBranch size={18} />
+          </button>
+        )}
         {kpi.submissionCount < (kpi.expectedSubmissions || 1) ? (
           (!kpi.kpiPeriod?.startDate || !isAfter(parseISO(kpi.kpiPeriod.startDate), now)) ? (
-            <Link to={`/submissions/new?kpiId=${kpi.id}`} className="flex-1 px-6 py-3 bg-slate-900 dark:bg-slate-800 text-white hover:bg-indigo-600 rounded-2xl font-black text-xs text-center transition-all uppercase tracking-widest">
-              Nộp báo cáo
-            </Link>
+            (!enableWaterfall || !isDelegated) ? (
+              <Link to={`/submissions/new?kpiId=${kpi.id}`} className="flex-1 px-6 py-3 bg-slate-900 dark:bg-slate-800 text-white hover:bg-indigo-600 rounded-2xl font-black text-xs text-center transition-all uppercase tracking-widest">
+                Nộp báo cáo
+              </Link>
+            ) : (
+              <div className="flex-1 px-6 py-3 bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 border border-indigo-100 dark:border-indigo-900/30 rounded-2xl font-black text-xs text-center uppercase tracking-widest italic" title="Kết quả sẽ được tự động cộng dồn từ nhân viên đã được giao">
+                Đang theo dõi
+              </div>
+            )
           ) : (
             <div className="flex-1 px-6 py-3 bg-slate-100 dark:bg-slate-800 text-slate-400 rounded-2xl font-black text-xs text-center uppercase tracking-widest border border-slate-200 dark:border-slate-700 cursor-not-allowed">
               Chưa mở nộp

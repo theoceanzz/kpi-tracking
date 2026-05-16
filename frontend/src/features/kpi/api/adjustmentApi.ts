@@ -23,6 +23,8 @@ export const adjustmentApi = {
     status?: AdjustmentStatus; 
     orgUnitId?: string;
     kpiPeriodId?: string;
+    objectiveId?: string;
+    keyResultId?: string;
   }) =>
     axiosInstance.get<ApiResponse<PageResponse<KpiAdjustmentRequest>>>('/kpi-adjustments', { params }).then((r) => r.data.data),
 
