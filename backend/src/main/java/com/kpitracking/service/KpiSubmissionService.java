@@ -420,7 +420,12 @@ public class KpiSubmissionService {
         SubmissionResponse response = mapToResponse(submission);
         if (parentSub != null) {
             response.setParentSubmissionId(parentSub.getId());
-            response.setAllChildrenApproved(allChildrenApproved);
+            User parentAssignee = kpi.getParent().getAssignees().isEmpty() ? kpi.getParent().getCreatedBy() : kpi.getParent().getAssignees().get(0);
+            if (parentAssignee != null && parentAssignee.getId().equals(currentUser.getId())) {
+                response.setAllChildrenApproved(allChildrenApproved);
+            } else {
+                response.setAllChildrenApproved(false);
+            }
         }
 
         return response;
@@ -541,7 +546,12 @@ public class KpiSubmissionService {
             SubmissionResponse resp = mapToResponse(savedSubmission);
             if (parentSub != null) {
                 resp.setParentSubmissionId(parentSub.getId());
-                resp.setAllChildrenApproved(allChildrenApproved);
+                User parentAssignee = kpi.getParent().getAssignees().isEmpty() ? kpi.getParent().getCreatedBy() : kpi.getParent().getAssignees().get(0);
+                if (parentAssignee != null && parentAssignee.getId().equals(currentUser.getId())) {
+                    resp.setAllChildrenApproved(allChildrenApproved);
+                } else {
+                    resp.setAllChildrenApproved(false);
+                }
             }
             results.add(resp);
         }

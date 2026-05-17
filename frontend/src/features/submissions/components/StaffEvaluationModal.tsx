@@ -67,7 +67,7 @@ export default function StaffEvaluationModal({
     if (submissionList.length > 0) {
       const scores: Record<string, number> = {}
       submissionList.forEach(s => {
-        scores[s.id] = Math.round(s.autoScore ?? 0)
+        scores[s.id] = Math.round(s.managerScore ?? s.autoScore ?? 0)
       })
       setIndividualScores(scores)
     }
