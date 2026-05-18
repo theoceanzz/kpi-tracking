@@ -358,14 +358,14 @@ export default function NewSubmissionPage() {
                   <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
                     <div className="bg-black/20 backdrop-blur-md rounded-2xl p-4 border border-white/10">
                         <p className="text-[9px] font-black uppercase tracking-widest opacity-60 mb-1">Tối thiểu</p>
-                        <p className="text-lg font-black truncate">
+                        <p className="text-lg font-black line-clamp-2 break-all">
                           {selectedKpi.minimumValue != null ? formatNumber(selectedKpi.minimumValue) : '0'}
                           <span className="text-[8px] font-bold ml-0.5 opacity-60">{selectedKpi.unit ?? ''}</span>
                         </p>
                     </div>
                     <div className="bg-black/20 backdrop-blur-md rounded-2xl p-4 border border-white/10">
                         <p className="text-[9px] font-black uppercase tracking-widest opacity-60 mb-1">Mục tiêu</p>
-                        <p className="text-lg font-black truncate">
+                        <p className="text-lg font-black line-clamp-2 break-all">
                           {selectedKpi.targetValue != null ? formatNumber(selectedKpi.targetValue) : '—'}
                           <span className="text-[8px] font-bold ml-0.5 opacity-60">{selectedKpi.unit ?? ''}</span>
                         </p>

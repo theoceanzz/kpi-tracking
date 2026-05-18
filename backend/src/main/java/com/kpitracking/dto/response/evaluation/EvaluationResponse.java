@@ -20,6 +20,8 @@ public class EvaluationResponse {
     private Double score;
     private String comment;
     private Double systemScore;
+    private Instant periodStart;
+    private Instant periodEnd;
     private Instant createdAt;
     private Instant updatedAt;
     private String evaluatorRole;

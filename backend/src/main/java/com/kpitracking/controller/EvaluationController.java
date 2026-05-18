@@ -54,4 +54,13 @@ public class EvaluationController {
         EvaluationResponse response = evaluationService.getEvaluationById(evaluationId);
         return ResponseEntity.ok(ApiResponse.success(response));
     }
+
+    @GetMapping("/system-score")
+    @Operation(summary = "Get system calculated score for a given KPI period")
+    public ResponseEntity<ApiResponse<Double>> getSystemScore(
+            @RequestParam UUID kpiPeriodId,
+            @RequestParam(required = false) UUID userId) {
+        Double score = evaluationService.getSystemScore(kpiPeriodId, userId);
+        return ResponseEntity.ok(ApiResponse.success(score));
+    }
 }

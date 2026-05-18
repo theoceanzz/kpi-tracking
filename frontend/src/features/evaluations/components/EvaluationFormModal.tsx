@@ -11,6 +11,8 @@ import { useOrganization } from '@/features/orgunits/hooks/useOrganization'
 import { getScoringFunctions } from '@/lib/scoring'
 import { X, Loader2, Star, Target, Zap, Trophy, CheckCircle2, MessageSquare, Sparkles } from 'lucide-react'
 import { useMemo, useEffect, useRef } from 'react'
+import { useQuery } from '@tanstack/react-query'
+import { evaluationApi } from '../api/evaluationApi'
 import { cn } from '@/lib/utils'
 
 interface EvaluationFormModalProps {
@@ -70,17 +72,13 @@ export default function EvaluationFormModal({ open, onClose, readOnly = false, i
   const displayScore = currentScore
   const selectedPeriodId = watch('kpiPeriodId')
 
-  const { data: myKpis } = useMyKpi({ page: 0, size: 50, kpiPeriodId: selectedPeriodId })
-  const { data: mySubmissions } = useMySubmissions({ page: 0, size: 500 })
+  const { data: systemScoreData } = useQuery({
+    queryKey: ['system-score', selectedPeriodId, user?.id],
+    queryFn: () => evaluationApi.getSystemScore(selectedPeriodId!, user?.id),
+    enabled: !!selectedPeriodId,
+  })
 
-  const calculatedScore = useMemo(() => {
-    if (!selectedPeriodId || !myKpis?.content || !mySubmissions?.content) return 0
-    const periodKpiIds = new Set(myKpis.content.map(k => k.id))
-    const total = mySubmissions.content
-      .filter(s => periodKpiIds.has(s.kpiCriteriaId) && (s.status === 'APPROVED' || s.status === 'PENDING' || s.status === 'REJECTED' || s.status === 'DRAFT'))
-      .reduce((sum, s) => sum + (s.autoScore || 0), 0)
-    return Math.min(maxScore, Math.round(total))
-  }, [selectedPeriodId, myKpis, mySubmissions, maxScore])
+  const calculatedScore = systemScoreData ?? 0
 
   const handleApplyCalculatedScore = () => {
     if (readOnly) return
@@ -177,7 +175,6 @@ export default function EvaluationFormModal({ open, onClose, readOnly = false, i
                   <div className="p-6 rounded-[32px] bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-700 space-y-4">
                     <div className="flex items-center justify-between">
                        <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-400">Kết quả đo lường</h4>
-                       <span className="text-[10px] font-black text-indigo-600 bg-indigo-50 px-2 py-1 rounded-lg">{myKpis?.totalElements || 0} KPI</span>
                     </div>
                     <div className="flex items-center justify-between py-2 border-y border-slate-200/50 dark:border-slate-700/50">
                        <div className="flex items-center gap-2">

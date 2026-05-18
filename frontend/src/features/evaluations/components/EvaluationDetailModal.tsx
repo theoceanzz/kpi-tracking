@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from 'react'
-import { useKpiCriteria } from '@/features/kpi/hooks/useKpiCriteria'
+import { useQuery } from '@tanstack/react-query'
 import { useSubmissions } from '@/features/submissions/hooks/useSubmissions'
 import { useEvaluations } from '../hooks/useEvaluations'
 import { useAuthStore } from '@/store/authStore'
@@ -299,29 +299,19 @@ export default function EvaluationDetailModal({ open, onClose, evaluation }: Eva
   }, [layers.selfEval, inlineScoreInitialized])
 
   // System Score Calculation
-  const { data: myKpis, isLoading: loadingKpis } = useKpiCriteria({ 
-    page: 0, size: 50, 
-    kpiPeriodId: evaluation?.kpiPeriodId,
-    // Remove orgUnitId filter to catch KPIs assigned across units
+  const { data: systemScoreData } = useQuery({
+    queryKey: ['system-score', evaluation?.kpiPeriodId, evaluation?.userId],
+    queryFn: () => evaluationApi.getSystemScore(evaluation!.kpiPeriodId, evaluation!.userId),
+    enabled: !!evaluation?.kpiPeriodId && !!evaluation?.userId,
   })
+
   const { data: mySubmissions, isLoading: loadingSubs } = useSubmissions({ 
     page: 0, size: 500,
     submittedById: evaluation?.userId,
     kpiPeriodId: evaluation?.kpiPeriodId
   })
 
-  const calculatedScore = useMemo(() => {
-    if (loadingKpis || loadingSubs || !evaluation || !myKpis?.content || !mySubmissions?.content) return null
-    
-    const periodKpiIds = new Set(myKpis.content.map(k => k.id))
-    const relevantSubs = mySubmissions.content.filter(s => 
-      periodKpiIds.has(s.kpiCriteriaId) && 
-      (s.status === 'APPROVED' || s.status === 'PENDING' || s.status === 'REJECTED')
-    )
-    
-    const total = relevantSubs.reduce((sum, s) => sum + (s.autoScore || 0), 0)
-    return Math.min(maxScore, Math.round(total))
-  }, [evaluation, myKpis, mySubmissions, loadingKpis, loadingSubs, maxScore])
+  const calculatedScore = systemScoreData ?? null
 
   const [selectedSubmission, setSelectedSubmission] = useState<any>(null)
 

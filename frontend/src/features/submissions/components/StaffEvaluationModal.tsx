@@ -118,10 +118,10 @@ export default function StaffEvaluationModal({
     onSuccess: (data) => {
       qc.invalidateQueries({ queryKey: ['submissions'] })
       qc.invalidateQueries({ queryKey: ['evaluations'] })
-      toast.success('Đã hoàn tất đánh giá và phê duyệt cho nhân viên')
 
-      const autoApproved = data?.find(s => s.allChildrenApproved)
+      const autoApproved = data?.find(s => s.allChildrenApproved && s.parentSubmissionId)
       if (autoApproved) {
+        toast.success('Đã hoàn tất đánh giá và phê duyệt cho nhân viên')
         setShowAllApproved(true)
       } else {
         onClose()

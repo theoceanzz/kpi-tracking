@@ -419,7 +419,7 @@ public class StatsService {
 
             Double mScore = null;
             String mName = null;
-            double achievementRate = 0;
+            Double achievementForCircle = null;
 
             if (bestSubmission != null) {
                 mScore = bestSubmission.getManagerScore();
@@ -437,19 +437,9 @@ public class StatsService {
                         // Fallback to 1.0 if any association is missing
                     }
                     
-                    achievementRate = Math.min(100.0, (mScore / (criteria.getWeight() * multiplier)) * 100.0);
+                    achievementForCircle = Math.min(100.0, (mScore / (criteria.getWeight() * multiplier)) * 100.0);
                 } else {
-                    achievementRate = mScore;
-                }
-            } else {
-                // If not scored yet, calculate progress from actual vs target
-                double totalActual = criteriaSubs.stream()
-                        .filter(s -> s.getStatus() != SubmissionStatus.REJECTED)
-                        .mapToDouble(s -> s.getActualValue() != null ? s.getActualValue() : 0.0)
-                        .sum();
-                
-                if (criteria.getTargetValue() != null && criteria.getTargetValue() > 0) {
-                    achievementRate = Math.min(100.0, (totalActual / criteria.getTargetValue()) * 100.0);
+                    achievementForCircle = mScore;
                 }
             }
 
@@ -462,7 +452,7 @@ public class StatsService {
                     .status(status)
                     .submissionCount(criteriaSubs.size())
                     .expectedSubmissions(criteria.getExpectedSubmissions() != null ? criteria.getExpectedSubmissions() : calculateExpectedSubmissions(criteria))
-                    .managerScore(achievementRate) // We send the achievement percentage to the frontend circle
+                    .managerScore(achievementForCircle) // Only non-null when manager has scored
                     .managerName(mName)
                     .build());
         }

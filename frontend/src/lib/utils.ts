@@ -76,9 +76,9 @@ export function formatPeriod(period: string): string {
   return period
 }
 
-export function formatNumber(value: number): string {
+export function formatNumber(value: number, maxDecimals: number = 2): string {
   return new Intl.NumberFormat('vi-VN', {
-    maximumFractionDigits: 0
+    maximumFractionDigits: maxDecimals
   }).format(value)
 }
 

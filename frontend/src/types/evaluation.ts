@@ -12,6 +12,8 @@ export interface Evaluation {
   score: number | null
   comment: string | null
   systemScore: number | null
+  periodStart?: string | null
+  periodEnd?: string | null
   createdAt: string
   updatedAt: string
   evaluatorRole: 'SELF' | 'MANAGER' | 'DIRECTOR' | 'TEAM_LEADER' | 'DEPT_HEAD' | 'DEPT_DEPUTY' | 'TEAM_DEPUTY' | 'REGIONAL_DIRECTOR' | 'CEO'

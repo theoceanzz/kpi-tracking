@@ -126,9 +126,29 @@ public class EvaluationService {
         evaluation.setScore(request.getScore());
         evaluation.setComment(request.getComment());
         evaluation.setSystemScore(calculateSystemScore(evaluatedUser.getId(), kpiPeriod.getId(), (double) org.getEvaluationMaxScore()));
+        evaluation.setPeriodStart(kpiPeriod.getStartDate());
+        evaluation.setPeriodEnd(kpiPeriod.getEndDate());
 
         evaluation = evaluationRepository.save(evaluation);
         return enrichResponse(evaluation);
+    }
+
+    @Transactional(readOnly = true)
+    public Double getSystemScore(UUID kpiPeriodId, UUID userId) {
+        User currentUser = getCurrentUser();
+        UUID targetUserId = userId != null ? userId : currentUser.getId();
+
+        com.kpitracking.entity.KpiPeriod kpiPeriod = kpiPeriodRepository.findById(kpiPeriodId)
+                .orElseThrow(() -> new ResourceNotFoundException("Kỳ đánh giá (Đợt)", "id", kpiPeriodId));
+
+        java.util.List<com.kpitracking.entity.UserRoleOrgUnit> evaluatedUserAssignments = userRoleOrgUnitRepository.findByUserId(targetUserId);
+        if (evaluatedUserAssignments.isEmpty()) {
+            return 0.0;
+        }
+        OrgUnit targetOrgUnit = evaluatedUserAssignments.get(0).getOrgUnit();
+        com.kpitracking.entity.Organization org = targetOrgUnit.getOrgHierarchyLevel().getOrganization();
+
+        return calculateSystemScore(targetUserId, kpiPeriodId, (double) org.getEvaluationMaxScore());
     }
 
     private Double calculateSystemScore(UUID userId, UUID kpiPeriodId, Double maxScore) {
@@ -151,8 +171,14 @@ public class EvaluationService {
         for (KpiCriteria kpi : kpis) {
             if (kpi.getTargetValue() != null && kpi.getTargetValue() > 0 && kpi.getWeight() != null) {
                 double actual = calculateKpiActualValue(kpi, userId, enableWaterfall);
-                
-                double score = (actual / kpi.getTargetValue()) * kpi.getWeight() * (maxScore / 100.0);
+                boolean isInverse = kpi.getMinimumValue() != null && kpi.getTargetValue() < kpi.getMinimumValue();
+                double ratio;
+                if (isInverse) {
+                    ratio = Math.max(0.0, 2.0 - (actual / kpi.getTargetValue()));
+                } else {
+                    ratio = actual / kpi.getTargetValue();
+                }
+                double score = ratio * kpi.getWeight() * (maxScore / 100.0);
                 total += score;
             }
         }

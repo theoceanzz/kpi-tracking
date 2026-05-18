@@ -20,4 +20,7 @@ export const evaluationApi = {
 
   create: (data: CreateEvaluationRequest) =>
     axiosInstance.post<ApiResponse<Evaluation>>('/evaluations', data).then((r) => r.data.data),
+
+  getSystemScore: (kpiPeriodId: string, userId?: string) =>
+    axiosInstance.get<ApiResponse<number>>('/evaluations/system-score', { params: { kpiPeriodId, userId } }).then((r) => r.data.data),
 }
