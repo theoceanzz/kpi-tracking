@@ -305,7 +305,7 @@ export default function EvaluationDetailModal({ open, onClose, evaluation }: Eva
     enabled: !!evaluation?.kpiPeriodId && !!evaluation?.userId,
   })
 
-  const { data: mySubmissions, isLoading: loadingSubs } = useSubmissions({ 
+  const { data: mySubmissions } = useSubmissions({ 
     page: 0, size: 500,
     submittedById: evaluation?.userId,
     kpiPeriodId: evaluation?.kpiPeriodId

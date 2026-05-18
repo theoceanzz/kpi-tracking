@@ -5,7 +5,6 @@ import { evaluationSchema, type EvaluationFormData } from '../schemas/evaluation
 import { useCreateEvaluation } from '../hooks/useCreateEvaluation'
 import { useKpiPeriods } from '@/features/kpi/hooks/useKpiPeriods'
 import { useMyKpi } from '@/features/kpi/hooks/useMyKpi'
-import { useMySubmissions } from '@/features/submissions/hooks/useMySubmissions'
 import { useAuthStore } from '@/store/authStore'
 import { useOrganization } from '@/features/orgunits/hooks/useOrganization'
 import { getScoringFunctions } from '@/lib/scoring'
