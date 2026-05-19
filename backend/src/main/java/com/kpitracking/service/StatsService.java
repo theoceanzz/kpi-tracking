@@ -389,12 +389,13 @@ public class StatsService {
 
             Instant deadline = criteria.getKpiPeriod() != null ? criteria.getKpiPeriod().getEndDate() : null;
             Instant actualDeadline = deadline;
-            if (deadline != null && criteria.getKpiPeriod() != null && criteria.getKpiPeriod().getStartDate() != null) {
+            if (criteria.getFrequency() != com.kpitracking.enums.KpiFrequency.UNLIMITED
+                    && deadline != null && criteria.getKpiPeriod() != null && criteria.getKpiPeriod().getStartDate() != null) {
                 long start = criteria.getKpiPeriod().getStartDate().toEpochMilli();
                 long end = deadline.toEpochMilli();
                 int totalExpected = criteria.getExpectedSubmissions() != null ? criteria.getExpectedSubmissions() : calculateExpectedSubmissions(criteria);
                 int currentSub = criteriaSubs.size();
-                
+
                 if (currentSub < totalExpected) {
                     long duration = end - start;
                     long subDuration = duration / totalExpected;
@@ -499,7 +500,8 @@ public class StatsService {
         if (kpi.getFrequency() == null || kpi.getKpiPeriod() == null || kpi.getKpiPeriod().getPeriodType() == null) {
             return 1;
         }
-        
+        if (kpi.getFrequency() == com.kpitracking.enums.KpiFrequency.UNLIMITED) return Integer.MAX_VALUE;
+
         com.kpitracking.enums.KpiFrequency kpiFreq = kpi.getFrequency();
         com.kpitracking.enums.KpiFrequency periodType = kpi.getKpiPeriod().getPeriodType();
         

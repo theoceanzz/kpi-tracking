@@ -64,6 +64,7 @@ public interface KpiCriteriaMapper {
     }
 
     private int calculateExpected(com.kpitracking.enums.KpiFrequency kpiFreq, com.kpitracking.enums.KpiFrequency periodType) {
+        if (kpiFreq == com.kpitracking.enums.KpiFrequency.UNLIMITED) return Integer.MAX_VALUE;
         if (kpiFreq == periodType) return 1;
         if (kpiFreq == com.kpitracking.enums.KpiFrequency.DAILY) {
             if (periodType == com.kpitracking.enums.KpiFrequency.MONTHLY) return 30;

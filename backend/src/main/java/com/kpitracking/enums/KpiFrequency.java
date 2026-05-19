@@ -6,5 +6,6 @@ public enum KpiFrequency {
     MONTHLY,
     QUARTERLY,
     SEMI_ANNUALLY,
-    YEARLY
+    YEARLY,
+    UNLIMITED
 }

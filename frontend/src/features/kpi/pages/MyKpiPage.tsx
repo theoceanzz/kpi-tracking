@@ -216,7 +216,7 @@ export default function MyKpiPage() {
               
               const period = periodsData?.content.find(p => p.id === periodId)
 
-              const isPeriodDone = periodKpis.every(k => k.submissionCount >= (k.expectedSubmissions || 1))
+              const isPeriodDone = periodKpis.every(k => k.frequency === 'UNLIMITED' || k.submissionCount >= (k.expectedSubmissions || 1))
               const hasEvaluation = myEvals?.content.some(ev => ev.kpiPeriodId === periodId && ev.evaluatorId === user?.id)
               
               return (
@@ -430,8 +430,8 @@ function MyKpiTableRow({ kpi, enableOkr, enableWaterfall, onView, onAdjust, onAs
         </span>
       </td>
       <td className="px-3 py-4 whitespace-nowrap">
-        <span className={`text-xs font-black ${kpi.submissionCount < (kpi.expectedSubmissions || 1) ? 'text-amber-600' : 'text-emerald-600'}`}>
-          {kpi.submissionCount || 0}/{kpi.expectedSubmissions || 1} lần
+        <span className={`text-xs font-black ${kpi.frequency === 'UNLIMITED' || kpi.submissionCount < (kpi.expectedSubmissions || 1) ? 'text-amber-600' : 'text-emerald-600'}`}>
+          {kpi.frequency === 'UNLIMITED' ? `${kpi.submissionCount || 0}/∞ lần` : `${kpi.submissionCount || 0}/${kpi.expectedSubmissions || 1} lần`}
         </span>
       </td>
       <td className="px-3 py-4 whitespace-nowrap">
@@ -574,6 +574,7 @@ function getNextDeadline(kpi: KpiCriteria) {
   const start = parseISO(kpi.kpiPeriod.startDate).getTime()
   const end = parseISO(kpi.kpiPeriod.endDate).getTime()
 
+  if (kpi.frequency === 'UNLIMITED') return new Date(end)
   const totalSubmissions = kpi.expectedSubmissions || 1
   const currentSub = kpi.submissionCount || 0
   if (currentSub >= totalSubmissions) return new Date(end)

@@ -25,7 +25,7 @@ interface KpiFormModalProps {
   parentKpi?: KpiCriteria | null
 }
 
-const frequencyOptions = (['DAILY', 'WEEKLY', 'MONTHLY', 'QUARTERLY', 'SEMI_ANNUALLY', 'YEARLY'] as const).map(value => ({
+const frequencyOptions = (['DAILY', 'WEEKLY', 'MONTHLY', 'QUARTERLY', 'SEMI_ANNUALLY', 'YEARLY', 'UNLIMITED'] as const).map(value => ({
   value,
   label: FREQUENCY_MAP[value]
 }))

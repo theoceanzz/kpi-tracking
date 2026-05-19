@@ -43,7 +43,7 @@ interface KpiRow {
   _errors?: Record<string, string>
 }
 
-const frequencyOptions = ['DAILY', 'WEEKLY', 'MONTHLY', 'QUARTERLY', 'SEMI_ANNUALLY', 'YEARLY']
+const frequencyOptions = ['DAILY', 'WEEKLY', 'MONTHLY', 'QUARTERLY', 'SEMI_ANNUALLY', 'YEARLY', 'UNLIMITED']
 
 const kpiRowSchema = z.object({
   Name: z.string().min(1, 'Tên chỉ tiêu là bắt buộc'),

@@ -13,6 +13,7 @@ export const FREQUENCY_MAP: Record<KpiFrequency, string> = {
   QUARTERLY: 'Hàng quý',
   SEMI_ANNUALLY: '6 tháng',
   YEARLY: 'Hàng năm',
+  UNLIMITED: 'Không giới hạn',
 }
 
 export const STATUS_CONFIG: Record<KpiStatus, { label: string; color: string; bgColor: string; icon: any }> = {

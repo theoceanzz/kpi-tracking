@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(Get-ChildItem -Path \"D:\\\\PROJECT\\\\Code\\\\KPI_Tracking\" -Force)",
+      "Bash(Select-Object Name, PSIsContainer)",
+      "Bash(xargs ls -la)",
+      "Bash(grep -E \"\\\\.\\(ts|tsx\\)$\")",
+      "Bash(xargs grep -l \"expected_submissions\")",
+      "Bash(npx tsc *)"
+    ]
+  }
+}

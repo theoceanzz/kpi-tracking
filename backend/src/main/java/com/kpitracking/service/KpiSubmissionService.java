@@ -107,22 +107,23 @@ public class KpiSubmissionService {
         Instant pEnd = request.getPeriodEnd() != null ? request.getPeriodEnd().atStartOfDay(java.time.ZoneOffset.UTC).toInstant() : null;
 
         // --- NEW: Frequency Rules & Submission Limit ---
-        long currentCount = kpi.getSubmissions().stream()
-                .filter(s -> s.getDeletedAt() == null &&
-                        s.getSubmittedBy().getId().equals(currentUser.getId()) &&
-                        (s.getStatus() == SubmissionStatus.PENDING || 
-                         s.getStatus() == SubmissionStatus.APPROVED ||
-                         s.getStatus() == SubmissionStatus.REJECTED))
-                .count();
+        if (kpi.getFrequency() != KpiFrequency.UNLIMITED) {
+            long currentCount = kpi.getSubmissions().stream()
+                    .filter(s -> s.getDeletedAt() == null &&
+                            s.getSubmittedBy().getId().equals(currentUser.getId()) &&
+                            (s.getStatus() == SubmissionStatus.PENDING ||
+                             s.getStatus() == SubmissionStatus.APPROVED ||
+                             s.getStatus() == SubmissionStatus.REJECTED))
+                    .count();
 
-        int expected = 1;
-        if (kpi.getFrequency() != null && kpi.getKpiPeriod() != null) {
-            // Re-using the logic from mapper to calculate expected count
-            expected = calculateExpected(kpi.getFrequency(), kpi.getKpiPeriod().getPeriodType());
-        }
+            int expected = 1;
+            if (kpi.getFrequency() != null && kpi.getKpiPeriod() != null) {
+                expected = calculateExpected(kpi.getFrequency(), kpi.getKpiPeriod().getPeriodType());
+            }
 
-        if (currentCount >= expected) {
-            throw new BusinessException("Bạn đã nộp đủ số lượng báo cáo cho chỉ tiêu này (" + currentCount + "/" + expected + ").");
+            if (currentCount >= expected) {
+                throw new BusinessException("Bạn đã nộp đủ số lượng báo cáo cho chỉ tiêu này (" + currentCount + "/" + expected + ").");
+            }
         }
 
         if (kpi.getFrequency() == KpiFrequency.MONTHLY) {
@@ -644,6 +645,7 @@ public class KpiSubmissionService {
     }
 
     private int calculateExpected(KpiFrequency kpiFreq, KpiFrequency periodType) {
+        if (kpiFreq == KpiFrequency.UNLIMITED) return Integer.MAX_VALUE;
         if (kpiFreq == periodType) return 1;
         if (kpiFreq == KpiFrequency.DAILY) {
             if (periodType == KpiFrequency.MONTHLY) return 30;

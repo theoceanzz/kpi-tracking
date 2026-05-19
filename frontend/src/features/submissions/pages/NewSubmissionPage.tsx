@@ -121,6 +121,7 @@ export default function NewSubmissionPage() {
         const periodKpis = myKpiData?.content?.filter(k => k.kpiPeriodId === periodId) || []
         
         const isAllFinished = periodKpis.every(k => {
+          if (k.frequency === 'UNLIMITED') return true
           const currentCount = k.id === selectedKpi?.id ? k.submissionCount + 1 : k.submissionCount
           return currentCount >= k.expectedSubmissions
         })

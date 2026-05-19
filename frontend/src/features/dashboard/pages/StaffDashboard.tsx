@@ -82,7 +82,7 @@ export default function StaffDashboard() {
 
        const isCompleted = periodKpis.every(kpi => {
           const approvedSubs = allSubmissions.content.filter(s => s.kpiCriteriaId === kpi.id && s.status === 'APPROVED')
-          return approvedSubs.length >= kpi.expectedSubmissions
+          return kpi.frequency === 'UNLIMITED' || approvedSubs.length >= kpi.expectedSubmissions
        })
 
        if (isCompleted) return period
