@@ -839,7 +839,7 @@ public class StatsService {
         // Get the last N KPI periods
         User currentUser = getCurrentUser();
         UUID orgId = getCurrentUserOrganizationId(currentUser);
-        List<KpiPeriod> periods = kpiPeriodRepository.findAllByOrganizationIdOrderByStartDateDesc(orgId, Pageable.ofSize(count)).getContent();
+        List<KpiPeriod> periods = new ArrayList<>(kpiPeriodRepository.findAllByOrganizationIdOrderByStartDateDesc(orgId, Pageable.ofSize(count)).getContent());
         Collections.reverse(periods);
 
         for (KpiPeriod p : periods) {
