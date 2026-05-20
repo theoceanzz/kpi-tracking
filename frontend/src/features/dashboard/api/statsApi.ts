@@ -1,6 +1,6 @@
 import axiosInstance from '@/lib/axios'
 import type { ApiResponse, PageResponse } from '@/types/api'
-import type { OverviewStats, OrgUnitStats, EmployeeKpiStats, MyKpiProgress, AnalyticsMyStats, DrillDownResponse, AnalyticsDetailRow, AnalyticsSummary } from '@/types/stats'
+import type { OverviewStats, OrgUnitStats, EmployeeKpiStats, MyKpiProgress, AnalyticsMyStats, DrillDownResponse, AnalyticsDetailRow, AnalyticsSummary, MetricValueResponse, CompletedCountResponse, CountResponse, ComboChartResponse, ObjectiveDetailedDto, TopEntitiesDashboardResponse, ScopedMetrics, TopScopedEntitiesResponse } from '@/types/stats'
 
 export const statsApi = {
   getOverview: (organizationId?: string, orgUnitId?: string) =>
@@ -42,4 +42,56 @@ export const statsApi = {
 
   getSummaryRankings: (orgUnitId?: string, rankingUnitId?: string, period: string = 'MONTH') =>
     axiosInstance.get<ApiResponse<any>>('/stats/summary/rankings', { params: { orgUnitId, rankingUnitId, period } }).then((r) => r.data.data),
+
+  // Subordinate Analytics
+  getSubordinateCompletion: (from?: string, to?: string, onlyApproved?: boolean) =>
+    axiosInstance.get<ApiResponse<MetricValueResponse>>('/stats/subordinates/metrics/completion', { params: { from, to, onlyApproved } }).then((r) => r.data.data),
+
+  getSubordinatePerformance: (from?: string, to?: string, onlyApproved?: boolean) =>
+    axiosInstance.get<ApiResponse<MetricValueResponse>>('/stats/subordinates/metrics/performance', { params: { from, to, onlyApproved } }).then((r) => r.data.data),
+
+  getSubordinateCompletedCount: (from?: string, to?: string, onlyApproved?: boolean) =>
+    axiosInstance.get<ApiResponse<CompletedCountResponse>>('/stats/subordinates/metrics/completed-count', { params: { from, to, onlyApproved } }).then((r) => r.data.data),
+
+  getSubordinateAtRisk: (from?: string, to?: string, onlyApproved?: boolean) =>
+    axiosInstance.get<ApiResponse<CountResponse>>('/stats/subordinates/metrics/at-risk', { params: { from, to, onlyApproved } }).then((r) => r.data.data),
+
+  getSubordinatePersonnel: () =>
+    axiosInstance.get<ApiResponse<CountResponse>>('/stats/subordinates/metrics/personnel').then((r) => r.data.data),
+
+  getSubordinateComboChart: (from?: string, to?: string, onlyApproved?: boolean) =>
+    axiosInstance.get<ApiResponse<ComboChartResponse>>('/stats/subordinates/chart/combo', { params: { from, to, onlyApproved } }).then((r) => r.data.data),
+
+  getSubordinateDetailedObjectives: (from?: string, to?: string, onlyApproved?: boolean) =>
+    axiosInstance.get<ApiResponse<ObjectiveDetailedDto[]>>('/stats/subordinates/details', { params: { from, to, onlyApproved } }).then((r) => r.data.data),
+
+  getObjScopedMetrics: (id: string, from?: string, to?: string, onlyApproved?: boolean) =>
+    axiosInstance.get<ApiResponse<ScopedMetrics>>(`/stats/subordinates/objectives/${id}/metrics`, { params: { from, to, onlyApproved } }).then((r) => r.data.data),
+
+  getObjScopedCombo: (id: string, from?: string, to?: string, onlyApproved?: boolean) =>
+    axiosInstance.get<ApiResponse<ComboChartResponse>>(`/stats/subordinates/objectives/${id}/chart/combo`, { params: { from, to, onlyApproved } }).then((r) => r.data.data),
+
+  getObjScopedTopEntities: (id: string, from?: string, to?: string, onlyApproved?: boolean) =>
+    axiosInstance.get<ApiResponse<TopScopedEntitiesResponse>>(`/stats/subordinates/objectives/${id}/top-entities`, { params: { from, to, onlyApproved } }).then((r) => r.data.data),
+
+  getKrScopedMetrics: (id: string, from?: string, to?: string, onlyApproved?: boolean) =>
+    axiosInstance.get<ApiResponse<ScopedMetrics>>(`/stats/subordinates/key-results/${id}/metrics`, { params: { from, to, onlyApproved } }).then((r) => r.data.data),
+
+  getKrScopedCombo: (id: string, from?: string, to?: string, onlyApproved?: boolean) =>
+    axiosInstance.get<ApiResponse<ComboChartResponse>>(`/stats/subordinates/key-results/${id}/chart/combo`, { params: { from, to, onlyApproved } }).then((r) => r.data.data),
+
+  getKrScopedTopEntities: (id: string, from?: string, to?: string, onlyApproved?: boolean) =>
+    axiosInstance.get<ApiResponse<TopScopedEntitiesResponse>>(`/stats/subordinates/key-results/${id}/top-entities`, { params: { from, to, onlyApproved } }).then((r) => r.data.data),
+
+  getKpiScopedMetrics: (id: string, from?: string, to?: string, onlyApproved?: boolean) =>
+    axiosInstance.get<ApiResponse<ScopedMetrics>>(`/stats/subordinates/kpis/${id}/metrics`, { params: { from, to, onlyApproved } }).then((r) => r.data.data),
+
+  getKpiScopedCombo: (id: string, from?: string, to?: string, onlyApproved?: boolean) =>
+    axiosInstance.get<ApiResponse<ComboChartResponse>>(`/stats/subordinates/kpis/${id}/chart/combo`, { params: { from, to, onlyApproved } }).then((r) => r.data.data),
+
+  getKpiScopedTopEntities: (id: string, from?: string, to?: string, onlyApproved?: boolean) =>
+    axiosInstance.get<ApiResponse<TopScopedEntitiesResponse>>(`/stats/subordinates/kpis/${id}/top-entities`, { params: { from, to, onlyApproved } }).then((r) => r.data.data),
+
+  getTopEntitiesDashboard: (filter: 'BEST' | 'WORST', from?: string, to?: string, onlyApproved?: boolean) =>
+    axiosInstance.get<ApiResponse<TopEntitiesDashboardResponse>>('/stats/subordinates/top-entities-dashboard', { params: { filter, from, to, onlyApproved } }).then((r) => r.data.data),
 }

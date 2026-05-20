@@ -214,3 +214,254 @@ INSERT INTO sidebar_settings (id, organization_id, menu_key, custom_label) VALUE
     (gen_random_uuid(), '11111111-1111-1111-1111-111111111111', '/my-adjustments', 'Yêu cầu điều chỉnh'),
     (gen_random_uuid(), '11111111-1111-1111-1111-111111111111', '/submissions', 'Lịch sử báo cáo'),
     (gen_random_uuid(), '11111111-1111-1111-1111-111111111111', '/analytics', 'Phân tích & Thống kê');
+
+-- ============================================================================
+-- 8. OBJECTIVE LAYER (OKR) SEED DATA FOR 2026
+-- ============================================================================
+
+-- ============================================================================
+-- 8. OBJECTIVE LAYER (OKR) SEED DATA FOR 2026 (RICH & WEIGHTED MULTI-KPI)
+-- ============================================================================
+
+-- Add 2026 periods
+INSERT INTO kpi_periods (id, organization_id, name, period_type, start_date, end_date, notification_date) VALUES
+    ('33333333-0000-0000-0000-000000000201', '11111111-1111-1111-1111-111111111111', 'Quý 1/2026', 'QUARTERLY', '2026-01-01 00:00:00+07', '2026-03-31 23:59:59+07', '2026-03-15 00:00:00+07'),
+    ('33333333-0000-0000-0000-000000000202', '11111111-1111-1111-1111-111111111111', 'Quý 2/2026', 'QUARTERLY', '2026-04-01 00:00:00+07', '2026-06-30 23:59:59+07', '2026-06-15 00:00:00+07');
+
+-- Add Objectives
+-- Obj 1: Tối ưu Core Backend (IT-DEPT) - Created Jan 2026
+INSERT INTO objectives (id, organization_id, org_unit_id, code, name, description, start_date, end_date, status, created_at, updated_at) VALUES
+    ('77777777-1111-1111-1111-111111111111', '11111111-1111-1111-1111-111111111111', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', 'OBJ-001', 'Tối ưu hệ thống Core Backend', 'Cải thiện hiệu năng và giảm độ trễ của hệ thống Core API', '2026-01-01', '2026-12-31', 'ACTIVE', '2026-01-15 09:00:00+07', '2026-01-15 09:00:00+07');
+
+-- Obj 2: Xây dựng cổng thanh toán trực tuyến (BE-TEAM) - Created Feb 2026
+INSERT INTO objectives (id, organization_id, org_unit_id, code, name, description, start_date, end_date, status, created_at, updated_at) VALUES
+    ('77777777-2222-2222-2222-222222222222', '11111111-1111-1111-1111-111111111111', 'dddddddd-dddd-dddd-dddd-dddddddddddd', 'OBJ-002', 'Xây dựng cổng thanh toán trực tuyến', 'Tích hợp các cổng ví điện tử phổ biến trong nước', '2026-02-01', '2026-08-31', 'ACTIVE', '2026-02-10 10:00:00+07', '2026-02-10 10:00:00+07');
+
+-- Obj 3: Nâng cao trải nghiệm Web App (HN-BRANCH) - Created Mar 2026
+INSERT INTO objectives (id, organization_id, org_unit_id, code, name, description, start_date, end_date, status, created_at, updated_at) VALUES
+    ('77777777-4444-4444-4444-444444444444', '11111111-1111-1111-1111-111111111111', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'OBJ-004', 'Nâng cao trải nghiệm người dùng Web App', 'Nâng cấp giao diện Mobile-first và tối ưu hóa thời gian tải trang', '2026-03-01', '2026-09-30', 'ACTIVE', '2026-03-05 08:30:00+07', '2026-03-05 08:30:00+07');
+
+-- Obj 4: Triển khai microservices Analytics (BE-TEAM) - Created May 2026 (New in May)
+INSERT INTO objectives (id, organization_id, org_unit_id, code, name, description, start_date, end_date, status, created_at, updated_at) VALUES
+    ('77777777-3333-3333-3333-333333333333', '11111111-1111-1111-1111-111111111111', 'dddddddd-dddd-dddd-dddd-dddddddddddd', 'OBJ-003', 'Triển khai microservices cho module Analytics', 'Tách module phân tích thống kê thành các service độc lập', '2026-05-01', '2026-11-30', 'ACTIVE', '2026-05-10 14:00:00+07', '2026-05-10 14:00:00+07');
+
+
+-- Add Key Results
+-- KR 1: Giảm latency API & Tối ưu Database (Obj 1)
+INSERT INTO key_results (id, objective_id, code, name, description, target_value, current_value, unit, created_at, updated_at) VALUES
+    ('88888888-1111-1111-1111-111111111111', '77777777-1111-1111-1111-111111111111', 'KR-1.1', 'Nâng cao hiệu năng Core Backend', 'Bao gồm tối ưu độ trễ API và hiệu suất Database', 100.0, 88.5, '%', '2026-01-15 09:30:00+07', '2026-01-15 09:30:00+07');
+
+-- KR 2: Tích hợp thành công 3 ví điện tử (Obj 2)
+INSERT INTO key_results (id, objective_id, code, name, description, target_value, current_value, unit, created_at, updated_at) VALUES
+    ('88888888-2222-2222-2222-222222222222', '77777777-2222-2222-2222-222222222222', 'KR-2.1', 'Tích hợp thành công 3 ví điện tử', 'Momo, ZaloPay, VNPay', 3.0, 3.0, 'ví', '2026-02-10 10:30:00+07', '2026-02-10 10:30:00+07');
+
+-- KR 3: Tối ưu UI & Tốc độ Web App (Obj 3)
+INSERT INTO key_results (id, objective_id, code, name, description, target_value, current_value, unit, created_at, updated_at) VALUES
+    ('88888888-4444-4444-4444-444444444444', '77777777-4444-4444-4444-444444444444', 'KR-4.1', 'Tối ưu UI và Tốc độ Web App', 'Hoàn thiện giao diện mới và thời gian phản hồi', 100.0, 89.5, '%', '2026-03-05 09:00:00+07', '2026-03-05 09:00:00+07');
+
+-- KR 4: Đưa 5 services lên Production (Obj 4)
+INSERT INTO key_results (id, objective_id, code, name, description, target_value, current_value, unit, created_at, updated_at) VALUES
+    ('88888888-3333-3333-3333-333333333333', '77777777-3333-3333-3333-333333333333', 'KR-3.1', 'Đưa 5 services lên Production', 'Deploy thành công các core analytical services', 5.0, 2.0, 'service', '2026-05-10 14:30:00+07', '2026-05-10 14:30:00+07');
+
+
+-- Add KPI Criteria (Multiple KPIs for KR 1 and KR 3 with distinct weights)
+-- MULTIPLE KPIs for KR 1 (Total Weight = 100: 40% and 60%)
+-- KPI 1a: Đo lường độ trễ API Core (Weight = 40.0)
+INSERT INTO kpi_criteria (id, org_unit_id, kpi_period_id, name, description, weight, target_value, minimum_value, unit, frequency, key_result_id, status, created_by, approved_by, submitted_at, approved_at, created_at) VALUES
+    ('99999999-1111-1111-1111-111111111111', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', '33333333-0000-0000-0000-000000000201', 'Độ trễ API Core', 'Thời gian phản hồi mục tiêu là 100ms', 40.0, 100.0, 150.0, 'ms', 'DAILY', '88888888-1111-1111-1111-111111111111', 'APPROVED', '22222222-0000-0000-0000-000000000101', '22222222-0000-0000-0000-000000000100', '2026-01-20 00:00:00+07', '2026-01-20 00:00:00+07', '2026-01-20 00:00:00+07');
+
+-- KPI 1b: Tối ưu hoá Database Query (Weight = 60.0)
+INSERT INTO kpi_criteria (id, org_unit_id, kpi_period_id, name, description, weight, target_value, minimum_value, unit, frequency, key_result_id, status, created_by, approved_by, submitted_at, approved_at, created_at) VALUES
+    ('99999999-1111-1111-1111-111111111112', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', '33333333-0000-0000-0000-000000000201', 'Tỷ lệ tối ưu Database', 'Tỷ lệ các query nặng được tối ưu hóa thành công', 60.0, 80.0, 50.0, '%', 'DAILY', '88888888-1111-1111-1111-111111111111', 'APPROVED', '22222222-0000-0000-0000-000000000101', '22222222-0000-0000-0000-000000000100', '2026-01-20 00:00:00+07', '2026-01-20 00:00:00+07', '2026-01-20 00:00:00+07');
+
+
+-- KPI 2: Tích hợp Ví Điện Tử (Weight = 100.0)
+INSERT INTO kpi_criteria (id, org_unit_id, kpi_period_id, name, description, weight, target_value, minimum_value, unit, frequency, key_result_id, status, created_by, approved_by, submitted_at, approved_at, created_at) VALUES
+    ('99999999-2222-2222-2222-222222222222', 'dddddddd-dddd-dddd-dddd-dddddddddddd', '33333333-0000-0000-0000-000000000201', 'Tích hợp Ví Điện Tử', 'Số lượng ví điện tử được tích hợp thành công', 100.0, 3.0, 1.0, 'ví', 'MONTHLY', '88888888-2222-2222-2222-222222222222', 'APPROVED', '22222222-0000-0000-0000-000000000101', '22222222-0000-0000-0000-000000000100', '2026-02-15 00:00:00+07', '2026-02-15 00:00:00+07', '2026-02-15 00:00:00+07');
+
+
+-- MULTIPLE KPIs for KR 3 (Total Weight = 100: 30% and 70%)
+-- KPI 3a: Hoàn thiện giao diện mới (Weight = 30.0)
+INSERT INTO kpi_criteria (id, org_unit_id, kpi_period_id, name, description, weight, target_value, minimum_value, unit, frequency, key_result_id, status, created_by, approved_by, submitted_at, approved_at, created_at) VALUES
+    ('99999999-4444-4444-4444-444444444441', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', '33333333-0000-0000-0000-000000000201', 'Hoàn thiện UI Dashboard', 'Tỷ lệ hoàn thành code giao diện mới', 30.0, 100.0, 80.0, '%', 'MONTHLY', '88888888-4444-4444-4444-444444444444', 'APPROVED', '22222222-0000-0000-0000-000000000101', '22222222-0000-0000-0000-000000000100', '2026-03-10 00:00:00+07', '2026-03-10 00:00:00+07', '2026-03-10 00:00:00+07');
+
+-- KPI 3b: Đo lường tốc độ phản hồi nhanh (Weight = 70.0)
+INSERT INTO kpi_criteria (id, org_unit_id, kpi_period_id, name, description, weight, target_value, minimum_value, unit, frequency, key_result_id, status, created_by, approved_by, submitted_at, approved_at, created_at) VALUES
+    ('99999999-4444-4444-4444-444444444442', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', '33333333-0000-0000-0000-000000000201', 'Tỷ lệ phản hồi nhanh', 'Tỷ lệ trang tải dưới 2 giây', 70.0, 100.0, 90.0, '%', 'DAILY', '88888888-4444-4444-4444-444444444444', 'APPROVED', '22222222-0000-0000-0000-000000000101', '22222222-0000-0000-0000-000000000100', '2026-03-10 00:00:00+07', '2026-03-10 00:00:00+07', '2026-03-10 00:00:00+07');
+
+
+-- KPI 4: Deploy Analytics Services (Weight = 100.0)
+INSERT INTO kpi_criteria (id, org_unit_id, kpi_period_id, name, description, weight, target_value, minimum_value, unit, frequency, key_result_id, status, created_by, approved_by, submitted_at, approved_at, created_at) VALUES
+    ('99999999-3333-3333-3333-333333333333', 'dddddddd-dddd-dddd-dddd-dddddddddddd', '33333333-0000-0000-0000-000000000202', 'Deploy Analytics Services', 'Deploy các Analytics Microservices lên Kubernetes', 100.0, 5.0, 2.0, 'service', 'MONTHLY', '88888888-3333-3333-3333-333333333333', 'APPROVED', '22222222-0000-0000-0000-000000000101', '22222222-0000-0000-0000-000000000100', '2026-05-11 00:00:00+07', '2026-05-11 00:00:00+07', '2026-05-11 00:00:00+07');
+
+
+-- Assignees
+INSERT INTO kpi_criteria_assignees (kpi_criteria_id, user_id) VALUES
+    ('99999999-1111-1111-1111-111111111111', '22222222-0000-0000-0000-000000000103'),
+    ('99999999-1111-1111-1111-111111111111', '22222222-0000-0000-0000-000000000102'),
+    ('99999999-1111-1111-1111-111111111112', '22222222-0000-0000-0000-000000000103'),
+    ('99999999-2222-2222-2222-222222222222', '22222222-0000-0000-0000-000000000103'),
+    ('99999999-4444-4444-4444-444444444441', '22222222-0000-0000-0000-000000000102'),
+    ('99999999-4444-4444-4444-444444444442', '22222222-0000-0000-0000-000000000102'),
+    ('99999999-3333-3333-3333-333333333333', '22222222-0000-0000-0000-000000000103');
+
+
+-- Add KPI Submissions (with realistic timelines showing progression over months)
+-- JAN 2026 Submissions
+-- Sub 1a: KPI 1a (Latency) actual = 95.0
+INSERT INTO kpi_submissions (id, org_unit_id, kpi_criteria_id, submitted_by, actual_value, status, created_at) VALUES
+    ('aaaaaaab-1111-1111-1111-111111111111', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', '99999999-1111-1111-1111-111111111111', '22222222-0000-0000-0000-000000000103', 55.0, 'APPROVED', '2026-01-25 15:00:00+07'),
+    ('aaaaaaab-1111-1111-1111-111111111113', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', '99999999-1111-1111-1111-111111111111', '22222222-0000-0000-0000-000000000102', 40.0, 'APPROVED', '2026-01-26 15:00:00+07');
+
+-- FEB 2026 Submissions
+-- Sub 1b: KPI 1b (DB Query) actual = 70.0 (70/80 = 87.5% progress)
+INSERT INTO kpi_submissions (id, org_unit_id, kpi_criteria_id, submitted_by, actual_value, status, created_at) VALUES
+    ('aaaaaaab-1111-1111-1111-111111111112', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', '99999999-1111-1111-1111-111111111112', '22222222-0000-0000-0000-000000000103', 70.0, 'APPROVED', '2026-02-15 15:30:00+07');
+
+-- Sub 2a: KPI 2 (Ví điện tử - actual 1 ví đầu tiên)
+INSERT INTO kpi_submissions (id, org_unit_id, kpi_criteria_id, submitted_by, actual_value, status, created_at) VALUES
+    ('aaaaaaab-2222-2222-2222-222222222221', 'dddddddd-dddd-dddd-dddd-dddddddddddd', '99999999-2222-2222-2222-222222222222', '22222222-0000-0000-0000-000000000103', 1.0, 'APPROVED', '2026-02-28 16:00:00+07');
+
+-- MAR 2026 Submissions
+-- Sub 2b: KPI 2 (Ví điện tử - thêm 2 ví -> đạt 3/3 target)
+INSERT INTO kpi_submissions (id, org_unit_id, kpi_criteria_id, submitted_by, actual_value, status, created_at) VALUES
+    ('aaaaaaab-2222-2222-2222-222222222222', 'dddddddd-dddd-dddd-dddd-dddddddddddd', '99999999-2222-2222-2222-222222222222', '22222222-0000-0000-0000-000000000103', 2.0, 'APPROVED', '2026-03-20 16:00:00+07');
+
+-- Sub 3a: KPI 3a (Hoàn thiện UI Dashboard) actual = 100.0 (100% progress)
+INSERT INTO kpi_submissions (id, org_unit_id, kpi_criteria_id, submitted_by, actual_value, status, created_at) VALUES
+    ('aaaaaaab-4444-4444-4444-444444444441', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', '99999999-4444-4444-4444-444444444441', '22222222-0000-0000-0000-000000000102', 100.0, 'APPROVED', '2026-03-25 10:00:00+07');
+
+-- APR 2026 Submissions
+-- Sub 3b: KPI 3b (Tốc độ phản hồi) actual = 85.0 (85% progress)
+INSERT INTO kpi_submissions (id, org_unit_id, kpi_criteria_id, submitted_by, actual_value, status, created_at) VALUES
+    ('aaaaaaab-4444-4444-4444-444444444442', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', '99999999-4444-4444-4444-444444444442', '22222222-0000-0000-0000-000000000102', 85.0, 'APPROVED', '2026-04-15 10:00:00+07');
+
+-- MAY 2026 Submissions
+-- Sub 4: KPI 4 (Deploy Analytics Services) actual = 2.0 (target 5)
+INSERT INTO kpi_submissions (id, org_unit_id, kpi_criteria_id, submitted_by, actual_value, status, created_at) VALUES
+    ('aaaaaaab-3333-3333-3333-333333333333', 'dddddddd-dddd-dddd-dddd-dddddddddddd', '99999999-3333-3333-3333-333333333333', '22222222-0000-0000-0000-000000000103', 2.0, 'APPROVED', '2026-05-12 10:00:00+07');
+
+-- ============================================================================
+-- 9. ROLE PERMISSIONS FOR LOCAL DIRECTOR ROLE (a1aaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa)
+-- ============================================================================
+INSERT INTO role_permissions (role_id, permission_id) VALUES
+    ('a1aaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', '00000000-0000-0000-0000-000000000101'),
+    ('a1aaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', '00000000-0000-0000-0000-000000000102'),
+    ('a1aaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', '00000000-0000-0000-0000-000000000103'),
+    ('a1aaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', '00000000-0000-0000-0000-000000000104'),
+    ('a1aaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', '00000000-0000-0000-0000-000000000105'),
+    ('a1aaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', '00000000-0000-0000-0000-000000000106'),
+    ('a1aaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', '00000000-0000-0000-0000-000000000107'),
+    ('a1aaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', '00000000-0000-0000-0000-000000000108'),
+    ('a1aaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', '00000000-0000-0000-0000-000000000109'),
+    ('a1aaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', '00000000-0000-0000-0000-000000000110'),
+    ('a1aaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', '00000000-0000-0000-0000-000000000111'),
+    ('a1aaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', '00000000-0000-0000-0000-000000000112'),
+    ('a1aaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', '00000000-0000-0000-0000-000000000113'),
+    ('a1aaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', '00000000-0000-0000-0000-000000000114'),
+    ('a1aaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', '00000000-0000-0000-0000-000000000115'),
+    ('a1aaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', '00000000-0000-0000-0000-000000000116'),
+    ('a1aaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', '00000000-0000-0000-0000-000000000117'),
+    ('a1aaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', '00000000-0000-0000-0000-000000000118'),
+    ('a1aaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', '00000000-0000-0000-0000-000000000119'),
+    ('a1aaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', '00000000-0000-0000-0000-000000000121'),
+    ('a1aaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', '00000000-0000-0000-0000-000000000124'),
+    ('a1aaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', '00000000-0000-0000-0000-000000000125'),
+    ('a1aaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', '00000000-0000-0000-0000-000000000126'),
+    ('a1aaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', '00000000-0000-0000-0000-000000000132'),
+    ('a1aaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', '00000000-0000-0000-0000-000000000201'),
+    ('a1aaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', '00000000-0000-0000-0000-000000000202'),
+    ('a1aaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', '00000000-0000-0000-0000-000000000203'),
+    ('a1aaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', '00000000-0000-0000-0000-000000000204'),
+    ('a1aaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', '00000000-0000-0000-0000-000000000205'),
+    ('a1aaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', '00000000-0000-0000-0000-000000000206'),
+    ('a1aaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', '00000000-0000-0000-0000-000000000207'),
+    ('a1aaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', '00000000-0000-0000-0000-000000000208'),
+    ('a1aaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', '00000000-0000-0000-0000-000000000209'),
+    ('a1aaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', '00000000-0000-0000-0000-000000000210'),
+    ('a1aaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', '00000000-0000-0000-0000-000000000211'),
+    ('a1aaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', '00000000-0000-0000-0000-000000000212'),
+    ('a1aaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', '00000000-0000-0000-0000-000000000213'),
+    ('a1aaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', '00000000-0000-0000-0000-000000000214'),
+    ('a1aaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', '00000000-0000-0000-0000-000000000215'),
+    ('a1aaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', '00000000-0000-0000-0000-000000000216'),
+    ('a1aaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', '00000000-0000-0000-0000-000000000217'),
+    ('a1aaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', '00000000-0000-0000-0000-000000000218'),
+    ('a1aaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', '00000000-0000-0000-0000-000000000220'),
+    ('a1aaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', '00000000-0000-0000-0000-000000000221'),
+    ('a1aaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', '00000000-0000-0000-0000-000000000222'),
+    ('a1aaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', '00000000-0000-0000-0000-000000000223'),
+    ('a1aaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', '00000000-0000-0000-0000-000000000224'),
+    ('a1aaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', '00000000-0000-0000-0000-000000000225'),
+    ('a1aaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', '00000000-0000-0000-0000-000000000226'),
+    ('a1aaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', '00000000-0000-0000-0000-000000000227'),
+    ('a1aaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', '00000000-0000-0000-0000-000000000228'),
+    ('a1aaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', '00000000-0000-0000-0000-000000000230'),
+    ('a1aaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', '00000000-0000-0000-0000-000000000231'),
+    ('a1aaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', '00000000-0000-0000-0000-000000000232'),
+    ('a1aaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', '00000000-0000-0000-0000-000000000233'),
+    ('a1aaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', '00000000-0000-0000-0000-000000000234'),
+    ('a1aaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', '00000000-0000-0000-0000-000000000235'),
+    ('a1aaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', '00000000-0000-0000-0000-000000000237')
+ON CONFLICT (role_id, permission_id) DO NOTHING;
+
+INSERT INTO role_permissions (role_id, permission_id) VALUES
+    ('d4dddddd-dddd-dddd-dddd-dddddddddddd', '00000000-0000-0000-0000-000000000101'),
+    ('d4dddddd-dddd-dddd-dddd-dddddddddddd', '00000000-0000-0000-0000-000000000102'),
+    ('d4dddddd-dddd-dddd-dddd-dddddddddddd', '00000000-0000-0000-0000-000000000103'),
+    ('d4dddddd-dddd-dddd-dddd-dddddddddddd', '00000000-0000-0000-0000-000000000104'),
+    ('d4dddddd-dddd-dddd-dddd-dddddddddddd', '00000000-0000-0000-0000-000000000105'),
+    ('d4dddddd-dddd-dddd-dddd-dddddddddddd', '00000000-0000-0000-0000-000000000106'),
+    ('d4dddddd-dddd-dddd-dddd-dddddddddddd', '00000000-0000-0000-0000-000000000107'),
+    ('d4dddddd-dddd-dddd-dddd-dddddddddddd', '00000000-0000-0000-0000-000000000108'),
+    ('d4dddddd-dddd-dddd-dddd-dddddddddddd', '00000000-0000-0000-0000-000000000109'),
+    ('d4dddddd-dddd-dddd-dddd-dddddddddddd', '00000000-0000-0000-0000-000000000110'),
+    ('d4dddddd-dddd-dddd-dddd-dddddddddddd', '00000000-0000-0000-0000-000000000111'),
+    ('d4dddddd-dddd-dddd-dddd-dddddddddddd', '00000000-0000-0000-0000-000000000112'),
+    ('d4dddddd-dddd-dddd-dddd-dddddddddddd', '00000000-0000-0000-0000-000000000113'),
+    ('d4dddddd-dddd-dddd-dddd-dddddddddddd', '00000000-0000-0000-0000-000000000114'),
+    ('d4dddddd-dddd-dddd-dddd-dddddddddddd', '00000000-0000-0000-0000-000000000115'),
+    ('d4dddddd-dddd-dddd-dddd-dddddddddddd', '00000000-0000-0000-0000-000000000116'),
+    ('d4dddddd-dddd-dddd-dddd-dddddddddddd', '00000000-0000-0000-0000-000000000117'),
+    ('d4dddddd-dddd-dddd-dddd-dddddddddddd', '00000000-0000-0000-0000-000000000118'),
+    ('d4dddddd-dddd-dddd-dddd-dddddddddddd', '00000000-0000-0000-0000-000000000119'),
+    ('d4dddddd-dddd-dddd-dddd-dddddddddddd', '00000000-0000-0000-0000-000000000121'),
+    ('d4dddddd-dddd-dddd-dddd-dddddddddddd', '00000000-0000-0000-0000-000000000124'),
+    ('d4dddddd-dddd-dddd-dddd-dddddddddddd', '00000000-0000-0000-0000-000000000125'),
+    ('d4dddddd-dddd-dddd-dddd-dddddddddddd', '00000000-0000-0000-0000-000000000126'),
+    ('d4dddddd-dddd-dddd-dddd-dddddddddddd', '00000000-0000-0000-0000-000000000132'),
+    ('d4dddddd-dddd-dddd-dddd-dddddddddddd', '00000000-0000-0000-0000-000000000201'),
+    ('d4dddddd-dddd-dddd-dddd-dddddddddddd', '00000000-0000-0000-0000-000000000202'),
+    ('d4dddddd-dddd-dddd-dddd-dddddddddddd', '00000000-0000-0000-0000-000000000203'),
+    ('d4dddddd-dddd-dddd-dddd-dddddddddddd', '00000000-0000-0000-0000-000000000204'),
+    ('d4dddddd-dddd-dddd-dddd-dddddddddddd', '00000000-0000-0000-0000-000000000205'),
+    ('d4dddddd-dddd-dddd-dddd-dddddddddddd', '00000000-0000-0000-0000-000000000206'),
+    ('d4dddddd-dddd-dddd-dddd-dddddddddddd', '00000000-0000-0000-0000-000000000207'),
+    ('d4dddddd-dddd-dddd-dddd-dddddddddddd', '00000000-0000-0000-0000-000000000208'),
+    ('d4dddddd-dddd-dddd-dddd-dddddddddddd', '00000000-0000-0000-0000-000000000209'),
+    ('d4dddddd-dddd-dddd-dddd-dddddddddddd', '00000000-0000-0000-0000-000000000210'),
+    ('d4dddddd-dddd-dddd-dddd-dddddddddddd', '00000000-0000-0000-0000-000000000211'),
+    ('d4dddddd-dddd-dddd-dddd-dddddddddddd', '00000000-0000-0000-0000-000000000212'),
+    ('d4dddddd-dddd-dddd-dddd-dddddddddddd', '00000000-0000-0000-0000-000000000213'),
+    ('d4dddddd-dddd-dddd-dddd-dddddddddddd', '00000000-0000-0000-0000-000000000214'),
+    ('d4dddddd-dddd-dddd-dddd-dddddddddddd', '00000000-0000-0000-0000-000000000215'),
+    ('d4dddddd-dddd-dddd-dddd-dddddddddddd', '00000000-0000-0000-0000-000000000216'),
+    ('d4dddddd-dddd-dddd-dddd-dddddddddddd', '00000000-0000-0000-0000-000000000217'),
+    ('d4dddddd-dddd-dddd-dddd-dddddddddddd', '00000000-0000-0000-0000-000000000218'),
+    ('d4dddddd-dddd-dddd-dddd-dddddddddddd', '00000000-0000-0000-0000-000000000220'),
+    ('d4dddddd-dddd-dddd-dddd-dddddddddddd', '00000000-0000-0000-0000-000000000221'),
+    ('d4dddddd-dddd-dddd-dddd-dddddddddddd', '00000000-0000-0000-0000-000000000222'),
+    ('d4dddddd-dddd-dddd-dddd-dddddddddddd', '00000000-0000-0000-0000-000000000223'),
+    ('d4dddddd-dddd-dddd-dddd-dddddddddddd', '00000000-0000-0000-0000-000000000224'),
+    ('d4dddddd-dddd-dddd-dddd-dddddddddddd', '00000000-0000-0000-0000-000000000225'),
+    ('d4dddddd-dddd-dddd-dddd-dddddddddddd', '00000000-0000-0000-0000-000000000226'),
+    ('d4dddddd-dddd-dddd-dddd-dddddddddddd', '00000000-0000-0000-0000-000000000227'),
+    ('d4dddddd-dddd-dddd-dddd-dddddddddddd', '00000000-0000-0000-0000-000000000228'),
+    ('d4dddddd-dddd-dddd-dddd-dddddddddddd', '00000000-0000-0000-0000-000000000230'),
+    ('d4dddddd-dddd-dddd-dddd-dddddddddddd', '00000000-0000-0000-0000-000000000231'),
+    ('d4dddddd-dddd-dddd-dddd-dddddddddddd', '00000000-0000-0000-0000-000000000232'),
+    ('d4dddddd-dddd-dddd-dddd-dddddddddddd', '00000000-0000-0000-0000-000000000233'),
+    ('d4dddddd-dddd-dddd-dddd-dddddddddddd', '00000000-0000-0000-0000-000000000234'),
+    ('d4dddddd-dddd-dddd-dddd-dddddddddddd', '00000000-0000-0000-0000-000000000235'),
+    ('d4dddddd-dddd-dddd-dddd-dddddddddddd', '00000000-0000-0000-0000-000000000237')
+ON CONFLICT (role_id, permission_id) DO NOTHING;

@@ -1,15 +1,17 @@
 import { useState } from 'react'
 import { useHasPermission } from '@/components/auth/PermissionGate'
 import { cn } from '@/lib/utils'
-import { TrendingUp, Building2, Table, LayoutDashboard } from 'lucide-react'
+import { TrendingUp, Building2, Table, LayoutDashboard, Users, Target } from 'lucide-react'
 import MyStatsTab from './MyStatsTab'
 import DrillDownTab from './DrillDownTab'
 import DetailTableTab from './DetailTableTab'
 import SummaryTab from './SummaryTab'
+import MyObjectivesTab from './MyObjectivesTab'
 import PageTour from '@/components/common/PageTour'
 import { analyticsSteps } from '@/components/common/tourSteps'
+import SubordinateManagementTab from './SubordinateManagementTab'
 
-type TabKey = 'my' | 'summary' | 'drilldown' | 'detail'
+type TabKey = 'my-objectives' | 'my' | 'summary' | 'drilldown' | 'detail' | 'subordinate'
 
 export default function AnalyticsPage() {
   const { hasPermission } = useHasPermission()
@@ -18,9 +20,11 @@ export default function AnalyticsPage() {
   const canSummary = canDrillDown // Assuming if they can drill down, they can see summary
 
   const tabs: { key: TabKey; label: string; icon: any; visible: boolean }[] = [
+    { key: 'my-objectives', label: 'Mục tiêu của tôi', icon: Target, visible: true },
     { key: 'my', label: 'Cá nhân', icon: TrendingUp, visible: true },
     { key: 'summary', label: 'Thống kê tổng', icon: LayoutDashboard, visible: canSummary },
     { key: 'drilldown', label: 'Phân cấp', icon: Building2, visible: canDrillDown },
+    { key: 'subordinate', label: 'Quản lý cấp dưới', icon: Users, visible: canDrillDown },
     { key: 'detail', label: 'Bảng chi tiết', icon: Table, visible: canDetailTable },
   ]
 
@@ -56,9 +60,11 @@ export default function AnalyticsPage() {
 
       {/* Content */}
       <div className="bg-transparent">
+        {activeTab === 'my-objectives' && <MyObjectivesTab />}
         {activeTab === 'my' && <MyStatsTab />}
         {activeTab === 'summary' && canSummary && <SummaryTab />}
         {activeTab === 'drilldown' && canDrillDown && <DrillDownTab />}
+        {activeTab === 'subordinate' && canDrillDown && <SubordinateManagementTab />}
         {activeTab === 'detail' && canDetailTable && <DetailTableTab />}
       </div>
     </div>
