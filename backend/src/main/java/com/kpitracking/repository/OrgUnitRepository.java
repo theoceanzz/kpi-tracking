@@ -21,6 +21,9 @@ public interface OrgUnitRepository extends JpaRepository<OrgUnit, UUID> {
     @Query("SELECT o FROM OrgUnit o WHERE TRIM(LOWER(o.name)) = TRIM(LOWER(:name)) AND o.orgHierarchyLevel.organization.id = :orgId AND o.deletedAt IS NULL")
     Optional<OrgUnit> findByNameSmart(@Param("name") String name, @Param("orgId") UUID orgId);
 
+    @Query("SELECT o FROM OrgUnit o WHERE TRIM(LOWER(o.code)) = TRIM(LOWER(:code)) AND o.orgHierarchyLevel.organization.id = :orgId AND o.deletedAt IS NULL")
+    Optional<OrgUnit> findByCodeSmart(@Param("code") String code, @Param("orgId") UUID orgId);
+
     Optional<OrgUnit> findByNameIgnoreCaseAndOrgHierarchyLevel_Organization_Id(String name, UUID organizationId);
     Optional<OrgUnit> findByCode(String code);
     boolean existsByCode(String code);

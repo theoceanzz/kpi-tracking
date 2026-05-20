@@ -3,12 +3,18 @@ package com.kpitracking.event;
 import com.kpitracking.entity.KpiCriteria;
 import com.kpitracking.entity.KpiSubmission;
 import com.kpitracking.entity.User;
+import com.kpitracking.event.KpiEvents.KpiCriteriaApprovedEvent;
+import com.kpitracking.event.KpiEvents.KpiCriteriaRejectedEvent;
+import com.kpitracking.event.KpiEvents.KpiSubmittedEvent;
+import com.kpitracking.event.KpiEvents.SubmissionReviewedEvent;
 import com.kpitracking.service.EmailService;
 import com.kpitracking.service.NotificationService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.event.TransactionPhase;
 import org.springframework.transaction.event.TransactionalEventListener;
 
@@ -22,11 +28,11 @@ public class NotificationEventListener {
 
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     @Async
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void handleKpiSubmitted(KpiSubmittedEvent event) {
         KpiSubmission submission = event.getSubmission();
         log.info("Handling KPI submitted event for submission: {}", submission.getId());
 
-        // Notify the KPI criteria creator or department head
         KpiCriteria kpi = submission.getKpiCriteria();
         User creator = kpi.getCreatedBy();
 
@@ -42,6 +48,7 @@ public class NotificationEventListener {
 
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     @Async
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void handleSubmissionReviewed(SubmissionReviewedEvent event) {
         KpiSubmission submission = event.getSubmission();
         log.info("Handling submission reviewed event for submission: {}", submission.getId());
@@ -65,6 +72,7 @@ public class NotificationEventListener {
 
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     @Async
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void handleKpiApproved(KpiCriteriaApprovedEvent event) {
         KpiCriteria kpi = event.getKpiCriteria();
         log.info("Handling KPI approved event for KPI: {}", kpi.getId());
@@ -79,7 +87,6 @@ public class NotificationEventListener {
         notificationService.createNotification(kpi.getOrgUnit(), creator, title, message, "KPI_APPROVED", kpi.getId());
         emailService.sendNotificationEmail(creator.getEmail(), title, message);
 
-        // Also notify all assigned users
         if (kpi.getAssignees() != null && !kpi.getAssignees().isEmpty()) {
             for (User assignee : kpi.getAssignees()) {
                 if (!assignee.getId().equals(creator.getId())) {
@@ -90,5 +97,27 @@ public class NotificationEventListener {
                 }
             }
         }
+    }
+
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    @Async
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void handleKpiRejected(KpiCriteriaRejectedEvent event) {
+        KpiCriteria kpi = event.getKpiCriteria();
+        log.info("Handling KPI rejected event for KPI: {}", kpi.getId());
+
+        User creator = kpi.getCreatedBy();
+
+        String title = "Chỉ tiêu KPI bị từ chối";
+        String message = String.format("Chỉ tiêu KPI '%s' do bạn tạo đã bị từ chối bởi %s.",
+                kpi.getName(),
+                kpi.getApprovedBy().getFullName());
+
+        if (kpi.getRejectReason() != null && !kpi.getRejectReason().isBlank()) {
+            message += " Lý do: " + kpi.getRejectReason();
+        }
+
+        notificationService.createNotification(kpi.getOrgUnit(), creator, title, message, "KPI_REJECTED", kpi.getId());
+        emailService.sendNotificationEmail(creator.getEmail(), title, message);
     }
 }

@@ -6,7 +6,15 @@
       "Bash(xargs ls -la)",
       "Bash(grep -E \"\\\\.\\(ts|tsx\\)$\")",
       "Bash(xargs grep -l \"expected_submissions\")",
-      "Bash(npx tsc *)"
+      "Bash(npx tsc *)",
+      "Bash(npm install *)",
+      "Bash(Get-ChildItem -Path \"d:\\\\PROJECT\\\\Code\\\\KPI_Tracking\\\\frontend\\\\src\\\\features\" -Directory)",
+      "Bash(Select-Object Name)",
+      "Bash(mvn clean *)",
+      "Bash(Get-ChildItem -Path \"d:\\\\PROJECT\\\\Code\\\\KPI_Tracking\" -Recurse -Directory -Name)",
+      "Bash(Select-Object -First 30)",
+      "Bash(xargs grep -l \"preference\\\\|toggle.*email\\\\|notification.*setting\" -i)",
+      "Bash(Remove-Item \"d:\\\\PROJECT\\\\Code\\\\KPI_Tracking\\\\backend\\\\src\\\\main\\\\java\\\\com\\\\kpitracking\\\\event\\\\KpiSubmittedEvent.java\", \"d:\\\\PROJECT\\\\Code\\\\KPI_Tracking\\\\backend\\\\src\\\\main\\\\java\\\\com\\\\kpitracking\\\\event\\\\SubmissionReviewedEvent.java\", \"d:\\\\PROJECT\\\\Code\\\\KPI_Tracking\\\\backend\\\\src\\\\main\\\\java\\\\com\\\\kpitracking\\\\event\\\\KpiCriteriaApprovedEvent.java\", \"d:\\\\PROJECT\\\\Code\\\\KPI_Tracking\\\\backend\\\\src\\\\main\\\\java\\\\com\\\\kpitracking\\\\event\\\\KpiCriteriaRejectedEvent.java\")"
     ]
   }
 }

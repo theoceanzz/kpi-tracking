@@ -13,7 +13,8 @@ import com.kpitracking.entity.User;
 import com.kpitracking.entity.UserRoleOrgUnit;
 import com.kpitracking.enums.KpiStatus;
 import com.kpitracking.enums.KpiFrequency;
-import com.kpitracking.event.KpiCriteriaApprovedEvent;
+import com.kpitracking.event.KpiEvents.KpiCriteriaApprovedEvent;
+import com.kpitracking.event.KpiEvents.KpiCriteriaRejectedEvent;
 import com.kpitracking.exception.BusinessException;
 import com.kpitracking.exception.ForbiddenException;
 import com.kpitracking.exception.ResourceNotFoundException;
@@ -532,6 +533,8 @@ public class KpiCriteriaService {
         kpi.setApprovedBy(currentUser);
         kpi = kpiCriteriaRepository.save(kpi);
 
+        eventPublisher.publishEvent(new KpiCriteriaRejectedEvent(this, kpi));
+
         return kpiCriteriaMapper.toResponse(kpi);
     }
 
@@ -621,6 +624,10 @@ public class KpiCriteriaService {
                 if (!hasPermission && !permissionChecker.isGlobalAdmin(currentUser.getId())) {
                     throw new ForbiddenException("Bạn không có quyền xem thông tin trọng số của người dùng này");
                 }
+            }
+            // When orgUnitId is also provided, scope the sum to that specific unit
+            if (orgUnitId != null) {
+                return kpiCriteriaRepository.sumWeightByUserIdAndOrgUnitIdAndKpiPeriodIdAndStatusIn(userId, orgUnitId, kpiPeriodId, statuses);
             }
             return kpiCriteriaRepository.sumWeightByUserIdAndKpiPeriodIdAndStatusIn(userId, kpiPeriodId, statuses);
         }
@@ -787,26 +794,34 @@ public class KpiCriteriaService {
 
         }
 
-        // Post-import validation: Check total weight for all modified user-period pairs
+        // Post-import validation: Check total weight for all modified user-period-orgunit triplets
         for (String pair : affectedUserPairs) {
             String[] ids = pair.split(":");
             UUID uId = UUID.fromString(ids[0]);
             UUID pId = UUID.fromString(ids[1]);
-            
+            UUID ouId = UUID.fromString(ids[2]);
+
             User user = userRepository.findById(uId).orElse(null);
-            
+            OrgUnit unit = orgUnitRepository.findById(ouId).orElse(null);
+
+            // Skip root units (no parent) — same rule as org-level validation
+            if (unit == null || unit.getParent() == null) {
+                continue;
+            }
+
             com.kpitracking.entity.KpiPeriod period = kpiPeriodRepository.findById(pId).orElse(null);
             String periodName = period != null ? period.getName() : pId.toString();
-            
+
             List<KpiStatus> activeStatuses = java.util.Arrays.asList(
                 KpiStatus.DRAFT, KpiStatus.PENDING_APPROVAL, KpiStatus.APPROVED, KpiStatus.REJECTED, KpiStatus.EDIT, KpiStatus.EDITED
             );
 
-            Double totalWeight = kpiCriteriaRepository.sumWeightByUserIdAndKpiPeriodIdAndStatusIn(uId, pId, activeStatuses);
+            Double totalWeight = kpiCriteriaRepository.sumWeightByUserIdAndOrgUnitIdAndKpiPeriodIdAndStatusIn(uId, ouId, pId, activeStatuses);
 
             if (totalWeight == null || Math.abs(totalWeight - 100.0) > 0.001) {
-                throw new BusinessException("Lỗi Import: Nhân viên '" + (user != null ? user.getFullName() : uId) + 
-                          "' trong đợt '" + periodName + "' có tổng trọng số là " + 
+                throw new BusinessException("Lỗi Import: Nhân viên '" + (user != null ? user.getFullName() : uId) +
+                          "' trong đơn vị '" + (unit != null ? unit.getName() : ouId) +
+                          "' trong đợt '" + periodName + "' có tổng trọng số là " +
                           (totalWeight != null ? totalWeight : 0) + "%. Quy tắc bắt buộc phải bằng chính xác 100%.");
             }
 
@@ -848,32 +863,38 @@ public class KpiCriteriaService {
             throw new BusinessException("Vui lòng chọn đợt KPI hoặc cung cấp tên đợt trong file Excel");
         }
 
-        // Same priority logic for OrgUnit: Row data first, then default
-        OrgUnit finalUnit = null;
+        // Resolve org units — support comma-separated values e.g. "MK1, MK2"
+        java.util.List<OrgUnit> finalUnits = new java.util.ArrayList<>();
         if (orgName != null && !orgName.isBlank()) {
-            String cleanOrg = orgName.trim().replaceAll("\\s+", " ");
-            java.util.Optional<OrgUnit> foundUnit = java.util.Optional.empty();
-            if (organizationId != null) {
-                foundUnit = orgUnitRepository.findByNameSmart(cleanOrg, organizationId);
+            String[] orgTokens = orgName.split(",");
+            for (String token : orgTokens) {
+                String cleanOrg = token.trim().replaceAll("\\s+", " ");
+                if (cleanOrg.isEmpty()) continue;
+                java.util.Optional<OrgUnit> foundUnit = java.util.Optional.empty();
+                if (organizationId != null) {
+                    foundUnit = orgUnitRepository.findByNameSmart(cleanOrg, organizationId);
+                }
+                if (!foundUnit.isPresent() && organizationId != null) {
+                    foundUnit = orgUnitRepository.findByCodeSmart(cleanOrg, organizationId);
+                }
+                OrgUnit resolved = foundUnit
+                        .or(() -> orgUnitRepository.findByNameIgnoreCase(cleanOrg))
+                        .orElse(null);
+                if (resolved != null) {
+                    finalUnits.add(resolved);
+                }
             }
-            finalUnit = foundUnit
-                    .or(() -> orgUnitRepository.findByNameIgnoreCase(cleanOrg))
-                    .orElse(null); // Try default if not found by name
         }
 
-        if (finalUnit == null) {
-            finalUnit = defaultUnit;
+        if (finalUnits.isEmpty()) {
+            if (defaultUnit != null) {
+                finalUnits.add(defaultUnit);
+            } else {
+                throw new BusinessException("Vui lòng chọn đơn vị hoặc cung cấp tên đơn vị trong file Excel");
+            }
         }
 
-        if (finalUnit == null) {
-            throw new BusinessException("Vui lòng chọn đơn vị hoặc cung cấp tên đơn vị trong file Excel");
-        }
-        
-        // Check permission for the final unit
-        if (!permissionChecker.hasPermissionInOrgUnit(creator.getId(), "KPI:CREATE", finalUnit.getId())) {
-            throw new ForbiddenException("Bạn không có quyền tạo KPI cho đơn vị: " + finalUnit.getName());
-        }
-
+        // Resolve assignees (shared across all units)
         java.util.List<User> assignees = new java.util.ArrayList<>();
         if (empCode != null && !empCode.isBlank()) {
             String[] codes = empCode.split(",");
@@ -886,8 +907,6 @@ public class KpiCriteriaService {
             }
         }
         if (assignees.isEmpty()) throw new BusinessException("Vui lòng cung cấp ít nhất một mã nhân viên để giao chỉ tiêu");
-
-        validateWaterfallAssignment(creator, finalUnit, assignees);
 
         KpiFrequency frequency;
         try {
@@ -912,52 +931,56 @@ public class KpiCriteriaService {
             throw new BusinessException("Trọng số và Chỉ tiêu phải là định dạng số");
         }
 
-        // Check if user has permission to approve for this unit
-        boolean canApprove = permissionChecker.hasPermissionInOrgUnit(creator.getId(), "KPI:APPROVE_CRITERIA", finalUnit.getId());
-        
-        KpiCriteria kpi = KpiCriteria.builder()
-                .name(name)
-                .description(desc)
-                .weight(weightVal)
-                .targetValue(targetVal)
-                .minimumValue(min != null && !min.isBlank() ? Double.parseDouble(min) : null)
-                .unit(unit)
-                .frequency(frequency)
-                .assignees(assignees)
-                .orgUnit(finalUnit)
-                .kpiPeriod(finalPeriod)
-                .createdBy(creator)
-                .status(canApprove ? KpiStatus.APPROVED : KpiStatus.DRAFT)
-                .build();
-        
-        if (krCode != null && !krCode.isBlank()) {
-            java.util.Optional<com.kpitracking.entity.KeyResult> krOpt = keyResultRepository.findByCodeSmart(krCode.trim(), organizationId);
-            if (krOpt.isPresent()) {
-                com.kpitracking.entity.KeyResult kr = krOpt.get();
-                // Validation: KPI OrgUnit must match KeyResult OrgUnit
-                if (finalUnit != null && kr.getObjective() != null && kr.getObjective().getOrgUnit() != null) {
-                    if (!finalUnit.getId().equals(kr.getObjective().getOrgUnit().getId())) {
-                        throw new BusinessException("Lỗi liên kết OKR: Chỉ tiêu KPI ('" + finalUnit.getName() + 
-                                "') không cùng đơn vị với Kết quả then chốt ('" + kr.getObjective().getOrgUnit().getName() + "')");
-                    }
-                }
-                kpi.setKeyResult(kr);
+        // Create one KpiCriteria per resolved org unit
+        for (OrgUnit finalUnit : finalUnits) {
+            if (!permissionChecker.hasPermissionInOrgUnit(creator.getId(), "KPI:CREATE", finalUnit.getId())) {
+                throw new ForbiddenException("Bạn không có quyền tạo KPI cho đơn vị: " + finalUnit.getName());
             }
-        }
 
-        if (kpi.getStatus() == KpiStatus.APPROVED) {
-            kpi.setApprovedBy(creator);
-            kpi.setApprovedAt(Instant.now());
-        }
+            validateWaterfallAssignment(creator, finalUnit, assignees);
 
-        kpiCriteriaRepository.save(kpi);
+            boolean canApprove = permissionChecker.hasPermissionInOrgUnit(creator.getId(), "KPI:APPROVE_CRITERIA", finalUnit.getId());
 
-        // Track the unit and period
-        affectedPairs.add(finalUnit.getId().toString() + ":" + finalPeriod.getId().toString());
-        
-        // Track each user and period
-        for (User assignee : assignees) {
-            affectedUserPairs.add(assignee.getId().toString() + ":" + finalPeriod.getId().toString());
+            KpiCriteria kpi = KpiCriteria.builder()
+                    .name(name)
+                    .description(desc)
+                    .weight(weightVal)
+                    .targetValue(targetVal)
+                    .minimumValue(min != null && !min.isBlank() ? Double.parseDouble(min) : null)
+                    .unit(unit)
+                    .frequency(frequency)
+                    .assignees(assignees)
+                    .orgUnit(finalUnit)
+                    .kpiPeriod(finalPeriod)
+                    .createdBy(creator)
+                    .status(canApprove ? KpiStatus.APPROVED : KpiStatus.DRAFT)
+                    .build();
+
+            if (krCode != null && !krCode.isBlank()) {
+                java.util.Optional<com.kpitracking.entity.KeyResult> krOpt = keyResultRepository.findByCodeSmart(krCode.trim(), organizationId);
+                if (krOpt.isPresent()) {
+                    com.kpitracking.entity.KeyResult kr = krOpt.get();
+                    if (kr.getObjective() != null && kr.getObjective().getOrgUnit() != null) {
+                        if (!finalUnit.getId().equals(kr.getObjective().getOrgUnit().getId())) {
+                            throw new BusinessException("Lỗi liên kết OKR: Chỉ tiêu KPI ('" + finalUnit.getName() +
+                                    "') không cùng đơn vị với Kết quả then chốt ('" + kr.getObjective().getOrgUnit().getName() + "')");
+                        }
+                    }
+                    kpi.setKeyResult(kr);
+                }
+            }
+
+            if (kpi.getStatus() == KpiStatus.APPROVED) {
+                kpi.setApprovedBy(creator);
+                kpi.setApprovedAt(Instant.now());
+            }
+
+            kpiCriteriaRepository.save(kpi);
+
+            affectedPairs.add(finalUnit.getId().toString() + ":" + finalPeriod.getId().toString());
+            for (User assignee : assignees) {
+                affectedUserPairs.add(assignee.getId().toString() + ":" + finalPeriod.getId().toString() + ":" + finalUnit.getId().toString());
+            }
         }
     }
 
