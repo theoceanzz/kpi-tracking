@@ -1,0 +1,522 @@
+package com.kpitracking.service;
+
+import com.kpitracking.dto.response.stats.PersonalObjectiveResponses.*;
+import com.kpitracking.entity.*;
+import com.kpitracking.enums.SubmissionStatus;
+import com.kpitracking.enums.KpiStatus;
+import com.kpitracking.repository.*;
+import lombok.RequiredArgsConstructor;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.ZoneId;
+import java.time.ZoneOffset;
+import java.time.temporal.ChronoUnit;
+import java.util.*;
+import java.util.stream.Collectors;
+
+@Service
+@RequiredArgsConstructor
+public class PersonalObjectiveAnalyticsService {
+
+    private final UserRepository userRepository;
+    private final KpiCriteriaRepository kpiCriteriaRepository;
+
+    private User getCurrentUser() {
+        String email = SecurityContextHolder.getContext().getAuthentication().getName();
+        return userRepository.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+    }
+
+    private List<KpiCriteria> getMyActiveKpis() {
+        User user = getCurrentUser();
+        return kpiCriteriaRepository.findApprovedByAssigneeId(user.getId());
+    }
+
+    private double[] calculateKpiMetrics(KpiCriteria kpi, Instant A, Instant B, Boolean onlyApproved) {
+        Instant kpiStart = kpi.getKpiPeriod() != null && kpi.getKpiPeriod().getStartDate() != null ? 
+                           kpi.getKpiPeriod().getStartDate() : Instant.EPOCH;
+        Instant kpiEnd = kpi.getKpiPeriod() != null && kpi.getKpiPeriod().getEndDate() != null ? 
+                         kpi.getKpiPeriod().getEndDate() : Instant.now().plus(365, ChronoUnit.DAYS);
+
+        Instant startCalc = A != null && A.isAfter(kpiStart) ? A : kpiStart;
+        Instant endCalc = B != null && B.isBefore(kpiEnd) ? B : kpiEnd;
+
+        if (startCalc.isAfter(endCalc)) return new double[]{0, 0, 0, 0}; // 0 = completion, 1 = performance, 2 = active flag, 3 = actual
+
+        double totalKpiTime = Math.max(1, kpiEnd.toEpochMilli() - kpiStart.toEpochMilli());
+        double validFilterTime = endCalc.toEpochMilli() - startCalc.toEpochMilli();
+        double timeRatio = Math.min(1.0, validFilterTime / totalKpiTime);
+
+        double targetValue = kpi.getTargetValue() != null ? kpi.getTargetValue() : 1.0;
+        double expectedValueFilter = targetValue * timeRatio;
+
+        double actualCompletionAccumulated = kpi.getSubmissions().stream()
+                .filter(s -> Boolean.TRUE.equals(onlyApproved) ? s.getStatus() == SubmissionStatus.APPROVED : 
+                             (s.getStatus() == SubmissionStatus.APPROVED || s.getStatus() == SubmissionStatus.PENDING || s.getStatus() == SubmissionStatus.REJECTED))
+                .filter(s -> !s.getCreatedAt().isBefore(kpiStart) && (B == null || !s.getCreatedAt().isAfter(B)))
+                .mapToDouble(s -> s.getActualValue() != null ? s.getActualValue() : 0.0)
+                .sum();
+
+        double actualPerformanceFilter = kpi.getSubmissions().stream()
+                .filter(s -> Boolean.TRUE.equals(onlyApproved) ? s.getStatus() == SubmissionStatus.APPROVED : 
+                             (s.getStatus() == SubmissionStatus.APPROVED || s.getStatus() == SubmissionStatus.PENDING || s.getStatus() == SubmissionStatus.REJECTED))
+                .filter(s -> (A == null || !s.getCreatedAt().isBefore(A)) && (B == null || !s.getCreatedAt().isAfter(B)))
+                .mapToDouble(s -> s.getActualValue() != null ? s.getActualValue() : 0.0)
+                .sum();        
+
+        double completion = targetValue > 0 ? (actualCompletionAccumulated / targetValue) * 100 : 0;
+        double performance = expectedValueFilter > 0 ? (actualPerformanceFilter / expectedValueFilter) * 100 : 0;
+
+        return new double[]{completion, performance, 1.0, actualCompletionAccumulated};
+    }
+
+    @Transactional(readOnly = true)
+    public Metrics getMetrics(Instant from, Instant to, Boolean onlyApproved) {
+        List<KpiCriteria> myKpis = getMyActiveKpis();
+        double totalComp = 0;
+        double totalPerf = 0;
+        int activeCount = 0;
+        int completedCount = 0;
+        int runningCount = 0;
+        int riskCount = 0;
+
+        Instant now = Instant.now();
+
+        for (KpiCriteria kpi : myKpis) {
+            double[] metrics = calculateKpiMetrics(kpi, from, to, onlyApproved);
+            if (metrics[2] > 0) {
+                totalComp += metrics[0];
+                totalPerf += metrics[1];
+                activeCount++;
+                
+                if (metrics[0] >= 100) {
+                    completedCount++;
+                } else {
+                    runningCount++;
+                }
+
+                // Check risk (progress < 50% and close to deadline within 7 days or overdue)
+                Instant kpiEnd = kpi.getKpiPeriod() != null && kpi.getKpiPeriod().getEndDate() != null ? kpi.getKpiPeriod().getEndDate() : null;
+                if (kpiEnd != null) {
+                    long daysLeft = (kpiEnd.toEpochMilli() - now.toEpochMilli()) / (1000 * 60 * 60 * 24);
+                    if (daysLeft <= 7 && metrics[0] < 50) {
+                        riskCount++;
+                    }
+                }
+            }
+        }
+
+        return Metrics.builder()
+                .averageProgress(activeCount > 0 ? totalComp / activeCount : 0)
+                .averagePerformance(activeCount > 0 ? totalPerf / activeCount : 0)
+                .runningKpis(runningCount)
+                .completedKpis(completedCount)
+                .riskKpis(riskCount)
+                .build();
+    }
+
+    @Transactional(readOnly = true)
+    public ComboChartData getComboChart(Instant from, Instant to, Boolean onlyApproved) {
+        List<KpiCriteria> myKpis = getMyActiveKpis();
+        Instant effectiveFrom = from != null ? from : Instant.now().minus(180, ChronoUnit.DAYS);
+        Instant effectiveTo = to != null ? to : Instant.now();
+        
+        List<IntervalPoint> intervalPoints = generateIntervalPoints(effectiveFrom, effectiveTo);
+        List<ChartPoint> points = new ArrayList<>();
+
+        for (IntervalPoint ip : intervalPoints) {
+            Instant pStart = ip.start;
+            Instant pEnd = ip.end;
+            int oldItems = 0;
+            int newItems = 0;
+            double totalComp = 0;
+            double totalPerf = 0;
+            int assignedCount = 0;
+
+            for (KpiCriteria kpi : myKpis) {
+                if (kpi.getCreatedAt() != null && !kpi.getCreatedAt().isAfter(pEnd)) {
+                    assignedCount++;
+                    if (kpi.getCreatedAt().isBefore(pStart)) {
+                        oldItems++;
+                    } else {
+                        newItems++;
+                    }
+                    
+                    double[] metrics = calculateKpiMetrics(kpi, effectiveFrom, pEnd, onlyApproved);
+                    totalComp += metrics[0];
+                    totalPerf += metrics[1];
+                }
+            }
+
+            double avgComp = assignedCount > 0 ? totalComp / assignedCount : 0;
+            double avgPerf = assignedCount > 0 ? totalPerf / assignedCount : 0;
+
+            points.add(ChartPoint.builder()
+                    .label(ip.label)
+                    .oldItems(oldItems)
+                    .newItems(newItems)
+                    .completionTrend(Math.round(avgComp * 100.0) / 100.0)
+                    .performanceTrend(Math.round(avgPerf * 100.0) / 100.0)
+                    .build());
+        }
+
+        return new ComboChartData(points);
+    }
+
+    @Transactional(readOnly = true)
+    public List<KpiDetail> getDetailedKpis(Instant from, Instant to, Boolean onlyApproved) {
+        User currentUser = getCurrentUser();
+        List<KpiCriteria> myKpis = getMyActiveKpis();
+        List<KpiDetail> details = new ArrayList<>();
+
+        for (KpiCriteria kpi : myKpis) {
+            double[] metrics = calculateKpiMetrics(kpi, from, to, onlyApproved);
+            if (metrics[2] == 0) continue;
+
+            boolean isShared = kpi.getAssignees() != null && kpi.getAssignees().size() > 1;
+
+            List<SubmissionHistory> mySubmissions = new ArrayList<>();
+            List<TeammateProgress> teammates = new ArrayList<>();
+
+            double totalTarget = kpi.getTargetValue() != null ? kpi.getTargetValue() : 1.0;
+
+            if (kpi.getSubmissions() != null) {
+                for (KpiSubmission sub : kpi.getSubmissions()) {
+                    boolean isValidStatus = Boolean.TRUE.equals(onlyApproved) ? sub.getStatus() == SubmissionStatus.APPROVED : 
+                        (sub.getStatus() == SubmissionStatus.APPROVED || sub.getStatus() == SubmissionStatus.PENDING || sub.getStatus() == SubmissionStatus.REJECTED);
+                    
+                    if (isValidStatus && (from == null || !sub.getCreatedAt().isBefore(from)) && (to == null || !sub.getCreatedAt().isAfter(to))) {
+                        if (sub.getSubmittedBy() != null && sub.getSubmittedBy().getId().equals(currentUser.getId())) {
+                            double subActual = sub.getActualValue() != null ? sub.getActualValue() : 0.0;
+                            double subProgress = (subActual / totalTarget) * 100;
+                            // performance for a single sub is hard, roughly proportional to actual
+                            mySubmissions.add(SubmissionHistory.builder()
+                                    .id(sub.getId())
+                                    .code("SUB#" + sub.getId().toString().substring(0, 4).toUpperCase())
+                                    .submitDate(sub.getCreatedAt())
+                                    .actualValue(subActual)
+                                    .contributionProgress(subProgress)
+                                    .performance(subProgress) // approximation
+                                    .status(sub.getStatus().name())
+                                    .build());
+                        }
+                    }
+                }
+            }
+
+            if (isShared) {
+                for (User assignee : kpi.getAssignees()) {
+                    if (assignee.getId().equals(currentUser.getId())) continue;
+                    
+                    double assigneeActual = 0;
+                    if (kpi.getSubmissions() != null) {
+                        assigneeActual = kpi.getSubmissions().stream()
+                            .filter(s -> Boolean.TRUE.equals(onlyApproved) ? s.getStatus() == SubmissionStatus.APPROVED : 
+                                 (s.getStatus() == SubmissionStatus.APPROVED || s.getStatus() == SubmissionStatus.PENDING || s.getStatus() == SubmissionStatus.REJECTED))
+                            .filter(s -> s.getSubmittedBy() != null && s.getSubmittedBy().getId().equals(assignee.getId()))
+                            .filter(s -> !s.getCreatedAt().isBefore(kpi.getKpiPeriod().getStartDate()) && (to == null || !s.getCreatedAt().isAfter(to)))
+                            .mapToDouble(s -> s.getActualValue() != null ? s.getActualValue() : 0.0)
+                            .sum();
+                    }
+                    
+                    String roleName = "Thành viên";
+
+                    teammates.add(TeammateProgress.builder()
+                            .userId(assignee.getId())
+                            .fullName(assignee.getFullName())
+                            .avatarUrl(assignee.getAvatarUrl())
+                            .employeeCode(assignee.getEmployeeCode())
+                            .role(roleName)
+                            .department(kpi.getOrgUnit() != null ? kpi.getOrgUnit().getName() : "")
+                            .actualValue(assigneeActual)
+                            .progress((assigneeActual / totalTarget) * 100)
+                            .performance((assigneeActual / totalTarget) * 100)
+                            .build());
+                }
+            }
+            
+            KeyResult kr = kpi.getKeyResult();
+            Objective obj = kr != null ? kr.getObjective() : null;
+
+            details.add(KpiDetail.builder()
+                    .kpiId(kpi.getId())
+                    .kpiName(kpi.getName())
+                    .targetValue(totalTarget)
+                    .actualValue(metrics[3])
+                    .unit(kpi.getUnit())
+                    .progress(metrics[0])
+                    .performance(metrics[1])
+                    .objectiveName(obj != null ? obj.getName() : "N/A")
+                    .objectiveCode(obj != null ? obj.getCode() : "N/A")
+                    .keyResultName(kr != null ? kr.getName() : "N/A")
+                    .keyResultCode(kr != null ? kr.getCode() : "N/A")
+                    .isShared(isShared)
+                    .participantCount(kpi.getAssignees() != null ? kpi.getAssignees().size() : 1)
+                    .mySubmissions(mySubmissions)
+                    .teammates(teammates)
+                    .build());
+        }
+
+        return details;
+    }
+
+    @Transactional(readOnly = true)
+    public DrawerData getKpiDrawerData(UUID kpiId, Instant from, Instant to, Boolean onlyApproved) {
+        User currentUser = getCurrentUser();
+        KpiCriteria kpi = kpiCriteriaRepository.findById(kpiId)
+                .orElseThrow(() -> new RuntimeException("KPI not found"));
+
+        boolean isShared = kpi.getAssignees() != null && kpi.getAssignees().size() > 1;
+        double target = kpi.getTargetValue() != null ? kpi.getTargetValue() : 1.0;
+
+        double[] myMetrics = calculateKpiMetricsForUser(kpi, currentUser.getId(), from, to, onlyApproved);
+        double[] teamMetrics = calculateKpiMetrics(kpi, from, to, onlyApproved);
+
+        // Calculate Multi-axis chart data over time
+        Instant effectiveFrom = from != null ? from : Instant.now().minus(180, ChronoUnit.DAYS);
+        Instant effectiveTo = to != null ? to : Instant.now();
+        List<IntervalPoint> intervalPoints = generateIntervalPoints(effectiveFrom, effectiveTo);
+        
+        List<MultiAxisPoint> points = new ArrayList<>();
+        List<TeammateLine> availableTeammates = new ArrayList<>();
+        List<ContributionData> contributions = new ArrayList<>();
+
+        if (kpi.getAssignees() != null) {
+            for (User assignee : kpi.getAssignees()) {
+                if (!assignee.getId().equals(currentUser.getId())) {
+                    availableTeammates.add(TeammateLine.builder().userId(assignee.getId()).fullName(assignee.getFullName()).build());
+                }
+                
+                double userActual = calculateKpiMetricsForUser(kpi, assignee.getId(), null, effectiveTo, onlyApproved)[3];
+                contributions.add(ContributionData.builder()
+                        .userId(assignee.getId())
+                        .fullName(assignee.getFullName())
+                        .actualValue(userActual)
+                        .contributionPercentage(teamMetrics[3] > 0 ? (userActual / teamMetrics[3]) * 100 : 0)
+                        .build());
+            }
+        }
+
+        for (IntervalPoint ip : intervalPoints) {
+            double teamTotalActual = calculateKpiMetrics(kpi, effectiveFrom, ip.end, onlyApproved)[3];
+            double myActual = calculateKpiMetricsForUser(kpi, currentUser.getId(), effectiveFrom, ip.end, onlyApproved)[3];
+            double myPerf = calculateKpiMetricsForUser(kpi, currentUser.getId(), effectiveFrom, ip.end, onlyApproved)[1];
+            
+            Map<String, TeammateValues> teammateValuesMap = new HashMap<>();
+            if (kpi.getAssignees() != null) {
+                for (User assignee : kpi.getAssignees()) {
+                    if (!assignee.getId().equals(currentUser.getId())) {
+                        double tActual = calculateKpiMetricsForUser(kpi, assignee.getId(), effectiveFrom, ip.end, onlyApproved)[3];
+                        double tPerf = calculateKpiMetricsForUser(kpi, assignee.getId(), effectiveFrom, ip.end, onlyApproved)[1];
+                        teammateValuesMap.put(assignee.getId().toString(), TeammateValues.builder().actual(tActual).performance(tPerf).build());
+                    }
+                }
+            }
+
+            points.add(MultiAxisPoint.builder()
+                    .label(ip.label)
+                    .targetValue(target)
+                    .teamTotalActual(teamTotalActual)
+                    .myActual(myActual)
+                    .myPerformance(myPerf)
+                    .teammateValues(teammateValuesMap)
+                    .build());
+        }
+
+        KeyResult kr = kpi.getKeyResult();
+        Objective obj = kr != null ? kr.getObjective() : null;
+
+        return DrawerData.builder()
+                .kpiName(kpi.getName())
+                .krName(kr != null ? kr.getName() : "")
+                .krCode(kr != null ? kr.getCode() : "")
+                .objName(obj != null ? obj.getName() : "")
+                .objCode(obj != null ? obj.getCode() : "")
+                .isShared(isShared)
+                .unit(kpi.getUnit())
+                .targetValue(target)
+                .myActualValue(myMetrics[3])
+                .myProgress(myMetrics[0])
+                .totalActualValue(teamMetrics[3])
+                .totalProgress(teamMetrics[0])
+                .myPerformance(myMetrics[1])
+                .teamPerformance(teamMetrics[1])
+                .chartData(MultiAxisChartData.builder().points(points).availableTeammates(availableTeammates).build())
+                .contributions(contributions)
+                .build();
+    }
+
+    private double[] calculateKpiMetricsForUser(KpiCriteria kpi, UUID userId, Instant A, Instant B, Boolean onlyApproved) {
+        Instant kpiStart = kpi.getKpiPeriod() != null && kpi.getKpiPeriod().getStartDate() != null ? 
+                           kpi.getKpiPeriod().getStartDate() : Instant.EPOCH;
+        Instant kpiEnd = kpi.getKpiPeriod() != null && kpi.getKpiPeriod().getEndDate() != null ? 
+                         kpi.getKpiPeriod().getEndDate() : Instant.now().plus(365, ChronoUnit.DAYS);
+
+        Instant startCalc = A != null && A.isAfter(kpiStart) ? A : kpiStart;
+        Instant endCalc = B != null && B.isBefore(kpiEnd) ? B : kpiEnd;
+
+        if (startCalc.isAfter(endCalc)) return new double[]{0, 0, 0, 0}; 
+
+        double totalKpiTime = Math.max(1, kpiEnd.toEpochMilli() - kpiStart.toEpochMilli());
+        double validFilterTime = endCalc.toEpochMilli() - startCalc.toEpochMilli();
+        double timeRatio = Math.min(1.0, validFilterTime / totalKpiTime);
+
+        double targetValue = kpi.getTargetValue() != null ? kpi.getTargetValue() : 1.0;
+        
+        // If shared, user's expected target might be targetValue / participant count.
+        // Assuming equal distribution if not specified.
+        double userTargetValue = kpi.getAssignees() != null && kpi.getAssignees().size() > 0 ? targetValue / kpi.getAssignees().size() : targetValue;
+        double expectedValueFilter = userTargetValue * timeRatio;
+
+        double actualCompletionAccumulated = kpi.getSubmissions().stream()
+                .filter(s -> Boolean.TRUE.equals(onlyApproved) ? s.getStatus() == SubmissionStatus.APPROVED : 
+                             (s.getStatus() == SubmissionStatus.APPROVED || s.getStatus() == SubmissionStatus.PENDING || s.getStatus() == SubmissionStatus.REJECTED))
+                .filter(s -> s.getSubmittedBy() != null && s.getSubmittedBy().getId().equals(userId))
+                .filter(s -> !s.getCreatedAt().isBefore(kpiStart) && (B == null || !s.getCreatedAt().isAfter(B)))
+                .mapToDouble(s -> s.getActualValue() != null ? s.getActualValue() : 0.0)
+                .sum();
+
+        double actualPerformanceFilter = kpi.getSubmissions().stream()
+                .filter(s -> Boolean.TRUE.equals(onlyApproved) ? s.getStatus() == SubmissionStatus.APPROVED : 
+                             (s.getStatus() == SubmissionStatus.APPROVED || s.getStatus() == SubmissionStatus.PENDING || s.getStatus() == SubmissionStatus.REJECTED))
+                .filter(s -> s.getSubmittedBy() != null && s.getSubmittedBy().getId().equals(userId))
+                .filter(s -> (A == null || !s.getCreatedAt().isBefore(A)) && (B == null || !s.getCreatedAt().isAfter(B)))
+                .mapToDouble(s -> s.getActualValue() != null ? s.getActualValue() : 0.0)
+                .sum();        
+
+        double completion = userTargetValue > 0 ? (actualCompletionAccumulated / userTargetValue) * 100 : 0;
+        double performance = expectedValueFilter > 0 ? (actualPerformanceFilter / expectedValueFilter) * 100 : 0;
+
+        return new double[]{completion, performance, 1.0, actualCompletionAccumulated};
+    }
+
+    private static class ChartConfig {
+        String groupingType;
+        int periods;
+
+        ChartConfig(String groupingType, int periods) {
+            this.groupingType = groupingType;
+            this.periods = periods;
+        }
+    }
+
+    private ChartConfig determineChartConfig(Instant from, Instant to) {
+        long N = Math.max(1, (to.toEpochMilli() - from.toEpochMilli()) / (1000 * 60 * 60 * 24));
+        
+        String groupingType;
+        int periods;
+        
+        if (N <= 7) {
+            groupingType = "Ngày";
+            periods = (int) N;
+        } else if (N <= 70) {
+            groupingType = "Tuần";
+            periods = (int) Math.ceil((double) N / 7.0);
+        } else if (N <= 300) {
+            groupingType = "Tháng";
+            periods = (int) Math.ceil((double) N / 30.0);
+        } else if (N <= 1200) {
+            groupingType = "Quý";
+            periods = (int) Math.ceil((double) N / 90.0);
+        } else {
+            groupingType = "Năm";
+            periods = (int) Math.ceil((double) N / 365.0);
+        }
+        
+        return new ChartConfig(groupingType, periods);
+    }
+
+    private static class IntervalPoint {
+        Instant start;
+        Instant end;
+        String label;
+        IntervalPoint(Instant s, Instant e, String l) { start = s; end = e; label = l; }
+    }
+
+    private List<IntervalPoint> generateIntervalPoints(Instant from, Instant to) {
+        Instant effectiveFrom = from != null ? from : Instant.now().minus(180, java.time.temporal.ChronoUnit.DAYS);
+        Instant effectiveTo = to != null ? to : Instant.now();
+        
+        ChartConfig config = determineChartConfig(effectiveFrom, effectiveTo);
+        String groupingType = config.groupingType;
+        
+        List<IntervalPoint> intervalPoints = new ArrayList<>();
+        LocalDate start = effectiveFrom.atZone(ZoneId.systemDefault()).toLocalDate();
+        LocalDate end = effectiveTo.atZone(ZoneId.systemDefault()).toLocalDate();
+        
+        if ("Ngày".equals(groupingType)) {
+            LocalDate curr = start;
+            while (!curr.isAfter(end)) {
+                Instant pStart = curr.atStartOfDay(ZoneId.systemDefault()).toInstant();
+                Instant pEnd = curr.plusDays(1).atStartOfDay(ZoneId.systemDefault()).toInstant();
+                String label = "Ng " + curr.getDayOfMonth() + "/" + curr.getMonthValue();
+                intervalPoints.add(new IntervalPoint(pStart, pEnd, label));
+                curr = curr.plusDays(1);
+            }
+        } else if ("Tuần".equals(groupingType)) {
+            LocalDate curr = start;
+            int weekIdx = 1;
+            while (curr.isBefore(end)) {
+                LocalDate next = curr.plusWeeks(1);
+                Instant pStart = curr.atStartOfDay(ZoneId.systemDefault()).toInstant();
+                Instant pEnd = (next.isAfter(end) ? end.plusDays(1) : next).atStartOfDay(ZoneId.systemDefault()).toInstant();
+                String label = "Tuần " + weekIdx;
+                intervalPoints.add(new IntervalPoint(pStart, pEnd, label));
+                curr = next;
+                weekIdx++;
+            }
+        } else if ("Tháng".equals(groupingType)) {
+            LocalDate curr = start.withDayOfMonth(1);
+            while (!curr.isAfter(end.withDayOfMonth(1))) {
+                LocalDate next = curr.plusMonths(1);
+                
+                LocalDate activeStart = curr.isBefore(start) ? start : curr;
+                LocalDate activeEnd = next.isAfter(end.plusDays(1)) ? end.plusDays(1) : next;
+                
+                Instant pStart = activeStart.atStartOfDay(ZoneId.systemDefault()).toInstant();
+                Instant pEnd = activeEnd.atStartOfDay(ZoneId.systemDefault()).toInstant();
+                
+                String label = "Tháng " + curr.getMonthValue() + "/" + curr.getYear();
+                intervalPoints.add(new IntervalPoint(pStart, pEnd, label));
+                curr = next;
+            }
+        } else if ("Quý".equals(groupingType)) {
+            int startQuarterMonth = ((start.getMonthValue() - 1) / 3) * 3 + 1;
+            LocalDate curr = start.withMonth(startQuarterMonth).withDayOfMonth(1);
+            while (!curr.isAfter(end)) {
+                LocalDate next = curr.plusMonths(3);
+                
+                LocalDate activeStart = curr.isBefore(start) ? start : curr;
+                LocalDate activeEnd = next.isAfter(end.plusDays(1)) ? end.plusDays(1) : next;
+                
+                Instant pStart = activeStart.atStartOfDay(ZoneId.systemDefault()).toInstant();
+                Instant pEnd = activeEnd.atStartOfDay(ZoneId.systemDefault()).toInstant();
+                
+                String label = "Quý " + ((curr.getMonthValue() - 1) / 3 + 1) + "/" + curr.getYear();
+                intervalPoints.add(new IntervalPoint(pStart, pEnd, label));
+                curr = next;
+            }
+        } else { // Năm
+            LocalDate curr = start.withDayOfYear(1);
+            while (!curr.isAfter(end)) {
+                LocalDate next = curr.plusYears(1);
+                
+                LocalDate activeStart = curr.isBefore(start) ? start : curr;
+                LocalDate activeEnd = next.isAfter(end.plusDays(1)) ? end.plusDays(1) : next;
+                
+                Instant pStart = activeStart.atStartOfDay(ZoneId.systemDefault()).toInstant();
+                Instant pEnd = activeEnd.atStartOfDay(ZoneId.systemDefault()).toInstant();
+                
+                String label = "Năm " + curr.getYear();
+                intervalPoints.add(new IntervalPoint(pStart, pEnd, label));
+                curr = next;
+            }
+        }
+        
+        return intervalPoints;
+    }
+}

@@ -250,6 +250,152 @@ export interface HeatmapPoint {
   value: number;
 }
 
+export interface MetricValueResponse {
+  value: number;
+}
+
+export interface CompletedCountResponse {
+  completed: number;
+  total: number;
+}
+
+export interface CountResponse {
+  count: number;
+}
+
+export interface ComboChartPoint {
+  label: string;
+  oldItems: number;
+  newItems: number;
+  completionTrend: number;
+  performanceTrend: number;
+}
+
+export interface ComboChartResponse {
+  points: ComboChartPoint[];
+}
+
+export interface KpiSubmissionDto {
+  id: string;
+  actualValue: number;
+  note: string | null;
+  status: string;
+  createdAt: string;
+  submittedByName: string | null;
+  submittedByCode: string | null;
+}
+
+export interface KpiParticipantDto {
+  userId: string;
+  avatarUrl: string | null;
+  fullName: string;
+  employeeCode: string | null;
+  roleName: string;
+  orgUnitName: string;
+  progress: number;
+  performance: number;
+  actualValue: number;
+  submissions?: KpiSubmissionDto[];
+}
+
+export interface KpiDetailedDto {
+  id: string;
+  name: string;
+  status: string;
+  progress: number;
+  performance: number | null;
+  targetValue: number;
+  unit: string | null;
+  unitName: string | null;
+  unitCode: string | null;
+  startDate: string | null;
+  endDate: string | null;
+  participants?: KpiParticipantDto[];
+}
+
+export interface KeyResultDetailedDto {
+  id: string;
+  name: string;
+  code: string;
+  progress: number;
+  performance: number;
+  unitName: string | null;
+  unitCode: string | null;
+  startDate: string | null;
+  endDate: string | null;
+  kpis: KpiDetailedDto[];
+}
+
+export interface ObjectiveDetailedDto {
+  id: string;
+  name: string;
+  code: string;
+  unitName: string;
+  unitCode: string;
+  startDate: string | null;
+  endDate: string | null;
+  progress: number;
+  performance: number;
+  completedKeyResults: number;
+  totalKeyResults: number;
+  keyResults: KeyResultDetailedDto[];
+}
+
+export interface ScopedMetrics {
+  completionRate: number;
+  performanceRate: number;
+  completedCount: number;
+  totalCount: number;
+  atRiskCount: number;
+}
+
+export interface TopItem {
+  id: string;
+  name: string;
+  code: string;
+  completionRate: number;
+  performanceRate: number;
+}
+
+export interface TopUnit {
+  unitId: string;
+  unitName: string;
+  unitCode: string;
+  completionRate: number;
+  performanceRate: number;
+}
+
+export interface ScopedDashboardResponse {
+  metrics: ScopedMetrics;
+  comboChart: ComboChartResponse;
+  topItems: TopItem[];
+  topUnits: TopUnit[];
+}
+
+export interface TopScopedEntitiesResponse {
+  topItems: TopItem[];
+  topUnits: TopUnit[];
+}
+
+export interface TopObjectiveDto {
+  id: string;
+  name: string;
+  code: string;
+  completionRate: number;
+  performanceRate: number;
+}
+
+export interface TopUnitDto {
+  unitName: string;
+  completionRate: number;
+  performanceRate: number;
+}
+
+export interface TopEntitiesDashboardResponse {
+  topObjectives: TopObjectiveDto[];
+  topUnits: TopUnitDto[];
+}
+
 export interface KpiDetailRow {
   kpiName: string;
   weight: number | null;

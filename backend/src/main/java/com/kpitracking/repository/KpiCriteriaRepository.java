@@ -129,10 +129,10 @@ public interface KpiCriteriaRepository extends JpaRepository<KpiCriteria, UUID> 
     @Query("SELECT COUNT(DISTINCT k.orgUnit.id) FROM KpiCriteria k WHERE k.orgUnit.id IN :orgUnitIds AND k.orgUnit.parent IS NOT NULL")
     long countDistinctOrgUnitsWithKpiIn(@Param("orgUnitIds") Collection<UUID> orgUnitIds);
 
-    @Query("SELECT DISTINCT k FROM KpiCriteria k JOIN k.assignees a WHERE a.id = :userId AND k.status = 'APPROVED'")
+    @Query("SELECT k FROM KpiCriteria k WHERE k.id IN (SELECT k2.id FROM KpiCriteria k2 JOIN k2.assignees a WHERE a.id = :userId) AND k.status = 'APPROVED'")
     List<KpiCriteria> findApprovedByAssigneeId(@Param("userId") UUID userId);
 
-    @Query("SELECT DISTINCT k FROM KpiCriteria k JOIN k.assignees a WHERE a.id = :userId AND k.status = 'APPROVED' AND k.createdAt >= :from AND k.createdAt <= :to")
+    @Query("SELECT k FROM KpiCriteria k WHERE k.id IN (SELECT k2.id FROM KpiCriteria k2 JOIN k2.assignees a WHERE a.id = :userId) AND k.status = 'APPROVED' AND k.createdAt >= :from AND k.createdAt <= :to")
     List<KpiCriteria> findApprovedByAssigneeIdAndPeriod(@Param("userId") UUID userId, @Param("from") Instant from, @Param("to") Instant to);
 
     @Query("SELECT COUNT(DISTINCT k) FROM KpiCriteria k JOIN k.assignees a WHERE a.id = :userId")

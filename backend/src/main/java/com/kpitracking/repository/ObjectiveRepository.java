@@ -11,6 +11,7 @@ import java.util.UUID;
 public interface ObjectiveRepository extends JpaRepository<Objective, UUID> {
     List<Objective> findByOrganizationId(UUID organizationId);
     List<Objective> findByOrgUnitId(UUID orgUnitId);
+    List<Objective> findByOrgUnitIdIn(List<UUID> orgUnitIds);
     boolean existsByOrganizationIdAndCode(UUID organizationId, String code);
     boolean existsByOrganizationIdAndCodeAndIdNot(UUID organizationId, String code, UUID id);
 }
