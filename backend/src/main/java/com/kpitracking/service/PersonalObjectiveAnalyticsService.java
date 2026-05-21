@@ -55,18 +55,24 @@ public class PersonalObjectiveAnalyticsService {
         double expectedValueFilter = targetValue * timeRatio;
 
         double actualCompletionAccumulated = kpi.getSubmissions().stream()
-                .filter(s -> Boolean.TRUE.equals(onlyApproved) ? s.getStatus() == SubmissionStatus.APPROVED : 
+                .filter(s -> Boolean.TRUE.equals(onlyApproved) ? s.getStatus() == SubmissionStatus.APPROVED :
                              (s.getStatus() == SubmissionStatus.APPROVED || s.getStatus() == SubmissionStatus.PENDING || s.getStatus() == SubmissionStatus.REJECTED))
-                .filter(s -> !s.getCreatedAt().isBefore(kpiStart) && (B == null || !s.getCreatedAt().isAfter(B)))
+                .filter(s -> {
+                    Instant submissionTime = s.getPeriodStart() != null ? s.getPeriodStart() : s.getCreatedAt();
+                    return !submissionTime.isBefore(kpiStart) && (B == null || !submissionTime.isAfter(B));
+                })
                 .mapToDouble(s -> s.getActualValue() != null ? s.getActualValue() : 0.0)
                 .sum();
 
         double actualPerformanceFilter = kpi.getSubmissions().stream()
-                .filter(s -> Boolean.TRUE.equals(onlyApproved) ? s.getStatus() == SubmissionStatus.APPROVED : 
+                .filter(s -> Boolean.TRUE.equals(onlyApproved) ? s.getStatus() == SubmissionStatus.APPROVED :
                              (s.getStatus() == SubmissionStatus.APPROVED || s.getStatus() == SubmissionStatus.PENDING || s.getStatus() == SubmissionStatus.REJECTED))
-                .filter(s -> (A == null || !s.getCreatedAt().isBefore(A)) && (B == null || !s.getCreatedAt().isAfter(B)))
+                .filter(s -> {
+                    Instant submissionTime = s.getPeriodStart() != null ? s.getPeriodStart() : s.getCreatedAt();
+                    return (A == null || !submissionTime.isBefore(A)) && (B == null || !submissionTime.isAfter(B));
+                })
                 .mapToDouble(s -> s.getActualValue() != null ? s.getActualValue() : 0.0)
-                .sum();        
+                .sum();
 
         double completion = targetValue > 0 ? (actualCompletionAccumulated / targetValue) * 100 : 0;
         double performance = expectedValueFilter > 0 ? (actualPerformanceFilter / expectedValueFilter) * 100 : 0;
@@ -218,7 +224,10 @@ public class PersonalObjectiveAnalyticsService {
                             .filter(s -> Boolean.TRUE.equals(onlyApproved) ? s.getStatus() == SubmissionStatus.APPROVED : 
                                  (s.getStatus() == SubmissionStatus.APPROVED || s.getStatus() == SubmissionStatus.PENDING || s.getStatus() == SubmissionStatus.REJECTED))
                             .filter(s -> s.getSubmittedBy() != null && s.getSubmittedBy().getId().equals(assignee.getId()))
-                            .filter(s -> !s.getCreatedAt().isBefore(kpi.getKpiPeriod().getStartDate()) && (to == null || !s.getCreatedAt().isAfter(to)))
+                            .filter(s -> {
+                                Instant submissionTime = s.getPeriodStart() != null ? s.getPeriodStart() : s.getCreatedAt();
+                                return !submissionTime.isBefore(kpi.getKpiPeriod().getStartDate()) && (to == null || !submissionTime.isAfter(to));
+                            })
                             .mapToDouble(s -> s.getActualValue() != null ? s.getActualValue() : 0.0)
                             .sum();
                     }
@@ -373,20 +382,26 @@ public class PersonalObjectiveAnalyticsService {
         double expectedValueFilter = userTargetValue * timeRatio;
 
         double actualCompletionAccumulated = kpi.getSubmissions().stream()
-                .filter(s -> Boolean.TRUE.equals(onlyApproved) ? s.getStatus() == SubmissionStatus.APPROVED : 
+                .filter(s -> Boolean.TRUE.equals(onlyApproved) ? s.getStatus() == SubmissionStatus.APPROVED :
                              (s.getStatus() == SubmissionStatus.APPROVED || s.getStatus() == SubmissionStatus.PENDING || s.getStatus() == SubmissionStatus.REJECTED))
                 .filter(s -> s.getSubmittedBy() != null && s.getSubmittedBy().getId().equals(userId))
-                .filter(s -> !s.getCreatedAt().isBefore(kpiStart) && (B == null || !s.getCreatedAt().isAfter(B)))
+                .filter(s -> {
+                    Instant submissionTime = s.getPeriodStart() != null ? s.getPeriodStart() : s.getCreatedAt();
+                    return !submissionTime.isBefore(kpiStart) && (B == null || !submissionTime.isAfter(B));
+                })
                 .mapToDouble(s -> s.getActualValue() != null ? s.getActualValue() : 0.0)
                 .sum();
 
         double actualPerformanceFilter = kpi.getSubmissions().stream()
-                .filter(s -> Boolean.TRUE.equals(onlyApproved) ? s.getStatus() == SubmissionStatus.APPROVED : 
+                .filter(s -> Boolean.TRUE.equals(onlyApproved) ? s.getStatus() == SubmissionStatus.APPROVED :
                              (s.getStatus() == SubmissionStatus.APPROVED || s.getStatus() == SubmissionStatus.PENDING || s.getStatus() == SubmissionStatus.REJECTED))
                 .filter(s -> s.getSubmittedBy() != null && s.getSubmittedBy().getId().equals(userId))
-                .filter(s -> (A == null || !s.getCreatedAt().isBefore(A)) && (B == null || !s.getCreatedAt().isAfter(B)))
+                .filter(s -> {
+                    Instant submissionTime = s.getPeriodStart() != null ? s.getPeriodStart() : s.getCreatedAt();
+                    return (A == null || !submissionTime.isBefore(A)) && (B == null || !submissionTime.isAfter(B));
+                })
                 .mapToDouble(s -> s.getActualValue() != null ? s.getActualValue() : 0.0)
-                .sum();        
+                .sum();
 
         double completion = userTargetValue > 0 ? (actualCompletionAccumulated / userTargetValue) * 100 : 0;
         double performance = expectedValueFilter > 0 ? (actualPerformanceFilter / expectedValueFilter) * 100 : 0;

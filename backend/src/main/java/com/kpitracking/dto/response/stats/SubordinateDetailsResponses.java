@@ -19,6 +19,7 @@ public class SubordinateDetailsResponses {
         private UUID id;
         private String name;
         private String code;
+        private UUID unitId;
         private String unitName;
         private String unitCode;
         private Instant startDate;
@@ -28,6 +29,32 @@ public class SubordinateDetailsResponses {
         private Integer completedKeyResults;
         private Integer totalKeyResults;
         private List<KeyResultDetailedDto> keyResults;
+    }
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class OrgUnitFilterDto {
+        private UUID id;
+        private String name;
+        private String code;
+        private int depth;
+        private List<OrgUnitFilterDto> children;
+    }
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class PagedObjectiveDetailedResponse {
+        private List<ObjectiveDetailedDto> content;
+        private int page;
+        private int size;
+        private long totalElements;
+        private int totalPages;
+        private boolean first;
+        private boolean last;
     }
 
     @Data

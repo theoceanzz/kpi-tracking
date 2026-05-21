@@ -330,6 +330,7 @@ export interface ObjectiveDetailedDto {
   id: string;
   name: string;
   code: string;
+  unitId: string | null;
   unitName: string;
   unitCode: string;
   startDate: string | null;
@@ -339,6 +340,24 @@ export interface ObjectiveDetailedDto {
   completedKeyResults: number;
   totalKeyResults: number;
   keyResults: KeyResultDetailedDto[];
+}
+
+export interface PagedObjectiveDetailedResponse {
+  content: ObjectiveDetailedDto[];
+  page: number;
+  size: number;
+  totalElements: number;
+  totalPages: number;
+  first: boolean;
+  last: boolean;
+}
+
+export interface OrgUnitFilterDto {
+  id: string;
+  name: string;
+  code: string;
+  depth: number;
+  children: OrgUnitFilterDto[];
 }
 
 export interface ScopedMetrics {

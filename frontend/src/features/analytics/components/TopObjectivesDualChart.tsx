@@ -6,17 +6,15 @@ interface Props {
   data: TopObjectiveDto[]
 }
 
-const PERFORMANCE_CAP = 110
-
 function prepareData(data: TopObjectiveDto[]) {
   return data.map((item) => ({
     ...item,
     displayName: item.code || (item.name.length > 12 ? item.name.substring(0, 12) + '...' : item.name),
-    completionRender: Math.min(item.completionRate, 100),
-    performanceRender: Math.min(item.performanceRate, PERFORMANCE_CAP),
+    completionRender: item.completionRate,
+    performanceRender: item.performanceRate,
     performanceActual: item.performanceRate,
     completionActual: item.completionRate,
-    isOverCap: item.performanceRate > 100,
+    isOverCap: item.performanceRate > 100 || item.completionRate > 100,
   }))
 }
 
@@ -102,6 +100,10 @@ export default function TopObjectivesDualChart({ data }: Props) {
   const [hoverIndex, setHoverIndex] = useState<number | null>(null)
   const chartData = prepareData(data)
   const hoverRef = useRef<number | null>(null)
+  const maxComp = Math.max(...chartData.map(d => d.completionRate), 100)
+  const compDomain = Math.ceil(maxComp / 50) * 50
+  const maxPerf = Math.max(...chartData.map(d => d.performanceRate), 100)
+  const perfDomain = Math.ceil(maxPerf / 50) * 50
 
   const onCellEnter = useCallback((_: any, index: number) => {
     if (hoverRef.current !== index) {
@@ -148,8 +150,8 @@ export default function TopObjectivesDualChart({ data }: Props) {
                 <Label value="Mục tiêu" offset={-5} position="insideBottom" style={{ fill: '#64748b', fontSize: 10, fontWeight: 700 }} />
               </XAxis>
               <YAxis
-                tickFormatter={(v) => `${v}%`}
-                domain={[0, 100]}
+                tickFormatter={(v) => `${Math.round(v)}%`}
+                domain={[0, compDomain]}
                 tick={{ fill: '#64748b', fontSize: 11 }}
                 axisLine={false}
                 tickLine={false}
@@ -210,8 +212,8 @@ export default function TopObjectivesDualChart({ data }: Props) {
                 <Label value="Mục tiêu" offset={-5} position="insideBottom" style={{ fill: '#64748b', fontSize: 10, fontWeight: 700 }} />
               </XAxis>
               <YAxis
-                tickFormatter={(v) => `${v}%`}
-                domain={[0, PERFORMANCE_CAP]}
+                tickFormatter={(v) => `${Math.round(v)}%`}
+                domain={[0, perfDomain]}
                 tick={{ fill: '#64748b', fontSize: 11 }}
                 axisLine={false}
                 tickLine={false}

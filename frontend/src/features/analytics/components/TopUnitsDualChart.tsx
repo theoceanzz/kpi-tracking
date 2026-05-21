@@ -50,6 +50,8 @@ export default function TopUnitsDualChart({ data }: Props) {
 
   const maxPerformance = Math.max(...data.map(d => d.performanceRate), 100)
   const perfDomain = Math.ceil(maxPerformance / 50) * 50
+  const maxCompletion = Math.max(...data.map(d => d.completionRate), 100)
+  const compDomain = Math.ceil(maxCompletion / 50) * 50
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -69,8 +71,8 @@ export default function TopUnitsDualChart({ data }: Props) {
               <CartesianGrid strokeDasharray="3 3" horizontal={false} vertical={true} stroke="#94a3b8" strokeOpacity={0.1} />
               <XAxis
                 type="number"
-                domain={[0, 100]}
-                tickFormatter={(v) => `${v}%`}
+                domain={[0, compDomain]}
+                tickFormatter={(v) => `${Math.round(v)}%`}
                 tick={{ fill: '#64748b', fontSize: 10 }}
                 axisLine={false}
                 tickLine={false}
@@ -135,7 +137,7 @@ export default function TopUnitsDualChart({ data }: Props) {
               <XAxis
                 type="number"
                 domain={[0, perfDomain]}
-                tickFormatter={(v) => `${v}%`}
+                tickFormatter={(v) => `${Math.round(v)}%`}
                 tick={{ fill: '#64748b', fontSize: 10 }}
                 axisLine={false}
                 tickLine={false}

@@ -1,6 +1,6 @@
 import axiosInstance from '@/lib/axios'
 import type { ApiResponse, PageResponse } from '@/types/api'
-import type { OverviewStats, OrgUnitStats, EmployeeKpiStats, MyKpiProgress, AnalyticsMyStats, DrillDownResponse, AnalyticsDetailRow, AnalyticsSummary, MetricValueResponse, CompletedCountResponse, CountResponse, ComboChartResponse, ObjectiveDetailedDto, TopEntitiesDashboardResponse, ScopedMetrics, TopScopedEntitiesResponse, ExportDetailedPerformanceResponse } from '@/types/stats'
+import type { OverviewStats, OrgUnitStats, EmployeeKpiStats, MyKpiProgress, AnalyticsMyStats, DrillDownResponse, AnalyticsDetailRow, AnalyticsSummary, MetricValueResponse, CompletedCountResponse, CountResponse, ComboChartResponse, ObjectiveDetailedDto, PagedObjectiveDetailedResponse, OrgUnitFilterDto, TopEntitiesDashboardResponse, ScopedMetrics, TopScopedEntitiesResponse, ExportDetailedPerformanceResponse } from '@/types/stats'
 
 export const statsApi = {
   getOverview: (organizationId?: string, orgUnitId?: string) =>
@@ -62,8 +62,16 @@ export const statsApi = {
   getSubordinateComboChart: (from?: string, to?: string, onlyApproved?: boolean) =>
     axiosInstance.get<ApiResponse<ComboChartResponse>>('/stats/subordinates/chart/combo', { params: { from, to, onlyApproved } }).then((r) => r.data.data),
 
-  getSubordinateDetailedObjectives: (from?: string, to?: string, onlyApproved?: boolean) =>
-    axiosInstance.get<ApiResponse<ObjectiveDetailedDto[]>>('/stats/subordinates/details', { params: { from, to, onlyApproved } }).then((r) => r.data.data),
+  getSubordinateDetailedObjectives: (params: {
+    from?: string; to?: string; onlyApproved?: boolean;
+    sortBy?: string; sortDir?: string;
+    orgUnitId?: string;
+    page?: number; size?: number;
+  }) =>
+    axiosInstance.get<ApiResponse<PagedObjectiveDetailedResponse>>('/stats/subordinates/details', { params }).then((r) => r.data.data),
+
+  getDetailFilterUnits: () =>
+    axiosInstance.get<ApiResponse<OrgUnitFilterDto[]>>('/stats/subordinates/details/filter-units').then((r) => r.data.data),
 
   getObjScopedMetrics: (id: string, from?: string, to?: string, onlyApproved?: boolean) =>
     axiosInstance.get<ApiResponse<ScopedMetrics>>(`/stats/subordinates/objectives/${id}/metrics`, { params: { from, to, onlyApproved } }).then((r) => r.data.data),

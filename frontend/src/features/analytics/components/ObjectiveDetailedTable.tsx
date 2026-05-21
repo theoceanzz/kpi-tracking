@@ -78,6 +78,20 @@ export default function ObjectiveDetailedTable({ data, onRowClick }: Props) {
 
   const formatDate = (d: string | null) => d ? format(new Date(d), 'dd/MM/yyyy') : '---'
 
+const DateRange = ({ start, end }: { start: string | null; end: string | null }) => (
+  <div className="inline-flex flex-col gap-1 text-[11px]">
+    <div className="flex items-center gap-1.5">
+      <span className="font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider w-[26px] shrink-0">Từ</span>
+      <span className="font-semibold text-slate-700 dark:text-slate-300 tabular-nums">{formatDate(start)}</span>
+    </div>
+    <div className="w-full h-px bg-slate-100 dark:bg-slate-800" />
+    <div className="flex items-center gap-1.5">
+      <span className="font-bold text-indigo-400 dark:text-indigo-500 uppercase tracking-wider w-[26px] shrink-0">Đến</span>
+      <span className="font-semibold text-slate-700 dark:text-slate-300 tabular-nums">{formatDate(end)}</span>
+    </div>
+  </div>
+)
+
   return (
     <div className="w-full overflow-x-auto rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900/40 backdrop-blur-md shadow-sm dark:shadow-xl">
       <table className="w-full text-sm text-left whitespace-nowrap">
@@ -118,8 +132,8 @@ export default function ObjectiveDetailedTable({ data, onRowClick }: Props) {
                   <div className="font-semibold text-slate-800 dark:text-slate-300">{obj.unitName}</div>
                   <div className="text-[11px] text-slate-500 mt-1">{obj.unitCode}</div>
                 </td>
-                <td className="px-6 py-4 align-top text-slate-600 dark:text-slate-400 text-[13px] font-medium">
-                  {formatDate(obj.startDate)} <br/><span className="text-slate-400 dark:text-slate-600">-</span><br/> {formatDate(obj.endDate)}
+                <td className="px-6 py-4 align-middle">
+                  <DateRange start={obj.startDate} end={obj.endDate} />
                 </td>
                 <td className="px-6 py-4 align-top">
                   <ProgressBar 
@@ -161,8 +175,8 @@ export default function ObjectiveDetailedTable({ data, onRowClick }: Props) {
                       <div className="font-semibold text-slate-800 dark:text-slate-300">{kr.unitName || '---'}</div>
                       {kr.unitCode && <div className="text-[11px] text-slate-500 mt-1">{kr.unitCode}</div>}
                     </td>
-                    <td className="px-6 py-4 align-top text-slate-600 dark:text-slate-400 text-[13px] font-medium">
-                      {formatDate(kr.startDate)} <br/><span className="text-slate-400 dark:text-slate-600">-</span><br/> {formatDate(kr.endDate)}
+                    <td className="px-6 py-4 align-middle">
+                      <DateRange start={kr.startDate} end={kr.endDate} />
                     </td>
                     <td className="px-6 py-4 align-top">
                       <ProgressBar 
@@ -214,8 +228,8 @@ export default function ObjectiveDetailedTable({ data, onRowClick }: Props) {
                             <div className="font-semibold text-slate-700 dark:text-slate-400">{kpi.unitName || '---'}</div>
                             {kpi.unitCode && <div className="text-[11px] text-slate-500 mt-1">{kpi.unitCode}</div>}
                           </td>
-                          <td className="px-6 py-4 align-top text-slate-600 dark:text-slate-400 text-[13px] font-medium">
-                            {formatDate(kpi.startDate)} <br/><span className="text-slate-400 dark:text-slate-600">-</span><br/> {formatDate(kpi.endDate)}
+                          <td className="px-6 py-4 align-middle">
+                            <DateRange start={kpi.startDate} end={kpi.endDate} />
                           </td>
                           <td className="px-6 py-4 align-top">
                             <ProgressBar 
@@ -316,7 +330,7 @@ export default function ObjectiveDetailedTable({ data, onRowClick }: Props) {
                                             <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3 ml-12">Lịch sử bài nộp</div>
                                             <div className="space-y-2.5 pl-12 pr-4">
                                               {p.submissions!.map(sub => {
-                                                const subProgress = Math.min((sub.actualValue / (kpi.targetValue || 1)) * 100, 100);
+                                                const subProgress = (sub.actualValue / (kpi.targetValue || 1)) * 100;
                                                 return (
                                                   <div key={sub.id} className="flex items-center bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3.5 shadow-sm hover:shadow-md transition-shadow">
                                                     <div className="min-w-[220px] pr-4">
@@ -344,7 +358,7 @@ export default function ObjectiveDetailedTable({ data, onRowClick }: Props) {
                                                             subProgress >= 100 ? 'bg-emerald-500' :
                                                             subProgress >= 50 ? 'bg-amber-500' : 'bg-rose-500'
                                                           }`}
-                                                          style={{ width: `${subProgress}%` }}
+                                                          style={{ width: `${Math.min(subProgress, 100)}%` }}
                                                         />
                                                       </div>
                                                       <div className={`text-[10.5px] font-bold mt-1.5 ${

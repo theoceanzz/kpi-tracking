@@ -1,15 +1,43 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { statsApi } from '@/features/dashboard/api/statsApi'
-import { Table2, BarChart2, Loader2, LayoutList } from 'lucide-react'
+import { Table2, BarChart2, Loader2, LayoutList, ChevronUp, ChevronDown } from 'lucide-react'
 import ObjectiveDetailedTable from './ObjectiveDetailedTable'
 import ObjectiveDetailedChart from './ObjectiveDetailedChart'
 import ObjectiveDrawer from './ObjectiveDrawer'
 import ScopedDashboardWidget from './ScopedDashboardWidget'
+import Pagination from '@/components/common/Pagination'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import type { OrgUnitFilterDto } from '@/types/stats'
 
 interface Props {
   dateRange: { from: string | undefined; to: string | undefined }
   onlyApproved?: boolean
+}
+
+function flattenOrgUnits(units: OrgUnitFilterDto[]): OrgUnitFilterDto[] {
+  const result: OrgUnitFilterDto[] = []
+  function traverse(list: OrgUnitFilterDto[]) {
+    for (const unit of list) {
+      result.push(unit)
+      if (unit.children && unit.children.length > 0) {
+        traverse(unit.children)
+      }
+    }
+  }
+  traverse(units)
+  return result
+}
+
+function depthPrefix(depth: number): string {
+  if (depth === 0) return ''
+  return '  '.repeat(depth) + '- '
 }
 
 export default function ObjectiveDetailsWidget({ dateRange, onlyApproved = false }: Props) {
@@ -20,10 +48,59 @@ export default function ObjectiveDetailsWidget({ dateRange, onlyApproved = false
     data: any;
   }>({ isOpen: false, type: 'OBJECTIVE', data: null })
 
+  const [sortBy, setSortBy] = useState<'progress' | 'performance'>('progress')
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc')
+  const [orgUnitId, setOrgUnitId] = useState<string>('')
+  const [page, setPage] = useState(0)
+
+  const PAGE_SIZE = 10
+
   const { data, isLoading } = useQuery({
-    queryKey: ['subordinate-detailed-objectives', dateRange.from, dateRange.to, onlyApproved],
-    queryFn: () => statsApi.getSubordinateDetailedObjectives(dateRange.from, dateRange.to, onlyApproved)
+    queryKey: [
+      'subordinate-detailed-objectives',
+      dateRange.from, dateRange.to, onlyApproved,
+      sortBy, sortDir, orgUnitId, page
+    ],
+    queryFn: () => statsApi.getSubordinateDetailedObjectives({
+      from: dateRange.from,
+      to: dateRange.to,
+      onlyApproved,
+      sortBy,
+      sortDir,
+      orgUnitId: orgUnitId || undefined,
+      page,
+      size: PAGE_SIZE,
+    })
   })
+
+  const { data: filterUnits } = useQuery({
+    queryKey: ['detail-filter-units'],
+    queryFn: () => statsApi.getDetailFilterUnits(),
+    staleTime: 5 * 60 * 1000,
+  })
+
+  const flatUnits = filterUnits ? flattenOrgUnits(filterUnits) : []
+
+  const handleSortToggle = (field: 'progress' | 'performance') => {
+    if (sortBy === field) {
+      setSortDir(prev => prev === 'desc' ? 'asc' : 'desc')
+    } else {
+      setSortBy(field)
+      setSortDir('desc')
+    }
+    setPage(0)
+  }
+
+  const ALL_UNITS = '__all__'
+
+  const handleOrgUnitChange = (value: string) => {
+    setOrgUnitId(value === ALL_UNITS ? '' : value)
+    setPage(0)
+  }
+
+  const handlePageChange = (newPage: number) => {
+    setPage(newPage)
+  }
 
   const handleRowClick = (type: 'OBJECTIVE' | 'KR' | 'KPI', itemData: any) => {
     setDrawerState({ isOpen: true, type, data: itemData })
@@ -34,13 +111,20 @@ export default function ObjectiveDetailsWidget({ dateRange, onlyApproved = false
   const renderDrawerContent = () => {
     if (!drawerState.data) return null;
     return (
-      <ScopedDashboardWidget 
-        type={drawerState.type} 
-        id={drawerState.data.id} 
-        dateRange={dateRange} 
+      <ScopedDashboardWidget
+        type={drawerState.type}
+        id={drawerState.data.id}
+        dateRange={dateRange}
         onlyApproved={onlyApproved}
       />
     );
+  }
+
+  const SortIcon = ({ field }: { field: 'progress' | 'performance' }) => {
+    if (sortBy !== field) return <ChevronDown className="w-3 h-3 opacity-40" />
+    return sortDir === 'desc'
+      ? <ChevronDown className="w-3 h-3" />
+      : <ChevronUp className="w-3 h-3" />
   }
 
   return (
@@ -55,7 +139,7 @@ export default function ObjectiveDetailsWidget({ dateRange, onlyApproved = false
           </div>
           <p className="text-sm text-slate-500 ml-9">Theo dõi bảng dữ liệu phân cấp và biểu đồ dạng cột</p>
         </div>
-        
+
         <div className="flex items-center bg-slate-100 dark:bg-slate-900/60 p-1 rounded-xl border border-slate-200 dark:border-white/10 shadow-sm dark:shadow-lg">
           <button
             onClick={() => setViewMode('TABLE')}
@@ -76,6 +160,51 @@ export default function ObjectiveDetailsWidget({ dateRange, onlyApproved = false
         </div>
       </div>
 
+      {viewMode === 'TABLE' && (
+        <div className="flex flex-wrap items-center gap-3">
+          {/* Sort buttons */}
+          <button
+            onClick={() => handleSortToggle('progress')}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all ${
+              sortBy === 'progress'
+                ? 'bg-indigo-500 text-white border-indigo-500 shadow-sm'
+                : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700 hover:border-indigo-300'
+            }`}
+          >
+            Tiến độ
+            <SortIcon field="progress" />
+          </button>
+          <button
+            onClick={() => handleSortToggle('performance')}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all ${
+              sortBy === 'performance'
+                ? 'bg-indigo-500 text-white border-indigo-500 shadow-sm'
+                : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700 hover:border-indigo-300'
+            }`}
+          >
+            Hiệu suất
+            <SortIcon field="performance" />
+          </button>
+
+          {/* Org unit filter */}
+          <div className="min-w-[200px]">
+            <Select value={orgUnitId || ALL_UNITS} onValueChange={handleOrgUnitChange}>
+              <SelectTrigger className="h-8 text-xs font-medium bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700">
+                <SelectValue placeholder="Tất cả đơn vị" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={ALL_UNITS}>Tất cả đơn vị</SelectItem>
+                {flatUnits.map(unit => (
+                  <SelectItem key={unit.id} value={unit.id}>
+                    {depthPrefix(unit.depth)}{unit.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+      )}
+
       <div className="min-h-[500px]">
         {isLoading ? (
           <div className="w-full h-[550px] flex items-center justify-center bg-white dark:bg-slate-900/20 rounded-xl border border-slate-200 dark:border-white/10 shadow-sm dark:shadow-xl">
@@ -85,9 +214,19 @@ export default function ObjectiveDetailsWidget({ dateRange, onlyApproved = false
             </div>
           </div>
         ) : viewMode === 'TABLE' ? (
-          <ObjectiveDetailedTable data={data || []} onRowClick={handleRowClick} />
+          <div className="flex flex-col bg-white dark:bg-slate-900/20 rounded-xl border border-slate-200 dark:border-white/10 shadow-sm dark:shadow-xl overflow-hidden">
+            <ObjectiveDetailedTable data={data?.content ?? []} onRowClick={handleRowClick} />
+            <Pagination
+              currentPage={page}
+              totalPages={data?.totalPages ?? 0}
+              onPageChange={handlePageChange}
+              totalElements={data?.totalElements ?? 0}
+              size={PAGE_SIZE}
+              itemLabel="mục tiêu"
+            />
+          </div>
         ) : (
-          <ObjectiveDetailedChart data={data || []} onBarClick={(d) => handleRowClick('OBJECTIVE', d)} />
+          <ObjectiveDetailedChart data={data?.content ?? []} onBarClick={(d) => handleRowClick('OBJECTIVE', d)} />
         )}
       </div>
 

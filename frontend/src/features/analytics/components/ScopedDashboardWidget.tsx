@@ -136,6 +136,8 @@ function TopItemsDualChart({
 
   const maxPerf = Math.max(...sorted.map((d) => d.performanceRate), 100)
   const perfDomain = Math.ceil(maxPerf / 50) * 50
+  const maxComp = Math.max(...sorted.map((d) => d.completionRate), 100)
+  const compDomain = Math.ceil(maxComp / 50) * 50
 
   return (
     <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-xl p-5 shadow-sm">
@@ -166,8 +168,8 @@ function TopItemsDualChart({
                 />
                 <XAxis
                   type="number"
-                  domain={[0, 100]}
-                  tickFormatter={(v) => `${v}%`}
+                  domain={[0, compDomain]}
+                  tickFormatter={(v) => `${Math.round(v)}%`}
                   tick={{ fill: '#64748b', fontSize: 10 }}
                   axisLine={false}
                   tickLine={false}
@@ -248,7 +250,7 @@ function TopItemsDualChart({
                 <XAxis
                   type="number"
                   domain={[0, perfDomain]}
-                  tickFormatter={(v) => `${v}%`}
+                  tickFormatter={(v) => `${Math.round(v)}%`}
                   tick={{ fill: '#64748b', fontSize: 10 }}
                   axisLine={false}
                   tickLine={false}
@@ -362,6 +364,8 @@ function TopUnitsDualChartScoped({
 
   const maxPerf = Math.max(...sorted.map((d) => d.performanceRate), 100)
   const perfDomain = Math.ceil(maxPerf / 50) * 50
+  const maxComp = Math.max(...sorted.map((d) => d.completionRate), 100)
+  const compDomain = Math.ceil(maxComp / 50) * 50
 
   return (
     <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-xl p-5 shadow-sm">
@@ -392,8 +396,8 @@ function TopUnitsDualChartScoped({
                 />
                 <XAxis
                   type="number"
-                  domain={[0, 100]}
-                  tickFormatter={(v) => `${v}%`}
+                  domain={[0, compDomain]}
+                  tickFormatter={(v) => `${Math.round(v)}%`}
                   tick={{ fill: '#64748b', fontSize: 10 }}
                   axisLine={false}
                   tickLine={false}
@@ -474,7 +478,7 @@ function TopUnitsDualChartScoped({
                 <XAxis
                   type="number"
                   domain={[0, perfDomain]}
-                  tickFormatter={(v) => `${v}%`}
+                  tickFormatter={(v) => `${Math.round(v)}%`}
                   tick={{ fill: '#64748b', fontSize: 10 }}
                   axisLine={false}
                   tickLine={false}
@@ -801,13 +805,13 @@ export default function ScopedDashboardWidget({ type, id, dateRange: globalDateR
         <ObjectiveMetricCard
           title={type === 'KPI' ? "Tiến độ đóng góp" : "Tiến độ hoàn thành"}
           value={`${metrics.completionRate.toFixed(1)}%`}
-          subtitle={`Trung bình ${childName}s`}
+          subtitle={`Trung bình ${childName}`}
           icon={<Target size={18} />}
         />
         <ObjectiveMetricCard
           title="Hiệu suất trung bình"
           value={`${metrics.performanceRate.toFixed(1)}%`}
-          subtitle={`Trung bình ${childName}s`}
+          subtitle={`Trung bình ${childName}`}
           icon={<TrendingUp size={18} />}
         />
         <ObjectiveMetricCard
@@ -833,7 +837,7 @@ export default function ScopedDashboardWidget({ type, id, dateRange: globalDateR
             <TrendingUp size={16} />
           </div>
           <h3 className="font-bold text-slate-900 dark:text-white tracking-tight text-sm">
-            {type === 'KPI' ? 'Xu hướng Bài nộp' : 'Xu hướng theo thời gian'}
+            Xu hướng theo thời gian
           </h3>
         </div>
         <div className="w-full">
@@ -842,8 +846,8 @@ export default function ScopedDashboardWidget({ type, id, dateRange: globalDateR
             <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-6 shadow-sm">
               <div className="flex flex-col md:flex-row md:items-center justify-between mb-4 gap-4">
                 <div>
-                  <p className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-1">
-                    Biểu đồ phân tích chuyên sâu
+                  <p className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                    Xu hướng Bài nộp: Tiến độ & Hiệu suất
                     <span className="text-[10px] text-indigo-500 font-bold" title="Theo thành viên">*</span>
                   </p>
                   <p className="text-xs text-slate-500 mt-0.5">So sánh số lượng bài nộp đang chạy với tiến độ và hiệu suất đạt được</p>
@@ -880,7 +884,7 @@ export default function ScopedDashboardWidget({ type, id, dateRange: globalDateR
                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
                     <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#64748b' }} />
                     <YAxis yAxisId="left" orientation="left" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#64748b' }} />
-                    <YAxis yAxisId="right" orientation="right" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#64748b' }} tickFormatter={(v) => `${v}%`} />
+                    <YAxis yAxisId="right" orientation="right" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#64748b' }} tickFormatter={(v) => `${Math.round(v)}%`} />
                     <Tooltip
                       content={({ active, payload, label }: any) => {
                         if (active && payload && payload.length) {

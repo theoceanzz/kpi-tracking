@@ -6,9 +6,10 @@ interface PaginationProps {
   onPageChange: (page: number) => void
   totalElements: number
   size: number
+  itemLabel?: string
 }
 
-export default function Pagination({ currentPage, totalPages, onPageChange, totalElements, size }: PaginationProps) {
+export default function Pagination({ currentPage, totalPages, onPageChange, totalElements, size, itemLabel = 'nhân sự' }: PaginationProps) {
   const start = totalElements === 0 ? 0 : currentPage * size + 1
   const end = Math.min((currentPage + 1) * size, totalElements)
 
@@ -30,7 +31,7 @@ export default function Pagination({ currentPage, totalPages, onPageChange, tota
   return (
     <div className="flex flex-col sm:flex-row items-center justify-between gap-4 px-6 py-4 border-t border-slate-100 dark:border-slate-800">
       <div className="text-xs font-bold text-slate-500 uppercase tracking-widest">
-        Hiển thị <span className="text-slate-900 dark:text-white">{start} - {end}</span> trong <span className="text-slate-900 dark:text-white">{totalElements}</span> nhân sự
+        Hiển thị <span className="text-slate-900 dark:text-white">{start} - {end}</span> trong <span className="text-slate-900 dark:text-white">{totalElements}</span> {itemLabel}
       </div>
 
       {totalPages > 1 && (

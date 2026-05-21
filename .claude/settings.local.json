@@ -14,7 +14,10 @@
       "Bash(Get-ChildItem -Path \"d:\\\\PROJECT\\\\Code\\\\KPI_Tracking\" -Recurse -Directory -Name)",
       "Bash(Select-Object -First 30)",
       "Bash(xargs grep -l \"preference\\\\|toggle.*email\\\\|notification.*setting\" -i)",
-      "Bash(Remove-Item \"d:\\\\PROJECT\\\\Code\\\\KPI_Tracking\\\\backend\\\\src\\\\main\\\\java\\\\com\\\\kpitracking\\\\event\\\\KpiSubmittedEvent.java\", \"d:\\\\PROJECT\\\\Code\\\\KPI_Tracking\\\\backend\\\\src\\\\main\\\\java\\\\com\\\\kpitracking\\\\event\\\\SubmissionReviewedEvent.java\", \"d:\\\\PROJECT\\\\Code\\\\KPI_Tracking\\\\backend\\\\src\\\\main\\\\java\\\\com\\\\kpitracking\\\\event\\\\KpiCriteriaApprovedEvent.java\", \"d:\\\\PROJECT\\\\Code\\\\KPI_Tracking\\\\backend\\\\src\\\\main\\\\java\\\\com\\\\kpitracking\\\\event\\\\KpiCriteriaRejectedEvent.java\")"
+      "Bash(Remove-Item \"d:\\\\PROJECT\\\\Code\\\\KPI_Tracking\\\\backend\\\\src\\\\main\\\\java\\\\com\\\\kpitracking\\\\event\\\\KpiSubmittedEvent.java\", \"d:\\\\PROJECT\\\\Code\\\\KPI_Tracking\\\\backend\\\\src\\\\main\\\\java\\\\com\\\\kpitracking\\\\event\\\\SubmissionReviewedEvent.java\", \"d:\\\\PROJECT\\\\Code\\\\KPI_Tracking\\\\backend\\\\src\\\\main\\\\java\\\\com\\\\kpitracking\\\\event\\\\KpiCriteriaApprovedEvent.java\", \"d:\\\\PROJECT\\\\Code\\\\KPI_Tracking\\\\backend\\\\src\\\\main\\\\java\\\\com\\\\kpitracking\\\\event\\\\KpiCriteriaRejectedEvent.java\")",
+      "Bash(grep *)",
+      "Bash(mvn compile *)",
+      "Bash(./mvnw compile *)"
     ]
   }
 }

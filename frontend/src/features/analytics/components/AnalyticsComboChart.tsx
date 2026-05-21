@@ -1,6 +1,9 @@
+import { useState } from 'react'
 import { ResponsiveContainer, ComposedChart, XAxis, YAxis, Tooltip, CartesianGrid, Legend, Bar, Line } from 'recharts'
 import { Loader2 } from 'lucide-react'
 import type { ComboChartPoint } from '@/types/stats'
+
+type LineFilter = 'BOTH' | 'COMPLETION' | 'PERFORMANCE'
 
 interface AnalyticsComboChartProps {
   data: ComboChartPoint[]
@@ -31,6 +34,8 @@ const CustomTooltip = ({ active, payload, label }: any) => {
 }
 
 export default function AnalyticsComboChart({ data, isLoading, itemName = 'Mục tiêu' }: AnalyticsComboChartProps) {
+  const [lineFilter, setLineFilter] = useState<LineFilter>('BOTH')
+
   if (isLoading) {
     return (
       <div className="w-full h-[400px] flex flex-col items-center justify-center bg-slate-50 dark:bg-slate-900/50 rounded-2xl border border-slate-200 dark:border-slate-800">
@@ -50,7 +55,7 @@ export default function AnalyticsComboChart({ data, isLoading, itemName = 'Mục
 
   return (
     <div className="w-full h-[510px] bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-6 shadow-sm relative flex flex-col">
-      <div className="flex justify-between items-start mb-6">
+      <div className="flex justify-between items-start mb-4">
         <div>
           <h3 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
             Xu hướng {itemName}: Tiến độ & Hiệu suất
@@ -58,6 +63,28 @@ export default function AnalyticsComboChart({ data, isLoading, itemName = 'Mục
           </h3>
           <p className="text-sm text-slate-500 mt-1">So sánh số lượng {itemName.toLowerCase()} đang chạy với tiến độ và hiệu suất đạt được</p>
         </div>
+      </div>
+
+      <div className="flex items-center gap-2 mb-4">
+        {(
+          [
+            { value: 'BOTH', label: 'Cả hai' },
+            { value: 'COMPLETION', label: 'Chỉ Tiến độ' },
+            { value: 'PERFORMANCE', label: 'Chỉ Hiệu suất' },
+          ] as { value: LineFilter; label: string }[]
+        ).map(({ value, label }) => (
+          <button
+            key={value}
+            onClick={() => setLineFilter(value)}
+            className={`rounded-full px-3 py-1 text-xs font-semibold transition-all ${
+              lineFilter === value
+                ? 'bg-indigo-500 text-white'
+                : 'bg-slate-100 dark:bg-slate-800 text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-700'
+            }`}
+          >
+            {label}
+          </button>
+        ))}
       </div>
 
       {/* Nhãn đơn vị đo nằm ngang ở phía trên */}
@@ -93,7 +120,7 @@ export default function AnalyticsComboChart({ data, isLoading, itemName = 'Mục
               axisLine={false}
               tickLine={false}
               tick={{ fill: '#64748B', fontSize: 12, fontWeight: 500 }}
-              tickFormatter={(val) => `${val}%`}
+              tickFormatter={(val) => `${Math.round(val)}%`}
               domain={[0, 'dataMax + 20']}
             />
             {/* Right Y Axis for Quantity */}
@@ -135,26 +162,30 @@ export default function AnalyticsComboChart({ data, isLoading, itemName = 'Mục
             />
 
             {/* Lines for Trends (Mapped to left Y-axis) */}
-            <Line 
-              yAxisId="left"
-              type="monotone" 
-              dataKey="completionTrend" 
-              name="Xu hướng Tiến độ" 
-              stroke="#10b981" 
-              strokeWidth={3}
-              dot={{ r: 4, strokeWidth: 2 }}
-              activeDot={{ r: 6, strokeWidth: 0 }}
-            />
-            <Line 
-              yAxisId="left"
-              type="monotone" 
-              dataKey="performanceTrend" 
-              name="Xu hướng Hiệu suất" 
-              stroke="#f59e0b" 
-              strokeWidth={3}
-              dot={{ r: 4, strokeWidth: 2 }}
-              activeDot={{ r: 6, strokeWidth: 0 }}
-            />
+            {(lineFilter === 'BOTH' || lineFilter === 'COMPLETION') && (
+              <Line
+                yAxisId="left"
+                type="monotone"
+                dataKey="completionTrend"
+                name="Xu hướng Tiến độ"
+                stroke="#10b981"
+                strokeWidth={3}
+                dot={{ r: 4, strokeWidth: 2 }}
+                activeDot={{ r: 6, strokeWidth: 0 }}
+              />
+            )}
+            {(lineFilter === 'BOTH' || lineFilter === 'PERFORMANCE') && (
+              <Line
+                yAxisId="left"
+                type="monotone"
+                dataKey="performanceTrend"
+                name="Xu hướng Hiệu suất"
+                stroke="#f59e0b"
+                strokeWidth={3}
+                dot={{ r: 4, strokeWidth: 2 }}
+                activeDot={{ r: 6, strokeWidth: 0 }}
+              />
+            )}
           </ComposedChart>
         </ResponsiveContainer>
       </div>

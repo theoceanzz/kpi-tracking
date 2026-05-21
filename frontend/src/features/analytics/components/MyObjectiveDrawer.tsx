@@ -243,7 +243,7 @@ export default function MyObjectiveDrawer({ kpiId, onClose, globalFrom, globalTo
                     axisLine={false} 
                     tickLine={false} 
                     tick={{fontSize: 11, fill: '#64748b'}}
-                    tickFormatter={(val) => `${val}%`}
+                    tickFormatter={(val) => `${Math.round(val)}%`}
                   />
                   <Tooltip content={<DrawerChartTooltip />} cursor={{ fill: '#94a3b8', opacity: 0.06 }} />
                   <Legend wrapperStyle={{ fontSize: '11px', fontWeight: 'bold' }} />
