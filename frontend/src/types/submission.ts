@@ -26,6 +26,8 @@ export interface Submission {
   isSubmittedByManager: boolean
   createdAt: string
   updatedAt: string
+  parentSubmissionId?: string
+  allChildrenApproved?: boolean
 }
 
 // Matches BE: AttachmentResponse

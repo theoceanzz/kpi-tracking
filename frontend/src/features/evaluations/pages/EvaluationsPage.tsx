@@ -160,7 +160,7 @@ export default function EvaluationsPage() {
     const periodKpis = myAllKpis.content.filter(k => k.kpiPeriodId === activePeriod.id)
     if (periodKpis.length === 0) return false
 
-    return periodKpis.every(kpi => kpi.submissionCount >= kpi.expectedSubmissions)
+    return periodKpis.every(kpi => kpi.frequency === 'UNLIMITED' || kpi.submissionCount >= kpi.expectedSubmissions)
   }, [activePeriod, myAllKpis])
 
   const stats = useMemo(() => {

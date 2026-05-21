@@ -41,6 +41,10 @@ public class DeadlineReminderService {
                 continue;
             }
 
+            if (kpi.getFrequency() == com.kpitracking.enums.KpiFrequency.UNLIMITED) {
+                continue;
+            }
+
             long start = kpi.getKpiPeriod().getStartDate().toEpochMilli();
             long end = kpi.getKpiPeriod().getEndDate().toEpochMilli();
             int expected = kpi.getExpectedSubmissions() != null ? kpi.getExpectedSubmissions() : calculateExpected(kpi);

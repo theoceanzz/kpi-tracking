@@ -4,6 +4,7 @@ import SubmissionStatusChart from '@/components/charts/SubmissionStatusChart'
 import Pagination from '@/components/common/Pagination'
 import { useOverviewStats } from '../hooks/useOverviewStats'
 import { useEmployeeStats } from '../hooks/useEmployeeStats'
+import { useOrganization } from '@/features/orgunits/hooks/useOrganization'
 import { useAuthStore } from '@/store/authStore'
 import { getInitials, cn } from '@/lib/utils'
 import { Link } from 'react-router-dom'
@@ -11,7 +12,9 @@ import {
   ClipboardCheck, BarChart3, AlertCircle, Pin, PinOff, FileText, Star, Target, TrendingUp,
   Users, Clock, CheckCircle, ChevronRight
 } from 'lucide-react'
-import { exportPerformanceToExcel } from '@/utils/performanceExport'
+import { exportDetailedPerformanceToExcel } from '@/utils/performanceExport'
+import { statsApi } from '../api/statsApi'
+import { useKpiPeriods } from '@/features/kpi/hooks/useKpiPeriods'
 import type { EmployeeKpiStats } from '@/types/stats'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { reportApi } from '@/features/reports/api/reportApi'
@@ -47,7 +50,6 @@ export default function HeadDashboard() {
 
   const { data: stats, isLoading: statsLoading } = useOverviewStats(orgUnitId)
   const { data: employeesPage, isLoading: employeesLoading } = useEmployeeStats(page, size, orgUnitId)
-  const { data: allEmployees } = useEmployeeStats(0, 1000, orgUnitId)
 
   const { data: pinnedWidgets, isLoading: pinnedLoading, refetch: refetchPinned } = useQuery({
     queryKey: ['reports', 'widgets', 'pinned'],
@@ -67,18 +69,47 @@ export default function HeadDashboard() {
   const employees = employeesPage?.content ?? []
   const lateEmployeesCount = stats?.totalUsers ? (employees?.filter(e => e.lateSubmissions > 0).length ?? 0) : 0
   
+  const orgId = user?.memberships?.[0]?.organizationId
+  const { data: organization } = useOrganization(orgId)
+  const { data: periodsData } = useKpiPeriods({ organizationId: orgId })
+
+  const activePeriod = useMemo(() => {
+    if (!periodsData?.content) return null
+    const now = new Date()
+    return periodsData.content.find(p => {
+       if (!p.startDate || !p.endDate) return false
+       return now >= new Date(p.startDate) && now <= new Date(p.endDate)
+    })
+  }, [periodsData])
+
   const handleExport = async () => {
-    if (!allEmployees?.content || allEmployees.content.length === 0) {
-      toast.error('Không có dữ liệu để xuất')
+    if (!activePeriod) {
+      toast.error('Không xác định được chu kỳ hiện tại')
       return
     }
+
     setIsExporting(true)
     try {
-      await exportPerformanceToExcel(allEmployees.content, `BÁO CÁO HIỆU SUẤT - ${unitName.toUpperCase()}`)
-      toast.success('Đã xuất báo cáo thành công')
+      const detailedData = await statsApi.getDetailedExportStats(orgUnitId, activePeriod.id)
+
+      if (!detailedData || detailedData.length === 0) {
+        toast.error('Không có dữ liệu chi tiết để xuất')
+        return
+      }
+
+      // Department Head level is usually 3
+      const userLevel = primaryMembership?.levelOrder ?? 3
+      await exportDetailedPerformanceToExcel(
+        detailedData, 
+        userLevel, 
+        `BÁO CÁO CHI TIẾT KPI - ${unitName.toUpperCase()} - ${activePeriod.name.toUpperCase()}`,
+        organization?.enableOkr
+      )
+      
+      toast.success('Đã xuất báo cáo chi tiết thành công')
     } catch (error) {
       console.error('Export error:', error)
-      toast.error('Có lỗi xảy ra khi xuất báo cáo')
+      toast.error('Có lỗi xảy ra khi xuất báo cáo chi tiết')
     } finally {
       setIsExporting(false)
     }

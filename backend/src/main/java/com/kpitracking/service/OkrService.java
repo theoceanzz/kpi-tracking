@@ -14,9 +14,11 @@ import com.kpitracking.exception.BusinessException;
 import com.kpitracking.exception.DuplicateResourceException;
 import com.kpitracking.exception.ResourceNotFoundException;
 import com.kpitracking.repository.KeyResultRepository;
+import com.kpitracking.repository.KpiSubmissionRepository;
 import com.kpitracking.repository.ObjectiveRepository;
 import com.kpitracking.repository.OrgUnitRepository;
 import com.kpitracking.repository.OrganizationRepository;
+import com.kpitracking.enums.SubmissionStatus;
 import lombok.RequiredArgsConstructor;
 import org.apache.poi.ss.usermodel.*;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
@@ -38,6 +40,7 @@ public class OkrService {
 
     private final ObjectiveRepository objectiveRepository;
     private final KeyResultRepository keyResultRepository;
+    private final KpiSubmissionRepository submissionRepository;
     private final OrganizationRepository organizationRepository;
     private final OrgUnitRepository orgUnitRepository;
 
@@ -391,13 +394,29 @@ public class OkrService {
     }
 
     private KeyResultResponse mapToKeyResultResponse(KeyResult keyResult) {
+        // Calculate currentValue from approved KPI submissions
+        double totalApprovedActual = 0.0;
+        boolean hasLinkedKpis = keyResult.getKpis() != null && !keyResult.getKpis().isEmpty();
+        
+        if (hasLinkedKpis) {
+            for (var kpi : keyResult.getKpis()) {
+                totalApprovedActual += submissionRepository
+                    .findByKpiCriteriaIdAndDeletedAtIsNull(kpi.getId()).stream()
+                    .filter(s -> s.getStatus() == SubmissionStatus.APPROVED)
+                    .mapToDouble(s -> s.getActualValue() != null ? s.getActualValue() : 0.0)
+                    .sum();
+            }
+        } else {
+            totalApprovedActual = keyResult.getCurrentValue() != null ? keyResult.getCurrentValue() : 0.0;
+        }
+
         Double progress = 0.0;
         if (keyResult.getTargetValue() != null && keyResult.getTargetValue() != 0) {
-            progress = (keyResult.getCurrentValue() / keyResult.getTargetValue()) * 100;
+            progress = Math.min(100.0, (totalApprovedActual / keyResult.getTargetValue()) * 100);
         }
 
         String periodName = null;
-        if (keyResult.getKpis() != null && !keyResult.getKpis().isEmpty()) {
+        if (hasLinkedKpis) {
             periodName = keyResult.getKpis().stream()
                     .filter(kpi -> kpi.getKpiPeriod() != null)
                     .map(kpi -> kpi.getKpiPeriod().getName())
@@ -411,7 +430,7 @@ public class OkrService {
                 .name(keyResult.getName())
                 .description(keyResult.getDescription())
                 .targetValue(keyResult.getTargetValue())
-                .currentValue(keyResult.getCurrentValue())
+                .currentValue(totalApprovedActual)
                 .unit(keyResult.getUnit())
                 .progress(progress)
                 .periodName(periodName)

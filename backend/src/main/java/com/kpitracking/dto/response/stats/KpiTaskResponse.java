@@ -14,4 +14,6 @@ public class KpiTaskResponse {
     private Instant startDate;
     private Integer submissionCount;
     private Integer expectedSubmissions;
+    private Double managerScore;
+    private String managerName;
 }

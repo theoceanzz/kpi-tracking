@@ -1,13 +1,14 @@
 import { useState } from 'react'
 import { useNotifications, useMarkAllRead, useMarkAsRead } from '../hooks/useNotifications'
+import { useWebSocketNotifications } from '../hooks/useWebSocketNotifications'
 import { formatDateTime } from '@/lib/utils'
 import { cn } from '@/lib/utils'
 import LoadingSkeleton from '@/components/common/LoadingSkeleton'
 import EmptyState from '@/components/common/EmptyState'
-import { 
-  Bell, CheckCheck, Send, 
-  FileSearch, ShieldCheck, Target, 
-  Clock, CheckCircle2
+import {
+  Bell, CheckCheck, Send,
+  FileSearch, ShieldCheck, Target,
+  CheckCircle2
 } from 'lucide-react'
 
 const typeConfig: Record<string, { icon: any, color: string, label: string }> = {
@@ -18,6 +19,7 @@ const typeConfig: Record<string, { icon: any, color: string, label: string }> = 
 }
 
 export default function NotificationsPage() {
+  useWebSocketNotifications()
   const [page] = useState(0)
   const { data, isLoading } = useNotifications(page, 50)
   const markAllRead = useMarkAllRead()
@@ -80,8 +82,8 @@ export default function NotificationsPage() {
         </div>
 
         <div className="text-[10px] font-black uppercase tracking-widest text-slate-400 flex items-center gap-2">
-          <Clock size={12} />
-          Cập nhật mỗi 30 giây
+          <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+          Thời gian thực
         </div>
       </div>
 

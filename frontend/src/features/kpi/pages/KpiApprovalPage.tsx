@@ -194,21 +194,22 @@ export default function KpiApprovalPage() {
         </div>
 
         {/* Toolbar */}
-        <div id="tour-pending-toolbar" className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-md p-4 rounded-[24px] border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col lg:flex-row items-center justify-between gap-4">
-          <div className="flex flex-col md:flex-row items-center gap-3 w-full lg:w-auto">
-            <div className="relative flex-1 md:w-80">
+        <div id="tour-pending-toolbar" className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-md p-6 rounded-[28px] border border-slate-200 dark:border-slate-800 shadow-sm space-y-4">
+          {/* Row 1: Primary Filters */}
+          <div className="flex flex-col md:flex-row items-center gap-4 w-full">
+            <div className="relative flex-1">
               <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
               <input 
                 value={search}
                 onChange={e => { setSearch(e.target.value); setPage(0) }}
-                placeholder="Tìm tên, phòng ban, nhân sự..." 
-                className="w-full pl-12 pr-4 h-12 rounded-[18px] border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 text-sm font-medium focus:ring-2 focus:ring-indigo-500/20 outline-none transition-all"
+                placeholder="Tìm tên chỉ tiêu, phòng ban, nhân sự..." 
+                className="w-full h-12 pl-12 pr-4 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 text-sm font-medium focus:ring-2 focus:ring-indigo-500/20 outline-none transition-all"
               />
             </div>
             
-            <div className="w-full md:w-64">
+            <div className="w-full md:w-72">
               <Select value={selectedOrgUnitId} onValueChange={(v) => { setSelectedOrgUnitId(v); setPage(0) }}>
-                <SelectTrigger className="h-12 rounded-[18px] border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 font-bold text-sm">
+                <SelectTrigger className="h-12 rounded-2xl border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 font-bold text-sm">
                   <div className="flex items-center gap-2">
                     <Building2 size={16} className="text-slate-400" />
                     <SelectValue placeholder="Chọn đơn vị" />
@@ -224,7 +225,7 @@ export default function KpiApprovalPage() {
 
             <div className="w-full md:w-64">
               <Select value={selectedPeriodId} onValueChange={(v) => { setSelectedPeriodId(v); setPage(0) }}>
-                <SelectTrigger className="h-12 rounded-[18px] border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 font-bold text-sm">
+                <SelectTrigger className="h-12 rounded-2xl border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 font-bold text-sm">
                   <div className="flex items-center gap-2">
                     <Calendar size={16} className="text-slate-400" />
                     <SelectValue placeholder="Chọn đợt KPI" />
@@ -238,45 +239,55 @@ export default function KpiApprovalPage() {
                 </SelectContent>
               </Select>
             </div>
-
-            {enableOkr && (
-              <>
-                <div className="w-full md:w-64">
-                  <Select value={selectedObjectiveId} onValueChange={(v) => { setSelectedObjectiveId(v); setSelectedKeyResultId('ALL'); setPage(0) }}>
-                    <SelectTrigger className="h-12 rounded-[18px] border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 font-bold text-sm">
-                      <div className="flex items-center gap-2">
-                        <Target size={16} className="text-slate-400" />
-                        <SelectValue placeholder="Chọn Mục tiêu" />
-                      </div>
-                    </SelectTrigger>
-                    <SelectContent className="rounded-2xl border-slate-200 dark:border-slate-800">
-                      <SelectItem value="ALL" className="font-bold">Tất cả Mục tiêu</SelectItem>
-                      {objectivesData?.map(obj => (
-                        <SelectItem key={obj.id} value={obj.id} className="font-medium">[{obj.code}] {obj.name}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="w-full md:w-64">
-                  <Select value={selectedKeyResultId} onValueChange={(v) => { setSelectedKeyResultId(v); setPage(0) }} disabled={selectedObjectiveId === 'ALL'}>
-                    <SelectTrigger className="h-12 rounded-[18px] border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 font-bold text-sm">
-                      <div className="flex items-center gap-2">
-                        <GitBranch size={16} className="text-slate-400" />
-                        <SelectValue placeholder="Chọn Kết quả" />
-                      </div>
-                    </SelectTrigger>
-                    <SelectContent className="rounded-2xl border-slate-200 dark:border-slate-800">
-                      <SelectItem value="ALL" className="font-bold">Tất cả Kết quả</SelectItem>
-                      {keyResults.map(kr => (
-                        <SelectItem key={kr.id} value={kr.id} className="font-medium">[{kr.code}] {kr.name}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </>
-            )}
           </div>
+
+          {/* Row 2: Strategic Filters (OKR) */}
+          {enableOkr && (
+            <div className="flex flex-col md:flex-row items-center gap-4 w-full pt-4 border-t border-slate-100 dark:border-slate-800 animate-in slide-in-from-top-2 duration-500">
+              <div className="flex items-center gap-2 text-indigo-600 dark:text-indigo-400 min-w-[140px] px-2">
+                <Target size={18} className="animate-bounce" />
+                <span className="text-[10px] font-black uppercase tracking-[0.2em] whitespace-nowrap">Bộ lọc OKR</span>
+              </div>
+              
+              <div className="flex-1 md:max-w-[480px]">
+                <Select value={selectedObjectiveId} onValueChange={(v) => { setSelectedObjectiveId(v); setSelectedKeyResultId('ALL'); setPage(0) }}>
+                  <SelectTrigger className="h-12 rounded-2xl border-indigo-100 dark:border-indigo-900/50 bg-indigo-50/30 dark:bg-indigo-900/10 font-bold text-sm text-indigo-900 dark:text-indigo-100">
+                    <div className="flex items-center gap-2 overflow-hidden">
+                      <Target size={16} className="text-indigo-400 shrink-0" />
+                      <div className="truncate">
+                        <SelectValue placeholder="Chọn Mục tiêu chiến lược" />
+                      </div>
+                    </div>
+                  </SelectTrigger>
+                  <SelectContent className="rounded-2xl border-slate-200 dark:border-slate-800">
+                    <SelectItem value="ALL" className="font-bold">Tất cả Mục tiêu</SelectItem>
+                    {objectivesData?.map(obj => (
+                      <SelectItem key={obj.id} value={obj.id} className="font-medium">[{obj.code}] {obj.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="flex-1 md:max-w-[480px]">
+                <Select value={selectedKeyResultId} onValueChange={(v) => { setSelectedKeyResultId(v); setPage(0) }} disabled={selectedObjectiveId === 'ALL'}>
+                  <SelectTrigger className="h-12 rounded-2xl border-indigo-100 dark:border-indigo-900/50 bg-indigo-50/30 dark:bg-indigo-900/10 font-bold text-sm text-indigo-900 dark:text-indigo-100 disabled:opacity-50 transition-all">
+                    <div className="flex items-center gap-2 overflow-hidden">
+                      <GitBranch size={16} className="text-indigo-400 shrink-0" />
+                      <div className="truncate">
+                        <SelectValue placeholder="Chọn Kết quả then chốt" />
+                      </div>
+                    </div>
+                  </SelectTrigger>
+                  <SelectContent className="rounded-2xl border-slate-200 dark:border-slate-800">
+                    <SelectItem value="ALL" className="font-bold">Tất cả Kết quả</SelectItem>
+                    {keyResults.map(kr => (
+                      <SelectItem key={kr.id} value={kr.id} className="font-medium">[{kr.code}] {kr.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Status Tabs Row */}

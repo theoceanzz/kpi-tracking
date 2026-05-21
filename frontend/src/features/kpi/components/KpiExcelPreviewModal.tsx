@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import { read, write, utils } from 'xlsx'
 import { 
   X, Save, AlertCircle, Trash2, Plus, FileSpreadsheet, 
@@ -43,7 +43,7 @@ interface KpiRow {
   _errors?: Record<string, string>
 }
 
-const frequencyOptions = ['DAILY', 'WEEKLY', 'MONTHLY', 'QUARTERLY', 'SEMI_ANNUALLY', 'YEARLY']
+const frequencyOptions = ['DAILY', 'WEEKLY', 'MONTHLY', 'QUARTERLY', 'SEMI_ANNUALLY', 'YEARLY', 'UNLIMITED']
 
 const kpiRowSchema = z.object({
   Name: z.string().min(1, 'Tên chỉ tiêu là bắt buộc'),
@@ -69,9 +69,13 @@ export default function KpiExcelPreviewModal({ open, file, onClose, onImport, is
   // Bulk settings state
   const [bulkFreq, setBulkFreq] = useState('')
   const [bulkPeriod, setBulkPeriod] = useState('')
-  const [bulkOrgUnit, setBulkOrgUnit] = useState('')
+  const [bulkOrgUnits, setBulkOrgUnits] = useState<string[]>([])
+  const [isBulkOrgOpen, setIsBulkOrgOpen] = useState(false)
+  const [openOrgDropdownId, setOpenOrgDropdownId] = useState<string | null>(null)
+  const [orgDropdownPos, setOrgDropdownPos] = useState<{ top: number; left: number } | null>(null)
   const [bulkEmpCode, setBulkEmpCode] = useState('')
   const [isEmpTableOpen, setIsEmpTableOpen] = useState(false)
+  const bulkOrgDropdownRef = useRef<HTMLDivElement>(null)
 
   const { data: objectivesData } = useObjectives(user?.memberships?.[0]?.organizationId)
   const objectives = objectivesData || []
@@ -93,6 +97,7 @@ export default function KpiExcelPreviewModal({ open, file, onClose, onImport, is
   }, [periodsData])
   const { data: orgTree } = useOrgUnitTree()
   const { data: org } = useOrganization(user?.memberships?.[0]?.organizationId)
+  const enableWaterfall = org?.enableWaterfall || false
   const enableOkr = org?.enableOkr || false
 
   const { data: usersData } = useUsers({ 
@@ -136,33 +141,34 @@ export default function KpiExcelPreviewModal({ open, file, onClose, onImport, is
 
   // Automatically apply defaults to rows with empty values
   useEffect(() => {
-    if (data.length > 0 && (bulkPeriod || bulkOrgUnit)) {
+    const singleOrgUnit = bulkOrgUnits.length === 1 ? bulkOrgUnits[0] : ''
+    if (data.length > 0 && (bulkPeriod || singleOrgUnit)) {
       let hasChanges = false
       const updated = data.map(row => {
         let needsUpdate = false
         const newRow = { ...row }
-        
+
         if (!newRow.Period && bulkPeriod) {
           newRow.Period = bulkPeriod
           needsUpdate = true
         }
-        if (!newRow.OrgUnit && bulkOrgUnit) {
-          newRow.OrgUnit = bulkOrgUnit
+        if (!newRow.OrgUnit && singleOrgUnit) {
+          newRow.OrgUnit = singleOrgUnit
           needsUpdate = true
         }
-        
+
         if (needsUpdate) {
           hasChanges = true
           return validateRow(newRow)
         }
         return row
       })
-      
+
       if (hasChanges) {
         setData(updated)
       }
     }
-  }, [bulkPeriod, bulkOrgUnit, data])
+  }, [bulkPeriod, bulkOrgUnits, data])
 
   useEffect(() => {
     if (open && file) {
@@ -172,12 +178,13 @@ export default function KpiExcelPreviewModal({ open, file, onClose, onImport, is
     }
   }, [open, file])
 
-  // Re-validate when users are loaded to check EmployeeCode existence
+  // Re-validate when users or assignment type changes
   useEffect(() => {
     if (allUsers.length > 0 && data.length > 0) {
       setData(prev => prev.map(row => validateRow(row)))
     }
   }, [allUsers.length])
+  
 
   const parseFile = async (f: File) => {
     setLoading(true)
@@ -191,8 +198,8 @@ export default function KpiExcelPreviewModal({ open, file, onClose, onImport, is
       const rawData = utils.sheet_to_json<any>(ws)
 
       const parsed: KpiRow[] = rawData.map((row, index) => {
-        const rawOrgValue = (row['OrgUnitCode'] || row['OrgUnit'] || bulkOrgUnit || '').toString().trim()
-        
+        const rawOrgValue = (row['OrgUnitCode'] || row['OrgUnit'] || (bulkOrgUnits.length === 1 ? bulkOrgUnits[0] : '') || '').toString().trim()
+
         const item: KpiRow = {
           id: `row-${index}`,
           Name: (row['Name'] || '').toString().trim(),
@@ -216,6 +223,9 @@ export default function KpiExcelPreviewModal({ open, file, onClose, onImport, is
         const matchedPeriod = periodsData?.content?.find((p: any) => p.name.toLowerCase() === item.Period.toLowerCase())
         if (matchedPeriod) {
           item.Period = matchedPeriod.name
+          if (!item.Frequency) {
+            item.Frequency = matchedPeriod.periodType
+          }
         } else {
           item.Period = newestPeriod
           if (oldPeriod !== 'Trống') {
@@ -223,24 +233,34 @@ export default function KpiExcelPreviewModal({ open, file, onClose, onImport, is
           }
         }
 
-        // Smart Matching for OrgUnit: Check if item.OrgUnit is a Code or a Name (Case-insensitive)
-        const matchedByCode = flatOrgUnits.find(u => 
-          u.code?.toLowerCase() === item.OrgUnit.toLowerCase() || 
-          u.name?.toLowerCase() === item.OrgUnit.toLowerCase()
-        )
-        
-        const oldOrg = item.OrgUnit || 'Trống'
+        // Smart Matching for OrgUnit — supports comma-separated codes e.g. "MK1,MK2"
+        const orgCodes = rawOrgValue.split(',').map((s: string) => s.trim()).filter(Boolean)
+        const matchedNames: string[] = []
+        const unmatchedCodes: string[] = []
 
-        if (matchedByCode) {
-          item.OrgUnit = matchedByCode.name
-        } else {
-          // Fallback logic to empty string
-          item.OrgUnit = ''
-          if (oldOrg !== 'Trống') {
-            errors['OrgUnit'] = `Đơn vị '${oldOrg}' không tồn tại trong hệ thống`
-          } else {
-            errors['OrgUnit'] = `Phòng ban là bắt buộc`
+        for (const code of orgCodes) {
+          const matched = flatOrgUnits.find(u =>
+            u.code?.toLowerCase() === code.toLowerCase() ||
+            u.name?.toLowerCase() === code.toLowerCase()
+          )
+          if (matched) {
+            matchedNames.push(matched.name)
+          } else if (code) {
+            unmatchedCodes.push(code)
           }
+        }
+
+        if (matchedNames.length > 0) {
+          item.OrgUnit = matchedNames.join(', ')
+          if (unmatchedCodes.length > 0) {
+            errors['OrgUnit'] = `Đơn vị '${unmatchedCodes.join(', ')}' không tồn tại trong hệ thống`
+          }
+        } else if (rawOrgValue) {
+          item.OrgUnit = ''
+          errors['OrgUnit'] = `Đơn vị '${rawOrgValue}' không tồn tại trong hệ thống`
+        } else {
+          item.OrgUnit = ''
+          errors['OrgUnit'] = `Phòng ban là bắt buộc`
         }
 
         const rowWithFallback = validateRow(item)
@@ -288,11 +308,12 @@ export default function KpiExcelPreviewModal({ open, file, onClose, onImport, is
       if (nonExistentCodes.length > 0) {
         errors['EmployeeCode'] = `Mã không tồn tại: ${nonExistentCodes.join(', ')}`
       } else if (row.OrgUnit) {
-        // 2. Check department mismatch
+        // 2. Check department mismatch — support comma-separated org units
+        const orgNames = row.OrgUnit.split(',').map((s: string) => s.trim()).filter(Boolean)
         const mismatchedCodes = codes.filter(code => {
           const u = allUsers.find(user => user.employeeCode === code)
-          return !u?.memberships?.some(m => 
-            m.orgUnitName?.toLowerCase().trim() === row.OrgUnit.toLowerCase().trim()
+          return !u?.memberships?.some(m =>
+            orgNames.some(orgName => m.orgUnitName?.toLowerCase().trim() === orgName.toLowerCase().trim())
           )
         })
 
@@ -323,9 +344,13 @@ export default function KpiExcelPreviewModal({ open, file, onClose, onImport, is
       if (!obj) {
         errors['ObjectiveCode'] = `Mã mục tiêu không tồn tại`
       } else {
-        // Validation: OrgUnit mismatch check
-        if (row.OrgUnit && obj.orgUnitName && row.OrgUnit.toLowerCase().trim() !== obj.orgUnitName.toLowerCase().trim()) {
-          errors['ObjectiveCode'] = `Mục tiêu này thuộc ${obj.orgUnitName}, không khớp với đơn vị ${row.OrgUnit}`
+        // Validation: OrgUnit mismatch check — support comma-separated org units
+        if (row.OrgUnit && obj.orgUnitName) {
+          const orgNames = row.OrgUnit.split(',').map((s: string) => s.trim()).filter(Boolean)
+          const anyMatch = orgNames.some(n => n.toLowerCase() === (obj.orgUnitName ?? '').toLowerCase().trim())
+          if (!anyMatch) {
+            errors['ObjectiveCode'] = `Mục tiêu này thuộc ${obj.orgUnitName}, không khớp với đơn vị ${row.OrgUnit}`
+          }
         }
 
         if (row.KeyResultCode) {
@@ -338,6 +363,21 @@ export default function KpiExcelPreviewModal({ open, file, onClose, onImport, is
     } else if (enableOkr && row.KeyResultCode && !row.ObjectiveCode) {
       errors['ObjectiveCode'] = `Cần nhập mã mục tiêu để tìm KR`
     }
+    
+    // 5. Waterfall specific validation: If waterfall is enabled, only allow assignment to unit leaders
+    if (enableWaterfall && row.EmployeeCode) {
+      const codes = row.EmployeeCode.split(',').map(s => s.trim()).filter(Boolean)
+      const nonLeaders = codes.filter(code => {
+        const u = allUsers.find(user => user.employeeCode === code)
+        if (!u) return true // Let zod handle existence check, but filter out here for logic
+        return !u.memberships?.some(m => m.roleRank === 0) && 
+               !u.permissions?.includes('SUBMISSION:REVIEW')
+      })
+      if (nonLeaders.length > 0) {
+        errors['EmployeeCode'] = `Mô hình Thác nước đang bật: Chỉ có thể giao chỉ tiêu cho Lãnh đạo đơn vị để họ phân bổ tiếp. Mã không hợp lệ: ${nonLeaders.join(', ')}`
+      }
+    }
+
 
     if (Object.keys(errors).length > 0) {
       return { ...row, _errors: errors }
@@ -368,10 +408,10 @@ export default function KpiExcelPreviewModal({ open, file, onClose, onImport, is
       TargetValue: '0',
       MinimumValue: '0',
       Unit: '',
-      Frequency: bulkFreq || 'MONTHLY',
+      Frequency: bulkFreq || (periodsData?.content?.find((p: any) => p.name === bulkPeriod)?.periodType) || 'MONTHLY',
       EmployeeCode: bulkEmpCode || '',
-      Period: bulkPeriod || '',
-      OrgUnit: bulkOrgUnit || '',
+      Period: bulkPeriod || newestPeriod || '',
+      OrgUnit: (bulkOrgUnits.length === 1 ? bulkOrgUnits[0] : '') || '',
       ObjectiveCode: '',
       KeyResultCode: '',
     })
@@ -379,17 +419,18 @@ export default function KpiExcelPreviewModal({ open, file, onClose, onImport, is
   }
 
   const handleBulkApply = () => {
-    if (!bulkFreq && !bulkPeriod && !bulkOrgUnit && !bulkEmpCode) {
+    if (!bulkFreq && !bulkPeriod && !bulkOrgUnits.length && !bulkEmpCode) {
       toast.error('Vui lòng chọn ít nhất một giá trị để áp dụng')
       return
     }
 
+    const singleOrgUnit = bulkOrgUnits.length === 1 ? bulkOrgUnits[0] : ''
     setData(prev => prev.map(row => {
       const updated = {
         ...row,
         Frequency: bulkFreq || row.Frequency,
         Period: bulkPeriod || row.Period,
-        OrgUnit: bulkOrgUnit || row.OrgUnit,
+        OrgUnit: singleOrgUnit || row.OrgUnit,
         EmployeeCode: bulkEmpCode || row.EmployeeCode,
       }
       return validateRow(updated)
@@ -415,26 +456,33 @@ export default function KpiExcelPreviewModal({ open, file, onClose, onImport, is
       return
     }
 
-    // Check total weight per unit (OrgUnit + Period)
-    const uniqueGroups = Array.from(new Set(data.map(r => `${r.OrgUnit}|${r.Period}`)))
-    
-    // Check total weight per employee (Employee + Period)
+    // Check total weight per unit (individual OrgUnit + Period)
+    const uniqueGroups = Array.from(new Set(data.flatMap(r => {
+      const orgNames = r.OrgUnit.split(',').map((s: string) => s.trim()).filter(Boolean)
+      return orgNames.map(name => `${name}|${r.Period}`)
+    })))
+
+    // Check total weight per employee per org unit (Employee + Period + OrgUnit)
     const employeeGroups = Array.from(new Set(data.flatMap(r => {
-      const codes = r.EmployeeCode.split(',').map(s => s.trim()).filter(Boolean)
-      return codes.map(c => `${c}|${r.Period}`)
+      const codes = r.EmployeeCode.split(',').map((s: string) => s.trim()).filter(Boolean)
+      const orgNames = r.OrgUnit.split(',').map((s: string) => s.trim()).filter(Boolean)
+      return codes.flatMap(c => orgNames.map(org => `${c}|${r.Period}|${org}`))
     })))
 
     setLoading(true)
-    
+
     // Validate OrgUnits
     const unitValidations = await Promise.all(uniqueGroups.map(async (groupKey) => {
       const [unitName, periodName] = groupKey.split('|')
       if (!unitName || !periodName) return { name: unitName, total: 0, isValid: true }
 
       const excelWeight = data
-        .filter(r => r.OrgUnit === unitName && r.Period === periodName)
+        .filter(r => {
+          const orgNames = r.OrgUnit.split(',').map((s: string) => s.trim())
+          return orgNames.includes(unitName) && r.Period === periodName
+        })
         .reduce((sum, r) => sum + (parseFloat(r.Weight) || 0), 0)
-      
+
       const unitId = flatOrgUnits.find(u => u.name === unitName)?.id
       const periodId = periodsData?.content?.find((p: any) => p.name === periodName)?.id
 
@@ -450,28 +498,33 @@ export default function KpiExcelPreviewModal({ open, file, onClose, onImport, is
     }))
 
 
-    // Validate Employees
+    // Validate Employees per org unit
     const empValidations = await Promise.all(employeeGroups.map(async (groupKey) => {
-      const [empCode, periodName] = groupKey.split('|')
-      if (!empCode || !periodName) return { name: empCode, total: 0, isValid: true }
+      const [empCode, periodName, orgName] = groupKey.split('|')
+      if (!empCode || !periodName || !orgName) return { name: empCode ?? '', total: 0, isValid: true }
 
       const excelWeight = data
-        .filter(r => r.EmployeeCode.includes(empCode) && r.Period === periodName)
+        .filter(r => {
+          const codes = r.EmployeeCode.split(',').map((s: string) => s.trim())
+          const orgNames = r.OrgUnit.split(',').map((s: string) => s.trim())
+          return codes.includes(empCode) && orgNames.includes(orgName) && r.Period === periodName
+        })
         .reduce((sum, r) => sum + (parseFloat(r.Weight) || 0), 0)
-      
+
       const userObj = allUsers.find(u => u.employeeCode === empCode)
       const periodId = periodsData?.content?.find((p: any) => p.name === periodName)?.id
+      const unitId = flatOrgUnits.find(u => u.name === orgName)?.id
 
       let systemWeight = 0
-      if (userObj?.id && periodId) {
+      if (userObj?.id && periodId && unitId) {
         try {
-          systemWeight = await kpiApi.getTotalWeight(undefined, periodId, userObj.id)
+          systemWeight = await kpiApi.getTotalWeight(unitId, periodId, userObj.id)
         } catch (e) {}
       }
 
       const total = systemWeight + excelWeight
       const fullName = userObj?.fullName || empCode
-      return { name: fullName, code: empCode, periodName, total, isValid: Math.abs(total - 100) < 0.01 }
+      return { name: fullName, code: empCode, periodName, orgName, total, isValid: Math.abs(total - 100) < 0.01 }
     }))
 
 
@@ -486,8 +539,8 @@ export default function KpiExcelPreviewModal({ open, file, onClose, onImport, is
       }
 
       if (invalidEmps.length > 0) {
-        const errorMsg = invalidEmps.map(v => `${v.name} [${v.periodName}] (${v.total.toFixed(1)}%)`).join(', ')
-        toast.error(`Tổng trọng số mỗi nhân viên phải đạt 100%. Kiểm tra: ${errorMsg}`)
+        const errorMsg = invalidEmps.map(v => `${v.name} / ${(v as any).orgName || ''} [${v.periodName}] (${v.total.toFixed(1)}%)`).join(', ')
+        toast.error(`Tổng trọng số mỗi nhân viên theo đơn vị phải đạt 100%. Kiểm tra: ${errorMsg}`)
       }
 
       return
@@ -563,16 +616,22 @@ export default function KpiExcelPreviewModal({ open, file, onClose, onImport, is
                 
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                   {(() => {
-                    const uniquePairs = Array.from(new Set(data.map(r => `${r.OrgUnit}|${r.Period}`)))
+                    const uniquePairs = Array.from(new Set(data.flatMap(r => {
+                      const orgNames = r.OrgUnit.split(',').map((s: string) => s.trim()).filter(Boolean)
+                      return orgNames.map(name => `${name}|${r.Period}`)
+                    })))
                     return uniquePairs.map(pair => {
                       const [unitName, periodName] = pair.split('|')
                       if (!unitName || !periodName) return null
-                      
+
                       const unitId = flatOrgUnits.find(u => u.name === unitName)?.id
                       const periodId = periodsData?.content?.find((p: any) => p.name === periodName)?.id
-                      
+
                       const excelWeight = data
-                        .filter(r => r.OrgUnit === unitName && r.Period === periodName)
+                        .filter(r => {
+                          const orgNames = r.OrgUnit.split(',').map((s: string) => s.trim())
+                          return orgNames.includes(unitName) && r.Period === periodName
+                        })
                         .reduce((sum, r) => sum + (parseFloat(r.Weight) || 0), 0)
                       
                       return (
@@ -618,25 +677,32 @@ export default function KpiExcelPreviewModal({ open, file, onClose, onImport, is
                           <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                             {(() => {
                               const uniqueEmpPairs = Array.from(new Set(data.flatMap(r => {
-                                const codes = r.EmployeeCode.split(',').map(s => s.trim()).filter(Boolean)
-                                return codes.map(c => `${c}|${r.Period}|${r.OrgUnit}`)
+                                const codes = r.EmployeeCode.split(',').map((s: string) => s.trim()).filter(Boolean)
+                                const orgNames = r.OrgUnit.split(',').map((s: string) => s.trim()).filter(Boolean)
+                                return codes.flatMap(c => orgNames.map(org => `${c}|${r.Period}|${org}`))
                               })))
 
                               return uniqueEmpPairs.map(pair => {
                                 const [empCode, periodName, unitName] = pair.split('|')
-                                if (!empCode || !periodName) return null
-                                
+                                if (!empCode || !periodName || !unitName) return null
+
                                 const userObj = allUsers.find(u => u.employeeCode === empCode)
                                 const periodId = periodsData?.content?.find((p: any) => p.name === periodName)?.id
-                                
+                                const unitId = flatOrgUnits.find(u => u.name === unitName)?.id
+
                                 const excelWeight = data
-                                  .filter(r => r.EmployeeCode.includes(empCode) && r.Period === periodName)
+                                  .filter(r => {
+                                    const codes = r.EmployeeCode.split(',').map((s: string) => s.trim())
+                                    const orgNames = r.OrgUnit.split(',').map((s: string) => s.trim())
+                                    return codes.includes(empCode) && orgNames.includes(unitName) && r.Period === periodName
+                                  })
                                   .reduce((sum, r) => sum + (parseFloat(r.Weight) || 0), 0)
-                                
+
                                 return (
-                                  <EmployeeWeightRow 
+                                  <EmployeeWeightRow
                                     key={`emp-row-${pair}`}
                                     userId={userObj?.id}
+                                    orgUnitId={unitId}
                                     fullName={userObj?.fullName || empCode}
                                     empCode={empCode}
                                     unitName={unitName || ''}
@@ -674,7 +740,7 @@ export default function KpiExcelPreviewModal({ open, file, onClose, onImport, is
                     <h3 className="text-sm font-black text-slate-900 dark:text-white uppercase tracking-tight">Thiết lập hàng loạt</h3>
                     <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Gán nhanh thông tin cho tất cả các dòng</p>
                   </div>
-                </div>
+                  </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-4 lg:grid-cols-5 gap-4">
                   <div className="space-y-1.5">
@@ -706,15 +772,70 @@ export default function KpiExcelPreviewModal({ open, file, onClose, onImport, is
                   </div>
 
                   <div className="space-y-1.5">
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Phòng ban</label>
-                    <select 
-                      value={bulkOrgUnit}
-                      onChange={e => setBulkOrgUnit(e.target.value)}
-                      className="w-full px-4 py-2.5 rounded-2xl bg-white dark:bg-slate-800 border-none shadow-sm text-sm font-bold focus:ring-2 focus:ring-indigo-500"
-                    >
-                      <option value="">-- Chọn phòng ban --</option>
-                      {flatOrgUnits.map((u: any) => <option key={u.id} value={u.name}>{u.name} ({u.code})</option>)}
-                    </select>
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">
+                      Phòng ban {bulkOrgUnits.length > 0 && <span className="text-indigo-600">({bulkOrgUnits.length})</span>}
+                    </label>
+                    <div className="relative" ref={bulkOrgDropdownRef}>
+                      {isBulkOrgOpen && (
+                        <div className="fixed inset-0 z-40" onClick={() => setIsBulkOrgOpen(false)} />
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => setIsBulkOrgOpen(v => !v)}
+                        className="w-full px-4 py-2.5 rounded-2xl bg-white dark:bg-slate-800 shadow-sm text-sm font-bold text-left flex items-center justify-between relative z-50"
+                      >
+                        <span className={cn(bulkOrgUnits.length === 0 ? 'text-slate-400' : 'text-slate-900 dark:text-white')}>
+                          {bulkOrgUnits.length === 0 ? '-- Chọn phòng ban --' : `${bulkOrgUnits.length} phòng ban đã chọn`}
+                        </span>
+                        <ChevronDown size={14} className={cn('text-slate-400 transition-transform', isBulkOrgOpen && 'rotate-180')} />
+                      </button>
+
+                      {isBulkOrgOpen && (
+                        <div className="absolute top-full left-0 w-full mt-1 bg-white dark:bg-slate-800 rounded-2xl shadow-2xl border border-slate-100 dark:border-slate-700 z-50 max-h-56 overflow-y-auto p-2 space-y-0.5">
+                          {flatOrgUnits.map((u: any) => {
+                            const isChecked = bulkOrgUnits.includes(u.name)
+                            return (
+                              <button
+                                key={u.id}
+                                type="button"
+                                onClick={() => setBulkOrgUnits(prev =>
+                                  isChecked ? prev.filter(n => n !== u.name) : [...prev, u.name]
+                                )}
+                                className={cn(
+                                  'w-full text-left px-3 py-2 rounded-xl flex items-center justify-between transition-colors',
+                                  isChecked
+                                    ? 'bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300'
+                                    : 'hover:bg-slate-50 dark:hover:bg-slate-700/50'
+                                )}
+                              >
+                                <div className="flex flex-col">
+                                  <span className="text-sm font-bold">{u.name}</span>
+                                  <span className="text-[10px] text-slate-400 uppercase font-bold">{u.code}</span>
+                                </div>
+                                {isChecked && <Check size={14} className="text-indigo-600 shrink-0" />}
+                              </button>
+                            )
+                          })}
+                        </div>
+                      )}
+
+                      {bulkOrgUnits.length > 0 && (
+                        <div className="flex flex-wrap gap-1 mt-2">
+                          {bulkOrgUnits.map(name => (
+                            <span key={name} className="flex items-center gap-1 pl-2.5 pr-1.5 py-1 bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 rounded-lg text-[10px] font-black max-w-full">
+                              <span className="truncate max-w-[120px]">{name}</span>
+                              <button
+                                type="button"
+                                onClick={() => setBulkOrgUnits(prev => prev.filter(n => n !== name))}
+                                className="hover:text-indigo-900 dark:hover:text-indigo-100 ml-0.5 shrink-0"
+                              >
+                                <X size={10} />
+                              </button>
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
                   </div>
 
                   <div className="space-y-1.5">
@@ -740,15 +861,19 @@ export default function KpiExcelPreviewModal({ open, file, onClose, onImport, is
                           const effectiveSearch = isExactMatch ? '' : lastPart
 
                           const filtered = allUsers.filter(u => {
-                            const matchesOrg = !bulkOrgUnit || u.memberships?.some(m => 
-                              m.orgUnitName?.toLowerCase().trim() === bulkOrgUnit.toLowerCase().trim()
+                            const matchesOrg = !bulkOrgUnits.length || bulkOrgUnits.some(orgName =>
+                              u.memberships?.some(m =>
+                                m.orgUnitName?.toLowerCase().trim() === orgName.toLowerCase().trim()
+                              )
                             )
                             const isSelected = u.employeeCode && selectedCodes.includes(u.employeeCode)
-                            const matchesSearch = !effectiveSearch || 
-                              u.fullName.toLowerCase().includes(effectiveSearch) || 
+                            const matchesSearch = !effectiveSearch ||
+                              u.fullName.toLowerCase().includes(effectiveSearch) ||
                               u.employeeCode?.toLowerCase().includes(effectiveSearch)
-                            
-                            return matchesOrg && (isSelected || matchesSearch)
+                            const isLeader = u.memberships?.some(m => m.roleRank === 0) || u.permissions?.includes('SUBMISSION:REVIEW')
+                            const waterfallCheck = !enableWaterfall || isLeader || isSelected
+
+                            return matchesOrg && (isSelected || matchesSearch) && waterfallCheck
                           })
 
                           // Sort: selected ones first
@@ -946,15 +1071,22 @@ export default function KpiExcelPreviewModal({ open, file, onClose, onImport, is
                                   const effectiveSearch = isExactMatch ? '' : lastPart
 
                                   const filtered = allUsers.filter(u => {
-                                    const matchesOrg = !row.OrgUnit || u.memberships?.some(m => 
-                                      m.orgUnitName?.toLowerCase().trim() === row.OrgUnit.toLowerCase().trim()
+                                    const rowOrgNames = row.OrgUnit
+                                      ? row.OrgUnit.split(',').map((s: string) => s.trim()).filter(Boolean)
+                                      : []
+                                    const matchesOrg = !rowOrgNames.length || rowOrgNames.some(orgName =>
+                                      u.memberships?.some(m =>
+                                        m.orgUnitName?.toLowerCase().trim() === orgName.toLowerCase().trim()
+                                      )
                                     )
                                     const isSelected = u.employeeCode && selectedCodes.includes(u.employeeCode)
                                     const matchesSearch = !effectiveSearch || 
                                       u.fullName.toLowerCase().includes(effectiveSearch) || 
                                       u.employeeCode?.toLowerCase().includes(effectiveSearch)
+                                    const isLeader = u.memberships?.some(m => m.roleRank === 0) || u.permissions?.includes('SUBMISSION:REVIEW')
+                                    const waterfallCheck = !enableWaterfall || isLeader || isSelected
                                     
-                                    return matchesOrg && (isSelected || matchesSearch)
+                                    return matchesOrg && (isSelected || matchesSearch) && waterfallCheck
                                   })
 
                                   return filtered.sort((a, b) => {
@@ -1023,18 +1155,45 @@ export default function KpiExcelPreviewModal({ open, file, onClose, onImport, is
                             </select>
                             {row._errors?.Period && <p className="text-[9px] text-rose-500 mt-1 font-black uppercase px-2">{row._errors.Period}</p>}
                           </td>
-                          <td className="px-5 py-3">
-                            <select
-                              value={row.OrgUnit}
-                              onChange={e => handleCellChange(row.id, 'OrgUnit', e.target.value)}
-                              className={cn(
-                                "w-full px-4 py-2 rounded-xl border text-sm font-bold transition-all bg-transparent outline-none",
-                                row._errors?.OrgUnit ? "border-rose-300 bg-rose-50" : "border-transparent hover:border-slate-200 focus:border-indigo-500"
-                              )}
-                            >
-                              <option value="">-- Chọn phòng ban --</option>
-                              {flatOrgUnits.map((u: any) => <option key={u.id} value={u.name}>{u.name} ({u.code})</option>)}
-                            </select>
+                          <td className="px-5 py-3 min-w-[240px]">
+                            {(() => {
+                              const selectedOrgNames = row.OrgUnit
+                                ? row.OrgUnit.split(',').map((s: string) => s.trim()).filter(Boolean)
+                                : []
+                              return (
+                                <div>
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      if (openOrgDropdownId === row.id) {
+                                        setOpenOrgDropdownId(null)
+                                        setOrgDropdownPos(null)
+                                      } else {
+                                        const rect = e.currentTarget.getBoundingClientRect()
+                                        const dropdownH = 220
+                                        const showAbove = rect.bottom + dropdownH > window.innerHeight && rect.top > dropdownH
+                                        setOrgDropdownPos({
+                                          top: showAbove ? rect.top - dropdownH - 4 : rect.bottom + 4,
+                                          left: rect.left,
+                                        })
+                                        setOpenOrgDropdownId(row.id)
+                                      }
+                                    }}
+                                    className={cn(
+                                      'w-full px-3 py-2 rounded-xl border text-sm font-bold transition-all text-left flex items-center justify-between',
+                                      row._errors?.OrgUnit
+                                        ? 'border-rose-300 bg-rose-50 dark:bg-rose-900/10'
+                                        : 'border-transparent hover:border-slate-200 dark:hover:border-slate-700'
+                                    )}
+                                  >
+                                    <span className={cn('truncate', !selectedOrgNames.length && 'text-slate-400 font-normal')}>
+                                      {selectedOrgNames.length ? selectedOrgNames.join(', ') : '-- Chọn --'}
+                                    </span>
+                                    <ChevronDown size={12} className="text-slate-400 shrink-0 ml-1" />
+                                  </button>
+                                </div>
+                              )
+                            })()}
                             {row._errors?.OrgUnit && <p className="text-[9px] text-rose-500 mt-1 font-black uppercase px-2">{row._errors.OrgUnit}</p>}
                           </td>
                           {enableOkr && (
@@ -1133,6 +1292,53 @@ export default function KpiExcelPreviewModal({ open, file, onClose, onImport, is
           </div>
         </div>
       </div>
+
+      {/* OrgUnit multi-select dropdown — rendered fixed outside the table to avoid overflow clipping */}
+      {openOrgDropdownId && orgDropdownPos && (() => {
+        const activeRow = data.find(r => r.id === openOrgDropdownId)
+        if (!activeRow) return null
+        const selectedOrgNames = activeRow.OrgUnit
+          ? activeRow.OrgUnit.split(',').map((s: string) => s.trim()).filter(Boolean)
+          : []
+        return (
+          <>
+            <div
+              className="fixed inset-0 z-[9998]"
+              onClick={() => { setOpenOrgDropdownId(null); setOrgDropdownPos(null) }}
+            />
+            <div
+              style={{ top: orgDropdownPos.top, left: orgDropdownPos.left }}
+              className="fixed w-64 bg-white dark:bg-slate-800 rounded-2xl shadow-2xl border border-slate-100 dark:border-slate-700 z-[9999] max-h-[220px] overflow-y-auto p-2 space-y-0.5"
+            >
+              {flatOrgUnits.map((u: any) => {
+                const checked = selectedOrgNames.includes(u.name)
+                const newVal = checked
+                  ? selectedOrgNames.filter((n: string) => n !== u.name).join(', ')
+                  : [...selectedOrgNames, u.name].join(', ')
+                return (
+                  <button
+                    key={u.id}
+                    type="button"
+                    onClick={() => handleCellChange(openOrgDropdownId, 'OrgUnit', newVal)}
+                    className={cn(
+                      'w-full text-left px-3 py-2 rounded-xl flex items-center justify-between transition-colors',
+                      checked
+                        ? 'bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300'
+                        : 'hover:bg-slate-50 dark:hover:bg-slate-700/50'
+                    )}
+                  >
+                    <div>
+                      <span className="text-sm font-bold">{u.name}</span>
+                      <span className="text-[10px] text-slate-400 ml-1">({u.code})</span>
+                    </div>
+                    {checked && <Check size={12} className="text-indigo-600 shrink-0" />}
+                  </button>
+                )
+              })}
+            </div>
+          </>
+        )
+      })()}
     </div>
   )
 }
@@ -1205,10 +1411,10 @@ function UnitWeightStatus({ unitId, unitName, periodId, periodName, excelWeight 
   )
 }
 
-function EmployeeWeightRow({ userId, fullName, empCode, unitName, periodId, periodName, excelWeight }: { 
-  userId?: string, fullName: string, empCode: string, unitName: string, periodId?: string, periodName: string, excelWeight: number 
+function EmployeeWeightRow({ userId, orgUnitId, fullName, empCode, unitName, periodId, periodName, excelWeight }: {
+  userId?: string, orgUnitId?: string, fullName: string, empCode: string, unitName: string, periodId?: string, periodName: string, excelWeight: number
 }) {
-  const { data: systemWeight = 0 } = useKpiTotalWeight(undefined, periodId, userId)
+  const { data: systemWeight = 0 } = useKpiTotalWeight(orgUnitId, periodId, userId)
   const total = systemWeight + excelWeight
   const isPerfect = Math.abs(total - 100) < 0.01
   const isOver = total > 100.01

@@ -13,6 +13,7 @@ export const FREQUENCY_MAP: Record<KpiFrequency, string> = {
   QUARTERLY: 'Hàng quý',
   SEMI_ANNUALLY: '6 tháng',
   YEARLY: 'Hàng năm',
+  UNLIMITED: 'Không giới hạn',
 }
 
 export const STATUS_CONFIG: Record<KpiStatus, { label: string; color: string; bgColor: string; icon: any }> = {
@@ -76,9 +77,9 @@ export function formatPeriod(period: string): string {
   return period
 }
 
-export function formatNumber(value: number): string {
+export function formatNumber(value: number, maxDecimals: number = 2): string {
   return new Intl.NumberFormat('vi-VN', {
-    maximumFractionDigits: 0
+    maximumFractionDigits: maxDecimals
   }).format(value)
 }
 

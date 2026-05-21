@@ -126,9 +126,29 @@ public class EvaluationService {
         evaluation.setScore(request.getScore());
         evaluation.setComment(request.getComment());
         evaluation.setSystemScore(calculateSystemScore(evaluatedUser.getId(), kpiPeriod.getId(), (double) org.getEvaluationMaxScore()));
+        evaluation.setPeriodStart(kpiPeriod.getStartDate());
+        evaluation.setPeriodEnd(kpiPeriod.getEndDate());
 
         evaluation = evaluationRepository.save(evaluation);
         return enrichResponse(evaluation);
+    }
+
+    @Transactional(readOnly = true)
+    public Double getSystemScore(UUID kpiPeriodId, UUID userId) {
+        User currentUser = getCurrentUser();
+        UUID targetUserId = userId != null ? userId : currentUser.getId();
+
+        com.kpitracking.entity.KpiPeriod kpiPeriod = kpiPeriodRepository.findById(kpiPeriodId)
+                .orElseThrow(() -> new ResourceNotFoundException("Kỳ đánh giá (Đợt)", "id", kpiPeriodId));
+
+        java.util.List<com.kpitracking.entity.UserRoleOrgUnit> evaluatedUserAssignments = userRoleOrgUnitRepository.findByUserId(targetUserId);
+        if (evaluatedUserAssignments.isEmpty()) {
+            return 0.0;
+        }
+        OrgUnit targetOrgUnit = evaluatedUserAssignments.get(0).getOrgUnit();
+        com.kpitracking.entity.Organization org = targetOrgUnit.getOrgHierarchyLevel().getOrganization();
+
+        return calculateSystemScore(targetUserId, kpiPeriodId, (double) org.getEvaluationMaxScore());
     }
 
     private Double calculateSystemScore(UUID userId, UUID kpiPeriodId, Double maxScore) {
@@ -151,8 +171,14 @@ public class EvaluationService {
         for (KpiCriteria kpi : kpis) {
             if (kpi.getTargetValue() != null && kpi.getTargetValue() > 0 && kpi.getWeight() != null) {
                 double actual = calculateKpiActualValue(kpi, userId, enableWaterfall);
-                
-                double score = (actual / kpi.getTargetValue()) * kpi.getWeight() * (maxScore / 100.0);
+                boolean isInverse = kpi.getMinimumValue() != null && kpi.getTargetValue() < kpi.getMinimumValue();
+                double ratio;
+                if (isInverse) {
+                    ratio = Math.max(0.0, 2.0 - (actual / kpi.getTargetValue()));
+                } else {
+                    ratio = actual / kpi.getTargetValue();
+                }
+                double score = ratio * kpi.getWeight() * (maxScore / 100.0);
                 total += score;
             }
         }
@@ -326,20 +352,25 @@ public class EvaluationService {
 
                 if (bestEvalUro != null && bestEvalUro.getRole() != null) {
                     com.kpitracking.entity.Role r = bestEvalUro.getRole();
-                    int roleLevel = r.getLevel();
-                    int roleRank = r.getRank();
+                    Integer roleLevel = r.getLevel();
+                    Integer roleRank = r.getRank();
+                    response.setEvaluatorRoleLevel(roleLevel);
                     response.setOrgUnitLevel(evaluation.getOrgUnit().getOrgHierarchyLevel().getLevelOrder());
 
-                    if (roleLevel == 0) {
-                        response.setEvaluatorRole("CEO");
-                    } else if (roleLevel == 1) {
-                        response.setEvaluatorRole("REGIONAL_DIRECTOR");
-                    } else if (roleLevel == 2) {
-                        response.setEvaluatorRole("DIRECTOR"); // Company level head is a Director
-                    } else if (roleLevel == 3) {
-                        response.setEvaluatorRole("DEPT_HEAD");
-                    } else if (roleLevel == 4) {
-                        response.setEvaluatorRole("TEAM_LEADER");
+                    if (roleLevel != null) {
+                        if (roleLevel == 0) {
+                            response.setEvaluatorRole("CEO");
+                        } else if (roleLevel == 1) {
+                            response.setEvaluatorRole("REGIONAL_DIRECTOR");
+                        } else if (roleLevel == 2) {
+                            response.setEvaluatorRole("DIRECTOR"); 
+                        } else if (roleLevel == 3) {
+                            response.setEvaluatorRole("DEPT_HEAD");
+                        } else if (roleLevel == 4) {
+                            response.setEvaluatorRole("TEAM_LEADER");
+                        } else {
+                            response.setEvaluatorRole("MANAGER");
+                        }
                     } else {
                         response.setEvaluatorRole("MANAGER");
                     }

@@ -1,5 +1,5 @@
 export type KpiStatus = 'DRAFT' | 'PENDING_APPROVAL' | 'APPROVED' | 'REJECTED' | 'INACTIVE' | 'EDIT' | 'EDITED'
-export type KpiFrequency = 'DAILY' | 'WEEKLY' | 'MONTHLY' | 'QUARTERLY' | 'SEMI_ANNUALLY' | 'YEARLY'
+export type KpiFrequency = 'DAILY' | 'WEEKLY' | 'MONTHLY' | 'QUARTERLY' | 'SEMI_ANNUALLY' | 'YEARLY' | 'UNLIMITED'
 
 export interface KpiPeriod {
   id: string
@@ -48,6 +48,9 @@ export interface KpiCriteria {
   parentName: string | null
   createdAt: string
   updatedAt: string
+  hasChildren?: boolean
+  delegatedToNames?: string[]
+  delegatedToIds?: string[]
 }
 
 // Matches BE: CreateKpiCriteriaRequest

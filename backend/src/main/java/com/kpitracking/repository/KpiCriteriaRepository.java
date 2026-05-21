@@ -171,6 +171,9 @@ public interface KpiCriteriaRepository extends JpaRepository<KpiCriteria, UUID> 
     @Query("SELECT COALESCE(SUM(k.weight), 0.0) FROM KpiCriteria k JOIN k.assignees a WHERE a.id = :userId AND (:kpiPeriodId IS NULL OR k.kpiPeriod.id = :kpiPeriodId) AND k.status IN :statuses")
     Double sumWeightByUserIdAndKpiPeriodIdAndStatusIn(@Param("userId") UUID userId, @Param("kpiPeriodId") UUID kpiPeriodId, @Param("statuses") List<KpiStatus> statuses);
 
+    @Query("SELECT COALESCE(SUM(k.weight), 0.0) FROM KpiCriteria k JOIN k.assignees a WHERE a.id = :userId AND k.orgUnit.id = :orgUnitId AND k.kpiPeriod.id = :kpiPeriodId AND k.status IN :statuses")
+    Double sumWeightByUserIdAndOrgUnitIdAndKpiPeriodIdAndStatusIn(@Param("userId") UUID userId, @Param("orgUnitId") UUID orgUnitId, @Param("kpiPeriodId") UUID kpiPeriodId, @Param("statuses") List<KpiStatus> statuses);
+
     @Query("SELECT DISTINCT k FROM KpiCriteria k LEFT JOIN k.assignees a JOIN FETCH k.kpiPeriod " +
            "LEFT JOIN FETCH k.keyResult kr LEFT JOIN FETCH kr.objective obj WHERE " +
            "(a.id = :userId OR k.createdBy.id = :userId) AND " +
@@ -194,4 +197,6 @@ public interface KpiCriteriaRepository extends JpaRepository<KpiCriteria, UUID> 
     );
 
     List<KpiCriteria> findByParentId(UUID parentId);
+
+    boolean existsByParentAndAssigneesContains(com.kpitracking.entity.KpiCriteria parent, com.kpitracking.entity.User assignee);
 }

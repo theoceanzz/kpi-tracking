@@ -31,6 +31,8 @@ public class SubmissionResponse {
     private Double weight;
     private KpiPeriodInfo kpiPeriod;
     private List<AttachmentResponse> attachments;
+    private UUID parentSubmissionId;
+    private Boolean allChildrenApproved;
 
     @Getter @Setter @Builder @NoArgsConstructor @AllArgsConstructor
     public static class KpiPeriodInfo {

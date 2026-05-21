@@ -97,7 +97,8 @@ public class RolePermissionConstants {
             "NOTIF:VIEW", "KPI_PERIOD:VIEW",
             "AI:SUGGEST_KPI",
             "STATS:VIEW_EMPLOYEE",
-            "ATTACHMENT:UPLOAD"
+            "ATTACHMENT:UPLOAD",
+            "REMINDER:SEND"
     );
 
     // ----------------------------------------------------------------

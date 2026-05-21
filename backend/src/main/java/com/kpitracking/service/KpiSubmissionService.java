@@ -12,8 +12,8 @@ import com.kpitracking.entity.User;
 import com.kpitracking.enums.KpiFrequency;
 import com.kpitracking.enums.KpiStatus;
 import com.kpitracking.enums.SubmissionStatus;
-import com.kpitracking.event.KpiSubmittedEvent;
-import com.kpitracking.event.SubmissionReviewedEvent;
+import com.kpitracking.event.KpiEvents.KpiSubmittedEvent;
+import com.kpitracking.event.KpiEvents.SubmissionReviewedEvent;
 import com.kpitracking.exception.BusinessException;
 import com.kpitracking.exception.ForbiddenException;
 import com.kpitracking.exception.ResourceNotFoundException;
@@ -107,22 +107,23 @@ public class KpiSubmissionService {
         Instant pEnd = request.getPeriodEnd() != null ? request.getPeriodEnd().atStartOfDay(java.time.ZoneOffset.UTC).toInstant() : null;
 
         // --- NEW: Frequency Rules & Submission Limit ---
-        long currentCount = kpi.getSubmissions().stream()
-                .filter(s -> s.getDeletedAt() == null &&
-                        s.getSubmittedBy().getId().equals(currentUser.getId()) &&
-                        (s.getStatus() == SubmissionStatus.PENDING || 
-                         s.getStatus() == SubmissionStatus.APPROVED ||
-                         s.getStatus() == SubmissionStatus.REJECTED))
-                .count();
+        if (kpi.getFrequency() != KpiFrequency.UNLIMITED) {
+            long currentCount = kpi.getSubmissions().stream()
+                    .filter(s -> s.getDeletedAt() == null &&
+                            s.getSubmittedBy().getId().equals(currentUser.getId()) &&
+                            (s.getStatus() == SubmissionStatus.PENDING ||
+                             s.getStatus() == SubmissionStatus.APPROVED ||
+                             s.getStatus() == SubmissionStatus.REJECTED))
+                    .count();
 
-        int expected = 1;
-        if (kpi.getFrequency() != null && kpi.getKpiPeriod() != null) {
-            // Re-using the logic from mapper to calculate expected count
-            expected = calculateExpected(kpi.getFrequency(), kpi.getKpiPeriod().getPeriodType());
-        }
+            int expected = 1;
+            if (kpi.getFrequency() != null && kpi.getKpiPeriod() != null) {
+                expected = calculateExpected(kpi.getFrequency(), kpi.getKpiPeriod().getPeriodType());
+            }
 
-        if (currentCount >= expected) {
-            throw new BusinessException("Bạn đã nộp đủ số lượng báo cáo cho chỉ tiêu này (" + currentCount + "/" + expected + ").");
+            if (currentCount >= expected) {
+                throw new BusinessException("Bạn đã nộp đủ số lượng báo cáo cho chỉ tiêu này (" + currentCount + "/" + expected + ").");
+            }
         }
 
         if (kpi.getFrequency() == KpiFrequency.MONTHLY) {
@@ -161,17 +162,31 @@ public class KpiSubmissionService {
 
         if (request.getActualValue() != null && kpi.getTargetValue() != null && kpi.getWeight() != null && kpi.getTargetValue() != 0) {
             Double minVal = kpi.getMinimumValue() != null ? kpi.getMinimumValue() : 0.0;
+            boolean isInverse = kpi.getMinimumValue() != null && kpi.getTargetValue() < kpi.getMinimumValue();
             
-            // --- NEW: Auto-rejection Rule ---
-            if (request.getActualValue() < minVal) {
-                finalStatus = SubmissionStatus.REJECTED;
-                autoReviewNote = "Hệ thống tự động TỪ CHỐI do số liệu thực tế (" + request.getActualValue() + 
-                                 ") thấp hơn mức tối thiểu yêu cầu (" + minVal + ").";
-                reviewedAt = Instant.now();
+            if (isInverse) {
+                if (request.getActualValue() > minVal) {
+                    finalStatus = SubmissionStatus.REJECTED;
+                    autoReviewNote = "Hệ thống tự động TỪ CHỐI do số liệu thực tế (" + request.getActualValue() + 
+                                     ") vượt quá mức tối đa cho phép (" + minVal + ").";
+                    reviewedAt = Instant.now();
+                } else {
+                    com.kpitracking.entity.Organization org = kpi.getOrgUnit().getOrgHierarchyLevel().getOrganization();
+                    double multiplier = org.getEvaluationMaxScore() / 100.0;
+                    double ratio = Math.max(0.0, 2.0 - (request.getActualValue() / kpi.getTargetValue()));
+                    autoScore = ratio * kpi.getWeight() * multiplier;
+                }
             } else {
-                com.kpitracking.entity.Organization org = kpi.getOrgUnit().getOrgHierarchyLevel().getOrganization();
-                double multiplier = org.getEvaluationMaxScore() / 100.0;
-                autoScore = (request.getActualValue() / kpi.getTargetValue()) * kpi.getWeight() * multiplier;
+                if (request.getActualValue() < minVal) {
+                    finalStatus = SubmissionStatus.REJECTED;
+                    autoReviewNote = "Hệ thống tự động TỪ CHỐI do số liệu thực tế (" + request.getActualValue() + 
+                                     ") thấp hơn mức tối thiểu yêu cầu (" + minVal + ").";
+                    reviewedAt = Instant.now();
+                } else {
+                    com.kpitracking.entity.Organization org = kpi.getOrgUnit().getOrgHierarchyLevel().getOrganization();
+                    double multiplier = org.getEvaluationMaxScore() / 100.0;
+                    autoScore = (request.getActualValue() / kpi.getTargetValue()) * kpi.getWeight() * multiplier;
+                }
             }
         }
         
@@ -234,6 +249,12 @@ public class KpiSubmissionService {
                 .filter(java.util.Objects::nonNull)
                 .min(Integer::compare)
                 .orElse(2);
+        
+        Integer currentUserLevel = currentAssignments.stream()
+                .map(a -> a.getRole().getLevel())
+                .filter(java.util.Objects::nonNull)
+                .min(Integer::compare)
+                .orElse(4);
 
         Page<KpiSubmission> subPage = submissionRepository.findAllWithFilters(
                 currentUser.getId(),
@@ -244,6 +265,7 @@ public class KpiSubmissionService {
                 submittedById,
                 orgUnitPath,
                 currentUserRank,
+                currentUserLevel,
                 pageable
         );
 
@@ -289,15 +311,31 @@ public class KpiSubmissionService {
             KpiCriteria kpi = submission.getKpiCriteria();
             if (submission.getActualValue() != null && kpi.getTargetValue() != null && kpi.getWeight() != null && kpi.getTargetValue() != 0) {
                 Double minVal = kpi.getMinimumValue() != null ? kpi.getMinimumValue() : 0.0;
-                if (submission.getActualValue() < minVal) {
-                    submission.setStatus(SubmissionStatus.REJECTED);
-                    submission.setReviewNote("Hệ thống tự động TỪ CHỐI do số liệu thực tế (" + submission.getActualValue() + 
-                                     ") thấp hơn mức tối thiểu yêu cầu (" + minVal + ").");
-                    submission.setReviewedAt(Instant.now());
+                boolean isInverse = kpi.getMinimumValue() != null && kpi.getTargetValue() < kpi.getMinimumValue();
+                
+                if (isInverse) {
+                    if (submission.getActualValue() > minVal) {
+                        submission.setStatus(SubmissionStatus.REJECTED);
+                        submission.setReviewNote("Hệ thống tự động TỪ CHỐI do số liệu thực tế (" + submission.getActualValue() + 
+                                         ") vượt quá mức tối đa cho phép (" + minVal + ").");
+                        submission.setReviewedAt(Instant.now());
+                    } else {
+                        com.kpitracking.entity.Organization org = kpi.getOrgUnit().getOrgHierarchyLevel().getOrganization();
+                        double multiplier = org.getEvaluationMaxScore() / 100.0;
+                        double ratio = Math.max(0.0, 2.0 - (submission.getActualValue() / kpi.getTargetValue()));
+                        submission.setAutoScore(ratio * kpi.getWeight() * multiplier);
+                    }
                 } else {
-                    com.kpitracking.entity.Organization org = kpi.getOrgUnit().getOrgHierarchyLevel().getOrganization();
-                    double multiplier = org.getEvaluationMaxScore() / 100.0;
-                    submission.setAutoScore((submission.getActualValue() / kpi.getTargetValue()) * kpi.getWeight() * multiplier);
+                    if (submission.getActualValue() < minVal) {
+                        submission.setStatus(SubmissionStatus.REJECTED);
+                        submission.setReviewNote("Hệ thống tự động TỪ CHỐI do số liệu thực tế (" + submission.getActualValue() + 
+                                         ") thấp hơn mức tối thiểu yêu cầu (" + minVal + ").");
+                        submission.setReviewedAt(Instant.now());
+                    } else {
+                        com.kpitracking.entity.Organization org = kpi.getOrgUnit().getOrgHierarchyLevel().getOrganization();
+                        double multiplier = org.getEvaluationMaxScore() / 100.0;
+                        submission.setAutoScore((submission.getActualValue() / kpi.getTargetValue()) * kpi.getWeight() * multiplier);
+                    }
                 }
             }
         } else if (Boolean.TRUE.equals(request.getIsDraft())) {
@@ -386,7 +424,102 @@ public class KpiSubmissionService {
 
         eventPublisher.publishEvent(new SubmissionReviewedEvent(this, submission));
 
-        return mapToResponse(submission);
+        // Auto-rollup for Waterfall Mode
+        com.kpitracking.entity.KpiCriteria kpi = submission.getKpiCriteria();
+        KpiSubmission parentSub = null;
+        Boolean allChildrenApproved = false;
+
+        if (kpi.getParent() != null) {
+            com.kpitracking.entity.Organization org = kpi.getOrgUnit().getOrgHierarchyLevel().getOrganization();
+            if (org != null && Boolean.TRUE.equals(org.getEnableWaterfall())) {
+                parentSub = aggregateToParentKpi(kpi.getParent(), submission.getPeriodStart(), submission.getPeriodEnd());
+                
+                // Check if all children of the parent KPI are approved
+                List<com.kpitracking.entity.KpiCriteria> children = kpiCriteriaRepository.findByParentId(kpi.getParent().getId());
+                boolean allApproved = true;
+                for (com.kpitracking.entity.KpiCriteria child : children) {
+                    List<KpiSubmission> childSubs = submissionRepository.findByKpiCriteriaIdAndDeletedAtIsNull(child.getId());
+                    if (childSubs.isEmpty() || childSubs.stream().noneMatch(s -> s.getStatus() == SubmissionStatus.APPROVED)) {
+                        allApproved = false;
+                        break;
+                    }
+                }
+                allChildrenApproved = allApproved;
+            }
+        }
+
+        SubmissionResponse response = mapToResponse(submission);
+        if (parentSub != null) {
+            response.setParentSubmissionId(parentSub.getId());
+            User parentAssignee = kpi.getParent().getAssignees().isEmpty() ? kpi.getParent().getCreatedBy() : kpi.getParent().getAssignees().get(0);
+            if (parentAssignee != null && parentAssignee.getId().equals(currentUser.getId())) {
+                response.setAllChildrenApproved(allChildrenApproved);
+            } else {
+                response.setAllChildrenApproved(false);
+            }
+        }
+
+        return response;
+    }
+
+    private KpiSubmission aggregateToParentKpi(com.kpitracking.entity.KpiCriteria parentKpi, Instant periodStart, Instant periodEnd) {
+        // Sum all APPROVED actual values of child KPIs
+        List<com.kpitracking.entity.KpiCriteria> children = kpiCriteriaRepository.findByParentId(parentKpi.getId());
+        double totalActual = 0.0;
+        for (com.kpitracking.entity.KpiCriteria child : children) {
+            List<KpiSubmission> childSubs = submissionRepository.findByKpiCriteriaIdAndDeletedAtIsNull(child.getId());
+            totalActual += childSubs.stream()
+                    .filter(s -> s.getStatus() == SubmissionStatus.APPROVED)
+                    .mapToDouble(s -> s.getActualValue() != null ? s.getActualValue() : 0.0)
+                    .sum();
+        }
+
+        // Get the leader (the creator or the first assignee of the parent KPI)
+        User parentAssignee = parentKpi.getAssignees().isEmpty() ? parentKpi.getCreatedBy() : parentKpi.getAssignees().get(0);
+
+        // Find existing parent submission
+        List<KpiSubmission> parentSubs = submissionRepository.findByKpiCriteriaIdAndSubmittedByIdAndDeletedAtIsNull(parentKpi.getId(), parentAssignee.getId());
+        KpiSubmission parentSub;
+        if (!parentSubs.isEmpty()) {
+            parentSub = parentSubs.get(0);
+            if (parentSub.getStatus() == SubmissionStatus.DRAFT) {
+                parentSub.setStatus(SubmissionStatus.PENDING);
+            }
+        } else {
+            parentSub = KpiSubmission.builder()
+                    .orgUnit(parentKpi.getOrgUnit())
+                    .kpiCriteria(parentKpi)
+                    .submittedBy(parentAssignee)
+                    .periodStart(periodStart)
+                    .periodEnd(periodEnd)
+                    .status(SubmissionStatus.PENDING) // Auto-created as pending for upper review
+                    .build();
+        }
+
+        parentSub.setActualValue(totalActual);
+        
+        com.kpitracking.entity.Organization org = parentKpi.getOrgUnit().getOrgHierarchyLevel().getOrganization();
+        Double autoScore = 0.0;
+        if (parentKpi.getTargetValue() != null && parentKpi.getWeight() != null && parentKpi.getTargetValue() != 0) {
+            double multiplier = org.getEvaluationMaxScore() / 100.0;
+            boolean isInverse = parentKpi.getMinimumValue() != null && parentKpi.getTargetValue() < parentKpi.getMinimumValue();
+            
+            if (isInverse) {
+                double ratio = Math.max(0.0, 2.0 - (totalActual / parentKpi.getTargetValue()));
+                autoScore = ratio * parentKpi.getWeight() * multiplier;
+            } else {
+                autoScore = (totalActual / parentKpi.getTargetValue()) * parentKpi.getWeight() * multiplier;
+            }
+        }
+        parentSub.setAutoScore(autoScore);
+
+        if (parentSub.getId() == null) {
+            parentSub.setNote("Tự động tổng hợp từ kết quả của nhân viên");
+        } else {
+            parentSub.setNote("Đã cập nhật tự động từ kết quả của nhân viên");
+        }
+
+        return submissionRepository.save(parentSub);
     }
 
     @Transactional
@@ -423,7 +556,42 @@ public class KpiSubmissionService {
 
             final KpiSubmission savedSubmission = submissionRepository.save(submission);
             eventPublisher.publishEvent(new SubmissionReviewedEvent(this, savedSubmission));
-            results.add(mapToResponse(savedSubmission));
+            
+            // Auto-rollup for Waterfall Mode
+            com.kpitracking.entity.KpiCriteria kpi = savedSubmission.getKpiCriteria();
+            KpiSubmission parentSub = null;
+            Boolean allChildrenApproved = false;
+
+            if (kpi.getParent() != null) {
+                com.kpitracking.entity.Organization org = kpi.getOrgUnit().getOrgHierarchyLevel().getOrganization();
+                if (org != null && Boolean.TRUE.equals(org.getEnableWaterfall())) {
+                    parentSub = aggregateToParentKpi(kpi.getParent(), savedSubmission.getPeriodStart(), savedSubmission.getPeriodEnd());
+                    
+                    // Check if all children of the parent KPI have approved submissions
+                    List<com.kpitracking.entity.KpiCriteria> children = kpiCriteriaRepository.findByParentId(kpi.getParent().getId());
+                    boolean allApproved = true;
+                    for (com.kpitracking.entity.KpiCriteria child : children) {
+                        List<KpiSubmission> childSubs = submissionRepository.findByKpiCriteriaIdAndDeletedAtIsNull(child.getId());
+                        if (childSubs.isEmpty() || childSubs.stream().noneMatch(s -> s.getStatus() == SubmissionStatus.APPROVED)) {
+                            allApproved = false;
+                            break;
+                        }
+                    }
+                    allChildrenApproved = allApproved;
+                }
+            }
+
+            SubmissionResponse resp = mapToResponse(savedSubmission);
+            if (parentSub != null) {
+                resp.setParentSubmissionId(parentSub.getId());
+                User parentAssignee = kpi.getParent().getAssignees().isEmpty() ? kpi.getParent().getCreatedBy() : kpi.getParent().getAssignees().get(0);
+                if (parentAssignee != null && parentAssignee.getId().equals(currentUser.getId())) {
+                    resp.setAllChildrenApproved(allChildrenApproved);
+                } else {
+                    resp.setAllChildrenApproved(false);
+                }
+            }
+            results.add(resp);
         }
 
         return results;
@@ -443,7 +611,8 @@ public class KpiSubmissionService {
                 null, // kpiCriteriaId
                 currentUser.getId(), // submittedById
                 null, // orgUnitPath
-                0, // rank doesn't matter for self-submissions
+                0, // rank
+                0, // level (0 means bypass hierarchical checks since it's self-submission)
                 pageable
         );
 
@@ -476,6 +645,7 @@ public class KpiSubmissionService {
     }
 
     private int calculateExpected(KpiFrequency kpiFreq, KpiFrequency periodType) {
+        if (kpiFreq == KpiFrequency.UNLIMITED) return Integer.MAX_VALUE;
         if (kpiFreq == periodType) return 1;
         if (kpiFreq == KpiFrequency.DAILY) {
             if (periodType == KpiFrequency.MONTHLY) return 30;

@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react'
-import { Link, Navigate } from 'react-router-dom'
-import { 
+import { Link, Navigate, useNavigate } from 'react-router-dom'
+import {
   Target, ShieldCheck, Users, ArrowRight, CheckCircle2,
   BarChart3, Zap, LayoutDashboard, Database, Key, Check, X,
-  Sparkles, Building2, Globe, Server, Search
+  Sparkles, Building2, Globe, Server, Search, Phone,
+  PlayCircle, ChevronRight, Crown, GraduationCap, Eye, EyeOff
 } from 'lucide-react'
 import { useAuthStore } from '@/store/authStore'
 import { cn } from '@/lib/utils'
@@ -68,6 +69,48 @@ export default function LandingPage() {
           </div>
         </div>
       </nav>
+
+      {/* Floating Contact Buttons */}
+      <div className="fixed bottom-8 right-8 z-[100] flex flex-col gap-5 items-center">
+        {/* Zalo Button */}
+        <a 
+          href="https://zalo.me/0904871813" 
+          target="_blank" 
+          rel="noopener noreferrer"
+          className="group relative flex items-center justify-center"
+        >
+          <div className="absolute -inset-2 bg-blue-500/20 rounded-full blur-xl opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+          <div className="absolute inset-0 bg-[#0068ff] rounded-full animate-ping opacity-20" />
+          <div className="relative w-14 h-14 bg-[#0068ff] rounded-full flex items-center justify-center shadow-lg shadow-blue-600/30 group-hover:scale-110 group-hover:-rotate-12 transition-all duration-300">
+             <svg viewBox="0 0 24 24" className="w-8 h-8 fill-white">
+                <path d="M12.015 2c-5.523 0-10 4.029-10 9s4.477 9 10 9c.594 0 1.173-.046 1.733-.133l4.316 2.054a.5.5 0 0 0 .708-.553l-.841-3.693C19.782 16.34 22.015 13.88 22.015 11c0-4.971-4.477-9-10-9zm5.342 12.06c-.145.145-.34.226-.542.226-.203 0-.397-.081-.542-.226l-1.5-1.5a.765.765 0 0 1 0-1.085l1.5-1.5c.3-.3.784-.3 1.085 0 .299.3.299.784 0 1.085L16.35 12l1.007.915c.3.3.3.784 0 1.085v.06z"/>
+             </svg>
+          </div>
+          {/* QR Code Tooltip - Visible on Hover */}
+          <div className="absolute bottom-full right-0 mb-4 px-3 py-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl opacity-0 group-hover:opacity-100 transition-all translate-y-4 group-hover:translate-y-0 pointer-events-none w-56">
+            <img src="/zalo-qr.png" alt="Zalo QR" className="w-full h-auto rounded-lg mb-2" />
+            <div className="text-[10px] font-black text-center text-slate-500 dark:text-slate-400 uppercase tracking-wider">Quét mã để nhắn tin</div>
+          </div>
+          <div className="absolute right-full mr-4 px-4 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-xl text-xs font-black text-slate-900 dark:text-white whitespace-nowrap opacity-0 group-hover:opacity-100 transition-all translate-x-4 group-hover:translate-x-0 pointer-events-none">
+            Chat Zalo: 090 4871813
+          </div>
+        </a>
+
+        {/* Phone Button */}
+        <a 
+          href="tel:0904871813"
+          className="group relative flex items-center justify-center"
+        >
+          <div className="absolute -inset-2 bg-emerald-500/20 rounded-full blur-xl opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+          <div className="absolute inset-0 bg-emerald-500 rounded-full animate-ping opacity-25" />
+          <div className="relative w-14 h-14 bg-emerald-500 rounded-full flex items-center justify-center shadow-lg shadow-emerald-600/30 group-hover:scale-110 group-hover:rotate-12 transition-all duration-300">
+            <Phone className="text-white fill-white/20" size={26} />
+          </div>
+          <div className="absolute right-full mr-4 px-4 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-xl text-xs font-black text-slate-900 dark:text-white whitespace-nowrap opacity-0 group-hover:opacity-100 transition-all translate-x-4 group-hover:translate-x-0 pointer-events-none">
+            Hotline: 090 4871813
+          </div>
+        </a>
+      </div>
 
       {/* Hero Section */}
       <section className="relative pt-40 pb-20 lg:pt-52 lg:pb-32 px-6 overflow-hidden">
@@ -212,13 +255,16 @@ export default function LandingPage() {
         <div className="max-w-[1200px] mx-auto px-6 flex flex-col md:flex-row items-center justify-center gap-10 opacity-60 grayscale hover:grayscale-0 transition-all duration-500">
           <p className="text-sm font-bold uppercase tracking-widest text-slate-500 mr-8 shrink-0">Được tin dùng bởi</p>
           <div className="flex flex-wrap justify-center gap-12 text-slate-400 font-black text-xl tracking-tighter">
-            <span className="flex items-center gap-2"><Building2 size={24}/> NLU</span>
+            <span className="flex items-center gap-2"><Building2 size={24}/> GlobalSoft</span>
             <span className="flex items-center gap-2"><Globe size={24}/> TechCorp</span>
             <span className="flex items-center gap-2"><LayoutDashboard size={24}/> StartupInc</span>
             <span className="flex items-center gap-2"><Database size={24}/> DataSystem</span>
           </div>
         </div>
       </section>
+
+      {/* Demo Section */}
+      <DemoSection />
 
       {/* Features Matrix Section */}
       <section id="features" className="py-32 bg-white dark:bg-slate-900 relative">
@@ -336,8 +382,8 @@ export default function LandingPage() {
             {/* Standard Plan */}
             <PricingCard 
               tier="Standard"
-              price="49.000"
-              unit="VNĐ/user/tháng"
+              price="Liên hệ"
+              unit=""
               description="Phù hợp cho các nhóm nhỏ (< 200 user) cần số hóa đánh giá nhân sự cơ bản."
               features={[
                 { text: "SaaS Multi-tenant, dùng chung Domain", included: true },
@@ -355,8 +401,8 @@ export default function LandingPage() {
             {/* Professional Plan */}
             <PricingCard 
               tier="Professional"
-              price="99.000"
-              unit="VNĐ/user/tháng"
+              price="Liên hệ"
+              unit=""
               description="Giải pháp toàn diện cho doanh nghiệp tầm trung (< 500 user) quản trị OKR & KPI."
               isPopular
               features={[
@@ -375,8 +421,8 @@ export default function LandingPage() {
             {/* Enterprise Plan */}
             <PricingCard 
               tier="Enterprise"
-              price="450 Triệu"
-              unit="VNĐ/năm"
+              price="Liên hệ"
+              unit=""
               description="Giải pháp Dedicated / Onsite cho các tổ chức lớn, bảo mật cao (> 500 user)."
               features={[
                 { text: "Subdomain riêng hoặc Onsite triển khai", included: true },
@@ -384,7 +430,7 @@ export default function LandingPage() {
                 { text: "Tùy chỉnh Dashboard không giới hạn", included: true },
                 { text: "White Label toàn diện (Màu sắc, Login page)", included: true },
                 { text: "SLA hỗ trợ Online 12h / Online-meeting", included: true },
-                { text: "Chi phí nền tảng/nâng cấp: 320tr/năm", included: true },
+                { text: "Hỗ trợ kỹ thuật & Nâng cấp định kỳ", included: true },
                 { text: "Tùy chỉnh luồng nghiệp vụ mức độ cao", included: true },
               ]}
               buttonText="Liên hệ chuyên viên"
@@ -394,7 +440,7 @@ export default function LandingPage() {
           </div>
 
           <div className="mt-16 text-center text-sm font-medium text-slate-500 dark:text-slate-400">
-            * Giá chưa bao gồm VAT. Đối với tính năng <span className="font-bold text-slate-700 dark:text-slate-300">AI Assistant / AI Insight</span> sẽ được tính phí riêng theo nhu cầu thực tế của từng doanh nghiệp.
+            * Vui lòng liên hệ để nhận báo giá chi tiết. Các tính năng <span className="font-bold text-slate-700 dark:text-slate-300">AI Assistant / AI Insight</span> sẽ được tư vấn theo nhu cầu thực tế của từng doanh nghiệp.
           </div>
         </div>
       </section>
@@ -464,7 +510,7 @@ export default function LandingPage() {
         </div>
         <div className="max-w-[1200px] mx-auto border-t border-slate-200 dark:border-slate-800 pt-8 flex flex-col md:flex-row items-center justify-between gap-4">
           <p className="text-slate-500 dark:text-slate-400 font-bold text-sm">
-            © {new Date().getFullYear()} KeyGo Platform. Bản quyền thuộc về Trường ĐH Nông Lâm.
+            © {new Date().getFullYear()} KeyGo Platform.
           </p>
           <div className="flex gap-4">
             <div className="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 cursor-pointer transition-colors">
@@ -475,6 +521,163 @@ export default function LandingPage() {
         </div>
       </footer>
     </div>
+  )
+}
+
+const DEMO_ACCOUNTS = [
+  {
+    email: 'director@demo.com',
+    password: 'Demo123@',
+    role: 'Giám Đốc',
+    org: 'Công ty Demo',
+    levelLabel: '3 cấp phân cấp',
+    levelDesc: 'Trường → Khoa → Bộ môn',
+    icon: Crown,
+    gradient: 'from-indigo-600 to-purple-600',
+    bg: 'from-indigo-50 to-purple-50 dark:from-indigo-900/20 dark:to-purple-900/20',
+    border: 'border-indigo-200 dark:border-indigo-800 hover:border-indigo-400 dark:hover:border-indigo-600',
+    badge: 'bg-indigo-100 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300',
+    chevron: 'text-indigo-500',
+    checkIcon: 'bg-indigo-100 dark:bg-indigo-900/40 text-indigo-600 dark:text-indigo-400',
+    permissions: ['Toàn quyền hệ thống', 'Quản lý cơ cấu tổ chức', 'Duyệt KPI & Đánh giá'],
+  },
+  {
+    email: 'truong.khoa.cntt@demo.edu.vn',
+    password: 'Demo123@',
+    role: 'Trưởng Khoa CNTT',
+    org: 'Giảng Viên Demo',
+    levelLabel: '2 cấp phân cấp',
+    levelDesc: 'Khoa → Bộ môn',
+    icon: GraduationCap,
+    gradient: 'from-emerald-500 to-teal-600',
+    bg: 'from-emerald-50 to-teal-50 dark:from-emerald-900/20 dark:to-teal-900/20',
+    border: 'border-emerald-200 dark:border-emerald-800 hover:border-emerald-400 dark:hover:border-emerald-600',
+    badge: 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300',
+    chevron: 'text-emerald-500',
+    checkIcon: 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-600 dark:text-emerald-400',
+    permissions: ['Quản lý nhân sự khoa', 'Giao KPI & Đánh giá', 'Xem báo cáo đơn vị'],
+  },
+]
+
+function DemoSection() {
+  const navigate = useNavigate()
+  const [revealed, setRevealed] = useState<Record<number, boolean>>({})
+
+  const handleDemoLogin = (account: typeof DEMO_ACCOUNTS[0]) => {
+    navigate('/login', { state: { email: account.email, password: account.password } })
+  }
+
+  return (
+    <section id="demo" className="py-24 bg-slate-50 dark:bg-[#020617] relative overflow-hidden border-y border-slate-200 dark:border-slate-800">
+      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full max-w-3xl h-64 bg-indigo-500/8 dark:bg-indigo-500/15 blur-[100px] rounded-full pointer-events-none" />
+
+      <div className="max-w-[1200px] mx-auto px-6 relative z-10">
+        <div className="text-center mb-14">
+          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm text-indigo-600 dark:text-indigo-400 text-xs font-black uppercase tracking-widest mb-6">
+            <PlayCircle size={14} className="text-indigo-500" />
+            Trải nghiệm Demo miễn phí
+          </div>
+          <h2 className="text-3xl md:text-4xl font-black tracking-tight text-slate-900 dark:text-white mb-4">
+            Đăng nhập thử ngay — <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 to-purple-600">không cần đăng ký</span>
+          </h2>
+          <p className="text-slate-500 dark:text-slate-400 font-medium max-w-xl mx-auto">
+            Chọn một tài khoản demo bên dưới để trải nghiệm hệ thống với dữ liệu thực tế theo từng cấp phân cấp tổ chức.
+          </p>
+        </div>
+
+        <div className="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto">
+          {DEMO_ACCOUNTS.map((account, idx) => {
+            const Icon = account.icon
+            const isRevealed = revealed[idx]
+            return (
+              <div
+                key={idx}
+                className={cn(
+                  'group relative rounded-[32px] p-8 border-2 bg-gradient-to-br transition-all duration-300 cursor-default',
+                  'hover:-translate-y-1 hover:shadow-2xl',
+                  account.bg, account.border,
+                  'shadow-xl'
+                )}
+              >
+                {/* Role badge */}
+                <div className="flex items-start justify-between mb-6">
+                  <div className={cn('inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-black uppercase tracking-wider', account.badge)}>
+                    <Icon size={13} />
+                    {account.role}
+                  </div>
+                  <div className="text-xs font-bold text-slate-500 dark:text-slate-400 bg-white/70 dark:bg-slate-800/70 px-3 py-1 rounded-full border border-slate-200 dark:border-slate-700">
+                    {account.levelLabel}
+                  </div>
+                </div>
+
+                {/* Org & level */}
+                <div className="mb-6">
+                  <p className="text-xl font-black text-slate-900 dark:text-white mb-1">{account.org}</p>
+                  <p className="text-sm text-slate-500 dark:text-slate-400 font-medium flex items-center gap-1.5">
+                    <ChevronRight size={14} className={account.chevron} />
+                    {account.levelDesc}
+                  </p>
+                </div>
+
+                {/* Credentials box */}
+                <div className="bg-white/80 dark:bg-slate-900/70 rounded-2xl p-4 mb-6 border border-slate-200/70 dark:border-slate-700/50 space-y-2.5 backdrop-blur-sm">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] font-black uppercase tracking-wider text-slate-400">Email</span>
+                    <span className="text-sm font-bold text-slate-700 dark:text-slate-200 font-mono">{account.email}</span>
+                  </div>
+                  <div className="h-px bg-slate-200 dark:bg-slate-700" />
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] font-black uppercase tracking-wider text-slate-400">Mật khẩu</span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-bold text-slate-700 dark:text-slate-200 font-mono">
+                        {isRevealed ? account.password : '••••••••'}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setRevealed(prev => ({ ...prev, [idx]: !isRevealed }))}
+                        className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors"
+                      >
+                        {isRevealed ? <EyeOff size={14} /> : <Eye size={14} />}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Permissions list */}
+                <div className="space-y-2 mb-8">
+                  {account.permissions.map((perm, i) => (
+                    <div key={i} className="flex items-center gap-2.5 text-sm text-slate-600 dark:text-slate-400 font-medium">
+                      <div className={cn('w-4 h-4 rounded-full flex items-center justify-center shrink-0', account.checkIcon)}>
+                        <Check size={10} strokeWidth={3} />
+                      </div>
+                      {perm}
+                    </div>
+                  ))}
+                </div>
+
+                {/* CTA Button */}
+                <button
+                  onClick={() => handleDemoLogin(account)}
+                  className={cn(
+                    'w-full py-3.5 rounded-2xl text-sm font-black text-white transition-all flex items-center justify-center gap-2 active:scale-95',
+                    `bg-gradient-to-r ${account.gradient}`,
+                    'shadow-lg hover:shadow-xl hover:opacity-90'
+                  )}
+                >
+                  <PlayCircle size={16} />
+                  Đăng nhập demo ngay
+                  <ArrowRight size={16} className="group-hover:translate-x-1 transition-transform" />
+                </button>
+              </div>
+            )
+          })}
+        </div>
+
+        <p className="text-center text-xs text-slate-400 dark:text-slate-500 font-medium mt-8">
+          Dữ liệu demo được làm mới định kỳ. Mọi thay đổi trong tài khoản demo không ảnh hưởng đến hệ thống thực.
+        </p>
+      </div>
+    </section>
   )
 }
 

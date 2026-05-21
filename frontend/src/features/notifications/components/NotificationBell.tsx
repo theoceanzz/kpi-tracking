@@ -1,10 +1,12 @@
 import { Bell } from 'lucide-react'
 import { useUnreadCount } from '../hooks/useNotifications'
+import { useWebSocketNotifications } from '../hooks/useWebSocketNotifications'
 import { useState, useRef } from 'react'
 import NotificationDropdown from './NotificationDropdown'
 import { useOnClickOutside } from '@/hooks/useOnClickOutside'
 
 export default function NotificationBell() {
+  useWebSocketNotifications()
   const { data: unreadCount } = useUnreadCount()
   const [open, setOpen] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)

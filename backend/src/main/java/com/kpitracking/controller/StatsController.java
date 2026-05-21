@@ -23,6 +23,8 @@ import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
+import com.kpitracking.dto.response.stats.ExportDetailedPerformanceResponse;
+
 @RestController
 @RequestMapping("/api/v1/stats")
 @RequiredArgsConstructor
@@ -30,6 +32,16 @@ import java.util.UUID;
 public class StatsController {
 
     private final StatsService statsService;
+
+    @GetMapping("/detailed-export")
+    @PreAuthorize("hasAuthority('DASHBOARD:VIEW')")
+    @Operation(summary = "Get detailed statistics for Excel export")
+    public ResponseEntity<ApiResponse<List<ExportDetailedPerformanceResponse>>> getDetailedExportStats(
+            @RequestParam(required = false) UUID orgUnitId,
+            @RequestParam UUID kpiPeriodId) {
+        List<ExportDetailedPerformanceResponse> response = statsService.getDetailedExportStats(orgUnitId, kpiPeriodId);
+        return ResponseEntity.ok(ApiResponse.success(response));
+    }
 
     @GetMapping("/overview")
     @PreAuthorize("hasAuthority('DASHBOARD:VIEW')")

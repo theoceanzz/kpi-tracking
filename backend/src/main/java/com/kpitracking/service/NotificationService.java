@@ -10,9 +10,12 @@ import com.kpitracking.exception.ResourceNotFoundException;
 import com.kpitracking.repository.NotificationRepository;
 import com.kpitracking.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -26,6 +29,10 @@ public class NotificationService {
 
     private final NotificationRepository notificationRepository;
     private final UserRepository userRepository;
+
+    @Lazy
+    @Autowired
+    private SimpMessagingTemplate messagingTemplate;
 
     private User getCurrentUser() {
         String email = SecurityContextHolder.getContext().getAuthentication().getName();
@@ -44,7 +51,9 @@ public class NotificationService {
                 .referenceId(referenceId)
                 .isRead(false)
                 .build();
-        return notificationRepository.save(notification);
+        notification = notificationRepository.save(notification);
+        messagingTemplate.convertAndSendToUser(user.getEmail(), "/queue/notifications", toResponse(notification));
+        return notification;
     }
 
     @Transactional(readOnly = true)
