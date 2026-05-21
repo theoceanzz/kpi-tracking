@@ -282,17 +282,32 @@ export interface KpiSubmissionDto {
   submittedByCode: string | null;
 }
 
+export interface KpiParticipantDto {
+  userId: string;
+  avatarUrl: string | null;
+  fullName: string;
+  employeeCode: string | null;
+  roleName: string;
+  orgUnitName: string;
+  progress: number;
+  performance: number;
+  actualValue: number;
+  submissions?: KpiSubmissionDto[];
+}
+
 export interface KpiDetailedDto {
   id: string;
   name: string;
   status: string;
   progress: number;
   performance: number | null;
+  targetValue: number;
+  unit: string | null;
   unitName: string | null;
   unitCode: string | null;
   startDate: string | null;
   endDate: string | null;
-  submissions?: KpiSubmissionDto[];
+  participants?: KpiParticipantDto[];
 }
 
 export interface KeyResultDetailedDto {

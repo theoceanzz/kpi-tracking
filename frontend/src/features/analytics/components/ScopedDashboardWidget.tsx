@@ -1,6 +1,9 @@
 import React, { useState, useCallback, useRef, useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { statsApi } from '@/features/dashboard/api/statsApi'
+import { personalObjectiveApi } from '@/features/dashboard/api/personalObjectiveApi'
+import { cn } from '@/lib/utils'
+import { useAuthStore } from '@/store/authStore'
 import {
   Loader2,
   Target,
@@ -25,6 +28,8 @@ import {
   Cell,
   Legend,
   Label,
+  ComposedChart,
+  Line,
 } from 'recharts'
 import type { ScopedDashboardResponse } from '@/types/stats'
 
@@ -624,10 +629,12 @@ function MetricsBadge({ type }: { type: 'OBJECTIVE' | 'KR' | 'KPI' }) {
  * Objective, Key Result or KPI inside the drawer.
  */
 export default function ScopedDashboardWidget({ type, id, dateRange: globalDateRange, onlyApproved = false }: Props) {
+  const { user } = useAuthStore()
   const [itemsFilter, setItemsFilter] = useState<FilterType>('BEST')
   const [unitsFilter, setUnitsFilter] = useState<FilterType>('BEST')
   const [dateFilterType, setDateFilterType] = useState<DateFilterType>('GLOBAL')
   const [customRange, setCustomRange] = useState<{ from: string; to: string }>({ from: '', to: '' })
+  const [activeMembers, setActiveMembers] = useState<string[]>([])
 
   const localDateRange = useMemo(() => {
     if (dateFilterType === 'GLOBAL') return globalDateRange
@@ -676,6 +683,42 @@ export default function ScopedDashboardWidget({ type, id, dateRange: globalDateR
       : statsApi.getKpiScopedTopEntities(id, localDateRange.from, localDateRange.to, onlyApproved),
     enabled: !!id,
   })
+
+  // KPI-only: fetch per-member drawer data for the member-selector line chart
+  const { data: kpiDrawerData } = useQuery({
+    queryKey: ['kpi-drawer-members', id, localDateRange.from, localDateRange.to],
+    queryFn: () => personalObjectiveApi.getKpiDrawerData(id, { from: localDateRange.from, to: localDateRange.to }),
+    enabled: !!id && type === 'KPI',
+  })
+
+  const isUserAssigned = useMemo(() => {
+    if (!kpiDrawerData?.contributions || !user?.id) return false
+    return kpiDrawerData.contributions.some(c => c.userId === user.id)
+  }, [kpiDrawerData, user])
+
+  const toggleMember = (userId: string) =>
+    setActiveMembers(prev => prev.includes(userId) ? prev.filter(x => x !== userId) : [...prev, userId])
+
+  const kpiMemberChartData = useMemo(() => {
+    if (!kpiDrawerData?.chartData?.points) return []
+    return kpiDrawerData.chartData.points.map(p => {
+      const row: any = {
+        label: p.label,
+        targetValue: p.targetValue,
+        teamTotalActual: p.teamTotalActual,
+        myActual: p.myActual,
+        myPerformance: p.myPerformance,
+      }
+      activeMembers.forEach(uid => {
+        const tv = p.teammateValues?.[uid]
+        if (tv) {
+          row[`act_${uid}`] = tv.actual
+          row[`prf_${uid}`] = tv.performance
+        }
+      })
+      return row
+    })
+  }, [kpiDrawerData, activeMembers])
 
   const isLoading = isMetricsLoading || isComboLoading || isTopLoading;
 
@@ -768,9 +811,11 @@ export default function ScopedDashboardWidget({ type, id, dateRange: globalDateR
           icon={<TrendingUp size={18} />}
         />
         <ObjectiveMetricCard
-          title={`${childName} hoàn thành`}
-          value={`${metrics.completedCount}/${metrics.totalCount}`}
-          subtitle={type === 'KPI' ? `Bài nộp được duyệt` : `Đạt 100% tiến độ`}
+          title={type === 'KPI' ? 'Mục tiêu cần đạt' : `${childName} hoàn thành`}
+          value={type === 'KPI' && kpiDrawerData
+            ? `${kpiDrawerData.targetValue.toLocaleString('vi-VN')} ${kpiDrawerData.unit}`
+            : `${metrics.completedCount}/${metrics.totalCount}`}
+          subtitle={type === 'KPI' ? '' : `Đạt 100% tiến độ`}
           icon={<CheckCircle2 size={18} className="text-emerald-500" />}
         />
         <ObjectiveMetricCard
@@ -781,18 +826,129 @@ export default function ScopedDashboardWidget({ type, id, dateRange: globalDateR
         />
       </div>
 
-      {/* ── Section 2: Combo Trend Chart ── */}
+      {/* ── Section 2: Chart ── */}
       <div>
         <div className="flex items-center gap-2 mb-3">
           <div className="p-1.5 bg-indigo-50 dark:bg-indigo-500/20 rounded-lg text-indigo-500 dark:text-indigo-400">
             <TrendingUp size={16} />
           </div>
           <h3 className="font-bold text-slate-900 dark:text-white tracking-tight text-sm">
-            Xu hướng theo thời gian
+            {type === 'KPI' ? 'Xu hướng Bài nộp' : 'Xu hướng theo thời gian'}
           </h3>
         </div>
         <div className="w-full">
-          <AnalyticsComboChart data={comboChart?.points ?? []} itemName={type === 'OBJECTIVE' ? 'Key Result' : type === 'KR' ? 'KPI' : 'Bài nộp'} />
+          {type === 'KPI' ? (
+            /* ── KPI: Member-Picker + Multi-Line Chart ── */
+            <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-6 shadow-sm">
+              <div className="flex flex-col md:flex-row md:items-center justify-between mb-4 gap-4">
+                <div>
+                  <p className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-1">
+                    Biểu đồ phân tích chuyên sâu
+                    <span className="text-[10px] text-indigo-500 font-bold" title="Theo thành viên">*</span>
+                  </p>
+                  <p className="text-xs text-slate-500 mt-0.5">So sánh số lượng bài nộp đang chạy với tiến độ và hiệu suất đạt được</p>
+                </div>
+                {/* Member Toggle Buttons */}
+                {kpiDrawerData?.chartData?.availableTeammates && kpiDrawerData.chartData.availableTeammates.length > 0 && (
+                  <div className="flex flex-wrap gap-2">
+                    {kpiDrawerData.chartData.availableTeammates.map(tm => (
+                      <button
+                        key={tm.userId}
+                        onClick={() => toggleMember(tm.userId)}
+                        className={cn(
+                          'px-2.5 py-1 rounded-full text-[10px] font-bold transition-all border',
+                          activeMembers.includes(tm.userId)
+                            ? 'bg-slate-800 text-white border-slate-800 dark:bg-white dark:text-slate-900 dark:border-white'
+                            : 'bg-white text-slate-500 border-slate-200 hover:border-slate-300 dark:bg-slate-900 dark:border-slate-700'
+                        )}
+                      >
+                        {activeMembers.includes(tm.userId) && '✓ '}{tm.fullName}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div className="flex justify-between text-xs font-bold text-slate-400 dark:text-slate-500 mb-2 px-1">
+                <span>Đơn vị ({kpiDrawerData?.unit || ''})</span>
+                <span>Hiệu suất (%)</span>
+              </div>
+
+              <div className="h-[350px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <ComposedChart data={kpiMemberChartData} margin={{ top: 10, right: 10, left: 0, bottom: 5 }}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
+                    <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#64748b' }} />
+                    <YAxis yAxisId="left" orientation="left" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#64748b' }} />
+                    <YAxis yAxisId="right" orientation="right" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#64748b' }} tickFormatter={(v) => `${v}%`} />
+                    <Tooltip
+                      content={({ active, payload, label }: any) => {
+                        if (active && payload && payload.length) {
+                          return (
+                            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-4 rounded-xl shadow-lg">
+                              <p className="font-bold text-slate-900 dark:text-white mb-3">{label}</p>
+                              <div className="space-y-2">
+                                {payload.map((p: any, i: number) => {
+                                  let valStr = p.value?.toLocaleString('vi-VN')
+                                  if (p.name.includes('%')) {
+                                    valStr = `${Math.round(p.value)}%`
+                                  }
+                                  return (
+                                    <div key={i} className="flex items-center gap-3 text-sm">
+                                      <div className="w-3 h-3 rounded-sm flex-shrink-0" style={{ backgroundColor: p.color }} />
+                                      <span className="text-slate-500 font-medium min-w-[120px]">{p.name}:</span>
+                                      <span className="font-bold text-slate-900 dark:text-white">{valStr}</span>
+                                    </div>
+                                  )
+                                })}
+                              </div>
+                            </div>
+                          )
+                        }
+                        return null
+                      }}
+                      cursor={{ fill: '#94a3b8', opacity: 0.06 }}
+                    />
+                    <Legend wrapperStyle={{ fontSize: '11px', fontWeight: 'bold' }} />
+
+                    {/* Target */}
+                    <Line yAxisId="left" type="step" dataKey="targetValue" name="Mục tiêu" stroke="#ef4444" strokeWidth={2} dot={false} strokeDasharray="5 5" />
+                    {/* Team Total */}
+                    {kpiDrawerData?.shared && (
+                      <Line yAxisId="left" type="monotone" dataKey="teamTotalActual" name="Tổng Lũy kế Nhóm" stroke="#93c5fd" strokeWidth={2} strokeDasharray="3 3" dot={false} />
+                    )}
+                    {/* My Lines — only shown when current user is a contributor */}
+                    {isUserAssigned && (
+                      <>
+                        <Line yAxisId="left" type="monotone" dataKey="myActual" name="Lũy kế của Tôi" stroke="#6366f1" strokeWidth={3} dot={{ r: 4 }} activeDot={{ r: 6 }} />
+                        <Line yAxisId="right" type="monotone" dataKey="myPerformance" name="Hiệu suất của Tôi (%)" stroke="#10b981" strokeWidth={3} dot={{ r: 4 }} />
+                      </>
+                    )}
+                    {/* Per-Member Lines */}
+                    {activeMembers.map((uid, idx) => {
+                      const COLORS = ['#f59e0b', '#8b5cf6', '#ec4899', '#0ea5e9', '#14b8a6', '#10b981']
+                      const color = COLORS[idx % COLORS.length]
+                      const name = kpiDrawerData?.chartData?.availableTeammates?.find(t => t.userId === uid)?.fullName || 'Thành viên'
+                      return (
+                        <React.Fragment key={uid}>
+                          <Line yAxisId="left" type="monotone" dataKey={`act_${uid}`} name={`Lũy kế - ${name}`} stroke={color} strokeWidth={2} dot={{ r: 3 }} activeDot={{ r: 5 }} />
+                          <Line yAxisId="right" type="monotone" dataKey={`prf_${uid}`} name={`Hiệu suất - ${name} (%)`} stroke={color} strokeWidth={1.5} dot={{ r: 2 }} strokeDasharray="4 4" opacity={0.8} />
+                        </React.Fragment>
+                      )
+                    })}
+                  </ComposedChart>
+                </ResponsiveContainer>
+              </div>
+
+              {activeMembers.length === 0 && (
+                <div className="text-center text-xs text-slate-400 dark:text-slate-500 mt-3">
+                  ← Chọn thành viên ở trên để so sánh thêm đường xu hướng của họ
+                </div>
+              )}
+            </div>
+          ) : (
+            <AnalyticsComboChart data={comboChart?.points ?? []} itemName={type === 'OBJECTIVE' ? 'Key Result' : 'KPI'} />
+          )}
         </div>
       </div>
 

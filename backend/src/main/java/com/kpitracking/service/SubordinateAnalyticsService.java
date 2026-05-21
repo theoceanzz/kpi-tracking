@@ -378,34 +378,56 @@ public class SubordinateAnalyticsService {
 
                     Double finalPerformance = hasSubmissions ? performance : null;
 
-                    // Map submissions for expand list
-                    List<SubordinateDetailsResponses.KpiSubmissionDto> subDtos = new ArrayList<>();
-                    if (kpi.getSubmissions() != null) {
-                        kpi.getSubmissions().stream()
-                            .filter(s -> {
-                                if (Boolean.TRUE.equals(onlyApproved)) {
-                                    return s.getStatus() == SubmissionStatus.APPROVED;
-                                } else {
-                                    return s.getStatus() == SubmissionStatus.APPROVED ||
-                                           s.getStatus() == SubmissionStatus.PENDING ||
-                                           s.getStatus() == SubmissionStatus.REJECTED;
-                                }
-                            })
-                            .forEach(s -> {
-                                String subByName = s.getSubmittedBy() != null ? s.getSubmittedBy().getFullName() : "";
-                                String subByCode = s.getSubmittedBy() != null ? 
-                                    (s.getSubmittedBy().getEmployeeCode() != null ? s.getSubmittedBy().getEmployeeCode() : s.getSubmittedBy().getEmail()) : "";
-                                
-                                subDtos.add(SubordinateDetailsResponses.KpiSubmissionDto.builder()
-                                    .id(s.getId())
-                                    .actualValue(s.getActualValue())
-                                    .note(s.getNote())
-                                    .status(s.getStatus().name())
-                                    .createdAt(s.getCreatedAt())
-                                    .submittedByName(subByName)
-                                    .submittedByCode(subByCode)
-                                    .build());
-                            });
+                    // Map participants and submissions
+                    List<SubordinateDetailsResponses.KpiParticipantDto> participantDtos = new ArrayList<>();
+                    double totalTarget = kpi.getTargetValue() != null ? kpi.getTargetValue() : 0.0;
+                    if (totalTarget == 0) totalTarget = 1.0;
+                    
+                    if (kpi.getAssignees() != null) {
+                        for (User assignee : kpi.getAssignees()) {
+                            List<SubordinateDetailsResponses.KpiSubmissionDto> assigneeSubs = new ArrayList<>();
+                            double assigneeActual = 0;
+                            
+                            if (kpi.getSubmissions() != null) {
+                                assigneeSubs = kpi.getSubmissions().stream()
+                                    .filter(s -> Boolean.TRUE.equals(onlyApproved) ? s.getStatus() == SubmissionStatus.APPROVED : 
+                                         (s.getStatus() == SubmissionStatus.APPROVED || s.getStatus() == SubmissionStatus.PENDING || s.getStatus() == SubmissionStatus.REJECTED))
+                                    .filter(s -> s.getSubmittedBy() != null && s.getSubmittedBy().getId().equals(assignee.getId()))
+                                    .map(s -> {
+                                        String subByName = s.getSubmittedBy() != null ? s.getSubmittedBy().getFullName() : "";
+                                        String subByCode = s.getSubmittedBy() != null ? 
+                                            (s.getSubmittedBy().getEmployeeCode() != null ? s.getSubmittedBy().getEmployeeCode() : s.getSubmittedBy().getEmail()) : "";
+                                        return SubordinateDetailsResponses.KpiSubmissionDto.builder()
+                                            .id(s.getId())
+                                            .actualValue(s.getActualValue())
+                                            .note(s.getNote())
+                                            .status(s.getStatus().name())
+                                            .createdAt(s.getCreatedAt())
+                                            .submittedByName(subByName)
+                                            .submittedByCode(subByCode)
+                                            .build();
+                                    })
+                                    .toList();
+                                    
+                                assigneeActual = assigneeSubs.stream()
+                                    .filter(s -> !s.getStatus().equals(SubmissionStatus.REJECTED.name()))
+                                    .mapToDouble(s -> s.getActualValue() != null ? s.getActualValue() : 0.0)
+                                    .sum();
+                            }
+                            
+                            participantDtos.add(SubordinateDetailsResponses.KpiParticipantDto.builder()
+                                .userId(assignee.getId())
+                                .avatarUrl(assignee.getAvatarUrl())
+                                .fullName(assignee.getFullName())
+                                .employeeCode(assignee.getEmployeeCode() != null ? assignee.getEmployeeCode() : assignee.getEmail())
+                                .roleName("Thành viên")
+                                .orgUnitName(kpi.getOrgUnit() != null ? kpi.getOrgUnit().getName() : "")
+                                .actualValue(assigneeActual)
+                                .progress(Math.min((assigneeActual / totalTarget) * 100, 100.0))
+                                .performance(Math.min((assigneeActual / totalTarget) * 100, 100.0))
+                                .submissions(assigneeSubs)
+                                .build());
+                        }
                     }
 
                     String unitName = obj.getOrgUnit() != null ? obj.getOrgUnit().getName() : "";
@@ -422,11 +444,13 @@ public class SubordinateAnalyticsService {
                         .status(kpiStatus)
                         .progress(completion)
                         .performance(finalPerformance)
+                        .targetValue(totalTarget)
+                        .unit(kpi.getUnit())
                         .unitName(unitName)
                         .unitCode(unitCode)
                         .startDate(kpi.getKpiPeriod() != null ? kpi.getKpiPeriod().getStartDate() : null)
                         .endDate(kpi.getKpiPeriod() != null ? kpi.getKpiPeriod().getEndDate() : null)
-                        .submissions(subDtos)
+                        .participants(participantDtos)
                         .build());
                 }
 

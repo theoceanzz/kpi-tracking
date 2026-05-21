@@ -12,27 +12,29 @@ import { subDays, subMonths, startOfYear } from 'date-fns'
 type DateFilterType = 'GLOBAL' | 'THIS_WEEK' | 'THIS_MONTH' | 'THIS_QUARTER' | '6_MONTHS' | 'THIS_YEAR' | 'CUSTOM'
 
 function DrawerChartTooltip({ active, payload, label }: any) {
-  if (!active || !payload || payload.length === 0) return null
-  return (
-    <div className="bg-slate-900 text-white px-3 py-2 rounded-lg text-xs shadow-xl border border-white/10 max-w-[280px] break-words space-y-1">
-      <p className="font-bold border-b border-white/10 pb-1 mb-1">{label}</p>
-      {payload.map((p: any, i: number) => {
-        let valStr = p.value?.toLocaleString('vi-VN')
-        if (p.name.includes('%')) {
-          valStr = `${Math.round(p.value)}%`
-        }
-        return (
-          <p key={i} className="flex items-center justify-between gap-4">
-            <span className="flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full" style={{ backgroundColor: p.color }} />
-              <span className="text-slate-300">{p.name}</span>
-            </span>
-            <span className="font-bold">{valStr}</span>
-          </p>
-        )
-      })}
-    </div>
-  )
+  if (active && payload && payload.length) {
+    return (
+      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-4 rounded-xl shadow-lg">
+        <p className="font-bold text-slate-900 dark:text-white mb-3">{label}</p>
+        <div className="space-y-2">
+          {payload.map((p: any, i: number) => {
+            let valStr = p.value?.toLocaleString('vi-VN')
+            if (p.name.includes('%')) {
+              valStr = `${Math.round(p.value)}%`
+            }
+            return (
+              <div key={i} className="flex items-center gap-3 text-sm">
+                <div className="w-3 h-3 rounded-sm flex-shrink-0" style={{ backgroundColor: p.color }} />
+                <span className="text-slate-500 font-medium min-w-[120px]">{p.name}:</span>
+                <span className="font-bold text-slate-900 dark:text-white">{valStr}</span>
+              </div>
+            )
+          })}
+        </div>
+      </div>
+    )
+  }
+  return null
 }
 
 export default function MyObjectiveDrawer({ kpiId, onClose, globalFrom, globalTo }: { kpiId: string, onClose: () => void, globalFrom?: string, globalTo?: string }) {

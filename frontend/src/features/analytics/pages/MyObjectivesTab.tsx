@@ -225,7 +225,7 @@ function ExpandableKpiRow({ kpi, onExpand }: { kpi: any, onExpand: () => void })
           </button>
         </td>
         <td className="px-6 py-4 cursor-pointer" onClick={onExpand}>
-          <div className="font-bold text-sm text-slate-900 dark:text-white truncate max-w-[200px]">{kpi.kpiName}</div>
+          <div className="font-bold text-sm text-slate-900 hover:text-indigo-500 dark:hover:text-indigo-400 transition-colors dark:text-white truncate max-w-[200px]">{kpi.kpiName}</div>
           <div className="text-[11px] text-slate-500 mt-1">{kpi.objectiveName} ({kpi.objectiveCode})</div>
         </td>
         <td className="px-6 py-4">

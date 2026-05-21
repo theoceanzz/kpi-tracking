@@ -57,10 +57,29 @@ public class SubordinateDetailsResponses {
         private String status;
         private Double progress;
         private Double performance;
+        private Double targetValue;
+        private String unit;
         private String unitName;
         private String unitCode;
         private Instant startDate;
         private Instant endDate;
+        private List<KpiParticipantDto> participants;
+    }
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class KpiParticipantDto {
+        private UUID userId;
+        private String avatarUrl;
+        private String fullName;
+        private String employeeCode;
+        private String roleName;
+        private String orgUnitName;
+        private Double progress;
+        private Double performance;
+        private Double actualValue;
         private List<KpiSubmissionDto> submissions;
     }
 

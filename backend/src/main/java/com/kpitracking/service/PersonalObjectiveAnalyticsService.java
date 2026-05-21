@@ -307,7 +307,7 @@ public class PersonalObjectiveAnalyticsService {
             double myPerf = calculateKpiMetricsForUser(kpi, currentUser.getId(), effectiveFrom, ip.end, onlyApproved)[1];
             
             Map<String, TeammateValues> teammateValuesMap = new HashMap<>();
-            if (isShared) {
+            if (kpi.getAssignees() != null) {
                 for (User assignee : kpi.getAssignees()) {
                     if (!assignee.getId().equals(currentUser.getId())) {
                         double tActual = calculateKpiMetricsForUser(kpi, assignee.getId(), effectiveFrom, ip.end, onlyApproved)[3];
