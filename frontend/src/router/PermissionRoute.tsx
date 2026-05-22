@@ -1,5 +1,6 @@
 import { Navigate, Outlet } from 'react-router-dom'
 import { useHasPermission } from '@/components/auth/PermissionGate'
+import ErrorPage from '@/features/errors/pages/ErrorPage'
 
 interface PermissionRouteProps {
   permission: string | string[]
@@ -14,7 +15,6 @@ interface PermissionRouteProps {
 export default function PermissionRoute({ 
   permission, 
   requireAll = false,
-  redirectTo = "/dashboard"
 }: PermissionRouteProps) {
   const { hasPermission, isAuthenticated, user } = useHasPermission()
 
@@ -23,7 +23,7 @@ export default function PermissionRoute({
   }
 
   if (!hasPermission(permission, requireAll)) {
-    return <Navigate to={redirectTo} replace />
+    return <ErrorPage code="403" />
   }
 
   return <Outlet />

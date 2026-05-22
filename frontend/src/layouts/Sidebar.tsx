@@ -49,7 +49,7 @@ interface NavItem {
 
 const navItems: NavItem[] = [
   { label: 'Tổng quan', path: '/dashboard', icon: <LayoutDashboard size={20} />, permission: 'DASHBOARD:VIEW', end: true },
-  { label: 'Dashboard cá nhân', path: '/dashboard/staff', icon: <UserCircle size={20} />, permission: 'KPI:VIEW_MY', end: true },
+  { label: 'Dashboard cá nhân', path: '/dashboard?view=staff', icon: <UserCircle size={20} />, permission: 'KPI:VIEW_MY', end: true },
   {
     label: 'Thiết lập công ty',
     icon: <Building2 size={20} />,
@@ -90,7 +90,21 @@ const navItems: NavItem[] = [
 /* ─── Tour Replay Button ─── */
 function TourReplayButton({ path }: { path: string }) {
   const { user } = useAuthStore()
-  const tourKey = pathToTourKey[path]
+  const { hasPermission } = useHasPermission()
+  
+  let tourKey = pathToTourKey[path]
+  
+  // Handle dynamic dashboard tour keys
+  if (path === '/dashboard') {
+    if (hasPermission(['ORG:VIEW', 'USER:VIEW', 'ROLE:VIEW'], true)) {
+      tourKey = 'dashboard-director'
+    } else if (hasPermission(['KPI:VIEW', 'SUBMISSION:REVIEW', 'USER:VIEW_LIST'])) {
+      tourKey = 'dashboard-head'
+    } else {
+      tourKey = 'dashboard-staff'
+    }
+  }
+
   const { startTour, activeTour, hasSeen } = useTourStore()
   
   if (!tourKey || !user?.id) return null
@@ -217,20 +231,13 @@ export default function Sidebar({ isMobileOpen, onCloseMobile }: { isMobileOpen?
     
     let processedItem: NavItem | null = updatedItem
 
-    if (item.path === '/dashboard/staff') {
+    if (item.path === '/dashboard?view=staff') {
       const isManager = hasPermission(['KPI:APPROVE', 'SUBMISSION:REVIEW', 'ORG:CREATE', 'USER:VIEW_LIST'])
       if (!(isManager && hasPermission('KPI:VIEW_MY'))) {
         processedItem = null
       }
     } else if (item.permission && hasPermission(item.permission)) {
-      if (item.path === '/dashboard') {
-        const dashboardPath = hasPermission(['ORG:CREATE', 'ROLE:VIEW']) 
-          ? '/dashboard/director' 
-          : hasPermission(['KPI:APPROVE', 'SUBMISSION:REVIEW', 'USER:VIEW_LIST']) 
-            ? '/dashboard/head' 
-            : '/dashboard/staff'
-        processedItem = { ...updatedItem, path: dashboardPath }
-      }
+      processedItem = { ...updatedItem }
     } else {
       processedItem = null
     }
@@ -395,14 +402,20 @@ export default function Sidebar({ isMobileOpen, onCloseMobile }: { isMobileOpen?
                             to={child.path!}
                             end={child.end} 
                             onClick={() => handleNavClick(child.path)}
-                            className={({ isActive }) =>
-                              cn(
+                            className={() => {
+                              const currentPath = location.pathname + location.search
+                              const targetPath = child.path || ''
+                              const isMatch = targetPath.includes('?') 
+                                ? currentPath === targetPath 
+                                : location.pathname === targetPath && !location.search
+
+                              return cn(
                                 'flex items-center gap-3 px-3 py-2 rounded-lg text-[13px] font-bold transition-all group relative',
-                                isActive
+                                isMatch
                                   ? 'text-[var(--color-primary)] bg-[var(--color-primary)]/5'
                                   : 'text-[var(--color-muted-foreground)] hover:text-[var(--color-foreground)] hover:bg-[var(--color-accent)]'
                               )
-                            }
+                            }}
                           >
                             <div className="shrink-0 opacity-70 group-hover:opacity-100 transition-opacity">
                               {child.icon}
@@ -435,15 +448,23 @@ export default function Sidebar({ isMobileOpen, onCloseMobile }: { isMobileOpen?
                 to={item.path!}
                 end={item.end} 
                 onClick={() => handleNavClick(item.path)}
-                className={({ isActive }) =>
-                  cn(
+                className={() => {
+                  const currentPath = location.pathname + location.search
+                  const targetPath = item.path || ''
+                  
+                  // Custom matching logic for dashboard views with search params
+                  const isMatch = targetPath.includes('?') 
+                    ? currentPath === targetPath 
+                    : location.pathname === targetPath && !location.search
+
+                  return cn(
                     'flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-bold transition-all group relative',
                     isCollapsed && !isMobileOpen ? 'justify-center px-0 mx-2' : '',
-                    isActive
+                    isMatch
                       ? 'bg-[var(--color-primary)] text-white shadow-lg shadow-[var(--color-primary)]/25 scale-[1.02]'
                       : 'text-[var(--color-muted-foreground)] hover:bg-[var(--color-accent)] hover:text-[var(--color-foreground)]'
                   )
-                }
+                }}
                 title={isCollapsed ? item.label : ''}
               >
                 <div className={cn("shrink-0 transition-transform group-hover:scale-110 relative", isCollapsed && !isMobileOpen ? "m-0" : "")}>

@@ -14,9 +14,6 @@ import ResetPasswordPage from '@/features/auth/pages/ResetPasswordPage'
 import RoleManagementPage from '@/features/organization/pages/RoleManagementPage'
 
 // Dashboard pages
-import DirectorDashboard from '@/features/dashboard/pages/DirectorDashboard'
-import HeadDashboard from '@/features/dashboard/pages/HeadDashboard'
-import StaffDashboard from '@/features/dashboard/pages/StaffDashboard'
 import EmployeePerformancePage from '@/features/dashboard/pages/EmployeePerformancePage'
 
 import { OrganizationStructurePage } from '@/features/organization/pages/OrganizationStructurePage'
@@ -46,8 +43,8 @@ import AiAssistantPage from '@/features/analytics/pages/AiAssistantPage'
 import SystemSettingsPage from '@/features/organization/pages/SystemSettingsPage'
 import OkrManagementPage from '@/features/okr/pages/OkrManagementPage'
 
-// Dashboard router helper
-import DashboardRedirect from '@/features/dashboard/pages/DashboardRedirect'
+import DashboardPage from '@/features/dashboard/pages/DashboardPage'
+import ErrorPage from '@/features/errors/pages/ErrorPage'
 
 export const router = createBrowserRouter([
   {
@@ -71,7 +68,7 @@ export const router = createBrowserRouter([
       {
         element: <AppLayout />,
         children: [
-          { path: '/dashboard', element: <DashboardRedirect /> },
+          { path: '/dashboard', element: <DashboardPage /> },
           { path: '/profile', element: <ProfilePage /> },
 
           // Director & KPI Managers
@@ -88,7 +85,6 @@ export const router = createBrowserRouter([
           {
             element: <PermissionRoute permission={['ORG:VIEW', 'USER:VIEW', 'ROLE:VIEW']} requireAll={true} />,
             children: [
-              { path: '/dashboard/director', element: <DirectorDashboard /> },
               { path: '/users', element: <UsersPage /> },
               { path: '/company', element: <CompanyPage /> },
               { path: '/roles', element: <RoleManagementPage /> },
@@ -103,19 +99,10 @@ export const router = createBrowserRouter([
           {
             element: <PermissionRoute permission={['KPI:VIEW', 'SUBMISSION:REVIEW', 'USER:VIEW_LIST']} />,
             children: [
-              { path: '/dashboard/head', element: <HeadDashboard /> },
               { path: '/org-units/:id', element: <OrgUnitDetailPage /> },
               { path: '/kpi-criteria', element: <KpiCriteriaPage /> },
               { path: '/submissions/org-unit', element: <OrgUnitSubmissionsPage /> },
               { path: '/employees/:userId/performance', element: <EmployeePerformancePage /> },
-            ],
-          },
-
-          // Staff only
-          {
-            element: <PermissionRoute permission="KPI:VIEW_MY" />,
-            children: [
-              { path: '/dashboard/staff', element: <StaffDashboard /> },
             ],
           },
 
@@ -140,4 +127,9 @@ export const router = createBrowserRouter([
       },
     ],
   },
+  {
+    path: '*',
+    element: <ErrorPage code="404" />,
+  },
 ])
+
