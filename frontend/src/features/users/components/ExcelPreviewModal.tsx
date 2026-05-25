@@ -585,7 +585,7 @@ export default function ExcelPreviewModal({ open, file, onClose, onImport, isImp
                               if (hasNoRoles) {
                                 return (
                                   <p className="text-[9px] text-red-500 mt-1 font-bold italic px-1 flex items-center gap-1">
-                                    <AlertCircle size={10} /> Đơn vị này chưa được thiết lập phạm vi vai trò. Hãy cấu hình ở mục "Thiết lập cấu trúc".
+                                    <AlertCircle size={10} /> Đơn vị này chưa được thiết lập phạm vi vai trò. Hãy cấu hình ở mục "Sơ đồ tổ chức".
                                   </p>
                                 )
                               }

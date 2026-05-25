@@ -290,9 +290,16 @@ public class OrganizationService {
     }
 
     private void syncSingleRole(Organization org, String name, int level, int rank, String archetype, List<Permission> allPerms, int tierLevel, int numTiers) {
-        Role role = roleRepository.findByLevelAndRankAndOrganizationId(level, rank, org.getId())
+        // Try to find by name first to respect UNIQUE constraint on (name, organization_id)
+        Role role = roleRepository.findByNameAndOrganizationId(name, org.getId())
                 .orElse(null);
-        
+
+        if (role == null) {
+            // If not found by name, try to find by level and rank to see if we're just renaming an existing role
+            role = roleRepository.findByLevelAndRankAndOrganizationId(level, rank, org.getId())
+                    .orElse(null);
+        }
+
         if (role == null) {
             role = Role.builder()
                     .organization(org)
@@ -301,12 +308,14 @@ public class OrganizationService {
                     .rank(rank)
                     .isSystem(level == 0 && rank == 0)
                     .build();
-            role = roleRepository.save(role);
         } else {
             role.setName(name);
             role.setLevel(level);
-            roleRepository.save(role);
+            role.setRank(rank);
+            role.setDeletedAt(null); // Ensure it's not deleted
         }
+        
+        role = roleRepository.save(role);
 
         // Re-sync permissions
         updateRolePermissions(role, archetype, allPerms, tierLevel, numTiers);
@@ -341,6 +350,9 @@ public class OrganizationService {
     }
 
     private int mapRoleLevel(int order, int total) {
+        if (total >= 5) {
+            return Math.min(4, order);
+        }
         switch (total) {
             case 2:
                 return order == 0 ? 2 : 4;
@@ -348,11 +360,9 @@ public class OrganizationService {
                 return order + 2; // 0->2, 1->3, 2->4
             case 4:
                 return order + 1; // 0->1, 1->2, 2->3, 3->4
-            case 5:
-                return order;     // 0->0, 1->1, 2->2, 3->3, 4->4
             default:
-                // Fallback for unexpected cases
-                return Math.min(4, order + (5 - total));
+                // For total < 2 (which should not happen due to validation)
+                return 4;
         }
     }
 
