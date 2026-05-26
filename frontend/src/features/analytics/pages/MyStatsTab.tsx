@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useRef, useEffect } from 'react'
 import { personalKpiApi } from '@/features/dashboard/api/personalKpiApi'
 import { useMyAnalytics } from '../hooks/useAnalytics'
 import { useNotifications } from '@/features/notifications/hooks/useNotifications'
@@ -33,6 +33,20 @@ type SharedFilter = 'ALL' | 'SHARED' | 'PERSONAL'
 const PAGE_SIZE = 5
 
 export default function MyStatsTab() {
+  const [filterStuck, setFilterStuck] = useState(false)
+  const filterSentinelRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const el = filterSentinelRef.current
+    if (!el) return
+    const observer = new IntersectionObserver(
+      ([entry]) => setFilterStuck(!entry.isIntersecting),
+      { rootMargin: '-65px 0px 0px 0px', threshold: 0 }
+    )
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [])
+
   const [filterType, setFilterType] = useState<DateFilterType>('THIS_YEAR')
   const [customRange, setCustomRange] = useState<{ from: string; to: string }>({ from: '', to: '' })
   const [onlyApproved, setOnlyApproved] = useState<boolean>(false)
@@ -126,8 +140,14 @@ export default function MyStatsTab() {
 
   return (
     <div className="space-y-6">
+      {/* ── Sentinel for sticky detection ─────────────────────────────────── */}
+      <div ref={filterSentinelRef} className="h-px" aria-hidden />
+
       {/* ── Global Filter Toolbar ──────────────────────────────────────────── */}
-      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-4 rounded-2xl flex flex-wrap items-center gap-4 justify-between shadow-sm">
+      <div className={cn(
+        'sticky top-16 z-20 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl flex flex-wrap items-center gap-4 justify-between transition-all duration-200',
+        filterStuck ? 'p-3 shadow-lg shadow-slate-200/80 dark:shadow-slate-950/60' : 'p-4 shadow-sm'
+      )}>
         <div className="flex items-center gap-2">
           <div className="p-2 bg-violet-50 dark:bg-violet-900/30 rounded-lg text-violet-600 dark:text-violet-400">
             <Target size={18} />

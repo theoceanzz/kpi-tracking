@@ -600,7 +600,7 @@ public class StatsService {
     }
 
     @Transactional(readOnly = true)
-    public AnalyticsDrillDownResponse getDrillDown(UUID orgUnitId) {
+    public AnalyticsDrillDownResponse getDrillDown(UUID orgUnitId, java.time.Instant from, java.time.Instant to) {
         User currentUser = getCurrentUser();
         List<UserRoleOrgUnit> userRoles = userRoleOrgUnitRepository.findByUserId(currentUser.getId());
         if (userRoles.isEmpty()) return AnalyticsDrillDownResponse.builder().build();
@@ -615,7 +615,9 @@ public class StatsService {
             List<KpiCriteria> unitKpis = kpiCriteriaRepository.findByOrgUnitIdInAndStatus(subtreeIds, KpiStatus.APPROVED);
             double totalPerformance = 0;
             for (KpiCriteria kpi : unitKpis) {
-                double actual = submissionRepository.sumActualValueByKpiCriteriaIdAndOrgUnitIdInAndStatus(kpi.getId(), subtreeIds, SubmissionStatus.APPROVED);
+                double actual = (from != null && to != null)
+                        ? submissionRepository.sumActualValueByOrgUnitIdsAndKpiIdInPeriod(subtreeIds, kpi.getId(), from, to)
+                        : submissionRepository.sumActualValueByKpiCriteriaIdAndOrgUnitIdInAndStatus(kpi.getId(), subtreeIds, SubmissionStatus.APPROVED);
                 double target = kpi.getTargetValue() != null && kpi.getTargetValue() > 0 ? kpi.getTargetValue() : 1.0;
                 totalPerformance += Math.round((actual / target) * 100.0);
             }
@@ -631,17 +633,19 @@ public class StatsService {
                     .approvedSubmissions(submissionRepository.countByOrgUnitIdInAndStatus(subtreeIds, SubmissionStatus.APPROVED))
                     .pendingSubmissions(submissionRepository.countByOrgUnitIdInAndStatus(subtreeIds, SubmissionStatus.PENDING))
                     .rejectedSubmissions(submissionRepository.countByOrgUnitIdInAndStatus(subtreeIds, SubmissionStatus.REJECTED))
-                    .avgScore(evaluationRepository.avgScoreByOrgUnitIdIn(subtreeIds))
                     .hasChildren(!orgUnitRepository.findByParentId(unit.getId()).isEmpty())
                     .build();
         }).toList();
 
+        // Heatmap: only KPIs directly owned by each child unit (not their subtrees)
         List<AnalyticsDrillDownResponse.HeatmapPoint> heatmapData = new ArrayList<>();
         for (OrgUnit child : childUnits) {
-            List<UUID> subtreeIds = getSubtreeIds(child);
-            List<KpiCriteria> kpis = kpiCriteriaRepository.findByOrgUnitIdInAndStatus(subtreeIds, KpiStatus.APPROVED);
+            List<UUID> directIds = List.of(child.getId());
+            List<KpiCriteria> kpis = kpiCriteriaRepository.findByOrgUnitIdInAndStatus(directIds, KpiStatus.APPROVED);
             for (KpiCriteria kpi : kpis) {
-                double actual = submissionRepository.sumActualValueByKpiCriteriaIdAndOrgUnitIdInAndStatus(kpi.getId(), subtreeIds, SubmissionStatus.APPROVED);
+                double actual = (from != null && to != null)
+                        ? submissionRepository.sumActualValueByOrgUnitIdsAndKpiIdInPeriod(directIds, kpi.getId(), from, to)
+                        : submissionRepository.sumActualValueByKpiCriteriaIdAndOrgUnitIdInAndStatus(kpi.getId(), directIds, SubmissionStatus.APPROVED);
                 double target = kpi.getTargetValue() != null && kpi.getTargetValue() > 0 ? kpi.getTargetValue() : 1.0;
                 heatmapData.add(AnalyticsDrillDownResponse.HeatmapPoint.builder().x(child.getName()).y(kpi.getName()).value(Math.round((actual / target) * 100.0)).build());
             }
@@ -669,7 +673,6 @@ public class StatsService {
                 .approvedSubmissions(submissionRepository.countByOrgUnitIdInAndStatus(currentSubtree, SubmissionStatus.APPROVED))
                 .pendingSubmissions(submissionRepository.countByOrgUnitIdInAndStatus(currentSubtree, SubmissionStatus.PENDING))
                 .rejectedSubmissions(submissionRepository.countByOrgUnitIdInAndStatus(currentSubtree, SubmissionStatus.REJECTED))
-                .avgScore(evaluationRepository.avgScoreByOrgUnitIdIn(currentSubtree))
                 .memberCount(members.size()).childUnits(childSummaries).employees(employeeSummaries).heatmapData(heatmapData).build();
     }
 

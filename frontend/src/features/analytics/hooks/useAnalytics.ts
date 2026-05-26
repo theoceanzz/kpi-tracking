@@ -8,10 +8,10 @@ export function useMyAnalytics(from?: string, to?: string) {
   })
 }
 
-export function useDrillDown(orgUnitId?: string) {
+export function useDrillDown(orgUnitId?: string, from?: string, to?: string) {
   return useQuery({
-    queryKey: ['analytics', 'drill-down', orgUnitId],
-    queryFn: () => statsApi.getDrillDown(orgUnitId),
+    queryKey: ['analytics', 'drill-down', orgUnitId, from, to],
+    queryFn: () => statsApi.getDrillDown(orgUnitId, from, to),
   })
 }
 

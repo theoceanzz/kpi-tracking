@@ -108,8 +108,10 @@ public class StatsController {
     @PreAuthorize("hasAuthority('KPI:VIEW')")
     @Operation(summary = "Get drill-down analytics by org unit hierarchy")
     public ResponseEntity<ApiResponse<AnalyticsDrillDownResponse>> getDrillDown(
-            @RequestParam(required = false) UUID orgUnitId) {
-        AnalyticsDrillDownResponse response = statsService.getDrillDown(orgUnitId);
+            @RequestParam(required = false) UUID orgUnitId,
+            @RequestParam(required = false) java.time.Instant from,
+            @RequestParam(required = false) java.time.Instant to) {
+        AnalyticsDrillDownResponse response = statsService.getDrillDown(orgUnitId, from, to);
         return ResponseEntity.ok(ApiResponse.success(response));
     }
 

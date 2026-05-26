@@ -22,8 +22,8 @@ export const statsApi = {
   getMyAnalytics: (from?: string, to?: string) =>
     axiosInstance.get<ApiResponse<AnalyticsMyStats>>('/stats/my-analytics', { params: { from, to } }).then((r) => r.data.data),
 
-  getDrillDown: (orgUnitId?: string) =>
-    axiosInstance.get<ApiResponse<DrillDownResponse>>('/stats/drill-down', { params: { orgUnitId } }).then((r) => r.data.data),
+  getDrillDown: (orgUnitId?: string, from?: string, to?: string) =>
+    axiosInstance.get<ApiResponse<DrillDownResponse>>('/stats/drill-down', { params: { orgUnitId, from, to } }).then((r) => r.data.data),
 
   getDetailTable: (params: { orgUnitId?: string; search?: string; page?: number; size?: number }) =>
     axiosInstance.get<ApiResponse<PageResponse<AnalyticsDetailRow>>>('/stats/detail-table', { params }).then((r) => r.data.data),
