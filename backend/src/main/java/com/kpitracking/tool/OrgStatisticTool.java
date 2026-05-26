@@ -4,7 +4,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.kpitracking.enums.KpiStatus;
 import com.kpitracking.enums.OrgUnitStatus;
 import com.kpitracking.enums.SubmissionStatus;
-import com.kpitracking.repository.EvaluationRepository;
 import com.kpitracking.repository.KpiCriteriaRepository;
 import com.kpitracking.repository.KpiSubmissionRepository;
 import com.kpitracking.repository.NotificationRepository;
@@ -26,7 +25,6 @@ public class OrgStatisticTool {
     private final OrgUnitRepository orgUnitRepository;
     private final KpiCriteriaRepository kpiCriteriaRepository;
     private final KpiSubmissionRepository kpiSubmissionRepository;
-    private final EvaluationRepository evaluationRepository;
     private final NotificationRepository notificationRepository;
     private final ObjectMapper objectMapper;
 
@@ -93,7 +91,7 @@ public class OrgStatisticTool {
         }
     }
 
-    @Tool(name = "get_kpi_completion_rate", description = "KPI completion metrics including total criteria, submissions, and status breakdown (approved/pending/rejected).")
+    @Tool(name = "get_kpi_completion_rate", description = "KPI completion metrics: tiến độ (sum actualValue / targetValue) and submission status breakdown (approved/pending/rejected).")
     public String getKpiCompletionRate(ToolContext context) {
         try {
             UUID orgId = getOrgId(context);
@@ -103,8 +101,12 @@ public class OrgStatisticTool {
             long pendingSubmissions = kpiSubmissionRepository.countByOrganizationIdAndStatus(orgId, SubmissionStatus.PENDING);
             long rejectedSubmissions = kpiSubmissionRepository.countByOrganizationIdAndStatus(orgId, SubmissionStatus.REJECTED);
 
-            double completionRate = totalSubmissions > 0
-                    ? Math.round((double) approvedSubmissions / totalSubmissions * 10000.0) / 100.0
+            // Tiến độ = sum(actualValue) / sum(targetValue) * 100
+            Object[] sums = kpiSubmissionRepository.sumActualAndTargetByOrgId(orgId);
+            double totalActual = sums != null && sums[0] != null ? ((Number) sums[0]).doubleValue() : 0.0;
+            double totalTarget = sums != null && sums[1] != null ? ((Number) sums[1]).doubleValue() : 0.0;
+            double progressRate = totalTarget > 0
+                    ? Math.round(totalActual / totalTarget * 10000.0) / 100.0
                     : 0.0;
 
             Map<String, Object> result = new LinkedHashMap<>();
@@ -117,7 +119,9 @@ public class OrgStatisticTool {
             submissionBreakdown.put("rejected", rejectedSubmissions);
             result.put("submissionBreakdown", submissionBreakdown);
 
-            result.put("completionRate", completionRate + "%");
+            result.put("totalActualValue", Math.round(totalActual * 100.0) / 100.0);
+            result.put("totalTargetValue", Math.round(totalTarget * 100.0) / 100.0);
+            result.put("progressRate", progressRate + "%");
 
             return objectMapper.writeValueAsString(result);
         } catch (Exception e) {
@@ -126,20 +130,39 @@ public class OrgStatisticTool {
         }
     }
 
-    @Tool(name = "get_kpi_score_summary", description = "Global KPI score statistics: average, highest, and lowest scores.")
+    @Tool(name = "get_kpi_score_summary", description = "Global KPI performance statistics: average, highest, and lowest hiệu suất (actualValue/targetValue) across all approved submissions.")
     public String getKpiScoreSummary(ToolContext context) {
         try {
             UUID orgId = getOrgId(context);
-            Double avgScore = evaluationRepository.avgScoreAllByOrgId(orgId);
-            Double minScore = evaluationRepository.minScoreAllByOrgId(orgId);
-            Double maxScore = evaluationRepository.maxScoreAllByOrgId(orgId);
-            long totalEvaluations = evaluationRepository.countAllByOrgId(orgId);
+            // Tiến độ tổng thể: sum(actual) / sum(target) * 100
+            Object[] sums = kpiSubmissionRepository.sumActualAndTargetByOrgId(orgId);
+            double totalActual = sums != null && sums[0] != null ? ((Number) sums[0]).doubleValue() : 0.0;
+            double totalTarget = sums != null && sums[1] != null ? ((Number) sums[1]).doubleValue() : 0.0;
+            double avgProgress = totalTarget > 0 ? Math.round(totalActual / totalTarget * 10000.0) / 100.0 : 0.0;
+
+            // Hiệu suất: avg(actual/target*100) per submission
+            List<Object[]> unitRankings = kpiSubmissionRepository.avgPerformanceGroupByOrgUnitByOrgId(orgId);
+            long totalSubmissions = kpiSubmissionRepository.countByOrganizationIdAndStatus(orgId, SubmissionStatus.APPROVED);
+
+            double maxPerf = unitRankings.stream()
+                    .filter(r -> r[2] != null)
+                    .mapToDouble(r -> ((Number) r[2]).doubleValue())
+                    .max().orElse(0.0);
+            double minPerf = unitRankings.stream()
+                    .filter(r -> r[2] != null)
+                    .mapToDouble(r -> ((Number) r[2]).doubleValue())
+                    .min().orElse(0.0);
+            double avgPerf = unitRankings.stream()
+                    .filter(r -> r[2] != null)
+                    .mapToDouble(r -> ((Number) r[2]).doubleValue())
+                    .average().orElse(0.0);
 
             Map<String, Object> result = new LinkedHashMap<>();
-            result.put("totalEvaluations", totalEvaluations);
-            result.put("averageScore", avgScore != null ? Math.round(avgScore * 100.0) / 100.0 : null);
-            result.put("highestScore", maxScore);
-            result.put("lowestScore", minScore);
+            result.put("totalApprovedSubmissions", totalSubmissions);
+            result.put("overallProgressRate", avgProgress + "%");
+            result.put("averagePerformance", Math.round(avgPerf * 100.0) / 100.0 + "%");
+            result.put("highestUnitPerformance", Math.round(maxPerf * 100.0) / 100.0 + "%");
+            result.put("lowestUnitPerformance", Math.round(minPerf * 100.0) / 100.0 + "%");
 
             return objectMapper.writeValueAsString(result);
         } catch (Exception e) {
@@ -148,7 +171,7 @@ public class OrgStatisticTool {
         }
     }
 
-    @Tool(name = "get_kpi_trend", description = "Chronological KPI score trends grouped by month, quarter, or year.")
+    @Tool(name = "get_kpi_trend", description = "Chronological KPI progress trends (actualValue/targetValue) grouped by month, quarter, or year.")
     public String getKpiTrend(
             @ToolParam(description = "The time period to group by. Accepted values: 'month' (group by YYYY-MM), 'quarter' (group by YYYY-QN), 'year' (group by YYYY). Default to 'month' if the user does not specify.") String period,
             ToolContext context) {
@@ -168,14 +191,23 @@ public class OrgStatisticTool {
                     break;
             }
 
-            List<Object[]> trendData = evaluationRepository.trendGroupByPeriodByOrgId(orgId, datePattern);
+            // Xu hướng tiến độ: sum(actual)/sum(target)*100 theo từng kỳ
+            List<Object[]> trendData = kpiSubmissionRepository.trendActualVsTargetByOrgId(orgId, datePattern);
 
             List<Map<String, Object>> trendList = new ArrayList<>();
             for (Object[] row : trendData) {
+                double periodActual = row[1] != null ? ((Number) row[1]).doubleValue() : 0.0;
+                double periodTarget = row[2] != null ? ((Number) row[2]).doubleValue() : 0.0;
+                double progressRate = periodTarget > 0
+                        ? Math.round(periodActual / periodTarget * 10000.0) / 100.0
+                        : 0.0;
+
                 Map<String, Object> point = new LinkedHashMap<>();
                 point.put("period", row[0]);
-                point.put("averageScore", row[1] != null ? Math.round(((Number) row[1]).doubleValue() * 100.0) / 100.0 : null);
-                point.put("evaluationCount", row[2]);
+                point.put("progressRate", progressRate + "%");
+                point.put("totalActualValue", Math.round(periodActual * 100.0) / 100.0);
+                point.put("totalTargetValue", Math.round(periodTarget * 100.0) / 100.0);
+                point.put("submissionCount", row[3]);
                 trendList.add(point);
             }
 
@@ -190,11 +222,12 @@ public class OrgStatisticTool {
         }
     }
 
-    @Tool(name = "compare_org_units_kpi", description = "Compare and rank organizational units (branches/departments) by average KPI scores.")
+    @Tool(name = "compare_org_units_kpi", description = "Compare and rank organizational units by average KPI hiệu suất (actualValue/targetValue).")
     public String compareOrgUnitsKpi(ToolContext context) {
         try {
             UUID orgId = getOrgId(context);
-            List<Object[]> data = evaluationRepository.avgScoreGroupByOrgUnitByOrgId(orgId);
+            // Hiệu suất: avg(actual/target*100) per submission, grouped by org unit
+            List<Object[]> data = kpiSubmissionRepository.avgPerformanceGroupByOrgUnitByOrgId(orgId);
 
             List<Map<String, Object>> rankings = new ArrayList<>();
             int rank = 1;
@@ -203,13 +236,14 @@ public class OrgStatisticTool {
                 entry.put("rank", rank++);
                 entry.put("orgUnitId", row[0] != null ? row[0].toString() : null);
                 entry.put("orgUnitName", row[1]);
-                entry.put("averageScore", row[2] != null ? Math.round(((Number) row[2]).doubleValue() * 100.0) / 100.0 : null);
-                entry.put("evaluationCount", row[3]);
+                entry.put("averagePerformance", row[2] != null
+                        ? Math.round(((Number) row[2]).doubleValue() * 100.0) / 100.0 + "%" : null);
+                entry.put("submissionCount", row[3]);
                 rankings.add(entry);
             }
 
             Map<String, Object> result = new LinkedHashMap<>();
-            result.put("totalUnitsWithEvaluations", rankings.size());
+            result.put("totalUnitsWithSubmissions", rankings.size());
             result.put("rankings", rankings);
 
             return objectMapper.writeValueAsString(result);
@@ -272,14 +306,14 @@ public class OrgStatisticTool {
         }
     }
 
-    @Tool(name = "get_top_performers", description = "Leaderboard of employees with the highest average KPI evaluation scores.")
+    @Tool(name = "get_top_performers", description = "Leaderboard of employees with the highest average KPI hiệu suất (actualValue/targetValue).")
     public String getTopPerformers(
             @ToolParam(description = "Maximum number of top performers to return. Default to 10 if the user does not specify a number.") int limit,
             ToolContext context) {
         try {
             UUID orgId = getOrgId(context);
             int effectiveLimit = limit > 0 ? limit : 10;
-            List<Object[]> data = evaluationRepository.topPerformersByOrgId(orgId, effectiveLimit);
+            List<Object[]> data = kpiSubmissionRepository.topPerformersByActualVsTargetByOrgId(orgId, effectiveLimit);
 
             List<Map<String, Object>> performers = new ArrayList<>();
             int rank = 1;
@@ -289,8 +323,9 @@ public class OrgStatisticTool {
                 entry.put("userId", row[0] != null ? row[0].toString() : null);
                 entry.put("fullName", row[1]);
                 entry.put("email", row[2]);
-                entry.put("averageScore", row[3] != null ? Math.round(((Number) row[3]).doubleValue() * 100.0) / 100.0 : null);
-                entry.put("evaluationCount", row[4]);
+                entry.put("averagePerformance", row[3] != null
+                        ? Math.round(((Number) row[3]).doubleValue() * 100.0) / 100.0 + "%" : null);
+                entry.put("submissionCount", row[4]);
                 performers.add(entry);
             }
 
@@ -305,14 +340,14 @@ public class OrgStatisticTool {
         }
     }
 
-    @Tool(name = "get_low_performers", description = "List of employees with the lowest KPI scores who may need support.")
+    @Tool(name = "get_low_performers", description = "List of employees with the lowest KPI hiệu suất (actualValue/targetValue) who may need support.")
     public String getLowPerformers(
             @ToolParam(description = "Maximum number of low performers to return. Default to 10 if the user does not specify a number.") int limit,
             ToolContext context) {
         try {
             UUID orgId = getOrgId(context);
             int effectiveLimit = limit > 0 ? limit : 10;
-            List<Object[]> data = evaluationRepository.lowPerformersByOrgId(orgId, effectiveLimit);
+            List<Object[]> data = kpiSubmissionRepository.lowPerformersByActualVsTargetByOrgId(orgId, effectiveLimit);
 
             List<Map<String, Object>> performers = new ArrayList<>();
             int rank = 1;
@@ -322,8 +357,9 @@ public class OrgStatisticTool {
                 entry.put("userId", row[0] != null ? row[0].toString() : null);
                 entry.put("fullName", row[1]);
                 entry.put("email", row[2]);
-                entry.put("averageScore", row[3] != null ? Math.round(((Number) row[3]).doubleValue() * 100.0) / 100.0 : null);
-                entry.put("evaluationCount", row[4]);
+                entry.put("averagePerformance", row[3] != null
+                        ? Math.round(((Number) row[3]).doubleValue() * 100.0) / 100.0 + "%" : null);
+                entry.put("submissionCount", row[4]);
                 performers.add(entry);
             }
 
@@ -338,27 +374,29 @@ public class OrgStatisticTool {
         }
     }
 
-    @Tool(name = "get_user_kpi_summary", description = "Individual KPI performance and submission summary for a specific user ID.")
+    @Tool(name = "get_user_kpi_summary", description = "Individual KPI performance summary for a specific user: tiến độ and hiệu suất based on actualValue/targetValue.")
     public String getUserKpiSummary(
             @ToolParam(description = "The UUID of the user to retrieve the KPI summary for. Must be a valid UUID string.") String userId) {
         try {
             UUID uid = UUID.fromString(userId);
 
-            Double avgScore = evaluationRepository.avgScoreByUserId(uid);
-            Double minScore = evaluationRepository.minScoreByUserId(uid);
-            Double maxScore = evaluationRepository.maxScoreByUserId(uid);
-            long evalCount = evaluationRepository.countByUserId(uid);
+            // Hiệu suất theo công thức mới: avg/min/max(actual/target*100)
+            Object[] perfStats = kpiSubmissionRepository.performanceStatsByUserId(uid);
+            Double avgPerf = perfStats != null && perfStats[0] != null ? ((Number) perfStats[0]).doubleValue() : null;
+            Double minPerf = perfStats != null && perfStats[1] != null ? ((Number) perfStats[1]).doubleValue() : null;
+            Double maxPerf = perfStats != null && perfStats[2] != null ? ((Number) perfStats[2]).doubleValue() : null;
+            long submissionCount = perfStats != null && perfStats[3] != null ? ((Number) perfStats[3]).longValue() : 0L;
 
             long totalSubmissions = kpiSubmissionRepository.countBySubmittedById(uid);
             long approvedSubs = kpiSubmissionRepository.countBySubmittedByIdAndStatus(uid, SubmissionStatus.APPROVED);
             long pendingSubs = kpiSubmissionRepository.countBySubmittedByIdAndStatus(uid, SubmissionStatus.PENDING);
             long rejectedSubs = kpiSubmissionRepository.countBySubmittedByIdAndStatus(uid, SubmissionStatus.REJECTED);
 
-            Map<String, Object> evaluationStats = new LinkedHashMap<>();
-            evaluationStats.put("averageScore", avgScore != null ? Math.round(avgScore * 100.0) / 100.0 : null);
-            evaluationStats.put("highestScore", maxScore);
-            evaluationStats.put("lowestScore", minScore);
-            evaluationStats.put("totalEvaluations", evalCount);
+            Map<String, Object> performanceStats = new LinkedHashMap<>();
+            performanceStats.put("averagePerformance", avgPerf != null ? Math.round(avgPerf * 100.0) / 100.0 + "%" : null);
+            performanceStats.put("highestPerformance", maxPerf != null ? Math.round(maxPerf * 100.0) / 100.0 + "%" : null);
+            performanceStats.put("lowestPerformance", minPerf != null ? Math.round(minPerf * 100.0) / 100.0 + "%" : null);
+            performanceStats.put("approvedSubmissionsUsed", submissionCount);
 
             Map<String, Object> submissionStats = new LinkedHashMap<>();
             submissionStats.put("totalSubmissions", totalSubmissions);
@@ -368,7 +406,7 @@ public class OrgStatisticTool {
 
             Map<String, Object> result = new LinkedHashMap<>();
             result.put("userId", userId);
-            result.put("evaluationStats", evaluationStats);
+            result.put("performanceStats", performanceStats);
             result.put("submissionStats", submissionStats);
 
             return objectMapper.writeValueAsString(result);
@@ -445,50 +483,53 @@ public class OrgStatisticTool {
             UUID orgId = getOrgId(context);
             Map<String, Object> insightsData = new LinkedHashMap<>();
 
-            // 1. Completion & Submissions
+            // 1. Tiến độ & Submissions
             long totalCriteria = kpiCriteriaRepository.countByOrganizationIdAndStatus(orgId, KpiStatus.APPROVED);
-            long totalSubmissions = kpiSubmissionRepository.countByOrganizationId(orgId);
-            long approvedSubmissions = kpiSubmissionRepository.countByOrganizationIdAndStatus(orgId, SubmissionStatus.APPROVED);
             long pendingSubmissions = kpiSubmissionRepository.countByOrganizationIdAndStatus(orgId, SubmissionStatus.PENDING);
-            double completionRate = totalSubmissions > 0 ? Math.round((double) approvedSubmissions / totalSubmissions * 100.0) : 0.0;
+
+            // Tiến độ = sum(actual) / sum(target) * 100
+            Object[] sums = kpiSubmissionRepository.sumActualAndTargetByOrgId(orgId);
+            double totalActual = sums != null && sums[0] != null ? ((Number) sums[0]).doubleValue() : 0.0;
+            double totalTarget = sums != null && sums[1] != null ? ((Number) sums[1]).doubleValue() : 0.0;
+            double progressRate = totalTarget > 0 ? Math.round(totalActual / totalTarget * 100.0) : 0.0;
 
             Map<String, Object> completion = new LinkedHashMap<>();
             completion.put("totalKpiCriteria", totalCriteria);
-            completion.put("completionRate", completionRate + "%");
+            completion.put("progressRate", progressRate + "%");
             completion.put("pendingSubmissions", pendingSubmissions);
             insightsData.put("completionOverview", completion);
 
-            // 2. Scores & Trend
-            Double avgScore = evaluationRepository.avgScoreAllByOrgId(orgId);
-            insightsData.put("globalAverageScore", avgScore != null ? Math.round(avgScore * 100.0) / 100.0 : null);
-
-            List<Object[]> trendData = evaluationRepository.trendGroupByPeriodByOrgId(orgId, "YYYY-MM");
+            // 2. Hiệu suất tổng & Xu hướng 3 tháng gần nhất
+            List<Object[]> trendData = kpiSubmissionRepository.trendActualVsTargetByOrgId(orgId, "YYYY-MM");
             List<Map<String, Object>> recentTrends = new ArrayList<>();
-            // Get last 3 months
             int startIndex = Math.max(0, trendData.size() - 3);
             for (int i = startIndex; i < trendData.size(); i++) {
                 Object[] row = trendData.get(i);
+                double pActual = row[1] != null ? ((Number) row[1]).doubleValue() : 0.0;
+                double pTarget = row[2] != null ? ((Number) row[2]).doubleValue() : 0.0;
+                double pRate = pTarget > 0 ? Math.round(pActual / pTarget * 10000.0) / 100.0 : 0.0;
                 Map<String, Object> point = new LinkedHashMap<>();
                 point.put("month", row[0]);
-                point.put("averageScore", row[1] != null ? Math.round(((Number) row[1]).doubleValue() * 100.0) / 100.0 : null);
+                point.put("progressRate", pRate + "%");
                 recentTrends.add(point);
             }
             insightsData.put("recentMonthlyTrends", recentTrends);
 
-            // 3. Org Unit Extremes
-            List<Object[]> unitRankings = evaluationRepository.avgScoreGroupByOrgUnitByOrgId(orgId);
+            // 3. Đơn vị tốt nhất / thấp nhất theo hiệu suất
+            List<Object[]> unitRankings = kpiSubmissionRepository.avgPerformanceGroupByOrgUnitByOrgId(orgId);
             List<Map<String, Object>> topUnits = new ArrayList<>();
             List<Map<String, Object>> bottomUnits = new ArrayList<>();
 
             for (int i = 0; i < Math.min(3, unitRankings.size()); i++) {
                 Object[] row = unitRankings.get(i);
-                topUnits.add(Map.of("orgUnitName", row[1], "averageScore", row[2] != null ? Math.round(((Number) row[2]).doubleValue() * 100.0) / 100.0 : 0));
+                double perf = row[2] != null ? Math.round(((Number) row[2]).doubleValue() * 100.0) / 100.0 : 0.0;
+                topUnits.add(Map.of("orgUnitName", row[1], "averagePerformance", perf + "%"));
             }
             for (int i = Math.max(0, unitRankings.size() - 3); i < unitRankings.size(); i++) {
                 Object[] row = unitRankings.get(i);
-                bottomUnits.add(Map.of("orgUnitName", row[1], "averageScore", row[2] != null ? Math.round(((Number) row[2]).doubleValue() * 100.0) / 100.0 : 0));
+                double perf = row[2] != null ? Math.round(((Number) row[2]).doubleValue() * 100.0) / 100.0 : 0.0;
+                bottomUnits.add(Map.of("orgUnitName", row[1], "averagePerformance", perf + "%"));
             }
-            // Reverse bottom units so the absolute lowest is first
             Collections.reverse(bottomUnits);
 
             insightsData.put("topPerformingUnits", topUnits);
@@ -498,7 +539,10 @@ public class OrgStatisticTool {
             List<Object[]> bottlenecks = kpiSubmissionRepository.findReviewBottlenecksByOrgId(orgId, 5);
             List<Map<String, Object>> worstBottlenecks = new ArrayList<>();
             for (Object[] row : bottlenecks) {
-                worstBottlenecks.add(Map.of("submitterName", row[1], "kpiName", row[4], "daysPending", row[6] != null ? Math.round(((Number) row[6]).doubleValue()) : 0));
+                worstBottlenecks.add(Map.of(
+                        "submitterName", row[1],
+                        "kpiName", row[4],
+                        "daysPending", row[6] != null ? Math.round(((Number) row[6]).doubleValue()) : 0));
             }
             insightsData.put("criticalReviewBottlenecks", worstBottlenecks);
 
