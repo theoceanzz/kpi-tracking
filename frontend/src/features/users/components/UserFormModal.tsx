@@ -393,7 +393,7 @@ function CreateUserForm({ onClose, onSubmit, isPending, canAssignRoles, dynamicR
             {!canAssignRoles && <p className="text-[10px] text-amber-600 mt-1 font-medium">Bạn không có quyền thay đổi vai trò hệ thống</p>}
             {filteredRoles.length === 0 && selectedOrgUnitId && (
               <p className="text-[10px] text-red-500 mt-1 font-bold italic animate-pulse flex items-center gap-1">
-                <AlertCircle size={12} /> Đơn vị này chưa được thiết lập phạm vi vai trò. Hãy cấu hình ở mục "Thiết lập cấu trúc".
+                <AlertCircle size={12} /> Đơn vị này chưa được thiết lập phạm vi vai trò. Hãy cấu hình ở mục "Sơ đồ tổ chức".
               </p>
             )}
           </div>
@@ -559,7 +559,7 @@ function EditUserForm({ editUser, onClose, onSubmit, isPending, canAssignRoles, 
             {!canAssignRoles && <p className="text-[10px] text-amber-600 mt-1 font-medium">Bạn không có quyền thay đổi vai trò hệ thống</p>}
             {filteredRoles.length === 0 && selectedOrgUnitId && (
               <p className="text-[10px] text-red-500 mt-1 font-bold italic animate-pulse flex items-center gap-1">
-                <AlertCircle size={12} /> Đơn vị này chưa được thiết lập phạm vi vai trò. Hãy cấu hình ở mục "Thiết lập cấu trúc".
+                <AlertCircle size={12} /> Đơn vị này chưa được thiết lập phạm vi vai trò. Hãy cấu hình ở mục "Sơ đồ tổ chức".
               </p>
             )}
           </div>

@@ -27,7 +27,7 @@ export default function OrgUnitSubmissionsPage() {
   const [pageSize] = useState(10)
   const { user } = useAuthStore()
   const [selectedOrgUnitId, setSelectedOrgUnitId] = useState(user?.memberships?.[0]?.orgUnitId || 'ALL')
-  const [selectedPeriodId, setSelectedPeriodId] = useState('ALL')
+  const [selectedPeriodId, setSelectedPeriodId] = useState('')    
   const { hasPermission } = usePermission()
   const canManageOrg = hasPermission('ROLE:ASSIGN')
 
@@ -285,7 +285,6 @@ export default function OrgUnitSubmissionsPage() {
                     </div>
                   </SelectTrigger>
                   <SelectContent className="rounded-2xl border-slate-200 dark:border-slate-800 shadow-2xl p-2">
-                    <SelectItem value="ALL" className="font-black text-[10px] uppercase tracking-widest rounded-xl focus:bg-emerald-50">Tất cả các đợt</SelectItem>
                     {periodsData?.content.map((p: any) => (
                       <SelectItem key={p.id} value={p.id} className="font-medium rounded-xl focus:bg-emerald-50">{p.name}</SelectItem>
                     ))}

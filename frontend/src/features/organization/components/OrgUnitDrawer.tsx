@@ -175,7 +175,17 @@ export function OrgUnitDrawer({ orgId, drawerState, onClose, hierarchyLevels }: 
         setValue('name', '')
         setValue('code', drawerState.mode === 'create-root' && organization ? organization.code : '')
         setValue('unitTypeName', hierarchyLevels[calculatedLevel] || '')
-        setValue('roleIds', [])
+        
+        // Set default roles for root unit: Highest level (Manager/Deputy) + Staff
+        if (drawerState.mode === 'create-root' && allRoles.length > 0) {
+          const rootDefaultRoles = filteredRoles.filter(role => 
+            role.rank === 0 || role.rank === 1 || role.rank === 2
+          )
+          setValue('roleIds', rootDefaultRoles.map(r => r.id))
+        } else {
+          setValue('roleIds', [])
+        }
+
         setLogoPreview(null)
       }
     } else {

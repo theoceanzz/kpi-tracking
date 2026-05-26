@@ -133,3 +133,32 @@ export function useDeleteOrgUnit() {
     }
   })
 }
+
+export function useImportOrgUnits() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: ({ orgId, file }: { orgId: string; file: File }) => 
+      orgUnitApi.importUnits(orgId, file),
+    onSuccess: (result: any) => {
+      queryClient.invalidateQueries({ queryKey: ['orgUnits'] })
+      queryClient.invalidateQueries({ queryKey: ['org-hierarchy-levels'] })
+      queryClient.invalidateQueries({ queryKey: ['stats'] })
+      
+      if (result.successfulImports > 0) {
+        toast.success(`Import thành công ${result.successfulImports}/${result.totalRows} đơn vị`)
+      }
+      
+      if (result.errors && result.errors.length > 0) {
+        if (result.errors.length <= 5) {
+          result.errors.forEach((e: string) => toast.error(e))
+        } else {
+          toast.error(`Phát hiện ${result.errors.length} lỗi trong quá trình import.`)
+        }
+      }
+    },
+    onError: (error: any) => {
+      toast.error(error?.response?.data?.message || 'Import thất bại')
+    }
+  })
+}

@@ -105,7 +105,6 @@ function SidebarSettingsTab() {
 
   const menuItems = [
     { key: '/dashboard', defaultLabel: 'Tổng quan', category: 'Dashboard' },
-    { key: '/dashboard/staff', defaultLabel: 'Dashboard cá nhân', category: 'Dashboard' },
     { key: 'Thiết lập công ty', defaultLabel: 'Thiết lập công ty', category: 'Hệ thống' },
     { key: '/company', defaultLabel: 'Công ty', category: 'Hệ thống' },
     { key: 'Tổ chức', defaultLabel: 'Tổ chức', category: 'Hệ thống' },

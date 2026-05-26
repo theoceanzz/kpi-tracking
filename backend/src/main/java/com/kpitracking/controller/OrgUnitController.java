@@ -6,6 +6,8 @@ import com.kpitracking.dto.request.orgunit.CreateOrgUnitRequest;
 import com.kpitracking.dto.request.orgunit.MoveOrgUnitRequest;
 import com.kpitracking.dto.request.orgunit.UpdateOrgUnitRequest;
 import com.kpitracking.dto.response.ApiResponse;
+import com.kpitracking.dto.response.orgunit.ImportOrgUnitResponse;
+import com.kpitracking.dto.response.orgunit.OrgUnitExcelResponse;
 import com.kpitracking.dto.response.orgunit.OrgUnitResponse;
 import com.kpitracking.dto.response.orgunit.OrgUnitTreeResponse;
 import com.kpitracking.service.OrgUnitService;
@@ -109,5 +111,24 @@ public class OrgUnitController {
             @RequestParam("file") MultipartFile file) throws IOException {
         OrgUnitResponse response = orgUnitService.uploadLogo(orgId, unitId, file);
         return ResponseEntity.ok(ApiResponse.success("Logo uploaded successfully", response));
+    }
+
+    @GetMapping("/export")
+    @PreAuthorize("hasAuthority('ORG:VIEW')")
+    @Operation(summary = "Export organization units")
+    public ResponseEntity<ApiResponse<List<OrgUnitExcelResponse>>> exportOrgUnits(@PathVariable UUID orgId) {
+        List<OrgUnitExcelResponse> response = orgUnitService.exportOrgUnits(orgId);
+        return ResponseEntity.ok(ApiResponse.success(response));
+    }
+
+    @PostMapping(value = "/import", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PreAuthorize("hasAuthority('ORG:CREATE')")
+    @Operation(summary = "Import organization units via Excel or CSV")
+    public ResponseEntity<ApiResponse<ImportOrgUnitResponse>> importOrgUnits(
+            @PathVariable UUID orgId,
+            @RequestParam("file") MultipartFile file) {
+        ImportOrgUnitResponse response = orgUnitService.importOrgUnits(orgId, file);
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(ApiResponse.success("Organization units imported successfully", response));
     }
 }

@@ -768,9 +768,7 @@ export const tourPageLabels: Record<TourPageKey, string> = {
 
 /** Map URL paths to tour page keys */
 export const pathToTourKey: Record<string, TourPageKey> = {
-  '/dashboard/director': 'dashboard-director',
-  '/dashboard/head': 'dashboard-head',
-  '/dashboard/staff': 'dashboard-staff',
+  '/dashboard': 'dashboard-staff', // Default fallback
   '/company': 'company',
   '/roles': 'roles',
   '/org-structure': 'org-structure',

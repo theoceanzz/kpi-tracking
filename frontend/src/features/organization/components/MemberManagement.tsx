@@ -565,7 +565,7 @@ export function MemberManagement({ orgUnitId }: MemberManagementProps) {
                                 <div className="col-span-2 p-4 rounded-2xl bg-red-50 border border-red-100 flex items-center gap-3 text-red-600">
                                     <AlertTriangle className="w-5 h-5 shrink-0" />
                                     <p className="text-xs font-bold italic">
-                                        Đơn vị này chưa được thiết lập phạm vi vai trò. Vui lòng quay lại mục "Thiết lập cấu trúc" để cấu hình trước khi gán nhân sự.
+                                        Đơn vị này chưa được thiết lập phạm vi vai trò. Vui lòng quay lại mục "Sơ đồ tổ chức" để cấu hình trước khi gán nhân sự.
                                     </p>
                                 </div>
                             )}

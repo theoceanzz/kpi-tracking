@@ -29,7 +29,7 @@ export default function AnalyticsPage() {
   const tabs: { key: TabKey; label: string; icon: any; visible: boolean }[] = [
     // OKR Mode tabs
     { key: 'my-objectives', label: 'Mục tiêu của tôi', icon: Target, visible: isOkr },
-    { key: 'subordinate', label: 'Quản lý mục tiêu cấp dưới', icon: Users, visible: isOkr && canDrillDown },
+    { key: 'subordinate', label: 'Mục tiêu đơn vị', icon: Users, visible: isOkr && canDrillDown },
     
     // Non-OKR Mode tabs
     { key: 'my', label: 'KPI của tôi', icon: TrendingUp, visible: !isOkr },
