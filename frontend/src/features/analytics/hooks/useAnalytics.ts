@@ -38,10 +38,10 @@ export function useSummaryTrend(orgUnitId?: string, period: string = '5_MONTHS')
   })
 }
 
-export function useSummaryComparison(orgUnitId?: string, period: string = 'MONTH') {
+export function useSummaryComparison(orgUnitId?: string, from?: string, to?: string, onlyApproved?: boolean) {
   return useQuery({
-    queryKey: ['analytics', 'summary', 'comparison', orgUnitId, period],
-    queryFn: () => statsApi.getSummaryComparison(orgUnitId, period),
+    queryKey: ['analytics', 'summary', 'comparison', orgUnitId, from, to, onlyApproved],
+    queryFn: () => statsApi.getSummaryComparison(orgUnitId, from, to, onlyApproved),
     placeholderData: (previousData) => previousData,
   })
 }
@@ -54,10 +54,10 @@ export function useSummaryRisks(orgUnitId?: string, period: string = 'MONTH') {
   })
 }
 
-export function useSummaryRankings(orgUnitId?: string, rankingUnitId?: string, period: string = 'MONTH') {
+export function useSummaryRankings(orgUnitId?: string, rankingUnitId?: string, from?: string, to?: string, onlyApproved?: boolean) {
   return useQuery({
-    queryKey: ['analytics', 'summary', 'rankings', orgUnitId, rankingUnitId, period],
-    queryFn: () => statsApi.getSummaryRankings(orgUnitId, rankingUnitId, period),
+    queryKey: ['analytics', 'summary', 'rankings', orgUnitId, rankingUnitId, from, to, onlyApproved],
+    queryFn: () => statsApi.getSummaryRankings(orgUnitId, rankingUnitId, from, to, onlyApproved),
     placeholderData: (previousData) => previousData,
   })
 }

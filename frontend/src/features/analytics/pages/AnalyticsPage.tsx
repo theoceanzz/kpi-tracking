@@ -32,8 +32,8 @@ export default function AnalyticsPage() {
     { key: 'subordinate', label: 'Quản lý mục tiêu cấp dưới', icon: Users, visible: isOkr && canDrillDown },
     
     // Non-OKR Mode tabs
-    { key: 'my', label: 'Cá nhân', icon: TrendingUp, visible: !isOkr },
-    { key: 'summary', label: 'Thống kê tổng', icon: LayoutDashboard, visible: !isOkr && canSummary },
+    { key: 'my', label: 'KPI của tôi', icon: TrendingUp, visible: !isOkr },
+    { key: 'summary', label: 'KPI đơn vị', icon: LayoutDashboard, visible: !isOkr && canSummary },
     
     // Always visible
     { key: 'drilldown', label: 'Phân cấp', icon: Building2, visible: true },

@@ -17,7 +17,17 @@
       "Bash(Remove-Item \"d:\\\\PROJECT\\\\Code\\\\KPI_Tracking\\\\backend\\\\src\\\\main\\\\java\\\\com\\\\kpitracking\\\\event\\\\KpiSubmittedEvent.java\", \"d:\\\\PROJECT\\\\Code\\\\KPI_Tracking\\\\backend\\\\src\\\\main\\\\java\\\\com\\\\kpitracking\\\\event\\\\SubmissionReviewedEvent.java\", \"d:\\\\PROJECT\\\\Code\\\\KPI_Tracking\\\\backend\\\\src\\\\main\\\\java\\\\com\\\\kpitracking\\\\event\\\\KpiCriteriaApprovedEvent.java\", \"d:\\\\PROJECT\\\\Code\\\\KPI_Tracking\\\\backend\\\\src\\\\main\\\\java\\\\com\\\\kpitracking\\\\event\\\\KpiCriteriaRejectedEvent.java\")",
       "Bash(grep *)",
       "Bash(mvn compile *)",
-      "Bash(./mvnw compile *)"
+      "Bash(./mvnw compile *)",
+      "Bash(Get-ChildItem -Path \"D:\\\\Antigravity\\\\Project\\\\kpi-tracking\\\\frontend\\\\src\\\\features\\\\analytics\" -Recurse)",
+      "Bash(Select-Object FullName)",
+      "PowerShell(cd \"d:\\\\Antigravity\\\\Project\\\\kpi-tracking\\\\frontend\"; npx tsc --noEmit 2>&1 | Where-Object { $_ -match \"SummaryTab|orgUnitKpi\" })",
+      "PowerShell(cd d:\\\\Antigravity\\\\Project\\\\kpi-tracking\\\\backend; .\\\\mvnw.cmd compile -q 2>&1 | Where-Object { $_ -notmatch \"WARNING\" } | Select-Object -Last 10)",
+      "PowerShell(cd d:\\\\Antigravity\\\\Project\\\\kpi-tracking\\\\frontend; npx tsc --noEmit 2>&1 | Where-Object { $_ -notmatch \"personalKpiApi|statsApi|npm notice\" } | Select-Object -Last 15)",
+      "PowerShell(cd d:\\\\Antigravity\\\\Project\\\\kpi-tracking\\\\frontend; npx tsc --noEmit 2>&1 | Where-Object { $_ -notmatch \"personalKpiApi|statsApi|npm notice\" })",
+      "PowerShell(cd \"d:\\\\Antigravity\\\\Project\\\\kpi-tracking\\\\backend\"; .\\\\mvnw.cmd clean package -DskipTests -q 2>&1 | Where-Object { $_ -notmatch \"^WARNING:\" } | Select-Object -Last 10)",
+      "PowerShell(cd \"d:\\\\Antigravity\\\\Project\\\\kpi-tracking\\\\backend\"; .\\\\mvnw.cmd clean package -DskipTests -q 2>&1 | Where-Object { $_ -notmatch \"^WARNING:\" } | Select-Object -Last 5)",
+      "PowerShell(& \"C:\\\\ProgramData\\\\chocolatey\\\\bin\\\\mvn.cmd\" -version 2>&1)",
+      "Bash(./mvnw clean *)"
     ]
   }
 }

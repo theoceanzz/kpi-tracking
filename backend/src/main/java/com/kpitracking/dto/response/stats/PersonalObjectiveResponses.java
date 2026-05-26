@@ -61,6 +61,9 @@ public class PersonalObjectiveResponses {
         private String keyResultName;
         private String keyResultCode;
 
+        private Instant periodStart;
+        private Instant periodEnd;
+
         private boolean isShared;
         private int participantCount;
 
@@ -172,5 +175,31 @@ public class PersonalObjectiveResponses {
         private String fullName;
         private Double contributionPercentage;
         private Double actualValue;
+    }
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class FilterOption {
+        private String code;
+        private String name;
+        @Builder.Default private int depth = 0;
+    }
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class PagedKpiDetailResponse {
+        private List<KpiDetail> content;
+        private int page;
+        private int size;
+        private long totalElements;
+        private int totalPages;
+        private boolean first;
+        private boolean last;
+        private List<FilterOption> availableObjectives;
+        private List<FilterOption> availableKeyResults;
     }
 }

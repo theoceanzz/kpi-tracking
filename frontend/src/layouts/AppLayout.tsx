@@ -79,7 +79,7 @@ export default function AppLayout() {
         </header>
 
         {/* Main content */}
-        <main className="flex-1 p-4 md:p-6 w-full max-w-[100vw] overflow-x-hidden">
+        <main className="flex-1 p-4 md:p-6 w-full max-w-[100vw] [overflow-x:clip]">
           <Outlet />
         </main>
       </div>

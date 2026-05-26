@@ -221,6 +221,7 @@ export interface RiskInfo {
 export interface RankingOption {
   id: string;
   name: string;
+  depth?: number;
 }
 
 export interface UnitComparison {
@@ -240,6 +241,7 @@ export interface RankingItem {
   avatar: string | null;
   score: number;
   performance: number;
+  avgProgress: number;
   kpiCount: number;
   subText: string;
 }

@@ -262,7 +262,7 @@ public class SubordinateAnalyticsService {
                 if (obj.getCreatedAt() == null) continue;
                 
                 boolean isActive = true;
-                if (obj.getCreatedAt().isAfter(pEnd)) isActive = false;
+                if (!obj.getCreatedAt().isBefore(pEnd)) isActive = false;
                 if (obj.getDeletedAt() != null && obj.getDeletedAt().isBefore(pEnd)) isActive = false;
                 
                 if (isActive) {
@@ -849,7 +849,7 @@ public class SubordinateAnalyticsService {
                     if (kr.getCreatedAt() == null) continue;
                     
                     boolean isActive = true;
-                    if (kr.getCreatedAt().isAfter(pEnd)) isActive = false;
+                    if (!kr.getCreatedAt().isBefore(pEnd)) isActive = false;
                     if (kr.getDeletedAt() != null && kr.getDeletedAt().isBefore(pEnd)) isActive = false;
                     
                     if (isActive) {
@@ -1027,11 +1027,14 @@ public class SubordinateAnalyticsService {
                     if (kpi.getCreatedAt() == null) continue;
                     
                     boolean isActive = true;
-                    if (kpi.getCreatedAt().isAfter(pEnd)) isActive = false;
+                    Instant kpiRef = (kpi.getKpiPeriod() != null && kpi.getKpiPeriod().getStartDate() != null)
+                            ? kpi.getKpiPeriod().getStartDate()
+                            : kpi.getCreatedAt();
+                    if (kpiRef == null || !kpiRef.isBefore(pEnd)) isActive = false;
                     if (kpi.getDeletedAt() != null && kpi.getDeletedAt().isBefore(pEnd)) isActive = false;
-                    
+
                     if (isActive) {
-                        if (kpi.getCreatedAt().isBefore(pStart)) {
+                        if (kpiRef.isBefore(pStart)) {
                             oldItems++;
                         } else {
                             newItems++;
@@ -1212,7 +1215,7 @@ public class SubordinateAnalyticsService {
                     if (matchesFilter) {
                         if (submissionTime.isBefore(pStart)) {
                             oldItems++;
-                        } else if (!submissionTime.isAfter(pEnd)) {
+                        } else if (submissionTime.isBefore(pEnd)) {
                             newItems++;
                         }
                     }

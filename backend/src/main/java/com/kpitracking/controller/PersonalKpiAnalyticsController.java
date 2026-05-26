@@ -2,7 +2,7 @@ package com.kpitracking.controller;
 
 import com.kpitracking.dto.response.ApiResponse;
 import com.kpitracking.dto.response.stats.PersonalObjectiveResponses.*;
-import com.kpitracking.service.PersonalObjectiveAnalyticsService;
+import com.kpitracking.service.PersonalKpiAnalyticsService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
@@ -10,60 +10,48 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.Instant;
-import java.util.UUID;
 
 @RestController
-@RequestMapping("/api/v1/stats/personal/objectives")
+@RequestMapping("/api/v1/stats/personal/kpis")
 @RequiredArgsConstructor
-@Tag(name = "Personal Objective Analytics", description = "Personal objective dashboard endpoints")
-public class PersonalObjectiveAnalyticsController {
+@Tag(name = "Personal KPI Analytics", description = "Personal standalone KPI dashboard endpoints")
+public class PersonalKpiAnalyticsController {
 
-    private final PersonalObjectiveAnalyticsService personalObjectiveAnalyticsService;
+    private final PersonalKpiAnalyticsService personalKpiAnalyticsService;
 
     @GetMapping("/metrics")
-    @Operation(summary = "Get personal objective metrics")
+    @Operation(summary = "Get standalone KPI metrics")
     public ResponseEntity<ApiResponse<Metrics>> getMetrics(
             @RequestParam(required = false) Instant from,
             @RequestParam(required = false) Instant to,
             @RequestParam(required = false, defaultValue = "false") Boolean onlyApproved) {
-        return ResponseEntity.ok(ApiResponse.success(personalObjectiveAnalyticsService.getMetrics(from, to, onlyApproved)));
+        return ResponseEntity.ok(ApiResponse.success(
+                personalKpiAnalyticsService.getMetrics(from, to, onlyApproved)));
     }
 
     @GetMapping("/chart/combo")
-    @Operation(summary = "Get data for personal combo chart")
+    @Operation(summary = "Get combo chart data for standalone KPIs")
     public ResponseEntity<ApiResponse<ComboChartData>> getComboChart(
             @RequestParam(required = false) Instant from,
             @RequestParam(required = false) Instant to,
             @RequestParam(required = false, defaultValue = "false") Boolean onlyApproved) {
-        return ResponseEntity.ok(ApiResponse.success(personalObjectiveAnalyticsService.getComboChart(from, to, onlyApproved)));
+        return ResponseEntity.ok(ApiResponse.success(
+                personalKpiAnalyticsService.getComboChart(from, to, onlyApproved)));
     }
 
     @GetMapping("/details")
-    @Operation(summary = "Get detailed personal KPIs for table with sort, filter and pagination")
+    @Operation(summary = "Get paged standalone KPI detail table with sort, filter and pagination")
     public ResponseEntity<ApiResponse<PagedKpiDetailResponse>> getDetailedKpis(
             @RequestParam(required = false) Instant from,
             @RequestParam(required = false) Instant to,
             @RequestParam(required = false, defaultValue = "false") Boolean onlyApproved,
             @RequestParam(required = false) String sortBy,
             @RequestParam(required = false, defaultValue = "desc") String sortDir,
-            @RequestParam(required = false) String objectiveCode,
-            @RequestParam(required = false) String keyResultCode,
             @RequestParam(required = false) String sharedType,
             @RequestParam(required = false, defaultValue = "0") int page,
             @RequestParam(required = false, defaultValue = "10") int size) {
         return ResponseEntity.ok(ApiResponse.success(
-                personalObjectiveAnalyticsService.getDetailedKpis(
-                        from, to, onlyApproved, sortBy, sortDir,
-                        objectiveCode, keyResultCode, sharedType, page, size)));
-    }
-
-    @GetMapping("/kpis/{id}/drawer")
-    @Operation(summary = "Get scoped metrics and chart data for a specific KPI drawer")
-    public ResponseEntity<ApiResponse<DrawerData>> getKpiDrawerData(
-            @PathVariable UUID id,
-            @RequestParam(required = false) Instant from,
-            @RequestParam(required = false) Instant to,
-            @RequestParam(required = false, defaultValue = "false") Boolean onlyApproved) {
-        return ResponseEntity.ok(ApiResponse.success(personalObjectiveAnalyticsService.getKpiDrawerData(id, from, to, onlyApproved)));
+                personalKpiAnalyticsService.getDetailedKpis(
+                        from, to, onlyApproved, sortBy, sortDir, sharedType, page, size)));
     }
 }

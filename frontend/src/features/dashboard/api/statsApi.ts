@@ -34,14 +34,14 @@ export const statsApi = {
   getSummaryTrend: (orgUnitId?: string, period: string = '5_MONTHS') =>
     axiosInstance.get<ApiResponse<any[]>>('/stats/summary/trend', { params: { orgUnitId, period } }).then((r) => r.data.data),
 
-  getSummaryComparison: (orgUnitId?: string, period: string = 'MONTH') =>
-    axiosInstance.get<ApiResponse<any>>('/stats/summary/unit-comparison', { params: { orgUnitId, period } }).then((r) => r.data.data),
+  getSummaryComparison: (orgUnitId?: string, from?: string, to?: string, onlyApproved?: boolean) =>
+    axiosInstance.get<ApiResponse<any>>('/stats/summary/unit-comparison', { params: { orgUnitId, from, to, onlyApproved } }).then((r) => r.data.data),
 
   getSummaryRisks: (orgUnitId?: string, period: string = 'MONTH') =>
     axiosInstance.get<ApiResponse<any>>('/stats/summary/risks', { params: { orgUnitId, period } }).then((r) => r.data.data),
 
-  getSummaryRankings: (orgUnitId?: string, rankingUnitId?: string, period: string = 'MONTH') =>
-    axiosInstance.get<ApiResponse<any>>('/stats/summary/rankings', { params: { orgUnitId, rankingUnitId, period } }).then((r) => r.data.data),
+  getSummaryRankings: (orgUnitId?: string, rankingUnitId?: string, from?: string, to?: string, onlyApproved?: boolean) =>
+    axiosInstance.get<ApiResponse<any>>('/stats/summary/rankings', { params: { orgUnitId, rankingUnitId, from, to, onlyApproved } }).then((r) => r.data.data),
 
   // Subordinate Analytics
   getSubordinateCompletion: (from?: string, to?: string, onlyApproved?: boolean) =>
