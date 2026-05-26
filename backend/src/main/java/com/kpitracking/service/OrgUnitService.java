@@ -20,10 +20,23 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.io.BufferedReader;
 import java.io.IOException;
+import java.io.InputStreamReader;
 import java.time.Instant;
 import java.util.*;
 import java.util.stream.Collectors;
+
+import org.apache.commons.csv.CSVFormat;
+import org.apache.commons.csv.CSVParser;
+import org.apache.commons.csv.CSVRecord;
+import org.apache.poi.ss.usermodel.Row;
+import org.apache.poi.ss.usermodel.Sheet;
+import org.apache.poi.ss.usermodel.Workbook;
+import org.apache.poi.xssf.usermodel.XSSFWorkbook;
+import com.kpitracking.dto.response.orgunit.ImportOrgUnitResponse;
+import com.kpitracking.dto.response.orgunit.OrgUnitExcelResponse;
+import com.kpitracking.enums.OrgUnitStatus;
 
 @Service
 @RequiredArgsConstructor
@@ -352,5 +365,185 @@ public class OrgUnitService {
             }
         }
         return roots;
+    }
+
+    @Transactional(readOnly = true)
+    public List<OrgUnitExcelResponse> exportOrgUnits(UUID orgId) {
+        List<OrgUnit> units = orgUnitRepository.findByOrgHierarchyLevel_Organization_IdAndDeletedAtIsNull(orgId);
+        return units.stream()
+                .map(unit -> OrgUnitExcelResponse.builder()
+                        .name(unit.getName())
+                        .code(unit.getCode())
+                        .parentCode(unit.getParent() != null ? unit.getParent().getCode() : null)
+                        .email(unit.getEmail())
+                        .phone(unit.getPhone())
+                        .address(unit.getAddress())
+                        .build())
+                .collect(Collectors.toList());
+    }
+
+    @Transactional
+    public ImportOrgUnitResponse importOrgUnits(UUID orgId, MultipartFile file) {
+        String filename = file.getOriginalFilename();
+        if (filename == null || (!filename.endsWith(".csv") && !filename.endsWith(".xlsx"))) {
+            throw new BusinessException("Chỉ hỗ trợ tập tin định dạng .csv và .xlsx");
+        }
+
+        List<String> errors = new ArrayList<>();
+        int successfulImports = 0;
+        int totalRows = 0;
+
+        try {
+            if (filename.endsWith(".csv")) {
+                try (BufferedReader fileReader = new BufferedReader(new InputStreamReader(file.getInputStream(), "UTF-8"));
+                     CSVParser csvParser = new CSVParser(fileReader, CSVFormat.DEFAULT.builder().setHeader().setSkipHeaderRecord(true).setIgnoreHeaderCase(true).setTrim(true).build())) {
+
+                    Iterable<CSVRecord> csvRecords = csvParser.getRecords();
+                    for (CSVRecord csvRecord : csvRecords) {
+                        totalRows++;
+                        try {
+                            processOrgUnitRow(orgId, 
+                                    csvRecord.get("Name"),
+                                    csvRecord.get("Code"),
+                                    csvRecord.isMapped("ParentCode") ? csvRecord.get("ParentCode") : null,
+                                    csvRecord.isMapped("Email") ? csvRecord.get("Email") : null,
+                                    csvRecord.isMapped("Phone") ? csvRecord.get("Phone") : null,
+                                    csvRecord.isMapped("Address") ? csvRecord.get("Address") : null,
+                                    csvRecord.isMapped("RoleIds") ? csvRecord.get("RoleIds") : null);
+                            successfulImports++;
+                        } catch (Exception e) {
+                            errors.add("Dòng " + totalRows + ": " + e.getMessage());
+                        }
+                    }
+                }
+            } else if (filename.endsWith(".xlsx")) {
+                try (Workbook workbook = new XSSFWorkbook(file.getInputStream())) {
+                    Sheet sheet = workbook.getSheetAt(0);
+                    Row headerRow = sheet.getRow(0);
+
+                    if (headerRow == null) throw new BusinessException("Tập tin Excel trống");
+
+                    int nameIdx = -1, codeIdx = -1, parentCodeIdx = -1, emailIdx = -1, phoneIdx = -1, addrIdx = -1, roleIdsIdx = -1;
+                    for (int i = 0; i < headerRow.getLastCellNum(); i++) {
+                        String header = headerRow.getCell(i).getStringCellValue().trim();
+                        if (header.equalsIgnoreCase("Name")) nameIdx = i;
+                        else if (header.equalsIgnoreCase("Code")) codeIdx = i;
+                        else if (header.equalsIgnoreCase("ParentCode")) parentCodeIdx = i;
+                        else if (header.equalsIgnoreCase("Email")) emailIdx = i;
+                        else if (header.equalsIgnoreCase("Phone")) phoneIdx = i;
+                        else if (header.equalsIgnoreCase("Address")) addrIdx = i;
+                        else if (header.equalsIgnoreCase("RoleIds")) roleIdsIdx = i;
+                    }
+
+                    if (nameIdx == -1 || codeIdx == -1) {
+                        throw new BusinessException("Thiếu các cột bắt buộc: Name, Code");
+                    }
+
+                    for (int i = 1; i <= sheet.getLastRowNum(); i++) {
+                        Row row = sheet.getRow(i);
+                        if (row == null) continue;
+                        totalRows++;
+
+                        try {
+                            processOrgUnitRow(orgId,
+                                    getCellValueAsString(row.getCell(nameIdx)),
+                                    getCellValueAsString(row.getCell(codeIdx)),
+                                    parentCodeIdx != -1 ? getCellValueAsString(row.getCell(parentCodeIdx)) : null,
+                                    emailIdx != -1 ? getCellValueAsString(row.getCell(emailIdx)) : null,
+                                    phoneIdx != -1 ? getCellValueAsString(row.getCell(phoneIdx)) : null,
+                                    addrIdx != -1 ? getCellValueAsString(row.getCell(addrIdx)) : null,
+                                    roleIdsIdx != -1 ? getCellValueAsString(row.getCell(roleIdsIdx)) : null);
+                            successfulImports++;
+                        } catch (Exception e) {
+                            errors.add("Dòng " + totalRows + ": " + e.getMessage());
+                        }
+                    }
+                }
+            }
+        } catch (Exception e) {
+            throw new BusinessException("Xử lý tập tin thất bại: " + e.getMessage());
+        }
+
+        return ImportOrgUnitResponse.builder()
+                .totalRows(totalRows)
+                .successfulImports(successfulImports)
+                .errors(errors)
+                .build();
+    }
+
+    private String getCellValueAsString(org.apache.poi.ss.usermodel.Cell cell) {
+        if (cell == null) return null;
+        if (cell.getCellType() == org.apache.poi.ss.usermodel.CellType.NUMERIC) {
+            return String.valueOf((long) cell.getNumericCellValue());
+        }
+        return cell.getStringCellValue().trim();
+    }
+
+    private void processOrgUnitRow(UUID orgId, String name, String code, String parentCode, String email, String phone, String address, String roleIds) {
+        if (name == null || name.isBlank()) throw new BusinessException("Tên đơn vị là bắt buộc");
+        if (code == null || code.isBlank()) throw new BusinessException("Mã đơn vị là bắt buộc");
+
+        Organization organization = organizationRepository.findById(orgId)
+                .orElseThrow(() -> new ResourceNotFoundException("Tổ chức", "id", orgId));
+
+        OrgUnit parent = null;
+        int levelOrder = 1;
+
+        if (parentCode != null && !parentCode.isBlank()) {
+            parent = orgUnitRepository.findByCodeSmart(parentCode.trim(), orgId)
+                    .orElseThrow(() -> new ResourceNotFoundException("Đơn vị cha (Mã: " + parentCode + ")", "code", parentCode));
+            levelOrder = parent.getOrgHierarchyLevel().getLevelOrder() + 1;
+        }
+
+        int finalLevelOrder = levelOrder;
+        com.kpitracking.entity.OrgHierarchyLevel hierarchyLevel = orgHierarchyLevelRepository
+                .findByOrganizationIdOrderByLevelOrderAsc(orgId)
+                .stream()
+                .filter(l -> l.getLevelOrder() == finalLevelOrder)
+                .findFirst()
+                .orElseThrow(() -> new BusinessException("Đã đạt giới hạn số lượng cấp bậc phân cấp cho đơn vị '" + name + "'"));
+
+        Optional<OrgUnit> existingUnitOpt = orgUnitRepository.findByCodeSmart(code, orgId);
+        OrgUnit orgUnit;
+
+        if (existingUnitOpt.isPresent()) {
+            orgUnit = existingUnitOpt.get();
+            orgUnit.setName(name);
+            orgUnit.setOrgHierarchyLevel(hierarchyLevel);
+        } else {
+            Optional<OrgUnit> deletedUnitOpt = orgUnitRepository.findDeletedByCodeSmart(code, orgId);
+            if (deletedUnitOpt.isPresent()) {
+                orgUnit = deletedUnitOpt.get();
+                orgUnit.setDeletedAt(null);
+                orgUnit.setName(name);
+                orgUnit.setOrgHierarchyLevel(hierarchyLevel);
+            } else {
+                orgUnit = OrgUnit.builder()
+                        .name(name)
+                        .code(code)
+                        .orgHierarchyLevel(hierarchyLevel)
+                        .path("/temp/")
+                        .build();
+            }
+        }
+
+        orgUnit.setParent(parent);
+        orgUnit.setEmail(email);
+        orgUnit.setPhone(phone);
+        orgUnit.setAddress(address);
+        orgUnit.setStatus(com.kpitracking.enums.OrgUnitStatus.ACTIVE);
+
+        if (roleIds != null && !roleIds.isBlank()) {
+            List<com.kpitracking.entity.Role> roles = Arrays.stream(roleIds.split(","))
+                    .map(String::trim)
+                    .filter(s -> !s.isEmpty())
+                    .map(UUID::fromString)
+                    .map(id -> roleRepository.findById(id).orElse(null))
+                    .filter(Objects::nonNull)
+                    .collect(Collectors.toList());
+            orgUnit.setAllowedRoles(roles);
+        }
+
+        orgUnitRepository.save(orgUnit);
     }
 }

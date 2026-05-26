@@ -1,14 +1,21 @@
 import { useState, useMemo, useCallback } from 'react'
-import { LayoutGrid, List as ListIcon, PlusCircle } from 'lucide-react'
+import { LayoutGrid, List as ListIcon, PlusCircle, Download, Upload, Loader2 } from 'lucide-react'
 import { useAuthStore } from '@/store/authStore'
-import { useOrgUnitTree, useOrgHierarchyLevels, useDeleteOrgUnit } from '../hooks/useOrganizationStructure'
+import { useOrgUnitTree, useOrgHierarchyLevels, useDeleteOrgUnit, useImportOrgUnits } from '../hooks/useOrganizationStructure'
 import type { OrgUnitTreeResponse } from '../types/org-unit'
 import { OrgMindmapView } from '../components/OrgMindmapView'
 import { OrgListView } from '../components/OrgListView'
 import { OrgUnitDrawer, DrawerState } from '../components/OrgUnitDrawer'
+import OrgImportGuideModal from '../components/OrgImportGuideModal'
+import OrgExcelPreviewModal from '../components/OrgExcelPreviewModal'
 import ConfirmDialog from '@/components/common/ConfirmDialog'
 import PageTour from '@/components/common/PageTour'
 import { orgStructureSteps } from '@/components/common/tourSteps'
+import { } from 'xlsx'
+import ExcelJS from 'exceljs'
+import { toast } from 'sonner'
+import { orgUnitApi } from '../api/org-unit.api'
+import { useRef } from 'react'
 
 export function OrganizationStructurePage() {
   const { user } = useAuthStore()
@@ -17,8 +24,13 @@ export function OrganizationStructurePage() {
   const { data: treeData = [], isLoading: isTreeLoading } = useOrgUnitTree(orgId)
   const { data: hierarchyLevelsData = [], isLoading: isLevelsLoading } = useOrgHierarchyLevels(orgId)
   const deleteMutation = useDeleteOrgUnit()
+  const importMutation = useImportOrgUnits()
   
   const [viewMode, setViewMode] = useState<'mindmap' | 'list'>('mindmap')
+  const [isExporting, setIsExporting] = useState(false)
+  const [showImportGuide, setShowImportGuide] = useState(false)
+  const [previewFile, setPreviewFile] = useState<File | null>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
   const [drawerState, setDrawerState] = useState<DrawerState>({
     isOpen: false,
     mode: 'create-root',
@@ -89,6 +101,97 @@ export function OrganizationStructurePage() {
     setDrawerState(prev => ({ ...prev, isOpen: false }))
   }, [])
 
+  const handleExport = async () => {
+    if (!orgId) return
+    setIsExporting(true)
+    try {
+      const data = await orgUnitApi.exportUnits(orgId)
+      
+      const workbook = new ExcelJS.Workbook()
+      const worksheet = workbook.addWorksheet("Sơ đồ tổ chức")
+
+      // Define columns
+      worksheet.columns = [
+        { header: "Name", key: "name", width: 35 },
+        { header: "Code", key: "code", width: 15 },
+        { header: "ParentCode", key: "parentCode", width: 15 },
+        { header: "Email", key: "email", width: 25 },
+        { header: "Phone", key: "phone", width: 15 },
+        { header: "Address", key: "address", width: 40 }
+      ]
+
+      // Add data
+      data.forEach(item => {
+        worksheet.addRow({
+          name: item.name,
+          code: item.code,
+          parentCode: item.parentCode,
+          email: item.email,
+          phone: item.phone,
+          address: item.address
+        })
+      })
+
+      // Style Header
+      const headerRow = worksheet.getRow(1)
+      headerRow.font = { bold: true, color: { argb: 'FFFFFF' }, size: 12 }
+      headerRow.fill = {
+        type: 'pattern',
+        pattern: 'solid',
+        fgColor: { argb: '4F46E5' } // Indigo-600
+      }
+      headerRow.alignment = { vertical: 'middle', horizontal: 'center' }
+
+      // Add borders and cell styling
+      worksheet.eachRow((row, rowNumber) => {
+        row.eachCell((cell) => {
+          cell.border = {
+            top: { style: 'thin' },
+            left: { style: 'thin' },
+            bottom: { style: 'thin' },
+            right: { style: 'thin' }
+          }
+          if (rowNumber > 1) {
+            cell.alignment = { vertical: 'middle', horizontal: 'left' }
+          }
+        })
+      })
+
+      // Generate buffer and download
+      const buffer = await workbook.xlsx.writeBuffer()
+      const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
+      const url = window.URL.createObjectURL(blob)
+      const anchor = document.createElement('a')
+      anchor.href = url
+      anchor.download = `So_do_to_chuc_${new Date().toLocaleDateString('vi-VN').replace(/\//g, '-')}.xlsx`
+      anchor.click()
+      window.URL.revokeObjectURL(url)
+
+      toast.success("Xuất file thành công")
+    } catch (error) {
+      console.error(error)
+      toast.error("Xuất file thất bại")
+    } finally {
+      setIsExporting(false)
+    }
+  }
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (file) {
+      setPreviewFile(file)
+    }
+    // Reset input so the same file can be selected again
+    e.target.value = ''
+  }
+
+  const handleConfirmImport = (file: File) => {
+    if (orgId) {
+      importMutation.mutate({ orgId, file })
+    }
+    setPreviewFile(null)
+  }
+
   if (isTreeLoading || isLevelsLoading) {
     return <div className="p-8 flex justify-center"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div></div>
   }
@@ -109,6 +212,32 @@ export function OrganizationStructurePage() {
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Quản lý Cấu trúc Tổ chức</h1>
           <p className="text-sm text-gray-500 mt-1">Quản lý sơ đồ phân cấp phòng ban, chi nhánh</p>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2">
+          <input 
+            type="file" 
+            ref={fileInputRef} 
+            className="hidden" 
+            accept=".xlsx,.xls,.csv" 
+            onChange={handleFileChange} 
+          />
+          <button
+            onClick={() => setShowImportGuide(true)}
+            disabled={importMutation.isPending}
+            className="flex items-center gap-2 px-5 py-2.5 rounded-xl border border-emerald-200 bg-emerald-50/50 text-emerald-700 text-sm font-bold hover:bg-emerald-100 hover:border-emerald-300 transition-all shadow-sm active:scale-95 disabled:opacity-50"
+          >
+            {importMutation.isPending ? <Loader2 size={16} className="animate-spin" /> : <Upload size={16} className="text-emerald-500" />}
+            Import Hệ thống
+          </button>
+          <button
+            onClick={handleExport}
+            disabled={isExporting}
+            className="flex items-center gap-2 px-5 py-2.5 rounded-xl border border-blue-200 bg-blue-50/50 text-blue-700 text-sm font-bold hover:bg-blue-100 hover:border-blue-300 transition-all shadow-sm active:scale-95 disabled:opacity-50"
+          >
+            {isExporting ? <Loader2 size={16} className="animate-spin" /> : <Download size={16} className="text-blue-500" />}
+            Xuất Excel
+          </button>
         </div>
         
         {treeData.length > 0 && (
@@ -166,6 +295,26 @@ export function OrganizationStructurePage() {
             />
           )}
         </div>
+      )}
+
+      {showImportGuide && (
+        <OrgImportGuideModal 
+          open={showImportGuide} 
+          onClose={() => setShowImportGuide(false)} 
+          onSelectFile={() => fileInputRef.current?.click()} 
+        />
+      )}
+
+      {previewFile && orgId && (
+        <OrgExcelPreviewModal
+          open={!!previewFile}
+          file={previewFile}
+          orgId={orgId}
+          onClose={() => setPreviewFile(null)}
+          onImport={handleConfirmImport}
+          isImporting={importMutation.isPending}
+          hierarchyLevels={hierarchyLevelsMap}
+        />
       )}
 
       {drawerState.isOpen && (

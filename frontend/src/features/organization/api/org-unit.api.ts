@@ -48,4 +48,15 @@ export const orgUnitApi = {
 
   getSubtree: (orgId: string, unitId: string) =>
     axiosInstance.get<ApiResponse<OrgUnitTreeResponse[]>>(`/organizations/${orgId}/units/${unitId}/subtree`).then((r) => r.data.data),
+
+  exportUnits: (orgId: string) =>
+    axiosInstance.get<ApiResponse<any[]>>(`/organizations/${orgId}/units/export`).then((r) => r.data.data),
+
+  importUnits: (orgId: string, file: File) => {
+    const formData = new FormData()
+    formData.append('file', file)
+    return axiosInstance.post<ApiResponse<any>>(`/organizations/${orgId}/units/import`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    }).then((r) => r.data.data)
+  },
 }
