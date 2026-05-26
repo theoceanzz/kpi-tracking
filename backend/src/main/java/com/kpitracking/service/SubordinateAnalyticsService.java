@@ -104,7 +104,10 @@ public class SubordinateAnalyticsService {
                                        s.getStatus() == SubmissionStatus.REJECTED;
                             }
                         })
-                        .filter(s -> !s.getCreatedAt().isBefore(kpiStart) && (B == null || !s.getCreatedAt().isAfter(B)))
+                        .filter(s -> {
+                            Instant submissionTime = s.getPeriodStart() != null ? s.getPeriodStart() : s.getCreatedAt();
+                            return !submissionTime.isBefore(kpiStart) && (B == null || !submissionTime.isAfter(B));
+                        })
                         .mapToDouble(s -> s.getActualValue() != null ? s.getActualValue() : 0.0)
                         .sum();
 
@@ -119,9 +122,12 @@ public class SubordinateAnalyticsService {
                                        s.getStatus() == SubmissionStatus.REJECTED;
                             }
                         })
-                        .filter(s -> (A == null || !s.getCreatedAt().isBefore(A)) && (B == null || !s.getCreatedAt().isAfter(B)))
+                        .filter(s -> {
+                            Instant submissionTime = s.getPeriodStart() != null ? s.getPeriodStart() : s.getCreatedAt();
+                            return (A == null || !submissionTime.isBefore(A)) && (B == null || !submissionTime.isAfter(B));
+                        })
                         .mapToDouble(s -> s.getActualValue() != null ? s.getActualValue() : 0.0)
-                        .sum();        
+                        .sum();
 
                 // 2. Tính toán tỷ lệ % cuối cùng
                 double completion = targetValue > 0 ? (actualCompletionAccumulated / targetValue) * 100 : 0;
@@ -256,7 +262,7 @@ public class SubordinateAnalyticsService {
                 if (obj.getCreatedAt() == null) continue;
                 
                 boolean isActive = true;
-                if (obj.getCreatedAt().isAfter(pEnd)) isActive = false;
+                if (!obj.getCreatedAt().isBefore(pEnd)) isActive = false;
                 if (obj.getDeletedAt() != null && obj.getDeletedAt().isBefore(pEnd)) isActive = false;
                 
                 if (isActive) {
@@ -334,7 +340,10 @@ public class SubordinateAnalyticsService {
                                            s.getStatus() == SubmissionStatus.REJECTED;
                                 }
                             })
-                            .filter(s -> !s.getCreatedAt().isBefore(kpiStart) && (B == null || !s.getCreatedAt().isAfter(B)))
+                            .filter(s -> {
+                                Instant submissionTime = s.getPeriodStart() != null ? s.getPeriodStart() : s.getCreatedAt();
+                                return !submissionTime.isBefore(kpiStart) && (B == null || !submissionTime.isAfter(B));
+                            })
                             .mapToDouble(s -> s.getActualValue() != null ? s.getActualValue() : 0.0)
                             .sum();
 
@@ -348,7 +357,10 @@ public class SubordinateAnalyticsService {
                                            s.getStatus() == SubmissionStatus.REJECTED;
                                 }
                             })
-                            .filter(s -> (A == null || !s.getCreatedAt().isBefore(A)) && (B == null || !s.getCreatedAt().isAfter(B)))
+                            .filter(s -> {
+                                Instant submissionTime = s.getPeriodStart() != null ? s.getPeriodStart() : s.getCreatedAt();
+                                return (A == null || !submissionTime.isBefore(A)) && (B == null || !submissionTime.isAfter(B));
+                            })
                             .mapToDouble(s -> s.getActualValue() != null ? s.getActualValue() : 0.0)
                             .sum();
 
@@ -423,8 +435,8 @@ public class SubordinateAnalyticsService {
                                 .roleName("Thành viên")
                                 .orgUnitName(kpi.getOrgUnit() != null ? kpi.getOrgUnit().getName() : "")
                                 .actualValue(assigneeActual)
-                                .progress(Math.min((assigneeActual / totalTarget) * 100, 100.0))
-                                .performance(Math.min((assigneeActual / totalTarget) * 100, 100.0))
+                                .progress((assigneeActual / totalTarget) * 100)
+                                .performance((assigneeActual / totalTarget) * 100)
                                 .submissions(assigneeSubs)
                                 .build());
                         }
@@ -488,6 +500,7 @@ public class SubordinateAnalyticsService {
             .id(obj.getId())
             .name(obj.getName())
             .code(obj.getCode())
+            .unitId(obj.getOrgUnit() != null ? obj.getOrgUnit().getId() : null)
             .unitName(obj.getOrgUnit() != null ? obj.getOrgUnit().getName() : "")
             .unitCode(obj.getOrgUnit() != null ? obj.getOrgUnit().getCode() : "")
             .startDate(obj.getStartDate() != null ? obj.getStartDate().atStartOfDay().toInstant(ZoneOffset.UTC) : null)
@@ -507,6 +520,124 @@ public class SubordinateAnalyticsService {
                 .map(obj -> buildObjectiveDetailedDto(obj, from, to, onlyApproved))
                 .filter(dto -> dto.getTotalKeyResults() > 0)
                 .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public SubordinateDetailsResponses.PagedObjectiveDetailedResponse getDetailedObjectives(
+            Instant from, Instant to, Boolean onlyApproved,
+            String sortBy, String sortDir,
+            UUID orgUnitId,
+            int page, int size) {
+
+        List<Objective> objectives = getObjectivesInScope();
+
+        List<ObjectiveDetailedDto> allDtos = objectives.stream()
+                .map(obj -> buildObjectiveDetailedDto(obj, from, to, onlyApproved))
+                .filter(dto -> dto.getTotalKeyResults() > 0)
+                .collect(java.util.stream.Collectors.toCollection(ArrayList::new));
+
+        // Filter by orgUnitId (includes descendants via path)
+        if (orgUnitId != null) {
+            // Collect the set of IDs that belong to the subtree rooted at orgUnitId
+            List<UUID> subordinateIds = getSubordinateOrgUnitIds();
+            // Find the subtree of orgUnitId within the already-authorized subordinate IDs
+            List<OrgUnit> allSubordinateUnits = orgUnitRepository.findAllById(subordinateIds);
+            OrgUnit targetUnit = allSubordinateUnits.stream()
+                    .filter(u -> u.getId().equals(orgUnitId))
+                    .findFirst().orElse(null);
+
+            if (targetUnit != null) {
+                String pathPrefix = targetUnit.getPath();
+                Set<UUID> subtreeIds = allSubordinateUnits.stream()
+                        .filter(u -> u.getPath() != null && u.getPath().startsWith(pathPrefix))
+                        .map(OrgUnit::getId)
+                        .collect(java.util.stream.Collectors.toSet());
+                allDtos = allDtos.stream()
+                        .filter(dto -> dto.getUnitId() != null && subtreeIds.contains(dto.getUnitId()))
+                        .collect(java.util.stream.Collectors.toCollection(ArrayList::new));
+            } else {
+                // orgUnitId not in scope — return empty
+                allDtos = new ArrayList<>();
+            }
+        }
+
+        // Sort
+        if (sortBy != null) {
+            boolean descending = !"asc".equalsIgnoreCase(sortDir);
+            allDtos.sort((a, b) -> {
+                double va, vb;
+                if ("performance".equalsIgnoreCase(sortBy)) {
+                    va = a.getPerformance() != null ? a.getPerformance() : 0.0;
+                    vb = b.getPerformance() != null ? b.getPerformance() : 0.0;
+                } else {
+                    va = a.getProgress() != null ? a.getProgress() : 0.0;
+                    vb = b.getProgress() != null ? b.getProgress() : 0.0;
+                }
+                return descending ? Double.compare(vb, va) : Double.compare(va, vb);
+            });
+        }
+
+        long totalElements = allDtos.size();
+        int totalPages = size > 0 ? (int) Math.ceil((double) totalElements / size) : 1;
+        int fromIdx = Math.min(page * size, (int) totalElements);
+        int toIdx = Math.min(fromIdx + size, (int) totalElements);
+        List<ObjectiveDetailedDto> pageContent = allDtos.subList(fromIdx, toIdx);
+
+        return SubordinateDetailsResponses.PagedObjectiveDetailedResponse.builder()
+                .content(pageContent)
+                .page(page)
+                .size(size)
+                .totalElements(totalElements)
+                .totalPages(totalPages)
+                .first(page == 0)
+                .last(page >= totalPages - 1)
+                .build();
+    }
+
+    @Transactional(readOnly = true)
+    public List<SubordinateDetailsResponses.OrgUnitFilterDto> getAvailableOrgUnitsForFilter() {
+        List<UUID> subordinateIds = getSubordinateOrgUnitIds();
+        if (subordinateIds.isEmpty()) return Collections.emptyList();
+
+        List<OrgUnit> units = orgUnitRepository.findAllById(subordinateIds);
+        Set<UUID> unitIdSet = units.stream().map(OrgUnit::getId).collect(java.util.stream.Collectors.toSet());
+
+        // Root nodes: those whose parent is null or whose parent is NOT in our set
+        List<OrgUnit> roots = units.stream()
+                .filter(u -> u.getParent() == null || !unitIdSet.contains(u.getParent().getId()))
+                .toList();
+
+        // Build flat list via depth-first traversal
+        List<SubordinateDetailsResponses.OrgUnitFilterDto> result = new ArrayList<>();
+        Map<UUID, List<OrgUnit>> childrenMap = units.stream()
+                .filter(u -> u.getParent() != null && unitIdSet.contains(u.getParent().getId()))
+                .collect(java.util.stream.Collectors.groupingBy(u -> u.getParent().getId()));
+
+        for (OrgUnit root : roots) {
+            buildOrgUnitFilterTree(root, 0, childrenMap, result);
+        }
+
+        return result;
+    }
+
+    private void buildOrgUnitFilterTree(
+            OrgUnit unit, int depth,
+            Map<UUID, List<OrgUnit>> childrenMap,
+            List<SubordinateDetailsResponses.OrgUnitFilterDto> result) {
+
+        // Pre-order: add this node first, then recurse into children
+        result.add(SubordinateDetailsResponses.OrgUnitFilterDto.builder()
+                .id(unit.getId())
+                .name(unit.getName())
+                .code(unit.getCode())
+                .depth(depth)
+                .children(new ArrayList<>())
+                .build());
+
+        List<OrgUnit> children = childrenMap.getOrDefault(unit.getId(), Collections.emptyList());
+        for (OrgUnit child : children) {
+            buildOrgUnitFilterTree(child, depth + 1, childrenMap, result);
+        }
     }
 
     public SubordinateDetailsResponses.TopEntitiesDashboardResponse getTopEntitiesDashboard(Instant from, Instant to, String sortFilter, Boolean onlyApproved) {
@@ -595,7 +726,10 @@ public class SubordinateAnalyticsService {
                                s.getStatus() == SubmissionStatus.REJECTED;
                     }
                 })
-                .filter(s -> !s.getCreatedAt().isBefore(kpiStart) && (B == null || !s.getCreatedAt().isAfter(B)))
+                .filter(s -> {
+                    Instant submissionTime = s.getPeriodStart() != null ? s.getPeriodStart() : s.getCreatedAt();
+                    return !submissionTime.isBefore(kpiStart) && (B == null || !submissionTime.isAfter(B));
+                })
                 .mapToDouble(s -> s.getActualValue() != null ? s.getActualValue() : 0.0)
                 .sum();
 
@@ -609,7 +743,10 @@ public class SubordinateAnalyticsService {
                                s.getStatus() == SubmissionStatus.REJECTED;
                     }
                 })
-                .filter(s -> (A == null || !s.getCreatedAt().isBefore(A)) && (B == null || !s.getCreatedAt().isAfter(B)))
+                .filter(s -> {
+                    Instant submissionTime = s.getPeriodStart() != null ? s.getPeriodStart() : s.getCreatedAt();
+                    return (A == null || !submissionTime.isBefore(A)) && (B == null || !submissionTime.isAfter(B));
+                })
                 .mapToDouble(s -> s.getActualValue() != null ? s.getActualValue() : 0.0)
                 .sum();        
 
@@ -712,7 +849,7 @@ public class SubordinateAnalyticsService {
                     if (kr.getCreatedAt() == null) continue;
                     
                     boolean isActive = true;
-                    if (kr.getCreatedAt().isAfter(pEnd)) isActive = false;
+                    if (!kr.getCreatedAt().isBefore(pEnd)) isActive = false;
                     if (kr.getDeletedAt() != null && kr.getDeletedAt().isBefore(pEnd)) isActive = false;
                     
                     if (isActive) {
@@ -890,11 +1027,14 @@ public class SubordinateAnalyticsService {
                     if (kpi.getCreatedAt() == null) continue;
                     
                     boolean isActive = true;
-                    if (kpi.getCreatedAt().isAfter(pEnd)) isActive = false;
+                    Instant kpiRef = (kpi.getKpiPeriod() != null && kpi.getKpiPeriod().getStartDate() != null)
+                            ? kpi.getKpiPeriod().getStartDate()
+                            : kpi.getCreatedAt();
+                    if (kpiRef == null || !kpiRef.isBefore(pEnd)) isActive = false;
                     if (kpi.getDeletedAt() != null && kpi.getDeletedAt().isBefore(pEnd)) isActive = false;
-                    
+
                     if (isActive) {
-                        if (kpi.getCreatedAt().isBefore(pStart)) {
+                        if (kpiRef.isBefore(pStart)) {
                             oldItems++;
                         } else {
                             newItems++;
@@ -1062,7 +1202,8 @@ public class SubordinateAnalyticsService {
 
             if (kpi.getSubmissions() != null) {
                 for (KpiSubmission s : kpi.getSubmissions()) {
-                    if (s.getCreatedAt() == null) continue;
+                    Instant submissionTime = s.getPeriodStart() != null ? s.getPeriodStart() : s.getCreatedAt();
+                    if (submissionTime == null) continue;
                     boolean matchesFilter = false;
                     if (Boolean.TRUE.equals(onlyApproved)) {
                         matchesFilter = s.getStatus() == SubmissionStatus.APPROVED;
@@ -1072,9 +1213,9 @@ public class SubordinateAnalyticsService {
                                         s.getStatus() == SubmissionStatus.REJECTED;
                     }
                     if (matchesFilter) {
-                        if (s.getCreatedAt().isBefore(pStart)) {
+                        if (submissionTime.isBefore(pStart)) {
                             oldItems++;
-                        } else if (!s.getCreatedAt().isAfter(pEnd)) {
+                        } else if (submissionTime.isBefore(pEnd)) {
                             newItems++;
                         }
                     }

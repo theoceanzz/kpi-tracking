@@ -52,6 +52,7 @@ public class AnalyticsSummaryResponse {
     public static class RankingOption {
         private UUID id;
         private String name;
+        @Builder.Default private int depth = 0;
     }
 
     @Data
@@ -132,6 +133,7 @@ public class AnalyticsSummaryResponse {
         private String avatar;
         private double score;
         private double performance;
+        private double avgProgress;
         private long kpiCount;
         private String subText; // e.g., Department name
     }

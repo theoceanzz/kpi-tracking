@@ -52,6 +52,8 @@ export interface KpiDetail {
   objectiveCode: string
   keyResultName: string
   keyResultCode: string
+  periodStart: string | null
+  periodEnd: string | null
   shared: boolean
   participantCount: number
   mySubmissions: SubmissionHistory[]
@@ -92,6 +94,36 @@ export interface DrawerData {
   }[]
 }
 
+export interface KpiFilterOption {
+  code: string
+  name: string
+}
+
+export interface PagedKpiDetailResponse {
+  content: KpiDetail[]
+  page: number
+  size: number
+  totalElements: number
+  totalPages: number
+  first: boolean
+  last: boolean
+  availableObjectives: KpiFilterOption[]
+  availableKeyResults: KpiFilterOption[]
+}
+
+export interface KpiDetailParams {
+  from?: string
+  to?: string
+  onlyApproved?: boolean
+  sortBy?: string
+  sortDir?: string
+  objectiveCode?: string
+  keyResultCode?: string
+  sharedType?: string
+  page?: number
+  size?: number
+}
+
 export const personalObjectiveApi = {
   getMetrics: async (params?: { from?: string; to?: string; onlyApproved?: boolean }) => {
     const res = await axiosClient.get<{ data: PersonalObjectiveMetrics }>('/stats/personal/objectives/metrics', { params })
@@ -101,8 +133,8 @@ export const personalObjectiveApi = {
     const res = await axiosClient.get<{ data: ComboChartData }>('/stats/personal/objectives/chart/combo', { params })
     return res.data.data
   },
-  getDetailedKpis: async (params?: { from?: string; to?: string; onlyApproved?: boolean }) => {
-    const res = await axiosClient.get<{ data: KpiDetail[] }>('/stats/personal/objectives/details', { params })
+  getDetailedKpis: async (params?: KpiDetailParams) => {
+    const res = await axiosClient.get<{ data: PagedKpiDetailResponse }>('/stats/personal/objectives/details', { params })
     return res.data.data
   },
   getKpiDrawerData: async (id: string, params?: { from?: string; to?: string; onlyApproved?: boolean }) => {

@@ -85,12 +85,25 @@ public class SubordinateAnalyticsController {
 
     @GetMapping("/details")
     @PreAuthorize("hasAuthority('DASHBOARD:VIEW') or hasAuthority('KPI:VIEW')")
-    @Operation(summary = "Get detailed hierarchical objectives for chart and table")
-    public ResponseEntity<ApiResponse<List<ObjectiveDetailedDto>>> getDetailedObjectives(
+    @Operation(summary = "Get detailed hierarchical objectives for chart and table with sort, filter and pagination")
+    public ResponseEntity<ApiResponse<SubordinateDetailsResponses.PagedObjectiveDetailedResponse>> getDetailedObjectives(
             @RequestParam(required = false) Instant from,
             @RequestParam(required = false) Instant to,
-            @RequestParam(required = false, defaultValue = "false") Boolean onlyApproved) {
-        return ResponseEntity.ok(ApiResponse.success(subordinateAnalyticsService.getDetailedObjectives(from, to, onlyApproved)));
+            @RequestParam(required = false, defaultValue = "false") Boolean onlyApproved,
+            @RequestParam(required = false) String sortBy,
+            @RequestParam(required = false, defaultValue = "desc") String sortDir,
+            @RequestParam(required = false) UUID orgUnitId,
+            @RequestParam(required = false, defaultValue = "0") int page,
+            @RequestParam(required = false, defaultValue = "10") int size) {
+        return ResponseEntity.ok(ApiResponse.success(
+                subordinateAnalyticsService.getDetailedObjectives(from, to, onlyApproved, sortBy, sortDir, orgUnitId, page, size)));
+    }
+
+    @GetMapping("/details/filter-units")
+    @PreAuthorize("hasAuthority('DASHBOARD:VIEW') or hasAuthority('KPI:VIEW')")
+    @Operation(summary = "Get available org units for filtering the objective detail table")
+    public ResponseEntity<ApiResponse<List<SubordinateDetailsResponses.OrgUnitFilterDto>>> getDetailFilterUnits() {
+        return ResponseEntity.ok(ApiResponse.success(subordinateAnalyticsService.getAvailableOrgUnitsForFilter()));
     }
 
     @GetMapping("/objectives/{id}/metrics")

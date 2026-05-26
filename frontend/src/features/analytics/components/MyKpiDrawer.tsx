@@ -18,10 +18,7 @@ function DrawerChartTooltip({ active, payload, label }: any) {
         <p className="font-bold text-slate-900 dark:text-white mb-3">{label}</p>
         <div className="space-y-2">
           {payload.map((p: any, i: number) => {
-            let valStr = p.value?.toLocaleString('vi-VN')
-            if (p.name.includes('%')) {
-              valStr = `${Math.round(p.value)}%`
-            }
+            const valStr = p.name.includes('%') ? `${Math.round(p.value)}%` : p.value?.toLocaleString('vi-VN')
             return (
               <div key={i} className="flex items-center gap-3 text-sm">
                 <div className="w-3 h-3 rounded-sm flex-shrink-0" style={{ backgroundColor: p.color }} />
@@ -37,32 +34,42 @@ function DrawerChartTooltip({ active, payload, label }: any) {
   return null
 }
 
-export default function MyObjectiveDrawer({ kpiId, onClose, globalFrom, globalTo }: { kpiId: string, onClose: () => void, globalFrom?: string, globalTo?: string }) {
+export default function MyKpiDrawer({
+  kpiId,
+  onClose,
+  globalFrom,
+  globalTo,
+}: {
+  kpiId: string
+  onClose: () => void
+  globalFrom?: string
+  globalTo?: string
+}) {
   const [dateFilterType, setDateFilterType] = useState<DateFilterType>('GLOBAL')
   const [customRange, setCustomRange] = useState<{ from: string; to: string }>({ from: '', to: '' })
-  const [activeTeammates, setActiveTeammates] = useState<string[]>([]) // Array of selected teammate user IDs
-  
+  const [activeTeammates, setActiveTeammates] = useState<string[]>([])
+
   const { from, to } = useMemo(() => {
     if (dateFilterType === 'GLOBAL') return { from: globalFrom, to: globalTo }
     const now = new Date()
     switch (dateFilterType) {
-      case 'THIS_WEEK': return { from: subDays(now, 7).toISOString(), to: now.toISOString() }
-      case 'THIS_MONTH': return { from: subDays(now, 30).toISOString(), to: now.toISOString() }
-      case 'THIS_QUARTER': return { from: subDays(now, 90).toISOString(), to: now.toISOString() }
-      case '6_MONTHS': return { from: subMonths(now, 6).toISOString(), to: now.toISOString() }
-      case 'THIS_YEAR': return { from: startOfYear(now).toISOString(), to: now.toISOString() }
+      case 'THIS_WEEK':    return { from: subDays(now, 7).toISOString(),   to: now.toISOString() }
+      case 'THIS_MONTH':   return { from: subDays(now, 30).toISOString(),  to: now.toISOString() }
+      case 'THIS_QUARTER': return { from: subDays(now, 90).toISOString(),  to: now.toISOString() }
+      case '6_MONTHS':     return { from: subMonths(now, 6).toISOString(), to: now.toISOString() }
+      case 'THIS_YEAR':    return { from: startOfYear(now).toISOString(),  to: now.toISOString() }
       case 'CUSTOM':
         return {
           from: customRange.from ? new Date(customRange.from).toISOString() : undefined,
-          to: customRange.to ? new Date(customRange.to).toISOString() : undefined
+          to:   customRange.to   ? new Date(customRange.to).toISOString()   : undefined,
         }
       default: return { from: undefined, to: undefined }
     }
   }, [dateFilterType, customRange, globalFrom, globalTo])
 
   const { data, isLoading } = useQuery({
-    queryKey: ['personalObjective', 'drawer', kpiId, from, to],
-    queryFn: () => personalObjectiveApi.getKpiDrawerData(kpiId, { from, to })
+    queryKey: ['personalKpi', 'drawer', kpiId, from, to],
+    queryFn: () => personalObjectiveApi.getKpiDrawerData(kpiId, { from, to }),
   })
 
   const chartData = useMemo(() => {
@@ -73,7 +80,7 @@ export default function MyObjectiveDrawer({ kpiId, onClose, globalFrom, globalTo
         targetValue: p.targetValue,
         teamTotalActual: p.teamTotalActual,
         myActual: p.myActual,
-        myPerformance: p.myPerformance
+        myPerformance: p.myPerformance,
       }
       if (p.teammateValues) {
         Object.keys(p.teammateValues).forEach(tid => {
@@ -91,7 +98,6 @@ export default function MyObjectiveDrawer({ kpiId, onClose, globalFrom, globalTo
     setActiveTeammates(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id])
   }
 
-  // Sort contributions
   const contributions = useMemo(() => {
     if (!data?.contributions) return []
     return [...data.contributions].sort((a, b) => b.contributionPercentage - a.contributionPercentage)
@@ -105,38 +111,30 @@ export default function MyObjectiveDrawer({ kpiId, onClose, globalFrom, globalTo
         </span>
         {data?.shared && (
           <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-purple-100 dark:bg-purple-900/40 text-purple-600 dark:text-purple-400 text-[10px] font-black uppercase border border-purple-200 dark:border-purple-500/30 flex-shrink-0">
-            <Users size={10} /> Mục tiêu chung
+            <Users size={10} /> KPI chung
           </span>
         )}
       </div>
-      <p className="text-xs text-slate-500 font-medium">
-        KR: {data?.krName} ({data?.krCode}) • OBJ: {data?.objName} ({data?.objCode})
-      </p>
     </div>
   )
 
   return (
-    <ObjectiveDrawer
-      isOpen={true}
-      onClose={onClose}
-      title={customTitle}
-    >
+    <ObjectiveDrawer isOpen={true} onClose={onClose} title={customTitle}>
       {isLoading ? (
         <div className="w-full min-h-[400px] flex items-center justify-center">
           <LoadingSkeleton rows={15} />
         </div>
       ) : (
         <div className="space-y-6 pb-10">
-          {/* Subtitle / Metadata at top of Drawer body */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-end gap-4">
-            {/* Local Date Filter */}
+          {/* Local Date Filter */}
+          <div className="flex justify-end">
             <div className="flex flex-wrap items-center gap-2 bg-white dark:bg-slate-900 p-1 rounded-lg border border-slate-200 dark:border-white/10 shadow-sm text-sm">
-              <select 
+              <select
                 value={dateFilterType}
-                onChange={(e) => setDateFilterType(e.target.value as DateFilterType)}
+                onChange={e => setDateFilterType(e.target.value as DateFilterType)}
                 className="bg-transparent border-none outline-none text-slate-700 dark:text-slate-300 px-2 py-1 cursor-pointer font-medium"
               >
-                <option value="GLOBAL">Theo bộ lọc tổng quan mục tiêu</option>
+                <option value="GLOBAL">Theo bộ lọc KPI của tôi</option>
                 <option value="THIS_WEEK">Tuần này</option>
                 <option value="THIS_MONTH">Tháng này</option>
                 <option value="THIS_QUARTER">Quý này</option>
@@ -146,18 +144,18 @@ export default function MyObjectiveDrawer({ kpiId, onClose, globalFrom, globalTo
               </select>
               {dateFilterType === 'CUSTOM' && (
                 <div className="flex items-center gap-2 px-2 border-l border-slate-200 dark:border-white/10">
-                  <input 
-                    type="date" 
+                  <input
+                    type="date"
                     className="bg-transparent border-none outline-none text-slate-700 dark:text-slate-300 text-xs"
                     value={customRange.from}
-                    onChange={(e) => setCustomRange(prev => ({ ...prev, from: e.target.value }))}
+                    onChange={e => setCustomRange(prev => ({ ...prev, from: e.target.value }))}
                   />
                   <span className="text-slate-400">-</span>
-                  <input 
-                    type="date" 
+                  <input
+                    type="date"
                     className="bg-transparent border-none outline-none text-slate-700 dark:text-slate-300 text-xs"
                     value={customRange.to}
-                    onChange={(e) => setCustomRange(prev => ({ ...prev, to: e.target.value }))}
+                    onChange={e => setCustomRange(prev => ({ ...prev, to: e.target.value }))}
                   />
                 </div>
               )}
@@ -170,10 +168,10 @@ export default function MyObjectiveDrawer({ kpiId, onClose, globalFrom, globalTo
               <p className="text-[10px] font-bold text-slate-500 mb-1">Mục tiêu yêu cầu</p>
               <p className="text-xl font-black text-slate-900 dark:text-white">{data?.targetValue?.toLocaleString('vi-VN')}</p>
             </div>
-            <div className="bg-indigo-50 dark:bg-indigo-900/20 p-4 rounded-2xl border border-indigo-100 dark:border-indigo-900/30">
-              <p className="text-[10px] font-bold text-indigo-500 mb-1">Cá nhân: Lũy kế</p>
-              <p className="text-xl font-black text-indigo-700 dark:text-indigo-400">{data?.myActualValue?.toLocaleString('vi-VN')}</p>
-              <p className="text-[10px] font-bold text-indigo-500 mt-1">Đạt {data?.myProgress?.toFixed(1)}%</p>
+            <div className="bg-violet-50 dark:bg-violet-900/20 p-4 rounded-2xl border border-violet-100 dark:border-violet-900/30">
+              <p className="text-[10px] font-bold text-violet-500 mb-1">Cá nhân: Lũy kế</p>
+              <p className="text-xl font-black text-violet-700 dark:text-violet-400">{data?.myActualValue?.toLocaleString('vi-VN')}</p>
+              <p className="text-[10px] font-bold text-violet-500 mt-1">Đạt {data?.myProgress?.toFixed(1)}%</p>
             </div>
             {data?.shared && (
               <div className="bg-purple-50 dark:bg-purple-900/20 p-4 rounded-2xl border border-purple-100 dark:border-purple-900/30">
@@ -195,10 +193,9 @@ export default function MyObjectiveDrawer({ kpiId, onClose, globalFrom, globalTo
           <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 border border-slate-200 dark:border-slate-800">
             <div className="flex flex-col md:flex-row md:items-center justify-between mb-6 gap-4">
               <h3 className="text-sm font-black flex items-center gap-2">
-                <Activity size={18} className="text-indigo-500" />
+                <Activity size={18} className="text-violet-500" />
                 Biểu đồ phân tích chuyên sâu
               </h3>
-              {/* Custom Legend for Teammates */}
               {data?.shared && data.chartData.availableTeammates && data.chartData.availableTeammates.length > 0 && (
                 <div className="flex flex-wrap gap-2">
                   {data.chartData.availableTeammates.map(tm => (
@@ -206,20 +203,19 @@ export default function MyObjectiveDrawer({ kpiId, onClose, globalFrom, globalTo
                       key={tm.userId}
                       onClick={() => toggleTeammate(tm.userId)}
                       className={cn(
-                        "px-2.5 py-1 rounded-full text-[10px] font-bold transition-all border",
-                        activeTeammates.includes(tm.userId) 
-                          ? "bg-slate-800 text-white border-slate-800 dark:bg-white dark:text-slate-900 dark:border-white" 
-                          : "bg-white text-slate-500 border-slate-200 hover:border-slate-300 dark:bg-slate-900 dark:border-slate-700"
+                        'px-2.5 py-1 rounded-full text-[10px] font-bold transition-all border',
+                        activeTeammates.includes(tm.userId)
+                          ? 'bg-slate-800 text-white border-slate-800 dark:bg-white dark:text-slate-900 dark:border-white'
+                          : 'bg-white text-slate-500 border-slate-200 hover:border-slate-300 dark:bg-slate-900 dark:border-slate-700'
                       )}
                     >
-                      {activeTeammates.includes(tm.userId) && "✓"} {tm.fullName}
+                      {activeTeammates.includes(tm.userId) && '✓'} {tm.fullName}
                     </button>
                   ))}
                 </div>
               )}
             </div>
 
-            {/* Nhãn đơn vị đo nằm ngang ở phía trên */}
             <div className="flex justify-between text-xs font-bold text-slate-400 dark:text-slate-500 mb-2 px-1">
               <span>Đơn vị ({data?.unit || ''})</span>
               <span>Hiệu suất (%)</span>
@@ -229,40 +225,21 @@ export default function MyObjectiveDrawer({ kpiId, onClose, globalFrom, globalTo
               <ResponsiveContainer width="100%" height="100%">
                 <ComposedChart data={chartData} margin={{ top: 10, right: 10, left: 0, bottom: 5 }}>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
-                  <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{fontSize: 11, fill: '#64748b'}} />
-                  <YAxis 
-                    yAxisId="left" 
-                    orientation="left" 
-                    axisLine={false} 
-                    tickLine={false} 
-                    tick={{fontSize: 11, fill: '#64748b'}}
-                  />
-                  <YAxis 
-                    yAxisId="right" 
-                    orientation="right" 
-                    axisLine={false} 
-                    tickLine={false} 
-                    tick={{fontSize: 11, fill: '#64748b'}}
-                    tickFormatter={(val) => `${Math.round(val)}%`}
-                  />
+                  <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#64748b' }} />
+                  <YAxis yAxisId="left" orientation="left" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#64748b' }} />
+                  <YAxis yAxisId="right" orientation="right" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#64748b' }} tickFormatter={val => `${Math.round(val)}%`} />
                   <Tooltip content={<DrawerChartTooltip />} cursor={{ fill: '#94a3b8', opacity: 0.06 }} />
                   <Legend wrapperStyle={{ fontSize: '11px', fontWeight: 'bold' }} />
-                  
-                  {/* Fixed Target Line */}
+
                   <Line yAxisId="left" type="step" dataKey="targetValue" name="Mục tiêu" stroke="#ef4444" strokeWidth={2} dot={false} strokeDasharray="5 5" />
-                  
-                  {/* Total Team Actual */}
                   {data?.shared && (
                     <Line yAxisId="left" type="monotone" dataKey="teamTotalActual" name="Tổng Lũy kế Nhóm" stroke="#93c5fd" strokeWidth={2} strokeDasharray="3 3" dot={false} />
                   )}
-                  
-                  {/* My Lines */}
-                  <Line yAxisId="left" type="monotone" dataKey="myActual" name="Lũy kế của Tôi" stroke="#6366f1" strokeWidth={3} dot={{ r: 4 }} activeDot={{ r: 6 }} />
+                  <Line yAxisId="left" type="monotone" dataKey="myActual" name="Lũy kế của Tôi" stroke="#7c3aed" strokeWidth={3} dot={{ r: 4 }} activeDot={{ r: 6 }} />
                   <Line yAxisId="right" type="monotone" dataKey="myPerformance" name="Hiệu suất của Tôi (%)" stroke="#10b981" strokeWidth={3} dot={{ r: 4 }} />
 
-                  {/* Teammate Lines */}
                   {activeTeammates.map((tid, idx) => {
-                    const colors = ["#f59e0b", "#8b5cf6", "#ec4899", "#0ea5e9", "#14b8a6"]
+                    const colors = ['#f59e0b', '#8b5cf6', '#ec4899', '#0ea5e9', '#14b8a6']
                     const color = colors[idx % colors.length]
                     const tmName = data?.chartData?.availableTeammates?.find(t => t.userId === tid)?.fullName || 'Teammate'
                     return (
@@ -294,13 +271,13 @@ export default function MyObjectiveDrawer({ kpiId, onClose, globalFrom, globalTo
                       </span>
                       <div className="text-right">
                         <span className="text-[10px] text-slate-500 mr-2">{c.actualValue?.toLocaleString('vi-VN')}</span>
-                        <span className="text-xs font-black text-purple-600 dark:text-purple-400">{c.contributionPercentage?.toFixed(1)}%</span>
+                        <span className="text-xs font-black text-violet-600 dark:text-violet-400">{c.contributionPercentage?.toFixed(1)}%</span>
                       </div>
                     </div>
                     <div className="h-2 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
-                      <div 
-                        className="h-full rounded-full bg-gradient-to-r from-purple-400 to-purple-600" 
-                        style={{ width: `${Math.min(c.contributionPercentage, 100)}%` }} 
+                      <div
+                        className="h-full rounded-full bg-gradient-to-r from-violet-400 to-violet-600"
+                        style={{ width: `${Math.min(c.contributionPercentage, 100)}%` }}
                       />
                     </div>
                   </div>

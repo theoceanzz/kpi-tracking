@@ -77,7 +77,7 @@ export default function ObjectiveDetailedChart({ data, onBarClick }: Props) {
             <YAxis 
               stroke="#64748b" 
               fontSize={12}
-              tickFormatter={(val) => `${val}%`}
+              tickFormatter={(val) => `${Math.round(val)}%`}
               domain={[0, 'auto']}
             />
             <Tooltip 

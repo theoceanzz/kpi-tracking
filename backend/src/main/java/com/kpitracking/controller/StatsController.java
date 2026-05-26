@@ -108,8 +108,10 @@ public class StatsController {
     @PreAuthorize("hasAuthority('KPI:VIEW')")
     @Operation(summary = "Get drill-down analytics by org unit hierarchy")
     public ResponseEntity<ApiResponse<AnalyticsDrillDownResponse>> getDrillDown(
-            @RequestParam(required = false) UUID orgUnitId) {
-        AnalyticsDrillDownResponse response = statsService.getDrillDown(orgUnitId);
+            @RequestParam(required = false) UUID orgUnitId,
+            @RequestParam(required = false) java.time.Instant from,
+            @RequestParam(required = false) java.time.Instant to) {
+        AnalyticsDrillDownResponse response = statsService.getDrillDown(orgUnitId, from, to);
         return ResponseEntity.ok(ApiResponse.success(response));
     }
 
@@ -147,8 +149,10 @@ public class StatsController {
     @PreAuthorize("hasAuthority('KPI:VIEW')")
     public ResponseEntity<ApiResponse<SummarySubData.UnitComparisonData>> getUnitComparison(
             @RequestParam(required = false) UUID orgUnitId,
-            @RequestParam(defaultValue = "MONTH") String period) {
-        return ResponseEntity.ok(ApiResponse.success(statsService.getUnitComparison(orgUnitId, period)));
+            @RequestParam(required = false) Instant from,
+            @RequestParam(required = false) Instant to,
+            @RequestParam(required = false, defaultValue = "false") Boolean onlyApproved) {
+        return ResponseEntity.ok(ApiResponse.success(statsService.getUnitComparison(orgUnitId, from, to, onlyApproved)));
     }
 
     @GetMapping("/summary/risks")
@@ -164,8 +168,10 @@ public class StatsController {
     public ResponseEntity<ApiResponse<SummarySubData.RankingData>> getRankings(
             @RequestParam(required = false) UUID orgUnitId,
             @RequestParam(required = false) UUID rankingUnitId,
-            @RequestParam(defaultValue = "MONTH") String period) {
-        return ResponseEntity.ok(ApiResponse.success(statsService.getRankings(orgUnitId, rankingUnitId, period)));
+            @RequestParam(required = false) Instant from,
+            @RequestParam(required = false) Instant to,
+            @RequestParam(required = false, defaultValue = "false") Boolean onlyApproved) {
+        return ResponseEntity.ok(ApiResponse.success(statsService.getRankings(orgUnitId, rankingUnitId, from, to, onlyApproved)));
     }
 }
 

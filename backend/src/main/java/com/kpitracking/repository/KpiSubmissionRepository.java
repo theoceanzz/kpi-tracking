@@ -112,6 +112,115 @@ public interface KpiSubmissionRepository extends JpaRepository<KpiSubmission, UU
 
     // ===== Statistic Tool queries =====
 
+    /**
+     * Tổng actualValue / tổng targetValue theo công thức tiến độ mới: sum(actual) / sum(target) * 100.
+     * Chỉ lấy submissions có status APPROVED và kpi đã APPROVED, scoped theo orgId.
+     */
+    @Query(value =
+            "SELECT COALESCE(SUM(s.actual_value), 0), COALESCE(SUM(kc.target_value), 0) " +
+            "FROM kpi_submissions s " +
+            "JOIN kpi_criteria kc ON s.kpi_criteria_id = kc.id " +
+            "JOIN org_units ou ON s.org_unit_id = ou.id " +
+            "JOIN org_hierarchy_levels ohl ON ou.org_hierarchy_id = ohl.id " +
+            "WHERE s.deleted_at IS NULL AND kc.deleted_at IS NULL " +
+            "AND s.status = 'APPROVED' AND kc.status = 'APPROVED' " +
+            "AND ohl.organization_id = :orgId", nativeQuery = true)
+    Object[] sumActualAndTargetByOrgId(@Param("orgId") UUID orgId);
+
+    /**
+     * Tổng actualValue theo từng tháng/quý/năm để tính xu hướng tiến độ, scoped theo orgId.
+     * Chỉ lấy submissions APPROVED của kpi APPROVED.
+     */
+    @Query(value =
+            "SELECT TO_CHAR(s.period_start, :datePattern) AS period_label, " +
+            "COALESCE(SUM(s.actual_value), 0) AS total_actual, " +
+            "COALESCE(SUM(kc.target_value), 0) AS total_target, " +
+            "COUNT(s.id) AS submission_count " +
+            "FROM kpi_submissions s " +
+            "JOIN kpi_criteria kc ON s.kpi_criteria_id = kc.id " +
+            "JOIN org_units ou ON s.org_unit_id = ou.id " +
+            "JOIN org_hierarchy_levels ohl ON ou.org_hierarchy_id = ohl.id " +
+            "WHERE s.deleted_at IS NULL AND kc.deleted_at IS NULL " +
+            "AND s.status = 'APPROVED' AND kc.status = 'APPROVED' " +
+            "AND s.period_start IS NOT NULL " +
+            "AND ohl.organization_id = :orgId " +
+            "GROUP BY period_label ORDER BY period_label", nativeQuery = true)
+    java.util.List<Object[]> trendActualVsTargetByOrgId(@Param("orgId") UUID orgId, @Param("datePattern") String datePattern);
+
+    /**
+     * Hiệu suất trung bình theo đơn vị (avg actual/target per submission), scoped theo orgId.
+     */
+    @Query(value =
+            "SELECT ou.id, ou.name, " +
+            "AVG(s.actual_value * 100.0 / NULLIF(kc.target_value, 0)) AS avg_performance, " +
+            "COUNT(s.id) AS submission_count " +
+            "FROM kpi_submissions s " +
+            "JOIN kpi_criteria kc ON s.kpi_criteria_id = kc.id " +
+            "JOIN org_units ou ON s.org_unit_id = ou.id " +
+            "JOIN org_hierarchy_levels ohl ON ou.org_hierarchy_id = ohl.id " +
+            "WHERE s.deleted_at IS NULL AND kc.deleted_at IS NULL " +
+            "AND s.status = 'APPROVED' AND kc.status = 'APPROVED' " +
+            "AND kc.target_value > 0 " +
+            "AND ohl.organization_id = :orgId " +
+            "GROUP BY ou.id, ou.name ORDER BY avg_performance DESC", nativeQuery = true)
+    java.util.List<Object[]> avgPerformanceGroupByOrgUnitByOrgId(@Param("orgId") UUID orgId);
+
+    /**
+     * Top performers theo hiệu suất actual/target, scoped theo orgId.
+     */
+    @Query(value =
+            "SELECT u.id, u.full_name, u.email, " +
+            "AVG(s.actual_value * 100.0 / NULLIF(kc.target_value, 0)) AS avg_performance, " +
+            "COUNT(s.id) AS submission_count " +
+            "FROM kpi_submissions s " +
+            "JOIN kpi_criteria kc ON s.kpi_criteria_id = kc.id " +
+            "JOIN users u ON s.submitted_by = u.id " +
+            "JOIN org_units ou ON s.org_unit_id = ou.id " +
+            "JOIN org_hierarchy_levels ohl ON ou.org_hierarchy_id = ohl.id " +
+            "WHERE s.deleted_at IS NULL AND kc.deleted_at IS NULL AND u.deleted_at IS NULL " +
+            "AND s.status = 'APPROVED' AND kc.status = 'APPROVED' " +
+            "AND kc.target_value > 0 " +
+            "AND ohl.organization_id = :orgId " +
+            "GROUP BY u.id, u.full_name, u.email ORDER BY avg_performance DESC LIMIT :lim", nativeQuery = true)
+    java.util.List<Object[]> topPerformersByActualVsTargetByOrgId(@Param("orgId") UUID orgId, @Param("lim") int limit);
+
+    /**
+     * Low performers theo hiệu suất actual/target, scoped theo orgId.
+     */
+    @Query(value =
+            "SELECT u.id, u.full_name, u.email, " +
+            "AVG(s.actual_value * 100.0 / NULLIF(kc.target_value, 0)) AS avg_performance, " +
+            "COUNT(s.id) AS submission_count " +
+            "FROM kpi_submissions s " +
+            "JOIN kpi_criteria kc ON s.kpi_criteria_id = kc.id " +
+            "JOIN users u ON s.submitted_by = u.id " +
+            "JOIN org_units ou ON s.org_unit_id = ou.id " +
+            "JOIN org_hierarchy_levels ohl ON ou.org_hierarchy_id = ohl.id " +
+            "WHERE s.deleted_at IS NULL AND kc.deleted_at IS NULL AND u.deleted_at IS NULL " +
+            "AND s.status = 'APPROVED' AND kc.status = 'APPROVED' " +
+            "AND kc.target_value > 0 " +
+            "AND ohl.organization_id = :orgId " +
+            "GROUP BY u.id, u.full_name, u.email ORDER BY avg_performance ASC LIMIT :lim", nativeQuery = true)
+    java.util.List<Object[]> lowPerformersByActualVsTargetByOrgId(@Param("orgId") UUID orgId, @Param("lim") int limit);
+
+    /**
+     * Hiệu suất actual/target theo từng user, scoped theo userId.
+     */
+    @Query(value =
+            "SELECT AVG(s.actual_value * 100.0 / NULLIF(kc.target_value, 0)), " +
+            "MIN(s.actual_value * 100.0 / NULLIF(kc.target_value, 0)), " +
+            "MAX(s.actual_value * 100.0 / NULLIF(kc.target_value, 0)), " +
+            "COUNT(s.id) " +
+            "FROM kpi_submissions s " +
+            "JOIN kpi_criteria kc ON s.kpi_criteria_id = kc.id " +
+            "WHERE s.deleted_at IS NULL AND kc.deleted_at IS NULL " +
+            "AND s.status = 'APPROVED' AND kc.status = 'APPROVED' " +
+            "AND kc.target_value > 0 " +
+            "AND s.submitted_by = :userId", nativeQuery = true)
+    Object[] performanceStatsByUserId(@Param("userId") UUID userId);
+
+
+
     @Query(value =
             "SELECT s.id, u.full_name, u.email, ou.name AS org_unit_name, kc.name AS kpi_name, " +
             "s.created_at, s.period_end " +
