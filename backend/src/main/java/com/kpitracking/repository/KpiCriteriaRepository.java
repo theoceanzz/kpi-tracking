@@ -1,7 +1,10 @@
 package com.kpitracking.repository;
 
-import com.kpitracking.entity.KpiCriteria;
-import com.kpitracking.enums.KpiStatus;
+import java.time.Instant;
+import java.util.Collection;
+import java.util.List;
+import java.util.UUID;
+
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -9,10 +12,8 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
-import java.time.Instant;
-import java.util.List;
-import java.util.UUID;
-import java.util.Collection;
+import com.kpitracking.entity.KpiCriteria;
+import com.kpitracking.enums.KpiStatus;
 
 @Repository
 public interface KpiCriteriaRepository extends JpaRepository<KpiCriteria, UUID> {
@@ -138,7 +139,6 @@ public interface KpiCriteriaRepository extends JpaRepository<KpiCriteria, UUID> 
     @Query("SELECT k FROM KpiCriteria k JOIN k.assignees a WHERE a.id = :userId AND k.status = 'APPROVED' AND k.keyResult IS NULL")
     List<KpiCriteria> findApprovedByAssigneeIdWithoutKeyResult(@Param("userId") UUID userId);
 
-    @Query("SELECT k FROM KpiCriteria k WHERE k.id IN (SELECT k2.id FROM KpiCriteria k2 JOIN k2.assignees a WHERE a.id = :userId) AND k.status = 'APPROVED' AND k.createdAt >= :from AND k.createdAt <= :to")
     @Query("SELECT DISTINCT k FROM KpiCriteria k JOIN k.assignees a WHERE a.id = :userId AND k.status = 'APPROVED' AND k.createdAt >= :from AND k.createdAt <= :to")
     List<KpiCriteria> findApprovedByAssigneeIdAndPeriod(@Param("userId") UUID userId, @Param("from") Instant from, @Param("to") Instant to);
 
