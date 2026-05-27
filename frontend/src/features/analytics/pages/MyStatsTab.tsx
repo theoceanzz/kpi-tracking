@@ -40,7 +40,7 @@ export default function MyStatsTab() {
     const el = filterSentinelRef.current
     if (!el) return
     const observer = new IntersectionObserver(
-      ([entry]) => setFilterStuck(!entry.isIntersecting),
+      ([entry]) => entry && setFilterStuck(!entry.isIntersecting),
       { rootMargin: '-65px 0px 0px 0px', threshold: 0 }
     )
     observer.observe(el)

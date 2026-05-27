@@ -1,5 +1,5 @@
 import axiosClient from '@/lib/axios'
-import type { PagedKpiDetailResponse, KpiDetailParams } from './personalObjectiveApi'
+import type { PagedKpiDetailResponse } from './personalObjectiveApi'
 
 export interface PersonalKpiMetrics {
   averageProgress: number
