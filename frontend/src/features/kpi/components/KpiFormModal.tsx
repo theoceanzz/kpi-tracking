@@ -671,7 +671,7 @@ export default function KpiFormModal({ open, onClose, editKpi, parentKpi }: KpiF
                       )}>
                         <SelectValue placeholder="-- Không liên kết --" />
                       </SelectTrigger>
-                      <SelectContent className="rounded-2xl border-indigo-50 dark:border-indigo-900 shadow-2xl max-h-[350px] overflow-hidden">
+                      <SelectContent className="z-[300] rounded-2xl border-indigo-50 dark:border-indigo-900 shadow-2xl max-h-[350px] overflow-auto">
                         <SelectItem value="NONE" className="font-bold py-3">-- Không liên kết mục tiêu --</SelectItem>
                         {filteredObjectives.map(obj => (
                           <SelectGroup key={obj.id} className="p-1">
