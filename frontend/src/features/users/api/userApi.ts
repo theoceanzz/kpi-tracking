@@ -3,8 +3,13 @@ import type { User, ImportUserResult, CreateUserRequest, UpdateUserRequest } fro
 import axiosInstance from '@/lib/axios'
 
 export const userApi = {
-  getAll: (params: PageParams & { keyword?: string; orgUnitId?: string; organizationId?: string; role?: string; sortBy?: string; direction?: string }) =>
-    axiosInstance.get<ApiResponse<PageResponse<User>>>('/users', { params }).then((r) => r.data.data),
+ getAll: (params: PageParams & { keyword?: string; orgUnitId?: string; orgUnitIds?: string[]; organizationId?: string; role?: string; sortBy?: string; direction?: string }) =>
+    axiosInstance.get<ApiResponse<PageResponse<User>>>('/users', { 
+      params,
+      paramsSerializer: {
+        indexes: null
+      }
+    }).then((r) => r.data.data),
 
   getUser: (id: string) =>
     axiosInstance.get<ApiResponse<User>>(`/users/${id}`).then((r) => r.data.data),

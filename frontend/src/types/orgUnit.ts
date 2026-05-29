@@ -10,6 +10,9 @@ export interface OrgUnitTreeResponse {
   level: number
   status: string
   logoUrl: string | null
+  memberCount?: number
+  allowedRoles?: { id: string; name: string; isSystem: boolean }[]
+  assignedRoles?: { id: string; name: string; isSystem: boolean }[]
   children: OrgUnitTreeResponse[]
 }
 
@@ -32,7 +35,9 @@ export interface OrgUnitResponse {
   districtName: string | null
   status: string
   logoUrl: string | null
+  memberCount?: number
   allowedRoles?: { id: string; name: string; isSystem: boolean }[]
+  assignedRoles?: { id: string; name: string; isSystem: boolean }[]
   createdAt: string
   updatedAt: string
 }

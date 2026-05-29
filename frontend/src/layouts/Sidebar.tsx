@@ -45,6 +45,7 @@ interface NavItem {
   end?: boolean
   children?: NavItem[]
   okrOnly?: boolean
+  originalLabel?: string
 }
 
 const navItems: NavItem[] = [
@@ -163,10 +164,21 @@ export default function Sidebar({ isMobileOpen, onCloseMobile }: { isMobileOpen?
 
   const [expandedMenus, setExpandedMenus] = useState<Record<string, boolean>>({})
 
-  useEffect(() => {
+useEffect(() => {
     navItems.forEach(item => {
-      if (item.children && item.children.some(child => location.pathname.startsWith(child.path || ''))) {
+      if (item.children && item.children.some(child => {
+        if (child.path && location.pathname.startsWith(child.path)) return true
+        if (child.children && child.children.some(sub => sub.path && location.pathname.startsWith(sub.path))) return true
+        return false
+      })) {
         setExpandedMenus(prev => ({ ...prev, [item.label]: true }))
+        
+        // Also check if sub-children are active to expand the 2nd level
+        item.children.forEach(child => {
+          if (child.children && child.children.some(sub => sub.path && location.pathname.startsWith(sub.path))) {
+            setExpandedMenus(prev => ({ ...prev, [child.label]: true }))
+          }
+        })
       }
     })
   }, [location.pathname])
@@ -180,7 +192,7 @@ export default function Sidebar({ isMobileOpen, onCloseMobile }: { isMobileOpen?
 
   const isAnyChildActive = (item: NavItem): boolean => {
     return !!item.children?.some(child => {
-      if (child.path && location.pathname.startsWith(child.path)) return true
+      if (child.path && (location.pathname === child.path || (child.path !== '/' && location.pathname.startsWith(child.path)))) return true
       if (child.children) return isAnyChildActive(child)
       return false
     })
@@ -193,15 +205,18 @@ export default function Sidebar({ isMobileOpen, onCloseMobile }: { isMobileOpen?
 
   const filteredItems = navItems.map((item) => {
     // Override main item label
-    const updatedItem = { ...item, label: getLabel(item) }
+    const updatedItem = { ...item, label: getLabel(item), originalLabel: item.label }
 
     if (item.children) {
       const filteredChildren = item.children
         .map(child => {
           if (child.children) {
-            const filteredSubChildren = child.children.filter(sub => !sub.permission || hasPermission(sub.permission))
+            const filteredSubChildren = child.children
+              .filter(sub => !sub.permission || hasPermission(sub.permission))
+              .map(sub => ({ ...sub, label: getLabel(sub), originalLabel: sub.label }))
+            
             if (filteredSubChildren.length > 0) {
-              return { ...child, label: getLabel(child), children: filteredSubChildren }
+              return { ...child, label: getLabel(child), children: filteredSubChildren, originalLabel: child.label }
             }
             return null
           }
@@ -211,18 +226,18 @@ export default function Sidebar({ isMobileOpen, onCloseMobile }: { isMobileOpen?
             if (! hasPermission('EVALUATION:VIEW_MY')) {
               return null
             }
-            return { ...child, label: getLabel(child) }
+            return { ...child, label: getLabel(child), originalLabel: child.label }
           }
 
           if (!child.permission || hasPermission(child.permission)) {
-            return { ...child, label: getLabel(child) }
+            return { ...child, label: getLabel(child), originalLabel: child.label }
           }
           return null
         })
         .filter(Boolean) as NavItem[]
 
       if (filteredChildren.length > 0) {
-        return { ...updatedItem, children: filteredChildren }
+        return { ...updatedItem, children: filteredChildren, originalLabel: item.label }
       }
       return null
     }
@@ -237,7 +252,7 @@ export default function Sidebar({ isMobileOpen, onCloseMobile }: { isMobileOpen?
         processedItem = null
       }
     } else if (item.permission && hasPermission(item.permission)) {
-      processedItem = { ...updatedItem }
+      processedItem = { ...updatedItem, originalLabel: item.label }
     } else {
       processedItem = null
     }
@@ -306,15 +321,16 @@ export default function Sidebar({ isMobileOpen, onCloseMobile }: { isMobileOpen?
         <nav className="flex-1 py-4 px-3 space-y-1 overflow-y-auto custom-scrollbar">
           {filteredItems.map((item) => {
             if (item.children) {
-              const isExpanded = expandedMenus[item.label] || isAnyChildActive(item)
+              const menuKey = item.originalLabel || item.label
+              const isExpanded = expandedMenus[menuKey] || isAnyChildActive(item)
               const hasActiveChild = isAnyChildActive(item)
               const hasChildBadge = item.children.some(child => !!getBadge(child.path || ''))
               
               return (
-                <div key={item.label} className="space-y-1">
+                <div key={menuKey} className="space-y-1">
                   <button
-                    id={item.label === 'Thiết lập công ty' ? 'tour-company-nav-group' : item.label === 'Quản lý KPI' ? 'tour-kpi-nav-group' : item.label.includes('Phê duyệt') ? 'tour-approve-nav-group' : `nav-group-${item.label.toLowerCase().replace(/\s+/g, '-')}`}
-                    onClick={() => toggleMenu(item.label)}
+                    id={menuKey === 'Thiết lập công ty' ? 'tour-company-nav-group' : menuKey === 'Quản lý KPI' ? 'tour-kpi-nav-group' : menuKey.includes('Phê duyệt') ? 'tour-approve-nav-group' : `nav-group-${menuKey.toLowerCase().replace(/\s+/g, '-')}`}
+                    onClick={() => toggleMenu(menuKey)}
                     className={cn(
                       'w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-bold transition-all group relative',
                       isCollapsed && !isMobileOpen ? 'justify-center px-0 mx-2' : '',
@@ -348,15 +364,16 @@ export default function Sidebar({ isMobileOpen, onCloseMobile }: { isMobileOpen?
                         
                         // Handle sub-children (2nd level)
                         if (child.children) {
-                          const isSubExpanded = expandedMenus[child.label] || child.children.some(c => location.pathname.startsWith(c.path || ''))
+                          const subMenuKey = child.originalLabel || child.label
+                          const isSubExpanded = expandedMenus[subMenuKey] || child.children.some(c => c.path && location.pathname.startsWith(c.path))
                           
                           return (
-                            <div key={child.label} className="space-y-1 my-1">
+                           <div key={subMenuKey} className="space-y-1 my-1">
                               <button
-                                onClick={() => toggleMenu(child.label)}
+                                onClick={() => toggleMenu(subMenuKey)}
                                 className={cn(
                                   'w-full flex items-center gap-3 px-3 py-2 rounded-lg text-[13px] font-bold transition-all group',
-                                  child.children.some(c => location.pathname.startsWith(c.path || ''))
+                                  child.children.some(c => c.path && location.pathname.startsWith(c.path))
                                     ? 'text-[var(--color-primary)]'
                                     : 'text-[var(--color-muted-foreground)] hover:text-[var(--color-foreground)] hover:bg-[var(--color-accent)]'
                                 )}

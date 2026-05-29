@@ -18,12 +18,7 @@ import com.kpitracking.repository.RoleRepository;
 import com.kpitracking.repository.OrgHierarchyLevelRepository;
 import com.kpitracking.dto.response.user.UserMembershipResponse;
 import java.util.stream.Collectors;
-import java.util.Set;
-import java.util.HashSet;
-import java.util.UUID;
-import java.util.List;
-import java.util.ArrayList;
-import java.util.Optional;
+import java.util.*;
 
 import com.kpitracking.security.PermissionChecker;
 import lombok.RequiredArgsConstructor;
@@ -37,10 +32,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
-import java.util.List;
-import java.util.Optional;
-import java.util.UUID;
-import java.util.Collections;
 
 import com.kpitracking.dto.response.user.ImportUserResponse;
 import com.kpitracking.exception.BusinessException;
@@ -55,7 +46,6 @@ import org.springframework.web.multipart.MultipartFile;
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
 import java.security.SecureRandom;
-import java.util.ArrayList;
 import java.util.Base64;
 
 @Service
@@ -70,7 +60,6 @@ public class UserService {
     private final OrgUnitRepository orgUnitRepository;
     private final RoleRepository roleRepository;
     private final PermissionChecker permissionChecker;
-    private final EntityManager entityManager;
 
     private User getCurrentUser() {
         String email = SecurityContextHolder.getContext().getAuthentication().getName();
@@ -204,7 +193,7 @@ public class UserService {
     }
 
     @Transactional(readOnly = true)
-    public PageResponse<UserResponse> getUsers(int page, int size, String keyword, UUID orgUnitId, String role, String sortBy, String direction) {
+    public PageResponse<UserResponse> getUsers(int page, int size, String keyword, List<UUID> orgUnitIds, String role, String sortBy, String direction) {
         User currentUser = getCurrentUser();
         boolean isGlobalAdmin = permissionChecker.isGlobalAdmin(currentUser.getId());
         List<UUID> allowedOrgUnitIds = permissionChecker.getOrgUnitsWithPermission(currentUser.getId(), "USER:VIEW");
@@ -225,22 +214,10 @@ public class UserService {
         Sort sort = Sort.by((direction != null && direction.equalsIgnoreCase("desc")) ? Sort.Direction.DESC : Sort.Direction.ASC, sortBy != null ? sortBy : "createdAt");
         Pageable pageable = PageRequest.of(page, size, sort);
 
-        String orgUnitPath = null;
-        if (orgUnitId != null) {
-            orgUnitPath = orgUnitRepository.findById(orgUnitId)
-                    .map(OrgUnit::getPath)
-                    .map(path -> path + "%")
-                    .orElse(null);
-        }
-
         String roleName = (role == null || role.equals("ALL")) ? null : role;
         
         // Hierarchy filtering based on permissions
-        boolean excludeAdmin = true; // Everyone except Global Admin (who shouldn't see themselves) excludes Admins? 
-        // Wait, if I am a Director (Global Admin), I should see others BUT not myself.
-        // If I am NOT a Director, I should NOT see Directors.
-        excludeAdmin = !isGlobalAdmin;
-        
+        boolean excludeAdmin = !isGlobalAdmin;
         boolean isManager = permissionChecker.hasAnyPermission(currentUser.getId(), "KPI:APPROVE_CRITERIA", "KPI:APPROVE_ADJUSTMENT");
         boolean excludeManager = !isGlobalAdmin && isManager; // If I am a Head, I don't see other Heads
         boolean excludeSelf = isGlobalAdmin; // Director excludes self, Head includes self
@@ -263,7 +240,7 @@ public class UserService {
             allowedOrgUnitIds, 
             keyword, 
             roleName, 
-            orgUnitPath, 
+            orgUnitIds,
             currentUser.getId(),
             currentUserRank,
             excludeSelf,

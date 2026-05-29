@@ -22,6 +22,7 @@ export interface KpiCriteria {
   frequency: KpiFrequency
   status: KpiStatus
   orgUnitId: string | null
+  orgUnitIds: string[] | null
   orgUnitName: string | null
   assigneeIds: string[]
   assigneeNames: string[]
@@ -62,6 +63,7 @@ export interface CreateKpiRequest {
   unit?: string
   frequency: KpiFrequency
   orgUnitId?: string
+  orgUnitIds?: string[]
   assignedToId?: string
   assignedToIds?: string[]
   minimumValue?: number
@@ -79,6 +81,7 @@ export interface UpdateKpiRequest {
   unit?: string
   frequency?: KpiFrequency
   orgUnitId?: string
+  orgUnitIds?: string[]
   assignedToId?: string
   assignedToIds?: string[]
   minimumValue?: number

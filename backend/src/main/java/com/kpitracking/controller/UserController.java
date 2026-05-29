@@ -55,11 +55,11 @@ public class UserController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size,
             @RequestParam(required = false) String keyword,
-            @RequestParam(required = false) UUID orgUnitId,
+            @RequestParam(required = false) java.util.List<UUID> orgUnitIds,
             @RequestParam(required = false) String role,
             @RequestParam(required = false) String sortBy,
             @RequestParam(required = false) String direction) {
-        PageResponse<UserResponse> response = userService.getUsers(page, size, keyword, orgUnitId, role, sortBy, direction);
+        PageResponse<UserResponse> response = userService.getUsers(page, size, keyword, orgUnitIds, role, sortBy, direction);
         return ResponseEntity.ok(ApiResponse.success(response));
     }
 

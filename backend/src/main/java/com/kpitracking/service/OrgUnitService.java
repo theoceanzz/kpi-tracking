@@ -5,14 +5,12 @@ import com.kpitracking.dto.request.orgunit.MoveOrgUnitRequest;
 import com.kpitracking.dto.request.orgunit.UpdateOrgUnitRequest;
 import com.kpitracking.dto.response.orgunit.OrgUnitResponse;
 import com.kpitracking.dto.response.orgunit.OrgUnitTreeResponse;
-import com.kpitracking.entity.District;
-import com.kpitracking.entity.OrgUnit;
-import com.kpitracking.entity.Organization;
-import com.kpitracking.entity.Province;
+import com.kpitracking.entity.*;
 import com.kpitracking.exception.BusinessException;
 import com.kpitracking.exception.DuplicateResourceException;
 import com.kpitracking.exception.ResourceNotFoundException;
 import com.kpitracking.mapper.OrgUnitMapper;
+import com.kpitracking.mapper.RoleMapper;
 import com.kpitracking.repository.*;
 import com.kpitracking.security.PermissionChecker;
 import lombok.RequiredArgsConstructor;
@@ -50,6 +48,7 @@ public class OrgUnitService {
     private final OrgUnitMapper orgUnitMapper;
 
     private final RoleRepository roleRepository;
+    private final RoleMapper roleMapper;
     private final com.kpitracking.repository.OrgHierarchyLevelRepository orgHierarchyLevelRepository;
     private final UserRoleOrgUnitRepository userRoleOrgUnitRepository;
     private final UserRepository userRepository;
@@ -155,7 +154,9 @@ public class OrgUnitService {
         orgUnit = orgUnitRepository.save(orgUnit);
         // Refresh to get trigger-computed path and level
         orgUnit = orgUnitRepository.findById(orgUnit.getId()).orElseThrow();
-        return orgUnitMapper.toResponse(orgUnit);
+        OrgUnitResponse response = orgUnitMapper.toResponse(orgUnit);
+        populateExtraFields(orgUnit, response);
+        return response;
     }
 
     @Transactional
@@ -240,7 +241,9 @@ public class OrgUnitService {
         }
 
         orgUnit = orgUnitRepository.save(orgUnit);
-        return orgUnitMapper.toResponse(orgUnit);
+        OrgUnitResponse response = orgUnitMapper.toResponse(orgUnit);
+        populateExtraFields(orgUnit, response);
+        return response;
     }
 
     @Transactional
@@ -289,11 +292,19 @@ public class OrgUnitService {
         return orgUnitMapper.toResponse(orgUnit);
     }
 
+    private void populateExtraFields(OrgUnit unit, OrgUnitResponse response) {
+        response.setMemberCount(userRoleOrgUnitRepository.countUsersByOrganizationUnitId(unit.getId()));
+        List<com.kpitracking.entity.Role> activeRoles = userRoleOrgUnitRepository.findDistinctRolesByOrgUnitIdIn(List.of(unit.getId()));
+        response.setAssignedRoles(activeRoles.stream().map(roleMapper::toResponse).collect(Collectors.toList()));
+    }
+
     @Transactional(readOnly = true)
     public OrgUnitResponse getOrgUnit(UUID orgId, UUID unitId) {
         OrgUnit orgUnit = orgUnitRepository.findByIdAndOrgHierarchyLevel_Organization_Id(unitId, orgId)
                 .orElseThrow(() -> new ResourceNotFoundException("Đơn vị", "id", unitId));
-        return orgUnitMapper.toResponse(orgUnit);
+        OrgUnitResponse response = orgUnitMapper.toResponse(orgUnit);
+        populateExtraFields(orgUnit, response);
+        return response;
     }
 
     private com.kpitracking.entity.User getCurrentUser() {
@@ -344,13 +355,42 @@ public class OrgUnitService {
         String logoUrl = cloudinaryStorageService.uploadFile(file, "org-logos").get("url");
         orgUnit.setLogoUrl(logoUrl);
         orgUnit = orgUnitRepository.save(orgUnit);
-        return orgUnitMapper.toResponse(orgUnit);
+        OrgUnitResponse response = orgUnitMapper.toResponse(orgUnit);
+        populateExtraFields(orgUnit, response);
+        return response;
     }
 
     private List<OrgUnitTreeResponse> buildTree(List<OrgUnit> units) {
+        if (units.isEmpty()) return new ArrayList<>();
+        
+        List<UUID> unitIds = units.stream().map(OrgUnit::getId).collect(Collectors.toList());
+        Map<UUID, Long> memberCountMap = userRoleOrgUnitRepository.countUsersByOrgUnitIdMap(unitIds)
+                .stream()
+                .collect(Collectors.toMap(
+                        obj -> (UUID) obj[0],
+                        obj -> (Long) obj[1],
+                        (v1, v2) -> v1
+                ));
+
+        Map<UUID, List<com.kpitracking.dto.response.role.RoleResponse>> activeRolesMap = new HashMap<>();
+        List<UserRoleOrgUnit> allUro = userRoleOrgUnitRepository.findByOrgUnitIdIn(unitIds);
+        allUro.forEach(uro -> {
+            activeRolesMap.computeIfAbsent(uro.getOrgUnit().getId(), k -> new ArrayList<>())
+                .add(roleMapper.toResponse(uro.getRole()));
+        });
+
         Map<UUID, OrgUnitTreeResponse> nodeMap = new LinkedHashMap<>();
         for (OrgUnit unit : units) {
             OrgUnitTreeResponse node = orgUnitMapper.toTreeResponse(unit);
+            node.setMemberCount(memberCountMap.getOrDefault(unit.getId(), 0L));
+            
+            List<com.kpitracking.dto.response.role.RoleResponse> roles = activeRolesMap.getOrDefault(unit.getId(), new ArrayList<>());
+            // Deduplicate by ID
+            Set<UUID> seenIds = new HashSet<>();
+            List<com.kpitracking.dto.response.role.RoleResponse> distinctRoles = roles.stream()
+                .filter(r -> seenIds.add(r.getId()))
+                .collect(Collectors.toList());
+            node.setAssignedRoles(distinctRoles);
             nodeMap.put(unit.getId(), node);
         }
 

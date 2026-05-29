@@ -38,7 +38,7 @@ public interface UserRepository extends JpaRepository<User, UUID> {
            "AND (:keyword IS NULL OR :keyword = '' OR LOWER(CAST(u.fullName AS string)) LIKE LOWER(CONCAT('%', CAST(:keyword AS string), '%')) " +
            "OR LOWER(CAST(u.email AS string)) LIKE LOWER(CONCAT('%', CAST(:keyword AS string), '%'))) " +
            "AND (:roleName IS NULL OR r.name = :roleName) " +
-           "AND (:orgUnitPath IS NULL OR uro.orgUnit.path LIKE :orgUnitPath) " +
+           "AND (:orgUnitIds IS NULL OR uro.orgUnit.id IN :orgUnitIds) " +
            "AND (u.deletedAt IS NULL) " +
            "AND (:excludeSelf = false OR u.id != :currentUserId) " +
            "AND (:excludeAdmin = false OR u.id = :currentUserId OR NOT EXISTS (SELECT 1 FROM RolePermission rp3 JOIN UserRoleOrgUnit uro3 ON rp3.role.id = uro3.role.id WHERE uro3.user.id = u.id AND rp3.permission.code = 'SYSTEM:ADMIN')) " +
@@ -50,7 +50,7 @@ public interface UserRepository extends JpaRepository<User, UUID> {
             @Param("allowedOrgUnitIds") java.util.Collection<UUID> allowedOrgUnitIds,
             @Param("keyword") String keyword, 
             @Param("roleName") String roleName, 
-            @Param("orgUnitPath") String orgUnitPath,
+            @Param("orgUnitIds") java.util.Collection<UUID> orgUnitIds,
             @Param("currentUserId") UUID currentUserId,
             @Param("currentUserRank") Integer currentUserRank,
             @Param("excludeSelf") boolean excludeSelf,

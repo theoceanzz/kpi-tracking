@@ -29,6 +29,8 @@ public class CreateKpiCriteriaRequest {
 
     private UUID orgUnitId;
 
+    private java.util.List<UUID> orgUnitIds;
+
     private UUID assignedToId;
 
     private java.util.List<UUID> assignedToIds;

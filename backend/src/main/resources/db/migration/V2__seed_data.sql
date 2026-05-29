@@ -1597,9 +1597,10 @@ VALUES
 -- ============================================================
 INSERT INTO sidebar_settings (id, organization_id, menu_key, custom_label) VALUES
     (gen_random_uuid(), '11111111-1111-1111-1111-111111111111', '/dashboard', 'Tổng quan'),
-    (gen_random_uuid(), '11111111-1111-1111-1111-111111111111', '/dashboard/staff', 'Dashboard cá nhân'),
+    (gen_random_uuid(), '11111111-1111-1111-1111-111111111111', '/dashboard?view=staff', 'Dashboard cá nhân'),
     (gen_random_uuid(), '11111111-1111-1111-1111-111111111111', 'Thiết lập công ty', 'Thiết lập công ty'),
     (gen_random_uuid(), '11111111-1111-1111-1111-111111111111', '/company', 'Thông tin công ty'),
+    (gen_random_uuid(), '11111111-1111-1111-1111-111111111111', 'Tổ chức', 'Tổ chức'),
     (gen_random_uuid(), '11111111-1111-1111-1111-111111111111', '/roles', 'Phân quyền vai trò'),
     (gen_random_uuid(), '11111111-1111-1111-1111-111111111111', '/org-structure', 'Cấu trúc tổ chức'),
     (gen_random_uuid(), '11111111-1111-1111-1111-111111111111', '/users', 'Quản lý nhân sự'),
@@ -2361,9 +2362,10 @@ ON CONFLICT DO NOTHING;
 -- 17. SIDEBAR CUSTOM LABELS
 INSERT INTO sidebar_settings (id, organization_id, menu_key, custom_label) VALUES
     (gen_random_uuid(), '22222222-2222-2222-2222-222222222222', '/dashboard', 'Tổng quan'),
-    (gen_random_uuid(), '22222222-2222-2222-2222-222222222222', '/dashboard/staff', 'Dashboard cá nhân'),
-    (gen_random_uuid(), '22222222-2222-2222-2222-222222222222', 'Thiết lập tổ chức', 'Thiết lập tổ chức'),
+    (gen_random_uuid(), '22222222-2222-2222-2222-222222222222', '/dashboard?view=staff', 'Dashboard cá nhân'),
+    (gen_random_uuid(), '22222222-2222-2222-2222-222222222222', 'Thiết lập công ty', 'Thiệt lập tổ chức'),
     (gen_random_uuid(), '22222222-2222-2222-2222-222222222222', '/company', 'Thông tin trường'),
+    (gen_random_uuid(), '22222222-2222-2222-2222-222222222222', 'Tổ chức', 'Tổ chức'),
     (gen_random_uuid(), '22222222-2222-2222-2222-222222222222', '/roles', 'Phân quyền vai trò'),
     (gen_random_uuid(), '22222222-2222-2222-2222-222222222222', '/org-structure', 'Cấu trúc Khoa - Bộ môn'),
     (gen_random_uuid(), '22222222-2222-2222-2222-222222222222', '/users', 'Quản lý sinh viên & GV'),

@@ -76,23 +76,25 @@ public class KpiCriteriaService {
 
         KpiStatus initialStatus = canApprove ? KpiStatus.APPROVED : KpiStatus.DRAFT;
 
-        // Determine OrgUnit
-        OrgUnit orgUnit = null;
-        if (request.getOrgUnitId() != null) {
-            orgUnit = orgUnitRepository.findById(request.getOrgUnitId())
-                    .orElseThrow(() -> new ResourceNotFoundException("Đơn vị", "id", request.getOrgUnitId()));
+        com.kpitracking.entity.KpiPeriod kpiPeriod = kpiPeriodRepository.findById(request.getKpiPeriodId())
+                .orElseThrow(() -> new ResourceNotFoundException("Kỳ đánh giá (Đợt)", "id", request.getKpiPeriodId()));
+
+        if (request.getFrequency().ordinal() > kpiPeriod.getPeriodType().ordinal()) {
+            throw new BusinessException("Tần suất đánh giá (Tháng/Quý/Năm) phải nhỏ hơn hoặc bằng loại kỳ đánh giá (Đợt).");
+        }
+
+        List<UUID> targetOrgUnitIds = new ArrayList<>();
+        if (request.getOrgUnitIds() != null && !request.getOrgUnitIds().isEmpty()) {
+            targetOrgUnitIds.addAll(request.getOrgUnitIds());
+        } else if (request.getOrgUnitId() != null) {
+            targetOrgUnitIds.add(request.getOrgUnitId());
         } else {
             List<UserRoleOrgUnit> assignments = userRoleOrgUnitRepository.findByUserId(currentUser.getId());
             if (!assignments.isEmpty()) {
-                orgUnit = assignments.get(0).getOrgUnit();
+                targetOrgUnitIds.add(assignments.get(0).getOrgUnit().getId());
             } else {
                 throw new BusinessException("Người dùng phải thuộc ít nhất một đơn vị để tạo KPI");
             }
-        }
-
-        // Permission check: only users with KPI:CREATE in the target OrgUnit can create
-        if (!permissionChecker.hasPermissionInOrgUnit(currentUser.getId(), "KPI:CREATE", orgUnit.getId())) {
-            throw new ForbiddenException("Bạn không có quyền tạo chỉ tiêu cho đơn vị này.");
         }
 
         // Determine assignees
@@ -110,23 +112,28 @@ public class KpiCriteriaService {
             assignees.add(assignee);
         }
 
-        validateWaterfallAssignment(currentUser, orgUnit, assignees);
+        KpiCriteria lastKpi = null;
+        for (UUID orgUnitId : targetOrgUnitIds) {
+            OrgUnit orgUnit = orgUnitRepository.findById(orgUnitId)
+                    .orElseThrow(() -> new ResourceNotFoundException("Đơn vị", "id", orgUnitId));
 
-        com.kpitracking.entity.KpiPeriod kpiPeriod = kpiPeriodRepository.findById(request.getKpiPeriodId())
-                .orElseThrow(() -> new ResourceNotFoundException("Kỳ đánh giá (Đợt)", "id", request.getKpiPeriodId()));
+            // Permission check: only users with KPI:CREATE in the target OrgUnit can create
+            if (!permissionChecker.hasPermissionInOrgUnit(currentUser.getId(), "KPI:CREATE", orgUnit.getId())) {
+                throw new ForbiddenException("Bạn không có quyền tạo chỉ tiêu cho đơn vị " + orgUnit.getName());
+            }
 
-        if (request.getFrequency().ordinal() > kpiPeriod.getPeriodType().ordinal()) {
-            throw new BusinessException("Tần suất đánh giá (Tháng/Quý/Năm) phải nhỏ hơn hoặc bằng loại kỳ đánh giá (Đợt).");
+            validateWaterfallAssignment(currentUser, orgUnit, assignees);
+
+            KpiCriteria kpi = buildKpiEntity(request, orgUnit, assignees, currentUser, initialStatus, kpiPeriod);
+            kpi = kpiCriteriaRepository.save(kpi);
+
+            if (initialStatus == KpiStatus.APPROVED) {
+                eventPublisher.publishEvent(new KpiCriteriaApprovedEvent(this, kpi));
+            }
+            lastKpi = kpi;
         }
 
-        KpiCriteria kpi = buildKpiEntity(request, orgUnit, assignees, currentUser, initialStatus, kpiPeriod);
-        kpi = kpiCriteriaRepository.save(kpi);
-
-        if (initialStatus == KpiStatus.APPROVED) {
-            eventPublisher.publishEvent(new KpiCriteriaApprovedEvent(this, kpi));
-        }
-
-        return kpiCriteriaMapper.toResponse(kpi);
+        return lastKpi != null ? kpiCriteriaMapper.toResponse(lastKpi) : null;
     }
 
     private KpiCriteria buildKpiEntity(CreateKpiCriteriaRequest request, OrgUnit orgUnit, java.util.List<User> assignees, User creator, KpiStatus status, com.kpitracking.entity.KpiPeriod kpiPeriod) {
