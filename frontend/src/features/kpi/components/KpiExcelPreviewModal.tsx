@@ -251,9 +251,16 @@ export default function KpiExcelPreviewModal({ open, file, onClose, onImport, is
         }
 
         if (matchedNames.length > 0) {
-          item.OrgUnit = matchedNames.join(', ')
+          if (enableOkr && matchedNames.length > 1) {
+            item.OrgUnit = matchedNames[0] || ''
+            errors['OrgUnit'] = `Chế độ OKR chỉ cho phép 1 đơn vị. Đã tự động chọn đơn vị đầu tiên: ${matchedNames[0]}`
+          } else {
+            item.OrgUnit = matchedNames.join(', ')
+          }
+          
           if (unmatchedCodes.length > 0) {
-            errors['OrgUnit'] = `Đơn vị '${unmatchedCodes.join(', ')}' không tồn tại trong hệ thống`
+            const unmatchedMsg = `Đơn vị '${unmatchedCodes.join(', ')}' không tồn tại trong hệ thống`
+            errors['OrgUnit'] = errors['OrgUnit'] ? `${errors['OrgUnit']}. ${unmatchedMsg}` : unmatchedMsg
           }
         } else if (rawOrgValue) {
           item.OrgUnit = ''
@@ -772,8 +779,9 @@ export default function KpiExcelPreviewModal({ open, file, onClose, onImport, is
                   </div>
 
                   <div className="space-y-1.5">
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">
-                      Phòng ban {bulkOrgUnits.length > 0 && <span className="text-indigo-600">({bulkOrgUnits.length})</span>}
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1 flex flex-col">
+                      <span>Phòng ban {bulkOrgUnits.length > 0 && <span className="text-indigo-600">({bulkOrgUnits.length})</span>}</span>
+                      {enableOkr && <span className="text-[9px] text-indigo-500 italic lowercase font-bold">* Chỉ chọn 1 do đang bật OKR</span>}
                     </label>
                     <div className="relative" ref={bulkOrgDropdownRef}>
                       {isBulkOrgOpen && (
@@ -798,9 +806,11 @@ export default function KpiExcelPreviewModal({ open, file, onClose, onImport, is
                               <button
                                 key={u.id}
                                 type="button"
-                                onClick={() => setBulkOrgUnits(prev =>
-                                  isChecked ? prev.filter(n => n !== u.name) : [...prev, u.name]
-                                )}
+                                onClick={() => setBulkOrgUnits(prev => {
+                                  if (isChecked) return prev.filter(n => n !== u.name)
+                                  if (enableOkr) return [u.name]
+                                  return [...prev, u.name]
+                                })}
                                 className={cn(
                                   'w-full text-left px-3 py-2 rounded-xl flex items-center justify-between transition-colors',
                                   isChecked
@@ -1312,14 +1322,16 @@ export default function KpiExcelPreviewModal({ open, file, onClose, onImport, is
             >
               {flatOrgUnits.map((u: any) => {
                 const checked = selectedOrgNames.includes(u.name)
-                const newVal = checked
-                  ? selectedOrgNames.filter((n: string) => n !== u.name).join(', ')
-                  : [...selectedOrgNames, u.name].join(', ')
                 return (
                   <button
                     key={u.id}
                     type="button"
-                    onClick={() => handleCellChange(openOrgDropdownId, 'OrgUnit', newVal)}
+                    onClick={() => {
+                        const newVal = checked
+                          ? selectedOrgNames.filter((n: string) => n !== u.name).join(', ')
+                          : enableOkr ? u.name : [...selectedOrgNames, u.name].join(', ')
+                        handleCellChange(openOrgDropdownId, 'OrgUnit', newVal)
+                    }}
                     className={cn(
                       'w-full text-left px-3 py-2 rounded-xl flex items-center justify-between transition-colors',
                       checked

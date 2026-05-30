@@ -348,12 +348,16 @@ export default function KpiFormModal({ open, onClose, editKpi, parentKpi }: KpiF
   }
 
   const toggleOrgUnit = (orgId: string) => {
-    const current = [...formOrgUnitIds]
+    let current = [...formOrgUnitIds]
     const index = current.indexOf(orgId)
     if (index > -1) {
       current.splice(index, 1)
     } else {
-      current.push(orgId)
+      if (enableOkr) {
+        current = [orgId]
+      } else {
+        current.push(orgId)
+      }
     }
     setValue('orgUnitIds', current)
   }
@@ -493,10 +497,17 @@ export default function KpiFormModal({ open, onClose, editKpi, parentKpi }: KpiF
           {canAssignRoles && (
             <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                    <label className="block text-sm font-bold flex items-center gap-2">
-                        <LayoutGrid size={16} className="text-indigo-500" />
-                        Đơn vị thực hiện
-                    </label>
+                    <div className="space-y-0.5">
+                      <label className="block text-sm font-bold flex items-center gap-2">
+                          <LayoutGrid size={16} className="text-indigo-500" />
+                          Đơn vị thực hiện
+                      </label>
+                      {enableOkr && (
+                        <p className="text-[10px] text-indigo-600 font-bold animate-pulse italic">
+                          * Chế độ OKR đang bật: Chỉ chọn được 1 đơn vị
+                        </p>
+                      )}
+                    </div>
                     <span className="text-[10px] font-black bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 px-2 py-0.5 rounded-full uppercase">
                         {formOrgUnitIds.length} đã chọn
                     </span>
