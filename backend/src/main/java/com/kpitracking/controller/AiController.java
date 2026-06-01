@@ -35,11 +35,18 @@ public class AiController {
 
     @PostMapping("/chat-org-unit")
     public ApiResponse<AiChatResponse> chatOrgUnit(@RequestBody AiChatRequest request) {
-        String result = aiService.processOrgUnitChat(request.getMessage());
+        String result = aiService.processOrgUnitChat(request.getMessage(), request.getConversationId());
         AiChatResponse response = AiChatResponse.builder()
                 .text(result)
                 .build();
         return ApiResponse.success(response);
+    }
+
+    @PostMapping("/chat")
+    @Operation(summary = "Chat with AI using persistent conversation memory")
+    public ApiResponse<AiChatResponse> chat(@RequestBody AiChatRequest request) {
+        String result = aiService.chatWithMemory(request.getMessage(), request.getConversationId());
+        return ApiResponse.success(AiChatResponse.builder().text(result).build());
     }
 
     @PostMapping("/suggest-kpi")

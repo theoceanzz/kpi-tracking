@@ -26,6 +26,7 @@ import java.util.UUID;
 public class AiService {
 
     private final ChatClient chatClient;
+    private final ChatClient chatClientWithMemory;
     private final UserRepository userRepository;
     private final UserRoleOrgUnitRepository userRoleOrgUnitRepository;
     private final OrgStatisticTool orgStatisticTool;
@@ -43,12 +44,14 @@ public class AiService {
     private final ObjectMapper objectMapper;
 
     public AiService(@Qualifier("openAiChatClient") ChatClient chatClient,
+                     @Qualifier("chatClientWithMemory") ChatClient chatClientWithMemory,
                      UserRepository userRepository,
                      UserRoleOrgUnitRepository userRoleOrgUnitRepository,
                      OrgStatisticTool orgStatisticTool,
                      OrgUnitStatisticTool orgUnitStatisticTool,
                      ObjectMapper objectMapper) {
         this.chatClient = chatClient;
+        this.chatClientWithMemory = chatClientWithMemory;
         this.userRepository = userRepository;
         this.userRoleOrgUnitRepository = userRoleOrgUnitRepository;
         this.orgStatisticTool = orgStatisticTool;
@@ -70,16 +73,17 @@ public class AiService {
                 .content();
     }
 
-    public String processOrgUnitChat(String question) {
+    public String processOrgUnitChat(String question, String conversationId) {
         UUID orgUnitId = getCurrentUserOrgUnitId();
         if(orgUnitId == null) return  null;
-        log.info("Processing chat for orgUnitId: {}", orgUnitId);
+        log.info("Processing chat for orgUnitId: {}, conversationId: {}", orgUnitId, conversationId);
 
-        return chatClient.prompt()
+        return chatClientWithMemory.prompt()
                 .user(question)
                 .system(orgUnitSystemPrompt)
                 .tools(orgUnitStatisticTool)
                 .toolContext(Map.of("orgUnitId", orgUnitId))
+                .advisors(spec -> spec.param("chat_memory_conversation_id", conversationId))
                 .call()
                 .content();
     }
@@ -110,6 +114,15 @@ public class AiService {
             log.error("Error suggesting KPIs: {}", e.getMessage(), e);
             return new ArrayList<>();
         }
+    }
+
+    public String chatWithMemory(String message, String conversationId) {
+        log.info("Processing memory chat for conversationId: {}", conversationId);
+        return chatClientWithMemory.prompt()
+                .user(message)
+                .advisors(spec -> spec.param("chat_memory_conversation_id", conversationId))
+                .call()
+                .content();
     }
 
     private List<AiKpiSuggestionResponse> parseResponse(String text) {
