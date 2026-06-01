@@ -8,6 +8,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -58,4 +59,21 @@ public interface UserRepository extends JpaRepository<User, UUID> {
             @Param("excludeManager") boolean excludeManager,
             Pageable pageable
     );
+
+    @Query("SELECT DISTINCT u FROM User u " +
+           "LEFT JOIN UserRoleOrgUnit uro ON u.id = uro.user.id " +
+           "WHERE u.deletedAt IS NULL " +
+           "AND (:orgId IS NULL OR uro.orgUnit.orgHierarchyLevel.organization.id = :orgId) " +
+           "AND (:orgUnitId IS NULL OR uro.orgUnit.id = :orgUnitId) " +
+           "AND (:positionName IS NULL OR :positionName = '' OR LOWER(uro.role.name) LIKE LOWER(CONCAT('%', :positionName, '%'))) " +
+           "AND (:keyword IS NULL OR :keyword = '' " +
+           "     OR LOWER(CAST(u.fullName AS string)) LIKE LOWER(CONCAT('%', CAST(:keyword AS string), '%')) " +
+           "     OR LOWER(CAST(u.email AS string)) LIKE LOWER(CONCAT('%', CAST(:keyword AS string), '%')) " +
+           "     OR u.phone LIKE CONCAT('%', :keyword, '%'))")
+    List<User> searchForTool(
+            @Param("orgId") UUID orgId,
+            @Param("orgUnitId") UUID orgUnitId,
+            @Param("positionName") String positionName,
+            @Param("keyword") String keyword,
+            Pageable pageable);
 }

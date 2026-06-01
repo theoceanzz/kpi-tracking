@@ -36,6 +36,9 @@ const CustomTooltip = ({ active, payload, label }: any) => {
 export default function AnalyticsComboChart({ data, isLoading, itemName = 'Mục tiêu' }: AnalyticsComboChartProps) {
   const [lineFilter, setLineFilter] = useState<LineFilter>('BOTH')
 
+  console.log(data);
+  
+
   if (isLoading) {
     return (
       <div className="w-full h-[400px] flex flex-col items-center justify-center bg-slate-50 dark:bg-slate-900/50 rounded-2xl border border-slate-200 dark:border-slate-800">

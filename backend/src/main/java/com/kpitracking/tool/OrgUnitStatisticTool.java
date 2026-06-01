@@ -1,25 +1,17 @@
 package com.kpitracking.tool;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.kpitracking.entity.OrgUnit;
-import com.kpitracking.repository.EvaluationRepository;
-import com.kpitracking.repository.KpiCriteriaRepository;
-import com.kpitracking.repository.KpiSubmissionRepository;
-import com.kpitracking.repository.OrgUnitRepository;
-import com.kpitracking.repository.UserRoleOrgUnitRepository;
+import com.kpitracking.entity.*;
+import com.kpitracking.repository.*;
+import com.kpitracking.service.OrgUnitStatisticService;
+import com.kpitracking.tool.OrgUnitStatisticToolRequests.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.model.ToolContext;
 import org.springframework.ai.tool.annotation.Tool;
-import org.springframework.ai.tool.annotation.ToolParam;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 
-import java.time.DayOfWeek;
-import java.time.Instant;
-import java.time.ZoneId;
-import java.time.ZonedDateTime;
-import java.time.temporal.ChronoUnit;
-import java.time.temporal.TemporalAdjusters;
 import java.util.*;
 
 @Component
@@ -28,555 +20,414 @@ import java.util.*;
 public class OrgUnitStatisticTool {
 
     private final OrgUnitRepository orgUnitRepository;
-    private final EvaluationRepository evaluationRepository;
-    private final KpiSubmissionRepository kpiSubmissionRepository;
-    private final KpiCriteriaRepository kpiCriteriaRepository;
     private final UserRoleOrgUnitRepository userRoleOrgUnitRepository;
+    private final UserRepository userRepository;
+    private final OrgUnitStatisticService orgUnitStatisticService;
     private final ObjectMapper objectMapper;
 
-    // Helper to parse dates from string
-    private Instant parseDate(String dateStr, Instant defaultInstant) {
-        if (dateStr == null || dateStr.isBlank()) return defaultInstant;
-        try {
-            if (dateStr.length() == 10) { // YYYY-MM-DD
-                return java.time.LocalDate.parse(dateStr).atStartOfDay(ZoneId.systemDefault()).toInstant();
-            }
-            return Instant.parse(dateStr);
-        } catch (Exception e) {
-            log.warn("Could not parse date: {}. Using default.", dateStr);
-            return defaultInstant;
-        }
-    }
-
-    private String getPathPrefix(UUID id) {
-        OrgUnit unit = orgUnitRepository.findById(id).orElseThrow(() -> new RuntimeException("OrgUnit not found: " + id));
-        return unit.getPath();
-    }
+    // ── context helpers ──────────────────────────────────────────────────────
 
     private UUID getOrgUnitId(ToolContext context) {
-        Object id = context.getContext().get("orgUnitId");
-        if (id == null) {
-            // Fallback to organizationUnitId if orgUnitId is not found
-            id = context.getContext().get("organizationUnitId");
+        if (context == null || context.getContext() == null) {
+            UUID id = getCurrentUserOrgUnitId();
+            if (id != null) return id;
+            throw new RuntimeException("ToolContext is null and could not resolve orgUnitId");
         }
+        Object id = context.getContext().get("orgUnitId");
+        if (id == null) id = context.getContext().get("organizationUnitId");
         if (id == null) {
+            UUID uid = getCurrentUserOrgUnitId();
+            if (uid != null) return uid;
             throw new RuntimeException("orgUnitId not found in ToolContext");
         }
         return UUID.fromString(id.toString());
     }
 
-    // 1. Top những người có đánh giá cao nhất, thấp nhất
-    @Tool(name = "get_subtree_evaluation_performers", description = "Rank users by average evaluation score within the current organizational unit's subtree.")
-    public String getTopPerformersByEvaluation(
-            @ToolParam(description = "Start date for filtering (YYYY-MM-DD or ISO).") String startDate,
-            @ToolParam(description = "End date for filtering (YYYY-MM-DD or ISO).") String endDate,
-            @ToolParam(description = "Ranking order: 'top' for highest, 'low' for lowest.") String order,
-            @ToolParam(description = "Max number of users to return.") int limit,
-            ToolContext context) {
+    private UUID getOrgId(ToolContext context) {
+        if (context == null || context.getContext() == null) {
+            UUID id = getCurrentUserOrgId();
+            if (id != null) return id;
+            throw new RuntimeException("ToolContext is null and could not resolve organizationId");
+        }
+        Object orgId = context.getContext().get("organizationId");
+        if (orgId == null) {
+            UUID id = getCurrentUserOrgId();
+            if (id != null) return id;
+            throw new RuntimeException("organizationId not found in ToolContext");
+        }
+        if (orgId instanceof UUID) return (UUID) orgId;
+        return UUID.fromString(orgId.toString());
+    }
+
+    private UUID getCurrentUserOrgUnitId() {
         try {
-            String pathPrefix = getPathPrefix(getOrgUnitId(context));
-            Instant start = parseDate(startDate, Instant.EPOCH);
-            Instant end = parseDate(endDate, Instant.now());
-            int effectiveLimit = limit > 0 ? limit : 5;
-
-            List<Object[]> data;
-            if ("low".equalsIgnoreCase(order)) {
-                data = evaluationRepository.findLowPerformersInSubtree(pathPrefix, start, end, effectiveLimit);
-            } else {
-                data = evaluationRepository.findTopPerformersInSubtree(pathPrefix, start, end, effectiveLimit);
-            }
-
-            List<Map<String, Object>> resultList = new ArrayList<>();
-            int rank = 1;
-            for (Object[] row : data) {
-                Map<String, Object> entry = new LinkedHashMap<>();
-                entry.put("rank", rank++);
-                entry.put("userId", row[0]);
-                entry.put("fullName", row[1]);
-                entry.put("email", row[2]);
-                entry.put("averageScore", row[3] != null ? Math.round(((Number) row[3]).doubleValue() * 100.0) / 100.0 : null);
-                entry.put("evaluationCount", row[4]);
-                resultList.add(entry);
-            }
-
-            return objectMapper.writeValueAsString(resultList);
+            String email = SecurityContextHolder.getContext().getAuthentication().getName();
+            User user = userRepository.findByEmail(email).orElse(null);
+            if (user == null) return null;
+            List<UserRoleOrgUnit> assignments = userRoleOrgUnitRepository.findByUserId(user.getId());
+            if (assignments.isEmpty()) return null;
+            return assignments.get(0).getOrgUnit().getId();
         } catch (Exception e) {
-            log.error("Error in getTopPerformersByEvaluation", e);
+            log.error("Error getting current user org unit ID", e);
+            return null;
+        }
+    }
+
+    private UUID getCurrentUserOrgId() {
+        try {
+            String email = SecurityContextHolder.getContext().getAuthentication().getName();
+            User user = userRepository.findByEmail(email).orElse(null);
+            if (user == null) return null;
+            List<UserRoleOrgUnit> assignments = userRoleOrgUnitRepository.findByUserId(user.getId());
+            if (assignments.isEmpty()) return null;
+            return assignments.get(0).getOrgUnit().getOrgHierarchyLevel().getOrganization().getId();
+        } catch (Exception e) {
+            log.error("Error getting current user org ID", e);
+            return null;
+        }
+    }
+
+    private UUID resolveUnitId(String unitId, ToolContext context) {
+        return (unitId != null && !unitId.isBlank()) ? UUID.fromString(unitId) : getOrgUnitId(context);
+    }
+
+    // ── 1. get_org_hierarchy ─────────────────────────────────────────────────
+
+    @Tool(name = "get_org_hierarchy", description = "Get the complete organizational unit hierarchy tree and subtree details, including child counts and member counts.")
+    public String getOrgHierarchy(GetOrgHierarchyRequest request, ToolContext context) {
+        try {
+            Map<String, Object> response = orgUnitStatisticService.getOrgHierarchy(getOrgUnitId(context));
+            return objectMapper.writeValueAsString(response);
+        } catch (Exception e) {
+            log.error("Error in getOrgHierarchy", e);
             return "{\"error\": \"" + e.getMessage() + "\"}";
         }
     }
 
-    // 2. Trung bình đánh giá
-    @Tool(name = "get_subtree_avg_evaluation_score", description = "Calculate average evaluation score for the current organizational unit and its subtree.")
-    public String getAvgEvaluationScore(
-            @ToolParam(description = "Start date for filtering (YYYY-MM-DD or ISO).") String startDate,
-            @ToolParam(description = "End date for filtering (YYYY-MM-DD or ISO).") String endDate,
-            ToolContext context) {
+    // ── 2. get_org_unit_detail ───────────────────────────────────────────────
+
+    @Tool(name = "get_org_unit_detail", description = "View detailed information of a specific organizational unit.")
+    public String getOrgUnitDetail(GetOrgUnitDetailRequest request, ToolContext context) {
+        try {
+            UUID targetId = resolveUnitId(request.unitId(), context);
+            Map<String, Object> response = orgUnitStatisticService.getOrgUnitDetail(targetId);
+            return objectMapper.writeValueAsString(response);
+        } catch (Exception e) {
+            log.error("Error in getOrgUnitDetail", e);
+            return "{\"error\": \"" + e.getMessage() + "\"}";
+        }
+    }
+
+    // ── 3. get_child_org_units ───────────────────────────────────────────────
+
+    @Tool(name = "get_child_org_units", description = "List and count child organizational units of a specified parent unit, with optional recursive subtree search.")
+    public String getChildOrgUnits(GetChildOrgUnitsRequest request, ToolContext context) {
+        try {
+            UUID parentId = resolveUnitId(request.unitId(), context);
+            Map<String, Object> response = orgUnitStatisticService.getChildOrgUnits(
+                    parentId, request.recursive(), request.page(), request.size(),
+                    request.sortBy(), request.sortDirection());
+            return objectMapper.writeValueAsString(response);
+        } catch (Exception e) {
+            log.error("Error in getChildOrgUnits", e);
+            return "{\"error\": \"" + e.getMessage() + "\"}";
+        }
+    }
+
+    // ── 4. get_members ───────────────────────────────────────────────────────
+
+    @Tool(name = "get_members", description = "List and count members/users inside an organizational unit, supporting subtree searches and position/role filtering.")
+    public String getMembers(GetMembersRequest request, ToolContext context) {
+        try {
+            UUID targetUnitId = resolveUnitId(request.unitId(), context);
+            Map<String, Object> response = orgUnitStatisticService.getMembers(
+                    targetUnitId, request.includeChildUnits(), request.positionId(),
+                    request.page(), request.size(), request.sortBy(), request.sortDirection());
+            return objectMapper.writeValueAsString(response);
+        } catch (Exception e) {
+            log.error("Error in getMembers", e);
+            return "{\"error\": \"" + e.getMessage() + "\"}";
+        }
+    }
+
+    // ── 5. get_org_unit_statistics ───────────────────────────────────────────
+
+    @Tool(name = "get_org_unit_statistics", description = "Get aggregated KPI performance statistics (progress, performance, ratings, count of KPIs) for a group of members.")
+    public String getOrgUnitStatistics(GetOrgUnitStatisticsRequest request, ToolContext context) {
+        try {
+            UUID targetUnitId = resolveUnitId(request.unitId(), context);
+            Map<String, Object> response = orgUnitStatisticService.getMemberStatistics(
+                    targetUnitId, request.includeChildUnits(),
+                    request.startDate(), request.endDate());
+            return objectMapper.writeValueAsString(response);
+        } catch (Exception e) {
+            log.error("Error in getOrgUnitStatistics", e);
+            return "{\"error\": \"" + e.getMessage() + "\"}";
+        }
+    }
+
+    // ── 6. get_user_summary ──────────────────────────────────────────────────
+
+    @Tool(name = "get_user_summary", description = "Get standard KPI statistics and list details of KPIs assigned to a specific user.")
+    public String getUserSummary(GetUserSummaryRequest request, ToolContext context) {
+        try {
+            UUID targetUserId = UUID.fromString(request.userId());
+            Map<String, Object> response = orgUnitStatisticService.getUserSummary(
+                    targetUserId, request.startDate(), request.endDate());
+            return objectMapper.writeValueAsString(response);
+        } catch (Exception e) {
+            log.error("Error in getUserSummary", e);
+            return "{\"error\": \"" + e.getMessage() + "\"}";
+        }
+    }
+
+    // ── 7. get_kpis ──────────────────────────────────────────────────────────
+
+    @Tool(name = "get_kpis", description = "List and filter KPI criteria with detailed query parameters and standard pagination/sorting.")
+    public String getKpis(GetKpisRequest request, ToolContext context) {
         try {
             UUID orgUnitId = getOrgUnitId(context);
-            String pathPrefix = getPathPrefix(orgUnitId);
-            Instant start = parseDate(startDate, Instant.EPOCH);
-            Instant end = parseDate(endDate, Instant.now());
-
-            Double avg = evaluationRepository.findAvgScoreInSubtree(pathPrefix, start, end);
-
-            Map<String, Object> result = new LinkedHashMap<>();
-            result.put("orgUnitId", orgUnitId);
-            result.put("averageScore", avg != null ? Math.round(avg * 100.0) / 100.0 : null);
-            result.put("startDate", start.toString());
-            result.put("endDate", end.toString());
-
-            return objectMapper.writeValueAsString(result);
+            Map<String, Object> response = orgUnitStatisticService.getKpis(
+                    orgUnitId, request.ownerId(), request.assignedById(), request.assignedToId(),
+                    request.periodId(), request.status(), request.page(), request.size(),
+                    request.sortBy(), request.sortDirection(), request.startDate(), request.endDate());
+            return objectMapper.writeValueAsString(response);
         } catch (Exception e) {
-            log.error("Error in getAvgEvaluationScore", e);
+            log.error("Error in getKpis", e);
             return "{\"error\": \"" + e.getMessage() + "\"}";
         }
     }
 
-    // 3. Mức độ hoàn thành KPI
-    @Tool(name = "get_subtree_kpi_completion_rate", description = "Calculate the KPI completion rate (percentage of approved submissions) for the current organizational unit's subtree.")
-    public String getKpiCompletionRate(
-            @ToolParam(description = "Start date for filtering (YYYY-MM-DD or ISO).") String startDate,
-            @ToolParam(description = "End date for filtering (YYYY-MM-DD or ISO).") String endDate,
-            ToolContext context) {
-        try {
-            String pathPrefix = getPathPrefix(getOrgUnitId(context));
-            Instant start = parseDate(startDate, Instant.EPOCH);
-            Instant end = parseDate(endDate, Instant.now());
+    // ── 8. get_kpi_summary ───────────────────────────────────────────────────
 
-            List<Object[]> statusCounts = kpiSubmissionRepository.countGroupByStatusInSubtree(pathPrefix, start, end);
-            long total = 0;
-            long approved = 0;
-
-            for (Object[] row : statusCounts) {
-                long count = ((Number) row[1]).longValue();
-                total += count;
-                if ("APPROVED".equalsIgnoreCase(row[0].toString())) {
-                    approved = count;
-                }
-            }
-
-            double rate = total > 0 ? Math.round((double) approved / total * 10000.0) / 100.0 : 0.0;
-
-            Map<String, Object> result = new LinkedHashMap<>();
-            result.put("orgUnitId", getOrgUnitId(context));
-            result.put("completionRate", rate + "%");
-            result.put("approvedCount", approved);
-            result.put("totalSubmissions", total);
-
-            return objectMapper.writeValueAsString(result);
-        } catch (Exception e) {
-            log.error("Error in getKpiCompletionRate", e);
-            return "{\"error\": \"" + e.getMessage() + "\"}";
-        }
-    }
-
-    // 4. Tổng số KPI
-    @Tool(name = "get_subtree_total_kpi_count", description = "Total number of KPI criteria assigned within the current organizational unit's subtree.")
-    public String getTotalKpiCount(
-            @ToolParam(description = "Start date for filtering (YYYY-MM-DD or ISO).") String startDate,
-            @ToolParam(description = "End date for filtering (YYYY-MM-DD or ISO).") String endDate,
-            ToolContext context) {
-        try {
-            String pathPrefix = getPathPrefix(getOrgUnitId(context));
-            Instant start = parseDate(startDate, Instant.EPOCH);
-            Instant end = parseDate(endDate, Instant.now());
-
-            long count = kpiCriteriaRepository.countInSubtree(pathPrefix, start, end);
-
-            Map<String, Object> result = new LinkedHashMap<>();
-            result.put("orgUnitId", getOrgUnitId(context));
-            result.put("totalKpiCount", count);
-
-            return objectMapper.writeValueAsString(result);
-        } catch (Exception e) {
-            log.error("Error in getTotalKpiCount", e);
-            return "{\"error\": \"" + e.getMessage() + "\"}";
-        }
-    }
-
-    // 5. Số bài nộp KPI theo trạng thái
-    @Tool(name = "get_subtree_submission_status_breakdown", description = "Breakdown of KPI submission counts by status (approved, rejected, pending) in the current organizational unit's subtree.")
-    public String getSubmissionStatusBreakdown(
-            @ToolParam(description = "Start date for filtering (YYYY-MM-DD or ISO).") String startDate,
-            @ToolParam(description = "End date for filtering (YYYY-MM-DD or ISO).") String endDate,
-            ToolContext context) {
-        try {
-            String pathPrefix = getPathPrefix(getOrgUnitId(context));
-            Instant start = parseDate(startDate, Instant.EPOCH);
-            Instant end = parseDate(endDate, Instant.now());
-
-            List<Object[]> statusCounts = kpiSubmissionRepository.countGroupByStatusInSubtree(pathPrefix, start, end);
-            Map<String, Long> breakdown = new LinkedHashMap<>();
-            long total = 0;
-
-            for (Object[] row : statusCounts) {
-                long count = ((Number) row[1]).longValue();
-                breakdown.put(row[0].toString().toLowerCase(), count);
-                total += count;
-            }
-
-            Map<String, Object> result = new LinkedHashMap<>();
-            result.put("orgUnitId", getOrgUnitId(context));
-            result.put("totalSubmissions", total);
-            result.put("statusBreakdown", breakdown);
-
-            return objectMapper.writeValueAsString(result);
-        } catch (Exception e) {
-            log.error("Error in getSubmissionStatusBreakdown", e);
-            return "{\"error\": \"" + e.getMessage() + "\"}";
-        }
-    }
-
-    // 6. Top những người có tỉ lệ hoàn thành KPI nhiều nhất, thấp nhất
-    @Tool(name = "get_subtree_kpi_completion_performers", description = "Rank users by KPI completion rate within the current organizational unit's subtree.")
-    public String getTopPerformersByCompletion(
-            @ToolParam(description = "Start date for filtering (YYYY-MM-DD or ISO).") String startDate,
-            @ToolParam(description = "End date for filtering (YYYY-MM-DD or ISO).") String endDate,
-            @ToolParam(description = "Ranking order: 'top' for highest, 'low' for lowest.") String order,
-            @ToolParam(description = "Max number of users to return.") int limit,
-            ToolContext context) {
-        try {
-            String pathPrefix = getPathPrefix(getOrgUnitId(context));
-            Instant start = parseDate(startDate, Instant.EPOCH);
-            Instant end = parseDate(endDate, Instant.now());
-            int effectiveLimit = limit > 0 ? limit : 5;
-
-            List<Object[]> data;
-            if ("low".equalsIgnoreCase(order)) {
-                data = kpiSubmissionRepository.findLowPerformersByCompletionInSubtree(pathPrefix, start, end, effectiveLimit);
-            } else {
-                data = kpiSubmissionRepository.findTopPerformersByCompletionInSubtree(pathPrefix, start, end, effectiveLimit);
-            }
-
-            List<Map<String, Object>> resultList = new ArrayList<>();
-            int rank = 1;
-            for (Object[] row : data) {
-                Map<String, Object> entry = new LinkedHashMap<>();
-                entry.put("rank", rank++);
-                entry.put("userId", row[0]);
-                entry.put("fullName", row[1]);
-                entry.put("email", row[2]);
-                entry.put("completionRate", Math.round(((Number) row[3]).doubleValue() * 100.0) / 100.0 + "%");
-                entry.put("submissionCount", row[4]);
-                resultList.add(entry);
-            }
-
-            return objectMapper.writeValueAsString(resultList);
-        } catch (Exception e) {
-            log.error("Error in getTopPerformersByCompletion", e);
-            return "{\"error\": \"" + e.getMessage() + "\"}";
-        }
-    }
-
-    // 7. Top những đơn vị con có tỉ lệ hoàn thành KPI nhiều nhất, thấp nhất
-    @Tool(name = "get_subtree_unit_kpi_completion_rankings", description = "Rank child units by KPI completion rate within the current organizational unit's subtree.")
-    public String getTopUnitsByCompletion(
-            @ToolParam(description = "Start date for filtering (YYYY-MM-DD or ISO).") String startDate,
-            @ToolParam(description = "End date for filtering (YYYY-MM-DD or ISO).") String endDate,
-            @ToolParam(description = "Ranking order: 'top' for highest, 'low' for lowest.") String order,
-            @ToolParam(description = "Max number of units to return.") int limit,
-            ToolContext context) {
-        try {
-            String pathPrefix = getPathPrefix(getOrgUnitId(context));
-            Instant start = parseDate(startDate, Instant.EPOCH);
-            Instant end = parseDate(endDate, Instant.now());
-            int effectiveLimit = limit > 0 ? limit : 5;
-
-            List<Object[]> data;
-            if ("low".equalsIgnoreCase(order)) {
-                data = kpiSubmissionRepository.findLowUnitsByCompletionInSubtree(pathPrefix, start, end, effectiveLimit);
-            } else {
-                data = kpiSubmissionRepository.findTopUnitsByCompletionInSubtree(pathPrefix, start, end, effectiveLimit);
-            }
-
-            List<Map<String, Object>> resultList = new ArrayList<>();
-            int rank = 1;
-            for (Object[] row : data) {
-                Map<String, Object> entry = new LinkedHashMap<>();
-                entry.put("rank", rank++);
-                entry.put("orgUnitId", row[0]);
-                entry.put("orgUnitName", row[1]);
-                entry.put("completionRate", Math.round(((Number) row[2]).doubleValue() * 100.0) / 100.0 + "%");
-                entry.put("submissionCount", row[3]);
-                resultList.add(entry);
-            }
-
-            return objectMapper.writeValueAsString(resultList);
-        } catch (Exception e) {
-            log.error("Error in getTopUnitsByCompletion", e);
-            return "{\"error\": \"" + e.getMessage() + "\"}";
-        }
-    }
-
-    // 8. Hiệu suất trong đơn vị (actual_value/target_value) * 100
-    @Tool(name = "get_subtree_avg_performance", description = "Average performance percentage (actual/target * 100) for approved KPI submissions in the current organizational unit's subtree.")
-    public String getUnitPerformanceSummary(
-            @ToolParam(description = "Start date for filtering (YYYY-MM-DD or ISO).") String startDate,
-            @ToolParam(description = "End date for filtering (YYYY-MM-DD or ISO).") String endDate,
-            ToolContext context) {
-        try {
-            String pathPrefix = getPathPrefix(getOrgUnitId(context));
-            Instant start = parseDate(startDate, Instant.EPOCH);
-            Instant end = parseDate(endDate, Instant.now());
-
-            Double avgPerf = kpiSubmissionRepository.findAvgPerformanceInSubtree(pathPrefix, start, end);
-
-            Map<String, Object> result = new LinkedHashMap<>();
-            result.put("orgUnitId", getOrgUnitId(context));
-            result.put("averagePerformance", avgPerf != null ? Math.round(avgPerf * 100.0) / 100.0 + "%" : null);
-
-            return objectMapper.writeValueAsString(result);
-        } catch (Exception e) {
-            log.error("Error in getUnitPerformanceSummary", e);
-            return "{\"error\": \"" + e.getMessage() + "\"}";
-        }
-    }
-
-    // 9. Phân bổ hiệu suất (thấp hơn mong đợi, vượt mong đợi, đúng như mong đợi)
-    @Tool(name = "get_subtree_performance_distribution", description = "Count of approved KPI submissions by performance category (Below, Met, Exceed Expectations) in the current organizational unit's subtree.")
-    public String getPerformanceDistribution(
-            @ToolParam(description = "Start date for filtering (YYYY-MM-DD or ISO).") String startDate,
-            @ToolParam(description = "End date for filtering (YYYY-MM-DD or ISO).") String endDate,
-            ToolContext context) {
-        try {
-            String pathPrefix = getPathPrefix(getOrgUnitId(context));
-            Instant start = parseDate(startDate, Instant.EPOCH);
-            Instant end = parseDate(endDate, Instant.now());
-
-            List<Object[]> data = kpiSubmissionRepository.findPerformanceDistributionInSubtree(pathPrefix, start, end);
-            Map<String, Long> distribution = new LinkedHashMap<>();
-            distribution.put("below", 0L);
-            distribution.put("met", 0L);
-            distribution.put("exceed", 0L);
-
-            for (Object[] row : data) {
-                distribution.put(row[0].toString().toLowerCase(), ((Number) row[1]).longValue());
-            }
-
-            return objectMapper.writeValueAsString(distribution);
-        } catch (Exception e) {
-            log.error("Error in getPerformanceDistribution", e);
-            return "{\"error\": \"" + e.getMessage() + "\"}";
-        }
-    }
-
-    // 10. Top những người có hiệu suất cao nhất và thấp nhất
-    @Tool(name = "get_subtree_performance_performers", description = "Rank users by average performance percentage (actual/target * 100) within the current organizational unit's subtree.")
-    public String getTopPerformersByPerformance(
-            @ToolParam(description = "Start date for filtering (YYYY-MM-DD or ISO).") String startDate,
-            @ToolParam(description = "End date for filtering (YYYY-MM-DD or ISO).") String endDate,
-            @ToolParam(description = "Ranking order: 'top' for highest, 'low' for lowest.") String order,
-            @ToolParam(description = "Max number of users to return.") int limit,
-            ToolContext context) {
-        try {
-            String pathPrefix = getPathPrefix(getOrgUnitId(context));
-            Instant start = parseDate(startDate, Instant.EPOCH);
-            Instant end = parseDate(endDate, Instant.now());
-            int effectiveLimit = limit > 0 ? limit : 5;
-
-            List<Object[]> data;
-            if ("low".equalsIgnoreCase(order)) {
-                data = kpiSubmissionRepository.findLowPerformersByPerformanceInSubtree(pathPrefix, start, end, effectiveLimit);
-            } else {
-                data = kpiSubmissionRepository.findTopPerformersByPerformanceInSubtree(pathPrefix, start, end, effectiveLimit);
-            }
-
-            List<Map<String, Object>> resultList = new ArrayList<>();
-            int rank = 1;
-            for (Object[] row : data) {
-                Map<String, Object> entry = new LinkedHashMap<>();
-                entry.put("rank", rank++);
-                entry.put("userId", row[0]);
-                entry.put("fullName", row[1]);
-                entry.put("email", row[2]);
-                entry.put("performance", row[3] != null ? Math.round(((Number) row[3]).doubleValue() * 100.0) / 100.0 + "%" : null);
-                entry.put("submissionCount", row[4]);
-                resultList.add(entry);
-            }
-
-            return objectMapper.writeValueAsString(resultList);
-        } catch (Exception e) {
-            log.error("Error in getTopPerformersByPerformance", e);
-            return "{\"error\": \"" + e.getMessage() + "\"}";
-        }
-    }
-
-    // 11. Top những đơn vị có hiệu suất cao nhất và thấp nhất
-    @Tool(name = "get_subtree_unit_performance_rankings", description = "Rank child units by average performance percentage within the current organizational unit's subtree.")
-    public String getTopUnitsByPerformance(
-            @ToolParam(description = "Start date for filtering (YYYY-MM-DD or ISO).") String startDate,
-            @ToolParam(description = "End date for filtering (YYYY-MM-DD or ISO).") String endDate,
-            @ToolParam(description = "Ranking order: 'top' for highest, 'low' for lowest.") String order,
-            @ToolParam(description = "Max number of units to return.") int limit,
-            ToolContext context) {
-        try {
-            String pathPrefix = getPathPrefix(getOrgUnitId(context));
-            Instant start = parseDate(startDate, Instant.EPOCH);
-            Instant end = parseDate(endDate, Instant.now());
-            int effectiveLimit = limit > 0 ? limit : 5;
-
-            List<Object[]> data;
-            if ("low".equalsIgnoreCase(order)) {
-                data = kpiSubmissionRepository.findLowUnitsByPerformanceInSubtree(pathPrefix, start, end, effectiveLimit);
-            } else {
-                data = kpiSubmissionRepository.findTopUnitsByPerformanceInSubtree(pathPrefix, start, end, effectiveLimit);
-            }
-
-            List<Map<String, Object>> resultList = new ArrayList<>();
-            int rank = 1;
-            for (Object[] row : data) {
-                Map<String, Object> entry = new LinkedHashMap<>();
-                entry.put("rank", rank++);
-                entry.put("orgUnitId", row[0]);
-                entry.put("orgUnitName", row[1]);
-                entry.put("performance", row[2] != null ? Math.round(((Number) row[2]).doubleValue() * 100.0) / 100.0 + "%" : null);
-                entry.put("submissionCount", row[3]);
-                resultList.add(entry);
-            }
-
-            return objectMapper.writeValueAsString(resultList);
-        } catch (Exception e) {
-            log.error("Error in getTopUnitsByPerformance", e);
-            return "{\"error\": \"" + e.getMessage() + "\"}";
-        }
-    }
-
-    // 12. Top những người hay trễ deadline của kpi nhất
-    @Tool(name = "get_subtree_most_late_users", description = "Rank users who most frequently submit KPIs after the deadline within the current organizational unit's subtree.")
-    public String getMostLateUsers(
-            @ToolParam(description = "Start date for filtering (YYYY-MM-DD or ISO).") String startDate,
-            @ToolParam(description = "End date for filtering (YYYY-MM-DD or ISO).") String endDate,
-            @ToolParam(description = "Max number of users to return.") int limit,
-            ToolContext context) {
-        try {
-            String pathPrefix = getPathPrefix(getOrgUnitId(context));
-            Instant start = parseDate(startDate, Instant.EPOCH);
-            Instant end = parseDate(endDate, Instant.now());
-            int effectiveLimit = limit > 0 ? limit : 5;
-
-            List<Object[]> data = kpiSubmissionRepository.findTopLateSubmittersInSubtree(pathPrefix, start, end, effectiveLimit);
-            List<Map<String, Object>> resultList = new ArrayList<>();
-            int rank = 1;
-            for (Object[] row : data) {
-                Map<String, Object> entry = new LinkedHashMap<>();
-                entry.put("rank", rank++);
-                entry.put("userId", row[0]);
-                entry.put("fullName", row[1]);
-                entry.put("email", row[2]);
-                entry.put("lateSubmissionCount", row[3]);
-                resultList.add(entry);
-            }
-
-            return objectMapper.writeValueAsString(resultList);
-        } catch (Exception e) {
-            log.error("Error in getMostLateUsers", e);
-            return "{\"error\": \"" + e.getMessage() + "\"}";
-        }
-    }
-
-    // 13. Top những người hay không nộp kpi nhất
-    @Tool(name = "get_subtree_most_non_submitters", description = "Rank users who have the most assigned KPIs without any submissions within the current organizational unit's subtree.")
-    public String getMostNonSubmitters(
-            @ToolParam(description = "Start date for filtering (YYYY-MM-DD or ISO).") String startDate,
-            @ToolParam(description = "End date for filtering (YYYY-MM-DD or ISO).") String endDate,
-            @ToolParam(description = "Max number of users to return.") int limit,
-            ToolContext context) {
-        try {
-            String pathPrefix = getPathPrefix(getOrgUnitId(context));
-            Instant start = parseDate(startDate, Instant.EPOCH);
-            Instant end = parseDate(endDate, Instant.now());
-            int effectiveLimit = limit > 0 ? limit : 5;
-
-            List<Object[]> data = kpiCriteriaRepository.findTopNonSubmittersInSubtree(pathPrefix, start, end, effectiveLimit);
-            List<Map<String, Object>> resultList = new ArrayList<>();
-            int rank = 1;
-            for (Object[] row : data) {
-                Map<String, Object> entry = new LinkedHashMap<>();
-                entry.put("rank", rank++);
-                entry.put("userId", row[0]);
-                entry.put("fullName", row[1]);
-                entry.put("email", row[2]);
-                entry.put("missingSubmissionCount", row[3]);
-                resultList.add(entry);
-            }
-
-            return objectMapper.writeValueAsString(resultList);
-        } catch (Exception e) {
-            log.error("Error in getMostNonSubmitters", e);
-            return "{\"error\": \"" + e.getMessage() + "\"}";
-        }
-    }
-
-    // 14. Top những người hay có hiệu suất làm việc thấp hơn mong đợi so với chỉ tiêu kpi
-    @Tool(name = "get_subtree_most_underperformers", description = "Rank users who most frequently have approved KPI submissions with performance below 90% within the current organizational unit's subtree.")
-    public String getMostUnderperformers(
-            @ToolParam(description = "Start date for filtering (YYYY-MM-DD or ISO).") String startDate,
-            @ToolParam(description = "End date for filtering (YYYY-MM-DD or ISO).") String endDate,
-            @ToolParam(description = "Max number of users to return.") int limit,
-            ToolContext context) {
-        try {
-            String pathPrefix = getPathPrefix(getOrgUnitId(context));
-            Instant start = parseDate(startDate, Instant.EPOCH);
-            Instant end = parseDate(endDate, Instant.now());
-            int effectiveLimit = limit > 0 ? limit : 5;
-
-            List<Object[]> data = kpiSubmissionRepository.findTopUnderperformersInSubtree(pathPrefix, start, end, effectiveLimit);
-            List<Map<String, Object>> resultList = new ArrayList<>();
-            int rank = 1;
-            for (Object[] row : data) {
-                Map<String, Object> entry = new LinkedHashMap<>();
-                entry.put("rank", rank++);
-                entry.put("userId", row[0]);
-                entry.put("fullName", row[1]);
-                entry.put("email", row[2]);
-                entry.put("underperformSubmissionCount", row[3]);
-                resultList.add(entry);
-            }
-
-            return objectMapper.writeValueAsString(resultList);
-        } catch (Exception e) {
-            log.error("Error in getMostUnderperformers", e);
-            return "{\"error\": \"" + e.getMessage() + "\"}";
-        }
-    }
-
-    // 15. Vai trò và tổng số người sở hữu chúng trong đơn vị
-    @Tool(name = "get_subtree_role_distribution", description = "Get distribution of roles and the count of users holding each role within the current organizational unit's subtree.")
-    public String getRoleDistribution(
-            ToolContext context) {
-        try {
-            String pathPrefix = getPathPrefix(getOrgUnitId(context));
-            List<Object[]> data = userRoleOrgUnitRepository.findRoleDistributionInSubtree(pathPrefix);
-            
-            Map<String, Long> distribution = new LinkedHashMap<>();
-            for (Object[] row : data) {
-                distribution.put(row[0].toString(), ((Number) row[1]).longValue());
-            }
-
-            return objectMapper.writeValueAsString(distribution);
-        } catch (Exception e) {
-            log.error("Error in getRoleDistribution", e);
-            return "{\"error\": \"" + e.getMessage() + "\"}";
-        }
-    }
-
-    // 16. Tổng số tất cả đơn vị con ở dưới
-    @Tool(name = "get_subtree_unit_count", description = "Total count of all descendant organizational units under the current unit.")
-    public String getSubtreeUnitCount(
-            ToolContext context) {
+    @Tool(name = "get_kpi_summary", description = "Get aggregate statistics of KPIs matching the specified filter criteria.")
+    public String getKpiSummary(GetKpiSummaryRequest request, ToolContext context) {
         try {
             UUID orgUnitId = getOrgUnitId(context);
-            String pathPrefix = getPathPrefix(orgUnitId);
-            long count = orgUnitRepository.countChildrenInSubtree(pathPrefix);
+            Map<String, Object> response = orgUnitStatisticService.getKpiSummary(
+                    orgUnitId, request.ownerId(), request.assignedById(), request.assignedToId(),
+                    request.periodId(), request.status(), request.startDate(), request.endDate());
+            return objectMapper.writeValueAsString(response);
+        } catch (Exception e) {
+            log.error("Error in getKpiSummary", e);
+            return "{\"error\": \"" + e.getMessage() + "\"}";
+        }
+    }
 
+    // ── 9. get_kpi_detail ────────────────────────────────────────────────────
+
+    @Tool(name = "get_kpi_detail", description = "Get complete detail about a specific KPI, showing progress, performance, rating, deadline, assigner, assignees, and status.")
+    public String getKpiDetail(GetKpiDetailRequest request, ToolContext context) {
+        try {
+            UUID id = UUID.fromString(request.kpiId());
+            Map<String, Object> response = orgUnitStatisticService.getKpiDetail(
+                    id, request.startDate(), request.endDate());
+            return objectMapper.writeValueAsString(response);
+        } catch (Exception e) {
+            log.error("Error in getKpiDetail", e);
+            return "{\"error\": \"" + e.getMessage() + "\"}";
+        }
+    }
+
+    // ── 10. get_kpi_assignees ────────────────────────────────────────────────
+
+    @Tool(name = "get_kpi_assignees", description = "Count and list all assignees of a specific KPI along with their parent organizational units.")
+    public String getKpiAssignees(GetKpiAssigneesRequest request, ToolContext context) {
+        try {
+            UUID id = UUID.fromString(request.kpiId());
+            Map<String, Object> response = orgUnitStatisticService.getKpiAssignees(id);
+            return objectMapper.writeValueAsString(response);
+        } catch (Exception e) {
+            log.error("Error in getKpiAssignees", e);
+            return "{\"error\": \"" + e.getMessage() + "\"}";
+        }
+    }
+
+    // ── 11. get_kpi_periods ──────────────────────────────────────────────────
+
+    @Tool(name = "get_kpi_periods", description = "List and detail KPI periods, including participants count, KPIs count, average progress, and performance.")
+    public String getKpiPeriods(GetKpiPeriodsRequest request, ToolContext context) {
+        try {
+            UUID orgId = getOrgId(context);
+            List<Map<String, Object>> response = orgUnitStatisticService.getKpiPeriods(
+                    orgId, request.startDate(), request.endDate());
+            return objectMapper.writeValueAsString(response);
+        } catch (Exception e) {
+            log.error("Error in getKpiPeriods", e);
+            return "{\"error\": \"" + e.getMessage() + "\"}";
+        }
+    }
+
+    // ── 12. get_positions ────────────────────────────────────────────────────
+
+    @Tool(name = "get_positions", description = "Count and list roles/positions inside a unit along with the member count for each.")
+    public String getPositions(GetPositionsRequest request, ToolContext context) {
+        try {
+            UUID targetUnitId = resolveUnitId(request.unitId(), context);
+            Map<String, Object> response = orgUnitStatisticService.getPositions(targetUnitId);
+            return objectMapper.writeValueAsString(response);
+        } catch (Exception e) {
+            log.error("Error in getPositions", e);
+            return "{\"error\": \"" + e.getMessage() + "\"}";
+        }
+    }
+
+    // ── 13. rank_members ─────────────────────────────────────────────────────
+
+    @Tool(name = "rank_members", description = "Ranks users by a chosen metric and returns a list with rank, userId, fullName, email, score. Metrics: 'average_progress' (weighted avg % of target reached), 'total_progress' (sum of approved actual values), 'average_performance' (weighted avg % against time-proportional target), 'average_rating' (evaluation score avg), 'late_submission_count', 'missing_submission_count', 'submission_count'. Scopes: 'organization' (all org users), 'unit' (requires unitId), 'kpi' (requires kpiId — ranks that KPI's assignees).")
+    public String rankMembers(RankMembersRequest request, ToolContext context) {
+        try {
+            UUID orgId = getOrgId(context);
+            UUID contextUnitId = getOrgUnitId(context);
+            List<Map<String, Object>> response = orgUnitStatisticService.rankMembers(
+                    orgId, request.metric(), request.order(), request.scope(),
+                    request.unitId(), request.kpiId(), request.limit(),
+                    request.startDate(), request.endDate(), contextUnitId);
+            return objectMapper.writeValueAsString(response);
+        } catch (Exception e) {
+            log.error("Error in rankMembers", e);
+            return "{\"error\": \"" + e.getMessage() + "\"}";
+        }
+    }
+
+    // ── 14. rank_org_units ───────────────────────────────────────────────────
+
+    @Tool(name = "rank_org_units", description = "Ranks all organizational units in the current subtree by a metric and returns list with rank, orgUnitId, orgUnitName, score. Metrics: 'average_progress' (weighted avg % of target reached across the unit's KPIs), 'average_performance' (weighted avg % against time-proportional target), 'average_rating' (avg evaluation score), 'member_count'.")
+    public String rankOrgUnits(RankOrgUnitsRequest request, ToolContext context) {
+        try {
+            UUID orgUnitId = getOrgUnitId(context);
+            List<Map<String, Object>> response = orgUnitStatisticService.rankOrgUnits(
+                    orgUnitId, request.metric(), request.order(), request.limit(),
+                    request.startDate(), request.endDate());
+            return objectMapper.writeValueAsString(response);
+        } catch (Exception e) {
+            log.error("Error in rankOrgUnits", e);
+            return "{\"error\": \"" + e.getMessage() + "\"}";
+        }
+    }
+
+    // ── 15. get_kpi_risk_analysis ────────────────────────────────────────────
+
+    @Tool(name = "get_kpi_risk_analysis", description = "Analyze and identify at-risk, overdue, or stagnant KPIs within the current organizational unit's subtree.")
+    public String getKpiRiskAnalysis(GetKpiRiskAnalysisRequest request, ToolContext context) {
+        try {
+            UUID orgUnitId = getOrgUnitId(context);
+            List<Map<String, Object>> response = orgUnitStatisticService.getKpiRiskAnalysis(
+                    orgUnitId, request.startDate(), request.endDate());
+            return objectMapper.writeValueAsString(response);
+        } catch (Exception e) {
+            log.error("Error in getKpiRiskAnalysis", e);
+            return "{\"error\": \"" + e.getMessage() + "\"}";
+        }
+    }
+
+    // ── 16. get_dashboard_summary ────────────────────────────────────────────
+
+    @Tool(name = "get_dashboard_summary", description = "Get high-level KPI dashboard overview metrics for the current organizational unit subtree.")
+    public String getDashboardSummary(GetDashboardSummaryRequest request, ToolContext context) {
+        try {
+            UUID orgUnitId = getOrgUnitId(context);
+            UUID orgId = getOrgId(context);
+            Map<String, Object> response = orgUnitStatisticService.getDashboardSummary(
+                    orgUnitId, orgId, request.startDate(), request.endDate());
+            return objectMapper.writeValueAsString(response);
+        } catch (Exception e) {
+            log.error("Error in getDashboardSummary", e);
+            return "{\"error\": \"" + e.getMessage() + "\"}";
+        }
+    }
+
+    // ── 17. search_users ─────────────────────────────────────────────────────
+
+    @Tool(name = "search_users", description = "Search users/employees by name, email, phone number, position/role name, or organizational unit. Returns user IDs and basic info to support other tools.")
+    public String searchUsers(SearchUsersRequest request, ToolContext context) {
+        try {
+            UUID orgId = getOrgId(context);
+            int maxResults = (request.limit() != null && request.limit() > 0) ? request.limit() : 10;
+            List<Map<String, Object>> users = orgUnitStatisticService.searchUsers(
+                    orgId, request.keyword(), request.unitId(), request.positionName(), maxResults);
             Map<String, Object> result = new LinkedHashMap<>();
-            result.put("orgUnitId", orgUnitId);
-            result.put("descendantUnitCount", count);
-
+            result.put("count", users.size());
+            result.put("users", users);
             return objectMapper.writeValueAsString(result);
         } catch (Exception e) {
-            log.error("Error in getSubtreeUnitCount", e);
+            log.error("Error in searchUsers", e);
+            return "{\"error\": \"" + e.getMessage() + "\"}";
+        }
+    }
+
+    // ── 18. search_org_units ─────────────────────────────────────────────────
+
+    @Tool(name = "search_org_units", description = "Search organizational units by name. Returns unit IDs and basic info to support other tools.")
+    public String searchOrgUnits(SearchOrgUnitsRequest request, ToolContext context) {
+        try {
+            UUID orgId = getOrgId(context);
+            int maxResults = (request.limit() != null && request.limit() > 0) ? request.limit() : 10;
+            List<Map<String, Object>> units = orgUnitStatisticService.searchOrgUnits(
+                    orgId, request.keyword(), maxResults);
+            Map<String, Object> result = new LinkedHashMap<>();
+            result.put("count", units.size());
+            result.put("orgUnits", units);
+            return objectMapper.writeValueAsString(result);
+        } catch (Exception e) {
+            log.error("Error in searchOrgUnits", e);
+            return "{\"error\": \"" + e.getMessage() + "\"}";
+        }
+    }
+
+    // ── 19. search_kpis ──────────────────────────────────────────────────────
+
+    @Tool(name = "search_kpis", description = "Search KPI criteria by name. Returns KPI IDs and basic info to support other tools.")
+    public String searchKpis(SearchKpisRequest request, ToolContext context) {
+        try {
+            UUID orgId = getOrgId(context);
+            int maxResults = (request.limit() != null && request.limit() > 0) ? request.limit() : 10;
+            List<Map<String, Object>> kpis = orgUnitStatisticService.searchKpis(
+                    orgId, request.keyword(), maxResults);
+            Map<String, Object> result = new LinkedHashMap<>();
+            result.put("count", kpis.size());
+            result.put("kpis", kpis);
+            return objectMapper.writeValueAsString(result);
+        } catch (Exception e) {
+            log.error("Error in searchKpis", e);
+            return "{\"error\": \"" + e.getMessage() + "\"}";
+        }
+    }
+
+    // ── 20. search_positions ─────────────────────────────────────────────────
+
+    @Tool(name = "search_positions", description = "Search roles/positions by name. Returns position IDs and basic info to support other tools.")
+    public String searchPositions(SearchPositionsRequest request, ToolContext context) {
+        try {
+            UUID orgId = getOrgId(context);
+            int maxResults = (request.limit() != null && request.limit() > 0) ? request.limit() : 10;
+            List<Map<String, Object>> positions = orgUnitStatisticService.searchPositions(
+                    orgId, request.keyword(), maxResults);
+            Map<String, Object> result = new LinkedHashMap<>();
+            result.put("count", positions.size());
+            result.put("positions", positions);
+            return objectMapper.writeValueAsString(result);
+        } catch (Exception e) {
+            log.error("Error in searchPositions", e);
+            return "{\"error\": \"" + e.getMessage() + "\"}";
+        }
+    }
+
+    // ── 21. search_kpi_periods ───────────────────────────────────────────────
+
+    @Tool(name = "search_kpi_periods", description = "Search KPI periods by name. Returns period IDs and basic info to support other tools.")
+    public String searchKpiPeriods(SearchKpiPeriodsRequest request, ToolContext context) {
+        try {
+            UUID orgId = getOrgId(context);
+            int maxResults = (request.limit() != null && request.limit() > 0) ? request.limit() : 10;
+            List<Map<String, Object>> periods = orgUnitStatisticService.searchKpiPeriods(
+                    orgId, request.keyword(), maxResults);
+            Map<String, Object> result = new LinkedHashMap<>();
+            result.put("count", periods.size());
+            result.put("periods", periods);
+            return objectMapper.writeValueAsString(result);
+        } catch (Exception e) {
+            log.error("Error in searchKpiPeriods", e);
             return "{\"error\": \"" + e.getMessage() + "\"}";
         }
     }

@@ -135,10 +135,9 @@ public interface KpiCriteriaRepository extends JpaRepository<KpiCriteria, UUID> 
     @Query("SELECT k FROM KpiCriteria k JOIN k.assignees a WHERE a.id = :userId AND k.status = 'APPROVED' AND k.keyResult IS NOT NULL")
     List<KpiCriteria> findApprovedByAssigneeIdWithKeyResult(@Param("userId") UUID userId);
 
-    @Query("SELECT k FROM KpiCriteria k JOIN k.assignees a WHERE a.id = :userId AND k.status = 'APPROVED' AND k.keyResult IS NULL")
+    @Query("SELECT DISTINCT k FROM KpiCriteria k JOIN k.assignees a WHERE a.id = :userId AND k.status = 'APPROVED'")
     List<KpiCriteria> findApprovedByAssigneeIdWithoutKeyResult(@Param("userId") UUID userId);
 
-    @Query("SELECT k FROM KpiCriteria k WHERE k.id IN (SELECT k2.id FROM KpiCriteria k2 JOIN k2.assignees a WHERE a.id = :userId) AND k.status = 'APPROVED' AND k.createdAt >= :from AND k.createdAt <= :to")
     @Query("SELECT DISTINCT k FROM KpiCriteria k JOIN k.assignees a WHERE a.id = :userId AND k.status = 'APPROVED' AND k.createdAt >= :from AND k.createdAt <= :to")
     List<KpiCriteria> findApprovedByAssigneeIdAndPeriod(@Param("userId") UUID userId, @Param("from") Instant from, @Param("to") Instant to);
 
@@ -207,6 +206,10 @@ public interface KpiCriteriaRepository extends JpaRepository<KpiCriteria, UUID> 
 
     boolean existsByParentAndAssigneesContains(com.kpitracking.entity.KpiCriteria parent, com.kpitracking.entity.User assignee);
 
-    @Query("SELECT k FROM KpiCriteria k WHERE k.orgUnit.id IN :orgUnitIds AND k.keyResult IS NULL AND k.status = 'APPROVED'")
+    @Query("SELECT k FROM KpiCriteria k WHERE k.orgUnit.id IN :orgUnitIds AND k.status = 'APPROVED'")
     List<KpiCriteria> findApprovedWithoutKeyResultByOrgUnitIds(@Param("orgUnitIds") List<UUID> orgUnitIds);
+
+    @Query("SELECT k FROM KpiCriteria k WHERE k.orgUnit.orgHierarchyLevel.organization.id = :orgId " +
+           "AND (:keyword IS NULL OR :keyword = '' OR LOWER(CAST(k.name AS string)) LIKE LOWER(CONCAT('%', CAST(:keyword AS string), '%')))")
+    List<KpiCriteria> searchByKeyword(@Param("orgId") UUID orgId, @Param("keyword") String keyword, Pageable pageable);
 }

@@ -20,4 +20,8 @@ public interface KpiPeriodRepository extends JpaRepository<KpiPeriod, UUID>, Jpa
     java.util.Optional<KpiPeriod> findByNameIgnoreCaseAndOrganizationId(String name, UUID organizationId);
     Page<KpiPeriod> findByOrganizationId(UUID organizationId, Pageable pageable);
     Page<KpiPeriod> findAllByOrganizationIdOrderByStartDateDesc(UUID organizationId, Pageable pageable);
+
+    @org.springframework.data.jpa.repository.Query("SELECT p FROM KpiPeriod p WHERE p.organization.id = :orgId " +
+           "AND (:keyword IS NULL OR :keyword = '' OR LOWER(CAST(p.name AS string)) LIKE LOWER(CONCAT('%', CAST(:keyword AS string), '%')))")
+    java.util.List<KpiPeriod> searchByKeyword(@org.springframework.data.repository.query.Param("orgId") java.util.UUID orgId, @org.springframework.data.repository.query.Param("keyword") String keyword, Pageable pageable);
 }

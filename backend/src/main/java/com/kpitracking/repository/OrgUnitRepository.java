@@ -99,4 +99,9 @@ public interface OrgUnitRepository extends JpaRepository<OrgUnit, UUID> {
 
     boolean existsByEmailAndDeletedAtIsNull(String email);
     boolean existsByPhoneAndDeletedAtIsNull(String phone);
+
+    @Query("SELECT o FROM OrgUnit o WHERE o.deletedAt IS NULL " +
+           "AND o.orgHierarchyLevel.organization.id = :orgId " +
+           "AND (:keyword IS NULL OR :keyword = '' OR LOWER(CAST(o.name AS string)) LIKE LOWER(CONCAT('%', CAST(:keyword AS string), '%')))")
+    List<OrgUnit> searchByKeyword(@Param("orgId") UUID orgId, @Param("keyword") String keyword, Pageable pageable);
 }
