@@ -125,7 +125,7 @@ export default function OkrExcelPreviewModal({ open, file, onClose, onImport, is
           KeyResultCode: (row['KeyResultCode'] || '').toString().trim(),
           KeyResultName: (row['KeyResultName'] || '').toString().trim(),
           KeyResultDescription: (row['KeyResultDescription'] || '').toString().trim(),
-          KeyResultTarget: (row['KeyResultTarget'] || '').toString().trim(),
+          KeyResultTarget: (row['KeyResultTarget'] ?? '').toString().trim(),
           KeyResultUnit: (row['KeyResultUnit'] || '').toString().trim(),
         }
       })
@@ -240,7 +240,7 @@ export default function OkrExcelPreviewModal({ open, file, onClose, onImport, is
         if (r.ObjectiveStartDate) rowData.ObjectiveStartDate = r.ObjectiveStartDate
         if (r.ObjectiveEndDate) rowData.ObjectiveEndDate = r.ObjectiveEndDate
         if (r.KeyResultDescription) rowData.KeyResultDescription = r.KeyResultDescription
-        if (r.KeyResultTarget) rowData.KeyResultTarget = r.KeyResultTarget
+        if (r.KeyResultTarget !== '') rowData.KeyResultTarget = r.KeyResultTarget
         if (r.KeyResultUnit) rowData.KeyResultUnit = r.KeyResultUnit
         if (r.OrgUnitCode) rowData.OrgUnitCode = r.OrgUnitCode
         return rowData

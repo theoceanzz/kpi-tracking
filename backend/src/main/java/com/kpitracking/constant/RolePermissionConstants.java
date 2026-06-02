@@ -73,7 +73,7 @@ public class RolePermissionConstants {
             "DASHBOARD:VIEW",
             "ORG:VIEW_TREE",
             "USER:VIEW_LIST",
-            "KPI:VIEW", "KPI:CREATE", "KPI:UPDATE", "KPI:DELETE", "KPI:APPROVE_ADJUSTMENT",
+            "KPI:VIEW", "KPI:CREATE", "KPI:UPDATE", "KPI:DELETE", "KPI:APPROVE_CRITERIA", "KPI:APPROVE_ADJUSTMENT",
             "KPI:IMPORT", "KPI:SUBMIT", "KPI:REJECT",
             "SUBMISSION:VIEW", "SUBMISSION:REVIEW", "SUBMISSION:REVIEW_KPI",
             "EVALUATION:VIEW", "EVALUATION:CREATE",
@@ -91,7 +91,7 @@ public class RolePermissionConstants {
             "DASHBOARD:VIEW",
             "ORG:VIEW_TREE",
             "USER:VIEW_LIST",
-            "KPI:SUBMIT", "KPI:REJECT",
+            "KPI:VIEW", "KPI:CREATE","KPI:UPDATE", "KPI:DELETE","KPI:IMPORT", "KPI:SUBMIT", "KPI:REJECT",
             "SUBMISSION:VIEW", "SUBMISSION:REVIEW_KPI",
             "EVALUATION:VIEW", "EVALUATION:CREATE",
             "NOTIF:VIEW", "KPI_PERIOD:VIEW",
@@ -106,7 +106,7 @@ public class RolePermissionConstants {
     // ----------------------------------------------------------------
     public static final List<String> STAFF_PERMS = Arrays.asList(
             "DASHBOARD:VIEW",
-            "KPI:SUBMIT",
+            "KPI:VIEW", "KPI:CREATE","KPI:UPDATE", "KPI:DELETE", "KPI:IMPORT", "KPI:SUBMIT",
             "SUBMISSION:CREATE",
             "EVALUATION:VIEW","EVALUATION:CREATE",
             "NOTIF:VIEW", "KPI_PERIOD:VIEW",

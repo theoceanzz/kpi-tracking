@@ -42,6 +42,7 @@ export default function KpiFormModal({ open, onClose, editKpi, parentKpi }: KpiF
   const canAssignRoles = hasPermission('ROLE:ASSIGN')
 
   const { data: orgUnitTreeData } = useOrgUnitTree()
+  const isStaff = user?.memberships?.[0]?.roleRank === 2
   const organizationId = user?.memberships?.[0]?.organizationId
   const { data: org } = useOrganization(organizationId)
   const { data: periodsData } = useKpiPeriods({ organizationId })
@@ -114,16 +115,16 @@ export default function KpiFormModal({ open, onClose, editKpi, parentKpi }: KpiF
       reset({ 
         name: parentKpi ? `[${parentKpi.name}] ` : '', 
         frequency: 'MONTHLY', 
-        assignedToIds: [], 
         kpiPeriodId: parentKpi?.kpiPeriodId ?? '',
         keyResultId: null,
         parentId: parentKpi?.id ?? null,
         unit: parentKpi?.unit ?? '',
         orgUnitIds: canAssignRoles ? [] : (defaultOrgUnitId ? [defaultOrgUnitId] : []),
-        orgUnitId: defaultOrgUnitId
+        orgUnitId: defaultOrgUnitId,
+        assignedToIds: isStaff ? ([user?.id].filter(Boolean) as string[]) : []
       })
     }
-  }, [open, reset, flatOrgUnits, canManageOrg, parentKpi]) 
+  }, [open, reset, flatOrgUnits, canManageOrg, parentKpi, isStaff, user]) 
 
   const selectedAssignees = watch('assignedToIds') || []
 
@@ -155,18 +156,8 @@ export default function KpiFormModal({ open, onClose, editKpi, parentKpi }: KpiF
   })
 
   const availableUsers = useMemo(() => {
-    if (!usersData?.content) return []
-    
-    return usersData.content.filter(u => {
-      if (hasPermission('USER:VIEW') || canAssignRoles) return true
-      
-      const targetIsManager = u.permissions?.includes('SUBMISSION:REVIEW') || 
-                               u.memberships?.some(m => m.roleRank === 0)
-      if (targetIsManager && !canAssignRoles) return false
-
-      return true
-    })
-  }, [usersData, hasPermission, canAssignRoles])
+    return usersData?.content || []
+  }, [usersData])
 
 
   const createMutation = useMutation({
@@ -456,11 +447,14 @@ export default function KpiFormModal({ open, onClose, editKpi, parentKpi }: KpiF
                   />
                 </div>
                 <div>
-                  <label className="block text-[11px] font-black text-[var(--color-muted-foreground)] uppercase tracking-widest mb-1.5">Đơn vị tính</label>
+                  <label className="block text-[11px] font-black text-[var(--color-muted-foreground)] uppercase tracking-widest mb-1.5">Mục tiêu tối thiểu</label>
                   <input 
-                    {...register('unit')} 
+                    {...register('minimumValue', { valueAsNumber: true })} 
+                    type="number" 
+                    step="any" 
+                    onWheel={(e) => (e.target as HTMLInputElement).blur()} 
                     className={inputCls} 
-                    placeholder="VNĐ, %, KPI..." 
+                    placeholder="800" 
                   />
                 </div>
               </div>
@@ -481,20 +475,17 @@ export default function KpiFormModal({ open, onClose, editKpi, parentKpi }: KpiF
                   {errors.weight && <p className="text-red-500 text-[10px] mt-1 font-bold">{errors.weight.message}</p>}
                 </div>
                 <div>
-                  <label className="block text-[11px] font-black text-[var(--color-muted-foreground)] uppercase tracking-widest mb-1.5">Giá trị chặn dưới</label>
+                  <label className="block text-[11px] font-black text-[var(--color-muted-foreground)] uppercase tracking-widest mb-1.5">Đơn vị tính</label>
                   <input 
-                    {...register('minimumValue', { valueAsNumber: true })} 
-                    type="number" 
-                    step="any" 
-                    onWheel={(e) => (e.target as HTMLInputElement).blur()} 
+                    {...register('unit')} 
                     className={inputCls} 
-                    placeholder="800" 
+                    placeholder="VNĐ, %, KPI..." 
                   />
                 </div>
               </div>
           </div>
 
-          {canAssignRoles && (
+          {flatOrgUnits.length > 1 && (
             <div className="space-y-2">
                 <div className="flex items-center justify-between">
                     <div className="space-y-0.5">
@@ -540,12 +531,34 @@ export default function KpiFormModal({ open, onClose, editKpi, parentKpi }: KpiF
                     <Users size={16} className="text-[var(--color-primary)]" />
                     Giao thực hiện
                 </label>
-                <div className="px-2.5 py-1 rounded-full bg-[var(--color-primary)]/10 text-[var(--color-primary)] text-[10px] font-black uppercase tracking-wider">
-                    {totalMemberCount} nhân sự khả dụng
-                </div>
+                {!isStaff && (
+                    <div className="px-2.5 py-1 rounded-full bg-[var(--color-primary)]/10 text-[var(--color-primary)] text-[10px] font-black uppercase tracking-wider">
+                        {totalMemberCount} nhân sự khả dụng
+                    </div>
+                )}
             </div>
 
-            {formOrgUnitIds.length > 0 ? (
+            {isStaff ? (
+                <div className="bg-white dark:bg-white/5 border border-[var(--color-primary)]/20 rounded-xl p-4 animate-in fade-in slide-in-from-top-1">
+                    <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-full bg-[var(--color-primary)]/10 flex items-center justify-center text-[var(--color-primary)] font-bold text-lg">
+                            {user?.fullName?.charAt(0)}
+                        </div>
+                        <div className="flex-1">
+                            <div className="text-sm font-bold">{user?.fullName} <span className="text-[var(--color-primary)]">(Bản thân)</span></div>
+                            <div className="text-[10px] text-[var(--color-muted-foreground)] font-medium">{user?.email}</div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <Badge variant="outline" className="bg-[var(--color-primary)]/10 text-[var(--color-primary)] border-none font-black text-[9px] uppercase">
+                                Đang chọn
+                            </Badge>
+                            <div className="bg-[var(--color-primary)] text-white rounded-full p-1">
+                                <Check size={12} strokeWidth={3} />
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            ) : formOrgUnitIds.length > 0 ? (
                 <>
                 <div className="flex gap-2 items-center overflow-x-auto pb-1 no-scrollbar animate-in fade-in slide-in-from-top-1">
                     <span className="text-[10px] font-black text-[var(--color-muted-foreground)] uppercase shrink-0">Role:</span>

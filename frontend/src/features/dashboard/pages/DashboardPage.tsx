@@ -20,7 +20,7 @@ const DashboardPage = () => {
   }
 
   // 2. Department Head / Manager Level
-  if (hasPermission(['KPI:VIEW', 'SUBMISSION:REVIEW', 'USER:VIEW_LIST'])) {
+  if (hasPermission(['SUBMISSION:REVIEW', 'USER:VIEW_LIST'])) {
     return <HeadDashboard />
   }
 

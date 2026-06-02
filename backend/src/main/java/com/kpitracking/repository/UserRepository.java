@@ -43,7 +43,7 @@ public interface UserRepository extends JpaRepository<User, UUID> {
            "AND (:excludeSelf = false OR u.id != :currentUserId) " +
            "AND (:excludeAdmin = false OR u.id = :currentUserId OR NOT EXISTS (SELECT 1 FROM RolePermission rp3 JOIN UserRoleOrgUnit uro3 ON rp3.role.id = uro3.role.id WHERE uro3.user.id = u.id AND rp3.permission.code = 'SYSTEM:ADMIN')) " +
            "AND (:excludeManager = false OR u.id = :currentUserId OR NOT EXISTS (SELECT 1 FROM RolePermission rp4 JOIN UserRoleOrgUnit uro4 ON rp4.role.id = uro4.role.id WHERE uro4.user.id = u.id AND rp4.permission.code = 'KPI:APPROVE')) " +
-           "AND (:currentUserRank IS NULL OR :currentUserRank = 0 OR r.rank > :currentUserRank OR u.id = :currentUserId)")
+           "AND (:isGlobalAdmin = true OR u.id = :currentUserId OR uro.orgUnit.orgHierarchyLevel.levelOrder > :currentUserLevel OR (:currentUserRank IS NULL OR r.rank > :currentUserRank))")
     Page<User> searchUsers(
             @Param("isGlobalAdmin") boolean isGlobalAdmin,
             @Param("organizationId") UUID organizationId,
@@ -53,6 +53,7 @@ public interface UserRepository extends JpaRepository<User, UUID> {
             @Param("orgUnitIds") java.util.Collection<UUID> orgUnitIds,
             @Param("currentUserId") UUID currentUserId,
             @Param("currentUserRank") Integer currentUserRank,
+            @Param("currentUserLevel") Integer currentUserLevel,
             @Param("excludeSelf") boolean excludeSelf,
             @Param("excludeAdmin") boolean excludeAdmin,
             @Param("excludeManager") boolean excludeManager,

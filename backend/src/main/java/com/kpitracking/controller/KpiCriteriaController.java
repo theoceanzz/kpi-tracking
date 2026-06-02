@@ -46,6 +46,7 @@ public class KpiCriteriaController {
             @RequestParam(required = false) KpiStatus status,
             @RequestParam(required = false) UUID orgUnitId,
             @RequestParam(required = false) UUID createdById,
+            @RequestParam(required = false) UUID assigneeId,
             @RequestParam(required = false) UUID kpiPeriodId,
             @RequestParam(required = false) String keyword,
             @RequestParam(required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE_TIME) java.time.Instant startDate,
@@ -54,7 +55,7 @@ public class KpiCriteriaController {
             @RequestParam(defaultValue = "desc") String sortDir,
             @RequestParam(required = false) UUID objectiveId,
             @RequestParam(required = false) UUID keyResultId) {
-        PageResponse<KpiCriteriaResponse> response = kpiCriteriaService.getKpiCriteria(page, size, status, orgUnitId, createdById, kpiPeriodId, keyword, startDate, endDate, sortBy, sortDir, objectiveId, keyResultId);
+        PageResponse<KpiCriteriaResponse> response = kpiCriteriaService.getKpiCriteria(page, size, status, orgUnitId, createdById, assigneeId, kpiPeriodId, keyword, startDate, endDate, sortBy, sortDir, objectiveId, keyResultId);
         return ResponseEntity.ok(ApiResponse.success(response));
     }
 
@@ -138,7 +139,7 @@ public class KpiCriteriaController {
     }
 
     @PostMapping(value = "/import", consumes = org.springframework.http.MediaType.MULTIPART_FORM_DATA_VALUE)
-    @PreAuthorize("hasAuthority('KPI:CREATE')")
+    @PreAuthorize("hasAuthority('KPI:IMPORT')")
     @Operation(summary = "Import KPI criteria from CSV or Excel")
     public ResponseEntity<ApiResponse<com.kpitracking.dto.response.kpi.ImportKpiResponse>> importKpis(
             @RequestParam("file") org.springframework.web.multipart.MultipartFile file,

@@ -72,7 +72,8 @@ public class KpiCriteriaService {
     @Transactional
     public KpiCriteriaResponse createKpiCriteria(CreateKpiCriteriaRequest request) {
         User currentUser = getCurrentUser();
-        boolean canApprove = permissionChecker.hasPermission(currentUser.getId(), "KPI:APPROVE_CRITERIA");
+        boolean canApprove = permissionChecker.hasPermission(currentUser.getId(), "KPI:APPROVE_CRITERIA") 
+                && permissionChecker.hasPermission(currentUser.getId(), "COMPANY:VIEW");
 
         KpiStatus initialStatus = canApprove ? KpiStatus.APPROVED : KpiStatus.DRAFT;
 
@@ -200,9 +201,17 @@ public class KpiCriteriaService {
     }
 
     @Transactional(readOnly = true)
-    public PageResponse<KpiCriteriaResponse> getKpiCriteria(int page, int size, KpiStatus status, UUID orgUnitId, UUID createdById, UUID kpiPeriodId, String keyword, Instant startDate, Instant endDate, String sortBy, String sortDir, UUID objectiveId, UUID keyResultId) {
+    public PageResponse<KpiCriteriaResponse> getKpiCriteria(int page, int size, KpiStatus status, UUID orgUnitId, UUID createdById, UUID assigneeId, UUID kpiPeriodId, String keyword, Instant startDate, Instant endDate, String sortBy, String sortDir, UUID objectiveId, UUID keyResultId) {
         User currentUser = getCurrentUser();
-        List<UUID> allowedOrgUnitIds = permissionChecker.getOrgUnitsWithPermission(currentUser.getId(), "KPI:VIEW");
+        List<UUID> allowedOrgUnitIds = new ArrayList<>(permissionChecker.getOrgUnitsWithPermission(currentUser.getId(), "KPI:VIEW"));
+        
+        // Add user's own units so they can see colleagues' KPIs as requested: "người cùng đơn vị cũng hiện kpi"
+        List<UserRoleOrgUnit> assignments = userRoleOrgUnitRepository.findByUserId(currentUser.getId());
+        for (UserRoleOrgUnit assignment : assignments) {
+            if (!allowedOrgUnitIds.contains(assignment.getOrgUnit().getId())) {
+                allowedOrgUnitIds.add(assignment.getOrgUnit().getId());
+            }
+        }
 
         Sort sort = Sort.by(sortDir.equalsIgnoreCase("asc") ? Sort.Direction.ASC : Sort.Direction.DESC, sortBy != null ? sortBy : "createdAt");
         Pageable pageable = PageRequest.of(page, size, sort);
@@ -231,13 +240,11 @@ public class KpiCriteriaService {
         Page<KpiCriteria> kpiPage = kpiCriteriaRepository.findAllWithFilters(
                 allowedOrgUnitIds, 
                 createdById, 
+                assigneeId,
                 orgUnitPath, 
                 status, 
                 kpiPeriodId, 
                 keyword,
-                currentUser.getId(),
-                currentUserRank,
-                currentUserLevel,
                 startDate,
                 endDate,
                 objectiveId,
@@ -264,8 +271,9 @@ public class KpiCriteriaService {
         // Permission check for viewing single KPI
         boolean hasViewPermission = permissionChecker.hasPermissionInOrgUnit(currentUser.getId(), "KPI:VIEW", kpi.getOrgUnit().getId());
         boolean isAssignee = kpi.getAssignees().stream().anyMatch(a -> a.getId().equals(currentUser.getId()));
+        boolean isSameUnit = !userRoleOrgUnitRepository.findByUserIdAndOrgUnitId(currentUser.getId(), kpi.getOrgUnit().getId()).isEmpty();
         
-        if (!hasViewPermission && !isAssignee && !kpi.getCreatedBy().getId().equals(currentUser.getId())) {
+        if (!hasViewPermission && !isAssignee && !kpi.getCreatedBy().getId().equals(currentUser.getId()) && !isSameUnit) {
             throw new ForbiddenException("Bạn không có quyền xem KPI này");
         }
         
@@ -946,7 +954,8 @@ public class KpiCriteriaService {
 
             validateWaterfallAssignment(creator, finalUnit, assignees);
 
-            boolean canApprove = permissionChecker.hasPermissionInOrgUnit(creator.getId(), "KPI:APPROVE_CRITERIA", finalUnit.getId());
+            boolean canApprove = permissionChecker.hasPermissionInOrgUnit(creator.getId(), "KPI:APPROVE_CRITERIA", finalUnit.getId())
+                    && permissionChecker.hasPermission(creator.getId(), "COMPANY:VIEW");
 
             KpiCriteria kpi = KpiCriteria.builder()
                     .name(name)

@@ -219,19 +219,27 @@ public class UserService {
         // Hierarchy filtering based on permissions
         boolean excludeAdmin = !isGlobalAdmin;
         boolean isManager = permissionChecker.hasAnyPermission(currentUser.getId(), "KPI:APPROVE_CRITERIA", "KPI:APPROVE_ADJUSTMENT");
-        boolean excludeManager = !isGlobalAdmin && isManager; // If I am a Head, I don't see other Heads
-        boolean excludeSelf = isGlobalAdmin; // Director excludes self, Head includes self
+        boolean excludeManager = false; 
+        boolean excludeSelf = isGlobalAdmin; 
 
         List<UserRoleOrgUnit> currentAssignments = userRoleOrgUnitRepository.findByUserId(currentUser.getId());
         UUID organizationId = null;
-        Integer currentUserRank = currentAssignments.stream()
+        Integer currentUserRank = 2;
+        Integer currentUserLevel = 99;
+
+        if (!currentAssignments.isEmpty()) {
+            organizationId = currentAssignments.get(0).getOrgUnit().getOrgHierarchyLevel().getOrganization().getId();
+            currentUserRank = currentAssignments.stream()
                 .map(a -> a.getRole().getRank())
                 .filter(java.util.Objects::nonNull)
                 .min(Integer::compare)
                 .orElse(2);
-
-        if (!currentAssignments.isEmpty()) {
-            organizationId = currentAssignments.get(0).getOrgUnit().getOrgHierarchyLevel().getOrganization().getId();
+            
+            currentUserLevel = currentAssignments.stream()
+                .map(a -> a.getOrgUnit().getOrgHierarchyLevel().getLevelOrder())
+                .filter(java.util.Objects::nonNull)
+                .min(Integer::compare)
+                .orElse(99);
         }
 
         Page<User> userPage = userRepository.searchUsers(
@@ -243,6 +251,7 @@ public class UserService {
             orgUnitIds,
             currentUser.getId(),
             currentUserRank,
+            currentUserLevel,
             excludeSelf,
             excludeAdmin,
             excludeManager,

@@ -199,16 +199,22 @@ public class AuthService {
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new ResourceNotFoundException("User", "email", email));
 
-        if (!passwordEncoder.matches(request.getCurrentPassword(), user.getPassword())) {
-            throw new BusinessException("Mật khẩu hiện tại không chính xác.");
+        // Skip current password check if it's the first login (forced change)
+        if (Boolean.FALSE.equals(user.getRequirePasswordChange())) {
+            if (request.getCurrentPassword() == null || request.getCurrentPassword().isBlank()) {
+                throw new BusinessException("Vui lòng nhập mật khẩu hiện tại.");
+            }
+            if (!passwordEncoder.matches(request.getCurrentPassword(), user.getPassword())) {
+                throw new BusinessException("Mật khẩu hiện tại không chính xác.");
+            }
         }
 
         if (passwordEncoder.matches(request.getNewPassword(), user.getPassword())) {
-            throw new BusinessException("Mật khẩu mới phải khác mật khẩu hiện tại.");
+            throw new BusinessException("Mật khẩu mới không được giống mật khẩu cũ.");
         }
 
         if (!request.getNewPassword().equals(request.getConfirmPassword())) {
-            throw new BusinessException("New password and confirm password do not match");
+            throw new BusinessException("Mật khẩu mới và xác nhận mật khẩu không khớp");
         }
 
         user.setPassword(passwordEncoder.encode(request.getNewPassword()));

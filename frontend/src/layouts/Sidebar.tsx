@@ -82,8 +82,8 @@ const navItems: NavItem[] = [
     ]
   },
   { label: 'KPI của tôi', path: '/my-kpi', icon: <ListChecks size={20} />, permission: 'KPI:VIEW_MY' },
-  { label: 'Bài nộp của tôi', path: '/submissions', icon: <FileText size={20} />, permission: 'SUBMISSION:VIEW_MY', end: true },
-  { label: 'Điều chỉnh của tôi', path: '/my-adjustments', icon: <History size={20} />, permission: 'KPI:VIEW_MY' },
+  { label: 'Tiến độ của tôi', path: '/submissions', icon: <FileText size={20} />, permission: 'SUBMISSION:VIEW_MY', end: true },
+  { label: 'Yêu cầu điều chỉnh', path: '/my-adjustments', icon: <History size={20} />, permission: 'KPI:VIEW_MY' },
   { label: 'Thống kê', path: '/analytics', icon: <TrendingUp size={20} />, permission: 'DASHBOARD:VIEW', end: true },
   { label: 'Trợ lý AI', path: '/ai-assistant', icon: <Bot size={20} />, permission: 'DASHBOARD:VIEW', end: true },
 ]

@@ -62,9 +62,8 @@ export interface RegisterRequest {
   hierarchyLevels: HierarchyLevel[]
 }
 
-// Matches BE: ChangePasswordRequest
 export interface ChangePasswordRequest {
-  currentPassword: string
+  currentPassword?: string
   newPassword: string
   confirmPassword: string
 }
@@ -80,4 +79,3 @@ export interface ResetPasswordRequest {
   newPassword: string
   confirmPassword: string
 }
-

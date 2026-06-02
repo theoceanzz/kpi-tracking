@@ -22,6 +22,7 @@ public interface KpiCriteriaRepository extends JpaRepository<KpiCriteria, UUID> 
            "LEFT JOIN FETCH k.keyResult kr LEFT JOIN FETCH kr.objective obj WHERE " +
            "(EXISTS (SELECT 1 FROM OrgUnit au WHERE k.orgUnit.path LIKE CONCAT(au.path, '%') AND au.id IN :allowedOrgUnitIds)) AND " +
            "(:createdById IS NULL OR k.createdBy.id = :createdById) AND " +
+           "(:assigneeId IS NULL OR a.id = :assigneeId) AND " +
            "(:orgUnitPath IS NULL OR k.orgUnit.path LIKE :orgUnitPath) AND " +
            "(:status IS NULL OR k.status = :status) AND " +
            "(:kpiPeriodId IS NULL OR k.kpiPeriod.id = :kpiPeriodId) AND " +
@@ -33,20 +34,15 @@ public interface KpiCriteriaRepository extends JpaRepository<KpiCriteria, UUID> 
            "(cast(:startDate as timestamp) IS NULL OR k.createdAt >= :startDate) AND " +
            "(cast(:endDate as timestamp) IS NULL OR k.createdAt <= :endDate) AND " +
            "(:objectiveId IS NULL OR k.keyResult.objective.id = :objectiveId) AND " +
-           "(:keyResultId IS NULL OR k.keyResult.id = :keyResultId) AND " +
-           "(:currentUserRank IS NULL OR :currentUserRank = 0 OR k.createdBy.id = :currentUserId OR " +
-           "EXISTS (SELECT 1 FROM UserRoleOrgUnit uro JOIN uro.role r WHERE uro.user.id = k.createdBy.id " +
-           "AND (r.level > :currentUserLevel OR (uro.orgUnit.id = k.orgUnit.id AND r.rank > :currentUserRank))))")
+           "(:keyResultId IS NULL OR k.keyResult.id = :keyResultId)")
     Page<KpiCriteria> findAllWithFilters(
             @Param("allowedOrgUnitIds") Collection<UUID> allowedOrgUnitIds,
             @Param("createdById") UUID createdById,
+            @Param("assigneeId") UUID assigneeId,
             @Param("orgUnitPath") String orgUnitPath,
             @Param("status") KpiStatus status,
             @Param("kpiPeriodId") UUID kpiPeriodId,
             @Param("keyword") String keyword,
-            @Param("currentUserId") UUID currentUserId,
-            @Param("currentUserRank") Integer currentUserRank,
-            @Param("currentUserLevel") Integer currentUserLevel,
             @Param("startDate") Instant startDate,
             @Param("endDate") Instant endDate,
             @Param("objectiveId") UUID objectiveId,

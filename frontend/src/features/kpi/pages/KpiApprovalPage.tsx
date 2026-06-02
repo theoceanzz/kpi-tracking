@@ -112,7 +112,7 @@ export default function KpiApprovalPage() {
 
   const [reviewKpi, setReviewKpi] = useState<KpiCriteria | null>(null)
 
-  const items = criteriaData?.content ?? []
+  const items = (criteriaData?.content ?? []).filter(kpi => kpi.createdById !== user?.id)
   const totalPages = criteriaData?.totalPages || 1
   const totalElements = criteriaData?.totalElements || 0
 
