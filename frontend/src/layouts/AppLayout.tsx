@@ -29,11 +29,11 @@ export default function AppLayout() {
   }
 
   return (
-    <div className="flex min-h-screen bg-[var(--color-background)]">
+    <div className="flex h-screen overflow-hidden bg-[var(--color-background)]">
       <OnboardingTour />
       <Sidebar isMobileOpen={isMobileMenuOpen} onCloseMobile={() => setIsMobileMenuOpen(false)} />
 
-      <div className="flex-1 flex flex-col min-w-0 md:pl-0">
+      <div className="flex-1 flex flex-col min-w-0 overflow-hidden md:pl-0">
         {/* Header */}
         <header className="sticky top-0 z-30 flex items-center justify-between h-16 px-4 md:px-6 border-b border-[var(--color-border)] bg-[var(--color-card)]/80 backdrop-blur-md">
           <div className="flex items-center gap-3 lg:hidden">
@@ -78,8 +78,12 @@ export default function AppLayout() {
           </div>
         </header>
 
-        {/* Main content */}
-        <main className="flex-1 p-4 md:p-6 w-full max-w-[100vw] [overflow-x:clip]">
+        {/* Main content — full-page routes opt out of padding */}
+        <main className={
+          location.pathname === '/ai-assistant'
+            ? 'flex-1 overflow-hidden w-full max-w-[100vw] [overflow-x:clip]'
+            : 'flex-1 overflow-y-auto p-4 md:p-6 w-full max-w-[100vw] [overflow-x:clip]'
+        }>
           <Outlet />
         </main>
       </div>

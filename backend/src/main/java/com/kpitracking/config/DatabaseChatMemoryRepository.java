@@ -1,10 +1,9 @@
 package com.kpitracking.config;
 
-import com.kpitracking.entity.Conversation;
 import com.kpitracking.entity.ConversationMessage;
 import com.kpitracking.repository.ConversationMessageRepository;
-import com.kpitracking.repository.ConversationRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.memory.ChatMemoryRepository;
 import org.springframework.ai.chat.messages.AssistantMessage;
 import org.springframework.ai.chat.messages.Message;
@@ -16,70 +15,72 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
-import java.util.concurrent.atomic.AtomicInteger;
 
+@Slf4j
 @Component
 @RequiredArgsConstructor
 public class DatabaseChatMemoryRepository implements ChatMemoryRepository {
 
-    private final ConversationRepository conversationRepository;
     private final ConversationMessageRepository messageRepository;
 
     @Override
-    @Transactional(readOnly = true)
     public List<String> findConversationIds() {
-        return conversationRepository.findAll()
-                .stream()
-                .map(c -> c.getId().toString())
-                .toList();
+        return List.of();
     }
 
     @Override
     @Transactional(readOnly = true)
     public List<Message> findByConversationId(String conversationId) {
         UUID id = UUID.fromString(conversationId);
-        return messageRepository.findByConversationIdOrderByMsgIndex(id)
+        List<Message> messages = messageRepository.findByConversationIdOrderByMsgIndex(id)
                 .stream()
                 .map(this::toSpringAiMessage)
                 .toList();
+        log.info("Loaded {} messages for conversationId={}", messages.size(), conversationId);
+        return messages;
     }
 
+    /**
+     * REPLACE semantics: deletes all existing messages for the conversation,
+     * then inserts the full processed list. Called by MessageWindowChatMemory.
+     */
     @Override
     @Transactional
     public void saveAll(String conversationId, List<Message> messages) {
-        if (messages == null || messages.isEmpty()) return;
-
         UUID id = UUID.fromString(conversationId);
-        Conversation conversation = conversationRepository.findById(id).orElse(null);
-        if (conversation == null) return;
 
-        int currentMax = messageRepository.findTopByConversationIdOrderByMsgIndexDesc(id)
-                .map(ConversationMessage::getMsgIndex)
-                .orElse(-1);
+        messageRepository.deleteByConversationId(id);
 
-        AtomicInteger index = new AtomicInteger(currentMax + 1);
+        if (messages == null || messages.isEmpty()) {
+            log.info("saveAll: cleared all messages for conversationId={}", conversationId);
+            return;
+        }
+
         List<ConversationMessage> toSave = new ArrayList<>();
-
+        int index = 0;
         for (Message message : messages) {
-            String role = message.getMessageType().getValue();
             String content = message.getText();
-            if (content == null) continue;
+            if (content == null || content.isBlank()) continue;
 
             toSave.add(ConversationMessage.builder()
-                    .conversation(conversation)
-                    .role(role)
+                    .conversationId(id)
+                    .role(message.getMessageType().getValue())
                     .content(content)
-                    .msgIndex(index.getAndIncrement())
+                    .msgIndex(index++)
                     .build());
         }
 
-        messageRepository.saveAll(toSave);
+        if (!toSave.isEmpty()) {
+            messageRepository.saveAll(toSave);
+            log.info("saveAll: saved {} messages for conversationId={}", toSave.size(), conversationId);
+        }
     }
 
     @Override
     @Transactional
     public void deleteByConversationId(String conversationId) {
         messageRepository.deleteByConversationId(UUID.fromString(conversationId));
+        log.info("Cleared memory for conversationId={}", conversationId);
     }
 
     private Message toSpringAiMessage(ConversationMessage msg) {

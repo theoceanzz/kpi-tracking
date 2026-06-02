@@ -17,6 +17,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -74,25 +75,48 @@ public class AiService {
     }
 
     public String processOrgUnitChat(String question, String conversationId) {
-        UUID orgUnitId = getCurrentUserOrgUnitId();
-        if(orgUnitId == null) return  null;
-        log.info("Processing chat for orgUnitId: {}, conversationId: {}", orgUnitId, conversationId);
+        ManagerContext ctx = getCurrentUserManagerContext();
+        if (ctx == null) {
+            return "Bạn không có quyền sử dụng tính năng AI phân tích. Chỉ trưởng đơn vị hoặc phó đơn vị mới có thể truy cập tính năng này.";
+        }
 
-        return chatClientWithMemory.prompt()
+        boolean hasMemory = conversationId != null && !conversationId.isBlank();
+        log.info("Processing chat for orgUnitId: {}, conversationId: {}", ctx.orgUnitId(), hasMemory ? conversationId : "none");
+
+        Map<String, Object> toolCtx = Map.of(
+                "orgUnitId", ctx.orgUnitId(),
+                "orgUnitPath", ctx.orgUnitPath(),
+                "organizationId", ctx.orgId()
+        );
+
+        if (hasMemory) {
+            return chatClientWithMemory.prompt()
+                    .user(question)
+                    .system(orgUnitSystemPrompt)
+                    .tools(orgUnitStatisticTool)
+                    .toolContext(toolCtx)
+                    .advisors(spec -> spec.param("chat_memory_conversation_id", conversationId))
+                    .call()
+                    .content();
+        }
+
+        return chatClient.prompt()
                 .user(question)
                 .system(orgUnitSystemPrompt)
                 .tools(orgUnitStatisticTool)
-                .toolContext(Map.of("orgUnitId", orgUnitId))
-                .advisors(spec -> spec.param("chat_memory_conversation_id", conversationId))
+                .toolContext(toolCtx)
                 .call()
                 .content();
     }
 
     public List<AiKpiSuggestionResponse> suggestKpis(UUID orgUnitId) {
-        if (orgUnitId == null) {
-            orgUnitId = getCurrentUserOrgUnitId();
+        ManagerContext ctx = getCurrentUserManagerContext();
+        if (ctx == null) {
+            log.warn("User without manager/deputy role attempted to use suggestKpis");
+            return new ArrayList<>();
         }
-        if (orgUnitId == null) return new ArrayList<>();
+        // Always use manager's own unit to prevent cross-unit access
+        orgUnitId = ctx.orgUnitId();
 
         log.info("Suggesting KPIs for orgUnitId: {}", orgUnitId);
 
@@ -103,7 +127,11 @@ public class AiService {
                     .system(kpiSuggestionSystemPrompt)
                     .user(userPrompt)
                     .tools(orgUnitStatisticTool)
-                    .toolContext(Map.of("orgUnitId", orgUnitId))
+                    .toolContext(Map.of(
+                            "orgUnitId", orgUnitId,
+                            "orgUnitPath", ctx.orgUnitPath(),
+                            "organizationId", ctx.orgId()
+                    ))
                     .call()
                     .content();
 
@@ -117,12 +145,39 @@ public class AiService {
     }
 
     public String chatWithMemory(String message, String conversationId) {
+        if (conversationId == null || conversationId.isBlank()) {
+            log.info("Processing stateless chat (no conversationId)");
+            return chatClient.prompt().user(message).call().content();
+        }
         log.info("Processing memory chat for conversationId: {}", conversationId);
         return chatClientWithMemory.prompt()
                 .user(message)
                 .advisors(spec -> spec.param("chat_memory_conversation_id", conversationId))
                 .call()
                 .content();
+    }
+
+    private record ManagerContext(UUID orgUnitId, String orgUnitPath, UUID orgId) {}
+
+    private ManagerContext getCurrentUserManagerContext() {
+        try {
+            String email = SecurityContextHolder.getContext().getAuthentication().getName();
+            User user = userRepository.findByEmail(email).orElse(null);
+            if (user == null) return null;
+            List<UserRoleOrgUnit> assignments = userRoleOrgUnitRepository.findByUserId(user.getId());
+            return assignments.stream()
+                    .filter(a -> a.getRole().getRank() != null && a.getRole().getRank() <= 1)
+                    .min(Comparator.comparingInt(a -> a.getRole().getRank()))
+                    .map(a -> new ManagerContext(
+                            a.getOrgUnit().getId(),
+                            a.getOrgUnit().getPath(),
+                            a.getOrgUnit().getOrgHierarchyLevel().getOrganization().getId()
+                    ))
+                    .orElse(null);
+        } catch (Exception e) {
+            log.error("Error getting manager context", e);
+            return null;
+        }
     }
 
     private List<AiKpiSuggestionResponse> parseResponse(String text) {
@@ -146,23 +201,6 @@ public class AiService {
         } catch (Exception e) {
             log.error("Error parsing AI response to JSON: {}. Content: {}", e.getMessage(), text);
             return new ArrayList<>();
-        }
-    }
-
-    private UUID getCurrentUserOrgUnitId() {
-        try {
-            String email = SecurityContextHolder.getContext().getAuthentication().getName();
-            User user = userRepository.findByEmail(email).orElse(null);
-            if (user == null) return null;
-
-            List<UserRoleOrgUnit> assignments = userRoleOrgUnitRepository.findByUserId(user.getId());
-            if (assignments.isEmpty()) return null;
-
-            // Get the first assigned org unit ID
-            return assignments.get(0).getOrgUnit().getId();
-        } catch (Exception e) {
-            log.error("Error getting current user org unit ID", e);
-            return null;
         }
     }
 

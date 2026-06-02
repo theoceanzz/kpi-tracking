@@ -22,6 +22,7 @@ public class OrgUnitStatisticTool {
     private final OrgUnitRepository orgUnitRepository;
     private final UserRoleOrgUnitRepository userRoleOrgUnitRepository;
     private final UserRepository userRepository;
+    private final KpiCriteriaRepository kpiCriteriaRepository;
     private final OrgUnitStatisticService orgUnitStatisticService;
     private final ObjectMapper objectMapper;
 
@@ -87,8 +88,53 @@ public class OrgUnitStatisticTool {
         }
     }
 
+    private String getContextPath(ToolContext context) {
+        if (context == null || context.getContext() == null) return null;
+        Object path = context.getContext().get("orgUnitPath");
+        return path != null ? path.toString() : null;
+    }
+
+    private void validateSubtreeAccess(UUID targetUnitId, ToolContext context) {
+        String contextPath = getContextPath(context);
+        if (contextPath == null) return;
+        OrgUnit target = orgUnitRepository.findById(targetUnitId)
+                .orElseThrow(() -> new RuntimeException("Đơn vị không tồn tại: " + targetUnitId));
+        if (!target.getPath().startsWith(contextPath)) {
+            throw new SecurityException("Không có quyền truy cập đơn vị này. Bạn chỉ có thể truy cập đơn vị của mình và các đơn vị con.");
+        }
+    }
+
     private UUID resolveUnitId(String unitId, ToolContext context) {
-        return (unitId != null && !unitId.isBlank()) ? UUID.fromString(unitId) : getOrgUnitId(context);
+        if (unitId != null && !unitId.isBlank()) {
+            UUID targetId = UUID.fromString(unitId);
+            validateSubtreeAccess(targetId, context);
+            return targetId;
+        }
+        return getOrgUnitId(context);
+    }
+
+    private void validateUserAccess(UUID targetUserId, ToolContext context) {
+        String contextPath = getContextPath(context);
+        if (contextPath == null) return;
+        List<UserRoleOrgUnit> assignments = userRoleOrgUnitRepository.findByUserId(targetUserId);
+        if (assignments.isEmpty()) {
+            throw new SecurityException("Người dùng không thuộc bất kỳ đơn vị nào.");
+        }
+        boolean inSubtree = assignments.stream()
+                .anyMatch(a -> a.getOrgUnit().getPath().startsWith(contextPath));
+        if (!inSubtree) {
+            throw new SecurityException("Không có quyền xem thông tin người dùng này. Người dùng không thuộc phạm vi đơn vị của bạn.");
+        }
+    }
+
+    private void validateKpiAccess(UUID kpiId, ToolContext context) {
+        String contextPath = getContextPath(context);
+        if (contextPath == null) return;
+        KpiCriteria kpi = kpiCriteriaRepository.findById(kpiId)
+                .orElseThrow(() -> new RuntimeException("KPI không tồn tại: " + kpiId));
+        if (!kpi.getOrgUnit().getPath().startsWith(contextPath)) {
+            throw new SecurityException("Không có quyền truy cập KPI này. KPI không thuộc phạm vi đơn vị của bạn.");
+        }
     }
 
     // ── 1. get_org_hierarchy ─────────────────────────────────────────────────
@@ -172,6 +218,7 @@ public class OrgUnitStatisticTool {
     public String getUserSummary(GetUserSummaryRequest request, ToolContext context) {
         try {
             UUID targetUserId = UUID.fromString(request.userId());
+            validateUserAccess(targetUserId, context);
             Map<String, Object> response = orgUnitStatisticService.getUserSummary(
                     targetUserId, request.startDate(), request.endDate());
             return objectMapper.writeValueAsString(response);
@@ -186,6 +233,12 @@ public class OrgUnitStatisticTool {
     @Tool(name = "get_kpis", description = "List and filter KPI criteria with detailed query parameters and standard pagination/sorting.")
     public String getKpis(GetKpisRequest request, ToolContext context) {
         try {
+            if (request.ownerId() != null && !request.ownerId().isBlank())
+                validateUserAccess(UUID.fromString(request.ownerId()), context);
+            if (request.assignedById() != null && !request.assignedById().isBlank())
+                validateUserAccess(UUID.fromString(request.assignedById()), context);
+            if (request.assignedToId() != null && !request.assignedToId().isBlank())
+                validateUserAccess(UUID.fromString(request.assignedToId()), context);
             UUID orgUnitId = getOrgUnitId(context);
             Map<String, Object> response = orgUnitStatisticService.getKpis(
                     orgUnitId, request.ownerId(), request.assignedById(), request.assignedToId(),
@@ -203,6 +256,12 @@ public class OrgUnitStatisticTool {
     @Tool(name = "get_kpi_summary", description = "Get aggregate statistics of KPIs matching the specified filter criteria.")
     public String getKpiSummary(GetKpiSummaryRequest request, ToolContext context) {
         try {
+            if (request.ownerId() != null && !request.ownerId().isBlank())
+                validateUserAccess(UUID.fromString(request.ownerId()), context);
+            if (request.assignedById() != null && !request.assignedById().isBlank())
+                validateUserAccess(UUID.fromString(request.assignedById()), context);
+            if (request.assignedToId() != null && !request.assignedToId().isBlank())
+                validateUserAccess(UUID.fromString(request.assignedToId()), context);
             UUID orgUnitId = getOrgUnitId(context);
             Map<String, Object> response = orgUnitStatisticService.getKpiSummary(
                     orgUnitId, request.ownerId(), request.assignedById(), request.assignedToId(),
@@ -220,6 +279,7 @@ public class OrgUnitStatisticTool {
     public String getKpiDetail(GetKpiDetailRequest request, ToolContext context) {
         try {
             UUID id = UUID.fromString(request.kpiId());
+            validateKpiAccess(id, context);
             Map<String, Object> response = orgUnitStatisticService.getKpiDetail(
                     id, request.startDate(), request.endDate());
             return objectMapper.writeValueAsString(response);
@@ -235,6 +295,7 @@ public class OrgUnitStatisticTool {
     public String getKpiAssignees(GetKpiAssigneesRequest request, ToolContext context) {
         try {
             UUID id = UUID.fromString(request.kpiId());
+            validateKpiAccess(id, context);
             Map<String, Object> response = orgUnitStatisticService.getKpiAssignees(id);
             return objectMapper.writeValueAsString(response);
         } catch (Exception e) {
@@ -277,6 +338,12 @@ public class OrgUnitStatisticTool {
     @Tool(name = "rank_members", description = "Ranks users by a chosen metric and returns a list with rank, userId, fullName, email, score. Metrics: 'average_progress' (weighted avg % of target reached), 'total_progress' (sum of approved actual values), 'average_performance' (weighted avg % against time-proportional target), 'average_rating' (evaluation score avg), 'late_submission_count', 'missing_submission_count', 'submission_count'. Scopes: 'organization' (all org users), 'unit' (requires unitId), 'kpi' (requires kpiId — ranks that KPI's assignees).")
     public String rankMembers(RankMembersRequest request, ToolContext context) {
         try {
+            if ("unit".equals(request.scope()) && request.unitId() != null && !request.unitId().isBlank()) {
+                validateSubtreeAccess(UUID.fromString(request.unitId()), context);
+            }
+            if ("kpi".equals(request.scope()) && request.kpiId() != null && !request.kpiId().isBlank()) {
+                validateKpiAccess(UUID.fromString(request.kpiId()), context);
+            }
             UUID orgId = getOrgId(context);
             UUID contextUnitId = getOrgUnitId(context);
             List<Map<String, Object>> response = orgUnitStatisticService.rankMembers(
@@ -342,6 +409,9 @@ public class OrgUnitStatisticTool {
     @Tool(name = "search_users", description = "Search users/employees by name, email, phone number, position/role name, or organizational unit. Returns user IDs and basic info to support other tools.")
     public String searchUsers(SearchUsersRequest request, ToolContext context) {
         try {
+            if (request.unitId() != null && !request.unitId().isBlank()) {
+                validateSubtreeAccess(UUID.fromString(request.unitId()), context);
+            }
             UUID orgId = getOrgId(context);
             int maxResults = (request.limit() != null && request.limit() > 0) ? request.limit() : 10;
             List<Map<String, Object>> users = orgUnitStatisticService.searchUsers(

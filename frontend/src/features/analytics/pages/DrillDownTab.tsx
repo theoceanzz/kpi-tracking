@@ -7,7 +7,7 @@ import {
   ChevronRight, Users, CheckCircle2, Clock, ArrowLeft, X,
   BarChart3, LayoutGrid, Search, Maximize2, Building2
 } from 'lucide-react'
-import LoadingSkeleton from '@/components/common/LoadingSkeleton'
+import AnalyticsTabSkeleton from '@/components/common/AnalyticsTabSkeleton'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts'
 import { CopyButton } from '@/components/common/CopyButton'
 import Pagination from '@/components/common/Pagination'
@@ -151,7 +151,7 @@ export default function DrillDownTab() {
     return filteredEmployees.slice(start, start + EMP_PAGE_SIZE)
   }, [filteredEmployees, empPage])
 
-  if (isLoading) return <div className="p-8"><LoadingSkeleton rows={6} /></div>
+  if (isLoading) return <AnalyticsTabSkeleton variant="drilldown" className="p-6" />
   if (!data) return <div className="text-center py-16 text-slate-400">Không có dữ liệu</div>
 
   const comparisonData = data.childUnits.map(u => ({
@@ -196,7 +196,7 @@ export default function DrillDownTab() {
 
       {/* Date Filter — sticky */}
       <div className={cn(
-        'sticky top-16 z-20 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl transition-all duration-200',
+        'sticky top-0 z-20 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl transition-all duration-200',
         filterStuck
           ? 'p-3 shadow-lg shadow-slate-200/80 dark:shadow-slate-900/80 border-slate-300 dark:border-slate-700'
           : 'p-4 shadow-sm'

@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useRef, useEffect } from 'react'
 import { personalObjectiveApi } from '@/features/dashboard/api/personalObjectiveApi'
 import { useQuery } from '@tanstack/react-query'
 import {
@@ -10,7 +10,7 @@ import { cn } from '@/lib/utils'
 
 import MyObjectiveDrawer from '../components/MyObjectiveDrawer'
 import AnalyticsComboChart from '../components/AnalyticsComboChart'
-import LoadingSkeleton from '@/components/common/LoadingSkeleton'
+import AnalyticsTabSkeleton, { TableLoadingRows } from '@/components/common/AnalyticsTabSkeleton'
 import Pagination from '@/components/common/Pagination'
 
 import { subDays, subMonths, startOfYear, format } from 'date-fns'
@@ -23,6 +23,20 @@ type SharedFilter = 'ALL' | 'SHARED' | 'PERSONAL'
 const PAGE_SIZE = 10
 
 export default function MyObjectivesTab() {
+  const [filterStuck, setFilterStuck] = useState(false)
+  const filterSentinelRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const el = filterSentinelRef.current
+    if (!el) return
+    const observer = new IntersectionObserver(
+      (entries) => { if (entries[0]) setFilterStuck(!entries[0].isIntersecting) },
+      { rootMargin: '-65px 0px 0px 0px', threshold: 0 }
+    )
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [])
+
   const [filterType, setFilterType] = useState<DateFilterType>('THIS_YEAR')
   const [customRange, setCustomRange] = useState<{ from: string; to: string }>({ from: '', to: '' })
   const [onlyApproved, setOnlyApproved] = useState<boolean>(false)
@@ -106,12 +120,18 @@ export default function MyObjectivesTab() {
   }, [kpiPage?.availableKeyResults, filterObjective])
 
   if (isMetricsLoading || isChartLoading)
-    return <div className="p-8"><LoadingSkeleton rows={10} /></div>
+    return <AnalyticsTabSkeleton variant="objectives" className="p-6" />
 
   return (
     <div className="space-y-6">
+      {/* Sentinel for sticky detection */}
+      <div ref={filterSentinelRef} className="h-px" aria-hidden />
+
       {/* Global Filter Toolbar */}
-      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-4 rounded-2xl flex flex-wrap items-center gap-4 justify-between shadow-sm">
+      <div className={cn(
+        'sticky top-0 z-20 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl flex flex-wrap items-center gap-4 justify-between transition-all duration-200',
+        filterStuck ? 'p-3 shadow-lg shadow-slate-200/80 dark:shadow-slate-950/60' : 'p-4 shadow-sm'
+      )}>
         <div className="flex items-center gap-2">
           <div className="p-2 bg-indigo-50 dark:bg-indigo-900/30 rounded-lg text-indigo-600 dark:text-indigo-400">
             <Target size={18} />
@@ -305,7 +325,7 @@ export default function MyObjectivesTab() {
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
               {isKpisLoading
-                ? <tr><td colSpan={7} className="p-6"><LoadingSkeleton rows={5} /></td></tr>
+                ? <TableLoadingRows cols={7} count={2} />
                 : kpiPage?.content?.map(kpi => (
                     <ExpandableKpiRow
                       key={kpi.kpiId}
