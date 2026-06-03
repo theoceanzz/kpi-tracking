@@ -23,7 +23,9 @@ public class OrgUnitStatisticTool {
     private final UserRoleOrgUnitRepository userRoleOrgUnitRepository;
     private final UserRepository userRepository;
     private final KpiCriteriaRepository kpiCriteriaRepository;
+    private final ConversationMessageRepository conversationMessageRepository;
     private final OrgUnitStatisticService orgUnitStatisticService;
+    private final DisambiguationGuard disambiguationGuard;
     private final ObjectMapper objectMapper;
 
     // ── context helpers ──────────────────────────────────────────────────────
@@ -107,10 +109,22 @@ public class OrgUnitStatisticTool {
     private UUID resolveUnitId(String unitId, ToolContext context) {
         if (unitId != null && !unitId.isBlank()) {
             UUID targetId = UUID.fromString(unitId);
+            guardDisambiguation("orgUnit", targetId, "đơn vị");
             validateSubtreeAccess(targetId, context);
             return targetId;
         }
         return getOrgUnitId(context);
+    }
+
+    /**
+     * Refuses to act on an ID that was flagged ambiguous (same-named) by a search
+     * in the current turn, forcing the assistant to ask the user to choose first.
+     */
+    private void guardDisambiguation(String entityType, UUID id, String entityLabel) {
+        if (disambiguationGuard.isArmed(entityType, id)) {
+            throw new IllegalStateException("Có nhiều " + entityLabel + " trùng tên vừa được tìm thấy. "
+                    + "Hãy đưa danh sách cho người dùng chọn rồi mới xem chi tiết, không tự chọn giúp.");
+        }
     }
 
     private void validateUserAccess(UUID targetUserId, ToolContext context) {
@@ -135,6 +149,116 @@ public class OrgUnitStatisticTool {
         if (!kpi.getOrgUnit().getPath().startsWith(contextPath)) {
             throw new SecurityException("Không có quyền truy cập KPI này. KPI không thuộc phạm vi đơn vị của bạn.");
         }
+    }
+
+    // ── disambiguation helpers ───────────────────────────────────────────────
+
+    private String getConversationId(ToolContext context) {
+        if (context == null || context.getContext() == null) return null;
+        Object id = context.getContext().get("conversationId");
+        return id != null ? id.toString() : null;
+    }
+
+    /**
+     * Returns the subset of results whose display name (under {@code nameKey})
+     * collides with at least one other result. Empty if every name is unique.
+     */
+    private List<Map<String, Object>> findDuplicateNameGroup(List<Map<String, Object>> results, String nameKey) {
+        Map<String, Long> counts = new HashMap<>();
+        for (Map<String, Object> r : results) {
+            String name = normalizeName(r.get(nameKey));
+            if (name != null) counts.merge(name, 1L, Long::sum);
+        }
+        List<Map<String, Object>> dup = new ArrayList<>();
+        for (Map<String, Object> r : results) {
+            String name = normalizeName(r.get(nameKey));
+            if (name != null && counts.getOrDefault(name, 0L) >= 2) dup.add(r);
+        }
+        return dup;
+    }
+
+    private String normalizeName(Object value) {
+        if (value == null) return null;
+        String s = value.toString().trim().toLowerCase();
+        return s.isEmpty() ? null : s;
+    }
+
+    /**
+     * Detects whether we already presented these candidates to the user in a
+     * previous turn. Reads the most recent assistant message from chat memory and
+     * checks whether it already mentions the distinguishing labels of ≥2 candidates.
+     * If so we are in the "answering" phase and must let the detail tool proceed.
+     */
+    private boolean alreadyAskedPriorTurn(String conversationId, String collisionName,
+                                          List<Map<String, Object>> candidates, String... labelKeys) {
+        if (conversationId == null) return false;
+        String lastAssistant;
+        try {
+            lastAssistant = conversationMessageRepository
+                    .findByConversationIdOrderByMsgIndex(UUID.fromString(conversationId)).stream()
+                    .filter(m -> "assistant".equals(m.getRole()))
+                    .reduce((first, second) -> second)
+                    .map(ConversationMessage::getContent)
+                    .orElse(null);
+        } catch (Exception e) {
+            log.warn("Could not load conversation history for disambiguation check: {}", e.getMessage());
+            return false;
+        }
+        if (lastAssistant == null || lastAssistant.isBlank()) return false;
+        String haystack = lastAssistant.toLowerCase();
+
+        // Tie the check to THIS specific collision: the previous assistant turn must
+        // mention the colliding name itself. Otherwise the user asked about something
+        // else, and a label overlap (e.g. same org units) must NOT be treated as a
+        // pending choice — we re-ask instead of silently picking.
+        if (collisionName == null || collisionName.isBlank()
+                || !haystack.contains(collisionName.trim().toLowerCase())) {
+            return false;
+        }
+
+        int mentioned = 0;
+        for (Map<String, Object> c : candidates) {
+            for (String key : labelKeys) {
+                Object label = c.get(key);
+                if (label != null && !label.toString().isBlank()
+                        && haystack.contains(label.toString().toLowerCase())) {
+                    mentioned++;
+                    break; // count each candidate at most once
+                }
+            }
+        }
+        return mentioned >= 2;
+    }
+
+    private String collisionName(List<Map<String, Object>> dup, String nameKey) {
+        if (dup.isEmpty()) return null;
+        Object name = dup.get(0).get(nameKey);
+        return name != null ? name.toString() : null;
+    }
+
+    private Set<UUID> collectIds(List<Map<String, Object>> items) {
+        Set<UUID> ids = new HashSet<>();
+        for (Map<String, Object> m : items) {
+            Object id = m.get("id");
+            if (id != null) {
+                try {
+                    ids.add(id instanceof UUID ? (UUID) id : UUID.fromString(id.toString()));
+                } catch (IllegalArgumentException ignored) {
+                    // skip non-UUID ids
+                }
+            }
+        }
+        return ids;
+    }
+
+    private String ambiguousEnvelope(String entityLabel, String arrayKey, List<Map<String, Object>> results) throws Exception {
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("status", "NEEDS_DISAMBIGUATION");
+        result.put("message", "Có nhiều " + entityLabel + " trùng tên. Hãy hiển thị danh sách bên dưới (kèm thông tin phân biệt) "
+                + "và yêu cầu người dùng chọn đúng mục mong muốn TRƯỚC KHI xem chi tiết.");
+        result.put("count", results.size());
+        result.put(arrayKey, results);
+        return objectMapper.writeValueAsString(result);
     }
 
     // ── 1. get_org_hierarchy ─────────────────────────────────────────────────
@@ -218,6 +342,7 @@ public class OrgUnitStatisticTool {
     public String getUserSummary(GetUserSummaryRequest request, ToolContext context) {
         try {
             UUID targetUserId = UUID.fromString(request.userId());
+            guardDisambiguation("user", targetUserId, "người dùng");
             validateUserAccess(targetUserId, context);
             Map<String, Object> response = orgUnitStatisticService.getUserSummary(
                     targetUserId, request.startDate(), request.endDate());
@@ -279,6 +404,7 @@ public class OrgUnitStatisticTool {
     public String getKpiDetail(GetKpiDetailRequest request, ToolContext context) {
         try {
             UUID id = UUID.fromString(request.kpiId());
+            guardDisambiguation("kpi", id, "KPI");
             validateKpiAccess(id, context);
             Map<String, Object> response = orgUnitStatisticService.getKpiDetail(
                     id, request.startDate(), request.endDate());
@@ -295,6 +421,7 @@ public class OrgUnitStatisticTool {
     public String getKpiAssignees(GetKpiAssigneesRequest request, ToolContext context) {
         try {
             UUID id = UUID.fromString(request.kpiId());
+            guardDisambiguation("kpi", id, "KPI");
             validateKpiAccess(id, context);
             Map<String, Object> response = orgUnitStatisticService.getKpiAssignees(id);
             return objectMapper.writeValueAsString(response);
@@ -416,6 +543,14 @@ public class OrgUnitStatisticTool {
             int maxResults = (request.limit() != null && request.limit() > 0) ? request.limit() : 10;
             List<Map<String, Object>> users = orgUnitStatisticService.searchUsers(
                     orgId, request.keyword(), request.unitId(), request.positionName(), maxResults);
+
+            List<Map<String, Object>> dup = findDuplicateNameGroup(users, "fullName");
+            if (!dup.isEmpty()
+                    && !alreadyAskedPriorTurn(getConversationId(context), collisionName(dup, "fullName"), dup, "email", "orgUnitName", "roleName")) {
+                disambiguationGuard.arm("user", collectIds(dup));
+                return ambiguousEnvelope("người dùng", "users", users);
+            }
+
             Map<String, Object> result = new LinkedHashMap<>();
             result.put("count", users.size());
             result.put("users", users);
@@ -435,6 +570,14 @@ public class OrgUnitStatisticTool {
             int maxResults = (request.limit() != null && request.limit() > 0) ? request.limit() : 10;
             List<Map<String, Object>> units = orgUnitStatisticService.searchOrgUnits(
                     orgId, request.keyword(), maxResults);
+
+            List<Map<String, Object>> dup = findDuplicateNameGroup(units, "name");
+            if (!dup.isEmpty()
+                    && !alreadyAskedPriorTurn(getConversationId(context), collisionName(dup, "name"), dup, "code", "parentName", "levelName")) {
+                disambiguationGuard.arm("orgUnit", collectIds(dup));
+                return ambiguousEnvelope("đơn vị", "orgUnits", units);
+            }
+
             Map<String, Object> result = new LinkedHashMap<>();
             result.put("count", units.size());
             result.put("orgUnits", units);
@@ -454,6 +597,14 @@ public class OrgUnitStatisticTool {
             int maxResults = (request.limit() != null && request.limit() > 0) ? request.limit() : 10;
             List<Map<String, Object>> kpis = orgUnitStatisticService.searchKpis(
                     orgId, request.keyword(), maxResults);
+
+            List<Map<String, Object>> dup = findDuplicateNameGroup(kpis, "name");
+            if (!dup.isEmpty()
+                    && !alreadyAskedPriorTurn(getConversationId(context), collisionName(dup, "name"), dup, "orgUnitName", "periodName")) {
+                disambiguationGuard.arm("kpi", collectIds(dup));
+                return ambiguousEnvelope("KPI", "kpis", kpis);
+            }
+
             Map<String, Object> result = new LinkedHashMap<>();
             result.put("count", kpis.size());
             result.put("kpis", kpis);

@@ -6,6 +6,7 @@ import com.kpitracking.entity.User;
 import com.kpitracking.entity.UserRoleOrgUnit;
 import com.kpitracking.repository.UserRepository;
 import com.kpitracking.repository.UserRoleOrgUnitRepository;
+import com.kpitracking.tool.DisambiguationGuard;
 import com.kpitracking.tool.OrgStatisticTool;
 import com.kpitracking.tool.OrgUnitStatisticTool;
 import lombok.extern.slf4j.Slf4j;
@@ -18,6 +19,7 @@ import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -32,6 +34,7 @@ public class AiService {
     private final UserRoleOrgUnitRepository userRoleOrgUnitRepository;
     private final OrgStatisticTool orgStatisticTool;
     private final OrgUnitStatisticTool orgUnitStatisticTool;
+    private final DisambiguationGuard disambiguationGuard;
 
     @Value("classpath:/promptTemplates/orgToolSystemPromptTemplate.st")
     Resource orgSystemPrompt;
@@ -50,6 +53,7 @@ public class AiService {
                      UserRoleOrgUnitRepository userRoleOrgUnitRepository,
                      OrgStatisticTool orgStatisticTool,
                      OrgUnitStatisticTool orgUnitStatisticTool,
+                     DisambiguationGuard disambiguationGuard,
                      ObjectMapper objectMapper) {
         this.chatClient = chatClient;
         this.chatClientWithMemory = chatClientWithMemory;
@@ -57,6 +61,7 @@ public class AiService {
         this.userRoleOrgUnitRepository = userRoleOrgUnitRepository;
         this.orgStatisticTool = orgStatisticTool;
         this.orgUnitStatisticTool = orgUnitStatisticTool;
+        this.disambiguationGuard = disambiguationGuard;
         this.objectMapper = objectMapper;
     }
 
@@ -83,30 +88,36 @@ public class AiService {
         boolean hasMemory = conversationId != null && !conversationId.isBlank();
         log.info("Processing chat for orgUnitId: {}, conversationId: {}", ctx.orgUnitId(), hasMemory ? conversationId : "none");
 
-        Map<String, Object> toolCtx = Map.of(
-                "orgUnitId", ctx.orgUnitId(),
-                "orgUnitPath", ctx.orgUnitPath(),
-                "organizationId", ctx.orgId()
-        );
-
+        Map<String, Object> toolCtx = new HashMap<>();
+        toolCtx.put("orgUnitId", ctx.orgUnitId());
+        toolCtx.put("orgUnitPath", ctx.orgUnitPath());
+        toolCtx.put("organizationId", ctx.orgId());
         if (hasMemory) {
-            return chatClientWithMemory.prompt()
+            toolCtx.put("conversationId", conversationId);
+        }
+
+        try {
+            if (hasMemory) {
+                return chatClientWithMemory.prompt()
+                        .user(question)
+                        .system(orgUnitSystemPrompt)
+                        .tools(orgUnitStatisticTool)
+                        .toolContext(toolCtx)
+                        .advisors(spec -> spec.param("chat_memory_conversation_id", conversationId))
+                        .call()
+                        .content();
+            }
+
+            return chatClient.prompt()
                     .user(question)
                     .system(orgUnitSystemPrompt)
                     .tools(orgUnitStatisticTool)
                     .toolContext(toolCtx)
-                    .advisors(spec -> spec.param("chat_memory_conversation_id", conversationId))
                     .call()
                     .content();
+        } finally {
+            disambiguationGuard.clear();
         }
-
-        return chatClient.prompt()
-                .user(question)
-                .system(orgUnitSystemPrompt)
-                .tools(orgUnitStatisticTool)
-                .toolContext(toolCtx)
-                .call()
-                .content();
     }
 
     public List<AiKpiSuggestionResponse> suggestKpis(UUID orgUnitId) {
@@ -141,6 +152,8 @@ public class AiService {
         } catch (Exception e) {
             log.error("Error suggesting KPIs: {}", e.getMessage(), e);
             return new ArrayList<>();
+        } finally {
+            disambiguationGuard.clear();
         }
     }
 
