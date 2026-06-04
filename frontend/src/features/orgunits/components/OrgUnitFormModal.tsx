@@ -162,19 +162,19 @@ export default function OrgUnitFormModal({ open, onClose, editUnit, initialParen
   const filteredRoles = useMemo(() => {
     if (!selectedLevel) return allRoles
     const level = selectedLevel.levelOrder
-    
-    // Level 1: Root
+
+    // Root level: show all roles
     if (level === minDepth) {
-      return allRoles.filter((r: any) => ['DIRECTOR', 'ADMIN', 'HR'].includes(r.name))
+      return allRoles
     }
-    
-    // Bottom level
+
+    // Bottom level: staff only (rank=2)
     if (level >= maxDepth) {
-      return allRoles.filter((r: any) => ['STAFF'].includes(r.name))
+      return allRoles.filter((r: any) => r.rank === 2)
     }
-    
-    // Middle levels
-    return allRoles.filter((r: any) => ['HEAD', 'DEPUTY', 'STAFF'].includes(r.name))
+
+    // Middle levels: trưởng (rank=0), phó (rank=1), nhân viên (rank=2)
+    return allRoles.filter((r: any) => r.rank === 0 || r.rank === 1 || r.rank === 2)
   }, [selectedLevel, allRoles, minDepth, maxDepth])
 
   const onSubmit = (data: OrgUnitFormData) => {

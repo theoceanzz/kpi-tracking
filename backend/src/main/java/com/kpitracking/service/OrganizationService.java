@@ -164,7 +164,9 @@ public class OrganizationService {
             throw new BusinessException("Cơ cấu tổ chức phải có ít nhất 2 cấp.");
         }
 
-        List<OrgHierarchyLevel> currentLevels = orgHierarchyLevelRepository.findByOrganizationIdOrderByLevelOrderAsc(organization.getId());
+        // Fetch all organization roles once to avoid repeated queries and flushes in loops
+        List<Role> allOrgRoles = roleRepository.findAllByOrganizationIdAndDeletedAtIsNull(organization.getId());
+        List<OrgHierarchyLevel> currentLevels = organization.getHierarchyLevels();
         List<Permission> allPerms = permissionRepository.findAll();
         
         // 1. Identify levels to remove
@@ -175,34 +177,46 @@ public class OrganizationService {
         
         List<OrgHierarchyLevel> toRemove = currentLevels.stream()
                 .filter(l -> !newIds.contains(l.getId()))
-                .toList();
+                .collect(java.util.stream.Collectors.toList());
 
         for (OrgHierarchyLevel levelToRemove : toRemove) {
             if (orgUnitRepository.existsByOrgHierarchyLevelId(levelToRemove.getId())) {
                 throw new BusinessException("Không thể xóa cấp bậc '" + levelToRemove.getUnitTypeName() + "' vì đang có đơn vị sử dụng.");
             }
             
-            // Delete roles associated with this level
-            List<Role> rolesToRemove = roleRepository.findAllByDeletedAtIsNull().stream()
-                    .filter(r -> r.getOrganization() != null && r.getOrganization().getId().equals(organization.getId()))
-                    .filter(r -> r.getLevel() != null && r.getLevel().equals(levelToRemove.getRoleLevel()))
-                    .toList();
+            // Delete roles associated with this level AND rename them to avoid unique constraint violations
+            final int oldRoleLevel = levelToRemove.getRoleLevel();
+            allOrgRoles.stream()
+                    .filter(r -> r.getLevel() != null && r.getLevel().equals(oldRoleLevel))
+                    .forEach(r -> {
+                        r.setDeletedAt(java.time.Instant.now());
+                        r.setName(r.getName() + " [DELETED-" + java.util.UUID.randomUUID().toString().substring(0, 8) + "]");
+                        roleRepository.save(r);
+                    });
+
+            currentLevels.remove(levelToRemove);
+        }
+
+        // Shift existing level orders AND role levels to temporary values to avoid unique constraint violations during update
+        // We use a separate list copy to avoid ConcurrentModificationException since we might be modifying the collection
+        for (OrgHierarchyLevel lvl : new java.util.ArrayList<>(currentLevels)) {
+            final int oldRoleLevel = lvl.getRoleLevel();
             
-            for (Role r : rolesToRemove) {
-                r.setDeletedAt(java.time.Instant.now());
-                roleRepository.save(r);
-            }
+            // Shift level order
+            lvl.setLevelOrder(lvl.getLevelOrder() + 1000);
 
-            orgHierarchyLevelRepository.delete(levelToRemove);
-        }
+            // Shift roles associated with this level to avoid cascading updates
+            allOrgRoles.stream()
+                    .filter(r -> r.getLevel() != null && r.getLevel().equals(oldRoleLevel))
+                    .forEach(r -> {
+                        r.setLevel(oldRoleLevel + 1000);
+                        roleRepository.save(r);
+                    });
 
-        // Shift existing level orders to temporary values to avoid unique constraint violations during update
-        for (OrgHierarchyLevel lvl : currentLevels) {
-            if (!toRemove.contains(lvl)) {
-                lvl.setLevelOrder(lvl.getLevelOrder() + 1000);
-                orgHierarchyLevelRepository.save(lvl);
-            }
+            lvl.setRoleLevel(oldRoleLevel + 1000);
+            orgHierarchyLevelRepository.save(lvl);
         }
+        roleRepository.flush();
         orgHierarchyLevelRepository.flush();
 
         // 2. Sync levels
