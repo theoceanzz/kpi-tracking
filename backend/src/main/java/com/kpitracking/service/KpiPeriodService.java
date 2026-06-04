@@ -52,7 +52,6 @@ public class KpiPeriodService {
         
         com.kpitracking.entity.User currentUser = getCurrentUser();
         UUID userOrgId = getCurrentUserOrganizationId(currentUser);
-        boolean isGlobalAdmin = permissionChecker.isGlobalAdmin(currentUser.getId());
 
         Sort sort = direction.equalsIgnoreCase("asc") ? Sort.by(sortBy).ascending() : Sort.by(sortBy).descending();
         Pageable pageable = PageRequest.of(page, size, sort);
@@ -68,12 +67,7 @@ public class KpiPeriodService {
             spec = spec.and((root, query, cb) -> cb.equal(root.get("periodType"), periodType));
         }
 
-        // Strictly enforce organization matching
-        if (!isGlobalAdmin) {
-            // Non-admins can only see their own organization's periods
-            spec = spec.and((root, query, cb) -> cb.equal(root.get("organization").get("id"), userOrgId));
-        } else if (organizationId != null) {
-            // Admins can filter by a specific organization if they want
+        if (organizationId != null) {
             spec = spec.and((root, query, cb) -> cb.equal(root.get("organization").get("id"), organizationId));
         }
 
