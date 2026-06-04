@@ -7,6 +7,8 @@ import com.kpitracking.entity.Organization;
 import com.kpitracking.exception.ResourceNotFoundException;
 import com.kpitracking.repository.KpiPeriodRepository;
 import com.kpitracking.repository.OrganizationRepository;
+import com.kpitracking.repository.UserRepository;
+import com.kpitracking.repository.UserRoleOrgUnitRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -26,6 +28,21 @@ public class KpiPeriodService {
 
     private final KpiPeriodRepository kpiPeriodRepository;
     private final OrganizationRepository organizationRepository;
+    private final UserRepository userRepository;
+    private final UserRoleOrgUnitRepository userRoleOrgUnitRepository;
+    private final com.kpitracking.security.PermissionChecker permissionChecker;
+
+    private com.kpitracking.entity.User getCurrentUser() {
+        String email = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication().getName();
+        return userRepository.findByEmail(email)
+                .orElseThrow(() -> new ResourceNotFoundException("Người dùng", "email", email));
+    }
+
+    private UUID getCurrentUserOrganizationId(com.kpitracking.entity.User user) {
+        java.util.List<com.kpitracking.entity.UserRoleOrgUnit> roles = userRoleOrgUnitRepository.findByUserId(user.getId());
+        if (roles.isEmpty()) return null;
+        return roles.get(0).getOrgUnit().getOrgHierarchyLevel().getOrganization().getId();
+    }
 
     @Transactional(readOnly = true)
     public PageResponse<KpiPeriodResponse> getKpiPeriods(
@@ -33,6 +50,10 @@ public class KpiPeriodService {
             com.kpitracking.enums.KpiFrequency periodType, 
             java.time.Instant startDate, java.time.Instant endDate, UUID organizationId) {
         
+        com.kpitracking.entity.User currentUser = getCurrentUser();
+        UUID userOrgId = getCurrentUserOrganizationId(currentUser);
+        boolean isGlobalAdmin = permissionChecker.isGlobalAdmin(currentUser.getId());
+
         Sort sort = direction.equalsIgnoreCase("asc") ? Sort.by(sortBy).ascending() : Sort.by(sortBy).descending();
         Pageable pageable = PageRequest.of(page, size, sort);
 
@@ -47,7 +68,12 @@ public class KpiPeriodService {
             spec = spec.and((root, query, cb) -> cb.equal(root.get("periodType"), periodType));
         }
 
-        if (organizationId != null) {
+        // Strictly enforce organization matching
+        if (!isGlobalAdmin) {
+            // Non-admins can only see their own organization's periods
+            spec = spec.and((root, query, cb) -> cb.equal(root.get("organization").get("id"), userOrgId));
+        } else if (organizationId != null) {
+            // Admins can filter by a specific organization if they want
             spec = spec.and((root, query, cb) -> cb.equal(root.get("organization").get("id"), organizationId));
         }
 

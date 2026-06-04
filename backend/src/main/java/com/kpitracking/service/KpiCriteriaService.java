@@ -62,11 +62,18 @@ public class KpiCriteriaService {
     private final ApplicationEventPublisher eventPublisher;
     private final PermissionChecker permissionChecker;
     private final com.kpitracking.repository.KeyResultRepository keyResultRepository;
+    private final OrganizationService organizationService;
 
     private User getCurrentUser() {
         String email = SecurityContextHolder.getContext().getAuthentication().getName();
         return userRepository.findByEmail(email)
                 .orElseThrow(() -> new ResourceNotFoundException("Người dùng", "email", email));
+    }
+
+    private UUID getCurrentUserOrganizationId(User user) {
+        List<UserRoleOrgUnit> roles = userRoleOrgUnitRepository.findByUserId(user.getId());
+        if (roles.isEmpty()) return null;
+        return roles.get(0).getOrgUnit().getOrgHierarchyLevel().getOrganization().getId();
     }
 
     @Transactional
@@ -203,6 +210,7 @@ public class KpiCriteriaService {
     @Transactional(readOnly = true)
     public PageResponse<KpiCriteriaResponse> getKpiCriteria(int page, int size, KpiStatus status, UUID orgUnitId, UUID createdById, UUID assigneeId, UUID kpiPeriodId, String keyword, Instant startDate, Instant endDate, String sortBy, String sortDir, UUID objectiveId, UUID keyResultId) {
         User currentUser = getCurrentUser();
+        UUID organizationId = getCurrentUserOrganizationId(currentUser);
         List<UUID> allowedOrgUnitIds = new ArrayList<>(permissionChecker.getOrgUnitsWithPermission(currentUser.getId(), "KPI:VIEW"));
         
         // Add user's own units so they can see colleagues' KPIs as requested: "người cùng đơn vị cũng hiện kpi"
@@ -238,6 +246,7 @@ public class KpiCriteriaService {
                 .orElse(4);
 
         Page<KpiCriteria> kpiPage = kpiCriteriaRepository.findAllWithFilters(
+                organizationId,
                 allowedOrgUnitIds, 
                 createdById, 
                 assigneeId,
@@ -572,12 +581,13 @@ public class KpiCriteriaService {
     @Transactional(readOnly = true)
     public PageResponse<KpiCriteriaResponse> getMyKpi(int page, int size, UUID kpiPeriodId, Instant startDate, Instant endDate, String sortBy, String sortDir, UUID objectiveId, UUID keyResultId) {
         User currentUser = getCurrentUser();
+        UUID organizationId = getCurrentUserOrganizationId(currentUser);
         Sort sort = Sort.by(sortDir.equalsIgnoreCase("asc") ? Sort.Direction.ASC : Sort.Direction.DESC, sortBy != null ? sortBy : "createdAt");
         Pageable pageable = PageRequest.of(page, size, sort);
 
         java.util.List<KpiStatus> activeStatuses = java.util.Arrays.asList(KpiStatus.APPROVED, KpiStatus.EDITED, KpiStatus.EDIT);
         Page<KpiCriteria> kpiPage = kpiCriteriaRepository.findMyWithFilters(
-                currentUser.getId(), null, activeStatuses, kpiPeriodId, startDate, endDate, objectiveId, keyResultId, pageable);
+                organizationId, currentUser.getId(), null, activeStatuses, kpiPeriodId, startDate, endDate, objectiveId, keyResultId, pageable);
 
         List<KpiCriteriaResponse> content = kpiPage.getContent().stream()
                 .map(kpi -> {

@@ -20,6 +20,7 @@ public interface KpiCriteriaRepository extends JpaRepository<KpiCriteria, UUID> 
 
     @Query("SELECT DISTINCT k FROM KpiCriteria k LEFT JOIN k.assignees a JOIN FETCH k.kpiPeriod " +
            "LEFT JOIN FETCH k.keyResult kr LEFT JOIN FETCH kr.objective obj WHERE " +
+           "k.orgUnit.orgHierarchyLevel.organization.id = :organizationId AND " +
            "(EXISTS (SELECT 1 FROM OrgUnit au WHERE k.orgUnit.path LIKE CONCAT(au.path, '%') AND au.id IN :allowedOrgUnitIds)) AND " +
            "(:createdById IS NULL OR k.createdBy.id = :createdById) AND " +
            "(:assigneeId IS NULL OR a.id = :assigneeId) AND " +
@@ -36,6 +37,7 @@ public interface KpiCriteriaRepository extends JpaRepository<KpiCriteria, UUID> 
            "(:objectiveId IS NULL OR k.keyResult.objective.id = :objectiveId) AND " +
            "(:keyResultId IS NULL OR k.keyResult.id = :keyResultId)")
     Page<KpiCriteria> findAllWithFilters(
+            @Param("organizationId") UUID organizationId,
             @Param("allowedOrgUnitIds") Collection<UUID> allowedOrgUnitIds,
             @Param("createdById") UUID createdById,
             @Param("assigneeId") UUID assigneeId,
@@ -179,6 +181,7 @@ public interface KpiCriteriaRepository extends JpaRepository<KpiCriteria, UUID> 
 
     @Query("SELECT DISTINCT k FROM KpiCriteria k LEFT JOIN k.assignees a JOIN FETCH k.kpiPeriod " +
            "LEFT JOIN FETCH k.keyResult kr LEFT JOIN FETCH kr.objective obj WHERE " +
+           "k.orgUnit.orgHierarchyLevel.organization.id = :organizationId AND " +
            "(a.id = :userId OR k.createdBy.id = :userId) AND " +
            "(:status IS NULL OR k.status = :status) AND " +
            "(:statuses IS NULL OR k.status IN :statuses) AND " +
@@ -188,6 +191,7 @@ public interface KpiCriteriaRepository extends JpaRepository<KpiCriteria, UUID> 
            "(:objectiveId IS NULL OR k.keyResult.objective.id = :objectiveId) AND " +
            "(:keyResultId IS NULL OR k.keyResult.id = :keyResultId)")
     Page<KpiCriteria> findMyWithFilters(
+            @Param("organizationId") UUID organizationId,
             @Param("userId") UUID userId,
             @Param("status") KpiStatus status,
             @Param("statuses") Collection<KpiStatus> statuses,
