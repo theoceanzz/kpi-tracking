@@ -39,6 +39,12 @@ public class SubordinateAnalyticsService {
                 .orElseThrow(() -> new RuntimeException("User not found"));
     }
 
+    private UUID getCurrentUserOrganizationId(User user) {
+        List<UserRoleOrgUnit> roles = userRoleOrgUnitRepository.findByUserId(user.getId());
+        if (roles.isEmpty()) return null;
+        return roles.get(0).getOrgUnit().getOrgHierarchyLevel().getOrganization().getId();
+    }
+
     private List<UUID> getSubordinateOrgUnitIds() {
         User user = getCurrentUser();
         List<UUID> rootIds = permissionChecker.getOrgUnitsWithPermission(user.getId(), "DASHBOARD:VIEW");
@@ -47,7 +53,8 @@ public class SubordinateAnalyticsService {
             List<UserRoleOrgUnit> assignments = userRoleOrgUnitRepository.findByUserId(user.getId());
             rootIds = assignments.stream().map(a -> a.getOrgUnit().getId()).toList();
         }
-        List<OrgUnit> authorizedUnits = orgUnitRepository.findAllInSubtrees(rootIds);
+        UUID orgId = getCurrentUserOrganizationId(user);
+        List<OrgUnit> authorizedUnits = orgUnitRepository.findAllInSubtrees(rootIds, orgId);
         return authorizedUnits.stream().map(OrgUnit::getId).toList();
     }
 

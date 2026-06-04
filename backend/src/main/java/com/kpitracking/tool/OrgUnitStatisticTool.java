@@ -48,9 +48,12 @@ public class OrgUnitStatisticTool {
         }
     }
 
+    private OrgUnit getOrgUnit(UUID id) {
+        return orgUnitRepository.findById(id).orElseThrow(() -> new RuntimeException("OrgUnit not found: " + id));
+    }
+
     private String getPathPrefix(UUID id) {
-        OrgUnit unit = orgUnitRepository.findById(id).orElseThrow(() -> new RuntimeException("OrgUnit not found: " + id));
-        return unit.getPath();
+        return getOrgUnit(id).getPath();
     }
 
     private UUID getOrgUnitId(ToolContext context) {
@@ -546,8 +549,10 @@ public class OrgUnitStatisticTool {
     public String getRoleDistribution(
             ToolContext context) {
         try {
-            String pathPrefix = getPathPrefix(getOrgUnitId(context));
-            List<Object[]> data = userRoleOrgUnitRepository.findRoleDistributionInSubtree(pathPrefix);
+            OrgUnit unit = getOrgUnit(getOrgUnitId(context));
+            String pathPrefix = unit.getPath();
+            UUID orgId = unit.getOrgHierarchyLevel().getOrganization().getId();
+            List<Object[]> data = userRoleOrgUnitRepository.findRoleDistributionInSubtree(pathPrefix, orgId);
             
             Map<String, Long> distribution = new LinkedHashMap<>();
             for (Object[] row : data) {

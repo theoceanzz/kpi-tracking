@@ -37,20 +37,33 @@ public class OrgUnitKpiAnalyticsService {
                 .orElseThrow(() -> new RuntimeException("User not found"));
     }
 
+    private UUID getCurrentUserOrganizationId(User user) {
+        List<UserRoleOrgUnit> roles = userRoleOrgUnitRepository.findByUserId(user.getId());
+        if (roles.isEmpty()) return null;
+        return roles.get(0).getOrgUnit().getOrgHierarchyLevel().getOrganization().getId();
+    }
+
     private List<OrgUnit> resolveOrgUnitSubtree(UUID orgUnitId) {
+        User user = getCurrentUser();
+        UUID orgId = getCurrentUserOrganizationId(user);
+        
         if (orgUnitId != null) {
             Optional<OrgUnit> root = orgUnitRepository.findById(orgUnitId);
             if (root.isEmpty()) return Collections.emptyList();
-            return orgUnitRepository.findSubtree(root.get().getPath());
+            // Validate that the requested orgUnitId belongs to the user's organization
+            if (!root.get().getOrgHierarchyLevel().getOrganization().getId().equals(orgId)) {
+                return Collections.emptyList();
+            }
+            return orgUnitRepository.findSubtree(root.get().getPath(), orgId);
         }
-        User user = getCurrentUser();
+        
         List<UUID> rootIds = permissionChecker.getOrgUnitsWithPermission(user.getId(), "DASHBOARD:VIEW");
         if (rootIds.isEmpty()) {
             List<UserRoleOrgUnit> assignments = userRoleOrgUnitRepository.findByUserId(user.getId());
             rootIds = assignments.stream().map(a -> a.getOrgUnit().getId()).distinct().toList();
         }
         if (rootIds.isEmpty()) return Collections.emptyList();
-        return orgUnitRepository.findAllInSubtrees(rootIds);
+        return orgUnitRepository.findAllInSubtrees(rootIds, orgId);
     }
 
     private List<KpiCriteria> getStandaloneKpis(UUID orgUnitId) {

@@ -411,7 +411,8 @@ public class OrganizationService {
     public long countMembersByOrgUnit(UUID orgUnitId) {
         com.kpitracking.entity.OrgUnit unit = orgUnitRepository.findById(orgUnitId)
                 .orElseThrow(() -> new ResourceNotFoundException("Đơn vị tổ chức", "id", orgUnitId));
-        return userRoleOrgUnitRepository.countUsersInSubtree(unit.getPath());
+        UUID orgId = unit.getOrgHierarchyLevel().getOrganization().getId();
+        return userRoleOrgUnitRepository.countUsersInSubtree(unit.getPath(), orgId);
     }
 
     @Transactional(readOnly = true)

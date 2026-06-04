@@ -331,7 +331,7 @@ public class OrgUnitService {
             List<UUID> baseUnitIds = permissionChecker.getOrgUnitsWithPermission(currentUser.getId(), "ORG:VIEW_TREE");
             if (baseUnitIds.isEmpty()) return Collections.emptyList();
             
-            List<OrgUnit> authorizedUnits = orgUnitRepository.findAllInSubtrees(baseUnitIds);
+            List<OrgUnit> authorizedUnits = orgUnitRepository.findAllInSubtrees(baseUnitIds, orgId);
             return buildTree(authorizedUnits);
         }
 
@@ -343,7 +343,7 @@ public class OrgUnitService {
         OrgUnit root = orgUnitRepository.findByIdAndOrgHierarchyLevel_Organization_Id(unitId, orgId)
                 .orElseThrow(() -> new ResourceNotFoundException("Đơn vị", "id", unitId));
 
-        List<OrgUnit> subtreeUnits = orgUnitRepository.findSubtree(root.getPath());
+        List<OrgUnit> subtreeUnits = orgUnitRepository.findSubtree(root.getPath(), orgId);
         return buildTree(subtreeUnits);
     }
 

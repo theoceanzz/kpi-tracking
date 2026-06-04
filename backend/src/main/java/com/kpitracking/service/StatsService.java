@@ -49,7 +49,8 @@ public class StatsService {
     private List<OrgUnit> getAuthorizedOrgUnits(User user, String permissionCode) {
         List<UUID> baseOrgUnitIds = permissionChecker.getOrgUnitsWithPermission(user.getId(), permissionCode);
         if (baseOrgUnitIds.isEmpty()) return Collections.emptyList();
-        return orgUnitRepository.findAllInSubtrees(baseOrgUnitIds);
+        UUID orgId = getCurrentUserOrganizationId(user);
+        return orgUnitRepository.findAllInSubtrees(baseOrgUnitIds, orgId);
     }
 
     @Transactional(readOnly = true)
@@ -116,9 +117,10 @@ public class StatsService {
     @Transactional(readOnly = true)
     public List<OrgUnitKpiStatsResponse> getOrgUnitKpiStats() {
         User currentUser = getCurrentUser();
+        UUID orgId = getCurrentUserOrganizationId(currentUser);
         // Get all units that the user has dashboard view access to, including their subtrees
         List<UUID> rootIds = permissionChecker.getOrgUnitsWithPermission(currentUser.getId(), "DASHBOARD:VIEW");
-        List<OrgUnit> authorizedUnits = orgUnitRepository.findAllInSubtrees(rootIds);
+        List<OrgUnit> authorizedUnits = orgUnitRepository.findAllInSubtrees(rootIds, orgId);
 
         return authorizedUnits.stream().map(unit -> {
             List<UUID> subtreeIds = getSubtreeIds(unit);
@@ -737,7 +739,8 @@ public class StatsService {
     }
 
     private List<UUID> getSubtreeIds(OrgUnit unit) {
-        List<OrgUnit> subtree = orgUnitRepository.findSubtree(unit.getPath());
+        UUID orgId = unit.getOrgHierarchyLevel().getOrganization().getId();
+        List<OrgUnit> subtree = orgUnitRepository.findSubtree(unit.getPath(), orgId);
         return subtree.isEmpty() ? List.of(unit.getId()) : subtree.stream().map(OrgUnit::getId).toList();
     }
 
@@ -1050,7 +1053,8 @@ public class StatsService {
         User currentUser = getCurrentUser();
         Set<UUID> currentUserUnitIds = userRoleOrgUnitRepository.findByUserId(currentUser.getId())
             .stream().map(a -> a.getOrgUnit().getId()).collect(Collectors.toSet());
-        List<OrgUnit> optSubtree = orgUnitRepository.findSubtree(targetUnit.getPath());
+        UUID orgId = targetUnit.getOrgHierarchyLevel().getOrganization().getId();
+        List<OrgUnit> optSubtree = orgUnitRepository.findSubtree(targetUnit.getPath(), orgId);
         List<OrgUnit> sortedOpts = optSubtree.stream()
             .sorted(Comparator.comparing(OrgUnit::getPath))
             .toList();
