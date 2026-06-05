@@ -113,14 +113,14 @@ export default function KpiApprovalPage() {
 
   const [reviewKpi, setReviewKpi] = useState<KpiCriteria | null>(null)
 
-  const items = (criteriaData?.content ?? []).filter(kpi => kpi.createdById !== user?.id)
+  const items = (criteriaData?.content ?? []).filter(kpi => kpi.createdById !== user?.id || kpi.status === 'APPROVED')
   const totalPages = criteriaData?.totalPages || 1
   const totalElements = criteriaData?.totalElements || 0
 
   // Quick stats
   const { data: statsData } = useKpiCriteria({ size: 1000, organizationId: user?.memberships?.[0]?.organizationId, approvalMode: true })
   const stats = useMemo(() => {
-    const all = (statsData?.content ?? [])
+    const all = statsData?.content ?? []
     return {
       total: all.length,
       pending: all.filter(k => k.status === 'PENDING_APPROVAL').length,
