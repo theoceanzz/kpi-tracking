@@ -7,7 +7,6 @@ import com.kpitracking.entity.UserRoleOrgUnit;
 import com.kpitracking.repository.UserRepository;
 import com.kpitracking.repository.UserRoleOrgUnitRepository;
 import com.kpitracking.tool.DisambiguationGuard;
-import com.kpitracking.tool.OrgStatisticTool;
 import com.kpitracking.tool.OrgUnitStatisticTool;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
@@ -32,12 +31,8 @@ public class AiService {
     private final ChatClient chatClientWithMemory;
     private final UserRepository userRepository;
     private final UserRoleOrgUnitRepository userRoleOrgUnitRepository;
-    private final OrgStatisticTool orgStatisticTool;
     private final OrgUnitStatisticTool orgUnitStatisticTool;
     private final DisambiguationGuard disambiguationGuard;
-
-    @Value("classpath:/promptTemplates/orgToolSystemPromptTemplate.st")
-    Resource orgSystemPrompt;
 
     @Value("classpath:/promptTemplates/orgUnitToolSystemPromptTemplate.st")
     Resource orgUnitSystemPrompt;
@@ -45,13 +40,15 @@ public class AiService {
     @Value("classpath:/promptTemplates/kpiSuggestionSystemPrompt.st")
     private Resource kpiSuggestionSystemPrompt;
 
+    @Value("classpath:/promptTemplates/topicGuardPrompt.st")
+    private Resource topicGuardPrompt;
+
     private final ObjectMapper objectMapper;
 
     public AiService(@Qualifier("openAiChatClient") ChatClient chatClient,
                      @Qualifier("chatClientWithMemory") ChatClient chatClientWithMemory,
                      UserRepository userRepository,
                      UserRoleOrgUnitRepository userRoleOrgUnitRepository,
-                     OrgStatisticTool orgStatisticTool,
                      OrgUnitStatisticTool orgUnitStatisticTool,
                      DisambiguationGuard disambiguationGuard,
                      ObjectMapper objectMapper) {
@@ -59,30 +56,20 @@ public class AiService {
         this.chatClientWithMemory = chatClientWithMemory;
         this.userRepository = userRepository;
         this.userRoleOrgUnitRepository = userRoleOrgUnitRepository;
-        this.orgStatisticTool = orgStatisticTool;
         this.orgUnitStatisticTool = orgUnitStatisticTool;
         this.disambiguationGuard = disambiguationGuard;
         this.objectMapper = objectMapper;
-    }
-
-    public String processOrgChat(String question) {
-        UUID orgId = getCurrentUserOrgId();
-        if(orgId == null) return  null;
-        log.info("Processing chat for orgId: {}", orgId);
-
-        return chatClient.prompt()
-                .user(question)
-                .system(orgSystemPrompt)
-                .tools(orgStatisticTool)
-                .toolContext(Map.of("organizationId", orgId))
-                .call()
-                .content();
     }
 
     public String processOrgUnitChat(String question, String conversationId) {
         ManagerContext ctx = getCurrentUserManagerContext();
         if (ctx == null) {
             return "Bạn không có quyền sử dụng tính năng AI phân tích. Chỉ trưởng đơn vị hoặc phó đơn vị mới có thể truy cập tính năng này.";
+        }
+
+        if (!isInScope(question)) {
+            return "Xin lỗi, tôi là trợ lý phân tích KPI của hệ thống và chỉ hỗ trợ các câu hỏi liên quan đến "
+                    + "KPI, hiệu suất, đơn vị và nhân sự. Bạn vui lòng đặt câu hỏi thuộc nghiệp vụ này nhé.";
         }
 
         boolean hasMemory = conversationId != null && !conversationId.isBlank();
@@ -157,17 +144,32 @@ public class AiService {
         }
     }
 
-    public String chatWithMemory(String message, String conversationId) {
-        if (conversationId == null || conversationId.isBlank()) {
-            log.info("Processing stateless chat (no conversationId)");
-            return chatClient.prompt().user(message).call().content();
+    /**
+     * Lightweight topic guard: classifies whether the user's message belongs to the
+     * KPI business domain before invoking the (tool-heavy) main model. Lenient by
+     * design — short follow-ups/selections count as in-scope, and any classifier
+     * error fails open so legitimate KPI questions are never wrongly blocked.
+     */
+    private boolean isInScope(String question) {
+        if (question == null || question.isBlank()) return true;
+        try {
+            String verdict = chatClient.prompt()
+                    .system(topicGuardPrompt)
+                    .user(question)
+                    .call()
+                    .content();
+            if (verdict == null) return true;
+            String v = verdict.trim().toUpperCase();
+            // Block only on an explicit NO; anything else is treated as in-scope.
+            boolean outOfScope = v.startsWith("NO") || v.equals("NO.") || v.contains("\"NO\"");
+            if (outOfScope) {
+                log.info("Topic guard rejected out-of-scope message: {}", question);
+            }
+            return !outOfScope;
+        } catch (Exception e) {
+            log.warn("Topic guard classification failed, allowing message through: {}", e.getMessage());
+            return true;
         }
-        log.info("Processing memory chat for conversationId: {}", conversationId);
-        return chatClientWithMemory.prompt()
-                .user(message)
-                .advisors(spec -> spec.param("chat_memory_conversation_id", conversationId))
-                .call()
-                .content();
     }
 
     private record ManagerContext(UUID orgUnitId, String orgUnitPath, UUID orgId) {}
@@ -214,23 +216,6 @@ public class AiService {
         } catch (Exception e) {
             log.error("Error parsing AI response to JSON: {}. Content: {}", e.getMessage(), text);
             return new ArrayList<>();
-        }
-    }
-
-    private UUID getCurrentUserOrgId() {
-        try {
-            String email = SecurityContextHolder.getContext().getAuthentication().getName();
-            User user = userRepository.findByEmail(email).orElse(null);
-            if (user == null) return null;
-
-            List<UserRoleOrgUnit> assignments = userRoleOrgUnitRepository.findByUserId(user.getId());
-            if (assignments.isEmpty()) return null;
-
-            // Get organization ID from the first assignment
-            return assignments.get(0).getOrgUnit().getOrgHierarchyLevel().getOrganization().getId();
-        } catch (Exception e) {
-            log.error("Error getting current user org ID", e);
-            return null;
         }
     }
 }
