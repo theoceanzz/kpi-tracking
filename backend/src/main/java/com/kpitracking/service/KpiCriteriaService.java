@@ -607,43 +607,26 @@ public class KpiCriteriaService {
     public Double calculateTotalWeightByOrgUnit(UUID orgUnitId, UUID kpiPeriodId, List<KpiStatus> statuses) {
         List<KpiCriteria> kpis = kpiCriteriaRepository.findByOrgUnitIdAndKpiPeriodIdAndStatusIn(orgUnitId, kpiPeriodId, statuses);
         
-        System.out.println("--- Weight Calculation Debug (OrgUnit: " + orgUnitId + ") ---");
-        System.out.println("Found " + kpis.size() + " KPIs for calculation");
-
         Double unassignedWeight = 0.0;
         Map<UUID, Double> userWeights = new HashMap<>();
         
         for (KpiCriteria kpi : kpis) {
             Double weight = kpi.getWeight() != null ? kpi.getWeight() : 0.0;
-            String kpiName = kpi.getName();
-            String status = kpi.getStatus().toString();
-            
             if (kpi.getAssignees() == null || kpi.getAssignees().isEmpty()) {
                 unassignedWeight += weight;
-                System.out.println("KPI [Unassigned]: " + kpiName + " | Weight: " + weight + " | Status: " + status);
             } else {
                 for (User assignee : kpi.getAssignees()) {
                     userWeights.merge(assignee.getId(), weight, Double::sum);
-                    System.out.println("KPI [" + assignee.getFullName() + "]: " + kpiName + " | Weight: " + weight + " | Status: " + status);
                 }
             }
         }
         
         if (userWeights.isEmpty()) {
-            System.out.println("No assignees found. Total: " + unassignedWeight);
-            System.out.println("--------------------------------------------------");
             return unassignedWeight;
         }
         
-        for (Map.Entry<UUID, Double> entry : userWeights.entrySet()) {
-            System.out.println("User ID " + entry.getKey() + " Total Weight: " + entry.getValue());
-        }
-
         Double maxUserWeight = userWeights.values().stream().max(Double::compare).orElse(0.0);
-        Double result = unassignedWeight + maxUserWeight;
-        System.out.println("Max Individual Weight: " + maxUserWeight + " | Result (Base + Max): " + result);
-        System.out.println("--------------------------------------------------");
-        return result;
+        return unassignedWeight + maxUserWeight;
     }
 
     @Transactional(readOnly = true)

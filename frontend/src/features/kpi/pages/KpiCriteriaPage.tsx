@@ -205,23 +205,6 @@ export default function KpiCriteriaPage() {
   const allKpis = data?.content || []
   const filteredKpis = data?.content || []
 
-  // Debug weight calculation
-  useEffect(() => {
-    if (data?.content) {
-      console.log('--- KPI Debug Info ---')
-      console.log('Filters - OrgUnit:', selectedOrgUnitId, 'Period:', selectedPeriodId)
-      console.log('Visible KPIs count:', data.content.length)
-      console.log('Visible KPIs weights:', data.content.map(k => ({ name: k.name, weight: k.weight, status: k.status })))
-      const visibleSum = data.content.reduce((sum, k) => sum + (k.weight || 0), 0)
-      console.log('Sum of visible weights:', visibleSum)
-      console.log('Total weight from backend API:', totalWeightData)
-      if (Math.abs(visibleSum - (totalWeightData || 0)) > 0.001) {
-        console.warn('Discrepancy detected! Hidden KPIs are likely being included in the total weight.')
-      }
-      console.log('-----------------------')
-    }
-  }, [data?.content, totalWeightData])
-
   const displayTotalWeight = totalWeightData ?? 0
 
   const stats = {
