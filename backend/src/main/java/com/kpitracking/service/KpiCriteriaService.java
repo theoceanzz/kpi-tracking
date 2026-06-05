@@ -210,7 +210,7 @@ public class KpiCriteriaService {
     }
 
     @Transactional(readOnly = true)
-    public PageResponse<KpiCriteriaResponse> getKpiCriteria(int page, int size, KpiStatus status, UUID orgUnitId, UUID createdById, UUID assigneeId, UUID kpiPeriodId, String keyword, Instant startDate, Instant endDate, String sortBy, String sortDir, UUID objectiveId, UUID keyResultId) {
+    public PageResponse<KpiCriteriaResponse> getKpiCriteria(int page, int size, KpiStatus status, UUID orgUnitId, UUID createdById, UUID assigneeId, UUID kpiPeriodId, String keyword, Instant startDate, Instant endDate, String sortBy, String sortDir, UUID objectiveId, UUID keyResultId, boolean approvalMode) {
         User currentUser = getCurrentUser();
         UUID organizationId = getCurrentUserOrganizationId(currentUser);
 
@@ -236,6 +236,7 @@ public class KpiCriteriaService {
                 organizationId,
                 currentUser.getId(),
                 sameUnitIds,
+                approvalMode,
                 createdById,
                 assigneeId,
                 orgUnitPath,

@@ -54,8 +54,9 @@ public class KpiCriteriaController {
             @RequestParam(defaultValue = "createdAt") String sortBy,
             @RequestParam(defaultValue = "desc") String sortDir,
             @RequestParam(required = false) UUID objectiveId,
-            @RequestParam(required = false) UUID keyResultId) {
-        PageResponse<KpiCriteriaResponse> response = kpiCriteriaService.getKpiCriteria(page, size, status, orgUnitId, createdById, assigneeId, kpiPeriodId, keyword, startDate, endDate, sortBy, sortDir, objectiveId, keyResultId);
+            @RequestParam(required = false) UUID keyResultId,
+            @RequestParam(defaultValue = "false") boolean approvalMode) {
+        PageResponse<KpiCriteriaResponse> response = kpiCriteriaService.getKpiCriteria(page, size, status, orgUnitId, createdById, assigneeId, kpiPeriodId, keyword, startDate, endDate, sortBy, sortDir, objectiveId, keyResultId, approvalMode);
         return ResponseEntity.ok(ApiResponse.success(response));
     }
 

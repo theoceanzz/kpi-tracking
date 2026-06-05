@@ -24,7 +24,7 @@ public interface KpiCriteriaRepository extends JpaRepository<KpiCriteria, UUID> 
            "(" +
            "  k.createdBy.id = :currentUserId OR " +
            "  EXISTS (SELECT 1 FROM k.assignees sa WHERE sa.id = :currentUserId) OR " +
-           "  (EXISTS (SELECT 1 FROM OrgUnit su WHERE k.orgUnit.path LIKE CONCAT(su.path, '%') AND su.id IN :sameUnitIds) AND k.status = com.kpitracking.enums.KpiStatus.APPROVED)" +
+           "  (EXISTS (SELECT 1 FROM OrgUnit su WHERE k.orgUnit.path LIKE CONCAT(su.path, '%') AND su.id IN :sameUnitIds) AND (:approvalMode = true OR k.status IN com.kpitracking.enums.KpiStatus.APPROVED))" +
            ") AND " +
            "(:createdById IS NULL OR k.createdBy.id = :createdById) AND " +
            "(:assigneeId IS NULL OR a.id = :assigneeId) AND " +
@@ -44,6 +44,7 @@ public interface KpiCriteriaRepository extends JpaRepository<KpiCriteria, UUID> 
             @Param("organizationId") UUID organizationId,
             @Param("currentUserId") UUID currentUserId,
             @Param("sameUnitIds") Collection<UUID> sameUnitIds,
+            @Param("approvalMode") boolean approvalMode,
             @Param("createdById") UUID createdById,
             @Param("assigneeId") UUID assigneeId,
             @Param("orgUnitPath") String orgUnitPath,
@@ -105,6 +106,9 @@ public interface KpiCriteriaRepository extends JpaRepository<KpiCriteria, UUID> 
     long countByOrgUnitIdIn(Collection<UUID> orgUnitIds);
 
     long countByOrgUnitIdInAndStatus(Collection<UUID> orgUnitIds, KpiStatus status);
+
+    @Query("SELECT COUNT(k) FROM KpiCriteria k WHERE k.orgUnit.id IN :orgUnitIds AND k.status = :status AND k.createdBy.id != :excludeUserId")
+    long countByOrgUnitIdInAndStatusExcludingUser(@Param("orgUnitIds") Collection<UUID> orgUnitIds, @Param("status") KpiStatus status, @Param("excludeUserId") UUID excludeUserId);
 
     @Query("SELECT COALESCE(SUM(k.weight), 0.0) FROM KpiCriteria k WHERE k.orgUnit.id = :orgUnitId AND (:kpiPeriodId IS NULL OR k.kpiPeriod.id = :kpiPeriodId) AND k.status IN :statuses")
     Double sumWeightByOrgUnitIdAndKpiPeriodIdAndStatusIn(@Param("orgUnitId") UUID orgUnitId, @Param("kpiPeriodId") UUID kpiPeriodId, @Param("statuses") List<KpiStatus> statuses);

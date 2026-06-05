@@ -20,6 +20,7 @@ export function useKpiCriteria(params: {
   objectiveId?: string;
   keyResultId?: string;
   assigneeId?: string;
+  approvalMode?: boolean;
 } = {}, options: any = {}) {
   return useQuery<PageResponse<KpiCriteria>>({
     queryKey: ['kpi-criteria', 'all', params],

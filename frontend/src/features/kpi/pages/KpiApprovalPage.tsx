@@ -92,7 +92,7 @@ export default function KpiApprovalPage() {
 
   // Data for KPI Criteria
   const { data: criteriaData, isLoading } = useKpiCriteria(
-    { 
+    {
       status: activeTab === 'ALL' ? undefined : activeTab,
       kpiPeriodId: selectedPeriodId === 'ALL' ? undefined : selectedPeriodId,
       orgUnitId: selectedOrgUnitId === 'ALL' ? undefined : selectedOrgUnitId,
@@ -102,7 +102,8 @@ export default function KpiApprovalPage() {
       sortBy,
       sortDir,
       objectiveId: selectedObjectiveId === 'ALL' ? undefined : selectedObjectiveId,
-      keyResultId: selectedKeyResultId === 'ALL' ? undefined : selectedKeyResultId
+      keyResultId: selectedKeyResultId === 'ALL' ? undefined : selectedKeyResultId,
+      approvalMode: true
     }
   )
 
@@ -117,16 +118,16 @@ export default function KpiApprovalPage() {
   const totalElements = criteriaData?.totalElements || 0
 
   // Quick stats
-  const { data: statsData } = useKpiCriteria({ size: 1000, organizationId: user?.memberships?.[0]?.organizationId })
+  const { data: statsData } = useKpiCriteria({ size: 1000, organizationId: user?.memberships?.[0]?.organizationId, approvalMode: true })
   const stats = useMemo(() => {
-    const all = statsData?.content ?? []
+    const all = (statsData?.content ?? []).filter(k => k.createdById !== user?.id)
     return {
       total: all.length,
       pending: all.filter(k => k.status === 'PENDING_APPROVAL').length,
       approved: all.filter(k => k.status === 'APPROVED').length,
       rejected: all.filter(k => k.status === 'REJECTED').length,
     }
-  }, [statsData])
+  }, [statsData, user?.id])
 
   // Bulk Approve Mutation
   const bulkApproveMutation = useMutation({

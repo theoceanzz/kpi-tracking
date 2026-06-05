@@ -103,7 +103,7 @@ public class StatsService {
                 .totalOrgUnits((int) kpiCriteriaRepository.countDistinctOrgUnitsOfAssigneesIn(unitIds, activeStatuses))
                 .totalKpiCriteria(kpiCriteriaRepository.countTotalKpiCriteriaIn(unitIds, activeStatuses))
                 .approvedKpi(kpiCriteriaRepository.countByOrgUnitIdInAndStatus(unitIds, KpiStatus.APPROVED))
-                .pendingKpi(kpiCriteriaRepository.countByOrgUnitIdInAndStatus(unitIds, KpiStatus.PENDING_APPROVAL))
+                .pendingKpi(kpiCriteriaRepository.countByOrgUnitIdInAndStatusExcludingUser(unitIds, KpiStatus.PENDING_APPROVAL, currentUser.getId()))
                 .rejectedKpi(kpiCriteriaRepository.countByOrgUnitIdInAndStatus(unitIds, KpiStatus.REJECTED))
                 .draftKpi(kpiCriteriaRepository.countByOrgUnitIdInAndStatus(unitIds, KpiStatus.DRAFT))
                 .totalSubmissions((int) (pendingSub + approvedSub + rejectedSub))
