@@ -170,7 +170,8 @@ export default function KpiCriteriaPage() {
 
   const { data: totalWeightData } = useKpiTotalWeight(
     selectedOrgUnitId === 'ALL' ? undefined : selectedOrgUnitId,
-    selectedPeriodId === 'ALL' ? '' : selectedPeriodId
+    selectedPeriodId === 'ALL' ? '' : selectedPeriodId,
+    selectedAssigneeId === 'ALL' ? undefined : selectedAssigneeId
   )
   const deleteMutation = useDeleteKpi()
   const submitMutation = useSubmitKpi()

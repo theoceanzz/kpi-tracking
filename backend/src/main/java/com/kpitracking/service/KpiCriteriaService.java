@@ -440,7 +440,7 @@ public class KpiCriteriaService {
 
         // Validate that total weight for this org unit and period is exactly 100%
         // Updated: use the new logic that calculates weight based on the most assigned person
-        java.util.List<KpiStatus> statuses = java.util.Arrays.asList(KpiStatus.DRAFT, KpiStatus.PENDING_APPROVAL, KpiStatus.APPROVED, KpiStatus.REJECTED, KpiStatus.EDIT, KpiStatus.EDITED);
+        java.util.List<KpiStatus> statuses = java.util.Arrays.asList(KpiStatus.DRAFT, KpiStatus.PENDING_APPROVAL, KpiStatus.APPROVED, KpiStatus.EDIT, KpiStatus.EDITED);
         Double totalWeight = calculateTotalWeightByOrgUnit(kpi.getOrgUnit().getId(), kpi.getKpiPeriod().getId(), statuses);
 
         if (totalWeight == null || Math.abs(totalWeight - 100.0) > 0.001) {
@@ -637,7 +637,6 @@ public class KpiCriteriaService {
                 KpiStatus.DRAFT, 
                 KpiStatus.PENDING_APPROVAL, 
                 KpiStatus.APPROVED, 
-                KpiStatus.REJECTED, 
                 KpiStatus.EDIT, 
                 KpiStatus.EDITED
         );
