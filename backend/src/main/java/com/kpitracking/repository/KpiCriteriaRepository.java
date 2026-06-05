@@ -24,7 +24,7 @@ public interface KpiCriteriaRepository extends JpaRepository<KpiCriteria, UUID> 
            "(" +
            "  k.createdBy.id = :currentUserId OR " +
            "  EXISTS (SELECT 1 FROM k.assignees sa WHERE sa.id = :currentUserId) OR " +
-           "  (EXISTS (SELECT 1 FROM OrgUnit su WHERE k.orgUnit.path LIKE CONCAT(su.path, '%') AND su.id IN :sameUnitIds) AND (:approvalMode = true OR k.status IN com.kpitracking.enums.KpiStatus.APPROVED))" +
+           "  (EXISTS (SELECT 1 FROM OrgUnit su WHERE k.orgUnit.path LIKE CONCAT(su.path, '%') AND su.id IN :sameUnitIds) AND (:approvalMode = true OR k.status = com.kpitracking.enums.KpiStatus.APPROVED))" +
            ") AND " +
            "(:createdById IS NULL OR k.createdBy.id = :createdById) AND " +
            "(:assigneeId IS NULL OR a.id = :assigneeId) AND " +
