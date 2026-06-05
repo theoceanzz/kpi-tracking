@@ -440,7 +440,7 @@ public class KpiCriteriaService {
 
         // Validate that total weight for this org unit and period is exactly 100%
         // Updated: use the new logic that calculates weight based on the most assigned person
-        java.util.List<KpiStatus> statuses = java.util.Arrays.asList(KpiStatus.DRAFT, KpiStatus.PENDING_APPROVAL, KpiStatus.APPROVED, KpiStatus.EDIT, KpiStatus.EDITED);
+        java.util.List<KpiStatus> statuses = java.util.Arrays.asList(KpiStatus.DRAFT, KpiStatus.PENDING_APPROVAL, KpiStatus.APPROVED, KpiStatus.REJECTED, KpiStatus.EDIT, KpiStatus.EDITED);
         Double totalWeight = calculateTotalWeightByOrgUnit(kpi.getOrgUnit().getId(), kpi.getKpiPeriod().getId(), statuses);
 
         if (totalWeight == null || Math.abs(totalWeight - 100.0) > 0.001) {
@@ -607,26 +607,43 @@ public class KpiCriteriaService {
     public Double calculateTotalWeightByOrgUnit(UUID orgUnitId, UUID kpiPeriodId, List<KpiStatus> statuses) {
         List<KpiCriteria> kpis = kpiCriteriaRepository.findByOrgUnitIdAndKpiPeriodIdAndStatusIn(orgUnitId, kpiPeriodId, statuses);
         
+        System.out.println("--- Weight Calculation Debug (OrgUnit: " + orgUnitId + ") ---");
+        System.out.println("Found " + kpis.size() + " KPIs for calculation");
+
         Double unassignedWeight = 0.0;
         Map<UUID, Double> userWeights = new HashMap<>();
         
         for (KpiCriteria kpi : kpis) {
             Double weight = kpi.getWeight() != null ? kpi.getWeight() : 0.0;
+            String kpiName = kpi.getName();
+            String status = kpi.getStatus().toString();
+            
             if (kpi.getAssignees() == null || kpi.getAssignees().isEmpty()) {
                 unassignedWeight += weight;
+                System.out.println("KPI [Unassigned]: " + kpiName + " | Weight: " + weight + " | Status: " + status);
             } else {
                 for (User assignee : kpi.getAssignees()) {
                     userWeights.merge(assignee.getId(), weight, Double::sum);
+                    System.out.println("KPI [" + assignee.getFullName() + "]: " + kpiName + " | Weight: " + weight + " | Status: " + status);
                 }
             }
         }
         
         if (userWeights.isEmpty()) {
+            System.out.println("No assignees found. Total: " + unassignedWeight);
+            System.out.println("--------------------------------------------------");
             return unassignedWeight;
         }
         
+        for (Map.Entry<UUID, Double> entry : userWeights.entrySet()) {
+            System.out.println("User ID " + entry.getKey() + " Total Weight: " + entry.getValue());
+        }
+
         Double maxUserWeight = userWeights.values().stream().max(Double::compare).orElse(0.0);
-        return unassignedWeight + maxUserWeight;
+        Double result = unassignedWeight + maxUserWeight;
+        System.out.println("Max Individual Weight: " + maxUserWeight + " | Result (Base + Max): " + result);
+        System.out.println("--------------------------------------------------");
+        return result;
     }
 
     @Transactional(readOnly = true)
@@ -637,6 +654,7 @@ public class KpiCriteriaService {
                 KpiStatus.DRAFT, 
                 KpiStatus.PENDING_APPROVAL, 
                 KpiStatus.APPROVED, 
+                KpiStatus.REJECTED, 
                 KpiStatus.EDIT, 
                 KpiStatus.EDITED
         );
