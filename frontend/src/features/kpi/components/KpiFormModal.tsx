@@ -124,7 +124,7 @@ export default function KpiFormModal({ open, onClose, editKpi, parentKpi }: KpiF
         assignedToIds: isStaff ? ([user?.id].filter(Boolean) as string[]) : []
       })
     }
-  }, [open, reset, flatOrgUnits, canManageOrg, parentKpi, isStaff, user]) 
+  }, [open, reset, editKpi, flatOrgUnits, canManageOrg, parentKpi, isStaff, user]) 
 
   const selectedAssignees = watch('assignedToIds') || []
 
@@ -297,28 +297,14 @@ export default function KpiFormModal({ open, onClose, editKpi, parentKpi }: KpiF
   const isPending = createMutation.isPending || updateMutation.isPending
 
   const onSubmit = (data: KpiFormData) => {
-    const payload = { 
-      ...data,
-      name: isEdit ? editKpi?.name : data.name,
-      description: isEdit ? editKpi?.description : data.description,
-      targetValue: isEdit ? editKpi?.targetValue : data.targetValue,
-      unit: isEdit ? editKpi?.unit : data.unit,
-      weight: isEdit ? editKpi?.weight : data.weight,
-      minimumValue: isEdit ? editKpi?.minimumValue : data.minimumValue,
-      kpiPeriodId: isEdit ? editKpi?.kpiPeriodId : data.kpiPeriodId,
-      frequency: isEdit ? editKpi?.frequency : data.frequency,
-      orgUnitIds: isEdit ? editKpi?.orgUnitIds : data.orgUnitIds,
-      keyResultId: isEdit ? editKpi?.keyResultId : data.keyResultId,
-      parentId: isEdit ? editKpi?.parentId : data.parentId,
-    }
+    const payload = { ...data }
     
     if (!payload.orgUnitIds || payload.orgUnitIds.length === 0) {
         delete payload.orgUnitIds
     }
 
-    if (payload.keyResultId === '') payload.keyResultId = null
+    if (payload.keyResultId === '' || payload.keyResultId === 'NONE') payload.keyResultId = null
     if (payload.parentId === '') payload.parentId = null
-    delete payload.assignedToId
     
     if (isEdit) {
       updateMutation.mutate(payload as any)
@@ -371,7 +357,10 @@ export default function KpiFormModal({ open, onClose, editKpi, parentKpi }: KpiF
           </button>
         </div>
 
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
+        <form 
+          onSubmit={handleSubmit(onSubmit, (err) => console.error('KPI Form Errors:', err))} 
+          className="space-y-5"
+        >
           <div className="space-y-4">
             <div>
               <div className="flex items-center justify-between mb-1.5">
@@ -445,6 +434,7 @@ export default function KpiFormModal({ open, onClose, editKpi, parentKpi }: KpiF
                     className={inputCls} 
                     placeholder="1000" 
                   />
+                  {errors.targetValue && <p className="text-red-500 text-[10px] mt-1 font-bold">{errors.targetValue.message}</p>}
                 </div>
                 <div>
                   <label className="block text-[11px] font-black text-[var(--color-muted-foreground)] uppercase tracking-widest mb-1.5">Mục tiêu tối thiểu</label>
@@ -456,6 +446,7 @@ export default function KpiFormModal({ open, onClose, editKpi, parentKpi }: KpiF
                     className={inputCls} 
                     placeholder="800" 
                   />
+                  {errors.minimumValue && <p className="text-red-500 text-[10px] mt-1 font-bold">{errors.minimumValue.message}</p>}
                 </div>
               </div>
 

@@ -213,15 +213,6 @@ export default function KpiCriteriaPage() {
     pending: (data?.content || []).filter((k: KpiCriteria) => k.status === 'PENDING_APPROVAL').length,
   }
 
-  const weightsByPeriod = useMemo(() => {
-    const map: Record<string, number> = {}
-    allKpis.forEach(kpi => {
-      if (kpi.kpiPeriodId) {
-        map[kpi.kpiPeriodId] = (map[kpi.kpiPeriodId] || 0) + (kpi.weight || 0)
-      }
-    })
-    return map
-  }, [allKpis])
 
   return (
     <div className="min-h-screen bg-slate-50/50 dark:bg-slate-950/50">
@@ -593,16 +584,15 @@ export default function KpiCriteriaPage() {
                   </thead>
                   <tbody className="divide-y divide-slate-50 dark:divide-slate-800/50">
                     {filteredKpis.map((kpi: KpiCriteria, i: number) => (
-                      <KpiTableRow 
-                        key={kpi.id} 
-                        kpi={kpi} 
+                      <KpiTableRow
+                        key={kpi.id}
+                        kpi={kpi}
                         index={i}
                         onView={() => setSelectedKpi(kpi)}
                         onEdit={() => { setEditKpi(kpi); setShowForm(true) }}
                         onDelete={() => setDeleteKpi(kpi)}
                         onSubmit={() => setSubmitKpiId(kpi.id)}
                         onDelegate={() => { setDelegateKpi(kpi); setShowForm(true) }}
-                        totalWeight={selectedPeriodId === 'ALL' ? (weightsByPeriod[kpi.kpiPeriodId] || 0) : displayTotalWeight}
                         enableOkr={enableOkr}
                         enableWaterfall={enableWaterfall}
                       />
@@ -614,16 +604,15 @@ export default function KpiCriteriaPage() {
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
               {filteredKpis.map((kpi: KpiCriteria, idx: number) => (
-                <KpiCard 
-                  key={kpi.id} 
-                  kpi={kpi} 
+                <KpiCard
+                  key={kpi.id}
+                  kpi={kpi}
                   delay={idx * 50}
                   onView={() => setSelectedKpi(kpi)}
                   onEdit={() => { setEditKpi(kpi); setShowForm(true) }}
                   onDelete={() => setDeleteKpi(kpi)}
                   onSubmit={() => setSubmitKpiId(kpi.id)}
                   onDelegate={() => { setDelegateKpi(kpi); setShowForm(true) }}
-                  totalWeight={selectedPeriodId === 'ALL' ? (weightsByPeriod[kpi.kpiPeriodId] || 0) : displayTotalWeight}
                   enableOkr={enableOkr}
                   enableWaterfall={enableWaterfall}
                 />
@@ -717,13 +706,17 @@ export default function KpiCriteriaPage() {
   )
 }
 
-function KpiTableRow({ kpi, index, onView, onEdit, onDelete, onSubmit, onDelegate, totalWeight, enableOkr, enableWaterfall }: { 
-  kpi: KpiCriteria; index: number; onView: () => void; onEdit: () => void; onDelete: () => void; onSubmit: () => void; onDelegate: () => void; totalWeight: number; enableOkr?: boolean; enableWaterfall?: boolean
+function KpiTableRow({ kpi, index, onView, onEdit, onDelete, onSubmit, onDelegate, enableOkr, enableWaterfall }: {
+  kpi: KpiCriteria; index: number; onView: () => void; onEdit: () => void; onDelete: () => void; onSubmit: () => void; onDelegate: () => void; enableOkr?: boolean; enableWaterfall?: boolean
 }) {
   const user = useAuthStore(s => s.user)
   const { hasPermission } = usePermission()
   const status = STATUS_CONFIG[kpi.status as keyof typeof STATUS_CONFIG] ?? STATUS_CONFIG['DRAFT']!
   const StatusIcon = status.icon
+
+  const primaryAssigneeId = kpi.assigneeIds?.[0]
+  const { data: assigneeWeight } = useKpiTotalWeight(undefined, kpi.kpiPeriodId, primaryAssigneeId)
+  const canSubmit = Math.round(assigneeWeight ?? 0) === 100
   
   return (
     <tr className="group hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-all duration-300 animate-in fade-in slide-in-from-left-4" style={{ animationDelay: `${index * 30}ms` }}>
@@ -839,13 +832,13 @@ function KpiTableRow({ kpi, index, onView, onEdit, onDelete, onSubmit, onDelegat
           {(kpi.status === 'DRAFT' || kpi.status === 'REJECTED') && (
             <>
               {kpi.createdById === user?.id && (
-                <button 
-                  onClick={onSubmit} 
+                <button
+                  onClick={canSubmit ? onSubmit : undefined}
                   className={cn(
                     "p-2.5 rounded-xl transition-all shadow-sm border border-transparent",
-                    totalWeight === 100 ? 'text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/30 hover:border-blue-200' : 'text-slate-200 cursor-not-allowed opacity-30'
+                    canSubmit ? 'text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/30 hover:border-blue-200' : 'text-slate-200 cursor-not-allowed opacity-30'
                   )}
-                  title={totalWeight === 100 ? "Gửi duyệt" : "Trọng số chưa đạt 100%"}
+                  title={canSubmit ? "Gửi duyệt" : `Trọng số của nhân viên đang là ${Math.round(assigneeWeight ?? 0)}%, cần đạt 100%`}
                 >
                   <Send size={18} />
                 </button>
@@ -868,14 +861,18 @@ function KpiTableRow({ kpi, index, onView, onEdit, onDelete, onSubmit, onDelegat
   )
 }
 
-function KpiCard({ kpi, delay, onView, onEdit, onDelete, onSubmit, onDelegate, totalWeight, enableOkr, enableWaterfall }: { 
-  kpi: KpiCriteria; delay: number; onView: () => void; onEdit: () => void; onDelete: () => void; onSubmit: () => void; onDelegate: () => void; totalWeight: number; enableOkr?: boolean; enableWaterfall?: boolean
+function KpiCard({ kpi, delay, onView, onEdit, onDelete, onSubmit, onDelegate, enableOkr, enableWaterfall }: {
+  kpi: KpiCriteria; delay: number; onView: () => void; onEdit: () => void; onDelete: () => void; onSubmit: () => void; onDelegate: () => void; enableOkr?: boolean; enableWaterfall?: boolean
 }) {
   const user = useAuthStore(s => s.user)
   const { hasPermission } = usePermission()
   const [menuOpen, setMenuOpen] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
   useOnClickOutside(menuRef, () => setMenuOpen(false))
+
+  const primaryAssigneeId = kpi.assigneeIds?.[0]
+  const { data: assigneeWeight } = useKpiTotalWeight(undefined, kpi.kpiPeriodId, primaryAssigneeId)
+  const canSubmit = Math.round(assigneeWeight ?? 0) === 100
 
   const status = STATUS_CONFIG[kpi.status as keyof typeof STATUS_CONFIG] ?? STATUS_CONFIG['DRAFT']!
   const StatusIcon = status.icon
@@ -921,18 +918,18 @@ function KpiCard({ kpi, delay, onView, onEdit, onDelete, onSubmit, onDelegate, t
                 {(kpi.status === 'DRAFT' || kpi.status === 'REJECTED') && (
                   <>
                     {kpi.createdById === user?.id && (
-                      <button 
-                        onClick={() => { 
-                          if (totalWeight === 100) {
-                            setMenuOpen(false); 
-                            onSubmit() 
+                      <button
+                        onClick={() => {
+                          if (canSubmit) {
+                            setMenuOpen(false)
+                            onSubmit()
                           } else {
-                            toast.error(`Trọng số hiện là ${totalWeight}%, cần đạt 100% để nộp.`)
+                            toast.error(`Trọng số của nhân viên đang là ${Math.round(assigneeWeight ?? 0)}%, cần đạt 100% để gửi duyệt.`)
                           }
-                        }} 
+                        }}
                         className={cn(
                           "w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold transition-colors",
-                          totalWeight === 100 ? 'text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/30' : 'text-slate-400 cursor-not-allowed opacity-50'
+                          canSubmit ? 'text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/30' : 'text-slate-400 cursor-not-allowed opacity-50'
                         )}
                       >
                         <Send size={18} /> Gửi phê duyệt
