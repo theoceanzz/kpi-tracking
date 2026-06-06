@@ -106,6 +106,9 @@ public class OrgUnitStatisticService {
         double sumWeight = 0;
 
         for (KpiCriteria kpi : kpis) {
+            // KPI thác nước (có parent) không tính tiến độ/hiệu suất cho người được giao;
+            // kết quả của nó đã được tổng hợp lên KPI cha nên bỏ qua để tránh tính trùng.
+            if (kpi.getParent() != null) continue;
             double[] metrics = calculateKpiMetrics(kpi, A, B);
             double weight = kpi.getWeight() != null && kpi.getWeight() > 0 ? kpi.getWeight() : 1.0;
 
@@ -352,7 +355,7 @@ public class OrgUnitStatisticService {
 
         // Fetch kpis for the users
         List<KpiCriteria> kpis = entityManager.createQuery(
-                "SELECT DISTINCT k FROM KpiCriteria k JOIN FETCH k.submissions LEFT JOIN k.assignees a WHERE a.id IN :userIds AND k.createdAt >= :start AND k.createdAt <= :end", KpiCriteria.class)
+                "SELECT DISTINCT k FROM KpiCriteria k JOIN FETCH k.submissions LEFT JOIN k.assignees a WHERE a.id IN :userIds AND k.parent IS NULL AND k.createdAt >= :start AND k.createdAt <= :end", KpiCriteria.class)
                 .setParameter("userIds", userIds)
                 .setParameter("start", start)
                 .setParameter("end", end)
@@ -399,7 +402,7 @@ public class OrgUnitStatisticService {
         User targetUser = userRepository.findById(targetUserId).orElseThrow(() -> new RuntimeException("User not found: " + targetUserId));
 
         List<KpiCriteria> kpis = entityManager.createQuery(
-                "SELECT DISTINCT k FROM KpiCriteria k JOIN FETCH k.submissions LEFT JOIN k.assignees a WHERE a.id = :userId AND k.createdAt >= :start AND k.createdAt <= :end", KpiCriteria.class)
+                "SELECT DISTINCT k FROM KpiCriteria k JOIN FETCH k.submissions LEFT JOIN k.assignees a WHERE a.id = :userId AND k.parent IS NULL AND k.createdAt >= :start AND k.createdAt <= :end", KpiCriteria.class)
                 .setParameter("userId", targetUserId)
                 .setParameter("start", start)
                 .setParameter("end", end)
@@ -547,7 +550,8 @@ public class OrgUnitStatisticService {
         Instant start = parseDate(startDate, Instant.EPOCH);
         Instant end = parseDate(endDate, Instant.now());
 
-        StringBuilder filter = new StringBuilder("FROM KpiCriteria k LEFT JOIN k.assignees a WHERE k.orgUnit.path LIKE CONCAT(:pathPrefix, '%') AND k.createdAt >= :start AND k.createdAt <= :end ");
+        // KPI thác nước (có parent) không được tính như một KPI độc lập trong thống kê.
+        StringBuilder filter = new StringBuilder("FROM KpiCriteria k LEFT JOIN k.assignees a WHERE k.parent IS NULL AND k.orgUnit.path LIKE CONCAT(:pathPrefix, '%') AND k.createdAt >= :start AND k.createdAt <= :end ");
 
         if (ownerId != null && !ownerId.isBlank()) filter.append("AND k.createdBy.id = :ownerId ");
         if (assignedById != null && !assignedById.isBlank()) filter.append("AND k.createdBy.id = :assignerId ");
@@ -580,7 +584,7 @@ public class OrgUnitStatisticService {
             return summary;
         }
 
-        TypedQuery<KpiCriteria> criteriaQuery = entityManager.createQuery("SELECT DISTINCT k FROM KpiCriteria k JOIN FETCH k.submissions LEFT JOIN k.assignees a WHERE k.orgUnit.path LIKE CONCAT(:pathPrefix, '%') AND k.createdAt >= :start AND k.createdAt <= :end ", KpiCriteria.class)
+        TypedQuery<KpiCriteria> criteriaQuery = entityManager.createQuery("SELECT DISTINCT k FROM KpiCriteria k JOIN FETCH k.submissions LEFT JOIN k.assignees a WHERE k.parent IS NULL AND k.orgUnit.path LIKE CONCAT(:pathPrefix, '%') AND k.createdAt >= :start AND k.createdAt <= :end ", KpiCriteria.class)
                 .setParameter("pathPrefix", pathPrefix)
                 .setParameter("start", start)
                 .setParameter("end", end);
@@ -910,6 +914,8 @@ public class OrgUnitStatisticService {
 
         List<Map<String, Object>> riskList = new ArrayList<>();
         for (KpiCriteria k : kpis) {
+            // KPI thác nước được tổng hợp lên KPI cha -> không đánh giá rủi ro riêng.
+            if (k.getParent() != null) continue;
             double[] kpiMetrics = calculateKpiMetrics(k, start, end);
             double progress = kpiMetrics[0];
             Instant deadline = (k.getKpiPeriod() != null) ? k.getKpiPeriod().getEndDate() : null;

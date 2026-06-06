@@ -35,7 +35,13 @@ public class PersonalKpiAnalyticsService {
 
     private List<KpiCriteria> getMyStandaloneKpis() {
         User user = getCurrentUser();
-        return kpiCriteriaRepository.findApprovedByAssigneeIdWithoutKeyResult(user.getId());
+        return kpiCriteriaRepository.findApprovedByAssigneeIdWithoutKeyResult(user.getId())
+                .stream()
+                // KPI thác nước (có parent) không tính tiến độ/hiệu suất cho người được giao.
+                // Kết quả của KPI con đã được tự động tổng hợp lên KPI cha
+                // (xem aggregateToParentKpi trong KpiSubmissionService) nên KPI cha sẽ phản ánh phần này.
+                .filter(kpi -> kpi.getParent() == null)
+                .collect(Collectors.toList());
     }
 
     // ── Metrics calculation (identical to PersonalObjectiveAnalyticsService) ──
