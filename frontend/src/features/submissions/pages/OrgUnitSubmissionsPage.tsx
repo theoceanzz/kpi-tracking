@@ -66,15 +66,44 @@ export default function OrgUnitSubmissionsPage() {
     }
   }, [flatOrgUnits, selectedOrgUnitId, canManageOrg, user])
 
+  // Fetch all pending submissions (no period filter) to find which periods have KPIs to review
+  const { data: allPendingSubsData } = useOrgUnitSubmissions({
+    size: 1000,
+    orgUnitId: selectedOrgUnitId === 'ALL' ? undefined : selectedOrgUnitId,
+    organizationId: orgId,
+    status: 'PENDING'
+  })
+
+  // Periods that have at least one pending submission
+  const periodsWithPending = useMemo(() => {
+    const ids = new Set<string>()
+    allPendingSubsData?.content.forEach((s: any) => {
+      if (s.kpiPeriodId) ids.add(String(s.kpiPeriodId))
+    })
+    return ids
+  }, [allPendingSubsData])
+
+  const filteredPeriods = useMemo(() => {
+    if (!periodsData?.content) return []
+    if (periodsWithPending.size === 0) return periodsData.content
+    return periodsData.content.filter((p: any) => periodsWithPending.has(String(p.id)))
+  }, [periodsData, periodsWithPending])
+
   const activePeriod = useMemo(() => {
+    if (filteredPeriods.length === 0) return undefined
     const now = new Date()
-    return periodsData?.content.find((p: any) => {
+    // Prefer a period with pending submissions that is currently active
+    const active = filteredPeriods.find((p: any) => {
       if (!p.startDate || !p.endDate) return false
       const start = new Date(p.startDate)
       const end = new Date(p.endDate)
       return now >= start && now <= end
     })
-  }, [periodsData])
+    // Fallback: most recent period with pending submissions (by startDate desc)
+    return active ?? [...filteredPeriods].sort((a: any, b: any) =>
+      new Date(b.startDate ?? 0).getTime() - new Date(a.startDate ?? 0).getTime()
+    )[0]
+  }, [filteredPeriods])
 
   useEffect(() => {
     if (selectedPeriodId === 'ALL' && activePeriod) {
@@ -260,7 +289,7 @@ export default function OrgUnitSubmissionsPage() {
             <div className="flex flex-col md:flex-row items-center gap-3 w-full lg:w-auto">
               {canManageOrg && (
                 <div className="w-full md:w-56">
-                  <Select value={selectedOrgUnitId} onValueChange={val => { setSelectedOrgUnitId(val); setPage(0) }}>
+                  <Select value={selectedOrgUnitId} onValueChange={val => { setSelectedOrgUnitId(val); setSelectedPeriodId('ALL'); setPage(0) }}>
                     <SelectTrigger className="h-13 rounded-2xl border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950/50 font-bold text-sm">
                       <div className="flex items-center gap-2">
                         <Building2 size={16} className="text-slate-400" />
@@ -285,7 +314,7 @@ export default function OrgUnitSubmissionsPage() {
                     </div>
                   </SelectTrigger>
                   <SelectContent className="rounded-2xl border-slate-200 dark:border-slate-800 shadow-2xl p-2">
-                    {periodsData?.content.map((p: any) => (
+                    {filteredPeriods.map((p: any) => (
                       <SelectItem key={p.id} value={p.id} className="font-medium rounded-xl focus:bg-emerald-50">{p.name}</SelectItem>
                     ))}
                   </SelectContent>
