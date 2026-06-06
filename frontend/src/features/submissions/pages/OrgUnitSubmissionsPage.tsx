@@ -75,7 +75,7 @@ export default function OrgUnitSubmissionsPage() {
   }, [periodsData])
 
   useEffect(() => {
-    if (selectedPeriodId === 'ALL' && activePeriod?.id) {
+    if (!selectedPeriodId && activePeriod?.id) {
       setSelectedPeriodId(activePeriod.id)
     }
   }, [activePeriod, selectedPeriodId])
