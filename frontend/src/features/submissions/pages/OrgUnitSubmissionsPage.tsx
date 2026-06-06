@@ -66,20 +66,19 @@ export default function OrgUnitSubmissionsPage() {
     }
   }, [flatOrgUnits, selectedOrgUnitId, canManageOrg, user])
 
-  const filteredPeriods = useMemo(() => {
-    if (!periodsData?.content) return []
+  const activePeriod = useMemo(() => {
+    if (!periodsData?.content) return undefined
     const now = new Date()
-    return periodsData.content.filter((p: any) =>
+    return periodsData.content.find((p: any) =>
       p.startDate && p.endDate && now >= new Date(p.startDate) && now <= new Date(p.endDate)
     )
   }, [periodsData])
 
   useEffect(() => {
-    const id = filteredPeriods[0]?.id
-    if (selectedPeriodId === 'ALL' && id) {
-      setSelectedPeriodId(id)
+    if (selectedPeriodId === 'ALL' && activePeriod?.id) {
+      setSelectedPeriodId(activePeriod.id)
     }
-  }, [filteredPeriods, selectedPeriodId])
+  }, [activePeriod, selectedPeriodId])
 
   // Fetch employees
   const { data: usersData, isLoading: isLoadingUsers } = useUsers({ 
@@ -280,11 +279,10 @@ export default function OrgUnitSubmissionsPage() {
                   <SelectTrigger className="h-13 rounded-2xl border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950/50 font-bold text-sm">
                     <div className="flex items-center gap-2">
                       <Calendar size={16} className="text-slate-400" />
-                      <SelectValue placeholder="Đợt KPI" />
                     </div>
                   </SelectTrigger>
                   <SelectContent className="rounded-2xl border-slate-200 dark:border-slate-800 shadow-2xl p-2">
-                    {filteredPeriods.map((p: any) => (
+                    {periodsData?.content.map((p: any) => (
                       <SelectItem key={p.id} value={p.id} className="font-medium rounded-xl focus:bg-emerald-50">{p.name}</SelectItem>
                     ))}
                   </SelectContent>
