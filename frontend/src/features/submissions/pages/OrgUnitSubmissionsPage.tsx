@@ -279,6 +279,7 @@ export default function OrgUnitSubmissionsPage() {
                   <SelectTrigger className="h-13 rounded-2xl border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950/50 font-bold text-sm">
                     <div className="flex items-center gap-2">
                       <Calendar size={16} className="text-slate-400" />
+                      <SelectValue placeholder="" />
                     </div>
                   </SelectTrigger>
                   <SelectContent className="rounded-2xl border-slate-200 dark:border-slate-800 shadow-2xl p-2">
