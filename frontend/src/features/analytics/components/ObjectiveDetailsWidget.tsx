@@ -1,9 +1,8 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { statsApi } from '@/features/dashboard/api/statsApi'
-import { Table2, BarChart2, Loader2, LayoutList, ChevronUp, ChevronDown } from 'lucide-react'
+import { Loader2, LayoutList } from 'lucide-react'
 import ObjectiveDetailedTable from './ObjectiveDetailedTable'
-import ObjectiveDetailedChart from './ObjectiveDetailedChart'
 import ObjectiveDrawer from './ObjectiveDrawer'
 import ScopedDashboardWidget from './ScopedDashboardWidget'
 import Pagination from '@/components/common/Pagination'
@@ -37,11 +36,10 @@ function flattenOrgUnits(units: OrgUnitFilterDto[]): OrgUnitFilterDto[] {
 
 function depthPrefix(depth: number): string {
   if (depth === 0) return ''
-  return '  '.repeat(depth) + '- '
+  return '  '.repeat(depth) + '- '
 }
 
 export default function ObjectiveDetailsWidget({ dateRange, onlyApproved = false }: Props) {
-  const [viewMode, setViewMode] = useState<'TABLE' | 'CHART'>('TABLE')
   const [drawerState, setDrawerState] = useState<{
     isOpen: boolean;
     type: 'OBJECTIVE' | 'KR' | 'KPI';
@@ -120,76 +118,31 @@ export default function ObjectiveDetailsWidget({ dateRange, onlyApproved = false
     );
   }
 
-  const SortIcon = ({ field }: { field: 'progress' | 'performance' }) => {
-    if (sortBy !== field) return <ChevronDown className="w-3 h-3 opacity-40" />
-    return sortDir === 'desc'
-      ? <ChevronDown className="w-3 h-3" />
-      : <ChevronUp className="w-3 h-3" />
-  }
-
   return (
     <div className="w-full mt-10 flex flex-col gap-5">
-      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-2 mb-1">
-            <div className="p-1.5 bg-indigo-100 dark:bg-indigo-500/20 rounded-lg">
-              <LayoutList className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
-            </div>
-            <h2 className="text-xl font-bold text-slate-900 dark:text-white tracking-tight">Chi tiết Mục tiêu</h2>
+      <div>
+        <div className="flex items-center gap-2 mb-1">
+          <div className="p-1.5 bg-indigo-100 dark:bg-indigo-500/20 rounded-lg">
+            <LayoutList className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
           </div>
-          <p className="text-sm text-slate-500 ml-9">Theo dõi bảng dữ liệu phân cấp và biểu đồ dạng cột</p>
+          <h2 className="text-xl font-bold text-slate-900 dark:text-white tracking-tight">Chi tiết Mục tiêu</h2>
         </div>
-
-        <div className="flex items-center bg-slate-100 dark:bg-slate-900/60 p-1 rounded-xl border border-slate-200 dark:border-white/10 shadow-sm dark:shadow-lg">
-          <button
-            onClick={() => setViewMode('TABLE')}
-            className={`flex items-center gap-2 px-5 py-2 rounded-lg text-sm font-semibold transition-all duration-300 ${
-              viewMode === 'TABLE' ? 'bg-indigo-500 text-white shadow-md dark:shadow-[0_0_15px_rgba(99,102,241,0.4)]' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-slate-200 dark:hover:bg-white/5'
-            }`}
-          >
-            <Table2 className="w-4 h-4" /> Bảng chi tiết
-          </button>
-          <button
-            onClick={() => setViewMode('CHART')}
-            className={`flex items-center gap-2 px-5 py-2 rounded-lg text-sm font-semibold transition-all duration-300 ${
-              viewMode === 'CHART' ? 'bg-indigo-500 text-white shadow-md dark:shadow-[0_0_15px_rgba(99,102,241,0.4)]' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-slate-200 dark:hover:bg-white/5'
-            }`}
-          >
-            <BarChart2 className="w-4 h-4" /> Thống kê cột
-          </button>
-        </div>
+        <p className="text-sm text-slate-500 ml-9">Theo dõi bảng dữ liệu phân cấp mục tiêu</p>
       </div>
 
-      {viewMode === 'TABLE' && (
-        <div className="flex flex-wrap items-center gap-3">
-          {/* Sort buttons */}
-          <button
-            onClick={() => handleSortToggle('progress')}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all ${
-              sortBy === 'progress'
-                ? 'bg-indigo-500 text-white border-indigo-500 shadow-sm'
-                : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700 hover:border-indigo-300'
-            }`}
-          >
-            Tiến độ
-            <SortIcon field="progress" />
-          </button>
-          <button
-            onClick={() => handleSortToggle('performance')}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all ${
-              sortBy === 'performance'
-                ? 'bg-indigo-500 text-white border-indigo-500 shadow-sm'
-                : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700 hover:border-indigo-300'
-            }`}
-          >
-            Hiệu suất
-            <SortIcon field="performance" />
-          </button>
+      {/* Card */}
+      <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 overflow-hidden">
+        {/* Card header */}
+        <div className="p-6 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
+          <h3 className="text-sm font-black text-slate-900 dark:text-white">Bảng dữ liệu phân cấp</h3>
+          <span className="text-xs font-bold text-slate-400">{data?.totalElements ?? 0} mục tiêu</span>
+        </div>
 
-          {/* Org unit filter */}
-          <div className="min-w-[200px]">
+        {/* Filter toolbar */}
+        <div className="px-6 py-4 border-b border-slate-100 dark:border-slate-800 flex flex-wrap items-center gap-3">
+          <div className="min-w-[220px]">
             <Select value={orgUnitId || ALL_UNITS} onValueChange={handleOrgUnitChange}>
-              <SelectTrigger className="h-8 text-xs font-medium bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700">
+              <SelectTrigger className="h-9 text-xs font-semibold bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700">
                 <SelectValue placeholder="Tất cả đơn vị" />
               </SelectTrigger>
               <SelectContent>
@@ -203,30 +156,35 @@ export default function ObjectiveDetailsWidget({ dateRange, onlyApproved = false
             </Select>
           </div>
         </div>
-      )}
 
-      <div className="min-h-[500px]">
+        {/* Table */}
         {isLoading ? (
-          <div className="w-full h-[550px] flex items-center justify-center bg-white dark:bg-slate-900/20 rounded-xl border border-slate-200 dark:border-white/10 shadow-sm dark:shadow-xl">
+          <div className="w-full h-[400px] flex items-center justify-center">
             <div className="flex flex-col items-center gap-3">
               <Loader2 className="w-8 h-8 text-indigo-500 animate-spin" />
               <div className="text-sm font-medium text-slate-500">Đang tải chi tiết mục tiêu...</div>
             </div>
           </div>
-        ) : viewMode === 'TABLE' ? (
-          <div className="flex flex-col bg-white dark:bg-slate-900/20 rounded-xl border border-slate-200 dark:border-white/10 shadow-sm dark:shadow-xl overflow-hidden">
-            <ObjectiveDetailedTable data={data?.content ?? []} onRowClick={handleRowClick} />
-            <Pagination
-              currentPage={page}
-              totalPages={data?.totalPages ?? 0}
-              onPageChange={handlePageChange}
-              totalElements={data?.totalElements ?? 0}
-              size={PAGE_SIZE}
-              itemLabel="mục tiêu"
-            />
-          </div>
         ) : (
-          <ObjectiveDetailedChart data={data?.content ?? []} onBarClick={(d) => handleRowClick('OBJECTIVE', d)} />
+          <ObjectiveDetailedTable
+            data={data?.content ?? []}
+            onRowClick={handleRowClick}
+            sortBy={sortBy}
+            sortDir={sortDir}
+            onToggleSort={handleSortToggle}
+          />
+        )}
+
+        {/* Pagination */}
+        {(data?.totalElements ?? 0) > 0 && (
+          <Pagination
+            currentPage={page}
+            totalPages={data?.totalPages ?? 0}
+            onPageChange={handlePageChange}
+            totalElements={data?.totalElements ?? 0}
+            size={PAGE_SIZE}
+            itemLabel="mục tiêu"
+          />
         )}
       </div>
 
