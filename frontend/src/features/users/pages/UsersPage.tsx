@@ -109,6 +109,16 @@ export default function UsersPage() {
   const sortBy = 'fullName'
   const direction = sortOrder === 'A-Z' ? 'asc' : 'desc'
 
+  const orgUnitCodeMap = useMemo(() => {
+    const map: Record<string, string> = {}
+    allUnits.forEach(u => {
+      if (u.id && u.code) map[u.id] = u.code
+    })
+    return map
+  }, [allUnits])
+
+  const rootUnitId = useMemo(() => orgTree?.[0]?.id, [orgTree])
+
   // Fetch users with full parameters
   const { data, isLoading } = useUsers({ 
     keyword, 
@@ -325,6 +335,8 @@ export default function UsersPage() {
               onDelete={(u) => setDeleteUser(u)}
               canUpdate={canUpdate}
               canDelete={canDelete}
+              orgUnitMap={orgUnitCodeMap}
+              rootUnitId={rootUnitId}
             />
             {data && (
                <Pagination 

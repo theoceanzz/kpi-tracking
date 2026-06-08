@@ -257,7 +257,7 @@ export default function OrgUnitSubmissionsPage() {
 
             <div className="flex flex-col md:flex-row items-center gap-3 w-full lg:w-auto">
               {canManageOrg && (
-                <div className="w-full md:w-56">
+                <div className="w-full md:w-72">
                   <Select value={selectedOrgUnitId} onValueChange={val => { setSelectedOrgUnitId(val); setPage(0) }}>
                     <SelectTrigger className="h-13 rounded-2xl border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950/50 font-bold text-sm">
                       <div className="flex items-center gap-2">
@@ -274,7 +274,7 @@ export default function OrgUnitSubmissionsPage() {
                 </div>
               )}
 
-              <div className="w-full md:w-56">
+              <div className="w-full md:w-72">
                 <Select value={selectedPeriodId} onValueChange={val => { setSelectedPeriodId(val); setPage(0) }}>
                   <SelectTrigger className="h-13 rounded-2xl border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950/50 font-bold text-sm">
                     <div className="flex items-center gap-2">

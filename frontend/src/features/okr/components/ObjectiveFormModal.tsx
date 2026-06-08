@@ -1,9 +1,11 @@
+import { useState, useEffect } from 'react'
 import { useForm, Controller } from 'react-hook-form'
-import { X, Target, Loader2 } from 'lucide-react'
+import { X, Target, Loader2, ChevronDown, Check } from 'lucide-react'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { ObjectiveRequest, OkrStatus, ObjectiveResponse } from '../types'
 import { useOkrMutations } from '../hooks/useOkr'
-import { useEffect } from 'react'
 import { format } from 'date-fns'
+import { cn } from '@/lib/utils'
 import {
   Select,
   SelectContent,
@@ -23,11 +25,14 @@ interface ObjectiveFormModalProps {
 
 export default function ObjectiveFormModal({ isOpen, onClose, organizationId, objective }: ObjectiveFormModalProps) {
   const today = format(new Date(), 'yyyy-MM-dd')
-  const { register, handleSubmit, reset, control, watch, formState: { errors } } = useForm<ObjectiveRequest>({
+  const [isBatchCreating, setIsBatchCreating] = useState(false)
+  
+  const { register, handleSubmit, reset, control, watch, setValue, formState: { errors } } = useForm<ObjectiveRequest & { orgUnitIds?: string[] }>({
     defaultValues: {
       startDate: today,
       endDate: today,
-      status: OkrStatus.ACTIVE
+      status: OkrStatus.ACTIVE,
+      orgUnitIds: []
     }
   })
 
@@ -57,7 +62,8 @@ export default function ObjectiveFormModal({ isOpen, onClose, organizationId, ob
         startDate: objective.startDate ? objective.startDate.split('T')[0] : '',
         endDate: objective.endDate ? objective.endDate.split('T')[0] : '',
         status: objective.status,
-        orgUnitId: objective.orgUnitId
+        orgUnitId: objective.orgUnitId,
+        orgUnitIds: objective.orgUnitId ? [objective.orgUnitId] : []
       })
     } else {
       reset({
@@ -67,26 +73,72 @@ export default function ObjectiveFormModal({ isOpen, onClose, organizationId, ob
         startDate: today,
         endDate: today,
         status: OkrStatus.ACTIVE,
-        orgUnitId: allOrgUnits[0]?.id
+        orgUnitId: undefined,
+        orgUnitIds: []
       })
     }
   }, [objective, reset, isOpen, allOrgUnits[0]?.id])
 
-  const onSubmit = (data: ObjectiveRequest) => {
+  const selectedOrgUnitIds = watch('orgUnitIds') || []
+
+  const toggleOrgUnit = (unitId: string) => {
+    const isRoot = allOrgUnits[0]?.id === unitId
+    let nextIds: string[] = []
+
+    if (isRoot) {
+      if (selectedOrgUnitIds.includes(unitId)) {
+        nextIds = []
+      } else {
+        nextIds = allOrgUnits.map(u => u.id)
+      }
+    } else {
+      if (selectedOrgUnitIds.includes(unitId)) {
+        nextIds = selectedOrgUnitIds.filter(id => id !== unitId && id !== allOrgUnits[0]?.id)
+      } else {
+        const tempIds = [...selectedOrgUnitIds, unitId]
+        const rootId = allOrgUnits[0]?.id
+        const allOtherIds = allOrgUnits.filter(u => u.id !== rootId).map(u => u.id)
+        const allOthersSelected = allOtherIds.every(id => tempIds.includes(id))
+        
+        if (allOthersSelected && rootId) {
+          nextIds = allOrgUnits.map(u => u.id)
+        } else {
+          nextIds = tempIds
+        }
+      }
+    }
+    setValue('orgUnitIds', nextIds)
+  }
+
+  const onSubmit = async (data: any) => {
     if (objective) {
       updateObjective.mutate({ objectiveId: objective.id, data }, {
         onSuccess: () => onClose()
       })
     } else {
-      createObjective.mutate({ organizationId, data }, {
-        onSuccess: () => onClose()
-      })
+      const ids = data.orgUnitIds && data.orgUnitIds.length > 0 ? data.orgUnitIds : [data.orgUnitId]
+      setIsBatchCreating(true)
+      try {
+        for (const id of ids) {
+          const { orgUnitIds, ...rest } = data
+          await createObjective.mutateAsync({ 
+            organizationId, 
+            data: { ...rest, orgUnitId: id } 
+          })
+        }
+        onClose()
+        reset()
+      } catch (err) {
+        console.error('Batch creation failed', err)
+      } finally {
+        setIsBatchCreating(false)
+      }
     }
   }
 
   if (!isOpen) return null
 
-  const isPending = createObjective.isPending || updateObjective.isPending
+  const isPending = createObjective.isPending || updateObjective.isPending || isBatchCreating
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-300">
@@ -107,7 +159,7 @@ export default function ObjectiveFormModal({ isOpen, onClose, organizationId, ob
         </div>
 
         <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col max-h-[85vh]">
-          <div className="p-6 space-y-4 overflow-y-auto custom-scrollbar">
+          <div className="p-6 space-y-4 overflow-y-auto custom-scrollbar relative z-10">
             <div className="grid grid-cols-3 gap-4">
               <div className="col-span-2 space-y-1.5">
                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Tên mục tiêu</label>
@@ -180,24 +232,48 @@ export default function ObjectiveFormModal({ isOpen, onClose, organizationId, ob
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1.5">
                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Phòng ban</label>
-                <Controller
-                  name="orgUnitId"
-                  control={control}
-                  render={({ field }) => (
-                    <Select value={field.value} onValueChange={field.onChange}>
-                      <SelectTrigger className="w-full h-10 rounded-xl bg-slate-50 dark:bg-slate-800 border-slate-100 dark:border-slate-700 text-sm font-bold focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 outline-none transition-all">
-                        <SelectValue placeholder="Chọn đơn vị" />
-                      </SelectTrigger>
-                      <SelectContent className="rounded-xl border-slate-200 dark:border-slate-800 max-h-[200px]">
-                        {allOrgUnits.map((unit) => (
-                          <SelectItem key={unit.id} value={unit.id} className="text-sm font-bold">
-                            {Array(unit.level).fill('\u00A0\u00A0').join('')} {unit.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  )}
-                />
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <button
+                      type="button"
+                      className="w-full h-10 px-4 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 text-sm font-bold flex items-center justify-between focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 outline-none transition-all"
+                    >
+                      <span className="truncate">
+                        {selectedOrgUnitIds.length === 0 ? 'Chọn đơn vị' : 
+                         selectedOrgUnitIds.length === 1 ? allOrgUnits.find(u => u.id === selectedOrgUnitIds[0])?.name :
+                         `Đã chọn ${selectedOrgUnitIds.length} đơn vị`}
+                      </span>
+                      <ChevronDown size={14} className="opacity-50" />
+                    </button>
+                  </PopoverTrigger>
+                  <PopoverContent className="p-2 w-[var(--radix-popover-trigger-width)] max-h-[300px] overflow-y-auto custom-scrollbar" align="start">
+                    <div className="space-y-1">
+                      {allOrgUnits.map((unit) => {
+                        const isSelected = selectedOrgUnitIds.includes(unit.id)
+                        return (
+                          <div 
+                            key={unit.id}
+                            onClick={() => toggleOrgUnit(unit.id)}
+                            className={cn(
+                              "flex items-center gap-3 px-3 py-2 rounded-xl cursor-pointer transition-colors group",
+                              isSelected ? "bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400" : "hover:bg-slate-50 dark:hover:bg-slate-800"
+                            )}
+                          >
+                            <div className={cn(
+                              "w-4 h-4 rounded border flex items-center justify-center transition-all",
+                              isSelected ? "bg-indigo-600 border-indigo-600 text-white" : "border-slate-200 dark:border-slate-700 group-hover:border-indigo-400"
+                            )}>
+                              {isSelected && <Check size={10} strokeWidth={4} />}
+                            </div>
+                            <span className="text-xs font-bold truncate" style={{ marginLeft: `${unit.level * 12}px` }}>
+                              {unit.name}
+                            </span>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </PopoverContent>
+                </Popover>
               </div>
 
               <div className="space-y-1.5">
