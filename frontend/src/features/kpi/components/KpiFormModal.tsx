@@ -73,12 +73,18 @@ export default function KpiFormModal({ open, onClose, editKpi, parentKpi }: KpiF
     resolver: zodResolver(kpiSchema),
     defaultValues: { 
       name: '', 
+      description: '',
+      weight: undefined,
+      targetValue: undefined,
+      minimumValue: undefined,
+      unit: '',
       frequency: 'MONTHLY', 
       assignedToIds: [], 
       kpiPeriodId: '', 
       keyResultId: null, 
       parentId: null,
-      orgUnitIds: [] 
+      orgUnitIds: [],
+      orgUnitId: '',
     },
   })
 
@@ -91,6 +97,7 @@ export default function KpiFormModal({ open, onClose, editKpi, parentKpi }: KpiF
     if (!open) {
       setUserSearch('')
       setSelectedRole('ALL')
+      setAiSuggestions([])
       return
     }
 
@@ -114,11 +121,15 @@ export default function KpiFormModal({ open, onClose, editKpi, parentKpi }: KpiF
       const defaultOrgUnitId = user?.memberships?.[0]?.orgUnitId || ''
       reset({ 
         name: parentKpi ? `[${parentKpi.name}] ` : '', 
+        description: '',
+        weight: undefined,
+        targetValue: undefined,
+        minimumValue: undefined,
+        unit: parentKpi?.unit ?? '',
         frequency: 'MONTHLY', 
         kpiPeriodId: parentKpi?.kpiPeriodId ?? '',
         keyResultId: null,
         parentId: parentKpi?.id ?? null,
-        unit: parentKpi?.unit ?? '',
         orgUnitIds: canAssignRoles ? [] : (defaultOrgUnitId ? [defaultOrgUnitId] : []),
         orgUnitId: defaultOrgUnitId,
         assignedToIds: isStaff ? ([user?.id].filter(Boolean) as string[]) : []
@@ -166,6 +177,7 @@ export default function KpiFormModal({ open, onClose, editKpi, parentKpi }: KpiF
       qc.invalidateQueries({ queryKey: ['kpi-criteria'] })
       toast.success('Tạo chỉ tiêu thành công')
       reset()
+      setAiSuggestions([])
       onClose() 
     },
     onError: (err: any) => {

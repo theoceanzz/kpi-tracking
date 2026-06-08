@@ -208,7 +208,7 @@ export default function KpiApprovalPage() {
               />
             </div>
             
-            <div className="w-full md:w-72">
+            <div className="w-full md:w-80">
               <Select value={selectedOrgUnitId} onValueChange={(v) => { setSelectedOrgUnitId(v); setPage(0) }}>
                 <SelectTrigger className="h-12 rounded-2xl border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 font-bold text-sm">
                   <div className="flex items-center gap-2">
@@ -224,7 +224,7 @@ export default function KpiApprovalPage() {
               </Select>
             </div>
 
-            <div className="w-full md:w-64">
+            <div className="w-full md:w-72">
               <Select value={selectedPeriodId} onValueChange={(v) => { setSelectedPeriodId(v); setPage(0) }}>
                 <SelectTrigger className="h-12 rounded-2xl border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 font-bold text-sm">
                   <div className="flex items-center gap-2">

@@ -66,7 +66,7 @@ export default function KpiCriteriaPage() {
   const [activeTab, setActiveTab] = useState<'ALL' | 'DRAFT' | 'PENDING_APPROVAL' | 'APPROVED' | 'REJECTED'>('ALL')
   const [search, setSearch] = useState('')
   const [showImportGuide, setShowImportGuide] = useState(false)
-  const [selectedPeriodId, setSelectedPeriodId] = useState<string>('ALL')
+  const [selectedPeriodId, setSelectedPeriodId] = useState<string>('')
   const [selectedOrgUnitId, setSelectedOrgUnitId] = useState<string>('')
   const [viewMode, setViewMode] = useState<'TABLE' | 'CARD'>('TABLE')
   const [page, setPage] = useState(0)
@@ -113,6 +113,11 @@ export default function KpiCriteriaPage() {
   }
   const flatOrgUnits = useMemo(() => orgUnitTreeData ? flattenTree(orgUnitTreeData) : [], [orgUnitTreeData])
   
+  const isRootUnit = useMemo(() => {
+    const unit = flatOrgUnits.find(u => u.id === selectedOrgUnitId)
+    return unit ? unit.parentId === null : false
+  }, [flatOrgUnits, selectedOrgUnitId])
+  
   useEffect(() => {
     if (isStaff && user?.id && selectedAssigneeId === 'ALL') {
       setSelectedAssigneeId(user.id)
@@ -135,6 +140,23 @@ export default function KpiCriteriaPage() {
       setSelectedOrgUnitId(user?.memberships?.[0]?.orgUnitId ?? '')
     }
   }, [flatOrgUnits, user, selectedOrgUnitId])
+  
+  useEffect(() => {
+    if (periodsData?.content && !selectedPeriodId) {
+      const now = new Date()
+      const currentPeriod = periodsData.content.find(p => {
+        const start = p.startDate ? new Date(p.startDate) : null
+        const end = p.endDate ? new Date(p.endDate) : null
+        return start && end && now >= start && now <= end
+      })
+      
+      if (currentPeriod) {
+        setSelectedPeriodId(currentPeriod.id)
+      } else if (periodsData?.content && periodsData.content.length > 0) {
+        setSelectedPeriodId(periodsData.content[0]?.id || '')
+      }
+    }
+  }, [periodsData, selectedPeriodId])
 
   const { data, isLoading } = useKpiCriteria(
     { 
@@ -263,7 +285,7 @@ export default function KpiCriteriaPage() {
         </div>
 
         {/* Global Warning for Weight */}
-        {selectedPeriodId !== 'ALL' && allKpis.length > 0 && displayTotalWeight !== 100 && (
+        {selectedPeriodId !== 'ALL' && !isRootUnit && allKpis.length > 0 && displayTotalWeight !== 100 && (
           <div className="flex items-center gap-4 p-5 rounded-3xl bg-rose-50/80 dark:bg-rose-900/10 backdrop-blur-md border border-rose-100 dark:border-rose-900/30 text-rose-700 dark:text-rose-400 shadow-lg animate-in fade-in slide-in-from-top-4 duration-500">
             <div className="w-12 h-12 rounded-2xl bg-rose-100 dark:bg-rose-900/40 flex items-center justify-center shrink-0 shadow-sm shadow-rose-200 dark:shadow-none">
               <AlertCircle size={24} className="animate-pulse" />
@@ -339,12 +361,11 @@ export default function KpiCriteriaPage() {
                 {/* Group: Organization Context */}
                 <div className="flex flex-wrap items-center gap-2 p-1.5 bg-slate-100/50 dark:bg-slate-800/50 rounded-[22px] border border-slate-200/50 dark:border-slate-700/50">
                   <Select value={selectedPeriodId} onValueChange={val => { setSelectedPeriodId(val); setPage(0) }}>
-                    <SelectTrigger className="w-full sm:w-44 h-10 rounded-[16px] border-none bg-white dark:bg-slate-900 shadow-sm font-bold text-xs ring-offset-transparent focus:ring-2 focus:ring-indigo-500/20">
+                    <SelectTrigger className="w-full sm:w-64 h-10 rounded-[16px] border-none bg-white dark:bg-slate-900 shadow-sm font-bold text-xs ring-offset-transparent focus:ring-2 focus:ring-indigo-500/20">
                       <Calendar size={14} className="text-indigo-500 mr-2" />
                       <SelectValue placeholder="Đợt KPI..." />
                     </SelectTrigger>
                     <SelectContent className="rounded-2xl border-slate-200 dark:border-slate-800 shadow-2xl p-2">
-                      <SelectItem value="ALL" className="rounded-xl focus:bg-indigo-50 dark:focus:bg-indigo-900/30 text-xs font-black uppercase">Tất cả các đợt</SelectItem>
                       {periodsData?.content.map(p => (
                         <SelectItem key={p.id} value={p.id} className="rounded-xl focus:bg-indigo-50 dark:focus:bg-indigo-900/30 text-sm font-bold">{p.name}</SelectItem>
                       ))}
@@ -353,7 +374,7 @@ export default function KpiCriteriaPage() {
 
                   {canManageOrg && flatOrgUnits.length > 1 && (
                     <Select value={selectedOrgUnitId} onValueChange={val => { setSelectedOrgUnitId(val); setSelectedAssigneeId('ALL'); setPage(0) }}>
-                      <SelectTrigger className="w-full sm:w-56 h-10 rounded-[16px] border-none bg-white dark:bg-slate-900 shadow-sm font-bold text-xs ring-offset-transparent focus:ring-2 focus:ring-indigo-500/20">
+                      <SelectTrigger className="w-full sm:w-72 h-10 rounded-[16px] border-none bg-white dark:bg-slate-900 shadow-sm font-bold text-xs ring-offset-transparent focus:ring-2 focus:ring-indigo-500/20">
                         <Filter size={14} className="text-emerald-500 mr-2" />
                         <SelectValue placeholder="Phòng ban..." />
                       </SelectTrigger>
@@ -365,7 +386,7 @@ export default function KpiCriteriaPage() {
                     </Select>
                   )}
 
-                  <div className="w-full sm:w-52">
+                  <div className="w-full sm:w-64">
                     <Select 
                       value={selectedAssigneeId} 
                       onValueChange={val => { setSelectedAssigneeId(val); setPage(0) }}
