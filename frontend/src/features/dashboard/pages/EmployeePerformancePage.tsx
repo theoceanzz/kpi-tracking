@@ -1,6 +1,5 @@
 import { useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
-import LoadingSkeleton from '@/components/common/LoadingSkeleton'
 import StatusBadge from '@/components/common/StatusBadge'
 import { useEmployeeProgress } from '../hooks/useEmployeeProgress'
 import { useUsers } from '@/features/users/hooks/useUsers'
@@ -26,7 +25,38 @@ export default function EmployeePerformancePage() {
   const { data: usersData } = useUsers({ page: 0, size: 500 })
   const employee = usersData?.content.find(u => u.id === userId)
 
-  if (progressLoading) return <div className="p-8"><LoadingSkeleton rows={10} /></div>
+  if (progressLoading) return (
+    <div className="max-w-[1400px] mx-auto p-4 md:p-8 space-y-10 animate-pulse">
+      {/* Header card skeleton */}
+      <div className="h-36 bg-[var(--color-muted)] rounded-[32px]" />
+      {/* 3 metric cards */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        {[1, 2, 3].map(i => <div key={i} className="h-40 bg-[var(--color-muted)] rounded-[32px]" />)}
+      </div>
+      {/* Task list card */}
+      <div className="rounded-[32px] overflow-hidden border border-slate-200 dark:border-slate-800">
+        <div className="h-20 bg-[var(--color-muted)]" />
+        <div className="divide-y divide-slate-100 dark:divide-slate-800 bg-white dark:bg-slate-900">
+          {[1, 2, 3, 4, 5].map(i => (
+            <div key={i} className="p-8 flex items-center justify-between gap-8">
+              <div className="flex items-center gap-6 flex-1 min-w-0">
+                <div className="w-16 h-16 rounded-[24px] bg-[var(--color-muted)] shrink-0" />
+                <div className="flex-1 space-y-2">
+                  <div className="h-5 w-2/3 bg-[var(--color-muted)] rounded-lg" />
+                  <div className="flex gap-6 mt-3">
+                    <div className="h-3 w-20 bg-[var(--color-muted)] rounded" />
+                    <div className="h-3 w-24 bg-[var(--color-muted)] rounded" />
+                    <div className="h-3 flex-1 max-w-[200px] bg-[var(--color-muted)] rounded" />
+                  </div>
+                </div>
+              </div>
+              <div className="h-10 w-28 bg-[var(--color-muted)] rounded-2xl shrink-0" />
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  )
 
   const tasksData = progress?.tasks
   const tasks = tasksData?.content ?? []
@@ -64,7 +94,7 @@ export default function EmployeePerformancePage() {
   }
 
   return (
-    <div className="max-w-[1400px] mx-auto p-4 md:p-8 space-y-10 animate-in fade-in duration-700">
+    <div className="max-w-[1400px] mx-auto p-4 md:p-8 space-y-10">
       
       {/* Premium Header */}
       <div className="relative group">
@@ -169,16 +199,15 @@ export default function EmployeePerformancePage() {
               <p className="font-bold text-slate-500">Nhân viên này chưa được giao KPI nào</p>
             </div>
           ) : (
-            tasks.map((task: KpiTask, idx: number) => {
+            tasks.map((task: KpiTask) => {
               const progressPercent = task.expectedSubmissions > 0 
                 ? Math.min(Math.round((task.submissionCount / task.expectedSubmissions) * 100), 100) 
                 : 0;
 
               return (
-                <div 
-                  key={task.id} 
-                  className="p-8 flex flex-col xl:flex-row xl:items-center justify-between gap-8 hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-all group animate-in slide-in-from-bottom-2 duration-500"
-                  style={{ animationDelay: `${idx * 50}ms` }}
+                <div
+                  key={task.id}
+                  className="p-8 flex flex-col xl:flex-row xl:items-center justify-between gap-8 hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-all group"
                 >
                   <div className="flex items-center gap-6 flex-1 min-w-0">
                     <div className={cn(

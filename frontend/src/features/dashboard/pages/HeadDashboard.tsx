@@ -129,7 +129,7 @@ export default function HeadDashboard() {
 
   return (
     <div className="min-h-screen bg-[#f8fafc] dark:bg-[#020617] p-4 md:p-6 lg:p-8">
-      <div className="max-w-[1400px] mx-auto space-y-6 animate-in fade-in duration-500">
+      <div className="max-w-[1400px] mx-auto space-y-6">
         <PageTour pageKey="dashboard-head" steps={headDashboardSteps} />
 
         {/* ===== COMPACT HEADER ===== */}
