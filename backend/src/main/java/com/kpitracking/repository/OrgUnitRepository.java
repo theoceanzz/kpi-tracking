@@ -42,8 +42,8 @@ public interface OrgUnitRepository extends JpaRepository<OrgUnit, UUID> {
 
     List<OrgUnit> findByParentId(UUID parentId);
 
-    @Query("SELECT o FROM OrgUnit o WHERE o.path LIKE CONCAT(:pathPrefix, '%') AND o.deletedAt IS NULL")
-    List<OrgUnit> findSubtree(@Param("pathPrefix") String pathPrefix);
+    @Query("SELECT o FROM OrgUnit o WHERE o.orgHierarchyLevel.organization.id = :orgId AND o.path LIKE CONCAT(:pathPrefix, '%') AND o.deletedAt IS NULL")
+    List<OrgUnit> findSubtree(@Param("pathPrefix") String pathPrefix, @Param("orgId") UUID orgId);
 
     @Query("SELECT COUNT(ou) FROM OrgUnit ou WHERE ou.path LIKE CONCAT(:pathPrefix, '%') AND ou.deletedAt IS NULL AND ou.path != :pathPrefix")
     long countChildrenInSubtree(@Param("pathPrefix") String pathPrefix);
@@ -79,11 +79,11 @@ public interface OrgUnitRepository extends JpaRepository<OrgUnit, UUID> {
     @Deprecated
     @Query("SELECT COUNT(o) FROM OrgUnit o WHERE o.deletedAt IS NULL")
     long countAllActive();
-    @Query("SELECT o FROM OrgUnit o WHERE o.deletedAt IS NULL AND EXISTS (SELECT 1 FROM OrgUnit p WHERE (o.path LIKE CONCAT(p.path, '%')) AND p.id IN :parentIds)")
-    List<OrgUnit> findAllInSubtrees(@Param("parentIds") java.util.Collection<UUID> parentIds);
+    @Query("SELECT o FROM OrgUnit o WHERE o.orgHierarchyLevel.organization.id = :orgId AND o.deletedAt IS NULL AND EXISTS (SELECT 1 FROM OrgUnit p WHERE (o.path LIKE CONCAT(p.path, '%')) AND p.id IN :parentIds)")
+    List<OrgUnit> findAllInSubtrees(@Param("parentIds") java.util.Collection<UUID> parentIds, @Param("orgId") UUID orgId);
 
-    @Query("SELECT o FROM OrgUnit o WHERE o.deletedAt IS NULL AND EXISTS (SELECT 1 FROM OrgUnit p WHERE (o.path LIKE CONCAT(p.path, '%')) AND p.id IN :parentIds)")
-    List<OrgUnit> findAllInSubtreesForExecutive(@Param("parentIds") java.util.Collection<UUID> parentIds);
+    @Query("SELECT o FROM OrgUnit o WHERE o.orgHierarchyLevel.organization.id = :orgId AND o.deletedAt IS NULL AND EXISTS (SELECT 1 FROM OrgUnit p WHERE (o.path LIKE CONCAT(p.path, '%')) AND p.id IN :parentIds)")
+    List<OrgUnit> findAllInSubtreesForExecutive(@Param("parentIds") java.util.Collection<UUID> parentIds, @Param("orgId") UUID orgId);
 
     @Query("SELECT COUNT(o) > 0 FROM OrgUnit o WHERE TRIM(LOWER(o.code)) = TRIM(LOWER(:code)) AND o.orgHierarchyLevel.organization.id = :orgId AND o.deletedAt IS NULL")
     boolean existsByCodeSmart(@Param("code") String code, @Param("orgId") UUID orgId);

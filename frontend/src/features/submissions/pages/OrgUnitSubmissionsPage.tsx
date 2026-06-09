@@ -67,17 +67,15 @@ export default function OrgUnitSubmissionsPage() {
   }, [flatOrgUnits, selectedOrgUnitId, canManageOrg, user])
 
   const activePeriod = useMemo(() => {
+    if (!periodsData?.content) return undefined
     const now = new Date()
-    return periodsData?.content.find((p: any) => {
-      if (!p.startDate || !p.endDate) return false
-      const start = new Date(p.startDate)
-      const end = new Date(p.endDate)
-      return now >= start && now <= end
-    })
+    return periodsData.content.find((p: any) =>
+      p.startDate && p.endDate && now >= new Date(p.startDate) && now <= new Date(p.endDate)
+    )
   }, [periodsData])
 
   useEffect(() => {
-    if (selectedPeriodId === 'ALL' && activePeriod) {
+    if (!selectedPeriodId && activePeriod?.id) {
       setSelectedPeriodId(activePeriod.id)
     }
   }, [activePeriod, selectedPeriodId])
@@ -259,7 +257,7 @@ export default function OrgUnitSubmissionsPage() {
 
             <div className="flex flex-col md:flex-row items-center gap-3 w-full lg:w-auto">
               {canManageOrg && (
-                <div className="w-full md:w-56">
+                <div className="w-full md:w-72">
                   <Select value={selectedOrgUnitId} onValueChange={val => { setSelectedOrgUnitId(val); setPage(0) }}>
                     <SelectTrigger className="h-13 rounded-2xl border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950/50 font-bold text-sm">
                       <div className="flex items-center gap-2">
@@ -276,12 +274,12 @@ export default function OrgUnitSubmissionsPage() {
                 </div>
               )}
 
-              <div className="w-full md:w-56">
+              <div className="w-full md:w-72">
                 <Select value={selectedPeriodId} onValueChange={val => { setSelectedPeriodId(val); setPage(0) }}>
                   <SelectTrigger className="h-13 rounded-2xl border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950/50 font-bold text-sm">
                     <div className="flex items-center gap-2">
                       <Calendar size={16} className="text-slate-400" />
-                      <SelectValue placeholder="Đợt KPI" />
+                      <SelectValue placeholder="" />
                     </div>
                   </SelectTrigger>
                   <SelectContent className="rounded-2xl border-slate-200 dark:border-slate-800 shadow-2xl p-2">

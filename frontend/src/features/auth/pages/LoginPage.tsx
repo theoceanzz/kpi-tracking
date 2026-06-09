@@ -4,7 +4,8 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { loginSchema, type LoginFormData } from '../schemas/authSchema'
 import { useLogin } from '../hooks/useLogin'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
-import { Loader2, Mail, Lock, Eye, EyeOff } from 'lucide-react'
+import { Loader2, Mail, Lock, Eye, EyeOff, Crown, GraduationCap, PlayCircle } from 'lucide-react'
+import { cn } from '@/lib/utils'
 import { authApi } from '../api/authApi'
 import { toast } from 'sonner'
 import { useEffect } from 'react'
@@ -85,6 +86,56 @@ export default function LoginPage() {
       </div>
 
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+        {/* Quick Demo Access - Top Placement */}
+        <div className="bg-indigo-50/30 dark:bg-indigo-500/5 border border-indigo-100/50 dark:border-indigo-500/20 rounded-[20px] p-4 mb-8 animate-in fade-in slide-in-from-top-4 duration-1000 delay-300">
+           <div className="flex items-center gap-2 mb-3 text-[10px] font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-[0.2em]">
+              <div className="w-4 h-4 rounded-full bg-indigo-100 dark:bg-indigo-900/50 flex items-center justify-center">
+                 <PlayCircle size={10} />
+              </div>
+              Truy cập nhanh Demo
+           </div>
+           
+           <div className="grid grid-cols-2 gap-3">
+              {DEMO_ACCOUNTS.map((account, idx) => {
+                const Icon = account.icon
+                return (
+                  <button
+                    key={idx}
+                    type="button"
+                    onClick={() => {
+                      setValue('email', account.email)
+                      setValue('password', account.password)
+                      toast.success('Đã điền tài khoản demo!', { id: 'demo-fill' })
+                    }}
+                    className={cn(
+                      "group relative flex flex-col items-center justify-center gap-2 p-3 rounded-xl border bg-white dark:bg-slate-900/50 transition-all duration-300",
+                      "hover:border-indigo-400 dark:hover:border-indigo-500 hover:shadow-lg hover:shadow-indigo-500/10 hover:-translate-y-1 active:scale-95",
+                      "border-slate-100 dark:border-slate-800"
+                    )}
+                  >
+                    <div className={cn(
+                      "w-10 h-10 rounded-full flex items-center justify-center transition-transform duration-500 group-hover:scale-110 group-hover:rotate-6",
+                      idx === 0 ? "bg-indigo-50 text-indigo-600" : "bg-emerald-50 text-emerald-600"
+                    )}>
+                      <Icon size={18} />
+                    </div>
+                    <div className="text-center">
+                       <p className={cn(
+                         "text-[11px] font-black uppercase tracking-tight",
+                         idx === 0 ? "text-indigo-600" : "text-emerald-600"
+                       )}>
+                          {account.role}
+                       </p>
+                       <p className="text-[9px] text-slate-400 font-bold">
+                          {account.org}
+                       </p>
+                    </div>
+                  </button>
+                )
+              })}
+           </div>
+        </div>
+
         {/* Email Field */}
         <div className="space-y-2">
           <label className="text-sm font-bold text-[var(--color-foreground)]">Địa chỉ Email</label>
@@ -173,6 +224,24 @@ export default function LoginPage() {
           </Link>
         </p>
       </div>
+
     </div>
   )
 }
+
+const DEMO_ACCOUNTS = [
+  {
+    email: 'director@demo.com',
+    password: 'Demo123@',
+    role: 'Giám Đốc',
+    org: 'Công ty',
+    icon: Crown,
+  },
+  {
+    email: 'truong.khoa.cntt@demo.edu.vn',
+    password: 'Demo123@',
+    role: 'Trưởng Khoa',
+    org: 'Đại học',
+    icon: GraduationCap,
+  },
+]

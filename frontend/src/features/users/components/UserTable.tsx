@@ -9,6 +9,7 @@ import { getInitials, getHighestRole, cn, formatPhoneNumber } from '@/lib/utils'
 interface UserTableProps {
   users: User[]
   orgUnitMap?: Record<string, string>
+  rootUnitId?: string
   onRowClick?: (user: User) => void
   onDelete?: (user: User) => void
   canUpdate?: boolean
@@ -40,7 +41,7 @@ function getRoleStyle(roleName: string) {
 }
 
 
-export default function UserTable({ users, onRowClick, onDelete, canUpdate, canDelete }: UserTableProps) {
+export default function UserTable({ users, orgUnitMap, rootUnitId, onRowClick, onDelete, canUpdate, canDelete }: UserTableProps) {
   const [openActionId, setOpenActionId] = useState<string | null>(null)
   
   // Close popover when clicking outside
@@ -68,13 +69,14 @@ export default function UserTable({ users, onRowClick, onDelete, canUpdate, canD
       <table className="w-full min-w-[1000px] text-left border-collapse">
         <thead>
           <tr className="border-b border-slate-200 dark:border-slate-800">
-            <th className="py-4 px-4 text-xs font-black uppercase tracking-widest text-[var(--color-muted-foreground)] whitespace-nowrap">Thông tin</th>
-            <th className="py-4 px-4 text-xs font-black uppercase tracking-widest text-[var(--color-muted-foreground)] whitespace-nowrap">Mã NV</th>
-            <th className="py-4 px-4 text-xs font-black uppercase tracking-widest text-[var(--color-muted-foreground)] whitespace-nowrap">Vai trò</th>
-            <th className="py-4 px-4 text-xs font-black uppercase tracking-widest text-[var(--color-muted-foreground)] hidden md:table-cell whitespace-nowrap">Đơn vị</th>
-            <th className="py-4 px-4 text-xs font-black uppercase tracking-widest text-[var(--color-muted-foreground)] hidden sm:table-cell whitespace-nowrap">Liên lạc</th>
-            <th className="py-4 px-4 text-xs font-black uppercase tracking-widest text-[var(--color-muted-foreground)] whitespace-nowrap">Trạng thái</th>
-            {hasAnyAction && <th className="py-4 px-4 text-xs font-black uppercase tracking-widest text-right text-[var(--color-muted-foreground)] whitespace-nowrap">Công cụ</th>}
+            <th className="py-4 px-2.5 text-xs font-black uppercase tracking-widest text-[var(--color-muted-foreground)] whitespace-nowrap">Thông tin</th>
+            <th className="py-4 px-2.5 text-xs font-black uppercase tracking-widest text-[var(--color-muted-foreground)] whitespace-nowrap">Mã NV</th>
+            <th className="py-4 px-2.5 text-xs font-black uppercase tracking-widest text-[var(--color-muted-foreground)] whitespace-nowrap">Mã phòng ban</th>
+            <th className="py-4 px-2.5 text-xs font-black uppercase tracking-widest text-[var(--color-muted-foreground)] whitespace-nowrap">Vai trò</th>
+            <th className="py-4 px-2.5 text-xs font-black uppercase tracking-widest text-[var(--color-muted-foreground)] hidden md:table-cell whitespace-nowrap">Đơn vị</th>
+            <th className="py-4 px-2.5 text-xs font-black uppercase tracking-widest text-[var(--color-muted-foreground)] hidden sm:table-cell whitespace-nowrap">Liên lạc</th>
+            <th className="py-4 px-2.5 text-xs font-black uppercase tracking-widest text-[var(--color-muted-foreground)] whitespace-nowrap">Trạng thái</th>
+            {hasAnyAction && <th className="py-4 px-2.5 text-xs font-black uppercase tracking-widest text-right text-[var(--color-muted-foreground)] whitespace-nowrap">Công cụ</th>}
           </tr>
         </thead>
         <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60">
@@ -92,13 +94,13 @@ export default function UserTable({ users, onRowClick, onDelete, canUpdate, canD
                  onClick={() => setOpenActionId(null)}
               >
                 {/* 1. Identity Col */}
-                <td className="py-4 px-4">
-                  <div className="flex items-center gap-4">
-                     <div className={`w-10 h-10 rounded-[12px] flex items-center justify-center font-bold text-sm shrink-0 border ${roleConf.color.split(' ').slice(0, 3).join(' ')}`}>
+                <td className="py-4 px-2.5">
+                  <div className="flex items-center gap-2.5">
+                     <div className={`w-9 h-9 rounded-[10px] flex items-center justify-center font-bold text-xs shrink-0 border ${roleConf.color.split(' ').slice(0, 3).join(' ')}`}>
                         {getInitials(u.fullName)}
                      </div>
                      <div className="min-w-0">
-                        <p className="font-bold text-sm text-slate-900 dark:text-slate-100 truncate flex items-center gap-2">
+                        <p className="font-bold text-[13px] text-slate-900 dark:text-slate-100 truncate flex items-center gap-1.5">
                            {u.fullName}
                         </p>
                         <p className="text-xs text-slate-500 font-medium truncate flex items-center gap-1 mt-1">
@@ -108,22 +110,37 @@ export default function UserTable({ users, onRowClick, onDelete, canUpdate, canD
                   </div>
                 </td>
 
-                {/* 1.5. Employee Code Col */}
-                <td className="py-4 px-4">
+                <td className="py-4 px-2.5">
                    <span className="text-sm font-black text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded-lg">
                       {u.employeeCode || '---'}
                    </span>
                 </td>
 
+                {/* 1.7. Dept Code Col */}
+                <td className="py-4 px-2.5">
+                  {(() => {
+                    const nonRootMembership = u.memberships?.find(m => m.orgUnitId !== rootUnitId)
+                    const deptCode = nonRootMembership ? orgUnitMap?.[nonRootMembership.orgUnitId] : null
+                    
+                    if (!deptCode) return <span className="text-xs text-slate-400 italic">---</span>
+                    
+                    return (
+                      <span className="text-sm font-black text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20 px-2 py-1 rounded-lg border border-emerald-100 dark:border-emerald-800">
+                        {deptCode}
+                      </span>
+                    )
+                  })()}
+                </td>
+
                 {/* 2. Role Col */}
-                 <td className="py-4 px-4 whitespace-nowrap">
+                 <td className="py-4 px-2.5 whitespace-nowrap">
                   <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold border ${roleConf.color}`}>
                      <RoleIcon size={12} /> {highestRole}
                   </span>
                 </td>
 
                 {/* 3. OrgUnit Col */}
-                <td className="py-4 px-4 hidden md:table-cell">
+                <td className="py-4 px-2.5 hidden md:table-cell">
                   {u.memberships && u.memberships.length > 0 ? (
                      <div className="flex flex-wrap gap-2 max-w-[280px]">
                         {u.memberships.map((m, idx) => (
@@ -142,7 +159,7 @@ export default function UserTable({ users, onRowClick, onDelete, canUpdate, canD
                 </td>
 
                 {/* 3. Contact Col */}
-                <td className="py-4 px-4 hidden sm:table-cell">
+                <td className="py-4 px-2.5 hidden sm:table-cell">
                   {u.phone ? (
                      <div className="flex items-center gap-1.5 text-sm font-medium text-slate-600 dark:text-slate-400 whitespace-nowrap">
                         <Phone size={14} className="text-slate-400" /> {formatPhoneNumber(u.phone)}
@@ -153,7 +170,7 @@ export default function UserTable({ users, onRowClick, onDelete, canUpdate, canD
                 </td>
 
                 {/* 4. Status Col */}
-                <td className="py-4 px-4 whitespace-nowrap">
+                <td className="py-4 px-2.5 whitespace-nowrap">
                   <StatusBadge status={u.status} />
                 </td>
 

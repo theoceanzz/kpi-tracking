@@ -19,6 +19,7 @@ public interface OrgUnitMapper {
     @Mapping(source = "province.name", target = "provinceName")
     @Mapping(source = "district.id", target = "districtId")
     @Mapping(source = "district.name", target = "districtName")
+    @Mapping(target = "memberCount", ignore = true)
     OrgUnitResponse toResponse(OrgUnit orgUnit);
 
     @Mapping(source = "parent.id", target = "parentId")
@@ -27,5 +28,6 @@ public interface OrgUnitMapper {
     @Mapping(source = "orgHierarchyLevel.levelOrder", target = "level")
     @Mapping(target = "children", ignore = true)
     @Mapping(source = "allowedRoles", target = "allowedRoles")
+    @Mapping(target = "memberCount", ignore = true)
     OrgUnitTreeResponse toTreeResponse(OrgUnit orgUnit);
 }

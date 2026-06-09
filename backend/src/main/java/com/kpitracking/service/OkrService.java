@@ -69,7 +69,10 @@ public class OkrService {
                     .orElseThrow(() -> new ResourceNotFoundException("OrgUnit not found"));
         }
 
-        if (objectiveRepository.existsByOrganizationIdAndCode(organizationId, request.getCode())) {
+        if (orgUnit != null && objectiveRepository.existsByOrganizationIdAndCodeAndOrgUnit(organizationId, request.getCode(), orgUnit)) {
+            throw new DuplicateResourceException("Mục tiêu", "mã", request.getCode() + " tại đơn vị " + orgUnit.getName());
+        } else if (orgUnit == null && objectiveRepository.existsByOrganizationIdAndCode(organizationId, request.getCode())) {
+            // If no unit, fall back to organization-wide uniqueness (for root/general objectives)
             throw new DuplicateResourceException("Mục tiêu", "mã", request.getCode());
         }
 
@@ -92,7 +95,15 @@ public class OkrService {
         Objective objective = objectiveRepository.findById(objectiveId)
                 .orElseThrow(() -> new ResourceNotFoundException("Objective not found"));
 
-        if (objectiveRepository.existsByOrganizationIdAndCodeAndIdNot(objective.getOrganization().getId(), request.getCode(), objectiveId)) {
+        OrgUnit nextOrgUnit = null;
+        if (request.getOrgUnitId() != null) {
+            nextOrgUnit = orgUnitRepository.findById(request.getOrgUnitId())
+                    .orElseThrow(() -> new ResourceNotFoundException("OrgUnit not found"));
+        }
+
+        if (nextOrgUnit != null && objectiveRepository.existsByOrganizationIdAndCodeAndOrgUnitAndIdNot(objective.getOrganization().getId(), request.getCode(), nextOrgUnit, objectiveId)) {
+            throw new DuplicateResourceException("Mục tiêu", "mã", request.getCode() + " tại đơn vị " + nextOrgUnit.getName());
+        } else if (nextOrgUnit == null && objectiveRepository.existsByOrganizationIdAndCodeAndIdNot(objective.getOrganization().getId(), request.getCode(), objectiveId)) {
             throw new DuplicateResourceException("Mục tiêu", "mã", request.getCode());
         }
 
@@ -215,7 +226,7 @@ public class OkrService {
                 throw new BusinessException("Thiếu các cột bắt buộc: ObjectiveCode, ObjectiveName, KeyResultCode, KeyResultName");
             }
 
-            Objective currentObjective = null;
+            List<Objective> currentObjectives = new ArrayList<>();
 
             for (int i = 1; i <= sheet.getLastRowNum(); i++) {
                 Row row = sheet.getRow(i);
@@ -234,81 +245,101 @@ public class OkrService {
                         LocalDate endDate = getCellValueAsLocalDate(row.getCell(objEndIdx));
 
                         String objOrgUnitCode = objOrgUnitCodeIdx != -1 ? getCellValueAsString(row.getCell(objOrgUnitCodeIdx)) : null;
-                        OrgUnit orgUnit = null;
+                        
+                        List<OrgUnit> targetUnits = new java.util.ArrayList<>();
                         if (objOrgUnitCode != null && !objOrgUnitCode.isBlank()) {
-                            orgUnit = orgUnitRepository.findByCode(objOrgUnitCode)
-                                    .orElse(null);
+                            String[] codes = objOrgUnitCode.split(",");
+                            for (String code : codes) {
+                                String trimmedCode = code.trim();
+                                if (trimmedCode.isEmpty()) continue;
+                                
+                                Optional<OrgUnit> unitOpt = orgUnitRepository.findByCodeSmart(trimmedCode, organizationId);
+                                if (unitOpt.isPresent()) {
+                                    OrgUnit unit = unitOpt.get();
+                                    if (unit.getParent() == null) {
+                                        // Root unit: add it and all sub-units
+                                        targetUnits.addAll(orgUnitRepository.findByOrgHierarchyLevel_Organization_IdAndDeletedAtIsNull(organizationId));
+                                    } else {
+                                        targetUnits.add(unit);
+                                    }
+                                }
+                            }
                         }
                         
-                        // Default to Root unit if still null
-                        if (orgUnit == null) {
+                        // Default to Root unit if no valid units found
+                        if (targetUnits.isEmpty()) {
                             List<OrgUnit> roots = orgUnitRepository.findRootsByOrganizationId(organizationId);
                             if (!roots.isEmpty()) {
-                                orgUnit = roots.get(0);
+                                targetUnits.add(roots.get(0));
                             }
                         }
 
-                        // Find or create Objective
-                        Optional<Objective> existingObj = objectiveRepository.findByOrganizationId(organizationId).stream()
-                                .filter(o -> objCode.equals(o.getCode()))
-                                .findFirst();
+                        // Dedup target units
+                        targetUnits = targetUnits.stream().distinct().collect(Collectors.toList());
+                        currentObjectives.clear();
 
-                        if (existingObj.isPresent()) {
-                            currentObjective = existingObj.get();
-                            currentObjective.setName(objName);
-                            if (objDesc != null) currentObjective.setDescription(objDesc);
-                            if (startDate != null) currentObjective.setStartDate(startDate);
-                            if (endDate != null) currentObjective.setEndDate(endDate);
-                            if (orgUnit != null) currentObjective.setOrgUnit(orgUnit);
-                        } else {
-                            currentObjective = Objective.builder()
-                                    .organization(organization)
-                                    .code(objCode)
-                                    .name(objName)
-                                    .description(objDesc)
-                                    .startDate(startDate)
-                                    .endDate(endDate)
-                                    .orgUnit(orgUnit)
-                                    .status(OkrStatus.ACTIVE)
-                                    .build();
+                        for (OrgUnit targetUnit : targetUnits) {
+                            Optional<Objective> existingObj = objectiveRepository.findByOrganizationIdAndCodeAndOrgUnit(organizationId, objCode, targetUnit);
+
+                            Objective objective;
+                            if (existingObj.isPresent()) {
+                                objective = existingObj.get();
+                                objective.setName(objName);
+                                if (objDesc != null) objective.setDescription(objDesc);
+                                if (startDate != null) objective.setStartDate(startDate);
+                                if (endDate != null) objective.setEndDate(endDate);
+                            } else {
+                                objective = Objective.builder()
+                                        .organization(organization)
+                                        .code(objCode)
+                                        .name(objName)
+                                        .description(objDesc)
+                                        .startDate(startDate)
+                                        .endDate(endDate)
+                                        .orgUnit(targetUnit)
+                                        .status(OkrStatus.ACTIVE)
+                                        .build();
+                            }
+                            currentObjectives.add(objectiveRepository.save(objective));
                         }
-                        currentObjective = objectiveRepository.save(currentObjective);
                     }
 
-                    if (currentObjective == null) {
+                    if (currentObjectives.isEmpty()) {
                         errors.add("Dòng " + (i + 1) + ": Thiếu thông tin Mục tiêu trước khi thêm Kết quả then chốt");
                         continue;
                     }
 
-                    // 2. Process Key Result
+                    // 2. Process Key Result for all current objectives
                     String krName = getCellValueAsString(row.getCell(krNameIdx));
                     String krDesc = getCellValueAsString(row.getCell(krDescIdx));
                     Double krTarget = getCellValueAsDouble(row.getCell(krTargetIdx));
                     String krUnit = getCellValueAsString(row.getCell(krUnitIdx));
 
-                    Optional<KeyResult> existingKr = keyResultRepository.findByObjectiveId(currentObjective.getId()).stream()
-                            .filter(kr -> krCode.equals(kr.getCode()))
-                            .findFirst();
+                    for (Objective targetObj : currentObjectives) {
+                        Optional<KeyResult> existingKr = keyResultRepository.findByObjectiveId(targetObj.getId()).stream()
+                                .filter(kr -> krCode.equals(kr.getCode()))
+                                .findFirst();
 
-                    KeyResult kr;
-                    if (existingKr.isPresent()) {
-                        kr = existingKr.get();
-                        kr.setName(krName);
-                        if (krDesc != null) kr.setDescription(krDesc);
-                        if (krTarget != null) kr.setTargetValue(krTarget);
-                        if (krUnit != null) kr.setUnit(krUnit);
-                    } else {
-                        kr = KeyResult.builder()
-                                .objective(currentObjective)
-                                .code(krCode)
-                                .name(krName)
-                                .description(krDesc)
-                                .targetValue(krTarget != null ? krTarget : 0.0)
-                                .currentValue(0.0)
-                                .unit(krUnit)
-                                .build();
+                        KeyResult kr;
+                        if (existingKr.isPresent()) {
+                            kr = existingKr.get();
+                            kr.setName(krName);
+                            if (krDesc != null) kr.setDescription(krDesc);
+                            if (krTarget != null) kr.setTargetValue(krTarget);
+                            if (krUnit != null) kr.setUnit(krUnit);
+                        } else {
+                            kr = KeyResult.builder()
+                                    .objective(targetObj)
+                                    .code(krCode)
+                                    .name(krName)
+                                    .description(krDesc)
+                                    .targetValue(krTarget != null ? krTarget : 0.0)
+                                    .currentValue(0.0)
+                                    .unit(krUnit)
+                                    .build();
+                        }
+                        keyResultRepository.save(kr);
                     }
-                    keyResultRepository.save(kr);
                     successfulImports++;
 
                 } catch (Exception e) {

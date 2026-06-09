@@ -71,19 +71,27 @@ public interface UserRoleOrgUnitRepository extends JpaRepository<UserRoleOrgUnit
     @Query("SELECT COUNT(DISTINCT uro.user.id) FROM UserRoleOrgUnit uro WHERE uro.orgUnit.id = :orgUnitId")
     long countUsersByOrganizationUnitId(@Param("orgUnitId") UUID orgUnitId);
 
-    @Query("SELECT COUNT(DISTINCT uro.user.id) FROM UserRoleOrgUnit uro WHERE uro.orgUnit.path LIKE CONCAT(:pathPrefix, '%')")
-    long countUsersInSubtree(@Param("pathPrefix") String pathPrefix);
+    @Query("SELECT COUNT(DISTINCT uro.user.id) FROM UserRoleOrgUnit uro WHERE uro.orgUnit.orgHierarchyLevel.organization.id = :orgId AND uro.orgUnit.path LIKE CONCAT(:pathPrefix, '%')")
+    long countUsersInSubtree(@Param("pathPrefix") String pathPrefix, @Param("orgId") UUID orgId);
 
     @Query(value = "SELECT r.name, COUNT(DISTINCT uro.user_id) " +
             "FROM user_role_org_units uro " +
             "JOIN roles r ON uro.role_id = r.id " +
             "JOIN org_units ou ON uro.org_unit_id = ou.id " +
-            "WHERE ou.path LIKE CONCAT(:pathPrefix, '%') " +
+            "JOIN org_hierarchy_levels ohl ON ou.org_hierarchy_id = ohl.id " +
+            "WHERE ohl.organization_id = :orgId " +
+            "AND ou.path LIKE CONCAT(:pathPrefix, '%') " +
             "GROUP BY r.name", nativeQuery = true)
-    java.util.List<Object[]> findRoleDistributionInSubtree(@Param("pathPrefix") String pathPrefix);
+    java.util.List<Object[]> findRoleDistributionInSubtree(@Param("pathPrefix") String pathPrefix, @Param("orgId") UUID orgId);
     @Query("SELECT COUNT(DISTINCT uro.user.id) FROM UserRoleOrgUnit uro WHERE uro.orgUnit.id IN :orgUnitIds")
     long countUsersByOrgUnitIdIn(@Param("orgUnitIds") java.util.Collection<UUID> orgUnitIds);
 
-    @Query("SELECT DISTINCT uro.user FROM UserRoleOrgUnit uro WHERE uro.orgUnit.path LIKE :path")
-    List<com.kpitracking.entity.User> findUsersByOrgUnitPath(@Param("path") String path);
+    @Query("SELECT DISTINCT uro.user FROM UserRoleOrgUnit uro WHERE uro.orgUnit.orgHierarchyLevel.organization.id = :orgId AND uro.orgUnit.path LIKE :path")
+    List<com.kpitracking.entity.User> findUsersByOrgUnitPath(@Param("path") String path, @Param("orgId") UUID orgId);
+
+    @Query("SELECT uro.orgUnit.id, COUNT(DISTINCT uro.user.id) FROM UserRoleOrgUnit uro WHERE uro.orgUnit.id IN :orgUnitIds GROUP BY uro.orgUnit.id")
+    List<Object[]> countUsersByOrgUnitIdMap(@Param("orgUnitIds") java.util.Collection<UUID> orgUnitIds);
+
+    @Query("SELECT DISTINCT r FROM UserRoleOrgUnit uro JOIN uro.role r WHERE uro.orgUnit.id IN :orgUnitIds")
+    List<com.kpitracking.entity.Role> findDistinctRolesByOrgUnitIdIn(@Param("orgUnitIds") java.util.Collection<UUID> orgUnitIds);
 }

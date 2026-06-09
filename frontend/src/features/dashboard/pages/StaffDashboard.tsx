@@ -197,7 +197,7 @@ export default function StaffDashboard() {
         />
         <StatCard label="Quá hạn" value={lateSub} icon={Clock} color="red" highlight={lateSub > 0} />
         <StatCard label="Tỷ lệ Duyệt" value={`${approvalRate}%`} icon={TrendingUp} color="emerald" />
-        <StatCard label="Bài đã nộp" value={totalSub} icon={FileText} color="amber" />
+        <StatCard label="Báo cáo đã gửi" value={totalSub} icon={FileText} color="amber" />
         <StatCard label="Điểm TB" value={`${overallAvgScore}%`} icon={Award} color="blue" />
       </div>
 
@@ -336,7 +336,7 @@ export default function StaffDashboard() {
         <div className="lg:col-span-4 space-y-6">
           <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden flex flex-col h-full">
             <div className="px-6 py-5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50/30 dark:bg-slate-800/20">
-              <h3 className="font-black text-lg text-slate-900 dark:text-white">Lịch sử bài nộp</h3>
+              <h3 className="font-black text-lg text-slate-900 dark:text-white">Lịch sử cập nhật</h3>
               <Link to="/submissions" className="p-2 rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-indigo-600">
                 <ArrowUpRight size={18} />
               </Link>

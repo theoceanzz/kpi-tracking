@@ -19,6 +19,7 @@ public class KpiCriteriaResponse {
     private KpiFrequency frequency;
     private KpiStatus status;
     private UUID orgUnitId;
+    private java.util.List<UUID> orgUnitIds;
     private String orgUnitName;
     private java.util.List<com.kpitracking.dto.response.user.UserResponse> assignees;
     private java.util.List<UUID> assigneeIds;

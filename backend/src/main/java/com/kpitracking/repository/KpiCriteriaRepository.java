@@ -1,7 +1,10 @@
 package com.kpitracking.repository;
 
-import com.kpitracking.entity.KpiCriteria;
-import com.kpitracking.enums.KpiStatus;
+import java.time.Instant;
+import java.util.Collection;
+import java.util.List;
+import java.util.UUID;
+
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -9,18 +12,22 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
-import java.time.Instant;
-import java.util.List;
-import java.util.UUID;
-import java.util.Collection;
+import com.kpitracking.entity.KpiCriteria;
+import com.kpitracking.enums.KpiStatus;
 
 @Repository
 public interface KpiCriteriaRepository extends JpaRepository<KpiCriteria, UUID> {
 
     @Query("SELECT DISTINCT k FROM KpiCriteria k LEFT JOIN k.assignees a JOIN FETCH k.kpiPeriod " +
            "LEFT JOIN FETCH k.keyResult kr LEFT JOIN FETCH kr.objective obj WHERE " +
-           "(EXISTS (SELECT 1 FROM OrgUnit au WHERE k.orgUnit.path LIKE CONCAT(au.path, '%') AND au.id IN :allowedOrgUnitIds)) AND " +
+           "k.orgUnit.orgHierarchyLevel.organization.id = :organizationId AND " +
+           "(" +
+           "  k.createdBy.id = :currentUserId OR " +
+           "  EXISTS (SELECT 1 FROM k.assignees sa WHERE sa.id = :currentUserId) OR " +
+           "  (EXISTS (SELECT 1 FROM OrgUnit su WHERE k.orgUnit.path LIKE CONCAT(su.path, '%') AND su.id IN :sameUnitIds) AND (:approvalMode = true OR k.status = com.kpitracking.enums.KpiStatus.APPROVED))" +
+           ") AND " +
            "(:createdById IS NULL OR k.createdBy.id = :createdById) AND " +
+           "(:assigneeId IS NULL OR a.id = :assigneeId) AND " +
            "(:orgUnitPath IS NULL OR k.orgUnit.path LIKE :orgUnitPath) AND " +
            "(:status IS NULL OR k.status = :status) AND " +
            "(:kpiPeriodId IS NULL OR k.kpiPeriod.id = :kpiPeriodId) AND " +
@@ -32,20 +39,18 @@ public interface KpiCriteriaRepository extends JpaRepository<KpiCriteria, UUID> 
            "(cast(:startDate as timestamp) IS NULL OR k.createdAt >= :startDate) AND " +
            "(cast(:endDate as timestamp) IS NULL OR k.createdAt <= :endDate) AND " +
            "(:objectiveId IS NULL OR k.keyResult.objective.id = :objectiveId) AND " +
-           "(:keyResultId IS NULL OR k.keyResult.id = :keyResultId) AND " +
-           "(:currentUserRank IS NULL OR :currentUserRank = 0 OR k.createdBy.id = :currentUserId OR " +
-           "EXISTS (SELECT 1 FROM UserRoleOrgUnit uro JOIN uro.role r WHERE uro.user.id = k.createdBy.id " +
-           "AND (r.level > :currentUserLevel OR (uro.orgUnit.id = k.orgUnit.id AND r.rank > :currentUserRank))))")
+           "(:keyResultId IS NULL OR k.keyResult.id = :keyResultId)")
     Page<KpiCriteria> findAllWithFilters(
-            @Param("allowedOrgUnitIds") Collection<UUID> allowedOrgUnitIds,
+            @Param("organizationId") UUID organizationId,
+            @Param("currentUserId") UUID currentUserId,
+            @Param("sameUnitIds") Collection<UUID> sameUnitIds,
+            @Param("approvalMode") boolean approvalMode,
             @Param("createdById") UUID createdById,
+            @Param("assigneeId") UUID assigneeId,
             @Param("orgUnitPath") String orgUnitPath,
             @Param("status") KpiStatus status,
             @Param("kpiPeriodId") UUID kpiPeriodId,
             @Param("keyword") String keyword,
-            @Param("currentUserId") UUID currentUserId,
-            @Param("currentUserRank") Integer currentUserRank,
-            @Param("currentUserLevel") Integer currentUserLevel,
             @Param("startDate") Instant startDate,
             @Param("endDate") Instant endDate,
             @Param("objectiveId") UUID objectiveId,
@@ -101,6 +106,9 @@ public interface KpiCriteriaRepository extends JpaRepository<KpiCriteria, UUID> 
     long countByOrgUnitIdIn(Collection<UUID> orgUnitIds);
 
     long countByOrgUnitIdInAndStatus(Collection<UUID> orgUnitIds, KpiStatus status);
+
+    @Query("SELECT COUNT(k) FROM KpiCriteria k WHERE k.orgUnit.id IN :orgUnitIds AND k.status = :status AND k.createdBy.id != :excludeUserId")
+    long countByOrgUnitIdInAndStatusExcludingUser(@Param("orgUnitIds") Collection<UUID> orgUnitIds, @Param("status") KpiStatus status, @Param("excludeUserId") UUID excludeUserId);
 
     @Query("SELECT COALESCE(SUM(k.weight), 0.0) FROM KpiCriteria k WHERE k.orgUnit.id = :orgUnitId AND (:kpiPeriodId IS NULL OR k.kpiPeriod.id = :kpiPeriodId) AND k.status IN :statuses")
     Double sumWeightByOrgUnitIdAndKpiPeriodIdAndStatusIn(@Param("orgUnitId") UUID orgUnitId, @Param("kpiPeriodId") UUID kpiPeriodId, @Param("statuses") List<KpiStatus> statuses);
@@ -182,6 +190,7 @@ public interface KpiCriteriaRepository extends JpaRepository<KpiCriteria, UUID> 
 
     @Query("SELECT DISTINCT k FROM KpiCriteria k LEFT JOIN k.assignees a JOIN FETCH k.kpiPeriod " +
            "LEFT JOIN FETCH k.keyResult kr LEFT JOIN FETCH kr.objective obj WHERE " +
+           "k.orgUnit.orgHierarchyLevel.organization.id = :organizationId AND " +
            "(a.id = :userId OR k.createdBy.id = :userId) AND " +
            "(:status IS NULL OR k.status = :status) AND " +
            "(:statuses IS NULL OR k.status IN :statuses) AND " +
@@ -191,6 +200,7 @@ public interface KpiCriteriaRepository extends JpaRepository<KpiCriteria, UUID> 
            "(:objectiveId IS NULL OR k.keyResult.objective.id = :objectiveId) AND " +
            "(:keyResultId IS NULL OR k.keyResult.id = :keyResultId)")
     Page<KpiCriteria> findMyWithFilters(
+            @Param("organizationId") UUID organizationId,
             @Param("userId") UUID userId,
             @Param("status") KpiStatus status,
             @Param("statuses") Collection<KpiStatus> statuses,
@@ -206,7 +216,10 @@ public interface KpiCriteriaRepository extends JpaRepository<KpiCriteria, UUID> 
 
     boolean existsByParentAndAssigneesContains(com.kpitracking.entity.KpiCriteria parent, com.kpitracking.entity.User assignee);
 
-    @Query("SELECT k FROM KpiCriteria k WHERE k.orgUnit.id IN :orgUnitIds AND k.status = 'APPROVED'")
+    @Query("SELECT k FROM KpiCriteria k WHERE k.orgUnit.id = :orgUnitId AND (:kpiPeriodId IS NULL OR k.kpiPeriod.id = :kpiPeriodId) AND k.status IN :statuses")
+    List<KpiCriteria> findByOrgUnitIdAndKpiPeriodIdAndStatusIn(@Param("orgUnitId") UUID orgUnitId, @Param("kpiPeriodId") UUID kpiPeriodId, @Param("statuses") List<KpiStatus> statuses);
+
+    @Query("SELECT k FROM KpiCriteria k WHERE k.orgUnit.id IN :orgUnitIds AND k.keyResult IS NULL AND k.status = 'APPROVED'")
     List<KpiCriteria> findApprovedWithoutKeyResultByOrgUnitIds(@Param("orgUnitIds") List<UUID> orgUnitIds);
 
     @Query("SELECT k FROM KpiCriteria k WHERE k.orgUnit.orgHierarchyLevel.organization.id = :orgId " +

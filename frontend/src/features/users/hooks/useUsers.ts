@@ -4,7 +4,7 @@ import type { PageParams } from '@/types/api'
 import type { UpdateUserRequest } from '@/types/user'
 import { toast } from 'sonner'
 
-export function useUsers(params: PageParams & { keyword?: string; orgUnitId?: string; organizationId?: string; role?: string; sortBy?: string; direction?: string } = {}) {
+export function useUsers(params: PageParams & { keyword?: string; orgUnitId?: string; orgUnitIds?: string[]; organizationId?: string; role?: string; sortBy?: string; direction?: string } = {}) {
   return useQuery({
     queryKey: ['users', params],
     queryFn: () => userApi.getAll(params),

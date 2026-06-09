@@ -1,18 +1,12 @@
 import { useState, useEffect } from 'react'
 import { read, write, utils } from 'xlsx'
-import { X, Save, AlertCircle, Trash2, Plus, FileSpreadsheet } from 'lucide-react'
+import { X, Save, AlertCircle, Trash2, Plus, FileSpreadsheet, Check, ChevronDown } from 'lucide-react'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { toast } from 'sonner'
 import { z } from 'zod'
 import { cn } from '@/lib/utils'
 import { useOrgUnitTree } from '../../orgunits/hooks/useOrgUnitTree'
 import { OrgUnitTreeResponse } from '@/types/orgUnit'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
 
 interface OkrExcelPreviewModalProps {
   open: boolean
@@ -50,7 +44,7 @@ const rowSchema = z.object({
   KeyResultDescription: z.string().optional(),
   KeyResultTarget: z.string().optional(),
   KeyResultUnit: z.string().optional(),
-  OrgUnitCode: z.string().optional(),
+  OrgUnitCode: z.string().min(1, 'Mã phòng ban là bắt buộc'),
 })
 
 export default function OkrExcelPreviewModal({ open, file, onClose, onImport, isImporting }: OkrExcelPreviewModalProps) {
@@ -83,12 +77,28 @@ export default function OkrExcelPreviewModal({ open, file, onClose, onImport, is
     setLoading(true)
     try {
       const buffer = await f.arrayBuffer()
-      const wb = read(buffer)
+      const wb = read(buffer, { cellDates: true })
       const sheetName = wb.SheetNames[0]
       if (!sheetName) throw new Error('File Excel không có sheet nào')
       const ws = wb.Sheets[sheetName]
       if (!ws) throw new Error('Không tìm thấy sheet dữ liệu')
       const rawData = utils.sheet_to_json<any>(ws)
+
+      const formatExcelDate = (val: any) => {
+        if (!val) return ''
+        if (val instanceof Date) return val.toISOString().split('T')[0]
+        if (typeof val === 'number') {
+          // Excel serial date format
+          const date = new Date(Math.round((val - 25569) * 86400 * 1000))
+          return date.toISOString().split('T')[0]
+        }
+        const str = val.toString().trim()
+        if (/^\d{4}-\d{2}-\d{2}$/.test(str)) return str
+        // Fallback for other formats like DD/MM/YYYY
+        const d = new Date(str)
+        if (!isNaN(d.getTime())) return d.toISOString().split('T')[0]
+        return str
+      }
 
       let lastObjCode = ''
       let lastObjName = ''
@@ -101,8 +111,8 @@ export default function OkrExcelPreviewModal({ open, file, onClose, onImport, is
         const currentObjCode = (row['ObjectiveCode'] || '').toString().trim()
         const currentObjName = (row['ObjectiveName'] || '').toString().trim()
         const currentObjDesc = (row['ObjectiveDescription'] || '').toString().trim()
-        const currentObjStart = (row['ObjectiveStartDate'] || '').toString().trim()
-        const currentObjEnd = (row['ObjectiveEndDate'] || '').toString().trim()
+        const currentObjStart = formatExcelDate(row['ObjectiveStartDate'])
+        const currentObjEnd = formatExcelDate(row['ObjectiveEndDate'])
         const currentObjOrgCode = (row['ObjectiveOrgUnitCode'] || row['OrgUnitCode'] || '').toString().trim()
 
         if (currentObjCode || currentObjName) {
@@ -114,6 +124,11 @@ export default function OkrExcelPreviewModal({ open, file, onClose, onImport, is
           lastObjOrgCode = currentObjOrgCode
         }
 
+        const finalOrgCode = currentObjOrgCode || lastObjOrgCode || rootUnitCode
+        const expandedOrgCode = (finalOrgCode === rootUnitCode && rootUnitCode !== '') 
+          ? allOrgUnits.map(u => u.code).join(', ') 
+          : finalOrgCode
+
         return {
           id: `row-${index}`,
           ObjectiveCode: currentObjCode || lastObjCode,
@@ -121,11 +136,11 @@ export default function OkrExcelPreviewModal({ open, file, onClose, onImport, is
           ObjectiveDescription: currentObjDesc || lastObjDesc,
           ObjectiveStartDate: currentObjStart || lastObjStart,
           ObjectiveEndDate: currentObjEnd || lastObjEnd,
-          OrgUnitCode: currentObjOrgCode || lastObjOrgCode || rootUnitCode,
+          OrgUnitCode: expandedOrgCode,
           KeyResultCode: (row['KeyResultCode'] || '').toString().trim(),
           KeyResultName: (row['KeyResultName'] || '').toString().trim(),
           KeyResultDescription: (row['KeyResultDescription'] || '').toString().trim(),
-          KeyResultTarget: (row['KeyResultTarget'] || '').toString().trim(),
+          KeyResultTarget: (row['KeyResultTarget'] ?? '').toString().trim(),
           KeyResultUnit: (row['KeyResultUnit'] || '').toString().trim(),
         }
       })
@@ -200,6 +215,36 @@ export default function OkrExcelPreviewModal({ open, file, onClose, onImport, is
     })
   }
 
+  const toggleUnitCodeInRow = (currentRow: OkrRow, unitCode: string) => {
+    const currentCodes = (currentRow.OrgUnitCode || '').split(',').map(c => c.trim()).filter(Boolean)
+    const isRoot = unitCode === allOrgUnits[0]?.code
+    let nextCodes: string[] = []
+
+    if (isRoot) {
+      if (currentCodes.includes(unitCode)) {
+        nextCodes = []
+      } else {
+        nextCodes = allOrgUnits.map(u => u.code)
+      }
+    } else {
+      if (currentCodes.includes(unitCode)) {
+        nextCodes = currentCodes.filter(c => c !== unitCode && c !== allOrgUnits[0]?.code)
+      } else {
+        const tempCodes = [...currentCodes, unitCode]
+        const rootCode = allOrgUnits[0]?.code
+        const allOtherCodes = allOrgUnits.filter(u => u.code !== rootCode).map(u => u.code)
+        const allOthersSelected = allOtherCodes.every(c => tempCodes.includes(c))
+        
+        if (allOthersSelected && rootCode) {
+          nextCodes = allOrgUnits.map(u => u.code)
+        } else {
+          nextCodes = tempCodes
+        }
+      }
+    }
+    handleCellChange(currentRow.id, 'OrgUnitCode', nextCodes.join(', '))
+  }
+
   const handleRemoveRow = (id: string) => {
     setData((prev: any[]) => validateAllRows(prev.filter((r: any) => r.id !== id)))
   }
@@ -240,7 +285,7 @@ export default function OkrExcelPreviewModal({ open, file, onClose, onImport, is
         if (r.ObjectiveStartDate) rowData.ObjectiveStartDate = r.ObjectiveStartDate
         if (r.ObjectiveEndDate) rowData.ObjectiveEndDate = r.ObjectiveEndDate
         if (r.KeyResultDescription) rowData.KeyResultDescription = r.KeyResultDescription
-        if (r.KeyResultTarget) rowData.KeyResultTarget = r.KeyResultTarget
+        if (r.KeyResultTarget !== '') rowData.KeyResultTarget = r.KeyResultTarget
         if (r.KeyResultUnit) rowData.KeyResultUnit = r.KeyResultUnit
         if (r.OrgUnitCode) rowData.OrgUnitCode = r.OrgUnitCode
         return rowData
@@ -308,6 +353,8 @@ export default function OkrExcelPreviewModal({ open, file, onClose, onImport, is
                         <th className="px-4 py-3 w-12 text-center">STT</th>
                         <th className="px-4 py-3 min-w-[150px]">Mã Mục tiêu <span className="text-rose-500">*</span></th>
                         <th className="px-4 py-3 min-w-[250px]">Tên Mục tiêu <span className="text-rose-500">*</span></th>
+                        <th className="px-4 py-3 min-w-[150px]">Ngày bắt đầu</th>
+                        <th className="px-4 py-3 min-w-[150px]">Ngày kết thúc</th>
                         <th className="px-4 py-3 min-w-[150px]">Mã KR <span className="text-rose-500">*</span></th>
                         <th className="px-4 py-3 min-w-[250px]">Tên KR <span className="text-rose-500">*</span></th>
                         <th className="px-4 py-3 min-w-[300px]">Phòng ban</th>
@@ -350,6 +397,22 @@ export default function OkrExcelPreviewModal({ open, file, onClose, onImport, is
                           </td>
                           <td className="px-4 py-2">
                             <input
+                              type="date"
+                              value={row.ObjectiveStartDate || ''}
+                              onChange={e => handleCellChange(row.id, 'ObjectiveStartDate', e.target.value)}
+                              className="w-full px-3 py-1.5 rounded-lg border border-transparent hover:border-slate-300 dark:hover:border-slate-700 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 bg-transparent hover:bg-white focus:bg-white text-sm transition-colors dark:bg-slate-900 dark:text-white"
+                            />
+                          </td>
+                          <td className="px-4 py-2">
+                            <input
+                              type="date"
+                              value={row.ObjectiveEndDate || ''}
+                              onChange={e => handleCellChange(row.id, 'ObjectiveEndDate', e.target.value)}
+                              className="w-full px-3 py-1.5 rounded-lg border border-transparent hover:border-slate-300 dark:hover:border-slate-700 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 bg-transparent hover:bg-white focus:bg-white text-sm transition-colors dark:bg-slate-900 dark:text-white"
+                            />
+                          </td>
+                          <td className="px-4 py-2">
+                            <input
                               value={row.KeyResultCode}
                               onChange={e => handleCellChange(row.id, 'KeyResultCode', e.target.value)}
                               className={cn(
@@ -375,18 +438,53 @@ export default function OkrExcelPreviewModal({ open, file, onClose, onImport, is
                             {row._errors?.KeyResultName && <p className="text-[10px] text-rose-500 mt-1 font-medium px-1">{row._errors.KeyResultName}</p>}
                           </td>
                           <td className="px-4 py-2">
-                            <Select value={row.OrgUnitCode} onValueChange={val => handleCellChange(row.id, 'OrgUnitCode', val)}>
-                              <SelectTrigger className="w-full h-9 rounded-lg border-transparent hover:border-slate-300 dark:hover:border-slate-700 bg-transparent hover:bg-white dark:hover:bg-slate-900 text-sm font-bold transition-all focus:ring-1 focus:ring-indigo-500">
-                                <SelectValue placeholder="Chọn phòng ban" />
-                              </SelectTrigger>
-                              <SelectContent className="rounded-xl border-slate-200 dark:border-slate-800 max-h-[250px] z-[300]">
-                                {allOrgUnits.map((unit) => (
-                                  <SelectItem key={unit.id} value={unit.code} className="text-sm font-bold">
-                                    {Array(unit.level).fill('\u00A0\u00A0').join('')} {unit.name}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
+                            <Popover>
+                              <PopoverTrigger asChild>
+                                <button
+                                  type="button"
+                                  className="w-full min-h-[36px] px-3 py-1.5 rounded-lg border border-transparent hover:border-slate-300 dark:hover:border-slate-700 bg-transparent hover:bg-white dark:hover:bg-slate-900 text-xs font-bold transition-all flex items-center justify-between group focus:ring-1 focus:ring-indigo-500"
+                                >
+                                  <span className="truncate max-w-[200px]">
+                                    {(() => {
+                                      const codes = (row.OrgUnitCode || '').split(',').map(c => c.trim()).filter(Boolean)
+                                      if (codes.length === 0) return 'Chọn phòng ban'
+                                      if (codes.length === 1) return allOrgUnits.find(u => u.code === codes[0])?.name || codes[0]
+                                      return `Đã chọn ${codes.length} đơn vị`
+                                    })()}
+                                  </span>
+                                  <ChevronDown size={14} className="opacity-40 group-hover:opacity-70 transition-opacity ml-2 shrink-0" />
+                                </button>
+                              </PopoverTrigger>
+                              <PopoverContent className="z-[300] p-2 w-[300px] max-h-[300px] overflow-y-auto custom-scrollbar" align="start">
+                                <div className="space-y-1">
+                                  {allOrgUnits.map((unit) => {
+                                    const currentCodes = (row.OrgUnitCode || '').split(',').map(c => c.trim()).filter(Boolean)
+                                    const isSelected = currentCodes.includes(unit.code)
+                                    return (
+                                      <div 
+                                        key={unit.id}
+                                        onClick={() => toggleUnitCodeInRow(row, unit.code)}
+                                        className={cn(
+                                          "flex items-center gap-3 px-3 py-2 rounded-xl cursor-pointer transition-colors group",
+                                          isSelected ? "bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400" : "hover:bg-slate-50 dark:hover:bg-slate-800"
+                                        )}
+                                      >
+                                        <div className={cn(
+                                          "w-4 h-4 rounded border flex items-center justify-center transition-all",
+                                          isSelected ? "bg-indigo-600 border-indigo-600 text-white" : "border-slate-200 dark:border-slate-700 group-hover:border-indigo-400"
+                                        )}>
+                                          {isSelected && <Check size={10} strokeWidth={4} />}
+                                        </div>
+                                        <span className="text-xs font-bold truncate" style={{ marginLeft: `${unit.level * 12}px` }}>
+                                          {unit.name}
+                                        </span>
+                                      </div>
+                                    )
+                                  })}
+                                </div>
+                              </PopoverContent>
+                            </Popover>
+                            {row._errors?.OrgUnitCode && <p className="text-[10px] text-rose-500 mt-1 font-medium px-1">{row._errors.OrgUnitCode}</p>}
                           </td>
                           <td className="px-4 py-2">
                             <input

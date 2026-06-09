@@ -19,7 +19,7 @@ const COLUMNS = [
   { name: 'ObjectiveDescription', required: false, desc: 'Mô tả mục tiêu', example: 'Mục tiêu quý 1' },
   { name: 'ObjectiveStartDate', required: false, desc: 'Ngày bắt đầu (YYYY-MM-DD)', example: '2024-01-01' },
   { name: 'ObjectiveEndDate', required: false, desc: 'Ngày kết thúc (YYYY-MM-DD)', example: '2024-03-31' },
-  { name: 'OrgUnitCode', required: false, desc: 'Mã phòng ban (nếu trống sẽ lấy Root)', example: 'KD_HN' },
+  { name: 'OrgUnitCode', required: true, desc: 'Mã phòng ban. Hỗ trợ nhập nhiều mã cách nhau bằng dấu phẩy (PB01,PB02). Nhập mã của Đơn vị gốc để giao cho tất cả đơn vị con.', example: 'KD_HN, NS_HN' },
   { name: 'KeyResultCode', required: true, desc: 'Mã kết quả then chốt', example: 'KR001' },
   { name: 'KeyResultName', required: true, desc: 'Tên kết quả then chốt', example: 'Đạt 1 tỷ VNĐ' },
   { name: 'KeyResultDescription', required: false, desc: 'Mô tả KR', example: 'Doanh thu từ mảng A' },
@@ -123,10 +123,10 @@ async function downloadTemplate(type: 'csv' | 'xlsx') {
   guideSheet.addRow([])
   const noteTitleRow = guideSheet.addRow(['LƯU Ý CHUNG CHO IMPORT OKR EXCEL'])
   noteTitleRow.font = { bold: true, size: 12, color: { argb: 'FFDC2626' } }
-  guideSheet.addRow(['1. File mẫu này hỗ trợ import định dạng .xlsx. (Định dạng csv hiện tại backend OkrService cấu hình chỉ nhận .xlsx).'])
+  guideSheet.addRow(['1. File mẫu này hỗ trợ import định dạng .xlsx.'])
   guideSheet.addRow(['2. Để thêm nhiều KR cho một Objective, dòng đầu ghi đủ thông tin Objective, các dòng sau để trống thông tin Objective cũng được.'])
-  guideSheet.addRow(['3. Mã Objective (ObjectiveCode) và Mã KR (KeyResultCode) dùng để cập nhật dữ liệu. Nếu mã đã tồn tại, hệ thống sẽ update.'])
-  guideSheet.addRow(['4. Nếu muốn tải CSV thì vẫn hỗ trợ tải mẫu, nhưng khi import vui lòng dùng file .xlsx như đã cấu hình.'])
+  guideSheet.addRow(['3. Mã Objective (ObjectiveCode) và Mã KR (KeyResultCode) dùng để cập nhật dữ liệu. Nếu mã đã tồn tại ở đơn vị tương ứng, hệ thống sẽ update.'])
+  guideSheet.addRow(['4. Cột OrgUnitCode hỗ trợ nhập nhiều mã cách nhau bởi dấu phẩy (,), hoặc nhập mã đơn vị gốc để tự động mở rộng ra toàn bộ đơn vị con.'])
 
   // Generate and download
   const buffer = await workbook.xlsx.writeBuffer()

@@ -8,6 +8,7 @@ export const kpiSchema = z.object({
   targetValue: z.number().min(0, 'Mục tiêu không được âm').optional(),
   frequency: z.enum(['DAILY', 'WEEKLY', 'MONTHLY', 'QUARTERLY', 'SEMI_ANNUALLY', 'YEARLY', 'UNLIMITED'], { message: 'Vui lòng chọn tần suất' }),
   orgUnitId: z.string().optional(),
+  orgUnitIds: z.array(z.string()).optional(),
   assignedToId: z.string().optional(),
   assignedToIds: z.array(z.string()).optional(),
   minimumValue: z.number().min(0, 'Giá trị tối thiểu không được âm').optional(),

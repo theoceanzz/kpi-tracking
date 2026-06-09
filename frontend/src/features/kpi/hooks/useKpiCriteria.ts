@@ -19,6 +19,8 @@ export function useKpiCriteria(params: {
   sortDir?: string;
   objectiveId?: string;
   keyResultId?: string;
+  assigneeId?: string;
+  approvalMode?: boolean;
 } = {}, options: any = {}) {
   return useQuery<PageResponse<KpiCriteria>>({
     queryKey: ['kpi-criteria', 'all', params],

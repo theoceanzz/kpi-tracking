@@ -26,7 +26,9 @@ public class OrgUnitResponse {
     private String districtName;
     private String logoUrl;
     private String status;
+    private Long memberCount;
     private java.util.List<com.kpitracking.dto.response.role.RoleResponse> allowedRoles;
+    private java.util.List<com.kpitracking.dto.response.role.RoleResponse> assignedRoles;
     private Instant createdAt;
     private Instant updatedAt;
 }

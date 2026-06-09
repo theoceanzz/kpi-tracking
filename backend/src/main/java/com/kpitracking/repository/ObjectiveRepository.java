@@ -1,6 +1,7 @@
 package com.kpitracking.repository;
 
 import com.kpitracking.entity.Objective;
+import com.kpitracking.entity.OrgUnit;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
@@ -14,4 +15,7 @@ public interface ObjectiveRepository extends JpaRepository<Objective, UUID> {
     List<Objective> findByOrgUnitIdIn(List<UUID> orgUnitIds);
     boolean existsByOrganizationIdAndCode(UUID organizationId, String code);
     boolean existsByOrganizationIdAndCodeAndIdNot(UUID organizationId, String code, UUID id);
+    boolean existsByOrganizationIdAndCodeAndOrgUnit(UUID organizationId, String code, OrgUnit orgUnit);
+    boolean existsByOrganizationIdAndCodeAndOrgUnitAndIdNot(UUID organizationId, String code, OrgUnit orgUnit, UUID id);
+    java.util.Optional<Objective> findByOrganizationIdAndCodeAndOrgUnit(UUID organizationId, String code, OrgUnit orgUnit);
 }

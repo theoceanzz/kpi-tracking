@@ -7,7 +7,7 @@ import { useAuthStore } from '@/store/authStore'
 import { toast } from 'sonner'
 import { 
   Lock, Eye, EyeOff, Save, Loader2, ShieldCheck, 
-  KeyRound, Wand2, Check, CheckCircle2, X, LogOut, AlertCircle
+  Wand2, Check, CheckCircle2, X, LogOut
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -18,11 +18,10 @@ export default function ForceChangePasswordPage() {
   if (user && !user.requirePasswordChange) {
     return <Navigate to="/dashboard" replace />
   }
-  const { register, handleSubmit, watch, control, setValue, setError, formState: { errors } } = useForm<{
-    currentPassword: string; newPassword: string; confirmPassword: string
+  const { register, handleSubmit, watch, control, setValue } = useForm<{
+    newPassword: string; confirmPassword: string
   }>()
 
-  const [showCurrent, setShowCurrent] = useState(false)
   const [showNew, setShowNew] = useState(false)
   const [showConfirm, setShowConfirm] = useState(false)
 
@@ -47,11 +46,7 @@ export default function ForceChangePasswordPage() {
     },
     onError: (error: any) => {
       const message = error.response?.data?.message || 'Đổi mật khẩu thất bại. Vui lòng thử lại.'
-      if (message.includes('Mật khẩu hiện tại')) {
-        setError('currentPassword', { type: 'manual', message: message })
-      } else {
-        toast.error(message)
-      }
+      toast.error(message)
     },
   })
 
@@ -93,30 +88,6 @@ export default function ForceChangePasswordPage() {
           {/* Form */}
           <form onSubmit={handleSubmit((data) => mutation.mutate(data))} className="p-8 md:p-10 space-y-6">
             <div className="space-y-5">
-              {/* Current Password */}
-              <div className="space-y-2">
-                <label className="text-xs font-black uppercase tracking-widest text-slate-400 ml-1">Mật khẩu tạm thời</label>
-                <div className="relative group">
-                  <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-500 transition-colors">
-                    <KeyRound size={18} />
-                  </div>
-                  <input
-                    {...register('currentPassword', { required: 'Vui lòng nhập mật khẩu hiện tại' })}
-                    type={showCurrent ? 'text' : 'password'}
-                    className="w-full pl-12 pr-12 py-4 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 text-sm font-bold focus:outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all"
-                    placeholder="Nhập mật khẩu bạn được cấp"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowCurrent(!showCurrent)}
-                    className="absolute right-4 top-1/2 -translate-y-1/2 p-1 rounded-lg text-slate-400 hover:text-indigo-500 transition-all"
-                  >
-                    {showCurrent ? <EyeOff size={18} /> : <Eye size={18} />}
-                  </button>
-                </div>
-                {errors.currentPassword && <p className="text-red-500 text-xs font-medium pl-1 mt-1">{errors.currentPassword.message}</p>}
-              </div>
-
               {/* New Password */}
               <div className="space-y-2">
                 <label className="text-xs font-black uppercase tracking-widest text-slate-400 ml-1">Mật khẩu cá nhân mới</label>
@@ -128,7 +99,6 @@ export default function ForceChangePasswordPage() {
                     {...register('newPassword', {
                       required: 'Vui lòng nhập mật khẩu mới',
                       minLength: { value: 8, message: 'Tối thiểu 8 ký tự' },
-                      validate: (v) => v !== watch('currentPassword') || 'Mật khẩu mới phải khác mật khẩu hiện tại',
                     })}
                     type={showNew ? 'text' : 'password'}
                     className="w-full pl-12 pr-28 py-4 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 text-sm font-bold focus:outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all"
@@ -151,14 +121,6 @@ export default function ForceChangePasswordPage() {
                     </button>
                   </div>
                 </div>
-
-                {/* Match Current Password Error */}
-                {pwd && watch('currentPassword') && pwd === watch('currentPassword') && (
-                  <div className="mt-2 px-3 py-2 rounded-xl flex items-center gap-2 text-[11px] font-bold bg-red-50 dark:bg-red-500/10 text-red-600 border border-red-100 dark:border-red-500/20 animate-in fade-in slide-in-from-top-1">
-                    <AlertCircle size={14} />
-                    Mật khẩu mới không được giống mật khẩu tạm thời
-                  </div>
-                )}
 
                 {/* Strength Meter */}
                 {pwd && (
@@ -230,7 +192,7 @@ export default function ForceChangePasswordPage() {
             <div className="pt-4 flex flex-col gap-4">
               <button
                 type="submit"
-                disabled={mutation.isPending || pwd !== confirmPwd || strengthScore < 3 || pwd === watch('currentPassword')}
+                disabled={mutation.isPending || pwd !== confirmPwd || strengthScore < 3}
                 className="w-full py-4 rounded-2xl bg-indigo-600 text-white font-black text-sm hover:bg-indigo-700 shadow-xl shadow-indigo-500/30 disabled:opacity-50 transition-all flex items-center justify-center gap-2 active:scale-95"
               >
                 {mutation.isPending ? <Loader2 size={20} className="animate-spin" /> : <Save size={20} />}

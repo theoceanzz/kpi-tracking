@@ -138,9 +138,20 @@ public class AuthService {
         initializeOrganizationRoles(organization, request.getHierarchyLevels());
         
         // 5. Find the admin role (Top level, Rank 0) for this organization
-        int topRoleLevel = mapRoleLevel(0, request.getHierarchyLevels().size());
+        int total = request.getHierarchyLevels().size();
+        int topRoleLevel = mapRoleLevel(0, total);
         Role adminRole = roleRepository.findByLevelAndRankAndOrganizationId(topRoleLevel, 0, organization.getId())
                 .orElseThrow(() -> new BusinessException("Không thể khởi tạo vai trò quản trị cho tổ chức."));
+
+        // 5.1 Set default allowed roles for root unit: company head + deputy + staff
+        int bottomRoleLevel = mapRoleLevel(total - 1, total);
+        List<Role> rootAllowedRoles = new ArrayList<>(List.of(adminRole));
+        roleRepository.findByLevelAndRankAndOrganizationId(topRoleLevel, 1, organization.getId())
+                .ifPresent(rootAllowedRoles::add);
+        roleRepository.findByLevelAndRankAndOrganizationId(bottomRoleLevel, 2, organization.getId())
+                .ifPresent(rootAllowedRoles::add);
+        rootUnit.setAllowedRoles(rootAllowedRoles);
+        orgUnitRepository.save(rootUnit);
 
         // 6. Assign admin role to user at root org unit
         UserRoleOrgUnit assignment = UserRoleOrgUnit.builder()
@@ -199,16 +210,22 @@ public class AuthService {
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new ResourceNotFoundException("User", "email", email));
 
-        if (!passwordEncoder.matches(request.getCurrentPassword(), user.getPassword())) {
-            throw new BusinessException("Mật khẩu hiện tại không chính xác.");
+        // Skip current password check if it's the first login (forced change)
+        if (Boolean.FALSE.equals(user.getRequirePasswordChange())) {
+            if (request.getCurrentPassword() == null || request.getCurrentPassword().isBlank()) {
+                throw new BusinessException("Vui lòng nhập mật khẩu hiện tại.");
+            }
+            if (!passwordEncoder.matches(request.getCurrentPassword(), user.getPassword())) {
+                throw new BusinessException("Mật khẩu hiện tại không chính xác.");
+            }
         }
 
         if (passwordEncoder.matches(request.getNewPassword(), user.getPassword())) {
-            throw new BusinessException("Mật khẩu mới phải khác mật khẩu hiện tại.");
+            throw new BusinessException("Mật khẩu mới không được giống mật khẩu cũ.");
         }
 
         if (!request.getNewPassword().equals(request.getConfirmPassword())) {
-            throw new BusinessException("New password and confirm password do not match");
+            throw new BusinessException("Mật khẩu mới và xác nhận mật khẩu không khớp");
         }
 
         user.setPassword(passwordEncoder.encode(request.getNewPassword()));

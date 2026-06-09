@@ -92,7 +92,7 @@ export default function KpiApprovalPage() {
 
   // Data for KPI Criteria
   const { data: criteriaData, isLoading } = useKpiCriteria(
-    { 
+    {
       status: activeTab === 'ALL' ? undefined : activeTab,
       kpiPeriodId: selectedPeriodId === 'ALL' ? undefined : selectedPeriodId,
       orgUnitId: selectedOrgUnitId === 'ALL' ? undefined : selectedOrgUnitId,
@@ -102,7 +102,8 @@ export default function KpiApprovalPage() {
       sortBy,
       sortDir,
       objectiveId: selectedObjectiveId === 'ALL' ? undefined : selectedObjectiveId,
-      keyResultId: selectedKeyResultId === 'ALL' ? undefined : selectedKeyResultId
+      keyResultId: selectedKeyResultId === 'ALL' ? undefined : selectedKeyResultId,
+      approvalMode: true
     }
   )
 
@@ -112,21 +113,21 @@ export default function KpiApprovalPage() {
 
   const [reviewKpi, setReviewKpi] = useState<KpiCriteria | null>(null)
 
-  const items = criteriaData?.content ?? []
+  const items = (criteriaData?.content ?? []).filter(kpi => kpi.createdById !== user?.id || kpi.status !== 'PENDING_APPROVAL')
   const totalPages = criteriaData?.totalPages || 1
   const totalElements = criteriaData?.totalElements || 0
 
   // Quick stats
-  const { data: statsData } = useKpiCriteria({ size: 1000, organizationId: user?.memberships?.[0]?.organizationId })
+  const { data: statsData } = useKpiCriteria({ size: 1000, organizationId: user?.memberships?.[0]?.organizationId, approvalMode: true })
   const stats = useMemo(() => {
-    const all = statsData?.content ?? []
+    const all = (statsData?.content ?? []).filter(k => k.createdById !== user?.id || k.status !== 'PENDING_APPROVAL')
     return {
       total: all.length,
       pending: all.filter(k => k.status === 'PENDING_APPROVAL').length,
       approved: all.filter(k => k.status === 'APPROVED').length,
       rejected: all.filter(k => k.status === 'REJECTED').length,
     }
-  }, [statsData])
+  }, [statsData, user?.id])
 
   // Bulk Approve Mutation
   const bulkApproveMutation = useMutation({
@@ -223,7 +224,7 @@ export default function KpiApprovalPage() {
               </Select>
             </div>
 
-            <div className="w-full md:w-64">
+            <div className="w-full md:w-72">
               <Select value={selectedPeriodId} onValueChange={(v) => { setSelectedPeriodId(v); setPage(0) }}>
                 <SelectTrigger className="h-12 rounded-2xl border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 font-bold text-sm">
                   <div className="flex items-center gap-2">

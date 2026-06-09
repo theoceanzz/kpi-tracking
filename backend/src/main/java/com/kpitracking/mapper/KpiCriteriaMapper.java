@@ -12,7 +12,12 @@ import org.mapstruct.MappingTarget;
 
 @Mapper(componentModel = "spring")
 public interface KpiCriteriaMapper {
-
+    @AfterMapping
+    default void mapOrgUnitIds(com.kpitracking.entity.KpiCriteria kpi, @MappingTarget KpiCriteriaResponse response) {
+        if (kpi.getOrgUnit() != null) {
+            response.setOrgUnitIds(java.util.List.of(kpi.getOrgUnit().getId()));
+        }
+    }
     @Mapping(source = "orgUnit.id", target = "orgUnitId")
     @Mapping(source = "orgUnit.name", target = "orgUnitName")
     @Mapping(source = "assignees", target = "assignees")
