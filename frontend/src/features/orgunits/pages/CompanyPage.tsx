@@ -89,7 +89,7 @@ export default function CompanyPage() {
   if (loadingOrg) return <div className="p-8 max-w-7xl mx-auto"><LoadingSkeleton rows={10} /></div>
 
   return (
-    <div className="max-w-6xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700 pb-20 px-4 md:px-0">
+    <div className="max-w-6xl mx-auto space-y-8 pb-20 px-4 md:px-0">
       <PageTour pageKey="company" steps={companySteps} />
       
       {/* Refined Hero Section with Vibrant Gradient */}
@@ -186,7 +186,7 @@ export default function CompanyPage() {
         {org && <div id="tour-company-scoring" className="h-full"><ScoringConfigSection org={org} /></div>}
 
         {/* Professional Hierarchy Section */}
-        <section id="tour-company-hierarchy" className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden flex flex-col h-full animate-in slide-in-from-right-4 duration-700 delay-150">
+        <section id="tour-company-hierarchy" className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden flex flex-col h-full">
            {/* ... existing hierarchy code ... */}
            <div className="px-8 py-6 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
               <div className="flex items-center gap-4">
@@ -417,7 +417,7 @@ function ScoringConfigSection({ org }: { org: any }) {
   }
 
   return (
-    <section className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden flex flex-col h-full animate-in slide-in-from-left-4 duration-700 delay-75">
+    <section className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden flex flex-col h-full">
         <div className="px-8 py-6 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
             <div className="flex items-center gap-4">
                 <div className="w-10 h-10 rounded-xl bg-amber-50 dark:bg-amber-900/30 flex items-center justify-center text-amber-600 dark:text-amber-400">
@@ -596,7 +596,7 @@ function OkrConfigSection({ org }: { org: any }) {
   }
 
   return (
-    <section id="tour-company-okr" className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden flex flex-col h-full animate-in slide-in-from-right-4 duration-700 delay-300">
+    <section id="tour-company-okr" className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden flex flex-col h-full">
       <div className="px-8 py-6 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
         <div className="flex items-center gap-4">
           <div className="w-10 h-10 rounded-xl bg-violet-50 dark:bg-violet-900/30 flex items-center justify-center text-violet-600 dark:text-violet-400">
@@ -694,7 +694,7 @@ function WaterfallConfigSection({ org }: { org: any }) {
   }
 
   return (
-    <section id="tour-company-waterfall" className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden flex flex-col h-full animate-in slide-in-from-right-4 duration-700 delay-500">
+    <section id="tour-company-waterfall" className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden flex flex-col h-full">
       <div className="px-8 py-6 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
         <div className="flex items-center gap-4">
           <div className="w-10 h-10 rounded-xl bg-cyan-50 dark:bg-cyan-900/30 flex items-center justify-center text-cyan-600 dark:text-cyan-400">

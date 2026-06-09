@@ -10,7 +10,7 @@ import {
   Pin, CheckCircle, LayoutDashboard
 } from 'lucide-react'
 import { toast } from 'sonner'
-import LoadingSkeleton from '@/components/common/LoadingSkeleton'
+import AnalyticsTabSkeleton, { TableLoadingRows } from '@/components/common/AnalyticsTabSkeleton'
 import { CopyButton } from '@/components/common/CopyButton'
 import {
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -349,7 +349,7 @@ export default function SummaryTab() {
     }
   }
 
-  if (isMainLoading && !mainData) return <div className="p-8"><LoadingSkeleton rows={10} /></div>
+  if (isMainLoading && !mainData) return <AnalyticsTabSkeleton variant="default" className="p-6" />
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500 pb-12">
@@ -378,7 +378,7 @@ export default function SummaryTab() {
 
       {/* ── Global Filter (sticky) ────────────────────────────────────────── */}
       <div className={cn(
-        "sticky top-16 z-20 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl transition-all duration-200",
+        "sticky top-0 z-20 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl transition-all duration-200",
         filterStuck
           ? "p-3 shadow-lg shadow-slate-200/80 dark:shadow-slate-900/80 border-slate-300 dark:border-slate-700"
           : "p-4 shadow-sm"
@@ -435,7 +435,11 @@ export default function SummaryTab() {
 
       {/* ── Metrics ───────────────────────────────────────────────────────── */}
       {isMetricsLoading ? (
-        <div className="p-4"><LoadingSkeleton rows={2} /></div>
+        <div className="grid grid-cols-2 lg:grid-cols-5 gap-4 animate-pulse">
+          {Array.from({ length: 5 }).map((_, i) => (
+            <div key={i} className="h-20 bg-[var(--color-muted)] rounded-2xl" />
+          ))}
+        </div>
       ) : (
         <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
           <div className="bg-white dark:bg-slate-900 rounded-2xl p-5 border border-slate-200 dark:border-slate-800 flex items-center gap-4">
@@ -532,7 +536,7 @@ export default function SummaryTab() {
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
               {isKpisLoading
-                ? <tr><td colSpan={6} className="p-6"><LoadingSkeleton rows={5} /></td></tr>
+                ? <TableLoadingRows cols={6} count={2} />
                 : kpiPage?.content?.map(kpi => (
                     <OrgUnitKpiRow key={kpi.kpiId} kpi={kpi} onClick={() => setSelectedKpiId(kpi.kpiId)} />
                   ))}
@@ -779,7 +783,10 @@ function OrgUnitKpiRow({ kpi, onClick }: { kpi: any; onClick?: () => void }) {
         <tr className="bg-slate-50/60 dark:bg-slate-800/10 border-l-[3px] border-l-indigo-400 dark:border-l-indigo-500/50">
           <td colSpan={5} className="px-8 py-5">
             {isLoadingParticipants ? (
-              <div className="py-3"><LoadingSkeleton rows={2} /></div>
+              <div className="py-3 animate-pulse space-y-2">
+                <div className="h-10 bg-[var(--color-muted)] rounded-xl" />
+                <div className="h-10 bg-[var(--color-muted)] rounded-xl opacity-60" />
+              </div>
             ) : (
               <>
                 <div className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-3 flex items-center gap-2">

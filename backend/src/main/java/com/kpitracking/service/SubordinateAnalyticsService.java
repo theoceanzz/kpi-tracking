@@ -81,8 +81,10 @@ public class SubordinateAnalyticsService {
             double sumWeight = 0;
 
             for (KpiCriteria kpi : kr.getKpis()) {
-                Instant kpiStart = kpi.getKpiPeriod() != null && kpi.getKpiPeriod().getStartDate() != null ? 
-                                   kpi.getKpiPeriod().getStartDate() : 
+                // KPI thác nước (có parent) không tính riêng; kết quả đã tổng hợp lên KPI cha.
+                if (kpi.getParent() != null) continue;
+                Instant kpiStart = kpi.getKpiPeriod() != null && kpi.getKpiPeriod().getStartDate() != null ?
+                                   kpi.getKpiPeriod().getStartDate() :
                                    (obj.getStartDate() != null ? obj.getStartDate().atStartOfDay().toInstant(ZoneOffset.UTC) : Instant.EPOCH);
                 Instant kpiEnd = kpi.getKpiPeriod() != null && kpi.getKpiPeriod().getEndDate() != null ? 
                                  kpi.getKpiPeriod().getEndDate() : 
@@ -318,8 +320,10 @@ public class SubordinateAnalyticsService {
                 double sumWeight = 0;
 
                 for (KpiCriteria kpi : kr.getKpis()) {
-                    Instant kpiStart = kpi.getKpiPeriod() != null && kpi.getKpiPeriod().getStartDate() != null ? 
-                                       kpi.getKpiPeriod().getStartDate() : 
+                    // KPI thác nước (có parent) không tính riêng; kết quả đã tổng hợp lên KPI cha.
+                    if (kpi.getParent() != null) continue;
+                    Instant kpiStart = kpi.getKpiPeriod() != null && kpi.getKpiPeriod().getStartDate() != null ?
+                                       kpi.getKpiPeriod().getStartDate() :
                                        (obj.getStartDate() != null ? obj.getStartDate().atStartOfDay().toInstant(ZoneOffset.UTC) : Instant.EPOCH);
                     Instant kpiEnd = kpi.getKpiPeriod() != null && kpi.getKpiPeriod().getEndDate() != null ? 
                                      kpi.getKpiPeriod().getEndDate() : 
@@ -768,6 +772,8 @@ public class SubordinateAnalyticsService {
         if (kr.getKpis() == null || kr.getKpis().isEmpty()) return new double[]{0.0, 0.0};
         double sumComp = 0, sumPerf = 0, sumW = 0;
         for (KpiCriteria kpi : kr.getKpis()) {
+            // KPI thác nước (có parent) không tính riêng; kết quả đã tổng hợp lên KPI cha.
+            if (kpi.getParent() != null) continue;
             double[] res = calculateKpiMetricsAndActive(kpi, objStart, objEnd, A, B, onlyApproved);
             if (res[3] > 0) {
                 sumComp += (res[0] * res[2]);
@@ -920,6 +926,8 @@ public class SubordinateAnalyticsService {
                         
                 if (kr.getKpis() != null) {
                     for (KpiCriteria kpi : kr.getKpis()) {
+                        // KPI thác nước (có parent) không tính riêng; kết quả đã tổng hợp lên KPI cha.
+                        if (kpi.getParent() != null) continue;
                         double[] kpiMetrics = calculateKpiMetricsAndActive(kpi, objStart, objEnd, from, to, onlyApproved);
                         if (kpiMetrics[3] > 0) {
                             unitAccumulators.computeIfAbsent(kpi.getOrgUnit(), k -> new double[]{0,0,0});
@@ -976,6 +984,8 @@ public class SubordinateAnalyticsService {
 
         if (kr.getKpis() != null) {
             for (KpiCriteria kpi : kr.getKpis()) {
+                // KPI thác nước (có parent) không tính riêng; kết quả đã tổng hợp lên KPI cha.
+                if (kpi.getParent() != null) continue;
                 double[] kpiMetrics = calculateKpiMetricsAndActive(kpi, objStart, objEnd, from, to, onlyApproved);
                 if (kpiMetrics[3] > 0) {
                     if (kpiMetrics[0] >= 100) completedCount++;
@@ -1032,7 +1042,9 @@ public class SubordinateAnalyticsService {
             if (kr.getKpis() != null) {
                 for (KpiCriteria kpi : kr.getKpis()) {
                     if (kpi.getCreatedAt() == null) continue;
-                    
+                    // KPI thác nước (có parent) không tính riêng; kết quả đã tổng hợp lên KPI cha.
+                    if (kpi.getParent() != null) continue;
+
                     boolean isActive = true;
                     Instant kpiRef = (kpi.getKpiPeriod() != null && kpi.getKpiPeriod().getStartDate() != null)
                             ? kpi.getKpiPeriod().getStartDate()
@@ -1090,6 +1102,8 @@ public class SubordinateAnalyticsService {
 
         if (kr.getKpis() != null) {
             for (KpiCriteria kpi : kr.getKpis()) {
+                // KPI thác nước (có parent) không tính riêng; kết quả đã tổng hợp lên KPI cha.
+                if (kpi.getParent() != null) continue;
                 double[] kpiMetrics = calculateKpiMetricsAndActive(kpi, objStart, objEnd, from, to, onlyApproved);
                 if (kpiMetrics[3] > 0) {
                     topItems.add(ScopedDashboardResponse.TopItem.builder()

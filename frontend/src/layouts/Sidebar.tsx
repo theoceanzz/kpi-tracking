@@ -48,6 +48,13 @@ interface NavItem {
   originalLabel?: string
 }
 
+function flatNavPaths(items: NavItem[]): string[] {
+  return items.flatMap(i => [
+    ...(i.path ? [i.path] : []),
+    ...(i.children ? flatNavPaths(i.children) : [])
+  ])
+}
+
 const navItems: NavItem[] = [
   { label: 'Tổng quan', path: '/dashboard', icon: <LayoutDashboard size={20} />, permission: 'DASHBOARD:VIEW', end: true },
   { label: 'Dashboard cá nhân', path: '/dashboard?view=staff', icon: <UserCircle size={20} />, permission: 'KPI:VIEW_MY', end: true },
@@ -87,6 +94,10 @@ const navItems: NavItem[] = [
   { label: 'Thống kê', path: '/analytics', icon: <TrendingUp size={20} />, permission: 'DASHBOARD:VIEW', end: true },
   { label: 'Trợ lý AI', path: '/ai-assistant', icon: <Bot size={20} />, permission: 'DASHBOARD:VIEW', end: true },
 ]
+
+// All nav paths flattened — used to detect when a more-specific variant (e.g. /dashboard?view=staff)
+// should take precedence over a base path (e.g. /dashboard), so the base item stays unlit.
+const ALL_NAV_PATHS = flatNavPaths(navItems)
 
 /* ─── Tour Replay Button ─── */
 function TourReplayButton({ path }: { path: string }) {
@@ -424,7 +435,7 @@ useEffect(() => {
                               const targetPath = child.path || ''
                               const isMatch = targetPath.includes('?') 
                                 ? currentPath === targetPath 
-                                : location.pathname === targetPath && !location.search
+                                : location.pathname === targetPath && !ALL_NAV_PATHS.some(p => p !== targetPath && p === currentPath)
 
                               return cn(
                                 'flex items-center gap-3 px-3 py-2 rounded-lg text-[13px] font-bold transition-all group relative',
@@ -472,7 +483,7 @@ useEffect(() => {
                   // Custom matching logic for dashboard views with search params
                   const isMatch = targetPath.includes('?') 
                     ? currentPath === targetPath 
-                    : location.pathname === targetPath && !location.search
+                    : location.pathname === targetPath && !ALL_NAV_PATHS.some(p => p !== targetPath && p === currentPath)
 
                   return cn(
                     'flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-bold transition-all group relative',

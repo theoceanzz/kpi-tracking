@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { useHasPermission } from '@/components/auth/PermissionGate'
 import { cn } from '@/lib/utils'
-import { TrendingUp, Building2, LayoutDashboard, Users, Target, Loader2 } from 'lucide-react'
+import { TrendingUp, Building2, LayoutDashboard, Users, Target } from 'lucide-react'
 import MyStatsTab from './MyStatsTab'
 import DrillDownTab from './DrillDownTab'
 import DetailTableTab from './DetailTableTab'
@@ -12,6 +13,7 @@ import { analyticsSteps } from '@/components/common/tourSteps'
 import SubordinateManagementTab from './SubordinateManagementTab'
 import { useAuthStore } from '@/store/authStore'
 import { useOrganization } from '@/features/orgunits/hooks/useOrganization'
+import AnalyticsTabSkeleton from '@/components/common/AnalyticsTabSkeleton'
 
 type TabKey = 'my-objectives' | 'my' | 'summary' | 'drilldown' | 'detail' | 'subordinate'
 
@@ -20,55 +22,71 @@ export default function AnalyticsPage() {
   const { hasPermission } = useHasPermission()
   const canDrillDown = hasPermission(['KPI:VIEW']) || hasPermission(['SUBMISSION:REVIEW'])
   const canDetailTable = hasPermission(['ORG:VIEW']) && hasPermission(['USER:VIEW'])
-  const canSummary = canDrillDown // Assuming if they can drill down, they can see summary
+  const canSummary = canDrillDown
 
   const organizationId = user?.memberships?.[0]?.organizationId
   const { data: org, isLoading: loadingOrg } = useOrganization(organizationId)
   const isOkr = org?.enableOkr ?? false
 
   const tabs: { key: TabKey; label: string; icon: any; visible: boolean }[] = [
-    // OKR Mode tabs
     { key: 'my-objectives', label: 'Mục tiêu của tôi', icon: Target, visible: isOkr },
     { key: 'subordinate', label: 'Mục tiêu đơn vị', icon: Users, visible: isOkr && canDrillDown },
-    
-    // Non-OKR Mode tabs
     { key: 'my', label: 'KPI của tôi', icon: TrendingUp, visible: !isOkr },
     { key: 'summary', label: 'KPI đơn vị', icon: LayoutDashboard, visible: !isOkr && canSummary },
-    
-    // Always visible
     { key: 'drilldown', label: 'Phân cấp', icon: Building2, visible: true },
   ]
 
   const visibleTabs = tabs.filter(t => t.visible)
-  const [activeTab, setActiveTab] = useState<TabKey>('my-objectives')
 
-  // Auto-switch active tab when configuration loads or changes so we don't stay on an invisible tab
+  // Persist active tab in URL so it survives page reloads
+  const [searchParams, setSearchParams] = useSearchParams()
+  const tabFromUrl = searchParams.get('tab') as TabKey | null
+  const [activeTab, setActiveTabState] = useState<TabKey>(tabFromUrl ?? 'my-objectives')
+
+  const setActiveTab = (key: TabKey) => {
+    setActiveTabState(key)
+    setSearchParams(prev => {
+      const p = new URLSearchParams(prev)
+      p.set('tab', key)
+      return p
+    }, { replace: true })
+  }
+
+  // Auto-switch to first visible tab if current tab becomes invisible after org loads
   useEffect(() => {
     if (loadingOrg) return
     const isCurrentTabVisible = visibleTabs.some(t => t.key === activeTab)
     if (!isCurrentTabVisible && visibleTabs.length > 0) {
       const firstTab = visibleTabs[0]
-      if (firstTab) {
-        setActiveTab(firstTab.key)
-      }
+      if (firstTab) setActiveTab(firstTab.key)
     }
   }, [isOkr, activeTab, visibleTabs, loadingOrg])
 
   if (loadingOrg) {
     return (
-      <div className="w-full min-h-[400px] flex flex-col items-center justify-center">
-        <Loader2 className="w-8 h-8 text-indigo-500 animate-spin mb-4" />
-        <p className="text-slate-500 dark:text-slate-400 font-medium">
-          Đang tải cấu hình hệ thống...
-        </p>
+      <div className="max-w-[1600px] mx-auto p-4 md:p-8 space-y-6 animate-pulse">
+        {/* Header skeleton */}
+        <div className="space-y-3">
+          <div className="h-6 w-44 bg-[var(--color-muted)] rounded-full" />
+          <div className="h-9 w-36 bg-[var(--color-muted)] rounded-xl" />
+          <div className="h-4 w-80 bg-[var(--color-muted)] rounded-lg" />
+        </div>
+        {/* Tabs skeleton */}
+        <div className="flex gap-2 border-b border-slate-200 dark:border-slate-800 pb-0">
+          {[1, 2, 3].map(i => (
+            <div key={i} className="h-10 w-32 bg-[var(--color-muted)] rounded-t-xl" />
+          ))}
+        </div>
+        {/* Tab content skeleton */}
+        <AnalyticsTabSkeleton />
       </div>
     )
   }
 
   return (
-    <div className="max-w-[1600px] mx-auto p-4 md:p-8 space-y-6 animate-in fade-in duration-500">
+    <div className="max-w-[1600px] mx-auto p-4 md:p-8 space-y-6">
       <PageTour pageKey="analytics" steps={analyticsSteps} />
-      
+
       {/* Header */}
       <div id="tour-analytics-header" className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>

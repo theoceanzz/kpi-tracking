@@ -210,7 +210,7 @@ export default function OrgUnitSubmissionsPage() {
 
   return (
     <div className="min-h-screen bg-[#f8fafc] dark:bg-[#020617] p-4 md:p-8">
-      <div className="max-w-[1600px] mx-auto space-y-8 animate-in fade-in duration-700">
+      <div className="max-w-[1600px] mx-auto space-y-8">
         <PageTour pageKey="submissions-org" steps={orgUnitSubmissionsSteps} />
         
         {/* Header Section */}
@@ -306,7 +306,7 @@ export default function OrgUnitSubmissionsPage() {
             />
           </div>
         ) : (
-          <div id="tour-approve-table" className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl rounded-[32px] border border-slate-200 dark:border-slate-800 overflow-hidden shadow-2xl animate-in zoom-in-95 duration-500">
+          <div id="tour-approve-table" className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl rounded-[32px] border border-slate-200 dark:border-slate-800 overflow-hidden shadow-2xl">
             <div className="overflow-x-auto scrollbar-thin">
               <table className="w-full text-left border-collapse">
                 <thead>
@@ -348,11 +348,10 @@ export default function OrgUnitSubmissionsPage() {
                     const evaluation = evaluationsByUserId[emp.id]
 
                     return (
-                      <tr 
-                        key={emp.id} 
+                      <tr
+                        key={emp.id}
                         onClick={() => handleRowClick(emp)}
-                        className="group hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-all duration-300 animate-in fade-in slide-in-from-left-4 cursor-pointer"
-                        style={{ animationDelay: `${i * 30}ms` }}
+                        className="group hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors cursor-pointer"
                       >
                         <td className="px-6 py-5">
                           <div className="flex items-center gap-3">

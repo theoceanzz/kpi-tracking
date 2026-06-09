@@ -104,7 +104,7 @@ export default function OkrManagementPage() {
   if (isLoading) return <div className="p-8 flex justify-center"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div></div>
 
   return (
-    <div className="max-w-6xl mx-auto space-y-8 animate-in fade-in duration-500">
+    <div className="max-w-6xl mx-auto space-y-8">
       <PageTour pageKey="okr-management" steps={okrManagementSteps} />
       
       <div id="tour-okr-header" className="flex flex-col md:flex-row md:items-center justify-between gap-4">

@@ -1,39 +1,69 @@
 import React, { useState } from 'react'
-import { ChevronDown, ChevronRight } from 'lucide-react'
+import { ChevronDown, ChevronRight, ChevronUp, ChevronsUpDown } from 'lucide-react'
 import type { ObjectiveDetailedDto } from '@/types/stats'
 import { format } from 'date-fns'
+
+type SortField = 'progress' | 'performance'
+type SortDir = 'asc' | 'desc'
 
 const SparklineDonut = ({ value }: { value: number | null }) => {
   if (value === null) return <span className="text-slate-400 dark:text-slate-500 font-medium">-</span>
   const radius = 16
   const circumference = 2 * Math.PI * radius
   const strokeDashoffset = circumference - (Math.min(value, 100) / 100) * circumference
-  const color = value >= 100 ? '#10b981' : value >= 50 ? '#f59e0b' : '#ef4444'
-  
+  const color = value >= 100 ? '#10b981' : value >= 80 ? '#6366f1' : value >= 50 ? '#f59e0b' : '#ef4444'
+
   return (
     <div className="relative flex items-center justify-center w-10 h-10 mx-auto group-hover:scale-110 transition-transform">
       <svg className="w-full h-full transform -rotate-90" viewBox="0 0 40 40">
-        <circle cx="20" cy="20" r="16" stroke="currentColor" strokeWidth="4" fill="transparent" className="text-slate-200 dark:text-slate-700/50" />
+        <circle cx="20" cy="20" r="16" stroke="currentColor" strokeWidth="4" fill="transparent" className="text-slate-100 dark:text-slate-800" />
         <circle cx="20" cy="20" r="16" stroke={color} strokeWidth="4" fill="transparent" strokeDasharray={circumference} strokeDashoffset={strokeDashoffset} className="transition-all duration-1000 ease-out" strokeLinecap="round" />
       </svg>
-      <span className="absolute text-[9px] font-bold text-slate-700 dark:text-slate-300">{Math.round(value)}%</span>
+      <span className="absolute text-[9px] font-black text-slate-700 dark:text-slate-300">{Math.round(value)}%</span>
     </div>
   )
 }
 
 const ProgressBar = ({ value, subText }: { value: number, subText: string }) => {
-  const color = value >= 100 ? 'bg-emerald-500' : value >= 50 ? 'bg-amber-500' : 'bg-rose-500'
+  const pct = Math.round(value)
   return (
-    <div className="w-full flex flex-col gap-1.5 min-w-[150px]">
-      <div className="flex justify-between items-center text-xs">
-        <span className="text-slate-500 dark:text-slate-400">Tiến độ</span>
-        <span className="font-bold text-slate-800 dark:text-slate-200">{Math.round(value)}%</span>
+    <div className="w-full flex flex-col gap-1 min-w-[150px]">
+      <div className="flex items-center gap-3">
+        <div className="flex-1 h-2 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+          <div
+            className={`h-full rounded-full transition-all duration-1000 ${pct >= 100 ? 'bg-emerald-500' : 'bg-indigo-500'}`}
+            style={{ width: `${Math.min(pct, 100)}%` }}
+          />
+        </div>
+        <span className="text-xs font-black text-slate-800 dark:text-slate-200">{pct}%</span>
       </div>
-      <div className="h-2 w-full bg-slate-200 dark:bg-slate-700/50 rounded-full overflow-hidden border border-slate-300 dark:border-white/5">
-        <div className={`h-full ${color} transition-all duration-1000 rounded-full`} style={{ width: `${Math.min(value, 100)}%` }} />
-      </div>
-      <div className="text-[10px] text-slate-500 font-medium mt-0.5">{subText}</div>
+      <div className="text-[10px] text-slate-500 font-medium">{subText}</div>
     </div>
+  )
+}
+
+function SortHeader({
+  field, active, dir, onToggle, children,
+}: {
+  field: SortField
+  active: SortField
+  dir: SortDir
+  onToggle: (f: SortField) => void
+  children: React.ReactNode
+}) {
+  const isActive = active === field
+  return (
+    <button
+      onClick={onToggle ? () => onToggle(field) : undefined}
+      className="flex items-center gap-1 group hover:text-indigo-500 transition-colors uppercase"
+    >
+      {children}
+      <span className="ml-0.5">
+        {isActive
+          ? dir === 'asc' ? <ChevronUp size={12} /> : <ChevronDown size={12} />
+          : <ChevronsUpDown size={12} className="opacity-30 group-hover:opacity-60" />}
+      </span>
+    </button>
   )
 }
 
@@ -51,9 +81,12 @@ const StatusBadge = ({ status }: { status: string }) => {
 interface Props {
   data: ObjectiveDetailedDto[];
   onRowClick: (type: 'OBJECTIVE' | 'KR' | 'KPI', data: any) => void;
+  sortBy: SortField;
+  sortDir: SortDir;
+  onToggleSort: (field: SortField) => void;
 }
 
-export default function ObjectiveDetailedTable({ data, onRowClick }: Props) {
+export default function ObjectiveDetailedTable({ data, onRowClick, sortBy, sortDir, onToggleSort }: Props) {
   const [expandedObj, setExpandedObj] = useState<Record<string, boolean>>({})
   const [expandedKr, setExpandedKr] = useState<Record<string, boolean>>({})
   const [expandedKpi, setExpandedKpi] = useState<Record<string, boolean>>({})
@@ -93,18 +126,28 @@ const DateRange = ({ start, end }: { start: string | null; end: string | null })
 )
 
   return (
-    <div className="w-full overflow-x-auto rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900/40 backdrop-blur-md shadow-sm dark:shadow-xl">
+    <div className="w-full overflow-x-auto custom-scrollbar">
       <table className="w-full text-sm text-left whitespace-nowrap">
-        <thead className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider bg-slate-50 dark:bg-slate-800/80 border-b border-slate-200 dark:border-white/10">
-          <tr>
+        <thead className="bg-slate-50 dark:bg-slate-800/50">
+          <tr className="text-xs font-black uppercase text-slate-500">
             <th className="px-6 py-4 w-[30%]">Tên Mục tiêu / Yếu tố</th>
             <th className="px-6 py-4 w-[20%]">Đơn vị / Người đảm nhiệm</th>
             <th className="px-6 py-4 w-[15%]">Chu kỳ thực hiện</th>
-            <th className="px-6 py-4 w-[25%]">Tiến độ</th>
-            <th className="px-6 py-4 text-center w-[10%]">Hiệu suất</th>
+            <th className="px-6 py-4 w-[25%]">
+              <SortHeader field="progress" active={sortBy} dir={sortDir} onToggle={onToggleSort}>
+                Tiến độ
+              </SortHeader>
+            </th>
+            <th className="px-6 py-4 text-center w-[10%]">
+              <div className="flex justify-center">
+                <SortHeader field="performance" active={sortBy} dir={sortDir} onToggle={onToggleSort}>
+                  Hiệu suất
+                </SortHeader>
+              </div>
+            </th>
           </tr>
         </thead>
-        <tbody className="divide-y divide-slate-100 dark:divide-white/5">
+        <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
           {data.map(obj => {
             const isObjExp = expandedObj[obj.id]
             return (

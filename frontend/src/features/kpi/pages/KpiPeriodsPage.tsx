@@ -91,7 +91,7 @@ export default function KpiPeriodsPage() {
 
   return (
     <div className="min-h-screen bg-slate-50/50 dark:bg-slate-950/50">
-      <div className="max-w-[1600px] mx-auto p-4 md:p-8 space-y-8 animate-in fade-in duration-700">
+      <div className="max-w-[1600px] mx-auto p-4 md:p-8 space-y-8">
         <PageTour pageKey="kpi-periods" steps={kpiPeriodsSteps} />
         
         {/* Header Section with Glass Card */}
@@ -250,7 +250,7 @@ export default function KpiPeriodsPage() {
             />
           </div>
         ) : viewMode === 'TABLE' ? (
-          <div className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl rounded-[32px] border border-slate-200 dark:border-slate-800 overflow-hidden shadow-2xl animate-in zoom-in-95 duration-500">
+          <div className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl rounded-[32px] border border-slate-200 dark:border-slate-800 overflow-hidden shadow-2xl">
             <div className="overflow-x-auto scrollbar-thin">
               <table className="w-full text-left border-collapse">
                 <thead>
@@ -273,7 +273,7 @@ export default function KpiPeriodsPage() {
                 </thead>
                 <tbody className="divide-y divide-slate-50 dark:divide-slate-800/50">
                   {data.content.map((period, index) => (
-                    <tr key={period.id} className="group hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-all duration-300 animate-in fade-in slide-in-from-left-4" style={{ animationDelay: `${index * 30}ms` }}>
+                    <tr key={period.id} className="group hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors">
                       <td className="px-4 py-5">
                         <div className="flex items-center gap-4">
                           <div className="w-12 h-12 rounded-2xl bg-indigo-50 dark:bg-indigo-900/30 flex items-center justify-center text-indigo-600 dark:text-indigo-400 shrink-0 shadow-sm border border-indigo-100/50 dark:border-indigo-800/50 group-hover:scale-110 transition-transform duration-500">
@@ -325,8 +325,7 @@ export default function KpiPeriodsPage() {
             {data.content.map((period, index) => (
               <div 
                 key={period.id} 
-                className="group relative bg-white dark:bg-slate-900 rounded-[32px] border border-slate-200 dark:border-slate-800 p-6 shadow-sm hover:shadow-2xl hover:-translate-y-1 transition-all duration-500 animate-in fade-in slide-in-from-bottom-8"
-                style={{ animationDelay: `${index * 50}ms` }}
+                className="group relative bg-white dark:bg-slate-900 rounded-[32px] border border-slate-200 dark:border-slate-800 p-6 shadow-sm hover:shadow-2xl hover:-translate-y-1 transition-all duration-300"
               >
                 <div className="absolute top-0 right-0 w-20 h-20 bg-indigo-500/5 rounded-full -translate-y-1/2 translate-x-1/2 blur-2xl group-hover:bg-indigo-500/10 transition-colors" />
                 

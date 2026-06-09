@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useRef, useEffect } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { statsApi } from '@/features/dashboard/api/statsApi'
 import ObjectiveMetricCard from '../components/ObjectiveMetricCard'
@@ -7,10 +7,25 @@ import ObjectiveDetailsWidget from '../components/ObjectiveDetailsWidget'
 import TopEntitiesDashboardWidget from '../components/TopEntitiesDashboardWidget'
 import { Target, TrendingUp, CheckCircle2, AlertTriangle, Users } from 'lucide-react'
 import { subDays, subMonths, startOfYear } from 'date-fns'
+import { cn } from '@/lib/utils'
 
 type DateFilterType = 'THIS_WEEK' | 'THIS_MONTH' | 'THIS_QUARTER' | '6_MONTHS' | 'THIS_YEAR' | 'CUSTOM'
 
 export default function SubordinateManagementTab() {
+  const [filterStuck, setFilterStuck] = useState(false)
+  const filterSentinelRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const el = filterSentinelRef.current
+    if (!el) return
+    const observer = new IntersectionObserver(
+      (entries) => { if (entries[0]) setFilterStuck(!entries[0].isIntersecting) },
+      { rootMargin: '-65px 0px 0px 0px', threshold: 0 }
+    )
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [])
+
   const [filterType, setFilterType] = useState<DateFilterType>('THIS_YEAR')
   const [customRange, setCustomRange] = useState<{ from: string; to: string }>({ from: '', to: '' })
   const [onlyApproved, setOnlyApproved] = useState<boolean>(false)
@@ -71,8 +86,14 @@ export default function SubordinateManagementTab() {
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500 pb-20">
+      {/* Sentinel for sticky detection */}
+      <div ref={filterSentinelRef} className="h-px" aria-hidden />
+
       {/* Global Filter Toolbar */}
-      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-4 rounded-2xl flex flex-wrap items-center gap-4 justify-between shadow-sm">
+      <div className={cn(
+        'sticky top-0 z-20 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl flex flex-wrap items-center gap-4 justify-between transition-all duration-200',
+        filterStuck ? 'p-3 shadow-lg shadow-slate-200/80 dark:shadow-slate-950/60' : 'p-4 shadow-sm'
+      )}>
         <div className="flex items-center gap-2">
           <div className="p-2 bg-indigo-50 dark:bg-indigo-900/30 rounded-lg text-indigo-600 dark:text-indigo-400">
             <Target size={18} />

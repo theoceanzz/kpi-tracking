@@ -24,18 +24,9 @@ public class AiController {
 
     private final AiService aiService;
 
-    @PostMapping("/chat-org")
-    public ApiResponse<AiChatResponse> chatOrg(@RequestBody AiChatRequest request) {
-        String result = aiService.processOrgChat(request.getMessage());
-        AiChatResponse response = AiChatResponse.builder()
-                .text(result)
-                .build();
-        return ApiResponse.success(response);
-    }
-
     @PostMapping("/chat-org-unit")
     public ApiResponse<AiChatResponse> chatOrgUnit(@RequestBody AiChatRequest request) {
-        String result = aiService.processOrgUnitChat(request.getMessage());
+        String result = aiService.processOrgUnitChat(request.getMessage(), request.getConversationId());
         AiChatResponse response = AiChatResponse.builder()
                 .text(result)
                 .build();

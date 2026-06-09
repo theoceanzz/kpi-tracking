@@ -18,7 +18,7 @@ import {
 
 import AnalyticsComboChart from '../components/AnalyticsComboChart'
 import MyKpiDrawer from '../components/MyKpiDrawer'
-import LoadingSkeleton from '@/components/common/LoadingSkeleton'
+import AnalyticsTabSkeleton, { TableLoadingRows } from '@/components/common/AnalyticsTabSkeleton'
 import Pagination from '@/components/common/Pagination'
 
 import { subDays, subMonths, startOfYear, format } from 'date-fns'
@@ -40,7 +40,7 @@ export default function MyStatsTab() {
     const el = filterSentinelRef.current
     if (!el) return
     const observer = new IntersectionObserver(
-      ([entry]) => entry && setFilterStuck(!entry.isIntersecting),
+      (entries) => { if (entries[0]) setFilterStuck(!entries[0].isIntersecting) },
       { rootMargin: '-65px 0px 0px 0px', threshold: 0 }
     )
     observer.observe(el)
@@ -107,7 +107,7 @@ export default function MyStatsTab() {
   }
 
   if (isMetricsLoading || isChartLoading)
-    return <div className="p-8"><LoadingSkeleton rows={10} /></div>
+    return <AnalyticsTabSkeleton variant="default" className="p-6" />
 
   // ── Old chart data preparation ───────────────────────────────────────────
   const submissionsPieData = [
@@ -145,7 +145,7 @@ export default function MyStatsTab() {
 
       {/* ── Global Filter Toolbar ──────────────────────────────────────────── */}
       <div className={cn(
-        'sticky top-16 z-20 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl flex flex-wrap items-center gap-4 justify-between transition-all duration-200',
+        'sticky top-0 z-20 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl flex flex-wrap items-center gap-4 justify-between transition-all duration-200',
         filterStuck ? 'p-3 shadow-lg shadow-slate-200/80 dark:shadow-slate-950/60' : 'p-4 shadow-sm'
       )}>
         <div className="flex items-center gap-2">
@@ -321,7 +321,7 @@ export default function MyStatsTab() {
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
               {isKpisLoading
-                ? <tr><td colSpan={6} className="p-6"><LoadingSkeleton rows={5} /></td></tr>
+                ? <TableLoadingRows cols={6} count={2} />
                 : kpiPage?.content?.map(kpi => (
                     <ExpandableKpiRow key={kpi.kpiId} kpi={kpi} onOpenDrawer={() => setSelectedKpiId(kpi.kpiId)} />
                   ))}

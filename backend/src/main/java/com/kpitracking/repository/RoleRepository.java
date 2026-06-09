@@ -1,7 +1,10 @@
 package com.kpitracking.repository;
 
 import com.kpitracking.entity.Role;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
@@ -32,4 +35,8 @@ public interface RoleRepository extends JpaRepository<Role, UUID> {
     List<Role> findByOrganizationIdAndRank(UUID organizationId, Integer rank);
 
     List<Role> findAllByDeletedAtIsNull();
+
+    @Query("SELECT r FROM Role r WHERE r.organization.id = :orgId AND r.deletedAt IS NULL " +
+           "AND (:keyword IS NULL OR :keyword = '' OR LOWER(CAST(r.name AS string)) LIKE LOWER(CONCAT('%', CAST(:keyword AS string), '%')))")
+    List<Role> searchByKeyword(@Param("orgId") UUID orgId, @Param("keyword") String keyword, Pageable pageable);
 }

@@ -9,7 +9,6 @@ import lombok.NoArgsConstructor;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class AiChatRequest {
-    private String message;
-    private String conversationId;
+public class CreateConversationRequest {
+    private String title;
 }

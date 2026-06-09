@@ -181,7 +181,7 @@ export default function EvaluationsPage() {
   }, [data, user])
 
   return (
-    <div className="max-w-[1440px] mx-auto p-4 md:p-6 space-y-6 animate-in fade-in duration-700 transition-all">
+    <div className="max-w-[1440px] mx-auto p-4 md:p-6 space-y-6">
       <PageTour pageKey="evaluations" steps={evaluationsSteps} />
       
       {/* Dynamic Header */}
@@ -212,7 +212,7 @@ export default function EvaluationsPage() {
 
       {/* Reminder Banner */}
       {activePeriod && hasKpiInActivePeriod && !hasSelfEvalForActivePeriod && isNearDeadline && (
-        <div className="bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-800/50 rounded-3xl p-6 flex items-center justify-between shadow-sm animate-in slide-in-from-top-4 duration-700">
+        <div className="bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-800/50 rounded-3xl p-6 flex items-center justify-between shadow-sm">
           <div className="flex items-center gap-4">
             <div className="w-12 h-12 rounded-2xl bg-amber-500 text-white flex items-center justify-center shadow-lg shadow-amber-500/20">
               <Calendar size={24} />
@@ -390,14 +390,13 @@ export default function EvaluationsPage() {
                     const isNewGroup = idx === 0 || ev.userId !== list[idx - 1]?.userId || ev.kpiPeriodId !== list[idx - 1]?.kpiPeriodId
 
                     return (
-                      <tr 
-                        key={ev.id} 
+                      <tr
+                        key={ev.id}
                         onClick={() => setDetailEval(ev)}
                         className={cn(
-                          "group hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-all cursor-pointer animate-in fade-in slide-in-from-bottom-2 duration-300",
+                          "group hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors cursor-pointer",
                           isNewGroup && idx > 0 && "border-t-4 border-slate-100/50 dark:border-slate-800/50"
                         )}
-                        style={{ animationDelay: `${idx * 40}ms` }}
                       >
                         <td className="px-8 py-6 whitespace-nowrap">
                           <div className={cn("inline-flex items-center gap-3 px-4 py-2 rounded-2xl border shadow-sm", getScoreBg(ev.score))}>
