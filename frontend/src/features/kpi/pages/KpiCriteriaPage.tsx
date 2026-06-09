@@ -637,11 +637,10 @@ export default function KpiCriteriaPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-50 dark:divide-slate-800/50">
-                    {filteredKpis.map((kpi: KpiCriteria, i: number) => (
+                    {filteredKpis.map((kpi: KpiCriteria) => (
                       <KpiTableRow
                         key={kpi.id}
                         kpi={kpi}
-                        index={i}
                         onView={() => setSelectedKpi(kpi)}
                         onEdit={() => { setEditKpi(kpi); setShowForm(true) }}
                         onDelete={() => setDeleteKpi(kpi)}
@@ -657,11 +656,10 @@ export default function KpiCriteriaPage() {
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-              {filteredKpis.map((kpi: KpiCriteria, idx: number) => (
+              {filteredKpis.map((kpi: KpiCriteria) => (
                 <KpiCard
                   key={kpi.id}
                   kpi={kpi}
-                  delay={idx * 50}
                   onView={() => setSelectedKpi(kpi)}
                   onEdit={() => { setEditKpi(kpi); setShowForm(true) }}
                   onDelete={() => setDeleteKpi(kpi)}
@@ -760,8 +758,8 @@ export default function KpiCriteriaPage() {
   )
 }
 
-function KpiTableRow({ kpi, index, onView, onEdit, onDelete, onSubmit, onDelegate, enableOkr, enableWaterfall }: {
-  kpi: KpiCriteria; index: number; onView: () => void; onEdit: () => void; onDelete: () => void; onSubmit: () => void; onDelegate: () => void; enableOkr?: boolean; enableWaterfall?: boolean;
+function KpiTableRow({ kpi, onView, onEdit, onDelete, onSubmit, onDelegate, enableOkr, enableWaterfall }: {
+  kpi: KpiCriteria; onView: () => void; onEdit: () => void; onDelete: () => void; onSubmit: () => void; onDelegate: () => void; enableOkr?: boolean; enableWaterfall?: boolean;
 }) {
   const user = useAuthStore(s => s.user)
   const { hasPermission } = usePermission()
@@ -976,8 +974,8 @@ function KpiTableRow({ kpi, index, onView, onEdit, onDelete, onSubmit, onDelegat
   )
 }
 
-function KpiCard({ kpi, delay, onView, onEdit, onDelete, onSubmit, onDelegate, enableOkr, enableWaterfall }: {
-  kpi: KpiCriteria; delay: number; onView: () => void; onEdit: () => void; onDelete: () => void; onSubmit: () => void; onDelegate: () => void; enableOkr?: boolean; enableWaterfall?: boolean
+function KpiCard({ kpi, onView, onEdit, onDelete, onSubmit, onDelegate, enableOkr, enableWaterfall }: {
+  kpi: KpiCriteria; onView: () => void; onEdit: () => void; onDelete: () => void; onSubmit: () => void; onDelegate: () => void; enableOkr?: boolean; enableWaterfall?: boolean
 }) {
   const user = useAuthStore(s => s.user)
   const { hasPermission } = usePermission()

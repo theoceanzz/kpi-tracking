@@ -143,7 +143,7 @@ public interface KpiCriteriaRepository extends JpaRepository<KpiCriteria, UUID> 
     @Query("SELECT k FROM KpiCriteria k JOIN k.assignees a WHERE a.id = :userId AND k.status = 'APPROVED' AND k.keyResult IS NOT NULL")
     List<KpiCriteria> findApprovedByAssigneeIdWithKeyResult(@Param("userId") UUID userId);
 
-    @Query("SELECT DISTINCT k FROM KpiCriteria k JOIN k.assignees a WHERE a.id = :userId AND k.status = 'APPROVED'")
+    @Query("SELECT k FROM KpiCriteria k JOIN k.assignees a WHERE a.id = :userId AND k.status = 'APPROVED' AND k.keyResult IS NULL")
     List<KpiCriteria> findApprovedByAssigneeIdWithoutKeyResult(@Param("userId") UUID userId);
 
     @Query("SELECT DISTINCT k FROM KpiCriteria k JOIN k.assignees a WHERE a.id = :userId AND k.status = 'APPROVED' AND k.createdAt >= :from AND k.createdAt <= :to")

@@ -272,7 +272,7 @@ export default function KpiPeriodsPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-50 dark:divide-slate-800/50">
-                  {data.content.map((period, index) => (
+                  {data.content.map((period) => (
                     <tr key={period.id} className="group hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors">
                       <td className="px-4 py-5">
                         <div className="flex items-center gap-4">
@@ -322,7 +322,7 @@ export default function KpiPeriodsPage() {
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-            {data.content.map((period, index) => (
+            {data.content.map((period) => (
               <div 
                 key={period.id} 
                 className="group relative bg-white dark:bg-slate-900 rounded-[32px] border border-slate-200 dark:border-slate-800 p-6 shadow-sm hover:shadow-2xl hover:-translate-y-1 transition-all duration-300"

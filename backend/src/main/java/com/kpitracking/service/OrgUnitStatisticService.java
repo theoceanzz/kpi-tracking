@@ -146,8 +146,10 @@ public class OrgUnitStatisticService {
     // 1. get_org_hierarchy
     @Transactional(readOnly = true)
     public Map<String, Object> getOrgHierarchy(UUID orgUnitId) {
-        String pathPrefix = getPathPrefix(orgUnitId);
-        List<OrgUnit> units = orgUnitRepository.findSubtree(pathPrefix);
+        OrgUnit root = orgUnitRepository.findById(orgUnitId).orElseThrow(() -> new RuntimeException("OrgUnit not found: " + orgUnitId));
+        UUID orgId = root.getOrgHierarchyLevel().getOrganization().getId();
+        String pathPrefix = root.getPath();
+        List<OrgUnit> units = orgUnitRepository.findSubtree(pathPrefix, orgId);
 
         List<Map<String, Object>> flatList = new ArrayList<>();
         for (OrgUnit u : units) {
@@ -316,7 +318,9 @@ public class OrgUnitStatisticService {
         Instant start = parseDate(startDate, Instant.EPOCH);
         Instant end = parseDate(endDate, Instant.now());
 
-        String pathPrefix = getPathPrefix(targetUnitId);
+        OrgUnit unit = orgUnitRepository.findById(targetUnitId).orElseThrow(() -> new RuntimeException("OrgUnit not found: " + targetUnitId));
+        UUID orgId = unit.getOrgHierarchyLevel().getOrganization().getId();
+        String pathPrefix = unit.getPath();
 
         StringBuilder usersJpql = new StringBuilder("SELECT DISTINCT uro.user.id FROM UserRoleOrgUnit uro WHERE ");
         if (subtree) {
@@ -767,7 +771,7 @@ public class OrgUnitStatisticService {
         } else if ("unit".equalsIgnoreCase(scope)) {
             UUID scopeUnitId = (unitId != null && !unitId.isBlank()) ? UUID.fromString(unitId) : contextUnitId;
             String pathPrefix = getPathPrefix(scopeUnitId);
-            users = userRoleOrgUnitRepository.findUsersByOrgUnitPath(pathPrefix + "%");
+            users = userRoleOrgUnitRepository.findUsersByOrgUnitPath(pathPrefix + "%", orgId);
         } else {
             users = userRoleOrgUnitRepository.findUsersByOrganizationId(orgId);
         }
@@ -853,8 +857,10 @@ public class OrgUnitStatisticService {
         Instant start = parseDate(startDate, Instant.EPOCH);
         Instant end = parseDate(endDate, Instant.now());
 
-        String pathPrefix = getPathPrefix(orgUnitId);
-        List<OrgUnit> units = orgUnitRepository.findSubtree(pathPrefix);
+        OrgUnit root = orgUnitRepository.findById(orgUnitId).orElseThrow(() -> new RuntimeException("OrgUnit not found: " + orgUnitId));
+        UUID orgIdFromUnit = root.getOrgHierarchyLevel().getOrganization().getId();
+        String pathPrefix = root.getPath();
+        List<OrgUnit> units = orgUnitRepository.findSubtree(pathPrefix, orgIdFromUnit);
 
         List<Map<String, Object>> rankList = new ArrayList<>();
         for (OrgUnit u : units) {
@@ -957,7 +963,7 @@ public class OrgUnitStatisticService {
         Instant start = parseDate(startDate, Instant.EPOCH);
         Instant end = parseDate(endDate, Instant.now());
 
-        long totalEmployees = userRoleOrgUnitRepository.countUsersInSubtree(pathPrefix);
+        long totalEmployees = userRoleOrgUnitRepository.countUsersInSubtree(pathPrefix, orgId);
         long totalUnits = orgUnitRepository.countChildrenInSubtree(pathPrefix) + 1;
 
         long totalKpis = kpiCriteriaRepository.countInSubtree(pathPrefix, start, end);

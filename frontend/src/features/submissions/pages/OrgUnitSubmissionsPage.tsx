@@ -343,7 +343,7 @@ export default function OrgUnitSubmissionsPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-50 dark:divide-slate-800/50">
-                  {employees.map((emp, i) => {
+                  {employees.map((emp) => {
                     const pendingCount = pendingByUserId[emp.id] || 0
                     const evaluation = evaluationsByUserId[emp.id]
 
