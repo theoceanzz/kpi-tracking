@@ -34,6 +34,7 @@ public class UpdateKpiCriteriaRequest {
     private UUID kpiPeriodId;
 
     private Double minimumValue;
+    private Boolean isReverseKpi;
     private UUID keyResultId;
     private UUID parentId;
 }

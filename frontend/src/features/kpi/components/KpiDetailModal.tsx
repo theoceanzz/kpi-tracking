@@ -53,6 +53,11 @@ export default function KpiDetailModal({ open, onClose, kpi }: KpiDetailModalPro
             <div>
               <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">Tên chỉ tiêu</p>
               <h4 className="text-2xl font-black text-slate-900 dark:text-white leading-tight">{kpi.name}</h4>
+              {kpi.isReverseKpi && (
+                <span className="inline-flex items-center gap-1 mt-2 px-2.5 py-1 rounded-full bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 text-[10px] font-black uppercase tracking-wider border border-orange-200 dark:border-orange-800/50">
+                  ↓ KPI Ngược
+                </span>
+              )}
             </div>
             {kpi.description && (
               <div>

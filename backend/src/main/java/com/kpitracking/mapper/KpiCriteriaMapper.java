@@ -18,6 +18,16 @@ public interface KpiCriteriaMapper {
             response.setOrgUnitIds(java.util.List.of(kpi.getOrgUnit().getId()));
         }
     }
+
+    @AfterMapping
+    default void mapIsReverseKpi(KpiCriteria kpi, @MappingTarget KpiCriteriaResponse response) {
+        response.setIsReverseKpi(kpi.getIsReverseKpi());
+    }
+
+    @AfterMapping
+    default void mapIsReverseKpiSummary(KpiCriteria kpi, @MappingTarget KpiCriteriaSummaryResponse response) {
+        response.setIsReverseKpi(kpi.getIsReverseKpi());
+    }
     @Mapping(source = "orgUnit.id", target = "orgUnitId")
     @Mapping(source = "orgUnit.name", target = "orgUnitName")
     @Mapping(source = "assignees", target = "assignees")

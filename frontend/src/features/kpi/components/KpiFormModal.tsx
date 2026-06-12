@@ -71,17 +71,18 @@ export default function KpiFormModal({ open, onClose, editKpi, parentKpi }: KpiF
 
   const { register, handleSubmit, formState: { errors }, reset, watch, setValue, control } = useForm<KpiFormData>({
     resolver: zodResolver(kpiSchema),
-    defaultValues: { 
-      name: '', 
+    defaultValues: {
+      name: '',
       description: '',
       weight: undefined,
       targetValue: undefined,
       minimumValue: undefined,
+      isReverseKpi: false,
       unit: '',
-      frequency: 'MONTHLY', 
-      assignedToIds: [], 
-      kpiPeriodId: '', 
-      keyResultId: null, 
+      frequency: 'MONTHLY',
+      assignedToIds: [],
+      kpiPeriodId: '',
+      keyResultId: null,
       parentId: null,
       orgUnitIds: [],
       orgUnitId: '',
@@ -113,6 +114,7 @@ export default function KpiFormModal({ open, onClose, editKpi, parentKpi }: KpiF
         orgUnitIds: editKpi.orgUnitIds ?? (editKpi.orgUnitId ? [editKpi.orgUnitId] : []),
         assignedToIds: editKpi.assigneeIds ?? [],
         minimumValue: editKpi.minimumValue ?? undefined,
+        isReverseKpi: editKpi.isReverseKpi ?? false,
         kpiPeriodId: editKpi.kpiPeriodId ?? '',
         keyResultId: editKpi.keyResultId ?? null,
         parentId: editKpi.parentId ?? null,
@@ -125,6 +127,7 @@ export default function KpiFormModal({ open, onClose, editKpi, parentKpi }: KpiF
         weight: undefined,
         targetValue: undefined,
         minimumValue: undefined,
+        isReverseKpi: false,
         unit: parentKpi?.unit ?? '',
         frequency: 'MONTHLY', 
         kpiPeriodId: parentKpi?.kpiPeriodId ?? '',
@@ -465,27 +468,76 @@ export default function KpiFormModal({ open, onClose, editKpi, parentKpi }: KpiF
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-[11px] font-black text-[var(--color-muted-foreground)] uppercase tracking-widest mb-1.5">Trọng số (%)</label>
-                  <input 
-                    {...register('weight', { valueAsNumber: true })} 
-                    type="number" 
-                    step="any" 
-                    min={0} 
-                    max={100} 
-                    onWheel={(e) => (e.target as HTMLInputElement).blur()} 
-                    className={inputCls} 
-                    placeholder="25" 
+                  <input
+                    {...register('weight', { valueAsNumber: true })}
+                    type="number"
+                    step="any"
+                    min={0}
+                    max={100}
+                    onWheel={(e) => (e.target as HTMLInputElement).blur()}
+                    className={inputCls}
+                    placeholder="25"
                   />
                   {errors.weight && <p className="text-red-500 text-[10px] mt-1 font-bold">{errors.weight.message}</p>}
                 </div>
                 <div>
                   <label className="block text-[11px] font-black text-[var(--color-muted-foreground)] uppercase tracking-widest mb-1.5">Đơn vị tính</label>
-                  <input 
-                    {...register('unit')} 
-                    className={inputCls} 
-                    placeholder="VNĐ, %, KPI..." 
+                  <input
+                    {...register('unit')}
+                    className={inputCls}
+                    placeholder="VNĐ, %, KPI..."
                   />
                 </div>
               </div>
+
+              <Controller
+                name="isReverseKpi"
+                control={control}
+                render={({ field }) => (
+                  <button
+                    type="button"
+                    onClick={() => field.onChange(!field.value)}
+                    className={cn(
+                      "w-full flex items-center justify-between px-4 py-3 rounded-xl border-2 transition-all text-left",
+                      field.value
+                        ? "border-orange-500 bg-orange-50 dark:bg-orange-900/10"
+                        : "border-[var(--color-border)] bg-[var(--color-background)] hover:border-[var(--color-primary)]/50"
+                    )}
+                  >
+                    <div>
+                      <div className="flex items-center gap-1.5">
+                        <span className={cn("text-sm font-bold", field.value ? "text-orange-600 dark:text-orange-400" : "text-[var(--color-foreground)]")}>
+                          KPI Ngược
+                        </span>
+                        <div className="relative group/tooltip">
+                          <div className="w-4 h-4 rounded-full bg-[var(--color-muted-foreground)]/20 hover:bg-orange-100 dark:hover:bg-orange-900/30 flex items-center justify-center cursor-help transition-colors">
+                            <span className="text-[9px] font-black text-[var(--color-muted-foreground)] group-hover/tooltip:text-orange-500 leading-none transition-colors">?</span>
+                          </div>
+                          <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 w-64 p-3 rounded-xl bg-slate-900 dark:bg-slate-700 text-white text-[11px] leading-relaxed shadow-2xl opacity-0 group-hover/tooltip:opacity-100 pointer-events-none transition-all duration-200 z-50 scale-95 group-hover/tooltip:scale-100">
+                            <p className="font-black text-orange-300 mb-1.5">KPI Ngược là gì?</p>
+                            <p className="font-medium opacity-90">Loại KPI mà giá trị thực tế <span className="text-orange-300 font-bold">càng thấp càng tốt</span>.</p>
+                            <p className="font-medium opacity-80 mt-1.5">Ví dụ: tỉ lệ lỗi, chi phí vận hành, thời gian xử lý, tỉ lệ nghỉ việc...</p>
+                            <p className="font-medium opacity-80 mt-1.5">Công thức điểm: <span className="text-green-300 font-bold">2 − (thực tế ÷ mục tiêu)</span>, thay vì chia thẳng như KPI thường.</p>
+                            <div className="absolute left-1/2 -translate-x-1/2 top-full w-0 h-0 border-l-4 border-r-4 border-t-4 border-l-transparent border-r-transparent border-t-slate-900 dark:border-t-slate-700" />
+                          </div>
+                        </div>
+                      </div>
+                      <div className="text-[10px] text-[var(--color-muted-foreground)] mt-0.5">
+                        Giá trị mục tiêu càng thấp càng tốt (VD: tỉ lệ lỗi, chi phí)
+                      </div>
+                    </div>
+                    <div className={cn(
+                      "w-10 h-6 rounded-full transition-all relative flex-shrink-0",
+                      field.value ? "bg-orange-500" : "bg-[var(--color-muted-foreground)]/30"
+                    )}>
+                      <div className={cn(
+                        "absolute top-1 w-4 h-4 rounded-full bg-white shadow transition-all",
+                        field.value ? "left-5" : "left-1"
+                      )} />
+                    </div>
+                  </button>
+                )}
+              />
           </div>
 
           {flatOrgUnits.length > 1 && (

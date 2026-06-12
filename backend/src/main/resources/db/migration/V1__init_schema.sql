@@ -327,6 +327,7 @@ CREATE TABLE kpi_criteria (
     frequency       VARCHAR(20)     NOT NULL,
     key_result_id   UUID            REFERENCES key_results(id) ON DELETE SET NULL,
     parent_id       UUID            REFERENCES kpi_criteria(id) ON DELETE SET NULL,
+    is_reverse_kpi  BOOLEAN         NOT NULL DEFAULT FALSE,
     status          VARCHAR(20)     NOT NULL DEFAULT 'DRAFT',
     created_by      UUID            NOT NULL REFERENCES users(id),
     approved_by     UUID            REFERENCES users(id),

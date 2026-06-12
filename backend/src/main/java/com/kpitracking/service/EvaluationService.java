@@ -171,7 +171,7 @@ public class EvaluationService {
         for (KpiCriteria kpi : kpis) {
             if (kpi.getTargetValue() != null && kpi.getTargetValue() > 0 && kpi.getWeight() != null) {
                 double actual = calculateKpiActualValue(kpi, userId, enableWaterfall);
-                boolean isInverse = kpi.getMinimumValue() != null && kpi.getTargetValue() < kpi.getMinimumValue();
+                boolean isInverse = Boolean.TRUE.equals(kpi.getIsReverseKpi());
                 double ratio;
                 if (isInverse) {
                     ratio = Math.max(0.0, 2.0 - (actual / kpi.getTargetValue()));

@@ -162,7 +162,7 @@ public class KpiSubmissionService {
 
         if (request.getActualValue() != null && kpi.getTargetValue() != null && kpi.getWeight() != null && kpi.getTargetValue() != 0) {
             Double minVal = kpi.getMinimumValue() != null ? kpi.getMinimumValue() : 0.0;
-            boolean isInverse = kpi.getMinimumValue() != null && kpi.getTargetValue() < kpi.getMinimumValue();
+            boolean isInverse = Boolean.TRUE.equals(kpi.getIsReverseKpi());
             
             if (isInverse) {
                 if (request.getActualValue() > minVal) {
@@ -311,7 +311,7 @@ public class KpiSubmissionService {
             KpiCriteria kpi = submission.getKpiCriteria();
             if (submission.getActualValue() != null && kpi.getTargetValue() != null && kpi.getWeight() != null && kpi.getTargetValue() != 0) {
                 Double minVal = kpi.getMinimumValue() != null ? kpi.getMinimumValue() : 0.0;
-                boolean isInverse = kpi.getMinimumValue() != null && kpi.getTargetValue() < kpi.getMinimumValue();
+                boolean isInverse = Boolean.TRUE.equals(kpi.getIsReverseKpi());
                 
                 if (isInverse) {
                     if (submission.getActualValue() > minVal) {
@@ -502,7 +502,7 @@ public class KpiSubmissionService {
         Double autoScore = 0.0;
         if (parentKpi.getTargetValue() != null && parentKpi.getWeight() != null && parentKpi.getTargetValue() != 0) {
             double multiplier = org.getEvaluationMaxScore() / 100.0;
-            boolean isInverse = parentKpi.getMinimumValue() != null && parentKpi.getTargetValue() < parentKpi.getMinimumValue();
+            boolean isInverse = Boolean.TRUE.equals(parentKpi.getIsReverseKpi());
             
             if (isInverse) {
                 double ratio = Math.max(0.0, 2.0 - (totalActual / parentKpi.getTargetValue()));

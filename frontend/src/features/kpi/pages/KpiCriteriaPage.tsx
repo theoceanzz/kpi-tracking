@@ -785,6 +785,11 @@ function KpiTableRow({ kpi, onView, onEdit, onDelete, onSubmit, onDelegate, enab
           <p className="text-sm font-black text-slate-900 dark:text-white group-hover/name:text-indigo-600 transition-colors line-clamp-1">
             {kpi.name}
           </p>
+          {kpi.isReverseKpi && (
+            <span className="inline-flex items-center gap-1 mt-0.5 px-2 py-0.5 rounded-full bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 text-[9px] font-black uppercase tracking-wider border border-orange-200 dark:border-orange-800/50">
+              ↓ KPI Ngược
+            </span>
+          )}
           {/* We hide the inline KR name if enableOkr is true because it now has its own column */}
           {!enableOkr && kpi.keyResultName && (
             <div className="flex items-center gap-1.5 mt-0.5">
@@ -1084,6 +1089,11 @@ function KpiCard({ kpi, onView, onEdit, onDelete, onSubmit, onDelegate, enableOk
           <h3 className="text-xl font-black text-slate-900 dark:text-white leading-tight group-hover/title:text-indigo-600 transition-colors line-clamp-2">
             {kpi.name}
           </h3>
+          {kpi.isReverseKpi && (
+            <span className="inline-flex items-center gap-1 mt-1.5 px-2.5 py-1 rounded-full bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 text-[9px] font-black uppercase tracking-wider border border-orange-200 dark:border-orange-800/50">
+              ↓ KPI Ngược
+            </span>
+          )}
           {enableOkr && kpi.keyResultName && (
             <div className="flex items-center gap-2 mt-2 px-3 py-1 bg-violet-50 dark:bg-violet-900/20 rounded-lg w-fit border border-violet-100 dark:border-violet-800/50">
               <Target size={12} className="text-violet-600" />

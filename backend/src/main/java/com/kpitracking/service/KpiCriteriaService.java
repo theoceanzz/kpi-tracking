@@ -155,6 +155,7 @@ public class KpiCriteriaService {
                 .weight(request.getWeight())
                 .targetValue(request.getTargetValue())
                 .minimumValue(request.getMinimumValue())
+                .isReverseKpi(Boolean.TRUE.equals(request.getIsReverseKpi()))
                 .unit(request.getUnit())
                 .frequency(request.getFrequency())
                 .status(status)
@@ -312,6 +313,7 @@ public class KpiCriteriaService {
         if (request.getWeight() != null) kpi.setWeight(request.getWeight());
         if (request.getTargetValue() != null) kpi.setTargetValue(request.getTargetValue());
         if (request.getMinimumValue() != null) kpi.setMinimumValue(request.getMinimumValue());
+        if (request.getIsReverseKpi() != null) kpi.setIsReverseKpi(request.getIsReverseKpi());
         if (request.getUnit() != null) kpi.setUnit(request.getUnit());
         
         if (request.getKpiPeriodId() != null) {
@@ -376,6 +378,7 @@ public class KpiCriteriaService {
                                 .weight(kpi.getWeight()) // Keep parent weight
                                 .targetValue(dividedTarget) // Divided evenly
                                 .minimumValue(dividedMinimum) // Divided evenly
+                                .isReverseKpi(Boolean.TRUE.equals(kpi.getIsReverseKpi()))
                                 .unit(kpi.getUnit())
                                 .frequency(kpi.getFrequency())
                                 .status(KpiStatus.APPROVED) // Auto approve cascaded KPIs
@@ -730,6 +733,7 @@ public class KpiCriteriaService {
                                 record.isMapped("Period") ? record.get("Period") : null,
                                 record.isMapped("OrgUnit") ? record.get("OrgUnit") : null,
                                 record.isMapped("KeyResultCode") ? record.get("KeyResultCode") : null,
+                                record.isMapped("IsReverseKpi") ? record.get("IsReverseKpi") : null,
                                 kpiPeriod, orgUnit, currentUser, affectedUserPairs, userOrgId);
                             successfulImports++;
                         } catch (Exception e) {
@@ -743,7 +747,7 @@ public class KpiCriteriaService {
                     Row headerRow = sheet.getRow(0);
                     if (headerRow == null) throw new BusinessException("File Excel trống");
 
-                    int nameIdx = -1, descIdx = -1, weightIdx = -1, targetIdx = -1, minIdx = -1, unitIdx = -1, freqIdx = -1, codeIdx = -1, namePeriodIdx = -1, nameOrgIdx = -1, krCodeIdx = -1;
+                    int nameIdx = -1, descIdx = -1, weightIdx = -1, targetIdx = -1, minIdx = -1, unitIdx = -1, freqIdx = -1, codeIdx = -1, namePeriodIdx = -1, nameOrgIdx = -1, krCodeIdx = -1, isReverseKpiIdx = -1;
                     for (int i = 0; i < headerRow.getLastCellNum(); i++) {
                         String header = headerRow.getCell(i).getStringCellValue().trim();
                         if (header.equalsIgnoreCase("Name")) nameIdx = i;
@@ -757,6 +761,7 @@ public class KpiCriteriaService {
                         else if (header.equalsIgnoreCase("Period")) namePeriodIdx = i;
                         else if (header.equalsIgnoreCase("OrgUnit")) nameOrgIdx = i;
                         else if (header.equalsIgnoreCase("KeyResultCode")) krCodeIdx = i;
+                        else if (header.equalsIgnoreCase("IsReverseKpi")) isReverseKpiIdx = i;
                     }
 
                     if (nameIdx == -1 || weightIdx == -1 || targetIdx == -1 || freqIdx == -1 || codeIdx == -1) {
@@ -780,6 +785,7 @@ public class KpiCriteriaService {
                                 namePeriodIdx != -1 ? getCellValueAsString(row.getCell(namePeriodIdx)) : null,
                                 nameOrgIdx != -1 ? getCellValueAsString(row.getCell(nameOrgIdx)) : null,
                                 krCodeIdx != -1 ? getCellValueAsString(row.getCell(krCodeIdx)) : null,
+                                isReverseKpiIdx != -1 ? getCellValueAsString(row.getCell(isReverseKpiIdx)) : null,
                                 kpiPeriod, orgUnit, currentUser, affectedUserPairs, userOrgId
                             );
                             successfulImports++;
@@ -842,7 +848,7 @@ public class KpiCriteriaService {
     }
 
     private void processKpiRow(String name, String desc, String weight, String target, String min, String unit, String freq, String empCode,
-                              String periodName, String orgName, String krCode,
+                              String periodName, String orgName, String krCode, String isReverseKpiStr,
                               com.kpitracking.entity.KpiPeriod defaultPeriod, OrgUnit defaultUnit, User creator,
                               java.util.Set<String> affectedUserPairs, UUID organizationId) {
         if (name == null || name.isBlank()) throw new BusinessException("Tên chỉ tiêu là bắt buộc");
@@ -955,6 +961,7 @@ public class KpiCriteriaService {
                     .weight(weightVal)
                     .targetValue(targetVal)
                     .minimumValue(min != null && !min.isBlank() ? Double.parseDouble(min) : null)
+                    .isReverseKpi(parseBoolean(isReverseKpiStr))
                     .unit(unit)
                     .frequency(frequency)
                     .assignees(assignees)
@@ -1021,5 +1028,11 @@ public class KpiCriteriaService {
         if (cell == null) return null;
         DataFormatter formatter = new DataFormatter();
         return formatter.formatCellValue(cell).trim();
+    }
+
+    private boolean parseBoolean(String value) {
+        if (value == null || value.isBlank()) return false;
+        String v = value.trim().toLowerCase();
+        return v.equals("true") || v.equals("1") || v.equals("yes") || v.equals("x") || v.equals("có");
     }
 }

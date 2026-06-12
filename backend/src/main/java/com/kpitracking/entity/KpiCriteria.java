@@ -94,6 +94,10 @@ public class KpiCriteria {
     @Column(name = "minimum_value")
     private Double minimumValue;
 
+    @Column(name = "is_reverse_kpi", nullable = false)
+    @Builder.Default
+    private Boolean isReverseKpi = false;
+
     @Column(name = "expected_submissions")
     private Integer expectedSubmissions;
 

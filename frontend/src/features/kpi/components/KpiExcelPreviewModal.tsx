@@ -33,6 +33,7 @@ interface KpiRow {
   Weight: string
   TargetValue: string
   MinimumValue: string
+  IsReverseKpi: string
   Unit: string
   Frequency: string
   EmployeeCode: string
@@ -207,6 +208,7 @@ export default function KpiExcelPreviewModal({ open, file, onClose, onImport, is
           Weight: (row['Weight'] ?? '').toString().trim(),
           TargetValue: (row['TargetValue'] ?? '').toString().trim(),
           MinimumValue: (row['MinimumValue'] ?? '').toString().trim(),
+          IsReverseKpi: (row['IsReverseKpi'] ?? '').toString().trim().toLowerCase(),
           Unit: (row['Unit'] || '').toString().trim(),
           Frequency: (row['Frequency'] || bulkFreq || '').toString().toUpperCase().trim(),
           EmployeeCode: (row['EmployeeCode'] || bulkEmpCode || '').toString().trim(),
@@ -414,6 +416,7 @@ export default function KpiExcelPreviewModal({ open, file, onClose, onImport, is
       Weight: '10',
       TargetValue: '0',
       MinimumValue: '0',
+      IsReverseKpi: 'false',
       Unit: '',
       Frequency: bulkFreq || (periodsData?.content?.find((p: any) => p.name === bulkPeriod)?.periodType) || 'MONTHLY',
       EmployeeCode: bulkEmpCode || '',
@@ -513,8 +516,8 @@ export default function KpiExcelPreviewModal({ open, file, onClose, onImport, is
 
 
     try {
-      const exportData = data.map(({ Name, Description, Weight, TargetValue, MinimumValue, Unit, Frequency, EmployeeCode, Period, OrgUnit, ObjectiveCode, KeyResultCode }) => ({
-        Name, Description, Weight, TargetValue, MinimumValue, Unit, Frequency, EmployeeCode, Period, OrgUnit, ObjectiveCode, KeyResultCode
+      const exportData = data.map(({ Name, Description, Weight, TargetValue, MinimumValue, IsReverseKpi, Unit, Frequency, EmployeeCode, Period, OrgUnit, ObjectiveCode, KeyResultCode }) => ({
+        Name, Description, Weight, TargetValue, MinimumValue, IsReverseKpi, Unit, Frequency, EmployeeCode, Period, OrgUnit, ObjectiveCode, KeyResultCode
       }))
       
       const ws = utils.json_to_sheet(exportData)
@@ -921,6 +924,7 @@ export default function KpiExcelPreviewModal({ open, file, onClose, onImport, is
                         <th className="px-5 py-4 min-w-[150px]">Trọng số <span className="text-rose-500">*</span></th>
                         <th className="px-5 py-4 min-w-[150px]">Mục tiêu <span className="text-rose-500">*</span></th>
                         <th className="px-5 py-4 min-w-[150px]">Tối thiểu <span className="text-rose-500">*</span></th>
+                        <th className="px-5 py-4 min-w-[120px]">KPI Ngược</th>
                         <th className="px-5 py-4 min-w-[150px]">Đơn vị <span className="text-rose-500">*</span></th>
                         <th className="px-5 py-4 min-w-[180px]">Tần suất <span className="text-rose-500">*</span></th>
                         <th className="px-5 py-4 min-w-[160px]">Mã nhân viên <span className="text-rose-500">*</span></th>
@@ -990,6 +994,21 @@ export default function KpiExcelPreviewModal({ open, file, onClose, onImport, is
                               )}
                             />
                             {row._errors?.MinimumValue && <p className="text-[9px] text-rose-500 mt-1 font-black uppercase px-2">{row._errors.MinimumValue}</p>}
+                          </td>
+                          <td className="px-5 py-3">
+                            <button
+                              type="button"
+                              onClick={() => handleCellChange(row.id, 'IsReverseKpi', row.IsReverseKpi === 'true' ? 'false' : 'true')}
+                              className={cn(
+                                'relative w-10 h-6 rounded-full transition-all flex-shrink-0',
+                                row.IsReverseKpi === 'true' ? 'bg-orange-500' : 'bg-slate-200 dark:bg-slate-700'
+                              )}
+                            >
+                              <div className={cn(
+                                'absolute top-1 w-4 h-4 rounded-full bg-white shadow transition-all',
+                                row.IsReverseKpi === 'true' ? 'left-5' : 'left-1'
+                              )} />
+                            </button>
                           </td>
                           <td className="px-5 py-3">
                             <input

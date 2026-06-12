@@ -35,6 +35,7 @@ export interface KpiCriteria {
   submittedAt: string | null
   approvedAt: string | null
   minimumValue: number | null
+  isReverseKpi: boolean
   kpiPeriodId: string
   kpiPeriod: KpiPeriod
   submissionCount: number
@@ -67,6 +68,7 @@ export interface CreateKpiRequest {
   assignedToId?: string
   assignedToIds?: string[]
   minimumValue?: number
+  isReverseKpi?: boolean
   kpiPeriodId: string
   keyResultId?: string | null
   parentId?: string | null
@@ -85,6 +87,7 @@ export interface UpdateKpiRequest {
   assignedToId?: string
   assignedToIds?: string[]
   minimumValue?: number
+  isReverseKpi?: boolean
   kpiPeriodId?: string
   keyResultId?: string | null
   parentId?: string | null

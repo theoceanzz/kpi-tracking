@@ -400,7 +400,14 @@ function MyKpiTableRow({ kpi, enableOkr, enableWaterfall, onView, onAdjust, onAs
       <td className="px-3 py-4">
         <button onClick={onView} className="text-left focus:outline-none flex flex-col gap-1 min-w-[100px]">
           <span className="text-sm font-bold text-slate-900 dark:text-white group-hover:text-indigo-600 transition-colors line-clamp-2 leading-snug">{kpi.name}</span>
-          <span className="text-[9px] text-slate-400 font-black uppercase bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded w-fit whitespace-nowrap">{FREQUENCY_MAP[kpi.frequency as keyof typeof FREQUENCY_MAP]}</span>
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <span className="text-[9px] text-slate-400 font-black uppercase bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded w-fit whitespace-nowrap">{FREQUENCY_MAP[kpi.frequency as keyof typeof FREQUENCY_MAP]}</span>
+            {kpi.isReverseKpi && (
+              <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 text-[9px] font-black uppercase tracking-wider border border-orange-200 dark:border-orange-800/50 whitespace-nowrap">
+                ↓ KPI Ngược
+              </span>
+            )}
+          </div>
         </button>
       </td>
       {enableOkr && (
@@ -509,7 +516,14 @@ function MyKpiCard({ kpi, delay, onView, onAdjust, onAssign, isLeader, enableWat
 
         <button onClick={onView} className="text-left w-full group-hover:text-indigo-600 transition-colors">
           <h3 className="text-lg font-black text-slate-900 dark:text-white line-clamp-2 leading-tight">{kpi.name}</h3>
-          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">{FREQUENCY_MAP[kpi.frequency as keyof typeof FREQUENCY_MAP]}</p>
+          <div className="flex items-center gap-1.5 flex-wrap mt-1">
+            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{FREQUENCY_MAP[kpi.frequency as keyof typeof FREQUENCY_MAP]}</p>
+            {kpi.isReverseKpi && (
+              <span className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 text-[9px] font-black uppercase tracking-wider border border-orange-200 dark:border-orange-800/50">
+                ↓ KPI Ngược
+              </span>
+            )}
+          </div>
         </button>
 
         <div className="grid grid-cols-2 gap-3">

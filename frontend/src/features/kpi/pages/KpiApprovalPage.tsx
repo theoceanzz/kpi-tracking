@@ -434,7 +434,14 @@ export default function KpiApprovalPage() {
                             <p className="text-sm font-black text-slate-900 dark:text-white group-hover/name:text-indigo-600 transition-colors line-clamp-1">
                               {kpi.name}
                             </p>
-                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-tighter mt-1">{FREQUENCY_MAP[kpi.frequency as keyof typeof FREQUENCY_MAP] || kpi.frequency}</p>
+                            <div className="flex items-center gap-1.5 flex-wrap mt-1">
+                              <p className="text-[10px] font-black text-slate-400 uppercase tracking-tighter">{FREQUENCY_MAP[kpi.frequency as keyof typeof FREQUENCY_MAP] || kpi.frequency}</p>
+                              {kpi.isReverseKpi && (
+                                <span className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 text-[9px] font-black uppercase tracking-wider border border-orange-200 dark:border-orange-800/50 whitespace-nowrap">
+                                  ↓ KPI Ngược
+                                </span>
+                              )}
+                            </div>
                           </button>
                         </td>
                         {enableOkr && (
