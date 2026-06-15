@@ -142,7 +142,9 @@ public class AiService {
 
             log.debug("KPI Suggestion AI Response: {}", responseText);
 
-            return parseResponse(responseText);
+            // Strip HTML <br> tags from JSON string values before parsing
+            String sanitized = responseText.replaceAll("(?i)<br\\s*/?>", " / ").strip();
+            return parseResponse(sanitized);
         } catch (Exception e) {
             log.error("Error suggesting KPIs: {}", e.getMessage(), e);
             return new ArrayList<>();
@@ -181,8 +183,18 @@ public class AiService {
 
     private String sanitizeResponse(String result) {
         if (result == null) return "";
-        // Convert HTML linebreaks the model may emit to Markdown newlines
-        result = result.replaceAll("(?i)<br\\s*/?>", "\n");
+        // Handle <br> contextually: inside table cells use separator, outside use newline
+        String[] lines = result.split("\n", -1);
+        for (int i = 0; i < lines.length; i++) {
+            if (lines[i].stripLeading().startsWith("|")) {
+                // Inside a table row: replace <br> with separator to avoid breaking GFM table parsing
+                lines[i] = lines[i].replaceAll("(?i)<br\\s*/?>", " / ");
+            } else {
+                // Outside table: convert <br> to newline for readability
+                lines[i] = lines[i].replaceAll("(?i)<br\\s*/?>", "\n");
+            }
+        }
+        result = String.join("\n", lines);
         // Collapse blank lines between table rows so multiline cells don't break GFM table parsing
         result = result.replaceAll("(?m)(\\|[^\\n]+)\\n{2,}(?=\\|)", "$1\n");
         return result.strip();

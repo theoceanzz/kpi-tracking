@@ -17,3 +17,4 @@ Lưu ý quan trọng:
 1. Hãy đưa ra con số targetValue THỰC TẾ và PHÙ HỢP với đơn vị dựa trên kinh nghiệm quản trị.
 2. Các giá trị frequency chỉ được dùng: DAILY, WEEKLY, MONTHLY, QUARTERLY, YEARLY.
 3. Không thêm bất kỳ văn bản nào ngoài mảng JSON.
+4. Không dùng bất kỳ tag HTML nào (kể cả <br>, <b>, <p>); chỉ dùng văn bản thuần.
