@@ -439,7 +439,8 @@ public class OrgUnitStatisticService {
             entry.put("status", k.getStatus().toString());
 
             double[] kpiMetrics = calculateKpiMetrics(k, start, end);
-            entry.put("progress", Math.round(kpiMetrics[0] * 100.0) / 100.0);
+            entry.put("progress", round1(kpiMetrics[0]));
+            entry.put("performance", round1(kpiMetrics[1]));
             kpiDetailsList.add(entry);
         }
 
@@ -528,6 +529,7 @@ public class OrgUnitStatisticService {
         List<Map<String, Object>> recordsList = new ArrayList<>();
         for (KpiCriteria k : kpiList) {
             Map<String, Object> entry = new LinkedHashMap<>();
+            entry.put("id", k.getId());
             entry.put("name", k.getName());
             entry.put("description", k.getDescription());
             entry.put("weight", k.getWeight());
@@ -538,6 +540,9 @@ public class OrgUnitStatisticService {
             entry.put("createdByFullName", k.getCreatedBy().getFullName());
             entry.put("orgUnitName", k.getOrgUnit().getName());
             entry.put("createdAt", k.getCreatedAt() != null ? k.getCreatedAt().toString() : null);
+            double[] metrics = calculateKpiMetrics(k, start, end);
+            entry.put("progress", round1(metrics[0]));
+            entry.put("performance", round1(metrics[1]));
             recordsList.add(entry);
         }
 

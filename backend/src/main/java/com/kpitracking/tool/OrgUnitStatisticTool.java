@@ -383,7 +383,7 @@ public class OrgUnitStatisticTool {
 
     // ── 7. get_kpis ──────────────────────────────────────────────────────────
 
-    @Tool(name = "get_kpis", description = "List and filter KPI criteria with detailed query parameters and standard pagination/sorting.")
+    @Tool(name = "get_kpis", description = "List and filter KPI criteria with detailed query parameters and standard pagination/sorting. Each KPI includes id, progress (% of target reached), performance (% vs time-proportional target) — use these to compare KPI health. Use the returned id for follow-up calls to get_kpi_detail or get_submission_history.")
     public String getKpis(GetKpisRequest request, ToolContext context) {
         try {
             if (request.ownerId() != null && !request.ownerId().isBlank())
