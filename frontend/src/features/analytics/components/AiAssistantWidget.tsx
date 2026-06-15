@@ -344,14 +344,14 @@ export default function AiAssistantWidget() {
 
           {/* Input Area */}
           <div className="p-4 bg-white dark:bg-slate-900 border-t border-slate-100 dark:border-slate-800 shrink-0">
-            <div className="relative flex items-end gap-2">
+            <div className="relative flex items-center gap-2">
               <textarea
                 ref={inputRef}
                 value={input}
                 onChange={e => setInput(e.target.value)}
                 onKeyDown={handleKeyDown}
                 placeholder="Nhập câu hỏi..."
-                className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 pr-12 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/50 resize-none transition-shadow"
+                className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-2.5 pr-12 text-sm leading-6 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 resize-none transition-shadow"
                 rows={1}
                 style={{ minHeight: '44px', maxHeight: '120px' }}
               />

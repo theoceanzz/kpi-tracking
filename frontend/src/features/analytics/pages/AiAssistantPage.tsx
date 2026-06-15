@@ -573,7 +573,7 @@ export default function AiAssistantPage() {
           {/* Input area */}
           <div className="shrink-0 px-6 py-3 border-t border-[var(--color-border)] bg-[var(--color-background)]">
             <div className="max-w-3xl mx-auto">
-              <div className="flex items-end gap-2 bg-[var(--color-card)] border border-[var(--color-border)] rounded-2xl shadow-sm hover:shadow-md transition-shadow focus-within:ring-2 focus-within:ring-indigo-500/40 focus-within:border-indigo-300 px-4 py-2.5">
+              <div className="flex items-center gap-2 bg-[var(--color-card)] border border-[var(--color-border)] rounded-2xl shadow-sm hover:shadow-md transition-shadow focus-within:ring-2 focus-within:ring-indigo-500/40 focus-within:border-indigo-300 px-4 py-2.5">
                 <textarea
                   ref={textareaRef}
                   value={input}
@@ -582,7 +582,7 @@ export default function AiAssistantPage() {
                   placeholder={conversationId ? 'Tiếp tục cuộc trò chuyện...' : 'Hỏi về KPI, hiệu suất, xu hướng...'}
                   disabled={loadingMessages}
                   rows={1}
-                  className="flex-1 bg-transparent text-sm leading-relaxed focus:outline-none resize-none placeholder:text-[var(--color-muted-foreground)] disabled:opacity-50"
+                  className="flex-1 bg-transparent text-sm leading-6 focus:outline-none resize-none placeholder:text-[var(--color-muted-foreground)] disabled:opacity-50"
                   style={{ maxHeight: '160px', overflowY: 'auto' }}
                 />
                 <Button
