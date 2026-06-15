@@ -182,7 +182,10 @@ public class AiService {
     private String sanitizeResponse(String result) {
         if (result == null) return "";
         // Convert HTML linebreaks the model may emit to Markdown newlines
-        return result.replaceAll("(?i)<br\\s*/?>", "\n").strip();
+        result = result.replaceAll("(?i)<br\\s*/?>", "\n");
+        // Collapse blank lines between table rows so multiline cells don't break GFM table parsing
+        result = result.replaceAll("(?m)(\\|[^\\n]+)\\n{2,}(?=\\|)", "$1\n");
+        return result.strip();
     }
 
     private boolean isQuotaError(Exception e) {
