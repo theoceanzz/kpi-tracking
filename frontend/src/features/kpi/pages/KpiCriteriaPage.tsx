@@ -10,6 +10,7 @@ import { useUsers } from '@/features/users/hooks/useUsers'
 import { useAuthStore } from '@/store/authStore'
 import { useSubmitKpi } from '../hooks/useSubmitKpi'
 import { useDeleteKpi } from '../hooks/useDeleteKpi'
+import { useSidebarSettings } from '@/features/organization/hooks/useSidebarSettings'
 import { formatNumber, formatAssigneeNames, FREQUENCY_MAP, STATUS_CONFIG } from '@/lib/utils'
 import type { KpiCriteria } from '@/types/kpi'
 import {
@@ -36,6 +37,8 @@ import PageTour from '@/components/common/PageTour'
 import { kpiCriteriaSteps } from '@/components/common/tourSteps'
 import { ObjectiveResponse } from '@/features/okr/types'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import { useBulkSubmitKpi } from '../hooks/useBulkSubmitKpi'
+import { Check, CheckSquare } from 'lucide-react'
 
 export default function KpiCriteriaPage() {
   const [showForm, setShowForm] = useState(false)
@@ -44,6 +47,8 @@ export default function KpiCriteriaPage() {
   const [submitKpiId, setSubmitKpiId] = useState<string | null>(null)
   const [selectedKpi, setSelectedKpi] = useState<KpiCriteria | null>(null)
   const [delegateKpi, setDelegateKpi] = useState<KpiCriteria | null>(null)
+  const [selectedKpiIds, setSelectedKpiIds] = useState<string[]>([])
+  const [showBulkConfirm, setShowBulkConfirm] = useState(false)
   
   const [activeTab, setActiveTab] = useState<'ALL' | 'DRAFT' | 'PENDING_APPROVAL' | 'APPROVED' | 'REJECTED'>('ALL')
   const [search, setSearch] = useState('')
@@ -188,10 +193,21 @@ export default function KpiCriteriaPage() {
 
   const { data: totalWeightData } = useKpiTotalWeight(
     selectedOrgUnitId === 'ALL' ? undefined : selectedOrgUnitId,
-    selectedPeriodId === 'ALL' ? '' : selectedPeriodId
+    selectedPeriodId === 'ALL' ? '' : selectedPeriodId,
+    selectedAssigneeId === 'ALL' ? undefined : selectedAssigneeId
   )
   const deleteMutation = useDeleteKpi()
   const submitMutation = useSubmitKpi()
+  const bulkSubmitMutation = useBulkSubmitKpi()
+
+  const { data: customLabels = {} } = useSidebarSettings(organizationId!)
+  const rawTitle = ((customLabels as Record<string, string>)['/kpi-criteria'] || 'Quản lý chỉ tiêu')
+    .split(' ')
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ')
+  const titleParts = rawTitle.trim().split(' ')
+  const lastWord = titleParts.length > 1 ? titleParts.pop() : ''
+  const mainTitle = titleParts.join(' ')
 
   const importMutation = useMutation({
     mutationFn: (file: File) => kpiApi.importFile(file, selectedPeriodId === 'ALL' ? undefined : selectedPeriodId, selectedOrgUnitId === 'ALL' ? undefined : selectedOrgUnitId),
@@ -223,6 +239,33 @@ export default function KpiCriteriaPage() {
   const allKpis = data?.content || []
   const filteredKpis = data?.content || []
 
+  // Logic for bulk selection
+  const selectableKpis = filteredKpis.filter(k => (k.status === 'DRAFT' || k.status === 'REJECTED') && k.createdById === user?.id)
+  const allSelectableSelected = selectableKpis.length > 0 && selectableKpis.every(k => selectedKpiIds.includes(k.id))
+  
+  const toggleSelectAll = () => {
+    if (selectableKpis.length === 0) return
+    if (allSelectableSelected) {
+      setSelectedKpiIds([])
+    } else {
+      setSelectedKpiIds(selectableKpis.map(k => k.id))
+    }
+  }
+
+  const toggleSelect = (id: string) => {
+    setSelectedKpiIds(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id])
+  }
+
+  const handleBulkSubmit = () => {
+    if (selectedKpiIds.length === 0) return
+    bulkSubmitMutation.mutate(selectedKpiIds, {
+      onSuccess: () => {
+        setSelectedKpiIds([])
+        setShowBulkConfirm(false)
+      }
+    })
+  }
+
   const displayTotalWeight = totalWeightData ?? 0
 
   const stats = {
@@ -236,6 +279,37 @@ export default function KpiCriteriaPage() {
     <div className="min-h-screen bg-slate-50/50 dark:bg-slate-950/50">
       <div className="max-w-[1600px] mx-auto p-4 md:p-8 space-y-8">
         <PageTour pageKey="kpi-criteria" steps={kpiCriteriaSteps} />
+        
+        {/* Bulk Action Float Bar */}
+        {selectedKpiIds.length > 0 && (
+          <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-[100] animate-in slide-in-from-bottom-8 duration-500">
+            <div className="flex items-center gap-6 px-8 py-4 bg-slate-900 dark:bg-white text-white dark:text-slate-900 rounded-[28px] shadow-2xl border border-white/10 dark:border-slate-200 backdrop-blur-xl">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-indigo-500/20 dark:bg-indigo-50 flex items-center justify-center">
+                  <CheckSquare size={20} className="text-indigo-400 dark:text-indigo-600" />
+                </div>
+                <div className="flex flex-col">
+                  <p className="text-sm font-black uppercase tracking-tight">Đã chọn {selectedKpiIds.length} chỉ tiêu</p>
+                  <p className="text-[10px] opacity-60 font-black tracking-widest uppercase">Để thực hiện gửi duyệt hàng loạt</p>
+                </div>
+              </div>
+              <div className="h-8 w-px bg-white/10 dark:bg-slate-200" />
+              <button 
+                onClick={() => setShowBulkConfirm(true)}
+                disabled={bulkSubmitMutation.isPending}
+                className="flex items-center gap-2 px-6 py-2.5 rounded-2xl bg-indigo-600 dark:bg-indigo-600 text-white text-xs font-black uppercase tracking-widest hover:bg-indigo-700 active:scale-95 transition-all shadow-lg"
+              >
+                {bulkSubmitMutation.isPending ? 'Đang xử lý...' : 'Gửi duyệt toàn bộ'} <Send size={14} />
+              </button>
+              <button 
+                onClick={() => setSelectedKpiIds([])}
+                className="text-xs font-black uppercase tracking-widest opacity-60 hover:opacity-100 transition-opacity"
+              >
+                Hủy chọn
+              </button>
+            </div>
+          </div>
+        )}
         
         {/* Header Section with Glass Card */}
         <div className="relative group">
@@ -251,7 +325,7 @@ export default function KpiCriteriaPage() {
                 </div>
                 <div className="space-y-1">
                   <h1 className="text-4xl md:text-5xl font-black tracking-tight text-slate-900 dark:text-white">
-                    Quản lý <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 to-purple-600">KPI</span>
+                    {mainTitle} <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 to-purple-600">{lastWord}</span>
                   </h1>
                   <p className="text-slate-500 dark:text-slate-400 font-medium text-lg max-w-xl leading-relaxed">
                     Thiết lập chiến lược, phân bổ trọng số và kiến tạo thành công cho đội ngũ của bạn.
@@ -606,6 +680,22 @@ export default function KpiCriteriaPage() {
                 <table className="w-full text-left border-collapse">
                   <thead>
                     <tr className="bg-slate-50/50 dark:bg-slate-800/50 border-b border-slate-100 dark:border-slate-800">
+                      <th className="px-4 py-4 w-10">
+                        <div className="flex items-center justify-center">
+                          <button 
+                            onClick={toggleSelectAll}
+                            disabled={selectableKpis.length === 0}
+                            className={cn(
+                              "w-6 h-6 rounded-lg border-2 flex items-center justify-center transition-all",
+                              allSelectableSelected 
+                                ? "bg-indigo-600 border-indigo-600 text-white" 
+                                : "border-slate-200 dark:border-slate-700 hover:border-indigo-400"
+                            )}
+                          >
+                            {allSelectableSelected && <Check size={14} className="stroke-[4]" />}
+                          </button>
+                        </div>
+                      </th>
                       <th className="px-2 py-4 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 whitespace-nowrap">
                         <button onClick={() => { setSortBy('status'); setSortDir(sortDir === 'asc' ? 'desc' : 'asc') }} className="flex items-center gap-2 hover:text-indigo-600 transition-colors group">
                           Trạng thái <ArrowUpDown size={12} className={cn("transition-opacity", sortBy === 'status' ? "opacity-100 text-indigo-600" : "opacity-0 group-hover:opacity-100")} />
@@ -648,6 +738,9 @@ export default function KpiCriteriaPage() {
                         onDelegate={() => { setDelegateKpi(kpi); setShowForm(true) }}
                         enableOkr={enableOkr}
                         enableWaterfall={enableWaterfall}
+                        selected={selectedKpiIds.includes(kpi.id)}
+                        onToggleSelect={() => toggleSelect(kpi.id)}
+                        isSelectable={(kpi.status === 'DRAFT' || kpi.status === 'REJECTED') && kpi.createdById === user?.id}
                       />
                     ))}
                   </tbody>
@@ -745,6 +838,15 @@ export default function KpiCriteriaPage() {
           loading={deleteMutation.isPending} 
         />
         <KpiDetailModal open={!!selectedKpi} onClose={() => setSelectedKpi(null)} kpi={selectedKpi} />
+        <ConfirmDialog 
+          open={showBulkConfirm} 
+          onClose={() => setShowBulkConfirm(false)} 
+          onConfirm={handleBulkSubmit} 
+          title="Gửi duyệt hàng loạt" 
+          description={`Bạn đang gửi ${selectedKpiIds.length} chỉ tiêu lên hệ thống để phê duyệt. Hãy đảm bảo tổng trọng số của nhân sự đã đạt 100%. Tiếp tục?`} 
+          confirmLabel="Gửi phê duyệt tất cả" 
+          loading={bulkSubmitMutation.isPending} 
+        />
         <input ref={fileRef} type="file" accept=".xlsx,.xls,.csv" className="hidden" onChange={handleImport} />
         <KpiExcelPreviewModal 
           open={showPreview}
@@ -758,8 +860,9 @@ export default function KpiCriteriaPage() {
   )
 }
 
-function KpiTableRow({ kpi, onView, onEdit, onDelete, onSubmit, onDelegate, enableOkr, enableWaterfall }: {
+function KpiTableRow({ kpi, onView, onEdit, onDelete, onSubmit, onDelegate, enableOkr, enableWaterfall, selected, onToggleSelect, isSelectable }: {
   kpi: KpiCriteria; onView: () => void; onEdit: () => void; onDelete: () => void; onSubmit: () => void; onDelegate: () => void; enableOkr?: boolean; enableWaterfall?: boolean;
+  selected: boolean; onToggleSelect: () => void; isSelectable: boolean;
 }) {
   const user = useAuthStore(s => s.user)
   const { hasPermission } = usePermission()
@@ -771,7 +874,25 @@ function KpiTableRow({ kpi, onView, onEdit, onDelete, onSubmit, onDelegate, enab
   const canSubmit = Math.round(assigneeWeight ?? 0) === 100
   
   return (
-    <tr className="group hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors">
+    <tr className={cn(
+      "group hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors",
+      selected && "bg-indigo-50/30 dark:bg-indigo-900/10"
+    )}>
+      <td className="px-4 py-5 w-10">
+        <div className="flex items-center justify-center">
+          <button 
+            onClick={(e) => { e.stopPropagation(); onToggleSelect() }}
+            disabled={!isSelectable}
+            className={cn(
+              "w-6 h-6 rounded-lg border-2 flex items-center justify-center transition-all",
+              selected ? "bg-indigo-600 border-indigo-600 text-white" : "border-slate-200 dark:border-slate-700",
+              !isSelectable && "opacity-20 cursor-not-allowed group-hover:opacity-40"
+            )}
+          >
+            {selected && <Check size={14} className="stroke-[4]" />}
+          </button>
+        </div>
+      </td>
       <td className="px-4 py-5">
         <div className={cn(
           "inline-flex items-center gap-2 px-2.5 py-1 rounded-full border text-[9px] font-black uppercase tracking-widest shadow-sm whitespace-nowrap",

@@ -86,6 +86,7 @@ public class UserService {
                         .orgUnitId(unit.getId())
                         .organizationId(unit.getOrgHierarchyLevel() != null ? unit.getOrgHierarchyLevel().getOrganization().getId() : null)
                         .orgUnitName(unit.getName())
+                        .orgUnitCode(unit.getCode())
                         .organizationName(unit.getOrgHierarchyLevel() != null ? unit.getOrgHierarchyLevel().getOrganization().getName() : null)
                         .roleName(uro.getRole().getName())
                         .roleDisplayName(uro.getRole().getName())

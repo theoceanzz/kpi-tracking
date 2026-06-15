@@ -4,6 +4,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import LoadingSkeleton from '@/components/common/LoadingSkeleton'
 import EmptyState from '@/components/common/EmptyState'
 import KpiReviewModal from '../components/KpiReviewModal'
+import KpiFormModal from '../components/KpiFormModal'
 import { useKpiCriteria } from '../hooks/useKpiCriteria'
 import { formatNumber, formatAssigneeNames, cn, FREQUENCY_MAP, STATUS_CONFIG } from '@/lib/utils'
 import type { KpiCriteria } from '@/types/kpi'
@@ -21,6 +22,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useOrgUnitTree } from '@/features/orgunits/hooks/useOrgUnitTree'
 import { useOrganization } from '@/features/orgunits/hooks/useOrganization'
 import { useObjectives } from '../../okr/hooks/useOkr'
+import { useSidebarSettings } from '@/features/organization/hooks/useSidebarSettings'
 import PageTour from '@/components/common/PageTour'
 import { kpiPendingSteps } from '@/components/common/tourSteps'
 import { ObjectiveResponse } from '@/features/okr/types'
@@ -111,7 +113,24 @@ export default function KpiApprovalPage() {
   const selectedObjective = objectivesData?.find((o: ObjectiveResponse) => o.id === selectedObjectiveId)
   const keyResults = selectedObjective?.keyResults || []
 
+  const { data: customLabels = {} } = useSidebarSettings(organizationId!)
+  const rawTitle = ((customLabels as Record<string, string>)['/kpi-criteria/pending'] || 'Duyệt chỉ tiêu')
+    .split(' ')
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ')
+  const titleParts = rawTitle.trim().split(' ')
+  const lastWord = titleParts.length > 1 ? titleParts.pop() : ''
+  const mainTitle = titleParts.join(' ')
+
   const [reviewKpi, setReviewKpi] = useState<KpiCriteria | null>(null)
+  const [showEditForm, setShowEditForm] = useState(false)
+  const [editKpi, setEditKpi] = useState<KpiCriteria | null>(null)
+
+  const handleEdit = (kpi: KpiCriteria) => {
+    setEditKpi(kpi)
+    setShowEditForm(true)
+    setReviewKpi(null) // Close review modal when editing
+  }
 
   const items = (criteriaData?.content ?? []).filter(kpi => kpi.createdById !== user?.id || kpi.status !== 'PENDING_APPROVAL')
   const totalPages = criteriaData?.totalPages || 1
@@ -177,7 +196,7 @@ export default function KpiApprovalPage() {
                 </div>
                 <div className="space-y-0.5">
                   <h1 className="text-3xl md:text-4xl font-black tracking-tight text-slate-900 dark:text-white">
-                    Xét duyệt <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 to-purple-600">Chỉ tiêu KPI</span>
+                    {mainTitle} <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 to-purple-600">{lastWord}</span>
                   </h1>
                   <p className="text-slate-500 dark:text-slate-400 font-medium text-sm max-w-xl leading-relaxed">
                     Hệ thống hóa quy trình phê duyệt chỉ tiêu cho toàn bộ tổ chức.
@@ -552,7 +571,21 @@ export default function KpiApprovalPage() {
           </div>
         </div>
 
-        <KpiReviewModal open={!!reviewKpi} onClose={() => setReviewKpi(null)} kpi={reviewKpi} />
+        <KpiReviewModal 
+          open={!!reviewKpi} 
+          onClose={() => setReviewKpi(null)} 
+          kpi={reviewKpi} 
+          onEdit={handleEdit}
+        />
+
+        <KpiFormModal
+          open={showEditForm}
+          onClose={() => setShowEditForm(false)}
+          editKpi={editKpi}
+          organizationId={organizationId!}
+          periodId={selectedPeriodId !== 'ALL' ? selectedPeriodId : undefined}
+          orgUnitId={selectedOrgUnitId !== 'ALL' ? selectedOrgUnitId : undefined}
+        />
       </div>
     </div>
   )

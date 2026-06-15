@@ -9,6 +9,7 @@ public class UserMembershipResponse {
     private UUID orgUnitId;
     private UUID organizationId;
     private String orgUnitName;
+    private String orgUnitCode;
     private String organizationName;
     private String roleName;
     private String roleDisplayName;

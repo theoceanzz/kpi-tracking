@@ -5,6 +5,7 @@ export interface UserMembership {
   orgUnitId: string
   organizationId: string
   orgUnitName: string
+  orgUnitCode: string
   organizationName: string
   roleName: string
   roleDisplayName?: string
@@ -19,6 +20,7 @@ export interface UserInfo {
   id: string
   email: string
   fullName: string
+  employeeCode: string | null
   phone: string | null
   avatarUrl: string | null
   status: UserStatus

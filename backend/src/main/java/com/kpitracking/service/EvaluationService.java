@@ -178,6 +178,7 @@ public class EvaluationService {
                 } else {
                     ratio = actual / kpi.getTargetValue();
                 }
+                ratio = Math.min(ratio, 1.5);
                 double score = ratio * kpi.getWeight() * (maxScore / 100.0);
                 total += score;
             }

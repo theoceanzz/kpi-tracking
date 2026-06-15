@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { kpiApi } from '../api/kpiApi'
 import { toast } from 'sonner'
-import { X, Loader2, CheckCircle, XCircle, Target, Building2, Users, BarChart3, Award, Calendar, Clock } from 'lucide-react'
+import { X, Loader2, CheckCircle, XCircle, Target, Building2, Users, BarChart3, Award, Calendar, Clock, Pencil } from 'lucide-react'
 import { formatNumber, formatDateTime, cn, FREQUENCY_MAP, STATUS_CONFIG } from '@/lib/utils'
 import type { KpiCriteria } from '@/types/kpi'
 
@@ -14,9 +14,10 @@ interface KpiReviewModalProps {
   open: boolean
   onClose: () => void
   kpi: KpiCriteria | null
+  onEdit?: (kpi: KpiCriteria) => void
 }
 
-export default function KpiReviewModal({ open, onClose, kpi }: KpiReviewModalProps) {
+export default function KpiReviewModal({ open, onClose, kpi, onEdit }: KpiReviewModalProps) {
   const [rejectReason, setRejectReason] = useState('')
   const [mode, setMode] = useState<'view' | 'reject'>('view')
   const qc = useQueryClient()
@@ -73,12 +74,22 @@ export default function KpiReviewModal({ open, onClose, kpi }: KpiReviewModalPro
               </div>
             </div>
           </div>
-          <button 
-            onClick={onClose} 
-            className="p-2.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 transition-all hover:rotate-90"
-          >
-            <X size={22} />
-          </button>
+          <div className="flex items-center gap-2">
+            {isReviewable && onEdit && (
+              <button
+                onClick={() => onEdit(kpi)}
+                className="flex items-center gap-2 px-4 py-2 rounded-xl bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 text-xs font-black uppercase tracking-widest hover:bg-indigo-100 transition-all border border-indigo-100 dark:border-indigo-800"
+              >
+                <Pencil size={16} /> Chỉnh sửa
+              </button>
+            )}
+            <button 
+              onClick={onClose} 
+              className="p-2.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 transition-all hover:rotate-90"
+            >
+              <X size={22} />
+            </button>
+          </div>
         </div>
 
         {/* Content Section */}

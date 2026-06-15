@@ -296,7 +296,7 @@ public class KpiCriteriaService {
         boolean enableWaterfall = org != null && org.getEnableWaterfall();
         boolean canApprove = permissionChecker.hasPermissionInOrgUnit(currentUser.getId(), "KPI:APPROVE_ADJUSTMENT", kpi.getOrgUnit().getId());
 
-        if (kpi.getStatus() != KpiStatus.DRAFT && kpi.getStatus() != KpiStatus.REJECTED) {
+        if (kpi.getStatus() != KpiStatus.DRAFT && kpi.getStatus() != KpiStatus.REJECTED && kpi.getStatus() != KpiStatus.PENDING_APPROVAL) {
             if (enableWaterfall) {
                 // Waterfall ON: Only allow managers to update approved KPIs (for delegation)
                 if (!canApprove) {
@@ -304,7 +304,7 @@ public class KpiCriteriaService {
                 }
             } else {
                 // Waterfall OFF: Strict block - no one can update approved KPIs
-                throw new BusinessException("Chỉ có thể cập nhật KPI ở trạng thái NHÁP hoặc BỊ TỪ CHỐI.");
+                throw new BusinessException("Chỉ có thể cập nhật KPI ở trạng thái NHÁP, CHỜ PHÊ DUYỆT hoặc BỊ TỪ CHỐI.");
             }
         }
 
@@ -315,7 +315,13 @@ public class KpiCriteriaService {
         if (request.getMinimumValue() != null) kpi.setMinimumValue(request.getMinimumValue());
         if (request.getIsReverseKpi() != null) kpi.setIsReverseKpi(request.getIsReverseKpi());
         if (request.getUnit() != null) kpi.setUnit(request.getUnit());
-        
+
+        // When pending approval, only basic fields above are editable
+        if (kpi.getStatus() == KpiStatus.PENDING_APPROVAL) {
+            kpi = kpiCriteriaRepository.save(kpi);
+            return kpiCriteriaMapper.toResponse(kpi);
+        }
+
         if (request.getKpiPeriodId() != null) {
             com.kpitracking.entity.KpiPeriod kpiPeriod = kpiPeriodRepository.findById(request.getKpiPeriodId())
                     .orElseThrow(() -> new ResourceNotFoundException("Kỳ đánh giá (Đợt)", "id", request.getKpiPeriodId()));
@@ -426,36 +432,56 @@ public class KpiCriteriaService {
         kpi = kpiCriteriaRepository.save(kpi);
         return kpiCriteriaMapper.toResponse(kpi);
     }
-
     @Transactional
     public KpiCriteriaResponse submitForApproval(UUID kpiId) {
+        List<KpiCriteriaResponse> results = bulkSubmitForApproval(java.util.List.of(kpiId));
+        if (results.isEmpty()) {
+            throw new BusinessException("Không thể gửi duyệt chỉ tiêu này. Vui lòng kiểm tra quyền sở hữu hoặc trạng thái của chỉ tiêu.");
+        }
+        return results.get(0);
+    }
+    
+    @Transactional
+    public List<KpiCriteriaResponse> bulkSubmitForApproval(List<UUID> kpiIds) {
         User currentUser = getCurrentUser();
-        KpiCriteria kpi = kpiCriteriaRepository.findById(kpiId)
-                .orElseThrow(() -> new ResourceNotFoundException("Chỉ tiêu KPI", "id", kpiId));
+        List<KpiCriteriaResponse> results = new ArrayList<>();
+        
+        if (kpiIds == null || kpiIds.isEmpty()) return results;
 
-        if (!kpi.getCreatedBy().getId().equals(currentUser.getId())) {
-             throw new BusinessException("Chỉ người tạo mới có quyền gửi duyệt KPI này");
-        }
+        // Check if any of the KPIs exist and find orgUnit/period for weight validation
+        KpiCriteria firstKpi = kpiCriteriaRepository.findById(kpiIds.get(0))
+                .orElseThrow(() -> new ResourceNotFoundException("Chỉ tiêu KPI", "id", kpiIds.get(0)));
 
-        if (kpi.getStatus() != KpiStatus.DRAFT && kpi.getStatus() != KpiStatus.REJECTED) {
-            throw new BusinessException("Chỉ có thể gửi duyệt KPI ở trạng thái NHÁP hoặc BỊ TỪ CHỐI");
-        }
-
-        // Validate that total weight for this org unit and period is exactly 100%
-        // Updated: use the new logic that calculates weight based on the most assigned person
+        // Weight validation (same as single submit)
         java.util.List<KpiStatus> statuses = java.util.Arrays.asList(KpiStatus.DRAFT, KpiStatus.PENDING_APPROVAL, KpiStatus.APPROVED, KpiStatus.REJECTED, KpiStatus.EDIT, KpiStatus.EDITED);
-        Double totalWeight = calculateTotalWeightByOrgUnit(kpi.getOrgUnit().getId(), kpi.getKpiPeriod().getId(), statuses);
+        Double totalWeight = calculateTotalWeightByOrgUnit(firstKpi.getOrgUnit().getId(), firstKpi.getKpiPeriod().getId(), statuses);
 
         if (totalWeight == null || Math.abs(totalWeight - 100.0) > 0.001) {
-            throw new BusinessException("Tổng trọng số của đơn vị theo phân bổ nhân sự (cao nhất) phải bằng chính xác 100%. Hiện tại: " + (totalWeight != null ? totalWeight : 0) + "%");
+            throw new BusinessException("Tổng trọng số của đơn vị theo phân bổ nhân sự (cao nhất) phải bằng chính xác 100% trước khi gửi duyệt. Hiện tại: " + (totalWeight != null ? totalWeight : 0) + "%");
         }
 
-        kpi.setStatus(KpiStatus.PENDING_APPROVAL);
-        kpi.setSubmittedAt(Instant.now());
-        kpi.setRejectReason(null);
-        kpi = kpiCriteriaRepository.save(kpi);
+        for (UUID kpiId : kpiIds) {
+            KpiCriteria kpi = kpiCriteriaRepository.findById(kpiId).orElse(null);
+            if (kpi == null) continue;
 
-        return kpiCriteriaMapper.toResponse(kpi);
+            if (!kpi.getCreatedBy().getId().equals(currentUser.getId())) {
+                 // Skip or throw? Usually better to skip in bulk or throw if critical. 
+                 // Here we skip to avoid breaking the whole batch if one is invalid.
+                 continue;
+            }
+
+            if (kpi.getStatus() != KpiStatus.DRAFT && kpi.getStatus() != KpiStatus.REJECTED) {
+                continue;
+            }
+
+            kpi.setStatus(KpiStatus.PENDING_APPROVAL);
+            kpi.setSubmittedAt(Instant.now());
+            kpi.setRejectReason(null);
+            kpi = kpiCriteriaRepository.save(kpi);
+            results.add(kpiCriteriaMapper.toResponse(kpi));
+        }
+
+        return results;
     }
 
     @Transactional

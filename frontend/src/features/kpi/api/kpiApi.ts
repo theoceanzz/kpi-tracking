@@ -25,6 +25,9 @@ export const kpiApi = {
   submit: (id: string) =>
     axiosInstance.post<ApiResponse<KpiCriteria>>(`/kpi-criteria/${id}/submit`).then((r) => r.data.data),
 
+  bulkSubmit: (ids: string[]) =>
+    axiosInstance.post<ApiResponse<KpiCriteria[]>>('/kpi-criteria/bulk-submit', ids).then((r) => r.data.data),
+
   approve: (id: string) =>
     axiosInstance.post<ApiResponse<KpiCriteria>>(`/kpi-criteria/${id}/approve`).then((r) => r.data.data),
 

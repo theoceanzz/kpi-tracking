@@ -86,6 +86,15 @@ public class KpiCriteriaController {
         return ResponseEntity.ok(ApiResponse.success("KPI submitted for approval", response));
     }
 
+    @PostMapping("/bulk-submit")
+    @PreAuthorize("hasAuthority('KPI:CREATE')")
+    @Operation(summary = "Bulk submit KPIs for approval")
+    public ResponseEntity<ApiResponse<java.util.List<KpiCriteriaResponse>>> bulkSubmitForApproval(
+            @RequestBody java.util.List<UUID> kpiIds) {
+        java.util.List<KpiCriteriaResponse> response = kpiCriteriaService.bulkSubmitForApproval(kpiIds);
+        return ResponseEntity.ok(ApiResponse.success(response.size() + " KPIs submitted for approval", response));
+    }
+
     @PostMapping("/{kpiId}/approve")
     @PreAuthorize("hasAuthority('KPI:APPROVE_CRITERIA')")
     @Operation(summary = "Approve KPI criteria")

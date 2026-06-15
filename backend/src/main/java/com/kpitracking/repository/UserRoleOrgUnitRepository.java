@@ -17,7 +17,7 @@ public interface UserRoleOrgUnitRepository extends JpaRepository<UserRoleOrgUnit
     boolean existsByOrgUnitIdAndRoleId(UUID orgUnitId, UUID roleId);
     boolean existsByRoleId(UUID roleId);
 
-    @Query("SELECT uro FROM UserRoleOrgUnit uro JOIN FETCH uro.role JOIN FETCH uro.orgUnit WHERE uro.user.id = :userId")
+    @Query("SELECT uro FROM UserRoleOrgUnit uro JOIN FETCH uro.role JOIN FETCH uro.orgUnit ou JOIN FETCH ou.orgHierarchyLevel WHERE uro.user.id = :userId ORDER BY uro.role.rank ASC, ou.path ASC")
     List<UserRoleOrgUnit> findByUserId(@Param("userId") UUID userId);
 
     @Query("SELECT uro FROM UserRoleOrgUnit uro JOIN FETCH uro.role WHERE uro.user.id = :userId AND uro.orgUnit.id = :orgUnitId")

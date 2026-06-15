@@ -310,6 +310,7 @@ export default function KpiFormModal({ open, onClose, editKpi, parentKpi }: KpiF
   }
 
   const isPending = createMutation.isPending || updateMutation.isPending
+  const isPendingApproval = isEdit && editKpi?.status === 'PENDING_APPROVAL'
 
   const onSubmit = (data: KpiFormData) => {
     const payload = { ...data }
@@ -540,7 +541,7 @@ export default function KpiFormModal({ open, onClose, editKpi, parentKpi }: KpiF
               />
           </div>
 
-          {flatOrgUnits.length > 1 && (
+          {!isPendingApproval && flatOrgUnits.length > 1 && (
             <div className="space-y-2">
                 <div className="flex items-center justify-between">
                     <div className="space-y-0.5">
@@ -580,7 +581,7 @@ export default function KpiFormModal({ open, onClose, editKpi, parentKpi }: KpiF
             </div>
           )}
 
-          <div className="bg-[var(--color-primary)]/5 rounded-2xl p-4 space-y-4 border border-[var(--color-primary)]/10 shadow-sm transition-all overflow-hidden">
+          {!isPendingApproval && (<div className="bg-[var(--color-primary)]/5 rounded-2xl p-4 space-y-4 border border-[var(--color-primary)]/10 shadow-sm transition-all overflow-hidden">
             <div className="flex items-center justify-between">
                 <label className="block text-sm font-bold flex items-center gap-2">
                     <Users size={16} className="text-[var(--color-primary)]" />
@@ -708,8 +709,9 @@ export default function KpiFormModal({ open, onClose, editKpi, parentKpi }: KpiF
                      Vui lòng chọn đơn vị thực hiện để hiển thị danh sách nhân sự
                 </div>
             )}
-          </div>
+          </div>)}
 
+          {!isPendingApproval && (
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-bold mb-1.5">Kỳ đánh giá <span className="text-red-500">*</span></label>
@@ -726,8 +728,9 @@ export default function KpiFormModal({ open, onClose, editKpi, parentKpi }: KpiF
               </select>
             </div>
           </div>
+          )}
 
-          {enableOkr && (
+          {!isPendingApproval && enableOkr && (
             <div className="bg-indigo-50/50 dark:bg-indigo-900/5 p-4 rounded-2xl border border-indigo-100 dark:border-indigo-900/50 space-y-3">
               <div className="flex items-center gap-2 text-indigo-600 dark:text-indigo-400">
                 <Target size={16} />
