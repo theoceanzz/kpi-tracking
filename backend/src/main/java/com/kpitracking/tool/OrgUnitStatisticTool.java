@@ -263,6 +263,19 @@ public class OrgUnitStatisticTool {
     }
 
     /**
+     * Mark the conversation as disambiguating, then return the ambiguous envelope.
+     * Suppresses follow-up question generation until user makes a selection.
+     */
+    private String returnAmbiguous(String entityLabel, String arrayKey,
+                                   List<Map<String, Object>> results, ToolContext context) throws Exception {
+        String convId = getConversationId(context);
+        if (convId != null) {
+            followupContextStore.markDisambiguating(convId);
+        }
+        return ambiguousEnvelope(entityLabel, arrayKey, results);
+    }
+
+    /**
      * Serializes a tool's payload to JSON, records it in the {@link FollowupContextStore}
      * (keyed by conversationId, when present) so follow-up questions can be grounded in the
      * real tool data of this turn, and returns the JSON for the model.
@@ -676,7 +689,7 @@ public class OrgUnitStatisticTool {
             if (!dup.isEmpty()
                     && !alreadyAskedPriorTurn(getConversationId(context), collisionName(dup, "fullName"), dup, "email", "orgUnitName", "roleName")) {
                 disambiguationGuard.arm("user", collectIds(dup));
-                return ambiguousEnvelope("người dùng", "users", users);
+                return returnAmbiguous("người dùng", "users", users, context);
             }
 
             Map<String, Object> result = new LinkedHashMap<>();
@@ -703,7 +716,7 @@ public class OrgUnitStatisticTool {
             if (!dup.isEmpty()
                     && !alreadyAskedPriorTurn(getConversationId(context), collisionName(dup, "name"), dup, "code", "parentName", "levelName")) {
                 disambiguationGuard.arm("orgUnit", collectIds(dup));
-                return ambiguousEnvelope("đơn vị", "orgUnits", units);
+                return returnAmbiguous("đơn vị", "orgUnits", units, context);
             }
 
             Map<String, Object> result = new LinkedHashMap<>();
@@ -730,7 +743,7 @@ public class OrgUnitStatisticTool {
             if (!dup.isEmpty()
                     && !alreadyAskedPriorTurn(getConversationId(context), collisionName(dup, "name"), dup, "orgUnitName", "periodName")) {
                 disambiguationGuard.arm("kpi", collectIds(dup));
-                return ambiguousEnvelope("KPI", "kpis", kpis);
+                return returnAmbiguous("KPI", "kpis", kpis, context);
             }
 
             Map<String, Object> result = new LinkedHashMap<>();

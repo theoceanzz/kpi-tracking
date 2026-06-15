@@ -41,6 +41,7 @@ public class FollowupContextStore {
     private static class Bucket {
         final List<ToolResult> results = new ArrayList<>();
         volatile long updatedAt = Instant.now().toEpochMilli();
+        volatile boolean disambiguating = false;
     }
 
     private final Map<String, Bucket> store = new ConcurrentHashMap<>();
@@ -76,6 +77,21 @@ public class FollowupContextStore {
         synchronized (b.results) {
             return new ArrayList<>(b.results);
         }
+    }
+
+    /** Mark this conversation as being in disambiguation mode (user must choose). */
+    public void markDisambiguating(String conversationId) {
+        if (conversationId == null) return;
+        Bucket b = store.computeIfAbsent(conversationId, k -> new Bucket());
+        b.disambiguating = true;
+        b.updatedAt = Instant.now().toEpochMilli();
+    }
+
+    /** Check if this conversation is awaiting user disambiguation. */
+    public boolean isDisambiguating(String conversationId) {
+        if (conversationId == null) return false;
+        Bucket b = store.get(conversationId);
+        return b != null && b.disambiguating;
     }
 
     private void evictStale() {

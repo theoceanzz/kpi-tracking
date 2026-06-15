@@ -51,6 +51,15 @@ public class FollowupService {
         String conversationId = request != null ? request.getConversationId() : null;
         String question = request != null ? request.getContext() : null;
 
+        // If the model is asking user to disambiguate, suppress follow-up questions
+        // until they make a selection.
+        if (followupContextStore.isDisambiguating(conversationId)) {
+            return FollowupResponse.builder()
+                    .technical(List.of())
+                    .management(List.of())
+                    .build();
+        }
+
         List<ToolResult> toolData = followupContextStore.get(conversationId);
         if (toolData.isEmpty()) {
             // No grounded data this turn → fixed templates (never break the UI).
