@@ -1177,4 +1177,180 @@ public class OrgUnitStatisticService {
             return m;
         }).collect(Collectors.toList());
     }
+
+    @Transactional(readOnly = true)
+    public Map<String, Object> getSubmissionHistory(
+            UUID kpiId, String userId, String status,
+            String startDate, String endDate, int limit) {
+        Instant from = parseDate(startDate, Instant.EPOCH);
+        Instant to = parseDate(endDate, Instant.now());
+
+        List<KpiSubmission> submissions = kpiSubmissionRepository
+                .findByKpiCriteriaIdAndDeletedAtIsNull(kpiId);
+
+        java.util.stream.Stream<KpiSubmission> filtered = submissions.stream();
+        if (userId != null && !userId.isBlank()) {
+            UUID uid = UUID.fromString(userId);
+            filtered = filtered.filter(s -> s.getSubmittedBy().getId().equals(uid));
+        }
+        if (status != null && !status.isBlank()) {
+            filtered = filtered.filter(s -> s.getStatus().toString().equalsIgnoreCase(status));
+        }
+        filtered = filtered.filter(s -> s.getCreatedAt().isAfter(from) && s.getCreatedAt().isBefore(to));
+
+        List<Map<String, Object>> items = filtered
+                .limit(limit > 0 ? limit : 20)
+                .map(s -> {
+                    Map<String, Object> m = new LinkedHashMap<>();
+                    m.put("id", s.getId());
+                    m.put("kpiName", s.getKpiCriteria().getName());
+                    m.put("submittedBy", s.getSubmittedBy().getFullName());
+                    m.put("submittedById", s.getSubmittedBy().getId());
+                    m.put("actualValue", s.getActualValue());
+                    m.put("status", s.getStatus());
+                    m.put("periodStart", s.getPeriodStart());
+                    m.put("periodEnd", s.getPeriodEnd());
+                    m.put("createdAt", s.getCreatedAt());
+                    m.put("reviewedBy", s.getReviewedBy() != null ? s.getReviewedBy().getFullName() : null);
+                    m.put("reviewedAt", s.getReviewedAt());
+                    m.put("reviewNote", s.getReviewNote());
+                    return m;
+                }).collect(Collectors.toList());
+
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("kpiId", kpiId);
+        result.put("total", items.size());
+        result.put("submissions", items);
+        return result;
+    }
+
+    @Transactional(readOnly = true)
+    public Map<String, Object> getKpiPeriodBreakdown(
+            UUID kpiId, String userId, String granularity,
+            String startDate, String endDate) {
+        String datePattern = switch (granularity != null ? granularity : "MONTH") {
+            case "QUARTER" -> "YYYY-\"Q\"Q";
+            case "YEAR" -> "YYYY";
+            default -> "YYYY-MM";
+        };
+
+        java.util.List<Object[]> rows = (userId != null && !userId.isBlank())
+                ? kpiSubmissionRepository.kpiTrendByPeriodAndUser(kpiId, UUID.fromString(userId), datePattern)
+                : kpiSubmissionRepository.kpiTrendByPeriod(kpiId, datePattern);
+
+        List<Map<String, Object>> series = rows.stream().map(row -> {
+            Map<String, Object> m = new LinkedHashMap<>();
+            m.put("period", row[0]);
+            m.put("totalActual", toDouble(row[1]));
+            m.put("target", toDouble(row[2]));
+            m.put("completionPct", toDouble(row[3]));
+            m.put("submissionCount", ((Number) row[4]).longValue());
+            return m;
+        }).collect(Collectors.toList());
+
+        String trend = "stable";
+        if (series.size() >= 2) {
+            double first = ((Number) series.get(0).get("completionPct")).doubleValue();
+            double last = ((Number) series.get(series.size() - 1).get("completionPct")).doubleValue();
+            double delta = last - first;
+            if (delta > 5) trend = "improving";
+            else if (delta < -5) trend = "declining";
+        }
+
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("kpiId", kpiId);
+        result.put("userId", userId);
+        result.put("granularity", datePattern);
+        result.put("trend", trend);
+        result.put("series", series);
+        return result;
+    }
+
+    @Transactional(readOnly = true)
+    public Map<String, Object> getNonSubmitters(
+            UUID orgUnitId, String periodId, String startDate, String endDate, int limit) {
+        String pathPrefix = getPathPrefix(orgUnitId);
+        java.util.List<Object[]> rows = kpiCriteriaRepository.findTopNonSubmittersInSubtree(
+                pathPrefix, parseDate(startDate, Instant.EPOCH), parseDate(endDate, Instant.now()), limit > 0 ? limit : 20);
+
+        List<Map<String, Object>> users = rows.stream().map(row -> {
+            Map<String, Object> m = new LinkedHashMap<>();
+            m.put("userId", row[0]);
+            m.put("fullName", row[1]);
+            m.put("email", row[2]);
+            m.put("missingKpiCount", ((Number) row[3]).longValue());
+            return m;
+        }).collect(Collectors.toList());
+
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("unitId", orgUnitId);
+        result.put("total", users.size());
+        result.put("nonSubmitters", users);
+        return result;
+    }
+
+    @Transactional(readOnly = true)
+    public Map<String, Object> compareOrgUnits(
+            java.util.List<UUID> unitIds, String startDate, String endDate) {
+        List<Map<String, Object>> units = unitIds.stream().map(uid -> {
+            try {
+                Map<String, Object> detail = getOrgUnitDetail(uid);
+                Map<String, Object> stats = getMemberStatistics(uid, false, startDate, endDate);
+
+                Map<String, Object> m = new LinkedHashMap<>();
+                m.put("unitId", uid);
+                m.put("unitName", detail.get("name"));
+                m.put("unitCode", detail.get("code"));
+                m.putAll(stats);
+                return m;
+            } catch (Exception e) {
+                log.warn("Error comparing org unit {}: {}", uid, e.getMessage());
+                return null;
+            }
+        }).filter(java.util.Objects::nonNull).collect(Collectors.toList());
+
+        String winnerUnitId = units.stream()
+                .max(java.util.Comparator.comparingDouble(m -> toDouble(m.get("avgPerformance"))))
+                .map(m -> m.get("unitId").toString())
+                .orElse(null);
+
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("compareCount", units.size());
+        result.put("units", units);
+        result.put("bestPerformerUnitId", winnerUnitId);
+        return result;
+    }
+
+    @Transactional(readOnly = true)
+    public Map<String, Object> getMembersByPerformanceThreshold(
+            UUID orgUnitId, double threshold, String direction,
+            String metric, String startDate, String endDate, int limit) {
+        UUID orgId = orgUnitRepository.findById(orgUnitId)
+                .map(ou -> ou.getOrgHierarchyLevel().getOrganization().getId())
+                .orElseThrow(() -> new RuntimeException("Org unit not found: " + orgUnitId));
+
+        String dir = ("above".equalsIgnoreCase(direction)) ? "DESC" : "ASC";
+        String met = (metric != null && !metric.isBlank()) ? metric : "average_performance";
+
+        java.util.List<Map<String, Object>> ranked = rankMembers(
+                orgId, met, dir, "unit", orgUnitId.toString(), null,
+                200, startDate, endDate, orgUnitId);
+
+        List<Map<String, Object>> filtered = ranked.stream()
+                .filter(m -> {
+                    double score = toDouble(m.get("score"));
+                    return ("below".equalsIgnoreCase(direction)) ? score <= threshold : score >= threshold;
+                })
+                .limit(limit > 0 ? limit : 20)
+                .collect(Collectors.toList());
+
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("unitId", orgUnitId);
+        result.put("threshold", threshold);
+        result.put("direction", direction != null ? direction : "below");
+        result.put("metric", met);
+        result.put("count", filtered.size());
+        result.put("members", filtered);
+        return result;
+    }
 }

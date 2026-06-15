@@ -561,6 +561,104 @@ public class OrgUnitStatisticTool {
         }
     }
 
+    // ── get_submission_history ────────────────────────────────────────────────
+
+    @Tool(name = "get_submission_history", description = "List individual submissions for a KPI (timeline/trace). Optional filters: userId (one assignee only), status (PENDING|APPROVED|REJECTED|DRAFT), date range, limit. Returns submissions sorted by createdAt with submittedBy, actualValue, status, reviewedBy, reviewNote.")
+    public String getSubmissionHistory(OrgUnitStatisticToolRequests.GetSubmissionHistoryRequest request, ToolContext context) {
+        try {
+            UUID kpiId = UUID.fromString(request.kpiId());
+            guardDisambiguation("kpi", kpiId, "KPI");
+            validateKpiAccess(kpiId, context);
+            Map<String, Object> response = orgUnitStatisticService.getSubmissionHistory(
+                    kpiId, request.userId(), request.status(),
+                    request.startDate(), request.endDate(),
+                    request.limit() != null ? request.limit() : 20);
+            return respond(context, "get_submission_history", response);
+        } catch (Exception e) {
+            log.error("Error in getSubmissionHistory", e);
+            return "{\"error\": \"" + e.getMessage() + "\"}";
+        }
+    }
+
+    // ── get_kpi_period_breakdown ──────────────────────────────────────────────
+
+    @Tool(name = "get_kpi_period_breakdown", description = "Show per-period performance breakdown for a single KPI (trend by month/quarter/year). Use for questions about KPI evolution: 'how did KPI X evolve', 'progression over time'. Returns list of {periodLabel, totalActual, target, completionPct, submissionCount} with trend direction (improving|declining|stable).")
+    public String getKpiPeriodBreakdown(OrgUnitStatisticToolRequests.GetKpiPeriodBreakdownRequest request, ToolContext context) {
+        try {
+            UUID kpiId = UUID.fromString(request.kpiId());
+            guardDisambiguation("kpi", kpiId, "KPI");
+            validateKpiAccess(kpiId, context);
+            Map<String, Object> response = orgUnitStatisticService.getKpiPeriodBreakdown(
+                    kpiId, request.userId(), request.granularity(),
+                    request.startDate(), request.endDate());
+            return respond(context, "get_kpi_period_breakdown", response);
+        } catch (Exception e) {
+            log.error("Error in getKpiPeriodBreakdown", e);
+            return "{\"error\": \"" + e.getMessage() + "\"}";
+        }
+    }
+
+    // ── get_non_submitters ────────────────────────────────────────────────────
+
+    @Tool(name = "get_non_submitters", description = "List assignees who have KPIs assigned but have NOT submitted within the period/date range. Use for accountability: 'who hasn\\'t submitted', 'who is late', 'responsible parties'. Returns userId, fullName, email, missingKpiCount sorted by missing count descending.")
+    public String getNonSubmitters(OrgUnitStatisticToolRequests.GetNonSubmittersRequest request, ToolContext context) {
+        try {
+            UUID contextUnitId = getOrgUnitId(context);
+            UUID targetUnitId = (request.unitId() != null && !request.unitId().isBlank())
+                    ? UUID.fromString(request.unitId())
+                    : contextUnitId;
+            validateSubtreeAccess(targetUnitId, context);
+            Map<String, Object> response = orgUnitStatisticService.getNonSubmitters(
+                    targetUnitId, request.periodId(),
+                    request.startDate(), request.endDate(),
+                    request.limit() != null ? request.limit() : 20);
+            return respond(context, "get_non_submitters", response);
+        } catch (Exception e) {
+            log.error("Error in getNonSubmitters", e);
+            return "{\"error\": \"" + e.getMessage() + "\"}";
+        }
+    }
+
+    // ── compare_org_units ─────────────────────────────────────────────────────
+
+    @Tool(name = "compare_org_units", description = "Compare 2–5 specific organizational units side by side on KPI metrics (avgPerformance, avgProgress, memberCount, completionRate). Use for cross-unit comparison: 'compare unit A vs unit B', 'how are teams performing relative to each other'. Returns units list with winner (best performer) marked.")
+    public String compareOrgUnits(OrgUnitStatisticToolRequests.CompareOrgUnitsRequest request, ToolContext context) {
+        try {
+            java.util.List<UUID> unitIds = request.unitIds().stream()
+                    .map(UUID::fromString)
+                    .peek(uid -> validateSubtreeAccess(uid, context))
+                    .toList();
+            Map<String, Object> response = orgUnitStatisticService.compareOrgUnits(
+                    unitIds, request.startDate(), request.endDate());
+            return respond(context, "compare_org_units", response);
+        } catch (Exception e) {
+            log.error("Error in compareOrgUnits", e);
+            return "{\"error\": \"" + e.getMessage() + "\"}";
+        }
+    }
+
+    // ── get_members_by_performance_threshold ───────────────────────────────────
+
+    @Tool(name = "get_members_by_performance_threshold", description = "Filter members by a performance threshold (e.g. 'below 80%', 'above 90%'). Use for action decisions: 'who needs intervention', 'who to coach', 'top performers'. Returns members filtered by threshold with their scores, sorted by direction.")
+    public String getMembersByPerformanceThreshold(OrgUnitStatisticToolRequests.GetMembersByPerformanceThresholdRequest request, ToolContext context) {
+        try {
+            UUID contextUnitId = getOrgUnitId(context);
+            UUID targetUnitId = (request.unitId() != null && !request.unitId().isBlank())
+                    ? UUID.fromString(request.unitId())
+                    : contextUnitId;
+            validateSubtreeAccess(targetUnitId, context);
+            Map<String, Object> response = orgUnitStatisticService.getMembersByPerformanceThreshold(
+                    targetUnitId, request.threshold() != null ? request.threshold() : 80.0,
+                    request.direction(), request.metric(),
+                    request.startDate(), request.endDate(),
+                    request.limit() != null ? request.limit() : 20);
+            return respond(context, "get_members_by_performance_threshold", response);
+        } catch (Exception e) {
+            log.error("Error in getMembersByPerformanceThreshold", e);
+            return "{\"error\": \"" + e.getMessage() + "\"}";
+        }
+    }
+
     // ── 17. search_users ─────────────────────────────────────────────────────
 
     @Tool(name = "search_users", description = "Search users/employees by name, email, phone number, position/role name, or organizational unit. Returns user IDs and basic info to support other tools.")

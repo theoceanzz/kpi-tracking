@@ -479,4 +479,44 @@ public interface KpiSubmissionRepository extends JpaRepository<KpiSubmission, UU
             "AND s.status = 'APPROVED' AND kc.status = 'APPROVED' " +
             "AND kc.kpi_period_id = :periodId", nativeQuery = true)
     Object[] sumActualAndTargetInSubtreeForPeriod(@Param("pathPrefix") String pathPrefix, @Param("periodId") UUID periodId);
+
+    /**
+     * Lịch sử nộp báo cáo của một KPI: per-period breakdown với trend direction.
+     * Trả về [period_label, sum_actual, target, completion_pct, sub_count].
+     */
+    @Query(value = """
+            SELECT TO_CHAR(s.period_start, :datePattern) AS period_label,
+                   SUM(s.actual_value) AS total_actual,
+                   MAX(kc.target_value) AS target,
+                   SUM(s.actual_value)*100.0/NULLIF(MAX(kc.target_value),0) AS completion_pct,
+                   COUNT(s.id) AS sub_count
+            FROM kpi_submissions s
+            JOIN kpi_criteria kc ON kc.id = s.kpi_criteria_id
+            WHERE s.kpi_criteria_id = :kpiId
+              AND s.status = 'APPROVED'
+              AND s.deleted_at IS NULL
+            GROUP BY period_label
+            ORDER BY period_label
+            """, nativeQuery = true)
+    java.util.List<Object[]> kpiTrendByPeriod(@Param("kpiId") UUID kpiId, @Param("datePattern") String datePattern);
+
+    /**
+     * Như kpiTrendByPeriod nhưng filtered by một người dùng cụ thể.
+     */
+    @Query(value = """
+            SELECT TO_CHAR(s.period_start, :datePattern) AS period_label,
+                   SUM(s.actual_value) AS total_actual,
+                   MAX(kc.target_value) AS target,
+                   SUM(s.actual_value)*100.0/NULLIF(MAX(kc.target_value),0) AS completion_pct,
+                   COUNT(s.id) AS sub_count
+            FROM kpi_submissions s
+            JOIN kpi_criteria kc ON kc.id = s.kpi_criteria_id
+            WHERE s.kpi_criteria_id = :kpiId
+              AND s.submitted_by = :userId
+              AND s.status = 'APPROVED'
+              AND s.deleted_at IS NULL
+            GROUP BY period_label
+            ORDER BY period_label
+            """, nativeQuery = true)
+    java.util.List<Object[]> kpiTrendByPeriodAndUser(@Param("kpiId") UUID kpiId, @Param("userId") UUID userId, @Param("datePattern") String datePattern);
 }
