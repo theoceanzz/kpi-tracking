@@ -2,10 +2,7 @@ package com.kpitracking.service;
 
 import com.kpitracking.dto.response.ai.AiKpiSuggestionResponse;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.kpitracking.entity.User;
-import com.kpitracking.entity.UserRoleOrgUnit;
-import com.kpitracking.repository.UserRepository;
-import com.kpitracking.repository.UserRoleOrgUnitRepository;
+import com.kpitracking.service.ManagerContextResolver.ManagerContext;
 import com.kpitracking.tool.DisambiguationGuard;
 import com.kpitracking.tool.OrgUnitStatisticTool;
 import lombok.extern.slf4j.Slf4j;
@@ -13,11 +10,9 @@ import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.Resource;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -29,8 +24,7 @@ public class AiService {
 
     private final ChatClient chatClient;
     private final ChatClient chatClientWithMemory;
-    private final UserRepository userRepository;
-    private final UserRoleOrgUnitRepository userRoleOrgUnitRepository;
+    private final ManagerContextResolver managerContextResolver;
     private final OrgUnitStatisticTool orgUnitStatisticTool;
     private final DisambiguationGuard disambiguationGuard;
 
@@ -47,22 +41,20 @@ public class AiService {
 
     public AiService(@Qualifier("openAiChatClient") ChatClient chatClient,
                      @Qualifier("chatClientWithMemory") ChatClient chatClientWithMemory,
-                     UserRepository userRepository,
-                     UserRoleOrgUnitRepository userRoleOrgUnitRepository,
+                     ManagerContextResolver managerContextResolver,
                      OrgUnitStatisticTool orgUnitStatisticTool,
                      DisambiguationGuard disambiguationGuard,
                      ObjectMapper objectMapper) {
         this.chatClient = chatClient;
         this.chatClientWithMemory = chatClientWithMemory;
-        this.userRepository = userRepository;
-        this.userRoleOrgUnitRepository = userRoleOrgUnitRepository;
+        this.managerContextResolver = managerContextResolver;
         this.orgUnitStatisticTool = orgUnitStatisticTool;
         this.disambiguationGuard = disambiguationGuard;
         this.objectMapper = objectMapper;
     }
 
     public String processOrgUnitChat(String question, String conversationId) {
-        ManagerContext ctx = getCurrentUserManagerContext();
+        ManagerContext ctx = managerContextResolver.resolve();
         if (ctx == null) {
             return "Bạn không có quyền sử dụng tính năng AI phân tích. Chỉ trưởng đơn vị hoặc phó đơn vị mới có thể truy cập tính năng này.";
         }
@@ -108,7 +100,7 @@ public class AiService {
     }
 
     public List<AiKpiSuggestionResponse> suggestKpis(UUID orgUnitId) {
-        ManagerContext ctx = getCurrentUserManagerContext();
+        ManagerContext ctx = managerContextResolver.resolve();
         if (ctx == null) {
             log.warn("User without manager/deputy role attempted to use suggestKpis");
             return new ArrayList<>();
@@ -169,29 +161,6 @@ public class AiService {
         } catch (Exception e) {
             log.warn("Topic guard classification failed, allowing message through: {}", e.getMessage());
             return true;
-        }
-    }
-
-    private record ManagerContext(UUID orgUnitId, String orgUnitPath, UUID orgId) {}
-
-    private ManagerContext getCurrentUserManagerContext() {
-        try {
-            String email = SecurityContextHolder.getContext().getAuthentication().getName();
-            User user = userRepository.findByEmail(email).orElse(null);
-            if (user == null) return null;
-            List<UserRoleOrgUnit> assignments = userRoleOrgUnitRepository.findByUserId(user.getId());
-            return assignments.stream()
-                    .filter(a -> a.getRole().getRank() != null && a.getRole().getRank() <= 1)
-                    .min(Comparator.comparingInt(a -> a.getRole().getRank()))
-                    .map(a -> new ManagerContext(
-                            a.getOrgUnit().getId(),
-                            a.getOrgUnit().getPath(),
-                            a.getOrgUnit().getOrgHierarchyLevel().getOrganization().getId()
-                    ))
-                    .orElse(null);
-        } catch (Exception e) {
-            log.error("Error getting manager context", e);
-            return null;
         }
     }
 

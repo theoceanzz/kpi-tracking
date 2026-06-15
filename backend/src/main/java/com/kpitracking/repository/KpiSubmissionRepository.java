@@ -444,4 +444,39 @@ public interface KpiSubmissionRepository extends JpaRepository<KpiSubmission, UU
 
     @org.springframework.data.jpa.repository.Query("SELECT COUNT(DISTINCT s.id) FROM KpiSubmission s JOIN UserRoleOrgUnit uro ON uro.user.id = s.submittedBy.id WHERE (uro.orgUnit.id IN :orgUnitIds OR EXISTS (SELECT 1 FROM OrgUnit au WHERE uro.orgUnit.path LIKE CONCAT(au.path, '%') AND au.id IN :orgUnitIds)) AND s.status = :status AND s.submittedBy.id != :excludedUserId AND s.deletedAt IS NULL")
     long countBySubmittedByUserOrgUnitInAndStatusExcludingUser(@org.springframework.data.repository.query.Param("orgUnitIds") java.util.Collection<UUID> orgUnitIds, @org.springframework.data.repository.query.Param("status") SubmissionStatus status, @org.springframework.data.repository.query.Param("excludedUserId") UUID excludedUserId);
+
+    // ===== Insight Engine & Time-series (subtree-scoped) =====
+
+    /**
+     * Xu hướng theo từng mốc thời gian (period_start formatted by datePattern) trong một subtree.
+     * Trả về [period_label, total_actual, total_target, avg_performance, submission_count].
+     * Dùng cho get_time_series tool và phát hiện SPIKE/DROP của Insight Engine.
+     */
+    @Query(value =
+            "SELECT TO_CHAR(s.period_start, :datePattern) AS period_label, " +
+            "COALESCE(SUM(s.actual_value), 0) AS total_actual, " +
+            "COALESCE(SUM(kc.target_value), 0) AS total_target, " +
+            "AVG(s.actual_value * 100.0 / NULLIF(kc.target_value, 0)) AS avg_performance, " +
+            "COUNT(s.id) AS submission_count " +
+            "FROM kpi_submissions s " +
+            "JOIN kpi_criteria kc ON s.kpi_criteria_id = kc.id " +
+            "JOIN org_units ou ON s.org_unit_id = ou.id " +
+            "WHERE ou.path LIKE CONCAT(:pathPrefix, '%') AND s.deleted_at IS NULL AND kc.deleted_at IS NULL " +
+            "AND s.status = 'APPROVED' AND kc.status = 'APPROVED' AND s.period_start IS NOT NULL " +
+            "GROUP BY period_label ORDER BY period_label", nativeQuery = true)
+    java.util.List<Object[]> trendStatsInSubtree(@Param("pathPrefix") String pathPrefix, @Param("datePattern") String datePattern);
+
+    /**
+     * Tổng actualValue / tổng targetValue của một kỳ KPI cụ thể trong subtree, dùng cho DEADLINE_RISK.
+     * Trả về [sum_actual, sum_target].
+     */
+    @Query(value =
+            "SELECT COALESCE(SUM(s.actual_value), 0), COALESCE(SUM(kc.target_value), 0) " +
+            "FROM kpi_submissions s " +
+            "JOIN kpi_criteria kc ON s.kpi_criteria_id = kc.id " +
+            "JOIN org_units ou ON s.org_unit_id = ou.id " +
+            "WHERE ou.path LIKE CONCAT(:pathPrefix, '%') AND s.deleted_at IS NULL AND kc.deleted_at IS NULL " +
+            "AND s.status = 'APPROVED' AND kc.status = 'APPROVED' " +
+            "AND kc.kpi_period_id = :periodId", nativeQuery = true)
+    Object[] sumActualAndTargetInSubtreeForPeriod(@Param("pathPrefix") String pathPrefix, @Param("periodId") UUID periodId);
 }

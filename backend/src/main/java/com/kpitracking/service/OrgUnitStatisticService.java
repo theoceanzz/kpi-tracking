@@ -731,6 +731,72 @@ public class OrgUnitStatisticService {
         return periodDetails;
     }
 
+    // get_time_series — trend of a metric over time + anomaly points
+    @Transactional(readOnly = true)
+    public Map<String, Object> getTimeSeries(UUID unitId, String metric, String granularity, Integer lookback) {
+        String pathPrefix = getPathPrefix(unitId);
+        String datePattern = switch (granularity == null ? "MONTH" : granularity.toUpperCase()) {
+            case "YEAR" -> "YYYY";
+            case "QUARTER" -> "YYYY-\"Q\"Q";
+            default -> "YYYY-MM";
+        };
+        String metricKey = "avg_performance".equalsIgnoreCase(metric) ? "avg_performance" : "completion";
+        int keep = (lookback != null && lookback > 0) ? lookback : 6;
+
+        // row: [period_label, total_actual, total_target, avg_performance, submission_count]
+        List<Object[]> rows = kpiSubmissionRepository.trendStatsInSubtree(pathPrefix, datePattern);
+        if (rows.size() > keep) {
+            rows = rows.subList(rows.size() - keep, rows.size());
+        }
+
+        List<Map<String, Object>> series = new ArrayList<>();
+        for (Object[] r : rows) {
+            double value = "avg_performance".equals(metricKey)
+                    ? toDouble(r[3])
+                    : computeCompletion(toDouble(r[1]), toDouble(r[2]));
+            Map<String, Object> point = new LinkedHashMap<>();
+            point.put("period", r[0] != null ? r[0].toString() : null);
+            point.put("value", round1(value));
+            series.add(point);
+        }
+
+        // anomalies: period-over-period change crossing SPIKE (+20%) / DROP (-15%) thresholds
+        List<Map<String, Object>> anomalies = new ArrayList<>();
+        for (int i = 1; i < series.size(); i++) {
+            double prev = ((Number) series.get(i - 1).get("value")).doubleValue();
+            double cur = ((Number) series.get(i).get("value")).doubleValue();
+            if (prev <= 0) continue;
+            double deltaPct = (cur - prev) / prev * 100.0;
+            if (deltaPct > 20.0 || deltaPct < -15.0) {
+                Map<String, Object> a = new LinkedHashMap<>();
+                a.put("period", series.get(i).get("period"));
+                a.put("value", series.get(i).get("value"));
+                a.put("deltaPct", round1(deltaPct));
+                a.put("type", deltaPct > 0 ? "SPIKE" : "DROP");
+                anomalies.add(a);
+            }
+        }
+
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("metric", metricKey);
+        result.put("granularity", granularity == null ? "MONTH" : granularity.toUpperCase());
+        result.put("series", series);
+        result.put("anomalyPoints", anomalies);
+        return result;
+    }
+
+    private double toDouble(Object o) {
+        return o instanceof Number ? ((Number) o).doubleValue() : 0.0;
+    }
+
+    private double computeCompletion(double actual, double target) {
+        return target <= 0 ? 0.0 : actual / target * 100.0;
+    }
+
+    private double round1(double v) {
+        return Math.round(v * 10.0) / 10.0;
+    }
+
     // 12. get_positions
     @Transactional(readOnly = true)
     public Map<String, Object> getPositions(UUID targetUnitId) {

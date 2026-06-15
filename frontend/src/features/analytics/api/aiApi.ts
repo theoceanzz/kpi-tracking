@@ -27,6 +27,40 @@ export interface MessageResponse {
   createdAt: string
 }
 
+export type InsightType = 'EXCEED' | 'BELOW' | 'SPIKE' | 'DROP' | 'DEADLINE_RISK'
+
+export interface InsightContext {
+  entityType?: string
+  entityId?: string
+  entityName?: string
+  metricKey?: string
+  value?: number
+  deltaPct?: number
+  periodLabel?: string
+  daysLeft?: number
+}
+
+export interface InsightCard {
+  id: string
+  type: InsightType
+  severity: string
+  title: string
+  insightText: string
+  questionText: string
+  context?: InsightContext
+}
+
+export interface FollowupPools {
+  technical: string[]
+  management: string[]
+}
+
+export interface FollowupRequest {
+  conversationId?: string
+  turn: number
+  context: string
+}
+
 export const aiApi = {
   chat: (request: AiChatRequest) =>
     axiosInstance
@@ -54,5 +88,15 @@ export const aiApi = {
         `/ai/conversations/${conversationId}/messages`,
         { params },
       )
+      .then(res => res.data.data),
+
+  getInsights: () =>
+    axiosInstance
+      .get<ApiResponse<InsightCard[]>>('/ai/insights')
+      .then(res => res.data.data),
+
+  getFollowups: (request: FollowupRequest) =>
+    axiosInstance
+      .post<ApiResponse<FollowupPools>>('/ai/followups', request)
       .then(res => res.data.data),
 }

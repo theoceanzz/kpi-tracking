@@ -177,4 +177,12 @@ public final class OrgUnitStatisticToolRequests {
             @JsonProperty(required = false) String keyword,
             @JsonProperty(required = false) Integer limit
     ) {}
+
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    public record GetTimeSeriesRequest(
+            @JsonProperty(required = false) String unitId,
+            @JsonProperty(required = false) String metric,       // completion | avg_performance
+            @JsonProperty(required = false) String granularity,  // MONTH | QUARTER | YEAR
+            @JsonProperty(required = false) Integer lookback      // number of most-recent periods to keep
+    ) {}
 }

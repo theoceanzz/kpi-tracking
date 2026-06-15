@@ -531,6 +531,21 @@ public class OrgUnitStatisticTool {
         }
     }
 
+    // ── get_time_series ──────────────────────────────────────────────────────
+
+    @Tool(name = "get_time_series", description = "Get the trend of a KPI metric over time for an organizational unit subtree, plus detected anomaly points. Use this for questions about trends/evolution over months/quarters/years (e.g. 'xu hướng hiệu suất 6 tháng qua'). Metrics: 'completion' (sum actual / sum target %), 'avg_performance' (avg actual/target %). Granularity: 'MONTH' (default), 'QUARTER', 'YEAR'. 'lookback' keeps only the most recent N periods (default 6). Returns { metric, granularity, series:[{period,value}], anomalyPoints:[{period,value,deltaPct,type}] } where type is SPIKE (>+20%) or DROP (<-15%).")
+    public String getTimeSeries(GetTimeSeriesRequest request, ToolContext context) {
+        try {
+            UUID targetUnitId = resolveUnitId(request.unitId(), context);
+            Map<String, Object> response = orgUnitStatisticService.getTimeSeries(
+                    targetUnitId, request.metric(), request.granularity(), request.lookback());
+            return objectMapper.writeValueAsString(response);
+        } catch (Exception e) {
+            log.error("Error in getTimeSeries", e);
+            return "{\"error\": \"" + e.getMessage() + "\"}";
+        }
+    }
+
     // ── 17. search_users ─────────────────────────────────────────────────────
 
     @Tool(name = "search_users", description = "Search users/employees by name, email, phone number, position/role name, or organizational unit. Returns user IDs and basic info to support other tools.")
