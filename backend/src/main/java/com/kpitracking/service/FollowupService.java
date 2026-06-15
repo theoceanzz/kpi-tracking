@@ -4,6 +4,8 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.kpitracking.dto.request.ai.FollowupRequest;
 import com.kpitracking.dto.response.ai.FollowupResponse;
+import com.kpitracking.tool.FollowupContextStore;
+import com.kpitracking.tool.FollowupContextStore.ToolResult;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -16,38 +18,50 @@ import java.util.List;
 
 /**
  * Generates the follow-up question pools shown after the chatbot answers.
- * Turn 0 → fixed templates (no AI). Turn ≥1 → LLM generates 10 questions
- * (5 technical + 5 management). Any AI/parse failure falls back to fixed templates,
- * so the chat never loses its suggestion buttons.
+ *
+ * <p>Grounding: instead of the (truncated) natural-language answer, we read the actual
+ * structured tool outputs of the just-finished chat turn from {@link FollowupContextStore}
+ * (keyed by conversationId) and feed those to the LLM. The prompt derives notes then
+ * questions in a single call and is forbidden from inventing numbers. If there is no tool
+ * data (model answered without tools, or expired cache) we fall back to fixed templates.
  */
 @Service
 @Slf4j
 public class FollowupService {
 
+    private static final int MAX_CHARS_PER_TOOL = 1200;
+    private static final int MAX_TOTAL_CHARS = 4000;
+
     private final ChatClient chatClient;
     private final ObjectMapper objectMapper;
+    private final FollowupContextStore followupContextStore;
 
     @Value("classpath:/promptTemplates/followupSuggestionsPrompt.st")
     private Resource followupPrompt;
 
     public FollowupService(@Qualifier("openAiChatClient") ChatClient chatClient,
-                           ObjectMapper objectMapper) {
+                           ObjectMapper objectMapper,
+                           FollowupContextStore followupContextStore) {
         this.chatClient = chatClient;
         this.objectMapper = objectMapper;
+        this.followupContextStore = followupContextStore;
     }
 
     public FollowupResponse generate(FollowupRequest request) {
-        int turn = request != null && request.getTurn() != null ? request.getTurn() : 0;
-        String context = request != null ? request.getContext() : null;
+        String conversationId = request != null ? request.getConversationId() : null;
+        String question = request != null ? request.getContext() : null;
 
-        if (turn <= 0 || context == null || context.isBlank()) {
+        List<ToolResult> toolData = followupContextStore.get(conversationId);
+        if (toolData.isEmpty()) {
+            // No grounded data this turn → fixed templates (never break the UI).
             return fixedTemplates();
         }
 
+        String dataContext = buildDataContext(toolData, question);
         try {
             String raw = chatClient.prompt()
                     .system(followupPrompt)
-                    .user(context)
+                    .user(dataContext)
                     .call()
                     .content();
             FollowupResponse parsed = parse(raw);
@@ -61,6 +75,24 @@ public class FollowupService {
             log.warn("Followup generation failed, using fixed templates: {}", e.getMessage());
         }
         return fixedTemplates();
+    }
+
+    /** Compact, bounded rendering of the turn's tool outputs (+ the user's question for focus). */
+    private String buildDataContext(List<ToolResult> toolData, String question) {
+        StringBuilder sb = new StringBuilder();
+        if (question != null && !question.isBlank()) {
+            sb.append("Câu hỏi của người dùng: ").append(question.trim()).append("\n\n");
+        }
+        sb.append("DỮ LIỆU TỪ CÔNG CỤ (chỉ dùng đúng tên/số trong đây):\n");
+        for (ToolResult tr : toolData) {
+            if (sb.length() >= MAX_TOTAL_CHARS) break;
+            String json = tr.getJson() == null ? "" : tr.getJson();
+            if (json.length() > MAX_CHARS_PER_TOOL) {
+                json = json.substring(0, MAX_CHARS_PER_TOOL) + "…";
+            }
+            sb.append("- ").append(tr.getToolName()).append(": ").append(json).append("\n");
+        }
+        return sb.toString();
     }
 
     private FollowupResponse parse(String text) {

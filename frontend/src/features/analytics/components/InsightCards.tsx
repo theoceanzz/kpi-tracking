@@ -1,4 +1,4 @@
-import { AlertTriangle, TrendingDown, TrendingUp, ArrowUpRight, ArrowDownRight, Sparkles, ChevronRight } from 'lucide-react'
+import { AlertTriangle, TrendingDown, TrendingUp, ArrowUpRight, ArrowDownRight, Sparkles, ChevronRight, BarChart3 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { InsightCard, InsightType } from '../api/aiApi'
 
@@ -32,6 +32,12 @@ const TYPE_STYLES: Record<InsightType, { icon: typeof AlertTriangle; ring: strin
     ring: 'border-emerald-200 dark:border-emerald-900/50 hover:border-emerald-300',
     chip: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300',
     iconColor: 'text-emerald-500',
+  },
+  SUMMARY: {
+    icon: BarChart3,
+    ring: 'border-indigo-200 dark:border-indigo-900/50 hover:border-indigo-300',
+    chip: 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300',
+    iconColor: 'text-indigo-500',
   },
 }
 

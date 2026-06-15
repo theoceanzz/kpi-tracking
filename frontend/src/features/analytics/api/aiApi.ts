@@ -27,7 +27,7 @@ export interface MessageResponse {
   createdAt: string
 }
 
-export type InsightType = 'EXCEED' | 'BELOW' | 'SPIKE' | 'DROP' | 'DEADLINE_RISK'
+export type InsightType = 'EXCEED' | 'BELOW' | 'SPIKE' | 'DROP' | 'DEADLINE_RISK' | 'SUMMARY'
 
 export interface InsightContext {
   entityType?: string

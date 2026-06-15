@@ -199,16 +199,16 @@ export default function AiAssistantPage() {
       }
     } catch (error: any) {
       const status = error?.response?.status
-      let content: string
+      let errorContent: string
       if (status === 402) {
-        content = '⚠️ **Hệ thống AI đã đạt giới hạn token.** Vui lòng thử lại sau ít phút hoặc liên hệ quản trị viên.'
+        errorContent = '⚠️ **Hệ thống AI đã đạt giới hạn token.** Vui lòng thử lại sau ít phút hoặc liên hệ quản trị viên.'
       } else {
         const detail = error?.response?.data?.message || error?.message || 'Lỗi không xác định'
-        content = `⚠️ ${detail}`
+        errorContent = `⚠️ ${detail}`
       }
       setMessages(prev => [
         ...prev,
-        { id: (Date.now() + 1).toString(), role: 'assistant', content },
+        { id: (Date.now() + 1).toString(), role: 'assistant', content: errorContent },
       ])
     } finally {
       setIsLoading(false)

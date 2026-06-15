@@ -85,38 +85,30 @@ public class AiService {
 
         try {
             String result;
-            try {
-                if (hasMemory) {
-                    result = chatClientWithMemory.prompt()
-                            .user(question)
-                            .system(orgUnitSystemPrompt)
-                            .tools(orgUnitStatisticTool)
-                            .toolContext(toolCtx)
-                            .advisors(spec -> spec.param("chat_memory_conversation_id", conversationId))
-                            .call()
-                            .content();
-                } else {
-                    result = chatClient.prompt()
-                            .user(question)
-                            .system(orgUnitSystemPrompt)
-                            .tools(orgUnitStatisticTool)
-                            .toolContext(toolCtx)
-                            .call()
-                            .content();
-                }
-            } catch (Exception e) {
-                if (isQuotaError(e)) {
-                    throw new AiQuotaExceededException("quota exceeded", e);
-                }
-                throw e;
+            if (hasMemory) {
+                result = chatClientWithMemory.prompt()
+                        .user(question)
+                        .system(orgUnitSystemPrompt)
+                        .tools(orgUnitStatisticTool)
+                        .toolContext(toolCtx)
+                        .advisors(spec -> spec.param("chat_memory_conversation_id", conversationId))
+                        .call()
+                        .content();
+            } else {
+                result = chatClient.prompt()
+                        .user(question)
+                        .system(orgUnitSystemPrompt)
+                        .tools(orgUnitStatisticTool)
+                        .toolContext(toolCtx)
+                        .call()
+                        .content();
             }
-
-            // Sanitize response: convert HTML linebreaks to Markdown newlines
-            if (result == null) {
-                return "";
+            return sanitizeResponse(result);
+        } catch (Exception e) {
+            if (isQuotaError(e)) {
+                throw new AiQuotaExceededException("quota exceeded", e);
             }
-            result = result.replaceAll("(?i)<br\\s*/?>", "\n").strip();
-            return result;
+            throw e;
         } finally {
             disambiguationGuard.clear();
         }
@@ -159,23 +151,6 @@ public class AiService {
         }
     }
 
-    private boolean isQuotaError(Exception e) {
-        String msg = collectMessages(e).toLowerCase();
-        return msg.contains("429") || msg.contains("quota") || msg.contains("rate limit")
-                || msg.contains("payment required") || msg.contains("402") || msg.contains("exceeded");
-    }
-
-    private String collectMessages(Throwable t) {
-        StringBuilder sb = new StringBuilder();
-        while (t != null) {
-            if (t.getMessage() != null) {
-                sb.append(t.getMessage()).append(" ");
-            }
-            t = t.getCause();
-        }
-        return sb.toString();
-    }
-
     /**
      * Lightweight topic guard: classifies whether the user's message belongs to the
      * KPI business domain before invoking the (tool-heavy) main model. Lenient by
@@ -202,6 +177,29 @@ public class AiService {
             log.warn("Topic guard classification failed, allowing message through: {}", e.getMessage());
             return true;
         }
+    }
+
+    private String sanitizeResponse(String result) {
+        if (result == null) return "";
+        // Convert HTML linebreaks the model may emit to Markdown newlines
+        return result.replaceAll("(?i)<br\\s*/?>", "\n").strip();
+    }
+
+    private boolean isQuotaError(Exception e) {
+        String msg = collectMessages(e).toLowerCase();
+        return msg.contains("429") || msg.contains("quota") || msg.contains("rate limit")
+                || msg.contains("payment required") || msg.contains("402") || msg.contains("exceeded");
+    }
+
+    private String collectMessages(Throwable t) {
+        StringBuilder sb = new StringBuilder();
+        while (t != null) {
+            if (t.getMessage() != null) {
+                sb.append(t.getMessage()).append(" ");
+            }
+            t = t.getCause();
+        }
+        return sb.toString();
     }
 
     private List<AiKpiSuggestionResponse> parseResponse(String text) {

@@ -103,7 +103,7 @@ public class GlobalExceptionHandler {
     }
 
     @ExceptionHandler(AiQuotaExceededException.class)
-    public ResponseEntity<ApiResponse<Void>> handleAiQuotaExceeded(AiQuotaExceededException ex) {
+    public ResponseEntity<ApiResponse<Void>> handleAiQuota(AiQuotaExceededException ex) {
         log.warn("AI quota exceeded: {}", ex.getCause() != null ? ex.getCause().getMessage() : ex.getMessage());
         return ResponseEntity.status(HttpStatus.PAYMENT_REQUIRED)
                 .body(ApiResponse.error("Hệ thống AI đã đạt giới hạn sử dụng. Vui lòng thử lại sau ít phút."));

@@ -26,6 +26,7 @@ public class OrgUnitStatisticTool {
     private final ConversationMessageRepository conversationMessageRepository;
     private final OrgUnitStatisticService orgUnitStatisticService;
     private final DisambiguationGuard disambiguationGuard;
+    private final FollowupContextStore followupContextStore;
     private final ObjectMapper objectMapper;
 
     // ── context helpers ──────────────────────────────────────────────────────
@@ -261,13 +262,27 @@ public class OrgUnitStatisticTool {
         return objectMapper.writeValueAsString(result);
     }
 
+    /**
+     * Serializes a tool's payload to JSON, records it in the {@link FollowupContextStore}
+     * (keyed by conversationId, when present) so follow-up questions can be grounded in the
+     * real tool data of this turn, and returns the JSON for the model.
+     */
+    private String respond(ToolContext context, String toolName, Object payload) throws Exception {
+        String json = objectMapper.writeValueAsString(payload);
+        String conversationId = getConversationId(context);
+        if (conversationId != null) {
+            followupContextStore.append(conversationId, toolName, json);
+        }
+        return json;
+    }
+
     // ── 1. get_org_hierarchy ─────────────────────────────────────────────────
 
     @Tool(name = "get_org_hierarchy", description = "Get the complete organizational unit hierarchy tree and subtree details, including child counts and member counts.")
     public String getOrgHierarchy(GetOrgHierarchyRequest request, ToolContext context) {
         try {
             Map<String, Object> response = orgUnitStatisticService.getOrgHierarchy(getOrgUnitId(context));
-            return objectMapper.writeValueAsString(response);
+            return respond(context, "get_org_hierarchy", response);
         } catch (Exception e) {
             log.error("Error in getOrgHierarchy", e);
             return "{\"error\": \"" + e.getMessage() + "\"}";
@@ -281,7 +296,7 @@ public class OrgUnitStatisticTool {
         try {
             UUID targetId = resolveUnitId(request.unitId(), context);
             Map<String, Object> response = orgUnitStatisticService.getOrgUnitDetail(targetId);
-            return objectMapper.writeValueAsString(response);
+            return respond(context, "get_org_unit_detail", response);
         } catch (Exception e) {
             log.error("Error in getOrgUnitDetail", e);
             return "{\"error\": \"" + e.getMessage() + "\"}";
@@ -297,7 +312,7 @@ public class OrgUnitStatisticTool {
             Map<String, Object> response = orgUnitStatisticService.getChildOrgUnits(
                     parentId, request.recursive(), request.page(), request.size(),
                     request.sortBy(), request.sortDirection());
-            return objectMapper.writeValueAsString(response);
+            return respond(context, "get_child_org_units", response);
         } catch (Exception e) {
             log.error("Error in getChildOrgUnits", e);
             return "{\"error\": \"" + e.getMessage() + "\"}";
@@ -313,7 +328,7 @@ public class OrgUnitStatisticTool {
             Map<String, Object> response = orgUnitStatisticService.getMembers(
                     targetUnitId, request.includeChildUnits(), request.positionId(),
                     request.page(), request.size(), request.sortBy(), request.sortDirection());
-            return objectMapper.writeValueAsString(response);
+            return respond(context, "get_members", response);
         } catch (Exception e) {
             log.error("Error in getMembers", e);
             return "{\"error\": \"" + e.getMessage() + "\"}";
@@ -329,7 +344,7 @@ public class OrgUnitStatisticTool {
             Map<String, Object> response = orgUnitStatisticService.getMemberStatistics(
                     targetUnitId, request.includeChildUnits(),
                     request.startDate(), request.endDate());
-            return objectMapper.writeValueAsString(response);
+            return respond(context, "get_org_unit_statistics", response);
         } catch (Exception e) {
             log.error("Error in getOrgUnitStatistics", e);
             return "{\"error\": \"" + e.getMessage() + "\"}";
@@ -346,7 +361,7 @@ public class OrgUnitStatisticTool {
             validateUserAccess(targetUserId, context);
             Map<String, Object> response = orgUnitStatisticService.getUserSummary(
                     targetUserId, request.startDate(), request.endDate());
-            return objectMapper.writeValueAsString(response);
+            return respond(context, "get_user_summary", response);
         } catch (Exception e) {
             log.error("Error in getUserSummary", e);
             return "{\"error\": \"" + e.getMessage() + "\"}";
@@ -369,7 +384,7 @@ public class OrgUnitStatisticTool {
                     orgUnitId, request.ownerId(), request.assignedById(), request.assignedToId(),
                     request.periodId(), request.status(), request.page(), request.size(),
                     request.sortBy(), request.sortDirection(), request.startDate(), request.endDate());
-            return objectMapper.writeValueAsString(response);
+            return respond(context, "get_kpis", response);
         } catch (Exception e) {
             log.error("Error in getKpis", e);
             return "{\"error\": \"" + e.getMessage() + "\"}";
@@ -391,7 +406,7 @@ public class OrgUnitStatisticTool {
             Map<String, Object> response = orgUnitStatisticService.getKpiSummary(
                     orgUnitId, request.ownerId(), request.assignedById(), request.assignedToId(),
                     request.periodId(), request.status(), request.startDate(), request.endDate());
-            return objectMapper.writeValueAsString(response);
+            return respond(context, "get_kpi_summary", response);
         } catch (Exception e) {
             log.error("Error in getKpiSummary", e);
             return "{\"error\": \"" + e.getMessage() + "\"}";
@@ -408,7 +423,7 @@ public class OrgUnitStatisticTool {
             validateKpiAccess(id, context);
             Map<String, Object> response = orgUnitStatisticService.getKpiDetail(
                     id, request.startDate(), request.endDate());
-            return objectMapper.writeValueAsString(response);
+            return respond(context, "get_kpi_detail", response);
         } catch (Exception e) {
             log.error("Error in getKpiDetail", e);
             return "{\"error\": \"" + e.getMessage() + "\"}";
@@ -424,7 +439,7 @@ public class OrgUnitStatisticTool {
             guardDisambiguation("kpi", id, "KPI");
             validateKpiAccess(id, context);
             Map<String, Object> response = orgUnitStatisticService.getKpiAssignees(id);
-            return objectMapper.writeValueAsString(response);
+            return respond(context, "get_kpi_assignees", response);
         } catch (Exception e) {
             log.error("Error in getKpiAssignees", e);
             return "{\"error\": \"" + e.getMessage() + "\"}";
@@ -439,7 +454,7 @@ public class OrgUnitStatisticTool {
             UUID orgId = getOrgId(context);
             List<Map<String, Object>> response = orgUnitStatisticService.getKpiPeriods(
                     orgId, request.startDate(), request.endDate());
-            return objectMapper.writeValueAsString(response);
+            return respond(context, "get_kpi_periods", response);
         } catch (Exception e) {
             log.error("Error in getKpiPeriods", e);
             return "{\"error\": \"" + e.getMessage() + "\"}";
@@ -453,7 +468,7 @@ public class OrgUnitStatisticTool {
         try {
             UUID targetUnitId = resolveUnitId(request.unitId(), context);
             Map<String, Object> response = orgUnitStatisticService.getPositions(targetUnitId);
-            return objectMapper.writeValueAsString(response);
+            return respond(context, "get_positions", response);
         } catch (Exception e) {
             log.error("Error in getPositions", e);
             return "{\"error\": \"" + e.getMessage() + "\"}";
@@ -477,7 +492,7 @@ public class OrgUnitStatisticTool {
                     orgId, request.metric(), request.order(), request.scope(),
                     request.unitId(), request.kpiId(), request.limit(),
                     request.startDate(), request.endDate(), contextUnitId);
-            return objectMapper.writeValueAsString(response);
+            return respond(context, "rank_members", response);
         } catch (Exception e) {
             log.error("Error in rankMembers", e);
             return "{\"error\": \"" + e.getMessage() + "\"}";
@@ -493,7 +508,7 @@ public class OrgUnitStatisticTool {
             List<Map<String, Object>> response = orgUnitStatisticService.rankOrgUnits(
                     orgUnitId, request.metric(), request.order(), request.limit(),
                     request.startDate(), request.endDate());
-            return objectMapper.writeValueAsString(response);
+            return respond(context, "rank_org_units", response);
         } catch (Exception e) {
             log.error("Error in rankOrgUnits", e);
             return "{\"error\": \"" + e.getMessage() + "\"}";
@@ -508,7 +523,7 @@ public class OrgUnitStatisticTool {
             UUID orgUnitId = getOrgUnitId(context);
             List<Map<String, Object>> response = orgUnitStatisticService.getKpiRiskAnalysis(
                     orgUnitId, request.startDate(), request.endDate());
-            return objectMapper.writeValueAsString(response);
+            return respond(context, "get_kpi_risk_analysis", response);
         } catch (Exception e) {
             log.error("Error in getKpiRiskAnalysis", e);
             return "{\"error\": \"" + e.getMessage() + "\"}";
@@ -524,7 +539,7 @@ public class OrgUnitStatisticTool {
             UUID orgId = getOrgId(context);
             Map<String, Object> response = orgUnitStatisticService.getDashboardSummary(
                     orgUnitId, orgId, request.startDate(), request.endDate());
-            return objectMapper.writeValueAsString(response);
+            return respond(context, "get_dashboard_summary", response);
         } catch (Exception e) {
             log.error("Error in getDashboardSummary", e);
             return "{\"error\": \"" + e.getMessage() + "\"}";
@@ -539,7 +554,7 @@ public class OrgUnitStatisticTool {
             UUID targetUnitId = resolveUnitId(request.unitId(), context);
             Map<String, Object> response = orgUnitStatisticService.getTimeSeries(
                     targetUnitId, request.metric(), request.granularity(), request.lookback());
-            return objectMapper.writeValueAsString(response);
+            return respond(context, "get_time_series", response);
         } catch (Exception e) {
             log.error("Error in getTimeSeries", e);
             return "{\"error\": \"" + e.getMessage() + "\"}";

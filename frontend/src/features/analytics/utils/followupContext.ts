@@ -1,26 +1,17 @@
 import type { InsightCard } from '../api/aiApi'
 
 /**
- * Builds the compact context string sent to the follow-up generator: the active
- * insight (if the thread started from a card), the user's question, and a trimmed
- * snippet of the assistant's answer. Gives the LLM names/numbers to anchor questions on.
+ * Builds the lightweight context for follow-up generation. Only the topical focus is
+ * sent (the user's question, optionally prefixed by the active insight subject) — the
+ * actual numbers/names are grounded server-side from the cached tool outputs of the
+ * just-finished chat turn, so we deliberately do NOT pass the (truncated) answer text,
+ * which previously caused the model to fabricate numbers.
  */
 export function buildFollowupContext(
   insight: InsightCard | null,
   question: string,
-  answer?: string,
+  _answer?: string,
 ): string {
-  const parts: string[] = []
-  if (insight) {
-    parts.push(`Insight: ${insight.insightText}`)
-    const c = insight.context
-    if (c?.entityName) parts.push(`Đối tượng: ${c.entityName}`)
-    if (c?.value != null) parts.push(`Giá trị: ${c.value}%`)
-    if (c?.deltaPct != null) parts.push(`Biến động: ${c.deltaPct}%`)
-    if (c?.periodLabel) parts.push(`Kỳ: ${c.periodLabel}`)
-    if (c?.daysLeft != null) parts.push(`Còn lại: ${c.daysLeft} ngày`)
-  }
-  parts.push(`Câu hỏi: ${question}`)
-  if (answer) parts.push(`Trả lời: ${answer.slice(0, 600)}`)
-  return parts.join('\n')
+  const subject = insight?.context?.entityName
+  return subject ? `[${subject}] ${question}` : question
 }

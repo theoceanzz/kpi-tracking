@@ -40,12 +40,11 @@ public class InsightService {
     private static final double DROP_THRESHOLD = -15.0;     // < -15% vs previous period
     private static final double DEADLINE_COMPLETION_THRESHOLD = 90.0; // < 90% complete
     private static final int DEADLINE_DAYS = 7;             // period ends within 7 days
-    private static final int LOOKBACK_DAYS = 180;
     private static final int MAX_INSIGHTS = 5;
     private static final int MAX_PER_UNIT_RULE = 2;
 
-    /** Ordinal defines priority (lowest = highest priority). */
-    public enum InsightType { DEADLINE_RISK, BELOW, DROP, SPIKE, EXCEED }
+    /** Ordinal defines priority (lowest = highest priority). SUMMARY is a fallback only. */
+    public enum InsightType { DEADLINE_RISK, BELOW, DROP, SPIKE, EXCEED, SUMMARY }
 
     public List<InsightCardResponse> getInsights() {
         ManagerContext ctx = managerContextResolver.resolve();
@@ -53,7 +52,9 @@ public class InsightService {
 
         String path = ctx.orgUnitPath();
         Instant end = Instant.now();
-        Instant start = end.minus(LOOKBACK_DAYS, ChronoUnit.DAYS);
+        // Insight cards reflect the unit's CURRENT standing, so we scan all-time data
+        // (matches how the rest of the codebase defaults date ranges to EPOCH..now).
+        Instant start = Instant.EPOCH;
 
         List<InsightCardResponse> candidates = new ArrayList<>();
         safe("DEADLINE_RISK", () -> candidates.addAll(detectDeadlineRisk(ctx, end)));
@@ -61,7 +62,29 @@ public class InsightService {
         safe("SPIKE/DROP", () -> candidates.addAll(detectSpikeAndDrop(path)));
 
         candidates.sort(Comparator.comparingInt(c -> InsightType.valueOf(c.getType()).ordinal()));
+
+        // Fallback: no rule fired but the unit has data — still give the manager a
+        // data-driven overview reminder (not random) so the cards are never empty.
+        if (candidates.isEmpty()) {
+            safe("SUMMARY", () -> {
+                InsightCardResponse summary = buildSummary(path, start, end);
+                if (summary != null) candidates.add(summary);
+            });
+        }
+
         return candidates.stream().limit(MAX_INSIGHTS).collect(Collectors.toList());
+    }
+
+    private InsightCardResponse buildSummary(String path, Instant start, Instant end) {
+        Double avg = kpiSubmissionRepository.findAvgPerformanceInSubtree(path, start, end);
+        if (avg == null) return null; // genuinely no KPI data — nothing to remind
+        double perf = avg;
+        InsightContext c = InsightContext.builder()
+                .entityType("ORG_UNIT").metricKey("avg_performance").value(round(perf)).build();
+        return card(InsightType.SUMMARY, "Tổng quan",
+                String.format(Locale.US, "Đơn vị của bạn đang đạt trung bình %.0f%% mục tiêu KPI.", perf),
+                "Cho tôi tổng quan hiệu suất KPI của đơn vị và những điểm cần lưu ý.",
+                c);
     }
 
     // ── rules ────────────────────────────────────────────────────────────────
@@ -183,6 +206,7 @@ public class InsightService {
             case DROP: return "medium";
             case SPIKE: return "info";
             case EXCEED: return "success";
+            case SUMMARY: return "info";
             default: return "info";
         }
     }
