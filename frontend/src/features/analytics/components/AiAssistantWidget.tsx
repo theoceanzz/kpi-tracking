@@ -130,13 +130,20 @@ export default function AiAssistantWidget() {
         /* followups are best-effort */
       }
     } catch (error: any) {
-      const errorDetail = error?.response?.data?.message || error?.message || 'Lỗi không xác định'
+      const status = error?.response?.status
+      let content: string
+      if (status === 402) {
+        content = '⚠️ **Hệ thống AI đã đạt giới hạn token.** Vui lòng thử lại sau ít phút hoặc liên hệ quản trị viên.'
+      } else {
+        const errorDetail = error?.response?.data?.message || error?.message || 'Lỗi không xác định'
+        content = `Xin lỗi, đã có lỗi xảy ra: ${errorDetail}`
+      }
       setMessages(prev => [
         ...prev,
         {
           id: (Date.now() + 1).toString(),
           role: 'assistant',
-          content: `Xin lỗi, đã có lỗi xảy ra: ${errorDetail}`,
+          content,
         },
       ])
     } finally {

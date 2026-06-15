@@ -198,10 +198,17 @@ export default function AiAssistantPage() {
         /* followups are best-effort */
       }
     } catch (error: any) {
-      const detail = error?.response?.data?.message || error?.message || 'Lỗi không xác định'
+      const status = error?.response?.status
+      let content: string
+      if (status === 402) {
+        content = '⚠️ **Hệ thống AI đã đạt giới hạn token.** Vui lòng thử lại sau ít phút hoặc liên hệ quản trị viên.'
+      } else {
+        const detail = error?.response?.data?.message || error?.message || 'Lỗi không xác định'
+        content = `⚠️ ${detail}`
+      }
       setMessages(prev => [
         ...prev,
-        { id: (Date.now() + 1).toString(), role: 'assistant', content: `⚠️ ${detail}` },
+        { id: (Date.now() + 1).toString(), role: 'assistant', content },
       ])
     } finally {
       setIsLoading(false)

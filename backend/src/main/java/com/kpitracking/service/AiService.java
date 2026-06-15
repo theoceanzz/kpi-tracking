@@ -2,8 +2,10 @@ package com.kpitracking.service;
 
 import com.kpitracking.dto.response.ai.AiKpiSuggestionResponse;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.kpitracking.exception.AiQuotaExceededException;
 import com.kpitracking.service.ManagerContextResolver.ManagerContext;
 import com.kpitracking.tool.DisambiguationGuard;
+import com.kpitracking.tool.FollowupContextStore;
 import com.kpitracking.tool.OrgUnitStatisticTool;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
@@ -27,6 +29,7 @@ public class AiService {
     private final ManagerContextResolver managerContextResolver;
     private final OrgUnitStatisticTool orgUnitStatisticTool;
     private final DisambiguationGuard disambiguationGuard;
+    private final FollowupContextStore followupContextStore;
 
     @Value("classpath:/promptTemplates/orgUnitToolSystemPromptTemplate.st")
     Resource orgUnitSystemPrompt;
@@ -44,12 +47,14 @@ public class AiService {
                      ManagerContextResolver managerContextResolver,
                      OrgUnitStatisticTool orgUnitStatisticTool,
                      DisambiguationGuard disambiguationGuard,
+                     FollowupContextStore followupContextStore,
                      ObjectMapper objectMapper) {
         this.chatClient = chatClient;
         this.chatClientWithMemory = chatClientWithMemory;
         this.managerContextResolver = managerContextResolver;
         this.orgUnitStatisticTool = orgUnitStatisticTool;
         this.disambiguationGuard = disambiguationGuard;
+        this.followupContextStore = followupContextStore;
         this.objectMapper = objectMapper;
     }
 
@@ -73,27 +78,45 @@ public class AiService {
         toolCtx.put("organizationId", ctx.orgId());
         if (hasMemory) {
             toolCtx.put("conversationId", conversationId);
+            // Reset this conversation's tool-result bucket so the follow-up generator
+            // grounds questions only on THIS turn's tool outputs.
+            followupContextStore.startTurn(conversationId);
         }
 
         try {
-            if (hasMemory) {
-                return chatClientWithMemory.prompt()
-                        .user(question)
-                        .system(orgUnitSystemPrompt)
-                        .tools(orgUnitStatisticTool)
-                        .toolContext(toolCtx)
-                        .advisors(spec -> spec.param("chat_memory_conversation_id", conversationId))
-                        .call()
-                        .content();
+            String result;
+            try {
+                if (hasMemory) {
+                    result = chatClientWithMemory.prompt()
+                            .user(question)
+                            .system(orgUnitSystemPrompt)
+                            .tools(orgUnitStatisticTool)
+                            .toolContext(toolCtx)
+                            .advisors(spec -> spec.param("chat_memory_conversation_id", conversationId))
+                            .call()
+                            .content();
+                } else {
+                    result = chatClient.prompt()
+                            .user(question)
+                            .system(orgUnitSystemPrompt)
+                            .tools(orgUnitStatisticTool)
+                            .toolContext(toolCtx)
+                            .call()
+                            .content();
+                }
+            } catch (Exception e) {
+                if (isQuotaError(e)) {
+                    throw new AiQuotaExceededException("quota exceeded", e);
+                }
+                throw e;
             }
 
-            return chatClient.prompt()
-                    .user(question)
-                    .system(orgUnitSystemPrompt)
-                    .tools(orgUnitStatisticTool)
-                    .toolContext(toolCtx)
-                    .call()
-                    .content();
+            // Sanitize response: convert HTML linebreaks to Markdown newlines
+            if (result == null) {
+                return "";
+            }
+            result = result.replaceAll("(?i)<br\\s*/?>", "\n").strip();
+            return result;
         } finally {
             disambiguationGuard.clear();
         }
@@ -134,6 +157,23 @@ public class AiService {
         } finally {
             disambiguationGuard.clear();
         }
+    }
+
+    private boolean isQuotaError(Exception e) {
+        String msg = collectMessages(e).toLowerCase();
+        return msg.contains("429") || msg.contains("quota") || msg.contains("rate limit")
+                || msg.contains("payment required") || msg.contains("402") || msg.contains("exceeded");
+    }
+
+    private String collectMessages(Throwable t) {
+        StringBuilder sb = new StringBuilder();
+        while (t != null) {
+            if (t.getMessage() != null) {
+                sb.append(t.getMessage()).append(" ");
+            }
+            t = t.getCause();
+        }
+        return sb.toString();
     }
 
     /**
