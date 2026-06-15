@@ -226,9 +226,15 @@ export default function AiAssistantPage() {
     sendMessage(text)
   }
 
-  const handleAskInsight = (insight: InsightCard) => {
+  const handleSelectQuestion = (insight: InsightCard, question: string) => {
     activeInsightRef.current = insight
-    sendMessage(insight.questionText)
+    setInput(question)
+    setTimeout(() => textareaRef.current?.focus(), 100)
+  }
+
+  const handleSelectFollowupQuestion = (question: string) => {
+    setInput(question)
+    setTimeout(() => textareaRef.current?.focus(), 100)
   }
 
   const handleShowInsights = () => {
@@ -518,7 +524,7 @@ export default function AiAssistantPage() {
                         {msg.role === 'assistant' && msg.followups && msg.id === lastAssistantId && !isLoading && (
                           <FollowupSuggestions
                             pools={msg.followups}
-                            onAsk={q => sendMessage(q)}
+                            onSelectQuestion={handleSelectFollowupQuestion}
                             onShowInsights={handleShowInsights}
                           />
                         )}
@@ -530,7 +536,7 @@ export default function AiAssistantPage() {
                 {/* Proactive insight cards */}
                 {!loadingMessages && showInsights && (insightsLoading || insights.length > 0) && (
                   <div className="max-w-[82%]">
-                    <InsightCards insights={insights} onAsk={handleAskInsight} loading={insightsLoading} />
+                    <InsightCards insights={insights} onSelectQuestion={handleSelectQuestion} loading={insightsLoading} />
                   </div>
                 )}
 

@@ -43,11 +43,11 @@ const TYPE_STYLES: Record<InsightType, { icon: typeof AlertTriangle; ring: strin
 
 interface Props {
   insights: InsightCard[]
-  onAsk: (insight: InsightCard) => void
+  onSelectQuestion: (insight: InsightCard, question: string) => void
   loading?: boolean
 }
 
-export default function InsightCards({ insights, onAsk, loading }: Props) {
+export default function InsightCards({ insights, onSelectQuestion, loading }: Props) {
   if (loading) {
     return (
       <div className="space-y-2.5">
@@ -74,7 +74,7 @@ export default function InsightCards({ insights, onAsk, loading }: Props) {
           <div
             key={insight.id}
             className={cn(
-              'bg-white dark:bg-slate-800/60 rounded-2xl border p-3.5 shadow-sm transition-colors',
+              'bg-white dark:bg-slate-800/60 rounded-2xl border p-3.5 shadow-sm hover:shadow-md transition-all cursor-pointer',
               style.ring,
             )}
           >
@@ -90,11 +90,11 @@ export default function InsightCards({ insights, onAsk, loading }: Props) {
                   {insight.insightText}
                 </p>
                 <button
-                  onClick={() => onAsk(insight)}
-                  className="mt-2 inline-flex items-center gap-1 text-[13px] font-semibold text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 hover:gap-1.5 transition-all text-left"
+                  onClick={() => onSelectQuestion(insight, insight.questionText)}
+                  className="group mt-2 inline-flex items-center gap-1 text-[13px] font-semibold text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 transition-all text-left"
                 >
                   {insight.questionText}
-                  <ChevronRight size={14} className="shrink-0" />
+                  <ChevronRight size={14} className="shrink-0 group-hover:translate-x-0.5 transition-transform" />
                 </button>
               </div>
             </div>

@@ -18,11 +18,11 @@ function sample3(arr: string[]): string[] {
 
 interface Props {
   pools: FollowupPools
-  onAsk: (question: string) => void
+  onSelectQuestion: (question: string) => void
   onShowInsights: () => void
 }
 
-export default function FollowupSuggestions({ pools, onAsk, onShowInsights }: Props) {
+export default function FollowupSuggestions({ pools, onSelectQuestion, onShowInsights }: Props) {
   const [pool, setPool] = useState<Pool>('all')
   const [shown, setShown] = useState<string[]>([])
 
@@ -54,11 +54,11 @@ export default function FollowupSuggestions({ pools, onAsk, onShowInsights }: Pr
         {shown.map((q, i) => (
           <button
             key={`${q}-${i}`}
-            onClick={() => onAsk(q)}
-            className="group flex items-center gap-2 text-left text-[13px] text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 hover:border-indigo-300 hover:bg-indigo-50/50 dark:hover:bg-indigo-900/20 transition-colors"
+            onClick={() => onSelectQuestion(q)}
+            className="group flex items-center gap-2 text-left text-[13px] text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 hover:border-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/30 hover:shadow-md dark:hover:shadow-indigo-900/30 transition-all duration-200 cursor-pointer"
           >
-            <MessageCircleQuestion size={14} className="shrink-0 text-indigo-400 group-hover:text-indigo-500" />
-            <span className="leading-snug">{q}</span>
+            <MessageCircleQuestion size={14} className="shrink-0 text-indigo-400 group-hover:text-indigo-500 transition-colors" />
+            <span className="leading-snug font-medium group-hover:text-indigo-600 dark:group-hover:text-indigo-300 transition-colors">{q}</span>
           </button>
         ))}
       </div>

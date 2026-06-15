@@ -34,6 +34,7 @@ export default function AiAssistantWidget() {
   const [insightsLoading, setInsightsLoading] = useState(false)
   const [showInsights, setShowInsights] = useState(true)
   const messagesEndRef = useRef<HTMLDivElement>(null)
+  const inputRef = useRef<HTMLTextAreaElement>(null)
   const conversationIdRef = useRef<string | null>(null)
   const turnRef = useRef(0)
   const activeInsightRef = useRef<InsightCard | null>(null)
@@ -159,9 +160,15 @@ export default function AiAssistantWidget() {
     sendMessage(text)
   }
 
-  const handleAskInsight = (insight: InsightCard) => {
+  const handleSelectQuestion = (insight: InsightCard, question: string) => {
     activeInsightRef.current = insight
-    sendMessage(insight.questionText)
+    setInput(question)
+    setTimeout(() => inputRef.current?.focus(), 100)
+  }
+
+  const handleSelectFollowupQuestion = (question: string) => {
+    setInput(question)
+    setTimeout(() => inputRef.current?.focus(), 100)
   }
 
   const handleShowInsights = () => {
@@ -307,7 +314,7 @@ export default function AiAssistantWidget() {
                   <div className="w-full mt-2">
                     <FollowupSuggestions
                       pools={msg.followups}
-                      onAsk={q => sendMessage(q)}
+                      onSelectQuestion={handleSelectFollowupQuestion}
                       onShowInsights={handleShowInsights}
                     />
                   </div>
@@ -317,7 +324,7 @@ export default function AiAssistantWidget() {
 
             {/* Proactive insight cards */}
             {showInsights && (insightsLoading || insights.length > 0) && (
-              <InsightCards insights={insights} onAsk={handleAskInsight} loading={insightsLoading} />
+              <InsightCards insights={insights} onSelectQuestion={handleSelectQuestion} loading={insightsLoading} />
             )}
 
             {isLoading && (
@@ -334,11 +341,12 @@ export default function AiAssistantWidget() {
           <div className="p-4 bg-white dark:bg-slate-900 border-t border-slate-100 dark:border-slate-800 shrink-0">
             <div className="relative flex items-end gap-2">
               <textarea
+                ref={inputRef}
                 value={input}
                 onChange={e => setInput(e.target.value)}
                 onKeyDown={handleKeyDown}
                 placeholder="Nhập câu hỏi..."
-                className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 pr-12 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/50 resize-none"
+                className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 pr-12 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/50 resize-none transition-shadow"
                 rows={1}
                 style={{ minHeight: '44px', maxHeight: '120px' }}
               />
