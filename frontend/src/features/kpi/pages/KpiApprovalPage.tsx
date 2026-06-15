@@ -582,9 +582,6 @@ export default function KpiApprovalPage() {
           open={showEditForm}
           onClose={() => setShowEditForm(false)}
           editKpi={editKpi}
-          organizationId={organizationId!}
-          periodId={selectedPeriodId !== 'ALL' ? selectedPeriodId : undefined}
-          orgUnitId={selectedOrgUnitId !== 'ALL' ? selectedOrgUnitId : undefined}
         />
       </div>
     </div>
