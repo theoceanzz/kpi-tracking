@@ -19,10 +19,11 @@ function sample3(arr: string[]): string[] {
 interface Props {
   pools: FollowupPools
   onSelectQuestion: (question: string) => void
+  selectedQuestion?: string
   onShowInsights: () => void
 }
 
-export default function FollowupSuggestions({ pools, onSelectQuestion, onShowInsights }: Props) {
+export default function FollowupSuggestions({ pools, onSelectQuestion, selectedQuestion, onShowInsights }: Props) {
   const [pool, setPool] = useState<Pool>('all')
   const [shown, setShown] = useState<string[]>([])
 
@@ -51,16 +52,24 @@ export default function FollowupSuggestions({ pools, onSelectQuestion, onShowIns
     <div className="mt-1 space-y-2">
       {/* Suggested question buttons */}
       <div className="flex flex-col gap-1.5">
-        {shown.map((q, i) => (
-          <button
-            key={`${q}-${i}`}
-            onClick={() => onSelectQuestion(q)}
-            className="group flex items-center gap-2 text-left text-[13px] text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 hover:border-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/30 hover:shadow-md dark:hover:shadow-indigo-900/30 transition-all duration-200 cursor-pointer"
-          >
-            <MessageCircleQuestion size={14} className="shrink-0 text-indigo-400 group-hover:text-indigo-500 transition-colors" />
-            <span className="leading-snug font-medium group-hover:text-indigo-600 dark:group-hover:text-indigo-300 transition-colors">{q}</span>
-          </button>
-        ))}
+        {shown.map((q, i) => {
+          const isSelected = selectedQuestion === q
+          return (
+            <button
+              key={`${q}-${i}`}
+              onClick={() => onSelectQuestion(q)}
+              className={cn(
+                'group flex items-center gap-2 text-left text-[13px] font-medium rounded-xl px-3 py-2 transition-all duration-200 cursor-pointer',
+                isSelected
+                  ? 'bg-indigo-100 dark:bg-indigo-950/60 border border-indigo-400 dark:border-indigo-600 text-indigo-700 dark:text-indigo-200 shadow-md'
+                  : 'text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:border-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/30 hover:shadow-md dark:hover:shadow-indigo-900/30',
+              )}
+            >
+              <MessageCircleQuestion size={14} className={cn('shrink-0 transition-colors', isSelected ? 'text-indigo-600 dark:text-indigo-400' : 'text-indigo-400 group-hover:text-indigo-500')} />
+              <span className={isSelected ? 'text-indigo-700 dark:text-indigo-200' : 'group-hover:text-indigo-600 dark:group-hover:text-indigo-300 transition-colors'}>{q}</span>
+            </button>
+          )
+        })}
       </div>
 
       {/* Pool toggles + show insights */}

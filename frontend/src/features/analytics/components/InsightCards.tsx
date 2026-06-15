@@ -44,10 +44,11 @@ const TYPE_STYLES: Record<InsightType, { icon: typeof AlertTriangle; ring: strin
 interface Props {
   insights: InsightCard[]
   onSelectQuestion: (insight: InsightCard, question: string) => void
+  selectedQuestion?: string
   loading?: boolean
 }
 
-export default function InsightCards({ insights, onSelectQuestion, loading }: Props) {
+export default function InsightCards({ insights, onSelectQuestion, selectedQuestion, loading }: Props) {
   if (loading) {
     return (
       <div className="space-y-2.5">
@@ -75,7 +76,9 @@ export default function InsightCards({ insights, onSelectQuestion, loading }: Pr
             key={insight.id}
             className={cn(
               'bg-white dark:bg-slate-800/60 rounded-2xl border p-3.5 shadow-sm hover:shadow-md transition-all cursor-pointer',
-              style.ring,
+              selectedQuestion === insight.questionText
+                ? 'ring-2 ring-indigo-500 shadow-lg'
+                : style.ring,
             )}
           >
             <div className="flex items-start gap-3">
@@ -91,10 +94,15 @@ export default function InsightCards({ insights, onSelectQuestion, loading }: Pr
                 </p>
                 <button
                   onClick={() => onSelectQuestion(insight, insight.questionText)}
-                  className="group mt-2 inline-flex items-center gap-1 text-[13px] font-semibold text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 transition-all text-left"
+                  className={cn(
+                    'group mt-2 inline-flex items-center gap-1 text-[13px] font-semibold transition-all text-left',
+                    selectedQuestion === insight.questionText
+                      ? 'text-indigo-700 dark:text-indigo-200'
+                      : 'text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300',
+                  )}
                 >
                   {insight.questionText}
-                  <ChevronRight size={14} className="shrink-0 group-hover:translate-x-0.5 transition-transform" />
+                  <ChevronRight size={14} className={cn('shrink-0 transition-transform', selectedQuestion === insight.questionText && 'translate-x-0.5')} />
                 </button>
               </div>
             </div>

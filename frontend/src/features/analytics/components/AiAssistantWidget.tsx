@@ -33,6 +33,7 @@ export default function AiAssistantWidget() {
   const [insights, setInsights] = useState<InsightCard[]>([])
   const [insightsLoading, setInsightsLoading] = useState(false)
   const [showInsights, setShowInsights] = useState(true)
+  const [selectedQuestion, setSelectedQuestion] = useState<string>('')
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
   const conversationIdRef = useRef<string | null>(null)
@@ -156,17 +157,20 @@ export default function AiAssistantWidget() {
     if (!input.trim() || isLoading) return
     const text = input
     setInput('')
+    setSelectedQuestion('')
     activeInsightRef.current = null
     sendMessage(text)
   }
 
   const handleSelectQuestion = (insight: InsightCard, question: string) => {
     activeInsightRef.current = insight
+    setSelectedQuestion(question)
     setInput(question)
     setTimeout(() => inputRef.current?.focus(), 100)
   }
 
   const handleSelectFollowupQuestion = (question: string) => {
+    setSelectedQuestion(question)
     setInput(question)
     setTimeout(() => inputRef.current?.focus(), 100)
   }
@@ -315,6 +319,7 @@ export default function AiAssistantWidget() {
                     <FollowupSuggestions
                       pools={msg.followups}
                       onSelectQuestion={handleSelectFollowupQuestion}
+                      selectedQuestion={selectedQuestion}
                       onShowInsights={handleShowInsights}
                     />
                   </div>
@@ -324,7 +329,7 @@ export default function AiAssistantWidget() {
 
             {/* Proactive insight cards */}
             {showInsights && (insightsLoading || insights.length > 0) && (
-              <InsightCards insights={insights} onSelectQuestion={handleSelectQuestion} loading={insightsLoading} />
+              <InsightCards insights={insights} onSelectQuestion={handleSelectQuestion} selectedQuestion={selectedQuestion} loading={insightsLoading} />
             )}
 
             {isLoading && (

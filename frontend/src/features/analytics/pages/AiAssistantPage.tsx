@@ -54,6 +54,7 @@ export default function AiAssistantPage() {
   const [insights, setInsights] = useState<InsightCard[]>([])
   const [insightsLoading, setInsightsLoading] = useState(false)
   const [showInsights, setShowInsights] = useState(true)
+  const [selectedQuestion, setSelectedQuestion] = useState<string>('')
 
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
@@ -219,6 +220,7 @@ export default function AiAssistantPage() {
     if (!input.trim() || isLoading) return
     const text = input
     setInput('')
+    setSelectedQuestion('')
     if (textareaRef.current) {
       textareaRef.current.style.height = 'auto'
     }
@@ -228,11 +230,13 @@ export default function AiAssistantPage() {
 
   const handleSelectQuestion = (insight: InsightCard, question: string) => {
     activeInsightRef.current = insight
+    setSelectedQuestion(question)
     setInput(question)
     setTimeout(() => textareaRef.current?.focus(), 100)
   }
 
   const handleSelectFollowupQuestion = (question: string) => {
+    setSelectedQuestion(question)
     setInput(question)
     setTimeout(() => textareaRef.current?.focus(), 100)
   }
@@ -525,6 +529,7 @@ export default function AiAssistantPage() {
                           <FollowupSuggestions
                             pools={msg.followups}
                             onSelectQuestion={handleSelectFollowupQuestion}
+                            selectedQuestion={selectedQuestion}
                             onShowInsights={handleShowInsights}
                           />
                         )}
@@ -536,7 +541,7 @@ export default function AiAssistantPage() {
                 {/* Proactive insight cards */}
                 {!loadingMessages && showInsights && (insightsLoading || insights.length > 0) && (
                   <div className="max-w-[82%]">
-                    <InsightCards insights={insights} onSelectQuestion={handleSelectQuestion} loading={insightsLoading} />
+                    <InsightCards insights={insights} onSelectQuestion={handleSelectQuestion} selectedQuestion={selectedQuestion} loading={insightsLoading} />
                   </div>
                 )}
 
