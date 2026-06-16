@@ -529,7 +529,6 @@ public class OrgUnitStatisticService {
         List<Map<String, Object>> recordsList = new ArrayList<>();
         for (KpiCriteria k : kpiList) {
             Map<String, Object> entry = new LinkedHashMap<>();
-            entry.put("id", k.getId());
             entry.put("name", k.getName());
             entry.put("description", k.getDescription());
             entry.put("weight", k.getWeight());
@@ -1207,10 +1206,8 @@ public class OrgUnitStatisticService {
                 .limit(limit > 0 ? limit : 20)
                 .map(s -> {
                     Map<String, Object> m = new LinkedHashMap<>();
-                    m.put("id", s.getId());
                     m.put("kpiName", s.getKpiCriteria().getName());
                     m.put("submittedBy", s.getSubmittedBy().getFullName());
-                    m.put("submittedById", s.getSubmittedBy().getId());
                     m.put("actualValue", s.getActualValue());
                     m.put("status", s.getStatus());
                     m.put("periodStart", s.getPeriodStart());
@@ -1223,7 +1220,6 @@ public class OrgUnitStatisticService {
                 }).collect(Collectors.toList());
 
         Map<String, Object> result = new LinkedHashMap<>();
-        result.put("kpiId", kpiId);
         result.put("total", items.size());
         result.put("submissions", items);
         return result;
@@ -1263,8 +1259,6 @@ public class OrgUnitStatisticService {
         }
 
         Map<String, Object> result = new LinkedHashMap<>();
-        result.put("kpiId", kpiId);
-        result.put("userId", userId);
         result.put("granularity", datePattern);
         result.put("trend", trend);
         result.put("series", series);
@@ -1280,7 +1274,6 @@ public class OrgUnitStatisticService {
 
         List<Map<String, Object>> users = rows.stream().map(row -> {
             Map<String, Object> m = new LinkedHashMap<>();
-            m.put("userId", row[0]);
             m.put("fullName", row[1]);
             m.put("email", row[2]);
             m.put("missingKpiCount", ((Number) row[3]).longValue());
@@ -1288,7 +1281,6 @@ public class OrgUnitStatisticService {
         }).collect(Collectors.toList());
 
         Map<String, Object> result = new LinkedHashMap<>();
-        result.put("unitId", orgUnitId);
         result.put("total", users.size());
         result.put("nonSubmitters", users);
         return result;
@@ -1303,7 +1295,6 @@ public class OrgUnitStatisticService {
                 Map<String, Object> stats = getMemberStatistics(uid, false, startDate, endDate);
 
                 Map<String, Object> m = new LinkedHashMap<>();
-                m.put("unitId", uid);
                 m.put("unitName", detail.get("name"));
                 m.put("unitCode", detail.get("code"));
                 m.putAll(stats);
@@ -1314,15 +1305,15 @@ public class OrgUnitStatisticService {
             }
         }).filter(java.util.Objects::nonNull).collect(Collectors.toList());
 
-        String winnerUnitId = units.stream()
+        String winnerUnitName = units.stream()
                 .max(java.util.Comparator.comparingDouble(m -> toDouble(m.get("avgPerformance"))))
-                .map(m -> m.get("unitId").toString())
+                .map(m -> m.get("unitName") != null ? m.get("unitName").toString() : null)
                 .orElse(null);
 
         Map<String, Object> result = new LinkedHashMap<>();
         result.put("compareCount", units.size());
         result.put("units", units);
-        result.put("bestPerformerUnitId", winnerUnitId);
+        result.put("bestPerformerUnitName", winnerUnitName);
         return result;
     }
 
@@ -1350,7 +1341,6 @@ public class OrgUnitStatisticService {
                 .collect(Collectors.toList());
 
         Map<String, Object> result = new LinkedHashMap<>();
-        result.put("unitId", orgUnitId);
         result.put("threshold", threshold);
         result.put("direction", direction != null ? direction : "below");
         result.put("metric", met);

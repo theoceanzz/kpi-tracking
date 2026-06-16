@@ -99,7 +99,7 @@ public class FollowupService {
             if (json.length() > MAX_CHARS_PER_TOOL) {
                 json = json.substring(0, MAX_CHARS_PER_TOOL) + "…";
             }
-            sb.append("- ").append(tr.getToolName()).append(": ").append(json).append("\n");
+            sb.append("- ").append(json).append("\n");
         }
         return sb.toString();
     }
