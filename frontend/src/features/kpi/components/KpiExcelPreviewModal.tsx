@@ -354,11 +354,11 @@ export default function KpiExcelPreviewModal({ open, file, onClose, onImport, is
         errors['ObjectiveCode'] = `Mã mục tiêu không tồn tại`
       } else {
         // Validation: OrgUnit mismatch check — support comma-separated org units
-        if (row.OrgUnit && obj.orgUnitName) {
+        if (row.OrgUnit && obj.orgUnitNames && obj.orgUnitNames.length > 0) {
           const orgNames = row.OrgUnit.split(',').map((s: string) => s.trim()).filter(Boolean)
-          const anyMatch = orgNames.some(n => n.toLowerCase() === (obj.orgUnitName ?? '').toLowerCase().trim())
+          const anyMatch = orgNames.some(n => obj.orgUnitNames!.some(un => un.toLowerCase() === n.toLowerCase()))
           if (!anyMatch) {
-            errors['ObjectiveCode'] = `Mục tiêu này thuộc ${obj.orgUnitName}, không khớp với đơn vị ${row.OrgUnit}`
+            errors['ObjectiveCode'] = `Mục tiêu này thuộc ${obj.orgUnitNames.join(', ')}, không khớp với đơn vị ${row.OrgUnit}`
           }
         }
 

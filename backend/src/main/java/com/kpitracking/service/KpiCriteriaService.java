@@ -173,11 +173,16 @@ public class KpiCriteriaService {
             com.kpitracking.entity.KeyResult kr = keyResultRepository.findById(request.getKeyResultId())
                     .orElseThrow(() -> new ResourceNotFoundException("Key Result", "id", request.getKeyResultId()));
             
-            // Validation: KPI OrgUnit must match KeyResult OrgUnit
-            if (orgUnit != null && kr.getObjective() != null && kr.getObjective().getOrgUnit() != null) {
-                if (!orgUnit.getId().equals(kr.getObjective().getOrgUnit().getId())) {
+            // Validation: KPI OrgUnit must match one of the KeyResult Objective's OrgUnits
+            if (orgUnit != null && kr.getObjective() != null && !kr.getObjective().getOrgUnits().isEmpty()) {
+                boolean matching = kr.getObjective().getOrgUnits().stream()
+                        .anyMatch(u -> u.getId().equals(orgUnit.getId()));
+                if (!matching) {
+                    String unitNames = kr.getObjective().getOrgUnits().stream()
+                            .map(com.kpitracking.entity.OrgUnit::getName)
+                            .collect(java.util.stream.Collectors.joining(", "));
                     throw new BusinessException("Chỉ tiêu KPI phải thuộc cùng đơn vị với Kết quả then chốt (OKR) được liên kết. " +
-                            "(Đơn vị KPI: " + orgUnit.getName() + ", Đơn vị OKR: " + kr.getObjective().getOrgUnit().getName() + ")");
+                            "(Đơn vị KPI: " + orgUnit.getName() + ", Đơn vị OKR: " + unitNames + ")");
                 }
             }
             kpi.setKeyResult(kr);
@@ -1001,10 +1006,15 @@ public class KpiCriteriaService {
                 java.util.Optional<com.kpitracking.entity.KeyResult> krOpt = keyResultRepository.findByCodeSmart(krCode.trim(), organizationId);
                 if (krOpt.isPresent()) {
                     com.kpitracking.entity.KeyResult kr = krOpt.get();
-                    if (kr.getObjective() != null && kr.getObjective().getOrgUnit() != null) {
-                        if (!finalUnit.getId().equals(kr.getObjective().getOrgUnit().getId())) {
+                    if (kr.getObjective() != null && !kr.getObjective().getOrgUnits().isEmpty()) {
+                        boolean matching = kr.getObjective().getOrgUnits().stream()
+                                .anyMatch(u -> u.getId().equals(finalUnit.getId()));
+                        if (!matching) {
+                            String unitNames = kr.getObjective().getOrgUnits().stream()
+                                    .map(com.kpitracking.entity.OrgUnit::getName)
+                                    .collect(java.util.stream.Collectors.joining(", "));
                             throw new BusinessException("Lỗi liên kết OKR: Chỉ tiêu KPI ('" + finalUnit.getName() +
-                                    "') không cùng đơn vị với Kết quả then chốt ('" + kr.getObjective().getOrgUnit().getName() + "')");
+                                    "') không cùng đơn vị với Kết quả then chốt ('" + unitNames + "')");
                         }
                     }
                     kpi.setKeyResult(kr);

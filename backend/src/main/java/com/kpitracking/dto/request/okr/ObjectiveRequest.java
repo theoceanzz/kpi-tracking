@@ -5,6 +5,7 @@ import jakarta.validation.constraints.NotBlank;
 import lombok.*;
 
 import java.time.LocalDate;
+import java.util.List;
 import java.util.UUID;
 
 @Getter @Setter @Builder @NoArgsConstructor @AllArgsConstructor
@@ -16,5 +17,5 @@ public class ObjectiveRequest {
     private LocalDate startDate;
     private LocalDate endDate;
     private OkrStatus status;
-    private UUID orgUnitId;
+    private List<UUID> orgUnitIds;
 }

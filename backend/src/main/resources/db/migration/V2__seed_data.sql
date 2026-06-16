@@ -443,61 +443,63 @@ INSERT INTO user_role_org_units (user_id, role_id, org_unit_id) VALUES
 -- ============================================================
 
 INSERT INTO objectives
-    (id, organization_id, org_unit_id, code, name, description, start_date, end_date, status)
+    (id, organization_id, code, name, description, start_date, end_date, status)
 VALUES
     -- Phòng IT
     ('0b000001-0000-0000-0000-000000000001',
      '11111111-1111-1111-1111-111111111111',
-     'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb',
      'OBJ-IT-Q2-2026',
      'Nâng cao chất lượng sản phẩm IT trong Q2/2026',
      'Đảm bảo team IT hoàn thành sprint đúng tiến độ, kiểm soát tỉ lệ bug ở mức thấp nhất',
      '2026-04-01', '2026-06-30', 'ACTIVE'),
- 
+
     -- Phòng Truyền Thông
     ('0b000002-0000-0000-0000-000000000002',
      '11111111-1111-1111-1111-111111111111',
-     'cccccccc-cccc-cccc-cccc-cccccccccccc',
      'OBJ-COMM-Q2-2026',
      'Tăng trưởng độ phủ và tương tác truyền thông Q2/2026',
      'Mở rộng nội dung đa kênh, tối ưu tương tác người dùng trên các nền tảng',
      '2026-04-01', '2026-06-30', 'ACTIVE'),
- 
+
     -- Team Backend
     ('0b000003-0000-0000-0000-000000000003',
      '11111111-1111-1111-1111-111111111111',
-     'dddddddd-dddd-dddd-dddd-dddddddddddd',
      'OBJ-BE-Q2-2026',
      'Hoàn thiện hệ thống API và nâng cao chất lượng code Q2/2026',
      'Đảm bảo API ổn định, review code đúng SLA và giảm thiểu technical debt',
      '2026-04-01', '2026-06-30', 'ACTIVE'),
- 
+
     -- Team Frontend
     ('0b000004-0000-0000-0000-000000000004',
      '11111111-1111-1111-1111-111111111111',
-     'eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee',
      'OBJ-FE-Q2-2026',
      'Cải thiện UX và hiệu năng giao diện Q2/2026',
      'Hoàn thành các màn hình đúng tiến độ, duy trì điểm Lighthouse Performance ở mức cao',
      '2026-04-01', '2026-06-30', 'ACTIVE'),
- 
+
     -- Team Content
     ('0b000005-0000-0000-0000-000000000005',
      '11111111-1111-1111-1111-111111111111',
-     'ffffffff-ffff-ffff-ffff-ffffffffffff',
      'OBJ-CONT-Q2-2026',
      'Sản xuất nội dung chất lượng cao và đúng hạn Q2/2026',
      'Tăng sản lượng bài viết, nâng tỉ lệ bài đúng deadline biên tập',
      '2026-04-01', '2026-06-30', 'ACTIVE'),
- 
+
     -- Team Design
     ('0b000006-0000-0000-0000-000000000006',
      '11111111-1111-1111-1111-111111111111',
-     'abcdefab-cdef-cdef-cdef-abcdefabcdef',
      'OBJ-DES-Q2-2026',
      'Nâng cao năng suất và chất lượng thiết kế Q2/2026',
      'Tối ưu quy trình thiết kế, giảm số lần revise và tăng sản lượng asset',
      '2026-04-01', '2026-06-30', 'ACTIVE');
+
+INSERT INTO objective_org_units (objective_id, org_unit_id) VALUES
+    ('0b000001-0000-0000-0000-000000000001', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb'),  -- OBJ-IT-Q2-2026       → Phòng IT
+    ('0b000002-0000-0000-0000-000000000002', 'cccccccc-cccc-cccc-cccc-cccccccccccc'),  -- OBJ-COMM-Q2-2026     → Phòng Truyền Thông
+    ('0b000003-0000-0000-0000-000000000003', 'dddddddd-dddd-dddd-dddd-dddddddddddd'),  -- OBJ-BE-Q2-2026       → Team Backend
+    ('0b000004-0000-0000-0000-000000000004', 'eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee'),  -- OBJ-FE-Q2-2026       → Team Frontend
+    ('0b000005-0000-0000-0000-000000000005', 'ffffffff-ffff-ffff-ffff-ffffffffffff'),  -- OBJ-CONT-Q2-2026     → Team Content
+    ('0b000006-0000-0000-0000-000000000006', 'abcdefab-cdef-cdef-cdef-abcdefabcdef'); -- OBJ-DES-Q2-2026      → Team Design
  
 INSERT INTO key_results
     (id, objective_id, code, name, description, target_value, current_value, unit)

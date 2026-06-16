@@ -29,10 +29,6 @@ public class Objective {
     @JoinColumn(name = "organization_id", nullable = false)
     private Organization organization;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "org_unit_id")
-    private OrgUnit orgUnit;
-
     @Column(name = "code")
     private String code;
 
@@ -52,6 +48,15 @@ public class Objective {
     @Column(name = "status")
     @Builder.Default
     private OkrStatus status = OkrStatus.ACTIVE;
+
+    @ManyToMany(fetch = FetchType.LAZY)
+    @JoinTable(
+        name = "objective_org_units",
+        joinColumns = @JoinColumn(name = "objective_id"),
+        inverseJoinColumns = @JoinColumn(name = "org_unit_id")
+    )
+    @Builder.Default
+    private List<OrgUnit> orgUnits = new ArrayList<>();
 
     @OneToMany(mappedBy = "objective", cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default

@@ -2,6 +2,7 @@ package com.kpitracking.dto.response.okr;
 
 import lombok.*;
 
+import java.util.List;
 import java.util.UUID;
 
 @Getter @Setter @Builder @NoArgsConstructor @AllArgsConstructor
@@ -13,6 +14,7 @@ public class KeyResultResponse {
     private Double targetValue;
     private Double currentValue;
     private String unit;
-    private Double progress; // Calculated as currentValue / targetValue
+    private Double progress;
     private String periodName;
+    private List<UnitWeightResponse> unitWeights;
 }

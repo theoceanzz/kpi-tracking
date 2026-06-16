@@ -46,6 +46,10 @@ public class KeyResult {
     @Column(name = "unit")
     private String unit;
 
+    @OneToMany(mappedBy = "keyResult", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+    @Builder.Default
+    private List<KeyResultUnitWeight> unitWeights = new ArrayList<>();
+
     @OneToMany(mappedBy = "keyResult", fetch = FetchType.LAZY)
     @Builder.Default
     private List<KpiCriteria> kpis = new ArrayList<>();
