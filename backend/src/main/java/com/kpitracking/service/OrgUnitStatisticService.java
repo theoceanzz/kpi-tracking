@@ -1088,6 +1088,48 @@ public class OrgUnitStatisticService {
         return summary;
     }
 
+    // get_my_info — current logged-in user's own profile
+    @Transactional(readOnly = true)
+    public Map<String, Object> getCurrentUserProfile(String email) {
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy người dùng hiện tại."));
+
+        List<UserRoleOrgUnit> assignments = userRoleOrgUnitRepository.findByUserId(user.getId());
+
+        List<Map<String, Object>> units = assignments.stream().map(a -> {
+            Map<String, Object> m = new LinkedHashMap<>();
+            m.put("orgUnitName", a.getOrgUnit().getName());
+            m.put("orgUnitCode", a.getOrgUnit().getCode());
+            m.put("levelName", a.getOrgUnit().getOrgHierarchyLevel() != null
+                    ? a.getOrgUnit().getOrgHierarchyLevel().getUnitTypeName() : null);
+            m.put("positionName", a.getRole() != null ? a.getRole().getName() : null);
+            m.put("isManager", a.getRole() != null && a.getRole().getRank() != null && a.getRole().getRank() <= 1);
+            return m;
+        }).collect(Collectors.toList());
+
+        String organizationName = assignments.stream()
+                .findFirst()
+                .map(a -> a.getOrgUnit().getOrgHierarchyLevel().getOrganization().getName())
+                .orElse(null);
+
+        String managedUnitName = assignments.stream()
+                .filter(a -> a.getRole() != null && a.getRole().getRank() != null && a.getRole().getRank() <= 1)
+                .min(Comparator.comparingInt(a -> a.getRole().getRank()))
+                .map(a -> a.getOrgUnit().getName())
+                .orElse(null);
+
+        Map<String, Object> profile = new LinkedHashMap<>();
+        profile.put("fullName", user.getFullName());
+        profile.put("email", user.getEmail());
+        profile.put("employeeCode", user.getEmployeeCode());
+        profile.put("phone", user.getPhone());
+        profile.put("status", user.getStatus() != null ? user.getStatus().toString() : null);
+        profile.put("organizationName", organizationName);
+        profile.put("managedUnitName", managedUnitName);
+        profile.put("units", units);
+        return profile;
+    }
+
     // ==========================================
     // Search helpers — return UUID + basic info
     // ==========================================

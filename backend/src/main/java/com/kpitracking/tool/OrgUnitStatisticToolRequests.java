@@ -222,6 +222,9 @@ public final class OrgUnitStatisticToolRequests {
     ) {}
 
     @JsonInclude(JsonInclude.Include.NON_NULL)
+    public record GetMyInfoRequest() {}
+
+    @JsonInclude(JsonInclude.Include.NON_NULL)
     public record GetMembersByPerformanceThresholdRequest(
             @JsonProperty(required = false) String unitId,
             @JsonProperty(required = false) Double threshold,     // e.g. 80.0 (%)

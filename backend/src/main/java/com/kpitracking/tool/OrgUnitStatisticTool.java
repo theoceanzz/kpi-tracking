@@ -413,6 +413,19 @@ public class OrgUnitStatisticTool {
         }
     }
 
+    // ── 6b. get_my_info ──────────────────────────────────────────────────────
+
+    @Tool(name = "get_my_info", description = "Get the CURRENT logged-in user's own profile: their full name, contact info, the organizational unit(s) they belong to, their position/role, and their organization. Use for self-referential questions like 'tôi là ai', 'đơn vị của tôi tên gì', 'chức vụ của tôi', 'tôi thuộc tổ chức nào'.")
+    public String getMyInfo(GetMyInfoRequest request, ToolContext context) {
+        try {
+            String email = SecurityContextHolder.getContext().getAuthentication().getName();
+            Map<String, Object> response = orgUnitStatisticService.getCurrentUserProfile(email);
+            return respond(context, "get_my_info", response);
+        } catch (Exception e) {
+            return toolError("getMyInfo", e);
+        }
+    }
+
     // ── 7. get_kpis ──────────────────────────────────────────────────────────
 
     @Tool(name = "get_kpis", description = "List and filter KPI criteria with detailed query parameters and standard pagination/sorting. Each KPI includes name, periodName, progress (% of target reached), performance (% vs time-proportional target) — use these to compare KPI health. This tool does NOT return IDs; to get details of a specific KPI, resolve its UUID via search_kpis first, then call get_kpi_detail or get_submission_history.")
