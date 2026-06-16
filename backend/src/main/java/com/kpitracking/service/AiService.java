@@ -1,16 +1,18 @@
 package com.kpitracking.service;
 
+import com.kpitracking.advisor.ResponseSanitizingAdvisor;
 import com.kpitracking.dto.response.ai.AiKpiSuggestionResponse;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.kpitracking.exception.AiQuotaExceededException;
 import com.kpitracking.service.ManagerContextResolver.ManagerContext;
 import com.kpitracking.tool.DisambiguationGuard;
 import com.kpitracking.tool.FollowupContextStore;
 import com.kpitracking.tool.OrgUnitStatisticTool;
+import com.kpitracking.util.AiUtils;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.core.io.Resource;
 import org.springframework.stereotype.Service;
 
@@ -40,22 +42,18 @@ public class AiService {
     @Value("classpath:/promptTemplates/topicGuardPrompt.st")
     private Resource topicGuardPrompt;
 
-    private final ObjectMapper objectMapper;
-
     public AiService(@Qualifier("openAiChatClient") ChatClient chatClient,
                      @Qualifier("chatClientWithMemory") ChatClient chatClientWithMemory,
                      ManagerContextResolver managerContextResolver,
                      OrgUnitStatisticTool orgUnitStatisticTool,
                      DisambiguationGuard disambiguationGuard,
-                     FollowupContextStore followupContextStore,
-                     ObjectMapper objectMapper) {
+                     FollowupContextStore followupContextStore) {
         this.chatClient = chatClient;
         this.chatClientWithMemory = chatClientWithMemory;
         this.managerContextResolver = managerContextResolver;
         this.orgUnitStatisticTool = orgUnitStatisticTool;
         this.disambiguationGuard = disambiguationGuard;
         this.followupContextStore = followupContextStore;
-        this.objectMapper = objectMapper;
     }
 
     public String processOrgUnitChat(String question, String conversationId) {
@@ -92,6 +90,7 @@ public class AiService {
                         .tools(orgUnitStatisticTool)
                         .toolContext(toolCtx)
                         .advisors(spec -> spec.param("chat_memory_conversation_id", conversationId))
+                        .advisors(new ResponseSanitizingAdvisor())
                         .call()
                         .content();
             } else {
@@ -100,12 +99,13 @@ public class AiService {
                         .system(orgUnitSystemPrompt)
                         .tools(orgUnitStatisticTool)
                         .toolContext(toolCtx)
+                        .advisors(new ResponseSanitizingAdvisor())
                         .call()
                         .content();
             }
-            return sanitizeResponse(result);
+            return result;
         } catch (Exception e) {
-            if (isQuotaError(e)) {
+            if (AiUtils.isQuotaError(e)) {
                 throw new AiQuotaExceededException("quota exceeded", e);
             }
             throw e;
@@ -128,7 +128,7 @@ public class AiService {
         String userPrompt = "Dựa trên dữ liệu thống kê hiện tại của đơn vị, hãy phân tích các điểm yếu, cơ hội và gợi ý 3-5 KPI phù hợp nhất để cải thiện hiệu suất trong kỳ tới.";
 
         try {
-            String responseText = chatClient.prompt()
+            return chatClient.prompt()
                     .system(kpiSuggestionSystemPrompt)
                     .user(userPrompt)
                     .tools(orgUnitStatisticTool)
@@ -138,13 +138,7 @@ public class AiService {
                             "organizationId", ctx.orgId()
                     ))
                     .call()
-                    .content();
-
-            log.debug("KPI Suggestion AI Response: {}", responseText);
-
-            // Strip HTML <br> tags from JSON string values before parsing
-            String sanitized = responseText.replaceAll("(?i)<br\\s*/?>", " / ").strip();
-            return parseResponse(sanitized);
+                    .entity(new ParameterizedTypeReference<>() {});
         } catch (Exception e) {
             log.error("Error suggesting KPIs: {}", e.getMessage(), e);
             return new ArrayList<>();
@@ -181,63 +175,4 @@ public class AiService {
         }
     }
 
-    private String sanitizeResponse(String result) {
-        if (result == null) return "";
-        // Handle <br> contextually: inside table cells use separator, outside use newline
-        String[] lines = result.split("\n", -1);
-        for (int i = 0; i < lines.length; i++) {
-            if (lines[i].stripLeading().startsWith("|")) {
-                // Inside a table row: replace <br> with separator to avoid breaking GFM table parsing
-                lines[i] = lines[i].replaceAll("(?i)<br\\s*/?>", " / ");
-            } else {
-                // Outside table: convert <br> to newline for readability
-                lines[i] = lines[i].replaceAll("(?i)<br\\s*/?>", "\n");
-            }
-        }
-        result = String.join("\n", lines);
-        // Collapse blank lines between table rows so multiline cells don't break GFM table parsing
-        result = result.replaceAll("(?m)(\\|[^\\n]+)\\n{2,}(?=\\|)", "$1\n");
-        return result.strip();
-    }
-
-    private boolean isQuotaError(Exception e) {
-        String msg = collectMessages(e).toLowerCase();
-        return msg.contains("429") || msg.contains("quota") || msg.contains("rate limit")
-                || msg.contains("payment required") || msg.contains("402") || msg.contains("exceeded");
-    }
-
-    private String collectMessages(Throwable t) {
-        StringBuilder sb = new StringBuilder();
-        while (t != null) {
-            if (t.getMessage() != null) {
-                sb.append(t.getMessage()).append(" ");
-            }
-            t = t.getCause();
-        }
-        return sb.toString();
-    }
-
-    private List<AiKpiSuggestionResponse> parseResponse(String text) {
-        try {
-            if (text == null) return new ArrayList<>();
-            String jsonText = text.trim();
-            if (jsonText.contains("```")) {
-                int start = Math.min(
-                        jsonText.indexOf("[") != -1 ? jsonText.indexOf("[") : Integer.MAX_VALUE,
-                        jsonText.indexOf("{") != -1 ? jsonText.indexOf("{") : Integer.MAX_VALUE
-                );
-                int end = Math.max(
-                        jsonText.lastIndexOf("]"),
-                        jsonText.lastIndexOf("}")
-                );
-                if (start != Integer.MAX_VALUE && end != -1 && end > start) {
-                    jsonText = jsonText.substring(start, end + 1);
-                }
-            }
-            return objectMapper.readValue(jsonText, objectMapper.getTypeFactory().constructCollectionType(List.class, AiKpiSuggestionResponse.class));
-        } catch (Exception e) {
-            log.error("Error parsing AI response to JSON: {}. Content: {}", e.getMessage(), text);
-            return new ArrayList<>();
-        }
-    }
 }
