@@ -54,15 +54,19 @@ public class FollowupService {
         // If the model is asking user to disambiguate, suppress follow-up questions
         // until they make a selection.
         if (followupContextStore.isDisambiguating(conversationId)) {
-            return FollowupResponse.builder()
-                    .technical(List.of())
-                    .management(List.of())
-                    .build();
+            return emptyPools();
         }
 
         List<ToolResult> toolData = followupContextStore.get(conversationId);
         if (toolData.isEmpty()) {
-            // No grounded data this turn → fixed templates (never break the UI).
+            // No grounded tool data this turn means it was not an analysis answer
+            // (clarifying question, refusal, greeting, or search-only turn). When we
+            // have conversation context we KNOW this, so suppress follow-ups rather
+            // than showing generic templates. Only fall back to templates when there
+            // is no conversation context at all (we cannot tell what happened).
+            if (conversationId != null && !conversationId.isBlank()) {
+                return emptyPools();
+            }
             return fixedTemplates();
         }
 
@@ -133,6 +137,13 @@ public class FollowupService {
             });
         }
         return out;
+    }
+
+    private FollowupResponse emptyPools() {
+        return FollowupResponse.builder()
+                .technical(List.of())
+                .management(List.of())
+                .build();
     }
 
     private FollowupResponse fixedTemplates() {

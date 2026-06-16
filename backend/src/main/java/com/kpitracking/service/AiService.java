@@ -62,12 +62,20 @@ public class AiService {
             return "Bạn không có quyền sử dụng tính năng AI phân tích. Chỉ trưởng đơn vị hoặc phó đơn vị mới có thể truy cập tính năng này.";
         }
 
+        boolean hasMemory = conversationId != null && !conversationId.isBlank();
+        // Reset this conversation's tool-result bucket at the very start of the turn so the
+        // follow-up generator grounds only on THIS turn's tool outputs. Done before the scope
+        // check so refusals/clarifications cannot inherit the previous turn's data (which would
+        // wrongly produce follow-up chips).
+        if (hasMemory) {
+            followupContextStore.startTurn(conversationId);
+        }
+
         if (!isInScope(question)) {
             return "Xin lỗi, tôi là trợ lý phân tích KPI của hệ thống và chỉ hỗ trợ các câu hỏi liên quan đến "
                     + "KPI, hiệu suất, đơn vị và nhân sự. Bạn vui lòng đặt câu hỏi thuộc nghiệp vụ này nhé.";
         }
 
-        boolean hasMemory = conversationId != null && !conversationId.isBlank();
         log.info("Processing chat for orgUnitId: {}, conversationId: {}", ctx.orgUnitId(), hasMemory ? conversationId : "none");
 
         Map<String, Object> toolCtx = new HashMap<>();
@@ -76,9 +84,6 @@ public class AiService {
         toolCtx.put("organizationId", ctx.orgId());
         if (hasMemory) {
             toolCtx.put("conversationId", conversationId);
-            // Reset this conversation's tool-result bucket so the follow-up generator
-            // grounds questions only on THIS turn's tool outputs.
-            followupContextStore.startTurn(conversationId);
         }
 
         try {
