@@ -73,6 +73,14 @@ public class OrgUnitKpiAnalyticsService {
         return kpiCriteriaRepository.findApprovedWithoutKeyResultByOrgUnitIds(unitIds);
     }
 
+    /** Khi người dùng chọn một đợt cụ thể, chỉ giữ các KPI thuộc đợt đó. */
+    private List<KpiCriteria> applyPeriodFilter(List<KpiCriteria> kpis, UUID periodId) {
+        if (periodId == null) return kpis;
+        return kpis.stream()
+                .filter(k -> k.getKpiPeriod() != null && periodId.equals(k.getKpiPeriod().getId()))
+                .collect(Collectors.toList());
+    }
+
     // ── Metrics calculation (same algorithm as PersonalKpiAnalyticsService) ────
 
     private double[] calculateKpiMetrics(KpiCriteria kpi, Instant A, Instant B, Boolean onlyApproved) {
@@ -120,8 +128,8 @@ public class OrgUnitKpiAnalyticsService {
     // ── Public endpoints ──────────────────────────────────────────────────────
 
     @Transactional(readOnly = true)
-    public Metrics getMetrics(UUID orgUnitId, Instant from, Instant to, Boolean onlyApproved) {
-        List<KpiCriteria> kpis = getStandaloneKpis(orgUnitId);
+    public Metrics getMetrics(UUID orgUnitId, Instant from, Instant to, Boolean onlyApproved, UUID periodId) {
+        List<KpiCriteria> kpis = applyPeriodFilter(getStandaloneKpis(orgUnitId), periodId);
         double totalComp = 0, totalPerf = 0;
         int activeCount = 0, completedCount = 0, runningCount = 0, riskCount = 0;
         Instant now = Instant.now();
@@ -152,8 +160,8 @@ public class OrgUnitKpiAnalyticsService {
     }
 
     @Transactional(readOnly = true)
-    public ComboChartData getComboChart(UUID orgUnitId, Instant from, Instant to, Boolean onlyApproved) {
-        List<KpiCriteria> kpis = getStandaloneKpis(orgUnitId);
+    public ComboChartData getComboChart(UUID orgUnitId, Instant from, Instant to, Boolean onlyApproved, UUID periodId) {
+        List<KpiCriteria> kpis = applyPeriodFilter(getStandaloneKpis(orgUnitId), periodId);
         Instant effectiveFrom = from != null ? from : Instant.now().minus(180, ChronoUnit.DAYS);
         Instant effectiveTo   = to   != null ? to   : Instant.now();
 
@@ -197,13 +205,14 @@ public class OrgUnitKpiAnalyticsService {
             Instant from, Instant to, Boolean onlyApproved,
             String sortBy, String sortDir,
             String sharedType,
-            int page, int size) {
+            int page, int size, UUID periodId) {
 
         List<OrgUnit> subtree = resolveOrgUnitSubtree(orgUnitId);
         if (subtree.isEmpty()) return emptyPagedResponse(page, size);
 
         List<UUID> allUnitIds = subtree.stream().map(OrgUnit::getId).toList();
-        List<KpiCriteria> kpis = kpiCriteriaRepository.findApprovedWithoutKeyResultByOrgUnitIds(allUnitIds);
+        List<KpiCriteria> kpis = applyPeriodFilter(
+                kpiCriteriaRepository.findApprovedWithoutKeyResultByOrgUnitIds(allUnitIds), periodId);
 
         // Build available org unit filter options (only units that actually have KPIs)
         Set<UUID> unitsWithKpis = kpis.stream()
@@ -685,7 +694,7 @@ public class OrgUnitKpiAnalyticsService {
     // ── Risk methods ──────────────────────────────────────────────────────────
 
     @Transactional(readOnly = true)
-    public UnitRiskPagedResponse getUnitRisks(UUID orgUnitId, Instant from, Instant to, Boolean onlyApproved, int page, int size, String sortBy, String sortDir) {
+    public UnitRiskPagedResponse getUnitRisks(UUID orgUnitId, Instant from, Instant to, Boolean onlyApproved, int page, int size, String sortBy, String sortDir, UUID periodId) {
         List<OrgUnit> subtree = resolveOrgUnitSubtree(orgUnitId);
         if (subtree.isEmpty()) return UnitRiskPagedResponse.builder()
             .content(Collections.emptyList()).page(page).size(size)
@@ -694,7 +703,8 @@ public class OrgUnitKpiAnalyticsService {
         List<UnitRiskRow> rows = new ArrayList<>();
 
         for (OrgUnit unit : subtree) {
-            List<KpiCriteria> unitKpis = kpiCriteriaRepository.findApprovedWithoutKeyResultByOrgUnitIds(List.of(unit.getId()));
+            List<KpiCriteria> unitKpis = applyPeriodFilter(
+                    kpiCriteriaRepository.findApprovedWithoutKeyResultByOrgUnitIds(List.of(unit.getId())), periodId);
             if (unitKpis.isEmpty()) continue;
 
             int totalKpis = unitKpis.size();
@@ -735,7 +745,7 @@ public class OrgUnitKpiAnalyticsService {
     }
 
     @Transactional(readOnly = true)
-    public MemberRiskPagedResponse getMemberRisks(UUID orgUnitId, UUID filterOrgUnitId, Instant from, Instant to, Boolean onlyApproved, int page, int size, String sortBy, String sortDir) {
+    public MemberRiskPagedResponse getMemberRisks(UUID orgUnitId, UUID filterOrgUnitId, Instant from, Instant to, Boolean onlyApproved, int page, int size, String sortBy, String sortDir, UUID periodId) {
         List<OrgUnit> subtree = resolveOrgUnitSubtree(orgUnitId);
         if (subtree.isEmpty()) return MemberRiskPagedResponse.builder()
             .content(Collections.emptyList()).page(page).size(size)
@@ -743,7 +753,8 @@ public class OrgUnitKpiAnalyticsService {
             .availableOrgUnits(Collections.emptyList()).build();
 
         List<UUID> allUnitIds = subtree.stream().map(OrgUnit::getId).toList();
-        List<KpiCriteria> allKpis = kpiCriteriaRepository.findApprovedWithoutKeyResultByOrgUnitIds(allUnitIds);
+        List<KpiCriteria> allKpis = applyPeriodFilter(
+                kpiCriteriaRepository.findApprovedWithoutKeyResultByOrgUnitIds(allUnitIds), periodId);
 
         Set<UUID> unitsWithKpis = allKpis.stream()
             .filter(k -> k.getOrgUnit() != null && k.getAssignees() != null && !k.getAssignees().isEmpty())

@@ -31,7 +31,7 @@ public class PersonalObjectiveAnalyticsService {
                 .orElseThrow(() -> new RuntimeException("User not found"));
     }
 
-    private List<KpiCriteria> getMyActiveKpis() {
+    private List<KpiCriteria> getMyActiveKpis(UUID periodId) {
         User user = getCurrentUser();
         return kpiCriteriaRepository.findApprovedByAssigneeIdWithKeyResult(user.getId())
                 .stream()
@@ -39,6 +39,9 @@ public class PersonalObjectiveAnalyticsService {
                 // Kết quả của KPI con đã được tự động tổng hợp lên KPI cha
                 // (xem aggregateToParentKpi trong KpiSubmissionService) nên KPI cha sẽ phản ánh phần này.
                 .filter(kpi -> kpi.getParent() == null)
+                // Lọc theo đợt khi người dùng chọn một đợt cụ thể.
+                .filter(kpi -> periodId == null
+                        || (kpi.getKpiPeriod() != null && periodId.equals(kpi.getKpiPeriod().getId())))
                 .collect(Collectors.toList());
     }
 
@@ -87,8 +90,8 @@ public class PersonalObjectiveAnalyticsService {
     }
 
     @Transactional(readOnly = true)
-    public Metrics getMetrics(Instant from, Instant to, Boolean onlyApproved) {
-        List<KpiCriteria> myKpis = getMyActiveKpis();
+    public Metrics getMetrics(Instant from, Instant to, Boolean onlyApproved, UUID periodId) {
+        List<KpiCriteria> myKpis = getMyActiveKpis(periodId);
         double totalComp = 0;
         double totalPerf = 0;
         int activeCount = 0;
@@ -132,8 +135,8 @@ public class PersonalObjectiveAnalyticsService {
     }
 
     @Transactional(readOnly = true)
-    public ComboChartData getComboChart(Instant from, Instant to, Boolean onlyApproved) {
-        List<KpiCriteria> myKpis = getMyActiveKpis();
+    public ComboChartData getComboChart(Instant from, Instant to, Boolean onlyApproved, UUID periodId) {
+        List<KpiCriteria> myKpis = getMyActiveKpis(periodId);
         Instant effectiveFrom = from != null ? from : Instant.now().minus(180, ChronoUnit.DAYS);
         Instant effectiveTo = to != null ? to : Instant.now();
         
@@ -187,9 +190,9 @@ public class PersonalObjectiveAnalyticsService {
             Instant from, Instant to, Boolean onlyApproved,
             String sortBy, String sortDir,
             String objectiveCode, String keyResultCode, String sharedType,
-            int page, int size) {
+            int page, int size, UUID periodId) {
         User currentUser = getCurrentUser();
-        List<KpiCriteria> myKpis = getMyActiveKpis();
+        List<KpiCriteria> myKpis = getMyActiveKpis(periodId);
 
         // Build filter options from the full unfiltered list (for dropdown menus)
         Map<String, String> objMap = new LinkedHashMap<>();

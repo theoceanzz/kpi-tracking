@@ -12,10 +12,10 @@ import MyObjectiveDrawer from '../components/MyObjectiveDrawer'
 import AnalyticsComboChart from '../components/AnalyticsComboChart'
 import AnalyticsTabSkeleton, { TableLoadingRows } from '@/components/common/AnalyticsTabSkeleton'
 import Pagination from '@/components/common/Pagination'
+import { useAnalyticsDateFilter } from '@/components/common/AnalyticsDateFilter'
 
-import { subDays, subMonths, startOfYear, format } from 'date-fns'
+import { format } from 'date-fns'
 
-type DateFilterType = 'THIS_WEEK' | 'THIS_MONTH' | 'THIS_QUARTER' | '6_MONTHS' | 'THIS_YEAR' | 'CUSTOM'
 type SortField = 'progress' | 'performance' | 'period'
 type SortDir = 'asc' | 'desc'
 type SharedFilter = 'ALL' | 'SHARED' | 'PERSONAL'
@@ -37,9 +37,8 @@ export default function MyObjectivesTab() {
     return () => observer.disconnect()
   }, [])
 
-  const [filterType, setFilterType] = useState<DateFilterType>('THIS_YEAR')
-  const [customRange, setCustomRange] = useState<{ from: string; to: string }>({ from: '', to: '' })
   const [onlyApproved, setOnlyApproved] = useState<boolean>(false)
+  const { periodId, from, to, controls } = useAnalyticsDateFilter({ selectClassName: 'h-10' })
   const [selectedKpiId, setSelectedKpiId] = useState<string | null>(null)
 
   // Table controls
@@ -50,35 +49,18 @@ export default function MyObjectivesTab() {
   const [sortDir, setSortDir] = useState<SortDir>('desc')
   const [page, setPage] = useState(0)
 
-  const { from, to } = useMemo(() => {
-    const now = new Date()
-    switch (filterType) {
-      case 'THIS_WEEK':    return { from: subDays(now, 7).toISOString(),     to: now.toISOString() }
-      case 'THIS_MONTH':   return { from: subDays(now, 30).toISOString(),    to: now.toISOString() }
-      case 'THIS_QUARTER': return { from: subDays(now, 90).toISOString(),    to: now.toISOString() }
-      case '6_MONTHS':     return { from: subMonths(now, 6).toISOString(),   to: now.toISOString() }
-      case 'THIS_YEAR':    return { from: startOfYear(now).toISOString(),    to: now.toISOString() }
-      case 'CUSTOM':
-        return {
-          from: customRange.from ? new Date(customRange.from).toISOString() : undefined,
-          to:   customRange.to   ? new Date(customRange.to).toISOString()   : undefined,
-        }
-      default: return { from: undefined, to: undefined }
-    }
-  }, [filterType, customRange])
-
   const { data: metrics, isLoading: isMetricsLoading } = useQuery({
-    queryKey: ['personalObjective', 'metrics', from, to, onlyApproved],
-    queryFn: () => personalObjectiveApi.getMetrics({ from, to, onlyApproved }),
+    queryKey: ['personalObjective', 'metrics', from, to, onlyApproved, periodId],
+    queryFn: () => personalObjectiveApi.getMetrics({ from, to, onlyApproved, periodId }),
   })
   const { data: chartData, isLoading: isChartLoading } = useQuery({
-    queryKey: ['personalObjective', 'chart', from, to, onlyApproved],
-    queryFn: () => personalObjectiveApi.getComboChart({ from, to, onlyApproved }),
+    queryKey: ['personalObjective', 'chart', from, to, onlyApproved, periodId],
+    queryFn: () => personalObjectiveApi.getComboChart({ from, to, onlyApproved, periodId }),
   })
   const { data: kpiPage, isLoading: isKpisLoading } = useQuery({
-    queryKey: ['personalObjective', 'details', from, to, onlyApproved, sortField, sortDir, filterObjective, filterKr, filterShared, page],
+    queryKey: ['personalObjective', 'details', from, to, onlyApproved, periodId, sortField, sortDir, filterObjective, filterKr, filterShared, page],
     queryFn: () => personalObjectiveApi.getDetailedKpis({
-      from, to, onlyApproved,
+      from, to, onlyApproved, periodId,
       sortBy: sortField ?? undefined,
       sortDir,
       objectiveCode: filterObjective || undefined,
@@ -153,36 +135,7 @@ export default function MyObjectivesTab() {
             Chỉ tính bài nộp đã duyệt
           </label>
 
-          <select
-            className="h-10 px-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm font-semibold text-slate-700 dark:text-slate-300 outline-none focus:ring-2 focus:ring-indigo-500/50"
-            value={filterType}
-            onChange={e => setFilterType(e.target.value as DateFilterType)}
-          >
-            <option value="THIS_WEEK">Tuần này</option>
-            <option value="THIS_MONTH">Tháng này</option>
-            <option value="THIS_QUARTER">Quý này</option>
-            <option value="6_MONTHS">6 tháng gần đây</option>
-            <option value="THIS_YEAR">Năm nay</option>
-            <option value="CUSTOM">Tùy chỉnh...</option>
-          </select>
-
-          {filterType === 'CUSTOM' && (
-            <div className="flex items-center gap-2">
-              <input
-                type="date"
-                className="h-10 px-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm font-semibold text-slate-700 dark:text-slate-300 outline-none focus:ring-2 focus:ring-indigo-500/50"
-                value={customRange.from}
-                onChange={e => setCustomRange(prev => ({ ...prev, from: e.target.value }))}
-              />
-              <span className="text-slate-400">-</span>
-              <input
-                type="date"
-                className="h-10 px-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm font-semibold text-slate-700 dark:text-slate-300 outline-none focus:ring-2 focus:ring-indigo-500/50"
-                value={customRange.to}
-                onChange={e => setCustomRange(prev => ({ ...prev, to: e.target.value }))}
-              />
-            </div>
-          )}
+          {controls}
         </div>
       </div>
 
@@ -359,6 +312,7 @@ export default function MyObjectivesTab() {
           onClose={() => setSelectedKpiId(null)}
           globalFrom={from}
           globalTo={to}
+          globalPeriodId={periodId}
         />
       )}
     </div>

@@ -33,7 +33,7 @@ public class PersonalKpiAnalyticsService {
                 .orElseThrow(() -> new RuntimeException("User not found"));
     }
 
-    private List<KpiCriteria> getMyStandaloneKpis() {
+    private List<KpiCriteria> getMyStandaloneKpis(UUID periodId) {
         User user = getCurrentUser();
         return kpiCriteriaRepository.findApprovedByAssigneeIdWithoutKeyResult(user.getId())
                 .stream()
@@ -41,6 +41,9 @@ public class PersonalKpiAnalyticsService {
                 // Kết quả của KPI con đã được tự động tổng hợp lên KPI cha
                 // (xem aggregateToParentKpi trong KpiSubmissionService) nên KPI cha sẽ phản ánh phần này.
                 .filter(kpi -> kpi.getParent() == null)
+                // Lọc theo đợt khi người dùng chọn một đợt cụ thể.
+                .filter(kpi -> periodId == null
+                        || (kpi.getKpiPeriod() != null && periodId.equals(kpi.getKpiPeriod().getId())))
                 .collect(Collectors.toList());
     }
 
@@ -91,8 +94,8 @@ public class PersonalKpiAnalyticsService {
     // ── Public endpoints ──────────────────────────────────────────────────────
 
     @Transactional(readOnly = true)
-    public Metrics getMetrics(Instant from, Instant to, Boolean onlyApproved) {
-        List<KpiCriteria> myKpis = getMyStandaloneKpis();
+    public Metrics getMetrics(Instant from, Instant to, Boolean onlyApproved, UUID periodId) {
+        List<KpiCriteria> myKpis = getMyStandaloneKpis(periodId);
         double totalComp = 0, totalPerf = 0;
         int activeCount = 0, completedCount = 0, runningCount = 0, riskCount = 0;
         Instant now = Instant.now();
@@ -123,8 +126,8 @@ public class PersonalKpiAnalyticsService {
     }
 
     @Transactional(readOnly = true)
-    public ComboChartData getComboChart(Instant from, Instant to, Boolean onlyApproved) {
-        List<KpiCriteria> myKpis = getMyStandaloneKpis();
+    public ComboChartData getComboChart(Instant from, Instant to, Boolean onlyApproved, UUID periodId) {
+        List<KpiCriteria> myKpis = getMyStandaloneKpis(periodId);
         Instant effectiveFrom = from != null ? from : Instant.now().minus(180, ChronoUnit.DAYS);
         Instant effectiveTo   = to   != null ? to   : Instant.now();
 
@@ -169,10 +172,10 @@ public class PersonalKpiAnalyticsService {
             Instant from, Instant to, Boolean onlyApproved,
             String sortBy, String sortDir,
             String sharedType,
-            int page, int size) {
+            int page, int size, UUID periodId) {
 
         User currentUser = getCurrentUser();
-        List<KpiCriteria> myKpis = getMyStandaloneKpis();
+        List<KpiCriteria> myKpis = getMyStandaloneKpis(periodId);
         List<KpiDetail> details = new ArrayList<>();
 
         for (KpiCriteria kpi : myKpis) {

@@ -18,6 +18,7 @@ import type { OrgUnitFilterDto } from '@/types/stats'
 interface Props {
   dateRange: { from: string | undefined; to: string | undefined }
   onlyApproved?: boolean
+  periodId?: string
 }
 
 function flattenOrgUnits(units: OrgUnitFilterDto[]): OrgUnitFilterDto[] {
@@ -39,7 +40,7 @@ function depthPrefix(depth: number): string {
   return '  '.repeat(depth) + '- '
 }
 
-export default function ObjectiveDetailsWidget({ dateRange, onlyApproved = false }: Props) {
+export default function ObjectiveDetailsWidget({ dateRange, onlyApproved = false, periodId }: Props) {
   const [drawerState, setDrawerState] = useState<{
     isOpen: boolean;
     type: 'OBJECTIVE' | 'KR' | 'KPI';
@@ -56,13 +57,14 @@ export default function ObjectiveDetailsWidget({ dateRange, onlyApproved = false
   const { data, isLoading } = useQuery({
     queryKey: [
       'subordinate-detailed-objectives',
-      dateRange.from, dateRange.to, onlyApproved,
+      dateRange.from, dateRange.to, onlyApproved, periodId,
       sortBy, sortDir, orgUnitId, page
     ],
     queryFn: () => statsApi.getSubordinateDetailedObjectives({
       from: dateRange.from,
       to: dateRange.to,
       onlyApproved,
+      periodId,
       sortBy,
       sortDir,
       orgUnitId: orgUnitId || undefined,
@@ -114,6 +116,7 @@ export default function ObjectiveDetailsWidget({ dateRange, onlyApproved = false
         id={drawerState.data.id}
         dateRange={dateRange}
         onlyApproved={onlyApproved}
+        periodId={periodId}
       />
     );
   }

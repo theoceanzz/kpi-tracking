@@ -11,10 +11,8 @@ import AnalyticsTabSkeleton from '@/components/common/AnalyticsTabSkeleton'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts'
 import { CopyButton } from '@/components/common/CopyButton'
 import Pagination from '@/components/common/Pagination'
-import { subDays, subMonths, startOfYear } from 'date-fns'
+import { useAnalyticsDateFilter } from '@/components/common/AnalyticsDateFilter'
 import type { EmployeeDrillSummary } from '@/types/stats'
-
-type DateFilterType = 'THIS_WEEK' | 'THIS_MONTH' | 'THIS_QUARTER' | '6_MONTHS' | 'THIS_YEAR' | 'CUSTOM'
 
 const EMP_PAGE_SIZE = 5
 
@@ -38,8 +36,7 @@ export default function DrillDownTab() {
   const currentId = searchParams.get('unitId') || undefined
 
   // ── Date filter ───────────────────────────────────────────────────────────
-  const [filterType, setFilterType] = useState<DateFilterType>('THIS_YEAR')
-  const [customRange, setCustomRange] = useState({ from: '', to: '' })
+  const { periodId, from, to, controls } = useAnalyticsDateFilter({ selectClassName: 'h-9' })
   const [filterStuck, setFilterStuck] = useState(false)
   const filterSentinelRef = useRef<HTMLDivElement>(null)
 
@@ -54,24 +51,7 @@ export default function DrillDownTab() {
     return () => observer.disconnect()
   }, [])
 
-  const { from, to } = useMemo(() => {
-    const now = new Date()
-    switch (filterType) {
-      case 'THIS_WEEK':    return { from: subDays(now, 7).toISOString(),   to: now.toISOString() }
-      case 'THIS_MONTH':   return { from: subDays(now, 30).toISOString(),  to: now.toISOString() }
-      case 'THIS_QUARTER': return { from: subDays(now, 90).toISOString(),  to: now.toISOString() }
-      case '6_MONTHS':     return { from: subMonths(now, 6).toISOString(), to: now.toISOString() }
-      case 'THIS_YEAR':    return { from: startOfYear(now).toISOString(),  to: now.toISOString() }
-      case 'CUSTOM':
-        return {
-          from: customRange.from ? new Date(customRange.from).toISOString() : undefined,
-          to:   customRange.to   ? new Date(customRange.to).toISOString()   : undefined,
-        }
-      default: return { from: undefined, to: undefined }
-    }
-  }, [filterType, customRange])
-
-  const { data, isLoading } = useDrillDown(currentId, from, to)
+  const { data, isLoading } = useDrillDown(currentId, from, to, periodId)
 
   // ── Heatmap tooltip ───────────────────────────────────────────────────────
   const [hoveredPoint, setHoveredPoint] = useState<{ x: string; y: string; val: number; rect: DOMRect } | null>(null)
@@ -205,37 +185,7 @@ export default function DrillDownTab() {
           <p className={cn('font-black uppercase tracking-widest text-slate-400 transition-all duration-200', filterStuck ? 'text-[10px]' : 'text-xs')}>
             Lọc theo thời gian
           </p>
-          <div className="flex flex-wrap items-center gap-3">
-            <select
-              className="h-9 px-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm font-semibold text-slate-700 dark:text-slate-300 outline-none focus:ring-2 focus:ring-indigo-500/50"
-              value={filterType}
-              onChange={e => setFilterType(e.target.value as DateFilterType)}
-            >
-              <option value="THIS_WEEK">Tuần này</option>
-              <option value="THIS_MONTH">Tháng này</option>
-              <option value="THIS_QUARTER">Quý này</option>
-              <option value="6_MONTHS">6 tháng gần đây</option>
-              <option value="THIS_YEAR">Năm nay</option>
-              <option value="CUSTOM">Tùy chỉnh...</option>
-            </select>
-            {filterType === 'CUSTOM' && (
-              <div className="flex items-center gap-2">
-                <input
-                  type="date"
-                  className="h-9 px-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm font-semibold text-slate-700 dark:text-slate-300 outline-none focus:ring-2 focus:ring-indigo-500/50"
-                  value={customRange.from}
-                  onChange={e => setCustomRange(prev => ({ ...prev, from: e.target.value }))}
-                />
-                <span className="text-slate-400">–</span>
-                <input
-                  type="date"
-                  className="h-9 px-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm font-semibold text-slate-700 dark:text-slate-300 outline-none focus:ring-2 focus:ring-indigo-500/50"
-                  value={customRange.to}
-                  onChange={e => setCustomRange(prev => ({ ...prev, to: e.target.value }))}
-                />
-              </div>
-            )}
-          </div>
+          {controls}
         </div>
       </div>
 

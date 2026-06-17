@@ -25,14 +25,14 @@ import Pagination from '@/components/common/Pagination'
 import { orgUnitKpiApi } from '@/features/dashboard/api/orgUnitKpiApi'
 import type { OrgUnitAssigneeStat, OrgUnitSubmissionStat, UnitRiskRow, MemberRiskRow, OverdueKpiForUnit, OverdueKpiForMember } from '@/features/dashboard/api/orgUnitKpiApi'
 import OrgUnitKpiDrawer from '../components/OrgUnitKpiDrawer'
-import { subDays, subMonths, startOfYear, format } from 'date-fns'
+import { useAnalyticsDateFilter } from '@/components/common/AnalyticsDateFilter'
+import { format } from 'date-fns'
 
 const ResponsiveGridLayout = WidthProvider(Responsive)
 const CONFIG_REPORT_NAME = '__SUMMARY_DASHBOARD_CONFIG__'
 
 const COLORS = ['#6366f1', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'];
 
-type DateFilterType = 'THIS_WEEK' | 'THIS_MONTH' | 'THIS_QUARTER' | '6_MONTHS' | 'THIS_YEAR' | 'CUSTOM'
 type SortField = 'progress' | 'performance' | 'period'
 type SortDir = 'asc' | 'desc'
 type SharedFilter = 'ALL' | 'SHARED' | 'PERSONAL'
@@ -115,9 +115,8 @@ export default function SummaryTab() {
   const [selectedUnitId] = useState<string | undefined>(undefined)
 
   // ── Global filter state ───────────────────────────────────────────────────
-  const [filterType, setFilterType] = useState<DateFilterType>('THIS_YEAR')
-  const [customRange, setCustomRange] = useState<{ from: string; to: string }>({ from: '', to: '' })
   const [onlyApproved, setOnlyApproved] = useState(false)
+  const { periodId, from, to, controls } = useAnalyticsDateFilter({ selectClassName: 'h-9' })
   const [filterStuck, setFilterStuck] = useState(false)
   const filterSentinelRef = useRef<HTMLDivElement>(null)
 
@@ -132,32 +131,15 @@ export default function SummaryTab() {
     return () => observer.disconnect()
   }, [])
 
-  const { from, to } = useMemo(() => {
-    const now = new Date()
-    switch (filterType) {
-      case 'THIS_WEEK':    return { from: subDays(now, 7).toISOString(),     to: now.toISOString() }
-      case 'THIS_MONTH':   return { from: subDays(now, 30).toISOString(),    to: now.toISOString() }
-      case 'THIS_QUARTER': return { from: subDays(now, 90).toISOString(),    to: now.toISOString() }
-      case '6_MONTHS':     return { from: subMonths(now, 6).toISOString(),   to: now.toISOString() }
-      case 'THIS_YEAR':    return { from: startOfYear(now).toISOString(),    to: now.toISOString() }
-      case 'CUSTOM':
-        return {
-          from: customRange.from ? new Date(customRange.from).toISOString() : undefined,
-          to:   customRange.to   ? new Date(customRange.to).toISOString()   : undefined,
-        }
-      default: return { from: undefined, to: undefined }
-    }
-  }, [filterType, customRange])
-
   // ── New KPI data ──────────────────────────────────────────────────────────
   const { data: metrics, isLoading: isMetricsLoading } = useQuery({
-    queryKey: ['orgUnitKpi', 'metrics', from, to, onlyApproved],
-    queryFn: () => orgUnitKpiApi.getMetrics({ from, to, onlyApproved }),
+    queryKey: ['orgUnitKpi', 'metrics', from, to, onlyApproved, periodId],
+    queryFn: () => orgUnitKpiApi.getMetrics({ from, to, onlyApproved, periodId }),
   })
 
   const { data: chartData, isLoading: isChartLoading } = useQuery({
-    queryKey: ['orgUnitKpi', 'chart', from, to, onlyApproved],
-    queryFn: () => orgUnitKpiApi.getComboChart({ from, to, onlyApproved }),
+    queryKey: ['orgUnitKpi', 'chart', from, to, onlyApproved, periodId],
+    queryFn: () => orgUnitKpiApi.getComboChart({ from, to, onlyApproved, periodId }),
   })
 
   // ── Detail table state ────────────────────────────────────────────────────
@@ -168,9 +150,9 @@ export default function SummaryTab() {
   const [tablePage, setTablePage] = useState(0)
 
   const { data: kpiPage, isLoading: isKpisLoading } = useQuery({
-    queryKey: ['orgUnitKpi', 'details', from, to, onlyApproved, filterOrgUnitId, sortField, sortDir, filterShared, tablePage],
+    queryKey: ['orgUnitKpi', 'details', from, to, onlyApproved, periodId, filterOrgUnitId, sortField, sortDir, filterShared, tablePage],
     queryFn: () => orgUnitKpiApi.getDetailedKpis({
-      from, to, onlyApproved,
+      from, to, onlyApproved, periodId,
       filterOrgUnitId,
       sortBy: sortField ?? undefined,
       sortDir,
@@ -305,8 +287,8 @@ export default function SummaryTab() {
 
   const renderWidgetContent = (widget: SummaryWidget) => {
     switch (widget.type) {
-      case 'UNIT_PERFORMANCE': return <TopUnitPerfSection orgUnitId={selectedUnitId} from={from} to={to} onlyApproved={onlyApproved} isEditMode={isEditMode} widget={widget} onTogglePin={handleTogglePin} hoveredUnit={hoveredUnit} onHoverUnit={setHoveredUnit} />
-      case 'UNIT_KPI': return <TopUnitProgressSection orgUnitId={selectedUnitId} from={from} to={to} onlyApproved={onlyApproved} isEditMode={isEditMode} widget={widget} onTogglePin={handleTogglePin} hoveredUnit={hoveredUnit} onHoverUnit={setHoveredUnit} />
+      case 'UNIT_PERFORMANCE': return <TopUnitPerfSection orgUnitId={selectedUnitId} from={from} to={to} onlyApproved={onlyApproved} periodId={periodId} isEditMode={isEditMode} widget={widget} onTogglePin={handleTogglePin} hoveredUnit={hoveredUnit} onHoverUnit={setHoveredUnit} />
+      case 'UNIT_KPI': return <TopUnitProgressSection orgUnitId={selectedUnitId} from={from} to={to} onlyApproved={onlyApproved} periodId={periodId} isEditMode={isEditMode} widget={widget} onTogglePin={handleTogglePin} hoveredUnit={hoveredUnit} onHoverUnit={setHoveredUnit} />
       case 'MEMBER_DIST': {
         return (
           <ChartWrapper title="Số lượng nhân sự" icon={<PieChartIcon size={20} className="text-purple-600" />} widget={widget} onTogglePin={handleTogglePin} isEditMode={isEditMode}>
@@ -342,9 +324,9 @@ export default function SummaryTab() {
           </ChartWrapper>
         )
       }
-      case 'UNIT_RISK': return <UnitRiskSection orgUnitId={selectedUnitId} from={from} to={to} onlyApproved={onlyApproved} isEditMode={isEditMode} widget={widget} onTogglePin={handleTogglePin} />
-      case 'WARNING_LIST': return <WarningListSection orgUnitId={selectedUnitId} from={from} to={to} onlyApproved={onlyApproved} isEditMode={isEditMode} widget={widget} onTogglePin={handleTogglePin} />
-      case 'RANKING_TABLE': return <EmployeeRankingTableSection orgUnitId={selectedUnitId} from={from} to={to} onlyApproved={onlyApproved} isEditMode={isEditMode} widget={widget} onTogglePin={handleTogglePin} />
+      case 'UNIT_RISK': return <UnitRiskSection orgUnitId={selectedUnitId} from={from} to={to} onlyApproved={onlyApproved} periodId={periodId} isEditMode={isEditMode} widget={widget} onTogglePin={handleTogglePin} />
+      case 'WARNING_LIST': return <WarningListSection orgUnitId={selectedUnitId} from={from} to={to} onlyApproved={onlyApproved} periodId={periodId} isEditMode={isEditMode} widget={widget} onTogglePin={handleTogglePin} />
+      case 'RANKING_TABLE': return <EmployeeRankingTableSection orgUnitId={selectedUnitId} from={from} to={to} onlyApproved={onlyApproved} periodId={periodId} isEditMode={isEditMode} widget={widget} onTogglePin={handleTogglePin} />
       default: return null
     }
   }
@@ -410,25 +392,7 @@ export default function SummaryTab() {
               />
               Chỉ tính bài nộp đã duyệt
             </label>
-            <select
-              className="h-9 px-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm font-semibold text-slate-700 dark:text-slate-300 outline-none focus:ring-2 focus:ring-indigo-500/50"
-              value={filterType}
-              onChange={e => setFilterType(e.target.value as DateFilterType)}
-            >
-              <option value="THIS_WEEK">Tuần này</option>
-              <option value="THIS_MONTH">Tháng này</option>
-              <option value="THIS_QUARTER">Quý này</option>
-              <option value="6_MONTHS">6 tháng gần đây</option>
-              <option value="THIS_YEAR">Năm nay</option>
-              <option value="CUSTOM">Tùy chỉnh...</option>
-            </select>
-            {filterType === 'CUSTOM' && (
-              <div className="flex items-center gap-2">
-                <input type="date" className="h-9 px-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm font-semibold text-slate-700 dark:text-slate-300 outline-none focus:ring-2 focus:ring-indigo-500/50" value={customRange.from} onChange={e => setCustomRange(prev => ({ ...prev, from: e.target.value }))} />
-                <span className="text-slate-400">–</span>
-                <input type="date" className="h-9 px-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm font-semibold text-slate-700 dark:text-slate-300 outline-none focus:ring-2 focus:ring-indigo-500/50" value={customRange.to} onChange={e => setCustomRange(prev => ({ ...prev, to: e.target.value }))} />
-              </div>
-            )}
+            {controls}
           </div>
         </div>
       </div>
@@ -679,6 +643,7 @@ export default function SummaryTab() {
           globalFrom={from}
           globalTo={to}
           globalOnlyApproved={onlyApproved}
+          globalPeriodId={periodId}
         />
       )}
     </div>
@@ -1001,13 +966,13 @@ function UnitBarTooltip({ active, payload }: any) {
   )
 }
 
-function TopUnitPerfSection({ orgUnitId, from, to, onlyApproved, isEditMode, widget, onTogglePin, hoveredUnit, onHoverUnit }: {
-  orgUnitId?: string; from?: string; to?: string; onlyApproved?: boolean
+function TopUnitPerfSection({ orgUnitId, from, to, onlyApproved, periodId, isEditMode, widget, onTogglePin, hoveredUnit, onHoverUnit }: {
+  orgUnitId?: string; from?: string; to?: string; onlyApproved?: boolean; periodId?: string
   isEditMode?: boolean; widget: SummaryWidget; onTogglePin: (w: SummaryWidget) => void
   hoveredUnit?: string | null; onHoverUnit?: (u: string | null) => void
 }) {
   const [filter, setFilter] = React.useState<'BEST' | 'WORST'>('BEST')
-  const { data } = useSummaryComparison(orgUnitId, from, to, onlyApproved)
+  const { data } = useSummaryComparison(orgUnitId, from, to, onlyApproved, periodId)
 
   const chartData = React.useMemo(() => {
     const source = (filter === 'BEST' ? data?.topPerformingUnits : data?.worstPerformingUnits) as UnitComparison[] | undefined
@@ -1055,13 +1020,13 @@ function TopUnitPerfSection({ orgUnitId, from, to, onlyApproved, isEditMode, wid
   )
 }
 
-function TopUnitProgressSection({ orgUnitId, from, to, onlyApproved, isEditMode, widget, onTogglePin, hoveredUnit, onHoverUnit }: {
-  orgUnitId?: string; from?: string; to?: string; onlyApproved?: boolean
+function TopUnitProgressSection({ orgUnitId, from, to, onlyApproved, periodId, isEditMode, widget, onTogglePin, hoveredUnit, onHoverUnit }: {
+  orgUnitId?: string; from?: string; to?: string; onlyApproved?: boolean; periodId?: string
   isEditMode?: boolean; widget: SummaryWidget; onTogglePin: (w: SummaryWidget) => void
   hoveredUnit?: string | null; onHoverUnit?: (u: string | null) => void
 }) {
   const [filter, setFilter] = React.useState<'BEST' | 'WORST'>('BEST')
-  const { data } = useSummaryComparison(orgUnitId, from, to, onlyApproved)
+  const { data } = useSummaryComparison(orgUnitId, from, to, onlyApproved, periodId)
 
   const chartData = React.useMemo(() => {
     const combined = [...(data?.topPerformingUnits || []), ...(data?.worstPerformingUnits || [])] as UnitComparison[]
@@ -1184,15 +1149,15 @@ function UnitRiskExpandedRow({ unitId, colSpan }: { unitId: string; colSpan: num
   )
 }
 
-function UnitRiskSection({ orgUnitId, from, to, onlyApproved, isEditMode, widget, onTogglePin }: { orgUnitId?: string; from?: string; to?: string; onlyApproved?: boolean; isEditMode?: boolean; widget: SummaryWidget; onTogglePin: (w: SummaryWidget) => void }) {
+function UnitRiskSection({ orgUnitId, from, to, onlyApproved, periodId, isEditMode, widget, onTogglePin }: { orgUnitId?: string; from?: string; to?: string; onlyApproved?: boolean; periodId?: string; isEditMode?: boolean; widget: SummaryWidget; onTogglePin: (w: SummaryWidget) => void }) {
   const [page, setPage] = React.useState(0)
   const [sortBy, setSortBy] = React.useState<RiskSortField>('progress')
   const [sortDir, setSortDir] = React.useState<'asc' | 'desc'>('asc')
   const [expandedUnit, setExpandedUnit] = React.useState<string | null>(null)
 
   const { data, isFetching } = useQuery({
-    queryKey: ['orgUnitKpi', 'risks', 'units', orgUnitId, from, to, onlyApproved, page, sortBy, sortDir],
-    queryFn: () => orgUnitKpiApi.getUnitRisks({ orgUnitId, from, to, onlyApproved, page, size: 5, sortBy, sortDir }),
+    queryKey: ['orgUnitKpi', 'risks', 'units', orgUnitId, from, to, onlyApproved, periodId, page, sortBy, sortDir],
+    queryFn: () => orgUnitKpiApi.getUnitRisks({ orgUnitId, from, to, onlyApproved, periodId, page, size: 5, sortBy, sortDir }),
     placeholderData: (prev) => prev,
   })
 
@@ -1373,7 +1338,7 @@ function MemberRiskExpandedRow({ userId, orgUnitId, colSpan }: { userId: string;
   )
 }
 
-function WarningListSection({ orgUnitId, from, to, onlyApproved, isEditMode, widget, onTogglePin }: { orgUnitId?: string; from?: string; to?: string; onlyApproved?: boolean; isEditMode?: boolean; widget: SummaryWidget; onTogglePin: (w: SummaryWidget) => void }) {
+function WarningListSection({ orgUnitId, from, to, onlyApproved, periodId, isEditMode, widget, onTogglePin }: { orgUnitId?: string; from?: string; to?: string; onlyApproved?: boolean; periodId?: string; isEditMode?: boolean; widget: SummaryWidget; onTogglePin: (w: SummaryWidget) => void }) {
   const [page, setPage] = React.useState(0)
   const [sortBy, setSortBy] = React.useState<RiskSortField>('progress')
   const [sortDir, setSortDir] = React.useState<'asc' | 'desc'>('asc')
@@ -1381,8 +1346,8 @@ function WarningListSection({ orgUnitId, from, to, onlyApproved, isEditMode, wid
   const [expandedMember, setExpandedMember] = React.useState<string | null>(null)
 
   const { data, isFetching } = useQuery({
-    queryKey: ['orgUnitKpi', 'risks', 'members', orgUnitId, from, to, onlyApproved, filterOrgUnitId, page, sortBy, sortDir],
-    queryFn: () => orgUnitKpiApi.getMemberRisks({ orgUnitId, from, to, onlyApproved, filterOrgUnitId, page, size: 5, sortBy, sortDir }),
+    queryKey: ['orgUnitKpi', 'risks', 'members', orgUnitId, from, to, onlyApproved, periodId, filterOrgUnitId, page, sortBy, sortDir],
+    queryFn: () => orgUnitKpiApi.getMemberRisks({ orgUnitId, from, to, onlyApproved, periodId, filterOrgUnitId, page, size: 5, sortBy, sortDir }),
     placeholderData: (prev) => prev,
   })
 
@@ -1488,14 +1453,14 @@ function WarningListSection({ orgUnitId, from, to, onlyApproved, isEditMode, wid
   )
 }
 
-function EmployeeRankingTableSection({ orgUnitId, from, to, onlyApproved, isEditMode, widget, onTogglePin }: { orgUnitId?: string; from?: string; to?: string; onlyApproved?: boolean; isEditMode?: boolean; widget: SummaryWidget; onTogglePin: (w: SummaryWidget) => void }) {
+function EmployeeRankingTableSection({ orgUnitId, from, to, onlyApproved, periodId, isEditMode, widget, onTogglePin }: { orgUnitId?: string; from?: string; to?: string; onlyApproved?: boolean; periodId?: string; isEditMode?: boolean; widget: SummaryWidget; onTogglePin: (w: SummaryWidget) => void }) {
   const [rankingUnitId, setRankingUnitId] = useState<string | undefined>(undefined)
   const [sf, setSf] = useState<keyof RankingItem>('performance')
   const [sd, setSd] = useState<'ASC' | 'DESC'>('DESC')
   const [rankPage, setRankPage] = useState(0)
   const RANK_PAGE_SIZE = 5
 
-  const { data, isFetching } = useSummaryRankings(orgUnitId, rankingUnitId, from, to, onlyApproved);
+  const { data, isFetching } = useSummaryRankings(orgUnitId, rankingUnitId, from, to, onlyApproved, periodId);
 
   const processedRankings = useMemo(() => {
     if (!data?.rankings) return []

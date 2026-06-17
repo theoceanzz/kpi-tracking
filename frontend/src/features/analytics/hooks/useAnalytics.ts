@@ -1,17 +1,17 @@
 import { useQuery } from '@tanstack/react-query'
 import { statsApi } from '@/features/dashboard/api/statsApi'
 
-export function useMyAnalytics(from?: string, to?: string) {
+export function useMyAnalytics(from?: string, to?: string, periodId?: string) {
   return useQuery({
-    queryKey: ['analytics', 'my', from, to],
-    queryFn: () => statsApi.getMyAnalytics(from, to),
+    queryKey: ['analytics', 'my', from, to, periodId],
+    queryFn: () => statsApi.getMyAnalytics(from, to, periodId),
   })
 }
 
-export function useDrillDown(orgUnitId?: string, from?: string, to?: string) {
+export function useDrillDown(orgUnitId?: string, from?: string, to?: string, periodId?: string) {
   return useQuery({
-    queryKey: ['analytics', 'drill-down', orgUnitId, from, to],
-    queryFn: () => statsApi.getDrillDown(orgUnitId, from, to),
+    queryKey: ['analytics', 'drill-down', orgUnitId, from, to, periodId],
+    queryFn: () => statsApi.getDrillDown(orgUnitId, from, to, periodId),
   })
 }
 
@@ -38,10 +38,10 @@ export function useSummaryTrend(orgUnitId?: string, period: string = '5_MONTHS')
   })
 }
 
-export function useSummaryComparison(orgUnitId?: string, from?: string, to?: string, onlyApproved?: boolean) {
+export function useSummaryComparison(orgUnitId?: string, from?: string, to?: string, onlyApproved?: boolean, periodId?: string) {
   return useQuery({
-    queryKey: ['analytics', 'summary', 'comparison', orgUnitId, from, to, onlyApproved],
-    queryFn: () => statsApi.getSummaryComparison(orgUnitId, from, to, onlyApproved),
+    queryKey: ['analytics', 'summary', 'comparison', orgUnitId, from, to, onlyApproved, periodId],
+    queryFn: () => statsApi.getSummaryComparison(orgUnitId, from, to, onlyApproved, periodId),
     placeholderData: (previousData) => previousData,
   })
 }
@@ -54,10 +54,10 @@ export function useSummaryRisks(orgUnitId?: string, period: string = 'MONTH') {
   })
 }
 
-export function useSummaryRankings(orgUnitId?: string, rankingUnitId?: string, from?: string, to?: string, onlyApproved?: boolean) {
+export function useSummaryRankings(orgUnitId?: string, rankingUnitId?: string, from?: string, to?: string, onlyApproved?: boolean, periodId?: string) {
   return useQuery({
-    queryKey: ['analytics', 'summary', 'rankings', orgUnitId, rankingUnitId, from, to, onlyApproved],
-    queryFn: () => statsApi.getSummaryRankings(orgUnitId, rankingUnitId, from, to, onlyApproved),
+    queryKey: ['analytics', 'summary', 'rankings', orgUnitId, rankingUnitId, from, to, onlyApproved, periodId],
+    queryFn: () => statsApi.getSummaryRankings(orgUnitId, rankingUnitId, from, to, onlyApproved, periodId),
     placeholderData: (previousData) => previousData,
   })
 }
