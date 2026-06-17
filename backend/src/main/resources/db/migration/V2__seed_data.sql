@@ -71,91 +71,92 @@ INSERT INTO roles (id, organization_id, name, level, rank, is_system) VALUES
 -- ============================================================================
 INSERT INTO permissions (id, code, resource, action, description) VALUES
     -- Dashboard
-    ('00000000-0000-0000-0000-000000000101', 'DASHBOARD:VIEW',           'DASHBOARD',    'VIEW',             'Xem biểu đồ thống kê'),
+    ('00000000-0000-0000-0000-000000000101', 'DASHBOARD:VIEW',           'DASHBOARD',    'VIEW',             'Cho phép xem các biểu đồ, số liệu thống kê tổng quan và các khung hiển thị trên trang tổng quan chính'),
     -- Company
-    ('00000000-0000-0000-0000-000000000102', 'COMPANY:VIEW',             'COMPANY',      'VIEW',             'Xem hồ sơ công ty'),
-    ('00000000-0000-0000-0000-000000000205', 'COMPANY:UPDATE',           'COMPANY',      'UPDATE',           'Cập nhật thông tin tổ chức'),
-    ('00000000-0000-0000-0000-000000000206', 'COMPANY:DELETE',           'COMPANY',      'DELETE',           'Xoá/Lưu trữ tổ chức'),
+    ('00000000-0000-0000-0000-000000000102', 'COMPANY:VIEW',             'COMPANY',      'VIEW',             'Cho phép xem thông tin hồ sơ công ty/tổ chức (tên, địa chỉ, logo, thông tin liên hệ...)'),
+    ('00000000-0000-0000-0000-000000000205', 'COMPANY:UPDATE',           'COMPANY',      'UPDATE',           'Cho phép chỉnh sửa, cập nhật thông tin hồ sơ công ty/tổ chức'),
+    ('00000000-0000-0000-0000-000000000206', 'COMPANY:DELETE',           'COMPANY',      'DELETE',           'Cho phép xoá hoặc lưu trữ tổ chức khỏi hệ thống — chỉ dành cho quản trị cấp cao nhất'),
     -- Org
-    ('00000000-0000-0000-0000-000000000103', 'ORG:VIEW',                 'ORG',          'VIEW',             'Xem sơ đồ tổ chức'),
-    ('00000000-0000-0000-0000-000000000104', 'ORG:CREATE',               'ORG',          'CREATE',           'Tạo mới phòng ban'),
-    ('00000000-0000-0000-0000-000000000105', 'ORG:UPDATE',               'ORG',          'UPDATE',           'Cập nhật phòng ban'),
-    ('00000000-0000-0000-0000-000000000106', 'ORG:DELETE',               'ORG',          'DELETE',           'Xóa phòng ban'),
-    ('00000000-0000-0000-0000-000000000238', 'ORG:VIEW_TREE',            'ORG',          'VIEW_TREE',        'Xem cây sơ đồ tổ chức (rút gọn)'),
+    ('00000000-0000-0000-0000-000000000103', 'ORG:VIEW',                 'ORG',          'VIEW',             'Cho phép xem sơ đồ tổ chức, danh sách các đơn vị/phòng ban đầy đủ chi tiết'),
+    ('00000000-0000-0000-0000-000000000104', 'ORG:CREATE',               'ORG',          'CREATE',           'Cho phép tạo mới đơn vị/phòng ban trong sơ đồ tổ chức'),
+    ('00000000-0000-0000-0000-000000000105', 'ORG:UPDATE',               'ORG',          'UPDATE',           'Cho phép chỉnh sửa thông tin đơn vị/phòng ban (tên, cấp bậc, trưởng đơn vị...)'),
+    ('00000000-0000-0000-0000-000000000106', 'ORG:DELETE',               'ORG',          'DELETE',           'Cho phép xoá đơn vị/phòng ban khỏi sơ đồ tổ chức'),
+    ('00000000-0000-0000-0000-000000000238', 'ORG:VIEW_TREE',            'ORG',          'VIEW_TREE',        'Cho phép xem cây sơ đồ tổ chức ở dạng rút gọn (dùng cho bộ lọc, chọn đơn vị nhanh)'),
     -- User
-    ('00000000-0000-0000-0000-000000000107', 'USER:VIEW',                'USER',         'VIEW',             'Xem danh mục nhân sự'),
-    ('00000000-0000-0000-0000-000000000108', 'USER:CREATE',              'USER',         'CREATE',           'Thêm mới nhân sự'),
-    ('00000000-0000-0000-0000-000000000109', 'USER:UPDATE',              'USER',         'UPDATE',           'Sửa thông tin nhân sự'),
-    ('00000000-0000-0000-0000-000000000110', 'USER:DELETE',              'USER',         'DELETE',           'Xóa nhân sự'),
-    ('00000000-0000-0000-0000-000000000111', 'USER:IMPORT',              'USER',         'IMPORT',           'Nhập nhân sự hàng loạt'),
-    ('00000000-0000-0000-0000-000000000236', 'USER:VIEW_LIST',           'USER',         'VIEW_LIST',        'Xem danh sách nhân sự rút gọn (cho Dashboard)'),
+    ('00000000-0000-0000-0000-000000000107', 'USER:VIEW',                'USER',         'VIEW',             'Cho phép xem danh mục, hồ sơ chi tiết của nhân sự trong tổ chức'),
+    ('00000000-0000-0000-0000-000000000108', 'USER:CREATE',              'USER',         'CREATE',           'Cho phép thêm mới tài khoản/hồ sơ nhân sự vào hệ thống'),
+    ('00000000-0000-0000-0000-000000000109', 'USER:UPDATE',              'USER',         'UPDATE',           'Cho phép chỉnh sửa thông tin cá nhân, chức vụ, đơn vị công tác của nhân sự'),
+    ('00000000-0000-0000-0000-000000000110', 'USER:DELETE',              'USER',         'DELETE',           'Cho phép xoá hoặc vô hiệu hoá tài khoản nhân sự'),
+    ('00000000-0000-0000-0000-000000000111', 'USER:IMPORT',              'USER',         'IMPORT',           'Cho phép nhập danh sách nhân sự hàng loạt từ tệp Excel/CSV'),
+    ('00000000-0000-0000-0000-000000000236', 'USER:VIEW_LIST',           'USER',         'VIEW_LIST',        'Cho phép xem danh sách nhân sự ở dạng rút gọn, dùng để hiển thị trên trang tổng quan hoặc bộ lọc nhanh'),
     -- Role
-    ('00000000-0000-0000-0000-000000000112', 'ROLE:VIEW',                'ROLE',         'VIEW',             'Xem danh sách vai trò'),
-    ('00000000-0000-0000-0000-000000000113', 'ROLE:ASSIGN',              'ROLE',         'ASSIGN',           'Gán quyền cho người dùng'),
-    ('00000000-0000-0000-0000-000000000201', 'ROLE:CREATE',              'ROLE',         'CREATE',           'Tạo mới vai trò'),
-    ('00000000-0000-0000-0000-000000000202', 'ROLE:UPDATE',              'ROLE',         'UPDATE',           'Chỉnh sửa vai trò'),
-    ('00000000-0000-0000-0000-000000000203', 'ROLE:DELETE',              'ROLE',         'DELETE',           'Xoá vai trò'),
+    ('00000000-0000-0000-0000-000000000112', 'ROLE:VIEW',                'ROLE',         'VIEW',             'Cho phép xem danh sách các vai trò hiện có trong tổ chức'),
+    ('00000000-0000-0000-0000-000000000113', 'ROLE:ASSIGN',              'ROLE',         'ASSIGN',           'Cho phép gán một hoặc nhiều vai trò cho người dùng cụ thể'),
+    ('00000000-0000-0000-0000-000000000201', 'ROLE:CREATE',              'ROLE',         'CREATE',           'Cho phép tạo mới vai trò cùng danh sách quyền đi kèm'),
+    ('00000000-0000-0000-0000-000000000202', 'ROLE:UPDATE',              'ROLE',         'UPDATE',           'Cho phép chỉnh sửa tên, mô tả và danh sách quyền của vai trò đã có'),
+    ('00000000-0000-0000-0000-000000000203', 'ROLE:DELETE',              'ROLE',         'DELETE',           'Cho phép xoá vai trò khỏi hệ thống — chỉ áp dụng khi vai trò không còn người dùng nào sử dụng'),
     -- Permission
-    ('00000000-0000-0000-0000-000000000114', 'PERMISSION:EDIT',          'PERMISSION',   'EDIT',             'Thiết lập chi tiết quyền'),
-    ('00000000-0000-0000-0000-000000000204', 'PERMISSION:VIEW',          'PERMISSION',   'VIEW',             'Xem danh sách quyền'),
+    ('00000000-0000-0000-0000-000000000114', 'PERMISSION:EDIT',          'PERMISSION',   'EDIT',             'Cho phép thiết lập chi tiết, bật/tắt từng quyền cụ thể cho vai trò — quyền quản trị nhạy cảm'),
+    ('00000000-0000-0000-0000-000000000204', 'PERMISSION:VIEW',          'PERMISSION',   'VIEW',             'Cho phép xem danh sách toàn bộ quyền hiện có trong hệ thống'),
     -- KPI
-    ('00000000-0000-0000-0000-000000000115', 'KPI:VIEW',                 'KPI',          'VIEW',             'Xem danh mục KPI'),
-    ('00000000-0000-0000-0000-000000000116', 'KPI:CREATE',               'KPI',          'CREATE',           'Thiết lập KPI'),
-    ('00000000-0000-0000-0000-000000000117', 'KPI:UPDATE',               'KPI',          'UPDATE',           'Sửa chỉ tiêu KPI'),
-    ('00000000-0000-0000-0000-000000000118', 'KPI:DELETE',               'KPI',          'DELETE',           'Xóa chỉ tiêu KPI'),
-    ('00000000-0000-0000-0000-000000000119', 'KPI:APPROVE_CRITERIA',     'KPI',          'APPROVE_CRITERIA', 'Phê duyệt chỉ tiêu KPI'),
-    ('00000000-0000-0000-0000-000000000132', 'KPI:APPROVE_ADJUSTMENT',   'KPI',          'APPROVE_ADJUSTMENT','Phê duyệt điều chỉnh KPI'),
-    ('00000000-0000-0000-0000-000000000120', 'KPI:VIEW_MY',              'KPI',          'VIEW_MY',          'Xem KPI cá nhân'),
-    ('00000000-0000-0000-0000-000000000211', 'KPI:IMPORT',               'KPI',          'IMPORT',           'Nhập KPI hàng loạt từ file'),
-    ('00000000-0000-0000-0000-000000000212', 'KPI:SUBMIT',               'KPI',          'SUBMIT',           'Gửi KPI để phê duyệt'),
-    ('00000000-0000-0000-0000-000000000213', 'KPI:REJECT',               'KPI',          'REJECT',           'Từ chối chỉ tiêu KPI'),
+    ('00000000-0000-0000-0000-000000000115', 'KPI:VIEW',                 'KPI',          'VIEW',             'Cho phép xem danh mục, chi tiết các chỉ tiêu KPI đã thiết lập trong tổ chức'),
+    ('00000000-0000-0000-0000-000000000116', 'KPI:CREATE',               'KPI',          'CREATE',           'Cho phép thiết lập mới chỉ tiêu KPI cho đơn vị/nhân sự'),
+    ('00000000-0000-0000-0000-000000000117', 'KPI:UPDATE',               'KPI',          'UPDATE',           'Cho phép chỉnh sửa nội dung, trọng số, mục tiêu của chỉ tiêu KPI đã tạo'),
+    ('00000000-0000-0000-0000-000000000118', 'KPI:DELETE',               'KPI',          'DELETE',           'Cho phép xoá chỉ tiêu KPI khỏi hệ thống'),
+    ('00000000-0000-0000-0000-000000000119', 'KPI:APPROVE_CRITERIA',     'KPI',          'APPROVE_CRITERIA', 'Cho phép phê duyệt chỉ tiêu KPI do cấp dưới đề xuất trước khi áp dụng'),
+    ('00000000-0000-0000-0000-000000000132', 'KPI:APPROVE_ADJUSTMENT',   'KPI',          'APPROVE_ADJUSTMENT','Cho phép phê duyệt yêu cầu điều chỉnh chỉ tiêu KPI trong quá trình thực hiện'),
+    ('00000000-0000-0000-0000-000000000240', 'KPI:APPROVE_OWN',          'KPI',          'APPROVE_OWN',      'Cho phép chỉ tiêu KPI tự tạo được duyệt ngay (tự động chuyển sang trạng thái đã duyệt khi tạo) mà không cần chờ người khác phê duyệt'),
+    ('00000000-0000-0000-0000-000000000120', 'KPI:VIEW_MY',              'KPI',          'VIEW_MY',          'Cho phép xem các chỉ tiêu KPI được giao cho chính bản thân người dùng'),
+    ('00000000-0000-0000-0000-000000000211', 'KPI:IMPORT',               'KPI',          'IMPORT',           'Cho phép nhập hàng loạt chỉ tiêu KPI từ tệp Excel/CSV'),
+    ('00000000-0000-0000-0000-000000000212', 'KPI:SUBMIT',               'KPI',          'SUBMIT',           'Cho phép gửi chỉ tiêu KPI đã thiết lập đi để cấp trên phê duyệt'),
+    ('00000000-0000-0000-0000-000000000213', 'KPI:REJECT',               'KPI',          'REJECT',           'Cho phép từ chối, trả lại chỉ tiêu KPI không hợp lệ kèm lý do'),
     -- KPI Period
-    ('00000000-0000-0000-0000-000000000207', 'KPI_PERIOD:VIEW',          'KPI_PERIOD',   'VIEW',             'Xem danh sách kỳ đánh giá'),
-    ('00000000-0000-0000-0000-000000000208', 'KPI_PERIOD:CREATE',        'KPI_PERIOD',   'CREATE',           'Tạo kỳ đánh giá'),
-    ('00000000-0000-0000-0000-000000000209', 'KPI_PERIOD:UPDATE',        'KPI_PERIOD',   'UPDATE',           'Cập nhật kỳ đánh giá'),
-    ('00000000-0000-0000-0000-000000000210', 'KPI_PERIOD:DELETE',        'KPI_PERIOD',   'DELETE',           'Xoá kỳ đánh giá'),
+    ('00000000-0000-0000-0000-000000000207', 'KPI_PERIOD:VIEW',          'KPI_PERIOD',   'VIEW',             'Cho phép xem danh sách các kỳ đánh giá KPI (theo tháng/quý/năm)'),
+    ('00000000-0000-0000-0000-000000000208', 'KPI_PERIOD:CREATE',        'KPI_PERIOD',   'CREATE',           'Cho phép tạo mới kỳ đánh giá KPI với thời gian bắt đầu/kết thúc xác định'),
+    ('00000000-0000-0000-0000-000000000209', 'KPI_PERIOD:UPDATE',        'KPI_PERIOD',   'UPDATE',           'Cho phép cập nhật thông tin, trạng thái của kỳ đánh giá KPI'),
+    ('00000000-0000-0000-0000-000000000210', 'KPI_PERIOD:DELETE',        'KPI_PERIOD',   'DELETE',           'Cho phép xoá kỳ đánh giá KPI khỏi hệ thống'),
     -- Submission
-    ('00000000-0000-0000-0000-000000000121', 'SUBMISSION:REVIEW',        'SUBMISSION',   'REVIEW',           'Duyệt bài nộp KPI'),
-    ('00000000-0000-0000-0000-000000000127', 'SUBMISSION:REVIEW_KPI',    'SUBMISSION',   'REVIEW_KPI',       'Xem bài nộp KPI'),
-    ('00000000-0000-0000-0000-000000000122', 'SUBMISSION:CREATE',        'SUBMISSION',   'CREATE',           'Nộp báo cáo KPI'),
-    ('00000000-0000-0000-0000-000000000123', 'SUBMISSION:VIEW_MY',       'SUBMISSION',   'VIEW_MY',          'Xem lịch sử nộp báo cáo'),
-    ('00000000-0000-0000-0000-000000000214', 'SUBMISSION:VIEW',          'SUBMISSION',   'VIEW',             'Xem tất cả bản nộp KPI'),
-    ('00000000-0000-0000-0000-000000000215', 'SUBMISSION:DELETE',        'SUBMISSION',   'DELETE',           'Xoá bản nộp KPI'),
-    ('00000000-0000-0000-0000-000000000216', 'SUBMISSION:UPDATE',        'SUBMISSION',   'UPDATE',           'Chỉnh sửa bản nộp KPI'),
+    ('00000000-0000-0000-0000-000000000121', 'SUBMISSION:REVIEW',        'SUBMISSION',   'REVIEW',           'Cho phép duyệt/từ chối bài nộp kết quả KPI của nhân viên cấp dưới'),
+    ('00000000-0000-0000-0000-000000000127', 'SUBMISSION:REVIEW_KPI',    'SUBMISSION',   'REVIEW_KPI',       'Cho phép xem chi tiết bài nộp KPI của nhân viên để phục vụ việc đánh giá'),
+    ('00000000-0000-0000-0000-000000000122', 'SUBMISSION:CREATE',        'SUBMISSION',   'CREATE',           'Cho phép nộp báo cáo kết quả thực hiện KPI cá nhân kèm minh chứng/tệp đính kèm'),
+    ('00000000-0000-0000-0000-000000000123', 'SUBMISSION:VIEW_MY',       'SUBMISSION',   'VIEW_MY',          'Cho phép xem lại lịch sử các bài nộp báo cáo KPI của chính bản thân'),
+    ('00000000-0000-0000-0000-000000000214', 'SUBMISSION:VIEW',          'SUBMISSION',   'VIEW',             'Cho phép xem toàn bộ bản nộp KPI của tất cả nhân sự trong phạm vi quản lý'),
+    ('00000000-0000-0000-0000-000000000215', 'SUBMISSION:DELETE',        'SUBMISSION',   'DELETE',           'Cho phép xoá bản nộp KPI đã được gửi lên hệ thống'),
+    ('00000000-0000-0000-0000-000000000216', 'SUBMISSION:UPDATE',        'SUBMISSION',   'UPDATE',           'Cho phép chỉnh sửa nội dung bản nộp KPI đã tồn tại'),
     -- Evaluation
-    ('00000000-0000-0000-0000-000000000124', 'EVALUATION:VIEW',          'EVALUATION',   'VIEW',             'Xem kết quả đánh giá'),
-    ('00000000-0000-0000-0000-000000000125', 'EVALUATION:CREATE',        'EVALUATION',   'CREATE',           'Thực hiện đánh giá xếp loại'),
-    ('00000000-0000-0000-0000-000000000217', 'EVALUATION:UPDATE',        'EVALUATION',   'UPDATE',           'Chỉnh sửa đánh giá'),
-    ('00000000-0000-0000-0000-000000000218', 'EVALUATION:DELETE',        'EVALUATION',   'DELETE',           'Xoá đánh giá'),
-    ('00000000-0000-0000-0000-000000000219', 'EVALUATION:VIEW_MY',       'EVALUATION',   'VIEW_MY',          'Xem đánh giá cá nhân'),
+    ('00000000-0000-0000-0000-000000000124', 'EVALUATION:VIEW',          'EVALUATION',   'VIEW',             'Cho phép xem kết quả đánh giá, xếp loại KPI của nhân sự trong phạm vi quản lý'),
+    ('00000000-0000-0000-0000-000000000125', 'EVALUATION:CREATE',        'EVALUATION',   'CREATE',           'Cho phép thực hiện đánh giá, chấm điểm và xếp loại kết quả KPI cho nhân viên'),
+    ('00000000-0000-0000-0000-000000000217', 'EVALUATION:UPDATE',        'EVALUATION',   'UPDATE',           'Cho phép chỉnh sửa kết quả đánh giá KPI đã được lập trước đó'),
+    ('00000000-0000-0000-0000-000000000218', 'EVALUATION:DELETE',        'EVALUATION',   'DELETE',           'Cho phép xoá kết quả đánh giá KPI khỏi hệ thống'),
+    ('00000000-0000-0000-0000-000000000219', 'EVALUATION:VIEW_MY',       'EVALUATION',   'VIEW_MY',          'Cho phép xem kết quả đánh giá KPI của chính bản thân người dùng'),
     -- Notification
-    ('00000000-0000-0000-0000-000000000126', 'NOTIF:VIEW',               'NOTIFICATION', 'VIEW',             'Xem thông báo'),
-    ('00000000-0000-0000-0000-000000000220', 'NOTIF:MANAGE',             'NOTIFICATION', 'MANAGE',           'Quản lý thông báo hệ thống'),
+    ('00000000-0000-0000-0000-000000000126', 'NOTIF:VIEW',               'NOTIFICATION', 'VIEW',             'Cho phép xem danh sách thông báo gửi đến tài khoản của mình'),
+    ('00000000-0000-0000-0000-000000000220', 'NOTIF:MANAGE',             'NOTIFICATION', 'MANAGE',           'Cho phép quản lý, soạn và gửi thông báo hệ thống đến người dùng khác'),
     -- AI
-    ('00000000-0000-0000-0000-000000000221', 'AI:SUGGEST_KPI',           'AI',           'SUGGEST_KPI',      'Sử dụng AI gợi ý KPI'),
+    ('00000000-0000-0000-0000-000000000221', 'AI:SUGGEST_KPI',           'AI',           'SUGGEST_KPI',      'Cho phép sử dụng tính năng trí tuệ nhân tạo để gợi ý nội dung, chỉ tiêu KPI tự động'),
     -- Policy
-    ('00000000-0000-0000-0000-000000000222', 'POLICY:VIEW',              'POLICY',       'VIEW',             'Xem chính sách bảo mật'),
-    ('00000000-0000-0000-0000-000000000223', 'POLICY:CREATE',            'POLICY',       'CREATE',           'Tạo chính sách'),
-    ('00000000-0000-0000-0000-000000000224', 'POLICY:UPDATE',            'POLICY',       'UPDATE',           'Cập nhật chính sách'),
-    ('00000000-0000-0000-0000-000000000225', 'POLICY:DELETE',            'POLICY',       'DELETE',           'Xoá chính sách'),
-    ('00000000-0000-0000-0000-000000000226', 'POLICY:ASSIGN',            'POLICY',       'ASSIGN',           'Gán chính sách cho vai trò'),
+    ('00000000-0000-0000-0000-000000000222', 'POLICY:VIEW',              'POLICY',       'VIEW',             'Cho phép xem nội dung các chính sách, quy định nội bộ của tổ chức'),
+    ('00000000-0000-0000-0000-000000000223', 'POLICY:CREATE',            'POLICY',       'CREATE',           'Cho phép soạn thảo, tạo mới chính sách/quy định nội bộ'),
+    ('00000000-0000-0000-0000-000000000224', 'POLICY:UPDATE',            'POLICY',       'UPDATE',           'Cho phép chỉnh sửa nội dung chính sách/quy định đã ban hành'),
+    ('00000000-0000-0000-0000-000000000225', 'POLICY:DELETE',            'POLICY',       'DELETE',           'Cho phép xoá chính sách/quy định khỏi hệ thống'),
+    ('00000000-0000-0000-0000-000000000226', 'POLICY:ASSIGN',            'POLICY',       'ASSIGN',           'Cho phép gán chính sách/quy định áp dụng cho từng vai trò cụ thể'),
     -- Stats
-    ('00000000-0000-0000-0000-000000000227', 'STATS:VIEW_ORG',           'STATS',        'VIEW_ORG',         'Xem thống kê theo phòng ban'),
-    ('00000000-0000-0000-0000-000000000228', 'STATS:VIEW_EMPLOYEE',      'STATS',        'VIEW_EMPLOYEE',    'Xem thống kê nhân viên'),
-    ('00000000-0000-0000-0000-000000000229', 'STATS:VIEW_MY',            'STATS',        'VIEW_MY',          'Xem tiến độ cá nhân'),
+    ('00000000-0000-0000-0000-000000000227', 'STATS:VIEW_ORG',           'STATS',        'VIEW_ORG',         'Cho phép xem số liệu thống kê, báo cáo tổng hợp theo từng đơn vị/phòng ban'),
+    ('00000000-0000-0000-0000-000000000228', 'STATS:VIEW_EMPLOYEE',      'STATS',        'VIEW_EMPLOYEE',    'Cho phép xem số liệu thống kê kết quả KPI chi tiết theo từng nhân viên'),
+    ('00000000-0000-0000-0000-000000000229', 'STATS:VIEW_MY',            'STATS',        'VIEW_MY',          'Cho phép xem tiến độ, số liệu thống kê KPI của chính bản thân người dùng'),
     -- System
-    ('00000000-0000-0000-0000-000000000230', 'SYSTEM:ADMIN',             'SYSTEM',       'ADMIN',            'Quyền quản trị toàn hệ thống (bypass phạm vi đơn vị)'),
+    ('00000000-0000-0000-0000-000000000230', 'SYSTEM:ADMIN',             'SYSTEM',       'ADMIN',            'Quyền quản trị toàn hệ thống, cho phép bỏ qua mọi giới hạn phạm vi đơn vị/tổ chức — chỉ cấp cho quản trị viên cao nhất'),
     -- User Role
-    ('00000000-0000-0000-0000-000000000231', 'USER_ROLE:VIEW',           'USER_ROLE',    'VIEW',             'Xem gán vai trò người dùng'),
-    ('00000000-0000-0000-0000-000000000232', 'USER_ROLE:ASSIGN',         'USER_ROLE',    'ASSIGN',           'Gán vai trò cho người dùng'),
-    ('00000000-0000-0000-0000-000000000233', 'USER_ROLE:REVOKE',         'USER_ROLE',    'REVOKE',           'Thu hồi vai trò người dùng'),
+    ('00000000-0000-0000-0000-000000000231', 'USER_ROLE:VIEW',           'USER_ROLE',    'VIEW',             'Cho phép xem danh sách vai trò đang được gán cho từng người dùng'),
+    ('00000000-0000-0000-0000-000000000232', 'USER_ROLE:ASSIGN',         'USER_ROLE',    'ASSIGN',           'Cho phép gán vai trò mới cho người dùng trong tổ chức'),
+    ('00000000-0000-0000-0000-000000000233', 'USER_ROLE:REVOKE',         'USER_ROLE',    'REVOKE',           'Cho phép thu hồi (gỡ bỏ) vai trò đã gán khỏi người dùng'),
     -- Attachment
-    ('00000000-0000-0000-0000-000000000234', 'ATTACHMENT:UPLOAD',        'ATTACHMENT',   'UPLOAD',           'Upload tệp đính kèm'),
-    ('00000000-0000-0000-0000-000000000235', 'ATTACHMENT:DELETE',        'ATTACHMENT',   'DELETE',           'Xoá tệp đính kèm'),
+    ('00000000-0000-0000-0000-000000000234', 'ATTACHMENT:UPLOAD',        'ATTACHMENT',   'UPLOAD',           'Cho phép tải lên tệp đính kèm (minh chứng, tài liệu...) cho các bản nộp KPI'),
+    ('00000000-0000-0000-0000-000000000235', 'ATTACHMENT:DELETE',        'ATTACHMENT',   'DELETE',           'Cho phép xoá tệp đính kèm đã tải lên hệ thống'),
     -- Reminder
-    ('00000000-0000-0000-0000-000000000237', 'REMINDER:SEND',            'REMINDER',     'SEND',             'Gửi thông báo nhắc nhở nhân viên'),
+    ('00000000-0000-0000-0000-000000000237', 'REMINDER:SEND',            'REMINDER',     'SEND',             'Cho phép gửi thông báo nhắc nhở nhân viên về tiến độ nộp/hoàn thành KPI'),
     -- Adjustment (used in PERSONAL_PERMS / UNIT_HEAD_PERSONAL_PERMS)
-    ('00000000-0000-0000-0000-000000000239', 'ADJUSTMENT:VIEW_MY',       'ADJUSTMENT',   'VIEW_MY',          'Xem yêu cầu điều chỉnh cá nhân')
+    ('00000000-0000-0000-0000-000000000239', 'ADJUSTMENT:VIEW_MY',       'ADJUSTMENT',   'VIEW_MY',          'Cho phép xem các yêu cầu điều chỉnh chỉ tiêu KPI do chính bản thân gửi lên')
 ON CONFLICT (code) DO NOTHING;
 
 
@@ -189,7 +190,7 @@ WHERE code IN (
     'USER:VIEW', 'USER:CREATE', 'USER:UPDATE', 'USER:DELETE', 'USER:IMPORT',
     'ROLE:VIEW', 'ROLE:ASSIGN', 'ROLE:CREATE', 'ROLE:UPDATE',
     'PERMISSION:VIEW',
-    'KPI:VIEW', 'KPI:CREATE', 'KPI:UPDATE', 'KPI:DELETE', 'KPI:APPROVE_CRITERIA', 'KPI:APPROVE_ADJUSTMENT',
+    'KPI:VIEW', 'KPI:CREATE', 'KPI:UPDATE', 'KPI:DELETE', 'KPI:APPROVE_CRITERIA', 'KPI:APPROVE_ADJUSTMENT', 'KPI:APPROVE_OWN',
     'KPI:IMPORT', 'KPI:SUBMIT', 'KPI:REJECT',
     'SUBMISSION:REVIEW', 'SUBMISSION:VIEW', 'SUBMISSION:DELETE', 'SUBMISSION:UPDATE',
     'EVALUATION:VIEW', 'EVALUATION:CREATE', 'EVALUATION:UPDATE', 'EVALUATION:DELETE',
@@ -219,7 +220,7 @@ WHERE code IN (
     'USER:VIEW', 'USER:CREATE', 'USER:UPDATE', 'USER:IMPORT',
     'ROLE:VIEW', 'ROLE:ASSIGN', 'ROLE:CREATE', 'ROLE:UPDATE',
     'PERMISSION:VIEW',
-    'KPI:VIEW', 'KPI:CREATE', 'KPI:UPDATE', 'KPI:APPROVE_CRITERIA', 'KPI:APPROVE_ADJUSTMENT',
+    'KPI:VIEW', 'KPI:CREATE', 'KPI:UPDATE', 'KPI:APPROVE_CRITERIA', 'KPI:APPROVE_ADJUSTMENT', 'KPI:APPROVE_OWN',
     'KPI:IMPORT', 'KPI:SUBMIT', 'KPI:REJECT',
     'SUBMISSION:REVIEW', 'SUBMISSION:VIEW', 'SUBMISSION:UPDATE',
     'EVALUATION:VIEW', 'EVALUATION:CREATE', 'EVALUATION:UPDATE',
@@ -248,7 +249,7 @@ WHERE code IN (
     'DASHBOARD:VIEW',
     'ORG:VIEW_TREE',
     'USER:VIEW_LIST',
-    'KPI:VIEW', 'KPI:CREATE', 'KPI:UPDATE', 'KPI:DELETE', 'KPI:APPROVE_CRITERIA', 'KPI:APPROVE_ADJUSTMENT',
+    'KPI:VIEW', 'KPI:CREATE', 'KPI:UPDATE', 'KPI:DELETE', 'KPI:APPROVE_CRITERIA', 'KPI:APPROVE_ADJUSTMENT', 'KPI:APPROVE_OWN',
     'KPI:IMPORT', 'KPI:SUBMIT', 'KPI:REJECT',
     'SUBMISSION:VIEW', 'SUBMISSION:REVIEW', 'SUBMISSION:REVIEW_KPI',
     'EVALUATION:VIEW', 'EVALUATION:CREATE',
@@ -298,7 +299,7 @@ WHERE code IN (
     'DASHBOARD:VIEW',
     'ORG:VIEW_TREE',
     'USER:VIEW_LIST',
-    'KPI:VIEW', 'KPI:CREATE', 'KPI:UPDATE', 'KPI:DELETE', 'KPI:APPROVE_CRITERIA', 'KPI:APPROVE_ADJUSTMENT',
+    'KPI:VIEW', 'KPI:CREATE', 'KPI:UPDATE', 'KPI:DELETE', 'KPI:APPROVE_CRITERIA', 'KPI:APPROVE_ADJUSTMENT', 'KPI:APPROVE_OWN',
     'KPI:IMPORT', 'KPI:SUBMIT', 'KPI:REJECT',
     'SUBMISSION:VIEW', 'SUBMISSION:REVIEW', 'SUBMISSION:REVIEW_KPI',
     'EVALUATION:VIEW', 'EVALUATION:CREATE',
@@ -1689,13 +1690,13 @@ ON CONFLICT (id) DO NOTHING;
 
 -- 7. ROLE PERMISSIONS
 INSERT INTO role_permissions (role_id, permission_id)
-SELECT 'c3000000-0000-0000-0000-000000000001', id FROM permissions WHERE code IN ('DASHBOARD:VIEW', 'COMPANY:VIEW', 'COMPANY:UPDATE', 'ORG:VIEW', 'ORG:CREATE', 'ORG:UPDATE', 'ORG:DELETE', 'USER:VIEW', 'USER:CREATE', 'USER:UPDATE', 'USER:DELETE', 'USER:IMPORT', 'ROLE:VIEW', 'ROLE:ASSIGN', 'ROLE:CREATE', 'ROLE:UPDATE', 'PERMISSION:VIEW', 'KPI:VIEW', 'KPI:CREATE', 'KPI:UPDATE', 'KPI:DELETE', 'KPI:APPROVE_CRITERIA', 'KPI:APPROVE_ADJUSTMENT', 'KPI:IMPORT', 'KPI:SUBMIT', 'KPI:REJECT', 'KPI_PERIOD:VIEW', 'KPI_PERIOD:CREATE', 'KPI_PERIOD:UPDATE', 'KPI_PERIOD:DELETE', 'SUBMISSION:REVIEW', 'SUBMISSION:VIEW', 'SUBMISSION:DELETE', 'SUBMISSION:UPDATE', 'EVALUATION:VIEW', 'EVALUATION:CREATE', 'EVALUATION:UPDATE', 'EVALUATION:DELETE', 'NOTIF:VIEW', 'NOTIF:MANAGE', 'AI:SUGGEST_KPI', 'POLICY:VIEW', 'POLICY:CREATE', 'POLICY:UPDATE', 'POLICY:ASSIGN', 'STATS:VIEW_ORG', 'STATS:VIEW_EMPLOYEE', 'USER_ROLE:VIEW', 'USER_ROLE:ASSIGN', 'USER_ROLE:REVOKE', 'ATTACHMENT:UPLOAD', 'ATTACHMENT:DELETE', 'REMINDER:SEND', 'SYSTEM:ADMIN', 'COMPANY:DELETE', 'ROLE:DELETE', 'POLICY:DELETE', 'PERMISSION:EDIT')
+SELECT 'c3000000-0000-0000-0000-000000000001', id FROM permissions WHERE code IN ('DASHBOARD:VIEW', 'COMPANY:VIEW', 'COMPANY:UPDATE', 'ORG:VIEW', 'ORG:CREATE', 'ORG:UPDATE', 'ORG:DELETE', 'USER:VIEW', 'USER:CREATE', 'USER:UPDATE', 'USER:DELETE', 'USER:IMPORT', 'ROLE:VIEW', 'ROLE:ASSIGN', 'ROLE:CREATE', 'ROLE:UPDATE', 'PERMISSION:VIEW', 'KPI:VIEW', 'KPI:CREATE', 'KPI:UPDATE', 'KPI:DELETE', 'KPI:APPROVE_CRITERIA', 'KPI:APPROVE_ADJUSTMENT', 'KPI:APPROVE_OWN', 'KPI:IMPORT', 'KPI:SUBMIT', 'KPI:REJECT', 'KPI_PERIOD:VIEW', 'KPI_PERIOD:CREATE', 'KPI_PERIOD:UPDATE', 'KPI_PERIOD:DELETE', 'SUBMISSION:REVIEW', 'SUBMISSION:VIEW', 'SUBMISSION:DELETE', 'SUBMISSION:UPDATE', 'EVALUATION:VIEW', 'EVALUATION:CREATE', 'EVALUATION:UPDATE', 'EVALUATION:DELETE', 'NOTIF:VIEW', 'NOTIF:MANAGE', 'AI:SUGGEST_KPI', 'POLICY:VIEW', 'POLICY:CREATE', 'POLICY:UPDATE', 'POLICY:ASSIGN', 'STATS:VIEW_ORG', 'STATS:VIEW_EMPLOYEE', 'USER_ROLE:VIEW', 'USER_ROLE:ASSIGN', 'USER_ROLE:REVOKE', 'ATTACHMENT:UPLOAD', 'ATTACHMENT:DELETE', 'REMINDER:SEND', 'SYSTEM:ADMIN', 'COMPANY:DELETE', 'ROLE:DELETE', 'POLICY:DELETE', 'PERMISSION:EDIT')
 ON CONFLICT DO NOTHING;
 INSERT INTO role_permissions (role_id, permission_id)
-SELECT 'c3000000-0000-0000-0000-000000000002', id FROM permissions WHERE code IN ('DASHBOARD:VIEW', 'COMPANY:VIEW', 'ORG:VIEW', 'ORG:CREATE', 'ORG:UPDATE', 'USER:VIEW', 'USER:CREATE', 'USER:UPDATE', 'USER:IMPORT', 'ROLE:VIEW', 'ROLE:ASSIGN', 'ROLE:CREATE', 'ROLE:UPDATE', 'PERMISSION:VIEW', 'KPI:VIEW', 'KPI:CREATE', 'KPI:UPDATE', 'KPI:APPROVE_CRITERIA', 'KPI:APPROVE_ADJUSTMENT', 'KPI:IMPORT', 'KPI:SUBMIT', 'KPI:REJECT', 'KPI_PERIOD:VIEW', 'KPI_PERIOD:CREATE', 'KPI_PERIOD:UPDATE', 'SUBMISSION:REVIEW', 'SUBMISSION:VIEW', 'SUBMISSION:UPDATE', 'EVALUATION:VIEW', 'EVALUATION:CREATE', 'EVALUATION:UPDATE', 'NOTIF:VIEW', 'NOTIF:MANAGE', 'AI:SUGGEST_KPI', 'POLICY:VIEW', 'POLICY:CREATE', 'POLICY:UPDATE', 'POLICY:ASSIGN', 'STATS:VIEW_ORG', 'STATS:VIEW_EMPLOYEE', 'USER_ROLE:VIEW', 'USER_ROLE:ASSIGN', 'ATTACHMENT:UPLOAD', 'REMINDER:SEND', 'COMPANY:DELETE', 'ROLE:DELETE', 'POLICY:DELETE', 'PERMISSION:EDIT')
+SELECT 'c3000000-0000-0000-0000-000000000002', id FROM permissions WHERE code IN ('DASHBOARD:VIEW', 'COMPANY:VIEW', 'ORG:VIEW', 'ORG:CREATE', 'ORG:UPDATE', 'USER:VIEW', 'USER:CREATE', 'USER:UPDATE', 'USER:IMPORT', 'ROLE:VIEW', 'ROLE:ASSIGN', 'ROLE:CREATE', 'ROLE:UPDATE', 'PERMISSION:VIEW', 'KPI:VIEW', 'KPI:CREATE', 'KPI:UPDATE', 'KPI:APPROVE_CRITERIA', 'KPI:APPROVE_ADJUSTMENT', 'KPI:APPROVE_OWN', 'KPI:IMPORT', 'KPI:SUBMIT', 'KPI:REJECT', 'KPI_PERIOD:VIEW', 'KPI_PERIOD:CREATE', 'KPI_PERIOD:UPDATE', 'SUBMISSION:REVIEW', 'SUBMISSION:VIEW', 'SUBMISSION:UPDATE', 'EVALUATION:VIEW', 'EVALUATION:CREATE', 'EVALUATION:UPDATE', 'NOTIF:VIEW', 'NOTIF:MANAGE', 'AI:SUGGEST_KPI', 'POLICY:VIEW', 'POLICY:CREATE', 'POLICY:UPDATE', 'POLICY:ASSIGN', 'STATS:VIEW_ORG', 'STATS:VIEW_EMPLOYEE', 'USER_ROLE:VIEW', 'USER_ROLE:ASSIGN', 'ATTACHMENT:UPLOAD', 'REMINDER:SEND', 'COMPANY:DELETE', 'ROLE:DELETE', 'POLICY:DELETE', 'PERMISSION:EDIT')
 ON CONFLICT DO NOTHING;
 INSERT INTO role_permissions (role_id, permission_id)
-SELECT 'c4000000-0000-0000-0000-000000000001', id FROM permissions WHERE code IN ('DASHBOARD:VIEW', 'ORG:VIEW_TREE', 'USER:VIEW_LIST', 'KPI:VIEW', 'KPI:CREATE', 'KPI:UPDATE', 'KPI:DELETE', 'KPI:APPROVE_CRITERIA', 'KPI:APPROVE_ADJUSTMENT', 'KPI:IMPORT', 'KPI:SUBMIT', 'KPI:REJECT', 'KPI_PERIOD:VIEW', 'SUBMISSION:VIEW', 'SUBMISSION:REVIEW', 'SUBMISSION:REVIEW_KPI', 'EVALUATION:VIEW', 'EVALUATION:CREATE', 'NOTIF:VIEW', 'AI:SUGGEST_KPI', 'STATS:VIEW_EMPLOYEE', 'ATTACHMENT:UPLOAD', 'REMINDER:SEND', 'KPI:VIEW_MY', 'SUBMISSION:VIEW_MY', 'STATS:VIEW_MY', 'ADJUSTMENT:VIEW_MY')
+SELECT 'c4000000-0000-0000-0000-000000000001', id FROM permissions WHERE code IN ('DASHBOARD:VIEW', 'ORG:VIEW_TREE', 'USER:VIEW_LIST', 'KPI:VIEW', 'KPI:CREATE', 'KPI:UPDATE', 'KPI:DELETE', 'KPI:APPROVE_CRITERIA', 'KPI:APPROVE_ADJUSTMENT', 'KPI:APPROVE_OWN', 'KPI:IMPORT', 'KPI:SUBMIT', 'KPI:REJECT', 'KPI_PERIOD:VIEW', 'SUBMISSION:VIEW', 'SUBMISSION:REVIEW', 'SUBMISSION:REVIEW_KPI', 'EVALUATION:VIEW', 'EVALUATION:CREATE', 'NOTIF:VIEW', 'AI:SUGGEST_KPI', 'STATS:VIEW_EMPLOYEE', 'ATTACHMENT:UPLOAD', 'REMINDER:SEND', 'KPI:VIEW_MY', 'SUBMISSION:VIEW_MY', 'STATS:VIEW_MY', 'ADJUSTMENT:VIEW_MY')
 ON CONFLICT DO NOTHING;
 INSERT INTO role_permissions (role_id, permission_id)
 SELECT 'c4000000-0000-0000-0000-000000000002', id FROM permissions WHERE code IN ('DASHBOARD:VIEW', 'ORG:VIEW_TREE', 'USER:VIEW_LIST', 'KPI:VIEW', 'KPI:CREATE','KPI:UPDATE', 'KPI:DELETE', 'KPI:IMPORT', 'KPI:SUBMIT', 'KPI:REJECT', 'KPI_PERIOD:VIEW', 'SUBMISSION:VIEW', 'SUBMISSION:REVIEW_KPI', 'EVALUATION:VIEW', 'EVALUATION:CREATE', 'NOTIF:VIEW', 'AI:SUGGEST_KPI', 'STATS:VIEW_EMPLOYEE', 'ATTACHMENT:UPLOAD', 'REMINDER:SEND', 'KPI:VIEW_MY', 'SUBMISSION:VIEW_MY', 'EVALUATION:VIEW_MY', 'STATS:VIEW_MY', 'ADJUSTMENT:VIEW_MY')

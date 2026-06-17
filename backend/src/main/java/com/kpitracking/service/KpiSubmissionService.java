@@ -67,6 +67,12 @@ public class KpiSubmissionService {
             throw new BusinessException("Chỉ có thể nộp báo cáo cho những chỉ tiêu KPI đã được PHÊ DUYỆT hoặc ĐÃ ĐIỀU CHỈNH");
         }
 
+        boolean isDecompositionParent = kpi.getChildren() != null && kpi.getChildren().stream()
+                .anyMatch(c -> c.getParentRelationType() == com.kpitracking.enums.KpiParentRelationType.DECOMPOSITION);
+        if (isDecompositionParent) {
+            throw new BusinessException("KPI này đã được chia thành các KPI con. Vui lòng nộp báo cáo ở từng KPI con tương ứng.");
+        }
+
         boolean isAssignee = kpi.getAssignees().stream()
                 .anyMatch(u -> u.getId().equals(currentUser.getId()));
         if (!isAssignee) {

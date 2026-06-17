@@ -22,11 +22,13 @@ public interface KpiCriteriaMapper {
     @AfterMapping
     default void mapIsReverseKpi(KpiCriteria kpi, @MappingTarget KpiCriteriaResponse response) {
         response.setIsReverseKpi(kpi.getIsReverseKpi());
+        response.setIsBonusKpi(kpi.getIsBonusKpi());
     }
 
     @AfterMapping
     default void mapIsReverseKpiSummary(KpiCriteria kpi, @MappingTarget KpiCriteriaSummaryResponse response) {
         response.setIsReverseKpi(kpi.getIsReverseKpi());
+        response.setIsBonusKpi(kpi.getIsBonusKpi());
     }
     @Mapping(source = "orgUnit.id", target = "orgUnitId")
     @Mapping(source = "orgUnit.name", target = "orgUnitName")
@@ -51,6 +53,7 @@ public interface KpiCriteriaMapper {
     @Mapping(target = "hasChildren", expression = "java(kpiCriteria.getChildren() != null && !kpiCriteria.getChildren().isEmpty())")
     @Mapping(target = "delegatedToNames", expression = "java(mapDelegatedNames(kpiCriteria))")
     @Mapping(target = "delegatedToIds", expression = "java(mapDelegatedIds(kpiCriteria))")
+    @Mapping(target = "childrenWeightTotal", expression = "java(sumDecompositionChildrenWeight(kpiCriteria))")
     KpiCriteriaResponse toResponse(KpiCriteria kpiCriteria);
 
     @Mapping(source = "orgUnit.name", target = "orgUnitName")
@@ -136,5 +139,13 @@ public interface KpiCriteriaMapper {
                 .map(com.kpitracking.entity.User::getId)
                 .distinct()
                 .toList();
+    }
+
+    default Double sumDecompositionChildrenWeight(com.kpitracking.entity.KpiCriteria kpi) {
+        if (kpi.getChildren() == null || kpi.getChildren().isEmpty()) return 0.0;
+        return kpi.getChildren().stream()
+                .filter(child -> child.getParentRelationType() == com.kpitracking.enums.KpiParentRelationType.DECOMPOSITION)
+                .mapToDouble(child -> child.getWeight() != null ? child.getWeight() : 0.0)
+                .sum();
     }
 }

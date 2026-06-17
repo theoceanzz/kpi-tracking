@@ -168,7 +168,12 @@ public class EvaluationService {
         boolean enableWaterfall = userUnit.getOrgHierarchyLevel().getOrganization().getEnableWaterfall();
         
         double total = 0.0;
+        double bonusTotal = 0.0;
         for (KpiCriteria kpi : kpis) {
+            boolean isDecompositionParent = kpi.getChildren() != null && kpi.getChildren().stream()
+                    .anyMatch(c -> c.getParentRelationType() == com.kpitracking.enums.KpiParentRelationType.DECOMPOSITION);
+            if (isDecompositionParent) continue; // Parent is just a grouping label; its children are scored individually
+
             if (kpi.getTargetValue() != null && kpi.getTargetValue() > 0 && kpi.getWeight() != null) {
                 double actual = calculateKpiActualValue(kpi, userId, enableWaterfall);
                 boolean isInverse = Boolean.TRUE.equals(kpi.getIsReverseKpi());
@@ -180,11 +185,16 @@ public class EvaluationService {
                 }
                 ratio = Math.min(ratio, 1.5);
                 double score = ratio * kpi.getWeight() * (maxScore / 100.0);
-                total += score;
+                if (Boolean.TRUE.equals(kpi.getIsBonusKpi())) {
+                    bonusTotal += score;
+                } else {
+                    total += score;
+                }
             }
         }
-                
-        return Math.min(maxScore, (double) Math.round(total));
+
+        // Bonus KPIs are added on top after capping the regular score at maxScore
+        return Math.min(maxScore, (double) Math.round(total)) + (double) Math.round(bonusTotal);
     }
 
     private double calculateKpiActualValue(KpiCriteria kpi, UUID targetUserId, boolean enableWaterfall) {

@@ -1,6 +1,7 @@
 package com.kpitracking.dto.request.kpi;
 
 import com.kpitracking.enums.KpiFrequency;
+import com.kpitracking.enums.KpiParentRelationType;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
@@ -40,6 +41,8 @@ public class CreateKpiCriteriaRequest {
 
     private Double minimumValue;
     private Boolean isReverseKpi;
+    private Boolean isBonusKpi;
     private UUID keyResultId;
     private UUID parentId;
+    private KpiParentRelationType parentRelationType;
 }

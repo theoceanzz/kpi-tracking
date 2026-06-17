@@ -81,8 +81,7 @@ public class KpiCriteriaService {
     @Transactional
     public KpiCriteriaResponse createKpiCriteria(CreateKpiCriteriaRequest request) {
         User currentUser = getCurrentUser();
-        boolean canApprove = permissionChecker.hasPermission(currentUser.getId(), "KPI:APPROVE_CRITERIA") 
-                && permissionChecker.hasPermission(currentUser.getId(), "COMPANY:VIEW");
+        boolean canApprove = permissionChecker.hasPermission(currentUser.getId(), "KPI:APPROVE_OWN");
 
         KpiStatus initialStatus = canApprove ? KpiStatus.APPROVED : KpiStatus.DRAFT;
 
@@ -156,6 +155,7 @@ public class KpiCriteriaService {
                 .targetValue(request.getTargetValue())
                 .minimumValue(request.getMinimumValue())
                 .isReverseKpi(Boolean.TRUE.equals(request.getIsReverseKpi()))
+                .isBonusKpi(Boolean.TRUE.equals(request.getIsBonusKpi()))
                 .unit(request.getUnit())
                 .frequency(request.getFrequency())
                 .status(status)
@@ -166,7 +166,33 @@ public class KpiCriteriaService {
         if (request.getParentId() != null) {
             KpiCriteria parent = kpiCriteriaRepository.findById(request.getParentId())
                     .orElseThrow(() -> new ResourceNotFoundException("KPI Cha", "id", request.getParentId()));
+
+            com.kpitracking.enums.KpiParentRelationType relationType = request.getParentRelationType() != null
+                    ? request.getParentRelationType()
+                    : com.kpitracking.enums.KpiParentRelationType.DECOMPOSITION;
+
+            if (relationType == com.kpitracking.enums.KpiParentRelationType.DECOMPOSITION) {
+                boolean isParentOwner = parent.getCreatedBy() != null && parent.getCreatedBy().getId().equals(creator.getId());
+                boolean isParentAssignee = parent.getAssignees() != null && parent.getAssignees().stream().anyMatch(a -> a.getId().equals(creator.getId()));
+                if (!isParentOwner && !isParentAssignee && !permissionChecker.isGlobalAdmin(creator.getId())) {
+                    throw new ForbiddenException("Bạn chỉ có thể chia nhỏ KPI do chính mình tạo hoặc được giao thực hiện");
+                }
+
+                double siblingWeight = parent.getChildren() != null ? parent.getChildren().stream()
+                        .filter(c -> c.getParentRelationType() == com.kpitracking.enums.KpiParentRelationType.DECOMPOSITION)
+                        .mapToDouble(c -> c.getWeight() != null ? c.getWeight() : 0.0)
+                        .sum() : 0.0;
+                double newWeight = request.getWeight() != null ? request.getWeight() : 0.0;
+                double parentWeight = parent.getWeight() != null ? parent.getWeight() : 0.0;
+
+                if (siblingWeight + newWeight > parentWeight + 0.001) {
+                    throw new BusinessException("Tổng trọng số các KPI con (" + (siblingWeight + newWeight) +
+                            "%) vượt quá trọng số KPI cha (" + parentWeight + "%)");
+                }
+            }
+
             kpi.setParent(parent);
+            kpi.setParentRelationType(relationType);
         }
 
         if (request.getKeyResultId() != null) {
@@ -280,8 +306,28 @@ public class KpiCriteriaService {
         if (!canView) {
             throw new ForbiddenException("Bạn không có quyền xem KPI này");
         }
-        
+
         return kpiCriteriaMapper.toResponse(kpi);
+    }
+
+    @Transactional(readOnly = true)
+    public List<KpiCriteriaResponse> getChildren(UUID kpiId) {
+        User currentUser = getCurrentUser();
+        KpiCriteria kpi = kpiCriteriaRepository.findById(kpiId)
+                .orElseThrow(() -> new ResourceNotFoundException("Chỉ tiêu KPI", "id", kpiId));
+
+        boolean isCreator = kpi.getCreatedBy().getId().equals(currentUser.getId());
+        boolean isAssignee = kpi.getAssignees().stream().anyMatch(a -> a.getId().equals(currentUser.getId()));
+        boolean isSameUnit = !userRoleOrgUnitRepository.findByUserIdAndOrgUnitId(currentUser.getId(), kpi.getOrgUnit().getId()).isEmpty();
+
+        boolean canView = isCreator || isAssignee || (isSameUnit && kpi.getStatus() == KpiStatus.APPROVED);
+        if (!canView) {
+            throw new ForbiddenException("Bạn không có quyền xem KPI này");
+        }
+
+        return kpiCriteriaRepository.findByParentId(kpiId).stream()
+                .map(kpiCriteriaMapper::toResponse)
+                .toList();
     }
 
     @Transactional
@@ -319,6 +365,7 @@ public class KpiCriteriaService {
         if (request.getTargetValue() != null) kpi.setTargetValue(request.getTargetValue());
         if (request.getMinimumValue() != null) kpi.setMinimumValue(request.getMinimumValue());
         if (request.getIsReverseKpi() != null) kpi.setIsReverseKpi(request.getIsReverseKpi());
+        if (request.getIsBonusKpi() != null) kpi.setIsBonusKpi(request.getIsBonusKpi());
         if (request.getUnit() != null) kpi.setUnit(request.getUnit());
 
         // When pending approval, only basic fields above are editable
@@ -390,6 +437,7 @@ public class KpiCriteriaService {
                                 .targetValue(dividedTarget) // Divided evenly
                                 .minimumValue(dividedMinimum) // Divided evenly
                                 .isReverseKpi(Boolean.TRUE.equals(kpi.getIsReverseKpi()))
+                                .isBonusKpi(Boolean.TRUE.equals(kpi.getIsBonusKpi()))
                                 .unit(kpi.getUnit())
                                 .frequency(kpi.getFrequency())
                                 .status(KpiStatus.APPROVED) // Auto approve cascaded KPIs
@@ -397,6 +445,7 @@ public class KpiCriteriaService {
                                 .kpiPeriod(kpi.getKpiPeriod())
                                 .orgUnit(kpi.getOrgUnit())
                                 .parent(kpi)
+                                .parentRelationType(com.kpitracking.enums.KpiParentRelationType.DELEGATION)
                                 .assignees(java.util.List.of(staff))
                                 .keyResult(kpi.getKeyResult())
                                 .build();
@@ -432,6 +481,9 @@ public class KpiCriteriaService {
             KpiCriteria parent = kpiCriteriaRepository.findById(request.getParentId())
                     .orElseThrow(() -> new ResourceNotFoundException("KPI Cha", "id", request.getParentId()));
             kpi.setParent(parent);
+            if (request.getParentRelationType() != null) {
+                kpi.setParentRelationType(request.getParentRelationType());
+            }
         }
 
         kpi = kpiCriteriaRepository.save(kpi);
@@ -477,6 +529,19 @@ public class KpiCriteriaService {
 
             if (kpi.getStatus() != KpiStatus.DRAFT && kpi.getStatus() != KpiStatus.REJECTED) {
                 continue;
+            }
+
+            if (kpi.getParent() != null && kpi.getParentRelationType() == com.kpitracking.enums.KpiParentRelationType.DECOMPOSITION) {
+                KpiCriteria parent = kpi.getParent();
+                double siblingWeight = parent.getChildren() != null ? parent.getChildren().stream()
+                        .filter(c -> c.getParentRelationType() == com.kpitracking.enums.KpiParentRelationType.DECOMPOSITION)
+                        .mapToDouble(c -> c.getWeight() != null ? c.getWeight() : 0.0)
+                        .sum() : 0.0;
+                double parentWeight = parent.getWeight() != null ? parent.getWeight() : 0.0;
+                if (Math.abs(siblingWeight - parentWeight) > 0.001) {
+                    throw new BusinessException("Tổng trọng số các KPI con của '" + parent.getName() + "' (" + siblingWeight +
+                            "%) phải bằng chính xác trọng số KPI cha (" + parentWeight + "%) trước khi gửi duyệt");
+                }
             }
 
             kpi.setStatus(KpiStatus.PENDING_APPROVAL);
@@ -637,6 +702,11 @@ public class KpiCriteriaService {
                 .build();
     }
 
+    private boolean hasDecompositionChildren(KpiCriteria kpi) {
+        return kpi.getChildren() != null && kpi.getChildren().stream()
+                .anyMatch(c -> c.getParentRelationType() == com.kpitracking.enums.KpiParentRelationType.DECOMPOSITION);
+    }
+
     @Transactional(readOnly = true)
     public Double calculateTotalWeightByOrgUnit(UUID orgUnitId, UUID kpiPeriodId, List<KpiStatus> statuses) {
         List<KpiCriteria> kpis = kpiCriteriaRepository.findByOrgUnitIdAndKpiPeriodIdAndStatusIn(orgUnitId, kpiPeriodId, statuses);
@@ -645,6 +715,9 @@ public class KpiCriteriaService {
         Map<UUID, Double> userWeights = new HashMap<>();
         
         for (KpiCriteria kpi : kpis) {
+            if (Boolean.TRUE.equals(kpi.getIsBonusKpi())) continue; // Bonus KPIs don't count toward the 100% requirement
+            if (hasDecompositionChildren(kpi)) continue; // Parent is just a grouping label; its children carry the real weight
+
             Double weight = kpi.getWeight() != null ? kpi.getWeight() : 0.0;
             if (kpi.getAssignees() == null || kpi.getAssignees().isEmpty()) {
                 unassignedWeight += weight;
@@ -765,6 +838,7 @@ public class KpiCriteriaService {
                                 record.isMapped("OrgUnit") ? record.get("OrgUnit") : null,
                                 record.isMapped("KeyResultCode") ? record.get("KeyResultCode") : null,
                                 record.isMapped("IsReverseKpi") ? record.get("IsReverseKpi") : null,
+                                record.isMapped("IsBonusKpi") ? record.get("IsBonusKpi") : null,
                                 kpiPeriod, orgUnit, currentUser, affectedUserPairs, userOrgId);
                             successfulImports++;
                         } catch (Exception e) {
@@ -778,7 +852,7 @@ public class KpiCriteriaService {
                     Row headerRow = sheet.getRow(0);
                     if (headerRow == null) throw new BusinessException("File Excel trống");
 
-                    int nameIdx = -1, descIdx = -1, weightIdx = -1, targetIdx = -1, minIdx = -1, unitIdx = -1, freqIdx = -1, codeIdx = -1, namePeriodIdx = -1, nameOrgIdx = -1, krCodeIdx = -1, isReverseKpiIdx = -1;
+                    int nameIdx = -1, descIdx = -1, weightIdx = -1, targetIdx = -1, minIdx = -1, unitIdx = -1, freqIdx = -1, codeIdx = -1, namePeriodIdx = -1, nameOrgIdx = -1, krCodeIdx = -1, isReverseKpiIdx = -1, isBonusKpiIdx = -1;
                     for (int i = 0; i < headerRow.getLastCellNum(); i++) {
                         String header = headerRow.getCell(i).getStringCellValue().trim();
                         if (header.equalsIgnoreCase("Name")) nameIdx = i;
@@ -793,6 +867,7 @@ public class KpiCriteriaService {
                         else if (header.equalsIgnoreCase("OrgUnit")) nameOrgIdx = i;
                         else if (header.equalsIgnoreCase("KeyResultCode")) krCodeIdx = i;
                         else if (header.equalsIgnoreCase("IsReverseKpi")) isReverseKpiIdx = i;
+                        else if (header.equalsIgnoreCase("IsBonusKpi")) isBonusKpiIdx = i;
                     }
 
                     if (nameIdx == -1 || weightIdx == -1 || targetIdx == -1 || freqIdx == -1 || codeIdx == -1) {
@@ -817,6 +892,7 @@ public class KpiCriteriaService {
                                 nameOrgIdx != -1 ? getCellValueAsString(row.getCell(nameOrgIdx)) : null,
                                 krCodeIdx != -1 ? getCellValueAsString(row.getCell(krCodeIdx)) : null,
                                 isReverseKpiIdx != -1 ? getCellValueAsString(row.getCell(isReverseKpiIdx)) : null,
+                                isBonusKpiIdx != -1 ? getCellValueAsString(row.getCell(isBonusKpiIdx)) : null,
                                 kpiPeriod, orgUnit, currentUser, affectedUserPairs, userOrgId
                             );
                             successfulImports++;
@@ -879,7 +955,7 @@ public class KpiCriteriaService {
     }
 
     private void processKpiRow(String name, String desc, String weight, String target, String min, String unit, String freq, String empCode,
-                              String periodName, String orgName, String krCode, String isReverseKpiStr,
+                              String periodName, String orgName, String krCode, String isReverseKpiStr, String isBonusKpiStr,
                               com.kpitracking.entity.KpiPeriod defaultPeriod, OrgUnit defaultUnit, User creator,
                               java.util.Set<String> affectedUserPairs, UUID organizationId) {
         if (name == null || name.isBlank()) throw new BusinessException("Tên chỉ tiêu là bắt buộc");
@@ -983,8 +1059,7 @@ public class KpiCriteriaService {
 
             validateWaterfallAssignment(creator, finalUnit, assignees);
 
-            boolean canApprove = permissionChecker.hasPermissionInOrgUnit(creator.getId(), "KPI:APPROVE_CRITERIA", finalUnit.getId())
-                    && permissionChecker.hasPermission(creator.getId(), "COMPANY:VIEW");
+            boolean canApprove = permissionChecker.hasPermission(creator.getId(), "KPI:APPROVE_OWN");
 
             KpiCriteria kpi = KpiCriteria.builder()
                     .name(name)
@@ -993,6 +1068,7 @@ public class KpiCriteriaService {
                     .targetValue(targetVal)
                     .minimumValue(min != null && !min.isBlank() ? Double.parseDouble(min) : null)
                     .isReverseKpi(parseBoolean(isReverseKpiStr))
+                    .isBonusKpi(parseBoolean(isBonusKpiStr))
                     .unit(unit)
                     .frequency(frequency)
                     .assignees(assignees)

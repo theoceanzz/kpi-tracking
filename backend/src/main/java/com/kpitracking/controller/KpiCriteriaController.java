@@ -138,6 +138,14 @@ public class KpiCriteriaController {
         return ResponseEntity.ok(ApiResponse.success(response));
     }
 
+    @GetMapping("/{kpiId}/children")
+    @PreAuthorize("hasAuthority('KPI:VIEW')")
+    @Operation(summary = "Get child KPIs of a KPI criteria")
+    public ResponseEntity<ApiResponse<java.util.List<KpiCriteriaResponse>>> getChildren(@PathVariable UUID kpiId) {
+        java.util.List<KpiCriteriaResponse> response = kpiCriteriaService.getChildren(kpiId);
+        return ResponseEntity.ok(ApiResponse.success(response));
+    }
+
     @GetMapping("/total-weight")
     @Operation(summary = "Get total weight of KPIs for an org unit or user and period")
     public ResponseEntity<ApiResponse<Double>> getTotalWeight(

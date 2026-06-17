@@ -105,6 +105,11 @@ export default function KpiReviewModal({ open, onClose, kpi, onEdit }: KpiReview
                   ↓ KPI Ngược
                 </span>
               )}
+              {kpi.isBonusKpi && (
+                <span className="inline-flex items-center gap-1 mt-2 ml-2 px-2.5 py-1 rounded-full bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 text-[10px] font-black uppercase tracking-wider border border-emerald-200 dark:border-emerald-800/50">
+                  + KPI Thưởng
+                </span>
+              )}
             </div>
             {kpi.description && (
               <div>

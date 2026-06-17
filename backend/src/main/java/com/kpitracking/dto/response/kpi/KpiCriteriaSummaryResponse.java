@@ -21,4 +21,5 @@ public class KpiCriteriaSummaryResponse {
     private Integer submissionCount;
     private Integer expectedSubmissions;
     private Boolean isReverseKpi;
+    private Boolean isBonusKpi;
 }

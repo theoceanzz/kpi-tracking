@@ -9,7 +9,7 @@ import { parseISO, isAfter } from 'date-fns'
 import {
   Target, Search, Star,
   CheckCircle2, ChevronRight,
-  LayoutGrid, List, ChevronLeft, Settings2, Filter, Calendar, GitBranch
+  LayoutGrid, List, ChevronLeft, Settings2, Filter, Calendar, GitBranch, ChevronDown
 } from 'lucide-react'
 
 import { useAuthStore } from '@/store/authStore'
@@ -27,8 +27,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import PageTour from '@/components/common/PageTour'
 import { myKpiSteps } from '@/components/common/tourSteps'
 import { ObjectiveResponse } from '@/features/okr/types'
-
-
+import { buildKpiRows } from '../utils/kpiTree'
 
 
 
@@ -48,6 +47,7 @@ export default function MyKpiPage() {
   const [editKpi, setEditKpi] = useState<KpiCriteria | null>(null)
   const [selectedObjectiveId, setSelectedObjectiveId] = useState<string>('ALL')
   const [selectedKeyResultId, setSelectedKeyResultId] = useState<string>('ALL')
+  const [collapsedParents, setCollapsedParents] = useState<Set<string>>(new Set())
 
   const { data: periodsData } = useKpiPeriods({ organizationId: user?.memberships?.[0]?.organizationId })
   const organizationId = user?.memberships?.[0]?.organizationId
@@ -101,6 +101,15 @@ export default function MyKpiPage() {
   const isUserLeader = useMemo(() => {
     return user?.memberships?.some(m => m.roleRank === 0)
   }, [user])
+
+  const toggleParentCollapse = (parentId: string) => {
+    setCollapsedParents(prev => {
+      const next = new Set(prev)
+      if (next.has(parentId)) next.delete(parentId)
+      else next.add(parentId)
+      return next
+    })
+  }
 
 
   return (
@@ -218,7 +227,8 @@ export default function MyKpiPage() {
 
               const isPeriodDone = periodKpis.every(k => k.frequency === 'UNLIMITED' || k.submissionCount >= (k.expectedSubmissions || 1))
               const hasEvaluation = myEvals?.content.some(ev => ev.kpiPeriodId === periodId && ev.evaluatorId === user?.id)
-              
+              const { rows: periodKpiRows, childrenByParentId } = buildKpiRows(periodKpis, collapsedParents)
+
               return (
                 <div key={periodId} className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-sm transition-all">
                   <div className="px-6 py-4 bg-slate-50/50 dark:bg-slate-800/40 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
@@ -270,13 +280,17 @@ export default function MyKpiPage() {
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                        {periodKpis.map((kpi) => (
-                          <MyKpiTableRow 
-                            key={kpi.id} 
+                        {periodKpiRows.map(({ kpi, depth }) => (
+                          <MyKpiTableRow
+                            key={kpi.id}
                             kpi={kpi}
+                            depth={depth}
+                            childKpis={childrenByParentId.get(kpi.id) ?? []}
+                            isCollapsed={collapsedParents.has(kpi.id)}
+                            onToggleCollapse={() => toggleParentCollapse(kpi.id)}
                             enableOkr={enableOkr}
                             enableWaterfall={enableWaterfall}
-                            onView={() => setViewKpi(kpi)} 
+                            onView={() => setViewKpi(kpi)}
                             onAdjust={() => setAdjustKpi(kpi)}
                             onAssign={() => setEditKpi(kpi)}
                             isLeader={isUserLeader}
@@ -300,6 +314,7 @@ export default function MyKpiPage() {
 
             const isPeriodDone = periodKpis.every(k => k.submissionCount >= (k.expectedSubmissions || 1))
             const hasEvaluation = myEvals?.content.some(ev => ev.kpiPeriodId === periodId && ev.evaluatorId === user?.id)
+            const { rows: periodKpiRows, childrenByParentId } = buildKpiRows(periodKpis, collapsedParents)
 
             return (
               <div key={periodId} className="space-y-6">
@@ -327,13 +342,17 @@ export default function MyKpiPage() {
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-6 transition-all duration-500">
-                  {periodKpis.map((kpi, idx) => (
-                    <MyKpiCard 
-                      key={kpi.id} 
-                      kpi={kpi} 
-                      delay={idx * 40} 
+                  {periodKpiRows.map(({ kpi, depth }, idx) => (
+                    <MyKpiCard
+                      key={kpi.id}
+                      kpi={kpi}
+                      depth={depth}
+                      childKpis={childrenByParentId.get(kpi.id) ?? []}
+                      isCollapsed={collapsedParents.has(kpi.id)}
+                      onToggleCollapse={() => toggleParentCollapse(kpi.id)}
+                      delay={idx * 40}
                       enableWaterfall={enableWaterfall}
-                      onView={() => setViewKpi(kpi)} 
+                      onView={() => setViewKpi(kpi)}
                       onAdjust={() => setAdjustKpi(kpi)}
                       onAssign={() => setEditKpi(kpi)}
                       isLeader={isUserLeader}
@@ -380,35 +399,73 @@ export default function MyKpiPage() {
   )
 }
 
-function MyKpiTableRow({ kpi, enableOkr, enableWaterfall, onView, onAdjust, onAssign, isLeader }: { kpi: KpiCriteria; enableOkr?: boolean; enableWaterfall?: boolean; onView: () => void; onAdjust: () => void; onAssign: () => void; isLeader?: boolean }) {
+function MyKpiTableRow({ kpi, depth = 0, childKpis = [], isCollapsed, onToggleCollapse, enableOkr, enableWaterfall, onView, onAdjust, onAssign, isLeader }: {
+  kpi: KpiCriteria; depth?: number; childKpis?: KpiCriteria[]; isCollapsed?: boolean; onToggleCollapse?: () => void;
+  enableOkr?: boolean; enableWaterfall?: boolean; onView: () => void; onAdjust: () => void; onAssign: () => void; isLeader?: boolean
+}) {
   const status = STATUS_CONFIG[kpi.status as keyof typeof STATUS_CONFIG] ?? STATUS_CONFIG['DRAFT']!
   const nextDeadline = getNextDeadline(kpi)
   const now = new Date()
   const isOverdue = nextDeadline && isAfter(now, nextDeadline)
-  
+
   const isStarted = !kpi.kpiPeriod?.startDate || !isAfter(parseISO(kpi.kpiPeriod.startDate), now)
   const isDelegated = !!kpi.hasChildren
+  const isChildRow = depth > 0
+  const isDecompositionParent = childKpis.some(c => c.parentRelationType === 'DECOMPOSITION')
 
-  
+
   return (
-    <tr className="group hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors">
+    <tr className={cn("group hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors", isChildRow && "bg-slate-50/30 dark:bg-slate-800/10")}>
       <td className="px-3 py-4 whitespace-nowrap">
         <div className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border text-[9px] font-black uppercase tracking-widest ${status.bgColor} ${status.color}`}>
           {status.label}
         </div>
       </td>
       <td className="px-3 py-4">
-        <button onClick={onView} className="text-left focus:outline-none flex flex-col gap-1 min-w-[100px]">
-          <span className="text-sm font-bold text-slate-900 dark:text-white group-hover:text-indigo-600 transition-colors line-clamp-2 leading-snug">{kpi.name}</span>
-          <div className="flex items-center gap-1.5 flex-wrap">
-            <span className="text-[9px] text-slate-400 font-black uppercase bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded w-fit whitespace-nowrap">{FREQUENCY_MAP[kpi.frequency as keyof typeof FREQUENCY_MAP]}</span>
-            {kpi.isReverseKpi && (
-              <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 text-[9px] font-black uppercase tracking-wider border border-orange-200 dark:border-orange-800/50 whitespace-nowrap">
-                ↓ KPI Ngược
-              </span>
-            )}
-          </div>
-        </button>
+        <div className="flex items-start gap-1.5" style={{ paddingLeft: isChildRow ? 20 : 0 }}>
+          {!isChildRow && childKpis.length > 0 && (
+            <button
+              onClick={(e) => { e.stopPropagation(); onToggleCollapse?.() }}
+              className="shrink-0 mt-1 w-5 h-5 rounded-md flex items-center justify-center text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-indigo-600 transition-all"
+              title={isCollapsed ? 'Mở rộng KPI con' : 'Thu gọn KPI con'}
+            >
+              <ChevronDown size={14} className={cn("transition-transform", isCollapsed && "-rotate-90")} />
+            </button>
+          )}
+          <button onClick={onView} className="text-left focus:outline-none flex flex-col gap-1 min-w-[100px]">
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <span className="text-sm font-bold text-slate-900 dark:text-white group-hover:text-indigo-600 transition-colors line-clamp-2 leading-snug">{kpi.name}</span>
+              {!isChildRow && childKpis.length > 0 && (
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 text-[9px] font-black uppercase tracking-wider border border-slate-200 dark:border-slate-700 whitespace-nowrap">
+                  {childKpis.length} KPI con
+                </span>
+              )}
+            </div>
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <span className="text-[9px] text-slate-400 font-black uppercase bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded w-fit whitespace-nowrap">{FREQUENCY_MAP[kpi.frequency as keyof typeof FREQUENCY_MAP]}</span>
+              {kpi.isReverseKpi && (
+                <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 text-[9px] font-black uppercase tracking-wider border border-orange-200 dark:border-orange-800/50 whitespace-nowrap">
+                  ↓ KPI Ngược
+                </span>
+              )}
+              {kpi.isBonusKpi && (
+                <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 text-[9px] font-black uppercase tracking-wider border border-emerald-200 dark:border-emerald-800/50 whitespace-nowrap">
+                  + KPI Thưởng
+                </span>
+              )}
+              {isChildRow && kpi.parentRelationType && (
+                <span className={cn(
+                  "inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider border whitespace-nowrap",
+                  kpi.parentRelationType === 'DECOMPOSITION'
+                    ? "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800/50"
+                    : "bg-cyan-100 dark:bg-cyan-900/30 text-cyan-600 dark:text-cyan-400 border-cyan-200 dark:border-cyan-800/50"
+                )}>
+                  {kpi.parentRelationType === 'DECOMPOSITION' ? 'Chia nhỏ' : 'Phân rã'}
+                </span>
+              )}
+            </div>
+          </button>
+        </div>
       </td>
       {enableOkr && (
         <>
@@ -465,7 +522,11 @@ function MyKpiTableRow({ kpi, enableOkr, enableWaterfall, onView, onAdjust, onAs
               <GitBranch size={16} />
             </button>
           )}
-          {kpi.submissionCount < (kpi.expectedSubmissions || 1) ? (
+          {isDecompositionParent ? (
+            <div className="px-4 py-2 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 border border-emerald-100 dark:border-emerald-900/30 rounded-xl text-[10px] font-black uppercase tracking-widest italic" title="Đã chia nhỏ thành các KPI con, nộp báo cáo ở từng KPI con tương ứng">
+              Đã chia KPI con
+            </div>
+          ) : kpi.submissionCount < (kpi.expectedSubmissions || 1) ? (
             isStarted ? (
               // Hide Submit button if it's already delegated to others when Waterfall is ON
               (!enableWaterfall || !isLeader) ? (
@@ -494,14 +555,22 @@ function MyKpiTableRow({ kpi, enableOkr, enableWaterfall, onView, onAdjust, onAs
   )
 }
 
-function MyKpiCard({ kpi, delay, onView, onAdjust, onAssign, isLeader, enableWaterfall }: { kpi: KpiCriteria; delay: number; onView: () => void; onAdjust: () => void; onAssign: () => void; isLeader?: boolean; enableWaterfall?: boolean }) {
+function MyKpiCard({ kpi, depth = 0, childKpis = [], isCollapsed, onToggleCollapse, delay, onView, onAdjust, onAssign, isLeader, enableWaterfall }: {
+  kpi: KpiCriteria; depth?: number; childKpis?: KpiCriteria[]; isCollapsed?: boolean; onToggleCollapse?: () => void;
+  delay: number; onView: () => void; onAdjust: () => void; onAssign: () => void; isLeader?: boolean; enableWaterfall?: boolean
+}) {
   const status = STATUS_CONFIG[kpi.status as keyof typeof STATUS_CONFIG] ?? STATUS_CONFIG['DRAFT']!
   const now = new Date()
   const isDelegated = !!kpi.hasChildren
+  const isChildCard = depth > 0
+  const isDecompositionParent = childKpis.some(c => c.parentRelationType === 'DECOMPOSITION')
 
   return (
-    <div 
-      className="group bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm hover:shadow-lg transition-all duration-300 animate-in fade-in slide-in-from-bottom-4 flex flex-col h-full overflow-hidden"
+    <div
+      className={cn(
+        "group bg-white dark:bg-slate-900 rounded-3xl border shadow-sm hover:shadow-lg transition-all duration-300 animate-in fade-in slide-in-from-bottom-4 flex flex-col h-full overflow-hidden",
+        isChildCard ? "border-l-4 border-l-emerald-400 dark:border-l-emerald-600 border-slate-200 dark:border-slate-800 ml-4 lg:ml-8" : "border-slate-200 dark:border-slate-800"
+      )}
       style={{ animationDelay: `${delay}ms` }}
     >
       <div className="p-5 flex-1 space-y-4">
@@ -509,8 +578,19 @@ function MyKpiCard({ kpi, delay, onView, onAdjust, onAssign, isLeader, enableWat
           <div className="w-10 h-10 rounded-xl bg-indigo-600 flex items-center justify-center text-white shadow-md">
             <Target size={20} />
           </div>
-          <div className={`px-3 py-1 rounded-lg border text-[9px] font-black uppercase tracking-widest ${status.bgColor} ${status.color}`}>
-            {status.label}
+          <div className="flex items-center gap-2">
+            {!isChildCard && childKpis.length > 0 && (
+              <button
+                onClick={(e) => { e.stopPropagation(); onToggleCollapse?.() }}
+                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 text-[9px] font-black uppercase tracking-wider hover:bg-slate-200 dark:hover:bg-slate-700 transition-all"
+              >
+                <ChevronDown size={11} className={cn("transition-transform", isCollapsed && "-rotate-90")} />
+                {childKpis.length} KPI con
+              </button>
+            )}
+            <div className={`px-3 py-1 rounded-lg border text-[9px] font-black uppercase tracking-widest ${status.bgColor} ${status.color}`}>
+              {status.label}
+            </div>
           </div>
         </div>
 
@@ -521,6 +601,21 @@ function MyKpiCard({ kpi, delay, onView, onAdjust, onAssign, isLeader, enableWat
             {kpi.isReverseKpi && (
               <span className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 text-[9px] font-black uppercase tracking-wider border border-orange-200 dark:border-orange-800/50">
                 ↓ KPI Ngược
+              </span>
+            )}
+            {kpi.isBonusKpi && (
+              <span className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 text-[9px] font-black uppercase tracking-wider border border-emerald-200 dark:border-emerald-800/50">
+                + KPI Thưởng
+              </span>
+            )}
+            {isChildCard && kpi.parentRelationType && (
+              <span className={cn(
+                "inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider border",
+                kpi.parentRelationType === 'DECOMPOSITION'
+                  ? "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800/50"
+                  : "bg-cyan-100 dark:bg-cyan-900/30 text-cyan-600 dark:text-cyan-400 border-cyan-200 dark:border-cyan-800/50"
+              )}>
+                {kpi.parentRelationType === 'DECOMPOSITION' ? 'Chia nhỏ' : 'Phân rã'}
               </span>
             )}
           </div>
@@ -556,7 +651,11 @@ function MyKpiCard({ kpi, delay, onView, onAdjust, onAssign, isLeader, enableWat
             <GitBranch size={18} />
           </button>
         )}
-        {kpi.submissionCount < (kpi.expectedSubmissions || 1) ? (
+        {isDecompositionParent ? (
+          <div className="flex-1 px-6 py-3 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 border border-emerald-100 dark:border-emerald-900/30 rounded-2xl font-black text-xs text-center uppercase tracking-widest italic" title="Đã chia nhỏ thành các KPI con, nộp báo cáo ở từng KPI con tương ứng">
+            Đã chia KPI con
+          </div>
+        ) : kpi.submissionCount < (kpi.expectedSubmissions || 1) ? (
           (!kpi.kpiPeriod?.startDate || !isAfter(parseISO(kpi.kpiPeriod.startDate), now)) ? (
             (!enableWaterfall || !isDelegated) ? (
               <Link to={`/submissions/new?kpiId=${kpi.id}`} className="flex-1 px-6 py-3 bg-slate-900 dark:bg-slate-800 text-white hover:bg-indigo-600 rounded-2xl font-black text-xs text-center transition-all uppercase tracking-widest">
