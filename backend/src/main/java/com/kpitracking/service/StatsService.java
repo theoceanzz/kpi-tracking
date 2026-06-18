@@ -8,6 +8,7 @@ import com.kpitracking.enums.SubmissionStatus;
 import com.kpitracking.exception.ResourceNotFoundException;
 import com.kpitracking.repository.*;
 import com.kpitracking.security.PermissionChecker;
+import com.kpitracking.service.analytics.KpiMetricsCalculator;
 
 import lombok.RequiredArgsConstructor;
 
@@ -548,15 +549,24 @@ public class StatsService {
         }
 
         List<AnalyticsMyStatsResponse.KpiProgressItem> kpiItems = kpis.stream().map(k -> {
-            double actualValue = submissionRepository.sumActualValueByUserIdAndKpiIdInPeriod(
-                userId, k.getId(), 
-                from != null ? from : Instant.EPOCH, 
-                to != null ? to : Instant.now().plus(365, ChronoUnit.DAYS)
-            );
+            boolean reverse = Boolean.TRUE.equals(k.getIsReverseKpi());
+            Instant f = from != null ? from : Instant.EPOCH;
+            Instant t2 = to != null ? to : Instant.now().plus(365, ChronoUnit.DAYS);
 
+            double actualValue;
             double completionRate = 0;
-            if (k.getTargetValue() != null && k.getTargetValue() > 0) {
-                completionRate = Math.round((actualValue / k.getTargetValue()) * 100);
+            if (reverse) {
+                List<Double> latest = submissionRepository.latestActualValueByUserIdAndKpiIdInPeriod(userId, k.getId(), f, t2, ONE);
+                boolean has = !latest.isEmpty() && latest.get(0) != null;
+                actualValue = has ? latest.get(0) : 0.0;
+                if (has && k.getTargetValue() != null && k.getTargetValue() > 0) {
+                    completionRate = Math.round(KpiMetricsCalculator.reversePercent(actualValue, k.getTargetValue()));
+                }
+            } else {
+                actualValue = submissionRepository.sumActualValueByUserIdAndKpiIdInPeriod(userId, k.getId(), f, t2);
+                if (k.getTargetValue() != null && k.getTargetValue() > 0) {
+                    completionRate = Math.round((actualValue / k.getTargetValue()) * 100);
+                }
             }
 
             return AnalyticsMyStatsResponse.KpiProgressItem.builder()
@@ -617,11 +627,7 @@ public class StatsService {
             List<KpiCriteria> unitKpis = kpiCriteriaRepository.findByOrgUnitIdInAndStatus(subtreeIds, KpiStatus.APPROVED);
             double totalPerformance = 0;
             for (KpiCriteria kpi : unitKpis) {
-                double actual = (from != null && to != null)
-                        ? submissionRepository.sumActualValueByOrgUnitIdsAndKpiIdInPeriod(subtreeIds, kpi.getId(), from, to)
-                        : submissionRepository.sumActualValueByKpiCriteriaIdAndOrgUnitIdInAndStatus(kpi.getId(), subtreeIds, SubmissionStatus.APPROVED);
-                double target = kpi.getTargetValue() != null && kpi.getTargetValue() > 0 ? kpi.getTargetValue() : 1.0;
-                totalPerformance += Math.round((actual / target) * 100.0);
+                totalPerformance += Math.round(kpiUnitPercent(kpi, subtreeIds, from, to));
             }
             return AnalyticsDrillDownResponse.OrgUnitSummary.builder()
                     .orgUnitId(unit.getId())
@@ -645,11 +651,7 @@ public class StatsService {
             List<UUID> directIds = List.of(child.getId());
             List<KpiCriteria> kpis = kpiCriteriaRepository.findByOrgUnitIdInAndStatus(directIds, KpiStatus.APPROVED);
             for (KpiCriteria kpi : kpis) {
-                double actual = (from != null && to != null)
-                        ? submissionRepository.sumActualValueByOrgUnitIdsAndKpiIdInPeriod(directIds, kpi.getId(), from, to)
-                        : submissionRepository.sumActualValueByKpiCriteriaIdAndOrgUnitIdInAndStatus(kpi.getId(), directIds, SubmissionStatus.APPROVED);
-                double target = kpi.getTargetValue() != null && kpi.getTargetValue() > 0 ? kpi.getTargetValue() : 1.0;
-                heatmapData.add(AnalyticsDrillDownResponse.HeatmapPoint.builder().x(child.getName()).y(kpi.getName()).value(Math.round((actual / target) * 100.0)).build());
+                heatmapData.add(AnalyticsDrillDownResponse.HeatmapPoint.builder().x(child.getName()).y(kpi.getName()).value(Math.round(kpiUnitPercent(kpi, directIds, from, to))).build());
             }
         }
 
@@ -707,14 +709,16 @@ public class StatsService {
             List<UserRoleOrgUnit> roles = userRoleOrgUnitRepository.findByUserId(u.getId());
             long assignedKpi = kpiCriteriaRepository.countByAssigneeId(u.getId());
             
-            double totalActual = 0;
-            double totalTarget = 0;
+            double sumPct = 0;
+            int kpiCnt = 0;
             List<KpiCriteria> userKpis = kpiCriteriaRepository.findApprovedByAssigneeId(u.getId());
             for (KpiCriteria k : userKpis) {
-                totalActual += submissionRepository.sumActualValueByUserIdAndKpiIdInPeriod(u.getId(), k.getId(), Instant.EPOCH, Instant.now().plus(365, ChronoUnit.DAYS));
-                totalTarget += (k.getTargetValue() != null ? k.getTargetValue() : 0);
+                if (k.getTargetValue() != null && k.getTargetValue() > 0) {
+                    sumPct += kpiUserPercent(k, u.getId(), null, null);
+                    kpiCnt++;
+                }
             }
-            double perfRate = totalTarget > 0 ? Math.round((totalActual / totalTarget) * 100.0) : 0;
+            double perfRate = kpiCnt > 0 ? Math.round(sumPct / kpiCnt) : 0;
 
             long approvedSub = submissionRepository.countBySubmittedByIdAndStatus(u.getId(), SubmissionStatus.APPROVED);
             allRows.add(AnalyticsDetailRow.builder()
@@ -744,6 +748,37 @@ public class StatsService {
         return subtree.isEmpty() ? List.of(unit.getId()) : subtree.stream().map(OrgUnit::getId).toList();
     }
 
+    // ── % tiến độ/hiệu suất của 1 KPI (KPI ngược dùng bài nộp mới nhất; KPI thường = actual/target) ──
+    private static final org.springframework.data.domain.Pageable ONE = org.springframework.data.domain.PageRequest.of(0, 1);
+
+    private double kpiUnitPercent(KpiCriteria k, List<UUID> orgUnitIds, Instant from, Instant to) {
+        double target = k.getTargetValue() != null ? k.getTargetValue() : 0.0;
+        if (target <= 0) return 0.0;
+        Instant f = from != null ? from : Instant.EPOCH;
+        Instant t = to != null ? to : Instant.now().plus(365, ChronoUnit.DAYS);
+        if (Boolean.TRUE.equals(k.getIsReverseKpi())) {
+            List<Double> latest = submissionRepository.latestActualValueByOrgUnitIdsAndKpiIdInPeriod(orgUnitIds, k.getId(), f, t, ONE);
+            if (latest.isEmpty() || latest.get(0) == null) return 0.0;
+            return KpiMetricsCalculator.reversePercent(latest.get(0), target);
+        }
+        double actual = submissionRepository.sumActualValueByOrgUnitIdsAndKpiIdInPeriod(orgUnitIds, k.getId(), f, t);
+        return (actual / target) * 100.0;
+    }
+
+    private double kpiUserPercent(KpiCriteria k, UUID userId, Instant from, Instant to) {
+        double target = k.getTargetValue() != null ? k.getTargetValue() : 0.0;
+        if (target <= 0) return 0.0;
+        Instant f = from != null ? from : Instant.EPOCH;
+        Instant t = to != null ? to : Instant.now().plus(365, ChronoUnit.DAYS);
+        if (Boolean.TRUE.equals(k.getIsReverseKpi())) {
+            List<Double> latest = submissionRepository.latestActualValueByUserIdAndKpiIdInPeriod(userId, k.getId(), f, t, ONE);
+            if (latest.isEmpty() || latest.get(0) == null) return 0.0;
+            return KpiMetricsCalculator.reversePercent(latest.get(0), target);
+        }
+        double actual = submissionRepository.sumActualValueByUserIdAndKpiIdInPeriod(userId, k.getId(), f, t);
+        return (actual / target) * 100.0;
+    }
+
     @Transactional(readOnly = true)
     public AnalyticsSummaryResponse getSummary(UUID orgUnitId, UUID rankingUnitId, String direction) {
         User currentUser = getCurrentUser();
@@ -759,12 +794,14 @@ public class StatsService {
 
         // Overview logic
         List<KpiCriteria> allKpis = kpiCriteriaRepository.findByOrgUnitIdInAndStatus(subtreeIds, KpiStatus.APPROVED);
-        double totalActual = 0;
-        double totalTarget = 0;
+        // Tiến độ tổng = trung bình % từng KPI (KPI ngược tính theo hướng riêng)
+        double sumKpiPct = 0;
+        int kpiPctCount = 0;
         for (KpiCriteria kpi : allKpis) {
-            totalActual += submissionRepository.sumActualValueByKpiCriteriaIdAndOrgUnitIdInAndStatus(kpi.getId(), subtreeIds, SubmissionStatus.APPROVED);
-            totalTarget += (kpi.getTargetValue() != null && kpi.getTargetValue() > 0 ? kpi.getTargetValue() : 0);
+            sumKpiPct += kpiUnitPercent(kpi, subtreeIds, null, null);
+            kpiPctCount++;
         }
+        long kpiCompletionRate = kpiPctCount > 0 ? Math.round(sumKpiPct / kpiPctCount) : 0;
         
         long pendingSubs = submissionRepository.countByOrgUnitIdInAndStatus(subtreeIds, SubmissionStatus.PENDING);
         List<UserRoleOrgUnit> allMembersRaw = userRoleOrgUnitRepository.findByOrgUnitIdIn(subtreeIds);
@@ -824,7 +861,7 @@ public class StatsService {
 
         return AnalyticsSummaryResponse.builder()
                 .orgUnitId(targetUnit.getId()).orgUnitName(targetUnit.getName()).levelName(targetUnit.getOrgHierarchyLevel().getUnitTypeName())
-                .kpiCompletionRate(totalTarget > 0 ? Math.round((totalActual / totalTarget) * 100.0) : 0)
+                .kpiCompletionRate(kpiCompletionRate)
                 .avgPerformanceScore(evaluationRepository.avgScoreByOrgUnitIdIn(subtreeIds) != null ? evaluationRepository.avgScoreByOrgUnitIdIn(subtreeIds) : 0)
                 .overdueKpiRate(allKpis.isEmpty() ? 0 : (pendingSubs * 10.0 / allKpis.size()))
                 .totalMembers((long) allMembers.size()).activeKpis((long) allKpis.size())
@@ -863,15 +900,13 @@ public class StatsService {
         Collections.reverse(periods);
 
         for (KpiPeriod p : periods) {
-            double periodActual = 0;
-            double periodTarget = 0;
-            
+            double sumPct = 0;
+            int cnt = 0;
             for (KpiCriteria k : kpis) {
-                periodActual += submissionRepository.sumActualValueByOrgUnitIdsAndKpiIdInPeriod(subtreeIds, k.getId(), p.getStartDate(), p.getEndDate());
-                periodTarget += (k.getTargetValue() != null ? k.getTargetValue() : 0);
+                sumPct += kpiUnitPercent(k, subtreeIds, p.getStartDate(), p.getEndDate());
+                cnt++;
             }
-            
-            double performance = periodTarget > 0 ? Math.round((periodActual / periodTarget) * 100.0) : 0;
+            double performance = cnt > 0 ? Math.round(sumPct / cnt) : 0;
             trends.add(new AnalyticsSummaryResponse.TrendPoint(p.getName(), performance, performance * 0.95));
         }
         return trends;
@@ -909,25 +944,26 @@ public class StatsService {
         // Compute metrics for the current (root) unit using its direct KPIs only
         List<UUID> currentUnitOnly = List.of(targetUnit.getId());
         List<KpiCriteria> currentKpis = kpiCriteriaRepository.findByOrgUnitIdInAndStatus(currentUnitOnly, KpiStatus.APPROVED);
-        double currentAct = 0, currentTar = 0;
+        double currentSumPct = 0;
+        int currentCnt = 0;
         for (KpiCriteria k : currentKpis) {
-            currentAct += submissionRepository.sumActualValueByOrgUnitIdsAndKpiIdInPeriod(currentUnitOnly, k.getId(), range.start != null ? range.start : Instant.EPOCH, range.end);
-            currentTar += (k.getTargetValue() != null ? k.getTargetValue() : 0);
+            currentSumPct += kpiUnitPercent(k, currentUnitOnly, range.start, range.end);
+            currentCnt++;
         }
-        double currentPerf = currentTar > 0 ? Math.round((currentAct / currentTar) * 100.0) : 0;
+        double currentPerf = currentCnt > 0 ? Math.round(currentSumPct / currentCnt) : 0;
         AnalyticsSummaryResponse.UnitComparison currentComp = new AnalyticsSummaryResponse.UnitComparison(
             targetUnit.getName() + " (hiện tại)", currentPerf, currentPerf);
 
         List<AnalyticsSummaryResponse.UnitComparison> childComps = childUnits.stream().map(unit -> {
             List<UUID> unitSubtree = getSubtreeIds(unit);
             List<KpiCriteria> kpis = kpiCriteriaRepository.findByOrgUnitIdInAndStatus(unitSubtree, KpiStatus.APPROVED);
-            double totalAct = 0;
-            double totalTar = 0;
+            double sumPct = 0;
+            int cnt = 0;
             for (KpiCriteria k : kpis) {
-                totalAct += submissionRepository.sumActualValueByOrgUnitIdsAndKpiIdInPeriod(unitSubtree, k.getId(), range.start != null ? range.start : Instant.EPOCH, range.end);
-                totalTar += (k.getTargetValue() != null ? k.getTargetValue() : 0);
+                sumPct += kpiUnitPercent(k, unitSubtree, range.start, range.end);
+                cnt++;
             }
-            double performance = totalTar > 0 ? Math.round((totalAct / totalTar) * 100.0) : 0;
+            double performance = cnt > 0 ? Math.round(sumPct / cnt) : 0;
             return new AnalyticsSummaryResponse.UnitComparison(unit.getName(), performance, performance);
         }).toList();
 
@@ -984,13 +1020,15 @@ public class StatsService {
         List<AnalyticsSummaryResponse.RiskInfo> userRisks = memberMap.values().stream().map(m -> {
             User u = m.getUser();
             List<KpiCriteria> userKpis = kpiCriteriaRepository.findApprovedByAssigneeId(u.getId());
-            double totalAct = 0;
-            double totalTar = 0;
+            double sumPct = 0;
+            int cnt = 0;
             for (KpiCriteria k : userKpis) {
-                totalAct += submissionRepository.sumActualValueByUserIdAndKpiIdInPeriod(u.getId(), k.getId(), range.start != null ? range.start : Instant.EPOCH, range.end);
-                totalTar += (k.getTargetValue() != null ? k.getTargetValue() : 0);
+                if (k.getTargetValue() != null && k.getTargetValue() > 0) {
+                    sumPct += kpiUserPercent(k, u.getId(), range.start, range.end);
+                    cnt++;
+                }
             }
-            double perf = totalTar > 0 ? Math.round((totalAct / totalTar) * 100.0) : 0;
+            double perf = cnt > 0 ? Math.round(sumPct / cnt) : 0;
             return new AnalyticsSummaryResponse.RiskInfo(u.getFullName(), "USER", perf, 0, perf < 50 ? "HIGH" : perf < 75 ? "MEDIUM" : "LOW");
         })
         .filter(r -> r.getPerformance() < 75)
@@ -1023,18 +1061,16 @@ public class StatsService {
             .map(m -> {
                 User u = m.getUser();
                 List<KpiCriteria> userKpis = kpiCriteriaRepository.findApprovedByAssigneeId(u.getId());
-                double totalAct = 0;
-                double totalTar = 0;
+                double sumPct = 0;
                 int kpiCount = 0;
                 for (KpiCriteria k : userKpis) {
-                    double act = submissionRepository.sumActualValueByUserIdAndKpiIdInPeriod(u.getId(), k.getId(), range.start != null ? range.start : Instant.EPOCH, range.end);
-                    double tar = k.getTargetValue() != null ? k.getTargetValue() : 0;
-                    totalAct += act;
-                    totalTar += tar;
-                    if (tar > 0) kpiCount++;
+                    if (k.getTargetValue() != null && k.getTargetValue() > 0) {
+                        sumPct += kpiUserPercent(k, u.getId(), range.start, range.end);
+                        kpiCount++;
+                    }
                 }
-                double performance = totalTar > 0 ? Math.round((totalAct / totalTar) * 100.0) : 0;
-                double avgProgress = kpiCount > 0 ? Math.round((totalAct / totalTar) * 100.0) : 0;
+                double performance = kpiCount > 0 ? Math.round(sumPct / kpiCount) : 0;
+                double avgProgress = performance;
                 long completed = submissionRepository.countBySubmittedByIdAndStatus(u.getId(), SubmissionStatus.APPROVED);
                 Double avgScore = evaluationRepository.avgScoreByUserId(u.getId());
 
@@ -1139,10 +1175,11 @@ public class StatsService {
                 // Get approved submissions for this user and KPI
                 List<KpiSubmission> submissions = submissionRepository.findByKpiCriteriaIdAndSubmittedByIdAndDeletedAtIsNull(kpi.getId(), user.getId());
                 
-                double actual = submissions.stream()
+                boolean reverse = Boolean.TRUE.equals(kpi.getIsReverseKpi());
+                List<KpiSubmission> approvedSubs = submissions.stream()
                         .filter(s -> s.getStatus() == SubmissionStatus.APPROVED)
-                        .mapToDouble(s -> s.getActualValue() != null ? s.getActualValue() : 0.0)
-                        .sum();
+                        .toList();
+                double actual = reverse ? KpiMetricsCalculator.latest(approvedSubs) : KpiMetricsCalculator.sum(approvedSubs);
                 
                 Double managerScore = submissions.stream()
                         .filter(s -> s.getStatus() == SubmissionStatus.APPROVED && s.getManagerScore() != null)
@@ -1165,7 +1202,8 @@ public class StatsService {
                         .unit(kpi.getUnit())
                         .targetValue(kpi.getTargetValue())
                         .actualValue(actual)
-                        .completionRate(kpi.getTargetValue() != null && kpi.getTargetValue() > 0 ? (actual / kpi.getTargetValue()) * 100 : 0)
+                        .completionRate(reverse ? KpiMetricsCalculator.reversePercent(approvedSubs, kpi.getTargetValue() != null ? kpi.getTargetValue() : 0)
+                                : (kpi.getTargetValue() != null && kpi.getTargetValue() > 0 ? (actual / kpi.getTargetValue()) * 100 : 0))
                         .managerScore(managerScore)
                         .objectiveName(objectiveName)
                         .keyResultName(keyResultName)

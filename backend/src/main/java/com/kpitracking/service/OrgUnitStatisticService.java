@@ -3,6 +3,7 @@ package com.kpitracking.service;
 import com.kpitracking.entity.*;
 import com.kpitracking.enums.*;
 import com.kpitracking.repository.*;
+import com.kpitracking.service.analytics.KpiMetricsCalculator;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Pageable;
@@ -75,27 +76,30 @@ public class OrgUnitStatisticService {
         double expectedValueFilter = targetValue * timeRatio;
 
         // Actual cho Tiến độ: Tính LŨY KẾ từ lúc KPI bắt đầu cho đến ngày B
-        double actualCompletionAccumulated = kpi.getSubmissions().stream()
+        List<KpiSubmission> complSubs = kpi.getSubmissions().stream()
                 .filter(s -> s.getStatus() == SubmissionStatus.APPROVED)
                 .filter(s -> {
                     Instant submissionTime = s.getPeriodStart() != null ? s.getPeriodStart() : s.getCreatedAt();
                     return !submissionTime.isBefore(kpiStart) && (B == null || !submissionTime.isAfter(B));
                 })
-                .mapToDouble(s -> s.getActualValue() != null ? s.getActualValue() : 0.0)
-                .sum();
+                .collect(Collectors.toList());
 
         // Actual cho Hiệu suất: Chỉ tính nghiêm ngặt trong khoảng [A, B]
-        double actualPerformanceFilter = kpi.getSubmissions().stream()
+        List<KpiSubmission> perfSubs = kpi.getSubmissions().stream()
                 .filter(s -> s.getStatus() == SubmissionStatus.APPROVED)
                 .filter(s -> {
                     Instant submissionTime = s.getPeriodStart() != null ? s.getPeriodStart() : s.getCreatedAt();
                     return (A == null || !submissionTime.isBefore(A)) && (B == null || !submissionTime.isAfter(B));
                 })
-                .mapToDouble(s -> s.getActualValue() != null ? s.getActualValue() : 0.0)
-                .sum();
+                .collect(Collectors.toList());
 
-        double completion = targetValue > 0 ? (actualCompletionAccumulated / targetValue) * 100 : 0;
-        double performance = expectedValueFilter > 0 ? (actualPerformanceFilter / expectedValueFilter) * 100 : 0;
+        boolean reverse = Boolean.TRUE.equals(kpi.getIsReverseKpi());
+        double completion = reverse
+                ? KpiMetricsCalculator.reversePercent(complSubs, targetValue)
+                : (targetValue > 0 ? (KpiMetricsCalculator.sum(complSubs) / targetValue) * 100 : 0);
+        double performance = reverse
+                ? KpiMetricsCalculator.reversePercent(perfSubs, targetValue)
+                : (expectedValueFilter > 0 ? (KpiMetricsCalculator.sum(perfSubs) / expectedValueFilter) * 100 : 0);
 
         return new double[]{completion, performance};
     }
@@ -533,6 +537,9 @@ public class OrgUnitStatisticService {
             entry.put("description", k.getDescription());
             entry.put("weight", k.getWeight());
             entry.put("targetValue", k.getTargetValue());
+            boolean kReverse = Boolean.TRUE.equals(k.getIsReverseKpi());
+            entry.put("isReverseKpi", kReverse);
+            entry.put("targetComparator", kReverse ? "≤" : "≥");
             entry.put("unit", k.getUnit());
             entry.put("status", k.getStatus().toString());
             entry.put("periodName", k.getKpiPeriod() != null ? k.getKpiPeriod().getName() : null);
@@ -651,6 +658,9 @@ public class OrgUnitStatisticService {
         detail.put("description", k.getDescription());
         detail.put("weight", k.getWeight());
         detail.put("targetValue", k.getTargetValue());
+        boolean detailReverse = Boolean.TRUE.equals(k.getIsReverseKpi());
+        detail.put("isReverseKpi", detailReverse);
+        detail.put("targetComparator", detailReverse ? "≤" : "≥");
         detail.put("unit", k.getUnit());
         detail.put("progress", Math.round(metrics[0] * 100.0) / 100.0);
         detail.put("performance", Math.round(metrics[1] * 100.0) / 100.0);

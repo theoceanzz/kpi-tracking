@@ -110,6 +110,13 @@ public interface KpiSubmissionRepository extends JpaRepository<KpiSubmission, UU
     @Query("SELECT COALESCE(SUM(s.actualValue), 0) FROM KpiSubmission s WHERE s.orgUnit.id IN :orgUnitIds AND s.kpiCriteria.id = :kpiId AND s.status = 'APPROVED' AND s.createdAt >= :from AND s.createdAt <= :to")
     double sumActualValueByOrgUnitIdsAndKpiIdInPeriod(@Param("orgUnitIds") java.util.List<UUID> orgUnitIds, @Param("kpiId") UUID kpiId, @Param("from") java.time.Instant from, @Param("to") java.time.Instant to);
 
+    // ===== Latest APPROVED actualValue (cho KPI ngược — tỉ lệ không cộng dồn) =====
+    @Query("SELECT s.actualValue FROM KpiSubmission s WHERE s.submittedBy.id = :userId AND s.kpiCriteria.id = :kpiId AND s.status = 'APPROVED' AND s.createdAt >= :from AND s.createdAt <= :to ORDER BY COALESCE(s.periodStart, s.createdAt) DESC")
+    java.util.List<Double> latestActualValueByUserIdAndKpiIdInPeriod(@Param("userId") UUID userId, @Param("kpiId") UUID kpiId, @Param("from") java.time.Instant from, @Param("to") java.time.Instant to, org.springframework.data.domain.Pageable pageable);
+
+    @Query("SELECT s.actualValue FROM KpiSubmission s WHERE s.orgUnit.id IN :orgUnitIds AND s.kpiCriteria.id = :kpiId AND s.status = 'APPROVED' AND s.createdAt >= :from AND s.createdAt <= :to ORDER BY COALESCE(s.periodStart, s.createdAt) DESC")
+    java.util.List<Double> latestActualValueByOrgUnitIdsAndKpiIdInPeriod(@Param("orgUnitIds") java.util.List<UUID> orgUnitIds, @Param("kpiId") UUID kpiId, @Param("from") java.time.Instant from, @Param("to") java.time.Instant to, org.springframework.data.domain.Pageable pageable);
+
     // ===== Statistic Tool queries =====
 
     /**

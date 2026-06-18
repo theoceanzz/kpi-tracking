@@ -61,6 +61,17 @@ public class SubordinateDetailsResponses {
     @Builder
     @NoArgsConstructor
     @AllArgsConstructor
+    public static class KrUnitDto {
+        private UUID orgUnitId;
+        private String orgUnitName;
+        private String orgUnitCode;
+        private Double weightPercentage;
+    }
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
     public static class KeyResultDetailedDto {
         private UUID id;
         private String name;
@@ -69,6 +80,7 @@ public class SubordinateDetailsResponses {
         private Double performance;
         private String unitName;
         private String unitCode;
+        private List<KrUnitDto> assignedUnits;
         private Instant startDate;
         private Instant endDate;
         private List<KpiDetailedDto> kpis;

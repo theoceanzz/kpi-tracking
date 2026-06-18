@@ -4,6 +4,7 @@ import com.kpitracking.dto.response.stats.PersonalObjectiveResponses.*;
 import com.kpitracking.entity.*;
 import com.kpitracking.enums.SubmissionStatus;
 import com.kpitracking.repository.*;
+import com.kpitracking.service.analytics.KpiMetricsCalculator;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
@@ -66,29 +67,38 @@ public class PersonalKpiAnalyticsService {
         double targetValue      = kpi.getTargetValue() != null ? kpi.getTargetValue() : 1.0;
         double expectedValue    = targetValue * timeRatio;
 
-        double actualCompletion = kpi.getSubmissions().stream()
+        List<KpiSubmission> complSubs = kpi.getSubmissions().stream()
                 .filter(s -> Boolean.TRUE.equals(onlyApproved) ? s.getStatus() == SubmissionStatus.APPROVED
                         : (s.getStatus() == SubmissionStatus.APPROVED || s.getStatus() == SubmissionStatus.PENDING || s.getStatus() == SubmissionStatus.REJECTED))
                 .filter(s -> {
                     Instant t = s.getPeriodStart() != null ? s.getPeriodStart() : s.getCreatedAt();
                     return !t.isBefore(kpiStart) && (B == null || !t.isAfter(B));
                 })
-                .mapToDouble(s -> s.getActualValue() != null ? s.getActualValue() : 0.0)
-                .sum();
+                .collect(Collectors.toList());
 
-        double actualPerformance = kpi.getSubmissions().stream()
+        List<KpiSubmission> perfSubs = kpi.getSubmissions().stream()
                 .filter(s -> Boolean.TRUE.equals(onlyApproved) ? s.getStatus() == SubmissionStatus.APPROVED
                         : (s.getStatus() == SubmissionStatus.APPROVED || s.getStatus() == SubmissionStatus.PENDING || s.getStatus() == SubmissionStatus.REJECTED))
                 .filter(s -> {
                     Instant t = s.getPeriodStart() != null ? s.getPeriodStart() : s.getCreatedAt();
                     return (A == null || !t.isBefore(A)) && (B == null || !t.isAfter(B));
                 })
-                .mapToDouble(s -> s.getActualValue() != null ? s.getActualValue() : 0.0)
-                .sum();
+                .collect(Collectors.toList());
 
-        double completion   = targetValue > 0   ? (actualCompletion   / targetValue)   * 100 : 0;
-        double performance  = expectedValue > 0 ? (actualPerformance  / expectedValue) * 100 : 0;
-        return new double[]{completion, performance, 1.0, actualCompletion};
+        boolean reverse = Boolean.TRUE.equals(kpi.getIsReverseKpi());
+        double completion, performance, actualReturn;
+        if (reverse) {
+            completion  = KpiMetricsCalculator.reversePercent(complSubs, targetValue);
+            performance = KpiMetricsCalculator.reversePercent(perfSubs, targetValue);
+            actualReturn = KpiMetricsCalculator.latest(complSubs);
+        } else {
+            double actualCompletion  = KpiMetricsCalculator.sum(complSubs);
+            double actualPerformance = KpiMetricsCalculator.sum(perfSubs);
+            completion  = targetValue > 0   ? (actualCompletion   / targetValue)   * 100 : 0;
+            performance = expectedValue > 0 ? (actualPerformance  / expectedValue) * 100 : 0;
+            actualReturn = actualCompletion;
+        }
+        return new double[]{completion, performance, 1.0, actualReturn};
     }
 
     // ── Public endpoints ──────────────────────────────────────────────────────
@@ -196,7 +206,9 @@ public class PersonalKpiAnalyticsService {
                             && (to   == null || !sub.getCreatedAt().isAfter(to))
                             && sub.getSubmittedBy() != null && sub.getSubmittedBy().getId().equals(currentUser.getId())) {
                         double subActual   = sub.getActualValue() != null ? sub.getActualValue() : 0.0;
-                        double subProgress = (subActual / totalTarget) * 100;
+                        double subProgress = Boolean.TRUE.equals(kpi.getIsReverseKpi())
+                                ? KpiMetricsCalculator.reversePercent(subActual, totalTarget)
+                                : (subActual / totalTarget) * 100;
                         mySubmissions.add(SubmissionHistory.builder()
                                 .id(sub.getId())
                                 .code("SUB#" + sub.getId().toString().substring(0, 4).toUpperCase())
@@ -214,7 +226,7 @@ public class PersonalKpiAnalyticsService {
             if (isShared && kpi.getAssignees() != null) {
                 for (User assignee : kpi.getAssignees()) {
                     if (assignee.getId().equals(currentUser.getId())) continue;
-                    double assigneeActual = kpi.getSubmissions() == null ? 0 : kpi.getSubmissions().stream()
+                    List<KpiSubmission> assigneeSubs = kpi.getSubmissions() == null ? Collections.emptyList() : kpi.getSubmissions().stream()
                             .filter(s -> Boolean.TRUE.equals(onlyApproved) ? s.getStatus() == SubmissionStatus.APPROVED
                                     : (s.getStatus() == SubmissionStatus.APPROVED || s.getStatus() == SubmissionStatus.PENDING || s.getStatus() == SubmissionStatus.REJECTED))
                             .filter(s -> s.getSubmittedBy() != null && s.getSubmittedBy().getId().equals(assignee.getId()))
@@ -224,8 +236,12 @@ public class PersonalKpiAnalyticsService {
                                         ? kpi.getKpiPeriod().getStartDate() : Instant.EPOCH;
                                 return !t.isBefore(kpiStart) && (to == null || !t.isAfter(to));
                             })
-                            .mapToDouble(s -> s.getActualValue() != null ? s.getActualValue() : 0.0)
-                            .sum();
+                            .collect(Collectors.toList());
+                    boolean assigneeReverse = Boolean.TRUE.equals(kpi.getIsReverseKpi());
+                    double assigneeActual = assigneeReverse ? KpiMetricsCalculator.latest(assigneeSubs) : KpiMetricsCalculator.sum(assigneeSubs);
+                    double assigneeProgress = assigneeReverse
+                            ? KpiMetricsCalculator.reversePercent(assigneeSubs, totalTarget)
+                            : (totalTarget > 0 ? (assigneeActual / totalTarget) * 100 : 0);
                     teammates.add(TeammateProgress.builder()
                             .userId(assignee.getId())
                             .fullName(assignee.getFullName())
@@ -234,8 +250,8 @@ public class PersonalKpiAnalyticsService {
                             .role("Thành viên")
                             .department(kpi.getOrgUnit() != null ? kpi.getOrgUnit().getName() : "")
                             .actualValue(assigneeActual)
-                            .progress((assigneeActual / totalTarget) * 100)
-                            .performance((assigneeActual / totalTarget) * 100)
+                            .progress(assigneeProgress)
+                            .performance(assigneeProgress)
                             .build());
                 }
             }
