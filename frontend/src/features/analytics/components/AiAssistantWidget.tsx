@@ -1,10 +1,13 @@
-import React, { useState, useRef, useEffect } from 'react'
+import React, { useState, useRef, useEffect, useCallback } from 'react'
 import { Bot, Send, X, Loader2, Minimize2, Maximize2, CheckCircle2, Expand, SquarePen } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { aiApi } from '../api/aiApi'
+import { aiApi, type InsightCard, type FollowupPools } from '../api/aiApi'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { useNavigate } from 'react-router-dom'
+import InsightCards from './InsightCards'
+import FollowupSuggestions from './FollowupSuggestions'
+import { buildFollowupContext } from '../utils/followupContext'
 
 interface Message {
   id: string
@@ -12,6 +15,7 @@ interface Message {
   content: string
   toolUsed?: string
   toolResult?: any
+  followups?: FollowupPools
 }
 
 const WELCOME_MSG: Message = {
@@ -26,8 +30,15 @@ export default function AiAssistantWidget() {
   const [input, setInput] = useState('')
   const [messages, setMessages] = useState<Message[]>([WELCOME_MSG])
   const [isLoading, setIsLoading] = useState(false)
+  const [insights, setInsights] = useState<InsightCard[]>([])
+  const [insightsLoading, setInsightsLoading] = useState(false)
+  const [showInsights, setShowInsights] = useState(true)
+  const [selectedQuestion, setSelectedQuestion] = useState<string>('')
   const messagesEndRef = useRef<HTMLDivElement>(null)
+  const inputRef = useRef<HTMLTextAreaElement>(null)
   const conversationIdRef = useRef<string | null>(null)
+  const turnRef = useRef(0)
+  const activeInsightRef = useRef<InsightCard | null>(null)
   const navigate = useNavigate()
 
   const scrollToBottom = () => {
@@ -38,58 +49,135 @@ export default function AiAssistantWidget() {
     if (isOpen && !isMinimized) {
       scrollToBottom()
     }
-  }, [messages, isOpen, isMinimized])
+  }, [messages, isOpen, isMinimized, insights, showInsights])
+
+  const loadInsights = useCallback(async () => {
+    setInsightsLoading(true)
+    try {
+      const data = await aiApi.getInsights()
+      setInsights(data ?? [])
+    } catch {
+      setInsights([])
+    } finally {
+      setInsightsLoading(false)
+    }
+  }, [])
+
+  // Proactively load insights when the widget is first opened.
+  useEffect(() => {
+    if (isOpen && insights.length === 0 && !insightsLoading) {
+      loadInsights()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen])
 
   const handleNewChat = () => {
     conversationIdRef.current = null
+    turnRef.current = 0
+    activeInsightRef.current = null
     setMessages([WELCOME_MSG])
     setInput('')
+    setShowInsights(true)
+    loadInsights()
   }
 
-  const handleSend = async () => {
-    if (!input.trim() || isLoading) return
+  const sendMessage = async (text: string) => {
+    const userText = text.trim()
+    if (!userText || isLoading) return
 
-    const userMsg = input.trim()
-    setInput('')
-
-    const newUserMsg: Message = { id: Date.now().toString(), role: 'user', content: userMsg }
-    setMessages(prev => [...prev, newUserMsg])
+    setShowInsights(false)
+    const userMsgId = Date.now().toString()
+    setMessages(prev => [
+      ...prev.filter(m => m.id !== 'welcome'),
+      { id: userMsgId, role: 'user', content: userText },
+    ])
     setIsLoading(true)
 
     try {
-      // Lazy-create conversation on first message, use first 60 chars as title
       if (!conversationIdRef.current) {
-        const conv = await aiApi.createConversation(userMsg.slice(0, 60))
+        const conv = await aiApi.createConversation(userText.slice(0, 60))
         conversationIdRef.current = conv.id
       }
 
       const response = await aiApi.chat({
-        message: userMsg,
+        message: userText,
         conversationId: conversationIdRef.current,
       })
 
-      const aiMsg: Message = {
-        id: (Date.now() + 1).toString(),
-        role: 'assistant',
-        content: response.text,
-        toolUsed: response.toolUsed,
-        toolResult: response.toolResult,
+      const assistantId = (Date.now() + 1).toString()
+      setMessages(prev => [
+        ...prev,
+        {
+          id: assistantId,
+          role: 'assistant',
+          content: response.text ?? '',
+          toolUsed: response.toolUsed,
+          toolResult: response.toolResult,
+        },
+      ])
+
+      // Generate follow-up suggestions for this exchange (non-blocking for UX).
+      turnRef.current += 1
+      const ctxStr = buildFollowupContext(activeInsightRef.current, userText, response.text)
+      try {
+        const pools = await aiApi.getFollowups({
+          conversationId: conversationIdRef.current ?? undefined,
+          turn: turnRef.current,
+          context: ctxStr,
+        })
+        if (pools && (pools.technical?.length || pools.management?.length)) {
+          setMessages(prev => prev.map(m => (m.id === assistantId ? { ...m, followups: pools } : m)))
+        }
+      } catch {
+        /* followups are best-effort */
       }
-      setMessages(prev => [...prev, aiMsg])
     } catch (error: any) {
-      console.error('AI Chat Error:', error)
-      const errorDetail = error?.response?.data?.message || error?.message || 'Lỗi không xác định'
+      const status = error?.response?.status
+      let errorContent: string
+      if (status === 402) {
+        errorContent = '⚠️ **Hệ thống AI đã đạt giới hạn token.** Vui lòng thử lại sau ít phút hoặc liên hệ quản trị viên.'
+      } else {
+        const errorDetail = error?.response?.data?.message || error?.message || 'Lỗi không xác định'
+        errorContent = `Xin lỗi, đã có lỗi xảy ra: ${errorDetail}`
+      }
       setMessages(prev => [
         ...prev,
         {
           id: (Date.now() + 1).toString(),
           role: 'assistant',
-          content: `Xin lỗi, đã có lỗi xảy ra: ${errorDetail}`,
+          content: errorContent,
         },
       ])
     } finally {
       setIsLoading(false)
     }
+  }
+
+  const handleSend = () => {
+    if (!input.trim() || isLoading) return
+    const text = input
+    setInput('')
+    setSelectedQuestion('')
+    activeInsightRef.current = null
+    sendMessage(text)
+  }
+
+  const handleSelectQuestion = (insight: InsightCard, question: string) => {
+    activeInsightRef.current = insight
+    setSelectedQuestion(question)
+    setInput(question)
+    setTimeout(() => inputRef.current?.focus(), 100)
+  }
+
+  const handleSelectFollowupQuestion = (question: string) => {
+    setSelectedQuestion(question)
+    setInput(question)
+    setTimeout(() => inputRef.current?.focus(), 100)
+  }
+
+  const handleShowInsights = () => {
+    setShowInsights(true)
+    loadInsights()
   }
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -98,6 +186,8 @@ export default function AiAssistantWidget() {
       handleSend()
     }
   }
+
+  const lastAssistantId = [...messages].reverse().find(m => m.role === 'assistant')?.id
 
   if (!isOpen) {
     return (
@@ -222,8 +312,25 @@ export default function AiAssistantWidget() {
                     </div>
                   </div>
                 )}
+
+                {/* Follow-up suggestions under the latest assistant answer */}
+                {msg.role === 'assistant' && msg.followups && msg.id === lastAssistantId && !isLoading && (
+                  <div className="w-full mt-2">
+                    <FollowupSuggestions
+                      pools={msg.followups}
+                      onSelectQuestion={handleSelectFollowupQuestion}
+                      selectedQuestion={selectedQuestion}
+                      onShowInsights={handleShowInsights}
+                    />
+                  </div>
+                )}
               </div>
             ))}
+
+            {/* Proactive insight cards */}
+            {showInsights && (insightsLoading || insights.length > 0) && (
+              <InsightCards insights={insights} onSelectQuestion={handleSelectQuestion} selectedQuestion={selectedQuestion} loading={insightsLoading} />
+            )}
 
             {isLoading && (
               <div className="flex items-start">
@@ -237,13 +344,14 @@ export default function AiAssistantWidget() {
 
           {/* Input Area */}
           <div className="p-4 bg-white dark:bg-slate-900 border-t border-slate-100 dark:border-slate-800 shrink-0">
-            <div className="relative flex items-end gap-2">
+            <div className="relative flex items-center gap-2">
               <textarea
+                ref={inputRef}
                 value={input}
                 onChange={e => setInput(e.target.value)}
                 onKeyDown={handleKeyDown}
                 placeholder="Nhập câu hỏi..."
-                className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 pr-12 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/50 resize-none"
+                className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-2.5 pr-12 text-sm leading-6 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 resize-none transition-shadow"
                 rows={1}
                 style={{ minHeight: '44px', maxHeight: '120px' }}
               />

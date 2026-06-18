@@ -5,11 +5,9 @@ import ObjectiveMetricCard from '../components/ObjectiveMetricCard'
 import AnalyticsComboChart from '../components/AnalyticsComboChart'
 import ObjectiveDetailsWidget from '../components/ObjectiveDetailsWidget'
 import TopEntitiesDashboardWidget from '../components/TopEntitiesDashboardWidget'
+import { useAnalyticsDateFilter } from '@/components/common/AnalyticsDateFilter'
 import { Target, TrendingUp, CheckCircle2, AlertTriangle, Users } from 'lucide-react'
-import { subDays, subMonths, startOfYear } from 'date-fns'
 import { cn } from '@/lib/utils'
-
-type DateFilterType = 'THIS_WEEK' | 'THIS_MONTH' | 'THIS_QUARTER' | '6_MONTHS' | 'THIS_YEAR' | 'CUSTOM'
 
 export default function SubordinateManagementTab() {
   const [filterStuck, setFilterStuck] = useState(false)
@@ -26,52 +24,29 @@ export default function SubordinateManagementTab() {
     return () => observer.disconnect()
   }, [])
 
-  const [filterType, setFilterType] = useState<DateFilterType>('THIS_YEAR')
-  const [customRange, setCustomRange] = useState<{ from: string; to: string }>({ from: '', to: '' })
   const [onlyApproved, setOnlyApproved] = useState<boolean>(false)
-
-  const dateRange = useMemo(() => {
-    const now = new Date()
-    switch (filterType) {
-      case 'THIS_WEEK':
-        return { from: subDays(now, 7).toISOString(), to: now.toISOString() }
-      case 'THIS_MONTH':
-        return { from: subDays(now, 30).toISOString(), to: now.toISOString() }
-      case 'THIS_QUARTER':
-        return { from: subDays(now, 90).toISOString(), to: now.toISOString() }
-      case '6_MONTHS':
-        return { from: subMonths(now, 6).toISOString(), to: now.toISOString() }
-      case 'THIS_YEAR':
-        return { from: startOfYear(now).toISOString(), to: now.toISOString() }
-      case 'CUSTOM':
-        return {
-          from: customRange.from ? new Date(customRange.from).toISOString() : undefined,
-          to: customRange.to ? new Date(customRange.to).toISOString() : undefined
-        }
-      default:
-        return { from: undefined, to: undefined }
-    }
-  }, [filterType, customRange])
+  const { periodId, from, to, controls } = useAnalyticsDateFilter({ selectClassName: 'h-10' })
+  const dateRange = useMemo(() => ({ from, to }), [from, to])
 
   // Independent queries for each metric with onlyApproved
   const completionQuery = useQuery({
-    queryKey: ['subordinate-completion', dateRange.from, dateRange.to, onlyApproved],
-    queryFn: () => statsApi.getSubordinateCompletion(dateRange.from, dateRange.to, onlyApproved)
+    queryKey: ['subordinate-completion', dateRange.from, dateRange.to, onlyApproved, periodId],
+    queryFn: () => statsApi.getSubordinateCompletion(dateRange.from, dateRange.to, onlyApproved, periodId)
   })
 
   const performanceQuery = useQuery({
-    queryKey: ['subordinate-performance', dateRange.from, dateRange.to, onlyApproved],
-    queryFn: () => statsApi.getSubordinatePerformance(dateRange.from, dateRange.to, onlyApproved)
+    queryKey: ['subordinate-performance', dateRange.from, dateRange.to, onlyApproved, periodId],
+    queryFn: () => statsApi.getSubordinatePerformance(dateRange.from, dateRange.to, onlyApproved, periodId)
   })
 
   const completedCountQuery = useQuery({
-    queryKey: ['subordinate-completed-count', dateRange.from, dateRange.to, onlyApproved],
-    queryFn: () => statsApi.getSubordinateCompletedCount(dateRange.from, dateRange.to, onlyApproved)
+    queryKey: ['subordinate-completed-count', dateRange.from, dateRange.to, onlyApproved, periodId],
+    queryFn: () => statsApi.getSubordinateCompletedCount(dateRange.from, dateRange.to, onlyApproved, periodId)
   })
 
   const atRiskQuery = useQuery({
-    queryKey: ['subordinate-at-risk', dateRange.from, dateRange.to, onlyApproved],
-    queryFn: () => statsApi.getSubordinateAtRisk(dateRange.from, dateRange.to, onlyApproved)
+    queryKey: ['subordinate-at-risk', dateRange.from, dateRange.to, onlyApproved, periodId],
+    queryFn: () => statsApi.getSubordinateAtRisk(dateRange.from, dateRange.to, onlyApproved, periodId)
   })
 
   const personnelQuery = useQuery({
@@ -80,8 +55,8 @@ export default function SubordinateManagementTab() {
   })
 
   const chartQuery = useQuery({
-    queryKey: ['subordinate-combo-chart', dateRange.from, dateRange.to, onlyApproved],
-    queryFn: () => statsApi.getSubordinateComboChart(dateRange.from, dateRange.to, onlyApproved)
+    queryKey: ['subordinate-combo-chart', dateRange.from, dateRange.to, onlyApproved, periodId],
+    queryFn: () => statsApi.getSubordinateComboChart(dateRange.from, dateRange.to, onlyApproved, periodId)
   })
 
   return (
@@ -116,36 +91,7 @@ export default function SubordinateManagementTab() {
             Chỉ tính bài nộp đã duyệt
           </label>
 
-          <select 
-            className="h-10 px-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm font-semibold text-slate-700 dark:text-slate-300 outline-none focus:ring-2 focus:ring-indigo-500/50"
-            value={filterType}
-            onChange={(e) => setFilterType(e.target.value as DateFilterType)}
-          >
-            <option value="THIS_WEEK">Tuần này</option>
-            <option value="THIS_MONTH">Tháng này</option>
-            <option value="THIS_QUARTER">Quý này</option>
-            <option value="6_MONTHS">6 tháng gần đây</option>
-            <option value="THIS_YEAR">Năm nay</option>
-            <option value="CUSTOM">Tùy chỉnh...</option>
-          </select>
-
-          {filterType === 'CUSTOM' && (
-            <div className="flex items-center gap-2">
-              <input 
-                type="date" 
-                className="h-10 px-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm font-semibold text-slate-700 dark:text-slate-300 outline-none focus:ring-2 focus:ring-indigo-500/50"
-                value={customRange.from}
-                onChange={(e) => setCustomRange(prev => ({ ...prev, from: e.target.value }))}
-              />
-              <span className="text-slate-400">-</span>
-              <input 
-                type="date" 
-                className="h-10 px-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm font-semibold text-slate-700 dark:text-slate-300 outline-none focus:ring-2 focus:ring-indigo-500/50"
-                value={customRange.to}
-                onChange={(e) => setCustomRange(prev => ({ ...prev, to: e.target.value }))}
-              />
-            </div>
-          )}
+          {controls}
         </div>
       </div>
 
@@ -194,10 +140,10 @@ export default function SubordinateManagementTab() {
         />
       </div>
       
-      <ObjectiveDetailsWidget dateRange={dateRange} onlyApproved={onlyApproved} />
+      <ObjectiveDetailsWidget dateRange={dateRange} onlyApproved={onlyApproved} periodId={periodId} />
 
       {/* Top Objectives & Top Units */}
-      <TopEntitiesDashboardWidget dateRange={dateRange} onlyApproved={onlyApproved} />
+      <TopEntitiesDashboardWidget dateRange={dateRange} onlyApproved={onlyApproved} periodId={periodId} />
 
     </div>
   )

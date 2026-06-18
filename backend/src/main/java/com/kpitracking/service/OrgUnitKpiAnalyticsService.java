@@ -5,6 +5,7 @@ import com.kpitracking.entity.*;
 import com.kpitracking.enums.SubmissionStatus;
 import com.kpitracking.repository.*;
 import com.kpitracking.security.PermissionChecker;
+import com.kpitracking.service.analytics.KpiMetricsCalculator;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
@@ -73,6 +74,14 @@ public class OrgUnitKpiAnalyticsService {
         return kpiCriteriaRepository.findApprovedWithoutKeyResultByOrgUnitIds(unitIds);
     }
 
+    /** Khi người dùng chọn một đợt cụ thể, chỉ giữ các KPI thuộc đợt đó. */
+    private List<KpiCriteria> applyPeriodFilter(List<KpiCriteria> kpis, UUID periodId) {
+        if (periodId == null) return kpis;
+        return kpis.stream()
+                .filter(k -> k.getKpiPeriod() != null && periodId.equals(k.getKpiPeriod().getId()))
+                .collect(Collectors.toList());
+    }
+
     // ── Metrics calculation (same algorithm as PersonalKpiAnalyticsService) ────
 
     private double[] calculateKpiMetrics(KpiCriteria kpi, Instant A, Instant B, Boolean onlyApproved) {
@@ -92,36 +101,45 @@ public class OrgUnitKpiAnalyticsService {
         double targetValue     = kpi.getTargetValue() != null ? kpi.getTargetValue() : 1.0;
         double expectedValue   = targetValue * timeRatio;
 
-        double actualCompletion = kpi.getSubmissions().stream()
+        List<KpiSubmission> complSubs = kpi.getSubmissions().stream()
                 .filter(s -> Boolean.TRUE.equals(onlyApproved) ? s.getStatus() == SubmissionStatus.APPROVED
                         : (s.getStatus() == SubmissionStatus.APPROVED || s.getStatus() == SubmissionStatus.PENDING || s.getStatus() == SubmissionStatus.REJECTED))
                 .filter(s -> {
                     Instant t = s.getPeriodStart() != null ? s.getPeriodStart() : s.getCreatedAt();
                     return !t.isBefore(kpiStart) && (B == null || !t.isAfter(B));
                 })
-                .mapToDouble(s -> s.getActualValue() != null ? s.getActualValue() : 0.0)
-                .sum();
+                .collect(Collectors.toList());
 
-        double actualPerformance = kpi.getSubmissions().stream()
+        List<KpiSubmission> perfSubs = kpi.getSubmissions().stream()
                 .filter(s -> Boolean.TRUE.equals(onlyApproved) ? s.getStatus() == SubmissionStatus.APPROVED
                         : (s.getStatus() == SubmissionStatus.APPROVED || s.getStatus() == SubmissionStatus.PENDING || s.getStatus() == SubmissionStatus.REJECTED))
                 .filter(s -> {
                     Instant t = s.getPeriodStart() != null ? s.getPeriodStart() : s.getCreatedAt();
                     return (A == null || !t.isBefore(A)) && (B == null || !t.isAfter(B));
                 })
-                .mapToDouble(s -> s.getActualValue() != null ? s.getActualValue() : 0.0)
-                .sum();
+                .collect(Collectors.toList());
 
-        double completion  = targetValue > 0   ? (actualCompletion   / targetValue)   * 100 : 0;
-        double performance = expectedValue > 0 ? (actualPerformance  / expectedValue) * 100 : 0;
-        return new double[]{completion, performance, 1.0, actualCompletion};
+        boolean reverse = Boolean.TRUE.equals(kpi.getIsReverseKpi());
+        double completion, performance, actualReturn;
+        if (reverse) {
+            completion  = KpiMetricsCalculator.reversePercent(complSubs, targetValue);
+            performance = KpiMetricsCalculator.reversePercent(perfSubs, targetValue);
+            actualReturn = KpiMetricsCalculator.latest(complSubs);
+        } else {
+            double actualCompletion  = KpiMetricsCalculator.sum(complSubs);
+            double actualPerformance = KpiMetricsCalculator.sum(perfSubs);
+            completion  = targetValue > 0   ? (actualCompletion   / targetValue)   * 100 : 0;
+            performance = expectedValue > 0 ? (actualPerformance  / expectedValue) * 100 : 0;
+            actualReturn = actualCompletion;
+        }
+        return new double[]{completion, performance, 1.0, actualReturn};
     }
 
     // ── Public endpoints ──────────────────────────────────────────────────────
 
     @Transactional(readOnly = true)
-    public Metrics getMetrics(UUID orgUnitId, Instant from, Instant to, Boolean onlyApproved) {
-        List<KpiCriteria> kpis = getStandaloneKpis(orgUnitId);
+    public Metrics getMetrics(UUID orgUnitId, Instant from, Instant to, Boolean onlyApproved, UUID periodId) {
+        List<KpiCriteria> kpis = applyPeriodFilter(getStandaloneKpis(orgUnitId), periodId);
         double totalComp = 0, totalPerf = 0;
         int activeCount = 0, completedCount = 0, runningCount = 0, riskCount = 0;
         Instant now = Instant.now();
@@ -152,8 +170,8 @@ public class OrgUnitKpiAnalyticsService {
     }
 
     @Transactional(readOnly = true)
-    public ComboChartData getComboChart(UUID orgUnitId, Instant from, Instant to, Boolean onlyApproved) {
-        List<KpiCriteria> kpis = getStandaloneKpis(orgUnitId);
+    public ComboChartData getComboChart(UUID orgUnitId, Instant from, Instant to, Boolean onlyApproved, UUID periodId) {
+        List<KpiCriteria> kpis = applyPeriodFilter(getStandaloneKpis(orgUnitId), periodId);
         Instant effectiveFrom = from != null ? from : Instant.now().minus(180, ChronoUnit.DAYS);
         Instant effectiveTo   = to   != null ? to   : Instant.now();
 
@@ -197,13 +215,14 @@ public class OrgUnitKpiAnalyticsService {
             Instant from, Instant to, Boolean onlyApproved,
             String sortBy, String sortDir,
             String sharedType,
-            int page, int size) {
+            int page, int size, UUID periodId) {
 
         List<OrgUnit> subtree = resolveOrgUnitSubtree(orgUnitId);
         if (subtree.isEmpty()) return emptyPagedResponse(page, size);
 
         List<UUID> allUnitIds = subtree.stream().map(OrgUnit::getId).toList();
-        List<KpiCriteria> kpis = kpiCriteriaRepository.findApprovedWithoutKeyResultByOrgUnitIds(allUnitIds);
+        List<KpiCriteria> kpis = applyPeriodFilter(
+                kpiCriteriaRepository.findApprovedWithoutKeyResultByOrgUnitIds(allUnitIds), periodId);
 
         // Build available org unit filter options (only units that actually have KPIs)
         Set<UUID> unitsWithKpis = kpis.stream()
@@ -286,6 +305,7 @@ public class OrgUnitKpiAnalyticsService {
 
         double targetValue  = kpi.getTargetValue() != null ? kpi.getTargetValue() : 1.0;
         boolean isShared    = kpi.getAssignees() != null && kpi.getAssignees().size() > 1;
+        boolean reverseKpi  = Boolean.TRUE.equals(kpi.getIsReverseKpi());
 
         Instant kpiStart = kpi.getKpiPeriod() != null && kpi.getKpiPeriod().getStartDate() != null
                 ? kpi.getKpiPeriod().getStartDate() : Instant.EPOCH;
@@ -313,19 +333,25 @@ public class OrgUnitKpiAnalyticsService {
                 double timeRatio   = Math.min(1.0, (endCalcMs - startCalcMs) / totalKpiMs);
                 double expected    = targetValue * timeRatio;
 
-                double assigneeCompletion = kpi.getSubmissions() == null ? 0 : kpi.getSubmissions().stream()
+                List<KpiSubmission> assigneeComplSubs = kpi.getSubmissions() == null ? Collections.emptyList() : kpi.getSubmissions().stream()
                         .filter(s -> Boolean.TRUE.equals(onlyApproved) ? s.getStatus() == SubmissionStatus.APPROVED
                                 : (s.getStatus() == SubmissionStatus.APPROVED || s.getStatus() == SubmissionStatus.PENDING || s.getStatus() == SubmissionStatus.REJECTED))
                         .filter(s -> s.getSubmittedBy() != null && s.getSubmittedBy().getId().equals(assignee.getId()))
                         .filter(s -> { Instant t = s.getPeriodStart() != null ? s.getPeriodStart() : s.getCreatedAt(); return !t.isBefore(kpiStart) && (to == null || !t.isAfter(to)); })
-                        .mapToDouble(s -> s.getActualValue() != null ? s.getActualValue() : 0.0).sum();
+                        .collect(Collectors.toList());
 
-                double assigneePerformance = kpi.getSubmissions() == null ? 0 : kpi.getSubmissions().stream()
+                List<KpiSubmission> assigneePerfSubs = kpi.getSubmissions() == null ? Collections.emptyList() : kpi.getSubmissions().stream()
                         .filter(s -> Boolean.TRUE.equals(onlyApproved) ? s.getStatus() == SubmissionStatus.APPROVED
                                 : (s.getStatus() == SubmissionStatus.APPROVED || s.getStatus() == SubmissionStatus.PENDING || s.getStatus() == SubmissionStatus.REJECTED))
                         .filter(s -> s.getSubmittedBy() != null && s.getSubmittedBy().getId().equals(assignee.getId()))
                         .filter(s -> { Instant t = s.getPeriodStart() != null ? s.getPeriodStart() : s.getCreatedAt(); return (from == null || !t.isBefore(from)) && (to == null || !t.isAfter(to)); })
-                        .mapToDouble(s -> s.getActualValue() != null ? s.getActualValue() : 0.0).sum();
+                        .collect(Collectors.toList());
+
+                double assigneeCompletion = reverseKpi ? KpiMetricsCalculator.latest(assigneeComplSubs) : KpiMetricsCalculator.sum(assigneeComplSubs);
+                double assigneeCompletionRate = reverseKpi ? KpiMetricsCalculator.reversePercent(assigneeComplSubs, targetValue)
+                        : (targetValue > 0 ? (assigneeCompletion / targetValue) * 100 : 0);
+                double assigneePerformanceRate = reverseKpi ? KpiMetricsCalculator.reversePercent(assigneePerfSubs, targetValue)
+                        : (expected > 0 ? (KpiMetricsCalculator.sum(assigneePerfSubs) / expected) * 100 : 0);
 
                 // Resolve org unit and role for this assignee
                 List<UserRoleOrgUnit> assignments = kpiOrgUnitId != null
@@ -343,8 +369,8 @@ public class OrgUnitKpiAnalyticsService {
                         .orgUnitName(assigneeOrgUnitName)
                         .roleName(assigneeRoleName)
                         .actualValue(assigneeCompletion)
-                        .completionRate(targetValue > 0 ? (assigneeCompletion / targetValue) * 100 : 0)
-                        .performanceRate(expected > 0 ? (assigneePerformance / expected) * 100 : 0)
+                        .completionRate(assigneeCompletionRate)
+                        .performanceRate(assigneePerformanceRate)
                         .build());
             }
         }
@@ -358,12 +384,12 @@ public class OrgUnitKpiAnalyticsService {
         List<User> assigneeList = kpi.getAssignees() != null ? new ArrayList<>(kpi.getAssignees()) : Collections.emptyList();
 
         for (IntervalPoint ip : pts) {
-            // Team cumulative actual up to ip.end
-            double cumActual = kpi.getSubmissions() == null ? 0 : kpi.getSubmissions().stream()
+            // Team cumulative submissions up to ip.end
+            List<KpiSubmission> teamCumSubs = kpi.getSubmissions() == null ? Collections.emptyList() : kpi.getSubmissions().stream()
                     .filter(s -> Boolean.TRUE.equals(onlyApproved) ? s.getStatus() == SubmissionStatus.APPROVED
                             : (s.getStatus() == SubmissionStatus.APPROVED || s.getStatus() == SubmissionStatus.PENDING || s.getStatus() == SubmissionStatus.REJECTED))
                     .filter(s -> { Instant t = s.getPeriodStart() != null ? s.getPeriodStart() : s.getCreatedAt(); return !t.isBefore(kpiStart) && !t.isAfter(ip.end); })
-                    .mapToDouble(s -> s.getActualValue() != null ? s.getActualValue() : 0.0).sum();
+                    .collect(Collectors.toList());
 
             double periodActual = kpi.getSubmissions() == null ? 0 : kpi.getSubmissions().stream()
                     .filter(s -> Boolean.TRUE.equals(onlyApproved) ? s.getStatus() == SubmissionStatus.APPROVED
@@ -375,25 +401,30 @@ public class OrgUnitKpiAnalyticsService {
             double periodMs    = ip.end.toEpochMilli() - ip.start.toEpochMilli();
             double ratio       = Math.min(1.0, periodMs / totalKpiMs);
             double expectedPeriod = targetValue * ratio;
-            double perf        = expectedPeriod > 0 ? (periodActual / expectedPeriod) * 100 : 0;
+            // KPI ngược: actual hiển thị = bài nộp mới nhất; hiệu suất = reversePercent
+            double cumActual = reverseKpi ? KpiMetricsCalculator.latest(teamCumSubs) : KpiMetricsCalculator.sum(teamCumSubs);
+            double perf        = reverseKpi ? KpiMetricsCalculator.reversePercent(teamCumSubs, targetValue)
+                    : (expectedPeriod > 0 ? (periodActual / expectedPeriod) * 100 : 0);
 
             // Per-assignee values for this interval
             Map<String, AssigneeChartValues> assigneeValues = new HashMap<>();
             for (User assignee : assigneeList) {
                 String uid = assignee.getId().toString();
-                double aCum = kpi.getSubmissions() == null ? 0 : kpi.getSubmissions().stream()
+                List<KpiSubmission> aCumSubs = kpi.getSubmissions() == null ? Collections.emptyList() : kpi.getSubmissions().stream()
                         .filter(s -> Boolean.TRUE.equals(onlyApproved) ? s.getStatus() == SubmissionStatus.APPROVED
                                 : (s.getStatus() == SubmissionStatus.APPROVED || s.getStatus() == SubmissionStatus.PENDING || s.getStatus() == SubmissionStatus.REJECTED))
                         .filter(s -> s.getSubmittedBy() != null && s.getSubmittedBy().getId().equals(assignee.getId()))
                         .filter(s -> { Instant t = s.getPeriodStart() != null ? s.getPeriodStart() : s.getCreatedAt(); return !t.isBefore(kpiStart) && !t.isAfter(ip.end); })
-                        .mapToDouble(s -> s.getActualValue() != null ? s.getActualValue() : 0.0).sum();
+                        .collect(Collectors.toList());
                 double aPeriod = kpi.getSubmissions() == null ? 0 : kpi.getSubmissions().stream()
                         .filter(s -> Boolean.TRUE.equals(onlyApproved) ? s.getStatus() == SubmissionStatus.APPROVED
                                 : (s.getStatus() == SubmissionStatus.APPROVED || s.getStatus() == SubmissionStatus.PENDING || s.getStatus() == SubmissionStatus.REJECTED))
                         .filter(s -> s.getSubmittedBy() != null && s.getSubmittedBy().getId().equals(assignee.getId()))
                         .filter(s -> { Instant t = s.getPeriodStart() != null ? s.getPeriodStart() : s.getCreatedAt(); return !t.isBefore(ip.start) && !t.isAfter(ip.end); })
                         .mapToDouble(s -> s.getActualValue() != null ? s.getActualValue() : 0.0).sum();
-                double aPerf = expectedPeriod > 0 ? (aPeriod / expectedPeriod) * 100 : 0;
+                double aCum  = reverseKpi ? KpiMetricsCalculator.latest(aCumSubs) : KpiMetricsCalculator.sum(aCumSubs);
+                double aPerf = reverseKpi ? KpiMetricsCalculator.reversePercent(aCumSubs, targetValue)
+                        : (expectedPeriod > 0 ? (aPeriod / expectedPeriod) * 100 : 0);
                 assigneeValues.put(uid, AssigneeChartValues.builder()
                         .actual(aCum)
                         .performance(Math.round(aPerf * 100.0) / 100.0)
@@ -429,8 +460,10 @@ public class OrgUnitKpiAnalyticsService {
         List<SubmissionStat> topSubmissions = qualifyingSubmissions.stream()
                 .map(s -> {
                     double actualVal = s.getActualValue() != null ? s.getActualValue() : 0.0;
-                    double contribPct = targetValue > 0 ? (actualVal / targetValue) * 100 : 0;
-                    double perf       = expectedPerSub > 0 ? (actualVal / expectedPerSub) * 100 : 0;
+                    double contribPct = reverseKpi ? KpiMetricsCalculator.reversePercent(actualVal, targetValue)
+                            : (targetValue > 0 ? (actualVal / targetValue) * 100 : 0);
+                    double perf       = reverseKpi ? KpiMetricsCalculator.reversePercent(actualVal, targetValue)
+                            : (expectedPerSub > 0 ? (actualVal / expectedPerSub) * 100 : 0);
                     User submitter    = s.getSubmittedBy();
                     String name       = submitter != null ? submitter.getFullName() : "—";
                     Instant subTime   = s.getPeriodStart() != null ? s.getPeriodStart() : s.getCreatedAt();
@@ -685,7 +718,7 @@ public class OrgUnitKpiAnalyticsService {
     // ── Risk methods ──────────────────────────────────────────────────────────
 
     @Transactional(readOnly = true)
-    public UnitRiskPagedResponse getUnitRisks(UUID orgUnitId, Instant from, Instant to, Boolean onlyApproved, int page, int size, String sortBy, String sortDir) {
+    public UnitRiskPagedResponse getUnitRisks(UUID orgUnitId, Instant from, Instant to, Boolean onlyApproved, int page, int size, String sortBy, String sortDir, UUID periodId) {
         List<OrgUnit> subtree = resolveOrgUnitSubtree(orgUnitId);
         if (subtree.isEmpty()) return UnitRiskPagedResponse.builder()
             .content(Collections.emptyList()).page(page).size(size)
@@ -694,7 +727,8 @@ public class OrgUnitKpiAnalyticsService {
         List<UnitRiskRow> rows = new ArrayList<>();
 
         for (OrgUnit unit : subtree) {
-            List<KpiCriteria> unitKpis = kpiCriteriaRepository.findApprovedWithoutKeyResultByOrgUnitIds(List.of(unit.getId()));
+            List<KpiCriteria> unitKpis = applyPeriodFilter(
+                    kpiCriteriaRepository.findApprovedWithoutKeyResultByOrgUnitIds(List.of(unit.getId())), periodId);
             if (unitKpis.isEmpty()) continue;
 
             int totalKpis = unitKpis.size();
@@ -735,7 +769,7 @@ public class OrgUnitKpiAnalyticsService {
     }
 
     @Transactional(readOnly = true)
-    public MemberRiskPagedResponse getMemberRisks(UUID orgUnitId, UUID filterOrgUnitId, Instant from, Instant to, Boolean onlyApproved, int page, int size, String sortBy, String sortDir) {
+    public MemberRiskPagedResponse getMemberRisks(UUID orgUnitId, UUID filterOrgUnitId, Instant from, Instant to, Boolean onlyApproved, int page, int size, String sortBy, String sortDir, UUID periodId) {
         List<OrgUnit> subtree = resolveOrgUnitSubtree(orgUnitId);
         if (subtree.isEmpty()) return MemberRiskPagedResponse.builder()
             .content(Collections.emptyList()).page(page).size(size)
@@ -743,7 +777,8 @@ public class OrgUnitKpiAnalyticsService {
             .availableOrgUnits(Collections.emptyList()).build();
 
         List<UUID> allUnitIds = subtree.stream().map(OrgUnit::getId).toList();
-        List<KpiCriteria> allKpis = kpiCriteriaRepository.findApprovedWithoutKeyResultByOrgUnitIds(allUnitIds);
+        List<KpiCriteria> allKpis = applyPeriodFilter(
+                kpiCriteriaRepository.findApprovedWithoutKeyResultByOrgUnitIds(allUnitIds), periodId);
 
         Set<UUID> unitsWithKpis = allKpis.stream()
             .filter(k -> k.getOrgUnit() != null && k.getAssignees() != null && !k.getAssignees().isEmpty())
@@ -762,8 +797,9 @@ public class OrgUnitKpiAnalyticsService {
             double target = kpi.getTargetValue() != null ? kpi.getTargetValue() : 1.0;
             String unitName = kpi.getOrgUnit() != null ? kpi.getOrgUnit().getName() : "—";
 
+            boolean reverse = Boolean.TRUE.equals(kpi.getIsReverseKpi());
             for (User assignee : kpi.getAssignees()) {
-                double actual = kpi.getSubmissions() == null ? 0 : kpi.getSubmissions().stream()
+                List<KpiSubmission> assigneeSubs = kpi.getSubmissions() == null ? Collections.emptyList() : kpi.getSubmissions().stream()
                     .filter(s -> Boolean.TRUE.equals(onlyApproved) ? s.getStatus() == SubmissionStatus.APPROVED
                         : (s.getStatus() == SubmissionStatus.APPROVED || s.getStatus() == SubmissionStatus.PENDING || s.getStatus() == SubmissionStatus.REJECTED))
                     .filter(s -> s.getSubmittedBy() != null && s.getSubmittedBy().getId().equals(assignee.getId()))
@@ -771,8 +807,9 @@ public class OrgUnitKpiAnalyticsService {
                         Instant t = s.getPeriodStart() != null ? s.getPeriodStart() : s.getCreatedAt();
                         return (from == null || !t.isBefore(from)) && (to == null || !t.isAfter(to));
                     })
-                    .mapToDouble(s -> s.getActualValue() != null ? s.getActualValue() : 0.0).sum();
-                double completion = target > 0 ? (actual / target) * 100 : 0;
+                    .collect(Collectors.toList());
+                double completion = reverse ? KpiMetricsCalculator.reversePercent(assigneeSubs, target)
+                        : (target > 0 ? (KpiMetricsCalculator.sum(assigneeSubs) / target) * 100 : 0);
                 boolean overdue = isKpiOverdueForUser(kpi, assignee.getId());
 
                 MemberRiskAccumulator a = accum.computeIfAbsent(assignee.getId(),

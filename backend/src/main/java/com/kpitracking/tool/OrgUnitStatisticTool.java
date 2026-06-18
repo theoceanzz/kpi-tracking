@@ -26,9 +26,46 @@ public class OrgUnitStatisticTool {
     private final ConversationMessageRepository conversationMessageRepository;
     private final OrgUnitStatisticService orgUnitStatisticService;
     private final DisambiguationGuard disambiguationGuard;
+    private final FollowupContextStore followupContextStore;
     private final ObjectMapper objectMapper;
 
     // ── context helpers ──────────────────────────────────────────────────────
+
+    /**
+     * Parses a model-supplied ID into a UUID. On a malformed value (e.g. the model
+     * invented a human-readable code like "IT-DEPT"), throws a recoverable, model-readable
+     * instruction telling it which {@code search_*} tool to use to obtain the real UUID,
+     * so it can self-correct within the same turn instead of failing cryptically.
+     */
+    private UUID parseId(String value, String paramLabel, String searchTool) {
+        try {
+            return UUID.fromString(value.trim());
+        } catch (IllegalArgumentException | NullPointerException e) {
+            throw new IllegalArgumentException(
+                    "'" + value + "' không phải là ID hợp lệ cho " + paramLabel
+                    + ". Hãy dùng công cụ " + searchTool + " để lấy đúng ID (UUID) trước, rồi gọi lại.");
+        }
+    }
+
+    /**
+     * Centralizes tool error handling: recoverable model-input mistakes are logged at WARN
+     * (one line, no stack trace) since they are returned to the model to self-correct;
+     * genuine faults keep a full ERROR stack trace. Always returns properly-escaped JSON.
+     */
+    private String toolError(String tool, Exception e) {
+        if (e instanceof IllegalArgumentException || e instanceof SecurityException
+                || e instanceof IllegalStateException) {
+            log.warn("Recoverable error in {}: {}", tool, e.getMessage());
+        } else {
+            log.error("Error in {}", tool, e);
+        }
+        try {
+            return objectMapper.writeValueAsString(
+                    Map.of("error", e.getMessage() != null ? e.getMessage() : e.toString()));
+        } catch (Exception ignore) {
+            return "{\"error\":\"Lỗi xử lý yêu cầu.\"}";
+        }
+    }
 
     private UUID getOrgUnitId(ToolContext context) {
         if (context == null || context.getContext() == null) {
@@ -108,7 +145,7 @@ public class OrgUnitStatisticTool {
 
     private UUID resolveUnitId(String unitId, ToolContext context) {
         if (unitId != null && !unitId.isBlank()) {
-            UUID targetId = UUID.fromString(unitId);
+            UUID targetId = parseId(unitId, "đơn vị (unitId)", "search_org_units");
             guardDisambiguation("orgUnit", targetId, "đơn vị");
             validateSubtreeAccess(targetId, context);
             return targetId;
@@ -261,16 +298,42 @@ public class OrgUnitStatisticTool {
         return objectMapper.writeValueAsString(result);
     }
 
+    /**
+     * Mark the conversation as disambiguating, then return the ambiguous envelope.
+     * Suppresses follow-up question generation until user makes a selection.
+     */
+    private String returnAmbiguous(String entityLabel, String arrayKey,
+                                   List<Map<String, Object>> results, ToolContext context) throws Exception {
+        String convId = getConversationId(context);
+        if (convId != null) {
+            followupContextStore.markDisambiguating(convId);
+        }
+        return ambiguousEnvelope(entityLabel, arrayKey, results);
+    }
+
+    /**
+     * Serializes a tool's payload to JSON, records it in the {@link FollowupContextStore}
+     * (keyed by conversationId, when present) so follow-up questions can be grounded in the
+     * real tool data of this turn, and returns the JSON for the model.
+     */
+    private String respond(ToolContext context, String toolName, Object payload) throws Exception {
+        String json = objectMapper.writeValueAsString(payload);
+        String conversationId = getConversationId(context);
+        if (conversationId != null) {
+            followupContextStore.append(conversationId, toolName, json);
+        }
+        return json;
+    }
+
     // ── 1. get_org_hierarchy ─────────────────────────────────────────────────
 
     @Tool(name = "get_org_hierarchy", description = "Get the complete organizational unit hierarchy tree and subtree details, including child counts and member counts.")
     public String getOrgHierarchy(GetOrgHierarchyRequest request, ToolContext context) {
         try {
             Map<String, Object> response = orgUnitStatisticService.getOrgHierarchy(getOrgUnitId(context));
-            return objectMapper.writeValueAsString(response);
+            return respond(context, "get_org_hierarchy", response);
         } catch (Exception e) {
-            log.error("Error in getOrgHierarchy", e);
-            return "{\"error\": \"" + e.getMessage() + "\"}";
+            return toolError("getOrgHierarchy", e);
         }
     }
 
@@ -281,10 +344,9 @@ public class OrgUnitStatisticTool {
         try {
             UUID targetId = resolveUnitId(request.unitId(), context);
             Map<String, Object> response = orgUnitStatisticService.getOrgUnitDetail(targetId);
-            return objectMapper.writeValueAsString(response);
+            return respond(context, "get_org_unit_detail", response);
         } catch (Exception e) {
-            log.error("Error in getOrgUnitDetail", e);
-            return "{\"error\": \"" + e.getMessage() + "\"}";
+            return toolError("getOrgUnitDetail", e);
         }
     }
 
@@ -297,10 +359,9 @@ public class OrgUnitStatisticTool {
             Map<String, Object> response = orgUnitStatisticService.getChildOrgUnits(
                     parentId, request.recursive(), request.page(), request.size(),
                     request.sortBy(), request.sortDirection());
-            return objectMapper.writeValueAsString(response);
+            return respond(context, "get_child_org_units", response);
         } catch (Exception e) {
-            log.error("Error in getChildOrgUnits", e);
-            return "{\"error\": \"" + e.getMessage() + "\"}";
+            return toolError("getChildOrgUnits", e);
         }
     }
 
@@ -310,13 +371,14 @@ public class OrgUnitStatisticTool {
     public String getMembers(GetMembersRequest request, ToolContext context) {
         try {
             UUID targetUnitId = resolveUnitId(request.unitId(), context);
+            if (request.positionId() != null && !request.positionId().isBlank())
+                parseId(request.positionId(), "vị trí (positionId)", "search_positions");
             Map<String, Object> response = orgUnitStatisticService.getMembers(
                     targetUnitId, request.includeChildUnits(), request.positionId(),
                     request.page(), request.size(), request.sortBy(), request.sortDirection());
-            return objectMapper.writeValueAsString(response);
+            return respond(context, "get_members", response);
         } catch (Exception e) {
-            log.error("Error in getMembers", e);
-            return "{\"error\": \"" + e.getMessage() + "\"}";
+            return toolError("getMembers", e);
         }
     }
 
@@ -329,10 +391,9 @@ public class OrgUnitStatisticTool {
             Map<String, Object> response = orgUnitStatisticService.getMemberStatistics(
                     targetUnitId, request.includeChildUnits(),
                     request.startDate(), request.endDate());
-            return objectMapper.writeValueAsString(response);
+            return respond(context, "get_org_unit_statistics", response);
         } catch (Exception e) {
-            log.error("Error in getOrgUnitStatistics", e);
-            return "{\"error\": \"" + e.getMessage() + "\"}";
+            return toolError("getOrgUnitStatistics", e);
         }
     }
 
@@ -341,38 +402,51 @@ public class OrgUnitStatisticTool {
     @Tool(name = "get_user_summary", description = "Get standard KPI statistics and list details of KPIs assigned to a specific user.")
     public String getUserSummary(GetUserSummaryRequest request, ToolContext context) {
         try {
-            UUID targetUserId = UUID.fromString(request.userId());
+            UUID targetUserId = parseId(request.userId(), "người dùng (userId)", "search_users");
             guardDisambiguation("user", targetUserId, "người dùng");
             validateUserAccess(targetUserId, context);
             Map<String, Object> response = orgUnitStatisticService.getUserSummary(
                     targetUserId, request.startDate(), request.endDate());
-            return objectMapper.writeValueAsString(response);
+            return respond(context, "get_user_summary", response);
         } catch (Exception e) {
-            log.error("Error in getUserSummary", e);
-            return "{\"error\": \"" + e.getMessage() + "\"}";
+            return toolError("getUserSummary", e);
+        }
+    }
+
+    // ── 6b. get_my_info ──────────────────────────────────────────────────────
+
+    @Tool(name = "get_my_info", description = "Get the CURRENT logged-in user's own profile: their full name, contact info, the organizational unit(s) they belong to, their position/role, and their organization. Use for self-referential questions like 'tôi là ai', 'đơn vị của tôi tên gì', 'chức vụ của tôi', 'tôi thuộc tổ chức nào'.")
+    public String getMyInfo(GetMyInfoRequest request, ToolContext context) {
+        try {
+            String email = SecurityContextHolder.getContext().getAuthentication().getName();
+            Map<String, Object> response = orgUnitStatisticService.getCurrentUserProfile(email);
+            return respond(context, "get_my_info", response);
+        } catch (Exception e) {
+            return toolError("getMyInfo", e);
         }
     }
 
     // ── 7. get_kpis ──────────────────────────────────────────────────────────
 
-    @Tool(name = "get_kpis", description = "List and filter KPI criteria with detailed query parameters and standard pagination/sorting.")
+    @Tool(name = "get_kpis", description = "List and filter KPI criteria with detailed query parameters and standard pagination/sorting. Each KPI includes name, periodName, progress (% of target reached), performance (% vs time-proportional target) — use these to compare KPI health. This tool does NOT return IDs; to get details of a specific KPI, resolve its UUID via search_kpis first, then call get_kpi_detail or get_submission_history.")
     public String getKpis(GetKpisRequest request, ToolContext context) {
         try {
             if (request.ownerId() != null && !request.ownerId().isBlank())
-                validateUserAccess(UUID.fromString(request.ownerId()), context);
+                validateUserAccess(parseId(request.ownerId(), "người dùng (ownerId)", "search_users"), context);
             if (request.assignedById() != null && !request.assignedById().isBlank())
-                validateUserAccess(UUID.fromString(request.assignedById()), context);
+                validateUserAccess(parseId(request.assignedById(), "người dùng (assignedById)", "search_users"), context);
             if (request.assignedToId() != null && !request.assignedToId().isBlank())
-                validateUserAccess(UUID.fromString(request.assignedToId()), context);
+                validateUserAccess(parseId(request.assignedToId(), "người dùng (assignedToId)", "search_users"), context);
+            if (request.periodId() != null && !request.periodId().isBlank())
+                parseId(request.periodId(), "kỳ KPI (periodId)", "search_kpi_periods");
             UUID orgUnitId = getOrgUnitId(context);
             Map<String, Object> response = orgUnitStatisticService.getKpis(
                     orgUnitId, request.ownerId(), request.assignedById(), request.assignedToId(),
                     request.periodId(), request.status(), request.page(), request.size(),
                     request.sortBy(), request.sortDirection(), request.startDate(), request.endDate());
-            return objectMapper.writeValueAsString(response);
+            return respond(context, "get_kpis", response);
         } catch (Exception e) {
-            log.error("Error in getKpis", e);
-            return "{\"error\": \"" + e.getMessage() + "\"}";
+            return toolError("getKpis", e);
         }
     }
 
@@ -382,19 +456,20 @@ public class OrgUnitStatisticTool {
     public String getKpiSummary(GetKpiSummaryRequest request, ToolContext context) {
         try {
             if (request.ownerId() != null && !request.ownerId().isBlank())
-                validateUserAccess(UUID.fromString(request.ownerId()), context);
+                validateUserAccess(parseId(request.ownerId(), "người dùng (ownerId)", "search_users"), context);
             if (request.assignedById() != null && !request.assignedById().isBlank())
-                validateUserAccess(UUID.fromString(request.assignedById()), context);
+                validateUserAccess(parseId(request.assignedById(), "người dùng (assignedById)", "search_users"), context);
             if (request.assignedToId() != null && !request.assignedToId().isBlank())
-                validateUserAccess(UUID.fromString(request.assignedToId()), context);
+                validateUserAccess(parseId(request.assignedToId(), "người dùng (assignedToId)", "search_users"), context);
+            if (request.periodId() != null && !request.periodId().isBlank())
+                parseId(request.periodId(), "kỳ KPI (periodId)", "search_kpi_periods");
             UUID orgUnitId = getOrgUnitId(context);
             Map<String, Object> response = orgUnitStatisticService.getKpiSummary(
                     orgUnitId, request.ownerId(), request.assignedById(), request.assignedToId(),
                     request.periodId(), request.status(), request.startDate(), request.endDate());
-            return objectMapper.writeValueAsString(response);
+            return respond(context, "get_kpi_summary", response);
         } catch (Exception e) {
-            log.error("Error in getKpiSummary", e);
-            return "{\"error\": \"" + e.getMessage() + "\"}";
+            return toolError("getKpiSummary", e);
         }
     }
 
@@ -403,15 +478,14 @@ public class OrgUnitStatisticTool {
     @Tool(name = "get_kpi_detail", description = "Get complete detail about a specific KPI, showing progress, performance, rating, deadline, assigner, assignees, and status.")
     public String getKpiDetail(GetKpiDetailRequest request, ToolContext context) {
         try {
-            UUID id = UUID.fromString(request.kpiId());
+            UUID id = parseId(request.kpiId(), "KPI (kpiId)", "search_kpis");
             guardDisambiguation("kpi", id, "KPI");
             validateKpiAccess(id, context);
             Map<String, Object> response = orgUnitStatisticService.getKpiDetail(
                     id, request.startDate(), request.endDate());
-            return objectMapper.writeValueAsString(response);
+            return respond(context, "get_kpi_detail", response);
         } catch (Exception e) {
-            log.error("Error in getKpiDetail", e);
-            return "{\"error\": \"" + e.getMessage() + "\"}";
+            return toolError("getKpiDetail", e);
         }
     }
 
@@ -420,14 +494,13 @@ public class OrgUnitStatisticTool {
     @Tool(name = "get_kpi_assignees", description = "Count and list all assignees of a specific KPI along with their parent organizational units.")
     public String getKpiAssignees(GetKpiAssigneesRequest request, ToolContext context) {
         try {
-            UUID id = UUID.fromString(request.kpiId());
+            UUID id = parseId(request.kpiId(), "KPI (kpiId)", "search_kpis");
             guardDisambiguation("kpi", id, "KPI");
             validateKpiAccess(id, context);
             Map<String, Object> response = orgUnitStatisticService.getKpiAssignees(id);
-            return objectMapper.writeValueAsString(response);
+            return respond(context, "get_kpi_assignees", response);
         } catch (Exception e) {
-            log.error("Error in getKpiAssignees", e);
-            return "{\"error\": \"" + e.getMessage() + "\"}";
+            return toolError("getKpiAssignees", e);
         }
     }
 
@@ -439,10 +512,9 @@ public class OrgUnitStatisticTool {
             UUID orgId = getOrgId(context);
             List<Map<String, Object>> response = orgUnitStatisticService.getKpiPeriods(
                     orgId, request.startDate(), request.endDate());
-            return objectMapper.writeValueAsString(response);
+            return respond(context, "get_kpi_periods", response);
         } catch (Exception e) {
-            log.error("Error in getKpiPeriods", e);
-            return "{\"error\": \"" + e.getMessage() + "\"}";
+            return toolError("getKpiPeriods", e);
         }
     }
 
@@ -453,23 +525,22 @@ public class OrgUnitStatisticTool {
         try {
             UUID targetUnitId = resolveUnitId(request.unitId(), context);
             Map<String, Object> response = orgUnitStatisticService.getPositions(targetUnitId);
-            return objectMapper.writeValueAsString(response);
+            return respond(context, "get_positions", response);
         } catch (Exception e) {
-            log.error("Error in getPositions", e);
-            return "{\"error\": \"" + e.getMessage() + "\"}";
+            return toolError("getPositions", e);
         }
     }
 
     // ── 13. rank_members ─────────────────────────────────────────────────────
 
-    @Tool(name = "rank_members", description = "Ranks users by a chosen metric and returns a list with rank, userId, fullName, email, score. Metrics: 'average_progress' (weighted avg % of target reached), 'total_progress' (sum of approved actual values), 'average_performance' (weighted avg % against time-proportional target), 'average_rating' (evaluation score avg), 'late_submission_count', 'missing_submission_count', 'submission_count'. Scopes: 'organization' (all org users), 'unit' (requires unitId), 'kpi' (requires kpiId — ranks that KPI's assignees).")
+    @Tool(name = "rank_members", description = "Ranks users by a chosen metric and returns a list with rank, fullName, email, score (no IDs — use search_users to resolve a user's UUID for follow-up tools). Metrics: 'average_progress' (weighted avg % of target reached), 'total_progress' (sum of approved actual values), 'average_performance' (weighted avg % against time-proportional target), 'average_rating' (evaluation score avg), 'late_submission_count', 'missing_submission_count', 'submission_count'. Scopes: 'organization' (all org users), 'unit' (requires unitId), 'kpi' (requires kpiId — ranks that KPI's assignees).")
     public String rankMembers(RankMembersRequest request, ToolContext context) {
         try {
             if ("unit".equals(request.scope()) && request.unitId() != null && !request.unitId().isBlank()) {
-                validateSubtreeAccess(UUID.fromString(request.unitId()), context);
+                validateSubtreeAccess(parseId(request.unitId(), "đơn vị (unitId)", "search_org_units"), context);
             }
             if ("kpi".equals(request.scope()) && request.kpiId() != null && !request.kpiId().isBlank()) {
-                validateKpiAccess(UUID.fromString(request.kpiId()), context);
+                validateKpiAccess(parseId(request.kpiId(), "KPI (kpiId)", "search_kpis"), context);
             }
             UUID orgId = getOrgId(context);
             UUID contextUnitId = getOrgUnitId(context);
@@ -477,26 +548,24 @@ public class OrgUnitStatisticTool {
                     orgId, request.metric(), request.order(), request.scope(),
                     request.unitId(), request.kpiId(), request.limit(),
                     request.startDate(), request.endDate(), contextUnitId);
-            return objectMapper.writeValueAsString(response);
+            return respond(context, "rank_members", response);
         } catch (Exception e) {
-            log.error("Error in rankMembers", e);
-            return "{\"error\": \"" + e.getMessage() + "\"}";
+            return toolError("rankMembers", e);
         }
     }
 
     // ── 14. rank_org_units ───────────────────────────────────────────────────
 
-    @Tool(name = "rank_org_units", description = "Ranks all organizational units in the current subtree by a metric and returns list with rank, orgUnitId, orgUnitName, score. Metrics: 'average_progress' (weighted avg % of target reached across the unit's KPIs), 'average_performance' (weighted avg % against time-proportional target), 'average_rating' (avg evaluation score), 'member_count'.")
+    @Tool(name = "rank_org_units", description = "Ranks all organizational units in the current subtree by a metric and returns list with rank, orgUnitName, score (no IDs — use search_org_units to resolve a unit's UUID for follow-up tools). Metrics: 'average_progress' (weighted avg % of target reached across the unit's KPIs), 'average_performance' (weighted avg % against time-proportional target), 'average_rating' (avg evaluation score), 'member_count'.")
     public String rankOrgUnits(RankOrgUnitsRequest request, ToolContext context) {
         try {
             UUID orgUnitId = getOrgUnitId(context);
             List<Map<String, Object>> response = orgUnitStatisticService.rankOrgUnits(
                     orgUnitId, request.metric(), request.order(), request.limit(),
                     request.startDate(), request.endDate());
-            return objectMapper.writeValueAsString(response);
+            return respond(context, "rank_org_units", response);
         } catch (Exception e) {
-            log.error("Error in rankOrgUnits", e);
-            return "{\"error\": \"" + e.getMessage() + "\"}";
+            return toolError("rankOrgUnits", e);
         }
     }
 
@@ -508,10 +577,9 @@ public class OrgUnitStatisticTool {
             UUID orgUnitId = getOrgUnitId(context);
             List<Map<String, Object>> response = orgUnitStatisticService.getKpiRiskAnalysis(
                     orgUnitId, request.startDate(), request.endDate());
-            return objectMapper.writeValueAsString(response);
+            return respond(context, "get_kpi_risk_analysis", response);
         } catch (Exception e) {
-            log.error("Error in getKpiRiskAnalysis", e);
-            return "{\"error\": \"" + e.getMessage() + "\"}";
+            return toolError("getKpiRiskAnalysis", e);
         }
     }
 
@@ -524,10 +592,122 @@ public class OrgUnitStatisticTool {
             UUID orgId = getOrgId(context);
             Map<String, Object> response = orgUnitStatisticService.getDashboardSummary(
                     orgUnitId, orgId, request.startDate(), request.endDate());
-            return objectMapper.writeValueAsString(response);
+            return respond(context, "get_dashboard_summary", response);
         } catch (Exception e) {
-            log.error("Error in getDashboardSummary", e);
-            return "{\"error\": \"" + e.getMessage() + "\"}";
+            return toolError("getDashboardSummary", e);
+        }
+    }
+
+    // ── get_time_series ──────────────────────────────────────────────────────
+
+    @Tool(name = "get_time_series", description = "Get the trend of a KPI metric over time for an organizational unit subtree, plus detected anomaly points. Use this for questions about trends/evolution over months/quarters/years (e.g. 'xu hướng hiệu suất 6 tháng qua'). Metrics: 'completion' (sum actual / sum target %), 'avg_performance' (avg actual/target %). Granularity: 'MONTH' (default), 'QUARTER', 'YEAR'. 'lookback' keeps only the most recent N periods (default 6). Returns { metric, granularity, series:[{period,value}], anomalyPoints:[{period,value,deltaPct,type}] } where type is SPIKE (>+20%) or DROP (<-15%).")
+    public String getTimeSeries(GetTimeSeriesRequest request, ToolContext context) {
+        try {
+            UUID targetUnitId = resolveUnitId(request.unitId(), context);
+            Map<String, Object> response = orgUnitStatisticService.getTimeSeries(
+                    targetUnitId, request.metric(), request.granularity(), request.lookback());
+            return respond(context, "get_time_series", response);
+        } catch (Exception e) {
+            return toolError("getTimeSeries", e);
+        }
+    }
+
+    // ── get_submission_history ────────────────────────────────────────────────
+
+    @Tool(name = "get_submission_history", description = "List individual submissions for a KPI (timeline/trace). Optional filters: userId (one assignee only), status (PENDING|APPROVED|REJECTED|DRAFT), date range, limit. Returns submissions sorted by createdAt with submittedBy, actualValue, status, reviewedBy, reviewNote.")
+    public String getSubmissionHistory(OrgUnitStatisticToolRequests.GetSubmissionHistoryRequest request, ToolContext context) {
+        try {
+            UUID kpiId = parseId(request.kpiId(), "KPI (kpiId)", "search_kpis");
+            guardDisambiguation("kpi", kpiId, "KPI");
+            validateKpiAccess(kpiId, context);
+            if (request.userId() != null && !request.userId().isBlank())
+                parseId(request.userId(), "người dùng (userId)", "search_users");
+            Map<String, Object> response = orgUnitStatisticService.getSubmissionHistory(
+                    kpiId, request.userId(), request.status(),
+                    request.startDate(), request.endDate(),
+                    request.limit() != null ? request.limit() : 20);
+            return respond(context, "get_submission_history", response);
+        } catch (Exception e) {
+            return toolError("getSubmissionHistory", e);
+        }
+    }
+
+    // ── get_kpi_period_breakdown ──────────────────────────────────────────────
+
+    @Tool(name = "get_kpi_period_breakdown", description = "Show per-period performance breakdown for a single KPI (trend by month/quarter/year). Use for questions about KPI evolution: 'how did KPI X evolve', 'progression over time'. Returns list of {periodLabel, totalActual, target, completionPct, submissionCount} with trend direction (improving|declining|stable).")
+    public String getKpiPeriodBreakdown(OrgUnitStatisticToolRequests.GetKpiPeriodBreakdownRequest request, ToolContext context) {
+        try {
+            UUID kpiId = parseId(request.kpiId(), "KPI (kpiId)", "search_kpis");
+            guardDisambiguation("kpi", kpiId, "KPI");
+            validateKpiAccess(kpiId, context);
+            if (request.userId() != null && !request.userId().isBlank())
+                parseId(request.userId(), "người dùng (userId)", "search_users");
+            Map<String, Object> response = orgUnitStatisticService.getKpiPeriodBreakdown(
+                    kpiId, request.userId(), request.granularity(),
+                    request.startDate(), request.endDate());
+            return respond(context, "get_kpi_period_breakdown", response);
+        } catch (Exception e) {
+            return toolError("getKpiPeriodBreakdown", e);
+        }
+    }
+
+    // ── get_non_submitters ────────────────────────────────────────────────────
+
+    @Tool(name = "get_non_submitters", description = "List assignees who have KPIs assigned but have NOT submitted within the period/date range. Use for accountability: 'who hasn\\'t submitted', 'who is late', 'responsible parties'. Returns fullName, email, missingKpiCount sorted by missing count descending (no IDs — use search_users to resolve a user's UUID for follow-up tools).")
+    public String getNonSubmitters(OrgUnitStatisticToolRequests.GetNonSubmittersRequest request, ToolContext context) {
+        try {
+            UUID contextUnitId = getOrgUnitId(context);
+            UUID targetUnitId = (request.unitId() != null && !request.unitId().isBlank())
+                    ? parseId(request.unitId(), "đơn vị (unitId)", "search_org_units")
+                    : contextUnitId;
+            validateSubtreeAccess(targetUnitId, context);
+            if (request.periodId() != null && !request.periodId().isBlank())
+                parseId(request.periodId(), "kỳ KPI (periodId)", "search_kpi_periods");
+            Map<String, Object> response = orgUnitStatisticService.getNonSubmitters(
+                    targetUnitId, request.periodId(),
+                    request.startDate(), request.endDate(),
+                    request.limit() != null ? request.limit() : 20);
+            return respond(context, "get_non_submitters", response);
+        } catch (Exception e) {
+            return toolError("getNonSubmitters", e);
+        }
+    }
+
+    // ── compare_org_units ─────────────────────────────────────────────────────
+
+    @Tool(name = "compare_org_units", description = "Compare 2–5 specific organizational units side by side on KPI metrics (avgPerformance, avgProgress, memberCount, completionRate). Use for cross-unit comparison: 'compare unit A vs unit B', 'how are teams performing relative to each other'. Returns units list with winner (best performer) marked.")
+    public String compareOrgUnits(OrgUnitStatisticToolRequests.CompareOrgUnitsRequest request, ToolContext context) {
+        try {
+            java.util.List<UUID> unitIds = request.unitIds().stream()
+                    .map(id -> parseId(id, "đơn vị (unitIds)", "search_org_units"))
+                    .peek(uid -> validateSubtreeAccess(uid, context))
+                    .toList();
+            Map<String, Object> response = orgUnitStatisticService.compareOrgUnits(
+                    unitIds, request.startDate(), request.endDate());
+            return respond(context, "compare_org_units", response);
+        } catch (Exception e) {
+            return toolError("compareOrgUnits", e);
+        }
+    }
+
+    // ── get_members_by_performance_threshold ───────────────────────────────────
+
+    @Tool(name = "get_members_by_performance_threshold", description = "Filter members by a performance threshold (e.g. 'below 80%', 'above 90%'). Use for action decisions: 'who needs intervention', 'who to coach', 'top performers'. Returns members filtered by threshold with their scores, sorted by direction.")
+    public String getMembersByPerformanceThreshold(OrgUnitStatisticToolRequests.GetMembersByPerformanceThresholdRequest request, ToolContext context) {
+        try {
+            UUID contextUnitId = getOrgUnitId(context);
+            UUID targetUnitId = (request.unitId() != null && !request.unitId().isBlank())
+                    ? parseId(request.unitId(), "đơn vị (unitId)", "search_org_units")
+                    : contextUnitId;
+            validateSubtreeAccess(targetUnitId, context);
+            Map<String, Object> response = orgUnitStatisticService.getMembersByPerformanceThreshold(
+                    targetUnitId, request.threshold() != null ? request.threshold() : 80.0,
+                    request.direction(), request.metric(),
+                    request.startDate(), request.endDate(),
+                    request.limit() != null ? request.limit() : 20);
+            return respond(context, "get_members_by_performance_threshold", response);
+        } catch (Exception e) {
+            return toolError("getMembersByPerformanceThreshold", e);
         }
     }
 
@@ -537,7 +717,7 @@ public class OrgUnitStatisticTool {
     public String searchUsers(SearchUsersRequest request, ToolContext context) {
         try {
             if (request.unitId() != null && !request.unitId().isBlank()) {
-                validateSubtreeAccess(UUID.fromString(request.unitId()), context);
+                validateSubtreeAccess(parseId(request.unitId(), "đơn vị (unitId)", "search_org_units"), context);
             }
             UUID orgId = getOrgId(context);
             int maxResults = (request.limit() != null && request.limit() > 0) ? request.limit() : 10;
@@ -548,7 +728,7 @@ public class OrgUnitStatisticTool {
             if (!dup.isEmpty()
                     && !alreadyAskedPriorTurn(getConversationId(context), collisionName(dup, "fullName"), dup, "email", "orgUnitName", "roleName")) {
                 disambiguationGuard.arm("user", collectIds(dup));
-                return ambiguousEnvelope("người dùng", "users", users);
+                return returnAmbiguous("người dùng", "users", users, context);
             }
 
             Map<String, Object> result = new LinkedHashMap<>();
@@ -556,8 +736,7 @@ public class OrgUnitStatisticTool {
             result.put("users", users);
             return objectMapper.writeValueAsString(result);
         } catch (Exception e) {
-            log.error("Error in searchUsers", e);
-            return "{\"error\": \"" + e.getMessage() + "\"}";
+            return toolError("searchUsers", e);
         }
     }
 
@@ -575,7 +754,7 @@ public class OrgUnitStatisticTool {
             if (!dup.isEmpty()
                     && !alreadyAskedPriorTurn(getConversationId(context), collisionName(dup, "name"), dup, "code", "parentName", "levelName")) {
                 disambiguationGuard.arm("orgUnit", collectIds(dup));
-                return ambiguousEnvelope("đơn vị", "orgUnits", units);
+                return returnAmbiguous("đơn vị", "orgUnits", units, context);
             }
 
             Map<String, Object> result = new LinkedHashMap<>();
@@ -583,8 +762,7 @@ public class OrgUnitStatisticTool {
             result.put("orgUnits", units);
             return objectMapper.writeValueAsString(result);
         } catch (Exception e) {
-            log.error("Error in searchOrgUnits", e);
-            return "{\"error\": \"" + e.getMessage() + "\"}";
+            return toolError("searchOrgUnits", e);
         }
     }
 
@@ -602,7 +780,7 @@ public class OrgUnitStatisticTool {
             if (!dup.isEmpty()
                     && !alreadyAskedPriorTurn(getConversationId(context), collisionName(dup, "name"), dup, "orgUnitName", "periodName")) {
                 disambiguationGuard.arm("kpi", collectIds(dup));
-                return ambiguousEnvelope("KPI", "kpis", kpis);
+                return returnAmbiguous("KPI", "kpis", kpis, context);
             }
 
             Map<String, Object> result = new LinkedHashMap<>();
@@ -610,8 +788,7 @@ public class OrgUnitStatisticTool {
             result.put("kpis", kpis);
             return objectMapper.writeValueAsString(result);
         } catch (Exception e) {
-            log.error("Error in searchKpis", e);
-            return "{\"error\": \"" + e.getMessage() + "\"}";
+            return toolError("searchKpis", e);
         }
     }
 
@@ -629,8 +806,7 @@ public class OrgUnitStatisticTool {
             result.put("positions", positions);
             return objectMapper.writeValueAsString(result);
         } catch (Exception e) {
-            log.error("Error in searchPositions", e);
-            return "{\"error\": \"" + e.getMessage() + "\"}";
+            return toolError("searchPositions", e);
         }
     }
 
@@ -648,8 +824,7 @@ public class OrgUnitStatisticTool {
             result.put("periods", periods);
             return objectMapper.writeValueAsString(result);
         } catch (Exception e) {
-            log.error("Error in searchKpiPeriods", e);
-            return "{\"error\": \"" + e.getMessage() + "\"}";
+            return toolError("searchKpiPeriods", e);
         }
     }
 }

@@ -268,12 +268,14 @@ export default function OrgUnitKpiDrawer({
   globalFrom,
   globalTo,
   globalOnlyApproved,
+  globalPeriodId,
 }: {
   kpiId: string
   onClose: () => void
   globalFrom?: string
   globalTo?: string
   globalOnlyApproved?: boolean
+  globalPeriodId?: string
 }) {
   const [dateFilterType, setDateFilterType] = useState<DateFilterType>('GLOBAL')
   const [customRange, setCustomRange] = useState({ from: '', to: '' })
@@ -307,9 +309,11 @@ export default function OrgUnitKpiDrawer({
     }
   }, [dateFilterType, customRange, globalFrom, globalTo])
 
+  const periodId = dateFilterType === 'GLOBAL' ? globalPeriodId : undefined
+
   const { data, isLoading } = useQuery({
-    queryKey: ['orgUnitKpi', 'drawer', kpiId, from, to, globalOnlyApproved],
-    queryFn: () => orgUnitKpiApi.getKpiDrawerData(kpiId, { from, to, onlyApproved: globalOnlyApproved }),
+    queryKey: ['orgUnitKpi', 'drawer', kpiId, from, to, globalOnlyApproved, periodId],
+    queryFn: () => orgUnitKpiApi.getKpiDrawerData(kpiId, { from, to, onlyApproved: globalOnlyApproved, periodId }),
   })
 
   // Build trend chart data — team lines + per-active-assignee lines

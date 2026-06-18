@@ -12,6 +12,7 @@ import com.kpitracking.dto.response.stats.AnalyticsDetailRow;
 import com.kpitracking.dto.response.stats.AnalyticsSummaryResponse;
 import com.kpitracking.dto.response.stats.SummarySubData;
 import com.kpitracking.service.StatsService;
+import com.kpitracking.service.analytics.AnalyticsPeriodHelper;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
@@ -32,6 +33,7 @@ import com.kpitracking.dto.response.stats.ExportDetailedPerformanceResponse;
 public class StatsController {
 
     private final StatsService statsService;
+    private final AnalyticsPeriodHelper periodHelper;
 
     @GetMapping("/detailed-export")
     @PreAuthorize("hasAuthority('DASHBOARD:VIEW')")
@@ -99,8 +101,10 @@ public class StatsController {
     @Operation(summary = "Get current user's detailed analytics")
     public ResponseEntity<ApiResponse<AnalyticsMyStatsResponse>> getMyAnalytics(
             @RequestParam(required = false) Instant from,
-            @RequestParam(required = false) Instant to) {
-        AnalyticsMyStatsResponse response = statsService.getMyAnalytics(from, to);
+            @RequestParam(required = false) Instant to,
+            @RequestParam(required = false) UUID periodId) {
+        AnalyticsPeriodHelper.Window w = periodHelper.window(from, to, periodId);
+        AnalyticsMyStatsResponse response = statsService.getMyAnalytics(w.from(), w.to());
         return ResponseEntity.ok(ApiResponse.success(response));
     }
 
@@ -110,8 +114,10 @@ public class StatsController {
     public ResponseEntity<ApiResponse<AnalyticsDrillDownResponse>> getDrillDown(
             @RequestParam(required = false) UUID orgUnitId,
             @RequestParam(required = false) java.time.Instant from,
-            @RequestParam(required = false) java.time.Instant to) {
-        AnalyticsDrillDownResponse response = statsService.getDrillDown(orgUnitId, from, to);
+            @RequestParam(required = false) java.time.Instant to,
+            @RequestParam(required = false) UUID periodId) {
+        AnalyticsPeriodHelper.Window w = periodHelper.window(from, to, periodId);
+        AnalyticsDrillDownResponse response = statsService.getDrillDown(orgUnitId, w.from(), w.to());
         return ResponseEntity.ok(ApiResponse.success(response));
     }
 
@@ -151,8 +157,10 @@ public class StatsController {
             @RequestParam(required = false) UUID orgUnitId,
             @RequestParam(required = false) Instant from,
             @RequestParam(required = false) Instant to,
-            @RequestParam(required = false, defaultValue = "false") Boolean onlyApproved) {
-        return ResponseEntity.ok(ApiResponse.success(statsService.getUnitComparison(orgUnitId, from, to, onlyApproved)));
+            @RequestParam(required = false, defaultValue = "false") Boolean onlyApproved,
+            @RequestParam(required = false) UUID periodId) {
+        AnalyticsPeriodHelper.Window w = periodHelper.window(from, to, periodId);
+        return ResponseEntity.ok(ApiResponse.success(statsService.getUnitComparison(orgUnitId, w.from(), w.to(), onlyApproved)));
     }
 
     @GetMapping("/summary/risks")
@@ -170,8 +178,10 @@ public class StatsController {
             @RequestParam(required = false) UUID rankingUnitId,
             @RequestParam(required = false) Instant from,
             @RequestParam(required = false) Instant to,
-            @RequestParam(required = false, defaultValue = "false") Boolean onlyApproved) {
-        return ResponseEntity.ok(ApiResponse.success(statsService.getRankings(orgUnitId, rankingUnitId, from, to, onlyApproved)));
+            @RequestParam(required = false, defaultValue = "false") Boolean onlyApproved,
+            @RequestParam(required = false) UUID periodId) {
+        AnalyticsPeriodHelper.Window w = periodHelper.window(from, to, periodId);
+        return ResponseEntity.ok(ApiResponse.success(statsService.getRankings(orgUnitId, rankingUnitId, w.from(), w.to(), onlyApproved)));
     }
 }
 

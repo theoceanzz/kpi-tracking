@@ -8,22 +8,23 @@ import { Trophy, TrendingDown, Target, Building2, Loader2 } from 'lucide-react'
 interface Props {
   dateRange: { from?: string; to?: string }
   onlyApproved?: boolean
+  periodId?: string
 }
 
 type FilterType = 'BEST' | 'WORST'
 
-export default function TopEntitiesDashboardWidget({ dateRange, onlyApproved = false }: Props) {
+export default function TopEntitiesDashboardWidget({ dateRange, onlyApproved = false, periodId }: Props) {
   const [objFilter, setObjFilter] = useState<FilterType>('BEST')
   const [unitFilter, setUnitFilter] = useState<FilterType>('BEST')
 
   const objQuery = useQuery({
-    queryKey: ['topEntities', 'objectives', objFilter, dateRange.from, dateRange.to, onlyApproved],
-    queryFn: () => statsApi.getTopEntitiesDashboard(objFilter, dateRange.from, dateRange.to, onlyApproved),
+    queryKey: ['topEntities', 'objectives', objFilter, dateRange.from, dateRange.to, onlyApproved, periodId],
+    queryFn: () => statsApi.getTopEntitiesDashboard(objFilter, dateRange.from, dateRange.to, onlyApproved, periodId),
   })
 
   const unitQuery = useQuery({
-    queryKey: ['topEntities', 'units', unitFilter, dateRange.from, dateRange.to, onlyApproved],
-    queryFn: () => statsApi.getTopEntitiesDashboard(unitFilter, dateRange.from, dateRange.to, onlyApproved),
+    queryKey: ['topEntities', 'units', unitFilter, dateRange.from, dateRange.to, onlyApproved, periodId],
+    queryFn: () => statsApi.getTopEntitiesDashboard(unitFilter, dateRange.from, dateRange.to, onlyApproved, periodId),
   })
 
   return (

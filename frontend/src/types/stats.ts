@@ -315,6 +315,13 @@ export interface KpiDetailedDto {
   participants?: KpiParticipantDto[];
 }
 
+export interface KrAssignedUnit {
+  orgUnitId: string;
+  orgUnitName: string;
+  orgUnitCode: string | null;
+  weightPercentage: number | null;
+}
+
 export interface KeyResultDetailedDto {
   id: string;
   name: string;
@@ -323,6 +330,7 @@ export interface KeyResultDetailedDto {
   performance: number;
   unitName: string | null;
   unitCode: string | null;
+  assignedUnits?: KrAssignedUnit[];
   startDate: string | null;
   endDate: string | null;
   kpis: KpiDetailedDto[];

@@ -5,9 +5,12 @@ import {
   User, Clock, Database,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { aiApi, type ConversationResponse } from '../api/aiApi'
+import { aiApi, type ConversationResponse, type InsightCard, type FollowupPools } from '../api/aiApi'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
+import InsightCards from '../components/InsightCards'
+import FollowupSuggestions from '../components/FollowupSuggestions'
+import { buildFollowupContext } from '../utils/followupContext'
 import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { ScrollArea } from '@/components/ui/scroll-area'
@@ -27,6 +30,7 @@ interface Message {
   content: string
   toolUsed?: string
   toolResult?: any
+  followups?: FollowupPools
 }
 
 const WELCOME_MSG: Message = {
@@ -47,8 +51,15 @@ export default function AiAssistantPage() {
   const [collapsed, setCollapsed] = useState(false)
   const [deletingId, setDeletingId] = useState<string | null>(null)
 
+  const [insights, setInsights] = useState<InsightCard[]>([])
+  const [insightsLoading, setInsightsLoading] = useState(false)
+  const [showInsights, setShowInsights] = useState(true)
+  const [selectedQuestion, setSelectedQuestion] = useState<string>('')
+
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const turnRef = useRef(0)
+  const activeInsightRef = useRef<InsightCard | null>(null)
 
   const autoResize = (el: HTMLTextAreaElement) => {
     el.style.height = 'auto'
@@ -78,10 +89,28 @@ export default function AiAssistantPage() {
 
   useEffect(() => { loadConversations() }, [loadConversations])
 
+  const loadInsights = useCallback(async () => {
+    setInsightsLoading(true)
+    try {
+      const data = await aiApi.getInsights()
+      setInsights(data ?? [])
+    } catch {
+      setInsights([])
+    } finally {
+      setInsightsLoading(false)
+    }
+  }, [])
+
+  useEffect(() => { loadInsights() }, [loadInsights])
+
   const handleNewChat = () => {
     setConversationId(null)
+    turnRef.current = 0
+    activeInsightRef.current = null
     setMessages([WELCOME_MSG])
     setInput('')
+    setShowInsights(true)
+    loadInsights()
     textareaRef.current?.focus()
   }
 
@@ -89,6 +118,9 @@ export default function AiAssistantPage() {
     if (conv.id === conversationId) return
     setLoadingMessages(true)
     setConversationId(conv.id)
+    setShowInsights(false)
+    turnRef.current = 0
+    activeInsightRef.current = null
     setMessages([])
     try {
       const data = await aiApi.getMessages(conv.id, { page: 0, size: 200 })
@@ -118,14 +150,11 @@ export default function AiAssistantPage() {
     }
   }
 
-  const handleSend = async () => {
-    if (!input.trim() || isLoading) return
-    const userMsg = input.trim()
-    setInput('')
-    if (textareaRef.current) {
-      textareaRef.current.style.height = 'auto'
-    }
+  const sendMessage = async (text: string) => {
+    const userMsg = text.trim()
+    if (!userMsg || isLoading) return
 
+    setShowInsights(false)
     setMessages(prev => [
       ...prev.filter(m => m.id !== 'welcome'),
       { id: Date.now().toString(), role: 'user', content: userMsg },
@@ -142,30 +171,86 @@ export default function AiAssistantPage() {
       }
 
       const response = await aiApi.chat({ message: userMsg, conversationId: activeId })
+      const assistantId = (Date.now() + 1).toString()
       setMessages(prev => [
         ...prev,
         {
-          id: (Date.now() + 1).toString(),
+          id: assistantId,
           role: 'assistant',
           content: response.text ?? '',
           toolUsed: response.toolUsed,
           toolResult: response.toolResult,
         },
       ])
+
+      // Generate follow-up suggestions for this exchange (best-effort).
+      turnRef.current += 1
+      const ctxStr = buildFollowupContext(activeInsightRef.current, userMsg, response.text)
+      try {
+        const pools = await aiApi.getFollowups({
+          conversationId: activeId ?? undefined,
+          turn: turnRef.current,
+          context: ctxStr,
+        })
+        if (pools && (pools.technical?.length || pools.management?.length)) {
+          setMessages(prev => prev.map(m => (m.id === assistantId ? { ...m, followups: pools } : m)))
+        }
+      } catch {
+        /* followups are best-effort */
+      }
     } catch (error: any) {
-      const detail = error?.response?.data?.message || error?.message || 'Lỗi không xác định'
+      const status = error?.response?.status
+      let errorContent: string
+      if (status === 402) {
+        errorContent = '⚠️ **Hệ thống AI đã đạt giới hạn token.** Vui lòng thử lại sau ít phút hoặc liên hệ quản trị viên.'
+      } else {
+        const detail = error?.response?.data?.message || error?.message || 'Lỗi không xác định'
+        errorContent = `⚠️ ${detail}`
+      }
       setMessages(prev => [
         ...prev,
-        { id: (Date.now() + 1).toString(), role: 'assistant', content: `⚠️ ${detail}` },
+        { id: (Date.now() + 1).toString(), role: 'assistant', content: errorContent },
       ])
     } finally {
       setIsLoading(false)
     }
   }
 
+  const handleSend = () => {
+    if (!input.trim() || isLoading) return
+    const text = input
+    setInput('')
+    setSelectedQuestion('')
+    if (textareaRef.current) {
+      textareaRef.current.style.height = 'auto'
+    }
+    activeInsightRef.current = null
+    sendMessage(text)
+  }
+
+  const handleSelectQuestion = (insight: InsightCard, question: string) => {
+    activeInsightRef.current = insight
+    setSelectedQuestion(question)
+    setInput(question)
+    setTimeout(() => textareaRef.current?.focus(), 100)
+  }
+
+  const handleSelectFollowupQuestion = (question: string) => {
+    setSelectedQuestion(question)
+    setInput(question)
+    setTimeout(() => textareaRef.current?.focus(), 100)
+  }
+
+  const handleShowInsights = () => {
+    setShowInsights(true)
+    loadInsights()
+  }
+
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend() }
   }
+
+  const lastAssistantId = [...messages].reverse().find(m => m.role === 'assistant')?.id
 
   return (
     <TooltipProvider delayDuration={300}>
@@ -438,9 +523,26 @@ export default function AiAssistantPage() {
                             </div>
                           </div>
                         )}
+
+                        {/* Follow-up suggestions under the latest assistant answer */}
+                        {msg.role === 'assistant' && msg.followups && msg.id === lastAssistantId && !isLoading && (
+                          <FollowupSuggestions
+                            pools={msg.followups}
+                            onSelectQuestion={handleSelectFollowupQuestion}
+                            selectedQuestion={selectedQuestion}
+                            onShowInsights={handleShowInsights}
+                          />
+                        )}
                       </div>
                     </div>
                   ))
+                )}
+
+                {/* Proactive insight cards */}
+                {!loadingMessages && showInsights && (insightsLoading || insights.length > 0) && (
+                  <div className="max-w-[82%]">
+                    <InsightCards insights={insights} onSelectQuestion={handleSelectQuestion} selectedQuestion={selectedQuestion} loading={insightsLoading} />
+                  </div>
                 )}
 
                 {/* Typing indicator */}
@@ -471,7 +573,7 @@ export default function AiAssistantPage() {
           {/* Input area */}
           <div className="shrink-0 px-6 py-3 border-t border-[var(--color-border)] bg-[var(--color-background)]">
             <div className="max-w-3xl mx-auto">
-              <div className="flex items-end gap-2 bg-[var(--color-card)] border border-[var(--color-border)] rounded-2xl shadow-sm hover:shadow-md transition-shadow focus-within:ring-2 focus-within:ring-indigo-500/40 focus-within:border-indigo-300 px-4 py-2.5">
+              <div className="flex items-center gap-2 bg-[var(--color-card)] border border-[var(--color-border)] rounded-2xl shadow-sm hover:shadow-md transition-shadow focus-within:ring-2 focus-within:ring-indigo-500/40 focus-within:border-indigo-300 px-4 py-2.5">
                 <textarea
                   ref={textareaRef}
                   value={input}
@@ -480,7 +582,7 @@ export default function AiAssistantPage() {
                   placeholder={conversationId ? 'Tiếp tục cuộc trò chuyện...' : 'Hỏi về KPI, hiệu suất, xu hướng...'}
                   disabled={loadingMessages}
                   rows={1}
-                  className="flex-1 bg-transparent text-sm leading-relaxed focus:outline-none resize-none placeholder:text-[var(--color-muted-foreground)] disabled:opacity-50"
+                  className="flex-1 bg-transparent text-sm leading-6 focus:outline-none resize-none placeholder:text-[var(--color-muted-foreground)] disabled:opacity-50"
                   style={{ maxHeight: '160px', overflowY: 'auto' }}
                 />
                 <Button

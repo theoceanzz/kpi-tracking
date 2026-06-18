@@ -4,6 +4,7 @@ import com.kpitracking.dto.response.ApiResponse;
 import com.kpitracking.dto.response.stats.PersonalObjectiveResponses.*;
 import com.kpitracking.service.OrgUnitKpiAnalyticsService;
 import com.kpitracking.service.OrgUnitKpiAnalyticsService.*;
+import com.kpitracking.service.analytics.AnalyticsPeriodHelper;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
@@ -22,6 +23,7 @@ import java.util.UUID;
 public class OrgUnitKpiAnalyticsController {
 
     private final OrgUnitKpiAnalyticsService service;
+    private final AnalyticsPeriodHelper periodHelper;
 
     @GetMapping("/metrics")
     @PreAuthorize("hasAuthority('KPI:VIEW')")
@@ -30,9 +32,11 @@ public class OrgUnitKpiAnalyticsController {
             @RequestParam(required = false) UUID orgUnitId,
             @RequestParam(required = false) Instant from,
             @RequestParam(required = false) Instant to,
-            @RequestParam(required = false, defaultValue = "false") Boolean onlyApproved) {
+            @RequestParam(required = false, defaultValue = "false") Boolean onlyApproved,
+            @RequestParam(required = false) UUID periodId) {
+        AnalyticsPeriodHelper.Window w = periodHelper.window(from, to, periodId);
         return ResponseEntity.ok(ApiResponse.success(
-                service.getMetrics(orgUnitId, from, to, onlyApproved)));
+                service.getMetrics(orgUnitId, w.from(), w.to(), onlyApproved, periodId)));
     }
 
     @GetMapping("/chart/combo")
@@ -42,9 +46,11 @@ public class OrgUnitKpiAnalyticsController {
             @RequestParam(required = false) UUID orgUnitId,
             @RequestParam(required = false) Instant from,
             @RequestParam(required = false) Instant to,
-            @RequestParam(required = false, defaultValue = "false") Boolean onlyApproved) {
+            @RequestParam(required = false, defaultValue = "false") Boolean onlyApproved,
+            @RequestParam(required = false) UUID periodId) {
+        AnalyticsPeriodHelper.Window w = periodHelper.window(from, to, periodId);
         return ResponseEntity.ok(ApiResponse.success(
-                service.getComboChart(orgUnitId, from, to, onlyApproved)));
+                service.getComboChart(orgUnitId, w.from(), w.to(), onlyApproved, periodId)));
     }
 
     @GetMapping("/details")
@@ -60,10 +66,12 @@ public class OrgUnitKpiAnalyticsController {
             @RequestParam(required = false, defaultValue = "desc") String sortDir,
             @RequestParam(required = false) String sharedType,
             @RequestParam(required = false, defaultValue = "0") int page,
-            @RequestParam(required = false, defaultValue = "10") int size) {
+            @RequestParam(required = false, defaultValue = "10") int size,
+            @RequestParam(required = false) UUID periodId) {
+        AnalyticsPeriodHelper.Window w = periodHelper.window(from, to, periodId);
         return ResponseEntity.ok(ApiResponse.success(
-                service.getDetailedKpis(orgUnitId, filterOrgUnitId, from, to, onlyApproved,
-                        sortBy, sortDir, sharedType, page, size)));
+                service.getDetailedKpis(orgUnitId, filterOrgUnitId, w.from(), w.to(), onlyApproved,
+                        sortBy, sortDir, sharedType, page, size, periodId)));
     }
 
     @GetMapping("/risks/units")
@@ -77,9 +85,11 @@ public class OrgUnitKpiAnalyticsController {
             @RequestParam(required = false, defaultValue = "0") int page,
             @RequestParam(required = false, defaultValue = "5") int size,
             @RequestParam(required = false, defaultValue = "progress") String sortBy,
-            @RequestParam(required = false, defaultValue = "asc") String sortDir) {
+            @RequestParam(required = false, defaultValue = "asc") String sortDir,
+            @RequestParam(required = false) UUID periodId) {
+        AnalyticsPeriodHelper.Window w = periodHelper.window(from, to, periodId);
         return ResponseEntity.ok(ApiResponse.success(
-                service.getUnitRisks(orgUnitId, from, to, onlyApproved, page, size, sortBy, sortDir)));
+                service.getUnitRisks(orgUnitId, w.from(), w.to(), onlyApproved, page, size, sortBy, sortDir, periodId)));
     }
 
     @GetMapping("/risks/members")
@@ -94,9 +104,11 @@ public class OrgUnitKpiAnalyticsController {
             @RequestParam(required = false, defaultValue = "0") int page,
             @RequestParam(required = false, defaultValue = "5") int size,
             @RequestParam(required = false, defaultValue = "progress") String sortBy,
-            @RequestParam(required = false, defaultValue = "asc") String sortDir) {
+            @RequestParam(required = false, defaultValue = "asc") String sortDir,
+            @RequestParam(required = false) UUID periodId) {
+        AnalyticsPeriodHelper.Window w = periodHelper.window(from, to, periodId);
         return ResponseEntity.ok(ApiResponse.success(
-                service.getMemberRisks(orgUnitId, filterOrgUnitId, from, to, onlyApproved, page, size, sortBy, sortDir)));
+                service.getMemberRisks(orgUnitId, filterOrgUnitId, w.from(), w.to(), onlyApproved, page, size, sortBy, sortDir, periodId)));
     }
 
     @GetMapping("/{kpiId}/drawer")
@@ -106,9 +118,11 @@ public class OrgUnitKpiAnalyticsController {
             @PathVariable UUID kpiId,
             @RequestParam(required = false) Instant from,
             @RequestParam(required = false) Instant to,
-            @RequestParam(required = false, defaultValue = "false") Boolean onlyApproved) {
+            @RequestParam(required = false, defaultValue = "false") Boolean onlyApproved,
+            @RequestParam(required = false) UUID periodId) {
+        AnalyticsPeriodHelper.Window w = periodHelper.window(from, to, periodId);
         return ResponseEntity.ok(ApiResponse.success(
-                service.getKpiDrawerData(kpiId, from, to, onlyApproved)));
+                service.getKpiDrawerData(kpiId, w.from(), w.to(), onlyApproved)));
     }
 
     @GetMapping("/risks/units/{unitId}/overdue-kpis")

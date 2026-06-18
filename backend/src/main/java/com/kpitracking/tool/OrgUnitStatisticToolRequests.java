@@ -177,4 +177,61 @@ public final class OrgUnitStatisticToolRequests {
             @JsonProperty(required = false) String keyword,
             @JsonProperty(required = false) Integer limit
     ) {}
+
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    public record GetTimeSeriesRequest(
+            @JsonProperty(required = false) String unitId,
+            @JsonProperty(required = false) String metric,       // completion | avg_performance
+            @JsonProperty(required = false) String granularity,  // MONTH | QUARTER | YEAR
+            @JsonProperty(required = false) Integer lookback      // number of most-recent periods to keep
+    ) {}
+
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    public record GetSubmissionHistoryRequest(
+            @JsonProperty(required = false) String kpiId,
+            @JsonProperty(required = false) String userId,
+            @JsonProperty(required = false) String status,       // PENDING | APPROVED | REJECTED | DRAFT
+            @JsonProperty(required = false) String startDate,
+            @JsonProperty(required = false) String endDate,
+            @JsonProperty(required = false) Integer limit        // default 20
+    ) {}
+
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    public record GetKpiPeriodBreakdownRequest(
+            @JsonProperty(required = false) String kpiId,
+            @JsonProperty(required = false) String userId,
+            @JsonProperty(required = false) String granularity,  // MONTH | QUARTER | YEAR
+            @JsonProperty(required = false) String startDate,
+            @JsonProperty(required = false) String endDate
+    ) {}
+
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    public record GetNonSubmittersRequest(
+            @JsonProperty(required = false) String unitId,
+            @JsonProperty(required = false) String periodId,
+            @JsonProperty(required = false) String startDate,
+            @JsonProperty(required = false) String endDate,
+            @JsonProperty(required = false) Integer limit        // default 20
+    ) {}
+
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    public record CompareOrgUnitsRequest(
+            @JsonProperty(required = false) java.util.List<String> unitIds,  // 2-5 unit IDs
+            @JsonProperty(required = false) String startDate,
+            @JsonProperty(required = false) String endDate
+    ) {}
+
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    public record GetMyInfoRequest() {}
+
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    public record GetMembersByPerformanceThresholdRequest(
+            @JsonProperty(required = false) String unitId,
+            @JsonProperty(required = false) Double threshold,     // e.g. 80.0 (%)
+            @JsonProperty(required = false) String direction,     // below (default) | above
+            @JsonProperty(required = false) String metric,        // avg_performance (default) | avg_progress
+            @JsonProperty(required = false) String startDate,
+            @JsonProperty(required = false) String endDate,
+            @JsonProperty(required = false) Integer limit         // default 20
+    ) {}
 }

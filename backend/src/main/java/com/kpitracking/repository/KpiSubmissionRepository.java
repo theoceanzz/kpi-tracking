@@ -110,6 +110,13 @@ public interface KpiSubmissionRepository extends JpaRepository<KpiSubmission, UU
     @Query("SELECT COALESCE(SUM(s.actualValue), 0) FROM KpiSubmission s WHERE s.orgUnit.id IN :orgUnitIds AND s.kpiCriteria.id = :kpiId AND s.status = 'APPROVED' AND s.createdAt >= :from AND s.createdAt <= :to")
     double sumActualValueByOrgUnitIdsAndKpiIdInPeriod(@Param("orgUnitIds") java.util.List<UUID> orgUnitIds, @Param("kpiId") UUID kpiId, @Param("from") java.time.Instant from, @Param("to") java.time.Instant to);
 
+    // ===== Latest APPROVED actualValue (cho KPI ngược — tỉ lệ không cộng dồn) =====
+    @Query("SELECT s.actualValue FROM KpiSubmission s WHERE s.submittedBy.id = :userId AND s.kpiCriteria.id = :kpiId AND s.status = 'APPROVED' AND s.createdAt >= :from AND s.createdAt <= :to ORDER BY COALESCE(s.periodStart, s.createdAt) DESC")
+    java.util.List<Double> latestActualValueByUserIdAndKpiIdInPeriod(@Param("userId") UUID userId, @Param("kpiId") UUID kpiId, @Param("from") java.time.Instant from, @Param("to") java.time.Instant to, org.springframework.data.domain.Pageable pageable);
+
+    @Query("SELECT s.actualValue FROM KpiSubmission s WHERE s.orgUnit.id IN :orgUnitIds AND s.kpiCriteria.id = :kpiId AND s.status = 'APPROVED' AND s.createdAt >= :from AND s.createdAt <= :to ORDER BY COALESCE(s.periodStart, s.createdAt) DESC")
+    java.util.List<Double> latestActualValueByOrgUnitIdsAndKpiIdInPeriod(@Param("orgUnitIds") java.util.List<UUID> orgUnitIds, @Param("kpiId") UUID kpiId, @Param("from") java.time.Instant from, @Param("to") java.time.Instant to, org.springframework.data.domain.Pageable pageable);
+
     // ===== Statistic Tool queries =====
 
     /**
@@ -444,4 +451,79 @@ public interface KpiSubmissionRepository extends JpaRepository<KpiSubmission, UU
 
     @org.springframework.data.jpa.repository.Query("SELECT COUNT(DISTINCT s.id) FROM KpiSubmission s JOIN UserRoleOrgUnit uro ON uro.user.id = s.submittedBy.id WHERE (uro.orgUnit.id IN :orgUnitIds OR EXISTS (SELECT 1 FROM OrgUnit au WHERE uro.orgUnit.path LIKE CONCAT(au.path, '%') AND au.id IN :orgUnitIds)) AND s.status = :status AND s.submittedBy.id != :excludedUserId AND s.deletedAt IS NULL")
     long countBySubmittedByUserOrgUnitInAndStatusExcludingUser(@org.springframework.data.repository.query.Param("orgUnitIds") java.util.Collection<UUID> orgUnitIds, @org.springframework.data.repository.query.Param("status") SubmissionStatus status, @org.springframework.data.repository.query.Param("excludedUserId") UUID excludedUserId);
+
+    // ===== Insight Engine & Time-series (subtree-scoped) =====
+
+    /**
+     * Xu hướng theo từng mốc thời gian (period_start formatted by datePattern) trong một subtree.
+     * Trả về [period_label, total_actual, total_target, avg_performance, submission_count].
+     * Dùng cho get_time_series tool và phát hiện SPIKE/DROP của Insight Engine.
+     */
+    @Query(value =
+            "SELECT TO_CHAR(s.period_start, :datePattern) AS period_label, " +
+            "COALESCE(SUM(s.actual_value), 0) AS total_actual, " +
+            "COALESCE(SUM(kc.target_value), 0) AS total_target, " +
+            "AVG(s.actual_value * 100.0 / NULLIF(kc.target_value, 0)) AS avg_performance, " +
+            "COUNT(s.id) AS submission_count " +
+            "FROM kpi_submissions s " +
+            "JOIN kpi_criteria kc ON s.kpi_criteria_id = kc.id " +
+            "JOIN org_units ou ON s.org_unit_id = ou.id " +
+            "WHERE ou.path LIKE CONCAT(:pathPrefix, '%') AND s.deleted_at IS NULL AND kc.deleted_at IS NULL " +
+            "AND s.status = 'APPROVED' AND kc.status = 'APPROVED' AND s.period_start IS NOT NULL " +
+            "GROUP BY period_label ORDER BY period_label", nativeQuery = true)
+    java.util.List<Object[]> trendStatsInSubtree(@Param("pathPrefix") String pathPrefix, @Param("datePattern") String datePattern);
+
+    /**
+     * Tổng actualValue / tổng targetValue của một kỳ KPI cụ thể trong subtree, dùng cho DEADLINE_RISK.
+     * Trả về [sum_actual, sum_target].
+     */
+    @Query(value =
+            "SELECT COALESCE(SUM(s.actual_value), 0), COALESCE(SUM(kc.target_value), 0) " +
+            "FROM kpi_submissions s " +
+            "JOIN kpi_criteria kc ON s.kpi_criteria_id = kc.id " +
+            "JOIN org_units ou ON s.org_unit_id = ou.id " +
+            "WHERE ou.path LIKE CONCAT(:pathPrefix, '%') AND s.deleted_at IS NULL AND kc.deleted_at IS NULL " +
+            "AND s.status = 'APPROVED' AND kc.status = 'APPROVED' " +
+            "AND kc.kpi_period_id = :periodId", nativeQuery = true)
+    Object[] sumActualAndTargetInSubtreeForPeriod(@Param("pathPrefix") String pathPrefix, @Param("periodId") UUID periodId);
+
+    /**
+     * Lịch sử nộp báo cáo của một KPI: per-period breakdown với trend direction.
+     * Trả về [period_label, sum_actual, target, completion_pct, sub_count].
+     */
+    @Query(value = """
+            SELECT TO_CHAR(s.period_start, :datePattern) AS period_label,
+                   SUM(s.actual_value) AS total_actual,
+                   MAX(kc.target_value) AS target,
+                   SUM(s.actual_value)*100.0/NULLIF(MAX(kc.target_value),0) AS completion_pct,
+                   COUNT(s.id) AS sub_count
+            FROM kpi_submissions s
+            JOIN kpi_criteria kc ON kc.id = s.kpi_criteria_id
+            WHERE s.kpi_criteria_id = :kpiId
+              AND s.status = 'APPROVED'
+              AND s.deleted_at IS NULL
+            GROUP BY period_label
+            ORDER BY period_label
+            """, nativeQuery = true)
+    java.util.List<Object[]> kpiTrendByPeriod(@Param("kpiId") UUID kpiId, @Param("datePattern") String datePattern);
+
+    /**
+     * Như kpiTrendByPeriod nhưng filtered by một người dùng cụ thể.
+     */
+    @Query(value = """
+            SELECT TO_CHAR(s.period_start, :datePattern) AS period_label,
+                   SUM(s.actual_value) AS total_actual,
+                   MAX(kc.target_value) AS target,
+                   SUM(s.actual_value)*100.0/NULLIF(MAX(kc.target_value),0) AS completion_pct,
+                   COUNT(s.id) AS sub_count
+            FROM kpi_submissions s
+            JOIN kpi_criteria kc ON kc.id = s.kpi_criteria_id
+            WHERE s.kpi_criteria_id = :kpiId
+              AND s.submitted_by = :userId
+              AND s.status = 'APPROVED'
+              AND s.deleted_at IS NULL
+            GROUP BY period_label
+            ORDER BY period_label
+            """, nativeQuery = true)
+    java.util.List<Object[]> kpiTrendByPeriodAndUser(@Param("kpiId") UUID kpiId, @Param("userId") UUID userId, @Param("datePattern") String datePattern);
 }

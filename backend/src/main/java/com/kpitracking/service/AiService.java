@@ -1,23 +1,22 @@
 package com.kpitracking.service;
 
+import com.kpitracking.advisor.ResponseSanitizingAdvisor;
 import com.kpitracking.dto.response.ai.AiKpiSuggestionResponse;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.kpitracking.entity.User;
-import com.kpitracking.entity.UserRoleOrgUnit;
-import com.kpitracking.repository.UserRepository;
-import com.kpitracking.repository.UserRoleOrgUnitRepository;
+import com.kpitracking.exception.AiQuotaExceededException;
+import com.kpitracking.service.ManagerContextResolver.ManagerContext;
 import com.kpitracking.tool.DisambiguationGuard;
+import com.kpitracking.tool.FollowupContextStore;
 import com.kpitracking.tool.OrgUnitStatisticTool;
+import com.kpitracking.util.AiUtils;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.core.io.Resource;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -29,10 +28,10 @@ public class AiService {
 
     private final ChatClient chatClient;
     private final ChatClient chatClientWithMemory;
-    private final UserRepository userRepository;
-    private final UserRoleOrgUnitRepository userRoleOrgUnitRepository;
+    private final ManagerContextResolver managerContextResolver;
     private final OrgUnitStatisticTool orgUnitStatisticTool;
     private final DisambiguationGuard disambiguationGuard;
+    private final FollowupContextStore followupContextStore;
 
     @Value("classpath:/promptTemplates/orgUnitToolSystemPromptTemplate.st")
     Resource orgUnitSystemPrompt;
@@ -43,28 +42,33 @@ public class AiService {
     @Value("classpath:/promptTemplates/topicGuardPrompt.st")
     private Resource topicGuardPrompt;
 
-    private final ObjectMapper objectMapper;
-
     public AiService(@Qualifier("openAiChatClient") ChatClient chatClient,
                      @Qualifier("chatClientWithMemory") ChatClient chatClientWithMemory,
-                     UserRepository userRepository,
-                     UserRoleOrgUnitRepository userRoleOrgUnitRepository,
+                     ManagerContextResolver managerContextResolver,
                      OrgUnitStatisticTool orgUnitStatisticTool,
                      DisambiguationGuard disambiguationGuard,
-                     ObjectMapper objectMapper) {
+                     FollowupContextStore followupContextStore) {
         this.chatClient = chatClient;
         this.chatClientWithMemory = chatClientWithMemory;
-        this.userRepository = userRepository;
-        this.userRoleOrgUnitRepository = userRoleOrgUnitRepository;
+        this.managerContextResolver = managerContextResolver;
         this.orgUnitStatisticTool = orgUnitStatisticTool;
         this.disambiguationGuard = disambiguationGuard;
-        this.objectMapper = objectMapper;
+        this.followupContextStore = followupContextStore;
     }
 
     public String processOrgUnitChat(String question, String conversationId) {
-        ManagerContext ctx = getCurrentUserManagerContext();
+        ManagerContext ctx = managerContextResolver.resolve();
         if (ctx == null) {
             return "Bạn không có quyền sử dụng tính năng AI phân tích. Chỉ trưởng đơn vị hoặc phó đơn vị mới có thể truy cập tính năng này.";
+        }
+
+        boolean hasMemory = conversationId != null && !conversationId.isBlank();
+        // Reset this conversation's tool-result bucket at the very start of the turn so the
+        // follow-up generator grounds only on THIS turn's tool outputs. Done before the scope
+        // check so refusals/clarifications cannot inherit the previous turn's data (which would
+        // wrongly produce follow-up chips).
+        if (hasMemory) {
+            followupContextStore.startTurn(conversationId);
         }
 
         if (!isInScope(question)) {
@@ -72,7 +76,6 @@ public class AiService {
                     + "KPI, hiệu suất, đơn vị và nhân sự. Bạn vui lòng đặt câu hỏi thuộc nghiệp vụ này nhé.";
         }
 
-        boolean hasMemory = conversationId != null && !conversationId.isBlank();
         log.info("Processing chat for orgUnitId: {}, conversationId: {}", ctx.orgUnitId(), hasMemory ? conversationId : "none");
 
         Map<String, Object> toolCtx = new HashMap<>();
@@ -84,31 +87,40 @@ public class AiService {
         }
 
         try {
+            String result;
             if (hasMemory) {
-                return chatClientWithMemory.prompt()
+                result = chatClientWithMemory.prompt()
                         .user(question)
                         .system(orgUnitSystemPrompt)
                         .tools(orgUnitStatisticTool)
                         .toolContext(toolCtx)
                         .advisors(spec -> spec.param("chat_memory_conversation_id", conversationId))
+                        .advisors(new ResponseSanitizingAdvisor())
+                        .call()
+                        .content();
+            } else {
+                result = chatClient.prompt()
+                        .user(question)
+                        .system(orgUnitSystemPrompt)
+                        .tools(orgUnitStatisticTool)
+                        .toolContext(toolCtx)
+                        .advisors(new ResponseSanitizingAdvisor())
                         .call()
                         .content();
             }
-
-            return chatClient.prompt()
-                    .user(question)
-                    .system(orgUnitSystemPrompt)
-                    .tools(orgUnitStatisticTool)
-                    .toolContext(toolCtx)
-                    .call()
-                    .content();
+            return result;
+        } catch (Exception e) {
+            if (AiUtils.isQuotaError(e)) {
+                throw new AiQuotaExceededException("quota exceeded", e);
+            }
+            throw e;
         } finally {
             disambiguationGuard.clear();
         }
     }
 
     public List<AiKpiSuggestionResponse> suggestKpis(UUID orgUnitId) {
-        ManagerContext ctx = getCurrentUserManagerContext();
+        ManagerContext ctx = managerContextResolver.resolve();
         if (ctx == null) {
             log.warn("User without manager/deputy role attempted to use suggestKpis");
             return new ArrayList<>();
@@ -121,7 +133,7 @@ public class AiService {
         String userPrompt = "Dựa trên dữ liệu thống kê hiện tại của đơn vị, hãy phân tích các điểm yếu, cơ hội và gợi ý 3-5 KPI phù hợp nhất để cải thiện hiệu suất trong kỳ tới.";
 
         try {
-            String responseText = chatClient.prompt()
+            return chatClient.prompt()
                     .system(kpiSuggestionSystemPrompt)
                     .user(userPrompt)
                     .tools(orgUnitStatisticTool)
@@ -131,11 +143,7 @@ public class AiService {
                             "organizationId", ctx.orgId()
                     ))
                     .call()
-                    .content();
-
-            log.debug("KPI Suggestion AI Response: {}", responseText);
-
-            return parseResponse(responseText);
+                    .entity(new ParameterizedTypeReference<>() {});
         } catch (Exception e) {
             log.error("Error suggesting KPIs: {}", e.getMessage(), e);
             return new ArrayList<>();
@@ -172,50 +180,4 @@ public class AiService {
         }
     }
 
-    private record ManagerContext(UUID orgUnitId, String orgUnitPath, UUID orgId) {}
-
-    private ManagerContext getCurrentUserManagerContext() {
-        try {
-            String email = SecurityContextHolder.getContext().getAuthentication().getName();
-            User user = userRepository.findByEmail(email).orElse(null);
-            if (user == null) return null;
-            List<UserRoleOrgUnit> assignments = userRoleOrgUnitRepository.findByUserId(user.getId());
-            return assignments.stream()
-                    .filter(a -> a.getRole().getRank() != null && a.getRole().getRank() <= 1)
-                    .min(Comparator.comparingInt(a -> a.getRole().getRank()))
-                    .map(a -> new ManagerContext(
-                            a.getOrgUnit().getId(),
-                            a.getOrgUnit().getPath(),
-                            a.getOrgUnit().getOrgHierarchyLevel().getOrganization().getId()
-                    ))
-                    .orElse(null);
-        } catch (Exception e) {
-            log.error("Error getting manager context", e);
-            return null;
-        }
-    }
-
-    private List<AiKpiSuggestionResponse> parseResponse(String text) {
-        try {
-            if (text == null) return new ArrayList<>();
-            String jsonText = text.trim();
-            if (jsonText.contains("```")) {
-                int start = Math.min(
-                        jsonText.indexOf("[") != -1 ? jsonText.indexOf("[") : Integer.MAX_VALUE,
-                        jsonText.indexOf("{") != -1 ? jsonText.indexOf("{") : Integer.MAX_VALUE
-                );
-                int end = Math.max(
-                        jsonText.lastIndexOf("]"),
-                        jsonText.lastIndexOf("}")
-                );
-                if (start != Integer.MAX_VALUE && end != -1 && end > start) {
-                    jsonText = jsonText.substring(start, end + 1);
-                }
-            }
-            return objectMapper.readValue(jsonText, objectMapper.getTypeFactory().constructCollectionType(List.class, AiKpiSuggestionResponse.class));
-        } catch (Exception e) {
-            log.error("Error parsing AI response to JSON: {}. Content: {}", e.getMessage(), text);
-            return new ArrayList<>();
-        }
-    }
 }

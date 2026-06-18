@@ -7,6 +7,7 @@ import com.kpitracking.dto.response.stats.SubordinateDetailsResponses.*;
 import com.kpitracking.dto.response.stats.SubordinateDetailsResponses;
 import com.kpitracking.dto.response.stats.ScopedDashboardResponse;
 import com.kpitracking.service.SubordinateAnalyticsService;
+import com.kpitracking.service.analytics.AnalyticsPeriodHelper;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
@@ -25,6 +26,7 @@ import java.util.UUID;
 public class SubordinateAnalyticsController {
 
     private final SubordinateAnalyticsService subordinateAnalyticsService;
+    private final AnalyticsPeriodHelper periodHelper;
 
     @GetMapping("/metrics/completion")
     @PreAuthorize("hasAuthority('DASHBOARD:VIEW') or hasAuthority('KPI:VIEW')")
@@ -32,8 +34,10 @@ public class SubordinateAnalyticsController {
     public ResponseEntity<ApiResponse<MetricValueResponse>> getCompletionRate(
             @RequestParam(required = false) Instant from,
             @RequestParam(required = false) Instant to,
-            @RequestParam(required = false, defaultValue = "false") Boolean onlyApproved) {
-        return ResponseEntity.ok(ApiResponse.success(subordinateAnalyticsService.getCompletionRate(from, to, onlyApproved)));
+            @RequestParam(required = false, defaultValue = "false") Boolean onlyApproved,
+            @RequestParam(required = false) UUID periodId) {
+        AnalyticsPeriodHelper.Window w = periodHelper.window(from, to, periodId);
+        return ResponseEntity.ok(ApiResponse.success(subordinateAnalyticsService.getCompletionRate(w.from(), w.to(), onlyApproved)));
     }
 
     @GetMapping("/metrics/performance")
@@ -42,8 +46,10 @@ public class SubordinateAnalyticsController {
     public ResponseEntity<ApiResponse<MetricValueResponse>> getPerformanceRate(
             @RequestParam(required = false) Instant from,
             @RequestParam(required = false) Instant to,
-            @RequestParam(required = false, defaultValue = "false") Boolean onlyApproved) {
-        return ResponseEntity.ok(ApiResponse.success(subordinateAnalyticsService.getPerformanceRate(from, to, onlyApproved)));
+            @RequestParam(required = false, defaultValue = "false") Boolean onlyApproved,
+            @RequestParam(required = false) UUID periodId) {
+        AnalyticsPeriodHelper.Window w = periodHelper.window(from, to, periodId);
+        return ResponseEntity.ok(ApiResponse.success(subordinateAnalyticsService.getPerformanceRate(w.from(), w.to(), onlyApproved)));
     }
 
     @GetMapping("/metrics/completed-count")
@@ -52,8 +58,10 @@ public class SubordinateAnalyticsController {
     public ResponseEntity<ApiResponse<CompletedCountResponse>> getCompletedCount(
             @RequestParam(required = false) Instant from,
             @RequestParam(required = false) Instant to,
-            @RequestParam(required = false, defaultValue = "false") Boolean onlyApproved) {
-        return ResponseEntity.ok(ApiResponse.success(subordinateAnalyticsService.getCompletedCount(from, to, onlyApproved)));
+            @RequestParam(required = false, defaultValue = "false") Boolean onlyApproved,
+            @RequestParam(required = false) UUID periodId) {
+        AnalyticsPeriodHelper.Window w = periodHelper.window(from, to, periodId);
+        return ResponseEntity.ok(ApiResponse.success(subordinateAnalyticsService.getCompletedCount(w.from(), w.to(), onlyApproved)));
     }
 
     @GetMapping("/metrics/at-risk")
@@ -62,8 +70,10 @@ public class SubordinateAnalyticsController {
     public ResponseEntity<ApiResponse<CountResponse>> getAtRiskCount(
             @RequestParam(required = false) Instant from,
             @RequestParam(required = false) Instant to,
-            @RequestParam(required = false, defaultValue = "false") Boolean onlyApproved) {
-        return ResponseEntity.ok(ApiResponse.success(subordinateAnalyticsService.getAtRiskCount(from, to, onlyApproved)));
+            @RequestParam(required = false, defaultValue = "false") Boolean onlyApproved,
+            @RequestParam(required = false) UUID periodId) {
+        AnalyticsPeriodHelper.Window w = periodHelper.window(from, to, periodId);
+        return ResponseEntity.ok(ApiResponse.success(subordinateAnalyticsService.getAtRiskCount(w.from(), w.to(), onlyApproved)));
     }
 
     @GetMapping("/metrics/personnel")
@@ -79,8 +89,10 @@ public class SubordinateAnalyticsController {
     public ResponseEntity<ApiResponse<ComboChartResponse>> getComboChart(
             @RequestParam(required = false) Instant from,
             @RequestParam(required = false) Instant to,
-            @RequestParam(required = false, defaultValue = "false") Boolean onlyApproved) {
-        return ResponseEntity.ok(ApiResponse.success(subordinateAnalyticsService.getComboChart(from, to, onlyApproved)));
+            @RequestParam(required = false, defaultValue = "false") Boolean onlyApproved,
+            @RequestParam(required = false) UUID periodId) {
+        AnalyticsPeriodHelper.Window w = periodHelper.window(from, to, periodId);
+        return ResponseEntity.ok(ApiResponse.success(subordinateAnalyticsService.getComboChart(w.from(), w.to(), onlyApproved)));
     }
 
     @GetMapping("/details")
@@ -94,9 +106,11 @@ public class SubordinateAnalyticsController {
             @RequestParam(required = false, defaultValue = "desc") String sortDir,
             @RequestParam(required = false) UUID orgUnitId,
             @RequestParam(required = false, defaultValue = "0") int page,
-            @RequestParam(required = false, defaultValue = "10") int size) {
+            @RequestParam(required = false, defaultValue = "10") int size,
+            @RequestParam(required = false) UUID periodId) {
+        AnalyticsPeriodHelper.Window w = periodHelper.window(from, to, periodId);
         return ResponseEntity.ok(ApiResponse.success(
-                subordinateAnalyticsService.getDetailedObjectives(from, to, onlyApproved, sortBy, sortDir, orgUnitId, page, size)));
+                subordinateAnalyticsService.getDetailedObjectives(w.from(), w.to(), onlyApproved, sortBy, sortDir, orgUnitId, page, size)));
     }
 
     @GetMapping("/details/filter-units")
@@ -113,8 +127,10 @@ public class SubordinateAnalyticsController {
             @PathVariable UUID id,
             @RequestParam(required = false) Instant from,
             @RequestParam(required = false) Instant to,
-            @RequestParam(required = false, defaultValue = "false") Boolean onlyApproved) {
-        return ResponseEntity.ok(ApiResponse.success(subordinateAnalyticsService.getObjectiveScopedMetrics(id, from, to, onlyApproved)));
+            @RequestParam(required = false, defaultValue = "false") Boolean onlyApproved,
+            @RequestParam(required = false) UUID periodId) {
+        AnalyticsPeriodHelper.Window w = periodHelper.window(from, to, periodId);
+        return ResponseEntity.ok(ApiResponse.success(subordinateAnalyticsService.getObjectiveScopedMetrics(id, w.from(), w.to(), onlyApproved)));
     }
 
     @GetMapping("/objectives/{id}/chart/combo")
@@ -124,8 +140,10 @@ public class SubordinateAnalyticsController {
             @PathVariable UUID id,
             @RequestParam(required = false) Instant from,
             @RequestParam(required = false) Instant to,
-            @RequestParam(required = false, defaultValue = "false") Boolean onlyApproved) {
-        return ResponseEntity.ok(ApiResponse.success(subordinateAnalyticsService.getObjectiveScopedComboChart(id, from, to, onlyApproved)));
+            @RequestParam(required = false, defaultValue = "false") Boolean onlyApproved,
+            @RequestParam(required = false) UUID periodId) {
+        AnalyticsPeriodHelper.Window w = periodHelper.window(from, to, periodId);
+        return ResponseEntity.ok(ApiResponse.success(subordinateAnalyticsService.getObjectiveScopedComboChart(id, w.from(), w.to(), onlyApproved)));
     }
 
     @GetMapping("/objectives/{id}/top-entities")
@@ -135,8 +153,10 @@ public class SubordinateAnalyticsController {
             @PathVariable UUID id,
             @RequestParam(required = false) Instant from,
             @RequestParam(required = false) Instant to,
-            @RequestParam(required = false, defaultValue = "false") Boolean onlyApproved) {
-        return ResponseEntity.ok(ApiResponse.success(subordinateAnalyticsService.getObjectiveScopedTopEntities(id, from, to, onlyApproved)));
+            @RequestParam(required = false, defaultValue = "false") Boolean onlyApproved,
+            @RequestParam(required = false) UUID periodId) {
+        AnalyticsPeriodHelper.Window w = periodHelper.window(from, to, periodId);
+        return ResponseEntity.ok(ApiResponse.success(subordinateAnalyticsService.getObjectiveScopedTopEntities(id, w.from(), w.to(), onlyApproved)));
     }
 
     @GetMapping("/key-results/{id}/metrics")
@@ -146,8 +166,10 @@ public class SubordinateAnalyticsController {
             @PathVariable UUID id,
             @RequestParam(required = false) Instant from,
             @RequestParam(required = false) Instant to,
-            @RequestParam(required = false, defaultValue = "false") Boolean onlyApproved) {
-        return ResponseEntity.ok(ApiResponse.success(subordinateAnalyticsService.getKeyResultScopedMetrics(id, from, to, onlyApproved)));
+            @RequestParam(required = false, defaultValue = "false") Boolean onlyApproved,
+            @RequestParam(required = false) UUID periodId) {
+        AnalyticsPeriodHelper.Window w = periodHelper.window(from, to, periodId);
+        return ResponseEntity.ok(ApiResponse.success(subordinateAnalyticsService.getKeyResultScopedMetrics(id, w.from(), w.to(), onlyApproved)));
     }
 
     @GetMapping("/key-results/{id}/chart/combo")
@@ -157,8 +179,10 @@ public class SubordinateAnalyticsController {
             @PathVariable UUID id,
             @RequestParam(required = false) Instant from,
             @RequestParam(required = false) Instant to,
-            @RequestParam(required = false, defaultValue = "false") Boolean onlyApproved) {
-        return ResponseEntity.ok(ApiResponse.success(subordinateAnalyticsService.getKeyResultScopedComboChart(id, from, to, onlyApproved)));
+            @RequestParam(required = false, defaultValue = "false") Boolean onlyApproved,
+            @RequestParam(required = false) UUID periodId) {
+        AnalyticsPeriodHelper.Window w = periodHelper.window(from, to, periodId);
+        return ResponseEntity.ok(ApiResponse.success(subordinateAnalyticsService.getKeyResultScopedComboChart(id, w.from(), w.to(), onlyApproved)));
     }
 
     @GetMapping("/key-results/{id}/top-entities")
@@ -168,8 +192,10 @@ public class SubordinateAnalyticsController {
             @PathVariable UUID id,
             @RequestParam(required = false) Instant from,
             @RequestParam(required = false) Instant to,
-            @RequestParam(required = false, defaultValue = "false") Boolean onlyApproved) {
-        return ResponseEntity.ok(ApiResponse.success(subordinateAnalyticsService.getKeyResultScopedTopEntities(id, from, to, onlyApproved)));
+            @RequestParam(required = false, defaultValue = "false") Boolean onlyApproved,
+            @RequestParam(required = false) UUID periodId) {
+        AnalyticsPeriodHelper.Window w = periodHelper.window(from, to, periodId);
+        return ResponseEntity.ok(ApiResponse.success(subordinateAnalyticsService.getKeyResultScopedTopEntities(id, w.from(), w.to(), onlyApproved)));
     }
 
     @GetMapping("/kpis/{id}/metrics")
@@ -179,8 +205,10 @@ public class SubordinateAnalyticsController {
             @PathVariable UUID id,
             @RequestParam(required = false) Instant from,
             @RequestParam(required = false) Instant to,
-            @RequestParam(required = false, defaultValue = "false") Boolean onlyApproved) {
-        return ResponseEntity.ok(ApiResponse.success(subordinateAnalyticsService.getKpiScopedMetrics(id, from, to, onlyApproved)));
+            @RequestParam(required = false, defaultValue = "false") Boolean onlyApproved,
+            @RequestParam(required = false) UUID periodId) {
+        AnalyticsPeriodHelper.Window w = periodHelper.window(from, to, periodId);
+        return ResponseEntity.ok(ApiResponse.success(subordinateAnalyticsService.getKpiScopedMetrics(id, w.from(), w.to(), onlyApproved)));
     }
 
     @GetMapping("/kpis/{id}/chart/combo")
@@ -190,8 +218,10 @@ public class SubordinateAnalyticsController {
             @PathVariable UUID id,
             @RequestParam(required = false) Instant from,
             @RequestParam(required = false) Instant to,
-            @RequestParam(required = false, defaultValue = "false") Boolean onlyApproved) {
-        return ResponseEntity.ok(ApiResponse.success(subordinateAnalyticsService.getKpiScopedComboChart(id, from, to, onlyApproved)));
+            @RequestParam(required = false, defaultValue = "false") Boolean onlyApproved,
+            @RequestParam(required = false) UUID periodId) {
+        AnalyticsPeriodHelper.Window w = periodHelper.window(from, to, periodId);
+        return ResponseEntity.ok(ApiResponse.success(subordinateAnalyticsService.getKpiScopedComboChart(id, w.from(), w.to(), onlyApproved)));
     }
 
     @GetMapping("/kpis/{id}/top-entities")
@@ -201,8 +231,10 @@ public class SubordinateAnalyticsController {
             @PathVariable UUID id,
             @RequestParam(required = false) Instant from,
             @RequestParam(required = false) Instant to,
-            @RequestParam(required = false, defaultValue = "false") Boolean onlyApproved) {
-        return ResponseEntity.ok(ApiResponse.success(subordinateAnalyticsService.getKpiScopedTopEntities(id, from, to, onlyApproved)));
+            @RequestParam(required = false, defaultValue = "false") Boolean onlyApproved,
+            @RequestParam(required = false) UUID periodId) {
+        AnalyticsPeriodHelper.Window w = periodHelper.window(from, to, periodId);
+        return ResponseEntity.ok(ApiResponse.success(subordinateAnalyticsService.getKpiScopedTopEntities(id, w.from(), w.to(), onlyApproved)));
     }
 
     @GetMapping("/top-entities-dashboard")
@@ -212,7 +244,9 @@ public class SubordinateAnalyticsController {
             @RequestParam(defaultValue = "BEST") String filter,
             @RequestParam(required = false) Instant from,
             @RequestParam(required = false) Instant to,
-            @RequestParam(required = false, defaultValue = "false") Boolean onlyApproved) {
-        return ResponseEntity.ok(ApiResponse.success(subordinateAnalyticsService.getTopEntitiesDashboard(from, to, filter, onlyApproved)));
+            @RequestParam(required = false, defaultValue = "false") Boolean onlyApproved,
+            @RequestParam(required = false) UUID periodId) {
+        AnalyticsPeriodHelper.Window w = periodHelper.window(from, to, periodId);
+        return ResponseEntity.ok(ApiResponse.success(subordinateAnalyticsService.getTopEntitiesDashboard(w.from(), w.to(), filter, onlyApproved)));
     }
 }

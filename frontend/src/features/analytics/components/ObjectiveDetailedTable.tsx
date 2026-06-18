@@ -215,8 +215,27 @@ const DateRange = ({ start, end }: { start: string | null; end: string | null })
                       </div>
                     </td>
                     <td className="px-6 py-4 align-top whitespace-normal">
-                      <div className="font-semibold text-slate-800 dark:text-slate-300">{kr.unitName || '---'}</div>
-                      {kr.unitCode && <div className="text-[11px] text-slate-500 mt-1">{kr.unitCode}</div>}
+                      {kr.assignedUnits && kr.assignedUnits.length > 0 ? (
+                        <div className="flex flex-wrap gap-1.5 max-w-[260px]">
+                          {kr.assignedUnits.map(u => (
+                            <span
+                              key={u.orgUnitId}
+                              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 text-[11px] font-semibold"
+                              title={u.orgUnitCode || u.orgUnitName}
+                            >
+                              {u.orgUnitName}
+                              {u.weightPercentage != null && (
+                                <span className="text-indigo-400 dark:text-indigo-500">· {Math.round(u.weightPercentage)}%</span>
+                              )}
+                            </span>
+                          ))}
+                        </div>
+                      ) : (
+                        <>
+                          <div className="font-semibold text-slate-800 dark:text-slate-300">{kr.unitName || '---'}</div>
+                          {kr.unitCode && <div className="text-[11px] text-slate-500 mt-1">{kr.unitCode}</div>}
+                        </>
+                      )}
                     </td>
                     <td className="px-6 py-4 align-middle">
                       <DateRange start={kr.startDate} end={kr.endDate} />
