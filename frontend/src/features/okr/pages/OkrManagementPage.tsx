@@ -63,7 +63,7 @@ export default function OkrManagementPage() {
   
   const [isKeyResultModalOpen, setIsKeyResultModalOpen] = useState(false)
   const [selectedKeyResult, setSelectedKeyResult] = useState<KeyResultResponse | undefined>()
-  const [targetObjectiveId, setTargetObjectiveId] = useState<string>('')
+  const [targetObjective, setTargetObjective] = useState<ObjectiveResponse | undefined>()
   
   const [deleteTarget, setDeleteTarget] = useState<{ id: string, type: 'objective' | 'keyResult' } | null>(null)
 
@@ -85,14 +85,14 @@ export default function OkrManagementPage() {
     setDeleteTarget({ id, type: 'objective' })
   }
 
-  const handleAddKeyResult = (objectiveId: string) => {
-    setTargetObjectiveId(objectiveId)
+  const handleAddKeyResult = (objective: ObjectiveResponse) => {
+    setTargetObjective(objective)
     setSelectedKeyResult(undefined)
     setIsKeyResultModalOpen(true)
   }
 
-  const handleEditKeyResult = (objectiveId: string, kr: KeyResultResponse) => {
-    setTargetObjectiveId(objectiveId)
+  const handleEditKeyResult = (objective: ObjectiveResponse, kr: KeyResultResponse) => {
+    setTargetObjective(objective)
     setSelectedKeyResult(kr)
     setIsKeyResultModalOpen(true)
   }
@@ -144,15 +144,15 @@ export default function OkrManagementPage() {
 
       <div id="tour-okr-list" className="grid gap-6">
         {objectives?.map(objective => (
-          <ObjectiveCard 
-            key={objective.id} 
-            objective={objective} 
+          <ObjectiveCard
+            key={objective.id}
+            objective={objective}
             isExpanded={!!expandedObjectives[objective.id]}
             onToggle={() => toggleObjective(objective.id)}
             onEdit={() => handleEditObjective(objective)}
             onDelete={() => handleDeleteObjective(objective.id)}
-            onAddKR={() => handleAddKeyResult(objective.id)}
-            onEditKR={(kr) => handleEditKeyResult(objective.id, kr)}
+            onAddKR={() => handleAddKeyResult(objective)}
+            onEditKR={(kr) => handleEditKeyResult(objective, kr)}
             onDeleteKR={(krId) => handleDeleteKeyResult(krId)}
           />
         ))}
@@ -175,12 +175,14 @@ export default function OkrManagementPage() {
         objective={selectedObjective}
       />
 
-      <KeyResultFormModal 
-        isOpen={isKeyResultModalOpen}
-        onClose={() => setIsKeyResultModalOpen(false)}
-        objectiveId={targetObjectiveId}
-        keyResult={selectedKeyResult}
-      />
+      {targetObjective && (
+        <KeyResultFormModal
+          isOpen={isKeyResultModalOpen}
+          onClose={() => setIsKeyResultModalOpen(false)}
+          objective={targetObjective}
+          keyResult={selectedKeyResult}
+        />
+      )}
 
       <ImportOkrGuideModal
         open={isImportModalOpen}
@@ -259,27 +261,36 @@ function ObjectiveCard({ objective, isExpanded, onToggle, onEdit, onDelete, onAd
           
           <div className="flex-1 space-y-4">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-              <div className="space-y-1">
+              <div className="space-y-1.5">
                 <div className="flex items-center gap-2">
                   <span className={cn(
-                    "px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider",
+                    "px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider whitespace-nowrap",
                     objective.status === OkrStatus.ACTIVE ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400" : "bg-slate-100 text-slate-600"
                   )}>
                     {objective.status === OkrStatus.ACTIVE ? 'Đang thực hiện' : objective.status === OkrStatus.COMPLETED ? 'Hoàn thành' : 'Hủy bỏ'}
                   </span>
-                  <div className="flex items-center gap-1.5 text-[11px] font-bold text-slate-400 uppercase tracking-tight">
+                  <div className="flex items-center gap-1.5 text-[11px] font-bold text-slate-400 uppercase tracking-tight whitespace-nowrap">
                     <Calendar size={12} />
                     {objective.startDate ? format(new Date(objective.startDate), 'dd/MM/yyyy', { locale: vi }) : 'N/A'}
                     {' - '}
                     {objective.endDate ? format(new Date(objective.endDate), 'dd/MM/yyyy', { locale: vi }) : 'N/A'}
                   </div>
-                  {objective.orgUnitName && (
-                    <div className="flex items-center gap-1.5 text-[11px] font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-widest bg-indigo-50 dark:bg-indigo-900/20 px-2 py-0.5 rounded-lg w-fit">
-                      <PlusCircle size={12} className="rotate-45" />
-                      {objective.orgUnitName}
-                    </div>
-                  )}
                 </div>
+                {objective.orgUnitNames && objective.orgUnitNames.length > 0 && (
+                  <div className="flex items-center gap-1">
+                    {objective.orgUnitNames.slice(0, 5).map((name, idx) => (
+                      <div key={idx} className="flex items-center gap-1 text-[11px] font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-widest bg-indigo-50 dark:bg-indigo-900/20 px-2 py-0.5 rounded-lg whitespace-nowrap">
+                        <PlusCircle size={12} className="rotate-45" />
+                        {name}
+                      </div>
+                    ))}
+                    {objective.orgUnitNames.length > 5 && (
+                      <div className="text-[11px] font-black text-slate-400 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded-lg">
+                        +{objective.orgUnitNames.length - 5}
+                      </div>
+                    )}
+                  </div>
+                )}
                 <h3 className="text-xl font-black text-slate-900 dark:text-white leading-tight">
                   {objective.code && <span className="text-indigo-600 dark:text-indigo-400 mr-2">[{objective.code}]</span>}
                   {objective.name}
@@ -371,7 +382,7 @@ function KeyResultRow({ kr, onEdit, onDelete }: KeyResultRowProps) {
         <div className="w-8 h-8 rounded-xl bg-indigo-50 dark:bg-indigo-900/30 flex items-center justify-center text-indigo-600 shrink-0 mt-0.5">
           <CheckCircle2 size={16} />
         </div>
-        <div className="space-y-1">
+        <div className="space-y-1.5">
           <p className="text-sm font-bold text-slate-800 dark:text-slate-200">
             {kr.code && <span className="text-emerald-600 dark:text-emerald-400 mr-2">[{kr.code}]</span>}
             {kr.name}
@@ -385,6 +396,16 @@ function KeyResultRow({ kr, onEdit, onDelete }: KeyResultRowProps) {
             <span>Mục tiêu: {kr.targetValue} {kr.unit}</span>
             <span>Hiện tại: {kr.currentValue} {kr.unit}</span>
           </div>
+          {kr.unitWeights && kr.unitWeights.length > 0 && (
+            <div className="flex items-center gap-1.5 flex-wrap">
+              {kr.unitWeights.map((uw, idx) => (
+                <div key={idx} className="flex items-center gap-1 text-[10px] font-bold text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded-md whitespace-nowrap">
+                  {uw.orgUnitName}
+                  <span className="text-indigo-500 font-black">{uw.weightPercentage}%</span>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
 

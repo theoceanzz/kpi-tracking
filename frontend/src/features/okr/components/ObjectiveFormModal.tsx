@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useEffect } from 'react'
 import { useForm, Controller } from 'react-hook-form'
 import { X, Target, Loader2, ChevronDown, Check } from 'lucide-react'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
@@ -25,9 +25,8 @@ interface ObjectiveFormModalProps {
 
 export default function ObjectiveFormModal({ isOpen, onClose, organizationId, objective }: ObjectiveFormModalProps) {
   const today = format(new Date(), 'yyyy-MM-dd')
-  const [isBatchCreating, setIsBatchCreating] = useState(false)
-  
-  const { register, handleSubmit, reset, control, watch, setValue, formState: { errors } } = useForm<ObjectiveRequest & { orgUnitIds?: string[] }>({
+
+  const { register, handleSubmit, reset, control, watch, setValue, formState: { errors } } = useForm<ObjectiveRequest>({
     defaultValues: {
       startDate: today,
       endDate: today,
@@ -62,8 +61,7 @@ export default function ObjectiveFormModal({ isOpen, onClose, organizationId, ob
         startDate: objective.startDate ? objective.startDate.split('T')[0] : '',
         endDate: objective.endDate ? objective.endDate.split('T')[0] : '',
         status: objective.status,
-        orgUnitId: objective.orgUnitId,
-        orgUnitIds: objective.orgUnitId ? [objective.orgUnitId] : []
+        orgUnitIds: objective.orgUnitIds ?? []
       })
     } else {
       reset({
@@ -73,11 +71,10 @@ export default function ObjectiveFormModal({ isOpen, onClose, organizationId, ob
         startDate: today,
         endDate: today,
         status: OkrStatus.ACTIVE,
-        orgUnitId: undefined,
         orgUnitIds: []
       })
     }
-  }, [objective, reset, isOpen, allOrgUnits[0]?.id])
+  }, [objective, reset, isOpen])
 
   const selectedOrgUnitIds = watch('orgUnitIds') || []
 
@@ -86,11 +83,7 @@ export default function ObjectiveFormModal({ isOpen, onClose, organizationId, ob
     let nextIds: string[] = []
 
     if (isRoot) {
-      if (selectedOrgUnitIds.includes(unitId)) {
-        nextIds = []
-      } else {
-        nextIds = allOrgUnits.map(u => u.id)
-      }
+      nextIds = selectedOrgUnitIds.includes(unitId) ? [] : allOrgUnits.map(u => u.id)
     } else {
       if (selectedOrgUnitIds.includes(unitId)) {
         nextIds = selectedOrgUnitIds.filter(id => id !== unitId && id !== allOrgUnits[0]?.id)
@@ -99,46 +92,27 @@ export default function ObjectiveFormModal({ isOpen, onClose, organizationId, ob
         const rootId = allOrgUnits[0]?.id
         const allOtherIds = allOrgUnits.filter(u => u.id !== rootId).map(u => u.id)
         const allOthersSelected = allOtherIds.every(id => tempIds.includes(id))
-        
-        if (allOthersSelected && rootId) {
-          nextIds = allOrgUnits.map(u => u.id)
-        } else {
-          nextIds = tempIds
-        }
+        nextIds = allOthersSelected && rootId ? allOrgUnits.map(u => u.id) : tempIds
       }
     }
     setValue('orgUnitIds', nextIds)
   }
 
-  const onSubmit = async (data: any) => {
+  const onSubmit = (data: ObjectiveRequest) => {
     if (objective) {
       updateObjective.mutate({ objectiveId: objective.id, data }, {
         onSuccess: () => onClose()
       })
     } else {
-      const ids = data.orgUnitIds && data.orgUnitIds.length > 0 ? data.orgUnitIds : [data.orgUnitId]
-      setIsBatchCreating(true)
-      try {
-        for (const id of ids) {
-          const { orgUnitIds, ...rest } = data
-          await createObjective.mutateAsync({ 
-            organizationId, 
-            data: { ...rest, orgUnitId: id } 
-          })
-        }
-        onClose()
-        reset()
-      } catch (err) {
-        console.error('Batch creation failed', err)
-      } finally {
-        setIsBatchCreating(false)
-      }
+      createObjective.mutate({ organizationId, data }, {
+        onSuccess: () => { onClose(); reset() }
+      })
     }
   }
 
   if (!isOpen) return null
 
-  const isPending = createObjective.isPending || updateObjective.isPending || isBatchCreating
+  const isPending = createObjective.isPending || updateObjective.isPending
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-300">
@@ -163,7 +137,7 @@ export default function ObjectiveFormModal({ isOpen, onClose, organizationId, ob
             <div className="grid grid-cols-3 gap-4">
               <div className="col-span-2 space-y-1.5">
                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Tên mục tiêu</label>
-                <input 
+                <input
                   {...register('name', { required: 'Vui lòng nhập tên mục tiêu' })}
                   placeholder="VD: Mở rộng thị trường..."
                   className="w-full px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 text-sm font-bold focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 outline-none transition-all"
@@ -173,7 +147,7 @@ export default function ObjectiveFormModal({ isOpen, onClose, organizationId, ob
 
               <div className="space-y-1.5">
                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Mã</label>
-                <input 
+                <input
                   {...register('code', { required: 'Vui lòng nhập mã' })}
                   placeholder="OBJ001"
                   className="w-full px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 text-sm font-bold focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 outline-none transition-all"
@@ -184,7 +158,7 @@ export default function ObjectiveFormModal({ isOpen, onClose, organizationId, ob
 
             <div className="space-y-1.5">
               <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Mô tả chi tiết</label>
-              <textarea 
+              <textarea
                 {...register('description')}
                 placeholder="Mô tả cụ thể mục tiêu cần đạt được..."
                 rows={2}
@@ -196,7 +170,7 @@ export default function ObjectiveFormModal({ isOpen, onClose, organizationId, ob
               <div className="space-y-1.5">
                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Ngày bắt đầu</label>
                 <div className="relative">
-                  <input 
+                  <input
                     type="date"
                     {...register('startDate', { required: 'Vui lòng chọn ngày bắt đầu' })}
                     className="w-full px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 text-sm font-bold focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 outline-none transition-all text-transparent"
@@ -210,9 +184,9 @@ export default function ObjectiveFormModal({ isOpen, onClose, organizationId, ob
               <div className="space-y-1.5">
                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Ngày kết thúc</label>
                 <div className="relative">
-                  <input 
+                  <input
                     type="date"
-                    {...register('endDate', { 
+                    {...register('endDate', {
                       required: 'Vui lòng chọn ngày kết thúc',
                       validate: value => {
                         if (!startDate || !value) return true
@@ -239,7 +213,7 @@ export default function ObjectiveFormModal({ isOpen, onClose, organizationId, ob
                       className="w-full h-10 px-4 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 text-sm font-bold flex items-center justify-between focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 outline-none transition-all"
                     >
                       <span className="truncate">
-                        {selectedOrgUnitIds.length === 0 ? 'Chọn đơn vị' : 
+                        {selectedOrgUnitIds.length === 0 ? 'Chọn đơn vị' :
                          selectedOrgUnitIds.length === 1 ? allOrgUnits.find(u => u.id === selectedOrgUnitIds[0])?.name :
                          `Đã chọn ${selectedOrgUnitIds.length} đơn vị`}
                       </span>
@@ -251,7 +225,7 @@ export default function ObjectiveFormModal({ isOpen, onClose, organizationId, ob
                       {allOrgUnits.map((unit) => {
                         const isSelected = selectedOrgUnitIds.includes(unit.id)
                         return (
-                          <div 
+                          <div
                             key={unit.id}
                             onClick={() => toggleOrgUnit(unit.id)}
                             className={cn(
@@ -299,14 +273,14 @@ export default function ObjectiveFormModal({ isOpen, onClose, organizationId, ob
           </div>
 
           <div className="p-6 border-t border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900 flex gap-4">
-            <button 
-              type="button" 
+            <button
+              type="button"
               onClick={onClose}
               className="flex-1 px-6 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 text-sm font-bold text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all"
             >
               Hủy
             </button>
-            <button 
+            <button
               type="submit"
               disabled={isPending}
               className="flex-[2] px-6 py-2.5 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 shadow-lg shadow-indigo-500/20 disabled:opacity-50 transition-all flex items-center justify-center gap-2"

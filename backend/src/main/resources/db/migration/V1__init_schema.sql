@@ -103,7 +103,7 @@ CREATE INDEX idx_org_hierarchy_levels_org_id ON org_hierarchy_levels(organizatio
 CREATE TABLE org_units (
   id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   name            TEXT NOT NULL,
-  code            VARCHAR(50) UNIQUE,
+  code            VARCHAR(50),
   parent_id       UUID REFERENCES org_units(id),
   org_hierarchy_id UUID NOT NULL REFERENCES org_hierarchy_levels(id),
   path            TEXT NOT NULL,
@@ -280,7 +280,6 @@ CREATE INDEX idx_kpi_periods_org_id ON kpi_periods(organization_id);
 CREATE TABLE objectives (
     id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     organization_id UUID            NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
-    org_unit_id      UUID            REFERENCES org_units(id) ON DELETE SET NULL,
     code            VARCHAR(50),
     name            VARCHAR(255)    NOT NULL,
     description     TEXT,
@@ -293,7 +292,15 @@ CREATE TABLE objectives (
 );
 
 CREATE INDEX idx_objectives_org_id ON objectives(organization_id);
-CREATE INDEX idx_objectives_org_unit_id ON objectives(org_unit_id);
+
+CREATE TABLE objective_org_units (
+    objective_id UUID NOT NULL REFERENCES objectives(id) ON DELETE CASCADE,
+    org_unit_id  UUID NOT NULL REFERENCES org_units(id)  ON DELETE CASCADE,
+    PRIMARY KEY (objective_id, org_unit_id)
+);
+
+CREATE INDEX idx_objective_org_units_obj_id  ON objective_org_units(objective_id);
+CREATE INDEX idx_objective_org_units_unit_id ON objective_org_units(org_unit_id);
 
 CREATE TABLE key_results (
     id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -311,6 +318,16 @@ CREATE TABLE key_results (
 
 CREATE INDEX idx_key_results_objective_id ON key_results(objective_id);
 
+CREATE TABLE key_result_unit_weights (
+    id                UUID             PRIMARY KEY DEFAULT gen_random_uuid(),
+    key_result_id     UUID             NOT NULL REFERENCES key_results(id) ON DELETE CASCADE,
+    org_unit_id       UUID             NOT NULL REFERENCES org_units(id)   ON DELETE CASCADE,
+    weight_percentage DOUBLE PRECISION NOT NULL DEFAULT 0,
+    UNIQUE (key_result_id, org_unit_id)
+);
+
+CREATE INDEX idx_kr_unit_weights_kr_id ON key_result_unit_weights(key_result_id);
+
 -- ====================================================
 -- KPI Criteria
 -- ====================================================
@@ -327,6 +344,9 @@ CREATE TABLE kpi_criteria (
     frequency       VARCHAR(20)     NOT NULL,
     key_result_id   UUID            REFERENCES key_results(id) ON DELETE SET NULL,
     parent_id       UUID            REFERENCES kpi_criteria(id) ON DELETE SET NULL,
+    parent_relation_type VARCHAR(20),
+    is_reverse_kpi  BOOLEAN         NOT NULL DEFAULT FALSE,
+    is_bonus_kpi    BOOLEAN         NOT NULL DEFAULT FALSE,
     status          VARCHAR(20)     NOT NULL DEFAULT 'DRAFT',
     created_by      UUID            NOT NULL REFERENCES users(id),
     approved_by     UUID            REFERENCES users(id),

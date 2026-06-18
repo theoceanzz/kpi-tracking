@@ -17,6 +17,6 @@ public class ObjectiveResponse {
     private LocalDate endDate;
     private OkrStatus status;
     private List<KeyResultResponse> keyResults;
-    private UUID orgUnitId;
-    private String orgUnitName;
+    private List<UUID> orgUnitIds;
+    private List<String> orgUnitNames;
 }

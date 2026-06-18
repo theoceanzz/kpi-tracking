@@ -273,9 +273,11 @@ function ProfileInfoTab({ user, onUserUpdate }: { user: any; onUserUpdate: (u: a
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5 animate-in fade-in duration-300">
             <InfoField icon={User} iconColor="text-indigo-500" iconBg="bg-indigo-50 dark:bg-indigo-900/20" label="Họ và tên" value={user.fullName} />
+            <InfoField icon={User} iconColor="text-indigo-600" iconBg="bg-indigo-100 dark:bg-indigo-900/30" label="Mã nhân viên" value={user.employeeCode || 'Chưa cập nhật'} />
             <InfoField icon={Mail} iconColor="text-blue-500" iconBg="bg-blue-50 dark:bg-blue-900/20" label="Địa chỉ Email" value={user.email} />
             <InfoField icon={Phone} iconColor="text-emerald-500" iconBg="bg-emerald-50 dark:bg-emerald-900/20" label="Số điện thoại" value={formatPhoneNumber(user.phone) || 'Chưa cập nhật'} />
             <InfoField icon={Building2} iconColor="text-amber-500" iconBg="bg-amber-50 dark:bg-amber-900/20" label="Đơn vị" value={`${user.memberships?.[0]?.orgUnitName || 'Chưa cập nhật'}${user.memberships?.[0]?.unitTypeLabel ? ` (${user.memberships[0].unitTypeLabel})` : ''}`} />
+            <InfoField icon={Building2} iconColor="text-orange-500" iconBg="bg-orange-50 dark:bg-orange-900/20" label="Mã đơn vị" value={user.memberships?.[0]?.orgUnitCode || 'Chưa cập nhật'} />
             <InfoField icon={Shield} iconColor="text-purple-500" iconBg="bg-purple-50 dark:bg-purple-900/20" label="Chức vụ" value={user.memberships?.[0]?.roleName || user.roles?.[0] || 'N/A'} />
             <InfoField icon={CheckCircle2} iconColor="text-emerald-500" iconBg="bg-emerald-50 dark:bg-emerald-900/20" label="Trạng thái" value="Đang hoạt động" />
           </div>

@@ -5,6 +5,7 @@ import ConfirmDialog from '@/components/common/ConfirmDialog'
 import { format, addDays, parseISO, addMonths, addYears, subDays } from 'date-fns'
 import { useKpiPeriods } from '../hooks/useKpiPeriods'
 import { useAuthStore } from '@/store/authStore'
+import { useSidebarSettings } from '@/features/organization/hooks/useSidebarSettings'
 import { formatDateTime, FREQUENCY_MAP } from '@/lib/utils'
 import type { KpiPeriod, KpiFrequency } from '@/types/kpi'
 import {
@@ -54,6 +55,17 @@ export default function KpiPeriodsPage() {
     sortBy,
     direction
   })
+
+  const { data: customLabels = {} } = useSidebarSettings(organizationId!)
+  const rawTitle = ((customLabels as Record<string, string>)['/kpi-periods'] || 'Quản lý đợt')
+    .split(' ')
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ')
+  
+  // Split title to style the last word or keep it as is
+  const titleParts = rawTitle.trim().split(' ')
+  const lastWord = titleParts.length > 1 ? titleParts.pop() : ''
+  const mainTitle = titleParts.join(' ')
 
   const toggleSort = (field: string) => {
     if (sortBy === field) {
@@ -108,7 +120,7 @@ export default function KpiPeriodsPage() {
                 </div>
                 <div className="space-y-0.5">
                   <h1 className="text-3xl md:text-4xl font-black tracking-tight text-slate-900 dark:text-white">
-                    Quản lý <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-indigo-600">Đợt KPI</span>
+                    {mainTitle} <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-indigo-600">{lastWord}</span>
                   </h1>
                   <p className="text-slate-500 dark:text-slate-400 font-medium text-sm max-w-xl leading-relaxed">
                     Thiết lập chu kỳ đánh giá (Tháng, Quý, Năm) để triển khai mục tiêu.

@@ -97,8 +97,8 @@ public interface OrgUnitRepository extends JpaRepository<OrgUnit, UUID> {
 
     boolean existsByNameIgnoreCaseAndOrgHierarchyLevel_Organization_IdAndDeletedAtIsNull(String name, UUID organizationId);
 
-    boolean existsByEmailAndDeletedAtIsNull(String email);
-    boolean existsByPhoneAndDeletedAtIsNull(String phone);
+    boolean existsByEmailAndOrgHierarchyLevel_Organization_IdAndDeletedAtIsNull(String email, UUID organizationId);
+    boolean existsByPhoneAndOrgHierarchyLevel_Organization_IdAndDeletedAtIsNull(String phone, UUID organizationId);
 
     @Query("SELECT o FROM OrgUnit o WHERE o.deletedAt IS NULL " +
            "AND o.orgHierarchyLevel.organization.id = :orgId " +

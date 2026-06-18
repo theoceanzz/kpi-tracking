@@ -20,4 +20,6 @@ public class KpiCriteriaSummaryResponse {
     private java.util.List<String> assigneeNames;
     private Integer submissionCount;
     private Integer expectedSubmissions;
+    private Boolean isReverseKpi;
+    private Boolean isBonusKpi;
 }

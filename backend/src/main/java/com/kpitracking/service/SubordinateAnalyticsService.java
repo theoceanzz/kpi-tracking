@@ -453,8 +453,9 @@ public class SubordinateAnalyticsService {
                         }
                     }
 
-                    String unitName = obj.getOrgUnit() != null ? obj.getOrgUnit().getName() : "";
-                    String unitCode = obj.getOrgUnit() != null ? obj.getOrgUnit().getCode() : "";
+                    OrgUnit firstUnit = obj.getOrgUnits().isEmpty() ? null : obj.getOrgUnits().get(0);
+                    String unitName = firstUnit != null ? firstUnit.getName() : "";
+                    String unitCode = firstUnit != null ? firstUnit.getCode() : "";
                     if (kpi.getAssignees() != null && !kpi.getAssignees().isEmpty()) {
                         User firstAssignee = kpi.getAssignees().get(0);
                         unitName = firstAssignee.getFullName();
@@ -487,8 +488,8 @@ public class SubordinateAnalyticsService {
                         .code(kr.getCode())
                         .progress(krCompletion)
                         .performance(krPerformance)
-                        .unitName(obj.getOrgUnit() != null ? obj.getOrgUnit().getName() : null)
-                        .unitCode(obj.getOrgUnit() != null ? obj.getOrgUnit().getCode() : null)
+                        .unitName(obj.getOrgUnits().isEmpty() ? null : obj.getOrgUnits().get(0).getName())
+                        .unitCode(obj.getOrgUnits().isEmpty() ? null : obj.getOrgUnits().get(0).getCode())
                         .startDate(obj.getStartDate() != null ? obj.getStartDate().atStartOfDay().toInstant(ZoneOffset.UTC) : null)
                         .endDate(obj.getEndDate() != null ? obj.getEndDate().atStartOfDay().toInstant(ZoneOffset.UTC) : null)
                         .kpis(kpiDtos)
@@ -511,9 +512,9 @@ public class SubordinateAnalyticsService {
             .id(obj.getId())
             .name(obj.getName())
             .code(obj.getCode())
-            .unitId(obj.getOrgUnit() != null ? obj.getOrgUnit().getId() : null)
-            .unitName(obj.getOrgUnit() != null ? obj.getOrgUnit().getName() : "")
-            .unitCode(obj.getOrgUnit() != null ? obj.getOrgUnit().getCode() : "")
+            .unitId(obj.getOrgUnits().isEmpty() ? null : obj.getOrgUnits().get(0).getId())
+            .unitName(obj.getOrgUnits().isEmpty() ? "" : obj.getOrgUnits().get(0).getName())
+            .unitCode(obj.getOrgUnits().isEmpty() ? "" : obj.getOrgUnits().get(0).getCode())
             .startDate(obj.getStartDate() != null ? obj.getStartDate().atStartOfDay().toInstant(ZoneOffset.UTC) : null)
             .endDate(obj.getEndDate() != null ? obj.getEndDate().atStartOfDay().toInstant(ZoneOffset.UTC) : null)
             .progress(objProgress)
@@ -792,7 +793,7 @@ public class SubordinateAnalyticsService {
                 .orElseThrow(() -> new RuntimeException("Objective not found"));
         
         List<UUID> allowedOrgUnits = getSubordinateOrgUnitIds();
-        if (!allowedOrgUnits.contains(obj.getOrgUnit().getId())) {
+        if (obj.getOrgUnits().stream().noneMatch(u -> allowedOrgUnits.contains(u.getId()))) {
             throw new RuntimeException("Access denied to this objective");
         }
 
@@ -834,7 +835,7 @@ public class SubordinateAnalyticsService {
                 .orElseThrow(() -> new RuntimeException("Objective not found"));
         
         List<UUID> allowedOrgUnits = getSubordinateOrgUnitIds();
-        if (!allowedOrgUnits.contains(obj.getOrgUnit().getId())) {
+        if (obj.getOrgUnits().stream().noneMatch(u -> allowedOrgUnits.contains(u.getId()))) {
             throw new RuntimeException("Access denied to this objective");
         }
 
@@ -902,7 +903,7 @@ public class SubordinateAnalyticsService {
                 .orElseThrow(() -> new RuntimeException("Objective not found"));
         
         List<UUID> allowedOrgUnits = getSubordinateOrgUnitIds();
-        if (!allowedOrgUnits.contains(obj.getOrgUnit().getId())) {
+        if (obj.getOrgUnits().stream().noneMatch(u -> allowedOrgUnits.contains(u.getId()))) {
             throw new RuntimeException("Access denied to this objective");
         }
 
@@ -970,7 +971,7 @@ public class SubordinateAnalyticsService {
         Objective obj = kr.getObjective();
         
         List<UUID> allowedOrgUnits = getSubordinateOrgUnitIds();
-        if (!allowedOrgUnits.contains(obj.getOrgUnit().getId())) {
+        if (obj.getOrgUnits().stream().noneMatch(u -> allowedOrgUnits.contains(u.getId()))) {
             throw new RuntimeException("Access denied to this Key Result");
         }
 
@@ -1016,7 +1017,7 @@ public class SubordinateAnalyticsService {
         Objective obj = kr.getObjective();
         
         List<UUID> allowedOrgUnits = getSubordinateOrgUnitIds();
-        if (!allowedOrgUnits.contains(obj.getOrgUnit().getId())) {
+        if (obj.getOrgUnits().stream().noneMatch(u -> allowedOrgUnits.contains(u.getId()))) {
             throw new RuntimeException("Access denied to this Key Result");
         }
 
@@ -1090,7 +1091,7 @@ public class SubordinateAnalyticsService {
         Objective obj = kr.getObjective();
         
         List<UUID> allowedOrgUnits = getSubordinateOrgUnitIds();
-        if (!allowedOrgUnits.contains(obj.getOrgUnit().getId())) {
+        if (obj.getOrgUnits().stream().noneMatch(u -> allowedOrgUnits.contains(u.getId()))) {
             throw new RuntimeException("Access denied to this Key Result");
         }
 
@@ -1151,7 +1152,7 @@ public class SubordinateAnalyticsService {
         Objective obj = kpi.getKeyResult().getObjective();
         
         List<UUID> allowedOrgUnits = getSubordinateOrgUnitIds();
-        if (!allowedOrgUnits.contains(obj.getOrgUnit().getId())) {
+        if (obj.getOrgUnits().stream().noneMatch(u -> allowedOrgUnits.contains(u.getId()))) {
             throw new RuntimeException("Access denied to this KPI");
         }
 
@@ -1201,7 +1202,7 @@ public class SubordinateAnalyticsService {
         Objective obj = kpi.getKeyResult().getObjective();
         
         List<UUID> allowedOrgUnits = getSubordinateOrgUnitIds();
-        if (!allowedOrgUnits.contains(obj.getOrgUnit().getId())) {
+        if (obj.getOrgUnits().stream().noneMatch(u -> allowedOrgUnits.contains(u.getId()))) {
             throw new RuntimeException("Access denied to this KPI");
         }
 
@@ -1265,7 +1266,7 @@ public class SubordinateAnalyticsService {
         Objective obj = kpi.getKeyResult().getObjective();
         
         List<UUID> allowedOrgUnits = getSubordinateOrgUnitIds();
-        if (!allowedOrgUnits.contains(obj.getOrgUnit().getId())) {
+        if (obj.getOrgUnits().stream().noneMatch(u -> allowedOrgUnits.contains(u.getId()))) {
             throw new RuntimeException("Access denied to this KPI");
         }
 

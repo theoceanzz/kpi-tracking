@@ -182,10 +182,12 @@ public interface KpiCriteriaRepository extends JpaRepository<KpiCriteria, UUID> 
             "GROUP BY u.id, u.full_name, u.email " +
             "ORDER BY missing_count DESC LIMIT :limit", nativeQuery = true)
     java.util.List<Object[]> findTopNonSubmittersInSubtree(@Param("pathPrefix") String pathPrefix, @Param("startDate") Instant startDate, @Param("endDate") Instant endDate, @Param("limit") int limit);
-    @Query("SELECT COALESCE(SUM(k.weight), 0.0) FROM KpiCriteria k JOIN k.assignees a WHERE a.id = :userId AND (:kpiPeriodId IS NULL OR k.kpiPeriod.id = :kpiPeriodId) AND k.status IN :statuses")
+    @Query("SELECT COALESCE(SUM(k.weight), 0.0) FROM KpiCriteria k JOIN k.assignees a WHERE a.id = :userId AND (:kpiPeriodId IS NULL OR k.kpiPeriod.id = :kpiPeriodId) AND k.status IN :statuses AND k.isBonusKpi = false " +
+           "AND NOT EXISTS (SELECT 1 FROM KpiCriteria c WHERE c.parent = k AND c.parentRelationType = com.kpitracking.enums.KpiParentRelationType.DECOMPOSITION)")
     Double sumWeightByUserIdAndKpiPeriodIdAndStatusIn(@Param("userId") UUID userId, @Param("kpiPeriodId") UUID kpiPeriodId, @Param("statuses") List<KpiStatus> statuses);
 
-    @Query("SELECT COALESCE(SUM(k.weight), 0.0) FROM KpiCriteria k JOIN k.assignees a WHERE a.id = :userId AND k.orgUnit.id = :orgUnitId AND k.kpiPeriod.id = :kpiPeriodId AND k.status IN :statuses")
+    @Query("SELECT COALESCE(SUM(k.weight), 0.0) FROM KpiCriteria k JOIN k.assignees a WHERE a.id = :userId AND k.orgUnit.id = :orgUnitId AND k.kpiPeriod.id = :kpiPeriodId AND k.status IN :statuses AND k.isBonusKpi = false " +
+           "AND NOT EXISTS (SELECT 1 FROM KpiCriteria c WHERE c.parent = k AND c.parentRelationType = com.kpitracking.enums.KpiParentRelationType.DECOMPOSITION)")
     Double sumWeightByUserIdAndOrgUnitIdAndKpiPeriodIdAndStatusIn(@Param("userId") UUID userId, @Param("orgUnitId") UUID orgUnitId, @Param("kpiPeriodId") UUID kpiPeriodId, @Param("statuses") List<KpiStatus> statuses);
 
     @Query("SELECT DISTINCT k FROM KpiCriteria k LEFT JOIN k.assignees a JOIN FETCH k.kpiPeriod " +

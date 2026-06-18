@@ -86,6 +86,15 @@ public class KpiCriteriaController {
         return ResponseEntity.ok(ApiResponse.success("KPI submitted for approval", response));
     }
 
+    @PostMapping("/bulk-submit")
+    @PreAuthorize("hasAuthority('KPI:CREATE')")
+    @Operation(summary = "Bulk submit KPIs for approval")
+    public ResponseEntity<ApiResponse<java.util.List<KpiCriteriaResponse>>> bulkSubmitForApproval(
+            @RequestBody java.util.List<UUID> kpiIds) {
+        java.util.List<KpiCriteriaResponse> response = kpiCriteriaService.bulkSubmitForApproval(kpiIds);
+        return ResponseEntity.ok(ApiResponse.success(response.size() + " KPIs submitted for approval", response));
+    }
+
     @PostMapping("/{kpiId}/approve")
     @PreAuthorize("hasAuthority('KPI:APPROVE_CRITERIA')")
     @Operation(summary = "Approve KPI criteria")
@@ -126,6 +135,14 @@ public class KpiCriteriaController {
             @RequestParam(required = false) UUID objectiveId,
             @RequestParam(required = false) UUID keyResultId) {
         PageResponse<KpiCriteriaResponse> response = kpiCriteriaService.getMyKpi(page, size, kpiPeriodId, startDate, endDate, sortBy, sortDir, objectiveId, keyResultId);
+        return ResponseEntity.ok(ApiResponse.success(response));
+    }
+
+    @GetMapping("/{kpiId}/children")
+    @PreAuthorize("hasAuthority('KPI:VIEW')")
+    @Operation(summary = "Get child KPIs of a KPI criteria")
+    public ResponseEntity<ApiResponse<java.util.List<KpiCriteriaResponse>>> getChildren(@PathVariable UUID kpiId) {
+        java.util.List<KpiCriteriaResponse> response = kpiCriteriaService.getChildren(kpiId);
         return ResponseEntity.ok(ApiResponse.success(response));
     }
 

@@ -1,6 +1,7 @@
 package com.kpitracking.entity;
 
 import com.kpitracking.enums.KpiFrequency;
+import com.kpitracking.enums.KpiParentRelationType;
 import com.kpitracking.enums.KpiStatus;
 import jakarta.persistence.*;
 import lombok.*;
@@ -91,8 +92,20 @@ public class KpiCriteria {
     @JoinColumn(name = "parent_id")
     private KpiCriteria parent;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "parent_relation_type", length = 20)
+    private KpiParentRelationType parentRelationType;
+
     @Column(name = "minimum_value")
     private Double minimumValue;
+
+    @Column(name = "is_reverse_kpi", nullable = false)
+    @Builder.Default
+    private Boolean isReverseKpi = false;
+
+    @Column(name = "is_bonus_kpi", nullable = false)
+    @Builder.Default
+    private Boolean isBonusKpi = false;
 
     @Column(name = "expected_submissions")
     private Integer expectedSubmissions;

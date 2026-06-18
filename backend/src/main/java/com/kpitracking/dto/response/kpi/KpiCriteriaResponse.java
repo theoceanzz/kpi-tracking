@@ -1,6 +1,7 @@
 package com.kpitracking.dto.response.kpi;
 
 import com.kpitracking.enums.KpiFrequency;
+import com.kpitracking.enums.KpiParentRelationType;
 import com.kpitracking.enums.KpiStatus;
 import lombok.*;
 
@@ -32,6 +33,8 @@ public class KpiCriteriaResponse {
     private Instant submittedAt;
     private Instant approvedAt;
     private Double minimumValue;
+    private Boolean isReverseKpi;
+    private Boolean isBonusKpi;
     private UUID kpiPeriodId;
     private KpiPeriodResponse kpiPeriod;
     private Integer submissionCount;
@@ -44,9 +47,11 @@ public class KpiCriteriaResponse {
     private String objectiveCode;
     private UUID parentId;
     private String parentName;
+    private KpiParentRelationType parentRelationType;
     private Instant createdAt;
     private Instant updatedAt;
     private Boolean hasChildren;
     private java.util.List<String> delegatedToNames;
     private java.util.List<UUID> delegatedToIds;
+    private Double childrenWeightTotal;
 }

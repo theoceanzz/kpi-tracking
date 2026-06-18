@@ -25,6 +25,9 @@ export const kpiApi = {
   submit: (id: string) =>
     axiosInstance.post<ApiResponse<KpiCriteria>>(`/kpi-criteria/${id}/submit`).then((r) => r.data.data),
 
+  bulkSubmit: (ids: string[]) =>
+    axiosInstance.post<ApiResponse<KpiCriteria[]>>('/kpi-criteria/bulk-submit', ids).then((r) => r.data.data),
+
   approve: (id: string) =>
     axiosInstance.post<ApiResponse<KpiCriteria>>(`/kpi-criteria/${id}/approve`).then((r) => r.data.data),
 
@@ -51,4 +54,7 @@ export const kpiApi = {
 
   getTotalWeight: (orgUnitId?: string, kpiPeriodId?: string, userId?: string) =>
     axiosInstance.get<ApiResponse<number>>('/kpi-criteria/total-weight', { params: { orgUnitId, kpiPeriodId, userId } }).then(r => r.data.data),
+
+  getChildren: (id: string) =>
+    axiosInstance.get<ApiResponse<KpiCriteria[]>>(`/kpi-criteria/${id}/children`).then((r) => r.data.data),
 }

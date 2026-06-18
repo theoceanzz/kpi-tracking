@@ -1,6 +1,8 @@
-import { X, Target, Building2, Users, BarChart3, Award, Calendar, CheckCircle2 } from 'lucide-react'
+import { X, Target, Building2, Users, BarChart3, Award, Calendar, CheckCircle2, ListTree } from 'lucide-react'
 import { formatNumber, formatDateTime, FREQUENCY_MAP, STATUS_CONFIG } from '@/lib/utils'
 import type { KpiCriteria } from '@/types/kpi'
+import { useKpiChildren } from '../hooks/useKpiChildren'
+import { cn } from '@/lib/utils'
 
 
 
@@ -13,10 +15,15 @@ interface KpiDetailModalProps {
 }
 
 export default function KpiDetailModal({ open, onClose, kpi }: KpiDetailModalProps) {
+  const { data: children } = useKpiChildren(open && kpi?.hasChildren ? kpi.id : undefined)
+
   if (!open || !kpi) return null
 
   const status = STATUS_CONFIG[kpi.status as keyof typeof STATUS_CONFIG] ?? STATUS_CONFIG['DRAFT']!
   const StatusIcon = status.icon
+
+  const decompositionChildren = children?.filter(c => c.parentRelationType === 'DECOMPOSITION') ?? []
+  const decompositionWeightTotal = decompositionChildren.reduce((sum, c) => sum + (c.weight ?? 0), 0)
 
   return (
     <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
@@ -53,6 +60,16 @@ export default function KpiDetailModal({ open, onClose, kpi }: KpiDetailModalPro
             <div>
               <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">Tên chỉ tiêu</p>
               <h4 className="text-2xl font-black text-slate-900 dark:text-white leading-tight">{kpi.name}</h4>
+              {kpi.isReverseKpi && (
+                <span className="inline-flex items-center gap-1 mt-2 px-2.5 py-1 rounded-full bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 text-[10px] font-black uppercase tracking-wider border border-orange-200 dark:border-orange-800/50">
+                  ↓ KPI Ngược
+                </span>
+              )}
+              {kpi.isBonusKpi && (
+                <span className="inline-flex items-center gap-1 mt-2 ml-2 px-2.5 py-1 rounded-full bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 text-[10px] font-black uppercase tracking-wider border border-emerald-200 dark:border-emerald-800/50">
+                  + KPI Thưởng
+                </span>
+              )}
             </div>
             {kpi.description && (
               <div>
@@ -121,6 +138,41 @@ export default function KpiDetailModal({ open, onClose, kpi }: KpiDetailModalPro
               </div>
             </div>
           </div>
+
+          {/* Decomposition Children */}
+          {decompositionChildren.length > 0 && (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <h5 className="text-xs font-black uppercase tracking-widest text-slate-400 flex items-center gap-2">
+                  <ListTree size={14} className="text-emerald-500" /> KPI con ({decompositionChildren.length})
+                </h5>
+                <span className={cn(
+                  "text-[10px] font-black px-2 py-0.5 rounded-full uppercase",
+                  Math.abs(decompositionWeightTotal - (kpi.weight ?? 0)) < 0.01
+                    ? "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600"
+                    : "bg-amber-100 dark:bg-amber-900/30 text-amber-600"
+                )}>
+                  Tổng trọng số con: {decompositionWeightTotal}/{kpi.weight ?? 0}%
+                </span>
+              </div>
+              <div className="space-y-2">
+                {decompositionChildren.map(child => {
+                  const childStatus = STATUS_CONFIG[child.status as keyof typeof STATUS_CONFIG] ?? STATUS_CONFIG['DRAFT']!
+                  return (
+                    <div key={child.id} className="flex items-center justify-between gap-3 p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800">
+                      <div className="min-w-0">
+                        <p className="text-sm font-bold text-slate-900 dark:text-white truncate">{child.name}</p>
+                        <div className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-[9px] font-black uppercase tracking-widest mt-1 ${childStatus.bgColor} ${childStatus.color}`}>
+                          {childStatus.label}
+                        </div>
+                      </div>
+                      <span className="shrink-0 text-sm font-black text-emerald-600">{child.weight ?? 0}%</span>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          )}
 
           {/* OKR Info */}
           {kpi.keyResultName && (

@@ -10,13 +10,14 @@ import { useUsers } from '@/features/users/hooks/useUsers'
 import { useAuthStore } from '@/store/authStore'
 import { useSubmitKpi } from '../hooks/useSubmitKpi'
 import { useDeleteKpi } from '../hooks/useDeleteKpi'
+import { useSidebarSettings } from '@/features/organization/hooks/useSidebarSettings'
 import { formatNumber, formatAssigneeNames, FREQUENCY_MAP, STATUS_CONFIG } from '@/lib/utils'
 import type { KpiCriteria } from '@/types/kpi'
 import {
   Target, Plus, Send, Pencil, Trash2, MoreVertical,
   Calendar, AlertCircle, Search, HelpCircle,
   Filter, UserCircle2, Upload, Gauge, Eye,
-  LayoutGrid, List, ArrowUpDown, ChevronLeft, ChevronRight, GitBranch
+  LayoutGrid, List, ArrowUpDown, ChevronLeft, ChevronRight, ChevronDown, GitBranch, ListPlus
 } from 'lucide-react'
 import KpiDetailModal from '../components/KpiDetailModal'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
@@ -36,6 +37,8 @@ import PageTour from '@/components/common/PageTour'
 import { kpiCriteriaSteps } from '@/components/common/tourSteps'
 import { ObjectiveResponse } from '@/features/okr/types'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import { useBulkSubmitKpi } from '../hooks/useBulkSubmitKpi'
+import { Check, CheckSquare } from 'lucide-react'
 
 export default function KpiCriteriaPage() {
   const [showForm, setShowForm] = useState(false)
@@ -44,6 +47,10 @@ export default function KpiCriteriaPage() {
   const [submitKpiId, setSubmitKpiId] = useState<string | null>(null)
   const [selectedKpi, setSelectedKpi] = useState<KpiCriteria | null>(null)
   const [delegateKpi, setDelegateKpi] = useState<KpiCriteria | null>(null)
+  const [decomposeKpi, setDecomposeKpi] = useState<KpiCriteria | null>(null)
+  const [selectedKpiIds, setSelectedKpiIds] = useState<string[]>([])
+  const [showBulkConfirm, setShowBulkConfirm] = useState(false)
+  const [collapsedParents, setCollapsedParents] = useState<Set<string>>(new Set())
   
   const [activeTab, setActiveTab] = useState<'ALL' | 'DRAFT' | 'PENDING_APPROVAL' | 'APPROVED' | 'REJECTED'>('ALL')
   const [search, setSearch] = useState('')
@@ -188,10 +195,21 @@ export default function KpiCriteriaPage() {
 
   const { data: totalWeightData } = useKpiTotalWeight(
     selectedOrgUnitId === 'ALL' ? undefined : selectedOrgUnitId,
-    selectedPeriodId === 'ALL' ? '' : selectedPeriodId
+    selectedPeriodId === 'ALL' ? '' : selectedPeriodId,
+    selectedAssigneeId === 'ALL' ? undefined : selectedAssigneeId
   )
   const deleteMutation = useDeleteKpi()
   const submitMutation = useSubmitKpi()
+  const bulkSubmitMutation = useBulkSubmitKpi()
+
+  const { data: customLabels = {} } = useSidebarSettings(organizationId!)
+  const rawTitle = ((customLabels as Record<string, string>)['/kpi-criteria'] || 'Quản lý chỉ tiêu')
+    .split(' ')
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ')
+  const titleParts = rawTitle.trim().split(' ')
+  const lastWord = titleParts.length > 1 ? titleParts.pop() : ''
+  const mainTitle = titleParts.join(' ')
 
   const importMutation = useMutation({
     mutationFn: (file: File) => kpiApi.importFile(file, selectedPeriodId === 'ALL' ? undefined : selectedPeriodId, selectedOrgUnitId === 'ALL' ? undefined : selectedOrgUnitId),
@@ -221,7 +239,70 @@ export default function KpiCriteriaPage() {
   }
 
   const allKpis = data?.content || []
-  const filteredKpis = data?.content || []
+  const flatKpis = data?.content
+
+  // Group child KPIs (parentId pointing to another KPI on the same page) directly under their parent,
+  // so the table/card views render a collapsible parent → children hierarchy instead of a flat list.
+  const { rows: kpiRows, childrenByParentId } = useMemo(() => {
+    const list = flatKpis || []
+    const byId = new Map(list.map(k => [k.id, k]))
+    const childrenMap = new Map<string, KpiCriteria[]>()
+    list.forEach(k => {
+      if (k.parentId && byId.has(k.parentId)) {
+        const arr = childrenMap.get(k.parentId) || []
+        arr.push(k)
+        childrenMap.set(k.parentId, arr)
+      }
+    })
+    const topLevel = list.filter(k => !k.parentId || !byId.has(k.parentId))
+    const rows: { kpi: KpiCriteria; depth: number }[] = []
+    topLevel.forEach(k => {
+      rows.push({ kpi: k, depth: 0 })
+      const children = childrenMap.get(k.id)
+      if (children && !collapsedParents.has(k.id)) {
+        children.forEach(c => rows.push({ kpi: c, depth: 1 }))
+      }
+    })
+    return { rows, childrenByParentId: childrenMap }
+  }, [flatKpis, collapsedParents])
+
+  const filteredKpis = flatKpis || []
+
+  const toggleParentCollapse = (parentId: string) => {
+    setCollapsedParents(prev => {
+      const next = new Set(prev)
+      if (next.has(parentId)) next.delete(parentId)
+      else next.add(parentId)
+      return next
+    })
+  }
+
+  // Logic for bulk selection
+  const selectableKpis = filteredKpis.filter(k => (k.status === 'DRAFT' || k.status === 'REJECTED') && k.createdById === user?.id)
+  const allSelectableSelected = selectableKpis.length > 0 && selectableKpis.every(k => selectedKpiIds.includes(k.id))
+  
+  const toggleSelectAll = () => {
+    if (selectableKpis.length === 0) return
+    if (allSelectableSelected) {
+      setSelectedKpiIds([])
+    } else {
+      setSelectedKpiIds(selectableKpis.map(k => k.id))
+    }
+  }
+
+  const toggleSelect = (id: string) => {
+    setSelectedKpiIds(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id])
+  }
+
+  const handleBulkSubmit = () => {
+    if (selectedKpiIds.length === 0) return
+    bulkSubmitMutation.mutate(selectedKpiIds, {
+      onSuccess: () => {
+        setSelectedKpiIds([])
+        setShowBulkConfirm(false)
+      }
+    })
+  }
 
   const displayTotalWeight = totalWeightData ?? 0
 
@@ -237,6 +318,37 @@ export default function KpiCriteriaPage() {
       <div className="max-w-[1600px] mx-auto p-4 md:p-8 space-y-8">
         <PageTour pageKey="kpi-criteria" steps={kpiCriteriaSteps} />
         
+        {/* Bulk Action Float Bar */}
+        {selectedKpiIds.length > 0 && (
+          <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-[100] animate-in slide-in-from-bottom-8 duration-500">
+            <div className="flex items-center gap-6 px-8 py-4 bg-slate-900 dark:bg-white text-white dark:text-slate-900 rounded-[28px] shadow-2xl border border-white/10 dark:border-slate-200 backdrop-blur-xl">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-indigo-500/20 dark:bg-indigo-50 flex items-center justify-center">
+                  <CheckSquare size={20} className="text-indigo-400 dark:text-indigo-600" />
+                </div>
+                <div className="flex flex-col">
+                  <p className="text-sm font-black uppercase tracking-tight">Đã chọn {selectedKpiIds.length} chỉ tiêu</p>
+                  <p className="text-[10px] opacity-60 font-black tracking-widest uppercase">Để thực hiện gửi duyệt hàng loạt</p>
+                </div>
+              </div>
+              <div className="h-8 w-px bg-white/10 dark:bg-slate-200" />
+              <button 
+                onClick={() => setShowBulkConfirm(true)}
+                disabled={bulkSubmitMutation.isPending}
+                className="flex items-center gap-2 px-6 py-2.5 rounded-2xl bg-indigo-600 dark:bg-indigo-600 text-white text-xs font-black uppercase tracking-widest hover:bg-indigo-700 active:scale-95 transition-all shadow-lg"
+              >
+                {bulkSubmitMutation.isPending ? 'Đang xử lý...' : 'Gửi duyệt toàn bộ'} <Send size={14} />
+              </button>
+              <button 
+                onClick={() => setSelectedKpiIds([])}
+                className="text-xs font-black uppercase tracking-widest opacity-60 hover:opacity-100 transition-opacity"
+              >
+                Hủy chọn
+              </button>
+            </div>
+          </div>
+        )}
+        
         {/* Header Section with Glass Card */}
         <div className="relative group">
           <div className="absolute -inset-1 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 rounded-[40px] blur opacity-10 group-hover:opacity-20 transition duration-1000"></div>
@@ -251,7 +363,7 @@ export default function KpiCriteriaPage() {
                 </div>
                 <div className="space-y-1">
                   <h1 className="text-4xl md:text-5xl font-black tracking-tight text-slate-900 dark:text-white">
-                    Quản lý <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 to-purple-600">KPI</span>
+                    {mainTitle} <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 to-purple-600">{lastWord}</span>
                   </h1>
                   <p className="text-slate-500 dark:text-slate-400 font-medium text-lg max-w-xl leading-relaxed">
                     Thiết lập chiến lược, phân bổ trọng số và kiến tạo thành công cho đội ngũ của bạn.
@@ -606,6 +718,22 @@ export default function KpiCriteriaPage() {
                 <table className="w-full text-left border-collapse">
                   <thead>
                     <tr className="bg-slate-50/50 dark:bg-slate-800/50 border-b border-slate-100 dark:border-slate-800">
+                      <th className="px-4 py-4 w-10">
+                        <div className="flex items-center justify-center">
+                          <button 
+                            onClick={toggleSelectAll}
+                            disabled={selectableKpis.length === 0}
+                            className={cn(
+                              "w-6 h-6 rounded-lg border-2 flex items-center justify-center transition-all",
+                              allSelectableSelected 
+                                ? "bg-indigo-600 border-indigo-600 text-white" 
+                                : "border-slate-200 dark:border-slate-700 hover:border-indigo-400"
+                            )}
+                          >
+                            {allSelectableSelected && <Check size={14} className="stroke-[4]" />}
+                          </button>
+                        </div>
+                      </th>
                       <th className="px-2 py-4 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 whitespace-nowrap">
                         <button onClick={() => { setSortBy('status'); setSortDir(sortDir === 'asc' ? 'desc' : 'asc') }} className="flex items-center gap-2 hover:text-indigo-600 transition-colors group">
                           Trạng thái <ArrowUpDown size={12} className={cn("transition-opacity", sortBy === 'status' ? "opacity-100 text-indigo-600" : "opacity-0 group-hover:opacity-100")} />
@@ -637,17 +765,25 @@ export default function KpiCriteriaPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-50 dark:divide-slate-800/50">
-                    {filteredKpis.map((kpi: KpiCriteria) => (
+                    {kpiRows.map(({ kpi, depth }) => (
                       <KpiTableRow
                         key={kpi.id}
                         kpi={kpi}
+                        depth={depth}
+                        childCount={childrenByParentId.get(kpi.id)?.length ?? 0}
+                        isCollapsed={collapsedParents.has(kpi.id)}
+                        onToggleCollapse={() => toggleParentCollapse(kpi.id)}
                         onView={() => setSelectedKpi(kpi)}
                         onEdit={() => { setEditKpi(kpi); setShowForm(true) }}
                         onDelete={() => setDeleteKpi(kpi)}
                         onSubmit={() => setSubmitKpiId(kpi.id)}
                         onDelegate={() => { setDelegateKpi(kpi); setShowForm(true) }}
+                        onDecompose={() => { setDecomposeKpi(kpi); setShowForm(true) }}
                         enableOkr={enableOkr}
                         enableWaterfall={enableWaterfall}
+                        selected={selectedKpiIds.includes(kpi.id)}
+                        onToggleSelect={() => toggleSelect(kpi.id)}
+                        isSelectable={(kpi.status === 'DRAFT' || kpi.status === 'REJECTED') && kpi.createdById === user?.id}
                       />
                     ))}
                   </tbody>
@@ -656,15 +792,20 @@ export default function KpiCriteriaPage() {
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-              {filteredKpis.map((kpi: KpiCriteria) => (
+              {kpiRows.map(({ kpi, depth }) => (
                 <KpiCard
                   key={kpi.id}
                   kpi={kpi}
+                  depth={depth}
+                  childCount={childrenByParentId.get(kpi.id)?.length ?? 0}
+                  isCollapsed={collapsedParents.has(kpi.id)}
+                  onToggleCollapse={() => toggleParentCollapse(kpi.id)}
                   onView={() => setSelectedKpi(kpi)}
                   onEdit={() => { setEditKpi(kpi); setShowForm(true) }}
                   onDelete={() => setDeleteKpi(kpi)}
                   onSubmit={() => setSubmitKpiId(kpi.id)}
                   onDelegate={() => { setDelegateKpi(kpi); setShowForm(true) }}
+                  onDecompose={() => { setDecomposeKpi(kpi); setShowForm(true) }}
                   enableOkr={enableOkr}
                   enableWaterfall={enableWaterfall}
                 />
@@ -715,11 +856,12 @@ export default function KpiCriteriaPage() {
         </div>
 
         {/* Modals & Inputs */}
-        <KpiFormModal 
-          open={showForm} 
-          onClose={() => { setShowForm(false); setEditKpi(null); setDelegateKpi(null) }} 
-          editKpi={editKpi} 
-          parentKpi={delegateKpi}
+        <KpiFormModal
+          open={showForm}
+          onClose={() => { setShowForm(false); setEditKpi(null); setDelegateKpi(null); setDecomposeKpi(null) }}
+          editKpi={editKpi}
+          parentKpi={delegateKpi || decomposeKpi}
+          parentRelationType={delegateKpi ? 'DELEGATION' : decomposeKpi ? 'DECOMPOSITION' : undefined}
         />
         <KpiImportGuideModal 
           open={showImportGuide} 
@@ -745,6 +887,15 @@ export default function KpiCriteriaPage() {
           loading={deleteMutation.isPending} 
         />
         <KpiDetailModal open={!!selectedKpi} onClose={() => setSelectedKpi(null)} kpi={selectedKpi} />
+        <ConfirmDialog 
+          open={showBulkConfirm} 
+          onClose={() => setShowBulkConfirm(false)} 
+          onConfirm={handleBulkSubmit} 
+          title="Gửi duyệt hàng loạt" 
+          description={`Bạn đang gửi ${selectedKpiIds.length} chỉ tiêu lên hệ thống để phê duyệt. Hãy đảm bảo tổng trọng số của nhân sự đã đạt 100%. Tiếp tục?`} 
+          confirmLabel="Gửi phê duyệt tất cả" 
+          loading={bulkSubmitMutation.isPending} 
+        />
         <input ref={fileRef} type="file" accept=".xlsx,.xls,.csv" className="hidden" onChange={handleImport} />
         <KpiExcelPreviewModal 
           open={showPreview}
@@ -758,8 +909,10 @@ export default function KpiCriteriaPage() {
   )
 }
 
-function KpiTableRow({ kpi, onView, onEdit, onDelete, onSubmit, onDelegate, enableOkr, enableWaterfall }: {
-  kpi: KpiCriteria; onView: () => void; onEdit: () => void; onDelete: () => void; onSubmit: () => void; onDelegate: () => void; enableOkr?: boolean; enableWaterfall?: boolean;
+function KpiTableRow({ kpi, depth = 0, childCount = 0, isCollapsed, onToggleCollapse, onView, onEdit, onDelete, onSubmit, onDelegate, onDecompose, enableOkr, enableWaterfall, selected, onToggleSelect, isSelectable }: {
+  kpi: KpiCriteria; depth?: number; childCount?: number; isCollapsed?: boolean; onToggleCollapse?: () => void;
+  onView: () => void; onEdit: () => void; onDelete: () => void; onSubmit: () => void; onDelegate: () => void; onDecompose: () => void; enableOkr?: boolean; enableWaterfall?: boolean;
+  selected: boolean; onToggleSelect: () => void; isSelectable: boolean;
 }) {
   const user = useAuthStore(s => s.user)
   const { hasPermission } = usePermission()
@@ -769,9 +922,29 @@ function KpiTableRow({ kpi, onView, onEdit, onDelete, onSubmit, onDelegate, enab
   const primaryAssigneeId = kpi.assigneeIds?.[0]
   const { data: assigneeWeight } = useKpiTotalWeight(undefined, kpi.kpiPeriodId, primaryAssigneeId)
   const canSubmit = Math.round(assigneeWeight ?? 0) === 100
-  
+  const isChildRow = depth > 0
+
   return (
-    <tr className="group hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors">
+    <tr className={cn(
+      "group hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors",
+      selected && "bg-indigo-50/30 dark:bg-indigo-900/10",
+      isChildRow && "bg-slate-50/40 dark:bg-slate-800/20"
+    )}>
+      <td className="px-4 py-5 w-10">
+        <div className="flex items-center justify-center">
+          <button 
+            onClick={(e) => { e.stopPropagation(); onToggleSelect() }}
+            disabled={!isSelectable}
+            className={cn(
+              "w-6 h-6 rounded-lg border-2 flex items-center justify-center transition-all",
+              selected ? "bg-indigo-600 border-indigo-600 text-white" : "border-slate-200 dark:border-slate-700",
+              !isSelectable && "opacity-20 cursor-not-allowed group-hover:opacity-40"
+            )}
+          >
+            {selected && <Check size={14} className="stroke-[4]" />}
+          </button>
+        </div>
+      </td>
       <td className="px-4 py-5">
         <div className={cn(
           "inline-flex items-center gap-2 px-2.5 py-1 rounded-full border text-[9px] font-black uppercase tracking-widest shadow-sm whitespace-nowrap",
@@ -781,31 +954,72 @@ function KpiTableRow({ kpi, onView, onEdit, onDelete, onSubmit, onDelegate, enab
         </div>
       </td>
       <td className="px-2 py-4">
-        <button onClick={onView} className="max-w-[300px] text-left group/name focus:outline-none">
-          <p className="text-sm font-black text-slate-900 dark:text-white group-hover/name:text-indigo-600 transition-colors line-clamp-1">
-            {kpi.name}
-          </p>
-          {/* We hide the inline KR name if enableOkr is true because it now has its own column */}
-          {!enableOkr && kpi.keyResultName && (
-            <div className="flex items-center gap-1.5 mt-0.5">
-              <div className="w-1.5 h-1.5 rounded-full bg-violet-500 shadow-[0_0_8px_rgba(139,92,246,0.5)]" />
-              <span className="text-[10px] font-black text-violet-600 dark:text-violet-400 uppercase tracking-tight">
-                KR: {kpi.keyResultName}
-              </span>
-            </div>
+        <div className="flex items-start gap-1.5" style={{ paddingLeft: isChildRow ? 24 : 0 }}>
+          {!isChildRow && childCount > 0 && (
+            <button
+              onClick={(e) => { e.stopPropagation(); onToggleCollapse?.() }}
+              className="shrink-0 mt-1.5 w-5 h-5 rounded-md flex items-center justify-center text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-indigo-600 transition-all"
+              title={isCollapsed ? 'Mở rộng KPI con' : 'Thu gọn KPI con'}
+            >
+              <ChevronDown size={14} className={cn("transition-transform", isCollapsed && "-rotate-90")} />
+            </button>
           )}
-          {enableWaterfall && kpi.parentName && (
-            <div className="flex items-center gap-1.5 mt-0.5">
-              <div className="w-1.5 h-1.5 rounded-full bg-cyan-500 shadow-[0_0_8px_rgba(6,182,212,0.5)]" />
-              <span className="text-[10px] font-black text-cyan-600 dark:text-cyan-400 uppercase tracking-tight">
-                Parent: {kpi.parentName}
-              </span>
+          <button onClick={onView} className="max-w-[280px] text-left group/name focus:outline-none">
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <p className={cn(
+                "font-black text-slate-900 dark:text-white group-hover/name:text-indigo-600 transition-colors line-clamp-1",
+                isChildRow ? "text-[13px]" : "text-sm"
+              )}>
+                {kpi.name}
+              </p>
+              {!isChildRow && childCount > 0 && (
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 text-[9px] font-black uppercase tracking-wider border border-slate-200 dark:border-slate-700">
+                  {childCount} KPI con
+                </span>
+              )}
             </div>
-          )}
-          <p className="text-[11px] text-slate-400 font-medium line-clamp-1 mt-0.5 group-hover/name:text-slate-500 transition-colors">
-            {kpi.description || 'Không có mô tả chi tiết'}
-          </p>
-        </button>
+            {kpi.isReverseKpi && (
+              <span className="inline-flex items-center gap-1 mt-0.5 px-2 py-0.5 rounded-full bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 text-[9px] font-black uppercase tracking-wider border border-orange-200 dark:border-orange-800/50">
+                ↓ KPI Ngược
+              </span>
+            )}
+            {kpi.isBonusKpi && (
+              <span className="inline-flex items-center gap-1 mt-0.5 px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 text-[9px] font-black uppercase tracking-wider border border-emerald-200 dark:border-emerald-800/50">
+                + KPI Thưởng
+              </span>
+            )}
+            {isChildRow && kpi.parentRelationType && (
+              <span className={cn(
+                "inline-flex items-center gap-1 mt-0.5 px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider border",
+                kpi.parentRelationType === 'DECOMPOSITION'
+                  ? "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800/50"
+                  : "bg-cyan-100 dark:bg-cyan-900/30 text-cyan-600 dark:text-cyan-400 border-cyan-200 dark:border-cyan-800/50"
+              )}>
+                {kpi.parentRelationType === 'DECOMPOSITION' ? 'Chia nhỏ' : 'Phân rã'}
+              </span>
+            )}
+            {/* We hide the inline KR name if enableOkr is true because it now has its own column */}
+            {!enableOkr && kpi.keyResultName && (
+              <div className="flex items-center gap-1.5 mt-0.5">
+                <div className="w-1.5 h-1.5 rounded-full bg-violet-500 shadow-[0_0_8px_rgba(139,92,246,0.5)]" />
+                <span className="text-[10px] font-black text-violet-600 dark:text-violet-400 uppercase tracking-tight">
+                  KR: {kpi.keyResultName}
+                </span>
+              </div>
+            )}
+            {!isChildRow && kpi.parentName && (
+              <div className="flex items-center gap-1.5 mt-0.5">
+                <div className="w-1.5 h-1.5 rounded-full bg-cyan-500 shadow-[0_0_8px_rgba(6,182,212,0.5)]" />
+                <span className="text-[10px] font-black text-cyan-600 dark:text-cyan-400 uppercase tracking-tight">
+                  Thuộc: {kpi.parentName}
+                </span>
+              </div>
+            )}
+            <p className="text-[11px] text-slate-400 font-medium line-clamp-1 mt-0.5 group-hover/name:text-slate-500 transition-colors">
+              {kpi.description || 'Không có mô tả chi tiết'}
+            </p>
+          </button>
+        </div>
       </td>
       {enableOkr && (
         <>
@@ -891,7 +1105,7 @@ function KpiTableRow({ kpi, onView, onEdit, onDelete, onSubmit, onDelegate, enab
                 </button>
 
                 {enableWaterfall && kpi.status === 'APPROVED' && (
-                  <button 
+                  <button
                     onClick={() => onDelegate()}
                     className="w-full flex items-center gap-3 px-3.5 py-2.5 text-sm font-bold rounded-[14px] text-cyan-600 dark:text-cyan-400 hover:bg-cyan-50 dark:hover:bg-cyan-900/20 transition-all whitespace-nowrap group"
                   >
@@ -899,6 +1113,18 @@ function KpiTableRow({ kpi, onView, onEdit, onDelete, onSubmit, onDelegate, enab
                         <GitBranch size={15} />
                     </div>
                     Phân rã chỉ tiêu
+                  </button>
+                )}
+
+                {!kpi.parentId && (kpi.status === 'APPROVED' || kpi.status === 'DRAFT' || kpi.status === 'REJECTED') && (kpi.createdById === user?.id || kpi.assigneeIds?.includes(user?.id ?? '')) && (
+                  <button
+                    onClick={() => onDecompose()}
+                    className="w-full flex items-center gap-3 px-3.5 py-2.5 text-sm font-bold rounded-[14px] text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 transition-all whitespace-nowrap group"
+                  >
+                    <div className="w-8 h-8 rounded-lg bg-emerald-50 dark:bg-emerald-900/20 flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform">
+                        <ListPlus size={15} />
+                    </div>
+                    Thêm KPI con
                   </button>
                 )}
 
@@ -974,8 +1200,9 @@ function KpiTableRow({ kpi, onView, onEdit, onDelete, onSubmit, onDelegate, enab
   )
 }
 
-function KpiCard({ kpi, onView, onEdit, onDelete, onSubmit, onDelegate, enableOkr, enableWaterfall }: {
-  kpi: KpiCriteria; onView: () => void; onEdit: () => void; onDelete: () => void; onSubmit: () => void; onDelegate: () => void; enableOkr?: boolean; enableWaterfall?: boolean
+function KpiCard({ kpi, depth = 0, childCount = 0, isCollapsed, onToggleCollapse, onView, onEdit, onDelete, onSubmit, onDelegate, onDecompose, enableOkr, enableWaterfall }: {
+  kpi: KpiCriteria; depth?: number; childCount?: number; isCollapsed?: boolean; onToggleCollapse?: () => void;
+  onView: () => void; onEdit: () => void; onDelete: () => void; onSubmit: () => void; onDelegate: () => void; onDecompose: () => void; enableOkr?: boolean; enableWaterfall?: boolean
 }) {
   const user = useAuthStore(s => s.user)
   const { hasPermission } = usePermission()
@@ -986,19 +1213,36 @@ function KpiCard({ kpi, onView, onEdit, onDelete, onSubmit, onDelegate, enableOk
 
   const status = STATUS_CONFIG[kpi.status as keyof typeof STATUS_CONFIG] ?? STATUS_CONFIG['DRAFT']!
   const StatusIcon = status.icon
+  const isChildCard = depth > 0
 
   return (
-    <div 
-      className="group relative bg-white dark:bg-slate-900 rounded-[32px] border border-slate-200 dark:border-slate-800 shadow-sm hover:shadow-2xl hover:-translate-y-1 transition-all duration-300 flex flex-col overflow-hidden"
+    <div
+      className={cn(
+        "group relative bg-white dark:bg-slate-900 rounded-[32px] border shadow-sm hover:shadow-2xl hover:-translate-y-1 transition-all duration-300 flex flex-col overflow-hidden",
+        isChildCard
+          ? "border-l-4 border-l-emerald-400 dark:border-l-emerald-600 border-slate-200 dark:border-slate-800 ml-6 lg:ml-10"
+          : "border-slate-200 dark:border-slate-800"
+      )}
     >
       <div className="absolute top-0 right-0 w-24 h-24 bg-indigo-500/5 rounded-full -translate-y-1/2 translate-x-1/2 blur-2xl group-hover:bg-indigo-500/10 transition-colors" />
-      
+
       <div className="p-6 border-b border-slate-100 dark:border-slate-800 flex items-start justify-between gap-4 relative">
-        <div className={cn(
-          "inline-flex items-center gap-2 px-3 py-1.5 rounded-full border text-[10px] font-black uppercase tracking-widest shadow-sm",
-          status.bgColor, status.color
-        )}>
-          <StatusIcon size={12} /> {status.label}
+        <div className="flex items-center gap-2 flex-wrap">
+          <div className={cn(
+            "inline-flex items-center gap-2 px-3 py-1.5 rounded-full border text-[10px] font-black uppercase tracking-widest shadow-sm",
+            status.bgColor, status.color
+          )}>
+            <StatusIcon size={12} /> {status.label}
+          </div>
+          {!isChildCard && childCount > 0 && (
+            <button
+              onClick={(e) => { e.stopPropagation(); onToggleCollapse?.() }}
+              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 text-[9px] font-black uppercase tracking-wider hover:bg-slate-200 dark:hover:bg-slate-700 transition-all"
+            >
+              <ChevronDown size={11} className={cn("transition-transform", isCollapsed && "-rotate-90")} />
+              {childCount} KPI con
+            </button>
+          )}
         </div>
         <div className="relative">
           <Popover>
@@ -1024,6 +1268,14 @@ function KpiCard({ kpi, onView, onEdit, onDelete, onSubmit, onDelegate, enableOk
                     className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold text-cyan-600 hover:bg-cyan-50 dark:hover:bg-cyan-900/30 transition-colors"
                   >
                     <GitBranch size={18} /> Phân rã (Delegate)
+                  </button>
+                )}
+                {!kpi.parentId && (kpi.status === 'APPROVED' || kpi.status === 'DRAFT' || kpi.status === 'REJECTED') && (kpi.createdById === user?.id || kpi.assigneeIds?.includes(user?.id ?? '')) && (
+                  <button
+                    onClick={() => onDecompose()}
+                    className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 transition-colors"
+                  >
+                    <ListPlus size={18} /> Thêm KPI con
                   </button>
                 )}
                 {(kpi.status === 'DRAFT' || kpi.status === 'REJECTED') && (
@@ -1084,6 +1336,26 @@ function KpiCard({ kpi, onView, onEdit, onDelete, onSubmit, onDelegate, enableOk
           <h3 className="text-xl font-black text-slate-900 dark:text-white leading-tight group-hover/title:text-indigo-600 transition-colors line-clamp-2">
             {kpi.name}
           </h3>
+          {kpi.isReverseKpi && (
+            <span className="inline-flex items-center gap-1 mt-1.5 px-2.5 py-1 rounded-full bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 text-[9px] font-black uppercase tracking-wider border border-orange-200 dark:border-orange-800/50">
+              ↓ KPI Ngược
+            </span>
+          )}
+          {isChildCard && kpi.parentRelationType && (
+            <span className={cn(
+              "inline-flex items-center gap-1 mt-1.5 px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-wider border",
+              kpi.parentRelationType === 'DECOMPOSITION'
+                ? "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800/50"
+                : "bg-cyan-100 dark:bg-cyan-900/30 text-cyan-600 dark:text-cyan-400 border-cyan-200 dark:border-cyan-800/50"
+            )}>
+              {kpi.parentRelationType === 'DECOMPOSITION' ? 'Chia nhỏ' : 'Phân rã'} · {kpi.parentName}
+            </span>
+          )}
+          {kpi.isBonusKpi && (
+            <span className="inline-flex items-center gap-1 mt-1.5 px-2.5 py-1 rounded-full bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 text-[9px] font-black uppercase tracking-wider border border-emerald-200 dark:border-emerald-800/50">
+              + KPI Thưởng
+            </span>
+          )}
           {enableOkr && kpi.keyResultName && (
             <div className="flex items-center gap-2 mt-2 px-3 py-1 bg-violet-50 dark:bg-violet-900/20 rounded-lg w-fit border border-violet-100 dark:border-violet-800/50">
               <Target size={12} className="text-violet-600" />

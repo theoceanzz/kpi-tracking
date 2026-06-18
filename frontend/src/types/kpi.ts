@@ -1,5 +1,6 @@
 export type KpiStatus = 'DRAFT' | 'PENDING_APPROVAL' | 'APPROVED' | 'REJECTED' | 'INACTIVE' | 'EDIT' | 'EDITED'
 export type KpiFrequency = 'DAILY' | 'WEEKLY' | 'MONTHLY' | 'QUARTERLY' | 'SEMI_ANNUALLY' | 'YEARLY' | 'UNLIMITED'
+export type KpiParentRelationType = 'DELEGATION' | 'DECOMPOSITION'
 
 export interface KpiPeriod {
   id: string
@@ -35,6 +36,8 @@ export interface KpiCriteria {
   submittedAt: string | null
   approvedAt: string | null
   minimumValue: number | null
+  isReverseKpi: boolean
+  isBonusKpi: boolean
   kpiPeriodId: string
   kpiPeriod: KpiPeriod
   submissionCount: number
@@ -47,11 +50,13 @@ export interface KpiCriteria {
   objectiveCode: string | null
   parentId: string | null
   parentName: string | null
+  parentRelationType: KpiParentRelationType | null
   createdAt: string
   updatedAt: string
   hasChildren?: boolean
   delegatedToNames?: string[]
   delegatedToIds?: string[]
+  childrenWeightTotal?: number
 }
 
 // Matches BE: CreateKpiCriteriaRequest
@@ -67,9 +72,12 @@ export interface CreateKpiRequest {
   assignedToId?: string
   assignedToIds?: string[]
   minimumValue?: number
+  isReverseKpi?: boolean
+  isBonusKpi?: boolean
   kpiPeriodId: string
   keyResultId?: string | null
   parentId?: string | null
+  parentRelationType?: KpiParentRelationType | null
 }
 
 // Matches BE: UpdateKpiCriteriaRequest
@@ -85,9 +93,12 @@ export interface UpdateKpiRequest {
   assignedToId?: string
   assignedToIds?: string[]
   minimumValue?: number
+  isReverseKpi?: boolean
+  isBonusKpi?: boolean
   kpiPeriodId?: string
   keyResultId?: string | null
   parentId?: string | null
+  parentRelationType?: KpiParentRelationType | null
 }
 
 // Matches BE: RejectKpiRequest

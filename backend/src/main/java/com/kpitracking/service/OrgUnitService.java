@@ -121,14 +121,14 @@ public class OrgUnitService {
         }
 
         if (request.getEmail() != null && !request.getEmail().isBlank()) {
-            if (orgUnitRepository.existsByEmailAndDeletedAtIsNull(request.getEmail())) {
+            if (orgUnitRepository.existsByEmailAndOrgHierarchyLevel_Organization_IdAndDeletedAtIsNull(request.getEmail(), orgId)) {
                 throw new DuplicateResourceException("Thành phần tổ chức", "email", request.getEmail());
             }
             orgUnit.setEmail(request.getEmail());
         }
-        
+
         if (request.getPhone() != null && !request.getPhone().isBlank()) {
-            if (orgUnitRepository.existsByPhoneAndDeletedAtIsNull(request.getPhone())) {
+            if (orgUnitRepository.existsByPhoneAndOrgHierarchyLevel_Organization_IdAndDeletedAtIsNull(request.getPhone(), orgId)) {
                 throw new DuplicateResourceException("Thành phần tổ chức", "số điện thoại", request.getPhone());
             }
             orgUnit.setPhone(request.getPhone());
@@ -179,14 +179,14 @@ public class OrgUnitService {
         }
 
         if (request.getEmail() != null && !request.getEmail().equals(orgUnit.getEmail())) {
-            if (!request.getEmail().isBlank() && orgUnitRepository.existsByEmailAndDeletedAtIsNull(request.getEmail())) {
+            if (!request.getEmail().isBlank() && orgUnitRepository.existsByEmailAndOrgHierarchyLevel_Organization_IdAndDeletedAtIsNull(request.getEmail(), orgId)) {
                 throw new DuplicateResourceException("Thành phần tổ chức", "email", request.getEmail());
             }
             orgUnit.setEmail(request.getEmail());
         }
-        
+
         if (request.getPhone() != null && !request.getPhone().equals(orgUnit.getPhone())) {
-            if (!request.getPhone().isBlank() && orgUnitRepository.existsByPhoneAndDeletedAtIsNull(request.getPhone())) {
+            if (!request.getPhone().isBlank() && orgUnitRepository.existsByPhoneAndOrgHierarchyLevel_Organization_IdAndDeletedAtIsNull(request.getPhone(), orgId)) {
                 throw new DuplicateResourceException("Thành phần tổ chức", "số điện thoại", request.getPhone());
             }
             orgUnit.setPhone(request.getPhone());

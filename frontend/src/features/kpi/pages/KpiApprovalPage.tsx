@@ -4,23 +4,26 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import LoadingSkeleton from '@/components/common/LoadingSkeleton'
 import EmptyState from '@/components/common/EmptyState'
 import KpiReviewModal from '../components/KpiReviewModal'
+import KpiFormModal from '../components/KpiFormModal'
 import { useKpiCriteria } from '../hooks/useKpiCriteria'
 import { formatNumber, formatAssigneeNames, cn, FREQUENCY_MAP, STATUS_CONFIG } from '@/lib/utils'
 import type { KpiCriteria } from '@/types/kpi'
 import { kpiApi } from '../api/kpiApi'
 import { toast } from 'sonner'
-import { 
+import {
   Users, Building2, ChevronRight, ArrowUpDown,
-  Calendar, ChevronLeft, Search, CheckCircle, 
+  Calendar, ChevronLeft, Search, CheckCircle,
   ShieldCheck, Target, GitBranch,
-  Loader2
+  Loader2, ChevronDown
 } from 'lucide-react'
+import { buildKpiRows } from '../utils/kpiTree'
 import { useAuthStore } from '@/store/authStore'
 import { useKpiPeriods } from '../hooks/useKpiPeriods'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { useOrgUnitTree } from '@/features/orgunits/hooks/useOrgUnitTree'
 import { useOrganization } from '@/features/orgunits/hooks/useOrganization'
 import { useObjectives } from '../../okr/hooks/useOkr'
+import { useSidebarSettings } from '@/features/organization/hooks/useSidebarSettings'
 import PageTour from '@/components/common/PageTour'
 import { kpiPendingSteps } from '@/components/common/tourSteps'
 import { ObjectiveResponse } from '@/features/okr/types'
@@ -47,6 +50,7 @@ export default function KpiApprovalPage() {
   
   // Selection state
   const [selectedKpis, setSelectedKpis] = useState<string[]>([])
+  const [collapsedParents, setCollapsedParents] = useState<Set<string>>(new Set())
   
   const user = useAuthStore(s => s.user)
   const organizationId = user?.memberships?.[0]?.organizationId
@@ -111,11 +115,38 @@ export default function KpiApprovalPage() {
   const selectedObjective = objectivesData?.find((o: ObjectiveResponse) => o.id === selectedObjectiveId)
   const keyResults = selectedObjective?.keyResults || []
 
+  const { data: customLabels = {} } = useSidebarSettings(organizationId!)
+  const rawTitle = ((customLabels as Record<string, string>)['/kpi-criteria/pending'] || 'Duyệt chỉ tiêu')
+    .split(' ')
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ')
+  const titleParts = rawTitle.trim().split(' ')
+  const lastWord = titleParts.length > 1 ? titleParts.pop() : ''
+  const mainTitle = titleParts.join(' ')
+
   const [reviewKpi, setReviewKpi] = useState<KpiCriteria | null>(null)
+  const [showEditForm, setShowEditForm] = useState(false)
+  const [editKpi, setEditKpi] = useState<KpiCriteria | null>(null)
+
+  const handleEdit = (kpi: KpiCriteria) => {
+    setEditKpi(kpi)
+    setShowEditForm(true)
+    setReviewKpi(null) // Close review modal when editing
+  }
 
   const items = (criteriaData?.content ?? []).filter(kpi => kpi.createdById !== user?.id || kpi.status !== 'PENDING_APPROVAL')
   const totalPages = criteriaData?.totalPages || 1
   const totalElements = criteriaData?.totalElements || 0
+  const { rows: itemRows, childrenByParentId } = buildKpiRows(items, collapsedParents)
+
+  const toggleParentCollapse = (parentId: string) => {
+    setCollapsedParents(prev => {
+      const next = new Set(prev)
+      if (next.has(parentId)) next.delete(parentId)
+      else next.add(parentId)
+      return next
+    })
+  }
 
   // Quick stats
   const { data: statsData } = useKpiCriteria({ size: 1000, organizationId: user?.memberships?.[0]?.organizationId, approvalMode: true })
@@ -177,7 +208,7 @@ export default function KpiApprovalPage() {
                 </div>
                 <div className="space-y-0.5">
                   <h1 className="text-3xl md:text-4xl font-black tracking-tight text-slate-900 dark:text-white">
-                    Xét duyệt <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 to-purple-600">Chỉ tiêu KPI</span>
+                    {mainTitle} <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 to-purple-600">{lastWord}</span>
                   </h1>
                   <p className="text-slate-500 dark:text-slate-400 font-medium text-sm max-w-xl leading-relaxed">
                     Hệ thống hóa quy trình phê duyệt chỉ tiêu cho toàn bộ tổ chức.
@@ -396,18 +427,19 @@ export default function KpiApprovalPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-50 dark:divide-slate-800/50">
-                  {items.map((item: any, i: number) => {
-                    const kpi = item as KpiCriteria
+                  {itemRows.map(({ kpi, depth }, i: number) => {
                     const status = STATUS_CONFIG[kpi.status as keyof typeof STATUS_CONFIG] ?? STATUS_CONFIG['PENDING_APPROVAL']!
                     const StatusIcon = status.icon
                     const isSelected = selectedKpis.includes(kpi.id)
+                    const isChildRow = depth > 0
+                    const childKpis = childrenByParentId.get(kpi.id) ?? []
 
                     return (
-                      <tr 
-                        key={kpi.id} 
+                      <tr
+                        key={kpi.id}
                         className={cn(
                           "group transition-all duration-300 animate-in fade-in slide-in-from-left-4",
-                          isSelected ? 'bg-indigo-50/30 dark:bg-indigo-900/10' : 'hover:bg-slate-50/80 dark:hover:bg-slate-800/40'
+                          isSelected ? 'bg-indigo-50/30 dark:bg-indigo-900/10' : isChildRow ? 'bg-slate-50/40 dark:bg-slate-800/20 hover:bg-slate-100/60 dark:hover:bg-slate-800/40' : 'hover:bg-slate-50/80 dark:hover:bg-slate-800/40'
                         )}
                         style={{ animationDelay: `${i * 30}ms` }}
                       >
@@ -430,12 +462,52 @@ export default function KpiApprovalPage() {
                           </div>
                         </td>
                         <td className="px-4 py-5">
-                          <button onClick={() => setReviewKpi(kpi)} className="max-w-[240px] text-left group/name focus:outline-none">
-                            <p className="text-sm font-black text-slate-900 dark:text-white group-hover/name:text-indigo-600 transition-colors line-clamp-1">
-                              {kpi.name}
-                            </p>
-                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-tighter mt-1">{FREQUENCY_MAP[kpi.frequency as keyof typeof FREQUENCY_MAP] || kpi.frequency}</p>
-                          </button>
+                          <div className="flex items-start gap-1.5" style={{ paddingLeft: isChildRow ? 20 : 0 }}>
+                            {!isChildRow && childKpis.length > 0 && (
+                              <button
+                                onClick={(e) => { e.stopPropagation(); toggleParentCollapse(kpi.id) }}
+                                className="shrink-0 mt-1 w-5 h-5 rounded-md flex items-center justify-center text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-indigo-600 transition-all"
+                                title={collapsedParents.has(kpi.id) ? 'Mở rộng KPI con' : 'Thu gọn KPI con'}
+                              >
+                                <ChevronDown size={14} className={cn("transition-transform", collapsedParents.has(kpi.id) && "-rotate-90")} />
+                              </button>
+                            )}
+                            <button onClick={() => setReviewKpi(kpi)} className="max-w-[240px] text-left group/name focus:outline-none">
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                <p className="text-sm font-black text-slate-900 dark:text-white group-hover/name:text-indigo-600 transition-colors line-clamp-1">
+                                  {kpi.name}
+                                </p>
+                                {!isChildRow && childKpis.length > 0 && (
+                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 text-[9px] font-black uppercase tracking-wider border border-slate-200 dark:border-slate-700 whitespace-nowrap">
+                                    {childKpis.length} KPI con
+                                  </span>
+                                )}
+                              </div>
+                              <div className="flex items-center gap-1.5 flex-wrap mt-1">
+                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-tighter">{FREQUENCY_MAP[kpi.frequency as keyof typeof FREQUENCY_MAP] || kpi.frequency}</p>
+                                {kpi.isReverseKpi && (
+                                  <span className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 text-[9px] font-black uppercase tracking-wider border border-orange-200 dark:border-orange-800/50 whitespace-nowrap">
+                                    ↓ KPI Ngược
+                                  </span>
+                                )}
+                                {kpi.isBonusKpi && (
+                                  <span className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 text-[9px] font-black uppercase tracking-wider border border-emerald-200 dark:border-emerald-800/50 whitespace-nowrap">
+                                    + KPI Thưởng
+                                  </span>
+                                )}
+                                {isChildRow && kpi.parentRelationType && (
+                                  <span className={cn(
+                                    "inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider border whitespace-nowrap",
+                                    kpi.parentRelationType === 'DECOMPOSITION'
+                                      ? "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800/50"
+                                      : "bg-cyan-100 dark:bg-cyan-900/30 text-cyan-600 dark:text-cyan-400 border-cyan-200 dark:border-cyan-800/50"
+                                  )}>
+                                    {kpi.parentRelationType === 'DECOMPOSITION' ? 'Chia nhỏ' : 'Phân rã'}
+                                  </span>
+                                )}
+                              </div>
+                            </button>
+                          </div>
                         </td>
                         {enableOkr && (
                           <>
@@ -545,7 +617,18 @@ export default function KpiApprovalPage() {
           </div>
         </div>
 
-        <KpiReviewModal open={!!reviewKpi} onClose={() => setReviewKpi(null)} kpi={reviewKpi} />
+        <KpiReviewModal 
+          open={!!reviewKpi} 
+          onClose={() => setReviewKpi(null)} 
+          kpi={reviewKpi} 
+          onEdit={handleEdit}
+        />
+
+        <KpiFormModal
+          open={showEditForm}
+          onClose={() => setShowEditForm(false)}
+          editKpi={editKpi}
+        />
       </div>
     </div>
   )

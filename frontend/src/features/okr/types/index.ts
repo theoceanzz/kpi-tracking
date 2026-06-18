@@ -4,6 +4,12 @@ export enum OkrStatus {
   CANCELLED = 'CANCELLED'
 }
 
+export interface UnitWeight {
+  orgUnitId: string
+  orgUnitName?: string
+  weightPercentage: number
+}
+
 export interface KeyResultResponse {
   id: string
   code?: string
@@ -14,6 +20,7 @@ export interface KeyResultResponse {
   unit?: string
   progress: number
   periodName?: string
+  unitWeights?: UnitWeight[]
 }
 
 export interface ImportOkrResponse {
@@ -31,8 +38,8 @@ export interface ObjectiveResponse {
   endDate?: string
   status: OkrStatus
   keyResults: KeyResultResponse[]
-  orgUnitId?: string
-  orgUnitName?: string
+  orgUnitIds?: string[]
+  orgUnitNames?: string[]
 }
 
 export interface ObjectiveRequest {
@@ -43,6 +50,7 @@ export interface ObjectiveRequest {
   endDate?: string
   status?: OkrStatus
   orgUnitId?: string
+  orgUnitIds?: string[]
 }
 
 export interface KeyResultRequest {
@@ -53,4 +61,5 @@ export interface KeyResultRequest {
   currentValue?: number
   unit?: string
   objectiveId: string
+  unitWeights?: UnitWeight[]
 }

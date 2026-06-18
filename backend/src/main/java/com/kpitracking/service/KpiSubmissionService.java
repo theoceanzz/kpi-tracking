@@ -67,6 +67,12 @@ public class KpiSubmissionService {
             throw new BusinessException("Chỉ có thể nộp báo cáo cho những chỉ tiêu KPI đã được PHÊ DUYỆT hoặc ĐÃ ĐIỀU CHỈNH");
         }
 
+        boolean isDecompositionParent = kpi.getChildren() != null && kpi.getChildren().stream()
+                .anyMatch(c -> c.getParentRelationType() == com.kpitracking.enums.KpiParentRelationType.DECOMPOSITION);
+        if (isDecompositionParent) {
+            throw new BusinessException("KPI này đã được chia thành các KPI con. Vui lòng nộp báo cáo ở từng KPI con tương ứng.");
+        }
+
         boolean isAssignee = kpi.getAssignees().stream()
                 .anyMatch(u -> u.getId().equals(currentUser.getId()));
         if (!isAssignee) {
@@ -162,7 +168,7 @@ public class KpiSubmissionService {
 
         if (request.getActualValue() != null && kpi.getTargetValue() != null && kpi.getWeight() != null && kpi.getTargetValue() != 0) {
             Double minVal = kpi.getMinimumValue() != null ? kpi.getMinimumValue() : 0.0;
-            boolean isInverse = kpi.getMinimumValue() != null && kpi.getTargetValue() < kpi.getMinimumValue();
+            boolean isInverse = Boolean.TRUE.equals(kpi.getIsReverseKpi());
             
             if (isInverse) {
                 if (request.getActualValue() > minVal) {
@@ -174,6 +180,7 @@ public class KpiSubmissionService {
                     com.kpitracking.entity.Organization org = kpi.getOrgUnit().getOrgHierarchyLevel().getOrganization();
                     double multiplier = org.getEvaluationMaxScore() / 100.0;
                     double ratio = Math.max(0.0, 2.0 - (request.getActualValue() / kpi.getTargetValue()));
+                    ratio = Math.min(ratio, 1.5);
                     autoScore = ratio * kpi.getWeight() * multiplier;
                 }
             } else {
@@ -185,7 +192,9 @@ public class KpiSubmissionService {
                 } else {
                     com.kpitracking.entity.Organization org = kpi.getOrgUnit().getOrgHierarchyLevel().getOrganization();
                     double multiplier = org.getEvaluationMaxScore() / 100.0;
-                    autoScore = (request.getActualValue() / kpi.getTargetValue()) * kpi.getWeight() * multiplier;
+                    double ratio = request.getActualValue() / kpi.getTargetValue();
+                    ratio = Math.min(ratio, 1.5);
+                    autoScore = ratio * kpi.getWeight() * multiplier;
                 }
             }
         }
@@ -311,7 +320,7 @@ public class KpiSubmissionService {
             KpiCriteria kpi = submission.getKpiCriteria();
             if (submission.getActualValue() != null && kpi.getTargetValue() != null && kpi.getWeight() != null && kpi.getTargetValue() != 0) {
                 Double minVal = kpi.getMinimumValue() != null ? kpi.getMinimumValue() : 0.0;
-                boolean isInverse = kpi.getMinimumValue() != null && kpi.getTargetValue() < kpi.getMinimumValue();
+                boolean isInverse = Boolean.TRUE.equals(kpi.getIsReverseKpi());
                 
                 if (isInverse) {
                     if (submission.getActualValue() > minVal) {
@@ -323,6 +332,7 @@ public class KpiSubmissionService {
                         com.kpitracking.entity.Organization org = kpi.getOrgUnit().getOrgHierarchyLevel().getOrganization();
                         double multiplier = org.getEvaluationMaxScore() / 100.0;
                         double ratio = Math.max(0.0, 2.0 - (submission.getActualValue() / kpi.getTargetValue()));
+                        ratio = Math.min(ratio, 1.5);
                         submission.setAutoScore(ratio * kpi.getWeight() * multiplier);
                     }
                 } else {
@@ -334,7 +344,9 @@ public class KpiSubmissionService {
                     } else {
                         com.kpitracking.entity.Organization org = kpi.getOrgUnit().getOrgHierarchyLevel().getOrganization();
                         double multiplier = org.getEvaluationMaxScore() / 100.0;
-                        submission.setAutoScore((submission.getActualValue() / kpi.getTargetValue()) * kpi.getWeight() * multiplier);
+                        double ratio = submission.getActualValue() / kpi.getTargetValue();
+                        ratio = Math.min(ratio, 1.5);
+                        submission.setAutoScore(ratio * kpi.getWeight() * multiplier);
                     }
                 }
             }
@@ -502,14 +514,15 @@ public class KpiSubmissionService {
         Double autoScore = 0.0;
         if (parentKpi.getTargetValue() != null && parentKpi.getWeight() != null && parentKpi.getTargetValue() != 0) {
             double multiplier = org.getEvaluationMaxScore() / 100.0;
-            boolean isInverse = parentKpi.getMinimumValue() != null && parentKpi.getTargetValue() < parentKpi.getMinimumValue();
-            
+            boolean isInverse = Boolean.TRUE.equals(parentKpi.getIsReverseKpi());
+            double ratio;
             if (isInverse) {
-                double ratio = Math.max(0.0, 2.0 - (totalActual / parentKpi.getTargetValue()));
-                autoScore = ratio * parentKpi.getWeight() * multiplier;
+                ratio = Math.max(0.0, 2.0 - (totalActual / parentKpi.getTargetValue()));
             } else {
-                autoScore = (totalActual / parentKpi.getTargetValue()) * parentKpi.getWeight() * multiplier;
+                ratio = totalActual / parentKpi.getTargetValue();
             }
+            ratio = Math.min(ratio, 1.5);
+            autoScore = ratio * parentKpi.getWeight() * multiplier;
         }
         parentSub.setAutoScore(autoScore);
 

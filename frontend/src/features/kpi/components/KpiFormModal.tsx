@@ -24,6 +24,7 @@ interface KpiFormModalProps {
   onClose: () => void
   editKpi?: KpiCriteria | null
   parentKpi?: KpiCriteria | null
+  parentRelationType?: 'DELEGATION' | 'DECOMPOSITION'
 }
 
 const frequencyOptions = (['DAILY', 'WEEKLY', 'MONTHLY', 'QUARTERLY', 'SEMI_ANNUALLY', 'YEARLY', 'UNLIMITED'] as const).map(value => ({
@@ -32,7 +33,7 @@ const frequencyOptions = (['DAILY', 'WEEKLY', 'MONTHLY', 'QUARTERLY', 'SEMI_ANNU
 }))
 
 
-export default function KpiFormModal({ open, onClose, editKpi, parentKpi }: KpiFormModalProps) {
+export default function KpiFormModal({ open, onClose, editKpi, parentKpi, parentRelationType }: KpiFormModalProps) {
   const isEdit = !!editKpi
   const qc = useQueryClient()
   const { user } = useAuthStore()
@@ -71,18 +72,21 @@ export default function KpiFormModal({ open, onClose, editKpi, parentKpi }: KpiF
 
   const { register, handleSubmit, formState: { errors }, reset, watch, setValue, control } = useForm<KpiFormData>({
     resolver: zodResolver(kpiSchema),
-    defaultValues: { 
-      name: '', 
+    defaultValues: {
+      name: '',
       description: '',
       weight: undefined,
       targetValue: undefined,
       minimumValue: undefined,
+      isReverseKpi: false,
+      isBonusKpi: false,
       unit: '',
-      frequency: 'MONTHLY', 
-      assignedToIds: [], 
-      kpiPeriodId: '', 
-      keyResultId: null, 
+      frequency: 'MONTHLY',
+      assignedToIds: [],
+      kpiPeriodId: '',
+      keyResultId: null,
       parentId: null,
+      parentRelationType: null,
       orgUnitIds: [],
       orgUnitId: '',
     },
@@ -113,29 +117,37 @@ export default function KpiFormModal({ open, onClose, editKpi, parentKpi }: KpiF
         orgUnitIds: editKpi.orgUnitIds ?? (editKpi.orgUnitId ? [editKpi.orgUnitId] : []),
         assignedToIds: editKpi.assigneeIds ?? [],
         minimumValue: editKpi.minimumValue ?? undefined,
+        isReverseKpi: editKpi.isReverseKpi ?? false,
+        isBonusKpi: editKpi.isBonusKpi ?? false,
         kpiPeriodId: editKpi.kpiPeriodId ?? '',
         keyResultId: editKpi.keyResultId ?? null,
         parentId: editKpi.parentId ?? null,
       })
     } else {
       const defaultOrgUnitId = user?.memberships?.[0]?.orgUnitId || ''
-      reset({ 
-        name: parentKpi ? `[${parentKpi.name}] ` : '', 
+      const effectiveRelationType = parentKpi ? (parentRelationType ?? 'DECOMPOSITION') : null
+      const isDecomposition = effectiveRelationType === 'DECOMPOSITION'
+      const remainingWeight = parentKpi ? Math.max(0, (parentKpi.weight ?? 0) - (parentKpi.childrenWeightTotal ?? 0)) : undefined
+      reset({
+        name: parentKpi ? `[${parentKpi.name}] ` : '',
         description: '',
-        weight: undefined,
+        weight: isDecomposition ? remainingWeight : undefined,
         targetValue: undefined,
         minimumValue: undefined,
+        isReverseKpi: false,
+        isBonusKpi: false,
         unit: parentKpi?.unit ?? '',
-        frequency: 'MONTHLY', 
+        frequency: 'MONTHLY',
         kpiPeriodId: parentKpi?.kpiPeriodId ?? '',
         keyResultId: null,
         parentId: parentKpi?.id ?? null,
+        parentRelationType: effectiveRelationType,
         orgUnitIds: canAssignRoles ? [] : (defaultOrgUnitId ? [defaultOrgUnitId] : []),
-        orgUnitId: defaultOrgUnitId,
-        assignedToIds: isStaff ? ([user?.id].filter(Boolean) as string[]) : []
+        orgUnitId: parentKpi?.orgUnitId ?? defaultOrgUnitId,
+        assignedToIds: isDecomposition ? (parentKpi?.assigneeIds ?? []) : (isStaff ? ([user?.id].filter(Boolean) as string[]) : [])
       })
     }
-  }, [open, reset, editKpi, flatOrgUnits, canManageOrg, parentKpi, isStaff, user]) 
+  }, [open, reset, editKpi, flatOrgUnits, canManageOrg, parentKpi, parentRelationType, isStaff, user])
 
   const selectedAssignees = watch('assignedToIds') || []
 
@@ -307,6 +319,7 @@ export default function KpiFormModal({ open, onClose, editKpi, parentKpi }: KpiF
   }
 
   const isPending = createMutation.isPending || updateMutation.isPending
+  const isPendingApproval = isEdit && editKpi?.status === 'PENDING_APPROVAL'
 
   const onSubmit = (data: KpiFormData) => {
     const payload = { ...data }
@@ -465,30 +478,134 @@ export default function KpiFormModal({ open, onClose, editKpi, parentKpi }: KpiF
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-[11px] font-black text-[var(--color-muted-foreground)] uppercase tracking-widest mb-1.5">Trọng số (%)</label>
-                  <input 
-                    {...register('weight', { valueAsNumber: true })} 
-                    type="number" 
-                    step="any" 
-                    min={0} 
-                    max={100} 
-                    onWheel={(e) => (e.target as HTMLInputElement).blur()} 
-                    className={inputCls} 
-                    placeholder="25" 
+                  <input
+                    {...register('weight', { valueAsNumber: true })}
+                    type="number"
+                    step="any"
+                    min={0}
+                    max={100}
+                    onWheel={(e) => (e.target as HTMLInputElement).blur()}
+                    className={inputCls}
+                    placeholder="25"
                   />
                   {errors.weight && <p className="text-red-500 text-[10px] mt-1 font-bold">{errors.weight.message}</p>}
+                  {parentKpi && watch('parentRelationType') === 'DECOMPOSITION' && (
+                    <p className="text-[10px] mt-1 font-bold text-cyan-600">
+                      Trọng số còn lại của KPI cha "{parentKpi.name}": {Math.max(0, (parentKpi.weight ?? 0) - (parentKpi.childrenWeightTotal ?? 0))}%
+                    </p>
+                  )}
                 </div>
                 <div>
                   <label className="block text-[11px] font-black text-[var(--color-muted-foreground)] uppercase tracking-widest mb-1.5">Đơn vị tính</label>
-                  <input 
-                    {...register('unit')} 
-                    className={inputCls} 
-                    placeholder="VNĐ, %, KPI..." 
+                  <input
+                    {...register('unit')}
+                    className={inputCls}
+                    placeholder="VNĐ, %, KPI..."
                   />
                 </div>
               </div>
+
+              <Controller
+                name="isReverseKpi"
+                control={control}
+                render={({ field }) => (
+                  <button
+                    type="button"
+                    onClick={() => field.onChange(!field.value)}
+                    className={cn(
+                      "w-full flex items-center justify-between px-4 py-3 rounded-xl border-2 transition-all text-left",
+                      field.value
+                        ? "border-orange-500 bg-orange-50 dark:bg-orange-900/10"
+                        : "border-[var(--color-border)] bg-[var(--color-background)] hover:border-[var(--color-primary)]/50"
+                    )}
+                  >
+                    <div>
+                      <div className="flex items-center gap-1.5">
+                        <span className={cn("text-sm font-bold", field.value ? "text-orange-600 dark:text-orange-400" : "text-[var(--color-foreground)]")}>
+                          KPI Ngược
+                        </span>
+                        <div className="relative group/tooltip">
+                          <div className="w-4 h-4 rounded-full bg-[var(--color-muted-foreground)]/20 hover:bg-orange-100 dark:hover:bg-orange-900/30 flex items-center justify-center cursor-help transition-colors">
+                            <span className="text-[9px] font-black text-[var(--color-muted-foreground)] group-hover/tooltip:text-orange-500 leading-none transition-colors">?</span>
+                          </div>
+                          <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 w-64 p-3 rounded-xl bg-slate-900 dark:bg-slate-700 text-white text-[11px] leading-relaxed shadow-2xl opacity-0 group-hover/tooltip:opacity-100 pointer-events-none transition-all duration-200 z-50 scale-95 group-hover/tooltip:scale-100">
+                            <p className="font-black text-orange-300 mb-1.5">KPI Ngược là gì?</p>
+                            <p className="font-medium opacity-90">Loại KPI mà giá trị thực tế <span className="text-orange-300 font-bold">càng thấp càng tốt</span>.</p>
+                            <p className="font-medium opacity-80 mt-1.5">Ví dụ: tỉ lệ lỗi, chi phí vận hành, thời gian xử lý, tỉ lệ nghỉ việc...</p>
+                            <p className="font-medium opacity-80 mt-1.5">Công thức điểm: <span className="text-green-300 font-bold">2 − (thực tế ÷ mục tiêu)</span>, thay vì chia thẳng như KPI thường.</p>
+                            <div className="absolute left-1/2 -translate-x-1/2 top-full w-0 h-0 border-l-4 border-r-4 border-t-4 border-l-transparent border-r-transparent border-t-slate-900 dark:border-t-slate-700" />
+                          </div>
+                        </div>
+                      </div>
+                      <div className="text-[10px] text-[var(--color-muted-foreground)] mt-0.5">
+                        Giá trị mục tiêu càng thấp càng tốt (VD: tỉ lệ lỗi, chi phí)
+                      </div>
+                    </div>
+                    <div className={cn(
+                      "w-10 h-6 rounded-full transition-all relative flex-shrink-0",
+                      field.value ? "bg-orange-500" : "bg-[var(--color-muted-foreground)]/30"
+                    )}>
+                      <div className={cn(
+                        "absolute top-1 w-4 h-4 rounded-full bg-white shadow transition-all",
+                        field.value ? "left-5" : "left-1"
+                      )} />
+                    </div>
+                  </button>
+                )}
+              />
+
+              {!parentKpi && (
+                <Controller
+                  name="isBonusKpi"
+                  control={control}
+                  render={({ field }) => (
+                    <button
+                      type="button"
+                      onClick={() => field.onChange(!field.value)}
+                      className={cn(
+                        "w-full flex items-center justify-between px-4 py-3 rounded-xl border-2 transition-all text-left",
+                        field.value
+                          ? "border-emerald-500 bg-emerald-50 dark:bg-emerald-900/10"
+                          : "border-[var(--color-border)] bg-[var(--color-background)] hover:border-[var(--color-primary)]/50"
+                      )}
+                    >
+                      <div>
+                        <div className="flex items-center gap-1.5">
+                          <span className={cn("text-sm font-bold", field.value ? "text-emerald-600 dark:text-emerald-400" : "text-[var(--color-foreground)]")}>
+                            KPI Thưởng
+                          </span>
+                          <div className="relative group/tooltip">
+                            <div className="w-4 h-4 rounded-full bg-[var(--color-muted-foreground)]/20 hover:bg-emerald-100 dark:hover:bg-emerald-900/30 flex items-center justify-center cursor-help transition-colors">
+                              <span className="text-[9px] font-black text-[var(--color-muted-foreground)] group-hover/tooltip:text-emerald-500 leading-none transition-colors">?</span>
+                            </div>
+                            <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 w-64 p-3 rounded-xl bg-slate-900 dark:bg-slate-700 text-white text-[11px] leading-relaxed shadow-2xl opacity-0 group-hover/tooltip:opacity-100 pointer-events-none transition-all duration-200 z-50 scale-95 group-hover/tooltip:scale-100">
+                              <p className="font-black text-emerald-300 mb-1.5">KPI Thưởng là gì?</p>
+                              <p className="font-medium opacity-90">KPI <span className="text-emerald-300 font-bold">tùy chọn</span>, không tính vào tổng 100% trọng số của đơn vị.</p>
+                              <p className="font-medium opacity-80 mt-1.5">Không làm cũng không sao. Nếu hoàn thành, điểm sẽ được <span className="text-emerald-300 font-bold">cộng thêm</span> vào tổng điểm đánh giá.</p>
+                              <div className="absolute left-1/2 -translate-x-1/2 top-full w-0 h-0 border-l-4 border-r-4 border-t-4 border-l-transparent border-r-transparent border-t-slate-900 dark:border-t-slate-700" />
+                            </div>
+                          </div>
+                        </div>
+                        <div className="text-[10px] text-[var(--color-muted-foreground)] mt-0.5">
+                          Không bắt buộc, không tính vào 100% trọng số, hoàn thành thì được cộng điểm thêm
+                        </div>
+                      </div>
+                      <div className={cn(
+                        "w-10 h-6 rounded-full transition-all relative flex-shrink-0",
+                        field.value ? "bg-emerald-500" : "bg-[var(--color-muted-foreground)]/30"
+                      )}>
+                        <div className={cn(
+                          "absolute top-1 w-4 h-4 rounded-full bg-white shadow transition-all",
+                          field.value ? "left-5" : "left-1"
+                        )} />
+                      </div>
+                    </button>
+                  )}
+                />
+              )}
           </div>
 
-          {flatOrgUnits.length > 1 && (
+          {!isPendingApproval && flatOrgUnits.length > 1 && (
             <div className="space-y-2">
                 <div className="flex items-center justify-between">
                     <div className="space-y-0.5">
@@ -528,7 +645,7 @@ export default function KpiFormModal({ open, onClose, editKpi, parentKpi }: KpiF
             </div>
           )}
 
-          <div className="bg-[var(--color-primary)]/5 rounded-2xl p-4 space-y-4 border border-[var(--color-primary)]/10 shadow-sm transition-all overflow-hidden">
+          {!isPendingApproval && (<div className="bg-[var(--color-primary)]/5 rounded-2xl p-4 space-y-4 border border-[var(--color-primary)]/10 shadow-sm transition-all overflow-hidden">
             <div className="flex items-center justify-between">
                 <label className="block text-sm font-bold flex items-center gap-2">
                     <Users size={16} className="text-[var(--color-primary)]" />
@@ -656,8 +773,9 @@ export default function KpiFormModal({ open, onClose, editKpi, parentKpi }: KpiF
                      Vui lòng chọn đơn vị thực hiện để hiển thị danh sách nhân sự
                 </div>
             )}
-          </div>
+          </div>)}
 
+          {!isPendingApproval && (
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-bold mb-1.5">Kỳ đánh giá <span className="text-red-500">*</span></label>
@@ -674,8 +792,9 @@ export default function KpiFormModal({ open, onClose, editKpi, parentKpi }: KpiF
               </select>
             </div>
           </div>
+          )}
 
-          {enableOkr && (
+          {!isPendingApproval && enableOkr && (
             <div className="bg-indigo-50/50 dark:bg-indigo-900/5 p-4 rounded-2xl border border-indigo-100 dark:border-indigo-900/50 space-y-3">
               <div className="flex items-center gap-2 text-indigo-600 dark:text-indigo-400">
                 <Target size={16} />

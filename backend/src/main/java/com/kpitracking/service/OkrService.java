@@ -2,10 +2,13 @@ package com.kpitracking.service;
 
 import com.kpitracking.dto.request.okr.KeyResultRequest;
 import com.kpitracking.dto.request.okr.ObjectiveRequest;
+import com.kpitracking.dto.request.okr.UnitWeightRequest;
 import com.kpitracking.dto.response.okr.ImportOkrResponse;
 import com.kpitracking.dto.response.okr.KeyResultResponse;
 import com.kpitracking.dto.response.okr.ObjectiveResponse;
+import com.kpitracking.dto.response.okr.UnitWeightResponse;
 import com.kpitracking.entity.KeyResult;
+import com.kpitracking.entity.KeyResultUnitWeight;
 import com.kpitracking.entity.Objective;
 import com.kpitracking.entity.OrgUnit;
 import com.kpitracking.entity.Organization;
@@ -27,7 +30,6 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.time.LocalDate;
-import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -63,28 +65,21 @@ public class OkrService {
         Organization organization = organizationRepository.findById(organizationId)
                 .orElseThrow(() -> new ResourceNotFoundException("Organization not found"));
 
-        OrgUnit orgUnit = null;
-        if (request.getOrgUnitId() != null) {
-            orgUnit = orgUnitRepository.findById(request.getOrgUnitId())
-                    .orElseThrow(() -> new ResourceNotFoundException("OrgUnit not found"));
-        }
-
-        if (orgUnit != null && objectiveRepository.existsByOrganizationIdAndCodeAndOrgUnit(organizationId, request.getCode(), orgUnit)) {
-            throw new DuplicateResourceException("Mục tiêu", "mã", request.getCode() + " tại đơn vị " + orgUnit.getName());
-        } else if (orgUnit == null && objectiveRepository.existsByOrganizationIdAndCode(organizationId, request.getCode())) {
-            // If no unit, fall back to organization-wide uniqueness (for root/general objectives)
+        if (objectiveRepository.existsByOrganizationIdAndCode(organizationId, request.getCode())) {
             throw new DuplicateResourceException("Mục tiêu", "mã", request.getCode());
         }
 
+        List<OrgUnit> orgUnits = resolveOrgUnits(request);
+
         Objective objective = Objective.builder()
                 .organization(organization)
-                .orgUnit(orgUnit)
+                .orgUnits(new ArrayList<>(orgUnits))
                 .code(request.getCode())
                 .name(request.getName())
                 .description(request.getDescription())
                 .startDate(request.getStartDate())
                 .endDate(request.getEndDate())
-                .status(request.getStatus())
+                .status(request.getStatus() != null ? request.getStatus() : OkrStatus.ACTIVE)
                 .build();
 
         return mapToObjectiveResponse(objectiveRepository.save(objective));
@@ -95,15 +90,8 @@ public class OkrService {
         Objective objective = objectiveRepository.findById(objectiveId)
                 .orElseThrow(() -> new ResourceNotFoundException("Objective not found"));
 
-        OrgUnit nextOrgUnit = null;
-        if (request.getOrgUnitId() != null) {
-            nextOrgUnit = orgUnitRepository.findById(request.getOrgUnitId())
-                    .orElseThrow(() -> new ResourceNotFoundException("OrgUnit not found"));
-        }
-
-        if (nextOrgUnit != null && objectiveRepository.existsByOrganizationIdAndCodeAndOrgUnitAndIdNot(objective.getOrganization().getId(), request.getCode(), nextOrgUnit, objectiveId)) {
-            throw new DuplicateResourceException("Mục tiêu", "mã", request.getCode() + " tại đơn vị " + nextOrgUnit.getName());
-        } else if (nextOrgUnit == null && objectiveRepository.existsByOrganizationIdAndCodeAndIdNot(objective.getOrganization().getId(), request.getCode(), objectiveId)) {
+        if (objectiveRepository.existsByOrganizationIdAndCodeAndIdNot(
+                objective.getOrganization().getId(), request.getCode(), objectiveId)) {
             throw new DuplicateResourceException("Mục tiêu", "mã", request.getCode());
         }
 
@@ -112,18 +100,13 @@ public class OkrService {
         objective.setDescription(request.getDescription());
         objective.setStartDate(request.getStartDate());
         objective.setEndDate(request.getEndDate());
-        
-        if (request.getOrgUnitId() != null) {
-            OrgUnit orgUnit = orgUnitRepository.findById(request.getOrgUnitId())
-                    .orElseThrow(() -> new ResourceNotFoundException("OrgUnit not found"));
-            objective.setOrgUnit(orgUnit);
-        } else {
-            objective.setOrgUnit(null);
-        }
-
         if (request.getStatus() != null) {
             objective.setStatus(request.getStatus());
         }
+
+        List<OrgUnit> newUnits = resolveOrgUnits(request);
+        objective.getOrgUnits().clear();
+        objective.getOrgUnits().addAll(newUnits);
 
         return mapToObjectiveResponse(objectiveRepository.save(objective));
     }
@@ -140,7 +123,8 @@ public class OkrService {
         Objective objective = objectiveRepository.findById(request.getObjectiveId())
                 .orElseThrow(() -> new ResourceNotFoundException("Objective not found"));
 
-        if (keyResultRepository.existsByObjectiveOrganizationIdAndCode(objective.getOrganization().getId(), request.getCode())) {
+        if (keyResultRepository.existsByObjectiveOrganizationIdAndCode(
+                objective.getOrganization().getId(), request.getCode())) {
             throw new DuplicateResourceException("Kết quả then chốt", "mã", request.getCode());
         }
 
@@ -154,6 +138,8 @@ public class OkrService {
                 .unit(request.getUnit())
                 .build();
 
+        attachUnitWeights(keyResult, request.getUnitWeights());
+
         return mapToKeyResultResponse(keyResultRepository.save(keyResult));
     }
 
@@ -162,7 +148,8 @@ public class OkrService {
         KeyResult keyResult = keyResultRepository.findById(keyResultId)
                 .orElseThrow(() -> new ResourceNotFoundException("Key Result not found"));
 
-        if (keyResultRepository.existsByObjectiveOrganizationIdAndCodeAndIdNot(keyResult.getObjective().getOrganization().getId(), request.getCode(), keyResultId)) {
+        if (keyResultRepository.existsByObjectiveOrganizationIdAndCodeAndIdNot(
+                keyResult.getObjective().getOrganization().getId(), request.getCode(), keyResultId)) {
             throw new DuplicateResourceException("Kết quả then chốt", "mã", request.getCode());
         }
 
@@ -173,6 +160,9 @@ public class OkrService {
         keyResult.setCurrentValue(request.getCurrentValue());
         keyResult.setUnit(request.getUnit());
 
+        keyResult.getUnitWeights().clear();
+        attachUnitWeights(keyResult, request.getUnitWeights());
+
         return mapToKeyResultResponse(keyResultRepository.save(keyResult));
     }
 
@@ -182,6 +172,33 @@ public class OkrService {
                 .orElseThrow(() -> new ResourceNotFoundException("Key Result not found"));
         keyResultRepository.delete(keyResult);
     }
+
+    // ── helpers ──────────────────────────────────────────────────────────────
+
+    private List<OrgUnit> resolveOrgUnits(ObjectiveRequest request) {
+        List<UUID> ids = request.getOrgUnitIds() != null ? request.getOrgUnitIds() : List.of();
+        List<OrgUnit> units = new ArrayList<>();
+        for (UUID id : ids) {
+            units.add(orgUnitRepository.findById(id)
+                    .orElseThrow(() -> new ResourceNotFoundException("OrgUnit not found: " + id)));
+        }
+        return units;
+    }
+
+    private void attachUnitWeights(KeyResult keyResult, List<UnitWeightRequest> weightRequests) {
+        if (weightRequests == null || weightRequests.isEmpty()) return;
+        for (UnitWeightRequest w : weightRequests) {
+            OrgUnit unit = orgUnitRepository.findById(w.getOrgUnitId())
+                    .orElseThrow(() -> new ResourceNotFoundException("OrgUnit not found: " + w.getOrgUnitId()));
+            keyResult.getUnitWeights().add(KeyResultUnitWeight.builder()
+                    .keyResult(keyResult)
+                    .orgUnit(unit)
+                    .weightPercentage(w.getWeightPercentage())
+                    .build());
+        }
+    }
+
+    // ── import ───────────────────────────────────────────────────────────────
 
     @Transactional
     public ImportOkrResponse importOkrs(UUID organizationId, MultipartFile file) {
@@ -203,7 +220,6 @@ public class OkrService {
 
             if (headerRow == null) throw new BusinessException("Tập tin Excel trống");
 
-            // Mapping columns
             int objCodeIdx = -1, objNameIdx = -1, objDescIdx = -1, objStartIdx = -1, objEndIdx = -1, objOrgUnitCodeIdx = -1;
             int krCodeIdx = -1, krNameIdx = -1, krDescIdx = -1, krTargetIdx = -1, krUnitIdx = -1;
 
@@ -226,7 +242,7 @@ public class OkrService {
                 throw new BusinessException("Thiếu các cột bắt buộc: ObjectiveCode, ObjectiveName, KeyResultCode, KeyResultName");
             }
 
-            List<Objective> currentObjectives = new ArrayList<>();
+            Objective currentObjective = null;
 
             for (int i = 1; i <= sheet.getLastRowNum(); i++) {
                 Row row = sheet.getRow(i);
@@ -237,7 +253,6 @@ public class OkrService {
                     String objCode = getCellValueAsString(row.getCell(objCodeIdx));
                     String krCode = getCellValueAsString(row.getCell(krCodeIdx));
 
-                    // 1. Process Objective if objCode is provided
                     if (objCode != null && !objCode.isBlank()) {
                         String objName = getCellValueAsString(row.getCell(objNameIdx));
                         String objDesc = getCellValueAsString(row.getCell(objDescIdx));
@@ -245,19 +260,16 @@ public class OkrService {
                         LocalDate endDate = getCellValueAsLocalDate(row.getCell(objEndIdx));
 
                         String objOrgUnitCode = objOrgUnitCodeIdx != -1 ? getCellValueAsString(row.getCell(objOrgUnitCodeIdx)) : null;
-                        
-                        List<OrgUnit> targetUnits = new java.util.ArrayList<>();
+
+                        List<OrgUnit> targetUnits = new ArrayList<>();
                         if (objOrgUnitCode != null && !objOrgUnitCode.isBlank()) {
-                            String[] codes = objOrgUnitCode.split(",");
-                            for (String code : codes) {
+                            for (String code : objOrgUnitCode.split(",")) {
                                 String trimmedCode = code.trim();
                                 if (trimmedCode.isEmpty()) continue;
-                                
                                 Optional<OrgUnit> unitOpt = orgUnitRepository.findByCodeSmart(trimmedCode, organizationId);
                                 if (unitOpt.isPresent()) {
                                     OrgUnit unit = unitOpt.get();
                                     if (unit.getParent() == null) {
-                                        // Root unit: add it and all sub-units
                                         targetUnits.addAll(orgUnitRepository.findByOrgHierarchyLevel_Organization_IdAndDeletedAtIsNull(organizationId));
                                     } else {
                                         targetUnits.add(unit);
@@ -265,81 +277,81 @@ public class OkrService {
                                 }
                             }
                         }
-                        
-                        // Default to Root unit if no valid units found
                         if (targetUnits.isEmpty()) {
                             List<OrgUnit> roots = orgUnitRepository.findRootsByOrganizationId(organizationId);
-                            if (!roots.isEmpty()) {
-                                targetUnits.add(roots.get(0));
-                            }
+                            if (!roots.isEmpty()) targetUnits.add(roots.get(0));
                         }
-
-                        // Dedup target units
                         targetUnits = targetUnits.stream().distinct().collect(Collectors.toList());
-                        currentObjectives.clear();
 
-                        for (OrgUnit targetUnit : targetUnits) {
-                            Optional<Objective> existingObj = objectiveRepository.findByOrganizationIdAndCodeAndOrgUnit(organizationId, objCode, targetUnit);
-
-                            Objective objective;
-                            if (existingObj.isPresent()) {
-                                objective = existingObj.get();
-                                objective.setName(objName);
-                                if (objDesc != null) objective.setDescription(objDesc);
-                                if (startDate != null) objective.setStartDate(startDate);
-                                if (endDate != null) objective.setEndDate(endDate);
-                            } else {
-                                objective = Objective.builder()
-                                        .organization(organization)
-                                        .code(objCode)
-                                        .name(objName)
-                                        .description(objDesc)
-                                        .startDate(startDate)
-                                        .endDate(endDate)
-                                        .orgUnit(targetUnit)
-                                        .status(OkrStatus.ACTIVE)
-                                        .build();
-                            }
-                            currentObjectives.add(objectiveRepository.save(objective));
+                        // Find or create ONE objective per code (org-wide)
+                        Optional<Objective> existingObj = objectiveRepository.findByOrganizationIdAndCode(organizationId, objCode);
+                        if (existingObj.isPresent()) {
+                            currentObjective = existingObj.get();
+                            currentObjective.setName(objName);
+                            if (objDesc != null) currentObjective.setDescription(objDesc);
+                            if (startDate != null) currentObjective.setStartDate(startDate);
+                            if (endDate != null) currentObjective.setEndDate(endDate);
+                            currentObjective.getOrgUnits().clear();
+                            currentObjective.getOrgUnits().addAll(targetUnits);
+                        } else {
+                            currentObjective = Objective.builder()
+                                    .organization(organization)
+                                    .code(objCode)
+                                    .name(objName)
+                                    .description(objDesc)
+                                    .startDate(startDate)
+                                    .endDate(endDate)
+                                    .orgUnits(new ArrayList<>(targetUnits))
+                                    .status(OkrStatus.ACTIVE)
+                                    .build();
                         }
+                        currentObjective = objectiveRepository.save(currentObjective);
                     }
 
-                    if (currentObjectives.isEmpty()) {
+                    if (currentObjective == null) {
                         errors.add("Dòng " + (i + 1) + ": Thiếu thông tin Mục tiêu trước khi thêm Kết quả then chốt");
                         continue;
                     }
 
-                    // 2. Process Key Result for all current objectives
                     String krName = getCellValueAsString(row.getCell(krNameIdx));
                     String krDesc = getCellValueAsString(row.getCell(krDescIdx));
                     Double krTarget = getCellValueAsDouble(row.getCell(krTargetIdx));
                     String krUnit = getCellValueAsString(row.getCell(krUnitIdx));
 
-                    for (Objective targetObj : currentObjectives) {
-                        Optional<KeyResult> existingKr = keyResultRepository.findByObjectiveId(targetObj.getId()).stream()
-                                .filter(kr -> krCode.equals(kr.getCode()))
-                                .findFirst();
+                    Optional<KeyResult> existingKr = keyResultRepository.findByObjectiveId(currentObjective.getId())
+                            .stream().filter(kr -> krCode.equals(kr.getCode())).findFirst();
 
-                        KeyResult kr;
-                        if (existingKr.isPresent()) {
-                            kr = existingKr.get();
-                            kr.setName(krName);
-                            if (krDesc != null) kr.setDescription(krDesc);
-                            if (krTarget != null) kr.setTargetValue(krTarget);
-                            if (krUnit != null) kr.setUnit(krUnit);
-                        } else {
-                            kr = KeyResult.builder()
-                                    .objective(targetObj)
-                                    .code(krCode)
-                                    .name(krName)
-                                    .description(krDesc)
-                                    .targetValue(krTarget != null ? krTarget : 0.0)
-                                    .currentValue(0.0)
-                                    .unit(krUnit)
-                                    .build();
-                        }
-                        keyResultRepository.save(kr);
+                    KeyResult kr;
+                    if (existingKr.isPresent()) {
+                        kr = existingKr.get();
+                        kr.setName(krName);
+                        if (krDesc != null) kr.setDescription(krDesc);
+                        if (krTarget != null) kr.setTargetValue(krTarget);
+                        if (krUnit != null) kr.setUnit(krUnit);
+                    } else {
+                        kr = KeyResult.builder()
+                                .objective(currentObjective)
+                                .code(krCode)
+                                .name(krName)
+                                .description(krDesc)
+                                .targetValue(krTarget != null ? krTarget : 0.0)
+                                .currentValue(0.0)
+                                .unit(krUnit)
+                                .build();
                     }
+                    List<OrgUnit> krUnits = currentObjective.getOrgUnits();
+                    if (!krUnits.isEmpty()) {
+                        kr.getUnitWeights().clear();
+                        double equalWeight = 100.0 / krUnits.size();
+                        for (OrgUnit unit : krUnits) {
+                            kr.getUnitWeights().add(KeyResultUnitWeight.builder()
+                                    .keyResult(kr)
+                                    .orgUnit(unit)
+                                    .weightPercentage(equalWeight)
+                                    .build());
+                        }
+                    }
+                    keyResultRepository.save(kr);
                     successfulImports++;
 
                 } catch (Exception e) {
@@ -358,11 +370,13 @@ public class OkrService {
                 .build();
     }
 
+    // ── cell helpers ──────────────────────────────────────────────────────────
+
     private String getCellValueAsString(Cell cell) {
         if (cell == null) return "";
         switch (cell.getCellType()) {
             case STRING: return cell.getStringCellValue().trim();
-            case NUMERIC: 
+            case NUMERIC:
                 if (DateUtil.isCellDateFormatted(cell)) {
                     return cell.getLocalDateTimeCellValue().toLocalDate().toString();
                 }
@@ -407,7 +421,10 @@ public class OkrService {
         return true;
     }
 
+    // ── mappers ───────────────────────────────────────────────────────────────
+
     private ObjectiveResponse mapToObjectiveResponse(Objective objective) {
+        List<OrgUnit> units = objective.getOrgUnits();
         return ObjectiveResponse.builder()
                 .id(objective.getId())
                 .code(objective.getCode())
@@ -416,8 +433,8 @@ public class OkrService {
                 .startDate(objective.getStartDate())
                 .endDate(objective.getEndDate())
                 .status(objective.getStatus())
-                .orgUnitId(objective.getOrgUnit() != null ? objective.getOrgUnit().getId() : null)
-                .orgUnitName(objective.getOrgUnit() != null ? objective.getOrgUnit().getName() : null)
+                .orgUnitIds(units.stream().map(u -> u.getId()).collect(Collectors.toList()))
+                .orgUnitNames(units.stream().map(OrgUnit::getName).collect(Collectors.toList()))
                 .keyResults(objective.getKeyResults().stream()
                         .map(this::mapToKeyResultResponse)
                         .collect(Collectors.toList()))
@@ -425,10 +442,9 @@ public class OkrService {
     }
 
     private KeyResultResponse mapToKeyResultResponse(KeyResult keyResult) {
-        // Calculate currentValue from approved KPI submissions
         double totalApprovedActual = 0.0;
         boolean hasLinkedKpis = keyResult.getKpis() != null && !keyResult.getKpis().isEmpty();
-        
+
         if (hasLinkedKpis) {
             for (var kpi : keyResult.getKpis()) {
                 totalApprovedActual += submissionRepository
@@ -455,6 +471,15 @@ public class OkrService {
                     .orElse(null);
         }
 
+        List<UnitWeightResponse> weights = keyResult.getUnitWeights() == null ? List.of()
+                : keyResult.getUnitWeights().stream()
+                    .map(w -> UnitWeightResponse.builder()
+                            .orgUnitId(w.getOrgUnit().getId())
+                            .orgUnitName(w.getOrgUnit().getName())
+                            .weightPercentage(w.getWeightPercentage())
+                            .build())
+                    .collect(Collectors.toList());
+
         return KeyResultResponse.builder()
                 .id(keyResult.getId())
                 .code(keyResult.getCode())
@@ -465,6 +490,7 @@ public class OkrService {
                 .unit(keyResult.getUnit())
                 .progress(progress)
                 .periodName(periodName)
+                .unitWeights(weights)
                 .build();
     }
 }

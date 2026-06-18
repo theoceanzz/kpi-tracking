@@ -20,6 +20,7 @@ import { useOrgUnitTree } from '@/features/orgunits/hooks/useOrgUnitTree'
 import { Building2 } from 'lucide-react'
 import { useOrganization } from '@/features/orgunits/hooks/useOrganization'
 import { useObjectives } from '../../okr/hooks/useOkr'
+import { useSidebarSettings } from '@/features/organization/hooks/useSidebarSettings'
 import PageTour from '@/components/common/PageTour'
 import { kpiAdjustmentsSteps } from '@/components/common/tourSteps'
 import { ObjectiveResponse } from '@/features/okr/types'
@@ -158,6 +159,15 @@ export default function KpiAdjustmentApprovalPage() {
   const selectedObjective = objectivesData?.find((o: ObjectiveResponse) => o.id === selectedObjectiveId)
   const keyResults = selectedObjective?.keyResults || []
 
+  const { data: customLabels = {} } = useSidebarSettings(organizationId!)
+  const rawTitle = ((customLabels as Record<string, string>)['/kpi-criteria/adjustments'] || 'Duyệt điều chỉnh')
+    .split(' ')
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ')
+  const titleParts = rawTitle.trim().split(' ')
+  const lastWord = titleParts.length > 1 ? titleParts.pop() : ''
+  const mainTitle = titleParts.join(' ')
+
   const toggleSelect = (id: string) => {
     setSelectedIds(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id])
   }
@@ -225,7 +235,7 @@ export default function KpiAdjustmentApprovalPage() {
                 </div>
                 <div className="space-y-0.5">
                   <h1 className="text-3xl md:text-4xl font-black tracking-tight text-slate-900 dark:text-white">
-                    Xét duyệt <span className="text-transparent bg-clip-text bg-gradient-to-r from-amber-600 to-orange-600">Điều chỉnh KPI</span>
+                    {mainTitle} <span className="text-transparent bg-clip-text bg-gradient-to-r from-amber-600 to-orange-600">{lastWord}</span>
                   </h1>
                   <p className="text-slate-500 dark:text-slate-400 font-medium text-sm max-w-xl leading-relaxed">
                     Xử lý các đề xuất thay đổi hoặc hủy bỏ chỉ tiêu từ nhân viên.

@@ -15,20 +15,26 @@ export function useOkrMutations() {
   const queryClient = useQueryClient()
 
   const createObjectiveMutation = useMutation({
-    mutationFn: ({ organizationId, data }: { organizationId: string, data: ObjectiveRequest }) => 
+    mutationFn: ({ organizationId, data }: { organizationId: string, data: ObjectiveRequest }) =>
       okrApi.createObjective(organizationId, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['objectives'] })
       toast.success('Tạo mục tiêu thành công')
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.message || 'Tạo mục tiêu thất bại')
     }
   })
 
   const updateObjectiveMutation = useMutation({
-    mutationFn: ({ objectiveId, data }: { objectiveId: string, data: ObjectiveRequest }) => 
+    mutationFn: ({ objectiveId, data }: { objectiveId: string, data: ObjectiveRequest }) =>
       okrApi.updateObjective(objectiveId, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['objectives'] })
       toast.success('Cập nhật mục tiêu thành công')
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.message || 'Cập nhật mục tiêu thất bại')
     }
   })
 
@@ -37,6 +43,9 @@ export function useOkrMutations() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['objectives'] })
       toast.success('Xóa mục tiêu thành công')
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.message || 'Xóa mục tiêu thất bại')
     }
   })
 
@@ -45,15 +54,21 @@ export function useOkrMutations() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['objectives'] })
       toast.success('Tạo kết quả then chốt thành công')
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.message || 'Tạo kết quả then chốt thất bại')
     }
   })
 
   const updateKeyResultMutation = useMutation({
-    mutationFn: ({ keyResultId, data }: { keyResultId: string, data: KeyResultRequest }) => 
+    mutationFn: ({ keyResultId, data }: { keyResultId: string, data: KeyResultRequest }) =>
       okrApi.updateKeyResult(keyResultId, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['objectives'] })
       toast.success('Cập nhật kết quả then chốt thành công')
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.message || 'Cập nhật kết quả then chốt thất bại')
     }
   })
 
@@ -62,6 +77,9 @@ export function useOkrMutations() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['objectives'] })
       toast.success('Xóa kết quả then chốt thành công')
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.message || 'Xóa kết quả then chốt thất bại')
     }
   })
 
