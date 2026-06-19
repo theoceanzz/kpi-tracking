@@ -27,7 +27,7 @@ public class ManagerContextResolver {
     private final UserRepository userRepository;
     private final UserRoleOrgUnitRepository userRoleOrgUnitRepository;
 
-    public record ManagerContext(UUID orgUnitId, String orgUnitPath, UUID orgId) {}
+    public record ManagerContext(UUID orgUnitId, String orgUnitPath, UUID orgId, String email) {}
 
     /**
      * @return the manager context for the current user, or {@code null} if the user
@@ -45,7 +45,8 @@ public class ManagerContextResolver {
                     .map(a -> new ManagerContext(
                             a.getOrgUnit().getId(),
                             a.getOrgUnit().getPath(),
-                            a.getOrgUnit().getOrgHierarchyLevel().getOrganization().getId()
+                            a.getOrgUnit().getOrgHierarchyLevel().getOrganization().getId(),
+                            user.getEmail()
                     ))
                     .orElse(null);
         } catch (Exception e) {

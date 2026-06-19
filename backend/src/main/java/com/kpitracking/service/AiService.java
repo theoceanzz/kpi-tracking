@@ -82,16 +82,24 @@ public class AiService {
         toolCtx.put("orgUnitId", ctx.orgUnitId());
         toolCtx.put("orgUnitPath", ctx.orgUnitPath());
         toolCtx.put("organizationId", ctx.orgId());
+        toolCtx.put("userEmail", ctx.email());
         if (hasMemory) {
             toolCtx.put("conversationId", conversationId);
         }
+
+        // Real current time (Vietnam, UTC+7) injected into the system prompt so the model never
+        // guesses/hallucinates "now". Display form is dd/MM/yyyy; the ISO hint is for date-param math.
+        java.time.ZonedDateTime now = java.time.ZonedDateTime.now(java.time.ZoneId.of("Asia/Ho_Chi_Minh"));
+        String currentDateTime = now.format(java.time.format.DateTimeFormatter
+                        .ofPattern("dd/MM/yyyy HH:mm 'ICT', EEEE", new java.util.Locale("vi")))
+                + " (ISO: " + now.toLocalDate() + ")";
 
         try {
             String result;
             if (hasMemory) {
                 result = chatClientWithMemory.prompt()
                         .user(question)
-                        .system(orgUnitSystemPrompt)
+                        .system(s -> s.text(orgUnitSystemPrompt).param("currentDateTime", currentDateTime))
                         .tools(orgUnitStatisticTool)
                         .toolContext(toolCtx)
                         .advisors(spec -> spec.param("chat_memory_conversation_id", conversationId))
@@ -101,7 +109,7 @@ public class AiService {
             } else {
                 result = chatClient.prompt()
                         .user(question)
-                        .system(orgUnitSystemPrompt)
+                        .system(s -> s.text(orgUnitSystemPrompt).param("currentDateTime", currentDateTime))
                         .tools(orgUnitStatisticTool)
                         .toolContext(toolCtx)
                         .advisors(new ResponseSanitizingAdvisor())
