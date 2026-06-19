@@ -1,6 +1,7 @@
 import { useState, useMemo, useCallback } from 'react'
 import { LayoutGrid, List as ListIcon, PlusCircle, Download, Upload, Loader2 } from 'lucide-react'
 import { useAuthStore } from '@/store/authStore'
+import { useSidebarSettings } from '../hooks/useSidebarSettings'
 import { useOrgUnitTree, useOrgHierarchyLevels, useDeleteOrgUnit, useImportOrgUnits } from '../hooks/useOrganizationStructure'
 import type { OrgUnitTreeResponse } from '../types/org-unit'
 import { OrgMindmapView } from '../components/OrgMindmapView'
@@ -20,7 +21,14 @@ import { useRef } from 'react'
 export function OrganizationStructurePage() {
   const { user } = useAuthStore()
   const orgId = user?.memberships?.[0]?.organizationId // Getting organizationId from the first membership for a director
-  
+
+  const { data: customLabels = {} } = useSidebarSettings(orgId!)
+  const sidebarLabel = ((customLabels as Record<string, string>)['/org-structure'] || 'Sơ đồ tổ chức').trim()
+  const pageTitle = `Quản lý ${sidebarLabel}`
+    .split(' ')
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ')
+
   const { data: treeData = [], isLoading: isTreeLoading } = useOrgUnitTree(orgId)
   const { data: hierarchyLevelsData = [], isLoading: isLevelsLoading } = useOrgHierarchyLevels(orgId)
   const deleteMutation = useDeleteOrgUnit()
@@ -210,7 +218,7 @@ export function OrganizationStructurePage() {
       <PageTour pageKey="org-structure" steps={orgStructureSteps} />
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Quản lý Cấu trúc Tổ chức</h1>
+          <h1 className="text-2xl font-bold text-gray-900">{pageTitle}</h1>
           <p className="text-sm text-gray-500 mt-1">Quản lý sơ đồ phân cấp phòng ban, chi nhánh</p>
         </div>
 

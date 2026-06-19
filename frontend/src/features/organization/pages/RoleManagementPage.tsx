@@ -21,6 +21,7 @@ import { useAuth } from '@/hooks/useAuth'
 import { useRoles, useCreateRole, useUpdateRole, useDeleteRole } from '../hooks/useRoles'
 import { useOrgHierarchyLevels } from '../hooks/useOrganizationStructure'
 import { useAuthStore } from '@/store/authStore'
+import { useSidebarSettings } from '../hooks/useSidebarSettings'
 import { RoleResponse } from '../api/role.api'
 import RolePermissionDrawer from '../components/RolePermissionDrawer'
 import HierarchyPermissionModal from '../components/HierarchyPermissionModal'
@@ -61,6 +62,15 @@ export default function RoleManagementPage() {
   const { user } = useAuthStore()
   const orgId = user?.memberships?.[0]?.organizationId
   const { data: hierarchyLevels = [] } = useOrgHierarchyLevels(orgId)
+
+  const { data: customLabels = {} } = useSidebarSettings(orgId!)
+  const rawTitle = ((customLabels as Record<string, string>)['/roles'] || 'Quản lý Vai trò')
+    .split(' ')
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ')
+  const titleParts = rawTitle.trim().split(' ')
+  const lastWord = titleParts.length > 1 ? titleParts.pop() : ''
+  const mainTitle = titleParts.join(' ')
 
   const filteredRoles = useMemo(() => {
     // Get unique role levels from organization hierarchy
@@ -197,7 +207,7 @@ export default function RoleManagementPage() {
               Bảo mật & Phân quyền
             </div>
             <h1 className="text-4xl md:text-5xl font-black text-white tracking-tight leading-tight">
-              Quản lý <span className="text-indigo-200">Vai trò</span>
+              {mainTitle} <span className="text-indigo-200">{lastWord}</span>
             </h1>
             <p className="text-indigo-100/80 font-medium mt-3 max-w-xl text-lg">
               Thiết lập hệ thống phân cấp và ma trận quyền hạn cho toàn bộ nhân sự trong tổ chức của bạn.

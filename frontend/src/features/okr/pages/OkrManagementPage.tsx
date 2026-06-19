@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useAuthStore } from '@/store/authStore'
 import { useObjectives, useOkrMutations } from '../hooks/useOkr'
+import { useSidebarSettings } from '@/features/organization/hooks/useSidebarSettings'
 import { 
   Plus, Target, ChevronDown, ChevronRight, 
   Edit2, Trash2, Calendar, 
@@ -26,6 +27,12 @@ export default function OkrManagementPage() {
   const organizationId = user?.memberships?.[0]?.organizationId
   const { data: objectives, isLoading } = useObjectives(organizationId)
   const { deleteObjective, deleteKeyResult, importOkrs } = useOkrMutations()
+
+  const { data: customLabels = {} } = useSidebarSettings(organizationId!)
+  const pageTitle = ((customLabels as Record<string, string>)['/okr'] || 'Quản lý OKR')
+    .split(' ')
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ')
   
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [isImportModalOpen, setIsImportModalOpen] = useState(false)
@@ -111,7 +118,7 @@ export default function OkrManagementPage() {
         <div>
           <h1 className="text-3xl font-black tracking-tight text-slate-900 dark:text-white flex items-center gap-3">
             <Target className="text-indigo-600" size={32} />
-            Quản lý OKR
+            {pageTitle}
           </h1>
           <p className="text-slate-500 font-medium mt-1">Thiết lập mục tiêu chiến lược và đo lường kết quả then chốt</p>
         </div>

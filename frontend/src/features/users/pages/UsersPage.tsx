@@ -18,6 +18,7 @@ import type { OrgUnitTreeResponse } from '@/features/organization/types/org-unit
 import { toast } from 'sonner'
 import { usePermission } from '@/hooks/usePermission'
 import { useAuthStore } from '@/store/authStore'
+import { useSidebarSettings } from '@/features/organization/hooks/useSidebarSettings'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { useRoles } from '@/features/organization/hooks/useRoles'
 import PageTour from '@/components/common/PageTour'
@@ -39,6 +40,11 @@ export default function UsersPage() {
   const fileRef = useRef<HTMLInputElement>(null)
   const user = useAuthStore(state => state.user)
   const organizationId = user?.memberships?.[0]?.organizationId
+  const { data: customLabels = {} } = useSidebarSettings(organizationId!)
+  const pageTitle = ((customLabels as Record<string, string>)['/users'] || 'Quản lý nhân sự')
+    .split(' ')
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ')
   const { data: hierarchyLevels } = useOrgHierarchyLevels(organizationId)
   const { data: orgTree } = useOrgUnitTree(organizationId)
   const { data: allRoles } = useRoles()
@@ -228,7 +234,7 @@ export default function UsersPage() {
       <PageTour pageKey="users" steps={usersSteps} />
       <div id="tour-users-header">
         <PageHeader
-          title="Quản lý Nhân sự"
+          title={pageTitle}
           description="Cơ sở dữ liệu toàn bộ cán bộ nhân viên"
           action={
             <div className="flex flex-wrap gap-3">
