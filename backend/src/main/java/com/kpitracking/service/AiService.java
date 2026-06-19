@@ -82,6 +82,7 @@ public class AiService {
         toolCtx.put("orgUnitId", ctx.orgUnitId());
         toolCtx.put("orgUnitPath", ctx.orgUnitPath());
         toolCtx.put("organizationId", ctx.orgId());
+        toolCtx.put("userEmail", ctx.email());
         if (hasMemory) {
             toolCtx.put("conversationId", conversationId);
         }

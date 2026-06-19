@@ -133,6 +133,12 @@ public class OrgUnitStatisticTool {
         return path != null ? path.toString() : null;
     }
 
+    private String getUserEmail(ToolContext context) {
+        if (context == null || context.getContext() == null) return null;
+        Object email = context.getContext().get("userEmail");
+        return email != null ? email.toString() : null;
+    }
+
     private void validateSubtreeAccess(UUID targetUnitId, ToolContext context) {
         String contextPath = getContextPath(context);
         if (contextPath == null) return;
@@ -418,7 +424,10 @@ public class OrgUnitStatisticTool {
     @Tool(name = "get_my_info", description = "Get the CURRENT logged-in user's own profile: their full name, contact info, the organizational unit(s) they belong to, their position/role, and their organization. Use for self-referential questions like 'tôi là ai', 'đơn vị của tôi tên gì', 'chức vụ của tôi', 'tôi thuộc tổ chức nào'.")
     public String getMyInfo(GetMyInfoRequest request, ToolContext context) {
         try {
-            String email = SecurityContextHolder.getContext().getAuthentication().getName();
+            String email = getUserEmail(context);
+            if (email == null || email.isBlank()) {
+                throw new IllegalStateException("Không xác định được người dùng hiện tại.");
+            }
             Map<String, Object> response = orgUnitStatisticService.getCurrentUserProfile(email);
             return respond(context, "get_my_info", response);
         } catch (Exception e) {
