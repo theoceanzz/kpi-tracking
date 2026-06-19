@@ -10,6 +10,8 @@ import {
 } from 'lucide-react'
 import PageTour from '@/components/common/PageTour'
 import { myAdjustmentsSteps } from '@/components/common/tourSteps'
+import { useAuthStore } from '@/store/authStore'
+import { useSidebarSettings } from '@/features/organization/hooks/useSidebarSettings'
 
 const CountdownTimer = ({ createdAt, status }: { createdAt: string, status: string }) => {
   const [timeLeft, setTimeLeft] = useState<string>('')
@@ -69,6 +71,14 @@ export default function MyAdjustmentsPage() {
 
   const adjustments = data?.content ?? []
 
+  const { user } = useAuthStore()
+  const orgId = user?.memberships?.[0]?.organizationId
+  const { data: customLabels = {} } = useSidebarSettings(orgId!)
+  const pageTitle = ((customLabels as Record<string, string>)['/my-adjustments'] || 'Yêu cầu điều chỉnh')
+    .split(' ')
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ')
+
   return (
     <div className="max-w-[1440px] mx-auto p-4 md:p-6 space-y-6 animate-in fade-in duration-500">
       <PageTour pageKey="my-adjustments" steps={myAdjustmentsSteps} />
@@ -81,7 +91,7 @@ export default function MyAdjustmentsPage() {
             <span className="text-xs font-black uppercase tracking-[2px]">Lịch sử điều chỉnh</span>
           </div>
           <h1 className="text-2xl md:text-3xl font-black tracking-tight text-slate-900 dark:text-white">
-            Yêu cầu thay đổi KPI
+            {pageTitle}
           </h1>
           <p className="text-sm text-slate-500 font-medium">Theo dõi trạng thái các yêu cầu thay đổi mục tiêu hoặc trọng số của bạn.</p>
         </div>

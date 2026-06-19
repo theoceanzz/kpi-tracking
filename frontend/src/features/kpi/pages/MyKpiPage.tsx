@@ -13,6 +13,7 @@ import {
 } from 'lucide-react'
 
 import { useAuthStore } from '@/store/authStore'
+import { useSidebarSettings } from '@/features/organization/hooks/useSidebarSettings'
 import { useKpiPeriods } from '../hooks/useKpiPeriods'
 import { useOrganization } from '@/features/orgunits/hooks/useOrganization'
 import { useObjectives } from '@/features/okr/hooks/useOkr'
@@ -51,6 +52,11 @@ export default function MyKpiPage() {
 
   const { data: periodsData } = useKpiPeriods({ organizationId: user?.memberships?.[0]?.organizationId })
   const organizationId = user?.memberships?.[0]?.organizationId
+  const { data: customLabels = {} } = useSidebarSettings(organizationId!)
+  const pageTitle = `Danh sách ${((customLabels as Record<string, string>)['/my-kpi'] || 'KPI của tôi').trim()}`
+    .split(' ')
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ')
   const { data: org } = useOrganization(organizationId)
   const enableWaterfall = org?.enableWaterfall
   const enableOkr = org?.enableOkr
@@ -124,7 +130,7 @@ export default function MyKpiPage() {
             <span className="text-[10px] font-black uppercase tracking-[0.2em] whitespace-nowrap">Mục tiêu cá nhân</span>
           </div>
           <h1 className="text-2xl font-black tracking-tight text-slate-900 dark:text-white whitespace-nowrap">
-            Danh sách KPI của tôi
+            {pageTitle}
           </h1>
         </div>
 

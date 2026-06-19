@@ -12,6 +12,7 @@ import { useAuthStore } from '@/store/authStore'
 import { useOrgUnitTree } from '@/features/orgunits/hooks/useOrgUnitTree'
 import { useKpiPeriods } from '@/features/kpi/hooks/useKpiPeriods'
 import { useOrganization } from '@/features/orgunits/hooks/useOrganization'
+import { useSidebarSettings } from '@/features/organization/hooks/useSidebarSettings'
 import { usePermission } from '@/hooks/usePermission'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import {
@@ -40,6 +41,15 @@ export default function OrgUnitSubmissionsPage() {
   const { data: org } = useOrganization(orgId)
   const { getScoreColor, getScoreBg, getScoreLabel } = getScoringFunctions(org)
   const isManager = useMemo(() => user?.memberships?.some(m => m.roleRank === 0), [user])
+
+  const { data: customLabels = {} } = useSidebarSettings(orgId!)
+  const rawTitle = ((customLabels as Record<string, string>)['/submissions/org-unit'] || 'Đánh giá Nhân viên')
+    .split(' ')
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ')
+  const titleParts = rawTitle.trim().split(' ')
+  const lastWord = titleParts.length > 1 ? titleParts.pop() : ''
+  const mainTitle = titleParts.join(' ')
 
   const { data: orgUnitTreeData } = useOrgUnitTree()
   const { data: periodsData } = useKpiPeriods({ organizationId: orgId })
@@ -225,7 +235,7 @@ export default function OrgUnitSubmissionsPage() {
                 </div>
                 <div className="space-y-0.5">
                   <h1 className="text-3xl md:text-4xl font-black tracking-tight text-slate-900 dark:text-white">
-                    Đánh giá <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-600 to-teal-600">Nhân viên</span>
+                    {mainTitle} <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-600 to-teal-600">{lastWord}</span>
                   </h1>
                   <p className="text-slate-500 dark:text-slate-400 font-medium text-sm max-w-xl leading-relaxed">
                     Theo dõi tiến độ nộp KPI và đánh giá kết quả của đội ngũ nhân sự trong kỳ.

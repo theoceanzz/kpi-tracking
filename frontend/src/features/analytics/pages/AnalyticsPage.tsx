@@ -13,6 +13,7 @@ import { analyticsSteps } from '@/components/common/tourSteps'
 import SubordinateManagementTab from './SubordinateManagementTab'
 import { useAuthStore } from '@/store/authStore'
 import { useOrganization } from '@/features/orgunits/hooks/useOrganization'
+import { useSidebarSettings } from '@/features/organization/hooks/useSidebarSettings'
 import AnalyticsTabSkeleton from '@/components/common/AnalyticsTabSkeleton'
 
 type TabKey = 'my-objectives' | 'my' | 'summary' | 'drilldown' | 'detail' | 'subordinate'
@@ -25,6 +26,11 @@ export default function AnalyticsPage() {
   const canSummary = canDrillDown
 
   const organizationId = user?.memberships?.[0]?.organizationId
+  const { data: customLabels = {} } = useSidebarSettings(organizationId!)
+  const pageTitle = ((customLabels as Record<string, string>)['/analytics'] || 'Thống kê')
+    .split(' ')
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ')
   const { data: org, isLoading: loadingOrg } = useOrganization(organizationId)
   const isOkr = org?.enableOkr ?? false
 
@@ -93,7 +99,7 @@ export default function AnalyticsPage() {
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 text-xs font-black uppercase tracking-widest mb-3">
             <TrendingUp size={14} /> Thống kê & Phân tích
           </div>
-          <h1 className="text-3xl font-black tracking-tight text-slate-900 dark:text-white">Thống kê</h1>
+          <h1 className="text-3xl font-black tracking-tight text-slate-900 dark:text-white">{pageTitle}</h1>
           <p className="text-slate-500 font-medium mt-1">Phân tích hiệu suất KPI, bài nộp và đánh giá</p>
         </div>
       </div>

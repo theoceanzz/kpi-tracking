@@ -16,6 +16,7 @@ import { toast } from 'sonner'
 import { useMyKpi } from '@/features/kpi/hooks/useMyKpi'
 import { useKpiPeriods } from '@/features/kpi/hooks/useKpiPeriods'
 import { useAuthStore } from '@/store/authStore'
+import { useSidebarSettings } from '@/features/organization/hooks/useSidebarSettings'
 import {
   Select,
   SelectContent,
@@ -50,6 +51,11 @@ export default function MySubmissionsPage() {
   
   const { user } = useAuthStore()
   const orgId = user?.memberships?.[0]?.organizationId
+  const { data: customLabels = {} } = useSidebarSettings(orgId!)
+  const pageTitle = ((customLabels as Record<string, string>)['/submissions'] || 'Tiến độ của tôi')
+    .split(' ')
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ')
   const { data: periodsData } = useKpiPeriods({ organizationId: orgId })
   
   const navigate = useNavigate()
@@ -145,7 +151,7 @@ export default function MySubmissionsPage() {
             <span className="text-xs font-black uppercase tracking-[2px]">Quản lý báo cáo</span>
           </div>
           <h1 className="text-2xl md:text-3xl font-black tracking-tight text-slate-900 dark:text-white">
-            Bài nộp của tôi
+            {pageTitle}
           </h1>
         </div>
 
