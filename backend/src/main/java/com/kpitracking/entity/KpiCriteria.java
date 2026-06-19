@@ -110,6 +110,9 @@ public class KpiCriteria {
     @Column(name = "expected_submissions")
     private Integer expectedSubmissions;
 
+    @Column(name = "deadline")
+    private Instant deadline;
+
     @OneToMany(mappedBy = "kpiCriteria", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     @Builder.Default
     private List<KpiSubmission> submissions = new ArrayList<>();
@@ -128,4 +131,8 @@ public class KpiCriteria {
 
     @Column(name = "deleted_at")
     private Instant deletedAt;
+
+    public Instant getEffectiveDeadline() {
+        return deadline != null ? deadline : (kpiPeriod != null ? kpiPeriod.getEndDate() : null);
+    }
 }

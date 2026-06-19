@@ -17,7 +17,7 @@ import {
   Target, Plus, Send, Pencil, Trash2, MoreVertical,
   Calendar, AlertCircle, Search, HelpCircle,
   Filter, UserCircle2, Upload, Gauge, Eye,
-  LayoutGrid, List, ArrowUpDown, ChevronLeft, ChevronRight, ChevronDown, GitBranch, ListPlus
+  LayoutGrid, List, ArrowUpDown, ChevronLeft, ChevronRight, ChevronDown, GitBranch, ListPlus, CornerDownRight
 } from 'lucide-react'
 import KpiDetailModal from '../components/KpiDetailModal'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
@@ -67,6 +67,7 @@ export default function KpiCriteriaPage() {
   const [selectedObjectiveId, setSelectedObjectiveId] = useState<string>('ALL')
   const [selectedKeyResultId, setSelectedKeyResultId] = useState<string>('ALL')
   const [selectedAssigneeId, setSelectedAssigneeId] = useState<string>('ALL')
+  const [kpiTypeFilter, setKpiTypeFilter] = useState<'ALL' | 'PARENT_CHILD' | 'BONUS' | 'NORMAL' | 'REVERSE'>('ALL')
   
   const [importFile, setImportFile] = useState<File | null>(null)
   const [showPreview, setShowPreview] = useState(false)
@@ -165,7 +166,10 @@ export default function KpiCriteriaPage() {
       sortDir,
       objectiveId: selectedObjectiveId === 'ALL' ? undefined : selectedObjectiveId,
       keyResultId: selectedKeyResultId === 'ALL' ? undefined : selectedKeyResultId,
-      assigneeId: selectedAssigneeId === 'ALL' ? undefined : selectedAssigneeId
+      assigneeId: selectedAssigneeId === 'ALL' ? undefined : selectedAssigneeId,
+      kpiNature: kpiTypeFilter === 'PARENT_CHILD' ? 'PARENT_CHILD' : kpiTypeFilter === 'NORMAL' ? 'STANDALONE' : undefined,
+      isBonusKpi: kpiTypeFilter === 'BONUS' ? true : kpiTypeFilter === 'NORMAL' ? false : undefined,
+      isReverseKpi: kpiTypeFilter === 'REVERSE' ? true : kpiTypeFilter === 'NORMAL' ? false : undefined
     },
     { enabled: !!user?.id }
   )
@@ -522,6 +526,23 @@ export default function KpiCriteriaPage() {
                       </SelectContent>
                     </Select>
                   </div>
+                </div>
+
+                {/* Group: KPI Type */}
+                <div className="w-full sm:w-56">
+                  <Select value={kpiTypeFilter} onValueChange={val => { setKpiTypeFilter(val as typeof kpiTypeFilter); setPage(0) }}>
+                    <SelectTrigger className="w-full h-10 rounded-[16px] border-none bg-slate-100/50 dark:bg-slate-800/50 shadow-sm font-bold text-xs ring-offset-transparent focus:ring-2 focus:ring-indigo-500/20">
+                      <Filter size={14} className="text-violet-500 mr-2" />
+                      <SelectValue placeholder="Loại KPI..." />
+                    </SelectTrigger>
+                    <SelectContent className="rounded-2xl border-slate-200 dark:border-slate-800 shadow-2xl p-2">
+                      <SelectItem value="ALL" className="rounded-xl focus:bg-indigo-50 dark:focus:bg-indigo-900/30 text-xs font-black uppercase">Tất cả loại KPI</SelectItem>
+                      <SelectItem value="PARENT_CHILD" className="rounded-xl focus:bg-indigo-50 dark:focus:bg-indigo-900/30 text-sm font-bold">KPI cha</SelectItem>
+                      <SelectItem value="BONUS" className="rounded-xl focus:bg-indigo-50 dark:focus:bg-indigo-900/30 text-sm font-bold">KPI thưởng</SelectItem>
+                      <SelectItem value="NORMAL" className="rounded-xl focus:bg-indigo-50 dark:focus:bg-indigo-900/30 text-sm font-bold">KPI thường</SelectItem>
+                      <SelectItem value="REVERSE" className="rounded-xl focus:bg-indigo-50 dark:focus:bg-indigo-900/30 text-sm font-bold">KPI ngược</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
 
                 {/* Group: Time Range */}
@@ -954,7 +975,7 @@ function KpiTableRow({ kpi, depth = 0, childCount = 0, isCollapsed, onToggleColl
         </div>
       </td>
       <td className="px-2 py-4">
-        <div className="flex items-start gap-1.5" style={{ paddingLeft: isChildRow ? 24 : 0 }}>
+        <div className="flex items-start gap-1.5" style={{ paddingLeft: isChildRow ? 28 : 0 }}>
           {!isChildRow && childCount > 0 && (
             <button
               onClick={(e) => { e.stopPropagation(); onToggleCollapse?.() }}
@@ -963,6 +984,9 @@ function KpiTableRow({ kpi, depth = 0, childCount = 0, isCollapsed, onToggleColl
             >
               <ChevronDown size={14} className={cn("transition-transform", isCollapsed && "-rotate-90")} />
             </button>
+          )}
+          {isChildRow && (
+            <CornerDownRight size={14} className="shrink-0 mt-1.5 text-slate-300 dark:text-slate-600" />
           )}
           <button onClick={onView} className="max-w-[280px] text-left group/name focus:outline-none">
             <div className="flex items-center gap-1.5 flex-wrap">

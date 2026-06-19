@@ -88,6 +88,8 @@ public class KpiCriteriaService {
         com.kpitracking.entity.KpiPeriod kpiPeriod = kpiPeriodRepository.findById(request.getKpiPeriodId())
                 .orElseThrow(() -> new ResourceNotFoundException("Kỳ đánh giá (Đợt)", "id", request.getKpiPeriodId()));
 
+        validateDeadlineWithinPeriod(request.getDeadline(), kpiPeriod);
+
         if (request.getFrequency().ordinal() > kpiPeriod.getPeriodType().ordinal()) {
             throw new BusinessException("Tần suất đánh giá (Tháng/Quý/Năm) phải nhỏ hơn hoặc bằng loại kỳ đánh giá (Đợt).");
         }
@@ -145,6 +147,16 @@ public class KpiCriteriaService {
         return lastKpi != null ? kpiCriteriaMapper.toResponse(lastKpi) : null;
     }
 
+    private void validateDeadlineWithinPeriod(Instant deadline, com.kpitracking.entity.KpiPeriod period) {
+        if (deadline == null) return;
+        if (period.getStartDate() != null && deadline.isBefore(period.getStartDate())) {
+            throw new BusinessException("Hạn chót (deadline) không được trước ngày bắt đầu của kỳ đánh giá.");
+        }
+        if (period.getEndDate() != null && deadline.isAfter(period.getEndDate())) {
+            throw new BusinessException("Hạn chót (deadline) không được sau ngày kết thúc của kỳ đánh giá.");
+        }
+    }
+
     private KpiCriteria buildKpiEntity(CreateKpiCriteriaRequest request, OrgUnit orgUnit, java.util.List<User> assignees, User creator, KpiStatus status, com.kpitracking.entity.KpiPeriod kpiPeriod) {
         KpiCriteria kpi = KpiCriteria.builder()
                 .orgUnit(orgUnit)
@@ -157,6 +169,7 @@ public class KpiCriteriaService {
                 .isReverseKpi(Boolean.TRUE.equals(request.getIsReverseKpi()))
                 .isBonusKpi(Boolean.TRUE.equals(request.getIsBonusKpi()))
                 .unit(request.getUnit())
+                .deadline(request.getDeadline())
                 .frequency(request.getFrequency())
                 .status(status)
                 .createdBy(creator)
@@ -242,7 +255,7 @@ public class KpiCriteriaService {
     }
 
     @Transactional(readOnly = true)
-    public PageResponse<KpiCriteriaResponse> getKpiCriteria(int page, int size, KpiStatus status, UUID orgUnitId, UUID createdById, UUID assigneeId, UUID kpiPeriodId, String keyword, Instant startDate, Instant endDate, String sortBy, String sortDir, UUID objectiveId, UUID keyResultId, boolean approvalMode) {
+    public PageResponse<KpiCriteriaResponse> getKpiCriteria(int page, int size, KpiStatus status, UUID orgUnitId, UUID createdById, UUID assigneeId, UUID kpiPeriodId, String keyword, Instant startDate, Instant endDate, String sortBy, String sortDir, UUID objectiveId, UUID keyResultId, boolean approvalMode, String kpiNature, Boolean isBonusKpi, Boolean isReverseKpi) {
         User currentUser = getCurrentUser();
         UUID organizationId = getCurrentUserOrganizationId(currentUser);
 
@@ -279,6 +292,9 @@ public class KpiCriteriaService {
                 endDate,
                 objectiveId,
                 keyResultId,
+                kpiNature,
+                isBonusKpi,
+                isReverseKpi,
                 pageable
         );
 
@@ -367,6 +383,10 @@ public class KpiCriteriaService {
         if (request.getIsReverseKpi() != null) kpi.setIsReverseKpi(request.getIsReverseKpi());
         if (request.getIsBonusKpi() != null) kpi.setIsBonusKpi(request.getIsBonusKpi());
         if (request.getUnit() != null) kpi.setUnit(request.getUnit());
+        if (request.getDeadline() != null) {
+            validateDeadlineWithinPeriod(request.getDeadline(), kpi.getKpiPeriod());
+            kpi.setDeadline(request.getDeadline());
+        }
 
         // When pending approval, only basic fields above are editable
         if (kpi.getStatus() == KpiStatus.PENDING_APPROVAL) {
@@ -378,6 +398,9 @@ public class KpiCriteriaService {
             com.kpitracking.entity.KpiPeriod kpiPeriod = kpiPeriodRepository.findById(request.getKpiPeriodId())
                     .orElseThrow(() -> new ResourceNotFoundException("Kỳ đánh giá (Đợt)", "id", request.getKpiPeriodId()));
             kpi.setKpiPeriod(kpiPeriod);
+            if (request.getDeadline() != null) {
+                validateDeadlineWithinPeriod(request.getDeadline(), kpiPeriod);
+            }
         }
 
         if (request.getFrequency() != null) {
@@ -839,6 +862,7 @@ public class KpiCriteriaService {
                                 record.isMapped("KeyResultCode") ? record.get("KeyResultCode") : null,
                                 record.isMapped("IsReverseKpi") ? record.get("IsReverseKpi") : null,
                                 record.isMapped("IsBonusKpi") ? record.get("IsBonusKpi") : null,
+                                record.isMapped("Deadline") ? record.get("Deadline") : null,
                                 kpiPeriod, orgUnit, currentUser, affectedUserPairs, userOrgId);
                             successfulImports++;
                         } catch (Exception e) {
@@ -852,7 +876,7 @@ public class KpiCriteriaService {
                     Row headerRow = sheet.getRow(0);
                     if (headerRow == null) throw new BusinessException("File Excel trống");
 
-                    int nameIdx = -1, descIdx = -1, weightIdx = -1, targetIdx = -1, minIdx = -1, unitIdx = -1, freqIdx = -1, codeIdx = -1, namePeriodIdx = -1, nameOrgIdx = -1, krCodeIdx = -1, isReverseKpiIdx = -1, isBonusKpiIdx = -1;
+                    int nameIdx = -1, descIdx = -1, weightIdx = -1, targetIdx = -1, minIdx = -1, unitIdx = -1, freqIdx = -1, codeIdx = -1, namePeriodIdx = -1, nameOrgIdx = -1, krCodeIdx = -1, isReverseKpiIdx = -1, isBonusKpiIdx = -1, deadlineIdx = -1;
                     for (int i = 0; i < headerRow.getLastCellNum(); i++) {
                         String header = headerRow.getCell(i).getStringCellValue().trim();
                         if (header.equalsIgnoreCase("Name")) nameIdx = i;
@@ -868,6 +892,7 @@ public class KpiCriteriaService {
                         else if (header.equalsIgnoreCase("KeyResultCode")) krCodeIdx = i;
                         else if (header.equalsIgnoreCase("IsReverseKpi")) isReverseKpiIdx = i;
                         else if (header.equalsIgnoreCase("IsBonusKpi")) isBonusKpiIdx = i;
+                        else if (header.equalsIgnoreCase("Deadline")) deadlineIdx = i;
                     }
 
                     if (nameIdx == -1 || weightIdx == -1 || targetIdx == -1 || freqIdx == -1 || codeIdx == -1) {
@@ -893,6 +918,7 @@ public class KpiCriteriaService {
                                 krCodeIdx != -1 ? getCellValueAsString(row.getCell(krCodeIdx)) : null,
                                 isReverseKpiIdx != -1 ? getCellValueAsString(row.getCell(isReverseKpiIdx)) : null,
                                 isBonusKpiIdx != -1 ? getCellValueAsString(row.getCell(isBonusKpiIdx)) : null,
+                                deadlineIdx != -1 ? getCellValueAsString(row.getCell(deadlineIdx)) : null,
                                 kpiPeriod, orgUnit, currentUser, affectedUserPairs, userOrgId
                             );
                             successfulImports++;
@@ -955,7 +981,7 @@ public class KpiCriteriaService {
     }
 
     private void processKpiRow(String name, String desc, String weight, String target, String min, String unit, String freq, String empCode,
-                              String periodName, String orgName, String krCode, String isReverseKpiStr, String isBonusKpiStr,
+                              String periodName, String orgName, String krCode, String isReverseKpiStr, String isBonusKpiStr, String deadlineStr,
                               com.kpitracking.entity.KpiPeriod defaultPeriod, OrgUnit defaultUnit, User creator,
                               java.util.Set<String> affectedUserPairs, UUID organizationId) {
         if (name == null || name.isBlank()) throw new BusinessException("Tên chỉ tiêu là bắt buộc");
@@ -982,6 +1008,9 @@ public class KpiCriteriaService {
         if (finalPeriod == null) {
             throw new BusinessException("Vui lòng chọn đợt KPI hoặc cung cấp tên đợt trong file Excel");
         }
+
+        Instant deadlineVal = parseImportDeadline(deadlineStr);
+        validateDeadlineWithinPeriod(deadlineVal, finalPeriod);
 
         // Resolve org units — support comma-separated values e.g. "MK1, MK2"
         java.util.List<OrgUnit> finalUnits = new java.util.ArrayList<>();
@@ -1069,6 +1098,7 @@ public class KpiCriteriaService {
                     .minimumValue(min != null && !min.isBlank() ? Double.parseDouble(min) : null)
                     .isReverseKpi(parseBoolean(isReverseKpiStr))
                     .isBonusKpi(parseBoolean(isBonusKpiStr))
+                    .deadline(deadlineVal)
                     .unit(unit)
                     .frequency(frequency)
                     .assignees(assignees)
@@ -1146,5 +1176,30 @@ public class KpiCriteriaService {
         if (value == null || value.isBlank()) return false;
         String v = value.trim().toLowerCase();
         return v.equals("true") || v.equals("1") || v.equals("yes") || v.equals("x") || v.equals("có");
+    }
+
+    private Instant parseImportDeadline(String raw) {
+        if (raw == null || raw.isBlank()) return null;
+        String value = raw.trim();
+
+        // Accepts "dd/MM/yyyy HH:mm" or "dd/MM/yyyy" (defaults to end-of-day 23:59)
+        try {
+            String datePart = value.length() > 10 ? value.substring(0, 10) : value;
+            java.time.LocalDate date = java.time.LocalDate.parse(datePart, java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy"));
+            java.time.LocalTime time = value.length() > 10
+                    ? java.time.LocalTime.parse(value.substring(11).trim(), java.time.format.DateTimeFormatter.ofPattern("HH:mm"))
+                    : java.time.LocalTime.of(23, 59);
+            return java.time.LocalDateTime.of(date, time).atZone(java.time.ZoneId.systemDefault()).toInstant();
+        } catch (Exception ignored) {
+            // try ISO-8601 fallback below
+        }
+
+        try {
+            return Instant.parse(value);
+        } catch (Exception ignored) {
+            // fall through to error
+        }
+
+        throw new BusinessException("Deadline '" + raw + "' không đúng định dạng. Vui lòng dùng dd/MM/yyyy hoặc dd/MM/yyyy HH:mm.");
     }
 }

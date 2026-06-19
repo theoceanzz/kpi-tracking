@@ -117,8 +117,7 @@ public class PersonalKpiAnalyticsService {
                 totalPerf += m[1];
                 activeCount++;
                 if (m[0] >= 100) completedCount++; else runningCount++;
-                Instant kpiEnd = kpi.getKpiPeriod() != null && kpi.getKpiPeriod().getEndDate() != null
-                        ? kpi.getKpiPeriod().getEndDate() : null;
+                Instant kpiEnd = kpi.getEffectiveDeadline();
                 if (kpiEnd != null) {
                     long daysLeft = (kpiEnd.toEpochMilli() - now.toEpochMilli()) / (1000 * 60 * 60 * 24);
                     if (daysLeft <= 7 && m[0] < 50) riskCount++;

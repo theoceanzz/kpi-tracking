@@ -21,6 +21,9 @@ export function useKpiCriteria(params: {
   keyResultId?: string;
   assigneeId?: string;
   approvalMode?: boolean;
+  kpiNature?: 'PARENT_CHILD' | 'STANDALONE';
+  isBonusKpi?: boolean;
+  isReverseKpi?: boolean;
 } = {}, options: any = {}) {
   return useQuery<PageResponse<KpiCriteria>>({
     queryKey: ['kpi-criteria', 'all', params],

@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react'
 import LoadingSkeleton from '@/components/common/LoadingSkeleton'
 import EmptyState from '@/components/common/EmptyState'
 import ConfirmDialog from '@/components/common/ConfirmDialog'
-import { format, addDays, parseISO, addMonths, addYears, subDays } from 'date-fns'
+import { format, addDays, parseISO, addMonths, addYears, subDays, differenceInCalendarDays } from 'date-fns'
 import { useKpiPeriods } from '../hooks/useKpiPeriods'
 import { useAuthStore } from '@/store/authStore'
 import { useSidebarSettings } from '@/features/organization/hooks/useSidebarSettings'
@@ -458,6 +458,34 @@ interface PeriodFormModalProps {
   isSubmitting: boolean
 }
 
+function computeStandardEndDate(start: Date, type: KpiFrequency): Date {
+  let end: Date
+  switch (type) {
+    case 'DAILY':
+      end = new Date(start)
+      break
+    case 'WEEKLY':
+      end = addDays(start, 6)
+      break
+    case 'MONTHLY':
+      end = subDays(addMonths(start, 1), 1)
+      break
+    case 'QUARTERLY':
+      end = subDays(addMonths(start, 3), 1)
+      break
+    case 'SEMI_ANNUALLY':
+      end = subDays(addMonths(start, 6), 1)
+      break
+    case 'YEARLY':
+      end = subDays(addYears(start, 1), 1)
+      break
+    default:
+      end = new Date(start)
+  }
+  end.setHours(23, 59, 59, 999)
+  return end
+}
+
 function PeriodFormModal({ onClose, editPeriod, organizationId, onSubmit, isSubmitting }: PeriodFormModalProps) {
   const [formData, setFormData] = useState({
     name: editPeriod?.name || '',
@@ -466,6 +494,7 @@ function PeriodFormModal({ onClose, editPeriod, organizationId, onSubmit, isSubm
     endDate: editPeriod?.endDate ? format(parseISO(editPeriod.endDate), "yyyy-MM-dd'T'HH:mm") : '',
     notificationDate: editPeriod?.notificationDate ? format(parseISO(editPeriod.notificationDate), "yyyy-MM-dd'T'HH:mm") : '',
   })
+  const [showMismatchConfirm, setShowMismatchConfirm] = useState(false)
 
   // Auto calculate end date on mount if creating new
   useState(() => {
@@ -477,36 +506,11 @@ function PeriodFormModal({ onClose, editPeriod, organizationId, onSubmit, isSubm
   function calculateEndDate(startStr: string, type: KpiFrequency) {
     if (!startStr) return
     const start = new Date(startStr)
-    let end: Date
-
-    switch (type) {
-      case 'DAILY': 
-        end = new Date(start)
-        break
-      case 'WEEKLY': 
-        end = addDays(start, 6)
-        break
-      case 'MONTHLY': 
-        end = subDays(addMonths(start, 1), 1)
-        break
-      case 'QUARTERLY': 
-        end = subDays(addMonths(start, 3), 1)
-        break
-      case 'SEMI_ANNUALLY': 
-        end = subDays(addMonths(start, 6), 1)
-        break
-      case 'YEARLY': 
-        end = subDays(addYears(start, 1), 1)
-        break
-      default: 
-        end = new Date(start)
-    }
-    end.setHours(23, 59, 59, 999)
-
+    const end = computeStandardEndDate(start, type)
     const notification = new Date(start.getTime() + (end.getTime() - start.getTime()) / 2)
 
-    setFormData(prev => ({ 
-      ...prev, 
+    setFormData(prev => ({
+      ...prev,
       endDate: format(end, "yyyy-MM-dd'T'HH:mm"),
       notificationDate: format(notification, "yyyy-MM-dd'T'HH:mm")
     }))
@@ -518,32 +522,9 @@ function PeriodFormModal({ onClose, editPeriod, organizationId, onSubmit, isSubm
       if (field === 'startDate' || field === 'periodType') {
         const start = field === 'startDate' ? value : prev.startDate
         const type = field === 'periodType' ? value as KpiFrequency : prev.periodType
-        
+
         const startDateObj = new Date(start)
-        let endDateObj: Date
-        switch (type) {
-          case 'DAILY': 
-            endDateObj = new Date(startDateObj)
-            break
-          case 'WEEKLY': 
-            endDateObj = addDays(startDateObj, 6)
-            break
-          case 'MONTHLY': 
-            endDateObj = subDays(addMonths(startDateObj, 1), 1)
-            break
-          case 'QUARTERLY': 
-            endDateObj = subDays(addMonths(startDateObj, 3), 1)
-            break
-          case 'SEMI_ANNUALLY': 
-            endDateObj = subDays(addMonths(startDateObj, 6), 1)
-            break
-          case 'YEARLY': 
-            endDateObj = subDays(addYears(startDateObj, 1), 1)
-            break
-          default: 
-            endDateObj = new Date(startDateObj)
-        }
-        endDateObj.setHours(23, 59, 59, 999)
+        const endDateObj = computeStandardEndDate(startDateObj, type)
 
         next.endDate = format(endDateObj, "yyyy-MM-dd'T'HH:mm")
 
@@ -562,9 +543,20 @@ function PeriodFormModal({ onClose, editPeriod, organizationId, onSubmit, isSubm
     })
   }
 
+  const submitForm = async () => {
+    await onSubmit({
+      ...formData,
+      startDate: new Date(formData.startDate).toISOString(),
+      endDate: new Date(formData.endDate).toISOString(),
+      notificationDate: formData.notificationDate ? new Date(formData.notificationDate).toISOString() : null,
+      organizationId
+    })
+    onClose()
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    
+
     const start = new Date(formData.startDate).getTime()
     const end = new Date(formData.endDate).getTime()
     const notification = formData.notificationDate ? new Date(formData.notificationDate).getTime() : null
@@ -581,15 +573,22 @@ function PeriodFormModal({ onClose, editPeriod, organizationId, onSubmit, isSubm
       }
     }
 
-    await onSubmit({
-      ...formData,
-      startDate: new Date(formData.startDate).toISOString(),
-      endDate: new Date(formData.endDate).toISOString(),
-      notificationDate: formData.notificationDate ? new Date(formData.notificationDate).toISOString() : null,
-      organizationId
-    })
-    onClose()
+    const standardEnd = computeStandardEndDate(new Date(formData.startDate), formData.periodType).getTime()
+    if (Math.abs(end - standardEnd) > 60 * 1000) {
+      setShowMismatchConfirm(true)
+      return
+    }
+
+    await submitForm()
   }
+
+  const selectedDays = formData.startDate && formData.endDate
+    ? differenceInCalendarDays(new Date(formData.endDate), new Date(formData.startDate)) + 1
+    : 0
+  const standardDays = formData.startDate
+    ? differenceInCalendarDays(computeStandardEndDate(new Date(formData.startDate), formData.periodType), new Date(formData.startDate)) + 1
+    : 0
+  const mismatchDescription = `Bạn đã chọn ${selectedDays} ngày, trong khi chu kỳ "${FREQUENCY_MAP[formData.periodType]}" tiêu chuẩn là ${standardDays} ngày. Hệ thống sẽ không tự kiểm tra lại — bạn tự chịu trách nhiệm với khoảng thời gian đã chọn.`
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -656,9 +655,18 @@ function PeriodFormModal({ onClose, editPeriod, organizationId, onSubmit, isSubm
               </div>
 
               <div className="space-y-2">
-                <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 ml-1">Kết thúc (Tự động tính)</label>
-                <div className="h-[52px] flex items-center px-6 rounded-[22px] border border-slate-100 dark:border-slate-800 bg-slate-100/50 dark:bg-slate-800/50 text-sm font-bold opacity-60">
-                  {formData.endDate ? format(new Date(formData.endDate), 'dd/MM/yyyy HH:mm') : '—'}
+                <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 ml-1">Kết thúc</label>
+                <div className="relative">
+                  <input
+                    type="datetime-local"
+                    value={formData.endDate}
+                    onChange={e => handleFieldChange('endDate', e.target.value)}
+                    required
+                    className="w-full px-6 py-4 rounded-[22px] border border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50 focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500/50 outline-none text-sm font-bold transition-all text-transparent"
+                  />
+                  <div className="absolute inset-0 left-6 flex items-center pointer-events-none text-sm font-bold text-slate-900 dark:text-white">
+                    {formData.endDate ? format(new Date(formData.endDate), 'dd/MM/yyyy HH:mm') : ''}
+                  </div>
                 </div>
               </div>
 
@@ -699,6 +707,16 @@ function PeriodFormModal({ onClose, editPeriod, organizationId, onSubmit, isSubm
           </form>
         </div>
       </div>
+
+      <ConfirmDialog
+        open={showMismatchConfirm}
+        title="Bạn có chắc chắn?"
+        description={mismatchDescription}
+        confirmLabel="Vẫn tạo đợt này"
+        onConfirm={async () => { setShowMismatchConfirm(false); await submitForm() }}
+        onClose={() => setShowMismatchConfirm(false)}
+        loading={isSubmitting}
+      />
     </div>
   )
 }

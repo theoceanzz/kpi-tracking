@@ -55,8 +55,11 @@ public class KpiCriteriaController {
             @RequestParam(defaultValue = "desc") String sortDir,
             @RequestParam(required = false) UUID objectiveId,
             @RequestParam(required = false) UUID keyResultId,
-            @RequestParam(defaultValue = "false") boolean approvalMode) {
-        PageResponse<KpiCriteriaResponse> response = kpiCriteriaService.getKpiCriteria(page, size, status, orgUnitId, createdById, assigneeId, kpiPeriodId, keyword, startDate, endDate, sortBy, sortDir, objectiveId, keyResultId, approvalMode);
+            @RequestParam(defaultValue = "false") boolean approvalMode,
+            @RequestParam(required = false) String kpiNature,
+            @RequestParam(required = false) Boolean isBonusKpi,
+            @RequestParam(required = false) Boolean isReverseKpi) {
+        PageResponse<KpiCriteriaResponse> response = kpiCriteriaService.getKpiCriteria(page, size, status, orgUnitId, createdById, assigneeId, kpiPeriodId, keyword, startDate, endDate, sortBy, sortDir, objectiveId, keyResultId, approvalMode, kpiNature, isBonusKpi, isReverseKpi);
         return ResponseEntity.ok(ApiResponse.success(response));
     }
 

@@ -125,7 +125,7 @@ public class PersonalObjectiveAnalyticsService {
                 }
 
                 // Check risk (progress < 50% and close to deadline within 7 days or overdue)
-                Instant kpiEnd = kpi.getKpiPeriod() != null && kpi.getKpiPeriod().getEndDate() != null ? kpi.getKpiPeriod().getEndDate() : null;
+                Instant kpiEnd = kpi.getEffectiveDeadline();
                 if (kpiEnd != null) {
                     long daysLeft = (kpiEnd.toEpochMilli() - now.toEpochMilli()) / (1000 * 60 * 60 * 24);
                     if (daysLeft <= 7 && metrics[0] < 50) {

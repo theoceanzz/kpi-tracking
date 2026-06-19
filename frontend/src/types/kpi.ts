@@ -38,6 +38,8 @@ export interface KpiCriteria {
   minimumValue: number | null
   isReverseKpi: boolean
   isBonusKpi: boolean
+  deadline: string | null
+  effectiveDeadline: string | null
   kpiPeriodId: string
   kpiPeriod: KpiPeriod
   submissionCount: number
@@ -74,6 +76,7 @@ export interface CreateKpiRequest {
   minimumValue?: number
   isReverseKpi?: boolean
   isBonusKpi?: boolean
+  deadline?: string | null
   kpiPeriodId: string
   keyResultId?: string | null
   parentId?: string | null
@@ -95,6 +98,7 @@ export interface UpdateKpiRequest {
   minimumValue?: number
   isReverseKpi?: boolean
   isBonusKpi?: boolean
+  deadline?: string | null
   kpiPeriodId?: string
   keyResultId?: string | null
   parentId?: string | null

@@ -14,7 +14,7 @@ import {
   Users, Building2, ChevronRight, ArrowUpDown,
   Calendar, ChevronLeft, Search, CheckCircle,
   ShieldCheck, Target, GitBranch,
-  Loader2, ChevronDown
+  Loader2, ChevronDown, CornerDownRight
 } from 'lucide-react'
 import { buildKpiRows } from '../utils/kpiTree'
 import { useAuthStore } from '@/store/authStore'
@@ -462,7 +462,7 @@ export default function KpiApprovalPage() {
                           </div>
                         </td>
                         <td className="px-4 py-5">
-                          <div className="flex items-start gap-1.5" style={{ paddingLeft: isChildRow ? 20 : 0 }}>
+                          <div className="flex items-start gap-1.5" style={{ paddingLeft: isChildRow ? 28 : 0 }}>
                             {!isChildRow && childKpis.length > 0 && (
                               <button
                                 onClick={(e) => { e.stopPropagation(); toggleParentCollapse(kpi.id) }}
@@ -471,6 +471,9 @@ export default function KpiApprovalPage() {
                               >
                                 <ChevronDown size={14} className={cn("transition-transform", collapsedParents.has(kpi.id) && "-rotate-90")} />
                               </button>
+                            )}
+                            {isChildRow && (
+                              <CornerDownRight size={14} className="shrink-0 mt-1 text-slate-300 dark:text-slate-600" />
                             )}
                             <button onClick={() => setReviewKpi(kpi)} className="max-w-[240px] text-left group/name focus:outline-none">
                               <div className="flex items-center gap-1.5 flex-wrap">

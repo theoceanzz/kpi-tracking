@@ -35,6 +35,8 @@ public class KpiCriteriaResponse {
     private Double minimumValue;
     private Boolean isReverseKpi;
     private Boolean isBonusKpi;
+    private Instant deadline;
+    private Instant effectiveDeadline;
     private UUID kpiPeriodId;
     private KpiPeriodResponse kpiPeriod;
     private Integer submissionCount;

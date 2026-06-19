@@ -1034,7 +1034,7 @@ public class SubordinateAnalyticsService {
                     if (kpiMetrics[0] >= 100) completedCount++;
                     
                     boolean closeDeadline = false;
-                    Instant kpiEnd = kpi.getKpiPeriod() != null && kpi.getKpiPeriod().getEndDate() != null ? kpi.getKpiPeriod().getEndDate() : objEnd;
+                    Instant kpiEnd = kpi.getEffectiveDeadline() != null ? kpi.getEffectiveDeadline() : objEnd;
                     long daysLeft = (kpiEnd.toEpochMilli() - Instant.now().toEpochMilli()) / (1000 * 60 * 60 * 24);
                     if (daysLeft >= 0 && daysLeft <= 7) closeDeadline = true;
                     if (kpiMetrics[0] < 50 && closeDeadline) atRiskCount++;
@@ -1220,8 +1220,9 @@ public class SubordinateAnalyticsService {
 
         // Calculate near-deadline submission count (days left in period <= 7)
         int atRiskCount = 0;
-        if (kpi.getKpiPeriod() != null && kpi.getKpiPeriod().getEndDate() != null) {
-            long daysLeft = (kpi.getKpiPeriod().getEndDate().toEpochMilli() - Instant.now().toEpochMilli()) / (1000 * 60 * 60 * 24);
+        Instant effectiveDeadline = kpi.getEffectiveDeadline();
+        if (effectiveDeadline != null) {
+            long daysLeft = (effectiveDeadline.toEpochMilli() - Instant.now().toEpochMilli()) / (1000 * 60 * 60 * 24);
             if (daysLeft >= 0 && daysLeft <= 7) {
                 atRiskCount = 1;
             }

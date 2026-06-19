@@ -113,8 +113,8 @@ SelectLabel.displayName = SelectPrimitive.Label.displayName
 
 const SelectItem = React.forwardRef<
   React.ElementRef<typeof SelectPrimitive.Item>,
-  React.ComponentPropsWithoutRef<typeof SelectPrimitive.Item>
->(({ className, children, ...props }, ref) => (
+  React.ComponentPropsWithoutRef<typeof SelectPrimitive.Item> & { extra?: React.ReactNode }
+>(({ className, children, extra, ...props }, ref) => (
   <SelectPrimitive.Item
     ref={ref}
     className={cn(
@@ -129,7 +129,11 @@ const SelectItem = React.forwardRef<
       </SelectPrimitive.ItemIndicator>
     </span>
 
+    {/* Only the text passed here gets cloned into the closed trigger's SelectValue —
+        keep it to a single concise line. Pass `extra` for richer subtext that should
+        only appear in the open dropdown list, not duplicated into the trigger. */}
     <SelectPrimitive.ItemText>{children}</SelectPrimitive.ItemText>
+    {extra}
   </SelectPrimitive.Item>
 ))
 SelectItem.displayName = SelectPrimitive.Item.displayName

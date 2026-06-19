@@ -623,7 +623,7 @@ public class OrgUnitStatisticService {
         }
 
         Long overdue = entityManager.createQuery(
-                "SELECT COUNT(DISTINCT k.id) FROM KpiCriteria k JOIN k.kpiPeriod p WHERE k.id IN :kpiIds AND p.endDate < CURRENT_TIMESTAMP", Long.class)
+                "SELECT COUNT(DISTINCT k.id) FROM KpiCriteria k JOIN k.kpiPeriod p WHERE k.id IN :kpiIds AND COALESCE(k.deadline, p.endDate) < CURRENT_TIMESTAMP", Long.class)
                 .setParameter("kpiIds", kpiIds)
                 .getSingleResult();
 
@@ -664,7 +664,7 @@ public class OrgUnitStatisticService {
         detail.put("unit", k.getUnit());
         detail.put("progress", Math.round(metrics[0] * 100.0) / 100.0);
         detail.put("performance", Math.round(metrics[1] * 100.0) / 100.0);
-        detail.put("deadline", (k.getKpiPeriod() != null && k.getKpiPeriod().getEndDate() != null) ? k.getKpiPeriod().getEndDate().toString() : null);
+        detail.put("deadline", k.getEffectiveDeadline() != null ? k.getEffectiveDeadline().toString() : null);
         detail.put("periodName", k.getKpiPeriod() != null ? k.getKpiPeriod().getName() : null);
         detail.put("createdBy", k.getCreatedBy().getFullName());
         detail.put("assignees", assigneesList);
@@ -1004,7 +1004,7 @@ public class OrgUnitStatisticService {
             if (k.getParent() != null) continue;
             double[] kpiMetrics = calculateKpiMetrics(k, start, end);
             double progress = kpiMetrics[0];
-            Instant deadline = (k.getKpiPeriod() != null) ? k.getKpiPeriod().getEndDate() : null;
+            Instant deadline = k.getEffectiveDeadline();
 
             boolean overdue = deadline != null && deadline.isBefore(Instant.now()) && progress < 100.0;
             boolean nearDeadline = deadline != null && deadline.isAfter(Instant.now()) && deadline.isBefore(Instant.now().plusSeconds(7 * 24 * 3600)) && progress < 50.0;
@@ -1078,7 +1078,7 @@ public class OrgUnitStatisticService {
                 .getSingleResult();
 
         Long overdueKpiCount = entityManager.createQuery(
-                "SELECT COUNT(DISTINCT k.id) FROM KpiCriteria k JOIN k.kpiPeriod p WHERE k.orgUnit.path LIKE CONCAT(:pathPrefix, '%') AND p.endDate < CURRENT_TIMESTAMP AND k.status = 'APPROVED' AND k.createdAt >= :start AND k.createdAt <= :end", Long.class)
+                "SELECT COUNT(DISTINCT k.id) FROM KpiCriteria k JOIN k.kpiPeriod p WHERE k.orgUnit.path LIKE CONCAT(:pathPrefix, '%') AND COALESCE(k.deadline, p.endDate) < CURRENT_TIMESTAMP AND k.status = 'APPROVED' AND k.createdAt >= :start AND k.createdAt <= :end", Long.class)
                 .setParameter("pathPrefix", pathPrefix)
                 .setParameter("start", start)
                 .setParameter("end", end)

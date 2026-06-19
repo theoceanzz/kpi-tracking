@@ -283,7 +283,7 @@ public class StatsService {
                  pendingSub += criteriaPending;
                  rejectedSub += criteriaRejected;
 
-                 Instant deadline = criteria.getKpiPeriod() != null ? criteria.getKpiPeriod().getEndDate() : null;
+                 Instant deadline = criteria.getEffectiveDeadline();
                  if (criteriaTotalNonDraft == 0 && deadline != null && deadline.isBefore(now)) {
                      lateCount++;
                  }
@@ -390,7 +390,7 @@ public class StatsService {
             else if (isPending) status = "PENDING";
             else if (isRejected) status = "REJECTED";
 
-            Instant deadline = criteria.getKpiPeriod() != null ? criteria.getKpiPeriod().getEndDate() : null;
+            Instant deadline = criteria.getEffectiveDeadline();
             Instant actualDeadline = deadline;
             if (criteria.getFrequency() != com.kpitracking.enums.KpiFrequency.UNLIMITED
                     && deadline != null && criteria.getKpiPeriod() != null && criteria.getKpiPeriod().getStartDate() != null) {

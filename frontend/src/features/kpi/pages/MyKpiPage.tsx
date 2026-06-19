@@ -9,7 +9,7 @@ import { parseISO, isAfter } from 'date-fns'
 import {
   Target, Search, Star,
   CheckCircle2, ChevronRight,
-  LayoutGrid, List, ChevronLeft, Settings2, Filter, Calendar, GitBranch, ChevronDown
+  LayoutGrid, List, ChevronLeft, Settings2, Filter, Calendar, GitBranch, ChevronDown, CornerDownRight
 } from 'lucide-react'
 
 import { useAuthStore } from '@/store/authStore'
@@ -428,7 +428,7 @@ function MyKpiTableRow({ kpi, depth = 0, childKpis = [], isCollapsed, onToggleCo
         </div>
       </td>
       <td className="px-3 py-4">
-        <div className="flex items-start gap-1.5" style={{ paddingLeft: isChildRow ? 20 : 0 }}>
+        <div className="flex items-start gap-1.5" style={{ paddingLeft: isChildRow ? 28 : 0 }}>
           {!isChildRow && childKpis.length > 0 && (
             <button
               onClick={(e) => { e.stopPropagation(); onToggleCollapse?.() }}
@@ -437,6 +437,9 @@ function MyKpiTableRow({ kpi, depth = 0, childKpis = [], isCollapsed, onToggleCo
             >
               <ChevronDown size={14} className={cn("transition-transform", isCollapsed && "-rotate-90")} />
             </button>
+          )}
+          {isChildRow && (
+            <CornerDownRight size={14} className="shrink-0 mt-1 text-slate-300 dark:text-slate-600" />
           )}
           <button onClick={onView} className="text-left focus:outline-none flex flex-col gap-1 min-w-[100px]">
             <div className="flex items-center gap-1.5 flex-wrap">

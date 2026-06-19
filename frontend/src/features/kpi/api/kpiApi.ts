@@ -4,7 +4,7 @@ import type { KpiCriteria, CreateKpiRequest, UpdateKpiRequest, RejectKpiRequest,
 import type { KpiStatus } from '@/types/kpi'
 
 export const kpiApi = {
-  getAll: (params: { page?: number; size?: number; status?: KpiStatus; orgUnitId?: string; organizationId?: string; createdById?: string; assigneeId?: string; kpiPeriodId?: string; keyword?: string; startDate?: string; endDate?: string; sortBy?: string; sortDir?: string; objectiveId?: string; keyResultId?: string; approvalMode?: boolean }) =>
+  getAll: (params: { page?: number; size?: number; status?: KpiStatus; orgUnitId?: string; organizationId?: string; createdById?: string; assigneeId?: string; kpiPeriodId?: string; keyword?: string; startDate?: string; endDate?: string; sortBy?: string; sortDir?: string; objectiveId?: string; keyResultId?: string; approvalMode?: boolean; kpiNature?: 'PARENT_CHILD' | 'STANDALONE'; isBonusKpi?: boolean; isReverseKpi?: boolean }) =>
     axiosInstance.get<ApiResponse<PageResponse<KpiCriteria>>>('/kpi-criteria', { params }).then((r) => r.data.data),
 
   getById: (id: string) =>

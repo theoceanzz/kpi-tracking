@@ -9,7 +9,7 @@ import { useUsers } from '@/features/users/hooks/useUsers'
 import { useAuthStore } from '@/store/authStore'
 import { usePermission } from '@/hooks/usePermission'
 import { toast } from 'sonner'
-import { FREQUENCY_MAP, cn } from '@/lib/utils'
+import { FREQUENCY_MAP, cn, formatDateTime } from '@/lib/utils'
 import { Loader2, X, Check, Sparkles, Target, Users, LayoutGrid } from 'lucide-react'
 import type { KpiCriteria } from '@/types/kpi'
 import { useState } from 'react'
@@ -31,6 +31,14 @@ const frequencyOptions = (['DAILY', 'WEEKLY', 'MONTHLY', 'QUARTERLY', 'SEMI_ANNU
   value,
   label: FREQUENCY_MAP[value]
 }))
+
+function toDatetimeLocal(value?: string | null): string | undefined {
+  if (!value) return undefined
+  const d = new Date(value)
+  if (isNaN(d.getTime())) return undefined
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
+}
 
 
 export default function KpiFormModal({ open, onClose, editKpi, parentKpi, parentRelationType }: KpiFormModalProps) {
@@ -80,6 +88,7 @@ export default function KpiFormModal({ open, onClose, editKpi, parentKpi, parent
       minimumValue: undefined,
       isReverseKpi: false,
       isBonusKpi: false,
+      deadline: undefined,
       unit: '',
       frequency: 'MONTHLY',
       assignedToIds: [],
@@ -119,6 +128,7 @@ export default function KpiFormModal({ open, onClose, editKpi, parentKpi, parent
         minimumValue: editKpi.minimumValue ?? undefined,
         isReverseKpi: editKpi.isReverseKpi ?? false,
         isBonusKpi: editKpi.isBonusKpi ?? false,
+        deadline: toDatetimeLocal(editKpi.deadline) ?? undefined,
         kpiPeriodId: editKpi.kpiPeriodId ?? '',
         keyResultId: editKpi.keyResultId ?? null,
         parentId: editKpi.parentId ?? null,
@@ -136,6 +146,7 @@ export default function KpiFormModal({ open, onClose, editKpi, parentKpi, parent
         minimumValue: undefined,
         isReverseKpi: false,
         isBonusKpi: false,
+        deadline: undefined,
         unit: parentKpi?.unit ?? '',
         frequency: 'MONTHLY',
         kpiPeriodId: parentKpi?.kpiPeriodId ?? '',
@@ -212,6 +223,7 @@ export default function KpiFormModal({ open, onClose, editKpi, parentKpi, parent
   })
 
   const formFrequency = watch('frequency')
+  const formDeadline = watch('deadline')
 
   const selectedPeriod = useMemo(() => {
     return periodsData?.content?.find((p: any) => p.id === formKpiPeriodId)
@@ -248,11 +260,32 @@ export default function KpiFormModal({ open, onClose, editKpi, parentKpi, parent
       }
     }
   }, [selectedPeriod, formFrequency, setValue])
+
+  // Clear the custom deadline if the period is unselected, or if it falls outside the newly selected period's range
+  useEffect(() => {
+    if (!formDeadline) return
+
+    if (!formKpiPeriodId) {
+      setValue('deadline', undefined)
+      toast.error('Đã xoá hạn chót riêng vì chưa chọn đợt KPI')
+      return
+    }
+
+    if (selectedPeriod) {
+      const t = new Date(formDeadline).getTime()
+      const s = selectedPeriod.startDate ? new Date(selectedPeriod.startDate).getTime() : null
+      const e = selectedPeriod.endDate ? new Date(selectedPeriod.endDate).getTime() : null
+      if ((s && t < s) || (e && t > e)) {
+        setValue('deadline', undefined)
+        toast.error('Đã xoá hạn chót riêng vì không còn nằm trong đợt KPI mới chọn')
+      }
+    }
+  }, [formKpiPeriodId, selectedPeriod, formDeadline, setValue])
   
   const filteredObjectives = useMemo(() => {
     if (!objectives) return []
     if (formOrgUnitIds.length === 0) return []
-    return objectives.filter((obj: any) => formOrgUnitIds.includes(obj.orgUnitId))
+    return objectives.filter((obj: any) => obj.orgUnitIds?.some((id: string) => formOrgUnitIds.includes(id)))
   }, [objectives, formOrgUnitIds])
 
   // Clear Key Result if OrgUnit changes to a different one
@@ -330,7 +363,20 @@ export default function KpiFormModal({ open, onClose, editKpi, parentKpi, parent
 
     if (payload.keyResultId === '' || payload.keyResultId === 'NONE') payload.keyResultId = null
     if (payload.parentId === '') payload.parentId = null
-    
+
+    if (payload.deadline && selectedPeriod) {
+      const t = new Date(payload.deadline).getTime()
+      const s = selectedPeriod.startDate ? new Date(selectedPeriod.startDate).getTime() : null
+      const e = selectedPeriod.endDate ? new Date(selectedPeriod.endDate).getTime() : null
+      if ((s && t < s) || (e && t > e)) {
+        toast.error('Hạn chót phải nằm trong khoảng thời gian của đợt KPI')
+        return
+      }
+      payload.deadline = new Date(payload.deadline).toISOString()
+    } else {
+      delete payload.deadline
+    }
+
     if (isEdit) {
       updateMutation.mutate(payload as any)
     } else {
@@ -450,7 +496,7 @@ export default function KpiFormModal({ open, onClose, editKpi, parentKpi, parent
           <div className="bg-[var(--color-accent)]/10 rounded-2xl p-4 border border-[var(--color-border)]/30 space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-[11px] font-black text-[var(--color-muted-foreground)] uppercase tracking-widest mb-1.5">Mục tiêu số</label>
+                  <label className="block text-[11px] font-black text-[var(--color-muted-foreground)] uppercase tracking-widest mb-1.5">Mục tiêu đạt được</label>
                   <input 
                     {...register('targetValue', { valueAsNumber: true })} 
                     type="number" 
@@ -605,7 +651,7 @@ export default function KpiFormModal({ open, onClose, editKpi, parentKpi, parent
               )}
           </div>
 
-          {!isPendingApproval && flatOrgUnits.length > 1 && (
+          {!isPendingApproval && flatOrgUnits.length > 0  && (
             <div className="space-y-2">
                 <div className="flex items-center justify-between">
                     <div className="space-y-0.5">
@@ -791,6 +837,29 @@ export default function KpiFormModal({ open, onClose, editKpi, parentKpi, parent
                 {filteredFrequencyOptions.map((opt) => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
               </select>
             </div>
+            <div className="col-span-2">
+              <label className="block text-sm font-bold mb-1.5">Hạn chót</label>
+              <div className="relative">
+                <input
+                  type="datetime-local"
+                  {...register('deadline')}
+                  min={toDatetimeLocal(selectedPeriod?.startDate)}
+                  max={toDatetimeLocal(selectedPeriod?.endDate)}
+                  disabled={!selectedPeriod}
+                  className={cn(inputCls, "text-transparent disabled:text-transparent")}
+                />
+                <div className="absolute inset-0 left-3 flex items-center pointer-events-none text-sm font-medium text-[var(--color-foreground)]">
+                  {formDeadline ? formatDateTime(formDeadline) : (
+                    <span className="text-[var(--color-muted-foreground)]">Chưa chọn (mặc định theo đợt)</span>
+                  )}
+                </div>
+              </div>
+              {selectedPeriod && (
+                <p className="text-[10px] text-[var(--color-muted-foreground)] mt-1">
+                  Để trống = mặc định theo ngày kết thúc đợt ({formatDateTime(selectedPeriod.endDate)})
+                </p>
+              )}
+            </div>
           </div>
           )}
 
@@ -812,23 +881,27 @@ export default function KpiFormModal({ open, onClose, editKpi, parentKpi, parent
                       disabled={isEdit && !!editKpi?.keyResultId}
                     >
                       <SelectTrigger className={cn(
-                        "w-full rounded-xl border-indigo-100 dark:border-indigo-900 bg-white dark:bg-slate-900 focus:ring-indigo-500/30 transition-all h-11 shadow-sm",
+                        "w-full rounded-xl border-indigo-100 dark:border-indigo-900 bg-white dark:bg-slate-900 focus:ring-indigo-500/30 transition-all h-11 shadow-sm overflow-hidden",
                         isEdit && !!editKpi?.keyResultId && "bg-slate-50 dark:bg-slate-800/50 cursor-not-allowed opacity-70"
                       )}>
-                        <SelectValue placeholder="-- Không liên kết --" />
+                        <SelectValue placeholder="-- Không liên kết --" className="truncate flex-1 min-w-0 text-left" />
                       </SelectTrigger>
                       <SelectContent className="z-[300] rounded-2xl border-indigo-50 dark:border-indigo-900 shadow-2xl max-h-[350px] overflow-auto">
                         <SelectItem value="NONE" className="font-bold py-3">-- Không liên kết mục tiêu --</SelectItem>
                         {filteredObjectives.map(obj => (
                           <SelectGroup key={obj.id} className="p-1">
-                            <SelectLabel className="px-3 py-2 text-[10px] font-black uppercase tracking-widest text-indigo-600 dark:text-indigo-400 bg-indigo-50/50 dark:bg-indigo-900/20 rounded-xl my-1.5 flex items-center justify-between">
-                              <span>OBJ: {obj.name}</span>
-                              <Badge variant="outline" className="text-[8px] border-indigo-200">OKR</Badge>
+                            <SelectLabel className="px-3 py-2 text-[10px] font-black uppercase tracking-widest text-indigo-600 dark:text-indigo-400 bg-indigo-50/50 dark:bg-indigo-900/20 rounded-xl my-1.5 flex items-center justify-between gap-2">
+                              <span className="truncate" title={obj.name}>OBJ: {obj.name}</span>
+                              <Badge variant="outline" className="text-[8px] border-indigo-200 shrink-0">OKR</Badge>
                             </SelectLabel>
                             {obj.keyResults.map((kr: any) => (
-                              <SelectItem key={kr.id} value={kr.id} className="rounded-xl py-2.5 px-3 focus:bg-indigo-50 focus:text-indigo-700 transition-colors">
-                                <span className="font-semibold text-xs">{kr.name}</span>
-                                <div className="text-[9px] opacity-70">Hiện tại: {kr.progress}% hoàn thành</div>
+                              <SelectItem
+                                key={kr.id}
+                                value={kr.id}
+                                className="rounded-xl py-2.5 pl-8 pr-3 focus:bg-indigo-50 focus:text-indigo-700 transition-colors"
+                                extra={<div className="text-[9px] opacity-70 pl-8 -mt-0.5">Hiện tại: {kr.progress}% hoàn thành</div>}
+                              >
+                                <span className="font-semibold text-xs truncate block" title={kr.name}>{kr.name}</span>
                               </SelectItem>
                             ))}
                           </SelectGroup>
