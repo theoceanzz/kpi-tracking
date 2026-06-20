@@ -363,6 +363,8 @@ function KpiDateRange({ start, end }: { start: string | null; end: string | null
 
 function ExpandableKpiRow({ kpi, onExpand }: { kpi: any; onExpand: () => void }) {
   const [expanded, setExpanded] = useState(false)
+  // KPI thưởng: backend trả tiến độ/hiệu suất = null (không tính), hiển thị gạch ngang.
+  const isBonus = kpi.progress == null
   const pct  = Math.round(kpi.progress    || 0)
   const perf = Math.round(kpi.performance || 0)
 
@@ -386,32 +388,49 @@ function ExpandableKpiRow({ kpi, onExpand }: { kpi: any; onExpand: () => void })
           <KpiDateRange start={kpi.periodStart} end={kpi.periodEnd} />
         </td>
         <td className="px-6 py-4">
-          <div className="flex items-center gap-3">
-            <div className="flex-1 h-2 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
-              <div
-                className={cn('h-full rounded-full transition-all', pct >= 100 ? 'bg-emerald-500' : 'bg-indigo-500')}
-                style={{ width: `${Math.min(pct, 100)}%` }}
-              />
+          {isBonus ? (
+            <div className="flex flex-col gap-1">
+              <span className="inline-flex w-fit items-center gap-1 px-2.5 py-1 rounded-full bg-amber-50 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 text-[10px] font-black uppercase">
+                Thưởng
+              </span>
+              <div className="text-[10px] text-slate-500">
+                Đã hoàn thành {kpi.actualValue?.toLocaleString('vi-VN')} / {kpi.targetValue?.toLocaleString('vi-VN')} {kpi.unit}
+              </div>
             </div>
-            <span className="text-xs font-black">{pct}%</span>
-          </div>
-          <div className="text-[10px] text-slate-500 mt-1">
-            Đã hoàn thành {kpi.actualValue?.toLocaleString('vi-VN')} / {kpi.targetValue?.toLocaleString('vi-VN')} {kpi.unit}
-          </div>
+          ) : (
+            <>
+              <div className="flex items-center gap-3">
+                <div className="flex-1 h-2 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                  <div
+                    className={cn('h-full rounded-full transition-all', pct >= 100 ? 'bg-emerald-500' : 'bg-indigo-500')}
+                    style={{ width: `${Math.min(pct, 100)}%` }}
+                  />
+                </div>
+                <span className="text-xs font-black">{pct}%</span>
+              </div>
+              <div className="text-[10px] text-slate-500 mt-1">
+                Đã hoàn thành {kpi.actualValue?.toLocaleString('vi-VN')} / {kpi.targetValue?.toLocaleString('vi-VN')} {kpi.unit}
+              </div>
+            </>
+          )}
         </td>
         <td className="px-6 py-4 text-center">
-          <div className="inline-flex relative items-center justify-center w-12 h-12">
-            <svg className="w-12 h-12 transform -rotate-90">
-              <circle className="text-slate-100 dark:text-slate-800" strokeWidth="4" stroke="currentColor" fill="transparent" r="20" cx="24" cy="24" />
-              <circle
-                className={cn(perf >= 100 ? 'text-emerald-500' : perf >= 80 ? 'text-indigo-500' : perf >= 50 ? 'text-amber-500' : 'text-red-500')}
-                strokeWidth="4" strokeDasharray={125.6}
-                strokeDashoffset={125.6 - (Math.min(perf, 100) / 100) * 125.6}
-                strokeLinecap="round" stroke="currentColor" fill="transparent" r="20" cx="24" cy="24"
-              />
-            </svg>
-            <span className="absolute text-[10px] font-black">{perf}%</span>
-          </div>
+          {isBonus ? (
+            <span className="text-slate-400 font-black">—</span>
+          ) : (
+            <div className="inline-flex relative items-center justify-center w-12 h-12">
+              <svg className="w-12 h-12 transform -rotate-90">
+                <circle className="text-slate-100 dark:text-slate-800" strokeWidth="4" stroke="currentColor" fill="transparent" r="20" cx="24" cy="24" />
+                <circle
+                  className={cn(perf >= 100 ? 'text-emerald-500' : perf >= 80 ? 'text-indigo-500' : perf >= 50 ? 'text-amber-500' : 'text-red-500')}
+                  strokeWidth="4" strokeDasharray={125.6}
+                  strokeDashoffset={125.6 - (Math.min(perf, 100) / 100) * 125.6}
+                  strokeLinecap="round" stroke="currentColor" fill="transparent" r="20" cx="24" cy="24"
+                />
+              </svg>
+              <span className="absolute text-[10px] font-black">{perf}%</span>
+            </div>
+          )}
         </td>
         <td className="px-6 py-4">
           {kpi.shared ? (

@@ -47,7 +47,12 @@ public class PersonalObjectiveAnalyticsService {
     }
 
     private double[] calculateKpiMetrics(KpiCriteria kpi, Instant A, Instant B, Boolean onlyApproved) {
-        Instant kpiStart = kpi.getKpiPeriod() != null && kpi.getKpiPeriod().getStartDate() != null ? 
+        // KPI cha (decomposition): tiến độ/hiệu suất = bình quân có trọng số chuẩn hoá của các con.
+        if (KpiMetricsCalculator.hasDecompositionChildren(kpi)) {
+            return weightedChildMetrics(kpi, A, B, onlyApproved);
+        }
+
+        Instant kpiStart = kpi.getKpiPeriod() != null && kpi.getKpiPeriod().getStartDate() != null ?
                            kpi.getKpiPeriod().getStartDate() : Instant.EPOCH;
         Instant kpiEnd = kpi.getKpiPeriod() != null && kpi.getKpiPeriod().getEndDate() != null ? 
                          kpi.getKpiPeriod().getEndDate() : Instant.now().plus(365, ChronoUnit.DAYS);
@@ -99,6 +104,25 @@ public class PersonalObjectiveAnalyticsService {
         return new double[]{completion, performance, 1.0, actualReturn};
     }
 
+    /** Bình quân có trọng số chuẩn hoá tiến độ/hiệu suất của các KPI con decomposition (toàn đội). */
+    private double[] weightedChildMetrics(KpiCriteria kpi, Instant A, Instant B, Boolean onlyApproved) {
+        double wSum = 0, compSum = 0, perfSum = 0, actualSum = 0;
+        boolean anyActive = false;
+        for (KpiCriteria child : KpiMetricsCalculator.decompositionChildren(kpi)) {
+            double[] cm = calculateKpiMetrics(child, A, B, onlyApproved);
+            if (cm[2] == 0) continue; // con không active trong cửa sổ thời gian
+            double w = child.getWeight() != null ? child.getWeight() : 0.0;
+            if (w <= 0) continue;
+            wSum += w;
+            compSum += cm[0] * w;
+            perfSum += cm[1] * w;
+            actualSum += cm[3];
+            anyActive = true;
+        }
+        if (!anyActive || wSum == 0) return new double[]{0, 0, anyActive ? 1 : 0, 0};
+        return new double[]{compSum / wSum, perfSum / wSum, 1.0, actualSum};
+    }
+
     @Transactional(readOnly = true)
     public Metrics getMetrics(Instant from, Instant to, Boolean onlyApproved, UUID periodId) {
         List<KpiCriteria> myKpis = getMyActiveKpis(periodId);
@@ -112,6 +136,8 @@ public class PersonalObjectiveAnalyticsService {
         Instant now = Instant.now();
 
         for (KpiCriteria kpi : myKpis) {
+            // KPI thưởng không phản ánh tiến độ/hiệu suất → không tính vào số trung bình & các bộ đếm.
+            if (Boolean.TRUE.equals(kpi.getIsBonusKpi())) continue;
             double[] metrics = calculateKpiMetrics(kpi, from, to, onlyApproved);
             if (metrics[2] > 0) {
                 totalComp += metrics[0];
@@ -163,6 +189,8 @@ public class PersonalObjectiveAnalyticsService {
             int assignedCount = 0;
 
             for (KpiCriteria kpi : myKpis) {
+                // KPI thưởng không tính vào xu hướng tiến độ/hiệu suất.
+                if (Boolean.TRUE.equals(kpi.getIsBonusKpi())) continue;
                 Instant kpiRef = (kpi.getKpiPeriod() != null && kpi.getKpiPeriod().getStartDate() != null)
                         ? kpi.getKpiPeriod().getStartDate()
                         : kpi.getCreatedAt();
@@ -296,14 +324,17 @@ public class PersonalObjectiveAnalyticsService {
             KeyResult kr  = kpi.getKeyResult();
             Objective obj = kr != null ? kr.getObjective() : null;
 
+            // KPI thưởng vẫn được liệt kê nhưng không hiển thị tiến độ/hiệu suất.
+            boolean isBonus = Boolean.TRUE.equals(kpi.getIsBonusKpi());
+
             details.add(KpiDetail.builder()
                     .kpiId(kpi.getId())
                     .kpiName(kpi.getName())
                     .targetValue(totalTarget)
                     .actualValue(metrics[3])
                     .unit(kpi.getUnit())
-                    .progress(metrics[0])
-                    .performance(metrics[1])
+                    .progress(isBonus ? null : metrics[0])
+                    .performance(isBonus ? null : metrics[1])
                     .objectiveName(obj != null ? obj.getName() : "N/A")
                     .objectiveCode(obj != null ? obj.getCode() : "N/A")
                     .keyResultName(kr != null ? kr.getName() : "N/A")
@@ -447,7 +478,26 @@ public class PersonalObjectiveAnalyticsService {
     }
 
     private double[] calculateKpiMetricsForUser(KpiCriteria kpi, UUID userId, Instant A, Instant B, Boolean onlyApproved) {
-        Instant kpiStart = kpi.getKpiPeriod() != null && kpi.getKpiPeriod().getStartDate() != null ? 
+        // KPI cha (decomposition): bình quân có trọng số chuẩn hoá của các con (theo người dùng).
+        if (KpiMetricsCalculator.hasDecompositionChildren(kpi)) {
+            double wSum = 0, compSum = 0, perfSum = 0, actualSum = 0;
+            boolean anyActive = false;
+            for (KpiCriteria child : KpiMetricsCalculator.decompositionChildren(kpi)) {
+                double[] cm = calculateKpiMetricsForUser(child, userId, A, B, onlyApproved);
+                if (cm[2] == 0) continue;
+                double w = child.getWeight() != null ? child.getWeight() : 0.0;
+                if (w <= 0) continue;
+                wSum += w;
+                compSum += cm[0] * w;
+                perfSum += cm[1] * w;
+                actualSum += cm[3];
+                anyActive = true;
+            }
+            if (!anyActive || wSum == 0) return new double[]{0, 0, anyActive ? 1 : 0, 0};
+            return new double[]{compSum / wSum, perfSum / wSum, 1.0, actualSum};
+        }
+
+        Instant kpiStart = kpi.getKpiPeriod() != null && kpi.getKpiPeriod().getStartDate() != null ?
                            kpi.getKpiPeriod().getStartDate() : Instant.EPOCH;
         Instant kpiEnd = kpi.getKpiPeriod() != null && kpi.getKpiPeriod().getEndDate() != null ? 
                          kpi.getKpiPeriod().getEndDate() : Instant.now().plus(365, ChronoUnit.DAYS);

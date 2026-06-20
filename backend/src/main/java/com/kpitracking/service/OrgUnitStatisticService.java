@@ -54,8 +54,22 @@ public class OrgUnitStatisticService {
 
     // Standardized KPI Progress & Performance calculator aligned with SubordinateAnalyticsService
     public double[] calculateKpiMetrics(KpiCriteria kpi, Instant A, Instant B) {
-        Instant kpiStart = kpi.getKpiPeriod() != null && kpi.getKpiPeriod().getStartDate() != null ? 
-                           kpi.getKpiPeriod().getStartDate() : 
+        // KPI cha (decomposition): tiến độ/hiệu suất = bình quân có trọng số chuẩn hoá của các con.
+        if (KpiMetricsCalculator.hasDecompositionChildren(kpi)) {
+            double wSum = 0, compSum = 0, perfSum = 0;
+            for (KpiCriteria child : KpiMetricsCalculator.decompositionChildren(kpi)) {
+                double w = child.getWeight() != null && child.getWeight() > 0 ? child.getWeight() : 0.0;
+                if (w <= 0) continue;
+                double[] cm = calculateKpiMetrics(child, A, B);
+                wSum += w;
+                compSum += cm[0] * w;
+                perfSum += cm[1] * w;
+            }
+            return wSum > 0 ? new double[]{compSum / wSum, perfSum / wSum} : new double[]{0.0, 0.0};
+        }
+
+        Instant kpiStart = kpi.getKpiPeriod() != null && kpi.getKpiPeriod().getStartDate() != null ?
+                           kpi.getKpiPeriod().getStartDate() :
                            (kpi.getCreatedAt() != null ? kpi.getCreatedAt() : Instant.EPOCH);
         Instant kpiEnd = kpi.getKpiPeriod() != null && kpi.getKpiPeriod().getEndDate() != null ? 
                          kpi.getKpiPeriod().getEndDate() : 
@@ -113,6 +127,8 @@ public class OrgUnitStatisticService {
             // KPI thác nước (có parent) không tính tiến độ/hiệu suất cho người được giao;
             // kết quả của nó đã được tổng hợp lên KPI cha nên bỏ qua để tránh tính trùng.
             if (kpi.getParent() != null) continue;
+            // KPI thưởng không phản ánh tiến độ/hiệu suất → không tính vào số trung bình.
+            if (Boolean.TRUE.equals(kpi.getIsBonusKpi())) continue;
             double[] metrics = calculateKpiMetrics(kpi, A, B);
             double weight = kpi.getWeight() != null && kpi.getWeight() > 0 ? kpi.getWeight() : 1.0;
 
@@ -616,6 +632,8 @@ public class OrgUnitStatisticService {
 
         long completed = 0L;
         for (KpiCriteria k : kpis) {
+            // KPI thưởng không tính vào số KPI hoàn thành.
+            if (Boolean.TRUE.equals(k.getIsBonusKpi())) continue;
             double[] kpiMetrics = calculateKpiMetrics(k, start, end);
             if (kpiMetrics[0] >= 100.0) {
                 completed++;

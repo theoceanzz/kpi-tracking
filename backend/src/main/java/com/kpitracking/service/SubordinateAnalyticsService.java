@@ -65,6 +65,72 @@ public class SubordinateAnalyticsService {
         return objectiveRepository.findByOrgUnitIdIn(orgUnitIds);
     }
 
+    /**
+     * Tiến độ/hiệu suất của một KPI theo cửa sổ [A,B]; phần tử [2] là cờ active (0 = không active).
+     * KPI cha (decomposition) lấy bình quân có trọng số chuẩn hoá tiến độ/hiệu suất của các con.
+     */
+    private double[] kpiCompletionPerformance(KpiCriteria kpi, Instant objStartFallback, Instant objEndFallback,
+                                              Instant A, Instant B, Boolean onlyApproved) {
+        if (KpiMetricsCalculator.hasDecompositionChildren(kpi)) {
+            double wSum = 0, compSum = 0, perfSum = 0;
+            boolean anyActive = false;
+            for (KpiCriteria child : KpiMetricsCalculator.decompositionChildren(kpi)) {
+                double w = child.getWeight() != null && child.getWeight() > 0 ? child.getWeight() : 0.0;
+                if (w <= 0) continue;
+                double[] cm = kpiCompletionPerformance(child, objStartFallback, objEndFallback, A, B, onlyApproved);
+                if (cm[2] == 0) continue;
+                wSum += w;
+                compSum += cm[0] * w;
+                perfSum += cm[1] * w;
+                anyActive = true;
+            }
+            if (!anyActive || wSum == 0) return new double[]{0, 0, anyActive ? 1 : 0};
+            return new double[]{compSum / wSum, perfSum / wSum, 1.0};
+        }
+
+        Instant kpiStart = kpi.getKpiPeriod() != null && kpi.getKpiPeriod().getStartDate() != null
+                ? kpi.getKpiPeriod().getStartDate() : objStartFallback;
+        Instant kpiEnd = kpi.getKpiPeriod() != null && kpi.getKpiPeriod().getEndDate() != null
+                ? kpi.getKpiPeriod().getEndDate() : objEndFallback;
+
+        Instant startCalc = A != null && A.isAfter(kpiStart) ? A : kpiStart;
+        Instant endCalc = B != null && B.isBefore(kpiEnd) ? B : kpiEnd;
+        if (startCalc.isAfter(endCalc)) return new double[]{0, 0, 0};
+
+        double totalKpiTime = Math.max(1, kpiEnd.toEpochMilli() - kpiStart.toEpochMilli());
+        double validFilterTime = endCalc.toEpochMilli() - startCalc.toEpochMilli();
+        double timeRatio = Math.min(1.0, validFilterTime / totalKpiTime);
+        double targetValue = kpi.getTargetValue() != null ? kpi.getTargetValue() : 1.0;
+        double expectedValueFilter = targetValue * timeRatio;
+
+        List<KpiSubmission> complSubs = kpi.getSubmissions().stream()
+                .filter(s -> Boolean.TRUE.equals(onlyApproved) ? s.getStatus() == SubmissionStatus.APPROVED
+                        : (s.getStatus() == SubmissionStatus.APPROVED || s.getStatus() == SubmissionStatus.PENDING || s.getStatus() == SubmissionStatus.REJECTED))
+                .filter(s -> {
+                    Instant t = s.getPeriodStart() != null ? s.getPeriodStart() : s.getCreatedAt();
+                    return !t.isBefore(kpiStart) && (B == null || !t.isAfter(B));
+                })
+                .toList();
+
+        List<KpiSubmission> perfSubs = kpi.getSubmissions().stream()
+                .filter(s -> Boolean.TRUE.equals(onlyApproved) ? s.getStatus() == SubmissionStatus.APPROVED
+                        : (s.getStatus() == SubmissionStatus.APPROVED || s.getStatus() == SubmissionStatus.PENDING || s.getStatus() == SubmissionStatus.REJECTED))
+                .filter(s -> {
+                    Instant t = s.getPeriodStart() != null ? s.getPeriodStart() : s.getCreatedAt();
+                    return (A == null || !t.isBefore(A)) && (B == null || !t.isAfter(B));
+                })
+                .toList();
+
+        boolean reverse = Boolean.TRUE.equals(kpi.getIsReverseKpi());
+        double completion = reverse
+                ? KpiMetricsCalculator.reversePercent(complSubs, targetValue)
+                : (targetValue > 0 ? (KpiMetricsCalculator.sum(complSubs) / targetValue) * 100 : 0);
+        double performance = reverse
+                ? KpiMetricsCalculator.reversePercent(perfSubs, targetValue)
+                : (expectedValueFilter > 0 ? (KpiMetricsCalculator.sum(perfSubs) / expectedValueFilter) * 100 : 0);
+        return new double[]{completion, performance, 1.0};
+    }
+
     private double[] calculateObjectiveMetrics(Objective obj, Instant A, Instant B, Boolean onlyApproved) {
         if (obj.getKeyResults() == null || obj.getKeyResults().isEmpty()) {
             return new double[]{0.0, 0.0};
@@ -81,70 +147,20 @@ public class SubordinateAnalyticsService {
             double sumWeightedPerformance = 0;
             double sumWeight = 0;
 
+            Instant objStartFallback = obj.getStartDate() != null ? obj.getStartDate().atStartOfDay().toInstant(ZoneOffset.UTC) : Instant.EPOCH;
+            Instant objEndFallback = obj.getEndDate() != null ? obj.getEndDate().atStartOfDay().plusDays(1).toInstant(ZoneOffset.UTC) : Instant.now().plus(365, java.time.temporal.ChronoUnit.DAYS);
+
             for (KpiCriteria kpi : kr.getKpis()) {
                 // KPI thác nước (có parent) không tính riêng; kết quả đã tổng hợp lên KPI cha.
                 if (kpi.getParent() != null) continue;
-                Instant kpiStart = kpi.getKpiPeriod() != null && kpi.getKpiPeriod().getStartDate() != null ?
-                                   kpi.getKpiPeriod().getStartDate() :
-                                   (obj.getStartDate() != null ? obj.getStartDate().atStartOfDay().toInstant(ZoneOffset.UTC) : Instant.EPOCH);
-                Instant kpiEnd = kpi.getKpiPeriod() != null && kpi.getKpiPeriod().getEndDate() != null ? 
-                                 kpi.getKpiPeriod().getEndDate() : 
-                                 (obj.getEndDate() != null ? obj.getEndDate().atStartOfDay().plusDays(1).toInstant(ZoneOffset.UTC) : Instant.now().plus(365, java.time.temporal.ChronoUnit.DAYS));
+                // KPI thưởng không phản ánh tiến độ/hiệu suất → không tính.
+                if (Boolean.TRUE.equals(kpi.getIsBonusKpi())) continue;
 
-                Instant startCalc = A != null && A.isAfter(kpiStart) ? A : kpiStart;
-                Instant endCalc = B != null && B.isBefore(kpiEnd) ? B : kpiEnd;
+                double[] cp = kpiCompletionPerformance(kpi, objStartFallback, objEndFallback, A, B, onlyApproved);
+                if (cp[2] == 0) continue; // Not active in this filter
 
-                if (startCalc.isAfter(endCalc)) continue; // Not active in this filter
-
-                double totalKpiTime = Math.max(1, kpiEnd.toEpochMilli() - kpiStart.toEpochMilli());
-                double validFilterTime = endCalc.toEpochMilli() - startCalc.toEpochMilli();
-                double timeRatio = Math.min(1.0, validFilterTime / totalKpiTime);
-
-                double targetValue = kpi.getTargetValue() != null ? kpi.getTargetValue() : 1.0;
-                double expectedValueFilter = targetValue * timeRatio;
-
-                // Actual cho Tiến độ: Tính LŨY KẾ từ lúc KPI bắt đầu cho đến ngày B
-                List<KpiSubmission> complSubs = kpi.getSubmissions().stream()
-                        .filter(s -> {
-                            if (Boolean.TRUE.equals(onlyApproved)) {
-                                return s.getStatus() == SubmissionStatus.APPROVED;
-                            } else {
-                                return s.getStatus() == SubmissionStatus.APPROVED ||
-                                       s.getStatus() == SubmissionStatus.PENDING ||
-                                       s.getStatus() == SubmissionStatus.REJECTED;
-                            }
-                        })
-                        .filter(s -> {
-                            Instant submissionTime = s.getPeriodStart() != null ? s.getPeriodStart() : s.getCreatedAt();
-                            return !submissionTime.isBefore(kpiStart) && (B == null || !submissionTime.isAfter(B));
-                        })
-                        .toList();
-
-                // Actual cho Hiệu suất: Chỉ tính nghiêm ngặt trong khoảng [A, B]
-                List<KpiSubmission> perfSubs = kpi.getSubmissions().stream()
-                        .filter(s -> {
-                            if (Boolean.TRUE.equals(onlyApproved)) {
-                                return s.getStatus() == SubmissionStatus.APPROVED;
-                            } else {
-                                return s.getStatus() == SubmissionStatus.APPROVED ||
-                                       s.getStatus() == SubmissionStatus.PENDING ||
-                                       s.getStatus() == SubmissionStatus.REJECTED;
-                            }
-                        })
-                        .filter(s -> {
-                            Instant submissionTime = s.getPeriodStart() != null ? s.getPeriodStart() : s.getCreatedAt();
-                            return (A == null || !submissionTime.isBefore(A)) && (B == null || !submissionTime.isAfter(B));
-                        })
-                        .toList();
-
-                // 2. Tính toán tỷ lệ % cuối cùng (KPI ngược tính theo hướng riêng)
-                boolean reverse = Boolean.TRUE.equals(kpi.getIsReverseKpi());
-                double completion = reverse
-                        ? KpiMetricsCalculator.reversePercent(complSubs, targetValue)
-                        : (targetValue > 0 ? (KpiMetricsCalculator.sum(complSubs) / targetValue) * 100 : 0);
-                double performance = reverse
-                        ? KpiMetricsCalculator.reversePercent(perfSubs, targetValue)
-                        : (expectedValueFilter > 0 ? (KpiMetricsCalculator.sum(perfSubs) / expectedValueFilter) * 100 : 0);
+                double completion = cp[0];
+                double performance = cp[1];
                 double weight = kpi.getWeight() != null && kpi.getWeight() > 0 ? kpi.getWeight() : 1.0;
 
                 sumWeightedCompletion += (completion * weight);
@@ -323,72 +339,27 @@ public class SubordinateAnalyticsService {
                 double sumWeightedPerformance = 0;
                 double sumWeight = 0;
 
+                Instant objStartFallback = obj.getStartDate() != null ? obj.getStartDate().atStartOfDay().toInstant(ZoneOffset.UTC) : Instant.EPOCH;
+                Instant objEndFallback = obj.getEndDate() != null ? obj.getEndDate().atStartOfDay().plusDays(1).toInstant(ZoneOffset.UTC) : Instant.now().plus(365, java.time.temporal.ChronoUnit.DAYS);
+
                 for (KpiCriteria kpi : kr.getKpis()) {
                     // KPI thác nước (có parent) không tính riêng; kết quả đã tổng hợp lên KPI cha.
                     if (kpi.getParent() != null) continue;
-                    Instant kpiStart = kpi.getKpiPeriod() != null && kpi.getKpiPeriod().getStartDate() != null ?
-                                       kpi.getKpiPeriod().getStartDate() :
-                                       (obj.getStartDate() != null ? obj.getStartDate().atStartOfDay().toInstant(ZoneOffset.UTC) : Instant.EPOCH);
-                    Instant kpiEnd = kpi.getKpiPeriod() != null && kpi.getKpiPeriod().getEndDate() != null ? 
-                                     kpi.getKpiPeriod().getEndDate() : 
-                                     (obj.getEndDate() != null ? obj.getEndDate().atStartOfDay().plusDays(1).toInstant(ZoneOffset.UTC) : Instant.now().plus(365, java.time.temporal.ChronoUnit.DAYS));
 
-                    Instant startCalc = A != null && A.isAfter(kpiStart) ? A : kpiStart;
-                    Instant endCalc = B != null && B.isBefore(kpiEnd) ? B : kpiEnd;
+                    boolean isBonus = Boolean.TRUE.equals(kpi.getIsBonusKpi());
+                    double[] cp = kpiCompletionPerformance(kpi, objStartFallback, objEndFallback, A, B, onlyApproved);
+                    if (cp[2] == 0) continue; // Not active in this filter
 
-                    if (startCalc.isAfter(endCalc)) continue;
-
-                    double totalKpiTime = Math.max(1, kpiEnd.toEpochMilli() - kpiStart.toEpochMilli());
-                    double validFilterTime = endCalc.toEpochMilli() - startCalc.toEpochMilli();
-                    double timeRatio = Math.min(1.0, validFilterTime / totalKpiTime);
-
-                    double targetValue = kpi.getTargetValue() != null ? kpi.getTargetValue() : 1.0;
-                    double expectedValueFilter = targetValue * timeRatio;
-
-                    List<KpiSubmission> complSubs = kpi.getSubmissions().stream()
-                            .filter(s -> {
-                                if (Boolean.TRUE.equals(onlyApproved)) {
-                                    return s.getStatus() == SubmissionStatus.APPROVED;
-                                } else {
-                                    return s.getStatus() == SubmissionStatus.APPROVED ||
-                                           s.getStatus() == SubmissionStatus.PENDING ||
-                                           s.getStatus() == SubmissionStatus.REJECTED;
-                                }
-                            })
-                            .filter(s -> {
-                                Instant submissionTime = s.getPeriodStart() != null ? s.getPeriodStart() : s.getCreatedAt();
-                                return !submissionTime.isBefore(kpiStart) && (B == null || !submissionTime.isAfter(B));
-                            })
-                            .toList();
-
-                    List<KpiSubmission> perfSubs = kpi.getSubmissions().stream()
-                            .filter(s -> {
-                                if (Boolean.TRUE.equals(onlyApproved)) {
-                                    return s.getStatus() == SubmissionStatus.APPROVED;
-                                } else {
-                                    return s.getStatus() == SubmissionStatus.APPROVED ||
-                                           s.getStatus() == SubmissionStatus.PENDING ||
-                                           s.getStatus() == SubmissionStatus.REJECTED;
-                                }
-                            })
-                            .filter(s -> {
-                                Instant submissionTime = s.getPeriodStart() != null ? s.getPeriodStart() : s.getCreatedAt();
-                                return (A == null || !submissionTime.isBefore(A)) && (B == null || !submissionTime.isAfter(B));
-                            })
-                            .toList();
-
-                    boolean reverse = Boolean.TRUE.equals(kpi.getIsReverseKpi());
-                    double completion = reverse
-                            ? KpiMetricsCalculator.reversePercent(complSubs, targetValue)
-                            : (targetValue > 0 ? (KpiMetricsCalculator.sum(complSubs) / targetValue) * 100 : 0);
-                    double performance = reverse
-                            ? KpiMetricsCalculator.reversePercent(perfSubs, targetValue)
-                            : (expectedValueFilter > 0 ? (KpiMetricsCalculator.sum(perfSubs) / expectedValueFilter) * 100 : 0);
+                    double completion = cp[0];
+                    double performance = cp[1];
                     double weight = kpi.getWeight() != null && kpi.getWeight() > 0 ? kpi.getWeight() : 1.0;
 
-                    sumWeightedCompletion += (completion * weight);
-                    sumWeightedPerformance += (performance * weight);
-                    sumWeight += weight;
+                    // KPI thưởng không phản ánh tiến độ/hiệu suất → không tính vào bình quân (vẫn được liệt kê).
+                    if (!isBonus) {
+                        sumWeightedCompletion += (completion * weight);
+                        sumWeightedPerformance += (performance * weight);
+                        sumWeight += weight;
+                    }
 
                     String kpiStatus = "CHƯA NỘP";
                     boolean hasSubmissions = kpi.getSubmissions() != null && !kpi.getSubmissions().isEmpty();
@@ -406,7 +377,7 @@ public class SubordinateAnalyticsService {
                             .orElse("CHƯA NỘP");
                     }
 
-                    Double finalPerformance = hasSubmissions ? performance : null;
+                    Double finalPerformance = (isBonus || !hasSubmissions) ? null : performance;
 
                     // Map participants and submissions
                     List<SubordinateDetailsResponses.KpiParticipantDto> participantDtos = new ArrayList<>();
@@ -485,7 +456,7 @@ public class SubordinateAnalyticsService {
                         .id(kpi.getId())
                         .name(kpi.getName())
                         .status(kpiStatus)
-                        .progress(completion)
+                        .progress(isBonus ? null : completion)
                         .performance(finalPerformance)
                         .targetValue(totalTarget)
                         .unit(kpi.getUnit())
@@ -750,7 +721,26 @@ public class SubordinateAnalyticsService {
     // -------------------------------------------------------------
 
     private double[] calculateKpiMetricsAndActive(KpiCriteria kpi, Instant objStart, Instant objEnd, Instant A, Instant B, Boolean onlyApproved) {
-        Instant kpiStart = kpi.getKpiPeriod() != null && kpi.getKpiPeriod().getStartDate() != null ? 
+        // KPI cha (decomposition): tiến độ/hiệu suất = bình quân có trọng số chuẩn hoá của các con.
+        double parentWeight = kpi.getWeight() != null && kpi.getWeight() > 0 ? kpi.getWeight() : 1.0;
+        if (KpiMetricsCalculator.hasDecompositionChildren(kpi)) {
+            double wSum = 0, compSum = 0, perfSum = 0;
+            boolean anyActive = false;
+            for (KpiCriteria child : KpiMetricsCalculator.decompositionChildren(kpi)) {
+                double w = child.getWeight() != null && child.getWeight() > 0 ? child.getWeight() : 0.0;
+                if (w <= 0) continue;
+                double[] cm = calculateKpiMetricsAndActive(child, objStart, objEnd, A, B, onlyApproved);
+                if (cm[3] == 0) continue;
+                wSum += w;
+                compSum += cm[0] * w;
+                perfSum += cm[1] * w;
+                anyActive = true;
+            }
+            if (!anyActive || wSum == 0) return new double[]{0, 0, parentWeight, anyActive ? 1 : 0};
+            return new double[]{compSum / wSum, perfSum / wSum, parentWeight, 1.0};
+        }
+
+        Instant kpiStart = kpi.getKpiPeriod() != null && kpi.getKpiPeriod().getStartDate() != null ?
                            kpi.getKpiPeriod().getStartDate() : objStart;
         Instant kpiEnd = kpi.getKpiPeriod() != null && kpi.getKpiPeriod().getEndDate() != null ? 
                          kpi.getKpiPeriod().getEndDate() : objEnd;
@@ -817,6 +807,8 @@ public class SubordinateAnalyticsService {
         for (KpiCriteria kpi : kr.getKpis()) {
             // KPI thác nước (có parent) không tính riêng; kết quả đã tổng hợp lên KPI cha.
             if (kpi.getParent() != null) continue;
+            // KPI thưởng không phản ánh tiến độ/hiệu suất → không tính.
+            if (Boolean.TRUE.equals(kpi.getIsBonusKpi())) continue;
             double[] res = calculateKpiMetricsAndActive(kpi, objStart, objEnd, A, B, onlyApproved);
             if (res[3] > 0) {
                 sumComp += (res[0] * res[2]);
@@ -971,6 +963,8 @@ public class SubordinateAnalyticsService {
                     for (KpiCriteria kpi : kr.getKpis()) {
                         // KPI thác nước (có parent) không tính riêng; kết quả đã tổng hợp lên KPI cha.
                         if (kpi.getParent() != null) continue;
+                        // KPI thưởng không phản ánh tiến độ/hiệu suất → không tính.
+                        if (Boolean.TRUE.equals(kpi.getIsBonusKpi())) continue;
                         double[] kpiMetrics = calculateKpiMetricsAndActive(kpi, objStart, objEnd, from, to, onlyApproved);
                         if (kpiMetrics[3] > 0) {
                             unitAccumulators.computeIfAbsent(kpi.getOrgUnit(), k -> new double[]{0,0,0});
@@ -1029,6 +1023,8 @@ public class SubordinateAnalyticsService {
             for (KpiCriteria kpi : kr.getKpis()) {
                 // KPI thác nước (có parent) không tính riêng; kết quả đã tổng hợp lên KPI cha.
                 if (kpi.getParent() != null) continue;
+                // KPI thưởng không phản ánh tiến độ/hiệu suất → không tính.
+                if (Boolean.TRUE.equals(kpi.getIsBonusKpi())) continue;
                 double[] kpiMetrics = calculateKpiMetricsAndActive(kpi, objStart, objEnd, from, to, onlyApproved);
                 if (kpiMetrics[3] > 0) {
                     if (kpiMetrics[0] >= 100) completedCount++;
@@ -1087,6 +1083,8 @@ public class SubordinateAnalyticsService {
                     if (kpi.getCreatedAt() == null) continue;
                     // KPI thác nước (có parent) không tính riêng; kết quả đã tổng hợp lên KPI cha.
                     if (kpi.getParent() != null) continue;
+                    // KPI thưởng không phản ánh tiến độ/hiệu suất → không tính.
+                    if (Boolean.TRUE.equals(kpi.getIsBonusKpi())) continue;
 
                     boolean isActive = true;
                     Instant kpiRef = (kpi.getKpiPeriod() != null && kpi.getKpiPeriod().getStartDate() != null)
@@ -1147,6 +1145,8 @@ public class SubordinateAnalyticsService {
             for (KpiCriteria kpi : kr.getKpis()) {
                 // KPI thác nước (có parent) không tính riêng; kết quả đã tổng hợp lên KPI cha.
                 if (kpi.getParent() != null) continue;
+                // KPI thưởng không phản ánh tiến độ/hiệu suất → không tính.
+                if (Boolean.TRUE.equals(kpi.getIsBonusKpi())) continue;
                 double[] kpiMetrics = calculateKpiMetricsAndActive(kpi, objStart, objEnd, from, to, onlyApproved);
                 if (kpiMetrics[3] > 0) {
                     topItems.add(ScopedDashboardResponse.TopItem.builder()

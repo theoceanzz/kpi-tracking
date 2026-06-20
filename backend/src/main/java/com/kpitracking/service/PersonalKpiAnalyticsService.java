@@ -51,6 +51,25 @@ public class PersonalKpiAnalyticsService {
     // ── Metrics calculation (identical to PersonalObjectiveAnalyticsService) ──
 
     private double[] calculateKpiMetrics(KpiCriteria kpi, Instant A, Instant B, Boolean onlyApproved) {
+        // KPI cha (decomposition): tiến độ/hiệu suất = bình quân có trọng số chuẩn hoá của các con.
+        if (KpiMetricsCalculator.hasDecompositionChildren(kpi)) {
+            double wSum = 0, compSum = 0, perfSum = 0, actualSum = 0;
+            boolean anyActive = false;
+            for (KpiCriteria child : KpiMetricsCalculator.decompositionChildren(kpi)) {
+                double[] cm = calculateKpiMetrics(child, A, B, onlyApproved);
+                if (cm[2] == 0) continue;
+                double w = child.getWeight() != null ? child.getWeight() : 0.0;
+                if (w <= 0) continue;
+                wSum += w;
+                compSum += cm[0] * w;
+                perfSum += cm[1] * w;
+                actualSum += cm[3];
+                anyActive = true;
+            }
+            if (!anyActive || wSum == 0) return new double[]{0, 0, anyActive ? 1 : 0, 0};
+            return new double[]{compSum / wSum, perfSum / wSum, 1.0, actualSum};
+        }
+
         Instant kpiStart = kpi.getKpiPeriod() != null && kpi.getKpiPeriod().getStartDate() != null
                 ? kpi.getKpiPeriod().getStartDate() : Instant.EPOCH;
         Instant kpiEnd = kpi.getKpiPeriod() != null && kpi.getKpiPeriod().getEndDate() != null
@@ -111,6 +130,8 @@ public class PersonalKpiAnalyticsService {
         Instant now = Instant.now();
 
         for (KpiCriteria kpi : myKpis) {
+            // KPI thưởng không phản ánh tiến độ/hiệu suất → không tính vào số trung bình & các bộ đếm.
+            if (Boolean.TRUE.equals(kpi.getIsBonusKpi())) continue;
             double[] m = calculateKpiMetrics(kpi, from, to, onlyApproved);
             if (m[2] > 0) {
                 totalComp += m[0];
@@ -152,6 +173,8 @@ public class PersonalKpiAnalyticsService {
             int assignedCount = 0;
 
             for (KpiCriteria kpi : myKpis) {
+                // KPI thưởng không tính vào xu hướng tiến độ/hiệu suất.
+                if (Boolean.TRUE.equals(kpi.getIsBonusKpi())) continue;
                 Instant kpiRef = (kpi.getKpiPeriod() != null && kpi.getKpiPeriod().getStartDate() != null)
                         ? kpi.getKpiPeriod().getStartDate() : kpi.getCreatedAt();
                 if (kpiRef != null && kpiRef.isBefore(pEnd)) {
@@ -256,14 +279,17 @@ public class PersonalKpiAnalyticsService {
                 }
             }
 
+            // KPI thưởng vẫn được liệt kê nhưng không hiển thị tiến độ/hiệu suất.
+            boolean isBonus = Boolean.TRUE.equals(kpi.getIsBonusKpi());
+
             details.add(KpiDetail.builder()
                     .kpiId(kpi.getId())
                     .kpiName(kpi.getName())
                     .targetValue(totalTarget)
                     .actualValue(m[3])
                     .unit(kpi.getUnit())
-                    .progress(m[0])
-                    .performance(m[1])
+                    .progress(isBonus ? null : m[0])
+                    .performance(isBonus ? null : m[1])
                     .objectiveName("")
                     .objectiveCode("")
                     .keyResultName("")

@@ -294,13 +294,24 @@ const DateRange = ({ start, end }: { start: string | null; end: string | null })
                             <DateRange start={kpi.startDate} end={kpi.endDate} />
                           </td>
                           <td className="px-6 py-4 align-top">
-                            <ProgressBar 
-                              value={kpi.progress} 
-                              subText={`${kpi.participants?.length || 0} người tham gia`} 
-                            />
+                            {kpi.progress == null ? (
+                              <div className="flex flex-col gap-1 min-w-[150px]">
+                                <span className="inline-flex w-fit items-center gap-1 px-2.5 py-1 rounded-full bg-amber-50 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 text-[10px] font-black uppercase">Thưởng</span>
+                                <div className="text-[10px] text-slate-500 font-medium">{`${kpi.participants?.length || 0} người tham gia`}</div>
+                              </div>
+                            ) : (
+                              <ProgressBar
+                                value={kpi.progress}
+                                subText={`${kpi.participants?.length || 0} người tham gia`}
+                              />
+                            )}
                           </td>
                           <td className="px-6 py-4 align-top text-center">
-                            <SparklineDonut value={kpi.performance} />
+                            {kpi.performance == null ? (
+                              <span className="text-slate-400 font-black">—</span>
+                            ) : (
+                              <SparklineDonut value={kpi.performance} />
+                            )}
                           </td>
                         </tr>
 
