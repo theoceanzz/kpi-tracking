@@ -23,9 +23,20 @@ import {
   AlertCircle, Calendar, Info, CheckCircle2, ShieldAlert
 } from 'lucide-react'
 import LoadingSkeleton from '@/components/common/LoadingSkeleton'
+import { useAuthStore } from '@/store/authStore'
+import type { KpiCriteria } from '@/types/kpi'
+
+function isSubmittableByUser(k: KpiCriteria, userId?: string) {
+  const now = new Date()
+  return (k.status === 'APPROVED' || k.status === 'EDITED' || k.status === 'EDIT') &&
+    k.submissionCount < k.expectedSubmissions &&
+    !!userId && k.assigneeIds?.includes(userId) &&
+    (!k.kpiPeriod?.endDate || new Date(k.kpiPeriod.endDate) >= now)
+}
 
 export default function NewSubmissionPage() {
   const navigate = useNavigate()
+  const user = useAuthStore(s => s.user)
   const { id } = useParams()
   const isEdit = !!id
   const [searchParams] = useSearchParams()
@@ -68,7 +79,7 @@ export default function NewSubmissionPage() {
   useEffect(() => {
     if (!myKpiData?.content || isInitialSyncDone || isEdit) return;
 
-    const approvedKpis = myKpiData.content.filter(k => (k.status === 'APPROVED' || k.status === 'EDITED' || k.status === 'EDIT') && k.submissionCount < k.expectedSubmissions);
+    const approvedKpis = myKpiData.content.filter(k => isSubmittableByUser(k, user?.id));
     let targetId: string = preselectedKpiId ?? '';
     
     if (!targetId) {
@@ -161,7 +172,7 @@ export default function NewSubmissionPage() {
     )
   }
 
-  const approvedKpis = myKpiData?.content?.filter(k => (k.status === 'APPROVED' || k.status === 'EDITED') && k.submissionCount < k.expectedSubmissions) || []
+  const approvedKpis = myKpiData?.content?.filter(k => isSubmittableByUser(k, user?.id)) || []
 
   return (
     <div className="max-w-[1200px] mx-auto p-4 md:p-6 space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
