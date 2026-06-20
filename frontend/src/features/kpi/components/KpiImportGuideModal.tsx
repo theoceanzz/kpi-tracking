@@ -18,6 +18,7 @@ const SAMPLE_DATA = [
     MinimumValue: 80000000,
     IsReverseKpi: false,
     IsBonusKpi: false,
+    Deadline: '',
     Unit: 'VND',
     EmployeeCode: 'NV001',
     OrgUnitCode: 'MKT001',
@@ -32,6 +33,7 @@ const SAMPLE_DATA = [
     MinimumValue: 5,
     IsReverseKpi: true,
     IsBonusKpi: false,
+    Deadline: '25/10/2026 17:00',
     Unit: '%',
     EmployeeCode: 'NV002, NV003',
     OrgUnitCode: 'KD002',
@@ -46,6 +48,7 @@ const SAMPLE_DATA = [
     MinimumValue: 1,
     IsReverseKpi: false,
     IsBonusKpi: true,
+    Deadline: '',
     Unit: 'sáng kiến',
     EmployeeCode: 'NV001',
     OrgUnitCode: 'MKT001',
@@ -62,6 +65,7 @@ const BASE_COLUMNS = [
   { name: 'MinimumValue', required: false, desc: 'Giá trị tối thiểu', example: '400000000' },
   { name: 'IsReverseKpi', required: false, desc: 'KPI Ngược — giá trị càng thấp càng tốt (true/false)', example: 'true' },
   { name: 'IsBonusKpi', required: false, desc: 'KPI Thưởng — tùy chọn, không tính vào 100% trọng số, hoàn thành thì cộng thêm điểm (true/false)', example: 'true' },
+  { name: 'Deadline', required: false, desc: 'Hạn chót riêng cho KPI này, sớm hơn ngày kết thúc đợt. Định dạng dd/MM/yyyy hoặc dd/MM/yyyy HH:mm. Để trống = mặc định theo ngày kết thúc đợt', example: '25/10/2026 17:00' },
   { name: 'Unit', required: true, desc: 'Đơn vị tính', example: 'VND' },
   { name: 'Frequency', required: false, desc: 'Tần suất (Chọn nhanh trong giao diện Xem trước)', example: 'MONTHLY' },
   { name: 'EmployeeCode', required: false, desc: 'Mã nhân viên (Chọn/Nhập trong giao diện Xem trước)', example: 'NV001' },
@@ -130,6 +134,7 @@ export default function KpiImportGuideModal({ open, onClose, onSelectFile }: Kpi
       { header: 'MinimumValue', key: 'MinimumValue', width: 18 },
       { header: 'IsReverseKpi', key: 'IsReverseKpi', width: 15 },
       { header: 'IsBonusKpi', key: 'IsBonusKpi', width: 15 },
+      { header: 'Deadline', key: 'Deadline', width: 18 },
       { header: 'Unit', key: 'Unit', width: 12 },
       { header: 'EmployeeCode', key: 'EmployeeCode', width: 25 },
       { header: 'OrgUnitCode', key: 'OrgUnitCode', width: 15 },
@@ -200,6 +205,7 @@ export default function KpiImportGuideModal({ open, onClose, onSelectFile }: Kpi
     guideSheet.addRow(['5. OrgUnitCode: Mã phòng ban. Hệ thống sẽ gán KPI cho phòng ban đó.'])
     guideSheet.addRow(['6. IsReverseKpi: Đánh dấu KPI Ngược (giá trị càng thấp càng tốt). Nhập true/false hoặc 1/0 hoặc có/không. Để trống = false.'])
     guideSheet.addRow(['7. IsBonusKpi: Đánh dấu KPI Thưởng (tùy chọn, không tính vào tổng 100% trọng số, hoàn thành thì được cộng thêm điểm). Nhập true/false hoặc 1/0 hoặc có/không. Để trống = false.'])
+    guideSheet.addRow(['8. Deadline: Hạn chót riêng cho KPI này (sớm hơn ngày kết thúc đợt). Định dạng dd/MM/yyyy hoặc dd/MM/yyyy HH:mm. Để trống = mặc định theo ngày kết thúc đợt.'])
 
     const buffer = await workbook.xlsx.writeBuffer()
     const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })

@@ -14,6 +14,7 @@ export const kpiSchema = z.object({
   minimumValue: z.number().min(0, 'Giá trị tối thiểu không được âm').optional(),
   isReverseKpi: z.boolean().optional(),
   isBonusKpi: z.boolean().optional(),
+  deadline: z.string().optional().nullable(),
   kpiPeriodId: z.string().min(1, 'Vui lòng chọn đợt KPI'),
   keyResultId: z.string().optional().nullable(),
   parentId: z.string().optional().nullable(),

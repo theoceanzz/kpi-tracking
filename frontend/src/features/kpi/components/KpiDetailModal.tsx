@@ -122,6 +122,13 @@ export default function KpiDetailModal({ open, onClose, kpi }: KpiDetailModalPro
               <div className="space-y-3">
                 <InfoRow label="Phòng ban" value={kpi.orgUnitName ?? '—'} />
                 <InfoRow label="Đợt đánh giá" value={kpi.kpiPeriod?.name ?? '—'} />
+                <InfoRow
+                  label="Hạn chót"
+                  value={kpi.effectiveDeadline ? formatDateTime(kpi.effectiveDeadline) : '—'}
+                />
+                {kpi.deadline && (
+                  <p className="text-[9px] font-black uppercase text-amber-600 -mt-2">Deadline riêng (sớm hơn kỳ đánh giá)</p>
+                )}
               </div>
             </div>
 

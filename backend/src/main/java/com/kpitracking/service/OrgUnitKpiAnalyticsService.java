@@ -172,8 +172,7 @@ public class OrgUnitKpiAnalyticsService {
                 totalPerf += m[1];
                 activeCount++;
                 if (m[0] >= 100) completedCount++; else runningCount++;
-                Instant kpiEnd = kpi.getKpiPeriod() != null && kpi.getKpiPeriod().getEndDate() != null
-                        ? kpi.getKpiPeriod().getEndDate() : null;
+                Instant kpiEnd = kpi.getEffectiveDeadline();
                 if (kpiEnd != null) {
                     long daysLeft = (kpiEnd.toEpochMilli() - now.toEpochMilli()) / (1000 * 60 * 60 * 24);
                     if (daysLeft <= 7 && m[0] < 50) riskCount++;
@@ -880,7 +879,7 @@ public class OrgUnitKpiAnalyticsService {
         List<OverdueKpiForUnit> result = new ArrayList<>();
         for (KpiCriteria kpi : kpis) {
             if (!isKpiOverdueOverall(kpi)) continue;
-            Instant kpiEnd = kpi.getKpiPeriod() != null ? kpi.getKpiPeriod().getEndDate() : null;
+            Instant kpiEnd = kpi.getEffectiveDeadline();
             List<String> assigneeNames = kpi.getAssignees() == null ? Collections.emptyList()
                     : kpi.getAssignees().stream().map(User::getFullName).toList();
             result.add(OverdueKpiForUnit.builder()
@@ -907,7 +906,7 @@ public class OrgUnitKpiAnalyticsService {
             boolean assignedToUser = kpi.getAssignees().stream().anyMatch(a -> a.getId().equals(userId));
             if (!assignedToUser) continue;
             if (!isKpiOverdueForUser(kpi, userId)) continue;
-            Instant kpiEnd = kpi.getKpiPeriod() != null ? kpi.getKpiPeriod().getEndDate() : null;
+            Instant kpiEnd = kpi.getEffectiveDeadline();
             List<MemberSubmissionItem> submissions = kpi.getSubmissions() == null ? Collections.emptyList()
                     : kpi.getSubmissions().stream()
                         .filter(s -> s.getSubmittedBy() != null && s.getSubmittedBy().getId().equals(userId))
@@ -961,8 +960,8 @@ public class OrgUnitKpiAnalyticsService {
     }
 
     private boolean isKpiOverdueOverall(KpiCriteria kpi) {
-        if (kpi.getKpiPeriod() == null || kpi.getKpiPeriod().getEndDate() == null) return false;
-        Instant kpiEnd = kpi.getKpiPeriod().getEndDate();
+        Instant kpiEnd = kpi.getEffectiveDeadline();
+        if (kpiEnd == null) return false;
         if (kpi.getSubmissions() == null || kpi.getSubmissions().isEmpty()) return false;
         return kpi.getSubmissions().stream()
             .filter(s -> s.getStatus() == SubmissionStatus.APPROVED || s.getStatus() == SubmissionStatus.PENDING || s.getStatus() == SubmissionStatus.REJECTED)
@@ -974,8 +973,8 @@ public class OrgUnitKpiAnalyticsService {
     }
 
     private boolean isKpiOverdueForUser(KpiCriteria kpi, UUID userId) {
-        if (kpi.getKpiPeriod() == null || kpi.getKpiPeriod().getEndDate() == null) return false;
-        Instant kpiEnd = kpi.getKpiPeriod().getEndDate();
+        Instant kpiEnd = kpi.getEffectiveDeadline();
+        if (kpiEnd == null) return false;
         if (kpi.getSubmissions() == null || kpi.getSubmissions().isEmpty()) return false;
         return kpi.getSubmissions().stream()
             .filter(s -> s.getSubmittedBy() != null && s.getSubmittedBy().getId().equals(userId))

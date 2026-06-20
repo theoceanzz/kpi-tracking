@@ -37,7 +37,8 @@ public class DeadlineReminderService {
         Instant now = Instant.now();
 
         for (KpiCriteria kpi : activeKpis) {
-            if (kpi.getKpiPeriod() == null || kpi.getKpiPeriod().getStartDate() == null || kpi.getKpiPeriod().getEndDate() == null) {
+            Instant effectiveDeadline = kpi.getEffectiveDeadline();
+            if (kpi.getKpiPeriod() == null || kpi.getKpiPeriod().getStartDate() == null || effectiveDeadline == null) {
                 continue;
             }
 
@@ -46,9 +47,14 @@ public class DeadlineReminderService {
             }
 
             long start = kpi.getKpiPeriod().getStartDate().toEpochMilli();
-            long end = kpi.getKpiPeriod().getEndDate().toEpochMilli();
+            long end = effectiveDeadline.toEpochMilli();
             int expected = kpi.getExpectedSubmissions() != null ? kpi.getExpectedSubmissions() : calculateExpected(kpi);
             long totalDuration = end - start;
+            if (totalDuration <= 0) {
+                log.warn("Skipping reminder batching for KPI {} ({}): effective deadline ({}) is not after period start ({})",
+                        kpi.getId(), kpi.getName(), effectiveDeadline, kpi.getKpiPeriod().getStartDate());
+                continue;
+            }
             long batchDuration = totalDuration / expected;
 
             for (User assignee : kpi.getAssignees()) {

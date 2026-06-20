@@ -76,13 +76,7 @@ public class KpiSubmissionService {
         boolean isAssignee = kpi.getAssignees().stream()
                 .anyMatch(u -> u.getId().equals(currentUser.getId()));
         if (!isAssignee) {
-            // Check if user has any role assignment in the same org unit as the KPI
-            boolean isInSameOrgUnit = kpi.getOrgUnit() != null &&
-                    userRoleOrgUnitRepository.findByUserIdAndOrgUnitId(currentUser.getId(), kpi.getOrgUnit().getId())
-                            .stream().findAny().isPresent();
-            if (!isInSameOrgUnit) {
-                throw new ForbiddenException("Bạn không được giao thực hiện chỉ tiêu KPI này");
-            }
+            throw new ForbiddenException("Bạn không được giao thực hiện chỉ tiêu KPI này");
         }
 
         // --- NEW: Period Open Check ---

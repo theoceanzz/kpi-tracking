@@ -35,6 +35,7 @@ interface KpiRow {
   MinimumValue: string
   IsReverseKpi: string
   IsBonusKpi: string
+  Deadline: string
   Unit: string
   Frequency: string
   EmployeeCode: string
@@ -56,6 +57,7 @@ const kpiRowSchema = z.object({
   }, 'Trọng số phải từ 1-100'),
   TargetValue: z.string().refine(val => !isNaN(Number(val)), 'Giá trị mục tiêu phải là số'),
   MinimumValue: z.string().refine(val => !val || !isNaN(Number(val)), 'Giá trị tối thiểu phải là số').optional().nullable(),
+  Deadline: z.string().refine(val => !val || /^\d{1,2}\/\d{1,2}\/\d{4}( \d{1,2}:\d{2})?$/.test(val), 'Định dạng: dd/MM/yyyy hoặc dd/MM/yyyy HH:mm').optional().nullable(),
   Unit: z.string().min(1, 'Đơn vị là bắt buộc'),
   Frequency: z.string().refine(val => frequencyOptions.includes(val.toUpperCase()), 'Tần suất không hợp lệ'),
   EmployeeCode: z.string().min(1, 'Mã nhân viên là bắt buộc'),
@@ -209,6 +211,7 @@ export default function KpiExcelPreviewModal({ open, file, onClose, onImport, is
           Weight: (row['Weight'] ?? '').toString().trim(),
           TargetValue: (row['TargetValue'] ?? '').toString().trim(),
           MinimumValue: (row['MinimumValue'] ?? '').toString().trim(),
+          Deadline: (row['Deadline'] ?? '').toString().trim(),
           IsReverseKpi: (row['IsReverseKpi'] ?? '').toString().trim().toLowerCase(),
           IsBonusKpi: (row['IsBonusKpi'] ?? '').toString().trim().toLowerCase(),
           Unit: (row['Unit'] || '').toString().trim(),
@@ -418,6 +421,7 @@ export default function KpiExcelPreviewModal({ open, file, onClose, onImport, is
       Weight: '10',
       TargetValue: '0',
       MinimumValue: '0',
+      Deadline: '',
       IsReverseKpi: 'false',
       IsBonusKpi: 'false',
       Unit: '',
@@ -519,8 +523,8 @@ export default function KpiExcelPreviewModal({ open, file, onClose, onImport, is
 
 
     try {
-      const exportData = data.map(({ Name, Description, Weight, TargetValue, MinimumValue, IsReverseKpi, IsBonusKpi, Unit, Frequency, EmployeeCode, Period, OrgUnit, ObjectiveCode, KeyResultCode }) => ({
-        Name, Description, Weight, TargetValue, MinimumValue, IsReverseKpi, IsBonusKpi, Unit, Frequency, EmployeeCode, Period, OrgUnit, ObjectiveCode, KeyResultCode
+      const exportData = data.map(({ Name, Description, Weight, TargetValue, MinimumValue, IsReverseKpi, IsBonusKpi, Deadline, Unit, Frequency, EmployeeCode, Period, OrgUnit, ObjectiveCode, KeyResultCode }) => ({
+        Name, Description, Weight, TargetValue, MinimumValue, IsReverseKpi, IsBonusKpi, Deadline, Unit, Frequency, EmployeeCode, Period, OrgUnit, ObjectiveCode, KeyResultCode
       }))
       
       const ws = utils.json_to_sheet(exportData)
@@ -927,6 +931,7 @@ export default function KpiExcelPreviewModal({ open, file, onClose, onImport, is
                         <th className="px-5 py-4 min-w-[150px]">Trọng số <span className="text-rose-500">*</span></th>
                         <th className="px-5 py-4 min-w-[150px]">Mục tiêu <span className="text-rose-500">*</span></th>
                         <th className="px-5 py-4 min-w-[150px]">Tối thiểu <span className="text-rose-500">*</span></th>
+                        <th className="px-5 py-4 min-w-[160px]">Hạn chót riêng</th>
                         <th className="px-5 py-4 min-w-[120px]">KPI Ngược</th>
                         <th className="px-5 py-4 min-w-[120px]">KPI Thưởng</th>
                         <th className="px-5 py-4 min-w-[150px]">Đơn vị <span className="text-rose-500">*</span></th>
@@ -998,6 +1003,18 @@ export default function KpiExcelPreviewModal({ open, file, onClose, onImport, is
                               )}
                             />
                             {row._errors?.MinimumValue && <p className="text-[9px] text-rose-500 mt-1 font-black uppercase px-2">{row._errors.MinimumValue}</p>}
+                          </td>
+                          <td className="px-5 py-3">
+                            <input
+                              value={row.Deadline || ''}
+                              onChange={e => handleCellChange(row.id, 'Deadline', e.target.value)}
+                              placeholder="dd/MM/yyyy HH:mm"
+                              className={cn(
+                                "w-full px-4 py-2 rounded-xl border text-sm font-black transition-all",
+                                row._errors?.Deadline ? "border-rose-300 bg-rose-50 dark:bg-rose-900/10" : "border-transparent hover:border-slate-200 focus:border-indigo-500"
+                              )}
+                            />
+                            {row._errors?.Deadline && <p className="text-[9px] text-rose-500 mt-1 font-black uppercase px-2">{row._errors.Deadline}</p>}
                           </td>
                           <td className="px-5 py-3">
                             <button

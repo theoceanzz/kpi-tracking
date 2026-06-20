@@ -127,7 +127,7 @@ export default function KpiDelegationModal({ open, onClose, kpi }: KpiDelegation
 
   const filteredObjectives = useMemo(() => {
     if (!objectives) return []
-    return objectives.filter((obj: any) => obj.orgUnitId === kpi.orgUnitId)
+    return objectives.filter((obj: any) => obj.orgUnitIds?.includes(kpi.orgUnitId))
   }, [objectives, kpi.orgUnitId])
 
   if (!open) return null

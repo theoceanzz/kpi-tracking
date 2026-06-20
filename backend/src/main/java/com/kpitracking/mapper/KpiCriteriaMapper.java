@@ -50,6 +50,7 @@ public interface KpiCriteriaMapper {
     @Mapping(source = "parent.name", target = "parentName")
     @Mapping(target = "submissionCount", expression = "java(countActiveSubmissions(kpiCriteria))")
     @Mapping(target = "expectedSubmissions", expression = "java(calculateExpected(kpiCriteria))")
+    @Mapping(target = "effectiveDeadline", expression = "java(kpiCriteria.getEffectiveDeadline())")
     @Mapping(target = "hasChildren", expression = "java(kpiCriteria.getChildren() != null && !kpiCriteria.getChildren().isEmpty())")
     @Mapping(target = "delegatedToNames", expression = "java(mapDelegatedNames(kpiCriteria))")
     @Mapping(target = "delegatedToIds", expression = "java(mapDelegatedIds(kpiCriteria))")
