@@ -340,6 +340,7 @@ CREATE TABLE kpi_criteria (
     weight          DOUBLE PRECISION,
     target_value    DOUBLE PRECISION,
     minimum_value   DOUBLE PRECISION,
+    compensated_achievement_percent DOUBLE PRECISION,
     unit            VARCHAR(50),
     frequency       VARCHAR(20)     NOT NULL,
     key_result_id   UUID            REFERENCES key_results(id) ON DELETE SET NULL,

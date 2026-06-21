@@ -116,6 +116,14 @@ public class KpiCriteriaController {
         return ResponseEntity.ok(ApiResponse.success("KPI rejected", response));
     }
 
+    @PostMapping("/{kpiId}/revert-approval")
+    @PreAuthorize("hasAuthority('KPI:REVERT_APPROVAL')")
+    @Operation(summary = "Revert an approved KPI criteria back to pending approval (director only)")
+    public ResponseEntity<ApiResponse<KpiCriteriaResponse>> revertApproval(@PathVariable UUID kpiId) {
+        KpiCriteriaResponse response = kpiCriteriaService.revertApproval(kpiId);
+        return ResponseEntity.ok(ApiResponse.success("Đã hoàn duyệt chỉ tiêu KPI", response));
+    }
+
     @DeleteMapping("/{kpiId}")
     @PreAuthorize("hasAuthority('KPI:DELETE')")
     @Operation(summary = "Soft delete KPI criteria")

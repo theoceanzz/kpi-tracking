@@ -93,13 +93,20 @@ public class OrgUnitStatisticService {
                 })
                 .collect(Collectors.toList());
 
-        boolean reverse = Boolean.TRUE.equals(kpi.getIsReverseKpi());
-        double completion = reverse
-                ? KpiMetricsCalculator.reversePercent(complSubs, targetValue)
-                : (targetValue > 0 ? (KpiMetricsCalculator.sum(complSubs) / targetValue) * 100 : 0);
-        double performance = reverse
-                ? KpiMetricsCalculator.reversePercent(perfSubs, targetValue)
-                : (expectedValueFilter > 0 ? (KpiMetricsCalculator.sum(perfSubs) / expectedValueFilter) * 100 : 0);
+        double completion;
+        double performance;
+        if (kpi.getCompensatedAchievementPercent() != null) {
+            completion = kpi.getCompensatedAchievementPercent();
+            performance = kpi.getCompensatedAchievementPercent();
+        } else {
+            boolean reverse = Boolean.TRUE.equals(kpi.getIsReverseKpi());
+            completion = reverse
+                    ? KpiMetricsCalculator.reversePercent(complSubs, targetValue)
+                    : (targetValue > 0 ? (KpiMetricsCalculator.sum(complSubs) / targetValue) * 100 : 0);
+            performance = reverse
+                    ? KpiMetricsCalculator.reversePercent(perfSubs, targetValue)
+                    : (expectedValueFilter > 0 ? (KpiMetricsCalculator.sum(perfSubs) / expectedValueFilter) * 100 : 0);
+        }
 
         return new double[]{completion, performance};
     }
@@ -113,6 +120,8 @@ public class OrgUnitStatisticService {
             // KPI thác nước (có parent) không tính tiến độ/hiệu suất cho người được giao;
             // kết quả của nó đã được tổng hợp lên KPI cha nên bỏ qua để tránh tính trùng.
             if (kpi.getParent() != null) continue;
+            // KPI đã dừng nhưng chưa có mức bù (dữ liệu cũ trước khi có cơ chế bù) - bỏ qua an toàn.
+            if (kpi.getStatus() == KpiStatus.INACTIVE && kpi.getCompensatedAchievementPercent() == null) continue;
             double[] metrics = calculateKpiMetrics(kpi, A, B);
             double weight = kpi.getWeight() != null && kpi.getWeight() > 0 ? kpi.getWeight() : 1.0;
 

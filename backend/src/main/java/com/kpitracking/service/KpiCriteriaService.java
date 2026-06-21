@@ -15,6 +15,7 @@ import com.kpitracking.enums.KpiStatus;
 import com.kpitracking.enums.KpiFrequency;
 import com.kpitracking.event.KpiEvents.KpiCriteriaApprovedEvent;
 import com.kpitracking.event.KpiEvents.KpiCriteriaRejectedEvent;
+import com.kpitracking.event.KpiEvents.KpiCriteriaApprovalRevertedEvent;
 import com.kpitracking.exception.BusinessException;
 import com.kpitracking.exception.ForbiddenException;
 import com.kpitracking.exception.ResourceNotFoundException;
@@ -667,6 +668,52 @@ public class KpiCriteriaService {
         kpi = kpiCriteriaRepository.save(kpi);
 
         eventPublisher.publishEvent(new KpiCriteriaRejectedEvent(this, kpi));
+
+        return kpiCriteriaMapper.toResponse(kpi);
+    }
+
+    @Transactional
+    public KpiCriteriaResponse revertApproval(UUID kpiId) {
+        User currentUser = getCurrentUser();
+        KpiCriteria kpi = kpiCriteriaRepository.findById(kpiId)
+                .orElseThrow(() -> new ResourceNotFoundException("Chỉ tiêu KPI", "id", kpiId));
+
+        if (!permissionChecker.isGlobalAdmin(currentUser.getId())) {
+            if (!permissionChecker.hasPermissionInOrgUnit(currentUser.getId(), "KPI:REVERT_APPROVAL", kpi.getOrgUnit().getId())) {
+                throw new ForbiddenException("Bạn không có quyền hoàn duyệt chỉ tiêu KPI cho đơn vị này");
+            }
+
+            // Same hierarchical rule as approveKpi: reviewer must be superior to the creator
+            User creator = kpi.getCreatedBy();
+            int creatorLevel = permissionChecker.getMinLevelInOrgUnit(creator.getId(), kpi.getOrgUnit().getId());
+            int creatorRank = permissionChecker.getMinRankInOrgUnit(creator.getId(), kpi.getOrgUnit().getId());
+
+            int reviewerLevel = permissionChecker.getMinLevelInOrgUnit(currentUser.getId(), kpi.getOrgUnit().getId());
+            int reviewerRank = permissionChecker.getMinRankInOrgUnit(currentUser.getId(), kpi.getOrgUnit().getId());
+
+            boolean isSuperior = reviewerLevel < creatorLevel || (reviewerLevel == creatorLevel && reviewerRank < creatorRank);
+
+            if (!isSuperior) {
+                if (reviewerLevel > creatorLevel) {
+                    throw new ForbiddenException("Bạn không thể hoàn duyệt chỉ tiêu của người có cấp bậc cao hơn bạn");
+                } else if (reviewerLevel == creatorLevel && reviewerRank == creatorRank) {
+                    throw new ForbiddenException("Bạn không thể hoàn duyệt chỉ tiêu của người có cùng chức vụ");
+                } else {
+                    throw new ForbiddenException("Bạn không đủ thẩm quyền để hoàn duyệt chỉ tiêu này");
+                }
+            }
+        }
+
+        if (kpi.getStatus() != KpiStatus.APPROVED) {
+            throw new BusinessException("Chỉ có thể hoàn duyệt KPI đang ở trạng thái ĐÃ DUYỆT");
+        }
+
+        kpi.setStatus(KpiStatus.PENDING_APPROVAL);
+        kpi.setApprovedBy(null);
+        kpi.setApprovedAt(null);
+        kpi = kpiCriteriaRepository.save(kpi);
+
+        eventPublisher.publishEvent(new KpiCriteriaApprovalRevertedEvent(this, kpi, currentUser));
 
         return kpiCriteriaMapper.toResponse(kpi);
     }

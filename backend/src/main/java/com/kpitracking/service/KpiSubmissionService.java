@@ -63,6 +63,9 @@ public class KpiSubmissionService {
         KpiCriteria kpi = kpiCriteriaRepository.findById(request.getKpiCriteriaId())
                 .orElseThrow(() -> new ResourceNotFoundException("Chỉ tiêu KPI", "id", request.getKpiCriteriaId()));
 
+        if (kpi.getStatus() == KpiStatus.INACTIVE) {
+            throw new BusinessException("Chỉ tiêu KPI này đã được dừng (huỷ bỏ) và không thể nộp báo cáo mới.");
+        }
         if (kpi.getStatus() != KpiStatus.APPROVED && kpi.getStatus() != KpiStatus.EDITED) {
             throw new BusinessException("Chỉ có thể nộp báo cáo cho những chỉ tiêu KPI đã được PHÊ DUYỆT hoặc ĐÃ ĐIỀU CHỈNH");
         }
@@ -292,6 +295,10 @@ public class KpiSubmissionService {
             throw new ForbiddenException("Bạn không có quyền chỉnh sửa bản nộp này");
         }
 
+        if (submission.getKpiCriteria().getStatus() == KpiStatus.INACTIVE) {
+            throw new BusinessException("Chỉ tiêu KPI này đã được dừng (huỷ bỏ) và không thể chỉnh sửa bản nộp.");
+        }
+
         if (submission.getStatus() != SubmissionStatus.DRAFT && submission.getStatus() != SubmissionStatus.REJECTED) {
             throw new BusinessException("Chỉ có thể chỉnh sửa các bản nộp ở trạng thái NHÁP hoặc BỊ TỪ CHỐI");
         }
@@ -508,12 +515,16 @@ public class KpiSubmissionService {
         Double autoScore = 0.0;
         if (parentKpi.getTargetValue() != null && parentKpi.getWeight() != null && parentKpi.getTargetValue() != 0) {
             double multiplier = org.getEvaluationMaxScore() / 100.0;
-            boolean isInverse = Boolean.TRUE.equals(parentKpi.getIsReverseKpi());
             double ratio;
-            if (isInverse) {
-                ratio = Math.max(0.0, 2.0 - (totalActual / parentKpi.getTargetValue()));
+            if (parentKpi.getCompensatedAchievementPercent() != null) {
+                ratio = parentKpi.getCompensatedAchievementPercent() / 100.0;
             } else {
-                ratio = totalActual / parentKpi.getTargetValue();
+                boolean isInverse = Boolean.TRUE.equals(parentKpi.getIsReverseKpi());
+                if (isInverse) {
+                    ratio = Math.max(0.0, 2.0 - (totalActual / parentKpi.getTargetValue()));
+                } else {
+                    ratio = totalActual / parentKpi.getTargetValue();
+                }
             }
             ratio = Math.min(ratio, 1.5);
             autoScore = ratio * parentKpi.getWeight() * multiplier;

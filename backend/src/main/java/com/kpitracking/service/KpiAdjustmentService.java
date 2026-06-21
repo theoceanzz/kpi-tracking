@@ -151,10 +151,14 @@ public class KpiAdjustmentService {
             KpiCriteria kpi = adj.getKpiCriteria();
             kpi.setStatus(KpiStatus.EDITED);
             if (adj.isDeactivationRequest()) {
-                // If it's a deactivation request, we might want to set weight to 0 or mark as inactive
-                // For now, let's just set weight to 0 and status to INACTIVE if it's a total skip
-                kpi.setWeight(0.0);
-                kpi.setStatus(KpiStatus.INACTIVE); // Optional: depends on business if we want to hide it
+                if (request.getCompensationPercentage() == null) {
+                    throw new BusinessException("Vui lòng nhập tỷ lệ % bù trừ thành tích khi phê duyệt yêu cầu dừng KPI.");
+                }
+                if (request.getCompensationPercentage() < 0 || request.getCompensationPercentage() > 150) {
+                    throw new BusinessException("Tỷ lệ % bù trừ thành tích phải nằm trong khoảng 0-150.");
+                }
+                kpi.setCompensatedAchievementPercent(request.getCompensationPercentage());
+                kpi.setStatus(KpiStatus.INACTIVE);
             } else {
                 if (adj.getRequestedTargetValue() != null) kpi.setTargetValue(adj.getRequestedTargetValue());
                 if (adj.getRequestedMinimumValue() != null) kpi.setMinimumValue(adj.getRequestedMinimumValue());
@@ -181,6 +185,11 @@ public class KpiAdjustmentService {
                 .build();
         
         for (java.util.UUID id : request.getIds()) {
+            KpiAdjustmentRequest adj = adjustmentRepository.findById(id).orElse(null);
+            if (adj == null) continue;
+            if (adj.isDeactivationRequest()) {
+                continue;
+            }
             try {
                 reviewRequest(id, singleRequest);
             } catch (Exception e) {
@@ -254,6 +263,7 @@ public class KpiAdjustmentService {
                 .requestedTargetValue(adj.getRequestedTargetValue())
                 .requestedMinimumValue(adj.getRequestedMinimumValue())
                 .deactivationRequest(adj.isDeactivationRequest())
+                .compensationPercentage(adj.getKpiCriteria().getCompensatedAchievementPercent())
                 .reason(adj.getReason())
                 .status(adj.getStatus())
                 .requesterId(adj.getRequester().getId())

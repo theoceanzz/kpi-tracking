@@ -1,11 +1,11 @@
-import { useState, useMemo, useEffect } from 'react'
+import { useState, useMemo, useEffect, useRef } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { submissionApi } from '../api/submissionApi'
 import { evaluationApi } from '@/features/evaluations/api/evaluationApi'
 import { toast } from 'sonner'
-import { 
-  X, Loader2, CheckCircle, Target, TrendingUp, 
-  MessageSquare, Award, Star,
+import {
+  X, Loader2, CheckCircle, Target, TrendingUp,
+  MessageSquare, Award, Star, Zap,
   AlertCircle, Paperclip, ExternalLink
 } from 'lucide-react'
 
@@ -32,11 +32,13 @@ export default function StaffEvaluationModal({
   const { user } = useAuthStore()
   const orgId = user?.memberships?.[0]?.organizationId
   const { data: org } = useOrganization(orgId)
-  const { getScoreLabel } = getScoringFunctions(org)
+  const { getScoreLabel, maxScore } = getScoringFunctions(org)
   const userRoleName = user?.memberships?.[0]?.roleName || 'Quản lý'
   const qc = useQueryClient()
   const [individualScores, setIndividualScores] = useState<Record<string, number>>({})
   const [overallComment, setOverallComment] = useState(evaluationComment || '')
+  const [finalScore, setFinalScore] = useState(0)
+  const hasManuallyAdjustedFinal = useRef(false)
 
   const getGrade = (score: number) => {
     return getScoreLabel(score)
@@ -73,7 +75,7 @@ export default function StaffEvaluationModal({
     }
   }, [submissions])
 
-  // Initialize comment from existing evaluation
+  // Initialize comment and final score from existing evaluation
   useEffect(() => {
     const evalData = existingEval?.content?.[0]
     if (evalData?.comment) {
@@ -81,16 +83,34 @@ export default function StaffEvaluationModal({
     } else if (evaluationComment) {
       setOverallComment(evaluationComment)
     }
+    if (evalData?.score != null) {
+      setFinalScore(evalData.score)
+      hasManuallyAdjustedFinal.current = true
+    }
   }, [existingEval, evaluationComment])
 
   // Calculation logic
-  const totalAutoScore = useMemo(() => 
-    submissionList.reduce((acc, s) => acc + (s.autoScore ?? 0), 0), 
+  const totalAutoScore = useMemo(() =>
+    submissionList.reduce((acc, s) => acc + (s.autoScore ?? 0), 0),
   [submissionList])
 
-  const totalManagerScore = useMemo(() => 
-    Object.values(individualScores).reduce((acc, s) => acc + s, 0), 
+  const totalManagerScore = useMemo(() =>
+    Object.values(individualScores).reduce((acc, s) => acc + s, 0),
   [individualScores])
+
+  // Final score slider starts at the sum of the per-KPI scores above, then can be
+  // dragged independently within [0, maxScore] without being tied back to those scores.
+  useEffect(() => {
+    if (!hasManuallyAdjustedFinal.current) {
+      setFinalScore(totalManagerScore)
+    }
+  }, [totalManagerScore])
+
+  const handleResetFinalScore = () => {
+    if (readOnly) return
+    hasManuallyAdjustedFinal.current = false
+    setFinalScore(totalManagerScore)
+  }
 
   // Bulk review mutation
   const submitMutation = useMutation({
@@ -109,7 +129,7 @@ export default function StaffEvaluationModal({
       await evaluationApi.create({
         userId,
         kpiPeriodId: periodId,
-        score: totalManagerScore,
+        score: finalScore,
         comment: overallComment || `${userRoleName} đánh giá kết quả đợt ${periodName}`
       })
 
@@ -319,13 +339,24 @@ export default function StaffEvaluationModal({
                       <div className="absolute -bottom-10 -right-10 opacity-10 group-hover:scale-110 transition-transform duration-700">
                          <TrendingUp size={200} />
                       </div>
-                      
-                      <div className="space-y-1 relative z-10">
-                         <p className="text-[10px] font-black uppercase tracking-widest text-indigo-200">Kết quả đánh giá cuối cùng</p>
-                         <div className="flex items-baseline gap-2">
-                            <h3 className="text-6xl font-black tracking-tighter">{formatNumber(totalManagerScore)}</h3>
-                            <span className="text-lg font-bold opacity-60">điểm</span>
+
+                      <div className="space-y-1 relative z-10 flex items-start justify-between">
+                         <div>
+                            <p className="text-[10px] font-black uppercase tracking-widest text-indigo-200">Kết quả đánh giá cuối cùng</p>
+                            <div className="flex items-baseline gap-2">
+                               <h3 className="text-6xl font-black tracking-tighter">{formatNumber(finalScore)}</h3>
+                               <span className="text-lg font-bold opacity-60">điểm</span>
+                            </div>
                          </div>
+                         {!readOnly && finalScore !== totalManagerScore && (
+                            <button
+                              type="button"
+                              onClick={handleResetFinalScore}
+                              className="text-[10px] font-black text-indigo-200 hover:text-white hover:underline flex items-center gap-1 shrink-0"
+                            >
+                              <Zap size={10} fill="currentColor" /> Dùng điểm đã chấm
+                            </button>
+                         )}
                       </div>
 
                       <div className="pt-6 border-t border-white/10 space-y-3 relative z-10">
@@ -334,14 +365,39 @@ export default function StaffEvaluationModal({
                             <span>{formatNumber(totalAutoScore)}</span>
                          </div>
                          <div className="flex justify-between text-xs font-bold text-indigo-100/60">
-                            <span>Chênh lệch do điều chỉnh</span>
-                            <span>{totalManagerScore - totalAutoScore >= 0 ? '+' : ''}{formatNumber(totalManagerScore - totalAutoScore)}</span>
+                            <span>Tổng điểm đã chấm theo chỉ tiêu</span>
+                            <span>{formatNumber(totalManagerScore)}</span>
+                         </div>
+                         <div className="flex justify-between text-xs font-bold text-indigo-100/60">
+                            <span>Chênh lệch so với hệ thống</span>
+                            <span>{finalScore - totalAutoScore >= 0 ? '+' : ''}{formatNumber(finalScore - totalAutoScore)}</span>
+                         </div>
+                      </div>
+
+                      {/* Final score adjustment slider - starts at the sum of per-KPI scores,
+                          can be dragged independently within [0, maxScore] */}
+                      <div className="pt-2 relative z-10 space-y-3">
+                         <input
+                           type="range" min={0} max={maxScore} step={1}
+                           value={finalScore}
+                           onChange={(e) => {
+                             if (readOnly) return
+                             hasManuallyAdjustedFinal.current = true
+                             setFinalScore(Number(e.target.value))
+                           }}
+                           disabled={readOnly}
+                           className="w-full accent-white h-2 bg-white/20 rounded-full appearance-none cursor-pointer disabled:cursor-not-allowed"
+                         />
+                         <div className="flex justify-between text-[9px] font-black text-indigo-200 uppercase tracking-widest">
+                            <span>0</span>
+                            <span>{Math.round(maxScore / 2)}</span>
+                            <span>{maxScore}</span>
                          </div>
                       </div>
 
                       <div className="pt-2 relative z-10">
                          <div className="px-4 py-2 rounded-xl bg-white/10 backdrop-blur-md text-[10px] font-black uppercase tracking-widest inline-flex items-center gap-2">
-                            <Award size={14} /> Tự động xếp loại: {getGrade(totalManagerScore)}
+                            <Award size={14} /> Tự động xếp loại: {getGrade(finalScore)}
                          </div>
                       </div>
                    </div>

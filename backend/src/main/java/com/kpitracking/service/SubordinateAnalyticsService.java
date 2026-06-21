@@ -6,6 +6,7 @@ import com.kpitracking.dto.response.stats.SubordinateStatsResponses.*;
 import com.kpitracking.dto.response.stats.SubordinateDetailsResponses.*;
 import com.kpitracking.dto.response.stats.ScopedDashboardResponse;
 import com.kpitracking.entity.*;
+import com.kpitracking.enums.KpiStatus;
 import com.kpitracking.enums.SubmissionStatus;
 import com.kpitracking.repository.*;
 import com.kpitracking.security.PermissionChecker;
@@ -84,6 +85,8 @@ public class SubordinateAnalyticsService {
             for (KpiCriteria kpi : kr.getKpis()) {
                 // KPI thác nước (có parent) không tính riêng; kết quả đã tổng hợp lên KPI cha.
                 if (kpi.getParent() != null) continue;
+                // KPI đã dừng nhưng chưa có mức bù (dữ liệu cũ trước khi có cơ chế bù) - bỏ qua an toàn.
+                if (kpi.getStatus() == KpiStatus.INACTIVE && kpi.getCompensatedAchievementPercent() == null) continue;
                 Instant kpiStart = kpi.getKpiPeriod() != null && kpi.getKpiPeriod().getStartDate() != null ?
                                    kpi.getKpiPeriod().getStartDate() :
                                    (obj.getStartDate() != null ? obj.getStartDate().atStartOfDay().toInstant(ZoneOffset.UTC) : Instant.EPOCH);
@@ -138,13 +141,20 @@ public class SubordinateAnalyticsService {
                         .toList();
 
                 // 2. Tính toán tỷ lệ % cuối cùng (KPI ngược tính theo hướng riêng)
-                boolean reverse = Boolean.TRUE.equals(kpi.getIsReverseKpi());
-                double completion = reverse
-                        ? KpiMetricsCalculator.reversePercent(complSubs, targetValue)
-                        : (targetValue > 0 ? (KpiMetricsCalculator.sum(complSubs) / targetValue) * 100 : 0);
-                double performance = reverse
-                        ? KpiMetricsCalculator.reversePercent(perfSubs, targetValue)
-                        : (expectedValueFilter > 0 ? (KpiMetricsCalculator.sum(perfSubs) / expectedValueFilter) * 100 : 0);
+                double completion;
+                double performance;
+                if (kpi.getCompensatedAchievementPercent() != null) {
+                    completion = kpi.getCompensatedAchievementPercent();
+                    performance = kpi.getCompensatedAchievementPercent();
+                } else {
+                    boolean reverse = Boolean.TRUE.equals(kpi.getIsReverseKpi());
+                    completion = reverse
+                            ? KpiMetricsCalculator.reversePercent(complSubs, targetValue)
+                            : (targetValue > 0 ? (KpiMetricsCalculator.sum(complSubs) / targetValue) * 100 : 0);
+                    performance = reverse
+                            ? KpiMetricsCalculator.reversePercent(perfSubs, targetValue)
+                            : (expectedValueFilter > 0 ? (KpiMetricsCalculator.sum(perfSubs) / expectedValueFilter) * 100 : 0);
+                }
                 double weight = kpi.getWeight() != null && kpi.getWeight() > 0 ? kpi.getWeight() : 1.0;
 
                 sumWeightedCompletion += (completion * weight);
@@ -326,6 +336,8 @@ public class SubordinateAnalyticsService {
                 for (KpiCriteria kpi : kr.getKpis()) {
                     // KPI thác nước (có parent) không tính riêng; kết quả đã tổng hợp lên KPI cha.
                     if (kpi.getParent() != null) continue;
+                    // KPI đã dừng nhưng chưa có mức bù (dữ liệu cũ trước khi có cơ chế bù) - bỏ qua an toàn.
+                    if (kpi.getStatus() == KpiStatus.INACTIVE && kpi.getCompensatedAchievementPercent() == null) continue;
                     Instant kpiStart = kpi.getKpiPeriod() != null && kpi.getKpiPeriod().getStartDate() != null ?
                                        kpi.getKpiPeriod().getStartDate() :
                                        (obj.getStartDate() != null ? obj.getStartDate().atStartOfDay().toInstant(ZoneOffset.UTC) : Instant.EPOCH);
@@ -377,13 +389,20 @@ public class SubordinateAnalyticsService {
                             })
                             .toList();
 
-                    boolean reverse = Boolean.TRUE.equals(kpi.getIsReverseKpi());
-                    double completion = reverse
-                            ? KpiMetricsCalculator.reversePercent(complSubs, targetValue)
-                            : (targetValue > 0 ? (KpiMetricsCalculator.sum(complSubs) / targetValue) * 100 : 0);
-                    double performance = reverse
-                            ? KpiMetricsCalculator.reversePercent(perfSubs, targetValue)
-                            : (expectedValueFilter > 0 ? (KpiMetricsCalculator.sum(perfSubs) / expectedValueFilter) * 100 : 0);
+                    double completion;
+                    double performance;
+                    if (kpi.getCompensatedAchievementPercent() != null) {
+                        completion = kpi.getCompensatedAchievementPercent();
+                        performance = kpi.getCompensatedAchievementPercent();
+                    } else {
+                        boolean reverse = Boolean.TRUE.equals(kpi.getIsReverseKpi());
+                        completion = reverse
+                                ? KpiMetricsCalculator.reversePercent(complSubs, targetValue)
+                                : (targetValue > 0 ? (KpiMetricsCalculator.sum(complSubs) / targetValue) * 100 : 0);
+                        performance = reverse
+                                ? KpiMetricsCalculator.reversePercent(perfSubs, targetValue)
+                                : (expectedValueFilter > 0 ? (KpiMetricsCalculator.sum(perfSubs) / expectedValueFilter) * 100 : 0);
+                    }
                     double weight = kpi.getWeight() != null && kpi.getWeight() > 0 ? kpi.getWeight() : 1.0;
 
                     sumWeightedCompletion += (completion * weight);
@@ -799,13 +818,20 @@ public class SubordinateAnalyticsService {
                 })
                 .toList();
 
-        boolean reverse = Boolean.TRUE.equals(kpi.getIsReverseKpi());
-        double completion = reverse
-                ? KpiMetricsCalculator.reversePercent(complSubs, targetValue)
-                : (targetValue > 0 ? (KpiMetricsCalculator.sum(complSubs) / targetValue) * 100 : 0);
-        double performance = reverse
-                ? KpiMetricsCalculator.reversePercent(perfSubs, targetValue)
-                : (expectedValueFilter > 0 ? (KpiMetricsCalculator.sum(perfSubs) / expectedValueFilter) * 100 : 0);
+        double completion;
+        double performance;
+        if (kpi.getCompensatedAchievementPercent() != null) {
+            completion = kpi.getCompensatedAchievementPercent();
+            performance = kpi.getCompensatedAchievementPercent();
+        } else {
+            boolean reverse = Boolean.TRUE.equals(kpi.getIsReverseKpi());
+            completion = reverse
+                    ? KpiMetricsCalculator.reversePercent(complSubs, targetValue)
+                    : (targetValue > 0 ? (KpiMetricsCalculator.sum(complSubs) / targetValue) * 100 : 0);
+            performance = reverse
+                    ? KpiMetricsCalculator.reversePercent(perfSubs, targetValue)
+                    : (expectedValueFilter > 0 ? (KpiMetricsCalculator.sum(perfSubs) / expectedValueFilter) * 100 : 0);
+        }
         double weight = kpi.getWeight() != null && kpi.getWeight() > 0 ? kpi.getWeight() : 1.0;
 
         return new double[]{completion, performance, weight, 1.0};

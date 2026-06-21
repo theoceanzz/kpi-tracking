@@ -2,9 +2,10 @@ import { useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { kpiApi } from '../api/kpiApi'
 import { toast } from 'sonner'
-import { X, Loader2, CheckCircle, XCircle, Target, Building2, Users, BarChart3, Award, Calendar, Clock, Pencil } from 'lucide-react'
+import { X, Loader2, CheckCircle, XCircle, Target, Building2, Users, BarChart3, Award, Calendar, Clock, Pencil, Undo2 } from 'lucide-react'
 import { formatNumber, formatDateTime, cn, FREQUENCY_MAP, STATUS_CONFIG } from '@/lib/utils'
 import type { KpiCriteria } from '@/types/kpi'
+import { usePermission } from '@/hooks/usePermission'
 
 
 
@@ -21,6 +22,17 @@ export default function KpiReviewModal({ open, onClose, kpi, onEdit }: KpiReview
   const [rejectReason, setRejectReason] = useState('')
   const [mode, setMode] = useState<'view' | 'reject'>('view')
   const qc = useQueryClient()
+  const { canRevertApproval } = usePermission()
+
+  const revertApprovalMutation = useMutation({
+    mutationFn: () => kpiApi.revertApproval(kpi!.id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['kpi-criteria'] })
+      toast.success('Đã hoàn duyệt chỉ tiêu, chuyển về trạng thái chờ phê duyệt')
+      onClose()
+    },
+    onError: () => toast.error('Hoàn duyệt thất bại'),
+  })
 
   const approveMutation = useMutation({
     mutationFn: () => kpiApi.approve(kpi!.id),
@@ -125,29 +137,42 @@ export default function KpiReviewModal({ open, onClose, kpi, onEdit }: KpiReview
 
           {/* Core Metrics Grid */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <MetricBox 
-              icon={Target} 
-              label="Mục tiêu yêu cầu" 
+            <MetricBox
+              icon={Target}
+              label="Mục tiêu yêu cầu"
               value={kpi.targetValue != null ? formatNumber(kpi.targetValue) : '—'}
               unit={kpi.unit ?? ''}
               color="text-indigo-600"
             />
-            <MetricBox 
-              icon={Award} 
-              label="Trọng số (%)" 
+            <MetricBox
+              icon={BarChart3}
+              label="Tối thiểu"
+              value={kpi.minimumValue != null ? formatNumber(kpi.minimumValue) : '0'}
+              unit={kpi.unit ?? ''}
+              color="text-rose-600"
+            />
+            <MetricBox
+              icon={Award}
+              label="Trọng số (%)"
               value={`${kpi.weight ?? '—'}%`}
               color="text-blue-600"
             />
-            <MetricBox 
-              icon={BarChart3} 
-              label="Tần suất báo cáo" 
+            <MetricBox
+              icon={Calendar}
+              label="Tần suất báo cáo"
               value={FREQUENCY_MAP[kpi.frequency as keyof typeof FREQUENCY_MAP] ?? kpi.frequency}
               color="text-purple-600"
             />
-            <MetricBox 
-              icon={Clock} 
-              label="Thời hạn kỳ này" 
-              value={kpi.kpiPeriod?.endDate ? new Date(kpi.kpiPeriod.endDate).toLocaleDateString('vi-VN') : '—'}
+            <MetricBox
+              icon={Clock}
+              label="Hạn chót KPI (riêng)"
+              value={formatDateTime(kpi.deadline)}
+              color="text-orange-600"
+            />
+            <MetricBox
+              icon={Calendar}
+              label="Hạn chót đợt đánh giá"
+              value={formatDateTime(kpi.kpiPeriod?.endDate)}
               color="text-amber-600"
             />
           </div>
@@ -285,8 +310,18 @@ export default function KpiReviewModal({ open, onClose, kpi, onEdit }: KpiReview
               </div>
             )
           ) : (
-            <div className="flex justify-end">
-              <button 
+            <div className="flex justify-end gap-3">
+              {kpi.status === 'APPROVED' && canRevertApproval && (
+                <button
+                  onClick={() => revertApprovalMutation.mutate()}
+                  disabled={revertApprovalMutation.isPending}
+                  className="flex items-center gap-2 px-6 py-3 rounded-2xl bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-900/30 text-sm font-black text-amber-600 dark:text-amber-400 hover:bg-amber-100 dark:hover:bg-amber-900/30 transition-all shadow-sm active:scale-95 disabled:opacity-50"
+                >
+                  {revertApprovalMutation.isPending ? <Loader2 size={16} className="animate-spin" /> : <Undo2 size={18} />}
+                  Hoàn duyệt
+                </button>
+              )}
+              <button
                 onClick={onClose}
                 className="px-10 py-3 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-sm font-black text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all shadow-sm active:scale-95"
               >

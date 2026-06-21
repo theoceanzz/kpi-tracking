@@ -173,7 +173,7 @@ export default function KpiAdjustmentApprovalPage() {
   }
   
   const toggleSelectAll = () => {
-    const pendingItems = items.filter(i => i.status === 'PENDING')
+    const pendingItems = items.filter(i => i.status === 'PENDING' && !i.deactivationRequest)
     const pendingIds = pendingItems.map(i => i.id)
     const allPendingSelected = pendingIds.length > 0 && pendingIds.every(id => selectedIds.includes(id))
 
@@ -395,9 +395,9 @@ export default function KpiAdjustmentApprovalPage() {
                 <thead>
                   <tr className="bg-slate-50/50 dark:bg-slate-800/50 border-b border-slate-100 dark:border-slate-800">
                     <th className="pl-6 py-5 w-10">
-                      {items.some(i => i.status === 'PENDING') && (
-                        <Checkbox 
-                          checked={items.length > 0 && items.filter(i => i.status === 'PENDING').every(i => selectedIds.includes(i.id))}
+                      {items.some(i => i.status === 'PENDING' && !i.deactivationRequest) && (
+                        <Checkbox
+                          checked={items.length > 0 && items.filter(i => i.status === 'PENDING' && !i.deactivationRequest).every(i => selectedIds.includes(i.id))}
                           onCheckedChange={toggleSelectAll}
                           className="border-slate-300"
                         />
@@ -429,8 +429,8 @@ export default function KpiAdjustmentApprovalPage() {
                         style={{ animationDelay: `${i * 30}ms` }}
                       >
                         <td className="pl-6 py-5">
-                          {request.status === 'PENDING' && (
-                            <Checkbox 
+                          {request.status === 'PENDING' && !request.deactivationRequest && (
+                            <Checkbox
                               checked={isSelected}
                               onCheckedChange={() => toggleSelect(request.id)}
                               className="border-slate-300"

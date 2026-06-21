@@ -18,6 +18,7 @@ import {
 } from 'lucide-react'
 import { buildKpiRows } from '../utils/kpiTree'
 import { useAuthStore } from '@/store/authStore'
+import { usePermission } from '@/hooks/usePermission'
 import { useKpiPeriods } from '../hooks/useKpiPeriods'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { useOrgUnitTree } from '@/features/orgunits/hooks/useOrgUnitTree'
@@ -53,6 +54,7 @@ export default function KpiApprovalPage() {
   const [collapsedParents, setCollapsedParents] = useState<Set<string>>(new Set())
   
   const user = useAuthStore(s => s.user)
+  const { canRevertApproval } = usePermission()
   const organizationId = user?.memberships?.[0]?.organizationId
   const { data: org } = useOrganization(organizationId)
   const enableOkr = org?.enableOkr
@@ -134,7 +136,7 @@ export default function KpiApprovalPage() {
     setReviewKpi(null) // Close review modal when editing
   }
 
-  const items = (criteriaData?.content ?? []).filter(kpi => kpi.createdById !== user?.id || kpi.status !== 'PENDING_APPROVAL')
+  const items = (criteriaData?.content ?? []).filter(kpi => canRevertApproval || kpi.createdById !== user?.id || kpi.status !== 'PENDING_APPROVAL')
   const totalPages = criteriaData?.totalPages || 1
   const totalElements = criteriaData?.totalElements || 0
   const { rows: itemRows, childrenByParentId } = buildKpiRows(items, collapsedParents)
@@ -151,14 +153,14 @@ export default function KpiApprovalPage() {
   // Quick stats
   const { data: statsData } = useKpiCriteria({ size: 1000, organizationId: user?.memberships?.[0]?.organizationId, approvalMode: true })
   const stats = useMemo(() => {
-    const all = (statsData?.content ?? []).filter(k => k.createdById !== user?.id || k.status !== 'PENDING_APPROVAL')
+    const all = (statsData?.content ?? []).filter(k => canRevertApproval || k.createdById !== user?.id || k.status !== 'PENDING_APPROVAL')
     return {
       total: all.length,
       pending: all.filter(k => k.status === 'PENDING_APPROVAL').length,
       approved: all.filter(k => k.status === 'APPROVED').length,
       rejected: all.filter(k => k.status === 'REJECTED').length,
     }
-  }, [statsData, user?.id])
+  }, [statsData, user?.id, canRevertApproval])
 
   // Bulk Approve Mutation
   const bulkApproveMutation = useMutation({

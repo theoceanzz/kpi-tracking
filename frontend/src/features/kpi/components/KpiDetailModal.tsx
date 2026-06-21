@@ -1,4 +1,4 @@
-import { X, Target, Building2, Users, BarChart3, Award, Calendar, CheckCircle2, ListTree } from 'lucide-react'
+import { X, Target, Building2, Users, BarChart3, Award, Calendar, Clock, CheckCircle2, ListTree } from 'lucide-react'
 import { formatNumber, formatDateTime, FREQUENCY_MAP, STATUS_CONFIG } from '@/lib/utils'
 import type { KpiCriteria } from '@/types/kpi'
 import { useKpiChildren } from '../hooks/useKpiChildren'
@@ -105,11 +105,23 @@ export default function KpiDetailModal({ open, onClose, kpi }: KpiDetailModalPro
               value={`${kpi.weight ?? '—'}%`}
               color="text-blue-600"
             />
-            <MetricBox 
-              icon={Calendar} 
-              label="Tần suất báo cáo" 
+            <MetricBox
+              icon={Calendar}
+              label="Tần suất báo cáo"
               value={FREQUENCY_MAP[kpi.frequency as keyof typeof FREQUENCY_MAP] ?? kpi.frequency}
               color="text-purple-600"
+            />
+            <MetricBox
+              icon={Clock}
+              label="Hạn chót KPI (riêng)"
+              value={formatDateTime(kpi.deadline)}
+              color="text-orange-600"
+            />
+            <MetricBox
+              icon={Calendar}
+              label="Hạn chót đợt đánh giá"
+              value={formatDateTime(kpi.kpiPeriod?.endDate)}
+              color="text-amber-600"
             />
           </div>
 
@@ -122,13 +134,6 @@ export default function KpiDetailModal({ open, onClose, kpi }: KpiDetailModalPro
               <div className="space-y-3">
                 <InfoRow label="Phòng ban" value={kpi.orgUnitName ?? '—'} />
                 <InfoRow label="Đợt đánh giá" value={kpi.kpiPeriod?.name ?? '—'} />
-                <InfoRow
-                  label="Hạn chót"
-                  value={kpi.effectiveDeadline ? formatDateTime(kpi.effectiveDeadline) : '—'}
-                />
-                {kpi.deadline && (
-                  <p className="text-[9px] font-black uppercase text-amber-600 -mt-2">Deadline riêng (sớm hơn kỳ đánh giá)</p>
-                )}
               </div>
             </div>
 

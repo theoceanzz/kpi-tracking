@@ -2,6 +2,7 @@ package com.kpitracking.event;
 
 import com.kpitracking.entity.KpiCriteria;
 import com.kpitracking.entity.KpiSubmission;
+import com.kpitracking.entity.User;
 import lombok.Getter;
 import org.springframework.context.ApplicationEvent;
 
@@ -46,6 +47,18 @@ public final class KpiEvents {
         public KpiCriteriaRejectedEvent(Object source, KpiCriteria kpiCriteria) {
             super(source);
             this.kpiCriteria = kpiCriteria;
+        }
+    }
+
+    @Getter
+    public static class KpiCriteriaApprovalRevertedEvent extends ApplicationEvent {
+        private final KpiCriteria kpiCriteria;
+        private final User revertedBy;
+
+        public KpiCriteriaApprovalRevertedEvent(Object source, KpiCriteria kpiCriteria, User revertedBy) {
+            super(source);
+            this.kpiCriteria = kpiCriteria;
+            this.revertedBy = revertedBy;
         }
     }
 }
