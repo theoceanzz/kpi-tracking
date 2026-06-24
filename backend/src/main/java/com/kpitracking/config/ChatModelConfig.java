@@ -53,8 +53,7 @@ public class ChatModelConfig {
                 .defaultAdvisors(
                         logAdvisor,
                         tokenUsageAdvisor,
-                        MessageChatMemoryAdvisor.builder(chatMemory).build(),
-                        new SimpleLoggerAdvisor()
+                        MessageChatMemoryAdvisor.builder(chatMemory).build()
                 )
                 .build();
     }

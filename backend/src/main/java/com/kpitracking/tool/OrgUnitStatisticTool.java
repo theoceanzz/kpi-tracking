@@ -421,7 +421,7 @@ public class OrgUnitStatisticTool {
 
     // ── 6b. get_my_info ──────────────────────────────────────────────────────
 
-    @Tool(name = "get_my_info", description = "Get the CURRENT logged-in user's own profile: their full name, contact info, the organizational unit(s) they belong to, their position/role, and their organization. Use for self-referential questions like 'tôi là ai', 'đơn vị của tôi tên gì', 'chức vụ của tôi', 'tôi thuộc tổ chức nào'.")
+    @Tool(name = "get_my_info", description = "Current logged-in user's own profile: full name, contact, org unit(s), position/role, organization. Use for self-referential questions ('tôi là ai', 'đơn vị của tôi', 'chức vụ của tôi', 'tôi thuộc tổ chức nào').")
     public String getMyInfo(GetMyInfoRequest request, ToolContext context) {
         try {
             String email = getUserEmail(context);
@@ -437,7 +437,7 @@ public class OrgUnitStatisticTool {
 
     // ── 7. get_kpis ──────────────────────────────────────────────────────────
 
-    @Tool(name = "get_kpis", description = "List and filter KPI criteria with detailed query parameters and standard pagination/sorting. Each KPI includes name, periodName, progress (% of target reached), performance (% vs time-proportional target) — use these to compare KPI health. This tool does NOT return IDs; to get details of a specific KPI, resolve its UUID via search_kpis first, then call get_kpi_detail or get_submission_history.")
+    @Tool(name = "get_kpis", description = "List/filter KPI criteria (pagination/sorting). Each KPI: name, periodName, progress (% of target reached), performance (% vs time-proportional target) — use to compare KPI health. Returns NO IDs; resolve a KPI's UUID via search_kpis before get_kpi_detail/get_submission_history.")
     public String getKpis(GetKpisRequest request, ToolContext context) {
         try {
             if (request.ownerId() != null && !request.ownerId().isBlank())
@@ -542,7 +542,7 @@ public class OrgUnitStatisticTool {
 
     // ── 13. rank_members ─────────────────────────────────────────────────────
 
-    @Tool(name = "rank_members", description = "Ranks users by a chosen metric and returns a list with rank, fullName, email, score (no IDs — use search_users to resolve a user's UUID for follow-up tools). Metrics: 'average_progress' (weighted avg % of target reached), 'total_progress' (sum of approved actual values), 'average_performance' (weighted avg % against time-proportional target), 'average_rating' (evaluation score avg), 'late_submission_count', 'missing_submission_count', 'submission_count'. Scopes: 'organization' (all org users), 'unit' (requires unitId), 'kpi' (requires kpiId — ranks that KPI's assignees).")
+    @Tool(name = "rank_members", description = "Rank users by metric → [rank, fullName, email, score] (no IDs; use search_users for UUID). Metrics: average_progress (weighted avg % of target reached), total_progress (sum of approved actuals), average_performance (weighted avg % vs time-proportional target), average_rating, late_submission_count, missing_submission_count, submission_count. Scopes: organization (all org users) | unit (needs unitId) | kpi (needs kpiId — ranks that KPI's assignees).")
     public String rankMembers(RankMembersRequest request, ToolContext context) {
         try {
             if ("unit".equals(request.scope()) && request.unitId() != null && !request.unitId().isBlank()) {
@@ -565,7 +565,7 @@ public class OrgUnitStatisticTool {
 
     // ── 14. rank_org_units ───────────────────────────────────────────────────
 
-    @Tool(name = "rank_org_units", description = "Ranks all organizational units in the current subtree by a metric and returns list with rank, orgUnitName, score (no IDs — use search_org_units to resolve a unit's UUID for follow-up tools). Metrics: 'average_progress' (weighted avg % of target reached across the unit's KPIs), 'average_performance' (weighted avg % against time-proportional target), 'average_rating' (avg evaluation score), 'member_count'.")
+    @Tool(name = "rank_org_units", description = "Rank org units in the current subtree by metric → [rank, orgUnitName, score] (no IDs; use search_org_units for UUID). Metrics: average_progress (weighted avg % of target reached across the unit's KPIs), average_performance (weighted avg % vs time-proportional target), average_rating, member_count.")
     public String rankOrgUnits(RankOrgUnitsRequest request, ToolContext context) {
         try {
             UUID orgUnitId = getOrgUnitId(context);
@@ -609,7 +609,7 @@ public class OrgUnitStatisticTool {
 
     // ── get_time_series ──────────────────────────────────────────────────────
 
-    @Tool(name = "get_time_series", description = "Get the trend of a KPI metric over time for an organizational unit subtree, plus detected anomaly points. Use this for questions about trends/evolution over months/quarters/years (e.g. 'xu hướng hiệu suất 6 tháng qua'). Metrics: 'completion' (sum actual / sum target %), 'avg_performance' (avg actual/target %). Granularity: 'MONTH' (default), 'QUARTER', 'YEAR'. 'lookback' keeps only the most recent N periods (default 6). Returns { metric, granularity, series:[{period,value}], anomalyPoints:[{period,value,deltaPct,type}] } where type is SPIKE (>+20%) or DROP (<-15%).")
+    @Tool(name = "get_time_series", description = "Trend of a KPI metric over time for an org unit subtree + anomaly points. Use for trends/evolution over months/quarters/years (e.g. 'xu hướng hiệu suất 6 tháng qua'). Metrics: completion (sum actual / sum target %), avg_performance (avg actual/target %). Granularity: MONTH (default) | QUARTER | YEAR. lookback = most recent N periods (default 6). Returns { metric, granularity, series:[{period,value}], anomalyPoints:[{period,value,deltaPct,type}] }; type = SPIKE (>+20%) or DROP (<-15%).")
     public String getTimeSeries(GetTimeSeriesRequest request, ToolContext context) {
         try {
             UUID targetUnitId = resolveUnitId(request.unitId(), context);
@@ -623,7 +623,7 @@ public class OrgUnitStatisticTool {
 
     // ── get_submission_history ────────────────────────────────────────────────
 
-    @Tool(name = "get_submission_history", description = "List individual submissions for a KPI (timeline/trace). Optional filters: userId (one assignee only), status (PENDING|APPROVED|REJECTED|DRAFT), date range, limit. Returns submissions sorted by createdAt with submittedBy, actualValue, status, reviewedBy, reviewNote.")
+    @Tool(name = "get_submission_history", description = "List individual submissions for a KPI (timeline/trace). Filters: userId (one assignee), status (PENDING|APPROVED|REJECTED|DRAFT), date range, limit. Returns submissions sorted by createdAt: submittedBy, actualValue, status, reviewedBy, reviewNote.")
     public String getSubmissionHistory(OrgUnitStatisticToolRequests.GetSubmissionHistoryRequest request, ToolContext context) {
         try {
             UUID kpiId = parseId(request.kpiId(), "KPI (kpiId)", "search_kpis");
@@ -643,7 +643,7 @@ public class OrgUnitStatisticTool {
 
     // ── get_kpi_period_breakdown ──────────────────────────────────────────────
 
-    @Tool(name = "get_kpi_period_breakdown", description = "Show per-period performance breakdown for a single KPI (trend by month/quarter/year). Use for questions about KPI evolution: 'how did KPI X evolve', 'progression over time'. Returns list of {periodLabel, totalActual, target, completionPct, submissionCount} with trend direction (improving|declining|stable).")
+    @Tool(name = "get_kpi_period_breakdown", description = "Per-period performance breakdown for a single KPI (trend by month/quarter/year). Use for KPI evolution: 'how did KPI X evolve', 'progression over time'. Returns [{periodLabel, totalActual, target, completionPct, submissionCount}] with trend direction (improving|declining|stable).")
     public String getKpiPeriodBreakdown(OrgUnitStatisticToolRequests.GetKpiPeriodBreakdownRequest request, ToolContext context) {
         try {
             UUID kpiId = parseId(request.kpiId(), "KPI (kpiId)", "search_kpis");
@@ -662,7 +662,7 @@ public class OrgUnitStatisticTool {
 
     // ── get_non_submitters ────────────────────────────────────────────────────
 
-    @Tool(name = "get_non_submitters", description = "List assignees who have KPIs assigned but have NOT submitted within the period/date range. Use for accountability: 'who hasn\\'t submitted', 'who is late', 'responsible parties'. Returns fullName, email, missingKpiCount sorted by missing count descending (no IDs — use search_users to resolve a user's UUID for follow-up tools).")
+    @Tool(name = "get_non_submitters", description = "Assignees with KPIs but who have NOT submitted within the period/date range. Use for accountability: 'who hasn\\'t submitted', 'who is late'. Returns fullName, email, missingKpiCount sorted by missing count desc (no IDs; use search_users for UUID).")
     public String getNonSubmitters(OrgUnitStatisticToolRequests.GetNonSubmittersRequest request, ToolContext context) {
         try {
             UUID contextUnitId = getOrgUnitId(context);
@@ -684,7 +684,7 @@ public class OrgUnitStatisticTool {
 
     // ── compare_org_units ─────────────────────────────────────────────────────
 
-    @Tool(name = "compare_org_units", description = "Compare 2–5 specific organizational units side by side on KPI metrics (avgPerformance, avgProgress, memberCount, completionRate). Use for cross-unit comparison: 'compare unit A vs unit B', 'how are teams performing relative to each other'. Returns units list with winner (best performer) marked.")
+    @Tool(name = "compare_org_units", description = "Compare 2–5 org units side by side on KPI metrics (avgPerformance, avgProgress, memberCount, completionRate). Use for cross-unit comparison: 'compare unit A vs unit B'. Returns units list with winner (best performer) marked.")
     public String compareOrgUnits(OrgUnitStatisticToolRequests.CompareOrgUnitsRequest request, ToolContext context) {
         try {
             java.util.List<UUID> unitIds = request.unitIds().stream()
@@ -701,7 +701,7 @@ public class OrgUnitStatisticTool {
 
     // ── get_members_by_performance_threshold ───────────────────────────────────
 
-    @Tool(name = "get_members_by_performance_threshold", description = "Filter members by a performance threshold (e.g. 'below 80%', 'above 90%'). Use for action decisions: 'who needs intervention', 'who to coach', 'top performers'. Returns members filtered by threshold with their scores, sorted by direction.")
+    @Tool(name = "get_members_by_performance_threshold", description = "Filter members by a performance threshold (e.g. 'below 80%', 'above 90%'). Use for action decisions: 'who needs intervention', 'who to coach', 'top performers'. Returns members past the threshold with scores, sorted by direction.")
     public String getMembersByPerformanceThreshold(OrgUnitStatisticToolRequests.GetMembersByPerformanceThresholdRequest request, ToolContext context) {
         try {
             UUID contextUnitId = getOrgUnitId(context);
