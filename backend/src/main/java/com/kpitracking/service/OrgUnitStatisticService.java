@@ -108,12 +108,13 @@ public class OrgUnitStatisticService {
                 .collect(Collectors.toList());
 
         boolean reverse = Boolean.TRUE.equals(kpi.getIsReverseKpi());
+        // Cap 150%: không KPI nào (kể cả KPI thường) được vượt 150% — áp dụng cho cả thống kê AI.
         double completion = reverse
                 ? KpiMetricsCalculator.reversePercent(complSubs, targetValue)
-                : (targetValue > 0 ? (KpiMetricsCalculator.sum(complSubs) / targetValue) * 100 : 0);
+                : (targetValue > 0 ? KpiMetricsCalculator.cap((KpiMetricsCalculator.sum(complSubs) / targetValue) * 100) : 0);
         double performance = reverse
                 ? KpiMetricsCalculator.reversePercent(perfSubs, targetValue)
-                : (expectedValueFilter > 0 ? (KpiMetricsCalculator.sum(perfSubs) / expectedValueFilter) * 100 : 0);
+                : (expectedValueFilter > 0 ? KpiMetricsCalculator.cap((KpiMetricsCalculator.sum(perfSubs) / expectedValueFilter) * 100) : 0);
 
         return new double[]{completion, performance};
     }

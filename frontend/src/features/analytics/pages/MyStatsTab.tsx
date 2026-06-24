@@ -10,6 +10,8 @@ import {
   Activity, BarChart3 as BarChartIcon, PieChart as PieChartIcon, Info,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { KpiTypeTags } from '../components/KpiTypeTags'
+import { KpiChildList, toChildNodes } from '../components/KpiChildList'
 import {
   BarChart, Bar, PieChart, Pie, Cell,
   XAxis, YAxis, CartesianGrid, Tooltip, Legend,
@@ -470,6 +472,13 @@ function ExpandableKpiRow({ kpi, onOpenDrawer }: { kpi: any; onOpenDrawer: () =>
         </td>
         <td className="px-6 py-4 cursor-pointer" onClick={onOpenDrawer}>
           <div className="font-bold text-sm text-slate-900 hover:text-violet-500 dark:text-white dark:hover:text-violet-400 transition-colors truncate max-w-[240px]">{kpi.kpiName}</div>
+          <KpiTypeTags
+            className="mt-1"
+            isReverseKpi={kpi.isReverseKpi}
+            isBonusKpi={kpi.isBonusKpi}
+            parentRelationType={kpi.parentRelationType}
+            childRelationType={kpi.childRelationType}
+          />
         </td>
         <td className="px-6 py-4">
           <KpiDateRange start={kpi.periodStart} end={kpi.periodEnd} />
@@ -535,6 +544,9 @@ function ExpandableKpiRow({ kpi, onOpenDrawer }: { kpi: any; onOpenDrawer: () =>
         <tr>
           <td colSpan={6} className="p-0 border-b border-slate-100 dark:border-slate-800">
             <div className="bg-slate-50/50 dark:bg-slate-900/50 p-6 flex flex-col gap-6 border-l-4 border-violet-500">
+              {kpi.children && kpi.children.length > 0 && (
+                <KpiChildList nodes={toChildNodes(kpi.children)} />
+              )}
               <div className="w-full space-y-4">
                 <h4 className="text-xs font-black uppercase tracking-wider text-slate-500">Lịch sử bài nộp của tôi</h4>
                 {kpi.mySubmissions && kpi.mySubmissions.length > 0 ? (

@@ -67,6 +67,14 @@ public class PersonalObjectiveResponses {
         private boolean isShared;
         private int participantCount;
 
+        // Nhận diện loại KPI (để FE render tag: thường/thưởng/ngược/cha/con/thác nước)
+        private Boolean isReverseKpi;
+        private Boolean isBonusKpi;
+        private UUID parentId;
+        private com.kpitracking.enums.KpiParentRelationType parentRelationType; // quan hệ của chính nó với cha
+        private com.kpitracking.enums.KpiParentRelationType childRelationType;  // loại con của nó (DECOMPOSITION=cha, DELEGATION=thác nước)
+        private List<KpiDetail> children; // KPI con (kèm metrics), chỉ điền cho KPI cha/thác nước
+
         private List<SubmissionHistory> mySubmissions;
         private List<TeammateProgress> teammates;
     }

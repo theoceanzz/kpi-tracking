@@ -113,11 +113,43 @@ public class PersonalKpiAnalyticsService {
         } else {
             double actualCompletion  = KpiMetricsCalculator.sum(complSubs);
             double actualPerformance = KpiMetricsCalculator.sum(perfSubs);
-            completion  = targetValue > 0   ? (actualCompletion   / targetValue)   * 100 : 0;
-            performance = expectedValue > 0 ? (actualPerformance  / expectedValue) * 100 : 0;
+            // Cap 150%: không KPI nào (kể cả KPI thường) được vượt 150%.
+            completion  = targetValue > 0   ? KpiMetricsCalculator.cap((actualCompletion   / targetValue)   * 100) : 0;
+            performance = expectedValue > 0 ? KpiMetricsCalculator.cap((actualPerformance  / expectedValue) * 100) : 0;
             actualReturn = actualCompletion;
         }
         return new double[]{completion, performance, 1.0, actualReturn};
+    }
+
+    /** Dựng danh sách KPI con (kèm metrics) cho KPI cha/thác nước để FE expand. Trả null nếu không có con. */
+    private List<KpiDetail> buildChildDetails(KpiCriteria kpi, Instant from, Instant to, Boolean onlyApproved) {
+        List<KpiCriteria> kids = KpiMetricsCalculator.children(kpi);
+        if (kids.isEmpty()) return null;
+        List<KpiDetail> result = new ArrayList<>();
+        for (KpiCriteria child : kids) {
+            double[] cm = calculateKpiMetrics(child, from, to, onlyApproved);
+            boolean childBonus = Boolean.TRUE.equals(child.getIsBonusKpi());
+            result.add(KpiDetail.builder()
+                    .kpiId(child.getId())
+                    .kpiName(child.getName())
+                    .targetValue(child.getTargetValue() != null ? child.getTargetValue() : 1.0)
+                    .actualValue(cm[3])
+                    .unit(child.getUnit())
+                    .progress(childBonus ? null : cm[0])
+                    .performance(childBonus ? null : cm[1])
+                    .periodStart(child.getKpiPeriod() != null ? child.getKpiPeriod().getStartDate() : null)
+                    .periodEnd(child.getKpiPeriod() != null ? child.getKpiPeriod().getEndDate() : null)
+                    .isShared(child.getAssignees() != null && child.getAssignees().size() > 1)
+                    .participantCount(child.getAssignees() != null ? child.getAssignees().size() : 1)
+                    .isReverseKpi(Boolean.TRUE.equals(child.getIsReverseKpi()))
+                    .isBonusKpi(childBonus)
+                    .parentId(kpi.getId())
+                    .parentRelationType(child.getParentRelationType())
+                    .childRelationType(KpiMetricsCalculator.childRelationType(child))
+                    .children(buildChildDetails(child, from, to, onlyApproved)) // cây nhiều tầng
+                    .build());
+        }
+        return result;
     }
 
     // ── Public endpoints ──────────────────────────────────────────────────────
@@ -297,6 +329,12 @@ public class PersonalKpiAnalyticsService {
                     .periodEnd(kpi.getKpiPeriod() != null ? kpi.getKpiPeriod().getEndDate() : null)
                     .isShared(isShared)
                     .participantCount(kpi.getAssignees() != null ? kpi.getAssignees().size() : 1)
+                    .isReverseKpi(Boolean.TRUE.equals(kpi.getIsReverseKpi()))
+                    .isBonusKpi(isBonus)
+                    .parentId(kpi.getParent() != null ? kpi.getParent().getId() : null)
+                    .parentRelationType(kpi.getParentRelationType())
+                    .childRelationType(KpiMetricsCalculator.childRelationType(kpi))
+                    .children(buildChildDetails(kpi, from, to, onlyApproved))
                     .mySubmissions(mySubmissions)
                     .teammates(teammates)
                     .build());

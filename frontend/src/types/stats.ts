@@ -300,11 +300,13 @@ export interface KpiParticipantDto {
   submissions?: KpiSubmissionDto[];
 }
 
+export type KpiParentRelationType = 'DELEGATION' | 'DECOMPOSITION'
+
 export interface KpiDetailedDto {
   id: string;
   name: string;
   status: string;
-  progress: number;
+  progress: number | null;
   performance: number | null;
   targetValue: number;
   unit: string | null;
@@ -313,6 +315,13 @@ export interface KpiDetailedDto {
   startDate: string | null;
   endDate: string | null;
   participants?: KpiParticipantDto[];
+  // Nhận diện loại KPI + KPI con (cho tag & expand)
+  isReverseKpi?: boolean;
+  isBonusKpi?: boolean;
+  parentId?: string | null;
+  parentRelationType?: KpiParentRelationType | null;
+  childRelationType?: KpiParentRelationType | null;
+  children?: KpiDetailedDto[] | null;
 }
 
 export interface KrAssignedUnit {

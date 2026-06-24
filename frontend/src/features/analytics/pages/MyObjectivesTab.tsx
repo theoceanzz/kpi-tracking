@@ -7,6 +7,8 @@ import {
   User, Users, X
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { KpiTypeTags } from '../components/KpiTypeTags'
+import { KpiChildList, toChildNodes } from '../components/KpiChildList'
 
 import MyObjectiveDrawer from '../components/MyObjectiveDrawer'
 import AnalyticsComboChart from '../components/AnalyticsComboChart'
@@ -379,6 +381,13 @@ function ExpandableKpiRow({ kpi, onExpand }: { kpi: any; onExpand: () => void })
         <td className="px-6 py-4 cursor-pointer" onClick={onExpand}>
           <div className="font-bold text-sm text-slate-900 hover:text-indigo-500 dark:hover:text-indigo-400 transition-colors dark:text-white truncate max-w-[200px]">{kpi.kpiName}</div>
           <div className="text-[11px] text-slate-500 mt-1">{kpi.objectiveName} ({kpi.objectiveCode})</div>
+          <KpiTypeTags
+            className="mt-1"
+            isReverseKpi={kpi.isReverseKpi}
+            isBonusKpi={kpi.isBonusKpi}
+            parentRelationType={kpi.parentRelationType}
+            childRelationType={kpi.childRelationType}
+          />
         </td>
         <td className="px-6 py-4">
           <div className="text-sm font-medium">{kpi.keyResultName}</div>
@@ -448,6 +457,9 @@ function ExpandableKpiRow({ kpi, onExpand }: { kpi: any; onExpand: () => void })
         <tr>
           <td colSpan={7} className="p-0 border-b border-slate-100 dark:border-slate-800">
             <div className="bg-slate-50/50 dark:bg-slate-900/50 p-6 flex flex-col gap-6 border-l-4 border-indigo-500">
+              {kpi.children && kpi.children.length > 0 && (
+                <KpiChildList nodes={toChildNodes(kpi.children)} />
+              )}
               <div className="w-full space-y-4">
                 <h4 className="text-xs font-black uppercase tracking-wider text-slate-500">Lịch sử bài nộp của tôi</h4>
                 {kpi.mySubmissions && kpi.mySubmissions.length > 0 ? (

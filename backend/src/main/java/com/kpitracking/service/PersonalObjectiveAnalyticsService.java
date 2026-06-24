@@ -96,8 +96,9 @@ public class PersonalObjectiveAnalyticsService {
         } else {
             double actualCompletionAccumulated = KpiMetricsCalculator.sum(complSubs);
             double actualPerformanceFilter = KpiMetricsCalculator.sum(perfSubs);
-            completion = targetValue > 0 ? (actualCompletionAccumulated / targetValue) * 100 : 0;
-            performance = expectedValueFilter > 0 ? (actualPerformanceFilter / expectedValueFilter) * 100 : 0;
+            // Cap 150%: không KPI nào (kể cả KPI thường) được vượt 150%.
+            completion = targetValue > 0 ? KpiMetricsCalculator.cap((actualCompletionAccumulated / targetValue) * 100) : 0;
+            performance = expectedValueFilter > 0 ? KpiMetricsCalculator.cap((actualPerformanceFilter / expectedValueFilter) * 100) : 0;
             actualReturn = actualCompletionAccumulated;
         }
 
@@ -121,6 +122,37 @@ public class PersonalObjectiveAnalyticsService {
         }
         if (!anyActive || wSum == 0) return new double[]{0, 0, anyActive ? 1 : 0, 0};
         return new double[]{compSum / wSum, perfSum / wSum, 1.0, actualSum};
+    }
+
+    /** Dựng danh sách KPI con (kèm metrics) cho KPI cha/thác nước để FE expand. Trả null nếu không có con. */
+    private List<KpiDetail> buildChildDetails(KpiCriteria kpi, Instant from, Instant to, Boolean onlyApproved) {
+        List<KpiCriteria> kids = KpiMetricsCalculator.children(kpi);
+        if (kids.isEmpty()) return null;
+        List<KpiDetail> result = new ArrayList<>();
+        for (KpiCriteria child : kids) {
+            double[] cm = calculateKpiMetrics(child, from, to, onlyApproved);
+            boolean childBonus = Boolean.TRUE.equals(child.getIsBonusKpi());
+            result.add(KpiDetail.builder()
+                    .kpiId(child.getId())
+                    .kpiName(child.getName())
+                    .targetValue(child.getTargetValue() != null ? child.getTargetValue() : 1.0)
+                    .actualValue(cm[3])
+                    .unit(child.getUnit())
+                    .progress(childBonus ? null : cm[0])
+                    .performance(childBonus ? null : cm[1])
+                    .periodStart(child.getKpiPeriod() != null ? child.getKpiPeriod().getStartDate() : null)
+                    .periodEnd(child.getKpiPeriod() != null ? child.getKpiPeriod().getEndDate() : null)
+                    .isShared(child.getAssignees() != null && child.getAssignees().size() > 1)
+                    .participantCount(child.getAssignees() != null ? child.getAssignees().size() : 1)
+                    .isReverseKpi(Boolean.TRUE.equals(child.getIsReverseKpi()))
+                    .isBonusKpi(childBonus)
+                    .parentId(kpi.getId())
+                    .parentRelationType(child.getParentRelationType())
+                    .childRelationType(KpiMetricsCalculator.childRelationType(child))
+                    .children(buildChildDetails(child, from, to, onlyApproved)) // cây nhiều tầng
+                    .build());
+        }
+        return result;
     }
 
     @Transactional(readOnly = true)
@@ -343,6 +375,12 @@ public class PersonalObjectiveAnalyticsService {
                     .periodEnd(kpi.getKpiPeriod() != null ? kpi.getKpiPeriod().getEndDate() : null)
                     .isShared(isShared)
                     .participantCount(kpi.getAssignees() != null ? kpi.getAssignees().size() : 1)
+                    .isReverseKpi(Boolean.TRUE.equals(kpi.getIsReverseKpi()))
+                    .isBonusKpi(isBonus)
+                    .parentId(kpi.getParent() != null ? kpi.getParent().getId() : null)
+                    .parentRelationType(kpi.getParentRelationType())
+                    .childRelationType(KpiMetricsCalculator.childRelationType(kpi))
+                    .children(buildChildDetails(kpi, from, to, onlyApproved))
                     .mySubmissions(mySubmissions)
                     .teammates(teammates)
                     .build());
@@ -547,8 +585,8 @@ public class PersonalObjectiveAnalyticsService {
         } else {
             double actualCompletionAccumulated = KpiMetricsCalculator.sum(complSubs);
             double actualPerformanceFilter = KpiMetricsCalculator.sum(perfSubs);
-            completion = userTargetValue > 0 ? (actualCompletionAccumulated / userTargetValue) * 100 : 0;
-            performance = expectedValueFilter > 0 ? (actualPerformanceFilter / expectedValueFilter) * 100 : 0;
+            completion = userTargetValue > 0 ? KpiMetricsCalculator.cap((actualCompletionAccumulated / userTargetValue) * 100) : 0;
+            performance = expectedValueFilter > 0 ? KpiMetricsCalculator.cap((actualPerformanceFilter / expectedValueFilter) * 100) : 0;
             actualReturn = actualCompletionAccumulated;
         }
 

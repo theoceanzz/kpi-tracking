@@ -122,13 +122,49 @@ public class SubordinateAnalyticsService {
                 .toList();
 
         boolean reverse = Boolean.TRUE.equals(kpi.getIsReverseKpi());
+        // Cap 150%: không KPI nào (kể cả KPI thường) được vượt 150%.
         double completion = reverse
                 ? KpiMetricsCalculator.reversePercent(complSubs, targetValue)
-                : (targetValue > 0 ? (KpiMetricsCalculator.sum(complSubs) / targetValue) * 100 : 0);
+                : (targetValue > 0 ? KpiMetricsCalculator.cap((KpiMetricsCalculator.sum(complSubs) / targetValue) * 100) : 0);
         double performance = reverse
                 ? KpiMetricsCalculator.reversePercent(perfSubs, targetValue)
-                : (expectedValueFilter > 0 ? (KpiMetricsCalculator.sum(perfSubs) / expectedValueFilter) * 100 : 0);
+                : (expectedValueFilter > 0 ? KpiMetricsCalculator.cap((KpiMetricsCalculator.sum(perfSubs) / expectedValueFilter) * 100) : 0);
         return new double[]{completion, performance, 1.0};
+    }
+
+    /** Dựng danh sách KPI con (kèm metrics) cho KPI cha/thác nước để FE expand. Trả null nếu không có con. */
+    private List<KpiDetailedDto> buildChildKpiDtos(KpiCriteria kpi, Instant objStartFallback, Instant objEndFallback,
+                                                   Instant A, Instant B, Boolean onlyApproved) {
+        List<KpiCriteria> kids = KpiMetricsCalculator.children(kpi);
+        if (kids.isEmpty()) return null;
+        List<KpiDetailedDto> result = new ArrayList<>();
+        for (KpiCriteria child : kids) {
+            double[] cp = kpiCompletionPerformance(child, objStartFallback, objEndFallback, A, B, onlyApproved);
+            boolean childBonus = Boolean.TRUE.equals(child.getIsBonusKpi());
+            boolean childActive = cp[2] != 0;
+            boolean blank = childBonus || !childActive;
+            String childUnitName = child.getAssignees() != null && !child.getAssignees().isEmpty()
+                    ? child.getAssignees().get(0).getFullName()
+                    : (child.getOrgUnit() != null ? child.getOrgUnit().getName() : "");
+            result.add(KpiDetailedDto.builder()
+                    .id(child.getId())
+                    .name(child.getName())
+                    .progress(blank ? null : cp[0])
+                    .performance(blank ? null : cp[1])
+                    .targetValue(child.getTargetValue() != null ? child.getTargetValue() : 1.0)
+                    .unit(child.getUnit())
+                    .unitName(childUnitName)
+                    .startDate(child.getKpiPeriod() != null ? child.getKpiPeriod().getStartDate() : null)
+                    .endDate(child.getKpiPeriod() != null ? child.getKpiPeriod().getEndDate() : null)
+                    .isReverseKpi(Boolean.TRUE.equals(child.getIsReverseKpi()))
+                    .isBonusKpi(childBonus)
+                    .parentId(kpi.getId())
+                    .parentRelationType(child.getParentRelationType())
+                    .childRelationType(KpiMetricsCalculator.childRelationType(child))
+                    .children(buildChildKpiDtos(child, objStartFallback, objEndFallback, A, B, onlyApproved)) // cây nhiều tầng
+                    .build());
+        }
+        return result;
     }
 
     private double[] calculateObjectiveMetrics(Objective obj, Instant A, Instant B, Boolean onlyApproved) {
@@ -465,6 +501,12 @@ public class SubordinateAnalyticsService {
                         .startDate(kpi.getKpiPeriod() != null ? kpi.getKpiPeriod().getStartDate() : null)
                         .endDate(kpi.getKpiPeriod() != null ? kpi.getKpiPeriod().getEndDate() : null)
                         .participants(participantDtos)
+                        .isReverseKpi(Boolean.TRUE.equals(kpi.getIsReverseKpi()))
+                        .isBonusKpi(isBonus)
+                        .parentId(kpi.getParent() != null ? kpi.getParent().getId() : null)
+                        .parentRelationType(kpi.getParentRelationType())
+                        .childRelationType(KpiMetricsCalculator.childRelationType(kpi))
+                        .children(buildChildKpiDtos(kpi, objStartFallback, objEndFallback, A, B, onlyApproved))
                         .build());
                 }
 
@@ -790,12 +832,13 @@ public class SubordinateAnalyticsService {
                 .toList();
 
         boolean reverse = Boolean.TRUE.equals(kpi.getIsReverseKpi());
+        // Cap 150%: không KPI nào (kể cả KPI thường) được vượt 150%.
         double completion = reverse
                 ? KpiMetricsCalculator.reversePercent(complSubs, targetValue)
-                : (targetValue > 0 ? (KpiMetricsCalculator.sum(complSubs) / targetValue) * 100 : 0);
+                : (targetValue > 0 ? KpiMetricsCalculator.cap((KpiMetricsCalculator.sum(complSubs) / targetValue) * 100) : 0);
         double performance = reverse
                 ? KpiMetricsCalculator.reversePercent(perfSubs, targetValue)
-                : (expectedValueFilter > 0 ? (KpiMetricsCalculator.sum(perfSubs) / expectedValueFilter) * 100 : 0);
+                : (expectedValueFilter > 0 ? KpiMetricsCalculator.cap((KpiMetricsCalculator.sum(perfSubs) / expectedValueFilter) * 100) : 0);
         double weight = kpi.getWeight() != null && kpi.getWeight() > 0 ? kpi.getWeight() : 1.0;
 
         return new double[]{completion, performance, weight, 1.0};
