@@ -50,7 +50,7 @@ export const kpiApi = {
   },
 
   getAiSuggestions: (orgUnitId?: string, context?: string) =>
-    axiosInstance.post<ApiResponse<any[]>>('/ai/suggest-kpi', { orgUnitId, context }).then((r) => r.data.data),
+    axiosInstance.post<ApiResponse<any[]>>('/ai/suggest-kpi', { orgUnitId, context }, { timeout: 300000 }).then((r) => r.data.data),
 
   getTotalWeight: (orgUnitId?: string, kpiPeriodId?: string, userId?: string) =>
     axiosInstance.get<ApiResponse<number>>('/kpi-criteria/total-weight', { params: { orgUnitId, kpiPeriodId, userId } }).then(r => r.data.data),
