@@ -112,7 +112,7 @@ public class OrgUnitService {
                     .name(request.getName())
                     .code(code)
                     .orgHierarchyLevel(hierarchyLevel)
-                    .path("/temp/")  // DB trigger will set the real path
+                    .path("/temp/")
                     .build();
         }
 

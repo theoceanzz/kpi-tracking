@@ -659,29 +659,27 @@ function PremiumStatCard({ icon, label, value, sub, color, trend, progress }: an
 
   return (
     <div className="group relative h-full">
-       <div className="bg-white dark:bg-slate-900 p-6 rounded-[32px] border border-slate-200/60 dark:border-slate-800 shadow-sm hover:shadow-2xl hover:-translate-y-1 transition-all duration-500 overflow-hidden h-full flex flex-col justify-between">
+       <div className="bg-white dark:bg-slate-900 p-4 md:p-6 rounded-[28px] md:rounded-[32px] border border-slate-200/60 dark:border-slate-800 shadow-sm hover:shadow-2xl hover:-translate-y-1 transition-all duration-500 overflow-hidden h-full flex flex-row items-center gap-4 md:flex-col md:items-start md:justify-between md:gap-0">
           <div className={cn("absolute -top-12 -right-12 w-32 h-32 bg-gradient-to-br opacity-10 rounded-full transition-all duration-700 group-hover:scale-150 group-hover:opacity-20", colors[color])}></div>
-          
-          <div>
-            <div className={cn("w-12 h-12 rounded-2xl flex items-center justify-center mb-6 text-white bg-gradient-to-br shadow-lg transition-transform duration-500 group-hover:rotate-6", iconColors[color])}>
-              {icon}
-            </div>
-            <div className="space-y-1.5 relative z-10">
-               <p className="text-[10px] font-black uppercase tracking-[0.25em] text-slate-400 group-hover:text-slate-600 dark:group-hover:text-slate-300 transition-colors">{label}</p>
-               <div className="flex items-baseline gap-3">
-                  <h4 className="text-4xl font-black tracking-tighter text-slate-900 dark:text-white transition-all duration-500 group-hover:tracking-normal">{value}</h4>
-                  {trend && (
-                    <span className="text-[10px] font-black text-emerald-600 bg-emerald-50 dark:bg-emerald-500/10 px-2.5 py-1 rounded-full border border-emerald-100 dark:border-emerald-500/20">
-                      {trend}
-                    </span>
-                  )}
-               </div>
-               {sub && <p className="text-xs font-bold text-slate-500 mt-1">{sub}</p>}
-            </div>
+
+          <div className={cn("w-10 h-10 md:w-12 md:h-12 rounded-xl md:rounded-2xl flex items-center justify-center shrink-0 md:mb-6 text-white bg-gradient-to-br shadow-lg transition-transform duration-500 group-hover:rotate-6", iconColors[color])}>
+            {icon}
+          </div>
+          <div className="flex-1 md:flex-none space-y-0.5 md:space-y-1.5 relative z-10 min-w-0">
+             <p className="text-[9px] md:text-[10px] font-black uppercase tracking-[0.25em] text-slate-400 group-hover:text-slate-600 dark:group-hover:text-slate-300 transition-colors">{label}</p>
+             <div className="flex items-baseline gap-2 md:gap-3">
+                <h4 className="text-2xl md:text-4xl font-black tracking-tighter text-slate-900 dark:text-white transition-all duration-500 group-hover:tracking-normal">{value}</h4>
+                {trend && (
+                  <span className="text-[10px] font-black text-emerald-600 bg-emerald-50 dark:bg-emerald-500/10 px-2 md:px-2.5 py-0.5 md:py-1 rounded-full border border-emerald-100 dark:border-emerald-500/20">
+                    {trend}
+                  </span>
+                )}
+             </div>
+             {sub && <p className="text-[11px] md:text-xs font-bold text-slate-500 truncate">{sub}</p>}
           </div>
 
           {progress != null && (
-            <div className="mt-8 pt-5 border-t border-slate-100 dark:border-slate-800 space-y-2.5">
+            <div className="hidden md:block mt-8 pt-5 border-t border-slate-100 dark:border-slate-800 space-y-2.5 w-full">
               <div className="flex justify-between text-[10px] font-black uppercase tracking-widest text-slate-400">
                 <span>Tiến độ</span>
                 <span className="text-indigo-600 dark:text-indigo-400 font-black">{progress}%</span>
