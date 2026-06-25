@@ -252,7 +252,7 @@ export function OrgMindmapView({ data, maxDepth, onAddChild, onEdit, onDelete }:
   }, [layoutedNodes, layoutedEdges, setNodes, setEdges]);
 
   return (
-    <div className="w-full h-[700px] border rounded-xl bg-gray-50 overflow-hidden relative group/mindmap">
+    <div className="w-full h-[500px] sm:h-[700px] border rounded-xl bg-gray-50 overflow-hidden relative group/mindmap">
       <style>{`
         .react-flow__pane {
           cursor: crosshair !important;
@@ -273,12 +273,20 @@ export function OrgMindmapView({ data, maxDepth, onAddChild, onEdit, onDelete }:
           background-color: white !important;
           border-bottom: 1px solid #eee !important;
           fill: #333 !important;
+          width: 32px !important;
+          height: 32px !important;
         }
         .react-flow__controls-button:hover {
           background-color: #f8fafc !important;
         }
         .react-flow__node:hover {
           z-index: 40 !important;
+        }
+        @media (pointer: coarse) {
+          .react-flow__controls-button {
+            width: 40px !important;
+            height: 40px !important;
+          }
         }
       `}</style>
       <ReactFlow

@@ -16,6 +16,7 @@ import {
 } from 'lucide-react'
 import { useDebounce } from '@/hooks/useDebounce'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { DateTimePicker, DatePicker } from '@/components/common/DateTimePicker'
 import { cn } from '@/lib/utils'
 import PageTour from '@/components/common/PageTour'
 import { kpiPeriodsSteps } from '@/components/common/tourSteps'
@@ -32,7 +33,7 @@ export default function KpiPeriodsPage() {
   const [periodType, setPeriodType] = useState<string>('ALL')
   const [sortBy, setSortBy] = useState('startDate')
   const [direction, setDirection] = useState<'asc' | 'desc'>('desc')
-  const [viewMode, setViewMode] = useState<'TABLE' | 'CARD'>('TABLE')
+  const [viewMode, setViewMode] = useState<'TABLE' | 'CARD'>(() => window.matchMedia('(max-width: 767px)').matches ? 'CARD' : 'TABLE')
   const [startDateFilter, setStartDateFilter] = useState('')
   const [endDateFilter, setEndDateFilter] = useState('')
 
@@ -128,8 +129,8 @@ export default function KpiPeriodsPage() {
                 </div>
               </div>
 
-              <div className="flex items-center gap-4">
-                <div className="flex bg-slate-50/50 dark:bg-slate-800/50 backdrop-blur-md rounded-[20px] border border-slate-200/60 dark:border-slate-700/60 p-1.5 shadow-inner group/stats">
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4">
+                <div className="flex justify-center bg-slate-50/50 dark:bg-slate-800/50 backdrop-blur-md rounded-[20px] border border-slate-200/60 dark:border-slate-700/60 p-1.5 shadow-inner group/stats">
                   <div className="px-6 py-2 text-center border-r border-slate-200 dark:border-slate-700">
                     <p className="text-2xl font-black text-slate-900 dark:text-white tracking-tighter">{stats.total}</p>
                     <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Tổng số đợt</p>
@@ -142,10 +143,10 @@ export default function KpiPeriodsPage() {
                     <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Chu kỳ phổ biến</p>
                   </div>
                 </div>
-                
-                <button 
+
+                <button
                   onClick={() => { setEditPeriod(null); setShowForm(true) }}
-                  className="cursor-pointer relative z-10 flex items-center gap-2 px-8 h-12 rounded-[20px] bg-indigo-600 text-white text-[11px] font-black uppercase tracking-widest hover:bg-indigo-700 hover:shadow-indigo-500/40 transition-all shadow-lg shadow-indigo-500/20 active:scale-95 group whitespace-nowrap shrink-0"
+                  className="cursor-pointer relative z-10 flex items-center justify-center gap-2 px-8 h-12 rounded-[20px] bg-indigo-600 text-white text-[11px] font-black uppercase tracking-widest hover:bg-indigo-700 hover:shadow-indigo-500/40 transition-all shadow-lg shadow-indigo-500/20 active:scale-95 group whitespace-nowrap sm:shrink-0"
                 >
                   <Plus size={16} className="group-hover:rotate-90 transition-transform duration-500" />
                   Tạo đợt mới
@@ -158,23 +159,34 @@ export default function KpiPeriodsPage() {
         {/* Toolbar & Filters */}
         <div id="tour-periods-toolbar" className="flex flex-col xl:flex-row items-stretch justify-between gap-4 p-4 bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl rounded-[32px] border border-slate-200 dark:border-slate-800 shadow-sm">
           <div className="flex flex-col md:flex-row items-center gap-3 flex-1">
-            <div className="relative group flex-1 w-full md:max-w-md">
-              <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-500 transition-colors" size={18} />
-              <input 
-                type="text"
-                placeholder="Tìm kiếm tên đợt KPI..."
-                value={keyword}
-                onChange={(e) => { setKeyword(e.target.value); setPage(0) }}
-                className="w-full pl-12 pr-12 py-3.5 rounded-[20px] border border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50 text-sm font-medium focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500/50 outline-none transition-all placeholder:text-slate-400"
-              />
-              {keyword && (
-                <button 
-                  onClick={() => { setKeyword(''); setPage(0) }}
-                  className="absolute right-4 top-1/2 -translate-y-1/2 p-1.5 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-xl transition-all"
-                >
-                  <X size={14} className="text-slate-500" />
+            <div className="flex items-center gap-3 w-full md:max-w-md">
+              <div className="relative group flex-1">
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-500 transition-colors" size={18} />
+                <input
+                  type="text"
+                  placeholder="Tìm kiếm tên đợt KPI..."
+                  value={keyword}
+                  onChange={(e) => { setKeyword(e.target.value); setPage(0) }}
+                  className="w-full pl-12 pr-12 py-3.5 rounded-[20px] border border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50 text-sm font-medium focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500/50 outline-none transition-all placeholder:text-slate-400"
+                />
+                {keyword && (
+                  <button
+                    onClick={() => { setKeyword(''); setPage(0) }}
+                    className="absolute right-4 top-1/2 -translate-y-1/2 p-1.5 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-xl transition-all"
+                  >
+                    <X size={14} className="text-slate-500" />
+                  </button>
+                )}
+              </div>
+              {/* View toggle - mobile only */}
+              <div className="flex md:hidden bg-slate-100 dark:bg-slate-800 p-1 rounded-[18px] shrink-0">
+                <button onClick={() => setViewMode('TABLE')} className={cn("p-2.5 rounded-xl transition-all duration-300", viewMode === 'TABLE' ? 'bg-white dark:bg-slate-700 shadow-md text-indigo-600 scale-105' : 'text-slate-400 hover:text-slate-600')}>
+                  <List size={18} />
                 </button>
-              )}
+                <button onClick={() => setViewMode('CARD')} className={cn("p-2.5 rounded-xl transition-all duration-300", viewMode === 'CARD' ? 'bg-white dark:bg-slate-700 shadow-md text-indigo-600 scale-105' : 'text-slate-400 hover:text-slate-600')}>
+                  <LayoutGrid size={18} />
+                </button>
+              </div>
             </div>
 
             <Select value={periodType} onValueChange={val => { setPeriodType(val); setPage(0) }}>
@@ -192,10 +204,29 @@ export default function KpiPeriodsPage() {
               </SelectContent>
             </Select>
             
-            <div className="flex items-center gap-2">
+            {/* Mobile: custom picker */}
+            <div className="flex md:hidden items-center gap-2 w-full">
+              <DatePicker
+                value={startDateFilter}
+                onChange={(v) => { setStartDateFilter(v); setPage(0) }}
+                onClear={() => { setStartDateFilter(''); setPage(0) }}
+                placeholder="Từ ngày"
+                className="flex-1"
+              />
+              <ArrowRight size={12} className="text-slate-300 shrink-0" />
+              <DatePicker
+                value={endDateFilter}
+                onChange={(v) => { setEndDateFilter(v); setPage(0) }}
+                onClear={() => { setEndDateFilter(''); setPage(0) }}
+                placeholder="Đến ngày"
+                className="flex-1"
+              />
+            </div>
+            {/* Desktop: original date inputs */}
+            <div className="hidden md:flex items-center gap-2">
               <div className="relative">
                 <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 z-10" size={14} />
-                <input 
+                <input
                   type="date"
                   value={startDateFilter}
                   onChange={(e) => { setStartDateFilter(e.target.value); setPage(0) }}
@@ -209,7 +240,7 @@ export default function KpiPeriodsPage() {
               <ArrowRight size={12} className="text-slate-300" />
               <div className="relative">
                 <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 z-10" size={14} />
-                <input 
+                <input
                   type="date"
                   value={endDateFilter}
                   onChange={(e) => { setEndDateFilter(e.target.value); setPage(0) }}
@@ -220,11 +251,10 @@ export default function KpiPeriodsPage() {
                   {endDateFilter ? format(new Date(endDateFilter), 'dd/MM/yyyy') : 'Đến ngày'}
                 </div>
               </div>
-
             </div>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="hidden md:flex items-center gap-3">
             <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-[18px]">
               <button 
                 onClick={() => setViewMode('TABLE')}
@@ -640,14 +670,13 @@ function PeriodFormModal({ onClose, editPeriod, organizationId, onSubmit, isSubm
             <div className="space-y-6">
               <div className="space-y-2">
                 <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 ml-1">Bắt đầu</label>
-                <div className="relative">
-                  <input 
-                    type="datetime-local"
-                    value={formData.startDate}
-                    onChange={e => handleFieldChange('startDate', e.target.value)}
-                    required
-                    className="w-full px-6 py-4 rounded-[22px] border border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50 focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500/50 outline-none text-sm font-bold transition-all text-transparent"
-                  />
+                {/* Mobile */}
+                <div className="sm:hidden">
+                  <DateTimePicker value={formData.startDate} onChange={val => handleFieldChange('startDate', val)} />
+                </div>
+                {/* Desktop */}
+                <div className="hidden sm:block relative">
+                  <input type="datetime-local" value={formData.startDate} onChange={e => handleFieldChange('startDate', e.target.value)} required className="w-full px-6 py-4 rounded-[22px] border border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50 focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500/50 outline-none text-sm font-bold transition-all text-transparent" />
                   <div className="absolute inset-0 left-6 flex items-center pointer-events-none text-sm font-bold text-slate-900 dark:text-white">
                     {formData.startDate ? format(new Date(formData.startDate), 'dd/MM/yyyy HH:mm') : ''}
                   </div>
@@ -656,14 +685,13 @@ function PeriodFormModal({ onClose, editPeriod, organizationId, onSubmit, isSubm
 
               <div className="space-y-2">
                 <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 ml-1">Kết thúc</label>
-                <div className="relative">
-                  <input
-                    type="datetime-local"
-                    value={formData.endDate}
-                    onChange={e => handleFieldChange('endDate', e.target.value)}
-                    required
-                    className="w-full px-6 py-4 rounded-[22px] border border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50 focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500/50 outline-none text-sm font-bold transition-all text-transparent"
-                  />
+                {/* Mobile */}
+                <div className="sm:hidden">
+                  <DateTimePicker value={formData.endDate} onChange={val => handleFieldChange('endDate', val)} />
+                </div>
+                {/* Desktop */}
+                <div className="hidden sm:block relative">
+                  <input type="datetime-local" value={formData.endDate} onChange={e => handleFieldChange('endDate', e.target.value)} required className="w-full px-6 py-4 rounded-[22px] border border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50 focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500/50 outline-none text-sm font-bold transition-all text-transparent" />
                   <div className="absolute inset-0 left-6 flex items-center pointer-events-none text-sm font-bold text-slate-900 dark:text-white">
                     {formData.endDate ? format(new Date(formData.endDate), 'dd/MM/yyyy HH:mm') : ''}
                   </div>
@@ -672,20 +700,18 @@ function PeriodFormModal({ onClose, editPeriod, organizationId, onSubmit, isSubm
 
               <div className="space-y-2">
                 <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 ml-1">Thông báo nhắc nhở (Mặc định 50% thời gian)</label>
-                <div className="relative">
-                  <input 
-                    type="datetime-local"
-                    value={formData.notificationDate}
-                    onChange={e => handleFieldChange('notificationDate', e.target.value)}
-                    required
-                    className="w-full px-6 py-4 rounded-[22px] border border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50 focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500/50 outline-none text-sm font-bold transition-all text-transparent"
-                  />
+                {/* Mobile */}
+                <div className="sm:hidden">
+                  <DateTimePicker value={formData.notificationDate} onChange={val => handleFieldChange('notificationDate', val)} />
+                </div>
+                {/* Desktop */}
+                <div className="hidden sm:block relative">
+                  <input type="datetime-local" value={formData.notificationDate} onChange={e => handleFieldChange('notificationDate', e.target.value)} required className="w-full px-6 py-4 rounded-[22px] border border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50 focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500/50 outline-none text-sm font-bold transition-all text-transparent" />
                   <div className="absolute inset-0 left-6 flex items-center pointer-events-none text-sm font-bold text-slate-900 dark:text-white">
                     {formData.notificationDate ? format(new Date(formData.notificationDate), 'dd/MM/yyyy HH:mm') : ''}
                   </div>
                 </div>
               </div>
-
             </div>
 
             <div className="flex gap-4 pt-6">

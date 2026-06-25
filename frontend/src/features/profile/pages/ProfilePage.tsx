@@ -198,9 +198,9 @@ function ProfileInfoTab({ user, onUserUpdate }: { user: any; onUserUpdate: (u: a
   return (
     <div className="bg-white dark:bg-slate-900 rounded-[28px] border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
       {/* Header */}
-      <div className="border-b border-slate-100 dark:border-slate-800 px-8 py-6 flex items-center justify-between">
+      <div className="border-b border-slate-100 dark:border-slate-800 px-8 py-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-indigo-50 dark:bg-indigo-900/30 flex items-center justify-center text-indigo-600 dark:text-indigo-400">
+          <div className="w-10 h-10 rounded-xl bg-indigo-50 dark:bg-indigo-900/30 flex items-center justify-center text-indigo-600 dark:text-indigo-400 shrink-0">
             <User size={20} />
           </div>
           <div>
@@ -211,12 +211,12 @@ function ProfileInfoTab({ user, onUserUpdate }: { user: any; onUserUpdate: (u: a
         {!editing ? (
           <button
             onClick={() => setEditing(true)}
-            className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-indigo-600 text-white text-sm font-bold hover:bg-indigo-700 transition-all shadow-md shadow-indigo-500/20 active:scale-95"
+            className="flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-indigo-600 text-white text-sm font-bold hover:bg-indigo-700 transition-all shadow-md shadow-indigo-500/20 active:scale-95 shrink-0 self-end sm:self-auto"
           >
             <Pencil size={14} /> Chỉnh sửa
           </button>
         ) : (
-          <button onClick={() => { setEditing(false); reset() }} className="p-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 transition-all">
+          <button onClick={() => { setEditing(false); reset() }} className="p-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 transition-all shrink-0 self-end sm:self-auto">
             <X size={20} />
           </button>
         )}

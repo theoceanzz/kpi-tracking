@@ -248,7 +248,7 @@ export default function MyStatsTab() {
           )}
         </div>
 
-        <div className="overflow-x-auto custom-scrollbar">
+        <div className="hidden md:block overflow-x-auto custom-scrollbar">
           <table className="w-full text-left">
             <thead className="bg-slate-50 dark:bg-slate-800/50">
               <tr className="text-xs font-black uppercase text-slate-500">
@@ -283,6 +283,18 @@ export default function MyStatsTab() {
               )}
             </tbody>
           </table>
+        </div>
+
+        <div className="md:hidden divide-y divide-slate-100 dark:divide-slate-800">
+          {isKpisLoading ? (
+            <div className="p-6 text-sm text-slate-400">Đang tải...</div>
+          ) : kpiPage?.content?.length ? (
+            kpiPage.content.map(kpi => (
+              <MobileKpiCard key={kpi.kpiId} kpi={kpi} onOpenDrawer={() => setSelectedKpiId(kpi.kpiId)} />
+            ))
+          ) : (
+            <div className="text-center py-8 text-slate-400">Không có dữ liệu</div>
+          )}
         </div>
 
         {(kpiPage?.totalElements ?? 0) > 0 && (
@@ -448,6 +460,47 @@ function KpiDateRange({ start, end }: { start: string | null; end: string | null
       <div className="flex items-center gap-1.5">
         <span className="font-bold text-violet-400 dark:text-violet-500 uppercase tracking-wider w-[26px] shrink-0">Đến</span>
         <span className="font-semibold text-slate-700 dark:text-slate-300 tabular-nums">{fmt(end)}</span>
+      </div>
+    </div>
+  )
+}
+
+function MobileKpiCard({ kpi, onOpenDrawer }: { kpi: any; onOpenDrawer: () => void }) {
+  const pct = Math.round(kpi.progress || 0)
+  const perf = Math.round(kpi.performance || 0)
+  const fmt = (d: string | null) => d ? format(new Date(d), 'dd/MM/yyyy') : '—'
+
+  return (
+    <div className="p-4 space-y-3 active:bg-slate-50 dark:active:bg-slate-800/30" onClick={onOpenDrawer}>
+      <div className="flex items-start justify-between gap-2">
+        <p className="font-bold text-sm text-slate-900 dark:text-white truncate min-w-0">{kpi.kpiName}</p>
+        {kpi.shared ? (
+          <div className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-purple-50 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 text-[9px] font-black uppercase shrink-0">
+            <Users size={10} /> Chung
+          </div>
+        ) : (
+          <div className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 text-[9px] font-black uppercase shrink-0">
+            <User size={10} /> Riêng
+          </div>
+        )}
+      </div>
+
+      <p className="text-[11px] text-slate-400">{fmt(kpi.periodStart)} — {fmt(kpi.periodEnd)}</p>
+
+      <div className="flex items-center gap-4 pt-1 border-t border-slate-100 dark:border-slate-800">
+        <div className="flex-1">
+          <div className="flex items-center justify-between mb-1">
+            <span className="text-[10px] text-slate-500">Tiến độ</span>
+            <span className="text-[10px] font-black">{pct}%</span>
+          </div>
+          <div className="h-2 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+            <div className={cn('h-full rounded-full', pct >= 100 ? 'bg-emerald-500' : 'bg-violet-500')} style={{ width: `${Math.min(pct, 100)}%` }} />
+          </div>
+        </div>
+        <div className="text-center shrink-0">
+          <p className="text-[10px] text-slate-500">Hiệu suất</p>
+          <p className={cn('text-sm font-black', perf >= 100 ? 'text-emerald-500' : perf >= 80 ? 'text-violet-500' : perf >= 50 ? 'text-amber-500' : 'text-red-500')}>{perf}%</p>
+        </div>
       </div>
     </div>
   )

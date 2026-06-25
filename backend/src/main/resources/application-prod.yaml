@@ -60,18 +60,16 @@ spring:
             include-thoughts: false
       retry:
         max-attempts: 1
-        on-http-codes-to-retry:
     openai:
       api-key: ${huggingface.api.key:your-hf-key}
       base-url: ${huggingface.api.url:https://router.huggingface.co}
+
       chat:
         options:
-          model: ${huggingface.api.model:Qwen/Qwen2.5-72B-Instruct:novita}
+          model: ${huggingface.api.model:openai/gpt-oss-20b:groq}
           temperature: 0
-          max-tokens: 500
     retry:
-      max-attempts: 1
-      on-http-codes-to-retry:
+      max-attempts: 2
 
 jwt:
   secret: ${JWT_SECRET:your-256-bit-secret-your-256-bit-secret}

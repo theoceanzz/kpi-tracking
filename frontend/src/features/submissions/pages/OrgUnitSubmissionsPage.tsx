@@ -243,7 +243,7 @@ export default function OrgUnitSubmissionsPage() {
                 </div>
               </div>
 
-              <div id="tour-approve-stats" className="flex items-center gap-3">
+              <div id="tour-approve-stats" className="grid grid-cols-3 gap-2 sm:gap-3 w-full sm:w-auto">
                 <StatChip label="Nhân sự" value={stats.totalEmployees} color="indigo" />
                 <StatChip label="Chờ duyệt" value={stats.totalPending} color="amber" />
                 <StatChip label="Đã đánh giá" value={stats.totalEvaluated} color="emerald" />
@@ -317,7 +317,7 @@ export default function OrgUnitSubmissionsPage() {
           </div>
         ) : (
           <div id="tour-approve-table" className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl rounded-[32px] border border-slate-200 dark:border-slate-800 overflow-hidden shadow-2xl">
-            <div className="overflow-x-auto scrollbar-thin">
+            <div className="hidden md:block overflow-x-auto scrollbar-thin">
               <table className="w-full text-left border-collapse">
                 <thead>
                   <tr className="bg-slate-50/50 dark:bg-slate-800/50 border-b border-slate-100 dark:border-slate-800">
@@ -458,6 +458,58 @@ export default function OrgUnitSubmissionsPage() {
                 </tbody>
               </table>
             </div>
+
+            <div className="md:hidden divide-y divide-slate-50 dark:divide-slate-800/50">
+              {employees.map((emp) => {
+                const pendingCount = pendingByUserId[emp.id] || 0
+                const evaluation = evaluationsByUserId[emp.id]
+
+                return (
+                  <div
+                    key={emp.id}
+                    onClick={() => handleRowClick(emp)}
+                    className="p-4 space-y-3 active:bg-slate-50 dark:active:bg-slate-800/40 transition-colors cursor-pointer"
+                  >
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-indigo-50 to-indigo-100 dark:from-indigo-900/20 dark:to-indigo-900/40 text-indigo-600 dark:text-indigo-400 flex items-center justify-center font-black text-xs border border-indigo-200/50 dark:border-indigo-800/30 shadow-inner shrink-0">
+                          {getInitials(emp.fullName)}
+                        </div>
+                        <div className="min-w-0">
+                          <span className="text-sm font-bold text-slate-900 dark:text-white block truncate">{emp.fullName}</span>
+                          <span className="text-[10px] text-slate-400 font-medium">{evaluation?.userRoleName || 'Nhân viên'}</span>
+                        </div>
+                      </div>
+                      <ChevronRight size={18} className="text-slate-400 shrink-0" />
+                    </div>
+
+                    <div className="flex items-center justify-between gap-2 pt-1 border-t border-slate-100 dark:border-slate-800">
+                      {pendingCount > 0 ? (
+                        <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400 border border-amber-200 dark:border-amber-800/50 shadow-sm">
+                          <Clock size={12} />
+                          <span className="text-[10px] font-black uppercase tracking-widest">{pendingCount} chờ duyệt</span>
+                        </div>
+                      ) : (
+                        <span className="text-[10px] font-medium text-slate-400 italic">Không có bài chờ</span>
+                      )}
+
+                      {evaluation ? (
+                        <div className={cn("inline-flex items-center gap-2 px-3 py-1.5 rounded-xl border shadow-sm", getScoreBg(evaluation.score))}>
+                          <span className={cn("text-xs font-black", getScoreColor(evaluation.score))}>{evaluation.score ?? '—'}</span>
+                          <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 border-l border-slate-200 dark:border-slate-700 pl-2 leading-none">
+                            {getScoreLabel(evaluation.score)}
+                          </span>
+                        </div>
+                      ) : (
+                        <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 border border-slate-200 dark:border-slate-700">
+                          <span className="text-[10px] font-black uppercase tracking-widest">Chưa đánh giá</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
           </div>
         )}
 
@@ -528,11 +580,11 @@ function StatChip({ label, value, color }: { label: string; value: number; color
   
   return (
     <div className={cn(
-      "flex flex-col items-center justify-center min-w-[100px] px-4 py-2.5 rounded-2xl border backdrop-blur-sm transition-all hover:scale-105 duration-300",
+      "flex flex-col items-center justify-center min-w-0 px-2 sm:px-4 py-2.5 rounded-2xl border backdrop-blur-sm transition-all hover:scale-105 duration-300",
       colorMap[color]
     )}>
       <span className="text-xl font-black tracking-tighter">{value}</span>
-      <span className="text-[9px] font-bold uppercase tracking-widest opacity-60">{label}</span>
+      <span className="text-[9px] font-bold uppercase tracking-widest opacity-60 truncate">{label}</span>
     </div>
   )
 }

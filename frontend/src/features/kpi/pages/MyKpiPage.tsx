@@ -38,7 +38,7 @@ export default function MyKpiPage() {
 
   const [search, setSearch] = useState('')
   const [selectedPeriodId, setSelectedPeriodId] = useState('ALL')
-  const [viewMode, setViewMode] = useState<'TABLE' | 'CARD'>('TABLE')
+  const [viewMode, setViewMode] = useState<'TABLE' | 'CARD'>(() => window.matchMedia('(max-width: 767px)').matches ? 'CARD' : 'TABLE')
   const [page, setPage] = useState(0)
   const [pageSize] = useState(10)
   const [sortBy] = useState('createdAt')
@@ -135,81 +135,102 @@ export default function MyKpiPage() {
         </div>
 
         <div id="tour-my-kpi-toolbar" className="flex flex-col gap-3 w-full lg:flex-1 lg:max-w-4xl">
-          <div className="flex flex-col md:flex-row items-center gap-3 w-full">
-            <div className="relative flex-1">
-              <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
-              <input 
-                value={search}
-                onChange={e => { setSearch(e.target.value); setPage(0) }}
-                placeholder="Tìm tên KPI..." 
-                className="w-full pl-11 pr-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50 text-sm focus:ring-2 focus:ring-indigo-500/20 outline-none transition-all"
-              />
-            </div>
-
-            <div className="relative w-full md:w-64">
-              <Filter className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
-              <Select value={selectedPeriodId} onValueChange={val => { setSelectedPeriodId(val); setPage(0) }}>
-                <SelectTrigger className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50 text-sm shadow-sm h-10 [&>span]:line-clamp-1 [&>span]:truncate">
-                  <SelectValue placeholder="Tất cả kỳ..." />
-                </SelectTrigger>
-                <SelectContent className="rounded-xl border-[var(--color-border)] shadow-lg max-h-[300px]">
-                  <SelectItem value="ALL" className="font-medium cursor-pointer rounded-lg text-sm truncate">Tất cả kỳ...</SelectItem>
-                  {periodsData?.content.map(p => (
-                    <SelectItem key={p.id} value={p.id} className="font-medium cursor-pointer rounded-lg text-sm truncate">{p.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="flex items-center bg-slate-100 dark:bg-slate-800 p-1 rounded-xl shrink-0">
-              <button 
-                onClick={() => setViewMode('TABLE')}
-                className={`p-1.5 rounded-lg transition-all ${viewMode === 'TABLE' ? 'bg-white dark:bg-slate-700 shadow-sm text-indigo-600' : 'text-slate-400'}`}
-              >
-                <List size={18} />
-              </button>
-              <button 
-                onClick={() => setViewMode('CARD')}
-                className={`p-1.5 rounded-lg transition-all ${viewMode === 'CARD' ? 'bg-white dark:bg-slate-700 shadow-sm text-indigo-600' : 'text-slate-400'}`}
-              >
-                <LayoutGrid size={18} />
-              </button>
-            </div>
-          </div>
-
-          {enableOkr && (
+          <div className="flex flex-col gap-3 w-full">
             <div className="flex flex-col md:flex-row items-center gap-3 w-full">
-              <div className="relative flex-1">
-                <Target className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 z-10" size={14} />
-                <Select value={selectedObjectiveId} onValueChange={(v) => { setSelectedObjectiveId(v); setSelectedKeyResultId('ALL'); setPage(0) }}>
-                  <SelectTrigger className="w-full pl-10 pr-4 py-2.5 h-10 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50 text-sm [&>span]:line-clamp-1 [&>span]:truncate">
-                    <SelectValue placeholder="Chọn Mục tiêu" />
+              <div className="flex items-center gap-3 w-full md:flex-1">
+                <div className="relative flex-1">
+                  <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+                  <input 
+                    value={search}
+                    onChange={e => { setSearch(e.target.value); setPage(0) }}
+                    placeholder="Tìm tên KPI..." 
+                    className="w-full pl-11 pr-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50 text-sm focus:ring-2 focus:ring-indigo-500/20 outline-none transition-all"
+                  />
+                </div>
+
+                {/* Toggle for mobile */}
+                <div className="flex md:hidden items-center bg-slate-100 dark:bg-slate-800 p-0.5 rounded-xl shrink-0">
+                  <button 
+                    onClick={() => setViewMode('TABLE')}
+                    className={`p-1.5 rounded-lg transition-all ${viewMode === 'TABLE' ? 'bg-white dark:bg-slate-700 shadow-sm text-indigo-600' : 'text-slate-400'}`}
+                  >
+                    <List size={18} />
+                  </button>
+                  <button 
+                    onClick={() => setViewMode('CARD')}
+                    className={`p-1.5 rounded-lg transition-all ${viewMode === 'CARD' ? 'bg-white dark:bg-slate-700 shadow-sm text-indigo-600' : 'text-slate-400'}`}
+                  >
+                    <LayoutGrid size={18} />
+                  </button>
+                </div>
+              </div>
+
+              <div className="relative w-full md:w-64 shrink-0">
+                <Filter className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
+                <Select value={selectedPeriodId} onValueChange={val => { setSelectedPeriodId(val); setPage(0) }}>
+                  <SelectTrigger className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50 text-sm shadow-sm h-10 [&>span]:line-clamp-1 [&>span]:truncate">
+                    <SelectValue placeholder="Tất cả kỳ..." />
                   </SelectTrigger>
-                  <SelectContent className="rounded-xl border-slate-200 dark:border-slate-800 shadow-lg">
-                    <SelectItem value="ALL" className="font-bold truncate">Tất cả Mục tiêu</SelectItem>
-                    {objectivesData?.map(obj => (
-                      <SelectItem key={obj.id} value={obj.id} className="font-medium truncate">[{obj.code}] {obj.name}</SelectItem>
+                  <SelectContent className="rounded-xl border-[var(--color-border)] shadow-lg max-h-[300px]">
+                    <SelectItem value="ALL" className="font-medium cursor-pointer rounded-lg text-sm truncate">Tất cả kỳ...</SelectItem>
+                    {periodsData?.content.map(p => (
+                      <SelectItem key={p.id} value={p.id} className="font-medium cursor-pointer rounded-lg text-sm truncate">{p.name}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
 
-              <div className="relative flex-1">
-                <GitBranch className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 z-10" size={14} />
-                <Select value={selectedKeyResultId} onValueChange={(v) => { setSelectedKeyResultId(v); setPage(0) }} disabled={selectedObjectiveId === 'ALL'}>
-                  <SelectTrigger className="w-full pl-10 pr-4 py-2.5 h-10 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50 text-sm [&>span]:line-clamp-1 [&>span]:truncate">
-                    <SelectValue placeholder="Chọn Kết quả" />
-                  </SelectTrigger>
-                  <SelectContent className="rounded-xl border-slate-200 dark:border-slate-800 shadow-lg">
-                    <SelectItem value="ALL" className="font-bold truncate">Tất cả Kết quả</SelectItem>
-                    {keyResults.map(kr => (
-                      <SelectItem key={kr.id} value={kr.id} className="font-medium truncate">[{kr.code}] {kr.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+              {/* Toggle for desktop */}
+              <div className="hidden md:flex items-center bg-slate-100 dark:bg-slate-800 p-0.5 rounded-xl shrink-0">
+                <button 
+                  onClick={() => setViewMode('TABLE')}
+                  className={`p-1.5 rounded-lg transition-all ${viewMode === 'TABLE' ? 'bg-white dark:bg-slate-700 shadow-sm text-indigo-600' : 'text-slate-400'}`}
+                >
+                  <List size={18} />
+                </button>
+                <button 
+                  onClick={() => setViewMode('CARD')}
+                  className={`p-1.5 rounded-lg transition-all ${viewMode === 'CARD' ? 'bg-white dark:bg-slate-700 shadow-sm text-indigo-600' : 'text-slate-400'}`}
+                >
+                  <LayoutGrid size={18} />
+                </button>
               </div>
             </div>
-          )}
+
+            {enableOkr && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 w-full">
+                <div className="relative w-full min-w-0">
+                  <Target className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 z-10" size={14} />
+                  <Select value={selectedObjectiveId} onValueChange={(v) => { setSelectedObjectiveId(v); setSelectedKeyResultId('ALL'); setPage(0) }}>
+                    <SelectTrigger className="w-full pl-10 pr-4 py-2.5 h-10 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50 text-sm overflow-hidden [&>span]:truncate [&>span]:block [&>span]:w-full">
+                      <SelectValue placeholder="Chọn Mục tiêu" />
+                    </SelectTrigger>
+                    <SelectContent className="rounded-xl border-slate-200 dark:border-slate-800 shadow-lg w-[var(--radix-select-trigger-width)]" position="popper" sideOffset={4}>
+                      <SelectItem value="ALL" className="font-bold">Tất cả Mục tiêu</SelectItem>
+                      {objectivesData?.map(obj => (
+                        <SelectItem key={obj.id} value={obj.id} className="font-medium whitespace-normal leading-snug">[{obj.code}] {obj.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="relative w-full min-w-0">
+                  <GitBranch className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 z-10" size={14} />
+                  <Select value={selectedKeyResultId} onValueChange={(v) => { setSelectedKeyResultId(v); setPage(0) }} disabled={selectedObjectiveId === 'ALL'}>
+                    <SelectTrigger className="w-full pl-10 pr-4 py-2.5 h-10 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50 text-sm overflow-hidden [&>span]:truncate [&>span]:block [&>span]:w-full">
+                      <SelectValue placeholder="Chọn Kết quả" />
+                    </SelectTrigger>
+                    <SelectContent className="rounded-xl border-slate-200 dark:border-slate-800 shadow-lg w-[var(--radix-select-trigger-width)]" position="popper" sideOffset={4}>
+                      <SelectItem value="ALL" className="font-bold">Tất cả Kết quả</SelectItem>
+                      {keyResults.map(kr => (
+                        <SelectItem key={kr.id} value={kr.id} className="font-medium whitespace-normal leading-snug">[{kr.code}] {kr.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
@@ -237,9 +258,9 @@ export default function MyKpiPage() {
 
               return (
                 <div key={periodId} className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-sm transition-all">
-                  <div className="px-6 py-4 bg-slate-50/50 dark:bg-slate-800/40 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
+                  <div className="px-6 py-4 bg-slate-50/50 dark:bg-slate-800/40 border-b border-slate-100 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                     <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-xl bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center text-indigo-600">
+                      <div className="w-8 h-8 rounded-xl bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center text-indigo-600 shrink-0">
                         <Calendar size={16} />
                       </div>
                       <div>
@@ -249,11 +270,11 @@ export default function MyKpiPage() {
                         </p>
                       </div>
                     </div>
-                    
+
                     {isPeriodDone && !hasEvaluation && (
-                      <button 
+                      <button
                         onClick={() => navigate(`/evaluations?action=self-eval&periodId=${periodId}`)}
-                        className="flex items-center gap-2 px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest transition-all shadow-lg shadow-amber-500/20"
+                        className="flex items-center justify-center gap-2 px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest transition-all shadow-lg shadow-amber-500/20 shrink-0"
                       >
                         <Star size={14} className="fill-current" /> Tiến hành Tự đánh giá
                       </button>
@@ -324,9 +345,9 @@ export default function MyKpiPage() {
 
             return (
               <div key={periodId} className="space-y-6">
-                <div className="flex items-center justify-between px-2">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-2">
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-2xl bg-white dark:bg-slate-800 shadow-sm flex items-center justify-center text-indigo-600 border border-slate-100 dark:border-slate-800">
+                    <div className="w-10 h-10 rounded-2xl bg-white dark:bg-slate-800 shadow-sm flex items-center justify-center text-indigo-600 border border-slate-100 dark:border-slate-800 shrink-0">
                       <Calendar size={20} />
                     </div>
                     <div>
@@ -338,9 +359,9 @@ export default function MyKpiPage() {
                   </div>
 
                   {isPeriodDone && !hasEvaluation && (
-                    <button 
+                    <button
                       onClick={() => navigate(`/evaluations?action=self-eval&periodId=${periodId}`)}
-                      className="flex items-center gap-2 px-5 py-2.5 bg-amber-500 hover:bg-amber-600 text-white rounded-2xl text-[10px] font-black uppercase tracking-[1px] transition-all shadow-xl shadow-amber-500/20"
+                      className="flex items-center justify-center gap-2 px-5 py-2.5 bg-amber-500 hover:bg-amber-600 text-white rounded-2xl text-[10px] font-black uppercase tracking-[1px] transition-all shadow-xl shadow-amber-500/20 shrink-0"
                     >
                       <Star size={16} className="fill-current" /> Tự đánh giá ngay
                     </button>
@@ -648,7 +669,7 @@ function MyKpiCard({ kpi, depth = 0, childKpis = [], isCollapsed, onToggleCollap
             <Settings2 size={18} />
           </button>
         )}
-        {isLeader && (
+        {isLeader && enableWaterfall && (
           <button 
             onClick={onAssign} 
             className={cn(

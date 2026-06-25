@@ -66,7 +66,7 @@ export default function SubordinateManagementTab() {
 
       {/* Global Filter Toolbar */}
       <div className={cn(
-        'sticky top-0 z-20 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl flex flex-wrap items-center gap-4 justify-between transition-all duration-200',
+        'sticky top-0 z-20 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl flex flex-col sm:flex-row items-stretch sm:items-center gap-4 justify-between transition-all duration-200',
         filterStuck ? 'p-3 shadow-lg shadow-slate-200/80 dark:shadow-slate-950/60' : 'p-4 shadow-sm'
       )}>
         <div className="flex items-center gap-2">
@@ -79,7 +79,7 @@ export default function SubordinateManagementTab() {
           </div>
         </div>
 
-        <div className="flex flex-wrap items-center gap-5">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4 sm:gap-5">
           {/* Approved submissions only toggle */}
           <label className="flex items-center gap-2 text-sm font-semibold text-slate-700 dark:text-slate-350 cursor-pointer select-none">
             <input 
@@ -88,7 +88,7 @@ export default function SubordinateManagementTab() {
               checked={onlyApproved}
               onChange={(e) => setOnlyApproved(e.target.checked)}
             />
-            Chỉ tính bài nộp đã duyệt
+            Chỉnh bài nộp đã duyệt
           </label>
 
           {controls}

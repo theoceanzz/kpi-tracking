@@ -8,6 +8,13 @@ import { cn } from '@/lib/utils'
 import LoadingSkeleton from '@/components/common/LoadingSkeleton'
 import ObjectiveDrawer from './ObjectiveDrawer'
 import { subDays, subMonths, startOfYear } from 'date-fns'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 
 type DateFilterType = 'GLOBAL' | 'THIS_WEEK' | 'THIS_MONTH' | 'THIS_QUARTER' | '6_MONTHS' | 'THIS_YEAR' | 'CUSTOM'
 
@@ -132,32 +139,37 @@ export default function MyObjectiveDrawer({ kpiId, onClose, globalFrom, globalTo
           {/* Subtitle / Metadata at top of Drawer body */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-end gap-4">
             {/* Local Date Filter */}
-            <div className="flex flex-wrap items-center gap-2 bg-white dark:bg-slate-900 p-1 rounded-lg border border-slate-200 dark:border-white/10 shadow-sm text-sm">
-              <select 
-                value={dateFilterType}
-                onChange={(e) => setDateFilterType(e.target.value as DateFilterType)}
-                className="bg-transparent border-none outline-none text-slate-700 dark:text-slate-300 px-2 py-1 cursor-pointer font-medium"
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 bg-white dark:bg-slate-900 p-1 rounded-lg border border-slate-200 dark:border-white/10 shadow-sm text-sm w-full sm:w-auto">
+              <Select 
+                value={dateFilterType} 
+                onValueChange={(v) => setDateFilterType(v as DateFilterType)}
               >
-                <option value="GLOBAL">Theo bộ lọc tổng quan mục tiêu</option>
-                <option value="THIS_WEEK">Tuần này</option>
-                <option value="THIS_MONTH">Tháng này</option>
-                <option value="THIS_QUARTER">Quý này</option>
-                <option value="6_MONTHS">6 tháng qua</option>
-                <option value="THIS_YEAR">Năm nay</option>
-                <option value="CUSTOM">Tùy chỉnh</option>
-              </select>
+                <SelectTrigger className="border-none shadow-none focus:ring-0 bg-transparent h-8 text-slate-700 dark:text-slate-300 font-medium px-2 w-auto">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="w-[var(--radix-select-trigger-width)] min-w-[220px]">
+                  <SelectItem value="GLOBAL">Theo bộ lọc tổng quan mục tiêu</SelectItem>
+                  <SelectItem value="THIS_WEEK">Tuần này</SelectItem>
+                  <SelectItem value="THIS_MONTH">Tháng này</SelectItem>
+                  <SelectItem value="THIS_QUARTER">Quý này</SelectItem>
+                  <SelectItem value="6_MONTHS">6 tháng qua</SelectItem>
+                  <SelectItem value="THIS_YEAR">Năm nay</SelectItem>
+                  <SelectItem value="CUSTOM">Tùy chỉnh</SelectItem>
+                </SelectContent>
+              </Select>
+
               {dateFilterType === 'CUSTOM' && (
-                <div className="flex items-center gap-2 px-2 border-l border-slate-200 dark:border-white/10">
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 px-2 border-t sm:border-t-0 sm:border-l border-slate-200 dark:border-white/10 pt-2 sm:pt-0">
                   <input 
                     type="date" 
-                    className="bg-transparent border-none outline-none text-slate-700 dark:text-slate-300 text-xs"
+                    className="bg-transparent border-none outline-none text-slate-700 dark:text-slate-300 text-xs w-full sm:w-auto"
                     value={customRange.from}
                     onChange={(e) => setCustomRange(prev => ({ ...prev, from: e.target.value }))}
                   />
-                  <span className="text-slate-400">-</span>
+                  <span className="hidden sm:inline text-slate-400">-</span>
                   <input 
                     type="date" 
-                    className="bg-transparent border-none outline-none text-slate-700 dark:text-slate-300 text-xs"
+                    className="bg-transparent border-none outline-none text-slate-700 dark:text-slate-300 text-xs w-full sm:w-auto"
                     value={customRange.to}
                     onChange={(e) => setCustomRange(prev => ({ ...prev, to: e.target.value }))}
                   />

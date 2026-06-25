@@ -57,28 +57,29 @@ export default function KpiAdjustmentReviewModal({ open, onClose, request }: Kpi
       <div className="relative bg-white dark:bg-slate-900 rounded-[32px] shadow-2xl w-full max-w-2xl mx-4 animate-in zoom-in-95 fade-in duration-300 max-h-[90vh] overflow-hidden border border-slate-200 dark:border-slate-800 flex flex-col">
         
         {/* Header Section */}
-        <div className="px-8 py-6 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between shrink-0">
-          <div className="flex items-center gap-4">
-            <div className="w-12 h-12 rounded-2xl bg-amber-500 flex items-center justify-center text-white shadow-lg shadow-amber-500/20">
-              <MessageSquare size={24} />
+        <div className="px-4 sm:px-8 py-4 sm:py-6 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between gap-3 shrink-0">
+          <div className="flex items-center gap-2 sm:gap-4 min-w-0">
+            <div className="w-9 h-9 sm:w-12 sm:h-12 rounded-2xl bg-amber-500 flex items-center justify-center text-white shadow-lg shadow-amber-500/20 shrink-0">
+              <MessageSquare size={18} className="sm:hidden" />
+              <MessageSquare size={24} className="hidden sm:block" />
             </div>
-            <div>
-              <h3 className="text-xl font-black text-slate-900 dark:text-white">Yêu cầu Điều chỉnh KPI</h3>
+            <div className="min-w-0">
+              <h3 className="text-base sm:text-xl font-black text-slate-900 dark:text-white whitespace-nowrap">Yêu cầu Điều chỉnh KPI</h3>
               <div className={cn(
-                "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-[9px] font-black uppercase tracking-widest mt-1",
-                request.status === 'PENDING' ? 'bg-amber-100 border-amber-200 text-amber-600' : 
-                request.status === 'APPROVED' ? 'bg-emerald-100 border-emerald-200 text-emerald-600' : 
+                "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-[9px] font-black uppercase tracking-widest mt-1 whitespace-nowrap",
+                request.status === 'PENDING' ? 'bg-amber-100 border-amber-200 text-amber-600' :
+                request.status === 'APPROVED' ? 'bg-emerald-100 border-emerald-200 text-emerald-600' :
                 'bg-red-100 border-red-200 text-red-600'
               )}>
                 <Clock size={10} className={request.status === 'PENDING' ? 'animate-pulse' : ''} /> {
-                  request.status === 'PENDING' ? 'Đang chờ xử lý' : 
+                  request.status === 'PENDING' ? 'Đang chờ xử lý' :
                   request.status === 'APPROVED' ? 'Đã chấp thuận' : 'Đã từ chối'
                 }
               </div>
             </div>
           </div>
-          <button onClick={onClose} className="p-2.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 transition-all hover:rotate-90">
-            <X size={22} />
+          <button onClick={onClose} className="p-2 sm:p-2.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 transition-all hover:rotate-90 shrink-0">
+            <X size={20} />
           </button>
         </div>
 
@@ -175,13 +176,13 @@ export default function KpiAdjustmentReviewModal({ open, onClose, request }: Kpi
               <div className="flex gap-4">
                 <button
                   onClick={() => setReviewMode('reject')}
-                  className="flex-1 px-6 py-4 rounded-2xl text-sm font-black border-2 border-red-100 dark:border-red-900/30 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/10 transition-all"
+                  className="flex-1 px-3 sm:px-6 py-4 rounded-2xl text-sm font-black border-2 border-red-100 dark:border-red-900/30 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/10 transition-all whitespace-nowrap"
                 >
                   Từ chối yêu cầu
                 </button>
                 <button
                   onClick={() => setReviewMode('approve')}
-                  className="flex-1 px-6 py-4 rounded-2xl text-sm font-black bg-emerald-600 text-white hover:bg-emerald-700 transition-all shadow-xl shadow-emerald-500/20"
+                  className="flex-1 px-3 sm:px-6 py-4 rounded-2xl text-sm font-black bg-emerald-600 text-white hover:bg-emerald-700 transition-all shadow-xl shadow-emerald-500/20 whitespace-nowrap"
                 >
                   Phê duyệt thay đổi
                 </button>
@@ -218,19 +219,19 @@ export default function KpiAdjustmentReviewModal({ open, onClose, request }: Kpi
                   />
                 </div>
                 <div className="flex gap-3">
-                  <button onClick={() => setReviewMode('view')} className="flex-1 px-6 py-3 rounded-2xl text-sm font-black text-slate-600 border border-slate-200 hover:bg-white transition-all">
+                  <button onClick={() => setReviewMode('view')} className="flex-1 px-3 sm:px-6 py-3 rounded-2xl text-sm font-black text-slate-600 border border-slate-200 hover:bg-white transition-all whitespace-nowrap">
                     Quay lại
                   </button>
                   <button
                     onClick={() => reviewMutation.mutate(reviewMode === 'approve' ? 'APPROVED' : 'REJECTED')}
                     disabled={(reviewMode === 'reject' && !note.trim()) || compensationInvalid || isPending}
                     className={cn(
-                      "flex-1 px-6 py-3 rounded-2xl text-sm font-black text-white transition-all flex items-center justify-center gap-2",
+                      "flex-1 px-3 sm:px-6 py-3 rounded-2xl text-sm font-black text-white transition-all flex items-center justify-center gap-2 whitespace-nowrap",
                       reviewMode === 'approve' ? 'bg-emerald-600 shadow-emerald-500/20 shadow-lg' : 'bg-red-600 shadow-red-500/20 shadow-lg',
                       "disabled:opacity-50"
                     )}
                   >
-                    {isPending && <Loader2 size={16} className="animate-spin" />}
+                    {isPending && <Loader2 size={16} className="animate-spin shrink-0" />}
                     Xác nhận {reviewMode === 'approve' ? 'Phê duyệt' : 'Từ chối'}
                   </button>
                 </div>

@@ -49,6 +49,7 @@ export default function AiAssistantPage() {
   const [loadingConversations, setLoadingConversations] = useState(true)
   const [loadingMessages, setLoadingMessages] = useState(false)
   const [collapsed, setCollapsed] = useState(false)
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false)
   const [deletingId, setDeletingId] = useState<string | null>(null)
 
   const [insights, setInsights] = useState<InsightCard[]>([])
@@ -111,10 +112,12 @@ export default function AiAssistantPage() {
     setInput('')
     setShowInsights(true)
     loadInsights()
+    setMobileSidebarOpen(false)
     textareaRef.current?.focus()
   }
 
   const handleSelectConversation = async (conv: ConversationResponse) => {
+    setMobileSidebarOpen(false)
     if (conv.id === conversationId) return
     setLoadingMessages(true)
     setConversationId(conv.id)
@@ -254,18 +257,28 @@ export default function AiAssistantPage() {
 
   return (
     <TooltipProvider delayDuration={300}>
-      <div className="h-full flex bg-[var(--color-background)] overflow-hidden">
+      <div className="h-full flex bg-[var(--color-background)] overflow-hidden relative">
+
+        {/* Mobile overlay */}
+        {mobileSidebarOpen && (
+          <div
+            className="fixed inset-0 z-30 bg-black/50 md:hidden"
+            onClick={() => setMobileSidebarOpen(false)}
+          />
+        )}
 
         {/* ═══ SIDEBAR ═══ */}
         <aside className={cn(
-          'flex flex-col shrink-0 border-r border-[var(--color-border)] transition-all duration-300',
+          'flex flex-col border-r border-[var(--color-border)] transition-all duration-300',
           'bg-gradient-to-b from-slate-50 to-white dark:from-slate-900 dark:to-slate-950',
-          collapsed ? 'w-[60px]' : 'w-[272px]',
+          'fixed inset-y-0 left-0 z-40 w-[272px] md:static md:z-auto md:shrink-0',
+          collapsed ? 'md:w-[60px]' : 'md:w-[272px]',
+          mobileSidebarOpen ? 'translate-x-0 shadow-2xl' : '-translate-x-full md:translate-x-0',
         )}>
           {/* Sidebar top bar */}
           <div className={cn(
             'flex items-center gap-2 p-3 shrink-0',
-            collapsed ? 'justify-center' : 'justify-between',
+            collapsed ? 'md:justify-center' : 'justify-between',
           )}>
             {!collapsed && (
               <Button
@@ -282,7 +295,7 @@ export default function AiAssistantPage() {
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="h-9 w-9 shrink-0 text-[var(--color-muted-foreground)]"
+                  className="hidden md:flex h-9 w-9 shrink-0 text-[var(--color-muted-foreground)]"
                   onClick={() => setCollapsed(v => !v)}
                 >
                   {collapsed ? <PanelLeftOpen size={16} /> : <PanelLeftClose size={16} />}
@@ -290,6 +303,14 @@ export default function AiAssistantPage() {
               </TooltipTrigger>
               <TooltipContent side="right">{collapsed ? 'Mở rộng' : 'Thu gọn'}</TooltipContent>
             </Tooltip>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="md:hidden h-9 w-9 shrink-0 text-[var(--color-muted-foreground)]"
+              onClick={() => setMobileSidebarOpen(false)}
+            >
+              <PanelLeftClose size={16} />
+            </Button>
           </div>
 
           {collapsed && (
@@ -429,10 +450,18 @@ export default function AiAssistantPage() {
         <div className="flex flex-col flex-1 min-w-0">
 
           {/* Header */}
-          <header className="shrink-0 px-6 py-4 border-b border-[var(--color-border)] bg-[var(--color-background)]">
+          <header className="shrink-0 px-4 md:px-6 py-4 border-b border-[var(--color-border)] bg-[var(--color-background)]">
             <div className="flex items-center justify-between max-w-3xl mx-auto">
-              <div className="flex items-center gap-3">
-                <div className="relative">
+              <div className="flex items-center gap-3 min-w-0">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="md:hidden h-9 w-9 shrink-0 text-[var(--color-muted-foreground)] -ml-1"
+                  onClick={() => setMobileSidebarOpen(true)}
+                >
+                  <MessageSquare size={18} />
+                </Button>
+                <div className="relative shrink-0">
                   <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shadow-md shadow-indigo-200 dark:shadow-none">
                     <Bot size={20} className="text-white" />
                   </div>
@@ -444,7 +473,7 @@ export default function AiAssistantPage() {
                 </div>
               </div>
               {conversationId && (
-                <Badge variant="secondary" className="gap-1.5">
+                <Badge variant="secondary" className="hidden sm:flex gap-1.5 shrink-0">
                   <div className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
                   Đang trong cuộc trò chuyện
                 </Badge>
@@ -454,7 +483,7 @@ export default function AiAssistantPage() {
 
           {/* Messages */}
           <ScrollArea className="flex-1">
-            <div className="px-6 py-6">
+            <div className="px-4 md:px-6 py-6">
               <div className="max-w-3xl mx-auto space-y-6">
 
                 {loadingMessages ? (
@@ -571,7 +600,7 @@ export default function AiAssistantPage() {
           </ScrollArea>
 
           {/* Input area */}
-          <div className="shrink-0 px-6 py-3 border-t border-[var(--color-border)] bg-[var(--color-background)]">
+          <div className="shrink-0 px-4 md:px-6 py-3 border-t border-[var(--color-border)] bg-[var(--color-background)]">
             <div className="max-w-3xl mx-auto">
               <div className="flex items-center gap-2 bg-[var(--color-card)] border border-[var(--color-border)] rounded-2xl shadow-sm hover:shadow-md transition-shadow focus-within:ring-2 focus-within:ring-indigo-500/40 focus-within:border-indigo-300 px-4 py-2.5">
                 <textarea

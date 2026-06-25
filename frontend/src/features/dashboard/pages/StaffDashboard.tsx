@@ -183,7 +183,7 @@ export default function StaffDashboard() {
       </div>
 
       {/* Stats Overview */}
-      <div id="tour-staff-stats" className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+      <div id="tour-staff-stats" className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
         <StatCard 
           label={inProgressCount > 0 ? `${inProgressCount} Đang thực hiện` : "Mục tiêu KPI"} 
           value={
@@ -342,7 +342,7 @@ export default function StaffDashboard() {
               </Link>
             </div>
             
-            <div className="p-2 flex-1 max-h-[500px] overflow-y-auto custom-scrollbar">
+            <div className="p-2 flex-1 overflow-y-auto custom-scrollbar">
               {subLoading ? (
                 <div className="p-4"><LoadingSkeleton type="table" rows={4} /></div>
               ) : !submissions || submissions.content.length === 0 ? (

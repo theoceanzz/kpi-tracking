@@ -252,8 +252,8 @@ export function OrgUnitDrawer({ orgId, drawerState, onClose, hierarchyLevels }: 
       className="fixed inset-0 z-[200] flex justify-end bg-black/50 transition-opacity"
       onClick={onClose}
     >
-      <div 
-        className="w-[500px] bg-white h-full shadow-2xl flex flex-col animate-in slide-in-from-right duration-300"
+      <div
+        className="w-full max-w-[500px] bg-white h-full shadow-2xl flex flex-col animate-in slide-in-from-right duration-300"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between p-4 border-b">

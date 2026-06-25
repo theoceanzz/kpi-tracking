@@ -279,7 +279,7 @@ export default function KpiDelegationModal({ open, onClose, kpi }: KpiDelegation
                    <p className="text-[10px] font-bold text-slate-400 uppercase">Tên chỉ tiêu</p>
                    <p className="text-sm font-bold text-slate-700 dark:text-slate-200 group-hover/info:text-indigo-600 dark:group-hover/info:text-indigo-400 transition-colors">{kpi.name}</p>
                 </div>
-                <div className="grid grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                    <div className="space-y-1">
                       <p className="text-[10px] font-bold text-slate-400 uppercase">Mục tiêu</p>
                       <p className="text-sm font-black text-indigo-600">{kpi.targetValue} {kpi.unit}</p>

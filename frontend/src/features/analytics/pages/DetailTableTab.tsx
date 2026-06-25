@@ -89,7 +89,7 @@ export default function DetailTableTab() {
         <>
           <p className="text-xs font-bold text-slate-400">{data.totalElements} nhân viên</p>
           <div className="bg-white dark:bg-slate-900 rounded-[24px] border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
-            <div className="overflow-x-auto lg:overflow-x-hidden scrollbar-hide custom-scrollbar">
+            <div className="hidden md:block overflow-x-auto lg:overflow-x-hidden scrollbar-hide custom-scrollbar">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="text-[10px] font-black uppercase tracking-widest text-slate-400 border-b border-slate-100 dark:border-slate-800">
@@ -139,6 +139,43 @@ export default function DetailTableTab() {
                   })}
                 </tbody>
               </table>
+            </div>
+
+            <div className="md:hidden divide-y divide-slate-50 dark:divide-slate-800">
+              {rows.map(r => {
+                const isRisk = r.rejectedSubmissions > 0
+                const isIdle = r.assignedKpi > 0 && r.totalSubmissions === 0
+                return (
+                  <div key={r.userId} className={cn("p-4 space-y-3", isRisk && "bg-red-50/40 dark:bg-red-900/5", isIdle && "bg-amber-50/40 dark:bg-amber-900/5")}>
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-full bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center text-[10px] font-black text-indigo-600 shrink-0">{getInitials(r.fullName)}</div>
+                      <div className="min-w-0 flex-1">
+                        <p className="font-bold text-slate-900 dark:text-white truncate">{r.fullName}</p>
+                        <p className="text-[11px] text-slate-500 truncate">{r.email}</p>
+                      </div>
+                      <span className="text-[11px] font-bold text-slate-600 dark:text-slate-400 shrink-0">{r.orgUnitName || '—'}</span>
+                    </div>
+
+                    <div className="flex items-center gap-3 text-xs">
+                      <span className="font-black">{r.assignedKpi} KPI</span>
+                      <span className={cn("inline-block px-2 py-0.5 rounded-md text-xs font-black", r.completionRate >= 80 ? "bg-emerald-100 text-emerald-700" : r.completionRate >= 40 ? "bg-amber-100 text-amber-700" : "bg-red-100 text-red-700")}>{r.completionRate}%</span>
+                      <span className="font-black">{r.totalSubmissions} bài nộp</span>
+                      {r.avgScore != null && (
+                        <span className={cn("inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-black", r.avgScore >= 8 ? "bg-emerald-100 text-emerald-700" : r.avgScore >= 5 ? "bg-amber-100 text-amber-700" : "bg-red-100 text-red-700")}><Star size={10} />{r.avgScore.toFixed(1)}</span>
+                      )}
+                    </div>
+
+                    <div className="flex items-center justify-between pt-1 border-t border-slate-100 dark:border-slate-800">
+                      <div className="flex items-center gap-2 text-xs font-bold">
+                        <span className="text-emerald-600 flex items-center gap-0.5"><CheckCircle2 size={12} />{r.approvedSubmissions}</span>
+                        <span className="text-amber-600 flex items-center gap-0.5"><Clock size={12} />{r.pendingSubmissions}</span>
+                        <span className="text-red-600 flex items-center gap-0.5"><XCircle size={12} />{r.rejectedSubmissions}</span>
+                      </div>
+                      <span className="text-[11px] text-slate-500">{r.lastSubmissionDate ? formatDateTime(r.lastSubmissionDate).split(' ')[0] : '—'}</span>
+                    </div>
+                  </div>
+                )
+              })}
             </div>
           </div>
 

@@ -1,7 +1,8 @@
 import React, { useState } from 'react'
 import { ChevronDown, ChevronRight, ChevronUp, ChevronsUpDown } from 'lucide-react'
-import type { ObjectiveDetailedDto } from '@/types/stats'
+import { ObjectiveDetailedDto } from '@/types/stats'
 import { format } from 'date-fns'
+import { cn } from '@/lib/utils'
 
 type SortField = 'progress' | 'performance'
 type SortDir = 'asc' | 'desc'
@@ -86,6 +87,52 @@ interface Props {
   onToggleSort: (field: SortField) => void;
 }
 
+function MobileObjectiveCard({ obj, onRowClick }: { obj: ObjectiveDetailedDto; onRowClick: any }) {
+  const pct = Math.round(obj.progress || 0)
+  const perf = Math.round(obj.performance || 0)
+  const formatDate = (d: string | null) => d ? format(new Date(d), 'dd/MM/yyyy') : '---'
+
+  return (
+    <div className="p-4 border-b border-slate-100 dark:border-slate-800 space-y-3 active:bg-slate-50 dark:active:bg-white/5 transition-colors" onClick={() => onRowClick('OBJECTIVE', obj)}>
+      <div className="flex items-start justify-between gap-4">
+        <div className="min-w-0 flex-1">
+          <p className="font-bold text-sm text-slate-900 dark:text-white leading-tight">{obj.name}</p>
+          <div className="flex items-center gap-2 mt-1">
+            <span className="text-[11px] text-slate-500 truncate">{obj.unitName}</span>
+            <span className="text-[10px] text-slate-300 dark:text-slate-600">|</span>
+            <span className="text-[10px] font-mono text-slate-400">{obj.unitCode}</span>
+          </div>
+          <div className="mt-2 inline-flex items-center px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 border border-slate-200/50 dark:border-slate-700/50">
+            <span className="text-[9px] font-bold text-slate-500 tracking-tight">{obj.code}</span>
+          </div>
+        </div>
+      </div>
+
+      <div className="flex items-center gap-2 text-[11px] text-slate-400 font-medium">
+        <span>{formatDate(obj.startDate)}</span>
+        <span className="text-slate-200 dark:text-slate-800">—</span>
+        <span>{formatDate(obj.endDate)}</span>
+      </div>
+
+      <div className="flex items-center gap-4 pt-1 border-t border-slate-50 dark:border-slate-800/50">
+        <div className="flex-1">
+          <div className="flex items-center justify-between mb-1">
+            <span className="text-[10px] text-slate-500 uppercase font-black tracking-widest">Tiến độ</span>
+            <span className="text-[11px] font-black">{pct}%</span>
+          </div>
+          <div className="h-2 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden shadow-inner">
+            <div className={cn('h-full rounded-full shadow-sm', pct >= 100 ? 'bg-emerald-500' : 'bg-indigo-500')} style={{ width: `${Math.min(pct, 100)}%` }} />
+          </div>
+        </div>
+        <div className="text-right shrink-0 border-l border-slate-100 dark:border-slate-800 pl-4 py-1">
+          <p className="text-[9px] text-slate-500 uppercase font-black tracking-widest mb-0.5">Hiệu suất</p>
+          <p className={cn('text-base font-black leading-none', perf >= 100 ? 'text-emerald-500' : perf >= 80 ? 'text-indigo-500' : perf >= 50 ? 'text-amber-500' : 'text-red-500')}>{perf}%</p>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export default function ObjectiveDetailedTable({ data, onRowClick, sortBy, sortDir, onToggleSort }: Props) {
   const [expandedObj, setExpandedObj] = useState<Record<string, boolean>>({})
   const [expandedKr, setExpandedKr] = useState<Record<string, boolean>>({})
@@ -126,28 +173,41 @@ const DateRange = ({ start, end }: { start: string | null; end: string | null })
 )
 
   return (
-    <div className="w-full overflow-x-auto custom-scrollbar">
-      <table className="w-full text-sm text-left whitespace-nowrap">
-        <thead className="bg-slate-50 dark:bg-slate-800/50">
-          <tr className="text-xs font-black uppercase text-slate-500">
-            <th className="px-6 py-4 w-[30%]">Tên Mục tiêu / Yếu tố</th>
-            <th className="px-6 py-4 w-[20%]">Đơn vị / Người đảm nhiệm</th>
-            <th className="px-6 py-4 w-[15%]">Chu kỳ thực hiện</th>
-            <th className="px-6 py-4 w-[25%]">
-              <SortHeader field="progress" active={sortBy} dir={sortDir} onToggle={onToggleSort}>
-                Tiến độ
-              </SortHeader>
-            </th>
-            <th className="px-6 py-4 text-center w-[10%]">
-              <div className="flex justify-center">
-                <SortHeader field="performance" active={sortBy} dir={sortDir} onToggle={onToggleSort}>
-                  Hiệu suất
+    <div className="w-full">
+      {/* Mobile View */}
+      <div className="md:hidden divide-y divide-slate-100 dark:divide-slate-800">
+        {data.map(obj => (
+          <MobileObjectiveCard 
+            key={obj.id}
+            obj={obj} 
+            onRowClick={onRowClick} 
+          />
+        ))}
+      </div>
+
+      {/* Desktop View */}
+      <div className="hidden md:block overflow-x-auto custom-scrollbar">
+        <table className="w-full text-sm text-left whitespace-nowrap">
+          <thead className="bg-slate-50 dark:bg-slate-800/50">
+            <tr className="text-xs font-black uppercase text-slate-500">
+              <th className="px-6 py-4 w-[30%]">Tên Mục tiêu / Yếu tố</th>
+              <th className="px-6 py-4 w-[20%]">Đơn vị / Người đảm nhiệm</th>
+              <th className="px-6 py-4 w-[15%]">Chu kỳ thực hiện</th>
+              <th className="px-6 py-4 w-[25%]">
+                <SortHeader field="progress" active={sortBy} dir={sortDir} onToggle={onToggleSort}>
+                  Tiến độ
                 </SortHeader>
-              </div>
-            </th>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+              </th>
+              <th className="px-6 py-4 text-center w-[10%]">
+                <div className="flex justify-center">
+                  <SortHeader field="performance" active={sortBy} dir={sortDir} onToggle={onToggleSort}>
+                    Hiệu suất
+                  </SortHeader>
+                </div>
+              </th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
           {data.map(obj => {
             const isObjExp = expandedObj[obj.id]
             return (
@@ -472,6 +532,7 @@ const DateRange = ({ start, end }: { start: string | null; end: string | null })
           )}
         </tbody>
       </table>
+      </div>
     </div>
   )
 }

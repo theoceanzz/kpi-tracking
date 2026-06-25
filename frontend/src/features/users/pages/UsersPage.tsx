@@ -275,8 +275,8 @@ export default function UsersPage() {
           />
         </div>
 
-        <div className="flex flex-wrap items-center gap-3">
-            <div className="relative flex-1 sm:flex-none">
+        <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-3">
+            <div className="relative sm:flex-none">
                 <Select value={roleFilter} onValueChange={handleRoleChange}>
                     <SelectTrigger className="w-full sm:w-[180px] pl-9 py-2.5 rounded-xl border border-[var(--color-border)] bg-[var(--color-background)] font-semibold text-sm shadow-sm h-11">
                         <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -295,7 +295,7 @@ export default function UsersPage() {
                 </Select>
             </div>
 
-            <div className="relative flex-1 sm:flex-none">
+            <div className="relative sm:flex-none">
                 <Select value={orgUnitFilter} onValueChange={handleOrgUnitChange}>
                     <SelectTrigger className="w-full sm:w-[220px] pl-9 py-2.5 rounded-xl border border-[var(--color-border)] bg-[var(--color-background)] font-semibold text-sm shadow-sm h-11">
                         <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -313,7 +313,7 @@ export default function UsersPage() {
                 </Select>
             </div>
 
-            <div className="relative flex-1 sm:flex-none">
+            <div className="relative sm:flex-none">
                 <Select value={sortOrder} onValueChange={(v) => handleSortChange(v as 'A-Z' | 'Z-A')}>
                     <SelectTrigger className="w-full sm:w-[150px] pl-9 py-2.5 rounded-xl border border-[var(--color-border)] bg-[var(--color-background)] font-semibold text-sm shadow-sm h-11">
                         <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">

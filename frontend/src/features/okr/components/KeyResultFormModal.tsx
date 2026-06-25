@@ -143,8 +143,8 @@ export default function KeyResultFormModal({ isOpen, onClose, objective, keyResu
                 />
               </div>
 
-              <div className="grid grid-cols-3 gap-4">
-                <div className="space-y-1.5 col-span-1">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div className="space-y-1.5 sm:col-span-1">
                   <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Đơn vị</label>
                   <input
                     {...register('unit')}

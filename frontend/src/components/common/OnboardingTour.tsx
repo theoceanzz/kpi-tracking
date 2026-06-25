@@ -14,7 +14,7 @@ function WelcomeTooltip({
   return (
     <div
       {...tooltipProps}
-      className="max-w-[480px] bg-white dark:bg-slate-900 rounded-[32px] shadow-2xl shadow-indigo-500/20 border border-slate-100 dark:border-slate-800 overflow-hidden animate-in fade-in zoom-in-95 duration-300 relative"
+      className="max-w-[min(480px,calc(100vw-2rem))] bg-white dark:bg-slate-900 rounded-[32px] shadow-2xl shadow-indigo-500/20 border border-slate-100 dark:border-slate-800 overflow-hidden animate-in fade-in zoom-in-95 duration-300 relative"
     >
       {/* Decorative Top Accent */}
       <div className="h-1.5 w-full bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500" />

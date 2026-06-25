@@ -66,18 +66,16 @@ const clamp = (d: Date, lo: Date | null, hi: Date | null) => {
 const fmtInput = (d: Date) => format(d, 'yyyy-MM-dd')
 const parseInput = (s: string) => parse(s, 'yyyy-MM-dd', new Date())
 
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+
 /**
  * Hook bộ lọc thời gian dùng chung cho các trang thống kê.
- *
- * State sống trong component gọi hook (tab) nên KHÔNG bị mất khi tab render skeleton
- * lúc loading. `from`/`to` là **giá trị dẫn xuất** (không dùng onChange/effect ngược về
- * cha) nên không gây vòng lặp gọi API. Preset được chuẩn hoá theo ngày để ổn định.
- *
- * - Chưa chọn đợt: dropdown preset cũ (Tuần này / Tháng này / ...).
- * - Đã chọn đợt: options phụ thuộc loại đợt (periodType) + bộ chọn phụ để thu hẹp
- *   vào một ngày/tuần/tháng/quý cụ thể bên trong đợt.
- *
- * Trả về `{ periodId, from, to, controls }` — `controls` là JSX để render trực tiếp.
  */
 export function useAnalyticsDateFilter(opts: Options = {}): AnalyticsDateFilterValue & { controls: ReactNode } {
   const { className, selectClassName } = opts
@@ -126,9 +124,8 @@ export function useAnalyticsDateFilter(opts: Options = {}): AnalyticsDateFilterV
     ? ['WHOLE_PERIOD', ...(PERIOD_GRANULARITY[selectedPeriod.periodType] ?? []), 'CUSTOM']
     : []
 
-  // Tính from/to (chuẩn hoá theo ngày để ổn định giữa các lần render)
+  // Tính from/to
   const value: AnalyticsDateFilterValue = useMemo(() => {
-    // Chưa chọn đợt → preset cũ
     if (!pStartStr || !periodId) {
       const now = new Date()
       const to = endOfDay(now).toISOString()
@@ -147,13 +144,11 @@ export function useAnalyticsDateFilter(opts: Options = {}): AnalyticsDateFilterV
       }
     }
 
-    // Đã chọn đợt
     const lo = new Date(pStartStr)
     const hi = pEndStr ? new Date(pEndStr) : null
     const base: AnalyticsDateFilterValue = { periodId }
     switch (periodMode) {
-      case 'WHOLE_PERIOD':
-        return base // backend dùng biên đợt
+      case 'WHOLE_PERIOD': return base
       case 'BY_DAY': {
         const d = dayValue ? parseInput(dayValue) : lo
         return { ...base, from: clamp(startOfDay(d), lo, hi).toISOString(), to: clamp(endOfDay(d), lo, hi).toISOString() }
@@ -179,50 +174,57 @@ export function useAnalyticsDateFilter(opts: Options = {}): AnalyticsDateFilterV
           from: customRange.from ? clamp(startOfDay(parseInput(customRange.from)), lo, hi).toISOString() : lo.toISOString(),
           to: customRange.to ? clamp(endOfDay(parseInput(customRange.to)), lo, hi).toISOString() : (hi?.toISOString()),
         }
-      default:
-        return base
+      default: return base
     }
   }, [periodId, pStartStr, pEndStr, legacyMode, periodMode, subIndex, dayValue, customRange, weeks, months, quarters])
 
-  const baseSelect = cn(
-    'px-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm font-semibold text-slate-700 dark:text-slate-300 outline-none focus:ring-2 focus:ring-violet-500/50',
+  const baseTrigger = cn(
+    'bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm font-semibold text-slate-700 dark:text-slate-300 outline-none focus:ring-2 focus:ring-violet-500/50 w-full sm:w-auto',
     selectClassName ?? 'h-10'
   )
 
   const controls = (
-    <div className={cn('flex flex-wrap items-center gap-3', className)}>
-      {/* Bộ chọn đợt */}
-      <select className={baseSelect} value={periodId ?? ''} onChange={e => handlePeriodChange(e.target.value || undefined)}>
-        <option value="">Tất cả các đợt</option>
-        {periods.map(p => (
-          <option key={p.id} value={p.id}>{p.name}</option>
-        ))}
-      </select>
+    <div className={cn('flex flex-col sm:flex-row items-stretch sm:items-center gap-3', className)}>
+      <Select value={periodId ?? 'ALL'} onValueChange={v => handlePeriodChange(v === 'ALL' ? undefined : v)}>
+        <SelectTrigger className={cn(baseTrigger, "md:w-[320px]")}>
+          <SelectValue placeholder="Tất cả các đợt" />
+        </SelectTrigger>
+        <SelectContent className="w-[var(--radix-select-trigger-width)]">
+          <SelectItem value="ALL">Tất cả các đợt</SelectItem>
+          {periods.map(p => (
+            <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
 
-      {/* Dropdown granularity */}
       {selectedPeriod ? (
-        <select
-          className={baseSelect}
-          value={periodMode}
-          onChange={e => { setPeriodMode(e.target.value as PeriodMode); setSubIndex(0) }}
-        >
-          {periodModeOptions.map(m => (
-            <option key={m} value={m}>{PERIOD_MODE_LABEL[m]}</option>
-          ))}
-        </select>
+        <Select value={periodMode} onValueChange={v => { setPeriodMode(v as PeriodMode); setSubIndex(0) }}>
+          <SelectTrigger className={cn(baseTrigger, "md:w-[240px]")}>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent className="w-[var(--radix-select-trigger-width)]">
+            {periodModeOptions.map(m => (
+              <SelectItem key={m} value={m}>{PERIOD_MODE_LABEL[m]}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       ) : (
-        <select className={baseSelect} value={legacyMode} onChange={e => setLegacyMode(e.target.value as LegacyMode)}>
-          {LEGACY_OPTIONS.map(o => (
-            <option key={o.value} value={o.value}>{o.label}</option>
-          ))}
-        </select>
+        <Select value={legacyMode} onValueChange={v => setLegacyMode(v as LegacyMode)}>
+          <SelectTrigger className={cn(baseTrigger, "md:w-[240px]")}>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent className="w-[var(--radix-select-trigger-width)]">
+            {LEGACY_OPTIONS.map(o => (
+              <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       )}
 
-      {/* Bộ chọn phụ */}
       {selectedPeriod && periodMode === 'BY_DAY' && (
         <input
           type="date"
-          className={baseSelect}
+          className={baseTrigger}
           min={periodStart ? fmtInput(periodStart) : undefined}
           max={periodEnd ? fmtInput(periodEnd) : undefined}
           value={dayValue || (periodStart ? fmtInput(periodStart) : '')}
@@ -231,45 +233,60 @@ export function useAnalyticsDateFilter(opts: Options = {}): AnalyticsDateFilterV
       )}
 
       {selectedPeriod && periodMode === 'BY_WEEK' && (
-        <select className={baseSelect} value={subIndex} onChange={e => setSubIndex(Number(e.target.value))}>
-          {weeks.map((ws, i) => {
-            const f = clamp(startOfWeek(ws, { weekStartsOn: 1 }), periodStart, periodEnd)
-            const t = clamp(endOfWeek(ws, { weekStartsOn: 1 }), periodStart, periodEnd)
-            return <option key={i} value={i}>{`Tuần ${i + 1} (${format(f, 'dd/MM')} – ${format(t, 'dd/MM')})`}</option>
-          })}
-        </select>
+        <Select value={subIndex.toString()} onValueChange={v => setSubIndex(Number(v))}>
+          <SelectTrigger className={baseTrigger}>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent className="w-[var(--radix-select-trigger-width)]">
+            {weeks.map((ws, i) => {
+              const f = clamp(startOfWeek(ws, { weekStartsOn: 1 }), periodStart, periodEnd)
+              const t = clamp(endOfWeek(ws, { weekStartsOn: 1 }), periodStart, periodEnd)
+              return <SelectItem key={i} value={i.toString()}>{`Tuần ${i + 1} (${format(f, 'dd/MM')} – ${format(t, 'dd/MM')})`}</SelectItem>
+            })}
+          </SelectContent>
+        </Select>
       )}
 
       {selectedPeriod && periodMode === 'BY_MONTH' && (
-        <select className={baseSelect} value={subIndex} onChange={e => setSubIndex(Number(e.target.value))}>
-          {months.map((ms, i) => (
-            <option key={i} value={i}>{`Tháng ${format(ms, 'MM/yyyy')}`}</option>
-          ))}
-        </select>
+        <Select value={subIndex.toString()} onValueChange={v => setSubIndex(Number(v))}>
+          <SelectTrigger className={baseTrigger}>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent className="w-[var(--radix-select-trigger-width)]">
+            {months.map((ms, i) => (
+              <SelectItem key={i} value={i.toString()}>{`Tháng ${format(ms, 'MM/yyyy')}`}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       )}
 
       {selectedPeriod && periodMode === 'BY_QUARTER' && (
-        <select className={baseSelect} value={subIndex} onChange={e => setSubIndex(Number(e.target.value))}>
-          {quarters.map((qs, i) => (
-            <option key={i} value={i}>{`Quý ${getQuarter(qs)}/${format(qs, 'yyyy')}`}</option>
-          ))}
-        </select>
+        <Select value={subIndex.toString()} onValueChange={v => setSubIndex(Number(v))}>
+          <SelectTrigger className={baseTrigger}>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent className="w-[var(--radix-select-trigger-width)]">
+            {quarters.map((qs, i) => (
+              <SelectItem key={i} value={i.toString()}>{`Quý ${getQuarter(qs)}/${format(qs, 'yyyy')}`}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       )}
 
       {((selectedPeriod && periodMode === 'CUSTOM') || (!selectedPeriod && legacyMode === 'CUSTOM')) && (
-        <div className="flex items-center gap-2">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
           <input
             type="date"
-            className={baseSelect}
+            className={baseTrigger}
             min={periodStart ? fmtInput(periodStart) : undefined}
             max={periodEnd ? fmtInput(periodEnd) : undefined}
             value={customRange.from}
             onChange={e => setCustomRange(prev => ({ ...prev, from: e.target.value }))}
           />
-          <span className="text-slate-400">-</span>
+          <span className="hidden sm:inline text-slate-400">-</span>
           <input
             type="date"
-            className={baseSelect}
+            className={baseTrigger}
             min={periodStart ? fmtInput(periodStart) : undefined}
             max={periodEnd ? fmtInput(periodEnd) : undefined}
             value={customRange.to}

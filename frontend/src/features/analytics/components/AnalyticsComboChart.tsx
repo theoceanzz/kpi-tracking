@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { ResponsiveContainer, ComposedChart, XAxis, YAxis, Tooltip, CartesianGrid, Legend, Bar, Line } from 'recharts'
+import { ResponsiveContainer, ComposedChart, XAxis, YAxis, Tooltip, CartesianGrid, Bar, Line } from 'recharts'
 import { Loader2 } from 'lucide-react'
 import type { ComboChartPoint } from '@/types/stats'
 
@@ -57,7 +57,7 @@ export default function AnalyticsComboChart({ data, isLoading, itemName = 'Mục
   }
 
   return (
-    <div className="w-full h-[510px] bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-6 shadow-sm relative flex flex-col">
+    <div className="w-full min-h-[510px] bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-6 shadow-sm relative flex flex-col">
       <div className="flex justify-between items-start mb-4">
         <div>
           <h3 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
@@ -136,14 +136,6 @@ export default function AnalyticsComboChart({ data, isLoading, itemName = 'Mục
             />
             
             <Tooltip content={<CustomTooltip />} />
-            <Legend 
-              verticalAlign="bottom"
-              align="center"
-              layout="horizontal"
-              iconType="circle"
-              iconSize={8}
-              wrapperStyle={{ paddingTop: '20px', fontSize: 12, fontWeight: 500 }}
-            />
 
             {/* Stacked Columns for Number of Items (Mapped to right Y-axis) */}
             <Bar 
@@ -192,6 +184,27 @@ export default function AnalyticsComboChart({ data, isLoading, itemName = 'Mục
           </ComposedChart>
         </ResponsiveContainer>
       </div>
+
+      {/* Custom legend rendered in normal flow so it never overlaps chart content on narrow screens */}
+      <div className="flex flex-wrap items-center justify-center gap-x-5 gap-y-2 pt-4 text-xs font-medium text-slate-500 dark:text-slate-400">
+        <LegendItem color="#64748b" label={`Số ${itemName} cũ`} />
+        <LegendItem color="#4f46e5" label={`Số ${itemName} mới`} />
+        {(lineFilter === 'BOTH' || lineFilter === 'COMPLETION') && (
+          <LegendItem color="#10b981" label="Xu hướng Tiến độ" />
+        )}
+        {(lineFilter === 'BOTH' || lineFilter === 'PERFORMANCE') && (
+          <LegendItem color="#f59e0b" label="Xu hướng Hiệu suất" />
+        )}
+      </div>
+    </div>
+  )
+}
+
+function LegendItem({ color, label }: { color: string; label: string }) {
+  return (
+    <div className="flex items-center gap-1.5">
+      <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: color }} />
+      <span>{label}</span>
     </div>
   )
 }

@@ -108,7 +108,8 @@ export default function MyAdjustmentsPage() {
           />
         </div>
       ) : (
-        <div id="tour-myadj-table" className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-sm transition-all overflow-x-auto">
+        <div id="tour-myadj-table" className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-sm transition-all">
+          <div className="hidden md:block overflow-x-auto">
           <table className="w-full text-left border-collapse min-w-[1000px]">
             <thead>
               <tr className="bg-slate-50/50 dark:bg-slate-800/50 border-b border-slate-100 dark:border-slate-800">
@@ -190,6 +191,64 @@ export default function MyAdjustmentsPage() {
               ))}
             </tbody>
           </table>
+          </div>
+
+          <div className="md:hidden divide-y divide-slate-100 dark:divide-slate-800">
+            {adjustments.map((adj) => (
+              <div key={adj.id} className="p-4 space-y-3">
+                <div className="flex items-start justify-between gap-2">
+                  <p className="text-sm font-bold text-slate-900 dark:text-white flex-1">{adj.kpiCriteriaName}</p>
+                  <StatusBadge status={adj.status} />
+                </div>
+
+                <div className="flex flex-wrap gap-2">
+                  {adj.deactivationRequest ? (
+                    <div className="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-red-50 dark:bg-red-900/20 text-red-600 border border-red-100 dark:border-red-900/30 w-fit">
+                      <AlertCircle size={12} />
+                      <span className="text-[10px] font-black uppercase tracking-widest">Yêu cầu dừng</span>
+                    </div>
+                  ) : (
+                    <>
+                      {adj.requestedTargetValue !== null && adj.requestedTargetValue !== adj.currentTargetValue && (
+                        <div className="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 border border-indigo-100 dark:border-indigo-900/30">
+                          <Target size={12} />
+                          <span className="text-[10px] font-black uppercase tracking-widest">{formatNumber(adj.requestedTargetValue)}</span>
+                        </div>
+                      )}
+                      {adj.requestedWeight !== null && adj.requestedWeight !== adj.currentWeight && (
+                        <div className="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-violet-50 dark:bg-violet-900/20 text-violet-600 border border-violet-100 dark:border-violet-900/30">
+                          <Award size={12} />
+                          <span className="text-[10px] font-black uppercase tracking-widest">{adj.requestedWeight}%</span>
+                        </div>
+                      )}
+                      {adj.requestedMinimumValue !== null && adj.requestedMinimumValue !== adj.currentMinimumValue && (
+                        <div className="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-amber-50 dark:bg-amber-900/20 text-amber-600 border border-amber-100 dark:border-amber-900/30">
+                          <AlertCircle size={12} />
+                          <span className="text-[10px] font-black uppercase tracking-widest">{formatNumber(adj.requestedMinimumValue)}</span>
+                        </div>
+                      )}
+                    </>
+                  )}
+                </div>
+
+                <p className="text-xs text-slate-600 dark:text-slate-400 italic">"{adj.reason}"</p>
+
+                <div className="flex items-center justify-between gap-2 pt-1 border-t border-slate-100 dark:border-slate-800 text-xs">
+                  <div className="flex items-center gap-1.5 text-slate-500">
+                    <Clock size={12} />
+                    <span className="font-bold">{formatDateTime(adj.createdAt).split(' ')[0]}</span>
+                  </div>
+                  <CountdownTimer createdAt={adj.createdAt} status={adj.status} />
+                </div>
+
+                {adj.reviewerNote ? (
+                  <p className="text-xs font-medium text-slate-500 italic">"{adj.reviewerNote}"</p>
+                ) : (
+                  <span className="text-[10px] font-black text-slate-300 uppercase tracking-widest italic">Chưa có phản hồi</span>
+                )}
+              </div>
+            ))}
+          </div>
         </div>
       )}
 
