@@ -153,33 +153,33 @@ export default function HeadDashboard() {
                     </span>
                     <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{unitName}</span>
                   </div>
-                  <h1 className="text-3xl font-black tracking-tight text-slate-900 dark:text-white">
+                  <h1 className="text-2xl md:text-3xl font-black tracking-tight text-slate-900 dark:text-white whitespace-nowrap">
                     Chào {user?.fullName?.split(' ').pop()}!
                   </h1>
-                  <p className="text-slate-500 dark:text-slate-400 text-xs font-medium">
+                  <p className="text-slate-500 dark:text-slate-400 text-xs font-medium whitespace-nowrap">
                      Quản lý <span className="text-blue-600 dark:text-blue-400 font-bold">{stats?.totalUsers ?? 0} nhân sự</span> thuộc phòng/team.
                   </p>
                 </div>
               </div>
-              <div className="flex gap-3">
-                <Link 
-                  id="tour-dashboard-approve-btn" 
-                  to={primaryMembership?.roleRank === 1 ? "/evaluations" : "/submissions/org-unit"} 
-                  className="flex items-center gap-2 px-6 py-3 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-white text-[11px] font-black hover:bg-slate-200 dark:hover:bg-slate-700 transition-all border border-slate-200 dark:border-slate-700 shadow-sm"
+              <div className="flex items-center gap-2 md:gap-3 w-full lg:w-auto">
+                <Link
+                  id="tour-dashboard-approve-btn"
+                  to={primaryMembership?.roleRank === 1 ? "/evaluations" : "/submissions/org-unit"}
+                  className="flex-1 lg:flex-none flex items-center justify-center gap-2 px-3 md:px-6 py-2.5 md:py-3 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-white text-[10px] md:text-[11px] font-black hover:bg-slate-200 dark:hover:bg-slate-700 transition-all border border-slate-200 dark:border-slate-700 shadow-sm whitespace-nowrap"
                 >
                   {primaryMembership?.roleRank === 1 ? (
                     <>
-                      <Star size={16} className="text-amber-500" /> KẾT QUẢ ĐÁNH GIÁ
+                      <Star size={14} className="text-amber-500 md:w-4 md:h-4" /> <span className="truncate">KẾT QUẢ ĐÁNH GIÁ</span>
                     </>
                   ) : (
                     <>
-                      <ClipboardCheck size={16} className="text-blue-600" /> DUYỆT BÁO CÁO
+                      <ClipboardCheck size={14} className="text-blue-600 md:w-4 md:h-4" /> <span className="truncate">DUYỆT BÁO CÁO</span>
                     </>
                   )}
                 </Link>
                 {primaryMembership?.roleRank === 0 && (
-                  <Link to="/kpi-criteria" className="flex items-center gap-2 px-6 py-3 rounded-xl bg-slate-900 dark:bg-white text-white dark:text-slate-900 text-[11px] font-black hover:scale-105 transition-all shadow-xl active:scale-95">
-                    <Target size={16} className="text-blue-400 dark:text-blue-600" /> QUẢN LÝ KPI
+                  <Link to="/kpi-criteria" className="flex-1 lg:flex-none flex items-center justify-center gap-2 px-3 md:px-6 py-2.5 md:py-3 rounded-xl bg-slate-900 dark:bg-white text-white dark:text-slate-900 text-[10px] md:text-[11px] font-black hover:scale-105 transition-all shadow-xl active:scale-95 whitespace-nowrap">
+                    <Target size={14} className="text-blue-400 dark:text-blue-600 md:w-4 md:h-4" /> <span className="truncate">QUẢN LÝ KPI</span>
                   </Link>
                 )}
               </div>
@@ -260,28 +260,27 @@ export default function HeadDashboard() {
           {/* Employee Table (Clean & Professional) */}
           <div className="lg:col-span-12 xl:col-span-8 flex flex-col">
             <div className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl rounded-[32px] border border-slate-200 dark:border-slate-800 shadow-xl overflow-hidden flex flex-col h-full">
-              <div className="p-8 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50/20 dark:bg-slate-800/20">
-                <div className="flex items-center gap-4">
-                  <div className="flex items-center gap-3">
-                    <Users size={18} className="text-blue-600" />
-                    <h3 id="tour-dashboard-tabs" className="font-black text-sm uppercase tracking-widest text-slate-900 dark:text-white">Hiệu suất Đội ngũ</h3>
-                  </div>
-                  <button
-                    onClick={handleExport}
-                    disabled={isExporting}
-                    className="flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 text-[10px] font-black uppercase tracking-widest hover:bg-emerald-100 dark:hover:bg-emerald-900/40 transition-all disabled:opacity-50"
-                  >
-                    {isExporting ? (
-                      <div className="w-3 h-3 border-2 border-emerald-600/30 border-t-emerald-600 rounded-full animate-spin" />
-                    ) : (
-                      <FileText size={14} />
-                    )}
-                    {isExporting ? 'Đang xuất...' : 'Xuất Excel'}
-                  </button>
+              <div className="p-5 md:p-8 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between gap-4 bg-slate-50/20 dark:bg-slate-800/20">
+                <div className="flex items-center gap-2 md:gap-3 min-w-0">
+                  <Users size={18} className="text-blue-600 shrink-0" />
+                  <h3 id="tour-dashboard-tabs" className="font-black text-[11px] md:text-sm uppercase tracking-widest text-slate-900 dark:text-white whitespace-nowrap truncate">Hiệu suất Đội ngũ</h3>
                 </div>
+                <button
+                  onClick={handleExport}
+                  disabled={isExporting}
+                  className="flex items-center gap-2 px-3 md:px-4 py-2 rounded-xl bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 text-[9px] md:text-[10px] font-black uppercase tracking-widest hover:bg-emerald-100 dark:hover:bg-emerald-900/40 transition-all disabled:opacity-50 shrink-0"
+                >
+                  {isExporting ? (
+                    <div className="w-3 h-3 border-2 border-emerald-600/30 border-t-emerald-600 rounded-full animate-spin" />
+                  ) : (
+                    <FileText size={14} />
+                  )}
+                  <span className="hidden xs:inline">{isExporting ? 'Đang xuất...' : 'Xuất Excel'}</span>
+                  {!isExporting && <span className="xs:hidden">XUẤT EXCEL</span>}
+                </button>
               </div>
               
-              <div className="flex-1 overflow-x-auto lg:overflow-x-hidden scrollbar-hide custom-scrollbar">
+              <div className="hidden md:block flex-1 overflow-x-auto lg:overflow-x-hidden scrollbar-hide custom-scrollbar">
                 <table className="w-full min-w-[700px] lg:min-w-full text-left border-collapse">
                   <thead>
                     <tr className="bg-slate-50/50 dark:bg-slate-800/40">
@@ -345,6 +344,55 @@ export default function HeadDashboard() {
                     ))}
                   </tbody>
                 </table>
+              </div>
+
+              <div className="md:hidden flex-1 divide-y divide-slate-50 dark:divide-slate-800/50">
+                {employees.map((emp: EmployeeKpiStats) => (
+                  <div key={emp.userId} className="p-5 space-y-3">
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center font-black text-xs text-slate-500 border border-slate-200 dark:border-slate-700 shrink-0">
+                          {getInitials(emp.fullName)}
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-[13px] font-black text-slate-900 dark:text-white truncate">{emp.fullName}</p>
+                          <p className="text-[9px] font-bold text-slate-400 uppercase tracking-tight truncate">{emp.orgUnitName}</p>
+                        </div>
+                      </div>
+                      <Link to={`/employees/${emp.userId}/performance`} className="p-1.5 text-slate-300 hover:text-blue-600 transition-colors shrink-0">
+                        <ChevronRight size={18} />
+                      </Link>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <div className="flex-1 h-1.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden border border-slate-200 dark:border-slate-700">
+                        <div
+                          className={cn(
+                            "h-full rounded-full",
+                            (emp.approvedSubmissions / (emp.assignedKpi || 1)) >= 0.8 ? "bg-emerald-500" :
+                            (emp.approvedSubmissions / (emp.assignedKpi || 1)) >= 0.4 ? "bg-amber-500" : "bg-rose-500"
+                          )}
+                          style={{ width: `${emp.assignedKpi > 0 ? (emp.approvedSubmissions / emp.assignedKpi) * 100 : 0}%` }}
+                        />
+                      </div>
+                      <span className="text-[10px] font-black text-slate-500 shrink-0">{emp.approvedSubmissions}/{emp.assignedKpi}</span>
+                    </div>
+
+                    <div className="flex items-center justify-between gap-2 pt-1 border-t border-slate-100 dark:border-slate-800">
+                      {emp.lateSubmissions > 0 ? (
+                        <span className="px-2 py-1 rounded-lg bg-rose-50 dark:bg-rose-900/20 text-rose-600 text-[9px] font-black uppercase tracking-tighter">Trễ {emp.lateSubmissions} bài</span>
+                      ) : (
+                        <span className="px-2 py-1 rounded-lg bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 text-[9px] font-black uppercase tracking-tighter">Đúng hạn</span>
+                      )}
+                      <span className={cn(
+                        "px-2 py-1 rounded-lg text-[11px] font-black",
+                        (emp.averageScore ?? 0) >= 80 ? "bg-emerald-50 text-emerald-600" : "bg-slate-50 text-slate-600"
+                      )}>
+                        {emp.averageScore ? emp.averageScore.toFixed(1) : '—'}
+                      </span>
+                    </div>
+                  </div>
+                ))}
               </div>
 
               <div className="p-6 border-t border-slate-100 dark:border-slate-800">

@@ -105,15 +105,15 @@ export default function AnalyticsPage() {
       </div>
 
       {/* Tabs */}
-      <div id="tour-analytics-tabs" className="flex items-center gap-1 border-b border-slate-200 dark:border-slate-800">
+      <div id="tour-analytics-tabs" className="flex items-center border-b border-slate-200 dark:border-slate-800">
         {visibleTabs.map(t => {
           const Icon = t.icon
           return (
             <button key={t.key} onClick={() => setActiveTab(t.key)} className={cn(
-              "flex items-center gap-2 px-5 py-3 text-sm font-bold whitespace-nowrap border-b-2 transition-all -mb-px",
+              "flex-1 sm:flex-none min-w-0 flex items-center justify-center gap-1.5 sm:gap-2 px-1.5 sm:px-5 py-3 text-xs sm:text-sm font-bold border-b-2 transition-all -mb-px",
               activeTab === t.key ? "border-indigo-600 text-indigo-600 dark:text-indigo-400" : "border-transparent text-slate-500 hover:text-slate-700"
             )}>
-              <Icon size={18} /> {t.label}
+              <Icon size={16} className="shrink-0" /> <span className="truncate">{t.label}</span>
             </button>
           )
         })}

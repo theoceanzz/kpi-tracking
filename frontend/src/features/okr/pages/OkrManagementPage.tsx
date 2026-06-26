@@ -260,79 +260,86 @@ function ObjectiveCard({ objective, isExpanded, onToggle, onEdit, onDelete, onAd
 
   return (
     <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 overflow-hidden transition-all hover:shadow-xl hover:shadow-indigo-500/5 group">
-      <div className="p-6 cursor-pointer" onClick={onToggle}>
+      <div className="p-6 cursor-pointer relative" onClick={onToggle}>
         <div className="flex items-start gap-4">
           <div className="mt-1">
             {isExpanded ? <ChevronDown size={20} className="text-slate-400" /> : <ChevronRight size={20} className="text-slate-400" />}
           </div>
           
           <div className="flex-1 space-y-4">
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-              <div className="space-y-1.5">
-                <div className="flex items-center gap-2">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 md:gap-4">
+              <div className="space-y-1.5 min-w-0 flex-1">
+                <div className="flex flex-wrap items-center gap-2">
                   <span className={cn(
                     "px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider whitespace-nowrap",
                     objective.status === OkrStatus.ACTIVE ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400" : "bg-slate-100 text-slate-600"
                   )}>
                     {objective.status === OkrStatus.ACTIVE ? 'Đang thực hiện' : objective.status === OkrStatus.COMPLETED ? 'Hoàn thành' : 'Hủy bỏ'}
                   </span>
-                  <div className="flex items-center gap-1.5 text-[11px] font-bold text-slate-400 uppercase tracking-tight whitespace-nowrap">
-                    <Calendar size={12} />
+                  <div className="flex items-center gap-1 text-[10px] font-bold text-slate-400 uppercase tracking-tight">
+                    <Calendar size={11} />
                     {objective.startDate ? format(new Date(objective.startDate), 'dd/MM/yyyy', { locale: vi }) : 'N/A'}
                     {' - '}
                     {objective.endDate ? format(new Date(objective.endDate), 'dd/MM/yyyy', { locale: vi }) : 'N/A'}
                   </div>
                 </div>
                 {objective.orgUnitNames && objective.orgUnitNames.length > 0 && (
-                  <div className="flex items-center gap-1">
+                  <div className="flex flex-wrap items-center gap-1">
                     {objective.orgUnitNames.slice(0, 5).map((name, idx) => (
-                      <div key={idx} className="flex items-center gap-1 text-[11px] font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-widest bg-indigo-50 dark:bg-indigo-900/20 px-2 py-0.5 rounded-lg whitespace-nowrap">
-                        <PlusCircle size={12} className="rotate-45" />
+                      <div key={idx} className="flex items-center gap-1 text-[10px] font-black text-indigo-600 dark:text-indigo-400 uppercase bg-indigo-50 dark:bg-indigo-900/20 px-2 py-0.5 rounded-lg whitespace-nowrap">
+                        <PlusCircle size={11} className="rotate-45" />
                         {name}
                       </div>
                     ))}
                     {objective.orgUnitNames.length > 5 && (
-                      <div className="text-[11px] font-black text-slate-400 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded-lg">
+                      <div className="text-[10px] font-black text-slate-400 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded-lg">
                         +{objective.orgUnitNames.length - 5}
                       </div>
                     )}
                   </div>
                 )}
-                <h3 className="text-xl font-black text-slate-900 dark:text-white leading-tight">
-                  {objective.code && <span className="text-indigo-600 dark:text-indigo-400 mr-2">[{objective.code}]</span>}
+                <h3 className="text-base md:text-xl font-black text-slate-900 dark:text-white leading-tight">
+                  {objective.code && <span className="text-indigo-600 dark:text-indigo-400 mr-1">[{objective.code}]</span>}
                   {objective.name}
                 </h3>
-                {objective.description && <p className="text-sm text-slate-500 line-clamp-1">{objective.description}</p>}
+                {objective.description && <p className="text-xs md:text-sm text-slate-500 line-clamp-1">{objective.description}</p>}
+                {/* Progress bar — mobile only (below title) */}
+                <div className="flex items-center gap-2 md:hidden pt-1">
+                  <div className="flex-1 h-1.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                    <div className={cn("h-full rounded-full transition-all duration-1000", getProgressBgColor(overallProgress))} style={{ width: `${overallProgress}%` }} />
+                  </div>
+                  <span className={cn("text-xs font-black shrink-0", getProgressColor(overallProgress))}>{Math.round(overallProgress)}%</span>
+                </div>
               </div>
 
-              <div className="flex items-center gap-6 shrink-0">
+              {/* Right side — desktop only */}
+              <div className="hidden md:flex items-center gap-6 shrink-0">
                 <div className="text-right space-y-1">
                   <div className={cn("flex items-center justify-end gap-2 text-sm font-black", getProgressColor(overallProgress))}>
                     <BarChart3 size={16} className="opacity-80" />
                     {Math.round(overallProgress)}%
                   </div>
                   <div className="w-32 h-1.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
-                    <div 
-                      className={cn("h-full rounded-full transition-all duration-1000", getProgressBgColor(overallProgress))} 
-                      style={{ width: `${overallProgress}%` }}
-                    />
+                    <div className={cn("h-full rounded-full transition-all duration-1000", getProgressBgColor(overallProgress))} style={{ width: `${overallProgress}%` }} />
                   </div>
                 </div>
-
                 <div className="flex items-center gap-1">
-                  <button 
-                    onClick={(e) => { e.stopPropagation(); onEdit() }}
-                    className="p-2 rounded-xl text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition-all"
-                  >
+                  <button onClick={(e) => { e.stopPropagation(); onEdit() }} className="p-2 rounded-xl text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition-all">
                     <Edit2 size={18} />
                   </button>
-                  <button 
-                    onClick={(e) => { e.stopPropagation(); onDelete() }}
-                    className="p-2 rounded-xl text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 transition-all"
-                  >
+                  <button onClick={(e) => { e.stopPropagation(); onDelete() }} className="p-2 rounded-xl text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 transition-all">
                     <Trash2 size={18} />
                   </button>
                 </div>
+              </div>
+              {/* Buttons — mobile only (top-right) */}
+              <div className="md:hidden absolute top-4 right-4 flex items-center gap-1">
+                <button onClick={(e) => { e.stopPropagation(); onEdit() }} className="p-1.5 rounded-xl text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition-all">
+                  <Edit2 size={15} />
+                </button>
+                <button onClick={(e) => { e.stopPropagation(); onDelete() }} className="p-1.5 rounded-xl text-slate-400 hover:text-red-600 hover:bg-red-50 transition-all">
+                  <Trash2 size={15} />
+                </button>
               </div>
             </div>
           </div>
@@ -342,11 +349,11 @@ function ObjectiveCard({ objective, isExpanded, onToggle, onEdit, onDelete, onAd
       {isExpanded && (
         <div className="px-6 pb-6 pt-2 border-t border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/30 animate-in slide-in-from-top-2 duration-300">
           <div className="ml-9 space-y-4">
-            <div className="flex items-center justify-between">
-              <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest">Các kết quả then chốt (Key Results)</h4>
-              <button 
+            <div className="flex items-center justify-between gap-2">
+              <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest leading-tight">Các KQ then chốt <span className="normal-case font-bold">(Key Results)</span></h4>
+              <button
                 onClick={onAddKR}
-                className="flex items-center gap-1.5 text-xs font-bold text-indigo-600 hover:text-indigo-700 transition-colors"
+                className="flex items-center gap-1.5 text-xs font-bold text-indigo-600 hover:text-indigo-700 transition-colors shrink-0"
               >
                 <PlusCircle size={14} />
                 Thêm KR
@@ -384,17 +391,17 @@ interface KeyResultRowProps {
 
 function KeyResultRow({ kr, onEdit, onDelete }: KeyResultRowProps) {
   return (
-    <div className="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 flex flex-col md:flex-row md:items-center justify-between gap-4 transition-all hover:border-indigo-200 dark:hover:border-indigo-800">
-      <div className="flex items-start gap-4 flex-1">
+    <div className="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 flex flex-col md:flex-row md:items-center justify-between gap-3 md:gap-4 transition-all hover:border-indigo-200 dark:hover:border-indigo-800">
+      <div className="flex items-start gap-3 flex-1 min-w-0">
         <div className="w-8 h-8 rounded-xl bg-indigo-50 dark:bg-indigo-900/30 flex items-center justify-center text-indigo-600 shrink-0 mt-0.5">
           <CheckCircle2 size={16} />
         </div>
-        <div className="space-y-1.5">
+        <div className="space-y-1.5 min-w-0">
           <p className="text-sm font-bold text-slate-800 dark:text-slate-200">
-            {kr.code && <span className="text-emerald-600 dark:text-emerald-400 mr-2">[{kr.code}]</span>}
+            {kr.code && <span className="text-emerald-600 dark:text-emerald-400 mr-1">[{kr.code}]</span>}
             {kr.name}
           </p>
-          <div className="flex items-center gap-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+          <div className="flex flex-wrap gap-x-3 gap-y-1 text-[10px] font-bold text-slate-400 uppercase tracking-tight">
             {kr.periodName && (
               <span className="flex items-center gap-1 text-indigo-600 dark:text-indigo-400">
                 <Clock size={10} /> {kr.periodName}
@@ -413,17 +420,28 @@ function KeyResultRow({ kr, onEdit, onDelete }: KeyResultRowProps) {
               ))}
             </div>
           )}
+          {/* Progress — mobile only */}
+          <div className="flex items-center gap-2 md:hidden pt-0.5">
+            <div className="flex-1 h-1 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+              <div className={cn("h-full rounded-full transition-all duration-1000", getProgressBgColor(kr.progress))} style={{ width: `${kr.progress}%` }} />
+            </div>
+            <span className={cn("text-xs font-black shrink-0", getProgressColor(kr.progress))}>{Math.round(kr.progress)}%</span>
+            <button onClick={onEdit} className="p-1 text-slate-400 hover:text-indigo-600 transition-colors">
+              <Edit2 size={14} />
+            </button>
+            <button onClick={onDelete} className="p-1 text-slate-400 hover:text-red-600 transition-colors">
+              <Trash2 size={14} />
+            </button>
+          </div>
         </div>
       </div>
 
-      <div className="flex items-center gap-4 shrink-0">
+      {/* Right side — desktop only */}
+      <div className="hidden md:flex items-center gap-4 shrink-0">
         <div className="text-right">
           <span className={cn("text-sm font-black", getProgressColor(kr.progress))}>{Math.round(kr.progress)}%</span>
           <div className="w-24 h-1 bg-slate-100 dark:bg-slate-800 rounded-full mt-1 overflow-hidden">
-            <div 
-              className={cn("h-full rounded-full transition-all duration-1000", getProgressBgColor(kr.progress))} 
-              style={{ width: `${kr.progress}%` }}
-            />
+            <div className={cn("h-full rounded-full transition-all duration-1000", getProgressBgColor(kr.progress))} style={{ width: `${kr.progress}%` }} />
           </div>
         </div>
         <div className="flex items-center">

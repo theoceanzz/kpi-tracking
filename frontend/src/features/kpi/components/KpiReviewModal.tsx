@@ -2,9 +2,10 @@ import { useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { kpiApi } from '../api/kpiApi'
 import { toast } from 'sonner'
-import { X, Loader2, CheckCircle, XCircle, Target, Building2, Users, BarChart3, Award, Calendar, Clock, Pencil } from 'lucide-react'
+import { X, Loader2, CheckCircle, XCircle, Target, Building2, Users, BarChart3, Award, Calendar, Clock, Pencil, Undo2 } from 'lucide-react'
 import { formatNumber, formatDateTime, cn, FREQUENCY_MAP, STATUS_CONFIG } from '@/lib/utils'
 import type { KpiCriteria } from '@/types/kpi'
+import { usePermission } from '@/hooks/usePermission'
 
 
 
@@ -21,6 +22,17 @@ export default function KpiReviewModal({ open, onClose, kpi, onEdit }: KpiReview
   const [rejectReason, setRejectReason] = useState('')
   const [mode, setMode] = useState<'view' | 'reject'>('view')
   const qc = useQueryClient()
+  const { canRevertApproval } = usePermission()
+
+  const revertApprovalMutation = useMutation({
+    mutationFn: () => kpiApi.revertApproval(kpi!.id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['kpi-criteria'] })
+      toast.success('Đã hoàn duyệt chỉ tiêu, chuyển về trạng thái chờ phê duyệt')
+      onClose()
+    },
+    onError: () => toast.error('Hoàn duyệt thất bại'),
+  })
 
   const approveMutation = useMutation({
     mutationFn: () => kpiApi.approve(kpi!.id),
@@ -59,35 +71,37 @@ export default function KpiReviewModal({ open, onClose, kpi, onEdit }: KpiReview
       <div className="relative bg-white dark:bg-slate-900 rounded-[32px] shadow-2xl w-full max-w-2xl mx-4 animate-in zoom-in-95 fade-in duration-300 max-h-[90vh] overflow-hidden border border-slate-200 dark:border-slate-800 flex flex-col">
         
         {/* Header Section */}
-        <div className="px-8 py-6 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between shrink-0">
-          <div className="flex items-center gap-4">
-            <div className="w-12 h-12 rounded-2xl bg-indigo-600 flex items-center justify-center text-white shadow-lg shadow-indigo-600/20">
-              <Target size={24} />
+        <div className="px-4 sm:px-8 py-4 sm:py-6 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between gap-3 shrink-0">
+          <div className="flex items-center gap-2 sm:gap-4 min-w-0">
+            <div className="w-9 h-9 sm:w-12 sm:h-12 rounded-2xl bg-indigo-600 flex items-center justify-center text-white shadow-lg shadow-indigo-600/20 shrink-0">
+              <Target size={18} className="sm:hidden" />
+              <Target size={24} className="hidden sm:block" />
             </div>
-            <div>
-              <h3 className="text-xl font-black text-slate-900 dark:text-white">Thẩm định Chỉ tiêu</h3>
+            <div className="min-w-0">
+              <h3 className="text-base sm:text-xl font-black text-slate-900 dark:text-white whitespace-nowrap">Thẩm định Chỉ tiêu</h3>
               <div className={cn(
-                "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-[9px] font-black uppercase tracking-widest mt-1",
+                "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-[9px] font-black uppercase tracking-widest mt-1 whitespace-nowrap",
                 status.bgColor, status.color
               )}>
                 <StatusIcon size={10} className={kpi.status === 'PENDING_APPROVAL' ? 'animate-pulse' : ''} /> {status.label}
               </div>
             </div>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 shrink-0">
             {isReviewable && onEdit && (
               <button
                 onClick={() => onEdit(kpi)}
-                className="flex items-center gap-2 px-4 py-2 rounded-xl bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 text-xs font-black uppercase tracking-widest hover:bg-indigo-100 transition-all border border-indigo-100 dark:border-indigo-800"
+                className="flex items-center gap-1.5 px-2.5 sm:px-4 py-2 rounded-xl bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 text-xs font-black uppercase tracking-widest hover:bg-indigo-100 transition-all border border-indigo-100 dark:border-indigo-800"
               >
-                <Pencil size={16} /> Chỉnh sửa
+                <Pencil size={14} className="shrink-0" />
+                <span className="hidden sm:inline">Chỉnh sửa</span>
               </button>
             )}
-            <button 
-              onClick={onClose} 
-              className="p-2.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 transition-all hover:rotate-90"
+            <button
+              onClick={onClose}
+              className="p-2 sm:p-2.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 transition-all hover:rotate-90 shrink-0"
             >
-              <X size={22} />
+              <X size={20} />
             </button>
           </div>
         </div>
@@ -125,29 +139,42 @@ export default function KpiReviewModal({ open, onClose, kpi, onEdit }: KpiReview
 
           {/* Core Metrics Grid */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <MetricBox 
-              icon={Target} 
-              label="Mục tiêu yêu cầu" 
+            <MetricBox
+              icon={Target}
+              label="Mục tiêu yêu cầu"
               value={kpi.targetValue != null ? formatNumber(kpi.targetValue) : '—'}
               unit={kpi.unit ?? ''}
               color="text-indigo-600"
             />
-            <MetricBox 
-              icon={Award} 
-              label="Trọng số (%)" 
+            <MetricBox
+              icon={BarChart3}
+              label="Tối thiểu"
+              value={kpi.minimumValue != null ? formatNumber(kpi.minimumValue) : '0'}
+              unit={kpi.unit ?? ''}
+              color="text-rose-600"
+            />
+            <MetricBox
+              icon={Award}
+              label="Trọng số (%)"
               value={`${kpi.weight ?? '—'}%`}
               color="text-blue-600"
             />
-            <MetricBox 
-              icon={BarChart3} 
-              label="Tần suất báo cáo" 
+            <MetricBox
+              icon={Calendar}
+              label="Tần suất báo cáo"
               value={FREQUENCY_MAP[kpi.frequency as keyof typeof FREQUENCY_MAP] ?? kpi.frequency}
               color="text-purple-600"
             />
-            <MetricBox 
-              icon={Clock} 
-              label="Thời hạn kỳ này" 
-              value={kpi.kpiPeriod?.endDate ? new Date(kpi.kpiPeriod.endDate).toLocaleDateString('vi-VN') : '—'}
+            <MetricBox
+              icon={Clock}
+              label="Hạn chót KPI (riêng)"
+              value={formatDateTime(kpi.deadline)}
+              color="text-orange-600"
+            />
+            <MetricBox
+              icon={Calendar}
+              label="Hạn chót đợt đánh giá"
+              value={formatDateTime(kpi.kpiPeriod?.endDate)}
               color="text-amber-600"
             />
           </div>
@@ -266,27 +293,37 @@ export default function KpiReviewModal({ open, onClose, kpi, onEdit }: KpiReview
                 </div>
               </div>
             ) : (
-              <div className="flex gap-4">
+              <div className="flex gap-3">
                 <button
                   onClick={() => setMode('reject')}
                   disabled={isPending}
-                  className="flex-1 px-6 py-4 rounded-2xl text-sm font-black border-2 border-red-100 dark:border-red-900/30 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/10 transition-all flex items-center justify-center gap-2"
+                  className="flex-1 px-3 sm:px-6 py-4 rounded-2xl text-sm font-black border-2 border-red-100 dark:border-red-900/30 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/10 transition-all flex items-center justify-center gap-2 whitespace-nowrap"
                 >
-                  <XCircle size={20} /> Trả lại yêu cầu
+                  <XCircle size={20} className="shrink-0" /> Trả lại yêu cầu
                 </button>
                 <button
                   onClick={() => approveMutation.mutate()}
                   disabled={isPending}
-                  className="flex-1 px-6 py-4 rounded-2xl text-sm font-black bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-50 transition-all flex items-center justify-center gap-2 shadow-xl shadow-emerald-500/20"
+                  className="flex-1 px-3 sm:px-6 py-4 rounded-2xl text-sm font-black bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-50 transition-all flex items-center justify-center gap-2 shadow-xl shadow-emerald-500/20 whitespace-nowrap"
                 >
-                  {approveMutation.isPending ? <Loader2 size={16} className="animate-spin" /> : <CheckCircle size={20} />}
+                  {approveMutation.isPending ? <Loader2 size={16} className="animate-spin shrink-0" /> : <CheckCircle size={20} className="shrink-0" />}
                   Phê duyệt ngay
                 </button>
               </div>
             )
           ) : (
-            <div className="flex justify-end">
-              <button 
+            <div className="flex justify-end gap-3">
+              {kpi.status === 'APPROVED' && canRevertApproval && (
+                <button
+                  onClick={() => revertApprovalMutation.mutate()}
+                  disabled={revertApprovalMutation.isPending}
+                  className="flex items-center gap-2 px-6 py-3 rounded-2xl bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-900/30 text-sm font-black text-amber-600 dark:text-amber-400 hover:bg-amber-100 dark:hover:bg-amber-900/30 transition-all shadow-sm active:scale-95 disabled:opacity-50"
+                >
+                  {revertApprovalMutation.isPending ? <Loader2 size={16} className="animate-spin" /> : <Undo2 size={18} />}
+                  Hoàn duyệt
+                </button>
+              )}
+              <button
                 onClick={onClose}
                 className="px-10 py-3 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-sm font-black text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all shadow-sm active:scale-95"
               >

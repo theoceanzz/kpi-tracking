@@ -204,6 +204,7 @@ export default function OrgImportGuideModal({ open, onClose, onSelectFile }: Org
           <div>
             <h3 className="text-sm font-black uppercase tracking-widest text-slate-400 mb-4">Mô tả các cột</h3>
             <div className="rounded-2xl border border-slate-200 dark:border-slate-800 overflow-hidden">
+              <div className="overflow-x-auto">
               <table className="w-full text-left">
                 <thead>
                   <tr className="bg-slate-50 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-700">
@@ -232,6 +233,7 @@ export default function OrgImportGuideModal({ open, onClose, onSelectFile }: Org
                   ))}
                 </tbody>
               </table>
+              </div>
             </div>
           </div>
 

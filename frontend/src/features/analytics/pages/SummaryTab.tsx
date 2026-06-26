@@ -367,7 +367,7 @@ export default function SummaryTab() {
           ? "p-3 shadow-lg shadow-slate-200/80 dark:shadow-slate-900/80 border-slate-300 dark:border-slate-700"
           : "p-4 shadow-sm"
       )}>
-        <div className="flex flex-wrap items-center gap-4 justify-between">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4 justify-between">
           <div className="flex items-center gap-2">
             <div className={cn(
               "p-2 rounded-lg text-indigo-600 dark:text-indigo-400 transition-all duration-200",
@@ -384,7 +384,7 @@ export default function SummaryTab() {
               )}
             </div>
           </div>
-          <div className="flex flex-wrap items-center gap-4">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4">
             <label className="flex items-center gap-2 text-sm font-semibold text-slate-700 dark:text-slate-300 cursor-pointer select-none">
               <input
                 type="checkbox"
@@ -401,13 +401,13 @@ export default function SummaryTab() {
 
       {/* ── Metrics ───────────────────────────────────────────────────────── */}
       {isMetricsLoading ? (
-        <div className="grid grid-cols-2 lg:grid-cols-5 gap-4 animate-pulse">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 animate-pulse">
           {Array.from({ length: 5 }).map((_, i) => (
-            <div key={i} className="h-20 bg-[var(--color-muted)] rounded-2xl" />
+            <div key={i} className="h-24 bg-[var(--color-muted)] rounded-2xl" />
           ))}
         </div>
       ) : (
-        <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
           <div className="bg-white dark:bg-slate-900 rounded-2xl p-5 border border-slate-200 dark:border-slate-800 flex items-center gap-4">
             <div className="w-12 h-12 rounded-full bg-indigo-100 dark:bg-indigo-900/40 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0"><TrendingUp size={24} /></div>
             <div>
@@ -483,7 +483,7 @@ export default function SummaryTab() {
           )}
         </div>
 
-        <div className="overflow-x-auto custom-scrollbar">
+        <div className="hidden md:block overflow-x-auto custom-scrollbar">
           <table className="w-full text-left">
             <thead className="bg-slate-50 dark:bg-slate-800/50">
               <tr className="text-xs font-black uppercase text-slate-500">
@@ -511,6 +511,18 @@ export default function SummaryTab() {
               )}
             </tbody>
           </table>
+        </div>
+
+        <div className="md:hidden divide-y divide-slate-100 dark:divide-slate-800">
+          {isKpisLoading ? (
+            <div className="p-6 text-sm text-slate-400">Đang tải...</div>
+          ) : kpiPage?.content?.length ? (
+            kpiPage.content.map(kpi => (
+              <MobileOrgUnitKpiCard key={kpi.kpiId} kpi={kpi} onClick={() => setSelectedKpiId(kpi.kpiId)} />
+            ))
+          ) : (
+            <div className="text-center py-8 text-slate-400">Không có dữ liệu</div>
+          )}
         </div>
 
         {(kpiPage?.totalElements ?? 0) > 0 && (
@@ -666,6 +678,41 @@ function KpiDateRange({ start, end }: { start: string | null; end: string | null
       <div className="flex items-center gap-1.5">
         <span className="font-bold text-indigo-400 uppercase tracking-wider w-[26px] shrink-0">Đến</span>
         <span className="font-semibold text-slate-700 dark:text-slate-300 tabular-nums">{fmt(end)}</span>
+      </div>
+    </div>
+  )
+}
+
+function MobileOrgUnitKpiCard({ kpi, onClick }: { kpi: any; onClick?: () => void }) {
+  const pct = Math.round(kpi.progress || 0)
+  const perf = Math.round(kpi.performance || 0)
+  const fmt = (d: string | null) => d ? format(new Date(d), 'dd/MM/yyyy') : '—'
+
+  return (
+    <div className="p-4 space-y-3 active:bg-slate-50 dark:active:bg-slate-800/30 cursor-pointer" onClick={onClick}>
+      <div className="flex items-start justify-between gap-2">
+        <p className="font-bold text-sm text-slate-900 dark:text-white truncate min-w-0">{kpi.kpiName}</p>
+        <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 text-[10px] font-bold text-slate-600 dark:text-slate-300 shrink-0">
+          <Filter size={9} />{kpi.orgUnitName || '—'}
+        </span>
+      </div>
+
+      <p className="text-[11px] text-slate-400">{fmt(kpi.periodStart)} — {fmt(kpi.periodEnd)}</p>
+
+      <div className="flex items-center gap-4 pt-1 border-t border-slate-100 dark:border-slate-800">
+        <div className="flex-1">
+          <div className="flex items-center justify-between mb-1">
+            <span className="text-[10px] text-slate-500">Tiến độ</span>
+            <span className="text-[10px] font-black">{pct}%</span>
+          </div>
+          <div className="h-2 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+            <div className={cn('h-full rounded-full', pct >= 100 ? 'bg-emerald-500' : 'bg-indigo-500')} style={{ width: `${Math.min(pct, 100)}%` }} />
+          </div>
+        </div>
+        <div className="text-center shrink-0">
+          <p className="text-[10px] text-slate-500">Hiệu suất</p>
+          <p className={cn('text-sm font-black', perf >= 100 ? 'text-emerald-500' : perf >= 80 ? 'text-indigo-500' : perf >= 50 ? 'text-amber-500' : 'text-red-500')}>{perf}%</p>
+        </div>
       </div>
     </div>
   )
@@ -1546,7 +1593,7 @@ function EmployeeRankingTableSection({ orgUnitId, from, to, onlyApproved, period
       }
     >
       <div className="flex-1 flex flex-col gap-3">
-        <div className="overflow-x-auto custom-scrollbar">
+        <div className="hidden md:block overflow-x-auto custom-scrollbar">
           <table className="w-full min-w-[700px]">
             <thead>
               <tr className="text-left text-[10px] font-black uppercase tracking-widest text-slate-400 border-b border-slate-100 dark:border-slate-800">
@@ -1617,6 +1664,57 @@ function EmployeeRankingTableSection({ orgUnitId, from, to, onlyApproved, period
           </table>
           {pagedRankings.length === 0 && !isFetching && (
             <div className="py-16 text-center text-slate-400 font-bold italic">Không có dữ liệu xếp hạng</div>
+          )}
+        </div>
+
+        <div className="md:hidden divide-y divide-slate-50 dark:divide-slate-800">
+          {isFetching ? (
+            <div className="p-6 text-sm text-slate-400">Đang tải...</div>
+          ) : pagedRankings.length === 0 ? (
+            <div className="py-16 text-center text-slate-400 font-bold italic">Không có dữ liệu xếp hạng</div>
+          ) : (
+            pagedRankings.map((item, i) => {
+              const globalRank = rankPage * RANK_PAGE_SIZE + i
+              return (
+                <div key={i} className="p-4 space-y-3">
+                  <div className="flex items-center gap-3">
+                    <div className={cn("w-8 h-8 rounded-lg flex items-center justify-center font-black text-xs shrink-0",
+                      globalRank === 0 ? "bg-amber-500 text-white shadow-lg shadow-amber-200" :
+                      globalRank === 1 ? "bg-slate-400 text-white" :
+                      globalRank === 2 ? "bg-orange-400 text-white" :
+                      "bg-slate-100 dark:bg-slate-800 text-slate-400"
+                    )}>{globalRank + 1}</div>
+                    <div className="w-9 h-9 rounded-xl bg-indigo-50 dark:bg-indigo-900/20 flex items-center justify-center font-black text-indigo-600 text-xs shrink-0">{getInitials(item.name)}</div>
+                    <div className="min-w-0">
+                      <p className="font-black text-slate-900 dark:text-white truncate">{item.name}</p>
+                      <p className="text-[11px] font-bold text-slate-400 truncate">{item.subText}</p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <div className="flex-1 h-1.5 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden">
+                      <div className={cn('h-full rounded-full',
+                        item.avgProgress >= 80 ? 'bg-emerald-500' :
+                        item.avgProgress >= 50 ? 'bg-amber-500' : 'bg-red-500'
+                      )} style={{ width: `${Math.min(item.avgProgress, 100)}%` }} />
+                    </div>
+                    <span className={cn('font-black text-xs shrink-0',
+                      item.avgProgress >= 80 ? 'text-emerald-600' :
+                      item.avgProgress >= 50 ? 'text-amber-600' : 'text-red-600'
+                    )}>{item.avgProgress.toFixed(1)}%</span>
+                  </div>
+
+                  <div className="flex items-center justify-between pt-1 border-t border-slate-100 dark:border-slate-800 text-xs">
+                    <span className={cn("px-3 py-1 rounded-full text-xs font-black",
+                      item.performance >= 80 ? "bg-emerald-50 text-emerald-600" :
+                      item.performance >= 50 ? "bg-amber-50 text-amber-600" :
+                      "bg-red-50 text-red-600"
+                    )}>Hiệu suất {item.performance.toFixed(1)}%</span>
+                    <span className="font-black text-slate-900 dark:text-white">Điểm TB: {item.score.toFixed(1)}</span>
+                  </div>
+                </div>
+              )
+            })
           )}
         </div>
         {totalRankPages > 1 && (

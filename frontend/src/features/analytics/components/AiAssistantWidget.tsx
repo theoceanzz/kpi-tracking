@@ -206,7 +206,7 @@ export default function AiAssistantWidget() {
   return (
     <div
       className={cn(
-        'fixed right-6 bottom-6 w-[450px] bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 flex flex-col overflow-hidden transition-all duration-300 z-50',
+        'fixed right-3 bottom-3 sm:right-6 sm:bottom-6 w-[calc(100vw-1.5rem)] sm:w-[450px] bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 flex flex-col overflow-hidden transition-all duration-300 z-50',
         isMinimized ? 'h-[60px]' : 'h-[700px] max-h-[85vh]',
       )}
     >

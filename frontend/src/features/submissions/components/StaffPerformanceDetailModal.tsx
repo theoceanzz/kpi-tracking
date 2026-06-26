@@ -81,20 +81,21 @@ export default function StaffPerformanceDetailModal({
         <div className="absolute bottom-0 left-0 w-64 h-64 bg-purple-500/5 rounded-full translate-y-1/2 -translate-x-1/2 blur-3xl pointer-events-none" />
 
         {/* Header */}
-        <div className="relative bg-slate-900 dark:bg-black p-10 text-white shrink-0 overflow-hidden">
+        <div className="relative bg-slate-900 dark:bg-black p-5 sm:p-10 text-white shrink-0 overflow-hidden">
           <div className="absolute top-0 right-0 p-8 opacity-5 rotate-12 pointer-events-none">
             <TrendingUp size={180} />
           </div>
-          
-          <div className="relative z-10 flex items-center justify-between">
-            <div className="space-y-3">
+
+          <div className="relative z-10 flex items-start justify-between gap-3">
+            <div className="space-y-2 sm:space-y-3 min-w-0">
               <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-white/10 text-[10px] font-black uppercase tracking-[0.2em] text-indigo-300 border border-white/5">
                 <Star size={12} className="fill-current" /> Bảng chi tiết hiệu suất
               </div>
-              <h2 className="text-3xl font-black tracking-tight flex items-center gap-4">
-                {userName} <span className="w-1.5 h-1.5 rounded-full bg-indigo-500" /> <span className="text-slate-400 text-xl font-bold">{periodName}</span>
+              <h2 className="text-xl sm:text-3xl font-black tracking-tight">
+                <span className="break-words">{userName}</span>
+                <span className="block sm:inline sm:ml-4 text-slate-400 text-base sm:text-xl font-bold mt-0.5 sm:mt-0">{periodName}</span>
               </h2>
-              <div className="flex items-center gap-6 text-slate-400 text-xs font-bold">
+              <div className="flex flex-wrap items-center gap-3 sm:gap-6 text-slate-400 text-xs font-bold">
                  <div className="flex items-center gap-2">
                     <Calendar size={14} className="text-indigo-400" /> {submissionList.length} Chỉ tiêu KPI
                  </div>
@@ -103,14 +104,15 @@ export default function StaffPerformanceDetailModal({
                  </div>
               </div>
             </div>
-            <button onClick={onClose} className="w-14 h-14 flex items-center justify-center rounded-3xl bg-white/5 hover:bg-white/10 transition-all border border-white/10 active:scale-95 group">
-              <X size={28} className="group-hover:rotate-90 transition-transform duration-500" />
+            <button onClick={onClose} className="w-10 h-10 sm:w-14 sm:h-14 flex items-center justify-center rounded-3xl bg-white/5 hover:bg-white/10 transition-all border border-white/10 active:scale-95 group shrink-0">
+              <X size={22} className="group-hover:rotate-90 transition-transform duration-500 sm:hidden" />
+              <X size={28} className="group-hover:rotate-90 transition-transform duration-500 hidden sm:block" />
             </button>
           </div>
         </div>
 
         {/* Content Area */}
-        <div className="flex-1 overflow-y-auto p-10 space-y-10 custom-scrollbar relative z-10">
+        <div className="flex-1 overflow-y-auto p-4 sm:p-10 space-y-6 sm:space-y-10 custom-scrollbar relative z-10">
           
           {isLoading ? (
             <div className="flex flex-col items-center justify-center py-32 space-y-6">
@@ -206,81 +208,137 @@ export default function StaffPerformanceDetailModal({
                 </div>
                 
                 <div className="bg-white dark:bg-slate-900 rounded-[40px] border border-slate-100 dark:border-slate-800 shadow-sm overflow-hidden">
-                  <table className="w-full border-collapse">
-                    <thead>
-                      <tr className="bg-slate-50/50 dark:bg-slate-800/40 border-b border-slate-100 dark:border-slate-800">
-                        <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-slate-400 text-left">Nội dung KPI</th>
-                        <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-slate-400 text-center">Kết quả nộp</th>
-                        <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-slate-400 text-center">Trạng thái</th>
-                        <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-slate-400 text-right">Điểm hệ thống</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-50 dark:divide-slate-800/50">
-                      {submissionList.map((s) => (
-                        <tr key={s.id} className="hover:bg-slate-50/30 dark:hover:bg-slate-800/20 transition-all group">
-                          <td className="px-8 py-6">
-                            <div className="flex items-center gap-4">
-                              <div className="w-10 h-10 rounded-2xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-400 group-hover:text-indigo-500 transition-all group-hover:scale-110">
-                                <Target size={18} />
+
+                  {/* Mobile card layout */}
+                  <div className="sm:hidden divide-y divide-slate-100 dark:divide-slate-800/50">
+                    {submissionList.map((s) => (
+                      <div key={s.id} className="px-5 py-4 space-y-3">
+                        <div className="flex items-start gap-3">
+                          <div className="w-9 h-9 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-400 shrink-0 mt-0.5">
+                            <Target size={16} />
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <p className="text-sm font-black text-slate-900 dark:text-white leading-tight">{s.kpiCriteriaName}</p>
+                            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-0.5">Trọng số: {s.weight}%</p>
+                            {s.note && (
+                              <p className="text-[10px] text-slate-500 font-medium mt-1 italic">"{s.note}"</p>
+                            )}
+                            {s.attachments && s.attachments.length > 0 && (
+                              <div className="flex flex-wrap gap-1.5 mt-1.5">
+                                {s.attachments.map(att => (
+                                  <a
+                                    key={att.id}
+                                    href={att.fileUrl}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    title={att.fileName}
+                                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 text-[9px] font-black uppercase tracking-wider hover:bg-indigo-500 hover:text-white transition-all"
+                                  >
+                                    <Paperclip size={10} />
+                                    <span className="truncate max-w-[80px]">{att.fileName}</span>
+                                    <ExternalLink size={10} />
+                                  </a>
+                                ))}
                               </div>
-                              <div>
-                                <p className="text-sm font-black text-slate-900 dark:text-white group-hover:text-indigo-600 transition-colors">{s.kpiCriteriaName}</p>
-                                <div className="flex items-center gap-3 mt-1">
-                                  <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Trọng số: {s.weight}%</p>
-                                  {s.attachments && s.attachments.length > 0 && (
-                                    <div className="flex items-center gap-2">
-                                      <span className="text-[10px] text-slate-300">•</span>
-                                      <div className="flex flex-wrap gap-1.5">
-                                        {s.attachments.map(att => (
-                                          <a 
-                                            key={att.id} 
-                                            href={att.fileUrl} 
-                                            target="_blank" 
-                                            rel="noopener noreferrer"
-                                            title={att.fileName}
-                                            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 text-[9px] font-black uppercase tracking-wider hover:bg-indigo-500 hover:text-white transition-all"
-                                          >
-                                            <Paperclip size={10} />
-                                            <span className="truncate max-w-[80px]">{att.fileName}</span>
-                                            <ExternalLink size={10} />
-                                          </a>
-                                        ))}
+                            )}
+                          </div>
+                        </div>
+                        <div className="flex items-center justify-between gap-2 pl-12">
+                          <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700">
+                            <span className="text-sm font-black text-slate-900 dark:text-white">{formatNumber(s.actualValue)}</span>
+                            <span className="text-[10px] text-slate-400 font-bold">/ {s.targetValue != null ? formatNumber(s.targetValue) : '—'}</span>
+                          </div>
+                          <div className={cn(
+                            "inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest",
+                            s.status === 'APPROVED' ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-400' :
+                            s.status === 'REJECTED' ? 'bg-red-50 text-red-600 dark:bg-red-500/10 dark:text-red-400' :
+                            'bg-amber-50 text-amber-600 dark:bg-amber-500/10 dark:text-amber-400'
+                          )}>
+                            {s.status === 'APPROVED' ? 'Đã duyệt' : s.status === 'REJECTED' ? 'Từ chối' : 'Chờ duyệt'}
+                          </div>
+                          <span className="text-base font-black text-slate-400">{formatNumber(s.autoScore ?? 0)}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Desktop table layout */}
+                  <div className="hidden sm:block overflow-x-auto">
+                    <table className="w-full border-collapse min-w-[500px]">
+                      <thead>
+                        <tr className="bg-slate-50/50 dark:bg-slate-800/40 border-b border-slate-100 dark:border-slate-800">
+                          <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-slate-400 text-left">Nội dung KPI</th>
+                          <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-slate-400 text-center">Kết quả nộp</th>
+                          <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-slate-400 text-center">Trạng thái</th>
+                          <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-slate-400 text-right">Điểm hệ thống</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-50 dark:divide-slate-800/50">
+                        {submissionList.map((s) => (
+                          <tr key={s.id} className="hover:bg-slate-50/30 dark:hover:bg-slate-800/20 transition-all group">
+                            <td className="px-8 py-6">
+                              <div className="flex items-center gap-4">
+                                <div className="w-10 h-10 rounded-2xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-400 group-hover:text-indigo-500 transition-all group-hover:scale-110">
+                                  <Target size={18} />
+                                </div>
+                                <div>
+                                  <p className="text-sm font-black text-slate-900 dark:text-white group-hover:text-indigo-600 transition-colors">{s.kpiCriteriaName}</p>
+                                  <div className="flex items-center gap-3 mt-1">
+                                    <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Trọng số: {s.weight}%</p>
+                                    {s.attachments && s.attachments.length > 0 && (
+                                      <div className="flex items-center gap-2">
+                                        <span className="text-[10px] text-slate-300">•</span>
+                                        <div className="flex flex-wrap gap-1.5">
+                                          {s.attachments.map(att => (
+                                            <a
+                                              key={att.id}
+                                              href={att.fileUrl}
+                                              target="_blank"
+                                              rel="noopener noreferrer"
+                                              title={att.fileName}
+                                              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 text-[9px] font-black uppercase tracking-wider hover:bg-indigo-500 hover:text-white transition-all"
+                                            >
+                                              <Paperclip size={10} />
+                                              <span className="truncate max-w-[80px]">{att.fileName}</span>
+                                              <ExternalLink size={10} />
+                                            </a>
+                                          ))}
+                                        </div>
                                       </div>
-                                    </div>
+                                    )}
+                                  </div>
+                                  {s.note && (
+                                    <p className="text-[10px] text-slate-500 font-medium mt-1.5 italic line-clamp-1 group-hover:line-clamp-none transition-all">
+                                      " {s.note} "
+                                    </p>
                                   )}
                                 </div>
-                                {s.note && (
-                                  <p className="text-[10px] text-slate-500 font-medium mt-1.5 italic line-clamp-1 group-hover:line-clamp-none transition-all">
-                                    " {s.note} "
-                                  </p>
-                                )}
                               </div>
-
-                            </div>
-                          </td>
-                          <td className="px-8 py-6 text-center">
-                            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-2xl bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 shadow-inner">
-                               <span className="text-sm font-black text-slate-900 dark:text-white">{formatNumber(s.actualValue)}</span>
-                               <span className="text-[10px] text-slate-400 font-bold">/ {s.targetValue != null ? formatNumber(s.targetValue) : '—'}</span>
-                            </div>
-                          </td>
-                          <td className="px-8 py-6 text-center">
-                             <div className={cn(
+                            </td>
+                            <td className="px-8 py-6 text-center">
+                              <div className="inline-flex items-center gap-2 px-4 py-2 rounded-2xl bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 shadow-inner">
+                                <span className="text-sm font-black text-slate-900 dark:text-white">{formatNumber(s.actualValue)}</span>
+                                <span className="text-[10px] text-slate-400 font-bold">/ {s.targetValue != null ? formatNumber(s.targetValue) : '—'}</span>
+                              </div>
+                            </td>
+                            <td className="px-8 py-6 text-center">
+                              <div className={cn(
                                 "inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest",
                                 s.status === 'APPROVED' ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-400' :
                                 s.status === 'REJECTED' ? 'bg-red-50 text-red-600 dark:bg-red-500/10 dark:text-red-400' :
                                 'bg-amber-50 text-amber-600 dark:bg-amber-500/10 dark:text-amber-400'
-                             )}>
+                              )}>
                                 {s.status === 'APPROVED' ? 'Đã duyệt' : s.status === 'REJECTED' ? 'Từ chối' : 'Chờ duyệt'}
-                             </div>
-                          </td>
-                          <td className="px-8 py-6 text-right">
-                            <span className="text-lg font-black text-slate-400 group-hover:text-indigo-600 transition-colors">{formatNumber(s.autoScore ?? 0)}</span>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                              </div>
+                            </td>
+                            <td className="px-8 py-6 text-right">
+                              <span className="text-lg font-black text-slate-400 group-hover:text-indigo-600 transition-colors">{formatNumber(s.autoScore ?? 0)}</span>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
               </div>
             </>
@@ -288,7 +346,7 @@ export default function StaffPerformanceDetailModal({
         </div>
         
         {/* Footer simple */}
-        <div className="px-10 py-8 bg-slate-50/50 dark:bg-slate-900/50 border-t border-slate-100 dark:border-slate-800 flex justify-center shrink-0">
+        <div className="px-5 sm:px-10 py-5 sm:py-8 bg-slate-50/50 dark:bg-slate-900/50 border-t border-slate-100 dark:border-slate-800 flex justify-center shrink-0">
            <button 
              onClick={onClose}
              className="px-12 py-4 rounded-[20px] bg-slate-900 dark:bg-white text-white dark:text-slate-900 text-[10px] font-black uppercase tracking-[2px] hover:bg-indigo-600 dark:hover:bg-indigo-50 transition-all active:scale-95 shadow-xl"

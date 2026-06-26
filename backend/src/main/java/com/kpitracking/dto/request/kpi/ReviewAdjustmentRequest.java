@@ -9,4 +9,5 @@ public class ReviewAdjustmentRequest {
     @NotNull(message = "Status is required")
     private AdjustmentStatus status;
     private String reviewerNote;
+    private Double compensationPercentage;
 }

@@ -98,29 +98,29 @@ export default function CompanyPage() {
         <div className="absolute top-0 right-0 w-[400px] h-[400px] bg-indigo-500/10 rounded-full blur-[100px] -mr-20 -mt-20" />
         <div className="absolute bottom-0 left-0 w-[300px] h-[300px] bg-purple-500/5 rounded-full blur-[80px] -ml-20 -mb-20" />
         
-        <div className="relative z-10 p-8 md:p-10">
-          <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-8">
-            <div className="flex flex-col md:flex-row items-center md:items-start gap-8 text-center md:text-left">
+        <div className="relative z-10 p-5 md:p-10">
+          <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-5 md:gap-8">
+            <div className="flex flex-row items-start gap-4 md:gap-8 w-full lg:w-auto">
               <div className="relative group shrink-0">
                 <div className="absolute -inset-1 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-2xl blur opacity-25 group-hover:opacity-50 transition duration-500"></div>
-                <div className="relative w-20 h-20 rounded-2xl bg-white/10 backdrop-blur-md flex items-center justify-center text-white text-3xl font-black shadow-xl border border-white/20">
+                <div className="relative w-14 h-14 md:w-20 md:h-20 rounded-2xl bg-white/10 backdrop-blur-md flex items-center justify-center text-white text-2xl md:text-3xl font-black shadow-xl border border-white/20">
                   {org?.name?.charAt(0)}
                 </div>
               </div>
-              
-              <div className="space-y-3">
+
+              <div className="flex-1 min-w-0 space-y-2 md:space-y-3">
                 {isEditingInfo ? (
                   <div className="space-y-4 max-w-md">
-                    <input 
+                    <input
                       value={infoFormData.name}
                       onChange={e => setInfoFormData({ ...infoFormData, name: e.target.value })}
-                      className="text-3xl font-bold bg-white/5 border-b border-indigo-500/50 text-white focus:outline-none w-full py-1 px-3 rounded-t-lg"
+                      className="text-2xl font-bold bg-white/5 border-b border-indigo-500/50 text-white focus:outline-none w-full py-1 px-3 rounded-t-lg"
                       placeholder="Tên doanh nghiệp"
                     />
                     <div className="flex items-center gap-3">
                       <div className="flex items-center gap-2 px-3 py-1 rounded-lg bg-white/5 border border-white/10">
                         <Hash size={14} className="text-slate-400" />
-                        <input 
+                        <input
                           value={infoFormData.code}
                           onChange={e => setInfoFormData({ ...infoFormData, code: e.target.value })}
                           className="bg-transparent text-xs font-medium focus:outline-none w-24 text-slate-300"
@@ -131,15 +131,15 @@ export default function CompanyPage() {
                   </div>
                 ) : (
                   <>
-                    <div className="space-y-1">
+                    <div>
                       <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-white/10 text-white/80 text-[10px] font-bold uppercase tracking-wider border border-white/10 mb-1">
                         Hệ thống
                       </div>
-                      <h1 className="text-3xl md:text-4xl font-black tracking-tight text-white leading-tight">
+                      <h1 className="text-xl md:text-4xl font-black tracking-tight text-white leading-tight">
                         {org?.name}
                       </h1>
                     </div>
-                    <div className="flex flex-wrap justify-center md:justify-start gap-5">
+                    <div className="grid grid-cols-2 md:flex md:flex-wrap gap-x-3 gap-y-2.5 md:gap-5">
                       <HeroStat icon={Hash} label="Mã DN" value={org?.code || 'N/A'} valueColor="text-white" />
                       <HeroStat icon={Calendar} label="Thành lập" value={(org?.createdAt ? formatDateTime(org.createdAt).split(' ')[0] : 'N/A') || 'N/A'} valueColor="text-white" />
                       <HeroStat icon={ShieldCheck} label="Trạng thái" value={org?.status === 'Active' ? 'Hoạt động' : (org?.status || 'Hoạt động')} valueColor="text-emerald-400" />
@@ -151,29 +151,29 @@ export default function CompanyPage() {
               </div>
             </div>
 
-            <div className="flex gap-3 self-center lg:self-auto">
+            <div className="flex gap-3 self-stretch lg:self-auto justify-end lg:justify-start">
               {isEditingInfo ? (
                 <>
-                  <button 
+                  <button
                     onClick={() => setIsEditingInfo(false)}
-                    className="px-5 py-2.5 rounded-xl bg-white/5 text-white text-xs font-bold uppercase tracking-wider hover:bg-white/10 border border-white/10 transition-all"
+                    className="px-4 py-2 md:px-5 md:py-2.5 rounded-xl bg-white/5 text-white text-xs font-bold uppercase tracking-wider hover:bg-white/10 border border-white/10 transition-all"
                   >
                     Hủy
                   </button>
-                  <button 
+                  <button
                     onClick={handleSaveInfo}
                     disabled={updateMutation.isPending}
-                    className="px-6 py-2.5 bg-indigo-600 text-white rounded-xl text-xs font-bold uppercase tracking-wider shadow-lg shadow-indigo-600/20 hover:bg-indigo-700 transition-all active:scale-95 disabled:opacity-50"
+                    className="px-5 py-2 md:px-6 md:py-2.5 bg-indigo-600 text-white rounded-xl text-xs font-bold uppercase tracking-wider shadow-lg shadow-indigo-600/20 hover:bg-indigo-700 transition-all active:scale-95 disabled:opacity-50"
                   >
                     Lưu
                   </button>
                 </>
               ) : (
-                <button 
+                <button
                   onClick={handleStartEditInfo}
-                  className="px-6 py-3 bg-white text-slate-900 rounded-xl text-xs font-bold uppercase tracking-wider shadow-xl transition-all hover:bg-slate-100 active:scale-95 flex items-center gap-2"
+                  className="px-5 py-2.5 md:px-6 md:py-3 bg-white text-slate-900 rounded-xl text-xs font-bold uppercase tracking-wider shadow-xl transition-all hover:bg-slate-100 active:scale-95 flex items-center gap-2 whitespace-nowrap"
                 >
-                  <Edit3 size={14} /> 
+                  <Edit3 size={14} />
                   <span>Chỉnh sửa</span>
                 </button>
               )}
@@ -490,39 +490,41 @@ function ScoringConfigSection({ org }: { org: any }) {
                 <div className="space-y-3">
                   {fields.map((field, index) => (
                     <div key={field.id} className="group relative bg-slate-50 dark:bg-slate-800/40 p-4 rounded-2xl border border-slate-100 dark:border-slate-800 transition-all hover:shadow-md">
-                      <div className="flex items-center gap-4">
+                      <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
                         {isEditing ? (
                           <>
                             <div className="flex-1 space-y-1">
-                               <label className="text-[9px] font-bold text-slate-400 uppercase">Tên mức</label>
-                               <input 
-                                 {...register(`evaluationLevels.${index}.name` as const)}
-                                 className="w-full bg-white dark:bg-slate-900 px-3 py-2 rounded-lg text-xs font-bold border border-slate-100 dark:border-slate-800 outline-none focus:border-indigo-500"
-                               />
+                              <label className="text-[9px] font-bold text-slate-400 uppercase">Tên mức</label>
+                              <input
+                                {...register(`evaluationLevels.${index}.name` as const)}
+                                className="w-full bg-white dark:bg-slate-900 px-3 py-2 rounded-lg text-xs font-bold border border-slate-100 dark:border-slate-800 outline-none focus:border-indigo-500"
+                              />
                             </div>
-                            <div className="w-24 space-y-1">
-                               <label className="text-[9px] font-bold text-slate-400 uppercase">Điểm ≥</label>
-                               <input 
-                                 type="number"
-                                 {...register(`evaluationLevels.${index}.threshold` as const)}
-                                 className="w-full bg-white dark:bg-slate-900 px-3 py-2 rounded-lg text-xs font-bold border border-slate-100 dark:border-slate-800 outline-none focus:border-indigo-500"
-                               />
+                            <div className="flex items-end gap-3">
+                              <div className="w-24 space-y-1">
+                                <label className="text-[9px] font-bold text-slate-400 uppercase">Điểm ≥</label>
+                                <input
+                                  type="number"
+                                  {...register(`evaluationLevels.${index}.threshold` as const)}
+                                  className="w-full bg-white dark:bg-slate-900 px-3 py-2 rounded-lg text-xs font-bold border border-slate-100 dark:border-slate-800 outline-none focus:border-indigo-500"
+                                />
+                              </div>
+                              <div className="flex-1 sm:flex-none sm:w-16 space-y-1">
+                                <label className="text-[9px] font-bold text-slate-400 uppercase">Màu</label>
+                                <input
+                                  type="color"
+                                  {...register(`evaluationLevels.${index}.color` as const)}
+                                  className="w-full h-9 bg-transparent border border-slate-100 dark:border-slate-800 outline-none cursor-pointer p-0.5 rounded-lg"
+                                />
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => remove(index)}
+                                className="p-2 text-red-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors mb-0.5"
+                              >
+                                <Trash2 size={14} />
+                              </button>
                             </div>
-                            <div className="w-16 space-y-1">
-                               <label className="text-[9px] font-bold text-slate-400 uppercase">Màu</label>
-                               <input 
-                                 type="color"
-                                 {...register(`evaluationLevels.${index}.color` as const)}
-                                 className="w-full h-8 bg-transparent border-none outline-none cursor-pointer p-0"
-                               />
-                            </div>
-                            <button 
-                              type="button" 
-                              onClick={() => remove(index)}
-                              className="mt-4 p-2 text-red-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
-                            >
-                              <Trash2 size={14} />
-                            </button>
                           </>
                         ) : (
                           <>

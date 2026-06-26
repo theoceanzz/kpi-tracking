@@ -15,6 +15,13 @@ import AnalyticsComboChart from '../components/AnalyticsComboChart'
 import AnalyticsTabSkeleton, { TableLoadingRows } from '@/components/common/AnalyticsTabSkeleton'
 import Pagination from '@/components/common/Pagination'
 import { useAnalyticsDateFilter } from '@/components/common/AnalyticsDateFilter'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 
 import { format } from 'date-fns'
 
@@ -126,7 +133,7 @@ export default function MyObjectivesTab() {
           </div>
         </div>
 
-        <div className="flex flex-wrap items-center gap-5">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-5 w-full lg:w-auto">
           <label className="flex items-center gap-2 text-sm font-semibold text-slate-700 dark:text-slate-300 cursor-pointer select-none">
             <input
               type="checkbox"
@@ -137,12 +144,14 @@ export default function MyObjectivesTab() {
             Chỉ tính bài nộp đã duyệt
           </label>
 
-          {controls}
+          <div className="w-full sm:w-auto">
+            {controls}
+          </div>
         </div>
       </div>
 
       {/* Metrics Row */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="bg-white dark:bg-slate-900 rounded-2xl p-5 border border-slate-200 dark:border-slate-800 flex items-center gap-4">
           <div className="w-12 h-12 rounded-full bg-indigo-100 dark:bg-indigo-900/40 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0">
             <TrendingUp size={24} />
@@ -167,7 +176,8 @@ export default function MyObjectivesTab() {
           </div>
           <div>
             <p className="text-xs font-bold text-slate-500">Trạng thái KPI</p>
-            <p className="text-lg font-black">{metrics?.runningKpis ?? 0} Đang chạy | {metrics?.completedKpis ?? 0} Hoàn thành</p>
+            <p className="text-sm font-black">{metrics?.runningKpis ?? 0} Đang chạy</p>
+            <p className="text-sm font-black text-emerald-600">{metrics?.completedKpis ?? 0} Hoàn thành</p>
           </div>
         </div>
         <div className="bg-white dark:bg-slate-900 rounded-2xl p-5 border border-slate-200 dark:border-slate-800 flex items-center gap-4">
@@ -201,28 +211,30 @@ export default function MyObjectivesTab() {
         {/* Filter toolbar */}
         <div className="px-6 py-4 border-b border-slate-100 dark:border-slate-800 flex flex-wrap items-center gap-3">
           {/* Objective */}
-          <select
-            className="h-9 px-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-semibold text-slate-700 dark:text-slate-300 outline-none focus:ring-2 focus:ring-indigo-500/50 max-w-[220px]"
-            value={filterObjective}
-            onChange={e => handleObjectiveChange(e.target.value)}
-          >
-            <option value="">Tất cả mục tiêu</option>
-            {kpiPage?.availableObjectives?.map(o => (
-              <option key={o.code} value={o.code}>{o.name}</option>
-            ))}
-          </select>
+          <Select value={filterObjective || 'ALL'} onValueChange={v => handleObjectiveChange(v === 'ALL' ? '' : v)}>
+            <SelectTrigger className="h-9 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-semibold w-full sm:w-[300px]">
+              <SelectValue placeholder="Tất cả mục tiêu" />
+            </SelectTrigger>
+            <SelectContent className="w-[var(--radix-select-trigger-width)]">
+              <SelectItem value="ALL">Tất cả mục tiêu</SelectItem>
+              {kpiPage?.availableObjectives?.map(o => (
+                <SelectItem key={o.code} value={o.code}>{o.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
 
           {/* KR */}
-          <select
-            className="h-9 px-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-semibold text-slate-700 dark:text-slate-300 outline-none focus:ring-2 focus:ring-indigo-500/50 max-w-[220px]"
-            value={filterKr}
-            onChange={e => { setFilterKr(e.target.value); setPage(0) }}
-          >
-            <option value="">Tất cả Key Result</option>
-            {krOptions.map(o => (
-              <option key={o.code} value={o.code}>{o.name}</option>
-            ))}
-          </select>
+          <Select value={filterKr || 'ALL'} onValueChange={v => { setFilterKr(v === 'ALL' ? '' : v); setPage(0) }}>
+            <SelectTrigger className="h-9 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-semibold w-full sm:w-[300px]">
+              <SelectValue placeholder="Tất cả Key Result" />
+            </SelectTrigger>
+            <SelectContent className="w-[var(--radix-select-trigger-width)]">
+              <SelectItem value="ALL">Tất cả Key Result</SelectItem>
+              {krOptions.map(o => (
+                <SelectItem key={o.code} value={o.code}>{o.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
 
           {/* Shared type pills */}
           <div className="flex gap-0.5 p-1 bg-slate-100 dark:bg-slate-800 rounded-lg">
@@ -253,7 +265,7 @@ export default function MyObjectivesTab() {
         </div>
 
         {/* Table */}
-        <div className="overflow-x-auto custom-scrollbar">
+        <div className="hidden md:block overflow-x-auto custom-scrollbar">
           <table className="w-full text-left">
             <thead className="bg-slate-50 dark:bg-slate-800/50">
               <tr className="text-xs font-black uppercase text-slate-500">
@@ -293,6 +305,19 @@ export default function MyObjectivesTab() {
               )}
             </tbody>
           </table>
+        </div>
+
+        {/* Mobile Card List */}
+        <div className="md:hidden divide-y divide-slate-100 dark:divide-slate-800">
+          {isKpisLoading ? (
+            <div className="p-6 text-sm text-slate-400">Đang tải...</div>
+          ) : kpiPage?.content?.length ? (
+            kpiPage.content.map(kpi => (
+              <MobileKpiCard key={kpi.kpiId} kpi={kpi} onExpand={() => setSelectedKpiId(kpi.kpiId)} />
+            ))
+          ) : (
+            <div className="text-center py-8 text-slate-400">Không có dữ liệu</div>
+          )}
         </div>
 
         {/* Pagination */}
@@ -358,6 +383,51 @@ function KpiDateRange({ start, end }: { start: string | null; end: string | null
       <div className="flex items-center gap-1.5">
         <span className="font-bold text-indigo-400 dark:text-indigo-500 uppercase tracking-wider w-[26px] shrink-0">Đến</span>
         <span className="font-semibold text-slate-700 dark:text-slate-300 tabular-nums">{fmt(end)}</span>
+      </div>
+    </div>
+  )
+}
+
+function MobileKpiCard({ kpi, onExpand }: { kpi: any; onExpand: () => void }) {
+  const pct = Math.round(kpi.progress || 0)
+  const perf = Math.round(kpi.performance || 0)
+  const fmt = (d: string | null) => d ? format(new Date(d), 'dd/MM/yyyy') : '—'
+
+  return (
+    <div className="p-4 space-y-3 active:bg-slate-50 dark:active:bg-slate-800/30" onClick={onExpand}>
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0">
+          <p className="font-bold text-sm text-slate-900 dark:text-white truncate">{kpi.kpiName}</p>
+          <p className="text-[11px] text-slate-500 mt-0.5">{kpi.objectiveName} ({kpi.objectiveCode})</p>
+          <p className="text-[11px] text-slate-500">{kpi.keyResultName} • {kpi.keyResultCode}</p>
+        </div>
+        {kpi.shared ? (
+          <div className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-purple-50 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 text-[9px] font-black uppercase shrink-0">
+            <Users size={10} /> Chung
+          </div>
+        ) : (
+          <div className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 text-[9px] font-black uppercase shrink-0">
+            <User size={10} /> Riêng
+          </div>
+        )}
+      </div>
+
+      <p className="text-[11px] text-slate-400">{fmt(kpi.periodStart)} — {fmt(kpi.periodEnd)}</p>
+
+      <div className="flex items-center gap-4 pt-1 border-t border-slate-100 dark:border-slate-800">
+        <div className="flex-1">
+          <div className="flex items-center justify-between mb-1">
+            <span className="text-[10px] text-slate-500">Tiến độ</span>
+            <span className="text-[10px] font-black">{pct}%</span>
+          </div>
+          <div className="h-2 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+            <div className={cn('h-full rounded-full', pct >= 100 ? 'bg-emerald-500' : 'bg-indigo-500')} style={{ width: `${Math.min(pct, 100)}%` }} />
+          </div>
+        </div>
+        <div className="text-center shrink-0">
+          <p className="text-[10px] text-slate-500">Hiệu suất</p>
+          <p className={cn('text-sm font-black', perf >= 100 ? 'text-emerald-500' : perf >= 80 ? 'text-indigo-500' : perf >= 50 ? 'text-amber-500' : 'text-red-500')}>{perf}%</p>
+        </div>
       </div>
     </div>
   )

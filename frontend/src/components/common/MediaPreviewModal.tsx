@@ -32,6 +32,8 @@ export default function MediaPreviewModal({ url, fileName, contentType, isOpen, 
 
   const isImage = contentType?.startsWith('image/') || /\.(jpg|jpeg|png|webp|gif|svg)$/i.test(fileName || url)
   const isPdf = contentType === 'application/pdf' || (fileName || '').toLowerCase().endsWith('.pdf') || url.toLowerCase().endsWith('.pdf')
+  const isVideo = contentType?.startsWith('video/') || /\.(mp4|webm|ogg|mov)$/i.test(fileName || url)
+  const isAudio = contentType?.startsWith('audio/') || /\.(mp3|wav|m4a|aac)$/i.test(fileName || url)
   const isOfficeDoc = /\.(docx?|xlsx?|pptx?)$/i.test(fileName || url)
   const isLocalFile = url.startsWith('blob:')
 
@@ -104,11 +106,30 @@ export default function MediaPreviewModal({ url, fileName, contentType, isOpen, 
             }}
           />
         ) : isPdf ? (
-          <iframe 
-            src={`${url}#toolbar=0`} 
+          <iframe
+            src={`${url}#toolbar=0`}
             className="w-full max-w-5xl h-full bg-white rounded-lg shadow-2xl"
             title={fileName}
           />
+        ) : isVideo ? (
+          <video
+            src={url}
+            controls
+            autoPlay
+            className="max-w-full max-h-full rounded-lg shadow-2xl"
+          >
+            Trình duyệt của bạn không hỗ trợ phát video.
+          </video>
+        ) : isAudio ? (
+          <div className="bg-white/5 backdrop-blur-md p-12 rounded-3xl border border-white/10 flex flex-col items-center text-center max-w-md w-full">
+            <div className="w-20 h-20 rounded-2xl bg-pink-500/20 flex items-center justify-center text-pink-400 mb-6">
+              <FileText size={40} />
+            </div>
+            <h4 className="text-white text-lg font-bold mb-6 truncate max-w-full">{fileName}</h4>
+            <audio src={url} controls autoPlay className="w-full">
+              Trình duyệt của bạn không hỗ trợ phát âm thanh.
+            </audio>
+          </div>
         ) : isOfficeDoc ? (
           isLocalFile ? (
             <div className="bg-white/5 backdrop-blur-md p-12 rounded-3xl border border-white/10 flex flex-col items-center text-center max-w-sm">

@@ -17,6 +17,7 @@ public class AdjustmentRequestResponse {
     private Double requestedTargetValue;
     private Double requestedMinimumValue;
     private boolean deactivationRequest;
+    private Double compensationPercentage;
     private String reason;
     private AdjustmentStatus status;
     private UUID requesterId;

@@ -7,10 +7,11 @@ import KpiAdjustmentReviewModal from '../components/KpiAdjustmentReviewModal'
 import { useKpiAdjustments, useBulkReviewAdjustments } from '../hooks/useKpiAdjustments'
 import { cn } from '@/lib/utils'
 import type { KpiAdjustmentRequest, AdjustmentStatus } from '@/types/adjustment'
-import { 
-  Clock, CheckCircle2, XCircle, 
+import {
+  Clock, CheckCircle2, XCircle,
   Users, ChevronRight, Calendar,
-  Search, MessageSquare, Target, GitBranch
+  Search, MessageSquare, Target, GitBranch,
+  LayoutGrid, List
 } from 'lucide-react'
 import { useAuthStore } from '@/store/authStore'
 import { useKpiPeriods } from '../hooks/useKpiPeriods'
@@ -93,6 +94,9 @@ export default function KpiAdjustmentApprovalPage() {
   const [selectedKeyResultId, setSelectedKeyResultId] = useState<string>('ALL')
   const [selectedIds, setSelectedIds] = useState<string[]>([])
   const [bulkNote, setBulkNote] = useState('')
+  const [viewMode, setViewMode] = useState<'list' | 'card'>(() =>
+    typeof window !== 'undefined' && window.matchMedia('(max-width: 767px)').matches ? 'card' : 'list'
+  )
   
   const user = useAuthStore(s => s.user)
   const organizationId = user?.memberships?.[0]?.organizationId
@@ -173,7 +177,7 @@ export default function KpiAdjustmentApprovalPage() {
   }
   
   const toggleSelectAll = () => {
-    const pendingItems = items.filter(i => i.status === 'PENDING')
+    const pendingItems = items.filter(i => i.status === 'PENDING' && !i.deactivationRequest)
     const pendingIds = pendingItems.map(i => i.id)
     const allPendingSelected = pendingIds.length > 0 && pendingIds.every(id => selectedIds.includes(id))
 
@@ -243,7 +247,7 @@ export default function KpiAdjustmentApprovalPage() {
                 </div>
               </div>
 
-              <div className="flex items-center gap-3">
+              <div className="grid grid-cols-3 gap-2 sm:gap-3 w-full sm:w-auto">
                 <StatChip label="Đợi xử lý" value={stats.pending} color="amber" />
                 <StatChip label="Từ chối" value={stats.rejected} color="red" />
                 <StatChip label="Chấp thuận" value={stats.approved} color="emerald" />
@@ -256,14 +260,38 @@ export default function KpiAdjustmentApprovalPage() {
         <div id="tour-adj-toolbar" className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-md p-6 rounded-[28px] border border-slate-200 dark:border-slate-800 shadow-sm space-y-4">
           {/* Row 1: Primary Filters */}
           <div className="flex flex-col md:flex-row items-center gap-4 w-full">
-            <div className="relative flex-1">
-              <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-              <input 
-                value={search}
-                onChange={e => { setSearch(e.target.value); setPage(0) }}
-                placeholder="Tìm tên chỉ tiêu, người yêu cầu..." 
-                className="w-full h-12 pl-12 pr-4 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 text-sm font-medium focus:ring-2 focus:ring-amber-500/20 outline-none transition-all"
-              />
+            <div className="flex items-center gap-2 flex-1 w-full">
+              <div className="relative flex-1">
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                <input
+                  value={search}
+                  onChange={e => { setSearch(e.target.value); setPage(0) }}
+                  placeholder="Tìm tên chỉ tiêu, người yêu cầu..."
+                  className="w-full h-12 pl-12 pr-4 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 text-sm font-medium focus:ring-2 focus:ring-amber-500/20 outline-none transition-all"
+                />
+              </div>
+              <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-[18px] shrink-0">
+                <button
+                  onClick={() => setViewMode('list')}
+                  className={cn(
+                    "p-2.5 rounded-xl transition-all duration-300",
+                    viewMode === 'list' ? 'bg-white dark:bg-slate-700 shadow-md text-amber-600 scale-105' : 'text-slate-400 hover:text-slate-600'
+                  )}
+                  title="Dạng danh sách"
+                >
+                  <List size={18} />
+                </button>
+                <button
+                  onClick={() => setViewMode('card')}
+                  className={cn(
+                    "p-2.5 rounded-xl transition-all duration-300",
+                    viewMode === 'card' ? 'bg-white dark:bg-slate-700 shadow-md text-amber-600 scale-105' : 'text-slate-400 hover:text-slate-600'
+                  )}
+                  title="Dạng card"
+                >
+                  <LayoutGrid size={18} />
+                </button>
+              </div>
             </div>
 
             <div className="w-full md:w-72">
@@ -308,7 +336,7 @@ export default function KpiAdjustmentApprovalPage() {
                 <span className="text-[10px] font-black uppercase tracking-[0.2em] whitespace-nowrap">Bộ lọc OKR</span>
               </div>
               
-              <div className="flex-1 md:max-w-[480px]">
+              <div className="w-full md:flex-1 md:max-w-[480px]">
                 <Select value={selectedObjectiveId} onValueChange={(v) => { setSelectedObjectiveId(v); setSelectedKeyResultId('ALL'); setPage(0) }}>
                   <SelectTrigger className="h-12 rounded-2xl border-amber-100 dark:border-amber-900/50 bg-amber-50/30 dark:bg-amber-900/10 font-bold text-sm text-amber-900 dark:text-amber-100">
                     <div className="flex items-center gap-2 overflow-hidden">
@@ -327,7 +355,7 @@ export default function KpiAdjustmentApprovalPage() {
                 </Select>
               </div>
 
-              <div className="flex-1 md:max-w-[480px]">
+              <div className="w-full md:flex-1 md:max-w-[480px]">
                 <Select value={selectedKeyResultId} onValueChange={(v) => { setSelectedKeyResultId(v); setPage(0) }} disabled={selectedObjectiveId === 'ALL'}>
                   <SelectTrigger className="h-12 rounded-2xl border-amber-100 dark:border-amber-900/50 bg-amber-50/30 dark:bg-amber-900/10 font-bold text-sm text-amber-900 dark:text-amber-100 disabled:opacity-50 transition-all">
                     <div className="flex items-center gap-2 overflow-hidden">
@@ -390,14 +418,14 @@ export default function KpiAdjustmentApprovalPage() {
           </div>
         ) : (
           <div className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl rounded-[32px] border border-slate-200 dark:border-slate-800 overflow-hidden shadow-2xl animate-in zoom-in-95 duration-500">
-            <div className="overflow-x-auto scrollbar-thin">
+            {viewMode === 'list' && <div className="overflow-x-auto scrollbar-thin">
               <table className="w-full text-left border-collapse">
                 <thead>
                   <tr className="bg-slate-50/50 dark:bg-slate-800/50 border-b border-slate-100 dark:border-slate-800">
                     <th className="pl-6 py-5 w-10">
-                      {items.some(i => i.status === 'PENDING') && (
-                        <Checkbox 
-                          checked={items.length > 0 && items.filter(i => i.status === 'PENDING').every(i => selectedIds.includes(i.id))}
+                      {items.some(i => i.status === 'PENDING' && !i.deactivationRequest) && (
+                        <Checkbox
+                          checked={items.length > 0 && items.filter(i => i.status === 'PENDING' && !i.deactivationRequest).every(i => selectedIds.includes(i.id))}
                           onCheckedChange={toggleSelectAll}
                           className="border-slate-300"
                         />
@@ -429,8 +457,8 @@ export default function KpiAdjustmentApprovalPage() {
                         style={{ animationDelay: `${i * 30}ms` }}
                       >
                         <td className="pl-6 py-5">
-                          {request.status === 'PENDING' && (
-                            <Checkbox 
+                          {request.status === 'PENDING' && !request.deactivationRequest && (
+                            <Checkbox
                               checked={isSelected}
                               onCheckedChange={() => toggleSelect(request.id)}
                               className="border-slate-300"
@@ -493,42 +521,126 @@ export default function KpiAdjustmentApprovalPage() {
                   })}
                 </tbody>
               </table>
-            </div>
+            </div>}
+
+            {/* Card View */}
+            {viewMode === 'card' && (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 p-3">
+                {items.map((request) => {
+                  const status = statusConfig[request.status] ?? statusConfig['PENDING']!
+                  const StatusIcon = status.icon
+                  const isSelected = selectedIds.includes(request.id)
+                  return (
+                    <div
+                      key={request.id}
+                      className={cn(
+                        "relative bg-white dark:bg-slate-900 rounded-2xl border overflow-hidden shadow-sm transition-all active:scale-[0.98]",
+                        isSelected ? "border-amber-300 dark:border-amber-700 ring-2 ring-amber-500/20" : "border-slate-200 dark:border-slate-800"
+                      )}
+                    >
+                      <div className={cn("h-1 w-full",
+                        request.status === 'APPROVED' ? 'bg-emerald-400' :
+                        request.status === 'REJECTED' ? 'bg-red-400' : 'bg-amber-400'
+                      )} />
+                      <div className="p-4 space-y-3">
+                        {/* Header */}
+                        <div className="flex items-start gap-2">
+                          {request.status === 'PENDING' && !request.deactivationRequest && (
+                            <Checkbox
+                              checked={isSelected}
+                              onCheckedChange={() => toggleSelect(request.id)}
+                              className="border-slate-300 mt-0.5 shrink-0"
+                            />
+                          )}
+                          <button onClick={() => setReviewAdjustment(request)} className="text-left flex-1 min-w-0">
+                            <p className="text-sm font-black text-slate-900 dark:text-white line-clamp-2 leading-snug">{request.kpiCriteriaName}</p>
+                            <div className="flex items-center gap-2 mt-1">
+                              {request.deactivationRequest ? (
+                                <span className="text-[9px] font-black bg-red-100 text-red-600 px-1.5 py-0.5 rounded uppercase">Huỷ bỏ KPI</span>
+                              ) : (
+                                <span className="text-[9px] font-black bg-amber-100 text-amber-600 px-1.5 py-0.5 rounded uppercase">Điều chỉnh số liệu</span>
+                              )}
+                            </div>
+                          </button>
+                          <div className={cn("inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-[9px] font-black uppercase tracking-widest shadow-sm shrink-0", status.bgColor, status.color)}>
+                            <StatusIcon size={10} className={request.status === 'PENDING' ? 'animate-pulse' : ''} />
+                            {status.label}
+                          </div>
+                        </div>
+
+                        {/* Requester + Timer */}
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="flex items-center gap-1.5 text-[11px] font-bold text-slate-600 dark:text-slate-400">
+                            <Users size={11} className="text-slate-400 shrink-0" />
+                            <span className="truncate">{request.requesterName}</span>
+                          </div>
+                          <CountdownTimer createdAt={request.createdAt} status={request.status} />
+                        </div>
+
+                        {/* Reason */}
+                        <p className="text-[11px] text-slate-500 font-medium italic line-clamp-2 bg-slate-50 dark:bg-slate-800/50 px-3 py-2 rounded-xl">"{request.reason}"</p>
+
+                        {/* Reviewer note */}
+                        {(activeTab === 'APPROVED' || activeTab === 'REJECTED' || activeTab === 'ALL') && (
+                          <div className="pt-2 border-t border-slate-100 dark:border-slate-800">
+                            {request.reviewerNote ? (
+                              <p className="text-[11px] text-emerald-600 dark:text-emerald-400 font-bold line-clamp-1">{request.reviewerNote}</p>
+                            ) : (
+                              <span className="text-[10px] text-slate-400 italic">Không có phản hồi</span>
+                            )}
+                          </div>
+                        )}
+
+                        {/* Footer action */}
+                        <div className="flex justify-end pt-1 border-t border-slate-100 dark:border-slate-800">
+                          <button
+                            onClick={() => setReviewAdjustment(request)}
+                            className="p-2 text-slate-400 hover:text-amber-600 hover:bg-amber-50 dark:hover:bg-slate-800 rounded-xl transition-all"
+                          >
+                            <ChevronRight size={18} />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
           </div>
         )}
 
         {/* Bulk Actions Bar */}
         {selectedIds.length > 0 && (
-          <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-50 bg-slate-900 dark:bg-white text-white dark:text-slate-900 px-6 py-3 rounded-[24px] shadow-2xl flex items-center gap-5 animate-in slide-in-from-bottom-10 duration-500 border border-slate-700/50 dark:border-slate-200/50 backdrop-blur-xl">
-             <div className="flex items-center gap-4 pr-5 border-r border-slate-700/50 dark:border-slate-200/50 whitespace-nowrap">
+          <div className="fixed bottom-4 sm:bottom-8 left-1/2 -translate-x-1/2 z-50 bg-slate-900 dark:bg-white text-white dark:text-slate-900 px-4 sm:px-6 py-3 rounded-[24px] shadow-2xl flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-5 animate-in slide-in-from-bottom-10 duration-500 border border-slate-700/50 dark:border-slate-200/50 backdrop-blur-xl w-[92vw] sm:w-auto max-w-xl">
+             <div className="flex items-center justify-between sm:justify-start gap-4 sm:pr-5 sm:border-r border-slate-700/50 dark:border-slate-200/50 whitespace-nowrap">
                 <div className="flex flex-col items-start">
                   <span className="text-[10px] font-black uppercase tracking-widest text-white/50 dark:text-slate-400">Đã chọn</span>
                   <span className="text-sm font-black uppercase tracking-tight">{selectedIds.length} mục</span>
                 </div>
                 <button onClick={() => { setSelectedIds([]); setBulkNote('') }} className="text-[10px] font-black uppercase tracking-widest bg-white/10 dark:bg-slate-100 px-2 py-1 rounded-lg hover:bg-white/20 transition-all">Bỏ chọn</button>
              </div>
-             
+
              <div className="flex items-center gap-3">
-               <input 
+               <input
                  value={bulkNote}
                  onChange={e => setBulkNote(e.target.value)}
                  placeholder="Nhập phản hồi chung..."
-                 className="bg-slate-800 dark:bg-slate-50 text-[11px] font-bold px-4 py-2.5 rounded-xl border border-slate-700 dark:border-slate-200 outline-none focus:ring-2 focus:ring-amber-500/50 w-64 transition-all"
+                 className="bg-slate-800 dark:bg-slate-50 text-[11px] font-bold px-4 py-2.5 rounded-xl border border-slate-700 dark:border-slate-200 outline-none focus:ring-2 focus:ring-amber-500/50 w-full sm:w-64 transition-all"
                />
              </div>
 
              <div className="flex items-center gap-2">
-                <button 
+                <button
                   onClick={() => handleBulkReview('REJECTED')}
                   disabled={bulkReviewMutation.isPending}
-                  className="px-5 py-2.5 rounded-xl bg-red-500/10 text-red-500 hover:bg-red-500 text-[10px] font-black uppercase tracking-widest hover:text-white transition-all disabled:opacity-50 whitespace-nowrap"
+                  className="flex-1 sm:flex-none px-5 py-2.5 rounded-xl bg-red-500/10 text-red-500 hover:bg-red-500 text-[10px] font-black uppercase tracking-widest hover:text-white transition-all disabled:opacity-50 whitespace-nowrap"
                 >
                    Từ chối
                 </button>
-                <button 
+                <button
                   onClick={() => handleBulkReview('APPROVED')}
                   disabled={bulkReviewMutation.isPending}
-                  className="px-5 py-2.5 rounded-xl bg-emerald-500 text-white hover:bg-emerald-600 text-[10px] font-black uppercase tracking-widest shadow-lg shadow-emerald-500/20 transition-all disabled:opacity-50 whitespace-nowrap"
+                  className="flex-1 sm:flex-none px-5 py-2.5 rounded-xl bg-emerald-500 text-white hover:bg-emerald-600 text-[10px] font-black uppercase tracking-widest shadow-lg shadow-emerald-500/20 transition-all disabled:opacity-50 whitespace-nowrap"
                 >
                    Duyệt hàng loạt
                 </button>
@@ -569,11 +681,11 @@ function StatChip({ label, value, color }: { label: string; value: number; color
   
   return (
     <div className={cn(
-      "flex flex-col items-center justify-center min-w-[100px] px-4 py-2.5 rounded-2xl border backdrop-blur-sm transition-all hover:scale-105 duration-300",
+      "flex flex-col items-center justify-center min-w-0 px-2 sm:px-4 py-2.5 rounded-2xl border backdrop-blur-sm transition-all hover:scale-105 duration-300",
       colorMap[color]
     )}>
       <span className="text-xl font-black tracking-tighter">{value}</span>
-      <span className="text-[9px] font-bold uppercase tracking-widest opacity-60">{label}</span>
+      <span className="text-[9px] font-bold uppercase tracking-widest opacity-60 truncate">{label}</span>
     </div>
   )
 }

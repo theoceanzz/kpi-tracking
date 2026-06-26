@@ -104,38 +104,38 @@ export default function OrgUnitDetailPage() {
     <div className="max-w-7xl mx-auto space-y-8 pb-24 px-4 md:px-6 animate-in fade-in slide-in-from-bottom-4 duration-1000">
       {/* Dynamic Navigation Bar */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-        <div className="flex items-center gap-5">
-          <button 
+        <div className="flex items-center gap-3 md:gap-5 min-w-0">
+          <button
             onClick={() => navigate(-1)}
-            className="group p-4 bg-white hover:bg-gray-900 border border-gray-100 rounded-[1.25rem] transition-all text-gray-400 hover:text-white hover:scale-110 active:scale-95 shadow-sm"
+            className="group p-2 md:p-4 bg-white hover:bg-gray-900 border border-gray-100 rounded-[1.25rem] transition-all text-gray-400 hover:text-white hover:scale-110 active:scale-95 shadow-sm shrink-0"
           >
-            <ArrowLeft className="w-6 h-6 group-hover:-translate-x-1 transition-transform" />
+            <ArrowLeft className="w-5 h-5 md:w-6 md:h-6 group-hover:-translate-x-1 transition-transform" />
           </button>
-          <div>
-            <nav className="flex items-center text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] mb-2">
-              <span className="hover:text-blue-600 transition-colors flex items-center gap-1.5" onClick={backToStructure}>
-                <Layers size={10} /> Cấu trúc tổ chức
+          <div className="min-w-0">
+            <nav className="flex items-center text-[10px] font-black text-gray-400 uppercase tracking-[0.1em] md:tracking-[0.2em] mb-2 overflow-hidden">
+              <span className="hover:text-blue-600 transition-colors flex items-center gap-1 shrink-0" onClick={backToStructure}>
+                <Layers size={10} /> <span className="hidden sm:inline">Cấu trúc tổ chức</span><span className="sm:hidden">Tổ chức</span>
               </span>
-              <ChevronRight className="w-3 h-3 mx-2 text-gray-300" />
-              <span className="text-blue-600 truncate max-w-[200px]">{unit.name}</span>
+              <ChevronRight className="w-3 h-3 mx-1 md:mx-2 text-gray-300 shrink-0" />
+              <span className="text-blue-600 truncate">{unit.name}</span>
             </nav>
-            <h1 className="text-3xl font-black text-gray-900 tracking-tight leading-none">Thông tin chi tiết</h1>
+            <h1 className="text-2xl md:text-3xl font-black text-gray-900 tracking-tight leading-none">Thông tin chi tiết</h1>
           </div>
         </div>
 
-        <div className="flex items-center gap-4">
-          <button 
+        <div className="flex items-center gap-3">
+          <button
             onClick={handleEditUnit}
-            className="flex-1 md:flex-none px-8 py-4 bg-white text-blue-600 border border-blue-100 rounded-2xl hover:bg-blue-600 hover:text-white font-black transition-all shadow-sm flex items-center justify-center gap-2 group"
+            className="flex-1 md:flex-none px-4 md:px-8 py-3 md:py-4 bg-white text-blue-600 border border-blue-100 rounded-2xl hover:bg-blue-600 hover:text-white font-black transition-all shadow-sm flex items-center justify-center gap-2 group whitespace-nowrap"
           >
-            <Edit2 size={18} className="group-hover:rotate-12 transition-transform" />
+            <Edit2 size={16} className="group-hover:rotate-12 transition-transform shrink-0" />
             Chỉnh sửa
           </button>
-          <button 
+          <button
             onClick={backToStructure}
-            className="flex-1 md:flex-none px-8 py-4 bg-gray-900 text-white rounded-2xl hover:bg-black font-black transition-all shadow-xl shadow-gray-200 flex items-center justify-center gap-2 group"
+            className="flex-1 md:flex-none px-4 md:px-8 py-3 md:py-4 bg-gray-900 text-white rounded-2xl hover:bg-black font-black transition-all shadow-xl shadow-gray-200 flex items-center justify-center gap-2 group whitespace-nowrap"
           >
-            <Layers size={18} className="text-blue-400 group-hover:scale-110 transition-transform" />
+            <Layers size={16} className="text-blue-400 group-hover:scale-110 transition-transform shrink-0" />
             Sơ đồ tổ chức
           </button>
         </div>
@@ -223,45 +223,45 @@ export default function OrgUnitDetailPage() {
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
         {/* Main Content: Administrative Info & Members */}
         <div className="lg:col-span-8 space-y-10">
-          <div className="bg-white rounded-[3rem] shadow-xl shadow-gray-200/40 border border-gray-100 p-12 relative overflow-hidden group/admin">
+          <div className="bg-white rounded-[3rem] shadow-xl shadow-gray-200/40 border border-gray-100 p-6 md:p-12 relative overflow-hidden group/admin">
             <div className="absolute top-0 right-0 -mt-10 -mr-10 w-40 h-40 bg-blue-50 rounded-full blur-3xl opacity-0 group-hover/admin:opacity-100 transition-opacity duration-1000" />
-            
-            <h3 className="text-2xl font-black text-gray-900 mb-12 flex items-center gap-4">
-              <div className="w-3 h-3 bg-blue-600 rounded-full animate-pulse" />
+
+            <h3 className="text-xl md:text-2xl font-black text-gray-900 mb-6 md:mb-12 flex items-center gap-3">
+              <div className="w-3 h-3 bg-blue-600 rounded-full animate-pulse shrink-0" />
               Thông tin hành chính
             </h3>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-16 gap-y-12">
-              <div className="space-y-10">
-                <div className="group flex items-start gap-6">
-                  <div className="w-14 h-14 rounded-2xl bg-blue-50 flex items-center justify-center flex-shrink-0 group-hover:bg-blue-600 group-hover:shadow-xl group-hover:shadow-blue-200 transition-all duration-500">
-                    <Mail size={24} className="text-blue-600 group-hover:text-white transition-colors" />
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-16 gap-y-6 md:gap-y-12">
+              <div className="space-y-6 md:space-y-10">
+                <div className="group flex items-start gap-4">
+                  <div className="w-10 h-10 md:w-14 md:h-14 rounded-2xl bg-blue-50 flex items-center justify-center flex-shrink-0 group-hover:bg-blue-600 group-hover:shadow-xl group-hover:shadow-blue-200 transition-all duration-500">
+                    <Mail size={18} className="text-blue-600 group-hover:text-white transition-colors md:w-6 md:h-6" />
                   </div>
-                  <div className="flex-1">
-                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] mb-2">Hộp thư điện tử</p>
-                    <p className="text-gray-900 font-black text-xl break-all leading-tight">{unit.email || 'Chưa cập nhật'}</p>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] mb-1">Hộp thư điện tử</p>
+                    <p className="text-gray-900 font-black text-base md:text-xl break-all leading-tight">{unit.email || 'Chưa cập nhật'}</p>
                   </div>
                 </div>
 
-                <div className="group flex items-start gap-6">
-                  <div className="w-14 h-14 rounded-2xl bg-indigo-50 flex items-center justify-center flex-shrink-0 group-hover:bg-indigo-600 group-hover:shadow-xl group-hover:shadow-indigo-200 transition-all duration-500">
-                    <Phone size={24} className="text-indigo-600 group-hover:text-white transition-colors" />
+                <div className="group flex items-start gap-4">
+                  <div className="w-10 h-10 md:w-14 md:h-14 rounded-2xl bg-indigo-50 flex items-center justify-center flex-shrink-0 group-hover:bg-indigo-600 group-hover:shadow-xl group-hover:shadow-indigo-200 transition-all duration-500">
+                    <Phone size={18} className="text-indigo-600 group-hover:text-white transition-colors md:w-6 md:h-6" />
                   </div>
-                  <div className="flex-1">
-                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] mb-2">Hotline nội bộ</p>
-                    <p className="text-gray-900 font-black text-xl leading-tight">{formatPhoneNumber(unit.phone) || 'Chưa cập nhật'}</p>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] mb-1">Hotline nội bộ</p>
+                    <p className="text-gray-900 font-black text-base md:text-xl leading-tight">{formatPhoneNumber(unit.phone) || 'Chưa cập nhật'}</p>
                   </div>
                 </div>
               </div>
 
-              <div className="space-y-10">
-                <div className="group flex items-start gap-6">
-                  <div className="w-14 h-14 rounded-2xl bg-violet-50 flex items-center justify-center flex-shrink-0 group-hover:bg-violet-600 group-hover:shadow-xl group-hover:shadow-violet-200 transition-all duration-500">
-                    <MapPin size={24} className="text-violet-600 group-hover:text-white transition-colors" />
+              <div className="space-y-6 md:space-y-10">
+                <div className="group flex items-start gap-4">
+                  <div className="w-10 h-10 md:w-14 md:h-14 rounded-2xl bg-violet-50 flex items-center justify-center flex-shrink-0 group-hover:bg-violet-600 group-hover:shadow-xl group-hover:shadow-violet-200 transition-all duration-500">
+                    <MapPin size={18} className="text-violet-600 group-hover:text-white transition-colors md:w-6 md:h-6" />
                   </div>
-                  <div className="flex-1">
-                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] mb-2">Vị trí thực tế</p>
-                    <p className="text-gray-900 font-black text-lg leading-relaxed">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] mb-1">Vị trí thực tế</p>
+                    <p className="text-gray-900 font-black text-base md:text-lg leading-relaxed">
                       {unit.address ? `${unit.address}, ` : ''}
                       {unit.districtName ? `${unit.districtName}, ` : ''}
                       {unit.provinceName || 'Chưa cập nhật'}
@@ -269,13 +269,13 @@ export default function OrgUnitDetailPage() {
                   </div>
                 </div>
 
-                <div className="group flex items-start gap-6">
-                   <div className="w-14 h-14 rounded-2xl bg-blue-50 flex items-center justify-center flex-shrink-0 group-hover:bg-blue-600 group-hover:shadow-xl group-hover:shadow-blue-200 transition-all duration-500">
-                    <Activity size={24} className="text-blue-600 group-hover:text-white transition-colors" />
+                <div className="group flex items-start gap-4">
+                  <div className="w-10 h-10 md:w-14 md:h-14 rounded-2xl bg-blue-50 flex items-center justify-center flex-shrink-0 group-hover:bg-blue-600 group-hover:shadow-xl group-hover:shadow-blue-200 transition-all duration-500">
+                    <Activity size={18} className="text-blue-600 group-hover:text-white transition-colors md:w-6 md:h-6" />
                   </div>
-                  <div className="flex-1">
-                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] mb-2">Quy mô quản trị</p>
-                    <p className="text-gray-900 font-black text-xl leading-tight">Thành phần cấp {unit.level}</p>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] mb-1">Quy mô quản trị</p>
+                    <p className="text-gray-900 font-black text-base md:text-xl leading-tight">Thành phần cấp {unit.level}</p>
                   </div>
                 </div>
               </div>

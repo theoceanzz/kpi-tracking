@@ -5,7 +5,7 @@ import { useDrillDown } from '../hooks/useAnalytics'
 import { cn, getInitials } from '@/lib/utils'
 import {
   ChevronRight, Users, CheckCircle2, Clock, ArrowLeft, X,
-  BarChart3, LayoutGrid, Search, Maximize2, Building2
+  BarChart3, LayoutGrid, Search, Maximize2, Building2, Target
 } from 'lucide-react'
 import AnalyticsTabSkeleton from '@/components/common/AnalyticsTabSkeleton'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts'
@@ -181,29 +181,42 @@ export default function DrillDownTab() {
           ? 'p-3 shadow-lg shadow-slate-200/80 dark:shadow-slate-900/80 border-slate-300 dark:border-slate-700'
           : 'p-4 shadow-sm'
       )}>
-        <div className="flex flex-wrap items-center gap-3 justify-between">
-          <p className={cn('font-black uppercase tracking-widest text-slate-400 transition-all duration-200', filterStuck ? 'text-[10px]' : 'text-xs')}>
-            Lọc theo thời gian
-          </p>
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4 justify-between transition-all duration-200">
+          <div className="flex items-center gap-2">
+            <div className={cn(
+              "p-2 rounded-lg text-indigo-600 dark:text-indigo-400 transition-all duration-200",
+              filterStuck ? "bg-indigo-50/60 dark:bg-indigo-900/20" : "bg-indigo-50 dark:bg-indigo-900/30"
+            )}>
+              <Target size={filterStuck ? 16 : 18} />
+            </div>
+            <div>
+              <h2 className={cn("font-bold text-slate-900 dark:text-white transition-all duration-200", filterStuck ? "text-sm" : "text-base")}>
+                Lọc theo thời gian
+              </h2>
+              {!filterStuck && (
+                <p className="text-xs text-slate-500 font-medium mt-0.5">Dữ liệu phân tích đồng bộ cho tất cả biểu đồ</p>
+              )}
+            </div>
+          </div>
           {controls}
         </div>
       </div>
 
       {/* Current unit summary banner */}
-      <div className="bg-gradient-to-r from-indigo-500 to-purple-600 rounded-[24px] p-6 text-white shadow-xl">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div>
+      <div className="bg-gradient-to-r from-indigo-500 to-purple-600 rounded-[28px] p-5 md:p-6 text-white shadow-xl">
+        <div className="flex items-center justify-between gap-4">
+          <div className="min-w-0">
             <p className="text-white/70 text-[10px] font-black uppercase tracking-widest">{data.levelName || 'Cấp đơn vị'}</p>
-            <h2 className="text-2xl font-black mt-1">{data.orgUnitName || 'Tất cả'}</h2>
+            <h2 className="text-lg md:text-2xl font-black mt-0.5 truncate">{data.orgUnitName || 'Tất cả'}</h2>
           </div>
-          <div className="flex gap-6 text-center">
-            <div>
-              <p className="text-2xl font-black">{data.memberCount}</p>
-              <p className="text-[10px] text-white/70 font-bold uppercase">Nhân sự</p>
+          <div className="flex items-center gap-4 md:gap-8 shrink-0">
+            <div className="flex items-baseline gap-1.5">
+              <p className="text-xl md:text-2xl font-black">{data.memberCount}</p>
+              <p className="text-[10px] text-white/70 font-bold uppercase whitespace-nowrap">Nhân sự</p>
             </div>
-            <div>
-              <p className="text-2xl font-black">{data.totalKpi}</p>
-              <p className="text-[10px] text-white/70 font-bold uppercase">KPI Tổng</p>
+            <div className="flex items-baseline gap-1.5">
+              <p className="text-xl md:text-2xl font-black">{data.totalKpi}</p>
+              <p className="text-[10px] text-white/70 font-bold uppercase whitespace-nowrap">KPI Tổng</p>
             </div>
           </div>
         </div>
@@ -387,7 +400,7 @@ export default function DrillDownTab() {
               <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
             </div>
           </div>
-          <div className="overflow-x-auto scrollbar-hide custom-scrollbar">
+          <div className="hidden md:block overflow-x-auto scrollbar-hide custom-scrollbar">
             <table className="w-full text-sm">
               <thead>
                 <tr className="text-[10px] font-black uppercase tracking-widest text-slate-400 border-b border-slate-100 dark:border-slate-800">
@@ -453,6 +466,58 @@ export default function DrillDownTab() {
                 })}
               </tbody>
             </table>
+            {filteredEmployees.length === 0 && (
+              <div className="py-12 text-center text-slate-400 text-xs italic">Không tìm thấy kết quả phù hợp</div>
+            )}
+          </div>
+
+          <div className="md:hidden divide-y divide-slate-50 dark:divide-slate-800">
+            {paginatedEmployees.map(emp => {
+              const progressPct = emp.assignedKpi > 0 ? Math.round(emp.approvedSubmissions / emp.assignedKpi * 100) : 0
+              const perfPct = emp.totalSubmissions > 0 ? Math.round(emp.approvedSubmissions / emp.totalSubmissions * 100) : null
+              return (
+                <div key={emp.userId} className="p-4 space-y-3">
+                  <div className="flex items-center gap-3">
+                    <div className="w-9 h-9 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-[11px] font-black text-slate-600 shrink-0">
+                      {getInitials(emp.fullName)}
+                    </div>
+                    <div className="min-w-0">
+                      <p className="font-black text-slate-900 dark:text-white leading-none truncate">{emp.fullName}</p>
+                      <p className="text-[11px] font-bold text-slate-400 mt-1">{emp.roleName}</p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <div className="flex-1 h-1.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                      <div
+                        className={cn('h-full rounded-full transition-all', progressPct >= 80 ? 'bg-emerald-500' : progressPct >= 50 ? 'bg-amber-500' : 'bg-red-400')}
+                        style={{ width: `${progressPct}%` }}
+                      />
+                    </div>
+                    <span className="text-[11px] font-black w-8 text-right shrink-0">{progressPct}%</span>
+                  </div>
+
+                  <div className="flex items-center justify-between pt-1 border-t border-slate-100 dark:border-slate-800 text-xs">
+                    <div>
+                      <span className="font-black text-slate-800 dark:text-slate-200">{emp.assignedKpi}</span>
+                      <span className="text-[10px] text-slate-400 ml-1">KPI</span>
+                    </div>
+                    {perfPct !== null && (
+                      <span className={cn('text-xs font-black px-2 py-1 rounded-lg',
+                        perfPct >= 80 ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-900/20' :
+                        perfPct >= 50 ? 'bg-amber-50 text-amber-600 dark:bg-amber-900/20' :
+                        'bg-red-50 text-red-600 dark:bg-red-900/20'
+                      )}>
+                        Hiệu suất {perfPct}%
+                      </span>
+                    )}
+                    {emp.avgScore != null && (
+                      <span className="font-black text-indigo-600">Điểm TB: {emp.avgScore.toFixed(1)}</span>
+                    )}
+                  </div>
+                </div>
+              )
+            })}
             {filteredEmployees.length === 0 && (
               <div className="py-12 text-center text-slate-400 text-xs italic">Không tìm thấy kết quả phù hợp</div>
             )}

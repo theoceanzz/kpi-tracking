@@ -283,7 +283,7 @@ export default function RoleManagementPage() {
         </div>
 
         {/* Premium Table Container */}
-        <div className="overflow-x-auto min-h-[400px]">
+        <div className="hidden md:block overflow-x-auto min-h-[400px]">
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="bg-gray-50/80 text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] whitespace-nowrap">
@@ -466,41 +466,181 @@ export default function RoleManagementPage() {
             </tbody>
           </table>
         </div>
+
+        {/* Mobile Card List */}
+        <div className="md:hidden min-h-[400px]">
+          {isLoading ? (
+            <div className="py-24 text-center">
+              <div className="relative inline-block">
+                <div className="w-16 h-16 border-4 border-indigo-100 border-t-indigo-600 rounded-full animate-spin" />
+                <Shield className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-indigo-600 w-6 h-6" />
+              </div>
+              <p className="text-gray-500 font-black mt-4 animate-pulse uppercase tracking-widest text-[10px]">Đang tải dữ liệu vai trò...</p>
+            </div>
+          ) : filteredRoles.length === 0 ? (
+            <div className="px-8 py-20 text-center">
+              <div className="flex flex-col items-center gap-4">
+                <div className="w-20 h-20 bg-gray-50 rounded-[2rem] flex items-center justify-center text-gray-300">
+                  <Shield size={40} />
+                </div>
+                <div>
+                  <p className="text-xl font-black text-gray-400 uppercase tracking-widest">Không tìm thấy vai trò</p>
+                  <p className="text-gray-400 font-medium mt-1">Thử thay đổi từ khóa tìm kiếm của bạn.</p>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="divide-y divide-gray-100">
+              {filteredRoles.map((role, index) => {
+                const info = getLevelInfo(role.level)
+                const isMenuOpen = activeMenuId === role.id
+                return (
+                  <div key={role.id} className="p-4 space-y-2.5">
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <div className={cn(
+                          "w-9 h-9 rounded-xl flex items-center justify-center shadow-sm shrink-0",
+                          role.isSystem ? "bg-indigo-600 text-white shadow-indigo-200" : "bg-white text-indigo-600 border border-indigo-100"
+                        )}>
+                          {role.isSystem ? <ShieldCheck size={17} /> : <Shield size={17} />}
+                        </div>
+                        <div className="min-w-0 flex items-center gap-1.5">
+                          <span className="font-black text-gray-900 text-sm truncate">{role.name}</span>
+                          {role.isSystem && (
+                            <span className="px-1.5 py-0.5 bg-indigo-50 text-indigo-700 text-[8px] font-black rounded-md border border-indigo-100 flex items-center gap-0.5 uppercase shrink-0">
+                              <Lock size={7} /> Hệ thống
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <div className="relative shrink-0">
+                        <button
+                          onClick={(e) => { e.stopPropagation(); setActiveMenuId(isMenuOpen ? null : role.id) }}
+                          className={cn(
+                            "w-8 h-8 rounded-xl flex items-center justify-center transition-all",
+                            isMenuOpen ? "bg-indigo-600 text-white shadow-lg shadow-indigo-200" : "text-gray-400 hover:bg-gray-100 hover:text-indigo-600"
+                          )}
+                        >
+                          <MoreVertical size={16} />
+                        </button>
+                        {isMenuOpen && (
+                          <>
+                            <div className="fixed inset-0 z-10" onClick={() => setActiveMenuId(null)} />
+                            <div className={cn(
+                              "absolute right-0 w-56 bg-white rounded-2xl shadow-2xl border border-gray-100 py-2 z-20 animate-in fade-in zoom-in-95 duration-200",
+                              index >= filteredRoles.length / 2 ? "bottom-full mb-2 origin-bottom" : "top-full mt-2 origin-top"
+                            )}>
+                              <button
+                                onClick={() => { handleOpenPermissions(role); setActiveMenuId(null) }}
+                                className="w-full px-4 py-3 text-left text-sm font-bold text-gray-700 hover:bg-indigo-50 hover:text-indigo-600 flex items-center gap-3 transition-colors"
+                              >
+                                <div className="w-8 h-8 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center">
+                                  <Key size={16} />
+                                </div>
+                                Phân quyền
+                              </button>
+                              <button
+                                onClick={() => { handleOpenModal(role); setActiveMenuId(null) }}
+                                className="w-full px-4 py-3 text-left text-sm font-bold text-gray-700 hover:bg-indigo-50 hover:text-indigo-600 flex items-center gap-3 transition-colors"
+                              >
+                                <div className="w-8 h-8 rounded-lg bg-gray-50 text-gray-500 flex items-center justify-center">
+                                  <Edit2 size={16} />
+                                </div>
+                                Chỉnh sửa
+                              </button>
+                              {!role.isSystem ? (
+                                <>
+                                  <div className="h-px bg-gray-100 my-1 mx-4" />
+                                  <button
+                                    onClick={() => { handleDelete(role); setActiveMenuId(null) }}
+                                    className="w-full px-4 py-3 text-left text-sm font-bold text-rose-600 hover:bg-rose-50 flex items-center gap-3 transition-colors"
+                                  >
+                                    <div className="w-8 h-8 rounded-lg bg-rose-50 text-rose-600 flex items-center justify-center">
+                                      <Trash2 size={16} />
+                                    </div>
+                                    Xóa vai trò
+                                  </button>
+                                </>
+                              ) : (
+                                <div className="px-4 py-3 mt-1 border-t border-gray-50 bg-gray-50/50 text-[10px] font-black text-gray-400 uppercase tracking-widest flex items-center gap-2">
+                                  <AlertCircle size={14} className="text-gray-300" />
+                                  Hệ thống bảo vệ
+                                </div>
+                              )}
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <div className={cn(
+                        "inline-flex px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider border",
+                        role.rank === 0 ? "bg-blue-50 text-blue-600 border-blue-100" :
+                        role.rank === 1 ? "bg-indigo-50 text-indigo-600 border-indigo-100" :
+                        "bg-gray-50 text-gray-400 border-gray-100"
+                      )}>
+                        {role.rank === 0 ? 'Trưởng' : role.rank === 1 ? 'Phó' : 'Thành viên'}
+                      </div>
+                      <div className={cn(
+                        "inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg text-[9px] font-black uppercase tracking-wider border",
+                        info.color === 'rose' ? "bg-rose-50 text-rose-700 border-rose-100" :
+                        info.color === 'amber' ? "bg-amber-50 text-amber-700 border-amber-100" :
+                        "bg-emerald-50 text-emerald-700 border-emerald-100"
+                      )}>
+                        <div className={cn("w-1.5 h-1.5 rounded-full shrink-0",
+                          info.color === 'rose' ? "bg-rose-500" :
+                          info.color === 'amber' ? "bg-amber-500" : "bg-emerald-500"
+                        )} />
+                        {info.label}
+                      </div>
+                      <div className="flex items-center gap-1 text-gray-400 ml-auto">
+                        <History size={11} className="text-gray-300" />
+                        <span className="font-bold text-[10px]">{format(new Date(role.createdAt), 'dd MMM, yyyy', { locale: vi })}</span>
+                      </div>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Modern Creation Modal */}
       {isModalOpen && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-indigo-950/40 backdrop-blur-md animate-in fade-in duration-300" onClick={() => setIsModalOpen(false)} />
-          <div className="bg-white rounded-[3rem] shadow-2xl w-full max-w-xl relative z-[101] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 slide-in-from-bottom-8 duration-500">
+          <div className="bg-white rounded-[2rem] md:rounded-[3rem] shadow-2xl w-full max-w-xl relative z-[101] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 slide-in-from-bottom-8 duration-500">
             {/* Modal Header */}
-            <div className="p-10 pb-0 flex items-start justify-between">
+            <div className="p-6 pb-0 md:p-10 md:pb-0 flex items-start justify-between">
               <div>
-                <div className="w-16 h-16 bg-indigo-600 rounded-[1.5rem] flex items-center justify-center text-white shadow-xl shadow-indigo-200 mb-6">
-                  <Plus size={32} />
+                <div className="w-12 h-12 md:w-16 md:h-16 bg-indigo-600 rounded-[1.25rem] md:rounded-[1.5rem] flex items-center justify-center text-white shadow-xl shadow-indigo-200 mb-4 md:mb-6">
+                  <Plus size={24} className="md:hidden" />
+                  <Plus size={32} className="hidden md:block" />
                 </div>
-                <h3 className="text-3xl font-black text-gray-900 tracking-tight">
+                <h3 className="text-xl md:text-3xl font-black text-gray-900 tracking-tight">
                   {editingRole ? 'Chỉnh sửa vai trò' : 'Tạo vai trò mới'}
                 </h3>
-                <p className="text-gray-500 mt-2 font-medium">Cấu hình tên gọi và vị trí trong cây phân cấp của tổ chức.</p>
+                <p className="text-sm md:text-base text-gray-500 mt-1.5 md:mt-2 font-medium">Cấu hình tên gọi và vị trí trong cây phân cấp của tổ chức.</p>
               </div>
-              <button 
+              <button
                 onClick={() => setIsModalOpen(false)}
-                className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center text-gray-400 hover:bg-gray-200 hover:text-gray-600 transition-all"
+                className="w-9 h-9 md:w-10 md:h-10 rounded-full bg-gray-100 flex items-center justify-center text-gray-400 hover:bg-gray-200 hover:text-gray-600 transition-all shrink-0"
               >
-                <Plus size={20} className="rotate-45" />
+                <Plus size={18} className="rotate-45" />
               </button>
             </div>
-            
-            <form onSubmit={handleSubmit} className="p-10 space-y-8">
-              <div className="space-y-6">
-                <div className="space-y-3">
+
+            <form onSubmit={handleSubmit} className="p-6 md:p-10 space-y-5 md:space-y-8">
+              <div className="space-y-4 md:space-y-6">
+                <div className="space-y-2 md:space-y-3">
                   <label className="flex items-center gap-2 text-[10px] font-black text-indigo-600 uppercase tracking-[0.2em] ml-1">
                     <History size={12} /> Tên định danh vai trò *
                   </label>
-                  <input 
-                    type="text" 
-                    className="w-full px-8 py-5 bg-gray-50 border-2 border-transparent rounded-3xl outline-none focus:bg-white focus:border-indigo-600 transition-all font-black text-lg placeholder:text-gray-300 shadow-inner"
+                  <input
+                    type="text"
+                    className="w-full px-5 py-3.5 md:px-8 md:py-5 bg-gray-50 border-2 border-transparent rounded-2xl md:rounded-3xl outline-none focus:bg-white focus:border-indigo-600 transition-all font-black text-base md:text-lg placeholder:text-gray-300 shadow-inner"
                     placeholder="VD: TRƯỞNG PHÒNG MARKETING"
                     value={formData.name}
                     onChange={(e) => setFormData({ ...formData, name: e.target.value })}
@@ -508,20 +648,20 @@ export default function RoleManagementPage() {
                   />
                 </div>
 
-                <div className="grid grid-cols-2 gap-6">
-                   <div className="space-y-3">
+                <div className="grid grid-cols-2 gap-3 md:gap-6">
+                  <div className="space-y-2 md:space-y-3">
                     <label className="flex items-center gap-2 text-[10px] font-black text-indigo-600 uppercase tracking-[0.2em] ml-1">
                       <Layers size={12} /> Phân lớp quản lý *
                     </label>
                     <Select value={String(formData.level)} onValueChange={(val) => setFormData({ ...formData, level: Number(val) })} disabled={editingRole?.isSystem}>
-                      <SelectTrigger className="w-full px-6 py-5 bg-gray-50 border-none rounded-[1.5rem] text-sm font-black h-[64px] shadow-sm">
+                      <SelectTrigger className="w-full px-4 md:px-6 bg-gray-50 border-none rounded-[1.25rem] md:rounded-[1.5rem] text-sm font-black h-12 md:h-[64px] shadow-sm">
                         <SelectValue placeholder="Chọn cấp độ" />
                       </SelectTrigger>
                       <SelectContent className="rounded-2xl border-gray-100 shadow-2xl z-[110] p-1">
                         {hierarchyLevels.map((lvl) => (
-                          <SelectItem 
-                            key={lvl.id} 
-                            value={String(lvl.roleLevel)} 
+                          <SelectItem
+                            key={lvl.id}
+                            value={String(lvl.roleLevel)}
                             className="font-bold cursor-pointer rounded-xl py-3 focus:bg-indigo-50 focus:text-indigo-600"
                           >
                             {lvl.unitTypeName}
@@ -531,12 +671,12 @@ export default function RoleManagementPage() {
                     </Select>
                   </div>
 
-                  <div className="space-y-3">
+                  <div className="space-y-2 md:space-y-3">
                     <label className="flex items-center gap-2 text-[10px] font-black text-indigo-600 uppercase tracking-[0.2em] ml-1">
                       <Shield size={12} /> Định danh vị trí *
                     </label>
                     <Select value={String(formData.rank)} onValueChange={(val) => setFormData({ ...formData, rank: Number(val) })} disabled={editingRole?.isSystem}>
-                      <SelectTrigger className="w-full px-6 py-5 bg-gray-50 border-none rounded-[1.5rem] text-sm font-black h-[64px] shadow-sm">
+                      <SelectTrigger className="w-full px-4 md:px-6 bg-gray-50 border-none rounded-[1.25rem] md:rounded-[1.5rem] text-sm font-black h-12 md:h-[64px] shadow-sm">
                         <SelectValue placeholder="Chọn vị trí" />
                       </SelectTrigger>
                       <SelectContent className="rounded-2xl border-gray-100 shadow-2xl z-[110] p-1">
@@ -547,29 +687,27 @@ export default function RoleManagementPage() {
                     </Select>
                   </div>
                 </div>
-
-
               </div>
 
-              <div className="flex gap-4 pt-4">
-                <button 
+              <div className="flex gap-3 md:gap-4 pt-2 md:pt-4">
+                <button
                   type="button"
                   onClick={() => setIsModalOpen(false)}
-                  className="flex-1 px-8 py-5 bg-gray-100 text-gray-500 rounded-3xl hover:bg-gray-200 font-black transition-all"
+                  className="flex-1 px-5 py-3.5 md:px-8 md:py-5 bg-gray-100 text-gray-500 rounded-2xl md:rounded-3xl hover:bg-gray-200 font-black transition-all text-sm md:text-base"
                 >
                   Đóng
                 </button>
-                <button 
-                  type="submit" 
+                <button
+                  type="submit"
                   disabled={createMutation.isPending || updateMutation.isPending}
-                  className="flex-[2] px-8 py-5 bg-indigo-600 text-white rounded-3xl hover:bg-indigo-700 font-black transition-all shadow-xl shadow-indigo-200 disabled:opacity-50 flex items-center justify-center gap-3"
+                  className="flex-[2] px-5 py-3.5 md:px-8 md:py-5 bg-indigo-600 text-white rounded-2xl md:rounded-3xl hover:bg-indigo-700 font-black transition-all shadow-xl shadow-indigo-200 disabled:opacity-50 flex items-center justify-center gap-2 md:gap-3 text-sm md:text-base"
                 >
                   {createMutation.isPending || updateMutation.isPending ? (
-                    <Loader2 className="w-6 h-6 animate-spin" />
+                    <Loader2 className="w-5 h-5 animate-spin" />
                   ) : (
                     <>
                       {editingRole ? 'Cập nhật thay đổi' : 'Xác nhận tạo mới'}
-                      <ArrowRight size={20} />
+                      <ArrowRight size={18} />
                     </>
                   )}
                 </button>

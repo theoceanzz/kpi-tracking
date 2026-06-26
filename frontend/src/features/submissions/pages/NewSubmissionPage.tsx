@@ -320,14 +320,14 @@ export default function NewSubmissionPage() {
                 Hủy bỏ
               </button>
               
-              <div className="flex-1 flex gap-4">
+              <div className="flex-1 flex gap-2 md:gap-4">
                 <button 
                   type="button"
                   disabled={mutation.isPending}
                   onClick={handleSubmit(data => mutation.mutate({ data, isDraft: true }))}
-                  className="flex-1 px-8 py-4 rounded-2xl text-xs font-black uppercase tracking-widest border-2 border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all flex items-center justify-center gap-2"
+                  className="flex-1 px-3 md:px-8 py-4 rounded-2xl text-[10px] md:text-xs font-black uppercase tracking-widest border-2 border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all flex items-center justify-center gap-2 whitespace-nowrap"
                 >
-                  <Save size={18} /> Lưu Nháp
+                  <Save size={16} className="shrink-0" /> <span className="truncate">Lưu Nháp</span>
                 </button>
                 <button 
                   type="button"
@@ -336,10 +336,12 @@ export default function NewSubmissionPage() {
                     setPendingData(data)
                     setShowConfirm(true)
                   })}
-                  className="flex-1 px-8 py-4 rounded-2xl text-xs font-black uppercase tracking-widest bg-indigo-600 text-white hover:bg-indigo-700 shadow-xl shadow-indigo-500/20 disabled:opacity-50 transition-all flex items-center justify-center gap-2 active:scale-95"
+                  className="flex-1 px-3 md:px-8 py-4 rounded-2xl text-[10px] md:text-xs font-black uppercase tracking-widest bg-indigo-600 text-white hover:bg-indigo-700 shadow-xl shadow-indigo-500/20 disabled:opacity-50 transition-all flex items-center justify-center gap-2 active:scale-95 whitespace-nowrap"
                 >
-                  {mutation.isPending ? <Loader2 size={18} className="animate-spin" /> : <Send size={18} />}
-                  {isEdit && existingSubmission?.status === 'DRAFT' ? 'Hoàn tất & Gửi duyệt' : 'Gửi báo cáo'}
+                  {mutation.isPending ? <Loader2 size={16} className="animate-spin shrink-0" /> : <Send size={16} className="shrink-0" />}
+                  <span className="truncate">
+                    {isEdit && existingSubmission?.status === 'DRAFT' ? 'Hoàn tất & Gửi' : 'Gửi báo cáo'}
+                  </span>
                 </button>
               </div>
             </div>

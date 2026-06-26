@@ -11,6 +11,7 @@ export interface KpiAdjustmentRequest {
   requestedWeight: number | null
   requestedMinimumValue: number | null
   deactivationRequest: boolean
+  compensationPercentage: number | null
   reason: string
   status: AdjustmentStatus
   requesterId: string
@@ -34,4 +35,5 @@ export interface CreateAdjustmentRequest {
 export interface ReviewAdjustmentRequest {
   status: AdjustmentStatus
   reviewerNote?: string
+  compensationPercentage?: number
 }

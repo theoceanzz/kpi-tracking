@@ -225,7 +225,7 @@ export default function DirectorDashboard() {
             </p>
           </div>
 
-          <div className="flex items-center gap-3 shrink-0 bg-slate-50 dark:bg-slate-800/50 p-2.5 rounded-[24px] border border-slate-100 dark:border-slate-700/50">
+          <div className="flex flex-wrap items-center justify-center gap-3 bg-slate-50 dark:bg-slate-800/50 p-2.5 rounded-[24px] border border-slate-100 dark:border-slate-700/50">
             <div className="flex flex-col items-end px-3">
               <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Hôm nay</span>
               <span className="text-xs font-bold text-slate-900 dark:text-white">
@@ -572,7 +572,7 @@ export default function DirectorDashboard() {
 
       <div className="space-y-6">
         <div className="flex items-center justify-between">
-          <div id="tour-dashboard-tabs" className="flex items-center gap-2 bg-slate-100 dark:bg-slate-800 p-2 rounded-[22px]">
+          <div id="tour-dashboard-tabs" className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 p-1.5 rounded-[22px] w-full sm:w-auto">
             {tabs.map(t => {
               const Icon = t.icon
               const active = activeTab === t.key
@@ -581,13 +581,14 @@ export default function DirectorDashboard() {
                   key={t.key}
                   onClick={() => setActiveTab(t.key)}
                   className={cn(
-                    "flex items-center gap-2 px-6 py-2.5 text-[11px] font-black uppercase tracking-widest rounded-[14px] transition-all",
-                    active 
-                      ? "bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 shadow-sm scale-105" 
+                    "flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-2 sm:px-5 py-2 text-[9px] sm:text-[11px] font-black uppercase tracking-normal sm:tracking-widest rounded-[14px] transition-all whitespace-nowrap",
+                    active
+                      ? "bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 shadow-sm"
                       : "text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
                   )}
                 >
-                  <Icon size={16} /> {t.label}
+                  <Icon size={13} className="shrink-0" />
+                  <span>{t.label}</span>
                 </button>
               )
             })}
@@ -658,29 +659,27 @@ function PremiumStatCard({ icon, label, value, sub, color, trend, progress }: an
 
   return (
     <div className="group relative h-full">
-       <div className="bg-white dark:bg-slate-900 p-6 rounded-[32px] border border-slate-200/60 dark:border-slate-800 shadow-sm hover:shadow-2xl hover:-translate-y-1 transition-all duration-500 overflow-hidden h-full flex flex-col justify-between">
+       <div className="bg-white dark:bg-slate-900 p-4 md:p-6 rounded-[28px] md:rounded-[32px] border border-slate-200/60 dark:border-slate-800 shadow-sm hover:shadow-2xl hover:-translate-y-1 transition-all duration-500 overflow-hidden h-full flex flex-row items-center gap-4 md:flex-col md:items-start md:justify-between md:gap-0">
           <div className={cn("absolute -top-12 -right-12 w-32 h-32 bg-gradient-to-br opacity-10 rounded-full transition-all duration-700 group-hover:scale-150 group-hover:opacity-20", colors[color])}></div>
-          
-          <div>
-            <div className={cn("w-12 h-12 rounded-2xl flex items-center justify-center mb-6 text-white bg-gradient-to-br shadow-lg transition-transform duration-500 group-hover:rotate-6", iconColors[color])}>
-              {icon}
-            </div>
-            <div className="space-y-1.5 relative z-10">
-               <p className="text-[10px] font-black uppercase tracking-[0.25em] text-slate-400 group-hover:text-slate-600 dark:group-hover:text-slate-300 transition-colors">{label}</p>
-               <div className="flex items-baseline gap-3">
-                  <h4 className="text-4xl font-black tracking-tighter text-slate-900 dark:text-white transition-all duration-500 group-hover:tracking-normal">{value}</h4>
-                  {trend && (
-                    <span className="text-[10px] font-black text-emerald-600 bg-emerald-50 dark:bg-emerald-500/10 px-2.5 py-1 rounded-full border border-emerald-100 dark:border-emerald-500/20">
-                      {trend}
-                    </span>
-                  )}
-               </div>
-               {sub && <p className="text-xs font-bold text-slate-500 mt-1">{sub}</p>}
-            </div>
+
+          <div className={cn("w-10 h-10 md:w-12 md:h-12 rounded-xl md:rounded-2xl flex items-center justify-center shrink-0 md:mb-6 text-white bg-gradient-to-br shadow-lg transition-transform duration-500 group-hover:rotate-6", iconColors[color])}>
+            {icon}
+          </div>
+          <div className="flex-1 md:flex-none space-y-0.5 md:space-y-1.5 relative z-10 min-w-0">
+             <p className="text-[9px] md:text-[10px] font-black uppercase tracking-[0.25em] text-slate-400 group-hover:text-slate-600 dark:group-hover:text-slate-300 transition-colors">{label}</p>
+             <div className="flex items-baseline gap-2 md:gap-3">
+                <h4 className="text-2xl md:text-4xl font-black tracking-tighter text-slate-900 dark:text-white transition-all duration-500 group-hover:tracking-normal">{value}</h4>
+                {trend && (
+                  <span className="text-[10px] font-black text-emerald-600 bg-emerald-50 dark:bg-emerald-500/10 px-2 md:px-2.5 py-0.5 md:py-1 rounded-full border border-emerald-100 dark:border-emerald-500/20">
+                    {trend}
+                  </span>
+                )}
+             </div>
+             {sub && <p className="text-[11px] md:text-xs font-bold text-slate-500 truncate">{sub}</p>}
           </div>
 
           {progress != null && (
-            <div className="mt-8 pt-5 border-t border-slate-100 dark:border-slate-800 space-y-2.5">
+            <div className="hidden md:block mt-8 pt-5 border-t border-slate-100 dark:border-slate-800 space-y-2.5 w-full">
               <div className="flex justify-between text-[10px] font-black uppercase tracking-widest text-slate-400">
                 <span>Tiến độ</span>
                 <span className="text-indigo-600 dark:text-indigo-400 font-black">{progress}%</span>
@@ -755,7 +754,7 @@ function PremiumRankingTable({
           ))}
         </div>
       </div>
-      <div className="overflow-x-auto lg:overflow-x-hidden scrollbar-hide custom-scrollbar">
+      <div className="hidden md:block overflow-x-auto lg:overflow-x-hidden scrollbar-hide custom-scrollbar">
         <table className="w-full min-w-[800px] lg:min-w-full">
           <thead>
             <tr className="text-left text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 border-b border-slate-50 dark:border-slate-800/50">
@@ -850,6 +849,62 @@ function PremiumRankingTable({
             ))}
           </tbody>
         </table>
+      </div>
+
+      <div className="md:hidden divide-y divide-slate-50 dark:divide-slate-800">
+        {sorted.map((emp, index) => (
+          <div
+            key={emp.userId}
+            onClick={() => onSelectUser(emp.userId, emp.fullName)}
+            className="p-5 space-y-3 active:bg-slate-50 dark:active:bg-slate-800/50 transition-all cursor-pointer"
+          >
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="relative shrink-0">
+                  <div className="w-11 h-11 rounded-2xl bg-indigo-100 dark:bg-indigo-900/40 flex items-center justify-center font-black text-sm text-indigo-600">
+                    {getInitials(emp.fullName)}
+                  </div>
+                  {index < 3 && (
+                    <div className={cn(
+                      "absolute -top-2 -right-2 w-5 h-5 rounded-full flex items-center justify-center text-[10px] border-2 border-white dark:border-slate-900 shadow-sm",
+                      index === 0 ? "bg-amber-400 text-white" : index === 1 ? "bg-slate-300 text-slate-700" : "bg-orange-400 text-white"
+                    )}>
+                      {index + 1}
+                    </div>
+                  )}
+                </div>
+                <div className="min-w-0">
+                  <p className="text-sm font-black text-slate-900 dark:text-white truncate">{emp.fullName}</p>
+                  <p className="text-[11px] text-slate-500 font-bold flex items-center gap-1.5 mt-0.5 truncate">
+                    <Building2 size={10} className="shrink-0" /> {emp.orgUnitName}
+                  </p>
+                </div>
+              </div>
+              <div className="flex flex-col items-end shrink-0">
+                <span className={cn("text-xl font-black tracking-tighter", getPerformanceInfo(emp.averageScore ?? 0).color)}>
+                  {(emp.averageScore ?? 0).toFixed(1)}
+                </span>
+                <span className="text-[8px] font-black uppercase text-slate-400 tracking-widest">
+                  {getPerformanceInfo(emp.averageScore ?? 0).label}
+                </span>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between gap-3 pt-1 border-t border-slate-100 dark:border-slate-800">
+              <div className="flex-1 flex items-center gap-2">
+                <div className="flex-1 h-2 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                  <div className="h-full bg-gradient-to-r from-emerald-400 to-emerald-500" style={{ width: `${Math.round((emp.approvedSubmissions / (emp.assignedKpi || 1)) * 100)}%` }} />
+                </div>
+                <span className="text-[11px] font-black text-slate-600 dark:text-slate-400 shrink-0">
+                  {Math.round((emp.approvedSubmissions / (emp.assignedKpi || 1)) * 100)}%
+                </span>
+              </div>
+              <span className="text-[11px] font-black text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-500/10 px-2.5 py-1 rounded-xl border border-indigo-100/50 dark:border-indigo-500/20 shrink-0">
+                {emp.approvedSubmissions}/{emp.assignedKpi}
+              </span>
+            </div>
+          </div>
+        ))}
       </div>
     </div>
   )
@@ -990,7 +1045,7 @@ function EmployeesExecutiveTable({
             </button>
           </div>
        </div>
-        <div className="overflow-x-auto lg:overflow-x-hidden scrollbar-hide custom-scrollbar">
+        <div className="hidden md:block overflow-x-auto lg:overflow-x-hidden scrollbar-hide custom-scrollbar">
           <table className="w-full min-w-[800px] lg:min-w-full text-left">
             <thead>
                <tr className="text-[10px] font-black uppercase tracking-[0.25em] text-slate-400 border-b border-slate-50 dark:border-slate-800/50">
@@ -1047,7 +1102,48 @@ function EmployeesExecutiveTable({
             </tbody>
           </table>
        </div>
-       
+
+       <div className="md:hidden divide-y divide-slate-50 dark:divide-slate-800">
+          {employees.map((emp: any) => (
+            <div key={emp.userId} className="p-5 space-y-3">
+              <div className="flex items-center gap-3">
+                <div className="w-11 h-11 rounded-[16px] bg-slate-100 dark:bg-slate-800 flex items-center justify-center font-black text-sm text-slate-500 shrink-0">
+                  {getInitials(emp.fullName)}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-black text-slate-900 dark:text-white truncate">{emp.fullName}</p>
+                  <p className="text-[11px] text-slate-500 font-bold mt-0.5 truncate">{emp.email}</p>
+                </div>
+                <span className="text-[10px] font-black text-slate-500 bg-slate-100 dark:bg-slate-800/80 px-2.5 py-1 rounded-xl border border-slate-200/50 dark:border-slate-700/50 uppercase tracking-widest shrink-0">
+                  {emp.orgUnitName}
+                </span>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <div className="flex-1 h-2 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-gradient-to-r from-indigo-500 to-purple-600 rounded-full"
+                    style={{ width: `${Math.round((emp.approvedSubmissions / (emp.assignedKpi || 1)) * 100)}%` }}
+                  />
+                </div>
+                <span className="text-[11px] font-black text-slate-600 dark:text-slate-400 shrink-0">
+                  {Math.round((emp.approvedSubmissions / (emp.assignedKpi || 1)) * 100)}%
+                </span>
+              </div>
+
+              <div className="flex items-center justify-between pt-1 border-t border-slate-100 dark:border-slate-800">
+                <span className="text-[11px] font-bold text-slate-500">{emp.approvedSubmissions}/{emp.assignedKpi} KPIs</span>
+                <Link
+                  to={`/employees/${emp.userId}/performance`}
+                  className="flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-900 dark:bg-white text-[10px] font-black uppercase tracking-widest text-white dark:text-slate-900"
+                >
+                  Chi tiết <ChevronRight size={14} />
+                </Link>
+              </div>
+            </div>
+          ))}
+       </div>
+
        <div className="p-8 bg-slate-50/50 dark:bg-slate-800/30 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
           <p className="text-xs font-black text-slate-400 uppercase tracking-widest">Trang {page + 1}/{totalPages}</p>
           <div className="flex items-center gap-3">

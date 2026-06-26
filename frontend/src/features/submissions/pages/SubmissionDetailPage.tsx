@@ -121,8 +121,8 @@ export default function SubmissionDetailPage() {
           {submission.autoScore != null && (
             <div className="relative group p-1 rounded-[32px] bg-gradient-to-br from-indigo-500 via-indigo-600 to-purple-700 shadow-2xl shadow-indigo-500/20 overflow-hidden">
                <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-10" />
-               <div className="relative bg-black/5 dark:bg-black/20 p-8 md:p-10 rounded-[31px] flex flex-col md:flex-row md:items-center justify-between gap-8">
-                  <div className="space-y-3">
+               <div className="relative bg-black/5 dark:bg-black/20 p-8 md:p-10 rounded-[31px] flex flex-col md:flex-row md:items-center justify-between items-center text-center md:text-left gap-8">
+                  <div className="space-y-3 flex flex-col items-center md:items-start">
                      <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/20 backdrop-blur-md text-white text-[10px] font-black uppercase tracking-[0.2em]">
                         <Star size={12} className="fill-current text-amber-300" /> Hệ thống tính điểm
                      </div>
@@ -131,10 +131,10 @@ export default function SubmissionDetailPage() {
                         Kết quả được tự động hóa dựa trên Trọng số của KPI ({submission.weight || 0}%) và Tỷ lệ hoàn thành thực tế.
                      </p>
                   </div>
-                  <div className="flex items-center gap-6 bg-white/10 backdrop-blur-2xl p-6 rounded-[28px] border border-white/10 shadow-inner group-hover:scale-105 transition-transform duration-500">
+                  <div className="flex items-center justify-center gap-6 bg-white/10 backdrop-blur-2xl p-6 rounded-[28px] border border-white/10 shadow-inner group-hover:scale-105 transition-transform duration-500 w-full md:w-auto overflow-hidden">
                      <div className="text-center">
                         <p className="text-[10px] font-black text-indigo-100 uppercase tracking-[0.3em] mb-1 opacity-60">SCORE</p>
-                        <p className="text-6xl font-black text-white leading-none">{formatNumber(submission.autoScore)}</p>
+                        <p className="text-4xl xs:text-5xl md:text-6xl font-black text-white leading-none">{formatNumber(submission.autoScore)}</p>
                      </div>
                   </div>
                </div>
@@ -143,14 +143,14 @@ export default function SubmissionDetailPage() {
 
           {/* Attachments & Evidence */}
           <div className="bg-white dark:bg-slate-900 rounded-[32px] border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden p-8 space-y-6">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-2xl bg-indigo-50 dark:bg-indigo-900/30 flex items-center justify-center text-indigo-600">
+                <div className="w-10 h-10 rounded-2xl bg-indigo-50 dark:bg-indigo-900/30 flex items-center justify-center text-indigo-600 shrink-0">
                   <FileText size={20} />
                 </div>
-                <h3 className="text-lg font-black text-slate-900 dark:text-white">Bằng chứng thực hiện</h3>
+                <h3 className="text-lg font-black text-slate-900 dark:text-white whitespace-nowrap">Bằng chứng thực hiện</h3>
               </div>
-              <div className="px-4 py-1.5 bg-slate-50 dark:bg-slate-800 rounded-full text-[11px] font-black text-slate-500 uppercase tracking-widest border border-slate-100 dark:border-slate-700">
+              <div className="px-4 py-1.5 bg-slate-50 dark:bg-slate-800 rounded-full text-[10px] md:text-[11px] font-black text-slate-500 uppercase tracking-widest border border-slate-100 dark:border-slate-700 whitespace-nowrap w-fit">
                 {submission.attachments?.length || 0} FILE ĐÍNH KÈM
               </div>
             </div>
@@ -207,11 +207,11 @@ export default function SubmissionDetailPage() {
                 })}
               </div>
             ) : (
-              <div className="flex flex-col items-center justify-center py-20 bg-slate-50/50 dark:bg-slate-800/30 rounded-[32px] border-2 border-dashed border-slate-100 dark:border-slate-800">
+              <div className="flex flex-col items-center justify-center py-20 px-6 bg-slate-50/50 dark:bg-slate-800/30 rounded-[32px] border-2 border-dashed border-slate-100 dark:border-slate-800">
                 <div className="p-5 bg-white dark:bg-slate-800 rounded-3xl shadow-sm mb-4">
                   <FileText size={32} className="text-slate-200" />
                 </div>
-                <p className="text-slate-400 font-bold text-sm">Không có tài liệu chứng minh được đính kèm</p>
+                <p className="text-slate-400 font-bold text-sm text-center">Không có tài liệu chứng minh được đính kèm</p>
               </div>
             )}
           </div>

@@ -154,9 +154,10 @@ public class EvaluationService {
     private Double calculateSystemScore(UUID userId, UUID kpiPeriodId, Double maxScore) {
         // Find all KPIs assigned to user for this period
         List<KpiStatus> activeKpiStatuses = Arrays.asList(
-                KpiStatus.APPROVED, 
-                KpiStatus.EDITED, 
-                KpiStatus.EDIT
+                KpiStatus.APPROVED,
+                KpiStatus.EDITED,
+                KpiStatus.EDIT,
+                KpiStatus.INACTIVE
         );
         
         List<KpiCriteria> kpis = kpiCriteriaRepository.findByUserIdInAssigneesAndKpiPeriodId(
@@ -170,18 +171,26 @@ public class EvaluationService {
         double total = 0.0;
         double bonusTotal = 0.0;
         for (KpiCriteria kpi : kpis) {
+            // An INACTIVE KPI with no compensation set is a legacy stop predating this
+            // feature - skip it (no reliable ratio to use, same as previous behavior).
+            if (kpi.getStatus() == KpiStatus.INACTIVE && kpi.getCompensatedAchievementPercent() == null) continue;
+
             boolean isDecompositionParent = kpi.getChildren() != null && kpi.getChildren().stream()
                     .anyMatch(c -> c.getParentRelationType() == com.kpitracking.enums.KpiParentRelationType.DECOMPOSITION);
             if (isDecompositionParent) continue; // Parent is just a grouping label; its children are scored individually
 
             if (kpi.getTargetValue() != null && kpi.getTargetValue() > 0 && kpi.getWeight() != null) {
-                double actual = calculateKpiActualValue(kpi, userId, enableWaterfall);
-                boolean isInverse = Boolean.TRUE.equals(kpi.getIsReverseKpi());
                 double ratio;
-                if (isInverse) {
-                    ratio = Math.max(0.0, 2.0 - (actual / kpi.getTargetValue()));
+                if (kpi.getCompensatedAchievementPercent() != null) {
+                    ratio = kpi.getCompensatedAchievementPercent() / 100.0;
                 } else {
-                    ratio = actual / kpi.getTargetValue();
+                    double actual = calculateKpiActualValue(kpi, userId, enableWaterfall);
+                    boolean isInverse = Boolean.TRUE.equals(kpi.getIsReverseKpi());
+                    if (isInverse) {
+                        ratio = Math.max(0.0, 2.0 - (actual / kpi.getTargetValue()));
+                    } else {
+                        ratio = actual / kpi.getTargetValue();
+                    }
                 }
                 ratio = Math.min(ratio, 1.5);
                 double score = ratio * kpi.getWeight() * (maxScore / 100.0);

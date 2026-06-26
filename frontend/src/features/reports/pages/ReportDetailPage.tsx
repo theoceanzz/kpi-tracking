@@ -4,6 +4,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { ArrowLeft, Plus, Database, Trash2, BarChart3, LineChart as LineChartIcon, PieChart as PieChartIcon, AreaChart as AreaChartIcon, Hash, Table2, MoreVertical, Copy, Settings, ChevronDown, X } from 'lucide-react'
 import { BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts'
 import { Responsive, WidthProvider } from 'react-grid-layout/legacy'
+import { useMediaQuery } from '@/hooks/useMediaQuery'
 import { useReport } from '../hooks/useReports'
 import { useAddReportDatasource, useRemoveReportDatasource, useAddWidget, useUpdateWidget, useDeleteWidget } from '../hooks/useReportMutations'
 import { useDatasources, useDatasourceDataQueries } from '@/features/datasources/hooks/useDatasources'
@@ -297,6 +298,7 @@ export default function ReportDetailPage() {
   const { data: datasourcesPage } = useDatasources(DS_PARAMS)
   const { data: usersPage } = useUsers(USER_PARAMS)
   const allUsers = useMemo(() => usersPage?.content || EMPTY_ARRAY, [usersPage?.content])
+  const isDesktop = useMediaQuery('(min-width: 1024px)')
 
   const addDsMut = useAddReportDatasource()
   const removeDsMut = useRemoveReportDatasource()
@@ -490,6 +492,17 @@ export default function ReportDetailPage() {
 
   const layoutsObj = useMemo(() => ({ lg: memoizedLayout }), [memoizedLayout])
 
+  // Mobile/tablet view-only order: top-to-bottom, left-to-right per the saved desktop layout
+  const stackedWidgets = useMemo(() => {
+    if (!report?.widgets) return []
+    const posById = new Map(memoizedLayout.map(p => [p.i, p]))
+    return [...report.widgets].sort((a, b) => {
+      const pa = posById.get(a.id) ?? { y: 0, x: 0 }
+      const pb = posById.get(b.id) ?? { y: 0, x: 0 }
+      return pa.y - pb.y || pa.x - pb.x
+    })
+  }, [report?.widgets, memoizedLayout])
+
   if (isLoading) {
     return <div className="space-y-4">
       <div className="h-8 w-64 bg-[var(--color-accent)] rounded animate-pulse" />
@@ -506,21 +519,21 @@ export default function ReportDetailPage() {
     <div className="flex flex-col h-full overflow-hidden bg-[var(--color-background)]">
       {/* Header & Lark Toolbar (Fixed at top) */}
       <div className="px-6 py-4 border-b border-[var(--color-border)] bg-[var(--color-card)] z-10">
-        <div className="max-w-[1400px] mx-auto flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <button onClick={() => navigate('/reports')} className="p-2 rounded-lg hover:bg-[var(--color-accent)] transition-colors">
+        <div className="max-w-[1400px] mx-auto flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="flex items-center gap-3 min-w-0">
+            <button onClick={() => navigate('/reports')} className="p-2 rounded-lg hover:bg-[var(--color-accent)] transition-colors shrink-0">
               <ArrowLeft size={20} />
             </button>
-            <div>
-              <h1 className="text-xl font-bold">{report.name}</h1>
-              {report.description && <p className="text-sm text-[var(--color-muted-foreground)]">{report.description}</p>}
+            <div className="min-w-0">
+              <h1 className="text-xl font-bold truncate">{report.name}</h1>
+              {report.description && <p className="text-sm text-[var(--color-muted-foreground)] truncate">{report.description}</p>}
             </div>
           </div>
-          <div className="flex items-center gap-2">
-            <button onClick={() => setShowAddDs(true)} className="flex items-center gap-1.5 px-3 py-2 text-sm rounded-lg border border-[var(--color-border)] hover:bg-[var(--color-accent)] transition-colors font-medium">
+          <div className="flex items-center gap-2 shrink-0">
+            <button onClick={() => setShowAddDs(true)} className="flex items-center gap-1.5 px-3 py-2 text-sm rounded-lg border border-[var(--color-border)] hover:bg-[var(--color-accent)] transition-colors font-medium whitespace-nowrap">
               <Database size={16} /> Nguồn dữ liệu
             </button>
-            
+
             <div className="relative">
               <button
                 onClick={() => setDropdownOpen(!dropdownOpen)}
@@ -573,57 +586,77 @@ export default function ReportDetailPage() {
             )}
 
             {report.widgets && report.widgets.length > 0 ? (
-              <ResponsiveGridLayout
-                className="layout"
-                layouts={layoutsObj}
-                breakpoints={{ lg: 0 }}
-                cols={{ lg: 12 }} 
-                rowHeight={100}
-                onLayoutChange={(currentLayout: any, allLayouts: any) => {
-                  if (allLayouts && allLayouts.lg) {
-                    handleLayoutChange(allLayouts.lg)
-                  } else {
-                    handleLayoutChange(currentLayout)
-                  }
-                }}
-                draggableHandle=".drag-handle"
-                margin={[16, 16]}
-              >
-                {report.widgets.map(widget => (
-                  <div key={widget.id} className={`group bg-[var(--color-card)] border rounded-xl overflow-visible hover:shadow-lg transition-shadow duration-200 relative ${activeWidgetId === widget.id ? 'ring-2 ring-[var(--color-primary)] border-transparent shadow-xl' : 'border-[var(--color-border)]'}`}>
-                    <div className="drag-handle flex items-center justify-between px-4 py-3 border-b border-[var(--color-border)] bg-[var(--color-background)]/50 rounded-t-xl cursor-move">
-                      <div className="flex items-center gap-2 min-w-0">
+              isDesktop ? (
+                <ResponsiveGridLayout
+                  className="layout"
+                  layouts={layoutsObj}
+                  breakpoints={{ lg: 0 }}
+                  cols={{ lg: 12 }}
+                  rowHeight={100}
+                  onLayoutChange={(currentLayout: any, allLayouts: any) => {
+                    if (allLayouts && allLayouts.lg) {
+                      handleLayoutChange(allLayouts.lg)
+                    } else {
+                      handleLayoutChange(currentLayout)
+                    }
+                  }}
+                  draggableHandle=".drag-handle"
+                  margin={[16, 16]}
+                >
+                  {report.widgets.map(widget => (
+                    <div key={widget.id} className={`group bg-[var(--color-card)] border rounded-xl overflow-visible hover:shadow-lg transition-shadow duration-200 relative ${activeWidgetId === widget.id ? 'ring-2 ring-[var(--color-primary)] border-transparent shadow-xl' : 'border-[var(--color-border)]'}`}>
+                      <div className="drag-handle flex items-center justify-between px-4 py-3 border-b border-[var(--color-border)] bg-[var(--color-background)]/50 rounded-t-xl cursor-move">
+                        <div className="flex items-center gap-2 min-w-0">
+                          {WIDGET_TYPES.find(w => w.value === widget.widgetType)?.icon}
+                          <h3 className="font-bold text-sm truncate">{widget.title}</h3>
+                        </div>
+
+                        <div className="relative">
+                          <button onClick={(e) => { e.stopPropagation(); setMenuOpenId(menuOpenId === widget.id ? null : widget.id) }} className="p-1.5 rounded-md hover:bg-[var(--color-accent)] opacity-0 group-hover:opacity-100 transition-opacity">
+                            <MoreVertical size={16} />
+                          </button>
+                          {menuOpenId === widget.id && (
+                            <>
+                              <div className="fixed inset-0 z-40" onClick={() => setMenuOpenId(null)}></div>
+                              <div className="absolute right-0 top-full mt-1 w-36 bg-[var(--color-card)] border border-[var(--color-border)] rounded-lg shadow-xl py-1 z-50 overflow-hidden">
+                                <button onClick={() => openSettings(widget)} className="w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-[var(--color-accent)] text-left"><Settings size={14} /> Cài đặt</button>
+                                <button onClick={() => handleDuplicateWidget(widget)} className="w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-[var(--color-accent)] text-left"><Copy size={14} /> Nhân bản</button>
+                                <hr className="my-1 border-[var(--color-border)]" />
+                                <button onClick={() => { deleteWidgetMut.mutate(widget.id); setMenuOpenId(null) }} className="w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-red-500/10 text-red-500 text-left"><Trash2 size={14} /> Xóa block</button>
+                              </div>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                      <div className="h-[calc(100%-80px)] p-4 overflow-hidden">
+                        <ChartRenderer widget={widget} rawData={dataMap[widget.reportDatasourceId] || EMPTY_ARRAY} allColumns={columnMap[widget.reportDatasourceId] || EMPTY_ARRAY} users={allUsers} />
+                      </div>
+                      <div className="px-4 py-2 border-t border-[var(--color-border)] text-[9px] uppercase font-bold text-[var(--color-muted-foreground)] tracking-wider flex items-center justify-between bg-[var(--color-background)]/30 rounded-b-xl h-10">
+                        <span className="truncate mr-2">Dữ liệu: {widget.datasourceName}</span>
+                        <span className="shrink-0">{widget.widgetType}</span>
+                      </div>
+                    </div>
+                  ))}
+                </ResponsiveGridLayout>
+              ) : (
+                <div className="flex flex-col gap-4">
+                  {stackedWidgets.map(widget => (
+                    <div key={widget.id} className="bg-[var(--color-card)] border border-[var(--color-border)] rounded-xl overflow-hidden">
+                      <div className="flex items-center gap-2 min-w-0 px-4 py-3 border-b border-[var(--color-border)] bg-[var(--color-background)]/50">
                         {WIDGET_TYPES.find(w => w.value === widget.widgetType)?.icon}
                         <h3 className="font-bold text-sm truncate">{widget.title}</h3>
                       </div>
-                      
-                      <div className="relative">
-                        <button onClick={(e) => { e.stopPropagation(); setMenuOpenId(menuOpenId === widget.id ? null : widget.id) }} className="p-1.5 rounded-md hover:bg-[var(--color-accent)] opacity-0 group-hover:opacity-100 transition-opacity">
-                          <MoreVertical size={16} />
-                        </button>
-                        {menuOpenId === widget.id && (
-                          <>
-                            <div className="fixed inset-0 z-40" onClick={() => setMenuOpenId(null)}></div>
-                            <div className="absolute right-0 top-full mt-1 w-36 bg-[var(--color-card)] border border-[var(--color-border)] rounded-lg shadow-xl py-1 z-50 overflow-hidden">
-                              <button onClick={() => openSettings(widget)} className="w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-[var(--color-accent)] text-left"><Settings size={14} /> Cài đặt</button>
-                              <button onClick={() => handleDuplicateWidget(widget)} className="w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-[var(--color-accent)] text-left"><Copy size={14} /> Nhân bản</button>
-                              <hr className="my-1 border-[var(--color-border)]" />
-                              <button onClick={() => { deleteWidgetMut.mutate(widget.id); setMenuOpenId(null) }} className="w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-red-500/10 text-red-500 text-left"><Trash2 size={14} /> Xóa block</button>
-                            </div>
-                          </>
-                        )}
+                      <div className="h-[320px] p-4 overflow-hidden">
+                        <ChartRenderer widget={widget} rawData={dataMap[widget.reportDatasourceId] || EMPTY_ARRAY} allColumns={columnMap[widget.reportDatasourceId] || EMPTY_ARRAY} users={allUsers} />
+                      </div>
+                      <div className="px-4 py-2 border-t border-[var(--color-border)] text-[9px] uppercase font-bold text-[var(--color-muted-foreground)] tracking-wider flex items-center justify-between bg-[var(--color-background)]/30">
+                        <span className="truncate mr-2">Dữ liệu: {widget.datasourceName}</span>
+                        <span className="shrink-0">{widget.widgetType}</span>
                       </div>
                     </div>
-                    <div className="h-[calc(100%-80px)] p-4 overflow-hidden">
-                      <ChartRenderer widget={widget} rawData={dataMap[widget.reportDatasourceId] || EMPTY_ARRAY} allColumns={columnMap[widget.reportDatasourceId] || EMPTY_ARRAY} users={allUsers} />
-                    </div>
-                    <div className="px-4 py-2 border-t border-[var(--color-border)] text-[9px] uppercase font-bold text-[var(--color-muted-foreground)] tracking-wider flex items-center justify-between bg-[var(--color-background)]/30 rounded-b-xl h-10">
-                      <span className="truncate mr-2">Dữ liệu: {widget.datasourceName}</span>
-                      <span className="shrink-0">{widget.widgetType}</span>
-                    </div>
-                  </div>
-                ))}
-              </ResponsiveGridLayout>
+                  ))}
+                </div>
+              )
             ) : (
               <div className="text-center py-20 bg-transparent border-2 border-dashed border-[var(--color-border)] rounded-2xl">
                 <div className="w-16 h-16 bg-[var(--color-accent)] rounded-2xl flex items-center justify-center mx-auto mb-4 text-[var(--color-muted-foreground)]">

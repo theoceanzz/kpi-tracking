@@ -5,6 +5,7 @@ import com.kpitracking.entity.KpiSubmission;
 import com.kpitracking.entity.User;
 import com.kpitracking.event.KpiEvents.KpiCriteriaApprovedEvent;
 import com.kpitracking.event.KpiEvents.KpiCriteriaRejectedEvent;
+import com.kpitracking.event.KpiEvents.KpiCriteriaApprovalRevertedEvent;
 import com.kpitracking.event.KpiEvents.KpiSubmittedEvent;
 import com.kpitracking.event.KpiEvents.SubmissionReviewedEvent;
 import com.kpitracking.service.EmailService;
@@ -118,6 +119,24 @@ public class NotificationEventListener {
         }
 
         notificationService.createNotification(kpi.getOrgUnit(), creator, title, message, "KPI_REJECTED", kpi.getId());
+        emailService.sendNotificationEmail(creator.getEmail(), title, message);
+    }
+
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    @Async
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void handleKpiApprovalReverted(KpiCriteriaApprovalRevertedEvent event) {
+        KpiCriteria kpi = event.getKpiCriteria();
+        log.info("Handling KPI approval reverted event for KPI: {}", kpi.getId());
+
+        User creator = kpi.getCreatedBy();
+
+        String title = "Chỉ tiêu KPI bị hoàn duyệt";
+        String message = String.format("Chỉ tiêu KPI '%s' do bạn tạo đã bị hoàn duyệt (huỷ phê duyệt) bởi %s và cần được xem xét lại.",
+                kpi.getName(),
+                event.getRevertedBy().getFullName());
+
+        notificationService.createNotification(kpi.getOrgUnit(), creator, title, message, "KPI_APPROVAL_REVERTED", kpi.getId());
         emailService.sendNotificationEmail(creator.getEmail(), title, message);
     }
 }

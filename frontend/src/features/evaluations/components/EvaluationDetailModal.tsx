@@ -556,10 +556,10 @@ function EvalLayerCard({ title, icon: Icon, iconBg, iconColor, evaluation, lineA
 
       {/* Content */}
       <div className="flex-1 min-w-0 pb-8">
-        <div className="flex items-center justify-between mb-3">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-3 gap-1 sm:gap-0">
           <p className="text-[13px] font-black text-slate-800 dark:text-slate-200 uppercase tracking-tight">{title}</p>
           {evaluation && (
-            <span className="text-[10px] font-bold text-slate-400 bg-slate-50 dark:bg-slate-800/50 px-2 py-0.5 rounded-md">
+            <span className="text-[10px] font-bold text-slate-400 bg-slate-50 dark:bg-slate-800/50 px-2 py-0.5 rounded-md self-start sm:self-auto">
               {formatDateTime(evaluation.createdAt)}
             </span>
           )}
@@ -575,15 +575,15 @@ function EvalLayerCard({ title, icon: Icon, iconBg, iconColor, evaluation, lineA
                 : "group-hover/card:border-slate-200 dark:group-hover/card:border-slate-700"
             )}
           >
-            <div className="flex items-center justify-between gap-4">
-              <div className="flex items-center gap-3">
-                <div className={cn("p-2 rounded-xl bg-slate-50 dark:bg-slate-800/50", getScoreColor(evaluation.score).replace('text-', 'text-opacity-20 bg-'))}>
+            <div className="flex items-center justify-between gap-4 flex-wrap">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className={cn("p-2 rounded-xl bg-slate-50 dark:bg-slate-800/50 shrink-0", getScoreColor(evaluation.score).replace('text-', 'text-opacity-20 bg-'))}>
                   <TrendingUp size={20} className={getScoreColor(evaluation.score)} />
                 </div>
-                <div className="flex flex-col">
-                  <div className="flex items-baseline gap-2">
-                    <span className={`text-3xl font-black tracking-tighter ${getScoreColor(evaluation.score)}`}>{evaluation.score != null ? formatNumber(evaluation.score) : '—'}</span>
-                    <span className={`text-[10px] font-black uppercase tracking-[0.15em] ${getScoreColor(evaluation.score)}`}>{getScoreLabel(evaluation.score)}</span>
+                <div className="flex flex-col min-w-0">
+                  <div className="flex items-baseline gap-2 flex-wrap">
+                    <span className={`text-2xl sm:text-3xl font-black tracking-tighter ${getScoreColor(evaluation.score)}`}>{evaluation.score != null ? formatNumber(evaluation.score) : '—'}</span>
+                    <span className={`text-[10px] font-black uppercase tracking-[0.15em] whitespace-nowrap ${getScoreColor(evaluation.score)}`}>{getScoreLabel(evaluation.score)}</span>
                   </div>
                   
                   {evaluation.evaluatorRole === 'SELF' && (evaluation.systemScore ?? calculatedScore) != null && evaluation.score !== (evaluation.systemScore ?? calculatedScore) && (
@@ -600,7 +600,7 @@ function EvalLayerCard({ title, icon: Icon, iconBg, iconColor, evaluation, lineA
               </div>
 
               {evaluation.evaluatorName && (
-                <div className="text-right shrink-0">
+                <div className="text-right shrink-0 ml-auto">
                   <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Bởi</p>
                   <p className="text-xs font-bold text-slate-600 dark:text-slate-300">{evaluation.evaluatorName}</p>
                 </div>

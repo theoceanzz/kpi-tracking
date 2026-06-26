@@ -185,12 +185,12 @@ export default function EvaluationsPage() {
       <PageTour pageKey="evaluations" steps={evaluationsSteps} />
       
       {/* Dynamic Header */}
-      <div id="tour-eval-header" className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 bg-white dark:bg-slate-900 p-8 rounded-[40px] border border-slate-200 dark:border-slate-800 shadow-sm relative overflow-hidden">
+      <div id="tour-eval-header" className="flex flex-col items-center text-center lg:flex-row lg:text-left lg:items-center justify-between gap-6 bg-white dark:bg-slate-900 p-8 rounded-[40px] border border-slate-200 dark:border-slate-800 shadow-sm relative overflow-hidden">
         <div className="absolute top-0 right-0 p-10 opacity-5 pointer-events-none">
            <Award size={120} className="text-indigo-600" />
         </div>
         <div className="space-y-1 relative z-10">
-          <div className="flex items-center gap-2 text-indigo-600 dark:text-indigo-400">
+          <div className="flex items-center justify-center lg:justify-start gap-2 text-indigo-600 dark:text-indigo-400">
             <Star size={20} className="fill-current" />
             <span className="text-[10px] font-black uppercase tracking-[2px]">Performance Reviews</span>
           </div>
@@ -204,7 +204,7 @@ export default function EvaluationsPage() {
           </p>
         </div>
 
-        <div className="flex items-center gap-4 relative z-10 shrink-0">
+        <div className="flex flex-wrap items-center justify-center lg:justify-start gap-4 relative z-10">
           <EvaluationStat label="Tổng đánh giá" value={stats.total} color="indigo" icon={Activity} isLoading={isLoading} />
           <EvaluationStat label="Điểm trung bình" value={stats.avgScore} color="amber" icon={TrendingUp} isScore isLoading={isLoading} />
         </div>
@@ -355,7 +355,7 @@ export default function EvaluationsPage() {
         </div>
       ) : (
         <div id="tour-eval-table" className="bg-white dark:bg-slate-900 rounded-[40px] border border-slate-200 dark:border-slate-800 overflow-hidden shadow-sm transition-all">
-          <div className="overflow-x-auto">
+          <div className="hidden md:block overflow-x-auto">
             <table className="w-full text-left border-collapse min-w-[1000px]">
               <thead>
                 <tr className="bg-slate-50/50 dark:bg-slate-800/40 border-b border-slate-100 dark:border-slate-800">
@@ -470,6 +470,63 @@ export default function EvaluationsPage() {
                 })()}
               </tbody>
             </table>
+          </div>
+
+          <div className="md:hidden divide-y divide-slate-100 dark:divide-slate-800">
+            {[...(data?.content ?? [])].sort((a, b) => {
+              if (a.userName !== b.userName) return a.userName.localeCompare(b.userName)
+              return b.kpiPeriodName.localeCompare(a.kpiPeriodName)
+            }).map((ev) => (
+              <div
+                key={ev.id}
+                onClick={() => setDetailEval(ev)}
+                className="p-4 space-y-3 active:bg-slate-50 dark:active:bg-slate-800/30 transition-colors cursor-pointer"
+              >
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="w-10 h-10 rounded-2xl flex items-center justify-center font-black text-xs shadow-inner bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-800 dark:to-slate-700 text-slate-600 dark:text-slate-300 shrink-0">
+                      {getInitials(ev.userName)}
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-sm font-black text-slate-900 dark:text-white truncate">{ev.userName}</p>
+                      <div className="flex items-center gap-2 mt-0.5">
+                        <span className="px-1.5 py-0.5 rounded-md bg-blue-50 dark:bg-blue-900/30 text-[8px] font-black text-blue-600 dark:text-blue-400 uppercase tracking-widest border border-blue-100 dark:border-blue-800/50">
+                          {ev.userRoleName || 'NHÂN VIÊN'}
+                        </span>
+                        <span className="text-[9px] text-slate-400 font-bold uppercase tracking-tighter truncate">{ev.orgUnitName}</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div className={cn("inline-flex items-center gap-2 px-3 py-1.5 rounded-xl border shadow-sm shrink-0", getScoreBg(ev.score))}>
+                    <span className={cn("text-base font-black", getScoreColor(ev.score))}>{ev.score ?? '—'}</span>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between gap-2 pt-1 border-t border-slate-100 dark:border-slate-800 text-xs">
+                  <div className="flex items-center gap-2 text-slate-500 dark:text-slate-400">
+                    <Calendar size={12} />
+                    <span className="font-bold">{ev.kpiPeriodName}</span>
+                  </div>
+                  <span className="font-bold text-slate-400">{formatDateTime(ev.createdAt).split(' ')[0]}</span>
+                </div>
+
+                <span className={cn(
+                  "inline-block text-[9px] font-black uppercase tracking-widest px-3 py-1.5 rounded-xl border",
+                  ev.evaluatorRole === 'SELF'
+                    ? 'bg-blue-50 text-blue-600 border-blue-100 dark:bg-blue-900/20'
+                    : (ev.evaluatorRole === 'CEO' || ev.evaluatorRole === 'DIRECTOR')
+                    ? 'bg-amber-50 text-amber-600 border-amber-100 dark:bg-amber-900/20'
+                    : 'bg-emerald-50 text-emerald-600 border-emerald-100 dark:bg-emerald-900/20'
+                )}>
+                  {ev.evaluatorRole === 'SELF' ? 'Tự đánh giá' :
+                   ev.evaluatorRoleName ? (
+                     (ev.evaluatorRole === 'CEO' || ev.evaluatorRole === 'DIRECTOR' || ev.evaluatorRole === 'REGIONAL_DIRECTOR')
+                       ? `${ev.evaluatorRoleName} chốt`
+                       : `${ev.evaluatorRoleName} chấm`
+                   ) : 'Quản lý chấm'}
+                </span>
+              </div>
+            ))}
           </div>
 
           {/* Table Footer */}

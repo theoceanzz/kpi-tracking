@@ -34,6 +34,9 @@ export const kpiApi = {
   reject: (id: string, data: RejectKpiRequest) =>
     axiosInstance.post<ApiResponse<KpiCriteria>>(`/kpi-criteria/${id}/reject`, data).then((r) => r.data.data),
 
+  revertApproval: (id: string) =>
+    axiosInstance.post<ApiResponse<KpiCriteria>>(`/kpi-criteria/${id}/revert-approval`).then((r) => r.data.data),
+
   importFile: (file: File, kpiPeriodId?: string, orgUnitId?: string) => {
     const formData = new FormData()
     formData.append('file', file)

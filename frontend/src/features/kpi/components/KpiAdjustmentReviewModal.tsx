@@ -14,19 +14,27 @@ interface KpiAdjustmentReviewModalProps {
 
 export default function KpiAdjustmentReviewModal({ open, onClose, request }: KpiAdjustmentReviewModalProps) {
   const [note, setNote] = useState('')
+  const [compensationPercentage, setCompensationPercentage] = useState('')
   const [reviewMode, setReviewMode] = useState<'view' | 'reject' | 'approve'>('view')
   const qc = useQueryClient()
 
   const reviewMutation = useMutation({
-    mutationFn: (status: 'APPROVED' | 'REJECTED') => 
-      adjustmentApi.review(request!.id, { status, reviewerNote: note }),
-    onSuccess: (_, status) => { 
+    mutationFn: (status: 'APPROVED' | 'REJECTED') =>
+      adjustmentApi.review(request!.id, {
+        status,
+        reviewerNote: note,
+        ...(status === 'APPROVED' && request!.deactivationRequest
+          ? { compensationPercentage: Number(compensationPercentage) }
+          : {}),
+      }),
+    onSuccess: (_, status) => {
       qc.invalidateQueries({ queryKey: ['kpi-adjustments'] })
       qc.invalidateQueries({ queryKey: ['kpi-criteria'] })
       toast.success(status === 'APPROVED' ? 'Đã phê duyệt yêu cầu điều chỉnh' : 'Đã từ chối yêu cầu điều chỉnh')
       onClose()
       setReviewMode('view')
       setNote('')
+      setCompensationPercentage('')
     },
     onError: () => toast.error('Xử lý thất bại'),
   })
@@ -35,6 +43,12 @@ export default function KpiAdjustmentReviewModal({ open, onClose, request }: Kpi
 
   const isPending = reviewMutation.isPending
   const isReviewable = request.status === 'PENDING'
+  const needsCompensationInput = reviewMode === 'approve' && request.deactivationRequest
+  const compensationInvalid =
+    needsCompensationInput &&
+    (compensationPercentage.trim() === '' ||
+      Number(compensationPercentage) < 0 ||
+      Number(compensationPercentage) > 150)
 
   return (
     <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
@@ -43,28 +57,29 @@ export default function KpiAdjustmentReviewModal({ open, onClose, request }: Kpi
       <div className="relative bg-white dark:bg-slate-900 rounded-[32px] shadow-2xl w-full max-w-2xl mx-4 animate-in zoom-in-95 fade-in duration-300 max-h-[90vh] overflow-hidden border border-slate-200 dark:border-slate-800 flex flex-col">
         
         {/* Header Section */}
-        <div className="px-8 py-6 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between shrink-0">
-          <div className="flex items-center gap-4">
-            <div className="w-12 h-12 rounded-2xl bg-amber-500 flex items-center justify-center text-white shadow-lg shadow-amber-500/20">
-              <MessageSquare size={24} />
+        <div className="px-4 sm:px-8 py-4 sm:py-6 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between gap-3 shrink-0">
+          <div className="flex items-center gap-2 sm:gap-4 min-w-0">
+            <div className="w-9 h-9 sm:w-12 sm:h-12 rounded-2xl bg-amber-500 flex items-center justify-center text-white shadow-lg shadow-amber-500/20 shrink-0">
+              <MessageSquare size={18} className="sm:hidden" />
+              <MessageSquare size={24} className="hidden sm:block" />
             </div>
-            <div>
-              <h3 className="text-xl font-black text-slate-900 dark:text-white">Yêu cầu Điều chỉnh KPI</h3>
+            <div className="min-w-0">
+              <h3 className="text-base sm:text-xl font-black text-slate-900 dark:text-white whitespace-nowrap">Yêu cầu Điều chỉnh KPI</h3>
               <div className={cn(
-                "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-[9px] font-black uppercase tracking-widest mt-1",
-                request.status === 'PENDING' ? 'bg-amber-100 border-amber-200 text-amber-600' : 
-                request.status === 'APPROVED' ? 'bg-emerald-100 border-emerald-200 text-emerald-600' : 
+                "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-[9px] font-black uppercase tracking-widest mt-1 whitespace-nowrap",
+                request.status === 'PENDING' ? 'bg-amber-100 border-amber-200 text-amber-600' :
+                request.status === 'APPROVED' ? 'bg-emerald-100 border-emerald-200 text-emerald-600' :
                 'bg-red-100 border-red-200 text-red-600'
               )}>
                 <Clock size={10} className={request.status === 'PENDING' ? 'animate-pulse' : ''} /> {
-                  request.status === 'PENDING' ? 'Đang chờ xử lý' : 
+                  request.status === 'PENDING' ? 'Đang chờ xử lý' :
                   request.status === 'APPROVED' ? 'Đã chấp thuận' : 'Đã từ chối'
                 }
               </div>
             </div>
           </div>
-          <button onClick={onClose} className="p-2.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 transition-all hover:rotate-90">
-            <X size={22} />
+          <button onClick={onClose} className="p-2 sm:p-2.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 transition-all hover:rotate-90 shrink-0">
+            <X size={20} />
           </button>
         </div>
 
@@ -112,6 +127,9 @@ export default function KpiAdjustmentReviewModal({ open, onClose, request }: Kpi
                     <div className="p-4 rounded-xl bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-900/30 flex items-center justify-center h-full min-h-[140px] flex-col gap-2">
                       <XCircle size={32} className="text-red-500" />
                       <p className="text-sm font-black text-red-600 dark:text-red-400 uppercase tracking-widest">Yêu cầu Huỷ bỏ KPI</p>
+                      {request.compensationPercentage != null && (
+                        <p className="text-xs font-bold text-red-500">Đã bù thành tích: {request.compensationPercentage}%</p>
+                      )}
                     </div>
                   ) : (
                     <>
@@ -158,19 +176,36 @@ export default function KpiAdjustmentReviewModal({ open, onClose, request }: Kpi
               <div className="flex gap-4">
                 <button
                   onClick={() => setReviewMode('reject')}
-                  className="flex-1 px-6 py-4 rounded-2xl text-sm font-black border-2 border-red-100 dark:border-red-900/30 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/10 transition-all"
+                  className="flex-1 px-3 sm:px-6 py-4 rounded-2xl text-sm font-black border-2 border-red-100 dark:border-red-900/30 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/10 transition-all whitespace-nowrap"
                 >
                   Từ chối yêu cầu
                 </button>
                 <button
                   onClick={() => setReviewMode('approve')}
-                  className="flex-1 px-6 py-4 rounded-2xl text-sm font-black bg-emerald-600 text-white hover:bg-emerald-700 transition-all shadow-xl shadow-emerald-500/20"
+                  className="flex-1 px-3 sm:px-6 py-4 rounded-2xl text-sm font-black bg-emerald-600 text-white hover:bg-emerald-700 transition-all shadow-xl shadow-emerald-500/20 whitespace-nowrap"
                 >
                   Phê duyệt thay đổi
                 </button>
               </div>
             ) : (
               <div className="space-y-4">
+                {needsCompensationInput && (
+                  <div>
+                    <label className="block text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">
+                      Tỷ lệ % bù trừ thành tích <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="number"
+                      min={0}
+                      max={150}
+                      value={compensationPercentage}
+                      onChange={(e) => setCompensationPercentage(e.target.value)}
+                      className="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500/20 transition-all"
+                      placeholder="Ví dụ: 100"
+                    />
+                    <p className="text-[10px] text-slate-400 mt-1">Nhân viên sẽ được tính KPI này đạt đúng tỷ lệ % nhập ở đây (0-150), thay cho số liệu thực tế.</p>
+                  </div>
+                )}
                 <div>
                   <label className="block text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">
                     Ghi chú phản hồi {reviewMode === 'reject' && <span className="text-red-500">*</span>}
@@ -184,19 +219,19 @@ export default function KpiAdjustmentReviewModal({ open, onClose, request }: Kpi
                   />
                 </div>
                 <div className="flex gap-3">
-                  <button onClick={() => setReviewMode('view')} className="flex-1 px-6 py-3 rounded-2xl text-sm font-black text-slate-600 border border-slate-200 hover:bg-white transition-all">
+                  <button onClick={() => setReviewMode('view')} className="flex-1 px-3 sm:px-6 py-3 rounded-2xl text-sm font-black text-slate-600 border border-slate-200 hover:bg-white transition-all whitespace-nowrap">
                     Quay lại
                   </button>
                   <button
                     onClick={() => reviewMutation.mutate(reviewMode === 'approve' ? 'APPROVED' : 'REJECTED')}
-                    disabled={(reviewMode === 'reject' && !note.trim()) || isPending}
+                    disabled={(reviewMode === 'reject' && !note.trim()) || compensationInvalid || isPending}
                     className={cn(
-                      "flex-1 px-6 py-3 rounded-2xl text-sm font-black text-white transition-all flex items-center justify-center gap-2",
+                      "flex-1 px-3 sm:px-6 py-3 rounded-2xl text-sm font-black text-white transition-all flex items-center justify-center gap-2 whitespace-nowrap",
                       reviewMode === 'approve' ? 'bg-emerald-600 shadow-emerald-500/20 shadow-lg' : 'bg-red-600 shadow-red-500/20 shadow-lg',
                       "disabled:opacity-50"
                     )}
                   >
-                    {isPending && <Loader2 size={16} className="animate-spin" />}
+                    {isPending && <Loader2 size={16} className="animate-spin shrink-0" />}
                     Xác nhận {reviewMode === 'approve' ? 'Phê duyệt' : 'Từ chối'}
                   </button>
                 </div>

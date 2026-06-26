@@ -134,8 +134,8 @@ export default function ObjectiveFormModal({ isOpen, onClose, organizationId, ob
 
         <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col max-h-[85vh]">
           <div className="p-6 space-y-4 overflow-y-auto custom-scrollbar relative z-10">
-            <div className="grid grid-cols-3 gap-4">
-              <div className="col-span-2 space-y-1.5">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div className="sm:col-span-2 space-y-1.5">
                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Tên mục tiêu</label>
                 <input
                   {...register('name', { required: 'Vui lòng nhập tên mục tiêu' })}

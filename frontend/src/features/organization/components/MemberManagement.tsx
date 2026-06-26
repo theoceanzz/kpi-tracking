@@ -305,44 +305,44 @@ export function MemberManagement({ orgUnitId }: MemberManagementProps) {
 
   return (
     <div className="bg-white rounded-[2rem] shadow-sm border overflow-hidden">
-      <div 
-        className="px-8 py-5 bg-gray-50/50 flex justify-between items-center cursor-pointer border-b"
+      <div
+        className="px-4 md:px-8 py-4 md:py-5 bg-gray-50/50 flex justify-between items-center cursor-pointer border-b gap-2"
         onClick={() => setIsExpanded(!isExpanded)}
       >
-        <div className="flex items-center space-x-4">
-          <div className="w-12 h-12 rounded-2xl bg-blue-100 flex items-center justify-center">
-            <Users className="w-6 h-6 text-blue-600" />
+        <div className="flex items-center gap-3 min-w-0">
+          <div className="w-9 h-9 md:w-12 md:h-12 rounded-2xl bg-blue-100 flex items-center justify-center shrink-0">
+            <Users className="w-4 h-4 md:w-6 md:h-6 text-blue-600" />
           </div>
-          <div>
-            <h2 className="text-lg font-black text-gray-900">Quản lý nhân sự</h2>
-            <p className="text-xs text-gray-500 font-bold uppercase tracking-wider">{groupedMembers.length} nhân viên • {members.length} phân quyền</p>
+          <div className="min-w-0">
+            <h2 className="text-sm md:text-lg font-black text-gray-900 whitespace-nowrap">Quản lý nhân sự</h2>
+            <p className="text-[10px] md:text-xs text-gray-500 font-bold uppercase tracking-wider truncate">{groupedMembers.length} nhân viên • {members.length} phân quyền</p>
           </div>
         </div>
-        <div className="flex items-center space-x-4">
+        <div className="flex items-center gap-2 shrink-0">
           {selectedMemberIds.length > 0 && (
-            <button 
+            <button
               onClick={(e) => {
                 e.stopPropagation()
                 setShowRemoveAllConfirm(true)
               }}
               disabled={removeAllMutation.isPending || removeBulkMutation.isPending}
-              className="flex items-center px-5 py-2.5 bg-red-50 text-red-600 rounded-2xl hover:bg-red-100 text-sm font-black transition-all animate-in fade-in zoom-in-95 duration-200"
+              className="flex items-center px-3 md:px-5 py-2 md:py-2.5 bg-red-50 text-red-600 rounded-2xl hover:bg-red-100 text-xs md:text-sm font-black transition-all animate-in fade-in zoom-in-95 duration-200 whitespace-nowrap"
             >
-              <UserMinus className="w-4 h-4 mr-2" />
+              <UserMinus className="w-3.5 h-3.5 mr-1.5" />
               {selectedMemberIds.length === groupedMembers.length ? 'Xóa toàn bộ' : `Xóa (${selectedMemberIds.length})`}
             </button>
           )}
-          <button 
+          <button
             onClick={(e) => {
               e.stopPropagation()
               setShowAddModal(true)
             }}
-            className="flex items-center px-5 py-2.5 bg-blue-600 text-white rounded-2xl hover:bg-blue-700 text-sm font-black transition-all shadow-lg shadow-blue-200"
+            className="flex items-center px-3 md:px-5 py-2 md:py-2.5 bg-blue-600 text-white rounded-2xl hover:bg-blue-700 text-xs md:text-sm font-black transition-all shadow-lg shadow-blue-200 whitespace-nowrap"
           >
-            <UserPlus className="w-4 h-4 mr-2" />
+            <UserPlus className="w-3.5 h-3.5 mr-1.5" />
             Thêm nhân sự
           </button>
-          {isExpanded ? <ChevronUp className="w-5 h-5 text-gray-400" /> : <ChevronDown className="w-5 h-5 text-gray-400" />}
+          {isExpanded ? <ChevronUp className="w-4 h-4 text-gray-400" /> : <ChevronDown className="w-4 h-4 text-gray-400" />}
         </div>
       </div>
 
@@ -360,7 +360,8 @@ export function MemberManagement({ orgUnitId }: MemberManagementProps) {
               <p className="text-gray-500 font-bold">Chưa có nhân sự nào trong đơn vị này</p>
             </div>
           ) : (
-            <div className="overflow-x-auto">
+            <>
+            <div className="hidden md:block overflow-x-auto">
               <table className="w-full text-left border-collapse">
                 <thead>
                   <tr className="bg-gray-50/30 text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] border-b">
@@ -444,6 +445,59 @@ export function MemberManagement({ orgUnitId }: MemberManagementProps) {
                 </tbody>
               </table>
             </div>
+
+            <div className="md:hidden divide-y divide-gray-100">
+              {groupedMembers.map((member) => (
+                <div key={member.userId} className={`p-5 space-y-3 ${selectedMemberIds.includes(member.userId) ? 'bg-blue-50/30' : ''}`}>
+                  <div className="flex items-start justify-between gap-2">
+                    <label className="flex items-center gap-3 min-w-0 flex-1">
+                      <input
+                        type="checkbox"
+                        className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 shrink-0"
+                        checked={selectedMemberIds.includes(member.userId)}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setSelectedMemberIds(prev => [...prev, member.userId])
+                          } else {
+                            setSelectedMemberIds(prev => prev.filter(id => id !== member.userId))
+                          }
+                        }}
+                      />
+                      <div className="w-9 h-9 rounded-full bg-blue-50 flex items-center justify-center text-blue-600 font-black text-sm shrink-0">
+                        {member.userFullName.charAt(0)}
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-sm font-black text-gray-900 truncate">{member.userFullName}</p>
+                        <p className="text-xs text-gray-500 font-medium truncate">{member.userEmail}</p>
+                      </div>
+                    </label>
+                    <button
+                      onClick={() => { setSelectedRole(null); setShowManageModal(member) }}
+                      className="p-2.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-2xl transition-all shrink-0"
+                      title="Quản lý vai trò"
+                    >
+                      <Settings2 className="w-5 h-5" />
+                    </button>
+                  </div>
+
+                  <div className="flex flex-wrap gap-2 pl-7">
+                    {member.assignments.map((asgn) => (
+                      <span key={asgn.roleId} className="inline-flex items-center px-3 py-1.5 rounded-full bg-white border border-gray-100 text-gray-700 text-[10px] font-black shadow-sm">
+                        <Shield className="w-3 h-3 mr-2 text-blue-500" />
+                        {asgn.roleName}
+                        <button
+                          onClick={() => triggerRemoveConfirm({ userId: member.userId, userFullName: member.userFullName }, { roleId: asgn.roleId, roleName: asgn.roleName })}
+                          className="ml-2 active:text-red-600"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+            </>
           )}
         </div>
       )}
@@ -512,17 +566,17 @@ export function MemberManagement({ orgUnitId }: MemberManagementProps) {
                     {showManageModal && (
                         <div className="space-y-6">
                              {/* Global Status Toggle */}
-                             <div className="p-6 rounded-2xl bg-gray-50 border border-gray-100 flex items-center justify-between">
-                                <div>
-                                    <h4 className="text-sm font-black text-gray-900">Trạng thái tài khoản (Toàn hệ thống)</h4>
-                                    <p className="text-[10px] text-gray-500 font-medium mt-1 pr-4">
+                             <div className="p-4 rounded-2xl bg-gray-50 border border-gray-100 flex items-center justify-between gap-3">
+                                <div className="min-w-0">
+                                    <h4 className="text-sm font-black text-gray-900 leading-tight">Trạng thái tài khoản <span className="block sm:inline text-gray-500 font-bold">(Toàn hệ thống)</span></h4>
+                                    <p className="text-[10px] text-gray-500 font-medium mt-1">
                                         Vô hiệu hóa sẽ chặn quyền truy cập của người dùng này vào toàn bộ hệ thống.
                                     </p>
                                 </div>
                                 <button
                                     onClick={() => handleStatusChange(showManageModal.userStatus === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE')}
                                     disabled={updateUserMutation.isPending}
-                                    className={`relative inline-flex h-7 w-12 items-center rounded-full transition-colors focus:outline-none ${showManageModal.userStatus === 'ACTIVE' ? 'bg-blue-600' : 'bg-gray-300'}`}
+                                    className={`relative inline-flex h-7 w-12 shrink-0 items-center rounded-full transition-colors focus:outline-none ${showManageModal.userStatus === 'ACTIVE' ? 'bg-blue-600' : 'bg-gray-300'}`}
                                 >
                                     <span className={`inline-block h-5 w-5 transform rounded-full bg-white transition-transform ${showManageModal.userStatus === 'ACTIVE' ? 'translate-x-6' : 'translate-x-1'}`} />
                                 </button>
@@ -613,17 +667,17 @@ export function MemberManagement({ orgUnitId }: MemberManagementProps) {
                     </div>
                 </div>
 
-                <div className="p-10 bg-gray-50/50 flex space-x-4 border-t">
-                    <button 
+                <div className="p-5 md:p-10 bg-gray-50/50 flex space-x-3 md:space-x-4 border-t">
+                    <button
                         onClick={() => { setShowAddModal(false); setShowManageModal(null); }}
-                        className="flex-1 px-8 py-4 bg-white border border-gray-200 text-gray-700 rounded-[1.25rem] hover:bg-gray-100 font-black transition-all shadow-sm"
+                        className="flex-1 px-4 md:px-8 py-3 md:py-4 bg-white border border-gray-200 text-gray-700 rounded-[1.25rem] hover:bg-gray-100 font-black transition-all shadow-sm whitespace-nowrap"
                     >
                         Đóng
                     </button>
-                    <button 
+                    <button
                         disabled={(!showManageModal && selectedUsers.length === 0) || !selectedRole || assignMutation.isPending || bulkAssignMutation.isPending}
                         onClick={handleAddMember}
-                        className="flex-1 px-8 py-4 bg-blue-600 text-white rounded-[1.25rem] hover:bg-blue-700 font-black transition-all shadow-xl shadow-blue-200 disabled:opacity-50 flex items-center justify-center"
+                        className="flex-1 px-4 md:px-8 py-3 md:py-4 bg-blue-600 text-white rounded-[1.25rem] hover:bg-blue-700 font-black transition-all shadow-xl shadow-blue-200 disabled:opacity-50 flex items-center justify-center whitespace-nowrap"
                     >
                         {(assignMutation.isPending || bulkAssignMutation.isPending) ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Xác nhận gán'}
                     </button>

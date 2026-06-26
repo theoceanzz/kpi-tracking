@@ -14,10 +14,12 @@ import {
   Users, Building2, ChevronRight, ArrowUpDown,
   Calendar, ChevronLeft, Search, CheckCircle,
   ShieldCheck, Target, GitBranch,
-  Loader2, ChevronDown, CornerDownRight
+  Loader2, ChevronDown, CornerDownRight,
+  LayoutGrid, List
 } from 'lucide-react'
 import { buildKpiRows } from '../utils/kpiTree'
 import { useAuthStore } from '@/store/authStore'
+import { usePermission } from '@/hooks/usePermission'
 import { useKpiPeriods } from '../hooks/useKpiPeriods'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { useOrgUnitTree } from '@/features/orgunits/hooks/useOrgUnitTree'
@@ -51,8 +53,12 @@ export default function KpiApprovalPage() {
   // Selection state
   const [selectedKpis, setSelectedKpis] = useState<string[]>([])
   const [collapsedParents, setCollapsedParents] = useState<Set<string>>(new Set())
+  const [viewMode, setViewMode] = useState<'list' | 'card'>(() =>
+    typeof window !== 'undefined' && window.matchMedia('(max-width: 767px)').matches ? 'card' : 'list'
+  )
   
   const user = useAuthStore(s => s.user)
+  const { canRevertApproval } = usePermission()
   const organizationId = user?.memberships?.[0]?.organizationId
   const { data: org } = useOrganization(organizationId)
   const enableOkr = org?.enableOkr
@@ -134,7 +140,7 @@ export default function KpiApprovalPage() {
     setReviewKpi(null) // Close review modal when editing
   }
 
-  const items = (criteriaData?.content ?? []).filter(kpi => kpi.createdById !== user?.id || kpi.status !== 'PENDING_APPROVAL')
+  const items = (criteriaData?.content ?? []).filter(kpi => canRevertApproval || kpi.createdById !== user?.id || kpi.status !== 'PENDING_APPROVAL')
   const totalPages = criteriaData?.totalPages || 1
   const totalElements = criteriaData?.totalElements || 0
   const { rows: itemRows, childrenByParentId } = buildKpiRows(items, collapsedParents)
@@ -151,14 +157,14 @@ export default function KpiApprovalPage() {
   // Quick stats
   const { data: statsData } = useKpiCriteria({ size: 1000, organizationId: user?.memberships?.[0]?.organizationId, approvalMode: true })
   const stats = useMemo(() => {
-    const all = (statsData?.content ?? []).filter(k => k.createdById !== user?.id || k.status !== 'PENDING_APPROVAL')
+    const all = (statsData?.content ?? []).filter(k => canRevertApproval || k.createdById !== user?.id || k.status !== 'PENDING_APPROVAL')
     return {
       total: all.length,
       pending: all.filter(k => k.status === 'PENDING_APPROVAL').length,
       approved: all.filter(k => k.status === 'APPROVED').length,
       rejected: all.filter(k => k.status === 'REJECTED').length,
     }
-  }, [statsData, user?.id])
+  }, [statsData, user?.id, canRevertApproval])
 
   // Bulk Approve Mutation
   const bulkApproveMutation = useMutation({
@@ -216,7 +222,7 @@ export default function KpiApprovalPage() {
                 </div>
               </div>
 
-              <div className="flex items-center gap-3">
+              <div className="grid grid-cols-3 gap-2 sm:gap-3 w-full sm:w-auto">
                 <StatChip label="Đợi duyệt" value={stats.pending} color="amber" />
                 <StatChip label="Từ chối" value={stats.rejected} color="red" />
                 <StatChip label="Đã duyệt" value={stats.approved} color="emerald" />
@@ -229,14 +235,38 @@ export default function KpiApprovalPage() {
         <div id="tour-pending-toolbar" className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-md p-6 rounded-[28px] border border-slate-200 dark:border-slate-800 shadow-sm space-y-4">
           {/* Row 1: Primary Filters */}
           <div className="flex flex-col md:flex-row items-center gap-4 w-full">
-            <div className="relative flex-1">
-              <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-              <input 
-                value={search}
-                onChange={e => { setSearch(e.target.value); setPage(0) }}
-                placeholder="Tìm tên chỉ tiêu, phòng ban, nhân sự..." 
-                className="w-full h-12 pl-12 pr-4 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 text-sm font-medium focus:ring-2 focus:ring-indigo-500/20 outline-none transition-all"
-              />
+            <div className="flex items-center gap-2 flex-1 w-full">
+              <div className="relative flex-1">
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                <input
+                  value={search}
+                  onChange={e => { setSearch(e.target.value); setPage(0) }}
+                  placeholder="Tìm tên chỉ tiêu, phòng ban, nhân sự..."
+                  className="w-full h-12 pl-12 pr-4 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 text-sm font-medium focus:ring-2 focus:ring-indigo-500/20 outline-none transition-all"
+                />
+              </div>
+              <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-[18px] shrink-0">
+                <button
+                  onClick={() => setViewMode('list')}
+                  className={cn(
+                    "p-2.5 rounded-xl transition-all duration-300",
+                    viewMode === 'list' ? 'bg-white dark:bg-slate-700 shadow-md text-indigo-600 scale-105' : 'text-slate-400 hover:text-slate-600'
+                  )}
+                  title="Dạng danh sách"
+                >
+                  <List size={18} />
+                </button>
+                <button
+                  onClick={() => setViewMode('card')}
+                  className={cn(
+                    "p-2.5 rounded-xl transition-all duration-300",
+                    viewMode === 'card' ? 'bg-white dark:bg-slate-700 shadow-md text-indigo-600 scale-105' : 'text-slate-400 hover:text-slate-600'
+                  )}
+                  title="Dạng card"
+                >
+                  <LayoutGrid size={18} />
+                </button>
+              </div>
             </div>
             
             <div className="w-full md:w-72">
@@ -281,7 +311,7 @@ export default function KpiApprovalPage() {
                 <span className="text-[10px] font-black uppercase tracking-[0.2em] whitespace-nowrap">Bộ lọc OKR</span>
               </div>
               
-              <div className="flex-1 md:max-w-[480px]">
+              <div className="w-full md:flex-1 md:max-w-[480px]">
                 <Select value={selectedObjectiveId} onValueChange={(v) => { setSelectedObjectiveId(v); setSelectedKeyResultId('ALL'); setPage(0) }}>
                   <SelectTrigger className="h-12 rounded-2xl border-indigo-100 dark:border-indigo-900/50 bg-indigo-50/30 dark:bg-indigo-900/10 font-bold text-sm text-indigo-900 dark:text-indigo-100">
                     <div className="flex items-center gap-2 overflow-hidden">
@@ -300,7 +330,7 @@ export default function KpiApprovalPage() {
                 </Select>
               </div>
 
-              <div className="flex-1 md:max-w-[480px]">
+              <div className="w-full md:flex-1 md:max-w-[480px]">
                 <Select value={selectedKeyResultId} onValueChange={(v) => { setSelectedKeyResultId(v); setPage(0) }} disabled={selectedObjectiveId === 'ALL'}>
                   <SelectTrigger className="h-12 rounded-2xl border-indigo-100 dark:border-indigo-900/50 bg-indigo-50/30 dark:bg-indigo-900/10 font-bold text-sm text-indigo-900 dark:text-indigo-100 disabled:opacity-50 transition-all">
                     <div className="flex items-center gap-2 overflow-hidden">
@@ -351,9 +381,9 @@ export default function KpiApprovalPage() {
 
         {/* Bulk Action Bar */}
         {selectedKpis.length > 0 && (
-          <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-50 animate-in slide-in-from-bottom-8 duration-500">
-            <div className="bg-slate-900 dark:bg-indigo-950 text-white px-8 py-3.5 rounded-[24px] shadow-2xl flex items-center gap-6 border border-white/10 backdrop-blur-xl">
-              <div className="flex items-center gap-3 border-r border-white/10 pr-6 whitespace-nowrap">
+          <div className="fixed bottom-4 sm:bottom-8 left-1/2 -translate-x-1/2 z-50 animate-in slide-in-from-bottom-8 duration-500 w-[92vw] sm:w-auto">
+            <div className="bg-slate-900 dark:bg-indigo-950 text-white px-4 sm:px-8 py-3.5 rounded-[24px] shadow-2xl flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-6 border border-white/10 backdrop-blur-xl">
+              <div className="flex items-center justify-between sm:justify-start gap-3 sm:border-r border-white/10 sm:pr-6 whitespace-nowrap">
                 <div className="flex flex-col items-start">
                   <span className="text-[10px] font-black uppercase tracking-widest text-indigo-500/50">Đã chọn</span>
                   <span className="text-sm font-black tracking-tight">{selectedKpis.length} mục</span>
@@ -392,7 +422,7 @@ export default function KpiApprovalPage() {
           </div>
         ) : (
           <div className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl rounded-[32px] border border-slate-200 dark:border-slate-800 overflow-hidden shadow-2xl animate-in zoom-in-95 duration-500">
-            <div className="overflow-x-auto scrollbar-thin">
+            {viewMode === 'list' && <div className="overflow-x-auto scrollbar-thin">
               <table className="w-full text-left border-collapse">
                 <thead>
                   <tr className="bg-slate-50/50 dark:bg-slate-800/50 border-b border-slate-100 dark:border-slate-800">
@@ -565,7 +595,122 @@ export default function KpiApprovalPage() {
                   })}
                 </tbody>
               </table>
-            </div>
+            </div>}
+
+            {/* Card View */}
+            {viewMode === 'card' && (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 p-3">
+                {itemRows.map(({ kpi, depth }) => {
+                  const status = STATUS_CONFIG[kpi.status as keyof typeof STATUS_CONFIG] ?? STATUS_CONFIG['PENDING_APPROVAL']!
+                  const StatusIcon = status.icon
+                  const isSelected = selectedKpis.includes(kpi.id)
+                  const isChildRow = depth > 0
+                  const childKpis = childrenByParentId.get(kpi.id) ?? []
+
+                  return (
+                    <div
+                      key={kpi.id}
+                      className={cn(
+                        "relative bg-white dark:bg-slate-900 rounded-2xl border overflow-hidden shadow-sm transition-all active:scale-[0.98]",
+                        isSelected ? "border-indigo-300 dark:border-indigo-700 ring-2 ring-indigo-500/20" : "border-slate-200 dark:border-slate-800",
+                        isChildRow && "ml-4"
+                      )}
+                    >
+                      {/* Status color strip */}
+                      <div className={cn("h-1 w-full",
+                        kpi.status === 'APPROVED' ? 'bg-emerald-400' :
+                        kpi.status === 'REJECTED' ? 'bg-red-400' : 'bg-amber-400'
+                      )} />
+
+                      <div className="p-4 space-y-3">
+                        {/* Header */}
+                        <div className="flex items-start gap-2">
+                          {kpi.status === 'PENDING_APPROVAL' && (
+                            <input
+                              type="checkbox"
+                              checked={isSelected}
+                              onChange={(e) => { e.stopPropagation(); toggleSelect(kpi.id) }}
+                              onClick={(e) => e.stopPropagation()}
+                              className="w-5 h-5 mt-0.5 rounded-lg border-2 border-slate-300 dark:border-slate-600 text-indigo-600 accent-indigo-600 shrink-0 cursor-pointer"
+                            />
+                          )}
+                          <button onClick={() => setReviewKpi(kpi)} className="text-left flex-1 min-w-0">
+                            <p className="text-sm font-black text-slate-900 dark:text-white line-clamp-2 leading-snug">{kpi.name}</p>
+                            <div className="flex items-center gap-1.5 flex-wrap mt-1">
+                              <p className="text-[10px] font-black text-slate-400 uppercase tracking-tighter">{FREQUENCY_MAP[kpi.frequency as keyof typeof FREQUENCY_MAP] || kpi.frequency}</p>
+                              {!isChildRow && childKpis.length > 0 && (
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 text-[9px] font-black uppercase tracking-wider border border-slate-200 dark:border-slate-700 whitespace-nowrap">
+                                  {childKpis.length} KPI con
+                                </span>
+                              )}
+                              {kpi.isReverseKpi && (
+                                <span className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 text-[9px] font-black uppercase tracking-wider border border-orange-200 dark:border-orange-800/50 whitespace-nowrap">↓ Ngược</span>
+                              )}
+                              {kpi.isBonusKpi && (
+                                <span className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 text-[9px] font-black uppercase tracking-wider border border-emerald-200 dark:border-emerald-800/50 whitespace-nowrap">+ Thưởng</span>
+                              )}
+                            </div>
+                          </button>
+                          <div className={cn("inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-[9px] font-black uppercase tracking-widest shadow-sm shrink-0", status.bgColor, status.color)}>
+                            <StatusIcon size={10} className={kpi.status === 'PENDING_APPROVAL' ? 'animate-pulse' : ''} />
+                            {status.label}
+                          </div>
+                        </div>
+
+                        {/* OKR info */}
+                        {enableOkr && (kpi.objectiveName || kpi.keyResultName) && (
+                          <div className="flex items-start gap-2 p-2.5 rounded-xl bg-indigo-50/60 dark:bg-indigo-900/20 border border-indigo-100 dark:border-indigo-900/40">
+                            <Target size={12} className="text-indigo-400 shrink-0 mt-0.5" />
+                            <div className="min-w-0 flex-1 space-y-0.5">
+                              <p className="text-[9px] font-black text-indigo-600 dark:text-indigo-400 uppercase truncate">{kpi.objectiveCode && `[${kpi.objectiveCode}]`} {kpi.objectiveName || 'N/A'}</p>
+                              {kpi.keyResultName && (
+                                <p className="text-[9px] font-bold text-violet-600 dark:text-violet-400 truncate">{kpi.keyResultCode && `[${kpi.keyResultCode}]`} {kpi.keyResultName}</p>
+                              )}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Org + Assignees */}
+                        <div className="flex items-center gap-3 text-[10px] font-medium text-slate-500">
+                          <div className="flex items-center gap-1.5 min-w-0 flex-1">
+                            <Building2 size={11} className="text-slate-400 shrink-0" />
+                            <span className="truncate">{kpi.orgUnitName || 'N/A'}</span>
+                          </div>
+                          <div className="flex items-center gap-1.5 min-w-0 flex-1">
+                            <Users size={11} className="text-slate-400 shrink-0" />
+                            <span className="truncate">{formatAssigneeNames(kpi.assigneeNames)}</span>
+                          </div>
+                        </div>
+
+                        {/* Footer */}
+                        <div className="flex items-center justify-between gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
+                          <div className="flex items-center gap-3">
+                            <div className="flex items-baseline gap-1">
+                              <span className="text-base font-black text-slate-900 dark:text-white">{formatNumber(kpi.targetValue || 0)}</span>
+                              <span className="text-[10px] font-black uppercase tracking-tighter text-slate-400">{kpi.unit}</span>
+                            </div>
+                            <span className="px-2.5 py-1 rounded-xl bg-indigo-50 dark:bg-indigo-900/30 border border-indigo-100/50 dark:border-indigo-800/50 text-xs font-black text-indigo-600 dark:text-indigo-400">{kpi.weight}%</span>
+                          </div>
+                          <div className="flex items-center gap-1">
+                            {!isChildRow && childKpis.length > 0 && (
+                              <button
+                                onClick={(e) => { e.stopPropagation(); toggleParentCollapse(kpi.id) }}
+                                className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-all"
+                              >
+                                <ChevronDown size={16} className={cn("transition-transform", collapsedParents.has(kpi.id) && "-rotate-90")} />
+                              </button>
+                            )}
+                            <button onClick={() => setReviewKpi(kpi)} className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-white dark:hover:bg-slate-800 rounded-xl transition-all">
+                              <ChevronRight size={18} />
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
           </div>
         )}
 
@@ -647,11 +792,11 @@ function StatChip({ label, value, color }: { label: string; value: number; color
   
   return (
     <div className={cn(
-      "flex flex-col items-center justify-center min-w-[100px] px-4 py-2.5 rounded-2xl border backdrop-blur-sm transition-all hover:scale-105 duration-300",
+      "flex flex-col items-center justify-center min-w-0 px-2 sm:px-4 py-2.5 rounded-2xl border backdrop-blur-sm transition-all hover:scale-105 duration-300",
       colorMap[color]
     )}>
       <span className="text-xl font-black tracking-tighter">{value}</span>
-      <span className="text-[9px] font-bold uppercase tracking-widest opacity-60">{label}</span>
+      <span className="text-[9px] font-bold uppercase tracking-widest opacity-60 truncate">{label}</span>
     </div>
   )
 }

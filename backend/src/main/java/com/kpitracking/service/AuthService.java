@@ -113,12 +113,9 @@ public class AuthService {
                 .name(request.getOrganizationName())
                 .code(request.getOrganizationCode())
                 .orgHierarchyLevel(rootLevel)
-                .path("/temp/")  // DB trigger will set the real path
+                .path("/" + request.getOrganizationCode() + "/")
                 .build();
         rootUnit = orgUnitRepository.save(rootUnit);
-        // Refresh to get trigger-computed path
-        orgUnitRepository.flush();
-        rootUnit = orgUnitRepository.findById(rootUnit.getId()).orElseThrow();
 
         // 3. Create User
         String verifyToken = generateAlphanumericOTP(6);

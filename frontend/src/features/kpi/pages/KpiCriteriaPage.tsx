@@ -2,6 +2,7 @@ import { useState, useRef, useEffect, useMemo } from 'react'
 import { format } from 'date-fns'
 
 import LoadingSkeleton from '@/components/common/LoadingSkeleton'
+import { DatePicker } from '@/components/common/DateTimePicker'
 import EmptyState from '@/components/common/EmptyState'
 import KpiFormModal from '../components/KpiFormModal'
 import ConfirmDialog from '@/components/common/ConfirmDialog'
@@ -57,7 +58,7 @@ export default function KpiCriteriaPage() {
   const [showImportGuide, setShowImportGuide] = useState(false)
   const [selectedPeriodId, setSelectedPeriodId] = useState<string>('')
   const [selectedOrgUnitId, setSelectedOrgUnitId] = useState<string>('')
-  const [viewMode, setViewMode] = useState<'TABLE' | 'CARD'>('TABLE')
+  const [viewMode, setViewMode] = useState<'TABLE' | 'CARD'>(() => window.matchMedia('(max-width: 767px)').matches ? 'CARD' : 'TABLE')
   const [page, setPage] = useState(0)
   const [pageSize] = useState(10)
   const [sortBy, setSortBy] = useState('createdAt')
@@ -324,31 +325,41 @@ export default function KpiCriteriaPage() {
         
         {/* Bulk Action Float Bar */}
         {selectedKpiIds.length > 0 && (
-          <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-[100] animate-in slide-in-from-bottom-8 duration-500">
-            <div className="flex items-center gap-6 px-8 py-4 bg-slate-900 dark:bg-white text-white dark:text-slate-900 rounded-[28px] shadow-2xl border border-white/10 dark:border-slate-200 backdrop-blur-xl">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-2xl bg-indigo-500/20 dark:bg-indigo-50 flex items-center justify-center">
-                  <CheckSquare size={20} className="text-indigo-400 dark:text-indigo-600" />
+          <div className="fixed bottom-4 sm:bottom-8 left-1/2 -translate-x-1/2 z-[100] animate-in slide-in-from-bottom-8 duration-500 w-[92vw] sm:w-auto">
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-6 px-5 sm:px-8 py-4 bg-slate-900 dark:bg-white text-white dark:text-slate-900 rounded-[28px] shadow-2xl border border-white/10 dark:border-slate-200 backdrop-blur-xl">
+              <div className="flex items-center justify-between sm:justify-start gap-3">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-2xl bg-indigo-500/20 dark:bg-indigo-50 flex items-center justify-center shrink-0">
+                    <CheckSquare size={20} className="text-indigo-400 dark:text-indigo-600" />
+                  </div>
+                  <div className="flex flex-col">
+                    <p className="text-sm font-black uppercase tracking-tight">Đã chọn {selectedKpiIds.length} chỉ tiêu</p>
+                    <p className="text-[10px] opacity-60 font-black tracking-widest uppercase">Để thực hiện gửi duyệt hàng loạt</p>
+                  </div>
                 </div>
-                <div className="flex flex-col">
-                  <p className="text-sm font-black uppercase tracking-tight">Đã chọn {selectedKpiIds.length} chỉ tiêu</p>
-                  <p className="text-[10px] opacity-60 font-black tracking-widest uppercase">Để thực hiện gửi duyệt hàng loạt</p>
-                </div>
+                <button
+                  onClick={() => setSelectedKpiIds([])}
+                  className="text-xs font-black uppercase tracking-widest opacity-60 hover:opacity-100 transition-opacity sm:hidden shrink-0"
+                >
+                  Hủy
+                </button>
               </div>
-              <div className="h-8 w-px bg-white/10 dark:bg-slate-200" />
-              <button 
-                onClick={() => setShowBulkConfirm(true)}
-                disabled={bulkSubmitMutation.isPending}
-                className="flex items-center gap-2 px-6 py-2.5 rounded-2xl bg-indigo-600 dark:bg-indigo-600 text-white text-xs font-black uppercase tracking-widest hover:bg-indigo-700 active:scale-95 transition-all shadow-lg"
-              >
-                {bulkSubmitMutation.isPending ? 'Đang xử lý...' : 'Gửi duyệt toàn bộ'} <Send size={14} />
-              </button>
-              <button 
-                onClick={() => setSelectedKpiIds([])}
-                className="text-xs font-black uppercase tracking-widest opacity-60 hover:opacity-100 transition-opacity"
-              >
-                Hủy chọn
-              </button>
+              <div className="hidden sm:block h-8 w-px bg-white/10 dark:bg-slate-200" />
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={() => setShowBulkConfirm(true)}
+                  disabled={bulkSubmitMutation.isPending}
+                  className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-6 py-2.5 rounded-2xl bg-indigo-600 dark:bg-indigo-600 text-white text-xs font-black uppercase tracking-widest hover:bg-indigo-700 active:scale-95 transition-all shadow-lg whitespace-nowrap"
+                >
+                  {bulkSubmitMutation.isPending ? 'Đang xử lý...' : 'Gửi duyệt toàn bộ'} <Send size={14} />
+                </button>
+                <button
+                  onClick={() => setSelectedKpiIds([])}
+                  className="hidden sm:inline text-xs font-black uppercase tracking-widest opacity-60 hover:opacity-100 transition-opacity"
+                >
+                  Hủy chọn
+                </button>
+              </div>
             </div>
           </div>
         )}
@@ -377,11 +388,11 @@ export default function KpiCriteriaPage() {
 
               <div className="flex items-stretch gap-4">
                 <div className="flex bg-slate-50/50 dark:bg-slate-800/50 backdrop-blur-md rounded-[28px] border border-slate-200/60 dark:border-slate-700/60 p-2 shadow-inner group/stats">
-                  <div className="px-8 py-3 text-center border-r border-slate-200 dark:border-slate-700 group-hover/stats:scale-105 transition-transform duration-500">
+                  <div className="px-4 sm:px-8 py-3 text-center border-r border-slate-200 dark:border-slate-700 group-hover/stats:scale-105 transition-transform duration-500">
                     <p className="text-3xl font-black text-slate-900 dark:text-white tracking-tighter">{stats.total}</p>
                     <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Tổng chỉ tiêu</p>
                   </div>
-                  <div className="px-8 py-3 text-center group-hover/stats:scale-105 transition-transform duration-500">
+                  <div className="px-4 sm:px-8 py-3 text-center group-hover/stats:scale-105 transition-transform duration-500">
                     <div className={`flex items-center gap-3 justify-center ${
                       displayTotalWeight === 100 ? 'text-emerald-600' : 'text-rose-600'
                     }`}>
@@ -427,9 +438,9 @@ export default function KpiCriteriaPage() {
                 />
               </div>
 
-              <div className="flex items-center gap-3 w-full lg:w-auto justify-end">
+              <div className="flex items-center gap-3 w-full lg:w-auto justify-between lg:justify-end">
                 <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-[18px]">
-                  <button 
+                  <button
                     onClick={() => setViewMode('TABLE')}
                     className={cn(
                       "p-2.5 rounded-xl transition-all duration-300",
@@ -438,7 +449,7 @@ export default function KpiCriteriaPage() {
                   >
                     <List size={20} />
                   </button>
-                  <button 
+                  <button
                     onClick={() => setViewMode('CARD')}
                     className={cn(
                       "p-2.5 rounded-xl transition-all duration-300",
@@ -449,20 +460,22 @@ export default function KpiCriteriaPage() {
                   </button>
                 </div>
 
-                <button 
-                  onClick={() => setShowImportGuide(true)}
-                  className="flex items-center gap-2 px-5 h-[52px] rounded-[20px] border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm font-black text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all active:scale-95 shadow-sm"
-                >
-                  <Upload size={18} /> Import
-                </button>
+                <div className="flex items-center gap-2 lg:gap-3">
+                  <button
+                    onClick={() => setShowImportGuide(true)}
+                    className="flex items-center gap-2 px-4 sm:px-5 h-11 sm:h-[52px] rounded-[20px] border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs sm:text-sm font-black text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all active:scale-95 shadow-sm whitespace-nowrap"
+                  >
+                    <Upload size={16} /> Import
+                  </button>
 
-                <button 
-                  id="tour-kpi-add-btn"
-                  onClick={() => { setEditKpi(null); setShowForm(true) }} 
-                  className="cursor-pointer relative z-10 flex items-center gap-2 px-8 h-[52px] rounded-[20px] bg-indigo-600 text-white text-sm font-black hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-500/20 active:scale-95 group"
-                >
-                  <Plus size={20} className="group-hover:rotate-90 transition-transform duration-500" /> Tạo mới
-                </button>
+                  <button
+                    id="tour-kpi-add-btn"
+                    onClick={() => { setEditKpi(null); setShowForm(true) }}
+                    className="cursor-pointer relative z-10 flex items-center gap-2 px-5 sm:px-8 h-11 sm:h-[52px] rounded-[20px] bg-indigo-600 text-white text-xs sm:text-sm font-black hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-500/20 active:scale-95 group whitespace-nowrap"
+                  >
+                    <Plus size={18} className="group-hover:rotate-90 transition-transform duration-500" /> Tạo mới
+                  </button>
+                </div>
               </div>
             </div>
 
@@ -546,10 +559,29 @@ export default function KpiCriteriaPage() {
                 </div>
 
                 {/* Group: Time Range */}
-                <div className="flex items-center gap-1 p-1.5 bg-slate-100/50 dark:bg-slate-800/50 rounded-[22px] border border-slate-200/50 dark:border-slate-700/50">
+                {/* Mobile: custom picker */}
+                <div className="flex md:hidden items-center gap-2 w-full">
+                  <DatePicker
+                    value={startDateFilter}
+                    onChange={(v) => { setStartDateFilter(v); setPage(0) }}
+                    onClear={() => { setStartDateFilter(''); setPage(0) }}
+                    placeholder="Từ ngày"
+                    className="flex-1"
+                  />
+                  <div className="w-4 h-[1px] bg-slate-300 dark:bg-slate-600 shrink-0" />
+                  <DatePicker
+                    value={endDateFilter}
+                    onChange={(v) => { setEndDateFilter(v); setPage(0) }}
+                    onClear={() => { setEndDateFilter(''); setPage(0) }}
+                    placeholder="Đến ngày"
+                    className="flex-1"
+                  />
+                </div>
+                {/* Desktop: original inputs */}
+                <div className="hidden md:flex items-center gap-1 p-1.5 bg-slate-100/50 dark:bg-slate-800/50 rounded-[22px] border border-slate-200/50 dark:border-slate-700/50">
                   <div className="relative group/date">
                     <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 z-10" size={12} />
-                    <input 
+                    <input
                       type="date"
                       value={startDateFilter}
                       onChange={(e) => { setStartDateFilter(e.target.value); setPage(0) }}
@@ -562,7 +594,7 @@ export default function KpiCriteriaPage() {
                   <div className="w-4 h-[1px] bg-slate-300 dark:bg-slate-600 mx-1" />
                   <div className="relative group/date">
                     <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 z-10" size={12} />
-                    <input 
+                    <input
                       type="date"
                       value={endDateFilter}
                       onChange={(e) => { setEndDateFilter(e.target.value); setPage(0) }}
@@ -609,13 +641,13 @@ export default function KpiCriteriaPage() {
 
             {/* Filters Row 2: Strategic Filters (OKR) */}
             {enableOkr && (
-              <div className="flex flex-wrap items-center gap-3 pt-4 border-t border-slate-50 dark:border-slate-800/30 animate-in slide-in-from-top-2 duration-500">
-                <div className="flex items-center gap-2 text-indigo-600 dark:text-indigo-400 min-w-[140px] px-2">
+              <div className="flex flex-col md:flex-row md:flex-wrap md:items-center gap-3 pt-4 border-t border-slate-50 dark:border-slate-800/30 animate-in slide-in-from-top-2 duration-500">
+                <div className="flex items-center gap-2 text-indigo-600 dark:text-indigo-400 md:min-w-[140px] px-2">
                   <Target size={18} className="animate-bounce" />
                   <span className="text-[10px] font-black uppercase tracking-[0.2em] whitespace-nowrap">Bộ lọc OKR</span>
                 </div>
 
-                <div className="flex-1 md:max-w-[480px]">
+                <div className="w-full md:flex-1 md:max-w-[480px]">
                   <Select value={selectedObjectiveId} onValueChange={(v) => { setSelectedObjectiveId(v); setSelectedKeyResultId('ALL'); setPage(0) }}>
                     <SelectTrigger className="h-11 rounded-xl border-indigo-100 dark:border-indigo-900/50 bg-indigo-50/30 dark:bg-indigo-900/10 font-bold text-xs text-indigo-900 dark:text-indigo-100">
                       <div className="flex items-center gap-2 overflow-hidden">
@@ -634,7 +666,7 @@ export default function KpiCriteriaPage() {
                   </Select>
                 </div>
 
-                <div className="flex-1 md:max-w-[480px]">
+                <div className="w-full md:flex-1 md:max-w-[480px]">
                   <Select value={selectedKeyResultId} onValueChange={(v) => { setSelectedKeyResultId(v); setPage(0) }} disabled={selectedObjectiveId === 'ALL'}>
                     <SelectTrigger className="h-11 rounded-xl border-indigo-100 dark:border-indigo-900/50 bg-indigo-50/30 dark:bg-indigo-900/10 font-bold text-xs text-indigo-900 dark:text-indigo-100 disabled:opacity-50 transition-all">
                       <div className="flex items-center gap-2 overflow-hidden">
@@ -658,14 +690,14 @@ export default function KpiCriteriaPage() {
 
           {/* Status Tabs Row */}
           <div id="tour-kpi-tabs" className="flex flex-wrap items-center gap-3 py-2 w-full">
-            <div className="flex flex-wrap items-center gap-3">
+            <div className="flex flex-wrap items-center gap-2 sm:gap-3">
               {['ALL', 'DRAFT', 'PENDING_APPROVAL', 'APPROVED', 'REJECTED'].map((tab) => {
-                const tabLabels: Record<string, string> = { 
-                  ALL: 'Tất cả', 
-                  DRAFT: 'Bản nháp', 
-                  PENDING_APPROVAL: 'Chờ duyệt', 
-                  APPROVED: 'Đã duyệt', 
-                  REJECTED: 'Từ chối' 
+                const tabLabels: Record<string, string> = {
+                  ALL: 'Tất cả',
+                  DRAFT: 'Bản nháp',
+                  PENDING_APPROVAL: 'Chờ duyệt',
+                  APPROVED: 'Đã duyệt',
+                  REJECTED: 'Từ chối'
                 }
                 const active = activeTab === tab
                 return (
@@ -673,9 +705,9 @@ export default function KpiCriteriaPage() {
                     key={tab}
                     onClick={() => { setActiveTab(tab as any); setPage(0) }}
                     className={cn(
-                      "px-7 py-3 rounded-full text-[11px] font-black uppercase tracking-[0.15em] transition-all duration-300 border-2 shadow-sm whitespace-nowrap",
-                      active 
-                        ? 'bg-slate-900 border-slate-900 text-white dark:bg-white dark:border-white dark:text-slate-900 shadow-indigo-500/10 scale-105' 
+                      "px-4 sm:px-7 py-2 sm:py-3 rounded-full text-[11px] font-black uppercase tracking-[0.1em] transition-all duration-300 border-2 shadow-sm whitespace-nowrap",
+                      active
+                        ? 'bg-slate-900 border-slate-900 text-white dark:bg-white dark:border-white dark:text-slate-900 shadow-indigo-500/10 scale-105'
                         : 'bg-white border-transparent text-slate-500 hover:border-slate-200 hover:text-slate-900 dark:bg-slate-900 dark:text-slate-400 dark:hover:text-white'
                     )}
                   >

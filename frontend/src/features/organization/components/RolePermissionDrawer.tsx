@@ -247,33 +247,35 @@ export default function RolePermissionDrawer({ role, isOpen, onClose, hierarchyL
       {/* Drawer Content */}
       <div className="relative w-full max-w-2xl bg-white h-screen shadow-2xl flex flex-col animate-in slide-in-from-right duration-500 ease-out">
         {/* Header */}
-        <div className="p-8 border-b bg-gradient-to-r from-gray-50 to-white flex items-center justify-between">
-          <div className="flex items-center space-x-4">
-            <div className="w-12 h-12 rounded-2xl bg-indigo-600 flex items-center justify-center text-white shadow-lg shadow-indigo-200">
-              <ShieldCheck className="w-6 h-6" />
+        <div className="p-4 md:p-8 border-b bg-gradient-to-r from-gray-50 to-white flex items-center justify-between gap-2">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-10 h-10 md:w-12 md:h-12 rounded-2xl bg-indigo-600 flex items-center justify-center text-white shadow-lg shadow-indigo-200 shrink-0">
+              <ShieldCheck className="w-5 h-5 md:w-6 md:h-6" />
             </div>
-            <div>
-              <h3 className="text-xl font-black text-gray-900 tracking-tight flex items-center">
+            <div className="min-w-0">
+              <h3 className="text-base md:text-xl font-black text-gray-900 tracking-tight">
                 Thiết lập Phân quyền
               </h3>
-              <p className="text-sm text-gray-500 font-bold flex items-center mt-0.5">
-                <ChevronRight className="w-3 h-3 mx-1 text-gray-400" />
-                Vai trò: <span className="text-indigo-600 ml-1 uppercase">{role?.name}</span>
+              <p className="text-xs md:text-sm text-gray-500 font-bold flex items-center mt-0.5 truncate">
+                <ChevronRight className="w-3 h-3 shrink-0 text-gray-400" />
+                Vai trò: <span className="text-indigo-600 ml-1 uppercase truncate">{role?.name}</span>
               </p>
             </div>
           </div>
-          <div className="flex items-center gap-3">
-            <button 
+          <div className="flex items-center gap-2 shrink-0">
+            <button
               onClick={handleApplyDefaults}
-              className="flex items-center gap-2 px-4 py-2.5 bg-amber-50 text-amber-700 border border-amber-200 rounded-xl hover:bg-amber-100 transition-all font-black text-[10px] uppercase tracking-wider shadow-sm"
+              className="flex items-center gap-1.5 px-2.5 py-2 md:px-4 md:py-2.5 bg-amber-50 text-amber-700 border border-amber-200 rounded-xl hover:bg-amber-100 transition-all font-black text-[10px] uppercase tracking-wider shadow-sm whitespace-nowrap"
             >
-              <Zap size={14} fill="currentColor" /> Áp dụng quyền mặc định
+              <Zap size={13} fill="currentColor" />
+              <span className="hidden sm:inline">Áp dụng quyền mặc định</span>
+              <span className="sm:hidden">Mặc định</span>
             </button>
-            <button 
+            <button
               onClick={onClose}
-              className="p-3 text-gray-400 hover:text-gray-900 hover:bg-gray-100 rounded-2xl transition-all"
+              className="p-2 md:p-3 text-gray-400 hover:text-gray-900 hover:bg-gray-100 rounded-2xl transition-all"
             >
-              <X className="w-6 h-6" />
+              <X className="w-5 h-5 md:w-6 md:h-6" />
             </button>
           </div>
         </div>
@@ -354,27 +356,27 @@ export default function RolePermissionDrawer({ role, isOpen, onClose, hierarchyL
         </div>
 
         {/* Footer */}
-        <div className="p-8 border-t bg-white flex items-center justify-between space-x-4">
-          <div className="text-sm">
+        <div className="p-4 md:p-8 border-t bg-white flex items-center justify-between gap-3">
+          <div className="text-xs md:text-sm shrink-0">
             <span className="text-gray-400 font-bold">Đã chọn:</span>
-            <span className="text-indigo-600 font-black ml-2">{selectedIds.size} quyền hạn</span>
+            <span className="text-indigo-600 font-black ml-1 md:ml-2">{selectedIds.size} quyền hạn</span>
           </div>
-          <div className="flex space-x-3">
-            <button 
+          <div className="flex gap-2 md:gap-3">
+            <button
               onClick={onClose}
-              className="px-8 py-3.5 bg-white border border-gray-200 text-gray-700 rounded-2xl hover:bg-gray-100 font-black transition-all shadow-sm"
+              className="px-4 py-2.5 md:px-8 md:py-3.5 bg-white border border-gray-200 text-gray-700 rounded-2xl hover:bg-gray-100 font-black transition-all shadow-sm text-sm whitespace-nowrap"
             >
               Hủy bỏ
             </button>
-            <button 
+            <button
               onClick={handleSave}
               disabled={updateMutation.isPending}
-              className="px-10 py-3.5 bg-indigo-600 text-white rounded-2xl hover:bg-indigo-700 font-black transition-all shadow-xl shadow-indigo-200 disabled:opacity-50 flex items-center"
+              className="px-4 py-2.5 md:px-10 md:py-3.5 bg-indigo-600 text-white rounded-2xl hover:bg-indigo-700 font-black transition-all shadow-xl shadow-indigo-200 disabled:opacity-50 flex items-center gap-1.5 md:gap-2 text-sm whitespace-nowrap"
             >
               {updateMutation.isPending ? (
-                <Loader2 className="w-5 h-5 animate-spin mr-2" />
+                <Loader2 className="w-4 h-4 animate-spin" />
               ) : (
-                <Save className="w-5 h-5 mr-2" />
+                <Save className="w-4 h-4" />
               )}
               Lưu phân quyền
             </button>

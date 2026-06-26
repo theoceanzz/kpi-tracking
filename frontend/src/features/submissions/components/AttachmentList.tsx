@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import type { Attachment } from '@/types/submission'
-import { FileIcon, Download, Eye, ExternalLink } from 'lucide-react'
+import { FileIcon, Download, Eye, ExternalLink, FileVideo, FileAudio } from 'lucide-react'
 import MediaPreviewModal from '@/components/common/MediaPreviewModal'
 import { downloadFile } from '@/lib/utils'
 
@@ -23,8 +23,10 @@ export default function AttachmentList({ attachments }: AttachmentListProps) {
         {attachments.map((a) => {
           const isImage = a.contentType?.startsWith('image/') || /\.(jpg|jpeg|png|webp)$/i.test(a.fileName)
           const isPdf = a.contentType === 'application/pdf' || a.fileName.toLowerCase().endsWith('.pdf')
+          const isVideo = a.contentType?.startsWith('video/') || /\.(mp4|webm|ogg|mov)$/i.test(a.fileName)
+          const isAudio = a.contentType?.startsWith('audio/') || /\.(mp3|wav|m4a|aac)$/i.test(a.fileName)
           const isOffice = /\.(docx?|xlsx?|pptx?)$/i.test(a.fileName)
-          const canPreview = isImage || isPdf || isOffice
+          const canPreview = isImage || isPdf || isOffice || isVideo || isAudio
 
           return (
             <div 
@@ -35,9 +37,11 @@ export default function AttachmentList({ attachments }: AttachmentListProps) {
               <div className="h-32 bg-slate-50 dark:bg-slate-800/50 relative flex items-center justify-center overflow-hidden border-b border-slate-100 dark:border-slate-800">
                 {isImage ? (
                   <img src={a.fileUrl} alt={a.fileName} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
+                ) : isVideo ? (
+                  <video src={a.fileUrl} className="w-full h-full object-cover" preload="metadata" muted />
                 ) : (
                   <div className="text-slate-300 dark:text-slate-600">
-                    <FileIcon size={48} strokeWidth={1.5} />
+                    {isAudio ? <FileAudio size={48} strokeWidth={1.5} /> : <FileIcon size={48} strokeWidth={1.5} />}
                   </div>
                 )}
                 
@@ -77,6 +81,16 @@ export default function AttachmentList({ attachments }: AttachmentListProps) {
                       PDF
                    </div>
                 )}
+                {isVideo && (
+                   <div className="absolute top-2 right-2 px-2 py-0.5 rounded-md bg-purple-500 text-white text-[10px] font-black uppercase tracking-widest shadow-sm flex items-center gap-1">
+                      <FileVideo size={10} /> Video
+                   </div>
+                )}
+                {isAudio && (
+                   <div className="absolute top-2 right-2 px-2 py-0.5 rounded-md bg-pink-500 text-white text-[10px] font-black uppercase tracking-widest shadow-sm flex items-center gap-1">
+                      <FileAudio size={10} /> Audio
+                   </div>
+                )}
               </div>
 
               {/* File Info */}
@@ -86,8 +100,10 @@ export default function AttachmentList({ attachments }: AttachmentListProps) {
                 </h5>
                 <div className="flex items-center justify-between text-[10px] font-bold text-slate-400 uppercase tracking-tight">
                   <span>
-                    {isImage ? 'Ảnh' : 
-                     isPdf ? 'PDF' : 
+                    {isImage ? 'Ảnh' :
+                     isPdf ? 'PDF' :
+                     isVideo ? 'Video' :
+                     isAudio ? 'Audio' :
                      a.fileName.toLowerCase().endsWith('.docx') || a.fileName.toLowerCase().endsWith('.doc') ? 'Word' :
                      a.fileName.toLowerCase().endsWith('.xlsx') || a.fileName.toLowerCase().endsWith('.xls') ? 'Excel' :
                      a.fileName.toLowerCase().endsWith('.pptx') || a.fileName.toLowerCase().endsWith('.ppt') ? 'PowerPoint' :

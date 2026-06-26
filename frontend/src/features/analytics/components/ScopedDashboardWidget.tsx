@@ -16,6 +16,13 @@ import {
 } from 'lucide-react'
 import ObjectiveMetricCard from './ObjectiveMetricCard'
 import AnalyticsComboChart from './AnalyticsComboChart'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { subDays, subMonths, startOfYear } from 'date-fns'
 import {
   BarChart,
@@ -769,21 +776,24 @@ export default function ScopedDashboardWidget({ type, id, dateRange: globalDateR
           </span>
         </div>
         
-        {/* Local Date Filter */}
-        <div className="flex flex-wrap items-center gap-2 bg-white dark:bg-slate-900 p-1 rounded-lg border border-slate-200 dark:border-white/10 shadow-sm text-sm">
-          <select 
-            value={dateFilterType}
-            onChange={(e) => setDateFilterType(e.target.value as DateFilterType)}
-            className="bg-transparent border-none outline-none text-slate-700 dark:text-slate-300 px-2 py-1 cursor-pointer font-medium"
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 bg-white dark:bg-slate-900 p-1 rounded-lg border border-slate-200 dark:border-white/10 shadow-sm text-sm w-full sm:w-auto">
+          <Select 
+            value={dateFilterType} 
+            onValueChange={(v) => setDateFilterType(v as DateFilterType)}
           >
-            <option value="GLOBAL">Theo bộ lọc tổng quan mục tiêu</option>
-            <option value="THIS_WEEK">Tuần này</option>
-            <option value="THIS_MONTH">Tháng này</option>
-            <option value="THIS_QUARTER">Quý này</option>
-            <option value="6_MONTHS">6 tháng qua</option>
-            <option value="THIS_YEAR">Năm nay</option>
-            <option value="CUSTOM">Tùy chỉnh</option>
-          </select>
+            <SelectTrigger className="border-none shadow-none focus:ring-0 bg-transparent h-8 text-slate-700 dark:text-slate-300 font-medium px-2 w-auto">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent className="w-[var(--radix-select-trigger-width)]">
+              <SelectItem value="GLOBAL">Theo bộ lọc tổng quan mục tiêu</SelectItem>
+              <SelectItem value="THIS_WEEK">Tuần này</SelectItem>
+              <SelectItem value="THIS_MONTH">Tháng này</SelectItem>
+              <SelectItem value="THIS_QUARTER">Quý này</SelectItem>
+              <SelectItem value="6_MONTHS">6 tháng qua</SelectItem>
+              <SelectItem value="THIS_YEAR">Năm nay</SelectItem>
+              <SelectItem value="CUSTOM">Tùy chỉnh</SelectItem>
+            </SelectContent>
+          </Select>
           {dateFilterType === 'CUSTOM' && (
             <div className="flex items-center gap-2 px-2 border-l border-slate-200 dark:border-white/10">
               <input 
