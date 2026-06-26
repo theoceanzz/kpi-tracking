@@ -16,10 +16,13 @@ import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.core.io.Resource;
 import org.springframework.stereotype.Service;
 
+import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
 @Service
@@ -32,6 +35,24 @@ public class AiService {
     private final OrgUnitStatisticTool orgUnitStatisticTool;
     private final DisambiguationGuard disambiguationGuard;
     private final FollowupContextStore followupContextStore;
+
+    /**
+     * Names of every @Tool exposed to the chat model, collected once via reflection so the
+     * response sanitizer can strip any leaked tool name without maintaining a duplicate list.
+     */
+    private static final Set<String> TOOL_NAMES = collectToolNames(OrgUnitStatisticTool.class);
+
+    private static Set<String> collectToolNames(Class<?> toolClass) {
+        Set<String> names = new LinkedHashSet<>();
+        for (Method m : toolClass.getDeclaredMethods()) {
+            org.springframework.ai.tool.annotation.Tool tool =
+                    m.getAnnotation(org.springframework.ai.tool.annotation.Tool.class);
+            if (tool == null) continue;
+            String name = tool.name() != null && !tool.name().isBlank() ? tool.name() : m.getName();
+            names.add(name);
+        }
+        return names;
+    }
 
     @Value("classpath:/promptTemplates/orgUnitToolSystemPromptTemplate.st")
     Resource orgUnitSystemPrompt;
@@ -103,7 +124,7 @@ public class AiService {
                         .tools(orgUnitStatisticTool)
                         .toolContext(toolCtx)
                         .advisors(spec -> spec.param("chat_memory_conversation_id", conversationId))
-                        .advisors(new ResponseSanitizingAdvisor())
+                        .advisors(new ResponseSanitizingAdvisor(TOOL_NAMES))
                         .call()
                         .content();
             } else {
@@ -112,7 +133,7 @@ public class AiService {
                         .system(s -> s.text(orgUnitSystemPrompt).param("currentDateTime", currentDateTime))
                         .tools(orgUnitStatisticTool)
                         .toolContext(toolCtx)
-                        .advisors(new ResponseSanitizingAdvisor())
+                        .advisors(new ResponseSanitizingAdvisor(TOOL_NAMES))
                         .call()
                         .content();
             }
