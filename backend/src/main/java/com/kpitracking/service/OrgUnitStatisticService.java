@@ -11,6 +11,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import jakarta.persistence.EntityManager;
+import jakarta.persistence.EntityNotFoundException;
 import jakarta.persistence.TypedQuery;
 import java.time.Instant;
 import java.time.ZoneId;
@@ -52,13 +53,56 @@ public class OrgUnitStatisticService {
         return unit.getPath();
     }
 
+    /**
+     * Reads a lazy {@code @ManyToOne} reference that may point at a soft-deleted entity.
+     * Such targets carry {@code @SQLRestriction("deleted_at IS NULL")}, so initializing the
+     * proxy finds no row and throws {@link EntityNotFoundException}. We swallow that and return
+     * {@code null}, letting callers degrade gracefully instead of failing the whole tool call.
+     */
+    private static <T> T safeRef(java.util.function.Supplier<T> getter) {
+        try {
+            return getter.get();
+        } catch (EntityNotFoundException e) {
+            return null;
+        }
+    }
+
+    /**
+     * Returns the KPI's period, or {@code null} when the {@code kpiPeriod} points to a soft-deleted
+     * (or otherwise missing) row. See {@link #safeRef}.
+     */
+    private KpiPeriod resolveKpiPeriod(KpiCriteria kpi) {
+        KpiPeriod period = kpi.getKpiPeriod();
+        if (period == null) return null;
+        // Touch a field to force proxy init; if the period row is filtered out / missing, treat as absent.
+        return safeRef(() -> {
+            period.getStartDate();
+            return period;
+        });
+    }
+
     // Standardized KPI Progress & Performance calculator aligned with SubordinateAnalyticsService
     public double[] calculateKpiMetrics(KpiCriteria kpi, Instant A, Instant B) {
-        Instant kpiStart = kpi.getKpiPeriod() != null && kpi.getKpiPeriod().getStartDate() != null ? 
-                           kpi.getKpiPeriod().getStartDate() : 
+        // KPI cha (decomposition): tiến độ/hiệu suất = bình quân có trọng số chuẩn hoá của các con.
+        if (KpiMetricsCalculator.hasDecompositionChildren(kpi)) {
+            double wSum = 0, compSum = 0, perfSum = 0;
+            for (KpiCriteria child : KpiMetricsCalculator.decompositionChildren(kpi)) {
+                double w = child.getWeight() != null && child.getWeight() > 0 ? child.getWeight() : 0.0;
+                if (w <= 0) continue;
+                double[] cm = calculateKpiMetrics(child, A, B);
+                wSum += w;
+                compSum += cm[0] * w;
+                perfSum += cm[1] * w;
+            }
+            return wSum > 0 ? new double[]{compSum / wSum, perfSum / wSum} : new double[]{0.0, 0.0};
+        }
+
+        KpiPeriod period = resolveKpiPeriod(kpi);
+        Instant kpiStart = period != null && period.getStartDate() != null ?
+                           period.getStartDate() :
                            (kpi.getCreatedAt() != null ? kpi.getCreatedAt() : Instant.EPOCH);
-        Instant kpiEnd = kpi.getKpiPeriod() != null && kpi.getKpiPeriod().getEndDate() != null ? 
-                         kpi.getKpiPeriod().getEndDate() : 
+        Instant kpiEnd = period != null && period.getEndDate() != null ?
+                         period.getEndDate() :
                          (kpi.getCreatedAt() != null ? kpi.getCreatedAt().plus(365, java.time.temporal.ChronoUnit.DAYS) : Instant.now().plus(365, java.time.temporal.ChronoUnit.DAYS));
 
         Instant startCalc = A != null && A.isAfter(kpiStart) ? A : kpiStart;
@@ -120,6 +164,8 @@ public class OrgUnitStatisticService {
             // KPI thác nước (có parent) không tính tiến độ/hiệu suất cho người được giao;
             // kết quả của nó đã được tổng hợp lên KPI cha nên bỏ qua để tránh tính trùng.
             if (kpi.getParent() != null) continue;
+            // KPI thưởng không phản ánh tiến độ/hiệu suất → không tính vào số trung bình.
+            if (Boolean.TRUE.equals(kpi.getIsBonusKpi())) continue;
             // KPI đã dừng nhưng chưa có mức bù (dữ liệu cũ trước khi có cơ chế bù) - bỏ qua an toàn.
             if (kpi.getStatus() == KpiStatus.INACTIVE && kpi.getCompensatedAchievementPercent() == null) continue;
             double[] metrics = calculateKpiMetrics(kpi, A, B);
@@ -152,7 +198,9 @@ public class OrgUnitStatisticService {
     private <T> TypedQuery<T> setPageParams(TypedQuery<T> query, Integer page, Integer size) {
         int p = (page != null && page > 0) ? page - 1 : 0;
         int s = (size != null && size > 0) ? size : 20;
-        if (s > 100) s = 100;
+        // Trần cứng 50 (giảm từ 100) để một tool list không đổ quá nhiều dòng nặng vào
+        // context của model trong vòng lặp gọi tool; totalCount vẫn báo còn dữ liệu để phân trang.
+        if (s > 50) s = 50;
         return query.setFirstResult(p * s).setMaxResults(s);
     }
 
@@ -188,15 +236,17 @@ public class OrgUnitStatisticService {
         List<UserRoleOrgUnit> managers = userRoleOrgUnitRepository.findManagersByOrgUnitId(targetId);
         List<Map<String, String>> managersInfo = managers.stream().map(m -> {
             Map<String, String> entry = new LinkedHashMap<>();
-            entry.put("fullName", m.getUser().getFullName());
-            entry.put("email", m.getUser().getEmail());
+            User mu = safeRef(m::getUser);
+            entry.put("fullName", mu != null ? mu.getFullName() : null);
+            entry.put("email", mu != null ? mu.getEmail() : null);
             return entry;
         }).collect(Collectors.toList());
 
         Map<String, Object> detail = new LinkedHashMap<>();
         detail.put("name", u.getName());
         detail.put("code", u.getCode());
-        detail.put("parentName", u.getParent() != null ? u.getParent().getName() : null);
+        OrgUnit parentUnit = safeRef(u::getParent);
+        detail.put("parentName", parentUnit != null ? parentUnit.getName() : null);
         detail.put("childCount", u.getChildren().size());
         detail.put("memberCount", userRoleOrgUnitRepository.countUsersByOrganizationUnitId(targetId));
         detail.put("managers", managersInfo);
@@ -307,12 +357,15 @@ public class OrgUnitStatisticService {
         List<Map<String, Object>> memberList = new ArrayList<>();
         for (UserRoleOrgUnit uro : assignments) {
             Map<String, Object> entry = new LinkedHashMap<>();
-            entry.put("fullName", uro.getUser().getFullName());
-            entry.put("email", uro.getUser().getEmail());
-            entry.put("employeeCode", uro.getUser().getEmployeeCode());
-            entry.put("orgUnitName", uro.getOrgUnit().getName());
-            entry.put("positionName", uro.getRole().getName());
-            entry.put("status", uro.getUser().getStatus().toString());
+            User mUser = safeRef(uro::getUser);
+            OrgUnit mUnit = safeRef(uro::getOrgUnit);
+            Role mRole = safeRef(uro::getRole);
+            entry.put("fullName", mUser != null ? mUser.getFullName() : null);
+            entry.put("email", mUser != null ? mUser.getEmail() : null);
+            entry.put("employeeCode", mUser != null ? mUser.getEmployeeCode() : null);
+            entry.put("orgUnitName", mUnit != null ? mUnit.getName() : null);
+            entry.put("positionName", mRole != null ? mRole.getName() : null);
+            entry.put("status", mUser != null && mUser.getStatus() != null ? mUser.getStatus().toString() : null);
             memberList.add(entry);
         }
 
@@ -543,7 +596,8 @@ public class OrgUnitStatisticService {
         for (KpiCriteria k : kpiList) {
             Map<String, Object> entry = new LinkedHashMap<>();
             entry.put("name", k.getName());
-            entry.put("description", k.getDescription());
+            // description (free-text dài) bị loại khỏi payload để giảm token gửi lên model;
+            // phân tích chỉ cần name/progress/performance. Lấy chi tiết qua get_kpi_detail nếu cần.
             entry.put("weight", k.getWeight());
             entry.put("targetValue", k.getTargetValue());
             boolean kReverse = Boolean.TRUE.equals(k.getIsReverseKpi());
@@ -551,9 +605,12 @@ public class OrgUnitStatisticService {
             entry.put("targetComparator", kReverse ? "≤" : "≥");
             entry.put("unit", k.getUnit());
             entry.put("status", k.getStatus().toString());
-            entry.put("periodName", k.getKpiPeriod() != null ? k.getKpiPeriod().getName() : null);
-            entry.put("createdByFullName", k.getCreatedBy().getFullName());
-            entry.put("orgUnitName", k.getOrgUnit().getName());
+            KpiPeriod kPeriod = resolveKpiPeriod(k);
+            entry.put("periodName", kPeriod != null ? kPeriod.getName() : null);
+            User kCreatedBy = safeRef(k::getCreatedBy);
+            OrgUnit kOrgUnit = safeRef(k::getOrgUnit);
+            entry.put("createdByFullName", kCreatedBy != null ? kCreatedBy.getFullName() : null);
+            entry.put("orgUnitName", kOrgUnit != null ? kOrgUnit.getName() : null);
             entry.put("createdAt", k.getCreatedAt() != null ? k.getCreatedAt().toString() : null);
             double[] metrics = calculateKpiMetrics(k, start, end);
             entry.put("progress", round1(metrics[0]));
@@ -625,6 +682,8 @@ public class OrgUnitStatisticService {
 
         long completed = 0L;
         for (KpiCriteria k : kpis) {
+            // KPI thưởng không tính vào số KPI hoàn thành.
+            if (Boolean.TRUE.equals(k.getIsBonusKpi())) continue;
             double[] kpiMetrics = calculateKpiMetrics(k, start, end);
             if (kpiMetrics[0] >= 100.0) {
                 completed++;
@@ -674,8 +733,10 @@ public class OrgUnitStatisticService {
         detail.put("progress", Math.round(metrics[0] * 100.0) / 100.0);
         detail.put("performance", Math.round(metrics[1] * 100.0) / 100.0);
         detail.put("deadline", k.getEffectiveDeadline() != null ? k.getEffectiveDeadline().toString() : null);
-        detail.put("periodName", k.getKpiPeriod() != null ? k.getKpiPeriod().getName() : null);
-        detail.put("createdBy", k.getCreatedBy().getFullName());
+        KpiPeriod detailPeriod = resolveKpiPeriod(k);
+        detail.put("periodName", detailPeriod != null ? detailPeriod.getName() : null);
+        User detailCreatedBy = safeRef(k::getCreatedBy);
+        detail.put("createdBy", detailCreatedBy != null ? detailCreatedBy.getFullName() : null);
         detail.put("assignees", assigneesList);
         detail.put("status", k.getStatus().toString());
         return detail;
@@ -697,8 +758,10 @@ public class OrgUnitStatisticService {
             List<UserRoleOrgUnit> units = userRoleOrgUnitRepository.findByUserId(u.getId());
             List<Map<String, String>> unitEntries = units.stream().map(uro -> {
                 Map<String, String> ue = new LinkedHashMap<>();
-                ue.put("orgUnitName", uro.getOrgUnit().getName());
-                ue.put("position", uro.getRole().getName());
+                OrgUnit aUnit = safeRef(uro::getOrgUnit);
+                Role aRole = safeRef(uro::getRole);
+                ue.put("orgUnitName", aUnit != null ? aUnit.getName() : null);
+                ue.put("position", aRole != null ? aRole.getName() : null);
                 return ue;
             }).collect(Collectors.toList());
 
@@ -1117,24 +1180,29 @@ public class OrgUnitStatisticService {
 
         List<Map<String, Object>> units = assignments.stream().map(a -> {
             Map<String, Object> m = new LinkedHashMap<>();
-            m.put("orgUnitName", a.getOrgUnit().getName());
-            m.put("orgUnitCode", a.getOrgUnit().getCode());
-            m.put("levelName", a.getOrgUnit().getOrgHierarchyLevel() != null
-                    ? a.getOrgUnit().getOrgHierarchyLevel().getUnitTypeName() : null);
-            m.put("positionName", a.getRole() != null ? a.getRole().getName() : null);
-            m.put("isManager", a.getRole() != null && a.getRole().getRank() != null && a.getRole().getRank() <= 1);
+            OrgUnit aUnit = safeRef(a::getOrgUnit);
+            Role aRole = safeRef(a::getRole);
+            m.put("orgUnitName", aUnit != null ? aUnit.getName() : null);
+            m.put("orgUnitCode", aUnit != null ? aUnit.getCode() : null);
+            m.put("levelName", aUnit != null && aUnit.getOrgHierarchyLevel() != null
+                    ? aUnit.getOrgHierarchyLevel().getUnitTypeName() : null);
+            m.put("positionName", aRole != null ? aRole.getName() : null);
+            m.put("isManager", aRole != null && aRole.getRank() != null && aRole.getRank() <= 1);
             return m;
         }).collect(Collectors.toList());
 
         String organizationName = assignments.stream()
+                .map(a -> safeRef(a::getOrgUnit))
+                .filter(Objects::nonNull)
                 .findFirst()
-                .map(a -> a.getOrgUnit().getOrgHierarchyLevel().getOrganization().getName())
+                .map(ou -> ou.getOrgHierarchyLevel().getOrganization().getName())
                 .orElse(null);
 
         String managedUnitName = assignments.stream()
-                .filter(a -> a.getRole() != null && a.getRole().getRank() != null && a.getRole().getRank() <= 1)
-                .min(Comparator.comparingInt(a -> a.getRole().getRank()))
-                .map(a -> a.getOrgUnit().getName())
+                .map(a -> new AbstractMap.SimpleEntry<>(safeRef(a::getRole), safeRef(a::getOrgUnit)))
+                .filter(e -> e.getKey() != null && e.getKey().getRank() != null && e.getKey().getRank() <= 1 && e.getValue() != null)
+                .min(Comparator.comparingInt(e -> e.getKey().getRank()))
+                .map(e -> e.getValue().getName())
                 .orElse(null);
 
         Map<String, Object> profile = new LinkedHashMap<>();
@@ -1169,9 +1237,11 @@ public class OrgUnitStatisticService {
             List<UserRoleOrgUnit> assignments = userRoleOrgUnitRepository.findByUserId(u.getId());
             if (!assignments.isEmpty()) {
                 UserRoleOrgUnit first = assignments.get(0);
-                m.put("orgUnitId", first.getOrgUnit().getId());
-                m.put("orgUnitName", first.getOrgUnit().getName());
-                m.put("roleName", first.getRole().getName());
+                OrgUnit firstUnit = safeRef(first::getOrgUnit);
+                Role firstRole = safeRef(first::getRole);
+                m.put("orgUnitId", firstUnit != null ? firstUnit.getId() : null);
+                m.put("orgUnitName", firstUnit != null ? firstUnit.getName() : null);
+                m.put("roleName", firstRole != null ? firstRole.getName() : null);
             }
             return m;
         }).collect(Collectors.toList());
@@ -1188,8 +1258,9 @@ public class OrgUnitStatisticService {
             m.put("name", o.getName());
             m.put("code", o.getCode());
             m.put("levelName", o.getOrgHierarchyLevel() != null ? o.getOrgHierarchyLevel().getUnitTypeName() : null);
-            m.put("parentId", o.getParent() != null ? o.getParent().getId() : null);
-            m.put("parentName", o.getParent() != null ? o.getParent().getName() : null);
+            OrgUnit oParent = safeRef(o::getParent);
+            m.put("parentId", oParent != null ? oParent.getId() : null);
+            m.put("parentName", oParent != null ? oParent.getName() : null);
             return m;
         }).collect(Collectors.toList());
     }
@@ -1204,10 +1275,12 @@ public class OrgUnitStatisticService {
             m.put("id", k.getId());
             m.put("name", k.getName());
             m.put("status", k.getStatus());
-            m.put("orgUnitId", k.getOrgUnit() != null ? k.getOrgUnit().getId() : null);
-            m.put("orgUnitName", k.getOrgUnit() != null ? k.getOrgUnit().getName() : null);
-            m.put("periodId", k.getKpiPeriod() != null ? k.getKpiPeriod().getId() : null);
-            m.put("periodName", k.getKpiPeriod() != null ? k.getKpiPeriod().getName() : null);
+            OrgUnit kUnit = safeRef(k::getOrgUnit);
+            m.put("orgUnitId", kUnit != null ? kUnit.getId() : null);
+            m.put("orgUnitName", kUnit != null ? kUnit.getName() : null);
+            KpiPeriod mPeriod = resolveKpiPeriod(k);
+            m.put("periodId", mPeriod != null ? mPeriod.getId() : null);
+            m.put("periodName", mPeriod != null ? mPeriod.getName() : null);
             return m;
         }).collect(Collectors.toList());
     }
@@ -1267,14 +1340,17 @@ public class OrgUnitStatisticService {
                 .limit(limit > 0 ? limit : 20)
                 .map(s -> {
                     Map<String, Object> m = new LinkedHashMap<>();
-                    m.put("kpiName", s.getKpiCriteria().getName());
-                    m.put("submittedBy", s.getSubmittedBy().getFullName());
+                    KpiCriteria sKpi = safeRef(s::getKpiCriteria);
+                    User submittedBy = safeRef(s::getSubmittedBy);
+                    User reviewedBy = safeRef(s::getReviewedBy);
+                    m.put("kpiName", sKpi != null ? sKpi.getName() : null);
+                    m.put("submittedBy", submittedBy != null ? submittedBy.getFullName() : null);
                     m.put("actualValue", s.getActualValue());
                     m.put("status", s.getStatus());
                     m.put("periodStart", s.getPeriodStart());
                     m.put("periodEnd", s.getPeriodEnd());
                     m.put("createdAt", s.getCreatedAt());
-                    m.put("reviewedBy", s.getReviewedBy() != null ? s.getReviewedBy().getFullName() : null);
+                    m.put("reviewedBy", reviewedBy != null ? reviewedBy.getFullName() : null);
                     m.put("reviewedAt", s.getReviewedAt());
                     m.put("reviewNote", s.getReviewNote());
                     return m;

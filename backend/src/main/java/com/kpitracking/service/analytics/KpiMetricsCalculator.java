@@ -1,10 +1,13 @@
 package com.kpitracking.service.analytics;
 
+import com.kpitracking.entity.KpiCriteria;
 import com.kpitracking.entity.KpiSubmission;
+import com.kpitracking.enums.KpiParentRelationType;
 
 import java.time.Instant;
 import java.util.Comparator;
 import java.util.List;
+import java.util.stream.Collectors;
 
 /**
  * Tiện ích dùng chung để tính tiến độ/hiệu suất cho cả KPI thường và KPI ngược (inverse).
@@ -20,6 +23,14 @@ import java.util.List;
 public final class KpiMetricsCalculator {
 
     private KpiMetricsCalculator() {}
+
+    /** Trần tiến độ/hiệu suất: không KPI nào được vượt 150% (nhất quán với cap 1.5 khi chấm điểm). */
+    public static final double MAX_PERCENT = 150.0;
+
+    /** Giới hạn một giá trị % ở trần 150% (không đụng tới cận dưới). */
+    public static double cap(double value) {
+        return Math.min(value, MAX_PERCENT);
+    }
 
     private static Instant subTime(KpiSubmission s) {
         return s.getPeriodStart() != null ? s.getPeriodStart() : s.getCreatedAt();
@@ -69,6 +80,46 @@ public final class KpiMetricsCalculator {
      */
     public static double percent(double actual, double target, boolean reverse) {
         if (reverse) return reversePercent(actual, target);
-        return target > 0 ? (actual / target) * 100.0 : 0.0;
+        return target > 0 ? cap((actual / target) * 100.0) : 0.0;
+    }
+
+    /**
+     * Các KPI con kiểu DECOMPOSITION (còn sống) của một KPI cha.
+     * Một KPI là "KPI cha" khi có KPI khác trỏ {@code parentId} về nó; với decomposition,
+     * trọng số các con cộng lại bằng trọng số cha.
+     */
+    public static List<KpiCriteria> decompositionChildren(KpiCriteria kpi) {
+        if (kpi.getChildren() == null) return List.of();
+        return kpi.getChildren().stream()
+                .filter(c -> c.getDeletedAt() == null)
+                .filter(c -> c.getParentRelationType() == KpiParentRelationType.DECOMPOSITION)
+                .collect(Collectors.toList());
+    }
+
+    /** {@code true} nếu KPI có ≥1 con decomposition còn sống (KPI cha kiểu chia nhỏ). */
+    public static boolean hasDecompositionChildren(KpiCriteria kpi) {
+        return !decompositionChildren(kpi).isEmpty();
+    }
+
+    /** Tất cả KPI con còn sống (mọi loại quan hệ) của một KPI. */
+    public static List<KpiCriteria> children(KpiCriteria kpi) {
+        if (kpi.getChildren() == null) return List.of();
+        return kpi.getChildren().stream()
+                .filter(c -> c.getDeletedAt() == null)
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * Loại quan hệ của các con: {@code DECOMPOSITION} nếu có con decomposition ("KPI cha"),
+     * ngược lại {@code DELEGATION} nếu có con delegation ("KPI thác nước"), hoặc {@code null}
+     * nếu không có con.
+     */
+    public static KpiParentRelationType childRelationType(KpiCriteria kpi) {
+        List<KpiCriteria> kids = children(kpi);
+        if (kids.isEmpty()) return null;
+        boolean hasDecomp = kids.stream().anyMatch(c -> c.getParentRelationType() == KpiParentRelationType.DECOMPOSITION);
+        if (hasDecomp) return KpiParentRelationType.DECOMPOSITION;
+        boolean hasDeleg = kids.stream().anyMatch(c -> c.getParentRelationType() == KpiParentRelationType.DELEGATION);
+        return hasDeleg ? KpiParentRelationType.DELEGATION : null;
     }
 }

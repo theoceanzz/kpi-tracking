@@ -40,14 +40,16 @@ export interface TeammateProgress {
   performance: number
 }
 
+export type KpiParentRelationType = 'DELEGATION' | 'DECOMPOSITION'
+
 export interface KpiDetail {
   kpiId: string
   kpiName: string
   targetValue: number
   actualValue: number
   unit: string
-  progress: number
-  performance: number
+  progress: number | null
+  performance: number | null
   objectiveName: string
   objectiveCode: string
   keyResultName: string
@@ -56,6 +58,13 @@ export interface KpiDetail {
   periodEnd: string | null
   shared: boolean
   participantCount: number
+  // Nhận diện loại KPI + KPI con (cho tag & expand)
+  isReverseKpi?: boolean
+  isBonusKpi?: boolean
+  parentId?: string | null
+  parentRelationType?: KpiParentRelationType | null
+  childRelationType?: KpiParentRelationType | null
+  children?: KpiDetail[] | null
   mySubmissions: SubmissionHistory[]
   teammates: TeammateProgress[]
 }

@@ -103,6 +103,14 @@ public class SubordinateDetailsResponses {
         private Instant startDate;
         private Instant endDate;
         private List<KpiParticipantDto> participants;
+
+        // Nhận diện loại KPI (tag: thường/thưởng/ngược/cha/con/thác nước) + KPI con kèm metrics
+        private Boolean isReverseKpi;
+        private Boolean isBonusKpi;
+        private UUID parentId;
+        private com.kpitracking.enums.KpiParentRelationType parentRelationType;
+        private com.kpitracking.enums.KpiParentRelationType childRelationType;
+        private List<KpiDetailedDto> children;
     }
 
     @Data

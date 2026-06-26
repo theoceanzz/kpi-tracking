@@ -61,10 +61,14 @@ export interface FollowupRequest {
   context: string
 }
 
+// Các endpoint gọi LLM có thể chạy lâu hơn nhiều so với request thường,
+// nên dùng timeout riêng 300s thay vì timeout global (100s).
+const AI_TIMEOUT = 300000
+
 export const aiApi = {
   chat: (request: AiChatRequest) =>
     axiosInstance
-      .post<ApiResponse<AiChatResponse>>('/ai/chat-org-unit', request)
+      .post<ApiResponse<AiChatResponse>>('/ai/chat-org-unit', request, { timeout: AI_TIMEOUT })
       .then(res => res.data.data),
 
   createConversation: (title?: string) =>
@@ -92,11 +96,11 @@ export const aiApi = {
 
   getInsights: () =>
     axiosInstance
-      .get<ApiResponse<InsightCard[]>>('/ai/insights')
+      .get<ApiResponse<InsightCard[]>>('/ai/insights', { timeout: AI_TIMEOUT })
       .then(res => res.data.data),
 
   getFollowups: (request: FollowupRequest) =>
     axiosInstance
-      .post<ApiResponse<FollowupPools>>('/ai/followups', request)
+      .post<ApiResponse<FollowupPools>>('/ai/followups', request, { timeout: AI_TIMEOUT })
       .then(res => res.data.data),
 }

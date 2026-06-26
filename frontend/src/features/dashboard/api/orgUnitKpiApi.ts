@@ -18,20 +18,29 @@ export interface OrgUnitKpiComboChartData {
   }[]
 }
 
+export type KpiParentRelationType = 'DELEGATION' | 'DECOMPOSITION'
+
 export interface OrgUnitKpiDetail {
   kpiId: string
   kpiName: string
   targetValue: number
   actualValue: number
   unit: string
-  progress: number
-  performance: number
+  progress: number | null
+  performance: number | null
   orgUnitId: string | null
   orgUnitName: string
   periodStart: string | null
   periodEnd: string | null
   shared: boolean
   participantCount: number
+  // Nhận diện loại KPI + KPI con (cho tag & expand)
+  isReverseKpi?: boolean
+  isBonusKpi?: boolean
+  parentId?: string | null
+  parentRelationType?: KpiParentRelationType | null
+  childRelationType?: KpiParentRelationType | null
+  children?: OrgUnitKpiDetail[] | null
 }
 
 export interface OrgUnitFilterOption {

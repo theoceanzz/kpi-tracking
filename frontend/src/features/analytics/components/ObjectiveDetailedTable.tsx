@@ -2,6 +2,8 @@ import React, { useState } from 'react'
 import { ChevronDown, ChevronRight, ChevronUp, ChevronsUpDown } from 'lucide-react'
 import { ObjectiveDetailedDto } from '@/types/stats'
 import { format } from 'date-fns'
+import { KpiTypeTags } from './KpiTypeTags'
+import { KpiChildList, toChildNodes } from './KpiChildList'
 import { cn } from '@/lib/utils'
 
 type SortField = 'progress' | 'performance'
@@ -315,6 +317,8 @@ const DateRange = ({ start, end }: { start: string | null; end: string | null })
                   {isKrExp && kr.kpis?.map(kpi => {
                     const isKpiExp = expandedKpi[kpi.id]
                     const hasParticipants = kpi.participants && kpi.participants.length > 0
+                    const hasChildren = kpi.children && kpi.children.length > 0
+                    const isExpandable = hasParticipants || hasChildren
                     return (
                       <React.Fragment key={kpi.id}>
                         <tr 
@@ -323,12 +327,12 @@ const DateRange = ({ start, end }: { start: string | null; end: string | null })
                         >
                           <td className="px-6 py-4 align-top whitespace-normal pl-20">
                             <div className="flex items-start gap-3">
-                              {hasParticipants ? (
-                                <button 
+                              {isExpandable ? (
+                                <button
                                   onClick={(e) => {
                                     e.stopPropagation()
                                     toggleKpi(kpi.id, e)
-                                  }} 
+                                  }}
                                   className="p-1 mt-0.5 rounded text-slate-400 hover:text-slate-650 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/10 transition-colors"
                                 >
                                   {isKpiExp ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
@@ -340,9 +344,12 @@ const DateRange = ({ start, end }: { start: string | null; end: string | null })
                                 <div className="text-[13px] font-medium text-slate-700 dark:text-slate-300 leading-tight mb-1 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
                                   {kpi.name}
                                 </div>
-                                <div className="text-[9px] font-mono text-slate-400 bg-slate-50 dark:bg-slate-800 inline-block px-1 rounded border border-slate-100 dark:border-transparent">
-                                  KPI
-                                </div>
+                                <KpiTypeTags
+                                  isReverseKpi={kpi.isReverseKpi}
+                                  isBonusKpi={kpi.isBonusKpi}
+                                  parentRelationType={kpi.parentRelationType}
+                                  childRelationType={kpi.childRelationType}
+                                />
                               </div>
                             </div>
                           </td>
@@ -354,15 +361,37 @@ const DateRange = ({ start, end }: { start: string | null; end: string | null })
                             <DateRange start={kpi.startDate} end={kpi.endDate} />
                           </td>
                           <td className="px-6 py-4 align-top">
-                            <ProgressBar 
-                              value={kpi.progress} 
-                              subText={`${kpi.participants?.length || 0} người tham gia`} 
-                            />
+                            {kpi.progress == null ? (
+                              <div className="flex flex-col gap-1 min-w-[150px]">
+                                <span className="inline-flex w-fit items-center gap-1 px-2.5 py-1 rounded-full bg-amber-50 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 text-[10px] font-black uppercase">Thưởng</span>
+                                <div className="text-[10px] text-slate-500 font-medium">{`${kpi.participants?.length || 0} người tham gia`}</div>
+                              </div>
+                            ) : (
+                              <ProgressBar
+                                value={kpi.progress}
+                                subText={`${kpi.participants?.length || 0} người tham gia`}
+                              />
+                            )}
                           </td>
                           <td className="px-6 py-4 align-top text-center">
-                            <SparklineDonut value={kpi.performance} />
+                            {kpi.performance == null ? (
+                              <span className="text-slate-400 font-black">—</span>
+                            ) : (
+                              <SparklineDonut value={kpi.performance} />
+                            )}
                           </td>
                         </tr>
+
+                        {/* LEVEL 3: KPI CON (cha/thác nước) */}
+                        {isKpiExp && hasChildren && (
+                          <tr className="bg-slate-50/30 dark:bg-slate-900/20 border-l-[3px] border-l-slate-300 dark:border-l-slate-700">
+                            <td colSpan={5} className="p-0 border-b-0">
+                              <div className="py-5 pr-6 pl-24">
+                                <KpiChildList nodes={toChildNodes(kpi.children)} />
+                              </div>
+                            </td>
+                          </tr>
+                        )}
 
                         {/* LEVEL 3 & 4: PARTICIPANTS CONTAINER */}
                         {isKpiExp && hasParticipants && (
