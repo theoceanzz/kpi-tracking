@@ -1,25 +1,21 @@
-package com.kpitracking.dto.response.organization;
+package com.kpitracking.dto.response.admin;
 
 import lombok.*;
 
 import java.time.Instant;
-import java.util.List;
 import java.util.UUID;
 
 @Getter @Setter @Builder @NoArgsConstructor @AllArgsConstructor
-public class OrganizationResponse {
+public class OrganizationAdminResponse {
 
     private UUID id;
     private String name;
     private String code;
     private String status;
-    private List<HierarchyLevelResponse> hierarchyLevels;
-    private Double evaluationMaxScore;
-    private java.util.List<EvaluationLevelResponse> evaluationLevels;
-    private Integer kpiReminderPercentage;
+    private Boolean enableAi;
     private Boolean enableOkr;
     private Boolean enableWaterfall;
-    private Boolean enableAi;
+    private long userCount;
     private Instant createdAt;
     private Instant updatedAt;
 }

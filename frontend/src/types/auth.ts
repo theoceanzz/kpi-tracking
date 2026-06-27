@@ -31,6 +31,7 @@ export interface UserInfo {
   updatedAt?: string
   requirePasswordChange?: boolean
   hasSeenOnboarding?: boolean
+  isPlatformAdmin?: boolean
 }
 
 // Matches BE: AuthResponse

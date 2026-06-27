@@ -17,6 +17,9 @@ export function useLogin() {
       if (data.user.requirePasswordChange) {
         toast.info('Bạn cần đổi mật khẩu trong lần đăng nhập đầu tiên để bảo mật tài khoản.')
         navigate('/force-password-change')
+      } else if (data.user.isPlatformAdmin) {
+        toast.success('Đăng nhập thành công!')
+        navigate('/admin')
       } else {
         toast.success('Đăng nhập thành công!')
         navigate('/dashboard')

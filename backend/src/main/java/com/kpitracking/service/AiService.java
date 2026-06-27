@@ -2,7 +2,10 @@ package com.kpitracking.service;
 
 import com.kpitracking.advisor.ResponseSanitizingAdvisor;
 import com.kpitracking.dto.response.ai.AiKpiSuggestionResponse;
+import com.kpitracking.entity.Organization;
 import com.kpitracking.exception.AiQuotaExceededException;
+import com.kpitracking.exception.ForbiddenException;
+import com.kpitracking.repository.OrganizationRepository;
 import com.kpitracking.service.ManagerContextResolver.ManagerContext;
 import com.kpitracking.tool.DisambiguationGuard;
 import com.kpitracking.tool.FollowupContextStore;
@@ -35,6 +38,7 @@ public class AiService {
     private final OrgUnitStatisticTool orgUnitStatisticTool;
     private final DisambiguationGuard disambiguationGuard;
     private final FollowupContextStore followupContextStore;
+    private final OrganizationRepository organizationRepository;
 
     /**
      * Names of every @Tool exposed to the chat model, collected once via reflection so the
@@ -68,19 +72,26 @@ public class AiService {
                      ManagerContextResolver managerContextResolver,
                      OrgUnitStatisticTool orgUnitStatisticTool,
                      DisambiguationGuard disambiguationGuard,
-                     FollowupContextStore followupContextStore) {
+                     FollowupContextStore followupContextStore,
+                     OrganizationRepository organizationRepository) {
         this.chatClient = chatClient;
         this.chatClientWithMemory = chatClientWithMemory;
         this.managerContextResolver = managerContextResolver;
         this.orgUnitStatisticTool = orgUnitStatisticTool;
         this.disambiguationGuard = disambiguationGuard;
         this.followupContextStore = followupContextStore;
+        this.organizationRepository = organizationRepository;
     }
 
     public String processOrgUnitChat(String question, String conversationId) {
         ManagerContext ctx = managerContextResolver.resolve();
         if (ctx == null) {
             return "Bạn không có quyền sử dụng tính năng AI phân tích. Chỉ trưởng đơn vị hoặc phó đơn vị mới có thể truy cập tính năng này.";
+        }
+
+        Organization org = organizationRepository.findById(ctx.orgId()).orElse(null);
+        if (org == null || Boolean.FALSE.equals(org.getEnableAi())) {
+            throw new ForbiddenException("Tính năng AI đã bị tắt cho tổ chức của bạn.");
         }
 
         boolean hasMemory = conversationId != null && !conversationId.isBlank();
@@ -156,6 +167,11 @@ public class AiService {
         }
         // Always use manager's own unit to prevent cross-unit access
         orgUnitId = ctx.orgUnitId();
+
+        Organization org = organizationRepository.findById(ctx.orgId()).orElse(null);
+        if (org == null || Boolean.FALSE.equals(org.getEnableAi())) {
+            throw new ForbiddenException("Tính năng AI đã bị tắt cho tổ chức của bạn.");
+        }
 
         log.info("Suggesting KPIs for orgUnitId: {}", orgUnitId);
 

@@ -40,11 +40,12 @@ CREATE TABLE organizations (
   id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   name        TEXT NOT NULL,
   code        TEXT NOT NULL UNIQUE,
-  status      TEXT NOT NULL DEFAULT 'ACTIVE' CHECK (status IN ('ACTIVE','SUSPENDED','ARCHIVED')),
+  status      TEXT NOT NULL DEFAULT 'ACTIVE' CHECK (status IN ('ACTIVE','SUSPENDED','ARCHIVED','PENDING')),
   evaluation_max_score DOUBLE PRECISION DEFAULT 100.0,
   kpi_reminder_percentage INT DEFAULT 50,
   enable_okr BOOLEAN DEFAULT FALSE,
   enable_waterfall BOOLEAN DEFAULT FALSE,
+  enable_ai   BOOLEAN NOT NULL DEFAULT TRUE,
   created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at  TIMESTAMPTZ NOT NULL DEFAULT now()
 );
@@ -146,7 +147,8 @@ CREATE TABLE users (
     deleted_at          TIMESTAMPTZ,
     employee_code       VARCHAR(50),
     require_password_change BOOLEAN     NOT NULL DEFAULT FALSE,
-    has_seen_onboarding BOOLEAN         NOT NULL DEFAULT FALSE
+    has_seen_onboarding BOOLEAN         NOT NULL DEFAULT FALSE,
+    is_platform_admin   BOOLEAN         NOT NULL DEFAULT FALSE
 );
 
 CREATE INDEX idx_users_email ON users(email);
