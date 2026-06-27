@@ -16,6 +16,7 @@ import com.kpitracking.enums.KpiFrequency;
 import com.kpitracking.event.KpiEvents.KpiCriteriaApprovedEvent;
 import com.kpitracking.event.KpiEvents.KpiCriteriaRejectedEvent;
 import com.kpitracking.event.KpiEvents.KpiCriteriaApprovalRevertedEvent;
+import com.kpitracking.event.KpiEvents.KpiCriteriaSubmittedForApprovalEvent;
 import com.kpitracking.exception.BusinessException;
 import com.kpitracking.exception.ForbiddenException;
 import com.kpitracking.exception.ResourceNotFoundException;
@@ -573,6 +574,7 @@ public class KpiCriteriaService {
             kpi.setRejectReason(null);
             kpi = kpiCriteriaRepository.save(kpi);
             results.add(kpiCriteriaMapper.toResponse(kpi));
+            eventPublisher.publishEvent(new KpiCriteriaSubmittedForApprovalEvent(this, kpi));
         }
 
         return results;

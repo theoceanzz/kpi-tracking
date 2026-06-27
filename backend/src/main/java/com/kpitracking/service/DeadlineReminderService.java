@@ -26,6 +26,7 @@ public class DeadlineReminderService {
     private final KpiReminderRepository kpiReminderRepository;
     private final NotificationService notificationService;
     private final EmailService emailService;
+    private final OrgNotificationConfigService orgNotificationConfigService;
 
     // Run every hour: 0 0 * * * *
     // For testing/demo purposes, we could run it more often, but once an hour is reasonable for deadlines.
@@ -93,11 +94,14 @@ public class DeadlineReminderService {
         String message = String.format("Bạn đã đi qua %d%% thời gian của đợt nộp KPI thứ %d cho chỉ tiêu '%s'. Vui lòng hoàn thành báo cáo sớm nhất có thể!", 
                 percentage, batchNumber, kpi.getName());
 
-        // 1. Create In-App Notification
-        notificationService.createNotification(kpi.getOrgUnit(), user, title, message, "DEADLINE_REMINDER", kpi.getId());
+        java.util.UUID orgId = kpi.getOrgUnit().getOrgHierarchyLevel().getOrganization().getId();
 
-        // 2. Send Email
-        emailService.sendNotificationEmail(user.getEmail(), title, message);
+        if (orgNotificationConfigService.isSystemEnabled(orgId, "reminder_deadline")) {
+            notificationService.createNotification(kpi.getOrgUnit(), user, title, message, "DEADLINE_REMINDER", kpi.getId());
+        }
+        if (orgNotificationConfigService.isEmailEnabled(orgId, "reminder_deadline")) {
+            emailService.sendNotificationEmail(user.getEmail(), title, message);
+        }
 
         // 3. Record that we sent it
         KpiReminder reminder = KpiReminder.builder()

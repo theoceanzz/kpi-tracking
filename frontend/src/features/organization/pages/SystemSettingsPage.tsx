@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
-import { 
-  Bell, LayoutPanelLeft, Save, 
+import {
+  Bell, LayoutPanelLeft, Save,
   Info, Loader2, Search
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -9,6 +9,8 @@ import { useAuthStore } from '@/store/authStore'
 import { toast } from 'sonner'
 import PageTour from '@/components/common/PageTour'
 import { settingsSteps } from '@/components/common/tourSteps'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { notificationApi, type NotificationConfigItem } from '@/features/notifications/api/notificationApi'
 
 export default function SystemSettingsPage() {
   const [activeTab, setActiveTab] = useState<'sidebar' | 'notifications'>('sidebar')
@@ -240,18 +242,51 @@ function SidebarSettingsTab() {
 }
 
 /* ========== NOTIFICATION SETTINGS TAB ========== */
-function NotificationSettingsTab() {
-  const [settings, setSettings] = useState([
-    { id: 'kpi_assigned', label: 'Khi được giao chỉ tiêu mới', email: true, system: true },
-    { id: 'kpi_approved', label: 'Khi chỉ tiêu được phê duyệt', email: true, system: true },
-    { id: 'kpi_rejected', label: 'Khi chỉ tiêu bị từ chối', email: true, system: true },
-    { id: 'submission_reviewed', label: 'Khi bài nộp được chấm điểm', email: false, system: true },
-    { id: 'reminder_deadline', label: 'Nhắc nhở sắp đến hạn nộp (24h)', email: true, system: true },
-    { id: 'announcement', label: 'Thông báo chung từ công ty', email: true, system: true },
-  ])
+const EVENT_LABELS: Record<string, string> = {
+  kpi_submitted: 'Khi chỉ tiêu KPI được gửi chờ phê duyệt (dành cho người duyệt)',
+  kpi_assigned: 'Khi được giao chỉ tiêu mới',
+  kpi_approved: 'Khi chỉ tiêu được phê duyệt',
+  kpi_rejected: 'Khi chỉ tiêu bị từ chối',
+  kpi_approval_reverted: 'Khi phê duyệt chỉ tiêu bị hoàn lại',
+  submission_submitted: 'Khi nhân viên nộp báo cáo KPI (dành cho quản lý)',
+  submission_reviewed: 'Khi bài nộp được chấm điểm',
+  reminder_deadline: 'Nhắc nhở sắp đến hạn nộp (24h)',
+}
 
-  const toggle = (id: string, type: 'email' | 'system') => {
-    setSettings(prev => prev.map(s => s.id === id ? { ...s, [type]: !s[type] } : s))
+const DEFAULT_SETTINGS: NotificationConfigItem[] = Object.keys(EVENT_LABELS).map(code => ({
+  eventCode: code,
+  emailEnabled: true,
+  systemEnabled: true,
+}))
+
+function NotificationSettingsTab() {
+  const queryClient = useQueryClient()
+  const [settings, setSettings] = useState<NotificationConfigItem[]>(DEFAULT_SETTINGS)
+
+  const { data: serverConfig, isLoading } = useQuery({
+    queryKey: ['notification-config'],
+    queryFn: notificationApi.getNotificationConfig,
+  })
+
+  useEffect(() => {
+    if (serverConfig) {
+      setSettings(serverConfig)
+    }
+  }, [serverConfig])
+
+  const { mutate: saveConfig, isPending: isSaving } = useMutation({
+    mutationFn: () => notificationApi.saveNotificationConfig(settings),
+    onSuccess: (data) => {
+      queryClient.setQueryData(['notification-config'], data)
+      toast.success('Đã lưu cấu hình thông báo')
+    },
+    onError: () => {
+      toast.error('Lưu cấu hình thất bại')
+    },
+  })
+
+  const toggle = (eventCode: string, type: 'emailEnabled' | 'systemEnabled') => {
+    setSettings(prev => prev.map(s => s.eventCode === eventCode ? { ...s, [type]: !s[type] } : s))
   }
 
   return (
@@ -268,8 +303,13 @@ function NotificationSettingsTab() {
             </div>
           </div>
 
-          <button className="flex items-center justify-center gap-2 px-6 py-2.5 rounded-xl bg-indigo-600 text-white text-sm font-bold hover:bg-indigo-700 shadow-lg shadow-indigo-500/20 transition-all shrink-0">
-            <Save size={16} /> Lưu cấu hình
+          <button
+            onClick={() => saveConfig()}
+            disabled={isSaving}
+            className="flex items-center justify-center gap-2 px-6 py-2.5 rounded-xl bg-indigo-600 text-white text-sm font-bold hover:bg-indigo-700 shadow-lg shadow-indigo-500/20 transition-all shrink-0 disabled:opacity-60"
+          >
+            {isSaving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
+            Lưu cấu hình
           </button>
         </div>
 
@@ -281,28 +321,36 @@ function NotificationSettingsTab() {
             </p>
           </div>
 
-          <div className="divide-y divide-slate-100 dark:divide-slate-800">
-            {settings.map((item) => (
-              <div key={item.id} className="py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                <div>
-                  <p className="text-sm font-bold text-slate-700 dark:text-slate-200">{item.label}</p>
-                  <p className="text-[10px] text-slate-400 font-medium">Mã sự kiện: {item.id}</p>
+          {isLoading ? (
+            <div className="flex items-center justify-center py-10">
+              <Loader2 size={24} className="animate-spin text-indigo-500" />
+            </div>
+          ) : (
+            <div className="divide-y divide-slate-100 dark:divide-slate-800">
+              {settings.map((item) => (
+                <div key={item.eventCode} className="py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-bold text-slate-700 dark:text-slate-200">
+                      {EVENT_LABELS[item.eventCode] ?? item.eventCode}
+                    </p>
+                    <p className="text-[10px] text-slate-400 font-medium">Mã sự kiện: {item.eventCode}</p>
+                  </div>
+                  <div className="flex items-center gap-8">
+                    <ToggleItem
+                      label="Email"
+                      active={item.emailEnabled}
+                      onClick={() => toggle(item.eventCode, 'emailEnabled')}
+                    />
+                    <ToggleItem
+                      label="Hệ thống"
+                      active={item.systemEnabled}
+                      onClick={() => toggle(item.eventCode, 'systemEnabled')}
+                    />
+                  </div>
                 </div>
-                <div className="flex items-center gap-8">
-                  <ToggleItem
-                    label="Email"
-                    active={item.email}
-                    onClick={() => toggle(item.id, 'email')}
-                  />
-                  <ToggleItem
-                    label="Hệ thống"
-                    active={item.system}
-                    onClick={() => toggle(item.id, 'system')}
-                  />
-                </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
     </div>

@@ -2,6 +2,12 @@ import axiosInstance from '@/lib/axios'
 import type { ApiResponse, PageResponse } from '@/types/api'
 import type { Notification } from '@/types/notification'
 
+export interface NotificationConfigItem {
+  eventCode: string
+  emailEnabled: boolean
+  systemEnabled: boolean
+}
+
 export const notificationApi = {
   getAll: (page = 0, size = 20) =>
     axiosInstance.get<ApiResponse<PageResponse<Notification>>>('/notifications', { params: { page, size } }).then((r) => r.data.data),
@@ -14,4 +20,10 @@ export const notificationApi = {
 
   markAllAsRead: () =>
     axiosInstance.patch<ApiResponse<void>>('/notifications/read-all').then((r) => r.data),
+
+  getNotificationConfig: () =>
+    axiosInstance.get<ApiResponse<NotificationConfigItem[]>>('/notifications/config').then((r) => r.data.data),
+
+  saveNotificationConfig: (configs: NotificationConfigItem[]) =>
+    axiosInstance.put<ApiResponse<NotificationConfigItem[]>>('/notifications/config', { configs }).then((r) => r.data.data),
 }

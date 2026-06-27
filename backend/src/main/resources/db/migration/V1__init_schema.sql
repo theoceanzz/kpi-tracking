@@ -479,6 +479,20 @@ CREATE INDEX idx_notifications_org_unit_user ON notifications(org_unit_id, user_
 CREATE INDEX idx_notifications_is_read ON notifications(is_read);
 
 -- ====================================================
+-- Notification config per organization
+-- ====================================================
+CREATE TABLE org_notification_configs (
+    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    organization_id UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+    event_code      VARCHAR(50) NOT NULL,
+    email_enabled   BOOLEAN NOT NULL DEFAULT true,
+    system_enabled  BOOLEAN NOT NULL DEFAULT true,
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    CONSTRAINT uq_org_event UNIQUE (organization_id, event_code)
+);
+
+-- ====================================================
 -- Refresh Tokens
 -- ====================================================
 CREATE TABLE refresh_tokens (
@@ -740,7 +754,7 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- ====================================================
--- Create trigger for update path 
+-- Create trigger for update path
 -- ====================================================
 CREATE TRIGGER trg_update_org_subtree
 AFTER UPDATE OF parent_id ON org_units

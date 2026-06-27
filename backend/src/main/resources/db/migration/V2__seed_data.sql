@@ -2390,3 +2390,24 @@ INSERT INTO sidebar_settings (id, organization_id, menu_key, custom_label) VALUE
     (gen_random_uuid(), '22222222-2222-2222-2222-222222222222', '/my-adjustments', 'Yêu cầu điều chỉnh'),
     (gen_random_uuid(), '22222222-2222-2222-2222-222222222222', '/submissions', 'Lịch sử báo cáo'),
     (gen_random_uuid(), '22222222-2222-2222-2222-222222222222', '/analytics', 'Phân tích & Thống kê');
+
+-- ====================================================
+-- Notification config defaults (all enabled)
+-- ====================================================
+INSERT INTO org_notification_configs (organization_id, event_code, email_enabled, system_enabled) VALUES
+    ('11111111-1111-1111-1111-111111111111', 'kpi_submitted',        true, true),
+    ('11111111-1111-1111-1111-111111111111', 'kpi_assigned',         true, true),
+    ('11111111-1111-1111-1111-111111111111', 'kpi_approved',         true, true),
+    ('11111111-1111-1111-1111-111111111111', 'kpi_rejected',         true, true),
+    ('11111111-1111-1111-1111-111111111111', 'kpi_approval_reverted',true, true),
+    ('11111111-1111-1111-1111-111111111111', 'submission_submitted', true, true),
+    ('11111111-1111-1111-1111-111111111111', 'submission_reviewed',  true, true),
+    ('11111111-1111-1111-1111-111111111111', 'reminder_deadline',    true, true),
+    ('22222222-2222-2222-2222-222222222222', 'kpi_submitted',        true, true),
+    ('22222222-2222-2222-2222-222222222222', 'kpi_assigned',         true, true),
+    ('22222222-2222-2222-2222-222222222222', 'kpi_approved',         true, true),
+    ('22222222-2222-2222-2222-222222222222', 'kpi_rejected',         true, true),
+    ('22222222-2222-2222-2222-222222222222', 'kpi_approval_reverted',true, true),
+    ('22222222-2222-2222-2222-222222222222', 'submission_submitted', true, true),
+    ('22222222-2222-2222-2222-222222222222', 'submission_reviewed',  true, true),
+    ('22222222-2222-2222-2222-222222222222', 'reminder_deadline',    true, true);

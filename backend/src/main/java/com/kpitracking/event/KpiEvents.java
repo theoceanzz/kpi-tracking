@@ -61,4 +61,14 @@ public final class KpiEvents {
             this.revertedBy = revertedBy;
         }
     }
+
+    @Getter
+    public static class KpiCriteriaSubmittedForApprovalEvent extends ApplicationEvent {
+        private final KpiCriteria kpiCriteria;
+
+        public KpiCriteriaSubmittedForApprovalEvent(Object source, KpiCriteria kpiCriteria) {
+            super(source);
+            this.kpiCriteria = kpiCriteria;
+        }
+    }
 }
