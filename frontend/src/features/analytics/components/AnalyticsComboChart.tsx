@@ -96,7 +96,7 @@ export default function AnalyticsComboChart({ data, isLoading, itemName = 'Mục
         <span>Số lượng {itemName}</span>
       </div>
 
-      <div className="flex-1 min-h-[380px]">
+      <div className="h-[380px]">
         <ResponsiveContainer width="100%" height="100%">
           <ComposedChart data={data} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
             <defs>
