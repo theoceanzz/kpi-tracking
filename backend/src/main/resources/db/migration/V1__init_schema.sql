@@ -357,6 +357,8 @@ CREATE TABLE kpi_criteria (
     reject_reason   TEXT,
     submitted_at    TIMESTAMPTZ,
     approved_at     TIMESTAMPTZ,
+    replaced_by_id  UUID            REFERENCES kpi_criteria(id) ON DELETE SET NULL,
+    replacement_reason TEXT,
     created_at      TIMESTAMPTZ     DEFAULT NOW(),
     updated_at      TIMESTAMPTZ     DEFAULT NOW(),
     deleted_at      TIMESTAMPTZ

@@ -124,6 +124,13 @@ public class KpiCriteria {
     @Builder.Default
     private List<KpiCriteria> children = new ArrayList<>();
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "replaced_by_id")
+    private KpiCriteria replacedBy;
+
+    @Column(name = "replacement_reason", columnDefinition = "TEXT")
+    private String replacementReason;
+
     @CreatedDate
     @Column(name = "created_at", updatable = false)
     private Instant createdAt;

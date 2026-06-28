@@ -4,6 +4,7 @@ import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, ChevronUp, Chevron
 import { DayPicker } from 'react-day-picker'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { cn } from '@/lib/utils'
+import { useMediaQuery } from '@/hooks/useMediaQuery'
 
 const DAY_PICKER_CLASS_NAMES = {
   months: 'flex flex-col',
@@ -72,7 +73,7 @@ export function DatePicker({ value, onChange, placeholder = 'Chọn ngày', clas
         </button>
       </PopoverTrigger>
       <PopoverContent
-        className="w-auto p-3 border-slate-200 dark:border-slate-800 shadow-2xl"
+        className="w-auto p-3 z-[300] border-slate-200 dark:border-slate-800 shadow-2xl"
         align="start"
         collisionPadding={12}
         sideOffset={6}
@@ -104,6 +105,7 @@ interface DateTimePickerProps {
 
 export function DateTimePicker({ value, onChange, placeholder = 'Chọn ngày giờ', className }: DateTimePickerProps) {
   const [open, setOpen] = useState(false)
+  const isMobile = useMediaQuery('(max-width: 639px)')
 
   const selectedDate = value ? new Date(value) : undefined
   const datePart = value ? value.slice(0, 10) : format(new Date(), 'yyyy-MM-dd')
@@ -127,6 +129,34 @@ export function DateTimePicker({ value, onChange, placeholder = 'Chọn ngày gi
     onChange(`${datePart}T${String(hour).padStart(2, '0')}:${String(next).padStart(2, '0')}`)
   }
 
+  // Desktop (>= sm = 640px): native datetime-local with text-transparent + formatted overlay
+  if (!isMobile) {
+    return (
+      <div className={cn('relative', className)}>
+        <input
+          type="datetime-local"
+          value={value || ''}
+          onChange={e => onChange(e.target.value)}
+          className={cn(
+            'w-full px-6 py-4 rounded-[22px]',
+            'border border-slate-100 dark:border-slate-800',
+            'bg-slate-50/50 dark:bg-slate-800/50',
+            'focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500/50 outline-none',
+            'text-sm font-bold transition-all text-transparent',
+            '[color-scheme:light] dark:[color-scheme:dark]'
+          )}
+        />
+        <div className="absolute inset-0 left-6 flex items-center pointer-events-none text-sm font-bold">
+          {value
+            ? <span className="text-slate-900 dark:text-white">{format(new Date(value), 'dd/MM/yyyy HH:mm')}</span>
+            : <span className="text-slate-400 font-medium">{placeholder}</span>
+          }
+        </div>
+      </div>
+    )
+  }
+
+  // Mobile (< sm = 640px): custom popover picker
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
@@ -149,7 +179,7 @@ export function DateTimePicker({ value, onChange, placeholder = 'Chọn ngày gi
       </PopoverTrigger>
 
       <PopoverContent
-        className="w-auto p-0 border-slate-200 dark:border-slate-800 shadow-2xl"
+        className="w-auto p-0 z-[300] border-slate-200 dark:border-slate-800 shadow-2xl"
         align="start"
         collisionPadding={12}
         sideOffset={6}
@@ -164,7 +194,7 @@ export function DateTimePicker({ value, onChange, placeholder = 'Chọn ngày gi
           components={{ Chevron: DayPickerChevron }}
         />
 
-        {/* Custom time picker — no native input */}
+        {/* Custom time picker */}
         <div className="border-t border-slate-100 dark:border-slate-800 px-3 py-2 flex items-center gap-3">
           {/* Hour */}
           <div className="flex flex-col items-center gap-0.5">

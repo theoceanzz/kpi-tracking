@@ -37,14 +37,16 @@ function StatCard({
   color: string
 }) {
   return (
-    <div className="bg-white rounded-xl border border-gray-200 p-5 flex items-start gap-4 shadow-sm">
-      <div className={cn('p-3 rounded-lg', color)}>
-        <Icon className="w-5 h-5" />
+    <div className="bg-white rounded-xl border border-gray-200 px-4 py-3 sm:p-5 flex items-center gap-3 sm:gap-4 shadow-sm">
+      <div className={cn('p-2 sm:p-3 rounded-lg shrink-0', color)}>
+        <Icon className="w-4 h-4 sm:w-5 sm:h-5" />
       </div>
-      <div>
-        <p className="text-sm text-gray-500">{label}</p>
-        <p className="text-2xl font-bold text-gray-900 mt-0.5">{value.toLocaleString('vi-VN')}</p>
-        {sub && <p className="text-xs text-gray-400 mt-0.5">{sub}</p>}
+      <div className="flex-1 min-w-0 flex sm:block items-center justify-between gap-2">
+        <p className="text-xs sm:text-sm text-gray-500 truncate">{label}</p>
+        <div className="flex items-baseline gap-2 sm:block">
+          <p className="text-xl sm:text-2xl font-bold text-gray-900 sm:mt-0.5 shrink-0">{value.toLocaleString('vi-VN')}</p>
+          {sub && <p className="text-[10px] sm:text-xs text-gray-400 sm:mt-0.5 truncate">{sub}</p>}
+        </div>
       </div>
     </div>
   )
@@ -103,7 +105,7 @@ export default function PlatformAdminPage() {
   }
 
   return (
-    <div className="p-6 space-y-6 max-w-screen-xl mx-auto">
+    <div className="p-4 md:p-6 space-y-6 max-w-screen-xl mx-auto">
       <div>
         <h1 className="text-2xl font-bold text-gray-900">Quản trị nền tảng</h1>
         <p className="text-sm text-gray-500 mt-1">Thống kê toàn hệ thống và quản lý các công ty</p>
@@ -111,13 +113,13 @@ export default function PlatformAdminPage() {
 
       {/* Stats */}
       {loadingStats ? (
-        <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3">
           {Array.from({ length: 8 }).map((_, i) => (
             <div key={i} className="h-24 rounded-xl bg-gray-100 animate-pulse" />
           ))}
         </div>
       ) : stats ? (
-        <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3">
           <StatCard
             label="Tổng công ty"
             value={stats.totalOrgs}
@@ -188,52 +190,102 @@ export default function PlatformAdminPage() {
             ))}
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-gray-100 bg-gray-50 text-gray-500 text-xs uppercase">
-                  <th className="px-5 py-3 text-left font-medium">Tên công ty</th>
-                  <th className="px-5 py-3 text-left font-medium">Mã</th>
-                  <th className="px-5 py-3 text-left font-medium">Trạng thái</th>
-                  <th className="px-5 py-3 text-right font-medium">Người dùng</th>
-                  <th className="px-5 py-3 text-center font-medium">AI</th>
-                  <th className="px-5 py-3 text-center font-medium">OKR</th>
-                  <th className="px-5 py-3 text-center font-medium">Thác nước</th>
-                  <th className="px-5 py-3 text-left font-medium">Ngày tạo</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-50">
-                {orgsPage?.content.map((org) => (
-                  <tr key={org.id} className="hover:bg-gray-50 transition-colors">
-                    <td className="px-5 py-3.5 font-medium text-gray-900">{org.name}</td>
-                    <td className="px-5 py-3.5 text-gray-500 font-mono text-xs">{org.code}</td>
-                    <td className="px-5 py-3.5">
-                      <span className={cn('px-2 py-0.5 rounded-full text-xs font-medium', STATUS_COLORS[org.status] ?? 'bg-gray-100 text-gray-600')}>
-                        {STATUS_LABELS[org.status] ?? org.status}
-                      </span>
-                    </td>
-                    <td className="px-5 py-3.5 text-right text-gray-600">{org.userCount}</td>
-                    <td className="px-5 py-3.5 flex justify-center">
+          <>
+            {/* Mobile: card layout */}
+            <div className="sm:hidden divide-y divide-gray-100">
+              {orgsPage?.content.map((org) => (
+                <div key={org.id} className="p-4 space-y-3">
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <p className="font-semibold text-gray-900 text-sm">{org.name}</p>
+                      <p className="text-xs text-gray-400 font-mono mt-0.5">{org.code}</p>
+                    </div>
+                    <span className={cn('px-2 py-0.5 rounded-full text-xs font-medium shrink-0', STATUS_COLORS[org.status] ?? 'bg-gray-100 text-gray-600')}>
+                      {STATUS_LABELS[org.status] ?? org.status}
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 text-xs">
+                    <div className="flex items-center justify-between bg-gray-50 rounded-lg px-3 py-2">
+                      <span className="text-gray-500">Người dùng</span>
+                      <span className="font-semibold text-gray-800">{org.userCount}</span>
+                    </div>
+                    <div className="flex items-center justify-between bg-gray-50 rounded-lg px-3 py-2">
+                      <span className="text-gray-500">Ngày tạo</span>
+                      <span className="font-medium text-gray-600">{new Date(org.createdAt).toLocaleDateString('vi-VN')}</span>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-3 gap-2">
+                    <div className="flex items-center gap-2 bg-gray-50 rounded-lg px-2 py-2">
+                      <span className="text-xs text-gray-500 whitespace-nowrap">AI</span>
                       <AiToggle org={org} onToggle={handleToggleAi} />
-                    </td>
-                    <td className="px-5 py-3.5 text-center">
+                    </div>
+                    <div className="flex items-center justify-between bg-gray-50 rounded-lg px-2 py-2">
+                      <span className="text-xs text-gray-500 whitespace-nowrap">OKR</span>
                       <span className={cn('px-2 py-0.5 rounded-full text-xs font-medium', org.enableOkr ? 'bg-indigo-100 text-indigo-700' : 'bg-gray-100 text-gray-400')}>
                         {org.enableOkr ? 'Bật' : 'Tắt'}
                       </span>
-                    </td>
-                    <td className="px-5 py-3.5 text-center">
-                      <span className={cn('px-2 py-0.5 rounded-full text-xs font-medium', org.enableWaterfall ? 'bg-cyan-100 text-cyan-700' : 'bg-gray-100 text-gray-400')}>
+                    </div>
+                    <div className="flex items-center justify-between gap-2 bg-gray-50 rounded-lg px-2 py-2">
+                      <span className="text-xs text-gray-500 whitespace-nowrap">Thác nước</span>
+                      <span className={cn('px-2 py-0.5 rounded-full text-xs font-medium shrink-0', org.enableWaterfall ? 'bg-cyan-100 text-cyan-700' : 'bg-gray-100 text-gray-400')}>
                         {org.enableWaterfall ? 'Bật' : 'Tắt'}
                       </span>
-                    </td>
-                    <td className="px-5 py-3.5 text-gray-400 text-xs">
-                      {new Date(org.createdAt).toLocaleDateString('vi-VN')}
-                    </td>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Desktop: table layout */}
+            <div className="hidden sm:block overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-gray-100 bg-gray-50 text-gray-500 text-xs uppercase">
+                    <th className="px-4 py-3 text-left font-medium">Tên công ty</th>
+                    <th className="px-4 py-3 text-left font-medium">Mã</th>
+                    <th className="px-4 py-3 text-left font-medium">Trạng thái</th>
+                    <th className="px-4 py-3 text-right font-medium">Người dùng</th>
+                    <th className="px-4 py-3 text-center font-medium">AI</th>
+                    <th className="px-4 py-3 text-center font-medium hidden md:table-cell">OKR</th>
+                    <th className="px-4 py-3 text-center font-medium hidden md:table-cell">Thác nước</th>
+                    <th className="px-4 py-3 text-left font-medium hidden lg:table-cell">Ngày tạo</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody className="divide-y divide-gray-50">
+                  {orgsPage?.content.map((org) => (
+                    <tr key={org.id} className="hover:bg-gray-50 transition-colors">
+                      <td className="px-4 py-3.5 font-medium text-gray-900">{org.name}</td>
+                      <td className="px-4 py-3.5 text-gray-500 font-mono text-xs">{org.code}</td>
+                      <td className="px-4 py-3.5">
+                        <span className={cn('px-2 py-0.5 rounded-full text-xs font-medium', STATUS_COLORS[org.status] ?? 'bg-gray-100 text-gray-600')}>
+                          {STATUS_LABELS[org.status] ?? org.status}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3.5 text-right text-gray-600">{org.userCount}</td>
+                      <td className="px-4 py-3.5">
+                        <div className="flex justify-center">
+                          <AiToggle org={org} onToggle={handleToggleAi} />
+                        </div>
+                      </td>
+                      <td className="px-4 py-3.5 text-center hidden md:table-cell">
+                        <span className={cn('px-2 py-0.5 rounded-full text-xs font-medium', org.enableOkr ? 'bg-indigo-100 text-indigo-700' : 'bg-gray-100 text-gray-400')}>
+                          {org.enableOkr ? 'Bật' : 'Tắt'}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3.5 text-center hidden md:table-cell">
+                        <span className={cn('px-2 py-0.5 rounded-full text-xs font-medium', org.enableWaterfall ? 'bg-cyan-100 text-cyan-700' : 'bg-gray-100 text-gray-400')}>
+                          {org.enableWaterfall ? 'Bật' : 'Tắt'}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3.5 text-gray-400 text-xs hidden lg:table-cell">
+                        {new Date(org.createdAt).toLocaleDateString('vi-VN')}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </>
         )}
 
         {/* Pagination */}

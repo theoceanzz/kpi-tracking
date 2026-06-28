@@ -18,6 +18,7 @@ import { useOrganization } from '@/features/orgunits/hooks/useOrganization'
 import { useObjectives } from '@/features/okr/hooks/useOkr'
 import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Badge } from '@/components/ui/badge'
+import { DateTimePicker } from '@/components/common/DateTimePicker'
 
 interface KpiFormModalProps {
   open: boolean
@@ -726,7 +727,7 @@ export default function KpiFormModal({ open, onClose, editKpi, parentKpi, parent
                 </div>
             ) : formOrgUnitIds.length > 0 ? (
                 <>
-                <div className="flex gap-2 items-center overflow-x-auto pb-1 no-scrollbar animate-in fade-in slide-in-from-top-1">
+                <div className="flex flex-wrap gap-2 items-center animate-in fade-in slide-in-from-top-1">
                     <span className="text-[10px] font-black text-[var(--color-muted-foreground)] uppercase shrink-0">Role:</span>
                     <button
                         type="button"
@@ -825,35 +826,47 @@ export default function KpiFormModal({ open, onClose, editKpi, parentKpi, parent
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-bold mb-1.5">Kỳ đánh giá <span className="text-red-500">*</span></label>
-              <select {...register('kpiPeriodId')} className={inputCls}>
-                <option value="">Chọn đợt...</option>
-                {periodsData?.content.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-              </select>
+              <Controller name="kpiPeriodId" control={control}
+                render={({ field }) => (
+                  <Select value={field.value || ''} onValueChange={field.onChange}>
+                    <SelectTrigger className={cn(inputCls, 'h-auto', errors.kpiPeriodId && 'ring-2 ring-red-500')}>
+                      <SelectValue placeholder="Chọn đợt..." />
+                    </SelectTrigger>
+                    <SelectContent className="z-[300]">
+                      {periodsData?.content.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                )}
+              />
               {errors.kpiPeriodId && <p className="text-red-500 text-[10px] mt-1 font-bold">{errors.kpiPeriodId.message}</p>}
             </div>
             <div>
               <label className="block text-sm font-bold mb-1.5">Tần suất chốt</label>
-              <select {...register('frequency')} className={inputCls}>
-                {filteredFrequencyOptions.map((opt) => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
-              </select>
+              <Controller name="frequency" control={control}
+                render={({ field }) => (
+                  <Select value={field.value || ''} onValueChange={field.onChange}>
+                    <SelectTrigger className={cn(inputCls, 'h-auto')}>
+                      <SelectValue placeholder="Chọn tần suất..." />
+                    </SelectTrigger>
+                    <SelectContent className="z-[300]">
+                      {filteredFrequencyOptions.map(opt => <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                )}
+              />
             </div>
             <div className="col-span-2">
               <label className="block text-sm font-bold mb-1.5">Hạn chót</label>
-              <div className="relative">
-                <input
-                  type="datetime-local"
-                  {...register('deadline')}
-                  min={toDatetimeLocal(selectedPeriod?.startDate)}
-                  max={toDatetimeLocal(selectedPeriod?.endDate)}
-                  disabled={!selectedPeriod}
-                  className={cn(inputCls, "text-transparent disabled:text-transparent")}
-                />
-                <div className="absolute inset-0 left-3 flex items-center pointer-events-none text-sm font-medium text-[var(--color-foreground)]">
-                  {formDeadline ? formatDateTime(formDeadline) : (
-                    <span className="text-[var(--color-muted-foreground)]">Chưa chọn (mặc định theo đợt)</span>
-                  )}
-                </div>
-              </div>
+              <Controller name="deadline" control={control}
+                render={({ field }) => (
+                  <DateTimePicker
+                    value={field.value || ''}
+                    onChange={field.onChange}
+                    placeholder="Chưa chọn (mặc định theo đợt)"
+                    className={cn(!selectedPeriod && 'opacity-50 pointer-events-none')}
+                  />
+                )}
+              />
               {selectedPeriod && (
                 <p className="text-[10px] text-[var(--color-muted-foreground)] mt-1">
                   Để trống = mặc định theo ngày kết thúc đợt ({formatDateTime(selectedPeriod.endDate)})
@@ -890,8 +903,8 @@ export default function KpiFormModal({ open, onClose, editKpi, parentKpi, parent
                         <SelectItem value="NONE" className="font-bold py-3">-- Không liên kết mục tiêu --</SelectItem>
                         {filteredObjectives.map(obj => (
                           <SelectGroup key={obj.id} className="p-1">
-                            <SelectLabel className="px-3 py-2 text-[10px] font-black uppercase tracking-widest text-indigo-600 dark:text-indigo-400 bg-indigo-50/50 dark:bg-indigo-900/20 rounded-xl my-1.5 flex items-center justify-between gap-2">
-                              <span className="truncate" title={obj.name}>OBJ: {obj.name}</span>
+                            <SelectLabel className="px-3 py-2 text-[10px] font-black uppercase tracking-widest text-indigo-600 dark:text-indigo-400 bg-indigo-50/50 dark:bg-indigo-900/20 rounded-xl my-1.5 flex items-start justify-between gap-2">
+                              <span>OBJ: {obj.name}</span>
                               <Badge variant="outline" className="text-[8px] border-indigo-200 shrink-0">OKR</Badge>
                             </SelectLabel>
                             {obj.keyResults.map((kr: any) => (
@@ -899,8 +912,7 @@ export default function KpiFormModal({ open, onClose, editKpi, parentKpi, parent
                                 key={kr.id}
                                 value={kr.id}
                                 className="rounded-xl py-2.5 pl-8 pr-3 focus:bg-indigo-50 focus:text-indigo-700 transition-colors"
-                                extra={<div className="text-[9px] opacity-70 pl-8 -mt-0.5">Hiện tại: {kr.progress}% hoàn thành</div>}
-                              >
+                                              >
                                 <span className="font-semibold text-xs truncate block" title={kr.name}>{kr.name}</span>
                               </SelectItem>
                             ))}

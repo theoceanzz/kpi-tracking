@@ -56,4 +56,7 @@ public class KpiCriteriaResponse {
     private java.util.List<String> delegatedToNames;
     private java.util.List<UUID> delegatedToIds;
     private Double childrenWeightTotal;
+    private UUID replacedById;
+    private String replacedByName;
+    private String replacementReason;
 }

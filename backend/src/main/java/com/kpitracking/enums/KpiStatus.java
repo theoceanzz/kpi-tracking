@@ -7,5 +7,6 @@ public enum KpiStatus {
     REJECTED,
     INACTIVE,
     EDIT,
-    EDITED
+    EDITED,
+    REPLACED
 }
