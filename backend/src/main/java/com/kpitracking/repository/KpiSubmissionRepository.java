@@ -230,13 +230,15 @@ public interface KpiSubmissionRepository extends JpaRepository<KpiSubmission, UU
 
     @Query(value =
             "SELECT s.id, u.full_name, u.email, ou.name AS org_unit_name, kc.name AS kpi_name, " +
-            "s.created_at, s.period_end " +
+            "s.created_at, COALESCE(kc.deadline, p.end_date) AS effective_deadline " +
             "FROM kpi_submissions s " +
             "JOIN users u ON s.submitted_by = u.id " +
             "JOIN org_units ou ON s.org_unit_id = ou.id " +
             "JOIN org_hierarchy_levels ohl ON ou.org_hierarchy_id = ohl.id " +
             "JOIN kpi_criteria kc ON s.kpi_criteria_id = kc.id " +
-            "WHERE s.deleted_at IS NULL AND s.period_end IS NOT NULL AND s.created_at > s.period_end " +
+            "LEFT JOIN kpi_periods p ON kc.kpi_period_id = p.id AND p.deleted_at IS NULL " +
+            "WHERE s.deleted_at IS NULL AND COALESCE(kc.deadline, p.end_date) IS NOT NULL " +
+            "AND s.created_at > COALESCE(kc.deadline, p.end_date) " +
             "AND ohl.organization_id = :orgId " +
             "ORDER BY s.created_at DESC LIMIT 50", nativeQuery = true)
     java.util.List<Object[]> findLateSubmissionsByOrgId(@Param("orgId") UUID orgId);
@@ -391,8 +393,10 @@ public interface KpiSubmissionRepository extends JpaRepository<KpiSubmission, UU
             "FROM kpi_submissions s " +
             "JOIN users u ON s.submitted_by = u.id " +
             "JOIN org_units ou ON s.org_unit_id = ou.id " +
+            "JOIN kpi_criteria kc ON s.kpi_criteria_id = kc.id " +
+            "LEFT JOIN kpi_periods p ON kc.kpi_period_id = p.id AND p.deleted_at IS NULL " +
             "WHERE ou.path LIKE CONCAT(:pathPrefix, '%') AND s.deleted_at IS NULL " +
-            "AND s.period_end IS NOT NULL AND s.created_at > s.period_end " +
+            "AND COALESCE(kc.deadline, p.end_date) IS NOT NULL AND s.created_at > COALESCE(kc.deadline, p.end_date) " +
             "AND s.created_at >= :startDate AND s.created_at <= :endDate " +
             "GROUP BY u.id, u.full_name, u.email " +
             "ORDER BY late_count DESC LIMIT :limit", nativeQuery = true)
@@ -413,12 +417,14 @@ public interface KpiSubmissionRepository extends JpaRepository<KpiSubmission, UU
     @Deprecated
     @Query(value =
             "SELECT s.id, u.full_name, u.email, ou.name AS org_unit_name, kc.name AS kpi_name, " +
-            "s.created_at, s.period_end " +
+            "s.created_at, COALESCE(kc.deadline, p.end_date) AS effective_deadline " +
             "FROM kpi_submissions s " +
             "JOIN users u ON s.submitted_by = u.id " +
             "JOIN org_units ou ON s.org_unit_id = ou.id " +
             "JOIN kpi_criteria kc ON s.kpi_criteria_id = kc.id " +
-            "WHERE s.deleted_at IS NULL AND s.period_end IS NOT NULL AND s.created_at > s.period_end " +
+            "LEFT JOIN kpi_periods p ON kc.kpi_period_id = p.id AND p.deleted_at IS NULL " +
+            "WHERE s.deleted_at IS NULL AND COALESCE(kc.deadline, p.end_date) IS NOT NULL " +
+            "AND s.created_at > COALESCE(kc.deadline, p.end_date) " +
             "ORDER BY s.created_at DESC LIMIT 50", nativeQuery = true)
     java.util.List<Object[]> findLateSubmissions();
 

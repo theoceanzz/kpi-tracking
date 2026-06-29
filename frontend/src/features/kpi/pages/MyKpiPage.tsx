@@ -252,7 +252,7 @@ export default function MyKpiPage() {
               
               const period = periodsData?.content.find(p => p.id === periodId)
 
-              const isPeriodDone = periodKpis.every(k => k.frequency === 'UNLIMITED' || k.submissionCount >= (k.expectedSubmissions || 1))
+              const isPeriodDone = periodKpis.every(isKpiReadyForEval)
               const hasEvaluation = myEvals?.content.some(ev => ev.kpiPeriodId === periodId && ev.evaluatorId === user?.id)
               const { rows: periodKpiRows, childrenByParentId } = buildKpiRows(periodKpis, collapsedParents)
 
@@ -339,7 +339,7 @@ export default function MyKpiPage() {
 
             const period = periodsData?.content.find(p => p.id === periodId)
 
-            const isPeriodDone = periodKpis.every(k => k.submissionCount >= (k.expectedSubmissions || 1))
+            const isPeriodDone = periodKpis.every(isKpiReadyForEval)
             const hasEvaluation = myEvals?.content.some(ev => ev.kpiPeriodId === periodId && ev.evaluatorId === user?.id)
             const { rows: periodKpiRows, childrenByParentId } = buildKpiRows(periodKpis, collapsedParents)
 
@@ -436,6 +436,7 @@ function MyKpiTableRow({ kpi, depth = 0, childKpis = [], isCollapsed, onToggleCo
   const isOverdue = nextDeadline && isAfter(now, nextDeadline)
 
   const isStarted = !kpi.kpiPeriod?.startDate || !isAfter(parseISO(kpi.kpiPeriod.startDate), now)
+  const isPeriodEnded = !!kpi.kpiPeriod?.endDate && isAfter(now, parseISO(kpi.kpiPeriod.endDate))
   const isDelegated = !!kpi.hasChildren
   const isChildRow = depth > 0
   const isDecompositionParent = childKpis.some(c => c.parentRelationType === 'DECOMPOSITION')
@@ -557,7 +558,15 @@ function MyKpiTableRow({ kpi, depth = 0, childKpis = [], isCollapsed, onToggleCo
               Đã chia KPI con
             </div>
           ) : kpi.submissionCount < (kpi.expectedSubmissions || 1) ? (
-            isStarted ? (
+            !isStarted ? (
+              <div className="px-4 py-2 bg-slate-100 dark:bg-slate-800 text-slate-400 rounded-xl text-[10px] font-black uppercase tracking-widest border border-slate-200 dark:border-slate-700 cursor-not-allowed">
+                Chưa mở
+              </div>
+            ) : isPeriodEnded ? (
+              <div className="px-4 py-2 bg-red-50 dark:bg-red-900/20 text-red-500 border border-red-100 dark:border-red-900/30 rounded-xl text-[10px] font-black uppercase tracking-widest cursor-not-allowed" title="Kỳ đánh giá đã kết thúc, không thể nộp báo cáo cho kỳ này nữa">
+                Quá hạn
+              </div>
+            ) : (
               // Hide Submit button if it's already delegated to others when Waterfall is ON
               (!enableWaterfall || !isLeader) ? (
                 <Link to={`/submissions/new?kpiId=${kpi.id}`} className="px-4 py-2 bg-slate-900 dark:bg-slate-700 text-white hover:bg-indigo-600 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all">
@@ -568,10 +577,6 @@ function MyKpiTableRow({ kpi, depth = 0, childKpis = [], isCollapsed, onToggleCo
                   Đang theo dõi
                 </div>
               )
-            ) : (
-              <div className="px-4 py-2 bg-slate-100 dark:bg-slate-800 text-slate-400 rounded-xl text-[10px] font-black uppercase tracking-widest border border-slate-200 dark:border-slate-700 cursor-not-allowed">
-                Chưa mở
-              </div>
             )
           ) : (
 
@@ -591,6 +596,7 @@ function MyKpiCard({ kpi, depth = 0, childKpis = [], isCollapsed, onToggleCollap
 }) {
   const status = STATUS_CONFIG[kpi.status as keyof typeof STATUS_CONFIG] ?? STATUS_CONFIG['DRAFT']!
   const now = new Date()
+  const isPeriodEnded = !!kpi.kpiPeriod?.endDate && isAfter(now, parseISO(kpi.kpiPeriod.endDate))
   const isDelegated = !!kpi.hasChildren
   const isChildCard = depth > 0
   const isDecompositionParent = childKpis.some(c => c.parentRelationType === 'DECOMPOSITION')
@@ -686,7 +692,15 @@ function MyKpiCard({ kpi, depth = 0, childKpis = [], isCollapsed, onToggleCollap
             Đã chia KPI con
           </div>
         ) : kpi.submissionCount < (kpi.expectedSubmissions || 1) ? (
-          (!kpi.kpiPeriod?.startDate || !isAfter(parseISO(kpi.kpiPeriod.startDate), now)) ? (
+          (kpi.kpiPeriod?.startDate && isAfter(parseISO(kpi.kpiPeriod.startDate), now)) ? (
+            <div className="flex-1 px-6 py-3 bg-slate-100 dark:bg-slate-800 text-slate-400 rounded-2xl font-black text-xs text-center uppercase tracking-widest border border-slate-200 dark:border-slate-700 cursor-not-allowed">
+              Chưa mở nộp
+            </div>
+          ) : isPeriodEnded ? (
+            <div className="flex-1 px-6 py-3 bg-red-50 dark:bg-red-900/20 text-red-500 border border-red-100 dark:border-red-900/30 rounded-2xl font-black text-xs text-center uppercase tracking-widest cursor-not-allowed" title="Kỳ đánh giá đã kết thúc, không thể nộp báo cáo cho kỳ này nữa">
+              Quá hạn
+            </div>
+          ) : (
             (!enableWaterfall || !isDelegated) ? (
               <Link to={`/submissions/new?kpiId=${kpi.id}`} className="flex-1 px-6 py-3 bg-slate-900 dark:bg-slate-800 text-white hover:bg-indigo-600 rounded-2xl font-black text-xs text-center transition-all uppercase tracking-widest">
                 Nộp báo cáo
@@ -696,10 +710,6 @@ function MyKpiCard({ kpi, depth = 0, childKpis = [], isCollapsed, onToggleCollap
                 Đang theo dõi
               </div>
             )
-          ) : (
-            <div className="flex-1 px-6 py-3 bg-slate-100 dark:bg-slate-800 text-slate-400 rounded-2xl font-black text-xs text-center uppercase tracking-widest border border-slate-200 dark:border-slate-700 cursor-not-allowed">
-              Chưa mở nộp
-            </div>
           )
         ) : (
 
@@ -712,10 +722,20 @@ function MyKpiCard({ kpi, depth = 0, childKpis = [], isCollapsed, onToggleCollap
   )
 }
 
+function isKpiReadyForEval(kpi: KpiCriteria) {
+  if (kpi.frequency === 'UNLIMITED') {
+    return !!kpi.kpiPeriod?.endDate && isAfter(new Date(), parseISO(kpi.kpiPeriod.endDate))
+  }
+  return (kpi.submissionCount || 0) >= (kpi.expectedSubmissions || 1)
+}
+
 function getNextDeadline(kpi: KpiCriteria) {
-  if (!kpi.kpiPeriod?.startDate || !kpi.kpiPeriod?.endDate) return null
+  // Mốc kết thúc dùng để tính hạn nộp = hạn nộp hiệu lực của KPI (deadline riêng nếu có),
+  // không thì mới về endDate của đợt.
+  const cutoff = kpi.effectiveDeadline ?? kpi.kpiPeriod?.endDate
+  if (!kpi.kpiPeriod?.startDate || !cutoff) return null
   const start = parseISO(kpi.kpiPeriod.startDate).getTime()
-  const end = parseISO(kpi.kpiPeriod.endDate).getTime()
+  const end = parseISO(cutoff).getTime()
 
   if (kpi.frequency === 'UNLIMITED') return new Date(end)
   const totalSubmissions = kpi.expectedSubmissions || 1

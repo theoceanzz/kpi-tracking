@@ -234,6 +234,7 @@ export default function KpiFormModal({ open, onClose, editKpi, parentKpi, parent
     if (!selectedPeriod) return frequencyOptions
     
     const TYPE_LEVEL: Record<string, number> = {
+      'UNLIMITED': 0, // không giới hạn = nhỏ nhất, luôn hợp lệ với mọi loại đợt
       'DAILY': 1,
       'WEEKLY': 2,
       'MONTHLY': 3,
@@ -248,6 +249,7 @@ export default function KpiFormModal({ open, onClose, editKpi, parentKpi, parent
   useEffect(() => {
     if (selectedPeriod) {
       const TYPE_LEVEL: Record<string, number> = {
+        'UNLIMITED': 0, // không giới hạn = nhỏ nhất, luôn hợp lệ với mọi loại đợt
         'DAILY': 1,
         'WEEKLY': 2,
         'MONTHLY': 3,
