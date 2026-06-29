@@ -536,7 +536,7 @@ function MyKpiTableRow({ kpi, depth = 0, childKpis = [], isCollapsed, onToggleCo
       </td>
       <td className="px-3 py-4 text-right whitespace-nowrap">
         <div className="flex items-center justify-end gap-2">
-          {kpi.submissionCount < (kpi.expectedSubmissions || 1) && (
+          {kpi.submissionCount < (kpi.expectedSubmissions || 1) && !isPeriodEnded && (
             <button onClick={onAdjust} className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/40 rounded-lg transition-all">
               <Settings2 size={16} />
             </button>
@@ -670,7 +670,7 @@ function MyKpiCard({ kpi, depth = 0, childKpis = [], isCollapsed, onToggleCollap
       </div>
 
       <div className="p-5 pt-0 mt-auto flex items-center gap-3">
-        {kpi.submissionCount < (kpi.expectedSubmissions || 1) && (
+        {kpi.submissionCount < (kpi.expectedSubmissions || 1) && !isPeriodEnded && (
           <button onClick={onAdjust} className="p-3 bg-slate-100 dark:bg-slate-800 text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-2xl transition-all">
             <Settings2 size={18} />
           </button>
