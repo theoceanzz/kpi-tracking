@@ -63,6 +63,9 @@ public class PersonalObjectiveResponses {
 
         private Instant periodStart;
         private Instant periodEnd;
+        private String periodName;   // tên đợt, vd "Tháng 6/2026"
+        private Double weight;        // trọng số KPI
+        private String assigneeName;  // người đảm nhiệm (ghép tên nếu nhiều người)
 
         private boolean isShared;
         private int participantCount;

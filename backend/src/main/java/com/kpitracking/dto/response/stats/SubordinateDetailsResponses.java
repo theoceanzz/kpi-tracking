@@ -102,6 +102,9 @@ public class SubordinateDetailsResponses {
         private String unitCode;
         private Instant startDate;
         private Instant endDate;
+        private String periodName;   // tên đợt, vd "Tháng 6/2026"
+        private Double weight;        // trọng số KPI
+        private String assigneeName;  // người đảm nhiệm
         private List<KpiParticipantDto> participants;
 
         // Nhận diện loại KPI (tag: thường/thưởng/ngược/cha/con/thác nước) + KPI con kèm metrics

@@ -32,6 +32,9 @@ export interface OrgUnitKpiDetail {
   orgUnitName: string
   periodStart: string | null
   periodEnd: string | null
+  periodName?: string | null
+  weight?: number | null
+  assigneeName?: string | null
   shared: boolean
   participantCount: number
   // Nhận diện loại KPI + KPI con (cho tag & expand)

@@ -314,6 +314,9 @@ export interface KpiDetailedDto {
   unitCode: string | null;
   startDate: string | null;
   endDate: string | null;
+  periodName?: string | null;
+  weight?: number | null;
+  assigneeName?: string | null;
   participants?: KpiParticipantDto[];
   // Nhận diện loại KPI + KPI con (cho tag & expand)
   isReverseKpi?: boolean;

@@ -3,7 +3,11 @@ import { ChevronDown, ChevronRight, ChevronUp, ChevronsUpDown } from 'lucide-rea
 import { ObjectiveDetailedDto } from '@/types/stats'
 import { format } from 'date-fns'
 import { KpiTypeTags } from './KpiTypeTags'
-import { KpiChildList, toChildNodes } from './KpiChildList'
+import { toChildNodes } from './KpiChildList'
+import { KpiChildTableRows } from './KpiChildTableRows'
+import { KpiResponsibleCell } from './KpiResponsibleCell'
+import { KpiPeriodCell } from './KpiPeriodCell'
+import { KpiWeightPill } from './KpiWeightPill'
 import { cn } from '@/lib/utils'
 
 type SortField = 'progress' | 'performance'
@@ -194,7 +198,7 @@ const DateRange = ({ start, end }: { start: string | null; end: string | null })
             <tr className="text-xs font-black uppercase text-slate-500">
               <th className="px-6 py-4 w-[30%]">Tên Mục tiêu / Yếu tố</th>
               <th className="px-6 py-4 w-[20%]">Đơn vị / Người đảm nhiệm</th>
-              <th className="px-6 py-4 w-[15%]">Chu kỳ thực hiện</th>
+              <th className="px-6 py-4 w-[15%]">Đợt</th>
               <th className="px-6 py-4 w-[25%]">
                 <SortHeader field="progress" active={sortBy} dir={sortDir} onToggle={onToggleSort}>
                   Tiến độ
@@ -315,10 +319,11 @@ const DateRange = ({ start, end }: { start: string | null; end: string | null })
 
                   {/* LEVEL 2: KPIs */}
                   {isKrExp && kr.kpis?.map(kpi => {
-                    const isKpiExp = expandedKpi[kpi.id]
                     const hasParticipants = kpi.participants && kpi.participants.length > 0
                     const hasChildren = kpi.children && kpi.children.length > 0
                     const isExpandable = hasParticipants || hasChildren
+                    // KPI cha/thác nước mặc định mở sẵn KPI con; người dùng vẫn bấm để thu gọn.
+                    const isKpiExp = expandedKpi[kpi.id] !== undefined ? expandedKpi[kpi.id] : hasChildren
                     return (
                       <React.Fragment key={kpi.id}>
                         <tr 
@@ -344,21 +349,24 @@ const DateRange = ({ start, end }: { start: string | null; end: string | null })
                                 <div className="text-[13px] font-medium text-slate-700 dark:text-slate-300 leading-tight mb-1 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
                                   {kpi.name}
                                 </div>
-                                <KpiTypeTags
-                                  isReverseKpi={kpi.isReverseKpi}
-                                  isBonusKpi={kpi.isBonusKpi}
-                                  parentRelationType={kpi.parentRelationType}
-                                  childRelationType={kpi.childRelationType}
-                                />
+                                <div className="flex items-center gap-1.5 flex-wrap">
+                                  <KpiTypeTags
+                                    isReverseKpi={kpi.isReverseKpi}
+                                    isBonusKpi={kpi.isBonusKpi}
+                                    parentRelationType={kpi.parentRelationType}
+                                    childRelationType={kpi.childRelationType}
+                                  />
+                                  <KpiWeightPill weight={kpi.weight} />
+                                </div>
                               </div>
                             </div>
                           </td>
                           <td className="px-6 py-4 align-top whitespace-normal">
-                            <div className="font-semibold text-slate-700 dark:text-slate-400">{kpi.unitName || '---'}</div>
-                            {kpi.unitCode && <div className="text-[11px] text-slate-500 mt-1">{kpi.unitCode}</div>}
+                            <KpiResponsibleCell assigneeName={kpi.assigneeName} orgUnitName={kpi.unitName} />
+                            {!kpi.assigneeName && kpi.unitCode && <div className="text-[11px] text-slate-500 mt-1">{kpi.unitCode}</div>}
                           </td>
                           <td className="px-6 py-4 align-middle">
-                            <DateRange start={kpi.startDate} end={kpi.endDate} />
+                            <KpiPeriodCell periodName={kpi.periodName} start={kpi.startDate} end={kpi.endDate} />
                           </td>
                           <td className="px-6 py-4 align-top">
                             {kpi.progress == null ? (
@@ -382,26 +390,25 @@ const DateRange = ({ start, end }: { start: string | null; end: string | null })
                           </td>
                         </tr>
 
-                        {/* LEVEL 3: KPI CON (cha/thác nước) */}
+                        {/* LEVEL 3: KPI CON (cha/thác nước) — render thành <tr> căn thẳng cột với cha */}
                         {isKpiExp && hasChildren && (
-                          <tr className="bg-slate-50/30 dark:bg-slate-900/20 border-l-[3px] border-l-slate-300 dark:border-l-slate-700">
-                            <td colSpan={5} className="p-0 border-b-0">
-                              <div className="py-5 pr-6 pl-24">
-                                <KpiChildList nodes={toChildNodes(kpi.children)} />
-                              </div>
-                            </td>
-                          </tr>
+                          <KpiChildTableRows
+                            nodes={toChildNodes(kpi.children)}
+                            onSelect={(id) => onRowClick('KPI', { id })}
+                            headingColSpan={5}
+                            variant={{ showPersonColumn: true, accent: 'indigo', baseIndent: 88 }}
+                          />
                         )}
 
-                        {/* LEVEL 3 & 4: PARTICIPANTS CONTAINER */}
-                        {isKpiExp && hasParticipants && (
+                        {/* LEVEL 3 & 4: PARTICIPANTS CONTAINER — KPI cha (decomposition) chỉ chia nhỏ task → ẩn */}
+                        {isKpiExp && hasParticipants && kpi.childRelationType !== 'DECOMPOSITION' && (
                           <tr className="bg-slate-50/30 dark:bg-slate-900/20 border-l-[3px] border-l-slate-300 dark:border-l-slate-700">
                             <td colSpan={5} className="p-0 border-b-0">
                               <div className="py-5 pr-6 pl-24">
                                 {/* PARTICIPANTS SECTION */}
                                 <div className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-3 ml-2 flex items-center gap-2">
                                   <span className="w-1.5 h-1.5 rounded-full bg-indigo-400 dark:bg-indigo-500"></span>
-                                  Các thành viên đảm nhiệm
+                                  {kpi.childRelationType === 'DELEGATION' ? 'Người chịu trách nhiệm' : 'Các thành viên đảm nhiệm'}
                                 </div>
                                 <div className="space-y-3">
                                   {kpi.participants!.map(p => {

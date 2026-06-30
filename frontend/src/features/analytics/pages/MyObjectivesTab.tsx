@@ -8,7 +8,10 @@ import {
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { KpiTypeTags } from '../components/KpiTypeTags'
-import { KpiChildList, toChildNodes } from '../components/KpiChildList'
+import { toChildNodes } from '../components/KpiChildList'
+import { KpiChildTableRows } from '../components/KpiChildTableRows'
+import { KpiPeriodCell } from '../components/KpiPeriodCell'
+import { KpiWeightPill } from '../components/KpiWeightPill'
 
 import MyObjectiveDrawer from '../components/MyObjectiveDrawer'
 import AnalyticsComboChart from '../components/AnalyticsComboChart'
@@ -54,7 +57,7 @@ export default function MyObjectivesTab() {
   const [filterObjective, setFilterObjective] = useState('')
   const [filterKr, setFilterKr] = useState('')
   const [filterShared, setFilterShared] = useState<SharedFilter>('ALL')
-  const [sortField, setSortField] = useState<SortField | null>(null)
+  const [sortField, setSortField] = useState<SortField | null>('period') // ưu tiên đợt/ngày gần nhất
   const [sortDir, setSortDir] = useState<SortDir>('desc')
   const [page, setPage] = useState(0)
 
@@ -274,7 +277,7 @@ export default function MyObjectivesTab() {
                 <th className="px-6 py-4">Kết quả chính (KR)</th>
                 <th className="px-6 py-4 whitespace-nowrap">
                   <SortHeader field="period" active={sortField} dir={sortDir} onToggle={toggleSort}>
-                    Chu kỳ thực hiện
+                    Đợt
                   </SortHeader>
                 </th>
                 <th className="px-6 py-4 min-w-[250px]">
@@ -298,6 +301,7 @@ export default function MyObjectivesTab() {
                       key={kpi.kpiId}
                       kpi={kpi}
                       onExpand={() => setSelectedKpiId(kpi.kpiId)}
+                      onSelectKpi={setSelectedKpiId}
                     />
                   ))}
               {!isKpisLoading && (kpiPage?.totalElements ?? 0) === 0 && (
@@ -371,22 +375,6 @@ function SortHeader({
   )
 }
 
-function KpiDateRange({ start, end }: { start: string | null; end: string | null }) {
-  const fmt = (d: string | null) => d ? format(new Date(d), 'dd/MM/yyyy') : '—'
-  return (
-    <div className="inline-flex flex-col gap-1 text-[11px]">
-      <div className="flex items-center gap-1.5">
-        <span className="font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider w-[26px] shrink-0">Từ</span>
-        <span className="font-semibold text-slate-700 dark:text-slate-300 tabular-nums">{fmt(start)}</span>
-      </div>
-      <div className="w-full h-px bg-slate-100 dark:bg-slate-800" />
-      <div className="flex items-center gap-1.5">
-        <span className="font-bold text-indigo-400 dark:text-indigo-500 uppercase tracking-wider w-[26px] shrink-0">Đến</span>
-        <span className="font-semibold text-slate-700 dark:text-slate-300 tabular-nums">{fmt(end)}</span>
-      </div>
-    </div>
-  )
-}
 
 function MobileKpiCard({ kpi, onExpand }: { kpi: any; onExpand: () => void }) {
   const pct = Math.round(kpi.progress || 0)
@@ -433,8 +421,9 @@ function MobileKpiCard({ kpi, onExpand }: { kpi: any; onExpand: () => void }) {
   )
 }
 
-function ExpandableKpiRow({ kpi, onExpand }: { kpi: any; onExpand: () => void }) {
-  const [expanded, setExpanded] = useState(false)
+function ExpandableKpiRow({ kpi, onExpand, onSelectKpi }: { kpi: any; onExpand: () => void; onSelectKpi?: (id: string) => void }) {
+  const hasChildren = !!(kpi.children && kpi.children.length > 0)
+  const [expanded, setExpanded] = useState(hasChildren) // KPI cha/thác nước mặc định mở sẵn KPI con
   // KPI thưởng: backend trả tiến độ/hiệu suất = null (không tính), hiển thị gạch ngang.
   const isBonus = kpi.progress == null
   const pct  = Math.round(kpi.progress    || 0)
@@ -451,20 +440,22 @@ function ExpandableKpiRow({ kpi, onExpand }: { kpi: any; onExpand: () => void })
         <td className="px-6 py-4 cursor-pointer" onClick={onExpand}>
           <div className="font-bold text-sm text-slate-900 hover:text-indigo-500 dark:hover:text-indigo-400 transition-colors dark:text-white truncate max-w-[200px]">{kpi.kpiName}</div>
           <div className="text-[11px] text-slate-500 mt-1">{kpi.objectiveName} ({kpi.objectiveCode})</div>
-          <KpiTypeTags
-            className="mt-1"
-            isReverseKpi={kpi.isReverseKpi}
-            isBonusKpi={kpi.isBonusKpi}
-            parentRelationType={kpi.parentRelationType}
-            childRelationType={kpi.childRelationType}
-          />
+          <div className="flex items-center gap-1.5 flex-wrap mt-1">
+            <KpiTypeTags
+              isReverseKpi={kpi.isReverseKpi}
+              isBonusKpi={kpi.isBonusKpi}
+              parentRelationType={kpi.parentRelationType}
+              childRelationType={kpi.childRelationType}
+            />
+            <KpiWeightPill weight={kpi.weight} />
+          </div>
         </td>
         <td className="px-6 py-4">
           <div className="text-sm font-medium">{kpi.keyResultName}</div>
           <div className="text-[11px] text-slate-500 mt-1">{kpi.keyResultCode}</div>
         </td>
         <td className="px-6 py-4">
-          <KpiDateRange start={kpi.periodStart} end={kpi.periodEnd} />
+          <KpiPeriodCell periodName={kpi.periodName} start={kpi.periodStart} end={kpi.periodEnd} />
         </td>
         <td className="px-6 py-4">
           {isBonus ? (
@@ -523,13 +514,18 @@ function ExpandableKpiRow({ kpi, onExpand }: { kpi: any; onExpand: () => void })
           )}
         </td>
       </tr>
-      {expanded && (
+      {expanded && hasChildren && (
+        <KpiChildTableRows
+          nodes={toChildNodes(kpi.children)}
+          onSelect={onSelectKpi}
+          headingColSpan={7}
+          variant={{ leadingChevronCol: true, showPersonColumn: false, extraColsAfterName: 1, trailingEmptyCols: 1, accent: 'indigo', baseIndent: 28 }}
+        />
+      )}
+      {expanded && (!hasChildren || (kpi.mySubmissions?.length ?? 0) > 0 || kpi.shared) && (
         <tr>
           <td colSpan={7} className="p-0 border-b border-slate-100 dark:border-slate-800">
             <div className="bg-slate-50/50 dark:bg-slate-900/50 p-6 flex flex-col gap-6 border-l-4 border-indigo-500">
-              {kpi.children && kpi.children.length > 0 && (
-                <KpiChildList nodes={toChildNodes(kpi.children)} />
-              )}
               <div className="w-full space-y-4">
                 <h4 className="text-xs font-black uppercase tracking-wider text-slate-500">Lịch sử bài nộp của tôi</h4>
                 {kpi.mySubmissions && kpi.mySubmissions.length > 0 ? (
@@ -579,7 +575,7 @@ function ExpandableKpiRow({ kpi, onExpand }: { kpi: any; onExpand: () => void })
                 )}
               </div>
 
-              {kpi.shared && (
+              {kpi.shared && kpi.childRelationType !== 'DECOMPOSITION' && (
                 <div className="w-full space-y-4 pt-6 border-t border-slate-200 dark:border-slate-700">
                   <h4 className="text-xs font-black uppercase tracking-wider text-slate-500">Đồng đội cùng thực hiện</h4>
                   <div className="space-y-3">

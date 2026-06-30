@@ -71,7 +71,10 @@ public class OrgUnitKpiAnalyticsService {
         List<OrgUnit> units = resolveOrgUnitSubtree(orgUnitId);
         if (units.isEmpty()) return Collections.emptyList();
         List<UUID> unitIds = units.stream().map(OrgUnit::getId).toList();
-        return kpiCriteriaRepository.findApprovedWithoutKeyResultByOrgUnitIds(unitIds);
+        // Chỉ giữ KPI top-level (cha/thác nước/đơn lẻ); KPI con hiện inline qua trường children.
+        return kpiCriteriaRepository.findApprovedWithoutKeyResultByOrgUnitIds(unitIds).stream()
+                .filter(k -> k.getParent() == null)
+                .collect(Collectors.toList());
     }
 
     /** Khi người dùng chọn một đợt cụ thể, chỉ giữ các KPI thuộc đợt đó. */
@@ -175,6 +178,9 @@ public class OrgUnitKpiAnalyticsService {
                     .orgUnitName(child.getOrgUnit() != null ? child.getOrgUnit().getName() : "")
                     .periodStart(child.getKpiPeriod() != null ? child.getKpiPeriod().getStartDate() : null)
                     .periodEnd(child.getKpiPeriod() != null ? child.getKpiPeriod().getEndDate() : null)
+                    .periodName(child.getKpiPeriod() != null ? child.getKpiPeriod().getName() : null)
+                    .weight(child.getWeight())
+                    .assigneeName(KpiMetricsCalculator.assigneeNames(child))
                     .isShared(child.getAssignees() != null && child.getAssignees().size() > 1)
                     .participantCount(child.getAssignees() != null ? child.getAssignees().size() : 1)
                     .isReverseKpi(Boolean.TRUE.equals(child.getIsReverseKpi()))
@@ -277,8 +283,10 @@ public class OrgUnitKpiAnalyticsService {
         if (subtree.isEmpty()) return emptyPagedResponse(page, size);
 
         List<UUID> allUnitIds = subtree.stream().map(OrgUnit::getId).toList();
+        // Chỉ liệt kê KPI top-level (cha/thác nước/đơn lẻ); KPI con hiện inline trong children.
         List<KpiCriteria> kpis = applyPeriodFilter(
-                kpiCriteriaRepository.findApprovedWithoutKeyResultByOrgUnitIds(allUnitIds), periodId);
+                kpiCriteriaRepository.findApprovedWithoutKeyResultByOrgUnitIds(allUnitIds), periodId)
+                .stream().filter(k -> k.getParent() == null).collect(Collectors.toList());
 
         // Build available org unit filter options (only units that actually have KPIs)
         Set<UUID> unitsWithKpis = kpis.stream()
@@ -319,6 +327,9 @@ public class OrgUnitKpiAnalyticsService {
                     .orgUnitName(orgUnitName)
                     .periodStart(kpi.getKpiPeriod() != null ? kpi.getKpiPeriod().getStartDate() : null)
                     .periodEnd(kpi.getKpiPeriod() != null ? kpi.getKpiPeriod().getEndDate() : null)
+                    .periodName(kpi.getKpiPeriod() != null ? kpi.getKpiPeriod().getName() : null)
+                    .weight(kpi.getWeight())
+                    .assigneeName(KpiMetricsCalculator.assigneeNames(kpi))
                     .isShared(isShared)
                     .participantCount(kpi.getAssignees() != null ? kpi.getAssignees().size() : 1)
                     .isReverseKpi(Boolean.TRUE.equals(kpi.getIsReverseKpi()))
@@ -591,6 +602,9 @@ public class OrgUnitKpiAnalyticsService {
         private String orgUnitName;
         private Instant periodStart;
         private Instant periodEnd;
+        private String periodName;   // tên đợt, vd "Tháng 6/2026"
+        private Double weight;        // trọng số KPI
+        private String assigneeName;  // người đảm nhiệm
         private boolean isShared;
         private int participantCount;
 

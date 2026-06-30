@@ -3,7 +3,11 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useSummaryStats, useSummaryComparison, useSummaryRankings } from '../hooks/useAnalytics'
 import { cn, getInitials } from '@/lib/utils'
 import { KpiTypeTags } from '../components/KpiTypeTags'
-import { KpiChildList, toChildNodes } from '../components/KpiChildList'
+import { toChildNodes } from '../components/KpiChildList'
+import { KpiChildTableRows } from '../components/KpiChildTableRows'
+import { KpiResponsibleCell } from '../components/KpiResponsibleCell'
+import { KpiPeriodCell } from '../components/KpiPeriodCell'
+import { KpiWeightPill } from '../components/KpiWeightPill'
 import {
   Target, Star, AlertCircle, Users, TrendingUp, TrendingDown, BarChart3, PieChart as PieChartIcon,
   ChevronRight, AlertTriangle, Trophy, Medal, ArrowUpRight, ArrowDownRight, Layers,
@@ -147,7 +151,7 @@ export default function SummaryTab() {
   // ── Detail table state ────────────────────────────────────────────────────
   const [filterOrgUnitId, setFilterOrgUnitId] = useState<string | undefined>(undefined)
   const [filterShared, setFilterShared] = useState<SharedFilter>('ALL')
-  const [sortField, setSortField] = useState<SortField | null>(null)
+  const [sortField, setSortField] = useState<SortField | null>('period') // ưu tiên đợt/ngày gần nhất
   const [sortDir, setSortDir] = useState<SortDir>('desc')
   const [tablePage, setTablePage] = useState(0)
 
@@ -490,7 +494,7 @@ export default function SummaryTab() {
                 <th className="px-6 py-4">Tên KPI</th>
                 <th className="px-6 py-4">Đơn vị</th>
                 <th className="px-6 py-4 whitespace-nowrap">
-                  <SortHeader field="period" active={sortField} dir={sortDir} onToggle={toggleSort}>Chu kỳ</SortHeader>
+                  <SortHeader field="period" active={sortField} dir={sortDir} onToggle={toggleSort}>Đợt</SortHeader>
                 </th>
                 <th className="px-6 py-4 min-w-[220px]">
                   <SortHeader field="progress" active={sortField} dir={sortDir} onToggle={toggleSort}>Tiến độ</SortHeader>
@@ -504,7 +508,7 @@ export default function SummaryTab() {
               {isKpisLoading
                 ? <TableLoadingRows cols={6} count={2} />
                 : kpiPage?.content?.map(kpi => (
-                    <OrgUnitKpiRow key={kpi.kpiId} kpi={kpi} onClick={() => setSelectedKpiId(kpi.kpiId)} />
+                    <OrgUnitKpiRow key={kpi.kpiId} kpi={kpi} onClick={() => setSelectedKpiId(kpi.kpiId)} onSelectKpi={setSelectedKpiId} />
                   ))}
               {!isKpisLoading && (kpiPage?.totalElements ?? 0) === 0 && (
                 <tr><td colSpan={6} className="text-center py-8 text-slate-400">Không có dữ liệu</td></tr>
@@ -666,23 +670,6 @@ export default function SummaryTab() {
 
 // ── KPI Detail Table Row ──────────────────────────────────────────────────────
 
-function KpiDateRange({ start, end }: { start: string | null; end: string | null }) {
-  const fmt = (d: string | null) => d ? format(new Date(d), 'dd/MM/yyyy') : '—'
-  return (
-    <div className="inline-flex flex-col gap-1 text-[11px]">
-      <div className="flex items-center gap-1.5">
-        <span className="font-bold text-slate-400 uppercase tracking-wider w-[26px] shrink-0">Từ</span>
-        <span className="font-semibold text-slate-700 dark:text-slate-300 tabular-nums">{fmt(start)}</span>
-      </div>
-      <div className="w-full h-px bg-slate-100 dark:bg-slate-800" />
-      <div className="flex items-center gap-1.5">
-        <span className="font-bold text-indigo-400 uppercase tracking-wider w-[26px] shrink-0">Đến</span>
-        <span className="font-semibold text-slate-700 dark:text-slate-300 tabular-nums">{fmt(end)}</span>
-      </div>
-    </div>
-  )
-}
-
 function MobileOrgUnitKpiCard({ kpi, onClick }: { kpi: any; onClick?: () => void }) {
   const pct = Math.round(kpi.progress || 0)
   const perf = Math.round(kpi.performance || 0)
@@ -692,8 +679,8 @@ function MobileOrgUnitKpiCard({ kpi, onClick }: { kpi: any; onClick?: () => void
     <div className="p-4 space-y-3 active:bg-slate-50 dark:active:bg-slate-800/30 cursor-pointer" onClick={onClick}>
       <div className="flex items-start justify-between gap-2">
         <p className="font-bold text-sm text-slate-900 dark:text-white truncate min-w-0">{kpi.kpiName}</p>
-        <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 text-[10px] font-bold text-slate-600 dark:text-slate-300 shrink-0">
-          <Filter size={9} />{kpi.orgUnitName || '—'}
+        <span className="shrink-0">
+          <KpiResponsibleCell orgUnitName={kpi.orgUnitName} />
         </span>
       </div>
 
@@ -718,8 +705,9 @@ function MobileOrgUnitKpiCard({ kpi, onClick }: { kpi: any; onClick?: () => void
   )
 }
 
-function OrgUnitKpiRow({ kpi, onClick }: { kpi: any; onClick?: () => void }) {
-  const [isExpanded, setIsExpanded] = React.useState(false)
+function OrgUnitKpiRow({ kpi, onClick, onSelectKpi }: { kpi: any; onClick?: () => void; onSelectKpi?: (id: string) => void }) {
+  const hasChildren = !!(kpi.children && kpi.children.length > 0)
+  const [isExpanded, setIsExpanded] = React.useState(hasChildren) // KPI cha/thác nước mặc định mở sẵn
   const [expandedParticipant, setExpandedParticipant] = React.useState<Record<string, boolean>>({})
 
   const { data: drawerData, isLoading: isLoadingParticipants } = useQuery({
@@ -755,23 +743,23 @@ function OrgUnitKpiRow({ kpi, onClick }: { kpi: any; onClick?: () => void }) {
             </button>
             <div className="min-w-0">
               <div className="font-bold text-sm text-slate-900 hover:text-indigo-500 dark:hover:text-indigo-400 transition-colors dark:text-white truncate max-w-[180px]">{kpi.kpiName}</div>
-              <KpiTypeTags
-                className="mt-1"
-                isReverseKpi={kpi.isReverseKpi}
-                isBonusKpi={kpi.isBonusKpi}
-                parentRelationType={kpi.parentRelationType}
-                childRelationType={kpi.childRelationType}
-              />
+              <div className="flex items-center gap-1.5 flex-wrap mt-1">
+                <KpiTypeTags
+                  isReverseKpi={kpi.isReverseKpi}
+                  isBonusKpi={kpi.isBonusKpi}
+                  parentRelationType={kpi.parentRelationType}
+                  childRelationType={kpi.childRelationType}
+                />
+                <KpiWeightPill weight={kpi.weight} />
+              </div>
             </div>
           </div>
         </td>
         <td className="px-6 py-4">
-          <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 text-xs font-bold text-slate-600 dark:text-slate-300">
-            <Filter size={10} />{kpi.orgUnitName || '—'}
-          </span>
+          <KpiResponsibleCell orgUnitName={kpi.orgUnitName} />
         </td>
         <td className="px-6 py-4">
-          <KpiDateRange start={kpi.periodStart} end={kpi.periodEnd} />
+          <KpiPeriodCell periodName={kpi.periodName} start={kpi.periodStart} end={kpi.periodEnd} />
         </td>
         <td className="px-6 py-4">
           {isBonus ? (
@@ -820,15 +808,21 @@ function OrgUnitKpiRow({ kpi, onClick }: { kpi: any; onClick?: () => void }) {
         </td>
       </tr>
 
+      {/* ── KPI con: render thành dòng bảng căn thẳng cột với cha ───────────── */}
+      {isExpanded && hasChildren && (
+        <KpiChildTableRows
+          nodes={toChildNodes(kpi.children)}
+          onSelect={onSelectKpi}
+          headingColSpan={5}
+          heading={kpi.childRelationType === 'DELEGATION' ? 'KPI con (thác nước)' : 'KPI con'}
+          variant={{ showPersonColumn: true, accent: 'indigo', baseIndent: 24 }}
+        />
+      )}
+
       {/* ── Expanded participants row ────────────────────────────────────── */}
-      {isExpanded && (
+      {isExpanded && kpi.childRelationType !== 'DECOMPOSITION' && (
         <tr className="bg-slate-50/60 dark:bg-slate-800/10 border-l-[3px] border-l-indigo-400 dark:border-l-indigo-500/50">
           <td colSpan={5} className="px-8 py-5">
-            {kpi.children && kpi.children.length > 0 && (
-              <div className="mb-5">
-                <KpiChildList nodes={toChildNodes(kpi.children)} />
-              </div>
-            )}
             {isLoadingParticipants ? (
               <div className="py-3 animate-pulse space-y-2">
                 <div className="h-10 bg-[var(--color-muted)] rounded-xl" />
@@ -838,7 +832,7 @@ function OrgUnitKpiRow({ kpi, onClick }: { kpi: any; onClick?: () => void }) {
               <>
                 <div className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-3 flex items-center gap-2">
                   <span className="w-1.5 h-1.5 rounded-full bg-indigo-400 dark:bg-indigo-500" />
-                  Các thành viên đảm nhiệm
+                  {kpi.childRelationType === 'DELEGATION' ? 'Người chịu trách nhiệm' : 'Các thành viên đảm nhiệm'}
                 </div>
                 {!drawerData?.assigneeStats?.length ? (
                   <p className="text-sm text-slate-400 py-2 pl-3">Không có thành viên nào</p>
