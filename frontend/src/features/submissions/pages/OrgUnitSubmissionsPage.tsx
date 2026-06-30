@@ -90,6 +90,15 @@ export default function OrgUnitSubmissionsPage() {
     }
   }, [activePeriod, selectedPeriodId])
 
+  const selectedPeriod = useMemo(
+    () => periodsData?.content?.find((p: any) => p.id === selectedPeriodId),
+    [periodsData, selectedPeriodId]
+  )
+  const isPeriodEnded = useMemo(() => {
+    if (!selectedPeriod?.endDate) return false
+    return new Date() > new Date(selectedPeriod.endDate)
+  }, [selectedPeriod])
+
   // Fetch employees
   const { data: usersData, isLoading: isLoadingUsers } = useUsers({ 
     page, 
@@ -425,6 +434,10 @@ export default function OrgUnitSubmissionsPage() {
                                 {getScoreLabel(evaluation.score)}
                               </span>
                             </div>
+                          ) : isPeriodEnded ? (
+                            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-rose-50 dark:bg-rose-900/20 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-800/50">
+                              <span className="text-[10px] font-black uppercase tracking-widest">Chưa làm</span>
+                            </div>
                           ) : (
                             <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 border border-slate-200 dark:border-slate-700">
                               <span className="text-[10px] font-black uppercase tracking-widest">Chưa đánh giá</span>
@@ -500,6 +513,10 @@ export default function OrgUnitSubmissionsPage() {
                             {getScoreLabel(evaluation.score)}
                           </span>
                         </div>
+                      ) : isPeriodEnded ? (
+                        <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-rose-50 dark:bg-rose-900/20 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-800/50">
+                          <span className="text-[10px] font-black uppercase tracking-widest">Chưa làm</span>
+                        </div>
                       ) : (
                         <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 border border-slate-200 dark:border-slate-700">
                           <span className="text-[10px] font-black uppercase tracking-widest">Chưa đánh giá</span>
@@ -548,6 +565,7 @@ export default function OrgUnitSubmissionsPage() {
             userName={staffEvalUser.fullName}
             periodId={selectedPeriodId}
             periodName={periodsData?.content.find((p: any) => p.id === selectedPeriodId)?.name || ''}
+            periodEnded={isPeriodEnded}
           />
         )}
         
