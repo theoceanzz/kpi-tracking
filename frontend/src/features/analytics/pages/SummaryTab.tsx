@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useRef, useEffect } from 'react'
+import React, { useState, useRef, useEffect } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useSummaryStats, useSummaryComparison, useSummaryRankings } from '../hooks/useAnalytics'
 import { cn, getInitials } from '@/lib/utils'
@@ -9,7 +9,7 @@ import { KpiResponsibleCell } from '../components/KpiResponsibleCell'
 import { KpiPeriodCell } from '../components/KpiPeriodCell'
 import { KpiWeightPill } from '../components/KpiWeightPill'
 import {
-  Target, Star, AlertCircle, Users, TrendingUp, TrendingDown, BarChart3, PieChart as PieChartIcon,
+  Target, Star, AlertCircle, Users, TrendingUp, TrendingDown, PieChart as PieChartIcon,
   ChevronRight, AlertTriangle, Trophy, Medal, ArrowUpRight, ArrowDownRight, Layers,
   ChevronDown, Filter, ArrowUpDown, Loader2,
   Settings2, Save, RotateCcw, Plus, Layout, X, Eye, EyeOff, GripVertical, Trash2,
@@ -25,6 +25,13 @@ import {
 import { Responsive, WidthProvider } from 'react-grid-layout/legacy'
 import { reportApi } from '@/features/reports/api/reportApi'
 import type { RankingItem, UnitComparison } from '@/types/stats'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import AiAssistantWidget from '../components/AiAssistantWidget'
 import AnalyticsComboChart from '../components/AnalyticsComboChart'
 import Pagination from '@/components/common/Pagination'
@@ -68,8 +75,7 @@ interface SummaryWidget {
 }
 
 const DEFAULT_SUMMARY_WIDGETS: SummaryWidget[] = [
-  { i: 'unit-perf', type: 'UNIT_PERFORMANCE', title: 'Top 5 hiệu suất đơn vị', x: 0, y: 0, w: 6, h: 11, visible: true },
-  { i: 'unit-kpi', type: 'UNIT_KPI', title: 'Top 5 tiến độ đơn vị', x: 6, y: 0, w: 6, h: 11, visible: true },
+  { i: 'unit-perf', type: 'UNIT_PERFORMANCE', title: 'Hiệu suất & Tiến độ đơn vị', x: 0, y: 0, w: 12, h: 13, visible: true },
   { i: 'member-dist', type: 'MEMBER_DIST', title: 'Phân bổ nhân sự', x: 0, y: 11, w: 6, h: 10, visible: true },
   { i: 'role-dist', type: 'ROLE_DIST', title: 'Phân bổ vai trò', x: 6, y: 11, w: 6, h: 10, visible: true },
   { i: 'unit-risk', type: 'UNIT_RISK', title: 'Rủi ro đơn vị', x: 0, y: 21, w: 12, h: 11, visible: true },
@@ -293,8 +299,8 @@ export default function SummaryTab() {
 
   const renderWidgetContent = (widget: SummaryWidget) => {
     switch (widget.type) {
-      case 'UNIT_PERFORMANCE': return <TopUnitPerfSection orgUnitId={selectedUnitId} from={from} to={to} onlyApproved={onlyApproved} periodId={periodId} isEditMode={isEditMode} widget={widget} onTogglePin={handleTogglePin} hoveredUnit={hoveredUnit} onHoverUnit={setHoveredUnit} />
-      case 'UNIT_KPI': return <TopUnitProgressSection orgUnitId={selectedUnitId} from={from} to={to} onlyApproved={onlyApproved} periodId={periodId} isEditMode={isEditMode} widget={widget} onTogglePin={handleTogglePin} hoveredUnit={hoveredUnit} onHoverUnit={setHoveredUnit} />
+      case 'UNIT_PERFORMANCE': return <UnitComparisonSection orgUnitId={selectedUnitId} from={from} to={to} onlyApproved={onlyApproved} periodId={periodId} isEditMode={isEditMode} widget={widget} onTogglePin={handleTogglePin} hoveredUnit={hoveredUnit} onHoverUnit={setHoveredUnit} />
+      case 'UNIT_KPI': return null // gộp vào UNIT_PERFORMANCE (Hiệu suất & Tiến độ đơn vị)
       case 'MEMBER_DIST': {
         return (
           <ChartWrapper title="Số lượng nhân sự" icon={<PieChartIcon size={20} className="text-purple-600" />} widget={widget} onTogglePin={handleTogglePin} isEditMode={isEditMode}>
@@ -422,7 +428,7 @@ export default function SummaryTab() {
           <div className="bg-white dark:bg-slate-900 rounded-2xl p-5 border border-slate-200 dark:border-slate-800 flex items-center gap-4">
             <div className="w-12 h-12 rounded-full bg-emerald-100 dark:bg-emerald-900/40 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0"><Target size={24} /></div>
             <div>
-              <p className="text-xs font-bold text-slate-500">Hiệu suất trung bình</p>
+              <p className="text-xs font-bold text-slate-500">Hiệu suất trung bình (đánh giá)</p>
               <p className="text-2xl font-black">{metrics?.averagePerformance?.toFixed(1) ?? 0}%</p>
             </div>
           </div>
@@ -469,16 +475,20 @@ export default function SummaryTab() {
 
         <div className="px-6 py-4 border-b border-slate-100 dark:border-slate-800 flex flex-wrap items-center gap-3">
           {/* Unit filter */}
-          <select
-            className="h-9 px-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-semibold text-slate-700 dark:text-slate-300 outline-none focus:ring-2 focus:ring-indigo-500/50 max-w-[220px]"
-            value={filterOrgUnitId || ''}
-            onChange={e => { setFilterOrgUnitId(e.target.value || undefined); setTablePage(0) }}
+          <Select
+            value={filterOrgUnitId ?? ALL_UNITS}
+            onValueChange={v => { setFilterOrgUnitId(v === ALL_UNITS ? undefined : v); setTablePage(0) }}
           >
-            <option value="">Tất cả đơn vị</option>
-            {kpiPage?.availableOrgUnits?.map(o => (
-              <UnitSelectOption key={o.code} o={o} />
-            ))}
-          </select>
+            <SelectTrigger className="h-9 max-w-[220px] bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 rounded-lg text-xs font-semibold text-slate-700 dark:text-slate-300">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={ALL_UNITS}>Tất cả đơn vị</SelectItem>
+              {kpiPage?.availableOrgUnits?.map(o => (
+                <UnitSelectItem key={o.code} o={o} />
+              ))}
+            </SelectContent>
+          </Select>
 
           {hasTableFilters && (
             <button onClick={clearTableFilters} className="flex items-center gap-1 h-9 px-3 rounded-lg text-xs font-bold text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors">
@@ -498,9 +508,6 @@ export default function SummaryTab() {
                 </th>
                 <th className="px-6 py-4 min-w-[220px]">
                   <SortHeader field="progress" active={sortField} dir={sortDir} onToggle={toggleSort}>Tiến độ</SortHeader>
-                </th>
-                <th className="px-6 py-4 text-center">
-                  <SortHeader field="performance" active={sortField} dir={sortDir} onToggle={toggleSort}>Hiệu suất</SortHeader>
                 </th>
               </tr>
             </thead>
@@ -672,7 +679,6 @@ export default function SummaryTab() {
 
 function MobileOrgUnitKpiCard({ kpi, onClick }: { kpi: any; onClick?: () => void }) {
   const pct = Math.round(kpi.progress || 0)
-  const perf = Math.round(kpi.performance || 0)
   const fmt = (d: string | null) => d ? format(new Date(d), 'dd/MM/yyyy') : '—'
 
   return (
@@ -695,10 +701,6 @@ function MobileOrgUnitKpiCard({ kpi, onClick }: { kpi: any; onClick?: () => void
           <div className="h-2 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
             <div className={cn('h-full rounded-full', pct >= 100 ? 'bg-emerald-500' : 'bg-indigo-500')} style={{ width: `${Math.min(pct, 100)}%` }} />
           </div>
-        </div>
-        <div className="text-center shrink-0">
-          <p className="text-[10px] text-slate-500">Hiệu suất</p>
-          <p className={cn('text-sm font-black', perf >= 100 ? 'text-emerald-500' : perf >= 80 ? 'text-indigo-500' : perf >= 50 ? 'text-amber-500' : 'text-red-500')}>{perf}%</p>
         </div>
       </div>
     </div>
@@ -728,7 +730,6 @@ function OrgUnitKpiRow({ kpi, onClick, onSelectKpi }: { kpi: any; onClick?: () =
   // KPI thưởng: backend trả tiến độ/hiệu suất = null (không tính), hiển thị gạch ngang.
   const isBonus = kpi.progress == null
   const pct  = Math.round(kpi.progress    || 0)
-  const perf = Math.round(kpi.performance || 0)
 
   return (
     <React.Fragment>
@@ -788,24 +789,6 @@ function OrgUnitKpiRow({ kpi, onClick, onSelectKpi }: { kpi: any; onClick?: () =
             </>
           )}
         </td>
-        <td className="px-6 py-4 text-center">
-          {isBonus ? (
-            <span className="text-slate-400 font-black">—</span>
-          ) : (
-            <div className="inline-flex relative items-center justify-center w-12 h-12">
-              <svg className="w-12 h-12 transform -rotate-90">
-                <circle className="text-slate-100 dark:text-slate-800" strokeWidth="4" stroke="currentColor" fill="transparent" r="20" cx="24" cy="24" />
-                <circle
-                  className={cn(perf >= 100 ? 'text-emerald-500' : perf >= 80 ? 'text-indigo-500' : perf >= 50 ? 'text-amber-500' : 'text-red-500')}
-                  strokeWidth="4" strokeDasharray={125.6}
-                  strokeDashoffset={125.6 - (Math.min(perf, 100) / 100) * 125.6}
-                  strokeLinecap="round" stroke="currentColor" fill="transparent" r="20" cx="24" cy="24"
-                />
-              </svg>
-              <span className="absolute text-[10px] font-black">{perf}%</span>
-            </div>
-          )}
-        </td>
       </tr>
 
       {/* ── KPI con: render thành dòng bảng căn thẳng cột với cha ───────────── */}
@@ -813,7 +796,7 @@ function OrgUnitKpiRow({ kpi, onClick, onSelectKpi }: { kpi: any; onClick?: () =
         <KpiChildTableRows
           nodes={toChildNodes(kpi.children)}
           onSelect={onSelectKpi}
-          headingColSpan={5}
+          headingColSpan={4}
           heading={kpi.childRelationType === 'DELEGATION' ? 'KPI con (thác nước)' : 'KPI con'}
           variant={{ showPersonColumn: true, accent: 'indigo', baseIndent: 24 }}
         />
@@ -822,7 +805,7 @@ function OrgUnitKpiRow({ kpi, onClick, onSelectKpi }: { kpi: any; onClick?: () =
       {/* ── Expanded participants row ────────────────────────────────────── */}
       {isExpanded && kpi.childRelationType !== 'DECOMPOSITION' && (
         <tr className="bg-slate-50/60 dark:bg-slate-800/10 border-l-[3px] border-l-indigo-400 dark:border-l-indigo-500/50">
-          <td colSpan={5} className="px-8 py-5">
+          <td colSpan={4} className="px-8 py-5">
             {isLoadingParticipants ? (
               <div className="py-3 animate-pulse space-y-2">
                 <div className="h-10 bg-[var(--color-muted)] rounded-xl" />
@@ -1042,90 +1025,58 @@ function UnitBarTooltip({ active, payload }: any) {
   )
 }
 
-function TopUnitPerfSection({ orgUnitId, from, to, onlyApproved, periodId, isEditMode, widget, onTogglePin, hoveredUnit, onHoverUnit }: {
-  orgUnitId?: string; from?: string; to?: string; onlyApproved?: boolean; periodId?: string
-  isEditMode?: boolean; widget: SummaryWidget; onTogglePin: (w: SummaryWidget) => void
-  hoveredUnit?: string | null; onHoverUnit?: (u: string | null) => void
-}) {
-  const [filter, setFilter] = React.useState<'BEST' | 'WORST'>('BEST')
-  const { data } = useSummaryComparison(orgUnitId, from, to, onlyApproved, periodId)
-
-  const chartData = React.useMemo(() => {
-    const source = (filter === 'BEST' ? data?.topPerformingUnits : data?.worstPerformingUnits) as UnitComparison[] | undefined
-    return (source || []).slice(0, 5).map((u: UnitComparison) => ({
-      ...u,
-      displayName: u.unitName.length > 18 ? u.unitName.substring(0, 18) + '…' : u.unitName,
-      tooltipName: u.unitName,
-    }))
-  }, [data, filter])
-
-  const baseColor = filter === 'BEST' ? '#10b981' : '#f43f5e'
-
+/** Bộ chọn số lượng đơn vị hiển thị: Tất cả / Top 5 / Top 10. */
+function TopNSelect({ value, onChange }: { value: 'ALL' | '5' | '10'; onChange: (v: 'ALL' | '5' | '10') => void }) {
   return (
-    <ChartWrapper
-      title="Top 5 hiệu suất đơn vị"
-      icon={<TrendingUp size={20} className="text-emerald-500" />}
-      widget={widget} onTogglePin={onTogglePin} isEditMode={!!isEditMode}
-      extraHeaderContent={<RankFilterToggle filter={filter} onChange={setFilter} />}
-    >
-      <div className="relative flex-1 flex flex-col">
-        {chartData.length === 0 ? (
-          <div className="flex-1 flex items-center justify-center text-slate-400 text-sm">Không có dữ liệu</div>
-        ) : (
-          <div className="flex-1 min-h-0">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={chartData} layout="vertical" margin={{ top: 5, right: 55, left: 10, bottom: 5 }}
-                onMouseLeave={() => onHoverUnit?.(null)}>
-                <CartesianGrid strokeDasharray="3 3" horizontal={false} vertical stroke="#f1f5f9" strokeOpacity={0.8} />
-                <XAxis type="number" domain={[0, 100]} tickFormatter={v => `${v}%`} tick={{ fontSize: 10, fill: '#64748b' }} axisLine={false} tickLine={false} />
-                <YAxis dataKey="displayName" type="category" width={120} tick={{ fontSize: 11, fontWeight: 600, fill: '#64748b' }} axisLine={false} tickLine={false} />
-                <Tooltip content={<UnitBarTooltip />} cursor={{ fill: '#94a3b8', opacity: 0.06 }} />
-                <Bar name="Hiệu suất" dataKey="performance" fill={baseColor} radius={[0, 6, 6, 0]} barSize={18} isAnimationActive={false}
-                  onMouseEnter={(d: any) => onHoverUnit?.(d.payload?.tooltipName ?? null)}
-                  label={{ position: 'right', fill: '#64748b', fontSize: 10, fontWeight: 700, formatter: (v: any) => `${Math.round(v)}%` }}>
-                  {chartData.map((item, i) => (
-                    <Cell key={i} fill={baseColor} opacity={hoveredUnit && hoveredUnit !== item.tooltipName ? 0.3 : 1} />
-                  ))}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        )}
-      </div>
-    </ChartWrapper>
+    <Select value={value} onValueChange={v => onChange(v as 'ALL' | '5' | '10')}>
+      <SelectTrigger
+        className="h-8 w-auto gap-1 px-2 bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 rounded-lg text-[11px] font-semibold text-slate-600 dark:text-slate-300"
+        title="Số đơn vị hiển thị"
+      >
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent>
+        <SelectItem value="ALL">Tất cả</SelectItem>
+        <SelectItem value="5">Top 5</SelectItem>
+        <SelectItem value="10">Top 10</SelectItem>
+      </SelectContent>
+    </Select>
   )
 }
 
-function TopUnitProgressSection({ orgUnitId, from, to, onlyApproved, periodId, isEditMode, widget, onTogglePin, hoveredUnit, onHoverUnit }: {
+/** Biểu đồ GỘP: mỗi đơn vị 2 thanh ngang — Hiệu suất (đánh giá) + Tiến độ. Tất cả đơn vị + bộ chọn Top-N. */
+function UnitComparisonSection({ orgUnitId, from, to, onlyApproved, periodId, isEditMode, widget, onTogglePin, hoveredUnit, onHoverUnit }: {
   orgUnitId?: string; from?: string; to?: string; onlyApproved?: boolean; periodId?: string
   isEditMode?: boolean; widget: SummaryWidget; onTogglePin: (w: SummaryWidget) => void
   hoveredUnit?: string | null; onHoverUnit?: (u: string | null) => void
 }) {
   const [filter, setFilter] = React.useState<'BEST' | 'WORST'>('BEST')
+  const [topN, setTopN] = React.useState<'ALL' | '5' | '10'>('ALL')
   const { data } = useSummaryComparison(orgUnitId, from, to, onlyApproved, periodId)
 
   const chartData = React.useMemo(() => {
-    const combined = [...(data?.topPerformingUnits || []), ...(data?.worstPerformingUnits || [])] as UnitComparison[]
-    const seen = new Set<string>()
-    const unique = combined.filter((u: UnitComparison) => { if (seen.has(u.unitName)) return false; seen.add(u.unitName); return true })
-    return unique
-      .sort((a: UnitComparison, b: UnitComparison) => filter === 'BEST' ? b.completionRate - a.completionRate : a.completionRate - b.completionRate)
-      .slice(0, 5)
-      .map((u: UnitComparison) => ({
-        ...u,
-        displayName: u.unitName.length > 18 ? u.unitName.substring(0, 18) + '…' : u.unitName,
-        tooltipName: u.unitName,
-      }))
-  }, [data, filter])
-
-  const baseColor = filter === 'BEST' ? '#6366f1' : '#f59e0b'
+    // Backend đã sort: topPerformingUnits (hiệu suất giảm dần), worstPerformingUnits (tăng dần).
+    const source = (filter === 'BEST' ? data?.topPerformingUnits : data?.worstPerformingUnits) as UnitComparison[] | undefined
+    let list = source || []
+    if (topN !== 'ALL') list = list.slice(0, Number(topN))
+    return list.map((u: UnitComparison) => ({
+      ...u,
+      displayName: u.unitName.length > 16 ? u.unitName.substring(0, 16) + '…' : u.unitName,
+      tooltipName: u.unitName,
+    }))
+  }, [data, filter, topN])
 
   return (
     <ChartWrapper
-      title="Top 5 tiến độ đơn vị"
-      icon={<BarChart3 size={20} className="text-indigo-600" />}
+      title="Hiệu suất & Tiến độ đơn vị"
+      icon={<TrendingUp size={20} className="text-emerald-500" />}
       widget={widget} onTogglePin={onTogglePin} isEditMode={!!isEditMode}
-      extraHeaderContent={<RankFilterToggle filter={filter} onChange={setFilter} />}
+      extraHeaderContent={
+        <div className="flex items-center gap-2">
+          <RankFilterToggle filter={filter} onChange={setFilter} />
+          <TopNSelect value={topN} onChange={setTopN} />
+        </div>
+      }
     >
       <div className="relative flex-1 flex flex-col">
         {chartData.length === 0 ? (
@@ -1133,17 +1084,28 @@ function TopUnitProgressSection({ orgUnitId, from, to, onlyApproved, periodId, i
         ) : (
           <div className="flex-1 min-h-0">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={chartData} layout="vertical" margin={{ top: 5, right: 55, left: 10, bottom: 5 }}
+              <BarChart data={chartData} barGap={4} barCategoryGap="28%"
+                margin={{ top: 10, right: 16, left: 0, bottom: 24 }}
                 onMouseLeave={() => onHoverUnit?.(null)}>
-                <CartesianGrid strokeDasharray="3 3" horizontal={false} vertical stroke="#f1f5f9" strokeOpacity={0.8} />
-                <XAxis type="number" domain={[0, 100]} tickFormatter={v => `${v}%`} tick={{ fontSize: 10, fill: '#64748b' }} axisLine={false} tickLine={false} />
-                <YAxis dataKey="displayName" type="category" width={120} tick={{ fontSize: 11, fontWeight: 600, fill: '#64748b' }} axisLine={false} tickLine={false} />
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" strokeOpacity={0.8} />
+                <XAxis dataKey="displayName" type="category" interval={0} height={50}
+                  tick={{ fontSize: 11, fontWeight: 600, fill: '#64748b' }} tickMargin={8}
+                  angle={chartData.length > 6 ? -20 : 0} textAnchor={chartData.length > 6 ? 'end' : 'middle'}
+                  axisLine={false} tickLine={false} />
+                <YAxis type="number" domain={[0, 100]} tickFormatter={v => `${v}%`} width={40}
+                  tick={{ fontSize: 10, fill: '#64748b' }} axisLine={false} tickLine={false} />
                 <Tooltip content={<UnitBarTooltip />} cursor={{ fill: '#94a3b8', opacity: 0.06 }} />
-                <Bar name="Tiến độ" dataKey="completionRate" fill={baseColor} radius={[0, 6, 6, 0]} barSize={18} isAnimationActive={false}
-                  onMouseEnter={(d: any) => onHoverUnit?.(d.payload?.tooltipName ?? null)}
-                  label={{ position: 'right', fill: '#64748b', fontSize: 10, fontWeight: 700, formatter: (v: any) => `${Math.round(v)}%` }}>
+                <Legend verticalAlign="top" height={28} iconType="circle" wrapperStyle={{ fontSize: 11, fontWeight: 700 }} />
+                <Bar name="Hiệu suất" dataKey="performance" fill="#10b981" radius={[5, 5, 0, 0]} maxBarSize={36} isAnimationActive={false}
+                  onMouseEnter={(d: any) => onHoverUnit?.(d.payload?.tooltipName ?? null)}>
                   {chartData.map((item, i) => (
-                    <Cell key={i} fill={baseColor} opacity={hoveredUnit && hoveredUnit !== item.tooltipName ? 0.3 : 1} />
+                    <Cell key={`p${i}`} fill="#10b981" opacity={hoveredUnit && hoveredUnit !== item.tooltipName ? 0.3 : 1} />
+                  ))}
+                </Bar>
+                <Bar name="Tiến độ" dataKey="completionRate" fill="#6366f1" radius={[5, 5, 0, 0]} maxBarSize={36} isAnimationActive={false}
+                  onMouseEnter={(d: any) => onHoverUnit?.(d.payload?.tooltipName ?? null)}>
+                  {chartData.map((item, i) => (
+                    <Cell key={`c${i}`} fill="#6366f1" opacity={hoveredUnit && hoveredUnit !== item.tooltipName ? 0.3 : 1} />
                   ))}
                 </Bar>
               </BarChart>
@@ -1157,9 +1119,12 @@ function TopUnitProgressSection({ orgUnitId, from, to, onlyApproved, periodId, i
 
 type RiskSortField = 'progress' | 'overdueCount' | 'overdueRate'
 
-function UnitSelectOption({ o }: { o: { code: string; name: string; depth?: number } }) {
+// Sentinel cho mục "Tất cả đơn vị" — shadcn/Radix Select không cho phép value rỗng.
+const ALL_UNITS = '__ALL__'
+
+function UnitSelectItem({ o }: { o: { code: string; name: string; depth?: number } }) {
   const prefix = '-'.repeat(o.depth ?? 0)
-  return <option value={o.code}>{prefix}{o.name}</option>
+  return <SelectItem value={o.code}>{prefix}{o.name}</SelectItem>
 }
 
 function RiskSortBtn({ field, active, dir, onToggle, children }: {
@@ -1443,14 +1408,18 @@ function WarningListSection({ orgUnitId, from, to, onlyApproved, periodId, isEdi
       widget={widget} onTogglePin={onTogglePin} isEditMode={!!isEditMode}
       extraHeaderContent={
         filterUnits.length > 0 ? (
-          <select
-            className="h-8 px-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-[11px] font-semibold text-slate-600 dark:text-slate-300 outline-none focus:ring-2 focus:ring-indigo-500/50 max-w-[160px]"
-            value={filterOrgUnitId || ''}
-            onChange={e => { setFilterOrgUnitId(e.target.value || undefined); setPage(0) }}
+          <Select
+            value={filterOrgUnitId ?? ALL_UNITS}
+            onValueChange={v => { setFilterOrgUnitId(v === ALL_UNITS ? undefined : v); setPage(0) }}
           >
-            <option value="">Tất cả đơn vị</option>
-            {filterUnits.map(u => <UnitSelectOption key={u.code} o={u} />)}
-          </select>
+            <SelectTrigger className="h-8 max-w-[160px] gap-1 bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 rounded-lg text-[11px] font-semibold text-slate-600 dark:text-slate-300">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={ALL_UNITS}>Tất cả đơn vị</SelectItem>
+              {filterUnits.map(u => <UnitSelectItem key={u.code} o={u} />)}
+            </SelectContent>
+          </Select>
         ) : undefined
       }
     >
@@ -1531,36 +1500,25 @@ function WarningListSection({ orgUnitId, from, to, onlyApproved, periodId, isEdi
 
 function EmployeeRankingTableSection({ orgUnitId, from, to, onlyApproved, periodId, isEditMode, widget, onTogglePin }: { orgUnitId?: string; from?: string; to?: string; onlyApproved?: boolean; periodId?: string; isEditMode?: boolean; widget: SummaryWidget; onTogglePin: (w: SummaryWidget) => void }) {
   const [rankingUnitId, setRankingUnitId] = useState<string | undefined>(undefined)
-  const [sf, setSf] = useState<keyof RankingItem>('performance')
+  const [sf, setSf] = useState<'performance' | 'avgProgress'>('performance')
   const [sd, setSd] = useState<'ASC' | 'DESC'>('DESC')
   const [rankPage, setRankPage] = useState(0)
   const RANK_PAGE_SIZE = 5
 
-  const { data, isFetching } = useSummaryRankings(orgUnitId, rankingUnitId, from, to, onlyApproved, periodId);
+  // Sort + phân trang đã chuyển sang backend; render thẳng trang hiện tại trả về.
+  const { data, isFetching } = useSummaryRankings(orgUnitId, rankingUnitId, from, to, onlyApproved, periodId, rankPage, RANK_PAGE_SIZE, sf, sd);
 
-  const processedRankings = useMemo(() => {
-    if (!data?.rankings) return []
-    const result = [...data.rankings]
-    result.sort((a, b) => {
-      const aVal = (a[sf] ?? 0) as number; const bVal = (b[sf] ?? 0) as number
-      return sd === 'ASC' ? aVal - bVal : bVal - aVal
-    })
-    return result
-  }, [data?.rankings, sf, sd])
+  const pagedRankings = (data?.rankings ?? []) as RankingItem[]
+  const totalRankPages = data?.totalPages ?? 0
+  const totalRankElements = data?.totalElements ?? 0
 
-  const pagedRankings = useMemo(() => {
-    return processedRankings.slice(rankPage * RANK_PAGE_SIZE, (rankPage + 1) * RANK_PAGE_SIZE)
-  }, [processedRankings, rankPage])
-
-  const totalRankPages = Math.ceil(processedRankings.length / RANK_PAGE_SIZE)
-
-  const handleSort = (field: keyof RankingItem) => {
+  const handleSort = (field: 'performance' | 'avgProgress') => {
     if (sf === field) setSd(prev => prev === 'ASC' ? 'DESC' : 'ASC')
     else { setSf(field); setSd('DESC') }
     setRankPage(0)
   }
 
-  const sortIcon = (field: keyof RankingItem) => sf === field
+  const sortIcon = (field: 'performance' | 'avgProgress') => sf === field
     ? (sd === 'DESC' ? <ArrowDownRight size={10} className="inline ml-1" /> : <ArrowUpRight size={10} className="inline ml-1" />)
     : <ArrowUpDown size={10} className="inline ml-1 opacity-30" />
 
@@ -1570,20 +1528,21 @@ function EmployeeRankingTableSection({ orgUnitId, from, to, onlyApproved, period
       icon={<Medal size={20} className="text-indigo-600" />}
       widget={widget} onTogglePin={onTogglePin} isEditMode={!!isEditMode}
       extraHeaderContent={
-        <div className="relative">
-          <select
-            value={rankingUnitId || ''}
-            onChange={e => { setRankingUnitId(e.target.value || undefined); setRankPage(0) }}
-            className="appearance-none pl-9 pr-8 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold focus:ring-2 focus:ring-indigo-500 outline-none transition-all shadow-sm max-w-[200px]"
-          >
-            <option value="">Tất cả đơn vị</option>
+        <Select
+          value={rankingUnitId ?? ALL_UNITS}
+          onValueChange={v => { setRankingUnitId(v === ALL_UNITS ? undefined : v); setRankPage(0) }}
+        >
+          <SelectTrigger className="h-auto gap-2 py-2 bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold shadow-sm max-w-[200px]">
+            <Filter size={13} className="text-slate-400 shrink-0" />
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value={ALL_UNITS}>Tất cả đơn vị</SelectItem>
             {(data?.rankingOptions || []).map((opt: any) => (
-              <UnitSelectOption key={opt.id} o={{ code: opt.id, name: opt.name, depth: opt.depth }} />
+              <UnitSelectItem key={opt.id} o={{ code: opt.id, name: opt.name, depth: opt.depth }} />
             ))}
-          </select>
-          <Filter size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-          <ChevronDown size={12} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
-        </div>
+          </SelectContent>
+        </Select>
       }
     >
       <div className="flex-1 flex flex-col gap-3">
@@ -1594,20 +1553,17 @@ function EmployeeRankingTableSection({ orgUnitId, from, to, onlyApproved, period
                 <th className="px-6 py-4">Hạng</th>
                 <th className="px-6 py-4">Nhân viên</th>
                 <th className="px-6 py-4">Đơn vị</th>
-                <th className="px-6 py-4 text-center cursor-pointer hover:text-indigo-600" onClick={() => handleSort('performance')}>
-                  Hiệu suất {sortIcon('performance')}
-                </th>
                 <th className="px-6 py-4 text-center cursor-pointer hover:text-indigo-600" onClick={() => handleSort('avgProgress')}>
                   Tiến độ trung bình {sortIcon('avgProgress')}
                 </th>
-                <th className="px-6 py-4 text-center cursor-pointer hover:text-indigo-600" onClick={() => handleSort('score')}>
-                  Điểm đánh giá TB {sortIcon('score')}
+                <th className="px-6 py-4 text-center cursor-pointer hover:text-indigo-600" onClick={() => handleSort('performance')}>
+                  Hiệu suất {sortIcon('performance')}
                 </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-50 dark:divide-slate-800">
               {isFetching ? (
-                <TableSkeletonRows cols={6} count={5} />
+                <TableSkeletonRows cols={5} count={5} />
               ) : pagedRankings.map((item, i) => {
                 const globalRank = rankPage * RANK_PAGE_SIZE + i
                 return (
@@ -1628,13 +1584,6 @@ function EmployeeRankingTableSection({ orgUnitId, from, to, onlyApproved, period
                     </td>
                     <td className="px-6 py-4 font-bold text-slate-500 text-xs">{item.subText}</td>
                     <td className="px-6 py-4 text-center">
-                      <span className={cn("px-3 py-1 rounded-full text-xs font-black",
-                        item.performance >= 80 ? "bg-emerald-50 text-emerald-600" :
-                        item.performance >= 50 ? "bg-amber-50 text-amber-600" :
-                        "bg-red-50 text-red-600"
-                      )}>{item.performance.toFixed(1)}%</span>
-                    </td>
-                    <td className="px-6 py-4 text-center">
                       <div className="flex items-center gap-2 justify-center">
                         <div className="w-16 h-1.5 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden">
                           <div className={cn('h-full rounded-full',
@@ -1649,7 +1598,11 @@ function EmployeeRankingTableSection({ orgUnitId, from, to, onlyApproved, period
                       </div>
                     </td>
                     <td className="px-6 py-4 text-center">
-                      <p className="text-sm font-black text-slate-900 dark:text-white">{item.score.toFixed(1)}</p>
+                      <span className={cn("px-3 py-1 rounded-full text-xs font-black",
+                        item.performance >= 80 ? "bg-emerald-50 text-emerald-600" :
+                        item.performance >= 50 ? "bg-amber-50 text-amber-600" :
+                        "bg-red-50 text-red-600"
+                      )}>{item.performance.toFixed(1)}%</span>
                     </td>
                   </tr>
                 )
@@ -1698,13 +1651,12 @@ function EmployeeRankingTableSection({ orgUnitId, from, to, onlyApproved, period
                     )}>{item.avgProgress.toFixed(1)}%</span>
                   </div>
 
-                  <div className="flex items-center justify-between pt-1 border-t border-slate-100 dark:border-slate-800 text-xs">
+                  <div className="flex items-center justify-end pt-1 border-t border-slate-100 dark:border-slate-800 text-xs">
                     <span className={cn("px-3 py-1 rounded-full text-xs font-black",
                       item.performance >= 80 ? "bg-emerald-50 text-emerald-600" :
                       item.performance >= 50 ? "bg-amber-50 text-amber-600" :
                       "bg-red-50 text-red-600"
                     )}>Hiệu suất {item.performance.toFixed(1)}%</span>
-                    <span className="font-black text-slate-900 dark:text-white">Điểm TB: {item.score.toFixed(1)}</span>
                   </div>
                 </div>
               )
@@ -1712,7 +1664,7 @@ function EmployeeRankingTableSection({ orgUnitId, from, to, onlyApproved, period
           )}
         </div>
         {totalRankPages > 1 && (
-          <Pagination currentPage={rankPage} totalPages={totalRankPages} onPageChange={setRankPage} totalElements={processedRankings.length} size={RANK_PAGE_SIZE} itemLabel="nhân viên" />
+          <Pagination currentPage={rankPage} totalPages={totalRankPages} onPageChange={setRankPage} totalElements={totalRankElements} size={RANK_PAGE_SIZE} itemLabel="nhân viên" />
         )}
       </div>
     </ChartWrapper>

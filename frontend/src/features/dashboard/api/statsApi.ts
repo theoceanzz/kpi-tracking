@@ -40,8 +40,8 @@ export const statsApi = {
   getSummaryRisks: (orgUnitId?: string, period: string = 'MONTH') =>
     axiosInstance.get<ApiResponse<any>>('/stats/summary/risks', { params: { orgUnitId, period } }).then((r) => r.data.data),
 
-  getSummaryRankings: (orgUnitId?: string, rankingUnitId?: string, from?: string, to?: string, onlyApproved?: boolean, periodId?: string) =>
-    axiosInstance.get<ApiResponse<any>>('/stats/summary/rankings', { params: { orgUnitId, rankingUnitId, from, to, onlyApproved, periodId } }).then((r) => r.data.data),
+  getSummaryRankings: (orgUnitId?: string, rankingUnitId?: string, from?: string, to?: string, onlyApproved?: boolean, periodId?: string, page?: number, size?: number, sortBy?: string, sortDir?: string) =>
+    axiosInstance.get<ApiResponse<any>>('/stats/summary/rankings', { params: { orgUnitId, rankingUnitId, from, to, onlyApproved, periodId, page, size, sortBy, sortDir } }).then((r) => r.data.data),
 
   // Subordinate Analytics
   getSubordinateCompletion: (from?: string, to?: string, onlyApproved?: boolean, periodId?: string) =>

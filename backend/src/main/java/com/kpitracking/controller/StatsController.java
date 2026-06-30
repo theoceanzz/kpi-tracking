@@ -160,7 +160,7 @@ public class StatsController {
             @RequestParam(required = false, defaultValue = "false") Boolean onlyApproved,
             @RequestParam(required = false) UUID periodId) {
         AnalyticsPeriodHelper.Window w = periodHelper.window(from, to, periodId);
-        return ResponseEntity.ok(ApiResponse.success(statsService.getUnitComparison(orgUnitId, w.from(), w.to(), onlyApproved)));
+        return ResponseEntity.ok(ApiResponse.success(statsService.getUnitComparison(orgUnitId, w.from(), w.to(), onlyApproved, periodId)));
     }
 
     @GetMapping("/summary/risks")
@@ -179,9 +179,14 @@ public class StatsController {
             @RequestParam(required = false) Instant from,
             @RequestParam(required = false) Instant to,
             @RequestParam(required = false, defaultValue = "false") Boolean onlyApproved,
-            @RequestParam(required = false) UUID periodId) {
+            @RequestParam(required = false) UUID periodId,
+            @RequestParam(required = false, defaultValue = "0") int page,
+            @RequestParam(required = false, defaultValue = "5") int size,
+            @RequestParam(required = false, defaultValue = "performance") String sortBy,
+            @RequestParam(required = false, defaultValue = "DESC") String sortDir) {
         AnalyticsPeriodHelper.Window w = periodHelper.window(from, to, periodId);
-        return ResponseEntity.ok(ApiResponse.success(statsService.getRankings(orgUnitId, rankingUnitId, w.from(), w.to(), onlyApproved)));
+        return ResponseEntity.ok(ApiResponse.success(
+                statsService.getRankings(orgUnitId, rankingUnitId, w.from(), w.to(), onlyApproved, periodId, page, size, sortBy, sortDir)));
     }
 }
 

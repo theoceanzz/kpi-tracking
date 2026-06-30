@@ -34,6 +34,56 @@ public class StatsService {
     private final EvaluationRepository evaluationRepository;
     private final KpiPeriodRepository kpiPeriodRepository;
     private final PermissionChecker permissionChecker;
+    private final EvaluationService evaluationService;
+
+    /**
+     * Hiệu suất ĐÁNH GIÁ của 1 đơn vị: không thác nước = TB đánh giá của mọi người trong đơn vị (subtree);
+     * có thác nước = đánh giá của quản lý đơn vị đó. Tính trên các đợt của KPI thuộc đơn vị. 0 nếu không có.
+     */
+    private double unitEvaluationPerformance(OrgUnit unit, UUID periodId) {
+        List<UUID> subtreeIds = getSubtreeIds(unit);
+        // Khi lọc theo một đợt cụ thể: chỉ tính đánh giá trong đúng đợt đó.
+        // Ngược lại: suy ra tất cả đợt mà KPI của đơn vị thuộc về (hành vi cũ).
+        java.util.Set<UUID> periodIds;
+        if (periodId != null) {
+            periodIds = java.util.Set.of(periodId);
+        } else {
+            List<KpiCriteria> kpis = kpiCriteriaRepository.findByOrgUnitIdInAndStatus(subtreeIds, KpiStatus.APPROVED);
+            periodIds = kpis.stream()
+                    .map(KpiCriteria::getKpiPeriod).filter(java.util.Objects::nonNull)
+                    .map(p -> p.getId()).collect(java.util.stream.Collectors.toSet());
+        }
+        if (periodIds.isEmpty()) return 0;
+
+        boolean waterfall = unit.getOrgHierarchyLevel() != null
+                && unit.getOrgHierarchyLevel().getOrganization() != null
+                && Boolean.TRUE.equals(unit.getOrgHierarchyLevel().getOrganization().getEnableWaterfall());
+
+        java.util.Set<UUID> userIds = new java.util.LinkedHashSet<>();
+        if (waterfall) {
+            // Hiệu suất đơn vị = đánh giá của quản lý đơn vị (rank ≤ 1).
+            userRoleOrgUnitRepository.findManagersByOrgUnitId(unit.getId())
+                    .forEach(uro -> userIds.add(uro.getUser().getId()));
+        } else {
+            // = TB đánh giá của tất cả nhân sự trong đơn vị (subtree).
+            userRoleOrgUnitRepository.findByOrgUnitIdIn(subtreeIds)
+                    .forEach(uro -> userIds.add(uro.getUser().getId()));
+        }
+        Double p = evaluationService.averagePerformance(userIds, periodIds);
+        return p != null ? Math.round(p) : 0;
+    }
+
+    /**
+     * Giữ lại các KPI thuộc đúng đợt {@code periodId}. Khi {@code periodId == null} trả nguyên danh
+     * sách (không lọc). Dùng {@code getId()} trên association (không init proxy) nên an toàn kể cả khi
+     * đợt đã soft-delete.
+     */
+    private List<KpiCriteria> filterByPeriod(List<KpiCriteria> kpis, UUID periodId) {
+        if (periodId == null) return kpis;
+        return kpis.stream()
+                .filter(k -> k.getKpiPeriod() != null && periodId.equals(k.getKpiPeriod().getId()))
+                .toList();
+    }
 
     private User getCurrentUser() {
         String email = SecurityContextHolder.getContext().getAuthentication().getName();
@@ -855,7 +905,7 @@ public class StatsService {
         });
 
         // Data for initial load
-        SummarySubData.UnitComparisonData comp = getUnitComparison(targetUnit.getId(), null, null, false);
+        SummarySubData.UnitComparisonData comp = getUnitComparison(targetUnit.getId(), null, null, false, null);
         SummarySubData.RiskData risks = getRisks(targetUnit.getId(), "MONTH");
         SummarySubData.RankingData rankings = getRankings(targetUnit.getId(), rankingUnitId, null, null, false);
 
@@ -936,38 +986,45 @@ public class StatsService {
     }
 
     @Transactional(readOnly = true)
-    public SummarySubData.UnitComparisonData getUnitComparison(UUID orgUnitId, Instant from, Instant to, Boolean onlyApproved) {
+    public SummarySubData.UnitComparisonData getUnitComparison(UUID orgUnitId, Instant from, Instant to, Boolean onlyApproved, UUID periodId) {
         OrgUnit targetUnit = getTargetUnit(orgUnitId);
-        List<OrgUnit> childUnits = orgUnitRepository.findByParentId(targetUnit.getId());
+        UUID orgId = targetUnit.getOrgHierarchyLevel().getOrganization().getId();
+        // TẤT CẢ đơn vị con cháu (toàn bộ cây) — không chỉ con trực tiếp.
+        List<OrgUnit> descendantUnits = orgUnitRepository.findSubtree(targetUnit.getPath(), orgId).stream()
+                .filter(u -> !u.getId().equals(targetUnit.getId()))
+                .toList();
         TimeRange range = new TimeRange(from, to != null ? to : Instant.now().plus(365, ChronoUnit.DAYS));
 
-        // Compute metrics for the current (root) unit using its direct KPIs only
+        // Đơn vị hiện tại của user: tiến độ = KPI trực tiếp; hiệu suất = đánh giá.
         List<UUID> currentUnitOnly = List.of(targetUnit.getId());
-        List<KpiCriteria> currentKpis = kpiCriteriaRepository.findByOrgUnitIdInAndStatus(currentUnitOnly, KpiStatus.APPROVED);
+        List<KpiCriteria> currentKpis = filterByPeriod(
+                kpiCriteriaRepository.findByOrgUnitIdInAndStatus(currentUnitOnly, KpiStatus.APPROVED), periodId);
         double currentSumPct = 0;
         int currentCnt = 0;
         for (KpiCriteria k : currentKpis) {
             currentSumPct += kpiUnitPercent(k, currentUnitOnly, range.start, range.end);
             currentCnt++;
         }
-        double currentPerf = currentCnt > 0 ? Math.round(currentSumPct / currentCnt) : 0;
+        double currentCompletion = currentCnt > 0 ? Math.round(currentSumPct / currentCnt) : 0;
         AnalyticsSummaryResponse.UnitComparison currentComp = new AnalyticsSummaryResponse.UnitComparison(
-            targetUnit.getName() + " (hiện tại)", currentPerf, currentPerf);
+            targetUnit.getName() + " (hiện tại)", unitEvaluationPerformance(targetUnit, periodId), currentCompletion);
 
-        List<AnalyticsSummaryResponse.UnitComparison> childComps = childUnits.stream().map(unit -> {
+        List<AnalyticsSummaryResponse.UnitComparison> childComps = descendantUnits.stream().map(unit -> {
             List<UUID> unitSubtree = getSubtreeIds(unit);
-            List<KpiCriteria> kpis = kpiCriteriaRepository.findByOrgUnitIdInAndStatus(unitSubtree, KpiStatus.APPROVED);
+            List<KpiCriteria> kpis = filterByPeriod(
+                    kpiCriteriaRepository.findByOrgUnitIdInAndStatus(unitSubtree, KpiStatus.APPROVED), periodId);
             double sumPct = 0;
             int cnt = 0;
             for (KpiCriteria k : kpis) {
                 sumPct += kpiUnitPercent(k, unitSubtree, range.start, range.end);
                 cnt++;
             }
-            double performance = cnt > 0 ? Math.round(sumPct / cnt) : 0;
-            return new AnalyticsSummaryResponse.UnitComparison(unit.getName(), performance, performance);
+            double completion = cnt > 0 ? Math.round(sumPct / cnt) : 0;
+            // performance = hiệu suất ĐÁNH GIÁ; completionRate = tiến độ KPI.
+            return new AnalyticsSummaryResponse.UnitComparison(unit.getName(), unitEvaluationPerformance(unit, periodId), completion);
         }).toList();
 
-        // Merge: current unit + all children, then sort by performance
+        // Gộp: đơn vị hiện tại + tất cả con cháu, sắp theo HIỆU SUẤT.
         List<AnalyticsSummaryResponse.UnitComparison> allComps = new ArrayList<>();
         allComps.add(currentComp);
         allComps.addAll(childComps);
@@ -980,23 +1037,24 @@ public class StatsService {
             targetUnit.getName() + " (hiện tại)",
             kpiCriteriaRepository.countByOrgUnitIdInAndStatus(currentUnitOnly, KpiStatus.APPROVED),
             submissionRepository.countByOrgUnitIdInAndStatus(currentUnitOnly, SubmissionStatus.APPROVED)));
-        childUnits.forEach(u -> {
+        descendantUnits.forEach(u -> {
             List<UUID> s = getSubtreeIds(u);
             kpiCountData.add(new AnalyticsSummaryResponse.UnitKpiComparison(u.getName(),
                 kpiCriteriaRepository.countByOrgUnitIdInAndStatus(s, KpiStatus.APPROVED),
                 submissionRepository.countByOrgUnitIdInAndStatus(s, SubmissionStatus.APPROVED)));
         });
 
+        // Trả TẤT CẢ đơn vị (FE tự cắt Top-N): tốt nhất (hiệu suất giảm dần) + trì trệ (tăng dần).
         return new SummarySubData.UnitComparisonData(
-            sortedDesc.stream().limit(5).toList(),
-            allComps.stream().sorted(Comparator.comparingDouble(AnalyticsSummaryResponse.UnitComparison::getPerformance)).limit(5).toList(),
+            sortedDesc,
+            allComps.stream().sorted(Comparator.comparingDouble(AnalyticsSummaryResponse.UnitComparison::getPerformance)).toList(),
             kpiCountData
         );
     }
 
     @Transactional(readOnly = true)
     public SummarySubData.RiskData getRisks(UUID orgUnitId, String period) {
-        SummarySubData.UnitComparisonData comp = getUnitComparison(orgUnitId, null, null, false);
+        SummarySubData.UnitComparisonData comp = getUnitComparison(orgUnitId, null, null, false, null);
         OrgUnit targetUnit = getTargetUnit(orgUnitId);
         List<UUID> subtree = getSubtreeIds(targetUnit);
         TimeRange range = getTimeRange(period);
@@ -1040,7 +1098,14 @@ public class StatsService {
     }
 
     @Transactional(readOnly = true)
+    /** Overload giữ hành vi cũ (không phân trang): dùng cho bootstrap getSummary. */
     public SummarySubData.RankingData getRankings(UUID orgUnitId, UUID rankingUnitId, Instant from, Instant to, Boolean onlyApproved) {
+        return getRankings(orgUnitId, rankingUnitId, from, to, onlyApproved, null, 0, 50, "performance", "DESC");
+    }
+
+    public SummarySubData.RankingData getRankings(UUID orgUnitId, UUID rankingUnitId, Instant from, Instant to,
+                                                  Boolean onlyApproved, UUID periodId,
+                                                  int page, int size, String sortBy, String sortDir) {
         OrgUnit targetUnit = getTargetUnit(orgUnitId);
         OrgUnit rankUnit = rankingUnitId != null ? orgUnitRepository.findById(rankingUnitId).orElse(targetUnit) : targetUnit;
         List<UUID> subtree = getSubtreeIds(rankUnit);
@@ -1061,6 +1126,7 @@ public class StatsService {
             .map(m -> {
                 User u = m.getUser();
                 List<KpiCriteria> userKpis = kpiCriteriaRepository.findApprovedByAssigneeId(u.getId());
+                // Tiến độ trung bình = TB % đạt mục tiêu của các KPI (actual/target).
                 double sumPct = 0;
                 int kpiCount = 0;
                 for (KpiCriteria k : userKpis) {
@@ -1069,8 +1135,19 @@ public class StatsService {
                         kpiCount++;
                     }
                 }
-                double performance = kpiCount > 0 ? Math.round(sumPct / kpiCount) : 0;
-                double avgProgress = performance;
+                double avgProgress = kpiCount > 0 ? Math.round(sumPct / kpiCount) : 0;
+
+                // Hiệu suất = hiệu suất ĐÁNH GIÁ (per-user), giống unitEvaluationPerformance cho đơn vị:
+                // theo đợt đang chọn nếu có, ngược lại gộp mọi đợt KPI của user.
+                java.util.Set<UUID> periodIds = periodId != null
+                    ? java.util.Set.of(periodId)
+                    : userKpis.stream().map(KpiCriteria::getKpiPeriod).filter(java.util.Objects::nonNull)
+                        .map(KpiPeriod::getId).collect(java.util.stream.Collectors.toSet());
+                Double evalPerf = periodIds.isEmpty()
+                    ? null
+                    : evaluationService.averagePerformance(java.util.Set.of(u.getId()), periodIds);
+                double performance = evalPerf != null ? Math.round(evalPerf) : 0;
+
                 long completed = submissionRepository.countBySubmittedByIdAndStatus(u.getId(), SubmissionStatus.APPROVED);
                 Double avgScore = evaluationRepository.avgScoreByUserId(u.getId());
 
@@ -1104,10 +1181,28 @@ public class StatsService {
                 .id(u.getId()).name(displayName).depth(depth).build();
         }).collect(Collectors.toList());
 
+        // Sort server-side theo trường + hướng (mặc định hiệu suất giảm dần), rồi cắt trang.
+        Comparator<AnalyticsSummaryResponse.RankingItem> cmp =
+            "avgProgress".equals(sortBy)
+                ? Comparator.comparingDouble(AnalyticsSummaryResponse.RankingItem::getAvgProgress)
+                : Comparator.comparingDouble(AnalyticsSummaryResponse.RankingItem::getPerformance);
+        if (!"ASC".equalsIgnoreCase(sortDir)) cmp = cmp.reversed();
+        List<AnalyticsSummaryResponse.RankingItem> sorted = items.stream().sorted(cmp).toList();
+
+        int pageSize = size > 0 ? size : 5;
+        int pageIdx = Math.max(page, 0);
+        long totalElements = sorted.size();
+        int totalPages = (int) Math.ceil((double) totalElements / pageSize);
+        int fromIdx = Math.min(pageIdx * pageSize, sorted.size());
+        int toIdx = Math.min(fromIdx + pageSize, sorted.size());
+        List<AnalyticsSummaryResponse.RankingItem> pageItems = sorted.subList(fromIdx, toIdx);
+
         return new SummarySubData.RankingData(
-            items.stream().sorted((a,b) -> Double.compare(b.getPerformance(), a.getPerformance())).limit(50).toList(),
+            pageItems,
             items.stream().sorted((a,b) -> Long.compare(b.getKpiCount(), a.getKpiCount())).limit(10).toList(),
-            opts
+            opts,
+            totalElements,
+            totalPages
         );
     }
 

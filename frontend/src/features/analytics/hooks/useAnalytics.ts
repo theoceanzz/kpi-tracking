@@ -54,10 +54,10 @@ export function useSummaryRisks(orgUnitId?: string, period: string = 'MONTH') {
   })
 }
 
-export function useSummaryRankings(orgUnitId?: string, rankingUnitId?: string, from?: string, to?: string, onlyApproved?: boolean, periodId?: string) {
+export function useSummaryRankings(orgUnitId?: string, rankingUnitId?: string, from?: string, to?: string, onlyApproved?: boolean, periodId?: string, page?: number, size?: number, sortBy?: string, sortDir?: string) {
   return useQuery({
-    queryKey: ['analytics', 'summary', 'rankings', orgUnitId, rankingUnitId, from, to, onlyApproved, periodId],
-    queryFn: () => statsApi.getSummaryRankings(orgUnitId, rankingUnitId, from, to, onlyApproved, periodId),
+    queryKey: ['analytics', 'summary', 'rankings', orgUnitId, rankingUnitId, from, to, onlyApproved, periodId, page, size, sortBy, sortDir],
+    queryFn: () => statsApi.getSummaryRankings(orgUnitId, rankingUnitId, from, to, onlyApproved, periodId, page, size, sortBy, sortDir),
     placeholderData: (previousData) => previousData,
   })
 }
