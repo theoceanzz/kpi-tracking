@@ -34,6 +34,31 @@ public class SubordinateAnalyticsService {
     private final KpiSubmissionRepository submissionRepository;
     private final KeyResultRepository keyResultRepository;
     private final KpiCriteriaRepository kpiCriteriaRepository;
+    private final EvaluationService evaluationService;
+
+    /** ID các nhân sự thuộc phạm vi cấp dưới (để tính hiệu suất theo đánh giá). */
+    private java.util.Set<UUID> subordinateUserIds() {
+        List<UUID> orgUnitIds = getSubordinateOrgUnitIds();
+        if (orgUnitIds.isEmpty()) return java.util.Set.of();
+        return userRoleOrgUnitRepository.findByOrgUnitIdIn(orgUnitIds).stream()
+                .map(a -> a.getUser().getId())
+                .collect(java.util.stream.Collectors.toCollection(java.util.LinkedHashSet::new));
+    }
+
+    /** Tập đợt (kpiPeriod) của các KPI dưới các mục tiêu trong phạm vi. */
+    private java.util.Set<UUID> periodIdsOfObjectives(List<Objective> objs) {
+        java.util.Set<UUID> ids = new java.util.LinkedHashSet<>();
+        for (Objective o : objs) {
+            if (o.getKeyResults() == null) continue;
+            for (KeyResult kr : o.getKeyResults()) {
+                if (kr.getKpis() == null) continue;
+                for (KpiCriteria k : kr.getKpis()) {
+                    if (k.getKpiPeriod() != null) ids.add(k.getKpiPeriod().getId());
+                }
+            }
+        }
+        return ids;
+    }
 
     private User getCurrentUser() {
         String email = SecurityContextHolder.getContext().getAuthentication().getName();
@@ -243,17 +268,11 @@ public class SubordinateAnalyticsService {
 
     @Transactional(readOnly = true)
     public MetricValueResponse getPerformanceRate(Instant from, Instant to, Boolean onlyApproved) {
+        // Hiệu suất nay tính theo ĐÁNH GIÁ của cấp dưới trong các đợt (không theo KPI).
         List<Objective> objectives = getObjectivesInScope();
         if (objectives.isEmpty()) return new MetricValueResponse(0.0);
-
-        double total = 0;
-        int count = 0;
-        for (Objective obj : objectives) {
-            double[] metrics = calculateObjectiveMetrics(obj, from, to, onlyApproved);
-            total += metrics[1];
-            count++;
-        }
-        return new MetricValueResponse(count > 0 ? total / count : 0.0);
+        Double perf = evaluationService.averagePerformance(subordinateUserIds(), periodIdsOfObjectives(objectives));
+        return new MetricValueResponse(perf != null ? perf : 0.0);
     }
 
     @Transactional(readOnly = true)

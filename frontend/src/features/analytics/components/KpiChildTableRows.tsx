@@ -4,7 +4,6 @@ import { cn } from '@/lib/utils'
 import { KpiTypeTags } from './KpiTypeTags'
 import { KpiWeightPill } from './KpiWeightPill'
 import { KpiPeriodCell } from './KpiPeriodCell'
-import { KpiPerfDonut } from './KpiPerfDonut'
 import { KpiResponsibleCell } from './KpiResponsibleCell'
 import type { KpiChildNode } from './KpiChildList'
 
@@ -50,7 +49,6 @@ function KpiChildTr({
   const hasKids = !!node.children && node.children.length > 0
   const isBonus = node.progress == null
   const pct = Math.round(node.progress ?? 0)
-  const perf = Math.round(node.performance ?? 0)
   const barColor = accent === 'violet' ? 'bg-violet-500' : 'bg-indigo-500'
 
   const chevron = hasKids ? (
@@ -129,9 +127,6 @@ function KpiChildTr({
           <KpiPeriodCell periodName={node.periodName} start={node.periodStart ?? null} end={node.periodEnd ?? null} />
         </td>
         <td className="px-6 py-4 align-top">{progressCell}</td>
-        <td className="px-6 py-4 align-top text-center">
-          {isBonus ? <span className="text-slate-400 font-black">—</span> : <KpiPerfDonut value={perf} />}
-        </td>
         {Array.from({ length: trailingEmptyCols }).map((_, i) => (
           <td key={`t${i}`} className="px-6 py-4" />
         ))}

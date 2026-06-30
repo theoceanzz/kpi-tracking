@@ -28,7 +28,7 @@ import {
 
 import { format } from 'date-fns'
 
-type SortField = 'progress' | 'performance' | 'period'
+type SortField = 'progress' | 'period'
 type SortDir = 'asc' | 'desc'
 type SharedFilter = 'ALL' | 'SHARED' | 'PERSONAL'
 
@@ -169,7 +169,7 @@ export default function MyObjectivesTab() {
             <Target size={24} />
           </div>
           <div>
-            <p className="text-xs font-bold text-slate-500">Hiệu suất trung bình</p>
+            <p className="text-xs font-bold text-slate-500">Hiệu suất trung bình (đánh giá)</p>
             <p className="text-2xl font-black">{metrics?.averagePerformance?.toFixed(1) ?? 0}%</p>
           </div>
         </div>
@@ -285,11 +285,6 @@ export default function MyObjectivesTab() {
                     Tiến độ KPI
                   </SortHeader>
                 </th>
-                <th className="px-6 py-4 text-center">
-                  <SortHeader field="performance" active={sortField} dir={sortDir} onToggle={toggleSort}>
-                    Hiệu suất
-                  </SortHeader>
-                </th>
                 <th className="px-6 py-4">Phân loại</th>
               </tr>
             </thead>
@@ -305,7 +300,7 @@ export default function MyObjectivesTab() {
                     />
                   ))}
               {!isKpisLoading && (kpiPage?.totalElements ?? 0) === 0 && (
-                <tr><td colSpan={7} className="text-center py-8 text-slate-400">Không có dữ liệu</td></tr>
+                <tr><td colSpan={6} className="text-center py-8 text-slate-400">Không có dữ liệu</td></tr>
               )}
             </tbody>
           </table>
@@ -378,7 +373,6 @@ function SortHeader({
 
 function MobileKpiCard({ kpi, onExpand }: { kpi: any; onExpand: () => void }) {
   const pct = Math.round(kpi.progress || 0)
-  const perf = Math.round(kpi.performance || 0)
   const fmt = (d: string | null) => d ? format(new Date(d), 'dd/MM/yyyy') : '—'
 
   return (
@@ -412,10 +406,6 @@ function MobileKpiCard({ kpi, onExpand }: { kpi: any; onExpand: () => void }) {
             <div className={cn('h-full rounded-full', pct >= 100 ? 'bg-emerald-500' : 'bg-indigo-500')} style={{ width: `${Math.min(pct, 100)}%` }} />
           </div>
         </div>
-        <div className="text-center shrink-0">
-          <p className="text-[10px] text-slate-500">Hiệu suất</p>
-          <p className={cn('text-sm font-black', perf >= 100 ? 'text-emerald-500' : perf >= 80 ? 'text-indigo-500' : perf >= 50 ? 'text-amber-500' : 'text-red-500')}>{perf}%</p>
-        </div>
       </div>
     </div>
   )
@@ -427,7 +417,6 @@ function ExpandableKpiRow({ kpi, onExpand, onSelectKpi }: { kpi: any; onExpand: 
   // KPI thưởng: backend trả tiến độ/hiệu suất = null (không tính), hiển thị gạch ngang.
   const isBonus = kpi.progress == null
   const pct  = Math.round(kpi.progress    || 0)
-  const perf = Math.round(kpi.performance || 0)
 
   return (
     <>
@@ -484,24 +473,6 @@ function ExpandableKpiRow({ kpi, onExpand, onSelectKpi }: { kpi: any; onExpand: 
             </>
           )}
         </td>
-        <td className="px-6 py-4 text-center">
-          {isBonus ? (
-            <span className="text-slate-400 font-black">—</span>
-          ) : (
-            <div className="inline-flex relative items-center justify-center w-12 h-12">
-              <svg className="w-12 h-12 transform -rotate-90">
-                <circle className="text-slate-100 dark:text-slate-800" strokeWidth="4" stroke="currentColor" fill="transparent" r="20" cx="24" cy="24" />
-                <circle
-                  className={cn(perf >= 100 ? 'text-emerald-500' : perf >= 80 ? 'text-indigo-500' : perf >= 50 ? 'text-amber-500' : 'text-red-500')}
-                  strokeWidth="4" strokeDasharray={125.6}
-                  strokeDashoffset={125.6 - (Math.min(perf, 100) / 100) * 125.6}
-                  strokeLinecap="round" stroke="currentColor" fill="transparent" r="20" cx="24" cy="24"
-                />
-              </svg>
-              <span className="absolute text-[10px] font-black">{perf}%</span>
-            </div>
-          )}
-        </td>
         <td className="px-6 py-4">
           {kpi.shared ? (
             <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-purple-50 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 text-[10px] font-black uppercase">
@@ -518,13 +489,13 @@ function ExpandableKpiRow({ kpi, onExpand, onSelectKpi }: { kpi: any; onExpand: 
         <KpiChildTableRows
           nodes={toChildNodes(kpi.children)}
           onSelect={onSelectKpi}
-          headingColSpan={7}
+          headingColSpan={6}
           variant={{ leadingChevronCol: true, showPersonColumn: false, extraColsAfterName: 1, trailingEmptyCols: 1, accent: 'indigo', baseIndent: 28 }}
         />
       )}
       {expanded && (!hasChildren || (kpi.mySubmissions?.length ?? 0) > 0 || kpi.shared) && (
         <tr>
-          <td colSpan={7} className="p-0 border-b border-slate-100 dark:border-slate-800">
+          <td colSpan={6} className="p-0 border-b border-slate-100 dark:border-slate-800">
             <div className="bg-slate-50/50 dark:bg-slate-900/50 p-6 flex flex-col gap-6 border-l-4 border-indigo-500">
               <div className="w-full space-y-4">
                 <h4 className="text-xs font-black uppercase tracking-wider text-slate-500">Lịch sử bài nộp của tôi</h4>

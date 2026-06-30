@@ -25,11 +25,19 @@ public class PersonalObjectiveAnalyticsService {
 
     private final UserRepository userRepository;
     private final KpiCriteriaRepository kpiCriteriaRepository;
+    private final EvaluationService evaluationService;
 
     private User getCurrentUser() {
         String email = SecurityContextHolder.getContext().getAuthentication().getName();
         return userRepository.findByEmail(email)
                 .orElseThrow(() -> new RuntimeException("User not found"));
+    }
+
+    /** Tập đợt liên quan: đợt đang chọn, hoặc tất cả đợt của các KPI. */
+    private java.util.Set<UUID> relevantPeriodIds(List<KpiCriteria> kpis, UUID periodId) {
+        if (periodId != null) return java.util.Set.of(periodId);
+        return kpis.stream().map(KpiCriteria::getKpiPeriod).filter(java.util.Objects::nonNull)
+                .map(KpiPeriod::getId).collect(Collectors.toSet());
     }
 
     private List<KpiCriteria> getMyActiveKpis(UUID periodId) {
@@ -196,9 +204,13 @@ public class PersonalObjectiveAnalyticsService {
             }
         }
 
+        // Hiệu suất TB nay tính theo ĐÁNH GIÁ của người trong đợt (không theo KPI).
+        Double evalPerf = evaluationService.averagePerformance(
+                java.util.List.of(getCurrentUser().getId()), relevantPeriodIds(myKpis, periodId));
+
         return Metrics.builder()
                 .averageProgress(activeCount > 0 ? totalComp / activeCount : 0)
-                .averagePerformance(activeCount > 0 ? totalPerf / activeCount : 0)
+                .averagePerformance(evalPerf != null ? evalPerf : 0)
                 .runningKpis(runningCount)
                 .completedKpis(completedCount)
                 .riskKpis(riskCount)
@@ -208,9 +220,45 @@ public class PersonalObjectiveAnalyticsService {
     @Transactional(readOnly = true)
     public ComboChartData getComboChart(Instant from, Instant to, Boolean onlyApproved, UUID periodId) {
         List<KpiCriteria> myKpis = getMyActiveKpis(periodId);
+        UUID userId = getCurrentUser().getId();
+
+        // Xu hướng vẽ THEO ĐỢT: tiến độ = TB tiến độ KPI của đợt, hiệu suất = đánh giá của người trong đợt.
+        java.util.Map<UUID, KpiPeriod> periodMap = new java.util.LinkedHashMap<>();
+        for (KpiCriteria kpi : myKpis) {
+            if (kpi.getKpiPeriod() != null) periodMap.putIfAbsent(kpi.getKpiPeriod().getId(), kpi.getKpiPeriod());
+        }
+        List<KpiPeriod> periods = periodMap.values().stream()
+                .sorted(java.util.Comparator.comparing(p -> p.getStartDate() != null ? p.getStartDate() : Instant.EPOCH))
+                .collect(Collectors.toList());
+
+        List<ChartPoint> points = new ArrayList<>();
+        for (KpiPeriod p : periods) {
+            double totalComp = 0; int cnt = 0;
+            for (KpiCriteria kpi : myKpis) {
+                if (kpi.getKpiPeriod() == null || !p.getId().equals(kpi.getKpiPeriod().getId())) continue;
+                if (Boolean.TRUE.equals(kpi.getIsBonusKpi())) continue;
+                double[] m = calculateKpiMetrics(kpi, p.getStartDate(), p.getEndDate(), onlyApproved);
+                if (m[2] > 0) { totalComp += m[0]; cnt++; }
+            }
+            double avgComp = cnt > 0 ? totalComp / cnt : 0;
+            Double perf = evaluationService.getEffectivePerformanceScore(userId, p.getId());
+            points.add(ChartPoint.builder()
+                    .label(p.getName())
+                    .oldItems(0)
+                    .newItems(cnt)
+                    .completionTrend(Math.round(avgComp * 100.0) / 100.0)
+                    .performanceTrend(perf != null ? Math.round(perf * 100.0) / 100.0 : 0)
+                    .build());
+        }
+        return new ComboChartData(points);
+    }
+
+    @Deprecated
+    private ComboChartData getComboChartByInterval(Instant from, Instant to, Boolean onlyApproved, UUID periodId) {
+        List<KpiCriteria> myKpis = getMyActiveKpis(periodId);
         Instant effectiveFrom = from != null ? from : Instant.now().minus(180, ChronoUnit.DAYS);
         Instant effectiveTo = to != null ? to : Instant.now();
-        
+
         List<IntervalPoint> intervalPoints = generateIntervalPoints(effectiveFrom, effectiveTo);
         List<ChartPoint> points = new ArrayList<>();
 

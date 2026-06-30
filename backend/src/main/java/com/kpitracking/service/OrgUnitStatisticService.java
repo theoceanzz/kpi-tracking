@@ -33,6 +33,7 @@ public class OrgUnitStatisticService {
     private final KpiPeriodRepository kpiPeriodRepository;
     private final RoleRepository roleRepository;
     private final EntityManager entityManager;
+    private final EvaluationService evaluationService;
 
     // Helper to parse dates from string
     public Instant parseDate(String dateStr, Instant defaultInstant) {
@@ -157,8 +158,10 @@ public class OrgUnitStatisticService {
 
     public double[] calculateAverages(List<KpiCriteria> kpis, Instant A, Instant B) {
         double sumWeightedCompletion = 0;
-        double sumWeightedPerformance = 0;
         double sumWeight = 0;
+        // Hiệu suất nay tính theo ĐÁNH GIÁ của người trong đợt (gom người + đợt từ tập KPI).
+        java.util.Set<UUID> users = new java.util.LinkedHashSet<>();
+        java.util.Set<UUID> periods = new java.util.LinkedHashSet<>();
 
         for (KpiCriteria kpi : kpis) {
             // KPI thác nước (có parent) không tính tiến độ/hiệu suất cho người được giao;
@@ -172,16 +175,18 @@ public class OrgUnitStatisticService {
             double weight = kpi.getWeight() != null && kpi.getWeight() > 0 ? kpi.getWeight() : 1.0;
 
             sumWeightedCompletion += (metrics[0] * weight);
-            sumWeightedPerformance += (metrics[1] * weight);
             sumWeight += weight;
+
+            if (kpi.getAssignees() != null) kpi.getAssignees().forEach(u -> users.add(u.getId()));
+            if (kpi.getKpiPeriod() != null) periods.add(kpi.getKpiPeriod().getId());
         }
 
         double avgProgress = sumWeight > 0 ? (sumWeightedCompletion / sumWeight) : 0.0;
-        double avgPerformance = sumWeight > 0 ? (sumWeightedPerformance / sumWeight) : 0.0;
+        Double evalPerf = evaluationService.averagePerformance(users, periods);
 
         return new double[]{
             Math.round(avgProgress * 100.0) / 100.0,
-            Math.round(avgPerformance * 100.0) / 100.0
+            evalPerf != null ? Math.round(evalPerf * 100.0) / 100.0 : 0.0
         };
     }
 

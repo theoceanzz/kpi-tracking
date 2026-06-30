@@ -31,6 +31,23 @@ public class OrgUnitKpiAnalyticsService {
     private final KpiCriteriaRepository kpiCriteriaRepository;
     private final UserRoleOrgUnitRepository userRoleOrgUnitRepository;
     private final PermissionChecker permissionChecker;
+    private final EvaluationService evaluationService;
+
+    /** ID những người được giao trong tập KPI (để tính hiệu suất theo đánh giá). */
+    private java.util.Set<UUID> assigneeIdsOf(List<KpiCriteria> kpis) {
+        java.util.Set<UUID> ids = new java.util.LinkedHashSet<>();
+        for (KpiCriteria k : kpis) {
+            if (k.getAssignees() != null) k.getAssignees().forEach(u -> ids.add(u.getId()));
+        }
+        return ids;
+    }
+
+    /** Tập đợt liên quan: đợt đang chọn, hoặc tất cả đợt của các KPI. */
+    private java.util.Set<UUID> relevantPeriodIds(List<KpiCriteria> kpis, UUID periodId) {
+        if (periodId != null) return java.util.Set.of(periodId);
+        return kpis.stream().map(KpiCriteria::getKpiPeriod).filter(java.util.Objects::nonNull)
+                .map(KpiPeriod::getId).collect(Collectors.toSet());
+    }
 
     private User getCurrentUser() {
         String email = SecurityContextHolder.getContext().getAuthentication().getName();
@@ -220,9 +237,13 @@ public class OrgUnitKpiAnalyticsService {
             }
         }
 
+        // Hiệu suất TB nay tính theo ĐÁNH GIÁ của người trong đợt (không theo KPI).
+        Double evalPerf = evaluationService.averagePerformance(
+                assigneeIdsOf(kpis), relevantPeriodIds(kpis, periodId));
+
         return Metrics.builder()
                 .averageProgress(activeCount > 0 ? totalComp / activeCount : 0)
-                .averagePerformance(activeCount > 0 ? totalPerf / activeCount : 0)
+                .averagePerformance(evalPerf != null ? evalPerf : 0)
                 .runningKpis(runningCount)
                 .completedKpis(completedCount)
                 .riskKpis(riskCount)
@@ -231,6 +252,43 @@ public class OrgUnitKpiAnalyticsService {
 
     @Transactional(readOnly = true)
     public ComboChartData getComboChart(UUID orgUnitId, Instant from, Instant to, Boolean onlyApproved, UUID periodId) {
+        List<KpiCriteria> kpis = applyPeriodFilter(getStandaloneKpis(orgUnitId), periodId);
+
+        // Xu hướng vẽ THEO ĐỢT: tiến độ = TB tiến độ KPI của đợt; hiệu suất = TB đánh giá của người trong đợt.
+        java.util.Map<UUID, KpiPeriod> periodMap = new java.util.LinkedHashMap<>();
+        for (KpiCriteria kpi : kpis) {
+            if (kpi.getKpiPeriod() != null) periodMap.putIfAbsent(kpi.getKpiPeriod().getId(), kpi.getKpiPeriod());
+        }
+        List<KpiPeriod> periods = periodMap.values().stream()
+                .sorted(java.util.Comparator.comparing(p -> p.getStartDate() != null ? p.getStartDate() : Instant.EPOCH))
+                .collect(Collectors.toList());
+
+        List<ChartPoint> points = new ArrayList<>();
+        for (KpiPeriod p : periods) {
+            double totalComp = 0; int cnt = 0;
+            java.util.Set<UUID> assignees = new java.util.LinkedHashSet<>();
+            for (KpiCriteria kpi : kpis) {
+                if (kpi.getKpiPeriod() == null || !p.getId().equals(kpi.getKpiPeriod().getId())) continue;
+                if (kpi.getAssignees() != null) kpi.getAssignees().forEach(u -> assignees.add(u.getId()));
+                if (Boolean.TRUE.equals(kpi.getIsBonusKpi())) continue;
+                double[] m = calculateKpiMetrics(kpi, p.getStartDate(), p.getEndDate(), onlyApproved);
+                if (m[2] > 0) { totalComp += m[0]; cnt++; }
+            }
+            double avgComp = cnt > 0 ? totalComp / cnt : 0;
+            Double perf = evaluationService.averagePerformance(assignees, java.util.Set.of(p.getId()));
+            points.add(ChartPoint.builder()
+                    .label(p.getName())
+                    .oldItems(0)
+                    .newItems(cnt)
+                    .completionTrend(Math.round(avgComp * 100.0) / 100.0)
+                    .performanceTrend(perf != null ? Math.round(perf * 100.0) / 100.0 : 0)
+                    .build());
+        }
+        return new ComboChartData(points);
+    }
+
+    @Deprecated
+    private ComboChartData getComboChartByInterval(UUID orgUnitId, Instant from, Instant to, Boolean onlyApproved, UUID periodId) {
         List<KpiCriteria> kpis = applyPeriodFilter(getStandaloneKpis(orgUnitId), periodId);
         Instant effectiveFrom = from != null ? from : Instant.now().minus(180, ChronoUnit.DAYS);
         Instant effectiveTo   = to   != null ? to   : Instant.now();
