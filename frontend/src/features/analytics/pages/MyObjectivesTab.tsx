@@ -3,7 +3,7 @@ import { personalObjectiveApi } from '@/features/dashboard/api/personalObjective
 import { useQuery } from '@tanstack/react-query'
 import {
   Target, TrendingUp, AlertTriangle, CheckCircle,
-  ChevronDown, ChevronRight, ChevronUp, ChevronsUpDown,
+  ChevronDown, ChevronRight,
   User, Users, X
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -18,6 +18,7 @@ import AnalyticsComboChart from '../components/AnalyticsComboChart'
 import AnalyticsTabSkeleton, { TableLoadingRows } from '@/components/common/AnalyticsTabSkeleton'
 import Pagination from '@/components/common/Pagination'
 import { useAnalyticsDateFilter } from '@/components/common/AnalyticsDateFilter'
+import { SortHeader } from '@/components/common/SortHeader'
 import {
   Select,
   SelectContent,
@@ -345,30 +346,6 @@ export default function MyObjectivesTab() {
   )
 }
 
-function SortHeader({
-  field, active, dir, onToggle, children,
-}: {
-  field: SortField
-  active: SortField | null
-  dir: SortDir
-  onToggle: (f: SortField) => void
-  children: React.ReactNode
-}) {
-  const isActive = active === field
-  return (
-    <button
-      onClick={() => onToggle(field)}
-      className="flex items-center gap-1 group hover:text-indigo-500 transition-colors"
-    >
-      {children}
-      <span className="ml-0.5">
-        {isActive
-          ? dir === 'asc' ? <ChevronUp size={12} /> : <ChevronDown size={12} />
-          : <ChevronsUpDown size={12} className="opacity-30 group-hover:opacity-60" />}
-      </span>
-    </button>
-  )
-}
 
 
 function MobileKpiCard({ kpi, onExpand }: { kpi: any; onExpand: () => void }) {

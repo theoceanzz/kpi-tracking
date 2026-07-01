@@ -28,6 +28,9 @@ public class SubordinateDetailsResponses {
         private Double performance;
         private Integer completedKeyResults;
         private Integer totalKeyResults;
+        // Số đợt (kpiPeriod) distinct của các KPI con + danh sách tên đợt (cho cột "Đợt" thông minh).
+        private Integer periodCount;
+        private List<String> periodNames;
         private List<KeyResultDetailedDto> keyResults;
     }
 
@@ -83,6 +86,8 @@ public class SubordinateDetailsResponses {
         private List<KrUnitDto> assignedUnits;
         private Instant startDate;
         private Instant endDate;
+        private Integer periodCount;
+        private List<String> periodNames;
         private List<KpiDetailedDto> kpis;
     }
 

@@ -638,16 +638,27 @@ public class StatsService {
             evaluations = evaluationRepository.findAllByUserIdOrdered(userId);
         }
 
-        List<AnalyticsMyStatsResponse.EvaluationItem> evalItems = evaluations.stream().map(e ->
-            AnalyticsMyStatsResponse.EvaluationItem.builder()
-                    .id(e.getId())
-                    .kpiName(e.getKpiPeriod().getName())
-                    .score(e.getScore())
-                    .comment(e.getComment())
-                    .evaluatorName(e.getEvaluator().getFullName())
-                    .createdAt(e.getCreatedAt())
-                    .build()
-        ).toList();
+        // Gom đánh giá theo ĐỢT; mỗi đợt 1 dòng, điểm = hiệu suất đánh giá hiệu lực (công thức trước đó).
+        Map<UUID, KpiPeriod> periodById = new java.util.LinkedHashMap<>();
+        for (Evaluation e : evaluations) {
+            if (e.getKpiPeriod() != null) periodById.putIfAbsent(e.getKpiPeriod().getId(), e.getKpiPeriod());
+        }
+        List<AnalyticsMyStatsResponse.EvaluationItem> evalItems = periodById.values().stream()
+            .sorted(Comparator.comparing(KpiPeriod::getStartDate, Comparator.nullsLast(Comparator.naturalOrder())))
+            .map(p -> {
+                Evaluation eff = evaluationService.getEffectiveEvaluation(userId, p.getId());
+                if (eff == null) return null;
+                return AnalyticsMyStatsResponse.EvaluationItem.builder()
+                        .id(eff.getId())
+                        .kpiName(p.getName())
+                        .score(eff.getScore())
+                        .comment(eff.getComment())
+                        .evaluatorName(eff.getEvaluator() != null ? eff.getEvaluator().getFullName() : null)
+                        .createdAt(eff.getCreatedAt())
+                        .build();
+            })
+            .filter(java.util.Objects::nonNull)
+            .toList();
 
         return AnalyticsMyStatsResponse.builder()
                 .totalAssignedKpi((long) kpis.size())
@@ -1006,8 +1017,13 @@ public class StatsService {
             currentCnt++;
         }
         double currentCompletion = currentCnt > 0 ? Math.round(currentSumPct / currentCnt) : 0;
-        AnalyticsSummaryResponse.UnitComparison currentComp = new AnalyticsSummaryResponse.UnitComparison(
-            targetUnit.getName() + " (hiện tại)", unitEvaluationPerformance(targetUnit, periodId), currentCompletion);
+        int[] currentLM = lateMissedTotal(currentKpis, range);
+        AnalyticsSummaryResponse.UnitComparison currentComp = AnalyticsSummaryResponse.UnitComparison.builder()
+            .unitName(targetUnit.getName() + " (hiện tại)")
+            .performance(unitEvaluationPerformance(targetUnit, periodId))
+            .completionRate(currentCompletion)
+            .lateCount(currentLM[0]).missedCount(currentLM[1]).totalExpected(currentLM[2])
+            .build();
 
         List<AnalyticsSummaryResponse.UnitComparison> childComps = descendantUnits.stream().map(unit -> {
             List<UUID> unitSubtree = getSubtreeIds(unit);
@@ -1020,8 +1036,14 @@ public class StatsService {
                 cnt++;
             }
             double completion = cnt > 0 ? Math.round(sumPct / cnt) : 0;
+            int[] lm = lateMissedTotal(kpis, range);
             // performance = hiệu suất ĐÁNH GIÁ; completionRate = tiến độ KPI.
-            return new AnalyticsSummaryResponse.UnitComparison(unit.getName(), unitEvaluationPerformance(unit, periodId), completion);
+            return AnalyticsSummaryResponse.UnitComparison.builder()
+                .unitName(unit.getName())
+                .performance(unitEvaluationPerformance(unit, periodId))
+                .completionRate(completion)
+                .lateCount(lm[0]).missedCount(lm[1]).totalExpected(lm[2])
+                .build();
         }).toList();
 
         // Gộp: đơn vị hiện tại + tất cả con cháu, sắp theo HIỆU SUẤT.
@@ -1050,6 +1072,50 @@ public class StatsService {
             allComps.stream().sorted(Comparator.comparingDouble(AnalyticsSummaryResponse.UnitComparison::getPerformance)).toList(),
             kpiCountData
         );
+    }
+
+    /**
+     * Đếm trễ hạn / không nộp theo từng lượt giao (KPI × người được giao).
+     * - Trễ hạn: bản nộp SỚM NHẤT của người đó có createdAt > deadline KPI và <= endDate kỳ.
+     * - Không nộp: người đó chưa có bản nộp nào và hiện tại đã vượt endDate kỳ.
+     * Trả về {late, missed, total}. Không lọc theo trạng thái duyệt (chỉ xét thời điểm nộp).
+     */
+    private int[] lateMissedTotal(List<KpiCriteria> kpis, TimeRange range) {
+        Instant now = Instant.now();
+        int late = 0, missed = 0, total = 0;
+        for (KpiCriteria kpi : kpis) {
+            List<User> assignees = kpi.getAssignees();
+            if (assignees == null || assignees.isEmpty()) continue;
+            Instant deadline = kpi.getDeadline();
+            Instant periodEnd;
+            try {
+                periodEnd = kpi.getKpiPeriod() != null ? kpi.getKpiPeriod().getEndDate() : null;
+            } catch (jakarta.persistence.EntityNotFoundException e) {
+                periodEnd = null; // kỳ đã bị soft-delete
+            }
+            List<KpiSubmission> subs = kpi.getSubmissions();
+            for (User a : assignees) {
+                total++;
+                Instant firstAt = null; // thời gian nộp sớm nhất của người này (trong cửa sổ [from,to])
+                if (subs != null) {
+                    for (KpiSubmission s : subs) {
+                        if (s.getSubmittedBy() == null || !s.getSubmittedBy().getId().equals(a.getId())) continue;
+                        Instant ts = s.getCreatedAt();
+                        if (ts == null) continue;
+                        if (range.start != null && ts.isBefore(range.start)) continue;
+                        if (range.end != null && ts.isAfter(range.end)) continue;
+                        if (firstAt == null || ts.isBefore(firstAt)) firstAt = ts;
+                    }
+                }
+                if (firstAt == null) {
+                    if (periodEnd != null && now.isAfter(periodEnd)) missed++;
+                } else if (deadline != null && firstAt.isAfter(deadline)
+                        && (periodEnd == null || !firstAt.isAfter(periodEnd))) {
+                    late++;
+                }
+            }
+        }
+        return new int[]{late, missed, total};
     }
 
     @Transactional(readOnly = true)

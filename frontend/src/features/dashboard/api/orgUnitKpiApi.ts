@@ -114,6 +114,11 @@ export interface OrgUnitKpiDrawerData {
   kpiName: string
   unit: string
   isShared: boolean
+  isReverseKpi?: boolean
+  isBonusKpi?: boolean
+  periodName?: string | null
+  orgUnitName?: string | null
+  weight?: number | null
   targetValue: number
   totalActualValue: number
   totalProgress: number

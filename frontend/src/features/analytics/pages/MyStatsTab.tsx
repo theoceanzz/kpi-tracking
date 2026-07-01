@@ -1,12 +1,11 @@
 import { useState, useMemo, useRef, useEffect } from 'react'
 import { personalKpiApi } from '@/features/dashboard/api/personalKpiApi'
 import { useMyAnalytics } from '../hooks/useAnalytics'
-import { useNotifications } from '@/features/notifications/hooks/useNotifications'
 import { useQuery } from '@tanstack/react-query'
 import {
   Target, TrendingUp, AlertTriangle, CheckCircle,
-  ChevronDown, ChevronRight, ChevronUp, ChevronsUpDown,
-  User, Users, X, Bell, Star, ArrowUpDown, Search, ChevronLeft,
+  ChevronDown, ChevronRight,
+  User, Users, X, Star, Search, ChevronLeft,
   Activity, BarChart3 as BarChartIcon, PieChart as PieChartIcon, Info,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -26,6 +25,7 @@ import MyKpiDrawer from '../components/MyKpiDrawer'
 import AnalyticsTabSkeleton, { TableLoadingRows } from '@/components/common/AnalyticsTabSkeleton'
 import Pagination from '@/components/common/Pagination'
 import { useAnalyticsDateFilter } from '@/components/common/AnalyticsDateFilter'
+import { SortHeader } from '@/components/common/SortHeader'
 
 import { format } from 'date-fns'
 
@@ -85,7 +85,6 @@ export default function MyStatsTab() {
 
   // ── Old analytics data ───────────────────────────────────────────────────
   const { data: analyticsData } = useMyAnalytics(from, to, periodId)
-  const { data: notificationsData } = useNotifications(0, 50)
 
   const toggleSort = (field: SortField) => {
     if (sortField === field) setSortDir(d => d === 'asc' ? 'desc' : 'asc')
@@ -111,19 +110,12 @@ export default function MyStatsTab() {
     return Object.entries(dist).map(([name, value]) => ({ name, value }))
   })()
 
-  const evalTrendData = [...(analyticsData?.evaluationHistory ?? [])]
-    .reverse()
+  // Xu hướng điểm số theo từng đợt (backend đã gom 1 dòng/đợt, sắp tăng dần theo đợt).
+  const evalTrendData = (analyticsData?.evaluationHistory ?? [])
     .map(e => ({
-      name: new Date(e.createdAt).toLocaleDateString('vi-VN'),
+      name: e.kpiName,
       value: e.score ?? 0,
     }))
-
-  const notifReadCount   = notificationsData?.content.filter(n => n.isRead).length ?? 0
-  const notifUnreadCount = (notificationsData?.totalElements ?? 0) - notifReadCount
-  const notifStatData = [
-    { name: 'Đã đọc',   value: notifReadCount },
-    { name: 'Chưa đọc', value: notifUnreadCount },
-  ].filter(v => v.value > 0)
 
   return (
     <div className="space-y-6">
@@ -347,44 +339,6 @@ export default function MyStatsTab() {
         </OldChartCard>
       </div>
 
-      {/* ── Old: Thông báo mới nhất + Thống kê thông báo ───────────────────── */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <OldChartCard title="Thông báo mới nhất" icon={<Bell size={16} className="text-amber-500" />} noPadBody>
-          <div className="divide-y divide-slate-50 dark:divide-slate-800 max-h-[320px] overflow-auto custom-scrollbar">
-            {(notificationsData?.content ?? []).length === 0 && (
-              <div className="p-6 text-center text-sm text-slate-400">Không có thông báo</div>
-            )}
-            {notificationsData?.content.slice(0, 10).map(n => (
-              <div key={n.id} className={cn('px-5 py-3 flex items-start gap-3 transition-all', n.isRead ? 'opacity-60' : '')}>
-                <div className={cn('w-2 h-2 rounded-full mt-1.5 shrink-0', n.isRead ? 'bg-slate-300' : 'bg-indigo-600')} />
-                <div className="flex-1 min-w-0">
-                  <p className={cn('text-xs leading-relaxed', n.isRead ? 'text-slate-500' : 'text-slate-900 dark:text-white font-bold')}>{n.message}</p>
-                  <p className="text-[10px] text-slate-400 mt-0.5">{new Date(n.createdAt).toLocaleString('vi-VN')}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </OldChartCard>
-
-        <OldChartCard title="Thống kê thông báo" icon={<PieChartIcon size={16} className="text-emerald-500" />}>
-          {notifStatData.length === 0
-            ? <EmptyChart />
-            : <ResponsiveContainer width="100%" height={240}>
-                <PieChart>
-                  <Pie data={notifStatData} innerRadius="50%" outerRadius="78%" paddingAngle={5} dataKey="value"
-                    label={({ name, percent }) => `${name} ${((percent || 0) * 100).toFixed(0)}%`}
-                    labelLine={false}
-                  >
-                    {notifStatData.map((_, i) => <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />)}
-                  </Pie>
-                  <Tooltip />
-                  <Legend verticalAlign="bottom" height={32} />
-                </PieChart>
-              </ResponsiveContainer>
-          }
-        </OldChartCard>
-      </div>
-
       {/* ── Old: Lịch sử đánh giá + Xu hướng điểm số ───────────────────────── */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <EvaluationTableWidget data={analyticsData?.evaluationHistory ?? []} title="Lịch sử đánh giá" />
@@ -402,7 +356,7 @@ export default function MyStatsTab() {
                   </defs>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} />
                   <XAxis dataKey="name" fontSize={10} axisLine={false} tickLine={false} />
-                  <YAxis fontSize={10} axisLine={false} tickLine={false} domain={[0, 10]} />
+                  <YAxis fontSize={10} axisLine={false} tickLine={false} domain={[0, 100]} />
                   <Tooltip />
                   <Area type="monotone" dataKey="value" name="Điểm" stroke="#6366f1" strokeWidth={2} fillOpacity={1} fill="url(#evalGrad)" dot={{ r: 4, fill: '#6366f1' }} />
                 </AreaChart>
@@ -425,28 +379,6 @@ export default function MyStatsTab() {
 }
 
 // ── Shared helpers ────────────────────────────────────────────────────────────
-
-function SortHeader({
-  field, active, dir, onToggle, children,
-}: {
-  field: SortField
-  active: SortField | null
-  dir: SortDir
-  onToggle: (f: SortField) => void
-  children: React.ReactNode
-}) {
-  const isActive = active === field
-  return (
-    <button onClick={() => onToggle(field)} className="flex items-center gap-1 group hover:text-violet-500 transition-colors">
-      {children}
-      <span className="ml-0.5">
-        {isActive
-          ? dir === 'asc' ? <ChevronUp size={12} /> : <ChevronDown size={12} />
-          : <ChevronsUpDown size={12} className="opacity-30 group-hover:opacity-60" />}
-      </span>
-    </button>
-  )
-}
 
 function MobileKpiCard({ kpi, onOpenDrawer }: { kpi: any; onOpenDrawer: () => void }) {
   const pct = Math.round(kpi.progress || 0)
@@ -742,17 +674,17 @@ function EvaluationTableWidget({ data, title }: { data: any[]; title: string }) 
         <table className="w-full text-left border-collapse">
           <thead className="sticky top-0 bg-slate-50 dark:bg-slate-800/50 z-10">
             <tr className="text-[10px] font-black uppercase tracking-wider text-slate-400">
-              <th className="px-5 py-3 cursor-pointer hover:text-slate-600 transition-colors" onClick={() => handleSort('score')}>
-                <div className="flex items-center gap-1">Điểm <ArrowUpDown size={10} /></div>
+              <th className="px-5 py-3">
+                <SortHeader field="score" active={sortConfig?.key ?? null} dir={sortConfig?.direction ?? 'asc'} onToggle={handleSort} iconSize={10}>Điểm</SortHeader>
               </th>
-              <th className="px-3 py-3 cursor-pointer hover:text-slate-600 transition-colors" onClick={() => handleSort('kpiName')}>
-                <div className="flex items-center gap-1">Chỉ tiêu <ArrowUpDown size={10} /></div>
+              <th className="px-3 py-3">
+                <SortHeader field="kpiName" active={sortConfig?.key ?? null} dir={sortConfig?.direction ?? 'asc'} onToggle={handleSort} iconSize={10}>Đợt</SortHeader>
               </th>
-              <th className="px-3 py-3 cursor-pointer hover:text-slate-600 transition-colors" onClick={() => handleSort('evaluatorName')}>
-                <div className="flex items-center gap-1">Người đánh giá <ArrowUpDown size={10} /></div>
+              <th className="px-3 py-3">
+                <SortHeader field="evaluatorName" active={sortConfig?.key ?? null} dir={sortConfig?.direction ?? 'asc'} onToggle={handleSort} iconSize={10}>Người đánh giá</SortHeader>
               </th>
-              <th className="px-3 py-3 text-right cursor-pointer hover:text-slate-600 transition-colors" onClick={() => handleSort('createdAt')}>
-                <div className="flex items-center justify-end gap-1">Ngày đánh giá <ArrowUpDown size={10} /></div>
+              <th className="px-3 py-3 text-right">
+                <SortHeader field="createdAt" active={sortConfig?.key ?? null} dir={sortConfig?.direction ?? 'asc'} onToggle={handleSort} iconSize={10} className="justify-end w-full">Ngày đánh giá</SortHeader>
               </th>
             </tr>
           </thead>
@@ -766,8 +698,8 @@ function EvaluationTableWidget({ data, title }: { data: any[]; title: string }) 
               <tr key={e.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors">
                 <td className="px-5 py-3">
                   <div className={cn('w-10 h-10 rounded-xl flex items-center justify-center text-sm font-black shadow-sm',
-                    (e.score ?? 0) >= 8 ? 'bg-emerald-100 text-emerald-700' :
-                    (e.score ?? 0) >= 5 ? 'bg-amber-100 text-amber-700' : 'bg-red-100 text-red-700'
+                    (e.score ?? 0) >= 80 ? 'bg-emerald-100 text-emerald-700' :
+                    (e.score ?? 0) >= 50 ? 'bg-amber-100 text-amber-700' : 'bg-red-100 text-red-700'
                   )}>{e.score?.toFixed(1) ?? '—'}</div>
                 </td>
                 <td className="px-3 py-3">

@@ -39,6 +39,7 @@ import { orgUnitKpiApi } from '@/features/dashboard/api/orgUnitKpiApi'
 import type { OrgUnitAssigneeStat, OrgUnitSubmissionStat, UnitRiskRow, MemberRiskRow, OverdueKpiForUnit, OverdueKpiForMember } from '@/features/dashboard/api/orgUnitKpiApi'
 import OrgUnitKpiDrawer from '../components/OrgUnitKpiDrawer'
 import { useAnalyticsDateFilter } from '@/components/common/AnalyticsDateFilter'
+import { SortHeader } from '@/components/common/SortHeader'
 import { format } from 'date-fns'
 
 const ResponsiveGridLayout = WidthProvider(Responsive)
@@ -950,21 +951,6 @@ function OrgUnitKpiRow({ kpi, onClick, onSelectKpi }: { kpi: any; onClick?: () =
   )
 }
 
-function SortHeader({ field, active, dir, onToggle, children }: {
-  field: SortField; active: SortField | null; dir: SortDir; onToggle: (f: SortField) => void; children: React.ReactNode
-}) {
-  const isActive = active === field
-  return (
-    <button onClick={() => onToggle(field)} className="flex items-center gap-1 group hover:text-indigo-500 transition-colors">
-      {children}
-      <span className="ml-0.5">
-        {isActive
-          ? dir === 'asc' ? <ArrowUpRight size={12} /> : <ArrowDownRight size={12} />
-          : <ArrowUpDown size={12} className="opacity-30 group-hover:opacity-60" />}
-      </span>
-    </button>
-  )
-}
 
 // ── Widget sub-components (unchanged, no date filter) ─────────────────────────
 
@@ -1011,15 +997,44 @@ function RankFilterToggle({ filter, onChange }: { filter: 'BEST' | 'WORST'; onCh
 
 function UnitBarTooltip({ active, payload }: any) {
   if (!active || !payload?.length) return null
-  const unit = payload[0]?.payload?.tooltipName || payload[0]?.payload?.unitName || ''
+  const row = payload[0]?.payload || {}
+  const unit = row.tooltipName || row.unitName || ''
+  const total: number = row.totalExpected ?? 0
   return (
-    <div className="bg-slate-900 text-white px-3 py-2 rounded-lg text-xs shadow-xl border border-white/10 max-w-[200px]">
+    <div className="bg-slate-900 text-white px-3 py-2 rounded-lg text-xs shadow-xl border border-white/10 max-w-[240px]">
       <p className="font-bold mb-1 break-words">{unit}</p>
-      {payload.map((p: any, i: number) => (
-        <p key={i} className="flex items-center gap-1.5">
-          <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: p.color }} />
-          {p.name}: <span className="font-bold">{Math.round(p.value)}%</span>
-        </p>
+      {payload.map((p: any, i: number) => {
+        let suffix = ''
+        if (p.dataKey === 'lateRate') suffix = total > 0 ? ` (${row.lateCount ?? 0}/${total})` : ''
+        else if (p.dataKey === 'missedRate') suffix = total > 0 ? ` (${row.missedCount ?? 0}/${total})` : ''
+        return (
+          <p key={i} className="flex items-center gap-1.5">
+            <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: p.color }} />
+            {p.name}: <span className="font-bold">{Math.round(p.value)}%{suffix}</span>
+          </p>
+        )
+      })}
+    </div>
+  )
+}
+
+// Chú thích màu biểu đồ đơn vị: 2 cột (hiệu suất, tiến độ) + 2 chỉ số trong tooltip (trễ hạn, không nộp).
+const UNIT_CHART_KEYS = [
+  { label: 'Hiệu suất', color: '#10b981' },
+  { label: 'Tiến độ', color: '#6366f1' },
+  { label: 'Trễ hạn', color: '#f59e0b' },
+  { label: 'Không nộp', color: '#f43f5e' },
+]
+
+/** Legend gọn, tự xuống dòng (responsive) — gồm cả trễ hạn / không nộp (chỉ hiện trong tooltip). */
+function UnitChartLegend() {
+  return (
+    <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1 px-2 text-[11px] font-bold text-slate-600 dark:text-slate-300">
+      {UNIT_CHART_KEYS.map((k) => (
+        <span key={k.label} className="flex items-center gap-1.5 whitespace-nowrap">
+          <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: k.color }} />
+          {k.label}
+        </span>
       ))}
     </div>
   )
@@ -1059,16 +1074,21 @@ function UnitComparisonSection({ orgUnitId, from, to, onlyApproved, periodId, is
     const source = (filter === 'BEST' ? data?.topPerformingUnits : data?.worstPerformingUnits) as UnitComparison[] | undefined
     let list = source || []
     if (topN !== 'ALL') list = list.slice(0, Number(topN))
-    return list.map((u: UnitComparison) => ({
-      ...u,
-      displayName: u.unitName.length > 16 ? u.unitName.substring(0, 16) + '…' : u.unitName,
-      tooltipName: u.unitName,
-    }))
+    return list.map((u: UnitComparison) => {
+      const total = u.totalExpected || 0
+      return {
+        ...u,
+        lateRate: total > 0 ? Math.round((u.lateCount / total) * 100) : 0,
+        missedRate: total > 0 ? Math.round((u.missedCount / total) * 100) : 0,
+        displayName: u.unitName.length > 16 ? u.unitName.substring(0, 16) + '…' : u.unitName,
+        tooltipName: u.unitName,
+      }
+    })
   }, [data, filter, topN])
 
   return (
     <ChartWrapper
-      title="Hiệu suất & Tiến độ đơn vị"
+      title="Hiệu suất, tiến độ & tình hình nộp theo đơn vị"
       icon={<TrendingUp size={20} className="text-emerald-500" />}
       widget={widget} onTogglePin={onTogglePin} isEditMode={!!isEditMode}
       extraHeaderContent={
@@ -1083,29 +1103,41 @@ function UnitComparisonSection({ orgUnitId, from, to, onlyApproved, periodId, is
           <div className="flex-1 flex items-center justify-center text-slate-400 text-sm">Không có dữ liệu</div>
         ) : (
           <div className="flex-1 min-h-0">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={chartData} barGap={4} barCategoryGap="28%"
-                margin={{ top: 10, right: 16, left: 0, bottom: 24 }}
+            <ResponsiveContainer width="100%" height="100%" minHeight={0}>
+              <BarChart data={chartData} barGap={0} barCategoryGap="20%"
+                margin={{ top: 8, right: 12, left: 0, bottom: 24 }}
                 onMouseLeave={() => onHoverUnit?.(null)}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" strokeOpacity={0.8} />
                 <XAxis dataKey="displayName" type="category" interval={0} height={50}
                   tick={{ fontSize: 11, fontWeight: 600, fill: '#64748b' }} tickMargin={8}
-                  angle={chartData.length > 6 ? -20 : 0} textAnchor={chartData.length > 6 ? 'end' : 'middle'}
+                  angle={chartData.length > 4 ? -25 : 0} textAnchor={chartData.length > 4 ? 'end' : 'middle'}
                   axisLine={false} tickLine={false} />
-                <YAxis type="number" domain={[0, 100]} tickFormatter={v => `${v}%`} width={40}
+                <YAxis type="number" domain={[0, 100]} tickFormatter={v => `${v}%`} width={38}
                   tick={{ fontSize: 10, fill: '#64748b' }} axisLine={false} tickLine={false} />
                 <Tooltip content={<UnitBarTooltip />} cursor={{ fill: '#94a3b8', opacity: 0.06 }} />
-                <Legend verticalAlign="top" height={28} iconType="circle" wrapperStyle={{ fontSize: 11, fontWeight: 700 }} />
-                <Bar name="Hiệu suất" dataKey="performance" fill="#10b981" radius={[5, 5, 0, 0]} maxBarSize={36} isAnimationActive={false}
+                <Legend verticalAlign="top" height={30} content={<UnitChartLegend />} />
+                <Bar name="Hiệu suất" dataKey="performance" fill="#10b981" radius={[4, 4, 0, 0]} isAnimationActive={false} barSize={30}
                   onMouseEnter={(d: any) => onHoverUnit?.(d.payload?.tooltipName ?? null)}>
                   {chartData.map((item, i) => (
                     <Cell key={`p${i}`} fill="#10b981" opacity={hoveredUnit && hoveredUnit !== item.tooltipName ? 0.3 : 1} />
                   ))}
                 </Bar>
-                <Bar name="Tiến độ" dataKey="completionRate" fill="#6366f1" radius={[5, 5, 0, 0]} maxBarSize={36} isAnimationActive={false}
+                <Bar name="Tiến độ" dataKey="completionRate" fill="#6366f1" radius={[4, 4, 0, 0]} isAnimationActive={false} barSize={30}
                   onMouseEnter={(d: any) => onHoverUnit?.(d.payload?.tooltipName ?? null)}>
                   {chartData.map((item, i) => (
                     <Cell key={`c${i}`} fill="#6366f1" opacity={hoveredUnit && hoveredUnit !== item.tooltipName ? 0.3 : 1} />
+                  ))}
+                </Bar>
+                <Bar name="Trễ hạn" dataKey="lateRate" fill="#f59e0b" radius={[4, 4, 0, 0]} isAnimationActive={false} barSize={30}
+                  onMouseEnter={(d: any) => onHoverUnit?.(d.payload?.tooltipName ?? null)}>
+                  {chartData.map((item, i) => (
+                    <Cell key={`l${i}`} fill="#f59e0b" opacity={hoveredUnit && hoveredUnit !== item.tooltipName ? 0.3 : 1} />
+                  ))}
+                </Bar>
+                <Bar name="Không nộp" dataKey="missedRate" fill="#f43f5e" radius={[4, 4, 0, 0]} isAnimationActive={false} barSize={30}
+                  onMouseEnter={(d: any) => onHoverUnit?.(d.payload?.tooltipName ?? null)}>
+                  {chartData.map((item, i) => (
+                    <Cell key={`m${i}`} fill="#f43f5e" opacity={hoveredUnit && hoveredUnit !== item.tooltipName ? 0.3 : 1} />
                   ))}
                 </Bar>
               </BarChart>

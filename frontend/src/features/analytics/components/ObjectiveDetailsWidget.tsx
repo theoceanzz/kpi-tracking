@@ -47,7 +47,7 @@ export default function ObjectiveDetailsWidget({ dateRange, onlyApproved = false
     data: any;
   }>({ isOpen: false, type: 'OBJECTIVE', data: null })
 
-  const [sortBy, setSortBy] = useState<'progress'>('progress')
+  const [sortBy, setSortBy] = useState<'progress' | 'period'>('period')
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc')
   const [orgUnitId, setOrgUnitId] = useState<string>('')
   const [page, setPage] = useState(0)
@@ -81,7 +81,7 @@ export default function ObjectiveDetailsWidget({ dateRange, onlyApproved = false
 
   const flatUnits = filterUnits ? flattenOrgUnits(filterUnits) : []
 
-  const handleSortToggle = (field: 'progress') => {
+  const handleSortToggle = (field: 'progress' | 'period') => {
     if (sortBy === field) {
       setSortDir(prev => prev === 'desc' ? 'asc' : 'desc')
     } else {

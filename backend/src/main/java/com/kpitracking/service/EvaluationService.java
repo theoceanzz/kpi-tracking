@@ -244,6 +244,16 @@ public class EvaluationService {
      */
     @Transactional(readOnly = true)
     public Double getEffectivePerformanceScore(UUID userId, UUID kpiPeriodId) {
+        Evaluation eff = getEffectiveEvaluation(userId, kpiPeriodId);
+        return eff != null ? eff.getScore() : null;
+    }
+
+    /**
+     * Bản đánh giá ĐẠI DIỆN của 1 người trong 1 đợt (theo cùng quy tắc thâm niên như
+     * {@link #getEffectivePerformanceScore}). Trả {@code null} nếu không có đánh giá phù hợp.
+     */
+    @Transactional(readOnly = true)
+    public Evaluation getEffectiveEvaluation(UUID userId, UUID kpiPeriodId) {
         if (userId == null || kpiPeriodId == null) return null;
         List<Evaluation> evals = evaluationRepository.findByUserIdAndKpiPeriodId(userId, kpiPeriodId);
         if (evals == null || evals.isEmpty()) return null;
@@ -257,7 +267,7 @@ public class EvaluationService {
                 long k = seniorityKey(e.getEvaluator().getId());
                 if (k < userKey && k > directKey) { directKey = k; direct = e; }
             }
-            return direct != null ? direct.getScore() : null;
+            return direct;
         }
 
         Evaluation senior = null;
@@ -267,7 +277,7 @@ public class EvaluationService {
             long k = seniorityKey(e.getEvaluator().getId());
             if (k < seniorKey) { seniorKey = k; senior = e; }
         }
-        return senior != null ? senior.getScore() : null;
+        return senior;
     }
 
     /**

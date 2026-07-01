@@ -228,6 +228,9 @@ export interface UnitComparison {
   unitName: string;
   performance: number;
   completionRate: number;
+  lateCount: number;
+  missedCount: number;
+  totalExpected: number;
 }
 
 export interface UnitKpiComparison {
@@ -345,6 +348,8 @@ export interface KeyResultDetailedDto {
   assignedUnits?: KrAssignedUnit[];
   startDate: string | null;
   endDate: string | null;
+  periodCount?: number;
+  periodNames?: string[];
   kpis: KpiDetailedDto[];
 }
 
@@ -361,6 +366,8 @@ export interface ObjectiveDetailedDto {
   performance: number;
   completedKeyResults: number;
   totalKeyResults: number;
+  periodCount?: number;
+  periodNames?: string[];
   keyResults: KeyResultDetailedDto[];
 }
 

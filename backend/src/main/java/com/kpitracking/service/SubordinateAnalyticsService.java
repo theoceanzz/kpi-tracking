@@ -395,6 +395,8 @@ public class SubordinateAnalyticsService {
         double totalObjPerformance = 0;
         int activeKrCount = 0;
         int completedKrs = 0;
+        // Gom tên đợt distinct của mọi KPI trong mục tiêu (cho cột "Đợt" thông minh).
+        java.util.LinkedHashSet<String> objPeriods = new java.util.LinkedHashSet<>();
 
         if (obj.getKeyResults() != null) {
             for (KeyResult kr : obj.getKeyResults()) {
@@ -568,6 +570,13 @@ public class SubordinateAnalyticsService {
                         ? (obj.getOrgUnits().isEmpty() ? null : obj.getOrgUnits().get(0).getCode())
                         : krUnits.get(0).getOrgUnitCode();
 
+                    List<String> krPeriods = kpiDtos.stream()
+                        .map(KpiDetailedDto::getPeriodName)
+                        .filter(java.util.Objects::nonNull)
+                        .distinct()
+                        .toList();
+                    objPeriods.addAll(krPeriods);
+
                     krDtos.add(KeyResultDetailedDto.builder()
                         .id(kr.getId())
                         .name(kr.getName())
@@ -579,6 +588,8 @@ public class SubordinateAnalyticsService {
                         .assignedUnits(krUnits)
                         .startDate(obj.getStartDate() != null ? obj.getStartDate().atStartOfDay().toInstant(ZoneOffset.UTC) : null)
                         .endDate(obj.getEndDate() != null ? obj.getEndDate().atStartOfDay().toInstant(ZoneOffset.UTC) : null)
+                        .periodCount(krPeriods.size())
+                        .periodNames(krPeriods)
                         .kpis(kpiDtos)
                         .build());
 
@@ -608,6 +619,8 @@ public class SubordinateAnalyticsService {
             .performance(objPerformance)
             .completedKeyResults(completedKrs)
             .totalKeyResults(activeKrCount)
+            .periodCount(objPeriods.size())
+            .periodNames(new ArrayList<>(objPeriods))
             .keyResults(krDtos)
             .build();
     }
@@ -663,17 +676,19 @@ public class SubordinateAnalyticsService {
         // Sort
         if (sortBy != null) {
             boolean descending = !"asc".equalsIgnoreCase(sortDir);
-            allDtos.sort((a, b) -> {
-                double va, vb;
-                if ("performance".equalsIgnoreCase(sortBy)) {
-                    va = a.getPerformance() != null ? a.getPerformance() : 0.0;
-                    vb = b.getPerformance() != null ? b.getPerformance() : 0.0;
-                } else {
-                    va = a.getProgress() != null ? a.getProgress() : 0.0;
-                    vb = b.getProgress() != null ? b.getProgress() : 0.0;
-                }
-                return descending ? Double.compare(vb, va) : Double.compare(va, vb);
-            });
+            java.util.Comparator<ObjectiveDetailedDto> cmp;
+            if ("period".equalsIgnoreCase(sortBy)) {
+                // Sort theo đợt (ngày bắt đầu của mục tiêu); mặc định desc = đợt gần nhất trước.
+                cmp = java.util.Comparator.comparing(
+                        ObjectiveDetailedDto::getStartDate,
+                        java.util.Comparator.nullsLast(java.util.Comparator.naturalOrder()));
+            } else if ("performance".equalsIgnoreCase(sortBy)) {
+                cmp = java.util.Comparator.comparingDouble(d -> d.getPerformance() != null ? d.getPerformance() : 0.0);
+            } else {
+                cmp = java.util.Comparator.comparingDouble(d -> d.getProgress() != null ? d.getProgress() : 0.0);
+            }
+            if (descending) cmp = cmp.reversed();
+            allDtos.sort(cmp);
         }
 
         long totalElements = allDtos.size();

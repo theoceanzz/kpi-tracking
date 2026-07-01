@@ -621,6 +621,11 @@ public class OrgUnitKpiAnalyticsService {
                 .kpiName(kpi.getName())
                 .unit(kpi.getUnit())
                 .isShared(isShared)
+                .isReverseKpi(reverseKpi)
+                .isBonusKpi(Boolean.TRUE.equals(kpi.getIsBonusKpi()))
+                .periodName(kpi.getKpiPeriod() != null ? kpi.getKpiPeriod().getName() : null)
+                .orgUnitName(kpi.getOrgUnit() != null ? kpi.getOrgUnit().getName() : null)
+                .weight(kpi.getWeight())
                 .targetValue(targetValue)
                 .totalActualValue(totalActual)
                 .totalProgress(totalProgress)
@@ -756,6 +761,11 @@ public class OrgUnitKpiAnalyticsService {
         private String kpiName;
         private String unit;
         private boolean isShared;
+        private Boolean isReverseKpi;
+        private Boolean isBonusKpi;
+        private String periodName;
+        private String orgUnitName;
+        private Double weight;
         private double targetValue;
         private double totalActualValue;
         private double totalProgress;

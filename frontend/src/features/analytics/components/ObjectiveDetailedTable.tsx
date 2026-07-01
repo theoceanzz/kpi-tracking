@@ -1,5 +1,6 @@
 import React, { useState } from 'react'
-import { ChevronDown, ChevronRight, ChevronUp, ChevronsUpDown } from 'lucide-react'
+import { ChevronDown, ChevronRight, Layers } from 'lucide-react'
+import { SortHeader } from '@/components/common/SortHeader'
 import { ObjectiveDetailedDto } from '@/types/stats'
 import { format } from 'date-fns'
 import { KpiTypeTags } from './KpiTypeTags'
@@ -10,7 +11,7 @@ import { KpiPeriodCell } from './KpiPeriodCell'
 import { KpiWeightPill } from './KpiWeightPill'
 import { cn } from '@/lib/utils'
 
-type SortField = 'progress'
+type SortField = 'progress' | 'period'
 type SortDir = 'asc' | 'desc'
 
 const ProgressBar = ({ value, subText }: { value: number, subText: string }) => {
@@ -28,31 +29,6 @@ const ProgressBar = ({ value, subText }: { value: number, subText: string }) => 
       </div>
       <div className="text-[10px] text-slate-500 font-medium">{subText}</div>
     </div>
-  )
-}
-
-function SortHeader({
-  field, active, dir, onToggle, children,
-}: {
-  field: SortField
-  active: SortField
-  dir: SortDir
-  onToggle: (f: SortField) => void
-  children: React.ReactNode
-}) {
-  const isActive = active === field
-  return (
-    <button
-      onClick={onToggle ? () => onToggle(field) : undefined}
-      className="flex items-center gap-1 group hover:text-indigo-500 transition-colors uppercase"
-    >
-      {children}
-      <span className="ml-0.5">
-        {isActive
-          ? dir === 'asc' ? <ChevronUp size={12} /> : <ChevronDown size={12} />
-          : <ChevronsUpDown size={12} className="opacity-30 group-hover:opacity-60" />}
-      </span>
-    </button>
   )
 }
 
@@ -95,7 +71,14 @@ function MobileObjectiveCard({ obj, onRowClick }: { obj: ObjectiveDetailedDto; o
         </div>
       </div>
 
-      <div className="flex items-center gap-2 text-[11px] text-slate-400 font-medium">
+      <div className="flex flex-wrap items-center gap-2 text-[11px] text-slate-400 font-medium">
+        {(obj.periodCount ?? 0) > 1 ? (
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-violet-50 dark:bg-violet-900/30 text-violet-600 dark:text-violet-400 text-[10px] font-black uppercase" title={obj.periodNames?.join(', ')}>
+            <Layers size={11} /> Nhiều đợt ({obj.periodCount})
+          </span>
+        ) : obj.periodCount === 1 && obj.periodNames?.[0] ? (
+          <span className="font-bold text-slate-600 dark:text-slate-300">{obj.periodNames[0]}</span>
+        ) : null}
         <span>{formatDate(obj.startDate)}</span>
         <span className="text-slate-200 dark:text-slate-800">—</span>
         <span>{formatDate(obj.endDate)}</span>
@@ -155,6 +138,31 @@ const DateRange = ({ start, end }: { start: string | null; end: string | null })
   </div>
 )
 
+/**
+ * Ô "Đợt" cho dòng Mục tiêu / KR (có thể trải nhiều đợt):
+ * - 1 đợt   → hiện tên đợt + khoảng ngày (giống dòng KPI).
+ * - nhiều đợt → chip "Nhiều đợt (N)" + khoảng ngày, hover xem danh sách tên đợt.
+ * - không xác định → chỉ khoảng ngày.
+ */
+const ObjectivePeriodCell = ({ periodCount, periodNames, start, end }: {
+  periodCount?: number; periodNames?: string[]; start: string | null; end: string | null
+}) => {
+  if (periodCount === 1 && periodNames?.[0]) {
+    return <KpiPeriodCell periodName={periodNames[0]} start={start} end={end} />
+  }
+  if ((periodCount ?? 0) > 1) {
+    return (
+      <div className="flex flex-col gap-1.5" title={periodNames?.join(', ')}>
+        <span className="inline-flex w-fit items-center gap-1 px-2 py-0.5 rounded-full bg-violet-50 dark:bg-violet-900/30 text-violet-600 dark:text-violet-400 text-[10px] font-black uppercase">
+          <Layers size={11} /> Nhiều đợt ({periodCount})
+        </span>
+        <DateRange start={start} end={end} />
+      </div>
+    )
+  }
+  return <DateRange start={start} end={end} />
+}
+
   return (
     <div className="w-full">
       {/* Mobile View */}
@@ -175,9 +183,13 @@ const DateRange = ({ start, end }: { start: string | null; end: string | null })
             <tr className="text-xs font-black uppercase text-slate-500">
               <th className="px-6 py-4 w-[30%]">Tên Mục tiêu / Yếu tố</th>
               <th className="px-6 py-4 w-[20%]">Đơn vị / Người đảm nhiệm</th>
-              <th className="px-6 py-4 w-[15%]">Đợt</th>
+              <th className="px-6 py-4 w-[15%]" title="Sắp theo thời gian bắt đầu">
+                <SortHeader field="period" active={sortBy} dir={sortDir} onToggle={onToggleSort} className="uppercase">
+                  Đợt
+                </SortHeader>
+              </th>
               <th className="px-6 py-4 w-[25%]">
-                <SortHeader field="progress" active={sortBy} dir={sortDir} onToggle={onToggleSort}>
+                <SortHeader field="progress" active={sortBy} dir={sortDir} onToggle={onToggleSort} className="uppercase">
                   Tiến độ
                 </SortHeader>
               </th>
@@ -212,7 +224,7 @@ const DateRange = ({ start, end }: { start: string | null; end: string | null })
                   <div className="text-[11px] text-slate-500 mt-1">{obj.unitCode}</div>
                 </td>
                 <td className="px-6 py-4 align-middle">
-                  <DateRange start={obj.startDate} end={obj.endDate} />
+                  <ObjectivePeriodCell periodCount={obj.periodCount} periodNames={obj.periodNames} start={obj.startDate} end={obj.endDate} />
                 </td>
                 <td className="px-6 py-4 align-top">
                   <ProgressBar 
@@ -271,7 +283,7 @@ const DateRange = ({ start, end }: { start: string | null; end: string | null })
                       )}
                     </td>
                     <td className="px-6 py-4 align-middle">
-                      <DateRange start={kr.startDate} end={kr.endDate} />
+                      <ObjectivePeriodCell periodCount={kr.periodCount} periodNames={kr.periodNames} start={kr.startDate} end={kr.endDate} />
                     </td>
                     <td className="px-6 py-4 align-top">
                       <ProgressBar 
