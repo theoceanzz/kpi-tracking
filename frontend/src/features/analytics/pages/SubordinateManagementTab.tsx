@@ -4,7 +4,9 @@ import { statsApi } from '@/features/dashboard/api/statsApi'
 import ObjectiveMetricCard from '../components/ObjectiveMetricCard'
 import AnalyticsComboChart from '../components/AnalyticsComboChart'
 import ObjectiveDetailsWidget from '../components/ObjectiveDetailsWidget'
-import TopEntitiesDashboardWidget from '../components/TopEntitiesDashboardWidget'
+import UnitComparisonBarChart from '../components/UnitComparisonBarChart'
+import MemberRoleChart from '../components/MemberRoleChart'
+import { useSummaryStats } from '../hooks/useAnalytics'
 import { useAnalyticsDateFilter } from '@/components/common/AnalyticsDateFilter'
 import { Target, TrendingUp, CheckCircle2, AlertTriangle, Users } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -58,6 +60,9 @@ export default function SubordinateManagementTab() {
     queryKey: ['subordinate-combo-chart', dateRange.from, dateRange.to, onlyApproved, periodId],
     queryFn: () => statsApi.getSubordinateComboChart(dateRange.from, dateRange.to, onlyApproved, periodId)
   })
+
+  // Cấu trúc nhân sự / vai trò (theo đơn vị của user + đơn vị con) — không phụ thuộc thời gian.
+  const { data: summary } = useSummaryStats()
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500 pb-20">
@@ -142,8 +147,24 @@ export default function SubordinateManagementTab() {
       
       <ObjectiveDetailsWidget dateRange={dateRange} onlyApproved={onlyApproved} periodId={periodId} />
 
-      {/* Top Objectives & Top Units */}
-      <TopEntitiesDashboardWidget dateRange={dateRange} onlyApproved={onlyApproved} periodId={periodId} />
+      {/* Nhân sự & vai trò theo đơn vị */}
+      <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm p-6 flex flex-col h-[420px]">
+        <div className="flex items-center gap-2 mb-4">
+          <Users size={20} className="text-purple-600" />
+          <h3 className="text-base font-bold text-slate-900 dark:text-white">Nhân sự & vai trò theo đơn vị</h3>
+        </div>
+        <MemberRoleChart data={summary?.roleDistribution} />
+      </div>
+
+      {/* Hiệu suất & Tiến độ đơn vị con (theo đánh giá) */}
+      <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm p-6 flex flex-col h-[480px]">
+        <div className="flex items-center gap-2">
+          <TrendingUp size={20} className="text-emerald-500" />
+          <h3 className="text-base font-bold text-slate-900 dark:text-white">Hiệu suất & Tiến độ đơn vị</h3>
+        </div>
+        <p className="text-xs text-slate-500 mb-3 mt-0.5">Hiệu suất theo đánh giá · Tiến độ · Trễ hạn / Không nộp</p>
+        <UnitComparisonBarChart from={from} to={to} onlyApproved={onlyApproved} periodId={periodId} />
+      </div>
 
     </div>
   )

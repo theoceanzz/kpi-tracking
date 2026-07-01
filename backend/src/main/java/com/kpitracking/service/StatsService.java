@@ -877,43 +877,44 @@ public class StatsService {
         }
         Collection<UserRoleOrgUnit> allMembers = memberMap.values();
 
-        // Structure logic
-        long currentUnitDirectCount = userRoleOrgUnitRepository.findByOrgUnitIdIn(List.of(targetUnit.getId())).stream()
-                .map(uro -> uro.getUser().getId())
-                .distinct()
-                .count();
-        List<AnalyticsSummaryResponse.OrgDistribution> memberDist = new java.util.ArrayList<>();
-        memberDist.add(new AnalyticsSummaryResponse.OrgDistribution(targetUnit.getName(), currentUnitDirectCount));
-        childUnits.forEach(u -> {
-            List<UUID> subtree = getSubtreeIds(u);
-            long memberCount = userRoleOrgUnitRepository.findByOrgUnitIdIn(subtree).stream()
-                    .map(uro -> uro.getUser().getId())
-                    .distinct()
-                    .count();
-            memberDist.add(new AnalyticsSummaryResponse.OrgDistribution(u.getName(), memberCount));
-        });
+        // Structure logic — đếm MỖI NGƯỜI 1 LẦN ở đơn vị SÂU NHẤT (memberMap), theo vai trò tại đó.
+        // Bucket 0 = ĐƠN VỊ HIỆN TẠI: gồm TOÀN BỘ nhân sự dưới cây (kể cả đơn vị con).
+        // Bucket i+1 = từng đơn vị con (breakdown, là tập con của bucket 0).
+        int childCount = childUnits.size();
+        Map<UUID, Integer> unitToChild = new HashMap<>();
+        for (int i = 0; i < childCount; i++) {
+            for (UUID id : getSubtreeIds(childUnits.get(i))) unitToChild.put(id, i);
+        }
+        int bucketCount = childCount + 1;
+        long[] bucketTotal = new long[bucketCount];
+        List<Map<String, Long>> bucketRoles = new ArrayList<>();
+        for (int i = 0; i < bucketCount; i++) bucketRoles.add(new java.util.LinkedHashMap<>());
+        for (UserRoleOrgUnit uro : memberMap.values()) {
+            String roleName = uro.getRole() != null ? uro.getRole().getName() : "Khác";
+            // Đơn vị hiện tại: cộng mọi người (toàn bộ cây).
+            bucketTotal[0]++;
+            bucketRoles.get(0).merge(roleName, 1L, Long::sum);
+            // Breakdown vào đơn vị con nếu người này thuộc cây của một đơn vị con.
+            UUID unitId = uro.getOrgUnit() != null ? uro.getOrgUnit().getId() : null;
+            Integer ci = unitId != null ? unitToChild.get(unitId) : null;
+            if (ci != null) {
+                bucketTotal[ci + 1]++;
+                bucketRoles.get(ci + 1).merge(roleName, 1L, Long::sum);
+            }
+        }
+        // Tên bucket: current đứng đầu (có hậu tố "(hiện tại)"), sau đó các đơn vị con.
+        String[] bucketNames = new String[bucketCount];
+        bucketNames[0] = targetUnit.getName() + " (hiện tại)";
+        for (int i = 0; i < childCount; i++) bucketNames[i + 1] = childUnits.get(i).getName();
 
+        List<AnalyticsSummaryResponse.OrgDistribution> memberDist = new java.util.ArrayList<>();
         List<AnalyticsSummaryResponse.RoleDistribution> roleDist = new java.util.ArrayList<>();
-        // Add current unit first
-        List<UserRoleOrgUnit> currentUnitMembers = userRoleOrgUnitRepository.findByOrgUnitIdIn(List.of(targetUnit.getId()));
-        java.util.Map<String, Long> currentRoleCounts = currentUnitMembers.stream()
-            .filter(m -> m.getRole() != null)
-            .collect(Collectors.groupingBy(m -> m.getRole().getName(), Collectors.counting()));
-        roleDist.add(new AnalyticsSummaryResponse.RoleDistribution(
-            targetUnit.getName() + " (hiện tại)",
-            currentRoleCounts.entrySet().stream()
-                .map(e -> new AnalyticsSummaryResponse.RoleCount(e.getKey(), e.getValue())).toList()));
-        // Add each child unit
-        childUnits.forEach(u -> {
-            List<UUID> subtree = getSubtreeIds(u);
-            List<UserRoleOrgUnit> members = userRoleOrgUnitRepository.findByOrgUnitIdIn(subtree);
-            java.util.Map<String, Long> roleCounts = members.stream()
-                .filter(m -> m.getRole() != null)
-                .collect(Collectors.groupingBy(m -> m.getRole().getName(), Collectors.counting()));
-            roleDist.add(new AnalyticsSummaryResponse.RoleDistribution(u.getName(),
-                roleCounts.entrySet().stream()
+        for (int i = 0; i < bucketCount; i++) {
+            memberDist.add(new AnalyticsSummaryResponse.OrgDistribution(bucketNames[i], bucketTotal[i]));
+            roleDist.add(new AnalyticsSummaryResponse.RoleDistribution(bucketNames[i],
+                bucketRoles.get(i).entrySet().stream()
                     .map(e -> new AnalyticsSummaryResponse.RoleCount(e.getKey(), e.getValue())).toList()));
-        });
+        }
 
         // Data for initial load
         SummarySubData.UnitComparisonData comp = getUnitComparison(targetUnit.getId(), null, null, false, null);
