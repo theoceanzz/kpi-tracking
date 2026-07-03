@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react'
-import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { useQuery } from '@tanstack/react-query'
 import { useSummaryStats, useSummaryRankings } from '../hooks/useAnalytics'
 import { cn, getInitials } from '@/lib/utils'
 import { KpiTypeTags } from '../components/KpiTypeTags'
@@ -9,18 +9,14 @@ import { KpiResponsibleCell } from '../components/KpiResponsibleCell'
 import { KpiPeriodCell } from '../components/KpiPeriodCell'
 import { KpiWeightPill } from '../components/KpiWeightPill'
 import {
-  Target, Star, AlertCircle, Users, TrendingUp, TrendingDown,
+  Target, Star, AlertCircle, Users, TrendingUp,
   ChevronRight, AlertTriangle, Medal, ArrowUpRight, ArrowDownRight,
   ChevronDown, Filter, ArrowUpDown, Loader2,
-  Settings2, Save, RotateCcw, Plus, Layout, X, Eye, EyeOff, GripVertical, Trash2,
-  Pin, CheckCircle, LayoutDashboard
+  X, CheckCircle, LayoutDashboard
 } from 'lucide-react'
-import { toast } from 'sonner'
 import AnalyticsTabSkeleton, { TableLoadingRows } from '@/components/common/AnalyticsTabSkeleton'
-import { CopyButton } from '@/components/common/CopyButton'
-import { Responsive, WidthProvider } from 'react-grid-layout/legacy'
-import { reportApi } from '@/features/reports/api/reportApi'
 import type { RankingItem } from '@/types/stats'
+import type { WidgetType } from '@/types/datasource'
 import {
   Select,
   SelectContent,
@@ -32,15 +28,18 @@ import AiAssistantWidget from '../components/AiAssistantWidget'
 import AnalyticsComboChart from '../components/AnalyticsComboChart'
 import UnitComparisonBarChart from '../components/UnitComparisonBarChart'
 import MemberRoleChart from '../components/MemberRoleChart'
+import { SparseTableFiller } from '../components/SparseTableFiller'
 import Pagination from '@/components/common/Pagination'
 import { orgUnitKpiApi } from '@/features/dashboard/api/orgUnitKpiApi'
 import type { OrgUnitAssigneeStat, OrgUnitSubmissionStat, UnitRiskRow, MemberRiskRow, OverdueKpiForUnit, OverdueKpiForMember } from '@/features/dashboard/api/orgUnitKpiApi'
 import OrgUnitKpiDrawer from '../components/OrgUnitKpiDrawer'
 import { useAnalyticsDateFilter } from '@/components/common/AnalyticsDateFilter'
 import { SortHeader } from '@/components/common/SortHeader'
+import { ChartWrapper, type DashboardWidget } from '@/components/common/dashboard/ChartWrapper'
+import { useDashboardCustomization } from '@/components/common/dashboard/useDashboardCustomization'
+import DashboardCustomizeChrome, { DashboardEditToolbar } from '@/components/common/dashboard/DashboardCustomizeChrome'
 import { format } from 'date-fns'
 
-const ResponsiveGridLayout = WidthProvider(Responsive)
 const CONFIG_REPORT_NAME = '__SUMMARY_DASHBOARD_CONFIG__'
 
 type SortField = 'progress' | 'performance' | 'period'
@@ -50,6 +49,8 @@ type SharedFilter = 'ALL' | 'SHARED' | 'PERSONAL'
 const PAGE_SIZE = 5
 
 export type SummaryWidgetType =
+  | 'TREND_CHART'
+  | 'KPI_DETAIL'
   | 'UNIT_PERFORMANCE'
   | 'UNIT_KPI'
   | 'MEMBER_DIST'
@@ -58,73 +59,69 @@ export type SummaryWidgetType =
   | 'WARNING_LIST'
   | 'RANKING_TABLE'
 
-interface SummaryWidget {
-  id?: string
-  i: string
-  type: SummaryWidgetType
-  title: string
-  x: number
-  y: number
-  w: number
-  h: number
-  visible: boolean
-  isPinned?: boolean
-}
+type SummaryWidget = DashboardWidget
 
 const DEFAULT_SUMMARY_WIDGETS: SummaryWidget[] = [
-  { i: 'unit-perf', type: 'UNIT_PERFORMANCE', title: 'Hiệu suất & Tiến độ đơn vị', x: 0, y: 0, w: 12, h: 13, visible: true },
-  { i: 'member-dist', type: 'MEMBER_DIST', title: 'Nhân sự & vai trò theo đơn vị', x: 0, y: 11, w: 12, h: 10, visible: true },
-  { i: 'unit-risk', type: 'UNIT_RISK', title: 'Rủi ro đơn vị', x: 0, y: 21, w: 12, h: 11, visible: true },
-  { i: 'warning-list', type: 'WARNING_LIST', title: 'Rủi ro thành viên', x: 0, y: 32, w: 12, h: 11, visible: true },
-  { i: 'rank-table', type: 'RANKING_TABLE', title: 'Bảng xếp hạng nhân sự', x: 0, y: 43, w: 12, h: 13, visible: true },
+  { i: 'trend-chart', type: 'TREND_CHART', title: 'Xu hướng KPI theo thời gian', x: 0, y: 0, w: 12, h: 15, visible: true },
+  { i: 'kpi-detail', type: 'KPI_DETAIL', title: 'Bảng chi tiết KPI đơn vị', x: 0, y: 15, w: 12, h: 18, visible: true },
+  { i: 'unit-perf', type: 'UNIT_PERFORMANCE', title: 'Hiệu suất & Tiến độ đơn vị', x: 0, y: 34, w: 12, h: 13, visible: true },
+  { i: 'member-dist', type: 'MEMBER_DIST', title: 'Nhân sự & vai trò theo đơn vị', x: 0, y: 47, w: 12, h: 10, visible: true },
+  { i: 'unit-risk', type: 'UNIT_RISK', title: 'Rủi ro đơn vị', x: 0, y: 57, w: 12, h: 11, visible: true },
+  { i: 'warning-list', type: 'WARNING_LIST', title: 'Rủi ro thành viên', x: 0, y: 68, w: 12, h: 11, visible: true },
+  { i: 'rank-table', type: 'RANKING_TABLE', title: 'Bảng xếp hạng nhân sự', x: 0, y: 79, w: 12, h: 13, visible: true },
 ]
 
-const ChartWrapper = ({ children, title, icon, widget, onTogglePin, isEditMode, extraHeaderContent }: {
-  children: React.ReactNode,
-  title: string,
-  icon: React.ReactNode,
-  widget: SummaryWidget,
-  onTogglePin: (w: SummaryWidget) => void,
-  isEditMode: boolean,
-  extraHeaderContent?: React.ReactNode
-}) => {
-  const sectionRef = useRef<HTMLDivElement>(null)
-  return (
-    <div className="bg-white dark:bg-slate-900 p-6 rounded-[32px] border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden h-full flex flex-col relative" ref={sectionRef}>
-      <div className="flex items-center justify-between mb-6">
-        <h3 className="text-lg font-black text-slate-900 dark:text-white flex items-center gap-2">{icon} {title}</h3>
-        <div className="flex items-center gap-2">
-          {extraHeaderContent}
-          {!isEditMode && (
-            <>
-              <button
-                onClick={() => onTogglePin(widget)}
-                className={cn(
-                  "p-1.5 rounded-lg transition-all",
-                  widget.isPinned
-                    ? "bg-indigo-600 text-white shadow-md shadow-indigo-200 dark:shadow-none"
-                    : "text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"
-                )}
-                title={widget.isPinned ? "Bỏ ghim khỏi trang chủ" : "Ghim vào trang chủ"}
-              >
-                <Pin size={16} fill={widget.isPinned ? "currentColor" : "none"} className={cn(widget.isPinned && "rotate-45")} />
-              </button>
-              <CopyButton targetRef={sectionRef} />
-            </>
-          )}
-        </div>
-      </div>
-      {children}
-    </div>
-  )
+// Các widget cốt lõi luôn có mặt (bổ sung cho cấu hình cũ chưa có sau khi thêm mới).
+const CORE_WIDGET_IDS = ['trend-chart', 'kpi-detail']
+
+// KPI_DETAIL là loại widget riêng của FE — DB check constraint chưa có giá trị này nên lưu xuống dưới
+// enum sẵn có 'TABLE'. Khi tải lên, loại thật được suy lại từ id widget (cfg.i) nên giá trị lưu không
+// ảnh hưởng hiển thị. Nhờ vậy không cần đổi enum backend / migration DB.
+// KPI_DETAIL là loại widget riêng của FE — DB check constraint chưa có giá trị này nên lưu xuống dưới
+// enum sẵn có 'TABLE'. Khi tải lên, loại thật được suy lại từ id widget (cfg.i) nên giá trị lưu không
+// ảnh hưởng hiển thị. Nhờ vậy không cần đổi enum backend / migration DB.
+const toBackendWidgetType = (t: string): WidgetType =>
+  t === 'KPI_DETAIL' ? 'TABLE' : (t as WidgetType)
+
+// Migration cấu hình cũ: bỏ ROLE_DIST (đã gộp vào MEMBER_DIST), nâng sàn chiều cao TREND_CHART,
+// và luôn có widget cốt lõi (xu hướng + bảng chi tiết).
+const summaryPostProcess = (mapped: SummaryWidget[], defaults: SummaryWidget[]): SummaryWidget[] => {
+  const hasLegacyRoleDist = mapped.some(w => w.type === 'ROLE_DIST')
+  let result = mapped
+    .filter(w => w.type !== 'ROLE_DIST')
+    .map(w => (hasLegacyRoleDist && w.type === 'MEMBER_DIST')
+      ? { ...w, w: 12, x: 0, title: 'Nhân sự & vai trò theo đơn vị' }
+      : w)
+    .map(w => (w.type === 'TREND_CHART' && (w.h ?? 0) < 15) ? { ...w, h: 15 } : w)
+  CORE_WIDGET_IDS.forEach(id => {
+    if (!result.some(w => w.i === id)) {
+      const def = defaults.find(d => d.i === id)
+      if (def) {
+        const maxY = result.length ? Math.max(...result.map(w => w.y + w.h)) : 0
+        result = [...result, { ...def, y: maxY }]
+      }
+    }
+  })
+  return result
 }
+
+// Danh mục widget cho modal "Thêm biểu đồ".
+const SUMMARY_CATALOG: { template: SummaryWidget; icon: React.ReactNode }[] = DEFAULT_SUMMARY_WIDGETS.map(t => ({
+  template: t,
+  icon: t.type === 'KPI_DETAIL' ? <Target size={24} />
+    : t.type === 'MEMBER_DIST' ? <Users size={24} />
+    : t.type === 'UNIT_RISK' ? <AlertTriangle size={24} />
+    : t.type === 'WARNING_LIST' ? <AlertCircle size={24} />
+    : t.type === 'RANKING_TABLE' ? <Star size={24} />
+    : <TrendingUp size={24} />,
+}))
 
 export default function SummaryTab() {
   const [selectedUnitId] = useState<string | undefined>(undefined)
 
   // ── Global filter state ───────────────────────────────────────────────────
   const [onlyApproved, setOnlyApproved] = useState(false)
-  const { periodId, from, to, controls } = useAnalyticsDateFilter({ selectClassName: 'h-9' })
+  const { periodId, periodIdTo, from, to, groupBy, controls } = useAnalyticsDateFilter({ selectClassName: 'h-9' })
   const [filterStuck, setFilterStuck] = useState(false)
   const filterSentinelRef = useRef<HTMLDivElement>(null)
 
@@ -141,13 +138,13 @@ export default function SummaryTab() {
 
   // ── New KPI data ──────────────────────────────────────────────────────────
   const { data: metrics, isLoading: isMetricsLoading } = useQuery({
-    queryKey: ['orgUnitKpi', 'metrics', from, to, onlyApproved, periodId],
-    queryFn: () => orgUnitKpiApi.getMetrics({ from, to, onlyApproved, periodId }),
+    queryKey: ['orgUnitKpi', 'metrics', from, to, onlyApproved, periodId, periodIdTo],
+    queryFn: () => orgUnitKpiApi.getMetrics({ from, to, onlyApproved, periodId, periodIdTo }),
   })
 
   const { data: chartData, isLoading: isChartLoading } = useQuery({
-    queryKey: ['orgUnitKpi', 'chart', from, to, onlyApproved, periodId],
-    queryFn: () => orgUnitKpiApi.getComboChart({ from, to, onlyApproved, periodId }),
+    queryKey: ['orgUnitKpi', 'chart', from, to, onlyApproved, periodId, periodIdTo, groupBy],
+    queryFn: () => orgUnitKpiApi.getComboChart({ from, to, onlyApproved, periodId, periodIdTo, groupBy }),
   })
 
   // ── Detail table state ────────────────────────────────────────────────────
@@ -158,9 +155,9 @@ export default function SummaryTab() {
   const [tablePage, setTablePage] = useState(0)
 
   const { data: kpiPage, isLoading: isKpisLoading } = useQuery({
-    queryKey: ['orgUnitKpi', 'details', from, to, onlyApproved, periodId, filterOrgUnitId, sortField, sortDir, filterShared, tablePage],
+    queryKey: ['orgUnitKpi', 'details', from, to, onlyApproved, periodId, periodIdTo, filterOrgUnitId, sortField, sortDir, filterShared, tablePage],
     queryFn: () => orgUnitKpiApi.getDetailedKpis({
-      from, to, onlyApproved, periodId,
+      from, to, onlyApproved, periodId, periodIdTo,
       filterOrgUnitId,
       sortBy: sortField ?? undefined,
       sortDir,
@@ -192,118 +189,123 @@ export default function SummaryTab() {
 
   // ── Existing summary data (unchanged widgets) ─────────────────────────────
   const { data: mainData, isLoading: isMainLoading } = useSummaryStats(selectedUnitId)
-  // ── Widget config ─────────────────────────────────────────────────────────
-  const [isEditMode, setIsEditMode] = useState(false)
-  const [isConfigOpen, setIsConfigOpen] = useState(false)
-  const [isAddModalOpen, setIsAddModalOpen] = useState(false)
-  const [widgets, setWidgets] = useState<SummaryWidget[]>(DEFAULT_SUMMARY_WIDGETS)
-  const [configReportId, setConfigReportId] = useState<string | null>(null)
-  const queryClient = useQueryClient()
+  // ── Widget config (dùng hook + chrome dùng chung) ─────────────────────────
+  const dash = useDashboardCustomization({
+    configReportName: CONFIG_REPORT_NAME,
+    reportDescription: 'Cấu hình giao diện thống kê tổng hợp',
+    defaultWidgets: DEFAULT_SUMMARY_WIDGETS,
+    toBackendWidgetType,
+    postProcess: summaryPostProcess,
+  })
+  const { isEditMode, handleTogglePin } = dash
 
-  const mapWidgetsFromReport = (report: any): SummaryWidget[] => {
-    if (!report.widgets || report.widgets.length === 0) return DEFAULT_SUMMARY_WIDGETS;
-    const mapped = report.widgets.map((sw: any) => {
-      try {
-        const pos = JSON.parse(sw.position || '{}')
-        const cfg = JSON.parse(sw.chartConfig || '{}')
-        const def = DEFAULT_SUMMARY_WIDGETS.find(dw => dw.i === cfg.i)
-        return {
-          ...(def || {}), ...pos, ...cfg, id: sw.id,
-          i: cfg.i || sw.id, type: sw.widgetType as SummaryWidgetType,
-          title: sw.title, visible: cfg.visible !== false, isPinned: sw.isPinned
-        } as SummaryWidget
-      } catch { return null }
-    }).filter(Boolean) as SummaryWidget[]
-    // Migration: đã gộp "Phân bổ vai trò" vào "Nhân sự & vai trò" → bỏ ROLE_DIST, ép MEMBER_DIST full width.
-    return mapped
-      .filter(w => w.type !== 'ROLE_DIST')
-      .map(w => w.type === 'MEMBER_DIST'
-        ? { ...w, w: 12, x: 0, title: 'Nhân sự & vai trò theo đơn vị' }
-        : w)
-  }
+  // Nội dung bảng chi tiết KPI (không bọc card/tiêu đề — ChartWrapper lo phần đó).
+  const renderKpiDetailBody = () => (
+    <div className="flex-1 flex flex-col min-h-0 -mx-6 -mb-6">
+      {/* Bộ lọc */}
+      <div className="px-6 pb-4 border-b border-slate-100 dark:border-slate-800 flex flex-wrap items-center gap-3">
+        <Select
+          value={filterOrgUnitId ?? ALL_UNITS}
+          onValueChange={v => { setFilterOrgUnitId(v === ALL_UNITS ? undefined : v); setTablePage(0) }}
+        >
+          <SelectTrigger className="h-9 max-w-[220px] bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 rounded-lg text-xs font-semibold text-slate-700 dark:text-slate-300">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value={ALL_UNITS}>Tất cả đơn vị</SelectItem>
+            {kpiPage?.availableOrgUnits?.map(o => (
+              <UnitSelectItem key={o.code} o={o} />
+            ))}
+          </SelectContent>
+        </Select>
 
-  useEffect(() => {
-    const loadConfig = async () => {
-      try {
-        const reports = await reportApi.getAll({ size: 100 })
-        const configReport = reports.content.find(r => r.name === CONFIG_REPORT_NAME)
-        if (configReport) {
-          setConfigReportId(configReport.id)
-          setWidgets(mapWidgetsFromReport(configReport))
-        }
-      } catch (e) { console.error("Failed to load dashboard config", e) }
-    }
-    loadConfig()
-  }, [])
+        {hasTableFilters && (
+          <button onClick={clearTableFilters} className="flex items-center gap-1 h-9 px-3 rounded-lg text-xs font-bold text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors">
+            <X size={13} /> Xóa bộ lọc
+          </button>
+        )}
+      </div>
 
-  const saveConfig = async () => {
-    try {
-      const widgetRequests = widgets.map((w, index) => ({
-        id: w.id, widgetType: w.type, title: w.title,
-        position: JSON.stringify({ x: w.x, y: w.y, w: w.w, h: w.h }),
-        chartConfig: JSON.stringify({ i: w.i, visible: w.visible }),
-        widgetOrder: index, isPinned: w.isPinned
-      }))
-      let updatedReport;
-      if (configReportId) {
-        updatedReport = await reportApi.update(configReportId, { widgets: widgetRequests })
-      } else {
-        const newReport = await reportApi.create({ name: CONFIG_REPORT_NAME, description: 'Cấu hình giao diện thống kê tổng hợp' })
-        updatedReport = await reportApi.update(newReport.id, { widgets: widgetRequests })
-        setConfigReportId(newReport.id)
-      }
-      const newWidgets = mapWidgetsFromReport(updatedReport)
-      setWidgets(newWidgets)
-      setIsEditMode(false)
-      return newWidgets
-    } catch (err) {
-      console.error(err)
-      toast.error("Không thể lưu cấu hình")
-      throw err
-    }
-  }
+      <div className="flex-1 overflow-auto custom-scrollbar min-h-0 flex flex-col">
+        <div className="hidden md:block overflow-x-auto custom-scrollbar">
+          <table className="w-full text-left">
+            <thead className="bg-slate-50 dark:bg-slate-800/50">
+              <tr className="text-xs font-black uppercase text-slate-500">
+                <th className="px-6 py-4">Tên KPI</th>
+                <th className="px-6 py-4">Đơn vị</th>
+                <th className="px-6 py-4 whitespace-nowrap">
+                  <SortHeader field="period" active={sortField} dir={sortDir} onToggle={toggleSort}>Đợt</SortHeader>
+                </th>
+                <th className="px-6 py-4 min-w-[220px]">
+                  <SortHeader field="progress" active={sortField} dir={sortDir} onToggle={toggleSort}>Tiến độ</SortHeader>
+                </th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+              {isKpisLoading
+                ? <TableLoadingRows cols={6} count={2} />
+                : kpiPage?.content?.map(kpi => (
+                    <OrgUnitKpiRow key={kpi.kpiId} kpi={kpi} onClick={() => setSelectedKpiId(kpi.kpiId)} onSelectKpi={setSelectedKpiId} />
+                  ))}
+              {!isKpisLoading && (kpiPage?.totalElements ?? 0) === 0 && (
+                <tr><td colSpan={6} className="text-center py-8 text-slate-400">Không có dữ liệu</td></tr>
+              )}
+            </tbody>
+          </table>
+        </div>
 
-  const toggleVisibility = (id: string) => setWidgets(prev => prev.map(b => b.i === id ? { ...b, visible: !b.visible } : b))
-  const resetLayout = () => { if (confirm("Bạn có chắc muốn đặt lại giao diện mặc định?")) setWidgets(DEFAULT_SUMMARY_WIDGETS) }
-  const handleLayoutChange = (newLayout: any[]) => {
-    setWidgets(prev => prev.map(item => {
-      const updated = newLayout.find(l => l.i === item.i)
-      return updated ? { ...item, x: updated.x, y: updated.y, w: updated.w, h: updated.h } : item
-    }))
-  }
-  const deleteWidget = (i: string) => setWidgets(prev => prev.filter(w => w.i !== i))
-  const addWidget = (template: SummaryWidget) => {
-    if (widgets.some(w => w.type === template.type)) { alert("Biểu đồ này đã có trên trang"); return }
-    const maxY = widgets.length > 0 ? Math.max(...widgets.map(w => w.y + w.h)) : 0
-    setWidgets(prev => [...prev, { ...template, y: maxY, visible: true }])
-    setIsAddModalOpen(false)
-  }
+        <div className="md:hidden divide-y divide-slate-100 dark:divide-slate-800">
+          {isKpisLoading ? (
+            <div className="p-6 text-sm text-slate-400">Đang tải...</div>
+          ) : kpiPage?.content?.length ? (
+            kpiPage.content.map(kpi => (
+              <MobileOrgUnitKpiCard key={kpi.kpiId} kpi={kpi} onClick={() => setSelectedKpiId(kpi.kpiId)} />
+            ))
+          ) : (
+            <div className="text-center py-8 text-slate-400">Không có dữ liệu</div>
+          )}
+        </div>
 
-  const handleTogglePin = async (widget: SummaryWidget) => {
-    let targetWidgetId = widget.id;
-    if (!targetWidgetId) {
-      try {
-        const savedWidgets = await saveConfig();
-        const found = savedWidgets.find(w => w.i === widget.i);
-        if (found?.id) { targetWidgetId = found.id } else { toast.error("Không thể ghim: Lỗi khởi tạo cấu hình"); return }
-      } catch { return }
-    }
-    try {
-      const updated = await reportApi.togglePinWidget(targetWidgetId)
-      setWidgets(prev => prev.map(w => w.id === targetWidgetId ? { ...w, isPinned: updated.isPinned } : w))
-      queryClient.invalidateQueries({ queryKey: ['reports', 'widgets', 'pinned'] })
-      toast.success(updated.isPinned ? "Đã ghim vào trang chủ" : "Đã bỏ ghim khỏi trang chủ")
-    } catch (err) {
-      console.error(err)
-      toast.error("Không thể thay đổi trạng thái ghim")
-    }
-  }
+        <SparseTableFiller
+          message={!isKpisLoading && (kpiPage?.content?.length ?? 0) > 0 && (kpiPage?.content?.length ?? 0) < PAGE_SIZE
+            ? `Đã hiển thị tất cả ${kpiPage?.totalElements ?? 0} KPI`
+            : null}
+        />
+      </div>
+
+      {(kpiPage?.totalElements ?? 0) > 0 && (
+        <Pagination
+          currentPage={tablePage}
+          totalPages={kpiPage?.totalPages ?? 1}
+          onPageChange={setTablePage}
+          totalElements={kpiPage?.totalElements ?? 0}
+          size={PAGE_SIZE}
+          itemLabel="KPI"
+        />
+      )}
+    </div>
+  )
 
   const renderWidgetContent = (widget: SummaryWidget) => {
     switch (widget.type) {
+      case 'TREND_CHART': return (
+        <ChartWrapper chromeless title="Xu hướng KPI theo thời gian" icon={<TrendingUp size={20} className="text-indigo-500" />} widget={widget} onTogglePin={handleTogglePin} isEditMode={isEditMode}>
+          <AnalyticsComboChart data={chartData?.points || []} isLoading={isChartLoading} itemName="KPI đơn vị" fillHeight />
+        </ChartWrapper>
+      )
+      case 'KPI_DETAIL': return (
+        <ChartWrapper
+          title="Bảng chi tiết KPI đơn vị"
+          icon={<Target size={20} className="text-indigo-600" />}
+          widget={widget} onTogglePin={handleTogglePin} isEditMode={isEditMode}
+          extraHeaderContent={<span className="text-xs font-bold text-slate-400">{kpiPage?.totalElements ?? 0} KPI</span>}
+        >
+          {renderKpiDetailBody()}
+        </ChartWrapper>
+      )
       case 'UNIT_PERFORMANCE': return (
         <ChartWrapper title="Hiệu suất, tiến độ & tình hình nộp theo đơn vị" icon={<TrendingUp size={20} className="text-emerald-500" />} widget={widget} onTogglePin={handleTogglePin} isEditMode={isEditMode}>
-          <UnitComparisonBarChart orgUnitId={selectedUnitId} from={from} to={to} onlyApproved={onlyApproved} periodId={periodId} hoveredUnit={hoveredUnit} onHoverUnit={setHoveredUnit} />
+          <UnitComparisonBarChart orgUnitId={selectedUnitId} from={from} to={to} onlyApproved={onlyApproved} periodId={periodId} periodIdTo={periodIdTo} hoveredUnit={hoveredUnit} onHoverUnit={setHoveredUnit} />
         </ChartWrapper>
       )
       case 'UNIT_KPI': return null // gộp vào UNIT_PERFORMANCE (Hiệu suất & Tiến độ đơn vị)
@@ -313,9 +315,9 @@ export default function SummaryTab() {
         </ChartWrapper>
       )
       case 'ROLE_DIST': return null // đã gộp vào MEMBER_DIST (Nhân sự & vai trò)
-      case 'UNIT_RISK': return <UnitRiskSection orgUnitId={selectedUnitId} from={from} to={to} onlyApproved={onlyApproved} periodId={periodId} isEditMode={isEditMode} widget={widget} onTogglePin={handleTogglePin} />
-      case 'WARNING_LIST': return <WarningListSection orgUnitId={selectedUnitId} from={from} to={to} onlyApproved={onlyApproved} periodId={periodId} isEditMode={isEditMode} widget={widget} onTogglePin={handleTogglePin} />
-      case 'RANKING_TABLE': return <EmployeeRankingTableSection orgUnitId={selectedUnitId} from={from} to={to} onlyApproved={onlyApproved} periodId={periodId} isEditMode={isEditMode} widget={widget} onTogglePin={handleTogglePin} />
+      case 'UNIT_RISK': return <UnitRiskSection orgUnitId={selectedUnitId} from={from} to={to} onlyApproved={onlyApproved} periodId={periodId} periodIdTo={periodIdTo} isEditMode={isEditMode} widget={widget} onTogglePin={handleTogglePin} />
+      case 'WARNING_LIST': return <WarningListSection orgUnitId={selectedUnitId} from={from} to={to} onlyApproved={onlyApproved} periodId={periodId} periodIdTo={periodIdTo} isEditMode={isEditMode} widget={widget} onTogglePin={handleTogglePin} />
+      case 'RANKING_TABLE': return <EmployeeRankingTableSection orgUnitId={selectedUnitId} from={from} to={to} onlyApproved={onlyApproved} periodId={periodId} periodIdTo={periodIdTo} isEditMode={isEditMode} widget={widget} onTogglePin={handleTogglePin} />
       default: return null
     }
   }
@@ -324,24 +326,9 @@ export default function SummaryTab() {
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500 pb-12">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <h2 className="text-xl font-black text-slate-900 dark:text-white">Thống kê tổng hợp</h2>
-        <div className="flex items-center gap-3">
-          {isEditMode ? (
-            <div className="flex items-center gap-2 bg-indigo-50 dark:bg-indigo-900/20 p-1 rounded-xl border border-indigo-100 dark:border-indigo-800">
-              <button onClick={resetLayout} className="p-2 text-slate-500 hover:text-slate-700 dark:text-slate-400" title="Đặt lại mặc định"><RotateCcw size={18} /></button>
-              <button onClick={() => setIsConfigOpen(true)} className="px-3 py-1.5 text-xs font-bold text-indigo-600 dark:text-indigo-400 hover:bg-indigo-100 dark:hover:bg-indigo-900/40 rounded-lg flex items-center gap-2"><Layout size={14} /> Ẩn/Hiện</button>
-              <button onClick={() => setIsAddModalOpen(true)} className="px-3 py-1.5 text-xs font-bold text-emerald-600 dark:text-emerald-400 hover:bg-emerald-100 dark:hover:bg-emerald-900/40 rounded-lg flex items-center gap-2"><Plus size={14} /> Thêm biểu đồ</button>
-              <div className="w-px h-4 bg-indigo-200 dark:bg-indigo-800 mx-1" />
-              <button onClick={() => setIsEditMode(false)} className="px-4 py-1.5 text-xs font-bold text-slate-500 hover:text-slate-700">Huỷ</button>
-              <button onClick={saveConfig} className="px-4 py-1.5 bg-indigo-600 text-white rounded-lg text-xs font-bold hover:bg-indigo-700 shadow-sm flex items-center gap-2"><Save size={14} /> Lưu</button>
-            </div>
-          ) : (
-            <button onClick={() => setIsEditMode(true)} className="px-4 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center gap-2 shadow-sm transition-all">
-              <Settings2 size={16} /> Tuỳ chỉnh
-            </button>
-          )}
-        </div>
+        <DashboardEditToolbar api={dash} />
       </div>
 
       {/* ── Sentinel: 1px above filter to detect when filter becomes sticky ── */}
@@ -434,206 +421,10 @@ export default function SummaryTab() {
         </div>
       )}
 
-      {/* ── KPI Trend Combo Chart ─────────────────────────────────────────── */}
-      <div className="pt-2">
-        <AnalyticsComboChart
-          data={chartData?.points || []}
-          isLoading={isChartLoading}
-          itemName="KPI đơn vị"
-        />
-      </div>
+      {/* Biểu đồ xu hướng & bảng chi tiết KPI giờ là widget trong lưới tuỳ chỉnh bên dưới. */}
 
-      {/* ── KPI Detail Table ──────────────────────────────────────────────── */}
-      <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 overflow-hidden">
-        <div className="p-6 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
-          <h3 className="text-sm font-black">Bảng chi tiết KPI đơn vị</h3>
-          <span className="text-xs font-bold text-slate-400">{kpiPage?.totalElements ?? 0} KPI</span>
-        </div>
-
-        <div className="px-6 py-4 border-b border-slate-100 dark:border-slate-800 flex flex-wrap items-center gap-3">
-          {/* Unit filter */}
-          <Select
-            value={filterOrgUnitId ?? ALL_UNITS}
-            onValueChange={v => { setFilterOrgUnitId(v === ALL_UNITS ? undefined : v); setTablePage(0) }}
-          >
-            <SelectTrigger className="h-9 max-w-[220px] bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 rounded-lg text-xs font-semibold text-slate-700 dark:text-slate-300">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value={ALL_UNITS}>Tất cả đơn vị</SelectItem>
-              {kpiPage?.availableOrgUnits?.map(o => (
-                <UnitSelectItem key={o.code} o={o} />
-              ))}
-            </SelectContent>
-          </Select>
-
-          {hasTableFilters && (
-            <button onClick={clearTableFilters} className="flex items-center gap-1 h-9 px-3 rounded-lg text-xs font-bold text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors">
-              <X size={13} /> Xóa bộ lọc
-            </button>
-          )}
-        </div>
-
-        <div className="hidden md:block overflow-x-auto custom-scrollbar">
-          <table className="w-full text-left">
-            <thead className="bg-slate-50 dark:bg-slate-800/50">
-              <tr className="text-xs font-black uppercase text-slate-500">
-                <th className="px-6 py-4">Tên KPI</th>
-                <th className="px-6 py-4">Đơn vị</th>
-                <th className="px-6 py-4 whitespace-nowrap">
-                  <SortHeader field="period" active={sortField} dir={sortDir} onToggle={toggleSort}>Đợt</SortHeader>
-                </th>
-                <th className="px-6 py-4 min-w-[220px]">
-                  <SortHeader field="progress" active={sortField} dir={sortDir} onToggle={toggleSort}>Tiến độ</SortHeader>
-                </th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-              {isKpisLoading
-                ? <TableLoadingRows cols={6} count={2} />
-                : kpiPage?.content?.map(kpi => (
-                    <OrgUnitKpiRow key={kpi.kpiId} kpi={kpi} onClick={() => setSelectedKpiId(kpi.kpiId)} onSelectKpi={setSelectedKpiId} />
-                  ))}
-              {!isKpisLoading && (kpiPage?.totalElements ?? 0) === 0 && (
-                <tr><td colSpan={6} className="text-center py-8 text-slate-400">Không có dữ liệu</td></tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-
-        <div className="md:hidden divide-y divide-slate-100 dark:divide-slate-800">
-          {isKpisLoading ? (
-            <div className="p-6 text-sm text-slate-400">Đang tải...</div>
-          ) : kpiPage?.content?.length ? (
-            kpiPage.content.map(kpi => (
-              <MobileOrgUnitKpiCard key={kpi.kpiId} kpi={kpi} onClick={() => setSelectedKpiId(kpi.kpiId)} />
-            ))
-          ) : (
-            <div className="text-center py-8 text-slate-400">Không có dữ liệu</div>
-          )}
-        </div>
-
-        {(kpiPage?.totalElements ?? 0) > 0 && (
-          <Pagination
-            currentPage={tablePage}
-            totalPages={kpiPage?.totalPages ?? 1}
-            onPageChange={setTablePage}
-            totalElements={kpiPage?.totalElements ?? 0}
-            size={PAGE_SIZE}
-            itemLabel="KPI"
-          />
-        )}
-      </div>
-
-      {/* ── Configurable widgets (grid) ───────────────────────────────────── */}
-      {mainData && (
-        <div className={cn("relative min-h-[400px]", isEditMode && "bg-slate-50/50 dark:bg-slate-800/10 rounded-3xl border-2 border-dashed border-slate-200 dark:border-slate-800")}>
-          {isEditMode && (
-            <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-20">
-              <div className="grid grid-cols-12 w-full h-full gap-4 px-2">
-                {Array.from({ length: 12 }).map((_, i) => <div key={i} className="border-x border-slate-300 dark:border-slate-700 h-full" />)}
-              </div>
-            </div>
-          )}
-          <ResponsiveGridLayout
-            className="layout"
-            layouts={{ lg: widgets.filter(b => b.visible), md: widgets.filter(b => b.visible), sm: widgets.filter(b => b.visible), xs: widgets.filter(b => b.visible), xxs: widgets.filter(b => b.visible) }}
-            breakpoints={{ lg: 1200, md: 996, sm: 768, xs: 480, xxs: 0 }}
-            cols={{ lg: 12, md: 12, sm: 12, xs: 6, xxs: 4 }}
-            rowHeight={32}
-            compactType="vertical"
-            draggableHandle=".drag-handle"
-            isDraggable={isEditMode}
-            isResizable={isEditMode}
-            onLayoutChange={(current, all) => { if (isEditMode) { if (all.lg) handleLayoutChange(all.lg as any); else handleLayoutChange(current as any) } }}
-            margin={[16, 16]}
-          >
-            {widgets.filter(b => b.visible).map((block) => (
-              <div key={block.i} className={cn("relative group h-full", isEditMode && "ring-2 ring-transparent hover:ring-indigo-500 rounded-[24px] transition-all overflow-visible")}>
-                {isEditMode && (
-                  <>
-                    <div className="drag-handle absolute top-2 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 z-[60] cursor-move bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-800 px-3 py-1 rounded-full shadow-lg flex items-center gap-1 transition-opacity">
-                      <GripVertical size={14} className="text-slate-400" />
-                      <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">Kéo</span>
-                    </div>
-                    <button onClick={() => deleteWidget(block.i)} className="absolute -top-2 -right-2 opacity-0 group-hover:opacity-100 z-[60] bg-red-500 text-white p-1.5 rounded-xl shadow-lg hover:bg-red-600 transition-all"><Trash2 size={14} /></button>
-                  </>
-                )}
-                <div className="h-full w-full">{renderWidgetContent(block)}</div>
-              </div>
-            ))}
-          </ResponsiveGridLayout>
-        </div>
-      )}
-
-      
-
-      {/* ── Visibility Toggle Drawer ─────────────────────────────────────── */}
-      {isConfigOpen && (
-        <div className="fixed inset-0 z-[100] flex justify-end bg-black/40 backdrop-blur-sm" onClick={() => setIsConfigOpen(false)}>
-          <div className="w-full max-w-sm bg-white dark:bg-slate-900 h-full shadow-2xl p-6 flex flex-col animate-in slide-in-from-right" onClick={e => e.stopPropagation()}>
-            <div className="flex items-center justify-between mb-8">
-              <h3 className="font-black text-lg">Ẩn/Hiện nội dung</h3>
-              <button onClick={() => setIsConfigOpen(false)} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg"><X size={20} /></button>
-            </div>
-            <div className="space-y-3 flex-1 overflow-auto custom-scrollbar">
-              {widgets.map((b) => (
-                <div key={b.i} className={cn("flex items-center gap-3 p-4 rounded-2xl border transition-all", b.visible ? "border-indigo-200 bg-indigo-50/50 dark:border-indigo-800 dark:bg-indigo-900/10" : "border-slate-200 bg-slate-50 dark:border-slate-800 dark:bg-slate-800/30 opacity-60")}>
-                  <span className="flex-1 text-sm font-bold truncate">{b.title}</span>
-                  <button onClick={() => toggleVisibility(b.i)} className={cn("p-2 rounded-xl transition-colors", b.visible ? "text-indigo-600 bg-indigo-100 hover:bg-indigo-200" : "text-slate-400 bg-slate-200 hover:bg-slate-300")}>
-                    {b.visible ? <Eye size={18} /> : <EyeOff size={18} />}
-                  </button>
-                </div>
-              ))}
-            </div>
-            <div className="pt-6 border-t border-slate-100 dark:border-slate-800 mt-auto">
-              <button onClick={() => setIsConfigOpen(false)} className="w-full py-4 rounded-2xl bg-slate-900 dark:bg-white text-white dark:text-slate-900 font-black hover:opacity-90 transition-all">Đóng</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ── Add Widget Modal ─────────────────────────────────────────────── */}
-      {isAddModalOpen && (
-        <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/40 backdrop-blur-sm" onClick={() => setIsAddModalOpen(false)}>
-          <div className="w-full max-w-2xl bg-white dark:bg-slate-900 rounded-[32px] shadow-2xl p-8 animate-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
-            <div className="flex items-center justify-between mb-8">
-              <div>
-                <h3 className="font-black text-xl">Thêm biểu đồ phân tích</h3>
-                <p className="text-xs font-bold text-slate-400 mt-1">Chọn từ các biểu đồ có sẵn trong hệ thống</p>
-              </div>
-              <button onClick={() => setIsAddModalOpen(false)} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl"><X size={24} /></button>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-h-[500px] overflow-auto pr-2 custom-scrollbar">
-              {DEFAULT_SUMMARY_WIDGETS.map((template) => {
-                const isAlreadyAdded = widgets.some(w => w.type === template.type)
-                return (
-                  <button key={template.i} disabled={isAlreadyAdded} onClick={() => addWidget(template)}
-                    className={cn("flex items-center gap-4 p-5 rounded-2xl border text-left transition-all group", isAlreadyAdded ? "bg-slate-50 dark:bg-slate-800/30 border-slate-100 dark:border-slate-800 opacity-50 cursor-not-allowed" : "bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 hover:border-indigo-500 hover:shadow-xl hover:-translate-y-1")}
-                  >
-                    <div className={cn("w-12 h-12 rounded-xl flex items-center justify-center", isAlreadyAdded ? "bg-slate-200 text-slate-400" : "bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 group-hover:scale-110 transition-transform")}>
-                      {template.type === 'UNIT_PERFORMANCE' && <TrendingUp size={24} />}
-                      {template.type === 'UNIT_KPI' && <TrendingDown size={24} />}
-                      {template.type === 'MEMBER_DIST' && <Users size={24} />}
-                      {template.type === 'UNIT_RISK' && <AlertTriangle size={24} />}
-                      {template.type === 'WARNING_LIST' && <AlertCircle size={24} />}
-                      {template.type === 'RANKING_TABLE' && <Star size={24} />}
-                    </div>
-                    <div className="flex-1">
-                      <p className="font-black text-sm text-slate-900 dark:text-white">{template.title}</p>
-                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{isAlreadyAdded ? 'Đã thêm' : 'Sẵn có'}</p>
-                    </div>
-                    {!isAlreadyAdded && <Plus size={16} className="text-slate-300 group-hover:text-indigo-600 transition-colors" />}
-                  </button>
-                )
-              })}
-            </div>
-            <div className="mt-8 flex justify-end">
-              <button onClick={() => setIsAddModalOpen(false)} className="px-8 py-3 rounded-2xl bg-slate-100 dark:bg-slate-800 font-black text-sm hover:bg-slate-200 transition-all">Đóng</button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* ── Lưới widget tuỳ chỉnh ─────────────────────────────────────────── */}
+      <DashboardCustomizeChrome api={dash} renderWidget={renderWidgetContent} catalog={SUMMARY_CATALOG} ready={!!mainData} />
 
       <AiAssistantWidget />
 
@@ -645,6 +436,7 @@ export default function SummaryTab() {
           globalTo={to}
           globalOnlyApproved={onlyApproved}
           globalPeriodId={periodId}
+          globalPeriodIdTo={periodIdTo}
         />
       )}
     </div>
@@ -1022,15 +814,15 @@ function UnitRiskExpandedRow({ unitId, colSpan }: { unitId: string; colSpan: num
   )
 }
 
-function UnitRiskSection({ orgUnitId, from, to, onlyApproved, periodId, isEditMode, widget, onTogglePin }: { orgUnitId?: string; from?: string; to?: string; onlyApproved?: boolean; periodId?: string; isEditMode?: boolean; widget: SummaryWidget; onTogglePin: (w: SummaryWidget) => void }) {
+export function UnitRiskSection({ orgUnitId, from, to, onlyApproved, periodId, periodIdTo, isEditMode, widget, onTogglePin, bare }: { orgUnitId?: string; from?: string; to?: string; onlyApproved?: boolean; periodId?: string; periodIdTo?: string; isEditMode?: boolean; widget?: SummaryWidget; onTogglePin?: (w: SummaryWidget) => void; bare?: boolean }) {
   const [page, setPage] = React.useState(0)
   const [sortBy, setSortBy] = React.useState<RiskSortField>('progress')
   const [sortDir, setSortDir] = React.useState<'asc' | 'desc'>('asc')
   const [expandedUnit, setExpandedUnit] = React.useState<string | null>(null)
 
   const { data, isFetching } = useQuery({
-    queryKey: ['orgUnitKpi', 'risks', 'units', orgUnitId, from, to, onlyApproved, periodId, page, sortBy, sortDir],
-    queryFn: () => orgUnitKpiApi.getUnitRisks({ orgUnitId, from, to, onlyApproved, periodId, page, size: 5, sortBy, sortDir }),
+    queryKey: ['orgUnitKpi', 'risks', 'units', orgUnitId, from, to, onlyApproved, periodId, periodIdTo, page, sortBy, sortDir],
+    queryFn: () => orgUnitKpiApi.getUnitRisks({ orgUnitId, from, to, onlyApproved, periodId, periodIdTo, page, size: 5, sortBy, sortDir }),
     placeholderData: (prev) => prev,
   })
 
@@ -1042,8 +834,7 @@ function UnitRiskSection({ orgUnitId, from, to, onlyApproved, periodId, isEditMo
 
   const rows = (data?.content || []) as UnitRiskRow[]
 
-  return (
-    <ChartWrapper title="Rủi ro đơn vị" icon={<AlertTriangle size={20} className="text-red-500" />} widget={widget} onTogglePin={onTogglePin} isEditMode={!!isEditMode}>
+  const body = (
       <div className="flex-1 flex flex-col gap-3">
         <div className="overflow-hidden border border-slate-100 dark:border-slate-800 rounded-2xl">
           <table className="w-full text-xs">
@@ -1105,6 +896,11 @@ function UnitRiskSection({ orgUnitId, from, to, onlyApproved, periodId, isEditMo
           <Pagination currentPage={page} totalPages={data?.totalPages ?? 1} onPageChange={setPage} totalElements={data?.totalElements ?? 0} size={5} itemLabel="đơn vị" />
         )}
       </div>
+  )
+  if (bare) return <div className="h-full flex flex-col overflow-auto custom-scrollbar">{body}</div>
+  return (
+    <ChartWrapper title="Rủi ro đơn vị" icon={<AlertTriangle size={20} className="text-red-500" />} widget={widget!} onTogglePin={onTogglePin!} isEditMode={!!isEditMode}>
+      {body}
     </ChartWrapper>
   )
 }
@@ -1211,7 +1007,7 @@ function MemberRiskExpandedRow({ userId, orgUnitId, colSpan }: { userId: string;
   )
 }
 
-function WarningListSection({ orgUnitId, from, to, onlyApproved, periodId, isEditMode, widget, onTogglePin }: { orgUnitId?: string; from?: string; to?: string; onlyApproved?: boolean; periodId?: string; isEditMode?: boolean; widget: SummaryWidget; onTogglePin: (w: SummaryWidget) => void }) {
+export function WarningListSection({ orgUnitId, from, to, onlyApproved, periodId, periodIdTo, isEditMode, widget, onTogglePin, bare }: { orgUnitId?: string; from?: string; to?: string; onlyApproved?: boolean; periodId?: string; periodIdTo?: string; isEditMode?: boolean; widget?: SummaryWidget; onTogglePin?: (w: SummaryWidget) => void; bare?: boolean }) {
   const [page, setPage] = React.useState(0)
   const [sortBy, setSortBy] = React.useState<RiskSortField>('progress')
   const [sortDir, setSortDir] = React.useState<'asc' | 'desc'>('asc')
@@ -1219,8 +1015,8 @@ function WarningListSection({ orgUnitId, from, to, onlyApproved, periodId, isEdi
   const [expandedMember, setExpandedMember] = React.useState<string | null>(null)
 
   const { data, isFetching } = useQuery({
-    queryKey: ['orgUnitKpi', 'risks', 'members', orgUnitId, from, to, onlyApproved, periodId, filterOrgUnitId, page, sortBy, sortDir],
-    queryFn: () => orgUnitKpiApi.getMemberRisks({ orgUnitId, from, to, onlyApproved, periodId, filterOrgUnitId, page, size: 5, sortBy, sortDir }),
+    queryKey: ['orgUnitKpi', 'risks', 'members', orgUnitId, from, to, onlyApproved, periodId, periodIdTo, filterOrgUnitId, page, sortBy, sortDir],
+    queryFn: () => orgUnitKpiApi.getMemberRisks({ orgUnitId, from, to, onlyApproved, periodId, periodIdTo, filterOrgUnitId, page, size: 5, sortBy, sortDir }),
     placeholderData: (prev) => prev,
   })
 
@@ -1233,28 +1029,7 @@ function WarningListSection({ orgUnitId, from, to, onlyApproved, periodId, isEdi
   const rows = (data?.content || []) as MemberRiskRow[]
   const filterUnits = data?.availableOrgUnits || []
 
-  return (
-    <ChartWrapper
-      title="Rủi ro thành viên"
-      icon={<AlertCircle size={20} className="text-orange-500" />}
-      widget={widget} onTogglePin={onTogglePin} isEditMode={!!isEditMode}
-      extraHeaderContent={
-        filterUnits.length > 0 ? (
-          <Select
-            value={filterOrgUnitId ?? ALL_UNITS}
-            onValueChange={v => { setFilterOrgUnitId(v === ALL_UNITS ? undefined : v); setPage(0) }}
-          >
-            <SelectTrigger className="h-8 max-w-[160px] gap-1 bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 rounded-lg text-[11px] font-semibold text-slate-600 dark:text-slate-300">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value={ALL_UNITS}>Tất cả đơn vị</SelectItem>
-              {filterUnits.map(u => <UnitSelectItem key={u.code} o={u} />)}
-            </SelectContent>
-          </Select>
-        ) : undefined
-      }
-    >
+  const body = (
       <div className="flex-1 flex flex-col gap-3">
         <div className="overflow-hidden border border-slate-100 dark:border-slate-800 rounded-2xl">
           <table className="w-full text-xs">
@@ -1326,11 +1101,36 @@ function WarningListSection({ orgUnitId, from, to, onlyApproved, periodId, isEdi
           <Pagination currentPage={page} totalPages={data?.totalPages ?? 1} onPageChange={setPage} totalElements={data?.totalElements ?? 0} size={5} itemLabel="thành viên" />
         )}
       </div>
+  )
+  if (bare) return <div className="h-full flex flex-col overflow-auto custom-scrollbar">{body}</div>
+  return (
+    <ChartWrapper
+      title="Rủi ro thành viên"
+      icon={<AlertCircle size={20} className="text-orange-500" />}
+      widget={widget!} onTogglePin={onTogglePin!} isEditMode={!!isEditMode}
+      extraHeaderContent={
+        filterUnits.length > 0 ? (
+          <Select
+            value={filterOrgUnitId ?? ALL_UNITS}
+            onValueChange={v => { setFilterOrgUnitId(v === ALL_UNITS ? undefined : v); setPage(0) }}
+          >
+            <SelectTrigger className="h-8 max-w-[160px] gap-1 bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 rounded-lg text-[11px] font-semibold text-slate-600 dark:text-slate-300">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={ALL_UNITS}>Tất cả đơn vị</SelectItem>
+              {filterUnits.map(u => <UnitSelectItem key={u.code} o={u} />)}
+            </SelectContent>
+          </Select>
+        ) : undefined
+      }
+    >
+      {body}
     </ChartWrapper>
   )
 }
 
-function EmployeeRankingTableSection({ orgUnitId, from, to, onlyApproved, periodId, isEditMode, widget, onTogglePin }: { orgUnitId?: string; from?: string; to?: string; onlyApproved?: boolean; periodId?: string; isEditMode?: boolean; widget: SummaryWidget; onTogglePin: (w: SummaryWidget) => void }) {
+export function EmployeeRankingTableSection({ orgUnitId, from, to, onlyApproved, periodId, periodIdTo, isEditMode, widget, onTogglePin, bare }: { orgUnitId?: string; from?: string; to?: string; onlyApproved?: boolean; periodId?: string; periodIdTo?: string; isEditMode?: boolean; widget?: SummaryWidget; onTogglePin?: (w: SummaryWidget) => void; bare?: boolean }) {
   const [rankingUnitId, setRankingUnitId] = useState<string | undefined>(undefined)
   const [sf, setSf] = useState<'performance' | 'avgProgress'>('performance')
   const [sd, setSd] = useState<'ASC' | 'DESC'>('DESC')
@@ -1338,7 +1138,7 @@ function EmployeeRankingTableSection({ orgUnitId, from, to, onlyApproved, period
   const RANK_PAGE_SIZE = 5
 
   // Sort + phân trang đã chuyển sang backend; render thẳng trang hiện tại trả về.
-  const { data, isFetching } = useSummaryRankings(orgUnitId, rankingUnitId, from, to, onlyApproved, periodId, rankPage, RANK_PAGE_SIZE, sf, sd);
+  const { data, isFetching } = useSummaryRankings(orgUnitId, rankingUnitId, from, to, onlyApproved, periodId, rankPage, RANK_PAGE_SIZE, sf, sd, periodIdTo);
 
   const pagedRankings = (data?.rankings ?? []) as RankingItem[]
   const totalRankPages = data?.totalPages ?? 0
@@ -1354,29 +1154,7 @@ function EmployeeRankingTableSection({ orgUnitId, from, to, onlyApproved, period
     ? (sd === 'DESC' ? <ArrowDownRight size={10} className="inline ml-1" /> : <ArrowUpRight size={10} className="inline ml-1" />)
     : <ArrowUpDown size={10} className="inline ml-1 opacity-30" />
 
-  return (
-    <ChartWrapper
-      title="Bảng xếp hạng nhân sự"
-      icon={<Medal size={20} className="text-indigo-600" />}
-      widget={widget} onTogglePin={onTogglePin} isEditMode={!!isEditMode}
-      extraHeaderContent={
-        <Select
-          value={rankingUnitId ?? ALL_UNITS}
-          onValueChange={v => { setRankingUnitId(v === ALL_UNITS ? undefined : v); setRankPage(0) }}
-        >
-          <SelectTrigger className="h-auto gap-2 py-2 bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold shadow-sm max-w-[200px]">
-            <Filter size={13} className="text-slate-400 shrink-0" />
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value={ALL_UNITS}>Tất cả đơn vị</SelectItem>
-            {(data?.rankingOptions || []).map((opt: any) => (
-              <UnitSelectItem key={opt.id} o={{ code: opt.id, name: opt.name, depth: opt.depth }} />
-            ))}
-          </SelectContent>
-        </Select>
-      }
-    >
+  const body = (
       <div className="flex-1 flex flex-col gap-3">
         <div className="hidden md:block overflow-x-auto custom-scrollbar">
           <table className="w-full min-w-[700px]">
@@ -1499,6 +1277,32 @@ function EmployeeRankingTableSection({ orgUnitId, from, to, onlyApproved, period
           <Pagination currentPage={rankPage} totalPages={totalRankPages} onPageChange={setRankPage} totalElements={totalRankElements} size={RANK_PAGE_SIZE} itemLabel="nhân viên" />
         )}
       </div>
+  )
+  if (bare) return <div className="h-full flex flex-col overflow-auto custom-scrollbar">{body}</div>
+  return (
+    <ChartWrapper
+      title="Bảng xếp hạng nhân sự"
+      icon={<Medal size={20} className="text-indigo-600" />}
+      widget={widget!} onTogglePin={onTogglePin!} isEditMode={!!isEditMode}
+      extraHeaderContent={
+        <Select
+          value={rankingUnitId ?? ALL_UNITS}
+          onValueChange={v => { setRankingUnitId(v === ALL_UNITS ? undefined : v); setRankPage(0) }}
+        >
+          <SelectTrigger className="h-auto gap-2 py-2 bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold shadow-sm max-w-[200px]">
+            <Filter size={13} className="text-slate-400 shrink-0" />
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value={ALL_UNITS}>Tất cả đơn vị</SelectItem>
+            {(data?.rankingOptions || []).map((opt: any) => (
+              <UnitSelectItem key={opt.id} o={{ code: opt.id, name: opt.name, depth: opt.depth }} />
+            ))}
+          </SelectContent>
+        </Select>
+      }
+    >
+      {body}
     </ChartWrapper>
   );
 }

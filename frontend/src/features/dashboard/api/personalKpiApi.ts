@@ -29,14 +29,15 @@ export interface StandaloneKpiDetailParams {
   page?: number
   size?: number
   periodId?: string
+  periodIdTo?: string
 }
 
 export const personalKpiApi = {
-  getMetrics: async (params?: { from?: string; to?: string; onlyApproved?: boolean; periodId?: string }) => {
+  getMetrics: async (params?: { from?: string; to?: string; onlyApproved?: boolean; periodId?: string; periodIdTo?: string }) => {
     const res = await axiosClient.get<{ data: PersonalKpiMetrics }>('/stats/personal/kpis/metrics', { params })
     return res.data.data
   },
-  getComboChart: async (params?: { from?: string; to?: string; onlyApproved?: boolean; periodId?: string }) => {
+  getComboChart: async (params?: { from?: string; to?: string; onlyApproved?: boolean; periodId?: string; periodIdTo?: string; groupBy?: string }) => {
     const res = await axiosClient.get<{ data: KpiComboChartData }>('/stats/personal/kpis/chart/combo', { params })
     return res.data.data
   },

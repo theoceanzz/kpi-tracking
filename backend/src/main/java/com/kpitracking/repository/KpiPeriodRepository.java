@@ -30,6 +30,13 @@ public interface KpiPeriodRepository extends JpaRepository<KpiPeriod, UUID>, Jpa
     Page<KpiPeriod> findByOrganizationId(UUID organizationId, Pageable pageable);
     Page<KpiPeriod> findAllByOrganizationIdOrderByStartDateDesc(UUID organizationId, Pageable pageable);
 
+    /** Các đợt của tổ chức có startDate nằm trong [from, to] — dùng giải nghĩa "khoảng đợt". */
+    @org.springframework.data.jpa.repository.Query("SELECT p FROM KpiPeriod p WHERE p.organization.id = :orgId " +
+           "AND p.startDate IS NOT NULL AND p.startDate >= :from AND p.startDate <= :to ORDER BY p.startDate ASC")
+    java.util.List<KpiPeriod> findByOrgIdAndStartDateBetween(@org.springframework.data.repository.query.Param("orgId") UUID orgId,
+                                                             @org.springframework.data.repository.query.Param("from") Instant from,
+                                                             @org.springframework.data.repository.query.Param("to") Instant to);
+
     @org.springframework.data.jpa.repository.Query("SELECT p FROM KpiPeriod p WHERE p.organization.id = :orgId " +
            "AND (:keyword IS NULL OR :keyword = '' OR LOWER(CAST(p.name AS string)) LIKE LOWER(CONCAT('%', CAST(:keyword AS string), '%')))")
     java.util.List<KpiPeriod> searchByKeyword(@org.springframework.data.repository.query.Param("orgId") java.util.UUID orgId, @org.springframework.data.repository.query.Param("keyword") String keyword, Pageable pageable);

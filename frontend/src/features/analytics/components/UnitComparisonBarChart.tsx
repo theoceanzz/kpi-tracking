@@ -97,8 +97,8 @@ function TopNSelect({ value, onChange }: { value: 'ALL' | '5' | '10'; onChange: 
  * Trễ hạn / Không nộp) + BEST/WORST + Top-N. Tự fetch qua unit-comparison.
  * Dùng chung cho SummaryTab (bọc ChartWrapper) và SubordinateManagementTab (bọc card).
  */
-export default function UnitComparisonBarChart({ orgUnitId, from, to, onlyApproved, periodId, hoveredUnit, onHoverUnit }: {
-  orgUnitId?: string; from?: string; to?: string; onlyApproved?: boolean; periodId?: string
+export default function UnitComparisonBarChart({ orgUnitId, from, to, onlyApproved, periodId, periodIdTo, hoveredUnit, onHoverUnit }: {
+  orgUnitId?: string; from?: string; to?: string; onlyApproved?: boolean; periodId?: string; periodIdTo?: string
   hoveredUnit?: string | null; onHoverUnit?: (u: string | null) => void
 }) {
   const [filter, setFilter] = useState<'BEST' | 'WORST'>('BEST')
@@ -106,7 +106,7 @@ export default function UnitComparisonBarChart({ orgUnitId, from, to, onlyApprov
   const [localHover, setLocalHover] = useState<string | null>(null)
   const hov = hoveredUnit !== undefined ? hoveredUnit : localHover
   const setHov = onHoverUnit ?? setLocalHover
-  const { data } = useSummaryComparison(orgUnitId, from, to, onlyApproved, periodId)
+  const { data } = useSummaryComparison(orgUnitId, from, to, onlyApproved, periodId, periodIdTo)
 
   const chartData = useMemo(() => {
     // Backend đã sort: topPerformingUnits (hiệu suất giảm dần), worstPerformingUnits (tăng dần).

@@ -33,10 +33,11 @@ public class OrgUnitKpiAnalyticsController {
             @RequestParam(required = false) Instant from,
             @RequestParam(required = false) Instant to,
             @RequestParam(required = false, defaultValue = "false") Boolean onlyApproved,
-            @RequestParam(required = false) UUID periodId) {
-        AnalyticsPeriodHelper.Window w = periodHelper.window(from, to, periodId);
+            @RequestParam(required = false) UUID periodId,
+            @RequestParam(required = false) UUID periodIdTo) {
+        AnalyticsPeriodHelper.Window w = periodHelper.window(from, to, periodId, periodIdTo);
         return ResponseEntity.ok(ApiResponse.success(
-                service.getMetrics(orgUnitId, w.from(), w.to(), onlyApproved, periodId)));
+                service.getMetrics(orgUnitId, w.from(), w.to(), onlyApproved, periodHelper.resolvePeriodIds(periodId, periodIdTo))));
     }
 
     @GetMapping("/chart/combo")
@@ -47,10 +48,12 @@ public class OrgUnitKpiAnalyticsController {
             @RequestParam(required = false) Instant from,
             @RequestParam(required = false) Instant to,
             @RequestParam(required = false, defaultValue = "false") Boolean onlyApproved,
-            @RequestParam(required = false) UUID periodId) {
-        AnalyticsPeriodHelper.Window w = periodHelper.window(from, to, periodId);
+            @RequestParam(required = false) UUID periodId,
+            @RequestParam(required = false) UUID periodIdTo,
+            @RequestParam(required = false, defaultValue = "TIME") String groupBy) {
+        AnalyticsPeriodHelper.Window w = periodHelper.window(from, to, periodId, periodIdTo);
         return ResponseEntity.ok(ApiResponse.success(
-                service.getComboChart(orgUnitId, w.from(), w.to(), onlyApproved, periodId)));
+                service.getComboChart(orgUnitId, w.from(), w.to(), onlyApproved, periodHelper.resolvePeriodIds(periodId, periodIdTo), groupBy)));
     }
 
     @GetMapping("/details")
@@ -67,11 +70,12 @@ public class OrgUnitKpiAnalyticsController {
             @RequestParam(required = false) String sharedType,
             @RequestParam(required = false, defaultValue = "0") int page,
             @RequestParam(required = false, defaultValue = "10") int size,
-            @RequestParam(required = false) UUID periodId) {
-        AnalyticsPeriodHelper.Window w = periodHelper.window(from, to, periodId);
+            @RequestParam(required = false) UUID periodId,
+            @RequestParam(required = false) UUID periodIdTo) {
+        AnalyticsPeriodHelper.Window w = periodHelper.window(from, to, periodId, periodIdTo);
         return ResponseEntity.ok(ApiResponse.success(
                 service.getDetailedKpis(orgUnitId, filterOrgUnitId, w.from(), w.to(), onlyApproved,
-                        sortBy, sortDir, sharedType, page, size, periodId)));
+                        sortBy, sortDir, sharedType, page, size, periodHelper.resolvePeriodIds(periodId, periodIdTo))));
     }
 
     @GetMapping("/risks/units")
@@ -86,10 +90,11 @@ public class OrgUnitKpiAnalyticsController {
             @RequestParam(required = false, defaultValue = "5") int size,
             @RequestParam(required = false, defaultValue = "progress") String sortBy,
             @RequestParam(required = false, defaultValue = "asc") String sortDir,
-            @RequestParam(required = false) UUID periodId) {
-        AnalyticsPeriodHelper.Window w = periodHelper.window(from, to, periodId);
+            @RequestParam(required = false) UUID periodId,
+            @RequestParam(required = false) UUID periodIdTo) {
+        AnalyticsPeriodHelper.Window w = periodHelper.window(from, to, periodId, periodIdTo);
         return ResponseEntity.ok(ApiResponse.success(
-                service.getUnitRisks(orgUnitId, w.from(), w.to(), onlyApproved, page, size, sortBy, sortDir, periodId)));
+                service.getUnitRisks(orgUnitId, w.from(), w.to(), onlyApproved, page, size, sortBy, sortDir, periodHelper.resolvePeriodIds(periodId, periodIdTo))));
     }
 
     @GetMapping("/risks/members")
@@ -105,10 +110,11 @@ public class OrgUnitKpiAnalyticsController {
             @RequestParam(required = false, defaultValue = "5") int size,
             @RequestParam(required = false, defaultValue = "progress") String sortBy,
             @RequestParam(required = false, defaultValue = "asc") String sortDir,
-            @RequestParam(required = false) UUID periodId) {
-        AnalyticsPeriodHelper.Window w = periodHelper.window(from, to, periodId);
+            @RequestParam(required = false) UUID periodId,
+            @RequestParam(required = false) UUID periodIdTo) {
+        AnalyticsPeriodHelper.Window w = periodHelper.window(from, to, periodId, periodIdTo);
         return ResponseEntity.ok(ApiResponse.success(
-                service.getMemberRisks(orgUnitId, filterOrgUnitId, w.from(), w.to(), onlyApproved, page, size, sortBy, sortDir, periodId)));
+                service.getMemberRisks(orgUnitId, filterOrgUnitId, w.from(), w.to(), onlyApproved, page, size, sortBy, sortDir, periodHelper.resolvePeriodIds(periodId, periodIdTo))));
     }
 
     @GetMapping("/{kpiId}/drawer")
@@ -119,8 +125,9 @@ public class OrgUnitKpiAnalyticsController {
             @RequestParam(required = false) Instant from,
             @RequestParam(required = false) Instant to,
             @RequestParam(required = false, defaultValue = "false") Boolean onlyApproved,
-            @RequestParam(required = false) UUID periodId) {
-        AnalyticsPeriodHelper.Window w = periodHelper.window(from, to, periodId);
+            @RequestParam(required = false) UUID periodId,
+            @RequestParam(required = false) UUID periodIdTo) {
+        AnalyticsPeriodHelper.Window w = periodHelper.window(from, to, periodId, periodIdTo);
         return ResponseEntity.ok(ApiResponse.success(
                 service.getKpiDrawerData(kpiId, w.from(), w.to(), onlyApproved)));
     }

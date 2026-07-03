@@ -25,7 +25,7 @@ function DrillBarTooltip({ active, payload }: any) {
       <p className="font-bold mb-1.5 break-words leading-tight">{name}</p>
       <p className="flex items-center gap-1.5">
         <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: val >= 80 ? '#10b981' : val >= 50 ? '#f59e0b' : '#ef4444' }} />
-        Hoàn thành: <span className="font-black ml-1">{Math.round(val)}%</span>
+        Hiệu suất: <span className="font-black ml-1">{Math.round(val)}%</span>
       </p>
     </div>
   )
@@ -36,7 +36,7 @@ export default function DrillDownTab() {
   const currentId = searchParams.get('unitId') || undefined
 
   // ── Date filter ───────────────────────────────────────────────────────────
-  const { periodId, from, to, controls } = useAnalyticsDateFilter({ selectClassName: 'h-9' })
+  const { periodId, periodIdTo, from, to, controls } = useAnalyticsDateFilter({ selectClassName: 'h-9' })
   const [filterStuck, setFilterStuck] = useState(false)
   const filterSentinelRef = useRef<HTMLDivElement>(null)
 
@@ -51,7 +51,7 @@ export default function DrillDownTab() {
     return () => observer.disconnect()
   }, [])
 
-  const { data, isLoading } = useDrillDown(currentId, from, to, periodId)
+  const { data, isLoading } = useDrillDown(currentId, from, to, periodId, periodIdTo)
 
   // ── Heatmap tooltip ───────────────────────────────────────────────────────
   const [hoveredPoint, setHoveredPoint] = useState<{ x: string; y: string; val: number; rect: DOMRect } | null>(null)
@@ -136,7 +136,7 @@ export default function DrillDownTab() {
 
   const comparisonData = data.childUnits.map(u => ({
     name: u.orgUnitName.length > 20 ? u.orgUnitName.substring(0, 20) + '…' : u.orgUnitName,
-    completion: u.completionRate,
+    completion: u.performanceRate,
   })).sort((a, b) => b.completion - a.completion)
 
   const isLeafUnit = data.childUnits.length === 0
@@ -228,7 +228,7 @@ export default function DrillDownTab() {
         <section ref={comparisonRef} className="bg-white dark:bg-slate-900 p-6 rounded-[24px] border border-slate-200 dark:border-slate-800 shadow-sm relative h-full">
           <div className="flex items-center justify-between mb-6">
             <h3 className="text-sm font-black flex items-center gap-2">
-              <BarChart3 size={16} className="text-indigo-600" /> Tiến độ hoàn thành KPI của đơn vị con (%)
+              <BarChart3 size={16} className="text-indigo-600" /> Hiệu suất của đơn vị con (%)
             </h3>
             <div className="flex items-center gap-1">
               <CopyButton targetRef={comparisonRef} />
@@ -251,7 +251,7 @@ export default function DrillDownTab() {
                   <XAxis type="number" domain={[0, 100]} tickFormatter={v => `${Math.round(v)}%`} tick={{ fontSize: 10, fill: '#64748b' }} axisLine={false} tickLine={false} />
                   <YAxis dataKey="name" type="category" width={100} tick={{ fontSize: 11, fontWeight: 600, fill: '#64748b' }} axisLine={false} tickLine={false} />
                   <Tooltip content={<DrillBarTooltip />} cursor={{ fill: '#94a3b8', opacity: 0.06 }} />
-                  <Bar name="Hoàn thành" dataKey="completion" radius={[0, 6, 6, 0]} barSize={18} isAnimationActive={false}
+                  <Bar name="Hiệu suất" dataKey="completion" radius={[0, 6, 6, 0]} barSize={18} isAnimationActive={false}
                     label={{ position: 'right', fill: '#64748b', fontSize: 10, fontWeight: 700, formatter: (v: any) => `${Math.round(v)}%` }}>
                     {comparisonData.map((entry, index) => (
                       <Cell key={index} fill={entry.completion >= 80 ? '#10b981' : entry.completion >= 50 ? '#f59e0b' : '#ef4444'} />
@@ -275,7 +275,7 @@ export default function DrillDownTab() {
         <section ref={heatmapRef} className="bg-white dark:bg-slate-900 p-6 rounded-[24px] border border-slate-200 dark:border-slate-800 shadow-sm relative h-full">
           <div className="flex items-center justify-between mb-6">
             <h3 className="text-sm font-black flex items-center gap-2">
-              <LayoutGrid size={16} className="text-indigo-600" /> Heatmap Hiệu suất của đơn vị con
+              <LayoutGrid size={16} className="text-indigo-600" /> Heatmap tiến độ của đơn vị con
             </h3>
             <div className="flex items-center gap-1">
               <CopyButton targetRef={heatmapRef} />
@@ -342,7 +342,7 @@ export default function DrillDownTab() {
           </h3>
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
             {data.childUnits.map(u => {
-              const kRate = Math.round(u.completionRate)
+              const kRate = Math.round(u.performanceRate)
               return (
                 <button
                   key={u.orgUnitId}
@@ -408,13 +408,12 @@ export default function DrillDownTab() {
                   <th className="px-3 py-4 text-center">Số KPI được giao</th>
                   <th className="px-3 py-4 text-center">Tiến độ</th>
                   <th className="px-3 py-4 text-center">Hiệu suất</th>
-                  <th className="px-3 py-4 text-center">Điểm đánh giá TB</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-50 dark:divide-slate-800">
                 {paginatedEmployees.map(emp => {
                   const progressPct = emp.assignedKpi > 0 ? Math.round(emp.approvedSubmissions / emp.assignedKpi * 100) : 0
-                  const perfPct = emp.totalSubmissions > 0 ? Math.round(emp.approvedSubmissions / emp.totalSubmissions * 100) : null
+                  const perfPct = emp.performanceRate != null ? Math.round(emp.performanceRate) : null
                   return (
                     <tr key={emp.userId} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
                       <td className="px-6 py-4">
@@ -456,11 +455,6 @@ export default function DrillDownTab() {
                           </span>
                         )}
                       </td>
-                      <td className="px-3 py-4 text-center">
-                        {emp.avgScore != null
-                          ? <span className="font-black text-indigo-600">{emp.avgScore.toFixed(1)}</span>
-                          : <span className="text-slate-300">—</span>}
-                      </td>
                     </tr>
                   )
                 })}
@@ -474,7 +468,7 @@ export default function DrillDownTab() {
           <div className="md:hidden divide-y divide-slate-50 dark:divide-slate-800">
             {paginatedEmployees.map(emp => {
               const progressPct = emp.assignedKpi > 0 ? Math.round(emp.approvedSubmissions / emp.assignedKpi * 100) : 0
-              const perfPct = emp.totalSubmissions > 0 ? Math.round(emp.approvedSubmissions / emp.totalSubmissions * 100) : null
+              const perfPct = emp.performanceRate != null ? Math.round(emp.performanceRate) : null
               return (
                 <div key={emp.userId} className="p-4 space-y-3">
                   <div className="flex items-center gap-3">
@@ -511,9 +505,6 @@ export default function DrillDownTab() {
                         Hiệu suất {perfPct}%
                       </span>
                     )}
-                    {emp.avgScore != null && (
-                      <span className="font-black text-indigo-600">Điểm TB: {emp.avgScore.toFixed(1)}</span>
-                    )}
                   </div>
                 </div>
               )
@@ -547,7 +538,7 @@ export default function DrillDownTab() {
                 </div>
                 <div>
                   <h3 className="text-2xl font-black text-slate-900 dark:text-white">
-                    {expandedWidget === 'heatmap' ? 'Heatmap Hiệu suất Chi tiết' : 'So sánh Hoàn thành KPI (%)'}
+                    {expandedWidget === 'heatmap' ? 'Heatmap Tiến độ Chi tiết' : 'So sánh Hiệu suất đơn vị con (%)'}
                   </h3>
                   <p className="text-sm font-medium text-slate-500 mt-1">Dữ liệu phân tích chuyên sâu cho {data.orgUnitName}</p>
                 </div>
@@ -582,7 +573,7 @@ export default function DrillDownTab() {
                         <XAxis type="number" domain={[0, 100]} tickFormatter={v => `${Math.round(v)}%`} tick={{ fontSize: 11, fill: '#64748b' }} axisLine={false} tickLine={false} />
                         <YAxis dataKey="name" type="category" width={130} tick={{ fontSize: 12, fontWeight: 700, fill: '#64748b' }} axisLine={false} tickLine={false} />
                         <Tooltip content={<DrillBarTooltip />} cursor={{ fill: '#94a3b8', opacity: 0.06 }} />
-                        <Bar name="Hoàn thành" dataKey="completion" radius={[0, 8, 8, 0]} barSize={36} isAnimationActive={false}
+                        <Bar name="Hiệu suất" dataKey="completion" radius={[0, 8, 8, 0]} barSize={36} isAnimationActive={false}
                           label={{ position: 'right', fill: '#64748b', fontSize: 11, fontWeight: 700, formatter: (v: any) => `${Math.round(v)}%` }}>
                           {comparisonData.map((entry, index) => (
                             <Cell key={index} fill={entry.completion >= 80 ? '#10b981' : entry.completion >= 50 ? '#f59e0b' : '#ef4444'} />
@@ -648,7 +639,7 @@ export default function DrillDownTab() {
             </div>
 
             <div className="p-6 bg-slate-50 dark:bg-slate-800/50 border-t border-slate-100 dark:border-slate-800 flex justify-center gap-8">
-              <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-emerald-500" /><span className="text-[10px] font-black uppercase text-slate-500">Hiệu suất Tốt (≥80%)</span></div>
+              <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-emerald-500" /><span className="text-[10px] font-black uppercase text-slate-500">Tiến độ Tốt (≥80%)</span></div>
               <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-amber-500" /><span className="text-[10px] font-black uppercase text-slate-500">Trung bình (50–79%)</span></div>
               <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-red-500" /><span className="text-[10px] font-black uppercase text-slate-500">Rủi ro cao (&lt;50%)</span></div>
             </div>
@@ -671,7 +662,7 @@ export default function DrillDownTab() {
             <p className="text-indigo-400 font-black uppercase tracking-widest text-[8px] mb-1">{hoveredPoint.x}</p>
             <p className="font-bold leading-tight mb-2">{hoveredPoint.y}</p>
             <div className="flex items-center justify-between border-t border-white/10 pt-2">
-              <span className="text-white/60">Hiệu suất</span>
+              <span className="text-white/60">Tiến độ</span>
               <span className={cn('font-black', hoveredPoint.val >= 80 ? 'text-emerald-400' : hoveredPoint.val >= 50 ? 'text-amber-400' : 'text-red-400')}>
                 {hoveredPoint.val.toFixed(1)}%
               </span>

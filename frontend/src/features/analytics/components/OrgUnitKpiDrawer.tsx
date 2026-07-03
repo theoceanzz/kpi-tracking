@@ -25,11 +25,12 @@ import {
 import { cn } from '@/lib/utils'
 import { orgUnitKpiApi } from '@/features/dashboard/api/orgUnitKpiApi'
 import type { OrgUnitAssigneeStat, OrgUnitSubmissionStat } from '@/features/dashboard/api/orgUnitKpiApi'
-import { useAnalyticsDateFilter } from '@/components/common/AnalyticsDateFilter'
+import { subDays, subMonths, startOfYear } from 'date-fns'
 import LoadingSkeleton from '@/components/common/LoadingSkeleton'
 import ObjectiveDrawer from './ObjectiveDrawer'
 
-type FilterSource = 'GLOBAL' | 'CUSTOM'
+// Bộ lọc thời gian trong drawer — đơn giản (đồng bộ với các drawer khác), không dùng chọn đợt/khoảng đợt.
+type DateFilterType = 'GLOBAL' | 'THIS_WEEK' | 'THIS_MONTH' | 'THIS_QUARTER' | '6_MONTHS' | 'THIS_YEAR' | 'CUSTOM'
 type RankFilter = 'BEST' | 'WORST'
 
 const ASSIGNEE_COLORS = ['#f59e0b', '#8b5cf6', '#ec4899', '#0ea5e9', '#14b8a6', '#f97316', '#a855f7']
@@ -288,6 +289,7 @@ export default function OrgUnitKpiDrawer({
   globalTo,
   globalOnlyApproved,
   globalPeriodId,
+  globalPeriodIdTo,
 }: {
   kpiId: string
   onClose: () => void
@@ -295,8 +297,10 @@ export default function OrgUnitKpiDrawer({
   globalTo?: string
   globalOnlyApproved?: boolean
   globalPeriodId?: string
+  globalPeriodIdTo?: string
 }) {
-  const [filterSource, setFilterSource] = useState<FilterSource>('GLOBAL')
+  const [dateFilterType, setDateFilterType] = useState<DateFilterType>('GLOBAL')
+  const [customRange, setCustomRange] = useState<{ from: string; to: string }>({ from: '', to: '' })
   const [activeAssignees, setActiveAssignees] = useState<string[]>([])
   // Assignee chart filter
   const [assigneeCompFilter, setAssigneeCompFilter] = useState<RankFilter>('BEST')
@@ -306,17 +310,31 @@ export default function OrgUnitKpiDrawer({
   const [hoveredAssigneeId, setHoveredAssigneeId] = useState<string | null>(null)
   const [hoveredSubmissionId, setHoveredSubmissionId] = useState<string | null>(null)
 
-  // Bộ lọc "Tùy chỉnh theo đợt" — dùng lại đúng bộ lọc global (đợt + granularity + tùy chỉnh).
-  const local = useAnalyticsDateFilter({ selectClassName: 'h-8' })
+  // Nguồn thời gian: theo bộ lọc KPI đơn vị (global) hoặc chọn nhanh trong drawer (tuần/tháng/quý/tùy chỉnh).
+  const { from, to } = useMemo(() => {
+    if (dateFilterType === 'GLOBAL') return { from: globalFrom, to: globalTo }
+    const now = new Date()
+    switch (dateFilterType) {
+      case 'THIS_WEEK':    return { from: subDays(now, 7).toISOString(),   to: now.toISOString() }
+      case 'THIS_MONTH':   return { from: subDays(now, 30).toISOString(),  to: now.toISOString() }
+      case 'THIS_QUARTER': return { from: subDays(now, 90).toISOString(),  to: now.toISOString() }
+      case '6_MONTHS':     return { from: subMonths(now, 6).toISOString(), to: now.toISOString() }
+      case 'THIS_YEAR':    return { from: startOfYear(now).toISOString(),  to: now.toISOString() }
+      case 'CUSTOM':
+        return {
+          from: customRange.from ? new Date(customRange.from).toISOString() : undefined,
+          to:   customRange.to   ? new Date(customRange.to).toISOString()   : undefined,
+        }
+      default: return { from: undefined, to: undefined }
+    }
+  }, [dateFilterType, customRange, globalFrom, globalTo])
 
-  // Nguồn thời gian hiệu lực: theo bộ lọc KPI đơn vị (global) hoặc tùy chỉnh trong drawer.
-  const from = filterSource === 'GLOBAL' ? globalFrom : local.from
-  const to = filterSource === 'GLOBAL' ? globalTo : local.to
-  const periodId = filterSource === 'GLOBAL' ? globalPeriodId : local.periodId
+  const periodId = dateFilterType === 'GLOBAL' ? globalPeriodId : undefined
+  const periodIdTo = dateFilterType === 'GLOBAL' ? globalPeriodIdTo : undefined
 
   const { data, isLoading } = useQuery({
-    queryKey: ['orgUnitKpi', 'drawer', kpiId, from, to, globalOnlyApproved, periodId],
-    queryFn: () => orgUnitKpiApi.getKpiDrawerData(kpiId, { from, to, onlyApproved: globalOnlyApproved, periodId }),
+    queryKey: ['orgUnitKpi', 'drawer', kpiId, from, to, globalOnlyApproved, periodId, periodIdTo],
+    queryFn: () => orgUnitKpiApi.getKpiDrawerData(kpiId, { from, to, onlyApproved: globalOnlyApproved, periodId, periodIdTo }),
   })
 
   // Build trend chart data — team lines + per-active-assignee lines
@@ -380,16 +398,29 @@ export default function OrgUnitKpiDrawer({
               {data?.unit && <ContextBadge color="slate" label={`Đơn vị đo: ${data.unit}`} />}
             </div>
             <div className="flex flex-col sm:flex-row sm:flex-wrap sm:justify-end items-stretch sm:items-center gap-2">
-              <Select value={filterSource} onValueChange={(v) => setFilterSource(v as FilterSource)}>
+              <Select value={dateFilterType} onValueChange={(v) => setDateFilterType(v as DateFilterType)}>
                 <SelectTrigger className="h-8 w-full sm:w-[220px] bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm font-semibold text-slate-700 dark:text-slate-300">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent className="w-[var(--radix-select-trigger-width)]">
                   <SelectItem value="GLOBAL">Theo bộ lọc KPI đơn vị</SelectItem>
-                  <SelectItem value="CUSTOM">Tùy chỉnh theo đợt</SelectItem>
+                  <SelectItem value="THIS_WEEK">Tuần này</SelectItem>
+                  <SelectItem value="THIS_MONTH">Tháng này</SelectItem>
+                  <SelectItem value="THIS_QUARTER">Quý này</SelectItem>
+                  <SelectItem value="6_MONTHS">6 tháng qua</SelectItem>
+                  <SelectItem value="THIS_YEAR">Năm nay</SelectItem>
+                  <SelectItem value="CUSTOM">Tùy chỉnh</SelectItem>
                 </SelectContent>
               </Select>
-              {filterSource === 'CUSTOM' && local.controls}
+              {dateFilterType === 'CUSTOM' && (
+                <div className="flex items-center gap-2">
+                  <input type="date" className="h-8 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-2 text-xs text-slate-700 dark:text-slate-300"
+                    value={customRange.from} onChange={(e) => setCustomRange(prev => ({ ...prev, from: e.target.value }))} />
+                  <span className="text-slate-400">-</span>
+                  <input type="date" className="h-8 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-2 text-xs text-slate-700 dark:text-slate-300"
+                    value={customRange.to} onChange={(e) => setCustomRange(prev => ({ ...prev, to: e.target.value }))} />
+                </div>
+              )}
             </div>
           </div>
 

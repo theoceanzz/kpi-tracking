@@ -9,6 +9,8 @@ interface AnalyticsComboChartProps {
   data: ComboChartPoint[]
   isLoading?: boolean
   itemName?: string
+  /** Lấp đầy chiều cao vật chứa (h-full) thay vì min-height cố định — dùng khi nhúng vào widget lưới. */
+  fillHeight?: boolean
 }
 
 const CustomTooltip = ({ active, payload, label }: any) => {
@@ -33,15 +35,12 @@ const CustomTooltip = ({ active, payload, label }: any) => {
   return null
 }
 
-export default function AnalyticsComboChart({ data, isLoading, itemName = 'Mục tiêu' }: AnalyticsComboChartProps) {
+export default function AnalyticsComboChart({ data, isLoading, itemName = 'Mục tiêu', fillHeight = false }: AnalyticsComboChartProps) {
   const [lineFilter, setLineFilter] = useState<LineFilter>('BOTH')
-
-  console.log(data);
-  
 
   if (isLoading) {
     return (
-      <div className="w-full h-[400px] flex flex-col items-center justify-center bg-slate-50 dark:bg-slate-900/50 rounded-2xl border border-slate-200 dark:border-slate-800">
+      <div className={`w-full ${fillHeight ? 'h-full' : 'h-[400px]'} flex flex-col items-center justify-center bg-slate-50 dark:bg-slate-900/50 rounded-2xl border border-slate-200 dark:border-slate-800`}>
         <Loader2 className="w-8 h-8 animate-spin text-indigo-500 mb-4" />
         <p className="text-slate-500 font-medium">Đang tải dữ liệu biểu đồ...</p>
       </div>
@@ -50,14 +49,14 @@ export default function AnalyticsComboChart({ data, isLoading, itemName = 'Mục
 
   if (!data || data.length === 0) {
     return (
-      <div className="w-full h-[400px] flex items-center justify-center bg-slate-50 dark:bg-slate-900/50 rounded-2xl border border-slate-200 dark:border-slate-800">
+      <div className={`w-full ${fillHeight ? 'h-full' : 'h-[400px]'} flex items-center justify-center bg-slate-50 dark:bg-slate-900/50 rounded-2xl border border-slate-200 dark:border-slate-800`}>
         <p className="text-slate-500 font-medium">Không có dữ liệu trong thời gian này</p>
       </div>
     )
   }
 
   return (
-    <div className="w-full min-h-[510px] bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-6 shadow-sm relative flex flex-col">
+    <div className={`w-full ${fillHeight ? 'h-full' : 'min-h-[510px]'} bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-6 shadow-sm relative flex flex-col`}>
       <div className="flex justify-between items-start mb-4">
         <div>
           <h3 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
@@ -96,7 +95,7 @@ export default function AnalyticsComboChart({ data, isLoading, itemName = 'Mục
         <span>Số lượng {itemName}</span>
       </div>
 
-      <div className="flex-1 min-h-[380px]">
+      <div className={`flex-1 ${fillHeight ? 'min-h-0' : 'min-h-[380px]'}`}>
         <ResponsiveContainer width="100%" height="100%">
           <ComposedChart data={data} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
             <defs>

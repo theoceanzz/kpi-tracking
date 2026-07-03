@@ -333,49 +333,65 @@ public class SubordinateAnalyticsService {
     }
 
     @Transactional(readOnly = true)
-    public ComboChartResponse getComboChart(Instant from, Instant to, Boolean onlyApproved) {
+    public ComboChartResponse getComboChart(Instant from, Instant to, Boolean onlyApproved, String groupBy) {
         List<Objective> objectives = getObjectivesInScope();
-        
+
         Instant effectiveFrom = from != null ? from : Instant.now().minus(180, java.time.temporal.ChronoUnit.DAYS);
         Instant effectiveTo = to != null ? to : Instant.now();
-        
-        List<IntervalPoint> intervalPoints = generateIntervalPoints(effectiveFrom, effectiveTo);
+
+        // groupBy=PERIOD → mỗi cột = 1 đợt (bucket theo biên đợt); mặc định TIME → theo khoảng thời gian.
+        boolean byPeriod = "PERIOD".equalsIgnoreCase(groupBy);
+        List<IntervalPoint> intervalPoints = byPeriod
+                ? periodBuckets(objectives)
+                : generateIntervalPoints(effectiveFrom, effectiveTo);
         List<ComboChartResponse.ChartPoint> points = new ArrayList<>();
-        
+
+        // Hiệu suất tính theo ĐÁNH GIÁ của cấp dưới (đồng bộ với thẻ "Hiệu suất tổng quan").
+        java.util.Set<UUID> subUsers = subordinateUserIds();
+
         for (IntervalPoint ip : intervalPoints) {
             Instant pStart = ip.start;
             Instant pEnd = ip.end;
             String label = ip.label;
+            // PERIOD: tính trong đúng biên đợt [start,end]; TIME: lũy kế từ effectiveFrom đến hết mốc.
+            Instant metricsFrom = byPeriod ? pStart : effectiveFrom;
 
             int oldObjs = 0;
             int newObjs = 0;
             double totalComp = 0;
-            double totalPerf = 0;
             int actObjs = 0;
+            // Tập đợt liên quan tới mốc này để tính hiệu suất theo đánh giá.
+            java.util.Set<UUID> evalPeriodIds = new java.util.LinkedHashSet<>();
 
             for (Objective obj : objectives) {
                 if (obj.getCreatedAt() == null) continue;
-                
+
                 boolean isActive = true;
                 if (!obj.getCreatedAt().isBefore(pEnd)) isActive = false;
                 if (obj.getDeletedAt() != null && obj.getDeletedAt().isBefore(pEnd)) isActive = false;
-                
+
                 if (isActive) {
                     if (obj.getCreatedAt().isBefore(pStart)) {
                         oldObjs++;
                     } else {
                         newObjs++;
                     }
-                    
-                    double[] metrics = calculateObjectiveMetrics(obj, effectiveFrom, pEnd, onlyApproved);
+
+                    double[] metrics = calculateObjectiveMetrics(obj, metricsFrom, pEnd, onlyApproved);
                     totalComp += metrics[0];
-                    totalPerf += metrics[1];
                     actObjs++;
+
+                    // TIME: gom đợt của các KPI đã bắt đầu trước mốc; PERIOD: dùng đúng đợt của cột.
+                    if (!byPeriod) collectPeriodIdsStartedBefore(obj, pEnd, evalPeriodIds);
                 }
             }
 
+            if (byPeriod && actObjs > 0 && ip.periodId != null) evalPeriodIds.add(ip.periodId);
+
             double avgComp = actObjs > 0 ? totalComp / actObjs : 0;
-            double avgPerf = actObjs > 0 ? totalPerf / actObjs : 0;
+            Double evalPerf = evalPeriodIds.isEmpty() ? null
+                    : evaluationService.averagePerformance(subUsers, evalPeriodIds);
+            double avgPerf = evalPerf != null ? evalPerf : 0;
 
             points.add(ComboChartResponse.ChartPoint.builder()
                     .label(label)
@@ -387,6 +403,40 @@ public class SubordinateAnalyticsService {
         }
 
         return new ComboChartResponse(points);
+    }
+
+    /** Gom periodId của các KPI (dưới mục tiêu) đã bắt đầu trước {@code cutoff} — dùng cho hiệu suất đánh giá theo mốc thời gian. */
+    private void collectPeriodIdsStartedBefore(Objective obj, Instant cutoff, java.util.Set<UUID> out) {
+        if (obj.getKeyResults() == null) return;
+        for (KeyResult kr : obj.getKeyResults()) {
+            if (kr.getKpis() == null) continue;
+            for (KpiCriteria k : kr.getKpis()) {
+                KpiPeriod p = k.getKpiPeriod();
+                if (p == null) continue;
+                Instant ref = p.getStartDate() != null ? p.getStartDate() : k.getCreatedAt();
+                if (ref != null && ref.isBefore(cutoff)) out.add(p.getId());
+            }
+        }
+    }
+
+    /** Bucket theo ĐỢT: mỗi đợt (của KPI dưới các mục tiêu) → 1 IntervalPoint(start, end, tên đợt), sắp theo startDate. */
+    private List<IntervalPoint> periodBuckets(List<Objective> objs) {
+        java.util.Map<UUID, KpiPeriod> map = new java.util.LinkedHashMap<>();
+        for (Objective o : objs) {
+            if (o.getKeyResults() == null) continue;
+            for (KeyResult kr : o.getKeyResults()) {
+                if (kr.getKpis() == null) continue;
+                for (KpiCriteria k : kr.getKpis()) {
+                    KpiPeriod p = k.getKpiPeriod();
+                    if (p != null) map.putIfAbsent(p.getId(), p);
+                }
+            }
+        }
+        return map.values().stream()
+                .filter(p -> p.getStartDate() != null && p.getEndDate() != null)
+                .sorted(java.util.Comparator.comparing(KpiPeriod::getStartDate))
+                .map(p -> new IntervalPoint(p.getStartDate(), p.getEndDate(), p.getName(), p.getId()))
+                .collect(java.util.stream.Collectors.toList());
     }
 
     private ObjectiveDetailedDto buildObjectiveDetailedDto(Objective obj, Instant A, Instant B, Boolean onlyApproved) {
@@ -1519,11 +1569,17 @@ public class SubordinateAnalyticsService {
         Instant start;
         Instant end;
         String label;
+        UUID periodId; // chỉ có ở bucket "theo đợt" (PERIOD mode); null với bucket theo thời gian
 
         IntervalPoint(Instant start, Instant end, String label) {
+            this(start, end, label, null);
+        }
+
+        IntervalPoint(Instant start, Instant end, String label, UUID periodId) {
             this.start = start;
             this.end = end;
             this.label = label;
+            this.periodId = periodId;
         }
     }
 

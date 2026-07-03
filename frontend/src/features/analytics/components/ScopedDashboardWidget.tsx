@@ -51,6 +51,7 @@ interface Props {
   dateRange: { from: string | undefined; to: string | undefined }
   onlyApproved?: boolean
   periodId?: string
+  periodIdTo?: string
 }
 
 type FilterType = 'BEST' | 'WORST'
@@ -640,7 +641,7 @@ function MetricsBadge({ type }: { type: 'OBJECTIVE' | 'KR' | 'KPI' }) {
  * ScopedDashboardWidget renders a full analytics breakdown for a single
  * Objective, Key Result or KPI inside the drawer.
  */
-export default function ScopedDashboardWidget({ type, id, dateRange: globalDateRange, onlyApproved = false, periodId }: Props) {
+export default function ScopedDashboardWidget({ type, id, dateRange: globalDateRange, onlyApproved = false, periodId, periodIdTo }: Props) {
   const { user } = useAuthStore()
   const [itemsFilter, setItemsFilter] = useState<FilterType>('BEST')
   const [unitsFilter, setUnitsFilter] = useState<FilterType>('BEST')
@@ -666,43 +667,44 @@ export default function ScopedDashboardWidget({ type, id, dateRange: globalDateR
     }
   }, [dateFilterType, customRange, globalDateRange])
 
-  // Đợt chỉ áp dụng khi đang dùng bộ lọc tổng quan; khi người dùng đổi bộ lọc cục bộ thì bỏ.
+  // Đợt / khoảng đợt chỉ áp dụng khi đang dùng bộ lọc tổng quan; khi đổi bộ lọc cục bộ thì bỏ.
   const effectivePeriodId = dateFilterType === 'GLOBAL' ? periodId : undefined
+  const effectivePeriodIdTo = dateFilterType === 'GLOBAL' ? periodIdTo : undefined
 
   const { data: metrics, isLoading: isMetricsLoading } = useQuery({
-    queryKey: ['scoped-metrics', type, id, localDateRange.from, localDateRange.to, onlyApproved, effectivePeriodId],
+    queryKey: ['scoped-metrics', type, id, localDateRange.from, localDateRange.to, onlyApproved, effectivePeriodId, effectivePeriodIdTo],
     queryFn: () => type === 'OBJECTIVE'
-      ? statsApi.getObjScopedMetrics(id, localDateRange.from, localDateRange.to, onlyApproved, effectivePeriodId)
+      ? statsApi.getObjScopedMetrics(id, localDateRange.from, localDateRange.to, onlyApproved, effectivePeriodId, effectivePeriodIdTo)
       : type === 'KR'
-      ? statsApi.getKrScopedMetrics(id, localDateRange.from, localDateRange.to, onlyApproved, effectivePeriodId)
-      : statsApi.getKpiScopedMetrics(id, localDateRange.from, localDateRange.to, onlyApproved, effectivePeriodId),
+      ? statsApi.getKrScopedMetrics(id, localDateRange.from, localDateRange.to, onlyApproved, effectivePeriodId, effectivePeriodIdTo)
+      : statsApi.getKpiScopedMetrics(id, localDateRange.from, localDateRange.to, onlyApproved, effectivePeriodId, effectivePeriodIdTo),
     enabled: !!id,
   })
 
   const { data: comboChart, isLoading: isComboLoading } = useQuery({
-    queryKey: ['scoped-combo', type, id, localDateRange.from, localDateRange.to, onlyApproved, effectivePeriodId],
+    queryKey: ['scoped-combo', type, id, localDateRange.from, localDateRange.to, onlyApproved, effectivePeriodId, effectivePeriodIdTo],
     queryFn: () => type === 'OBJECTIVE'
-      ? statsApi.getObjScopedCombo(id, localDateRange.from, localDateRange.to, onlyApproved, effectivePeriodId)
+      ? statsApi.getObjScopedCombo(id, localDateRange.from, localDateRange.to, onlyApproved, effectivePeriodId, effectivePeriodIdTo)
       : type === 'KR'
-      ? statsApi.getKrScopedCombo(id, localDateRange.from, localDateRange.to, onlyApproved, effectivePeriodId)
-      : statsApi.getKpiScopedCombo(id, localDateRange.from, localDateRange.to, onlyApproved, effectivePeriodId),
+      ? statsApi.getKrScopedCombo(id, localDateRange.from, localDateRange.to, onlyApproved, effectivePeriodId, effectivePeriodIdTo)
+      : statsApi.getKpiScopedCombo(id, localDateRange.from, localDateRange.to, onlyApproved, effectivePeriodId, effectivePeriodIdTo),
     enabled: !!id,
   })
 
   const { data: topEntities, isLoading: isTopLoading } = useQuery({
-    queryKey: ['scoped-top', type, id, localDateRange.from, localDateRange.to, onlyApproved, effectivePeriodId],
+    queryKey: ['scoped-top', type, id, localDateRange.from, localDateRange.to, onlyApproved, effectivePeriodId, effectivePeriodIdTo],
     queryFn: () => type === 'OBJECTIVE'
-      ? statsApi.getObjScopedTopEntities(id, localDateRange.from, localDateRange.to, onlyApproved, effectivePeriodId)
+      ? statsApi.getObjScopedTopEntities(id, localDateRange.from, localDateRange.to, onlyApproved, effectivePeriodId, effectivePeriodIdTo)
       : type === 'KR'
-      ? statsApi.getKrScopedTopEntities(id, localDateRange.from, localDateRange.to, onlyApproved, effectivePeriodId)
-      : statsApi.getKpiScopedTopEntities(id, localDateRange.from, localDateRange.to, onlyApproved, effectivePeriodId),
+      ? statsApi.getKrScopedTopEntities(id, localDateRange.from, localDateRange.to, onlyApproved, effectivePeriodId, effectivePeriodIdTo)
+      : statsApi.getKpiScopedTopEntities(id, localDateRange.from, localDateRange.to, onlyApproved, effectivePeriodId, effectivePeriodIdTo),
     enabled: !!id,
   })
 
   // KPI-only: fetch per-member drawer data for the member-selector line chart
   const { data: kpiDrawerData } = useQuery({
-    queryKey: ['kpi-drawer-members', id, localDateRange.from, localDateRange.to, effectivePeriodId],
-    queryFn: () => personalObjectiveApi.getKpiDrawerData(id, { from: localDateRange.from, to: localDateRange.to, periodId: effectivePeriodId }),
+    queryKey: ['kpi-drawer-members', id, localDateRange.from, localDateRange.to, effectivePeriodId, effectivePeriodIdTo],
+    queryFn: () => personalObjectiveApi.getKpiDrawerData(id, { from: localDateRange.from, to: localDateRange.to, periodId: effectivePeriodId, periodIdTo: effectivePeriodIdTo }),
     enabled: !!id && type === 'KPI',
   })
 

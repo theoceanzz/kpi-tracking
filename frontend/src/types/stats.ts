@@ -125,6 +125,7 @@ export interface OrgUnitDrillSummary {
   totalKpi: number
   approvedKpi: number
   completionRate: number
+  performanceRate: number
   totalSubmissions: number
   approvedSubmissions: number
   pendingSubmissions: number
@@ -144,6 +145,7 @@ export interface EmployeeDrillSummary {
   pendingSubmissions: number
   rejectedSubmissions: number
   avgScore: number | null
+  performanceRate: number | null
 }
 
 export interface DrillDownResponse {

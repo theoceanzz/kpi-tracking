@@ -34,13 +34,13 @@ public class PersonalObjectiveAnalyticsService {
     }
 
     /** Tập đợt liên quan: đợt đang chọn, hoặc tất cả đợt của các KPI. */
-    private java.util.Set<UUID> relevantPeriodIds(List<KpiCriteria> kpis, UUID periodId) {
-        if (periodId != null) return java.util.Set.of(periodId);
+    private java.util.Set<UUID> relevantPeriodIds(List<KpiCriteria> kpis, java.util.Collection<UUID> periodIds) {
+        if (periodIds != null && !periodIds.isEmpty()) return new java.util.LinkedHashSet<>(periodIds);
         return kpis.stream().map(KpiCriteria::getKpiPeriod).filter(java.util.Objects::nonNull)
                 .map(KpiPeriod::getId).collect(Collectors.toSet());
     }
 
-    private List<KpiCriteria> getMyActiveKpis(UUID periodId) {
+    private List<KpiCriteria> getMyActiveKpis(java.util.Collection<UUID> periodIds) {
         User user = getCurrentUser();
         return kpiCriteriaRepository.findApprovedByAssigneeIdWithKeyResult(user.getId())
                 .stream()
@@ -48,9 +48,9 @@ public class PersonalObjectiveAnalyticsService {
                 // Kết quả của KPI con đã được tự động tổng hợp lên KPI cha
                 // (xem aggregateToParentKpi trong KpiSubmissionService) nên KPI cha sẽ phản ánh phần này.
                 .filter(kpi -> kpi.getParent() == null)
-                // Lọc theo đợt khi người dùng chọn một đợt cụ thể.
-                .filter(kpi -> periodId == null
-                        || (kpi.getKpiPeriod() != null && periodId.equals(kpi.getKpiPeriod().getId())))
+                // Lọc theo (các) đợt khi người dùng chọn đợt/khoảng đợt cụ thể.
+                .filter(kpi -> periodIds == null || periodIds.isEmpty()
+                        || (kpi.getKpiPeriod() != null && periodIds.contains(kpi.getKpiPeriod().getId())))
                 .collect(Collectors.toList());
     }
 
@@ -167,8 +167,8 @@ public class PersonalObjectiveAnalyticsService {
     }
 
     @Transactional(readOnly = true)
-    public Metrics getMetrics(Instant from, Instant to, Boolean onlyApproved, UUID periodId) {
-        List<KpiCriteria> myKpis = getMyActiveKpis(periodId);
+    public Metrics getMetrics(Instant from, Instant to, Boolean onlyApproved, java.util.Collection<UUID> periodIds) {
+        List<KpiCriteria> myKpis = getMyActiveKpis(periodIds);
         double totalComp = 0;
         double totalPerf = 0;
         int activeCount = 0;
@@ -206,7 +206,7 @@ public class PersonalObjectiveAnalyticsService {
 
         // Hiệu suất TB nay tính theo ĐÁNH GIÁ của người trong đợt (không theo KPI).
         Double evalPerf = evaluationService.averagePerformance(
-                java.util.List.of(getCurrentUser().getId()), relevantPeriodIds(myKpis, periodId));
+                java.util.List.of(getCurrentUser().getId()), relevantPeriodIds(myKpis, periodIds));
 
         return Metrics.builder()
                 .averageProgress(activeCount > 0 ? totalComp / activeCount : 0)
@@ -218,11 +218,17 @@ public class PersonalObjectiveAnalyticsService {
     }
 
     @Transactional(readOnly = true)
-    public ComboChartData getComboChart(Instant from, Instant to, Boolean onlyApproved, UUID periodId) {
-        List<KpiCriteria> myKpis = getMyActiveKpis(periodId);
+    public ComboChartData getComboChart(Instant from, Instant to, Boolean onlyApproved, java.util.Collection<UUID> periodIds, String groupBy) {
+        // groupBy=PERIOD → mỗi cột = 1 đợt; mặc định TIME → theo khoảng thời gian. Hiệu suất theo đánh giá.
+        if ("PERIOD".equalsIgnoreCase(groupBy)) return getComboChartByPeriod(onlyApproved, periodIds);
+        return getComboChartByInterval(from, to, onlyApproved, periodIds);
+    }
+
+    // Xu hướng THEO ĐỢT: tiến độ = TB tiến độ KPI của đợt, hiệu suất = đánh giá của người trong đợt.
+    private ComboChartData getComboChartByPeriod(Boolean onlyApproved, java.util.Collection<UUID> periodIds) {
+        List<KpiCriteria> myKpis = getMyActiveKpis(periodIds);
         UUID userId = getCurrentUser().getId();
 
-        // Xu hướng vẽ THEO ĐỢT: tiến độ = TB tiến độ KPI của đợt, hiệu suất = đánh giá của người trong đợt.
         java.util.Map<UUID, KpiPeriod> periodMap = new java.util.LinkedHashMap<>();
         for (KpiCriteria kpi : myKpis) {
             if (kpi.getKpiPeriod() != null) periodMap.putIfAbsent(kpi.getKpiPeriod().getId(), kpi.getKpiPeriod());
@@ -253,9 +259,10 @@ public class PersonalObjectiveAnalyticsService {
         return new ComboChartData(points);
     }
 
-    @Deprecated
-    private ComboChartData getComboChartByInterval(Instant from, Instant to, Boolean onlyApproved, UUID periodId) {
-        List<KpiCriteria> myKpis = getMyActiveKpis(periodId);
+    // Xu hướng THEO KHOẢNG THỜI GIAN (tuần/tháng); hiệu suất theo ĐÁNH GIÁ (đồng bộ với KPI đơn vị).
+    private ComboChartData getComboChartByInterval(Instant from, Instant to, Boolean onlyApproved, java.util.Collection<UUID> periodIds) {
+        List<KpiCriteria> myKpis = getMyActiveKpis(periodIds);
+        UUID userId = getCurrentUser().getId();
         Instant effectiveFrom = from != null ? from : Instant.now().minus(180, ChronoUnit.DAYS);
         Instant effectiveTo = to != null ? to : Instant.now();
 
@@ -263,13 +270,11 @@ public class PersonalObjectiveAnalyticsService {
         List<ChartPoint> points = new ArrayList<>();
 
         for (IntervalPoint ip : intervalPoints) {
-            Instant pStart = ip.start;
-            Instant pEnd = ip.end;
             int oldItems = 0;
             int newItems = 0;
             double totalComp = 0;
-            double totalPerf = 0;
             int assignedCount = 0;
+            java.util.Set<UUID> evalPeriodIds = new java.util.LinkedHashSet<>();
 
             for (KpiCriteria kpi : myKpis) {
                 // KPI thưởng không tính vào xu hướng tiến độ/hiệu suất.
@@ -277,22 +282,24 @@ public class PersonalObjectiveAnalyticsService {
                 Instant kpiRef = (kpi.getKpiPeriod() != null && kpi.getKpiPeriod().getStartDate() != null)
                         ? kpi.getKpiPeriod().getStartDate()
                         : kpi.getCreatedAt();
-                if (kpiRef != null && kpiRef.isBefore(pEnd)) {
+                if (kpiRef != null && kpiRef.isBefore(ip.end)) {
                     assignedCount++;
-                    if (kpiRef.isBefore(pStart)) {
+                    if (kpiRef.isBefore(ip.start)) {
                         oldItems++;
                     } else {
                         newItems++;
                     }
-                    
-                    double[] metrics = calculateKpiMetrics(kpi, effectiveFrom, pEnd, onlyApproved);
+
+                    double[] metrics = calculateKpiMetrics(kpi, effectiveFrom, ip.end, onlyApproved);
                     totalComp += metrics[0];
-                    totalPerf += metrics[1];
+                    if (kpi.getKpiPeriod() != null) evalPeriodIds.add(kpi.getKpiPeriod().getId());
                 }
             }
 
             double avgComp = assignedCount > 0 ? totalComp / assignedCount : 0;
-            double avgPerf = assignedCount > 0 ? totalPerf / assignedCount : 0;
+            Double evalPerf = evalPeriodIds.isEmpty() ? null
+                    : evaluationService.averagePerformance(java.util.List.of(userId), evalPeriodIds);
+            double avgPerf = evalPerf != null ? evalPerf : 0;
 
             points.add(ChartPoint.builder()
                     .label(ip.label)
@@ -311,9 +318,9 @@ public class PersonalObjectiveAnalyticsService {
             Instant from, Instant to, Boolean onlyApproved,
             String sortBy, String sortDir,
             String objectiveCode, String keyResultCode, String sharedType,
-            int page, int size, UUID periodId) {
+            int page, int size, java.util.Collection<UUID> periodIds) {
         User currentUser = getCurrentUser();
-        List<KpiCriteria> myKpis = getMyActiveKpis(periodId);
+        List<KpiCriteria> myKpis = getMyActiveKpis(periodIds);
 
         // Build filter options from the full unfiltered list (for dropdown menus)
         Map<String, String> objMap = new LinkedHashMap<>();
@@ -361,7 +368,7 @@ public class PersonalObjectiveAnalyticsService {
                                     .submitDate(sub.getCreatedAt())
                                     .actualValue(subActual)
                                     .contributionProgress(subProgress)
-                                    .performance(subProgress)
+                                    // Không set performance: hiệu suất theo bài nộp trùng với "Đóng góp" → bỏ hiển thị.
                                     .status(sub.getStatus().name())
                                     .build());
                         }
@@ -390,6 +397,11 @@ public class PersonalObjectiveAnalyticsService {
                             ? KpiMetricsCalculator.reversePercent(assigneeSubs, totalTarget)
                             : (totalTarget > 0 ? (assigneeActual / totalTarget) * 100 : 0);
 
+                    // Hiệu suất đồng đội = điểm ĐÁNH GIÁ đại diện của họ trong đợt của KPI (không phải tiến độ).
+                    Double assigneePerf = kpi.getKpiPeriod() != null
+                            ? evaluationService.getEffectivePerformanceScore(assignee.getId(), kpi.getKpiPeriod().getId())
+                            : null;
+
                     teammates.add(TeammateProgress.builder()
                             .userId(assignee.getId())
                             .fullName(assignee.getFullName())
@@ -399,7 +411,7 @@ public class PersonalObjectiveAnalyticsService {
                             .department(kpi.getOrgUnit() != null ? kpi.getOrgUnit().getName() : "")
                             .actualValue(assigneeActual)
                             .progress(assigneeProgress)
-                            .performance(assigneeProgress)
+                            .performance(assigneePerf)
                             .build());
                 }
             }

@@ -5,6 +5,7 @@ import { Loader2, LayoutList } from 'lucide-react'
 import ObjectiveDetailedTable from './ObjectiveDetailedTable'
 import ObjectiveDrawer from './ObjectiveDrawer'
 import ScopedDashboardWidget from './ScopedDashboardWidget'
+import { SparseTableFiller } from './SparseTableFiller'
 import Pagination from '@/components/common/Pagination'
 import {
   Select,
@@ -19,6 +20,7 @@ interface Props {
   dateRange: { from: string | undefined; to: string | undefined }
   onlyApproved?: boolean
   periodId?: string
+  periodIdTo?: string
 }
 
 function flattenOrgUnits(units: OrgUnitFilterDto[]): OrgUnitFilterDto[] {
@@ -40,7 +42,7 @@ function depthPrefix(depth: number): string {
   return '  '.repeat(depth) + '- '
 }
 
-export default function ObjectiveDetailsWidget({ dateRange, onlyApproved = false, periodId }: Props) {
+export default function ObjectiveDetailsWidget({ dateRange, onlyApproved = false, periodId, periodIdTo }: Props) {
   const [drawerState, setDrawerState] = useState<{
     isOpen: boolean;
     type: 'OBJECTIVE' | 'KR' | 'KPI';
@@ -57,7 +59,7 @@ export default function ObjectiveDetailsWidget({ dateRange, onlyApproved = false
   const { data, isLoading } = useQuery({
     queryKey: [
       'subordinate-detailed-objectives',
-      dateRange.from, dateRange.to, onlyApproved, periodId,
+      dateRange.from, dateRange.to, onlyApproved, periodId, periodIdTo,
       sortBy, sortDir, orgUnitId, page
     ],
     queryFn: () => statsApi.getSubordinateDetailedObjectives({
@@ -65,6 +67,7 @@ export default function ObjectiveDetailsWidget({ dateRange, onlyApproved = false
       to: dateRange.to,
       onlyApproved,
       periodId,
+      periodIdTo,
       sortBy,
       sortDir,
       orgUnitId: orgUnitId || undefined,
@@ -117,12 +120,19 @@ export default function ObjectiveDetailsWidget({ dateRange, onlyApproved = false
         dateRange={dateRange}
         onlyApproved={onlyApproved}
         periodId={periodId}
+        periodIdTo={periodIdTo}
       />
     );
   }
 
+  const rowCount = data?.content?.length ?? 0
+  const totalElements = data?.totalElements ?? 0
+  const fillerMessage = !isLoading && rowCount > 0 && rowCount < PAGE_SIZE
+    ? `Đã hiển thị tất cả ${totalElements} mục tiêu`
+    : null
+
   return (
-    <div className="w-full mt-10 flex flex-col gap-5">
+    <div className="w-full h-full flex flex-col gap-4">
       <div>
         <div className="flex items-center gap-2 mb-1">
           <div className="p-1.5 bg-indigo-100 dark:bg-indigo-500/20 rounded-lg">
@@ -133,16 +143,16 @@ export default function ObjectiveDetailsWidget({ dateRange, onlyApproved = false
         <p className="text-sm text-slate-500 ml-9">Theo dõi bảng dữ liệu phân cấp mục tiêu</p>
       </div>
 
-      {/* Card */}
-      <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 overflow-hidden">
+      {/* Card — giãn kín ô widget */}
+      <div className="flex-1 min-h-0 flex flex-col bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 overflow-hidden">
         {/* Card header */}
-        <div className="p-6 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
+        <div className="p-6 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between shrink-0">
           <h3 className="text-sm font-black text-slate-900 dark:text-white">Bảng dữ liệu phân cấp</h3>
-          <span className="text-xs font-bold text-slate-400">{data?.totalElements ?? 0} mục tiêu</span>
+          <span className="text-xs font-bold text-slate-400">{totalElements} mục tiêu</span>
         </div>
 
         {/* Filter toolbar */}
-        <div className="px-6 py-4 border-b border-slate-100 dark:border-slate-800 flex flex-wrap items-center gap-3">
+        <div className="px-6 py-4 border-b border-slate-100 dark:border-slate-800 flex flex-wrap items-center gap-3 shrink-0">
           <div className="min-w-[220px]">
             <Select value={orgUnitId || ALL_UNITS} onValueChange={handleOrgUnitChange}>
               <SelectTrigger className="h-9 text-xs font-semibold bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700">
@@ -160,34 +170,39 @@ export default function ObjectiveDetailsWidget({ dateRange, onlyApproved = false
           </div>
         </div>
 
-        {/* Table */}
+        {/* Table — vùng cuộn lấp đầy phần còn lại */}
         {isLoading ? (
-          <div className="w-full h-[400px] flex items-center justify-center">
+          <div className="flex-1 min-h-0 flex items-center justify-center">
             <div className="flex flex-col items-center gap-3">
               <Loader2 className="w-8 h-8 text-indigo-500 animate-spin" />
               <div className="text-sm font-medium text-slate-500">Đang tải chi tiết mục tiêu...</div>
             </div>
           </div>
         ) : (
-          <ObjectiveDetailedTable
-            data={data?.content ?? []}
-            onRowClick={handleRowClick}
-            sortBy={sortBy}
-            sortDir={sortDir}
-            onToggleSort={handleSortToggle}
-          />
+          <div className="flex-1 min-h-0 overflow-auto custom-scrollbar flex flex-col">
+            <ObjectiveDetailedTable
+              data={data?.content ?? []}
+              onRowClick={handleRowClick}
+              sortBy={sortBy}
+              sortDir={sortDir}
+              onToggleSort={handleSortToggle}
+            />
+            <SparseTableFiller message={fillerMessage} />
+          </div>
         )}
 
         {/* Pagination */}
-        {(data?.totalElements ?? 0) > 0 && (
-          <Pagination
-            currentPage={page}
-            totalPages={data?.totalPages ?? 0}
-            onPageChange={handlePageChange}
-            totalElements={data?.totalElements ?? 0}
-            size={PAGE_SIZE}
-            itemLabel="mục tiêu"
-          />
+        {totalElements > 0 && (
+          <div className="shrink-0">
+            <Pagination
+              currentPage={page}
+              totalPages={data?.totalPages ?? 0}
+              onPageChange={handlePageChange}
+              totalElements={totalElements}
+              size={PAGE_SIZE}
+              itemLabel="mục tiêu"
+            />
+          </div>
         )}
       </div>
 

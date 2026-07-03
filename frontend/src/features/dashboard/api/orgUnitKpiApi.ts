@@ -75,6 +75,7 @@ export interface OrgUnitKpiDetailParams {
   page?: number
   size?: number
   periodId?: string
+  periodIdTo?: string
 }
 
 export interface OrgUnitAssigneeStat {
@@ -195,12 +196,12 @@ export interface OverdueKpiForMember {
 }
 
 export const orgUnitKpiApi = {
-  getMetrics: async (params?: { orgUnitId?: string; from?: string; to?: string; onlyApproved?: boolean; periodId?: string }) => {
+  getMetrics: async (params?: { orgUnitId?: string; from?: string; to?: string; onlyApproved?: boolean; periodId?: string; periodIdTo?: string }) => {
     const res = await axiosClient.get<{ data: OrgUnitKpiMetrics }>('/stats/org-unit/kpis/metrics', { params })
     return res.data.data
   },
 
-  getComboChart: async (params?: { orgUnitId?: string; from?: string; to?: string; onlyApproved?: boolean; periodId?: string }) => {
+  getComboChart: async (params?: { orgUnitId?: string; from?: string; to?: string; onlyApproved?: boolean; periodId?: string; periodIdTo?: string; groupBy?: string }) => {
     const res = await axiosClient.get<{ data: OrgUnitKpiComboChartData }>('/stats/org-unit/kpis/chart/combo', { params })
     return res.data.data
   },
@@ -210,17 +211,17 @@ export const orgUnitKpiApi = {
     return res.data.data
   },
 
-  getKpiDrawerData: async (kpiId: string, params?: { from?: string; to?: string; onlyApproved?: boolean; periodId?: string }) => {
+  getKpiDrawerData: async (kpiId: string, params?: { from?: string; to?: string; onlyApproved?: boolean; periodId?: string; periodIdTo?: string }) => {
     const res = await axiosClient.get<{ data: OrgUnitKpiDrawerData }>(`/stats/org-unit/kpis/${kpiId}/drawer`, { params })
     return res.data.data
   },
 
-  getUnitRisks: async (params?: { orgUnitId?: string; from?: string; to?: string; onlyApproved?: boolean; page?: number; size?: number; sortBy?: string; sortDir?: string; periodId?: string }) => {
+  getUnitRisks: async (params?: { orgUnitId?: string; from?: string; to?: string; onlyApproved?: boolean; page?: number; size?: number; sortBy?: string; sortDir?: string; periodId?: string; periodIdTo?: string }) => {
     const res = await axiosClient.get<{ data: UnitRiskPagedResponse }>('/stats/org-unit/kpis/risks/units', { params })
     return res.data.data
   },
 
-  getMemberRisks: async (params?: { orgUnitId?: string; filterOrgUnitId?: string; from?: string; to?: string; onlyApproved?: boolean; page?: number; size?: number; sortBy?: string; sortDir?: string; periodId?: string }) => {
+  getMemberRisks: async (params?: { orgUnitId?: string; filterOrgUnitId?: string; from?: string; to?: string; onlyApproved?: boolean; page?: number; size?: number; sortBy?: string; sortDir?: string; periodId?: string; periodIdTo?: string }) => {
     const res = await axiosClient.get<{ data: MemberRiskPagedResponse }>('/stats/org-unit/kpis/risks/members', { params })
     return res.data.data
   },

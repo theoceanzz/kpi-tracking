@@ -135,14 +135,15 @@ export interface KpiDetailParams {
   page?: number
   size?: number
   periodId?: string
+  periodIdTo?: string
 }
 
 export const personalObjectiveApi = {
-  getMetrics: async (params?: { from?: string; to?: string; onlyApproved?: boolean; periodId?: string }) => {
+  getMetrics: async (params?: { from?: string; to?: string; onlyApproved?: boolean; periodId?: string; periodIdTo?: string }) => {
     const res = await axiosClient.get<{ data: PersonalObjectiveMetrics }>('/stats/personal/objectives/metrics', { params })
     return res.data.data
   },
-  getComboChart: async (params?: { from?: string; to?: string; onlyApproved?: boolean; periodId?: string }) => {
+  getComboChart: async (params?: { from?: string; to?: string; onlyApproved?: boolean; periodId?: string; periodIdTo?: string; groupBy?: string }) => {
     const res = await axiosClient.get<{ data: ComboChartData }>('/stats/personal/objectives/chart/combo', { params })
     return res.data.data
   },
@@ -150,7 +151,7 @@ export const personalObjectiveApi = {
     const res = await axiosClient.get<{ data: PagedKpiDetailResponse }>('/stats/personal/objectives/details', { params })
     return res.data.data
   },
-  getKpiDrawerData: async (id: string, params?: { from?: string; to?: string; onlyApproved?: boolean; periodId?: string }) => {
+  getKpiDrawerData: async (id: string, params?: { from?: string; to?: string; onlyApproved?: boolean; periodId?: string; periodIdTo?: string }) => {
     const res = await axiosClient.get<{ data: DrawerData }>(`/stats/personal/objectives/kpis/${id}/drawer`, { params })
     return res.data.data
   }
