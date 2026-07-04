@@ -1,7 +1,6 @@
 import { useAuthStore } from '@/store/authStore'
 import { useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { queryClient } from '@/lib/queryClient'
 import { authApi } from '@/features/auth/api/authApi'
 
 export function useAuth() {
@@ -10,7 +9,6 @@ export function useAuth() {
 
   const logout = useCallback(() => {
     storeLogout()
-    queryClient.clear()
     navigate('/login')
   }, [storeLogout, navigate])
 

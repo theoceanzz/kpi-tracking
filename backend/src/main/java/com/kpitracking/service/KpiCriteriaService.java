@@ -68,6 +68,15 @@ public class KpiCriteriaService {
     private final com.kpitracking.repository.KeyResultRepository keyResultRepository;
     private final OrganizationService organizationService;
 
+    private static final List<KpiStatus> WEIGHT_COUNTED_STATUSES = java.util.Arrays.asList(
+            KpiStatus.DRAFT,
+            KpiStatus.PENDING_APPROVAL,
+            KpiStatus.APPROVED,
+            KpiStatus.REJECTED,
+            KpiStatus.EDIT,
+            KpiStatus.EDITED
+    );
+
     private User getCurrentUser() {
         String email = SecurityContextHolder.getContext().getAuthentication().getName();
         return userRepository.findByEmail(email)
@@ -535,8 +544,7 @@ public class KpiCriteriaService {
                 .orElseThrow(() -> new ResourceNotFoundException("Chỉ tiêu KPI", "id", kpiIds.get(0)));
 
         // Weight validation (same as single submit)
-        java.util.List<KpiStatus> statuses = java.util.Arrays.asList(KpiStatus.DRAFT, KpiStatus.PENDING_APPROVAL, KpiStatus.APPROVED, KpiStatus.REJECTED, KpiStatus.EDIT, KpiStatus.EDITED);
-        Double totalWeight = calculateTotalWeightByOrgUnit(firstKpi.getOrgUnit().getId(), firstKpi.getKpiPeriod().getId(), statuses);
+        Double totalWeight = calculateTotalWeightByOrgUnit(firstKpi.getOrgUnit().getId(), firstKpi.getKpiPeriod().getId(), WEIGHT_COUNTED_STATUSES);
 
         if (totalWeight == null || Math.abs(totalWeight - 100.0) > 0.001) {
             throw new BusinessException("Tổng trọng số của đơn vị theo phân bổ nhân sự (cao nhất) phải bằng chính xác 100% trước khi gửi duyệt. Hiện tại: " + (totalWeight != null ? totalWeight : 0) + "%");
@@ -547,7 +555,7 @@ public class KpiCriteriaService {
             if (kpi == null) continue;
 
             if (!kpi.getCreatedBy().getId().equals(currentUser.getId())) {
-                 // Skip or throw? Usually better to skip in bulk or throw if critical. 
+                 // Skip or throw? Usually better to skip in bulk or throw if critical.
                  // Here we skip to avoid breaking the whole batch if one is invalid.
                  continue;
             }
@@ -811,15 +819,6 @@ public class KpiCriteriaService {
     @Transactional(readOnly = true)
     public Double getTotalWeight(UUID orgUnitId, UUID userId, UUID kpiPeriodId) {
         User currentUser = getCurrentUser();
-        
-        List<KpiStatus> statuses = java.util.Arrays.asList(
-                KpiStatus.DRAFT, 
-                KpiStatus.PENDING_APPROVAL, 
-                KpiStatus.APPROVED, 
-                KpiStatus.REJECTED, 
-                KpiStatus.EDIT, 
-                KpiStatus.EDITED
-        );
 
         if (userId != null) {
             // Permission check: can only see other user's weight if has KPI:VIEW for their org unit
@@ -844,9 +843,9 @@ public class KpiCriteriaService {
             }
             // When orgUnitId is also provided, scope the sum to that specific unit
             if (orgUnitId != null) {
-                return kpiCriteriaRepository.sumWeightByUserIdAndOrgUnitIdAndKpiPeriodIdAndStatusIn(userId, orgUnitId, kpiPeriodId, statuses);
+                return kpiCriteriaRepository.sumWeightByUserIdAndOrgUnitIdAndKpiPeriodIdAndStatusIn(userId, orgUnitId, kpiPeriodId, WEIGHT_COUNTED_STATUSES);
             }
-            return kpiCriteriaRepository.sumWeightByUserIdAndKpiPeriodIdAndStatusIn(userId, kpiPeriodId, statuses);
+            return kpiCriteriaRepository.sumWeightByUserIdAndKpiPeriodIdAndStatusIn(userId, kpiPeriodId, WEIGHT_COUNTED_STATUSES);
         }
 
         if (orgUnitId != null) {
@@ -854,7 +853,7 @@ public class KpiCriteriaService {
                 throw new ForbiddenException("Bạn không có quyền xem thông tin trọng số của đơn vị này");
             }
 
-            return calculateTotalWeightByOrgUnit(orgUnitId, kpiPeriodId, statuses);
+            return calculateTotalWeightByOrgUnit(orgUnitId, kpiPeriodId, WEIGHT_COUNTED_STATUSES);
         }
         
         return 0.0;
@@ -1007,11 +1006,7 @@ public class KpiCriteriaService {
             com.kpitracking.entity.KpiPeriod period = kpiPeriodRepository.findById(pId).orElse(null);
             String periodName = period != null ? period.getName() : pId.toString();
 
-            List<KpiStatus> activeStatuses = java.util.Arrays.asList(
-                KpiStatus.DRAFT, KpiStatus.PENDING_APPROVAL, KpiStatus.APPROVED, KpiStatus.REJECTED, KpiStatus.EDIT, KpiStatus.EDITED
-            );
-
-            Double totalWeight = kpiCriteriaRepository.sumWeightByUserIdAndOrgUnitIdAndKpiPeriodIdAndStatusIn(uId, ouId, pId, activeStatuses);
+            Double totalWeight = kpiCriteriaRepository.sumWeightByUserIdAndOrgUnitIdAndKpiPeriodIdAndStatusIn(uId, ouId, pId, WEIGHT_COUNTED_STATUSES);
 
             if (totalWeight == null || Math.abs(totalWeight - 100.0) > 0.001) {
                 throw new BusinessException("Lỗi Import: Nhân viên '" + (user != null ? user.getFullName() : uId) +

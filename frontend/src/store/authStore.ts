@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import type { UserInfo } from '@/types/auth'
+import { queryClient } from '@/lib/queryClient'
 
 interface AuthState {
   user: UserInfo | null
@@ -29,11 +30,13 @@ export const useAuthStore = create<AuthState>()(
 
       setUser: (user) => set({ user }),
 
-      logout: () =>
-        set({ user: null, accessToken: null, refreshToken: null, isAuthenticated: false }),
+      logout: () => {
+        queryClient.clear()
+        set({ user: null, accessToken: null, refreshToken: null, isAuthenticated: false })
+      },
     }),
     {
-      name: 'auth-storage', // name of item in the storage (must be unique)
+      name: 'auth-storage',
     }
   )
 )
