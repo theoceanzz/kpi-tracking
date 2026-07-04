@@ -31,6 +31,7 @@ function isSubmittableByUser(k: KpiCriteria, userId?: string) {
   return (k.status === 'APPROVED' || k.status === 'EDITED' || k.status === 'EDIT') &&
     k.submissionCount < k.expectedSubmissions &&
     !!userId && k.assigneeIds?.includes(userId) &&
+    (!k.kpiPeriod?.startDate || new Date(k.kpiPeriod.startDate) <= now) &&
     (!k.kpiPeriod?.endDate || new Date(k.kpiPeriod.endDate) >= now)
 }
 
