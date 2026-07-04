@@ -296,11 +296,12 @@ export default function StaffDashboard() {
                       
                       <div className="flex items-center gap-3">
                         <StatusBadge status={task.status} />
-                        {task.submissionCount < task.expectedSubmissions && 
-                         task.status !== 'APPROVED' && 
-                         task.status !== 'PENDING' && 
-                         task.status !== 'REJECTED' && 
-                         task.status !== 'EDIT' && 
+                        {task.submissionCount < task.expectedSubmissions &&
+                         task.status !== 'APPROVED' &&
+                         task.status !== 'PENDING' &&
+                         task.status !== 'REJECTED' &&
+                         task.status !== 'EDIT' &&
+                         task.status !== 'OVERDUE' &&
                          (!task.startDate || new Date(task.startDate) <= new Date()) && (
                           <Link 
                             to={`/submissions/new?kpiId=${task.id}`}
