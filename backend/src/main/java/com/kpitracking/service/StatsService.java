@@ -41,36 +41,9 @@ public class StatsService {
      * có thác nước = đánh giá của quản lý đơn vị đó. Tính trên các đợt của KPI thuộc đơn vị. 0 nếu không có.
      */
     private double unitEvaluationPerformance(OrgUnit unit, java.util.Collection<UUID> selectedPeriodIds) {
-        List<UUID> subtreeIds = getSubtreeIds(unit);
-        // Khi lọc theo (các) đợt cụ thể: chỉ tính đánh giá trong đúng những đợt đó.
-        // Ngược lại: suy ra tất cả đợt mà KPI của đơn vị thuộc về (hành vi cũ).
-        java.util.Set<UUID> periodIds;
-        if (selectedPeriodIds != null && !selectedPeriodIds.isEmpty()) {
-            periodIds = new java.util.LinkedHashSet<>(selectedPeriodIds);
-        } else {
-            List<KpiCriteria> kpis = kpiCriteriaRepository.findByOrgUnitIdInAndStatus(subtreeIds, KpiStatus.APPROVED);
-            periodIds = kpis.stream()
-                    .map(KpiCriteria::getKpiPeriod).filter(java.util.Objects::nonNull)
-                    .map(p -> p.getId()).collect(java.util.stream.Collectors.toSet());
-        }
-        if (periodIds.isEmpty()) return 0;
-
-        boolean waterfall = unit.getOrgHierarchyLevel() != null
-                && unit.getOrgHierarchyLevel().getOrganization() != null
-                && Boolean.TRUE.equals(unit.getOrgHierarchyLevel().getOrganization().getEnableWaterfall());
-
-        java.util.Set<UUID> userIds = new java.util.LinkedHashSet<>();
-        if (waterfall) {
-            // Hiệu suất đơn vị = đánh giá của quản lý đơn vị (rank ≤ 1).
-            userRoleOrgUnitRepository.findManagersByOrgUnitId(unit.getId())
-                    .forEach(uro -> userIds.add(uro.getUser().getId()));
-        } else {
-            // = TB đánh giá của tất cả nhân sự trong đơn vị (subtree).
-            userRoleOrgUnitRepository.findByOrgUnitIdIn(subtreeIds)
-                    .forEach(uro -> userIds.add(uro.getUser().getId()));
-        }
-        Double p = evaluationService.averagePerformance(userIds, periodIds);
-        return p != null ? Math.round(p) : 0;
+        // Nguồn chung: công thức hiệu suất ĐÁNH GIÁ cấp đơn vị đã dời về EvaluationService
+        // để analytics, Insight (AI) và chatbot dùng chung một định nghĩa.
+        return evaluationService.unitEvaluationPerformance(unit, selectedPeriodIds);
     }
 
     /**

@@ -131,12 +131,6 @@ public interface KpiCriteriaRepository extends JpaRepository<KpiCriteria, UUID> 
     @Query("SELECT COUNT(DISTINCT k) FROM KpiCriteria k JOIN k.assignees a WHERE a.id = :userId AND k.status = :status")
     long countByAssigneeAndStatus(@Param("userId") UUID userId, @Param("status") KpiStatus status);
 
-    @Query("SELECT COUNT(k) FROM KpiCriteria k WHERE k.orgUnit.orgHierarchyLevel.organization.id = :orgId")
-    long countByOrganizationId(@Param("orgId") UUID orgId);
-
-    @Query("SELECT COUNT(k) FROM KpiCriteria k WHERE k.orgUnit.orgHierarchyLevel.organization.id = :orgId AND k.status = :status")
-    long countByOrganizationIdAndStatus(@Param("orgId") UUID orgId, @Param("status") KpiStatus status);
-
     @Query("SELECT COUNT(k) FROM KpiCriteria k WHERE k.orgUnit.path LIKE :path")
     long countByOrgUnitPath(@Param("path") String path);
 

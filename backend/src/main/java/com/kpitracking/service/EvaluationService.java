@@ -5,6 +5,7 @@ import com.kpitracking.dto.response.PageResponse;
 import com.kpitracking.dto.response.evaluation.EvaluationResponse;
 import com.kpitracking.entity.Evaluation;
 import com.kpitracking.entity.KpiCriteria;
+import com.kpitracking.entity.KpiPeriod;
 import com.kpitracking.entity.OrgUnit;
 import com.kpitracking.entity.User;
 import com.kpitracking.entity.UserRoleOrgUnit;
@@ -295,6 +296,68 @@ public class EvaluationService {
             }
         }
         return n > 0 ? sum / n : null;
+    }
+
+    // ── Hiệu suất ĐÁNH GIÁ cấp ĐƠN VỊ (subtree) — nguồn chung cho analytics, Insight, chatbot ──
+
+    /** Id các đơn vị trong cây con của {@code unit} (gồm chính nó). */
+    private List<UUID> subtreeUnitIds(OrgUnit unit) {
+        UUID orgId = unit.getOrgHierarchyLevel().getOrganization().getId();
+        List<OrgUnit> subtree = orgUnitRepository.findSubtree(unit.getPath(), orgId);
+        return subtree.isEmpty() ? List.of(unit.getId()) : subtree.stream().map(OrgUnit::getId).toList();
+    }
+
+    /**
+     * Hiệu suất ĐÁNH GIÁ của 1 đơn vị (đã làm tròn):
+     * - Không thác nước: trung bình đánh giá của MỌI người trong đơn vị (subtree).
+     * - Có thác nước: đánh giá của (các) QUẢN LÝ đơn vị đó.
+     * Tính trên {@code selectedPeriodIds}; nếu rỗng thì suy ra tất cả đợt mà KPI của đơn vị thuộc về.
+     * Trả 0 nếu không có đánh giá phù hợp.
+     */
+    @Transactional(readOnly = true)
+    public double unitEvaluationPerformance(OrgUnit unit, Collection<UUID> selectedPeriodIds) {
+        List<UUID> subtreeIds = subtreeUnitIds(unit);
+        Set<UUID> periodIds;
+        if (selectedPeriodIds != null && !selectedPeriodIds.isEmpty()) {
+            periodIds = new LinkedHashSet<>(selectedPeriodIds);
+        } else {
+            periodIds = kpiCriteriaRepository.findByOrgUnitIdInAndStatus(subtreeIds, KpiStatus.APPROVED).stream()
+                    .map(KpiCriteria::getKpiPeriod).filter(Objects::nonNull)
+                    .map(KpiPeriod::getId).collect(Collectors.toCollection(LinkedHashSet::new));
+        }
+        if (periodIds.isEmpty()) return 0;
+
+        boolean waterfall = unit.getOrgHierarchyLevel() != null
+                && unit.getOrgHierarchyLevel().getOrganization() != null
+                && Boolean.TRUE.equals(unit.getOrgHierarchyLevel().getOrganization().getEnableWaterfall());
+
+        Set<UUID> userIds = new LinkedHashSet<>();
+        if (waterfall) {
+            // Hiệu suất đơn vị = đánh giá của quản lý đơn vị.
+            userRoleOrgUnitRepository.findManagersByOrgUnitId(unit.getId())
+                    .forEach(uro -> userIds.add(uro.getUser().getId()));
+        } else {
+            // = TB đánh giá của tất cả nhân sự trong đơn vị (subtree).
+            userRoleOrgUnitRepository.findByOrgUnitIdIn(subtreeIds)
+                    .forEach(uro -> userIds.add(uro.getUser().getId()));
+        }
+        Double p = averagePerformance(userIds, periodIds);
+        return p != null ? Math.round(p) : 0;
+    }
+
+    /** Các đợt KPI của cây con {@code unit}, sắp theo ngày bắt đầu tăng dần (cho biểu đồ xu hướng). */
+    @Transactional(readOnly = true)
+    public List<KpiPeriod> subtreePeriodsOrdered(OrgUnit unit) {
+        List<UUID> subtreeIds = subtreeUnitIds(unit);
+        Map<UUID, KpiPeriod> byId = new LinkedHashMap<>();
+        for (KpiCriteria k : kpiCriteriaRepository.findByOrgUnitIdInAndStatus(subtreeIds, KpiStatus.APPROVED)) {
+            KpiPeriod p = k.getKpiPeriod();
+            if (p != null) byId.putIfAbsent(p.getId(), p);
+        }
+        return byId.values().stream()
+                .sorted(Comparator.comparing(KpiPeriod::getStartDate,
+                        Comparator.nullsLast(Comparator.naturalOrder())))
+                .collect(Collectors.toList());
     }
 
     private double calculateKpiActualValue(KpiCriteria kpi, UUID targetUserId, boolean enableWaterfall) {

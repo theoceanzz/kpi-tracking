@@ -511,7 +511,7 @@ public class OrgUnitStatisticService {
 
             double[] kpiMetrics = calculateKpiMetrics(k, start, end);
             entry.put("progress", round1(kpiMetrics[0]));
-            entry.put("performance", round1(kpiMetrics[1]));
+            // Không surface hiệu suất per-KPI: hiệu suất nay theo ĐÁNH GIÁ (người×đợt), 1 KPI đơn lẻ không có.
             kpiDetailsList.add(entry);
         }
 
@@ -602,7 +602,7 @@ public class OrgUnitStatisticService {
             Map<String, Object> entry = new LinkedHashMap<>();
             entry.put("name", k.getName());
             // description (free-text dài) bị loại khỏi payload để giảm token gửi lên model;
-            // phân tích chỉ cần name/progress/performance. Lấy chi tiết qua get_kpi_detail nếu cần.
+            // phân tích chỉ cần name/progress (tiến độ). Lấy chi tiết qua get_kpi_detail nếu cần.
             entry.put("weight", k.getWeight());
             entry.put("targetValue", k.getTargetValue());
             boolean kReverse = Boolean.TRUE.equals(k.getIsReverseKpi());
@@ -619,7 +619,6 @@ public class OrgUnitStatisticService {
             entry.put("createdAt", k.getCreatedAt() != null ? k.getCreatedAt().toString() : null);
             double[] metrics = calculateKpiMetrics(k, start, end);
             entry.put("progress", round1(metrics[0]));
-            entry.put("performance", round1(metrics[1]));
             recordsList.add(entry);
         }
 
@@ -736,7 +735,7 @@ public class OrgUnitStatisticService {
         detail.put("targetComparator", detailReverse ? "≤" : "≥");
         detail.put("unit", k.getUnit());
         detail.put("progress", Math.round(metrics[0] * 100.0) / 100.0);
-        detail.put("performance", Math.round(metrics[1] * 100.0) / 100.0);
+        // Không surface hiệu suất per-KPI (hiệu suất theo ĐÁNH GIÁ ở cấp người/đơn vị, không ở 1 KPI).
         detail.put("deadline", k.getEffectiveDeadline() != null ? k.getEffectiveDeadline().toString() : null);
         KpiPeriod detailPeriod = resolveKpiPeriod(k);
         detail.put("periodName", detailPeriod != null ? detailPeriod.getName() : null);
@@ -825,30 +824,46 @@ public class OrgUnitStatisticService {
     // get_time_series — trend of a metric over time + anomaly points
     @Transactional(readOnly = true)
     public Map<String, Object> getTimeSeries(UUID unitId, String metric, String granularity, Integer lookback) {
-        String pathPrefix = getPathPrefix(unitId);
-        String datePattern = switch (granularity == null ? "MONTH" : granularity.toUpperCase()) {
-            case "YEAR" -> "YYYY";
-            case "QUARTER" -> "YYYY-\"Q\"Q";
-            default -> "YYYY-MM";
-        };
         String metricKey = "avg_performance".equalsIgnoreCase(metric) ? "avg_performance" : "completion";
         int keep = (lookback != null && lookback > 0) ? lookback : 6;
 
-        // row: [period_label, total_actual, total_target, avg_performance, submission_count]
-        List<Object[]> rows = kpiSubmissionRepository.trendStatsInSubtree(pathPrefix, datePattern);
-        if (rows.size() > keep) {
-            rows = rows.subList(rows.size() - keep, rows.size());
-        }
-
         List<Map<String, Object>> series = new ArrayList<>();
-        for (Object[] r : rows) {
-            double value = "avg_performance".equals(metricKey)
-                    ? toDouble(r[3])
-                    : computeCompletion(toDouble(r[1]), toDouble(r[2]));
-            Map<String, Object> point = new LinkedHashMap<>();
-            point.put("period", r[0] != null ? r[0].toString() : null);
-            point.put("value", round1(value));
-            series.add(point);
+        if ("avg_performance".equals(metricKey)) {
+            // Hiệu suất = hiệu suất ĐÁNH GIÁ (điểm đánh giá của quản lý/nhân sự theo đợt),
+            // nên chuỗi được tính theo TỪNG ĐỢT KPI (không theo tháng/quý; granularity bị bỏ qua),
+            // khớp với bảng xếp hạng & biểu đồ ở phần thống kê.
+            OrgUnit unit = orgUnitRepository.findById(unitId)
+                    .orElseThrow(() -> new RuntimeException("OrgUnit not found: " + unitId));
+            List<KpiPeriod> periods = evaluationService.subtreePeriodsOrdered(unit);
+            if (periods.size() > keep) {
+                periods = periods.subList(periods.size() - keep, periods.size());
+            }
+            for (KpiPeriod p : periods) {
+                double value = evaluationService.unitEvaluationPerformance(unit, Set.of(p.getId()));
+                Map<String, Object> point = new LinkedHashMap<>();
+                point.put("period", p.getName());
+                point.put("value", round1(value));
+                series.add(point);
+            }
+        } else {
+            String pathPrefix = getPathPrefix(unitId);
+            String datePattern = switch (granularity == null ? "MONTH" : granularity.toUpperCase()) {
+                case "YEAR" -> "YYYY";
+                case "QUARTER" -> "YYYY-\"Q\"Q";
+                default -> "YYYY-MM";
+            };
+            // row: [period_label, total_actual, total_target, avg_performance, submission_count]
+            List<Object[]> rows = kpiSubmissionRepository.trendStatsInSubtree(pathPrefix, datePattern);
+            if (rows.size() > keep) {
+                rows = rows.subList(rows.size() - keep, rows.size());
+            }
+            for (Object[] r : rows) {
+                double value = computeCompletion(toDouble(r[1]), toDouble(r[2]));
+                Map<String, Object> point = new LinkedHashMap<>();
+                point.put("period", r[0] != null ? r[0].toString() : null);
+                point.put("value", round1(value));
+                series.add(point);
+            }
         }
 
         // anomalies: period-over-period change crossing SPIKE (+20%) / DROP (-15%) thresholds
@@ -870,7 +885,9 @@ public class OrgUnitStatisticService {
 
         Map<String, Object> result = new LinkedHashMap<>();
         result.put("metric", metricKey);
-        result.put("granularity", granularity == null ? "MONTH" : granularity.toUpperCase());
+        // Hiệu suất đánh giá đi theo đợt KPI; tiến độ đi theo lịch (tháng/quý/năm).
+        result.put("granularity", "avg_performance".equals(metricKey)
+                ? "PERIOD" : (granularity == null ? "MONTH" : granularity.toUpperCase()));
         result.put("series", series);
         result.put("anomalyPoints", anomalies);
         return result;

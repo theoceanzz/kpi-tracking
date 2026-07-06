@@ -20,14 +20,6 @@ public interface NotificationRepository extends JpaRepository<Notification, UUID
     @org.springframework.data.jpa.repository.Query("UPDATE Notification n SET n.isRead = true, n.readAt = :readAt WHERE n.user.id = :userId AND n.isRead = false")
     void markAllAsReadForUser(UUID userId, java.time.Instant readAt);
 
-    // ===== Statistic Tool queries =====
-
-    @org.springframework.data.jpa.repository.Query("SELECT COUNT(n) FROM Notification n WHERE n.orgUnit.orgHierarchyLevel.organization.id = :orgId AND n.isRead = true")
-    long countByIsReadTrueByOrgId(@Param("orgId") UUID orgId);
-
-    @org.springframework.data.jpa.repository.Query("SELECT COUNT(n) FROM Notification n WHERE n.orgUnit.orgHierarchyLevel.organization.id = :orgId AND n.isRead = false")
-    long countByIsReadFalseByOrgId(@Param("orgId") UUID orgId);
-
     @Deprecated
     long countByIsReadTrue();
 
