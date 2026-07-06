@@ -3,7 +3,6 @@ package com.kpitracking.event;
 import com.kpitracking.entity.KpiCriteria;
 import com.kpitracking.entity.KpiSubmission;
 import com.kpitracking.entity.User;
-import com.kpitracking.entity.UserRoleOrgUnit;
 import com.kpitracking.event.KpiEvents.KpiCriteriaApprovedEvent;
 import com.kpitracking.event.KpiEvents.KpiCriteriaRejectedEvent;
 import com.kpitracking.event.KpiEvents.KpiCriteriaApprovalRevertedEvent;
@@ -76,11 +75,11 @@ public class NotificationEventListener {
         UUID orgId = getOrgId(submission);
         Set<UUID> notifiedIds = new HashSet<>();
 
-        List<UserRoleOrgUnit> managers = userRoleOrgUnitRepository.findManagersByOrgUnitId(submission.getOrgUnit().getId());
-        for (UserRoleOrgUnit uro : managers) {
-            User manager = uro.getUser();
-            if (!manager.getId().equals(submitter.getId()) && notifiedIds.add(manager.getId())) {
-                sendIfEnabled(orgId, "submission_submitted", manager, submission.getOrgUnit(),
+        List<User> reviewers =
+                userRoleOrgUnitRepository.findUsersWithPermissionOverOrgUnit(submission.getOrgUnit().getPath(), "SUBMISSION:REVIEW");
+        for (User reviewer : reviewers) {
+            if (!reviewer.getId().equals(submitter.getId()) && notifiedIds.add(reviewer.getId())) {
+                sendIfEnabled(orgId, "submission_submitted", reviewer, submission.getOrgUnit(),
                         title, message, "SUBMISSION", submission.getId());
             }
         }
@@ -184,7 +183,7 @@ public class NotificationEventListener {
 
         Set<UUID> notifiedIds = new HashSet<>();
         List<com.kpitracking.entity.User> approvers =
-                userRoleOrgUnitRepository.findUsersWithPermissionInOrgUnit(kpi.getOrgUnit().getId(), "KPI:APPROVE_CRITERIA");
+                userRoleOrgUnitRepository.findUsersWithPermissionOverOrgUnit(kpi.getOrgUnit().getPath(), "KPI:APPROVE_CRITERIA");
 
         for (com.kpitracking.entity.User approver : approvers) {
             if (!approver.getId().equals(submitter.getId()) && notifiedIds.add(approver.getId())) {
