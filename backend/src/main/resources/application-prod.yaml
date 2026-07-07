@@ -68,6 +68,12 @@ spring:
         options:
           model: ${huggingface.api.model:openai/gpt-oss-20b:groq}
           temperature: 0
+          # gpt-oss là reasoning model: nếu trần output thấp (mặc định ~2048) thì reasoning
+          # ăn hết token -> finishReason=LENGTH, trả text rỗng. Nới trần cho đủ reasoning + output.
+          max-tokens: ${AI_MAX_TOKENS:8192}
+          # Mức suy luận gpt-oss: 'high' (mặc định) reasoning quá nhiều -> chậm + dễ chạm LENGTH;
+          # 'low' dễ chọn sai tool trên model 20B. 'medium' cân bằng cho tool-use nhiều bước.
+          reasoning-effort: ${AI_REASONING_EFFORT:medium}
     retry:
       max-attempts: 2
 

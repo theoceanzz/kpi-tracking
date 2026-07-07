@@ -137,12 +137,25 @@ public class AiService {
                         .call()
                         .content();
             }
+            // Reasoning model (gpt-oss) đôi lúc tiêu hết token cho reasoning rồi chạm
+            // finishReason=LENGTH trước khi kịp sinh text -> content rỗng. Không để lộ
+            // bong bóng trống ra người dùng; trả câu gợi ý hỏi ngắn gọn hơn.
+            if (result == null || result.isBlank()) {
+                log.warn("AI trả nội dung rỗng (nghi finishReason=LENGTH/reasoning quá dài). question={}", question);
+                return "Xin lỗi, mình chưa tạo được câu trả lời cho yêu cầu này (nội dung xử lý quá dài). "
+                        + "Bạn thử hỏi ngắn gọn/cụ thể hơn giúp mình nhé.";
+            }
             return result;
         } catch (Exception e) {
             if (AiUtils.isQuotaError(e)) {
                 throw new AiQuotaExceededException("quota exceeded", e);
             }
-            throw e;
+            // Lỗi từ model/nhà cung cấp (vd gpt-oss trên groq trả HTTP 400 "output_parse_failed"
+            // khi câu quá phức tạp / vòng gọi tool sinh output không parse được) -> KHÔNG ném ra
+            // ngoài thành "lỗi không xác định"; log để chẩn đoán và trả câu thân thiện, gợi ý hỏi gọn hơn.
+            log.error("Chat AI thất bại (question='{}'): {}", question, e.getMessage(), e);
+            return "Xin lỗi, mình gặp trục trặc khi xử lý yêu cầu này (có thể do câu hỏi khá phức tạp). "
+                    + "Bạn thử hỏi ngắn gọn/cụ thể hơn — ví dụ nêu rõ tên các phòng/đơn vị cần so sánh — giúp mình nhé.";
         } finally {
             disambiguationGuard.clear();
         }

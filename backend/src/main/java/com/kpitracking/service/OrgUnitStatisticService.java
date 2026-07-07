@@ -315,9 +315,12 @@ public class OrgUnitStatisticService {
 
     // 4. get_members
     @Transactional(readOnly = true)
-    public Map<String, Object> getMembers(UUID targetUnitId, Boolean includeChildUnits, String positionId, Integer page, Integer size, String sortBy, String sortDirection) {
+    public Map<String, Object> getMembers(UUID targetUnitId, Boolean includeChildUnits, String positionId, String positionName, Integer page, Integer size, String sortBy, String sortDirection) {
         boolean subtree = includeChildUnits != null && includeChildUnits;
         UUID targetPosId = (positionId != null && !positionId.isBlank()) ? UUID.fromString(positionId) : null;
+        // Lọc theo TÊN chức vụ khi không có positionId (khỏi bắt model search_positions trước).
+        String posName = (targetPosId == null && positionName != null && !positionName.isBlank())
+                ? positionName.trim().toLowerCase() : null;
 
         String pathPrefix = getPathPrefix(targetUnitId);
 
@@ -335,6 +338,9 @@ public class OrgUnitStatisticService {
         if (targetPosId != null) {
             selectBuilder.append("AND uro.role.id = :posId ");
             countBuilder.append("AND uro.role.id = :posId ");
+        } else if (posName != null) {
+            selectBuilder.append("AND LOWER(uro.role.name) LIKE CONCAT('%', :posName, '%') ");
+            countBuilder.append("AND LOWER(uro.role.name) LIKE CONCAT('%', :posName, '%') ");
         }
 
         Set<String> allowedSorts = Set.of("uro.user.fullName", "uro.user.email", "uro.user.employeeCode", "uro.role.name", "uro.orgUnit.name");
@@ -354,6 +360,9 @@ public class OrgUnitStatisticService {
         if (targetPosId != null) {
             countQuery.setParameter("posId", targetPosId);
             selectQuery.setParameter("posId", targetPosId);
+        } else if (posName != null) {
+            countQuery.setParameter("posName", posName);
+            selectQuery.setParameter("posName", posName);
         }
 
         long totalCount = countQuery.getSingleResult();
@@ -383,9 +392,10 @@ public class OrgUnitStatisticService {
 
     // 5. get_member_statistics
     @Transactional(readOnly = true)
-    public Map<String, Object> getMemberStatistics(UUID targetUnitId, Boolean includeChildUnits, String startDate, String endDate) {
+    public Map<String, Object> getMemberStatistics(UUID targetUnitId, Boolean includeChildUnits, String positionName, String startDate, String endDate) {
         boolean subtree = includeChildUnits != null && includeChildUnits;
-//        UUID targetPosId = (positionId != null && !positionId.isBlank()) ? UUID.fromString(positionId) : null;
+        // Lọc nhóm theo TÊN chức vụ (vd "trưởng phòng") — khỏi bắt model search_positions trước.
+        String posName = (positionName != null && !positionName.isBlank()) ? positionName.trim().toLowerCase() : null;
         Instant start = parseDate(startDate, Instant.EPOCH);
         Instant end = parseDate(endDate, Instant.now());
 
@@ -400,9 +410,9 @@ public class OrgUnitStatisticService {
             usersJpql.append("uro.orgUnit.id = :unitId ");
         }
 
-//        if (targetPosId != null) {
-//            usersJpql.append("AND uro.role.id = :posId ");
-//        }
+        if (posName != null) {
+            usersJpql.append("AND LOWER(uro.role.name) LIKE CONCAT('%', :posName, '%') ");
+        }
 
         TypedQuery<UUID> userQuery = entityManager.createQuery(usersJpql.toString(), UUID.class);
         if (subtree) {
@@ -410,9 +420,9 @@ public class OrgUnitStatisticService {
         } else {
             userQuery.setParameter("unitId", targetUnitId);
         }
-//        if (targetPosId != null) {
-//            userQuery.setParameter("posId", targetPosId);
-//        }
+        if (posName != null) {
+            userQuery.setParameter("posName", posName);
+        }
 
         List<UUID> userIds = userQuery.getResultList();
 
@@ -782,36 +792,44 @@ public class OrgUnitStatisticService {
 
     // 11. get_kpi_periods
     @Transactional(readOnly = true)
-    public List<Map<String, Object>> getKpiPeriods(UUID orgId, String startDate, String endDate) {
+    public List<Map<String, Object>> getKpiPeriods(UUID orgId, UUID targetUnitId, String startDate, String endDate) {
         List<KpiPeriod> periods = kpiPeriodRepository.findByOrganizationId(orgId, org.springframework.data.domain.Pageable.unpaged()).getContent();
         Instant start = parseDate(startDate, Instant.EPOCH);
         Instant end = parseDate(endDate, Instant.now());
+        // Khi nhắm 1 đơn vị: chỉ tính KPI thuộc cây con đơn vị đó và BỎ kỳ đơn vị không tham gia.
+        String pathPrefix = targetUnitId != null ? getPathPrefix(targetUnitId) : null;
+        String unitFilter = pathPrefix != null ? " AND k.orgUnit.path LIKE CONCAT(:pathPrefix, '%')" : "";
 
         List<Map<String, Object>> periodDetails = new ArrayList<>();
         for (KpiPeriod p : periods) {
+            TypedQuery<Long> kpisCountQ = entityManager.createQuery(
+                    "SELECT COUNT(k) FROM KpiCriteria k WHERE k.kpiPeriod.id = :periodId" + unitFilter, Long.class)
+                    .setParameter("periodId", p.getId());
+            if (pathPrefix != null) kpisCountQ.setParameter("pathPrefix", pathPrefix);
+            Long kpisCount = kpisCountQ.getSingleResult();
+
+            // Kỳ mà đơn vị đích không có KPI nào -> không "tham gia" -> bỏ qua.
+            if (pathPrefix != null && (kpisCount == null || kpisCount == 0)) continue;
+
+            TypedQuery<Long> participantsQ = entityManager.createQuery(
+                    "SELECT COUNT(DISTINCT a.id) FROM KpiCriteria k JOIN k.assignees a WHERE k.kpiPeriod.id = :periodId" + unitFilter, Long.class)
+                    .setParameter("periodId", p.getId());
+            if (pathPrefix != null) participantsQ.setParameter("pathPrefix", pathPrefix);
+            Long participantsCount = participantsQ.getSingleResult();
+
+            TypedQuery<KpiCriteria> kpisQ = entityManager.createQuery(
+                    "SELECT DISTINCT k FROM KpiCriteria k JOIN FETCH k.submissions WHERE k.kpiPeriod.id = :periodId" + unitFilter, KpiCriteria.class)
+                    .setParameter("periodId", p.getId());
+            if (pathPrefix != null) kpisQ.setParameter("pathPrefix", pathPrefix);
+            List<KpiCriteria> kpis = kpisQ.getResultList();
+
+            double[] averages = calculateAverages(kpis, start, end);
+
             Map<String, Object> entry = new LinkedHashMap<>();
             entry.put("name", p.getName());
             entry.put("periodType", p.getPeriodType().toString());
             entry.put("startDate", p.getStartDate() != null ? p.getStartDate().toString() : null);
             entry.put("endDate", p.getEndDate() != null ? p.getEndDate().toString() : null);
-
-            Long kpisCount = entityManager.createQuery(
-                    "SELECT COUNT(k) FROM KpiCriteria k WHERE k.kpiPeriod.id = :periodId", Long.class)
-                    .setParameter("periodId", p.getId())
-                    .getSingleResult();
-
-            Long participantsCount = entityManager.createQuery(
-                    "SELECT COUNT(DISTINCT a.id) FROM KpiCriteria k JOIN k.assignees a WHERE k.kpiPeriod.id = :periodId", Long.class)
-                    .setParameter("periodId", p.getId())
-                    .getSingleResult();
-
-            List<KpiCriteria> kpis = entityManager.createQuery(
-                    "SELECT DISTINCT k FROM KpiCriteria k JOIN FETCH k.submissions WHERE k.kpiPeriod.id = :periodId", KpiCriteria.class)
-                    .setParameter("periodId", p.getId())
-                    .getResultList();
-
-            double[] averages = calculateAverages(kpis, start, end);
-
             entry.put("kpisCount", kpisCount);
             entry.put("participantsCount", participantsCount);
             entry.put("averageProgress", averages[0]);
@@ -931,7 +949,7 @@ public class OrgUnitStatisticService {
 
     // 13. rank_members
     @Transactional(readOnly = true)
-    public List<Map<String, Object>> rankMembers(UUID orgId, String metric, String order, String scope, String unitId, String kpiId, Integer limit, String startDate, String endDate, UUID contextUnitId) {
+    public List<Map<String, Object>> rankMembers(UUID orgId, String metric, String order, String scope, String unitId, String kpiId, Integer limit, String startDate, String endDate, UUID contextUnitId, String positionFilter, Boolean managersOnly) {
         int effectiveLimit = (limit != null && limit > 0) ? limit : 5;
         boolean desc = !"asc".equalsIgnoreCase(order);
         Instant start = parseDate(startDate, Instant.EPOCH);
@@ -948,6 +966,25 @@ public class OrgUnitStatisticService {
             users = userRoleOrgUnitRepository.findUsersByOrgUnitPath(pathPrefix + "%", orgId);
         } else {
             users = userRoleOrgUnitRepository.findUsersByOrganizationId(orgId);
+        }
+
+        // Lọc theo chức vụ/vai trò NGAY trên tập theo scope để trả lời "xếp hạng <chức vụ> theo ..."
+        // trong 1 lần gọi (thay vì model phải liệt kê đơn vị -> tìm trưởng -> ... rồi tự gộp).
+        //  - managersOnly = chỉ giữ trưởng/quản lý đơn vị (role.rank <= 1, giống findManagersByOrgUnitId).
+        //  - positionFilter = giữ người có tên chức vụ khớp (không phân biệt hoa/thường), vd "trưởng phòng".
+        boolean onlyManagers = Boolean.TRUE.equals(managersOnly);
+        String pf = (positionFilter != null && !positionFilter.isBlank()) ? positionFilter.trim().toLowerCase() : null;
+        if ((onlyManagers || pf != null) && !users.isEmpty()) {
+            java.util.Set<UUID> ids = users.stream().map(User::getId).collect(Collectors.toSet());
+            final String pfFinal = pf;
+            java.util.Set<UUID> keep = userRoleOrgUnitRepository.findByUserIdIn(ids).stream()
+                    .filter(uro -> uro.getRole() != null)
+                    .filter(uro -> !onlyManagers || (uro.getRole().getRank() != null && uro.getRole().getRank() <= 1))
+                    .filter(uro -> pfFinal == null || (uro.getRole().getName() != null
+                            && uro.getRole().getName().toLowerCase().contains(pfFinal)))
+                    .map(uro -> uro.getUser().getId())
+                    .collect(Collectors.toSet());
+            users = users.stream().filter(u -> keep.contains(u.getId())).collect(Collectors.toList());
         }
 
         List<Map<String, Object>> rankList = new ArrayList<>();
@@ -1451,7 +1488,7 @@ public class OrgUnitStatisticService {
         List<Map<String, Object>> units = unitIds.stream().map(uid -> {
             try {
                 Map<String, Object> detail = getOrgUnitDetail(uid);
-                Map<String, Object> stats = getMemberStatistics(uid, false, startDate, endDate);
+                Map<String, Object> stats = getMemberStatistics(uid, false, null, startDate, endDate);
 
                 Map<String, Object> m = new LinkedHashMap<>();
                 m.put("unitName", detail.get("name"));
@@ -1489,7 +1526,7 @@ public class OrgUnitStatisticService {
 
         java.util.List<Map<String, Object>> ranked = rankMembers(
                 orgId, met, dir, "unit", orgUnitId.toString(), null,
-                200, startDate, endDate, orgUnitId);
+                200, startDate, endDate, orgUnitId, null, null);
 
         List<Map<String, Object>> filtered = ranked.stream()
                 .filter(m -> {
