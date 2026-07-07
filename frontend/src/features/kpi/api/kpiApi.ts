@@ -1,6 +1,6 @@
 import axiosInstance from '@/lib/axios'
 import type { ApiResponse, PageResponse } from '@/types/api'
-import type { KpiCriteria, CreateKpiRequest, UpdateKpiRequest, RejectKpiRequest, ImportKpiResult } from '@/types/kpi'
+import type { KpiCriteria, CreateKpiRequest, UpdateKpiRequest, RejectKpiRequest, ImportKpiResult, ReplaceKpiRequest, BatchUpdateWeightRequest } from '@/types/kpi'
 import type { KpiStatus } from '@/types/kpi'
 
 export const kpiApi = {
@@ -60,4 +60,10 @@ export const kpiApi = {
 
   getChildren: (id: string) =>
     axiosInstance.get<ApiResponse<KpiCriteria[]>>(`/kpi-criteria/${id}/children`).then((r) => r.data.data),
+
+  replace: (kpiId: string, data: ReplaceKpiRequest) =>
+    axiosInstance.post<ApiResponse<KpiCriteria>>(`/kpi-criteria/${kpiId}/replace`, data).then((r) => r.data.data),
+
+  batchUpdateWeights: (data: BatchUpdateWeightRequest) =>
+    axiosInstance.patch<ApiResponse<KpiCriteria[]>>('/kpi-criteria/batch-weight', data).then((r) => r.data.data),
 }

@@ -19,6 +19,7 @@ public class OrganizationResponse {
     private Integer kpiReminderPercentage;
     private Boolean enableOkr;
     private Boolean enableWaterfall;
+    private Boolean enableAi;
     private Instant createdAt;
     private Instant updatedAt;
 }

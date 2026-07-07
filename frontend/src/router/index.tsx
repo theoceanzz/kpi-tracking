@@ -3,6 +3,7 @@ import AuthLayout from '@/layouts/AuthLayout'
 import AppLayout from '@/layouts/AppLayout'
 import ProtectedRoute from './ProtectedRoute'
 import PermissionRoute from './PermissionRoute'
+import PlatformAdminRoute from './PlatformAdminRoute'
 import LandingPage from '@/features/landing/pages/LandingPage'
 
 // Auth pages
@@ -45,6 +46,7 @@ import OkrManagementPage from '@/features/okr/pages/OkrManagementPage'
 
 import DashboardPage from '@/features/dashboard/pages/DashboardPage'
 import ErrorPage from '@/features/errors/pages/ErrorPage'
+import PlatformAdminPage from '@/features/platformAdmin/pages/PlatformAdminPage'
 
 export const router = createBrowserRouter([
   {
@@ -59,6 +61,17 @@ export const router = createBrowserRouter([
       { path: '/verify-email', element: <VerifyEmailPage /> },
       { path: '/forgot-password', element: <ForgotPasswordPage /> },
       { path: '/reset-password', element: <ResetPasswordPage /> },
+    ],
+  },
+  {
+    element: <PlatformAdminRoute />,
+    children: [
+      {
+        element: <AppLayout />,
+        children: [
+          { path: '/admin', element: <PlatformAdminPage /> },
+        ],
+      },
     ],
   },
   {

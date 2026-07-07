@@ -58,6 +58,12 @@ export const STATUS_CONFIG: Record<KpiStatus, { label: string; color: string; bg
     color: 'text-slate-400',
     bgColor: 'bg-slate-50 border-slate-200',
     icon: X
+  },
+  REPLACED: {
+    label: 'Đã thay thế',
+    color: 'text-orange-600 dark:text-orange-400',
+    bgColor: 'bg-orange-100 border-orange-200 dark:bg-orange-900/30 dark:border-orange-900/40',
+    icon: X
   }
 }
 

@@ -25,9 +25,10 @@ interface StaffEvaluationModalProps {
   periodName: string
   readOnly?: boolean
   evaluationComment?: string
+  periodEnded?: boolean
 }
-export default function StaffEvaluationModal({ 
-  open, onClose, userId, userName, periodId, periodName, readOnly = false, evaluationComment 
+export default function StaffEvaluationModal({
+  open, onClose, userId, userName, periodId, periodName, readOnly = false, evaluationComment, periodEnded = false
 }: StaffEvaluationModalProps) {
   const { user } = useAuthStore()
   const orgId = user?.memberships?.[0]?.organizationId
@@ -115,15 +116,18 @@ export default function StaffEvaluationModal({
   // Bulk review mutation
   const submitMutation = useMutation({
     mutationFn: async () => {
-      // 1. Bulk Review Submissions
-      const reviewResults = await submissionApi.bulkReview({
-        submissionIds: submissionList.map(s => s.id),
-        commonReview: { status: 'APPROVED', reviewNote: 'Phê duyệt tổng hợp qua bảng đánh giá' },
-        individualReviews: Object.entries(individualScores).map(([id, score]) => ({
-          submissionId: id,
-          managerScore: score
-        }))
-      })
+      // 1. Bulk Review Submissions — skip when the staff member has no submissions
+      let reviewResults: Awaited<ReturnType<typeof submissionApi.bulkReview>> = []
+      if (submissionList.length > 0) {
+        reviewResults = await submissionApi.bulkReview({
+          submissionIds: submissionList.map(s => s.id),
+          commonReview: { status: 'APPROVED', reviewNote: 'Phê duyệt tổng hợp qua bảng đánh giá' },
+          individualReviews: Object.entries(individualScores).map(([id, score]) => ({
+            submissionId: id,
+            managerScore: score
+          }))
+        })
+      }
 
       // 2. Create Evaluation record
       await evaluationApi.create({
@@ -208,17 +212,33 @@ export default function StaffEvaluationModal({
               <Loader2 size={40} className="animate-spin text-indigo-500" />
               <p className="text-sm font-bold text-slate-400">Đang tổng hợp dữ liệu KPI...</p>
             </div>
-          ) : submissionList.length === 0 ? (
+          ) : submissionList.length === 0 && !periodEnded ? (
             <div className="flex flex-col items-center justify-center py-20 text-center space-y-4 bg-slate-50 dark:bg-slate-800/30 rounded-[32px] border-2 border-dashed border-slate-200 dark:border-slate-800">
                <AlertCircle size={48} className="text-slate-300" />
                <div className="space-y-1">
                   <p className="text-lg font-black text-slate-900 dark:text-white">Không tìm thấy bài nộp</p>
-                  <p className="text-sm text-slate-500">Nhân viên này chưa có bài nộp nào trong đợt {periodName}.</p>
+                  <p className="text-sm text-slate-500">Nhân viên này chưa có bài nộp nào trong đợt {periodName}. Bạn chỉ có thể chốt đánh giá sau khi đợt kết thúc.</p>
                </div>
             </div>
           ) : (
             <>
+              {/* "Chưa làm" banner — staff member has no submissions and the period has ended */}
+              {submissionList.length === 0 && (
+                <div className="flex items-center gap-4 p-5 rounded-[28px] bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-800/50">
+                  <div className="w-12 h-12 rounded-2xl bg-amber-500 text-white flex items-center justify-center shrink-0 shadow-lg shadow-amber-500/20">
+                    <AlertCircle size={24} />
+                  </div>
+                  <div>
+                    <p className="text-sm font-black text-amber-900 dark:text-amber-100">Nhân viên chưa làm trong đợt này</p>
+                    <p className="text-xs font-medium text-amber-700 dark:text-amber-400 opacity-80">
+                      Không có bài nộp nào. Đợt đã kết thúc nên bạn có thể chốt đánh giá — điểm mặc định là 0, có thể điều chỉnh nếu cần.
+                    </p>
+                  </div>
+                </div>
+              )}
+
               {/* KPI List — Mobile: cards, Desktop: table */}
+              {submissionList.length > 0 && (
               <div className="bg-white dark:bg-slate-900 rounded-[32px] border border-slate-100 dark:border-slate-800 shadow-sm overflow-hidden">
 
                 {/* Mobile card layout (hidden on sm+) */}
@@ -384,6 +404,7 @@ export default function StaffEvaluationModal({
                   </table>
                 </div>
               </div>
+              )}
 
               {/* Summary and Comment */}
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
@@ -505,7 +526,7 @@ export default function StaffEvaluationModal({
               </button>
               <button
                 onClick={() => submitMutation.mutate()}
-                disabled={submitMutation.isPending || submissionList.length === 0}
+                disabled={submitMutation.isPending || (submissionList.length === 0 && !periodEnded)}
                 className="flex-1 sm:flex-none px-5 sm:px-10 py-3 sm:py-4 rounded-2xl bg-slate-900 dark:bg-white text-white dark:text-slate-900 text-xs font-black uppercase tracking-[2px] shadow-xl hover:bg-indigo-600 dark:hover:bg-indigo-50 transition-all flex items-center justify-center gap-2 sm:gap-3 active:scale-95 disabled:opacity-50 disabled:scale-100 whitespace-nowrap"
               >
                 {submitMutation.isPending ? <Loader2 size={16} className="animate-spin shrink-0" /> : <CheckCircle size={16} className="shrink-0 sm:w-[18px] sm:h-[18px]" />}

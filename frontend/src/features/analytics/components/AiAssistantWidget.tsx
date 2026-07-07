@@ -1,6 +1,8 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react'
 import { Bot, Send, X, Loader2, Minimize2, Maximize2, CheckCircle2, Expand, SquarePen } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { useAuthStore } from '@/store/authStore'
+import { useOrganization } from '@/features/orgunits/hooks/useOrganization'
 import { aiApi, type InsightCard, type FollowupPools } from '../api/aiApi'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
@@ -25,6 +27,10 @@ const WELCOME_MSG: Message = {
 }
 
 export default function AiAssistantWidget() {
+  const { user } = useAuthStore()
+  const orgId = user?.memberships?.[0]?.organizationId
+  const { data: org } = useOrganization(orgId)
+
   const [isOpen, setIsOpen] = useState(false)
   const [isMinimized, setIsMinimized] = useState(false)
   const [input, setInput] = useState('')
@@ -40,6 +46,8 @@ export default function AiAssistantWidget() {
   const turnRef = useRef(0)
   const activeInsightRef = useRef<InsightCard | null>(null)
   const navigate = useNavigate()
+
+  if (org && org.enableAi === false) return null
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })

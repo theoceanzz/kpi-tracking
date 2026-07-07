@@ -92,6 +92,9 @@ public interface UserRoleOrgUnitRepository extends JpaRepository<UserRoleOrgUnit
     @Query("SELECT DISTINCT uro.user FROM UserRoleOrgUnit uro WHERE uro.orgUnit.orgHierarchyLevel.organization.id = :orgId AND uro.orgUnit.path LIKE :path")
     List<com.kpitracking.entity.User> findUsersByOrgUnitPath(@Param("path") String path, @Param("orgId") UUID orgId);
 
+    @Query("SELECT DISTINCT uro.user FROM UserRoleOrgUnit uro JOIN com.kpitracking.entity.RolePermission rp ON rp.role = uro.role JOIN rp.permission perm WHERE uro.orgUnit.id = :orgUnitId AND perm.code = :permissionCode")
+    List<com.kpitracking.entity.User> findUsersWithPermissionInOrgUnit(@Param("orgUnitId") UUID orgUnitId, @Param("permissionCode") String permissionCode);
+
     @Query("SELECT uro.orgUnit.id, COUNT(DISTINCT uro.user.id) FROM UserRoleOrgUnit uro WHERE uro.orgUnit.id IN :orgUnitIds GROUP BY uro.orgUnit.id")
     List<Object[]> countUsersByOrgUnitIdMap(@Param("orgUnitIds") java.util.Collection<UUID> orgUnitIds);
 

@@ -9,5 +9,6 @@ import org.mapstruct.Mapping;
 public interface UserMapper {
 
     @Mapping(target = "hasSeenOnboarding", source = "hasSeenOnboarding")
+    @Mapping(target = "isPlatformAdmin", source = "isPlatformAdmin")
     UserInfoResponse toUserInfoResponse(User user);
 }

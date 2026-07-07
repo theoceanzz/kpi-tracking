@@ -1,4 +1,4 @@
-export type KpiStatus = 'DRAFT' | 'PENDING_APPROVAL' | 'APPROVED' | 'REJECTED' | 'INACTIVE' | 'EDIT' | 'EDITED'
+export type KpiStatus = 'DRAFT' | 'PENDING_APPROVAL' | 'APPROVED' | 'REJECTED' | 'INACTIVE' | 'EDIT' | 'EDITED' | 'REPLACED'
 export type KpiFrequency = 'DAILY' | 'WEEKLY' | 'MONTHLY' | 'QUARTERLY' | 'SEMI_ANNUALLY' | 'YEARLY' | 'UNLIMITED'
 export type KpiParentRelationType = 'DELEGATION' | 'DECOMPOSITION'
 
@@ -59,6 +59,9 @@ export interface KpiCriteria {
   delegatedToNames?: string[]
   delegatedToIds?: string[]
   childrenWeightTotal?: number
+  replacedById?: string | null
+  replacedByName?: string | null
+  replacementReason?: string | null
 }
 
 // Matches BE: CreateKpiCriteriaRequest
@@ -114,4 +117,31 @@ export interface ImportKpiResult {
   totalRows: number
   successfulImports: number
   errors: string[]
+}
+
+// Matches BE: ReplaceKpiRequest
+export interface ReplaceKpiRequest {
+  replacementReason?: string
+  name: string
+  description?: string
+  weight?: number
+  targetValue?: number
+  minimumValue?: number
+  unit?: string
+  frequency: KpiFrequency
+  assignedToIds?: string[]
+  isReverseKpi?: boolean
+  isBonusKpi?: boolean
+  deadline?: string | null
+  keyResultId?: string | null
+}
+
+// Matches BE: BatchUpdateWeightRequest
+export interface WeightUpdateItem {
+  kpiId: string
+  weight: number
+}
+
+export interface BatchUpdateWeightRequest {
+  updates: WeightUpdateItem[]
 }

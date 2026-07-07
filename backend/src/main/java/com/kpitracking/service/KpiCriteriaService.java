@@ -16,6 +16,7 @@ import com.kpitracking.enums.KpiFrequency;
 import com.kpitracking.event.KpiEvents.KpiCriteriaApprovedEvent;
 import com.kpitracking.event.KpiEvents.KpiCriteriaRejectedEvent;
 import com.kpitracking.event.KpiEvents.KpiCriteriaApprovalRevertedEvent;
+import com.kpitracking.event.KpiEvents.KpiCriteriaSubmittedForApprovalEvent;
 import com.kpitracking.exception.BusinessException;
 import com.kpitracking.exception.ForbiddenException;
 import com.kpitracking.exception.ResourceNotFoundException;
@@ -573,6 +574,7 @@ public class KpiCriteriaService {
             kpi.setRejectReason(null);
             kpi = kpiCriteriaRepository.save(kpi);
             results.add(kpiCriteriaMapper.toResponse(kpi));
+            eventPublisher.publishEvent(new KpiCriteriaSubmittedForApprovalEvent(this, kpi));
         }
 
         return results;
@@ -1248,5 +1250,107 @@ public class KpiCriteriaService {
         }
 
         throw new BusinessException("Deadline '" + raw + "' không đúng định dạng. Vui lòng dùng dd/MM/yyyy hoặc dd/MM/yyyy HH:mm.");
+    }
+
+    @Transactional
+    public KpiCriteriaResponse replaceKpiCriteria(UUID replacedKpiId, com.kpitracking.dto.request.kpi.ReplaceKpiRequest request) {
+        User currentUser = getCurrentUser();
+
+        KpiCriteria replacedKpi = kpiCriteriaRepository.findById(replacedKpiId)
+                .orElseThrow(() -> new ResourceNotFoundException("Chỉ tiêu KPI", "id", replacedKpiId));
+
+        boolean isCreator = replacedKpi.getCreatedBy().getId().equals(currentUser.getId());
+        boolean canUpdate = permissionChecker.hasPermissionInOrgUnit(currentUser.getId(), "KPI:UPDATE", replacedKpi.getOrgUnit().getId());
+        if (!isCreator && !canUpdate) {
+            throw new ForbiddenException("Bạn không có quyền thay thế KPI này");
+        }
+
+        if (replacedKpi.getStatus() == KpiStatus.REPLACED || replacedKpi.getStatus() == KpiStatus.INACTIVE) {
+            throw new BusinessException("KPI này đã bị thay thế hoặc không còn hoạt động");
+        }
+
+        Double newWeight = request.getWeight() != null ? request.getWeight() : replacedKpi.getWeight();
+
+        List<User> newAssignees;
+        if (request.getAssignedToIds() != null && !request.getAssignedToIds().isEmpty()) {
+            newAssignees = new ArrayList<>();
+            for (UUID id : request.getAssignedToIds()) {
+                newAssignees.add(userRepository.findById(id)
+                        .orElseThrow(() -> new ResourceNotFoundException("Người dùng", "id", id)));
+            }
+        } else {
+            newAssignees = new ArrayList<>(replacedKpi.getAssignees());
+        }
+
+        KpiStatus initialStatus = permissionChecker.hasPermission(currentUser.getId(), "KPI:APPROVE_OWN")
+                ? KpiStatus.APPROVED : KpiStatus.DRAFT;
+
+        KpiCriteria newKpi = KpiCriteria.builder()
+                .orgUnit(replacedKpi.getOrgUnit())
+                .assignees(newAssignees)
+                .name(request.getName())
+                .description(request.getDescription())
+                .weight(newWeight)
+                .targetValue(request.getTargetValue())
+                .minimumValue(request.getMinimumValue())
+                .isReverseKpi(Boolean.TRUE.equals(request.getIsReverseKpi()))
+                .isBonusKpi(Boolean.TRUE.equals(request.getIsBonusKpi()))
+                .unit(request.getUnit())
+                .deadline(request.getDeadline())
+                .frequency(request.getFrequency())
+                .status(initialStatus)
+                .createdBy(currentUser)
+                .kpiPeriod(replacedKpi.getKpiPeriod())
+                .build();
+
+        if (request.getKeyResultId() != null) {
+            com.kpitracking.entity.KeyResult kr = keyResultRepository.findById(request.getKeyResultId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Key Result", "id", request.getKeyResultId()));
+            newKpi.setKeyResult(kr);
+        }
+
+        if (initialStatus == KpiStatus.APPROVED) {
+            newKpi.setApprovedBy(currentUser);
+            newKpi.setApprovedAt(Instant.now());
+        }
+
+        newKpi = kpiCriteriaRepository.save(newKpi);
+
+        replacedKpi.setStatus(KpiStatus.REPLACED);
+        replacedKpi.setReplacedBy(newKpi);
+        replacedKpi.setReplacementReason(request.getReplacementReason());
+        kpiCriteriaRepository.save(replacedKpi);
+
+        if (initialStatus == KpiStatus.APPROVED) {
+            eventPublisher.publishEvent(new KpiCriteriaApprovedEvent(this, newKpi));
+        }
+
+        return kpiCriteriaMapper.toResponse(newKpi);
+    }
+
+    @Transactional
+    public List<KpiCriteriaResponse> batchUpdateWeights(com.kpitracking.dto.request.kpi.BatchUpdateWeightRequest request) {
+        User currentUser = getCurrentUser();
+        List<KpiCriteria> updated = new ArrayList<>();
+
+        for (com.kpitracking.dto.request.kpi.WeightUpdateItem item : request.getUpdates()) {
+            KpiCriteria kpi = kpiCriteriaRepository.findById(item.getKpiId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Chỉ tiêu KPI", "id", item.getKpiId()));
+
+            boolean isCreator = kpi.getCreatedBy().getId().equals(currentUser.getId());
+            boolean canUpdate = permissionChecker.hasPermissionInOrgUnit(currentUser.getId(), "KPI:UPDATE", kpi.getOrgUnit().getId());
+            if (!isCreator && !canUpdate) {
+                throw new ForbiddenException("Bạn không có quyền chỉnh sửa trọng số KPI: " + kpi.getName());
+            }
+
+            if (kpi.getStatus() == KpiStatus.REPLACED || kpi.getStatus() == KpiStatus.INACTIVE) {
+                throw new BusinessException("Không thể thay đổi trọng số KPI '" + kpi.getName() + "' đã bị thay thế hoặc ngưng hoạt động.");
+            }
+
+            kpi.setWeight(item.getWeight());
+            updated.add(kpiCriteriaRepository.save(kpi));
+        }
+
+        return updated.stream().map(kpiCriteriaMapper::toResponse).toList();
     }
 }

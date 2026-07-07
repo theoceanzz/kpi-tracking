@@ -79,4 +79,8 @@ public class User {
     @Column(name = "has_seen_onboarding", nullable = false)
     @Builder.Default
     private Boolean hasSeenOnboarding = false;
+
+    @Column(name = "is_platform_admin", nullable = false)
+    @Builder.Default
+    private Boolean isPlatformAdmin = false;
 }

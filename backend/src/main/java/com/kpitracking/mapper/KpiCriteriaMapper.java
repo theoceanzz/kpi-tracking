@@ -48,6 +48,8 @@ public interface KpiCriteriaMapper {
     @Mapping(source = "keyResult.objective.code", target = "objectiveCode")
     @Mapping(source = "parent.id", target = "parentId")
     @Mapping(source = "parent.name", target = "parentName")
+    @Mapping(source = "replacedBy.id", target = "replacedById")
+    @Mapping(source = "replacedBy.name", target = "replacedByName")
     @Mapping(target = "submissionCount", expression = "java(countActiveSubmissions(kpiCriteria))")
     @Mapping(target = "expectedSubmissions", expression = "java(calculateExpected(kpiCriteria))")
     @Mapping(target = "effectiveDeadline", expression = "java(kpiCriteria.getEffectiveDeadline())")

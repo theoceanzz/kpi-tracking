@@ -1,15 +1,20 @@
 package com.kpitracking.controller;
 
+import com.kpitracking.dto.request.notification.SaveNotificationConfigRequest;
 import com.kpitracking.dto.response.ApiResponse;
 import com.kpitracking.dto.response.PageResponse;
+import com.kpitracking.dto.response.notification.NotificationConfigResponse;
 import com.kpitracking.dto.response.notification.NotificationResponse;
 import com.kpitracking.service.NotificationService;
+import com.kpitracking.service.OrgNotificationConfigService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
 import java.util.UUID;
 
 @RestController
@@ -19,6 +24,7 @@ import java.util.UUID;
 public class NotificationController {
 
     private final NotificationService notificationService;
+    private final OrgNotificationConfigService orgNotificationConfigService;
 
     @GetMapping
     @Operation(summary = "Get current user's notifications")
@@ -48,5 +54,18 @@ public class NotificationController {
     public ResponseEntity<ApiResponse<Void>> markAllAsRead() {
         notificationService.markAllAsRead();
         return ResponseEntity.ok(ApiResponse.success(null));
+    }
+
+    @GetMapping("/config")
+    @Operation(summary = "Get notification config for current user's organization")
+    public ResponseEntity<ApiResponse<List<NotificationConfigResponse>>> getNotificationConfig() {
+        return ResponseEntity.ok(ApiResponse.success(orgNotificationConfigService.getMyOrgConfigs()));
+    }
+
+    @PutMapping("/config")
+    @Operation(summary = "Save notification config for current user's organization")
+    public ResponseEntity<ApiResponse<List<NotificationConfigResponse>>> saveNotificationConfig(
+            @Valid @RequestBody SaveNotificationConfigRequest request) {
+        return ResponseEntity.ok(ApiResponse.success(orgNotificationConfigService.saveMyOrgConfigs(request)));
     }
 }

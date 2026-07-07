@@ -111,6 +111,151 @@ public interface KpiSubmissionRepository extends JpaRepository<KpiSubmission, UU
     @Query("SELECT s.actualValue FROM KpiSubmission s WHERE s.orgUnit.id IN :orgUnitIds AND s.kpiCriteria.id = :kpiId AND s.status = 'APPROVED' AND s.createdAt >= :from AND s.createdAt <= :to ORDER BY COALESCE(s.periodStart, s.createdAt) DESC")
     java.util.List<Double> latestActualValueByOrgUnitIdsAndKpiIdInPeriod(@Param("orgUnitIds") java.util.List<UUID> orgUnitIds, @Param("kpiId") UUID kpiId, @Param("from") java.time.Instant from, @Param("to") java.time.Instant to, org.springframework.data.domain.Pageable pageable);
 
+    // ===== Statistic Tool queries =====
+
+    /**
+     * Tổng actualValue / tổng targetValue theo công thức tiến độ mới: sum(actual) / sum(target) * 100.
+     * Chỉ lấy submissions có status APPROVED và kpi đã APPROVED, scoped theo orgId.
+     */
+    @Query(value =
+            "SELECT COALESCE(SUM(s.actual_value), 0), COALESCE(SUM(kc.target_value), 0) " +
+            "FROM kpi_submissions s " +
+            "JOIN kpi_criteria kc ON s.kpi_criteria_id = kc.id " +
+            "JOIN org_units ou ON s.org_unit_id = ou.id " +
+            "JOIN org_hierarchy_levels ohl ON ou.org_hierarchy_id = ohl.id " +
+            "WHERE s.deleted_at IS NULL AND kc.deleted_at IS NULL " +
+            "AND s.status = 'APPROVED' AND kc.status = 'APPROVED' " +
+            "AND ohl.organization_id = :orgId", nativeQuery = true)
+    Object[] sumActualAndTargetByOrgId(@Param("orgId") UUID orgId);
+
+    /**
+     * Tổng actualValue theo từng tháng/quý/năm để tính xu hướng tiến độ, scoped theo orgId.
+     * Chỉ lấy submissions APPROVED của kpi APPROVED.
+     */
+    @Query(value =
+            "SELECT TO_CHAR(s.period_start, :datePattern) AS period_label, " +
+            "COALESCE(SUM(s.actual_value), 0) AS total_actual, " +
+            "COALESCE(SUM(kc.target_value), 0) AS total_target, " +
+            "COUNT(s.id) AS submission_count " +
+            "FROM kpi_submissions s " +
+            "JOIN kpi_criteria kc ON s.kpi_criteria_id = kc.id " +
+            "JOIN org_units ou ON s.org_unit_id = ou.id " +
+            "JOIN org_hierarchy_levels ohl ON ou.org_hierarchy_id = ohl.id " +
+            "WHERE s.deleted_at IS NULL AND kc.deleted_at IS NULL " +
+            "AND s.status = 'APPROVED' AND kc.status = 'APPROVED' " +
+            "AND s.period_start IS NOT NULL " +
+            "AND ohl.organization_id = :orgId " +
+            "GROUP BY period_label ORDER BY period_label", nativeQuery = true)
+    java.util.List<Object[]> trendActualVsTargetByOrgId(@Param("orgId") UUID orgId, @Param("datePattern") String datePattern);
+
+    /**
+     * Hiệu suất trung bình theo đơn vị (avg actual/target per submission), scoped theo orgId.
+     */
+    @Query(value =
+            "SELECT ou.id, ou.name, " +
+            "AVG(s.actual_value * 100.0 / NULLIF(kc.target_value, 0)) AS avg_performance, " +
+            "COUNT(s.id) AS submission_count " +
+            "FROM kpi_submissions s " +
+            "JOIN kpi_criteria kc ON s.kpi_criteria_id = kc.id " +
+            "JOIN org_units ou ON s.org_unit_id = ou.id " +
+            "JOIN org_hierarchy_levels ohl ON ou.org_hierarchy_id = ohl.id " +
+            "WHERE s.deleted_at IS NULL AND kc.deleted_at IS NULL " +
+            "AND s.status = 'APPROVED' AND kc.status = 'APPROVED' " +
+            "AND kc.target_value > 0 " +
+            "AND ohl.organization_id = :orgId " +
+            "GROUP BY ou.id, ou.name ORDER BY avg_performance DESC", nativeQuery = true)
+    java.util.List<Object[]> avgPerformanceGroupByOrgUnitByOrgId(@Param("orgId") UUID orgId);
+
+    /**
+     * Top performers theo hiệu suất actual/target, scoped theo orgId.
+     */
+    @Query(value =
+            "SELECT u.id, u.full_name, u.email, " +
+            "AVG(s.actual_value * 100.0 / NULLIF(kc.target_value, 0)) AS avg_performance, " +
+            "COUNT(s.id) AS submission_count " +
+            "FROM kpi_submissions s " +
+            "JOIN kpi_criteria kc ON s.kpi_criteria_id = kc.id " +
+            "JOIN users u ON s.submitted_by = u.id " +
+            "JOIN org_units ou ON s.org_unit_id = ou.id " +
+            "JOIN org_hierarchy_levels ohl ON ou.org_hierarchy_id = ohl.id " +
+            "WHERE s.deleted_at IS NULL AND kc.deleted_at IS NULL AND u.deleted_at IS NULL " +
+            "AND s.status = 'APPROVED' AND kc.status = 'APPROVED' " +
+            "AND kc.target_value > 0 " +
+            "AND ohl.organization_id = :orgId " +
+            "GROUP BY u.id, u.full_name, u.email ORDER BY avg_performance DESC LIMIT :lim", nativeQuery = true)
+    java.util.List<Object[]> topPerformersByActualVsTargetByOrgId(@Param("orgId") UUID orgId, @Param("lim") int limit);
+
+    /**
+     * Low performers theo hiệu suất actual/target, scoped theo orgId.
+     */
+    @Query(value =
+            "SELECT u.id, u.full_name, u.email, " +
+            "AVG(s.actual_value * 100.0 / NULLIF(kc.target_value, 0)) AS avg_performance, " +
+            "COUNT(s.id) AS submission_count " +
+            "FROM kpi_submissions s " +
+            "JOIN kpi_criteria kc ON s.kpi_criteria_id = kc.id " +
+            "JOIN users u ON s.submitted_by = u.id " +
+            "JOIN org_units ou ON s.org_unit_id = ou.id " +
+            "JOIN org_hierarchy_levels ohl ON ou.org_hierarchy_id = ohl.id " +
+            "WHERE s.deleted_at IS NULL AND kc.deleted_at IS NULL AND u.deleted_at IS NULL " +
+            "AND s.status = 'APPROVED' AND kc.status = 'APPROVED' " +
+            "AND kc.target_value > 0 " +
+            "AND ohl.organization_id = :orgId " +
+            "GROUP BY u.id, u.full_name, u.email ORDER BY avg_performance ASC LIMIT :lim", nativeQuery = true)
+    java.util.List<Object[]> lowPerformersByActualVsTargetByOrgId(@Param("orgId") UUID orgId, @Param("lim") int limit);
+
+    /**
+     * Hiệu suất actual/target theo từng user, scoped theo userId.
+     */
+    @Query(value =
+            "SELECT AVG(s.actual_value * 100.0 / NULLIF(kc.target_value, 0)), " +
+            "MIN(s.actual_value * 100.0 / NULLIF(kc.target_value, 0)), " +
+            "MAX(s.actual_value * 100.0 / NULLIF(kc.target_value, 0)), " +
+            "COUNT(s.id) " +
+            "FROM kpi_submissions s " +
+            "JOIN kpi_criteria kc ON s.kpi_criteria_id = kc.id " +
+            "WHERE s.deleted_at IS NULL AND kc.deleted_at IS NULL " +
+            "AND s.status = 'APPROVED' AND kc.status = 'APPROVED' " +
+            "AND kc.target_value > 0 " +
+            "AND s.submitted_by = :userId", nativeQuery = true)
+    Object[] performanceStatsByUserId(@Param("userId") UUID userId);
+
+
+
+    @Query(value =
+            "SELECT s.id, u.full_name, u.email, ou.name AS org_unit_name, kc.name AS kpi_name, " +
+            "s.created_at, COALESCE(kc.deadline, p.end_date) AS effective_deadline " +
+            "FROM kpi_submissions s " +
+            "JOIN users u ON s.submitted_by = u.id " +
+            "JOIN org_units ou ON s.org_unit_id = ou.id " +
+            "JOIN org_hierarchy_levels ohl ON ou.org_hierarchy_id = ohl.id " +
+            "JOIN kpi_criteria kc ON s.kpi_criteria_id = kc.id " +
+            "LEFT JOIN kpi_periods p ON kc.kpi_period_id = p.id AND p.deleted_at IS NULL " +
+            "WHERE s.deleted_at IS NULL AND COALESCE(kc.deadline, p.end_date) IS NOT NULL " +
+            "AND s.created_at > COALESCE(kc.deadline, p.end_date) " +
+            "AND ohl.organization_id = :orgId " +
+            "ORDER BY s.created_at DESC LIMIT 50", nativeQuery = true)
+    java.util.List<Object[]> findLateSubmissionsByOrgId(@Param("orgId") UUID orgId);
+
+    @Query(value =
+            "SELECT s.status, COUNT(s.id) FROM kpi_submissions s " +
+            "JOIN org_units ou ON s.org_unit_id = ou.id " +
+            "JOIN org_hierarchy_levels ohl ON ou.org_hierarchy_id = ohl.id " +
+            "WHERE s.deleted_at IS NULL AND ohl.organization_id = :orgId GROUP BY s.status",
+            nativeQuery = true)
+    java.util.List<Object[]> countGroupByStatusByOrgId(@Param("orgId") UUID orgId);
+
+    @Query(value = "SELECT s.id, u.full_name, u.email, ou.name AS org_unit_name, kc.name AS kpi_name, " +
+            "s.created_at, EXTRACT(EPOCH FROM (CURRENT_TIMESTAMP - s.created_at))/86400 AS days_pending " +
+            "FROM kpi_submissions s " +
+            "JOIN users u ON s.submitted_by = u.id " +
+            "JOIN org_units ou ON s.org_unit_id = ou.id " +
+            "JOIN org_hierarchy_levels ohl ON ou.org_hierarchy_id = ohl.id " +
+            "JOIN kpi_criteria kc ON s.kpi_criteria_id = kc.id " +
+            "WHERE s.status = 'PENDING' AND s.deleted_at IS NULL AND ohl.organization_id = :orgId " +
+            "ORDER BY s.created_at ASC LIMIT :limit", nativeQuery = true)
+    java.util.List<Object[]> findReviewBottlenecksByOrgId(@Param("orgId") UUID orgId, @Param("limit") int limit);
+
     // ===== OrgUnit Subtree Statistics =====
 
     @Query(value = "SELECT s.status, COUNT(s.id) FROM kpi_submissions s " +
@@ -170,8 +315,10 @@ public interface KpiSubmissionRepository extends JpaRepository<KpiSubmission, UU
             "FROM kpi_submissions s " +
             "JOIN users u ON s.submitted_by = u.id " +
             "JOIN org_units ou ON s.org_unit_id = ou.id " +
+            "JOIN kpi_criteria kc ON s.kpi_criteria_id = kc.id " +
+            "LEFT JOIN kpi_periods p ON kc.kpi_period_id = p.id AND p.deleted_at IS NULL " +
             "WHERE ou.path LIKE CONCAT(:pathPrefix, '%') AND s.deleted_at IS NULL " +
-            "AND s.period_end IS NOT NULL AND s.created_at > s.period_end " +
+            "AND COALESCE(kc.deadline, p.end_date) IS NOT NULL AND s.created_at > COALESCE(kc.deadline, p.end_date) " +
             "AND s.created_at >= :startDate AND s.created_at <= :endDate " +
             "GROUP BY u.id, u.full_name, u.email " +
             "ORDER BY late_count DESC LIMIT :limit", nativeQuery = true)
@@ -192,12 +339,14 @@ public interface KpiSubmissionRepository extends JpaRepository<KpiSubmission, UU
     @Deprecated
     @Query(value =
             "SELECT s.id, u.full_name, u.email, ou.name AS org_unit_name, kc.name AS kpi_name, " +
-            "s.created_at, s.period_end " +
+            "s.created_at, COALESCE(kc.deadline, p.end_date) AS effective_deadline " +
             "FROM kpi_submissions s " +
             "JOIN users u ON s.submitted_by = u.id " +
             "JOIN org_units ou ON s.org_unit_id = ou.id " +
             "JOIN kpi_criteria kc ON s.kpi_criteria_id = kc.id " +
-            "WHERE s.deleted_at IS NULL AND s.period_end IS NOT NULL AND s.created_at > s.period_end " +
+            "LEFT JOIN kpi_periods p ON kc.kpi_period_id = p.id AND p.deleted_at IS NULL " +
+            "WHERE s.deleted_at IS NULL AND COALESCE(kc.deadline, p.end_date) IS NOT NULL " +
+            "AND s.created_at > COALESCE(kc.deadline, p.end_date) " +
             "ORDER BY s.created_at DESC LIMIT 50", nativeQuery = true)
     java.util.List<Object[]> findLateSubmissions();
 

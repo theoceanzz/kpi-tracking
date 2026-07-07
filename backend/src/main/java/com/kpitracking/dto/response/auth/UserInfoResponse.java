@@ -21,4 +21,5 @@ public class UserInfoResponse {
     private List<String> permissions;
     private Boolean requirePasswordChange;
     private Boolean hasSeenOnboarding;
+    private Boolean isPlatformAdmin;
 }

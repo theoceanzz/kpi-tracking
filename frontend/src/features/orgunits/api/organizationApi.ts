@@ -27,6 +27,7 @@ export interface OrganizationResponse {
   kpiReminderPercentage: number
   enableOkr: boolean
   enableWaterfall: boolean
+  enableAi: boolean
   createdAt: string
   updatedAt: string
 }

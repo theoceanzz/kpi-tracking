@@ -40,11 +40,12 @@ CREATE TABLE organizations (
   id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   name        TEXT NOT NULL,
   code        TEXT NOT NULL UNIQUE,
-  status      TEXT NOT NULL DEFAULT 'ACTIVE' CHECK (status IN ('ACTIVE','SUSPENDED','ARCHIVED')),
+  status      TEXT NOT NULL DEFAULT 'ACTIVE' CHECK (status IN ('ACTIVE','SUSPENDED','ARCHIVED','PENDING')),
   evaluation_max_score DOUBLE PRECISION DEFAULT 100.0,
   kpi_reminder_percentage INT DEFAULT 50,
   enable_okr BOOLEAN DEFAULT FALSE,
   enable_waterfall BOOLEAN DEFAULT FALSE,
+  enable_ai   BOOLEAN NOT NULL DEFAULT TRUE,
   created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at  TIMESTAMPTZ NOT NULL DEFAULT now()
 );
@@ -146,7 +147,8 @@ CREATE TABLE users (
     deleted_at          TIMESTAMPTZ,
     employee_code       VARCHAR(50),
     require_password_change BOOLEAN     NOT NULL DEFAULT FALSE,
-    has_seen_onboarding BOOLEAN         NOT NULL DEFAULT FALSE
+    has_seen_onboarding BOOLEAN         NOT NULL DEFAULT FALSE,
+    is_platform_admin   BOOLEAN         NOT NULL DEFAULT FALSE
 );
 
 CREATE INDEX idx_users_email ON users(email);
@@ -355,6 +357,8 @@ CREATE TABLE kpi_criteria (
     reject_reason   TEXT,
     submitted_at    TIMESTAMPTZ,
     approved_at     TIMESTAMPTZ,
+    replaced_by_id  UUID            REFERENCES kpi_criteria(id) ON DELETE SET NULL,
+    replacement_reason TEXT,
     created_at      TIMESTAMPTZ     DEFAULT NOW(),
     updated_at      TIMESTAMPTZ     DEFAULT NOW(),
     deleted_at      TIMESTAMPTZ
@@ -475,6 +479,20 @@ CREATE TABLE notifications (
 
 CREATE INDEX idx_notifications_org_unit_user ON notifications(org_unit_id, user_id);
 CREATE INDEX idx_notifications_is_read ON notifications(is_read);
+
+-- ====================================================
+-- Notification config per organization
+-- ====================================================
+CREATE TABLE org_notification_configs (
+    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    organization_id UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+    event_code      VARCHAR(50) NOT NULL,
+    email_enabled   BOOLEAN NOT NULL DEFAULT true,
+    system_enabled  BOOLEAN NOT NULL DEFAULT true,
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    CONSTRAINT uq_org_event UNIQUE (organization_id, event_code)
+);
 
 -- ====================================================
 -- Refresh Tokens
@@ -738,7 +756,7 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- ====================================================
--- Create trigger for update path 
+-- Create trigger for update path
 -- ====================================================
 CREATE TRIGGER trg_update_org_subtree
 AFTER UPDATE OF parent_id ON org_units

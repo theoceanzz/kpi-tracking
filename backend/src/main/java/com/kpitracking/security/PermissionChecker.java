@@ -5,6 +5,7 @@ import com.kpitracking.entity.RolePermission;
 import com.kpitracking.entity.UserRoleOrgUnit;
 import com.kpitracking.repository.OrgUnitRepository;
 import com.kpitracking.repository.RolePermissionRepository;
+import com.kpitracking.repository.UserRepository;
 import com.kpitracking.repository.UserRoleOrgUnitRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
@@ -28,6 +29,7 @@ public class PermissionChecker {
     private final UserRoleOrgUnitRepository userRoleOrgUnitRepository;
     private final RolePermissionRepository rolePermissionRepository;
     private final OrgUnitRepository orgUnitRepository;
+    private final UserRepository userRepository;
 
     /**
      * Internal helper to fetch assignments and their associated permission codes.
@@ -130,6 +132,15 @@ public class PermissionChecker {
                     Set<String> perms = rolePerms.getOrDefault(a.getRole().getId(), Collections.emptySet());
                     return perms.contains("SYSTEM:ADMIN");
                 });
+    }
+
+    /**
+     * Check if a user is a platform-level super admin (cross-org access).
+     */
+    public boolean isPlatformAdmin(String email) {
+        return userRepository.findByEmail(email)
+                .map(u -> Boolean.TRUE.equals(u.getIsPlatformAdmin()))
+                .orElse(false);
     }
 
     /**

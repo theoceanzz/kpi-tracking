@@ -5,10 +5,13 @@ import {
   User, Clock, Database,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { useAuthStore } from '@/store/authStore'
+import { useOrganization } from '@/features/orgunits/hooks/useOrganization'
 import { aiApi, type ConversationResponse, type InsightCard, type FollowupPools } from '../api/aiApi'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import InsightCards from '../components/InsightCards'
+import AiDisabledPage from '../components/AiDisabledPage'
 import FollowupSuggestions from '../components/FollowupSuggestions'
 import { buildFollowupContext } from '../utils/followupContext'
 import { Button } from '@/components/ui/button'
@@ -40,6 +43,10 @@ const WELCOME_MSG: Message = {
 }
 
 export default function AiAssistantPage() {
+  const { user } = useAuthStore()
+  const orgId = user?.memberships?.[0]?.organizationId
+  const { data: org } = useOrganization(orgId)
+
   const [input, setInput] = useState('')
   const [messages, setMessages] = useState<Message[]>([WELCOME_MSG])
   const [isLoading, setIsLoading] = useState(false)
@@ -103,6 +110,8 @@ export default function AiAssistantPage() {
   }, [])
 
   useEffect(() => { loadInsights() }, [loadInsights])
+
+  if (org && org.enableAi === false) return <AiDisabledPage />
 
   const handleNewChat = () => {
     setConversationId(null)

@@ -3,11 +3,17 @@ import DirectorDashboard from './DirectorDashboard'
 import HeadDashboard from './HeadDashboard'
 import StaffDashboard from './StaffDashboard'
 import { useSearchParams, Navigate } from 'react-router-dom'
+import { useAuthStore } from '@/store/authStore'
 
 const DashboardPage = () => {
   const { hasPermission } = useHasPermission()
   const [searchParams] = useSearchParams()
   const view = searchParams.get('view')
+  const user = useAuthStore((s) => s.user)
+
+  if (user?.isPlatformAdmin) {
+    return <Navigate to="/admin" replace />
+  }
 
   // If explicitly requested 'staff' view and has staff permissions
   if (view === 'staff' && hasPermission('KPI:VIEW_MY')) {

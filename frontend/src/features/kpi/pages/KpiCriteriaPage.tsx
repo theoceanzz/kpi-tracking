@@ -25,6 +25,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { kpiApi } from '../api/kpiApi'
 import { toast } from 'sonner'
 import KpiImportGuideModal from '../components/KpiImportGuideModal'
+import UrgentTaskModal from '../components/UrgentTaskModal'
 import { useKpiPeriods } from '../hooks/useKpiPeriods'
 import { useKpiTotalWeight } from '../hooks/useKpiTotalWeight'
 import { useOrgUnitTree } from '@/features/orgunits/hooks/useOrgUnitTree'
@@ -39,7 +40,7 @@ import { kpiCriteriaSteps } from '@/components/common/tourSteps'
 import { ObjectiveResponse } from '@/features/okr/types'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { useBulkSubmitKpi } from '../hooks/useBulkSubmitKpi'
-import { Check, CheckSquare } from 'lucide-react'
+import { Check, CheckSquare, Zap } from 'lucide-react'
 
 export default function KpiCriteriaPage() {
   const [showForm, setShowForm] = useState(false)
@@ -51,6 +52,7 @@ export default function KpiCriteriaPage() {
   const [decomposeKpi, setDecomposeKpi] = useState<KpiCriteria | null>(null)
   const [selectedKpiIds, setSelectedKpiIds] = useState<string[]>([])
   const [showBulkConfirm, setShowBulkConfirm] = useState(false)
+  const [showUrgentModal, setShowUrgentModal] = useState(false)
   const [collapsedParents, setCollapsedParents] = useState<Set<string>>(new Set())
   
   const [activeTab, setActiveTab] = useState<'ALL' | 'DRAFT' | 'PENDING_APPROVAL' | 'APPROVED' | 'REJECTED'>('ALL')
@@ -463,17 +465,26 @@ export default function KpiCriteriaPage() {
                 <div className="flex items-center gap-2 lg:gap-3">
                   <button
                     onClick={() => setShowImportGuide(true)}
-                    className="flex items-center gap-2 px-4 sm:px-5 h-11 sm:h-[52px] rounded-[20px] border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs sm:text-sm font-black text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all active:scale-95 shadow-sm whitespace-nowrap"
+                    className="flex items-center gap-2 px-3 sm:px-5 h-11 sm:h-[52px] rounded-[20px] border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs sm:text-sm font-black text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all active:scale-95 shadow-sm"
                   >
-                    <Upload size={16} /> Import
+                    <Upload size={16} /> <span className="hidden sm:inline">Import</span>
                   </button>
+
+                  {selectedPeriodId && selectedOrgUnitId && (
+                    <button
+                      onClick={() => setShowUrgentModal(true)}
+                      className="cursor-pointer relative z-10 flex items-center gap-2 px-3 sm:px-5 h-11 sm:h-[52px] rounded-[20px] bg-amber-500 text-white text-xs sm:text-sm font-bold hover:bg-amber-600 transition-all shadow-lg shadow-amber-500/20 active:scale-95"
+                    >
+                      <Zap size={16} /> <span className="hidden sm:inline">Task khẩn</span>
+                    </button>
+                  )}
 
                   <button
                     id="tour-kpi-add-btn"
                     onClick={() => { setEditKpi(null); setShowForm(true) }}
-                    className="cursor-pointer relative z-10 flex items-center gap-2 px-5 sm:px-8 h-11 sm:h-[52px] rounded-[20px] bg-indigo-600 text-white text-xs sm:text-sm font-black hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-500/20 active:scale-95 group whitespace-nowrap"
+                    className="cursor-pointer relative z-10 flex items-center gap-2 px-3 sm:px-8 h-11 sm:h-[52px] rounded-[20px] bg-indigo-600 text-white text-xs sm:text-sm font-black hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-500/20 active:scale-95 group"
                   >
-                    <Plus size={18} className="group-hover:rotate-90 transition-transform duration-500" /> Tạo mới
+                    <Plus size={18} className="group-hover:rotate-90 transition-transform duration-500" /> <span className="hidden sm:inline">Tạo mới</span>
                   </button>
                 </div>
               </div>
@@ -950,6 +961,12 @@ export default function KpiCriteriaPage() {
           loading={bulkSubmitMutation.isPending} 
         />
         <input ref={fileRef} type="file" accept=".xlsx,.xls,.csv" className="hidden" onChange={handleImport} />
+        <UrgentTaskModal
+          open={showUrgentModal}
+          onClose={() => setShowUrgentModal(false)}
+          kpiPeriodId={selectedPeriodId}
+          orgUnitId={selectedOrgUnitId}
+        />
         <KpiExcelPreviewModal 
           open={showPreview}
           file={importFile}

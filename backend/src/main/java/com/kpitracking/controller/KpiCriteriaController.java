@@ -1,7 +1,9 @@
 package com.kpitracking.controller;
 
+import com.kpitracking.dto.request.kpi.BatchUpdateWeightRequest;
 import com.kpitracking.dto.request.kpi.CreateKpiCriteriaRequest;
 import com.kpitracking.dto.request.kpi.RejectKpiRequest;
+import com.kpitracking.dto.request.kpi.ReplaceKpiRequest;
 import com.kpitracking.dto.request.kpi.UpdateKpiCriteriaRequest;
 import com.kpitracking.dto.response.ApiResponse;
 import com.kpitracking.dto.response.PageResponse;
@@ -165,6 +167,26 @@ public class KpiCriteriaController {
             @RequestParam(required = false) UUID kpiPeriodId) {
         Double totalWeight = kpiCriteriaService.getTotalWeight(orgUnitId, userId, kpiPeriodId);
         return ResponseEntity.ok(ApiResponse.success(totalWeight != null ? totalWeight : 0.0));
+    }
+
+    @PostMapping("/{kpiId}/replace")
+    @PreAuthorize("hasAuthority('KPI:UPDATE')")
+    @Operation(summary = "Replace a KPI criteria with a new urgent task")
+    public ResponseEntity<ApiResponse<KpiCriteriaResponse>> replaceKpiCriteria(
+            @PathVariable UUID kpiId,
+            @Valid @RequestBody ReplaceKpiRequest request) {
+        KpiCriteriaResponse response = kpiCriteriaService.replaceKpiCriteria(kpiId, request);
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(ApiResponse.success("KPI đã được thay thế thành công", response));
+    }
+
+    @PatchMapping("/batch-weight")
+    @PreAuthorize("hasAuthority('KPI:UPDATE')")
+    @Operation(summary = "Batch update weights of multiple KPI criteria")
+    public ResponseEntity<ApiResponse<java.util.List<KpiCriteriaResponse>>> batchUpdateWeights(
+            @Valid @RequestBody BatchUpdateWeightRequest request) {
+        java.util.List<KpiCriteriaResponse> response = kpiCriteriaService.batchUpdateWeights(request);
+        return ResponseEntity.ok(ApiResponse.success("Cập nhật trọng số thành công", response));
     }
 
     @PostMapping(value = "/import", consumes = org.springframework.http.MediaType.MULTIPART_FORM_DATA_VALUE)

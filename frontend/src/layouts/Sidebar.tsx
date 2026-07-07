@@ -28,7 +28,8 @@ import {
   Settings,
   Lightbulb,
   CircleHelp,
-  Bot
+  Bot,
+  ShieldCheck
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useNotificationDots } from '../hooks/useNotificationDots'
@@ -45,6 +46,7 @@ interface NavItem {
   end?: boolean
   children?: NavItem[]
   okrOnly?: boolean
+  aiOnly?: boolean
   originalLabel?: string
 }
 
@@ -92,7 +94,7 @@ const navItems: NavItem[] = [
   { label: 'Tiến độ của tôi', path: '/submissions', icon: <FileText size={20} />, permission: 'SUBMISSION:VIEW_MY', end: true },
   { label: 'Yêu cầu điều chỉnh', path: '/my-adjustments', icon: <History size={20} />, permission: 'KPI:VIEW_MY' },
   { label: 'Thống kê', path: '/analytics', icon: <TrendingUp size={20} />, permission: 'DASHBOARD:VIEW', end: true },
-  { label: 'Trợ lý AI', path: '/ai-assistant', icon: <Bot size={20} />, permission: 'DASHBOARD:VIEW', end: true },
+  { label: 'Trợ lý AI', path: '/ai-assistant', icon: <Bot size={20} />, permission: 'DASHBOARD:VIEW', end: true, aiOnly: true },
 ]
 
 // All nav paths flattened — used to detect when a more-specific variant (e.g. /dashboard?view=staff)
@@ -172,6 +174,7 @@ export default function Sidebar({ isMobileOpen, onCloseMobile }: { isMobileOpen?
   const { data: customLabels = {} } = useSidebarSettings(organizationId!)
   const { data: org } = useOrganization(organizationId)
   const enableOkr = org?.enableOkr
+  const enableAi = org?.enableAi !== false // default true while loading
 
   const [expandedMenus, setExpandedMenus] = useState<Record<string, boolean>>({})
 
@@ -257,7 +260,9 @@ useEffect(() => {
     
     let processedItem: NavItem | null = updatedItem
 
-    if (item.path === '/dashboard?view=staff') {
+    if (item.aiOnly && !enableAi) {
+      processedItem = null
+    } else if (item.path === '/dashboard?view=staff') {
       const isManager = hasPermission(['KPI:APPROVE', 'SUBMISSION:REVIEW', 'ORG:CREATE', 'USER:VIEW_LIST'])
       if (!(isManager && hasPermission('KPI:VIEW_MY'))) {
         processedItem = null
@@ -518,6 +523,26 @@ useEffect(() => {
               </NavLink>
             )
           })}
+
+          {/* Platform Admin link — only for platform admins */}
+          {user?.isPlatformAdmin && (
+            <NavLink
+              to="/admin"
+              className={({ isActive }) => cn(
+                'flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-bold transition-all group mt-1',
+                isCollapsed && !isMobileOpen ? 'justify-center px-0 mx-2' : '',
+                isActive
+                  ? 'bg-[var(--color-primary)] text-white shadow-lg shadow-[var(--color-primary)]/25'
+                  : 'text-[var(--color-muted-foreground)] hover:bg-[var(--color-accent)] hover:text-[var(--color-foreground)]'
+              )}
+              title={isCollapsed ? 'Quản trị nền tảng' : ''}
+            >
+              <ShieldCheck size={20} className="shrink-0 transition-transform group-hover:scale-110" />
+              {(!isCollapsed || isMobileOpen) && (
+                <span className="truncate flex-1">Quản trị nền tảng</span>
+              )}
+            </NavLink>
+          )}
         </nav>
 
         {/* User Account Section */}
@@ -576,6 +601,7 @@ useEffect(() => {
                         // Just pick the first non-root one, or the first one
                         return ms.find(m => (m.levelOrder ?? 0) > 0) || ms[0];
                       })();
+                      if (user?.isPlatformAdmin) return 'Quản trị viên';
                       return membership?.roleDisplayName || membership?.roleName || 'Thành viên';
                     })()}
                   </p>

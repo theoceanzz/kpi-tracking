@@ -381,6 +381,10 @@ INSERT INTO role_policies (role_id, policy_id) VALUES
 
 -- 7. USERS
 -- ============================================================================
+-- Platform admin (no org membership)
+INSERT INTO users (id, email, password, full_name, status, is_email_verified, has_seen_onboarding, is_platform_admin) VALUES
+    ('00000000-0000-0000-0000-000000000001', 'admin@keygo.vn', '$2a$12$w0uxjEGJpZyIwOHvTw6XQeS5HMbLLELeH5qdzr610d.RGEW9P.x8q', 'KeyGo Admin', 'ACTIVE', true, true, true);
+
 -- Passwords Demo123@
 INSERT INTO users (id, email, password, full_name, employee_code, phone, status, is_email_verified, has_seen_onboarding) VALUES
     -- Chi nhánh (level 2)
@@ -2387,124 +2391,23 @@ INSERT INTO sidebar_settings (id, organization_id, menu_key, custom_label) VALUE
     (gen_random_uuid(), '22222222-2222-2222-2222-222222222222', '/submissions', 'Lịch sử báo cáo'),
     (gen_random_uuid(), '22222222-2222-2222-2222-222222222222', '/analytics', 'Phân tích & Thống kê');
 
--- ============================================================
--- 99. DỮ LIỆU TEST: KPI thưởng / cha / con / thác nước / cap 150%
---     Phòng IT (bbbb...), đợt Tháng 6/2026 (...106), giao cho NV ...101/...102,
---     tạo & duyệt bởi ...100. Tất cả là KPI độc lập (không gắn OKR) để
---     hiện ở tab "KPI của tôi" (NV 101) và bảng KPI đơn vị.
--- ============================================================
-INSERT INTO kpi_criteria
-    (id, org_unit_id, kpi_period_id, name, description, weight,
-     target_value, minimum_value, unit, frequency, status,
-     key_result_id, parent_id, parent_relation_type, is_reverse_kpi, is_bonus_kpi,
-     created_by, approved_by, submitted_at, approved_at)
-VALUES
-    -- KPI thưởng (bonus): không tính vào trung bình, hiển thị "—"
-    ('a1000000-0000-0000-0000-000000000001', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', '33333333-0000-0000-0000-000000000106',
-     '[TEST] Sáng kiến cải tiến (KPI thưởng)', 'KPI thưởng — điểm cộng thêm, không tính tiến độ/hiệu suất', 10,
-     3, NULL, 'sáng kiến', 'MONTHLY', 'APPROVED',
-     NULL, NULL, NULL, FALSE, TRUE,
-     '22222222-0000-0000-0000-000000000100', '22222222-0000-0000-0000-000000000100', '2026-06-05 08:00:00+07', '2026-06-06 08:00:00+07'),
-
-    -- KPI ngược (reverse): actual 2 ≤ target 5 → tiến độ chạm trần 150%
-    ('a1000000-0000-0000-0000-000000000002', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', '33333333-0000-0000-0000-000000000106',
-     '[TEST] Tỉ lệ sự cố hệ thống (KPI ngược)', 'KPI ngược — càng thấp càng tốt', 20,
-     5, 10, '%', 'MONTHLY', 'APPROVED',
-     NULL, NULL, NULL, TRUE, FALSE,
-     '22222222-0000-0000-0000-000000000100', '22222222-0000-0000-0000-000000000100', '2026-06-05 08:00:00+07', '2026-06-06 08:00:00+07'),
-
-    -- KPI thường vượt chỉ tiêu: actual 25 / target 10 = 250% → cap còn 150%
-    ('a1000000-0000-0000-0000-000000000003', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', '33333333-0000-0000-0000-000000000106',
-     '[TEST] Số hợp đồng ký mới (vượt chỉ tiêu — test cap 150%)', 'KPI thường vượt chỉ tiêu để kiểm tra trần 150%', 15,
-     10, 5, 'hợp đồng', 'MONTHLY', 'APPROVED',
-     NULL, NULL, NULL, FALSE, FALSE,
-     '22222222-0000-0000-0000-000000000100', '22222222-0000-0000-0000-000000000100', '2026-06-05 08:00:00+07', '2026-06-06 08:00:00+07'),
-
-    -- KPI CHA (decomposition): tiến độ = bình quân có trọng số của con = (50×10 + 80×20)/30 = 70%
-    ('a1000000-0000-0000-0000-000000000010', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', '33333333-0000-0000-0000-000000000106',
-     '[TEST] Hoàn thành dự án X (KPI cha)', 'KPI cha decomposition — gồm 2 KPI con', 30,
-     100, NULL, '%', 'MONTHLY', 'APPROVED',
-     NULL, NULL, NULL, FALSE, FALSE,
-     '22222222-0000-0000-0000-000000000100', '22222222-0000-0000-0000-000000000100', '2026-06-05 08:00:00+07', '2026-06-06 08:00:00+07'),
-    -- KPI con 1 (decomposition): actual 25 / target 50 = 50%
-    ('a1000000-0000-0000-0000-000000000011', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', '33333333-0000-0000-0000-000000000106',
-     '[TEST] Dự án X - Module A (KPI con)', 'KPI con decomposition', 10,
-     50, NULL, 'task', 'MONTHLY', 'APPROVED',
-     NULL, 'a1000000-0000-0000-0000-000000000010', 'DECOMPOSITION', FALSE, FALSE,
-     '22222222-0000-0000-0000-000000000100', '22222222-0000-0000-0000-000000000100', '2026-06-05 08:00:00+07', '2026-06-06 08:00:00+07'),
-    -- KPI con 2 (decomposition): actual 64 / target 80 = 80%
-    ('a1000000-0000-0000-0000-000000000012', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', '33333333-0000-0000-0000-000000000106',
-     '[TEST] Dự án X - Module B (KPI con)', 'KPI con decomposition', 20,
-     80, NULL, 'task', 'MONTHLY', 'APPROVED',
-     NULL, 'a1000000-0000-0000-0000-000000000010', 'DECOMPOSITION', FALSE, FALSE,
-     '22222222-0000-0000-0000-000000000100', '22222222-0000-0000-0000-000000000100', '2026-06-05 08:00:00+07', '2026-06-06 08:00:00+07'),
-
-    -- KPI THÁC NƯỚC (delegation): cha có submission tổng hợp 70/100 = 70%, gồm 2 con waterfall
-    ('a1000000-0000-0000-0000-000000000020', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', '33333333-0000-0000-0000-000000000106',
-     '[TEST] Năng suất team (KPI thác nước)', 'KPI cha delegation/thác nước — giao xuống 2 nhân viên', 25,
-     100, NULL, 'task', 'MONTHLY', 'APPROVED',
-     NULL, NULL, NULL, FALSE, FALSE,
-     '22222222-0000-0000-0000-000000000100', '22222222-0000-0000-0000-000000000100', '2026-06-05 08:00:00+07', '2026-06-06 08:00:00+07'),
-    -- KPI con thác nước 1: actual 40 / target 50 = 80%
-    ('a1000000-0000-0000-0000-000000000021', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', '33333333-0000-0000-0000-000000000106',
-     '[TEST] Năng suất team - Nhân viên A (thác nước)', 'KPI con delegation', 25,
-     50, NULL, 'task', 'MONTHLY', 'APPROVED',
-     NULL, 'a1000000-0000-0000-0000-000000000020', 'DELEGATION', FALSE, FALSE,
-     '22222222-0000-0000-0000-000000000100', '22222222-0000-0000-0000-000000000100', '2026-06-05 08:00:00+07', '2026-06-06 08:00:00+07'),
-    -- KPI con thác nước 2: actual 30 / target 50 = 60%
-    ('a1000000-0000-0000-0000-000000000022', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', '33333333-0000-0000-0000-000000000106',
-     '[TEST] Năng suất team - Nhân viên B (thác nước)', 'KPI con delegation', 25,
-     50, NULL, 'task', 'MONTHLY', 'APPROVED',
-     NULL, 'a1000000-0000-0000-0000-000000000020', 'DELEGATION', FALSE, FALSE,
-     '22222222-0000-0000-0000-000000000100', '22222222-0000-0000-0000-000000000100', '2026-06-05 08:00:00+07', '2026-06-06 08:00:00+07');
-
--- Người thực hiện (top-level giao cho NV ...101 để hiện ở "KPI của tôi"; con giao 101/102)
-INSERT INTO kpi_criteria_assignees (kpi_criteria_id, user_id) VALUES
-    ('a1000000-0000-0000-0000-000000000001', '22222222-0000-0000-0000-000000000101'),
-    ('a1000000-0000-0000-0000-000000000002', '22222222-0000-0000-0000-000000000101'),
-    ('a1000000-0000-0000-0000-000000000003', '22222222-0000-0000-0000-000000000101'),
-    ('a1000000-0000-0000-0000-000000000010', '22222222-0000-0000-0000-000000000101'),
-    ('a1000000-0000-0000-0000-000000000011', '22222222-0000-0000-0000-000000000101'),
-    ('a1000000-0000-0000-0000-000000000012', '22222222-0000-0000-0000-000000000102'),
-    ('a1000000-0000-0000-0000-000000000020', '22222222-0000-0000-0000-000000000101'),
-    ('a1000000-0000-0000-0000-000000000021', '22222222-0000-0000-0000-000000000101'),
-    ('a1000000-0000-0000-0000-000000000022', '22222222-0000-0000-0000-000000000102');
-
--- Bài nộp (APPROVED, đợt Tháng 6/2026) để có tiến độ/hiệu suất
-INSERT INTO kpi_submissions
-    (id, org_unit_id, kpi_criteria_id, submitted_by,
-     actual_value, auto_score, note, status,
-     reviewed_by, review_note, reviewed_at, period_start, period_end)
-VALUES
-    -- bonus: vượt chỉ tiêu (4/3) — vẫn không tính trung bình
-    ('a2000000-0000-0000-0000-000000000001', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', 'a1000000-0000-0000-0000-000000000001', '22222222-0000-0000-0000-000000000101',
-     4, 0, '4 sáng kiến', 'APPROVED',
-     '22222222-0000-0000-0000-000000000100', 'Tốt', '2026-06-12 08:00:00+07', '2026-06-01 00:00:00+07', '2026-06-30 23:59:59+07'),
-    -- reverse: actual 2 ≤ target 5 → 150%
-    ('a2000000-0000-0000-0000-000000000002', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', 'a1000000-0000-0000-0000-000000000002', '22222222-0000-0000-0000-000000000101',
-     2, 0, '2 %', 'APPROVED',
-     '22222222-0000-0000-0000-000000000100', 'Xuất sắc', '2026-06-12 08:00:00+07', '2026-06-01 00:00:00+07', '2026-06-30 23:59:59+07'),
-    -- normal over-achiever: 25/10 = 250% → cap 150%
-    ('a2000000-0000-0000-0000-000000000003', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', 'a1000000-0000-0000-0000-000000000003', '22222222-0000-0000-0000-000000000101',
-     25, 0, '25 hợp đồng', 'APPROVED',
-     '22222222-0000-0000-0000-000000000100', 'Vượt chỉ tiêu', '2026-06-12 08:00:00+07', '2026-06-01 00:00:00+07', '2026-06-30 23:59:59+07'),
-    -- decomposition con 1: 25/50 = 50%
-    ('a2000000-0000-0000-0000-000000000011', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', 'a1000000-0000-0000-0000-000000000011', '22222222-0000-0000-0000-000000000101',
-     25, 0, '25 task', 'APPROVED',
-     '22222222-0000-0000-0000-000000000100', 'Đạt', '2026-06-12 08:00:00+07', '2026-06-01 00:00:00+07', '2026-06-30 23:59:59+07'),
-    -- decomposition con 2: 64/80 = 80%
-    ('a2000000-0000-0000-0000-000000000012', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', 'a1000000-0000-0000-0000-000000000012', '22222222-0000-0000-0000-000000000102',
-     64, 0, '64 task', 'APPROVED',
-     '22222222-0000-0000-0000-000000000100', 'Tốt', '2026-06-12 08:00:00+07', '2026-06-01 00:00:00+07', '2026-06-30 23:59:59+07'),
-    -- delegation parent: submission tổng hợp 70/100 = 70%
-    ('a2000000-0000-0000-0000-000000000020', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', 'a1000000-0000-0000-0000-000000000020', '22222222-0000-0000-0000-000000000101',
-     70, 0, 'Tổng hợp từ nhân viên', 'APPROVED',
-     '22222222-0000-0000-0000-000000000100', 'Tốt', '2026-06-12 08:00:00+07', '2026-06-01 00:00:00+07', '2026-06-30 23:59:59+07'),
-    -- delegation con 1: 40/50 = 80%
-    ('a2000000-0000-0000-0000-000000000021', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', 'a1000000-0000-0000-0000-000000000021', '22222222-0000-0000-0000-000000000101',
-     40, 0, '40 task', 'APPROVED',
-     '22222222-0000-0000-0000-000000000100', 'Tốt', '2026-06-12 08:00:00+07', '2026-06-01 00:00:00+07', '2026-06-30 23:59:59+07'),
-    -- delegation con 2: 30/50 = 60%
-    ('a2000000-0000-0000-0000-000000000022', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', 'a1000000-0000-0000-0000-000000000022', '22222222-0000-0000-0000-000000000102',
-     30, 0, '30 task', 'APPROVED',
-     '22222222-0000-0000-0000-000000000100', 'Đạt', '2026-06-12 08:00:00+07', '2026-06-01 00:00:00+07', '2026-06-30 23:59:59+07');
+-- ====================================================
+-- Notification config defaults (all enabled)
+-- ====================================================
+INSERT INTO org_notification_configs (organization_id, event_code, email_enabled, system_enabled) VALUES
+    ('11111111-1111-1111-1111-111111111111', 'kpi_submitted',        true, true),
+    ('11111111-1111-1111-1111-111111111111', 'kpi_assigned',         true, true),
+    ('11111111-1111-1111-1111-111111111111', 'kpi_approved',         true, true),
+    ('11111111-1111-1111-1111-111111111111', 'kpi_rejected',         true, true),
+    ('11111111-1111-1111-1111-111111111111', 'kpi_approval_reverted',true, true),
+    ('11111111-1111-1111-1111-111111111111', 'submission_submitted', true, true),
+    ('11111111-1111-1111-1111-111111111111', 'submission_reviewed',  true, true),
+    ('11111111-1111-1111-1111-111111111111', 'reminder_deadline',    true, true),
+    ('22222222-2222-2222-2222-222222222222', 'kpi_submitted',        true, true),
+    ('22222222-2222-2222-2222-222222222222', 'kpi_assigned',         true, true),
+    ('22222222-2222-2222-2222-222222222222', 'kpi_approved',         true, true),
+    ('22222222-2222-2222-2222-222222222222', 'kpi_rejected',         true, true),
+    ('22222222-2222-2222-2222-222222222222', 'kpi_approval_reverted',true, true),
+    ('22222222-2222-2222-2222-222222222222', 'submission_submitted', true, true),
+    ('22222222-2222-2222-2222-222222222222', 'submission_reviewed',  true, true),
+    ('22222222-2222-2222-2222-222222222222', 'reminder_deadline',    true, true);

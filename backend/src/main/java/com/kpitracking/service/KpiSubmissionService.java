@@ -315,8 +315,15 @@ public class KpiSubmissionService {
 
         // Handle transitioning from DRAFT to PENDING
         if (Boolean.FALSE.equals(request.getIsDraft()) && submission.getStatus() == SubmissionStatus.DRAFT) {
+            KpiCriteria submitKpi = submission.getKpiCriteria();
+            Instant nowSubmit = Instant.now();
+            if (submitKpi.getKpiPeriod() != null && submitKpi.getKpiPeriod().getEndDate() != null
+                    && nowSubmit.isAfter(submitKpi.getKpiPeriod().getEndDate())) {
+                throw new BusinessException("Kỳ đánh giá đã kết thúc. Bạn không thể nộp báo cáo cho kỳ này nữa.");
+            }
+
             submission.setStatus(SubmissionStatus.PENDING);
-            
+
             // Re-calculate auto score/rejection
             KpiCriteria kpi = submission.getKpiCriteria();
             if (submission.getActualValue() != null && kpi.getTargetValue() != null && kpi.getWeight() != null && kpi.getTargetValue() != 0) {

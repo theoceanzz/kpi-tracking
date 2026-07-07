@@ -59,6 +59,10 @@ public class Organization {
     @Builder.Default
     private Boolean enableWaterfall = false;
 
+    @Column(name = "enable_ai")
+    @Builder.Default
+    private Boolean enableAi = true;
+
     @LastModifiedDate
     @Column(name = "updated_at")
     private Instant updatedAt;
