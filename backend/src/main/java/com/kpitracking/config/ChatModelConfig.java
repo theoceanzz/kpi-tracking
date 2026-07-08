@@ -9,16 +9,11 @@ import org.springframework.ai.chat.memory.ChatMemory;
 import org.springframework.ai.chat.memory.MessageWindowChatMemory;
 import org.springframework.ai.ollama.OllamaChatModel;
 import org.springframework.ai.openai.OpenAiChatModel;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.core.io.Resource;
 
 @Configuration
 public class ChatModelConfig {
-
-    @Value("classpath://promptTemplates/systemPromptTemplate.st")
-    Resource systemPrompt;
 
     @Bean(name = "ollamaChatClient")
     public ChatClient ollamaChatClient(OllamaChatModel ollamaChatModel){

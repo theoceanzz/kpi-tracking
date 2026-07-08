@@ -73,6 +73,10 @@ public class AnalyticsSummaryResponse {
         private String unitName;
         private double performance;
         private double completionRate;
+        // Tỉ lệ trễ hạn / không nộp: đếm theo từng lượt giao (KPI × người được giao).
+        private int lateCount;
+        private int missedCount;
+        private int totalExpected;
     }
 
     @Data

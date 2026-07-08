@@ -28,9 +28,10 @@ public class PersonalObjectiveAnalyticsController {
             @RequestParam(required = false) Instant from,
             @RequestParam(required = false) Instant to,
             @RequestParam(required = false, defaultValue = "false") Boolean onlyApproved,
-            @RequestParam(required = false) UUID periodId) {
-        AnalyticsPeriodHelper.Window w = periodHelper.window(from, to, periodId);
-        return ResponseEntity.ok(ApiResponse.success(personalObjectiveAnalyticsService.getMetrics(w.from(), w.to(), onlyApproved, periodId)));
+            @RequestParam(required = false) UUID periodId,
+            @RequestParam(required = false) UUID periodIdTo) {
+        AnalyticsPeriodHelper.Window w = periodHelper.window(from, to, periodId, periodIdTo);
+        return ResponseEntity.ok(ApiResponse.success(personalObjectiveAnalyticsService.getMetrics(w.from(), w.to(), onlyApproved, periodHelper.resolvePeriodIds(periodId, periodIdTo))));
     }
 
     @GetMapping("/chart/combo")
@@ -39,9 +40,11 @@ public class PersonalObjectiveAnalyticsController {
             @RequestParam(required = false) Instant from,
             @RequestParam(required = false) Instant to,
             @RequestParam(required = false, defaultValue = "false") Boolean onlyApproved,
-            @RequestParam(required = false) UUID periodId) {
-        AnalyticsPeriodHelper.Window w = periodHelper.window(from, to, periodId);
-        return ResponseEntity.ok(ApiResponse.success(personalObjectiveAnalyticsService.getComboChart(w.from(), w.to(), onlyApproved, periodId)));
+            @RequestParam(required = false) UUID periodId,
+            @RequestParam(required = false) UUID periodIdTo,
+            @RequestParam(required = false, defaultValue = "TIME") String groupBy) {
+        AnalyticsPeriodHelper.Window w = periodHelper.window(from, to, periodId, periodIdTo);
+        return ResponseEntity.ok(ApiResponse.success(personalObjectiveAnalyticsService.getComboChart(w.from(), w.to(), onlyApproved, periodHelper.resolvePeriodIds(periodId, periodIdTo), groupBy)));
     }
 
     @GetMapping("/details")
@@ -57,12 +60,13 @@ public class PersonalObjectiveAnalyticsController {
             @RequestParam(required = false) String sharedType,
             @RequestParam(required = false, defaultValue = "0") int page,
             @RequestParam(required = false, defaultValue = "10") int size,
-            @RequestParam(required = false) UUID periodId) {
-        AnalyticsPeriodHelper.Window w = periodHelper.window(from, to, periodId);
+            @RequestParam(required = false) UUID periodId,
+            @RequestParam(required = false) UUID periodIdTo) {
+        AnalyticsPeriodHelper.Window w = periodHelper.window(from, to, periodId, periodIdTo);
         return ResponseEntity.ok(ApiResponse.success(
                 personalObjectiveAnalyticsService.getDetailedKpis(
                         w.from(), w.to(), onlyApproved, sortBy, sortDir,
-                        objectiveCode, keyResultCode, sharedType, page, size, periodId)));
+                        objectiveCode, keyResultCode, sharedType, page, size, periodHelper.resolvePeriodIds(periodId, periodIdTo))));
     }
 
     @GetMapping("/kpis/{id}/drawer")
@@ -72,8 +76,9 @@ public class PersonalObjectiveAnalyticsController {
             @RequestParam(required = false) Instant from,
             @RequestParam(required = false) Instant to,
             @RequestParam(required = false, defaultValue = "false") Boolean onlyApproved,
-            @RequestParam(required = false) UUID periodId) {
-        AnalyticsPeriodHelper.Window w = periodHelper.window(from, to, periodId);
+            @RequestParam(required = false) UUID periodId,
+            @RequestParam(required = false) UUID periodIdTo) {
+        AnalyticsPeriodHelper.Window w = periodHelper.window(from, to, periodId, periodIdTo);
         return ResponseEntity.ok(ApiResponse.success(personalObjectiveAnalyticsService.getKpiDrawerData(id, w.from(), w.to(), onlyApproved)));
     }
 }

@@ -34,6 +34,7 @@ public class AnalyticsDrillDownResponse {
         private long totalKpi;
         private long approvedKpi;
         private double completionRate;
+        private double performanceRate; // Hiệu suất theo đánh giá
         private long totalSubmissions;
         private long approvedSubmissions;
         private long pendingSubmissions;
@@ -61,5 +62,6 @@ public class AnalyticsDrillDownResponse {
         private long pendingSubmissions;
         private long rejectedSubmissions;
         private Double avgScore;
+        private Double performanceRate; // Hiệu suất theo đánh giá (null nếu chưa có đánh giá)
     }
 }

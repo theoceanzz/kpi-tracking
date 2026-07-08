@@ -22,20 +22,19 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { subDays, subMonths, startOfYear } from 'date-fns'
 import { cn } from '@/lib/utils'
 import { orgUnitKpiApi } from '@/features/dashboard/api/orgUnitKpiApi'
 import type { OrgUnitAssigneeStat, OrgUnitSubmissionStat } from '@/features/dashboard/api/orgUnitKpiApi'
+import { subDays, subMonths, startOfYear } from 'date-fns'
 import LoadingSkeleton from '@/components/common/LoadingSkeleton'
 import ObjectiveDrawer from './ObjectiveDrawer'
 
+// Bộ lọc thời gian trong drawer — đơn giản (đồng bộ với các drawer khác), không dùng chọn đợt/khoảng đợt.
 type DateFilterType = 'GLOBAL' | 'THIS_WEEK' | 'THIS_MONTH' | 'THIS_QUARTER' | '6_MONTHS' | 'THIS_YEAR' | 'CUSTOM'
 type RankFilter = 'BEST' | 'WORST'
-type TrendMode = 'PROGRESS' | 'BOTH' | 'PERFORMANCE'
 
 const ASSIGNEE_COLORS = ['#f59e0b', '#8b5cf6', '#ec4899', '#0ea5e9', '#14b8a6', '#f97316', '#a855f7']
 const COMPLETION_COLORS = { normal: '#10b981', dim: '#10b98140' }
-const PERFORMANCE_COLORS = { normal: '#3b82f6', dim: '#3b82f640' }
 
 // ── Trend chart tooltip ───────────────────────────────────────────────────────
 function TrendTooltip({ active, payload, label }: any) {
@@ -268,6 +267,20 @@ function SubmissionBarPanel({
   )
 }
 
+// ── Context badge (thông tin ngữ cảnh cạnh tiêu đề) ──────────────────────────
+const BADGE_STYLES: Record<string, string> = {
+  violet: 'bg-violet-50 text-violet-600 border-violet-200 dark:bg-violet-900/20 dark:text-violet-400 dark:border-violet-900/40',
+  slate: 'bg-slate-100 text-slate-600 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700',
+  blue: 'bg-blue-50 text-blue-600 border-blue-200 dark:bg-blue-900/20 dark:text-blue-400 dark:border-blue-900/40',
+}
+function ContextBadge({ color, label }: { color: keyof typeof BADGE_STYLES; label: string }) {
+  return (
+    <span className={cn('inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-bold border', BADGE_STYLES[color])}>
+      {label}
+    </span>
+  )
+}
+
 // ── Main drawer ───────────────────────────────────────────────────────────────
 export default function OrgUnitKpiDrawer({
   kpiId,
@@ -276,6 +289,7 @@ export default function OrgUnitKpiDrawer({
   globalTo,
   globalOnlyApproved,
   globalPeriodId,
+  globalPeriodIdTo,
 }: {
   kpiId: string
   onClose: () => void
@@ -283,21 +297,20 @@ export default function OrgUnitKpiDrawer({
   globalTo?: string
   globalOnlyApproved?: boolean
   globalPeriodId?: string
+  globalPeriodIdTo?: string
 }) {
   const [dateFilterType, setDateFilterType] = useState<DateFilterType>('GLOBAL')
-  const [customRange, setCustomRange] = useState({ from: '', to: '' })
+  const [customRange, setCustomRange] = useState<{ from: string; to: string }>({ from: '', to: '' })
   const [activeAssignees, setActiveAssignees] = useState<string[]>([])
-  const [trendMode, setTrendMode] = useState<TrendMode>('BOTH')
-  // Assignee chart filters (independent per panel)
+  // Assignee chart filter
   const [assigneeCompFilter, setAssigneeCompFilter] = useState<RankFilter>('BEST')
-  const [assigneePerfFilter, setAssigneePerfFilter] = useState<RankFilter>('BEST')
-  // Submission chart filters (independent per panel)
+  // Submission chart filter
   const [subCompFilter, setSubCompFilter] = useState<RankFilter>('BEST')
-  const [subPerfFilter, setSubPerfFilter] = useState<RankFilter>('BEST')
-  // Shared hover IDs for synchronized highlight across paired panels
+  // Hover IDs for highlight
   const [hoveredAssigneeId, setHoveredAssigneeId] = useState<string | null>(null)
   const [hoveredSubmissionId, setHoveredSubmissionId] = useState<string | null>(null)
 
+  // Nguồn thời gian: theo bộ lọc KPI đơn vị (global) hoặc chọn nhanh trong drawer (tuần/tháng/quý/tùy chỉnh).
   const { from, to } = useMemo(() => {
     if (dateFilterType === 'GLOBAL') return { from: globalFrom, to: globalTo }
     const now = new Date()
@@ -317,10 +330,11 @@ export default function OrgUnitKpiDrawer({
   }, [dateFilterType, customRange, globalFrom, globalTo])
 
   const periodId = dateFilterType === 'GLOBAL' ? globalPeriodId : undefined
+  const periodIdTo = dateFilterType === 'GLOBAL' ? globalPeriodIdTo : undefined
 
   const { data, isLoading } = useQuery({
-    queryKey: ['orgUnitKpi', 'drawer', kpiId, from, to, globalOnlyApproved, periodId],
-    queryFn: () => orgUnitKpiApi.getKpiDrawerData(kpiId, { from, to, onlyApproved: globalOnlyApproved, periodId }),
+    queryKey: ['orgUnitKpi', 'drawer', kpiId, from, to, globalOnlyApproved, periodId, periodIdTo],
+    queryFn: () => orgUnitKpiApi.getKpiDrawerData(kpiId, { from, to, onlyApproved: globalOnlyApproved, periodId, periodIdTo }),
   })
 
   // Build trend chart data — team lines + per-active-assignee lines
@@ -331,11 +345,10 @@ export default function OrgUnitKpiDrawer({
         label: p.label,
         targetValue: p.targetValue,
         teamTotalActual: p.teamTotalActual,
-        teamPerformance: p.teamPerformance,
       }
       activeAssignees.forEach(uid => {
         const av = p.assigneeValues?.[uid]
-        if (av) { row[`act_${uid}`] = av.actual; row[`prf_${uid}`] = av.performance }
+        if (av) { row[`act_${uid}`] = av.actual }
       })
       return row
     })
@@ -344,11 +357,22 @@ export default function OrgUnitKpiDrawer({
   const toggleAssignee = (uid: string) =>
     setActiveAssignees(prev => prev.includes(uid) ? prev.filter(x => x !== uid) : [...prev, uid])
 
+  const kpiTypeBadge = data?.isBonusKpi
+    ? { label: 'KPI thưởng', cls: 'bg-amber-100 dark:bg-amber-900/40 text-amber-600 dark:text-amber-400 border-amber-200 dark:border-amber-500/30' }
+    : data?.isReverseKpi
+    ? { label: 'KPI ngược', cls: 'bg-violet-100 dark:bg-violet-900/40 text-violet-600 dark:text-violet-400 border-violet-200 dark:border-violet-500/30' }
+    : { label: 'KPI thường', cls: 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700' }
+
   const customTitle = (
     <div className="flex items-center flex-wrap gap-2">
       <span className="text-base font-bold text-slate-900 dark:text-white leading-snug">
         {data?.kpiName || 'Chi tiết KPI'}
       </span>
+      {data && (
+        <span className={cn('inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-black uppercase border flex-shrink-0', kpiTypeBadge.cls)}>
+          {kpiTypeBadge.label}
+        </span>
+      )}
       {data?.isShared && (
         <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-purple-100 dark:bg-purple-900/40 text-purple-600 dark:text-purple-400 text-[10px] font-black uppercase border border-purple-200 dark:border-purple-500/30 flex-shrink-0">
           <Users size={10} /> KPI chung
@@ -365,14 +389,17 @@ export default function OrgUnitKpiDrawer({
         </div>
       ) : (
         <div className="space-y-6 pb-10">
-          {/* Date filter */}
-          <div className="flex justify-end">
-            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 bg-white dark:bg-slate-900 p-1 rounded-lg border border-slate-200 dark:border-white/10 shadow-sm text-sm w-full sm:w-auto">
-              <Select 
-                value={dateFilterType} 
-                onValueChange={(v) => setDateFilterType(v as DateFilterType)}
-              >
-                <SelectTrigger className="border-none shadow-none focus:ring-0 bg-transparent h-8 text-slate-700 dark:text-slate-300 font-medium px-2 w-auto">
+          {/* Thông tin KPI (trái) + nguồn thời gian (phải) */}
+          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-3">
+            <div className="flex flex-wrap items-center gap-2">
+              {data?.periodName && <ContextBadge color="slate" label={`Đợt: ${data.periodName}`} />}
+              {data?.orgUnitName && <ContextBadge color="slate" label={`Phòng ban: ${data.orgUnitName}`} />}
+              {data?.weight != null && <ContextBadge color="slate" label={`Trọng số: ${data.weight}`} />}
+              {data?.unit && <ContextBadge color="slate" label={`Đơn vị đo: ${data.unit}`} />}
+            </div>
+            <div className="flex flex-col sm:flex-row sm:flex-wrap sm:justify-end items-stretch sm:items-center gap-2">
+              <Select value={dateFilterType} onValueChange={(v) => setDateFilterType(v as DateFilterType)}>
+                <SelectTrigger className="h-8 w-full sm:w-[220px] bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm font-semibold text-slate-700 dark:text-slate-300">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent className="w-[var(--radix-select-trigger-width)]">
@@ -386,17 +413,19 @@ export default function OrgUnitKpiDrawer({
                 </SelectContent>
               </Select>
               {dateFilterType === 'CUSTOM' && (
-                <div className="flex items-center gap-2 px-2 border-l border-slate-200 dark:border-white/10">
-                  <input type="date" className="bg-transparent border-none outline-none text-slate-700 dark:text-slate-300 text-xs" value={customRange.from} onChange={e => setCustomRange(prev => ({ ...prev, from: e.target.value }))} />
+                <div className="flex items-center gap-2">
+                  <input type="date" className="h-8 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-2 text-xs text-slate-700 dark:text-slate-300"
+                    value={customRange.from} onChange={(e) => setCustomRange(prev => ({ ...prev, from: e.target.value }))} />
                   <span className="text-slate-400">-</span>
-                  <input type="date" className="bg-transparent border-none outline-none text-slate-700 dark:text-slate-300 text-xs" value={customRange.to} onChange={e => setCustomRange(prev => ({ ...prev, to: e.target.value }))} />
+                  <input type="date" className="h-8 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-2 text-xs text-slate-700 dark:text-slate-300"
+                    value={customRange.to} onChange={(e) => setCustomRange(prev => ({ ...prev, to: e.target.value }))} />
                 </div>
               )}
             </div>
           </div>
 
-          {/* Metrics */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          {/* Metrics — chỉ tiến độ */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div className="bg-slate-50 dark:bg-slate-900/60 p-4 rounded-2xl border border-slate-100 dark:border-slate-800">
               <p className="text-[10px] font-bold text-slate-500 mb-1">Mục tiêu yêu cầu</p>
               <p className="text-xl font-black text-slate-900 dark:text-white">
@@ -410,10 +439,6 @@ export default function OrgUnitKpiDrawer({
               </p>
               <p className="text-[10px] font-bold text-violet-500 mt-1">Đạt {data?.totalProgress?.toFixed(1)}%</p>
             </div>
-            <div className="bg-emerald-50 dark:bg-emerald-900/20 p-4 rounded-2xl border border-emerald-100 dark:border-emerald-900/30">
-              <p className="text-[10px] font-bold text-emerald-500 mb-1">Hiệu suất nhóm</p>
-              <p className="text-xl font-black text-emerald-700 dark:text-emerald-400">{data?.teamPerformance?.toFixed(1)}%</p>
-            </div>
             <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-2xl border border-blue-100 dark:border-blue-900/30">
               <p className="text-[10px] font-bold text-blue-500 mb-1">Tổng bài nộp</p>
               <p className="text-xl font-black text-blue-700 dark:text-blue-400">{data?.topSubmissions?.length ?? 0}</p>
@@ -423,98 +448,61 @@ export default function OrgUnitKpiDrawer({
           {/* Trend chart */}
           {data?.chartPoints && data.chartPoints.length > 0 && (
             <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 border border-slate-200 dark:border-slate-800">
-              {/* Header — matches AnalyticsComboChart style */}
+              {/* Header */}
               <div className="mb-4">
                 <h3 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
                   <Activity size={18} className="text-violet-500" />
-                  Xu hướng theo thời gian: Tiến độ & Hiệu suất
+                  Xu hướng tiến độ theo thời gian
                 </h3>
                 <p className="text-sm text-slate-500 mt-1">
-                  So sánh lũy kế thực tế với mục tiêu và hiệu suất nhóm theo từng mốc thời gian
+                  So sánh lũy kế thực tế với mục tiêu theo từng mốc thời gian
                 </p>
               </div>
 
-              {/* Mode filter + assignee toggles on the same row */}
-              <div className="flex items-center justify-between gap-3 mb-4 flex-wrap">
-                <div className="flex items-center gap-2">
-                  {(
-                    [
-                      { value: 'BOTH', label: 'Cả hai' },
-                      { value: 'PROGRESS', label: 'Chỉ Tiến độ' },
-                      { value: 'PERFORMANCE', label: 'Chỉ Hiệu suất' },
-                    ] as { value: TrendMode; label: string }[]
-                  ).map(({ value, label }) => (
+              {/* Assignee toggles — thêm đường lũy kế theo người (căn phải) */}
+              {data.availableAssignees && data.availableAssignees.length > 0 && (
+                <div className="flex flex-wrap gap-2 mb-4 justify-end">
+                  {data.availableAssignees.map((a, idx) => (
                     <button
-                      key={value}
-                      onClick={() => setTrendMode(value)}
-                      className={`rounded-full px-3 py-1 text-xs font-semibold transition-all ${
-                        trendMode === value
-                          ? 'bg-indigo-500 text-white'
-                          : 'bg-slate-100 dark:bg-slate-800 text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-700'
-                      }`}
+                      key={a.userId}
+                      onClick={() => toggleAssignee(a.userId)}
+                      className={cn(
+                        'px-2.5 py-1 rounded-full text-[10px] font-bold transition-all border',
+                        activeAssignees.includes(a.userId)
+                          ? 'text-white border-transparent'
+                          : 'bg-white text-slate-500 border-slate-200 hover:border-slate-300 dark:bg-slate-900 dark:border-slate-700'
+                      )}
+                      style={activeAssignees.includes(a.userId)
+                        ? { backgroundColor: ASSIGNEE_COLORS[idx % ASSIGNEE_COLORS.length], borderColor: ASSIGNEE_COLORS[idx % ASSIGNEE_COLORS.length] }
+                        : {}
+                      }
                     >
-                      {label}
+                      {activeAssignees.includes(a.userId) && '✓ '}{a.fullName}
                     </button>
                   ))}
                 </div>
-                {data.availableAssignees && data.availableAssignees.length > 0 && (
-                  <div className="flex flex-wrap gap-2 justify-end">
-                    {data.availableAssignees.map((a, idx) => (
-                      <button
-                        key={a.userId}
-                        onClick={() => toggleAssignee(a.userId)}
-                        className={cn(
-                          'px-2.5 py-1 rounded-full text-[10px] font-bold transition-all border',
-                          activeAssignees.includes(a.userId)
-                            ? 'text-white border-transparent'
-                            : 'bg-white text-slate-500 border-slate-200 hover:border-slate-300 dark:bg-slate-900 dark:border-slate-700'
-                        )}
-                        style={activeAssignees.includes(a.userId)
-                          ? { backgroundColor: ASSIGNEE_COLORS[idx % ASSIGNEE_COLORS.length], borderColor: ASSIGNEE_COLORS[idx % ASSIGNEE_COLORS.length] }
-                          : {}
-                        }
-                      >
-                        {activeAssignees.includes(a.userId) && '✓ '}{a.fullName}
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
+              )}
 
-              <div className="flex justify-between text-xs font-bold text-slate-400 dark:text-slate-500 mb-2 px-1">
-                {trendMode !== 'PERFORMANCE' ? <span>Đơn vị ({data.unit || ''})</span> : <span />}
-                {trendMode !== 'PROGRESS' ? <span>(%) Hiệu suất</span> : <span />}
+              <div className="text-xs font-bold text-slate-400 dark:text-slate-500 mb-2 px-1">
+                <span>Đơn vị ({data.unit || ''})</span>
               </div>
               <div className="h-[320px]">
                 <ResponsiveContainer width="100%" height="100%">
                   <ComposedChart data={trendChartData} margin={{ top: 10, right: 10, left: 0, bottom: 5 }}>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
                     <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#64748b' }} />
-                    <YAxis yAxisId="left" orientation="left" hide={trendMode === 'PERFORMANCE'} axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#64748b' }} />
-                    <YAxis yAxisId="right" orientation="right" hide={trendMode === 'PROGRESS'} axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#64748b' }} tickFormatter={v => `${Math.round(v)}%`} />
+                    <YAxis yAxisId="left" orientation="left" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#64748b' }} />
                     <Tooltip content={<TrendTooltip />} cursor={{ fill: '#94a3b8', opacity: 0.06 }} />
                     <Legend wrapperStyle={{ fontSize: '11px', fontWeight: 'bold' }} />
-                    {trendMode !== 'PERFORMANCE' && (
-                      <Line yAxisId="left" type="step" dataKey="targetValue" name="Mục tiêu" stroke="#ef4444" strokeWidth={2} dot={false} strokeDasharray="5 5" />
-                    )}
-                    {trendMode !== 'PERFORMANCE' && (
-                      <Line yAxisId="left" type="monotone" dataKey="teamTotalActual" name="Lũy kế tổng" stroke="#7c3aed" strokeWidth={3} dot={{ r: 4 }} activeDot={{ r: 6 }} />
-                    )}
-                    {trendMode !== 'PROGRESS' && (
-                      <Line yAxisId="right" type="monotone" dataKey="teamPerformance" name="Hiệu suất nhóm (%)" stroke="#10b981" strokeWidth={3} dot={{ r: 4 }} />
-                    )}
+                    <Line yAxisId="left" type="step" dataKey="targetValue" name="Mục tiêu" stroke="#ef4444" strokeWidth={2} dot={false} strokeDasharray="5 5" />
+                    <Line yAxisId="left" type="monotone" dataKey="teamTotalActual" name="Lũy kế tổng" stroke="#7c3aed" strokeWidth={3} dot={{ r: 4 }} activeDot={{ r: 6 }} />
                     {activeAssignees.map((uid, idx) => {
                       const colorIdx = data.availableAssignees?.findIndex(a => a.userId === uid) ?? idx
                       const color = ASSIGNEE_COLORS[colorIdx % ASSIGNEE_COLORS.length]
                       const name = data.availableAssignees?.find(a => a.userId === uid)?.fullName || uid
-                      return [
-                        trendMode !== 'PERFORMANCE' && (
-                          <Line key={`act_${uid}`} yAxisId="left" type="monotone" dataKey={`act_${uid}`} name={`Lũy kế - ${name}`} stroke={color} strokeWidth={1.5} dot={{ r: 2 }} opacity={0.8} />
-                        ),
-                        trendMode !== 'PROGRESS' && (
-                          <Line key={`prf_${uid}`} yAxisId="right" type="monotone" dataKey={`prf_${uid}`} name={`Hiệu suất - ${name} (%)`} stroke={color} strokeWidth={1.5} dot={{ r: 2 }} strokeDasharray="4 4" opacity={0.8} />
-                        ),
-                      ]
+                      return (
+                        <Line key={`act_${uid}`} yAxisId="left" type="monotone" dataKey={`act_${uid}`} name={`Lũy kế - ${name}`} stroke={color} strokeWidth={1.5} dot={{ r: 2 }} opacity={0.8} />
+                      )
                     })}
                   </ComposedChart>
                 </ResponsiveContainer>
@@ -531,10 +519,10 @@ export default function OrgUnitKpiDrawer({
                 </div>
                 <div>
                   <h3 className="text-sm font-black text-slate-900 dark:text-white">Top người đảm nhiệm</h3>
-                  <p className="text-xs text-slate-500 dark:text-slate-400">Tiến độ và hiệu suất theo từng người thực hiện</p>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">Tiến độ hoàn thành theo từng người thực hiện</p>
                 </div>
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="grid grid-cols-1 gap-6">
                 <AssigneeBarPanel
                   title="Tiến độ hoàn thành"
                   dataKey="completionRate"
@@ -542,16 +530,6 @@ export default function OrgUnitKpiDrawer({
                   filter={assigneeCompFilter}
                   onFilterChange={setAssigneeCompFilter}
                   colors={COMPLETION_COLORS}
-                  hoveredId={hoveredAssigneeId}
-                  onHoverChange={setHoveredAssigneeId}
-                />
-                <AssigneeBarPanel
-                  title="Hiệu suất"
-                  dataKey="performanceRate"
-                  data={data.assigneeStats}
-                  filter={assigneePerfFilter}
-                  onFilterChange={setAssigneePerfFilter}
-                  colors={PERFORMANCE_COLORS}
                   hoveredId={hoveredAssigneeId}
                   onHoverChange={setHoveredAssigneeId}
                 />
@@ -568,10 +546,10 @@ export default function OrgUnitKpiDrawer({
                 </div>
                 <div>
                   <h3 className="text-sm font-black text-slate-900 dark:text-white">Top bài nộp</h3>
-                  <p className="text-xs text-slate-500 dark:text-slate-400">Tiến độ đóng góp và hiệu suất theo từng bài nộp</p>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">Tiến độ đóng góp theo từng bài nộp</p>
                 </div>
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="grid grid-cols-1 gap-6">
                 <SubmissionBarPanel
                   title="Tiến độ đóng góp"
                   dataKey="contributionProgress"
@@ -579,16 +557,6 @@ export default function OrgUnitKpiDrawer({
                   filter={subCompFilter}
                   onFilterChange={setSubCompFilter}
                   colors={COMPLETION_COLORS}
-                  hoveredId={hoveredSubmissionId}
-                  onHoverChange={setHoveredSubmissionId}
-                />
-                <SubmissionBarPanel
-                  title="Hiệu suất bài nộp"
-                  dataKey="performance"
-                  data={data.topSubmissions}
-                  filter={subPerfFilter}
-                  onFilterChange={setSubPerfFilter}
-                  colors={PERFORMANCE_COLORS}
                   hoveredId={hoveredSubmissionId}
                   onHoverChange={setHoveredSubmissionId}
                 />

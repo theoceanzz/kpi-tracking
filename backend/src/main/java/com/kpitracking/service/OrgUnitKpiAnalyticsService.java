@@ -31,6 +31,23 @@ public class OrgUnitKpiAnalyticsService {
     private final KpiCriteriaRepository kpiCriteriaRepository;
     private final UserRoleOrgUnitRepository userRoleOrgUnitRepository;
     private final PermissionChecker permissionChecker;
+    private final EvaluationService evaluationService;
+
+    /** ID những người được giao trong tập KPI (để tính hiệu suất theo đánh giá). */
+    private java.util.Set<UUID> assigneeIdsOf(List<KpiCriteria> kpis) {
+        java.util.Set<UUID> ids = new java.util.LinkedHashSet<>();
+        for (KpiCriteria k : kpis) {
+            if (k.getAssignees() != null) k.getAssignees().forEach(u -> ids.add(u.getId()));
+        }
+        return ids;
+    }
+
+    /** Tập đợt liên quan: đợt đang chọn, hoặc tất cả đợt của các KPI. */
+    private java.util.Set<UUID> relevantPeriodIds(List<KpiCriteria> kpis, java.util.Collection<UUID> periodIds) {
+        if (periodIds != null && !periodIds.isEmpty()) return new java.util.LinkedHashSet<>(periodIds);
+        return kpis.stream().map(KpiCriteria::getKpiPeriod).filter(java.util.Objects::nonNull)
+                .map(KpiPeriod::getId).collect(Collectors.toSet());
+    }
 
     private User getCurrentUser() {
         String email = SecurityContextHolder.getContext().getAuthentication().getName();
@@ -71,14 +88,17 @@ public class OrgUnitKpiAnalyticsService {
         List<OrgUnit> units = resolveOrgUnitSubtree(orgUnitId);
         if (units.isEmpty()) return Collections.emptyList();
         List<UUID> unitIds = units.stream().map(OrgUnit::getId).toList();
-        return kpiCriteriaRepository.findApprovedWithoutKeyResultByOrgUnitIds(unitIds);
+        // Chỉ giữ KPI top-level (cha/thác nước/đơn lẻ); KPI con hiện inline qua trường children.
+        return kpiCriteriaRepository.findApprovedWithoutKeyResultByOrgUnitIds(unitIds).stream()
+                .filter(k -> k.getParent() == null)
+                .collect(Collectors.toList());
     }
 
-    /** Khi người dùng chọn một đợt cụ thể, chỉ giữ các KPI thuộc đợt đó. */
-    private List<KpiCriteria> applyPeriodFilter(List<KpiCriteria> kpis, UUID periodId) {
-        if (periodId == null) return kpis;
+    /** Khi người dùng chọn (các) đợt cụ thể, chỉ giữ các KPI thuộc những đợt đó. */
+    private List<KpiCriteria> applyPeriodFilter(List<KpiCriteria> kpis, java.util.Collection<UUID> periodIds) {
+        if (periodIds == null || periodIds.isEmpty()) return kpis;
         return kpis.stream()
-                .filter(k -> k.getKpiPeriod() != null && periodId.equals(k.getKpiPeriod().getId()))
+                .filter(k -> k.getKpiPeriod() != null && periodIds.contains(k.getKpiPeriod().getId()))
                 .collect(Collectors.toList());
     }
 
@@ -175,6 +195,9 @@ public class OrgUnitKpiAnalyticsService {
                     .orgUnitName(child.getOrgUnit() != null ? child.getOrgUnit().getName() : "")
                     .periodStart(child.getKpiPeriod() != null ? child.getKpiPeriod().getStartDate() : null)
                     .periodEnd(child.getKpiPeriod() != null ? child.getKpiPeriod().getEndDate() : null)
+                    .periodName(child.getKpiPeriod() != null ? child.getKpiPeriod().getName() : null)
+                    .weight(child.getWeight())
+                    .assigneeName(KpiMetricsCalculator.assigneeNames(child))
                     .isShared(child.getAssignees() != null && child.getAssignees().size() > 1)
                     .participantCount(child.getAssignees() != null ? child.getAssignees().size() : 1)
                     .isReverseKpi(Boolean.TRUE.equals(child.getIsReverseKpi()))
@@ -191,8 +214,8 @@ public class OrgUnitKpiAnalyticsService {
     // ── Public endpoints ──────────────────────────────────────────────────────
 
     @Transactional(readOnly = true)
-    public Metrics getMetrics(UUID orgUnitId, Instant from, Instant to, Boolean onlyApproved, UUID periodId) {
-        List<KpiCriteria> kpis = applyPeriodFilter(getStandaloneKpis(orgUnitId), periodId);
+    public Metrics getMetrics(UUID orgUnitId, Instant from, Instant to, Boolean onlyApproved, java.util.Collection<UUID> periodIds) {
+        List<KpiCriteria> kpis = applyPeriodFilter(getStandaloneKpis(orgUnitId), periodIds);
         double totalComp = 0, totalPerf = 0;
         int activeCount = 0, completedCount = 0, runningCount = 0, riskCount = 0;
         Instant now = Instant.now();
@@ -214,9 +237,13 @@ public class OrgUnitKpiAnalyticsService {
             }
         }
 
+        // Hiệu suất TB nay tính theo ĐÁNH GIÁ của người trong đợt (không theo KPI).
+        Double evalPerf = evaluationService.averagePerformance(
+                assigneeIdsOf(kpis), relevantPeriodIds(kpis, periodIds));
+
         return Metrics.builder()
                 .averageProgress(activeCount > 0 ? totalComp / activeCount : 0)
-                .averagePerformance(activeCount > 0 ? totalPerf / activeCount : 0)
+                .averagePerformance(evalPerf != null ? evalPerf : 0)
                 .runningKpis(runningCount)
                 .completedKpis(completedCount)
                 .riskKpis(riskCount)
@@ -224,8 +251,49 @@ public class OrgUnitKpiAnalyticsService {
     }
 
     @Transactional(readOnly = true)
-    public ComboChartData getComboChart(UUID orgUnitId, Instant from, Instant to, Boolean onlyApproved, UUID periodId) {
-        List<KpiCriteria> kpis = applyPeriodFilter(getStandaloneKpis(orgUnitId), periodId);
+    public ComboChartData getComboChart(UUID orgUnitId, Instant from, Instant to, Boolean onlyApproved, java.util.Collection<UUID> periodIds, String groupBy) {
+        // groupBy=PERIOD → mỗi cột = 1 đợt; mặc định TIME → theo khoảng thời gian (tuần/tháng). Hiệu suất theo đánh giá.
+        if ("PERIOD".equalsIgnoreCase(groupBy)) return getComboChartByPeriod(orgUnitId, onlyApproved, periodIds);
+        return getComboChartByInterval(orgUnitId, from, to, onlyApproved, periodIds);
+    }
+
+    // Xu hướng THEO ĐỢT: mỗi cột = 1 đợt (chỉ KPI thuộc đợt đó); hiệu suất = TB đánh giá người thực hiện trong đợt.
+    private ComboChartData getComboChartByPeriod(UUID orgUnitId, Boolean onlyApproved, java.util.Collection<UUID> periodIds) {
+        List<KpiCriteria> kpis = applyPeriodFilter(getStandaloneKpis(orgUnitId), periodIds);
+        java.util.Map<UUID, KpiPeriod> periodMap = new java.util.LinkedHashMap<>();
+        for (KpiCriteria kpi : kpis) {
+            if (kpi.getKpiPeriod() != null) periodMap.putIfAbsent(kpi.getKpiPeriod().getId(), kpi.getKpiPeriod());
+        }
+        List<KpiPeriod> periods = periodMap.values().stream()
+                .sorted(java.util.Comparator.comparing(p -> p.getStartDate() != null ? p.getStartDate() : Instant.EPOCH))
+                .collect(Collectors.toList());
+
+        List<ChartPoint> points = new ArrayList<>();
+        for (KpiPeriod p : periods) {
+            double totalComp = 0; int cnt = 0;
+            java.util.Set<UUID> userIds = new java.util.LinkedHashSet<>();
+            for (KpiCriteria kpi : kpis) {
+                if (kpi.getKpiPeriod() == null || !p.getId().equals(kpi.getKpiPeriod().getId())) continue;
+                if (Boolean.TRUE.equals(kpi.getIsBonusKpi())) continue;
+                double[] m = calculateKpiMetrics(kpi, p.getStartDate(), p.getEndDate(), onlyApproved);
+                if (m[2] > 0) { totalComp += m[0]; cnt++; }
+                if (kpi.getAssignees() != null) kpi.getAssignees().forEach(u -> userIds.add(u.getId()));
+            }
+            double avgComp = cnt > 0 ? totalComp / cnt : 0;
+            Double perf = userIds.isEmpty() ? null : evaluationService.averagePerformance(userIds, java.util.Set.of(p.getId()));
+            points.add(ChartPoint.builder()
+                    .label(p.getName())
+                    .oldItems(0)
+                    .newItems(cnt)
+                    .completionTrend(Math.round(avgComp * 100.0) / 100.0)
+                    .performanceTrend(perf != null ? Math.round(perf * 100.0) / 100.0 : 0)
+                    .build());
+        }
+        return new ComboChartData(points);
+    }
+
+    private ComboChartData getComboChartByInterval(UUID orgUnitId, Instant from, Instant to, Boolean onlyApproved, java.util.Collection<UUID> periodIds) {
+        List<KpiCriteria> kpis = applyPeriodFilter(getStandaloneKpis(orgUnitId), periodIds);
         Instant effectiveFrom = from != null ? from : Instant.now().minus(180, ChronoUnit.DAYS);
         Instant effectiveTo   = to   != null ? to   : Instant.now();
 
@@ -234,8 +302,11 @@ public class OrgUnitKpiAnalyticsService {
 
         for (IntervalPoint ip : intervalPoints) {
             int oldItems = 0, newItems = 0;
-            double totalComp = 0, totalPerf = 0;
+            double totalComp = 0;
             int assignedCount = 0;
+            // Hiệu suất theo ĐÁNH GIÁ: gom người thực hiện + đợt của các KPI tính đến hết mốc này.
+            java.util.Set<UUID> userIds = new java.util.LinkedHashSet<>();
+            java.util.Set<UUID> evalPeriodIds = new java.util.LinkedHashSet<>();
 
             for (KpiCriteria kpi : kpis) {
                 // KPI thưởng không tính vào xu hướng tiến độ/hiệu suất.
@@ -247,12 +318,16 @@ public class OrgUnitKpiAnalyticsService {
                     if (kpiRef.isBefore(ip.start)) oldItems++; else newItems++;
                     double[] m = calculateKpiMetrics(kpi, effectiveFrom, ip.end, onlyApproved);
                     totalComp += m[0];
-                    totalPerf += m[1];
+                    if (kpi.getAssignees() != null) kpi.getAssignees().forEach(u -> userIds.add(u.getId()));
+                    if (kpi.getKpiPeriod() != null) evalPeriodIds.add(kpi.getKpiPeriod().getId());
                 }
             }
 
             double avgComp = assignedCount > 0 ? totalComp / assignedCount : 0;
-            double avgPerf = assignedCount > 0 ? totalPerf / assignedCount : 0;
+            // Hiệu suất = TB điểm đánh giá của người thực hiện trong các đợt liên quan (công thức đánh giá).
+            Double evalPerf = (userIds.isEmpty() || evalPeriodIds.isEmpty())
+                    ? null : evaluationService.averagePerformance(userIds, evalPeriodIds);
+            double avgPerf = evalPerf != null ? evalPerf : 0;
             points.add(ChartPoint.builder()
                     .label(ip.label)
                     .oldItems(oldItems)
@@ -271,14 +346,16 @@ public class OrgUnitKpiAnalyticsService {
             Instant from, Instant to, Boolean onlyApproved,
             String sortBy, String sortDir,
             String sharedType,
-            int page, int size, UUID periodId) {
+            int page, int size, java.util.Collection<UUID> periodIds) {
 
         List<OrgUnit> subtree = resolveOrgUnitSubtree(orgUnitId);
         if (subtree.isEmpty()) return emptyPagedResponse(page, size);
 
         List<UUID> allUnitIds = subtree.stream().map(OrgUnit::getId).toList();
+        // Chỉ liệt kê KPI top-level (cha/thác nước/đơn lẻ); KPI con hiện inline trong children.
         List<KpiCriteria> kpis = applyPeriodFilter(
-                kpiCriteriaRepository.findApprovedWithoutKeyResultByOrgUnitIds(allUnitIds), periodId);
+                kpiCriteriaRepository.findApprovedWithoutKeyResultByOrgUnitIds(allUnitIds), periodIds)
+                .stream().filter(k -> k.getParent() == null).collect(Collectors.toList());
 
         // Build available org unit filter options (only units that actually have KPIs)
         Set<UUID> unitsWithKpis = kpis.stream()
@@ -319,6 +396,9 @@ public class OrgUnitKpiAnalyticsService {
                     .orgUnitName(orgUnitName)
                     .periodStart(kpi.getKpiPeriod() != null ? kpi.getKpiPeriod().getStartDate() : null)
                     .periodEnd(kpi.getKpiPeriod() != null ? kpi.getKpiPeriod().getEndDate() : null)
+                    .periodName(kpi.getKpiPeriod() != null ? kpi.getKpiPeriod().getName() : null)
+                    .weight(kpi.getWeight())
+                    .assigneeName(KpiMetricsCalculator.assigneeNames(kpi))
                     .isShared(isShared)
                     .participantCount(kpi.getAssignees() != null ? kpi.getAssignees().size() : 1)
                     .isReverseKpi(Boolean.TRUE.equals(kpi.getIsReverseKpi()))
@@ -552,6 +632,11 @@ public class OrgUnitKpiAnalyticsService {
                 .kpiName(kpi.getName())
                 .unit(kpi.getUnit())
                 .isShared(isShared)
+                .isReverseKpi(reverseKpi)
+                .isBonusKpi(Boolean.TRUE.equals(kpi.getIsBonusKpi()))
+                .periodName(kpi.getKpiPeriod() != null ? kpi.getKpiPeriod().getName() : null)
+                .orgUnitName(kpi.getOrgUnit() != null ? kpi.getOrgUnit().getName() : null)
+                .weight(kpi.getWeight())
                 .targetValue(targetValue)
                 .totalActualValue(totalActual)
                 .totalProgress(totalProgress)
@@ -591,6 +676,9 @@ public class OrgUnitKpiAnalyticsService {
         private String orgUnitName;
         private Instant periodStart;
         private Instant periodEnd;
+        private String periodName;   // tên đợt, vd "Tháng 6/2026"
+        private Double weight;        // trọng số KPI
+        private String assigneeName;  // người đảm nhiệm
         private boolean isShared;
         private int participantCount;
 
@@ -684,6 +772,11 @@ public class OrgUnitKpiAnalyticsService {
         private String kpiName;
         private String unit;
         private boolean isShared;
+        private Boolean isReverseKpi;
+        private Boolean isBonusKpi;
+        private String periodName;
+        private String orgUnitName;
+        private Double weight;
         private double targetValue;
         private double totalActualValue;
         private double totalProgress;
@@ -790,7 +883,7 @@ public class OrgUnitKpiAnalyticsService {
     // ── Risk methods ──────────────────────────────────────────────────────────
 
     @Transactional(readOnly = true)
-    public UnitRiskPagedResponse getUnitRisks(UUID orgUnitId, Instant from, Instant to, Boolean onlyApproved, int page, int size, String sortBy, String sortDir, UUID periodId) {
+    public UnitRiskPagedResponse getUnitRisks(UUID orgUnitId, Instant from, Instant to, Boolean onlyApproved, int page, int size, String sortBy, String sortDir, java.util.Collection<UUID> periodIds) {
         List<OrgUnit> subtree = resolveOrgUnitSubtree(orgUnitId);
         if (subtree.isEmpty()) return UnitRiskPagedResponse.builder()
             .content(Collections.emptyList()).page(page).size(size)
@@ -800,7 +893,7 @@ public class OrgUnitKpiAnalyticsService {
 
         for (OrgUnit unit : subtree) {
             List<KpiCriteria> unitKpis = applyPeriodFilter(
-                    kpiCriteriaRepository.findApprovedWithoutKeyResultByOrgUnitIds(List.of(unit.getId())), periodId);
+                    kpiCriteriaRepository.findApprovedWithoutKeyResultByOrgUnitIds(List.of(unit.getId())), periodIds);
             if (unitKpis.isEmpty()) continue;
 
             int totalKpis = unitKpis.size();
@@ -841,7 +934,7 @@ public class OrgUnitKpiAnalyticsService {
     }
 
     @Transactional(readOnly = true)
-    public MemberRiskPagedResponse getMemberRisks(UUID orgUnitId, UUID filterOrgUnitId, Instant from, Instant to, Boolean onlyApproved, int page, int size, String sortBy, String sortDir, UUID periodId) {
+    public MemberRiskPagedResponse getMemberRisks(UUID orgUnitId, UUID filterOrgUnitId, Instant from, Instant to, Boolean onlyApproved, int page, int size, String sortBy, String sortDir, java.util.Collection<UUID> periodIds) {
         List<OrgUnit> subtree = resolveOrgUnitSubtree(orgUnitId);
         if (subtree.isEmpty()) return MemberRiskPagedResponse.builder()
             .content(Collections.emptyList()).page(page).size(size)
@@ -850,7 +943,7 @@ public class OrgUnitKpiAnalyticsService {
 
         List<UUID> allUnitIds = subtree.stream().map(OrgUnit::getId).toList();
         List<KpiCriteria> allKpis = applyPeriodFilter(
-                kpiCriteriaRepository.findApprovedWithoutKeyResultByOrgUnitIds(allUnitIds), periodId);
+                kpiCriteriaRepository.findApprovedWithoutKeyResultByOrgUnitIds(allUnitIds), periodIds);
 
         Set<UUID> unitsWithKpis = allKpis.stream()
             .filter(k -> k.getOrgUnit() != null && k.getAssignees() != null && !k.getAssignees().isEmpty())

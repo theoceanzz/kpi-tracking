@@ -1,31 +1,18 @@
 import React, { useState } from 'react'
-import { ChevronDown, ChevronRight, ChevronUp, ChevronsUpDown } from 'lucide-react'
+import { ChevronDown, ChevronRight, Layers } from 'lucide-react'
+import { SortHeader } from '@/components/common/SortHeader'
 import { ObjectiveDetailedDto } from '@/types/stats'
 import { format } from 'date-fns'
 import { KpiTypeTags } from './KpiTypeTags'
-import { KpiChildList, toChildNodes } from './KpiChildList'
+import { toChildNodes } from './KpiChildList'
+import { KpiChildTableRows } from './KpiChildTableRows'
+import { KpiResponsibleCell } from './KpiResponsibleCell'
+import { KpiPeriodCell } from './KpiPeriodCell'
+import { KpiWeightPill } from './KpiWeightPill'
 import { cn } from '@/lib/utils'
 
-type SortField = 'progress' | 'performance'
+type SortField = 'progress' | 'period'
 type SortDir = 'asc' | 'desc'
-
-const SparklineDonut = ({ value }: { value: number | null }) => {
-  if (value === null) return <span className="text-slate-400 dark:text-slate-500 font-medium">-</span>
-  const radius = 16
-  const circumference = 2 * Math.PI * radius
-  const strokeDashoffset = circumference - (Math.min(value, 100) / 100) * circumference
-  const color = value >= 100 ? '#10b981' : value >= 80 ? '#6366f1' : value >= 50 ? '#f59e0b' : '#ef4444'
-
-  return (
-    <div className="relative flex items-center justify-center w-10 h-10 mx-auto group-hover:scale-110 transition-transform">
-      <svg className="w-full h-full transform -rotate-90" viewBox="0 0 40 40">
-        <circle cx="20" cy="20" r="16" stroke="currentColor" strokeWidth="4" fill="transparent" className="text-slate-100 dark:text-slate-800" />
-        <circle cx="20" cy="20" r="16" stroke={color} strokeWidth="4" fill="transparent" strokeDasharray={circumference} strokeDashoffset={strokeDashoffset} className="transition-all duration-1000 ease-out" strokeLinecap="round" />
-      </svg>
-      <span className="absolute text-[9px] font-black text-slate-700 dark:text-slate-300">{Math.round(value)}%</span>
-    </div>
-  )
-}
 
 const ProgressBar = ({ value, subText }: { value: number, subText: string }) => {
   const pct = Math.round(value)
@@ -42,31 +29,6 @@ const ProgressBar = ({ value, subText }: { value: number, subText: string }) => 
       </div>
       <div className="text-[10px] text-slate-500 font-medium">{subText}</div>
     </div>
-  )
-}
-
-function SortHeader({
-  field, active, dir, onToggle, children,
-}: {
-  field: SortField
-  active: SortField
-  dir: SortDir
-  onToggle: (f: SortField) => void
-  children: React.ReactNode
-}) {
-  const isActive = active === field
-  return (
-    <button
-      onClick={onToggle ? () => onToggle(field) : undefined}
-      className="flex items-center gap-1 group hover:text-indigo-500 transition-colors uppercase"
-    >
-      {children}
-      <span className="ml-0.5">
-        {isActive
-          ? dir === 'asc' ? <ChevronUp size={12} /> : <ChevronDown size={12} />
-          : <ChevronsUpDown size={12} className="opacity-30 group-hover:opacity-60" />}
-      </span>
-    </button>
   )
 }
 
@@ -91,7 +53,6 @@ interface Props {
 
 function MobileObjectiveCard({ obj, onRowClick }: { obj: ObjectiveDetailedDto; onRowClick: any }) {
   const pct = Math.round(obj.progress || 0)
-  const perf = Math.round(obj.performance || 0)
   const formatDate = (d: string | null) => d ? format(new Date(d), 'dd/MM/yyyy') : '---'
 
   return (
@@ -110,7 +71,14 @@ function MobileObjectiveCard({ obj, onRowClick }: { obj: ObjectiveDetailedDto; o
         </div>
       </div>
 
-      <div className="flex items-center gap-2 text-[11px] text-slate-400 font-medium">
+      <div className="flex flex-wrap items-center gap-2 text-[11px] text-slate-400 font-medium">
+        {(obj.periodCount ?? 0) > 1 ? (
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-violet-50 dark:bg-violet-900/30 text-violet-600 dark:text-violet-400 text-[10px] font-black uppercase" title={obj.periodNames?.join(', ')}>
+            <Layers size={11} /> Nhiều đợt ({obj.periodCount})
+          </span>
+        ) : obj.periodCount === 1 && obj.periodNames?.[0] ? (
+          <span className="font-bold text-slate-600 dark:text-slate-300">{obj.periodNames[0]}</span>
+        ) : null}
         <span>{formatDate(obj.startDate)}</span>
         <span className="text-slate-200 dark:text-slate-800">—</span>
         <span>{formatDate(obj.endDate)}</span>
@@ -125,10 +93,6 @@ function MobileObjectiveCard({ obj, onRowClick }: { obj: ObjectiveDetailedDto; o
           <div className="h-2 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden shadow-inner">
             <div className={cn('h-full rounded-full shadow-sm', pct >= 100 ? 'bg-emerald-500' : 'bg-indigo-500')} style={{ width: `${Math.min(pct, 100)}%` }} />
           </div>
-        </div>
-        <div className="text-right shrink-0 border-l border-slate-100 dark:border-slate-800 pl-4 py-1">
-          <p className="text-[9px] text-slate-500 uppercase font-black tracking-widest mb-0.5">Hiệu suất</p>
-          <p className={cn('text-base font-black leading-none', perf >= 100 ? 'text-emerald-500' : perf >= 80 ? 'text-indigo-500' : perf >= 50 ? 'text-amber-500' : 'text-red-500')}>{perf}%</p>
         </div>
       </div>
     </div>
@@ -174,6 +138,31 @@ const DateRange = ({ start, end }: { start: string | null; end: string | null })
   </div>
 )
 
+/**
+ * Ô "Đợt" cho dòng Mục tiêu / KR (có thể trải nhiều đợt):
+ * - 1 đợt   → hiện tên đợt + khoảng ngày (giống dòng KPI).
+ * - nhiều đợt → chip "Nhiều đợt (N)" + khoảng ngày, hover xem danh sách tên đợt.
+ * - không xác định → chỉ khoảng ngày.
+ */
+const ObjectivePeriodCell = ({ periodCount, periodNames, start, end }: {
+  periodCount?: number; periodNames?: string[]; start: string | null; end: string | null
+}) => {
+  if (periodCount === 1 && periodNames?.[0]) {
+    return <KpiPeriodCell periodName={periodNames[0]} start={start} end={end} />
+  }
+  if ((periodCount ?? 0) > 1) {
+    return (
+      <div className="flex flex-col gap-1.5" title={periodNames?.join(', ')}>
+        <span className="inline-flex w-fit items-center gap-1 px-2 py-0.5 rounded-full bg-violet-50 dark:bg-violet-900/30 text-violet-600 dark:text-violet-400 text-[10px] font-black uppercase">
+          <Layers size={11} /> Nhiều đợt ({periodCount})
+        </span>
+        <DateRange start={start} end={end} />
+      </div>
+    )
+  }
+  return <DateRange start={start} end={end} />
+}
+
   return (
     <div className="w-full">
       {/* Mobile View */}
@@ -194,18 +183,15 @@ const DateRange = ({ start, end }: { start: string | null; end: string | null })
             <tr className="text-xs font-black uppercase text-slate-500">
               <th className="px-6 py-4 w-[30%]">Tên Mục tiêu / Yếu tố</th>
               <th className="px-6 py-4 w-[20%]">Đơn vị / Người đảm nhiệm</th>
-              <th className="px-6 py-4 w-[15%]">Chu kỳ thực hiện</th>
-              <th className="px-6 py-4 w-[25%]">
-                <SortHeader field="progress" active={sortBy} dir={sortDir} onToggle={onToggleSort}>
-                  Tiến độ
+              <th className="px-6 py-4 w-[15%]" title="Sắp theo thời gian bắt đầu">
+                <SortHeader field="period" active={sortBy} dir={sortDir} onToggle={onToggleSort} className="uppercase">
+                  Đợt
                 </SortHeader>
               </th>
-              <th className="px-6 py-4 text-center w-[10%]">
-                <div className="flex justify-center">
-                  <SortHeader field="performance" active={sortBy} dir={sortDir} onToggle={onToggleSort}>
-                    Hiệu suất
-                  </SortHeader>
-                </div>
+              <th className="px-6 py-4 w-[25%]">
+                <SortHeader field="progress" active={sortBy} dir={sortDir} onToggle={onToggleSort} className="uppercase">
+                  Tiến độ
+                </SortHeader>
               </th>
             </tr>
           </thead>
@@ -238,7 +224,7 @@ const DateRange = ({ start, end }: { start: string | null; end: string | null })
                   <div className="text-[11px] text-slate-500 mt-1">{obj.unitCode}</div>
                 </td>
                 <td className="px-6 py-4 align-middle">
-                  <DateRange start={obj.startDate} end={obj.endDate} />
+                  <ObjectivePeriodCell periodCount={obj.periodCount} periodNames={obj.periodNames} start={obj.startDate} end={obj.endDate} />
                 </td>
                 <td className="px-6 py-4 align-top">
                   <ProgressBar 
@@ -247,9 +233,6 @@ const DateRange = ({ start, end }: { start: string | null; end: string | null })
                       ? "Tất cả KR đã hoàn thành" 
                       : `${obj.completedKeyResults} hoàn thành / ${obj.totalKeyResults - obj.completedKeyResults} chưa hoàn thành`} 
                   />
-                </td>
-                <td className="px-6 py-4 align-top text-center">
-                  <SparklineDonut value={obj.performance} />
                 </td>
               </tr>
 
@@ -300,7 +283,7 @@ const DateRange = ({ start, end }: { start: string | null; end: string | null })
                       )}
                     </td>
                     <td className="px-6 py-4 align-middle">
-                      <DateRange start={kr.startDate} end={kr.endDate} />
+                      <ObjectivePeriodCell periodCount={kr.periodCount} periodNames={kr.periodNames} start={kr.startDate} end={kr.endDate} />
                     </td>
                     <td className="px-6 py-4 align-top">
                       <ProgressBar 
@@ -308,17 +291,15 @@ const DateRange = ({ start, end }: { start: string | null; end: string | null })
                         subText={`${kr.kpis?.length || 0} KPI(s)`} 
                       />
                     </td>
-                    <td className="px-6 py-4 align-top text-center">
-                      <SparklineDonut value={kr.performance} />
-                    </td>
                   </tr>
 
                   {/* LEVEL 2: KPIs */}
                   {isKrExp && kr.kpis?.map(kpi => {
-                    const isKpiExp = expandedKpi[kpi.id]
                     const hasParticipants = kpi.participants && kpi.participants.length > 0
                     const hasChildren = kpi.children && kpi.children.length > 0
                     const isExpandable = hasParticipants || hasChildren
+                    // KPI cha/thác nước mặc định mở sẵn KPI con; người dùng vẫn bấm để thu gọn.
+                    const isKpiExp = expandedKpi[kpi.id] !== undefined ? expandedKpi[kpi.id] : hasChildren
                     return (
                       <React.Fragment key={kpi.id}>
                         <tr 
@@ -344,21 +325,24 @@ const DateRange = ({ start, end }: { start: string | null; end: string | null })
                                 <div className="text-[13px] font-medium text-slate-700 dark:text-slate-300 leading-tight mb-1 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
                                   {kpi.name}
                                 </div>
-                                <KpiTypeTags
-                                  isReverseKpi={kpi.isReverseKpi}
-                                  isBonusKpi={kpi.isBonusKpi}
-                                  parentRelationType={kpi.parentRelationType}
-                                  childRelationType={kpi.childRelationType}
-                                />
+                                <div className="flex items-center gap-1.5 flex-wrap">
+                                  <KpiTypeTags
+                                    isReverseKpi={kpi.isReverseKpi}
+                                    isBonusKpi={kpi.isBonusKpi}
+                                    parentRelationType={kpi.parentRelationType}
+                                    childRelationType={kpi.childRelationType}
+                                  />
+                                  <KpiWeightPill weight={kpi.weight} />
+                                </div>
                               </div>
                             </div>
                           </td>
                           <td className="px-6 py-4 align-top whitespace-normal">
-                            <div className="font-semibold text-slate-700 dark:text-slate-400">{kpi.unitName || '---'}</div>
-                            {kpi.unitCode && <div className="text-[11px] text-slate-500 mt-1">{kpi.unitCode}</div>}
+                            <KpiResponsibleCell assigneeName={kpi.assigneeName} orgUnitName={kpi.unitName} />
+                            {!kpi.assigneeName && kpi.unitCode && <div className="text-[11px] text-slate-500 mt-1">{kpi.unitCode}</div>}
                           </td>
                           <td className="px-6 py-4 align-middle">
-                            <DateRange start={kpi.startDate} end={kpi.endDate} />
+                            <KpiPeriodCell periodName={kpi.periodName} start={kpi.startDate} end={kpi.endDate} />
                           </td>
                           <td className="px-6 py-4 align-top">
                             {kpi.progress == null ? (
@@ -373,35 +357,27 @@ const DateRange = ({ start, end }: { start: string | null; end: string | null })
                               />
                             )}
                           </td>
-                          <td className="px-6 py-4 align-top text-center">
-                            {kpi.performance == null ? (
-                              <span className="text-slate-400 font-black">—</span>
-                            ) : (
-                              <SparklineDonut value={kpi.performance} />
-                            )}
-                          </td>
                         </tr>
 
-                        {/* LEVEL 3: KPI CON (cha/thác nước) */}
+                        {/* LEVEL 3: KPI CON (cha/thác nước) — render thành <tr> căn thẳng cột với cha */}
                         {isKpiExp && hasChildren && (
-                          <tr className="bg-slate-50/30 dark:bg-slate-900/20 border-l-[3px] border-l-slate-300 dark:border-l-slate-700">
-                            <td colSpan={5} className="p-0 border-b-0">
-                              <div className="py-5 pr-6 pl-24">
-                                <KpiChildList nodes={toChildNodes(kpi.children)} />
-                              </div>
-                            </td>
-                          </tr>
+                          <KpiChildTableRows
+                            nodes={toChildNodes(kpi.children)}
+                            onSelect={(id) => onRowClick('KPI', { id })}
+                            headingColSpan={4}
+                            variant={{ showPersonColumn: true, accent: 'indigo', baseIndent: 88 }}
+                          />
                         )}
 
-                        {/* LEVEL 3 & 4: PARTICIPANTS CONTAINER */}
-                        {isKpiExp && hasParticipants && (
+                        {/* LEVEL 3 & 4: PARTICIPANTS CONTAINER — KPI cha (decomposition) chỉ chia nhỏ task → ẩn */}
+                        {isKpiExp && hasParticipants && kpi.childRelationType !== 'DECOMPOSITION' && (
                           <tr className="bg-slate-50/30 dark:bg-slate-900/20 border-l-[3px] border-l-slate-300 dark:border-l-slate-700">
-                            <td colSpan={5} className="p-0 border-b-0">
+                            <td colSpan={4} className="p-0 border-b-0">
                               <div className="py-5 pr-6 pl-24">
                                 {/* PARTICIPANTS SECTION */}
                                 <div className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-3 ml-2 flex items-center gap-2">
                                   <span className="w-1.5 h-1.5 rounded-full bg-indigo-400 dark:bg-indigo-500"></span>
-                                  Các thành viên đảm nhiệm
+                                  {kpi.childRelationType === 'DELEGATION' ? 'Người chịu trách nhiệm' : 'Các thành viên đảm nhiệm'}
                                 </div>
                                 <div className="space-y-3">
                                   {kpi.participants!.map(p => {
@@ -549,7 +525,7 @@ const DateRange = ({ start, end }: { start: string | null; end: string | null })
           )})}
           {data.length === 0 && (
             <tr>
-              <td colSpan={5} className="px-6 py-16 text-center text-slate-500 dark:text-slate-400">
+              <td colSpan={4} className="px-6 py-16 text-center text-slate-500 dark:text-slate-400">
                 <div className="flex flex-col items-center justify-center gap-3">
                   <div className="w-14 h-14 rounded-full bg-slate-100 dark:bg-slate-800/50 flex items-center justify-center text-slate-400 dark:text-slate-500 border border-slate-200 dark:border-white/5">
                     <ChevronDown className="w-6 h-6 opacity-50" />

@@ -71,12 +71,6 @@ public interface KpiSubmissionRepository extends JpaRepository<KpiSubmission, UU
 
     long countBySubmittedByIdAndStatus(UUID userId, SubmissionStatus status);
 
-    @Query("SELECT COUNT(s) FROM KpiSubmission s WHERE s.orgUnit.orgHierarchyLevel.organization.id = :orgId")
-    long countByOrganizationId(@Param("orgId") UUID orgId);
-
-    @Query("SELECT COUNT(s) FROM KpiSubmission s WHERE s.orgUnit.orgHierarchyLevel.organization.id = :orgId AND s.status = :status")
-    long countByOrganizationIdAndStatus(@Param("orgId") UUID orgId, @Param("status") SubmissionStatus status);
-
     @org.springframework.data.jpa.repository.Query("SELECT COUNT(s) FROM KpiSubmission s WHERE s.orgUnit.path LIKE :path")
     long countByOrgUnitPath(@org.springframework.data.repository.query.Param("path") String path);
 
@@ -316,78 +310,6 @@ public interface KpiSubmissionRepository extends JpaRepository<KpiSubmission, UU
             "GROUP BY ou.id, ou.name " +
             "ORDER BY completion_rate ASC LIMIT :limit", nativeQuery = true)
     java.util.List<Object[]> findLowUnitsByCompletionInSubtree(@Param("pathPrefix") String pathPrefix, @Param("startDate") Instant startDate, @Param("endDate") Instant endDate, @Param("limit") int limit);
-
-    @Query(value = "SELECT AVG(s.actual_value * 100.0 / NULLIF(kc.target_value, 0)) " +
-            "FROM kpi_submissions s " +
-            "JOIN kpi_criteria kc ON s.kpi_criteria_id = kc.id " +
-            "JOIN org_units ou ON s.org_unit_id = ou.id " +
-            "WHERE ou.path LIKE CONCAT(:pathPrefix, '%') AND s.deleted_at IS NULL AND s.status = 'APPROVED' " +
-            "AND s.created_at >= :startDate AND s.created_at <= :endDate", nativeQuery = true)
-    Double findAvgPerformanceInSubtree(@Param("pathPrefix") String pathPrefix, @Param("startDate") Instant startDate, @Param("endDate") Instant endDate);
-
-    @Query(value = "SELECT " +
-            "CASE " +
-            "  WHEN (s.actual_value * 100.0 / NULLIF(kc.target_value, 0)) < 90 THEN 'BELOW' " +
-            "  WHEN (s.actual_value * 100.0 / NULLIF(kc.target_value, 0)) BETWEEN 90 AND 110 THEN 'MET' " +
-            "  ELSE 'EXCEED' " +
-            "END AS perf_category, COUNT(s.id) " +
-            "FROM kpi_submissions s " +
-            "JOIN kpi_criteria kc ON s.kpi_criteria_id = kc.id " +
-            "JOIN org_units ou ON s.org_unit_id = ou.id " +
-            "WHERE ou.path LIKE CONCAT(:pathPrefix, '%') AND s.deleted_at IS NULL AND s.status = 'APPROVED' " +
-            "AND s.created_at >= :startDate AND s.created_at <= :endDate " +
-            "GROUP BY perf_category", nativeQuery = true)
-    java.util.List<Object[]> findPerformanceDistributionInSubtree(@Param("pathPrefix") String pathPrefix, @Param("startDate") Instant startDate, @Param("endDate") Instant endDate);
-
-    @Query(value = "SELECT u.id, u.full_name, u.email, " +
-            "AVG(s.actual_value * 100.0 / NULLIF(kc.target_value, 0)) AS avg_perf, " +
-            "COUNT(s.id) AS submission_count " +
-            "FROM kpi_submissions s " +
-            "JOIN kpi_criteria kc ON s.kpi_criteria_id = kc.id " +
-            "JOIN users u ON s.submitted_by = u.id " +
-            "JOIN org_units ou ON s.org_unit_id = ou.id " +
-            "WHERE ou.path LIKE CONCAT(:pathPrefix, '%') AND s.deleted_at IS NULL AND s.status = 'APPROVED' AND u.deleted_at IS NULL " +
-            "AND s.created_at >= :startDate AND s.created_at <= :endDate " +
-            "GROUP BY u.id, u.full_name, u.email " +
-            "ORDER BY avg_perf DESC LIMIT :limit", nativeQuery = true)
-    java.util.List<Object[]> findTopPerformersByPerformanceInSubtree(@Param("pathPrefix") String pathPrefix, @Param("startDate") Instant startDate, @Param("endDate") Instant endDate, @Param("limit") int limit);
-
-    @Query(value = "SELECT u.id, u.full_name, u.email, " +
-            "AVG(s.actual_value * 100.0 / NULLIF(kc.target_value, 0)) AS avg_perf, " +
-            "COUNT(s.id) AS submission_count " +
-            "FROM kpi_submissions s " +
-            "JOIN kpi_criteria kc ON s.kpi_criteria_id = kc.id " +
-            "JOIN users u ON s.submitted_by = u.id " +
-            "JOIN org_units ou ON s.org_unit_id = ou.id " +
-            "WHERE ou.path LIKE CONCAT(:pathPrefix, '%') AND s.deleted_at IS NULL AND s.status = 'APPROVED' AND u.deleted_at IS NULL " +
-            "AND s.created_at >= :startDate AND s.created_at <= :endDate " +
-            "GROUP BY u.id, u.full_name, u.email " +
-            "ORDER BY avg_perf ASC LIMIT :limit", nativeQuery = true)
-    java.util.List<Object[]> findLowPerformersByPerformanceInSubtree(@Param("pathPrefix") String pathPrefix, @Param("startDate") Instant startDate, @Param("endDate") Instant endDate, @Param("limit") int limit);
-
-    @Query(value = "SELECT ou.id, ou.name, " +
-            "AVG(s.actual_value * 100.0 / NULLIF(kc.target_value, 0)) AS avg_perf, " +
-            "COUNT(s.id) AS submission_count " +
-            "FROM kpi_submissions s " +
-            "JOIN kpi_criteria kc ON s.kpi_criteria_id = kc.id " +
-            "JOIN org_units ou ON s.org_unit_id = ou.id " +
-            "WHERE ou.path LIKE CONCAT(:pathPrefix, '%') AND s.deleted_at IS NULL AND s.status = 'APPROVED' " +
-            "AND s.created_at >= :startDate AND s.created_at <= :endDate " +
-            "GROUP BY ou.id, ou.name " +
-            "ORDER BY avg_perf DESC LIMIT :limit", nativeQuery = true)
-    java.util.List<Object[]> findTopUnitsByPerformanceInSubtree(@Param("pathPrefix") String pathPrefix, @Param("startDate") Instant startDate, @Param("endDate") Instant endDate, @Param("limit") int limit);
-
-    @Query(value = "SELECT ou.id, ou.name, " +
-            "AVG(s.actual_value * 100.0 / NULLIF(kc.target_value, 0)) AS avg_perf, " +
-            "COUNT(s.id) AS submission_count " +
-            "FROM kpi_submissions s " +
-            "JOIN kpi_criteria kc ON s.kpi_criteria_id = kc.id " +
-            "JOIN org_units ou ON s.org_unit_id = ou.id " +
-            "WHERE ou.path LIKE CONCAT(:pathPrefix, '%') AND s.deleted_at IS NULL AND s.status = 'APPROVED' " +
-            "AND s.created_at >= :startDate AND s.created_at <= :endDate " +
-            "GROUP BY ou.id, ou.name " +
-            "ORDER BY avg_perf ASC LIMIT :limit", nativeQuery = true)
-    java.util.List<Object[]> findLowUnitsByPerformanceInSubtree(@Param("pathPrefix") String pathPrefix, @Param("startDate") Instant startDate, @Param("endDate") Instant endDate, @Param("limit") int limit);
 
     @Query(value = "SELECT u.id, u.full_name, u.email, COUNT(s.id) AS late_count " +
             "FROM kpi_submissions s " +

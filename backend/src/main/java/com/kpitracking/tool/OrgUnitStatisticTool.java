@@ -159,6 +159,60 @@ public class OrgUnitStatisticTool {
         return getOrgUnitId(context);
     }
 
+    /** Kết quả resolve đơn vị theo id/tên: hoặc ra 1 UUID, hoặc cần hỏi làm rõ (needsClarification). */
+    private record UnitRef(UUID id, Map<String, Object> clarification) {}
+
+    /**
+     * Tìm đơn vị theo tên trong tổ chức, ƯU TIÊN khớp CHÍNH XÁC tên (vd có phòng cha "Sales")
+     * để tránh mơ hồ giả; nếu không có khớp chính xác thì trả toàn bộ kết quả khớp gần đúng.
+     */
+    private List<Map<String, Object>> unitMatchPool(String name, UUID orgId) {
+        List<Map<String, Object>> matches = orgUnitStatisticService.searchOrgUnits(orgId, name.trim(), 10);
+        List<Map<String, Object>> exact = matches.stream()
+                .filter(m -> name.trim().equalsIgnoreCase(String.valueOf(m.get("name"))))
+                .collect(java.util.stream.Collectors.toList());
+        return !exact.isEmpty() ? exact : matches;
+    }
+
+    /** Envelope yêu cầu làm rõ khi 1 tên đơn vị khớp nhiều/không thấy (cho các tool 1 đơn vị). */
+    private Map<String, Object> unitClarification(String query, List<Map<String, Object>> pool, ToolContext context) {
+        String convId = getConversationId(context);
+        if (convId != null) followupContextStore.markDisambiguating(convId);
+        Map<String, Object> group = new LinkedHashMap<>();
+        group.put("query", query);
+        group.put("reason", pool.isEmpty() ? "not_found" : "ambiguous");
+        group.put("options", pool);
+        Map<String, Object> out = new LinkedHashMap<>();
+        out.put("needsClarification", true);
+        out.put("ambiguous", java.util.List.of(group));
+        out.put("message", "Tên đơn vị '" + query + "' khớp NHIỀU đơn vị (hoặc không tìm thấy). Hãy hỏi người dùng "
+                + "chọn RÕ đơn vị (nêu đơn vị cha/cấp để phân biệt) rồi gọi lại với tên cụ thể.");
+        return out;
+    }
+
+    /**
+     * Resolve đơn vị đích cho các tool 1 đơn vị: ưu tiên unitId (UUID), rồi unitName (tự resolve,
+     * có thể cần hỏi làm rõ), cuối cùng mặc định là đơn vị hiện tại của người dùng.
+     */
+    private UnitRef resolveUnit(String unitId, String unitName, ToolContext context) {
+        if (unitId != null && !unitId.isBlank()) {
+            UUID id = parseId(unitId, "đơn vị (unitId)", "search_org_units");
+            guardDisambiguation("orgUnit", id, "đơn vị");
+            validateSubtreeAccess(id, context);
+            return new UnitRef(id, null);
+        }
+        if (unitName != null && !unitName.isBlank()) {
+            List<Map<String, Object>> pool = unitMatchPool(unitName, getOrgId(context));
+            if (pool.size() == 1) {
+                UUID id = UUID.fromString(String.valueOf(pool.get(0).get("id")));
+                validateSubtreeAccess(id, context);
+                return new UnitRef(id, null);
+            }
+            return new UnitRef(null, unitClarification(unitName.trim(), pool, context));
+        }
+        return new UnitRef(getOrgUnitId(context), null);
+    }
+
     /**
      * Refuses to act on an ID that was flagged ambiguous (same-named) by a search
      * in the current turn, forcing the assistant to ask the user to choose first.
@@ -373,14 +427,14 @@ public class OrgUnitStatisticTool {
 
     // ── 4. get_members ───────────────────────────────────────────────────────
 
-    @Tool(name = "get_members", description = "List and count members/users inside an organizational unit, supporting subtree searches and position/role filtering.")
+    @Tool(name = "get_members", description = "List and count members/users inside an organizational unit, supporting subtree searches and position/role filtering. To filter by position, PREFER positionName (e.g. 'trưởng phòng') — resolved in-tool, no need to search_positions first; positionId (UUID) also accepted.")
     public String getMembers(GetMembersRequest request, ToolContext context) {
         try {
             UUID targetUnitId = resolveUnitId(request.unitId(), context);
             if (request.positionId() != null && !request.positionId().isBlank())
                 parseId(request.positionId(), "vị trí (positionId)", "search_positions");
             Map<String, Object> response = orgUnitStatisticService.getMembers(
-                    targetUnitId, request.includeChildUnits(), request.positionId(),
+                    targetUnitId, request.includeChildUnits(), request.positionId(), request.positionName(),
                     request.page(), request.size(), request.sortBy(), request.sortDirection());
             return respond(context, "get_members", response);
         } catch (Exception e) {
@@ -390,12 +444,12 @@ public class OrgUnitStatisticTool {
 
     // ── 5. get_org_unit_statistics ───────────────────────────────────────────
 
-    @Tool(name = "get_org_unit_statistics", description = "Get aggregated KPI performance statistics (progress, performance, ratings, count of KPIs) for a group of members.")
+    @Tool(name = "get_org_unit_statistics", description = "Get aggregated KPI performance statistics (progress, performance, ratings, count of KPIs) for a group of members. Optional positionName (e.g. 'trưởng phòng') restricts the group to members holding that position — resolved in-tool, no search_positions needed.")
     public String getOrgUnitStatistics(GetOrgUnitStatisticsRequest request, ToolContext context) {
         try {
             UUID targetUnitId = resolveUnitId(request.unitId(), context);
             Map<String, Object> response = orgUnitStatisticService.getMemberStatistics(
-                    targetUnitId, request.includeChildUnits(),
+                    targetUnitId, request.includeChildUnits(), request.positionName(),
                     request.startDate(), request.endDate());
             return respond(context, "get_org_unit_statistics", response);
         } catch (Exception e) {
@@ -437,7 +491,7 @@ public class OrgUnitStatisticTool {
 
     // ── 7. get_kpis ──────────────────────────────────────────────────────────
 
-    @Tool(name = "get_kpis", description = "List/filter KPI criteria (pagination/sorting). Each KPI: name, periodName, progress (% of target reached), performance (% vs time-proportional target) — use to compare KPI health. Returns NO IDs; resolve a KPI's UUID via search_kpis before get_kpi_detail/get_submission_history.")
+    @Tool(name = "get_kpis", description = "List/filter KPI criteria (pagination/sorting). Each KPI: name, periodName, progress (% of target reached) — use to compare KPI health. Defaults to your CURRENT unit; pass unitName (e.g. 'phòng IT') to target another unit's subtree. Returns NO IDs; resolve a KPI's UUID via search_kpis before get_kpi_detail/get_submission_history.")
     public String getKpis(GetKpisRequest request, ToolContext context) {
         try {
             if (request.ownerId() != null && !request.ownerId().isBlank())
@@ -448,7 +502,9 @@ public class OrgUnitStatisticTool {
                 validateUserAccess(parseId(request.assignedToId(), "người dùng (assignedToId)", "search_users"), context);
             if (request.periodId() != null && !request.periodId().isBlank())
                 parseId(request.periodId(), "kỳ KPI (periodId)", "search_kpi_periods");
-            UUID orgUnitId = getOrgUnitId(context);
+            UnitRef u = resolveUnit(request.unitId(), request.unitName(), context);
+            if (u.clarification() != null) return respond(context, "get_kpis", u.clarification());
+            UUID orgUnitId = u.id();
             Map<String, Object> response = orgUnitStatisticService.getKpis(
                     orgUnitId, request.ownerId(), request.assignedById(), request.assignedToId(),
                     request.periodId(), request.status(), request.page(), request.size(),
@@ -461,7 +517,7 @@ public class OrgUnitStatisticTool {
 
     // ── 8. get_kpi_summary ───────────────────────────────────────────────────
 
-    @Tool(name = "get_kpi_summary", description = "Get aggregate statistics of KPIs matching the specified filter criteria.")
+    @Tool(name = "get_kpi_summary", description = "Get aggregate statistics of KPIs matching the specified filter criteria. Defaults to your CURRENT unit; pass unitName (e.g. 'phòng IT') to target another unit's subtree.")
     public String getKpiSummary(GetKpiSummaryRequest request, ToolContext context) {
         try {
             if (request.ownerId() != null && !request.ownerId().isBlank())
@@ -472,7 +528,9 @@ public class OrgUnitStatisticTool {
                 validateUserAccess(parseId(request.assignedToId(), "người dùng (assignedToId)", "search_users"), context);
             if (request.periodId() != null && !request.periodId().isBlank())
                 parseId(request.periodId(), "kỳ KPI (periodId)", "search_kpi_periods");
-            UUID orgUnitId = getOrgUnitId(context);
+            UnitRef u = resolveUnit(request.unitId(), request.unitName(), context);
+            if (u.clarification() != null) return respond(context, "get_kpi_summary", u.clarification());
+            UUID orgUnitId = u.id();
             Map<String, Object> response = orgUnitStatisticService.getKpiSummary(
                     orgUnitId, request.ownerId(), request.assignedById(), request.assignedToId(),
                     request.periodId(), request.status(), request.startDate(), request.endDate());
@@ -515,12 +573,21 @@ public class OrgUnitStatisticTool {
 
     // ── 11. get_kpi_periods ──────────────────────────────────────────────────
 
-    @Tool(name = "get_kpi_periods", description = "List and detail KPI periods, including participants count, KPIs count, average progress, and performance.")
+    @Tool(name = "get_kpi_periods", description = "List and detail KPI periods (participants count, KPIs count, average progress/performance). Defaults to ALL periods of the organization; pass unitName (e.g. 'phòng IT') to list ONLY periods that unit PARTICIPATES in, with counts scoped to that unit.")
     public String getKpiPeriods(GetKpiPeriodsRequest request, ToolContext context) {
         try {
             UUID orgId = getOrgId(context);
+            // Chỉ resolve khi người dùng nêu đơn vị; không nêu -> giữ phạm vi toàn tổ chức (như cũ).
+            UUID targetUnitId = null;
+            boolean hasUnit = (request.unitId() != null && !request.unitId().isBlank())
+                    || (request.unitName() != null && !request.unitName().isBlank());
+            if (hasUnit) {
+                UnitRef u = resolveUnit(request.unitId(), request.unitName(), context);
+                if (u.clarification() != null) return respond(context, "get_kpi_periods", u.clarification());
+                targetUnitId = u.id();
+            }
             List<Map<String, Object>> response = orgUnitStatisticService.getKpiPeriods(
-                    orgId, request.startDate(), request.endDate());
+                    orgId, targetUnitId, request.startDate(), request.endDate());
             return respond(context, "get_kpi_periods", response);
         } catch (Exception e) {
             return toolError("getKpiPeriods", e);
@@ -542,7 +609,7 @@ public class OrgUnitStatisticTool {
 
     // ── 13. rank_members ─────────────────────────────────────────────────────
 
-    @Tool(name = "rank_members", description = "Rank users by metric → [rank, fullName, email, score] (no IDs; use search_users for UUID). Metrics: average_progress (weighted avg % of target reached), total_progress (sum of approved actuals), average_performance (weighted avg % vs time-proportional target), average_rating, late_submission_count, missing_submission_count, submission_count. Scopes: organization (all org users) | unit (needs unitId) | kpi (needs kpiId — ranks that KPI's assignees).")
+    @Tool(name = "rank_members", description = "Rank users by metric → [rank, fullName, email, score] (no IDs; use search_users for UUID). Metrics: average_progress (weighted avg % of target reached), total_progress (sum of approved actuals), average_performance (weighted avg % vs time-proportional target), average_rating, late_submission_count, missing_submission_count, submission_count. Scopes: organization (all org users) | unit (needs unitId) | kpi (needs kpiId — ranks that KPI's assignees). FILTERS (apply on top of scope, avoid chaining): managersOnly=true keeps only unit heads/managers; positionFilter=<role name> keeps only users holding a matching position (e.g. 'trưởng phòng', 'phó phòng'). Use these to answer 'so sánh/xếp hạng <chức vụ> theo điểm đánh giá' in ONE call, e.g. rank all department heads by average_rating ascending to find the lowest.")
     public String rankMembers(RankMembersRequest request, ToolContext context) {
         try {
             if ("unit".equals(request.scope()) && request.unitId() != null && !request.unitId().isBlank()) {
@@ -556,7 +623,8 @@ public class OrgUnitStatisticTool {
             List<Map<String, Object>> response = orgUnitStatisticService.rankMembers(
                     orgId, request.metric(), request.order(), request.scope(),
                     request.unitId(), request.kpiId(), request.limit(),
-                    request.startDate(), request.endDate(), contextUnitId);
+                    request.startDate(), request.endDate(), contextUnitId,
+                    request.positionFilter(), request.managersOnly());
             return respond(context, "rank_members", response);
         } catch (Exception e) {
             return toolError("rankMembers", e);
@@ -580,12 +648,13 @@ public class OrgUnitStatisticTool {
 
     // ── 15. get_kpi_risk_analysis ────────────────────────────────────────────
 
-    @Tool(name = "get_kpi_risk_analysis", description = "Analyze and identify at-risk, overdue, or stagnant KPIs within the current organizational unit's subtree.")
+    @Tool(name = "get_kpi_risk_analysis", description = "Analyze and identify at-risk, overdue, or stagnant KPIs within a unit's subtree. Defaults to your CURRENT unit; pass unitName (e.g. 'phòng vận hành') to target another unit.")
     public String getKpiRiskAnalysis(GetKpiRiskAnalysisRequest request, ToolContext context) {
         try {
-            UUID orgUnitId = getOrgUnitId(context);
+            UnitRef u = resolveUnit(request.unitId(), request.unitName(), context);
+            if (u.clarification() != null) return respond(context, "get_kpi_risk_analysis", u.clarification());
             List<Map<String, Object>> response = orgUnitStatisticService.getKpiRiskAnalysis(
-                    orgUnitId, request.startDate(), request.endDate());
+                    u.id(), request.startDate(), request.endDate());
             return respond(context, "get_kpi_risk_analysis", response);
         } catch (Exception e) {
             return toolError("getKpiRiskAnalysis", e);
@@ -684,15 +753,61 @@ public class OrgUnitStatisticTool {
 
     // ── compare_org_units ─────────────────────────────────────────────────────
 
-    @Tool(name = "compare_org_units", description = "Compare 2–5 org units side by side on KPI metrics (avgPerformance, avgProgress, memberCount, completionRate). Use for cross-unit comparison: 'compare unit A vs unit B'. Returns units list with winner (best performer) marked.")
+    @Tool(name = "compare_org_units", description = "Compare 2–5 org units side by side on KPI metrics (avgPerformance, avgProgress, memberCount, completionRate). Use for cross-unit comparison: 'so sánh đơn vị A vs B'. PREFER passing unitNames — the tool resolves them by name in ONE call, so you do NOT need to search_org_units first; unitIds (UUID) also accepted. If a name matches multiple units, the tool returns needsClarification listing ALL options for EVERY ambiguous name at once — ask the user to pick them ALL in ONE question, then call again with the specific names. Returns units list with winner (best performer) marked.")
     public String compareOrgUnits(OrgUnitStatisticToolRequests.CompareOrgUnitsRequest request, ToolContext context) {
         try {
-            java.util.List<UUID> unitIds = request.unitIds().stream()
-                    .map(id -> parseId(id, "đơn vị (unitIds)", "search_org_units"))
-                    .peek(uid -> validateSubtreeAccess(uid, context))
-                    .toList();
+            UUID orgId = getOrgId(context);
+            java.util.List<UUID> unitIds = new java.util.ArrayList<>();
+
+            // 1. UUID truyền thẳng (giữ tương thích).
+            if (request.unitIds() != null) {
+                for (String id : request.unitIds()) {
+                    if (id != null && !id.isBlank()) unitIds.add(parseId(id, "đơn vị (unitIds)", "search_org_units"));
+                }
+            }
+
+            // 2. Resolve theo TÊN ngay trong tool (bỏ bước search riêng). Gom MỌI tên mơ hồ/không thấy
+            //    để hỏi người dùng một lần, thay vì search tuần tự từng đơn vị (mỗi cái một lượt hỏi).
+            java.util.List<Map<String, Object>> clarify = new java.util.ArrayList<>();
+            if (request.unitNames() != null) {
+                for (String name : request.unitNames()) {
+                    if (name == null || name.isBlank()) continue;
+                    String q = name.trim();
+                    List<Map<String, Object>> pool = unitMatchPool(q, orgId);
+                    if (pool.size() == 1) {
+                        unitIds.add(UUID.fromString(String.valueOf(pool.get(0).get("id"))));
+                    } else {
+                        Map<String, Object> group = new java.util.LinkedHashMap<>();
+                        group.put("query", q);
+                        group.put("reason", pool.isEmpty() ? "not_found" : "ambiguous");
+                        group.put("options", pool);
+                        clarify.add(group);
+                    }
+                }
+            }
+
+            // 3. Có tên chưa xác định duy nhất -> trả yêu cầu làm rõ GỘP (hỏi 1 lần cho tất cả).
+            if (!clarify.isEmpty()) {
+                String convId = getConversationId(context);
+                if (convId != null) followupContextStore.markDisambiguating(convId);
+                Map<String, Object> out = new java.util.LinkedHashMap<>();
+                out.put("needsClarification", true);
+                out.put("ambiguous", clarify);
+                out.put("message", "Một số tên đơn vị khớp NHIỀU đơn vị (hoặc không tìm thấy). Hãy hỏi người dùng "
+                        + "chọn RÕ từng đơn vị (liệt kê đủ lựa chọn kèm đơn vị cha/cấp để phân biệt) trong MỘT câu hỏi, "
+                        + "rồi gọi lại compare_org_units với tên cụ thể đã chọn.");
+                return respond(context, "compare_org_units", out);
+            }
+
+            // 4. Khử trùng, kiểm tra số lượng + phân quyền, rồi so sánh.
+            java.util.List<UUID> distinct = unitIds.stream().distinct().collect(java.util.stream.Collectors.toList());
+            if (distinct.size() < 2) {
+                throw new IllegalArgumentException("Cần ít nhất 2 đơn vị KHÁC NHAU để so sánh. Hãy cung cấp unitNames (tên) hoặc unitIds.");
+            }
+            if (distinct.size() > 5) distinct = distinct.subList(0, 5);
+            for (UUID uid : distinct) validateSubtreeAccess(uid, context);
             Map<String, Object> response = orgUnitStatisticService.compareOrgUnits(
-                    unitIds, request.startDate(), request.endDate());
+                    distinct, request.startDate(), request.endDate());
             return respond(context, "compare_org_units", response);
         } catch (Exception e) {
             return toolError("compareOrgUnits", e);

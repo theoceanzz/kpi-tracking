@@ -34,6 +34,31 @@ public class SubordinateAnalyticsService {
     private final KpiSubmissionRepository submissionRepository;
     private final KeyResultRepository keyResultRepository;
     private final KpiCriteriaRepository kpiCriteriaRepository;
+    private final EvaluationService evaluationService;
+
+    /** ID các nhân sự thuộc phạm vi cấp dưới (để tính hiệu suất theo đánh giá). */
+    private java.util.Set<UUID> subordinateUserIds() {
+        List<UUID> orgUnitIds = getSubordinateOrgUnitIds();
+        if (orgUnitIds.isEmpty()) return java.util.Set.of();
+        return userRoleOrgUnitRepository.findByOrgUnitIdIn(orgUnitIds).stream()
+                .map(a -> a.getUser().getId())
+                .collect(java.util.stream.Collectors.toCollection(java.util.LinkedHashSet::new));
+    }
+
+    /** Tập đợt (kpiPeriod) của các KPI dưới các mục tiêu trong phạm vi. */
+    private java.util.Set<UUID> periodIdsOfObjectives(List<Objective> objs) {
+        java.util.Set<UUID> ids = new java.util.LinkedHashSet<>();
+        for (Objective o : objs) {
+            if (o.getKeyResults() == null) continue;
+            for (KeyResult kr : o.getKeyResults()) {
+                if (kr.getKpis() == null) continue;
+                for (KpiCriteria k : kr.getKpis()) {
+                    if (k.getKpiPeriod() != null) ids.add(k.getKpiPeriod().getId());
+                }
+            }
+        }
+        return ids;
+    }
 
     private User getCurrentUser() {
         String email = SecurityContextHolder.getContext().getAuthentication().getName();
@@ -162,6 +187,9 @@ public class SubordinateAnalyticsService {
                     .unitName(childUnitName)
                     .startDate(child.getKpiPeriod() != null ? child.getKpiPeriod().getStartDate() : null)
                     .endDate(child.getKpiPeriod() != null ? child.getKpiPeriod().getEndDate() : null)
+                    .periodName(child.getKpiPeriod() != null ? child.getKpiPeriod().getName() : null)
+                    .weight(child.getWeight())
+                    .assigneeName(KpiMetricsCalculator.assigneeNames(child))
                     .isReverseKpi(Boolean.TRUE.equals(child.getIsReverseKpi()))
                     .isBonusKpi(childBonus)
                     .parentId(kpi.getId())
@@ -240,17 +268,11 @@ public class SubordinateAnalyticsService {
 
     @Transactional(readOnly = true)
     public MetricValueResponse getPerformanceRate(Instant from, Instant to, Boolean onlyApproved) {
+        // Hiệu suất nay tính theo ĐÁNH GIÁ của cấp dưới trong các đợt (không theo KPI).
         List<Objective> objectives = getObjectivesInScope();
         if (objectives.isEmpty()) return new MetricValueResponse(0.0);
-
-        double total = 0;
-        int count = 0;
-        for (Objective obj : objectives) {
-            double[] metrics = calculateObjectiveMetrics(obj, from, to, onlyApproved);
-            total += metrics[1];
-            count++;
-        }
-        return new MetricValueResponse(count > 0 ? total / count : 0.0);
+        Double perf = evaluationService.averagePerformance(subordinateUserIds(), periodIdsOfObjectives(objectives));
+        return new MetricValueResponse(perf != null ? perf : 0.0);
     }
 
     @Transactional(readOnly = true)
@@ -311,49 +333,65 @@ public class SubordinateAnalyticsService {
     }
 
     @Transactional(readOnly = true)
-    public ComboChartResponse getComboChart(Instant from, Instant to, Boolean onlyApproved) {
+    public ComboChartResponse getComboChart(Instant from, Instant to, Boolean onlyApproved, String groupBy) {
         List<Objective> objectives = getObjectivesInScope();
-        
+
         Instant effectiveFrom = from != null ? from : Instant.now().minus(180, java.time.temporal.ChronoUnit.DAYS);
         Instant effectiveTo = to != null ? to : Instant.now();
-        
-        List<IntervalPoint> intervalPoints = generateIntervalPoints(effectiveFrom, effectiveTo);
+
+        // groupBy=PERIOD → mỗi cột = 1 đợt (bucket theo biên đợt); mặc định TIME → theo khoảng thời gian.
+        boolean byPeriod = "PERIOD".equalsIgnoreCase(groupBy);
+        List<IntervalPoint> intervalPoints = byPeriod
+                ? periodBuckets(objectives)
+                : generateIntervalPoints(effectiveFrom, effectiveTo);
         List<ComboChartResponse.ChartPoint> points = new ArrayList<>();
-        
+
+        // Hiệu suất tính theo ĐÁNH GIÁ của cấp dưới (đồng bộ với thẻ "Hiệu suất tổng quan").
+        java.util.Set<UUID> subUsers = subordinateUserIds();
+
         for (IntervalPoint ip : intervalPoints) {
             Instant pStart = ip.start;
             Instant pEnd = ip.end;
             String label = ip.label;
+            // PERIOD: tính trong đúng biên đợt [start,end]; TIME: lũy kế từ effectiveFrom đến hết mốc.
+            Instant metricsFrom = byPeriod ? pStart : effectiveFrom;
 
             int oldObjs = 0;
             int newObjs = 0;
             double totalComp = 0;
-            double totalPerf = 0;
             int actObjs = 0;
+            // Tập đợt liên quan tới mốc này để tính hiệu suất theo đánh giá.
+            java.util.Set<UUID> evalPeriodIds = new java.util.LinkedHashSet<>();
 
             for (Objective obj : objectives) {
                 if (obj.getCreatedAt() == null) continue;
-                
+
                 boolean isActive = true;
                 if (!obj.getCreatedAt().isBefore(pEnd)) isActive = false;
                 if (obj.getDeletedAt() != null && obj.getDeletedAt().isBefore(pEnd)) isActive = false;
-                
+
                 if (isActive) {
                     if (obj.getCreatedAt().isBefore(pStart)) {
                         oldObjs++;
                     } else {
                         newObjs++;
                     }
-                    
-                    double[] metrics = calculateObjectiveMetrics(obj, effectiveFrom, pEnd, onlyApproved);
+
+                    double[] metrics = calculateObjectiveMetrics(obj, metricsFrom, pEnd, onlyApproved);
                     totalComp += metrics[0];
-                    totalPerf += metrics[1];
                     actObjs++;
+
+                    // TIME: gom đợt của các KPI đã bắt đầu trước mốc; PERIOD: dùng đúng đợt của cột.
+                    if (!byPeriod) collectPeriodIdsStartedBefore(obj, pEnd, evalPeriodIds);
                 }
             }
 
+            if (byPeriod && actObjs > 0 && ip.periodId != null) evalPeriodIds.add(ip.periodId);
+
             double avgComp = actObjs > 0 ? totalComp / actObjs : 0;
-            double avgPerf = actObjs > 0 ? totalPerf / actObjs : 0;
+            Double evalPerf = evalPeriodIds.isEmpty() ? null
+                    : evaluationService.averagePerformance(subUsers, evalPeriodIds);
+            double avgPerf = evalPerf != null ? evalPerf : 0;
 
             points.add(ComboChartResponse.ChartPoint.builder()
                     .label(label)
@@ -367,12 +405,48 @@ public class SubordinateAnalyticsService {
         return new ComboChartResponse(points);
     }
 
+    /** Gom periodId của các KPI (dưới mục tiêu) đã bắt đầu trước {@code cutoff} — dùng cho hiệu suất đánh giá theo mốc thời gian. */
+    private void collectPeriodIdsStartedBefore(Objective obj, Instant cutoff, java.util.Set<UUID> out) {
+        if (obj.getKeyResults() == null) return;
+        for (KeyResult kr : obj.getKeyResults()) {
+            if (kr.getKpis() == null) continue;
+            for (KpiCriteria k : kr.getKpis()) {
+                KpiPeriod p = k.getKpiPeriod();
+                if (p == null) continue;
+                Instant ref = p.getStartDate() != null ? p.getStartDate() : k.getCreatedAt();
+                if (ref != null && ref.isBefore(cutoff)) out.add(p.getId());
+            }
+        }
+    }
+
+    /** Bucket theo ĐỢT: mỗi đợt (của KPI dưới các mục tiêu) → 1 IntervalPoint(start, end, tên đợt), sắp theo startDate. */
+    private List<IntervalPoint> periodBuckets(List<Objective> objs) {
+        java.util.Map<UUID, KpiPeriod> map = new java.util.LinkedHashMap<>();
+        for (Objective o : objs) {
+            if (o.getKeyResults() == null) continue;
+            for (KeyResult kr : o.getKeyResults()) {
+                if (kr.getKpis() == null) continue;
+                for (KpiCriteria k : kr.getKpis()) {
+                    KpiPeriod p = k.getKpiPeriod();
+                    if (p != null) map.putIfAbsent(p.getId(), p);
+                }
+            }
+        }
+        return map.values().stream()
+                .filter(p -> p.getStartDate() != null && p.getEndDate() != null)
+                .sorted(java.util.Comparator.comparing(KpiPeriod::getStartDate))
+                .map(p -> new IntervalPoint(p.getStartDate(), p.getEndDate(), p.getName(), p.getId()))
+                .collect(java.util.stream.Collectors.toList());
+    }
+
     private ObjectiveDetailedDto buildObjectiveDetailedDto(Objective obj, Instant A, Instant B, Boolean onlyApproved) {
         List<KeyResultDetailedDto> krDtos = new ArrayList<>();
         double totalObjCompletion = 0;
         double totalObjPerformance = 0;
         int activeKrCount = 0;
         int completedKrs = 0;
+        // Gom tên đợt distinct của mọi KPI trong mục tiêu (cho cột "Đợt" thông minh).
+        java.util.LinkedHashSet<String> objPeriods = new java.util.LinkedHashSet<>();
 
         if (obj.getKeyResults() != null) {
             for (KeyResult kr : obj.getKeyResults()) {
@@ -510,6 +584,9 @@ public class SubordinateAnalyticsService {
                         .unitCode(unitCode)
                         .startDate(kpi.getKpiPeriod() != null ? kpi.getKpiPeriod().getStartDate() : null)
                         .endDate(kpi.getKpiPeriod() != null ? kpi.getKpiPeriod().getEndDate() : null)
+                        .periodName(kpi.getKpiPeriod() != null ? kpi.getKpiPeriod().getName() : null)
+                        .weight(kpi.getWeight())
+                        .assigneeName(KpiMetricsCalculator.assigneeNames(kpi))
                         .participants(participantDtos)
                         .isReverseKpi(Boolean.TRUE.equals(kpi.getIsReverseKpi()))
                         .isBonusKpi(isBonus)
@@ -543,6 +620,13 @@ public class SubordinateAnalyticsService {
                         ? (obj.getOrgUnits().isEmpty() ? null : obj.getOrgUnits().get(0).getCode())
                         : krUnits.get(0).getOrgUnitCode();
 
+                    List<String> krPeriods = kpiDtos.stream()
+                        .map(KpiDetailedDto::getPeriodName)
+                        .filter(java.util.Objects::nonNull)
+                        .distinct()
+                        .toList();
+                    objPeriods.addAll(krPeriods);
+
                     krDtos.add(KeyResultDetailedDto.builder()
                         .id(kr.getId())
                         .name(kr.getName())
@@ -554,6 +638,8 @@ public class SubordinateAnalyticsService {
                         .assignedUnits(krUnits)
                         .startDate(obj.getStartDate() != null ? obj.getStartDate().atStartOfDay().toInstant(ZoneOffset.UTC) : null)
                         .endDate(obj.getEndDate() != null ? obj.getEndDate().atStartOfDay().toInstant(ZoneOffset.UTC) : null)
+                        .periodCount(krPeriods.size())
+                        .periodNames(krPeriods)
                         .kpis(kpiDtos)
                         .build());
 
@@ -583,6 +669,8 @@ public class SubordinateAnalyticsService {
             .performance(objPerformance)
             .completedKeyResults(completedKrs)
             .totalKeyResults(activeKrCount)
+            .periodCount(objPeriods.size())
+            .periodNames(new ArrayList<>(objPeriods))
             .keyResults(krDtos)
             .build();
     }
@@ -638,17 +726,19 @@ public class SubordinateAnalyticsService {
         // Sort
         if (sortBy != null) {
             boolean descending = !"asc".equalsIgnoreCase(sortDir);
-            allDtos.sort((a, b) -> {
-                double va, vb;
-                if ("performance".equalsIgnoreCase(sortBy)) {
-                    va = a.getPerformance() != null ? a.getPerformance() : 0.0;
-                    vb = b.getPerformance() != null ? b.getPerformance() : 0.0;
-                } else {
-                    va = a.getProgress() != null ? a.getProgress() : 0.0;
-                    vb = b.getProgress() != null ? b.getProgress() : 0.0;
-                }
-                return descending ? Double.compare(vb, va) : Double.compare(va, vb);
-            });
+            java.util.Comparator<ObjectiveDetailedDto> cmp;
+            if ("period".equalsIgnoreCase(sortBy)) {
+                // Sort theo đợt (ngày bắt đầu của mục tiêu); mặc định desc = đợt gần nhất trước.
+                cmp = java.util.Comparator.comparing(
+                        ObjectiveDetailedDto::getStartDate,
+                        java.util.Comparator.nullsLast(java.util.Comparator.naturalOrder()));
+            } else if ("performance".equalsIgnoreCase(sortBy)) {
+                cmp = java.util.Comparator.comparingDouble(d -> d.getPerformance() != null ? d.getPerformance() : 0.0);
+            } else {
+                cmp = java.util.Comparator.comparingDouble(d -> d.getProgress() != null ? d.getProgress() : 0.0);
+            }
+            if (descending) cmp = cmp.reversed();
+            allDtos.sort(cmp);
         }
 
         long totalElements = allDtos.size();
@@ -1479,11 +1569,17 @@ public class SubordinateAnalyticsService {
         Instant start;
         Instant end;
         String label;
+        UUID periodId; // chỉ có ở bucket "theo đợt" (PERIOD mode); null với bucket theo thời gian
 
         IntervalPoint(Instant start, Instant end, String label) {
+            this(start, end, label, null);
+        }
+
+        IntervalPoint(Instant start, Instant end, String label, UUID periodId) {
             this.start = start;
             this.end = end;
             this.label = label;
+            this.periodId = periodId;
         }
     }
 

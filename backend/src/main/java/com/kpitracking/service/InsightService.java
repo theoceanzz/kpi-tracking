@@ -3,8 +3,10 @@ package com.kpitracking.service;
 import com.kpitracking.dto.response.ai.InsightCardResponse;
 import com.kpitracking.dto.response.ai.InsightCardResponse.InsightContext;
 import com.kpitracking.entity.KpiPeriod;
+import com.kpitracking.entity.OrgUnit;
 import com.kpitracking.repository.KpiPeriodRepository;
 import com.kpitracking.repository.KpiSubmissionRepository;
+import com.kpitracking.repository.OrgUnitRepository;
 import com.kpitracking.service.ManagerContextResolver.ManagerContext;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -16,6 +18,7 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
+import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -33,9 +36,9 @@ public class InsightService {
     private final ManagerContextResolver managerContextResolver;
     private final KpiSubmissionRepository kpiSubmissionRepository;
     private final KpiPeriodRepository kpiPeriodRepository;
+    private final OrgUnitRepository orgUnitRepository;
+    private final EvaluationService evaluationService;
 
-    private static final double EXCEED_THRESHOLD = 110.0;   // > 110% of target
-    private static final double BELOW_THRESHOLD = 80.0;     // < 80% of target
     private static final double SPIKE_THRESHOLD = 20.0;     // > +20% vs previous period
     private static final double DROP_THRESHOLD = -15.0;     // < -15% vs previous period
     private static final double DEADLINE_COMPLETION_THRESHOLD = 90.0; // < 90% complete
@@ -50,24 +53,24 @@ public class InsightService {
         ManagerContext ctx = managerContextResolver.resolve();
         if (ctx == null) return List.of();
 
-        String path = ctx.orgUnitPath();
         Instant end = Instant.now();
-        // Insight cards reflect the unit's CURRENT standing, so we scan all-time data
-        // (matches how the rest of the codebase defaults date ranges to EPOCH..now).
-        Instant start = Instant.EPOCH;
+        // Đơn vị của manager để tính hiệu suất ĐÁNH GIÁ (theo cùng công thức phần thống kê).
+        OrgUnit unit = ctx.orgUnitId() != null ? orgUnitRepository.findById(ctx.orgUnitId()).orElse(null) : null;
 
         List<InsightCardResponse> candidates = new ArrayList<>();
         safe("DEADLINE_RISK", () -> candidates.addAll(detectDeadlineRisk(ctx, end)));
-        safe("BELOW/EXCEED", () -> candidates.addAll(detectBelowAndExceed(path, start, end)));
-        safe("SPIKE/DROP", () -> candidates.addAll(detectSpikeAndDrop(path)));
+        if (unit != null) {
+            safe("BELOW/EXCEED", () -> candidates.addAll(detectBelowAndExceed(unit)));
+            safe("SPIKE/DROP", () -> candidates.addAll(detectSpikeAndDrop(unit)));
+        }
 
         candidates.sort(Comparator.comparingInt(c -> InsightType.valueOf(c.getType()).ordinal()));
 
         // Fallback: no rule fired but the unit has data — still give the manager a
         // data-driven overview reminder (not random) so the cards are never empty.
-        if (candidates.isEmpty()) {
+        if (candidates.isEmpty() && unit != null) {
             safe("SUMMARY", () -> {
-                InsightCardResponse summary = buildSummary(path, start, end);
+                InsightCardResponse summary = buildSummary(unit);
                 if (summary != null) candidates.add(summary);
             });
         }
@@ -75,14 +78,14 @@ public class InsightService {
         return candidates.stream().limit(MAX_INSIGHTS).collect(Collectors.toList());
     }
 
-    private InsightCardResponse buildSummary(String path, Instant start, Instant end) {
-        Double avg = kpiSubmissionRepository.findAvgPerformanceInSubtree(path, start, end);
-        if (avg == null) return null; // genuinely no KPI data — nothing to remind
-        double perf = avg;
+    private InsightCardResponse buildSummary(OrgUnit unit) {
+        // Hiệu suất ĐÁNH GIÁ trung bình của đơn vị (0 = chưa có đánh giá → không nhắc).
+        double perf = evaluationService.unitEvaluationPerformance(unit, null);
+        if (perf <= 0) return null;
         InsightContext c = InsightContext.builder()
                 .entityType("ORG_UNIT").metricKey("avg_performance").value(round(perf)).build();
         return card(InsightType.SUMMARY, "Tổng quan",
-                String.format(Locale.US, "Đơn vị của bạn đang đạt trung bình %.0f%% mục tiêu KPI.", perf),
+                String.format(Locale.US, "Đơn vị của bạn đang đạt hiệu suất đánh giá trung bình %.0f%%.", perf),
                 "Cho tôi tổng quan hiệu suất KPI của đơn vị và những điểm cần lưu ý.",
                 c);
     }
@@ -115,49 +118,62 @@ public class InsightService {
         return out;
     }
 
-    private List<InsightCardResponse> detectBelowAndExceed(String path, Instant start, Instant end) {
+    private List<InsightCardResponse> detectBelowAndExceed(OrgUnit unit) {
+        // Ngưỡng theo thang điểm đánh giá của tổ chức (mặc định 100): điểm đánh giá bị chặn
+        // trần bởi evaluationMaxScore nên không dùng ngưỡng "vượt 110%" kiểu actual/target.
+        double maxScore = evaluationMaxScore(unit);
+        double belowCut = 0.8 * maxScore;   // hiệu suất đánh giá thấp
+        double highCut = 0.9 * maxScore;    // hiệu suất đánh giá cao
+
+        // Hiệu suất ĐÁNH GIÁ của từng đơn vị con (mỗi đơn vị tính độc lập trên subtree của nó);
+        // bỏ chính đơn vị gốc để so sánh giữa các đơn vị con, bỏ đơn vị chưa có đánh giá (0).
+        UUID orgId = unit.getOrgHierarchyLevel().getOrganization().getId();
+        List<UnitPerf> perfs = new ArrayList<>();
+        for (OrgUnit u : orgUnitRepository.findSubtree(unit.getPath(), orgId)) {
+            if (u.getId().equals(unit.getId())) continue;
+            double p = evaluationService.unitEvaluationPerformance(u, null);
+            if (p > 0) perfs.add(new UnitPerf(u, p));
+        }
+
         List<InsightCardResponse> out = new ArrayList<>();
 
-        List<Object[]> low = kpiSubmissionRepository.findLowUnitsByPerformanceInSubtree(path, start, end, MAX_PER_UNIT_RULE);
-        for (Object[] r : low) {
-            double perf = toDouble(r[2]);
-            if (perf >= BELOW_THRESHOLD) continue;
-            String name = str(r[1]);
-            InsightContext c = unitContext(r, perf);
-            out.add(card(InsightType.BELOW, "Hiệu suất thấp",
-                    String.format(Locale.US, "Đơn vị \"%s\" chỉ đạt %.0f%% mục tiêu, dưới ngưỡng cảnh báo 80%%.", name, perf),
-                    String.format(Locale.US, "Vì sao \"%s\" có hiệu suất thấp và ai chịu trách nhiệm?", name),
-                    c));
-        }
+        perfs.stream()
+                .filter(up -> up.perf() < belowCut)
+                .sorted(Comparator.comparingDouble(UnitPerf::perf))
+                .limit(MAX_PER_UNIT_RULE)
+                .forEach(up -> out.add(card(InsightType.BELOW, "Hiệu suất thấp",
+                        String.format(Locale.US, "Đơn vị \"%s\" chỉ đạt hiệu suất đánh giá %.0f%%, dưới ngưỡng cảnh báo %.0f%%.",
+                                up.unit().getName(), up.perf(), belowCut),
+                        String.format(Locale.US, "Vì sao \"%s\" có hiệu suất thấp và ai chịu trách nhiệm?", up.unit().getName()),
+                        unitContext(up.unit(), up.perf()))));
 
-        List<Object[]> top = kpiSubmissionRepository.findTopUnitsByPerformanceInSubtree(path, start, end, MAX_PER_UNIT_RULE);
-        for (Object[] r : top) {
-            double perf = toDouble(r[2]);
-            if (perf <= EXCEED_THRESHOLD) continue;
-            String name = str(r[1]);
-            InsightContext c = unitContext(r, perf);
-            out.add(card(InsightType.EXCEED, "Vượt mục tiêu",
-                    String.format(Locale.US, "Đơn vị \"%s\" vượt mục tiêu, đạt %.0f%%.", name, perf),
-                    String.format(Locale.US, "\"%s\" đã làm gì để vượt mục tiêu và có thể nhân rộng không?", name),
-                    c));
-        }
+        perfs.stream()
+                .filter(up -> up.perf() >= highCut)
+                .sorted(Comparator.comparingDouble(UnitPerf::perf).reversed())
+                .limit(MAX_PER_UNIT_RULE)
+                .forEach(up -> out.add(card(InsightType.EXCEED, "Hiệu suất cao",
+                        String.format(Locale.US, "Đơn vị \"%s\" đạt hiệu suất đánh giá cao: %.0f%%.", up.unit().getName(), up.perf()),
+                        String.format(Locale.US, "\"%s\" đã làm gì để đạt hiệu suất cao và có thể nhân rộng không?", up.unit().getName()),
+                        unitContext(up.unit(), up.perf()))));
         return out;
     }
 
-    private List<InsightCardResponse> detectSpikeAndDrop(String path) {
-        List<Object[]> trend = kpiSubmissionRepository.trendStatsInSubtree(path, "YYYY-MM");
-        if (trend.size() < 2) return List.of();
-        Object[] prev = trend.get(trend.size() - 2);
-        Object[] cur = trend.get(trend.size() - 1);
-        double prevComp = completion(prev);
-        double curComp = completion(cur);
-        if (prevComp <= 0) return List.of();
+    private List<InsightCardResponse> detectSpikeAndDrop(OrgUnit unit) {
+        // Xu hướng hiệu suất ĐÁNH GIÁ theo ĐỢT KPI (điểm đánh giá gắn với người×đợt, không theo tháng).
+        List<KpiPeriod> periods = evaluationService.subtreePeriodsOrdered(unit);
+        if (periods.size() < 2) return List.of();
+        KpiPeriod prevP = periods.get(periods.size() - 2);
+        KpiPeriod curP = periods.get(periods.size() - 1);
+        double prevPerf = evaluationService.unitEvaluationPerformance(unit, Set.of(prevP.getId()));
+        double curPerf = evaluationService.unitEvaluationPerformance(unit, Set.of(curP.getId()));
+        if (prevPerf <= 0) return List.of();
 
-        double delta = (curComp - prevComp) / prevComp * 100.0;
-        String periodLabel = str(cur[0]);
+        double delta = (curPerf - prevPerf) / prevPerf * 100.0;
+        String periodLabel = curP.getName();
         InsightContext c = InsightContext.builder()
-                .entityType("PERIOD").entityName(periodLabel).metricKey("completion")
-                .value(round(curComp)).deltaPct(round(delta)).periodLabel(periodLabel).build();
+                .entityType("PERIOD").entityId(curP.getId().toString()).entityName(periodLabel)
+                .metricKey("avg_performance")
+                .value(round(curPerf)).deltaPct(round(delta)).periodLabel(periodLabel).build();
 
         if (delta > SPIKE_THRESHOLD) {
             return List.of(card(InsightType.SPIKE, "Tăng đột biến",
@@ -176,15 +192,25 @@ public class InsightService {
 
     // ── helpers ──────────────────────────────────────────────────────────────
 
-    private InsightContext unitContext(Object[] unitRow, double perf) {
+    private InsightContext unitContext(OrgUnit u, double perf) {
         return InsightContext.builder()
                 .entityType("ORG_UNIT")
-                .entityId(unitRow[0] != null ? unitRow[0].toString() : null)
-                .entityName(str(unitRow[1]))
+                .entityId(u.getId().toString())
+                .entityName(u.getName())
                 .metricKey("avg_performance")
                 .value(round(perf))
                 .build();
     }
+
+    /** Thang điểm đánh giá của tổ chức (mặc định 100). */
+    private double evaluationMaxScore(OrgUnit unit) {
+        Double max = unit.getOrgHierarchyLevel() != null && unit.getOrgHierarchyLevel().getOrganization() != null
+                ? unit.getOrgHierarchyLevel().getOrganization().getEvaluationMaxScore() : null;
+        return max != null && max > 0 ? max : 100.0;
+    }
+
+    /** Cặp (đơn vị, hiệu suất đánh giá) để xếp hạng trong rule BELOW/EXCEED. */
+    private record UnitPerf(OrgUnit unit, double perf) {}
 
     private InsightCardResponse card(InsightType type, String title, String insightText,
                                      String questionText, InsightContext context) {
@@ -211,18 +237,8 @@ public class InsightService {
         }
     }
 
-    /** completion% from a trendStatsInSubtree row: actual(idx1) / target(idx2) * 100. */
-    private double completion(Object[] row) {
-        double target = toDouble(row[2]);
-        return target <= 0 ? 0.0 : toDouble(row[1]) / target * 100.0;
-    }
-
     private double toDouble(Object o) {
         return o instanceof Number ? ((Number) o).doubleValue() : 0.0;
-    }
-
-    private String str(Object o) {
-        return o != null ? o.toString() : "";
     }
 
     private double round(double v) {

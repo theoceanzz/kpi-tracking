@@ -35,5 +35,8 @@ public class SummarySubData {
         private List<AnalyticsSummaryResponse.RankingItem> rankings;
         private List<AnalyticsSummaryResponse.RankingItem> kpiRankings;
         private List<AnalyticsSummaryResponse.RankingOption> rankingOptions;
+        // Phân trang server-side cho `rankings` (kpiRankings/rankingOptions không phân trang).
+        private long totalElements;
+        private int totalPages;
     }
 }
