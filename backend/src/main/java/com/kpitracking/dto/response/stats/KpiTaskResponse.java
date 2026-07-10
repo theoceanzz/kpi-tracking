@@ -16,4 +16,6 @@ public class KpiTaskResponse {
     private Integer expectedSubmissions;
     private Double managerScore;
     private String managerName;
+    private com.kpitracking.enums.KpiType kpiType;
+    private String qualitativeLevelName;
 }

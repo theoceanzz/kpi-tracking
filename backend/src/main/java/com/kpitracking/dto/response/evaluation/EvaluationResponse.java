@@ -20,6 +20,9 @@ public class EvaluationResponse {
     private Double score;
     private String comment;
     private Double systemScore;
+    private Double behaviorScore;
+    private Double kpiCompletionPercent;
+    private Integer matrixRating;
     private Instant periodStart;
     private Instant periodEnd;
     private Instant createdAt;

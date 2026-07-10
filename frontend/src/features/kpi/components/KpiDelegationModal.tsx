@@ -35,12 +35,13 @@ export default function KpiDelegationModal({ open, onClose, kpi }: KpiDelegation
 
   const { handleSubmit, reset, watch, setValue, control } = useForm<KpiFormData>({
     resolver: zodResolver(kpiSchema),
-    defaultValues: { 
-      name: kpi.name, 
-      assignedToIds: kpi.assigneeIds ?? [], 
-      kpiPeriodId: kpi.kpiPeriodId, 
-      keyResultId: kpi.keyResultId, 
-      parentId: kpi.parentId 
+    defaultValues: {
+      kpiType: kpi.kpiType ?? 'QUANTITATIVE',
+      name: kpi.name,
+      assignedToIds: kpi.assigneeIds ?? [],
+      kpiPeriodId: kpi.kpiPeriodId,
+      keyResultId: kpi.keyResultId,
+      parentId: kpi.parentId
     },
   })
 

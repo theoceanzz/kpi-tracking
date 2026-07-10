@@ -458,6 +458,9 @@ public class StatsService {
                     .expectedSubmissions(criteria.getExpectedSubmissions() != null ? criteria.getExpectedSubmissions() : calculateExpectedSubmissions(criteria))
                     .managerScore(achievementForCircle) // Only non-null when manager has scored
                     .managerName(mName)
+                    .kpiType(criteria.getKpiType())
+                    .qualitativeLevelName(bestSubmission != null && bestSubmission.getQualitativeLevel() != null
+                            ? bestSubmission.getQualitativeLevel().getName() : null)
                     .build());
         }
 

@@ -126,6 +126,17 @@ public class EvaluationService {
         evaluation.setScore(request.getScore());
         evaluation.setComment(request.getComment());
         evaluation.setSystemScore(calculateSystemScore(evaluatedUser.getId(), kpiPeriod.getId(), (double) org.getEvaluationMaxScore()));
+
+        // Performance-matrix rating (only when qualitative KPIs are enabled & scored)
+        Double completion = calculateKpiCompletionPercent(evaluatedUser.getId(), kpiPeriod.getId());
+        Double behavior = Boolean.TRUE.equals(org.getEnableQualitative())
+                ? calculateBehaviorScore(evaluatedUser.getId(), kpiPeriod.getId()) : null;
+        // No quantitative KPI -> completion axis N/A, treat as on-target (100%) for the matrix.
+        double colCompletion = completion != null ? completion : 100.0;
+        evaluation.setKpiCompletionPercent(completion);
+        evaluation.setBehaviorScore(behavior);
+        evaluation.setMatrixRating(behavior != null ? lookupMatrixRating(behavior, colCompletion, org.getPerformanceMatrix()) : null);
+
         evaluation.setPeriodStart(kpiPeriod.getStartDate());
         evaluation.setPeriodEnd(kpiPeriod.getEndDate());
 
@@ -151,33 +162,66 @@ public class EvaluationService {
         return calculateSystemScore(targetUserId, kpiPeriodId, (double) org.getEvaluationMaxScore());
     }
 
+    @Transactional(readOnly = true)
+    public com.kpitracking.dto.response.evaluation.EvaluationScorePreview getScorePreview(UUID kpiPeriodId, UUID userId) {
+        User currentUser = getCurrentUser();
+        UUID targetUserId = userId != null ? userId : currentUser.getId();
+
+        kpiPeriodRepository.findById(kpiPeriodId)
+                .orElseThrow(() -> new ResourceNotFoundException("Kỳ đánh giá (Đợt)", "id", kpiPeriodId));
+
+        java.util.List<com.kpitracking.entity.UserRoleOrgUnit> assignments = userRoleOrgUnitRepository.findByUserId(targetUserId);
+        if (assignments.isEmpty()) {
+            return com.kpitracking.dto.response.evaluation.EvaluationScorePreview.builder()
+                    .systemScore(0.0).kpiCompletionPercent(0.0).build();
+        }
+        com.kpitracking.entity.Organization org = assignments.get(0).getOrgUnit().getOrgHierarchyLevel().getOrganization();
+
+        Double completion = calculateKpiCompletionPercent(targetUserId, kpiPeriodId);
+        Double behavior = Boolean.TRUE.equals(org.getEnableQualitative())
+                ? calculateBehaviorScore(targetUserId, kpiPeriodId) : null;
+        // No quantitative KPI -> completion axis N/A, treat as on-target (100%) for the matrix.
+        double colCompletion = completion != null ? completion : 100.0;
+        Integer rating = behavior != null ? lookupMatrixRating(behavior, colCompletion, org.getPerformanceMatrix()) : null;
+
+        return com.kpitracking.dto.response.evaluation.EvaluationScorePreview.builder()
+                .systemScore(calculateSystemScore(targetUserId, kpiPeriodId, (double) org.getEvaluationMaxScore()))
+                .behaviorScore(behavior)
+                .kpiCompletionPercent(completion)
+                .matrixRating(rating)
+                .build();
+    }
+
     private Double calculateSystemScore(UUID userId, UUID kpiPeriodId, Double maxScore) {
-        // Find all KPIs assigned to user for this period
+        // system_score (0..100) is QUANTITATIVE-ONLY, normalized over the non-bonus
+        // quantitative weight pool so it still reaches maxScore at full completion even
+        // when part of the 100% pool is taken by qualitative KPIs (which feed the matrix).
+        double[] p = quantitativeParts(userId, kpiPeriodId); // [0]=Σ(ratio·weight) non-bonus, [1]=Σweight non-bonus, [2]=Σ(ratio·weight) bonus
+        double regular = p[1] > 0 ? (p[0] / p[1]) * maxScore : 0.0;
+        double bonus = p[2] * (maxScore / 100.0);
+        return Math.min(maxScore, (double) Math.round(regular)) + (double) Math.round(bonus);
+    }
+
+    /**
+     * Aggregates the quantitative KPIs of a user in a period.
+     * Returns [Σ(ratio·weight) non-bonus, Σweight non-bonus, Σ(ratio·weight) bonus].
+     */
+    private double[] quantitativeParts(UUID userId, UUID kpiPeriodId) {
         List<KpiStatus> activeKpiStatuses = Arrays.asList(
-                KpiStatus.APPROVED,
-                KpiStatus.EDITED,
-                KpiStatus.EDIT,
-                KpiStatus.INACTIVE
-        );
-        
+                KpiStatus.APPROVED, KpiStatus.EDITED, KpiStatus.EDIT, KpiStatus.INACTIVE);
         List<KpiCriteria> kpis = kpiCriteriaRepository.findByUserIdInAssigneesAndKpiPeriodId(
                 userId, kpiPeriodId, activeKpiStatuses, Pageable.unpaged()).getContent();
-        
-        if (kpis.isEmpty()) return 0.0;
-        
-        OrgUnit userUnit = kpis.get(0).getOrgUnit();
-        boolean enableWaterfall = userUnit.getOrgHierarchyLevel().getOrganization().getEnableWaterfall();
-        
-        double total = 0.0;
-        double bonusTotal = 0.0;
-        for (KpiCriteria kpi : kpis) {
-            // An INACTIVE KPI with no compensation set is a legacy stop predating this
-            // feature - skip it (no reliable ratio to use, same as previous behavior).
-            if (kpi.getStatus() == KpiStatus.INACTIVE && kpi.getCompensatedAchievementPercent() == null) continue;
+        double[] parts = new double[3];
+        if (kpis.isEmpty()) return parts;
 
+        boolean enableWaterfall = kpis.get(0).getOrgUnit().getOrgHierarchyLevel().getOrganization().getEnableWaterfall();
+        for (KpiCriteria kpi : kpis) {
+            if (kpi.getStatus() == KpiStatus.INACTIVE && kpi.getCompensatedAchievementPercent() == null) continue;
             boolean isDecompositionParent = kpi.getChildren() != null && kpi.getChildren().stream()
                     .anyMatch(c -> c.getParentRelationType() == com.kpitracking.enums.KpiParentRelationType.DECOMPOSITION);
-            if (isDecompositionParent) continue; // Parent is just a grouping label; its children are scored individually
+            if (isDecompositionParent) continue;
+            // Qualitative KPIs feed the performance matrix, not the 0..100 score.
+            if (kpi.getKpiType() == com.kpitracking.enums.KpiType.QUALITATIVE) continue;
 
             if (kpi.getTargetValue() != null && kpi.getTargetValue() > 0 && kpi.getWeight() != null) {
                 double ratio;
@@ -186,24 +230,100 @@ public class EvaluationService {
                 } else {
                     double actual = calculateKpiActualValue(kpi, userId, enableWaterfall);
                     boolean isInverse = Boolean.TRUE.equals(kpi.getIsReverseKpi());
-                    if (isInverse) {
-                        ratio = Math.max(0.0, 2.0 - (actual / kpi.getTargetValue()));
-                    } else {
-                        ratio = actual / kpi.getTargetValue();
-                    }
+                    ratio = isInverse ? Math.max(0.0, 2.0 - (actual / kpi.getTargetValue())) : actual / kpi.getTargetValue();
                 }
                 ratio = Math.min(ratio, 1.5);
-                double score = ratio * kpi.getWeight() * (maxScore / 100.0);
+                double weight = kpi.getWeight();
                 if (Boolean.TRUE.equals(kpi.getIsBonusKpi())) {
-                    bonusTotal += score;
+                    parts[2] += ratio * weight;
                 } else {
-                    total += score;
+                    parts[0] += ratio * weight;
+                    parts[1] += weight;
                 }
             }
         }
+        return parts;
+    }
 
-        // Bonus KPIs are added on top after capping the regular score at maxScore
-        return Math.min(maxScore, (double) Math.round(total)) + (double) Math.round(bonusTotal);
+    /**
+     * Overall quantitative completion % (matrix COLUMN axis).
+     * Returns null when the user has no quantitative KPI (completion is N/A, not 0%).
+     */
+    private Double calculateKpiCompletionPercent(UUID userId, UUID kpiPeriodId) {
+        double[] p = quantitativeParts(userId, kpiPeriodId);
+        return p[1] > 0 ? (p[0] / p[1]) * 100.0 : null;
+    }
+
+    /**
+     * Weighted-average qualitative level value 0..5 (matrix ROW axis).
+     * Uses each qualitative KPI's latest APPROVED submission's chosen level.
+     * Returns null when there is no scored qualitative KPI.
+     */
+    private Double calculateBehaviorScore(UUID userId, UUID kpiPeriodId) {
+        List<KpiStatus> activeKpiStatuses = Arrays.asList(
+                KpiStatus.APPROVED, KpiStatus.EDITED, KpiStatus.EDIT, KpiStatus.INACTIVE);
+        List<KpiCriteria> kpis = kpiCriteriaRepository.findByUserIdInAssigneesAndKpiPeriodId(
+                userId, kpiPeriodId, activeKpiStatuses, Pageable.unpaged()).getContent();
+        double weightedSum = 0.0, totalWeight = 0.0;
+        for (KpiCriteria kpi : kpis) {
+            if (kpi.getKpiType() != com.kpitracking.enums.KpiType.QUALITATIVE) continue;
+            if (kpi.getStatus() == KpiStatus.INACTIVE && kpi.getCompensatedAchievementPercent() == null) continue;
+            double weight = kpi.getWeight() != null ? kpi.getWeight() : 0.0;
+            if (weight <= 0) continue;
+            // Include PENDING so the behavior score (and matrix rating) can be previewed at
+            // self-evaluation time, before the manager approves the qualitative submission.
+            Double levelValue = kpi.getSubmissions().stream()
+                    .filter(s -> s.getDeletedAt() == null
+                            && s.getSubmittedBy().getId().equals(userId)
+                            && (s.getStatus() == SubmissionStatus.APPROVED || s.getStatus() == SubmissionStatus.PENDING)
+                            && s.getQualitativeLevel() != null
+                            && s.getQualitativeLevel().getValue() != null)
+                    .max(java.util.Comparator.comparing(com.kpitracking.entity.KpiSubmission::getCreatedAt,
+                            java.util.Comparator.nullsFirst(java.util.Comparator.naturalOrder())))
+                    .map(s -> s.getQualitativeLevel().getValue())
+                    .orElse(null);
+            if (levelValue == null) continue;
+            weightedSum += levelValue * weight;
+            totalWeight += weight;
+        }
+        return totalWeight > 0 ? weightedSum / totalWeight : null;
+    }
+
+    /** Looks up the org's performance_matrix: (behaviorScore rows) × (completion% cols) -> rating 1..5. */
+    private Integer lookupMatrixRating(Double behaviorScore, Double completionPercent, String matrixJson) {
+        if (behaviorScore == null || completionPercent == null || matrixJson == null || matrixJson.isBlank()) return null;
+        try {
+            com.fasterxml.jackson.databind.JsonNode root = new com.fasterxml.jackson.databind.ObjectMapper().readTree(matrixJson);
+            com.fasterxml.jackson.databind.JsonNode rows = root.get("rows");
+            com.fasterxml.jackson.databind.JsonNode cols = root.get("cols");
+            com.fasterxml.jackson.databind.JsonNode cells = root.get("cells");
+            if (rows == null || cols == null || cells == null) return null;
+            int rowIdx = bandIndex(behaviorScore, rows);
+            int colIdx = bandIndex(completionPercent, cols);
+            if (rowIdx < 0 || colIdx < 0 || rowIdx >= cells.size()) return null;
+            com.fasterxml.jackson.databind.JsonNode rowCells = cells.get(rowIdx);
+            if (rowCells == null || colIdx >= rowCells.size()) return null;
+            return rowCells.get(colIdx).asInt();
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    /**
+     * Finds the band index for a value given ascending band labels (e.g. "<2", "≥2 và <3", "≥120%").
+     * Uses the largest number in each label as its upper bound; the last band is treated as +∞.
+     */
+    private int bandIndex(double value, com.fasterxml.jackson.databind.JsonNode bands) {
+        java.util.regex.Pattern num = java.util.regex.Pattern.compile("[0-9]+(?:\\.[0-9]+)?");
+        for (int i = 0; i < bands.size(); i++) {
+            if (i == bands.size() - 1) return i; // last band catches everything remaining
+            java.util.regex.Matcher m = num.matcher(bands.get(i).asText());
+            double upper = Double.NEGATIVE_INFINITY;
+            while (m.find()) upper = Math.max(upper, Double.parseDouble(m.group()));
+            if (upper == Double.NEGATIVE_INFINITY) continue;
+            if (value < upper) return i;
+        }
+        return bands.size() - 1;
     }
 
     private double calculateKpiActualValue(KpiCriteria kpi, UUID targetUserId, boolean enableWaterfall) {
@@ -336,7 +456,12 @@ public class EvaluationService {
 
     private EvaluationResponse enrichResponse(Evaluation evaluation) {
         EvaluationResponse response = evaluationMapper.toResponse(evaluation);
-        
+
+        // Matrix result fields (set explicitly so they don't depend on mapper regeneration)
+        response.setBehaviorScore(evaluation.getBehaviorScore());
+        response.setKpiCompletionPercent(evaluation.getKpiCompletionPercent());
+        response.setMatrixRating(evaluation.getMatrixRating());
+
         // Populate evaluated user's best position (Highest unit but not root)
         java.util.List<com.kpitracking.entity.UserRoleOrgUnit> userUro = userRoleOrgUnitRepository.findByUserId(evaluation.getUser().getId());
         com.kpitracking.entity.UserRoleOrgUnit bestUro = userUro.stream()

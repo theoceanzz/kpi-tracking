@@ -10,7 +10,7 @@ import { useAuthStore } from '@/store/authStore'
 import { usePermission } from '@/hooks/usePermission'
 import { toast } from 'sonner'
 import { FREQUENCY_MAP, cn, formatDateTime } from '@/lib/utils'
-import { Loader2, X, Check, Sparkles, Target, Users, LayoutGrid } from 'lucide-react'
+import { Loader2, X, Check, Sparkles, Target, Users, LayoutGrid, SlidersHorizontal, BarChart3 } from 'lucide-react'
 import type { KpiCriteria } from '@/types/kpi'
 import { useState } from 'react'
 import { useKpiPeriods } from '../hooks/useKpiPeriods'
@@ -32,6 +32,11 @@ const frequencyOptions = (['DAILY', 'WEEKLY', 'MONTHLY', 'QUARTERLY', 'SEMI_ANNU
   value,
   label: FREQUENCY_MAP[value]
 }))
+
+// Empty numeric inputs must become `undefined`, not NaN — otherwise hidden fields
+// (e.g. target/minimum on the qualitative tab) keep a NaN value and fail zod validation.
+const numOrUndef = (v: unknown) =>
+  v === '' || v === null || v === undefined ? undefined : Number(v)
 
 function toDatetimeLocal(value?: string | null): string | undefined {
   if (!value) return undefined
@@ -82,6 +87,7 @@ export default function KpiFormModal({ open, onClose, editKpi, parentKpi, parent
   const { register, handleSubmit, formState: { errors }, reset, watch, setValue, control } = useForm<KpiFormData>({
     resolver: zodResolver(kpiSchema),
     defaultValues: {
+      kpiType: 'QUANTITATIVE',
       name: '',
       description: '',
       weight: undefined,
@@ -106,6 +112,13 @@ export default function KpiFormModal({ open, onClose, editKpi, parentKpi, parent
   const formOrgUnitIds = watch('orgUnitIds') || []
   const [selectedRole, setSelectedRole] = useState<string>('ALL')
 
+  const kpiType = watch('kpiType')
+  const isQualitative = kpiType === 'QUALITATIVE'
+  const enableQualitative = org?.enableQualitative
+  // Show the type switcher only for standalone new KPIs when the org enabled qualitative.
+  // Child KPIs (parentKpi) and edits keep their fixed type.
+  const showTypeTabs = enableQualitative && !parentKpi && !isEdit
+
   // Synchronize form values only when modal opens
   useEffect(() => {
     if (!open) {
@@ -117,6 +130,7 @@ export default function KpiFormModal({ open, onClose, editKpi, parentKpi, parent
 
     if (editKpi) {
       reset({
+        kpiType: editKpi.kpiType ?? 'QUANTITATIVE',
         name: editKpi.name,
         description: editKpi.description ?? '',
         weight: editKpi.weight ?? undefined,
@@ -140,6 +154,8 @@ export default function KpiFormModal({ open, onClose, editKpi, parentKpi, parent
       const isDecomposition = effectiveRelationType === 'DECOMPOSITION'
       const remainingWeight = parentKpi ? Math.max(0, (parentKpi.weight ?? 0) - (parentKpi.childrenWeightTotal ?? 0)) : undefined
       reset({
+        // Child KPIs inherit the parent's type; standalone new KPIs default to quantitative.
+        kpiType: parentKpi?.kpiType ?? 'QUANTITATIVE',
         name: parentKpi ? `[${parentKpi.name}] ` : '',
         description: '',
         weight: isDecomposition ? remainingWeight : undefined,
@@ -359,7 +375,15 @@ export default function KpiFormModal({ open, onClose, editKpi, parentKpi, parent
 
   const onSubmit = (data: KpiFormData) => {
     const payload = { ...data }
-    
+
+    // Qualitative KPIs have no numeric measurement fields.
+    if (payload.kpiType === 'QUALITATIVE') {
+      delete payload.targetValue
+      delete payload.minimumValue
+      delete payload.unit
+      payload.isReverseKpi = false
+    }
+
     if (!payload.orgUnitIds || payload.orgUnitIds.length === 0) {
         delete payload.orgUnitIds
     }
@@ -431,10 +455,41 @@ export default function KpiFormModal({ open, onClose, editKpi, parentKpi, parent
           </button>
         </div>
 
-        <form 
-          onSubmit={handleSubmit(onSubmit, (err) => console.error('KPI Form Errors:', err))} 
+        <form
+          onSubmit={handleSubmit(onSubmit, (err) => console.error('KPI Form Errors:', err))}
           className="space-y-5"
         >
+          {showTypeTabs && (
+            <div className="grid grid-cols-2 gap-2 p-1 rounded-2xl bg-[var(--color-accent)]/30 border border-[var(--color-border)]/40">
+              <button
+                type="button"
+                onClick={() => setValue('kpiType', 'QUANTITATIVE')}
+                className={cn(
+                  "flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all",
+                  !isQualitative ? "bg-indigo-600 text-white shadow-md" : "text-[var(--color-muted-foreground)] hover:bg-[var(--color-accent)]"
+                )}
+              >
+                <BarChart3 size={14} /> Định lượng
+              </button>
+              <button
+                type="button"
+                onClick={() => setValue('kpiType', 'QUALITATIVE')}
+                className={cn(
+                  "flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all",
+                  isQualitative ? "bg-emerald-600 text-white shadow-md" : "text-[var(--color-muted-foreground)] hover:bg-[var(--color-accent)]"
+                )}
+              >
+                <SlidersHorizontal size={14} /> Định tính
+              </button>
+            </div>
+          )}
+
+          {isEdit && isQualitative && (
+            <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-emerald-50 dark:bg-emerald-900/10 border border-emerald-100 dark:border-emerald-900/30 text-emerald-700 dark:text-emerald-400 text-[11px] font-bold">
+              <SlidersHorizontal size={14} /> KPI Định tính — chấm điểm theo thang định tính khi duyệt
+            </div>
+          )}
+
           <div className="space-y-4">
             <div>
               <div className="flex items-center justify-between mb-1.5">
@@ -497,38 +552,46 @@ export default function KpiFormModal({ open, onClose, editKpi, parentKpi, parent
           </div>
 
           <div className="bg-[var(--color-accent)]/10 rounded-2xl p-4 border border-[var(--color-border)]/30 space-y-4">
+              {!isQualitative && (
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-[11px] font-black text-[var(--color-muted-foreground)] uppercase tracking-widest mb-1.5">Mục tiêu đạt được</label>
-                  <input 
-                    {...register('targetValue', { valueAsNumber: true })} 
-                    type="number" 
-                    step="any" 
-                    onWheel={(e) => (e.target as HTMLInputElement).blur()} 
-                    className={inputCls} 
-                    placeholder="1000" 
+                  <input
+                    {...register('targetValue', { setValueAs: numOrUndef })}
+                    type="number"
+                    step="any"
+                    onWheel={(e) => (e.target as HTMLInputElement).blur()}
+                    className={inputCls}
+                    placeholder="1000"
                   />
                   {errors.targetValue && <p className="text-red-500 text-[10px] mt-1 font-bold">{errors.targetValue.message}</p>}
                 </div>
                 <div>
                   <label className="block text-[11px] font-black text-[var(--color-muted-foreground)] uppercase tracking-widest mb-1.5">Mục tiêu tối thiểu</label>
-                  <input 
-                    {...register('minimumValue', { valueAsNumber: true })} 
-                    type="number" 
-                    step="any" 
-                    onWheel={(e) => (e.target as HTMLInputElement).blur()} 
-                    className={inputCls} 
-                    placeholder="800" 
+                  <input
+                    {...register('minimumValue', { setValueAs: numOrUndef })}
+                    type="number"
+                    step="any"
+                    onWheel={(e) => (e.target as HTMLInputElement).blur()}
+                    className={inputCls}
+                    placeholder="800"
                   />
                   {errors.minimumValue && <p className="text-red-500 text-[10px] mt-1 font-bold">{errors.minimumValue.message}</p>}
                 </div>
               </div>
+              )}
+
+              {isQualitative && (
+                <div className="p-3 rounded-xl bg-emerald-50 dark:bg-emerald-900/10 border border-emerald-100 dark:border-emerald-900/30 text-[11px] font-medium text-emerald-700 dark:text-emerald-400 leading-relaxed">
+                  KPI định tính không có mục tiêu số. Khi duyệt bài nộp, quản lý chọn một mức trong thang điểm định tính (KÉM/YẾU/…/TỐT) để chấm điểm.
+                </div>
+              )}
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-[11px] font-black text-[var(--color-muted-foreground)] uppercase tracking-widest mb-1.5">Trọng số (%)</label>
                   <input
-                    {...register('weight', { valueAsNumber: true })}
+                    {...register('weight', { setValueAs: numOrUndef })}
                     type="number"
                     step="any"
                     min={0}
@@ -544,6 +607,7 @@ export default function KpiFormModal({ open, onClose, editKpi, parentKpi, parent
                     </p>
                   )}
                 </div>
+                {!isQualitative && (
                 <div>
                   <label className="block text-[11px] font-black text-[var(--color-muted-foreground)] uppercase tracking-widest mb-1.5">Đơn vị tính</label>
                   <input
@@ -552,8 +616,10 @@ export default function KpiFormModal({ open, onClose, editKpi, parentKpi, parent
                     placeholder="VNĐ, %, KPI..."
                   />
                 </div>
+                )}
               </div>
 
+              {!isQualitative && (
               <Controller
                 name="isReverseKpi"
                 control={control}
@@ -602,6 +668,7 @@ export default function KpiFormModal({ open, onClose, editKpi, parentKpi, parent
                   </button>
                 )}
               />
+              )}
 
               {!parentKpi && (
                 <Controller

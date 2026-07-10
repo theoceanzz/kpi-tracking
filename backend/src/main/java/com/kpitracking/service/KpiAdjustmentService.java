@@ -257,6 +257,7 @@ public class KpiAdjustmentService {
                 .id(adj.getId())
                 .kpiCriteriaId(adj.getKpiCriteria().getId())
                 .kpiCriteriaName(adj.getKpiCriteria().getName())
+                .kpiType(adj.getKpiCriteria().getKpiType())
                 .currentTargetValue(adj.getKpiCriteria().getTargetValue())
                 .currentWeight(adj.getKpiCriteria().getWeight())
                 .currentMinimumValue(adj.getKpiCriteria().getMinimumValue())

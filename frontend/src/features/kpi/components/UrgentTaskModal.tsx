@@ -3,9 +3,9 @@ import { useForm, Controller, useFieldArray } from 'react-hook-form'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { kpiApi } from '../api/kpiApi'
 import { toast } from 'sonner'
-import { Loader2, X, AlertTriangle, ArrowLeftRight, SlidersHorizontal, Check, ShieldAlert, Target, Users } from 'lucide-react'
+import { Loader2, X, AlertTriangle, ArrowLeftRight, SlidersHorizontal, Check, ShieldAlert, Target, Users, BarChart3 } from 'lucide-react'
 import { FREQUENCY_MAP, cn, formatNumber, formatDateTime } from '@/lib/utils'
-import type { KpiCriteria, KpiFrequency } from '@/types/kpi'
+import type { KpiCriteria, KpiFrequency, KpiType } from '@/types/kpi'
 import { useUsers } from '@/features/users/hooks/useUsers'
 import { useAuthStore } from '@/store/authStore'
 import { useKpiPeriods } from '../hooks/useKpiPeriods'
@@ -192,11 +192,31 @@ function AssigneeSelector({ orgUnitId, selectedIds, onChange, hint, isStaff, cur
   )
 }
 
+// ─── Shared quantitative/qualitative switcher ────────────────────────────────
+
+function KpiTypeTabs({ value, onChange }: { value: KpiType; onChange: (t: KpiType) => void }) {
+  return (
+    <div className="grid grid-cols-2 gap-2 p-1 rounded-2xl bg-[var(--color-accent)]/30 border border-[var(--color-border)]/40">
+      <button type="button" onClick={() => onChange('QUANTITATIVE')}
+        className={cn('flex items-center justify-center gap-2 py-2 rounded-xl text-[11px] font-black uppercase tracking-wider transition-all',
+          value !== 'QUALITATIVE' ? 'bg-indigo-600 text-white shadow-md' : 'text-[var(--color-muted-foreground)] hover:bg-[var(--color-accent)]')}>
+        <BarChart3 size={13} /> Định lượng
+      </button>
+      <button type="button" onClick={() => onChange('QUALITATIVE')}
+        className={cn('flex items-center justify-center gap-2 py-2 rounded-xl text-[11px] font-black uppercase tracking-wider transition-all',
+          value === 'QUALITATIVE' ? 'bg-emerald-600 text-white shadow-md' : 'text-[var(--color-muted-foreground)] hover:bg-[var(--color-accent)]')}>
+        <SlidersHorizontal size={13} /> Định tính
+      </button>
+    </div>
+  )
+}
+
 // ─── Tab 1: Replace KPI ──────────────────────────────────────────────────────
 
 interface ReplaceFormData {
   replacedKpiId: string
   replacementReason: string
+  kpiType: KpiType
   name: string
   description: string
   frequency: KpiFrequency
@@ -213,21 +233,24 @@ interface ReplaceFormData {
 interface TabSharedProps {
   period?: { id: string; name: string; startDate: string | null; endDate: string | null }
   enableOkr: boolean
+  enableQualitative: boolean
   objectives: any[]
 }
 
-function ReplaceTab({ kpiList, orgUnitId, period, enableOkr, objectives, onSuccess }: { kpiList: KpiCriteria[]; orgUnitId: string; onSuccess: () => void } & TabSharedProps) {
+function ReplaceTab({ kpiList, orgUnitId, period, enableOkr, enableQualitative, objectives, onSuccess }: { kpiList: KpiCriteria[]; orgUnitId: string; onSuccess: () => void } & TabSharedProps) {
   const qc = useQueryClient()
   const { user: currentUser } = useAuthStore()
   const isStaff = currentUser?.memberships?.[0]?.roleRank === 2
 
   const { register, handleSubmit, watch, setValue, control, reset, formState: { errors } } = useForm<ReplaceFormData>({
-    defaultValues: { replacedKpiId: '', replacementReason: '', name: '', description: '', frequency: 'MONTHLY', targetValue: '', minimumValue: '', unit: '', isReverseKpi: false, isBonusKpi: false, deadline: '', keyResultId: 'NONE', assignedToIds: [] }
+    defaultValues: { replacedKpiId: '', replacementReason: '', kpiType: 'QUANTITATIVE', name: '', description: '', frequency: 'MONTHLY', targetValue: '', minimumValue: '', unit: '', isReverseKpi: false, isBonusKpi: false, deadline: '', keyResultId: 'NONE', assignedToIds: [] }
   })
 
   const replacedKpiId = watch('replacedKpiId')
   const selectedKpi = kpiList.find(k => k.id === replacedKpiId)
   const selectedAssignees = watch('assignedToIds')
+  const kpiType = watch('kpiType')
+  const isQual = kpiType === 'QUALITATIVE'
 
   useEffect(() => {
     if (selectedKpi) {
@@ -242,13 +265,14 @@ function ReplaceTab({ kpiList, orgUnitId, period, enableOkr, objectives, onSucce
   const { mutate, isPending } = useMutation({
     mutationFn: (data: ReplaceFormData) => kpiApi.replace(data.replacedKpiId, {
       replacementReason: data.replacementReason || undefined,
+      kpiType: data.kpiType,
       name: data.name,
       description: data.description || undefined,
       frequency: data.frequency,
-      targetValue: data.targetValue ? parseFloat(data.targetValue) : undefined,
-      minimumValue: data.minimumValue ? parseFloat(data.minimumValue) : undefined,
-      unit: data.unit || undefined,
-      isReverseKpi: data.isReverseKpi,
+      targetValue: data.kpiType === 'QUALITATIVE' ? undefined : (data.targetValue ? parseFloat(data.targetValue) : undefined),
+      minimumValue: data.kpiType === 'QUALITATIVE' ? undefined : (data.minimumValue ? parseFloat(data.minimumValue) : undefined),
+      unit: data.kpiType === 'QUALITATIVE' ? undefined : (data.unit || undefined),
+      isReverseKpi: data.kpiType === 'QUALITATIVE' ? false : data.isReverseKpi,
       isBonusKpi: data.isBonusKpi,
       deadline: data.deadline ? new Date(data.deadline).toISOString() : null,
       keyResultId: (data.keyResultId && data.keyResultId !== 'NONE') ? data.keyResultId : null,
@@ -313,6 +337,11 @@ function ReplaceTab({ kpiList, orgUnitId, period, enableOkr, objectives, onSucce
       <div className="space-y-4">
         <p className="text-[11px] font-black text-[var(--color-muted-foreground)] uppercase tracking-widest">Thông tin KPI thay thế</p>
 
+        {enableQualitative && (
+          <Controller name="kpiType" control={control}
+            render={({ field }) => <KpiTypeTabs value={field.value} onChange={field.onChange} />} />
+        )}
+
         <div>
           <label className={labelCls}>Tên KPI mới <span className="text-red-500">*</span></label>
           <input {...register('name', { required: true })} placeholder="VD: Xử lý yêu cầu khẩn khách hàng Q3"
@@ -327,6 +356,7 @@ function ReplaceTab({ kpiList, orgUnitId, period, enableOkr, objectives, onSucce
         </div>
 
         <div className="bg-[var(--color-accent)]/10 rounded-2xl p-4 border border-[var(--color-border)]/30 space-y-3">
+          {!isQual && (
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className={labelCls}>Mục tiêu đạt được</label>
@@ -339,6 +369,7 @@ function ReplaceTab({ kpiList, orgUnitId, period, enableOkr, objectives, onSucce
                 {...register('minimumValue')} placeholder="800" className={inputCls} />
             </div>
           </div>
+          )}
 
           <div className="grid grid-cols-2 gap-3">
             <div>
@@ -354,12 +385,15 @@ function ReplaceTab({ kpiList, orgUnitId, period, enableOkr, objectives, onSucce
                 )}
               />
             </div>
+            {!isQual && (
             <div>
               <label className={labelCls}>Đơn vị tính</label>
               <input {...register('unit')} placeholder="VNĐ, %, KPI..." className={inputCls} />
             </div>
+            )}
           </div>
 
+          {!isQual && (
           <Controller name="isReverseKpi" control={control}
             render={({ field }) => (
               <button type="button" onClick={() => field.onChange(!field.value)}
@@ -376,6 +410,7 @@ function ReplaceTab({ kpiList, orgUnitId, period, enableOkr, objectives, onSucce
               </button>
             )}
           />
+          )}
 
           <Controller name="isBonusKpi" control={control}
             render={({ field }) => (
@@ -477,6 +512,7 @@ function ReplaceTab({ kpiList, orgUnitId, period, enableOkr, objectives, onSucce
 
 interface AdjustFormData {
   weights: { kpiId: string; name: string; currentWeight: number; newWeight: number }[]
+  newKpiType: KpiType
   newName: string
   newWeight: number | string
   newFrequency: KpiFrequency
@@ -491,7 +527,7 @@ interface AdjustFormData {
   newDescription: string
 }
 
-function AdjustTab({ kpiList, kpiPeriodId, orgUnitId, period, enableOkr, objectives, onSuccess }: { kpiList: KpiCriteria[]; kpiPeriodId: string; orgUnitId: string; onSuccess: () => void } & TabSharedProps) {
+function AdjustTab({ kpiList, kpiPeriodId, orgUnitId, period, enableOkr, enableQualitative, objectives, onSuccess }: { kpiList: KpiCriteria[]; kpiPeriodId: string; orgUnitId: string; onSuccess: () => void } & TabSharedProps) {
   const qc = useQueryClient()
   const { user: currentUser } = useAuthStore()
   const isStaff = currentUser?.memberships?.[0]?.roleRank === 2
@@ -501,9 +537,12 @@ function AdjustTab({ kpiList, kpiPeriodId, orgUnitId, period, enableOkr, objecti
   const { register, handleSubmit, watch, control, formState: { errors } } = useForm<AdjustFormData>({
     defaultValues: {
       weights: adjustableKpis.map(k => ({ kpiId: k.id, name: k.name, currentWeight: k.weight ?? 0, newWeight: k.weight ?? 0 })),
-      newName: '', newWeight: '', newFrequency: 'MONTHLY', newTargetValue: '', newMinimumValue: '', newUnit: '', newIsReverseKpi: false, newIsBonusKpi: false, newDeadline: '', newKeyResultId: 'NONE', newAssignedToIds: [], newDescription: ''
+      newKpiType: 'QUANTITATIVE', newName: '', newWeight: '', newFrequency: 'MONTHLY', newTargetValue: '', newMinimumValue: '', newUnit: '', newIsReverseKpi: false, newIsBonusKpi: false, newDeadline: '', newKeyResultId: 'NONE', newAssignedToIds: [], newDescription: ''
     }
   })
+
+  const newKpiType = watch('newKpiType')
+  const isQual = newKpiType === 'QUALITATIVE'
 
   const { fields } = useFieldArray({ control, name: 'weights' })
   const watchedWeights = watch('weights')
@@ -523,14 +562,15 @@ function AdjustTab({ kpiList, kpiPeriodId, orgUnitId, period, enableOkr, objecti
 
   const createMutation = useMutation({
     mutationFn: (data: AdjustFormData) => kpiApi.create({
+      kpiType: data.newKpiType,
       name: data.newName,
       description: data.newDescription || undefined,
       weight: parseFloat(String(data.newWeight)) || 0,
       frequency: data.newFrequency,
-      targetValue: data.newTargetValue ? parseFloat(data.newTargetValue) : undefined,
-      minimumValue: data.newMinimumValue ? parseFloat(data.newMinimumValue) : undefined,
-      unit: data.newUnit || undefined,
-      isReverseKpi: data.newIsReverseKpi,
+      targetValue: data.newKpiType === 'QUALITATIVE' ? undefined : (data.newTargetValue ? parseFloat(data.newTargetValue) : undefined),
+      minimumValue: data.newKpiType === 'QUALITATIVE' ? undefined : (data.newMinimumValue ? parseFloat(data.newMinimumValue) : undefined),
+      unit: data.newKpiType === 'QUALITATIVE' ? undefined : (data.newUnit || undefined),
+      isReverseKpi: data.newKpiType === 'QUALITATIVE' ? false : data.newIsReverseKpi,
       isBonusKpi: data.newIsBonusKpi,
       deadline: data.newDeadline ? new Date(data.newDeadline).toISOString() : null,
       keyResultId: (data.newKeyResultId && data.newKeyResultId !== 'NONE') ? data.newKeyResultId : null,
@@ -594,6 +634,11 @@ function AdjustTab({ kpiList, kpiPeriodId, orgUnitId, period, enableOkr, objecti
       <div className="space-y-4">
         <p className="text-[11px] font-black text-[var(--color-muted-foreground)] uppercase tracking-widest">KPI khẩn cấp mới</p>
 
+        {enableQualitative && (
+          <Controller name="newKpiType" control={control}
+            render={({ field }) => <KpiTypeTabs value={field.value} onChange={field.onChange} />} />
+        )}
+
         <div>
           <label className={labelCls}>Tên KPI mới <span className="text-red-500">*</span></label>
           <input {...register('newName')} placeholder="VD: Xử lý yêu cầu khẩn cấp tháng 7"
@@ -608,6 +653,7 @@ function AdjustTab({ kpiList, kpiPeriodId, orgUnitId, period, enableOkr, objecti
         </div>
 
         <div className="bg-[var(--color-accent)]/10 rounded-2xl p-4 border border-[var(--color-border)]/30 space-y-3">
+          {!isQual && (
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className={labelCls}>Mục tiêu đạt được</label>
@@ -620,6 +666,7 @@ function AdjustTab({ kpiList, kpiPeriodId, orgUnitId, period, enableOkr, objecti
                 {...register('newMinimumValue')} placeholder="800" className={inputCls} />
             </div>
           </div>
+          )}
 
           <div className="grid grid-cols-2 gap-3">
             <div>
@@ -628,10 +675,12 @@ function AdjustTab({ kpiList, kpiPeriodId, orgUnitId, period, enableOkr, objecti
                 onWheel={e => (e.target as HTMLInputElement).blur()}
                 {...register('newWeight')} placeholder="20" className={inputCls} />
             </div>
+            {!isQual && (
             <div>
               <label className={labelCls}>Đơn vị tính</label>
               <input {...register('newUnit')} placeholder="VNĐ, %, KPI..." className={inputCls} />
             </div>
+            )}
           </div>
 
           <div>
@@ -648,6 +697,7 @@ function AdjustTab({ kpiList, kpiPeriodId, orgUnitId, period, enableOkr, objecti
             />
           </div>
 
+          {!isQual && (
           <Controller name="newIsReverseKpi" control={control}
             render={({ field }) => (
               <button type="button" onClick={() => field.onChange(!field.value)}
@@ -664,6 +714,7 @@ function AdjustTab({ kpiList, kpiPeriodId, orgUnitId, period, enableOkr, objecti
               </button>
             )}
           />
+          )}
 
           <Controller name="newIsBonusKpi" control={control}
             render={({ field }) => (
@@ -801,6 +852,7 @@ export default function UrgentTaskModal({ open, onClose, kpiPeriodId: initPeriod
   const { data: periodsData } = useKpiPeriods({ organizationId })
   const { data: org } = useOrganization(organizationId)
   const enableOkr = org?.enableOkr ?? false
+  const enableQualitative = org?.enableQualitative ?? false
   const { data: objectives } = useObjectives(enableOkr ? organizationId : undefined)
   const { data: orgUnitTreeData } = useOrgUnitTree()
 
@@ -978,9 +1030,9 @@ export default function UrgentTaskModal({ open, onClose, kpiPeriodId: initPeriod
           ) : kpiList.length === 0 ? (
             <p className="text-center text-sm font-medium text-[var(--color-muted-foreground)] py-16 italic">Chưa có KPI nào trong kỳ này</p>
           ) : tab === 'replace' ? (
-            <ReplaceTab kpiList={kpiList} orgUnitId={selectedOrgUnitId} period={selectedPeriod} enableOkr={enableOkr} objectives={filteredObjectives} onSuccess={onClose} />
+            <ReplaceTab kpiList={kpiList} orgUnitId={selectedOrgUnitId} period={selectedPeriod} enableOkr={enableOkr} enableQualitative={enableQualitative} objectives={filteredObjectives} onSuccess={onClose} />
           ) : (
-            <AdjustTab kpiList={kpiList} kpiPeriodId={selectedPeriodId} orgUnitId={selectedOrgUnitId} period={selectedPeriod} enableOkr={enableOkr} objectives={filteredObjectives} onSuccess={onClose} />
+            <AdjustTab kpiList={kpiList} kpiPeriodId={selectedPeriodId} orgUnitId={selectedOrgUnitId} period={selectedPeriod} enableOkr={enableOkr} enableQualitative={enableQualitative} objectives={filteredObjectives} onSuccess={onClose} />
           )}
         </div>
       </div>

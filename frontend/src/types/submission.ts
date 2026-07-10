@@ -5,8 +5,12 @@ export interface Submission {
   id: string
   kpiCriteriaId: string
   kpiCriteriaName: string
+  kpiType: import('./kpi').KpiType
   actualValue: number
   targetValue: number | null
+  qualitativeLevelId: string | null
+  qualitativeLevelName: string | null
+  qualitativeLevelValue: number | null
   note: string | null
   status: SubmissionStatus
   submittedById: string
@@ -43,7 +47,8 @@ export interface Attachment {
 
 export interface CreateSubmissionRequest {
   kpiCriteriaId: string
-  actualValue: number
+  actualValue?: number
+  qualitativeLevelId?: string
   note?: string
   periodStart?: string
   periodEnd?: string
@@ -63,4 +68,5 @@ export interface ReviewSubmissionRequest {
   status: 'APPROVED' | 'REJECTED'
   reviewNote?: string
   managerScore?: number
+  qualitativeLevelId?: string
 }

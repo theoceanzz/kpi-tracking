@@ -49,6 +49,17 @@ public class OrganizationService {
     private final com.kpitracking.repository.RolePermissionRepository rolePermissionRepository;
     private final com.kpitracking.repository.EvaluationLevelRepository evaluationLevelRepository;
     private final com.kpitracking.mapper.EvaluationLevelMapper evaluationLevelMapper;
+    private final com.kpitracking.repository.QualitativeLevelRepository qualitativeLevelRepository;
+    private final com.kpitracking.mapper.QualitativeLevelMapper qualitativeLevelMapper;
+
+    /** Whether qualitative KPIs are enabled for the given organization. */
+    @Transactional(readOnly = true)
+    public boolean isQualitativeEnabled(UUID organizationId) {
+        if (organizationId == null) return false;
+        return organizationRepository.findById(organizationId)
+                .map(o -> Boolean.TRUE.equals(o.getEnableQualitative()))
+                .orElse(false);
+    }
 
     @Transactional
     public OrganizationResponse createOrganization(CreateOrganizationRequest request) {
@@ -76,6 +87,24 @@ public class OrganizationService {
         
         evaluationLevelRepository.saveAll(defaultLevels);
         savedOrg.setEvaluationLevels(new ArrayList<>(defaultLevels));
+
+        // Add default qualitative evaluation levels
+        List<QualitativeLevel> defaultQualitativeLevels = EvaluationConstants.DEFAULT_QUALITATIVE_LEVELS.stream()
+            .map(lvl -> QualitativeLevel.builder()
+                .organization(savedOrg)
+                .name(lvl.getName())
+                .value(lvl.getValue())
+                .position(lvl.getPosition())
+                .color(lvl.getColor())
+                .build())
+            .toList();
+
+        qualitativeLevelRepository.saveAll(defaultQualitativeLevels);
+        savedOrg.setQualitativeLevels(new ArrayList<>(defaultQualitativeLevels));
+
+        // Add default performance rating matrix
+        savedOrg.setPerformanceMatrix(com.kpitracking.constant.PerformanceMatrixConstants.DEFAULT_MATRIX_JSON);
+        organizationRepository.save(savedOrg);
 
         return organizationMapper.toResponse(savedOrg);
     }
@@ -141,10 +170,14 @@ public class OrganizationService {
             organization.setEnableWaterfall(request.getEnableWaterfall());
         }
 
+        if (request.getEnableQualitative() != null) {
+            organization.setEnableQualitative(request.getEnableQualitative());
+        }
+
         if (request.getEvaluationLevels() != null) {
             organization.getEvaluationLevels().clear();
             organizationRepository.saveAndFlush(organization);
-            
+
             List<EvaluationLevel> newEntities = request.getEvaluationLevels().stream()
                     .map(req -> {
                         EvaluationLevel level = evaluationLevelMapper.toEntity(req);
@@ -153,6 +186,27 @@ public class OrganizationService {
                     })
                     .collect(Collectors.toList());
             organization.getEvaluationLevels().addAll(newEntities);
+        }
+
+        if (request.getQualitativeLevels() != null) {
+            if (organization.getQualitativeLevels() == null) {
+                organization.setQualitativeLevels(new ArrayList<>());
+            }
+            organization.getQualitativeLevels().clear();
+            organizationRepository.saveAndFlush(organization);
+
+            List<QualitativeLevel> newQualitativeEntities = request.getQualitativeLevels().stream()
+                    .map(req -> {
+                        QualitativeLevel level = qualitativeLevelMapper.toEntity(req);
+                        level.setOrganization(organization);
+                        return level;
+                    })
+                    .collect(Collectors.toList());
+            organization.getQualitativeLevels().addAll(newQualitativeEntities);
+        }
+
+        if (request.getPerformanceMatrix() != null) {
+            organization.setPerformanceMatrix(request.getPerformanceMatrix());
         }
 
         Organization savedOrganization = organizationRepository.save(organization);

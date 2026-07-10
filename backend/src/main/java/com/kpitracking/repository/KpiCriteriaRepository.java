@@ -45,7 +45,8 @@ public interface KpiCriteriaRepository extends JpaRepository<KpiCriteria, UUID> 
            "  (:kpiNature = 'STANDALONE' AND k.parent IS NULL AND NOT EXISTS (SELECT 1 FROM KpiCriteria c3 WHERE c3.parent = k))" +
            ") AND " +
            "(:isBonusKpi IS NULL OR k.isBonusKpi = :isBonusKpi) AND " +
-           "(:isReverseKpi IS NULL OR k.isReverseKpi = :isReverseKpi)")
+           "(:isReverseKpi IS NULL OR k.isReverseKpi = :isReverseKpi) AND " +
+           "(:kpiType IS NULL OR k.kpiType = :kpiType)")
     Page<KpiCriteria> findAllWithFilters(
             @Param("organizationId") UUID organizationId,
             @Param("currentUserId") UUID currentUserId,
@@ -64,6 +65,7 @@ public interface KpiCriteriaRepository extends JpaRepository<KpiCriteria, UUID> 
             @Param("kpiNature") String kpiNature,
             @Param("isBonusKpi") Boolean isBonusKpi,
             @Param("isReverseKpi") Boolean isReverseKpi,
+            @Param("kpiType") com.kpitracking.enums.KpiType kpiType,
             Pageable pageable
     );
 

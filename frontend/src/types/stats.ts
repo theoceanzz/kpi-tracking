@@ -60,6 +60,8 @@ export interface KpiTask {
   expectedSubmissions: number
   managerScore?: number | null
   managerName?: string | null
+  kpiType?: 'QUANTITATIVE' | 'QUALITATIVE'
+  qualitativeLevelName?: string | null
 }
 
 // Matches BE: MyKpiProgressResponse

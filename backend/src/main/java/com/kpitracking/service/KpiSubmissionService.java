@@ -82,6 +82,12 @@ public class KpiSubmissionService {
             throw new ForbiddenException("Bạn không được giao thực hiện chỉ tiêu KPI này");
         }
 
+        // Quantitative KPIs require a numeric actual value; qualitative KPIs do not
+        // (they are scored later by the reviewer picking a qualitative level).
+        if (kpi.getKpiType() != com.kpitracking.enums.KpiType.QUALITATIVE && request.getActualValue() == null) {
+            throw new BusinessException("Vui lòng nhập giá trị thực tế cho chỉ tiêu định lượng.");
+        }
+
         // --- NEW: Period Open Check ---
         Instant now = Instant.now();
         if (kpi.getKpiPeriod().getStartDate() != null && now.isBefore(kpi.getKpiPeriod().getStartDate())) {
@@ -203,11 +209,22 @@ public class KpiSubmissionService {
             reviewedAt = null;
         }
 
+        // Qualitative self-assessment: employee picks a level from the org scale.
+        com.kpitracking.entity.QualitativeLevel selfLevel = null;
+        if (kpi.getKpiType() == com.kpitracking.enums.KpiType.QUALITATIVE && request.getQualitativeLevelId() != null) {
+            com.kpitracking.entity.Organization submitOrg = kpi.getOrgUnit().getOrgHierarchyLevel().getOrganization();
+            selfLevel = submitOrg.getQualitativeLevels().stream()
+                    .filter(l -> l.getId().equals(request.getQualitativeLevelId()))
+                    .findFirst()
+                    .orElseThrow(() -> new BusinessException("Mức đánh giá định tính không hợp lệ."));
+        }
+
         KpiSubmission submission = KpiSubmission.builder()
                 .orgUnit(kpi.getOrgUnit())
                 .kpiCriteria(kpi)
                 .submittedBy(currentUser)
                 .actualValue(request.getActualValue())
+                .qualitativeLevel(selfLevel)
                 .note(request.getNote())
                 .status(finalStatus)
                 .reviewNote(autoReviewNote)
@@ -438,7 +455,17 @@ public class KpiSubmissionService {
         submission.setReviewedBy(currentUser);
         submission.setReviewNote(request.getReviewNote());
         submission.setReviewedAt(Instant.now());
-        submission.setManagerScore(request.getManagerScore());
+
+        // Qualitative KPIs are scored by the reviewer picking a level from the org's
+        // qualitative scale; the level's value is normalized into the same weighted
+        // score as quantitative KPIs so it folds into the total system score.
+        com.kpitracking.entity.KpiCriteria reviewedKpi = submission.getKpiCriteria();
+        if (reviewedKpi.getKpiType() == com.kpitracking.enums.KpiType.QUALITATIVE
+                && request.getQualitativeLevelId() != null) {
+            applyQualitativeScore(submission, request.getQualitativeLevelId());
+        } else {
+            submission.setManagerScore(request.getManagerScore());
+        }
 
         submission = submissionRepository.save(submission);
 
@@ -547,6 +574,24 @@ public class KpiSubmissionService {
         return submissionRepository.save(parentSub);
     }
 
+    /** Resolve the org qualitative level, set it on the submission and derive the weighted managerScore. */
+    private void applyQualitativeScore(KpiSubmission submission, UUID levelId) {
+        com.kpitracking.entity.KpiCriteria kpi = submission.getKpiCriteria();
+        com.kpitracking.entity.Organization org = kpi.getOrgUnit().getOrgHierarchyLevel().getOrganization();
+        com.kpitracking.entity.QualitativeLevel level = org.getQualitativeLevels().stream()
+                .filter(l -> l.getId().equals(levelId))
+                .findFirst()
+                .orElseThrow(() -> new BusinessException("Mức đánh giá định tính không hợp lệ."));
+        double maxLevelValue = org.getQualitativeLevels().stream()
+                .mapToDouble(l -> l.getValue() != null ? l.getValue() : 0.0)
+                .max().orElse(0.0);
+        double weight = kpi.getWeight() != null ? kpi.getWeight() : 0.0;
+        double multiplier = org.getEvaluationMaxScore() / 100.0;
+        double ratio = maxLevelValue > 0 ? (level.getValue() / maxLevelValue) : 0.0;
+        submission.setQualitativeLevel(level);
+        submission.setManagerScore(ratio * weight * multiplier);
+    }
+
     @Transactional
     public List<SubmissionResponse> bulkReview(BulkReviewRequest request) {
         User currentUser = getCurrentUser();
@@ -562,7 +607,12 @@ public class KpiSubmissionService {
                         .filter(ir -> ir.getSubmissionId().equals(id))
                         .findFirst()
                         .ifPresent(ir -> {
-                            if (ir.getManagerScore() != null) submission.setManagerScore(ir.getManagerScore());
+                            if (ir.getQualitativeLevelId() != null
+                                    && submission.getKpiCriteria().getKpiType() == com.kpitracking.enums.KpiType.QUALITATIVE) {
+                                applyQualitativeScore(submission, ir.getQualitativeLevelId());
+                            } else if (ir.getManagerScore() != null) {
+                                submission.setManagerScore(ir.getManagerScore());
+                            }
                             if (ir.getReviewNote() != null) submission.setReviewNote(ir.getReviewNote());
                         });
             }

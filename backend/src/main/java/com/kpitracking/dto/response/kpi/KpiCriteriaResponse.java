@@ -3,6 +3,7 @@ package com.kpitracking.dto.response.kpi;
 import com.kpitracking.enums.KpiFrequency;
 import com.kpitracking.enums.KpiParentRelationType;
 import com.kpitracking.enums.KpiStatus;
+import com.kpitracking.enums.KpiType;
 import lombok.*;
 
 import java.time.Instant;
@@ -12,6 +13,7 @@ import java.util.UUID;
 public class KpiCriteriaResponse {
 
     private UUID id;
+    private KpiType kpiType;
     private String name;
     private String description;
     private Double weight;

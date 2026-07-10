@@ -33,7 +33,7 @@ import { usePermission } from '@/hooks/usePermission'
 import { useOrganization } from '@/features/orgunits/hooks/useOrganization'
 import { useObjectives } from '../../okr/hooks/useOkr'
 import KpiExcelPreviewModal from '../components/KpiExcelPreviewModal'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue, SelectGroup, SelectLabel } from '@/components/ui/select'
 import { cn } from '@/lib/utils'
 import PageTour from '@/components/common/PageTour'
 import { kpiCriteriaSteps } from '@/components/common/tourSteps'
@@ -41,6 +41,34 @@ import { ObjectiveResponse } from '@/features/okr/types'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { useBulkSubmitKpi } from '../hooks/useBulkSubmitKpi'
 import { Check, CheckSquare, Zap } from 'lucide-react'
+import type { KpiType } from '@/types/kpi'
+
+type KpiTypeFilterKey =
+  | 'ALL'
+  | 'QT_ALL' | 'QT_PARENT' | 'QT_NORMAL' | 'QT_BONUS' | 'QT_REVERSE'
+  | 'QL_ALL' | 'QL_PARENT' | 'QL_NORMAL' | 'QL_BONUS'
+
+type KpiTypeFilterParams = {
+  kpiType?: KpiType
+  kpiNature?: 'PARENT_CHILD' | 'STANDALONE'
+  isBonusKpi?: boolean
+  isReverseKpi?: boolean
+}
+
+// Maps each filter option to the independent BE query params it implies.
+// This also fixes the leak where quantitative sub-filters returned qualitative KPIs.
+const KPI_TYPE_FILTERS: Record<KpiTypeFilterKey, KpiTypeFilterParams> = {
+  ALL: {},
+  QT_ALL: { kpiType: 'QUANTITATIVE' },
+  QT_PARENT: { kpiType: 'QUANTITATIVE', kpiNature: 'PARENT_CHILD' },
+  QT_NORMAL: { kpiType: 'QUANTITATIVE', kpiNature: 'STANDALONE', isBonusKpi: false, isReverseKpi: false },
+  QT_BONUS: { kpiType: 'QUANTITATIVE', isBonusKpi: true },
+  QT_REVERSE: { kpiType: 'QUANTITATIVE', isReverseKpi: true },
+  QL_ALL: { kpiType: 'QUALITATIVE' },
+  QL_PARENT: { kpiType: 'QUALITATIVE', kpiNature: 'PARENT_CHILD' },
+  QL_NORMAL: { kpiType: 'QUALITATIVE', kpiNature: 'STANDALONE', isBonusKpi: false },
+  QL_BONUS: { kpiType: 'QUALITATIVE', isBonusKpi: true },
+}
 
 export default function KpiCriteriaPage() {
   const [showForm, setShowForm] = useState(false)
@@ -70,9 +98,10 @@ export default function KpiCriteriaPage() {
   const [selectedObjectiveId, setSelectedObjectiveId] = useState<string>('ALL')
   const [selectedKeyResultId, setSelectedKeyResultId] = useState<string>('ALL')
   const [selectedAssigneeId, setSelectedAssigneeId] = useState<string>('ALL')
-  const [kpiTypeFilter, setKpiTypeFilter] = useState<'ALL' | 'PARENT_CHILD' | 'BONUS' | 'NORMAL' | 'REVERSE'>('ALL')
+  const [kpiTypeFilter, setKpiTypeFilter] = useState<KpiTypeFilterKey>('ALL')
   
   const [importFile, setImportFile] = useState<File | null>(null)
+  const [importType, setImportType] = useState<KpiType>('QUANTITATIVE')
   const [showPreview, setShowPreview] = useState(false)
   
   const fileRef = useRef<HTMLInputElement>(null)
@@ -170,9 +199,7 @@ export default function KpiCriteriaPage() {
       objectiveId: selectedObjectiveId === 'ALL' ? undefined : selectedObjectiveId,
       keyResultId: selectedKeyResultId === 'ALL' ? undefined : selectedKeyResultId,
       assigneeId: selectedAssigneeId === 'ALL' ? undefined : selectedAssigneeId,
-      kpiNature: kpiTypeFilter === 'PARENT_CHILD' ? 'PARENT_CHILD' : kpiTypeFilter === 'NORMAL' ? 'STANDALONE' : undefined,
-      isBonusKpi: kpiTypeFilter === 'BONUS' ? true : kpiTypeFilter === 'NORMAL' ? false : undefined,
-      isReverseKpi: kpiTypeFilter === 'REVERSE' ? true : kpiTypeFilter === 'NORMAL' ? false : undefined
+      ...KPI_TYPE_FILTERS[kpiTypeFilter]
     },
     { enabled: !!user?.id }
   )
@@ -219,7 +246,7 @@ export default function KpiCriteriaPage() {
   const mainTitle = titleParts.join(' ')
 
   const importMutation = useMutation({
-    mutationFn: (file: File) => kpiApi.importFile(file, selectedPeriodId === 'ALL' ? undefined : selectedPeriodId, selectedOrgUnitId === 'ALL' ? undefined : selectedOrgUnitId),
+    mutationFn: (vars: { file: File; kpiType: KpiType }) => kpiApi.importFile(vars.file, selectedPeriodId === 'ALL' ? undefined : selectedPeriodId, selectedOrgUnitId === 'ALL' ? undefined : selectedOrgUnitId, vars.kpiType),
     onSuccess: (result) => {
       qc.invalidateQueries({ queryKey: ['kpi-criteria'] })
       qc.invalidateQueries({ queryKey: ['stats'] })
@@ -554,17 +581,32 @@ export default function KpiCriteriaPage() {
 
                 {/* Group: KPI Type */}
                 <div className="w-full sm:w-56">
-                  <Select value={kpiTypeFilter} onValueChange={val => { setKpiTypeFilter(val as typeof kpiTypeFilter); setPage(0) }}>
+                  <Select value={kpiTypeFilter} onValueChange={val => { setKpiTypeFilter(val as KpiTypeFilterKey); setPage(0) }}>
                     <SelectTrigger className="w-full h-10 rounded-[16px] border-none bg-slate-100/50 dark:bg-slate-800/50 shadow-sm font-bold text-xs ring-offset-transparent focus:ring-2 focus:ring-indigo-500/20">
                       <Filter size={14} className="text-violet-500 mr-2" />
                       <SelectValue placeholder="Loại KPI..." />
                     </SelectTrigger>
-                    <SelectContent className="rounded-2xl border-slate-200 dark:border-slate-800 shadow-2xl p-2">
+                    <SelectContent className="rounded-2xl border-slate-200 dark:border-slate-800 shadow-2xl p-2 max-h-[420px]">
                       <SelectItem value="ALL" className="rounded-xl focus:bg-indigo-50 dark:focus:bg-indigo-900/30 text-xs font-black uppercase">Tất cả loại KPI</SelectItem>
-                      <SelectItem value="PARENT_CHILD" className="rounded-xl focus:bg-indigo-50 dark:focus:bg-indigo-900/30 text-sm font-bold">KPI cha</SelectItem>
-                      <SelectItem value="BONUS" className="rounded-xl focus:bg-indigo-50 dark:focus:bg-indigo-900/30 text-sm font-bold">KPI thưởng</SelectItem>
-                      <SelectItem value="NORMAL" className="rounded-xl focus:bg-indigo-50 dark:focus:bg-indigo-900/30 text-sm font-bold">KPI thường</SelectItem>
-                      <SelectItem value="REVERSE" className="rounded-xl focus:bg-indigo-50 dark:focus:bg-indigo-900/30 text-sm font-bold">KPI ngược</SelectItem>
+
+                      <SelectGroup>
+                        <SelectLabel className="px-2 pt-3 pb-1 text-[10px] font-black uppercase tracking-widest text-indigo-500">Định lượng</SelectLabel>
+                        <SelectItem value="QT_ALL" className="rounded-xl focus:bg-indigo-50 dark:focus:bg-indigo-900/30 text-sm font-bold">Tất cả định lượng</SelectItem>
+                        <SelectItem value="QT_PARENT" className="rounded-xl focus:bg-indigo-50 dark:focus:bg-indigo-900/30 text-sm font-bold">KPI cha</SelectItem>
+                        <SelectItem value="QT_NORMAL" className="rounded-xl focus:bg-indigo-50 dark:focus:bg-indigo-900/30 text-sm font-bold">KPI thường</SelectItem>
+                        <SelectItem value="QT_BONUS" className="rounded-xl focus:bg-indigo-50 dark:focus:bg-indigo-900/30 text-sm font-bold">KPI thưởng (cộng điểm)</SelectItem>
+                        <SelectItem value="QT_REVERSE" className="rounded-xl focus:bg-indigo-50 dark:focus:bg-indigo-900/30 text-sm font-bold">KPI ngược</SelectItem>
+                      </SelectGroup>
+
+                      {org?.enableQualitative && (
+                        <SelectGroup>
+                          <SelectLabel className="px-2 pt-3 pb-1 text-[10px] font-black uppercase tracking-widest text-teal-500">Định tính</SelectLabel>
+                          <SelectItem value="QL_ALL" className="rounded-xl focus:bg-indigo-50 dark:focus:bg-indigo-900/30 text-sm font-bold">Tất cả định tính</SelectItem>
+                          <SelectItem value="QL_PARENT" className="rounded-xl focus:bg-indigo-50 dark:focus:bg-indigo-900/30 text-sm font-bold">KPI cha</SelectItem>
+                          <SelectItem value="QL_NORMAL" className="rounded-xl focus:bg-indigo-50 dark:focus:bg-indigo-900/30 text-sm font-bold">KPI thường</SelectItem>
+                          <SelectItem value="QL_BONUS" className="rounded-xl focus:bg-indigo-50 dark:focus:bg-indigo-900/30 text-sm font-bold">KPI thưởng (cộng điểm)</SelectItem>
+                        </SelectGroup>
+                      )}
                     </SelectContent>
                   </Select>
                 </div>
@@ -930,7 +972,7 @@ export default function KpiCriteriaPage() {
         <KpiImportGuideModal 
           open={showImportGuide} 
           onClose={() => setShowImportGuide(false)} 
-          onSelectFile={() => fileRef.current?.click()} 
+          onSelectFile={(kpiType) => { setImportType(kpiType); fileRef.current?.click() }}
         />
         <ConfirmDialog 
           open={!!submitKpiId} 
@@ -967,12 +1009,13 @@ export default function KpiCriteriaPage() {
           kpiPeriodId={selectedPeriodId}
           orgUnitId={selectedOrgUnitId}
         />
-        <KpiExcelPreviewModal 
+        <KpiExcelPreviewModal
           open={showPreview}
           file={importFile}
+          kpiType={importType}
           onClose={() => { setShowPreview(false); setImportFile(null) }}
           isImporting={importMutation.isPending}
-          onImport={(file) => importMutation.mutate(file, { onSuccess: () => { setShowPreview(false); setImportFile(null) } })}
+          onImport={(file, kpiType) => importMutation.mutate({ file, kpiType }, { onSuccess: () => { setShowPreview(false); setImportFile(null) } })}
         />
       </div>
     </div>
@@ -1051,6 +1094,11 @@ function KpiTableRow({ kpi, depth = 0, childCount = 0, isCollapsed, onToggleColl
                 </span>
               )}
             </div>
+            {kpi.kpiType === 'QUALITATIVE' && (
+              <span className="inline-flex items-center gap-1 mt-0.5 px-2 py-0.5 rounded-full bg-teal-100 dark:bg-teal-900/30 text-teal-600 dark:text-teal-400 text-[9px] font-black uppercase tracking-wider border border-teal-200 dark:border-teal-800/50">
+                ★ Định tính
+              </span>
+            )}
             {kpi.isReverseKpi && (
               <span className="inline-flex items-center gap-1 mt-0.5 px-2 py-0.5 rounded-full bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 text-[9px] font-black uppercase tracking-wider border border-orange-200 dark:border-orange-800/50">
                 ↓ KPI Ngược
@@ -1409,6 +1457,11 @@ function KpiCard({ kpi, depth = 0, childCount = 0, isCollapsed, onToggleCollapse
           <h3 className="text-xl font-black text-slate-900 dark:text-white leading-tight group-hover/title:text-indigo-600 transition-colors line-clamp-2">
             {kpi.name}
           </h3>
+          {kpi.kpiType === 'QUALITATIVE' && (
+            <span className="inline-flex items-center gap-1 mt-1.5 px-2.5 py-1 rounded-full bg-teal-100 dark:bg-teal-900/30 text-teal-600 dark:text-teal-400 text-[9px] font-black uppercase tracking-wider border border-teal-200 dark:border-teal-800/50">
+              ★ Định tính
+            </span>
+          )}
           {kpi.isReverseKpi && (
             <span className="inline-flex items-center gap-1 mt-1.5 px-2.5 py-1 rounded-full bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 text-[9px] font-black uppercase tracking-wider border border-orange-200 dark:border-orange-800/50">
               ↓ KPI Ngược

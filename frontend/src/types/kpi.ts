@@ -1,6 +1,7 @@
 export type KpiStatus = 'DRAFT' | 'PENDING_APPROVAL' | 'APPROVED' | 'REJECTED' | 'INACTIVE' | 'EDIT' | 'EDITED' | 'REPLACED'
 export type KpiFrequency = 'DAILY' | 'WEEKLY' | 'MONTHLY' | 'QUARTERLY' | 'SEMI_ANNUALLY' | 'YEARLY' | 'UNLIMITED'
 export type KpiParentRelationType = 'DELEGATION' | 'DECOMPOSITION'
+export type KpiType = 'QUANTITATIVE' | 'QUALITATIVE'
 
 export interface KpiPeriod {
   id: string
@@ -15,6 +16,7 @@ export interface KpiPeriod {
 // Matches BE: KpiCriteriaResponse
 export interface KpiCriteria {
   id: string
+  kpiType: KpiType
   name: string
   description: string | null
   weight: number | null
@@ -66,6 +68,7 @@ export interface KpiCriteria {
 
 // Matches BE: CreateKpiCriteriaRequest
 export interface CreateKpiRequest {
+  kpiType?: KpiType
   name: string
   description?: string
   weight?: number
@@ -88,6 +91,7 @@ export interface CreateKpiRequest {
 
 // Matches BE: UpdateKpiCriteriaRequest
 export interface UpdateKpiRequest {
+  kpiType?: KpiType
   name?: string
   description?: string
   weight?: number
@@ -122,6 +126,7 @@ export interface ImportKpiResult {
 // Matches BE: ReplaceKpiRequest
 export interface ReplaceKpiRequest {
   replacementReason?: string
+  kpiType?: KpiType
   name: string
   description?: string
   weight?: number

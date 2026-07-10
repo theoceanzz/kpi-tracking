@@ -1,6 +1,6 @@
 import axiosInstance from '@/lib/axios'
 import type { ApiResponse, PageResponse } from '@/types/api'
-import type { Evaluation, CreateEvaluationRequest } from '@/types/evaluation'
+import type { Evaluation, CreateEvaluationRequest, EvaluationScorePreview } from '@/types/evaluation'
 
 export const evaluationApi = {
   getAll: (params: { 
@@ -23,4 +23,7 @@ export const evaluationApi = {
 
   getSystemScore: (kpiPeriodId: string, userId?: string) =>
     axiosInstance.get<ApiResponse<number>>('/evaluations/system-score', { params: { kpiPeriodId, userId } }).then((r) => r.data.data),
+
+  getScorePreview: (kpiPeriodId: string, userId?: string) =>
+    axiosInstance.get<ApiResponse<EvaluationScorePreview>>('/evaluations/score-preview', { params: { kpiPeriodId, userId } }).then((r) => r.data.data),
 }

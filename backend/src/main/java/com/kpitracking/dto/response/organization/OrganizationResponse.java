@@ -16,10 +16,13 @@ public class OrganizationResponse {
     private List<HierarchyLevelResponse> hierarchyLevels;
     private Double evaluationMaxScore;
     private java.util.List<EvaluationLevelResponse> evaluationLevels;
+    private java.util.List<QualitativeLevelResponse> qualitativeLevels;
+    private String performanceMatrix;
     private Integer kpiReminderPercentage;
     private Boolean enableOkr;
     private Boolean enableWaterfall;
     private Boolean enableAi;
+    private Boolean enableQualitative;
     private Instant createdAt;
     private Instant updatedAt;
 }

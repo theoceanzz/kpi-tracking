@@ -479,6 +479,9 @@ export default function KpiAdjustmentApprovalPage() {
                               {request.kpiCriteriaName}
                             </p>
                             <div className="flex items-center gap-2 mt-1">
+                              {request.kpiType === 'QUALITATIVE' && (
+                                <span className="text-[9px] font-black bg-teal-100 text-teal-600 px-1.5 py-0.5 rounded uppercase">★ Định tính</span>
+                              )}
                               {request.deactivationRequest ? (
                                 <span className="text-[9px] font-black bg-red-100 text-red-600 px-1.5 py-0.5 rounded uppercase">Huỷ bỏ KPI</span>
                               ) : (
@@ -555,6 +558,9 @@ export default function KpiAdjustmentApprovalPage() {
                           <button onClick={() => setReviewAdjustment(request)} className="text-left flex-1 min-w-0">
                             <p className="text-sm font-black text-slate-900 dark:text-white line-clamp-2 leading-snug">{request.kpiCriteriaName}</p>
                             <div className="flex items-center gap-2 mt-1">
+                              {request.kpiType === 'QUALITATIVE' && (
+                                <span className="text-[9px] font-black bg-teal-100 text-teal-600 px-1.5 py-0.5 rounded uppercase">★ Định tính</span>
+                              )}
                               {request.deactivationRequest ? (
                                 <span className="text-[9px] font-black bg-red-100 text-red-600 px-1.5 py-0.5 rounded uppercase">Huỷ bỏ KPI</span>
                               ) : (

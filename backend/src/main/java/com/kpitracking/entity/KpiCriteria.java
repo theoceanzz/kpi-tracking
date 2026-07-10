@@ -3,6 +3,7 @@ package com.kpitracking.entity;
 import com.kpitracking.enums.KpiFrequency;
 import com.kpitracking.enums.KpiParentRelationType;
 import com.kpitracking.enums.KpiStatus;
+import com.kpitracking.enums.KpiType;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.SQLRestriction;
@@ -17,6 +18,10 @@ import java.util.UUID;
 
 @Entity
 @Table(name = "kpi_criteria")
+@SecondaryTable(
+    name = "quantitative_kpi_details",
+    pkJoinColumns = @PrimaryKeyJoinColumn(name = "kpi_criteria_id")
+)
 @EntityListeners(AuditingEntityListener.class)
 @SQLRestriction("deleted_at IS NULL")
 @Getter @Setter @Builder @NoArgsConstructor @AllArgsConstructor
@@ -39,6 +44,11 @@ public class KpiCriteria {
     @Builder.Default
     private List<User> assignees = new ArrayList<>();
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "kpi_type", nullable = false, length = 20)
+    @Builder.Default
+    private KpiType kpiType = KpiType.QUANTITATIVE;
+
     @Column(name = "name", nullable = false)
     private String name;
 
@@ -48,10 +58,10 @@ public class KpiCriteria {
     @Column(name = "weight")
     private Double weight;
 
-    @Column(name = "target_value")
+    @Column(name = "target_value", table = "quantitative_kpi_details")
     private Double targetValue;
 
-    @Column(name = "unit")
+    @Column(name = "unit", table = "quantitative_kpi_details")
     private String unit;
 
     @Enumerated(EnumType.STRING)
@@ -96,13 +106,13 @@ public class KpiCriteria {
     @Column(name = "parent_relation_type", length = 20)
     private KpiParentRelationType parentRelationType;
 
-    @Column(name = "minimum_value")
+    @Column(name = "minimum_value", table = "quantitative_kpi_details")
     private Double minimumValue;
 
-    @Column(name = "compensated_achievement_percent")
+    @Column(name = "compensated_achievement_percent", table = "quantitative_kpi_details")
     private Double compensatedAchievementPercent;
 
-    @Column(name = "is_reverse_kpi", nullable = false)
+    @Column(name = "is_reverse_kpi", nullable = false, table = "quantitative_kpi_details")
     @Builder.Default
     private Boolean isReverseKpi = false;
 

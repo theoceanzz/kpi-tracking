@@ -14,6 +14,8 @@ public class BulkReviewRequest {
     public static class IndividualReview {
         private UUID submissionId;
         private Double managerScore;
+        // For qualitative KPIs: the level the reviewer picked (drives managerScore + behavior score).
+        private UUID qualitativeLevelId;
         private String reviewNote;
     }
 }

@@ -12,6 +12,9 @@ export interface Evaluation {
   score: number | null
   comment: string | null
   systemScore: number | null
+  behaviorScore?: number | null
+  kpiCompletionPercent?: number | null
+  matrixRating?: number | null
   periodStart?: string | null
   periodEnd?: string | null
   createdAt: string
@@ -31,6 +34,14 @@ export interface CreateEvaluationRequest {
   kpiPeriodId: string
   score: number
   comment?: string
+}
+
+// Matches BE: EvaluationScorePreview
+export interface EvaluationScorePreview {
+  systemScore: number | null
+  behaviorScore: number | null
+  kpiCompletionPercent: number | null
+  matrixRating: number | null
 }
 
 // Frontend-only: evaluation layer type for UI display

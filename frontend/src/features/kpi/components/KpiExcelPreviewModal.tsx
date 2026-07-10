@@ -1,10 +1,11 @@
 import { useState, useEffect, useMemo, useRef } from 'react'
 import { read, write, utils } from 'xlsx'
-import { 
-  X, Save, AlertCircle, Trash2, Plus, FileSpreadsheet, 
+import {
+  X, Save, AlertCircle, Trash2, Plus, FileSpreadsheet,
   ListPlus, Search, User, UserCheck, Check,
-  Scale, ArrowRight, ChevronDown, ChevronUp
+  Scale, ArrowRight, ChevronDown, ChevronUp, BarChart3, SlidersHorizontal
 } from 'lucide-react'
+import type { KpiType } from '@/types/kpi'
 import { useKpiTotalWeight } from '@/features/kpi/hooks/useKpiTotalWeight'
 import { toast } from 'sonner'
 import { z } from 'zod'
@@ -21,8 +22,9 @@ import { useObjectives } from '@/features/okr/hooks/useOkr'
 interface KpiExcelPreviewModalProps {
   open: boolean
   file: File | null
+  kpiType?: KpiType
   onClose: () => void
-  onImport: (modifiedFile: File) => void
+  onImport: (modifiedFile: File, kpiType: KpiType) => void
   isImporting: boolean
 }
 
@@ -65,10 +67,34 @@ const kpiRowSchema = z.object({
   OrgUnit: z.string().min(1, 'Phòng ban là bắt buộc'),
 })
 
-export default function KpiExcelPreviewModal({ open, file, onClose, onImport, isImporting }: KpiExcelPreviewModalProps) {
+// Qualitative KPIs have no numeric target/unit — those fields are not validated.
+const qualitativeKpiRowSchema = z.object({
+  Name: z.string().min(1, 'Tên chỉ tiêu là bắt buộc'),
+  Description: z.string().optional().nullable(),
+  Weight: z.string().refine(val => {
+    const n = Number(val)
+    return !isNaN(n) && n >= 1 && n <= 100
+  }, 'Trọng số phải từ 1-100'),
+  Deadline: z.string().refine(val => !val || /^\d{1,2}\/\d{1,2}\/\d{4}( \d{1,2}:\d{2})?$/.test(val), 'Định dạng: dd/MM/yyyy hoặc dd/MM/yyyy HH:mm').optional().nullable(),
+  Frequency: z.string().refine(val => frequencyOptions.includes(val.toUpperCase()), 'Tần suất không hợp lệ'),
+  EmployeeCode: z.string().min(1, 'Mã nhân viên là bắt buộc'),
+  Period: z.string().min(1, 'Đợt KPI là bắt buộc'),
+  OrgUnit: z.string().min(1, 'Phòng ban là bắt buộc'),
+})
+
+const QUANTITATIVE_CRITICAL_FIELDS = ['Name', 'Weight', 'TargetValue', 'Unit', 'Frequency', 'EmployeeCode', 'Period']
+const QUALITATIVE_CRITICAL_FIELDS = ['Name', 'Weight', 'Frequency', 'EmployeeCode', 'Period']
+
+export default function KpiExcelPreviewModal({ open, file, kpiType, onClose, onImport, isImporting }: KpiExcelPreviewModalProps) {
   const [data, setData] = useState<KpiRow[]>([])
   const [loading, setLoading] = useState(false)
   const { user } = useAuthStore()
+  // The type is seeded from the guide-modal tab but stays editable here so the
+  // reviewer can correct it before importing.
+  const [localKpiType, setLocalKpiType] = useState<KpiType>(kpiType ?? 'QUANTITATIVE')
+  const isQualitative = localKpiType === 'QUALITATIVE'
+  const rowSchema = isQualitative ? qualitativeKpiRowSchema : kpiRowSchema
+  const criticalFields = isQualitative ? QUALITATIVE_CRITICAL_FIELDS : QUANTITATIVE_CRITICAL_FIELDS
   
   // Bulk settings state
   const [bulkFreq, setBulkFreq] = useState('')
@@ -103,6 +129,18 @@ export default function KpiExcelPreviewModal({ open, file, onClose, onImport, is
   const { data: org } = useOrganization(user?.memberships?.[0]?.organizationId)
   const enableWaterfall = org?.enableWaterfall || false
   const enableOkr = org?.enableOkr || false
+  const enableQualitative = org?.enableQualitative || false
+
+  // Seed the local type from the prop each time the modal opens.
+  useEffect(() => {
+    if (open) setLocalKpiType(kpiType ?? 'QUANTITATIVE')
+  }, [open, kpiType])
+
+  // Re-validate rows when switching type (target/unit requirements differ).
+  useEffect(() => {
+    setData(prev => prev.length ? prev.map(row => validateRow(row)) : prev)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [localKpiType])
 
   const { data: usersData } = useUsers({ 
     page: 0, 
@@ -300,7 +338,7 @@ export default function KpiExcelPreviewModal({ open, file, onClose, onImport, is
   }
 
   const validateRow = (row: KpiRow): KpiRow => {
-    const result = kpiRowSchema.safeParse(row)
+    const result = rowSchema.safeParse(row)
     const errors: Record<string, string> = {}
     
     if (!result.success) {
@@ -462,7 +500,7 @@ export default function KpiExcelPreviewModal({ open, file, onClose, onImport, is
     }
 
     // Validate all rows first (Check for critical errors)
-    const criticalErrorFields = ['Name', 'Weight', 'TargetValue', 'Unit', 'Frequency', 'EmployeeCode', 'Period']
+    const criticalErrorFields = criticalFields
     const invalidRows = data.filter(row => {
       if (!row._errors) return false
       return Object.keys(row._errors).some(field => criticalErrorFields.includes(field))
@@ -534,8 +572,8 @@ export default function KpiExcelPreviewModal({ open, file, onClose, onImport, is
       const wbout = write(wb, { type: 'array', bookType: 'xlsx' })
       const blob = new Blob([wbout], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
       const newFile = new File([blob], file?.name || 'import_kpis.xlsx', { type: blob.type })
-      
-      onImport(newFile)
+
+      onImport(newFile, localKpiType)
     } catch (e) {
       toast.error('Lỗi khi tạo file import')
     } finally {
@@ -545,10 +583,9 @@ export default function KpiExcelPreviewModal({ open, file, onClose, onImport, is
 
   if (!open) return null
 
-  const criticalErrorFields = ['Name', 'Weight', 'TargetValue', 'Unit', 'Frequency', 'EmployeeCode', 'Period']
   const hasCriticalErrors = data.some((r: KpiRow) => {
     if (!r._errors) return false
-    return Object.keys(r._errors).some(field => criticalErrorFields.includes(field))
+    return Object.keys(r._errors).some(field => criticalFields.includes(field))
   })
   const hasAnyErrors = data.some(r => r._errors && Object.keys(r._errors).length > 0)
 
@@ -566,9 +603,29 @@ export default function KpiExcelPreviewModal({ open, file, onClose, onImport, is
               <p className="text-xs font-bold text-slate-500 uppercase tracking-widest mt-1">File: {file?.name}</p>
             </div>
           </div>
-          <button onClick={onClose} className="p-2.5 rounded-xl hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors text-slate-500">
-            <X size={20} />
-          </button>
+          <div className="flex items-center gap-3">
+            {enableQualitative ? (
+              <div className="flex items-center gap-1 p-1 rounded-2xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
+                <button type="button" onClick={() => setLocalKpiType('QUANTITATIVE')}
+                  className={cn('flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[11px] font-black uppercase tracking-wider transition-all',
+                    !isQualitative ? 'bg-indigo-600 text-white shadow' : 'text-slate-500 hover:text-slate-700')}>
+                  <BarChart3 size={13} /> Định lượng
+                </button>
+                <button type="button" onClick={() => setLocalKpiType('QUALITATIVE')}
+                  className={cn('flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[11px] font-black uppercase tracking-wider transition-all',
+                    isQualitative ? 'bg-emerald-600 text-white shadow' : 'text-slate-500 hover:text-slate-700')}>
+                  <SlidersHorizontal size={13} /> Định tính
+                </button>
+              </div>
+            ) : (
+              <span className="px-3 py-1.5 rounded-xl bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 text-[11px] font-black uppercase tracking-wider">
+                {isQualitative ? 'KPI Định tính' : 'KPI Định lượng'}
+              </span>
+            )}
+            <button onClick={onClose} className="p-2.5 rounded-xl hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors text-slate-500">
+              <X size={20} />
+            </button>
+          </div>
         </div>
 
         {/* Content */}
@@ -929,12 +986,12 @@ export default function KpiExcelPreviewModal({ open, file, onClose, onImport, is
                         <th className="px-5 py-4 w-12 text-center">STT</th>
                         <th className="px-5 py-4 min-w-[200px]">Tên chỉ tiêu <span className="text-rose-500">*</span></th>
                         <th className="px-5 py-4 min-w-[150px]">Trọng số <span className="text-rose-500">*</span></th>
-                        <th className="px-5 py-4 min-w-[150px]">Mục tiêu <span className="text-rose-500">*</span></th>
-                        <th className="px-5 py-4 min-w-[150px]">Tối thiểu <span className="text-rose-500">*</span></th>
+                        {!isQualitative && <th className="px-5 py-4 min-w-[150px]">Mục tiêu <span className="text-rose-500">*</span></th>}
+                        {!isQualitative && <th className="px-5 py-4 min-w-[150px]">Tối thiểu <span className="text-rose-500">*</span></th>}
                         <th className="px-5 py-4 min-w-[160px]">Hạn chót riêng</th>
-                        <th className="px-5 py-4 min-w-[120px]">KPI Ngược</th>
+                        {!isQualitative && <th className="px-5 py-4 min-w-[120px]">KPI Ngược</th>}
                         <th className="px-5 py-4 min-w-[120px]">KPI Thưởng</th>
-                        <th className="px-5 py-4 min-w-[150px]">Đơn vị <span className="text-rose-500">*</span></th>
+                        {!isQualitative && <th className="px-5 py-4 min-w-[150px]">Đơn vị <span className="text-rose-500">*</span></th>}
                         <th className="px-5 py-4 min-w-[180px]">Tần suất <span className="text-rose-500">*</span></th>
                         <th className="px-5 py-4 min-w-[160px]">Mã nhân viên <span className="text-rose-500">*</span></th>
                         <th className="px-5 py-4 min-w-[220px]">Đợt KPI <span className="text-rose-500">*</span></th>
@@ -982,6 +1039,7 @@ export default function KpiExcelPreviewModal({ open, file, onClose, onImport, is
                             </div>
                             {row._errors?.Weight && <p className="text-[9px] text-rose-500 mt-1 font-black uppercase px-2">{row._errors.Weight}</p>}
                           </td>
+                          {!isQualitative && (
                           <td className="px-5 py-3">
                             <input
                               value={row.TargetValue}
@@ -993,6 +1051,8 @@ export default function KpiExcelPreviewModal({ open, file, onClose, onImport, is
                             />
                             {row._errors?.TargetValue && <p className="text-[9px] text-rose-500 mt-1 font-black uppercase px-2">{row._errors.TargetValue}</p>}
                           </td>
+                          )}
+                          {!isQualitative && (
                           <td className="px-5 py-3">
                             <input
                               value={row.MinimumValue || ''}
@@ -1004,6 +1064,7 @@ export default function KpiExcelPreviewModal({ open, file, onClose, onImport, is
                             />
                             {row._errors?.MinimumValue && <p className="text-[9px] text-rose-500 mt-1 font-black uppercase px-2">{row._errors.MinimumValue}</p>}
                           </td>
+                          )}
                           <td className="px-5 py-3">
                             <input
                               value={row.Deadline || ''}
@@ -1016,6 +1077,7 @@ export default function KpiExcelPreviewModal({ open, file, onClose, onImport, is
                             />
                             {row._errors?.Deadline && <p className="text-[9px] text-rose-500 mt-1 font-black uppercase px-2">{row._errors.Deadline}</p>}
                           </td>
+                          {!isQualitative && (
                           <td className="px-5 py-3">
                             <button
                               type="button"
@@ -1031,6 +1093,7 @@ export default function KpiExcelPreviewModal({ open, file, onClose, onImport, is
                               )} />
                             </button>
                           </td>
+                          )}
                           <td className="px-5 py-3">
                             <button
                               type="button"
@@ -1046,6 +1109,7 @@ export default function KpiExcelPreviewModal({ open, file, onClose, onImport, is
                               )} />
                             </button>
                           </td>
+                          {!isQualitative && (
                           <td className="px-5 py-3">
                             <input
                               value={row.Unit}
@@ -1058,6 +1122,7 @@ export default function KpiExcelPreviewModal({ open, file, onClose, onImport, is
                             />
                             {row._errors?.Unit && <p className="text-[9px] text-rose-500 mt-1 font-black uppercase px-2">{row._errors.Unit}</p>}
                           </td>
+                          )}
                           <td className="px-5 py-3">
                             <select
                               value={row.Frequency}

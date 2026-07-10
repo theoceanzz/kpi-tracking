@@ -14,7 +14,11 @@ public interface SubmissionMapper {
 
     @Mapping(source = "kpiCriteria.id", target = "kpiCriteriaId")
     @Mapping(source = "kpiCriteria.name", target = "kpiCriteriaName")
+    @Mapping(source = "kpiCriteria.kpiType", target = "kpiType")
     @Mapping(source = "kpiCriteria.targetValue", target = "targetValue")
+    @Mapping(source = "qualitativeLevel.id", target = "qualitativeLevelId")
+    @Mapping(source = "qualitativeLevel.name", target = "qualitativeLevelName")
+    @Mapping(source = "qualitativeLevel.value", target = "qualitativeLevelValue")
     @Mapping(source = "submittedBy.id", target = "submittedById")
     @Mapping(source = "submittedBy.fullName", target = "submittedByName")
     @Mapping(source = "reviewedBy.id", target = "reviewedById")

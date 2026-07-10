@@ -2,6 +2,7 @@ package com.kpitracking.dto.request.kpi;
 
 import com.kpitracking.enums.KpiFrequency;
 import com.kpitracking.enums.KpiParentRelationType;
+import com.kpitracking.enums.KpiType;
 import jakarta.validation.constraints.Size;
 import lombok.*;
 
@@ -13,6 +14,8 @@ public class UpdateKpiCriteriaRequest {
 
     @Size(max = 255, message = "KPI name must not exceed 255 characters")
     private String name;
+
+    private KpiType kpiType;
 
     private String description;
 

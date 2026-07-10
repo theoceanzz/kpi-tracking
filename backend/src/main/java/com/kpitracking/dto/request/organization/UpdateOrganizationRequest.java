@@ -21,8 +21,11 @@ public class UpdateOrganizationRequest {
 
     private Double evaluationMaxScore;
     private java.util.List<EvaluationLevelRequest> evaluationLevels;
-    
+    private java.util.List<QualitativeLevelRequest> qualitativeLevels;
+    private String performanceMatrix;
+
     private Integer kpiReminderPercentage;
     private Boolean enableOkr;
     private Boolean enableWaterfall;
+    private Boolean enableQualitative;
 }

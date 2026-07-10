@@ -3,6 +3,8 @@ package com.kpitracking.entity;
 import com.kpitracking.enums.OrganizationStatus;
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.annotation.LastModifiedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
@@ -47,6 +49,15 @@ public class Organization {
     @OrderBy("threshold DESC")
     private java.util.List<EvaluationLevel> evaluationLevels;
 
+    @OneToMany(mappedBy = "organization", cascade = CascadeType.ALL, orphanRemoval = true)
+    @OrderBy("position ASC")
+    private java.util.List<QualitativeLevel> qualitativeLevels;
+
+    /** Performance rating matrix (JSON): { rowHeader, colHeader, rows[], cols[], cells[][] }. */
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "performance_matrix", columnDefinition = "jsonb")
+    private String performanceMatrix;
+
     @Column(name = "kpi_reminder_percentage")
     @Builder.Default
     private Integer kpiReminderPercentage = 50;
@@ -62,6 +73,10 @@ public class Organization {
     @Column(name = "enable_ai")
     @Builder.Default
     private Boolean enableAi = true;
+
+    @Column(name = "enable_qualitative")
+    @Builder.Default
+    private Boolean enableQualitative = false;
 
     @LastModifiedDate
     @Column(name = "updated_at")

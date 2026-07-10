@@ -1,10 +1,10 @@
 import axiosInstance from '@/lib/axios'
 import type { ApiResponse, PageResponse } from '@/types/api'
-import type { KpiCriteria, CreateKpiRequest, UpdateKpiRequest, RejectKpiRequest, ImportKpiResult, ReplaceKpiRequest, BatchUpdateWeightRequest } from '@/types/kpi'
+import type { KpiCriteria, CreateKpiRequest, UpdateKpiRequest, RejectKpiRequest, ImportKpiResult, ReplaceKpiRequest, BatchUpdateWeightRequest, KpiType } from '@/types/kpi'
 import type { KpiStatus } from '@/types/kpi'
 
 export const kpiApi = {
-  getAll: (params: { page?: number; size?: number; status?: KpiStatus; orgUnitId?: string; organizationId?: string; createdById?: string; assigneeId?: string; kpiPeriodId?: string; keyword?: string; startDate?: string; endDate?: string; sortBy?: string; sortDir?: string; objectiveId?: string; keyResultId?: string; approvalMode?: boolean; kpiNature?: 'PARENT_CHILD' | 'STANDALONE'; isBonusKpi?: boolean; isReverseKpi?: boolean }) =>
+  getAll: (params: { page?: number; size?: number; status?: KpiStatus; orgUnitId?: string; organizationId?: string; createdById?: string; assigneeId?: string; kpiPeriodId?: string; keyword?: string; startDate?: string; endDate?: string; sortBy?: string; sortDir?: string; objectiveId?: string; keyResultId?: string; approvalMode?: boolean; kpiNature?: 'PARENT_CHILD' | 'STANDALONE'; isBonusKpi?: boolean; isReverseKpi?: boolean; kpiType?: KpiType }) =>
     axiosInstance.get<ApiResponse<PageResponse<KpiCriteria>>>('/kpi-criteria', { params }).then((r) => r.data.data),
 
   getById: (id: string) =>
@@ -37,14 +37,15 @@ export const kpiApi = {
   revertApproval: (id: string) =>
     axiosInstance.post<ApiResponse<KpiCriteria>>(`/kpi-criteria/${id}/revert-approval`).then((r) => r.data.data),
 
-  importFile: (file: File, kpiPeriodId?: string, orgUnitId?: string) => {
+  importFile: (file: File, kpiPeriodId?: string, orgUnitId?: string, kpiType?: KpiType) => {
     const formData = new FormData()
     formData.append('file', file)
-    
+
     let url = '/kpi-criteria/import'
     const params = new URLSearchParams()
     if (kpiPeriodId) params.append('kpiPeriodId', kpiPeriodId)
     if (orgUnitId) params.append('orgUnitId', orgUnitId)
+    if (kpiType) params.append('kpiType', kpiType)
     if (params.toString()) url += `?${params.toString()}`
 
     return axiosInstance.post<ApiResponse<ImportKpiResult>>(url, formData, {

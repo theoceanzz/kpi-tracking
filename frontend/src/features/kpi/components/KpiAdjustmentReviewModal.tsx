@@ -105,18 +105,22 @@ export default function KpiAdjustmentReviewModal({ open, onClose, request }: Kpi
             <div className="space-y-4">
                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Giá trị hiện tại</p>
                <div className="space-y-3">
+                  {request.kpiType !== 'QUALITATIVE' && (
                   <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800">
                     <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1">Mục tiêu</p>
                     <p className="text-lg font-black text-slate-900 dark:text-white">{formatNumber(request.currentTargetValue)}</p>
                   </div>
+                  )}
                   <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800">
                     <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1">Trọng số</p>
                     <p className="text-lg font-black text-slate-900 dark:text-white">{request.currentWeight}%</p>
                   </div>
+                  {request.kpiType !== 'QUALITATIVE' && (
                   <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800">
                     <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1">Tối thiểu</p>
                     <p className="text-lg font-black text-slate-900 dark:text-white">{request.currentMinimumValue != null ? formatNumber(request.currentMinimumValue) : '0'}</p>
                   </div>
+                  )}
                </div>
             </div>
 
@@ -133,24 +137,28 @@ export default function KpiAdjustmentReviewModal({ open, onClose, request }: Kpi
                     </div>
                   ) : (
                     <>
+                      {request.kpiType !== 'QUALITATIVE' && (
                       <div className="p-4 rounded-xl bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-900/30">
                         <p className="text-[9px] font-black uppercase tracking-widest text-indigo-400 mb-1">Mục tiêu mới</p>
                         <p className="text-lg font-black text-indigo-600 dark:text-indigo-300">
                           {request.requestedTargetValue != null ? formatNumber(request.requestedTargetValue) : 'Không đổi'}
                         </p>
                       </div>
+                      )}
                       <div className="p-4 rounded-xl bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-900/30">
                         <p className="text-[9px] font-black uppercase tracking-widest text-indigo-400 mb-1">Trọng số mới</p>
                         <p className="text-lg font-black text-indigo-600 dark:text-indigo-300">
                           {request.requestedWeight != null ? `${request.requestedWeight}%` : 'Không đổi'}
                         </p>
                       </div>
+                      {request.kpiType !== 'QUALITATIVE' && (
                       <div className="p-4 rounded-xl bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-900/30">
                         <p className="text-[9px] font-black uppercase tracking-widest text-indigo-400 mb-1">Tối thiểu mới</p>
                         <p className="text-lg font-black text-indigo-600 dark:text-indigo-300">
                           {request.requestedMinimumValue != null ? formatNumber(request.requestedMinimumValue) : 'Không đổi'}
                         </p>
                       </div>
+                      )}
                     </>
                   )}
                </div>
