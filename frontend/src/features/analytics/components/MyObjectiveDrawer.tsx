@@ -44,7 +44,7 @@ function DrawerChartTooltip({ active, payload, label }: any) {
   return null
 }
 
-export default function MyObjectiveDrawer({ kpiId, onClose, globalFrom, globalTo, globalPeriodId }: { kpiId: string, onClose: () => void, globalFrom?: string, globalTo?: string, globalPeriodId?: string }) {
+export default function MyObjectiveDrawer({ kpiId, onClose, globalFrom, globalTo, globalPeriodId, globalPeriodIdTo }: { kpiId: string, onClose: () => void, globalFrom?: string, globalTo?: string, globalPeriodId?: string, globalPeriodIdTo?: string }) {
   const [dateFilterType, setDateFilterType] = useState<DateFilterType>('GLOBAL')
   const [customRange, setCustomRange] = useState<{ from: string; to: string }>({ from: '', to: '' })
   const [activeTeammates, setActiveTeammates] = useState<string[]>([]) // Array of selected teammate user IDs
@@ -68,10 +68,11 @@ export default function MyObjectiveDrawer({ kpiId, onClose, globalFrom, globalTo
   }, [dateFilterType, customRange, globalFrom, globalTo])
 
   const periodId = dateFilterType === 'GLOBAL' ? globalPeriodId : undefined
+  const periodIdTo = dateFilterType === 'GLOBAL' ? globalPeriodIdTo : undefined
 
   const { data, isLoading } = useQuery({
-    queryKey: ['personalObjective', 'drawer', kpiId, from, to, periodId],
-    queryFn: () => personalObjectiveApi.getKpiDrawerData(kpiId, { from, to, periodId })
+    queryKey: ['personalObjective', 'drawer', kpiId, from, to, periodId, periodIdTo],
+    queryFn: () => personalObjectiveApi.getKpiDrawerData(kpiId, { from, to, periodId, periodIdTo })
   })
 
   const chartData = useMemo(() => {

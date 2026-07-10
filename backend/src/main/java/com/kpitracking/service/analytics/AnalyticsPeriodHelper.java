@@ -53,6 +53,69 @@ public class AnalyticsPeriodHelper {
     }
 
     /**
+     * Cửa sổ thời gian hỗ trợ "khoảng đợt". Khi {@code periodIdTo == null} → giữ hành vi 1 đợt/none.
+     * Khi có cả hai: cửa sổ = [min(start hai biên), max(end hai biên)] rồi giao với [from, to] (nếu có).
+     */
+    public Window window(Instant from, Instant to, UUID periodId, UUID periodIdTo) {
+        if (periodIdTo == null || periodId == null) return window(from, to, periodId);
+
+        KpiPeriod a = resolveOrgScoped(periodId);
+        KpiPeriod b = resolveOrgScoped(periodIdTo);
+        Instant loStart = minInstant(a.getStartDate(), b.getStartDate());
+        Instant hiEnd = maxInstant(a.getEndDate(), b.getEndDate());
+
+        Instant effFrom = loStart;
+        if (from != null && (loStart == null || from.isAfter(loStart))) effFrom = from;
+        Instant effTo = hiEnd;
+        if (to != null && (hiEnd == null || to.isBefore(hiEnd))) effTo = to;
+        return new Window(effFrom, effTo);
+    }
+
+    /**
+     * Giải nghĩa lựa chọn đợt thành tập id đợt để lọc KPI/đánh giá chính xác:
+     * <ul>
+     *   <li>{@code periodId == null} → {@code null} (không lọc theo đợt).</li>
+     *   <li>chỉ {@code periodId} → {@code [periodId]} (một đợt).</li>
+     *   <li>cả hai → tất cả đợt cùng tổ chức có {@code startDate} nằm trong [min.start, max.start] (chuẩn hoá A≤B).</li>
+     * </ul>
+     */
+    public List<UUID> resolvePeriodIds(UUID periodId, UUID periodIdTo) {
+        if (periodId == null) return null;
+        if (periodIdTo == null || periodIdTo.equals(periodId)) return List.of(periodId);
+
+        KpiPeriod a = resolveOrgScoped(periodId);
+        KpiPeriod b = resolveOrgScoped(periodIdTo);
+        Instant aStart = a.getStartDate();
+        Instant bStart = b.getStartDate();
+        // Nếu thiếu startDate hoặc khác tổ chức → chỉ lấy đúng 2 biên.
+        UUID orgId = a.getOrganization() != null ? a.getOrganization().getId() : null;
+        if (aStart == null || bStart == null || orgId == null
+                || b.getOrganization() == null || !orgId.equals(b.getOrganization().getId())) {
+            return List.of(periodId, periodIdTo);
+        }
+        Instant lo = aStart.isAfter(bStart) ? bStart : aStart;
+        Instant hi = aStart.isAfter(bStart) ? aStart : bStart;
+        List<UUID> ids = kpiPeriodRepository.findByOrgIdAndStartDateBetween(orgId, lo, hi)
+                .stream().map(KpiPeriod::getId).collect(java.util.stream.Collectors.toList());
+        // Đảm bảo luôn chứa 2 biên (phòng lệch mili-giây/biên).
+        if (!ids.contains(periodId)) ids.add(periodId);
+        if (!ids.contains(periodIdTo)) ids.add(periodIdTo);
+        return ids;
+    }
+
+    private static Instant minInstant(Instant x, Instant y) {
+        if (x == null) return y;
+        if (y == null) return x;
+        return x.isBefore(y) ? x : y;
+    }
+
+    private static Instant maxInstant(Instant x, Instant y) {
+        if (x == null) return y;
+        if (y == null) return x;
+        return x.isAfter(y) ? x : y;
+    }
+
+    /**
      * Nạp đợt theo id và xác thực đợt thuộc tổ chức của người dùng hiện tại.
      * Ném {@link IllegalArgumentException} nếu không tồn tại hoặc khác tổ chức.
      */

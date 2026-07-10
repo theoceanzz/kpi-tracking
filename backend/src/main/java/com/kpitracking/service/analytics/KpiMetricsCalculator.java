@@ -101,6 +101,16 @@ public final class KpiMetricsCalculator {
         return !decompositionChildren(kpi).isEmpty();
     }
 
+    /** Tên người đảm nhiệm KPI (ghép bằng ", " nếu nhiều người); null nếu chưa giao. */
+    public static String assigneeNames(KpiCriteria kpi) {
+        if (kpi.getAssignees() == null || kpi.getAssignees().isEmpty()) return null;
+        String names = kpi.getAssignees().stream()
+                .map(u -> u.getFullName())
+                .filter(n -> n != null && !n.isBlank())
+                .collect(Collectors.joining(", "));
+        return names.isBlank() ? null : names;
+    }
+
     /** Tất cả KPI con còn sống (mọi loại quan hệ) của một KPI. */
     public static List<KpiCriteria> children(KpiCriteria kpi) {
         if (kpi.getChildren() == null) return List.of();

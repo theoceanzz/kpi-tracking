@@ -1,17 +1,19 @@
 import { useState, useMemo, useRef, useEffect } from 'react'
 import { personalKpiApi } from '@/features/dashboard/api/personalKpiApi'
 import { useMyAnalytics } from '../hooks/useAnalytics'
-import { useNotifications } from '@/features/notifications/hooks/useNotifications'
 import { useQuery } from '@tanstack/react-query'
 import {
   Target, TrendingUp, AlertTriangle, CheckCircle,
-  ChevronDown, ChevronRight, ChevronUp, ChevronsUpDown,
-  User, Users, X, Bell, Star, ArrowUpDown, Search, ChevronLeft,
+  ChevronDown, ChevronRight,
+  User, Users, X, Star, Search, ChevronLeft,
   Activity, BarChart3 as BarChartIcon, PieChart as PieChartIcon, Info,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { KpiTypeTags } from '../components/KpiTypeTags'
-import { KpiChildList, toChildNodes } from '../components/KpiChildList'
+import { toChildNodes } from '../components/KpiChildList'
+import { KpiChildTableRows } from '../components/KpiChildTableRows'
+import { KpiPeriodCell } from '../components/KpiPeriodCell'
+import { KpiWeightPill } from '../components/KpiWeightPill'
 import {
   BarChart, Bar, PieChart, Pie, Cell,
   XAxis, YAxis, CartesianGrid, Tooltip, Legend,
@@ -19,20 +21,37 @@ import {
 } from 'recharts'
 
 import AnalyticsComboChart from '../components/AnalyticsComboChart'
+import { SparseTableFiller } from '../components/SparseTableFiller'
 import MyKpiDrawer from '../components/MyKpiDrawer'
 import AnalyticsTabSkeleton, { TableLoadingRows } from '@/components/common/AnalyticsTabSkeleton'
 import Pagination from '@/components/common/Pagination'
 import { useAnalyticsDateFilter } from '@/components/common/AnalyticsDateFilter'
+import { SortHeader } from '@/components/common/SortHeader'
+import { ChartWrapper, type DashboardWidget } from '@/components/common/dashboard/ChartWrapper'
+import { useDashboardCustomization } from '@/components/common/dashboard/useDashboardCustomization'
+import DashboardCustomizeChrome, { DashboardEditToolbar } from '@/components/common/dashboard/DashboardCustomizeChrome'
+import type { WidgetType } from '@/types/datasource'
 
 import { format } from 'date-fns'
 
 const CHART_COLORS = ['#6366f1', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4', '#f43f5e']
 
-type SortField = 'progress' | 'performance' | 'period'
+type SortField = 'progress' | 'period'
 type SortDir = 'asc' | 'desc'
 type SharedFilter = 'ALL' | 'SHARED' | 'PERSONAL'
 
 const PAGE_SIZE = 5
+
+const CONFIG_REPORT_NAME = '__MY_KPI_DASHBOARD_CONFIG__'
+const DEFAULT_WIDGETS: DashboardWidget[] = [
+  { i: 'mykpi-trend', type: 'MYKPI_TREND', title: 'Xu hướng KPI theo thời gian', x: 0, y: 0, w: 12, h: 15, visible: true },
+  { i: 'mykpi-detail', type: 'MYKPI_DETAIL', title: 'Bảng chi tiết KPI đang đảm nhiệm', x: 0, y: 15, w: 12, h: 18, visible: true },
+]
+const toBackendWidgetType = (t: string): WidgetType => t === 'MYKPI_TREND' ? 'TREND_CHART' : 'TABLE'
+const CATALOG: { template: DashboardWidget; icon: React.ReactNode }[] = DEFAULT_WIDGETS.map(t => ({
+  template: t,
+  icon: t.type === 'MYKPI_TREND' ? <TrendingUp size={24} /> : <Target size={24} />,
+}))
 
 export default function MyStatsTab() {
   const [filterStuck, setFilterStuck] = useState(false)
@@ -50,28 +69,28 @@ export default function MyStatsTab() {
   }, [])
 
   const [onlyApproved, setOnlyApproved] = useState<boolean>(false)
-  const { periodId, from, to, controls } = useAnalyticsDateFilter({ selectClassName: 'h-10' })
+  const { periodId, periodIdTo, from, to, groupBy, controls } = useAnalyticsDateFilter({ selectClassName: 'h-10' })
 
   const [selectedKpiId, setSelectedKpiId] = useState<string | null>(null)
 
   const [filterShared, setFilterShared] = useState<SharedFilter>('ALL')
-  const [sortField, setSortField] = useState<SortField | null>(null)
+  const [sortField, setSortField] = useState<SortField | null>('period') // ưu tiên đợt/ngày gần nhất
   const [sortDir, setSortDir] = useState<SortDir>('desc')
   const [page, setPage] = useState(0)
 
   // ── New KPI analytics (standalone KPIs without KeyResult) ────────────────
   const { data: metrics, isLoading: isMetricsLoading } = useQuery({
-    queryKey: ['personalKpi', 'metrics', from, to, onlyApproved, periodId],
-    queryFn: () => personalKpiApi.getMetrics({ from, to, onlyApproved, periodId }),
+    queryKey: ['personalKpi', 'metrics', from, to, onlyApproved, periodId, periodIdTo],
+    queryFn: () => personalKpiApi.getMetrics({ from, to, onlyApproved, periodId, periodIdTo }),
   })
   const { data: chartData, isLoading: isChartLoading } = useQuery({
-    queryKey: ['personalKpi', 'chart', from, to, onlyApproved, periodId],
-    queryFn: () => personalKpiApi.getComboChart({ from, to, onlyApproved, periodId }),
+    queryKey: ['personalKpi', 'chart', from, to, onlyApproved, periodId, periodIdTo, groupBy],
+    queryFn: () => personalKpiApi.getComboChart({ from, to, onlyApproved, periodId, periodIdTo, groupBy }),
   })
   const { data: kpiPage, isLoading: isKpisLoading } = useQuery({
-    queryKey: ['personalKpi', 'details', from, to, onlyApproved, periodId, sortField, sortDir, filterShared, page],
+    queryKey: ['personalKpi', 'details', from, to, onlyApproved, periodId, periodIdTo, sortField, sortDir, filterShared, page],
     queryFn: () => personalKpiApi.getDetailedKpis({
-      from, to, onlyApproved, periodId,
+      from, to, onlyApproved, periodId, periodIdTo,
       sortBy: sortField ?? undefined,
       sortDir,
       sharedType: filterShared === 'ALL' ? undefined : filterShared,
@@ -81,13 +100,118 @@ export default function MyStatsTab() {
   })
 
   // ── Old analytics data ───────────────────────────────────────────────────
-  const { data: analyticsData } = useMyAnalytics(from, to, periodId)
-  const { data: notificationsData } = useNotifications(0, 50)
+  const { data: analyticsData } = useMyAnalytics(from, to, periodId, periodIdTo)
 
   const toggleSort = (field: SortField) => {
     if (sortField === field) setSortDir(d => d === 'asc' ? 'desc' : 'asc')
     else { setSortField(field); setSortDir('desc') }
     setPage(0)
+  }
+
+  // ── Tuỳ chỉnh giao diện (lưới widget dùng chung) ──────────────────────────
+  const dash = useDashboardCustomization({
+    configReportName: CONFIG_REPORT_NAME,
+    reportDescription: 'Cấu hình giao diện KPI của tôi',
+    defaultWidgets: DEFAULT_WIDGETS,
+    toBackendWidgetType,
+  })
+  const { isEditMode, handleTogglePin } = dash
+
+  const renderDetailBody = () => (
+    <div className="flex-1 flex flex-col min-h-0 -mx-6 -mb-6">
+      <div className="px-6 pb-4 border-b border-slate-100 dark:border-slate-800 flex flex-wrap items-center gap-3">
+        <div className="flex gap-0.5 p-1 bg-slate-100 dark:bg-slate-800 rounded-lg">
+          {([['ALL', 'Tất cả'], ['SHARED', 'Mục tiêu chung'], ['PERSONAL', 'Mục tiêu riêng']] as [SharedFilter, string][]).map(([v, label]) => (
+            <button
+              key={v}
+              onClick={() => { setFilterShared(v); setPage(0) }}
+              className={cn(
+                'px-3 py-1 rounded-md text-[11px] font-black transition-all',
+                filterShared === v
+                  ? 'bg-white dark:bg-slate-700 text-violet-600 dark:text-violet-400 shadow-sm'
+                  : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
+              )}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+        {filterShared !== 'ALL' && (
+          <button onClick={() => { setFilterShared('ALL'); setPage(0) }} className="flex items-center gap-1 h-9 px-3 rounded-lg text-xs font-bold text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors">
+            <X size={13} /> Xóa bộ lọc
+          </button>
+        )}
+      </div>
+
+      <div className="flex-1 overflow-auto custom-scrollbar min-h-0 flex flex-col">
+        <div className="hidden md:block overflow-x-auto custom-scrollbar">
+          <table className="w-full text-left">
+            <thead className="bg-slate-50 dark:bg-slate-800/50">
+              <tr className="text-xs font-black uppercase text-slate-500">
+                <th className="px-6 py-4 w-10"></th>
+                <th className="px-6 py-4">Tên KPI</th>
+                <th className="px-6 py-4 whitespace-nowrap">
+                  <SortHeader field="period" active={sortField} dir={sortDir} onToggle={toggleSort}>Đợt</SortHeader>
+                </th>
+                <th className="px-6 py-4 min-w-[250px]">
+                  <SortHeader field="progress" active={sortField} dir={sortDir} onToggle={toggleSort}>Tiến độ KPI</SortHeader>
+                </th>
+                <th className="px-6 py-4">Phân loại</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+              {isKpisLoading
+                ? <TableLoadingRows cols={6} count={2} />
+                : kpiPage?.content?.map(kpi => (
+                    <ExpandableKpiRow key={kpi.kpiId} kpi={kpi} onOpenDrawer={() => setSelectedKpiId(kpi.kpiId)} onSelectKpi={setSelectedKpiId} />
+                  ))}
+              {!isKpisLoading && (kpiPage?.totalElements ?? 0) === 0 && (
+                <tr><td colSpan={5} className="text-center py-8 text-slate-400">Không có dữ liệu</td></tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+
+        <div className="md:hidden divide-y divide-slate-100 dark:divide-slate-800">
+          {isKpisLoading ? (
+            <div className="p-6 text-sm text-slate-400">Đang tải...</div>
+          ) : kpiPage?.content?.length ? (
+            kpiPage.content.map(kpi => (
+              <MobileKpiCard key={kpi.kpiId} kpi={kpi} onOpenDrawer={() => setSelectedKpiId(kpi.kpiId)} />
+            ))
+          ) : (
+            <div className="text-center py-8 text-slate-400">Không có dữ liệu</div>
+          )}
+        </div>
+
+        <SparseTableFiller
+          message={!isKpisLoading && (kpiPage?.content?.length ?? 0) > 0 && (kpiPage?.content?.length ?? 0) < PAGE_SIZE
+            ? `Đã hiển thị tất cả ${kpiPage?.totalElements ?? 0} KPI`
+            : null}
+        />
+      </div>
+
+      {(kpiPage?.totalElements ?? 0) > 0 && (
+        <Pagination currentPage={page} totalPages={kpiPage?.totalPages ?? 1} onPageChange={setPage} totalElements={kpiPage?.totalElements ?? 0} size={PAGE_SIZE} itemLabel="KPI" />
+      )}
+    </div>
+  )
+
+  const renderWidget = (w: DashboardWidget) => {
+    switch (w.type) {
+      case 'MYKPI_TREND': return (
+        <ChartWrapper chromeless title="Xu hướng KPI theo thời gian" icon={<TrendingUp size={20} className="text-violet-500" />} widget={w} onTogglePin={handleTogglePin} isEditMode={isEditMode}>
+          <AnalyticsComboChart data={chartData?.points || []} isLoading={isChartLoading} itemName="KPI đảm nhiệm" fillHeight />
+        </ChartWrapper>
+      )
+      case 'MYKPI_DETAIL': return (
+        <ChartWrapper title="Bảng chi tiết KPI đang đảm nhiệm" icon={<Target size={20} className="text-violet-600" />} widget={w} onTogglePin={handleTogglePin} isEditMode={isEditMode}
+          extraHeaderContent={<span className="text-xs font-bold text-slate-400">{kpiPage?.totalElements ?? 0} KPI</span>}>
+          {renderDetailBody()}
+        </ChartWrapper>
+      )
+      default: return null
+    }
   }
 
   if (isMetricsLoading || isChartLoading)
@@ -108,22 +232,21 @@ export default function MyStatsTab() {
     return Object.entries(dist).map(([name, value]) => ({ name, value }))
   })()
 
-  const evalTrendData = [...(analyticsData?.evaluationHistory ?? [])]
-    .reverse()
+  // Xu hướng điểm số theo từng đợt (backend đã gom 1 dòng/đợt, sắp tăng dần theo đợt).
+  const evalTrendData = (analyticsData?.evaluationHistory ?? [])
     .map(e => ({
-      name: new Date(e.createdAt).toLocaleDateString('vi-VN'),
+      name: e.kpiName,
       value: e.score ?? 0,
     }))
 
-  const notifReadCount   = notificationsData?.content.filter(n => n.isRead).length ?? 0
-  const notifUnreadCount = (notificationsData?.totalElements ?? 0) - notifReadCount
-  const notifStatData = [
-    { name: 'Đã đọc',   value: notifReadCount },
-    { name: 'Chưa đọc', value: notifUnreadCount },
-  ].filter(v => v.value > 0)
-
   return (
     <div className="space-y-6">
+      {/* Tiêu đề + nút Tuỳ chỉnh */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <h2 className="text-xl font-black text-slate-900 dark:text-white">KPI của tôi</h2>
+        <DashboardEditToolbar api={dash} />
+      </div>
+
       {/* ── Sentinel for sticky detection ─────────────────────────────────── */}
       <div ref={filterSentinelRef} className="h-px" aria-hidden />
 
@@ -182,7 +305,7 @@ export default function MyStatsTab() {
             <Target size={20} />
           </div>
           <div>
-            <p className="text-xs font-bold text-slate-500">Hiệu suất TB</p>
+            <p className="text-xs font-bold text-slate-500">Hiệu suất TB (đánh giá)</p>
             <p className="text-2xl font-black">{metrics?.averagePerformance?.toFixed(1) ?? 0}%</p>
           </div>
         </div>
@@ -206,110 +329,8 @@ export default function MyStatsTab() {
         </div>
       </div>
 
-      {/* ── New Combo Chart ─────────────────────────────────────────────────── */}
-      <div className="pt-2">
-        <AnalyticsComboChart
-          data={chartData?.points || []}
-          isLoading={isChartLoading}
-          itemName="KPI đảm nhiệm"
-        />
-      </div>
-
-      {/* ── New Detail Table ────────────────────────────────────────────────── */}
-      <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 overflow-hidden">
-        <div className="p-6 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
-          <h3 className="text-sm font-black">Bảng chi tiết KPI đang đảm nhiệm</h3>
-          <span className="text-xs font-bold text-slate-400">{kpiPage?.totalElements ?? 0} KPI</span>
-        </div>
-
-        <div className="px-6 py-4 border-b border-slate-100 dark:border-slate-800 flex flex-wrap items-center gap-3">
-          <div className="flex gap-0.5 p-1 bg-slate-100 dark:bg-slate-800 rounded-lg">
-            {([['ALL', 'Tất cả'], ['SHARED', 'Mục tiêu chung'], ['PERSONAL', 'Mục tiêu riêng']] as [SharedFilter, string][]).map(([v, label]) => (
-              <button
-                key={v}
-                onClick={() => { setFilterShared(v); setPage(0) }}
-                className={cn(
-                  'px-3 py-1 rounded-md text-[11px] font-black transition-all',
-                  filterShared === v
-                    ? 'bg-white dark:bg-slate-700 text-violet-600 dark:text-violet-400 shadow-sm'
-                    : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
-                )}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
-
-          {filterShared !== 'ALL' && (
-            <button
-              onClick={() => { setFilterShared('ALL'); setPage(0) }}
-              className="flex items-center gap-1 h-9 px-3 rounded-lg text-xs font-bold text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
-            >
-              <X size={13} /> Xóa bộ lọc
-            </button>
-          )}
-        </div>
-
-        <div className="hidden md:block overflow-x-auto custom-scrollbar">
-          <table className="w-full text-left">
-            <thead className="bg-slate-50 dark:bg-slate-800/50">
-              <tr className="text-xs font-black uppercase text-slate-500">
-                <th className="px-6 py-4 w-10"></th>
-                <th className="px-6 py-4">Tên KPI</th>
-                <th className="px-6 py-4 whitespace-nowrap">
-                  <SortHeader field="period" active={sortField} dir={sortDir} onToggle={toggleSort}>
-                    Chu kỳ thực hiện
-                  </SortHeader>
-                </th>
-                <th className="px-6 py-4 min-w-[250px]">
-                  <SortHeader field="progress" active={sortField} dir={sortDir} onToggle={toggleSort}>
-                    Tiến độ KPI
-                  </SortHeader>
-                </th>
-                <th className="px-6 py-4 text-center">
-                  <SortHeader field="performance" active={sortField} dir={sortDir} onToggle={toggleSort}>
-                    Hiệu suất
-                  </SortHeader>
-                </th>
-                <th className="px-6 py-4">Phân loại</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-              {isKpisLoading
-                ? <TableLoadingRows cols={6} count={2} />
-                : kpiPage?.content?.map(kpi => (
-                    <ExpandableKpiRow key={kpi.kpiId} kpi={kpi} onOpenDrawer={() => setSelectedKpiId(kpi.kpiId)} />
-                  ))}
-              {!isKpisLoading && (kpiPage?.totalElements ?? 0) === 0 && (
-                <tr><td colSpan={6} className="text-center py-8 text-slate-400">Không có dữ liệu</td></tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-
-        <div className="md:hidden divide-y divide-slate-100 dark:divide-slate-800">
-          {isKpisLoading ? (
-            <div className="p-6 text-sm text-slate-400">Đang tải...</div>
-          ) : kpiPage?.content?.length ? (
-            kpiPage.content.map(kpi => (
-              <MobileKpiCard key={kpi.kpiId} kpi={kpi} onOpenDrawer={() => setSelectedKpiId(kpi.kpiId)} />
-            ))
-          ) : (
-            <div className="text-center py-8 text-slate-400">Không có dữ liệu</div>
-          )}
-        </div>
-
-        {(kpiPage?.totalElements ?? 0) > 0 && (
-          <Pagination
-            currentPage={page}
-            totalPages={kpiPage?.totalPages ?? 1}
-            onPageChange={setPage}
-            totalElements={kpiPage?.totalElements ?? 0}
-            size={PAGE_SIZE}
-            itemLabel="KPI"
-          />
-        )}
-      </div>
+      {/* Lưới widget tuỳ chỉnh: Xu hướng + Bảng chi tiết */}
+      <DashboardCustomizeChrome api={dash} renderWidget={renderWidget} catalog={CATALOG} />
 
       {/* ── Old: Trạng thái bài nộp + Phân bổ trạng thái KPI ───────────────── */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -349,44 +370,6 @@ export default function MyStatsTab() {
         </OldChartCard>
       </div>
 
-      {/* ── Old: Thông báo mới nhất + Thống kê thông báo ───────────────────── */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <OldChartCard title="Thông báo mới nhất" icon={<Bell size={16} className="text-amber-500" />} noPadBody>
-          <div className="divide-y divide-slate-50 dark:divide-slate-800 max-h-[320px] overflow-auto custom-scrollbar">
-            {(notificationsData?.content ?? []).length === 0 && (
-              <div className="p-6 text-center text-sm text-slate-400">Không có thông báo</div>
-            )}
-            {notificationsData?.content.slice(0, 10).map(n => (
-              <div key={n.id} className={cn('px-5 py-3 flex items-start gap-3 transition-all', n.isRead ? 'opacity-60' : '')}>
-                <div className={cn('w-2 h-2 rounded-full mt-1.5 shrink-0', n.isRead ? 'bg-slate-300' : 'bg-indigo-600')} />
-                <div className="flex-1 min-w-0">
-                  <p className={cn('text-xs leading-relaxed', n.isRead ? 'text-slate-500' : 'text-slate-900 dark:text-white font-bold')}>{n.message}</p>
-                  <p className="text-[10px] text-slate-400 mt-0.5">{new Date(n.createdAt).toLocaleString('vi-VN')}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </OldChartCard>
-
-        <OldChartCard title="Thống kê thông báo" icon={<PieChartIcon size={16} className="text-emerald-500" />}>
-          {notifStatData.length === 0
-            ? <EmptyChart />
-            : <ResponsiveContainer width="100%" height={240}>
-                <PieChart>
-                  <Pie data={notifStatData} innerRadius="50%" outerRadius="78%" paddingAngle={5} dataKey="value"
-                    label={({ name, percent }) => `${name} ${((percent || 0) * 100).toFixed(0)}%`}
-                    labelLine={false}
-                  >
-                    {notifStatData.map((_, i) => <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />)}
-                  </Pie>
-                  <Tooltip />
-                  <Legend verticalAlign="bottom" height={32} />
-                </PieChart>
-              </ResponsiveContainer>
-          }
-        </OldChartCard>
-      </div>
-
       {/* ── Old: Lịch sử đánh giá + Xu hướng điểm số ───────────────────────── */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <EvaluationTableWidget data={analyticsData?.evaluationHistory ?? []} title="Lịch sử đánh giá" />
@@ -404,7 +387,7 @@ export default function MyStatsTab() {
                   </defs>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} />
                   <XAxis dataKey="name" fontSize={10} axisLine={false} tickLine={false} />
-                  <YAxis fontSize={10} axisLine={false} tickLine={false} domain={[0, 10]} />
+                  <YAxis fontSize={10} axisLine={false} tickLine={false} domain={[0, 100]} />
                   <Tooltip />
                   <Area type="monotone" dataKey="value" name="Điểm" stroke="#6366f1" strokeWidth={2} fillOpacity={1} fill="url(#evalGrad)" dot={{ r: 4, fill: '#6366f1' }} />
                 </AreaChart>
@@ -420,6 +403,7 @@ export default function MyStatsTab() {
           globalFrom={from}
           globalTo={to}
           globalPeriodId={periodId}
+          globalPeriodIdTo={periodIdTo}
         />
       )}
     </div>
@@ -428,48 +412,8 @@ export default function MyStatsTab() {
 
 // ── Shared helpers ────────────────────────────────────────────────────────────
 
-function SortHeader({
-  field, active, dir, onToggle, children,
-}: {
-  field: SortField
-  active: SortField | null
-  dir: SortDir
-  onToggle: (f: SortField) => void
-  children: React.ReactNode
-}) {
-  const isActive = active === field
-  return (
-    <button onClick={() => onToggle(field)} className="flex items-center gap-1 group hover:text-violet-500 transition-colors">
-      {children}
-      <span className="ml-0.5">
-        {isActive
-          ? dir === 'asc' ? <ChevronUp size={12} /> : <ChevronDown size={12} />
-          : <ChevronsUpDown size={12} className="opacity-30 group-hover:opacity-60" />}
-      </span>
-    </button>
-  )
-}
-
-function KpiDateRange({ start, end }: { start: string | null; end: string | null }) {
-  const fmt = (d: string | null) => d ? format(new Date(d), 'dd/MM/yyyy') : '—'
-  return (
-    <div className="inline-flex flex-col gap-1 text-[11px]">
-      <div className="flex items-center gap-1.5">
-        <span className="font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider w-[26px] shrink-0">Từ</span>
-        <span className="font-semibold text-slate-700 dark:text-slate-300 tabular-nums">{fmt(start)}</span>
-      </div>
-      <div className="w-full h-px bg-slate-100 dark:bg-slate-800" />
-      <div className="flex items-center gap-1.5">
-        <span className="font-bold text-violet-400 dark:text-violet-500 uppercase tracking-wider w-[26px] shrink-0">Đến</span>
-        <span className="font-semibold text-slate-700 dark:text-slate-300 tabular-nums">{fmt(end)}</span>
-      </div>
-    </div>
-  )
-}
-
 function MobileKpiCard({ kpi, onOpenDrawer }: { kpi: any; onOpenDrawer: () => void }) {
   const pct = Math.round(kpi.progress || 0)
-  const perf = Math.round(kpi.performance || 0)
   const fmt = (d: string | null) => d ? format(new Date(d), 'dd/MM/yyyy') : '—'
 
   return (
@@ -499,21 +443,17 @@ function MobileKpiCard({ kpi, onOpenDrawer }: { kpi: any; onOpenDrawer: () => vo
             <div className={cn('h-full rounded-full', pct >= 100 ? 'bg-emerald-500' : 'bg-violet-500')} style={{ width: `${Math.min(pct, 100)}%` }} />
           </div>
         </div>
-        <div className="text-center shrink-0">
-          <p className="text-[10px] text-slate-500">Hiệu suất</p>
-          <p className={cn('text-sm font-black', perf >= 100 ? 'text-emerald-500' : perf >= 80 ? 'text-violet-500' : perf >= 50 ? 'text-amber-500' : 'text-red-500')}>{perf}%</p>
-        </div>
       </div>
     </div>
   )
 }
 
-function ExpandableKpiRow({ kpi, onOpenDrawer }: { kpi: any; onOpenDrawer: () => void }) {
-  const [expanded, setExpanded] = useState(false)
+function ExpandableKpiRow({ kpi, onOpenDrawer, onSelectKpi }: { kpi: any; onOpenDrawer: () => void; onSelectKpi?: (id: string) => void }) {
+  const hasChildren = !!(kpi.children && kpi.children.length > 0)
+  const [expanded, setExpanded] = useState(hasChildren) // KPI cha/thác nước mặc định mở sẵn KPI con
   // KPI thưởng: backend trả tiến độ/hiệu suất = null (không tính), hiển thị gạch ngang.
   const isBonus = kpi.progress == null
   const pct  = Math.round(kpi.progress    || 0)
-  const perf = Math.round(kpi.performance || 0)
 
   return (
     <>
@@ -525,16 +465,18 @@ function ExpandableKpiRow({ kpi, onOpenDrawer }: { kpi: any; onOpenDrawer: () =>
         </td>
         <td className="px-6 py-4 cursor-pointer" onClick={onOpenDrawer}>
           <div className="font-bold text-sm text-slate-900 hover:text-violet-500 dark:text-white dark:hover:text-violet-400 transition-colors truncate max-w-[240px]">{kpi.kpiName}</div>
-          <KpiTypeTags
-            className="mt-1"
-            isReverseKpi={kpi.isReverseKpi}
-            isBonusKpi={kpi.isBonusKpi}
-            parentRelationType={kpi.parentRelationType}
-            childRelationType={kpi.childRelationType}
-          />
+          <div className="flex items-center gap-1.5 flex-wrap mt-1">
+            <KpiTypeTags
+              isReverseKpi={kpi.isReverseKpi}
+              isBonusKpi={kpi.isBonusKpi}
+              parentRelationType={kpi.parentRelationType}
+              childRelationType={kpi.childRelationType}
+            />
+            <KpiWeightPill weight={kpi.weight} />
+          </div>
         </td>
         <td className="px-6 py-4">
-          <KpiDateRange start={kpi.periodStart} end={kpi.periodEnd} />
+          <KpiPeriodCell periodName={kpi.periodName} start={kpi.periodStart} end={kpi.periodEnd} />
         </td>
         <td className="px-6 py-4">
           {isBonus ? (
@@ -563,24 +505,6 @@ function ExpandableKpiRow({ kpi, onOpenDrawer }: { kpi: any; onOpenDrawer: () =>
             </>
           )}
         </td>
-        <td className="px-6 py-4 text-center">
-          {isBonus ? (
-            <span className="text-slate-400 font-black">—</span>
-          ) : (
-            <div className="inline-flex relative items-center justify-center w-12 h-12">
-              <svg className="w-12 h-12 transform -rotate-90">
-                <circle className="text-slate-100 dark:text-slate-800" strokeWidth="4" stroke="currentColor" fill="transparent" r="20" cx="24" cy="24" />
-                <circle
-                  className={cn(perf >= 100 ? 'text-emerald-500' : perf >= 80 ? 'text-violet-500' : perf >= 50 ? 'text-amber-500' : 'text-red-500')}
-                  strokeWidth="4" strokeDasharray={125.6}
-                  strokeDashoffset={125.6 - (Math.min(perf, 100) / 100) * 125.6}
-                  strokeLinecap="round" stroke="currentColor" fill="transparent" r="20" cx="24" cy="24"
-                />
-              </svg>
-              <span className="absolute text-[10px] font-black">{perf}%</span>
-            </div>
-          )}
-        </td>
         <td className="px-6 py-4">
           {kpi.shared ? (
             <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-purple-50 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 text-[10px] font-black uppercase">
@@ -593,13 +517,18 @@ function ExpandableKpiRow({ kpi, onOpenDrawer }: { kpi: any; onOpenDrawer: () =>
           )}
         </td>
       </tr>
-      {expanded && (
+      {expanded && hasChildren && (
+        <KpiChildTableRows
+          nodes={toChildNodes(kpi.children)}
+          onSelect={onSelectKpi}
+          headingColSpan={5}
+          variant={{ leadingChevronCol: true, showPersonColumn: false, trailingEmptyCols: 1, accent: 'violet', baseIndent: 28 }}
+        />
+      )}
+      {expanded && (!hasChildren || (kpi.mySubmissions?.length ?? 0) > 0 || kpi.shared) && (
         <tr>
-          <td colSpan={6} className="p-0 border-b border-slate-100 dark:border-slate-800">
+          <td colSpan={5} className="p-0 border-b border-slate-100 dark:border-slate-800">
             <div className="bg-slate-50/50 dark:bg-slate-900/50 p-6 flex flex-col gap-6 border-l-4 border-violet-500">
-              {kpi.children && kpi.children.length > 0 && (
-                <KpiChildList nodes={toChildNodes(kpi.children)} />
-              )}
               <div className="w-full space-y-4">
                 <h4 className="text-xs font-black uppercase tracking-wider text-slate-500">Lịch sử bài nộp của tôi</h4>
                 {kpi.mySubmissions && kpi.mySubmissions.length > 0 ? (
@@ -649,7 +578,7 @@ function ExpandableKpiRow({ kpi, onOpenDrawer }: { kpi: any; onOpenDrawer: () =>
                 )}
               </div>
 
-              {kpi.shared && kpi.teammates?.length > 0 && (
+              {kpi.shared && kpi.teammates?.length > 0 && kpi.childRelationType !== 'DECOMPOSITION' && (
                 <div className="w-full space-y-4 pt-6 border-t border-slate-200 dark:border-slate-700">
                   <h4 className="text-xs font-black uppercase tracking-wider text-slate-500">Đồng đội cùng thực hiện</h4>
                   <div className="space-y-3">
@@ -777,17 +706,17 @@ function EvaluationTableWidget({ data, title }: { data: any[]; title: string }) 
         <table className="w-full text-left border-collapse">
           <thead className="sticky top-0 bg-slate-50 dark:bg-slate-800/50 z-10">
             <tr className="text-[10px] font-black uppercase tracking-wider text-slate-400">
-              <th className="px-5 py-3 cursor-pointer hover:text-slate-600 transition-colors" onClick={() => handleSort('score')}>
-                <div className="flex items-center gap-1">Điểm <ArrowUpDown size={10} /></div>
+              <th className="px-5 py-3">
+                <SortHeader field="score" active={sortConfig?.key ?? null} dir={sortConfig?.direction ?? 'asc'} onToggle={handleSort} iconSize={10}>Điểm</SortHeader>
               </th>
-              <th className="px-3 py-3 cursor-pointer hover:text-slate-600 transition-colors" onClick={() => handleSort('kpiName')}>
-                <div className="flex items-center gap-1">Chỉ tiêu <ArrowUpDown size={10} /></div>
+              <th className="px-3 py-3">
+                <SortHeader field="kpiName" active={sortConfig?.key ?? null} dir={sortConfig?.direction ?? 'asc'} onToggle={handleSort} iconSize={10}>Đợt</SortHeader>
               </th>
-              <th className="px-3 py-3 cursor-pointer hover:text-slate-600 transition-colors" onClick={() => handleSort('evaluatorName')}>
-                <div className="flex items-center gap-1">Người đánh giá <ArrowUpDown size={10} /></div>
+              <th className="px-3 py-3">
+                <SortHeader field="evaluatorName" active={sortConfig?.key ?? null} dir={sortConfig?.direction ?? 'asc'} onToggle={handleSort} iconSize={10}>Người đánh giá</SortHeader>
               </th>
-              <th className="px-3 py-3 text-right cursor-pointer hover:text-slate-600 transition-colors" onClick={() => handleSort('createdAt')}>
-                <div className="flex items-center justify-end gap-1">Ngày đánh giá <ArrowUpDown size={10} /></div>
+              <th className="px-3 py-3 text-right">
+                <SortHeader field="createdAt" active={sortConfig?.key ?? null} dir={sortConfig?.direction ?? 'asc'} onToggle={handleSort} iconSize={10} className="justify-end w-full">Ngày đánh giá</SortHeader>
               </th>
             </tr>
           </thead>
@@ -801,8 +730,8 @@ function EvaluationTableWidget({ data, title }: { data: any[]; title: string }) 
               <tr key={e.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors">
                 <td className="px-5 py-3">
                   <div className={cn('w-10 h-10 rounded-xl flex items-center justify-center text-sm font-black shadow-sm',
-                    (e.score ?? 0) >= 8 ? 'bg-emerald-100 text-emerald-700' :
-                    (e.score ?? 0) >= 5 ? 'bg-amber-100 text-amber-700' : 'bg-red-100 text-red-700'
+                    (e.score ?? 0) >= 80 ? 'bg-emerald-100 text-emerald-700' :
+                    (e.score ?? 0) >= 50 ? 'bg-amber-100 text-amber-700' : 'bg-red-100 text-red-700'
                   )}>{e.score?.toFixed(1) ?? '—'}</div>
                 </td>
                 <td className="px-3 py-3">

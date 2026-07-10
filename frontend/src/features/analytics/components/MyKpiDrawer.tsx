@@ -47,12 +47,14 @@ export default function MyKpiDrawer({
   globalFrom,
   globalTo,
   globalPeriodId,
+  globalPeriodIdTo,
 }: {
   kpiId: string
   onClose: () => void
   globalFrom?: string
   globalTo?: string
   globalPeriodId?: string
+  globalPeriodIdTo?: string
 }) {
   const [dateFilterType, setDateFilterType] = useState<DateFilterType>('GLOBAL')
   const [customRange, setCustomRange] = useState<{ from: string; to: string }>({ from: '', to: '' })
@@ -77,10 +79,11 @@ export default function MyKpiDrawer({
   }, [dateFilterType, customRange, globalFrom, globalTo])
 
   const periodId = dateFilterType === 'GLOBAL' ? globalPeriodId : undefined
+  const periodIdTo = dateFilterType === 'GLOBAL' ? globalPeriodIdTo : undefined
 
   const { data, isLoading } = useQuery({
-    queryKey: ['personalKpi', 'drawer', kpiId, from, to, periodId],
-    queryFn: () => personalObjectiveApi.getKpiDrawerData(kpiId, { from, to, periodId }),
+    queryKey: ['personalKpi', 'drawer', kpiId, from, to, periodId, periodIdTo],
+    queryFn: () => personalObjectiveApi.getKpiDrawerData(kpiId, { from, to, periodId, periodIdTo }),
   })
 
   const chartData = useMemo(() => {

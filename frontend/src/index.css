@@ -136,22 +136,45 @@ input[type=number] {
 }
 .react-grid-item > .react-resizable-handle {
   position: absolute;
-  width: 20px;
-  height: 20px;
+  width: 30px;
+  height: 30px;
   bottom: 0;
   right: 0;
   cursor: se-resize;
+  z-index: 25; /* luôn nằm trên nội dung widget (kể cả biểu đồ Recharts lấp đầy card) */
+}
+/* Nền bo góc mờ để handle luôn thấy được kể cả khi nằm trên biểu đồ dày đặc. */
+.react-grid-item > .react-resizable-handle::before {
+  content: "";
+  position: absolute;
+  right: 3px;
+  bottom: 3px;
+  width: 22px;
+  height: 22px;
+  border-bottom-right-radius: 12px;
+  background: color-mix(in srgb, var(--color-primary) 18%, transparent);
+  opacity: 0.6;
+  transition: opacity 150ms ease, background 150ms ease;
 }
 .react-grid-item > .react-resizable-handle::after {
   content: "";
   position: absolute;
-  right: 5px;
-  bottom: 5px;
-  width: 5px;
-  height: 5px;
-  border-right: 2px solid var(--color-muted-foreground);
-  border-bottom: 2px solid var(--color-muted-foreground);
-  opacity: 0.5;
+  right: 7px;
+  bottom: 7px;
+  width: 7px;
+  height: 7px;
+  border-right: 2.5px solid var(--color-primary);
+  border-bottom: 2.5px solid var(--color-primary);
+  opacity: 0.85;
+  transition: opacity 150ms ease;
+}
+/* Đậm lên khi trỏ vào widget → dễ tìm & nắm để kéo-dãn. */
+.react-grid-item:hover > .react-resizable-handle::before {
+  opacity: 1;
+  background: color-mix(in srgb, var(--color-primary) 30%, transparent);
+}
+.react-grid-item:hover > .react-resizable-handle::after {
+  opacity: 1;
 }
 
 @keyframes pulse-ring {

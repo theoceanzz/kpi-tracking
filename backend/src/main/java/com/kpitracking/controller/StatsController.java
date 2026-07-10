@@ -102,8 +102,9 @@ public class StatsController {
     public ResponseEntity<ApiResponse<AnalyticsMyStatsResponse>> getMyAnalytics(
             @RequestParam(required = false) Instant from,
             @RequestParam(required = false) Instant to,
-            @RequestParam(required = false) UUID periodId) {
-        AnalyticsPeriodHelper.Window w = periodHelper.window(from, to, periodId);
+            @RequestParam(required = false) UUID periodId,
+            @RequestParam(required = false) UUID periodIdTo) {
+        AnalyticsPeriodHelper.Window w = periodHelper.window(from, to, periodId, periodIdTo);
         AnalyticsMyStatsResponse response = statsService.getMyAnalytics(w.from(), w.to());
         return ResponseEntity.ok(ApiResponse.success(response));
     }
@@ -115,9 +116,10 @@ public class StatsController {
             @RequestParam(required = false) UUID orgUnitId,
             @RequestParam(required = false) java.time.Instant from,
             @RequestParam(required = false) java.time.Instant to,
-            @RequestParam(required = false) UUID periodId) {
-        AnalyticsPeriodHelper.Window w = periodHelper.window(from, to, periodId);
-        AnalyticsDrillDownResponse response = statsService.getDrillDown(orgUnitId, w.from(), w.to());
+            @RequestParam(required = false) UUID periodId,
+            @RequestParam(required = false) UUID periodIdTo) {
+        AnalyticsPeriodHelper.Window w = periodHelper.window(from, to, periodId, periodIdTo);
+        AnalyticsDrillDownResponse response = statsService.getDrillDown(orgUnitId, w.from(), w.to(), periodHelper.resolvePeriodIds(periodId, periodIdTo));
         return ResponseEntity.ok(ApiResponse.success(response));
     }
 
@@ -158,9 +160,10 @@ public class StatsController {
             @RequestParam(required = false) Instant from,
             @RequestParam(required = false) Instant to,
             @RequestParam(required = false, defaultValue = "false") Boolean onlyApproved,
-            @RequestParam(required = false) UUID periodId) {
-        AnalyticsPeriodHelper.Window w = periodHelper.window(from, to, periodId);
-        return ResponseEntity.ok(ApiResponse.success(statsService.getUnitComparison(orgUnitId, w.from(), w.to(), onlyApproved)));
+            @RequestParam(required = false) UUID periodId,
+            @RequestParam(required = false) UUID periodIdTo) {
+        AnalyticsPeriodHelper.Window w = periodHelper.window(from, to, periodId, periodIdTo);
+        return ResponseEntity.ok(ApiResponse.success(statsService.getUnitComparison(orgUnitId, w.from(), w.to(), onlyApproved, periodHelper.resolvePeriodIds(periodId, periodIdTo))));
     }
 
     @GetMapping("/summary/risks")
@@ -179,9 +182,15 @@ public class StatsController {
             @RequestParam(required = false) Instant from,
             @RequestParam(required = false) Instant to,
             @RequestParam(required = false, defaultValue = "false") Boolean onlyApproved,
-            @RequestParam(required = false) UUID periodId) {
-        AnalyticsPeriodHelper.Window w = periodHelper.window(from, to, periodId);
-        return ResponseEntity.ok(ApiResponse.success(statsService.getRankings(orgUnitId, rankingUnitId, w.from(), w.to(), onlyApproved)));
+            @RequestParam(required = false) UUID periodId,
+            @RequestParam(required = false) UUID periodIdTo,
+            @RequestParam(required = false, defaultValue = "0") int page,
+            @RequestParam(required = false, defaultValue = "5") int size,
+            @RequestParam(required = false, defaultValue = "performance") String sortBy,
+            @RequestParam(required = false, defaultValue = "DESC") String sortDir) {
+        AnalyticsPeriodHelper.Window w = periodHelper.window(from, to, periodId, periodIdTo);
+        return ResponseEntity.ok(ApiResponse.success(
+                statsService.getRankings(orgUnitId, rankingUnitId, w.from(), w.to(), onlyApproved, periodHelper.resolvePeriodIds(periodId, periodIdTo), page, size, sortBy, sortDir)));
     }
 }
 

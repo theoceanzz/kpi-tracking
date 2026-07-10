@@ -36,6 +36,7 @@ public final class OrgUnitStatisticToolRequests {
             @JsonProperty(required = false) String unitId,
             @JsonProperty(required = false) Boolean includeChildUnits,
             @JsonProperty(required = false) String positionId,
+            @JsonProperty(required = false) String positionName,  // tên chức vụ (thay cho positionId — khỏi search_positions)
             @JsonProperty(required = false) Integer page,
             @JsonProperty(required = false) Integer size,
             @JsonProperty(required = false) String sortBy,
@@ -49,6 +50,7 @@ public final class OrgUnitStatisticToolRequests {
             @JsonProperty(required = false) String unitId,
             @JsonProperty(required = false) Boolean includeChildUnits,
             @JsonProperty(required = false) String positionId,
+            @JsonProperty(required = false) String positionName,  // lọc nhóm theo tên chức vụ (khỏi search_positions)
             @JsonProperty(required = false) String startDate,
             @JsonProperty(required = false) String endDate
     ) {}
@@ -62,6 +64,8 @@ public final class OrgUnitStatisticToolRequests {
 
     @JsonInclude(JsonInclude.Include.NON_NULL)
     public record GetKpisRequest(
+            @JsonProperty(required = false) String unitName,   // tên đơn vị đích (vd "phòng IT"); mặc định = đơn vị hiện tại
+            @JsonProperty(required = false) String unitId,     // hoặc UUID đơn vị đích
             @JsonProperty(required = false) String ownerId,
             @JsonProperty(required = false) String assignedById,
             @JsonProperty(required = false) String assignedToId,
@@ -77,6 +81,8 @@ public final class OrgUnitStatisticToolRequests {
 
     @JsonInclude(JsonInclude.Include.NON_NULL)
     public record GetKpiSummaryRequest(
+            @JsonProperty(required = false) String unitName,   // tên đơn vị đích (vd "phòng IT"); mặc định = đơn vị hiện tại
+            @JsonProperty(required = false) String unitId,     // hoặc UUID đơn vị đích
             @JsonProperty(required = false) String ownerId,
             @JsonProperty(required = false) String assignedById,
             @JsonProperty(required = false) String assignedToId,
@@ -102,6 +108,8 @@ public final class OrgUnitStatisticToolRequests {
 
     @JsonInclude(JsonInclude.Include.NON_NULL)
     public record GetKpiPeriodsRequest(
+            @JsonProperty(required = false) String unitName,   // tên đơn vị: chỉ liệt kê kỳ đơn vị đó THAM GIA; mặc định = toàn tổ chức
+            @JsonProperty(required = false) String unitId,     // hoặc UUID đơn vị đích
             @JsonProperty(required = false) String startDate,
             @JsonProperty(required = false) String endDate
     ) {}
@@ -122,7 +130,9 @@ public final class OrgUnitStatisticToolRequests {
             @JsonProperty(required = false) String kpiId,
             @JsonProperty(required = false) Integer limit,
             @JsonProperty(required = false) String startDate,
-            @JsonProperty(required = false) String endDate
+            @JsonProperty(required = false) String endDate,
+            @JsonProperty(required = false) String positionFilter,
+            @JsonProperty(required = false) Boolean managersOnly
     ) {}
 
     @JsonInclude(JsonInclude.Include.NON_NULL)
@@ -136,6 +146,8 @@ public final class OrgUnitStatisticToolRequests {
 
     @JsonInclude(JsonInclude.Include.NON_NULL)
     public record GetKpiRiskAnalysisRequest(
+            @JsonProperty(required = false) String unitName,   // tên đơn vị đích (vd "phòng vận hành"); mặc định = đơn vị hiện tại
+            @JsonProperty(required = false) String unitId,     // hoặc UUID đơn vị đích
             @JsonProperty(required = false) String startDate,
             @JsonProperty(required = false) String endDate
     ) {}
@@ -216,7 +228,8 @@ public final class OrgUnitStatisticToolRequests {
 
     @JsonInclude(JsonInclude.Include.NON_NULL)
     public record CompareOrgUnitsRequest(
-            @JsonProperty(required = false) java.util.List<String> unitIds,  // 2-5 unit IDs
+            @JsonProperty(required = false) java.util.List<String> unitNames, // 2-5 unit NAMES (preferred; resolved in-tool)
+            @JsonProperty(required = false) java.util.List<String> unitIds,   // 2-5 unit IDs (UUID) — alternative to unitNames
             @JsonProperty(required = false) String startDate,
             @JsonProperty(required = false) String endDate
     ) {}

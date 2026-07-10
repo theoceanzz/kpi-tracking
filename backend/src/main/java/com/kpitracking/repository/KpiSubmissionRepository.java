@@ -71,12 +71,6 @@ public interface KpiSubmissionRepository extends JpaRepository<KpiSubmission, UU
 
     long countBySubmittedByIdAndStatus(UUID userId, SubmissionStatus status);
 
-    @Query("SELECT COUNT(s) FROM KpiSubmission s WHERE s.orgUnit.orgHierarchyLevel.organization.id = :orgId")
-    long countByOrganizationId(@Param("orgId") UUID orgId);
-
-    @Query("SELECT COUNT(s) FROM KpiSubmission s WHERE s.orgUnit.orgHierarchyLevel.organization.id = :orgId AND s.status = :status")
-    long countByOrganizationIdAndStatus(@Param("orgId") UUID orgId, @Param("status") SubmissionStatus status);
-
     @org.springframework.data.jpa.repository.Query("SELECT COUNT(s) FROM KpiSubmission s WHERE s.orgUnit.path LIKE :path")
     long countByOrgUnitPath(@org.springframework.data.repository.query.Param("path") String path);
 

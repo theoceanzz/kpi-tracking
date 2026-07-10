@@ -33,6 +33,7 @@ public class OrgUnitStatisticService {
     private final KpiPeriodRepository kpiPeriodRepository;
     private final RoleRepository roleRepository;
     private final EntityManager entityManager;
+    private final EvaluationService evaluationService;
 
     // Helper to parse dates from string
     public Instant parseDate(String dateStr, Instant defaultInstant) {
@@ -157,8 +158,10 @@ public class OrgUnitStatisticService {
 
     public double[] calculateAverages(List<KpiCriteria> kpis, Instant A, Instant B) {
         double sumWeightedCompletion = 0;
-        double sumWeightedPerformance = 0;
         double sumWeight = 0;
+        // Hiệu suất nay tính theo ĐÁNH GIÁ của người trong đợt (gom người + đợt từ tập KPI).
+        java.util.Set<UUID> users = new java.util.LinkedHashSet<>();
+        java.util.Set<UUID> periods = new java.util.LinkedHashSet<>();
 
         for (KpiCriteria kpi : kpis) {
             // KPI thác nước (có parent) không tính tiến độ/hiệu suất cho người được giao;
@@ -172,16 +175,18 @@ public class OrgUnitStatisticService {
             double weight = kpi.getWeight() != null && kpi.getWeight() > 0 ? kpi.getWeight() : 1.0;
 
             sumWeightedCompletion += (metrics[0] * weight);
-            sumWeightedPerformance += (metrics[1] * weight);
             sumWeight += weight;
+
+            if (kpi.getAssignees() != null) kpi.getAssignees().forEach(u -> users.add(u.getId()));
+            if (kpi.getKpiPeriod() != null) periods.add(kpi.getKpiPeriod().getId());
         }
 
         double avgProgress = sumWeight > 0 ? (sumWeightedCompletion / sumWeight) : 0.0;
-        double avgPerformance = sumWeight > 0 ? (sumWeightedPerformance / sumWeight) : 0.0;
+        Double evalPerf = evaluationService.averagePerformance(users, periods);
 
         return new double[]{
             Math.round(avgProgress * 100.0) / 100.0,
-            Math.round(avgPerformance * 100.0) / 100.0
+            evalPerf != null ? Math.round(evalPerf * 100.0) / 100.0 : 0.0
         };
     }
 
@@ -310,9 +315,12 @@ public class OrgUnitStatisticService {
 
     // 4. get_members
     @Transactional(readOnly = true)
-    public Map<String, Object> getMembers(UUID targetUnitId, Boolean includeChildUnits, String positionId, Integer page, Integer size, String sortBy, String sortDirection) {
+    public Map<String, Object> getMembers(UUID targetUnitId, Boolean includeChildUnits, String positionId, String positionName, Integer page, Integer size, String sortBy, String sortDirection) {
         boolean subtree = includeChildUnits != null && includeChildUnits;
         UUID targetPosId = (positionId != null && !positionId.isBlank()) ? UUID.fromString(positionId) : null;
+        // Lọc theo TÊN chức vụ khi không có positionId (khỏi bắt model search_positions trước).
+        String posName = (targetPosId == null && positionName != null && !positionName.isBlank())
+                ? positionName.trim().toLowerCase() : null;
 
         String pathPrefix = getPathPrefix(targetUnitId);
 
@@ -330,6 +338,9 @@ public class OrgUnitStatisticService {
         if (targetPosId != null) {
             selectBuilder.append("AND uro.role.id = :posId ");
             countBuilder.append("AND uro.role.id = :posId ");
+        } else if (posName != null) {
+            selectBuilder.append("AND LOWER(uro.role.name) LIKE CONCAT('%', :posName, '%') ");
+            countBuilder.append("AND LOWER(uro.role.name) LIKE CONCAT('%', :posName, '%') ");
         }
 
         Set<String> allowedSorts = Set.of("uro.user.fullName", "uro.user.email", "uro.user.employeeCode", "uro.role.name", "uro.orgUnit.name");
@@ -349,6 +360,9 @@ public class OrgUnitStatisticService {
         if (targetPosId != null) {
             countQuery.setParameter("posId", targetPosId);
             selectQuery.setParameter("posId", targetPosId);
+        } else if (posName != null) {
+            countQuery.setParameter("posName", posName);
+            selectQuery.setParameter("posName", posName);
         }
 
         long totalCount = countQuery.getSingleResult();
@@ -378,9 +392,10 @@ public class OrgUnitStatisticService {
 
     // 5. get_member_statistics
     @Transactional(readOnly = true)
-    public Map<String, Object> getMemberStatistics(UUID targetUnitId, Boolean includeChildUnits, String startDate, String endDate) {
+    public Map<String, Object> getMemberStatistics(UUID targetUnitId, Boolean includeChildUnits, String positionName, String startDate, String endDate) {
         boolean subtree = includeChildUnits != null && includeChildUnits;
-//        UUID targetPosId = (positionId != null && !positionId.isBlank()) ? UUID.fromString(positionId) : null;
+        // Lọc nhóm theo TÊN chức vụ (vd "trưởng phòng") — khỏi bắt model search_positions trước.
+        String posName = (positionName != null && !positionName.isBlank()) ? positionName.trim().toLowerCase() : null;
         Instant start = parseDate(startDate, Instant.EPOCH);
         Instant end = parseDate(endDate, Instant.now());
 
@@ -395,9 +410,9 @@ public class OrgUnitStatisticService {
             usersJpql.append("uro.orgUnit.id = :unitId ");
         }
 
-//        if (targetPosId != null) {
-//            usersJpql.append("AND uro.role.id = :posId ");
-//        }
+        if (posName != null) {
+            usersJpql.append("AND LOWER(uro.role.name) LIKE CONCAT('%', :posName, '%') ");
+        }
 
         TypedQuery<UUID> userQuery = entityManager.createQuery(usersJpql.toString(), UUID.class);
         if (subtree) {
@@ -405,9 +420,9 @@ public class OrgUnitStatisticService {
         } else {
             userQuery.setParameter("unitId", targetUnitId);
         }
-//        if (targetPosId != null) {
-//            userQuery.setParameter("posId", targetPosId);
-//        }
+        if (posName != null) {
+            userQuery.setParameter("posName", posName);
+        }
 
         List<UUID> userIds = userQuery.getResultList();
 
@@ -506,7 +521,7 @@ public class OrgUnitStatisticService {
 
             double[] kpiMetrics = calculateKpiMetrics(k, start, end);
             entry.put("progress", round1(kpiMetrics[0]));
-            entry.put("performance", round1(kpiMetrics[1]));
+            // Không surface hiệu suất per-KPI: hiệu suất nay theo ĐÁNH GIÁ (người×đợt), 1 KPI đơn lẻ không có.
             kpiDetailsList.add(entry);
         }
 
@@ -597,7 +612,7 @@ public class OrgUnitStatisticService {
             Map<String, Object> entry = new LinkedHashMap<>();
             entry.put("name", k.getName());
             // description (free-text dài) bị loại khỏi payload để giảm token gửi lên model;
-            // phân tích chỉ cần name/progress/performance. Lấy chi tiết qua get_kpi_detail nếu cần.
+            // phân tích chỉ cần name/progress (tiến độ). Lấy chi tiết qua get_kpi_detail nếu cần.
             entry.put("weight", k.getWeight());
             entry.put("targetValue", k.getTargetValue());
             boolean kReverse = Boolean.TRUE.equals(k.getIsReverseKpi());
@@ -614,7 +629,6 @@ public class OrgUnitStatisticService {
             entry.put("createdAt", k.getCreatedAt() != null ? k.getCreatedAt().toString() : null);
             double[] metrics = calculateKpiMetrics(k, start, end);
             entry.put("progress", round1(metrics[0]));
-            entry.put("performance", round1(metrics[1]));
             recordsList.add(entry);
         }
 
@@ -731,7 +745,7 @@ public class OrgUnitStatisticService {
         detail.put("targetComparator", detailReverse ? "≤" : "≥");
         detail.put("unit", k.getUnit());
         detail.put("progress", Math.round(metrics[0] * 100.0) / 100.0);
-        detail.put("performance", Math.round(metrics[1] * 100.0) / 100.0);
+        // Không surface hiệu suất per-KPI (hiệu suất theo ĐÁNH GIÁ ở cấp người/đơn vị, không ở 1 KPI).
         detail.put("deadline", k.getEffectiveDeadline() != null ? k.getEffectiveDeadline().toString() : null);
         KpiPeriod detailPeriod = resolveKpiPeriod(k);
         detail.put("periodName", detailPeriod != null ? detailPeriod.getName() : null);
@@ -778,36 +792,44 @@ public class OrgUnitStatisticService {
 
     // 11. get_kpi_periods
     @Transactional(readOnly = true)
-    public List<Map<String, Object>> getKpiPeriods(UUID orgId, String startDate, String endDate) {
+    public List<Map<String, Object>> getKpiPeriods(UUID orgId, UUID targetUnitId, String startDate, String endDate) {
         List<KpiPeriod> periods = kpiPeriodRepository.findByOrganizationId(orgId, org.springframework.data.domain.Pageable.unpaged()).getContent();
         Instant start = parseDate(startDate, Instant.EPOCH);
         Instant end = parseDate(endDate, Instant.now());
+        // Khi nhắm 1 đơn vị: chỉ tính KPI thuộc cây con đơn vị đó và BỎ kỳ đơn vị không tham gia.
+        String pathPrefix = targetUnitId != null ? getPathPrefix(targetUnitId) : null;
+        String unitFilter = pathPrefix != null ? " AND k.orgUnit.path LIKE CONCAT(:pathPrefix, '%')" : "";
 
         List<Map<String, Object>> periodDetails = new ArrayList<>();
         for (KpiPeriod p : periods) {
+            TypedQuery<Long> kpisCountQ = entityManager.createQuery(
+                    "SELECT COUNT(k) FROM KpiCriteria k WHERE k.kpiPeriod.id = :periodId" + unitFilter, Long.class)
+                    .setParameter("periodId", p.getId());
+            if (pathPrefix != null) kpisCountQ.setParameter("pathPrefix", pathPrefix);
+            Long kpisCount = kpisCountQ.getSingleResult();
+
+            // Kỳ mà đơn vị đích không có KPI nào -> không "tham gia" -> bỏ qua.
+            if (pathPrefix != null && (kpisCount == null || kpisCount == 0)) continue;
+
+            TypedQuery<Long> participantsQ = entityManager.createQuery(
+                    "SELECT COUNT(DISTINCT a.id) FROM KpiCriteria k JOIN k.assignees a WHERE k.kpiPeriod.id = :periodId" + unitFilter, Long.class)
+                    .setParameter("periodId", p.getId());
+            if (pathPrefix != null) participantsQ.setParameter("pathPrefix", pathPrefix);
+            Long participantsCount = participantsQ.getSingleResult();
+
+            TypedQuery<KpiCriteria> kpisQ = entityManager.createQuery(
+                    "SELECT DISTINCT k FROM KpiCriteria k JOIN FETCH k.submissions WHERE k.kpiPeriod.id = :periodId" + unitFilter, KpiCriteria.class)
+                    .setParameter("periodId", p.getId());
+            if (pathPrefix != null) kpisQ.setParameter("pathPrefix", pathPrefix);
+            List<KpiCriteria> kpis = kpisQ.getResultList();
+
+            double[] averages = calculateAverages(kpis, start, end);
+
             Map<String, Object> entry = new LinkedHashMap<>();
             entry.put("name", p.getName());
             entry.put("periodType", p.getPeriodType().toString());
             entry.put("startDate", p.getStartDate() != null ? p.getStartDate().toString() : null);
             entry.put("endDate", p.getEndDate() != null ? p.getEndDate().toString() : null);
-
-            Long kpisCount = entityManager.createQuery(
-                    "SELECT COUNT(k) FROM KpiCriteria k WHERE k.kpiPeriod.id = :periodId", Long.class)
-                    .setParameter("periodId", p.getId())
-                    .getSingleResult();
-
-            Long participantsCount = entityManager.createQuery(
-                    "SELECT COUNT(DISTINCT a.id) FROM KpiCriteria k JOIN k.assignees a WHERE k.kpiPeriod.id = :periodId", Long.class)
-                    .setParameter("periodId", p.getId())
-                    .getSingleResult();
-
-            List<KpiCriteria> kpis = entityManager.createQuery(
-                    "SELECT DISTINCT k FROM KpiCriteria k JOIN FETCH k.submissions WHERE k.kpiPeriod.id = :periodId", KpiCriteria.class)
-                    .setParameter("periodId", p.getId())
-                    .getResultList();
-
-            double[] averages = calculateAverages(kpis, start, end);
-
             entry.put("kpisCount", kpisCount);
             entry.put("participantsCount", participantsCount);
             entry.put("averageProgress", averages[0]);
@@ -820,30 +842,46 @@ public class OrgUnitStatisticService {
     // get_time_series — trend of a metric over time + anomaly points
     @Transactional(readOnly = true)
     public Map<String, Object> getTimeSeries(UUID unitId, String metric, String granularity, Integer lookback) {
-        String pathPrefix = getPathPrefix(unitId);
-        String datePattern = switch (granularity == null ? "MONTH" : granularity.toUpperCase()) {
-            case "YEAR" -> "YYYY";
-            case "QUARTER" -> "YYYY-\"Q\"Q";
-            default -> "YYYY-MM";
-        };
         String metricKey = "avg_performance".equalsIgnoreCase(metric) ? "avg_performance" : "completion";
         int keep = (lookback != null && lookback > 0) ? lookback : 6;
 
-        // row: [period_label, total_actual, total_target, avg_performance, submission_count]
-        List<Object[]> rows = kpiSubmissionRepository.trendStatsInSubtree(pathPrefix, datePattern);
-        if (rows.size() > keep) {
-            rows = rows.subList(rows.size() - keep, rows.size());
-        }
-
         List<Map<String, Object>> series = new ArrayList<>();
-        for (Object[] r : rows) {
-            double value = "avg_performance".equals(metricKey)
-                    ? toDouble(r[3])
-                    : computeCompletion(toDouble(r[1]), toDouble(r[2]));
-            Map<String, Object> point = new LinkedHashMap<>();
-            point.put("period", r[0] != null ? r[0].toString() : null);
-            point.put("value", round1(value));
-            series.add(point);
+        if ("avg_performance".equals(metricKey)) {
+            // Hiệu suất = hiệu suất ĐÁNH GIÁ (điểm đánh giá của quản lý/nhân sự theo đợt),
+            // nên chuỗi được tính theo TỪNG ĐỢT KPI (không theo tháng/quý; granularity bị bỏ qua),
+            // khớp với bảng xếp hạng & biểu đồ ở phần thống kê.
+            OrgUnit unit = orgUnitRepository.findById(unitId)
+                    .orElseThrow(() -> new RuntimeException("OrgUnit not found: " + unitId));
+            List<KpiPeriod> periods = evaluationService.subtreePeriodsOrdered(unit);
+            if (periods.size() > keep) {
+                periods = periods.subList(periods.size() - keep, periods.size());
+            }
+            for (KpiPeriod p : periods) {
+                double value = evaluationService.unitEvaluationPerformance(unit, Set.of(p.getId()));
+                Map<String, Object> point = new LinkedHashMap<>();
+                point.put("period", p.getName());
+                point.put("value", round1(value));
+                series.add(point);
+            }
+        } else {
+            String pathPrefix = getPathPrefix(unitId);
+            String datePattern = switch (granularity == null ? "MONTH" : granularity.toUpperCase()) {
+                case "YEAR" -> "YYYY";
+                case "QUARTER" -> "YYYY-\"Q\"Q";
+                default -> "YYYY-MM";
+            };
+            // row: [period_label, total_actual, total_target, avg_performance, submission_count]
+            List<Object[]> rows = kpiSubmissionRepository.trendStatsInSubtree(pathPrefix, datePattern);
+            if (rows.size() > keep) {
+                rows = rows.subList(rows.size() - keep, rows.size());
+            }
+            for (Object[] r : rows) {
+                double value = computeCompletion(toDouble(r[1]), toDouble(r[2]));
+                Map<String, Object> point = new LinkedHashMap<>();
+                point.put("period", r[0] != null ? r[0].toString() : null);
+                point.put("value", round1(value));
+                series.add(point);
+            }
         }
 
         // anomalies: period-over-period change crossing SPIKE (+20%) / DROP (-15%) thresholds
@@ -865,7 +903,9 @@ public class OrgUnitStatisticService {
 
         Map<String, Object> result = new LinkedHashMap<>();
         result.put("metric", metricKey);
-        result.put("granularity", granularity == null ? "MONTH" : granularity.toUpperCase());
+        // Hiệu suất đánh giá đi theo đợt KPI; tiến độ đi theo lịch (tháng/quý/năm).
+        result.put("granularity", "avg_performance".equals(metricKey)
+                ? "PERIOD" : (granularity == null ? "MONTH" : granularity.toUpperCase()));
         result.put("series", series);
         result.put("anomalyPoints", anomalies);
         return result;
@@ -909,7 +949,7 @@ public class OrgUnitStatisticService {
 
     // 13. rank_members
     @Transactional(readOnly = true)
-    public List<Map<String, Object>> rankMembers(UUID orgId, String metric, String order, String scope, String unitId, String kpiId, Integer limit, String startDate, String endDate, UUID contextUnitId) {
+    public List<Map<String, Object>> rankMembers(UUID orgId, String metric, String order, String scope, String unitId, String kpiId, Integer limit, String startDate, String endDate, UUID contextUnitId, String positionFilter, Boolean managersOnly) {
         int effectiveLimit = (limit != null && limit > 0) ? limit : 5;
         boolean desc = !"asc".equalsIgnoreCase(order);
         Instant start = parseDate(startDate, Instant.EPOCH);
@@ -926,6 +966,25 @@ public class OrgUnitStatisticService {
             users = userRoleOrgUnitRepository.findUsersByOrgUnitPath(pathPrefix + "%", orgId);
         } else {
             users = userRoleOrgUnitRepository.findUsersByOrganizationId(orgId);
+        }
+
+        // Lọc theo chức vụ/vai trò NGAY trên tập theo scope để trả lời "xếp hạng <chức vụ> theo ..."
+        // trong 1 lần gọi (thay vì model phải liệt kê đơn vị -> tìm trưởng -> ... rồi tự gộp).
+        //  - managersOnly = chỉ giữ trưởng/quản lý đơn vị (role.rank <= 1, giống findManagersByOrgUnitId).
+        //  - positionFilter = giữ người có tên chức vụ khớp (không phân biệt hoa/thường), vd "trưởng phòng".
+        boolean onlyManagers = Boolean.TRUE.equals(managersOnly);
+        String pf = (positionFilter != null && !positionFilter.isBlank()) ? positionFilter.trim().toLowerCase() : null;
+        if ((onlyManagers || pf != null) && !users.isEmpty()) {
+            java.util.Set<UUID> ids = users.stream().map(User::getId).collect(Collectors.toSet());
+            final String pfFinal = pf;
+            java.util.Set<UUID> keep = userRoleOrgUnitRepository.findByUserIdIn(ids).stream()
+                    .filter(uro -> uro.getRole() != null)
+                    .filter(uro -> !onlyManagers || (uro.getRole().getRank() != null && uro.getRole().getRank() <= 1))
+                    .filter(uro -> pfFinal == null || (uro.getRole().getName() != null
+                            && uro.getRole().getName().toLowerCase().contains(pfFinal)))
+                    .map(uro -> uro.getUser().getId())
+                    .collect(Collectors.toSet());
+            users = users.stream().filter(u -> keep.contains(u.getId())).collect(Collectors.toList());
         }
 
         List<Map<String, Object>> rankList = new ArrayList<>();
@@ -1429,7 +1488,7 @@ public class OrgUnitStatisticService {
         List<Map<String, Object>> units = unitIds.stream().map(uid -> {
             try {
                 Map<String, Object> detail = getOrgUnitDetail(uid);
-                Map<String, Object> stats = getMemberStatistics(uid, false, startDate, endDate);
+                Map<String, Object> stats = getMemberStatistics(uid, false, null, startDate, endDate);
 
                 Map<String, Object> m = new LinkedHashMap<>();
                 m.put("unitName", detail.get("name"));
@@ -1467,7 +1526,7 @@ public class OrgUnitStatisticService {
 
         java.util.List<Map<String, Object>> ranked = rankMembers(
                 orgId, met, dir, "unit", orgUnitId.toString(), null,
-                200, startDate, endDate, orgUnitId);
+                200, startDate, endDate, orgUnitId, null, null);
 
         List<Map<String, Object>> filtered = ranked.stream()
                 .filter(m -> {

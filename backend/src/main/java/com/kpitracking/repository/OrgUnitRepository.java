@@ -50,19 +50,6 @@ public interface OrgUnitRepository extends JpaRepository<OrgUnit, UUID> {
 
     boolean existsByNameAndOrgHierarchyLevel_Organization_IdAndParentId(String name, UUID organizationId, UUID parentId);
 
-    // ===== Statistic Tool queries =====
-
-    long countByStatusAndOrgHierarchyLevel_Organization_Id(com.kpitracking.enums.OrgUnitStatus status, UUID organizationId);
-
-    @Query("SELECT o.orgHierarchyLevel.unitTypeName, o.orgHierarchyLevel.levelOrder, COUNT(o) " +
-           "FROM OrgUnit o WHERE o.orgHierarchyLevel.organization.id = :orgId AND o.deletedAt IS NULL " +
-           "GROUP BY o.orgHierarchyLevel.unitTypeName, o.orgHierarchyLevel.levelOrder " +
-           "ORDER BY o.orgHierarchyLevel.levelOrder")
-    List<Object[]> countGroupByHierarchyLevelOrderedByOrgId(@Param("orgId") UUID orgId);
-
-    @Query("SELECT COUNT(o) FROM OrgUnit o WHERE o.orgHierarchyLevel.organization.id = :orgId AND o.deletedAt IS NULL")
-    long countAllActiveByOrgId(@Param("orgId") UUID orgId);
-
     long countByOrgHierarchyLevel_Organization_Id(UUID organizationId);
 
     @Deprecated

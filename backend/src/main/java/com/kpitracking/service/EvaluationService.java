@@ -5,8 +5,10 @@ import com.kpitracking.dto.response.PageResponse;
 import com.kpitracking.dto.response.evaluation.EvaluationResponse;
 import com.kpitracking.entity.Evaluation;
 import com.kpitracking.entity.KpiCriteria;
+import com.kpitracking.entity.KpiPeriod;
 import com.kpitracking.entity.OrgUnit;
 import com.kpitracking.entity.User;
+import com.kpitracking.entity.UserRoleOrgUnit;
 import com.kpitracking.exception.BusinessException;
 import com.kpitracking.exception.ForbiddenException;
 import com.kpitracking.exception.ResourceNotFoundException;
@@ -324,6 +326,158 @@ public class EvaluationService {
             if (value < upper) return i;
         }
         return bands.size() - 1;
+    }
+
+    // ── Hiệu suất theo ĐÁNH GIÁ của người trong đợt (dùng cho thống kê/AI) ──────
+
+    /** Khoá thâm niên của 1 user: NHỎ hơn = cao cấp hơn. = level*1000 + rank (lấy assignment tốt nhất). */
+    private long seniorityKey(UUID userId) {
+        List<UserRoleOrgUnit> uros = userRoleOrgUnitRepository.findByUserId(userId);
+        int bestLevel = Integer.MAX_VALUE, bestRank = Integer.MAX_VALUE;
+        for (UserRoleOrgUnit u : uros) {
+            if (u.getRole() == null) continue;
+            int l = u.getRole().getLevel() != null ? u.getRole().getLevel() : 99;
+            int r = u.getRole().getRank() != null ? u.getRole().getRank() : 99;
+            if (l < bestLevel || (l == bestLevel && r < bestRank)) { bestLevel = l; bestRank = r; }
+        }
+        if (bestLevel == Integer.MAX_VALUE) return Long.MAX_VALUE;
+        return (long) bestLevel * 1000 + bestRank;
+    }
+
+    /** Công ty của user có bật thác nước không. */
+    private boolean isWaterfallForUser(UUID userId) {
+        List<UserRoleOrgUnit> uros = userRoleOrgUnitRepository.findByUserId(userId);
+        for (UserRoleOrgUnit u : uros) {
+            OrgUnit unit = u.getOrgUnit();
+            if (unit != null && unit.getOrgHierarchyLevel() != null
+                    && unit.getOrgHierarchyLevel().getOrganization() != null) {
+                return Boolean.TRUE.equals(unit.getOrgHierarchyLevel().getOrganization().getEnableWaterfall());
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Điểm hiệu suất (đánh giá) của 1 người trong 1 đợt, chọn bản đánh giá theo cấu hình thác nước:
+     * - Không thác nước: lấy điểm của người đánh giá CAO CẤP nhất (gồm cả tự đánh giá).
+     * - Có thác nước: chỉ lấy điểm của QUẢN LÝ TRỰC TIẾP (người cao hơn user và gần user nhất).
+     * Trả {@code null} nếu không có đánh giá phù hợp.
+     */
+    @Transactional(readOnly = true)
+    public Double getEffectivePerformanceScore(UUID userId, UUID kpiPeriodId) {
+        Evaluation eff = getEffectiveEvaluation(userId, kpiPeriodId);
+        return eff != null ? eff.getScore() : null;
+    }
+
+    /**
+     * Bản đánh giá ĐẠI DIỆN của 1 người trong 1 đợt (theo cùng quy tắc thâm niên như
+     * {@link #getEffectivePerformanceScore}). Trả {@code null} nếu không có đánh giá phù hợp.
+     */
+    @Transactional(readOnly = true)
+    public Evaluation getEffectiveEvaluation(UUID userId, UUID kpiPeriodId) {
+        if (userId == null || kpiPeriodId == null) return null;
+        List<Evaluation> evals = evaluationRepository.findByUserIdAndKpiPeriodId(userId, kpiPeriodId);
+        if (evals == null || evals.isEmpty()) return null;
+
+        if (isWaterfallForUser(userId)) {
+            long userKey = seniorityKey(userId);
+            Evaluation direct = null;
+            long directKey = Long.MIN_VALUE; // gần user nhất = key LỚN nhất nhưng vẫn < userKey
+            for (Evaluation e : evals) {
+                if (e.getEvaluator() == null || e.getEvaluator().getId().equals(userId)) continue; // bỏ self
+                long k = seniorityKey(e.getEvaluator().getId());
+                if (k < userKey && k > directKey) { directKey = k; direct = e; }
+            }
+            return direct;
+        }
+
+        Evaluation senior = null;
+        long seniorKey = Long.MAX_VALUE; // cao cấp nhất = key NHỎ nhất
+        for (Evaluation e : evals) {
+            if (e.getEvaluator() == null) continue;
+            long k = seniorityKey(e.getEvaluator().getId());
+            if (k < seniorKey) { seniorKey = k; senior = e; }
+        }
+        return senior;
+    }
+
+    /**
+     * Trung bình hiệu suất (đánh giá) trên tập (người × đợt); bỏ qua cặp chưa có đánh giá.
+     * Null nếu không có điểm nào. Dùng cho thẻ tổng/AI: 1 người-nhiều đợt, nhiều người-1 đợt, v.v.
+     */
+    @Transactional(readOnly = true)
+    public Double averagePerformance(java.util.Collection<UUID> userIds, java.util.Collection<UUID> periodIds) {
+        if (userIds == null || userIds.isEmpty() || periodIds == null || periodIds.isEmpty()) return null;
+        double sum = 0; int n = 0;
+        for (UUID uid : new java.util.LinkedHashSet<>(userIds)) {
+            for (UUID pid : new java.util.LinkedHashSet<>(periodIds)) {
+                Double s = getEffectivePerformanceScore(uid, pid);
+                if (s != null) { sum += s; n++; }
+            }
+        }
+        return n > 0 ? sum / n : null;
+    }
+
+    // ── Hiệu suất ĐÁNH GIÁ cấp ĐƠN VỊ (subtree) — nguồn chung cho analytics, Insight, chatbot ──
+
+    /** Id các đơn vị trong cây con của {@code unit} (gồm chính nó). */
+    private List<UUID> subtreeUnitIds(OrgUnit unit) {
+        UUID orgId = unit.getOrgHierarchyLevel().getOrganization().getId();
+        List<OrgUnit> subtree = orgUnitRepository.findSubtree(unit.getPath(), orgId);
+        return subtree.isEmpty() ? List.of(unit.getId()) : subtree.stream().map(OrgUnit::getId).toList();
+    }
+
+    /**
+     * Hiệu suất ĐÁNH GIÁ của 1 đơn vị (đã làm tròn):
+     * - Không thác nước: trung bình đánh giá của MỌI người trong đơn vị (subtree).
+     * - Có thác nước: đánh giá của (các) QUẢN LÝ đơn vị đó.
+     * Tính trên {@code selectedPeriodIds}; nếu rỗng thì suy ra tất cả đợt mà KPI của đơn vị thuộc về.
+     * Trả 0 nếu không có đánh giá phù hợp.
+     */
+    @Transactional(readOnly = true)
+    public double unitEvaluationPerformance(OrgUnit unit, Collection<UUID> selectedPeriodIds) {
+        List<UUID> subtreeIds = subtreeUnitIds(unit);
+        Set<UUID> periodIds;
+        if (selectedPeriodIds != null && !selectedPeriodIds.isEmpty()) {
+            periodIds = new LinkedHashSet<>(selectedPeriodIds);
+        } else {
+            periodIds = kpiCriteriaRepository.findByOrgUnitIdInAndStatus(subtreeIds, KpiStatus.APPROVED).stream()
+                    .map(KpiCriteria::getKpiPeriod).filter(Objects::nonNull)
+                    .map(KpiPeriod::getId).collect(Collectors.toCollection(LinkedHashSet::new));
+        }
+        if (periodIds.isEmpty()) return 0;
+
+        boolean waterfall = unit.getOrgHierarchyLevel() != null
+                && unit.getOrgHierarchyLevel().getOrganization() != null
+                && Boolean.TRUE.equals(unit.getOrgHierarchyLevel().getOrganization().getEnableWaterfall());
+
+        Set<UUID> userIds = new LinkedHashSet<>();
+        if (waterfall) {
+            // Hiệu suất đơn vị = đánh giá của quản lý đơn vị.
+            userRoleOrgUnitRepository.findManagersByOrgUnitId(unit.getId())
+                    .forEach(uro -> userIds.add(uro.getUser().getId()));
+        } else {
+            // = TB đánh giá của tất cả nhân sự trong đơn vị (subtree).
+            userRoleOrgUnitRepository.findByOrgUnitIdIn(subtreeIds)
+                    .forEach(uro -> userIds.add(uro.getUser().getId()));
+        }
+        Double p = averagePerformance(userIds, periodIds);
+        return p != null ? Math.round(p) : 0;
+    }
+
+    /** Các đợt KPI của cây con {@code unit}, sắp theo ngày bắt đầu tăng dần (cho biểu đồ xu hướng). */
+    @Transactional(readOnly = true)
+    public List<KpiPeriod> subtreePeriodsOrdered(OrgUnit unit) {
+        List<UUID> subtreeIds = subtreeUnitIds(unit);
+        Map<UUID, KpiPeriod> byId = new LinkedHashMap<>();
+        for (KpiCriteria k : kpiCriteriaRepository.findByOrgUnitIdInAndStatus(subtreeIds, KpiStatus.APPROVED)) {
+            KpiPeriod p = k.getKpiPeriod();
+            if (p != null) byId.putIfAbsent(p.getId(), p);
+        }
+        return byId.values().stream()
+                .sorted(Comparator.comparing(KpiPeriod::getStartDate,
+                        Comparator.nullsLast(Comparator.naturalOrder())))
+                .collect(Collectors.toList());
     }
 
     private double calculateKpiActualValue(KpiCriteria kpi, UUID targetUserId, boolean enableWaterfall) {
