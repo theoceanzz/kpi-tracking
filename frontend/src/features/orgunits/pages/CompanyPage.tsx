@@ -6,7 +6,7 @@ import { useUpdateOrganization } from '../hooks/useUpdateOrganization'
 import { useForm, useFieldArray } from 'react-hook-form'
 import {  Edit3, ShieldCheck, 
   Calendar, Hash, Layers, Trash2,
-  Info, ArrowUp, ArrowDown, Plus, Target, Sparkles, ChevronUp, RotateCcw, GitBranch, SlidersHorizontal, Grid3x3, X
+  Info, ArrowUp, ArrowDown, Plus, Target, Sparkles, ChevronUp, RotateCcw, GitBranch, SlidersHorizontal, Grid3x3, X, ArrowRight
 } from 'lucide-react'
 import type { PerformanceMatrix } from '../api/organizationApi'
 import LoadingSkeleton from '@/components/common/LoadingSkeleton'
@@ -147,6 +147,7 @@ export default function CompanyPage() {
                       <HeroStat icon={ShieldCheck} label="Trạng thái" value={org?.status === 'Active' ? 'Hoạt động' : (org?.status || 'Hoạt động')} valueColor="text-emerald-400" />
                       <HeroStat icon={Target} label="OKR" value={org?.enableOkr ? 'Đang bật' : 'Đang tắt'} valueColor={org?.enableOkr ? "text-amber-400" : "text-white/40"} />
                       <HeroStat icon={GitBranch} label="Waterfall" value={org?.enableWaterfall ? 'Đang bật' : 'Đang tắt'} valueColor={org?.enableWaterfall ? "text-cyan-400" : "text-white/40"} />
+                      <HeroStat icon={SlidersHorizontal} label="KPI hành vi" value={org?.enableQualitative ? 'Đang bật' : 'Đang tắt'} valueColor={org?.enableQualitative ? "text-emerald-400" : "text-white/40"} />
                     </div>
                   </>
                 )}
@@ -1061,11 +1062,17 @@ function PerformanceMatrixSection({ org }: { org: any }) {
           </div>
         )}
 
-        <div className="overflow-x-auto">
+        {!isEditing && (
+          <p className="sm:hidden text-[10px] font-medium text-slate-400 flex items-center gap-1 px-1">
+            <ArrowRight size={12} className="animate-pulse" /> Vuốt ngang để xem đầy đủ bảng
+          </p>
+        )}
+
+        <div className="overflow-x-auto -mx-2 px-2">
           <table className="border-separate border-spacing-1 min-w-full">
             <thead>
               <tr>
-                <th className="p-2 min-w-[120px] text-left align-bottom">
+                <th className="p-2 min-w-[88px] sm:min-w-[120px] text-left align-bottom sticky left-0 z-20 bg-white dark:bg-slate-900">
                   <span className="text-[9px] font-bold text-slate-400 uppercase leading-tight block">
                     {matrix.rowHeader} ↓
                   </span>
@@ -1074,7 +1081,7 @@ function PerformanceMatrixSection({ org }: { org: any }) {
                   </span>
                 </th>
                 {matrix.cols.map((col, ci) => (
-                  <th key={ci} className="p-1 min-w-[110px]">
+                  <th key={ci} className="p-1 min-w-[76px] sm:min-w-[110px]">
                     {isEditing ? (
                       <div className="flex flex-col gap-1">
                         <input value={col} onChange={e => setColHeader(ci, e.target.value)} className={inputCls} />
@@ -1089,7 +1096,7 @@ function PerformanceMatrixSection({ org }: { org: any }) {
                         </button>
                       </div>
                     ) : (
-                      <div className="px-2 py-2 rounded-lg bg-slate-100 dark:bg-slate-800 text-[11px] font-bold text-slate-700 dark:text-slate-200 text-center">
+                      <div className="px-1.5 sm:px-2 py-2 rounded-lg bg-slate-100 dark:bg-slate-800 text-[10px] sm:text-[11px] font-bold text-slate-700 dark:text-slate-200 text-center">
                         {col}
                       </div>
                     )}
@@ -1111,7 +1118,7 @@ function PerformanceMatrixSection({ org }: { org: any }) {
             <tbody>
               {matrix.rows.map((row, ri) => (
                 <tr key={ri}>
-                  <th className="p-1 min-w-[120px]">
+                  <th className="p-1 min-w-[88px] sm:min-w-[120px] sticky left-0 z-10 bg-white dark:bg-slate-900">
                     {isEditing ? (
                       <div className="flex items-center gap-1">
                         <input value={row} onChange={e => setRowHeader(ri, e.target.value)} className={inputCls + ' text-left'} />
@@ -1126,7 +1133,7 @@ function PerformanceMatrixSection({ org }: { org: any }) {
                         </button>
                       </div>
                     ) : (
-                      <div className="px-2 py-2 rounded-lg bg-slate-100 dark:bg-slate-800 text-[11px] font-bold text-slate-700 dark:text-slate-200 text-left">
+                      <div className="px-2 py-2 rounded-lg bg-slate-100 dark:bg-slate-800 text-[10px] sm:text-[11px] font-bold text-slate-700 dark:text-slate-200 text-left">
                         {row}
                       </div>
                     )}
@@ -1144,7 +1151,7 @@ function PerformanceMatrixSection({ org }: { org: any }) {
                             className={inputCls}
                           />
                         ) : (
-                          <div className={cn('py-2.5 rounded-lg text-sm font-black text-center', cellColor(val))}>
+                          <div className={cn('py-2 sm:py-2.5 rounded-lg text-xs sm:text-sm font-black text-center', cellColor(val))}>
                             {val}
                           </div>
                         )}

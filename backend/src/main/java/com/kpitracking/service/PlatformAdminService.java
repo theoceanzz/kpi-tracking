@@ -139,6 +139,7 @@ public class PlatformAdminService {
                 .enableAi(org.getEnableAi())
                 .enableOkr(org.getEnableOkr())
                 .enableWaterfall(org.getEnableWaterfall())
+                .enableQualitative(org.getEnableQualitative())
                 .userCount(userCount)
                 .createdAt(org.getCreatedAt())
                 .updatedAt(org.getUpdatedAt())

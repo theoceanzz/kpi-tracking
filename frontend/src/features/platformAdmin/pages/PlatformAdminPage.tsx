@@ -214,7 +214,7 @@ export default function PlatformAdminPage() {
                       <span className="font-medium text-gray-600">{new Date(org.createdAt).toLocaleDateString('vi-VN')}</span>
                     </div>
                   </div>
-                  <div className="grid grid-cols-3 gap-2">
+                  <div className="grid grid-cols-2 gap-2">
                     <div className="flex items-center gap-2 bg-gray-50 rounded-lg px-2 py-2">
                       <span className="text-xs text-gray-500 whitespace-nowrap">AI</span>
                       <AiToggle org={org} onToggle={handleToggleAi} />
@@ -229,6 +229,12 @@ export default function PlatformAdminPage() {
                       <span className="text-xs text-gray-500 whitespace-nowrap">Thác nước</span>
                       <span className={cn('px-2 py-0.5 rounded-full text-xs font-medium shrink-0', org.enableWaterfall ? 'bg-cyan-100 text-cyan-700' : 'bg-gray-100 text-gray-400')}>
                         {org.enableWaterfall ? 'Bật' : 'Tắt'}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between gap-2 bg-gray-50 rounded-lg px-2 py-2">
+                      <span className="text-xs text-gray-500 whitespace-nowrap">KPI hành vi</span>
+                      <span className={cn('px-2 py-0.5 rounded-full text-xs font-medium shrink-0', org.enableQualitative ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-400')}>
+                        {org.enableQualitative ? 'Bật' : 'Tắt'}
                       </span>
                     </div>
                   </div>
@@ -248,6 +254,7 @@ export default function PlatformAdminPage() {
                     <th className="px-4 py-3 text-center font-medium">AI</th>
                     <th className="px-4 py-3 text-center font-medium hidden md:table-cell">OKR</th>
                     <th className="px-4 py-3 text-center font-medium hidden md:table-cell">Thác nước</th>
+                    <th className="px-4 py-3 text-center font-medium hidden md:table-cell">KPI hành vi</th>
                     <th className="px-4 py-3 text-left font-medium hidden lg:table-cell">Ngày tạo</th>
                   </tr>
                 </thead>
@@ -275,6 +282,11 @@ export default function PlatformAdminPage() {
                       <td className="px-4 py-3.5 text-center hidden md:table-cell">
                         <span className={cn('px-2 py-0.5 rounded-full text-xs font-medium', org.enableWaterfall ? 'bg-cyan-100 text-cyan-700' : 'bg-gray-100 text-gray-400')}>
                           {org.enableWaterfall ? 'Bật' : 'Tắt'}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3.5 text-center hidden md:table-cell">
+                        <span className={cn('px-2 py-0.5 rounded-full text-xs font-medium', org.enableQualitative ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-400')}>
+                          {org.enableQualitative ? 'Bật' : 'Tắt'}
                         </span>
                       </td>
                       <td className="px-4 py-3.5 text-gray-400 text-xs hidden lg:table-cell">
