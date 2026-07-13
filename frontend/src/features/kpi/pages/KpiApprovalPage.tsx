@@ -154,8 +154,15 @@ export default function KpiApprovalPage() {
     })
   }
 
-  // Quick stats
-  const { data: statsData } = useKpiCriteria({ size: 1000, organizationId: user?.memberships?.[0]?.organizationId, approvalMode: true })
+  const { data: statsData } = useKpiCriteria({
+    size: 1000,
+    organizationId: user?.memberships?.[0]?.organizationId,
+    orgUnitId: selectedOrgUnitId === 'ALL' ? undefined : selectedOrgUnitId,
+    kpiPeriodId: selectedPeriodId === 'ALL' ? undefined : selectedPeriodId,
+    objectiveId: selectedObjectiveId === 'ALL' ? undefined : selectedObjectiveId,
+    keyResultId: selectedKeyResultId === 'ALL' ? undefined : selectedKeyResultId,
+    approvalMode: true
+  })
   const stats = useMemo(() => {
     const all = (statsData?.content ?? []).filter(k => canRevertApproval || k.createdById !== user?.id || k.status !== 'PENDING_APPROVAL')
     return {

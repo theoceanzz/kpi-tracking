@@ -208,8 +208,13 @@ export default function KpiAdjustmentApprovalPage() {
 
   const [reviewAdjustment, setReviewAdjustment] = useState<KpiAdjustmentRequest | null>(null)
 
-  // Quick stats
-  const { data: allAdjustmentsData } = useKpiAdjustments({ size: 1000 })
+  const { data: allAdjustmentsData } = useKpiAdjustments({
+    size: 1000,
+    kpiPeriodId: selectedPeriodId === 'ALL' ? undefined : selectedPeriodId,
+    orgUnitId: selectedOrgUnitId === 'ALL' ? undefined : selectedOrgUnitId,
+    objectiveId: selectedObjectiveId === 'ALL' ? undefined : selectedObjectiveId,
+    keyResultId: selectedKeyResultId === 'ALL' ? undefined : selectedKeyResultId,
+  })
   const stats = useMemo(() => {
     const all = allAdjustmentsData?.content ?? []
     return {

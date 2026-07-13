@@ -116,14 +116,11 @@ export default function OrgUnitSubmissionsPage() {
     organizationId: orgId
   })
 
-  // Fetch Submissions for the selected period to count pending
   const { data: submissionsData, isLoading: isLoadingSubs } = useOrgUnitSubmissions({
     size: 1000,
     kpiPeriodId: selectedPeriodId === 'ALL' ? undefined : selectedPeriodId,
     orgUnitId: selectedOrgUnitId === 'ALL' ? undefined : selectedOrgUnitId,
     organizationId: orgId,
-
-    status: 'PENDING'
   })
 
   const evaluationsByUserId = useMemo(() => {
@@ -164,6 +161,15 @@ export default function OrgUnitSubmissionsPage() {
     })
     return map
   }, [submissionsData, user, canManageOrg])
+
+  // Người dùng đã nộp ít nhất 1 bài trong đợt (bất kể trạng thái) → phân biệt "đã làm" vs "chưa làm".
+  const hasSubmissionByUserId = useMemo(() => {
+    const set = new Set<string>()
+    submissionsData?.content.forEach(s => {
+      if (s.submittedById) set.add(s.submittedById)
+    })
+    return set
+  }, [submissionsData])
 
   const employees = useMemo(() => {
     const items = [...(usersData?.content ?? [])]
@@ -434,8 +440,12 @@ export default function OrgUnitSubmissionsPage() {
                                 {getScoreLabel(evaluation.score)}
                               </span>
                             </div>
+                          ) : hasSubmissionByUserId.has(emp.id) ? (
+                            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400 border border-amber-200 dark:border-amber-800/50" title="Nhân viên đã nộp bài nhưng bạn chưa chấm điểm">
+                              <span className="text-[10px] font-black uppercase tracking-widest">Chưa chấm</span>
+                            </div>
                           ) : isPeriodEnded ? (
-                            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-rose-50 dark:bg-rose-900/20 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-800/50">
+                            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-rose-50 dark:bg-rose-900/20 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-800/50" title="Nhân viên chưa nộp bài nào và đợt đã kết thúc">
                               <span className="text-[10px] font-black uppercase tracking-widest">Chưa làm</span>
                             </div>
                           ) : (
@@ -512,6 +522,10 @@ export default function OrgUnitSubmissionsPage() {
                           <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 border-l border-slate-200 dark:border-slate-700 pl-2 leading-none">
                             {getScoreLabel(evaluation.score)}
                           </span>
+                        </div>
+                      ) : hasSubmissionByUserId.has(emp.id) ? (
+                        <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400 border border-amber-200 dark:border-amber-800/50" title="Nhân viên đã nộp bài nhưng bạn chưa chấm điểm">
+                          <span className="text-[10px] font-black uppercase tracking-widest">Chưa chấm</span>
                         </div>
                       ) : isPeriodEnded ? (
                         <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-rose-50 dark:bg-rose-900/20 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-800/50">
