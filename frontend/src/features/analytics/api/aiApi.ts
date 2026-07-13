@@ -4,12 +4,12 @@ import type { ApiResponse, PageResponse, PageParams } from '@/types/api'
 export interface AiChatRequest {
   message: string
   conversationId?: string
+  /** Đơn vị đang xét (khi bấm thẻ Insight): backend đặt làm "đơn vị hiện tại" của lượt. */
+  focusUnitId?: string
 }
 
 export interface AiChatResponse {
   text: string
-  toolUsed?: string
-  toolResult?: any
 }
 
 export interface ConversationResponse {

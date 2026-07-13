@@ -149,16 +149,6 @@ public class OrgUnitStatisticTool {
         }
     }
 
-    private UUID resolveUnitId(String unitId, ToolContext context) {
-        if (unitId != null && !unitId.isBlank()) {
-            UUID targetId = parseId(unitId, "đơn vị (unitId)", "search_org_units");
-            guardDisambiguation("orgUnit", targetId, "đơn vị");
-            validateSubtreeAccess(targetId, context);
-            return targetId;
-        }
-        return getOrgUnitId(context);
-    }
-
     /** Kết quả resolve đơn vị theo id/tên: hoặc ra 1 UUID, hoặc cần hỏi làm rõ (needsClarification). */
     private record UnitRef(UUID id, Map<String, Object> clarification) {}
 
@@ -399,11 +389,12 @@ public class OrgUnitStatisticTool {
 
     // ── 2. get_org_unit_detail ───────────────────────────────────────────────
 
-    @Tool(name = "get_org_unit_detail", description = "View detailed information of a specific organizational unit.")
+    @Tool(name = "get_org_unit_detail", description = "View detailed info of an org unit, including its managers (dùng để trả lời 'ai chịu trách nhiệm đơn vị X'). Pass unitName (e.g. 'Phòng truyền thông') to target a unit by name — resolved in-tool, NO search_org_units first. Defaults to your CURRENT unit (so ALWAYS pass unitName when the user names a specific unit).")
     public String getOrgUnitDetail(GetOrgUnitDetailRequest request, ToolContext context) {
         try {
-            UUID targetId = resolveUnitId(request.unitId(), context);
-            Map<String, Object> response = orgUnitStatisticService.getOrgUnitDetail(targetId);
+            UnitRef u = resolveUnit(request.unitId(), request.unitName(), context);
+            if (u.clarification() != null) return respond(context, "get_org_unit_detail", u.clarification());
+            Map<String, Object> response = orgUnitStatisticService.getOrgUnitDetail(u.id());
             return respond(context, "get_org_unit_detail", response);
         } catch (Exception e) {
             return toolError("getOrgUnitDetail", e);
@@ -412,12 +403,13 @@ public class OrgUnitStatisticTool {
 
     // ── 3. get_child_org_units ───────────────────────────────────────────────
 
-    @Tool(name = "get_child_org_units", description = "List and count child organizational units of a specified parent unit, with optional recursive subtree search.")
+    @Tool(name = "get_child_org_units", description = "List and count child organizational units of a specified parent unit, with optional recursive subtree search. Pass unitName to target a parent by name; defaults to your CURRENT unit.")
     public String getChildOrgUnits(GetChildOrgUnitsRequest request, ToolContext context) {
         try {
-            UUID parentId = resolveUnitId(request.unitId(), context);
+            UnitRef u = resolveUnit(request.unitId(), request.unitName(), context);
+            if (u.clarification() != null) return respond(context, "get_child_org_units", u.clarification());
             Map<String, Object> response = orgUnitStatisticService.getChildOrgUnits(
-                    parentId, request.recursive(), request.page(), request.size(),
+                    u.id(), request.recursive(), request.page(), request.size(),
                     request.sortBy(), request.sortDirection());
             return respond(context, "get_child_org_units", response);
         } catch (Exception e) {
@@ -427,10 +419,12 @@ public class OrgUnitStatisticTool {
 
     // ── 4. get_members ───────────────────────────────────────────────────────
 
-    @Tool(name = "get_members", description = "List and count members/users inside an organizational unit, supporting subtree searches and position/role filtering. To filter by position, PREFER positionName (e.g. 'trưởng phòng') — resolved in-tool, no need to search_positions first; positionId (UUID) also accepted.")
+    @Tool(name = "get_members", description = "List and count members/users inside an organizational unit, supporting subtree searches and position/role filtering. Pass unitName (e.g. 'phòng IT') to target a unit by name; defaults to your CURRENT unit. To filter by position, PREFER positionName (e.g. 'trưởng phòng') — resolved in-tool, no need to search_positions first; positionId (UUID) also accepted.")
     public String getMembers(GetMembersRequest request, ToolContext context) {
         try {
-            UUID targetUnitId = resolveUnitId(request.unitId(), context);
+            UnitRef u = resolveUnit(request.unitId(), request.unitName(), context);
+            if (u.clarification() != null) return respond(context, "get_members", u.clarification());
+            UUID targetUnitId = u.id();
             if (request.positionId() != null && !request.positionId().isBlank())
                 parseId(request.positionId(), "vị trí (positionId)", "search_positions");
             Map<String, Object> response = orgUnitStatisticService.getMembers(
@@ -444,12 +438,13 @@ public class OrgUnitStatisticTool {
 
     // ── 5. get_org_unit_statistics ───────────────────────────────────────────
 
-    @Tool(name = "get_org_unit_statistics", description = "Get aggregated KPI performance statistics (progress, performance, ratings, count of KPIs) for a group of members. Optional positionName (e.g. 'trưởng phòng') restricts the group to members holding that position — resolved in-tool, no search_positions needed.")
+    @Tool(name = "get_org_unit_statistics", description = "Get aggregated KPI performance statistics (progress, performance, ratings, count of KPIs) for a group of members. Pass unitName (e.g. 'phòng IT') to target a unit by name; defaults to your CURRENT unit. Optional positionName (e.g. 'trưởng phòng') restricts the group to members holding that position — resolved in-tool, no search_positions needed.")
     public String getOrgUnitStatistics(GetOrgUnitStatisticsRequest request, ToolContext context) {
         try {
-            UUID targetUnitId = resolveUnitId(request.unitId(), context);
+            UnitRef u = resolveUnit(request.unitId(), request.unitName(), context);
+            if (u.clarification() != null) return respond(context, "get_org_unit_statistics", u.clarification());
             Map<String, Object> response = orgUnitStatisticService.getMemberStatistics(
-                    targetUnitId, request.includeChildUnits(), request.positionName(),
+                    u.id(), request.includeChildUnits(), request.positionName(),
                     request.startDate(), request.endDate());
             return respond(context, "get_org_unit_statistics", response);
         } catch (Exception e) {
@@ -596,11 +591,12 @@ public class OrgUnitStatisticTool {
 
     // ── 12. get_positions ────────────────────────────────────────────────────
 
-    @Tool(name = "get_positions", description = "Count and list roles/positions inside a unit along with the member count for each.")
+    @Tool(name = "get_positions", description = "Count and list roles/positions inside a unit along with the member count for each. Pass unitName to target a unit by name; defaults to your CURRENT unit.")
     public String getPositions(GetPositionsRequest request, ToolContext context) {
         try {
-            UUID targetUnitId = resolveUnitId(request.unitId(), context);
-            Map<String, Object> response = orgUnitStatisticService.getPositions(targetUnitId);
+            UnitRef u = resolveUnit(request.unitId(), request.unitName(), context);
+            if (u.clarification() != null) return respond(context, "get_positions", u.clarification());
+            Map<String, Object> response = orgUnitStatisticService.getPositions(u.id());
             return respond(context, "get_positions", response);
         } catch (Exception e) {
             return toolError("getPositions", e);
@@ -678,12 +674,13 @@ public class OrgUnitStatisticTool {
 
     // ── get_time_series ──────────────────────────────────────────────────────
 
-    @Tool(name = "get_time_series", description = "Trend of a KPI metric over time for an org unit subtree + anomaly points. Use for trends/evolution over months/quarters/years (e.g. 'xu hướng hiệu suất 6 tháng qua'). Metrics: completion (sum actual / sum target %), avg_performance (avg actual/target %). Granularity: MONTH (default) | QUARTER | YEAR. lookback = most recent N periods (default 6). Returns { metric, granularity, series:[{period,value}], anomalyPoints:[{period,value,deltaPct,type}] }; type = SPIKE (>+20%) or DROP (<-15%).")
+    @Tool(name = "get_time_series", description = "Trend of a KPI metric over time for an org unit subtree + anomaly points. Use for trends/evolution over months/quarters/years (e.g. 'xu hướng hiệu suất 6 tháng qua'). Metrics: completion (sum actual / sum target %), avg_performance (avg actual/target %). Granularity: MONTH (default) | QUARTER | YEAR. lookback = most recent N periods (default 6). Pass unitName (e.g. 'phòng IT') to target a unit by name; defaults to your CURRENT unit. Returns { metric, granularity, series:[{period,value}], anomalyPoints:[{period,value,deltaPct,type}] }; type = SPIKE (>+20%) or DROP (<-15%).")
     public String getTimeSeries(GetTimeSeriesRequest request, ToolContext context) {
         try {
-            UUID targetUnitId = resolveUnitId(request.unitId(), context);
+            UnitRef u = resolveUnit(request.unitId(), request.unitName(), context);
+            if (u.clarification() != null) return respond(context, "get_time_series", u.clarification());
             Map<String, Object> response = orgUnitStatisticService.getTimeSeries(
-                    targetUnitId, request.metric(), request.granularity(), request.lookback());
+                    u.id(), request.metric(), request.granularity(), request.lookback());
             return respond(context, "get_time_series", response);
         } catch (Exception e) {
             return toolError("getTimeSeries", e);
@@ -731,14 +728,12 @@ public class OrgUnitStatisticTool {
 
     // ── get_non_submitters ────────────────────────────────────────────────────
 
-    @Tool(name = "get_non_submitters", description = "Assignees with KPIs but who have NOT submitted within the period/date range. Use for accountability: 'who hasn\\'t submitted', 'who is late'. Returns fullName, email, missingKpiCount sorted by missing count desc (no IDs; use search_users for UUID).")
+    @Tool(name = "get_non_submitters", description = "Assignees with KPIs but who have NOT submitted within the period/date range. Use for accountability: 'who hasn\\'t submitted', 'who is late'. Pass unitName to target a unit by name; defaults to your CURRENT unit. Returns fullName, email, missingKpiCount sorted by missing count desc (no IDs; use search_users for UUID).")
     public String getNonSubmitters(OrgUnitStatisticToolRequests.GetNonSubmittersRequest request, ToolContext context) {
         try {
-            UUID contextUnitId = getOrgUnitId(context);
-            UUID targetUnitId = (request.unitId() != null && !request.unitId().isBlank())
-                    ? parseId(request.unitId(), "đơn vị (unitId)", "search_org_units")
-                    : contextUnitId;
-            validateSubtreeAccess(targetUnitId, context);
+            UnitRef u = resolveUnit(request.unitId(), request.unitName(), context);
+            if (u.clarification() != null) return respond(context, "get_non_submitters", u.clarification());
+            UUID targetUnitId = u.id();
             if (request.periodId() != null && !request.periodId().isBlank())
                 parseId(request.periodId(), "kỳ KPI (periodId)", "search_kpi_periods");
             Map<String, Object> response = orgUnitStatisticService.getNonSubmitters(
@@ -816,14 +811,12 @@ public class OrgUnitStatisticTool {
 
     // ── get_members_by_performance_threshold ───────────────────────────────────
 
-    @Tool(name = "get_members_by_performance_threshold", description = "Filter members by a performance threshold (e.g. 'below 80%', 'above 90%'). Use for action decisions: 'who needs intervention', 'who to coach', 'top performers'. Returns members past the threshold with scores, sorted by direction.")
+    @Tool(name = "get_members_by_performance_threshold", description = "Filter members by a performance threshold (e.g. 'below 80%', 'above 90%'). Use for action decisions: 'who needs intervention', 'who to coach', 'top performers'. Pass unitName to target a unit by name; defaults to your CURRENT unit. Returns members past the threshold with scores, sorted by direction.")
     public String getMembersByPerformanceThreshold(OrgUnitStatisticToolRequests.GetMembersByPerformanceThresholdRequest request, ToolContext context) {
         try {
-            UUID contextUnitId = getOrgUnitId(context);
-            UUID targetUnitId = (request.unitId() != null && !request.unitId().isBlank())
-                    ? parseId(request.unitId(), "đơn vị (unitId)", "search_org_units")
-                    : contextUnitId;
-            validateSubtreeAccess(targetUnitId, context);
+            UnitRef u = resolveUnit(request.unitId(), request.unitName(), context);
+            if (u.clarification() != null) return respond(context, "get_members_by_performance_threshold", u.clarification());
+            UUID targetUnitId = u.id();
             Map<String, Object> response = orgUnitStatisticService.getMembersByPerformanceThreshold(
                     targetUnitId, request.threshold() != null ? request.threshold() : 80.0,
                     request.direction(), request.metric(),
