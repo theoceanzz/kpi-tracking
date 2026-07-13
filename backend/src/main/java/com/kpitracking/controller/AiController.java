@@ -6,8 +6,10 @@ import com.kpitracking.dto.response.ApiResponse;
 import com.kpitracking.dto.response.ai.AiKpiSuggestionResponse;
 import com.kpitracking.dto.response.ai.FollowupResponse;
 import com.kpitracking.dto.response.ai.InsightCardResponse;
+import com.kpitracking.service.AiRateLimiter;
 import com.kpitracking.service.FollowupService;
 import com.kpitracking.service.InsightService;
+import org.springframework.security.core.context.SecurityContextHolder;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
@@ -29,10 +31,18 @@ public class AiController {
     private final AiService aiService;
     private final InsightService insightService;
     private final FollowupService followupService;
+    private final AiRateLimiter aiRateLimiter;
+
+    /** Email người dùng đang đăng nhập (JWT subject) — khóa rate-limit theo user. */
+    private String currentUserEmail() {
+        var auth = SecurityContextHolder.getContext().getAuthentication();
+        return auth != null ? auth.getName() : null;
+    }
 
     @PostMapping("/chat-org-unit")
     public ApiResponse<AiChatResponse> chatOrgUnit(@RequestBody AiChatRequest request) {
-        String result = aiService.processOrgUnitChat(request.getMessage(), request.getConversationId());
+        aiRateLimiter.check(currentUserEmail());
+        String result = aiService.processOrgUnitChat(request.getMessage(), request.getConversationId(), request.getFocusUnitId());
         AiChatResponse response = AiChatResponse.builder()
                 .text(result)
                 .build();
@@ -44,6 +54,7 @@ public class AiController {
     @Operation(summary = "Get KPI suggestions from AI (Synchronized with Analytics AI)")
     public ResponseEntity<ApiResponse<List<AiKpiSuggestionResponse>>> suggestKpi(
             @RequestBody AiKpiSuggestionRequest request) {
+        aiRateLimiter.check(currentUserEmail());
         List<AiKpiSuggestionResponse> suggestions = aiService.suggestKpis(request.getOrgUnitId());
         return ResponseEntity.ok(ApiResponse.success(suggestions));
     }

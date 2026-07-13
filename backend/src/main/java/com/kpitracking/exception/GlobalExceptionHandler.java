@@ -109,6 +109,13 @@ public class GlobalExceptionHandler {
                 .body(ApiResponse.error("Hệ thống AI đã đạt giới hạn sử dụng. Vui lòng thử lại sau ít phút."));
     }
 
+    @ExceptionHandler(AiRateLimitException.class)
+    public ResponseEntity<ApiResponse<Void>> handleAiRateLimit(AiRateLimitException ex) {
+        log.warn("AI rate limit hit: {}", ex.getMessage());
+        return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+                .body(ApiResponse.error(ex.getMessage()));
+    }
+
     @ExceptionHandler(org.springframework.dao.DataIntegrityViolationException.class)
     public ResponseEntity<ApiResponse<Void>> handleDataIntegrityViolation(org.springframework.dao.DataIntegrityViolationException ex) {
         log.warn("Data integrity violation: {}", ex.getMessage());

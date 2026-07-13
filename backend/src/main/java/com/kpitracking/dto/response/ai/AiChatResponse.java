@@ -11,6 +11,4 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class AiChatResponse {
     private String text;
-    private String toolUsed;
-    private Object toolResult;
 }
