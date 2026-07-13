@@ -7,6 +7,8 @@ import com.kpitracking.exception.AiQuotaExceededException;
 import com.kpitracking.exception.ForbiddenException;
 import com.kpitracking.repository.OrganizationRepository;
 import com.kpitracking.service.ManagerContextResolver.ManagerContext;
+import com.kpitracking.entity.OrgUnit;
+import com.kpitracking.repository.OrgUnitRepository;
 import com.kpitracking.tool.DisambiguationGuard;
 import com.kpitracking.tool.FollowupContextStore;
 import com.kpitracking.tool.OrgUnitStatisticTool;
@@ -38,6 +40,7 @@ public class AiService {
     private final OrgUnitStatisticTool orgUnitStatisticTool;
     private final DisambiguationGuard disambiguationGuard;
     private final FollowupContextStore followupContextStore;
+    private final OrgUnitRepository orgUnitRepository;
     private final OrganizationRepository organizationRepository;
 
     /**
@@ -64,16 +67,14 @@ public class AiService {
     @Value("classpath:/promptTemplates/kpiSuggestionSystemPrompt.st")
     private Resource kpiSuggestionSystemPrompt;
 
-    @Value("classpath:/promptTemplates/topicGuardPrompt.st")
-    private Resource topicGuardPrompt;
-
     public AiService(@Qualifier("openAiChatClient") ChatClient chatClient,
                      @Qualifier("chatClientWithMemory") ChatClient chatClientWithMemory,
                      ManagerContextResolver managerContextResolver,
                      OrgUnitStatisticTool orgUnitStatisticTool,
                      DisambiguationGuard disambiguationGuard,
                      FollowupContextStore followupContextStore,
-                     OrganizationRepository organizationRepository) {
+                     OrganizationRepository organizationRepository,
+                     OrgUnitRepository orgUnitRepository) {
         this.chatClient = chatClient;
         this.chatClientWithMemory = chatClientWithMemory;
         this.managerContextResolver = managerContextResolver;
@@ -81,9 +82,10 @@ public class AiService {
         this.disambiguationGuard = disambiguationGuard;
         this.followupContextStore = followupContextStore;
         this.organizationRepository = organizationRepository;
+        this.orgUnitRepository = orgUnitRepository;
     }
 
-    public String processOrgUnitChat(String question, String conversationId) {
+    public String processOrgUnitChat(String question, String conversationId, String focusUnitId) {
         ManagerContext ctx = managerContextResolver.resolve();
         if (ctx == null) {
             return "Bạn không có quyền sử dụng tính năng AI phân tích. Chỉ trưởng đơn vị hoặc phó đơn vị mới có thể truy cập tính năng này.";
@@ -96,22 +98,32 @@ public class AiService {
 
         boolean hasMemory = conversationId != null && !conversationId.isBlank();
         // Reset this conversation's tool-result bucket at the very start of the turn so the
-        // follow-up generator grounds only on THIS turn's tool outputs. Done before the scope
-        // check so refusals/clarifications cannot inherit the previous turn's data (which would
-        // wrongly produce follow-up chips).
+        // follow-up generator grounds only on THIS turn's tool outputs (clarifications cannot
+        // inherit the previous turn's data, which would wrongly produce follow-up chips).
         if (hasMemory) {
             followupContextStore.startTurn(conversationId);
         }
 
-        if (!isInScope(question)) {
-            return "Xin lỗi, tôi là trợ lý phân tích KPI của hệ thống và chỉ hỗ trợ các câu hỏi liên quan đến "
-                    + "KPI, hiệu suất, đơn vị và nhân sự. Bạn vui lòng đặt câu hỏi thuộc nghiệp vụ này nhé.";
-        }
-
         log.info("Processing chat for orgUnitId: {}, conversationId: {}", ctx.orgUnitId(), hasMemory ? conversationId : "none");
 
+        // Đơn vị "hiện tại" của lượt = đơn vị thẻ Insight (focusUnitId) nếu client gửi VÀ nó nằm
+        // TRONG subtree của manager (chống client giả mạo id); ngược lại là đơn vị của chính manager.
+        // Chỉ override orgUnitId — GIỮ orgUnitPath = của manager để không thu hẹp quyền
+        // (validateSubtreeAccess kiểm theo orgUnitPath).
+        UUID effectiveUnitId = ctx.orgUnitId();
+        if (focusUnitId != null && !focusUnitId.isBlank()) {
+            try {
+                UUID fid = UUID.fromString(focusUnitId.trim());
+                OrgUnit fu = orgUnitRepository.findById(fid).orElse(null);
+                if (fu != null && fu.getPath() != null && ctx.orgUnitPath() != null
+                        && fu.getPath().startsWith(ctx.orgUnitPath())) {
+                    effectiveUnitId = fid;
+                }
+            } catch (IllegalArgumentException ignore) { /* focusUnitId sai định dạng -> bỏ qua */ }
+        }
+
         Map<String, Object> toolCtx = new HashMap<>();
-        toolCtx.put("orgUnitId", ctx.orgUnitId());
+        toolCtx.put("orgUnitId", effectiveUnitId);
         toolCtx.put("orgUnitPath", ctx.orgUnitPath());
         toolCtx.put("organizationId", ctx.orgId());
         toolCtx.put("userEmail", ctx.email());
@@ -207,34 +219,6 @@ public class AiService {
             return new ArrayList<>();
         } finally {
             disambiguationGuard.clear();
-        }
-    }
-
-    /**
-     * Lightweight topic guard: classifies whether the user's message belongs to the
-     * KPI business domain before invoking the (tool-heavy) main model. Lenient by
-     * design — short follow-ups/selections count as in-scope, and any classifier
-     * error fails open so legitimate KPI questions are never wrongly blocked.
-     */
-    private boolean isInScope(String question) {
-        if (question == null || question.isBlank()) return true;
-        try {
-            String verdict = chatClient.prompt()
-                    .system(topicGuardPrompt)
-                    .user(question)
-                    .call()
-                    .content();
-            if (verdict == null) return true;
-            String v = verdict.trim().toUpperCase();
-            // Block only on an explicit NO; anything else is treated as in-scope.
-            boolean outOfScope = v.startsWith("NO") || v.equals("NO.") || v.contains("\"NO\"");
-            if (outOfScope) {
-                log.info("Topic guard rejected out-of-scope message: {}", question);
-            }
-            return !outOfScope;
-        } catch (Exception e) {
-            log.warn("Topic guard classification failed, allowing message through: {}", e.getMessage());
-            return true;
         }
     }
 

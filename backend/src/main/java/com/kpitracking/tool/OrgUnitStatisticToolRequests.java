@@ -14,6 +14,7 @@ public final class OrgUnitStatisticToolRequests {
 
     @JsonInclude(JsonInclude.Include.NON_NULL)
     public record GetOrgUnitDetailRequest(
+            @JsonProperty(required = false) String unitName,  // tên đơn vị đích (vd "Phòng truyền thông"); mặc định = đơn vị hiện tại
             @JsonProperty(required = false) String unitId,
             @JsonProperty(required = false) String startDate,
             @JsonProperty(required = false) String endDate
@@ -21,6 +22,7 @@ public final class OrgUnitStatisticToolRequests {
 
     @JsonInclude(JsonInclude.Include.NON_NULL)
     public record GetChildOrgUnitsRequest(
+            @JsonProperty(required = false) String unitName,  // tên đơn vị cha đích; mặc định = đơn vị hiện tại
             @JsonProperty(required = false) String unitId,
             @JsonProperty(required = false) Boolean recursive,
             @JsonProperty(required = false) Integer page,
@@ -33,6 +35,7 @@ public final class OrgUnitStatisticToolRequests {
 
     @JsonInclude(JsonInclude.Include.NON_NULL)
     public record GetMembersRequest(
+            @JsonProperty(required = false) String unitName,  // tên đơn vị đích (vd "phòng IT"); mặc định = đơn vị hiện tại
             @JsonProperty(required = false) String unitId,
             @JsonProperty(required = false) Boolean includeChildUnits,
             @JsonProperty(required = false) String positionId,
@@ -47,6 +50,7 @@ public final class OrgUnitStatisticToolRequests {
 
     @JsonInclude(JsonInclude.Include.NON_NULL)
     public record GetOrgUnitStatisticsRequest(
+            @JsonProperty(required = false) String unitName,  // tên đơn vị đích (vd "phòng IT"); mặc định = đơn vị hiện tại
             @JsonProperty(required = false) String unitId,
             @JsonProperty(required = false) Boolean includeChildUnits,
             @JsonProperty(required = false) String positionId,
@@ -116,6 +120,7 @@ public final class OrgUnitStatisticToolRequests {
 
     @JsonInclude(JsonInclude.Include.NON_NULL)
     public record GetPositionsRequest(
+            @JsonProperty(required = false) String unitName,  // tên đơn vị đích; mặc định = đơn vị hiện tại
             @JsonProperty(required = false) String unitId,
             @JsonProperty(required = false) String startDate,
             @JsonProperty(required = false) String endDate
@@ -192,6 +197,7 @@ public final class OrgUnitStatisticToolRequests {
 
     @JsonInclude(JsonInclude.Include.NON_NULL)
     public record GetTimeSeriesRequest(
+            @JsonProperty(required = false) String unitName,     // tên đơn vị đích (vd "phòng IT"); mặc định = đơn vị hiện tại
             @JsonProperty(required = false) String unitId,
             @JsonProperty(required = false) String metric,       // completion | avg_performance
             @JsonProperty(required = false) String granularity,  // MONTH | QUARTER | YEAR
@@ -219,6 +225,7 @@ public final class OrgUnitStatisticToolRequests {
 
     @JsonInclude(JsonInclude.Include.NON_NULL)
     public record GetNonSubmittersRequest(
+            @JsonProperty(required = false) String unitName,   // tên đơn vị đích; mặc định = đơn vị hiện tại
             @JsonProperty(required = false) String unitId,
             @JsonProperty(required = false) String periodId,
             @JsonProperty(required = false) String startDate,
@@ -239,6 +246,7 @@ public final class OrgUnitStatisticToolRequests {
 
     @JsonInclude(JsonInclude.Include.NON_NULL)
     public record GetMembersByPerformanceThresholdRequest(
+            @JsonProperty(required = false) String unitName,      // tên đơn vị đích; mặc định = đơn vị hiện tại
             @JsonProperty(required = false) String unitId,
             @JsonProperty(required = false) Double threshold,     // e.g. 80.0 (%)
             @JsonProperty(required = false) String direction,     // below (default) | above

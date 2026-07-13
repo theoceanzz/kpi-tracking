@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react'
-import { Bot, Send, X, Loader2, Minimize2, Maximize2, CheckCircle2, Expand, SquarePen } from 'lucide-react'
+import { Bot, Send, X, Loader2, Minimize2, Maximize2, Expand, SquarePen } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/store/authStore'
 import { useOrganization } from '@/features/orgunits/hooks/useOrganization'
@@ -15,8 +15,6 @@ interface Message {
   id: string
   role: 'user' | 'assistant'
   content: string
-  toolUsed?: string
-  toolResult?: any
   followups?: FollowupPools
 }
 
@@ -89,7 +87,7 @@ export default function AiAssistantWidget() {
     loadInsights()
   }
 
-  const sendMessage = async (text: string) => {
+  const sendMessage = async (text: string, insight?: InsightCard | null) => {
     const userText = text.trim()
     if (!userText || isLoading) return
 
@@ -107,9 +105,12 @@ export default function AiAssistantWidget() {
         conversationIdRef.current = conv.id
       }
 
+      const focusUnitId =
+        insight?.context?.entityType === 'ORG_UNIT' ? insight.context.entityId : undefined
       const response = await aiApi.chat({
         message: userText,
         conversationId: conversationIdRef.current,
+        focusUnitId,
       })
 
       const assistantId = (Date.now() + 1).toString()
@@ -119,14 +120,12 @@ export default function AiAssistantWidget() {
           id: assistantId,
           role: 'assistant',
           content: response.text ?? '',
-          toolUsed: response.toolUsed,
-          toolResult: response.toolResult,
         },
       ])
 
       // Generate follow-up suggestions for this exchange (non-blocking for UX).
       turnRef.current += 1
-      const ctxStr = buildFollowupContext(activeInsightRef.current, userText, response.text)
+      const ctxStr = buildFollowupContext(insight ?? null, userText, response.text)
       try {
         const pools = await aiApi.getFollowups({
           conversationId: conversationIdRef.current ?? undefined,
@@ -144,6 +143,8 @@ export default function AiAssistantWidget() {
       let errorContent: string
       if (status === 402) {
         errorContent = '⚠️ **Hệ thống AI đã đạt giới hạn token.** Vui lòng thử lại sau ít phút hoặc liên hệ quản trị viên.'
+      } else if (status === 429) {
+        errorContent = `⚠️ ${error?.response?.data?.message || 'Bạn gửi yêu cầu AI quá nhanh, vui lòng thử lại sau ít phút.'}`
       } else {
         const errorDetail = error?.response?.data?.message || error?.message || 'Lỗi không xác định'
         errorContent = `Xin lỗi, đã có lỗi xảy ra: ${errorDetail}`
@@ -164,10 +165,11 @@ export default function AiAssistantWidget() {
   const handleSend = () => {
     if (!input.trim() || isLoading) return
     const text = input
+    const insight = activeInsightRef.current
     setInput('')
     setSelectedQuestion('')
     activeInsightRef.current = null
-    sendMessage(text)
+    sendMessage(text, insight)
   }
 
   const handleSelectQuestion = (insight: InsightCard, question: string) => {
@@ -308,18 +310,6 @@ export default function AiAssistantWidget() {
                     </div>
                   )}
                 </div>
-
-                {msg.toolResult && (
-                  <div className="mt-2 w-[85%] bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-3 shadow-sm">
-                    <div className="flex items-center gap-1.5 text-xs font-bold text-slate-500 dark:text-slate-400 mb-2">
-                      <CheckCircle2 size={14} className="text-emerald-500" /> Đã sử dụng tool:{' '}
-                      {msg.toolUsed}
-                    </div>
-                    <div className="bg-slate-50 dark:bg-slate-900 rounded-lg p-2 font-mono text-[11px] text-slate-600 dark:text-slate-300 break-all max-h-32 overflow-y-auto custom-scrollbar">
-                      {msg.toolResult.message}
-                    </div>
-                  </div>
-                )}
 
                 {/* Follow-up suggestions under the latest assistant answer */}
                 {msg.role === 'assistant' && msg.followups && msg.id === lastAssistantId && !isLoading && (
