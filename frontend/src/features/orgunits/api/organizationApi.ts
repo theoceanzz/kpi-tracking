@@ -16,6 +16,22 @@ export interface EvaluationLevel {
   color?: string
 }
 
+export interface QualitativeLevel {
+  id?: string
+  name: string
+  value: number
+  position: number
+  color?: string
+}
+
+export interface PerformanceMatrix {
+  rowHeader?: string
+  colHeader?: string
+  rows: string[]
+  cols: string[]
+  cells: number[][]
+}
+
 export interface OrganizationResponse {
   id: string
   name: string
@@ -24,10 +40,13 @@ export interface OrganizationResponse {
   hierarchyLevels: HierarchyLevel[]
   evaluationMaxScore: number
   evaluationLevels?: EvaluationLevel[]
+  qualitativeLevels?: QualitativeLevel[]
+  performanceMatrix?: string
   kpiReminderPercentage: number
   enableOkr: boolean
   enableWaterfall: boolean
   enableAi: boolean
+  enableQualitative: boolean
   createdAt: string
   updatedAt: string
 }
@@ -39,9 +58,12 @@ export interface UpdateOrganizationRequest {
   hierarchyLevels?: Omit<HierarchyLevel, 'id' | 'levelOrder'>[]
   evaluationMaxScore?: number
   evaluationLevels?: EvaluationLevel[]
+  qualitativeLevels?: QualitativeLevel[]
+  performanceMatrix?: string
   kpiReminderPercentage?: number
   enableOkr?: boolean
   enableWaterfall?: boolean
+  enableQualitative?: boolean
 }
 
 export const organizationApi = {

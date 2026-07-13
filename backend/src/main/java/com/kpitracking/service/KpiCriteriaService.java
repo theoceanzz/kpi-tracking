@@ -68,6 +68,15 @@ public class KpiCriteriaService {
     private final com.kpitracking.repository.KeyResultRepository keyResultRepository;
     private final OrganizationService organizationService;
 
+    private static final List<KpiStatus> WEIGHT_COUNTED_STATUSES = java.util.Arrays.asList(
+            KpiStatus.DRAFT,
+            KpiStatus.PENDING_APPROVAL,
+            KpiStatus.APPROVED,
+            KpiStatus.REJECTED,
+            KpiStatus.EDIT,
+            KpiStatus.EDITED
+    );
+
     private User getCurrentUser() {
         String email = SecurityContextHolder.getContext().getAuthentication().getName();
         return userRepository.findByEmail(email)
@@ -160,17 +169,27 @@ public class KpiCriteriaService {
     }
 
     private KpiCriteria buildKpiEntity(CreateKpiCriteriaRequest request, OrgUnit orgUnit, java.util.List<User> assignees, User creator, KpiStatus status, com.kpitracking.entity.KpiPeriod kpiPeriod) {
+        com.kpitracking.enums.KpiType kpiType = request.getKpiType() != null
+                ? request.getKpiType() : com.kpitracking.enums.KpiType.QUANTITATIVE;
+        boolean isQualitative = kpiType == com.kpitracking.enums.KpiType.QUALITATIVE;
+
+        if (isQualitative && (request.getWeight() == null || request.getWeight() <= 0)) {
+            throw new BusinessException("KPI định tính cần có trọng số (weight) lớn hơn 0.");
+        }
+
         KpiCriteria kpi = KpiCriteria.builder()
                 .orgUnit(orgUnit)
                 .assignees(assignees)
+                .kpiType(kpiType)
                 .name(request.getName())
                 .description(request.getDescription())
                 .weight(request.getWeight())
-                .targetValue(request.getTargetValue())
-                .minimumValue(request.getMinimumValue())
-                .isReverseKpi(Boolean.TRUE.equals(request.getIsReverseKpi()))
+                // Quantitative-only measurement fields are ignored for qualitative KPIs.
+                .targetValue(isQualitative ? null : request.getTargetValue())
+                .minimumValue(isQualitative ? null : request.getMinimumValue())
+                .isReverseKpi(!isQualitative && Boolean.TRUE.equals(request.getIsReverseKpi()))
                 .isBonusKpi(Boolean.TRUE.equals(request.getIsBonusKpi()))
-                .unit(request.getUnit())
+                .unit(isQualitative ? null : request.getUnit())
                 .deadline(request.getDeadline())
                 .frequency(request.getFrequency())
                 .status(status)
@@ -257,7 +276,7 @@ public class KpiCriteriaService {
     }
 
     @Transactional(readOnly = true)
-    public PageResponse<KpiCriteriaResponse> getKpiCriteria(int page, int size, KpiStatus status, UUID orgUnitId, UUID createdById, UUID assigneeId, UUID kpiPeriodId, String keyword, Instant startDate, Instant endDate, String sortBy, String sortDir, UUID objectiveId, UUID keyResultId, boolean approvalMode, String kpiNature, Boolean isBonusKpi, Boolean isReverseKpi) {
+    public PageResponse<KpiCriteriaResponse> getKpiCriteria(int page, int size, KpiStatus status, UUID orgUnitId, UUID createdById, UUID assigneeId, UUID kpiPeriodId, String keyword, Instant startDate, Instant endDate, String sortBy, String sortDir, UUID objectiveId, UUID keyResultId, boolean approvalMode, String kpiNature, Boolean isBonusKpi, Boolean isReverseKpi, com.kpitracking.enums.KpiType kpiType) {
         User currentUser = getCurrentUser();
         UUID organizationId = getCurrentUserOrganizationId(currentUser);
 
@@ -267,6 +286,11 @@ public class KpiCriteriaService {
                 .map(a -> a.getOrgUnit().getId())
                 .distinct()
                 .collect(java.util.stream.Collectors.toList());
+
+        // When qualitative KPIs are disabled for the org, hide them entirely by
+        // forcing the type filter to QUANTITATIVE (ignoring any incoming qualitative filter).
+        com.kpitracking.enums.KpiType effectiveKpiType = organizationService.isQualitativeEnabled(organizationId)
+                ? kpiType : com.kpitracking.enums.KpiType.QUANTITATIVE;
 
         Sort sort = Sort.by(sortDir.equalsIgnoreCase("asc") ? Sort.Direction.ASC : Sort.Direction.DESC, sortBy != null ? sortBy : "createdAt");
         Pageable pageable = PageRequest.of(page, size, sort);
@@ -297,6 +321,7 @@ public class KpiCriteriaService {
                 kpiNature,
                 isBonusKpi,
                 isReverseKpi,
+                effectiveKpiType,
                 pageable
         );
 
@@ -535,8 +560,7 @@ public class KpiCriteriaService {
                 .orElseThrow(() -> new ResourceNotFoundException("Chỉ tiêu KPI", "id", kpiIds.get(0)));
 
         // Weight validation (same as single submit)
-        java.util.List<KpiStatus> statuses = java.util.Arrays.asList(KpiStatus.DRAFT, KpiStatus.PENDING_APPROVAL, KpiStatus.APPROVED, KpiStatus.REJECTED, KpiStatus.EDIT, KpiStatus.EDITED);
-        Double totalWeight = calculateTotalWeightByOrgUnit(firstKpi.getOrgUnit().getId(), firstKpi.getKpiPeriod().getId(), statuses);
+        Double totalWeight = calculateTotalWeightByOrgUnit(firstKpi.getOrgUnit().getId(), firstKpi.getKpiPeriod().getId(), WEIGHT_COUNTED_STATUSES);
 
         if (totalWeight == null || Math.abs(totalWeight - 100.0) > 0.001) {
             throw new BusinessException("Tổng trọng số của đơn vị theo phân bổ nhân sự (cao nhất) phải bằng chính xác 100% trước khi gửi duyệt. Hiện tại: " + (totalWeight != null ? totalWeight : 0) + "%");
@@ -547,7 +571,7 @@ public class KpiCriteriaService {
             if (kpi == null) continue;
 
             if (!kpi.getCreatedBy().getId().equals(currentUser.getId())) {
-                 // Skip or throw? Usually better to skip in bulk or throw if critical. 
+                 // Skip or throw? Usually better to skip in bulk or throw if critical.
                  // Here we skip to avoid breaking the whole batch if one is invalid.
                  continue;
             }
@@ -747,7 +771,11 @@ public class KpiCriteriaService {
         Page<KpiCriteria> kpiPage = kpiCriteriaRepository.findMyWithFilters(
                 organizationId, currentUser.getId(), null, activeStatuses, kpiPeriodId, startDate, endDate, objectiveId, keyResultId, pageable);
 
+        // Hide qualitative KPIs entirely when the org has them disabled.
+        boolean qualitativeEnabled = organizationService.isQualitativeEnabled(organizationId);
+
         List<KpiCriteriaResponse> content = kpiPage.getContent().stream()
+                .filter(kpi -> qualitativeEnabled || kpi.getKpiType() != com.kpitracking.enums.KpiType.QUALITATIVE)
                 .map(kpi -> {
                     KpiCriteriaResponse response = kpiCriteriaMapper.toResponse(kpi);
                     if (kpi.getSubmissions() != null) {
@@ -811,15 +839,6 @@ public class KpiCriteriaService {
     @Transactional(readOnly = true)
     public Double getTotalWeight(UUID orgUnitId, UUID userId, UUID kpiPeriodId) {
         User currentUser = getCurrentUser();
-        
-        List<KpiStatus> statuses = java.util.Arrays.asList(
-                KpiStatus.DRAFT, 
-                KpiStatus.PENDING_APPROVAL, 
-                KpiStatus.APPROVED, 
-                KpiStatus.REJECTED, 
-                KpiStatus.EDIT, 
-                KpiStatus.EDITED
-        );
 
         if (userId != null) {
             // Permission check: can only see other user's weight if has KPI:VIEW for their org unit
@@ -844,9 +863,9 @@ public class KpiCriteriaService {
             }
             // When orgUnitId is also provided, scope the sum to that specific unit
             if (orgUnitId != null) {
-                return kpiCriteriaRepository.sumWeightByUserIdAndOrgUnitIdAndKpiPeriodIdAndStatusIn(userId, orgUnitId, kpiPeriodId, statuses);
+                return kpiCriteriaRepository.sumWeightByUserIdAndOrgUnitIdAndKpiPeriodIdAndStatusIn(userId, orgUnitId, kpiPeriodId, WEIGHT_COUNTED_STATUSES);
             }
-            return kpiCriteriaRepository.sumWeightByUserIdAndKpiPeriodIdAndStatusIn(userId, kpiPeriodId, statuses);
+            return kpiCriteriaRepository.sumWeightByUserIdAndKpiPeriodIdAndStatusIn(userId, kpiPeriodId, WEIGHT_COUNTED_STATUSES);
         }
 
         if (orgUnitId != null) {
@@ -854,14 +873,15 @@ public class KpiCriteriaService {
                 throw new ForbiddenException("Bạn không có quyền xem thông tin trọng số của đơn vị này");
             }
 
-            return calculateTotalWeightByOrgUnit(orgUnitId, kpiPeriodId, statuses);
+            return calculateTotalWeightByOrgUnit(orgUnitId, kpiPeriodId, WEIGHT_COUNTED_STATUSES);
         }
         
         return 0.0;
     }
 
     @Transactional
-    public ImportKpiResponse importKpis(MultipartFile file, UUID kpiPeriodId, UUID orgUnitId) {
+    public ImportKpiResponse importKpis(MultipartFile file, UUID kpiPeriodId, UUID orgUnitId, com.kpitracking.enums.KpiType kpiType) {
+        final com.kpitracking.enums.KpiType importKpiType = kpiType != null ? kpiType : com.kpitracking.enums.KpiType.QUANTITATIVE;
         User currentUser = getCurrentUser();
         // Track modified user-period-orgunit triplets to validate weight after import
         java.util.Set<String> affectedUserPairs = new java.util.HashSet<>();
@@ -898,10 +918,10 @@ public class KpiCriteriaService {
                         totalRows++;
                         try {
                             processKpiRow(
-                                record.get("Name"), 
-                                record.isMapped("Description") ? record.get("Description") : null, 
-                                record.get("Weight"), 
-                                record.get("TargetValue"),
+                                record.get("Name"),
+                                record.isMapped("Description") ? record.get("Description") : null,
+                                record.get("Weight"),
+                                record.isMapped("TargetValue") ? record.get("TargetValue") : null,
                                 record.isMapped("MinimumValue") ? record.get("MinimumValue") : null,
                                 record.isMapped("Unit") ? record.get("Unit") : null, 
                                 record.get("Frequency"), 
@@ -912,7 +932,7 @@ public class KpiCriteriaService {
                                 record.isMapped("IsReverseKpi") ? record.get("IsReverseKpi") : null,
                                 record.isMapped("IsBonusKpi") ? record.get("IsBonusKpi") : null,
                                 record.isMapped("Deadline") ? record.get("Deadline") : null,
-                                kpiPeriod, orgUnit, currentUser, affectedUserPairs, userOrgId);
+                                kpiPeriod, orgUnit, currentUser, affectedUserPairs, userOrgId, importKpiType);
                             successfulImports++;
                         } catch (Exception e) {
                             errors.add("Dòng " + totalRows + ": " + e.getMessage());
@@ -944,7 +964,8 @@ public class KpiCriteriaService {
                         else if (header.equalsIgnoreCase("Deadline")) deadlineIdx = i;
                     }
 
-                    if (nameIdx == -1 || weightIdx == -1 || targetIdx == -1 || freqIdx == -1 || codeIdx == -1) {
+                    boolean requiresTarget = importKpiType != com.kpitracking.enums.KpiType.QUALITATIVE;
+                    if (nameIdx == -1 || weightIdx == -1 || freqIdx == -1 || codeIdx == -1 || (requiresTarget && targetIdx == -1)) {
                         throw new BusinessException("Thiếu các cột bắt buộc trong file Excel");
                     }
 
@@ -968,7 +989,7 @@ public class KpiCriteriaService {
                                 isReverseKpiIdx != -1 ? getCellValueAsString(row.getCell(isReverseKpiIdx)) : null,
                                 isBonusKpiIdx != -1 ? getCellValueAsString(row.getCell(isBonusKpiIdx)) : null,
                                 deadlineIdx != -1 ? getCellValueAsString(row.getCell(deadlineIdx)) : null,
-                                kpiPeriod, orgUnit, currentUser, affectedUserPairs, userOrgId
+                                kpiPeriod, orgUnit, currentUser, affectedUserPairs, userOrgId, importKpiType
                             );
                             successfulImports++;
                         } catch (Exception e) {
@@ -1007,11 +1028,7 @@ public class KpiCriteriaService {
             com.kpitracking.entity.KpiPeriod period = kpiPeriodRepository.findById(pId).orElse(null);
             String periodName = period != null ? period.getName() : pId.toString();
 
-            List<KpiStatus> activeStatuses = java.util.Arrays.asList(
-                KpiStatus.DRAFT, KpiStatus.PENDING_APPROVAL, KpiStatus.APPROVED, KpiStatus.REJECTED, KpiStatus.EDIT, KpiStatus.EDITED
-            );
-
-            Double totalWeight = kpiCriteriaRepository.sumWeightByUserIdAndOrgUnitIdAndKpiPeriodIdAndStatusIn(uId, ouId, pId, activeStatuses);
+            Double totalWeight = kpiCriteriaRepository.sumWeightByUserIdAndOrgUnitIdAndKpiPeriodIdAndStatusIn(uId, ouId, pId, WEIGHT_COUNTED_STATUSES);
 
             if (totalWeight == null || Math.abs(totalWeight - 100.0) > 0.001) {
                 throw new BusinessException("Lỗi Import: Nhân viên '" + (user != null ? user.getFullName() : uId) +
@@ -1032,10 +1049,12 @@ public class KpiCriteriaService {
     private void processKpiRow(String name, String desc, String weight, String target, String min, String unit, String freq, String empCode,
                               String periodName, String orgName, String krCode, String isReverseKpiStr, String isBonusKpiStr, String deadlineStr,
                               com.kpitracking.entity.KpiPeriod defaultPeriod, OrgUnit defaultUnit, User creator,
-                              java.util.Set<String> affectedUserPairs, UUID organizationId) {
+                              java.util.Set<String> affectedUserPairs, UUID organizationId, com.kpitracking.enums.KpiType kpiType) {
+        boolean isQualitative = kpiType == com.kpitracking.enums.KpiType.QUALITATIVE;
         if (name == null || name.isBlank()) throw new BusinessException("Tên chỉ tiêu là bắt buộc");
         if (weight == null || weight.isBlank()) throw new BusinessException("Trọng số là bắt buộc");
-        if (target == null || target.isBlank()) throw new BusinessException("Chỉ tiêu (Target) là bắt buộc");
+        // Qualitative KPIs have no numeric target.
+        if (!isQualitative && (target == null || target.isBlank())) throw new BusinessException("Chỉ tiêu (Target) là bắt buộc");
 
         // Priority: Use the period name from Excel/Preview first if provided
         com.kpitracking.entity.KpiPeriod finalPeriod = null;
@@ -1121,10 +1140,10 @@ public class KpiCriteriaService {
         }
 
         double weightVal;
-        double targetVal;
+        Double targetVal;
         try {
             weightVal = Double.parseDouble(weight);
-            targetVal = Double.parseDouble(target);
+            targetVal = isQualitative ? null : Double.parseDouble(target);
         } catch (NumberFormatException e) {
             throw new BusinessException("Trọng số và Chỉ tiêu phải là định dạng số");
         }
@@ -1140,15 +1159,16 @@ public class KpiCriteriaService {
             boolean canApprove = permissionChecker.hasPermission(creator.getId(), "KPI:APPROVE_OWN");
 
             KpiCriteria kpi = KpiCriteria.builder()
+                    .kpiType(kpiType != null ? kpiType : com.kpitracking.enums.KpiType.QUANTITATIVE)
                     .name(name)
                     .description(desc)
                     .weight(weightVal)
                     .targetValue(targetVal)
-                    .minimumValue(min != null && !min.isBlank() ? Double.parseDouble(min) : null)
-                    .isReverseKpi(parseBoolean(isReverseKpiStr))
+                    .minimumValue(!isQualitative && min != null && !min.isBlank() ? Double.parseDouble(min) : null)
+                    .isReverseKpi(!isQualitative && parseBoolean(isReverseKpiStr))
                     .isBonusKpi(parseBoolean(isBonusKpiStr))
                     .deadline(deadlineVal)
-                    .unit(unit)
+                    .unit(isQualitative ? null : unit)
                     .frequency(frequency)
                     .assignees(assignees)
                     .orgUnit(finalUnit)
@@ -1285,17 +1305,23 @@ public class KpiCriteriaService {
         KpiStatus initialStatus = permissionChecker.hasPermission(currentUser.getId(), "KPI:APPROVE_OWN")
                 ? KpiStatus.APPROVED : KpiStatus.DRAFT;
 
+        com.kpitracking.enums.KpiType newKpiType = request.getKpiType() != null
+                ? request.getKpiType() : com.kpitracking.enums.KpiType.QUANTITATIVE;
+        boolean isQualitative = newKpiType == com.kpitracking.enums.KpiType.QUALITATIVE;
+
         KpiCriteria newKpi = KpiCriteria.builder()
                 .orgUnit(replacedKpi.getOrgUnit())
                 .assignees(newAssignees)
+                .kpiType(newKpiType)
                 .name(request.getName())
                 .description(request.getDescription())
                 .weight(newWeight)
-                .targetValue(request.getTargetValue())
-                .minimumValue(request.getMinimumValue())
-                .isReverseKpi(Boolean.TRUE.equals(request.getIsReverseKpi()))
+                // Qualitative KPIs have no numeric measurement fields.
+                .targetValue(isQualitative ? null : request.getTargetValue())
+                .minimumValue(isQualitative ? null : request.getMinimumValue())
+                .isReverseKpi(!isQualitative && Boolean.TRUE.equals(request.getIsReverseKpi()))
                 .isBonusKpi(Boolean.TRUE.equals(request.getIsBonusKpi()))
-                .unit(request.getUnit())
+                .unit(isQualitative ? null : request.getUnit())
                 .deadline(request.getDeadline())
                 .frequency(request.getFrequency())
                 .status(initialStatus)

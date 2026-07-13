@@ -306,16 +306,22 @@ export default function MySubmissionsPage() {
                     </td>
                     <td className="px-6 py-4">
                       <div className="flex flex-col items-center">
+                        {sub.kpiType === 'QUALITATIVE' ? (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-teal-50 dark:bg-teal-900/20 text-teal-600 dark:text-teal-400 text-[10px] font-black uppercase tracking-wider border border-teal-100 dark:border-teal-800/50 whitespace-nowrap">
+                            ★ {sub.qualitativeLevelName ?? 'Định tính'}
+                          </span>
+                        ) : (
                         <div className="flex items-center gap-3">
                            <span className="text-xs font-black text-slate-900 dark:text-white">
                             {formatNumber(sub.actualValue)}
                           </span>
-                          <ProgressCircle 
-                            percentage={sub.targetValue ? Math.min(Math.round((sub.actualValue / sub.targetValue) * 100), 100) : (sub.actualValue <= 100 ? sub.actualValue : 0)} 
-                            size={28} 
-                            strokeWidth={3} 
+                          <ProgressCircle
+                            percentage={sub.targetValue ? Math.min(Math.round((sub.actualValue / sub.targetValue) * 100), 100) : (sub.actualValue <= 100 ? sub.actualValue : 0)}
+                            size={28}
+                            strokeWidth={3}
                           />
                         </div>
+                        )}
                       </div>
                     </td>
                     <td className="px-6 py-4">
@@ -376,6 +382,11 @@ export default function MySubmissionsPage() {
                   </div>
                   {sub.note && <p className="text-[10px] text-slate-400 line-clamp-1 italic">"{sub.note}"</p>}
                   <div className="flex items-center justify-between text-xs">
+                    {sub.kpiType === 'QUALITATIVE' ? (
+                      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-teal-50 dark:bg-teal-900/20 text-teal-600 dark:text-teal-400 text-[10px] font-black uppercase tracking-wider border border-teal-100 dark:border-teal-800/50 whitespace-nowrap">
+                        ★ {sub.qualitativeLevelName ?? 'Định tính'}
+                      </span>
+                    ) : (
                     <div className="flex items-center gap-2">
                       <ProgressCircle
                         percentage={sub.targetValue ? Math.min(Math.round((sub.actualValue / sub.targetValue) * 100), 100) : (sub.actualValue <= 100 ? sub.actualValue : 0)}
@@ -384,6 +395,7 @@ export default function MySubmissionsPage() {
                       />
                       <span className="font-black text-slate-900 dark:text-white">{formatNumber(sub.actualValue)}</span>
                     </div>
+                    )}
                     <span className="font-bold text-slate-500">{formatDateTime(sub.createdAt).split(' ')[0]}</span>
                   </div>
                   <div className="flex items-center justify-end gap-2 pt-1 border-t border-slate-100 dark:border-slate-800">

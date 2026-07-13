@@ -8,7 +8,7 @@ import { useMyKpi } from '@/features/kpi/hooks/useMyKpi'
 import { useAuthStore } from '@/store/authStore'
 import { useOrganization } from '@/features/orgunits/hooks/useOrganization'
 import { getScoringFunctions } from '@/lib/scoring'
-import { X, Loader2, Star, Target, Zap, Trophy, CheckCircle2, MessageSquare, Sparkles } from 'lucide-react'
+import { X, Loader2, Star, Target, Zap, Trophy, CheckCircle2, MessageSquare, Sparkles, Lock } from 'lucide-react'
 import { useMemo, useEffect, useRef } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { evaluationApi } from '../api/evaluationApi'
@@ -71,13 +71,23 @@ export default function EvaluationFormModal({ open, onClose, readOnly = false, i
   const displayScore = currentScore
   const selectedPeriodId = watch('kpiPeriodId')
 
-  const { data: systemScoreData } = useQuery({
-    queryKey: ['system-score', selectedPeriodId, user?.id],
-    queryFn: () => evaluationApi.getSystemScore(selectedPeriodId!, user?.id),
+  const { data: scorePreview } = useQuery({
+    queryKey: ['score-preview', selectedPeriodId, user?.id],
+    queryFn: () => evaluationApi.getScorePreview(selectedPeriodId!, user?.id),
     enabled: !!selectedPeriodId,
   })
 
-  const calculatedScore = systemScoreData ?? 0
+  const rawSystemScore = scorePreview?.systemScore ?? 0
+  const matrixRating = scorePreview?.matrixRating ?? null
+  const behaviorScore = scorePreview?.behaviorScore ?? null
+  const completionPct = scorePreview?.kpiCompletionPercent ?? null
+  // Full-qualitative: no quantitative KPI -> the 0..100 system score is N/A.
+  const noQuantScore = scorePreview != null && completionPct == null
+  // Suggested 0..100: full-qualitative means KPI completion defaults to 100%, so the score is
+  // locked to maxScore (in sync with "100% hoàn thành"); otherwise use the quantitative system score.
+  const calculatedScore = noQuantScore
+    ? maxScore
+    : rawSystemScore
 
   const handleApplyCalculatedScore = () => {
     if (readOnly) return
@@ -180,8 +190,20 @@ export default function EvaluationFormModal({ open, onClose, readOnly = false, i
                           <CheckCircle2 size={16} className="text-emerald-500" />
                           <span className="text-sm font-bold text-slate-700 dark:text-slate-300">Điểm hệ thống tự tính</span>
                        </div>
-                       <div className="text-2xl font-black text-slate-900 dark:text-white">{calculatedScore}</div>
+                       <div className="text-2xl font-black text-slate-900 dark:text-white">{noQuantScore ? '—' : calculatedScore}</div>
                     </div>
+                    {matrixRating != null && (
+                      <div className="flex items-center justify-between py-2 border-b border-slate-200/50 dark:border-slate-700/50">
+                        <div className="flex items-center gap-2">
+                          <Star size={16} className="text-teal-500 fill-current" />
+                          <div>
+                            <span className="text-sm font-bold text-slate-700 dark:text-slate-300">Xếp loại (ma trận)</span>
+                            <p className="text-[10px] text-slate-400">Hành vi {behaviorScore != null ? behaviorScore.toFixed(1) : '—'}/5 × Hoàn thành {completionPct != null ? Math.round(completionPct) + '%' : '100%'}</p>
+                          </div>
+                        </div>
+                        <div className="text-2xl font-black text-teal-600">{matrixRating}<span className="text-sm text-slate-400">/5</span></div>
+                      </div>
+                    )}
                     {readOnly && (
                        <p className="text-[10px] text-slate-400 italic">Đây là bản tổng kết tự động sau khi tất cả chỉ tiêu đã được duyệt.</p>
                     )}
@@ -194,9 +216,9 @@ export default function EvaluationFormModal({ open, onClose, readOnly = false, i
                       <label className="flex items-center gap-2 text-xs font-black text-slate-400 uppercase tracking-widest">
                         <Star size={14} /> Điểm tự đánh giá
                       </label>
-                      {!readOnly && calculatedScore > 0 && (
-                        <button 
-                          type="button" 
+                      {!readOnly && !noQuantScore && calculatedScore > 0 && (
+                        <button
+                          type="button"
                           onClick={handleApplyCalculatedScore}
                           className="text-[10px] font-black text-indigo-600 hover:underline flex items-center gap-1"
                         >
@@ -221,14 +243,14 @@ export default function EvaluationFormModal({ open, onClose, readOnly = false, i
                               ? "bg-emerald-500/10 text-emerald-600 dark:bg-emerald-500/20" 
                               : "bg-amber-500/10 text-amber-600 dark:bg-amber-500/20"
                            )}>
-                             {displayScore > calculatedScore ? '+' : ''}{displayScore - calculatedScore} điểm so với hệ thống
+                             {displayScore > calculatedScore ? '+' : ''}{displayScore - calculatedScore} điểm so với {noQuantScore ? 'gợi ý' : 'hệ thống'}
                            </div>
                          )}
                       </div>
 
-                      {!readOnly && (
+                      {!readOnly && !noQuantScore && (
                          <div className="px-10">
-                           <input 
+                           <input
                              type="range" min={0} max={maxScore} step={1}
                              value={currentScore}
                             onChange={(e) => {
@@ -243,6 +265,14 @@ export default function EvaluationFormModal({ open, onClose, readOnly = false, i
                               <span>{maxScore}</span>
                            </div>
                         </div>
+                      )}
+
+                      {!readOnly && noQuantScore && (
+                         <div className="px-10 flex justify-center">
+                            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-indigo-500/10 text-indigo-600 dark:text-indigo-300 text-[10px] font-black uppercase tracking-widest whitespace-nowrap">
+                               <Lock size={12} className="shrink-0" /> Full định tính · Cố định điểm {maxScore}
+                            </div>
+                         </div>
                       )}
                    </div>
                 </div>

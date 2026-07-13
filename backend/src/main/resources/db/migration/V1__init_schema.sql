@@ -46,6 +46,8 @@ CREATE TABLE organizations (
   enable_okr BOOLEAN DEFAULT FALSE,
   enable_waterfall BOOLEAN DEFAULT FALSE,
   enable_ai   BOOLEAN NOT NULL DEFAULT TRUE,
+  enable_qualitative BOOLEAN NOT NULL DEFAULT FALSE,
+  performance_matrix jsonb,
   created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at  TIMESTAMPTZ NOT NULL DEFAULT now()
 );
@@ -79,6 +81,20 @@ CREATE TABLE evaluation_levels (
 );
 
 CREATE INDEX idx_evaluation_levels_org_id ON evaluation_levels(organization_id);
+
+-- ====================================================
+-- Qualitative Evaluation Levels
+-- ====================================================
+CREATE TABLE qualitative_levels (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    organization_id UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+    name TEXT NOT NULL,
+    level_value DOUBLE PRECISION NOT NULL,
+    position_index INT NOT NULL,
+    color TEXT
+);
+
+CREATE INDEX idx_qualitative_levels_org_id ON qualitative_levels(organization_id);
 
 -- ====================================================
 -- Organization Hierarchy Levels
@@ -339,16 +355,12 @@ CREATE TABLE kpi_criteria (
     kpi_period_id   UUID            NOT NULL REFERENCES kpi_periods(id),
     name            VARCHAR(255)    NOT NULL,
     description     TEXT,
+    kpi_type        VARCHAR(20)     NOT NULL DEFAULT 'QUANTITATIVE',
     weight          DOUBLE PRECISION,
-    target_value    DOUBLE PRECISION,
-    minimum_value   DOUBLE PRECISION,
-    compensated_achievement_percent DOUBLE PRECISION,
-    unit            VARCHAR(50),
     frequency       VARCHAR(20)     NOT NULL,
     key_result_id   UUID            REFERENCES key_results(id) ON DELETE SET NULL,
     parent_id       UUID            REFERENCES kpi_criteria(id) ON DELETE SET NULL,
     parent_relation_type VARCHAR(20),
-    is_reverse_kpi  BOOLEAN         NOT NULL DEFAULT FALSE,
     is_bonus_kpi    BOOLEAN         NOT NULL DEFAULT FALSE,
     deadline        TIMESTAMPTZ,
     status          VARCHAR(20)     NOT NULL DEFAULT 'DRAFT',
@@ -367,6 +379,21 @@ CREATE TABLE kpi_criteria (
 CREATE INDEX idx_kpi_criteria_org_unit_id ON kpi_criteria(org_unit_id);
 CREATE INDEX idx_kpi_criteria_status ON kpi_criteria(status);
 CREATE INDEX idx_kpi_criteria_deleted_at ON kpi_criteria(deleted_at);
+
+-- Trường riêng của KPI định lượng (1:1 với kpi_criteria)
+CREATE TABLE quantitative_kpi_details (
+    kpi_criteria_id UUID PRIMARY KEY REFERENCES kpi_criteria(id) ON DELETE CASCADE,
+    target_value    DOUBLE PRECISION,
+    minimum_value   DOUBLE PRECISION,
+    compensated_achievement_percent DOUBLE PRECISION,
+    unit            VARCHAR(50),
+    is_reverse_kpi  BOOLEAN         NOT NULL DEFAULT FALSE
+);
+
+-- Trường riêng của KPI định tính (1:1 với kpi_criteria) — thêm cột khi phát sinh
+CREATE TABLE qualitative_kpi_details (
+    kpi_criteria_id UUID PRIMARY KEY REFERENCES kpi_criteria(id) ON DELETE CASCADE
+);
 
 CREATE TABLE kpi_criteria_assignees (
     kpi_criteria_id UUID NOT NULL REFERENCES kpi_criteria(id) ON DELETE CASCADE,
@@ -401,6 +428,7 @@ CREATE TABLE kpi_submissions (
     submitted_by        UUID            NOT NULL REFERENCES users(id),
     actual_value        DOUBLE PRECISION,
     auto_score          DOUBLE PRECISION,
+    qualitative_level_id UUID           REFERENCES qualitative_levels(id),
     note                TEXT,
     status              VARCHAR(20)     NOT NULL DEFAULT 'PENDING',
     reviewed_by         UUID            REFERENCES users(id),
@@ -449,6 +477,9 @@ CREATE TABLE evaluations (
     score               DOUBLE PRECISION,
     comment             TEXT,
     system_score        DOUBLE PRECISION,
+    behavior_score          DOUBLE PRECISION,
+    kpi_completion_percent  DOUBLE PRECISION,
+    matrix_rating           INTEGER,
     period_start        TIMESTAMPTZ,
     period_end          TIMESTAMPTZ,
     created_at          TIMESTAMPTZ     DEFAULT NOW(),

@@ -1,12 +1,18 @@
-import { X, Download, FileSpreadsheet, AlertTriangle, CheckCircle2, Info, FileText, FileBox } from 'lucide-react'
+import { useState } from 'react'
+import { X, Download, FileSpreadsheet, AlertTriangle, CheckCircle2, Info, FileText, FileBox, BarChart3, SlidersHorizontal } from 'lucide-react'
 import ExcelJS from 'exceljs'
 import { useAuthStore } from '@/store/authStore'
 import { useOrganization } from '@/features/orgunits/hooks/useOrganization'
+import { cn } from '@/lib/utils'
+import type { KpiType } from '@/types/kpi'
+
+// Columns that only apply to quantitative KPIs (dropped for qualitative import).
+const QUANTITATIVE_ONLY_COLUMNS = ['TargetValue', 'MinimumValue', 'IsReverseKpi', 'Unit']
 
 interface KpiImportGuideModalProps {
   open: boolean
   onClose: () => void
-  onSelectFile: () => void
+  onSelectFile: (kpiType: KpiType) => void
 }
 
 const SAMPLE_DATA = [
@@ -85,9 +91,13 @@ export default function KpiImportGuideModal({ open, onClose, onSelectFile }: Kpi
   const { user } = useAuthStore()
   const { data: org } = useOrganization(user?.memberships?.[0]?.organizationId)
   const enableOkr = org?.enableOkr || false
+  const enableQualitative = org?.enableQualitative || false
+
+  const [importType, setImportType] = useState<KpiType>('QUANTITATIVE')
+  const isQualitative = enableQualitative && importType === 'QUALITATIVE'
 
   const COLUMNS = [
-    ...BASE_COLUMNS,
+    ...BASE_COLUMNS.filter(c => !isQualitative || !QUANTITATIVE_ONLY_COLUMNS.includes(c.name)),
     ...(enableOkr ? [
       { name: 'ObjectiveCode', required: false, desc: 'Mã Mục tiêu (OKR)', example: 'OBJ001' },
       { name: 'KeyResultCode', required: false, desc: 'Mã KR (OKR)', example: 'KR001' },
@@ -100,6 +110,9 @@ export default function KpiImportGuideModal({ open, onClose, onSelectFile }: Kpi
       if (!enableOkr) {
         delete newRow.ObjectiveCode
         delete newRow.KeyResultCode
+      }
+      if (isQualitative) {
+        QUANTITATIVE_ONLY_COLUMNS.forEach(k => delete newRow[k])
       }
       return newRow
     })
@@ -138,7 +151,7 @@ export default function KpiImportGuideModal({ open, onClose, onSelectFile }: Kpi
       { header: 'Unit', key: 'Unit', width: 12 },
       { header: 'EmployeeCode', key: 'EmployeeCode', width: 25 },
       { header: 'OrgUnitCode', key: 'OrgUnitCode', width: 15 },
-    ]
+    ].filter(c => !isQualitative || !QUANTITATIVE_ONLY_COLUMNS.includes(c.key))
 
     worksheet.columns = enableOkr ? [
       ...baseColumns,
@@ -244,6 +257,42 @@ export default function KpiImportGuideModal({ open, onClose, onSelectFile }: Kpi
         </div>
 
         <div className="px-4 sm:px-8 py-6 space-y-8">
+
+          {/* KPI type tabs (only when qualitative enabled) */}
+          {enableQualitative && (
+            <div className="grid grid-cols-2 gap-2 p-1 rounded-2xl bg-slate-100 dark:bg-slate-800/60">
+              <button
+                type="button"
+                onClick={() => setImportType('QUANTITATIVE')}
+                className={cn(
+                  "flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all",
+                  !isQualitative ? "bg-indigo-600 text-white shadow-md" : "text-slate-500 hover:bg-white/60 dark:hover:bg-slate-700/50"
+                )}
+              >
+                <BarChart3 size={14} /> KPI Định lượng
+              </button>
+              <button
+                type="button"
+                onClick={() => setImportType('QUALITATIVE')}
+                className={cn(
+                  "flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all",
+                  isQualitative ? "bg-emerald-600 text-white shadow-md" : "text-slate-500 hover:bg-white/60 dark:hover:bg-slate-700/50"
+                )}
+              >
+                <SlidersHorizontal size={14} /> KPI Định tính
+              </button>
+            </div>
+          )}
+
+          {isQualitative && (
+            <div className="p-4 rounded-2xl bg-emerald-50 dark:bg-emerald-900/10 border border-emerald-100 dark:border-emerald-900/30 flex items-start gap-3">
+              <Info size={18} className="text-emerald-600 shrink-0 mt-0.5" />
+              <p className="text-xs text-emerald-800 dark:text-emerald-300 leading-relaxed font-medium">
+                File mẫu định tính <strong>không có</strong> cột Mục tiêu / Tối thiểu / Đơn vị / KPI Ngược.
+                KPI định tính được quản lý chấm điểm theo thang định tính khi duyệt.
+              </p>
+            </div>
+          )}
 
           {/* Steps */}
           <div>
@@ -356,7 +405,7 @@ export default function KpiImportGuideModal({ open, onClose, onSelectFile }: Kpi
             Hủy bỏ
           </button>
           <button
-            onClick={() => { onSelectFile(); onClose() }}
+            onClick={() => { onSelectFile(isQualitative ? 'QUALITATIVE' : 'QUANTITATIVE'); onClose() }}
             className="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-indigo-600 text-white text-sm font-bold hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-500/20 active:scale-95"
           >
             <FileSpreadsheet size={16} /> Chọn file & Import

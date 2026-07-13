@@ -42,8 +42,9 @@ export default function SubmissionDetailPage() {
     </div>
   )
 
-  const achievement = submission.targetValue 
-    ? Math.round((submission.actualValue / submission.targetValue) * 100) 
+  const isQualitative = submission.kpiType === 'QUALITATIVE'
+  const achievement = submission.targetValue
+    ? Math.round((submission.actualValue / submission.targetValue) * 100)
     : null
 
   const getAchievementColor = (val: number): 'emerald' | 'amber' | 'rose' | 'slate' => {
@@ -94,31 +95,82 @@ export default function SubmissionDetailPage() {
           
           {/* Key Metrics Grid */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <MetricBox 
-              icon={CheckCircle2} 
-              label="Thực tế" 
-              value={formatNumber(submission.actualValue)} 
-              unit={submission.unit}
-              color="indigo"
-            />
-            <MetricBox 
-              icon={Target} 
-              label="Mục tiêu" 
-              value={submission.targetValue != null ? formatNumber(submission.targetValue) : '—'} 
-              unit={submission.unit}
-              color="slate"
-            />
-            <MetricBox 
-              icon={Trophy} 
-              label="Tỷ lệ đạt" 
-              value={achievement != null ? `${achievement}%` : '—'} 
-              color={achievement != null ? getAchievementColor(achievement) : 'slate'}
-              isBoldValue
-            />
+            {isQualitative ? (
+              <>
+                <MetricBox
+                  icon={Star}
+                  label="Mức đánh giá"
+                  value={submission.qualitativeLevelName ?? 'Chưa chấm'}
+                  color={submission.qualitativeLevelName ? 'indigo' : 'slate'}
+                  valueClassName="text-xl sm:text-2xl leading-tight whitespace-nowrap"
+                />
+                <MetricBox
+                  icon={Target}
+                  label="Trọng số"
+                  value={`${submission.weight ?? 0}%`}
+                  color="slate"
+                  isBoldValue
+                />
+                <MetricBox
+                  icon={Trophy}
+                  label="Điểm hành vi"
+                  value={submission.qualitativeLevelValue != null ? `${formatNumber(submission.qualitativeLevelValue)}/5` : '—'}
+                  color={submission.qualitativeLevelValue != null ? 'emerald' : 'slate'}
+                  isBoldValue
+                />
+              </>
+            ) : (
+              <>
+                <MetricBox
+                  icon={CheckCircle2}
+                  label="Thực tế"
+                  value={formatNumber(submission.actualValue)}
+                  unit={submission.unit}
+                  color="indigo"
+                />
+                <MetricBox
+                  icon={Target}
+                  label="Mục tiêu"
+                  value={submission.targetValue != null ? formatNumber(submission.targetValue) : '—'}
+                  unit={submission.unit}
+                  color="slate"
+                />
+                <MetricBox
+                  icon={Trophy}
+                  label="Tỷ lệ đạt"
+                  value={achievement != null ? `${achievement}%` : '—'}
+                  color={achievement != null ? getAchievementColor(achievement) : 'slate'}
+                  isBoldValue
+                />
+              </>
+            )}
           </div>
 
-          {/* Auto Score Banner */}
-          {submission.autoScore != null && (
+          {/* Score Banner */}
+          {isQualitative ? (
+            <div className="relative group p-1 rounded-[32px] bg-gradient-to-br from-emerald-500 via-teal-600 to-indigo-700 shadow-2xl shadow-emerald-500/20 overflow-hidden">
+               <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-10" />
+               <div className="relative bg-black/5 dark:bg-black/20 p-8 md:p-10 rounded-[31px] flex flex-col md:flex-row md:items-center justify-between items-center text-center md:text-left gap-8">
+                  <div className="space-y-3 flex flex-col items-center md:items-start">
+                     <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/20 backdrop-blur-md text-white text-[10px] font-black uppercase tracking-[0.2em]">
+                        <Star size={12} className="fill-current text-amber-300" /> KPI Định tính
+                     </div>
+                     <h3 className="text-3xl font-black text-white">
+                        {submission.qualitativeLevelName ? `Mức đánh giá: ${submission.qualitativeLevelName}` : 'Chờ quản lý chấm điểm'}
+                     </h3>
+                     <p className="text-emerald-50/70 text-sm font-medium max-w-md leading-relaxed">
+                        Chỉ tiêu định tính không cộng vào điểm 0–100. Mức này quy ra <b className="text-white">điểm hành vi</b>, rồi kết hợp với % hoàn thành KPI định lượng qua <b className="text-white">ma trận</b> để ra xếp loại cuối ở bước đánh giá tổng hợp.
+                     </p>
+                  </div>
+                  <div className="flex items-center justify-center gap-6 bg-white/10 backdrop-blur-2xl p-6 rounded-[28px] border border-white/10 shadow-inner group-hover:scale-105 transition-transform duration-500 w-full md:w-auto overflow-hidden">
+                     <div className="text-center">
+                        <p className="text-[10px] font-black text-emerald-50 uppercase tracking-[0.3em] mb-1 opacity-60">Điểm hành vi</p>
+                        <p className="text-4xl xs:text-5xl md:text-6xl font-black text-white leading-none">{submission.qualitativeLevelValue != null ? formatNumber(submission.qualitativeLevelValue) : '—'}<span className="text-xl opacity-60">/5</span></p>
+                     </div>
+                  </div>
+               </div>
+            </div>
+          ) : submission.autoScore != null && (
             <div className="relative group p-1 rounded-[32px] bg-gradient-to-br from-indigo-500 via-indigo-600 to-purple-700 shadow-2xl shadow-indigo-500/20 overflow-hidden">
                <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-10" />
                <div className="relative bg-black/5 dark:bg-black/20 p-8 md:p-10 rounded-[31px] flex flex-col md:flex-row md:items-center justify-between items-center text-center md:text-left gap-8">
@@ -330,7 +382,7 @@ export default function SubmissionDetailPage() {
   )
 }
 
-function MetricBox({ icon: Icon, label, value, unit, color, isBoldValue }: { icon: any; label: string; value: string; unit?: string | null; color: string; isBoldValue?: boolean }) {
+function MetricBox({ icon: Icon, label, value, unit, color, isBoldValue, valueClassName }: { icon: any; label: string; value: string; unit?: string | null; color: string; isBoldValue?: boolean; valueClassName?: string }) {
   const colors: Record<string, string> = {
     indigo: "text-indigo-600 bg-indigo-50/50 dark:bg-indigo-900/20 border-indigo-100 dark:border-indigo-900/30",
     emerald: "text-emerald-600 bg-emerald-50/50 dark:bg-emerald-900/20 border-emerald-100 dark:border-emerald-900/30",
@@ -343,7 +395,7 @@ function MetricBox({ icon: Icon, label, value, unit, color, isBoldValue }: { ico
       <Icon className="absolute top-4 right-4 w-12 h-12 opacity-5 group-hover:scale-110 transition-transform duration-500" />
       <p className="text-[10px] font-black uppercase tracking-[0.2em] opacity-60 mb-3">{label}</p>
       <div className="flex items-baseline gap-1.5">
-        <span className={cn("text-3xl font-black tracking-tight", isBoldValue ? "text-slate-900 dark:text-white" : "text-current")}>{value}</span>
+        <span className={cn("font-black tracking-tight", isBoldValue ? "text-slate-900 dark:text-white" : "text-current", valueClassName ?? "text-3xl")}>{value}</span>
         {unit && <span className="text-xs font-bold opacity-60">{unit}</span>}
       </div>
     </div>

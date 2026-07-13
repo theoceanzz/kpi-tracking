@@ -1,6 +1,7 @@
 package com.kpitracking.dto.response.kpi;
 
 import com.kpitracking.enums.AdjustmentStatus;
+import com.kpitracking.enums.KpiType;
 import lombok.*;
 
 import java.time.Instant;
@@ -11,6 +12,7 @@ public class AdjustmentRequestResponse {
     private UUID id;
     private UUID kpiCriteriaId;
     private String kpiCriteriaName;
+    private KpiType kpiType;
     private Double currentTargetValue;
     private Double currentWeight;
     private Double currentMinimumValue;

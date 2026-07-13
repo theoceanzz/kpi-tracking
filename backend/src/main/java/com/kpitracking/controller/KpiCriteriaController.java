@@ -60,8 +60,9 @@ public class KpiCriteriaController {
             @RequestParam(defaultValue = "false") boolean approvalMode,
             @RequestParam(required = false) String kpiNature,
             @RequestParam(required = false) Boolean isBonusKpi,
-            @RequestParam(required = false) Boolean isReverseKpi) {
-        PageResponse<KpiCriteriaResponse> response = kpiCriteriaService.getKpiCriteria(page, size, status, orgUnitId, createdById, assigneeId, kpiPeriodId, keyword, startDate, endDate, sortBy, sortDir, objectiveId, keyResultId, approvalMode, kpiNature, isBonusKpi, isReverseKpi);
+            @RequestParam(required = false) Boolean isReverseKpi,
+            @RequestParam(required = false) com.kpitracking.enums.KpiType kpiType) {
+        PageResponse<KpiCriteriaResponse> response = kpiCriteriaService.getKpiCriteria(page, size, status, orgUnitId, createdById, assigneeId, kpiPeriodId, keyword, startDate, endDate, sortBy, sortDir, objectiveId, keyResultId, approvalMode, kpiNature, isBonusKpi, isReverseKpi, kpiType);
         return ResponseEntity.ok(ApiResponse.success(response));
     }
 
@@ -195,8 +196,9 @@ public class KpiCriteriaController {
     public ResponseEntity<ApiResponse<com.kpitracking.dto.response.kpi.ImportKpiResponse>> importKpis(
             @RequestParam("file") org.springframework.web.multipart.MultipartFile file,
             @RequestParam(required = false) UUID kpiPeriodId,
-            @RequestParam(required = false) UUID orgUnitId) {
-        com.kpitracking.dto.response.kpi.ImportKpiResponse response = kpiCriteriaService.importKpis(file, kpiPeriodId, orgUnitId);
+            @RequestParam(required = false) UUID orgUnitId,
+            @RequestParam(required = false) com.kpitracking.enums.KpiType kpiType) {
+        com.kpitracking.dto.response.kpi.ImportKpiResponse response = kpiCriteriaService.importKpis(file, kpiPeriodId, orgUnitId, kpiType);
         return ResponseEntity.ok(ApiResponse.success("Import processed", response));
     }
 }

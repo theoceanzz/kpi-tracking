@@ -44,7 +44,7 @@ export const submissionApi = {
   bulkReview: (data: { 
     submissionIds: string[], 
     commonReview: ReviewSubmissionRequest,
-    individualReviews?: { submissionId: string, managerScore?: number, reviewNote?: string }[]
+    individualReviews?: { submissionId: string, managerScore?: number, qualitativeLevelId?: string, reviewNote?: string }[]
   }) =>
     axiosInstance.post<ApiResponse<Submission[]>>('/submissions/bulk-review', data).then((r) => r.data.data),
 

@@ -136,22 +136,27 @@ export default function SubordinateManagementTab() {
 
       {/* Global Filter Toolbar */}
       <div className={cn(
-        'sticky top-0 z-20 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl flex flex-col sm:flex-row items-stretch sm:items-center gap-4 justify-between transition-all duration-200',
-        filterStuck ? 'p-3 shadow-lg shadow-slate-200/80 dark:shadow-slate-950/60' : 'p-4 shadow-sm'
+        'sticky top-0 z-20 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl flex flex-wrap items-center gap-4 justify-between transition-all duration-200',
+        filterStuck ? 'p-3 shadow-lg shadow-slate-200/80 dark:shadow-slate-900/80 border-slate-300 dark:border-slate-700' : 'p-4 shadow-sm'
       )}>
-        <div className="flex items-center gap-2">
-          <div className="p-2 bg-indigo-50 dark:bg-indigo-900/30 rounded-lg text-indigo-600 dark:text-indigo-400">
-            <Target size={18} />
+        <div className="flex items-center gap-2 min-w-0">
+          <div className={cn(
+            "p-2 rounded-lg text-indigo-600 dark:text-indigo-400 shrink-0 transition-all duration-200",
+            filterStuck ? "bg-indigo-50/60 dark:bg-indigo-900/20" : "bg-indigo-50 dark:bg-indigo-900/30"
+          )}>
+            <Target size={filterStuck ? 16 : 18} />
           </div>
-          <div>
-            <h2 className="text-base font-bold text-slate-900 dark:text-white">Tổng quan mục tiêu cấp dưới</h2>
-            <p className="text-xs text-slate-500 font-medium mt-0.5">Lọc dữ liệu đồng bộ cho tất cả biểu đồ</p>
+          <div className="min-w-0">
+            <h2 className={cn("font-bold text-slate-900 dark:text-white leading-tight transition-all duration-200", filterStuck ? "text-sm" : "text-base")}>Tổng quan mục tiêu cấp dưới</h2>
+            {!filterStuck && (
+              <p className="text-xs text-slate-500 font-medium mt-0.5">Lọc dữ liệu đồng bộ cho tất cả biểu đồ</p>
+            )}
           </div>
         </div>
 
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4 sm:gap-5">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4 sm:gap-5 w-full lg:w-auto">
           {/* Approved submissions only toggle */}
-          <label className="flex items-center gap-2 text-sm font-semibold text-slate-700 dark:text-slate-350 cursor-pointer select-none">
+          <label className="flex items-center gap-2 text-sm font-semibold text-slate-700 dark:text-slate-350 cursor-pointer select-none whitespace-nowrap shrink-0">
             <input
               type="checkbox"
               className="w-4.5 h-4.5 text-indigo-600 border-slate-300 rounded focus:ring-indigo-500 bg-slate-50 dark:bg-slate-800"

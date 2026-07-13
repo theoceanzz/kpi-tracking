@@ -585,8 +585,15 @@ function EvalLayerCard({ title, icon: Icon, iconBg, iconColor, evaluation, lineA
                     <span className={`text-2xl sm:text-3xl font-black tracking-tighter ${getScoreColor(evaluation.score)}`}>{evaluation.score != null ? formatNumber(evaluation.score) : '—'}</span>
                     <span className={`text-[10px] font-black uppercase tracking-[0.15em] whitespace-nowrap ${getScoreColor(evaluation.score)}`}>{getScoreLabel(evaluation.score)}</span>
                   </div>
-                  
-                  {evaluation.evaluatorRole === 'SELF' && (evaluation.systemScore ?? calculatedScore) != null && evaluation.score !== (evaluation.systemScore ?? calculatedScore) && (
+
+                  {evaluation.matrixRating != null && (
+                    <div className="mt-1 inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-widest bg-teal-50 text-teal-600 dark:bg-teal-900/20"
+                      title={`Điểm hành vi ${evaluation.behaviorScore != null ? evaluation.behaviorScore.toFixed(1) : '—'}/5 × Hoàn thành ${evaluation.kpiCompletionPercent != null ? Math.round(evaluation.kpiCompletionPercent) + '%' : '100%'}`}>
+                      {evaluation.behaviorScore != null && <>Hành vi {evaluation.behaviorScore.toFixed(1)}/5 · </>}Xếp loại ma trận: {evaluation.matrixRating}/5
+                    </div>
+                  )}
+
+                  {evaluation.evaluatorRole === 'SELF' && !(evaluation.behaviorScore != null && evaluation.kpiCompletionPercent == null) && (evaluation.systemScore ?? calculatedScore) != null && evaluation.score !== (evaluation.systemScore ?? calculatedScore) && (
                      <div className={cn(
                        "mt-1 inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-widest",
                        evaluation.score! > (evaluation.systemScore ?? calculatedScore!) 

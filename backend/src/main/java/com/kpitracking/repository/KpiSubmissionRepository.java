@@ -118,9 +118,10 @@ public interface KpiSubmissionRepository extends JpaRepository<KpiSubmission, UU
      * Chỉ lấy submissions có status APPROVED và kpi đã APPROVED, scoped theo orgId.
      */
     @Query(value =
-            "SELECT COALESCE(SUM(s.actual_value), 0), COALESCE(SUM(kc.target_value), 0) " +
+            "SELECT COALESCE(SUM(s.actual_value), 0), COALESCE(SUM(qkd.target_value), 0) " +
             "FROM kpi_submissions s " +
             "JOIN kpi_criteria kc ON s.kpi_criteria_id = kc.id " +
+            "LEFT JOIN quantitative_kpi_details qkd ON qkd.kpi_criteria_id = kc.id " +
             "JOIN org_units ou ON s.org_unit_id = ou.id " +
             "JOIN org_hierarchy_levels ohl ON ou.org_hierarchy_id = ohl.id " +
             "WHERE s.deleted_at IS NULL AND kc.deleted_at IS NULL " +
@@ -135,10 +136,11 @@ public interface KpiSubmissionRepository extends JpaRepository<KpiSubmission, UU
     @Query(value =
             "SELECT TO_CHAR(s.period_start, :datePattern) AS period_label, " +
             "COALESCE(SUM(s.actual_value), 0) AS total_actual, " +
-            "COALESCE(SUM(kc.target_value), 0) AS total_target, " +
+            "COALESCE(SUM(qkd.target_value), 0) AS total_target, " +
             "COUNT(s.id) AS submission_count " +
             "FROM kpi_submissions s " +
             "JOIN kpi_criteria kc ON s.kpi_criteria_id = kc.id " +
+            "LEFT JOIN quantitative_kpi_details qkd ON qkd.kpi_criteria_id = kc.id " +
             "JOIN org_units ou ON s.org_unit_id = ou.id " +
             "JOIN org_hierarchy_levels ohl ON ou.org_hierarchy_id = ohl.id " +
             "WHERE s.deleted_at IS NULL AND kc.deleted_at IS NULL " +
@@ -153,15 +155,16 @@ public interface KpiSubmissionRepository extends JpaRepository<KpiSubmission, UU
      */
     @Query(value =
             "SELECT ou.id, ou.name, " +
-            "AVG(s.actual_value * 100.0 / NULLIF(kc.target_value, 0)) AS avg_performance, " +
+            "AVG(s.actual_value * 100.0 / NULLIF(qkd.target_value, 0)) AS avg_performance, " +
             "COUNT(s.id) AS submission_count " +
             "FROM kpi_submissions s " +
             "JOIN kpi_criteria kc ON s.kpi_criteria_id = kc.id " +
+            "LEFT JOIN quantitative_kpi_details qkd ON qkd.kpi_criteria_id = kc.id " +
             "JOIN org_units ou ON s.org_unit_id = ou.id " +
             "JOIN org_hierarchy_levels ohl ON ou.org_hierarchy_id = ohl.id " +
             "WHERE s.deleted_at IS NULL AND kc.deleted_at IS NULL " +
             "AND s.status = 'APPROVED' AND kc.status = 'APPROVED' " +
-            "AND kc.target_value > 0 " +
+            "AND qkd.target_value > 0 " +
             "AND ohl.organization_id = :orgId " +
             "GROUP BY ou.id, ou.name ORDER BY avg_performance DESC", nativeQuery = true)
     java.util.List<Object[]> avgPerformanceGroupByOrgUnitByOrgId(@Param("orgId") UUID orgId);
@@ -171,16 +174,17 @@ public interface KpiSubmissionRepository extends JpaRepository<KpiSubmission, UU
      */
     @Query(value =
             "SELECT u.id, u.full_name, u.email, " +
-            "AVG(s.actual_value * 100.0 / NULLIF(kc.target_value, 0)) AS avg_performance, " +
+            "AVG(s.actual_value * 100.0 / NULLIF(qkd.target_value, 0)) AS avg_performance, " +
             "COUNT(s.id) AS submission_count " +
             "FROM kpi_submissions s " +
             "JOIN kpi_criteria kc ON s.kpi_criteria_id = kc.id " +
+            "LEFT JOIN quantitative_kpi_details qkd ON qkd.kpi_criteria_id = kc.id " +
             "JOIN users u ON s.submitted_by = u.id " +
             "JOIN org_units ou ON s.org_unit_id = ou.id " +
             "JOIN org_hierarchy_levels ohl ON ou.org_hierarchy_id = ohl.id " +
             "WHERE s.deleted_at IS NULL AND kc.deleted_at IS NULL AND u.deleted_at IS NULL " +
             "AND s.status = 'APPROVED' AND kc.status = 'APPROVED' " +
-            "AND kc.target_value > 0 " +
+            "AND qkd.target_value > 0 " +
             "AND ohl.organization_id = :orgId " +
             "GROUP BY u.id, u.full_name, u.email ORDER BY avg_performance DESC LIMIT :lim", nativeQuery = true)
     java.util.List<Object[]> topPerformersByActualVsTargetByOrgId(@Param("orgId") UUID orgId, @Param("lim") int limit);
@@ -190,16 +194,17 @@ public interface KpiSubmissionRepository extends JpaRepository<KpiSubmission, UU
      */
     @Query(value =
             "SELECT u.id, u.full_name, u.email, " +
-            "AVG(s.actual_value * 100.0 / NULLIF(kc.target_value, 0)) AS avg_performance, " +
+            "AVG(s.actual_value * 100.0 / NULLIF(qkd.target_value, 0)) AS avg_performance, " +
             "COUNT(s.id) AS submission_count " +
             "FROM kpi_submissions s " +
             "JOIN kpi_criteria kc ON s.kpi_criteria_id = kc.id " +
+            "LEFT JOIN quantitative_kpi_details qkd ON qkd.kpi_criteria_id = kc.id " +
             "JOIN users u ON s.submitted_by = u.id " +
             "JOIN org_units ou ON s.org_unit_id = ou.id " +
             "JOIN org_hierarchy_levels ohl ON ou.org_hierarchy_id = ohl.id " +
             "WHERE s.deleted_at IS NULL AND kc.deleted_at IS NULL AND u.deleted_at IS NULL " +
             "AND s.status = 'APPROVED' AND kc.status = 'APPROVED' " +
-            "AND kc.target_value > 0 " +
+            "AND qkd.target_value > 0 " +
             "AND ohl.organization_id = :orgId " +
             "GROUP BY u.id, u.full_name, u.email ORDER BY avg_performance ASC LIMIT :lim", nativeQuery = true)
     java.util.List<Object[]> lowPerformersByActualVsTargetByOrgId(@Param("orgId") UUID orgId, @Param("lim") int limit);
@@ -208,15 +213,16 @@ public interface KpiSubmissionRepository extends JpaRepository<KpiSubmission, UU
      * Hiệu suất actual/target theo từng user, scoped theo userId.
      */
     @Query(value =
-            "SELECT AVG(s.actual_value * 100.0 / NULLIF(kc.target_value, 0)), " +
-            "MIN(s.actual_value * 100.0 / NULLIF(kc.target_value, 0)), " +
-            "MAX(s.actual_value * 100.0 / NULLIF(kc.target_value, 0)), " +
+            "SELECT AVG(s.actual_value * 100.0 / NULLIF(qkd.target_value, 0)), " +
+            "MIN(s.actual_value * 100.0 / NULLIF(qkd.target_value, 0)), " +
+            "MAX(s.actual_value * 100.0 / NULLIF(qkd.target_value, 0)), " +
             "COUNT(s.id) " +
             "FROM kpi_submissions s " +
             "JOIN kpi_criteria kc ON s.kpi_criteria_id = kc.id " +
+            "LEFT JOIN quantitative_kpi_details qkd ON qkd.kpi_criteria_id = kc.id " +
             "WHERE s.deleted_at IS NULL AND kc.deleted_at IS NULL " +
             "AND s.status = 'APPROVED' AND kc.status = 'APPROVED' " +
-            "AND kc.target_value > 0 " +
+            "AND qkd.target_value > 0 " +
             "AND s.submitted_by = :userId", nativeQuery = true)
     Object[] performanceStatsByUserId(@Param("userId") UUID userId);
 
@@ -311,6 +317,84 @@ public interface KpiSubmissionRepository extends JpaRepository<KpiSubmission, UU
             "ORDER BY completion_rate ASC LIMIT :limit", nativeQuery = true)
     java.util.List<Object[]> findLowUnitsByCompletionInSubtree(@Param("pathPrefix") String pathPrefix, @Param("startDate") Instant startDate, @Param("endDate") Instant endDate, @Param("limit") int limit);
 
+    @Query(value = "SELECT AVG(s.actual_value * 100.0 / NULLIF(qkd.target_value, 0)) " +
+            "FROM kpi_submissions s " +
+            "JOIN kpi_criteria kc ON s.kpi_criteria_id = kc.id " +
+            "LEFT JOIN quantitative_kpi_details qkd ON qkd.kpi_criteria_id = kc.id " +
+            "JOIN org_units ou ON s.org_unit_id = ou.id " +
+            "WHERE ou.path LIKE CONCAT(:pathPrefix, '%') AND s.deleted_at IS NULL AND s.status = 'APPROVED' " +
+            "AND s.created_at >= :startDate AND s.created_at <= :endDate", nativeQuery = true)
+    Double findAvgPerformanceInSubtree(@Param("pathPrefix") String pathPrefix, @Param("startDate") Instant startDate, @Param("endDate") Instant endDate);
+
+    @Query(value = "SELECT " +
+            "CASE " +
+            "  WHEN (s.actual_value * 100.0 / NULLIF(qkd.target_value, 0)) < 90 THEN 'BELOW' " +
+            "  WHEN (s.actual_value * 100.0 / NULLIF(qkd.target_value, 0)) BETWEEN 90 AND 110 THEN 'MET' " +
+            "  ELSE 'EXCEED' " +
+            "END AS perf_category, COUNT(s.id) " +
+            "FROM kpi_submissions s " +
+            "JOIN kpi_criteria kc ON s.kpi_criteria_id = kc.id " +
+            "LEFT JOIN quantitative_kpi_details qkd ON qkd.kpi_criteria_id = kc.id " +
+            "JOIN org_units ou ON s.org_unit_id = ou.id " +
+            "WHERE ou.path LIKE CONCAT(:pathPrefix, '%') AND s.deleted_at IS NULL AND s.status = 'APPROVED' " +
+            "AND s.created_at >= :startDate AND s.created_at <= :endDate " +
+            "GROUP BY perf_category", nativeQuery = true)
+    java.util.List<Object[]> findPerformanceDistributionInSubtree(@Param("pathPrefix") String pathPrefix, @Param("startDate") Instant startDate, @Param("endDate") Instant endDate);
+
+    @Query(value = "SELECT u.id, u.full_name, u.email, " +
+            "AVG(s.actual_value * 100.0 / NULLIF(qkd.target_value, 0)) AS avg_perf, " +
+            "COUNT(s.id) AS submission_count " +
+            "FROM kpi_submissions s " +
+            "JOIN kpi_criteria kc ON s.kpi_criteria_id = kc.id " +
+            "LEFT JOIN quantitative_kpi_details qkd ON qkd.kpi_criteria_id = kc.id " +
+            "JOIN users u ON s.submitted_by = u.id " +
+            "JOIN org_units ou ON s.org_unit_id = ou.id " +
+            "WHERE ou.path LIKE CONCAT(:pathPrefix, '%') AND s.deleted_at IS NULL AND s.status = 'APPROVED' AND u.deleted_at IS NULL " +
+            "AND s.created_at >= :startDate AND s.created_at <= :endDate " +
+            "GROUP BY u.id, u.full_name, u.email " +
+            "ORDER BY avg_perf DESC LIMIT :limit", nativeQuery = true)
+    java.util.List<Object[]> findTopPerformersByPerformanceInSubtree(@Param("pathPrefix") String pathPrefix, @Param("startDate") Instant startDate, @Param("endDate") Instant endDate, @Param("limit") int limit);
+
+    @Query(value = "SELECT u.id, u.full_name, u.email, " +
+            "AVG(s.actual_value * 100.0 / NULLIF(qkd.target_value, 0)) AS avg_perf, " +
+            "COUNT(s.id) AS submission_count " +
+            "FROM kpi_submissions s " +
+            "JOIN kpi_criteria kc ON s.kpi_criteria_id = kc.id " +
+            "LEFT JOIN quantitative_kpi_details qkd ON qkd.kpi_criteria_id = kc.id " +
+            "JOIN users u ON s.submitted_by = u.id " +
+            "JOIN org_units ou ON s.org_unit_id = ou.id " +
+            "WHERE ou.path LIKE CONCAT(:pathPrefix, '%') AND s.deleted_at IS NULL AND s.status = 'APPROVED' AND u.deleted_at IS NULL " +
+            "AND s.created_at >= :startDate AND s.created_at <= :endDate " +
+            "GROUP BY u.id, u.full_name, u.email " +
+            "ORDER BY avg_perf ASC LIMIT :limit", nativeQuery = true)
+    java.util.List<Object[]> findLowPerformersByPerformanceInSubtree(@Param("pathPrefix") String pathPrefix, @Param("startDate") Instant startDate, @Param("endDate") Instant endDate, @Param("limit") int limit);
+
+    @Query(value = "SELECT ou.id, ou.name, " +
+            "AVG(s.actual_value * 100.0 / NULLIF(qkd.target_value, 0)) AS avg_perf, " +
+            "COUNT(s.id) AS submission_count " +
+            "FROM kpi_submissions s " +
+            "JOIN kpi_criteria kc ON s.kpi_criteria_id = kc.id " +
+            "LEFT JOIN quantitative_kpi_details qkd ON qkd.kpi_criteria_id = kc.id " +
+            "JOIN org_units ou ON s.org_unit_id = ou.id " +
+            "WHERE ou.path LIKE CONCAT(:pathPrefix, '%') AND s.deleted_at IS NULL AND s.status = 'APPROVED' " +
+            "AND s.created_at >= :startDate AND s.created_at <= :endDate " +
+            "GROUP BY ou.id, ou.name " +
+            "ORDER BY avg_perf DESC LIMIT :limit", nativeQuery = true)
+    java.util.List<Object[]> findTopUnitsByPerformanceInSubtree(@Param("pathPrefix") String pathPrefix, @Param("startDate") Instant startDate, @Param("endDate") Instant endDate, @Param("limit") int limit);
+
+    @Query(value = "SELECT ou.id, ou.name, " +
+            "AVG(s.actual_value * 100.0 / NULLIF(qkd.target_value, 0)) AS avg_perf, " +
+            "COUNT(s.id) AS submission_count " +
+            "FROM kpi_submissions s " +
+            "JOIN kpi_criteria kc ON s.kpi_criteria_id = kc.id " +
+            "LEFT JOIN quantitative_kpi_details qkd ON qkd.kpi_criteria_id = kc.id " +
+            "JOIN org_units ou ON s.org_unit_id = ou.id " +
+            "WHERE ou.path LIKE CONCAT(:pathPrefix, '%') AND s.deleted_at IS NULL AND s.status = 'APPROVED' " +
+            "AND s.created_at >= :startDate AND s.created_at <= :endDate " +
+            "GROUP BY ou.id, ou.name " +
+            "ORDER BY avg_perf ASC LIMIT :limit", nativeQuery = true)
+    java.util.List<Object[]> findLowUnitsByPerformanceInSubtree(@Param("pathPrefix") String pathPrefix, @Param("startDate") Instant startDate, @Param("endDate") Instant endDate, @Param("limit") int limit);
+
     @Query(value = "SELECT u.id, u.full_name, u.email, COUNT(s.id) AS late_count " +
             "FROM kpi_submissions s " +
             "JOIN users u ON s.submitted_by = u.id " +
@@ -327,10 +411,11 @@ public interface KpiSubmissionRepository extends JpaRepository<KpiSubmission, UU
     @Query(value = "SELECT u.id, u.full_name, u.email, COUNT(s.id) AS underperform_count " +
             "FROM kpi_submissions s " +
             "JOIN kpi_criteria kc ON s.kpi_criteria_id = kc.id " +
+            "LEFT JOIN quantitative_kpi_details qkd ON qkd.kpi_criteria_id = kc.id " +
             "JOIN users u ON s.submitted_by = u.id " +
             "JOIN org_units ou ON s.org_unit_id = ou.id " +
             "WHERE ou.path LIKE CONCAT(:pathPrefix, '%') AND s.deleted_at IS NULL AND s.status = 'APPROVED' " +
-            "AND (s.actual_value * 100.0 / NULLIF(kc.target_value, 0)) < 90 " +
+            "AND (s.actual_value * 100.0 / NULLIF(qkd.target_value, 0)) < 90 " +
             "AND s.created_at >= :startDate AND s.created_at <= :endDate " +
             "GROUP BY u.id, u.full_name, u.email " +
             "ORDER BY underperform_count DESC LIMIT :limit", nativeQuery = true)
@@ -390,11 +475,12 @@ public interface KpiSubmissionRepository extends JpaRepository<KpiSubmission, UU
     @Query(value =
             "SELECT TO_CHAR(s.period_start, :datePattern) AS period_label, " +
             "COALESCE(SUM(s.actual_value), 0) AS total_actual, " +
-            "COALESCE(SUM(kc.target_value), 0) AS total_target, " +
-            "AVG(s.actual_value * 100.0 / NULLIF(kc.target_value, 0)) AS avg_performance, " +
+            "COALESCE(SUM(qkd.target_value), 0) AS total_target, " +
+            "AVG(s.actual_value * 100.0 / NULLIF(qkd.target_value, 0)) AS avg_performance, " +
             "COUNT(s.id) AS submission_count " +
             "FROM kpi_submissions s " +
             "JOIN kpi_criteria kc ON s.kpi_criteria_id = kc.id " +
+            "LEFT JOIN quantitative_kpi_details qkd ON qkd.kpi_criteria_id = kc.id " +
             "JOIN org_units ou ON s.org_unit_id = ou.id " +
             "WHERE ou.path LIKE CONCAT(:pathPrefix, '%') AND s.deleted_at IS NULL AND kc.deleted_at IS NULL " +
             "AND s.status = 'APPROVED' AND kc.status = 'APPROVED' AND s.period_start IS NOT NULL " +
@@ -406,9 +492,10 @@ public interface KpiSubmissionRepository extends JpaRepository<KpiSubmission, UU
      * Trả về [sum_actual, sum_target].
      */
     @Query(value =
-            "SELECT COALESCE(SUM(s.actual_value), 0), COALESCE(SUM(kc.target_value), 0) " +
+            "SELECT COALESCE(SUM(s.actual_value), 0), COALESCE(SUM(qkd.target_value), 0) " +
             "FROM kpi_submissions s " +
             "JOIN kpi_criteria kc ON s.kpi_criteria_id = kc.id " +
+            "LEFT JOIN quantitative_kpi_details qkd ON qkd.kpi_criteria_id = kc.id " +
             "JOIN org_units ou ON s.org_unit_id = ou.id " +
             "WHERE ou.path LIKE CONCAT(:pathPrefix, '%') AND s.deleted_at IS NULL AND kc.deleted_at IS NULL " +
             "AND s.status = 'APPROVED' AND kc.status = 'APPROVED' " +
@@ -422,11 +509,12 @@ public interface KpiSubmissionRepository extends JpaRepository<KpiSubmission, UU
     @Query(value = """
             SELECT TO_CHAR(s.period_start, :datePattern) AS period_label,
                    SUM(s.actual_value) AS total_actual,
-                   MAX(kc.target_value) AS target,
-                   SUM(s.actual_value)*100.0/NULLIF(MAX(kc.target_value),0) AS completion_pct,
+                   MAX(qkd.target_value) AS target,
+                   SUM(s.actual_value)*100.0/NULLIF(MAX(qkd.target_value),0) AS completion_pct,
                    COUNT(s.id) AS sub_count
             FROM kpi_submissions s
             JOIN kpi_criteria kc ON kc.id = s.kpi_criteria_id
+            LEFT JOIN quantitative_kpi_details qkd ON qkd.kpi_criteria_id = kc.id
             WHERE s.kpi_criteria_id = :kpiId
               AND s.status = 'APPROVED'
               AND s.deleted_at IS NULL
@@ -441,11 +529,12 @@ public interface KpiSubmissionRepository extends JpaRepository<KpiSubmission, UU
     @Query(value = """
             SELECT TO_CHAR(s.period_start, :datePattern) AS period_label,
                    SUM(s.actual_value) AS total_actual,
-                   MAX(kc.target_value) AS target,
-                   SUM(s.actual_value)*100.0/NULLIF(MAX(kc.target_value),0) AS completion_pct,
+                   MAX(qkd.target_value) AS target,
+                   SUM(s.actual_value)*100.0/NULLIF(MAX(qkd.target_value),0) AS completion_pct,
                    COUNT(s.id) AS sub_count
             FROM kpi_submissions s
             JOIN kpi_criteria kc ON kc.id = s.kpi_criteria_id
+            LEFT JOIN quantitative_kpi_details qkd ON qkd.kpi_criteria_id = kc.id
             WHERE s.kpi_criteria_id = :kpiId
               AND s.submitted_by = :userId
               AND s.status = 'APPROVED'

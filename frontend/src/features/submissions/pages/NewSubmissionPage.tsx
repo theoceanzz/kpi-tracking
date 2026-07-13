@@ -16,7 +16,7 @@ import FileDropzone from '@/components/common/FileDropzone'
 import { useUploadStore } from '@/store/uploadStore'
 import { toast } from 'sonner'
 import { useNavigate, useSearchParams, useParams } from 'react-router-dom'
-import { formatNumber } from '@/lib/utils'
+import { formatNumber, cn } from '@/lib/utils'
 import { 
   Loader2, Target, Activity, 
   MessageSquare, Paperclip, ChevronLeft, Send, Sparkles, Save,
@@ -24,6 +24,7 @@ import {
 } from 'lucide-react'
 import LoadingSkeleton from '@/components/common/LoadingSkeleton'
 import { useAuthStore } from '@/store/authStore'
+import { useOrganization } from '@/features/orgunits/hooks/useOrganization'
 import type { KpiCriteria } from '@/types/kpi'
 
 function isSubmittableByUser(k: KpiCriteria, userId?: string) {
@@ -31,12 +32,15 @@ function isSubmittableByUser(k: KpiCriteria, userId?: string) {
   return (k.status === 'APPROVED' || k.status === 'EDITED' || k.status === 'EDIT') &&
     k.submissionCount < k.expectedSubmissions &&
     !!userId && k.assigneeIds?.includes(userId) &&
+    (!k.kpiPeriod?.startDate || new Date(k.kpiPeriod.startDate) <= now) &&
     (!k.kpiPeriod?.endDate || new Date(k.kpiPeriod.endDate) >= now)
 }
 
 export default function NewSubmissionPage() {
   const navigate = useNavigate()
   const user = useAuthStore(s => s.user)
+  const { data: org } = useOrganization(user?.memberships?.[0]?.organizationId)
+  const qualitativeLevels = [...(org?.qualitativeLevels ?? [])].sort((a, b) => a.position - b.position)
   const { id } = useParams()
   const isEdit = !!id
   const [searchParams] = useSearchParams()
@@ -67,6 +71,7 @@ export default function NewSubmissionPage() {
       reset({
         kpiCriteriaId: existingSubmission.kpiCriteriaId,
         actualValue: existingSubmission.actualValue,
+        qualitativeLevelId: existingSubmission.qualitativeLevelId ?? undefined,
         note: existingSubmission.note ?? '',
         periodStart: existingSubmission.periodStart ? new Date(existingSubmission.periodStart).toISOString().split('T')[0] : undefined,
         periodEnd: existingSubmission.periodEnd ? new Date(existingSubmission.periodEnd).toISOString().split('T')[0] : undefined,
@@ -256,7 +261,41 @@ export default function NewSubmissionPage() {
               )}
             </div>
 
-            {/* Actual Value Input */}
+            {/* Actual Value Input — quantitative only */}
+            {selectedKpi?.kpiType === 'QUALITATIVE' ? (
+              <div className="space-y-4">
+                <label className="flex items-center gap-2 text-sm font-black text-slate-900 dark:text-white uppercase tracking-widest opacity-70">
+                  <Activity size={18} className="text-teal-600" /> Tự đánh giá mức đạt được
+                </label>
+                <p className="text-xs font-medium text-slate-500 -mt-2">Chọn mức bạn tự thấy phù hợp; quản lý sẽ xác nhận hoặc điều chỉnh khi duyệt.</p>
+                {qualitativeLevels.length === 0 ? (
+                  <p className="text-xs font-bold text-amber-600">Chưa cấu hình thang điểm định tính ở trang Công ty.</p>
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    {qualitativeLevels.map(level => {
+                      const active = watch('qualitativeLevelId') === level.id
+                      return (
+                        <button
+                          key={level.id}
+                          type="button"
+                          onClick={() => setValue('qualitativeLevelId', level.id)}
+                          className={cn(
+                            "flex items-center justify-between px-4 py-3 rounded-2xl border-2 transition-all text-left",
+                            active ? "border-teal-500 bg-teal-50 dark:bg-teal-900/10 ring-2 ring-teal-500/10" : "border-slate-200 dark:border-slate-800 hover:border-teal-300"
+                          )}
+                        >
+                          <div className="flex items-center gap-3">
+                            <span className="w-7 h-7 rounded-lg flex items-center justify-center text-white text-xs font-black" style={{ backgroundColor: level.color || '#14b8a6' }}>{level.position}</span>
+                            <span className={cn("text-sm font-bold", active ? "text-teal-700 dark:text-teal-400" : "text-slate-700 dark:text-slate-200")}>{level.name}</span>
+                          </div>
+                          <span className="text-sm font-black text-slate-500">{formatNumber(level.value)} đ</span>
+                        </button>
+                      )
+                    })}
+                  </div>
+                )}
+              </div>
+            ) : (
             <div className="space-y-4">
               <label className="flex items-center gap-2 text-sm font-black text-slate-900 dark:text-white uppercase tracking-widest opacity-70">
                 <Activity size={18} className="text-emerald-600" /> Trị số thực tế đã đạt <span className="text-rose-500">*</span>
@@ -265,13 +304,13 @@ export default function NewSubmissionPage() {
                 <div className="absolute inset-y-0 left-6 flex items-center pointer-events-none text-slate-400">
                    <span className="text-xl font-black">#</span>
                 </div>
-                <input 
-                  {...register('actualValue', { valueAsNumber: true })} 
-                  type="number" 
-                  step="any" 
+                <input
+                  {...register('actualValue', { valueAsNumber: true })}
+                  type="number"
+                  step="any"
                   onWheel={(e) => e.currentTarget.blur()}
-                  className="w-full pl-14 pr-24 py-6 rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-3xl font-black focus:outline-none focus:ring-8 focus:ring-indigo-500/5 focus:border-indigo-400 transition-all [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none shadow-inner" 
-                  placeholder="0.00" 
+                  className="w-full pl-14 pr-24 py-6 rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-3xl font-black focus:outline-none focus:ring-8 focus:ring-indigo-500/5 focus:border-indigo-400 transition-all [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none shadow-inner"
+                  placeholder="0.00"
                 />
                 {selectedKpi?.unit && (
                   <div className="absolute inset-y-0 right-6 flex items-center pointer-events-none">
@@ -283,6 +322,7 @@ export default function NewSubmissionPage() {
               </div>
               {errors.actualValue && <p className="text-rose-500 text-xs font-bold ml-2 flex items-center gap-1.5"><AlertCircle size={14} /> {errors.actualValue.message}</p>}
             </div>
+            )}
 
             {/* Explanation & Evidence */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8 pt-4">
@@ -372,6 +412,7 @@ export default function NewSubmissionPage() {
                   </div>
 
                   <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
+                    {selectedKpi.kpiType !== 'QUALITATIVE' && (
                     <div className="bg-black/20 backdrop-blur-md rounded-2xl p-4 border border-white/10">
                         <p className="text-[9px] font-black uppercase tracking-widest opacity-60 mb-1">Tối thiểu</p>
                         <div className="flex flex-wrap items-baseline gap-x-1">
@@ -383,6 +424,8 @@ export default function NewSubmissionPage() {
                           )}
                         </div>
                     </div>
+                    )}
+                    {selectedKpi.kpiType !== 'QUALITATIVE' && (
                     <div className="bg-black/20 backdrop-blur-md rounded-2xl p-4 border border-white/10">
                         <p className="text-[9px] font-black uppercase tracking-widest opacity-60 mb-1">Mục tiêu</p>
                         <div className="flex flex-wrap items-baseline gap-x-1">
@@ -394,6 +437,7 @@ export default function NewSubmissionPage() {
                           )}
                         </div>
                     </div>
+                    )}
                     <div className="bg-black/20 backdrop-blur-md rounded-2xl p-4 border border-white/10">
                         <p className="text-[9px] font-black uppercase tracking-widest opacity-60 mb-1">Trọng số</p>
                         <p className="text-lg font-black">{selectedKpi.weight}%</p>
@@ -421,7 +465,11 @@ export default function NewSubmissionPage() {
                 <h4 className="font-black text-sm uppercase tracking-widest">Lưu ý khi nộp bài</h4>
              </div>
              <ul className="space-y-4">
-                <ListItem icon={CheckCircle2} text="Dữ liệu thực tế phải được nhập bằng số để hệ thống có thể tính toán điểm thưởng." />
+                {selectedKpi?.kpiType === 'QUALITATIVE' ? (
+                  <ListItem icon={CheckCircle2} text="Chỉ tiêu định tính không nhập số. Hãy giải trình kết quả và đính kèm minh chứng; quản lý sẽ chấm điểm theo thang định tính khi duyệt." />
+                ) : (
+                  <ListItem icon={CheckCircle2} text="Dữ liệu thực tế phải được nhập bằng số để hệ thống có thể tính toán điểm thưởng." />
+                )}
                 <ListItem icon={CheckCircle2} text="Hãy đính kèm hình ảnh hoặc file tài liệu (PDF, Word, Excel...) để tăng độ tin cậy của báo cáo." />
                 <ListItem icon={CheckCircle2} text="Báo cáo ở trạng thái Nháp có thể chỉnh sửa bất cứ lúc nào trước khi Gửi duyệt." />
              </ul>

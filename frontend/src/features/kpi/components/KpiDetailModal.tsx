@@ -85,20 +85,24 @@ export default function KpiDetailModal({ open, onClose, kpi }: KpiDetailModalPro
 
           {/* Core Metrics Grid */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <MetricBox 
-              icon={Target} 
-              label="Mục tiêu yêu cầu" 
+            {kpi.kpiType !== 'QUALITATIVE' && (
+            <MetricBox
+              icon={Target}
+              label="Mục tiêu yêu cầu"
               value={kpi.targetValue != null ? formatNumber(kpi.targetValue) : '—'}
               unit={kpi.unit ?? ''}
               color="text-indigo-600"
             />
-            <MetricBox 
-              icon={BarChart3} 
-              label="Tối thiểu" 
+            )}
+            {kpi.kpiType !== 'QUALITATIVE' && (
+            <MetricBox
+              icon={BarChart3}
+              label="Tối thiểu"
               value={kpi.minimumValue != null ? formatNumber(kpi.minimumValue) : '0'}
               unit={kpi.unit ?? ''}
               color="text-rose-600"
             />
+            )}
             <MetricBox 
               icon={Award} 
               label="Trọng số (%)" 

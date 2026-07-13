@@ -24,4 +24,23 @@ public class EvaluationConstants {
         new DefaultLevel("TRUNG BÌNH", 50.0, "#6366f1"),
         new DefaultLevel("YẾU", 0.0, "#ef4444")
     );
+
+    @Getter
+    @Builder
+    @AllArgsConstructor
+    public static class DefaultQualitativeLevel {
+        private String name;
+        private Double value;
+        private Integer position;
+        private String color;
+    }
+
+    // Reference: "Điểm đánh giá Hành vi" (Performance Matrix). value = reference score, position = column in sheet.
+    public static final List<DefaultQualitativeLevel> DEFAULT_QUALITATIVE_LEVELS = List.of(
+        new DefaultQualitativeLevel("KÉM", 0.0, 1, "#ef4444"),
+        new DefaultQualitativeLevel("YẾU", 2.0, 2, "#f59e0b"),
+        new DefaultQualitativeLevel("TRUNG BÌNH", 3.0, 3, "#6366f1"),
+        new DefaultQualitativeLevel("KHÁ", 3.5, 4, "#3b82f6"),
+        new DefaultQualitativeLevel("TỐT", 4.5, 5, "#10b981")
+    );
 }

@@ -8,6 +8,7 @@ import type { Submission } from '@/types/submission'
 import AttachmentList from './AttachmentList'
 import { useAuth } from '@/hooks/useAuth'
 import { usePermission } from '@/hooks/usePermission'
+import { useOrganization } from '@/features/orgunits/hooks/useOrganization'
 import StaffEvaluationModal from './StaffEvaluationModal'
 import EvaluationFormModal from '@/features/evaluations/components/EvaluationFormModal'
 
@@ -29,6 +30,12 @@ export default function ReviewModal({ open, onClose, submission }: ReviewModalPr
   const isOwnSubmission = submission?.submittedById === user?.id
   const canReviewThis = (!submission?.isSubmittedByManager || isHighAuthority) && !isOwnSubmission
 
+  const isQualitative = submission?.kpiType === 'QUALITATIVE'
+  const organizationId = user?.memberships?.[0]?.organizationId
+  const { data: org } = useOrganization(organizationId)
+  const qualitativeLevels = [...(org?.qualitativeLevels ?? [])].sort((a, b) => a.position - b.position)
+  const [selectedLevelId, setSelectedLevelId] = useState<string | undefined>(undefined)
+
   // Initialize managerScore with autoScore when modal opens
   useEffect(() => {
     if (submission && managerScore === undefined) {
@@ -36,14 +43,24 @@ export default function ReviewModal({ open, onClose, submission }: ReviewModalPr
     }
   }, [submission])
 
+  // Initialize the qualitative level picker from any previously chosen level
+  useEffect(() => {
+    if (submission && isQualitative && selectedLevelId === undefined) {
+      setSelectedLevelId(submission.qualitativeLevelId ?? undefined)
+    }
+  }, [submission, isQualitative])
+
   const [showAllApproved, setShowAllApproved] = useState(false)
   const [showEvalForm, setShowEvalForm] = useState(false)
 
   const approveMutation = useMutation({
-    mutationFn: () => submissionApi.review(submission!.id, { 
-      status: 'APPROVED', 
+    mutationFn: () => submissionApi.review(submission!.id, {
+      status: 'APPROVED',
       reviewNote: reviewNote || undefined,
-      managerScore: managerScore 
+      // Qualitative KPIs: send the chosen level; the backend computes managerScore.
+      ...(isQualitative
+        ? { qualitativeLevelId: selectedLevelId }
+        : { managerScore }),
     }),
     onSuccess: (data) => { 
       qc.invalidateQueries({ queryKey: ['submissions'] })
@@ -65,7 +82,7 @@ export default function ReviewModal({ open, onClose, submission }: ReviewModalPr
     onError: () => toast.error('Từ chối thất bại'),
   })
 
-  const reset = () => { setReviewNote(''); setManagerScore(undefined); setMode('view') }
+  const reset = () => { setReviewNote(''); setManagerScore(undefined); setSelectedLevelId(undefined); setMode('view') }
 
   if (!open || !submission) return null
 
@@ -105,7 +122,8 @@ export default function ReviewModal({ open, onClose, submission }: ReviewModalPr
             </div>
           </div>
 
-          {/* Value Comparison */}
+          {/* Value Comparison — quantitative only */}
+          {!isQualitative && (
           <div className="grid grid-cols-2 gap-3">
             <div className="p-4 rounded-2xl bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200/50 dark:border-indigo-900/30 text-center">
               <p className="text-[10px] font-black uppercase tracking-widest text-indigo-500 mb-1">Giá trị thực tế</p>
@@ -116,6 +134,7 @@ export default function ReviewModal({ open, onClose, submission }: ReviewModalPr
               <p className="text-3xl font-black text-slate-600 dark:text-slate-300">{submission.targetValue != null ? formatNumber(submission.targetValue) : '—'}</p>
             </div>
           </div>
+          )}
 
           {/* Scoring Section */}
           <div className="space-y-3">
@@ -124,6 +143,48 @@ export default function ReviewModal({ open, onClose, submission }: ReviewModalPr
               <div className="h-px flex-1 mx-4 bg-slate-100 dark:bg-slate-800" />
             </div>
 
+            {isQualitative ? (
+              /* Qualitative: pick a level from the org's qualitative scale */
+              <div className="space-y-2">
+                <p className="text-xs font-medium text-slate-500 px-1">Chọn mức đánh giá định tính:</p>
+                {qualitativeLevels.length === 0 ? (
+                  <p className="text-xs font-bold text-amber-600 px-1">Chưa cấu hình thang điểm định tính ở trang Công ty.</p>
+                ) : (
+                  <div className="space-y-2">
+                    {qualitativeLevels.map(level => {
+                      const active = selectedLevelId === level.id
+                      return (
+                        <button
+                          key={level.id}
+                          type="button"
+                          onClick={() => isReviewable && setSelectedLevelId(level.id)}
+                          disabled={!isReviewable}
+                          className={cn(
+                            "w-full flex items-center justify-between px-4 py-3 rounded-2xl border-2 transition-all text-left disabled:cursor-not-allowed",
+                            active
+                              ? "border-emerald-500 bg-emerald-50 dark:bg-emerald-900/10 ring-2 ring-emerald-500/10"
+                              : "border-slate-200 dark:border-slate-800 hover:border-emerald-300"
+                          )}
+                        >
+                          <div className="flex items-center gap-3">
+                            <span className="w-7 h-7 rounded-lg flex items-center justify-center text-white text-xs font-black" style={{ backgroundColor: level.color || '#64748b' }}>
+                              {level.position}
+                            </span>
+                            <span className={cn("text-sm font-bold", active ? "text-emerald-700 dark:text-emerald-400" : "text-slate-700 dark:text-slate-200")}>
+                              {level.name}
+                            </span>
+                          </div>
+                          <span className="text-lg font-black text-slate-500 dark:text-slate-400">{formatNumber(level.value)} đ</span>
+                        </button>
+                      )
+                    })}
+                  </div>
+                )}
+                {submission.managerScore != null && (
+                  <p className="text-[11px] font-bold text-slate-500 px-1">Điểm quy đổi hiện tại: <span className="text-emerald-600">{formatNumber(submission.managerScore)}</span></p>
+                )}
+              </div>
+            ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {/* Auto Score Display */}
               <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-800 flex items-center justify-between">
@@ -139,7 +200,7 @@ export default function ReviewModal({ open, onClose, submission }: ReviewModalPr
               {/* Manager Score Input */}
               <div className={cn(
                 "p-4 rounded-2xl border transition-all duration-300 flex items-center justify-between",
-                isReviewable 
+                isReviewable
                   ? "bg-indigo-50/50 border-indigo-200 dark:bg-indigo-900/10 dark:border-indigo-800 ring-2 ring-indigo-500/5"
                   : "bg-slate-50 dark:bg-slate-800/50 border-slate-200 dark:border-slate-800"
               )}>
@@ -148,7 +209,7 @@ export default function ReviewModal({ open, onClose, submission }: ReviewModalPr
                   <p className="text-xs font-medium text-slate-500">{user?.memberships?.[0]?.roleName || 'Quản lý'} chấm</p>
                 </div>
                 <div className="w-20">
-                  <input 
+                  <input
                     type="number"
                     value={managerScore}
                     onChange={e => setManagerScore(Number(e.target.value))}
@@ -158,6 +219,7 @@ export default function ReviewModal({ open, onClose, submission }: ReviewModalPr
                 </div>
               </div>
             </div>
+            )}
           </div>
 
           {/* Progress bar */}
@@ -294,7 +356,8 @@ export default function ReviewModal({ open, onClose, submission }: ReviewModalPr
                     </button>
                     <button
                       onClick={() => approveMutation.mutate()}
-                      disabled={isPending}
+                      disabled={isPending || (isQualitative && !selectedLevelId)}
+                      title={isQualitative && !selectedLevelId ? 'Vui lòng chọn mức đánh giá định tính' : undefined}
                       className="flex-1 px-4 py-3 rounded-xl text-sm font-bold bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-50 transition-all flex items-center justify-center gap-2 shadow-lg shadow-emerald-500/20"
                     >
                       {approveMutation.isPending ? <Loader2 size={16} className="animate-spin" /> : <CheckCircle size={18} />}

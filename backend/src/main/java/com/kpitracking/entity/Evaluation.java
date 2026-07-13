@@ -46,6 +46,16 @@ public class Evaluation {
     @Column(name = "system_score")
     private Double systemScore;
 
+    // Performance-matrix result (only meaningful when qualitative KPIs are used).
+    @Column(name = "behavior_score")
+    private Double behaviorScore;
+
+    @Column(name = "kpi_completion_percent")
+    private Double kpiCompletionPercent;
+
+    @Column(name = "matrix_rating")
+    private Integer matrixRating;
+
     @Column(name = "period_start")
     private Instant periodStart;
 

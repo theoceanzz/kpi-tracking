@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 import { kpiApi } from '../api/kpiApi'
 import { KpiStatus } from '@/types/kpi'
 import type { PageResponse } from '@/types/api'
-import type { KpiCriteria } from '@/types/kpi'
+import type { KpiCriteria, KpiType } from '@/types/kpi'
 
 export function useKpiCriteria(params: { 
   page?: number; 
@@ -24,6 +24,7 @@ export function useKpiCriteria(params: {
   kpiNature?: 'PARENT_CHILD' | 'STANDALONE';
   isBonusKpi?: boolean;
   isReverseKpi?: boolean;
+  kpiType?: KpiType;
 } = {}, options: any = {}) {
   return useQuery<PageResponse<KpiCriteria>>({
     queryKey: ['kpi-criteria', 'all', params],

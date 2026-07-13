@@ -923,7 +923,7 @@ function OrgUnitsGrid({ units, averageScores }: { units: OrgUnitStats[], average
                   </div>
                   <div className="flex flex-col items-end">
                     <span className="text-3xl font-black text-slate-900 dark:text-white tracking-tighter">{kRate}%</span>
-                    <span className="text-[9px] font-black text-indigo-500 uppercase tracking-[0.2em]">Hiệu suất</span>
+                    <span className="text-[9px] font-black text-indigo-500 uppercase tracking-[0.2em]">Tiến Độ</span>
                   </div>
                 </div>
 

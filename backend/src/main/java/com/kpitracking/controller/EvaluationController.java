@@ -63,4 +63,12 @@ public class EvaluationController {
         Double score = evaluationService.getSystemScore(kpiPeriodId, userId);
         return ResponseEntity.ok(ApiResponse.success(score));
     }
+
+    @GetMapping("/score-preview")
+    @Operation(summary = "Get computed scores (system + behavior + matrix rating) for a period")
+    public ResponseEntity<ApiResponse<com.kpitracking.dto.response.evaluation.EvaluationScorePreview>> getScorePreview(
+            @RequestParam UUID kpiPeriodId,
+            @RequestParam(required = false) UUID userId) {
+        return ResponseEntity.ok(ApiResponse.success(evaluationService.getScorePreview(kpiPeriodId, userId)));
+    }
 }

@@ -263,7 +263,13 @@ export default function StaffDashboard() {
                       {/* Scores Section */}
                       <div className="hidden md:flex items-center gap-4">
                         <div className="flex flex-col items-center">
-                          <ProgressCircle percentage={task.managerScore ?? 0} size={42} strokeWidth={4} color="text-indigo-500" />
+                          {task.kpiType === 'QUALITATIVE' ? (
+                            <span className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-teal-50 dark:bg-teal-900/20 text-teal-600 dark:text-teal-400 text-[11px] font-black uppercase tracking-wider border border-teal-100 dark:border-teal-800/50 whitespace-nowrap">
+                              ★ {task.qualitativeLevelName ?? 'Chưa chấm'}
+                            </span>
+                          ) : (
+                            <ProgressCircle percentage={task.managerScore ?? 0} size={42} strokeWidth={4} color="text-indigo-500" />
+                          )}
                           {task.managerName && (
                             <span className="text-[9px] font-bold text-slate-400 mt-1 uppercase tracking-tight">
                               {task.managerName.split(' ').pop()} chấm
@@ -274,11 +280,12 @@ export default function StaffDashboard() {
                       
                       <div className="flex items-center gap-3">
                         <StatusBadge status={task.status} />
-                        {task.submissionCount < task.expectedSubmissions && 
-                         task.status !== 'APPROVED' && 
-                         task.status !== 'PENDING' && 
-                         task.status !== 'REJECTED' && 
-                         task.status !== 'EDIT' && 
+                        {task.submissionCount < task.expectedSubmissions &&
+                         task.status !== 'APPROVED' &&
+                         task.status !== 'PENDING' &&
+                         task.status !== 'REJECTED' &&
+                         task.status !== 'EDIT' &&
+                         task.status !== 'OVERDUE' &&
                          (!task.startDate || new Date(task.startDate) <= new Date()) && (
                           <Link 
                             to={`/submissions/new?kpiId=${task.id}`}
@@ -348,7 +355,13 @@ export default function StaffDashboard() {
                         </div>
                         
                         <div className="flex items-center gap-3 shrink-0">
-                          <ProgressCircle percentage={percentage} size={42} strokeWidth={4} />
+                          {s.kpiType === 'QUALITATIVE' ? (
+                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-teal-50 dark:bg-teal-900/20 text-teal-600 dark:text-teal-400 text-[10px] font-black uppercase tracking-wider border border-teal-100 dark:border-teal-800/50 whitespace-nowrap">
+                              ★ {s.qualitativeLevelName ?? 'Định tính'}
+                            </span>
+                          ) : (
+                            <ProgressCircle percentage={percentage} size={42} strokeWidth={4} />
+                          )}
                           {s.status === 'DRAFT' ? (
                             <Link 
                               to={`/submissions/edit/${s.id}`}

@@ -474,6 +474,11 @@ function MyKpiTableRow({ kpi, depth = 0, childKpis = [], isCollapsed, onToggleCo
             </div>
             <div className="flex items-center gap-1.5 flex-wrap">
               <span className="text-[9px] text-slate-400 font-black uppercase bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded w-fit whitespace-nowrap">{FREQUENCY_MAP[kpi.frequency as keyof typeof FREQUENCY_MAP]}</span>
+              {kpi.kpiType === 'QUALITATIVE' && (
+                <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-teal-100 dark:bg-teal-900/30 text-teal-600 dark:text-teal-400 text-[9px] font-black uppercase tracking-wider border border-teal-200 dark:border-teal-800/50 whitespace-nowrap">
+                  ★ Định tính
+                </span>
+              )}
               {kpi.isReverseKpi && (
                 <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 text-[9px] font-black uppercase tracking-wider border border-orange-200 dark:border-orange-800/50 whitespace-nowrap">
                   ↓ KPI Ngược
@@ -634,6 +639,11 @@ function MyKpiCard({ kpi, depth = 0, childKpis = [], isCollapsed, onToggleCollap
           <h3 className="text-lg font-black text-slate-900 dark:text-white line-clamp-2 leading-tight">{kpi.name}</h3>
           <div className="flex items-center gap-1.5 flex-wrap mt-1">
             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{FREQUENCY_MAP[kpi.frequency as keyof typeof FREQUENCY_MAP]}</p>
+            {kpi.kpiType === 'QUALITATIVE' && (
+              <span className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full bg-teal-100 dark:bg-teal-900/30 text-teal-600 dark:text-teal-400 text-[9px] font-black uppercase tracking-wider border border-teal-200 dark:border-teal-800/50">
+                ★ Định tính
+              </span>
+            )}
             {kpi.isReverseKpi && (
               <span className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 text-[9px] font-black uppercase tracking-wider border border-orange-200 dark:border-orange-800/50">
                 ↓ KPI Ngược

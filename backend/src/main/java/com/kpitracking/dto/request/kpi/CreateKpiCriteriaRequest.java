@@ -2,6 +2,7 @@ package com.kpitracking.dto.request.kpi;
 
 import com.kpitracking.enums.KpiFrequency;
 import com.kpitracking.enums.KpiParentRelationType;
+import com.kpitracking.enums.KpiType;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
@@ -16,6 +17,8 @@ public class CreateKpiCriteriaRequest {
     @NotBlank(message = "KPI name is required")
     @Size(max = 255, message = "KPI name must not exceed 255 characters")
     private String name;
+
+    private KpiType kpiType;
 
     private String description;
 

@@ -69,6 +69,10 @@ public class KpiSubmission {
     @Column(name = "manager_score")
     private Double managerScore;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "qualitative_level_id")
+    private QualitativeLevel qualitativeLevel;
+
     @OneToMany(mappedBy = "submission", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     @Builder.Default
     private List<SubmissionAttachment> attachments = new ArrayList<>();

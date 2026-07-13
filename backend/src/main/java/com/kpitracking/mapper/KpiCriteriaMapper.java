@@ -30,6 +30,7 @@ public interface KpiCriteriaMapper {
         response.setIsReverseKpi(kpi.getIsReverseKpi());
         response.setIsBonusKpi(kpi.getIsBonusKpi());
     }
+    @Mapping(source = "kpiType", target = "kpiType")
     @Mapping(source = "orgUnit.id", target = "orgUnitId")
     @Mapping(source = "orgUnit.name", target = "orgUnitName")
     @Mapping(source = "assignees", target = "assignees")

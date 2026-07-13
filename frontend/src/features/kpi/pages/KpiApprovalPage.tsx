@@ -518,6 +518,11 @@ export default function KpiApprovalPage() {
                               </div>
                               <div className="flex items-center gap-1.5 flex-wrap mt-1">
                                 <p className="text-[10px] font-black text-slate-400 uppercase tracking-tighter">{FREQUENCY_MAP[kpi.frequency as keyof typeof FREQUENCY_MAP] || kpi.frequency}</p>
+                                {kpi.kpiType === 'QUALITATIVE' && (
+                                  <span className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full bg-teal-100 dark:bg-teal-900/30 text-teal-600 dark:text-teal-400 text-[9px] font-black uppercase tracking-wider border border-teal-200 dark:border-teal-800/50 whitespace-nowrap">
+                                    ★ Định tính
+                                  </span>
+                                )}
                                 {kpi.isReverseKpi && (
                                   <span className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 text-[9px] font-black uppercase tracking-wider border border-orange-200 dark:border-orange-800/50 whitespace-nowrap">
                                     ↓ KPI Ngược
@@ -642,6 +647,9 @@ export default function KpiApprovalPage() {
                                 <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 text-[9px] font-black uppercase tracking-wider border border-slate-200 dark:border-slate-700 whitespace-nowrap">
                                   {childKpis.length} KPI con
                                 </span>
+                              )}
+                              {kpi.kpiType === 'QUALITATIVE' && (
+                                <span className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full bg-teal-100 dark:bg-teal-900/30 text-teal-600 dark:text-teal-400 text-[9px] font-black uppercase tracking-wider border border-teal-200 dark:border-teal-800/50 whitespace-nowrap">★ Định tính</span>
                               )}
                               {kpi.isReverseKpi && (
                                 <span className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 text-[9px] font-black uppercase tracking-wider border border-orange-200 dark:border-orange-800/50 whitespace-nowrap">↓ Ngược</span>

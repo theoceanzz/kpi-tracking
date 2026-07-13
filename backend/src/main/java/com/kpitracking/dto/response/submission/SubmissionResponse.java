@@ -1,6 +1,7 @@
 package com.kpitracking.dto.response.submission;
 
 import com.kpitracking.enums.SubmissionStatus;
+import com.kpitracking.enums.KpiType;
 import lombok.*;
 
 import java.time.Instant;
@@ -13,8 +14,12 @@ public class SubmissionResponse {
     private UUID id;
     private UUID kpiCriteriaId;
     private String kpiCriteriaName;
+    private KpiType kpiType;
     private Double actualValue;
     private Double targetValue;
+    private UUID qualitativeLevelId;
+    private String qualitativeLevelName;
+    private Double qualitativeLevelValue;
     private String note;
     private SubmissionStatus status;
     private UUID submittedById;

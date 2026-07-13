@@ -6,7 +6,7 @@ import { toast } from 'sonner'
 import {
   X, Loader2, CheckCircle, Target, TrendingUp,
   MessageSquare, Award, Star, Zap,
-  AlertCircle, Paperclip, ExternalLink
+  AlertCircle, Paperclip, ExternalLink, Lock
 } from 'lucide-react'
 
 import { useAuthStore } from '@/store/authStore'
@@ -34,9 +34,11 @@ export default function StaffEvaluationModal({
   const orgId = user?.memberships?.[0]?.organizationId
   const { data: org } = useOrganization(orgId)
   const { getScoreLabel, maxScore } = getScoringFunctions(org)
+  const qualitativeLevels = [...(org?.qualitativeLevels ?? [])].sort((a, b) => a.position - b.position)
   const userRoleName = user?.memberships?.[0]?.roleName || 'Quản lý'
   const qc = useQueryClient()
   const [individualScores, setIndividualScores] = useState<Record<string, number>>({})
+  const [individualLevels, setIndividualLevels] = useState<Record<string, string>>({})
   const [overallComment, setOverallComment] = useState(evaluationComment || '')
   const [finalScore, setFinalScore] = useState(0)
   const hasManuallyAdjustedFinal = useRef(false)
@@ -65,14 +67,33 @@ export default function StaffEvaluationModal({
 
   const submissionList = submissions?.content ?? []
 
+  // Full-qualitative: the staff member has only qualitative KPIs, so KPI completion defaults to
+  // 100% -> the final 0..100 score is locked to maxScore (in sync with "100% hoàn thành"),
+  // matching EvaluationFormModal's self-score behaviour.
+  const isFullQualitative = submissionList.length > 0 && submissionList.every(s => s.kpiType === 'QUALITATIVE')
+  const effectiveFinalScore = isFullQualitative ? maxScore : finalScore
+
+  // Quantitative KPIs share the 0..100 pool. When qualitative takes part of the 100%
+  // weight, normalize the quantitative scores over their OWN weight so they still fill
+  // the 0..100 scale (matching the backend evaluation system score, which is normalized).
+  // Per-submission autoScore/managerScore stay on the raw weight scale in the DB; we only
+  // scale them by normFactor for display/inputs here, and de-normalize again on save.
+  const quantWeight = useMemo(() =>
+    submissionList.filter(s => s.kpiType !== 'QUALITATIVE').reduce((acc, s) => acc + (s.weight ?? 0), 0),
+  [submissionList])
+  const normFactor = quantWeight > 0 ? 100 / quantWeight : 1
+
   // Initialize individual scores when data loaded
   useEffect(() => {
     if (submissionList.length > 0) {
       const scores: Record<string, number> = {}
+      const levels: Record<string, string> = {}
       submissionList.forEach(s => {
-        scores[s.id] = Math.round(s.managerScore ?? s.autoScore ?? 0)
+        scores[s.id] = Math.round((s.managerScore ?? s.autoScore ?? 0) * normFactor)
+        if (s.qualitativeLevelId) levels[s.id] = s.qualitativeLevelId
       })
       setIndividualScores(scores)
+      setIndividualLevels(levels)
     }
   }, [submissions])
 
@@ -90,14 +111,15 @@ export default function StaffEvaluationModal({
     }
   }, [existingEval, evaluationComment])
 
-  // Calculation logic
+  // Calculation logic (quantitative only, normalized to fill the 0..100 pool)
   const totalAutoScore = useMemo(() =>
-    submissionList.reduce((acc, s) => acc + (s.autoScore ?? 0), 0),
-  [submissionList])
+    submissionList.filter(s => s.kpiType !== 'QUALITATIVE').reduce((acc, s) => acc + Math.round((s.autoScore ?? 0) * normFactor), 0),
+  [submissionList, normFactor])
 
+  // Qualitative KPIs feed the matrix, not the 0..100 sum, so exclude them here.
   const totalManagerScore = useMemo(() =>
-    Object.values(individualScores).reduce((acc, s) => acc + s, 0),
-  [individualScores])
+    submissionList.filter(s => s.kpiType !== 'QUALITATIVE').reduce((acc, s) => acc + (individualScores[s.id] ?? 0), 0),
+  [individualScores, submissionList])
 
   // Final score slider starts at the sum of the per-KPI scores above, then can be
   // dragged independently within [0, maxScore] without being tied back to those scores.
@@ -122,10 +144,12 @@ export default function StaffEvaluationModal({
         reviewResults = await submissionApi.bulkReview({
           submissionIds: submissionList.map(s => s.id),
           commonReview: { status: 'APPROVED', reviewNote: 'Phê duyệt tổng hợp qua bảng đánh giá' },
-          individualReviews: Object.entries(individualScores).map(([id, score]) => ({
-            submissionId: id,
-            managerScore: score
-          }))
+          individualReviews: submissionList.map(s =>
+            s.kpiType === 'QUALITATIVE'
+              ? { submissionId: s.id, qualitativeLevelId: individualLevels[s.id] }
+              // De-normalize back to the raw weight scale for storage.
+              : { submissionId: s.id, managerScore: (individualScores[s.id] ?? 0) / normFactor }
+          ).filter(ir => ('managerScore' in ir && ir.managerScore != null) || ('qualitativeLevelId' in ir && ir.qualitativeLevelId != null))
         })
       }
 
@@ -133,7 +157,7 @@ export default function StaffEvaluationModal({
       await evaluationApi.create({
         userId,
         kpiPeriodId: periodId,
-        score: finalScore,
+        score: effectiveFinalScore,
         comment: overallComment || `${userRoleName} đánh giá kết quả đợt ${periodName}`
       })
 
@@ -277,16 +301,38 @@ export default function StaffEvaluationModal({
                       </div>
                       <div className="flex items-center justify-between gap-3 pl-11">
                         <div className="space-y-1">
-                          <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest">Kết quả / Mục tiêu</p>
+                          <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest">{s.kpiType === 'QUALITATIVE' ? 'Tự đánh giá' : 'Kết quả / Mục tiêu'}</p>
+                          {s.kpiType === 'QUALITATIVE' ? (
+                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-teal-50 dark:bg-teal-900/20 border border-teal-100 dark:border-teal-800/50 text-[10px] font-black uppercase tracking-wider text-teal-600 dark:text-teal-400">★ {s.qualitativeLevelName ?? '—'}</span>
+                          ) : (
                           <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700">
                             <span className="text-xs font-black text-slate-900 dark:text-white">{formatNumber(s.actualValue)}</span>
                             <span className="text-[10px] text-slate-400">/</span>
                             <span className="text-[10px] font-bold text-slate-500">{s.targetValue != null ? formatNumber(s.targetValue) : '—'}</span>
                           </div>
+                          )}
                         </div>
                         {(isFullyApproved || !readOnly) ? (
                           <div className="space-y-1">
                             <p className="text-[9px] text-indigo-400 font-bold uppercase tracking-widest text-right">{userRoleName} chấm</p>
+                            {s.kpiType === 'QUALITATIVE' ? (
+                              <select
+                                value={individualLevels[s.id] ?? ''}
+                                onChange={e => setIndividualLevels(prev => ({ ...prev, [s.id]: e.target.value }))}
+                                disabled={readOnly}
+                                className={cn(
+                                  "w-40 px-2 py-2 rounded-xl text-xs font-bold outline-none transition-all",
+                                  readOnly
+                                    ? "bg-slate-50 dark:bg-slate-800/30 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 cursor-not-allowed"
+                                    : "bg-teal-50/50 dark:bg-teal-900/10 border border-teal-100 dark:border-teal-800 text-teal-700 dark:text-teal-400 focus:ring-2 focus:ring-teal-500/20"
+                                )}
+                              >
+                                <option value="">— Chọn mức —</option>
+                                {qualitativeLevels.map(l => (
+                                  <option key={l.id} value={l.id}>{l.name} ({formatNumber(l.value)}đ)</option>
+                                ))}
+                              </select>
+                            ) : (
                             <input
                               type="number"
                               value={individualScores[s.id] ?? 0}
@@ -300,11 +346,12 @@ export default function StaffEvaluationModal({
                                   : "bg-indigo-50/50 dark:bg-indigo-900/10 border border-indigo-100 dark:border-indigo-800 text-indigo-600 dark:text-indigo-400 focus:ring-2 focus:ring-indigo-500/20"
                               )}
                             />
+                            )}
                           </div>
                         ) : (
                           <div className="space-y-1 text-right">
                             <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest">Điểm hệ thống</p>
-                            <span className="text-sm font-bold text-slate-400">{formatNumber(s.autoScore ?? 0)}</span>
+                            <span className="text-sm font-bold text-slate-400">{s.kpiType === 'QUALITATIVE' ? '—' : formatNumber(Math.round((s.autoScore ?? 0) * normFactor))}</span>
                           </div>
                         )}
                       </div>
@@ -368,18 +415,42 @@ export default function StaffEvaluationModal({
                             </div>
                           </td>
                           <td className="px-6 py-5 text-center">
+                            {s.kpiType === 'QUALITATIVE' ? (
+                              <span className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-teal-50 dark:bg-teal-900/20 border border-teal-100 dark:border-teal-800/50 text-[11px] font-black uppercase tracking-wider text-teal-600 dark:text-teal-400">
+                                ★ {s.qualitativeLevelName ?? 'Tự đánh giá'}
+                              </span>
+                            ) : (
                             <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700">
                               <span className="text-xs font-black text-slate-900 dark:text-white">{formatNumber(s.actualValue)}</span>
                               <span className="text-[10px] text-slate-400">/</span>
                               <span className="text-[10px] font-bold text-slate-500">{s.targetValue != null ? formatNumber(s.targetValue) : '—'}</span>
                             </div>
+                            )}
                           </td>
                           <td className="px-6 py-5 text-right">
-                            <span className="text-sm font-bold text-slate-400">{formatNumber(s.autoScore ?? 0)}</span>
+                            <span className="text-sm font-bold text-slate-400">{s.kpiType === 'QUALITATIVE' ? '—' : formatNumber(Math.round((s.autoScore ?? 0) * normFactor))}</span>
                           </td>
                           {(isFullyApproved || !readOnly) && (
                             <td className="px-6 py-5 text-right">
                               <div className="flex justify-end">
+                                {s.kpiType === 'QUALITATIVE' ? (
+                                  <select
+                                    value={individualLevels[s.id] ?? ''}
+                                    onChange={e => setIndividualLevels(prev => ({ ...prev, [s.id]: e.target.value }))}
+                                    disabled={readOnly}
+                                    className={cn(
+                                      "w-44 px-3 py-2 rounded-xl text-sm font-bold outline-none transition-all",
+                                      readOnly
+                                        ? "bg-slate-50 dark:bg-slate-800/30 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 cursor-not-allowed"
+                                        : "bg-teal-50/50 dark:bg-teal-900/10 border border-teal-100 dark:border-teal-800 text-teal-700 dark:text-teal-400 focus:ring-2 focus:ring-teal-500/20"
+                                    )}
+                                  >
+                                    <option value="">— Chọn mức —</option>
+                                    {qualitativeLevels.map(l => (
+                                      <option key={l.id} value={l.id}>{l.name} ({formatNumber(l.value)}đ)</option>
+                                    ))}
+                                  </select>
+                                ) : (
                                 <div className="w-24 relative group/input">
                                   <input
                                     type="number"
@@ -395,6 +466,7 @@ export default function StaffEvaluationModal({
                                     )}
                                   />
                                 </div>
+                                )}
                               </div>
                             </td>
                           )}
@@ -442,11 +514,11 @@ export default function StaffEvaluationModal({
                          <div>
                             <p className="text-[10px] font-black uppercase tracking-widest text-indigo-200">Kết quả đánh giá cuối cùng</p>
                             <div className="flex items-baseline gap-2">
-                               <h3 className="text-6xl font-black tracking-tighter">{formatNumber(finalScore)}</h3>
+                               <h3 className="text-6xl font-black tracking-tighter">{formatNumber(effectiveFinalScore)}</h3>
                                <span className="text-lg font-bold opacity-60">điểm</span>
                             </div>
                          </div>
-                         {!readOnly && finalScore !== totalManagerScore && (
+                         {!readOnly && !isFullQualitative && finalScore !== totalManagerScore && (
                             <button
                               type="button"
                               onClick={handleResetFinalScore}
@@ -457,6 +529,7 @@ export default function StaffEvaluationModal({
                          )}
                       </div>
 
+                      {!isFullQualitative && (
                       <div className="pt-6 border-t border-white/10 space-y-3 relative z-10">
                          <div className="flex justify-between text-xs font-bold text-indigo-100/60">
                             <span>Tổng điểm hệ thống</span>
@@ -471,9 +544,18 @@ export default function StaffEvaluationModal({
                             <span>{finalScore - totalAutoScore >= 0 ? '+' : ''}{formatNumber(finalScore - totalAutoScore)}</span>
                          </div>
                       </div>
+                      )}
 
                       {/* Final score adjustment slider - starts at the sum of per-KPI scores,
-                          can be dragged independently within [0, maxScore] */}
+                          can be dragged independently within [0, maxScore].
+                          Full-qualitative locks the score to maxScore instead. */}
+                      {isFullQualitative ? (
+                        <div className="pt-6 border-t border-white/10 relative z-10">
+                           <div className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-white/10 backdrop-blur-md text-[10px] font-black uppercase tracking-widest whitespace-nowrap">
+                              <Lock size={12} className="shrink-0" /> Full định tính · Cố định điểm {maxScore}
+                           </div>
+                        </div>
+                      ) : (
                       <div className="pt-2 relative z-10 space-y-3">
                          <input
                            type="range" min={0} max={maxScore} step={1}
@@ -492,10 +574,11 @@ export default function StaffEvaluationModal({
                             <span>{maxScore}</span>
                          </div>
                       </div>
+                      )}
 
                       <div className="pt-2 relative z-10">
                          <div className="px-4 py-2 rounded-xl bg-white/10 backdrop-blur-md text-[10px] font-black uppercase tracking-widest inline-flex items-center gap-2">
-                            <Award size={14} /> Tự động xếp loại: {getGrade(finalScore)}
+                            <Award size={14} /> Tự động xếp loại: {getGrade(effectiveFinalScore)}
                          </div>
                       </div>
                    </div>

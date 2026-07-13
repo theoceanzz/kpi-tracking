@@ -12,4 +12,7 @@ public class ReviewSubmissionRequest {
 
     private String reviewNote;
     private Double managerScore;
+
+    // For qualitative KPIs: the level the reviewer picked; drives managerScore.
+    private java.util.UUID qualitativeLevelId;
 }
