@@ -329,8 +329,9 @@ export default function CompanyPage() {
         </section>
 
         {org && <OkrConfigSection org={org} />}
-        {org && <WaterfallConfigSection org={org} />}
         {org && <QualitativeKpiToggleSection org={org} />}
+        {org && <BscConfigSection org={org} />}
+        {org && <WaterfallConfigSection org={org} />}
       </div>
       )}
 
@@ -1301,6 +1302,80 @@ function OkrConfigSection({ org }: { org: any }) {
   )
 }
 
+function BscConfigSection({ org }: { org: any }) {
+  const updateMutation = useUpdateOrganization(org.id)
+  const [enabled, setEnabled] = useState(org?.enableBsc || false)
+
+  useEffect(() => {
+    setEnabled(org?.enableBsc || false)
+  }, [org])
+
+  const handleToggle = () => {
+    const newValue = !enabled
+    setEnabled(newValue)
+    updateMutation.mutate({ enableBsc: newValue }, {
+      onSuccess: () => {
+        toast.success(`Đã ${newValue ? 'bật' : 'tắt'} thẻ điểm cân bằng (BSC)`)
+      },
+      onError: () => {
+        setEnabled(!newValue)
+        toast.error('Không thể cập nhật cấu hình BSC')
+      }
+    })
+  }
+
+  return (
+    <section className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden flex flex-col h-full">
+      <div className="px-8 py-6 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          <div className="w-10 h-10 rounded-xl bg-indigo-50 dark:bg-indigo-900/30 flex items-center justify-center text-indigo-600 dark:text-indigo-400">
+            <Layers size={20} />
+          </div>
+          <div>
+            <h3 className="text-lg font-bold text-slate-900 dark:text-white uppercase tracking-tight">Thẻ điểm cân bằng</h3>
+            <p className="text-[10px] font-medium text-slate-400 uppercase tracking-widest">Balanced Scorecard (BSC)</p>
+          </div>
+        </div>
+        <button
+          onClick={handleToggle}
+          disabled={updateMutation.isPending}
+          className={cn(
+            "w-12 h-6 rounded-full relative transition-all duration-300",
+            enabled ? "bg-emerald-500" : "bg-slate-200 dark:bg-slate-700"
+          )}
+        >
+          <div className={cn(
+            "absolute top-1 w-4 h-4 rounded-full bg-white transition-all duration-300 shadow-sm",
+            enabled ? "left-7" : "left-1"
+          )} />
+        </button>
+      </div>
+
+      <div className="p-6 space-y-4">
+        <div className="p-4 rounded-2xl bg-indigo-50 dark:bg-indigo-900/10 border border-indigo-100 dark:border-indigo-900/30 flex items-start gap-3">
+          <Info size={18} className="text-indigo-600 shrink-0 mt-0.5" />
+          <div className="space-y-1">
+            <p className="text-xs text-indigo-800 dark:text-indigo-300 font-bold">Quản trị chiến lược theo 4 viễn cảnh</p>
+            <p className="text-[11px] text-indigo-700/70 dark:text-indigo-400/70 font-medium leading-relaxed">
+              Khi bật, bạn có thể cấu hình các viễn cảnh BSC (Tài chính, Khách hàng, Quy trình nội bộ, Học hỏi & phát triển),
+              nhóm KPI theo viễn cảnh và theo dõi thẻ điểm cân bằng của tổ chức.
+            </p>
+          </div>
+        </div>
+
+        {enabled && (
+          <Link
+            to="/bsc"
+            className="w-full py-3 flex items-center justify-center gap-2 bg-slate-900 dark:bg-white text-white dark:text-slate-900 rounded-xl text-[11px] font-black uppercase tracking-widest hover:opacity-90 transition-all shadow-xl shadow-slate-900/10 dark:shadow-white/5"
+          >
+            Đi đến quản lý BSC
+          </Link>
+        )}
+      </div>
+    </section>
+  )
+}
+
 function QualitativeKpiToggleSection({ org }: { org: any }) {
   const updateMutation = useUpdateOrganization(org.id)
   const [enabled, setEnabled] = useState(org?.enableQualitative || false)
@@ -1350,7 +1425,7 @@ function QualitativeKpiToggleSection({ org }: { org: any }) {
         </button>
       </div>
 
-      <div className="p-8 space-y-6">
+      <div className="p-6">
         <div className="p-4 rounded-2xl bg-emerald-50 dark:bg-emerald-900/10 border border-emerald-100 dark:border-emerald-900/30 flex items-start gap-3">
           <Info size={18} className="text-emerald-600 shrink-0 mt-0.5" />
           <div className="space-y-1">

@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { adjustmentApi } from '../api/adjustmentApi'
 import { toast } from 'sonner'
-import { X, Loader2, XCircle, Users, Clock, MessageSquare, AlertTriangle, Calendar } from 'lucide-react'
+import { X, Loader2, XCircle, Users, Clock, MessageSquare, AlertTriangle, Calendar, Layers } from 'lucide-react'
 import { formatNumber, formatDateTime, cn } from '@/lib/utils'
 import type { KpiAdjustmentRequest } from '@/types/adjustment'
 
@@ -89,7 +89,21 @@ export default function KpiAdjustmentReviewModal({ open, onClose, request }: Kpi
           <div className="space-y-4">
             <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">Chỉ tiêu bị ảnh hưởng</p>
             <h4 className="text-xl font-black text-slate-900 dark:text-white leading-tight">{request.kpiCriteriaName}</h4>
-            
+            {request.perspectiveName && (
+              <span
+                className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider border"
+                style={{
+                  color: request.perspectiveColor || '#8b5cf6',
+                  borderColor: `${request.perspectiveColor || '#8b5cf6'}55`,
+                  backgroundColor: `${request.perspectiveColor || '#8b5cf6'}1a`,
+                }}
+                title={`Viễn cảnh BSC: ${request.perspectiveName}`}
+              >
+                <Layers size={12} />
+                {request.perspectiveName}
+              </span>
+            )}
+
             <div className="p-5 rounded-2xl bg-amber-50/50 dark:bg-amber-900/10 border border-amber-100 dark:border-amber-900/30">
                <div className="flex items-center gap-2 text-amber-600 dark:text-amber-400 mb-2">
                  <AlertTriangle size={16} />

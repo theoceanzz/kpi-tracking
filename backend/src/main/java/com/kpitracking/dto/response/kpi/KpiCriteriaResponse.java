@@ -49,6 +49,9 @@ public class KpiCriteriaResponse {
     private UUID objectiveId;
     private String objectiveName;
     private String objectiveCode;
+    private UUID perspectiveId;
+    private String perspectiveName;
+    private String perspectiveColor;
     private UUID parentId;
     private String parentName;
     private KpiParentRelationType parentRelationType;

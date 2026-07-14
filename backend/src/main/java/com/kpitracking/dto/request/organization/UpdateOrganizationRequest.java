@@ -28,4 +28,5 @@ public class UpdateOrganizationRequest {
     private Boolean enableOkr;
     private Boolean enableWaterfall;
     private Boolean enableQualitative;
+    private Boolean enableBsc;
 }

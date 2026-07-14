@@ -40,7 +40,8 @@ public class RolePermissionConstants {
             "STATS:VIEW_ORG", "STATS:VIEW_EMPLOYEE",
             "USER_ROLE:VIEW", "USER_ROLE:ASSIGN", "USER_ROLE:REVOKE",
             "ATTACHMENT:UPLOAD", "ATTACHMENT:DELETE",
-            "REMINDER:SEND"
+            "REMINDER:SEND",
+            "BSC:VIEW", "BSC:MANAGE", "BSC:PUBLISH_SCORE"
     );
 
     // ----------------------------------------------------------------
@@ -64,7 +65,8 @@ public class RolePermissionConstants {
             "STATS:VIEW_ORG", "STATS:VIEW_EMPLOYEE",
             "USER_ROLE:VIEW", "USER_ROLE:ASSIGN",
             "ATTACHMENT:UPLOAD",
-            "REMINDER:SEND"
+            "REMINDER:SEND",
+            "BSC:VIEW", "BSC:MANAGE", "BSC:PUBLISH_SCORE"
     );
 
     // ----------------------------------------------------------------
@@ -82,7 +84,8 @@ public class RolePermissionConstants {
             "AI:SUGGEST_KPI",
             "STATS:VIEW_EMPLOYEE",
             "ATTACHMENT:UPLOAD",
-            "REMINDER:SEND"
+            "REMINDER:SEND",
+            "BSC:VIEW"
     );
 
     // ----------------------------------------------------------------
@@ -99,7 +102,8 @@ public class RolePermissionConstants {
             "AI:SUGGEST_KPI",
             "STATS:VIEW_EMPLOYEE",
             "ATTACHMENT:UPLOAD",
-            "REMINDER:SEND"
+            "REMINDER:SEND",
+            "BSC:VIEW"
     );
 
     // ----------------------------------------------------------------
@@ -111,7 +115,8 @@ public class RolePermissionConstants {
             "SUBMISSION:CREATE",
             "EVALUATION:VIEW","EVALUATION:CREATE",
             "NOTIF:VIEW", "KPI_PERIOD:VIEW",
-            "ATTACHMENT:UPLOAD"
+            "ATTACHMENT:UPLOAD",
+            "BSC:VIEW"
     );
 
     // ================================================================

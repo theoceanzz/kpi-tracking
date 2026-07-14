@@ -46,6 +46,7 @@ interface NavItem {
   end?: boolean
   children?: NavItem[]
   okrOnly?: boolean
+  bscOnly?: boolean
   aiOnly?: boolean
   originalLabel?: string
 }
@@ -66,6 +67,7 @@ const navItems: NavItem[] = [
     children: [
       { label: 'Công ty', path: '/company', icon: <Building2 size={18} />, permission: 'COMPANY:VIEW' },
       { label: 'Quản lý OKR', path: '/okr', icon: <Target size={18} />, permission: 'COMPANY:VIEW', okrOnly: true },
+      { label: 'Thẻ điểm BSC', path: '/bsc', icon: <Layers size={18} />, permission: 'BSC:VIEW', bscOnly: true },
       {
         label: 'Tổ chức',
         icon: <Network size={18} />,
@@ -174,6 +176,7 @@ export default function Sidebar({ isMobileOpen, onCloseMobile }: { isMobileOpen?
   const { data: customLabels = {} } = useSidebarSettings(organizationId!)
   const { data: org } = useOrganization(organizationId)
   const enableOkr = org?.enableOkr
+  const enableBsc = org?.enableBsc
   const enableAi = org?.enableAi !== false // default true while loading
 
   const [expandedMenus, setExpandedMenus] = useState<Record<string, boolean>>({})
@@ -235,6 +238,7 @@ useEffect(() => {
             return null
           }
           if (child.okrOnly && !enableOkr) return null
+          if (child.bscOnly && !enableBsc) return null
 
           if (child.path === '/evaluations') {
             if (! hasPermission('EVALUATION:VIEW_MY')) {

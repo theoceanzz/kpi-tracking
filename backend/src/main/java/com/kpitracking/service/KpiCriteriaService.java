@@ -66,6 +66,7 @@ public class KpiCriteriaService {
     private final ApplicationEventPublisher eventPublisher;
     private final PermissionChecker permissionChecker;
     private final com.kpitracking.repository.KeyResultRepository keyResultRepository;
+    private final com.kpitracking.repository.BscPerspectiveRepository bscPerspectiveRepository;
     private final OrganizationService organizationService;
 
     private static final List<KpiStatus> WEIGHT_COUNTED_STATUSES = java.util.Arrays.asList(
@@ -248,6 +249,12 @@ public class KpiCriteriaService {
             kpi.setKeyResult(kr);
         }
 
+        if (request.getPerspectiveId() != null) {
+            com.kpitracking.entity.BscPerspective perspective = bscPerspectiveRepository.findById(request.getPerspectiveId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Viễn cảnh BSC", "id", request.getPerspectiveId()));
+            kpi.setPerspective(perspective);
+        }
+
         if (status == KpiStatus.APPROVED) {
             kpi.setApprovedBy(creator);
             kpi.setApprovedAt(Instant.now());
@@ -276,7 +283,7 @@ public class KpiCriteriaService {
     }
 
     @Transactional(readOnly = true)
-    public PageResponse<KpiCriteriaResponse> getKpiCriteria(int page, int size, KpiStatus status, UUID orgUnitId, UUID createdById, UUID assigneeId, UUID kpiPeriodId, String keyword, Instant startDate, Instant endDate, String sortBy, String sortDir, UUID objectiveId, UUID keyResultId, boolean approvalMode, String kpiNature, Boolean isBonusKpi, Boolean isReverseKpi, com.kpitracking.enums.KpiType kpiType) {
+    public PageResponse<KpiCriteriaResponse> getKpiCriteria(int page, int size, KpiStatus status, UUID orgUnitId, UUID createdById, UUID assigneeId, UUID kpiPeriodId, String keyword, Instant startDate, Instant endDate, String sortBy, String sortDir, UUID objectiveId, UUID keyResultId, UUID perspectiveId, boolean approvalMode, String kpiNature, Boolean isBonusKpi, Boolean isReverseKpi, com.kpitracking.enums.KpiType kpiType) {
         User currentUser = getCurrentUser();
         UUID organizationId = getCurrentUserOrganizationId(currentUser);
 
@@ -318,6 +325,7 @@ public class KpiCriteriaService {
                 endDate,
                 objectiveId,
                 keyResultId,
+                perspectiveId,
                 kpiNature,
                 isBonusKpi,
                 isReverseKpi,
@@ -525,6 +533,12 @@ public class KpiCriteriaService {
             kpi.setKeyResult(kr);
         } else if (request.getKeyResultId() == null && request.getName() != null) {
             // Keep existing keyResult if not provided in the update
+        }
+
+        if (request.getPerspectiveId() != null) {
+            com.kpitracking.entity.BscPerspective perspective = bscPerspectiveRepository.findById(request.getPerspectiveId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Viễn cảnh BSC", "id", request.getPerspectiveId()));
+            kpi.setPerspective(perspective);
         }
 
         if (request.getParentId() != null) {
@@ -932,6 +946,7 @@ public class KpiCriteriaService {
                                 record.isMapped("IsReverseKpi") ? record.get("IsReverseKpi") : null,
                                 record.isMapped("IsBonusKpi") ? record.get("IsBonusKpi") : null,
                                 record.isMapped("Deadline") ? record.get("Deadline") : null,
+                                record.isMapped("Perspective") ? record.get("Perspective") : null,
                                 kpiPeriod, orgUnit, currentUser, affectedUserPairs, userOrgId, importKpiType);
                             successfulImports++;
                         } catch (Exception e) {
@@ -945,7 +960,7 @@ public class KpiCriteriaService {
                     Row headerRow = sheet.getRow(0);
                     if (headerRow == null) throw new BusinessException("File Excel trống");
 
-                    int nameIdx = -1, descIdx = -1, weightIdx = -1, targetIdx = -1, minIdx = -1, unitIdx = -1, freqIdx = -1, codeIdx = -1, namePeriodIdx = -1, nameOrgIdx = -1, krCodeIdx = -1, isReverseKpiIdx = -1, isBonusKpiIdx = -1, deadlineIdx = -1;
+                    int nameIdx = -1, descIdx = -1, weightIdx = -1, targetIdx = -1, minIdx = -1, unitIdx = -1, freqIdx = -1, codeIdx = -1, namePeriodIdx = -1, nameOrgIdx = -1, krCodeIdx = -1, isReverseKpiIdx = -1, isBonusKpiIdx = -1, deadlineIdx = -1, perspectiveIdx = -1;
                     for (int i = 0; i < headerRow.getLastCellNum(); i++) {
                         String header = headerRow.getCell(i).getStringCellValue().trim();
                         if (header.equalsIgnoreCase("Name")) nameIdx = i;
@@ -962,6 +977,7 @@ public class KpiCriteriaService {
                         else if (header.equalsIgnoreCase("IsReverseKpi")) isReverseKpiIdx = i;
                         else if (header.equalsIgnoreCase("IsBonusKpi")) isBonusKpiIdx = i;
                         else if (header.equalsIgnoreCase("Deadline")) deadlineIdx = i;
+                        else if (header.equalsIgnoreCase("Perspective")) perspectiveIdx = i;
                     }
 
                     boolean requiresTarget = importKpiType != com.kpitracking.enums.KpiType.QUALITATIVE;
@@ -989,6 +1005,7 @@ public class KpiCriteriaService {
                                 isReverseKpiIdx != -1 ? getCellValueAsString(row.getCell(isReverseKpiIdx)) : null,
                                 isBonusKpiIdx != -1 ? getCellValueAsString(row.getCell(isBonusKpiIdx)) : null,
                                 deadlineIdx != -1 ? getCellValueAsString(row.getCell(deadlineIdx)) : null,
+                                perspectiveIdx != -1 ? getCellValueAsString(row.getCell(perspectiveIdx)) : null,
                                 kpiPeriod, orgUnit, currentUser, affectedUserPairs, userOrgId, importKpiType
                             );
                             successfulImports++;
@@ -1048,6 +1065,7 @@ public class KpiCriteriaService {
 
     private void processKpiRow(String name, String desc, String weight, String target, String min, String unit, String freq, String empCode,
                               String periodName, String orgName, String krCode, String isReverseKpiStr, String isBonusKpiStr, String deadlineStr,
+                              String perspectiveCode,
                               com.kpitracking.entity.KpiPeriod defaultPeriod, OrgUnit defaultUnit, User creator,
                               java.util.Set<String> affectedUserPairs, UUID organizationId, com.kpitracking.enums.KpiType kpiType) {
         boolean isQualitative = kpiType == com.kpitracking.enums.KpiType.QUALITATIVE;
@@ -1196,6 +1214,13 @@ public class KpiCriteriaService {
                 }
             }
 
+            if (perspectiveCode != null && !perspectiveCode.isBlank() && organizationId != null) {
+                String pc = perspectiveCode.trim();
+                bscPerspectiveRepository.findFirstByOrganizationIdAndCodeIgnoreCase(organizationId, pc)
+                        .or(() -> bscPerspectiveRepository.findFirstByOrganizationIdAndNameIgnoreCase(organizationId, pc))
+                        .ifPresent(kpi::setPerspective);
+            }
+
             if (kpi.getStatus() == KpiStatus.APPROVED) {
                 kpi.setApprovedBy(creator);
                 kpi.setApprovedAt(Instant.now());
@@ -1333,6 +1358,12 @@ public class KpiCriteriaService {
             com.kpitracking.entity.KeyResult kr = keyResultRepository.findById(request.getKeyResultId())
                     .orElseThrow(() -> new ResourceNotFoundException("Key Result", "id", request.getKeyResultId()));
             newKpi.setKeyResult(kr);
+        }
+
+        if (request.getPerspectiveId() != null) {
+            com.kpitracking.entity.BscPerspective perspective = bscPerspectiveRepository.findById(request.getPerspectiveId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Viễn cảnh BSC", "id", request.getPerspectiveId()));
+            newKpi.setPerspective(perspective);
         }
 
         if (initialStatus == KpiStatus.APPROVED) {

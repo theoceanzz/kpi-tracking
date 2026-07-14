@@ -258,6 +258,8 @@ public class KpiAdjustmentService {
                 .kpiCriteriaId(adj.getKpiCriteria().getId())
                 .kpiCriteriaName(adj.getKpiCriteria().getName())
                 .kpiType(adj.getKpiCriteria().getKpiType())
+                .perspectiveName(adj.getKpiCriteria().getPerspective() != null ? adj.getKpiCriteria().getPerspective().getName() : null)
+                .perspectiveColor(adj.getKpiCriteria().getPerspective() != null ? adj.getKpiCriteria().getPerspective().getColor() : null)
                 .currentTargetValue(adj.getKpiCriteria().getTargetValue())
                 .currentWeight(adj.getKpiCriteria().getWeight())
                 .currentMinimumValue(adj.getKpiCriteria().getMinimumValue())

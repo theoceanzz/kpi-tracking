@@ -5,6 +5,8 @@ export interface KpiAdjustmentRequest {
   kpiCriteriaId: string
   kpiCriteriaName: string
   kpiType?: import('./kpi').KpiType
+  perspectiveName?: string | null
+  perspectiveColor?: string | null
   currentTargetValue: number
   currentWeight: number
   currentMinimumValue: number | null

@@ -1,4 +1,4 @@
-import { X, Target, Building2, Users, BarChart3, Award, Calendar, Clock, CheckCircle2, ListTree } from 'lucide-react'
+import { X, Target, Building2, Users, BarChart3, Award, Calendar, Clock, CheckCircle2, ListTree, Layers } from 'lucide-react'
 import { formatNumber, formatDateTime, FREQUENCY_MAP, STATUS_CONFIG } from '@/lib/utils'
 import type { KpiCriteria } from '@/types/kpi'
 import { useKpiChildren } from '../hooks/useKpiChildren'
@@ -209,6 +209,30 @@ export default function KpiDetailModal({ open, onClose, kpi }: KpiDetailModalPro
                   <p className="text-sm font-bold text-violet-600 dark:text-violet-400 leading-tight">
                     {kpi.keyResultCode && <span className="bg-violet-100 dark:bg-violet-900/40 px-1.5 py-0.5 rounded mr-1.5">{kpi.keyResultCode}</span>}
                     {kpi.keyResultName}
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* BSC Perspective Info */}
+          {kpi.perspectiveName && (
+            <div className="space-y-4">
+              <h5 className="text-xs font-black uppercase tracking-widest text-slate-400 flex items-center gap-2">
+                <Layers size={14} style={{ color: kpi.perspectiveColor || '#8b5cf6' }} /> Viễn cảnh BSC
+              </h5>
+              <div
+                className="flex items-center gap-3 p-6 rounded-[24px] border"
+                style={{
+                  backgroundColor: `${kpi.perspectiveColor || '#8b5cf6'}12`,
+                  borderColor: `${kpi.perspectiveColor || '#8b5cf6'}33`,
+                }}
+              >
+                <span className="w-3 h-10 rounded-full shrink-0" style={{ backgroundColor: kpi.perspectiveColor || '#8b5cf6' }} />
+                <div>
+                  <p className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 mb-1">Thuộc viễn cảnh</p>
+                  <p className="text-base font-black leading-tight" style={{ color: kpi.perspectiveColor || '#8b5cf6' }}>
+                    {kpi.perspectiveName}
                   </p>
                 </div>
               </div>

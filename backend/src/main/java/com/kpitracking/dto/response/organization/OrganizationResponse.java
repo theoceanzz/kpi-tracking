@@ -23,6 +23,7 @@ public class OrganizationResponse {
     private Boolean enableWaterfall;
     private Boolean enableAi;
     private Boolean enableQualitative;
+    private Boolean enableBsc;
     private Instant createdAt;
     private Instant updatedAt;
 }

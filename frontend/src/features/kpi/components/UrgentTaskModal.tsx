@@ -12,8 +12,10 @@ import { useKpiPeriods } from '../hooks/useKpiPeriods'
 import { useOrgUnitTree } from '@/features/orgunits/hooks/useOrgUnitTree'
 import { useOrganization } from '@/features/orgunits/hooks/useOrganization'
 import { useObjectives } from '@/features/okr/hooks/useOkr'
+import { useBscPerspectives } from '@/features/bsc/hooks/useBsc'
 import { useKpiTotalWeight } from '../hooks/useKpiTotalWeight'
 import { Select, SelectContent, SelectItem, SelectGroup, SelectLabel, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { LayoutGrid } from 'lucide-react'
 import { DateTimePicker } from '@/components/common/DateTimePicker'
 
 
@@ -227,6 +229,7 @@ interface ReplaceFormData {
   isBonusKpi: boolean
   deadline: string
   keyResultId: string
+  perspectiveId: string
   assignedToIds: string[]
 }
 
@@ -234,16 +237,51 @@ interface TabSharedProps {
   period?: { id: string; name: string; startDate: string | null; endDate: string | null }
   enableOkr: boolean
   enableQualitative: boolean
+  enableBsc: boolean
   objectives: any[]
+  perspectives: any[]
 }
 
-function ReplaceTab({ kpiList, orgUnitId, period, enableOkr, enableQualitative, objectives, onSuccess }: { kpiList: KpiCriteria[]; orgUnitId: string; onSuccess: () => void } & TabSharedProps) {
+// ─── Shared BSC perspective selector ─────────────────────────────────────────
+
+function PerspectiveSelect({ control, name, perspectives }: { control: any; name: string; perspectives: any[] }) {
+  return (
+    <div className="bg-violet-50/50 dark:bg-violet-900/5 p-4 rounded-2xl border border-violet-100 dark:border-violet-900/50 space-y-3">
+      <div className="flex items-center gap-2 text-violet-600 dark:text-violet-400">
+        <LayoutGrid size={16} />
+        <span className="text-[11px] font-black uppercase tracking-widest">Viễn cảnh BSC</span>
+      </div>
+      <Controller name={name} control={control}
+        render={({ field }: any) => (
+          <Select onValueChange={field.onChange} value={field.value || 'NONE'}>
+            <SelectTrigger className="w-full rounded-xl border-violet-100 dark:border-violet-900 bg-white dark:bg-slate-900 h-11 shadow-sm overflow-hidden">
+              <SelectValue placeholder="-- Chưa gán viễn cảnh --" />
+            </SelectTrigger>
+            <SelectContent className="z-[300] rounded-2xl max-h-[300px]">
+              <SelectItem value="NONE" className="font-bold py-3">-- Chưa gán viễn cảnh --</SelectItem>
+              {perspectives?.map((p: any) => (
+                <SelectItem key={p.id} value={p.id} className="rounded-xl py-2.5">
+                  <span className="flex items-center gap-2">
+                    <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: p.color || '#94a3b8' }} />
+                    <span className="font-semibold text-xs">{p.name}</span>
+                  </span>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
+      />
+    </div>
+  )
+}
+
+function ReplaceTab({ kpiList, orgUnitId, period, enableOkr, enableQualitative, enableBsc, objectives, perspectives, onSuccess }: { kpiList: KpiCriteria[]; orgUnitId: string; onSuccess: () => void } & TabSharedProps) {
   const qc = useQueryClient()
   const { user: currentUser } = useAuthStore()
   const isStaff = currentUser?.memberships?.[0]?.roleRank === 2
 
   const { register, handleSubmit, watch, setValue, control, reset, formState: { errors } } = useForm<ReplaceFormData>({
-    defaultValues: { replacedKpiId: '', replacementReason: '', kpiType: 'QUANTITATIVE', name: '', description: '', frequency: 'MONTHLY', targetValue: '', minimumValue: '', unit: '', isReverseKpi: false, isBonusKpi: false, deadline: '', keyResultId: 'NONE', assignedToIds: [] }
+    defaultValues: { replacedKpiId: '', replacementReason: '', kpiType: 'QUANTITATIVE', name: '', description: '', frequency: 'MONTHLY', targetValue: '', minimumValue: '', unit: '', isReverseKpi: false, isBonusKpi: false, deadline: '', keyResultId: 'NONE', perspectiveId: 'NONE', assignedToIds: [] }
   })
 
   const replacedKpiId = watch('replacedKpiId')
@@ -276,6 +314,7 @@ function ReplaceTab({ kpiList, orgUnitId, period, enableOkr, enableQualitative, 
       isBonusKpi: data.isBonusKpi,
       deadline: data.deadline ? new Date(data.deadline).toISOString() : null,
       keyResultId: (data.keyResultId && data.keyResultId !== 'NONE') ? data.keyResultId : null,
+      perspectiveId: (data.perspectiveId && data.perspectiveId !== 'NONE') ? data.perspectiveId : null,
       assignedToIds: data.assignedToIds.length > 0 ? data.assignedToIds : undefined,
     }),
     onSuccess: () => {
@@ -493,6 +532,9 @@ function ReplaceTab({ kpiList, orgUnitId, period, enableOkr, enableQualitative, 
         </div>
       )}
 
+      {/* BSC perspective */}
+      {enableBsc && <PerspectiveSelect control={control} name="perspectiveId" perspectives={perspectives} />}
+
       <div className="flex gap-4 pt-2 border-t border-[var(--color-border)]/50">
         <button type="button" onClick={onSuccess}
           className="flex-1 px-4 py-3 rounded-2xl text-xs font-black uppercase tracking-widest hover:bg-[var(--color-accent)] transition-all">
@@ -523,11 +565,12 @@ interface AdjustFormData {
   newIsBonusKpi: boolean
   newDeadline: string
   newKeyResultId: string
+  newPerspectiveId: string
   newAssignedToIds: string[]
   newDescription: string
 }
 
-function AdjustTab({ kpiList, kpiPeriodId, orgUnitId, period, enableOkr, enableQualitative, objectives, onSuccess }: { kpiList: KpiCriteria[]; kpiPeriodId: string; orgUnitId: string; onSuccess: () => void } & TabSharedProps) {
+function AdjustTab({ kpiList, kpiPeriodId, orgUnitId, period, enableOkr, enableQualitative, enableBsc, objectives, perspectives, onSuccess }: { kpiList: KpiCriteria[]; kpiPeriodId: string; orgUnitId: string; onSuccess: () => void } & TabSharedProps) {
   const qc = useQueryClient()
   const { user: currentUser } = useAuthStore()
   const isStaff = currentUser?.memberships?.[0]?.roleRank === 2
@@ -537,7 +580,7 @@ function AdjustTab({ kpiList, kpiPeriodId, orgUnitId, period, enableOkr, enableQ
   const { register, handleSubmit, watch, control, formState: { errors } } = useForm<AdjustFormData>({
     defaultValues: {
       weights: adjustableKpis.map(k => ({ kpiId: k.id, name: k.name, currentWeight: k.weight ?? 0, newWeight: k.weight ?? 0 })),
-      newKpiType: 'QUANTITATIVE', newName: '', newWeight: '', newFrequency: 'MONTHLY', newTargetValue: '', newMinimumValue: '', newUnit: '', newIsReverseKpi: false, newIsBonusKpi: false, newDeadline: '', newKeyResultId: 'NONE', newAssignedToIds: [], newDescription: ''
+      newKpiType: 'QUANTITATIVE', newName: '', newWeight: '', newFrequency: 'MONTHLY', newTargetValue: '', newMinimumValue: '', newUnit: '', newIsReverseKpi: false, newIsBonusKpi: false, newDeadline: '', newKeyResultId: 'NONE', newPerspectiveId: 'NONE', newAssignedToIds: [], newDescription: ''
     }
   })
 
@@ -574,6 +617,7 @@ function AdjustTab({ kpiList, kpiPeriodId, orgUnitId, period, enableOkr, enableQ
       isBonusKpi: data.newIsBonusKpi,
       deadline: data.newDeadline ? new Date(data.newDeadline).toISOString() : null,
       keyResultId: (data.newKeyResultId && data.newKeyResultId !== 'NONE') ? data.newKeyResultId : null,
+      perspectiveId: (data.newPerspectiveId && data.newPerspectiveId !== 'NONE') ? data.newPerspectiveId : null,
       assignedToIds: data.newAssignedToIds.length > 0 ? data.newAssignedToIds : undefined,
       kpiPeriodId,
       orgUnitId,
@@ -800,6 +844,9 @@ function AdjustTab({ kpiList, kpiPeriodId, orgUnitId, period, enableOkr, enableQ
         </div>
       )}
 
+      {/* BSC perspective */}
+      {enableBsc && <PerspectiveSelect control={control} name="newPerspectiveId" perspectives={perspectives} />}
+
       <div className={cn('rounded-xl px-4 py-3 flex items-center justify-between border',
         isValid
           ? 'bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-800/50 text-emerald-800 dark:text-emerald-300'
@@ -853,7 +900,9 @@ export default function UrgentTaskModal({ open, onClose, kpiPeriodId: initPeriod
   const { data: org } = useOrganization(organizationId)
   const enableOkr = org?.enableOkr ?? false
   const enableQualitative = org?.enableQualitative ?? false
+  const enableBsc = org?.enableBsc ?? false
   const { data: objectives } = useObjectives(enableOkr ? organizationId : undefined)
+  const { data: perspectives } = useBscPerspectives(enableBsc ? organizationId : undefined)
   const { data: orgUnitTreeData } = useOrgUnitTree()
 
   const flatOrgUnits = useMemo(() => {
@@ -1030,9 +1079,9 @@ export default function UrgentTaskModal({ open, onClose, kpiPeriodId: initPeriod
           ) : kpiList.length === 0 ? (
             <p className="text-center text-sm font-medium text-[var(--color-muted-foreground)] py-16 italic">Chưa có KPI nào trong kỳ này</p>
           ) : tab === 'replace' ? (
-            <ReplaceTab kpiList={kpiList} orgUnitId={selectedOrgUnitId} period={selectedPeriod} enableOkr={enableOkr} enableQualitative={enableQualitative} objectives={filteredObjectives} onSuccess={onClose} />
+            <ReplaceTab kpiList={kpiList} orgUnitId={selectedOrgUnitId} period={selectedPeriod} enableOkr={enableOkr} enableQualitative={enableQualitative} enableBsc={enableBsc} objectives={filteredObjectives} perspectives={perspectives ?? []} onSuccess={onClose} />
           ) : (
-            <AdjustTab kpiList={kpiList} kpiPeriodId={selectedPeriodId} orgUnitId={selectedOrgUnitId} period={selectedPeriod} enableOkr={enableOkr} enableQualitative={enableQualitative} objectives={filteredObjectives} onSuccess={onClose} />
+            <AdjustTab kpiList={kpiList} kpiPeriodId={selectedPeriodId} orgUnitId={selectedOrgUnitId} period={selectedPeriod} enableOkr={enableOkr} enableQualitative={enableQualitative} enableBsc={enableBsc} objectives={filteredObjectives} perspectives={perspectives ?? []} onSuccess={onClose} />
           )}
         </div>
       </div>

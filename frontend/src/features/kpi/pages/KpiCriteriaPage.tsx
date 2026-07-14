@@ -32,6 +32,7 @@ import { useOrgUnitTree } from '@/features/orgunits/hooks/useOrgUnitTree'
 import { usePermission } from '@/hooks/usePermission'
 import { useOrganization } from '@/features/orgunits/hooks/useOrganization'
 import { useObjectives } from '../../okr/hooks/useOkr'
+import { useBscPerspectives } from '../../bsc/hooks/useBsc'
 import KpiExcelPreviewModal from '../components/KpiExcelPreviewModal'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue, SelectGroup, SelectLabel } from '@/components/ui/select'
 import { cn } from '@/lib/utils'
@@ -40,7 +41,7 @@ import { kpiCriteriaSteps } from '@/components/common/tourSteps'
 import { ObjectiveResponse } from '@/features/okr/types'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { useBulkSubmitKpi } from '../hooks/useBulkSubmitKpi'
-import { Check, CheckSquare, Zap } from 'lucide-react'
+import { Check, CheckSquare, Zap, Layers } from 'lucide-react'
 import type { KpiType } from '@/types/kpi'
 
 type KpiTypeFilterKey =
@@ -97,6 +98,7 @@ export default function KpiCriteriaPage() {
   const [endDateFilter, setEndDateFilter] = useState('')
   const [selectedObjectiveId, setSelectedObjectiveId] = useState<string>('ALL')
   const [selectedKeyResultId, setSelectedKeyResultId] = useState<string>('ALL')
+  const [selectedPerspectiveId, setSelectedPerspectiveId] = useState<string>('ALL')
   const [selectedAssigneeId, setSelectedAssigneeId] = useState<string>('ALL')
   const [kpiTypeFilter, setKpiTypeFilter] = useState<KpiTypeFilterKey>('ALL')
   
@@ -115,7 +117,9 @@ export default function KpiCriteriaPage() {
   const organizationId = user?.memberships?.[0]?.organizationId
   const { data: org } = useOrganization(organizationId)
   const enableOkr = org?.enableOkr
+  const enableBsc = org?.enableBsc
   const enableWaterfall = org?.enableWaterfall
+  const { data: bscPerspectives } = useBscPerspectives(enableBsc ? organizationId : undefined)
   const { data: periodsData } = useKpiPeriods({ organizationId })
   const { data: orgUnitTreeData } = useOrgUnitTree()
   
@@ -198,6 +202,7 @@ export default function KpiCriteriaPage() {
       sortDir,
       objectiveId: selectedObjectiveId === 'ALL' ? undefined : selectedObjectiveId,
       keyResultId: selectedKeyResultId === 'ALL' ? undefined : selectedKeyResultId,
+      perspectiveId: selectedPerspectiveId === 'ALL' ? undefined : selectedPerspectiveId,
       assigneeId: selectedAssigneeId === 'ALL' ? undefined : selectedAssigneeId,
       ...KPI_TYPE_FILTERS[kpiTypeFilter]
     },
@@ -658,6 +663,29 @@ export default function KpiCriteriaPage() {
                     </div>
                   </div>
                 </div>
+
+                {/* Group: BSC Perspective — only when enabled */}
+                {enableBsc && (
+                  <div className="w-full sm:w-56">
+                    <Select value={selectedPerspectiveId} onValueChange={val => { setSelectedPerspectiveId(val); setPage(0) }}>
+                      <SelectTrigger className="w-full h-10 rounded-[16px] border-none bg-slate-100/50 dark:bg-slate-800/50 shadow-sm font-bold text-xs ring-offset-transparent focus:ring-2 focus:ring-violet-500/20">
+                        <Layers size={14} className="text-violet-500 mr-2 shrink-0" />
+                        <SelectValue placeholder="Viễn cảnh BSC..." />
+                      </SelectTrigger>
+                      <SelectContent className="rounded-2xl border-slate-200 dark:border-slate-800 shadow-2xl p-2 max-h-[420px]">
+                        <SelectItem value="ALL" className="rounded-xl focus:bg-violet-50 dark:focus:bg-violet-900/30 text-xs font-black uppercase">Tất cả viễn cảnh</SelectItem>
+                        {(bscPerspectives || []).map(p => (
+                          <SelectItem key={p.id} value={p.id} className="rounded-xl focus:bg-violet-50 dark:focus:bg-violet-900/30 text-sm font-bold">
+                            <span className="flex items-center gap-2">
+                              <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: p.color || '#8b5cf6' }} />
+                              {p.name}
+                            </span>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
               </div>
 
               {/* Group: Sorting */}
@@ -1059,11 +1087,27 @@ function KpiTableRow({ kpi, depth = 0, childCount = 0, isCollapsed, onToggleColl
         </div>
       </td>
       <td className="px-4 py-5">
-        <div className={cn(
-          "inline-flex items-center gap-2 px-2.5 py-1 rounded-full border text-[9px] font-black uppercase tracking-widest shadow-sm whitespace-nowrap",
-          status.bgColor, status.color
-        )}>
-          <StatusIcon size={10} className={kpi.status === 'PENDING_APPROVAL' ? 'animate-spin-slow' : ''} /> {status.label}
+        <div className="flex flex-col items-start gap-1.5">
+          <div className={cn(
+            "inline-flex items-center gap-2 px-2.5 py-1 rounded-full border text-[9px] font-black uppercase tracking-widest shadow-sm whitespace-nowrap",
+            status.bgColor, status.color
+          )}>
+            <StatusIcon size={10} className={kpi.status === 'PENDING_APPROVAL' ? 'animate-spin-slow' : ''} /> {status.label}
+          </div>
+          {kpi.perspectiveName && (
+            <span
+              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider border whitespace-nowrap"
+              style={{
+                color: kpi.perspectiveColor || '#8b5cf6',
+                borderColor: `${kpi.perspectiveColor || '#8b5cf6'}55`,
+                backgroundColor: `${kpi.perspectiveColor || '#8b5cf6'}1a`,
+              }}
+              title={`Viễn cảnh BSC: ${kpi.perspectiveName}`}
+            >
+              <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: kpi.perspectiveColor || '#8b5cf6' }} />
+              {kpi.perspectiveName}
+            </span>
+          )}
         </div>
       </td>
       <td className="px-2 py-4">
@@ -1355,6 +1399,20 @@ function KpiCard({ kpi, depth = 0, childCount = 0, isCollapsed, onToggleCollapse
           )}>
             <StatusIcon size={12} /> {status.label}
           </div>
+          {kpi.perspectiveName && (
+            <span
+              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-wider border"
+              style={{
+                color: kpi.perspectiveColor || '#8b5cf6',
+                borderColor: `${kpi.perspectiveColor || '#8b5cf6'}55`,
+                backgroundColor: `${kpi.perspectiveColor || '#8b5cf6'}1a`,
+              }}
+              title={`Viễn cảnh BSC: ${kpi.perspectiveName}`}
+            >
+              <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: kpi.perspectiveColor || '#8b5cf6' }} />
+              {kpi.perspectiveName}
+            </span>
+          )}
           {!isChildCard && childCount > 0 && (
             <button
               onClick={(e) => { e.stopPropagation(); onToggleCollapse?.() }}

@@ -16,6 +16,7 @@ import { useState } from 'react'
 import { useKpiPeriods } from '../hooks/useKpiPeriods'
 import { useOrganization } from '@/features/orgunits/hooks/useOrganization'
 import { useObjectives } from '@/features/okr/hooks/useOkr'
+import { useBscPerspectives } from '@/features/bsc/hooks/useBsc'
 import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Badge } from '@/components/ui/badge'
 import { DateTimePicker } from '@/components/common/DateTimePicker'
@@ -65,6 +66,9 @@ export default function KpiFormModal({ open, onClose, editKpi, parentKpi, parent
   const enableOkr = org?.enableOkr
   const { data: objectives } = useObjectives(enableOkr ? organizationId : undefined)
 
+  const enableBsc = org?.enableBsc
+  const { data: perspectives } = useBscPerspectives(enableBsc ? organizationId : undefined)
+
   // Flatten tree for dropdown
   const flattenTree = (nodes: any[], level = 0): any[] => {
     let result: any[] = []
@@ -103,6 +107,7 @@ export default function KpiFormModal({ open, onClose, editKpi, parentKpi, parent
       keyResultId: null,
       parentId: null,
       parentRelationType: null,
+      perspectiveId: null,
       orgUnitIds: [],
       orgUnitId: '',
     },
@@ -147,6 +152,7 @@ export default function KpiFormModal({ open, onClose, editKpi, parentKpi, parent
         kpiPeriodId: editKpi.kpiPeriodId ?? '',
         keyResultId: editKpi.keyResultId ?? null,
         parentId: editKpi.parentId ?? null,
+        perspectiveId: editKpi.perspectiveId ?? null,
       })
     } else {
       const defaultOrgUnitId = user?.memberships?.[0]?.orgUnitId || ''
@@ -170,6 +176,7 @@ export default function KpiFormModal({ open, onClose, editKpi, parentKpi, parent
         keyResultId: null,
         parentId: parentKpi?.id ?? null,
         parentRelationType: effectiveRelationType,
+        perspectiveId: parentKpi?.perspectiveId ?? null,
         orgUnitIds: canAssignRoles ? [] : (defaultOrgUnitId ? [defaultOrgUnitId] : []),
         orgUnitId: parentKpi?.orgUnitId ?? defaultOrgUnitId,
         assignedToIds: isDecomposition ? (parentKpi?.assigneeIds ?? []) : (isStaff ? ([user?.id].filter(Boolean) as string[]) : [])
@@ -390,6 +397,7 @@ export default function KpiFormModal({ open, onClose, editKpi, parentKpi, parent
 
     if (payload.keyResultId === '' || payload.keyResultId === 'NONE') payload.keyResultId = null
     if (payload.parentId === '') payload.parentId = null
+    if (payload.perspectiveId === '' || payload.perspectiveId === 'NONE') payload.perspectiveId = null
 
     if (payload.deadline && selectedPeriod) {
       const t = new Date(payload.deadline).getTime()
@@ -986,6 +994,40 @@ export default function KpiFormModal({ open, onClose, editKpi, parentKpi, parent
                               </SelectItem>
                             ))}
                           </SelectGroup>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
+                />
+              </div>
+            </div>
+          )}
+
+          {!isPendingApproval && enableBsc && (
+            <div className="bg-violet-50/50 dark:bg-violet-900/5 p-4 rounded-2xl border border-violet-100 dark:border-violet-900/50 space-y-3">
+              <div className="flex items-center gap-2 text-violet-600 dark:text-violet-400">
+                <LayoutGrid size={16} />
+                <span className="text-[11px] font-black uppercase tracking-widest">Viễn cảnh BSC</span>
+              </div>
+              <div className="space-y-1">
+                <label className="block text-[10px] font-black text-slate-500 uppercase tracking-tight">Gắn chỉ tiêu vào viễn cảnh chiến lược</label>
+                <Controller
+                  name="perspectiveId"
+                  control={control}
+                  render={({ field }) => (
+                    <Select onValueChange={field.onChange} value={field.value || 'NONE'}>
+                      <SelectTrigger className="w-full rounded-xl border-violet-100 dark:border-violet-900 bg-white dark:bg-slate-900 focus:ring-violet-500/30 transition-all h-11 shadow-sm overflow-hidden">
+                        <SelectValue placeholder="-- Chưa gán viễn cảnh --" className="truncate flex-1 min-w-0 text-left" />
+                      </SelectTrigger>
+                      <SelectContent className="z-[300] rounded-2xl border-violet-50 dark:border-violet-900 shadow-2xl max-h-[350px] overflow-auto">
+                        <SelectItem value="NONE" className="font-bold py-3">-- Chưa gán viễn cảnh --</SelectItem>
+                        {(perspectives || []).map(p => (
+                          <SelectItem key={p.id} value={p.id} className="rounded-xl py-2.5 pl-3 pr-3 focus:bg-violet-50 focus:text-violet-700 transition-colors">
+                            <span className="flex items-center gap-2">
+                              <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: p.color || '#94a3b8' }} />
+                              <span className="font-semibold text-xs truncate">{p.name}</span>
+                            </span>
+                          </SelectItem>
                         ))}
                       </SelectContent>
                     </Select>

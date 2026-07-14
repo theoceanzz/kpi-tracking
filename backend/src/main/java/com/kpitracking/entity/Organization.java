@@ -78,6 +78,10 @@ public class Organization {
     @Builder.Default
     private Boolean enableQualitative = false;
 
+    @Column(name = "enable_bsc")
+    @Builder.Default
+    private Boolean enableBsc = false;
+
     @LastModifiedDate
     @Column(name = "updated_at")
     private Instant updatedAt;

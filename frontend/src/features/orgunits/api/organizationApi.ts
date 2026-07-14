@@ -47,6 +47,7 @@ export interface OrganizationResponse {
   enableWaterfall: boolean
   enableAi: boolean
   enableQualitative: boolean
+  enableBsc: boolean
   createdAt: string
   updatedAt: string
 }
@@ -64,6 +65,7 @@ export interface UpdateOrganizationRequest {
   enableOkr?: boolean
   enableWaterfall?: boolean
   enableQualitative?: boolean
+  enableBsc?: boolean
 }
 
 export const organizationApi = {
