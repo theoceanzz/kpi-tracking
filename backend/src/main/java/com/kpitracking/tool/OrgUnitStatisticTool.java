@@ -1,5 +1,6 @@
 package com.kpitracking.tool;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.kpitracking.entity.*;
 import com.kpitracking.repository.*;
@@ -29,7 +30,26 @@ public class OrgUnitStatisticTool {
     private final FollowupContextStore followupContextStore;
     private final ObjectMapper objectMapper;
 
+    /**
+     * Mapper riêng cho JSON gửi cho MODEL: bỏ field null để khỏi tốn token cho các cặp
+     * "key":null (payload tool dùng LinkedHashMap nên null xuất hiện khá nhiều). Dùng
+     * objectMapper.copy() để giữ nguyên module/config đã đăng ký (JavaTimeModule...),
+     * và KHÔNG đụng vào mapper dùng chung của REST API.
+     */
+    private ObjectMapper toolMapper;
+
+    @jakarta.annotation.PostConstruct
+    void initToolMapper() {
+        // setSerializationInclusion(NON_NULL) đã đủ để bỏ null trong Map (đã kiểm chứng);
+        // KHÔNG thêm configOverride(Map.class) với content=ALWAYS vì nó bật null trở lại.
+        toolMapper = objectMapper.copy().setSerializationInclusion(JsonInclude.Include.NON_NULL);
+    }
+
     // ── context helpers ──────────────────────────────────────────────────────
+
+    private static boolean notBlank(String s) {
+        return s != null && !s.isBlank();
+    }
 
     /**
      * Parses a model-supplied ID into a UUID. On a malformed value (e.g. the model
@@ -60,7 +80,7 @@ public class OrgUnitStatisticTool {
             log.error("Error in {}", tool, e);
         }
         try {
-            return objectMapper.writeValueAsString(
+            return toolMapper.writeValueAsString(
                     Map.of("error", e.getMessage() != null ? e.getMessage() : e.toString()));
         } catch (Exception ignore) {
             return "{\"error\":\"Lỗi xử lý yêu cầu.\"}";
@@ -164,10 +184,34 @@ public class OrgUnitStatisticTool {
         return !exact.isEmpty() ? exact : matches;
     }
 
+    /**
+     * Đổi các đơn vị khớp thành lựa chọn bấm được: nhãn kèm cấp/đơn vị cha để phân biệt, còn
+     * giá trị gửi lại là TÊN đơn vị — đúng thứ các tool nhận qua unitName.
+     */
+    private List<FollowupContextStore.ClarificationOption> unitOptions(List<Map<String, Object>> pool) {
+        List<FollowupContextStore.ClarificationOption> options = new ArrayList<>();
+        for (Map<String, Object> unit : pool) {
+            String name = unit.get("name") != null ? String.valueOf(unit.get("name")) : null;
+            if (name == null || name.isBlank()) continue;
+            Object levelName = unit.get("levelName");
+            Object parentName = unit.get("parentName");
+            StringBuilder label = new StringBuilder(name);
+            if (levelName != null || parentName != null) {
+                label.append(" (");
+                if (levelName != null) label.append(levelName);
+                if (levelName != null && parentName != null) label.append(" — ");
+                if (parentName != null) label.append("thuộc ").append(parentName);
+                label.append(")");
+            }
+            options.add(new FollowupContextStore.ClarificationOption(label.toString(), name));
+        }
+        return options;
+    }
+
     /** Envelope yêu cầu làm rõ khi 1 tên đơn vị khớp nhiều/không thấy (cho các tool 1 đơn vị). */
     private Map<String, Object> unitClarification(String query, List<Map<String, Object>> pool, ToolContext context) {
         String convId = getConversationId(context);
-        if (convId != null) followupContextStore.markDisambiguating(convId);
+        if (convId != null) followupContextStore.markDisambiguating(convId, unitOptions(pool));
         Map<String, Object> group = new LinkedHashMap<>();
         group.put("query", query);
         group.put("reason", pool.isEmpty() ? "not_found" : "ambiguous");
@@ -345,7 +389,7 @@ public class OrgUnitStatisticTool {
                 + "và yêu cầu người dùng chọn đúng mục mong muốn TRƯỚC KHI xem chi tiết.");
         result.put("count", results.size());
         result.put(arrayKey, results);
-        return objectMapper.writeValueAsString(result);
+        return toolMapper.writeValueAsString(result);
     }
 
     /**
@@ -367,7 +411,7 @@ public class OrgUnitStatisticTool {
      * real tool data of this turn, and returns the JSON for the model.
      */
     private String respond(ToolContext context, String toolName, Object payload) throws Exception {
-        String json = objectMapper.writeValueAsString(payload);
+        String json = toolMapper.writeValueAsString(payload);
         String conversationId = getConversationId(context);
         if (conversationId != null) {
             followupContextStore.append(conversationId, toolName, json);
@@ -605,23 +649,54 @@ public class OrgUnitStatisticTool {
 
     // ── 13. rank_members ─────────────────────────────────────────────────────
 
-    @Tool(name = "rank_members", description = "Rank users by metric → [rank, fullName, email, score] (no IDs; use search_users for UUID). Metrics: average_progress (weighted avg % of target reached), total_progress (sum of approved actuals), average_performance (weighted avg % vs time-proportional target), average_rating, late_submission_count, missing_submission_count, submission_count. Scopes: organization (all org users) | unit (needs unitId) | kpi (needs kpiId — ranks that KPI's assignees). FILTERS (apply on top of scope, avoid chaining): managersOnly=true keeps only unit heads/managers; positionFilter=<role name> keeps only users holding a matching position (e.g. 'trưởng phòng', 'phó phòng'). Use these to answer 'so sánh/xếp hạng <chức vụ> theo điểm đánh giá' in ONE call, e.g. rank all department heads by average_rating ascending to find the lowest.")
+    @Tool(name = "rank_members", description = "Rank users by metric -> [rank, userId, fullName, email, orgUnitName, positionName, score]. userId IS included: pass it straight to get_user_summary/get_submission_history — do NOT call search_users first. orgUnitName/positionName are on every row — NEVER guess or infer them from other rows. A person holding SEVERAL roles also gets a 'positions' array (e.g. [Truong phong - Phong van hanh, Nhan vien - KeyPerson]); when present you MUST state all of them, do not report only one. Metrics: average_progress, total_progress, average_performance (ĐIỂM ĐÁNH GIÁ; startDate/endDate = đợt phủ khoảng đó, không nêu -> mọi đợt), late_submission_count, missing_submission_count, submission_count. Với 2 metric đánh giá, người CHƯA có đánh giá bị LOẠI (không phải điểm 0, không phải 'thấp nhất'). Scopes: organization | unit | kpi. scope is OPTIONAL: passing unitName/unitId ALONE already means ranking inside that unit (scope is inferred), so you never need to remember scope='unit'. Omitting all of them = whole organization. For a unit pass unitName (e.g. 'phong van hanh') OR unitId - resolved in-tool, NO search_org_units first; passing NEITHER silently falls back to your CURRENT unit, so ALWAYS pass unitName when the user names a unit. For scope=kpi pass kpiId. Filters: managersOnly=true = trưởng/phó đơn vị DƯỚI cấp gốc (loại chủ tịch/CEO của đơn vị gốc); unitTypeName = loại cấp đơn vị (vd 'Phòng'); positionFilter (alias: positionName) = tên chức vụ (vd 'trưởng phòng'). Trả lời 'xếp hạng/so sánh <chức vụ> theo điểm đánh giá' trong MỘT lần gọi.")
     public String rankMembers(RankMembersRequest request, ToolContext context) {
         try {
-            if ("unit".equals(request.scope()) && request.unitId() != null && !request.unitId().isBlank()) {
-                validateSubtreeAccess(parseId(request.unitId(), "đơn vị (unitId)", "search_org_units"), context);
-            }
             if ("kpi".equals(request.scope()) && request.kpiId() != null && !request.kpiId().isBlank()) {
                 validateKpiAccess(parseId(request.kpiId(), "KPI (kpiId)", "search_kpis"), context);
             }
             UUID orgId = getOrgId(context);
             UUID contextUnitId = getOrgUnitId(context);
+
+            // Model thường nêu tên đơn vị nhưng QUÊN đặt scope="unit". Nếu đòi đúng scope mới xử lý
+            // thì unitName bị lờ đi và tool lặng lẽ xếp hạng CẢ TỔ CHỨC -> trả sai người. Nêu tên/ID
+            // đơn vị tức là muốn xếp hạng TRONG đơn vị đó, nên suy scope ra từ chính tham số.
+            boolean hasUnitTarget = notBlank(request.unitId()) || notBlank(request.unitName());
+            String scope = request.scope();
+            if (hasUnitTarget && !"kpi".equalsIgnoreCase(scope)) {
+                scope = "unit";
+            }
+
+            String targetUnitId = request.unitId();
+            if (hasUnitTarget && "unit".equalsIgnoreCase(scope)) {
+                UnitRef unit = notBlank(targetUnitId)
+                        ? resolveUnit(targetUnitId, null, context)
+                        : resolveUnit(null, request.unitName(), context);
+                if (unit.clarification() != null) return respond(context, "rank_members", unit.clarification());
+                targetUnitId = unit.id().toString();
+            }
+
+            // Model hay gọi lại y hệt tool này nhiều lần trong MỘT lượt. Xếp hạng theo điểm đánh giá
+            // chạy một truy vấn đánh giá cho MỖI người nên khá nặng — trả lại kết quả đã tính của
+            // đúng lời gọi đó trong lượt hiện tại (startTurn xoá cache nên không bao giờ trả dữ liệu cũ).
+            String conversationId = getConversationId(context);
+            String cacheKey = "rank_members|" + toolMapper.writeValueAsString(request);
+            String cached = followupContextStore.getCachedCall(conversationId, cacheKey);
+            if (cached != null) return cached;
+
+            // Các tool anh em nhận "positionName" nên model hay truyền tên đó vào đây; chấp nhận
+            // cả hai để tham số không bị bỏ qua âm thầm (dẫn tới không lọc chức vụ).
+            String positionFilter = (request.positionFilter() != null && !request.positionFilter().isBlank())
+                    ? request.positionFilter() : request.positionName();
+
             List<Map<String, Object>> response = orgUnitStatisticService.rankMembers(
-                    orgId, request.metric(), request.order(), request.scope(),
-                    request.unitId(), request.kpiId(), request.limit(),
+                    orgId, request.metric(), request.order(), scope,
+                    targetUnitId, request.kpiId(), request.limit(),
                     request.startDate(), request.endDate(), contextUnitId,
-                    request.positionFilter(), request.managersOnly());
-            return respond(context, "rank_members", response);
+                    positionFilter, request.managersOnly(), request.unitTypeName());
+            String json = respond(context, "rank_members", response);
+            followupContextStore.cacheCall(conversationId, cacheKey, json);
+            return json;
         } catch (Exception e) {
             return toolError("rankMembers", e);
         }
@@ -629,12 +704,15 @@ public class OrgUnitStatisticTool {
 
     // ── 14. rank_org_units ───────────────────────────────────────────────────
 
-    @Tool(name = "rank_org_units", description = "Rank org units in the current subtree by metric → [rank, orgUnitName, score] (no IDs; use search_org_units for UUID). Metrics: average_progress (weighted avg % of target reached across the unit's KPIs), average_performance (weighted avg % vs time-proportional target), average_rating, member_count.")
+    @Tool(name = "rank_org_units", description = "Rank the org units inside a parent unit subtree by metric. Pass unitName to rank the units inside THAT unit (e.g. 'cac phong trong khoi Van hanh') - resolved in-tool; defaults to your CURRENT unit, so ALWAYS pass unitName when the user names a parent unit. Ranks → [rank, orgUnitName, score] (no IDs; use search_org_units for UUID). Metrics: average_progress (weighted avg % of target reached across the unit's KPIs), average_performance (ĐIỂM ĐÁNH GIÁ trung bình của đơn vị theo từng đợt - KHONG phai % muc tieu), member_count. (average_rating is accepted as an alias of average_performance.)")
     public String rankOrgUnits(RankOrgUnitsRequest request, ToolContext context) {
         try {
-            UUID orgUnitId = getOrgUnitId(context);
+            // Không có unitName/unitId thì xếp hạng trong đơn vị hiện tại — hỏi "các phòng trong
+            // khối X" mà thiếu tham số này sẽ âm thầm xếp hạng nhầm subtree.
+            UnitRef unit = resolveUnit(request.unitId(), request.unitName(), context);
+            if (unit.clarification() != null) return respond(context, "rank_org_units", unit.clarification());
             List<Map<String, Object>> response = orgUnitStatisticService.rankOrgUnits(
-                    orgUnitId, request.metric(), request.order(), request.limit(),
+                    unit.id(), request.metric(), request.order(), request.limit(),
                     request.startDate(), request.endDate());
             return respond(context, "rank_org_units", response);
         } catch (Exception e) {
@@ -659,13 +737,14 @@ public class OrgUnitStatisticTool {
 
     // ── 16. get_dashboard_summary ────────────────────────────────────────────
 
-    @Tool(name = "get_dashboard_summary", description = "Get high-level KPI dashboard overview metrics for the current organizational unit subtree.")
+    @Tool(name = "get_dashboard_summary", description = "Get high-level KPI dashboard overview metrics for a unit subtree. Pass unitName (e.g. 'phong IT') to target a unit by name - resolved in-tool, NO search_org_units first; defaults to your CURRENT unit, so ALWAYS pass unitName when the user names a unit.")
     public String getDashboardSummary(GetDashboardSummaryRequest request, ToolContext context) {
         try {
-            UUID orgUnitId = getOrgUnitId(context);
+            UnitRef unit = resolveUnit(request.unitId(), request.unitName(), context);
+            if (unit.clarification() != null) return respond(context, "get_dashboard_summary", unit.clarification());
             UUID orgId = getOrgId(context);
             Map<String, Object> response = orgUnitStatisticService.getDashboardSummary(
-                    orgUnitId, orgId, request.startDate(), request.endDate());
+                    unit.id(), orgId, request.startDate(), request.endDate());
             return respond(context, "get_dashboard_summary", response);
         } catch (Exception e) {
             return toolError("getDashboardSummary", e);
@@ -851,7 +930,7 @@ public class OrgUnitStatisticTool {
             Map<String, Object> result = new LinkedHashMap<>();
             result.put("count", users.size());
             result.put("users", users);
-            return objectMapper.writeValueAsString(result);
+            return toolMapper.writeValueAsString(result);
         } catch (Exception e) {
             return toolError("searchUsers", e);
         }
@@ -877,7 +956,7 @@ public class OrgUnitStatisticTool {
             Map<String, Object> result = new LinkedHashMap<>();
             result.put("count", units.size());
             result.put("orgUnits", units);
-            return objectMapper.writeValueAsString(result);
+            return toolMapper.writeValueAsString(result);
         } catch (Exception e) {
             return toolError("searchOrgUnits", e);
         }
@@ -903,7 +982,7 @@ public class OrgUnitStatisticTool {
             Map<String, Object> result = new LinkedHashMap<>();
             result.put("count", kpis.size());
             result.put("kpis", kpis);
-            return objectMapper.writeValueAsString(result);
+            return toolMapper.writeValueAsString(result);
         } catch (Exception e) {
             return toolError("searchKpis", e);
         }
@@ -921,7 +1000,7 @@ public class OrgUnitStatisticTool {
             Map<String, Object> result = new LinkedHashMap<>();
             result.put("count", positions.size());
             result.put("positions", positions);
-            return objectMapper.writeValueAsString(result);
+            return toolMapper.writeValueAsString(result);
         } catch (Exception e) {
             return toolError("searchPositions", e);
         }
@@ -939,7 +1018,7 @@ public class OrgUnitStatisticTool {
             Map<String, Object> result = new LinkedHashMap<>();
             result.put("count", periods.size());
             result.put("periods", periods);
-            return objectMapper.writeValueAsString(result);
+            return toolMapper.writeValueAsString(result);
         } catch (Exception e) {
             return toolError("searchKpiPeriods", e);
         }

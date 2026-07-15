@@ -40,8 +40,24 @@ public class FollowupContextStore {
 
     private static class Bucket {
         final List<ToolResult> results = new ArrayList<>();
+        /** Kết quả tool của LƯỢT hiện tại, key = toolName + tham số — để gọi trùng không chạy lại. */
+        final Map<String, String> callCache = new ConcurrentHashMap<>();
         volatile long updatedAt = Instant.now().toEpochMilli();
         volatile boolean disambiguating = false;
+        /** Lựa chọn để người dùng bấm khi tool yêu cầu làm rõ (thay cho việc gõ lại tên). */
+        volatile List<ClarificationOption> clarificationOptions = List.of();
+    }
+
+    /** Một lựa chọn hiển thị thành nút bấm: {@code label} để đọc, {@code value} là câu sẽ gửi lại. */
+    @Getter
+    public static class ClarificationOption {
+        private final String label;
+        private final String value;
+
+        public ClarificationOption(String label, String value) {
+            this.label = label;
+            this.value = value;
+        }
     }
 
     private final Map<String, Bucket> store = new ConcurrentHashMap<>();
@@ -58,11 +74,29 @@ public class FollowupContextStore {
         if (conversationId == null || json == null) return;
         Bucket b = store.computeIfAbsent(conversationId, k -> new Bucket());
         synchronized (b.results) {
-            if (b.results.size() < MAX_ENTRIES_PER_CONVERSATION) {
+            // Model hay gọi lặp cùng một tool trong một lượt -> chỉ giữ kết quả KHÁC nhau, để
+            // ngân sách ký tự của prompt gợi ý không bị các bản sao y hệt chiếm chỗ.
+            boolean duplicate = b.results.stream()
+                    .anyMatch(r -> r.getToolName().equals(toolName) && r.getJson().equals(json));
+            if (!duplicate && b.results.size() < MAX_ENTRIES_PER_CONVERSATION) {
                 b.results.add(new ToolResult(toolName, json));
             }
         }
         b.updatedAt = Instant.now().toEpochMilli();
+    }
+
+    /** Kết quả đã có của đúng lời gọi này (cùng tool + cùng tham số) trong lượt hiện tại, nếu có. */
+    public String getCachedCall(String conversationId, String cacheKey) {
+        if (conversationId == null || cacheKey == null) return null;
+        Bucket b = store.get(conversationId);
+        return b != null ? b.callCache.get(cacheKey) : null;
+    }
+
+    /** Ghi nhớ kết quả của lời gọi này trong phạm vi LƯỢT hiện tại (startTurn sẽ xoá). */
+    public void cacheCall(String conversationId, String cacheKey, String json) {
+        if (conversationId == null || cacheKey == null || json == null) return;
+        Bucket b = store.get(conversationId);
+        if (b != null) b.callCache.put(cacheKey, json);
     }
 
     /** Latest turn's tool outputs for a conversation, or an empty list. */
@@ -81,10 +115,26 @@ public class FollowupContextStore {
 
     /** Mark this conversation as being in disambiguation mode (user must choose). */
     public void markDisambiguating(String conversationId) {
+        markDisambiguating(conversationId, List.of());
+    }
+
+    /**
+     * Như trên, kèm các lựa chọn LẤY TỪ CHÍNH DỮ LIỆU TOOL để client hiện thành nút bấm.
+     * Nhờ vậy người dùng chọn đúng một mục có thật thay vì gõ lại tên (dễ sai/mơ hồ tiếp).
+     */
+    public void markDisambiguating(String conversationId, List<ClarificationOption> options) {
         if (conversationId == null) return;
         Bucket b = store.computeIfAbsent(conversationId, k -> new Bucket());
         b.disambiguating = true;
+        if (options != null && !options.isEmpty()) b.clarificationOptions = List.copyOf(options);
         b.updatedAt = Instant.now().toEpochMilli();
+    }
+
+    /** Lựa chọn đang chờ người dùng bấm của lượt hiện tại (rỗng nếu không phải lượt hỏi lại). */
+    public List<ClarificationOption> getClarificationOptions(String conversationId) {
+        if (conversationId == null) return List.of();
+        Bucket b = store.get(conversationId);
+        return b != null ? b.clarificationOptions : List.of();
     }
 
     /** Check if this conversation is awaiting user disambiguation. */

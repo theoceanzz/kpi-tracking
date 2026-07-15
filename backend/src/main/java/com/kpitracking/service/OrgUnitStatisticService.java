@@ -32,17 +32,27 @@ public class OrgUnitStatisticService {
     private final UserRepository userRepository;
     private final KpiPeriodRepository kpiPeriodRepository;
     private final RoleRepository roleRepository;
+    private final OrgHierarchyLevelRepository orgHierarchyLevelRepository;
     private final EntityManager entityManager;
     private final EvaluationService evaluationService;
 
-    // Helper to parse dates from string
+    // Helper to parse dates from string. Chấp nhận nhiều định dạng vì model hay xuất theo
+    // dd/MM/yyyy (định dạng hiển thị) thay vì yyyy-MM-dd.
     public Instant parseDate(String dateStr, Instant defaultInstant) {
         if (dateStr == null || dateStr.isBlank()) return defaultInstant;
+        String s = dateStr.trim();
+        // dd/MM/yyyy hoặc d/M/yyyy (vd 01/07/2026, 1/7/2026)
+        if (s.matches("\\d{1,2}/\\d{1,2}/\\d{4}")) {
+            try {
+                return java.time.LocalDate.parse(s, java.time.format.DateTimeFormatter.ofPattern("d/M/yyyy"))
+                        .atStartOfDay(ZoneId.systemDefault()).toInstant();
+            } catch (Exception ignore) { /* thử định dạng khác */ }
+        }
         try {
-            if (dateStr.length() == 10) { // YYYY-MM-DD
-                return java.time.LocalDate.parse(dateStr).atStartOfDay(ZoneId.systemDefault()).toInstant();
+            if (s.length() == 10) { // yyyy-MM-dd
+                return java.time.LocalDate.parse(s).atStartOfDay(ZoneId.systemDefault()).toInstant();
             }
-            return Instant.parse(dateStr);
+            return Instant.parse(s);
         } catch (Exception e) {
             log.warn("Could not parse date: {}. Using default.", dateStr);
             return defaultInstant;
@@ -188,6 +198,19 @@ public class OrgUnitStatisticService {
             Math.round(avgProgress * 100.0) / 100.0,
             evalPerf != null ? Math.round(evalPerf * 100.0) / 100.0 : 0.0
         };
+    }
+
+    /**
+     * Id các đợt KPI của tổ chức GIAO với [start,end] (đợt phủ khoảng thời gian, vd tuần/tháng).
+     * Với [EPOCH, now] (không lọc thời gian) → mọi đợt. Dùng cho hiệu suất ĐÁNH GIÁ theo khoảng.
+     */
+    private Set<UUID> overlappingPeriodIds(UUID orgId, Instant start, Instant end) {
+        return kpiPeriodRepository.findByOrganizationId(orgId, org.springframework.data.domain.Pageable.unpaged())
+                .getContent().stream()
+                .filter(p -> p.getStartDate() != null && p.getEndDate() != null
+                        && !p.getStartDate().isAfter(end) && !p.getEndDate().isBefore(start))
+                .map(KpiPeriod::getId)
+                .collect(Collectors.toCollection(LinkedHashSet::new));
     }
 
     // Helper for pagination & sorting in JPQL
@@ -431,7 +454,6 @@ public class OrgUnitStatisticService {
             stats.put("message", "No members found under the specified scope");
             stats.put("averageProgress", 0.0);
             stats.put("averagePerformance", 0.0);
-            stats.put("averageRating", 0.0);
             stats.put("totalKpis", 0L);
             stats.put("submissionCount", 0L);
             stats.put("lateSubmissionCount", 0L);
@@ -462,16 +484,11 @@ public class OrgUnitStatisticService {
                 .setParameter("end", end)
                 .getSingleResult();
 
-        Double avgRating = entityManager.createQuery(
-                "SELECT AVG(e.score) FROM Evaluation e WHERE e.user.id IN :userIds AND e.createdAt >= :start AND e.createdAt <= :end", Double.class)
-                .setParameter("userIds", userIds)
-                .setParameter("start", start)
-                .setParameter("end", end)
-                .getSingleResult();
-
+        // KHÔNG trả thêm "averageRating" (AVG thô mọi lượt đánh giá): nó là công thức KHÁC với
+        // hiệu suất theo đánh giá nên ra số khác, khiến người đọc thấy hai con số cùng nói về
+        // đánh giá mà lệch nhau. Chỉ giữ MỘT chỉ số đánh giá duy nhất = averagePerformance.
         stats.put("averageProgress", averages[0]);
         stats.put("averagePerformance", averages[1]);
-        stats.put("averageRating", avgRating != null ? Math.round(avgRating * 100.0) / 100.0 : 0.0);
         stats.put("totalKpis", (long) kpis.size());
         stats.put("submissionCount", submissionCount);
         stats.put("lateSubmissionCount", lateSubmissionCount);
@@ -509,8 +526,6 @@ public class OrgUnitStatisticService {
                 .setParameter("end", end)
                 .getSingleResult();
 
-        Double avgRating = evaluationRepository.avgScoreByUserId(targetUserId);
-
         List<Map<String, Object>> kpiDetailsList = new ArrayList<>();
         for (KpiCriteria k : kpis) {
             Map<String, Object> entry = new LinkedHashMap<>();
@@ -532,7 +547,6 @@ public class OrgUnitStatisticService {
         userSummary.put("totalKpis", (long) kpis.size());
         userSummary.put("averageProgress", averages[0]);
         userSummary.put("averagePerformance", averages[1]);
-        userSummary.put("averageRating", avgRating != null ? Math.round(avgRating * 100.0) / 100.0 : 0.0);
         userSummary.put("submissionCount", submissionCount);
         userSummary.put("lateSubmissionCount", lateSubmissionCount);
         userSummary.put("kpis", kpiDetailsList);
@@ -672,7 +686,6 @@ public class OrgUnitStatisticService {
             summary.put("totalKpis", 0L);
             summary.put("averageProgress", 0.0);
             summary.put("averagePerformance", 0.0);
-            summary.put("averageRating", 0.0);
             summary.put("completedCount", 0L);
             summary.put("inProgressCount", 0L);
             summary.put("overdueCount", 0L);
@@ -688,11 +701,6 @@ public class OrgUnitStatisticService {
         List<UUID> kpiIds = kpis.stream().map(KpiCriteria::getId).toList();
 
         double[] averages = calculateAverages(kpis, start, end);
-
-        Double avgRating = entityManager.createQuery(
-                "SELECT AVG(e.score) FROM Evaluation e WHERE e.kpiPeriod.id IN (SELECT DISTINCT k.kpiPeriod.id FROM KpiCriteria k WHERE k.id IN :kpiIds) AND e.deletedAt IS NULL", Double.class)
-                .setParameter("kpiIds", kpiIds)
-                .getSingleResult();
 
         long completed = 0L;
         for (KpiCriteria k : kpis) {
@@ -712,7 +720,6 @@ public class OrgUnitStatisticService {
         summary.put("totalKpis", totalKpis);
         summary.put("averageProgress", averages[0]);
         summary.put("averagePerformance", averages[1]);
-        summary.put("averageRating", avgRating != null ? Math.round(avgRating * 100.0) / 100.0 : 0.0);
         summary.put("completedCount", completed);
         summary.put("inProgressCount", totalKpis - completed - overdue > 0 ? totalKpis - completed - overdue : 0L);
         summary.put("overdueCount", overdue);
@@ -949,57 +956,92 @@ public class OrgUnitStatisticService {
 
     // 13. rank_members
     @Transactional(readOnly = true)
-    public List<Map<String, Object>> rankMembers(UUID orgId, String metric, String order, String scope, String unitId, String kpiId, Integer limit, String startDate, String endDate, UUID contextUnitId, String positionFilter, Boolean managersOnly) {
-        int effectiveLimit = (limit != null && limit > 0) ? limit : 5;
+    public List<Map<String, Object>> rankMembers(UUID orgId, String metric, String order, String scope, String unitId, String kpiId, Integer limit, String startDate, String endDate, UUID contextUnitId, String positionFilter, Boolean managersOnly, String unitTypeName) {
+        int effectiveLimit = (limit != null && limit > 0) ? limit : 20;
         boolean desc = !"asc".equalsIgnoreCase(order);
         Instant start = parseDate(startDate, Instant.EPOCH);
         Instant end = parseDate(endDate, Instant.now());
 
         List<User> users = new ArrayList<>();
+        // Path của đơn vị đang xếp hạng (chỉ scope=unit) — dùng lại ở dưới để chọn ĐÚNG đơn vị đại diện
+        // cho người có nhiều phân công. null = không giới hạn theo subtree.
+        String scopePathPrefix = null;
         if ("kpi".equalsIgnoreCase(scope)) {
             if (kpiId == null || kpiId.isBlank()) throw new RuntimeException("kpiId is required for 'kpi' scope");
             KpiCriteria k = kpiCriteriaRepository.findById(UUID.fromString(kpiId)).orElseThrow(() -> new RuntimeException("KPI not found"));
             users = k.getAssignees();
         } else if ("unit".equalsIgnoreCase(scope)) {
             UUID scopeUnitId = (unitId != null && !unitId.isBlank()) ? UUID.fromString(unitId) : contextUnitId;
-            String pathPrefix = getPathPrefix(scopeUnitId);
-            users = userRoleOrgUnitRepository.findUsersByOrgUnitPath(pathPrefix + "%", orgId);
+            scopePathPrefix = getPathPrefix(scopeUnitId);
+            users = userRoleOrgUnitRepository.findUsersByOrgUnitPath(scopePathPrefix + "%", orgId);
         } else {
             users = userRoleOrgUnitRepository.findUsersByOrganizationId(orgId);
         }
 
-        // Lọc theo chức vụ/vai trò NGAY trên tập theo scope để trả lời "xếp hạng <chức vụ> theo ..."
+        // Lọc theo chức vụ/CẤP đơn vị NGAY trên tập theo scope để trả lời "xếp hạng <chức vụ> theo ..."
         // trong 1 lần gọi (thay vì model phải liệt kê đơn vị -> tìm trưởng -> ... rồi tự gộp).
-        //  - managersOnly = chỉ giữ trưởng/quản lý đơn vị (role.rank <= 1, giống findManagersByOrgUnitId).
+        //  - managersOnly = quản lý (role.rank <= 1) của đơn vị KHÔNG PHẢI cấp gốc. Role.rank chỉ nói LOẠI
+        //    chức (0=trưởng, 1=phó, 2=nhân viên) chứ không nói CẤP, nên nếu chỉ lọc rank<=1 thì chủ tịch/CEO
+        //    (trưởng của đơn vị gốc) cũng lọt vào danh sách "trưởng phòng". Cấp đơn vị mới là tín hiệu đúng.
+        //  - unitTypeName = giữ người quản lý/thuộc đơn vị có loại cấp khớp (vd "Phòng") theo OrgHierarchyLevel.
         //  - positionFilter = giữ người có tên chức vụ khớp (không phân biệt hoa/thường), vd "trưởng phòng".
         boolean onlyManagers = Boolean.TRUE.equals(managersOnly);
         String pf = (positionFilter != null && !positionFilter.isBlank()) ? positionFilter.trim().toLowerCase() : null;
-        if ((onlyManagers || pf != null) && !users.isEmpty()) {
-            java.util.Set<UUID> ids = users.stream().map(User::getId).collect(Collectors.toSet());
-            final String pfFinal = pf;
-            java.util.Set<UUID> keep = userRoleOrgUnitRepository.findByUserIdIn(ids).stream()
-                    .filter(uro -> uro.getRole() != null)
-                    .filter(uro -> !onlyManagers || (uro.getRole().getRank() != null && uro.getRole().getRank() <= 1))
-                    .filter(uro -> pfFinal == null || (uro.getRole().getName() != null
-                            && uro.getRole().getName().toLowerCase().contains(pfFinal)))
-                    .map(uro -> uro.getUser().getId())
-                    .collect(Collectors.toSet());
-            users = users.stream().filter(u -> keep.contains(u.getId())).collect(Collectors.toList());
+        String utf = (unitTypeName != null && !unitTypeName.isBlank()) ? unitTypeName.trim().toLowerCase() : null;
+
+        // Cấp GỐC của tổ chức (levelOrder nhỏ nhất) — trưởng của cấp này là chủ tịch/CEO, không phải trưởng phòng.
+        Integer rootLevelOrder = null;
+        if (onlyManagers) {
+            List<OrgHierarchyLevel> levels = orgHierarchyLevelRepository.findByOrganizationIdOrderByLevelOrderAsc(orgId);
+            if (!levels.isEmpty()) rootLevelOrder = levels.get(0).getLevelOrder();
         }
+
+        // Nạp MỘT lần vai trò + đơn vị (kèm cấp) của cả tập user: dùng cho cả việc lọc và việc trả kèm
+        // đơn vị/chức vụ ở mỗi dòng (khỏi bắt model chain thêm tool để biết "họ quản lý phòng nào").
+        boolean filtering = onlyManagers || pf != null || utf != null;
+        Map<UUID, UserRoleOrgUnit> uroByUser = new HashMap<>();
+        Map<UUID, List<UserRoleOrgUnit>> allUrosByUser = new HashMap<>();
+        if (!users.isEmpty()) {
+            java.util.Set<UUID> ids = users.stream().map(User::getId).collect(Collectors.toSet());
+            final String scopePath = scopePathPrefix;
+            for (UserRoleOrgUnit uro : userRoleOrgUnitRepository.findByUserIdInWithUnit(ids)) {
+                if (filtering && !matchesRoleFilter(uro, onlyManagers, rootLevelOrder, pf, utf)) continue;
+                UUID uid = uro.getUser().getId();
+                allUrosByUser.computeIfAbsent(uid, k -> new ArrayList<>()).add(uro);
+                UserRoleOrgUnit current = uroByUser.get(uid);
+                if (current == null || isBetterRepresentative(uro, current, scopePath)) uroByUser.put(uid, uro);
+            }
+            if (filtering) {
+                users = users.stream().filter(u -> uroByUser.containsKey(u.getId())).collect(Collectors.toList());
+            }
+        }
+
+        // Hiệu suất ĐÁNH GIÁ (average_performance) tính theo các ĐỢT KPI của tổ chức GIAO với
+        // [start,end] (đợt phủ khoảng thời gian, vd tuần/tháng). Không nêu thời gian -> start=EPOCH,
+        // end=now -> phủ MỌI đợt = giữ hành vi cũ. Resolve MỘT lần cho cả danh sách.
+        Set<UUID> perfPeriodIds = isEvaluationMetric(metric)
+                ? overlappingPeriodIds(orgId, start, end)
+                : Set.of();
 
         List<Map<String, Object>> rankList = new ArrayList<>();
         for (User u : users) {
             double score = 0.0;
 
-            if ("average_progress".equalsIgnoreCase(metric) || "average_performance".equalsIgnoreCase(metric)) {
+            if ("average_progress".equalsIgnoreCase(metric)) {
                 List<KpiCriteria> userKpis = entityManager.createQuery(
                         "SELECT DISTINCT k FROM KpiCriteria k JOIN FETCH k.submissions LEFT JOIN k.assignees a WHERE a.id = :userId AND k.createdAt >= :start AND k.createdAt <= :end", KpiCriteria.class)
                         .setParameter("userId", u.getId())
                         .setParameter("start", start)
                         .setParameter("end", end)
                         .getResultList();
-                double[] averages = calculateAverages(userKpis, start, end);
-                score = "average_progress".equalsIgnoreCase(metric) ? averages[0] : averages[1];
+                score = calculateAverages(userKpis, start, end)[0];
+            } else if (isEvaluationMetric(metric)) {
+                // Điểm hiệu suất ĐÁNH GIÁ của người theo các đợt phủ khoảng thời gian.
+                // CHƯA có đánh giá (null) != điểm 0: loại khỏi bảng xếp hạng, nếu không người chưa được
+                // chấm (vd chủ tịch) sẽ hiện 0.00 và bị coi là "thấp nhất".
+                Double p = evaluationService.averagePerformance(Set.of(u.getId()), perfPeriodIds);
+                if (p == null) continue;
+                score = Math.round(p);
             } else if ("total_progress".equalsIgnoreCase(metric)) {
                 Double sumTotalActual = entityManager.createQuery(
                         "SELECT SUM(s.actualValue) FROM KpiSubmission s WHERE s.submittedBy.id = :userId AND s.status = 'APPROVED' AND s.createdAt >= :start AND s.createdAt <= :end", Double.class)
@@ -1008,9 +1050,6 @@ public class OrgUnitStatisticService {
                         .setParameter("end", end)
                         .getSingleResult();
                 score = sumTotalActual != null ? sumTotalActual : 0.0;
-            } else if ("average_rating".equalsIgnoreCase(metric)) {
-                Double avgRate = evaluationRepository.avgScoreByUserId(u.getId());
-                score = avgRate != null ? avgRate : 0.0;
             } else if ("late_submission_count".equalsIgnoreCase(metric)) {
                 Long count = entityManager.createQuery(
                         "SELECT COUNT(s.id) FROM KpiSubmission s WHERE s.submittedBy.id = :userId AND s.periodEnd IS NOT NULL AND s.createdAt > s.periodEnd AND s.createdAt >= :start AND s.createdAt <= :end", Long.class)
@@ -1037,9 +1076,26 @@ public class OrgUnitStatisticService {
                 score = count;
             }
 
+            // Đơn vị + chức vụ đại diện: trả luôn để trả lời "ai thấp nhất VÀ họ quản lý phòng nào"
+            // trong 1 lần gọi, thay vì model tự đoán.
+            UserRoleOrgUnit info = uroByUser.get(u.getId());
+            OrgUnit infoUnit = info != null ? safeRef(info::getOrgUnit) : null;
+            Role infoRole = info != null ? safeRef(info::getRole) : null;
+
             Map<String, Object> entry = new LinkedHashMap<>();
+            // userId trả luôn để chain thẳng sang get_user_summary/get_submission_history mà KHÔNG
+            // phải gọi search_users trước — bớt hẳn một vòng gọi tool (mỗi vòng gửi lại toàn bộ
+            // system prompt + 28 tool definition + kết quả tool trước đó).
+            entry.put("userId", u.getId());
             entry.put("fullName", u.getFullName());
             entry.put("email", u.getEmail());
+            entry.put("orgUnitName", infoUnit != null ? infoUnit.getName() : null);
+            entry.put("positionName", infoRole != null ? infoRole.getName() : null);
+            // Người KIÊM NHIỆM (vd vừa là trưởng phòng ở đơn vị này, vừa là nhân viên ở đơn vị
+            // khác): trả HẾT vai trò, nếu không thì chỉ còn một chức vụ đại diện và model có
+            // khoảng trống để đoán bừa cái còn lại. Chỉ thêm khi thực sự có từ 2 vai trò khác tên.
+            List<String> positions = distinctPositions(allUrosByUser.get(u.getId()));
+            if (positions.size() > 1) entry.put("positions", positions);
             entry.put("score", Math.round(score * 100.0) / 100.0);
             rankList.add(entry);
         }
@@ -1060,6 +1116,99 @@ public class OrgUnitStatisticService {
         return sliced;
     }
 
+    /**
+     * Chỉ tồn tại MỘT chỉ số đánh giá: hiệu suất theo đánh giá. "average_rating" được giữ như
+     * BÍ DANH của "average_performance" (model vẫn hay truyền tên cũ) và chạy cùng công thức
+     * chuẩn — thay vì AVG thô mọi lượt đánh giá, vốn ra số khác và gây mâu thuẫn khi hai con số
+     * cùng nói về "đánh giá" lại lệch nhau.
+     */
+    private boolean isEvaluationMetric(String metric) {
+        return "average_performance".equalsIgnoreCase(metric) || "average_rating".equalsIgnoreCase(metric);
+    }
+
+    /** rank của vai trò (0=trưởng, 1=phó, 2=nhân viên); thiếu thì coi như thấp nhất. */
+    private int roleRankOf(UserRoleOrgUnit uro) {
+        Role r = safeRef(uro::getRole);
+        return (r != null && r.getRank() != null) ? r.getRank() : Integer.MAX_VALUE;
+    }
+
+    /**
+     * Mọi vai trò KHÁC TÊN của một người kèm đơn vị tương ứng, sắp theo vai trò cao trước
+     * (vd ["Trưởng phòng — Phòng vận hành", "Nhân viên — KeyPerson"]).
+     * Gộp theo TÊN vai trò, nên người có nhiều phân công cùng một chức vụ (rất phổ biến: vừa
+     * thuộc đơn vị gốc vừa thuộc phòng) chỉ ra MỘT mục và không bị thêm field thừa.
+     */
+    private List<String> distinctPositions(List<UserRoleOrgUnit> uros) {
+        if (uros == null || uros.isEmpty()) return List.of();
+        Map<String, String> byRoleName = new LinkedHashMap<>();
+        uros.stream()
+                .sorted(java.util.Comparator.comparingInt(this::roleRankOf))
+                .forEach(uro -> {
+                    Role role = safeRef(uro::getRole);
+                    if (role == null || role.getName() == null) return;
+                    OrgUnit unit = safeRef(uro::getOrgUnit);
+                    String label = unit != null ? role.getName() + " — " + unit.getName() : role.getName();
+                    byRoleName.putIfAbsent(role.getName(), label);
+                });
+        return new ArrayList<>(byRoleName.values());
+    }
+
+    /** levelOrder của đơn vị trong phân công; càng LỚN càng cụ thể (0 = cấp gốc/công ty). */
+    private int levelOrderOf(UserRoleOrgUnit uro) {
+        OrgUnit u = safeRef(uro::getOrgUnit);
+        OrgHierarchyLevel l = (u != null) ? safeRef(u::getOrgHierarchyLevel) : null;
+        return (l != null && l.getLevelOrder() != null) ? l.getLevelOrder() : Integer.MIN_VALUE;
+    }
+
+    /** Phân công này có thuộc subtree đang xếp hạng không (scopePathPrefix null = không giới hạn). */
+    private boolean isInScope(UserRoleOrgUnit uro, String scopePathPrefix) {
+        if (scopePathPrefix == null) return true;
+        OrgUnit u = safeRef(uro::getOrgUnit);
+        return u != null && u.getPath() != null && u.getPath().startsWith(scopePathPrefix);
+    }
+
+    /**
+     * Một người có thể có NHIỀU phân công (vd vừa ở đơn vị gốc, vừa ở phòng cụ thể) — chọn cái
+     * đại diện đúng cho bảng xếp hạng, theo thứ tự ưu tiên:
+     *   1. nằm trong subtree đang xếp hạng (hỏi "phòng X" thì phải hiện phòng X, không phải đơn vị gốc)
+     *   2. vai trò cao hơn (rank nhỏ hơn) — trưởng phòng thắng nhân viên
+     *   3. đơn vị CỤ THỂ hơn (levelOrder lớn hơn) — tránh hiện đơn vị gốc khi họ còn phân công ở phòng
+     * Nếu chỉ so rank thì hai phân công cùng rank sẽ hoà và giữ bừa dòng DB đến trước.
+     */
+    private boolean isBetterRepresentative(UserRoleOrgUnit candidate, UserRoleOrgUnit current, String scopePathPrefix) {
+        boolean candIn = isInScope(candidate, scopePathPrefix);
+        boolean currIn = isInScope(current, scopePathPrefix);
+        if (candIn != currIn) return candIn;
+
+        int candRank = roleRankOf(candidate);
+        int currRank = roleRankOf(current);
+        if (candRank != currRank) return candRank < currRank;
+
+        return levelOrderOf(candidate) > levelOrderOf(current);
+    }
+
+    /**
+     * Một phân công (user × vai trò × đơn vị) có khớp bộ lọc chức vụ/cấp đơn vị không.
+     * managersOnly loại quản lý ở CẤP GỐC vì đó là chủ tịch/CEO chứ không phải trưởng phòng.
+     */
+    private boolean matchesRoleFilter(UserRoleOrgUnit uro, boolean onlyManagers, Integer rootLevelOrder, String pf, String utf) {
+        Role role = safeRef(uro::getRole);
+        if (role == null) return false;
+        OrgUnit unit = safeRef(uro::getOrgUnit);
+        OrgHierarchyLevel level = unit != null ? safeRef(unit::getOrgHierarchyLevel) : null;
+
+        if (onlyManagers) {
+            if (role.getRank() == null || role.getRank() > 1) return false;
+            if (rootLevelOrder != null && level != null && rootLevelOrder.equals(level.getLevelOrder())) return false;
+        }
+        if (pf != null && (role.getName() == null || !role.getName().toLowerCase().contains(pf))) return false;
+        if (utf != null) {
+            String typeName = (level != null && level.getUnitTypeName() != null) ? level.getUnitTypeName().toLowerCase() : null;
+            if (typeName == null || !typeName.contains(utf)) return false;
+        }
+        return true;
+    }
+
     // 14. rank_org_units
     @Transactional(readOnly = true)
     public List<Map<String, Object>> rankOrgUnits(UUID orgUnitId, String metric, String order, Integer limit, String startDate, String endDate) {
@@ -1073,22 +1222,25 @@ public class OrgUnitStatisticService {
         String pathPrefix = root.getPath();
         List<OrgUnit> units = orgUnitRepository.findSubtree(pathPrefix, orgIdFromUnit);
 
+        // Hiệu suất ĐÁNH GIÁ cấp đơn vị theo các đợt phủ [start,end] (metric average_performance).
+        Set<UUID> orgPeriods = isEvaluationMetric(metric)
+                ? overlappingPeriodIds(orgIdFromUnit, start, end) : Set.of();
+
         List<Map<String, Object>> rankList = new ArrayList<>();
         for (OrgUnit u : units) {
             double score = 0.0;
 
-            if ("average_progress".equalsIgnoreCase(metric) || "average_performance".equalsIgnoreCase(metric)) {
+            if ("average_progress".equalsIgnoreCase(metric)) {
                 List<KpiCriteria> uKpis = entityManager.createQuery(
                         "SELECT DISTINCT k FROM KpiCriteria k JOIN FETCH k.submissions WHERE k.orgUnit.id = :unitId AND k.createdAt >= :start AND k.createdAt <= :end", KpiCriteria.class)
                         .setParameter("unitId", u.getId())
                         .setParameter("start", start)
                         .setParameter("end", end)
                         .getResultList();
-                double[] averages = calculateAverages(uKpis, start, end);
-                score = "average_progress".equalsIgnoreCase(metric) ? averages[0] : averages[1];
-            } else if ("average_rating".equalsIgnoreCase(metric)) {
-                Double avgRate = evaluationRepository.avgScoreByOrgUnitId(u.getId());
-                score = avgRate != null ? avgRate : 0.0;
+                score = calculateAverages(uKpis, start, end)[0];
+            } else if (isEvaluationMetric(metric)) {
+                // Hiệu suất ĐÁNH GIÁ đơn vị (TB đánh giá subtree, hoặc quản lý nếu thác nước) — khớp analytics/compare.
+                score = evaluationService.unitEvaluationPerformance(u, orgPeriods);
             } else { // member_count
                 score = userRoleOrgUnitRepository.countUsersByOrganizationUnitId(u.getId());
             }
@@ -1189,13 +1341,6 @@ public class OrgUnitStatisticService {
 
         double[] averages = calculateAverages(kpis, start, end);
 
-        Double avgRating = entityManager.createQuery(
-                "SELECT AVG(e.score) FROM Evaluation e WHERE e.orgUnit.path LIKE CONCAT(:pathPrefix, '%') AND e.createdAt >= :start AND e.createdAt <= :end", Double.class)
-                .setParameter("pathPrefix", pathPrefix)
-                .setParameter("start", start)
-                .setParameter("end", end)
-                .getSingleResult();
-
         Long pendingKpiCount = entityManager.createQuery(
                 "SELECT COUNT(k) FROM KpiCriteria k WHERE k.orgUnit.path LIKE CONCAT(:pathPrefix, '%') AND k.status = 'SUBMITTED'", Long.class)
                 .setParameter("pathPrefix", pathPrefix)
@@ -1220,9 +1365,12 @@ public class OrgUnitStatisticService {
         summary.put("totalUnits", totalUnits);
         summary.put("totalKpis", totalKpis);
         summary.put("totalPeriods", totalPeriods);
+        OrgUnit dashUnit = orgUnitRepository.findById(orgUnitId).orElse(null);
         summary.put("averageProgress", averages[0]);
-        summary.put("averagePerformance", averages[1]);
-        summary.put("averageRating", avgRating != null ? Math.round(avgRating * 100.0) / 100.0 : 0.0);
+        // Hiệu suất ĐÁNH GIÁ cấp đơn vị (waterfall-aware) — khớp analytics, thay số member-aggregate.
+        summary.put("averagePerformance", dashUnit != null
+                ? evaluationService.unitEvaluationPerformance(dashUnit, overlappingPeriodIds(orgId, start, end))
+                : averages[1]);
         summary.put("pendingKpisCount", pendingKpiCount);
         summary.put("lateSubmissionsCount", lateSubmissionCount);
         summary.put("overdueKpisCount", overdueKpiCount);
@@ -1485,15 +1633,26 @@ public class OrgUnitStatisticService {
     @Transactional(readOnly = true)
     public Map<String, Object> compareOrgUnits(
             java.util.List<UUID> unitIds, String startDate, String endDate) {
+        Instant start = parseDate(startDate, Instant.EPOCH);
+        Instant end = parseDate(endDate, Instant.now());
+        // Đợt phủ khoảng, resolve 1 lần (các đơn vị so sánh cùng tổ chức).
+        UUID orgId = unitIds.isEmpty() ? null : orgUnitRepository.findById(unitIds.get(0))
+                .map(ou -> ou.getOrgHierarchyLevel().getOrganization().getId()).orElse(null);
+        Set<UUID> periods = orgId != null ? overlappingPeriodIds(orgId, start, end) : Set.of();
+
         List<Map<String, Object>> units = unitIds.stream().map(uid -> {
             try {
                 Map<String, Object> detail = getOrgUnitDetail(uid);
                 Map<String, Object> stats = getMemberStatistics(uid, false, null, startDate, endDate);
+                OrgUnit unit = orgUnitRepository.findById(uid).orElse(null);
 
                 Map<String, Object> m = new LinkedHashMap<>();
                 m.put("unitName", detail.get("name"));
                 m.put("unitCode", detail.get("code"));
                 m.putAll(stats);
+                // Hiệu suất ĐÁNH GIÁ cấp đơn vị (TB đánh giá subtree / quản lý nếu thác nước) —
+                // thay số member-aggregate của stats để khớp analytics.
+                if (unit != null) m.put("averagePerformance", evaluationService.unitEvaluationPerformance(unit, periods));
                 return m;
             } catch (Exception e) {
                 log.warn("Error comparing org unit {}: {}", uid, e.getMessage());
@@ -1502,7 +1661,7 @@ public class OrgUnitStatisticService {
         }).filter(java.util.Objects::nonNull).collect(Collectors.toList());
 
         String winnerUnitName = units.stream()
-                .max(java.util.Comparator.comparingDouble(m -> toDouble(m.get("avgPerformance"))))
+                .max(java.util.Comparator.comparingDouble(m -> toDouble(m.get("averagePerformance"))))
                 .map(m -> m.get("unitName") != null ? m.get("unitName").toString() : null)
                 .orElse(null);
 
@@ -1526,7 +1685,7 @@ public class OrgUnitStatisticService {
 
         java.util.List<Map<String, Object>> ranked = rankMembers(
                 orgId, met, dir, "unit", orgUnitId.toString(), null,
-                200, startDate, endDate, orgUnitId, null, null);
+                200, startDate, endDate, orgUnitId, null, null, null);
 
         List<Map<String, Object>> filtered = ranked.stream()
                 .filter(m -> {

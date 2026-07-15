@@ -6,18 +6,16 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 public final class OrgUnitStatisticToolRequests {
     private OrgUnitStatisticToolRequests() {}
 
+    // LƯU Ý: chỉ khai báo tham số mà tool THẬT SỰ dùng. Tham số thừa vẫn được model truyền vào
+    // rồi bị lờ đi âm thầm (vd hỏi "nhân viên phòng IT trong tháng 7" -> ngày bị bỏ, model tưởng
+    // đã lọc), đồng thời phình schema gửi lại ở MỖI vòng gọi tool.
     @JsonInclude(JsonInclude.Include.NON_NULL)
-    public record GetOrgHierarchyRequest(
-            @JsonProperty(required = false) String startDate,
-            @JsonProperty(required = false) String endDate
-    ) {}
+    public record GetOrgHierarchyRequest() {}
 
     @JsonInclude(JsonInclude.Include.NON_NULL)
     public record GetOrgUnitDetailRequest(
             @JsonProperty(required = false) String unitName,  // tên đơn vị đích (vd "Phòng truyền thông"); mặc định = đơn vị hiện tại
-            @JsonProperty(required = false) String unitId,
-            @JsonProperty(required = false) String startDate,
-            @JsonProperty(required = false) String endDate
+            @JsonProperty(required = false) String unitId
     ) {}
 
     @JsonInclude(JsonInclude.Include.NON_NULL)
@@ -28,9 +26,7 @@ public final class OrgUnitStatisticToolRequests {
             @JsonProperty(required = false) Integer page,
             @JsonProperty(required = false) Integer size,
             @JsonProperty(required = false) String sortBy,
-            @JsonProperty(required = false) String sortDirection,
-            @JsonProperty(required = false) String startDate,
-            @JsonProperty(required = false) String endDate
+            @JsonProperty(required = false) String sortDirection
     ) {}
 
     @JsonInclude(JsonInclude.Include.NON_NULL)
@@ -43,9 +39,7 @@ public final class OrgUnitStatisticToolRequests {
             @JsonProperty(required = false) Integer page,
             @JsonProperty(required = false) Integer size,
             @JsonProperty(required = false) String sortBy,
-            @JsonProperty(required = false) String sortDirection,
-            @JsonProperty(required = false) String startDate,
-            @JsonProperty(required = false) String endDate
+            @JsonProperty(required = false) String sortDirection
     ) {}
 
     @JsonInclude(JsonInclude.Include.NON_NULL)
@@ -53,7 +47,6 @@ public final class OrgUnitStatisticToolRequests {
             @JsonProperty(required = false) String unitName,  // tên đơn vị đích (vd "phòng IT"); mặc định = đơn vị hiện tại
             @JsonProperty(required = false) String unitId,
             @JsonProperty(required = false) Boolean includeChildUnits,
-            @JsonProperty(required = false) String positionId,
             @JsonProperty(required = false) String positionName,  // lọc nhóm theo tên chức vụ (khỏi search_positions)
             @JsonProperty(required = false) String startDate,
             @JsonProperty(required = false) String endDate
@@ -105,9 +98,7 @@ public final class OrgUnitStatisticToolRequests {
 
     @JsonInclude(JsonInclude.Include.NON_NULL)
     public record GetKpiAssigneesRequest(
-            @JsonProperty(required = false) String kpiId,
-            @JsonProperty(required = false) String startDate,
-            @JsonProperty(required = false) String endDate
+            @JsonProperty(required = false) String kpiId
     ) {}
 
     @JsonInclude(JsonInclude.Include.NON_NULL)
@@ -121,9 +112,7 @@ public final class OrgUnitStatisticToolRequests {
     @JsonInclude(JsonInclude.Include.NON_NULL)
     public record GetPositionsRequest(
             @JsonProperty(required = false) String unitName,  // tên đơn vị đích; mặc định = đơn vị hiện tại
-            @JsonProperty(required = false) String unitId,
-            @JsonProperty(required = false) String startDate,
-            @JsonProperty(required = false) String endDate
+            @JsonProperty(required = false) String unitId
     ) {}
 
     @JsonInclude(JsonInclude.Include.NON_NULL)
@@ -132,18 +121,23 @@ public final class OrgUnitStatisticToolRequests {
             @JsonProperty(required = false) String order,
             @JsonProperty(required = false) String scope,
             @JsonProperty(required = false) String unitId,
+            @JsonProperty(required = false) String unitName,
             @JsonProperty(required = false) String kpiId,
             @JsonProperty(required = false) Integer limit,
             @JsonProperty(required = false) String startDate,
             @JsonProperty(required = false) String endDate,
             @JsonProperty(required = false) String positionFilter,
-            @JsonProperty(required = false) Boolean managersOnly
+            @JsonProperty(required = false) String positionName,  // bí danh của positionFilter (khớp tên tham số của get_members/get_org_unit_statistics)
+            @JsonProperty(required = false) Boolean managersOnly,
+            @JsonProperty(required = false) String unitTypeName
     ) {}
 
     @JsonInclude(JsonInclude.Include.NON_NULL)
     public record RankOrgUnitsRequest(
             @JsonProperty(required = false) String metric,
             @JsonProperty(required = false) String order,
+            @JsonProperty(required = false) String unitName,  // đơn vị cha cần xếp hạng các đơn vị con; mặc định = đơn vị hiện tại
+            @JsonProperty(required = false) String unitId,
             @JsonProperty(required = false) Integer limit,
             @JsonProperty(required = false) String startDate,
             @JsonProperty(required = false) String endDate
@@ -159,6 +153,8 @@ public final class OrgUnitStatisticToolRequests {
 
     @JsonInclude(JsonInclude.Include.NON_NULL)
     public record GetDashboardSummaryRequest(
+            @JsonProperty(required = false) String unitName,  // đơn vị đích; mặc định = đơn vị hiện tại
+            @JsonProperty(required = false) String unitId,
             @JsonProperty(required = false) String startDate,
             @JsonProperty(required = false) String endDate
     ) {}

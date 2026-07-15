@@ -23,6 +23,10 @@ public interface UserRoleOrgUnitRepository extends JpaRepository<UserRoleOrgUnit
     @Query("SELECT uro FROM UserRoleOrgUnit uro JOIN FETCH uro.user JOIN FETCH uro.role WHERE uro.user.id IN :userIds")
     List<UserRoleOrgUnit> findByUserIdIn(@Param("userIds") java.util.Collection<UUID> userIds);
 
+    /** Như findByUserIdIn nhưng nạp kèm đơn vị + CẤP đơn vị (để lọc theo cấp/loại đơn vị mà không N+1). */
+    @Query("SELECT uro FROM UserRoleOrgUnit uro JOIN FETCH uro.user JOIN FETCH uro.role JOIN FETCH uro.orgUnit ou JOIN FETCH ou.orgHierarchyLevel WHERE uro.user.id IN :userIds")
+    List<UserRoleOrgUnit> findByUserIdInWithUnit(@Param("userIds") java.util.Collection<UUID> userIds);
+
     @Query("SELECT uro FROM UserRoleOrgUnit uro JOIN FETCH uro.role WHERE uro.user.id = :userId AND uro.orgUnit.id = :orgUnitId")
     List<UserRoleOrgUnit> findByUserIdAndOrgUnitId(@Param("userId") UUID userId, @Param("orgUnitId") UUID orgUnitId);
 

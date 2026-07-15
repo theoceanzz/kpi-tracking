@@ -15,6 +15,9 @@ import com.kpitracking.tool.OrgUnitStatisticTool;
 import com.kpitracking.util.AiUtils;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
+import org.springframework.ai.chat.memory.ChatMemoryRepository;
+import org.springframework.ai.chat.messages.Message;
+import org.springframework.ai.chat.messages.MessageType;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.ParameterizedTypeReference;
@@ -42,6 +45,7 @@ public class AiService {
     private final FollowupContextStore followupContextStore;
     private final OrgUnitRepository orgUnitRepository;
     private final OrganizationRepository organizationRepository;
+    private final ChatMemoryRepository chatMemoryRepository;
 
     /**
      * Names of every @Tool exposed to the chat model, collected once via reflection so the
@@ -74,7 +78,8 @@ public class AiService {
                      DisambiguationGuard disambiguationGuard,
                      FollowupContextStore followupContextStore,
                      OrganizationRepository organizationRepository,
-                     OrgUnitRepository orgUnitRepository) {
+                     OrgUnitRepository orgUnitRepository,
+                     ChatMemoryRepository chatMemoryRepository) {
         this.chatClient = chatClient;
         this.chatClientWithMemory = chatClientWithMemory;
         this.managerContextResolver = managerContextResolver;
@@ -83,6 +88,25 @@ public class AiService {
         this.followupContextStore = followupContextStore;
         this.organizationRepository = organizationRepository;
         this.orgUnitRepository = orgUnitRepository;
+        this.chatMemoryRepository = chatMemoryRepository;
+    }
+
+    /**
+     * Bộ nhớ hội thoại phải luôn kết thúc bằng CÂU TRẢ LỜI. Advisor ghi câu hỏi vào bộ nhớ TRƯỚC
+     * khi gọi model, nên khi lượt chat lỗi (hết credit, provider trả 400, timeout...) câu hỏi nằm
+     * lại mà không có câu trả lời đi kèm. Người dùng hỏi lại y hệt thì câu đó xuất hiện HAI lần
+     * trong prompt (tốn token, model dễ hiểu nhầm). Bỏ câu hỏi mồ côi ở cuối để tránh việc đó.
+     */
+    private void dropOrphanUserMessage(String conversationId) {
+        if (conversationId == null || conversationId.isBlank()) return;
+        try {
+            List<Message> messages = chatMemoryRepository.findByConversationId(conversationId);
+            if (messages.isEmpty()) return;
+            if (messages.get(messages.size() - 1).getMessageType() != MessageType.USER) return;
+            chatMemoryRepository.saveAll(conversationId, new ArrayList<>(messages.subList(0, messages.size() - 1)));
+        } catch (Exception e) {
+            log.warn("Không dọn được câu hỏi mồ côi trong bộ nhớ hội thoại {}: {}", conversationId, e.getMessage());
+        }
     }
 
     public String processOrgUnitChat(String question, String conversationId, String focusUnitId) {
@@ -165,11 +189,13 @@ public class AiService {
             // bong bóng trống ra người dùng; trả câu gợi ý hỏi ngắn gọn hơn.
             if (result == null || result.isBlank()) {
                 log.warn("AI trả nội dung rỗng (nghi finishReason=LENGTH/reasoning quá dài). question={}", question);
+                dropOrphanUserMessage(hasMemory ? conversationId : null);
                 return "Xin lỗi, mình chưa tạo được câu trả lời cho yêu cầu này (nội dung xử lý quá dài). "
                         + "Bạn thử hỏi ngắn gọn/cụ thể hơn giúp mình nhé.";
             }
             return result;
         } catch (Exception e) {
+            dropOrphanUserMessage(hasMemory ? conversationId : null);
             if (AiUtils.isQuotaError(e)) {
                 throw new AiQuotaExceededException("quota exceeded", e);
             }

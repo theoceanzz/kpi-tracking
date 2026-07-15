@@ -103,6 +103,7 @@ public class ResponseSanitizingAdvisor implements CallAdvisor, StreamAdvisor {
 
     private String sanitize(String result) {
         if (result == null) return "";
+        result = repairTableRows(result);
         String[] lines = result.split("\n", -1);
         for (int i = 0; i < lines.length; i++) {
             if (lines[i].stripLeading().startsWith("|")) {
@@ -114,7 +115,67 @@ public class ResponseSanitizingAdvisor implements CallAdvisor, StreamAdvisor {
         result = String.join("\n", lines);
         result = result.replaceAll("(?m)(\\|[^\\n]+)\\n{2,}(?=\\|)", "$1\n");
         result = redactToolNames(result);
+        result = redactFieldKeys(result);
         return result.strip();
+    }
+
+    /** Dòng phân cách của bảng Markdown, vd {@code |-----|------|}. */
+    private static final Pattern TABLE_SEPARATOR = Pattern.compile("[|\\s:-]+");
+
+    /** Đầu dòng dạng danh sách mà model hay chèn nhầm vào bảng: "1. ", "2) ", "- ", "* ". */
+    private static final Pattern LEADING_LIST_MARKER = Pattern.compile("^(?:\\d+[.)]|[-*+])\\s+");
+
+    private static boolean isTableSeparator(String line) {
+        String s = line.strip();
+        return s.startsWith("|") && s.indexOf('-') >= 0 && TABLE_SEPARATOR.matcher(s).matches();
+    }
+
+    private static int countPipes(String s) {
+        int n = 0;
+        for (int i = 0; i < s.length(); i++) {
+            if (s.charAt(i) == '|') n++;
+        }
+        return n;
+    }
+
+    /**
+     * Vá bảng Markdown bị hỏng. Model nhỏ đôi khi viết đúng dòng tiêu đề + dòng phân cách nhưng
+     * các dòng dữ liệu lại THIẾU dấu {@code |} mở đầu (thường bị thay bằng "1.", "2.", "-"), khiến
+     * trình render hiện tiêu đề thành bảng còn dữ liệu rơi xuống thành danh sách — bảng vỡ đôi.
+     *
+     * <p>Chỉ sửa dòng nằm ngay trong một bảng đã hợp lệ (tiêu đề + phân cách) VÀ có đúng số cột
+     * như tiêu đề sau khi bỏ ký tự đánh số thừa; mọi trường hợp khác để nguyên, nên không có
+     * nguy cơ biến văn bản thường thành bảng.
+     */
+    private String repairTableRows(String text) {
+        if (text == null || text.indexOf('|') < 0) return text;
+        String[] lines = text.split("\n", -1);
+        int headerPipes = -1; // > 0 nghĩa là đang ở trong một bảng
+        for (int i = 0; i < lines.length; i++) {
+            String stripped = lines[i].strip();
+
+            if (headerPipes < 0) {
+                if (stripped.startsWith("|") && i + 1 < lines.length && isTableSeparator(lines[i + 1])) {
+                    headerPipes = countPipes(stripped);
+                    i++; // bỏ qua dòng phân cách
+                }
+                continue;
+            }
+
+            if (stripped.isEmpty()) {          // dòng trống -> kết thúc bảng
+                headerPipes = -1;
+                continue;
+            }
+            if (stripped.startsWith("|")) continue; // dòng bảng vốn đã đúng
+
+            String candidate = LEADING_LIST_MARKER.matcher(stripped).replaceFirst("");
+            if (candidate.endsWith("|") && countPipes(candidate) == headerPipes - 1) {
+                lines[i] = "| " + candidate;    // trả lại dấu | mở đầu bị thiếu
+            } else {
+                headerPipes = -1;               // không phải dòng bảng -> bảng đã hết
+            }
+        }
+        return String.join("\n", lines);
     }
 
     /**
@@ -132,5 +193,25 @@ public class ResponseSanitizingAdvisor implements CallAdvisor, StreamAdvisor {
         redacted = redacted.replaceAll("`\\s*`", "");
         redacted = redacted.replaceAll("[ \\t]{2,}", " ");
         return redacted;
+    }
+
+    /**
+     * Removes leaked internal JSON field/param keys that the model occasionally parrots despite
+     * the confidentiality rule. Such keys surface as a bare camelCase/lowercase ASCII identifier
+     * wrapped in backticks (e.g. {@code `managers`}, {@code `fullName`}) — Vietnamese business
+     * text never looks like that, so this is safe. First drops a parenthetical aside built around
+     * such a key (cleanest — e.g. "(được liệt kê trong `managers` của …)"), then strips any
+     * remaining standalone leak, then tidies whitespace/punctuation. UPPER-CASE tokens (e.g.
+     * status codes {@code `APPROVED`}) are intentionally left untouched.
+     */
+    private String redactFieldKeys(String text) {
+        if (text == null || text.isEmpty()) return text;
+        // "(… `managers` …)" -> "" : an aside that only exists to reference an internal key.
+        String out = text.replaceAll("\\s*\\([^()]*`[a-z][A-Za-z0-9_]*`[^()]*\\)", "");
+        // Any leftover standalone `identifier` leak -> drop the backticked token.
+        out = out.replaceAll("`[a-z][A-Za-z0-9_]*`", "");
+        // Tidy: collapse doubled spaces and remove space before punctuation.
+        out = out.replaceAll("[ \\t]{2,}", " ").replaceAll("\\s+([.,;:])", "$1");
+        return out;
     }
 }

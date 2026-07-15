@@ -8,8 +8,18 @@ export interface AiChatRequest {
   focusUnitId?: string
 }
 
+/** Lựa chọn bấm được khi trợ lý hỏi lại để làm rõ (lấy từ dữ liệu thật của hệ thống). */
+export interface ClarificationOption {
+  /** Nhãn hiển thị, kèm cấp/đơn vị cha để phân biệt. */
+  label: string
+  /** Nội dung gửi lại như câu trả lời của người dùng khi bấm chọn. */
+  value: string
+}
+
 export interface AiChatResponse {
   text: string
+  /** Chỉ có ở lượt trợ lý hỏi lại; lượt trả lời bình thường sẽ vắng field này. */
+  options?: ClarificationOption[]
 }
 
 export interface ConversationResponse {

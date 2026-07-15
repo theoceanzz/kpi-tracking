@@ -58,13 +58,24 @@ public class DatabaseChatMemoryRepository implements ChatMemoryRepository {
 
         List<ConversationMessage> toSave = new ArrayList<>();
         int index = 0;
+        String prevRole = null;
+        String prevContent = null;
         for (Message message : messages) {
             String content = message.getText();
             if (content == null || content.isBlank()) continue;
 
+            String role = message.getMessageType().getValue();
+            // Bỏ message TRÙNG LIÊN TIẾP (cùng vai trò + cùng nội dung). MessageChatMemoryAdvisor ghi
+            // câu hỏi vào bộ nhớ TRƯỚC khi gọi model; nếu lượt đó lỗi (vd hết credit/timeout) thì câu
+            // hỏi nằm lại mà không có câu trả lời — hỏi lại y hệt sẽ khiến nó xuất hiện hai lần trong
+            // prompt (tốn token + model dễ hiểu nhầm là hỏi hai lần).
+            if (role.equals(prevRole) && content.equals(prevContent)) continue;
+            prevRole = role;
+            prevContent = content;
+
             toSave.add(ConversationMessage.builder()
                     .conversationId(id)
-                    .role(message.getMessageType().getValue())
+                    .role(role)
                     .content(content)
                     .msgIndex(index++)
                     .build());

@@ -59,9 +59,6 @@ public interface EvaluationRepository extends JpaRepository<Evaluation, UUID> {
     long countByOrgUnitIdIn(@Param("orgUnitIds") java.util.Collection<UUID> orgUnitIds);
     // ===== Analytics queries =====
 
-    @Query("SELECT AVG(e.score) FROM Evaluation e WHERE e.orgUnit.id = :orgUnitId")
-    Double avgScoreByOrgUnitId(@Param("orgUnitId") UUID orgUnitId);
-
     @Query("SELECT e FROM Evaluation e WHERE e.user.id = :userId ORDER BY e.createdAt DESC")
     java.util.List<Evaluation> findAllByUserIdOrdered(@Param("userId") UUID userId);
 
