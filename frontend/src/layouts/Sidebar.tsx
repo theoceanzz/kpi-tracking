@@ -29,7 +29,8 @@ import {
   Lightbulb,
   CircleHelp,
   Bot,
-  ShieldCheck
+  ShieldCheck,
+  Gauge
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useNotificationDots } from '../hooks/useNotificationDots'
@@ -67,7 +68,8 @@ const navItems: NavItem[] = [
     children: [
       { label: 'Công ty', path: '/company', icon: <Building2 size={18} />, permission: 'COMPANY:VIEW' },
       { label: 'Quản lý OKR', path: '/okr', icon: <Target size={18} />, permission: 'COMPANY:VIEW', okrOnly: true },
-      { label: 'Thẻ điểm BSC', path: '/bsc', icon: <Layers size={18} />, permission: 'BSC:VIEW', bscOnly: true },
+      { label: 'Thẻ điểm BSC', path: '/bsc', icon: <Layers size={18} />, permission: 'BSC:VIEW', bscOnly: true, end: true },
+      { label: 'Dashboard BSC', path: '/bsc/dashboard', icon: <Gauge size={18} />, permission: 'BSC:VIEW', bscOnly: true },
       {
         label: 'Tổ chức',
         icon: <Network size={18} />,

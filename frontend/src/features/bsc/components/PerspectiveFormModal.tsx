@@ -1,6 +1,6 @@
 import { useEffect } from 'react'
 import { useForm, Controller } from 'react-hook-form'
-import { X, Layers, Loader2 } from 'lucide-react'
+import { X, Layers, Loader2, Plus } from 'lucide-react'
 import {
   Select,
   SelectContent,
@@ -9,7 +9,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { PerspectiveRequest, PerspectiveResponse, BscPerspectiveStatus } from '../types'
-import { useBscMutations } from '../hooks/useBsc'
+import { useBscMutations, useBscPerspectives } from '../hooks/useBsc'
 
 interface PerspectiveFormModalProps {
   isOpen: boolean
@@ -33,6 +33,7 @@ export default function PerspectiveFormModal({ isOpen, onClose, organizationId, 
   })
 
   const { createPerspective, updatePerspective } = useBscMutations()
+  const { data: allPerspectives } = useBscPerspectives(organizationId)
   const selectedColor = watch('color')
 
   useEffect(() => {
@@ -110,6 +111,13 @@ export default function PerspectiveFormModal({ isOpen, onClose, organizationId, 
                       value: /^[A-Za-z0-9_]+$/,
                       message: 'Mã chỉ gồm chữ, số và dấu gạch dưới (không dấu cách, không tiếng Việt)',
                     },
+                    validate: {
+                      duplicate: v => {
+                        if (!v) return true
+                        const clash = (allPerspectives || []).some(p => p.code?.toLowerCase() === v.trim().toLowerCase() && p.id !== perspective?.id)
+                        return !clash || 'Mã này đã được dùng bởi viễn cảnh khác'
+                      },
+                    },
                   })}
                   placeholder="FINANCIAL"
                   className="w-full px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 text-sm font-bold focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 outline-none transition-all"
@@ -141,6 +149,11 @@ export default function PerspectiveFormModal({ isOpen, onClose, organizationId, 
                       required: v => (v !== undefined && v !== null && !Number.isNaN(v)) || 'Vui lòng nhập thứ tự hiển thị',
                       integer: v => v == null || Number.isInteger(v) || 'Thứ tự phải là số nguyên',
                       min: v => v == null || v >= 0 || 'Thứ tự không được âm',
+                      duplicate: v => {
+                        if (v == null || Number.isNaN(v)) return true
+                        const clash = (allPerspectives || []).some(p => p.displayOrder === v && p.id !== perspective?.id)
+                        return !clash || 'Thứ tự này đã được dùng bởi viễn cảnh khác'
+                      },
                     },
                   })}
                   className="w-full px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 text-sm font-bold focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 outline-none transition-all"
@@ -176,7 +189,7 @@ export default function PerspectiveFormModal({ isOpen, onClose, organizationId, 
                   pattern: { value: /^#([0-9A-Fa-f]{6})$/, message: 'Màu không hợp lệ' },
                 })}
               />
-              <div className="flex flex-wrap gap-2">
+              <div className="flex flex-wrap gap-2 items-center">
                 {PRESET_COLORS.map(color => (
                   <button
                     key={color}
@@ -190,6 +203,33 @@ export default function PerspectiveFormModal({ isOpen, onClose, organizationId, 
                     }}
                   />
                 ))}
+                {/* Chọn màu tùy ý */}
+                <label
+                  className="w-8 h-8 rounded-lg cursor-pointer relative overflow-hidden border border-dashed border-slate-300 dark:border-slate-600 flex items-center justify-center"
+                  style={{
+                    background: !PRESET_COLORS.includes(selectedColor || '') && /^#([0-9A-Fa-f]{6})$/.test(selectedColor || '')
+                      ? selectedColor
+                      : 'conic-gradient(#ef4444,#f59e0b,#10b981,#3b82f6,#8b5cf6,#ec4899,#ef4444)',
+                    outline: !PRESET_COLORS.includes(selectedColor || '') && /^#([0-9A-Fa-f]{6})$/.test(selectedColor || '') ? `2px solid ${selectedColor}` : 'none',
+                    outlineOffset: '2px',
+                  }}
+                  title="Chọn màu tùy ý"
+                >
+                  <Plus size={14} className="text-white drop-shadow" />
+                  <input
+                    type="color"
+                    value={/^#([0-9A-Fa-f]{6})$/.test(selectedColor || '') ? selectedColor : PRESET_COLORS[0]}
+                    onChange={e => setValue('color', e.target.value, { shouldValidate: true })}
+                    className="absolute inset-0 opacity-0 cursor-pointer"
+                  />
+                </label>
+                {/* Nhập mã hex */}
+                <input
+                  value={selectedColor || ''}
+                  onChange={e => setValue('color', e.target.value, { shouldValidate: true })}
+                  placeholder="#RRGGBB"
+                  className="w-28 px-3 py-1.5 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 text-sm font-mono outline-none focus:ring-2 focus:ring-indigo-500/20"
+                />
               </div>
               {errors.color && <p className="text-[10px] font-bold text-red-500 ml-1">{errors.color.message}</p>}
             </div>

@@ -71,6 +71,8 @@ public interface KpiCriteriaRepository extends JpaRepository<KpiCriteria, UUID> 
             Pageable pageable
     );
 
+    List<KpiCriteria> findByKpiPeriodIdAndStatusIn(UUID kpiPeriodId, List<KpiStatus> statuses);
+
     Page<KpiCriteria> findByOrgUnitId(UUID orgUnitId, Pageable pageable);
 
     Page<KpiCriteria> findByStatus(KpiStatus status, Pageable pageable);
