@@ -109,3 +109,56 @@ export interface BscDashboardResponse {
   overallScore?: number | null
   perspectives: PerspectiveScoreResponse[]
 }
+
+// ── Strategy Map (GĐ4b) ──────────────────────────────────────
+export interface SmKpiNode {
+  id: string
+  name: string
+  perspectiveMismatch: boolean
+  perspectiveId?: string | null
+}
+export interface SmKeyResultNode {
+  id: string
+  code?: string
+  name: string
+  kpis: SmKpiNode[]
+}
+export interface SmObjectiveNode {
+  id: string
+  code?: string
+  name: string
+  keyResults: SmKeyResultNode[]
+}
+export interface SmPerspectiveLane {
+  perspectiveId: string
+  code: string
+  name: string
+  color?: string
+  displayOrder: number
+  objectives: SmObjectiveNode[]
+}
+export interface SmRelationEdge {
+  id: string
+  sourceObjectiveId: string
+  targetObjectiveId: string
+  label?: string
+}
+export interface StrategyMapResponse {
+  perspectives: SmPerspectiveLane[]
+  directKpis: SmKpiNode[]
+  relations: SmRelationEdge[]
+}
+
+export interface ObjectiveRelationRequest {
+  sourceObjectiveId: string
+  targetObjectiveId: string
+  label?: string
+}
+export interface ObjectiveRelationResponse {
+  id: string
+  sourceObjectiveId: string
+  sourceObjectiveName: string
+  targetObjectiveId: string
+  targetObjectiveName: string
+  label?: string
+}

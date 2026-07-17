@@ -6,7 +6,7 @@ import { useUpdateOrganization } from '../hooks/useUpdateOrganization'
 import { useForm, useFieldArray } from 'react-hook-form'
 import {  Edit3, ShieldCheck, 
   Calendar, Hash, Layers, Trash2,
-  Info, ArrowUp, ArrowDown, Plus, Target, Sparkles, ChevronUp, RotateCcw, GitBranch, SlidersHorizontal, Grid3x3, X, ArrowRight
+  Info, ArrowUp, ArrowDown, Plus, Target, Sparkles, ChevronUp, RotateCcw, GitBranch, SlidersHorizontal, Grid3x3, X, ArrowRight, LayoutGrid
 } from 'lucide-react'
 import type { PerformanceMatrix } from '../api/organizationApi'
 import LoadingSkeleton from '@/components/common/LoadingSkeleton'
@@ -141,13 +141,20 @@ export default function CompanyPage() {
                         {org?.name}
                       </h1>
                     </div>
-                    <div className="grid grid-cols-2 md:flex md:flex-wrap gap-x-3 gap-y-2.5 md:gap-5">
-                      <HeroStat icon={Hash} label="Mã DN" value={org?.code || 'N/A'} valueColor="text-white" />
-                      <HeroStat icon={Calendar} label="Thành lập" value={(org?.createdAt ? formatDateTime(org.createdAt).split(' ')[0] : 'N/A') || 'N/A'} valueColor="text-white" />
-                      <HeroStat icon={ShieldCheck} label="Trạng thái" value={org?.status === 'Active' ? 'Hoạt động' : (org?.status || 'Hoạt động')} valueColor="text-emerald-400" />
-                      <HeroStat icon={Target} label="OKR" value={org?.enableOkr ? 'Đang bật' : 'Đang tắt'} valueColor={org?.enableOkr ? "text-amber-400" : "text-white/40"} />
-                      <HeroStat icon={GitBranch} label="Waterfall" value={org?.enableWaterfall ? 'Đang bật' : 'Đang tắt'} valueColor={org?.enableWaterfall ? "text-cyan-400" : "text-white/40"} />
-                      <HeroStat icon={SlidersHorizontal} label="KPI hành vi" value={org?.enableQualitative ? 'Đang bật' : 'Đang tắt'} valueColor={org?.enableQualitative ? "text-emerald-400" : "text-white/40"} />
+                    <div className="space-y-2.5 md:space-y-4">
+                      {/* Dòng 1: thông tin định danh */}
+                      <div className="grid grid-cols-2 md:flex md:flex-wrap gap-x-3 gap-y-2.5 md:gap-5">
+                        <HeroStat icon={Hash} label="Mã DN" value={org?.code || 'N/A'} valueColor="text-white" />
+                        <HeroStat icon={Calendar} label="Thành lập" value={(org?.createdAt ? formatDateTime(org.createdAt).split(' ')[0] : 'N/A') || 'N/A'} valueColor="text-white" />
+                        <HeroStat icon={ShieldCheck} label="Trạng thái" value={org?.status === 'Active' ? 'Hoạt động' : (org?.status || 'Hoạt động')} valueColor="text-emerald-400" />
+                      </div>
+                      {/* Dòng 2: cờ tính năng — kiểu chip để tách bạch với thông tin ở dòng 1 */}
+                      <div className="flex flex-wrap gap-2">
+                        <FeatureChip icon={SlidersHorizontal} label="KPI hành vi" enabled={org?.enableQualitative} />
+                        <FeatureChip icon={LayoutGrid} label="BSC" enabled={org?.enableBsc} />
+                        <FeatureChip icon={Target} label="OKR" enabled={org?.enableOkr} />
+                        <FeatureChip icon={GitBranch} label="Waterfall" enabled={org?.enableWaterfall} />
+                      </div>
                     </div>
                   </>
                 )}
@@ -358,6 +365,32 @@ function HeroStat({ icon: Icon, label, value, valueColor = "text-white/90" }: { 
         <span className="text-[9px] font-bold text-white/50 uppercase tracking-wider">{label}</span>
         <span className={cn("text-[12px] font-bold", valueColor)}>{value}</span>
       </div>
+    </div>
+  )
+}
+
+// Cờ tính năng là trạng thái BẬT/TẮT, không phải thông tin như HeroStat — nên dùng dạng
+// viên thuốc 1 dòng có chấm sáng, để mắt phân biệt ngay hai hàng trên hero.
+function FeatureChip({ icon: Icon, label, enabled }: { icon: any; label: string; enabled?: boolean }) {
+  return (
+    <div
+      title={`${label}: ${enabled ? 'Đang bật' : 'Đang tắt'}`}
+      className={cn(
+        'flex items-center gap-2 rounded-full border px-3 py-1.5 transition-colors',
+        enabled ? 'bg-white/15 border-white/25' : 'bg-white/[0.04] border-white/10'
+      )}
+    >
+      <Icon size={13} className={enabled ? 'text-white' : 'text-white/30'} />
+      <span className={cn(
+        'text-[10px] font-black uppercase tracking-widest whitespace-nowrap',
+        enabled ? 'text-white' : 'text-white/35'
+      )}>
+        {label}
+      </span>
+      <span className={cn(
+        'w-1.5 h-1.5 rounded-full shrink-0',
+        enabled ? 'bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.9)]' : 'bg-white/20'
+      )} />
     </div>
   )
 }

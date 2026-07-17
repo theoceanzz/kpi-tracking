@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { bscApi } from '../api/bscApi'
-import { PerspectiveRequest, ScorecardRequest, BscScoringMode } from '../types'
+import { PerspectiveRequest, ScorecardRequest, BscScoringMode, ObjectiveRelationRequest } from '../types'
 import { toast } from 'sonner'
 
 export function useBscPerspectives(organizationId?: string) {
@@ -85,6 +85,34 @@ export function useBscDashboard(scorecardId?: string) {
     queryFn: () => bscApi.getDashboard(scorecardId!),
     enabled: !!scorecardId,
   })
+}
+
+export function useStrategyMap(organizationId?: string) {
+  return useQuery({
+    queryKey: ['bsc-strategy-map', organizationId],
+    queryFn: () => bscApi.getStrategyMap(organizationId!),
+    enabled: !!organizationId,
+  })
+}
+
+export function useRelationMutations() {
+  const queryClient = useQueryClient()
+  const invalidate = () => queryClient.invalidateQueries({ queryKey: ['bsc-strategy-map'] })
+
+  const createRelation = useMutation({
+    mutationFn: ({ organizationId, data }: { organizationId: string; data: ObjectiveRelationRequest }) =>
+      bscApi.createRelation(organizationId, data),
+    onSuccess: () => { invalidate(); toast.success('Đã tạo quan hệ nhân-quả') },
+    onError: (e: any) => toast.error(e.response?.data?.message || 'Tạo quan hệ thất bại'),
+  })
+
+  const deleteRelation = useMutation({
+    mutationFn: (relationId: string) => bscApi.deleteRelation(relationId),
+    onSuccess: () => { invalidate(); toast.success('Đã xóa quan hệ') },
+    onError: (e: any) => toast.error(e.response?.data?.message || 'Xóa quan hệ thất bại'),
+  })
+
+  return { createRelation, deleteRelation }
 }
 
 export function useScorecardMutations() {

@@ -22,6 +22,7 @@ export interface OrganizationAdminItem {
   enableOkr: boolean
   enableWaterfall: boolean
   enableQualitative: boolean
+  enableBsc: boolean
   userCount: number
   createdAt: string
   updatedAt: string

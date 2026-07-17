@@ -1,15 +1,19 @@
 package com.kpitracking.controller;
 
+import com.kpitracking.dto.request.bsc.ObjectiveRelationRequest;
 import com.kpitracking.dto.request.bsc.PerspectiveRequest;
 import com.kpitracking.dto.request.bsc.ScorecardRequest;
 import com.kpitracking.dto.response.ApiResponse;
 import com.kpitracking.dto.response.bsc.BscDashboardResponse;
 import com.kpitracking.dto.response.bsc.ImportBscResponse;
+import com.kpitracking.dto.response.bsc.ObjectiveRelationResponse;
 import com.kpitracking.dto.response.bsc.PerspectiveResponse;
 import com.kpitracking.dto.response.bsc.ScorecardResponse;
+import com.kpitracking.dto.response.bsc.StrategyMapResponse;
 import com.kpitracking.enums.BscScoringMode;
 import com.kpitracking.service.BscScoringService;
 import com.kpitracking.service.BscService;
+import com.kpitracking.service.BscStrategyMapService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -27,6 +31,7 @@ public class BscController {
 
     private final BscService bscService;
     private final BscScoringService bscScoringService;
+    private final BscStrategyMapService bscStrategyMapService;
 
     // ============================================================
     // Perspectives (viễn cảnh)
@@ -128,5 +133,36 @@ public class BscController {
             @PathVariable UUID organizationId,
             @RequestParam("file") MultipartFile file) {
         return ResponseEntity.ok(ApiResponse.success(bscService.importScorecards(organizationId, file)));
+    }
+
+    // ============================================================
+    // Strategy Map + quan hệ nhân-quả (GĐ4b)
+    // ============================================================
+
+    @GetMapping("/organization/{organizationId}/strategy-map")
+    @PreAuthorize("hasAuthority('BSC:VIEW')")
+    public ResponseEntity<ApiResponse<StrategyMapResponse>> getStrategyMap(@PathVariable UUID organizationId) {
+        return ResponseEntity.ok(ApiResponse.success(bscStrategyMapService.getStrategyMap(organizationId)));
+    }
+
+    @GetMapping("/organization/{organizationId}/objective-relations")
+    @PreAuthorize("hasAuthority('BSC:VIEW')")
+    public ResponseEntity<ApiResponse<List<ObjectiveRelationResponse>>> getRelations(@PathVariable UUID organizationId) {
+        return ResponseEntity.ok(ApiResponse.success(bscStrategyMapService.getRelations(organizationId)));
+    }
+
+    @PostMapping("/organization/{organizationId}/objective-relations")
+    @PreAuthorize("hasAuthority('BSC:MANAGE')")
+    public ResponseEntity<ApiResponse<ObjectiveRelationResponse>> createRelation(
+            @PathVariable UUID organizationId,
+            @Valid @RequestBody ObjectiveRelationRequest request) {
+        return ResponseEntity.ok(ApiResponse.success(bscStrategyMapService.createRelation(organizationId, request)));
+    }
+
+    @DeleteMapping("/objective-relations/{relationId}")
+    @PreAuthorize("hasAuthority('BSC:MANAGE')")
+    public ResponseEntity<ApiResponse<Void>> deleteRelation(@PathVariable UUID relationId) {
+        bscStrategyMapService.deleteRelation(relationId);
+        return ResponseEntity.ok(ApiResponse.success(null));
     }
 }

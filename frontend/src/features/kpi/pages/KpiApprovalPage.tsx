@@ -498,18 +498,18 @@ export default function KpiApprovalPage() {
                             )}>
                               <StatusIcon size={12} className={kpi.status === 'PENDING_APPROVAL' ? 'animate-pulse' : ''} /> {status.label}
                             </div>
-                            {kpi.perspectiveName && (
+                            {kpi.effectivePerspectiveName && (
                               <span
                                 className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider border whitespace-nowrap"
                                 style={{
-                                  color: kpi.perspectiveColor || '#8b5cf6',
-                                  borderColor: `${kpi.perspectiveColor || '#8b5cf6'}55`,
-                                  backgroundColor: `${kpi.perspectiveColor || '#8b5cf6'}1a`,
+                                  color: kpi.effectivePerspectiveColor || '#8b5cf6',
+                                  borderColor: `${kpi.effectivePerspectiveColor || '#8b5cf6'}55`,
+                                  backgroundColor: `${kpi.effectivePerspectiveColor || '#8b5cf6'}1a`,
                                 }}
-                                title={`Viễn cảnh BSC: ${kpi.perspectiveName}`}
+                                title={`Viễn cảnh BSC: ${kpi.effectivePerspectiveName}`}
                               >
-                                <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: kpi.perspectiveColor || '#8b5cf6' }} />
-                                {kpi.perspectiveName}
+                                <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: kpi.effectivePerspectiveColor || '#8b5cf6' }} />
+                                {kpi.effectivePerspectiveName}
                               </span>
                             )}
                           </div>
@@ -687,18 +687,18 @@ export default function KpiApprovalPage() {
                               <StatusIcon size={10} className={kpi.status === 'PENDING_APPROVAL' ? 'animate-pulse' : ''} />
                               {status.label}
                             </div>
-                            {kpi.perspectiveName && (
+                            {kpi.effectivePerspectiveName && (
                               <span
                                 className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider border whitespace-nowrap"
                                 style={{
-                                  color: kpi.perspectiveColor || '#8b5cf6',
-                                  borderColor: `${kpi.perspectiveColor || '#8b5cf6'}55`,
-                                  backgroundColor: `${kpi.perspectiveColor || '#8b5cf6'}1a`,
+                                  color: kpi.effectivePerspectiveColor || '#8b5cf6',
+                                  borderColor: `${kpi.effectivePerspectiveColor || '#8b5cf6'}55`,
+                                  backgroundColor: `${kpi.effectivePerspectiveColor || '#8b5cf6'}1a`,
                                 }}
-                                title={`Viễn cảnh BSC: ${kpi.perspectiveName}`}
+                                title={`Viễn cảnh BSC: ${kpi.effectivePerspectiveName}`}
                               >
-                                <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: kpi.perspectiveColor || '#8b5cf6' }} />
-                                {kpi.perspectiveName}
+                                <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: kpi.effectivePerspectiveColor || '#8b5cf6' }} />
+                                {kpi.effectivePerspectiveName}
                               </span>
                             )}
                           </div>

@@ -213,10 +213,14 @@ export function OrganizationStructurePage() {
     )
   }
 
+  // Chế độ Sơ đồ: ép trang lấp đúng chiều cao <main> để canvas tự vừa khung, không sinh cuộn.
+  // Chế độ Danh sách: giữ luồng cuộn tự nhiên vì danh sách có thể dài.
+  const fitToScreen = viewMode === 'mindmap' && treeData.length > 0
+
   return (
-    <div className="space-y-6 container mx-auto px-4 md:px-0">
+    <div className={`container mx-auto px-4 md:px-0 ${fitToScreen ? 'h-full flex flex-col gap-6' : 'space-y-6'}`}>
       <PageTour pageKey="org-structure" steps={orgStructureSteps} />
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 shrink-0">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">{pageTitle}</h1>
           <p className="text-sm text-gray-500 mt-1">Quản lý sơ đồ phân cấp phòng ban, chi nhánh</p>
@@ -284,7 +288,7 @@ export function OrganizationStructurePage() {
           </button>
         </div>
       ) : (
-        <div id="tour-org-content" className="fade-in">
+        <div id="tour-org-content" className={`fade-in ${fitToScreen ? 'flex-1 min-h-0' : ''}`}>
           {viewMode === 'mindmap' ? (
             <OrgMindmapView 
               data={treeData} 

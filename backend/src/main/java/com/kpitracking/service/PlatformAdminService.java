@@ -140,6 +140,7 @@ public class PlatformAdminService {
                 .enableOkr(org.getEnableOkr())
                 .enableWaterfall(org.getEnableWaterfall())
                 .enableQualitative(org.getEnableQualitative())
+                .enableBsc(org.getEnableBsc())
                 .userCount(userCount)
                 .createdAt(org.getCreatedAt())
                 .updatedAt(org.getUpdatedAt())

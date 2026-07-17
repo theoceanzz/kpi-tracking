@@ -45,6 +45,7 @@ import SystemSettingsPage from '@/features/organization/pages/SystemSettingsPage
 import OkrManagementPage from '@/features/okr/pages/OkrManagementPage'
 import BscManagementPage from '@/features/bsc/pages/BscManagementPage'
 import BscDashboardPage from '@/features/bsc/pages/BscDashboardPage'
+import BscStrategyMapPage from '@/features/bsc/pages/BscStrategyMapPage'
 
 import DashboardPage from '@/features/dashboard/pages/DashboardPage'
 import ErrorPage from '@/features/errors/pages/ErrorPage'
@@ -116,6 +117,7 @@ export const router = createBrowserRouter([
             children: [
               { path: '/bsc', element: <BscManagementPage /> },
               { path: '/bsc/dashboard', element: <BscDashboardPage /> },
+              { path: '/bsc/strategy-map', element: <BscStrategyMapPage /> },
             ],
           },
 

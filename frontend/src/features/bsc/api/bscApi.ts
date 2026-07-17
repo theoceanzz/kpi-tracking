@@ -3,6 +3,7 @@ import type { ApiResponse } from '@/types/api'
 import {
   PerspectiveResponse, PerspectiveRequest, ImportBscResponse,
   ScorecardResponse, ScorecardRequest, BscDashboardResponse, BscScoringMode,
+  StrategyMapResponse, ObjectiveRelationRequest, ObjectiveRelationResponse,
 } from '../types'
 
 export const bscApi = {
@@ -67,4 +68,14 @@ export const bscApi = {
       })
       .then(r => r.data.data)
   },
+
+  // ── Strategy Map (GĐ4b) ─────────────────────────────────────
+  getStrategyMap: (organizationId: string) =>
+    axiosInstance.get<ApiResponse<StrategyMapResponse>>(`/bsc/organization/${organizationId}/strategy-map`).then(r => r.data.data),
+
+  createRelation: (organizationId: string, data: ObjectiveRelationRequest) =>
+    axiosInstance.post<ApiResponse<ObjectiveRelationResponse>>(`/bsc/organization/${organizationId}/objective-relations`, data).then(r => r.data.data),
+
+  deleteRelation: (relationId: string) =>
+    axiosInstance.delete<ApiResponse<void>>(`/bsc/objective-relations/${relationId}`).then(r => r.data.data),
 }

@@ -226,6 +226,12 @@ export default function PlatformAdminPage() {
                       </span>
                     </div>
                     <div className="flex items-center justify-between gap-2 bg-gray-50 rounded-lg px-2 py-2">
+                      <span className="text-xs text-gray-500 whitespace-nowrap">BSC</span>
+                      <span className={cn('px-2 py-0.5 rounded-full text-xs font-medium shrink-0', org.enableBsc ? 'bg-violet-100 text-violet-700' : 'bg-gray-100 text-gray-400')}>
+                        {org.enableBsc ? 'Bật' : 'Tắt'}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between gap-2 bg-gray-50 rounded-lg px-2 py-2">
                       <span className="text-xs text-gray-500 whitespace-nowrap">Thác nước</span>
                       <span className={cn('px-2 py-0.5 rounded-full text-xs font-medium shrink-0', org.enableWaterfall ? 'bg-cyan-100 text-cyan-700' : 'bg-gray-100 text-gray-400')}>
                         {org.enableWaterfall ? 'Bật' : 'Tắt'}
@@ -253,6 +259,7 @@ export default function PlatformAdminPage() {
                     <th className="px-4 py-3 text-right font-medium">Người dùng</th>
                     <th className="px-4 py-3 text-center font-medium">AI</th>
                     <th className="px-4 py-3 text-center font-medium hidden md:table-cell">OKR</th>
+                    <th className="px-4 py-3 text-center font-medium hidden md:table-cell">BSC</th>
                     <th className="px-4 py-3 text-center font-medium hidden md:table-cell">Thác nước</th>
                     <th className="px-4 py-3 text-center font-medium hidden md:table-cell">KPI hành vi</th>
                     <th className="px-4 py-3 text-left font-medium hidden lg:table-cell">Ngày tạo</th>
@@ -277,6 +284,11 @@ export default function PlatformAdminPage() {
                       <td className="px-4 py-3.5 text-center hidden md:table-cell">
                         <span className={cn('px-2 py-0.5 rounded-full text-xs font-medium', org.enableOkr ? 'bg-indigo-100 text-indigo-700' : 'bg-gray-100 text-gray-400')}>
                           {org.enableOkr ? 'Bật' : 'Tắt'}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3.5 text-center hidden md:table-cell">
+                        <span className={cn('px-2 py-0.5 rounded-full text-xs font-medium', org.enableBsc ? 'bg-violet-100 text-violet-700' : 'bg-gray-100 text-gray-400')}>
+                          {org.enableBsc ? 'Bật' : 'Tắt'}
                         </span>
                       </td>
                       <td className="px-4 py-3.5 text-center hidden md:table-cell">

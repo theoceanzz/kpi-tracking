@@ -49,9 +49,14 @@ public class KpiCriteriaResponse {
     private UUID objectiveId;
     private String objectiveName;
     private String objectiveCode;
+    // Viễn cảnh gán TRỰC TIẾP trên KPI (dùng cho form sửa — chỉ phần gán trực tiếp).
     private UUID perspectiveId;
     private String perspectiveName;
     private String perspectiveColor;
+    // Viễn cảnh HIỆU LỰC (gồm cả kế thừa từ Objective cha) — dùng để hiển thị tag.
+    private UUID effectivePerspectiveId;
+    private String effectivePerspectiveName;
+    private String effectivePerspectiveColor;
     private UUID parentId;
     private String parentName;
     private KpiParentRelationType parentRelationType;

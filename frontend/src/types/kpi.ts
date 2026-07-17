@@ -55,6 +55,9 @@ export interface KpiCriteria {
   perspectiveId: string | null
   perspectiveName: string | null
   perspectiveColor: string | null
+  effectivePerspectiveId: string | null
+  effectivePerspectiveName: string | null
+  effectivePerspectiveColor: string | null
   parentId: string | null
   parentName: string | null
   parentRelationType: KpiParentRelationType | null

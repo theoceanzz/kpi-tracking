@@ -317,6 +317,17 @@ export default function KpiFormModal({ open, onClose, editKpi, parentKpi, parent
     return objectives.filter((obj: any) => obj.orgUnitIds?.some((id: string) => formOrgUnitIds.includes(id)))
   }, [objectives, formOrgUnitIds])
 
+  // Viễn cảnh KPI này sẽ KẾ THỪA từ Objective cha (qua KeyResult đang chọn) khi chưa gán
+  // trực tiếp. Dùng để hiển thị dòng gợi ý trong khối BSC bên dưới.
+  const watchedKeyResultId = watch('keyResultId')
+  const watchedPerspectiveId = watch('perspectiveId')
+  const inheritedPerspective = useMemo(() => {
+    if (!watchedKeyResultId || watchedKeyResultId === 'NONE') return null
+    const obj = (objectives || []).find((o: any) => o.keyResults?.some((kr: any) => kr.id === watchedKeyResultId))
+    if (obj?.perspectiveId) return { name: obj.perspectiveName as string, color: (obj.perspectiveColor as string) || '#8b5cf6' }
+    return null
+  }, [watchedKeyResultId, objectives])
+
   // Clear Key Result if OrgUnit changes to a different one
   useEffect(() => {
     if (formOrgUnitIds.length > 0 && watch('keyResultId')) {
@@ -1018,7 +1029,9 @@ export default function KpiFormModal({ open, onClose, editKpi, parentKpi, parent
                   name="perspectiveId"
                   control={control}
                   render={({ field }) => (
-                    <Select onValueChange={field.onChange} value={field.value || 'NONE'}>
+                    // key ép remount khi value được nạp (reset async) hoặc danh sách viễn cảnh
+                    // load xong → hiện đúng ngay lần mở đầu, không phải mở lần 2.
+                    <Select key={`${field.value ?? 'NONE'}-${(perspectives || []).length}`} onValueChange={field.onChange} value={field.value || 'NONE'}>
                       <SelectTrigger className="w-full rounded-xl border-violet-100 dark:border-violet-900 bg-white dark:bg-slate-900 focus:ring-violet-500/30 transition-all h-11 shadow-sm overflow-hidden">
                         <SelectValue placeholder="-- Chưa gán viễn cảnh --" className="truncate flex-1 min-w-0 text-left" />
                       </SelectTrigger>
@@ -1036,6 +1049,14 @@ export default function KpiFormModal({ open, onClose, editKpi, parentKpi, parent
                     </Select>
                   )}
                 />
+                {(!watchedPerspectiveId || watchedPerspectiveId === 'NONE') && inheritedPerspective && (
+                  <p className="text-[10px] font-medium text-slate-500 dark:text-slate-400 flex items-start gap-1.5 mt-1.5">
+                    <span className="w-2.5 h-2.5 rounded-full shrink-0 mt-0.5" style={{ backgroundColor: inheritedPerspective.color }} />
+                    <span>
+                      Đang kế thừa viễn cảnh <b className="text-slate-700 dark:text-slate-200">"{inheritedPerspective.name}"</b> từ mục tiêu cha. Chọn ở đây để gán đè trực tiếp.
+                    </span>
+                  </p>
+                )}
                 {formKpiPeriodId && !periodHasScorecard && (
                   <p className="text-[10px] font-bold text-amber-600 dark:text-amber-400 flex items-start gap-1.5 mt-1.5">
                     <span className="shrink-0">⚠</span>

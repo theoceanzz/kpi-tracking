@@ -1094,18 +1094,18 @@ function KpiTableRow({ kpi, depth = 0, childCount = 0, isCollapsed, onToggleColl
           )}>
             <StatusIcon size={10} className={kpi.status === 'PENDING_APPROVAL' ? 'animate-spin-slow' : ''} /> {status.label}
           </div>
-          {kpi.perspectiveName && (
+          {kpi.effectivePerspectiveName && (
             <span
               className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider border whitespace-nowrap"
               style={{
-                color: kpi.perspectiveColor || '#8b5cf6',
-                borderColor: `${kpi.perspectiveColor || '#8b5cf6'}55`,
-                backgroundColor: `${kpi.perspectiveColor || '#8b5cf6'}1a`,
+                color: kpi.effectivePerspectiveColor || '#8b5cf6',
+                borderColor: `${kpi.effectivePerspectiveColor || '#8b5cf6'}55`,
+                backgroundColor: `${kpi.effectivePerspectiveColor || '#8b5cf6'}1a`,
               }}
-              title={`Viễn cảnh BSC: ${kpi.perspectiveName}`}
+              title={`Viễn cảnh BSC: ${kpi.effectivePerspectiveName}`}
             >
-              <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: kpi.perspectiveColor || '#8b5cf6' }} />
-              {kpi.perspectiveName}
+              <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: kpi.effectivePerspectiveColor || '#8b5cf6' }} />
+              {kpi.effectivePerspectiveName}
             </span>
           )}
         </div>
@@ -1399,18 +1399,18 @@ function KpiCard({ kpi, depth = 0, childCount = 0, isCollapsed, onToggleCollapse
           )}>
             <StatusIcon size={12} /> {status.label}
           </div>
-          {kpi.perspectiveName && (
+          {kpi.effectivePerspectiveName && (
             <span
               className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-wider border"
               style={{
-                color: kpi.perspectiveColor || '#8b5cf6',
-                borderColor: `${kpi.perspectiveColor || '#8b5cf6'}55`,
-                backgroundColor: `${kpi.perspectiveColor || '#8b5cf6'}1a`,
+                color: kpi.effectivePerspectiveColor || '#8b5cf6',
+                borderColor: `${kpi.effectivePerspectiveColor || '#8b5cf6'}55`,
+                backgroundColor: `${kpi.effectivePerspectiveColor || '#8b5cf6'}1a`,
               }}
-              title={`Viễn cảnh BSC: ${kpi.perspectiveName}`}
+              title={`Viễn cảnh BSC: ${kpi.effectivePerspectiveName}`}
             >
-              <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: kpi.perspectiveColor || '#8b5cf6' }} />
-              {kpi.perspectiveName}
+              <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: kpi.effectivePerspectiveColor || '#8b5cf6' }} />
+              {kpi.effectivePerspectiveName}
             </span>
           )}
           {!isChildCard && childCount > 0 && (

@@ -30,7 +30,9 @@ import {
   CircleHelp,
   Bot,
   ShieldCheck,
-  Gauge
+  Gauge,
+  GitBranch,
+  LayoutGrid
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useNotificationDots } from '../hooks/useNotificationDots'
@@ -68,8 +70,16 @@ const navItems: NavItem[] = [
     children: [
       { label: 'Công ty', path: '/company', icon: <Building2 size={18} />, permission: 'COMPANY:VIEW' },
       { label: 'Quản lý OKR', path: '/okr', icon: <Target size={18} />, permission: 'COMPANY:VIEW', okrOnly: true },
-      { label: 'Thẻ điểm BSC', path: '/bsc', icon: <Layers size={18} />, permission: 'BSC:VIEW', bscOnly: true, end: true },
-      { label: 'Dashboard BSC', path: '/bsc/dashboard', icon: <Gauge size={18} />, permission: 'BSC:VIEW', bscOnly: true },
+      {
+        label: 'Quản lý BSC',
+        icon: <LayoutGrid size={18} />,
+        bscOnly: true,
+        children: [
+          { label: 'Thẻ điểm BSC', path: '/bsc', icon: <Layers size={18} />, permission: 'BSC:VIEW', bscOnly: true, end: true },
+          { label: 'Dashboard BSC', path: '/bsc/dashboard', icon: <Gauge size={18} />, permission: 'BSC:VIEW', bscOnly: true },
+          { label: 'Bản đồ chiến lược', path: '/bsc/strategy-map', icon: <GitBranch size={18} />, permission: 'BSC:VIEW', bscOnly: true },
+        ]
+      },
       {
         label: 'Tổ chức',
         icon: <Network size={18} />,
@@ -230,10 +240,19 @@ useEffect(() => {
       const filteredChildren = item.children
         .map(child => {
           if (child.children) {
+            // Nhóm lồng cũng phải tôn trọng cờ tính năng — nếu không, menu của tính năng
+            // đang tắt vẫn hiện khi user có permission.
+            if (child.okrOnly && !enableOkr) return null
+            if (child.bscOnly && !enableBsc) return null
+
             const filteredSubChildren = child.children
-              .filter(sub => !sub.permission || hasPermission(sub.permission))
+              .filter(sub => {
+                if (sub.okrOnly && !enableOkr) return false
+                if (sub.bscOnly && !enableBsc) return false
+                return !sub.permission || hasPermission(sub.permission)
+              })
               .map(sub => ({ ...sub, label: getLabel(sub), originalLabel: sub.label }))
-            
+
             if (filteredSubChildren.length > 0) {
               return { ...child, label: getLabel(child), children: filteredSubChildren, originalLabel: child.label }
             }
@@ -411,6 +430,7 @@ useEffect(() => {
                                     <NavLink
                                       key={subChild.path}
                                       to={subChild.path!}
+                                      end={subChild.end}
                                       onClick={() => handleNavClick(subChild.path)}
                                       className={({ isActive }) =>
                                         cn(

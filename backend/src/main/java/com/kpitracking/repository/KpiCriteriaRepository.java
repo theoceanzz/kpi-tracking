@@ -73,6 +73,10 @@ public interface KpiCriteriaRepository extends JpaRepository<KpiCriteria, UUID> 
 
     List<KpiCriteria> findByKpiPeriodIdAndStatusIn(UUID kpiPeriodId, List<KpiStatus> statuses);
 
+    @Query("SELECT k FROM KpiCriteria k WHERE k.perspective IS NOT NULL AND k.keyResult IS NULL " +
+           "AND k.orgUnit.orgHierarchyLevel.organization.id = :organizationId")
+    List<KpiCriteria> findByOrganizationIdAndPerspectiveNotNullAndKeyResultIsNull(@Param("organizationId") UUID organizationId);
+
     Page<KpiCriteria> findByOrgUnitId(UUID orgUnitId, Pageable pageable);
 
     Page<KpiCriteria> findByStatus(KpiStatus status, Pageable pageable);

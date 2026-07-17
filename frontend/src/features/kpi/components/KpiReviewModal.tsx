@@ -235,23 +235,23 @@ export default function KpiReviewModal({ open, onClose, kpi, onEdit }: KpiReview
           )}
 
           {/* BSC Perspective Info */}
-          {kpi.perspectiveName && (
+          {kpi.effectivePerspectiveName && (
             <div className="space-y-4">
               <h5 className="text-xs font-black uppercase tracking-widest text-slate-400 flex items-center gap-2">
-                <Layers size={14} style={{ color: kpi.perspectiveColor || '#8b5cf6' }} /> Viễn cảnh BSC
+                <Layers size={14} style={{ color: kpi.effectivePerspectiveColor || '#8b5cf6' }} /> Viễn cảnh BSC
               </h5>
               <div
                 className="flex items-center gap-3 p-6 rounded-[24px] border"
                 style={{
-                  backgroundColor: `${kpi.perspectiveColor || '#8b5cf6'}12`,
-                  borderColor: `${kpi.perspectiveColor || '#8b5cf6'}33`,
+                  backgroundColor: `${kpi.effectivePerspectiveColor || '#8b5cf6'}12`,
+                  borderColor: `${kpi.effectivePerspectiveColor || '#8b5cf6'}33`,
                 }}
               >
-                <span className="w-3 h-10 rounded-full shrink-0" style={{ backgroundColor: kpi.perspectiveColor || '#8b5cf6' }} />
+                <span className="w-3 h-10 rounded-full shrink-0" style={{ backgroundColor: kpi.effectivePerspectiveColor || '#8b5cf6' }} />
                 <div>
                   <p className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 mb-1">Thuộc viễn cảnh</p>
-                  <p className="text-base font-black leading-tight" style={{ color: kpi.perspectiveColor || '#8b5cf6' }}>
-                    {kpi.perspectiveName}
+                  <p className="text-base font-black leading-tight" style={{ color: kpi.effectivePerspectiveColor || '#8b5cf6' }}>
+                    {kpi.effectivePerspectiveName}
                   </p>
                 </div>
               </div>

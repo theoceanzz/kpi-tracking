@@ -48,7 +48,10 @@ export default function BscDashboardPage() {
   useEffect(() => {
     const fromUrl = searchParams.get('scorecard')
     if (fromUrl) setScorecardId(fromUrl)
-    else if (scorecards && scorecards.length > 0) setScorecardId(scorecards[0].id)
+    else {
+      const first = scorecards?.[0]
+      if (first) setScorecardId(first.id)
+    }
   }, [scorecards, searchParams])
 
   const { data: dashboard, isLoading } = useBscDashboard(scorecardId || undefined)

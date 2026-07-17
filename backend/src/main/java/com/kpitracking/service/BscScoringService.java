@@ -280,9 +280,11 @@ public class BscScoringService {
                 .build();
     }
 
-    /** Viễn cảnh hiệu lực của KPI: ưu tiên gán trực tiếp (GĐ4 sẽ bổ sung suy từ Objective cha). */
+    /**
+     * Viễn cảnh hiệu lực của KPI: ưu tiên gán TRỰC TIẾP trên KPI; nếu chưa có thì SUY từ
+     * viễn cảnh của Objective cha (qua KeyResult) — dùng chung logic với KpiCriteriaMapper.
+     */
     private UUID effectivePerspectiveId(KpiCriteria kpi) {
-        if (kpi.getPerspective() != null) return kpi.getPerspective().getId();
-        return null;
+        return com.kpitracking.util.BscPerspectiveResolver.effectivePerspectiveId(kpi);
     }
 }

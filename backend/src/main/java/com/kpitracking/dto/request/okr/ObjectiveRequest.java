@@ -18,4 +18,5 @@ public class ObjectiveRequest {
     private LocalDate endDate;
     private OkrStatus status;
     private List<UUID> orgUnitIds;
+    private UUID perspectiveId;
 }

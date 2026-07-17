@@ -716,9 +716,10 @@ public class KpiCriteriaService {
         if (kpi.getKpiPeriod() == null) return;
         if (!bscScorecardRepository.existsByOrganizationIdAndKpiPeriodId(org.getId(), kpi.getKpiPeriod().getId())) return;
         if (!achievementCalculator.countsTowardBscScore(kpi)) return;
-        if (kpi.getPerspective() == null) {
+        // KPI có thể suy viễn cảnh từ Objective cha (OKR) ⇒ dùng viễn cảnh HIỆU LỰC, không đòi gán trực tiếp.
+        if (com.kpitracking.util.BscPerspectiveResolver.effectivePerspective(kpi) == null) {
             throw new BusinessException("Kỳ '" + kpi.getKpiPeriod().getName() + "' đang áp dụng thẻ điểm BSC: "
-                    + "vui lòng gán viễn cảnh cho chỉ tiêu '" + kpi.getName() + "' trước khi phê duyệt");
+                    + "vui lòng gán viễn cảnh cho chỉ tiêu '" + kpi.getName() + "' (hoặc gán cho Mục tiêu OKR cha) trước khi phê duyệt");
         }
     }
 

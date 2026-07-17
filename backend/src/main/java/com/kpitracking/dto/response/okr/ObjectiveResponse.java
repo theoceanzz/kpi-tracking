@@ -19,4 +19,7 @@ public class ObjectiveResponse {
     private List<KeyResultResponse> keyResults;
     private List<UUID> orgUnitIds;
     private List<String> orgUnitNames;
+    private UUID perspectiveId;
+    private String perspectiveName;
+    private String perspectiveColor;
 }
