@@ -48,6 +48,7 @@ public class KpiSubmissionService {
     private final SubmissionMapper submissionMapper;
     private final ApplicationEventPublisher eventPublisher;
     private final PermissionChecker permissionChecker;
+    private final KpiAchievementCalculator achievementCalculator;
 
     private User getCurrentUser() {
         String email = SecurityContextHolder.getContext().getAuthentication().getName();
@@ -172,34 +173,23 @@ public class KpiSubmissionService {
         if (request.getActualValue() != null && kpi.getTargetValue() != null && kpi.getWeight() != null && kpi.getTargetValue() != 0) {
             Double minVal = kpi.getMinimumValue() != null ? kpi.getMinimumValue() : 0.0;
             boolean isInverse = Boolean.TRUE.equals(kpi.getIsReverseKpi());
-            
-            if (isInverse) {
-                if (request.getActualValue() > minVal) {
-                    finalStatus = SubmissionStatus.REJECTED;
-                    autoReviewNote = "Hệ thống tự động TỪ CHỐI do số liệu thực tế (" + request.getActualValue() + 
-                                     ") vượt quá mức tối đa cho phép (" + minVal + ").";
-                    reviewedAt = Instant.now();
-                } else {
-                    com.kpitracking.entity.Organization org = kpi.getOrgUnit().getOrgHierarchyLevel().getOrganization();
-                    double multiplier = org.getEvaluationMaxScore() / 100.0;
-                    double ratio = Math.max(0.0, 2.0 - (request.getActualValue() / kpi.getTargetValue()));
-                    ratio = Math.min(ratio, 1.5);
-                    autoScore = ratio * kpi.getWeight() * multiplier;
-                }
-            } else {
-                if (request.getActualValue() < minVal) {
-                    finalStatus = SubmissionStatus.REJECTED;
-                    autoReviewNote = "Hệ thống tự động TỪ CHỐI do số liệu thực tế (" + request.getActualValue() + 
-                                     ") thấp hơn mức tối thiểu yêu cầu (" + minVal + ").";
-                    reviewedAt = Instant.now();
-                } else {
-                    com.kpitracking.entity.Organization org = kpi.getOrgUnit().getOrgHierarchyLevel().getOrganization();
-                    double multiplier = org.getEvaluationMaxScore() / 100.0;
-                    double ratio = request.getActualValue() / kpi.getTargetValue();
-                    ratio = Math.min(ratio, 1.5);
-                    autoScore = ratio * kpi.getWeight() * multiplier;
-                }
+
+            // Vi phạm ngưỡng ⇒ tự động TỪ CHỐI. Quy tắc ngưỡng lấy từ KpiAchievementCalculator
+            // để autoScore và system_score/bsc_score dùng CHUNG một công thức, không lệch nhau.
+            if (achievementCalculator.breachesThreshold(kpi, request.getActualValue())) {
+                finalStatus = SubmissionStatus.REJECTED;
+                autoReviewNote = isInverse
+                        ? "Hệ thống tự động TỪ CHỐI do số liệu thực tế (" + request.getActualValue()
+                          + ") vượt quá mức tối đa cho phép (" + minVal + ")."
+                        : "Hệ thống tự động TỪ CHỐI do số liệu thực tế (" + request.getActualValue()
+                          + ") thấp hơn mức tối thiểu yêu cầu (" + minVal + ").";
+                reviewedAt = Instant.now();
             }
+
+            // autoScore luôn tính bằng công thức chung (vi phạm ngưỡng ⇒ ratio = 0).
+            com.kpitracking.entity.Organization org = kpi.getOrgUnit().getOrgHierarchyLevel().getOrganization();
+            double multiplier = org.getEvaluationMaxScore() / 100.0;
+            autoScore = achievementCalculator.ratioFromActual(kpi, request.getActualValue()) * kpi.getWeight() * multiplier;
         }
         
         // If it's a draft, don't trigger auto-rejection yet
@@ -346,34 +336,22 @@ public class KpiSubmissionService {
             if (submission.getActualValue() != null && kpi.getTargetValue() != null && kpi.getWeight() != null && kpi.getTargetValue() != 0) {
                 Double minVal = kpi.getMinimumValue() != null ? kpi.getMinimumValue() : 0.0;
                 boolean isInverse = Boolean.TRUE.equals(kpi.getIsReverseKpi());
-                
-                if (isInverse) {
-                    if (submission.getActualValue() > minVal) {
-                        submission.setStatus(SubmissionStatus.REJECTED);
-                        submission.setReviewNote("Hệ thống tự động TỪ CHỐI do số liệu thực tế (" + submission.getActualValue() + 
-                                         ") vượt quá mức tối đa cho phép (" + minVal + ").");
-                        submission.setReviewedAt(Instant.now());
-                    } else {
-                        com.kpitracking.entity.Organization org = kpi.getOrgUnit().getOrgHierarchyLevel().getOrganization();
-                        double multiplier = org.getEvaluationMaxScore() / 100.0;
-                        double ratio = Math.max(0.0, 2.0 - (submission.getActualValue() / kpi.getTargetValue()));
-                        ratio = Math.min(ratio, 1.5);
-                        submission.setAutoScore(ratio * kpi.getWeight() * multiplier);
-                    }
-                } else {
-                    if (submission.getActualValue() < minVal) {
-                        submission.setStatus(SubmissionStatus.REJECTED);
-                        submission.setReviewNote("Hệ thống tự động TỪ CHỐI do số liệu thực tế (" + submission.getActualValue() + 
-                                         ") thấp hơn mức tối thiểu yêu cầu (" + minVal + ").");
-                        submission.setReviewedAt(Instant.now());
-                    } else {
-                        com.kpitracking.entity.Organization org = kpi.getOrgUnit().getOrgHierarchyLevel().getOrganization();
-                        double multiplier = org.getEvaluationMaxScore() / 100.0;
-                        double ratio = submission.getActualValue() / kpi.getTargetValue();
-                        ratio = Math.min(ratio, 1.5);
-                        submission.setAutoScore(ratio * kpi.getWeight() * multiplier);
-                    }
+
+                // Dùng chung quy tắc ngưỡng + công thức với KpiAchievementCalculator (xem create ở trên).
+                if (achievementCalculator.breachesThreshold(kpi, submission.getActualValue())) {
+                    submission.setStatus(SubmissionStatus.REJECTED);
+                    submission.setReviewNote(isInverse
+                            ? "Hệ thống tự động TỪ CHỐI do số liệu thực tế (" + submission.getActualValue()
+                              + ") vượt quá mức tối đa cho phép (" + minVal + ")."
+                            : "Hệ thống tự động TỪ CHỐI do số liệu thực tế (" + submission.getActualValue()
+                              + ") thấp hơn mức tối thiểu yêu cầu (" + minVal + ").");
+                    submission.setReviewedAt(Instant.now());
                 }
+
+                com.kpitracking.entity.Organization org = kpi.getOrgUnit().getOrgHierarchyLevel().getOrganization();
+                double multiplier = org.getEvaluationMaxScore() / 100.0;
+                submission.setAutoScore(
+                        achievementCalculator.ratioFromActual(kpi, submission.getActualValue()) * kpi.getWeight() * multiplier);
             }
         } else if (Boolean.TRUE.equals(request.getIsDraft())) {
             submission.setStatus(SubmissionStatus.DRAFT);
@@ -549,19 +527,8 @@ public class KpiSubmissionService {
         Double autoScore = 0.0;
         if (parentKpi.getTargetValue() != null && parentKpi.getWeight() != null && parentKpi.getTargetValue() != 0) {
             double multiplier = org.getEvaluationMaxScore() / 100.0;
-            double ratio;
-            if (parentKpi.getCompensatedAchievementPercent() != null) {
-                ratio = parentKpi.getCompensatedAchievementPercent() / 100.0;
-            } else {
-                boolean isInverse = Boolean.TRUE.equals(parentKpi.getIsReverseKpi());
-                if (isInverse) {
-                    ratio = Math.max(0.0, 2.0 - (totalActual / parentKpi.getTargetValue()));
-                } else {
-                    ratio = totalActual / parentKpi.getTargetValue();
-                }
-            }
-            ratio = Math.min(ratio, 1.5);
-            autoScore = ratio * parentKpi.getWeight() * multiplier;
+            // Dùng chung công thức với KpiAchievementCalculator (đã gồm bù trừ, ngưỡng, KPI ngược, trần).
+            autoScore = achievementCalculator.ratioFromActual(parentKpi, totalActual) * parentKpi.getWeight() * multiplier;
         }
         parentSub.setAutoScore(autoScore);
 

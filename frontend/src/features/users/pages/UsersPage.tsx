@@ -126,15 +126,16 @@ export default function UsersPage() {
   const rootUnitId = useMemo(() => orgTree?.[0]?.id, [orgTree])
 
   // Fetch users with full parameters
-  const { data, isLoading } = useUsers({ 
-    keyword, 
-    page, 
-    size, 
-    role: roleFilter, 
-    orgUnitId: orgUnitFilter === 'ALL' ? undefined : orgUnitFilter,
+  const { data, isLoading } = useUsers({
+    keyword,
+    page,
+    size,
+    role: roleFilter,
+    // BE nhận orgUnitIds (List) — gửi orgUnitId số ít sẽ bị bỏ qua và không lọc được.
+    orgUnitIds: orgUnitFilter === 'ALL' ? undefined : [orgUnitFilter],
     organizationId,
-    sortBy, 
-    direction 
+    sortBy,
+    direction
   })
 
   const deleteMutation = useMutation({

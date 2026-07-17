@@ -3,8 +3,9 @@ import { Link } from 'react-router-dom'
 import { useAuthStore } from '@/store/authStore'
 import { useBscPerspectives, useBscMutations, useScorecards, useScorecardMutations } from '../hooks/useBsc'
 import { useSidebarSettings } from '@/features/organization/hooks/useSidebarSettings'
-import { Plus, Layers, Edit2, Trash2, GripVertical, FileUp, LayoutGrid, Calendar, BarChart3, Target } from 'lucide-react'
+import { Plus, Layers, Edit2, Trash2, GripVertical, FileUp, LayoutGrid, Calendar, BarChart3, Target, ShieldCheck, Undo2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { usePermission } from '@/hooks/usePermission'
 import { PerspectiveResponse, BscPerspectiveStatus, ScorecardResponse, BscScorecardStatus, BscScoringMode } from '../types'
 import PerspectiveFormModal from '../components/PerspectiveFormModal'
 import ScorecardFormModal from '../components/ScorecardFormModal'
@@ -22,7 +23,9 @@ export default function BscManagementPage() {
   const { data: perspectives, isLoading } = useBscPerspectives(organizationId)
   const { data: scorecards } = useScorecards(organizationId)
   const { deletePerspective, importPerspectives } = useBscMutations()
-  const { deleteScorecard, importScorecards } = useScorecardMutations()
+  const { deleteScorecard, importScorecards, updateScoringMode } = useScorecardMutations()
+  const { hasPermission } = usePermission()
+  const canPublish = hasPermission('BSC:PUBLISH_SCORE')
 
   const { data: customLabels = {} } = useSidebarSettings(organizationId!)
   const pageTitle = (customLabels as Record<string, string>)['/bsc'] || 'Thẻ điểm cân bằng (BSC)'
@@ -38,6 +41,7 @@ export default function BscManagementPage() {
   const [isScorecardModalOpen, setIsScorecardModalOpen] = useState(false)
   const [selectedScorecard, setSelectedScorecard] = useState<ScorecardResponse | undefined>()
   const [deleteScorecardId, setDeleteScorecardId] = useState<string | null>(null)
+  const [publishTarget, setPublishTarget] = useState<ScorecardResponse | null>(null)
   const [isScorecardImportGuideOpen, setIsScorecardImportGuideOpen] = useState(false)
   const [scorecardPreviewFile, setScorecardPreviewFile] = useState<File | null>(null)
   const scorecardFileInputRef = useRef<HTMLInputElement>(null)
@@ -176,6 +180,18 @@ export default function BscManagementPage() {
                   </div>
                 </div>
                 <div className="flex items-center gap-1 shrink-0">
+                  {canPublish && (
+                    <button
+                      onClick={() => setPublishTarget(sc)}
+                      className={cn('p-2 rounded-xl transition-all',
+                        sc.scoringMode === BscScoringMode.SHADOW
+                          ? 'text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/30'
+                          : 'text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/30')}
+                      title={sc.scoringMode === BscScoringMode.SHADOW ? 'Chuyển sang chấm điểm chính thức' : 'Đưa về chạy song song'}
+                    >
+                      {sc.scoringMode === BscScoringMode.SHADOW ? <ShieldCheck size={18} /> : <Undo2 size={18} />}
+                    </button>
+                  )}
                   <Link to={`/bsc/dashboard?scorecard=${sc.id}`} className="p-2 rounded-xl text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 transition-all" title="Xem dashboard"><BarChart3 size={18} /></Link>
                   <button onClick={() => { setSelectedScorecard(sc); setIsScorecardModalOpen(true) }} className="p-2 rounded-xl text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition-all"><Edit2 size={18} /></button>
                   <button onClick={() => setDeleteScorecardId(sc.id)} className="p-2 rounded-xl text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 transition-all"><Trash2 size={18} /></button>
@@ -211,6 +227,24 @@ export default function BscManagementPage() {
         onConfirm={() => { if (deleteScorecardId) deleteScorecard.mutate(deleteScorecardId); setDeleteScorecardId(null) }}
         title="Xóa thẻ điểm" description="Bạn có chắc chắn muốn xóa thẻ điểm này?"
         confirmLabel="Xóa" loading={deleteScorecard.isPending} />
+
+      <ConfirmDialog
+        open={!!publishTarget}
+        onClose={() => setPublishTarget(null)}
+        onConfirm={() => {
+          if (publishTarget) {
+            const next = publishTarget.scoringMode === BscScoringMode.SHADOW ? BscScoringMode.OFFICIAL : BscScoringMode.SHADOW
+            updateScoringMode.mutate({ scorecardId: publishTarget.id, mode: next })
+          }
+          setPublishTarget(null)
+        }}
+        title={publishTarget?.scoringMode === BscScoringMode.SHADOW ? 'Chuyển sang chấm điểm chính thức' : 'Đưa về chạy song song'}
+        description={publishTarget?.scoringMode === BscScoringMode.SHADOW
+          ? 'Từ giờ điểm BSC sẽ là ĐIỂM CHÍNH THỨC (thay điểm hệ thống) cho các đánh giá tính/chốt sau thời điểm này. Điểm BSC đã được tính sẵn từ trước nên KHÔNG có gì phải tính lại; các đánh giá đã chốt trước đó giữ nguyên. Lưu ý: khi ở chế độ chính thức, đánh giá sẽ bị chặn nếu còn KPI chưa gán viễn cảnh.'
+          : 'Đưa thẻ điểm về chế độ chạy song song: điểm BSC vẫn được tính & lưu để đối chiếu, nhưng điểm chính thức quay lại dùng điểm hệ thống cũ.'}
+        confirmLabel={publishTarget?.scoringMode === BscScoringMode.SHADOW ? 'Chuyển chính thức' : 'Đưa về song song'}
+        loading={updateScoringMode.isPending}
+      />
     </div>
   )
 }

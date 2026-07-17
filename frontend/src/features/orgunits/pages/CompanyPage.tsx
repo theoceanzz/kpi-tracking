@@ -609,11 +609,11 @@ function ScoringConfigSection({ org }: { org: any }) {
 }
 
 const DEFAULT_QUALITATIVE_LEVELS = [
-  { name: 'KÉM', value: 0, position: 1, color: '#ef4444' },
-  { name: 'YẾU', value: 2, position: 2, color: '#f59e0b' },
-  { name: 'TRUNG BÌNH', value: 3, position: 3, color: '#6366f1' },
-  { name: 'KHÁ', value: 3.5, position: 4, color: '#3b82f6' },
-  { name: 'TỐT', value: 4.5, position: 5, color: '#10b981' },
+  { name: 'KÉM', value: 0, position: 1, scorePercent: 0, color: '#ef4444' },
+  { name: 'YẾU', value: 2, position: 2, scorePercent: 40, color: '#f59e0b' },
+  { name: 'TRUNG BÌNH', value: 3, position: 3, scorePercent: 60, color: '#6366f1' },
+  { name: 'KHÁ', value: 3.5, position: 4, scorePercent: 80, color: '#3b82f6' },
+  { name: 'TỐT', value: 4.5, position: 5, scorePercent: 100, color: '#10b981' },
 ]
 
 function QualitativeConfigSection({ org }: { org: any }) {
@@ -628,6 +628,7 @@ function QualitativeConfigSection({ org }: { org: any }) {
         name: l.name,
         value: l.value,
         position: l.position,
+        scorePercent: l.scorePercent ?? 0,
         color: l.color || '#6366f1',
       }))
 
@@ -667,12 +668,22 @@ function QualitativeConfigSection({ org }: { org: any }) {
       return
     }
 
+    const invalidPct = data.qualitativeLevels.find((l: any) => {
+      const p = Number(l.scorePercent)
+      return isNaN(p) || p < 0 || p > 100
+    })
+    if (invalidPct) {
+      toast.error('% quy đổi BSC phải nằm trong khoảng 0–100')
+      return
+    }
+
     updateMutation.mutate(
       {
         qualitativeLevels: data.qualitativeLevels.map((l: any) => ({
           name: l.name.trim(),
           value: Number(l.value),
           position: Number(l.position),
+          scorePercent: Number(l.scorePercent),
           color: l.color,
         })),
       },
@@ -734,7 +745,8 @@ function QualitativeConfigSection({ org }: { org: any }) {
         <div className="p-4 rounded-2xl bg-emerald-50 dark:bg-emerald-900/10 border border-emerald-100 dark:border-emerald-900/30 flex items-start gap-3">
           <Info size={18} className="text-emerald-600 shrink-0 mt-0.5" />
           <p className="text-[11px] text-emerald-700/80 dark:text-emerald-400/80 font-medium leading-relaxed">
-            Quy đổi mỗi mức đánh giá định tính sang một giá trị điểm để tham chiếu. <span className="font-bold">Vị trí</span> là thứ tự cột trong bảng tính, <span className="font-bold">Giá trị</span> là điểm quy đổi tương ứng.
+            Quy đổi mỗi mức đánh giá định tính sang một giá trị điểm để tham chiếu. <span className="font-bold">Vị trí</span> là thứ tự cột trong bảng tính, <span className="font-bold">Giá trị</span> là điểm quy đổi tương ứng (dùng cho ma trận hiệu suất).
+            {org?.enableBsc && <> Cột <span className="font-bold text-indigo-600 dark:text-indigo-400">% BSC</span> là mức hoàn thành tương ứng khi tính điểm BSC — độc lập với Giá trị, do bạn tự định nghĩa (VD: KÉM 0% · YẾU 40% · TB 60% · KHÁ 80% · TỐT 100%).</>}
           </p>
         </div>
 
@@ -744,7 +756,7 @@ function QualitativeConfigSection({ org }: { org: any }) {
             {isEditing && (
               <button
                 type="button"
-                onClick={() => append({ id: undefined, name: 'MỨC MỚI', value: 0, position: fields.length + 1, color: '#3b82f6' })}
+                onClick={() => append({ id: undefined, name: 'MỨC MỚI', value: 0, position: fields.length + 1, scorePercent: 0, color: '#3b82f6' })}
                 className="text-[10px] font-bold text-emerald-600 hover:text-emerald-700 flex items-center gap-1"
               >
                 <Plus size={14} /> Thêm mức
@@ -785,6 +797,18 @@ function QualitativeConfigSection({ org }: { org: any }) {
                             onWheel={(e) => (e.target as HTMLInputElement).blur()}
                           />
                         </div>
+                        <div className="w-24 space-y-1">
+                          <label className="text-[9px] font-bold text-indigo-400 uppercase" title="Mức này tương đương bao nhiêu % hoàn thành khi tính điểm BSC">% BSC</label>
+                          <input
+                            type="number"
+                            step="1"
+                            min="0"
+                            max="100"
+                            {...register(`qualitativeLevels.${index}.scorePercent` as const)}
+                            className="w-full bg-white dark:bg-slate-900 px-3 py-2 rounded-lg text-xs font-bold border border-indigo-100 dark:border-indigo-900/50 outline-none focus:border-indigo-500"
+                            onWheel={(e) => (e.target as HTMLInputElement).blur()}
+                          />
+                        </div>
                         <div className="flex-1 sm:flex-none sm:w-16 space-y-1">
                           <label className="text-[9px] font-bold text-slate-400 uppercase">Màu</label>
                           <input
@@ -811,9 +835,17 @@ function QualitativeConfigSection({ org }: { org: any }) {
                         <p className="text-sm font-bold text-slate-900 dark:text-white uppercase">{watchedLevels[index]?.name}</p>
                         <p className="text-[10px] font-medium text-slate-400 uppercase tracking-widest">Vị trí {watchedLevels[index]?.position} · Điểm quy đổi</p>
                       </div>
-                      <div className="text-right">
-                        <span className="text-lg font-black text-slate-900 dark:text-white">{watchedLevels[index]?.value}</span>
-                        <span className="text-[10px] font-bold text-slate-400 ml-1">đ</span>
+                      <div className="flex items-center gap-4">
+                        {org?.enableBsc && (
+                          <div className="text-right" title="Quy đổi sang % hoàn thành khi tính điểm BSC">
+                            <span className="text-sm font-black text-indigo-600 dark:text-indigo-400">{watchedLevels[index]?.scorePercent ?? 0}%</span>
+                            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">BSC</p>
+                          </div>
+                        )}
+                        <div className="text-right">
+                          <span className="text-lg font-black text-slate-900 dark:text-white">{watchedLevels[index]?.value}</span>
+                          <span className="text-[10px] font-bold text-slate-400 ml-1">đ</span>
+                        </div>
                       </div>
                     </>
                   )}

@@ -9,5 +9,6 @@ public class QualitativeLevelResponse {
     private String name;
     private Double value;
     private Integer position;
+    private Double scorePercent;
     private String color;
 }

@@ -96,6 +96,7 @@ public class OrganizationService {
                 .name(lvl.getName())
                 .value(lvl.getValue())
                 .position(lvl.getPosition())
+                .scorePercent(lvl.getScorePercent())
                 .color(lvl.getColor())
                 .build())
             .toList();

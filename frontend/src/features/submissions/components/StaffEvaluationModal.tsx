@@ -65,13 +65,27 @@ export default function StaffEvaluationModal({
     enabled: open
   })
 
+  // Điểm BSC của kỳ: khi kỳ chấm CHÍNH THỨC, điểm cuối bị KHÓA theo bsc_score
+  // (backend cũng ép — xem EvaluationService.createEvaluation — nên UI phải khớp, tránh
+  // hiển thị một đằng lưu một nẻo).
+  const { data: scorePreview } = useQuery({
+    queryKey: ['score-preview', periodId, userId],
+    queryFn: () => evaluationApi.getScorePreview(periodId, userId),
+    enabled: open && !!periodId && !!userId,
+  })
+  const bscScore = scorePreview?.bscScore ?? null
+  const isBscOfficial = scorePreview?.bscScoringMode === 'OFFICIAL' && bscScore != null
+
   const submissionList = submissions?.content ?? []
 
   // Full-qualitative: the staff member has only qualitative KPIs, so KPI completion defaults to
   // 100% -> the final 0..100 score is locked to maxScore (in sync with "100% hoàn thành"),
   // matching EvaluationFormModal's self-score behaviour.
   const isFullQualitative = submissionList.length > 0 && submissionList.every(s => s.kpiType === 'QUALITATIVE')
-  const effectiveFinalScore = isFullQualitative ? maxScore : finalScore
+  // KHÔNG làm tròn: backend lưu đúng bsc_score (vd 82.5) nên UI phải hiện y hệt, tránh lệch 83 vs 82.5.
+  const effectiveFinalScore = isBscOfficial
+    ? (scorePreview?.officialScore ?? bscScore!)
+    : (isFullQualitative ? maxScore : finalScore)
 
   // Quantitative KPIs share the 0..100 pool. When qualitative takes part of the 100%
   // weight, normalize the quantitative scores over their OWN weight so they still fill
@@ -518,7 +532,12 @@ export default function StaffEvaluationModal({
                                <span className="text-lg font-bold opacity-60">điểm</span>
                             </div>
                          </div>
-                         {!readOnly && !isFullQualitative && finalScore !== totalManagerScore && (
+                         {isBscOfficial ? (
+                            <span className="text-[10px] font-black text-indigo-100 flex items-center gap-1 shrink-0 whitespace-nowrap"
+                              title="Kỳ này đang chấm điểm chính thức bằng BSC nên điểm cuối được khóa theo điểm BSC">
+                              <Lock size={10} /> Khóa theo điểm BSC
+                            </span>
+                         ) : (!readOnly && !isFullQualitative && finalScore !== totalManagerScore && (
                             <button
                               type="button"
                               onClick={handleResetFinalScore}
@@ -526,7 +545,7 @@ export default function StaffEvaluationModal({
                             >
                               <Zap size={10} fill="currentColor" /> Dùng điểm đã chấm
                             </button>
-                         )}
+                         ))}
                       </div>
 
                       {!isFullQualitative && (
@@ -539,17 +558,34 @@ export default function StaffEvaluationModal({
                             <span>Tổng điểm đã chấm theo chỉ tiêu</span>
                             <span>{formatNumber(totalManagerScore)}</span>
                          </div>
-                         <div className="flex justify-between text-xs font-bold text-indigo-100/60">
-                            <span>Chênh lệch so với hệ thống</span>
-                            <span>{finalScore - totalAutoScore >= 0 ? '+' : ''}{formatNumber(finalScore - totalAutoScore)}</span>
-                         </div>
+                         {isBscOfficial ? (
+                           <div className="flex justify-between text-xs font-bold text-indigo-100">
+                              <span>Điểm BSC (chính thức)</span>
+                              <span>{formatNumber(bscScore!)}</span>
+                           </div>
+                         ) : (
+                           <div className="flex justify-between text-xs font-bold text-indigo-100/60">
+                              <span>Chênh lệch so với hệ thống</span>
+                              <span>{finalScore - totalAutoScore >= 0 ? '+' : ''}{formatNumber(finalScore - totalAutoScore)}</span>
+                           </div>
+                         )}
                       </div>
                       )}
 
                       {/* Final score adjustment slider - starts at the sum of per-KPI scores,
                           can be dragged independently within [0, maxScore].
                           Full-qualitative locks the score to maxScore instead. */}
-                      {isFullQualitative ? (
+                      {isBscOfficial ? (
+                        <div className="pt-6 border-t border-white/10 relative z-10 space-y-2">
+                           <div className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-white/10 backdrop-blur-md text-[10px] font-black uppercase tracking-widest whitespace-nowrap">
+                              <Lock size={12} className="shrink-0" /> Điểm chính thức theo BSC — không sửa tay
+                           </div>
+                           <p className="text-[10px] font-medium text-indigo-100/60 leading-relaxed">
+                              Điểm BSC tính từ <b>kết quả thực đạt</b> (định lượng: thực đạt/mục tiêu) và <b>mức được chấm</b> (định tính).
+                              Vì vậy sửa ô chấm của KPI định lượng sẽ <b>không đổi</b> điểm BSC, còn đổi mức của KPI định tính thì <b>có</b>.
+                           </p>
+                        </div>
+                      ) : isFullQualitative ? (
                         <div className="pt-6 border-t border-white/10 relative z-10">
                            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-white/10 backdrop-blur-md text-[10px] font-black uppercase tracking-widest whitespace-nowrap">
                               <Lock size={12} className="shrink-0" /> Full định tính · Cố định điểm {maxScore}

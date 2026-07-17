@@ -1,3 +1,5 @@
+import type { PerspectiveScoreResponse, BscScoringMode } from '@/features/bsc/types'
+
 // Matches BE: EvaluationResponse
 export interface Evaluation {
   id: string
@@ -26,6 +28,12 @@ export interface Evaluation {
   userLevel?: number
   userRank?: number
   userRoleName?: string
+  // ── BSC ──
+  bscScore?: number | null
+  bscScoringMode?: BscScoringMode | null
+  /** Điểm chính thức: = bscScore khi OFFICIAL, ngược lại = systemScore */
+  officialScore?: number | null
+  bscPerspectives?: PerspectiveScoreResponse[] | null
 }
 
 // Matches BE: CreateEvaluationRequest
@@ -42,6 +50,15 @@ export interface EvaluationScorePreview {
   behaviorScore: number | null
   kpiCompletionPercent: number | null
   matrixRating: number | null
+  // ── BSC ──
+  bscScore?: number | null
+  bscScoringMode?: BscScoringMode | null
+  officialScore?: number | null
+  bscPerspectives?: PerspectiveScoreResponse[] | null
+  /** % KPI tính điểm đã gán viễn cảnh (100 = đủ) */
+  bscCoveragePercent?: number | null
+  /** Tên các KPI chưa gán viễn cảnh */
+  bscUnassignedKpis?: string[] | null
 }
 
 // Frontend-only: evaluation layer type for UI display

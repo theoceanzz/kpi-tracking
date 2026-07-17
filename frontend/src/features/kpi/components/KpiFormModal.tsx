@@ -16,7 +16,7 @@ import { useState } from 'react'
 import { useKpiPeriods } from '../hooks/useKpiPeriods'
 import { useOrganization } from '@/features/orgunits/hooks/useOrganization'
 import { useObjectives } from '@/features/okr/hooks/useOkr'
-import { useBscPerspectives } from '@/features/bsc/hooks/useBsc'
+import { useBscPerspectives, useScorecards } from '@/features/bsc/hooks/useBsc'
 import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Badge } from '@/components/ui/badge'
 import { DateTimePicker } from '@/components/common/DateTimePicker'
@@ -68,6 +68,7 @@ export default function KpiFormModal({ open, onClose, editKpi, parentKpi, parent
 
   const enableBsc = org?.enableBsc
   const { data: perspectives } = useBscPerspectives(enableBsc ? organizationId : undefined)
+  const { data: bscScorecards } = useScorecards(enableBsc ? organizationId : undefined)
 
   // Flatten tree for dropdown
   const flattenTree = (nodes: any[], level = 0): any[] => {
@@ -114,6 +115,8 @@ export default function KpiFormModal({ open, onClose, editKpi, parentKpi, parent
   })
 
   const formKpiPeriodId = watch('kpiPeriodId')
+  // Kỳ đang chọn đã có thẻ điểm BSC chưa? Chưa có ⇒ gán viễn cảnh vẫn lưu nhưng chưa sinh điểm BSC.
+  const periodHasScorecard = !!formKpiPeriodId && (bscScorecards || []).some(sc => sc.kpiPeriodId === formKpiPeriodId)
   const formOrgUnitIds = watch('orgUnitIds') || []
   const [selectedRole, setSelectedRole] = useState<string>('ALL')
 
@@ -1033,6 +1036,12 @@ export default function KpiFormModal({ open, onClose, editKpi, parentKpi, parent
                     </Select>
                   )}
                 />
+                {formKpiPeriodId && !periodHasScorecard && (
+                  <p className="text-[10px] font-bold text-amber-600 dark:text-amber-400 flex items-start gap-1.5 mt-1.5">
+                    <span className="shrink-0">⚠</span>
+                    Kỳ này chưa có thẻ điểm BSC — vẫn gán viễn cảnh được, nhưng sẽ chưa tính ra điểm BSC cho tới khi bạn tạo thẻ điểm cho kỳ.
+                  </p>
+                )}
               </div>
             </div>
           )}

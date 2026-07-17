@@ -67,6 +67,8 @@ public class KpiCriteriaService {
     private final PermissionChecker permissionChecker;
     private final com.kpitracking.repository.KeyResultRepository keyResultRepository;
     private final com.kpitracking.repository.BscPerspectiveRepository bscPerspectiveRepository;
+    private final com.kpitracking.repository.BscScorecardRepository bscScorecardRepository;
+    private final KpiAchievementCalculator achievementCalculator;
     private final OrganizationService organizationService;
 
     private static final List<KpiStatus> WEIGHT_COUNTED_STATUSES = java.util.Arrays.asList(
@@ -176,6 +178,11 @@ public class KpiCriteriaService {
 
         if (isQualitative && (request.getWeight() == null || request.getWeight() <= 0)) {
             throw new BusinessException("KPI định tính cần có trọng số (weight) lớn hơn 0.");
+        }
+
+        if (!isQualitative) {
+            validateReverseKpiThreshold(Boolean.TRUE.equals(request.getIsReverseKpi()),
+                    request.getTargetValue(), request.getMinimumValue(), request.getName());
         }
 
         KpiCriteria kpi = KpiCriteria.builder()
@@ -418,6 +425,12 @@ public class KpiCriteriaService {
         if (request.getIsReverseKpi() != null) kpi.setIsReverseKpi(request.getIsReverseKpi());
         if (request.getIsBonusKpi() != null) kpi.setIsBonusKpi(request.getIsBonusKpi());
         if (request.getUnit() != null) kpi.setUnit(request.getUnit());
+
+        // Validate trên giá trị SAU cập nhật (request có thể chỉ gửi một phần trường).
+        if (kpi.getKpiType() != com.kpitracking.enums.KpiType.QUALITATIVE) {
+            validateReverseKpiThreshold(Boolean.TRUE.equals(kpi.getIsReverseKpi()),
+                    kpi.getTargetValue(), kpi.getMinimumValue(), kpi.getName());
+        }
         if (request.getDeadline() != null) {
             validateDeadlineWithinPeriod(request.getDeadline(), kpi.getKpiPeriod());
             kpi.setDeadline(request.getDeadline());
@@ -655,6 +668,8 @@ public class KpiCriteriaService {
             throw new BusinessException("Chỉ có thể phê duyệt KPI ở trạng thái CHỜ PHÊ DUYỆT");
         }
 
+        requirePerspectiveWhenBscEnabled(kpi);
+
         kpi.setStatus(KpiStatus.APPROVED);
         kpi.setApprovedBy(currentUser);
         kpi.setApprovedAt(Instant.now());
@@ -663,6 +678,48 @@ public class KpiCriteriaService {
         eventPublisher.publishEvent(new KpiCriteriaApprovedEvent(this, kpi));
 
         return kpiCriteriaMapper.toResponse(kpi);
+    }
+
+    /**
+     * Khi tổ chức bật BSC: KPI có tham gia tính điểm BSC (cả định lượng lẫn định tính) BẮT BUỘC
+     * phải được gán viễn cảnh trước khi duyệt — để tới kỳ đánh giá mọi KPI đã duyệt đều có viễn cảnh
+     * (coverage = 100%). KPI thưởng / KPI cha phân rã / KPI huỷ không tính điểm nên không bắt buộc.
+     *
+     * CHỈ áp dụng khi KỲ của KPI đã có thẻ điểm — kỳ chưa có thẻ điểm thì không có trọng số viễn cảnh
+     * ⇒ không sinh điểm BSC ⇒ đòi gán viễn cảnh là ép vô ích, chặn duyệt KPI vô cớ.
+     */
+    /**
+     * KPI ngược (càng thấp càng tốt): {@code minimumValue} là NGƯỠNG TỆ NHẤT chấp nhận được
+     * nên bắt buộc phải LỚN HƠN {@code targetValue}.
+     * Nếu cấu hình ngược lại (min <= target) thì đạt đúng mục tiêu cũng đã vượt ngưỡng
+     * ⇒ mọi bài nộp đều bị hệ thống tự động từ chối và KPI vĩnh viễn 0 điểm.
+     * (KPI thường thì ngược lại: min là sàn, phải nhỏ hơn hoặc bằng target.)
+     */
+    private void validateReverseKpiThreshold(boolean isReverse, Double target, Double minimum, String kpiName) {
+        if (target == null || minimum == null) return;
+        String label = kpiName != null ? "'" + kpiName + "'" : "";
+        if (isReverse) {
+            if (minimum <= target) {
+                throw new BusinessException("KPI ngược " + label + ": Giá trị tối thiểu (" + minimum
+                        + ") phải LỚN HƠN mục tiêu (" + target + "). Với KPI ngược, giá trị tối thiểu là ngưỡng tệ nhất "
+                        + "chấp nhận được — cấu hình hiện tại khiến mọi bài nộp đều bị từ chối và KPI luôn 0 điểm.");
+            }
+        } else if (minimum > target) {
+            throw new BusinessException("KPI " + label + ": Giá trị tối thiểu (" + minimum
+                    + ") không được lớn hơn mục tiêu (" + target + ").");
+        }
+    }
+
+    private void requirePerspectiveWhenBscEnabled(KpiCriteria kpi) {
+        Organization org = kpi.getOrgUnit().getOrgHierarchyLevel().getOrganization();
+        if (org == null || !Boolean.TRUE.equals(org.getEnableBsc())) return;
+        if (kpi.getKpiPeriod() == null) return;
+        if (!bscScorecardRepository.existsByOrganizationIdAndKpiPeriodId(org.getId(), kpi.getKpiPeriod().getId())) return;
+        if (!achievementCalculator.countsTowardBscScore(kpi)) return;
+        if (kpi.getPerspective() == null) {
+            throw new BusinessException("Kỳ '" + kpi.getKpiPeriod().getName() + "' đang áp dụng thẻ điểm BSC: "
+                    + "vui lòng gán viễn cảnh cho chỉ tiêu '" + kpi.getName() + "' trước khi phê duyệt");
+        }
     }
 
     @Transactional
@@ -1166,6 +1223,11 @@ public class KpiCriteriaService {
             throw new BusinessException("Trọng số và Chỉ tiêu phải là định dạng số");
         }
 
+        Double minVal = !isQualitative && min != null && !min.isBlank() ? Double.parseDouble(min) : null;
+        if (!isQualitative) {
+            validateReverseKpiThreshold(parseBoolean(isReverseKpiStr), targetVal, minVal, name);
+        }
+
         // Create one KpiCriteria per resolved org unit
         for (OrgUnit finalUnit : finalUnits) {
             if (!permissionChecker.hasPermissionInOrgUnit(creator.getId(), "KPI:CREATE", finalUnit.getId())) {
@@ -1182,7 +1244,7 @@ public class KpiCriteriaService {
                     .description(desc)
                     .weight(weightVal)
                     .targetValue(targetVal)
-                    .minimumValue(!isQualitative && min != null && !min.isBlank() ? Double.parseDouble(min) : null)
+                    .minimumValue(minVal)
                     .isReverseKpi(!isQualitative && parseBoolean(isReverseKpiStr))
                     .isBonusKpi(parseBoolean(isBonusKpiStr))
                     .deadline(deadlineVal)
@@ -1333,6 +1395,11 @@ public class KpiCriteriaService {
         com.kpitracking.enums.KpiType newKpiType = request.getKpiType() != null
                 ? request.getKpiType() : com.kpitracking.enums.KpiType.QUANTITATIVE;
         boolean isQualitative = newKpiType == com.kpitracking.enums.KpiType.QUALITATIVE;
+
+        if (!isQualitative) {
+            validateReverseKpiThreshold(Boolean.TRUE.equals(request.getIsReverseKpi()),
+                    request.getTargetValue(), request.getMinimumValue(), request.getName());
+        }
 
         KpiCriteria newKpi = KpiCriteria.builder()
                 .orgUnit(replacedKpi.getOrgUnit())

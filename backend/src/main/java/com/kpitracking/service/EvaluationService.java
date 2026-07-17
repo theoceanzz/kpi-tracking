@@ -44,6 +44,8 @@ public class EvaluationService {
     private final KpiCriteriaService kpiCriteriaService;
     private final EvaluationMapper evaluationMapper;
     private final PermissionChecker permissionChecker;
+    private final KpiAchievementCalculator achievementCalculator;
+    private final BscScoringService bscScoringService;
 
     private User getCurrentUser() {
         String email = SecurityContextHolder.getContext().getAuthentication().getName();
@@ -143,6 +145,37 @@ public class EvaluationService {
         evaluation.setPeriodEnd(kpiPeriod.getEndDate());
 
         evaluation = evaluationRepository.save(evaluation);
+
+        // BSC: luôn tính & lưu bsc_score + breakdown khi org bật BSC (kể cả SHADOW).
+        // system_score CŨ giữ nguyên — bsc_score chỉ được coi là điểm chính thức khi scorecard ở OFFICIAL
+        // (quyết định lúc đọc, xem resolveOfficialScore) nên đổi mode KHÔNG cần tính lại.
+        // Org không bật BSC: bỏ qua hoàn toàn, luồng cũ không đổi.
+        if (Boolean.TRUE.equals(org.getEnableBsc())) {
+            var bscResult = bscScoringService.computeForUser(
+                    evaluatedUser.getId(), kpiPeriod.getId(), org.getId(),
+                    Boolean.TRUE.equals(org.getEnableWaterfall()));
+            boolean isOfficial = bscResult != null
+                    && bscScoringService.getScoringMode(org.getId(), kpiPeriod.getId()) == com.kpitracking.enums.BscScoringMode.OFFICIAL;
+
+            // Khi kỳ đã chạy CHÍNH THỨC, bsc_score là điểm thật ⇒ dữ liệu phải đủ:
+            // còn KPI chưa gán viễn cảnh thì chặn chốt điểm. Ở SHADOW chỉ cảnh báo (preview), không chặn.
+            if (isOfficial && bscResult.getUnassignedKpiCount() > 0) {
+                throw new BusinessException("Không thể chốt đánh giá: còn "
+                        + bscResult.getUnassignedKpiCount() + " chỉ tiêu chưa gán viễn cảnh BSC ("
+                        + String.join(", ", bscResult.getUnassignedKpiNames()) + ")");
+            }
+
+            // CHÍNH THỨC ⇒ điểm bị KHÓA theo bsc_score: bỏ qua điểm người đánh giá gửi lên.
+            // Ép ở server (không chỉ khóa UI) để gọi thẳng API cũng không sửa được điểm.
+            if (isOfficial && bscResult.getBscScore() != null) {
+                evaluation.setScore(bscResult.getBscScore());
+            }
+
+            evaluation.setBscScore(bscResult != null ? bscResult.getBscScore() : null);
+            bscScoringService.persistBreakdown(evaluation, bscResult);
+            evaluation = evaluationRepository.save(evaluation);
+        }
+
         return enrichResponse(evaluation);
     }
 
@@ -186,12 +219,31 @@ public class EvaluationService {
         double colCompletion = completion != null ? completion : 100.0;
         Integer rating = behavior != null ? lookupMatrixRating(behavior, colCompletion, org.getPerformanceMatrix()) : null;
 
-        return com.kpitracking.dto.response.evaluation.EvaluationScorePreview.builder()
-                .systemScore(calculateSystemScore(targetUserId, kpiPeriodId, (double) org.getEvaluationMaxScore()))
+        Double systemScore = calculateSystemScore(targetUserId, kpiPeriodId, (double) org.getEvaluationMaxScore());
+
+        var builder = com.kpitracking.dto.response.evaluation.EvaluationScorePreview.builder()
+                .systemScore(systemScore)
                 .behaviorScore(behavior)
                 .kpiCompletionPercent(completion)
                 .matrixRating(rating)
-                .build();
+                .officialScore(systemScore);
+
+        // BSC preview (chỉ khi org bật BSC & kỳ đã có thẻ điểm)
+        if (Boolean.TRUE.equals(org.getEnableBsc())) {
+            var bsc = bscScoringService.computeForUser(targetUserId, kpiPeriodId, org.getId(),
+                    Boolean.TRUE.equals(org.getEnableWaterfall()));
+            if (bsc != null) {
+                var mode = bscScoringService.getScoringMode(org.getId(), kpiPeriodId);
+                builder.bscScore(bsc.getBscScore())
+                        .bscScoringMode(mode)
+                        .bscPerspectives(bsc.getPerspectives())
+                        .bscCoveragePercent(bsc.getCoveragePercent())
+                        .bscUnassignedKpis(bsc.getUnassignedKpiNames())
+                        .officialScore(bscScoringService.resolveOfficialScore(systemScore, bsc.getBscScore(), mode));
+            }
+        }
+
+        return builder.build();
     }
 
     private Double calculateSystemScore(UUID userId, UUID kpiPeriodId, Double maxScore) {
@@ -218,30 +270,16 @@ public class EvaluationService {
 
         boolean enableWaterfall = kpis.get(0).getOrgUnit().getOrgHierarchyLevel().getOrganization().getEnableWaterfall();
         for (KpiCriteria kpi : kpis) {
-            if (kpi.getStatus() == KpiStatus.INACTIVE && kpi.getCompensatedAchievementPercent() == null) continue;
-            boolean isDecompositionParent = kpi.getChildren() != null && kpi.getChildren().stream()
-                    .anyMatch(c -> c.getParentRelationType() == com.kpitracking.enums.KpiParentRelationType.DECOMPOSITION);
-            if (isDecompositionParent) continue;
-            // Qualitative KPIs feed the performance matrix, not the 0..100 score.
-            if (kpi.getKpiType() == com.kpitracking.enums.KpiType.QUALITATIVE) continue;
+            // Quy tắc loại trừ + công thức tỉ lệ đạt nằm ở KpiAchievementCalculator (dùng chung với BSC).
+            if (!achievementCalculator.countsTowardQuantitativeScore(kpi)) continue;
 
-            if (kpi.getTargetValue() != null && kpi.getTargetValue() > 0 && kpi.getWeight() != null) {
-                double ratio;
-                if (kpi.getCompensatedAchievementPercent() != null) {
-                    ratio = kpi.getCompensatedAchievementPercent() / 100.0;
-                } else {
-                    double actual = calculateKpiActualValue(kpi, userId, enableWaterfall);
-                    boolean isInverse = Boolean.TRUE.equals(kpi.getIsReverseKpi());
-                    ratio = isInverse ? Math.max(0.0, 2.0 - (actual / kpi.getTargetValue())) : actual / kpi.getTargetValue();
-                }
-                ratio = Math.min(ratio, 1.5);
-                double weight = kpi.getWeight();
-                if (Boolean.TRUE.equals(kpi.getIsBonusKpi())) {
-                    parts[2] += ratio * weight;
-                } else {
-                    parts[0] += ratio * weight;
-                    parts[1] += weight;
-                }
+            double ratio = achievementCalculator.ratio(kpi, userId, enableWaterfall);
+            double weight = kpi.getWeight();
+            if (Boolean.TRUE.equals(kpi.getIsBonusKpi())) {
+                parts[2] += ratio * weight;
+            } else {
+                parts[0] += ratio * weight;
+                parts[1] += weight;
             }
         }
         return parts;
@@ -480,32 +518,6 @@ public class EvaluationService {
                 .collect(Collectors.toList());
     }
 
-    private double calculateKpiActualValue(KpiCriteria kpi, UUID targetUserId, boolean enableWaterfall) {
-        // Waterfall logic: If enabled and has children, calculate AVERAGE of their values
-        if (enableWaterfall) {
-            List<KpiCriteria> children = kpiCriteriaRepository.findByParentId(kpi.getId());
-            if (!children.isEmpty()) {
-                // When flowing up, we want the AVERAGE value of child KPIs
-                return children.stream()
-                        .mapToDouble(child -> calculateKpiActualValue(child, null, true))
-                        .average()
-                        .orElse(0.0);
-            }
-        }
-
-        // Base case: Sum submissions for this specific KPI
-        // If targetUserId is provided, we only count their personal contribution (Personal Evaluation)
-        // If targetUserId is null, we count everyone (Unit performance flowing up in Waterfall)
-        return kpi.getSubmissions().stream()
-                .filter(s -> s.getDeletedAt() == null && 
-                        (targetUserId == null || s.getSubmittedBy().getId().equals(targetUserId)) &&
-                        (s.getStatus() == SubmissionStatus.APPROVED || 
-                         s.getStatus() == SubmissionStatus.PENDING || 
-                         s.getStatus() == SubmissionStatus.REJECTED))
-                .mapToDouble(s -> s.getActualValue() != null ? s.getActualValue() : 0.0)
-                .sum();
-    }
-
     @Transactional(readOnly = true)
     public PageResponse<EvaluationResponse> getEvaluations(int page, int size, String sortBy, String sortDir, UUID userId, UUID kpiPeriodId, UUID orgUnitId) {
         User currentUser = getCurrentUser();
@@ -615,6 +627,19 @@ public class EvaluationService {
         response.setBehaviorScore(evaluation.getBehaviorScore());
         response.setKpiCompletionPercent(evaluation.getKpiCompletionPercent());
         response.setMatrixRating(evaluation.getMatrixRating());
+
+        // BSC: bsc_score đã lưu sẵn; officialScore chỉ là chọn field theo chế độ của kỳ (không tính lại).
+        response.setBscScore(evaluation.getBscScore());
+        if (evaluation.getBscScore() != null) {
+            java.util.UUID orgId = evaluation.getOrgUnit().getOrgHierarchyLevel().getOrganization().getId();
+            var mode = bscScoringService.getScoringMode(orgId, evaluation.getKpiPeriod().getId());
+            response.setBscScoringMode(mode);
+            response.setBscPerspectives(bscScoringService.getBreakdown(evaluation.getId()));
+            response.setOfficialScore(
+                    bscScoringService.resolveOfficialScore(evaluation.getSystemScore(), evaluation.getBscScore(), mode));
+        } else {
+            response.setOfficialScore(evaluation.getSystemScore());
+        }
 
         // Populate evaluated user's best position (Highest unit but not root)
         java.util.List<com.kpitracking.entity.UserRoleOrgUnit> userUro = userRoleOrgUnitRepository.findByUserId(evaluation.getUser().getId());

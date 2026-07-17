@@ -21,6 +21,8 @@ export interface QualitativeLevel {
   name: string
   value: number
   position: number
+  /** Mức này tương đương bao nhiêu % hoàn thành khi tính điểm BSC (0..100) */
+  scorePercent?: number | null
   color?: string
 }
 
