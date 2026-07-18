@@ -3,7 +3,7 @@ import { Bot, Send, X, Loader2, Minimize2, Maximize2, Expand, SquarePen } from '
 import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/store/authStore'
 import { useOrganization } from '@/features/orgunits/hooks/useOrganization'
-import { aiApi, type InsightCard, type FollowupPools } from '../api/aiApi'
+import { aiApi, type InsightCard, type FollowupPools, type ClarificationOption } from '../api/aiApi'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { useNavigate } from 'react-router-dom'
@@ -16,6 +16,8 @@ interface Message {
   role: 'user' | 'assistant'
   content: string
   followups?: FollowupPools
+  /** Lượt trợ lý hỏi lại: hiện nút chọn thay vì gợi ý câu hỏi tiếp theo. */
+  options?: ClarificationOption[]
 }
 
 const WELCOME_MSG: Message = {
@@ -114,17 +116,24 @@ export default function AiAssistantWidget() {
       })
 
       const assistantId = (Date.now() + 1).toString()
+      const options = response.options ?? []
       setMessages(prev => [
         ...prev,
         {
           id: assistantId,
           role: 'assistant',
           content: response.text ?? '',
+          options: options.length ? options : undefined,
         },
       ])
 
-      // Generate follow-up suggestions for this exchange (non-blocking for UX).
       turnRef.current += 1
+
+      // Lượt trợ lý hỏi lại đã có sẵn nút chọn -> không gợi ý câu hỏi tiếp theo (backend cũng
+      // trả rỗng cho lượt này), nên bỏ luôn lệnh gọi để khỏi tốn thêm một lượt gọi mô hình.
+      if (options.length) return
+
+      // Generate follow-up suggestions for this exchange (non-blocking for UX).
       const ctxStr = buildFollowupContext(insight ?? null, userText, response.text)
       try {
         const pools = await aiApi.getFollowups({
@@ -310,6 +319,22 @@ export default function AiAssistantWidget() {
                     </div>
                   )}
                 </div>
+
+                {/* Trợ lý hỏi lại: cho bấm chọn thẳng, khỏi gõ lại tên */}
+                {msg.role === 'assistant' && msg.options?.length && msg.id === lastAssistantId && !isLoading && (
+                  <div className="w-full mt-2 flex flex-wrap gap-2">
+                    {msg.options.map(opt => (
+                      <button
+                        key={opt.value + opt.label}
+                        type="button"
+                        onClick={() => sendMessage(opt.value)}
+                        className="px-3 py-1.5 text-sm rounded-full border border-indigo-300 text-indigo-700 bg-indigo-50 hover:bg-indigo-100 dark:border-indigo-700 dark:text-indigo-300 dark:bg-indigo-950 dark:hover:bg-indigo-900 transition-colors"
+                      >
+                        {opt.label}
+                      </button>
+                    ))}
+                  </div>
+                )}
 
                 {/* Follow-up suggestions under the latest assistant answer */}
                 {msg.role === 'assistant' && msg.followups && msg.id === lastAssistantId && !isLoading && (

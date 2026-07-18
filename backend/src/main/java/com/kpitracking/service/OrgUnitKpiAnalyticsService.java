@@ -84,6 +84,32 @@ public class OrgUnitKpiAnalyticsService {
         return orgUnitRepository.findAllInSubtrees(rootIds, orgId);
     }
 
+    /**
+     * "Đơn vị mình quản lý" — phạm vi riêng cho các bảng Rủi ro: chỉ lấy subtree gốc ở đơn vị nơi
+     * người dùng giữ vai trò LÃNH ĐẠO (rank Head=0 / Deputy=1), KHÔNG mở rộng theo toàn bộ quyền
+     * DASHBOARD:VIEW. Nhờ vậy không lọt đơn vị/người ở nhánh ngang hàng (đơn vị khác). Nếu không giữ
+     * vai trò lãnh đạo nào → lấy đúng (các) đơn vị được phân công, không suy rộng lên trên.
+     */
+    private List<OrgUnit> resolveManagedSubtree() {
+        User user = getCurrentUser();
+        UUID orgId = getCurrentUserOrganizationId(user);
+        List<UserRoleOrgUnit> assignments = userRoleOrgUnitRepository.findByUserId(user.getId());
+
+        List<UUID> roots = assignments.stream()
+                .filter(a -> a.getRole() != null && a.getRole().getRank() != null && a.getRole().getRank() <= 1)
+                .map(a -> a.getOrgUnit().getId())
+                .distinct()
+                .collect(Collectors.toList());
+        if (roots.isEmpty()) {
+            roots = assignments.stream()
+                    .map(a -> a.getOrgUnit().getId())
+                    .distinct()
+                    .collect(Collectors.toList());
+        }
+        if (roots.isEmpty()) return Collections.emptyList();
+        return orgUnitRepository.findAllInSubtrees(roots, orgId);
+    }
+
     private List<KpiCriteria> getStandaloneKpis(UUID orgUnitId) {
         List<OrgUnit> units = resolveOrgUnitSubtree(orgUnitId);
         if (units.isEmpty()) return Collections.emptyList();
@@ -884,7 +910,7 @@ public class OrgUnitKpiAnalyticsService {
 
     @Transactional(readOnly = true)
     public UnitRiskPagedResponse getUnitRisks(UUID orgUnitId, Instant from, Instant to, Boolean onlyApproved, int page, int size, String sortBy, String sortDir, java.util.Collection<UUID> periodIds) {
-        List<OrgUnit> subtree = resolveOrgUnitSubtree(orgUnitId);
+        List<OrgUnit> subtree = orgUnitId != null ? resolveOrgUnitSubtree(orgUnitId) : resolveManagedSubtree();
         if (subtree.isEmpty()) return UnitRiskPagedResponse.builder()
             .content(Collections.emptyList()).page(page).size(size)
             .totalElements(0).totalPages(0).first(true).last(true).build();
@@ -935,7 +961,7 @@ public class OrgUnitKpiAnalyticsService {
 
     @Transactional(readOnly = true)
     public MemberRiskPagedResponse getMemberRisks(UUID orgUnitId, UUID filterOrgUnitId, Instant from, Instant to, Boolean onlyApproved, int page, int size, String sortBy, String sortDir, java.util.Collection<UUID> periodIds) {
-        List<OrgUnit> subtree = resolveOrgUnitSubtree(orgUnitId);
+        List<OrgUnit> subtree = orgUnitId != null ? resolveOrgUnitSubtree(orgUnitId) : resolveManagedSubtree();
         if (subtree.isEmpty()) return MemberRiskPagedResponse.builder()
             .content(Collections.emptyList()).page(page).size(size)
             .totalElements(0).totalPages(0).first(true).last(true)

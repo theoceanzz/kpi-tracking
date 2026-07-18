@@ -9,6 +9,7 @@ import com.kpitracking.dto.response.ai.InsightCardResponse;
 import com.kpitracking.service.AiRateLimiter;
 import com.kpitracking.service.FollowupService;
 import com.kpitracking.service.InsightService;
+import com.kpitracking.tool.FollowupContextStore;
 import org.springframework.security.core.context.SecurityContextHolder;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -32,6 +33,7 @@ public class AiController {
     private final InsightService insightService;
     private final FollowupService followupService;
     private final AiRateLimiter aiRateLimiter;
+    private final FollowupContextStore followupContextStore;
 
     /** Email người dùng đang đăng nhập (JWT subject) — khóa rate-limit theo user. */
     private String currentUserEmail() {
@@ -43,8 +45,20 @@ public class AiController {
     public ApiResponse<AiChatResponse> chatOrgUnit(@RequestBody AiChatRequest request) {
         aiRateLimiter.check(currentUserEmail());
         String result = aiService.processOrgUnitChat(request.getMessage(), request.getConversationId(), request.getFocusUnitId());
+
+        // Lượt mà trợ lý phải hỏi lại: kèm các lựa chọn CÓ THẬT do tool trả về để client hiện
+        // thành nút bấm (người dùng chọn thay vì gõ lại tên). Lượt bình thường -> danh sách rỗng.
+        List<AiChatResponse.ClarificationOption> options =
+                followupContextStore.getClarificationOptions(request.getConversationId()).stream()
+                        .map(o -> AiChatResponse.ClarificationOption.builder()
+                                .label(o.getLabel())
+                                .value(o.getValue())
+                                .build())
+                        .toList();
+
         AiChatResponse response = AiChatResponse.builder()
                 .text(result)
+                .options(options)
                 .build();
         return ApiResponse.success(response);
     }
