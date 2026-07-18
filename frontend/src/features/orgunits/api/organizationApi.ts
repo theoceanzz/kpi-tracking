@@ -21,6 +21,8 @@ export interface QualitativeLevel {
   name: string
   value: number
   position: number
+  /** Mức này tương đương bao nhiêu % hoàn thành khi tính điểm BSC (0..100) */
+  scorePercent?: number | null
   color?: string
 }
 
@@ -47,6 +49,7 @@ export interface OrganizationResponse {
   enableWaterfall: boolean
   enableAi: boolean
   enableQualitative: boolean
+  enableBsc: boolean
   createdAt: string
   updatedAt: string
 }
@@ -64,6 +67,7 @@ export interface UpdateOrganizationRequest {
   enableOkr?: boolean
   enableWaterfall?: boolean
   enableQualitative?: boolean
+  enableBsc?: boolean
 }
 
 export const organizationApi = {

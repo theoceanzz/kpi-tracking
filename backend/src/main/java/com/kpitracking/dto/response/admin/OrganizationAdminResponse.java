@@ -15,6 +15,8 @@ public class OrganizationAdminResponse {
     private Boolean enableAi;
     private Boolean enableOkr;
     private Boolean enableWaterfall;
+    private Boolean enableQualitative;
+    private Boolean enableBsc;
     private long userCount;
     private Instant createdAt;
     private Instant updatedAt;

@@ -44,4 +44,6 @@ public class ReplaceKpiRequest {
     private Instant deadline;
 
     private UUID keyResultId;
+
+    private UUID perspectiveId;
 }

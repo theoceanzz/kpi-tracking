@@ -51,6 +51,7 @@ public class OrganizationService {
     private final com.kpitracking.mapper.EvaluationLevelMapper evaluationLevelMapper;
     private final com.kpitracking.repository.QualitativeLevelRepository qualitativeLevelRepository;
     private final com.kpitracking.mapper.QualitativeLevelMapper qualitativeLevelMapper;
+    private final BscService bscService;
 
     /** Whether qualitative KPIs are enabled for the given organization. */
     @Transactional(readOnly = true)
@@ -95,6 +96,7 @@ public class OrganizationService {
                 .name(lvl.getName())
                 .value(lvl.getValue())
                 .position(lvl.getPosition())
+                .scorePercent(lvl.getScorePercent())
                 .color(lvl.getColor())
                 .build())
             .toList();
@@ -172,6 +174,16 @@ public class OrganizationService {
 
         if (request.getEnableQualitative() != null) {
             organization.setEnableQualitative(request.getEnableQualitative());
+        }
+
+        if (request.getEnableBsc() != null) {
+            boolean turningOn = Boolean.TRUE.equals(request.getEnableBsc())
+                    && !Boolean.TRUE.equals(organization.getEnableBsc());
+            organization.setEnableBsc(request.getEnableBsc());
+            // Khi bật BSC lần đầu, tự seed 4 viễn cảnh mặc định nếu tổ chức chưa có viễn cảnh nào.
+            if (turningOn) {
+                bscService.seedDefaultPerspectives(organization);
+            }
         }
 
         if (request.getEvaluationLevels() != null) {

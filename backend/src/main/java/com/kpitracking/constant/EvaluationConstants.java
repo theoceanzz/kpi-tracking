@@ -32,15 +32,17 @@ public class EvaluationConstants {
         private String name;
         private Double value;
         private Integer position;
+        private Double scorePercent;
         private String color;
     }
 
     // Reference: "Điểm đánh giá Hành vi" (Performance Matrix). value = reference score, position = column in sheet.
+    // scorePercent = quy đổi sang % hoàn thành cho điểm BSC (mốc tròn, dễ giải thích) — HR chỉnh được.
     public static final List<DefaultQualitativeLevel> DEFAULT_QUALITATIVE_LEVELS = List.of(
-        new DefaultQualitativeLevel("KÉM", 0.0, 1, "#ef4444"),
-        new DefaultQualitativeLevel("YẾU", 2.0, 2, "#f59e0b"),
-        new DefaultQualitativeLevel("TRUNG BÌNH", 3.0, 3, "#6366f1"),
-        new DefaultQualitativeLevel("KHÁ", 3.5, 4, "#3b82f6"),
-        new DefaultQualitativeLevel("TỐT", 4.5, 5, "#10b981")
+        new DefaultQualitativeLevel("KÉM", 0.0, 1, 0.0, "#ef4444"),
+        new DefaultQualitativeLevel("YẾU", 2.0, 2, 40.0, "#f59e0b"),
+        new DefaultQualitativeLevel("TRUNG BÌNH", 3.0, 3, 60.0, "#6366f1"),
+        new DefaultQualitativeLevel("KHÁ", 3.5, 4, 80.0, "#3b82f6"),
+        new DefaultQualitativeLevel("TỐT", 4.5, 5, 100.0, "#10b981")
     );
 }

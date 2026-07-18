@@ -45,6 +45,7 @@ public class OkrService {
     private final KpiSubmissionRepository submissionRepository;
     private final OrganizationRepository organizationRepository;
     private final OrgUnitRepository orgUnitRepository;
+    private final com.kpitracking.repository.BscPerspectiveRepository bscPerspectiveRepository;
 
     @Transactional(readOnly = true)
     public List<ObjectiveResponse> getObjectivesByOrganization(UUID organizationId) {
@@ -80,9 +81,16 @@ public class OkrService {
                 .startDate(request.getStartDate())
                 .endDate(request.getEndDate())
                 .status(request.getStatus() != null ? request.getStatus() : OkrStatus.ACTIVE)
+                .perspective(resolvePerspective(request.getPerspectiveId()))
                 .build();
 
         return mapToObjectiveResponse(objectiveRepository.save(objective));
+    }
+
+    private com.kpitracking.entity.BscPerspective resolvePerspective(UUID perspectiveId) {
+        if (perspectiveId == null) return null;
+        return bscPerspectiveRepository.findById(perspectiveId)
+                .orElseThrow(() -> new ResourceNotFoundException("Viễn cảnh BSC", "id", perspectiveId));
     }
 
     @Transactional
@@ -103,6 +111,7 @@ public class OkrService {
         if (request.getStatus() != null) {
             objective.setStatus(request.getStatus());
         }
+        objective.setPerspective(resolvePerspective(request.getPerspectiveId()));
 
         List<OrgUnit> newUnits = resolveOrgUnits(request);
         objective.getOrgUnits().clear();
@@ -220,7 +229,7 @@ public class OkrService {
 
             if (headerRow == null) throw new BusinessException("Tập tin Excel trống");
 
-            int objCodeIdx = -1, objNameIdx = -1, objDescIdx = -1, objStartIdx = -1, objEndIdx = -1, objOrgUnitCodeIdx = -1;
+            int objCodeIdx = -1, objNameIdx = -1, objDescIdx = -1, objStartIdx = -1, objEndIdx = -1, objOrgUnitCodeIdx = -1, objPerspectiveIdx = -1;
             int krCodeIdx = -1, krNameIdx = -1, krDescIdx = -1, krTargetIdx = -1, krUnitIdx = -1;
 
             for (int i = 0; i < headerRow.getLastCellNum(); i++) {
@@ -231,6 +240,7 @@ public class OkrService {
                 else if (header.equalsIgnoreCase("ObjectiveStartDate")) objStartIdx = i;
                 else if (header.equalsIgnoreCase("ObjectiveEndDate")) objEndIdx = i;
                 else if (header.equalsIgnoreCase("ObjectiveOrgUnitCode") || header.equalsIgnoreCase("OrgUnitCode")) objOrgUnitCodeIdx = i;
+                else if (header.equalsIgnoreCase("ObjectivePerspective") || header.equalsIgnoreCase("Perspective")) objPerspectiveIdx = i;
                 else if (header.equalsIgnoreCase("KeyResultCode")) krCodeIdx = i;
                 else if (header.equalsIgnoreCase("KeyResultName")) krNameIdx = i;
                 else if (header.equalsIgnoreCase("KeyResultDescription")) krDescIdx = i;
@@ -260,6 +270,16 @@ public class OkrService {
                         LocalDate endDate = getCellValueAsLocalDate(row.getCell(objEndIdx));
 
                         String objOrgUnitCode = objOrgUnitCodeIdx != -1 ? getCellValueAsString(row.getCell(objOrgUnitCodeIdx)) : null;
+
+                        // Viễn cảnh BSC (tùy chọn) — resolve theo MÃ trước, rồi TÊN; chỉ set khi tìm được.
+                        String objPerspectiveCode = objPerspectiveIdx != -1 ? getCellValueAsString(row.getCell(objPerspectiveIdx)) : null;
+                        com.kpitracking.entity.BscPerspective objPerspective = null;
+                        if (objPerspectiveCode != null && !objPerspectiveCode.isBlank()) {
+                            String pc = objPerspectiveCode.trim();
+                            objPerspective = bscPerspectiveRepository.findFirstByOrganizationIdAndCodeIgnoreCase(organizationId, pc)
+                                    .or(() -> bscPerspectiveRepository.findFirstByOrganizationIdAndNameIgnoreCase(organizationId, pc))
+                                    .orElse(null);
+                        }
 
                         List<OrgUnit> targetUnits = new ArrayList<>();
                         if (objOrgUnitCode != null && !objOrgUnitCode.isBlank()) {
@@ -293,6 +313,7 @@ public class OkrService {
                             if (endDate != null) currentObjective.setEndDate(endDate);
                             currentObjective.getOrgUnits().clear();
                             currentObjective.getOrgUnits().addAll(targetUnits);
+                            if (objPerspective != null) currentObjective.setPerspective(objPerspective);
                         } else {
                             currentObjective = Objective.builder()
                                     .organization(organization)
@@ -303,6 +324,7 @@ public class OkrService {
                                     .endDate(endDate)
                                     .orgUnits(new ArrayList<>(targetUnits))
                                     .status(OkrStatus.ACTIVE)
+                                    .perspective(objPerspective)
                                     .build();
                         }
                         currentObjective = objectiveRepository.save(currentObjective);
@@ -435,6 +457,9 @@ public class OkrService {
                 .status(objective.getStatus())
                 .orgUnitIds(units.stream().map(u -> u.getId()).collect(Collectors.toList()))
                 .orgUnitNames(units.stream().map(OrgUnit::getName).collect(Collectors.toList()))
+                .perspectiveId(objective.getPerspective() != null ? objective.getPerspective().getId() : null)
+                .perspectiveName(objective.getPerspective() != null ? objective.getPerspective().getName() : null)
+                .perspectiveColor(objective.getPerspective() != null ? objective.getPerspective().getColor() : null)
                 .keyResults(objective.getKeyResults().stream()
                         .map(this::mapToKeyResultResponse)
                         .collect(Collectors.toList()))

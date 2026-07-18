@@ -47,6 +47,12 @@ public interface KpiCriteriaMapper {
     @Mapping(source = "keyResult.objective.id", target = "objectiveId")
     @Mapping(source = "keyResult.objective.name", target = "objectiveName")
     @Mapping(source = "keyResult.objective.code", target = "objectiveCode")
+    @Mapping(source = "perspective.id", target = "perspectiveId")
+    @Mapping(source = "perspective.name", target = "perspectiveName")
+    @Mapping(source = "perspective.color", target = "perspectiveColor")
+    @Mapping(target = "effectivePerspectiveId", expression = "java(effectivePerspectiveId(kpiCriteria))")
+    @Mapping(target = "effectivePerspectiveName", expression = "java(effectivePerspectiveName(kpiCriteria))")
+    @Mapping(target = "effectivePerspectiveColor", expression = "java(effectivePerspectiveColor(kpiCriteria))")
     @Mapping(source = "parent.id", target = "parentId")
     @Mapping(source = "parent.name", target = "parentName")
     @Mapping(source = "replacedBy.id", target = "replacedById")
@@ -143,6 +149,20 @@ public interface KpiCriteriaMapper {
                 .map(com.kpitracking.entity.User::getId)
                 .distinct()
                 .toList();
+    }
+
+    default java.util.UUID effectivePerspectiveId(com.kpitracking.entity.KpiCriteria kpi) {
+        return com.kpitracking.util.BscPerspectiveResolver.effectivePerspectiveId(kpi);
+    }
+
+    default String effectivePerspectiveName(com.kpitracking.entity.KpiCriteria kpi) {
+        var p = com.kpitracking.util.BscPerspectiveResolver.effectivePerspective(kpi);
+        return p != null ? p.getName() : null;
+    }
+
+    default String effectivePerspectiveColor(com.kpitracking.entity.KpiCriteria kpi) {
+        var p = com.kpitracking.util.BscPerspectiveResolver.effectivePerspective(kpi);
+        return p != null ? p.getColor() : null;
     }
 
     default Double sumDecompositionChildrenWeight(com.kpitracking.entity.KpiCriteria kpi) {

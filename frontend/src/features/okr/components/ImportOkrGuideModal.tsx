@@ -1,5 +1,7 @@
 import { X, Download, FileSpreadsheet, AlertTriangle, CheckCircle2, Info, FileText, FileBarChart } from 'lucide-react'
 import ExcelJS from 'exceljs'
+import { useAuthStore } from '@/store/authStore'
+import { useOrganization } from '@/features/orgunits/hooks/useOrganization'
 
 interface ImportOkrGuideModalProps {
   open: boolean
@@ -7,29 +9,50 @@ interface ImportOkrGuideModalProps {
   onSelectFile: () => void
 }
 
-const SAMPLE_CSV_CONTENT = `ObjectiveCode,ObjectiveName,ObjectiveDescription,ObjectiveStartDate,ObjectiveEndDate,OrgUnitCode,KeyResultCode,KeyResultName,KeyResultDescription,KeyResultTarget,KeyResultUnit
-OBJ001,Tăng trưởng doanh thu 20%,Mục tiêu doanh thu quý 1,2024-01-01,2024-03-31,KD_HN,KR001,Ký mới 10 hợp đồng lớn,Hợp đồng giá trị >100tr,10,hợp đồng
-,,,,,KR002,Upsell khách hàng cũ 15%,,15,%
-OBJ002,Nâng cao chất lượng dịch vụ,,2024-01-01,2024-06-30,NS_HN,KR003,Giảm tỷ lệ rời bỏ xuống 5%,,5,%
-,,,,,KR004,Tăng điểm CSAT lên 4.5/5,,4.5,điểm`
+// Cột viễn cảnh BSC chỉ có mặt khi tổ chức bật enable_bsc. Nằm ở cấp Objective — KPI thuộc
+// mục tiêu sẽ kế thừa viễn cảnh này (trừ khi KPI tự gán trực tiếp).
+function buildSampleCsv(enableBsc: boolean): string {
+  const header = enableBsc
+    ? 'ObjectiveCode,ObjectiveName,ObjectiveDescription,ObjectiveStartDate,ObjectiveEndDate,OrgUnitCode,ObjectivePerspective,KeyResultCode,KeyResultName,KeyResultDescription,KeyResultTarget,KeyResultUnit'
+    : 'ObjectiveCode,ObjectiveName,ObjectiveDescription,ObjectiveStartDate,ObjectiveEndDate,OrgUnitCode,KeyResultCode,KeyResultName,KeyResultDescription,KeyResultTarget,KeyResultUnit'
+  const rows = enableBsc
+    ? [
+        'OBJ001,Tăng trưởng doanh thu 20%,Mục tiêu doanh thu quý 1,2024-01-01,2024-03-31,KD_HN,FINANCIAL,KR001,Ký mới 10 hợp đồng lớn,Hợp đồng giá trị >100tr,10,hợp đồng',
+        ',,,,,,,KR002,Upsell khách hàng cũ 15%,,15,%',
+        'OBJ002,Nâng cao chất lượng dịch vụ,,2024-01-01,2024-06-30,NS_HN,CUSTOMER,KR003,Giảm tỷ lệ rời bỏ xuống 5%,,5,%',
+        ',,,,,,,KR004,Tăng điểm CSAT lên 4.5/5,,4.5,điểm',
+      ]
+    : [
+        'OBJ001,Tăng trưởng doanh thu 20%,Mục tiêu doanh thu quý 1,2024-01-01,2024-03-31,KD_HN,KR001,Ký mới 10 hợp đồng lớn,Hợp đồng giá trị >100tr,10,hợp đồng',
+        ',,,,,KR002,Upsell khách hàng cũ 15%,,15,%',
+        'OBJ002,Nâng cao chất lượng dịch vụ,,2024-01-01,2024-06-30,NS_HN,KR003,Giảm tỷ lệ rời bỏ xuống 5%,,5,%',
+        ',,,,,KR004,Tăng điểm CSAT lên 4.5/5,,4.5,điểm',
+      ]
+  return [header, ...rows].join('\n')
+}
 
-const COLUMNS = [
-  { name: 'ObjectiveCode', required: true, desc: 'Mã mục tiêu (dùng để đối soát và gom nhóm KR)', example: 'OBJ001' },
-  { name: 'ObjectiveName', required: true, desc: 'Tên mục tiêu', example: 'Tăng trưởng doanh thu' },
-  { name: 'ObjectiveDescription', required: false, desc: 'Mô tả mục tiêu', example: 'Mục tiêu quý 1' },
-  { name: 'ObjectiveStartDate', required: false, desc: 'Ngày bắt đầu (YYYY-MM-DD)', example: '2024-01-01' },
-  { name: 'ObjectiveEndDate', required: false, desc: 'Ngày kết thúc (YYYY-MM-DD)', example: '2024-03-31' },
-  { name: 'OrgUnitCode', required: true, desc: 'Mã phòng ban. Hỗ trợ nhập nhiều mã cách nhau bằng dấu phẩy (PB01,PB02). Nhập mã của Đơn vị gốc để giao cho tất cả đơn vị con.', example: 'KD_HN, NS_HN' },
-  { name: 'KeyResultCode', required: true, desc: 'Mã kết quả then chốt', example: 'KR001' },
-  { name: 'KeyResultName', required: true, desc: 'Tên kết quả then chốt', example: 'Đạt 1 tỷ VNĐ' },
-  { name: 'KeyResultDescription', required: false, desc: 'Mô tả KR', example: 'Doanh thu từ mảng A' },
-  { name: 'KeyResultTarget', required: false, desc: 'Chỉ tiêu (số)', example: '1000000000' },
-  { name: 'KeyResultUnit', required: false, desc: 'Đơn vị đo lường', example: 'VNĐ' },
-]
+function getColumns(enableBsc: boolean) {
+  return [
+    { name: 'ObjectiveCode', required: true, desc: 'Mã mục tiêu (dùng để đối soát và gom nhóm KR)', example: 'OBJ001' },
+    { name: 'ObjectiveName', required: true, desc: 'Tên mục tiêu', example: 'Tăng trưởng doanh thu' },
+    { name: 'ObjectiveDescription', required: false, desc: 'Mô tả mục tiêu', example: 'Mục tiêu quý 1' },
+    { name: 'ObjectiveStartDate', required: false, desc: 'Ngày bắt đầu (YYYY-MM-DD)', example: '2024-01-01' },
+    { name: 'ObjectiveEndDate', required: false, desc: 'Ngày kết thúc (YYYY-MM-DD)', example: '2024-03-31' },
+    { name: 'OrgUnitCode', required: true, desc: 'Mã phòng ban. Hỗ trợ nhập nhiều mã cách nhau bằng dấu phẩy (PB01,PB02). Nhập mã của Đơn vị gốc để giao cho tất cả đơn vị con.', example: 'KD_HN, NS_HN' },
+    ...(enableBsc ? [
+      { name: 'ObjectivePerspective', required: false, desc: 'Viễn cảnh BSC của Mục tiêu — nhập mã hoặc tên viễn cảnh (VD: FINANCIAL hoặc Tài chính). KPI thuộc mục tiêu sẽ kế thừa viễn cảnh này.', example: 'FINANCIAL' },
+    ] : []),
+    { name: 'KeyResultCode', required: true, desc: 'Mã kết quả then chốt', example: 'KR001' },
+    { name: 'KeyResultName', required: true, desc: 'Tên kết quả then chốt', example: 'Đạt 1 tỷ VNĐ' },
+    { name: 'KeyResultDescription', required: false, desc: 'Mô tả KR', example: 'Doanh thu từ mảng A' },
+    { name: 'KeyResultTarget', required: false, desc: 'Chỉ tiêu (số)', example: '1000000000' },
+    { name: 'KeyResultUnit', required: false, desc: 'Đơn vị đo lường', example: 'VNĐ' },
+  ]
+}
 
-async function downloadTemplate(type: 'csv' | 'xlsx') {
+async function downloadTemplate(type: 'csv' | 'xlsx', enableBsc: boolean) {
   if (type === 'csv') {
-    const blob = new Blob(['\uFEFF' + SAMPLE_CSV_CONTENT], { type: 'text/csv;charset=utf-8;' })
+    const blob = new Blob(['\uFEFF' + buildSampleCsv(enableBsc)], { type: 'text/csv;charset=utf-8;' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
@@ -51,6 +74,7 @@ async function downloadTemplate(type: 'csv' | 'xlsx') {
     { header: 'ObjectiveStartDate', key: 'ObjectiveStartDate', width: 20 },
     { header: 'ObjectiveEndDate', key: 'ObjectiveEndDate', width: 20 },
     { header: 'OrgUnitCode', key: 'OrgUnitCode', width: 20 },
+    ...(enableBsc ? [{ header: 'ObjectivePerspective', key: 'ObjectivePerspective', width: 22 }] : []),
     { header: 'KeyResultCode', key: 'KeyResultCode', width: 20 },
     { header: 'KeyResultName', key: 'KeyResultName', width: 30 },
     { header: 'KeyResultDescription', key: 'KeyResultDescription', width: 25 },
@@ -58,8 +82,13 @@ async function downloadTemplate(type: 'csv' | 'xlsx') {
     { header: 'KeyResultUnit', key: 'KeyResultUnit', width: 15 },
   ]
 
-  // Add data rows
-  const data = [
+  // Add data rows (chèn cột viễn cảnh sau OrgUnitCode khi bật BSC)
+  const data = enableBsc ? [
+    ['OBJ001', 'Tăng trưởng doanh thu 20%', 'Mục tiêu doanh thu quý 1', '2024-01-01', '2024-03-31', 'KD_HN', 'FINANCIAL', 'KR001', 'Ký mới 10 hợp đồng lớn', 'Hợp đồng giá trị >100tr', 10, 'hợp đồng'],
+    ['', '', '', '', '', '', '', 'KR002', 'Upsell khách hàng cũ 15%', '', 15, '%'],
+    ['OBJ002', 'Nâng cao chất lượng dịch vụ', '', '2024-01-01', '2024-06-30', 'NS_HN', 'CUSTOMER', 'KR003', 'Giảm tỷ lệ rời bỏ xuống 5%', '', 5, '%'],
+    ['', '', '', '', '', '', '', 'KR004', 'Tăng điểm CSAT lên 4.5/5', '', 4.5, 'điểm'],
+  ] : [
     ['OBJ001', 'Tăng trưởng doanh thu 20%', 'Mục tiêu doanh thu quý 1', '2024-01-01', '2024-03-31', 'KD_HN', 'KR001', 'Ký mới 10 hợp đồng lớn', 'Hợp đồng giá trị >100tr', 10, 'hợp đồng'],
     ['', '', '', '', '', '', 'KR002', 'Upsell khách hàng cũ 15%', '', 15, '%'],
     ['OBJ002', 'Nâng cao chất lượng dịch vụ', '', '2024-01-01', '2024-06-30', 'NS_HN', 'KR003', 'Giảm tỷ lệ rời bỏ xuống 5%', '', 5, '%'],
@@ -108,7 +137,7 @@ async function downloadTemplate(type: 'csv' | 'xlsx') {
   guideHeader.alignment = { vertical: 'middle', horizontal: 'center' }
   guideHeader.height = 30
 
-  COLUMNS.forEach(c => {
+  getColumns(enableBsc).forEach(c => {
     const row = guideSheet.addRow([c.name, c.required ? 'CÓ' : 'KHÔNG', c.desc, c.example])
     row.font = { size: 11 }
     row.alignment = { vertical: 'middle', horizontal: 'left', wrapText: true }
@@ -127,6 +156,9 @@ async function downloadTemplate(type: 'csv' | 'xlsx') {
   guideSheet.addRow(['2. Để thêm nhiều KR cho một Objective, dòng đầu ghi đủ thông tin Objective, các dòng sau để trống thông tin Objective cũng được.'])
   guideSheet.addRow(['3. Mã Objective (ObjectiveCode) và Mã KR (KeyResultCode) dùng để cập nhật dữ liệu. Nếu mã đã tồn tại ở đơn vị tương ứng, hệ thống sẽ update.'])
   guideSheet.addRow(['4. Cột OrgUnitCode hỗ trợ nhập nhiều mã cách nhau bởi dấu phẩy (,), hoặc nhập mã đơn vị gốc để tự động mở rộng ra toàn bộ đơn vị con.'])
+  if (enableBsc) {
+    guideSheet.addRow(['5. ObjectivePerspective: Viễn cảnh BSC gán cho Mục tiêu. Nhập MÃ (VD: FINANCIAL) hoặc TÊN (VD: Tài chính) — hệ thống tự đối chiếu. Để trống nếu chưa gán. KPI thuộc mục tiêu sẽ kế thừa viễn cảnh này.'])
+  }
 
   // Generate and download
   const buffer = await workbook.xlsx.writeBuffer()
@@ -148,6 +180,11 @@ const STEPS = [
 
 
 export default function ImportOkrGuideModal({ open, onClose, onSelectFile }: ImportOkrGuideModalProps) {
+  const { user } = useAuthStore()
+  const { data: org } = useOrganization(user?.memberships?.[0]?.organizationId)
+  const enableBsc = org?.enableBsc || false
+  const COLUMNS = getColumns(enableBsc)
+
   if (!open) return null
 
   return (
@@ -206,7 +243,7 @@ export default function ImportOkrGuideModal({ open, onClose, onSelectFile }: Imp
                 </div>
               </div>
               <button
-                onClick={() => downloadTemplate('xlsx')}
+                onClick={() => downloadTemplate('xlsx', enableBsc)}
                 className="w-full flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-indigo-600 text-white font-bold text-sm hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-500/20 active:scale-95"
               >
                 <Download size={16} /> Tải mẫu .XLSX
@@ -225,7 +262,7 @@ export default function ImportOkrGuideModal({ open, onClose, onSelectFile }: Imp
                 </div>
               </div>
               <button
-                onClick={() => downloadTemplate('csv')}
+                onClick={() => downloadTemplate('csv', enableBsc)}
                 className="w-full flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 font-bold text-sm hover:bg-slate-100 dark:hover:bg-slate-800 transition-all active:scale-95"
               >
                 <Download size={16} /> Tải mẫu .CSV

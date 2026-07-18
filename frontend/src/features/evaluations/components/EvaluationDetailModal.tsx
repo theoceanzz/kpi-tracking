@@ -9,7 +9,7 @@ import { formatNumber, formatDateTime, getInitials, cn } from '@/lib/utils'
 import type { Evaluation } from '@/types/evaluation'
 import {
   X, Star, User, MessageSquare, TrendingUp,
-  Award, Target, Loader2
+  Award, Target, Loader2, Layers
 } from 'lucide-react'
 import ReviewModal from '@/features/submissions/components/ReviewModal'
 import StaffEvaluationModal from '@/features/submissions/components/StaffEvaluationModal'
@@ -590,6 +590,33 @@ function EvalLayerCard({ title, icon: Icon, iconBg, iconColor, evaluation, lineA
                     <div className="mt-1 inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-widest bg-teal-50 text-teal-600 dark:bg-teal-900/20"
                       title={`Điểm hành vi ${evaluation.behaviorScore != null ? evaluation.behaviorScore.toFixed(1) : '—'}/5 × Hoàn thành ${evaluation.kpiCompletionPercent != null ? Math.round(evaluation.kpiCompletionPercent) + '%' : '100%'}`}>
                       {evaluation.behaviorScore != null && <>Hành vi {evaluation.behaviorScore.toFixed(1)}/5 · </>}Xếp loại ma trận: {evaluation.matrixRating}/5
+                    </div>
+                  )}
+
+                  {/* BSC: điểm + breakdown viễn cảnh (chỉ hiện khi kỳ có thẻ điểm) */}
+                  {evaluation.bscScore != null && (
+                    <div className="mt-2 space-y-1.5">
+                      <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-widest bg-indigo-50 text-indigo-600 dark:bg-indigo-900/20"
+                        title={evaluation.bscScoringMode === 'OFFICIAL'
+                          ? 'Điểm BSC đang là điểm chính thức'
+                          : 'Điểm BSC đang chạy song song để đối chiếu, chưa thay điểm hệ thống'}>
+                        <Layers size={10} />
+                        Điểm BSC: {evaluation.bscScore.toFixed(1)}
+                        <span className="opacity-60">· {evaluation.bscScoringMode === 'OFFICIAL' ? 'Chính thức' : 'Song song'}</span>
+                      </div>
+                      {evaluation.bscPerspectives && evaluation.bscPerspectives.length > 0 && (
+                        <div className="flex flex-wrap gap-1">
+                          {evaluation.bscPerspectives.map(p => (
+                            <span key={p.perspectiveId}
+                              className="inline-flex items-center gap-1 text-[9px] font-bold px-1.5 py-0.5 rounded-md"
+                              style={{ color: p.color || '#8b5cf6', backgroundColor: `${p.color || '#8b5cf6'}14` }}
+                              title={`${p.name}: đạt ${p.achievementPercent != null ? p.achievementPercent.toFixed(1) + '%' : 'không có KPI'} × trọng số ${p.weightPercentage}%`}>
+                              <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: p.color || '#8b5cf6' }} />
+                              {p.name} <b>{p.achievementPercent != null ? `${p.achievementPercent.toFixed(0)}%` : '—'}</b>
+                            </span>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   )}
 

@@ -253,11 +253,15 @@ public class KpiAdjustmentService {
     }
 
     private AdjustmentRequestResponse mapToResponse(KpiAdjustmentRequest adj) {
+        com.kpitracking.entity.BscPerspective effectivePerspective =
+                com.kpitracking.util.BscPerspectiveResolver.effectivePerspective(adj.getKpiCriteria());
         return AdjustmentRequestResponse.builder()
                 .id(adj.getId())
                 .kpiCriteriaId(adj.getKpiCriteria().getId())
                 .kpiCriteriaName(adj.getKpiCriteria().getName())
                 .kpiType(adj.getKpiCriteria().getKpiType())
+                .perspectiveName(effectivePerspective != null ? effectivePerspective.getName() : null)
+                .perspectiveColor(effectivePerspective != null ? effectivePerspective.getColor() : null)
                 .currentTargetValue(adj.getKpiCriteria().getTargetValue())
                 .currentWeight(adj.getKpiCriteria().getWeight())
                 .currentMinimumValue(adj.getKpiCriteria().getMinimumValue())

@@ -8,7 +8,7 @@ import { useMyKpi } from '@/features/kpi/hooks/useMyKpi'
 import { useAuthStore } from '@/store/authStore'
 import { useOrganization } from '@/features/orgunits/hooks/useOrganization'
 import { getScoringFunctions } from '@/lib/scoring'
-import { X, Loader2, Star, Target, Zap, Trophy, CheckCircle2, MessageSquare, Sparkles, Lock } from 'lucide-react'
+import { X, Loader2, Star, Target, Zap, Trophy, CheckCircle2, MessageSquare, Sparkles, Lock, Layers, AlertTriangle } from 'lucide-react'
 import { useMemo, useEffect, useRef } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { evaluationApi } from '../api/evaluationApi'
@@ -80,26 +80,47 @@ export default function EvaluationFormModal({ open, onClose, readOnly = false, i
   const rawSystemScore = scorePreview?.systemScore ?? 0
   const matrixRating = scorePreview?.matrixRating ?? null
   const behaviorScore = scorePreview?.behaviorScore ?? null
+
+  // BSC (chỉ có khi org bật BSC & kỳ đã có thẻ điểm)
+  const bscScore = scorePreview?.bscScore ?? null
+  const bscMode = scorePreview?.bscScoringMode ?? null
+  const bscPerspectives = scorePreview?.bscPerspectives ?? []
+  const bscUnassigned = scorePreview?.bscUnassignedKpis ?? []
   const completionPct = scorePreview?.kpiCompletionPercent ?? null
   // Full-qualitative: no quantitative KPI -> the 0..100 system score is N/A.
   const noQuantScore = scorePreview != null && completionPct == null
-  // Suggested 0..100: full-qualitative means KPI completion defaults to 100%, so the score is
-  // locked to maxScore (in sync with "100% hoàn thành"); otherwise use the quantitative system score.
-  const calculatedScore = noQuantScore
-    ? maxScore
-    : rawSystemScore
+
+  // Kỳ đang chấm CHÍNH THỨC bằng BSC ⇒ điểm bị KHÓA theo bsc_score (backend cũng ép, không chỉ khóa UI).
+  const isBscOfficial = bscMode === 'OFFICIAL' && bscScore != null
+  const scoreLocked = readOnly || isBscOfficial
+
+  // Điểm gợi ý 0..100:
+  // - BSC chính thức  -> lấy officialScore (= bsc_score)
+  // - Toàn định tính  -> completion mặc định 100% nên khóa ở maxScore
+  // - Còn lại         -> điểm hệ thống định lượng
+  // KHÔNG làm tròn khi khóa theo BSC: backend lưu đúng bsc_score (vd 82.5) nên UI phải khớp.
+  const calculatedScore = isBscOfficial
+    ? (scorePreview?.officialScore ?? bscScore!)
+    : noQuantScore
+      ? maxScore
+      : rawSystemScore
 
   const handleApplyCalculatedScore = () => {
-    if (readOnly) return
+    if (scoreLocked) return
     hasManuallyEditedScore.current = false
     setValue('score', calculatedScore)
   }
 
   useEffect(() => {
+    // Khi BSC chính thức: luôn ép điểm = bsc_score, bỏ qua mọi chỉnh tay trước đó.
+    if (isBscOfficial) {
+      setValue('score', calculatedScore)
+      return
+    }
     if (calculatedScore > 0 && !hasManuallyEditedScore.current && !readOnly) {
       setValue('score', calculatedScore)
     }
-  }, [calculatedScore, setValue, readOnly])
+  }, [calculatedScore, setValue, readOnly, isBscOfficial])
 
   const navigate = useNavigate()
 
@@ -133,7 +154,7 @@ export default function EvaluationFormModal({ open, onClose, readOnly = false, i
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-md animate-in fade-in duration-500" onClick={onClose} />
-      <div className="relative bg-white dark:bg-slate-900 rounded-[48px] shadow-2xl w-full max-w-2xl mx-auto overflow-hidden border border-slate-200 dark:border-slate-800 animate-in zoom-in-95 slide-in-from-bottom-10 duration-700">
+      <div className="relative bg-white dark:bg-slate-900 rounded-[48px] shadow-2xl w-full max-w-2xl lg:max-w-4xl mx-auto overflow-hidden border border-slate-200 dark:border-slate-800 animate-in zoom-in-95 slide-in-from-bottom-10 duration-700">
         
         {/* Header with Background Pattern */}
         <div className="relative bg-slate-900 p-10 text-white overflow-hidden">
@@ -204,6 +225,56 @@ export default function EvaluationFormModal({ open, onClose, readOnly = false, i
                         <div className="text-2xl font-black text-teal-600">{matrixRating}<span className="text-sm text-slate-400">/5</span></div>
                       </div>
                     )}
+                    {bscScore != null && (
+                      <div className="py-2 border-b border-slate-200/50 dark:border-slate-700/50 space-y-3">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <Layers size={16} className="text-indigo-500" />
+                            <div>
+                              <span className="text-sm font-bold text-slate-700 dark:text-slate-300">Điểm BSC</span>
+                              <p className="text-[10px] text-slate-400">
+                                {bscMode === 'OFFICIAL'
+                                  ? 'Đang là điểm chính thức (thay điểm hệ thống)'
+                                  : 'Chạy song song — chưa thay điểm hệ thống'}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2 shrink-0">
+                            <span className={cn('text-[9px] font-black uppercase px-2 py-0.5 rounded-full whitespace-nowrap',
+                              bscMode === 'OFFICIAL' ? 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400' : 'bg-slate-200 text-slate-500 dark:bg-slate-700')}>
+                              {bscMode === 'OFFICIAL' ? 'Chính thức' : 'Song song'}
+                            </span>
+                            <div className="text-2xl font-black text-indigo-600">{bscScore.toFixed(1)}</div>
+                          </div>
+                        </div>
+
+                        {bscPerspectives.length > 0 && (
+                          <div className="flex flex-wrap gap-1.5">
+                            {bscPerspectives.map(p => (
+                              <span key={p.perspectiveId}
+                                className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full border"
+                                style={{ color: p.color || '#8b5cf6', borderColor: `${p.color || '#8b5cf6'}44`, backgroundColor: `${p.color || '#8b5cf6'}12` }}
+                                title={`${p.name}: đạt ${p.achievementPercent != null ? p.achievementPercent.toFixed(1) + '%' : 'chưa có KPI'} × trọng số ${p.weightPercentage}%`}
+                              >
+                                <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: p.color || '#8b5cf6' }} />
+                                {p.name} <b>{p.achievementPercent != null ? `${p.achievementPercent.toFixed(0)}%` : '—'}</b>
+                                <span className="opacity-60">×{p.weightPercentage}%</span>
+                              </span>
+                            ))}
+                          </div>
+                        )}
+
+                        {bscUnassigned.length > 0 && (
+                          <div className="flex items-start gap-2 p-2.5 rounded-xl bg-amber-50 dark:bg-amber-900/10 border border-amber-200/50 dark:border-amber-900/30">
+                            <AlertTriangle size={14} className="text-amber-600 shrink-0 mt-0.5" />
+                            <p className="text-[10px] text-amber-800 dark:text-amber-300 font-medium leading-relaxed">
+                              <b>{bscUnassigned.length} chỉ tiêu chưa gán viễn cảnh</b> nên không được tính vào điểm BSC: {bscUnassigned.join(', ')}.
+                              {bscMode === 'OFFICIAL' && ' Kỳ đang chấm chính thức — phải gán đủ mới chốt được đánh giá.'}
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    )}
                     {readOnly && (
                        <p className="text-[10px] text-slate-400 italic">Đây là bản tổng kết tự động sau khi tất cả chỉ tiêu đã được duyệt.</p>
                     )}
@@ -216,7 +287,11 @@ export default function EvaluationFormModal({ open, onClose, readOnly = false, i
                       <label className="flex items-center gap-2 text-xs font-black text-slate-400 uppercase tracking-widest">
                         <Star size={14} /> Điểm tự đánh giá
                       </label>
-                      {!readOnly && !noQuantScore && calculatedScore > 0 && (
+                      {isBscOfficial ? (
+                        <span className="text-[10px] font-black text-indigo-600 flex items-center gap-1" title="Kỳ này đang chấm điểm chính thức bằng BSC nên điểm được khóa theo điểm BSC">
+                          <Lock size={10} /> Khóa theo điểm BSC
+                        </span>
+                      ) : (!readOnly && !noQuantScore && calculatedScore > 0 && (
                         <button
                           type="button"
                           onClick={handleApplyCalculatedScore}
@@ -224,7 +299,7 @@ export default function EvaluationFormModal({ open, onClose, readOnly = false, i
                         >
                           <Zap size={10} fill="currentColor" /> Dùng điểm hệ thống
                         </button>
-                      )}
+                      ))}
                    </div>
 
                    <div className="text-center space-y-6 py-6 bg-indigo-50/30 dark:bg-indigo-900/10 rounded-[40px] border border-indigo-100 dark:border-indigo-900/30">
@@ -236,7 +311,13 @@ export default function EvaluationFormModal({ open, onClose, readOnly = false, i
                             {getScoreLabel(displayScore)}
                          </p>
                          
-                         {selectedPeriodId && calculatedScore > 0 && displayScore !== calculatedScore && (
+                         {isBscOfficial && (
+                           <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest bg-indigo-500/10 text-indigo-600 dark:bg-indigo-500/20">
+                             <Lock size={9} /> Điểm chính thức theo BSC — không sửa tay
+                           </div>
+                         )}
+
+                         {!isBscOfficial && selectedPeriodId && calculatedScore > 0 && displayScore !== calculatedScore && (
                            <div className={cn(
                              "inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest",
                              displayScore > calculatedScore 
@@ -248,7 +329,7 @@ export default function EvaluationFormModal({ open, onClose, readOnly = false, i
                          )}
                       </div>
 
-                      {!readOnly && !noQuantScore && (
+                      {!scoreLocked && !noQuantScore && (
                          <div className="px-10">
                            <input
                              type="range" min={0} max={maxScore} step={1}
@@ -267,7 +348,7 @@ export default function EvaluationFormModal({ open, onClose, readOnly = false, i
                         </div>
                       )}
 
-                      {!readOnly && noQuantScore && (
+                      {!readOnly && !isBscOfficial && noQuantScore && (
                          <div className="px-10 flex justify-center">
                             <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-indigo-500/10 text-indigo-600 dark:text-indigo-300 text-[10px] font-black uppercase tracking-widest whitespace-nowrap">
                                <Lock size={12} className="shrink-0" /> Full định tính · Cố định điểm {maxScore}

@@ -252,7 +252,7 @@ export function OrgMindmapView({ data, maxDepth, onAddChild, onEdit, onDelete }:
   }, [layoutedNodes, layoutedEdges, setNodes, setEdges]);
 
   return (
-    <div className="w-full h-[500px] sm:h-[700px] border rounded-xl bg-gray-50 overflow-hidden relative group/mindmap">
+    <div className="w-full h-full min-h-[300px] border rounded-xl bg-gray-50 overflow-hidden relative group/mindmap">
       <style>{`
         .react-flow__pane {
           cursor: crosshair !important;

@@ -30,6 +30,7 @@ const SAMPLE_DATA = [
     OrgUnitCode: 'MKT001',
     ObjectiveCode: 'OBJ001',
     KeyResultCode: 'KR001',
+    Perspective: 'FINANCIAL',
   },
   {
     Name: 'Tỉ lệ lỗi sản phẩm',
@@ -45,6 +46,7 @@ const SAMPLE_DATA = [
     OrgUnitCode: 'KD002',
     ObjectiveCode: '',
     KeyResultCode: '',
+    Perspective: 'INTERNAL_PROCESS',
   },
   {
     Name: 'Sáng kiến cải tiến quy trình',
@@ -60,6 +62,7 @@ const SAMPLE_DATA = [
     OrgUnitCode: 'MKT001',
     ObjectiveCode: '',
     KeyResultCode: '',
+    Perspective: 'LEARNING_GROWTH',
   }
 ]
 
@@ -92,6 +95,7 @@ export default function KpiImportGuideModal({ open, onClose, onSelectFile }: Kpi
   const { data: org } = useOrganization(user?.memberships?.[0]?.organizationId)
   const enableOkr = org?.enableOkr || false
   const enableQualitative = org?.enableQualitative || false
+  const enableBsc = org?.enableBsc || false
 
   const [importType, setImportType] = useState<KpiType>('QUANTITATIVE')
   const isQualitative = enableQualitative && importType === 'QUALITATIVE'
@@ -101,6 +105,9 @@ export default function KpiImportGuideModal({ open, onClose, onSelectFile }: Kpi
     ...(enableOkr ? [
       { name: 'ObjectiveCode', required: false, desc: 'Mã Mục tiêu (OKR)', example: 'OBJ001' },
       { name: 'KeyResultCode', required: false, desc: 'Mã KR (OKR)', example: 'KR001' },
+    ] : []),
+    ...(enableBsc ? [
+      { name: 'Perspective', required: false, desc: 'Viễn cảnh BSC — nhập mã hoặc tên viễn cảnh (VD: FINANCIAL hoặc Tài chính)', example: 'FINANCIAL' },
     ] : [])
   ]
 
@@ -110,6 +117,9 @@ export default function KpiImportGuideModal({ open, onClose, onSelectFile }: Kpi
       if (!enableOkr) {
         delete newRow.ObjectiveCode
         delete newRow.KeyResultCode
+      }
+      if (!enableBsc) {
+        delete newRow.Perspective
       }
       if (isQualitative) {
         QUANTITATIVE_ONLY_COLUMNS.forEach(k => delete newRow[k])
@@ -153,11 +163,16 @@ export default function KpiImportGuideModal({ open, onClose, onSelectFile }: Kpi
       { header: 'OrgUnitCode', key: 'OrgUnitCode', width: 15 },
     ].filter(c => !isQualitative || !QUANTITATIVE_ONLY_COLUMNS.includes(c.key))
 
-    worksheet.columns = enableOkr ? [
+    worksheet.columns = [
       ...baseColumns,
-      { header: 'ObjectiveCode', key: 'ObjectiveCode', width: 20 },
-      { header: 'KeyResultCode', key: 'KeyResultCode', width: 20 },
-    ] : baseColumns
+      ...(enableOkr ? [
+        { header: 'ObjectiveCode', key: 'ObjectiveCode', width: 20 },
+        { header: 'KeyResultCode', key: 'KeyResultCode', width: 20 },
+      ] : []),
+      ...(enableBsc ? [
+        { header: 'Perspective', key: 'Perspective', width: 20 },
+      ] : []),
+    ]
 
     worksheet.addRows(getSampleData())
 

@@ -52,6 +52,12 @@ export interface KpiCriteria {
   objectiveId: string | null
   objectiveName: string | null
   objectiveCode: string | null
+  perspectiveId: string | null
+  perspectiveName: string | null
+  perspectiveColor: string | null
+  effectivePerspectiveId: string | null
+  effectivePerspectiveName: string | null
+  effectivePerspectiveColor: string | null
   parentId: string | null
   parentName: string | null
   parentRelationType: KpiParentRelationType | null
@@ -87,6 +93,7 @@ export interface CreateKpiRequest {
   keyResultId?: string | null
   parentId?: string | null
   parentRelationType?: KpiParentRelationType | null
+  perspectiveId?: string | null
 }
 
 // Matches BE: UpdateKpiCriteriaRequest
@@ -110,6 +117,7 @@ export interface UpdateKpiRequest {
   keyResultId?: string | null
   parentId?: string | null
   parentRelationType?: KpiParentRelationType | null
+  perspectiveId?: string | null
 }
 
 // Matches BE: RejectKpiRequest
@@ -139,6 +147,7 @@ export interface ReplaceKpiRequest {
   isBonusKpi?: boolean
   deadline?: string | null
   keyResultId?: string | null
+  perspectiveId?: string | null
 }
 
 // Matches BE: BatchUpdateWeightRequest

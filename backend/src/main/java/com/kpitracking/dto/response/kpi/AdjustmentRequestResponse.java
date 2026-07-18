@@ -13,6 +13,8 @@ public class AdjustmentRequestResponse {
     private UUID kpiCriteriaId;
     private String kpiCriteriaName;
     private KpiType kpiType;
+    private String perspectiveName;
+    private String perspectiveColor;
     private Double currentTargetValue;
     private Double currentWeight;
     private Double currentMinimumValue;

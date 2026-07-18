@@ -440,6 +440,7 @@ function MyKpiTableRow({ kpi, depth = 0, childKpis = [], isCollapsed, onToggleCo
   const isDelegated = !!kpi.hasChildren
   const isChildRow = depth > 0
   const isDecompositionParent = childKpis.some(c => c.parentRelationType === 'DECOMPOSITION')
+  const progress = getDisplayProgress(kpi, childKpis)
 
 
   return (
@@ -530,8 +531,8 @@ function MyKpiTableRow({ kpi, depth = 0, childKpis = [], isCollapsed, onToggleCo
         </span>
       </td>
       <td className="px-3 py-4 whitespace-nowrap">
-        <span className={`text-xs font-black ${kpi.frequency === 'UNLIMITED' || kpi.submissionCount < (kpi.expectedSubmissions || 1) ? 'text-amber-600' : 'text-emerald-600'}`}>
-          {kpi.frequency === 'UNLIMITED' ? `${kpi.submissionCount || 0}/∞ lần` : `${kpi.submissionCount || 0}/${kpi.expectedSubmissions || 1} lần`}
+        <span className={`text-xs font-black ${kpi.frequency === 'UNLIMITED' || !progress.isComplete ? 'text-amber-600' : 'text-emerald-600'}`}>
+          {kpi.frequency === 'UNLIMITED' ? `${kpi.submissionCount || 0}/∞ lần` : `${progress.count}/${progress.expected} lần`}
         </span>
       </td>
       <td className="px-3 py-4 whitespace-nowrap">
@@ -739,9 +740,20 @@ function isKpiReadyForEval(kpi: KpiCriteria) {
   return (kpi.submissionCount || 0) >= (kpi.expectedSubmissions || 1)
 }
 
+function getDisplayProgress(kpi: KpiCriteria, childKpis: KpiCriteria[]) {
+  const expected = kpi.expectedSubmissions || 1
+  const decompositionChildren = childKpis.filter(c => c.parentRelationType === 'DECOMPOSITION')
+  if (decompositionChildren.length === 0) {
+    const count = kpi.submissionCount || 0
+    return { count, expected, isComplete: count >= expected }
+  }
+  const doneCount = decompositionChildren.filter(isKpiReadyForEval).length
+  const allDone = doneCount === decompositionChildren.length
+  const count = allDone ? expected : Math.floor((doneCount / decompositionChildren.length) * expected)
+  return { count, expected, isComplete: allDone }
+}
+
 function getNextDeadline(kpi: KpiCriteria) {
-  // Mốc kết thúc dùng để tính hạn nộp = hạn nộp hiệu lực của KPI (deadline riêng nếu có),
-  // không thì mới về endDate của đợt.
   const cutoff = kpi.effectiveDeadline ?? kpi.kpiPeriod?.endDate
   if (!kpi.kpiPeriod?.startDate || !cutoff) return null
   const start = parseISO(kpi.kpiPeriod.startDate).getTime()

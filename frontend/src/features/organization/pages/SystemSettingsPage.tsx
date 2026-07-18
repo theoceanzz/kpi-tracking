@@ -11,6 +11,7 @@ import PageTour from '@/components/common/PageTour'
 import { settingsSteps } from '@/components/common/tourSteps'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { notificationApi, type NotificationConfigItem } from '@/features/notifications/api/notificationApi'
+import { useOrganization } from '@/features/orgunits/hooks/useOrganization'
 
 export default function SystemSettingsPage() {
   const [activeTab, setActiveTab] = useState<'sidebar' | 'notifications'>('sidebar')
@@ -80,7 +81,10 @@ function SidebarSettingsTab() {
   const organizationId = user?.memberships?.[0]?.organizationId
   const { data: settings, isLoading, refetch } = useSidebarSettings(organizationId!)
   const updateMutation = useUpdateSidebarSettings()
-  
+  const { data: org } = useOrganization(organizationId)
+  const enableOkr = org?.enableOkr || false
+  const enableBsc = org?.enableBsc || false
+
   const [localSettings, setLocalSettings] = useState<Record<string, string>>({})
   const [searchTerm, setSearchTerm] = useState('')
 
@@ -116,6 +120,17 @@ function SidebarSettingsTab() {
     { key: '/dashboard', defaultLabel: 'Tổng quan', category: 'Dashboard' },
     { key: 'Thiết lập công ty', defaultLabel: 'Thiết lập công ty', category: 'Hệ thống' },
     { key: '/company', defaultLabel: 'Công ty', category: 'Hệ thống' },
+    // Nhãn OKR/BSC chỉ sửa được khi tổ chức bật tính năng tương ứng (khớp cờ okrOnly/bscOnly ở Sidebar).
+    // Nhóm không có path nên key là chính nhãn gốc — trùng quy ước getLabel() bên Sidebar.
+    ...(enableOkr ? [
+      { key: '/okr', defaultLabel: 'Quản lý OKR', category: 'OKR' },
+    ] : []),
+    ...(enableBsc ? [
+      { key: 'Quản lý BSC', defaultLabel: 'Quản lý BSC', category: 'BSC' },
+      { key: '/bsc', defaultLabel: 'Thẻ điểm BSC', category: 'BSC' },
+      { key: '/bsc/dashboard', defaultLabel: 'Dashboard BSC', category: 'BSC' },
+      { key: '/bsc/strategy-map', defaultLabel: 'Bản đồ chiến lược', category: 'BSC' },
+    ] : []),
     { key: 'Tổ chức', defaultLabel: 'Tổ chức', category: 'Hệ thống' },
     { key: '/roles', defaultLabel: 'Vai trò', category: 'Hệ thống' },
     { key: '/org-structure', defaultLabel: 'Sơ đồ tổ chức', category: 'Hệ thống' },

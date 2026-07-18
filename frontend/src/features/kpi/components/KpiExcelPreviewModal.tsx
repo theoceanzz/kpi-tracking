@@ -18,6 +18,7 @@ import { useAuthStore } from '@/store/authStore'
 import { FREQUENCY_MAP } from '@/lib/utils'
 import { kpiApi } from '@/features/kpi/api/kpiApi'
 import { useObjectives } from '@/features/okr/hooks/useOkr'
+import { useBscPerspectives } from '@/features/bsc/hooks/useBsc'
 
 interface KpiExcelPreviewModalProps {
   open: boolean
@@ -45,6 +46,7 @@ interface KpiRow {
   OrgUnit: string
   ObjectiveCode?: string
   KeyResultCode?: string
+  Perspective?: string
   _errors?: Record<string, string>
 }
 
@@ -109,6 +111,8 @@ export default function KpiExcelPreviewModal({ open, file, kpiType, onClose, onI
 
   const { data: objectivesData } = useObjectives(user?.memberships?.[0]?.organizationId)
   const objectives = objectivesData || []
+  const { data: perspectivesData } = useBscPerspectives(user?.memberships?.[0]?.organizationId)
+  const perspectives = perspectivesData || []
 
   // Fetch data for dropdowns
   const { data: periodsData } = useKpiPeriods({ 
@@ -130,6 +134,7 @@ export default function KpiExcelPreviewModal({ open, file, kpiType, onClose, onI
   const enableWaterfall = org?.enableWaterfall || false
   const enableOkr = org?.enableOkr || false
   const enableQualitative = org?.enableQualitative || false
+  const enableBsc = org?.enableBsc || false
 
   // Seed the local type from the prop each time the modal opens.
   useEffect(() => {
@@ -259,6 +264,7 @@ export default function KpiExcelPreviewModal({ open, file, kpiType, onClose, onI
           OrgUnit: rawOrgValue,
           ObjectiveCode: (row['ObjectiveCode'] || '').toString().trim(),
           KeyResultCode: (row['KeyResultCode'] || '').toString().trim(),
+          Perspective: (row['Perspective'] || '').toString().trim(),
         }
 
         const errors: Record<string, string> = {}
@@ -415,7 +421,16 @@ export default function KpiExcelPreviewModal({ open, file, kpiType, onClose, onI
     } else if (enableOkr && row.KeyResultCode && !row.ObjectiveCode) {
       errors['ObjectiveCode'] = `Cần nhập mã mục tiêu để tìm KR`
     }
-    
+
+    // 4b. Check BSC perspective if enabled (match by code or name)
+    if (enableBsc && row.Perspective) {
+      const val = row.Perspective.toLowerCase()
+      const matched = perspectives.find((p: any) => p.code?.toLowerCase() === val || p.name?.toLowerCase() === val)
+      if (!matched) {
+        errors['Perspective'] = `Viễn cảnh không tồn tại`
+      }
+    }
+
     // 5. Waterfall specific validation: If waterfall is enabled, only allow assignment to unit leaders
     if (enableWaterfall && row.EmployeeCode) {
       const codes = row.EmployeeCode.split(',').map(s => s.trim()).filter(Boolean)
@@ -469,6 +484,7 @@ export default function KpiExcelPreviewModal({ open, file, kpiType, onClose, onI
       OrgUnit: (bulkOrgUnits.length === 1 ? bulkOrgUnits[0] : '') || '',
       ObjectiveCode: '',
       KeyResultCode: '',
+      Perspective: '',
     })
     setData([...data, newRow])
   }
@@ -561,8 +577,8 @@ export default function KpiExcelPreviewModal({ open, file, kpiType, onClose, onI
 
 
     try {
-      const exportData = data.map(({ Name, Description, Weight, TargetValue, MinimumValue, IsReverseKpi, IsBonusKpi, Deadline, Unit, Frequency, EmployeeCode, Period, OrgUnit, ObjectiveCode, KeyResultCode }) => ({
-        Name, Description, Weight, TargetValue, MinimumValue, IsReverseKpi, IsBonusKpi, Deadline, Unit, Frequency, EmployeeCode, Period, OrgUnit, ObjectiveCode, KeyResultCode
+      const exportData = data.map(({ Name, Description, Weight, TargetValue, MinimumValue, IsReverseKpi, IsBonusKpi, Deadline, Unit, Frequency, EmployeeCode, Period, OrgUnit, ObjectiveCode, KeyResultCode, Perspective }) => ({
+        Name, Description, Weight, TargetValue, MinimumValue, IsReverseKpi, IsBonusKpi, Deadline, Unit, Frequency, EmployeeCode, Period, OrgUnit, ObjectiveCode, KeyResultCode, Perspective
       }))
       
       const ws = utils.json_to_sheet(exportData)
@@ -1002,6 +1018,7 @@ export default function KpiExcelPreviewModal({ open, file, kpiType, onClose, onI
                             <th className="px-5 py-4 min-w-[200px]">Mã KR</th>
                           </>
                         )}
+                        {enableBsc && <th className="px-5 py-4 min-w-[200px]">Viễn cảnh BSC</th>}
                         <th className="px-5 py-4 w-16 text-center">Xóa</th>
                       </tr>
                     </thead>
@@ -1325,6 +1342,25 @@ export default function KpiExcelPreviewModal({ open, file, kpiType, onClose, onI
                                 </select>
                               </td>
                             </>
+                          )}
+                          {enableBsc && (
+                            <td className="px-5 py-3">
+                              <select
+                                value={(() => {
+                                  const v = (row.Perspective || '').toLowerCase()
+                                  const m = perspectives.find((p: any) => p.code?.toLowerCase() === v || p.name?.toLowerCase() === v)
+                                  return m ? m.code : ''
+                                })()}
+                                onChange={e => handleCellChange(row.id, 'Perspective', e.target.value)}
+                                className="w-full px-4 py-2 rounded-xl border border-transparent hover:border-slate-200 focus:border-indigo-500 text-sm font-bold transition-all bg-transparent outline-none"
+                              >
+                                <option value="">-- Trống --</option>
+                                {perspectives.map((p: any) => (
+                                  <option key={p.id} value={p.code}>{p.name} ({p.code})</option>
+                                ))}
+                              </select>
+                              {row._errors?.Perspective && <p className="text-[9px] text-rose-500 mt-1 font-black uppercase px-2">{row._errors.Perspective}</p>}
+                            </td>
                           )}
                           <td className="px-5 py-3 text-center">
                             <button

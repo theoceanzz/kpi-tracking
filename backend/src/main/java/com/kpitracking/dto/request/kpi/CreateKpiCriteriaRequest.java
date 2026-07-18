@@ -49,4 +49,5 @@ public class CreateKpiCriteriaRequest {
     private UUID keyResultId;
     private UUID parentId;
     private KpiParentRelationType parentRelationType;
+    private UUID perspectiveId;
 }

@@ -40,6 +40,7 @@ public interface KpiCriteriaRepository extends JpaRepository<KpiCriteria, UUID> 
            "(cast(:endDate as timestamp) IS NULL OR k.createdAt <= :endDate) AND " +
            "(:objectiveId IS NULL OR k.keyResult.objective.id = :objectiveId) AND " +
            "(:keyResultId IS NULL OR k.keyResult.id = :keyResultId) AND " +
+           "(:perspectiveId IS NULL OR k.perspective.id = :perspectiveId) AND " +
            "(:kpiNature IS NULL OR " +
            "  (:kpiNature = 'PARENT_CHILD' AND (k.parent IS NOT NULL OR EXISTS (SELECT 1 FROM KpiCriteria c2 WHERE c2.parent = k))) OR " +
            "  (:kpiNature = 'STANDALONE' AND k.parent IS NULL AND NOT EXISTS (SELECT 1 FROM KpiCriteria c3 WHERE c3.parent = k))" +
@@ -62,12 +63,19 @@ public interface KpiCriteriaRepository extends JpaRepository<KpiCriteria, UUID> 
             @Param("endDate") Instant endDate,
             @Param("objectiveId") UUID objectiveId,
             @Param("keyResultId") UUID keyResultId,
+            @Param("perspectiveId") UUID perspectiveId,
             @Param("kpiNature") String kpiNature,
             @Param("isBonusKpi") Boolean isBonusKpi,
             @Param("isReverseKpi") Boolean isReverseKpi,
             @Param("kpiType") com.kpitracking.enums.KpiType kpiType,
             Pageable pageable
     );
+
+    List<KpiCriteria> findByKpiPeriodIdAndStatusIn(UUID kpiPeriodId, List<KpiStatus> statuses);
+
+    @Query("SELECT k FROM KpiCriteria k WHERE k.perspective IS NOT NULL AND k.keyResult IS NULL " +
+           "AND k.orgUnit.orgHierarchyLevel.organization.id = :organizationId")
+    List<KpiCriteria> findByOrganizationIdAndPerspectiveNotNullAndKeyResultIsNull(@Param("organizationId") UUID organizationId);
 
     Page<KpiCriteria> findByOrgUnitId(UUID orgUnitId, Pageable pageable);
 

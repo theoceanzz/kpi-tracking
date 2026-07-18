@@ -20,6 +20,7 @@ export const kpiSchema = z.object({
   keyResultId: z.string().optional().nullable(),
   parentId: z.string().optional().nullable(),
   parentRelationType: z.enum(['DELEGATION', 'DECOMPOSITION']).optional().nullable(),
+  perspectiveId: z.string().optional().nullable(),
 }).superRefine((data, ctx) => {
   if (data.kpiType === 'QUALITATIVE') {
     // Qualitative KPIs are weighted (they share the 100% pool) but have no numeric target.

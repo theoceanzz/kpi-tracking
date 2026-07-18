@@ -32,5 +32,12 @@ public class QualitativeLevel {
     @Column(name = "position_index", nullable = false)
     private Integer position;
 
+    /**
+     * Mức này tương đương bao nhiêu % hoàn thành khi tính điểm BSC (0..100) — do HR cấu hình.
+     * Tách riêng khỏi {@link #value} vì value dùng cho trục hàng của ma trận hiệu suất, không phải để ra %.
+     */
+    @Column(name = "score_percent")
+    private Double scorePercent;
+
     private String color;
 }

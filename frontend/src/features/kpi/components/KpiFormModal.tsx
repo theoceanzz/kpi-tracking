@@ -16,6 +16,7 @@ import { useState } from 'react'
 import { useKpiPeriods } from '../hooks/useKpiPeriods'
 import { useOrganization } from '@/features/orgunits/hooks/useOrganization'
 import { useObjectives } from '@/features/okr/hooks/useOkr'
+import { useBscPerspectives, useScorecards } from '@/features/bsc/hooks/useBsc'
 import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Badge } from '@/components/ui/badge'
 import { DateTimePicker } from '@/components/common/DateTimePicker'
@@ -65,6 +66,10 @@ export default function KpiFormModal({ open, onClose, editKpi, parentKpi, parent
   const enableOkr = org?.enableOkr
   const { data: objectives } = useObjectives(enableOkr ? organizationId : undefined)
 
+  const enableBsc = org?.enableBsc
+  const { data: perspectives } = useBscPerspectives(enableBsc ? organizationId : undefined)
+  const { data: bscScorecards } = useScorecards(enableBsc ? organizationId : undefined)
+
   // Flatten tree for dropdown
   const flattenTree = (nodes: any[], level = 0): any[] => {
     let result: any[] = []
@@ -103,12 +108,15 @@ export default function KpiFormModal({ open, onClose, editKpi, parentKpi, parent
       keyResultId: null,
       parentId: null,
       parentRelationType: null,
+      perspectiveId: null,
       orgUnitIds: [],
       orgUnitId: '',
     },
   })
 
   const formKpiPeriodId = watch('kpiPeriodId')
+  // Kỳ đang chọn đã có thẻ điểm BSC chưa? Chưa có ⇒ gán viễn cảnh vẫn lưu nhưng chưa sinh điểm BSC.
+  const periodHasScorecard = !!formKpiPeriodId && (bscScorecards || []).some(sc => sc.kpiPeriodId === formKpiPeriodId)
   const formOrgUnitIds = watch('orgUnitIds') || []
   const [selectedRole, setSelectedRole] = useState<string>('ALL')
 
@@ -147,6 +155,7 @@ export default function KpiFormModal({ open, onClose, editKpi, parentKpi, parent
         kpiPeriodId: editKpi.kpiPeriodId ?? '',
         keyResultId: editKpi.keyResultId ?? null,
         parentId: editKpi.parentId ?? null,
+        perspectiveId: editKpi.perspectiveId ?? null,
       })
     } else {
       const defaultOrgUnitId = user?.memberships?.[0]?.orgUnitId || ''
@@ -170,6 +179,7 @@ export default function KpiFormModal({ open, onClose, editKpi, parentKpi, parent
         keyResultId: null,
         parentId: parentKpi?.id ?? null,
         parentRelationType: effectiveRelationType,
+        perspectiveId: parentKpi?.perspectiveId ?? null,
         orgUnitIds: canAssignRoles ? [] : (defaultOrgUnitId ? [defaultOrgUnitId] : []),
         orgUnitId: parentKpi?.orgUnitId ?? defaultOrgUnitId,
         assignedToIds: isDecomposition ? (parentKpi?.assigneeIds ?? []) : (isStaff ? ([user?.id].filter(Boolean) as string[]) : [])
@@ -307,6 +317,17 @@ export default function KpiFormModal({ open, onClose, editKpi, parentKpi, parent
     return objectives.filter((obj: any) => obj.orgUnitIds?.some((id: string) => formOrgUnitIds.includes(id)))
   }, [objectives, formOrgUnitIds])
 
+  // Viễn cảnh KPI này sẽ KẾ THỪA từ Objective cha (qua KeyResult đang chọn) khi chưa gán
+  // trực tiếp. Dùng để hiển thị dòng gợi ý trong khối BSC bên dưới.
+  const watchedKeyResultId = watch('keyResultId')
+  const watchedPerspectiveId = watch('perspectiveId')
+  const inheritedPerspective = useMemo(() => {
+    if (!watchedKeyResultId || watchedKeyResultId === 'NONE') return null
+    const obj = (objectives || []).find((o: any) => o.keyResults?.some((kr: any) => kr.id === watchedKeyResultId))
+    if (obj?.perspectiveId) return { name: obj.perspectiveName as string, color: (obj.perspectiveColor as string) || '#8b5cf6' }
+    return null
+  }, [watchedKeyResultId, objectives])
+
   // Clear Key Result if OrgUnit changes to a different one
   useEffect(() => {
     if (formOrgUnitIds.length > 0 && watch('keyResultId')) {
@@ -390,6 +411,7 @@ export default function KpiFormModal({ open, onClose, editKpi, parentKpi, parent
 
     if (payload.keyResultId === '' || payload.keyResultId === 'NONE') payload.keyResultId = null
     if (payload.parentId === '') payload.parentId = null
+    if (payload.perspectiveId === '' || payload.perspectiveId === 'NONE') payload.perspectiveId = null
 
     if (payload.deadline && selectedPeriod) {
       const t = new Date(payload.deadline).getTime()
@@ -991,6 +1013,56 @@ export default function KpiFormModal({ open, onClose, editKpi, parentKpi, parent
                     </Select>
                   )}
                 />
+              </div>
+            </div>
+          )}
+
+          {!isPendingApproval && enableBsc && (
+            <div className="bg-violet-50/50 dark:bg-violet-900/5 p-4 rounded-2xl border border-violet-100 dark:border-violet-900/50 space-y-3">
+              <div className="flex items-center gap-2 text-violet-600 dark:text-violet-400">
+                <LayoutGrid size={16} />
+                <span className="text-[11px] font-black uppercase tracking-widest">Viễn cảnh BSC</span>
+              </div>
+              <div className="space-y-1">
+                <label className="block text-[10px] font-black text-slate-500 uppercase tracking-tight">Gắn chỉ tiêu vào viễn cảnh chiến lược</label>
+                <Controller
+                  name="perspectiveId"
+                  control={control}
+                  render={({ field }) => (
+                    // key ép remount khi value được nạp (reset async) hoặc danh sách viễn cảnh
+                    // load xong → hiện đúng ngay lần mở đầu, không phải mở lần 2.
+                    <Select key={`${field.value ?? 'NONE'}-${(perspectives || []).length}`} onValueChange={field.onChange} value={field.value || 'NONE'}>
+                      <SelectTrigger className="w-full rounded-xl border-violet-100 dark:border-violet-900 bg-white dark:bg-slate-900 focus:ring-violet-500/30 transition-all h-11 shadow-sm overflow-hidden">
+                        <SelectValue placeholder="-- Chưa gán viễn cảnh --" className="truncate flex-1 min-w-0 text-left" />
+                      </SelectTrigger>
+                      <SelectContent className="z-[300] rounded-2xl border-violet-50 dark:border-violet-900 shadow-2xl max-h-[350px] overflow-auto">
+                        <SelectItem value="NONE" className="font-bold py-3">-- Chưa gán viễn cảnh --</SelectItem>
+                        {(perspectives || []).map(p => (
+                          <SelectItem key={p.id} value={p.id} className="rounded-xl py-2.5 pl-3 pr-3 focus:bg-violet-50 focus:text-violet-700 transition-colors">
+                            <span className="flex items-center gap-2">
+                              <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: p.color || '#94a3b8' }} />
+                              <span className="font-semibold text-xs truncate">{p.name}</span>
+                            </span>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
+                />
+                {(!watchedPerspectiveId || watchedPerspectiveId === 'NONE') && inheritedPerspective && (
+                  <p className="text-[10px] font-medium text-slate-500 dark:text-slate-400 flex items-start gap-1.5 mt-1.5">
+                    <span className="w-2.5 h-2.5 rounded-full shrink-0 mt-0.5" style={{ backgroundColor: inheritedPerspective.color }} />
+                    <span>
+                      Đang kế thừa viễn cảnh <b className="text-slate-700 dark:text-slate-200">"{inheritedPerspective.name}"</b> từ mục tiêu cha. Chọn ở đây để gán đè trực tiếp.
+                    </span>
+                  </p>
+                )}
+                {formKpiPeriodId && !periodHasScorecard && (
+                  <p className="text-[10px] font-bold text-amber-600 dark:text-amber-400 flex items-start gap-1.5 mt-1.5">
+                    <span className="shrink-0">⚠</span>
+                    Kỳ này chưa có thẻ điểm BSC — vẫn gán viễn cảnh được, nhưng sẽ chưa tính ra điểm BSC cho tới khi bạn tạo thẻ điểm cho kỳ.
+                  </p>
+                )}
               </div>
             </div>
           )}

@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useMemo } from 'react'
 import { useForm, Controller } from 'react-hook-form'
 import { X, Target, Loader2, ChevronDown, Check } from 'lucide-react'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
@@ -15,6 +15,8 @@ import {
 } from "@/components/ui/select"
 import { useOrgUnitTree } from '../../orgunits/hooks/useOrgUnitTree'
 import { OrgUnitTreeResponse } from '@/types/orgUnit'
+import { useBscPerspectives } from '@/features/bsc/hooks/useBsc'
+import { useOrganization } from '@/features/orgunits/hooks/useOrganization'
 
 interface ObjectiveFormModalProps {
   isOpen: boolean
@@ -31,12 +33,34 @@ export default function ObjectiveFormModal({ isOpen, onClose, organizationId, ob
       startDate: today,
       endDate: today,
       status: OkrStatus.ACTIVE,
-      orgUnitIds: []
+      orgUnitIds: [],
+      perspectiveId: null,
     }
   })
 
   const startDate = watch('startDate')
   const { data: orgUnitTree } = useOrgUnitTree()
+  const { data: org } = useOrganization(organizationId)
+  const enableBsc = org?.enableBsc
+  const { data: perspectives } = useBscPerspectives(enableBsc ? organizationId : undefined)
+
+  // Đảm bảo viễn cảnh đang gán của Mục tiêu LUÔN có trong danh sách option, kể cả khi
+  // danh sách chưa load kịp hoặc viễn cảnh đó đã bị đặt INACTIVE — nếu không Radix Select
+  // không hiển thị được giá trị đã chọn (hiện nhầm "Chưa gán").
+  const perspectiveOptions = useMemo(() => {
+    const list = [...(perspectives || [])]
+    if (objective?.perspectiveId && !list.some(p => p.id === objective.perspectiveId)) {
+      list.unshift({
+        id: objective.perspectiveId,
+        code: '',
+        name: objective.perspectiveName || 'Viễn cảnh',
+        color: objective.perspectiveColor || undefined,
+        displayOrder: 0,
+        status: 'ACTIVE' as any,
+      })
+    }
+    return list
+  }, [perspectives, objective])
 
   const flattenOrgUnits = (units: OrgUnitTreeResponse[], level = 0): { id: string, name: string, level: number }[] => {
     return units.reduce((acc: any[], unit) => {
@@ -61,7 +85,8 @@ export default function ObjectiveFormModal({ isOpen, onClose, organizationId, ob
         startDate: objective.startDate ? objective.startDate.split('T')[0] : '',
         endDate: objective.endDate ? objective.endDate.split('T')[0] : '',
         status: objective.status,
-        orgUnitIds: objective.orgUnitIds ?? []
+        orgUnitIds: objective.orgUnitIds ?? [],
+        perspectiveId: objective.perspectiveId ?? null,
       })
     } else {
       reset({
@@ -71,7 +96,8 @@ export default function ObjectiveFormModal({ isOpen, onClose, organizationId, ob
         startDate: today,
         endDate: today,
         status: OkrStatus.ACTIVE,
-        orgUnitIds: []
+        orgUnitIds: [],
+        perspectiveId: null,
       })
     }
   }, [objective, reset, isOpen])
@@ -99,6 +125,7 @@ export default function ObjectiveFormModal({ isOpen, onClose, organizationId, ob
   }
 
   const onSubmit = (data: ObjectiveRequest) => {
+    if (data.perspectiveId === 'NONE' || data.perspectiveId === '') data.perspectiveId = null
     if (objective) {
       updateObjective.mutate({ objectiveId: objective.id, data }, {
         onSuccess: () => onClose()
@@ -270,6 +297,38 @@ export default function ObjectiveFormModal({ isOpen, onClose, organizationId, ob
                 />
               </div>
             </div>
+
+            {enableBsc && (
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Viễn cảnh BSC</label>
+                <Controller
+                  name="perspectiveId"
+                  control={control}
+                  render={({ field }) => (
+                    // key ép Radix Select remount khi value được nạp (reset async) hoặc khi
+                    // danh sách viễn cảnh load xong → nhãn hiển thị đúng ngay lần mở đầu tiên,
+                    // không phải mở lần 2 mới thấy.
+                    <Select key={`${field.value ?? 'NONE'}-${perspectiveOptions.length}`} value={field.value || 'NONE'} onValueChange={field.onChange}>
+                      <SelectTrigger className="w-full h-10 rounded-xl bg-slate-50 dark:bg-slate-800 border-slate-100 dark:border-slate-700 text-sm font-bold outline-none">
+                        <SelectValue placeholder="-- Chưa gán viễn cảnh --" />
+                      </SelectTrigger>
+                      <SelectContent className="rounded-xl border-slate-200 dark:border-slate-800 max-h-[280px]">
+                        <SelectItem value="NONE" className="text-sm font-bold text-slate-500">-- Chưa gán viễn cảnh --</SelectItem>
+                        {perspectiveOptions.map(p => (
+                          <SelectItem key={p.id} value={p.id} className="text-sm font-bold">
+                            <span className="flex items-center gap-2">
+                              <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: p.color || '#8b5cf6' }} />
+                              {p.name}
+                            </span>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
+                />
+                <p className="text-[10px] font-medium text-slate-400 ml-1">KPI thuộc mục tiêu này sẽ tự kế thừa viễn cảnh (nếu KPI chưa gán trực tiếp).</p>
+              </div>
+            )}
           </div>
 
           <div className="p-6 border-t border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900 flex gap-4">

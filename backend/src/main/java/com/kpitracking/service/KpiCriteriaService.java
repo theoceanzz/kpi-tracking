@@ -66,6 +66,9 @@ public class KpiCriteriaService {
     private final ApplicationEventPublisher eventPublisher;
     private final PermissionChecker permissionChecker;
     private final com.kpitracking.repository.KeyResultRepository keyResultRepository;
+    private final com.kpitracking.repository.BscPerspectiveRepository bscPerspectiveRepository;
+    private final com.kpitracking.repository.BscScorecardRepository bscScorecardRepository;
+    private final KpiAchievementCalculator achievementCalculator;
     private final OrganizationService organizationService;
 
     private static final List<KpiStatus> WEIGHT_COUNTED_STATUSES = java.util.Arrays.asList(
@@ -177,6 +180,11 @@ public class KpiCriteriaService {
             throw new BusinessException("KPI định tính cần có trọng số (weight) lớn hơn 0.");
         }
 
+        if (!isQualitative) {
+            validateReverseKpiThreshold(Boolean.TRUE.equals(request.getIsReverseKpi()),
+                    request.getTargetValue(), request.getMinimumValue(), request.getName());
+        }
+
         KpiCriteria kpi = KpiCriteria.builder()
                 .orgUnit(orgUnit)
                 .assignees(assignees)
@@ -248,6 +256,12 @@ public class KpiCriteriaService {
             kpi.setKeyResult(kr);
         }
 
+        if (request.getPerspectiveId() != null) {
+            com.kpitracking.entity.BscPerspective perspective = bscPerspectiveRepository.findById(request.getPerspectiveId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Viễn cảnh BSC", "id", request.getPerspectiveId()));
+            kpi.setPerspective(perspective);
+        }
+
         if (status == KpiStatus.APPROVED) {
             kpi.setApprovedBy(creator);
             kpi.setApprovedAt(Instant.now());
@@ -276,7 +290,7 @@ public class KpiCriteriaService {
     }
 
     @Transactional(readOnly = true)
-    public PageResponse<KpiCriteriaResponse> getKpiCriteria(int page, int size, KpiStatus status, UUID orgUnitId, UUID createdById, UUID assigneeId, UUID kpiPeriodId, String keyword, Instant startDate, Instant endDate, String sortBy, String sortDir, UUID objectiveId, UUID keyResultId, boolean approvalMode, String kpiNature, Boolean isBonusKpi, Boolean isReverseKpi, com.kpitracking.enums.KpiType kpiType) {
+    public PageResponse<KpiCriteriaResponse> getKpiCriteria(int page, int size, KpiStatus status, UUID orgUnitId, UUID createdById, UUID assigneeId, UUID kpiPeriodId, String keyword, Instant startDate, Instant endDate, String sortBy, String sortDir, UUID objectiveId, UUID keyResultId, UUID perspectiveId, boolean approvalMode, String kpiNature, Boolean isBonusKpi, Boolean isReverseKpi, com.kpitracking.enums.KpiType kpiType) {
         User currentUser = getCurrentUser();
         UUID organizationId = getCurrentUserOrganizationId(currentUser);
 
@@ -318,6 +332,7 @@ public class KpiCriteriaService {
                 endDate,
                 objectiveId,
                 keyResultId,
+                perspectiveId,
                 kpiNature,
                 isBonusKpi,
                 isReverseKpi,
@@ -410,6 +425,12 @@ public class KpiCriteriaService {
         if (request.getIsReverseKpi() != null) kpi.setIsReverseKpi(request.getIsReverseKpi());
         if (request.getIsBonusKpi() != null) kpi.setIsBonusKpi(request.getIsBonusKpi());
         if (request.getUnit() != null) kpi.setUnit(request.getUnit());
+
+        // Validate trên giá trị SAU cập nhật (request có thể chỉ gửi một phần trường).
+        if (kpi.getKpiType() != com.kpitracking.enums.KpiType.QUALITATIVE) {
+            validateReverseKpiThreshold(Boolean.TRUE.equals(kpi.getIsReverseKpi()),
+                    kpi.getTargetValue(), kpi.getMinimumValue(), kpi.getName());
+        }
         if (request.getDeadline() != null) {
             validateDeadlineWithinPeriod(request.getDeadline(), kpi.getKpiPeriod());
             kpi.setDeadline(request.getDeadline());
@@ -527,6 +548,12 @@ public class KpiCriteriaService {
             // Keep existing keyResult if not provided in the update
         }
 
+        if (request.getPerspectiveId() != null) {
+            com.kpitracking.entity.BscPerspective perspective = bscPerspectiveRepository.findById(request.getPerspectiveId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Viễn cảnh BSC", "id", request.getPerspectiveId()));
+            kpi.setPerspective(perspective);
+        }
+
         if (request.getParentId() != null) {
             KpiCriteria parent = kpiCriteriaRepository.findById(request.getParentId())
                     .orElseThrow(() -> new ResourceNotFoundException("KPI Cha", "id", request.getParentId()));
@@ -641,6 +668,8 @@ public class KpiCriteriaService {
             throw new BusinessException("Chỉ có thể phê duyệt KPI ở trạng thái CHỜ PHÊ DUYỆT");
         }
 
+        requirePerspectiveWhenBscEnabled(kpi);
+
         kpi.setStatus(KpiStatus.APPROVED);
         kpi.setApprovedBy(currentUser);
         kpi.setApprovedAt(Instant.now());
@@ -649,6 +678,49 @@ public class KpiCriteriaService {
         eventPublisher.publishEvent(new KpiCriteriaApprovedEvent(this, kpi));
 
         return kpiCriteriaMapper.toResponse(kpi);
+    }
+
+    /**
+     * Khi tổ chức bật BSC: KPI có tham gia tính điểm BSC (cả định lượng lẫn định tính) BẮT BUỘC
+     * phải được gán viễn cảnh trước khi duyệt — để tới kỳ đánh giá mọi KPI đã duyệt đều có viễn cảnh
+     * (coverage = 100%). KPI thưởng / KPI cha phân rã / KPI huỷ không tính điểm nên không bắt buộc.
+     *
+     * CHỈ áp dụng khi KỲ của KPI đã có thẻ điểm — kỳ chưa có thẻ điểm thì không có trọng số viễn cảnh
+     * ⇒ không sinh điểm BSC ⇒ đòi gán viễn cảnh là ép vô ích, chặn duyệt KPI vô cớ.
+     */
+    /**
+     * KPI ngược (càng thấp càng tốt): {@code minimumValue} là NGƯỠNG TỆ NHẤT chấp nhận được
+     * nên bắt buộc phải LỚN HƠN {@code targetValue}.
+     * Nếu cấu hình ngược lại (min <= target) thì đạt đúng mục tiêu cũng đã vượt ngưỡng
+     * ⇒ mọi bài nộp đều bị hệ thống tự động từ chối và KPI vĩnh viễn 0 điểm.
+     * (KPI thường thì ngược lại: min là sàn, phải nhỏ hơn hoặc bằng target.)
+     */
+    private void validateReverseKpiThreshold(boolean isReverse, Double target, Double minimum, String kpiName) {
+        if (target == null || minimum == null) return;
+        String label = kpiName != null ? "'" + kpiName + "'" : "";
+        if (isReverse) {
+            if (minimum <= target) {
+                throw new BusinessException("KPI ngược " + label + ": Giá trị tối thiểu (" + minimum
+                        + ") phải LỚN HƠN mục tiêu (" + target + "). Với KPI ngược, giá trị tối thiểu là ngưỡng tệ nhất "
+                        + "chấp nhận được — cấu hình hiện tại khiến mọi bài nộp đều bị từ chối và KPI luôn 0 điểm.");
+            }
+        } else if (minimum > target) {
+            throw new BusinessException("KPI " + label + ": Giá trị tối thiểu (" + minimum
+                    + ") không được lớn hơn mục tiêu (" + target + ").");
+        }
+    }
+
+    private void requirePerspectiveWhenBscEnabled(KpiCriteria kpi) {
+        Organization org = kpi.getOrgUnit().getOrgHierarchyLevel().getOrganization();
+        if (org == null || !Boolean.TRUE.equals(org.getEnableBsc())) return;
+        if (kpi.getKpiPeriod() == null) return;
+        if (!bscScorecardRepository.existsByOrganizationIdAndKpiPeriodId(org.getId(), kpi.getKpiPeriod().getId())) return;
+        if (!achievementCalculator.countsTowardBscScore(kpi)) return;
+        // KPI có thể suy viễn cảnh từ Objective cha (OKR) ⇒ dùng viễn cảnh HIỆU LỰC, không đòi gán trực tiếp.
+        if (com.kpitracking.util.BscPerspectiveResolver.effectivePerspective(kpi) == null) {
+            throw new BusinessException("Kỳ '" + kpi.getKpiPeriod().getName() + "' đang áp dụng thẻ điểm BSC: "
+                    + "vui lòng gán viễn cảnh cho chỉ tiêu '" + kpi.getName() + "' (hoặc gán cho Mục tiêu OKR cha) trước khi phê duyệt");
+        }
     }
 
     @Transactional
@@ -932,6 +1004,7 @@ public class KpiCriteriaService {
                                 record.isMapped("IsReverseKpi") ? record.get("IsReverseKpi") : null,
                                 record.isMapped("IsBonusKpi") ? record.get("IsBonusKpi") : null,
                                 record.isMapped("Deadline") ? record.get("Deadline") : null,
+                                record.isMapped("Perspective") ? record.get("Perspective") : null,
                                 kpiPeriod, orgUnit, currentUser, affectedUserPairs, userOrgId, importKpiType);
                             successfulImports++;
                         } catch (Exception e) {
@@ -945,7 +1018,7 @@ public class KpiCriteriaService {
                     Row headerRow = sheet.getRow(0);
                     if (headerRow == null) throw new BusinessException("File Excel trống");
 
-                    int nameIdx = -1, descIdx = -1, weightIdx = -1, targetIdx = -1, minIdx = -1, unitIdx = -1, freqIdx = -1, codeIdx = -1, namePeriodIdx = -1, nameOrgIdx = -1, krCodeIdx = -1, isReverseKpiIdx = -1, isBonusKpiIdx = -1, deadlineIdx = -1;
+                    int nameIdx = -1, descIdx = -1, weightIdx = -1, targetIdx = -1, minIdx = -1, unitIdx = -1, freqIdx = -1, codeIdx = -1, namePeriodIdx = -1, nameOrgIdx = -1, krCodeIdx = -1, isReverseKpiIdx = -1, isBonusKpiIdx = -1, deadlineIdx = -1, perspectiveIdx = -1;
                     for (int i = 0; i < headerRow.getLastCellNum(); i++) {
                         String header = headerRow.getCell(i).getStringCellValue().trim();
                         if (header.equalsIgnoreCase("Name")) nameIdx = i;
@@ -962,6 +1035,7 @@ public class KpiCriteriaService {
                         else if (header.equalsIgnoreCase("IsReverseKpi")) isReverseKpiIdx = i;
                         else if (header.equalsIgnoreCase("IsBonusKpi")) isBonusKpiIdx = i;
                         else if (header.equalsIgnoreCase("Deadline")) deadlineIdx = i;
+                        else if (header.equalsIgnoreCase("Perspective")) perspectiveIdx = i;
                     }
 
                     boolean requiresTarget = importKpiType != com.kpitracking.enums.KpiType.QUALITATIVE;
@@ -989,6 +1063,7 @@ public class KpiCriteriaService {
                                 isReverseKpiIdx != -1 ? getCellValueAsString(row.getCell(isReverseKpiIdx)) : null,
                                 isBonusKpiIdx != -1 ? getCellValueAsString(row.getCell(isBonusKpiIdx)) : null,
                                 deadlineIdx != -1 ? getCellValueAsString(row.getCell(deadlineIdx)) : null,
+                                perspectiveIdx != -1 ? getCellValueAsString(row.getCell(perspectiveIdx)) : null,
                                 kpiPeriod, orgUnit, currentUser, affectedUserPairs, userOrgId, importKpiType
                             );
                             successfulImports++;
@@ -1048,6 +1123,7 @@ public class KpiCriteriaService {
 
     private void processKpiRow(String name, String desc, String weight, String target, String min, String unit, String freq, String empCode,
                               String periodName, String orgName, String krCode, String isReverseKpiStr, String isBonusKpiStr, String deadlineStr,
+                              String perspectiveCode,
                               com.kpitracking.entity.KpiPeriod defaultPeriod, OrgUnit defaultUnit, User creator,
                               java.util.Set<String> affectedUserPairs, UUID organizationId, com.kpitracking.enums.KpiType kpiType) {
         boolean isQualitative = kpiType == com.kpitracking.enums.KpiType.QUALITATIVE;
@@ -1148,6 +1224,11 @@ public class KpiCriteriaService {
             throw new BusinessException("Trọng số và Chỉ tiêu phải là định dạng số");
         }
 
+        Double minVal = !isQualitative && min != null && !min.isBlank() ? Double.parseDouble(min) : null;
+        if (!isQualitative) {
+            validateReverseKpiThreshold(parseBoolean(isReverseKpiStr), targetVal, minVal, name);
+        }
+
         // Create one KpiCriteria per resolved org unit
         for (OrgUnit finalUnit : finalUnits) {
             if (!permissionChecker.hasPermissionInOrgUnit(creator.getId(), "KPI:CREATE", finalUnit.getId())) {
@@ -1164,7 +1245,7 @@ public class KpiCriteriaService {
                     .description(desc)
                     .weight(weightVal)
                     .targetValue(targetVal)
-                    .minimumValue(!isQualitative && min != null && !min.isBlank() ? Double.parseDouble(min) : null)
+                    .minimumValue(minVal)
                     .isReverseKpi(!isQualitative && parseBoolean(isReverseKpiStr))
                     .isBonusKpi(parseBoolean(isBonusKpiStr))
                     .deadline(deadlineVal)
@@ -1194,6 +1275,13 @@ public class KpiCriteriaService {
                     }
                     kpi.setKeyResult(kr);
                 }
+            }
+
+            if (perspectiveCode != null && !perspectiveCode.isBlank() && organizationId != null) {
+                String pc = perspectiveCode.trim();
+                bscPerspectiveRepository.findFirstByOrganizationIdAndCodeIgnoreCase(organizationId, pc)
+                        .or(() -> bscPerspectiveRepository.findFirstByOrganizationIdAndNameIgnoreCase(organizationId, pc))
+                        .ifPresent(kpi::setPerspective);
             }
 
             if (kpi.getStatus() == KpiStatus.APPROVED) {
@@ -1309,6 +1397,11 @@ public class KpiCriteriaService {
                 ? request.getKpiType() : com.kpitracking.enums.KpiType.QUANTITATIVE;
         boolean isQualitative = newKpiType == com.kpitracking.enums.KpiType.QUALITATIVE;
 
+        if (!isQualitative) {
+            validateReverseKpiThreshold(Boolean.TRUE.equals(request.getIsReverseKpi()),
+                    request.getTargetValue(), request.getMinimumValue(), request.getName());
+        }
+
         KpiCriteria newKpi = KpiCriteria.builder()
                 .orgUnit(replacedKpi.getOrgUnit())
                 .assignees(newAssignees)
@@ -1333,6 +1426,12 @@ public class KpiCriteriaService {
             com.kpitracking.entity.KeyResult kr = keyResultRepository.findById(request.getKeyResultId())
                     .orElseThrow(() -> new ResourceNotFoundException("Key Result", "id", request.getKeyResultId()));
             newKpi.setKeyResult(kr);
+        }
+
+        if (request.getPerspectiveId() != null) {
+            com.kpitracking.entity.BscPerspective perspective = bscPerspectiveRepository.findById(request.getPerspectiveId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Viễn cảnh BSC", "id", request.getPerspectiveId()));
+            newKpi.setPerspective(perspective);
         }
 
         if (initialStatus == KpiStatus.APPROVED) {

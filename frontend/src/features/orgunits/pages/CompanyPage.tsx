@@ -6,7 +6,7 @@ import { useUpdateOrganization } from '../hooks/useUpdateOrganization'
 import { useForm, useFieldArray } from 'react-hook-form'
 import {  Edit3, ShieldCheck, 
   Calendar, Hash, Layers, Trash2,
-  Info, ArrowUp, ArrowDown, Plus, Target, Sparkles, ChevronUp, RotateCcw, GitBranch, SlidersHorizontal, Grid3x3, X
+  Info, ArrowUp, ArrowDown, Plus, Target, Sparkles, ChevronUp, RotateCcw, GitBranch, SlidersHorizontal, Grid3x3, X, ArrowRight, LayoutGrid
 } from 'lucide-react'
 import type { PerformanceMatrix } from '../api/organizationApi'
 import LoadingSkeleton from '@/components/common/LoadingSkeleton'
@@ -141,12 +141,20 @@ export default function CompanyPage() {
                         {org?.name}
                       </h1>
                     </div>
-                    <div className="grid grid-cols-2 md:flex md:flex-wrap gap-x-3 gap-y-2.5 md:gap-5">
-                      <HeroStat icon={Hash} label="Mã DN" value={org?.code || 'N/A'} valueColor="text-white" />
-                      <HeroStat icon={Calendar} label="Thành lập" value={(org?.createdAt ? formatDateTime(org.createdAt).split(' ')[0] : 'N/A') || 'N/A'} valueColor="text-white" />
-                      <HeroStat icon={ShieldCheck} label="Trạng thái" value={org?.status === 'Active' ? 'Hoạt động' : (org?.status || 'Hoạt động')} valueColor="text-emerald-400" />
-                      <HeroStat icon={Target} label="OKR" value={org?.enableOkr ? 'Đang bật' : 'Đang tắt'} valueColor={org?.enableOkr ? "text-amber-400" : "text-white/40"} />
-                      <HeroStat icon={GitBranch} label="Waterfall" value={org?.enableWaterfall ? 'Đang bật' : 'Đang tắt'} valueColor={org?.enableWaterfall ? "text-cyan-400" : "text-white/40"} />
+                    <div className="space-y-2.5 md:space-y-4">
+                      {/* Dòng 1: thông tin định danh */}
+                      <div className="grid grid-cols-2 md:flex md:flex-wrap gap-x-3 gap-y-2.5 md:gap-5">
+                        <HeroStat icon={Hash} label="Mã DN" value={org?.code || 'N/A'} valueColor="text-white" />
+                        <HeroStat icon={Calendar} label="Thành lập" value={(org?.createdAt ? formatDateTime(org.createdAt).split(' ')[0] : 'N/A') || 'N/A'} valueColor="text-white" />
+                        <HeroStat icon={ShieldCheck} label="Trạng thái" value={org?.status === 'Active' ? 'Hoạt động' : (org?.status || 'Hoạt động')} valueColor="text-emerald-400" />
+                      </div>
+                      {/* Dòng 2: cờ tính năng — kiểu chip để tách bạch với thông tin ở dòng 1 */}
+                      <div className="flex flex-wrap gap-2">
+                        <FeatureChip icon={SlidersHorizontal} label="KPI hành vi" enabled={org?.enableQualitative} />
+                        <FeatureChip icon={LayoutGrid} label="BSC" enabled={org?.enableBsc} />
+                        <FeatureChip icon={Target} label="OKR" enabled={org?.enableOkr} />
+                        <FeatureChip icon={GitBranch} label="Waterfall" enabled={org?.enableWaterfall} />
+                      </div>
                     </div>
                   </>
                 )}
@@ -328,8 +336,9 @@ export default function CompanyPage() {
         </section>
 
         {org && <OkrConfigSection org={org} />}
-        {org && <WaterfallConfigSection org={org} />}
         {org && <QualitativeKpiToggleSection org={org} />}
+        {org && <BscConfigSection org={org} />}
+        {org && <WaterfallConfigSection org={org} />}
       </div>
       )}
 
@@ -356,6 +365,32 @@ function HeroStat({ icon: Icon, label, value, valueColor = "text-white/90" }: { 
         <span className="text-[9px] font-bold text-white/50 uppercase tracking-wider">{label}</span>
         <span className={cn("text-[12px] font-bold", valueColor)}>{value}</span>
       </div>
+    </div>
+  )
+}
+
+// Cờ tính năng là trạng thái BẬT/TẮT, không phải thông tin như HeroStat — nên dùng dạng
+// viên thuốc 1 dòng có chấm sáng, để mắt phân biệt ngay hai hàng trên hero.
+function FeatureChip({ icon: Icon, label, enabled }: { icon: any; label: string; enabled?: boolean }) {
+  return (
+    <div
+      title={`${label}: ${enabled ? 'Đang bật' : 'Đang tắt'}`}
+      className={cn(
+        'flex items-center gap-2 rounded-full border px-3 py-1.5 transition-colors',
+        enabled ? 'bg-white/15 border-white/25' : 'bg-white/[0.04] border-white/10'
+      )}
+    >
+      <Icon size={13} className={enabled ? 'text-white' : 'text-white/30'} />
+      <span className={cn(
+        'text-[10px] font-black uppercase tracking-widest whitespace-nowrap',
+        enabled ? 'text-white' : 'text-white/35'
+      )}>
+        {label}
+      </span>
+      <span className={cn(
+        'w-1.5 h-1.5 rounded-full shrink-0',
+        enabled ? 'bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.9)]' : 'bg-white/20'
+      )} />
     </div>
   )
 }
@@ -607,11 +642,11 @@ function ScoringConfigSection({ org }: { org: any }) {
 }
 
 const DEFAULT_QUALITATIVE_LEVELS = [
-  { name: 'KÉM', value: 0, position: 1, color: '#ef4444' },
-  { name: 'YẾU', value: 2, position: 2, color: '#f59e0b' },
-  { name: 'TRUNG BÌNH', value: 3, position: 3, color: '#6366f1' },
-  { name: 'KHÁ', value: 3.5, position: 4, color: '#3b82f6' },
-  { name: 'TỐT', value: 4.5, position: 5, color: '#10b981' },
+  { name: 'KÉM', value: 0, position: 1, scorePercent: 0, color: '#ef4444' },
+  { name: 'YẾU', value: 2, position: 2, scorePercent: 40, color: '#f59e0b' },
+  { name: 'TRUNG BÌNH', value: 3, position: 3, scorePercent: 60, color: '#6366f1' },
+  { name: 'KHÁ', value: 3.5, position: 4, scorePercent: 80, color: '#3b82f6' },
+  { name: 'TỐT', value: 4.5, position: 5, scorePercent: 100, color: '#10b981' },
 ]
 
 function QualitativeConfigSection({ org }: { org: any }) {
@@ -626,6 +661,7 @@ function QualitativeConfigSection({ org }: { org: any }) {
         name: l.name,
         value: l.value,
         position: l.position,
+        scorePercent: l.scorePercent ?? 0,
         color: l.color || '#6366f1',
       }))
 
@@ -665,12 +701,22 @@ function QualitativeConfigSection({ org }: { org: any }) {
       return
     }
 
+    const invalidPct = data.qualitativeLevels.find((l: any) => {
+      const p = Number(l.scorePercent)
+      return isNaN(p) || p < 0 || p > 100
+    })
+    if (invalidPct) {
+      toast.error('% quy đổi BSC phải nằm trong khoảng 0–100')
+      return
+    }
+
     updateMutation.mutate(
       {
         qualitativeLevels: data.qualitativeLevels.map((l: any) => ({
           name: l.name.trim(),
           value: Number(l.value),
           position: Number(l.position),
+          scorePercent: Number(l.scorePercent),
           color: l.color,
         })),
       },
@@ -732,7 +778,8 @@ function QualitativeConfigSection({ org }: { org: any }) {
         <div className="p-4 rounded-2xl bg-emerald-50 dark:bg-emerald-900/10 border border-emerald-100 dark:border-emerald-900/30 flex items-start gap-3">
           <Info size={18} className="text-emerald-600 shrink-0 mt-0.5" />
           <p className="text-[11px] text-emerald-700/80 dark:text-emerald-400/80 font-medium leading-relaxed">
-            Quy đổi mỗi mức đánh giá định tính sang một giá trị điểm để tham chiếu. <span className="font-bold">Vị trí</span> là thứ tự cột trong bảng tính, <span className="font-bold">Giá trị</span> là điểm quy đổi tương ứng.
+            Quy đổi mỗi mức đánh giá định tính sang một giá trị điểm để tham chiếu. <span className="font-bold">Vị trí</span> là thứ tự cột trong bảng tính, <span className="font-bold">Giá trị</span> là điểm quy đổi tương ứng (dùng cho ma trận hiệu suất).
+            {org?.enableBsc && <> Cột <span className="font-bold text-indigo-600 dark:text-indigo-400">% BSC</span> là mức hoàn thành tương ứng khi tính điểm BSC — độc lập với Giá trị, do bạn tự định nghĩa (VD: KÉM 0% · YẾU 40% · TB 60% · KHÁ 80% · TỐT 100%).</>}
           </p>
         </div>
 
@@ -742,7 +789,7 @@ function QualitativeConfigSection({ org }: { org: any }) {
             {isEditing && (
               <button
                 type="button"
-                onClick={() => append({ id: undefined, name: 'MỨC MỚI', value: 0, position: fields.length + 1, color: '#3b82f6' })}
+                onClick={() => append({ id: undefined, name: 'MỨC MỚI', value: 0, position: fields.length + 1, scorePercent: 0, color: '#3b82f6' })}
                 className="text-[10px] font-bold text-emerald-600 hover:text-emerald-700 flex items-center gap-1"
               >
                 <Plus size={14} /> Thêm mức
@@ -783,6 +830,18 @@ function QualitativeConfigSection({ org }: { org: any }) {
                             onWheel={(e) => (e.target as HTMLInputElement).blur()}
                           />
                         </div>
+                        <div className="w-24 space-y-1">
+                          <label className="text-[9px] font-bold text-indigo-400 uppercase" title="Mức này tương đương bao nhiêu % hoàn thành khi tính điểm BSC">% BSC</label>
+                          <input
+                            type="number"
+                            step="1"
+                            min="0"
+                            max="100"
+                            {...register(`qualitativeLevels.${index}.scorePercent` as const)}
+                            className="w-full bg-white dark:bg-slate-900 px-3 py-2 rounded-lg text-xs font-bold border border-indigo-100 dark:border-indigo-900/50 outline-none focus:border-indigo-500"
+                            onWheel={(e) => (e.target as HTMLInputElement).blur()}
+                          />
+                        </div>
                         <div className="flex-1 sm:flex-none sm:w-16 space-y-1">
                           <label className="text-[9px] font-bold text-slate-400 uppercase">Màu</label>
                           <input
@@ -809,9 +868,17 @@ function QualitativeConfigSection({ org }: { org: any }) {
                         <p className="text-sm font-bold text-slate-900 dark:text-white uppercase">{watchedLevels[index]?.name}</p>
                         <p className="text-[10px] font-medium text-slate-400 uppercase tracking-widest">Vị trí {watchedLevels[index]?.position} · Điểm quy đổi</p>
                       </div>
-                      <div className="text-right">
-                        <span className="text-lg font-black text-slate-900 dark:text-white">{watchedLevels[index]?.value}</span>
-                        <span className="text-[10px] font-bold text-slate-400 ml-1">đ</span>
+                      <div className="flex items-center gap-4">
+                        {org?.enableBsc && (
+                          <div className="text-right" title="Quy đổi sang % hoàn thành khi tính điểm BSC">
+                            <span className="text-sm font-black text-indigo-600 dark:text-indigo-400">{watchedLevels[index]?.scorePercent ?? 0}%</span>
+                            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">BSC</p>
+                          </div>
+                        )}
+                        <div className="text-right">
+                          <span className="text-lg font-black text-slate-900 dark:text-white">{watchedLevels[index]?.value}</span>
+                          <span className="text-[10px] font-bold text-slate-400 ml-1">đ</span>
+                        </div>
                       </div>
                     </>
                   )}
@@ -1061,11 +1128,17 @@ function PerformanceMatrixSection({ org }: { org: any }) {
           </div>
         )}
 
-        <div className="overflow-x-auto">
+        {!isEditing && (
+          <p className="sm:hidden text-[10px] font-medium text-slate-400 flex items-center gap-1 px-1">
+            <ArrowRight size={12} className="animate-pulse" /> Vuốt ngang để xem đầy đủ bảng
+          </p>
+        )}
+
+        <div className="overflow-x-auto -mx-2 px-2">
           <table className="border-separate border-spacing-1 min-w-full">
             <thead>
               <tr>
-                <th className="p-2 min-w-[120px] text-left align-bottom">
+                <th className="p-2 min-w-[88px] sm:min-w-[120px] text-left align-bottom sticky left-0 z-20 bg-white dark:bg-slate-900">
                   <span className="text-[9px] font-bold text-slate-400 uppercase leading-tight block">
                     {matrix.rowHeader} ↓
                   </span>
@@ -1074,7 +1147,7 @@ function PerformanceMatrixSection({ org }: { org: any }) {
                   </span>
                 </th>
                 {matrix.cols.map((col, ci) => (
-                  <th key={ci} className="p-1 min-w-[110px]">
+                  <th key={ci} className="p-1 min-w-[76px] sm:min-w-[110px]">
                     {isEditing ? (
                       <div className="flex flex-col gap-1">
                         <input value={col} onChange={e => setColHeader(ci, e.target.value)} className={inputCls} />
@@ -1089,7 +1162,7 @@ function PerformanceMatrixSection({ org }: { org: any }) {
                         </button>
                       </div>
                     ) : (
-                      <div className="px-2 py-2 rounded-lg bg-slate-100 dark:bg-slate-800 text-[11px] font-bold text-slate-700 dark:text-slate-200 text-center">
+                      <div className="px-1.5 sm:px-2 py-2 rounded-lg bg-slate-100 dark:bg-slate-800 text-[10px] sm:text-[11px] font-bold text-slate-700 dark:text-slate-200 text-center">
                         {col}
                       </div>
                     )}
@@ -1111,7 +1184,7 @@ function PerformanceMatrixSection({ org }: { org: any }) {
             <tbody>
               {matrix.rows.map((row, ri) => (
                 <tr key={ri}>
-                  <th className="p-1 min-w-[120px]">
+                  <th className="p-1 min-w-[88px] sm:min-w-[120px] sticky left-0 z-10 bg-white dark:bg-slate-900">
                     {isEditing ? (
                       <div className="flex items-center gap-1">
                         <input value={row} onChange={e => setRowHeader(ri, e.target.value)} className={inputCls + ' text-left'} />
@@ -1126,7 +1199,7 @@ function PerformanceMatrixSection({ org }: { org: any }) {
                         </button>
                       </div>
                     ) : (
-                      <div className="px-2 py-2 rounded-lg bg-slate-100 dark:bg-slate-800 text-[11px] font-bold text-slate-700 dark:text-slate-200 text-left">
+                      <div className="px-2 py-2 rounded-lg bg-slate-100 dark:bg-slate-800 text-[10px] sm:text-[11px] font-bold text-slate-700 dark:text-slate-200 text-left">
                         {row}
                       </div>
                     )}
@@ -1144,7 +1217,7 @@ function PerformanceMatrixSection({ org }: { org: any }) {
                             className={inputCls}
                           />
                         ) : (
-                          <div className={cn('py-2.5 rounded-lg text-sm font-black text-center', cellColor(val))}>
+                          <div className={cn('py-2 sm:py-2.5 rounded-lg text-xs sm:text-sm font-black text-center', cellColor(val))}>
                             {val}
                           </div>
                         )}
@@ -1294,6 +1367,80 @@ function OkrConfigSection({ org }: { org: any }) {
   )
 }
 
+function BscConfigSection({ org }: { org: any }) {
+  const updateMutation = useUpdateOrganization(org.id)
+  const [enabled, setEnabled] = useState(org?.enableBsc || false)
+
+  useEffect(() => {
+    setEnabled(org?.enableBsc || false)
+  }, [org])
+
+  const handleToggle = () => {
+    const newValue = !enabled
+    setEnabled(newValue)
+    updateMutation.mutate({ enableBsc: newValue }, {
+      onSuccess: () => {
+        toast.success(`Đã ${newValue ? 'bật' : 'tắt'} thẻ điểm cân bằng (BSC)`)
+      },
+      onError: () => {
+        setEnabled(!newValue)
+        toast.error('Không thể cập nhật cấu hình BSC')
+      }
+    })
+  }
+
+  return (
+    <section className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden flex flex-col h-full">
+      <div className="px-8 py-6 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          <div className="w-10 h-10 rounded-xl bg-indigo-50 dark:bg-indigo-900/30 flex items-center justify-center text-indigo-600 dark:text-indigo-400">
+            <Layers size={20} />
+          </div>
+          <div>
+            <h3 className="text-lg font-bold text-slate-900 dark:text-white uppercase tracking-tight">Thẻ điểm cân bằng</h3>
+            <p className="text-[10px] font-medium text-slate-400 uppercase tracking-widest">Balanced Scorecard (BSC)</p>
+          </div>
+        </div>
+        <button
+          onClick={handleToggle}
+          disabled={updateMutation.isPending}
+          className={cn(
+            "w-12 h-6 rounded-full relative transition-all duration-300",
+            enabled ? "bg-emerald-500" : "bg-slate-200 dark:bg-slate-700"
+          )}
+        >
+          <div className={cn(
+            "absolute top-1 w-4 h-4 rounded-full bg-white transition-all duration-300 shadow-sm",
+            enabled ? "left-7" : "left-1"
+          )} />
+        </button>
+      </div>
+
+      <div className="p-6 space-y-4">
+        <div className="p-4 rounded-2xl bg-indigo-50 dark:bg-indigo-900/10 border border-indigo-100 dark:border-indigo-900/30 flex items-start gap-3">
+          <Info size={18} className="text-indigo-600 shrink-0 mt-0.5" />
+          <div className="space-y-1">
+            <p className="text-xs text-indigo-800 dark:text-indigo-300 font-bold">Quản trị chiến lược theo 4 viễn cảnh</p>
+            <p className="text-[11px] text-indigo-700/70 dark:text-indigo-400/70 font-medium leading-relaxed">
+              Khi bật, bạn có thể cấu hình các viễn cảnh BSC (Tài chính, Khách hàng, Quy trình nội bộ, Học hỏi & phát triển),
+              nhóm KPI theo viễn cảnh và theo dõi thẻ điểm cân bằng của tổ chức.
+            </p>
+          </div>
+        </div>
+
+        {enabled && (
+          <Link
+            to="/bsc"
+            className="w-full py-3 flex items-center justify-center gap-2 bg-slate-900 dark:bg-white text-white dark:text-slate-900 rounded-xl text-[11px] font-black uppercase tracking-widest hover:opacity-90 transition-all shadow-xl shadow-slate-900/10 dark:shadow-white/5"
+          >
+            Đi đến quản lý BSC
+          </Link>
+        )}
+      </div>
+    </section>
+  )
+}
+
 function QualitativeKpiToggleSection({ org }: { org: any }) {
   const updateMutation = useUpdateOrganization(org.id)
   const [enabled, setEnabled] = useState(org?.enableQualitative || false)
@@ -1343,7 +1490,7 @@ function QualitativeKpiToggleSection({ org }: { org: any }) {
         </button>
       </div>
 
-      <div className="p-8 space-y-6">
+      <div className="p-6">
         <div className="p-4 rounded-2xl bg-emerald-50 dark:bg-emerald-900/10 border border-emerald-100 dark:border-emerald-900/30 flex items-start gap-3">
           <Info size={18} className="text-emerald-600 shrink-0 mt-0.5" />
           <div className="space-y-1">

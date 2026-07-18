@@ -46,6 +46,13 @@ public class Evaluation {
     @Column(name = "system_score")
     private Double systemScore;
 
+    /**
+     * Điểm BSC (0..100) — LUÔN được tính & lưu khi org bật BSC, kể cả ở chế độ SHADOW.
+     * Chỉ THAY system_score làm điểm chính thức khi scorecard của kỳ có scoring_mode = OFFICIAL.
+     */
+    @Column(name = "bsc_score")
+    private Double bscScore;
+
     // Performance-matrix result (only meaningful when qualitative KPIs are used).
     @Column(name = "behavior_score")
     private Double behaviorScore;

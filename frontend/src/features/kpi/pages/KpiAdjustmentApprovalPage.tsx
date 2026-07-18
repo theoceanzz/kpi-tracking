@@ -208,8 +208,13 @@ export default function KpiAdjustmentApprovalPage() {
 
   const [reviewAdjustment, setReviewAdjustment] = useState<KpiAdjustmentRequest | null>(null)
 
-  // Quick stats
-  const { data: allAdjustmentsData } = useKpiAdjustments({ size: 1000 })
+  const { data: allAdjustmentsData } = useKpiAdjustments({
+    size: 1000,
+    kpiPeriodId: selectedPeriodId === 'ALL' ? undefined : selectedPeriodId,
+    orgUnitId: selectedOrgUnitId === 'ALL' ? undefined : selectedOrgUnitId,
+    objectiveId: selectedObjectiveId === 'ALL' ? undefined : selectedObjectiveId,
+    keyResultId: selectedKeyResultId === 'ALL' ? undefined : selectedKeyResultId,
+  })
   const stats = useMemo(() => {
     const all = allAdjustmentsData?.content ?? []
     return {
@@ -466,11 +471,23 @@ export default function KpiAdjustmentApprovalPage() {
                           )}
                         </td>
                         <td className="px-6 py-5">
-                          <div className={cn(
-                            "inline-flex items-center gap-2 px-3 py-1.5 rounded-full border text-[10px] font-black uppercase tracking-widest shadow-sm whitespace-nowrap",
-                            status.bgColor, status.color
-                          )}>
-                            <StatusIcon size={12} className={request.status === 'PENDING' ? 'animate-pulse' : ''} /> {status.label}
+                          <div className="flex flex-col items-start gap-1.5">
+                            <div className={cn(
+                              "inline-flex items-center gap-2 px-3 py-1.5 rounded-full border text-[10px] font-black uppercase tracking-widest shadow-sm whitespace-nowrap",
+                              status.bgColor, status.color
+                            )}>
+                              <StatusIcon size={12} className={request.status === 'PENDING' ? 'animate-pulse' : ''} /> {status.label}
+                            </div>
+                            {request.perspectiveName && (
+                              <span
+                                className="inline-flex items-center gap-1 text-[9px] font-black px-2 py-0.5 rounded-full uppercase whitespace-nowrap"
+                                style={{ color: request.perspectiveColor || '#8b5cf6', backgroundColor: `${request.perspectiveColor || '#8b5cf6'}1a` }}
+                                title={`Viễn cảnh BSC: ${request.perspectiveName}`}
+                              >
+                                <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: request.perspectiveColor || '#8b5cf6' }} />
+                                {request.perspectiveName}
+                              </span>
+                            )}
                           </div>
                         </td>
                         <td className="px-6 py-5">
@@ -478,7 +495,7 @@ export default function KpiAdjustmentApprovalPage() {
                             <p className="text-sm font-black text-slate-900 dark:text-white group-hover/name:text-amber-600 transition-colors line-clamp-1">
                               {request.kpiCriteriaName}
                             </p>
-                            <div className="flex items-center gap-2 mt-1">
+                            <div className="flex items-center gap-2 mt-1 flex-wrap">
                               {request.kpiType === 'QUALITATIVE' && (
                                 <span className="text-[9px] font-black bg-teal-100 text-teal-600 px-1.5 py-0.5 rounded uppercase">★ Định tính</span>
                               )}
@@ -557,7 +574,7 @@ export default function KpiAdjustmentApprovalPage() {
                           )}
                           <button onClick={() => setReviewAdjustment(request)} className="text-left flex-1 min-w-0">
                             <p className="text-sm font-black text-slate-900 dark:text-white line-clamp-2 leading-snug">{request.kpiCriteriaName}</p>
-                            <div className="flex items-center gap-2 mt-1">
+                            <div className="flex items-center gap-2 mt-1 flex-wrap">
                               {request.kpiType === 'QUALITATIVE' && (
                                 <span className="text-[9px] font-black bg-teal-100 text-teal-600 px-1.5 py-0.5 rounded uppercase">★ Định tính</span>
                               )}
@@ -568,9 +585,21 @@ export default function KpiAdjustmentApprovalPage() {
                               )}
                             </div>
                           </button>
-                          <div className={cn("inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-[9px] font-black uppercase tracking-widest shadow-sm shrink-0", status.bgColor, status.color)}>
-                            <StatusIcon size={10} className={request.status === 'PENDING' ? 'animate-pulse' : ''} />
-                            {status.label}
+                          <div className="flex flex-col items-end gap-1.5 shrink-0">
+                            <div className={cn("inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-[9px] font-black uppercase tracking-widest shadow-sm", status.bgColor, status.color)}>
+                              <StatusIcon size={10} className={request.status === 'PENDING' ? 'animate-pulse' : ''} />
+                              {status.label}
+                            </div>
+                            {request.perspectiveName && (
+                              <span
+                                className="inline-flex items-center gap-1 text-[9px] font-black px-2 py-0.5 rounded-full uppercase whitespace-nowrap"
+                                style={{ color: request.perspectiveColor || '#8b5cf6', backgroundColor: `${request.perspectiveColor || '#8b5cf6'}1a` }}
+                                title={`Viễn cảnh BSC: ${request.perspectiveName}`}
+                              >
+                                <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: request.perspectiveColor || '#8b5cf6' }} />
+                                {request.perspectiveName}
+                              </span>
+                            )}
                           </div>
                         </div>
 

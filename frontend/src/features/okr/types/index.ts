@@ -40,6 +40,9 @@ export interface ObjectiveResponse {
   keyResults: KeyResultResponse[]
   orgUnitIds?: string[]
   orgUnitNames?: string[]
+  perspectiveId?: string | null
+  perspectiveName?: string | null
+  perspectiveColor?: string | null
 }
 
 export interface ObjectiveRequest {
@@ -51,6 +54,7 @@ export interface ObjectiveRequest {
   status?: OkrStatus
   orgUnitId?: string
   orgUnitIds?: string[]
+  perspectiveId?: string | null
 }
 
 export interface KeyResultRequest {

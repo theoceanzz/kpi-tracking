@@ -99,6 +99,10 @@ public class KpiCriteria {
     private KeyResult keyResult;
 
     @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "perspective_id")
+    private BscPerspective perspective;
+
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "parent_id")
     private KpiCriteria parent;
 

@@ -49,6 +49,10 @@ public class Objective {
     @Builder.Default
     private OkrStatus status = OkrStatus.ACTIVE;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "perspective_id")
+    private BscPerspective perspective;
+
     @ManyToMany(fetch = FetchType.LAZY)
     @JoinTable(
         name = "objective_org_units",

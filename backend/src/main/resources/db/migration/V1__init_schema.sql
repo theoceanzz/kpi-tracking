@@ -47,10 +47,35 @@ CREATE TABLE organizations (
   enable_waterfall BOOLEAN DEFAULT FALSE,
   enable_ai   BOOLEAN NOT NULL DEFAULT TRUE,
   enable_qualitative BOOLEAN NOT NULL DEFAULT FALSE,
+  enable_bsc  BOOLEAN NOT NULL DEFAULT FALSE,
   performance_matrix jsonb,
   created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at  TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+-- ====================================================
+-- BSC Perspectives (danh mục viễn cảnh cấu hình theo org, tái sử dụng nhiều kỳ)
+-- Đặt sớm ở đây vì objectives/kpi_criteria/scorecards đều tham chiếu tới.
+-- ====================================================
+CREATE TABLE bsc_perspectives (
+    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    organization_id UUID            NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+    code            VARCHAR(50)     NOT NULL,
+    name            VARCHAR(255)    NOT NULL,
+    description     TEXT,
+    color           VARCHAR(20),
+    icon            VARCHAR(50),
+    display_order   INT             NOT NULL DEFAULT 0,
+    status          VARCHAR(20)     NOT NULL DEFAULT 'ACTIVE' CHECK (status IN ('ACTIVE','INACTIVE')),
+    created_at      TIMESTAMPTZ     DEFAULT NOW(),
+    updated_at      TIMESTAMPTZ     DEFAULT NOW(),
+    deleted_at      TIMESTAMPTZ
+);
+
+CREATE INDEX idx_bsc_perspectives_organization_id ON bsc_perspectives(organization_id);
+-- code là duy nhất trong 1 org (chỉ tính bản ghi chưa xoá mềm)
+CREATE UNIQUE INDEX uq_bsc_perspectives_org_code
+    ON bsc_perspectives(organization_id, code) WHERE deleted_at IS NULL;
 
 -- ====================================================
 -- Sidebar Settings
@@ -91,10 +116,14 @@ CREATE TABLE qualitative_levels (
     name TEXT NOT NULL,
     level_value DOUBLE PRECISION NOT NULL,
     position_index INT NOT NULL,
-    color TEXT
+    color TEXT,
+    score_percent DOUBLE PRECISION
 );
 
 CREATE INDEX idx_qualitative_levels_org_id ON qualitative_levels(organization_id);
+
+COMMENT ON COLUMN qualitative_levels.score_percent IS
+    'Mức định tính này tương đương bao nhiêu % hoàn thành khi tính điểm BSC (0..100). HR cấu hình.';
 
 -- ====================================================
 -- Organization Hierarchy Levels
@@ -304,12 +333,14 @@ CREATE TABLE objectives (
     start_date      DATE,
     end_date        DATE,
     status          VARCHAR(50)     DEFAULT 'ACTIVE',
+    perspective_id  UUID            REFERENCES bsc_perspectives(id) ON DELETE SET NULL,
     created_at      TIMESTAMPTZ     DEFAULT NOW(),
     updated_at      TIMESTAMPTZ     DEFAULT NOW(),
     deleted_at      TIMESTAMPTZ
 );
 
 CREATE INDEX idx_objectives_org_id ON objectives(organization_id);
+CREATE INDEX idx_objectives_perspective_id ON objectives(perspective_id);
 
 CREATE TABLE objective_org_units (
     objective_id UUID NOT NULL REFERENCES objectives(id) ON DELETE CASCADE,
@@ -359,6 +390,7 @@ CREATE TABLE kpi_criteria (
     weight          DOUBLE PRECISION,
     frequency       VARCHAR(20)     NOT NULL,
     key_result_id   UUID            REFERENCES key_results(id) ON DELETE SET NULL,
+    perspective_id  UUID            REFERENCES bsc_perspectives(id) ON DELETE SET NULL,
     parent_id       UUID            REFERENCES kpi_criteria(id) ON DELETE SET NULL,
     parent_relation_type VARCHAR(20),
     is_bonus_kpi    BOOLEAN         NOT NULL DEFAULT FALSE,
@@ -379,6 +411,7 @@ CREATE TABLE kpi_criteria (
 CREATE INDEX idx_kpi_criteria_org_unit_id ON kpi_criteria(org_unit_id);
 CREATE INDEX idx_kpi_criteria_status ON kpi_criteria(status);
 CREATE INDEX idx_kpi_criteria_deleted_at ON kpi_criteria(deleted_at);
+CREATE INDEX idx_kpi_criteria_perspective_id ON kpi_criteria(perspective_id);
 
 -- Trường riêng của KPI định lượng (1:1 với kpi_criteria)
 CREATE TABLE quantitative_kpi_details (
@@ -477,6 +510,7 @@ CREATE TABLE evaluations (
     score               DOUBLE PRECISION,
     comment             TEXT,
     system_score        DOUBLE PRECISION,
+    bsc_score           DOUBLE PRECISION,
     behavior_score          DOUBLE PRECISION,
     kpi_completion_percent  DOUBLE PRECISION,
     matrix_rating           INTEGER,
@@ -713,7 +747,103 @@ CREATE TABLE messages (
 CREATE INDEX idx_messages_conversation_id ON messages(conversation_id);
 
 -- ====================================================
--- Create trigger for insert path 
+-- BSC — Thẻ điểm (Scorecard) & trọng số viễn cảnh theo kỳ
+-- Đặt cuối vì tham chiếu kpi_periods / users / evaluations / objectives.
+-- (bsc_perspectives đã khai báo sớm ở trên, ngay sau organizations.)
+-- ====================================================
+
+-- Thẻ điểm — mỗi tổ chức + kỳ một bản.
+-- Tham số chấm điểm đặt Ở ĐÂY (theo kỳ) chứ không ở organizations: mỗi kỳ "đóng băng" chính sách
+-- của chính nó ⇒ tính lại điểm kỳ cũ luôn ra đúng số cũ, dù kỳ sau HR đổi chính sách.
+CREATE TABLE bsc_scorecards (
+    id                        UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    organization_id           UUID            NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+    kpi_period_id             UUID            NOT NULL REFERENCES kpi_periods(id) ON DELETE CASCADE,
+    name                      VARCHAR(255)    NOT NULL,
+    vision                    TEXT,
+    status                    VARCHAR(20)     NOT NULL DEFAULT 'DRAFT'
+                                  CHECK (status IN ('DRAFT','ACTIVE','ARCHIVED')),
+    scoring_mode              VARCHAR(20)     NOT NULL DEFAULT 'SHADOW'
+                                  CHECK (scoring_mode IN ('SHADOW','OFFICIAL')),
+    empty_perspective_policy  VARCHAR(20)     NOT NULL DEFAULT 'RENORMALIZE'
+                                  CHECK (empty_perspective_policy IN ('RENORMALIZE','ZERO_FILL')),
+    created_at                TIMESTAMPTZ     DEFAULT NOW(),
+    updated_at                TIMESTAMPTZ     DEFAULT NOW(),
+    deleted_at                TIMESTAMPTZ
+);
+
+CREATE INDEX idx_bsc_scorecards_organization_id ON bsc_scorecards(organization_id);
+CREATE INDEX idx_bsc_scorecards_kpi_period_id ON bsc_scorecards(kpi_period_id);
+-- Mỗi org chỉ có 1 thẻ điểm cho một kỳ (bỏ qua bản xoá mềm)
+CREATE UNIQUE INDEX uq_bsc_scorecards_org_period
+    ON bsc_scorecards(organization_id, kpi_period_id) WHERE deleted_at IS NULL;
+
+-- Viễn cảnh trong thẻ điểm + trọng số (%) — tổng = 100 mỗi scorecard
+CREATE TABLE bsc_scorecard_perspectives (
+    id                UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    scorecard_id      UUID            NOT NULL REFERENCES bsc_scorecards(id) ON DELETE CASCADE,
+    perspective_id    UUID            NOT NULL REFERENCES bsc_perspectives(id) ON DELETE CASCADE,
+    weight_percentage DOUBLE PRECISION NOT NULL DEFAULT 0,
+    display_order     INT             NOT NULL DEFAULT 0,
+    UNIQUE (scorecard_id, perspective_id)
+);
+
+CREATE INDEX idx_bsc_scorecard_perspectives_scorecard_id ON bsc_scorecard_perspectives(scorecard_id);
+
+-- Lịch sử đổi trọng số (audit thông thường không lưu giá trị cũ + người đổi)
+CREATE TABLE bsc_weight_history (
+    id             UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    scorecard_id   UUID            NOT NULL REFERENCES bsc_scorecards(id) ON DELETE CASCADE,
+    perspective_id UUID            NOT NULL REFERENCES bsc_perspectives(id) ON DELETE CASCADE,
+    old_weight     DOUBLE PRECISION,
+    new_weight     DOUBLE PRECISION,
+    changed_by     UUID            REFERENCES users(id),
+    reason         TEXT,
+    changed_at     TIMESTAMPTZ     DEFAULT NOW()
+);
+
+CREATE INDEX idx_bsc_weight_history_scorecard_id ON bsc_weight_history(scorecard_id);
+
+-- Breakdown điểm từng viễn cảnh của một lần đánh giá (audit + giải thích điểm cho HR)
+CREATE TABLE evaluation_perspective_scores (
+    id                UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    evaluation_id     UUID             NOT NULL REFERENCES evaluations(id) ON DELETE CASCADE,
+    perspective_id    UUID             NOT NULL REFERENCES bsc_perspectives(id) ON DELETE CASCADE,
+    weight_percentage DOUBLE PRECISION,
+    -- Điểm thô của viễn cảnh (0..150): trung bình có trọng số các KPI của NV trong viễn cảnh.
+    -- NULL = nhân viên không có KPI nào trong viễn cảnh (viễn cảnh rỗng).
+    raw_score         DOUBLE PRECISION,
+    -- Đóng góp = weight_percentage% × raw_score
+    weighted_score    DOUBLE PRECISION,
+    kpi_count         INT              NOT NULL DEFAULT 0,
+    created_at        TIMESTAMPTZ      DEFAULT NOW()
+);
+
+CREATE INDEX idx_evaluation_perspective_scores_evaluation_id ON evaluation_perspective_scores(evaluation_id);
+CREATE UNIQUE INDEX uq_evaluation_perspective_scores
+    ON evaluation_perspective_scores(evaluation_id, perspective_id);
+
+-- Quan hệ nhân-quả có hướng giữa các Objective (triết lý BSC: Học hỏi → Quy trình → Khách hàng → Tài chính)
+CREATE TABLE bsc_objective_relations (
+    id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    organization_id     UUID            NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+    source_objective_id UUID            NOT NULL REFERENCES objectives(id) ON DELETE CASCADE,
+    target_objective_id UUID            NOT NULL REFERENCES objectives(id) ON DELETE CASCADE,
+    label               VARCHAR(255),
+    created_at          TIMESTAMPTZ     DEFAULT NOW(),
+    updated_at          TIMESTAMPTZ     DEFAULT NOW(),
+    deleted_at          TIMESTAMPTZ,
+    -- Không cho tự nối chính nó
+    CHECK (source_objective_id <> target_objective_id)
+);
+
+CREATE INDEX idx_bsc_objective_relations_org ON bsc_objective_relations(organization_id);
+-- Một cặp (nguồn, đích) chỉ có một cạnh (bỏ qua bản ghi xoá mềm)
+CREATE UNIQUE INDEX uq_bsc_objective_relations
+    ON bsc_objective_relations(source_objective_id, target_objective_id) WHERE deleted_at IS NULL;
+
+-- ====================================================
+-- Create trigger for insert path
 -- ====================================================
 CREATE OR REPLACE FUNCTION fn_set_org_path()
 RETURNS TRIGGER AS $$

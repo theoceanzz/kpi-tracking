@@ -19,6 +19,7 @@ export function useKpiCriteria(params: {
   sortDir?: string;
   objectiveId?: string;
   keyResultId?: string;
+  perspectiveId?: string;
   assigneeId?: string;
   approvalMode?: boolean;
   kpiNature?: 'PARENT_CHILD' | 'STANDALONE';
