@@ -807,7 +807,7 @@ public class OrgUnitStatisticTool {
 
     // ── get_non_submitters ────────────────────────────────────────────────────
 
-    @Tool(name = "get_non_submitters", description = "Assignees with KPIs but who have NOT submitted within the period/date range. Use for accountability: 'who hasn\\'t submitted', 'who is late'. Pass unitName to target a unit by name; defaults to your CURRENT unit. Returns fullName, email, missingKpiCount sorted by missing count desc (no IDs; use search_users for UUID).")
+    @Tool(name = "get_non_submitters", description = "Assignees who have NOT submitted, counting ONLY KPIs whose PERIOD overlaps the date range (KPIs due in that window; earlier-period KPIs are NOT counted). Pass startDate/endDate for a window, or periodId for one exact period; omit both = all periods. Use for accountability: 'who hasn\\'t submitted', 'who is late'. Pass unitName to target a unit by name; defaults to your CURRENT unit. Returns fullName, email, missingKpiCount sorted by missing count desc (no IDs; use search_users for UUID). Response also carries appliedPeriods (the exact period(s) counted, with dates) or appliedScope - STATE this timeframe in your answer so a wrong relative-date guess (e.g. wrong week) is visible.")
     public String getNonSubmitters(OrgUnitStatisticToolRequests.GetNonSubmittersRequest request, ToolContext context) {
         try {
             UnitRef u = resolveUnit(request.unitId(), request.unitName(), context);

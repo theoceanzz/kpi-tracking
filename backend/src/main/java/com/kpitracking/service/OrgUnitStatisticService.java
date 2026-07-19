@@ -1023,6 +1023,11 @@ public class OrgUnitStatisticService {
                 ? overlappingPeriodIds(orgId, start, end)
                 : Set.of();
 
+        // "Số KPI chưa nộp" cũng chỉ đếm KPI thuộc đợt phủ [start,end] — nhất quán với get_non_submitters.
+        Set<UUID> missingPeriodIds = "missing_submission_count".equalsIgnoreCase(metric)
+                ? overlappingPeriodIds(orgId, start, end)
+                : Set.of();
+
         List<Map<String, Object>> rankList = new ArrayList<>();
         for (User u : users) {
             double score = 0.0;
@@ -1059,13 +1064,19 @@ public class OrgUnitStatisticService {
                         .getSingleResult();
                 score = count;
             } else if ("missing_submission_count".equalsIgnoreCase(metric)) {
-                Long count = entityManager.createQuery(
-                        "SELECT COUNT(DISTINCT k.id) FROM KpiCriteria k JOIN k.assignees a WHERE a.id = :userId AND k.id NOT IN (SELECT DISTINCT s.kpiCriteria.id FROM KpiSubmission s WHERE s.submittedBy.id = :userId AND s.createdAt >= :start AND s.createdAt <= :end)", Long.class)
-                        .setParameter("userId", u.getId())
-                        .setParameter("start", start)
-                        .setParameter("end", end)
-                        .getSingleResult();
-                score = count;
+                // Chỉ đếm KPI thuộc đợt phủ [start,end]; không đợt nào phủ ⇒ 0 (và tránh IN () rỗng).
+                if (missingPeriodIds.isEmpty()) {
+                    score = 0.0;
+                } else {
+                    // Đã nộp là thôi — chỉ cần TỒN TẠI bài nộp cho KPI đó (KPI đã gắn đúng đợt rồi),
+                    // KHÔNG ràng ngày nộp (từng làm sót bài nộp cùng ngày do end = đầu ngày).
+                    Long count = entityManager.createQuery(
+                            "SELECT COUNT(DISTINCT k.id) FROM KpiCriteria k JOIN k.assignees a WHERE a.id = :userId AND k.status = 'APPROVED' AND k.kpiPeriod.id IN :periodIds AND k.id NOT IN (SELECT DISTINCT s.kpiCriteria.id FROM KpiSubmission s WHERE s.submittedBy.id = :userId)", Long.class)
+                            .setParameter("userId", u.getId())
+                            .setParameter("periodIds", missingPeriodIds)
+                            .getSingleResult();
+                    score = count;
+                }
             } else { // submission_count
                 Long count = entityManager.createQuery(
                         "SELECT COUNT(s.id) FROM KpiSubmission s WHERE s.submittedBy.id = :userId AND s.createdAt >= :start AND s.createdAt <= :end", Long.class)
@@ -1613,8 +1624,35 @@ public class OrgUnitStatisticService {
     public Map<String, Object> getNonSubmitters(
             UUID orgUnitId, String periodId, String startDate, String endDate, int limit) {
         String pathPrefix = getPathPrefix(orgUnitId);
+        Instant start = parseDate(startDate, Instant.EPOCH);
+        Instant end = parseDate(endDate, Instant.now());
+
+        // Chỉ tính KPI "được giao trong thời gian đó" = KPI thuộc ĐỢT phủ [start,end]. Nếu chỉ định
+        // đúng một đợt (periodId) thì dùng đợt đó; không thì lấy mọi đợt phủ khoảng (EPOCH..now = tất cả).
+        UUID orgId = orgUnitRepository.findById(orgUnitId)
+                .map(ou -> ou.getOrgHierarchyLevel().getOrganization().getId())
+                .orElse(null);
+        // "windowed" = người dùng có nêu mốc thời gian (đợt cụ thể / khoảng ngày). Khi windowed, trả
+        // về ĐỢT đã dùng để câu trả lời nêu rõ khung thời gian — nếu model resolve nhầm (vd "tuần
+        // trước" thành tuần khác) thì tên đợt sai sẽ lộ ra ngay, người dùng sửa được.
+        boolean windowed = (periodId != null && !periodId.isBlank())
+                || (startDate != null && !startDate.isBlank())
+                || (endDate != null && !endDate.isBlank());
+        Set<UUID> periodIds = (periodId != null && !periodId.isBlank())
+                ? Set.of(UUID.fromString(periodId.trim()))
+                : (orgId != null ? overlappingPeriodIds(orgId, start, end) : Set.of());
+
+        Map<String, Object> result = new LinkedHashMap<>();
+        // Không có đợt nào phủ khoảng ⇒ không KPI nào tới hạn ⇒ không ai "chưa nộp" (và tránh IN ()).
+        if (periodIds.isEmpty()) {
+            result.put("total", 0);
+            result.put("nonSubmitters", List.of());
+            if (windowed) result.put("appliedScope", "không có đợt KPI nào phủ khoảng thời gian này");
+            return result;
+        }
+
         java.util.List<Object[]> rows = kpiCriteriaRepository.findTopNonSubmittersInSubtree(
-                pathPrefix, parseDate(startDate, Instant.EPOCH), parseDate(endDate, Instant.now()), limit > 0 ? limit : 20);
+                pathPrefix, periodIds, limit > 0 ? limit : 20);
 
         List<Map<String, Object>> users = rows.stream().map(row -> {
             Map<String, Object> m = new LinkedHashMap<>();
@@ -1624,10 +1662,39 @@ public class OrgUnitStatisticService {
             return m;
         }).collect(Collectors.toList());
 
-        Map<String, Object> result = new LinkedHashMap<>();
         result.put("total", users.size());
         result.put("nonSubmitters", users);
+
+        // Phơi bày khung thời gian thực sự đã tính. Không nêu thời gian (EPOCH..now = mọi đợt) thì chỉ
+        // ghi nhãn phạm vi, KHÔNG liệt kê 11+ đợt cho đỡ nhiễu.
+        if (!windowed) {
+            result.put("appliedScope", "tất cả các đợt");
+        } else {
+            final int cap = 12;
+            List<Map<String, Object>> appliedPeriods = kpiPeriodRepository.findAllById(periodIds).stream()
+                    .sorted(java.util.Comparator.comparing(KpiPeriod::getStartDate,
+                            java.util.Comparator.nullsLast(java.util.Comparator.naturalOrder())))
+                    .limit(cap)
+                    .map(p -> {
+                        Map<String, Object> pm = new LinkedHashMap<>();
+                        pm.put("name", p.getName());
+                        pm.put("startDate", formatDisplayDate(p.getStartDate()));
+                        pm.put("endDate", formatDisplayDate(p.getEndDate()));
+                        return pm;
+                    })
+                    .collect(Collectors.toList());
+            result.put("appliedPeriods", appliedPeriods);
+            if (periodIds.size() > cap) result.put("appliedPeriodsTotal", periodIds.size());
+        }
         return result;
+    }
+
+    /** Ngày hiển thị cho người dùng: dd/MM/yyyy theo giờ VN (khớp currentDateTime trong AiService). */
+    private String formatDisplayDate(Instant instant) {
+        if (instant == null) return null;
+        return java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy")
+                .withZone(java.time.ZoneId.of("Asia/Ho_Chi_Minh"))
+                .format(instant);
     }
 
     @Transactional(readOnly = true)
