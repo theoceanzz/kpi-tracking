@@ -38,6 +38,7 @@ public class DeadlineReminderService {
         Instant now = Instant.now();
 
         for (KpiCriteria kpi : activeKpis) {
+          try {
             Instant effectiveDeadline = kpi.getEffectiveDeadline();
             if (kpi.getKpiPeriod() == null || kpi.getKpiPeriod().getStartDate() == null || effectiveDeadline == null) {
                 continue;
@@ -82,6 +83,12 @@ public class DeadlineReminderService {
                     }
                 }
             }
+          } catch (jakarta.persistence.EntityNotFoundException e) {
+            // KPI trỏ tới đợt/đơn vị đã bị xoá mềm (tham chiếu mồ côi) -> bỏ qua bản ghi này,
+            // KHÔNG để nó làm hỏng cả lượt nhắc deadline của mọi KPI khác.
+            log.warn("Bỏ qua KPI {} khi nhắc deadline: tham chiếu (đợt/đơn vị) đã bị xoá. {}",
+                    kpi.getId(), e.getMessage());
+          }
         }
         log.info("Deadline reminder process completed.");
     }
