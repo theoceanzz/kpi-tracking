@@ -1573,13 +1573,16 @@ public class OrgUnitStatisticService {
 
     @Transactional(readOnly = true)
     public Map<String, Object> getSubmissionHistory(
-            UUID kpiId, String userId, String status,
+            java.util.Collection<UUID> kpiIds, String userId, String status,
             String startDate, String endDate, int limit) {
         Instant from = parseDate(startDate, Instant.EPOCH);
         Instant to = parseEndDate(endDate, Instant.now());
 
-        List<KpiSubmission> submissions = kpiSubmissionRepository
-                .findByKpiCriteriaIdAndDeletedAtIsNull(kpiId);
+        // Gom bài nộp của MỌI KPI được truyền vào (vd các bản cùng tên theo tuần) rồi xếp theo
+        // thời gian nộp — để "lịch sử nộp KPI X" thấy đủ, không phụ thuộc chọn đúng một bản.
+        List<KpiSubmission> submissions = (kpiIds == null || kpiIds.isEmpty())
+                ? List.of()
+                : kpiSubmissionRepository.findByKpiCriteriaIdInAndDeletedAtIsNull(kpiIds);
 
         java.util.stream.Stream<KpiSubmission> filtered = submissions.stream();
         if (userId != null && !userId.isBlank()) {
@@ -1589,16 +1592,21 @@ public class OrgUnitStatisticService {
         if (status != null && !status.isBlank()) {
             filtered = filtered.filter(s -> s.getStatus().toString().equalsIgnoreCase(status));
         }
-        filtered = filtered.filter(s -> s.getCreatedAt().isAfter(from) && s.getCreatedAt().isBefore(to));
+        filtered = filtered.filter(s -> s.getCreatedAt() != null
+                && !s.getCreatedAt().isBefore(from) && !s.getCreatedAt().isAfter(to));
 
         List<Map<String, Object>> items = filtered
+                .sorted(java.util.Comparator.comparing(KpiSubmission::getCreatedAt,
+                        java.util.Comparator.nullsLast(java.util.Comparator.naturalOrder())).reversed())
                 .limit(limit > 0 ? limit : 20)
                 .map(s -> {
                     Map<String, Object> m = new LinkedHashMap<>();
                     KpiCriteria sKpi = safeRef(s::getKpiCriteria);
                     User submittedBy = safeRef(s::getSubmittedBy);
                     User reviewedBy = safeRef(s::getReviewedBy);
+                    KpiPeriod sPeriod = sKpi != null ? resolveKpiPeriod(sKpi) : null;
                     m.put("kpiName", sKpi != null ? sKpi.getName() : null);
+                    m.put("periodName", sPeriod != null ? sPeriod.getName() : null);
                     m.put("submittedBy", submittedBy != null ? submittedBy.getFullName() : null);
                     m.put("actualValue", s.getActualValue());
                     m.put("status", s.getStatus());

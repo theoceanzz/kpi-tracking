@@ -48,6 +48,9 @@ public interface KpiSubmissionRepository extends JpaRepository<KpiSubmission, UU
     java.util.List<KpiSubmission> findBySubmittedByUserIdAndKpiCriteriaIdIn(@org.springframework.data.repository.query.Param("userId") UUID userId, @org.springframework.data.repository.query.Param("kpiIds") java.util.Collection<UUID> kpiIds);
     
     java.util.List<KpiSubmission> findByKpiCriteriaIdAndDeletedAtIsNull(UUID kpiCriteriaId);
+
+    /** Bài nộp của NHIỀU KPI (vd các bản cùng tên theo tuần) — dùng cho lịch sử nộp gom theo tên. */
+    java.util.List<KpiSubmission> findByKpiCriteriaIdInAndDeletedAtIsNull(java.util.Collection<UUID> kpiCriteriaIds);
     
     java.util.List<KpiSubmission> findByKpiCriteriaIdAndSubmittedByIdAndDeletedAtIsNull(UUID kpiCriteriaId, UUID submittedById);
     
