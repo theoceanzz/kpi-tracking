@@ -479,7 +479,7 @@ public class OrgUnitStatisticService {
 
         // Fetch kpis for the users
         List<KpiCriteria> kpis = entityManager.createQuery(
-                "SELECT DISTINCT k FROM KpiCriteria k JOIN FETCH k.submissions LEFT JOIN k.assignees a WHERE a.id IN :userIds AND k.parent IS NULL AND k.status = 'APPROVED' AND k.createdAt >= :start AND k.createdAt <= :end", KpiCriteria.class)
+                "SELECT DISTINCT k FROM KpiCriteria k LEFT JOIN FETCH k.submissions LEFT JOIN k.assignees a WHERE a.id IN :userIds AND k.parent IS NULL AND k.status = 'APPROVED' AND k.createdAt >= :start AND k.createdAt <= :end", KpiCriteria.class)
                 .setParameter("userIds", userIds)
                 .setParameter("start", start)
                 .setParameter("end", end)
@@ -521,7 +521,7 @@ public class OrgUnitStatisticService {
         User targetUser = userRepository.findById(targetUserId).orElseThrow(() -> new RuntimeException("User not found: " + targetUserId));
 
         List<KpiCriteria> kpis = entityManager.createQuery(
-                "SELECT DISTINCT k FROM KpiCriteria k JOIN FETCH k.submissions LEFT JOIN k.assignees a WHERE a.id = :userId AND k.parent IS NULL AND k.createdAt >= :start AND k.createdAt <= :end", KpiCriteria.class)
+                "SELECT DISTINCT k FROM KpiCriteria k LEFT JOIN FETCH k.submissions LEFT JOIN k.assignees a WHERE a.id = :userId AND k.parent IS NULL AND k.createdAt >= :start AND k.createdAt <= :end", KpiCriteria.class)
                 .setParameter("userId", targetUserId)
                 .setParameter("start", start)
                 .setParameter("end", end)
@@ -728,7 +728,7 @@ public class OrgUnitStatisticService {
         }
 
         TypedQuery<KpiCriteria> criteriaQuery = entityManager.createQuery(
-                "SELECT DISTINCT k FROM KpiCriteria k JOIN FETCH k.submissions LEFT JOIN k.assignees a WHERE " + where, KpiCriteria.class);
+                "SELECT DISTINCT k FROM KpiCriteria k LEFT JOIN FETCH k.submissions LEFT JOIN k.assignees a WHERE " + where, KpiCriteria.class);
         bindKpiSummaryParams(criteriaQuery, pathPrefix, start, end, effStatus, ownerId, assignedById, assignedToId, periodId);
 
         List<KpiCriteria> kpis = criteriaQuery.getResultList();
@@ -862,7 +862,7 @@ public class OrgUnitStatisticService {
             Long participantsCount = participantsQ.getSingleResult();
 
             TypedQuery<KpiCriteria> kpisQ = entityManager.createQuery(
-                    "SELECT DISTINCT k FROM KpiCriteria k JOIN FETCH k.submissions WHERE k.kpiPeriod.id = :periodId" + unitFilter, KpiCriteria.class)
+                    "SELECT DISTINCT k FROM KpiCriteria k LEFT JOIN FETCH k.submissions WHERE k.kpiPeriod.id = :periodId" + unitFilter, KpiCriteria.class)
                     .setParameter("periodId", p.getId());
             if (pathPrefix != null) kpisQ.setParameter("pathPrefix", pathPrefix);
             List<KpiCriteria> kpis = kpisQ.getResultList();
@@ -1071,7 +1071,7 @@ public class OrgUnitStatisticService {
 
             if ("average_progress".equalsIgnoreCase(metric)) {
                 List<KpiCriteria> userKpis = entityManager.createQuery(
-                        "SELECT DISTINCT k FROM KpiCriteria k JOIN FETCH k.submissions LEFT JOIN k.assignees a WHERE a.id = :userId AND k.status = 'APPROVED' AND k.createdAt >= :start AND k.createdAt <= :end", KpiCriteria.class)
+                        "SELECT DISTINCT k FROM KpiCriteria k LEFT JOIN FETCH k.submissions LEFT JOIN k.assignees a WHERE a.id = :userId AND k.status = 'APPROVED' AND k.createdAt >= :start AND k.createdAt <= :end", KpiCriteria.class)
                         .setParameter("userId", u.getId())
                         .setParameter("start", start)
                         .setParameter("end", end)
@@ -1280,7 +1280,7 @@ public class OrgUnitStatisticService {
 
             if ("average_progress".equalsIgnoreCase(metric)) {
                 List<KpiCriteria> uKpis = entityManager.createQuery(
-                        "SELECT DISTINCT k FROM KpiCriteria k JOIN FETCH k.submissions WHERE k.orgUnit.id = :unitId AND k.status = 'APPROVED' AND k.createdAt >= :start AND k.createdAt <= :end", KpiCriteria.class)
+                        "SELECT DISTINCT k FROM KpiCriteria k LEFT JOIN FETCH k.submissions WHERE k.orgUnit.id = :unitId AND k.status = 'APPROVED' AND k.createdAt >= :start AND k.createdAt <= :end", KpiCriteria.class)
                         .setParameter("unitId", u.getId())
                         .setParameter("start", start)
                         .setParameter("end", end)
@@ -1323,7 +1323,7 @@ public class OrgUnitStatisticService {
         Instant end = parseEndDate(endDate, Instant.now());
 
         List<KpiCriteria> kpis = entityManager.createQuery(
-                "SELECT DISTINCT k FROM KpiCriteria k JOIN FETCH k.submissions WHERE k.orgUnit.path LIKE CONCAT(:pathPrefix, '%') AND k.createdAt >= :start AND k.createdAt <= :end AND k.status = 'APPROVED'", KpiCriteria.class)
+                "SELECT DISTINCT k FROM KpiCriteria k LEFT JOIN FETCH k.submissions WHERE k.orgUnit.path LIKE CONCAT(:pathPrefix, '%') AND k.createdAt >= :start AND k.createdAt <= :end AND k.status = 'APPROVED'", KpiCriteria.class)
                 .setParameter("pathPrefix", pathPrefix)
                 .setParameter("start", start)
                 .setParameter("end", end)
@@ -1381,7 +1381,7 @@ public class OrgUnitStatisticService {
         long totalPeriods = kpiPeriodRepository.findByOrganizationId(orgId, org.springframework.data.domain.Pageable.unpaged()).getTotalElements();
 
         List<KpiCriteria> kpis = entityManager.createQuery(
-                "SELECT DISTINCT k FROM KpiCriteria k JOIN FETCH k.submissions WHERE k.orgUnit.path LIKE CONCAT(:pathPrefix, '%') AND k.status = 'APPROVED' AND k.createdAt >= :start AND k.createdAt <= :end", KpiCriteria.class)
+                "SELECT DISTINCT k FROM KpiCriteria k LEFT JOIN FETCH k.submissions WHERE k.orgUnit.path LIKE CONCAT(:pathPrefix, '%') AND k.status = 'APPROVED' AND k.createdAt >= :start AND k.createdAt <= :end", KpiCriteria.class)
                 .setParameter("pathPrefix", pathPrefix)
                 .setParameter("start", start)
                 .setParameter("end", end)
