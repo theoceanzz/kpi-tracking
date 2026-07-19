@@ -37,26 +37,43 @@ public class OrgUnitStatisticService {
     private final EvaluationService evaluationService;
 
     // Helper to parse dates from string. Chấp nhận nhiều định dạng vì model hay xuất theo
-    // dd/MM/yyyy (định dạng hiển thị) thay vì yyyy-MM-dd.
+    // dd/MM/yyyy (định dạng hiển thị) thay vì yyyy-MM-dd. Cận DƯỚI (start) → đầu ngày.
     public Instant parseDate(String dateStr, Instant defaultInstant) {
+        return parseDate(dateStr, defaultInstant, false);
+    }
+
+    /**
+     * Như parseDate nhưng cho cận TRÊN (end): chuỗi CHỈ-NGÀY quy về CUỐI ngày (23:59:59.999999999)
+     * để so sánh `<= end` không loại nhầm dữ liệu trong chính ngày cuối (model resolve end về đầu
+     * ngày từng làm sót bài nộp/KPI cùng ngày). Chuỗi ISO đầy đủ giữ nguyên (đã là mốc chính xác).
+     */
+    public Instant parseEndDate(String dateStr, Instant defaultInstant) {
+        return parseDate(dateStr, defaultInstant, true);
+    }
+
+    private Instant parseDate(String dateStr, Instant defaultInstant, boolean endOfDay) {
         if (dateStr == null || dateStr.isBlank()) return defaultInstant;
         String s = dateStr.trim();
         // dd/MM/yyyy hoặc d/M/yyyy (vd 01/07/2026, 1/7/2026)
         if (s.matches("\\d{1,2}/\\d{1,2}/\\d{4}")) {
             try {
-                return java.time.LocalDate.parse(s, java.time.format.DateTimeFormatter.ofPattern("d/M/yyyy"))
-                        .atStartOfDay(ZoneId.systemDefault()).toInstant();
+                return dayBound(java.time.LocalDate.parse(s, java.time.format.DateTimeFormatter.ofPattern("d/M/yyyy")), endOfDay);
             } catch (Exception ignore) { /* thử định dạng khác */ }
         }
         try {
             if (s.length() == 10) { // yyyy-MM-dd
-                return java.time.LocalDate.parse(s).atStartOfDay(ZoneId.systemDefault()).toInstant();
+                return dayBound(java.time.LocalDate.parse(s), endOfDay);
             }
             return Instant.parse(s);
         } catch (Exception e) {
             log.warn("Could not parse date: {}. Using default.", dateStr);
             return defaultInstant;
         }
+    }
+
+    private Instant dayBound(java.time.LocalDate date, boolean endOfDay) {
+        return (endOfDay ? date.atTime(java.time.LocalTime.MAX) : date.atStartOfDay())
+                .atZone(ZoneId.systemDefault()).toInstant();
     }
 
     public String getPathPrefix(UUID id) {
@@ -420,7 +437,7 @@ public class OrgUnitStatisticService {
         // Lọc nhóm theo TÊN chức vụ (vd "trưởng phòng") — khỏi bắt model search_positions trước.
         String posName = (positionName != null && !positionName.isBlank()) ? positionName.trim().toLowerCase() : null;
         Instant start = parseDate(startDate, Instant.EPOCH);
-        Instant end = parseDate(endDate, Instant.now());
+        Instant end = parseEndDate(endDate, Instant.now());
 
         OrgUnit unit = orgUnitRepository.findById(targetUnitId).orElseThrow(() -> new RuntimeException("OrgUnit not found: " + targetUnitId));
         UUID orgId = unit.getOrgHierarchyLevel().getOrganization().getId();
@@ -462,7 +479,7 @@ public class OrgUnitStatisticService {
 
         // Fetch kpis for the users
         List<KpiCriteria> kpis = entityManager.createQuery(
-                "SELECT DISTINCT k FROM KpiCriteria k JOIN FETCH k.submissions LEFT JOIN k.assignees a WHERE a.id IN :userIds AND k.parent IS NULL AND k.createdAt >= :start AND k.createdAt <= :end", KpiCriteria.class)
+                "SELECT DISTINCT k FROM KpiCriteria k JOIN FETCH k.submissions LEFT JOIN k.assignees a WHERE a.id IN :userIds AND k.parent IS NULL AND k.status = 'APPROVED' AND k.createdAt >= :start AND k.createdAt <= :end", KpiCriteria.class)
                 .setParameter("userIds", userIds)
                 .setParameter("start", start)
                 .setParameter("end", end)
@@ -499,7 +516,7 @@ public class OrgUnitStatisticService {
     @Transactional(readOnly = true)
     public Map<String, Object> getUserSummary(UUID targetUserId, String startDate, String endDate) {
         Instant start = parseDate(startDate, Instant.EPOCH);
-        Instant end = parseDate(endDate, Instant.now());
+        Instant end = parseEndDate(endDate, Instant.now());
 
         User targetUser = userRepository.findById(targetUserId).orElseThrow(() -> new RuntimeException("User not found: " + targetUserId));
 
@@ -510,7 +527,12 @@ public class OrgUnitStatisticService {
                 .setParameter("end", end)
                 .getResultList();
 
-        double[] averages = calculateAverages(kpis, start, end);
+        // Danh sách KPI của người này GIỮ mọi trạng thái (có cột status để xem cả nháp), nhưng số
+        // liệu tổng hợp (tiến độ TB) chỉ tính KPI ĐÃ DUYỆT — nhất quán với các thống kê khác.
+        List<KpiCriteria> approvedKpis = kpis.stream()
+                .filter(k -> k.getStatus() == KpiStatus.APPROVED)
+                .collect(Collectors.toList());
+        double[] averages = calculateAverages(approvedKpis, start, end);
 
         Long submissionCount = entityManager.createQuery(
                 "SELECT COUNT(s.id) FROM KpiSubmission s WHERE s.submittedBy.id = :userId AND s.createdAt >= :start AND s.createdAt <= :end", Long.class)
@@ -558,7 +580,7 @@ public class OrgUnitStatisticService {
     public Map<String, Object> getKpis(UUID orgUnitId, String ownerId, String assignedById, String assignedToId, String periodId, String status, Integer page, Integer size, String sortBy, String sortDirection, String startDate, String endDate) {
         String pathPrefix = getPathPrefix(orgUnitId);
         Instant start = parseDate(startDate, Instant.EPOCH);
-        Instant end = parseDate(endDate, Instant.now());
+        Instant end = parseEndDate(endDate, Instant.now());
 
         StringBuilder jpql = new StringBuilder("SELECT DISTINCT k FROM KpiCriteria k LEFT JOIN k.assignees a WHERE k.orgUnit.path LIKE CONCAT(:pathPrefix, '%') AND k.createdAt >= :start AND k.createdAt <= :end ");
         StringBuilder countJpql = new StringBuilder("SELECT COUNT(DISTINCT k.id) FROM KpiCriteria k LEFT JOIN k.assignees a WHERE k.orgUnit.path LIKE CONCAT(:pathPrefix, '%') AND k.createdAt >= :start AND k.createdAt <= :end ");
@@ -653,31 +675,44 @@ public class OrgUnitStatisticService {
     }
 
     // 8. get_kpi_summary
+    /** Bind cùng bộ tham số cho totalQuery và criteriaQuery của getKpiSummary (đảm bảo hai truy vấn
+     *  chạy trên cùng điều kiện — tránh lệch total vs completed/averages). */
+    private void bindKpiSummaryParams(jakarta.persistence.Query q, String pathPrefix, Instant start, Instant end,
+            KpiStatus status, String ownerId, String assignedById, String assignedToId, String periodId) {
+        q.setParameter("pathPrefix", pathPrefix);
+        q.setParameter("start", start);
+        q.setParameter("end", end);
+        q.setParameter("status", status);
+        if (ownerId != null && !ownerId.isBlank()) q.setParameter("ownerId", UUID.fromString(ownerId));
+        if (assignedById != null && !assignedById.isBlank()) q.setParameter("assignerId", UUID.fromString(assignedById));
+        if (assignedToId != null && !assignedToId.isBlank()) q.setParameter("assigneeId", UUID.fromString(assignedToId));
+        if (periodId != null && !periodId.isBlank()) q.setParameter("periodId", UUID.fromString(periodId));
+    }
+
     @Transactional(readOnly = true)
     public Map<String, Object> getKpiSummary(UUID orgUnitId, String ownerId, String assignedById, String assignedToId, String periodId, String status, String startDate, String endDate) {
         String pathPrefix = getPathPrefix(orgUnitId);
         Instant start = parseDate(startDate, Instant.EPOCH);
-        Instant end = parseDate(endDate, Instant.now());
+        Instant end = parseEndDate(endDate, Instant.now());
+
+        // Mặc định chỉ tính KPI ĐÃ DUYỆT (KPI hiệu lực) cho khớp dashboard/risk; nếu model nêu rõ
+        // status thì tôn trọng (vd hỏi riêng KPI chờ duyệt). Áp cho CẢ totalQuery lẫn criteriaQuery
+        // để tổng số và completed/overdue/averages không đếm trên hai tập KPI khác nhau.
+        KpiStatus effStatus = (status != null && !status.isBlank())
+                ? KpiStatus.valueOf(status.trim().toUpperCase()) : KpiStatus.APPROVED;
 
         // KPI thác nước (có parent) không được tính như một KPI độc lập trong thống kê.
-        StringBuilder filter = new StringBuilder("FROM KpiCriteria k LEFT JOIN k.assignees a WHERE k.parent IS NULL AND k.orgUnit.path LIKE CONCAT(:pathPrefix, '%') AND k.createdAt >= :start AND k.createdAt <= :end ");
+        // WHERE dùng CHUNG cho cả totalQuery và criteriaQuery để tổng số và completed/overdue/averages
+        // luôn tính trên CÙNG tập KPI (trước đây criteriaQuery bỏ qua owner/assignee/period -> lệch số).
+        StringBuilder where = new StringBuilder("k.parent IS NULL AND k.status = :status AND k.orgUnit.path LIKE CONCAT(:pathPrefix, '%') AND k.createdAt >= :start AND k.createdAt <= :end ");
+        if (ownerId != null && !ownerId.isBlank()) where.append("AND k.createdBy.id = :ownerId ");
+        if (assignedById != null && !assignedById.isBlank()) where.append("AND k.createdBy.id = :assignerId ");
+        if (assignedToId != null && !assignedToId.isBlank()) where.append("AND a.id = :assigneeId ");
+        if (periodId != null && !periodId.isBlank()) where.append("AND k.kpiPeriod.id = :periodId ");
 
-        if (ownerId != null && !ownerId.isBlank()) filter.append("AND k.createdBy.id = :ownerId ");
-        if (assignedById != null && !assignedById.isBlank()) filter.append("AND k.createdBy.id = :assignerId ");
-        if (assignedToId != null && !assignedToId.isBlank()) filter.append("AND a.id = :assigneeId ");
-        if (periodId != null && !periodId.isBlank()) filter.append("AND k.kpiPeriod.id = :periodId ");
-        if (status != null && !status.isBlank()) filter.append("AND k.status = :status ");
-
-        TypedQuery<Long> totalQuery = entityManager.createQuery("SELECT COUNT(DISTINCT k.id) " + filter.toString(), Long.class)
-                .setParameter("pathPrefix", pathPrefix)
-                .setParameter("start", start)
-                .setParameter("end", end);
-
-        if (ownerId != null && !ownerId.isBlank()) totalQuery.setParameter("ownerId", UUID.fromString(ownerId));
-        if (assignedById != null && !assignedById.isBlank()) totalQuery.setParameter("assignerId", UUID.fromString(assignedById));
-        if (assignedToId != null && !assignedToId.isBlank()) totalQuery.setParameter("assigneeId", UUID.fromString(assignedToId));
-        if (periodId != null && !periodId.isBlank()) totalQuery.setParameter("periodId", UUID.fromString(periodId));
-        if (status != null && !status.isBlank()) totalQuery.setParameter("status", KpiStatus.valueOf(status.trim().toUpperCase()));
+        TypedQuery<Long> totalQuery = entityManager.createQuery(
+                "SELECT COUNT(DISTINCT k.id) FROM KpiCriteria k LEFT JOIN k.assignees a WHERE " + where, Long.class);
+        bindKpiSummaryParams(totalQuery, pathPrefix, start, end, effStatus, ownerId, assignedById, assignedToId, periodId);
 
         Long totalKpis = totalQuery.getSingleResult();
 
@@ -692,10 +727,9 @@ public class OrgUnitStatisticService {
             return summary;
         }
 
-        TypedQuery<KpiCriteria> criteriaQuery = entityManager.createQuery("SELECT DISTINCT k FROM KpiCriteria k JOIN FETCH k.submissions LEFT JOIN k.assignees a WHERE k.parent IS NULL AND k.orgUnit.path LIKE CONCAT(:pathPrefix, '%') AND k.createdAt >= :start AND k.createdAt <= :end ", KpiCriteria.class)
-                .setParameter("pathPrefix", pathPrefix)
-                .setParameter("start", start)
-                .setParameter("end", end);
+        TypedQuery<KpiCriteria> criteriaQuery = entityManager.createQuery(
+                "SELECT DISTINCT k FROM KpiCriteria k JOIN FETCH k.submissions LEFT JOIN k.assignees a WHERE " + where, KpiCriteria.class);
+        bindKpiSummaryParams(criteriaQuery, pathPrefix, start, end, effStatus, ownerId, assignedById, assignedToId, periodId);
 
         List<KpiCriteria> kpis = criteriaQuery.getResultList();
         List<UUID> kpiIds = kpis.stream().map(KpiCriteria::getId).toList();
@@ -731,7 +765,7 @@ public class OrgUnitStatisticService {
     public Map<String, Object> getKpiDetail(UUID id, String startDate, String endDate) {
         KpiCriteria k = kpiCriteriaRepository.findById(id).orElseThrow(() -> new RuntimeException("KPI not found: " + id));
         Instant start = parseDate(startDate, Instant.EPOCH);
-        Instant end = parseDate(endDate, Instant.now());
+        Instant end = parseEndDate(endDate, Instant.now());
 
         double[] metrics = calculateKpiMetrics(k, start, end);
 
@@ -802,10 +836,13 @@ public class OrgUnitStatisticService {
     public List<Map<String, Object>> getKpiPeriods(UUID orgId, UUID targetUnitId, String startDate, String endDate) {
         List<KpiPeriod> periods = kpiPeriodRepository.findByOrganizationId(orgId, org.springframework.data.domain.Pageable.unpaged()).getContent();
         Instant start = parseDate(startDate, Instant.EPOCH);
-        Instant end = parseDate(endDate, Instant.now());
+        Instant end = parseEndDate(endDate, Instant.now());
         // Khi nhắm 1 đơn vị: chỉ tính KPI thuộc cây con đơn vị đó và BỎ kỳ đơn vị không tham gia.
         String pathPrefix = targetUnitId != null ? getPathPrefix(targetUnitId) : null;
-        String unitFilter = pathPrefix != null ? " AND k.orgUnit.path LIKE CONCAT(:pathPrefix, '%')" : "";
+        // Chỉ tính KPI ĐÃ DUYỆT cho số liệu mỗi kỳ (kpisCount/participants/averages) — KPI nháp không
+        // phải KPI hiệu lực, khớp với các thống kê tổng hợp khác.
+        String unitFilter = " AND k.status = 'APPROVED'"
+                + (pathPrefix != null ? " AND k.orgUnit.path LIKE CONCAT(:pathPrefix, '%')" : "");
 
         List<Map<String, Object>> periodDetails = new ArrayList<>();
         for (KpiPeriod p : periods) {
@@ -960,7 +997,7 @@ public class OrgUnitStatisticService {
         int effectiveLimit = (limit != null && limit > 0) ? limit : 20;
         boolean desc = !"asc".equalsIgnoreCase(order);
         Instant start = parseDate(startDate, Instant.EPOCH);
-        Instant end = parseDate(endDate, Instant.now());
+        Instant end = parseEndDate(endDate, Instant.now());
 
         List<User> users = new ArrayList<>();
         // Path của đơn vị đang xếp hạng (chỉ scope=unit) — dùng lại ở dưới để chọn ĐÚNG đơn vị đại diện
@@ -1034,7 +1071,7 @@ public class OrgUnitStatisticService {
 
             if ("average_progress".equalsIgnoreCase(metric)) {
                 List<KpiCriteria> userKpis = entityManager.createQuery(
-                        "SELECT DISTINCT k FROM KpiCriteria k JOIN FETCH k.submissions LEFT JOIN k.assignees a WHERE a.id = :userId AND k.createdAt >= :start AND k.createdAt <= :end", KpiCriteria.class)
+                        "SELECT DISTINCT k FROM KpiCriteria k JOIN FETCH k.submissions LEFT JOIN k.assignees a WHERE a.id = :userId AND k.status = 'APPROVED' AND k.createdAt >= :start AND k.createdAt <= :end", KpiCriteria.class)
                         .setParameter("userId", u.getId())
                         .setParameter("start", start)
                         .setParameter("end", end)
@@ -1226,7 +1263,7 @@ public class OrgUnitStatisticService {
         int effectiveLimit = (limit != null && limit > 0) ? limit : 5;
         boolean desc = !"asc".equalsIgnoreCase(order);
         Instant start = parseDate(startDate, Instant.EPOCH);
-        Instant end = parseDate(endDate, Instant.now());
+        Instant end = parseEndDate(endDate, Instant.now());
 
         OrgUnit root = orgUnitRepository.findById(orgUnitId).orElseThrow(() -> new RuntimeException("OrgUnit not found: " + orgUnitId));
         UUID orgIdFromUnit = root.getOrgHierarchyLevel().getOrganization().getId();
@@ -1243,7 +1280,7 @@ public class OrgUnitStatisticService {
 
             if ("average_progress".equalsIgnoreCase(metric)) {
                 List<KpiCriteria> uKpis = entityManager.createQuery(
-                        "SELECT DISTINCT k FROM KpiCriteria k JOIN FETCH k.submissions WHERE k.orgUnit.id = :unitId AND k.createdAt >= :start AND k.createdAt <= :end", KpiCriteria.class)
+                        "SELECT DISTINCT k FROM KpiCriteria k JOIN FETCH k.submissions WHERE k.orgUnit.id = :unitId AND k.status = 'APPROVED' AND k.createdAt >= :start AND k.createdAt <= :end", KpiCriteria.class)
                         .setParameter("unitId", u.getId())
                         .setParameter("start", start)
                         .setParameter("end", end)
@@ -1283,7 +1320,7 @@ public class OrgUnitStatisticService {
     public List<Map<String, Object>> getKpiRiskAnalysis(UUID orgUnitId, String startDate, String endDate) {
         String pathPrefix = getPathPrefix(orgUnitId);
         Instant start = parseDate(startDate, Instant.EPOCH);
-        Instant end = parseDate(endDate, Instant.now());
+        Instant end = parseEndDate(endDate, Instant.now());
 
         List<KpiCriteria> kpis = entityManager.createQuery(
                 "SELECT DISTINCT k FROM KpiCriteria k JOIN FETCH k.submissions WHERE k.orgUnit.path LIKE CONCAT(:pathPrefix, '%') AND k.createdAt >= :start AND k.createdAt <= :end AND k.status = 'APPROVED'", KpiCriteria.class)
@@ -1335,7 +1372,7 @@ public class OrgUnitStatisticService {
     public Map<String, Object> getDashboardSummary(UUID orgUnitId, UUID orgId, String startDate, String endDate) {
         String pathPrefix = getPathPrefix(orgUnitId);
         Instant start = parseDate(startDate, Instant.EPOCH);
-        Instant end = parseDate(endDate, Instant.now());
+        Instant end = parseEndDate(endDate, Instant.now());
 
         long totalEmployees = userRoleOrgUnitRepository.countUsersInSubtree(pathPrefix, orgId);
         long totalUnits = orgUnitRepository.countChildrenInSubtree(pathPrefix) + 1;
@@ -1344,7 +1381,7 @@ public class OrgUnitStatisticService {
         long totalPeriods = kpiPeriodRepository.findByOrganizationId(orgId, org.springframework.data.domain.Pageable.unpaged()).getTotalElements();
 
         List<KpiCriteria> kpis = entityManager.createQuery(
-                "SELECT DISTINCT k FROM KpiCriteria k JOIN FETCH k.submissions WHERE k.orgUnit.path LIKE CONCAT(:pathPrefix, '%') AND k.createdAt >= :start AND k.createdAt <= :end", KpiCriteria.class)
+                "SELECT DISTINCT k FROM KpiCriteria k JOIN FETCH k.submissions WHERE k.orgUnit.path LIKE CONCAT(:pathPrefix, '%') AND k.status = 'APPROVED' AND k.createdAt >= :start AND k.createdAt <= :end", KpiCriteria.class)
                 .setParameter("pathPrefix", pathPrefix)
                 .setParameter("start", start)
                 .setParameter("end", end)
@@ -1539,7 +1576,7 @@ public class OrgUnitStatisticService {
             UUID kpiId, String userId, String status,
             String startDate, String endDate, int limit) {
         Instant from = parseDate(startDate, Instant.EPOCH);
-        Instant to = parseDate(endDate, Instant.now());
+        Instant to = parseEndDate(endDate, Instant.now());
 
         List<KpiSubmission> submissions = kpiSubmissionRepository
                 .findByKpiCriteriaIdAndDeletedAtIsNull(kpiId);
@@ -1625,7 +1662,7 @@ public class OrgUnitStatisticService {
             UUID orgUnitId, String periodId, String startDate, String endDate, int limit) {
         String pathPrefix = getPathPrefix(orgUnitId);
         Instant start = parseDate(startDate, Instant.EPOCH);
-        Instant end = parseDate(endDate, Instant.now());
+        Instant end = parseEndDate(endDate, Instant.now());
 
         // Chỉ tính KPI "được giao trong thời gian đó" = KPI thuộc ĐỢT phủ [start,end]. Nếu chỉ định
         // đúng một đợt (periodId) thì dùng đợt đó; không thì lấy mọi đợt phủ khoảng (EPOCH..now = tất cả).
@@ -1701,7 +1738,7 @@ public class OrgUnitStatisticService {
     public Map<String, Object> compareOrgUnits(
             java.util.List<UUID> unitIds, String startDate, String endDate) {
         Instant start = parseDate(startDate, Instant.EPOCH);
-        Instant end = parseDate(endDate, Instant.now());
+        Instant end = parseEndDate(endDate, Instant.now());
         // Đợt phủ khoảng, resolve 1 lần (các đơn vị so sánh cùng tổ chức).
         UUID orgId = unitIds.isEmpty() ? null : orgUnitRepository.findById(unitIds.get(0))
                 .map(ou -> ou.getOrgHierarchyLevel().getOrganization().getId()).orElse(null);
