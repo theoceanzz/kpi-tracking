@@ -8,17 +8,23 @@ import com.kpitracking.entity.BscScorecardPerspective;
 import com.kpitracking.entity.Evaluation;
 import com.kpitracking.entity.EvaluationPerspectiveScore;
 import com.kpitracking.entity.KpiCriteria;
+import com.kpitracking.entity.User;
+import com.kpitracking.entity.UserRoleOrgUnit;
 import com.kpitracking.enums.BscEmptyPerspectivePolicy;
 import com.kpitracking.enums.BscScoringMode;
 import com.kpitracking.enums.KpiStatus;
+import com.kpitracking.exception.BusinessException;
 import com.kpitracking.exception.ResourceNotFoundException;
 import com.kpitracking.repository.BscPerspectiveRepository;
 import com.kpitracking.repository.BscScorecardRepository;
 import com.kpitracking.repository.EvaluationPerspectiveScoreRepository;
 import com.kpitracking.repository.KpiCriteriaRepository;
+import com.kpitracking.repository.UserRepository;
+import com.kpitracking.repository.UserRoleOrgUnitRepository;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Pageable;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -52,8 +58,14 @@ public class BscScoringService {
     private final KpiAchievementCalculator achievementCalculator;
     private final BscPerspectiveRepository perspectiveRepository;
     private final EvaluationPerspectiveScoreRepository perspectiveScoreRepository;
+    private final UserRepository userRepository;
+    private final UserRoleOrgUnitRepository userRoleOrgUnitRepository;
 
-    private static final List<KpiStatus> ACTIVE_STATUSES = Arrays.asList(
+    /**
+     * Trạng thái KPI được tính vào thẻ điểm/dashboard. CŨNG dùng bởi BscStrategyMapService
+     * để bản đồ chiến lược hiển thị đúng tập KPI mà dashboard chấm ⇒ số KPI hai nơi khớp nhau.
+     */
+    public static final List<KpiStatus> ACTIVE_STATUSES = Arrays.asList(
             KpiStatus.APPROVED, KpiStatus.EDITED, KpiStatus.EDIT, KpiStatus.INACTIVE);
 
     /** Kết quả điểm BSC của một nhân viên trong một kỳ. */
@@ -218,6 +230,13 @@ public class BscScoringService {
         BscScorecard scorecard = scorecardRepository.findById(scorecardId)
                 .orElseThrow(() -> new ResourceNotFoundException("Scorecard not found"));
 
+        // Chặn xem chéo tổ chức: BSC:VIEW chỉ cấp quyền loại, không ràng buộc scorecardId thuộc org nào.
+        UUID currentOrgId = currentUserOrgId();
+        if (currentOrgId != null && scorecard.getOrganization() != null
+                && !currentOrgId.equals(scorecard.getOrganization().getId())) {
+            throw new BusinessException("Thẻ điểm không thuộc tổ chức của bạn");
+        }
+
         UUID periodId = scorecard.getKpiPeriod().getId();
         List<KpiCriteria> kpis = kpiCriteriaRepository.findByKpiPeriodIdAndStatusIn(periodId, ACTIVE_STATUSES);
         boolean enableWaterfall = Boolean.TRUE.equals(scorecard.getOrganization().getEnableWaterfall());
@@ -286,5 +305,19 @@ public class BscScoringService {
      */
     private UUID effectivePerspectiveId(KpiCriteria kpi) {
         return com.kpitracking.util.BscPerspectiveResolver.effectivePerspectiveId(kpi);
+    }
+
+    /** Org của người dùng hiện tại (null nếu không xác định được — khi đó bỏ qua kiểm tra). */
+    private UUID currentUserOrgId() {
+        try {
+            String email = SecurityContextHolder.getContext().getAuthentication().getName();
+            User user = userRepository.findByEmail(email).orElse(null);
+            if (user == null) return null;
+            List<UserRoleOrgUnit> roles = userRoleOrgUnitRepository.findByUserId(user.getId());
+            if (roles.isEmpty()) return null;
+            return roles.get(0).getOrgUnit().getOrgHierarchyLevel().getOrganization().getId();
+        } catch (Exception e) {
+            return null;
+        }
     }
 }

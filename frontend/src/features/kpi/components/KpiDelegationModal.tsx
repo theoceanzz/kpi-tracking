@@ -1,7 +1,7 @@
 import { useMemo, useEffect, useState } from 'react'
 import { useForm, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { kpiSchema, type KpiFormData } from '../schemas/kpiSchema'
+import { kpiDelegationSchema, type KpiFormData } from '../schemas/kpiSchema'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { kpiApi } from '../api/kpiApi'
 import { useUsers } from '@/features/users/hooks/useUsers'
@@ -34,7 +34,7 @@ export default function KpiDelegationModal({ open, onClose, kpi }: KpiDelegation
   const { data: objectives } = useObjectives(enableOkr ? organizationId : undefined)
 
   const { handleSubmit, reset, watch, setValue, control } = useForm<KpiFormData>({
-    resolver: zodResolver(kpiSchema),
+    resolver: zodResolver(kpiDelegationSchema),
     defaultValues: {
       kpiType: kpi.kpiType ?? 'QUANTITATIVE',
       name: kpi.name,

@@ -123,12 +123,12 @@ export default function ScorecardFormModal({ isOpen, onClose, organizationId, sc
         <div className="p-6 space-y-5 overflow-y-auto custom-scrollbar">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-1.5">
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Tên thẻ điểm</label>
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Tên thẻ điểm <span className="text-red-500">*</span></label>
               <input value={name} onChange={e => setName(e.target.value)} placeholder="VD: Chiến lược Quý 3/2026"
                 className="w-full px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 text-sm font-bold focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 outline-none transition-all" />
             </div>
             <div className="space-y-1.5">
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Kỳ áp dụng</label>
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Kỳ áp dụng <span className="text-red-500">*</span></label>
               <Select value={periodId} onValueChange={setPeriodId} disabled={!!scorecard}>
                 <SelectTrigger className="w-full h-10 rounded-xl bg-slate-50 dark:bg-slate-800 border-slate-100 dark:border-slate-700 text-sm font-bold outline-none">
                   <SelectValue placeholder="Chọn kỳ" />

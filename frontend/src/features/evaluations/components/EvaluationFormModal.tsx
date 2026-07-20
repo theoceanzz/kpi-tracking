@@ -188,7 +188,7 @@ export default function EvaluationFormModal({ open, onClose, readOnly = false, i
                 {/* Period Selection */}
                 <div className="space-y-4">
                    <label className="flex items-center gap-2 text-xs font-black text-slate-400 uppercase tracking-widest">
-                      <Target size={14} /> Chọn đợt đánh giá
+                      <Target size={14} /> Chọn đợt đánh giá <span className="text-red-500">*</span>
                    </label>
                    <select 
                     {...register('kpiPeriodId')} 

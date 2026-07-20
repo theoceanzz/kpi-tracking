@@ -398,14 +398,16 @@ function ReplaceTab({ kpiList, orgUnitId, period, enableOkr, enableQualitative, 
           {!isQual && (
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className={labelCls}>Mục tiêu đạt được</label>
+              <label className={labelCls}>Mục tiêu đạt được <span className="text-red-500">*</span></label>
               <input type="number" step="any" onWheel={e => (e.target as HTMLInputElement).blur()}
-                {...register('targetValue')} placeholder="1000" className={inputCls} />
+                {...register('targetValue', { validate: (v, fv) => fv.kpiType === 'QUALITATIVE' || String(v ?? '').trim() !== '' || 'Vui lòng nhập mục tiêu đạt được' })}
+                placeholder="1000" className={cn(inputCls, errors.targetValue && 'ring-2 ring-red-500')} />
             </div>
             <div>
-              <label className={labelCls}>Mục tiêu tối thiểu</label>
+              <label className={labelCls}>Mục tiêu tối thiểu <span className="text-red-500">*</span></label>
               <input type="number" step="any" onWheel={e => (e.target as HTMLInputElement).blur()}
-                {...register('minimumValue')} placeholder="800" className={inputCls} />
+                {...register('minimumValue', { validate: (v, fv) => fv.kpiType === 'QUALITATIVE' || String(v ?? '').trim() !== '' || 'Vui lòng nhập mục tiêu tối thiểu' })}
+                placeholder="800" className={cn(inputCls, errors.minimumValue && 'ring-2 ring-red-500')} />
             </div>
           </div>
           )}
@@ -426,8 +428,9 @@ function ReplaceTab({ kpiList, orgUnitId, period, enableOkr, enableQualitative, 
             </div>
             {!isQual && (
             <div>
-              <label className={labelCls}>Đơn vị tính</label>
-              <input {...register('unit')} placeholder="VNĐ, %, KPI..." className={inputCls} />
+              <label className={labelCls}>Đơn vị tính <span className="text-red-500">*</span></label>
+              <input {...register('unit', { validate: (v, fv) => fv.kpiType === 'QUALITATIVE' || String(v ?? '').trim() !== '' || 'Vui lòng nhập đơn vị tính' })}
+                placeholder="VNĐ, %, KPI..." className={cn(inputCls, errors.unit && 'ring-2 ring-red-500')} />
             </div>
             )}
           </div>
@@ -700,14 +703,16 @@ function AdjustTab({ kpiList, kpiPeriodId, orgUnitId, period, enableOkr, enableQ
           {!isQual && (
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className={labelCls}>Mục tiêu đạt được</label>
+              <label className={labelCls}>Mục tiêu đạt được <span className="text-red-500">*</span></label>
               <input type="number" step="any" onWheel={e => (e.target as HTMLInputElement).blur()}
-                {...register('newTargetValue')} placeholder="1000" className={inputCls} />
+                {...register('newTargetValue', { validate: (v, fv) => fv.newKpiType === 'QUALITATIVE' || String(v ?? '').trim() !== '' || 'Vui lòng nhập mục tiêu đạt được' })}
+                placeholder="1000" className={cn(inputCls, errors.newTargetValue && 'ring-2 ring-red-500')} />
             </div>
             <div>
-              <label className={labelCls}>Mục tiêu tối thiểu</label>
+              <label className={labelCls}>Mục tiêu tối thiểu <span className="text-red-500">*</span></label>
               <input type="number" step="any" onWheel={e => (e.target as HTMLInputElement).blur()}
-                {...register('newMinimumValue')} placeholder="800" className={inputCls} />
+                {...register('newMinimumValue', { validate: (v, fv) => fv.newKpiType === 'QUALITATIVE' || String(v ?? '').trim() !== '' || 'Vui lòng nhập mục tiêu tối thiểu' })}
+                placeholder="800" className={cn(inputCls, errors.newMinimumValue && 'ring-2 ring-red-500')} />
             </div>
           </div>
           )}
@@ -717,12 +722,14 @@ function AdjustTab({ kpiList, kpiPeriodId, orgUnitId, period, enableOkr, enableQ
               <label className={labelCls}>Trọng số (%) <span className="text-red-500">*</span></label>
               <input type="number" step="0.1" min="0" max="100"
                 onWheel={e => (e.target as HTMLInputElement).blur()}
-                {...register('newWeight')} placeholder="20" className={inputCls} />
+                {...register('newWeight', { validate: v => parseFloat(String(v)) > 0 || 'Vui lòng nhập trọng số lớn hơn 0' })}
+                placeholder="20" className={cn(inputCls, errors.newWeight && 'ring-2 ring-red-500')} />
             </div>
             {!isQual && (
             <div>
-              <label className={labelCls}>Đơn vị tính</label>
-              <input {...register('newUnit')} placeholder="VNĐ, %, KPI..." className={inputCls} />
+              <label className={labelCls}>Đơn vị tính <span className="text-red-500">*</span></label>
+              <input {...register('newUnit', { validate: (v, fv) => fv.newKpiType === 'QUALITATIVE' || String(v ?? '').trim() !== '' || 'Vui lòng nhập đơn vị tính' })}
+                placeholder="VNĐ, %, KPI..." className={cn(inputCls, errors.newUnit && 'ring-2 ring-red-500')} />
             </div>
             )}
           </div>

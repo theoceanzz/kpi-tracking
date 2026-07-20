@@ -163,7 +163,7 @@ export default function ObjectiveFormModal({ isOpen, onClose, organizationId, ob
           <div className="p-6 space-y-4 overflow-y-auto custom-scrollbar relative z-10">
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div className="sm:col-span-2 space-y-1.5">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Tên mục tiêu</label>
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Tên mục tiêu <span className="text-red-500">*</span></label>
                 <input
                   {...register('name', { required: 'Vui lòng nhập tên mục tiêu' })}
                   placeholder="VD: Mở rộng thị trường..."
@@ -173,7 +173,7 @@ export default function ObjectiveFormModal({ isOpen, onClose, organizationId, ob
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Mã</label>
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Mã <span className="text-red-500">*</span></label>
                 <input
                   {...register('code', { required: 'Vui lòng nhập mã' })}
                   placeholder="OBJ001"
@@ -195,7 +195,7 @@ export default function ObjectiveFormModal({ isOpen, onClose, organizationId, ob
 
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1.5">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Ngày bắt đầu</label>
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Ngày bắt đầu <span className="text-red-500">*</span></label>
                 <div className="relative">
                   <input
                     type="date"
@@ -209,7 +209,7 @@ export default function ObjectiveFormModal({ isOpen, onClose, organizationId, ob
                 {errors.startDate && <p className="text-[10px] font-bold text-red-500 ml-1">{errors.startDate.message}</p>}
               </div>
               <div className="space-y-1.5">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Ngày kết thúc</label>
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Ngày kết thúc <span className="text-red-500">*</span></label>
                 <div className="relative">
                   <input
                     type="date"

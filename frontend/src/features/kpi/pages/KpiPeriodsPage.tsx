@@ -641,7 +641,7 @@ function PeriodFormModal({ onClose, editPeriod, organizationId, onSubmit, isSubm
 
           <form onSubmit={handleSubmit} className="space-y-6">
             <div className="space-y-2">
-              <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 ml-1">Tên đợt KPI</label>
+              <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 ml-1">Tên đợt KPI <span className="text-red-500">*</span></label>
               <input 
                 value={formData.name}
                 onChange={e => handleFieldChange('name', e.target.value)}
@@ -652,7 +652,7 @@ function PeriodFormModal({ onClose, editPeriod, organizationId, onSubmit, isSubm
             </div>
 
             <div className="space-y-2">
-              <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 ml-1">Loại chu kỳ</label>
+              <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 ml-1">Loại chu kỳ <span className="text-red-500">*</span></label>
               <Select value={formData.periodType} onValueChange={val => handleFieldChange('periodType', val)}>
                 <SelectTrigger className="w-full px-5 h-[56px] rounded-[20px] border border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50 text-sm font-bold shadow-sm focus:ring-4 focus:ring-indigo-500/10">
                   <SelectValue placeholder="Chọn loại chu kỳ" />
@@ -669,7 +669,7 @@ function PeriodFormModal({ onClose, editPeriod, organizationId, onSubmit, isSubm
 
             <div className="space-y-6">
               <div className="space-y-2">
-                <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 ml-1">Bắt đầu</label>
+                <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 ml-1">Bắt đầu <span className="text-red-500">*</span></label>
                 {/* Mobile */}
                 <div className="sm:hidden">
                   <DateTimePicker value={formData.startDate} onChange={val => handleFieldChange('startDate', val)} />
@@ -684,7 +684,7 @@ function PeriodFormModal({ onClose, editPeriod, organizationId, onSubmit, isSubm
               </div>
 
               <div className="space-y-2">
-                <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 ml-1">Kết thúc</label>
+                <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 ml-1">Kết thúc <span className="text-red-500">*</span></label>
                 {/* Mobile */}
                 <div className="sm:hidden">
                   <DateTimePicker value={formData.endDate} onChange={val => handleFieldChange('endDate', val)} />

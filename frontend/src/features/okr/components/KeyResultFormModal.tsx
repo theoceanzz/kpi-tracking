@@ -114,7 +114,7 @@ export default function KeyResultFormModal({ isOpen, onClose, objective, keyResu
           <div className="p-8 space-y-6 overflow-y-auto custom-scrollbar">
             <div className="space-y-4">
               <div className="space-y-1.5">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Tên kết quả then chốt</label>
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Tên kết quả then chốt <span className="text-red-500">*</span></label>
                 <input
                   {...register('name', { required: 'Vui lòng nhập tên KR' })}
                   placeholder="VD: Đạt 1 tỷ doanh số miền Nam"
@@ -124,7 +124,7 @@ export default function KeyResultFormModal({ isOpen, onClose, objective, keyResu
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Mã kết quả then chốt</label>
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Mã kết quả then chốt <span className="text-red-500">*</span></label>
                 <input
                   {...register('code', { required: 'Vui lòng nhập mã KR' })}
                   placeholder="VD: KR001"
@@ -162,7 +162,7 @@ export default function KeyResultFormModal({ isOpen, onClose, objective, keyResu
                   />
                 </div>
                 <div className="space-y-1.5 col-span-1">
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Mục tiêu</label>
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Mục tiêu <span className="text-red-500">*</span></label>
                   <input
                     type="number"
                     {...register('targetValue', { required: true, valueAsNumber: true })}

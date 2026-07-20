@@ -93,7 +93,7 @@ export default function PerspectiveFormModal({ isOpen, onClose, organizationId, 
           <div className="p-6 space-y-4 overflow-y-auto custom-scrollbar">
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div className="sm:col-span-2 space-y-1.5">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Tên viễn cảnh</label>
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Tên viễn cảnh <span className="text-red-500">*</span></label>
                 <input
                   {...register('name', { required: 'Vui lòng nhập tên viễn cảnh' })}
                   placeholder="VD: Tài chính"
@@ -102,7 +102,7 @@ export default function PerspectiveFormModal({ isOpen, onClose, organizationId, 
                 {errors.name && <p className="text-[10px] font-bold text-red-500 ml-1">{errors.name.message}</p>}
               </div>
               <div className="space-y-1.5">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Mã</label>
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Mã <span className="text-red-500">*</span></label>
                 <input
                   {...register('code', {
                     required: 'Vui lòng nhập mã',
@@ -138,7 +138,7 @@ export default function PerspectiveFormModal({ isOpen, onClose, organizationId, 
 
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1.5">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Thứ tự hiển thị</label>
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Thứ tự hiển thị <span className="text-red-500">*</span></label>
                 <input
                   type="number"
                   min={0}
@@ -181,7 +181,7 @@ export default function PerspectiveFormModal({ isOpen, onClose, organizationId, 
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Màu sắc</label>
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Màu sắc <span className="text-red-500">*</span></label>
               <input
                 type="hidden"
                 {...register('color', {

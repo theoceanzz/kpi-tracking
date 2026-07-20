@@ -577,7 +577,7 @@ export default function KpiFormModal({ open, onClose, editKpi, parentKpi, parent
               {!isQualitative && (
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-[11px] font-black text-[var(--color-muted-foreground)] uppercase tracking-widest mb-1.5">Mục tiêu đạt được</label>
+                  <label className="block text-[11px] font-black text-[var(--color-muted-foreground)] uppercase tracking-widest mb-1.5">Mục tiêu đạt được <span className="text-red-500">*</span></label>
                   <input
                     {...register('targetValue', { setValueAs: numOrUndef })}
                     type="number"
@@ -589,7 +589,7 @@ export default function KpiFormModal({ open, onClose, editKpi, parentKpi, parent
                   {errors.targetValue && <p className="text-red-500 text-[10px] mt-1 font-bold">{errors.targetValue.message}</p>}
                 </div>
                 <div>
-                  <label className="block text-[11px] font-black text-[var(--color-muted-foreground)] uppercase tracking-widest mb-1.5">Mục tiêu tối thiểu</label>
+                  <label className="block text-[11px] font-black text-[var(--color-muted-foreground)] uppercase tracking-widest mb-1.5">Mục tiêu tối thiểu <span className="text-red-500">*</span></label>
                   <input
                     {...register('minimumValue', { setValueAs: numOrUndef })}
                     type="number"
@@ -611,7 +611,7 @@ export default function KpiFormModal({ open, onClose, editKpi, parentKpi, parent
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-[11px] font-black text-[var(--color-muted-foreground)] uppercase tracking-widest mb-1.5">Trọng số (%)</label>
+                  <label className="block text-[11px] font-black text-[var(--color-muted-foreground)] uppercase tracking-widest mb-1.5">Trọng số (%) <span className="text-red-500">*</span></label>
                   <input
                     {...register('weight', { setValueAs: numOrUndef })}
                     type="number"
@@ -631,12 +631,13 @@ export default function KpiFormModal({ open, onClose, editKpi, parentKpi, parent
                 </div>
                 {!isQualitative && (
                 <div>
-                  <label className="block text-[11px] font-black text-[var(--color-muted-foreground)] uppercase tracking-widest mb-1.5">Đơn vị tính</label>
+                  <label className="block text-[11px] font-black text-[var(--color-muted-foreground)] uppercase tracking-widest mb-1.5">Đơn vị tính <span className="text-red-500">*</span></label>
                   <input
                     {...register('unit')}
                     className={inputCls}
                     placeholder="VNĐ, %, KPI..."
                   />
+                  {errors.unit && <p className="text-red-500 text-[10px] mt-1 font-bold">{errors.unit.message}</p>}
                 </div>
                 )}
               </div>
@@ -932,7 +933,7 @@ export default function KpiFormModal({ open, onClose, editKpi, parentKpi, parent
               {errors.kpiPeriodId && <p className="text-red-500 text-[10px] mt-1 font-bold">{errors.kpiPeriodId.message}</p>}
             </div>
             <div>
-              <label className="block text-sm font-bold mb-1.5">Tần suất chốt</label>
+              <label className="block text-sm font-bold mb-1.5">Tần suất chốt <span className="text-red-500">*</span></label>
               <Controller name="frequency" control={control}
                 render={({ field }) => (
                   <Select value={field.value || ''} onValueChange={field.onChange}>
