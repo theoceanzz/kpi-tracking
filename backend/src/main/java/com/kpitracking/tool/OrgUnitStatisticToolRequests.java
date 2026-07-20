@@ -203,6 +203,7 @@ public final class OrgUnitStatisticToolRequests {
     @JsonInclude(JsonInclude.Include.NON_NULL)
     public record GetSubmissionHistoryRequest(
             @JsonProperty(required = false) String kpiId,
+            @JsonProperty(required = false) String kpiName,      // tên KPI: gom bài nộp của MỌI bản cùng tên (vd KPI lặp theo tuần)
             @JsonProperty(required = false) String userId,
             @JsonProperty(required = false) String status,       // PENDING | APPROVED | REJECTED | DRAFT
             @JsonProperty(required = false) String startDate,

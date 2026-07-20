@@ -282,6 +282,24 @@ public class OrgUnitStatisticTool {
         }
     }
 
+    /** Bản boolean của validateKpiAccess — để LỌC (không ném lỗi) khi gom nhiều KPI cùng tên. */
+    private boolean hasKpiAccess(UUID kpiId, ToolContext context) {
+        String contextPath = getContextPath(context);
+        if (contextPath == null) return true;
+        KpiCriteria kpi = kpiCriteriaRepository.findById(kpiId).orElse(null);
+        return kpi != null && kpi.getOrgUnit() != null && kpi.getOrgUnit().getPath() != null
+                && kpi.getOrgUnit().getPath().startsWith(contextPath);
+    }
+
+    /** Các KPI khớp TÊN trong tổ chức, ưu tiên khớp CHÍNH XÁC (gom mọi bản cùng tên, vd theo tuần). */
+    private List<Map<String, Object>> kpiMatchPool(String name, UUID orgId) {
+        List<Map<String, Object>> matches = orgUnitStatisticService.searchKpis(orgId, name.trim(), 50);
+        List<Map<String, Object>> exact = matches.stream()
+                .filter(m -> name.trim().equalsIgnoreCase(String.valueOf(m.get("name"))))
+                .collect(java.util.stream.Collectors.toList());
+        return !exact.isEmpty() ? exact : matches;
+    }
+
     // ── disambiguation helpers ───────────────────────────────────────────────
 
     private String getConversationId(ToolContext context) {
@@ -768,16 +786,36 @@ public class OrgUnitStatisticTool {
 
     // ── get_submission_history ────────────────────────────────────────────────
 
-    @Tool(name = "get_submission_history", description = "List individual submissions for a KPI (timeline/trace). Filters: userId (one assignee), status (PENDING|APPROVED|REJECTED|DRAFT), date range, limit. Returns submissions sorted by createdAt: submittedBy, actualValue, status, reviewedBy, reviewNote.")
+    @Tool(name = "get_submission_history", description = "List individual submissions for a KPI (timeline/trace). PREFER passing kpiName: a recurring KPI (e.g. weekly) has MANY instances with the SAME name, so kpiName aggregates submissions across ALL of them (no need to pick one instance / no search_kpis first); each row shows periodName. kpiId (UUID) also accepted for one exact instance. Filters: userId (one assignee), status (PENDING|APPROVED|REJECTED|DRAFT), date range, limit. Rows sorted by createdAt desc: kpiName, periodName, submittedBy, actualValue, status, reviewedBy, reviewNote.")
     public String getSubmissionHistory(OrgUnitStatisticToolRequests.GetSubmissionHistoryRequest request, ToolContext context) {
         try {
-            UUID kpiId = parseId(request.kpiId(), "KPI (kpiId)", "search_kpis");
-            guardDisambiguation("kpi", kpiId, "KPI");
-            validateKpiAccess(kpiId, context);
-            if (request.userId() != null && !request.userId().isBlank())
+            // Gom theo TÊN: KPI lặp theo tuần trùng tên -> lấy MỌI bản (trong phạm vi) rồi gộp bài nộp,
+            // để không phụ thuộc việc model chọn đúng một bản. kpiId (nếu có) vẫn cho phép nhắm 1 bản.
+            List<UUID> kpiIds = new ArrayList<>();
+            if (notBlank(request.kpiId())) {
+                UUID id = parseId(request.kpiId(), "KPI (kpiId)", "search_kpis");
+                guardDisambiguation("kpi", id, "KPI");
+                validateKpiAccess(id, context);
+                kpiIds.add(id);
+            } else if (notBlank(request.kpiName())) {
+                for (Map<String, Object> m : kpiMatchPool(request.kpiName(), getOrgId(context))) {
+                    UUID id = UUID.fromString(String.valueOf(m.get("id")));
+                    if (hasKpiAccess(id, context)) kpiIds.add(id);
+                }
+                if (kpiIds.isEmpty()) {
+                    Map<String, Object> empty = new LinkedHashMap<>();
+                    empty.put("total", 0);
+                    empty.put("submissions", List.of());
+                    empty.put("message", "Không tìm thấy KPI tên '" + request.kpiName().trim() + "' trong phạm vi của bạn.");
+                    return respond(context, "get_submission_history", empty);
+                }
+            } else {
+                throw new IllegalArgumentException("Cần kpiId hoặc kpiName để xem lịch sử nộp.");
+            }
+            if (notBlank(request.userId()))
                 parseId(request.userId(), "người dùng (userId)", "search_users");
             Map<String, Object> response = orgUnitStatisticService.getSubmissionHistory(
-                    kpiId, request.userId(), request.status(),
+                    kpiIds, request.userId(), request.status(),
                     request.startDate(), request.endDate(),
                     request.limit() != null ? request.limit() : 20);
             return respond(context, "get_submission_history", response);
@@ -807,7 +845,7 @@ public class OrgUnitStatisticTool {
 
     // ── get_non_submitters ────────────────────────────────────────────────────
 
-    @Tool(name = "get_non_submitters", description = "Assignees with KPIs but who have NOT submitted within the period/date range. Use for accountability: 'who hasn\\'t submitted', 'who is late'. Pass unitName to target a unit by name; defaults to your CURRENT unit. Returns fullName, email, missingKpiCount sorted by missing count desc (no IDs; use search_users for UUID).")
+    @Tool(name = "get_non_submitters", description = "Assignees who have NOT submitted, counting ONLY KPIs whose PERIOD overlaps the date range (KPIs due in that window; earlier-period KPIs are NOT counted). Pass startDate/endDate for a window, or periodId for one exact period; omit both = all periods. Use for accountability: 'who hasn\\'t submitted', 'who is late'. Pass unitName to target a unit by name; defaults to your CURRENT unit. Returns fullName, email, missingKpiCount sorted by missing count desc (no IDs; use search_users for UUID). Response also carries appliedPeriods (the exact period(s) counted, with dates) or appliedScope - STATE this timeframe in your answer so a wrong relative-date guess (e.g. wrong week) is visible.")
     public String getNonSubmitters(OrgUnitStatisticToolRequests.GetNonSubmittersRequest request, ToolContext context) {
         try {
             UnitRef u = resolveUnit(request.unitId(), request.unitName(), context);

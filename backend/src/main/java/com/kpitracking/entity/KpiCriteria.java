@@ -157,6 +157,14 @@ public class KpiCriteria {
     private Instant deletedAt;
 
     public Instant getEffectiveDeadline() {
-        return deadline != null ? deadline : (kpiPeriod != null ? kpiPeriod.getEndDate() : null);
+        if (deadline != null) return deadline;
+        if (kpiPeriod == null) return null;
+        try {
+            // kpiPeriod là proxy KHÁC null; nếu đợt đã bị xoá mềm (@SQLRestriction lọc mất row) thì
+            // nạp proxy sẽ ném EntityNotFoundException -> coi như KPI không có deadline hiệu lực.
+            return kpiPeriod.getEndDate();
+        } catch (jakarta.persistence.EntityNotFoundException e) {
+            return null;
+        }
     }
 }

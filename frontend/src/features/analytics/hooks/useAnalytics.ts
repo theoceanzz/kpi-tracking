@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { statsApi } from '@/features/dashboard/api/statsApi'
+import { bscAnalyticsApi, type BscScopeParams } from '../api/bscAnalyticsApi'
 
 export function useMyAnalytics(from?: string, to?: string, periodId?: string, periodIdTo?: string) {
   return useQuery({
@@ -58,6 +59,48 @@ export function useSummaryRankings(orgUnitId?: string, rankingUnitId?: string, f
   return useQuery({
     queryKey: ['analytics', 'summary', 'rankings', orgUnitId, rankingUnitId, from, to, onlyApproved, periodId, page, size, sortBy, sortDir, periodIdTo],
     queryFn: () => statsApi.getSummaryRankings(orgUnitId, rankingUnitId, from, to, onlyApproved, periodId, page, size, sortBy, sortDir, periodIdTo),
+    placeholderData: (previousData) => previousData,
+  })
+}
+
+// ── BSC (Viễn cảnh) — tab "Viễn cảnh (BSC)" ─────────────────────────────────
+
+export function useBscBalance(params: BscScopeParams) {
+  return useQuery({
+    queryKey: ['analytics', 'bsc', 'balance', params],
+    queryFn: () => bscAnalyticsApi.getBalance(params),
+    placeholderData: (previousData) => previousData,
+  })
+}
+
+export function useBscTrend(params: BscScopeParams & { groupBy?: string }) {
+  return useQuery({
+    queryKey: ['analytics', 'bsc', 'trend', params],
+    queryFn: () => bscAnalyticsApi.getTrend(params),
+    placeholderData: (previousData) => previousData,
+  })
+}
+
+export function useBscUnitComparison(params: BscScopeParams) {
+  return useQuery({
+    queryKey: ['analytics', 'bsc', 'unit-comparison', params],
+    queryFn: () => bscAnalyticsApi.getUnitComparison(params),
+    placeholderData: (previousData) => previousData,
+  })
+}
+
+export function useBscVsSystem(params: BscScopeParams & { level?: string }) {
+  return useQuery({
+    queryKey: ['analytics', 'bsc', 'bsc-vs-system', params],
+    queryFn: () => bscAnalyticsApi.getBscVsSystem(params),
+    placeholderData: (previousData) => previousData,
+  })
+}
+
+export function useBscRankings(params: BscScopeParams & { sortBy?: string; sortDir?: string; page?: number; size?: number }) {
+  return useQuery({
+    queryKey: ['analytics', 'bsc', 'rankings', params],
+    queryFn: () => bscAnalyticsApi.getRankings(params),
     placeholderData: (previousData) => previousData,
   })
 }
