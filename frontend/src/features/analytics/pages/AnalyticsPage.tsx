@@ -2,12 +2,13 @@ import { useState, useEffect } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { useHasPermission } from '@/components/auth/PermissionGate'
 import { cn } from '@/lib/utils'
-import { TrendingUp, Building2, LayoutDashboard, Users, Target } from 'lucide-react'
+import { TrendingUp, Building2, LayoutDashboard, Users, Target, Gauge } from 'lucide-react'
 import MyStatsTab from './MyStatsTab'
 import DrillDownTab from './DrillDownTab'
 import DetailTableTab from './DetailTableTab'
 import SummaryTab from './SummaryTab'
 import MyObjectivesTab from './MyObjectivesTab'
+import BscAnalyticsTab from './BscAnalyticsTab'
 import PageTour from '@/components/common/PageTour'
 import { analyticsSteps } from '@/components/common/tourSteps'
 import SubordinateManagementTab from './SubordinateManagementTab'
@@ -16,7 +17,7 @@ import { useOrganization } from '@/features/orgunits/hooks/useOrganization'
 import { useSidebarSettings } from '@/features/organization/hooks/useSidebarSettings'
 import AnalyticsTabSkeleton from '@/components/common/AnalyticsTabSkeleton'
 
-type TabKey = 'my-objectives' | 'my' | 'summary' | 'drilldown' | 'detail' | 'subordinate'
+type TabKey = 'my-objectives' | 'my' | 'summary' | 'drilldown' | 'detail' | 'subordinate' | 'bsc'
 
 export default function AnalyticsPage() {
   const { user } = useAuthStore()
@@ -33,6 +34,8 @@ export default function AnalyticsPage() {
     .join(' ')
   const { data: org, isLoading: loadingOrg } = useOrganization(organizationId)
   const isOkr = org?.enableOkr ?? false
+  const isBsc = org?.enableBsc ?? false
+  const canBsc = hasPermission(['BSC:VIEW'])
 
   const tabs: { key: TabKey; label: string; icon: any; visible: boolean }[] = [
     { key: 'my-objectives', label: 'Mục tiêu của tôi', icon: Target, visible: isOkr },
@@ -40,6 +43,7 @@ export default function AnalyticsPage() {
     { key: 'my', label: 'KPI của tôi', icon: TrendingUp, visible: !isOkr },
     { key: 'summary', label: 'KPI đơn vị', icon: LayoutDashboard, visible: !isOkr && canSummary },
     { key: 'drilldown', label: 'Phân cấp', icon: Building2, visible: true },
+    { key: 'bsc', label: 'Viễn cảnh (BSC)', icon: Gauge, visible: isBsc && canBsc },
   ]
 
   const visibleTabs = tabs.filter(t => t.visible)
@@ -126,6 +130,7 @@ export default function AnalyticsPage() {
         {activeTab === 'summary' && canSummary && <SummaryTab />}
         {activeTab === 'drilldown' && <DrillDownTab />}
         {activeTab === 'subordinate' && canDrillDown && <SubordinateManagementTab />}
+        {activeTab === 'bsc' && isBsc && canBsc && <BscAnalyticsTab />}
         {activeTab === 'detail' && canDetailTable && <DetailTableTab />}
       </div>
     </div>
