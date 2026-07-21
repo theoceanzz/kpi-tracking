@@ -155,13 +155,13 @@ public class EvaluationService {
                     evaluatedUser.getId(), kpiPeriod.getId(), org.getId(),
                     Boolean.TRUE.equals(org.getEnableWaterfall()));
             boolean isOfficial = bscResult != null
-                    && bscScoringService.getScoringMode(org.getId(), kpiPeriod.getId()) == com.kpitracking.enums.BscScoringMode.OFFICIAL;
+                    && bscResult.getScoringMode() == com.kpitracking.enums.BscScoringMode.OFFICIAL;
 
             // Khi kỳ đã chạy CHÍNH THỨC, bsc_score là điểm thật ⇒ dữ liệu phải đủ:
-            // còn KPI chưa gán viễn cảnh thì chặn chốt điểm. Ở SHADOW chỉ cảnh báo (preview), không chặn.
+            // còn KPI chưa gán hạng mục thì chặn chốt điểm. Ở SHADOW chỉ cảnh báo (preview), không chặn.
             if (isOfficial && bscResult.getUnassignedKpiCount() > 0) {
                 throw new BusinessException("Không thể chốt đánh giá: còn "
-                        + bscResult.getUnassignedKpiCount() + " chỉ tiêu chưa gán viễn cảnh BSC ("
+                        + bscResult.getUnassignedKpiCount() + " chỉ tiêu chưa gán hạng mục BSC ("
                         + String.join(", ", bscResult.getUnassignedKpiNames()) + ")");
             }
 
@@ -233,7 +233,7 @@ public class EvaluationService {
             var bsc = bscScoringService.computeForUser(targetUserId, kpiPeriodId, org.getId(),
                     Boolean.TRUE.equals(org.getEnableWaterfall()));
             if (bsc != null) {
-                var mode = bscScoringService.getScoringMode(org.getId(), kpiPeriodId);
+                var mode = bsc.getScoringMode();
                 builder.bscScore(bsc.getBscScore())
                         .bscScoringMode(mode)
                         .bscPerspectives(bsc.getPerspectives())
@@ -632,7 +632,7 @@ public class EvaluationService {
         response.setBscScore(evaluation.getBscScore());
         if (evaluation.getBscScore() != null) {
             java.util.UUID orgId = evaluation.getOrgUnit().getOrgHierarchyLevel().getOrganization().getId();
-            var mode = bscScoringService.getScoringMode(orgId, evaluation.getKpiPeriod().getId());
+            var mode = bscScoringService.getScoringMode(evaluation.getOrgUnit(), orgId, evaluation.getKpiPeriod().getId());
             response.setBscScoringMode(mode);
             response.setBscPerspectives(bscScoringService.getBreakdown(evaluation.getId()));
             response.setOfficialScore(

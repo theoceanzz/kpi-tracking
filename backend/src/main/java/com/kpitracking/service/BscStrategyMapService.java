@@ -30,6 +30,7 @@ public class BscStrategyMapService {
     private final KpiCriteriaRepository kpiCriteriaRepository;
     private final BscObjectiveRelationRepository relationRepository;
     private final OrganizationRepository organizationRepository;
+    private final BscFixedPerspectiveRepository fixedPerspectiveRepository;
 
     // ── Strategy map ──────────────────────────────────────────────────────────
 
@@ -37,6 +38,12 @@ public class BscStrategyMapService {
     public StrategyMapResponse getStrategyMap(UUID organizationId) {
         List<BscPerspective> perspectives = perspectiveRepository.findByOrganizationIdOrderByDisplayOrderAsc(organizationId);
         List<Objective> objectives = objectiveRepository.findByOrganizationId(organizationId);
+
+        // Tên/màu viễn cảnh cố định tùy chỉnh theo org (fallback enum) để bản đồ khớp dashboard.
+        Map<String, BscFixedPerspectiveEntity> orgFixed = new HashMap<>();
+        for (BscFixedPerspectiveEntity f : fixedPerspectiveRepository.findByOrganizationIdOrderByDisplayOrderAsc(organizationId)) {
+            orgFixed.put(f.getCode(), f);
+        }
 
         // Gom Objective theo viễn cảnh (bỏ mục tiêu đã huỷ — không còn thuộc chiến lược đang chạy)
         Map<UUID, List<Objective>> objByPerspective = new HashMap<>();
@@ -51,9 +58,14 @@ public class BscStrategyMapService {
             List<StrategyMapResponse.ObjectiveNode> objNodes = objByPerspective.getOrDefault(p.getId(), List.of()).stream()
                     .map(o -> mapObjectiveNode(o, p.getId()))
                     .collect(Collectors.toList());
+            var fixed = p.getFixedPerspective();
+            BscFixedPerspectiveEntity fixedRow = fixed != null ? orgFixed.get(fixed.name()) : null;
             lanes.add(StrategyMapResponse.PerspectiveLane.builder()
                     .perspectiveId(p.getId()).code(p.getCode()).name(p.getName())
                     .color(p.getColor()).displayOrder(p.getDisplayOrder())
+                    .fixedPerspective(fixed != null ? fixed.name() : null)
+                    .fixedPerspectiveName(fixed != null ? (fixedRow != null ? fixedRow.getName() : fixed.getDisplayName()) : null)
+                    .fixedPerspectiveColor(fixed != null ? (fixedRow != null ? fixedRow.getColor() : fixed.getColor()) : null)
                     .objectives(objNodes)
                     .build());
         }

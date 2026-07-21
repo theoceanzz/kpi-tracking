@@ -124,7 +124,7 @@ export default function BscAnalyticsTab() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div className="flex items-center gap-3">
           <h2 className="text-xl font-black text-slate-900 dark:text-white flex items-center gap-2">
-            <Gauge className="text-indigo-600" size={22} /> Thống kê theo viễn cảnh (BSC)
+            <Gauge className="text-indigo-600" size={22} /> Thống kê theo hạng mục (BSC)
           </h2>
           <ScoringModeBadge mode={balance?.scoringMode} />
         </div>
@@ -136,7 +136,7 @@ export default function BscAnalyticsTab() {
           <div className="flex items-center gap-2 text-slate-500">
             <div className="p-2 rounded-lg bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400"><Filter size={18} /></div>
             <div>
-              <p className="font-bold text-slate-900 dark:text-white text-base">Bộ lọc viễn cảnh</p>
+              <p className="font-bold text-slate-900 dark:text-white text-base">Bộ lọc hạng mục</p>
               <p className="text-xs text-slate-500 font-medium mt-0.5">Điểm lấy từ đánh giá đã lưu, đồng bộ mọi biểu đồ bên dưới</p>
             </div>
           </div>
@@ -164,7 +164,7 @@ export default function BscAnalyticsTab() {
         <Card>
           <EmptyState>
             Chưa có dữ liệu BSC cho phạm vi/kỳ đang chọn.<br />
-            Hãy tạo thẻ điểm cho kỳ và thực hiện đánh giá để sinh điểm viễn cảnh.
+            Hãy tạo thẻ điểm cho kỳ và thực hiện đánh giá để sinh điểm hạng mục.
           </EmptyState>
         </Card>
       )}
@@ -182,7 +182,7 @@ export default function BscAnalyticsTab() {
         <div className="bg-white dark:bg-slate-900 rounded-2xl p-5 border border-slate-200 dark:border-slate-800 flex items-center gap-4">
           <div className="w-12 h-12 rounded-full bg-emerald-100 dark:bg-emerald-900/40 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0"><Award size={24} /></div>
           <div className="min-w-0">
-            <p className="text-xs font-bold text-slate-500">Viễn cảnh mạnh nhất</p>
+            <p className="text-xs font-bold text-slate-500">Hạng mục mạnh nhất</p>
             <p className="text-sm font-black text-slate-900 dark:text-white truncate">{balance?.strongestPerspective ?? '—'}</p>
             <p className="text-[11px] font-black text-emerald-600">{fmt(balance?.strongestScore)}%</p>
           </div>
@@ -190,7 +190,7 @@ export default function BscAnalyticsTab() {
         <div className="bg-white dark:bg-slate-900 rounded-2xl p-5 border border-slate-200 dark:border-slate-800 flex items-center gap-4">
           <div className="w-12 h-12 rounded-full bg-rose-100 dark:bg-rose-900/40 text-rose-600 dark:text-rose-400 flex items-center justify-center shrink-0"><AlertTriangle size={24} /></div>
           <div className="min-w-0">
-            <p className="text-xs font-bold text-slate-500">Viễn cảnh yếu nhất</p>
+            <p className="text-xs font-bold text-slate-500">Hạng mục yếu nhất</p>
             <p className="text-sm font-black text-slate-900 dark:text-white truncate">{balance?.weakestPerspective ?? '—'}</p>
             <p className="text-[11px] font-black text-rose-500">{fmt(balance?.weakestScore)}%</p>
           </div>
@@ -198,18 +198,18 @@ export default function BscAnalyticsTab() {
         <div className="bg-white dark:bg-slate-900 rounded-2xl p-5 border border-slate-200 dark:border-slate-800 flex items-center gap-4">
           <div className="w-12 h-12 rounded-full bg-amber-100 dark:bg-amber-900/40 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0"><ShieldCheck size={24} /></div>
           <div>
-            <p className="text-xs font-bold text-slate-500">Độ phủ viễn cảnh</p>
+            <p className="text-xs font-bold text-slate-500">Độ phủ hạng mục</p>
             <p className="text-2xl font-black tabular-nums">{fmt(balance?.coveragePercent)}%</p>
             <p className="text-[10px] font-bold text-slate-400">{balance?.unmappedKpiCount ?? 0} KPI chưa gán</p>
           </div>
         </div>
       </div>
 
-      {/* ── Cân bằng: radar + card viễn cảnh ─────────────────────────────── */}
+      {/* ── Cân bằng: radar + card hạng mục ─────────────────────────────── */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <Card className="lg:col-span-1">
           <SectionTitle icon={<TrendingUp size={14} className="text-indigo-500" />}>Radar cân bằng</SectionTitle>
-          {radarData.length ? <PerspectiveRadar data={radarData} /> : <EmptyState>Chưa có điểm viễn cảnh</EmptyState>}
+          {radarData.length ? <PerspectiveRadar data={radarData} /> : <EmptyState>Chưa có điểm hạng mục</EmptyState>}
         </Card>
         <div className="lg:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-4">
           {(balance?.perspectives || []).map(p => {
@@ -238,13 +238,13 @@ export default function BscAnalyticsTab() {
               </div>
             )
           })}
-          {!(balance?.perspectives?.length) && <div className="sm:col-span-2"><Card><EmptyState>Chưa có viễn cảnh nào có dữ liệu</EmptyState></Card></div>}
+          {!(balance?.perspectives?.length) && <div className="sm:col-span-2"><Card><EmptyState>Chưa có hạng mục nào có dữ liệu</EmptyState></Card></div>}
         </div>
       </div>
 
-      {/* ── Xu hướng điểm viễn cảnh theo kỳ ──────────────────────────────── */}
+      {/* ── Xu hướng điểm hạng mục theo kỳ ──────────────────────────────── */}
       <Card>
-        <SectionTitle icon={<TrendingUp size={14} className="text-indigo-500" />}>Xu hướng điểm viễn cảnh theo kỳ</SectionTitle>
+        <SectionTitle icon={<TrendingUp size={14} className="text-indigo-500" />}>Xu hướng điểm hạng mục theo kỳ</SectionTitle>
         {trendData.length ? (
           <ResponsiveContainer width="100%" height={320}>
             <LineChart data={trendData} margin={{ top: 8, right: 16, bottom: 8, left: -8 }}>
@@ -262,9 +262,9 @@ export default function BscAnalyticsTab() {
         ) : <EmptyState>Chọn từ 2 kỳ trở lên để xem xu hướng</EmptyState>}
       </Card>
 
-      {/* ── So sánh viễn cảnh giữa các đơn vị ────────────────────────────── */}
+      {/* ── So sánh hạng mục giữa các đơn vị ────────────────────────────── */}
       <Card>
-        <SectionTitle icon={<Building2 size={14} className="text-emerald-500" />}>So sánh viễn cảnh giữa các đơn vị</SectionTitle>
+        <SectionTitle icon={<Building2 size={14} className="text-emerald-500" />}>So sánh hạng mục giữa các đơn vị</SectionTitle>
         {comparisonData.length ? (
           <ResponsiveContainer width="100%" height={Math.max(300, comparisonData.length * 46)}>
             <BarChart data={comparisonData} layout="vertical" margin={{ top: 8, right: 16, bottom: 8, left: 8 }}>
@@ -312,7 +312,7 @@ export default function BscAnalyticsTab() {
           ) : <EmptyState>Chưa có điểm để đối chiếu</EmptyState>}
         </Card>
         <Card>
-          <SectionTitle icon={<ShieldCheck size={14} className="text-amber-500" />}>KPI chưa gán viễn cảnh</SectionTitle>
+          <SectionTitle icon={<ShieldCheck size={14} className="text-amber-500" />}>KPI chưa gán hạng mục</SectionTitle>
           <div className="text-center py-2">
             <p className={cn('text-4xl font-black tabular-nums', (balance?.coveragePercent ?? 100) >= 100 ? 'text-emerald-500' : 'text-amber-500')}>{fmt(balance?.coveragePercent)}%</p>
             <p className="text-xs text-slate-400 font-bold mt-1">độ phủ · {balance?.mappedKpiCount ?? 0}/{(balance?.mappedKpiCount ?? 0) + (balance?.unmappedKpiCount ?? 0)} KPI đã gán</p>
@@ -326,7 +326,7 @@ export default function BscAnalyticsTab() {
               ))}
             </div>
           ) : (
-            <p className="mt-3 text-xs text-center text-emerald-600 font-bold">Tất cả KPI tính điểm đều đã gán viễn cảnh ✓</p>
+            <p className="mt-3 text-xs text-center text-emerald-600 font-bold">Tất cả KPI tính điểm đều đã gán hạng mục ✓</p>
           )}
         </Card>
       </div>
@@ -354,7 +354,7 @@ export default function BscAnalyticsTab() {
                 <th className="px-4 py-3">Nhân sự</th>
                 <th className="px-4 py-3 text-right whitespace-nowrap">Điểm BSC</th>
                 <th className="px-4 py-3 text-right whitespace-nowrap">Điểm HT</th>
-                <th className="px-4 py-3">Breakdown viễn cảnh</th>
+                <th className="px-4 py-3">Breakdown hạng mục</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
@@ -403,7 +403,7 @@ export default function BscAnalyticsTab() {
       </Card>
 
       <p className="text-[11px] text-slate-400 font-medium flex items-center gap-1.5">
-        <Layers size={12} /> Số liệu gộp từ điểm đánh giá đã lưu theo viễn cảnh — nhất quán với chỉ số "hiệu suất theo đánh giá".
+        <Layers size={12} /> Số liệu gộp từ điểm đánh giá đã lưu theo hạng mục — nhất quán với chỉ số "hiệu suất theo đánh giá".
       </p>
     </div>
   )

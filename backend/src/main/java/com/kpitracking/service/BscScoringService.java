@@ -8,6 +8,7 @@ import com.kpitracking.entity.BscScorecardPerspective;
 import com.kpitracking.entity.Evaluation;
 import com.kpitracking.entity.EvaluationPerspectiveScore;
 import com.kpitracking.entity.KpiCriteria;
+import com.kpitracking.entity.OrgUnit;
 import com.kpitracking.entity.User;
 import com.kpitracking.entity.UserRoleOrgUnit;
 import com.kpitracking.enums.BscEmptyPerspectivePolicy;
@@ -57,6 +58,7 @@ public class BscScoringService {
     private final KpiCriteriaRepository kpiCriteriaRepository;
     private final KpiAchievementCalculator achievementCalculator;
     private final BscPerspectiveRepository perspectiveRepository;
+    private final com.kpitracking.repository.BscFixedPerspectiveRepository fixedPerspectiveRepository;
     private final EvaluationPerspectiveScoreRepository perspectiveScoreRepository;
     private final UserRepository userRepository;
     private final UserRoleOrgUnitRepository userRoleOrgUnitRepository;
@@ -74,11 +76,14 @@ public class BscScoringService {
         private final Double bscScore;
         private final List<PerspectiveScoreResponse> perspectives;
         private final List<String> unassignedKpiNames;
+        /** Chế độ chấm điểm của thẻ điểm ĐÃ ÁP DỤNG cho nhân viên này (theo phòng ban). */
+        private final BscScoringMode scoringMode;
 
-        BscUserScore(Double bscScore, List<PerspectiveScoreResponse> perspectives, List<String> unassignedKpiNames) {
+        BscUserScore(Double bscScore, List<PerspectiveScoreResponse> perspectives, List<String> unassignedKpiNames, BscScoringMode scoringMode) {
             this.bscScore = bscScore;
             this.perspectives = perspectives;
             this.unassignedKpiNames = unassignedKpiNames;
+            this.scoringMode = scoringMode;
         }
 
         public int getUnassignedKpiCount() { return unassignedKpiNames.size(); }
@@ -101,8 +106,8 @@ public class BscScoringService {
      */
     @Transactional(readOnly = true)
     public BscUserScore computeForUser(UUID userId, UUID kpiPeriodId, UUID organizationId, boolean enableWaterfall) {
-        BscScorecard scorecard = scorecardRepository
-                .findByOrganizationIdAndKpiPeriodId(organizationId, kpiPeriodId).orElse(null);
+        // Thẻ điểm áp dụng cho nhân viên = thẻ điểm phòng ban của họ → cha gần nhất → mặc định org.
+        BscScorecard scorecard = resolveScorecard(userOrgUnit(userId), organizationId, kpiPeriodId);
         if (scorecard == null) return null;
 
         List<KpiCriteria> kpis = kpiCriteriaRepository
@@ -144,6 +149,9 @@ public class BscScoringService {
                     .code(sp.getPerspective().getCode())
                     .name(sp.getPerspective().getName())
                     .color(sp.getPerspective().getColor())
+                    .fixedPerspective(fixedCode(sp.getPerspective()))
+                    .fixedPerspectiveName(fixedName(sp.getPerspective()))
+                    .fixedPerspectiveColor(fixedColor(sp.getPerspective()))
                     .weightPercentage(weight)
                     .kpiCount(kpiCount)
                     .achievementPercent(raw)
@@ -165,7 +173,7 @@ public class BscScoringService {
                 .map(KpiCriteria::getName)
                 .toList();
 
-        return new BscUserScore(bsc, breakdown, unassigned);
+        return new BscUserScore(bsc, breakdown, unassigned, scorecard.getScoringMode());
     }
 
     /** Lưu breakdown điểm từng viễn cảnh của một đánh giá (ghi đè bản cũ). */
@@ -196,6 +204,9 @@ public class BscScoringService {
                         .code(s.getPerspective().getCode())
                         .name(s.getPerspective().getName())
                         .color(s.getPerspective().getColor())
+                        .fixedPerspective(fixedCode(s.getPerspective()))
+                        .fixedPerspectiveName(fixedName(s.getPerspective()))
+                        .fixedPerspectiveColor(fixedColor(s.getPerspective()))
                         .weightPercentage(s.getWeightPercentage())
                         .kpiCount(s.getKpiCount())
                         .achievementPercent(s.getRawScore())
@@ -204,12 +215,76 @@ public class BscScoringService {
                 .toList();
     }
 
-    /** Chế độ chấm điểm của kỳ (null nếu kỳ chưa có thẻ điểm). */
+    /**
+     * Chế độ chấm điểm áp dụng cho MỘT phòng ban trong kỳ (null nếu không có thẻ điểm nào áp dụng).
+     * Dùng thẻ điểm của phòng ban → cha gần nhất → mặc định org (org_unit = NULL).
+     */
     @Transactional(readOnly = true)
-    public BscScoringMode getScoringMode(UUID organizationId, UUID kpiPeriodId) {
-        return scorecardRepository.findByOrganizationIdAndKpiPeriodId(organizationId, kpiPeriodId)
-                .map(BscScorecard::getScoringMode)
+    public BscScoringMode getScoringMode(OrgUnit orgUnit, UUID organizationId, UUID kpiPeriodId) {
+        BscScorecard sc = resolveScorecard(orgUnit, organizationId, kpiPeriodId);
+        return sc != null ? sc.getScoringMode() : null;
+    }
+
+    /**
+     * Tìm thẻ điểm HIỆU LỰC: bắt đầu từ phòng ban {@code orgUnit}, đi ngược lên các phòng ban cha
+     * lấy thẻ điểm gần nhất; nếu không có ⇒ dùng thẻ điểm MẶC ĐỊNH toàn org (org_unit = NULL).
+     */
+    @Transactional(readOnly = true)
+    public BscScorecard resolveScorecard(OrgUnit orgUnit, UUID organizationId, UUID kpiPeriodId) {
+        OrgUnit cur = orgUnit;
+        int guard = 0; // chặn vòng lặp vô hạn nếu dữ liệu cây bị lỗi
+        while (cur != null && guard++ < 100) {
+            BscScorecard sc = scorecardRepository
+                    .findByOrgUnitAndPeriod(organizationId, cur.getId(), kpiPeriodId)
+                    .orElse(null);
+            if (sc != null) return sc;
+            cur = cur.getParent();
+        }
+        return scorecardRepository
+                .findDefaultByPeriod(organizationId, kpiPeriodId)
                 .orElse(null);
+    }
+
+    /** Phòng ban của một nhân viên (lấy role đầu tiên) — null nếu không xác định được. */
+    private OrgUnit userOrgUnit(UUID userId) {
+        if (userId == null) return null;
+        List<UserRoleOrgUnit> roles = userRoleOrgUnitRepository.findByUserId(userId);
+        return roles.isEmpty() ? null : roles.get(0).getOrgUnit();
+    }
+
+    private static String fixedCode(BscPerspective p) {
+        return p != null && p.getFixedPerspective() != null ? p.getFixedPerspective().name() : null;
+    }
+    private static String fixedName(BscPerspective p) {
+        return p != null && p.getFixedPerspective() != null ? p.getFixedPerspective().getDisplayName() : null;
+    }
+    private static String fixedColor(BscPerspective p) {
+        return p != null && p.getFixedPerspective() != null ? p.getFixedPerspective().getColor() : null;
+    }
+
+    /** Map mã viễn cảnh cố định → cấu hình hiển thị (tên/màu) TÙY CHỈNH theo org. */
+    private java.util.Map<String, com.kpitracking.entity.BscFixedPerspectiveEntity> orgFixedMap(UUID organizationId) {
+        if (organizationId == null) return java.util.Map.of();
+        java.util.Map<String, com.kpitracking.entity.BscFixedPerspectiveEntity> map = new java.util.HashMap<>();
+        for (com.kpitracking.entity.BscFixedPerspectiveEntity f :
+                fixedPerspectiveRepository.findByOrganizationIdOrderByDisplayOrderAsc(organizationId)) {
+            map.put(f.getCode(), f);
+        }
+        return map;
+    }
+
+    /** Tên viễn cảnh cố định: ưu tiên bản tùy chỉnh của org, thiếu thì lấy mặc định từ enum. */
+    private static String fixedName(BscPerspective p,
+            java.util.Map<String, com.kpitracking.entity.BscFixedPerspectiveEntity> orgFixed) {
+        if (p == null || p.getFixedPerspective() == null) return null;
+        com.kpitracking.entity.BscFixedPerspectiveEntity o = orgFixed.get(p.getFixedPerspective().name());
+        return o != null ? o.getName() : p.getFixedPerspective().getDisplayName();
+    }
+    private static String fixedColor(BscPerspective p,
+            java.util.Map<String, com.kpitracking.entity.BscFixedPerspectiveEntity> orgFixed) {
+        if (p == null || p.getFixedPerspective() == null) return null;
+        com.kpitracking.entity.BscFixedPerspectiveEntity o = orgFixed.get(p.getFixedPerspective().name());
+        return o != null ? o.getColor() : p.getFixedPerspective().getColor();
     }
 
     /**
@@ -240,6 +315,8 @@ public class BscScoringService {
         UUID periodId = scorecard.getKpiPeriod().getId();
         List<KpiCriteria> kpis = kpiCriteriaRepository.findByKpiPeriodIdAndStatusIn(periodId, ACTIVE_STATUSES);
         boolean enableWaterfall = Boolean.TRUE.equals(scorecard.getOrganization().getEnableWaterfall());
+        java.util.Map<String, com.kpitracking.entity.BscFixedPerspectiveEntity> orgFixed =
+                orgFixedMap(scorecard.getOrganization() != null ? scorecard.getOrganization().getId() : null);
 
         List<PerspectiveScoreResponse> perspectiveScores = new ArrayList<>();
         double weightedSum = 0.0, presentWeight = 0.0, totalWeight = 0.0;
@@ -276,6 +353,9 @@ public class BscScoringService {
                     .code(sp.getPerspective().getCode())
                     .name(sp.getPerspective().getName())
                     .color(sp.getPerspective().getColor())
+                    .fixedPerspective(fixedCode(sp.getPerspective()))
+                    .fixedPerspectiveName(fixedName(sp.getPerspective(), orgFixed))
+                    .fixedPerspectiveColor(fixedColor(sp.getPerspective(), orgFixed))
                     .weightPercentage(weight)
                     .kpiCount(kpiCount)
                     .achievementPercent(achievement)
@@ -293,6 +373,8 @@ public class BscScoringService {
                 .vision(scorecard.getVision())
                 .kpiPeriodId(periodId)
                 .kpiPeriodName(scorecard.getKpiPeriod().getName())
+                .orgUnitName(scorecard.getOrgUnits() == null || scorecard.getOrgUnits().isEmpty() ? null
+                        : scorecard.getOrgUnits().stream().map(OrgUnit::getName).collect(java.util.stream.Collectors.joining(", ")))
                 .scoringMode(scorecard.getScoringMode())
                 .overallScore(overall)
                 .perspectives(perspectiveScores)

@@ -12,7 +12,7 @@ import { useKpiPeriods } from '../hooks/useKpiPeriods'
 import { useOrgUnitTree } from '@/features/orgunits/hooks/useOrgUnitTree'
 import { useOrganization } from '@/features/orgunits/hooks/useOrganization'
 import { useObjectives } from '@/features/okr/hooks/useOkr'
-import { useBscPerspectives } from '@/features/bsc/hooks/useBsc'
+import { useBscPerspectives, useFixedPerspectives, useScorecards } from '@/features/bsc/hooks/useBsc'
 import { useKpiTotalWeight } from '../hooks/useKpiTotalWeight'
 import { Select, SelectContent, SelectItem, SelectGroup, SelectLabel, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { LayoutGrid } from 'lucide-react'
@@ -240,42 +240,73 @@ interface TabSharedProps {
   enableBsc: boolean
   objectives: any[]
   perspectives: any[]
+  /** Hạng mục CÓ trong thẻ điểm của đơn vị (null = không lọc). Lọc dropdown giống form tạo KPI. */
+  availablePerspectiveIds?: Set<string> | null
 }
 
 // ─── Shared BSC perspective selector ─────────────────────────────────────────
 
-function PerspectiveSelect({ control, name, perspectives }: { control: any; name: string; perspectives: any[] }) {
+function PerspectiveSelect({ control, name, perspectives, availablePerspectiveIds }: { control: any; name: string; perspectives: any[]; availablePerspectiveIds?: Set<string> | null }) {
+  const { data: fixedPerspectives } = useFixedPerspectives()
+  const grouped = useMemo(() => {
+    const order = (fixedPerspectives || []).map((fp: any) => fp.code)
+    const nameByCode = new Map((fixedPerspectives || []).map((fp: any) => [fp.code, fp.name]))
+    const list = availablePerspectiveIds
+      ? (perspectives || []).filter((p: any) => availablePerspectiveIds.has(p.id))
+      : (perspectives || [])
+    const groups = list.reduce((acc: any, p: any) => {
+      const key = p.fixedPerspective || 'INTERNAL_PROCESS'
+      ;(acc[key] = acc[key] || []).push(p)
+      return acc
+    }, {} as Record<string, any[]>)
+    const keys = order.length ? order.filter((k: string) => groups[k]) : Object.keys(groups)
+    return keys.map((k: string) => ({ code: k, name: nameByCode.get(k) || k, items: groups[k] as any[] }))
+  }, [perspectives, fixedPerspectives, availablePerspectiveIds])
+  const noCategory = !!availablePerspectiveIds && grouped.length === 0
+
   return (
     <div className="bg-violet-50/50 dark:bg-violet-900/5 p-4 rounded-2xl border border-violet-100 dark:border-violet-900/50 space-y-3">
       <div className="flex items-center gap-2 text-violet-600 dark:text-violet-400">
         <LayoutGrid size={16} />
-        <span className="text-[11px] font-black uppercase tracking-widest">Viễn cảnh BSC</span>
+        <span className="text-[11px] font-black uppercase tracking-widest">Hạng mục BSC</span>
       </div>
       <Controller name={name} control={control}
         render={({ field }: any) => (
           <Select onValueChange={field.onChange} value={field.value || 'NONE'}>
             <SelectTrigger className="w-full rounded-xl border-violet-100 dark:border-violet-900 bg-white dark:bg-slate-900 h-11 shadow-sm overflow-hidden">
-              <SelectValue placeholder="-- Chưa gán viễn cảnh --" />
+              <SelectValue placeholder="-- Chưa gán hạng mục --" />
             </SelectTrigger>
             <SelectContent className="z-[300] rounded-2xl max-h-[300px]">
-              <SelectItem value="NONE" className="font-bold py-3">-- Chưa gán viễn cảnh --</SelectItem>
-              {perspectives?.map((p: any) => (
-                <SelectItem key={p.id} value={p.id} className="rounded-xl py-2.5">
-                  <span className="flex items-center gap-2">
-                    <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: p.color || '#94a3b8' }} />
-                    <span className="font-semibold text-xs">{p.name}</span>
-                  </span>
-                </SelectItem>
+              <SelectItem value="NONE" className="font-bold py-3">-- Chưa gán hạng mục --</SelectItem>
+              {grouped.map(group => (
+                <div key={group.code}>
+                  <div className="px-3 pt-2 pb-1 text-[10px] font-black uppercase tracking-wider text-slate-400">{group.name}</div>
+                  {group.items.map((p: any) => (
+                    <SelectItem key={p.id} value={p.id} className="rounded-xl py-2.5">
+                      <span className="flex items-center gap-2">
+                        <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: p.color || '#94a3b8' }} />
+                        <span className="font-semibold text-xs">{p.name}</span>
+                      </span>
+                    </SelectItem>
+                  ))}
+                </div>
               ))}
             </SelectContent>
           </Select>
         )}
       />
+      <p className="text-[10px] font-medium text-slate-500 dark:text-slate-400">Tổng trọng số các chỉ tiêu trong 1 hạng mục phải bằng 100% (chặn khi duyệt).</p>
+      {noCategory && (
+        <p className="text-[10px] font-bold text-amber-600 dark:text-amber-400 flex items-start gap-1.5">
+          <span className="shrink-0">⚠</span>
+          Thẻ điểm của đơn vị này <b>chưa có hạng mục nào</b> — hãy thêm hạng mục vào thẻ điểm cho đơn vị đó trước.
+        </p>
+      )}
     </div>
   )
 }
 
-function ReplaceTab({ kpiList, orgUnitId, period, enableOkr, enableQualitative, enableBsc, objectives, perspectives, onSuccess }: { kpiList: KpiCriteria[]; orgUnitId: string; onSuccess: () => void } & TabSharedProps) {
+function ReplaceTab({ kpiList, orgUnitId, period, enableOkr, enableQualitative, enableBsc, objectives, perspectives, availablePerspectiveIds, onSuccess }: { kpiList: KpiCriteria[]; orgUnitId: string; onSuccess: () => void } & TabSharedProps) {
   const qc = useQueryClient()
   const { user: currentUser } = useAuthStore()
   const isStaff = currentUser?.memberships?.[0]?.roleRank === 2
@@ -536,7 +567,7 @@ function ReplaceTab({ kpiList, orgUnitId, period, enableOkr, enableQualitative, 
       )}
 
       {/* BSC perspective */}
-      {enableBsc && <PerspectiveSelect control={control} name="perspectiveId" perspectives={perspectives} />}
+      {enableBsc && <PerspectiveSelect control={control} name="perspectiveId" perspectives={perspectives} availablePerspectiveIds={availablePerspectiveIds} />}
 
       <div className="flex gap-4 pt-2 border-t border-[var(--color-border)]/50">
         <button type="button" onClick={onSuccess}
@@ -573,7 +604,7 @@ interface AdjustFormData {
   newDescription: string
 }
 
-function AdjustTab({ kpiList, kpiPeriodId, orgUnitId, period, enableOkr, enableQualitative, enableBsc, objectives, perspectives, onSuccess }: { kpiList: KpiCriteria[]; kpiPeriodId: string; orgUnitId: string; onSuccess: () => void } & TabSharedProps) {
+function AdjustTab({ kpiList, kpiPeriodId, orgUnitId, period, enableOkr, enableQualitative, enableBsc, objectives, perspectives, availablePerspectiveIds, perspectiveWeightPct, onSuccess }: { kpiList: KpiCriteria[]; kpiPeriodId: string; orgUnitId: string; onSuccess: () => void; perspectiveWeightPct?: Map<string, number> } & TabSharedProps) {
   const qc = useQueryClient()
   const { user: currentUser } = useAuthStore()
   const isStaff = currentUser?.memberships?.[0]?.roleRank === 2
@@ -593,9 +624,22 @@ function AdjustTab({ kpiList, kpiPeriodId, orgUnitId, period, enableOkr, enableQ
   const { fields } = useFieldArray({ control, name: 'weights' })
   const watchedWeights = watch('weights')
   const watchedNewWeight = watch('newWeight')
+  const watchedNewPerspId = watch('newPerspectiveId')
 
-  const totalExisting = watchedWeights.reduce((sum, w) => sum + (parseFloat(String(w.newWeight)) || 0), 0)
-  const totalAll = totalExisting + (parseFloat(String(watchedNewWeight)) || 0)
+  // Trọng số THẬT = form × %hạng_mục. Không BSC/chưa có thẻ điểm ⇒ giữ form; chưa gán hạng mục ⇒ giữ form;
+  // hạng mục không có trong thẻ điểm đơn vị ⇒ 0 (không tính). Nhờ vậy tổng ≈ 100% thay vì cộng dồn form.
+  const usePct = enableBsc && !!perspectiveWeightPct && perspectiveWeightPct.size > 0
+  const realOf = (effPerspId: string | null | undefined, formWeight: number) => {
+    if (!usePct) return formWeight
+    if (!effPerspId) return formWeight
+    const pct = perspectiveWeightPct!.get(effPerspId)
+    return pct == null ? 0 : formWeight * pct / 100
+  }
+
+  const totalExisting = watchedWeights.reduce((sum, w, i) =>
+    sum + realOf(adjustableKpis[i]?.effectivePerspectiveId, parseFloat(String(w.newWeight)) || 0), 0)
+  const newPerspId = watchedNewPerspId && watchedNewPerspId !== 'NONE' ? watchedNewPerspId : null
+  const totalAll = totalExisting + realOf(newPerspId, parseFloat(String(watchedNewWeight)) || 0)
   const remaining = 100 - totalAll
   const isValid = Math.abs(totalAll - 100) <= 0.01
 
@@ -660,16 +704,25 @@ function AdjustTab({ kpiList, kpiPeriodId, orgUnitId, period, enableOkr, enableQ
             <div className="divide-y divide-[var(--color-border)]">
               {fields.map((field, idx) => {
                 const kpi = adjustableKpis[idx]
+                const realOld = kpi?.weight != null ? realOf(kpi.effectivePerspectiveId, kpi.weight) : null
+                const newW = parseFloat(String(watchedWeights[idx]?.newWeight)) || 0
+                const realNew = usePct ? realOf(kpi?.effectivePerspectiveId, newW) : null
                 return (
                   <div key={field.id} className="grid grid-cols-[1fr_88px_52px_76px] items-center px-3 py-2.5 gap-2">
                     <span className="text-sm font-medium text-[var(--color-foreground)] truncate">{kpi?.name}</span>
                     <span className={`text-center text-[9px] font-black uppercase whitespace-nowrap ${kpi?.status === 'APPROVED' ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400'}`}>
                       {kpi?.status === 'APPROVED' ? 'Đã duyệt' : kpi?.status === 'PENDING_APPROVAL' ? 'Chờ duyệt' : 'Nháp'}
                     </span>
-                    <span className="text-center text-sm text-[var(--color-muted-foreground)]">{formatNumber(kpi?.weight ?? 0)}</span>
-                    <input type="number" step="0.1" min="0" max="100"
-                      {...register(`weights.${idx}.newWeight`, { valueAsNumber: true })}
-                      className="w-full px-2 py-1.5 rounded-lg border border-[var(--color-border)] bg-[var(--color-background)] text-sm text-center focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]/50 shadow-sm" />
+                    <span className="text-center text-sm text-[var(--color-muted-foreground)]"
+                      title={usePct && realOld != null ? `Trọng số thật ${realOld.toFixed(1)}% (form ${formatNumber(kpi?.weight ?? 0)}% × %hạng mục)` : undefined}>
+                      {usePct && realOld != null ? realOld.toFixed(1) : formatNumber(kpi?.weight ?? 0)}
+                    </span>
+                    <div>
+                      <input type="number" step="0.1" min="0" max="100"
+                        {...register(`weights.${idx}.newWeight`, { valueAsNumber: true })}
+                        className="w-full px-2 py-1.5 rounded-lg border border-[var(--color-border)] bg-[var(--color-background)] text-sm text-center focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]/50 shadow-sm" />
+                      {realNew != null && <p className="text-[8px] font-bold text-violet-500 text-center mt-0.5">thật {realNew.toFixed(1)}%</p>}
+                    </div>
                   </div>
                 )
               })}
@@ -852,7 +905,7 @@ function AdjustTab({ kpiList, kpiPeriodId, orgUnitId, period, enableOkr, enableQ
       )}
 
       {/* BSC perspective */}
-      {enableBsc && <PerspectiveSelect control={control} name="newPerspectiveId" perspectives={perspectives} />}
+      {enableBsc && <PerspectiveSelect control={control} name="newPerspectiveId" perspectives={perspectives} availablePerspectiveIds={availablePerspectiveIds} />}
 
       <div className={cn('rounded-xl px-4 py-3 flex items-center justify-between border',
         isValid
@@ -947,6 +1000,45 @@ export default function UrgentTaskModal({ open, onClose, kpiPeriodId: initPeriod
     if (!objectives || !selectedOrgUnitId) return []
     return objectives.filter((obj: any) => obj.orgUnitIds?.includes(selectedOrgUnitId))
   }, [objectives, selectedOrgUnitId])
+
+  // Lọc hạng mục theo THẺ ĐIỂM của đơn vị đã chọn (giống form tạo KPI). null = không lọc.
+  const { data: bscScorecards } = useScorecards(enableBsc ? organizationId : undefined)
+  const unitParentMap = useMemo(() => {
+    const map = new Map<string, string | null>()
+    const walk = (nodes: any[]) => (nodes || []).forEach((n: any) => { map.set(n.id, n.parentId ?? null); if (n.children) walk(n.children) })
+    walk(orgUnitTreeData || [])
+    return map
+  }, [orgUnitTreeData])
+  // Thẻ điểm HIỆU LỰC cho đơn vị đã chọn (đơn vị → cha → mặc định).
+  const effectiveScorecard = useMemo<any>(() => {
+    if (!enableBsc || !selectedPeriodId || !selectedOrgUnitId) return null
+    const periodScs = (bscScorecards || []).filter(s => s.kpiPeriodId === selectedPeriodId)
+    if (periodScs.length === 0) return null
+    let cur: string | null = selectedOrgUnitId, guard = 0, sc: any = null
+    while (cur && guard++ < 100) {
+      const found = periodScs.find(s => (s.orgUnits || []).some((u: any) => u.id === cur))
+      if (found) { sc = found; break }
+      cur = unitParentMap.get(cur) ?? null
+    }
+    if (!sc) sc = periodScs.find(s => !s.orgUnits || s.orgUnits.length === 0) || null
+    return sc
+  }, [enableBsc, bscScorecards, selectedPeriodId, selectedOrgUnitId, unitParentMap])
+
+  const availablePerspectiveIds = useMemo<Set<string> | null>(() => {
+    if (!enableBsc || !selectedPeriodId || !selectedOrgUnitId) return null
+    const periodScs = (bscScorecards || []).filter(s => s.kpiPeriodId === selectedPeriodId)
+    if (periodScs.length === 0) return new Set<string>()
+    const ids = new Set<string>()
+    ;(effectiveScorecard?.perspectives || []).forEach((p: any) => ids.add(p.perspectiveId))
+    return ids
+  }, [enableBsc, bscScorecards, selectedPeriodId, selectedOrgUnitId, effectiveScorecard])
+
+  // %hạng_mục theo perspectiveId (từ thẻ điểm đơn vị) → để tính trọng số THẬT = form × %hạng_mục.
+  const perspectiveWeightPct = useMemo(() => {
+    const map = new Map<string, number>()
+    ;(effectiveScorecard?.perspectives || []).forEach((p: any) => { if (p.weightPercentage != null) map.set(p.perspectiveId, p.weightPercentage) })
+    return map
+  }, [effectiveScorecard])
 
   if (!open) return null
 
@@ -1086,9 +1178,9 @@ export default function UrgentTaskModal({ open, onClose, kpiPeriodId: initPeriod
           ) : kpiList.length === 0 ? (
             <p className="text-center text-sm font-medium text-[var(--color-muted-foreground)] py-16 italic">Chưa có KPI nào trong kỳ này</p>
           ) : tab === 'replace' ? (
-            <ReplaceTab kpiList={kpiList} orgUnitId={selectedOrgUnitId} period={selectedPeriod} enableOkr={enableOkr} enableQualitative={enableQualitative} enableBsc={enableBsc} objectives={filteredObjectives} perspectives={perspectives ?? []} onSuccess={onClose} />
+            <ReplaceTab kpiList={kpiList} orgUnitId={selectedOrgUnitId} period={selectedPeriod} enableOkr={enableOkr} enableQualitative={enableQualitative} enableBsc={enableBsc} objectives={filteredObjectives} perspectives={perspectives ?? []} availablePerspectiveIds={availablePerspectiveIds} onSuccess={onClose} />
           ) : (
-            <AdjustTab kpiList={kpiList} kpiPeriodId={selectedPeriodId} orgUnitId={selectedOrgUnitId} period={selectedPeriod} enableOkr={enableOkr} enableQualitative={enableQualitative} enableBsc={enableBsc} objectives={filteredObjectives} perspectives={perspectives ?? []} onSuccess={onClose} />
+            <AdjustTab kpiList={kpiList} kpiPeriodId={selectedPeriodId} orgUnitId={selectedOrgUnitId} period={selectedPeriod} enableOkr={enableOkr} enableQualitative={enableQualitative} enableBsc={enableBsc} objectives={filteredObjectives} perspectives={perspectives ?? []} availablePerspectiveIds={availablePerspectiveIds} perspectiveWeightPct={perspectiveWeightPct} onSuccess={onClose} />
           )}
         </div>
       </div>

@@ -5,7 +5,6 @@ export interface PerspectiveRadarDatum {
   value: number
 }
 
-/** Nhãn viễn cảnh trên radar: tự xuống dòng để tên dài không bị cắt. (trích từ BscDashboardPage) */
 function PerspectiveTick({ payload, x, y, textAnchor }: any) {
   const label: string = payload?.value ?? ''
   const words = label.split(' ')
@@ -26,10 +25,6 @@ function PerspectiveTick({ payload, x, y, textAnchor }: any) {
   )
 }
 
-/**
- * Radar độ cân bằng giữa các viễn cảnh BSC. Dùng chung cho tab "Viễn cảnh (BSC)" ở trang Thống kê
- * (và có thể tái dùng cho BSC Dashboard). Trục 0..100; giá trị > 100 vẫn vẽ (điểm có thể tới 150).
- */
 export default function PerspectiveRadar({
   data, height = 320, color = 'var(--color-primary, #6366f1)', seriesName = 'Đạt %',
 }: {

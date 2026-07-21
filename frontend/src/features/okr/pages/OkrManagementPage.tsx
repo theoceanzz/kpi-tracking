@@ -280,7 +280,7 @@ function ObjectiveCard({ objective, isExpanded, onToggle, onEdit, onDelete, onAd
                     <span
                       className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider whitespace-nowrap"
                       style={{ color: objective.perspectiveColor || '#8b5cf6', backgroundColor: `${objective.perspectiveColor || '#8b5cf6'}1a` }}
-                      title={`Viễn cảnh BSC: ${objective.perspectiveName}`}
+                      title={`Hạng mục BSC: ${objective.perspectiveName}`}
                     >
                       <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: objective.perspectiveColor || '#8b5cf6' }} />
                       {objective.perspectiveName}

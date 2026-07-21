@@ -13,4 +13,8 @@ public class ScorecardPerspectiveResponse {
     private String color;
     private Double weightPercentage;
     private Integer displayOrder;
+    /** Viễn cảnh cố định của hạng mục — dùng để gộp nhóm khi hiển thị/sửa thẻ điểm. */
+    private String fixedPerspective;
+    private String fixedPerspectiveName;
+    private String fixedPerspectiveColor;
 }

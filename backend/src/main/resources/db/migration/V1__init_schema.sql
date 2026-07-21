@@ -58,10 +58,12 @@ CREATE TABLE organizations (
 -- Đặt sớm ở đây vì objectives/kpi_criteria/scorecards đều tham chiếu tới.
 -- ====================================================
 CREATE TABLE bsc_perspectives (
-    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    organization_id UUID            NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
-    code            VARCHAR(50)     NOT NULL,
-    name            VARCHAR(255)    NOT NULL,
+    id                UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    organization_id   UUID            NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+    code              VARCHAR(50)     NOT NULL,
+    fixed_perspective VARCHAR(20)     NOT NULL
+        CHECK (fixed_perspective IN ('FINANCIAL','CUSTOMER','INTERNAL_PROCESS','LEARNING_GROWTH')),
+    name              VARCHAR(255)    NOT NULL,
     description     TEXT,
     color           VARCHAR(20),
     icon            VARCHAR(50),
@@ -76,6 +78,21 @@ CREATE INDEX idx_bsc_perspectives_organization_id ON bsc_perspectives(organizati
 -- code là duy nhất trong 1 org (chỉ tính bản ghi chưa xoá mềm)
 CREATE UNIQUE INDEX uq_bsc_perspectives_org_code
     ON bsc_perspectives(organization_id, code) WHERE deleted_at IS NULL;
+
+-- ====================================================
+-- 4 viễn cảnh BSC CỐ ĐỊNH theo TỪNG tổ chức (mỗi org 1 bản sao 4 dòng, tự sửa tên/màu/thứ tự;
+-- code cố định khớp enum). Được service khởi tạo lazily khi org lần đầu mở BSC.
+-- ====================================================
+CREATE TABLE bsc_fixed_perspectives (
+    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    organization_id UUID         NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+    code            VARCHAR(20)  NOT NULL,
+    name            VARCHAR(100) NOT NULL,
+    color           VARCHAR(20),
+    display_order   INT          NOT NULL DEFAULT 0,
+    CONSTRAINT uq_bsc_fixed_perspectives_org_code UNIQUE (organization_id, code)
+);
+CREATE INDEX idx_bsc_fixed_perspectives_org ON bsc_fixed_perspectives(organization_id);
 
 -- ====================================================
 -- Sidebar Settings
@@ -774,9 +791,16 @@ CREATE TABLE bsc_scorecards (
 
 CREATE INDEX idx_bsc_scorecards_organization_id ON bsc_scorecards(organization_id);
 CREATE INDEX idx_bsc_scorecards_kpi_period_id ON bsc_scorecards(kpi_period_id);
--- Mỗi org chỉ có 1 thẻ điểm cho một kỳ (bỏ qua bản xoá mềm)
-CREATE UNIQUE INDEX uq_bsc_scorecards_org_period
-    ON bsc_scorecards(organization_id, kpi_period_id) WHERE deleted_at IS NULL;
+-- Tính duy nhất (1 thẻ mặc định/kỳ, mỗi đơn vị ≤1 thẻ/kỳ) được ENFORCE Ở SERVICE
+-- vì thẻ điểm áp dụng cho NHIỀU đơn vị (bảng nối bsc_scorecard_org_units bên dưới).
+
+-- Thẻ điểm áp dụng cho NHIỀU phòng ban (giống OKR objective_org_units). Danh sách RỖNG = mặc định toàn tổ chức.
+CREATE TABLE bsc_scorecard_org_units (
+    scorecard_id UUID NOT NULL REFERENCES bsc_scorecards(id) ON DELETE CASCADE,
+    org_unit_id  UUID NOT NULL REFERENCES org_units(id) ON DELETE CASCADE,
+    PRIMARY KEY (scorecard_id, org_unit_id)
+);
+CREATE INDEX idx_bsc_scorecard_org_units_unit ON bsc_scorecard_org_units(org_unit_id);
 
 -- Viễn cảnh trong thẻ điểm + trọng số (%) — tổng = 100 mỗi scorecard
 CREATE TABLE bsc_scorecard_perspectives (

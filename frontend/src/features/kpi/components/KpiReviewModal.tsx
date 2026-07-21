@@ -6,6 +6,12 @@ import { X, Loader2, CheckCircle, XCircle, Target, Building2, Users, BarChart3, 
 import { formatNumber, formatDateTime, cn, FREQUENCY_MAP, STATUS_CONFIG } from '@/lib/utils'
 import type { KpiCriteria } from '@/types/kpi'
 import { usePermission } from '@/hooks/usePermission'
+import { useMemo } from 'react'
+import { useAuthStore } from '@/store/authStore'
+import { useOrganization } from '@/features/orgunits/hooks/useOrganization'
+import { useScorecards } from '@/features/bsc/hooks/useBsc'
+import { useOrgUnitTree } from '@/features/orgunits/hooks/useOrgUnitTree'
+import { computeRealWeight } from '../utils/realWeight'
 
 
 
@@ -23,6 +29,16 @@ export default function KpiReviewModal({ open, onClose, kpi, onEdit }: KpiReview
   const [mode, setMode] = useState<'view' | 'reject'>('view')
   const qc = useQueryClient()
   const { canRevertApproval } = usePermission()
+
+  const { user } = useAuthStore()
+  const organizationId = user?.memberships?.[0]?.organizationId
+  const { data: org } = useOrganization(organizationId)
+  const { data: bscScorecards } = useScorecards(org?.enableBsc ? organizationId : undefined)
+  const { data: orgUnitTreeData } = useOrgUnitTree()
+  const realWeight = useMemo(
+    () => computeRealWeight(kpi, bscScorecards, orgUnitTreeData, org?.enableBsc),
+    [kpi, bscScorecards, orgUnitTreeData, org?.enableBsc]
+  )
 
   const revertApprovalMutation = useMutation({
     mutationFn: () => kpiApi.revertApproval(kpi!.id),
@@ -159,8 +175,8 @@ export default function KpiReviewModal({ open, onClose, kpi, onEdit }: KpiReview
             )}
             <MetricBox
               icon={Award}
-              label="Trọng số (%)"
-              value={`${kpi.weight ?? '—'}%`}
+              label={realWeight != null ? 'Trọng số thật (%)' : 'Trọng số (%)'}
+              value={realWeight != null ? `${realWeight.toFixed(1)}% / ${kpi.weight}%` : `${kpi.weight ?? '—'}%`}
               color="text-blue-600"
             />
             <MetricBox
@@ -238,7 +254,7 @@ export default function KpiReviewModal({ open, onClose, kpi, onEdit }: KpiReview
           {kpi.effectivePerspectiveName && (
             <div className="space-y-4">
               <h5 className="text-xs font-black uppercase tracking-widest text-slate-400 flex items-center gap-2">
-                <Layers size={14} style={{ color: kpi.effectivePerspectiveColor || '#8b5cf6' }} /> Viễn cảnh BSC
+                <Layers size={14} style={{ color: kpi.effectivePerspectiveColor || '#8b5cf6' }} /> Hạng mục BSC
               </h5>
               <div
                 className="flex items-center gap-3 p-6 rounded-[24px] border"
@@ -249,7 +265,7 @@ export default function KpiReviewModal({ open, onClose, kpi, onEdit }: KpiReview
               >
                 <span className="w-3 h-10 rounded-full shrink-0" style={{ backgroundColor: kpi.effectivePerspectiveColor || '#8b5cf6' }} />
                 <div>
-                  <p className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 mb-1">Thuộc viễn cảnh</p>
+                  <p className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 mb-1">Thuộc hạng mục</p>
                   <p className="text-base font-black leading-tight" style={{ color: kpi.effectivePerspectiveColor || '#8b5cf6' }}>
                     {kpi.effectivePerspectiveName}
                   </p>

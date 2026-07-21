@@ -17,7 +17,6 @@ export interface BscPerspectivePoint {
   color?: string
   displayOrder?: number
   weightPercentage?: number | null
-  /** Điểm đạt trung bình có trọng số của viễn cảnh (0..150), null nếu không có dữ liệu. */
   averageScore?: number | null
   weightedScore?: number | null
   kpiCount?: number

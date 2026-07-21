@@ -268,7 +268,7 @@ export default function EvaluationFormModal({ open, onClose, readOnly = false, i
                           <div className="flex items-start gap-2 p-2.5 rounded-xl bg-amber-50 dark:bg-amber-900/10 border border-amber-200/50 dark:border-amber-900/30">
                             <AlertTriangle size={14} className="text-amber-600 shrink-0 mt-0.5" />
                             <p className="text-[10px] text-amber-800 dark:text-amber-300 font-medium leading-relaxed">
-                              <b>{bscUnassigned.length} chỉ tiêu chưa gán viễn cảnh</b> nên không được tính vào điểm BSC: {bscUnassigned.join(', ')}.
+                              <b>{bscUnassigned.length} chỉ tiêu chưa gán hạng mục</b> nên không được tính vào điểm BSC: {bscUnassigned.join(', ')}.
                               {bscMode === 'OFFICIAL' && ' Kỳ đang chấm chính thức — phải gán đủ mới chốt được đánh giá.'}
                             </p>
                           </div>

@@ -53,6 +53,9 @@ public interface KpiCriteriaMapper {
     @Mapping(target = "effectivePerspectiveId", expression = "java(effectivePerspectiveId(kpiCriteria))")
     @Mapping(target = "effectivePerspectiveName", expression = "java(effectivePerspectiveName(kpiCriteria))")
     @Mapping(target = "effectivePerspectiveColor", expression = "java(effectivePerspectiveColor(kpiCriteria))")
+    @Mapping(target = "effectiveFixedPerspective", expression = "java(effectiveFixedPerspective(kpiCriteria))")
+    @Mapping(target = "effectiveFixedPerspectiveName", expression = "java(effectiveFixedPerspectiveName(kpiCriteria))")
+    @Mapping(target = "effectiveFixedPerspectiveColor", expression = "java(effectiveFixedPerspectiveColor(kpiCriteria))")
     @Mapping(source = "parent.id", target = "parentId")
     @Mapping(source = "parent.name", target = "parentName")
     @Mapping(source = "replacedBy.id", target = "replacedById")
@@ -163,6 +166,21 @@ public interface KpiCriteriaMapper {
     default String effectivePerspectiveColor(com.kpitracking.entity.KpiCriteria kpi) {
         var p = com.kpitracking.util.BscPerspectiveResolver.effectivePerspective(kpi);
         return p != null ? p.getColor() : null;
+    }
+
+    default String effectiveFixedPerspective(com.kpitracking.entity.KpiCriteria kpi) {
+        var p = com.kpitracking.util.BscPerspectiveResolver.effectivePerspective(kpi);
+        return p != null && p.getFixedPerspective() != null ? p.getFixedPerspective().name() : null;
+    }
+
+    default String effectiveFixedPerspectiveName(com.kpitracking.entity.KpiCriteria kpi) {
+        var p = com.kpitracking.util.BscPerspectiveResolver.effectivePerspective(kpi);
+        return p != null && p.getFixedPerspective() != null ? p.getFixedPerspective().getDisplayName() : null;
+    }
+
+    default String effectiveFixedPerspectiveColor(com.kpitracking.entity.KpiCriteria kpi) {
+        var p = com.kpitracking.util.BscPerspectiveResolver.effectivePerspective(kpi);
+        return p != null && p.getFixedPerspective() != null ? p.getFixedPerspective().getColor() : null;
     }
 
     default Double sumDecompositionChildrenWeight(com.kpitracking.entity.KpiCriteria kpi) {

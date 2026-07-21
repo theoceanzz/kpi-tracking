@@ -63,8 +63,6 @@ export function useSummaryRankings(orgUnitId?: string, rankingUnitId?: string, f
   })
 }
 
-// ── BSC (Viễn cảnh) — tab "Viễn cảnh (BSC)" ─────────────────────────────────
-
 export function useBscBalance(params: BscScopeParams) {
   return useQuery({
     queryKey: ['analytics', 'bsc', 'balance', params],

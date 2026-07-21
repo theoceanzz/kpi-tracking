@@ -16,6 +16,7 @@ public class StrategyMapResponse {
     private List<KpiNode> directKpis;
     private List<RelationEdge> relations;
 
+    /** Một lane = 1 HẠNG MỤC (BscPerspective). Kèm viễn cảnh CỐ ĐỊNH cha để FE gộp theo 4 viễn cảnh. */
     @Getter @Setter @Builder @NoArgsConstructor @AllArgsConstructor
     public static class PerspectiveLane {
         private UUID perspectiveId;
@@ -23,6 +24,10 @@ public class StrategyMapResponse {
         private String name;
         private String color;
         private Integer displayOrder;
+        /** Viễn cảnh cố định cha (FINANCIAL/CUSTOMER/INTERNAL_PROCESS/LEARNING_GROWTH). */
+        private String fixedPerspective;
+        private String fixedPerspectiveName;
+        private String fixedPerspectiveColor;
         private List<ObjectiveNode> objectives;
     }
 

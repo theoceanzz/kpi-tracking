@@ -15,6 +15,8 @@ public class AdjustmentRequestResponse {
     private KpiType kpiType;
     private String perspectiveName;
     private String perspectiveColor;
+    /** %hạng_mục từ thẻ điểm của đơn vị KPI (để FE tính trọng số THẬT = weight × %/100). Null nếu không áp dụng. */
+    private Double categoryWeightPercent;
     private Double currentTargetValue;
     private Double currentWeight;
     private Double currentMinimumValue;

@@ -1422,8 +1422,8 @@ function BscConfigSection({ org }: { org: any }) {
           <div className="space-y-1">
             <p className="text-xs text-indigo-800 dark:text-indigo-300 font-bold">Quản trị chiến lược theo 4 viễn cảnh</p>
             <p className="text-[11px] text-indigo-700/70 dark:text-indigo-400/70 font-medium leading-relaxed">
-              Khi bật, bạn có thể cấu hình các viễn cảnh BSC (Tài chính, Khách hàng, Quy trình nội bộ, Học hỏi & phát triển),
-              nhóm KPI theo viễn cảnh và theo dõi thẻ điểm cân bằng của tổ chức.
+              Khi bật, bạn có thể cấu hình các hạng mục theo 4 viễn cảnh cố định (Tài chính, Khách hàng, Quy trình nội bộ, Học hỏi & phát triển),
+              nhóm KPI theo hạng mục và theo dõi thẻ điểm cân bằng của tổ chức.
             </p>
           </div>
         </div>

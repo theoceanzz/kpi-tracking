@@ -44,16 +44,13 @@ export default function ObjectiveFormModal({ isOpen, onClose, organizationId, ob
   const enableBsc = org?.enableBsc
   const { data: perspectives } = useBscPerspectives(enableBsc ? organizationId : undefined)
 
-  // Đảm bảo viễn cảnh đang gán của Mục tiêu LUÔN có trong danh sách option, kể cả khi
-  // danh sách chưa load kịp hoặc viễn cảnh đó đã bị đặt INACTIVE — nếu không Radix Select
-  // không hiển thị được giá trị đã chọn (hiện nhầm "Chưa gán").
   const perspectiveOptions = useMemo(() => {
     const list = [...(perspectives || [])]
     if (objective?.perspectiveId && !list.some(p => p.id === objective.perspectiveId)) {
       list.unshift({
         id: objective.perspectiveId,
         code: '',
-        name: objective.perspectiveName || 'Viễn cảnh',
+        name: objective.perspectiveName || 'Hạng mục',
         color: objective.perspectiveColor || undefined,
         displayOrder: 0,
         status: 'ACTIVE' as any,
@@ -300,20 +297,18 @@ export default function ObjectiveFormModal({ isOpen, onClose, organizationId, ob
 
             {enableBsc && (
               <div className="space-y-1.5">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Viễn cảnh BSC</label>
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Hạng mục BSC</label>
                 <Controller
                   name="perspectiveId"
                   control={control}
                   render={({ field }) => (
-                    // key ép Radix Select remount khi value được nạp (reset async) hoặc khi
-                    // danh sách viễn cảnh load xong → nhãn hiển thị đúng ngay lần mở đầu tiên,
-                    // không phải mở lần 2 mới thấy.
+
                     <Select key={`${field.value ?? 'NONE'}-${perspectiveOptions.length}`} value={field.value || 'NONE'} onValueChange={field.onChange}>
                       <SelectTrigger className="w-full h-10 rounded-xl bg-slate-50 dark:bg-slate-800 border-slate-100 dark:border-slate-700 text-sm font-bold outline-none">
-                        <SelectValue placeholder="-- Chưa gán viễn cảnh --" />
+                        <SelectValue placeholder="-- Chưa gán hạng mục --" />
                       </SelectTrigger>
                       <SelectContent className="rounded-xl border-slate-200 dark:border-slate-800 max-h-[280px]">
-                        <SelectItem value="NONE" className="text-sm font-bold text-slate-500">-- Chưa gán viễn cảnh --</SelectItem>
+                        <SelectItem value="NONE" className="text-sm font-bold text-slate-500">-- Chưa gán hạng mục --</SelectItem>
                         {perspectiveOptions.map(p => (
                           <SelectItem key={p.id} value={p.id} className="text-sm font-bold">
                             <span className="flex items-center gap-2">
@@ -326,7 +321,7 @@ export default function ObjectiveFormModal({ isOpen, onClose, organizationId, ob
                     </Select>
                   )}
                 />
-                <p className="text-[10px] font-medium text-slate-400 ml-1">KPI thuộc mục tiêu này sẽ tự kế thừa viễn cảnh (nếu KPI chưa gán trực tiếp).</p>
+                <p className="text-[10px] font-medium text-slate-400 ml-1">KPI thuộc mục tiêu này sẽ tự kế thừa hạng mục (nếu KPI chưa gán trực tiếp).</p>
               </div>
             )}
           </div>

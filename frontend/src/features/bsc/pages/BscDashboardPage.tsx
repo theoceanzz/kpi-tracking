@@ -8,7 +8,6 @@ import { cn } from '@/lib/utils'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { BscScoringMode } from '../types'
 
-/** Nhãn viễn cảnh trên radar: tự xuống dòng để tên dài không bị cắt. */
 function PerspectiveTick({ payload, x, y, textAnchor }: any) {
   const label: string = payload?.value ?? ''
   const words = label.split(' ')
@@ -16,7 +15,7 @@ function PerspectiveTick({ payload, x, y, textAnchor }: any) {
   let cur = ''
   words.forEach(w => {
     const next = (cur ? `${cur} ${w}` : w)
-    if (next.length <= 12) cur = next
+    if (next.length <= 9) cur = next
     else { if (cur) lines.push(cur); cur = w }
   })
   if (cur) lines.push(cur)
@@ -56,10 +55,27 @@ export default function BscDashboardPage() {
 
   const { data: dashboard, isLoading } = useBscDashboard(scorecardId || undefined)
 
-  const radarData = useMemo(() => (dashboard?.perspectives || []).map(p => ({
-    name: p.name,
-    achievement: p.achievementPercent != null ? Math.round(p.achievementPercent * 10) / 10 : 0,
-  })), [dashboard])
+  const fixedGroups = useMemo(() => {
+    const order = ['FINANCIAL', 'CUSTOMER', 'INTERNAL_PROCESS', 'LEARNING_GROWTH']
+    const list = dashboard?.perspectives || []
+    type Group = { code: string; name: string; color?: string; items: typeof list }
+    const groups = new Map<string, Group>()
+    for (const p of list) {
+      const key = p.fixedPerspective || 'INTERNAL_PROCESS'
+      if (!groups.has(key)) groups.set(key, { code: key, name: p.fixedPerspectiveName || key, color: p.fixedPerspectiveColor || p.color, items: [] })
+      groups.get(key)!.items.push(p)
+    }
+    return order.filter(k => groups.has(k)).map(k => groups.get(k)!)
+  }, [dashboard])
+
+  const radarData = useMemo(() => fixedGroups.map(g => {
+    const withAch = g.items.filter(p => p.achievementPercent != null)
+    const wSum = withAch.reduce((s, p) => s + (p.weightPercentage || 0), 0)
+    const ach = wSum > 0
+      ? withAch.reduce((s, p) => s + (p.achievementPercent! * (p.weightPercentage || 0)), 0) / wSum
+      : 0
+    return { name: g.name, achievement: Math.round(ach * 10) / 10 }
+  }), [fixedGroups])
 
   const onSelect = (id: string) => {
     setScorecardId(id)
@@ -82,7 +98,7 @@ export default function BscDashboardPage() {
               <SelectValue placeholder="Chọn thẻ điểm" />
             </SelectTrigger>
             <SelectContent className="rounded-2xl border-slate-200 dark:border-slate-800 max-h-[300px]">
-              {scorecards?.map(sc => <SelectItem key={sc.id} value={sc.id} className="text-sm font-bold">{sc.name} · {sc.kpiPeriodName}</SelectItem>)}
+              {scorecards?.map(sc => <SelectItem key={sc.id} value={sc.id} className="text-sm font-bold">{sc.name} · {sc.kpiPeriodName} · {sc.orgUnitName || 'Toàn tổ chức'}</SelectItem>)}
             </SelectContent>
           </Select>
         </div>
@@ -107,6 +123,7 @@ export default function BscDashboardPage() {
               <div className="max-w-xl">
                 <p className="text-[11px] font-black uppercase tracking-[0.25em] text-indigo-200">Chiến lược</p>
                 <h2 className="text-2xl font-black mt-1">{dashboard.name}</h2>
+                <span className="inline-block mt-1 text-[10px] font-black uppercase tracking-wider bg-white/15 px-2.5 py-1 rounded-full">{dashboard.orgUnitName || 'Toàn tổ chức'}</span>
                 {dashboard.vision && <p className="text-sm text-indigo-100/80 mt-2 italic leading-relaxed">"{dashboard.vision}"</p>}
                 {dashboard.scoringMode === BscScoringMode.SHADOW && (
                   <span className="inline-block mt-3 text-[10px] font-black uppercase tracking-wider bg-white/15 px-2.5 py-1 rounded-full">Chạy song song (chưa chính thức)</span>
@@ -120,32 +137,42 @@ export default function BscDashboardPage() {
             </div>
           </div>
 
-          {/* Perspective quadrants + radar */}
+          {/* 4 ô viễn cảnh cố định, mỗi ô liệt kê các hạng mục con + radar */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <div className="lg:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {dashboard.perspectives.map(p => {
-                const ach = p.achievementPercent
+              {fixedGroups.map(group => {
+                const groupWeight = group.items.reduce((s, p) => s + (p.weightPercentage || 0), 0)
+                const groupContribution = group.items.reduce((s, p) => s + (p.weightedScore || 0), 0)
                 return (
-                  <div key={p.perspectiveId} className="relative overflow-hidden bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 p-5 shadow-sm">
-                    <div className="absolute top-0 left-0 w-1.5 h-full" style={{ backgroundColor: p.color || '#8b5cf6' }} />
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="min-w-0">
-                        <div className="flex items-center gap-2">
-                          <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: p.color || '#8b5cf6' }} />
-                          <h3 className="text-sm font-black text-slate-900 dark:text-white truncate">{p.name}</h3>
-                        </div>
-                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-tight mt-0.5">Trọng số {p.weightPercentage}% · {p.kpiCount} KPI</p>
+                  <div key={group.code} className="relative overflow-hidden bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 p-5 shadow-sm">
+                    <div className="absolute top-0 left-0 w-1.5 h-full" style={{ backgroundColor: group.color || '#8b5cf6' }} />
+                    <div className="flex items-center justify-between gap-2 mb-3">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: group.color || '#8b5cf6' }} />
+                        <h3 className="text-sm font-black text-slate-900 dark:text-white truncate">{group.name}</h3>
                       </div>
-                      <div className="text-right shrink-0">
-                        <p className={cn('text-2xl font-black tabular-nums', scoreColor(ach))}>{ach != null ? `${ach.toFixed(0)}` : '—'}<span className="text-sm">%</span></p>
-                      </div>
+                      <span className="text-[10px] font-black text-slate-400 uppercase shrink-0">{Math.round(groupWeight)}% · {group.items.length} hạng mục</span>
                     </div>
-                    <div className="mt-3 h-2 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
-                      <div className="h-full rounded-full transition-all duration-700" style={{ width: `${Math.min(100, ach || 0)}%`, backgroundColor: p.color || '#8b5cf6' }} />
+                    <div className="space-y-3">
+                      {group.items.map(p => {
+                        const ach = p.achievementPercent
+                        return (
+                          <div key={p.perspectiveId}>
+                            <div className="flex items-center justify-between gap-2">
+                              <span className="text-xs font-bold text-slate-700 dark:text-slate-300 truncate">{p.name}</span>
+                              <span className="text-[10px] font-bold text-slate-400 shrink-0">{p.weightPercentage}% · {p.kpiCount} KPI</span>
+                              <span className={cn('text-sm font-black tabular-nums shrink-0', scoreColor(ach))}>{ach != null ? `${ach.toFixed(0)}%` : '—'}</span>
+                            </div>
+                            <div className="mt-1 h-1.5 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
+                              <div className="h-full rounded-full transition-all duration-700" style={{ width: `${Math.min(100, ach || 0)}%`, backgroundColor: p.color || group.color || '#8b5cf6' }} />
+                            </div>
+                          </div>
+                        )
+                      })}
                     </div>
-                    <div className="flex items-center justify-between mt-2 text-[10px] font-bold text-slate-400">
-                      <span>Đóng góp</span>
-                      <span className="text-slate-600 dark:text-slate-300">{p.weightedScore != null ? p.weightedScore.toFixed(1) : '—'} đ</span>
+                    <div className="flex items-center justify-between mt-3 pt-2 border-t border-slate-100 dark:border-slate-800 text-[10px] font-bold text-slate-400">
+                      <span>Đóng góp viễn cảnh</span>
+                      <span className="text-slate-600 dark:text-slate-300">{groupContribution.toFixed(1)} đ</span>
                     </div>
                   </div>
                 )
@@ -153,22 +180,24 @@ export default function BscDashboardPage() {
             </div>
 
             {/* Radar */}
-            <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 p-5 shadow-sm">
+            <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 p-5 shadow-sm flex flex-col">
               <h3 className="text-xs font-black uppercase tracking-widest text-slate-400 flex items-center gap-2 mb-2"><TrendingUp size={14} className="text-indigo-500" /> Biểu đồ radar</h3>
-              <ResponsiveContainer width="100%" height={340}>
-                <RadarChart data={radarData} outerRadius="75%" margin={{ top: 18, right: 18, bottom: 18, left: 18 }}>
-                  <PolarGrid strokeOpacity={0.25} />
-                  <PolarAngleAxis dataKey="name" tick={<PerspectiveTick />} />
-                  <PolarRadiusAxis domain={[0, 100]} tick={{ fontSize: 9 }} />
-                  <Radar name="Đạt %" dataKey="achievement" stroke="var(--color-primary)" fill="var(--color-primary)" fillOpacity={0.35} strokeWidth={2} />
-                  <Tooltip formatter={(v: any) => [`${v}%`, 'Đạt']} />
-                </RadarChart>
-              </ResponsiveContainer>
+              <div className="flex-1 min-h-[320px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <RadarChart data={radarData} outerRadius="82%" margin={{ top: 14, right: 34, bottom: 14, left: 34 }}>
+                    <PolarGrid strokeOpacity={0.25} />
+                    <PolarAngleAxis dataKey="name" tick={<PerspectiveTick />} />
+                    <PolarRadiusAxis domain={[0, 100]} tick={{ fontSize: 9 }} />
+                    <Radar name="Đạt %" dataKey="achievement" stroke="var(--color-primary)" fill="var(--color-primary)" fillOpacity={0.35} strokeWidth={2} />
+                    <Tooltip formatter={(v: any) => [`${v}%`, 'Đạt']} />
+                  </RadarChart>
+                </ResponsiveContainer>
+              </div>
             </div>
           </div>
 
           <p className="text-[11px] text-slate-400 font-medium flex items-center gap-1.5">
-            <Layers size={12} /> Điểm mỗi viễn cảnh = trung bình có trọng số các KPI định lượng thuộc viễn cảnh đó (toàn tổ chức trong kỳ).
+            <Layers size={12} /> Điểm mỗi hạng mục = trung bình có trọng số các KPI thuộc hạng mục đó; các hạng mục được gộp vào 4 viễn cảnh cố định.
           </p>
         </>
       )}

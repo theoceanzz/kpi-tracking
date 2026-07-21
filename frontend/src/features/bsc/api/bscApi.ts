@@ -1,12 +1,22 @@
 import axiosInstance from '@/lib/axios'
 import type { ApiResponse } from '@/types/api'
 import {
-  PerspectiveResponse, PerspectiveRequest, ImportBscResponse,
+  PerspectiveResponse, PerspectiveRequest, ImportBscResponse, FixedPerspectiveResponse, FixedPerspectiveUpdateRequest,
   ScorecardResponse, ScorecardRequest, BscDashboardResponse, BscScoringMode,
   StrategyMapResponse, ObjectiveRelationRequest, ObjectiveRelationResponse,
 } from '../types'
 
 export const bscApi = {
+  getFixedPerspectives: (organizationId: string) =>
+    axiosInstance
+      .get<ApiResponse<FixedPerspectiveResponse[]>>(`/bsc/organization/${organizationId}/fixed-perspectives`)
+      .then(r => r.data.data),
+
+  updateFixedPerspective: (organizationId: string, code: string, data: FixedPerspectiveUpdateRequest) =>
+    axiosInstance
+      .put<ApiResponse<FixedPerspectiveResponse>>(`/bsc/organization/${organizationId}/fixed-perspectives/${code}`, data)
+      .then(r => r.data.data),
+
   getPerspectives: (organizationId: string) =>
     axiosInstance
       .get<ApiResponse<PerspectiveResponse[]>>(`/bsc/organization/${organizationId}/perspectives`)

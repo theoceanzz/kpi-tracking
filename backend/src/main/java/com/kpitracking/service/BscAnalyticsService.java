@@ -413,7 +413,8 @@ public class BscAnalyticsService {
         if (orgId == null) return null;
         boolean shadow = false, official = false;
         for (UUID pid : periodIds) {
-            BscScoringMode mode = bscScoringService.getScoringMode(orgId, pid);
+            // Analytics mức org: lấy chế độ của thẻ điểm MẶC ĐỊNH toàn org (org_unit = NULL).
+            BscScoringMode mode = bscScoringService.getScoringMode(null, orgId, pid);
             if (mode == BscScoringMode.SHADOW) shadow = true;
             else if (mode == BscScoringMode.OFFICIAL) official = true;
         }

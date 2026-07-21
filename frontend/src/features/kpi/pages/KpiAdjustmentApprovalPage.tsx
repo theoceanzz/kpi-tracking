@@ -482,7 +482,7 @@ export default function KpiAdjustmentApprovalPage() {
                               <span
                                 className="inline-flex items-center gap-1 text-[9px] font-black px-2 py-0.5 rounded-full uppercase whitespace-nowrap"
                                 style={{ color: request.perspectiveColor || '#8b5cf6', backgroundColor: `${request.perspectiveColor || '#8b5cf6'}1a` }}
-                                title={`Viễn cảnh BSC: ${request.perspectiveName}`}
+                                title={`Hạng mục BSC: ${request.perspectiveName}`}
                               >
                                 <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: request.perspectiveColor || '#8b5cf6' }} />
                                 {request.perspectiveName}
@@ -594,7 +594,7 @@ export default function KpiAdjustmentApprovalPage() {
                               <span
                                 className="inline-flex items-center gap-1 text-[9px] font-black px-2 py-0.5 rounded-full uppercase whitespace-nowrap"
                                 style={{ color: request.perspectiveColor || '#8b5cf6', backgroundColor: `${request.perspectiveColor || '#8b5cf6'}1a` }}
-                                title={`Viễn cảnh BSC: ${request.perspectiveName}`}
+                                title={`Hạng mục BSC: ${request.perspectiveName}`}
                               >
                                 <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: request.perspectiveColor || '#8b5cf6' }} />
                                 {request.perspectiveName}

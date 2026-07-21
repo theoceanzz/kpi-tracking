@@ -34,6 +34,20 @@ public class BscScorecard {
     @JoinColumn(name = "organization_id", nullable = false)
     private Organization organization;
 
+    /**
+     * Các phòng ban (org-unit) mà thẻ điểm này áp dụng. Danh sách RỖNG = thẻ điểm MẶC ĐỊNH toàn tổ chức.
+     * Khi tính điểm cho 1 nhân viên: dùng thẻ điểm chứa phòng ban họ → nếu không có thì đi ngược
+     * lên phòng ban cha → cuối cùng fallback thẻ điểm mặc định org (danh sách rỗng).
+     */
+    @ManyToMany(fetch = FetchType.LAZY)
+    @JoinTable(
+        name = "bsc_scorecard_org_units",
+        joinColumns = @JoinColumn(name = "scorecard_id"),
+        inverseJoinColumns = @JoinColumn(name = "org_unit_id")
+    )
+    @Builder.Default
+    private List<OrgUnit> orgUnits = new ArrayList<>();
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "kpi_period_id", nullable = false)
     private KpiPeriod kpiPeriod;

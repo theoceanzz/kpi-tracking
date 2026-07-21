@@ -70,6 +70,7 @@ public class KpiCriteriaService {
     private final com.kpitracking.repository.BscScorecardRepository bscScorecardRepository;
     private final KpiAchievementCalculator achievementCalculator;
     private final OrganizationService organizationService;
+    private final BscScoringService bscScoringService;
 
     private static final List<KpiStatus> WEIGHT_COUNTED_STATUSES = java.util.Arrays.asList(
             KpiStatus.DRAFT,
@@ -258,7 +259,7 @@ public class KpiCriteriaService {
 
         if (request.getPerspectiveId() != null) {
             com.kpitracking.entity.BscPerspective perspective = bscPerspectiveRepository.findById(request.getPerspectiveId())
-                    .orElseThrow(() -> new ResourceNotFoundException("Viễn cảnh BSC", "id", request.getPerspectiveId()));
+                    .orElseThrow(() -> new ResourceNotFoundException("Hạng mục BSC", "id", request.getPerspectiveId()));
             kpi.setPerspective(perspective);
         }
 
@@ -550,7 +551,7 @@ public class KpiCriteriaService {
 
         if (request.getPerspectiveId() != null) {
             com.kpitracking.entity.BscPerspective perspective = bscPerspectiveRepository.findById(request.getPerspectiveId())
-                    .orElseThrow(() -> new ResourceNotFoundException("Viễn cảnh BSC", "id", request.getPerspectiveId()));
+                    .orElseThrow(() -> new ResourceNotFoundException("Hạng mục BSC", "id", request.getPerspectiveId()));
             kpi.setPerspective(perspective);
         }
 
@@ -669,6 +670,7 @@ public class KpiCriteriaService {
         }
 
         requirePerspectiveWhenBscEnabled(kpi);
+        requireCategoryWeightSum100OnApprove(kpi);
 
         kpi.setStatus(KpiStatus.APPROVED);
         kpi.setApprovedBy(currentUser);
@@ -719,8 +721,49 @@ public class KpiCriteriaService {
         // KPI có thể suy viễn cảnh từ Objective cha (OKR) ⇒ dùng viễn cảnh HIỆU LỰC, không đòi gán trực tiếp.
         if (com.kpitracking.util.BscPerspectiveResolver.effectivePerspective(kpi) == null) {
             throw new BusinessException("Kỳ '" + kpi.getKpiPeriod().getName() + "' đang áp dụng thẻ điểm BSC: "
-                    + "vui lòng gán viễn cảnh cho chỉ tiêu '" + kpi.getName() + "' (hoặc gán cho Mục tiêu OKR cha) trước khi phê duyệt");
+                    + "vui lòng gán hạng mục cho chỉ tiêu '" + kpi.getName() + "' (hoặc gán cho Mục tiêu OKR cha) trước khi phê duyệt");
         }
+    }
+
+    /**
+     * Khi org bật BSC & kỳ có thẻ điểm: tổng trọng số các KPI (tính điểm) trong CÙNG một HẠNG MỤC
+     * — cùng phòng ban + cùng kỳ + cùng viễn cảnh hiệu lực — phải = 100% trước khi duyệt (xem ảnh 3).
+     * Đây là ràng buộc chặn CỨNG lúc duyệt; lúc tạo/sửa chỉ cảnh báo mềm (phía FE) để user xây dần.
+     */
+    private void requireCategoryWeightSum100OnApprove(KpiCriteria kpi) {
+        Organization org = kpi.getOrgUnit().getOrgHierarchyLevel().getOrganization();
+        if (org == null || !Boolean.TRUE.equals(org.getEnableBsc())) return;
+        if (kpi.getKpiPeriod() == null) return;
+        if (!bscScorecardRepository.existsByOrganizationIdAndKpiPeriodId(org.getId(), kpi.getKpiPeriod().getId())) return;
+        if (!achievementCalculator.countsTowardBscScore(kpi)) return;
+
+        com.kpitracking.entity.BscPerspective category =
+                com.kpitracking.util.BscPerspectiveResolver.effectivePerspective(kpi);
+        if (category == null) return; // đã bị chặn ở requirePerspectiveWhenBscEnabled
+
+        UUID categoryId = category.getId();
+        // Tổng trọng số các KPI đang hiệu lực cùng hạng mục (loại chính KPI này ra để tránh đếm 2 lần),
+        // cộng thêm trọng số của KPI sắp duyệt.
+        double siblingSum = kpiCriteriaRepository
+                .findByOrgUnitIdAndKpiPeriodIdAndStatusIn(kpi.getOrgUnit().getId(), kpi.getKpiPeriod().getId(),
+                        com.kpitracking.service.BscScoringService.ACTIVE_STATUSES)
+                .stream()
+                .filter(k -> !k.getId().equals(kpi.getId()))
+                .filter(achievementCalculator::countsTowardBscScore)
+                .filter(k -> categoryId.equals(com.kpitracking.util.BscPerspectiveResolver.effectivePerspectiveId(k)))
+                .mapToDouble(k -> k.getWeight() != null ? k.getWeight() : 0.0)
+                .sum();
+        double total = siblingSum + (kpi.getWeight() != null ? kpi.getWeight() : 0.0);
+
+        if (Math.abs(total - 100.0) > 0.01) {
+            throw new BusinessException("Không thể phê duyệt: tổng trọng số các chỉ tiêu trong hạng mục '"
+                    + category.getName() + "' phải bằng 100% (hiện tại: " + round1(total) + "%). "
+                    + "Vui lòng điều chỉnh trọng số các chỉ tiêu cùng hạng mục cho đủ 100% trước khi duyệt.");
+        }
+    }
+
+    private static double round1(double v) {
+        return Math.round(v * 10.0) / 10.0;
     }
 
     @Transactional
@@ -882,15 +925,15 @@ public class KpiCriteriaService {
     @Transactional(readOnly = true)
     public Double calculateTotalWeightByOrgUnit(UUID orgUnitId, UUID kpiPeriodId, List<KpiStatus> statuses) {
         List<KpiCriteria> kpis = kpiCriteriaRepository.findByOrgUnitIdAndKpiPeriodIdAndStatusIn(orgUnitId, kpiPeriodId, statuses);
-        
+
         Double unassignedWeight = 0.0;
         Map<UUID, Double> userWeights = new HashMap<>();
-        
+
         for (KpiCriteria kpi : kpis) {
             if (Boolean.TRUE.equals(kpi.getIsBonusKpi())) continue; // Bonus KPIs don't count toward the 100% requirement
             if (hasDecompositionChildren(kpi)) continue; // Parent is just a grouping label; its children carry the real weight
 
-            Double weight = kpi.getWeight() != null ? kpi.getWeight() : 0.0;
+            double weight = effectiveWeight(kpi); // trọng số THẬT = form × %hạng_mục (nếu có BSC + thẻ điểm)
             if (kpi.getAssignees() == null || kpi.getAssignees().isEmpty()) {
                 unassignedWeight += weight;
             } else {
@@ -899,13 +942,53 @@ public class KpiCriteriaService {
                 }
             }
         }
-        
+
         if (userWeights.isEmpty()) {
             return unassignedWeight;
         }
-        
+
         Double maxUserWeight = userWeights.values().stream().max(Double::compare).orElse(0.0);
         return unassignedWeight + maxUserWeight;
+    }
+
+    /**
+     * Trọng số THẬT của 1 KPI = form × (%hạng_mục / 100), với %hạng_mục lấy từ thẻ điểm áp dụng cho
+     * đơn vị của KPI (resolve đơn vị → cha → mặc định). Không bật BSC / chưa gán hạng mục / chưa có thẻ điểm
+     * ⇒ giữ nguyên trọng số form (mô hình cũ). Hạng mục KHÔNG có trong thẻ điểm ⇒ 0 (không tính).
+     */
+    private double effectiveWeight(KpiCriteria kpi) {
+        double raw = kpi.getWeight() != null ? kpi.getWeight() : 0.0;
+        if (kpi.getKpiPeriod() == null) return raw;
+        Organization org = kpi.getKpiPeriod().getOrganization();
+        if (org == null || !Boolean.TRUE.equals(org.getEnableBsc())) return raw;
+        com.kpitracking.entity.BscPerspective persp = com.kpitracking.util.BscPerspectiveResolver.effectivePerspective(kpi);
+        if (persp == null) return raw;
+        com.kpitracking.entity.BscScorecard sc = bscScoringService.resolveScorecard(kpi.getOrgUnit(), org.getId(), kpi.getKpiPeriod().getId());
+        if (sc == null) return raw;
+        Double pct = null;
+        if (sc.getScorecardPerspectives() != null) {
+            for (com.kpitracking.entity.BscScorecardPerspective sp : sc.getScorecardPerspectives()) {
+                if (sp.getPerspective() != null && sp.getPerspective().getId().equals(persp.getId())) {
+                    pct = sp.getWeightPercentage();
+                    break;
+                }
+            }
+        }
+        if (pct == null) return 0.0; // hạng mục không nằm trong thẻ điểm đơn vị ⇒ không tính
+        return raw * pct / 100.0;
+    }
+
+    /** Tổng trọng số THẬT cho các KPI của MỘT người (bỏ KPI thưởng + KPI cha decomposition). */
+    private double sumEffectiveForUser(List<KpiCriteria> kpis, UUID userId) {
+        double sum = 0.0;
+        for (KpiCriteria kpi : kpis) {
+            if (Boolean.TRUE.equals(kpi.getIsBonusKpi())) continue;
+            if (hasDecompositionChildren(kpi)) continue;
+            if (userId != null && (kpi.getAssignees() == null
+                    || kpi.getAssignees().stream().noneMatch(a -> a.getId().equals(userId)))) continue;
+            sum += effectiveWeight(kpi);
+        }
+        return sum;
     }
 
     @Transactional(readOnly = true)
@@ -933,11 +1016,19 @@ public class KpiCriteriaService {
                     throw new ForbiddenException("Bạn không có quyền xem thông tin trọng số của người dùng này");
                 }
             }
-            // When orgUnitId is also provided, scope the sum to that specific unit
-            if (orgUnitId != null) {
-                return kpiCriteriaRepository.sumWeightByUserIdAndOrgUnitIdAndKpiPeriodIdAndStatusIn(userId, orgUnitId, kpiPeriodId, WEIGHT_COUNTED_STATUSES);
+            // Tổng theo TRỌNG SỐ THẬT (form × %hạng_mục). Cần load KPI để nhân %hạng_mục (SQL SUM không làm được).
+            if (kpiPeriodId == null) {
+                // Không có kỳ ⇒ không có %hạng_mục để nhân ⇒ giữ tổng thô như cũ.
+                return kpiCriteriaRepository.sumWeightByUserIdAndKpiPeriodIdAndStatusIn(userId, null, WEIGHT_COUNTED_STATUSES);
             }
-            return kpiCriteriaRepository.sumWeightByUserIdAndKpiPeriodIdAndStatusIn(userId, kpiPeriodId, WEIGHT_COUNTED_STATUSES);
+            List<KpiCriteria> userKpis;
+            if (orgUnitId != null) {
+                userKpis = kpiCriteriaRepository.findByOrgUnitIdAndKpiPeriodIdAndStatusIn(orgUnitId, kpiPeriodId, WEIGHT_COUNTED_STATUSES);
+            } else {
+                userKpis = kpiCriteriaRepository.findByUserIdInAssigneesAndKpiPeriodId(
+                        userId, kpiPeriodId, WEIGHT_COUNTED_STATUSES, org.springframework.data.domain.Pageable.unpaged()).getContent();
+            }
+            return sumEffectiveForUser(userKpis, userId);
         }
 
         if (orgUnitId != null) {
@@ -1430,7 +1521,7 @@ public class KpiCriteriaService {
 
         if (request.getPerspectiveId() != null) {
             com.kpitracking.entity.BscPerspective perspective = bscPerspectiveRepository.findById(request.getPerspectiveId())
-                    .orElseThrow(() -> new ResourceNotFoundException("Viễn cảnh BSC", "id", request.getPerspectiveId()));
+                    .orElseThrow(() -> new ResourceNotFoundException("Hạng mục BSC", "id", request.getPerspectiveId()));
             newKpi.setPerspective(perspective);
         }
 

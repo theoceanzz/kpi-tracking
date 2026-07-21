@@ -29,6 +29,8 @@ import PageTour from '@/components/common/PageTour'
 import { myKpiSteps } from '@/components/common/tourSteps'
 import { ObjectiveResponse } from '@/features/okr/types'
 import { buildKpiRows } from '../utils/kpiTree'
+import { useScorecards } from '@/features/bsc/hooks/useBsc'
+import { useOrgUnitTree } from '@/features/orgunits/hooks/useOrgUnitTree'
 
 
 
@@ -86,9 +88,45 @@ export default function MyKpiPage() {
     (k.status === 'APPROVED' || k.status === 'EDITED') &&
     k.assigneeIds?.includes(user?.id || '')
   )
-  const filteredKpis = allKpis.filter(k => 
+  const filteredKpis = allKpis.filter(k =>
     k.name.toLowerCase().includes(search.toLowerCase())
   )
+
+  // Trọng số THẬT mỗi KPI = form × %hạng_mục (từ thẻ điểm của đơn vị KPI) — như trang Quản lý KPI.
+  const enableBsc = org?.enableBsc
+  const { data: bscScorecards } = useScorecards(enableBsc ? organizationId : undefined)
+  const { data: orgUnitTreeData } = useOrgUnitTree()
+  const unitParentMap = useMemo(() => {
+    const map = new Map<string, string | null>()
+    const walk = (nodes: any[]) => (nodes || []).forEach((n: any) => { map.set(n.id, n.parentId ?? null); if (n.children) walk(n.children) })
+    walk(orgUnitTreeData || [])
+    return map
+  }, [orgUnitTreeData])
+  const realWeightById = useMemo(() => {
+    const map = new Map<string, number>()
+    if (!enableBsc || !bscScorecards) return map
+    const resolveSc = (unitId: string, periodScs: any[]) => {
+      let cur: string | null = unitId, guard = 0
+      while (cur && guard++ < 100) {
+        const found = periodScs.find(s => (s.orgUnits || []).some((u: any) => u.id === cur))
+        if (found) return found
+        cur = unitParentMap.get(cur) ?? null
+      }
+      return periodScs.find(s => !s.orgUnits || s.orgUnits.length === 0) || null
+    }
+    for (const kpi of allKpis) {
+      if (kpi.weight == null || !kpi.effectivePerspectiveId || !kpi.kpiPeriodId) continue
+      const periodScs = bscScorecards.filter(s => s.kpiPeriodId === kpi.kpiPeriodId)
+      if (periodScs.length === 0) continue
+      const unitId = kpi.orgUnitId || kpi.orgUnitIds?.[0]
+      const sc = unitId ? resolveSc(unitId, periodScs) : (periodScs.find(s => !s.orgUnits || s.orgUnits.length === 0) || null)
+      if (!sc) continue
+      const sp = sc.perspectives.find((p: any) => p.perspectiveId === kpi.effectivePerspectiveId)
+      if (!sp || sp.weightPercentage == null) continue
+      map.set(kpi.id, kpi.weight * sp.weightPercentage / 100)
+    }
+    return map
+  }, [enableBsc, bscScorecards, allKpis, unitParentMap])
 
   // Group KPIs by period
   const kpisByPeriod = filteredKpis.reduce((acc: Record<string, any[]>, kpi) => {
@@ -321,6 +359,7 @@ export default function MyKpiPage() {
                             onAdjust={() => setAdjustKpi(kpi)}
                             onAssign={() => setEditKpi(kpi)}
                             isLeader={isUserLeader}
+                            realWeight={realWeightById.get(kpi.id) ?? null}
                           />
                         ))}
                       </tbody>
@@ -383,6 +422,7 @@ export default function MyKpiPage() {
                       onAdjust={() => setAdjustKpi(kpi)}
                       onAssign={() => setEditKpi(kpi)}
                       isLeader={isUserLeader}
+                      realWeight={realWeightById.get(kpi.id) ?? null}
                     />
                   ))}
                 </div>
@@ -426,9 +466,9 @@ export default function MyKpiPage() {
   )
 }
 
-function MyKpiTableRow({ kpi, depth = 0, childKpis = [], isCollapsed, onToggleCollapse, enableOkr, enableWaterfall, onView, onAdjust, onAssign, isLeader }: {
+function MyKpiTableRow({ kpi, depth = 0, childKpis = [], isCollapsed, onToggleCollapse, enableOkr, enableWaterfall, onView, onAdjust, onAssign, isLeader, realWeight }: {
   kpi: KpiCriteria; depth?: number; childKpis?: KpiCriteria[]; isCollapsed?: boolean; onToggleCollapse?: () => void;
-  enableOkr?: boolean; enableWaterfall?: boolean; onView: () => void; onAdjust: () => void; onAssign: () => void; isLeader?: boolean
+  enableOkr?: boolean; enableWaterfall?: boolean; onView: () => void; onAdjust: () => void; onAssign: () => void; isLeader?: boolean; realWeight?: number | null
 }) {
   const status = STATUS_CONFIG[kpi.status as keyof typeof STATUS_CONFIG] ?? STATUS_CONFIG['DRAFT']!
   const nextDeadline = getNextDeadline(kpi)
@@ -526,8 +566,10 @@ function MyKpiTableRow({ kpi, depth = 0, childKpis = [], isCollapsed, onToggleCo
         </span>
       </td>
       <td className="px-3 py-4 text-center whitespace-nowrap">
-        <span className="text-xs font-black text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/30 px-2.5 py-1 rounded-lg">
-          {kpi.weight}%
+        <span className="text-xs font-black text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/30 px-2.5 py-1 rounded-lg"
+          title={realWeight != null ? `Trọng số thật: ${realWeight.toFixed(1)}% (form ${kpi.weight}% × %hạng mục)` : undefined}>
+          {realWeight != null ? `${realWeight.toFixed(1)}%` : `${kpi.weight}%`}
+          {realWeight != null && <span className="ml-1 text-[9px] font-bold text-slate-400">/ {kpi.weight}%</span>}
         </span>
       </td>
       <td className="px-3 py-4 whitespace-nowrap">
@@ -596,9 +638,9 @@ function MyKpiTableRow({ kpi, depth = 0, childKpis = [], isCollapsed, onToggleCo
   )
 }
 
-function MyKpiCard({ kpi, depth = 0, childKpis = [], isCollapsed, onToggleCollapse, delay, onView, onAdjust, onAssign, isLeader, enableWaterfall }: {
+function MyKpiCard({ kpi, depth = 0, childKpis = [], isCollapsed, onToggleCollapse, delay, onView, onAdjust, onAssign, isLeader, enableWaterfall, realWeight }: {
   kpi: KpiCriteria; depth?: number; childKpis?: KpiCriteria[]; isCollapsed?: boolean; onToggleCollapse?: () => void;
-  delay: number; onView: () => void; onAdjust: () => void; onAssign: () => void; isLeader?: boolean; enableWaterfall?: boolean
+  delay: number; onView: () => void; onAdjust: () => void; onAssign: () => void; isLeader?: boolean; enableWaterfall?: boolean; realWeight?: number | null
 }) {
   const status = STATUS_CONFIG[kpi.status as keyof typeof STATUS_CONFIG] ?? STATUS_CONFIG['DRAFT']!
   const now = new Date()
@@ -675,7 +717,11 @@ function MyKpiCard({ kpi, depth = 0, childKpis = [], isCollapsed, onToggleCollap
           </div>
           <div className="p-3 bg-slate-50 dark:bg-slate-800/40 rounded-2xl border border-slate-100 dark:border-slate-800">
             <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Trọng số</p>
-            <p className="text-sm font-black text-indigo-600 dark:text-indigo-400">{kpi.weight}%</p>
+            <p className="text-sm font-black text-indigo-600 dark:text-indigo-400"
+              title={realWeight != null ? `Trọng số thật (form ${kpi.weight}% × %hạng mục)` : undefined}>
+              {realWeight != null ? `${realWeight.toFixed(1)}%` : `${kpi.weight}%`}
+              {realWeight != null && <span className="ml-1 text-[10px] font-bold text-slate-400">/ {kpi.weight}%</span>}
+            </p>
           </div>
         </div>
       </div>

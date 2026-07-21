@@ -37,6 +37,24 @@ public class BscController {
     // Perspectives (viễn cảnh)
     // ============================================================
 
+    /** 4 viễn cảnh BSC cố định của tổ chức — FE dùng để hiển thị/chọn khi cấu hình hạng mục. */
+    @GetMapping("/organization/{organizationId}/fixed-perspectives")
+    @PreAuthorize("hasAuthority('BSC:VIEW')")
+    public ResponseEntity<ApiResponse<List<com.kpitracking.dto.response.bsc.FixedPerspectiveResponse>>> getFixedPerspectives(
+            @PathVariable UUID organizationId) {
+        return ResponseEntity.ok(ApiResponse.success(bscService.getFixedPerspectives(organizationId)));
+    }
+
+    /** Sửa hiển thị (tên/màu/thứ tự) 1 viễn cảnh cố định theo tổ chức. Mã (code) cố định. */
+    @PutMapping("/organization/{organizationId}/fixed-perspectives/{code}")
+    @PreAuthorize("hasAuthority('BSC:MANAGE')")
+    public ResponseEntity<ApiResponse<com.kpitracking.dto.response.bsc.FixedPerspectiveResponse>> updateFixedPerspective(
+            @PathVariable UUID organizationId,
+            @PathVariable String code,
+            @Valid @RequestBody com.kpitracking.dto.request.bsc.FixedPerspectiveUpdateRequest request) {
+        return ResponseEntity.ok(ApiResponse.success(bscService.updateFixedPerspective(organizationId, code, request)));
+    }
+
     @GetMapping("/organization/{organizationId}/perspectives")
     @PreAuthorize("hasAuthority('BSC:VIEW')")
     public ResponseEntity<ApiResponse<List<PerspectiveResponse>>> getPerspectives(@PathVariable UUID organizationId) {

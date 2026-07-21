@@ -192,10 +192,10 @@ export default function KpiPeriodsPage() {
             <Select value={periodType} onValueChange={val => { setPeriodType(val); setPage(0) }}>
               <SelectTrigger className="w-full md:w-56 h-[52px] rounded-[20px] border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50 font-bold text-sm">
                 <Filter size={16} className="text-slate-400 mr-2" />
-                <SelectValue placeholder="Tất cả loại kỳ" />
+                <SelectValue placeholder="Tất cả loại đợt" />
               </SelectTrigger>
               <SelectContent className="rounded-2xl border-slate-200 dark:border-slate-800 shadow-2xl p-2">
-                <SelectItem value="ALL" className="rounded-xl focus:bg-indigo-50 dark:focus:bg-indigo-900/30 text-xs font-black uppercase">Tất cả loại kỳ</SelectItem>
+                <SelectItem value="ALL" className="rounded-xl focus:bg-indigo-50 dark:focus:bg-indigo-900/30 text-xs font-black uppercase">Tất cả loại đợt</SelectItem>
                 {['DAILY', 'WEEKLY', 'MONTHLY', 'QUARTERLY', 'SEMI_ANNUALLY', 'YEARLY'].map(type => (
                   <SelectItem key={type} value={type} className="rounded-xl focus:bg-indigo-50 dark:focus:bg-indigo-900/30 text-sm font-bold">
                     {FREQUENCY_MAP[type as KpiFrequency]}
