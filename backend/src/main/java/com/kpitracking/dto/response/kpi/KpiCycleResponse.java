@@ -7,15 +7,15 @@ import java.time.Instant;
 import java.util.UUID;
 
 @Getter @Setter @Builder @NoArgsConstructor @AllArgsConstructor
-public class KpiPeriodResponse {
+public class KpiCycleResponse {
     private UUID id;
     private String name;
-    private KpiFrequency periodType;
+    private KpiFrequency cycleType;
     private Instant startDate;
     private Instant endDate;
-    private Instant notificationDate;
+    private String description;
+    private com.kpitracking.enums.CycleEvaluationMode evaluationMode;
     private UUID organizationId;
-    /** Kỳ đánh giá tổng hợp chứa đợt này (null nếu chưa gán). */
-    private UUID cycleId;
-    private String cycleName;
+    /** Số đợt đang thuộc kỳ này. */
+    private long periodCount;
 }

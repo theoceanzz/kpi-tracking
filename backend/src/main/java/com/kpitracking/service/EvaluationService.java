@@ -329,8 +329,11 @@ public class EvaluationService {
         return totalWeight > 0 ? weightedSum / totalWeight : null;
     }
 
-    /** Looks up the org's performance_matrix: (behaviorScore rows) × (completion% cols) -> rating 1..5. */
-    private Integer lookupMatrixRating(Double behaviorScore, Double completionPercent, String matrixJson) {
+    /**
+     * Looks up the org's performance_matrix: (behaviorScore rows) × (completion% cols) -> rating 1..5.
+     * Public để đánh giá theo KỲ dùng lại đúng ma trận này thay vì tự tính.
+     */
+    public Integer lookupMatrixRating(Double behaviorScore, Double completionPercent, String matrixJson) {
         if (behaviorScore == null || completionPercent == null || matrixJson == null || matrixJson.isBlank()) return null;
         try {
             com.fasterxml.jackson.databind.JsonNode root = new com.fasterxml.jackson.databind.ObjectMapper().readTree(matrixJson);

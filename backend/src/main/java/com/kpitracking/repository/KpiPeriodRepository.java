@@ -44,4 +44,13 @@ public interface KpiPeriodRepository extends JpaRepository<KpiPeriod, UUID>, Jpa
     @org.springframework.data.jpa.repository.Query("SELECT p FROM KpiPeriod p WHERE p.organization.id = :orgId " +
            "AND (:keyword IS NULL OR :keyword = '' OR LOWER(CAST(p.name AS string)) LIKE LOWER(CONCAT('%', CAST(:keyword AS string), '%')))")
     java.util.List<KpiPeriod> searchByKeyword(@org.springframework.data.repository.query.Param("orgId") java.util.UUID orgId, @org.springframework.data.repository.query.Param("keyword") String keyword, Pageable pageable);
+
+    /** Các đợt thuộc một kỳ, sắp theo ngày bắt đầu tăng dần. */
+    java.util.List<KpiPeriod> findByKpiCycleIdOrderByStartDateAsc(UUID kpiCycleId);
+
+    /** Gỡ liên kết các đợt khỏi một kỳ (dùng khi xoá kỳ). */
+    @org.springframework.transaction.annotation.Transactional
+    @org.springframework.data.jpa.repository.Modifying
+    @org.springframework.data.jpa.repository.Query("UPDATE KpiPeriod p SET p.kpiCycle = NULL WHERE p.kpiCycle.id = :cycleId")
+    void detachFromCycle(@org.springframework.data.repository.query.Param("cycleId") UUID cycleId);
 }

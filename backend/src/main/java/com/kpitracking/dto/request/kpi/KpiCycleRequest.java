@@ -9,13 +9,13 @@ import java.time.Instant;
 import java.util.UUID;
 
 @Getter @Setter @Builder @NoArgsConstructor @AllArgsConstructor
-public class KpiPeriodRequest {
+public class KpiCycleRequest {
 
-    @NotBlank(message = "Tên đợt không được để trống")
+    @NotBlank(message = "Tên kỳ không được để trống")
     private String name;
 
     @NotNull(message = "Loại kỳ không được để trống")
-    private KpiFrequency periodType;
+    private KpiFrequency cycleType;
 
     @NotNull(message = "Ngày bắt đầu không được để trống")
     private Instant startDate;
@@ -23,10 +23,10 @@ public class KpiPeriodRequest {
     @NotNull(message = "Ngày kết thúc không được để trống")
     private Instant endDate;
 
-    private Instant notificationDate;
+    private String description;
+
+    /** Chế độ đánh giá cuối kỳ (mặc định BOTH nếu null). */
+    private com.kpitracking.enums.CycleEvaluationMode evaluationMode;
 
     private UUID organizationId;
-
-    /** Kỳ đánh giá tổng hợp chứa đợt này (tuỳ chọn). */
-    private UUID cycleId;
 }

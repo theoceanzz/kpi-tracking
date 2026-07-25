@@ -27,6 +27,7 @@ import java.util.UUID;
 public class KpiPeriodService {
 
     private final KpiPeriodRepository kpiPeriodRepository;
+    private final com.kpitracking.repository.KpiCycleRepository kpiCycleRepository;
     private final OrganizationRepository organizationRepository;
     private final UserRepository userRepository;
     private final UserRoleOrgUnitRepository userRoleOrgUnitRepository;
@@ -111,6 +112,7 @@ public class KpiPeriodService {
                 .endDate(request.getEndDate())
                 .notificationDate(notificationDate)
                 .organization(organization)
+                .kpiCycle(resolveCycle(request.getCycleId(), request.getStartDate(), request.getEndDate()))
                 .build();
 
         period = kpiPeriodRepository.save(period);
@@ -135,6 +137,7 @@ public class KpiPeriodService {
             notificationDate = java.time.Instant.ofEpochMilli(mid);
         }
         period.setNotificationDate(notificationDate);
+        period.setKpiCycle(resolveCycle(request.getCycleId(), request.getStartDate(), request.getEndDate()));
 
         if (request.getOrganizationId() != null && !request.getOrganizationId().equals(period.getOrganization().getId())) {
             Organization organization = organizationRepository.findById(request.getOrganizationId())
@@ -168,7 +171,27 @@ public class KpiPeriodService {
         kpiPeriodRepository.save(period);
     }
 
+    /**
+     * Lấy kỳ và kiểm tra thời gian đợt phải nằm gọn trong thời gian của kỳ
+     * (kỳ là tầng gom nhiều đợt nên đợt không được vượt ra ngoài kỳ).
+     */
+    private com.kpitracking.entity.KpiCycle resolveCycle(UUID cycleId, Instant start, Instant end) {
+        if (cycleId == null) return null;
+        com.kpitracking.entity.KpiCycle cycle = kpiCycleRepository.findById(cycleId)
+                .orElseThrow(() -> new ResourceNotFoundException("Kỳ đánh giá", "id", cycleId));
+
+        Instant cycleStart = cycle.getStartDate();
+        Instant cycleEnd = cycle.getEndDate();
+        if (cycleStart != null && cycleEnd != null && start != null && end != null
+                && (start.isBefore(cycleStart) || end.isAfter(cycleEnd))) {
+            throw new IllegalArgumentException(
+                    "Thời gian đợt phải nằm trong thời gian của kỳ \"" + cycle.getName() + "\"");
+        }
+        return cycle;
+    }
+
     private KpiPeriodResponse toResponse(KpiPeriod period) {
+        com.kpitracking.entity.KpiCycle cycle = period.getKpiCycle();
         return KpiPeriodResponse.builder()
                 .id(period.getId())
                 .name(period.getName())
@@ -177,6 +200,8 @@ public class KpiPeriodService {
                 .endDate(period.getEndDate())
                 .notificationDate(period.getNotificationDate())
                 .organizationId(period.getOrganization().getId())
+                .cycleId(cycle != null ? cycle.getId() : null)
+                .cycleName(cycle != null ? cycle.getName() : null)
                 .build();
     }
 }

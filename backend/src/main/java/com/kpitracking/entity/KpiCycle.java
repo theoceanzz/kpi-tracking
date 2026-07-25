@@ -1,5 +1,6 @@
 package com.kpitracking.entity;
 
+import com.kpitracking.enums.CycleEvaluationMode;
 import com.kpitracking.enums.KpiFrequency;
 import jakarta.persistence.*;
 import lombok.*;
@@ -11,12 +12,16 @@ import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 import java.time.Instant;
 import java.util.UUID;
 
+/**
+ * Kỳ đánh giá tổng hợp — gom nhiều {@link KpiPeriod} (đợt) để đánh giá tổng thể.
+ * VD: đợt = KPI giao hàng tuần; kỳ = 6 tháng.
+ */
 @Entity
-@Table(name = "kpi_periods")
+@Table(name = "kpi_cycles")
 @EntityListeners(AuditingEntityListener.class)
 @SQLRestriction("deleted_at IS NULL")
 @Getter @Setter @Builder @NoArgsConstructor @AllArgsConstructor
-public class KpiPeriod {
+public class KpiCycle {
 
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
@@ -26,17 +31,13 @@ public class KpiPeriod {
     @JoinColumn(name = "organization_id", nullable = false)
     private Organization organization;
 
-    /** Kỳ đánh giá tổng hợp chứa đợt này (tuỳ chọn — đợt có thể không thuộc kỳ nào). */
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "kpi_cycle_id")
-    private KpiCycle kpiCycle;
-
     @Column(name = "name", nullable = false)
-    private String name; // e.g. "Quý 1/2026"
+    private String name; // e.g. "6 Tháng đầu năm 2026"
 
+    /** Mẫu gợi ý (Tháng/Quý/6 Tháng/Năm) — thời gian vẫn chỉnh tự do, không cố định theo mẫu. */
     @Enumerated(EnumType.STRING)
-    @Column(name = "period_type", nullable = false)
-    private KpiFrequency periodType;
+    @Column(name = "cycle_type", nullable = false)
+    private KpiFrequency cycleType;
 
     @Column(name = "start_date")
     private Instant startDate;
@@ -44,8 +45,14 @@ public class KpiPeriod {
     @Column(name = "end_date")
     private Instant endDate;
 
-    @Column(name = "notification_date")
-    private Instant notificationDate;
+    @Column(name = "description")
+    private String description;
+
+    /** Chế độ đánh giá cuối kỳ: định lượng / định tính / cả hai. */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "evaluation_mode", nullable = false)
+    @Builder.Default
+    private CycleEvaluationMode evaluationMode = CycleEvaluationMode.BOTH;
 
     @CreatedDate
     @Column(name = "created_at", updatable = false)

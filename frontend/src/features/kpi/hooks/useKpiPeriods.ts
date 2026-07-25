@@ -27,6 +27,7 @@ export const useKpiPeriods = (options: UseKpiPeriodsOptions = {}) => {
     mutationFn: (data: Partial<KpiPeriod>) => kpiPeriodApi.create(data),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['kpiPeriods'] })
+      qc.invalidateQueries({ queryKey: ['kpiCycles'] })
       toast.success('Đã tạo đợt KPI mới')
     },
     onError: () => toast.error('Tạo đợt KPI thất bại'),
@@ -36,6 +37,7 @@ export const useKpiPeriods = (options: UseKpiPeriodsOptions = {}) => {
     mutationFn: ({ id, data }: { id: string; data: Partial<KpiPeriod> }) => kpiPeriodApi.update(id, data),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['kpiPeriods'] })
+      qc.invalidateQueries({ queryKey: ['kpiCycles'] })
       toast.success('Đã cập nhật đợt KPI')
     },
     onError: () => toast.error('Cập nhật đợt KPI thất bại'),
@@ -45,6 +47,7 @@ export const useKpiPeriods = (options: UseKpiPeriodsOptions = {}) => {
     mutationFn: (id: string) => kpiPeriodApi.delete(id),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['kpiPeriods'] })
+      qc.invalidateQueries({ queryKey: ['kpiCycles'] })
       toast.success('Đã xoá đợt KPI')
     },
     onError: () => toast.error('Xoá đợt KPI thất bại'),

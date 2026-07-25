@@ -322,9 +322,30 @@ CREATE TABLE scopes (
 -- ====================================================
 -- KPI Periods
 -- ====================================================
+-- KỲ đánh giá: gom nhiều "đợt" (kpi_periods) để đánh giá tổng hợp.
+-- VD: đợt = KPI giao hàng tuần; kỳ = 6 tháng. cycle_type chỉ là mẫu gợi ý
+-- (Tháng/Quý/6 Tháng/Năm) — thời gian vẫn chỉnh tự do.
+CREATE TABLE kpi_cycles (
+    id                UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    organization_id   UUID            NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+    name              VARCHAR(255)    NOT NULL,
+    cycle_type        VARCHAR(20)     NOT NULL,
+    start_date        TIMESTAMPTZ,
+    end_date          TIMESTAMPTZ,
+    description       TEXT,
+    evaluation_mode   VARCHAR(20)     NOT NULL DEFAULT 'BOTH', -- QUANTITATIVE | QUALITATIVE | BOTH
+    created_at        TIMESTAMPTZ     DEFAULT NOW(),
+    updated_at        TIMESTAMPTZ     DEFAULT NOW(),
+    deleted_at        TIMESTAMPTZ
+);
+
+CREATE INDEX idx_kpi_cycles_org_id ON kpi_cycles(organization_id);
+
 CREATE TABLE kpi_periods (
     id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     organization_id UUID            NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+    -- Đợt thuộc tối đa 1 kỳ (nullable: đợt có thể không thuộc kỳ nào).
+    kpi_cycle_id    UUID            REFERENCES kpi_cycles(id) ON DELETE SET NULL,
     name            VARCHAR(255)    NOT NULL,
     period_type     VARCHAR(20)     NOT NULL,
     start_date      TIMESTAMPTZ,
@@ -336,6 +357,51 @@ CREATE TABLE kpi_periods (
 );
 
 CREATE INDEX idx_kpi_periods_org_id ON kpi_periods(organization_id);
+CREATE INDEX idx_kpi_periods_cycle_id ON kpi_periods(kpi_cycle_id);
+
+-- Đánh giá tổng hợp của PHÒNG BAN theo kỳ (có lưu + chốt).
+CREATE TABLE cycle_unit_evaluations (
+    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    kpi_cycle_id    UUID            NOT NULL REFERENCES kpi_cycles(id) ON DELETE CASCADE,
+    org_unit_id     UUID            NOT NULL REFERENCES org_units(id) ON DELETE CASCADE,
+    evaluation_mode VARCHAR(20)     NOT NULL,
+    self_score      DOUBLE PRECISION,
+    manager_score   DOUBLE PRECISION,
+    qual_score      DOUBLE PRECISION,  -- TB mức định tính của thành viên (thang 0..5)
+    matrix_rating   DOUBLE PRECISION,  -- TB xếp loại ma trận của thành viên (thang 1..5)
+    member_count    INT             DEFAULT 0,
+    comment         TEXT,
+    status          VARCHAR(20)     NOT NULL DEFAULT 'DRAFT', -- DRAFT | FINALIZED
+    finalized_by    UUID            REFERENCES users(id) ON DELETE SET NULL,
+    finalized_at    TIMESTAMPTZ,
+    created_at      TIMESTAMPTZ     DEFAULT NOW(),
+    updated_at      TIMESTAMPTZ     DEFAULT NOW(),
+    deleted_at      TIMESTAMPTZ,
+    UNIQUE (kpi_cycle_id, org_unit_id)
+);
+
+CREATE INDEX idx_cycle_unit_evals_cycle ON cycle_unit_evaluations(kpi_cycle_id);
+CREATE INDEX idx_cycle_unit_evals_unit  ON cycle_unit_evaluations(org_unit_id);
+
+-- Điểm CHỐT KỲ của từng nhân viên (mặc định = TB điểm QLTT các đợt, cho phép chỉnh tay).
+CREATE TABLE cycle_user_evaluations (
+    id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    kpi_cycle_id  UUID            NOT NULL REFERENCES kpi_cycles(id) ON DELETE CASCADE,
+    user_id       UUID            NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    final_score   DOUBLE PRECISION,
+    qual_score    DOUBLE PRECISION,  -- mức định tính chấm ở cấp kỳ (thang 0..5) — trục hàng ma trận
+    matrix_rating INT,               -- xếp loại 1..5 suy ra từ ma trận hiệu suất của tổ chức
+    comment       TEXT,
+    evaluated_by  UUID            REFERENCES users(id) ON DELETE SET NULL,
+    evaluated_at  TIMESTAMPTZ,
+    created_at    TIMESTAMPTZ     DEFAULT NOW(),
+    updated_at    TIMESTAMPTZ     DEFAULT NOW(),
+    deleted_at    TIMESTAMPTZ,
+    UNIQUE (kpi_cycle_id, user_id)
+);
+
+CREATE INDEX idx_cycle_user_evals_cycle ON cycle_user_evaluations(kpi_cycle_id);
+CREATE INDEX idx_cycle_user_evals_user  ON cycle_user_evaluations(user_id);
 
 -- ====================================================
 -- OKR (Objectives and Key Results)
