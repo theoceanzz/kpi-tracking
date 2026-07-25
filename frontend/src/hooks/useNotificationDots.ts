@@ -1,3 +1,4 @@
+import { useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { statsApi } from '@/features/dashboard/api/statsApi'
 import { adjustmentApi } from '@/features/kpi/api/adjustmentApi'
@@ -15,12 +16,28 @@ export function useNotificationDots() {
   const { user } = useAuthStore()
   const { hasPermission } = useHasPermission()
 
-  // 1. Fetch Overview Stats (for Managers/Directors)
-  const { data: overview } = useQuery({
-    queryKey: ['stats', 'overview', user?.id],
-    queryFn: () => statsApi.getOverview(),
-    enabled: !!user && hasPermission(['KPI:APPROVE_CRITERIA', 'KPI:APPROVE_ADJUSTMENT', 'SUBMISSION:REVIEW']),
-    refetchInterval: 60000, // Refresh every minute
+  // Đơn vị phụ trách của người dùng — lấy giống Dashboard (ưu tiên membership có levelOrder > 0).
+  const primaryMembership = useMemo(() => {
+    const ms = user?.memberships || []
+    if (ms.length <= 1) return ms[0]
+    return ms.find(m => (m.levelOrder ?? 0) > 0) || ms[0]
+  }, [user?.memberships])
+
+  const organizationId = user?.memberships?.[0]?.organizationId
+  const orgUnitId = primaryMembership?.orgUnitId
+
+  const { data: overviewAllUnits } = useQuery({
+    queryKey: ['stats', 'overview', organizationId, undefined],
+    queryFn: () => statsApi.getOverview(organizationId),
+    enabled: !!user && !!organizationId && hasPermission('KPI:APPROVE_CRITERIA'),
+    refetchInterval: 60000,
+  })
+
+  const { data: overviewMyUnit } = useQuery({
+    queryKey: ['stats', 'overview', organizationId, orgUnitId],
+    queryFn: () => statsApi.getOverview(organizationId, orgUnitId),
+    enabled: !!user && !!organizationId && hasPermission('SUBMISSION:REVIEW'),
+    refetchInterval: 60000,
   })
 
   // 2. Fetch Pending Adjustments (for Managers/Directors)
@@ -40,8 +57,8 @@ export function useNotificationDots() {
   })
 
   const counts: NotificationCounts = {
-    pendingKpis: overview?.pendingKpi || 0,
-    pendingSubmissions: overview?.pendingSubmissions || 0,
+    pendingKpis: overviewAllUnits?.pendingKpiForApproval || 0,
+    pendingSubmissions: overviewMyUnit?.pendingSubmissions || 0,
     pendingAdjustments: adjustments?.totalElements || 0,
     myPendingTasks: myProgress?.pendingTaskCount || 0,
   }

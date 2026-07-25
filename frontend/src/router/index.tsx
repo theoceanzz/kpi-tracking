@@ -111,13 +111,20 @@ export const router = createBrowserRouter([
               { path: '/org-structure', element: <OrganizationStructurePage /> },
               { path: '/org-units/:id', element: <OrgUnitDetailPage /> },
               { path: '/settings', element: <SystemSettingsPage /> },
+            ],
+          },
+
+          // OKR — chỉ Giám đốc/Phó GĐ.
+          {
+            element: <PermissionRoute permission={['OKR:MANAGE']} />,
+            children: [
               { path: '/okr', element: <OkrManagementPage /> },
             ],
           },
 
-          // BSC (Balanced Scorecard)
+          // BSC — chỉ Giám đốc/Phó GĐ.
           {
-            element: <PermissionRoute permission={['BSC:VIEW']} />,
+            element: <PermissionRoute permission={['BSC:MANAGE']} />,
             children: [
               { path: '/bsc', element: <BscManagementPage /> },
               { path: '/bsc/dashboard', element: <BscDashboardPage /> },

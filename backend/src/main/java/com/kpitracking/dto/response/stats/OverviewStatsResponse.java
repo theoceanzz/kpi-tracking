@@ -10,6 +10,7 @@ public class OverviewStatsResponse {
     private long totalKpiCriteria;
     private long approvedKpi;
     private long pendingKpi;
+    private long pendingKpiForApproval;
     private long rejectedKpi;
     private long draftKpi;
     private long totalSubmissions;

@@ -35,6 +35,7 @@ public class StatsService {
     private final KpiPeriodRepository kpiPeriodRepository;
     private final PermissionChecker permissionChecker;
     private final EvaluationService evaluationService;
+    private final OrganizationService organizationService;
 
     /**
      * Hiệu suất ĐÁNH GIÁ của 1 đơn vị: không thác nước = TB đánh giá của mọi người trong đơn vị (subtree);
@@ -77,9 +78,29 @@ public class StatsService {
         return orgUnitRepository.findAllInSubtrees(baseOrgUnitIds, orgId);
     }
 
+    private long countPendingKpiForApproval(User currentUser, UUID organizationId) {
+        if (organizationId == null) return 0L;
+
+        List<UUID> sameUnitIds = userRoleOrgUnitRepository.findByUserId(currentUser.getId()).stream()
+                .map(a -> a.getOrgUnit().getId())
+                .distinct()
+                .toList();
+        if (sameUnitIds.isEmpty()) return 0L;
+
+        UUID excludeUserId = permissionChecker.hasPermission(currentUser.getId(), "KPI:REVERT_APPROVAL")
+                ? null
+                : currentUser.getId();
+        com.kpitracking.enums.KpiType kpiTypeFilter = organizationService.isQualitativeEnabled(organizationId)
+                ? null
+                : com.kpitracking.enums.KpiType.QUANTITATIVE;
+
+        return kpiCriteriaRepository.countPendingApprovalVisibleTo(organizationId, sameUnitIds, excludeUserId, kpiTypeFilter);
+    }
+
     @Transactional(readOnly = true)
     public OverviewStatsResponse getOverviewStats(java.util.UUID orgUnitId) {
         User currentUser = getCurrentUser();
+        long pendingKpiForApproval = countPendingKpiForApproval(currentUser, getCurrentUserOrganizationId(currentUser));
         List<OrgUnit> authorizedUnits = getAuthorizedOrgUnits(currentUser, "DASHBOARD:VIEW");
         
         if (orgUnitId != null) {
@@ -94,7 +115,7 @@ public class StatsService {
         }
 
         if (authorizedUnits.isEmpty()) {
-            return OverviewStatsResponse.builder().build();
+            return OverviewStatsResponse.builder().pendingKpiForApproval(pendingKpiForApproval).build();
         }
 
         // Aggregate stats for authorized units
@@ -128,6 +149,7 @@ public class StatsService {
                 .totalKpiCriteria(kpiCriteriaRepository.countTotalKpiCriteriaIn(unitIds, activeStatuses))
                 .approvedKpi(kpiCriteriaRepository.countByOrgUnitIdInAndStatus(unitIds, KpiStatus.APPROVED))
                 .pendingKpi(kpiCriteriaRepository.countByOrgUnitIdInAndStatusExcludingUser(unitIds, KpiStatus.PENDING_APPROVAL, currentUser.getId()))
+                .pendingKpiForApproval(pendingKpiForApproval)
                 .rejectedKpi(kpiCriteriaRepository.countByOrgUnitIdInAndStatus(unitIds, KpiStatus.REJECTED))
                 .draftKpi(kpiCriteriaRepository.countByOrgUnitIdInAndStatus(unitIds, KpiStatus.DRAFT))
                 .totalSubmissions((int) (pendingSub + approvedSub + rejectedSub))
@@ -429,7 +451,11 @@ public class StatsService {
                 }
             }
 
-            if (status.equals("NOT_STARTED") || status.equals("OVERDUE") || status.equals("REJECTED") || status.equals("EDIT")) {
+            Instant periodStart = criteria.getKpiPeriod() != null ? criteria.getKpiPeriod().getStartDate() : null;
+            boolean notOpenedYet = periodStart != null && periodStart.isAfter(now);
+
+            if (!notOpenedYet
+                    && (status.equals("NOT_STARTED") || status.equals("OVERDUE") || status.equals("REJECTED") || status.equals("EDIT"))) {
                 pendingTaskCount++;
             }
 

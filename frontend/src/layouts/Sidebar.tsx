@@ -71,15 +71,15 @@ const navItems: NavItem[] = [
     icon: <Building2 size={20} />,
     children: [
       { label: 'Công ty', path: '/company', icon: <Building2 size={18} />, permission: 'COMPANY:VIEW' },
-      { label: 'Quản lý OKR', path: '/okr', icon: <Target size={18} />, permission: 'COMPANY:VIEW', okrOnly: true },
+      { label: 'Quản lý OKR', path: '/okr', icon: <Target size={18} />, permission: 'OKR:MANAGE', okrOnly: true },
       {
         label: 'Quản lý BSC',
         icon: <LayoutGrid size={18} />,
         bscOnly: true,
         children: [
-          { label: 'Thẻ điểm BSC', path: '/bsc', icon: <Layers size={18} />, permission: 'BSC:VIEW', bscOnly: true, end: true },
-          { label: 'Dashboard BSC', path: '/bsc/dashboard', icon: <Gauge size={18} />, permission: 'BSC:VIEW', bscOnly: true },
-          { label: 'Bản đồ chiến lược', path: '/bsc/strategy-map', icon: <GitBranch size={18} />, permission: 'BSC:VIEW', bscOnly: true },
+          { label: 'Thẻ điểm BSC', path: '/bsc', icon: <Layers size={18} />, permission: 'BSC:MANAGE', bscOnly: true, end: true },
+          { label: 'Dashboard BSC', path: '/bsc/dashboard', icon: <Gauge size={18} />, permission: 'BSC:MANAGE', bscOnly: true },
+          { label: 'Bản đồ chiến lược', path: '/bsc/strategy-map', icon: <GitBranch size={18} />, permission: 'BSC:MANAGE', bscOnly: true },
         ]
       },
       {

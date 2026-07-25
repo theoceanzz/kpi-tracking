@@ -140,7 +140,7 @@ public class BscController {
     }
 
     @GetMapping("/scorecards/{scorecardId}/dashboard")
-    @PreAuthorize("hasAuthority('BSC:VIEW')")
+    @PreAuthorize("hasAuthority('BSC:MANAGE')")
     public ResponseEntity<ApiResponse<BscDashboardResponse>> getDashboard(@PathVariable UUID scorecardId) {
         return ResponseEntity.ok(ApiResponse.success(bscScoringService.getDashboard(scorecardId)));
     }
@@ -158,13 +158,13 @@ public class BscController {
     // ============================================================
 
     @GetMapping("/organization/{organizationId}/strategy-map")
-    @PreAuthorize("hasAuthority('BSC:VIEW')")
+    @PreAuthorize("hasAuthority('BSC:MANAGE')")
     public ResponseEntity<ApiResponse<StrategyMapResponse>> getStrategyMap(@PathVariable UUID organizationId) {
         return ResponseEntity.ok(ApiResponse.success(bscStrategyMapService.getStrategyMap(organizationId)));
     }
 
     @GetMapping("/organization/{organizationId}/objective-relations")
-    @PreAuthorize("hasAuthority('BSC:VIEW')")
+    @PreAuthorize("hasAuthority('BSC:MANAGE')")
     public ResponseEntity<ApiResponse<List<ObjectiveRelationResponse>>> getRelations(@PathVariable UUID organizationId) {
         return ResponseEntity.ok(ApiResponse.success(bscStrategyMapService.getRelations(organizationId)));
     }

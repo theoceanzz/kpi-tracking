@@ -35,7 +35,7 @@ export default function AnalyticsPage() {
   const { data: org, isLoading: loadingOrg } = useOrganization(organizationId)
   const isOkr = org?.enableOkr ?? false
   const isBsc = org?.enableBsc ?? false
-  const canBsc = hasPermission(['BSC:VIEW'])
+  const canBsc = hasPermission(['BSC:MANAGE'])
 
   const tabs: { key: TabKey; label: string; icon: any; visible: boolean }[] = [
     { key: 'my-objectives', label: 'Mục tiêu của tôi', icon: Target, visible: isOkr },

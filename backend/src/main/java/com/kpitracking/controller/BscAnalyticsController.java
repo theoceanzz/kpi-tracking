@@ -28,7 +28,7 @@ public class BscAnalyticsController {
     private final AnalyticsPeriodHelper periodHelper;
 
     @GetMapping("/balance")
-    @PreAuthorize("hasAuthority('BSC:VIEW')")
+    @PreAuthorize("hasAuthority('BSC:MANAGE')")
     @Operation(summary = "Cân bằng viễn cảnh: thẻ chỉ số + radar theo phạm vi/kỳ")
     public ResponseEntity<ApiResponse<BalanceResponse>> getBalance(
             @RequestParam(required = false) UUID orgUnitId,
@@ -39,7 +39,7 @@ public class BscAnalyticsController {
     }
 
     @GetMapping("/trend")
-    @PreAuthorize("hasAuthority('BSC:VIEW')")
+    @PreAuthorize("hasAuthority('BSC:MANAGE')")
     @Operation(summary = "Xu hướng điểm viễn cảnh theo kỳ (mỗi viễn cảnh một series)")
     public ResponseEntity<ApiResponse<TrendResponse>> getTrend(
             @RequestParam(required = false) UUID orgUnitId,
@@ -51,7 +51,7 @@ public class BscAnalyticsController {
     }
 
     @GetMapping("/unit-comparison")
-    @PreAuthorize("hasAuthority('BSC:VIEW')")
+    @PreAuthorize("hasAuthority('BSC:MANAGE')")
     @Operation(summary = "So sánh viễn cảnh giữa các đơn vị")
     public ResponseEntity<ApiResponse<UnitComparisonResponse>> getUnitComparison(
             @RequestParam(required = false) UUID orgUnitId,
@@ -62,7 +62,7 @@ public class BscAnalyticsController {
     }
 
     @GetMapping("/bsc-vs-system")
-    @PreAuthorize("hasAuthority('BSC:VIEW')")
+    @PreAuthorize("hasAuthority('BSC:MANAGE')")
     @Operation(summary = "Đối chiếu điểm BSC vs điểm hệ thống (kiểm chứng SHADOW)")
     public ResponseEntity<ApiResponse<BscVsSystemResponse>> getBscVsSystem(
             @RequestParam(required = false) UUID orgUnitId,
@@ -74,7 +74,7 @@ public class BscAnalyticsController {
     }
 
     @GetMapping("/rankings")
-    @PreAuthorize("hasAuthority('BSC:VIEW')")
+    @PreAuthorize("hasAuthority('BSC:MANAGE')")
     @Operation(summary = "Xếp hạng nhân sự theo điểm BSC + breakdown viễn cảnh")
     public ResponseEntity<ApiResponse<RankingResponse>> getRankings(
             @RequestParam(required = false) UUID orgUnitId,
