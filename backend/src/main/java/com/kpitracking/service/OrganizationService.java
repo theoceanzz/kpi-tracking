@@ -221,6 +221,10 @@ public class OrganizationService {
             organization.setPerformanceMatrix(request.getPerformanceMatrix());
         }
 
+        if (request.getUnitClassificationRules() != null) {
+            organization.setUnitClassificationRules(request.getUnitClassificationRules());
+        }
+
         Organization savedOrganization = organizationRepository.save(organization);
         return organizationMapper.toResponse(savedOrganization);
     }

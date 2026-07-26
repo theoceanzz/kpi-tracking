@@ -40,6 +40,8 @@ export interface OrgUnitKpiDetail {
   // Nhận diện loại KPI + KPI con (cho tag & expand)
   isReverseKpi?: boolean
   isBonusKpi?: boolean
+  kpiType?: 'QUANTITATIVE' | 'QUALITATIVE'
+  qualitativeLevelName?: string | null
   parentId?: string | null
   parentRelationType?: KpiParentRelationType | null
   childRelationType?: KpiParentRelationType | null
@@ -102,6 +104,13 @@ export interface OrgUnitDrawerChartPoint {
   assigneeValues: Record<string, OrgUnitAssigneeChartValues>
 }
 
+export interface QualLevelBucket {
+  levelName: string
+  position?: number | null
+  color?: string | null
+  count: number
+}
+
 export interface OrgUnitSubmissionStat {
   label: string
   submitterName: string
@@ -109,6 +118,7 @@ export interface OrgUnitSubmissionStat {
   contributionProgress: number
   performance: number
   submittedAt: string | null
+  qualitativeLevelName?: string | null
 }
 
 export interface OrgUnitKpiDrawerData {
@@ -128,6 +138,9 @@ export interface OrgUnitKpiDrawerData {
   assigneeStats: OrgUnitAssigneeStat[]
   availableAssignees: { userId: string; fullName: string }[]
   topSubmissions: OrgUnitSubmissionStat[]
+  kpiType?: 'QUANTITATIVE' | 'QUALITATIVE'
+  qualitativeLevelName?: string | null
+  qualitativeDistribution?: QualLevelBucket[] | null
 }
 
 export interface UnitRiskRow {

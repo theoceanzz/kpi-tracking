@@ -141,6 +141,8 @@ export interface EmployeeDrillSummary {
   fullName: string
   email: string
   roleName: string
+  orgUnitId: string | null
+  orgUnitName: string | null
   assignedKpi: number
   totalSubmissions: number
   approvedSubmissions: number
@@ -292,6 +294,7 @@ export interface KpiSubmissionDto {
   createdAt: string;
   submittedByName: string | null;
   submittedByCode: string | null;
+  qualitativeLevelName?: string | null;
 }
 
 export interface KpiParticipantDto {
@@ -304,6 +307,7 @@ export interface KpiParticipantDto {
   progress: number;
   performance: number;
   actualValue: number;
+  qualitativeLevelName?: string | null;
   submissions?: KpiSubmissionDto[];
 }
 
@@ -328,6 +332,8 @@ export interface KpiDetailedDto {
   // Nhận diện loại KPI + KPI con (cho tag & expand)
   isReverseKpi?: boolean;
   isBonusKpi?: boolean;
+  kpiType?: 'QUANTITATIVE' | 'QUALITATIVE';
+  qualitativeLevelName?: string | null;
   parentId?: string | null;
   parentRelationType?: KpiParentRelationType | null;
   childRelationType?: KpiParentRelationType | null;
@@ -399,6 +405,9 @@ export interface ScopedMetrics {
   completedCount: number;
   totalCount: number;
   atRiskCount: number;
+  kpiType?: 'QUANTITATIVE' | 'QUALITATIVE';
+  qualitativeLevelName?: string | null;
+  qualitativeDistribution?: { levelName: string; position?: number | null; color?: string | null; count: number }[] | null;
 }
 
 export interface TopItem {

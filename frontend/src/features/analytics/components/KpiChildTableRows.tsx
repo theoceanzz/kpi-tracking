@@ -2,6 +2,7 @@ import { Fragment, useState } from 'react'
 import { ChevronDown, ChevronRight, User } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { KpiTypeTags } from './KpiTypeTags'
+import { QualitativeResultChip } from './QualitativeResultChip'
 import { KpiWeightPill } from './KpiWeightPill'
 import { KpiPeriodCell } from './KpiPeriodCell'
 import { KpiResponsibleCell } from './KpiResponsibleCell'
@@ -47,6 +48,7 @@ function KpiChildTr({
   } = variant
 
   const hasKids = !!node.children && node.children.length > 0
+  const isQual = node.kpiType === 'QUALITATIVE'
   const isBonus = node.progress == null
   const pct = Math.round(node.progress ?? 0)
   const barColor = accent === 'violet' ? 'bg-violet-500' : 'bg-indigo-500'
@@ -71,6 +73,7 @@ function KpiChildTr({
         <KpiTypeTags
           isReverseKpi={node.isReverseKpi}
           isBonusKpi={node.isBonusKpi}
+          isQualitative={isQual}
           parentRelationType={node.parentRelationType}
           childRelationType={node.childRelationType}
         />
@@ -84,7 +87,9 @@ function KpiChildTr({
     </div>
   )
 
-  const progressCell = isBonus ? (
+  const progressCell = isQual ? (
+    <QualitativeResultChip level={node.qualitativeLevelName} />
+  ) : isBonus ? (
     <span className="text-slate-400 text-xs font-black">—</span>
   ) : (
     <>

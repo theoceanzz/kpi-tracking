@@ -56,6 +56,8 @@ public class AnalyticsDrillDownResponse {
         private String fullName;
         private String email;
         private String roleName;
+        private UUID orgUnitId;      // đơn vị TRỰC THUỘC của thành viên (để hiển thị cột + đánh dấu "đơn vị hiện tại")
+        private String orgUnitName;
         private long assignedKpi;
         private long totalSubmissions;
         private long approvedSubmissions;

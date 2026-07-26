@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { ChevronDown, ChevronRight, User } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { KpiTypeTags } from './KpiTypeTags'
+import { QualitativeResultChip } from './QualitativeResultChip'
 import { KpiWeightPill } from './KpiWeightPill'
 import { KpiPeriodCell } from './KpiPeriodCell'
 
@@ -23,6 +24,8 @@ export interface KpiChildNode {
   assigneeName?: string | null
   isReverseKpi?: boolean
   isBonusKpi?: boolean
+  kpiType?: 'QUANTITATIVE' | 'QUALITATIVE'
+  qualitativeLevelName?: string | null
   parentRelationType?: RelationType
   childRelationType?: RelationType
   children?: KpiChildNode[] | null
@@ -40,6 +43,7 @@ type DetailLike = {
   startDate?: string | null; endDate?: string | null
   weight?: number | null; assigneeName?: string | null
   isReverseKpi?: boolean; isBonusKpi?: boolean
+  kpiType?: 'QUANTITATIVE' | 'QUALITATIVE'; qualitativeLevelName?: string | null
   parentRelationType?: RelationType; childRelationType?: RelationType
   children?: DetailLike[] | null
 }
@@ -62,6 +66,8 @@ export function toChildNodes(children?: DetailLike[] | null): KpiChildNode[] {
     assigneeName: c.assigneeName ?? null,
     isReverseKpi: c.isReverseKpi,
     isBonusKpi: c.isBonusKpi,
+    kpiType: c.kpiType,
+    qualitativeLevelName: c.qualitativeLevelName ?? null,
     parentRelationType: c.parentRelationType,
     childRelationType: c.childRelationType,
     children: c.children ? toChildNodes(c.children) : null,
@@ -100,6 +106,7 @@ function PerfDonut({ value }: { value: number }) {
 function KpiChildRow({ node, depth, onSelect }: { node: KpiChildNode; depth: number; onSelect?: (kpiId: string) => void }) {
   const [open, setOpen] = useState(false)
   const hasChildren = !!node.children && node.children.length > 0
+  const isQual = node.kpiType === 'QUALITATIVE'
   const isBonus = node.progress == null
   const pct = Math.round(node.progress ?? 0)
   const perf = Math.round(node.performance ?? 0)
@@ -129,6 +136,7 @@ function KpiChildRow({ node, depth, onSelect }: { node: KpiChildNode; depth: num
             <KpiTypeTags
               isReverseKpi={node.isReverseKpi}
               isBonusKpi={node.isBonusKpi}
+              isQualitative={isQual}
               parentRelationType={node.parentRelationType}
               childRelationType={node.childRelationType}
             />
@@ -155,7 +163,9 @@ function KpiChildRow({ node, depth, onSelect }: { node: KpiChildNode; depth: num
 
         {/* Tiến độ (bar + %, actual/target dưới bar — giống KPI cha) */}
         <div className="w-40 shrink-0">
-          {isBonus ? (
+          {isQual ? (
+            <QualitativeResultChip level={node.qualitativeLevelName} />
+          ) : isBonus ? (
             <span className="text-slate-400 text-xs font-black">—</span>
           ) : (
             <>
@@ -179,7 +189,7 @@ function KpiChildRow({ node, depth, onSelect }: { node: KpiChildNode; depth: num
 
         {/* Hiệu suất (donut giống cha) */}
         <div className="w-12 shrink-0 flex justify-center">
-          {isBonus ? <span className="text-slate-400 text-xs font-black">—</span> : <PerfDonut value={perf} />}
+          {isBonus || isQual ? <span className="text-slate-400 text-xs font-black">—</span> : <PerfDonut value={perf} />}
         </div>
       </div>
 

@@ -23,6 +23,7 @@ public class UpdateOrganizationRequest {
     private java.util.List<EvaluationLevelRequest> evaluationLevels;
     private java.util.List<QualitativeLevelRequest> qualitativeLevels;
     private String performanceMatrix;
+    private String unitClassificationRules;
 
     private Integer kpiReminderPercentage;
     private Boolean enableOkr;

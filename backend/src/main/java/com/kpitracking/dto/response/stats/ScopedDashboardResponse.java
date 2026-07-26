@@ -37,6 +37,10 @@ public class ScopedDashboardResponse {
         private Integer completedCount;
         private Integer totalCount;
         private Integer atRiskCount;
+        // KPI định tính (chỉ có nghĩa khi scope là 1 KPI): đầu ra là MỨC → biểu đồ phân bố mức.
+        private com.kpitracking.enums.KpiType kpiType;
+        private String qualitativeLevelName;
+        private java.util.List<com.kpitracking.util.QualitativeKpiUtil.LevelBucket> qualitativeDistribution;
     }
 
     @Data

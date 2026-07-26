@@ -242,6 +242,10 @@ public interface KpiCriteriaRepository extends JpaRepository<KpiCriteria, UUID> 
     @Query("SELECT k FROM KpiCriteria k WHERE k.orgUnit.id IN :orgUnitIds AND k.keyResult IS NULL AND k.status = 'APPROVED'")
     List<KpiCriteria> findApprovedWithoutKeyResultByOrgUnitIds(@Param("orgUnitIds") List<UUID> orgUnitIds);
 
+    /** MỌI KPI approved của (các) đơn vị — dùng cho analytics "KPI đơn vị" khi org TẮT OKR (KPI gắn KeyResult vẫn tính). */
+    @Query("SELECT k FROM KpiCriteria k WHERE k.orgUnit.id IN :orgUnitIds AND k.status = 'APPROVED'")
+    List<KpiCriteria> findApprovedByOrgUnitIds(@Param("orgUnitIds") List<UUID> orgUnitIds);
+
     @Query("SELECT k FROM KpiCriteria k WHERE k.orgUnit.orgHierarchyLevel.organization.id = :orgId " +
            "AND (:keyword IS NULL OR :keyword = '' OR LOWER(CAST(k.name AS string)) LIKE LOWER(CONCAT('%', CAST(:keyword AS string), '%')))")
     List<KpiCriteria> searchByKeyword(@Param("orgId") UUID orgId, @Param("keyword") String keyword, Pageable pageable);

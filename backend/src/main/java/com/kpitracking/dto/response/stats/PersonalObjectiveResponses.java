@@ -73,6 +73,9 @@ public class PersonalObjectiveResponses {
         // Nhận diện loại KPI (để FE render tag: thường/thưởng/ngược/cha/con/thác nước)
         private Boolean isReverseKpi;
         private Boolean isBonusKpi;
+        // KPI định tính: kết quả là MỨC (qualitativeLevelName), không có tiến độ/hiệu suất số.
+        private com.kpitracking.enums.KpiType kpiType;
+        private String qualitativeLevelName;
         private UUID parentId;
         private com.kpitracking.enums.KpiParentRelationType parentRelationType; // quan hệ của chính nó với cha
         private com.kpitracking.enums.KpiParentRelationType childRelationType;  // loại con của nó (DECOMPOSITION=cha, DELEGATION=thác nước)
@@ -88,12 +91,13 @@ public class PersonalObjectiveResponses {
     @AllArgsConstructor
     public static class SubmissionHistory {
         private UUID id;
-        private String code; 
+        private String code;
         private Instant submitDate;
         private Double actualValue;
-        private Double contributionProgress; 
+        private Double contributionProgress;
         private Double performance;
         private String status;
+        private String qualitativeLevelName; // KPI định tính: mức của bài nộp
     }
 
     @Data
@@ -110,6 +114,7 @@ public class PersonalObjectiveResponses {
         private Double actualValue;
         private Double progress;
         private Double performance;
+        private String qualitativeLevelName; // KPI định tính: mức đại diện của người
     }
 
     @Data
@@ -135,6 +140,11 @@ public class PersonalObjectiveResponses {
 
         private MultiAxisChartData chartData;
         private List<ContributionData> contributions;
+
+        // KPI định tính: đầu ra là MỨC → biểu đồ phân bố mức thay biểu đồ số.
+        private com.kpitracking.enums.KpiType kpiType;
+        private String qualitativeLevelName;
+        private List<com.kpitracking.util.QualitativeKpiUtil.LevelBucket> qualitativeDistribution;
     }
 
     @Data

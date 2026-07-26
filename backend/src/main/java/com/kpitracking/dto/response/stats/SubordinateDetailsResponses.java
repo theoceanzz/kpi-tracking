@@ -115,6 +115,9 @@ public class SubordinateDetailsResponses {
         // Nhận diện loại KPI (tag: thường/thưởng/ngược/cha/con/thác nước) + KPI con kèm metrics
         private Boolean isReverseKpi;
         private Boolean isBonusKpi;
+        // KPI định tính: kpiType=QUALITATIVE, chấm theo MỨC (qualitativeLevelName), không có tiến độ số.
+        private com.kpitracking.enums.KpiType kpiType;
+        private String qualitativeLevelName;
         private UUID parentId;
         private com.kpitracking.enums.KpiParentRelationType parentRelationType;
         private com.kpitracking.enums.KpiParentRelationType childRelationType;
@@ -135,6 +138,7 @@ public class SubordinateDetailsResponses {
         private Double progress;
         private Double performance;
         private Double actualValue;
+        private String qualitativeLevelName; // KPI định tính: mức đại diện của người
         private List<KpiSubmissionDto> submissions;
     }
 
@@ -150,6 +154,7 @@ public class SubordinateDetailsResponses {
         private Instant createdAt;
         private String submittedByName;
         private String submittedByCode;
+        private String qualitativeLevelName; // KPI định tính: mức của bài nộp
     }
 
     @Data

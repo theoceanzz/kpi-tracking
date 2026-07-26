@@ -693,9 +693,20 @@ public class StatsService {
             }
         }
 
-        List<UserRoleOrgUnit> members = userRoleOrgUnitRepository.findByOrgUnitId(currentOrgUnit.getId());
+        // Thành viên = TẤT CẢ nhân sự trong cây con (đơn vị hiện tại + đơn vị con), KHÔNG chỉ trực tiếp.
+        // Mỗi người xuất hiện 1 lần, gán về đơn vị CAO NHẤT (path ngắn nhất) mà họ giữ vai trò; sắp xếp
+        // theo đơn vị từ cao xuống thấp (path ngắn → dài) rồi theo tên → đơn vị hiện tại đứng đầu.
+        List<UUID> currentSubtree = getSubtreeIds(currentOrgUnit);
+        java.util.Map<UUID, UserRoleOrgUnit> byUser = new java.util.LinkedHashMap<>();
+        userRoleOrgUnitRepository.findByOrgUnitIdIn(currentSubtree).stream()
+                .sorted(java.util.Comparator
+                        .comparingInt((UserRoleOrgUnit uro) -> uro.getOrgUnit().getPath() != null ? uro.getOrgUnit().getPath().length() : Integer.MAX_VALUE)
+                        .thenComparing(uro -> uro.getUser().getFullName() != null ? uro.getUser().getFullName() : ""))
+                .forEach(uro -> byUser.putIfAbsent(uro.getUser().getId(), uro));
+        List<UserRoleOrgUnit> members = new ArrayList<>(byUser.values());
         List<AnalyticsDrillDownResponse.EmployeeSummary> employeeSummaries = members.stream().map(m -> {
             User u = m.getUser();
+            OrgUnit memberUnit = m.getOrgUnit();
             // Hiệu suất = hiệu suất ĐÁNH GIÁ (per-user), theo đợt đang chọn nếu có, ngược lại gộp mọi đợt KPI của user.
             List<KpiCriteria> userKpis = kpiCriteriaRepository.findApprovedByAssigneeId(u.getId());
             java.util.Set<UUID> evalPeriodIds = (periodIds != null && !periodIds.isEmpty())
@@ -704,9 +715,11 @@ public class StatsService {
                         .map(KpiPeriod::getId).collect(java.util.stream.Collectors.toSet());
             Double evalPerf = evalPeriodIds.isEmpty() ? null
                     : evaluationService.averagePerformance(java.util.Set.of(u.getId()), evalPeriodIds);
-            Double performanceRate = evalPerf != null ? (double) Math.round(evalPerf) : null;
+            Double performanceRate = evalPerf != null ? Math.round(evalPerf * 10.0) / 10.0 : null;
             return AnalyticsDrillDownResponse.EmployeeSummary.builder()
                     .userId(u.getId()).fullName(u.getFullName()).email(u.getEmail()).roleName(m.getRole().getName())
+                    .orgUnitId(memberUnit != null ? memberUnit.getId() : null)
+                    .orgUnitName(memberUnit != null ? memberUnit.getName() : null)
                     .assignedKpi(kpiCriteriaRepository.countByAssigneeId(u.getId()))
                     .totalSubmissions(submissionRepository.countBySubmittedById(u.getId()))
                     .approvedSubmissions(submissionRepository.countBySubmittedByIdAndStatus(u.getId(), SubmissionStatus.APPROVED))
@@ -716,7 +729,6 @@ public class StatsService {
                     .performanceRate(performanceRate).build();
         }).toList();
 
-        List<UUID> currentSubtree = getSubtreeIds(currentOrgUnit);
         return AnalyticsDrillDownResponse.builder()
                 .orgUnitId(currentOrgUnit.getId()).orgUnitName(currentOrgUnit.getName()).levelName(currentOrgUnit.getOrgHierarchyLevel().getUnitTypeName())
                 .totalKpi(kpiCriteriaRepository.countByOrgUnitIdIn(currentSubtree))
@@ -804,13 +816,14 @@ public class StatsService {
         if (target <= 0) return 0.0;
         Instant f = from != null ? from : Instant.EPOCH;
         Instant t = to != null ? to : Instant.now().plus(365, ChronoUnit.DAYS);
+        // Công thức tiến độ CHUẨN (cap 150% + KPI ngược) — nhất quán với kpiUserPercent / bảng Xếp hạng / Rủi ro.
         if (Boolean.TRUE.equals(k.getIsReverseKpi())) {
             List<Double> latest = submissionRepository.latestActualValueByOrgUnitIdsAndKpiIdInPeriod(orgUnitIds, k.getId(), f, t, ONE);
             if (latest.isEmpty() || latest.get(0) == null) return 0.0;
-            return KpiMetricsCalculator.reversePercent(latest.get(0), target);
+            return KpiMetricsCalculator.percent(latest.get(0), target, true);
         }
         double actual = submissionRepository.sumActualValueByOrgUnitIdsAndKpiIdInPeriod(orgUnitIds, k.getId(), f, t);
-        return (actual / target) * 100.0;
+        return KpiMetricsCalculator.percent(actual, target, false);
     }
 
     private double kpiUserPercent(KpiCriteria k, UUID userId, Instant from, Instant to) {
@@ -818,13 +831,16 @@ public class StatsService {
         if (target <= 0) return 0.0;
         Instant f = from != null ? from : Instant.EPOCH;
         Instant t = to != null ? to : Instant.now().plus(365, ChronoUnit.DAYS);
-        if (Boolean.TRUE.equals(k.getIsReverseKpi())) {
-            List<Double> latest = submissionRepository.latestActualValueByUserIdAndKpiIdInPeriod(userId, k.getId(), f, t, ONE);
+        // Công thức tiến độ CHUẨN (cap 150% + KPI ngược), gồm APPROVED+PENDING+REJECTED, mốc periodStart ?? createdAt
+        // — nhất quán với bảng Rủi ro đơn vị & Rủi ro thành viên.
+        boolean reverse = Boolean.TRUE.equals(k.getIsReverseKpi());
+        if (reverse) {
+            List<Double> latest = submissionRepository.latestActualValueByUserIdAndKpiIdInPeriodAllStatuses(userId, k.getId(), f, t, ONE);
             if (latest.isEmpty() || latest.get(0) == null) return 0.0;
-            return KpiMetricsCalculator.reversePercent(latest.get(0), target);
+            return KpiMetricsCalculator.percent(latest.get(0), target, true);
         }
-        double actual = submissionRepository.sumActualValueByUserIdAndKpiIdInPeriod(userId, k.getId(), f, t);
-        return (actual / target) * 100.0;
+        double actual = submissionRepository.sumActualValueByUserIdAndKpiIdInPeriodAllStatuses(userId, k.getId(), f, t);
+        return KpiMetricsCalculator.percent(actual, target, false);
     }
 
     @Transactional(readOnly = true)
@@ -1189,7 +1205,7 @@ public class StatsService {
                         kpiCount++;
                     }
                 }
-                double avgProgress = kpiCount > 0 ? Math.round(sumPct / kpiCount) : 0;
+                double avgProgress = kpiCount > 0 ? Math.round(sumPct / kpiCount * 100.0) / 100.0 : 0;
 
                 // Hiệu suất = hiệu suất ĐÁNH GIÁ (per-user), giống unitEvaluationPerformance cho đơn vị:
                 // theo đợt đang chọn nếu có, ngược lại gộp mọi đợt KPI của user.
@@ -1200,7 +1216,8 @@ public class StatsService {
                 Double evalPerf = evalPeriodIds.isEmpty()
                     ? null
                     : evaluationService.averagePerformance(java.util.Set.of(u.getId()), evalPeriodIds);
-                double performance = evalPerf != null ? Math.round(evalPerf) : 0;
+                // Giữ 1 chữ số thập phân: thang "điểm" (matrix, 1..5) cần chính xác.
+                double performance = evalPerf != null ? Math.round(evalPerf * 10.0) / 10.0 : 0;
 
                 long completed = submissionRepository.countBySubmittedByIdAndStatus(u.getId(), SubmissionStatus.APPROVED);
                 Double avgScore = evaluationRepository.avgScoreByUserId(u.getId());

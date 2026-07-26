@@ -26,6 +26,7 @@ export interface SubmissionHistory {
   contributionProgress: number
   performance: number
   status: string
+  qualitativeLevelName?: string | null
 }
 
 export interface TeammateProgress {
@@ -38,6 +39,7 @@ export interface TeammateProgress {
   actualValue: number
   progress: number
   performance: number
+  qualitativeLevelName?: string | null
 }
 
 export type KpiParentRelationType = 'DELEGATION' | 'DECOMPOSITION'
@@ -64,6 +66,9 @@ export interface KpiDetail {
   // Nhận diện loại KPI + KPI con (cho tag & expand)
   isReverseKpi?: boolean
   isBonusKpi?: boolean
+  // KPI định tính: kết quả là MỨC (qualitativeLevelName), không có tiến độ/hiệu suất số
+  kpiType?: 'QUANTITATIVE' | 'QUALITATIVE'
+  qualitativeLevelName?: string | null
   parentId?: string | null
   parentRelationType?: KpiParentRelationType | null
   childRelationType?: KpiParentRelationType | null
@@ -104,6 +109,9 @@ export interface DrawerData {
     contributionPercentage: number
     actualValue: number
   }[]
+  kpiType?: 'QUANTITATIVE' | 'QUALITATIVE'
+  qualitativeLevelName?: string | null
+  qualitativeDistribution?: { levelName: string; position?: number | null; color?: string | null; count: number }[] | null
 }
 
 export interface KpiFilterOption {

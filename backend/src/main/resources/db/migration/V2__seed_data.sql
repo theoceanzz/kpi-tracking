@@ -38,8 +38,11 @@ INSERT INTO qualitative_levels (organization_id, name, level_value, position_ind
     ('11111111-1111-1111-1111-111111111111', 'TỐT',        4.5, 5, '#10b981', 100.00);
 
 -- Performance Rating Matrix (Ma trận xếp loại) — default matrix for the demo org
+-- enable_qualitative = TRUE để BẬT chấm điểm định tính + ma trận ⇒ hiệu suất tính theo "điểm" (matrix_rating),
+-- dùng để test tính năng "hiệu suất theo performance matrix".
 UPDATE organizations
-SET performance_matrix = '{
+SET enable_qualitative = TRUE,
+    performance_matrix = '{
   "rowHeader": "Điểm hành vi",
   "colHeader": "% Hoàn thành KPI",
   "rows": ["<2", "≥2 và <3", "≥3 và <3.5", "≥3.5 và <4.5", "≥4.5 và ≤5"],
@@ -2298,3 +2301,122 @@ INSERT INTO org_notification_configs (organization_id, event_code, email_enabled
     ('22222222-2222-2222-2222-222222222222', 'submission_submitted', true, true),
     ('22222222-2222-2222-2222-222222222222', 'submission_reviewed',  true, true),
     ('22222222-2222-2222-2222-222222222222', 'reminder_deadline',    true, true);
+
+-- ============================================================
+-- (TEST) Điểm ma trận cho đánh giá của ORG DEMO — để test "hiệu suất theo performance matrix (điểm)".
+-- Suy từ score có sẵn: behavior_score (0..4.5) và kpi_completion_percent (%) — CÓ vài mốc "vượt chỉ tiêu"
+-- (>110%, >120%) cho nhóm điểm cao để dữ liệu chạm được các ô loại 4/5 của ma trận.
+-- QUAN TRỌNG: matrix_rating TRA ĐÚNG Ô ma trận từ (điểm hành vi × % hoàn thành) — KHÔNG chia dải theo score.
+--   Nhờ vậy phân bố xếp loại (donut, GROUP BY matrix_rating) và heatmap (đếm theo ô hành vi×%HT)
+--   LUÔN KHỚP nhau — đúng như lúc EvaluationService tự tra ô khi chấm thật.
+-- Ma trận mặc định (rows=điểm hành vi ↑, cols=% hoàn thành →):
+--   [1,1,1,2,2] / [1,2,2,3,3] / [2,2,3,4,4] / [2,3,3,4,5] / [2,3,4,4,5]
+-- CHỈ áp cho đánh giá thuộc org demo (11111111); các org khác giữ nguyên thang %.
+-- ============================================================
+UPDATE evaluations e SET
+    behavior_score = ROUND(LEAST(4.5, GREATEST(0, e.score / 100.0 * 4.5))::numeric, 1),
+    -- Nhóm điểm cao coi như "vượt chỉ tiêu" → % hoàn thành >110%/>120% để chạm ô loại 4/5.
+    kpi_completion_percent = CASE WHEN e.score >= 95 THEN e.score + 30
+                                  WHEN e.score >= 87 THEN e.score + 23
+                                  ELSE e.score END,
+    -- Tra ô ma trận (1-indexed): hàng = dải điểm hành vi, cột = dải % hoàn thành. Dùng ĐÚNG các biểu thức trên.
+    matrix_rating = (ARRAY[
+        ARRAY[1,1,1,2,2],
+        ARRAY[1,2,2,3,3],
+        ARRAY[2,2,3,4,4],
+        ARRAY[2,3,3,4,5],
+        ARRAY[2,3,4,4,5]
+    ])[
+        CASE
+            WHEN ROUND(LEAST(4.5, GREATEST(0, e.score / 100.0 * 4.5))::numeric, 1) < 2   THEN 1
+            WHEN ROUND(LEAST(4.5, GREATEST(0, e.score / 100.0 * 4.5))::numeric, 1) < 3   THEN 2
+            WHEN ROUND(LEAST(4.5, GREATEST(0, e.score / 100.0 * 4.5))::numeric, 1) < 3.5 THEN 3
+            WHEN ROUND(LEAST(4.5, GREATEST(0, e.score / 100.0 * 4.5))::numeric, 1) < 4.5 THEN 4
+            ELSE 5 END
+    ][
+        CASE
+            WHEN (CASE WHEN e.score >= 95 THEN e.score + 30 WHEN e.score >= 87 THEN e.score + 23 ELSE e.score END) < 70  THEN 1
+            WHEN (CASE WHEN e.score >= 95 THEN e.score + 30 WHEN e.score >= 87 THEN e.score + 23 ELSE e.score END) < 90  THEN 2
+            WHEN (CASE WHEN e.score >= 95 THEN e.score + 30 WHEN e.score >= 87 THEN e.score + 23 ELSE e.score END) < 110 THEN 3
+            WHEN (CASE WHEN e.score >= 95 THEN e.score + 30 WHEN e.score >= 87 THEN e.score + 23 ELSE e.score END) < 120 THEN 4
+            ELSE 5 END
+    ]
+WHERE e.org_unit_id IN (
+    SELECT ou.id FROM org_units ou
+    JOIN org_hierarchy_levels ohl ON ou.org_hierarchy_id = ohl.id
+    WHERE ohl.organization_id = '11111111-1111-1111-1111-111111111111'
+);
+
+-- ============================================================================
+-- (TEST) Nắn phân bố XẾP LOẠI thành viên org "Demo Company" thành HÌNH CHUÔNG
+--        (dàn đủ 5 hạng, tập trung ở giữa) — phục vụ test thống kê xếp loại đơn vị.
+--        GHI ĐÈ kết quả matrix_rating suy ở block trên cho org 11111111-… : gán lại
+--        hạng theo phân bố 10/20/40/20/10 và ĐỒNG BỘ score / behavior_score /
+--        kpi_completion_percent / matrix_rating (mỗi bộ tra ĐÚNG ô ma trận = hạng)
+--        để donut xếp loại, đường phân phối, heatmap, BSC và thang điểm cùng khớp.
+--        Phân nhóm theo PHÒNG × KỲ để cả Công ty lẫn từng phòng đều cong ở giữa.
+-- ============================================================================
+WITH grp AS (
+    SELECT e.id,
+           e.kpi_period_id,
+           e.user_id,
+           CASE
+               WHEN e.org_unit_id IN (
+                   'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb',  -- Phòng IT
+                   'dddddddd-dddd-dddd-dddd-dddddddddddd',  -- Team Backend
+                   'eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee')  -- Team Frontend
+                   THEN 'IT'
+               WHEN e.org_unit_id IN (
+                   'cccccccc-cccc-cccc-cccc-cccccccccccc',  -- Phòng Truyền Thông
+                   'ffffffff-ffff-ffff-ffff-ffffffffffff',  -- Team Content
+                   'abcdefab-cdef-cdef-cdef-abcdefabcdef')  -- Team Design
+                   THEN 'COMM'
+               ELSE 'BRANCH'                                -- Chi nhánh Hà Nội
+           END AS grp
+    FROM evaluations e
+    WHERE e.org_unit_id IN (
+        'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
+        'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb',
+        'dddddddd-dddd-dddd-dddd-dddddddddddd',
+        'eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee',
+        'cccccccc-cccc-cccc-cccc-cccccccccccc',
+        'ffffffff-ffff-ffff-ffff-ffffffffffff',
+        'abcdefab-cdef-cdef-cdef-abcdefabcdef')
+),
+ranked AS (
+    SELECT id,
+           -- vị trí tương đối trong (nhóm, kỳ): (rn - 0.5) / cnt  ∈ (0, 1)
+           (ROW_NUMBER() OVER (PARTITION BY grp, kpi_period_id ORDER BY user_id) - 0.5)
+             / COUNT(*) OVER (PARTITION BY grp, kpi_period_id) AS p
+    FROM grp
+),
+graded AS (
+    SELECT id,
+           CASE                         -- phân bố 10/20/40/20/10 (đỉnh ở giữa)
+               WHEN p < 0.10 THEN 1
+               WHEN p < 0.30 THEN 2
+               WHEN p < 0.70 THEN 3
+               WHEN p < 0.90 THEN 4
+               ELSE 5
+           END AS g
+    FROM ranked
+)
+UPDATE evaluations e SET
+    score                  = m.score,
+    system_score           = m.score,
+    behavior_score         = m.behavior_score,
+    kpi_completion_percent = m.completion,
+    matrix_rating          = m.g,
+    comment                = m.label
+FROM graded x
+JOIN (VALUES
+    -- g | score | behavior (0..4.5) | %hoàn thành | nhãn (khớp evaluation_levels)
+    --   Mỗi bộ tra đúng ô ma trận mặc định ⇒ matrix_rating = g:
+    --   [1,1,1,2,2]/[1,2,2,3,3]/[2,2,3,4,4]/[2,3,3,4,5]/[2,3,4,4,5]
+    (1,  33.0::numeric, 1.5::numeric,  60.0::numeric, 'YẾU'),        -- hàng1(<2)     × cột1(<70%)       = 1
+    (2,  55.0::numeric, 2.5::numeric,  75.0::numeric, 'TRUNG BÌNH'), -- hàng2(≥2<3)   × cột2(≥70<90%)    = 2
+    (3,  71.0::numeric, 3.2::numeric,  95.0::numeric, 'KHÁ'),        -- hàng3(≥3<3.5) × cột3(≥90<110%)   = 3
+    (4,  89.0::numeric, 4.0::numeric, 115.0::numeric, 'TỐT'),        -- hàng4(≥3.5<4.5)×cột4(≥110<120%)  = 4
+    (5, 100.0::numeric, 4.5::numeric, 125.0::numeric, 'XUẤT SẮC')    -- hàng5(≥4.5)   × cột5(≥120%)      = 5
+) AS m(g, score, behavior_score, completion, label) ON m.g = x.g
+WHERE e.id = x.id;

@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useMemo } from 'react'
 import { Pin } from 'lucide-react'
 import { useAnalyticsDateFilter } from '@/components/common/AnalyticsDateFilter'
 import type { ReportWidget } from '@/types/datasource'
@@ -12,7 +12,7 @@ import { PinnedWidgetCard } from './PinnedWidgetCard'
  * Filter áp cho mọi biểu đồ ghim qua prop `filter`.
  */
 export function PinnedWidgetsSection({ widgets, onUnpin }: { widgets?: ReportWidget[]; onUnpin: () => void }) {
-  const [onlyApproved, setOnlyApproved] = useState(false)
+  const onlyApproved = false
   const { periodId, periodIdTo, from, to, groupBy, controls } = useAnalyticsDateFilter({ selectClassName: 'h-10' })
 
   const filter: PinnedFilter = useMemo(
@@ -34,15 +34,6 @@ export function PinnedWidgetsSection({ widgets, onUnpin }: { widgets?: ReportWid
       <div className="sticky top-0 z-20 bg-white/95 dark:bg-slate-900/95 backdrop-blur border border-slate-200 dark:border-slate-800 rounded-2xl shadow-sm p-3 flex flex-col sm:flex-row sm:items-center gap-3 justify-between">
         <span className="text-xs font-bold text-slate-400">Bộ lọc áp cho biểu đồ đã ghim</span>
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4">
-          <label className="flex items-center gap-2 text-sm font-semibold text-slate-700 dark:text-slate-300 cursor-pointer select-none">
-            <input
-              type="checkbox"
-              className="w-4 h-4 text-indigo-600 border-slate-300 rounded focus:ring-indigo-500 bg-slate-50 dark:bg-slate-800"
-              checked={onlyApproved}
-              onChange={e => setOnlyApproved(e.target.checked)}
-            />
-            Chỉ tính bài nộp đã duyệt
-          </label>
           {controls}
         </div>
       </div>
