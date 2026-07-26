@@ -49,6 +49,8 @@ CREATE TABLE organizations (
   enable_qualitative BOOLEAN NOT NULL DEFAULT FALSE,
   enable_bsc  BOOLEAN NOT NULL DEFAULT FALSE,
   performance_matrix jsonb,
+  -- Luật xếp loại ĐƠN VỊ theo phân bố % xếp loại thành viên. NULL ⇒ backend dùng preset mặc định.
+  unit_classification_rules jsonb,
   created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at  TIMESTAMPTZ NOT NULL DEFAULT now()
 );

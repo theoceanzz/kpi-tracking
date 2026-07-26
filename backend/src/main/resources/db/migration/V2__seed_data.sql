@@ -2346,3 +2346,77 @@ WHERE e.org_unit_id IN (
     JOIN org_hierarchy_levels ohl ON ou.org_hierarchy_id = ohl.id
     WHERE ohl.organization_id = '11111111-1111-1111-1111-111111111111'
 );
+
+-- ============================================================================
+-- (TEST) Nắn phân bố XẾP LOẠI thành viên org "Demo Company" thành HÌNH CHUÔNG
+--        (dàn đủ 5 hạng, tập trung ở giữa) — phục vụ test thống kê xếp loại đơn vị.
+--        GHI ĐÈ kết quả matrix_rating suy ở block trên cho org 11111111-… : gán lại
+--        hạng theo phân bố 10/20/40/20/10 và ĐỒNG BỘ score / behavior_score /
+--        kpi_completion_percent / matrix_rating (mỗi bộ tra ĐÚNG ô ma trận = hạng)
+--        để donut xếp loại, đường phân phối, heatmap, BSC và thang điểm cùng khớp.
+--        Phân nhóm theo PHÒNG × KỲ để cả Công ty lẫn từng phòng đều cong ở giữa.
+-- ============================================================================
+WITH grp AS (
+    SELECT e.id,
+           e.kpi_period_id,
+           e.user_id,
+           CASE
+               WHEN e.org_unit_id IN (
+                   'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb',  -- Phòng IT
+                   'dddddddd-dddd-dddd-dddd-dddddddddddd',  -- Team Backend
+                   'eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee')  -- Team Frontend
+                   THEN 'IT'
+               WHEN e.org_unit_id IN (
+                   'cccccccc-cccc-cccc-cccc-cccccccccccc',  -- Phòng Truyền Thông
+                   'ffffffff-ffff-ffff-ffff-ffffffffffff',  -- Team Content
+                   'abcdefab-cdef-cdef-cdef-abcdefabcdef')  -- Team Design
+                   THEN 'COMM'
+               ELSE 'BRANCH'                                -- Chi nhánh Hà Nội
+           END AS grp
+    FROM evaluations e
+    WHERE e.org_unit_id IN (
+        'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
+        'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb',
+        'dddddddd-dddd-dddd-dddd-dddddddddddd',
+        'eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee',
+        'cccccccc-cccc-cccc-cccc-cccccccccccc',
+        'ffffffff-ffff-ffff-ffff-ffffffffffff',
+        'abcdefab-cdef-cdef-cdef-abcdefabcdef')
+),
+ranked AS (
+    SELECT id,
+           -- vị trí tương đối trong (nhóm, kỳ): (rn - 0.5) / cnt  ∈ (0, 1)
+           (ROW_NUMBER() OVER (PARTITION BY grp, kpi_period_id ORDER BY user_id) - 0.5)
+             / COUNT(*) OVER (PARTITION BY grp, kpi_period_id) AS p
+    FROM grp
+),
+graded AS (
+    SELECT id,
+           CASE                         -- phân bố 10/20/40/20/10 (đỉnh ở giữa)
+               WHEN p < 0.10 THEN 1
+               WHEN p < 0.30 THEN 2
+               WHEN p < 0.70 THEN 3
+               WHEN p < 0.90 THEN 4
+               ELSE 5
+           END AS g
+    FROM ranked
+)
+UPDATE evaluations e SET
+    score                  = m.score,
+    system_score           = m.score,
+    behavior_score         = m.behavior_score,
+    kpi_completion_percent = m.completion,
+    matrix_rating          = m.g,
+    comment                = m.label
+FROM graded x
+JOIN (VALUES
+    -- g | score | behavior (0..4.5) | %hoàn thành | nhãn (khớp evaluation_levels)
+    --   Mỗi bộ tra đúng ô ma trận mặc định ⇒ matrix_rating = g:
+    --   [1,1,1,2,2]/[1,2,2,3,3]/[2,2,3,4,4]/[2,3,3,4,5]/[2,3,4,4,5]
+    (1,  33.0::numeric, 1.5::numeric,  60.0::numeric, 'YẾU'),        -- hàng1(<2)     × cột1(<70%)       = 1
+    (2,  55.0::numeric, 2.5::numeric,  75.0::numeric, 'TRUNG BÌNH'), -- hàng2(≥2<3)   × cột2(≥70<90%)    = 2
+    (3,  71.0::numeric, 3.2::numeric,  95.0::numeric, 'KHÁ'),        -- hàng3(≥3<3.5) × cột3(≥90<110%)   = 3
+    (4,  89.0::numeric, 4.0::numeric, 115.0::numeric, 'TỐT'),        -- hàng4(≥3.5<4.5)×cột4(≥110<120%)  = 4
+    (5, 100.0::numeric, 4.5::numeric, 125.0::numeric, 'XUẤT SẮC')    -- hàng5(≥4.5)   × cột5(≥120%)      = 5
+) AS m(g, score, behavior_score, completion, label) ON m.g = x.g
+WHERE e.id = x.id;
