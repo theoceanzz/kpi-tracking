@@ -7,6 +7,8 @@ import { ResponsiveContainer, ComposedChart, CartesianGrid, XAxis, YAxis, Toolti
 import { cn } from '@/lib/utils'
 import LoadingSkeleton from '@/components/common/LoadingSkeleton'
 import ObjectiveDrawer from './ObjectiveDrawer'
+import { QualitativeDistributionChart } from './QualitativeDistributionChart'
+import { QualitativeResultChip } from './QualitativeResultChip'
 import {
   Select,
   SelectContent,
@@ -85,6 +87,8 @@ export default function MyKpiDrawer({
     queryKey: ['personalKpi', 'drawer', kpiId, from, to, periodId, periodIdTo],
     queryFn: () => personalObjectiveApi.getKpiDrawerData(kpiId, { from, to, periodId, periodIdTo }),
   })
+
+  const isQual = data?.kpiType === 'QUALITATIVE'
 
   const chartData = useMemo(() => {
     if (!data?.chartData?.points) return []
@@ -180,6 +184,23 @@ export default function MyKpiDrawer({
             </div>
           </div>
 
+          {isQual ? (
+            <>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="bg-violet-50 dark:bg-violet-900/20 p-4 rounded-2xl border border-violet-100 dark:border-violet-900/30">
+                  <p className="text-[10px] font-bold text-violet-500 mb-1.5">Mức kết quả</p>
+                  <QualitativeResultChip level={data?.qualitativeLevelName} />
+                </div>
+              </div>
+              <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 border border-slate-200 dark:border-slate-800">
+                <h3 className="text-sm font-black flex items-center gap-2 mb-3">
+                  <Activity size={18} className="text-violet-500" /> Phân bố mức đánh giá
+                </h3>
+                <QualitativeDistributionChart distribution={data?.qualitativeDistribution} />
+              </div>
+            </>
+          ) : (
+          <>
           {/* Metrics Grid */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <div className="bg-slate-50 dark:bg-slate-900/60 p-4 rounded-2xl border border-slate-100 dark:border-slate-800">
@@ -271,9 +292,11 @@ export default function MyKpiDrawer({
               </ResponsiveContainer>
             </div>
           </div>
+          </>
+          )}
 
           {/* Contribution Bar Chart */}
-          {data?.shared && contributions.length > 0 && (
+          {!isQual && data?.shared && contributions.length > 0 && (
             <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 border border-slate-200 dark:border-slate-800">
               <h3 className="text-sm font-black mb-6 flex items-center gap-2">
                 <Target size={18} className="text-purple-500" />

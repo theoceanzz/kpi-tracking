@@ -1,8 +1,9 @@
-import React, { useState, useRef, useEffect } from 'react'
+import React, { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useSummaryStats, useSummaryRankings } from '../hooks/useAnalytics'
 import { cn, getInitials } from '@/lib/utils'
 import { KpiTypeTags } from '../components/KpiTypeTags'
+import { QualitativeResultChip } from '../components/QualitativeResultChip'
 import { toChildNodes } from '../components/KpiChildList'
 import { KpiChildTableRows } from '../components/KpiChildTableRows'
 import { KpiResponsibleCell } from '../components/KpiResponsibleCell'
@@ -34,6 +35,7 @@ import { orgUnitKpiApi } from '@/features/dashboard/api/orgUnitKpiApi'
 import type { OrgUnitAssigneeStat, OrgUnitSubmissionStat, UnitRiskRow, MemberRiskRow, OverdueKpiForUnit, OverdueKpiForMember } from '@/features/dashboard/api/orgUnitKpiApi'
 import OrgUnitKpiDrawer from '../components/OrgUnitKpiDrawer'
 import { useAnalyticsDateFilter } from '@/components/common/AnalyticsDateFilter'
+import { usePerformanceScale } from '../hooks/usePerformanceScale'
 import { SortHeader } from '@/components/common/SortHeader'
 import { ChartWrapper, type DashboardWidget } from '@/components/common/dashboard/ChartWrapper'
 import { useDashboardCustomization } from '@/components/common/dashboard/useDashboardCustomization'
@@ -120,21 +122,9 @@ export default function SummaryTab() {
   const [selectedUnitId] = useState<string | undefined>(undefined)
 
   // ── Global filter state ───────────────────────────────────────────────────
-  const [onlyApproved, setOnlyApproved] = useState(false)
+  const onlyApproved = false
   const { periodId, periodIdTo, from, to, groupBy, controls } = useAnalyticsDateFilter({ selectClassName: 'h-9' })
-  const [filterStuck, setFilterStuck] = useState(false)
-  const filterSentinelRef = useRef<HTMLDivElement>(null)
-
-  useEffect(() => {
-    const sentinel = filterSentinelRef.current
-    if (!sentinel) return
-    const observer = new IntersectionObserver(
-      (entries) => { if (entries[0]) setFilterStuck(!entries[0].isIntersecting) },
-      { threshold: 0, rootMargin: '-65px 0px 0px 0px' }
-    )
-    observer.observe(sentinel)
-    return () => observer.disconnect()
-  }, [])
+  const perf = usePerformanceScale()
 
   // ── New KPI data ──────────────────────────────────────────────────────────
   const { data: metrics, isLoading: isMetricsLoading } = useQuery({
@@ -331,43 +321,21 @@ export default function SummaryTab() {
         <DashboardEditToolbar api={dash} />
       </div>
 
-      {/* ── Sentinel: 1px above filter to detect when filter becomes sticky ── */}
-      <div ref={filterSentinelRef} className="h-px" aria-hidden />
-
       {/* ── Global Filter (sticky) ────────────────────────────────────────── */}
-      <div className={cn(
-        "sticky top-0 z-20 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl transition-all duration-200",
-        filterStuck
-          ? "p-3 shadow-lg shadow-slate-200/80 dark:shadow-slate-900/80 border-slate-300 dark:border-slate-700"
-          : "p-4 shadow-sm"
-      )}>
+      <div className="sticky top-0 z-20 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 shadow-sm">
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4 justify-between">
           <div className="flex items-center gap-2">
-            <div className={cn(
-              "p-2 rounded-lg text-indigo-600 dark:text-indigo-400 transition-all duration-200",
-              filterStuck ? "bg-indigo-50/60 dark:bg-indigo-900/20" : "bg-indigo-50 dark:bg-indigo-900/30"
-            )}>
-              <LayoutDashboard size={filterStuck ? 16 : 18} />
+            <div className="p-2 rounded-lg text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/30">
+              <LayoutDashboard size={18} />
             </div>
             <div>
-              <h2 className={cn("font-bold text-slate-900 dark:text-white transition-all duration-200", filterStuck ? "text-sm" : "text-base")}>
+              <h2 className="font-bold text-slate-900 dark:text-white text-base">
                 Bộ lọc KPI đơn vị
               </h2>
-              {!filterStuck && (
-                <p className="text-xs text-slate-500 font-medium mt-0.5">Lọc dữ liệu đồng bộ cho metrics, biểu đồ và bảng chi tiết</p>
-              )}
+              <p className="text-xs text-slate-500 font-medium mt-0.5">Lọc dữ liệu đồng bộ cho metrics, biểu đồ và bảng chi tiết</p>
             </div>
           </div>
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4">
-            <label className="flex items-center gap-2 text-sm font-semibold text-slate-700 dark:text-slate-300 cursor-pointer select-none">
-              <input
-                type="checkbox"
-                className="w-4.5 h-4.5 text-indigo-600 border-slate-300 rounded focus:ring-indigo-500 bg-slate-50 dark:bg-slate-800"
-                checked={onlyApproved}
-                onChange={e => setOnlyApproved(e.target.checked)}
-              />
-              Chỉ tính bài nộp đã duyệt
-            </label>
             {controls}
           </div>
         </div>
@@ -393,7 +361,7 @@ export default function SummaryTab() {
             <div className="w-12 h-12 rounded-full bg-emerald-100 dark:bg-emerald-900/40 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0"><Target size={24} /></div>
             <div>
               <p className="text-xs font-bold text-slate-500">Hiệu suất trung bình (đánh giá)</p>
-              <p className="text-2xl font-black">{metrics?.averagePerformance?.toFixed(1) ?? 0}%</p>
+              <p className="text-2xl font-black">{perf.format(metrics?.averagePerformance ?? 0)}</p>
             </div>
           </div>
           <div className="bg-white dark:bg-slate-900 rounded-2xl p-5 border border-slate-200 dark:border-slate-800 flex items-center gap-4">
@@ -497,6 +465,7 @@ function OrgUnitKpiRow({ kpi, onClick, onSelectKpi }: { kpi: any; onClick?: () =
 
   // KPI thưởng: backend trả tiến độ/hiệu suất = null (không tính), hiển thị gạch ngang.
   const isBonus = kpi.progress == null
+  const isQual  = kpi.kpiType === 'QUALITATIVE'
   const pct  = Math.round(kpi.progress    || 0)
 
   return (
@@ -516,6 +485,7 @@ function OrgUnitKpiRow({ kpi, onClick, onSelectKpi }: { kpi: any; onClick?: () =
                 <KpiTypeTags
                   isReverseKpi={kpi.isReverseKpi}
                   isBonusKpi={kpi.isBonusKpi}
+                  isQualitative={isQual}
                   parentRelationType={kpi.parentRelationType}
                   childRelationType={kpi.childRelationType}
                 />
@@ -531,7 +501,9 @@ function OrgUnitKpiRow({ kpi, onClick, onSelectKpi }: { kpi: any; onClick?: () =
           <KpiPeriodCell periodName={kpi.periodName} start={kpi.periodStart} end={kpi.periodEnd} />
         </td>
         <td className="px-6 py-4">
-          {isBonus ? (
+          {isQual ? (
+            <QualitativeResultChip level={kpi.qualitativeLevelName} />
+          ) : isBonus ? (
             <div className="flex flex-col gap-1">
               <span className="inline-flex w-fit items-center gap-1 px-2.5 py-1 rounded-full bg-amber-50 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 text-[10px] font-black uppercase">
                 Thưởng
@@ -629,6 +601,15 @@ function OrgUnitKpiRow({ kpi, onClick, onSelectKpi }: { kpi: any; onClick?: () =
                                   <div className="text-sm font-medium text-slate-700 dark:text-slate-300">{p.orgUnitName}</div>
                                 </div>
                               )}
+                              {isQual ? (
+                                <div className="flex-1 flex items-center justify-end">
+                                  <div className="flex flex-col items-end gap-1.5">
+                                    <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">Mức đánh giá</span>
+                                    <QualitativeResultChip level={subs.map(s => s.qualitativeLevelName).find(Boolean) ?? null} />
+                                  </div>
+                                </div>
+                              ) : (
+                              <>
                               <div className="flex-1 max-w-[360px]">
                                 <div className="flex justify-between items-center mb-1 text-[11px] font-medium uppercase tracking-wider text-slate-500">
                                   <span>Tiến độ cá nhân</span>
@@ -653,6 +634,8 @@ function OrgUnitKpiRow({ kpi, onClick, onSelectKpi }: { kpi: any; onClick?: () =
                                 <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-500 mb-1">Hiệu suất</span>
                                 <span className="text-lg font-bold text-indigo-600 dark:text-indigo-400">{Math.round(p.performanceRate)}%</span>
                               </div>
+                              </>
+                              )}
                             </div>
                           </div>
 
@@ -675,6 +658,13 @@ function OrgUnitKpiRow({ kpi, onClick, onSelectKpi }: { kpi: any; onClick?: () =
                                         {sub.submittedAt ? new Date(sub.submittedAt).toLocaleString('vi-VN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit', year: 'numeric' }) : '—'}
                                       </div>
                                     </div>
+                                    {isQual ? (
+                                      <div className="flex-1 px-5 border-x border-slate-100 dark:border-slate-700/50 flex items-center gap-2">
+                                        <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Mức</span>
+                                        <QualitativeResultChip level={sub.qualitativeLevelName} />
+                                      </div>
+                                    ) : (
+                                    <>
                                     <div className="flex-1 px-5 border-x border-slate-100 dark:border-slate-700/50">
                                       <div className="flex justify-between items-center text-[11px] font-medium uppercase tracking-wider mb-1 text-slate-500">
                                         <span>Đóng góp</span>
@@ -699,6 +689,8 @@ function OrgUnitKpiRow({ kpi, onClick, onSelectKpi }: { kpi: any; onClick?: () =
                                       <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1">Hiệu suất</span>
                                       <span className="text-sm font-bold text-indigo-600 dark:text-indigo-400">{sub.performance.toFixed(1)}%</span>
                                     </div>
+                                    </>
+                                    )}
                                   </div>
                                 ))}
                               </div>
@@ -1135,6 +1127,7 @@ export function EmployeeRankingTableSection({ orgUnitId, from, to, onlyApproved,
   const [sf, setSf] = useState<'performance' | 'avgProgress'>('performance')
   const [sd, setSd] = useState<'ASC' | 'DESC'>('DESC')
   const [rankPage, setRankPage] = useState(0)
+  const perf = usePerformanceScale()
   const RANK_PAGE_SIZE = 5
 
   // Sort + phân trang đã chuyển sang backend; render thẳng trang hiện tại trả về.
@@ -1209,10 +1202,10 @@ export function EmployeeRankingTableSection({ orgUnitId, from, to, onlyApproved,
                     </td>
                     <td className="px-6 py-4 text-center">
                       <span className={cn("px-3 py-1 rounded-full text-xs font-black",
-                        item.performance >= 80 ? "bg-emerald-50 text-emerald-600" :
-                        item.performance >= 50 ? "bg-amber-50 text-amber-600" :
+                        perf.toPct(item.performance) >= 80 ? "bg-emerald-50 text-emerald-600" :
+                        perf.toPct(item.performance) >= 50 ? "bg-amber-50 text-amber-600" :
                         "bg-red-50 text-red-600"
-                      )}>{item.performance.toFixed(1)}%</span>
+                      )}>{perf.formatShort(item.performance)}</span>
                     </td>
                   </tr>
                 )
@@ -1263,10 +1256,10 @@ export function EmployeeRankingTableSection({ orgUnitId, from, to, onlyApproved,
 
                   <div className="flex items-center justify-end pt-1 border-t border-slate-100 dark:border-slate-800 text-xs">
                     <span className={cn("px-3 py-1 rounded-full text-xs font-black",
-                      item.performance >= 80 ? "bg-emerald-50 text-emerald-600" :
-                      item.performance >= 50 ? "bg-amber-50 text-amber-600" :
+                      perf.toPct(item.performance) >= 80 ? "bg-emerald-50 text-emerald-600" :
+                      perf.toPct(item.performance) >= 50 ? "bg-amber-50 text-amber-600" :
                       "bg-red-50 text-red-600"
-                    )}>Hiệu suất {item.performance.toFixed(1)}%</span>
+                    )}>Hiệu suất {perf.formatShort(item.performance)}</span>
                   </div>
                 </div>
               )

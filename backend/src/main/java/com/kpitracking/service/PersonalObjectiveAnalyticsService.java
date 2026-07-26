@@ -140,14 +140,17 @@ public class PersonalObjectiveAnalyticsService {
         for (KpiCriteria child : kids) {
             double[] cm = calculateKpiMetrics(child, from, to, onlyApproved);
             boolean childBonus = Boolean.TRUE.equals(child.getIsBonusKpi());
+            boolean childQual = child.getKpiType() == com.kpitracking.enums.KpiType.QUALITATIVE;
             result.add(KpiDetail.builder()
                     .kpiId(child.getId())
                     .kpiName(child.getName())
                     .targetValue(child.getTargetValue() != null ? child.getTargetValue() : 1.0)
                     .actualValue(cm[3])
                     .unit(child.getUnit())
-                    .progress(childBonus ? null : cm[0])
-                    .performance(childBonus ? null : cm[1])
+                    .progress(childBonus || childQual ? null : cm[0])
+                    .performance(childBonus || childQual ? null : cm[1])
+                    .kpiType(child.getKpiType())
+                    .qualitativeLevelName(childQual ? com.kpitracking.util.QualitativeKpiUtil.representativeLevelName(child) : null)
                     .periodStart(child.getKpiPeriod() != null ? child.getKpiPeriod().getStartDate() : null)
                     .periodEnd(child.getKpiPeriod() != null ? child.getKpiPeriod().getEndDate() : null)
                     .periodName(child.getKpiPeriod() != null ? child.getKpiPeriod().getName() : null)
@@ -370,6 +373,7 @@ public class PersonalObjectiveAnalyticsService {
                                     .contributionProgress(subProgress)
                                     // Không set performance: hiệu suất theo bài nộp trùng với "Đóng góp" → bỏ hiển thị.
                                     .status(sub.getStatus().name())
+                                    .qualitativeLevelName(sub.getQualitativeLevel() != null ? sub.getQualitativeLevel().getName() : null)
                                     .build());
                         }
                     }
@@ -402,6 +406,12 @@ public class PersonalObjectiveAnalyticsService {
                             ? evaluationService.getEffectivePerformanceScore(assignee.getId(), kpi.getKpiPeriod().getId())
                             : null;
 
+                    String teammateLevel = assigneeSubs.stream()
+                            .filter(s -> s.getQualitativeLevel() != null)
+                            .max(java.util.Comparator.comparing(
+                                    (KpiSubmission s) -> s.getPeriodStart() != null ? s.getPeriodStart() : s.getCreatedAt(),
+                                    java.util.Comparator.nullsFirst(java.util.Comparator.naturalOrder())))
+                            .map(s -> s.getQualitativeLevel().getName()).orElse(null);
                     teammates.add(TeammateProgress.builder()
                             .userId(assignee.getId())
                             .fullName(assignee.getFullName())
@@ -412,6 +422,7 @@ public class PersonalObjectiveAnalyticsService {
                             .actualValue(assigneeActual)
                             .progress(assigneeProgress)
                             .performance(assigneePerf)
+                            .qualitativeLevelName(teammateLevel)
                             .build());
                 }
             }
@@ -419,8 +430,9 @@ public class PersonalObjectiveAnalyticsService {
             KeyResult kr  = kpi.getKeyResult();
             Objective obj = kr != null ? kr.getObjective() : null;
 
-            // KPI thưởng vẫn được liệt kê nhưng không hiển thị tiến độ/hiệu suất.
+            // KPI thưởng / định tính vẫn được liệt kê nhưng không hiển thị tiến độ/hiệu suất số.
             boolean isBonus = Boolean.TRUE.equals(kpi.getIsBonusKpi());
+            boolean isQual  = kpi.getKpiType() == com.kpitracking.enums.KpiType.QUALITATIVE;
 
             details.add(KpiDetail.builder()
                     .kpiId(kpi.getId())
@@ -428,8 +440,10 @@ public class PersonalObjectiveAnalyticsService {
                     .targetValue(totalTarget)
                     .actualValue(metrics[3])
                     .unit(kpi.getUnit())
-                    .progress(isBonus ? null : metrics[0])
-                    .performance(isBonus ? null : metrics[1])
+                    .progress(isBonus || isQual ? null : metrics[0])
+                    .performance(isBonus || isQual ? null : metrics[1])
+                    .kpiType(kpi.getKpiType())
+                    .qualitativeLevelName(isQual ? com.kpitracking.util.QualitativeKpiUtil.representativeLevelName(kpi) : null)
                     .objectiveName(obj != null ? obj.getName() : "N/A")
                     .objectiveCode(obj != null ? obj.getCode() : "N/A")
                     .keyResultName(kr != null ? kr.getName() : "N/A")
@@ -578,6 +592,11 @@ public class PersonalObjectiveAnalyticsService {
                 .teamPerformance(teamMetrics[1])
                 .chartData(MultiAxisChartData.builder().points(points).availableTeammates(availableTeammates).build())
                 .contributions(contributions)
+                .kpiType(kpi.getKpiType())
+                .qualitativeLevelName(kpi.getKpiType() == com.kpitracking.enums.KpiType.QUALITATIVE
+                        ? com.kpitracking.util.QualitativeKpiUtil.representativeLevelName(kpi) : null)
+                .qualitativeDistribution(kpi.getKpiType() == com.kpitracking.enums.KpiType.QUALITATIVE
+                        ? com.kpitracking.util.QualitativeKpiUtil.distribution(kpi) : null)
                 .build();
     }
 

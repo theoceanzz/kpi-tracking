@@ -28,6 +28,8 @@ import type { OrgUnitAssigneeStat, OrgUnitSubmissionStat } from '@/features/dash
 import { subDays, subMonths, startOfYear } from 'date-fns'
 import LoadingSkeleton from '@/components/common/LoadingSkeleton'
 import ObjectiveDrawer from './ObjectiveDrawer'
+import { QualitativeDistributionChart } from './QualitativeDistributionChart'
+import { QualitativeResultChip } from './QualitativeResultChip'
 
 // Bộ lọc thời gian trong drawer — đơn giản (đồng bộ với các drawer khác), không dùng chọn đợt/khoảng đợt.
 type DateFilterType = 'GLOBAL' | 'THIS_WEEK' | 'THIS_MONTH' | 'THIS_QUARTER' | '6_MONTHS' | 'THIS_YEAR' | 'CUSTOM'
@@ -337,6 +339,8 @@ export default function OrgUnitKpiDrawer({
     queryFn: () => orgUnitKpiApi.getKpiDrawerData(kpiId, { from, to, onlyApproved: globalOnlyApproved, periodId, periodIdTo }),
   })
 
+  const isQual = data?.kpiType === 'QUALITATIVE'
+
   // Build trend chart data — team lines + per-active-assignee lines
   const trendChartData = useMemo(() => {
     if (!data?.chartPoints) return []
@@ -424,7 +428,41 @@ export default function OrgUnitKpiDrawer({
             </div>
           </div>
 
-          {/* Metrics — chỉ tiến độ */}
+          {/* KPI ĐỊNH TÍNH: mức kết quả + biểu đồ phân bố mức (thay các biểu đồ số) */}
+          {isQual && (
+            <>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="bg-violet-50 dark:bg-violet-900/20 p-4 rounded-2xl border border-violet-100 dark:border-violet-900/30">
+                  <p className="text-[10px] font-bold text-violet-500 mb-1.5">Mức kết quả</p>
+                  <QualitativeResultChip level={data?.qualitativeLevelName} />
+                </div>
+                <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-2xl border border-blue-100 dark:border-blue-900/30">
+                  <p className="text-[10px] font-bold text-blue-500 mb-1">Tổng bài nộp</p>
+                  <p className="text-xl font-black text-blue-700 dark:text-blue-400">{data?.topSubmissions?.length ?? 0}</p>
+                </div>
+              </div>
+              <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm">
+                <h3 className="text-sm font-black text-slate-900 dark:text-white mb-3">Phân bố mức đánh giá</h3>
+                <QualitativeDistributionChart distribution={data?.qualitativeDistribution} />
+              </div>
+              {(data?.topSubmissions?.length ?? 0) > 0 && (
+                <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm">
+                  <h3 className="text-sm font-black text-slate-900 dark:text-white mb-3">Bài nộp gần đây</h3>
+                  <div className="space-y-2">
+                    {data!.topSubmissions.map((s, i) => (
+                      <div key={i} className="flex items-center justify-between gap-3 rounded-xl border border-slate-100 dark:border-slate-800 px-3 py-2">
+                        <span className="text-sm font-bold text-slate-700 dark:text-slate-200 truncate">{s.submitterName}</span>
+                        <QualitativeResultChip level={s.qualitativeLevelName} />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </>
+          )}
+
+          {/* Metrics số — chỉ tiến độ (KPI định lượng) */}
+          {!isQual && (
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div className="bg-slate-50 dark:bg-slate-900/60 p-4 rounded-2xl border border-slate-100 dark:border-slate-800">
               <p className="text-[10px] font-bold text-slate-500 mb-1">Mục tiêu yêu cầu</p>
@@ -444,9 +482,10 @@ export default function OrgUnitKpiDrawer({
               <p className="text-xl font-black text-blue-700 dark:text-blue-400">{data?.topSubmissions?.length ?? 0}</p>
             </div>
           </div>
+          )}
 
           {/* Trend chart */}
-          {data?.chartPoints && data.chartPoints.length > 0 && (
+          {!isQual && data?.chartPoints && data.chartPoints.length > 0 && (
             <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 border border-slate-200 dark:border-slate-800">
               {/* Header */}
               <div className="mb-4">
@@ -511,7 +550,7 @@ export default function OrgUnitKpiDrawer({
           )}
 
           {/* ── Top người đảm nhiệm ──────────────────────────────────────────── */}
-          {data?.assigneeStats && data.assigneeStats.length > 0 && (
+          {!isQual && data?.assigneeStats && data.assigneeStats.length > 0 && (
             <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 border border-slate-200 dark:border-slate-800">
               <div className="flex items-center gap-2.5 mb-6">
                 <div className="p-2 bg-gradient-to-br from-amber-400 to-orange-500 rounded-xl shadow-lg shadow-amber-500/20">
@@ -538,7 +577,7 @@ export default function OrgUnitKpiDrawer({
           )}
 
           {/* ── Top bài nộp ──────────────────────────────────────────────────── */}
-          {data?.topSubmissions && data.topSubmissions.length > 0 && (
+          {!isQual && data?.topSubmissions && data.topSubmissions.length > 0 && (
             <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 border border-slate-200 dark:border-slate-800">
               <div className="flex items-center gap-2.5 mb-6">
                 <div className="p-2 bg-gradient-to-br from-violet-500 to-indigo-600 rounded-xl shadow-lg shadow-indigo-500/20">

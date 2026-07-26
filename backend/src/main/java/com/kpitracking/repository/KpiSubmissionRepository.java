@@ -111,6 +111,13 @@ public interface KpiSubmissionRepository extends JpaRepository<KpiSubmission, UU
     @Query("SELECT s.actualValue FROM KpiSubmission s WHERE s.submittedBy.id = :userId AND s.kpiCriteria.id = :kpiId AND s.status = 'APPROVED' AND s.createdAt >= :from AND s.createdAt <= :to ORDER BY COALESCE(s.periodStart, s.createdAt) DESC")
     java.util.List<Double> latestActualValueByUserIdAndKpiIdInPeriod(@Param("userId") UUID userId, @Param("kpiId") UUID kpiId, @Param("from") java.time.Instant from, @Param("to") java.time.Instant to, org.springframework.data.domain.Pageable pageable);
 
+    // ===== Cùng công thức tiến độ với bảng Rủi ro: gồm APPROVED+PENDING+REJECTED, mốc periodStart ?? createdAt =====
+    @Query("SELECT COALESCE(SUM(s.actualValue), 0) FROM KpiSubmission s WHERE s.submittedBy.id = :userId AND s.kpiCriteria.id = :kpiId AND s.status IN ('APPROVED','PENDING','REJECTED') AND COALESCE(s.periodStart, s.createdAt) >= :from AND COALESCE(s.periodStart, s.createdAt) <= :to")
+    double sumActualValueByUserIdAndKpiIdInPeriodAllStatuses(@Param("userId") UUID userId, @Param("kpiId") UUID kpiId, @Param("from") java.time.Instant from, @Param("to") java.time.Instant to);
+
+    @Query("SELECT s.actualValue FROM KpiSubmission s WHERE s.submittedBy.id = :userId AND s.kpiCriteria.id = :kpiId AND s.status IN ('APPROVED','PENDING','REJECTED') AND COALESCE(s.periodStart, s.createdAt) >= :from AND COALESCE(s.periodStart, s.createdAt) <= :to ORDER BY COALESCE(s.periodStart, s.createdAt) DESC")
+    java.util.List<Double> latestActualValueByUserIdAndKpiIdInPeriodAllStatuses(@Param("userId") UUID userId, @Param("kpiId") UUID kpiId, @Param("from") java.time.Instant from, @Param("to") java.time.Instant to, org.springframework.data.domain.Pageable pageable);
+
     @Query("SELECT s.actualValue FROM KpiSubmission s WHERE s.orgUnit.id IN :orgUnitIds AND s.kpiCriteria.id = :kpiId AND s.status = 'APPROVED' AND s.createdAt >= :from AND s.createdAt <= :to ORDER BY COALESCE(s.periodStart, s.createdAt) DESC")
     java.util.List<Double> latestActualValueByOrgUnitIdsAndKpiIdInPeriod(@Param("orgUnitIds") java.util.List<UUID> orgUnitIds, @Param("kpiId") UUID kpiId, @Param("from") java.time.Instant from, @Param("to") java.time.Instant to, org.springframework.data.domain.Pageable pageable);
 

@@ -5,6 +5,8 @@ type RelationType = 'DELEGATION' | 'DECOMPOSITION' | null | undefined
 export interface KpiTypeTagsProps {
   isReverseKpi?: boolean | null
   isBonusKpi?: boolean | null
+  /** KPI định tính (chấm theo mức, không có mục tiêu số). */
+  isQualitative?: boolean | null
   /** Quan hệ của chính KPI với cha (DECOMPOSITION = KPI con, DELEGATION = KPI con thác nước). */
   parentRelationType?: RelationType
   /** Loại con của KPI (DECOMPOSITION = KPI cha, DELEGATION = KPI thác nước). */
@@ -24,12 +26,16 @@ interface Tag {
 export function KpiTypeTags({
   isReverseKpi,
   isBonusKpi,
+  isQualitative,
   parentRelationType,
   childRelationType,
   className,
 }: KpiTypeTagsProps) {
   const tags: Tag[] = []
 
+  if (isQualitative) {
+    tags.push({ label: 'KPI định tính', className: 'bg-violet-50 dark:bg-violet-900/30 text-violet-600 dark:text-violet-400' })
+  }
   if (isBonusKpi) {
     tags.push({ label: 'KPI thưởng', className: 'bg-amber-50 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400' })
   }

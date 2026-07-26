@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef, useEffect } from 'react'
+import { useState, useMemo } from 'react'
 import { personalKpiApi } from '@/features/dashboard/api/personalKpiApi'
 import { useMyAnalytics } from '../hooks/useAnalytics'
 import { useQuery } from '@tanstack/react-query'
@@ -10,6 +10,7 @@ import {
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { KpiTypeTags } from '../components/KpiTypeTags'
+import { QualitativeResultChip } from '../components/QualitativeResultChip'
 import { toChildNodes } from '../components/KpiChildList'
 import { KpiChildTableRows } from '../components/KpiChildTableRows'
 import { KpiPeriodCell } from '../components/KpiPeriodCell'
@@ -26,6 +27,7 @@ import MyKpiDrawer from '../components/MyKpiDrawer'
 import AnalyticsTabSkeleton, { TableLoadingRows } from '@/components/common/AnalyticsTabSkeleton'
 import Pagination from '@/components/common/Pagination'
 import { useAnalyticsDateFilter } from '@/components/common/AnalyticsDateFilter'
+import { usePerformanceScale } from '../hooks/usePerformanceScale'
 import { SortHeader } from '@/components/common/SortHeader'
 import { ChartWrapper, type DashboardWidget } from '@/components/common/dashboard/ChartWrapper'
 import { useDashboardCustomization } from '@/components/common/dashboard/useDashboardCustomization'
@@ -54,22 +56,9 @@ const CATALOG: { template: DashboardWidget; icon: React.ReactNode }[] = DEFAULT_
 }))
 
 export default function MyStatsTab() {
-  const [filterStuck, setFilterStuck] = useState(false)
-  const filterSentinelRef = useRef<HTMLDivElement>(null)
-
-  useEffect(() => {
-    const el = filterSentinelRef.current
-    if (!el) return
-    const observer = new IntersectionObserver(
-      (entries) => { if (entries[0]) setFilterStuck(!entries[0].isIntersecting) },
-      { rootMargin: '-65px 0px 0px 0px', threshold: 0 }
-    )
-    observer.observe(el)
-    return () => observer.disconnect()
-  }, [])
-
-  const [onlyApproved, setOnlyApproved] = useState<boolean>(false)
+  const onlyApproved = false
   const { periodId, periodIdTo, from, to, groupBy, controls } = useAnalyticsDateFilter({ selectClassName: 'h-10' })
+  const perf = usePerformanceScale()
 
   const [selectedKpiId, setSelectedKpiId] = useState<string | null>(null)
 
@@ -247,14 +236,8 @@ export default function MyStatsTab() {
         <DashboardEditToolbar api={dash} />
       </div>
 
-      {/* ── Sentinel for sticky detection ─────────────────────────────────── */}
-      <div ref={filterSentinelRef} className="h-px" aria-hidden />
-
       {/* ── Global Filter Toolbar ──────────────────────────────────────────── */}
-      <div className={cn(
-        'sticky top-0 z-20 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl flex flex-wrap items-center gap-4 justify-between transition-all duration-200',
-        filterStuck ? 'p-3 shadow-lg shadow-slate-200/80 dark:shadow-slate-950/60' : 'p-4 shadow-sm'
-      )}>
+      <div className="sticky top-0 z-20 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl flex flex-wrap items-center gap-4 justify-between p-4 shadow-sm">
         <div className="flex items-center gap-2">
           <div className="p-2 bg-violet-50 dark:bg-violet-900/30 rounded-lg text-violet-600 dark:text-violet-400">
             <Target size={18} />
@@ -266,16 +249,6 @@ export default function MyStatsTab() {
         </div>
 
         <div className="flex flex-wrap items-center gap-5">
-          <label className="flex items-center gap-2 text-sm font-semibold text-slate-700 dark:text-slate-300 cursor-pointer select-none">
-            <input
-              type="checkbox"
-              className="w-4.5 h-4.5 text-violet-600 border-slate-300 rounded focus:ring-violet-500 bg-slate-50 dark:bg-slate-800"
-              checked={onlyApproved}
-              onChange={e => setOnlyApproved(e.target.checked)}
-            />
-            Chỉ tính bài nộp đã duyệt
-          </label>
-
           {controls}
         </div>
       </div>
@@ -306,7 +279,7 @@ export default function MyStatsTab() {
           </div>
           <div>
             <p className="text-xs font-bold text-slate-500">Hiệu suất TB (đánh giá)</p>
-            <p className="text-2xl font-black">{metrics?.averagePerformance?.toFixed(1) ?? 0}%</p>
+            <p className="text-2xl font-black">{perf.format(metrics?.averagePerformance ?? 0)}</p>
           </div>
         </div>
         <div className="bg-white dark:bg-slate-900 rounded-2xl p-5 border border-slate-200 dark:border-slate-800 flex items-center gap-4">
@@ -452,7 +425,8 @@ function ExpandableKpiRow({ kpi, onOpenDrawer, onSelectKpi }: { kpi: any; onOpen
   const hasChildren = !!(kpi.children && kpi.children.length > 0)
   const [expanded, setExpanded] = useState(hasChildren) // KPI cha/thác nước mặc định mở sẵn KPI con
   // KPI thưởng: backend trả tiến độ/hiệu suất = null (không tính), hiển thị gạch ngang.
-  const isBonus = kpi.progress == null
+  const isQual = kpi.kpiType === 'QUALITATIVE'
+  const isBonus = !isQual && kpi.progress == null
   const pct  = Math.round(kpi.progress    || 0)
 
   return (
@@ -469,6 +443,7 @@ function ExpandableKpiRow({ kpi, onOpenDrawer, onSelectKpi }: { kpi: any; onOpen
             <KpiTypeTags
               isReverseKpi={kpi.isReverseKpi}
               isBonusKpi={kpi.isBonusKpi}
+              isQualitative={isQual}
               parentRelationType={kpi.parentRelationType}
               childRelationType={kpi.childRelationType}
             />
@@ -479,7 +454,12 @@ function ExpandableKpiRow({ kpi, onOpenDrawer, onSelectKpi }: { kpi: any; onOpen
           <KpiPeriodCell periodName={kpi.periodName} start={kpi.periodStart} end={kpi.periodEnd} />
         </td>
         <td className="px-6 py-4">
-          {isBonus ? (
+          {isQual ? (
+            <div className="flex flex-col gap-1">
+              <span className="text-[10px] text-slate-500 uppercase font-bold">Mức đánh giá</span>
+              <QualitativeResultChip level={kpi.qualitativeLevelName} />
+            </div>
+          ) : isBonus ? (
             <div className="flex flex-col gap-1">
               <span className="inline-flex w-fit items-center gap-1 px-2.5 py-1 rounded-full bg-amber-50 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 text-[10px] font-black uppercase">
                 Thưởng
@@ -547,20 +527,29 @@ function ExpandableKpiRow({ kpi, onOpenDrawer, onSelectKpi }: { kpi: any; onOpen
                             })}
                           </p>
                         </div>
-                        <div className="flex-1 max-w-[200px]">
-                          <div className="flex items-center justify-between mb-1">
-                            <span className="text-[10px] text-slate-500">Đóng góp</span>
-                            <span className="text-[10px] font-black">{sub.contributionProgress?.toFixed(1)}%</span>
+                        {isQual ? (
+                          <div className="flex-1 max-w-[200px]">
+                            <p className="text-[10px] text-slate-500 uppercase font-bold mb-1">Mức đánh giá</p>
+                            <QualitativeResultChip level={sub.qualitativeLevelName} />
                           </div>
-                          <div className="h-1.5 bg-slate-100 dark:bg-slate-700 rounded-full">
-                            <div className="h-full bg-violet-500 rounded-full" style={{ width: `${Math.min(sub.contributionProgress, 100)}%` }} />
-                          </div>
-                          <p className="text-[10px] font-bold text-violet-600 dark:text-violet-400 mt-1">+{sub.actualValue?.toLocaleString('vi-VN')} {kpi.unit}</p>
-                        </div>
-                        <div className="text-center w-[100px]">
-                          <p className="text-[10px] text-slate-500">Hiệu suất</p>
-                          <p className="text-sm font-black text-violet-500">{sub.performance?.toFixed(1)}%</p>
-                        </div>
+                        ) : (
+                          <>
+                            <div className="flex-1 max-w-[200px]">
+                              <div className="flex items-center justify-between mb-1">
+                                <span className="text-[10px] text-slate-500">Đóng góp</span>
+                                <span className="text-[10px] font-black">{sub.contributionProgress?.toFixed(1)}%</span>
+                              </div>
+                              <div className="h-1.5 bg-slate-100 dark:bg-slate-700 rounded-full">
+                                <div className="h-full bg-violet-500 rounded-full" style={{ width: `${Math.min(sub.contributionProgress, 100)}%` }} />
+                              </div>
+                              <p className="text-[10px] font-bold text-violet-600 dark:text-violet-400 mt-1">+{sub.actualValue?.toLocaleString('vi-VN')} {kpi.unit}</p>
+                            </div>
+                            <div className="text-center w-[100px]">
+                              <p className="text-[10px] text-slate-500">Hiệu suất</p>
+                              <p className="text-sm font-black text-violet-500">{sub.performance?.toFixed(1)}%</p>
+                            </div>
+                          </>
+                        )}
                         <div>
                           <span className={cn(
                             'px-2 py-1 rounded text-[10px] font-black uppercase',
@@ -594,19 +583,28 @@ function ExpandableKpiRow({ kpi, onOpenDrawer, onSelectKpi }: { kpi: any; onOpen
                             <p className="text-[10px] text-slate-500">{tm.employeeCode}</p>
                           </div>
                         </div>
-                        <div className="flex-1 max-w-[250px]">
-                          <div className="flex items-center justify-between mb-1">
-                            <span className="text-[10px] text-slate-500">Tiến độ cá nhân</span>
-                            <span className="text-[10px] font-black">{tm.progress?.toFixed(1)}%</span>
+                        {isQual ? (
+                          <div className="flex-1 max-w-[250px]">
+                            <p className="text-[10px] text-slate-500 uppercase font-bold mb-1">Mức đánh giá</p>
+                            <QualitativeResultChip level={tm.qualitativeLevelName} />
                           </div>
-                          <div className="h-1.5 bg-slate-100 dark:bg-slate-700 rounded-full">
-                            <div className="h-full bg-purple-500 rounded-full" style={{ width: `${Math.min(tm.progress, 100)}%` }} />
-                          </div>
-                        </div>
-                        <div className="text-center sm:text-right w-[100px]">
-                          <p className="text-[10px] text-slate-500">Hiệu suất</p>
-                          <p className="text-sm font-black text-violet-500">{tm.performance?.toFixed(1)}%</p>
-                        </div>
+                        ) : (
+                          <>
+                            <div className="flex-1 max-w-[250px]">
+                              <div className="flex items-center justify-between mb-1">
+                                <span className="text-[10px] text-slate-500">Tiến độ cá nhân</span>
+                                <span className="text-[10px] font-black">{tm.progress?.toFixed(1)}%</span>
+                              </div>
+                              <div className="h-1.5 bg-slate-100 dark:bg-slate-700 rounded-full">
+                                <div className="h-full bg-purple-500 rounded-full" style={{ width: `${Math.min(tm.progress, 100)}%` }} />
+                              </div>
+                            </div>
+                            <div className="text-center sm:text-right w-[100px]">
+                              <p className="text-[10px] text-slate-500">Hiệu suất</p>
+                              <p className="text-sm font-black text-violet-500">{tm.performance?.toFixed(1)}%</p>
+                            </div>
+                          </>
+                        )}
                       </div>
                     ))}
                   </div>

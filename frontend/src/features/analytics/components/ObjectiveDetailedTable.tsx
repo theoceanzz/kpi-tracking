@@ -4,6 +4,7 @@ import { SortHeader } from '@/components/common/SortHeader'
 import { ObjectiveDetailedDto } from '@/types/stats'
 import { format } from 'date-fns'
 import { KpiTypeTags } from './KpiTypeTags'
+import { QualitativeResultChip } from './QualitativeResultChip'
 import { toChildNodes } from './KpiChildList'
 import { KpiChildTableRows } from './KpiChildTableRows'
 import { KpiResponsibleCell } from './KpiResponsibleCell'
@@ -329,6 +330,7 @@ const ObjectivePeriodCell = ({ periodCount, periodNames, start, end }: {
                                   <KpiTypeTags
                                     isReverseKpi={kpi.isReverseKpi}
                                     isBonusKpi={kpi.isBonusKpi}
+                                    isQualitative={kpi.kpiType === 'QUALITATIVE'}
                                     parentRelationType={kpi.parentRelationType}
                                     childRelationType={kpi.childRelationType}
                                   />
@@ -345,7 +347,12 @@ const ObjectivePeriodCell = ({ periodCount, periodNames, start, end }: {
                             <KpiPeriodCell periodName={kpi.periodName} start={kpi.startDate} end={kpi.endDate} />
                           </td>
                           <td className="px-6 py-4 align-top">
-                            {kpi.progress == null ? (
+                            {kpi.kpiType === 'QUALITATIVE' ? (
+                              <div className="flex flex-col gap-1 min-w-[150px]">
+                                <QualitativeResultChip level={kpi.qualitativeLevelName} className="w-fit" />
+                                <div className="text-[10px] text-slate-500 font-medium">{`${kpi.participants?.length || 0} người tham gia`}</div>
+                              </div>
+                            ) : kpi.progress == null ? (
                               <div className="flex flex-col gap-1 min-w-[150px]">
                                 <span className="inline-flex w-fit items-center gap-1 px-2.5 py-1 rounded-full bg-amber-50 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 text-[10px] font-black uppercase">Thưởng</span>
                                 <div className="text-[10px] text-slate-500 font-medium">{`${kpi.participants?.length || 0} người tham gia`}</div>
@@ -422,6 +429,15 @@ const ObjectivePeriodCell = ({ periodCount, periodNames, start, end }: {
                                               <div className="text-xs text-slate-500 mt-0.5">{p.orgUnitName || '---'}</div>
                                             </div>
                                             
+                                            {kpi.kpiType === 'QUALITATIVE' ? (
+                                              <div className="flex-1 flex items-center justify-end px-6">
+                                                <div className="flex flex-col items-end gap-1.5">
+                                                  <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">Mức đánh giá</span>
+                                                  <QualitativeResultChip level={p.qualitativeLevelName} />
+                                                </div>
+                                              </div>
+                                            ) : (
+                                            <>
                                             <div className="flex-1 max-w-[320px] px-6">
                                               <div className="flex justify-between items-center mb-1 text-[11px] font-medium uppercase tracking-wider text-slate-500">
                                                 <span>Tiến độ cá nhân</span>
@@ -443,11 +459,13 @@ const ObjectivePeriodCell = ({ periodCount, periodNames, start, end }: {
                                                 {p.actualValue} {kpi.unit || ''}
                                               </div>
                                             </div>
-                                            
+
                                             <div className="flex flex-col items-center justify-center ml-8 min-w-[80px]">
                                               <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-500 mb-1">Hiệu suất</span>
                                               <span className="text-lg font-bold text-indigo-600 dark:text-indigo-400">{Math.round(p.performance)}%</span>
                                             </div>
+                                            </>
+                                            )}
                                           </div>
                                         </div>
                                         
@@ -474,6 +492,13 @@ const ObjectivePeriodCell = ({ periodCount, periodNames, start, end }: {
                                                       </div>
                                                     </div>
                                                     
+                                                    {kpi.kpiType === 'QUALITATIVE' ? (
+                                                      <div className="flex-1 px-5 border-x border-slate-100 dark:border-slate-700/50 flex items-center gap-2">
+                                                        <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Mức</span>
+                                                        <QualitativeResultChip level={sub.qualitativeLevelName} />
+                                                      </div>
+                                                    ) : (
+                                                    <>
                                                     <div className="flex-1 px-5 border-x border-slate-100 dark:border-slate-700/50">
                                                       <div className="flex justify-between items-center text-[11px] font-medium uppercase tracking-wider mb-1 text-slate-500">
                                                         <span>Đóng góp</span>
@@ -493,12 +518,14 @@ const ObjectivePeriodCell = ({ periodCount, periodNames, start, end }: {
                                                         subProgress >= 50 ? 'text-amber-600 dark:text-amber-400' : 'text-rose-600 dark:text-rose-400'
                                                       }`}>+{sub.actualValue} {kpi.unit || ''}</div>
                                                     </div>
-                                                    
+
                                                     <div className="min-w-[120px] flex flex-col items-center justify-center px-4">
                                                       <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1">Hiệu suất</span>
                                                       <span className="text-sm font-bold text-indigo-600 dark:text-indigo-400">{subProgress.toFixed(1)}%</span>
                                                     </div>
-                                                    
+                                                    </>
+                                                    )}
+
                                                     <div className="min-w-[120px] flex justify-end pl-4">
                                                       <StatusBadge status={sub.status === 'APPROVED' ? 'ĐÃ DUYỆT' : sub.status === 'PENDING' ? 'CHỜ DUYỆT' : sub.status === 'REJECTED' ? 'TỪ CHỐI' : sub.status} />
                                                     </div>

@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { ResponsiveContainer, ComposedChart, XAxis, YAxis, Tooltip, CartesianGrid, Bar, Line } from 'recharts'
 import { Loader2 } from 'lucide-react'
 import type { ComboChartPoint } from '@/types/stats'
+import { usePerformanceScale } from '../hooks/usePerformanceScale'
 
 type LineFilter = 'BOTH' | 'COMPLETION' | 'PERFORMANCE'
 
@@ -13,21 +14,27 @@ interface AnalyticsComboChartProps {
   fillHeight?: boolean
 }
 
-const CustomTooltip = ({ active, payload, label }: any) => {
+const CustomTooltip = ({ active, payload, label, perf }: any) => {
   if (active && payload && payload.length) {
     return (
       <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-4 rounded-xl shadow-lg">
         <p className="font-bold text-slate-900 dark:text-white mb-3">{label}</p>
         <div className="space-y-2">
-          {payload.map((entry: any, index: number) => (
-            <div key={index} className="flex items-center gap-3 text-sm">
-              <div className="w-3 h-3 rounded-sm" style={{ backgroundColor: entry.color }} />
-              <span className="text-slate-500 font-medium min-w-[120px]">{entry.name}:</span>
-              <span className="font-bold text-slate-900 dark:text-white">
-                {entry.value}{entry.dataKey.includes('Trend') ? '%' : ''}
-              </span>
-            </div>
-          ))}
+          {payload.map((entry: any, index: number) => {
+            // Đường hiệu suất theo đơn vị của org (điểm/%); tiến độ luôn %.
+            const suffix = entry.dataKey === 'performanceTrend'
+              ? (perf?.isMatrix ? ` ${perf.unit}` : '%')
+              : (entry.dataKey?.includes('Trend') ? '%' : '')
+            return (
+              <div key={index} className="flex items-center gap-3 text-sm">
+                <div className="w-3 h-3 rounded-sm" style={{ backgroundColor: entry.color }} />
+                <span className="text-slate-500 font-medium min-w-[120px]">{entry.name}:</span>
+                <span className="font-bold text-slate-900 dark:text-white">
+                  {entry.value}{suffix}
+                </span>
+              </div>
+            )
+          })}
         </div>
       </div>
     )
@@ -37,6 +44,7 @@ const CustomTooltip = ({ active, payload, label }: any) => {
 
 export default function AnalyticsComboChart({ data, isLoading, itemName = 'Mục tiêu', fillHeight = false }: AnalyticsComboChartProps) {
   const [lineFilter, setLineFilter] = useState<LineFilter>('BOTH')
+  const perf = usePerformanceScale()
 
   if (isLoading) {
     return (
@@ -126,15 +134,17 @@ export default function AnalyticsComboChart({ data, isLoading, itemName = 'Mục
               domain={[0, 'dataMax + 20']}
             />
             {/* Right Y Axis for Quantity */}
-            <YAxis 
-              yAxisId="right" 
-              orientation="right" 
+            <YAxis
+              yAxisId="right"
+              orientation="right"
               axisLine={false}
               tickLine={false}
               tick={{ fill: '#64748B', fontSize: 12, fontWeight: 500 }}
             />
-            
-            <Tooltip content={<CustomTooltip />} />
+            {/* Trục ẩn cho hiệu suất khi org dùng matrix (thang điểm 0..max), để đường không bị dí sát đáy. */}
+            {perf.isMatrix && <YAxis yAxisId="perf" orientation="right" domain={[0, perf.axisMax]} hide />}
+
+            <Tooltip content={<CustomTooltip perf={perf} />} />
 
             {/* Stacked Columns for Number of Items (Mapped to right Y-axis) */}
             <Bar 
@@ -170,7 +180,7 @@ export default function AnalyticsComboChart({ data, isLoading, itemName = 'Mục
             )}
             {(lineFilter === 'BOTH' || lineFilter === 'PERFORMANCE') && (
               <Line
-                yAxisId="left"
+                yAxisId={perf.isMatrix ? 'perf' : 'left'}
                 type="monotone"
                 dataKey="performanceTrend"
                 name="Xu hướng Hiệu suất"

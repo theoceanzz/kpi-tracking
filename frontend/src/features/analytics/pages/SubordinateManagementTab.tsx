@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef, useEffect } from 'react'
+import { useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { statsApi } from '@/features/dashboard/api/statsApi'
 import ObjectiveMetricCard from '../components/ObjectiveMetricCard'
@@ -8,8 +8,8 @@ import UnitComparisonBarChart from '../components/UnitComparisonBarChart'
 import MemberRoleChart from '../components/MemberRoleChart'
 import { useSummaryStats } from '../hooks/useAnalytics'
 import { useAnalyticsDateFilter } from '@/components/common/AnalyticsDateFilter'
+import { usePerformanceScale } from '../hooks/usePerformanceScale'
 import { Target, TrendingUp, CheckCircle2, AlertTriangle, Users } from 'lucide-react'
-import { cn } from '@/lib/utils'
 import { ChartWrapper, type DashboardWidget } from '@/components/common/dashboard/ChartWrapper'
 import { useDashboardCustomization } from '@/components/common/dashboard/useDashboardCustomization'
 import DashboardCustomizeChrome, { DashboardEditToolbar } from '@/components/common/dashboard/DashboardCustomizeChrome'
@@ -36,22 +36,9 @@ const CATALOG: { template: DashboardWidget; icon: React.ReactNode }[] = DEFAULT_
 }))
 
 export default function SubordinateManagementTab() {
-  const [filterStuck, setFilterStuck] = useState(false)
-  const filterSentinelRef = useRef<HTMLDivElement>(null)
-
-  useEffect(() => {
-    const el = filterSentinelRef.current
-    if (!el) return
-    const observer = new IntersectionObserver(
-      (entries) => { if (entries[0]) setFilterStuck(!entries[0].isIntersecting) },
-      { rootMargin: '-65px 0px 0px 0px', threshold: 0 }
-    )
-    observer.observe(el)
-    return () => observer.disconnect()
-  }, [])
-
-  const [onlyApproved, setOnlyApproved] = useState<boolean>(false)
+  const onlyApproved = false
   const { periodId, periodIdTo, from, to, groupBy, controls } = useAnalyticsDateFilter({ selectClassName: 'h-10' })
+  const perf = usePerformanceScale()
   const dateRange = useMemo(() => ({ from, to }), [from, to])
 
   // Independent queries for each metric with onlyApproved
@@ -131,41 +118,19 @@ export default function SubordinateManagementTab() {
         <DashboardEditToolbar api={dash} />
       </div>
 
-      {/* Sentinel for sticky detection */}
-      <div ref={filterSentinelRef} className="h-px" aria-hidden />
-
       {/* Global Filter Toolbar */}
-      <div className={cn(
-        'sticky top-0 z-20 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl flex flex-wrap items-center gap-4 justify-between transition-all duration-200',
-        filterStuck ? 'p-3 shadow-lg shadow-slate-200/80 dark:shadow-slate-900/80 border-slate-300 dark:border-slate-700' : 'p-4 shadow-sm'
-      )}>
+      <div className="sticky top-0 z-20 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl flex flex-wrap items-center gap-4 justify-between p-4 shadow-sm">
         <div className="flex items-center gap-2 min-w-0">
-          <div className={cn(
-            "p-2 rounded-lg text-indigo-600 dark:text-indigo-400 shrink-0 transition-all duration-200",
-            filterStuck ? "bg-indigo-50/60 dark:bg-indigo-900/20" : "bg-indigo-50 dark:bg-indigo-900/30"
-          )}>
-            <Target size={filterStuck ? 16 : 18} />
+          <div className="p-2 rounded-lg text-indigo-600 dark:text-indigo-400 shrink-0 bg-indigo-50 dark:bg-indigo-900/30">
+            <Target size={18} />
           </div>
           <div className="min-w-0">
-            <h2 className={cn("font-bold text-slate-900 dark:text-white leading-tight transition-all duration-200", filterStuck ? "text-sm" : "text-base")}>Tổng quan mục tiêu cấp dưới</h2>
-            {!filterStuck && (
-              <p className="text-xs text-slate-500 font-medium mt-0.5">Lọc dữ liệu đồng bộ cho tất cả biểu đồ</p>
-            )}
+            <h2 className="font-bold text-slate-900 dark:text-white leading-tight text-base">Tổng quan mục tiêu cấp dưới</h2>
+            <p className="text-xs text-slate-500 font-medium mt-0.5">Lọc dữ liệu đồng bộ cho tất cả biểu đồ</p>
           </div>
         </div>
 
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4 sm:gap-5 w-full lg:w-auto">
-          {/* Approved submissions only toggle */}
-          <label className="flex items-center gap-2 text-sm font-semibold text-slate-700 dark:text-slate-350 cursor-pointer select-none whitespace-nowrap shrink-0">
-            <input
-              type="checkbox"
-              className="w-4.5 h-4.5 text-indigo-600 border-slate-300 rounded focus:ring-indigo-500 bg-slate-50 dark:bg-slate-800"
-              checked={onlyApproved}
-              onChange={(e) => setOnlyApproved(e.target.checked)}
-            />
-            Chỉnh bài nộp đã duyệt
-          </label>
-
           {controls}
         </div>
       </div>
@@ -180,7 +145,7 @@ export default function SubordinateManagementTab() {
         />
         <ObjectiveMetricCard
           title="Hiệu suất tổng quan"
-          value={performanceQuery.data?.value !== undefined ? `${performanceQuery.data.value.toFixed(1)}%` : '0%'}
+          value={performanceQuery.data?.value !== undefined ? perf.format(performanceQuery.data.value) : perf.format(0)}
           icon={<TrendingUp size={20} />}
           isLoading={performanceQuery.isLoading}
         />

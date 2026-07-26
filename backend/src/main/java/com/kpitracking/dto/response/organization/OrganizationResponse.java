@@ -18,6 +18,7 @@ public class OrganizationResponse {
     private java.util.List<EvaluationLevelResponse> evaluationLevels;
     private java.util.List<QualitativeLevelResponse> qualitativeLevels;
     private String performanceMatrix;
+    private String unitClassificationRules;
     private Integer kpiReminderPercentage;
     private Boolean enableOkr;
     private Boolean enableWaterfall;

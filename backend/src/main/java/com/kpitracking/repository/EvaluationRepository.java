@@ -228,4 +228,30 @@ public interface EvaluationRepository extends JpaRepository<Evaluation, UUID> {
            "GROUP BY u.id, u.fullName, u.email")
     java.util.List<Object[]> bscOverallByUser(@Param("unitIds") java.util.Collection<UUID> unitIds,
                                               @Param("periodIds") java.util.Collection<UUID> periodIds);
+
+    // ============================================================
+    // Thống kê MA TRẬN xếp loại (tab "Ma trận đánh giá"): gộp matrix_rating /
+    // behavior_score / kpi_completion_percent ĐÃ LƯU. Chỉ tính đánh giá đã có xếp loại.
+    // ============================================================
+
+    /** Tổng hợp toàn phạm vi → [avgRating, avgBehavior, avgCompletion, count]. */
+    @Query("SELECT AVG(e.matrixRating), AVG(e.behaviorScore), AVG(e.kpiCompletionPercent), COUNT(e.id) " +
+           "FROM Evaluation e WHERE e.orgUnit.id IN :unitIds AND e.kpiPeriod.id IN :periodIds AND e.matrixRating IS NOT NULL")
+    java.util.List<Object[]> matrixOverall(@Param("unitIds") java.util.Collection<UUID> unitIds,
+                                           @Param("periodIds") java.util.Collection<UUID> periodIds);
+
+    /** Phân bố theo xếp loại → [rating, count]. */
+    @Query("SELECT e.matrixRating, COUNT(e.id) " +
+           "FROM Evaluation e WHERE e.orgUnit.id IN :unitIds AND e.kpiPeriod.id IN :periodIds AND e.matrixRating IS NOT NULL " +
+           "GROUP BY e.matrixRating ORDER BY e.matrixRating")
+    java.util.List<Object[]> matrixDistribution(@Param("unitIds") java.util.Collection<UUID> unitIds,
+                                                @Param("periodIds") java.util.Collection<UUID> periodIds);
+
+
+    /** Cặp (điểm hành vi, %HT) từng đánh giá — để bucket vào ô heatmap ở service. → [behaviorScore, kpiCompletionPercent]. */
+    @Query("SELECT e.behaviorScore, e.kpiCompletionPercent " +
+           "FROM Evaluation e WHERE e.orgUnit.id IN :unitIds AND e.kpiPeriod.id IN :periodIds " +
+           "AND e.matrixRating IS NOT NULL AND e.behaviorScore IS NOT NULL AND e.kpiCompletionPercent IS NOT NULL")
+    java.util.List<Object[]> matrixPairs(@Param("unitIds") java.util.Collection<UUID> unitIds,
+                                         @Param("periodIds") java.util.Collection<UUID> periodIds);
 }

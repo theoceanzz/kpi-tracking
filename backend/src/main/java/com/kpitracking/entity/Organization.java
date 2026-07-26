@@ -58,6 +58,11 @@ public class Organization {
     @Column(name = "performance_matrix", columnDefinition = "jsonb")
     private String performanceMatrix;
 
+    /** Luật xếp loại ĐƠN VỊ theo phân bố % xếp loại thành viên (JSON): { rules: [{ levelName, color, conditions:[...] }] }. */
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "unit_classification_rules", columnDefinition = "jsonb")
+    private String unitClassificationRules;
+
     @Column(name = "kpi_reminder_percentage")
     @Builder.Default
     private Integer kpiReminderPercentage = 50;

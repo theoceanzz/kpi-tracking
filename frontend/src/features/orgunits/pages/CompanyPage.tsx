@@ -9,6 +9,7 @@ import {  Edit3, ShieldCheck,
   Info, ArrowUp, ArrowDown, Plus, Target, Sparkles, ChevronUp, RotateCcw, GitBranch, SlidersHorizontal, Grid3x3, X, ArrowRight, LayoutGrid
 } from 'lucide-react'
 import type { PerformanceMatrix } from '../api/organizationApi'
+import UnitClassificationConfigSection from '../components/UnitClassificationConfigSection'
 import LoadingSkeleton from '@/components/common/LoadingSkeleton'
 import { formatDateTime, cn } from '@/lib/utils'
 import { toast } from 'sonner'
@@ -349,6 +350,7 @@ export default function CompanyPage() {
           {org && org.enableQualitative && <div id="tour-company-qualitative" className="h-full"><QualitativeConfigSection org={org} /></div>}
         </div>
         {org && org.enableQualitative && <PerformanceMatrixSection org={org} />}
+        {org && <UnitClassificationConfigSection org={org} />}
       </div>
       )}
     </div>
