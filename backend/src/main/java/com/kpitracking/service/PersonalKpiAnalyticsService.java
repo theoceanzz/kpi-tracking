@@ -329,6 +329,7 @@ public class PersonalKpiAnalyticsService {
                                 .contributionProgress(subProgress)
                                 .performance(subProgress)
                                 .status(sub.getStatus().name())
+                                .qualitativeLevelName(sub.getQualitativeLevel() != null ? sub.getQualitativeLevel().getName() : null)
                                 .build());
                     }
                 }
@@ -354,6 +355,12 @@ public class PersonalKpiAnalyticsService {
                     double assigneeProgress = assigneeReverse
                             ? KpiMetricsCalculator.reversePercent(assigneeSubs, totalTarget)
                             : (totalTarget > 0 ? (assigneeActual / totalTarget) * 100 : 0);
+                    String teammateLevel = assigneeSubs.stream()
+                            .filter(s -> s.getQualitativeLevel() != null)
+                            .max(java.util.Comparator.comparing(
+                                    (KpiSubmission s) -> s.getPeriodStart() != null ? s.getPeriodStart() : s.getCreatedAt(),
+                                    java.util.Comparator.nullsFirst(java.util.Comparator.naturalOrder())))
+                            .map(s -> s.getQualitativeLevel().getName()).orElse(null);
                     teammates.add(TeammateProgress.builder()
                             .userId(assignee.getId())
                             .fullName(assignee.getFullName())
@@ -364,12 +371,14 @@ public class PersonalKpiAnalyticsService {
                             .actualValue(assigneeActual)
                             .progress(assigneeProgress)
                             .performance(assigneeProgress)
+                            .qualitativeLevelName(teammateLevel)
                             .build());
                 }
             }
 
-            // KPI thưởng vẫn được liệt kê nhưng không hiển thị tiến độ/hiệu suất.
+            // KPI thưởng / định tính vẫn được liệt kê nhưng không hiển thị tiến độ/hiệu suất số.
             boolean isBonus = Boolean.TRUE.equals(kpi.getIsBonusKpi());
+            boolean isQual  = kpi.getKpiType() == com.kpitracking.enums.KpiType.QUALITATIVE;
 
             details.add(KpiDetail.builder()
                     .kpiId(kpi.getId())
@@ -377,8 +386,10 @@ public class PersonalKpiAnalyticsService {
                     .targetValue(totalTarget)
                     .actualValue(m[3])
                     .unit(kpi.getUnit())
-                    .progress(isBonus ? null : m[0])
-                    .performance(isBonus ? null : m[1])
+                    .progress(isBonus || isQual ? null : m[0])
+                    .performance(isBonus || isQual ? null : m[1])
+                    .kpiType(kpi.getKpiType())
+                    .qualitativeLevelName(isQual ? com.kpitracking.util.QualitativeKpiUtil.representativeLevelName(kpi) : null)
                     .objectiveName("")
                     .objectiveCode("")
                     .keyResultName("")

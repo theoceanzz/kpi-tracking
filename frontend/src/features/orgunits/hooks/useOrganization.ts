@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { organizationApi, UpdateOrganizationRequest } from '../api/organizationApi'
+import { invalidateOrgDerived } from '@/lib/queryClient'
 import { toast } from 'sonner'
 
 export function useOrganization(id?: string) {
@@ -14,10 +15,7 @@ export function useOrganization(id?: string) {
   const updateMutation = useMutation({
     mutationFn: (data: UpdateOrganizationRequest) => organizationApi.update(id!, data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['organization', id] })
-      queryClient.invalidateQueries({ queryKey: ['hierarchyLevels', id] })
-      queryClient.invalidateQueries({ queryKey: ['hierarchy-levels', id] })
-      queryClient.invalidateQueries({ queryKey: ['orgUnits'] })
+      invalidateOrgDerived(queryClient)
       toast.success('Cập nhật thông tin công ty thành công')
     },
     onError: (error: any) => {

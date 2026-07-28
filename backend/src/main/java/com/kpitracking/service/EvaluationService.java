@@ -331,42 +331,11 @@ public class EvaluationService {
 
     /**
      * Looks up the org's performance_matrix: (behaviorScore rows) × (completion% cols) -> rating 1..5.
+     * Logic dải tách về {@link com.kpitracking.util.PerformanceMatrixResolver} để dùng chung với thống kê.
      * Public để đánh giá theo KỲ dùng lại đúng ma trận này thay vì tự tính.
      */
     public Integer lookupMatrixRating(Double behaviorScore, Double completionPercent, String matrixJson) {
-        if (behaviorScore == null || completionPercent == null || matrixJson == null || matrixJson.isBlank()) return null;
-        try {
-            com.fasterxml.jackson.databind.JsonNode root = new com.fasterxml.jackson.databind.ObjectMapper().readTree(matrixJson);
-            com.fasterxml.jackson.databind.JsonNode rows = root.get("rows");
-            com.fasterxml.jackson.databind.JsonNode cols = root.get("cols");
-            com.fasterxml.jackson.databind.JsonNode cells = root.get("cells");
-            if (rows == null || cols == null || cells == null) return null;
-            int rowIdx = bandIndex(behaviorScore, rows);
-            int colIdx = bandIndex(completionPercent, cols);
-            if (rowIdx < 0 || colIdx < 0 || rowIdx >= cells.size()) return null;
-            com.fasterxml.jackson.databind.JsonNode rowCells = cells.get(rowIdx);
-            if (rowCells == null || colIdx >= rowCells.size()) return null;
-            return rowCells.get(colIdx).asInt();
-        } catch (Exception e) {
-            return null;
-        }
-    }
-
-    /**
-     * Finds the band index for a value given ascending band labels (e.g. "<2", "≥2 và <3", "≥120%").
-     * Uses the largest number in each label as its upper bound; the last band is treated as +∞.
-     */
-    private int bandIndex(double value, com.fasterxml.jackson.databind.JsonNode bands) {
-        java.util.regex.Pattern num = java.util.regex.Pattern.compile("[0-9]+(?:\\.[0-9]+)?");
-        for (int i = 0; i < bands.size(); i++) {
-            if (i == bands.size() - 1) return i; // last band catches everything remaining
-            java.util.regex.Matcher m = num.matcher(bands.get(i).asText());
-            double upper = Double.NEGATIVE_INFINITY;
-            while (m.find()) upper = Math.max(upper, Double.parseDouble(m.group()));
-            if (upper == Double.NEGATIVE_INFINITY) continue;
-            if (value < upper) return i;
-        }
-        return bands.size() - 1;
+        return com.kpitracking.util.PerformanceMatrixResolver.rating(matrixJson, behaviorScore, completionPercent);
     }
 
     // ── Hiệu suất theo ĐÁNH GIÁ của người trong đợt (dùng cho thống kê/AI) ──────
@@ -407,7 +376,16 @@ public class EvaluationService {
     @Transactional(readOnly = true)
     public Double getEffectivePerformanceScore(UUID userId, UUID kpiPeriodId) {
         Evaluation eff = getEffectiveEvaluation(userId, kpiPeriodId);
-        return eff != null ? eff.getScore() : null;
+        if (eff == null) return null;
+        // Org dùng performance matrix ⇒ hiệu suất = matrix_rating (ĐƠN VỊ "điểm", 1..max),
+        // KHÔNG phải score (%). Chưa có matrix_rating → null (bỏ qua khi trung bình, giữ một thang duy nhất/org).
+        com.kpitracking.entity.Organization org =
+                eff.getOrgUnit() != null && eff.getOrgUnit().getOrgHierarchyLevel() != null
+                        ? eff.getOrgUnit().getOrgHierarchyLevel().getOrganization() : null;
+        if (org != null && Boolean.TRUE.equals(org.getEnableQualitative())) {
+            return eff.getMatrixRating() != null ? eff.getMatrixRating().doubleValue() : null;
+        }
+        return eff.getScore();
     }
 
     /**
@@ -503,7 +481,8 @@ public class EvaluationService {
                     .forEach(uro -> userIds.add(uro.getUser().getId()));
         }
         Double p = averagePerformance(userIds, periodIds);
-        return p != null ? Math.round(p) : 0;
+        // Giữ 1 chữ số thập phân: thang "điểm" (1..5) cần chính xác (3.5 không được làm tròn thành 4).
+        return p != null ? Math.round(p * 10.0) / 10.0 : 0;
     }
 
     /** Các đợt KPI của cây con {@code unit}, sắp theo ngày bắt đầu tăng dần (cho biểu đồ xu hướng). */

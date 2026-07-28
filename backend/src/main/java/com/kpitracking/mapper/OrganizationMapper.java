@@ -13,5 +13,7 @@ public interface OrganizationMapper {
     @Mapping(target = "enableWaterfall", source = "enableWaterfall")
     @Mapping(target = "enableQualitative", source = "enableQualitative")
     @Mapping(target = "enableBsc", source = "enableBsc")
+    @Mapping(target = "performanceMatrix", source = "performanceMatrix")
+    @Mapping(target = "unitClassificationRules", source = "unitClassificationRules")
     OrganizationResponse toResponse(Organization organization);
 }

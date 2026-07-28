@@ -2,22 +2,14 @@ package com.kpitracking.service;
 
 import com.kpitracking.dto.response.stats.BscAnalyticsResponses.*;
 import com.kpitracking.entity.KpiCriteria;
-import com.kpitracking.entity.OrgUnit;
-import com.kpitracking.entity.User;
-import com.kpitracking.entity.UserRoleOrgUnit;
 import com.kpitracking.enums.BscScoringMode;
 import com.kpitracking.enums.KpiStatus;
 import com.kpitracking.repository.EvaluationPerspectiveScoreRepository;
 import com.kpitracking.repository.EvaluationRepository;
 import com.kpitracking.repository.KpiCriteriaRepository;
-import com.kpitracking.repository.KpiPeriodRepository;
-import com.kpitracking.repository.OrgUnitRepository;
-import com.kpitracking.repository.UserRepository;
-import com.kpitracking.repository.UserRoleOrgUnitRepository;
-import com.kpitracking.security.PermissionChecker;
+import com.kpitracking.service.analytics.AnalyticsScopeResolver;
 import com.kpitracking.util.BscPerspectiveResolver;
 import lombok.RequiredArgsConstructor;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -28,7 +20,6 @@ import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -47,11 +38,7 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class BscAnalyticsService {
 
-    private final UserRepository userRepository;
-    private final OrgUnitRepository orgUnitRepository;
-    private final UserRoleOrgUnitRepository userRoleOrgUnitRepository;
-    private final PermissionChecker permissionChecker;
-    private final KpiPeriodRepository kpiPeriodRepository;
+    private final AnalyticsScopeResolver scopeResolver;
     private final KpiCriteriaRepository kpiCriteriaRepository;
     private final EvaluationRepository evaluationRepository;
     private final EvaluationPerspectiveScoreRepository perspectiveScoreRepository;
@@ -63,64 +50,12 @@ public class BscAnalyticsService {
             KpiStatus.APPROVED, KpiStatus.EDITED, KpiStatus.EDIT, KpiStatus.INACTIVE);
 
     // ============================================================
-    // Phạm vi (scope) — đơn vị + kỳ hiệu lực
-    // ============================================================
-
-    /** Đơn vị (subtree) + kỳ hiệu lực + org của người dùng hiện tại. */
-    private record Scope(List<UUID> unitIds, List<UUID> periodIds, UUID orgId) {
-        boolean isEmpty() { return unitIds.isEmpty() || periodIds.isEmpty(); }
-    }
-
-    private Scope resolveScope(UUID orgUnitId, Collection<UUID> periodIds) {
-        User user = getCurrentUser();
-        UUID orgId = getCurrentUserOrganizationId(user);
-        List<OrgUnit> units = resolveOrgUnitSubtree(orgUnitId, user, orgId);
-        List<UUID> unitIds = units.stream().map(OrgUnit::getId).toList();
-        List<UUID> effPeriods = (periodIds != null && !periodIds.isEmpty())
-                ? new ArrayList<>(periodIds)
-                : (orgId != null ? kpiPeriodRepository.findIdsByOrganizationId(orgId) : Collections.emptyList());
-        return new Scope(unitIds, effPeriods, orgId);
-    }
-
-    private User getCurrentUser() {
-        String email = SecurityContextHolder.getContext().getAuthentication().getName();
-        return userRepository.findByEmail(email)
-                .orElseThrow(() -> new RuntimeException("User not found"));
-    }
-
-    private UUID getCurrentUserOrganizationId(User user) {
-        List<UserRoleOrgUnit> roles = userRoleOrgUnitRepository.findByUserId(user.getId());
-        if (roles.isEmpty()) return null;
-        return roles.get(0).getOrgUnit().getOrgHierarchyLevel().getOrganization().getId();
-    }
-
-    /** Giống {@code OrgUnitKpiAnalyticsService.resolveOrgUnitSubtree}: validate đơn vị thuộc org của user;
-     *  không truyền orgUnitId → lấy các gốc user có quyền DASHBOARD:VIEW (fallback: đơn vị được phân công). */
-    private List<OrgUnit> resolveOrgUnitSubtree(UUID orgUnitId, User user, UUID orgId) {
-        if (orgUnitId != null) {
-            Optional<OrgUnit> root = orgUnitRepository.findById(orgUnitId);
-            if (root.isEmpty()) return Collections.emptyList();
-            if (!root.get().getOrgHierarchyLevel().getOrganization().getId().equals(orgId)) {
-                return Collections.emptyList();
-            }
-            return orgUnitRepository.findSubtree(root.get().getPath(), orgId);
-        }
-        List<UUID> rootIds = permissionChecker.getOrgUnitsWithPermission(user.getId(), "DASHBOARD:VIEW");
-        if (rootIds.isEmpty()) {
-            rootIds = userRoleOrgUnitRepository.findByUserId(user.getId()).stream()
-                    .map(a -> a.getOrgUnit().getId()).distinct().toList();
-        }
-        if (rootIds.isEmpty()) return Collections.emptyList();
-        return orgUnitRepository.findAllInSubtrees(rootIds, orgId);
-    }
-
-    // ============================================================
     // 1) Cân bằng viễn cảnh (radar + thẻ chỉ số)
     // ============================================================
 
     @Transactional(readOnly = true)
     public BalanceResponse getBalance(UUID orgUnitId, Collection<UUID> periodIds) {
-        Scope s = resolveScope(orgUnitId, periodIds);
+        var s = scopeResolver.resolve(orgUnitId, periodIds);
         if (s.isEmpty()) return emptyBalance();
 
         List<PerspectivePoint> perspectives = new ArrayList<>();
@@ -185,7 +120,7 @@ public class BscAnalyticsService {
 
     @Transactional(readOnly = true)
     public TrendResponse getTrend(UUID orgUnitId, Collection<UUID> periodIds, String groupBy) {
-        Scope s = resolveScope(orgUnitId, periodIds);
+        var s = scopeResolver.resolve(orgUnitId, periodIds);
         if (s.isEmpty()) return new TrendResponse(Collections.emptyList(), Collections.emptyList());
 
         // Mốc = kỳ (BSC gắn chặt với kỳ). bscOverallByPeriod đã ORDER BY startDate.
@@ -227,7 +162,7 @@ public class BscAnalyticsService {
 
     @Transactional(readOnly = true)
     public UnitComparisonResponse getUnitComparison(UUID orgUnitId, Collection<UUID> periodIds) {
-        Scope s = resolveScope(orgUnitId, periodIds);
+        var s = scopeResolver.resolve(orgUnitId, periodIds);
         if (s.isEmpty()) return new UnitComparisonResponse(Collections.emptyList(), Collections.emptyList());
 
         Map<UUID, UnitRowAcc> byUnit = new LinkedHashMap<>();
@@ -279,7 +214,7 @@ public class BscAnalyticsService {
 
     @Transactional(readOnly = true)
     public BscVsSystemResponse getBscVsSystem(UUID orgUnitId, Collection<UUID> periodIds, String level) {
-        Scope s = resolveScope(orgUnitId, periodIds);
+        var s = scopeResolver.resolve(orgUnitId, periodIds);
         boolean member = "MEMBER".equalsIgnoreCase(level);
         String lvl = member ? "MEMBER" : "UNIT";
         if (s.isEmpty()) return new BscVsSystemResponse(lvl, null, Collections.emptyList());
@@ -319,7 +254,7 @@ public class BscAnalyticsService {
     @Transactional(readOnly = true)
     public RankingResponse getRankings(UUID orgUnitId, Collection<UUID> periodIds,
                                        String sortBy, String sortDir, int page, int size) {
-        Scope s = resolveScope(orgUnitId, periodIds);
+        var s = scopeResolver.resolve(orgUnitId, periodIds);
         if (s.isEmpty()) return emptyRanking(page, size);
 
         // breakdown viễn cảnh theo nhân sự

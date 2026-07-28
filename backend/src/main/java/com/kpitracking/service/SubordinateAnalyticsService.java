@@ -164,6 +164,22 @@ public class SubordinateAnalyticsService {
     }
 
     /** Dựng danh sách KPI con (kèm metrics) cho KPI cha/thác nước để FE expand. Trả null nếu không có con. */
+    /** Mức định tính đại diện của KPI: ưu tiên bài nộp ĐÃ DUYỆT mới nhất có mức; nếu không → bài mới nhất có mức. */
+    private String qualitativeLevelNameOf(KpiCriteria kpi) {
+        if (kpi.getSubmissions() == null) return null;
+        Comparator<KpiSubmission> byTime = Comparator.comparing(
+                (KpiSubmission s) -> s.getPeriodStart() != null ? s.getPeriodStart() : s.getCreatedAt(),
+                Comparator.nullsFirst(Comparator.naturalOrder()));
+        return kpi.getSubmissions().stream()
+                .filter(s -> s.getQualitativeLevel() != null && s.getStatus() == SubmissionStatus.APPROVED)
+                .max(byTime)
+                .or(() -> kpi.getSubmissions().stream()
+                        .filter(s -> s.getQualitativeLevel() != null)
+                        .max(byTime))
+                .map(s -> s.getQualitativeLevel().getName())
+                .orElse(null);
+    }
+
     private List<KpiDetailedDto> buildChildKpiDtos(KpiCriteria kpi, Instant objStartFallback, Instant objEndFallback,
                                                    Instant A, Instant B, Boolean onlyApproved) {
         List<KpiCriteria> kids = KpiMetricsCalculator.children(kpi);
@@ -172,8 +188,9 @@ public class SubordinateAnalyticsService {
         for (KpiCriteria child : kids) {
             double[] cp = kpiCompletionPerformance(child, objStartFallback, objEndFallback, A, B, onlyApproved);
             boolean childBonus = Boolean.TRUE.equals(child.getIsBonusKpi());
+            boolean childQual = child.getKpiType() == com.kpitracking.enums.KpiType.QUALITATIVE;
             boolean childActive = cp[2] != 0;
-            boolean blank = childBonus || !childActive;
+            boolean blank = childBonus || childQual || !childActive;
             String childUnitName = child.getAssignees() != null && !child.getAssignees().isEmpty()
                     ? child.getAssignees().get(0).getFullName()
                     : (child.getOrgUnit() != null ? child.getOrgUnit().getName() : "");
@@ -192,6 +209,8 @@ public class SubordinateAnalyticsService {
                     .assigneeName(KpiMetricsCalculator.assigneeNames(child))
                     .isReverseKpi(Boolean.TRUE.equals(child.getIsReverseKpi()))
                     .isBonusKpi(childBonus)
+                    .kpiType(child.getKpiType())
+                    .qualitativeLevelName(childQual ? qualitativeLevelNameOf(child) : null)
                     .parentId(kpi.getId())
                     .parentRelationType(child.getParentRelationType())
                     .childRelationType(KpiMetricsCalculator.childRelationType(child))
@@ -467,6 +486,7 @@ public class SubordinateAnalyticsService {
                     if (kpi.getStatus() == KpiStatus.INACTIVE && kpi.getCompensatedAchievementPercent() == null) continue;
 
                     boolean isBonus = Boolean.TRUE.equals(kpi.getIsBonusKpi());
+                    boolean isQual  = kpi.getKpiType() == com.kpitracking.enums.KpiType.QUALITATIVE;
                     double[] cp = kpiCompletionPerformance(kpi, objStartFallback, objEndFallback, A, B, onlyApproved);
                     if (cp[2] == 0) continue; // Not active in this filter
 
@@ -474,8 +494,8 @@ public class SubordinateAnalyticsService {
                     double performance = cp[1];
                     double weight = kpi.getWeight() != null && kpi.getWeight() > 0 ? kpi.getWeight() : 1.0;
 
-                    // KPI thưởng không phản ánh tiến độ/hiệu suất → không tính vào bình quân (vẫn được liệt kê).
-                    if (!isBonus) {
+                    // KPI thưởng / định tính không phản ánh tiến độ/hiệu suất SỐ → không tính vào bình quân (vẫn được liệt kê).
+                    if (!isBonus && !isQual) {
                         sumWeightedCompletion += (completion * weight);
                         sumWeightedPerformance += (performance * weight);
                         sumWeight += weight;
@@ -497,7 +517,7 @@ public class SubordinateAnalyticsService {
                             .orElse("CHƯA NỘP");
                     }
 
-                    Double finalPerformance = (isBonus || !hasSubmissions) ? null : performance;
+                    Double finalPerformance = (isBonus || isQual || !hasSubmissions) ? null : performance;
 
                     // Map participants and submissions
                     List<SubordinateDetailsResponses.KpiParticipantDto> participantDtos = new ArrayList<>();
@@ -508,7 +528,8 @@ public class SubordinateAnalyticsService {
                         for (User assignee : kpi.getAssignees()) {
                             List<SubordinateDetailsResponses.KpiSubmissionDto> assigneeSubs = new ArrayList<>();
                             double assigneeActual = 0;
-                            
+                            String participantLevel = null; // KPI định tính: mức đại diện của người này
+
                             double assigneeProgress;
                             if (kpi.getSubmissions() != null) {
                                 List<KpiSubmission> assigneeValidSubs = kpi.getSubmissions().stream()
@@ -516,6 +537,15 @@ public class SubordinateAnalyticsService {
                                          (s.getStatus() == SubmissionStatus.APPROVED || s.getStatus() == SubmissionStatus.PENDING || s.getStatus() == SubmissionStatus.REJECTED))
                                     .filter(s -> s.getSubmittedBy() != null && s.getSubmittedBy().getId().equals(assignee.getId()))
                                     .toList();
+                                if (isQual) {
+                                    participantLevel = assigneeValidSubs.stream()
+                                        .filter(s -> s.getQualitativeLevel() != null)
+                                        .max(Comparator.comparing(
+                                                (KpiSubmission s) -> s.getPeriodStart() != null ? s.getPeriodStart() : s.getCreatedAt(),
+                                                Comparator.nullsFirst(Comparator.naturalOrder())))
+                                        .map(s -> s.getQualitativeLevel().getName())
+                                        .orElse(null);
+                                }
                                 assigneeSubs = assigneeValidSubs.stream()
                                     .map(s -> {
                                         String subByName = s.getSubmittedBy() != null ? s.getSubmittedBy().getFullName() : "";
@@ -529,6 +559,7 @@ public class SubordinateAnalyticsService {
                                             .createdAt(s.getCreatedAt())
                                             .submittedByName(subByName)
                                             .submittedByCode(subByCode)
+                                            .qualitativeLevelName(s.getQualitativeLevel() != null ? s.getQualitativeLevel().getName() : null)
                                             .build();
                                     })
                                     .toList();
@@ -558,6 +589,7 @@ public class SubordinateAnalyticsService {
                                 .actualValue(assigneeActual)
                                 .progress(assigneeProgress)
                                 .performance(assigneeProgress)
+                                .qualitativeLevelName(participantLevel)
                                 .submissions(assigneeSubs)
                                 .build());
                         }
@@ -576,7 +608,7 @@ public class SubordinateAnalyticsService {
                         .id(kpi.getId())
                         .name(kpi.getName())
                         .status(kpiStatus)
-                        .progress(isBonus ? null : completion)
+                        .progress(isBonus || isQual ? null : completion)
                         .performance(finalPerformance)
                         .targetValue(totalTarget)
                         .unit(kpi.getUnit())
@@ -590,6 +622,8 @@ public class SubordinateAnalyticsService {
                         .participants(participantDtos)
                         .isReverseKpi(Boolean.TRUE.equals(kpi.getIsReverseKpi()))
                         .isBonusKpi(isBonus)
+                        .kpiType(kpi.getKpiType())
+                        .qualitativeLevelName(isQual ? qualitativeLevelNameOf(kpi) : null)
                         .parentId(kpi.getParent() != null ? kpi.getParent().getId() : null)
                         .parentRelationType(kpi.getParentRelationType())
                         .childRelationType(KpiMetricsCalculator.childRelationType(kpi))
@@ -1377,12 +1411,16 @@ public class SubordinateAnalyticsService {
             }
         }
 
+        boolean isQual = kpi.getKpiType() == com.kpitracking.enums.KpiType.QUALITATIVE;
         return ScopedDashboardResponse.ScopedMetrics.builder()
                 .completionRate(kpiMetrics[0])
                 .performanceRate(kpiMetrics[1])
                 .completedCount((int) completedCount)
                 .totalCount(totalCount)
                 .atRiskCount(atRiskCount)
+                .kpiType(kpi.getKpiType())
+                .qualitativeLevelName(isQual ? com.kpitracking.util.QualitativeKpiUtil.representativeLevelName(kpi) : null)
+                .qualitativeDistribution(isQual ? com.kpitracking.util.QualitativeKpiUtil.distribution(kpi) : null)
                 .build();
     }
 

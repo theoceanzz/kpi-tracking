@@ -34,6 +34,59 @@ export interface PerformanceMatrix {
   cells: number[][]
 }
 
+// ── Xếp loại ĐƠN VỊ theo phân bố % xếp loại thành viên ──────────────────────
+export type UnitClassScope = 'this' | 'orAbove' | 'orBelow'
+export type UnitClassOp = 'gte' | 'lte' | 'gt' | 'lt' | 'eq'
+
+export interface UnitClassCondition {
+  level: string          // tên mức thành viên
+  scope: UnitClassScope  // đúng mức / trở lên / trở xuống
+  op: UnitClassOp
+  percent: number        // 0..100
+}
+export interface UnitClassRule {
+  levelName: string
+  color: string
+  conditions: UnitClassCondition[]
+}
+export interface UnitClassificationRules {
+  rules: UnitClassRule[]  // cao → thấp (ưu tiên)
+}
+
+/** Preset khi KHÔNG dùng matrix (thang XUẤT SẮC/TỐT/KHÁ/TRUNG BÌNH/YẾU). Khớp backend EvaluationConstants. */
+export const PRESET_UNIT_RULES_SCORE: UnitClassificationRules = {
+  rules: [
+    { levelName: 'XUẤT SẮC', color: '#10b981', conditions: [
+      { level: 'TỐT', scope: 'orAbove', op: 'gte', percent: 60 },
+      { level: 'YẾU', scope: 'this', op: 'lte', percent: 5 } ] },
+    { levelName: 'TỐT', color: '#3b82f6', conditions: [
+      { level: 'KHÁ', scope: 'orAbove', op: 'gte', percent: 70 },
+      { level: 'YẾU', scope: 'this', op: 'lte', percent: 10 } ] },
+    { levelName: 'KHÁ', color: '#f59e0b', conditions: [
+      { level: 'TRUNG BÌNH', scope: 'orAbove', op: 'gte', percent: 70 } ] },
+    { levelName: 'TRUNG BÌNH', color: '#6366f1', conditions: [
+      { level: 'YẾU', scope: 'this', op: 'lte', percent: 40 } ] },
+    { levelName: 'YẾU', color: '#ef4444', conditions: [] },
+  ],
+}
+
+/** Preset khi CÓ matrix (thang định tính KÉM/YẾU/TRUNG BÌNH/KHÁ/TỐT). */
+export const PRESET_UNIT_RULES_MATRIX: UnitClassificationRules = {
+  rules: [
+    { levelName: 'TỐT', color: '#10b981', conditions: [
+      { level: 'KHÁ', scope: 'orAbove', op: 'gte', percent: 60 },
+      { level: 'YẾU', scope: 'orBelow', op: 'lte', percent: 5 } ] },
+    { levelName: 'KHÁ', color: '#3b82f6', conditions: [
+      { level: 'TRUNG BÌNH', scope: 'orAbove', op: 'gte', percent: 70 },
+      { level: 'KÉM', scope: 'this', op: 'lte', percent: 10 } ] },
+    { levelName: 'TRUNG BÌNH', color: '#6366f1', conditions: [
+      { level: 'TRUNG BÌNH', scope: 'orAbove', op: 'gte', percent: 50 } ] },
+    { levelName: 'YẾU', color: '#f59e0b', conditions: [
+      { level: 'KÉM', scope: 'this', op: 'lte', percent: 40 } ] },
+    { levelName: 'KÉM', color: '#ef4444', conditions: [] },
+  ],
+}
+
 export interface OrganizationResponse {
   id: string
   name: string
@@ -44,6 +97,7 @@ export interface OrganizationResponse {
   evaluationLevels?: EvaluationLevel[]
   qualitativeLevels?: QualitativeLevel[]
   performanceMatrix?: string
+  unitClassificationRules?: string
   kpiReminderPercentage: number
   enableOkr: boolean
   enableWaterfall: boolean
@@ -63,6 +117,7 @@ export interface UpdateOrganizationRequest {
   evaluationLevels?: EvaluationLevel[]
   qualitativeLevels?: QualitativeLevel[]
   performanceMatrix?: string
+  unitClassificationRules?: string
   kpiReminderPercentage?: number
   enableOkr?: boolean
   enableWaterfall?: boolean

@@ -4,6 +4,7 @@ import { Trophy, TrendingDown } from 'lucide-react'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { cn } from '@/lib/utils'
 import { useSummaryComparison } from '../hooks/useAnalytics'
+import { usePerformanceScale } from '../hooks/usePerformanceScale'
 import type { UnitComparison } from '@/types/stats'
 
 // Chú thích màu: 2 cột (hiệu suất, tiến độ) + 2 chỉ số trong tooltip (trễ hạn, không nộp).
@@ -14,7 +15,7 @@ const UNIT_CHART_KEYS = [
   { label: 'Không nộp', color: '#f43f5e' },
 ]
 
-function UnitBarTooltip({ active, payload }: any) {
+function UnitBarTooltip({ active, payload, perf }: any) {
   if (!active || !payload?.length) return null
   const row = payload[0]?.payload || {}
   const unit = row.tooltipName || row.unitName || ''
@@ -23,6 +24,15 @@ function UnitBarTooltip({ active, payload }: any) {
     <div className="bg-slate-900 text-white px-3 py-2 rounded-lg text-xs shadow-xl border border-white/10 max-w-[240px]">
       <p className="font-bold mb-1 break-words">{unit}</p>
       {payload.map((p: any, i: number) => {
+        // Cột Hiệu suất theo đơn vị của org (điểm/%); các cột còn lại luôn %.
+        if (p.dataKey === 'performance') {
+          return (
+            <p key={i} className="flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: p.color }} />
+              {p.name}: <span className="font-bold">{perf ? perf.formatShort(p.value) : `${Math.round(p.value)}%`}</span>
+            </p>
+          )
+        }
         let suffix = ''
         if (p.dataKey === 'lateRate') suffix = total > 0 ? ` (${row.lateCount ?? 0}/${total})` : ''
         else if (p.dataKey === 'missedRate') suffix = total > 0 ? ` (${row.missedCount ?? 0}/${total})` : ''
@@ -107,6 +117,7 @@ export default function UnitComparisonBarChart({ orgUnitId, from, to, onlyApprov
   const hov = hoveredUnit !== undefined ? hoveredUnit : localHover
   const setHov = onHoverUnit ?? setLocalHover
   const { data } = useSummaryComparison(orgUnitId, from, to, onlyApproved, periodId, periodIdTo)
+  const perf = usePerformanceScale()
 
   const chartData = useMemo(() => {
     // Backend đã sort: topPerformingUnits (hiệu suất giảm dần), worstPerformingUnits (tăng dần).
@@ -144,29 +155,31 @@ export default function UnitComparisonBarChart({ orgUnitId, from, to, onlyApprov
                 tick={{ fontSize: 11, fontWeight: 600, fill: '#64748b' }} tickMargin={8}
                 angle={chartData.length > 4 ? -25 : 0} textAnchor={chartData.length > 4 ? 'end' : 'middle'}
                 axisLine={false} tickLine={false} />
-              <YAxis type="number" domain={[0, 100]} tickFormatter={v => `${v}%`} width={38}
+              <YAxis yAxisId="pct" type="number" domain={[0, 100]} tickFormatter={v => `${v}%`} width={38}
                 tick={{ fontSize: 10, fill: '#64748b' }} axisLine={false} tickLine={false} />
-              <Tooltip content={<UnitBarTooltip />} cursor={{ fill: '#94a3b8', opacity: 0.06 }} />
+              {/* Trục ẩn thang điểm cho cột Hiệu suất khi org dùng matrix (để cột không bị dí thấp). */}
+              {perf.isMatrix && <YAxis yAxisId="perf" type="number" domain={[0, perf.axisMax]} hide />}
+              <Tooltip content={<UnitBarTooltip perf={perf} />} cursor={{ fill: '#94a3b8', opacity: 0.06 }} />
               <Legend verticalAlign="top" height={30} content={<UnitChartLegend />} />
-              <Bar name="Hiệu suất" dataKey="performance" fill="#10b981" radius={[4, 4, 0, 0]} isAnimationActive={false} barSize={30}
+              <Bar yAxisId={perf.isMatrix ? 'perf' : 'pct'} name="Hiệu suất" dataKey="performance" fill="#10b981" radius={[4, 4, 0, 0]} isAnimationActive={false} barSize={30}
                 onMouseEnter={(d: any) => setHov(d.payload?.tooltipName ?? null)}>
                 {chartData.map((item, i) => (
                   <Cell key={`p${i}`} fill="#10b981" opacity={hov && hov !== item.tooltipName ? 0.3 : 1} />
                 ))}
               </Bar>
-              <Bar name="Tiến độ" dataKey="completionRate" fill="#6366f1" radius={[4, 4, 0, 0]} isAnimationActive={false} barSize={30}
+              <Bar yAxisId="pct" name="Tiến độ" dataKey="completionRate" fill="#6366f1" radius={[4, 4, 0, 0]} isAnimationActive={false} barSize={30}
                 onMouseEnter={(d: any) => setHov(d.payload?.tooltipName ?? null)}>
                 {chartData.map((item, i) => (
                   <Cell key={`c${i}`} fill="#6366f1" opacity={hov && hov !== item.tooltipName ? 0.3 : 1} />
                 ))}
               </Bar>
-              <Bar name="Trễ hạn" dataKey="lateRate" fill="#f59e0b" radius={[4, 4, 0, 0]} isAnimationActive={false} barSize={30}
+              <Bar yAxisId="pct" name="Trễ hạn" dataKey="lateRate" fill="#f59e0b" radius={[4, 4, 0, 0]} isAnimationActive={false} barSize={30}
                 onMouseEnter={(d: any) => setHov(d.payload?.tooltipName ?? null)}>
                 {chartData.map((item, i) => (
                   <Cell key={`l${i}`} fill="#f59e0b" opacity={hov && hov !== item.tooltipName ? 0.3 : 1} />
                 ))}
               </Bar>
-              <Bar name="Không nộp" dataKey="missedRate" fill="#f43f5e" radius={[4, 4, 0, 0]} isAnimationActive={false} barSize={30}
+              <Bar yAxisId="pct" name="Không nộp" dataKey="missedRate" fill="#f43f5e" radius={[4, 4, 0, 0]} isAnimationActive={false} barSize={30}
                 onMouseEnter={(d: any) => setHov(d.payload?.tooltipName ?? null)}>
                 {chartData.map((item, i) => (
                   <Cell key={`m${i}`} fill="#f43f5e" opacity={hov && hov !== item.tooltipName ? 0.3 : 1} />

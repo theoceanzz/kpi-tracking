@@ -49,6 +49,7 @@ CREATE TABLE organizations (
   enable_qualitative BOOLEAN NOT NULL DEFAULT FALSE,
   enable_bsc  BOOLEAN NOT NULL DEFAULT FALSE,
   performance_matrix jsonb,
+  unit_classification_rules jsonb,
   created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at  TIMESTAMPTZ NOT NULL DEFAULT now()
 );

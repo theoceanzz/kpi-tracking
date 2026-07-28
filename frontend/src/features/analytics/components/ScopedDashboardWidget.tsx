@@ -16,6 +16,8 @@ import {
 } from 'lucide-react'
 import ObjectiveMetricCard from './ObjectiveMetricCard'
 import AnalyticsComboChart from './AnalyticsComboChart'
+import { QualitativeDistributionChart } from './QualitativeDistributionChart'
+import { QualitativeResultChip } from './QualitativeResultChip'
 import {
   Select,
   SelectContent,
@@ -752,6 +754,9 @@ export default function ScopedDashboardWidget({ type, id, dateRange: globalDateR
 
   const { topItems, topUnits } = topEntities
 
+  // KPI định tính: đầu ra là MỨC → thay các biểu đồ số bằng biểu đồ phân bố mức.
+  const isQual = type === 'KPI' && metrics.kpiType === 'QUALITATIVE'
+
   // Child entity label used in metric cards
   const childName = type === 'OBJECTIVE' ? 'Key Result' : type === 'KR' ? 'KPI' : 'Bài nộp'
   const topItemsTitle =
@@ -816,6 +821,27 @@ export default function ScopedDashboardWidget({ type, id, dateRange: globalDateR
         </div>
       </div>
 
+      {isQual ? (
+        <>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="bg-violet-50 dark:bg-violet-900/20 p-4 rounded-2xl border border-violet-100 dark:border-violet-900/30">
+              <p className="text-[10px] font-bold text-violet-500 mb-1.5">Mức kết quả</p>
+              <QualitativeResultChip level={metrics.qualitativeLevelName} />
+            </div>
+            <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-2xl border border-blue-100 dark:border-blue-900/30">
+              <p className="text-[10px] font-bold text-blue-500 mb-1">Số bài nộp đã chấm</p>
+              <p className="text-xl font-black text-blue-700 dark:text-blue-400">
+                {(metrics.qualitativeDistribution ?? []).reduce((s, d) => s + d.count, 0)}
+              </p>
+            </div>
+          </div>
+          <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 border border-slate-200 dark:border-slate-800">
+            <h3 className="text-sm font-black text-slate-900 dark:text-white mb-3">Phân bố mức đánh giá</h3>
+            <QualitativeDistributionChart distribution={metrics.qualitativeDistribution} />
+          </div>
+        </>
+      ) : (
+      <>
       {/* ── Section 1: 4 Metric Cards ── */}
       <div className="grid grid-cols-2 gap-3">
         <ObjectiveMetricCard
@@ -986,6 +1012,8 @@ export default function ScopedDashboardWidget({ type, id, dateRange: globalDateR
         filterType={unitsFilter}
         onFilterChange={setUnitsFilter}
       />
+      </>
+      )}
     </div>
   )
 }

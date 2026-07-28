@@ -33,12 +33,13 @@ public class OrgUnitKpiAnalyticsService {
     private final PermissionChecker permissionChecker;
     private final EvaluationService evaluationService;
 
-    /** ID những người được giao trong tập KPI (để tính hiệu suất theo đánh giá). */
-    private java.util.Set<UUID> assigneeIdsOf(List<KpiCriteria> kpis) {
+    /** ID MỌI nhân sự trong phạm vi (subtree) — để tính hiệu suất đánh giá cấp đơn vị (khớp thẻ Ma trận). */
+    private java.util.Set<UUID> memberIdsInScope(UUID orgUnitId) {
+        List<OrgUnit> units = resolveOrgUnitSubtree(orgUnitId);
+        if (units.isEmpty()) return java.util.Collections.emptySet();
+        List<UUID> unitIds = units.stream().map(OrgUnit::getId).toList();
         java.util.Set<UUID> ids = new java.util.LinkedHashSet<>();
-        for (KpiCriteria k : kpis) {
-            if (k.getAssignees() != null) k.getAssignees().forEach(u -> ids.add(u.getId()));
-        }
+        userRoleOrgUnitRepository.findByOrgUnitIdIn(unitIds).forEach(uro -> ids.add(uro.getUser().getId()));
         return ids;
     }
 
@@ -110,12 +111,26 @@ public class OrgUnitKpiAnalyticsService {
         return orgUnitRepository.findAllInSubtrees(roots, orgId);
     }
 
+    /**
+     * Chọn KPI approved theo chế độ OKR của org:
+     * - BẬT OKR: KPI gắn KeyResult thuộc tab Mục tiêu (OKR) → chỉ lấy KPI đơn lẻ (keyResult IS NULL).
+     * - TẮT OKR: không có tab OKR → mọi KPI approved (kể cả còn gắn KeyResult từ dữ liệu cũ) đều là KPI của
+     *   đơn vị; nếu vẫn lọc keyResult IS NULL sẽ ra rỗng ⇒ tiến độ/hiệu suất/đếm KPI/bảng chi tiết = 0.
+     */
+    private List<KpiCriteria> approvedKpisForScope(List<OrgUnit> units, List<UUID> unitIds) {
+        Organization org = units.isEmpty() ? null : units.get(0).getOrgHierarchyLevel().getOrganization();
+        boolean okrOn = org != null && Boolean.TRUE.equals(org.getEnableOkr());
+        return okrOn
+                ? kpiCriteriaRepository.findApprovedWithoutKeyResultByOrgUnitIds(unitIds)
+                : kpiCriteriaRepository.findApprovedByOrgUnitIds(unitIds);
+    }
+
     private List<KpiCriteria> getStandaloneKpis(UUID orgUnitId) {
         List<OrgUnit> units = resolveOrgUnitSubtree(orgUnitId);
         if (units.isEmpty()) return Collections.emptyList();
         List<UUID> unitIds = units.stream().map(OrgUnit::getId).toList();
         // Chỉ giữ KPI top-level (cha/thác nước/đơn lẻ); KPI con hiện inline qua trường children.
-        return kpiCriteriaRepository.findApprovedWithoutKeyResultByOrgUnitIds(unitIds).stream()
+        return approvedKpisForScope(units, unitIds).stream()
                 .filter(k -> k.getParent() == null)
                 .collect(Collectors.toList());
     }
@@ -201,6 +216,22 @@ public class OrgUnitKpiAnalyticsService {
         return new double[]{completion, performance, 1.0, actualReturn};
     }
 
+    /** Mức định tính đại diện của KPI: ưu tiên bài nộp ĐÃ DUYỆT mới nhất có mức; nếu không có → bài mới nhất có mức. */
+    private String qualitativeLevelNameOf(KpiCriteria kpi) {
+        if (kpi.getSubmissions() == null) return null;
+        java.util.Comparator<KpiSubmission> byTime = java.util.Comparator.comparing(
+                (KpiSubmission s) -> s.getPeriodStart() != null ? s.getPeriodStart() : s.getCreatedAt(),
+                java.util.Comparator.nullsFirst(java.util.Comparator.naturalOrder()));
+        return kpi.getSubmissions().stream()
+                .filter(s -> s.getQualitativeLevel() != null && s.getStatus() == SubmissionStatus.APPROVED)
+                .max(byTime)
+                .or(() -> kpi.getSubmissions().stream()
+                        .filter(s -> s.getQualitativeLevel() != null)
+                        .max(byTime))
+                .map(s -> s.getQualitativeLevel().getName())
+                .orElse(null);
+    }
+
     /** Dựng danh sách KPI con (kèm metrics) cho KPI cha/thác nước để FE expand. Trả null nếu không có con. */
     private List<OrgUnitKpiDetail> buildChildDetails(KpiCriteria kpi, Instant from, Instant to, Boolean onlyApproved) {
         List<KpiCriteria> kids = KpiMetricsCalculator.children(kpi);
@@ -209,14 +240,15 @@ public class OrgUnitKpiAnalyticsService {
         for (KpiCriteria child : kids) {
             double[] cm = calculateKpiMetrics(child, from, to, onlyApproved);
             boolean childBonus = Boolean.TRUE.equals(child.getIsBonusKpi());
+            boolean childQual = child.getKpiType() == com.kpitracking.enums.KpiType.QUALITATIVE;
             result.add(OrgUnitKpiDetail.builder()
                     .kpiId(child.getId())
                     .kpiName(child.getName())
                     .targetValue(child.getTargetValue() != null ? child.getTargetValue() : 1.0)
                     .actualValue(cm[3])
                     .unit(child.getUnit())
-                    .progress(childBonus ? null : cm[0])
-                    .performance(childBonus ? null : cm[1])
+                    .progress(childBonus || childQual ? null : cm[0])
+                    .performance(childBonus || childQual ? null : cm[1])
                     .orgUnitId(child.getOrgUnit() != null ? child.getOrgUnit().getId() : null)
                     .orgUnitName(child.getOrgUnit() != null ? child.getOrgUnit().getName() : "")
                     .periodStart(child.getKpiPeriod() != null ? child.getKpiPeriod().getStartDate() : null)
@@ -228,6 +260,8 @@ public class OrgUnitKpiAnalyticsService {
                     .participantCount(child.getAssignees() != null ? child.getAssignees().size() : 1)
                     .isReverseKpi(Boolean.TRUE.equals(child.getIsReverseKpi()))
                     .isBonusKpi(childBonus)
+                    .kpiType(child.getKpiType())
+                    .qualitativeLevelName(childQual ? qualitativeLevelNameOf(child) : null)
                     .parentId(kpi.getId())
                     .parentRelationType(child.getParentRelationType())
                     .childRelationType(KpiMetricsCalculator.childRelationType(child))
@@ -248,7 +282,7 @@ public class OrgUnitKpiAnalyticsService {
 
         for (KpiCriteria kpi : kpis) {
             // KPI thưởng không phản ánh tiến độ/hiệu suất → không tính vào số trung bình & các bộ đếm.
-            if (Boolean.TRUE.equals(kpi.getIsBonusKpi())) continue;
+            if (Boolean.TRUE.equals(kpi.getIsBonusKpi()) || kpi.getKpiType() == com.kpitracking.enums.KpiType.QUALITATIVE) continue;
             double[] m = calculateKpiMetrics(kpi, from, to, onlyApproved);
             if (m[2] > 0) {
                 totalComp += m[0];
@@ -263,9 +297,11 @@ public class OrgUnitKpiAnalyticsService {
             }
         }
 
-        // Hiệu suất TB nay tính theo ĐÁNH GIÁ của người trong đợt (không theo KPI).
+        // Hiệu suất TB = TB đánh giá của MỌI nhân sự trong phạm vi đơn vị (subtree) — cùng cách với thẻ
+        // "Ma trận xếp loại" (đếm đánh giá theo đơn vị), KHÔNG chỉ giới hạn người được giao KPI. Nhờ vậy
+        // hai nơi hiển thị cùng một con số (tránh lệch khi có người có đánh giá nhưng chưa được giao KPI).
         Double evalPerf = evaluationService.averagePerformance(
-                assigneeIdsOf(kpis), relevantPeriodIds(kpis, periodIds));
+                memberIdsInScope(orgUnitId), relevantPeriodIds(kpis, periodIds));
 
         return Metrics.builder()
                 .averageProgress(activeCount > 0 ? totalComp / activeCount : 0)
@@ -300,7 +336,7 @@ public class OrgUnitKpiAnalyticsService {
             java.util.Set<UUID> userIds = new java.util.LinkedHashSet<>();
             for (KpiCriteria kpi : kpis) {
                 if (kpi.getKpiPeriod() == null || !p.getId().equals(kpi.getKpiPeriod().getId())) continue;
-                if (Boolean.TRUE.equals(kpi.getIsBonusKpi())) continue;
+                if (Boolean.TRUE.equals(kpi.getIsBonusKpi()) || kpi.getKpiType() == com.kpitracking.enums.KpiType.QUALITATIVE) continue;
                 double[] m = calculateKpiMetrics(kpi, p.getStartDate(), p.getEndDate(), onlyApproved);
                 if (m[2] > 0) { totalComp += m[0]; cnt++; }
                 if (kpi.getAssignees() != null) kpi.getAssignees().forEach(u -> userIds.add(u.getId()));
@@ -336,7 +372,7 @@ public class OrgUnitKpiAnalyticsService {
 
             for (KpiCriteria kpi : kpis) {
                 // KPI thưởng không tính vào xu hướng tiến độ/hiệu suất.
-                if (Boolean.TRUE.equals(kpi.getIsBonusKpi())) continue;
+                if (Boolean.TRUE.equals(kpi.getIsBonusKpi()) || kpi.getKpiType() == com.kpitracking.enums.KpiType.QUALITATIVE) continue;
                 Instant kpiRef = (kpi.getKpiPeriod() != null && kpi.getKpiPeriod().getStartDate() != null)
                         ? kpi.getKpiPeriod().getStartDate() : kpi.getCreatedAt();
                 if (kpiRef != null && kpiRef.isBefore(ip.end)) {
@@ -379,8 +415,9 @@ public class OrgUnitKpiAnalyticsService {
 
         List<UUID> allUnitIds = subtree.stream().map(OrgUnit::getId).toList();
         // Chỉ liệt kê KPI top-level (cha/thác nước/đơn lẻ); KPI con hiện inline trong children.
+        // Chọn KPI theo chế độ OKR của org (tắt OKR ⇒ lấy cả KPI gắn KeyResult) — nhất quán với thẻ metrics.
         List<KpiCriteria> kpis = applyPeriodFilter(
-                kpiCriteriaRepository.findApprovedWithoutKeyResultByOrgUnitIds(allUnitIds), periodIds)
+                approvedKpisForScope(subtree, allUnitIds), periodIds)
                 .stream().filter(k -> k.getParent() == null).collect(Collectors.toList());
 
         // Build available org unit filter options (only units that actually have KPIs)
@@ -407,8 +444,9 @@ public class OrgUnitKpiAnalyticsService {
             double totalTarget = kpi.getTargetValue() != null ? kpi.getTargetValue() : 1.0;
             String orgUnitName = kpi.getOrgUnit() != null ? kpi.getOrgUnit().getName() : "";
             UUID   kpiOrgUnitId = kpi.getOrgUnit() != null ? kpi.getOrgUnit().getId() : null;
-            // KPI thưởng vẫn được liệt kê nhưng không hiển thị tiến độ/hiệu suất.
+            // KPI thưởng / định tính vẫn được liệt kê nhưng không hiển thị tiến độ/hiệu suất số.
             boolean isBonus = Boolean.TRUE.equals(kpi.getIsBonusKpi());
+            boolean isQual  = kpi.getKpiType() == com.kpitracking.enums.KpiType.QUALITATIVE;
 
             details.add(OrgUnitKpiDetail.builder()
                     .kpiId(kpi.getId())
@@ -416,8 +454,8 @@ public class OrgUnitKpiAnalyticsService {
                     .targetValue(totalTarget)
                     .actualValue(m[3])
                     .unit(kpi.getUnit())
-                    .progress(isBonus ? null : m[0])
-                    .performance(isBonus ? null : m[1])
+                    .progress(isBonus || isQual ? null : m[0])
+                    .performance(isBonus || isQual ? null : m[1])
                     .orgUnitId(kpiOrgUnitId)
                     .orgUnitName(orgUnitName)
                     .periodStart(kpi.getKpiPeriod() != null ? kpi.getKpiPeriod().getStartDate() : null)
@@ -429,6 +467,8 @@ public class OrgUnitKpiAnalyticsService {
                     .participantCount(kpi.getAssignees() != null ? kpi.getAssignees().size() : 1)
                     .isReverseKpi(Boolean.TRUE.equals(kpi.getIsReverseKpi()))
                     .isBonusKpi(isBonus)
+                    .kpiType(kpi.getKpiType())
+                    .qualitativeLevelName(isQual ? qualitativeLevelNameOf(kpi) : null)
                     .parentId(kpi.getParent() != null ? kpi.getParent().getId() : null)
                     .parentRelationType(kpi.getParentRelationType())
                     .childRelationType(KpiMetricsCalculator.childRelationType(kpi))
@@ -648,6 +688,7 @@ public class OrgUnitKpiAnalyticsService {
                             .contributionProgress(Math.round(contribPct * 100.0) / 100.0)
                             .performance(Math.round(perf * 100.0) / 100.0)
                             .submittedAt(subTime)
+                            .qualitativeLevelName(s.getQualitativeLevel() != null ? s.getQualitativeLevel().getName() : null)
                             .build();
                 })
                 .sorted(Comparator.comparingDouble(SubmissionStat::getActualValue).reversed())
@@ -671,6 +712,10 @@ public class OrgUnitKpiAnalyticsService {
                 .assigneeStats(assigneeStats)
                 .availableAssignees(availableAssignees)
                 .topSubmissions(topSubmissions)
+                .kpiType(kpi.getKpiType())
+                .qualitativeLevelName(kpi.getKpiType() == com.kpitracking.enums.KpiType.QUALITATIVE ? qualitativeLevelNameOf(kpi) : null)
+                .qualitativeDistribution(kpi.getKpiType() == com.kpitracking.enums.KpiType.QUALITATIVE
+                        ? com.kpitracking.util.QualitativeKpiUtil.distribution(kpi) : null)
                 .build();
     }
 
@@ -711,6 +756,9 @@ public class OrgUnitKpiAnalyticsService {
         // Nhận diện loại KPI (tag: thường/thưởng/ngược/cha/con/thác nước) + KPI con kèm metrics
         private Boolean isReverseKpi;
         private Boolean isBonusKpi;
+        // KPI định tính: kpiType=QUALITATIVE, không có mục tiêu số; kết quả là 1 MỨC (qualitativeLevelName).
+        private com.kpitracking.enums.KpiType kpiType;
+        private String qualitativeLevelName;
         private UUID parentId;
         private com.kpitracking.enums.KpiParentRelationType parentRelationType;
         private com.kpitracking.enums.KpiParentRelationType childRelationType;
@@ -788,6 +836,7 @@ public class OrgUnitKpiAnalyticsService {
         private double contributionProgress;
         private double performance;
         private Instant submittedAt;
+        private String qualitativeLevelName; // KPI định tính: mức của bài nộp
     }
 
     @lombok.Data
@@ -811,6 +860,10 @@ public class OrgUnitKpiAnalyticsService {
         private List<AssigneeStat> assigneeStats;
         private List<AssigneeInfo> availableAssignees;
         private List<SubmissionStat> topSubmissions;
+        // KPI định tính: đầu ra là MỨC → biểu đồ phân bố mức thay cho biểu đồ số.
+        private com.kpitracking.enums.KpiType kpiType;
+        private String qualitativeLevelName;
+        private List<com.kpitracking.util.QualitativeKpiUtil.LevelBucket> qualitativeDistribution;
     }
 
     @lombok.Data
@@ -999,8 +1052,10 @@ public class OrgUnitKpiAnalyticsService {
                         return (from == null || !t.isBefore(from)) && (to == null || !t.isAfter(to));
                     })
                     .collect(Collectors.toList());
-                double completion = reverse ? KpiMetricsCalculator.reversePercent(assigneeSubs, target)
-                        : (target > 0 ? (KpiMetricsCalculator.sum(assigneeSubs) / target) * 100 : 0);
+                // Công thức tiến độ CHUẨN (cap 150% + xử lý KPI ngược) — nhất quán với bảng Rủi ro đơn vị & Xếp hạng.
+                double completion = KpiMetricsCalculator.percent(
+                        reverse ? KpiMetricsCalculator.latest(assigneeSubs) : KpiMetricsCalculator.sum(assigneeSubs),
+                        target, reverse);
                 boolean overdue = isKpiOverdueForUser(kpi, assignee.getId());
 
                 MemberRiskAccumulator a = accum.computeIfAbsent(assignee.getId(),

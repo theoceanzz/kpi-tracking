@@ -1,6 +1,8 @@
 import { useQuery } from '@tanstack/react-query'
 import { statsApi } from '@/features/dashboard/api/statsApi'
 import { bscAnalyticsApi, type BscScopeParams } from '../api/bscAnalyticsApi'
+import { matrixAnalyticsApi, type MatrixScopeParams } from '../api/matrixAnalyticsApi'
+import { unitClassificationApi, type UnitClassScopeParams } from '../api/unitClassificationApi'
 
 export function useMyAnalytics(from?: string, to?: string, periodId?: string, periodIdTo?: string) {
   return useQuery({
@@ -99,6 +101,24 @@ export function useBscRankings(params: BscScopeParams & { sortBy?: string; sortD
   return useQuery({
     queryKey: ['analytics', 'bsc', 'rankings', params],
     queryFn: () => bscAnalyticsApi.getRankings(params),
+    placeholderData: (previousData) => previousData,
+  })
+}
+
+// ── Ma trận xếp loại — nhúng trong tab "Phân cấp" (overview theo đơn vị) ─────
+
+export function useMatrixOverview(params: MatrixScopeParams) {
+  return useQuery({
+    queryKey: ['analytics', 'matrix', 'overview', params],
+    queryFn: () => matrixAnalyticsApi.getOverview(params),
+    placeholderData: (previousData) => previousData,
+  })
+}
+
+export function useUnitClassification(params: UnitClassScopeParams) {
+  return useQuery({
+    queryKey: ['analytics', 'unit-classification', 'overview', params],
+    queryFn: () => unitClassificationApi.getOverview(params),
     placeholderData: (previousData) => previousData,
   })
 }
