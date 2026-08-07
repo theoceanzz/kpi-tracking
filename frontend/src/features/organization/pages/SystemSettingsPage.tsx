@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react'
 import {
   Bell, LayoutPanelLeft, Save,
-  Info, Loader2, Search
+  Info, Loader2, Search, Mail
 } from 'lucide-react'
+import EmailTemplateSettingsTab from '../components/EmailTemplateSettingsTab'
 import { cn } from '@/lib/utils'
 import { useSidebarSettings, useUpdateSidebarSettings } from '../hooks/useSidebarSettings'
 import { useAuthStore } from '@/store/authStore'
@@ -14,7 +15,7 @@ import { notificationApi, type NotificationConfigItem } from '@/features/notific
 import { useOrganization } from '@/features/orgunits/hooks/useOrganization'
 
 export default function SystemSettingsPage() {
-  const [activeTab, setActiveTab] = useState<'sidebar' | 'notifications'>('sidebar')
+  const [activeTab, setActiveTab] = useState<'sidebar' | 'notifications' | 'emailTemplates'>('sidebar')
   const { user } = useAuthStore()
   const organizationId = user?.memberships?.[0]?.organizationId
   const { data: customLabels = {} } = useSidebarSettings(organizationId!)
@@ -42,17 +43,27 @@ export default function SystemSettingsPage() {
           icon={LayoutPanelLeft}
           label="Thiết lập Sidebar"
         />
-        <TabButton 
-          active={activeTab === 'notifications'} 
+        <TabButton
+          active={activeTab === 'notifications'}
           onClick={() => setActiveTab('notifications')}
           icon={Bell}
           label="Thiết lập thông báo"
+        />
+        <TabButton
+          active={activeTab === 'emailTemplates'}
+          onClick={() => setActiveTab('emailTemplates')}
+          icon={Mail}
+          label="Template email"
         />
       </div>
 
       {/* Content */}
       <div className="min-h-[500px]">
-        {activeTab === 'sidebar' ? <SidebarSettingsTab /> : <NotificationSettingsTab />}
+        {activeTab === 'sidebar' && <SidebarSettingsTab />}
+        {activeTab === 'notifications' && <NotificationSettingsTab />}
+        {activeTab === 'emailTemplates' && (
+          <EmailTemplateSettingsTab onOpenNotificationSettings={() => setActiveTab('notifications')} />
+        )}
       </div>
     </div>
   )

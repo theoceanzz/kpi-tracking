@@ -71,6 +71,17 @@ public class CycleUnitEvaluation {
     @Column(name = "finalized_at")
     private Instant finalizedAt;
 
+    /**
+     * Cấp bậc (level, rank) của người chốt, CHỤP LẠI lúc chốt.
+     * Không tính lại live vì người đó có thể được thăng/giáng chức sau khi chốt,
+     * làm đổi ý nghĩa của khoá cũ. Dùng để quyết định ai được mở khoá.
+     */
+    @Column(name = "finalized_role_level")
+    private Integer finalizedRoleLevel;
+
+    @Column(name = "finalized_role_rank")
+    private Integer finalizedRoleRank;
+
     @CreatedDate
     @Column(name = "created_at", updatable = false)
     private Instant createdAt;

@@ -4,6 +4,7 @@ import com.kpitracking.advisor.ResponseSanitizingAdvisor;
 import com.kpitracking.dto.response.ai.AiKpiSuggestionResponse;
 import com.kpitracking.entity.Organization;
 import com.kpitracking.exception.AiQuotaExceededException;
+import com.kpitracking.exception.BusinessException;
 import com.kpitracking.exception.ForbiddenException;
 import com.kpitracking.repository.OrganizationRepository;
 import com.kpitracking.service.ManagerContextResolver.ManagerContext;
@@ -211,6 +212,17 @@ public class AiService {
     }
 
     public List<AiKpiSuggestionResponse> suggestKpis(UUID orgUnitId) {
+        return suggestKpis(orgUnitId, null);
+    }
+
+    /**
+     * Gợi ý KPI cho đơn vị.
+     *
+     * @param context mô tả bối cảnh người dùng đang soạn (tên chỉ tiêu đang gõ, loại KPI,
+     *                đợt, mục tiêu liên quan). Có thì gợi ý bám sát việc họ đang làm thay vì
+     *                lặp lại cùng một bộ chung chung mỗi lần bấm.
+     */
+    public List<AiKpiSuggestionResponse> suggestKpis(UUID orgUnitId, String context) {
         ManagerContext ctx = managerContextResolver.resolve();
         if (ctx == null) {
             log.warn("User without manager/deputy role attempted to use suggestKpis");
@@ -226,7 +238,18 @@ public class AiService {
 
         log.info("Suggesting KPIs for orgUnitId: {}", orgUnitId);
 
-        String userPrompt = "Dựa trên dữ liệu thống kê hiện tại của đơn vị, hãy phân tích các điểm yếu, cơ hội và gợi ý 3-5 KPI phù hợp nhất để cải thiện hiệu suất trong kỳ tới.";
+        StringBuilder prompt = new StringBuilder(
+                "Dựa trên dữ liệu thống kê hiện tại của đơn vị, hãy phân tích các điểm yếu, cơ hội "
+                        + "và gợi ý 3-5 KPI phù hợp nhất để cải thiện hiệu suất trong kỳ tới.");
+        if (context != null && !context.isBlank()) {
+            // Cắt bớt phòng người dùng dán cả đoạn dài vào ô tên chỉ tiêu.
+            String trimmed = context.strip();
+            if (trimmed.length() > 500) trimmed = trimmed.substring(0, 500);
+            prompt.append("\n\nNgười dùng đang soạn một chỉ tiêu với bối cảnh sau: \"")
+                  .append(trimmed)
+                  .append("\". Hãy ưu tiên các gợi ý bám sát bối cảnh này.");
+        }
+        String userPrompt = prompt.toString();
 
         try {
             return chatClient.prompt()
@@ -242,7 +265,14 @@ public class AiService {
                     .entity(new ParameterizedTypeReference<>() {});
         } catch (Exception e) {
             log.error("Error suggesting KPIs: {}", e.getMessage(), e);
-            return new ArrayList<>();
+            // Hết credit / vượt giới hạn nhà cung cấp: ném ra để người dùng biết đúng lý do.
+            // Nuốt thành danh sách rỗng sẽ hiện "AI không tìm thấy gợi ý phù hợp" — sai hoàn toàn
+            // và không ai lần ra được là do tài khoản AI hết hạn mức.
+            if (AiUtils.isQuotaError(e)) {
+                throw new AiQuotaExceededException("quota exceeded", e);
+            }
+            throw new BusinessException(
+                    "Không lấy được gợi ý từ AI lúc này. Vui lòng thử lại sau ít phút.");
         } finally {
             disambiguationGuard.clear();
         }

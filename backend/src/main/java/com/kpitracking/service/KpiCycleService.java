@@ -121,6 +121,7 @@ public class KpiCycleService {
                 .build();
 
         cycle = kpiCycleRepository.save(cycle);
+        syncPeriods(cycle, request.getPeriodIds());
         return toResponse(cycle);
     }
 
@@ -147,6 +148,7 @@ public class KpiCycleService {
         }
 
         cycle = kpiCycleRepository.save(cycle);
+        syncPeriods(cycle, request.getPeriodIds());
         return toResponse(cycle);
     }
 
@@ -158,6 +160,48 @@ public class KpiCycleService {
         kpiPeriodRepository.detachFromCycle(id);
         cycle.setDeletedAt(Instant.now());
         kpiCycleRepository.save(cycle);
+    }
+
+    /**
+     * Đồng bộ danh sách đợt thuộc kỳ: gỡ các đợt không còn được chọn, gán các đợt mới chọn.
+     * Đợt đang thuộc kỳ khác sẽ được chuyển sang kỳ này.
+     * periodIds == null ⇒ giữ nguyên liên kết hiện tại.
+     */
+    private void syncPeriods(KpiCycle cycle, java.util.List<UUID> periodIds) {
+        if (periodIds == null) return;
+
+        java.util.Set<UUID> wanted = new java.util.LinkedHashSet<>(periodIds);
+
+        java.util.List<com.kpitracking.entity.KpiPeriod> current =
+                kpiPeriodRepository.findByKpiCycleIdOrderByStartDateAsc(cycle.getId());
+        for (com.kpitracking.entity.KpiPeriod period : current) {
+            if (!wanted.contains(period.getId())) {
+                period.setKpiCycle(null);
+                kpiPeriodRepository.save(period);
+            }
+        }
+
+        for (UUID periodId : wanted) {
+            com.kpitracking.entity.KpiPeriod period = kpiPeriodRepository.findById(periodId)
+                    .orElseThrow(() -> new ResourceNotFoundException("Đợt KPI", "id", periodId));
+
+            if (!period.getOrganization().getId().equals(cycle.getOrganization().getId())) {
+                throw new IllegalArgumentException(
+                        "Đợt \"" + period.getName() + "\" không thuộc tổ chức của kỳ");
+            }
+
+            Instant cycleStart = cycle.getStartDate();
+            Instant cycleEnd = cycle.getEndDate();
+            if (cycleStart != null && cycleEnd != null
+                    && period.getStartDate() != null && period.getEndDate() != null
+                    && (period.getStartDate().isBefore(cycleStart) || period.getEndDate().isAfter(cycleEnd))) {
+                throw new IllegalArgumentException(
+                        "Thời gian đợt \"" + period.getName() + "\" phải nằm trong thời gian của kỳ \"" + cycle.getName() + "\"");
+            }
+
+            period.setKpiCycle(cycle);
+            kpiPeriodRepository.save(period);
+        }
     }
 
     /**

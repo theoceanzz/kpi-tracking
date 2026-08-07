@@ -1,12 +1,14 @@
 import { useState, useMemo, useEffect, Fragment } from 'react'
 import { useAuthStore } from '@/store/authStore'
 import { useKpiCycles } from '../hooks/useKpiCycles'
-import { useUnitCycleSummary } from '../hooks/useCycleEvaluation'
+import { useUnitCycleSummary, useCycleApprovalChain } from '../hooks/useCycleEvaluation'
+import CycleApprovalTimeline from '../components/CycleApprovalTimeline'
+import SendEvaluationModal from '../components/SendEvaluationModal'
 import { useOrgUnitTree } from '@/features/orgunits/hooks/useOrgUnitTree'
 import { useOrganization } from '@/features/orgunits/hooks/useOrganization'
 import { useHasPermission } from '@/components/auth/PermissionGate'
 import { getScoringFunctions } from '@/lib/scoring'
-import { exportCycleEvaluationToExcel } from '../utils/cycleEvaluationExport'
+import { exportCycleEvaluationToExcel, exportCycleMemberDetailToExcel } from '../utils/cycleEvaluationExport'
 import { toast } from 'sonner'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import LoadingSkeleton from '@/components/common/LoadingSkeleton'
@@ -16,7 +18,7 @@ import { format, parseISO } from 'date-fns'
 import type { CycleEvaluationMode, CycleUserEvaluation, CyclePeriodBreakdown } from '@/types/kpi'
 import {
   CalendarRange, Building2, Search, Award, ChevronRight, CheckCircle2, Lock, LockOpen, MessageSquare,
-  ArrowUpDown, ArrowUp, ArrowDown, AlertTriangle, FileSpreadsheet
+  ArrowUpDown, ArrowUp, ArrowDown, AlertTriangle, FileSpreadsheet, Download, Loader2, Mail
 } from 'lucide-react'
 
 const MODE_LABEL: Record<CycleEvaluationMode, string> = {
@@ -41,6 +43,7 @@ export default function CycleEvaluationPage() {
   const orgId = user?.memberships?.[0]?.organizationId
   const { hasPermission } = useHasPermission()
   const canFinalize = hasPermission('CYCLE_EVAL:FINALIZE')
+  const canSend = hasPermission('CYCLE_EVAL:SEND')
 
   const { data: org } = useOrganization(orgId)
   const { getScoreColor, getScoreBg, getScoreLabel, maxScore } = getScoringFunctions(org)
@@ -56,6 +59,7 @@ export default function CycleEvaluationPage() {
   const [search, setSearch] = useState('')
   const [detailMember, setDetailMember] = useState<CycleUserEvaluation | null>(null)
   const [showFinalize, setShowFinalize] = useState(false)
+  const [showSend, setShowSend] = useState(false)
   const [comment, setComment] = useState('')
   const [sortConfig, setSortConfig] = useState<{ key: SortKey; direction: 'asc' | 'desc' }>({ key: 'userName', direction: 'asc' })
 
@@ -65,9 +69,16 @@ export default function CycleEvaluationPage() {
   const {
     data: summary, isLoading, finalize, isFinalizing,
     reopen, isReopening, saveUserScore, isSavingUserScore,
+    sendEvaluation, isSending,
   } = useUnitCycleSummary(cycleId, orgUnitId)
 
   const isFinalized = summary?.status === 'FINALIZED'
+
+  // Chuỗi duyệt: đơn vị đang xem → các đơn vị cha lên tới gốc.
+  // Server tính sẵn quyền chốt/mở khoá nên nút chỉ việc bám theo, thay vì
+  // bấm rồi mới ăn 403.
+  const { data: chain, isLoading: isChainLoading } = useCycleApprovalChain(cycleId, orgUnitId)
+  const currentStep = chain?.find(s => s.current)
 
   // Giữ modal đồng bộ với dữ liệu mới sau khi lưu điểm.
   const activeMember = detailMember
@@ -111,6 +122,21 @@ export default function CycleEvaluationPage() {
       toast.error('Xuất Excel thất bại')
     } finally {
       setIsExporting(false)
+    }
+  }
+
+  // Xuất chi tiết của riêng 1 nhân viên (kèm điểm từng đợt trong kỳ).
+  const [exportingUserId, setExportingUserId] = useState<string | null>(null)
+  const handleExportMember = async (member: CycleUserEvaluation) => {
+    if (!summary) return
+    setExportingUserId(member.userId)
+    try {
+      await exportCycleMemberDetailToExcel(member, summary, { maxScore, getScoreLabel })
+      toast.success(`Đã xuất chi tiết của ${member.userName}`)
+    } catch {
+      toast.error('Xuất Excel thất bại')
+    } finally {
+      setExportingUserId(null)
     }
   }
 
@@ -268,50 +294,83 @@ export default function CycleEvaluationPage() {
 
           {/* Trạng thái chốt + hành động */}
           {summary && (
-            <div className="flex flex-col sm:flex-row sm:items-center gap-3 pt-4 border-t border-slate-100 dark:border-slate-800">
-              <span className="inline-flex items-center px-3 py-1.5 rounded-xl bg-slate-50 dark:bg-slate-800 text-[10px] font-black uppercase tracking-widest text-slate-500 border border-slate-100 dark:border-slate-700">
-                Chế độ: {MODE_LABEL[summary.mode]}
-              </span>
-              {summary.status === 'FINALIZED' ? (
-                <span
-                title={summary.fromSnapshot ? 'Các con số là bản chụp lúc chốt — sửa đánh giá đợt cũ không làm đổi số này' : undefined}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400 text-[10px] font-black uppercase tracking-widest border border-emerald-100 dark:border-emerald-800/50"
-                >
-                  <CheckCircle2 size={12} /> Đã chốt{summary.fromSnapshot && ' · số đã lưu'}
-                  {summary.finalizedByName && <span className="normal-case font-bold opacity-80">· {summary.finalizedByName}</span>}
-                  {summary.finalizedAt && <span className="normal-case font-bold opacity-60">· {format(parseISO(summary.finalizedAt), 'HH:mm dd/MM/yyyy')}</span>}
+            <div className="flex flex-col lg:flex-row lg:items-center gap-3 pt-4 border-t border-slate-100 dark:border-slate-800">
+              {/* Nhóm thông tin: co lại và cắt bớt khi hẹp, nhường chỗ cho nhóm nút.
+                  Mỗi nhãn đều nowrap để không bị gãy giữa cụm từ như "Đã chốt · số đã lưu". */}
+              <div className="flex flex-wrap items-center gap-2 min-w-0">
+                <span className="inline-flex items-center px-3 py-1.5 rounded-xl bg-slate-50 dark:bg-slate-800 text-[10px] font-black uppercase tracking-widest text-slate-500 border border-slate-100 dark:border-slate-700 whitespace-nowrap">
+                  Chế độ: {MODE_LABEL[summary.mode]}
                 </span>
-              ) : (
-                <span className="inline-flex items-center px-3 py-1.5 rounded-xl bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400 text-[10px] font-black uppercase tracking-widest border border-amber-100 dark:border-amber-800/50">
-                  Bản nháp
-                </span>
-              )}
-              {summary.comment && (
-                <span className="flex items-start gap-1.5 text-xs text-slate-500 dark:text-slate-400 max-w-lg">
-                  <MessageSquare size={14} className="mt-0.5 shrink-0" /> {summary.comment}
-                </span>
-              )}
-              <div className="flex items-center gap-3 sm:ml-auto">
+
+                {summary.status === 'FINALIZED' ? (
+                  <span
+                    title={summary.fromSnapshot ? 'Các con số là bản chụp lúc chốt — sửa đánh giá đợt cũ không làm đổi số này' : undefined}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400 text-[10px] font-black uppercase tracking-widest border border-emerald-100 dark:border-emerald-800/50 whitespace-nowrap"
+                  >
+                    <CheckCircle2 size={12} /> Đã chốt{summary.fromSnapshot && ' · số đã lưu'}
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center px-3 py-1.5 rounded-xl bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400 text-[10px] font-black uppercase tracking-widest border border-amber-100 dark:border-amber-800/50 whitespace-nowrap">
+                    Bản nháp
+                  </span>
+                )}
+
+                {/* Người chốt + thời điểm tách khỏi huy hiệu: nhét chung làm huy hiệu
+                    dài gấp ba và là thủ phạm khiến nó xuống dòng. */}
+                {summary.status === 'FINALIZED' && (summary.finalizedByName || summary.finalizedAt) && (
+                  <span className="text-[11px] font-bold text-slate-400 whitespace-nowrap">
+                    {summary.finalizedByName}
+                    {summary.finalizedByName && summary.finalizedAt && ' · '}
+                    {summary.finalizedAt && format(parseISO(summary.finalizedAt), 'HH:mm dd/MM/yyyy')}
+                  </span>
+                )}
+
+                {summary.comment && (
+                  <span
+                    title={summary.comment}
+                    className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400 min-w-0 max-w-xs"
+                  >
+                    <MessageSquare size={14} className="shrink-0" />
+                    <span className="truncate">{summary.comment}</span>
+                  </span>
+                )}
+              </div>
+
+              {/* Nhóm nút: không cho co, luôn nằm trên một hàng riêng khi hẹp. */}
+              <div className="flex flex-wrap items-center gap-2 lg:ml-auto shrink-0">
                 <button
                   onClick={handleExport}
                   disabled={isExporting || !summary?.members?.length}
-                  className="flex items-center justify-center gap-2 px-5 h-11 rounded-2xl border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 text-[11px] font-black uppercase tracking-widest hover:bg-slate-50 dark:hover:bg-slate-800 transition-all active:scale-95 whitespace-nowrap disabled:opacity-50"
+                  className="flex items-center justify-center gap-2 px-4 h-11 rounded-2xl border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 text-[11px] font-black uppercase tracking-widest hover:bg-slate-50 dark:hover:bg-slate-800 transition-all active:scale-95 whitespace-nowrap disabled:opacity-50"
                 >
                   <FileSpreadsheet size={14} /> {isExporting ? 'Đang xuất...' : 'Xuất Excel'}
                 </button>
+                {canSend && (
+                  <button
+                    onClick={() => setShowSend(true)}
+                    disabled={!summary?.members?.length}
+                    title="Gửi kết quả đánh giá kỳ qua email cho nhân viên"
+                    className="flex items-center justify-center gap-2 px-4 h-11 rounded-2xl border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 text-[11px] font-black uppercase tracking-widest hover:bg-slate-50 dark:hover:bg-slate-800 transition-all active:scale-95 whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <Mail size={14} /> Gửi đánh giá
+                  </button>
+                )}
                 {canFinalize && (
                   isFinalized ? (
                     <button
                       onClick={() => reopen()}
-                      disabled={isReopening}
-                      className="flex items-center justify-center gap-2 px-6 h-11 rounded-2xl border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 text-[11px] font-black uppercase tracking-widest hover:bg-slate-50 dark:hover:bg-slate-800 transition-all active:scale-95 whitespace-nowrap disabled:opacity-50"
+                      disabled={isReopening || (!!currentStep && !currentStep.canReopen)}
+                      title={currentStep?.canReopen === false ? currentStep.blockedReason || undefined : undefined}
+                      className="flex items-center justify-center gap-2 px-5 h-11 rounded-2xl border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 text-[11px] font-black uppercase tracking-widest hover:bg-slate-50 dark:hover:bg-slate-800 transition-all active:scale-95 whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       <LockOpen size={14} /> {isReopening ? 'Đang mở khoá...' : 'Mở khoá để chỉnh'}
                     </button>
                   ) : (
                     <button
                       onClick={() => setShowFinalize(true)}
-                      className="flex items-center justify-center gap-2 px-6 h-11 rounded-2xl bg-emerald-600 text-white text-[11px] font-black uppercase tracking-widest hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-500/20 active:scale-95 whitespace-nowrap"
+                      disabled={!!currentStep && !currentStep.canFinalize}
+                      title={currentStep?.canFinalize === false ? currentStep.blockedReason || undefined : undefined}
+                      className="flex items-center justify-center gap-2 px-5 h-11 rounded-2xl bg-emerald-600 text-white text-[11px] font-black uppercase tracking-widest hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-500/20 active:scale-95 whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none"
                     >
                       <Lock size={14} /> Chốt đánh giá phòng ban
                     </button>
@@ -321,6 +380,15 @@ export default function CycleEvaluationPage() {
             </div>
           )}
         </div>
+
+        {/* Luồng duyệt theo cấp: Trưởng đơn vị → các cấp trên → Giám đốc */}
+        <CycleApprovalTimeline
+          steps={chain || []}
+          isLoading={isChainLoading}
+          getScoreColor={getScoreColor}
+          getScoreLabel={getScoreLabel}
+          onSelectUnit={setOrgUnitId}
+        />
 
         {/* Cảnh báo: chế độ Định tính nhưng chưa có KPI định tính nào được chấm */}
         {noQualitativeData && (
@@ -428,9 +496,21 @@ export default function CycleEvaluationPage() {
                             : <span className="text-xs font-bold text-slate-300 dark:text-slate-600">—</span>}
                         </td>
                         <td className="px-4 py-4 text-right">
-                          <button className="p-2.5 text-slate-400 hover:text-emerald-600 hover:bg-white dark:hover:bg-slate-800 rounded-xl transition-all shadow-sm border border-transparent hover:border-emerald-200 dark:hover:border-slate-700">
-                            <ChevronRight size={20} />
-                          </button>
+                          <div className="flex items-center justify-end gap-1">
+                            <button
+                              onClick={e => { e.stopPropagation(); handleExportMember(m) }}
+                              disabled={exportingUserId === m.userId}
+                              title={`Xuất chi tiết đánh giá kỳ của ${m.userName}`}
+                              className="p-2.5 text-slate-400 hover:text-emerald-600 hover:bg-white dark:hover:bg-slate-800 rounded-xl transition-all shadow-sm border border-transparent hover:border-emerald-200 dark:hover:border-slate-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                              {exportingUserId === m.userId
+                                ? <Loader2 size={18} className="animate-spin" />
+                                : <Download size={18} />}
+                            </button>
+                            <button className="p-2.5 text-slate-400 hover:text-emerald-600 hover:bg-white dark:hover:bg-slate-800 rounded-xl transition-all shadow-sm border border-transparent hover:border-emerald-200 dark:hover:border-slate-700">
+                              <ChevronRight size={20} />
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     </Fragment>
@@ -451,6 +531,16 @@ export default function CycleEvaluationPage() {
                       <span className="text-sm font-bold text-slate-900 dark:text-white block truncate">{m.userName}</span>
                       <span className="text-[10px] text-slate-400 font-medium">{m.orgUnitName || 'Nhân viên'}</span>
                     </div>
+                    <button
+                      onClick={e => { e.stopPropagation(); handleExportMember(m) }}
+                      disabled={exportingUserId === m.userId}
+                      title={`Xuất chi tiết đánh giá kỳ của ${m.userName}`}
+                      className="p-2 text-slate-400 hover:text-emerald-600 rounded-xl transition-colors disabled:opacity-50"
+                    >
+                      {exportingUserId === m.userId
+                        ? <Loader2 size={16} className="animate-spin" />
+                        : <Download size={16} />}
+                    </button>
                     <ChevronRight size={18} className="text-slate-400" />
                   </div>
                   <div className="flex flex-wrap items-center gap-3">
@@ -516,6 +606,19 @@ export default function CycleEvaluationPage() {
               </div>
             </div>
           </div>
+        )}
+
+        {/* Render có điều kiện để lựa chọn nhân viên tự reset mỗi lần mở lại. */}
+        {showSend && (
+          <SendEvaluationModal
+            onClose={() => setShowSend(false)}
+            members={summary?.members || []}
+            cycleName={summary?.cycleName}
+            orgUnitName={summary?.orgUnitName}
+            isFinalized={isFinalized}
+            isSending={isSending}
+            onSend={sendEvaluation}
+          />
         )}
       </div>
     </div>

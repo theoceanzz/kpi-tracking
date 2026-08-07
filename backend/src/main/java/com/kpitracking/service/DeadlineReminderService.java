@@ -107,7 +107,8 @@ public class DeadlineReminderService {
             notificationService.createNotification(kpi.getOrgUnit(), user, title, message, "DEADLINE_REMINDER", kpi.getId());
         }
         if (orgNotificationConfigService.isEmailEnabled(orgId, "reminder_deadline")) {
-            emailService.sendNotificationEmail(user.getEmail(), title, message);
+            emailService.sendEventNotificationEmail(orgId, "reminder_deadline", user.getEmail(),
+                    user.getFullName(), title, message);
         }
 
         // 3. Record that we sent it

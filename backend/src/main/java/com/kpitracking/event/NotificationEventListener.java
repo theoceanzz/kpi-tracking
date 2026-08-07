@@ -54,7 +54,9 @@ public class NotificationEventListener {
             notificationService.createNotification(orgUnit, recipient, title, message, type, referenceId);
         }
         if (sendEmail) {
-            emailService.sendNotificationEmail(recipient.getEmail(), title, message);
+            // Gửi theo đúng mã sự kiện để dùng template mà tổ chức đã tuỳ chỉnh cho sự kiện đó.
+            emailService.sendEventNotificationEmail(orgId, eventCode, recipient.getEmail(),
+                    recipient.getFullName(), title, message);
         }
     }
 

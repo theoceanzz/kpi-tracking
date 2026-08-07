@@ -249,7 +249,7 @@ export default function KpiImportGuideModal({ open, onClose, onSelectFile }: Kpi
   if (!open) return null
 
   return (
-    <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
+    <div className="fixed inset-x-0 top-0 h-screen z-[200] flex items-center justify-center p-4">
       {/* Overlay */}
       <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
 

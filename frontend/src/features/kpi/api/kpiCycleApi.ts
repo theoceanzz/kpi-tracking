@@ -1,6 +1,6 @@
 import axiosInstance from '@/lib/axios'
 import type { ApiResponse, PageResponse } from '@/types/api'
-import type { KpiCycle } from '@/types/kpi'
+import type { KpiCycle, KpiCyclePayload } from '@/types/kpi'
 
 export const kpiCycleApi = {
   getAll: (params: {
@@ -16,10 +16,10 @@ export const kpiCycleApi = {
   }) =>
     axiosInstance.get<ApiResponse<PageResponse<KpiCycle>>>('/kpi-cycles', { params }).then((r) => r.data.data),
 
-  create: (data: Partial<KpiCycle>) =>
+  create: (data: KpiCyclePayload) =>
     axiosInstance.post<ApiResponse<KpiCycle>>('/kpi-cycles', data).then((r) => r.data.data),
 
-  update: (id: string, data: Partial<KpiCycle>) =>
+  update: (id: string, data: KpiCyclePayload) =>
     axiosInstance.put<ApiResponse<KpiCycle>>(`/kpi-cycles/${id}`, data).then((r) => r.data.data),
 
   delete: (id: string) =>

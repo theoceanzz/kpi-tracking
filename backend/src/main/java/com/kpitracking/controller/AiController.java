@@ -69,7 +69,8 @@ public class AiController {
     public ResponseEntity<ApiResponse<List<AiKpiSuggestionResponse>>> suggestKpi(
             @RequestBody AiKpiSuggestionRequest request) {
         aiRateLimiter.check(currentUserEmail());
-        List<AiKpiSuggestionResponse> suggestions = aiService.suggestKpis(request.getOrgUnitId());
+        List<AiKpiSuggestionResponse> suggestions =
+                aiService.suggestKpis(request.getOrgUnitId(), request.getContext());
         return ResponseEntity.ok(ApiResponse.success(suggestions));
     }
 

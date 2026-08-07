@@ -226,4 +226,27 @@ public class PermissionChecker {
                 .min(Integer::compare)
                 .orElse(4);
     }
+
+    /**
+     * Khoá sắp xếp thâm niên trong một OrgUnit: {@code level * 1000 + rank}.
+     * NHỎ hơn = cấp cao hơn. Gộp 2 trục (level, rank) thành 1 số để so sánh
+     * "ai trên ai" chỉ bằng một phép so sánh thay vì lặp lại biểu thức lexicographic.
+     */
+    public int seniorityKeyInOrgUnit(UUID userId, UUID orgUnitId) {
+        return getMinLevelInOrgUnit(userId, orgUnitId) * 1000 + getMinRankInOrgUnit(userId, orgUnitId);
+    }
+
+    /** Tên vai trò tốt nhất (cấp cao nhất) của user áp dụng cho OrgUnit này. */
+    public String getBestRoleNameInOrgUnit(UUID userId, UUID orgUnitId) {
+        OrgUnit targetUnit = orgUnitRepository.findById(orgUnitId).orElse(null);
+        if (targetUnit == null) return null;
+
+        return userRoleOrgUnitRepository.findByUserId(userId).stream()
+                .filter(a -> targetUnit.getPath().startsWith(a.getOrgUnit().getPath()))
+                .min(Comparator
+                        .comparingInt((UserRoleOrgUnit a) -> a.getRole().getLevel() != null ? a.getRole().getLevel() : 4)
+                        .thenComparingInt(a -> a.getRole().getRank() != null ? a.getRole().getRank() : 2))
+                .map(a -> a.getRole().getName())
+                .orElse(null);
+    }
 }

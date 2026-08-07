@@ -25,8 +25,9 @@ public class KpiCycleRequest {
 
     private String description;
 
-    /** Chế độ đánh giá cuối kỳ (mặc định BOTH nếu null). */
     private com.kpitracking.enums.CycleEvaluationMode evaluationMode;
 
     private UUID organizationId;
+
+    private java.util.List<UUID> periodIds;
 }

@@ -397,19 +397,29 @@ function FeatureChip({ icon: Icon, label, enabled }: { icon: any; label: string;
   )
 }
 
+/** Dải màu mặc định dùng chung cho cả thang điểm định lượng & định tính (thấp → cao). */
+const DEFAULT_LEVEL_COLORS = ['#ef4444', '#f59e0b', '#6366f1', '#3b82f6', '#10b981']
+const FALLBACK_LEVEL_COLOR = '#6366f1'
+
 function ScoringConfigSection({ org }: { org: any }) {
   const updateMutation = useUpdateOrganization(org.id)
   const [isEditing, setIsEditing] = useState(false)
   const [maxScore, setMaxScore] = useState(org?.evaluationMaxScore || 100)
 
-  const { register, control, handleSubmit, reset, watch } = useForm({
-    defaultValues: {
-      evaluationLevels: (org?.evaluationLevels || []).map((l: any) => ({
+  // Hiển thị từ thấp lên cao (đồng bộ với thang điểm định tính)
+  const mapLevels = (levels: any[]) =>
+    [...(levels || [])]
+      .sort((a, b) => (a.threshold ?? 0) - (b.threshold ?? 0))
+      .map((l: any) => ({
         id: l.id,
         name: l.name,
         threshold: l.threshold,
-        color: l.color || '#10b981'
+        color: l.color || FALLBACK_LEVEL_COLOR
       }))
+
+  const { register, control, handleSubmit, reset, watch } = useForm({
+    defaultValues: {
+      evaluationLevels: mapLevels(org?.evaluationLevels)
     }
   })
 
@@ -422,14 +432,7 @@ function ScoringConfigSection({ org }: { org: any }) {
 
   useEffect(() => {
     if (org?.evaluationLevels) {
-      reset({
-        evaluationLevels: org.evaluationLevels.map((l: any) => ({
-          id: l.id,
-          name: l.name,
-          threshold: l.threshold,
-          color: l.color || '#10b981'
-        }))
-      })
+      reset({ evaluationLevels: mapLevels(org.evaluationLevels) })
       setMaxScore(org.evaluationMaxScore || 100)
     }
   }, [org, reset])
@@ -465,11 +468,11 @@ function ScoringConfigSection({ org }: { org: any }) {
 
   const handleResetToDefault = () => {
     const defaultLevels = [
-      { name: 'XUẤT SẮC', threshold: 90, color: '#10b981' },
-      { name: 'TỐT', threshold: 80, color: '#3b82f6' },
-      { name: 'KHÁ', threshold: 70, color: '#f59e0b' },
-      { name: 'TRUNG BÌNH', threshold: 50, color: '#6366f1' },
-      { name: 'YẾU', threshold: 0, color: '#ef4444' },
+      { name: 'YẾU', threshold: 0, color: DEFAULT_LEVEL_COLORS[0] },
+      { name: 'TRUNG BÌNH', threshold: 50, color: DEFAULT_LEVEL_COLORS[1] },
+      { name: 'KHÁ', threshold: 70, color: DEFAULT_LEVEL_COLORS[2] },
+      { name: 'TỐT', threshold: 80, color: DEFAULT_LEVEL_COLORS[3] },
+      { name: 'XUẤT SẮC', threshold: 90, color: DEFAULT_LEVEL_COLORS[4] },
     ]
     
     updateMutation.mutate({
@@ -547,7 +550,7 @@ function ScoringConfigSection({ org }: { org: any }) {
                   {isEditing && (
                     <button 
                       type="button"
-                      onClick={() => append({ name: 'MỨC MỚI', threshold: 0, color: '#3b82f6' })}
+                      onClick={() => append({ id: undefined, name: 'MỨC MỚI', threshold: 0, color: '#3b82f6' })}
                       className="text-[10px] font-bold text-indigo-600 hover:text-indigo-700 flex items-center gap-1"
                     >
                       <Plus size={14} /> Thêm mức
@@ -644,11 +647,11 @@ function ScoringConfigSection({ org }: { org: any }) {
 }
 
 const DEFAULT_QUALITATIVE_LEVELS = [
-  { name: 'KÉM', value: 0, position: 1, scorePercent: 0, color: '#ef4444' },
-  { name: 'YẾU', value: 2, position: 2, scorePercent: 40, color: '#f59e0b' },
-  { name: 'TRUNG BÌNH', value: 3, position: 3, scorePercent: 60, color: '#6366f1' },
-  { name: 'KHÁ', value: 3.5, position: 4, scorePercent: 80, color: '#3b82f6' },
-  { name: 'TỐT', value: 4.5, position: 5, scorePercent: 100, color: '#10b981' },
+  { name: 'KÉM', value: 0, position: 1, scorePercent: 0, color: DEFAULT_LEVEL_COLORS[0] },
+  { name: 'YẾU', value: 2, position: 2, scorePercent: 40, color: DEFAULT_LEVEL_COLORS[1] },
+  { name: 'TRUNG BÌNH', value: 3, position: 3, scorePercent: 60, color: DEFAULT_LEVEL_COLORS[2] },
+  { name: 'KHÁ', value: 3.5, position: 4, scorePercent: 80, color: DEFAULT_LEVEL_COLORS[3] },
+  { name: 'TỐT', value: 4.5, position: 5, scorePercent: 100, color: DEFAULT_LEVEL_COLORS[4] },
 ]
 
 function QualitativeConfigSection({ org }: { org: any }) {
@@ -664,7 +667,7 @@ function QualitativeConfigSection({ org }: { org: any }) {
         value: l.value,
         position: l.position,
         scorePercent: l.scorePercent ?? 0,
-        color: l.color || '#6366f1',
+        color: l.color || FALLBACK_LEVEL_COLOR,
       }))
 
   const { register, control, handleSubmit, reset, watch } = useForm({

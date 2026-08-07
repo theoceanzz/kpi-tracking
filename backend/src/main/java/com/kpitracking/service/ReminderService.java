@@ -36,16 +36,15 @@ public class ReminderService {
         String message = String.format("Bạn có lời nhắc nộp báo cáo cho KPI: %s. Vui lòng hoàn thành sớm.", criteria.getName());
         notificationService.createNotification(criteria.getOrgUnit(), employee, title, message, "KPI_REMINDER", kpiCriteriaId);
 
-        // 2. Send Email
-        String emailSubject = "[KeyGo] Nhắc nhở nộp báo cáo KPI: " + criteria.getName();
+        // 2. Send Email — qua template reminder_deadline để tổ chức tự chỉnh được nội dung.
         String emailContent = String.format(
-                "<p>Xin chào <b>%s</b>,</p>" +
-                "<p>Bạn nhận được lời nhắc nộp báo cáo cho chỉ tiêu KPI: <b>%s</b> thuộc đợt <b>%s</b>.</p>" +
-                "<p>Vui lòng đăng nhập hệ thống để cập nhật kết quả thực hiện.</p>" +
-                "<p>Trân trọng,<br>Ban Quản lý KPI</p>",
-                employee.getFullName(), criteria.getName(), criteria.getKpiPeriod().getName()
+                "Bạn nhận được lời nhắc nộp báo cáo cho chỉ tiêu KPI: <b>%s</b> thuộc đợt <b>%s</b>. " +
+                "Vui lòng đăng nhập hệ thống để cập nhật kết quả thực hiện.",
+                criteria.getName(), criteria.getKpiPeriod().getName()
         );
-        emailService.sendNotificationEmail(employee.getEmail(), emailSubject, emailContent);
+        java.util.UUID orgId = criteria.getOrgUnit().getOrgHierarchyLevel().getOrganization().getId();
+        emailService.sendEventNotificationEmail(orgId, "reminder_deadline", employee.getEmail(),
+                employee.getFullName(), "[KeyGo] Nhắc nhở nộp báo cáo KPI: " + criteria.getName(), emailContent);
 
         // 3. Log Reminder
         KpiReminder reminder = KpiReminder.builder()

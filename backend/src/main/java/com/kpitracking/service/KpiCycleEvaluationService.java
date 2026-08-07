@@ -1,9 +1,12 @@
 package com.kpitracking.service;
 
+import com.kpitracking.dto.response.kpi.CycleApprovalStepResponse;
+import com.kpitracking.dto.response.kpi.CycleUnitEvalEventResponse;
 import com.kpitracking.dto.response.kpi.CycleUnitEvaluationResponse;
 import com.kpitracking.dto.response.kpi.CycleUserEvaluationResponse;
 import com.kpitracking.entity.*;
 import com.kpitracking.enums.CycleEvaluationMode;
+import com.kpitracking.enums.CycleUnitEvalAction;
 import com.kpitracking.enums.CycleUnitEvalStatus;
 import com.kpitracking.exception.ResourceNotFoundException;
 import com.kpitracking.repository.*;
@@ -32,6 +35,7 @@ public class KpiCycleEvaluationService {
     private final UserRoleOrgUnitRepository userRoleOrgUnitRepository;
     private final UserRepository userRepository;
     private final CycleUnitEvaluationRepository cycleUnitEvaluationRepository;
+    private final CycleUnitEvalEventRepository cycleUnitEvalEventRepository;
     private final CycleUserEvaluationRepository cycleUserEvaluationRepository;
     private final EvaluationService evaluationService;
     private final com.kpitracking.security.PermissionChecker permissionChecker;
@@ -267,12 +271,28 @@ public class KpiCycleEvaluationService {
                 .orElseThrow(() -> new ResourceNotFoundException("Đơn vị", "id", orgUnitId));
         assertCanManageUnit(orgUnitId);
 
+        // Cấp trên đã chốt ⇒ khoá kế thừa xuống, không được chốt lại từ dưới.
+        OrgUnit ancestor = lockingAncestor(unit, finalizedUnits(cycleId));
+        if (ancestor != null) {
+            throw new IllegalArgumentException("Đơn vị cấp trên \"" + ancestor.getName()
+                    + "\" đã chốt kỳ. Hãy mở khoá ở đơn vị đó trước khi chốt lại.");
+        }
+
         // Luôn TÍNH LẠI từ thành viên khi chốt (kể cả chốt lại), không lấy snapshot cũ.
         CycleUnitEvaluationResponse summary = computeUnitSummary(cycleId, orgUnitId);
 
         CycleUnitEvaluation entity = cycleUnitEvaluationRepository
                 .findByKpiCycleIdAndOrgUnitId(cycleId, orgUnitId)
                 .orElseGet(() -> CycleUnitEvaluation.builder().kpiCycle(cycle).orgUnit(unit).build());
+
+        User current = getCurrentUser();
+
+        // Chốt ĐÈ lên bản đã chốt cũng là một cách gỡ khoá của người khác
+        // (finalizedBy bị ghi lại thành mình), nên phải qua đúng luật mở khoá.
+        if (entity.getStatus() == CycleUnitEvalStatus.FINALIZED) {
+            String denial = reopenDenialReason(entity, current.getId(), orgUnitId);
+            if (denial != null) throw new com.kpitracking.exception.ForbiddenException(denial);
+        }
 
         entity.setEvaluationMode(summary.getMode());
         entity.setSelfScore(summary.getSelfScore());
@@ -282,9 +302,15 @@ public class KpiCycleEvaluationService {
         entity.setMemberCount(summary.getMemberCount());
         entity.setComment(comment);
         entity.setStatus(CycleUnitEvalStatus.FINALIZED);
-        entity.setFinalizedBy(getCurrentUser());
+        entity.setFinalizedBy(current);
         entity.setFinalizedAt(Instant.now());
+        // Chụp cấp bậc lúc chốt: người này có thể được thăng/giáng chức sau đó,
+        // tính lại live sẽ làm đổi ý nghĩa của khoá.
+        entity.setFinalizedRoleLevel(permissionChecker.getMinLevelInOrgUnit(current.getId(), orgUnitId));
+        entity.setFinalizedRoleRank(permissionChecker.getMinRankInOrgUnit(current.getId(), orgUnitId));
         cycleUnitEvaluationRepository.save(entity);
+
+        recordEvent(cycle, unit, CycleUnitEvalAction.FINALIZE, current, summary, comment);
 
         return getUnitCycleSummary(cycleId, orgUnitId);
     }
@@ -297,10 +323,26 @@ public class KpiCycleEvaluationService {
                 .findByKpiCycleIdAndOrgUnitId(cycleId, orgUnitId)
                 .orElseThrow(() -> new ResourceNotFoundException("Đánh giá kỳ của phòng ban", "orgUnitId", orgUnitId));
 
+        // Khoá kế thừa xuống ⇒ phải mở từ trên xuống.
+        OrgUnit ancestor = lockingAncestor(entity.getOrgUnit(), finalizedUnits(cycleId));
+        if (ancestor != null) {
+            throw new IllegalArgumentException("Đơn vị cấp trên \"" + ancestor.getName()
+                    + "\" đang chốt kỳ. Hãy mở khoá ở đơn vị đó trước.");
+        }
+
+        User current = getCurrentUser();
+        String denial = reopenDenialReason(entity, current.getId(), orgUnitId);
+        if (denial != null) throw new com.kpitracking.exception.ForbiddenException(denial);
+
         entity.setStatus(CycleUnitEvalStatus.DRAFT);
         entity.setFinalizedBy(null);
         entity.setFinalizedAt(null);
+        entity.setFinalizedRoleLevel(null);
+        entity.setFinalizedRoleRank(null);
         cycleUnitEvaluationRepository.save(entity);
+
+        recordEvent(entity.getKpiCycle(), entity.getOrgUnit(), CycleUnitEvalAction.REOPEN,
+                current, null, null);
 
         return getUnitCycleSummary(cycleId, orgUnitId);
     }
@@ -315,6 +357,60 @@ public class KpiCycleEvaluationService {
             throw new com.kpitracking.exception.ForbiddenException(
                     "Bạn không có quyền chốt hoặc mở khoá đánh giá kỳ của đơn vị này");
         }
+    }
+
+    /**
+     * Lý do KHÔNG được mở khoá, hoặc null nếu được phép.
+     *
+     * <p>Luật: chỉ người có cấp bậc TƯƠNG ĐƯƠNG hoặc CAO HƠN người đã chốt mới mở được.
+     * So theo cặp (level, rank) — nhỏ hơn là cao hơn — nên Phó phòng (rank 1) không
+     * mở được khoá do Trưởng phòng (rank 0) cùng đơn vị đặt. Người tự chốt luôn tự mở
+     * được của mình, và global admin bỏ qua toàn bộ kiểm tra này.
+     */
+    private String reopenDenialReason(CycleUnitEvaluation entity, UUID currentUserId, UUID orgUnitId) {
+        User locker = entity.getFinalizedBy();
+        if (locker == null) return null;                                   // không rõ ai chốt ⇒ không chặn
+        if (locker.getId().equals(currentUserId)) return null;             // tự mở khoá của mình
+        if (permissionChecker.isGlobalAdmin(currentUserId)) return null;
+
+        // Ưu tiên snapshot; bản ghi cũ chưa có snapshot thì tính lại live.
+        int lockedLevel = entity.getFinalizedRoleLevel() != null
+                ? entity.getFinalizedRoleLevel()
+                : permissionChecker.getMinLevelInOrgUnit(locker.getId(), orgUnitId);
+        int lockedRank = entity.getFinalizedRoleRank() != null
+                ? entity.getFinalizedRoleRank()
+                : permissionChecker.getMinRankInOrgUnit(locker.getId(), orgUnitId);
+
+        // seniorityKey gộp (level, rank) thành 1 số, NHỎ hơn = cấp cao hơn.
+        // "<=" nghĩa là tương đương cũng được, nhưng vì rank nằm trong khoá nên
+        // Phó (rank 1) vẫn thua Trưởng (rank 0) cùng level.
+        boolean allowed = permissionChecker.seniorityKeyInOrgUnit(currentUserId, orgUnitId)
+                <= lockedLevel * 1000 + lockedRank;
+        if (allowed) return null;
+
+        String lockerRole = permissionChecker.getBestRoleNameInOrgUnit(locker.getId(), orgUnitId);
+        return "Đánh giá kỳ này do " + locker.getFullName()
+                + (lockerRole != null ? " (" + lockerRole + ")" : "") + " chốt. "
+                + "Bạn cần cấp tương đương hoặc cao hơn mới mở khoá được.";
+    }
+
+    /** Ghi một mốc vào lịch sử chốt/mở khoá. */
+    private void recordEvent(KpiCycle cycle, OrgUnit unit, CycleUnitEvalAction action,
+                             User actor, CycleUnitEvaluationResponse summary, String comment) {
+        cycleUnitEvalEventRepository.save(CycleUnitEvalEvent.builder()
+                .kpiCycle(cycle)
+                .orgUnit(unit)
+                .action(action)
+                .actor(actor)
+                .actorRoleName(permissionChecker.getBestRoleNameInOrgUnit(actor.getId(), unit.getId()))
+                .actorRoleLevel(permissionChecker.getMinLevelInOrgUnit(actor.getId(), unit.getId()))
+                .actorRoleRank(permissionChecker.getMinRankInOrgUnit(actor.getId(), unit.getId()))
+                .managerScore(summary != null ? summary.getManagerScore() : null)
+                .qualScore(summary != null ? summary.getQualScore() : null)
+                .matrixRating(summary != null ? summary.getMatrixRating() : null)
+                .memberCount(summary != null ? summary.getMemberCount() : null)
+                .comment(comment)
+                .build());
     }
 
     /** Các bản tổng hợp phòng ban ĐÃ CHỐT của kỳ (nạp 1 lần cho cả request). */
@@ -338,6 +434,257 @@ public class KpiCycleEvaluationService {
             }
         }
         return null;
+    }
+
+    /**
+     * Như {@link #lockingUnit} nhưng BỎ QUA chính đơn vị đó — chỉ trả về đơn vị
+     * cấp trên đang khoá. Dùng khi cần biết "có phải mở khoá từ trên xuống không".
+     */
+    private OrgUnit lockingAncestor(OrgUnit unit, List<CycleUnitEvaluation> finalizedUnits) {
+        if (unit == null || unit.getPath() == null) return null;
+        for (CycleUnitEvaluation e : finalizedUnits) {
+            OrgUnit other = e.getOrgUnit();
+            if (other == null || other.getPath() == null) continue;
+            if (other.getId().equals(unit.getId())) continue;
+            if (unit.getPath().startsWith(other.getPath())) return other;
+        }
+        return null;
+    }
+
+    // ─────────────────────── Gửi kết quả đánh giá cho nhân viên ───────────────────────
+
+    /**
+     * Chuẩn bị sẵn nội dung email cho từng nhân viên được chọn.
+     *
+     * <p>Cố ý tách khỏi bước GỬI: gửi SMTP mất hàng giây mỗi email, để trong
+     * transaction sẽ giữ connection DB suốt cả lượt. Ở đây đọc xong dữ liệu là
+     * đóng transaction, {@code CycleEvaluationMailer} mới đi gửi bên ngoài.
+     */
+    @Transactional(readOnly = true)
+    public List<PreparedCycleEmail> prepareCycleEvaluationEmails(UUID cycleId, UUID orgUnitId, List<UUID> userIds) {
+        KpiCycle cycle = kpiCycleRepository.findById(cycleId)
+                .orElseThrow(() -> new ResourceNotFoundException("Kỳ đánh giá", "id", cycleId));
+        orgUnitRepository.findById(orgUnitId)
+                .orElseThrow(() -> new ResourceNotFoundException("Đơn vị", "id", orgUnitId));
+
+        User sender = getCurrentUser();
+        if (!permissionChecker.hasPermissionInOrgUnit(sender.getId(), "CYCLE_EVAL:SEND", orgUnitId)) {
+            throw new com.kpitracking.exception.ForbiddenException(
+                    "Bạn không có quyền gửi kết quả đánh giá kỳ của đơn vị này");
+        }
+        if (userIds == null || userIds.isEmpty()) {
+            throw new IllegalArgumentException("Hãy chọn ít nhất một nhân viên để gửi");
+        }
+
+        UUID orgId = cycle.getOrganization() != null ? cycle.getOrganization().getId() : null;
+        double maxScore = maxScore(cycle);
+        List<CycleUnitEvaluation> finalized = finalizedUnits(cycleId);
+
+        List<PreparedCycleEmail> prepared = new ArrayList<>();
+        for (UUID userId : userIds) {
+            User user = userRepository.findById(userId).orElse(null);
+            if (user == null) {
+                prepared.add(new PreparedCycleEmail(userId.toString(), null, null, Map.of()));
+                continue;
+            }
+            CycleUserEvaluationResponse eval = computeUser(cycle, user, maxScore, finalized);
+            prepared.add(new PreparedCycleEmail(
+                    user.getFullName(), user.getEmail(), orgId,
+                    cycleEvaluationVariables(cycle, user, eval, sender, maxScore)));
+        }
+        return prepared;
+    }
+
+    /** Một email đã sẵn sàng gửi. {@code email} null/rỗng ⇒ người này không có địa chỉ nhận. */
+    public record PreparedCycleEmail(String recipientName, String email, UUID orgId, Map<String, String> variables) {}
+
+    /** Kết quả gửi hàng loạt: số gửi được và tên những người gửi hỏng. */
+    public record SendCycleEvaluationResult(int sent, List<String> failed) {}
+
+    private Map<String, String> cycleEvaluationVariables(KpiCycle cycle, User user,
+                                                         CycleUserEvaluationResponse eval,
+                                                         User sender, double maxScore) {
+        boolean isQual = eval.getMode() == CycleEvaluationMode.QUALITATIVE;
+        Map<String, String> vars = new LinkedHashMap<>();
+        vars.put("ten_nhan_vien", nullSafe(user.getFullName()));
+        vars.put("don_vi", nullSafe(eval.getOrgUnitName()));
+        vars.put("ky_danh_gia", nullSafe(cycle.getName()));
+        vars.put("diem_tu_danh_gia", scoreText(eval.getSelfScore(), isQual, maxScore));
+        vars.put("diem_qltt", scoreText(eval.getManagerScore(), isQual, maxScore));
+        vars.put("diem_chot", scoreText(eval.getFinalScore(), isQual, maxScore));
+        vars.put("xep_loai", scoreLabel(cycle.getOrganization(), eval.getFinalScore()));
+        vars.put("muc_dinh_tinh", eval.getQualScore() != null ? eval.getQualScore() + "/5" : "—");
+        vars.put("xep_loai_ma_tran", eval.getMatrixRating() != null ? eval.getMatrixRating() + "/5" : "—");
+        vars.put("nhan_xet", eval.getComment() != null && !eval.getComment().isBlank()
+                ? eval.getComment() : "Không có nhận xét thêm.");
+        vars.put("bang_diem_dot", periodTableHtml(eval, isQual, maxScore));
+        vars.put("nguoi_gui", nullSafe(sender.getFullName()));
+        return vars;
+    }
+
+    /** Bảng HTML điểm từng đợt, chèn vào biến {{bang_diem_dot}} của template. */
+    private String periodTableHtml(CycleUserEvaluationResponse eval, boolean isQual, double maxScore) {
+        List<CycleUserEvaluationResponse.PeriodBreakdown> rows = eval.getPeriodBreakdown();
+        if (rows == null || rows.isEmpty()) {
+            return "<p style='color:#94a3b8;font-style:italic;'>Kỳ này chưa có đợt nào được gán.</p>";
+        }
+        StringBuilder sb = new StringBuilder("<table class='score-table'><tr><th>Đợt</th>"
+                + "<th>Tự đánh giá</th><th>QLTT đánh giá</th></tr>");
+        for (CycleUserEvaluationResponse.PeriodBreakdown p : rows) {
+            sb.append("<tr><td>").append(escapeHtml(p.getPeriodName())).append("</td>")
+              .append("<td>").append(scoreText(p.getSelfScore(), isQual, maxScore)).append("</td>")
+              .append("<td>").append(scoreText(p.getManagerScore(), isQual, maxScore)).append("</td></tr>");
+        }
+        return sb.append("</table>").toString();
+    }
+
+    /**
+     * Nhãn xếp loại theo thang điểm của tổ chức (Xuất sắc / Tốt / Khá...).
+     * Cùng luật với {@code UnitClassificationService.memberClassifier}: lấy mức đầu tiên
+     * có ngưỡng <= điểm, xét từ cao xuống thấp.
+     */
+    private String scoreLabel(Organization org, Double score) {
+        if (score == null || org == null || org.getEvaluationLevels() == null) return "—";
+        List<EvaluationLevel> levels = org.getEvaluationLevels().stream()
+                .sorted(Comparator.comparingDouble(EvaluationLevel::getThreshold).reversed())
+                .toList();
+        for (EvaluationLevel l : levels) {
+            if (score >= l.getThreshold()) return l.getName();
+        }
+        return levels.isEmpty() ? "—" : levels.get(levels.size() - 1).getName();
+    }
+
+    /** Chế độ Định tính hiển thị lại mức gốc 0–5 thay vì số đã quy đổi sang thang điểm. */
+    private String scoreText(Double v, boolean isQual, double maxScore) {
+        if (v == null) return "—";
+        if (!isQual) return String.valueOf(v);
+        return (Math.round(v / maxScore * 5 * 100) / 100.0) + "/5";
+    }
+
+    private String nullSafe(String s) {
+        return s != null ? s : "—";
+    }
+
+    private String escapeHtml(String s) {
+        if (s == null) return "";
+        return s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace("\"", "&quot;");
+    }
+
+    // ─────────────────────────── Chuỗi duyệt theo cấp ───────────────────────────
+
+    /**
+     * Chuỗi duyệt của một kỳ: đơn vị đang xem, rồi lần lượt các đơn vị CHA lên tới gốc
+     * (VD Tổ → Chi nhánh → Công ty). Mỗi bước kèm trạng thái chốt, người chốt, lịch sử,
+     * và quyền chốt/mở khoá đã tính sẵn cho người dùng hiện tại.
+     *
+     * <p>Cố ý KHÔNG tính điểm live cho các đơn vị cha: {@code computeUnitSummary} duyệt
+     * toàn bộ subtree nên gọi cho cả chuỗi sẽ rất nặng. Đơn vị chưa chốt trả điểm null;
+     * điểm live của đơn vị đang xem thì FE đã có sẵn từ endpoint summary.
+     */
+    @Transactional(readOnly = true)
+    public List<CycleApprovalStepResponse> getApprovalChain(UUID cycleId, UUID orgUnitId) {
+        kpiCycleRepository.findById(cycleId)
+                .orElseThrow(() -> new ResourceNotFoundException("Kỳ đánh giá", "id", cycleId));
+        OrgUnit unit = orgUnitRepository.findById(orgUnitId)
+                .orElseThrow(() -> new ResourceNotFoundException("Đơn vị", "id", orgUnitId));
+
+        // Đi ngược lên gốc. Chặn vòng lặp phòng dữ liệu cây bị hỏng.
+        List<OrgUnit> chain = new ArrayList<>();
+        Set<UUID> seen = new HashSet<>();
+        for (OrgUnit u = unit; u != null && seen.add(u.getId()); u = u.getParent()) {
+            chain.add(u);
+        }
+
+        List<UUID> chainIds = chain.stream().map(OrgUnit::getId).toList();
+        Map<UUID, CycleUnitEvaluation> saved = new HashMap<>();
+        for (CycleUnitEvaluation e : cycleUnitEvaluationRepository.findByKpiCycleId(cycleId)) {
+            if (e.getOrgUnit() != null) saved.put(e.getOrgUnit().getId(), e);
+        }
+        Set<UUID> finalizedIds = saved.values().stream()
+                .filter(e -> e.getStatus() == CycleUnitEvalStatus.FINALIZED)
+                .map(e -> e.getOrgUnit().getId())
+                .collect(java.util.stream.Collectors.toSet());
+
+        Map<UUID, List<CycleUnitEvalEventResponse>> eventsByUnit = new HashMap<>();
+        for (CycleUnitEvalEvent ev : cycleUnitEvalEventRepository
+                .findByKpiCycleIdAndOrgUnitIdInOrderByCreatedAtAsc(cycleId, chainIds)) {
+            eventsByUnit.computeIfAbsent(ev.getOrgUnit().getId(), k -> new ArrayList<>())
+                    .add(CycleUnitEvalEventResponse.builder()
+                            .action(ev.getAction())
+                            .actorName(ev.getActor() != null ? ev.getActor().getFullName() : null)
+                            .actorRoleName(ev.getActorRoleName())
+                            .managerScore(ev.getManagerScore())
+                            .comment(ev.getComment())
+                            .createdAt(ev.getCreatedAt())
+                            .build());
+        }
+
+        User current = getCurrentUser();
+        List<CycleUnitEvaluation> finalizedUnits = finalizedUnits(cycleId);
+        List<CycleApprovalStepResponse> steps = new ArrayList<>();
+
+        for (OrgUnit u : chain) {
+            CycleUnitEvaluation e = saved.get(u.getId());
+            boolean isFinalized = e != null && e.getStatus() == CycleUnitEvalStatus.FINALIZED;
+
+            List<OrgUnit> children = orgUnitRepository.findByParentId(u.getId()).stream()
+                    .filter(c -> c.getDeletedAt() == null)
+                    .toList();
+            int childFinalized = (int) children.stream().filter(c -> finalizedIds.contains(c.getId())).count();
+
+            boolean hasRight = permissionChecker.hasPermissionInOrgUnit(
+                    current.getId(), "CYCLE_EVAL:FINALIZE", u.getId());
+            OrgUnit ancestor = lockingAncestor(u, finalizedUnits);
+
+            boolean canFinalize = false;
+            boolean canReopen = false;
+            String blockedReason = null;
+
+            if (!hasRight) {
+                blockedReason = "Bạn không có quyền chốt hoặc mở khoá đánh giá kỳ của đơn vị này";
+            } else if (ancestor != null) {
+                blockedReason = "Đơn vị cấp trên \"" + ancestor.getName()
+                        + "\" đang chốt kỳ. Hãy mở khoá ở đơn vị đó trước.";
+            } else if (isFinalized) {
+                blockedReason = reopenDenialReason(e, current.getId(), u.getId());
+                canReopen = blockedReason == null;
+            } else {
+                canFinalize = true;
+            }
+
+            OrgHierarchyLevel hl = u.getOrgHierarchyLevel();
+            String roleLabel = hl != null && hl.getManagerRoleLabel() != null && !hl.getManagerRoleLabel().isBlank()
+                    ? hl.getManagerRoleLabel()
+                    : (hl != null ? "Trưởng " + hl.getUnitTypeName() : null);
+
+            steps.add(CycleApprovalStepResponse.builder()
+                    .orgUnitId(u.getId())
+                    .orgUnitName(u.getName())
+                    .managerRoleLabel(roleLabel)
+                    .levelOrder(hl != null ? hl.getLevelOrder() : null)
+                    .current(u.getId().equals(orgUnitId))
+                    .status(e != null ? e.getStatus() : CycleUnitEvalStatus.DRAFT)
+                    .managerScore(isFinalized ? e.getManagerScore() : null)
+                    .qualScore(isFinalized ? e.getQualScore() : null)
+                    .matrixRating(isFinalized ? e.getMatrixRating() : null)
+                    .memberCount(isFinalized ? e.getMemberCount() : null)
+                    .finalizedByName(isFinalized && e.getFinalizedBy() != null
+                            ? e.getFinalizedBy().getFullName() : null)
+                    .finalizedByRoleName(isFinalized && e.getFinalizedBy() != null
+                            ? permissionChecker.getBestRoleNameInOrgUnit(e.getFinalizedBy().getId(), u.getId()) : null)
+                    .finalizedAt(isFinalized ? e.getFinalizedAt() : null)
+                    .comment(e != null ? e.getComment() : null)
+                    .childTotal(children.size())
+                    .childFinalized(childFinalized)
+                    .canFinalize(canFinalize)
+                    .canReopen(canReopen)
+                    .blockedReason(blockedReason)
+                    .events(eventsByUnit.getOrDefault(u.getId(), List.of()))
+                    .build());
+        }
+
+        // Trả từ DƯỚI lên (đơn vị đang xem trước) — đúng thứ tự duyệt thực tế.
+        return steps;
     }
 
     // ─────────────────────────────── Helpers ───────────────────────────────

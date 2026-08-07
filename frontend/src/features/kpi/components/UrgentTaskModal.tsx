@@ -1043,7 +1043,7 @@ export default function UrgentTaskModal({ open, onClose, kpiPeriodId: initPeriod
   if (!open) return null
 
   return (
-    <div className="fixed inset-0 z-[200] flex items-center justify-center">
+    <div className="fixed inset-x-0 top-0 h-screen z-[200] flex items-center justify-center">
       <div className="absolute inset-0 bg-black/40 backdrop-blur-md transition-opacity" onClick={onClose} />
       <div className="relative bg-[var(--color-card)] rounded-2xl shadow-2xl w-full max-w-lg mx-4 max-h-[92vh] flex flex-col border border-[var(--color-border)]/50 animate-in zoom-in-95">
 

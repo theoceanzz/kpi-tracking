@@ -15,6 +15,7 @@ import ReviewModal from '@/features/submissions/components/ReviewModal'
 import StaffEvaluationModal from '@/features/submissions/components/StaffEvaluationModal'
 import StaffPerformanceDetailModal from '@/features/submissions/components/StaffPerformanceDetailModal'
 import { usePermission } from '@/hooks/usePermission'
+import TimelineStep from '@/components/common/TimelineStep'
 
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { evaluationApi } from '../api/evaluationApi'
@@ -538,43 +539,18 @@ function EvalLayerCard({ title, icon: Icon, iconBg, iconColor, evaluation, lineA
 }) {
 
   return (
-    <div className="relative flex gap-5 group/card">
-      {/* Timeline line */}
-      {!isLast && (
-        <div className={`absolute left-[22px] top-[56px] w-0.5 h-[calc(100%-16px)] transition-colors duration-500 ${lineActive ? 'bg-indigo-300 dark:bg-indigo-700' : 'bg-slate-100 dark:bg-slate-800'}`} />
-      )}
-      
-      {/* Icon with Ring effect */}
-      <div className="relative shrink-0 z-10">
-        <div className={`w-11 h-11 rounded-2xl ${iconBg} flex items-center justify-center shadow-sm transition-transform duration-500 group-hover/card:scale-110`}>
-          <Icon size={20} className={iconColor} />
-        </div>
-        {lineActive && (
-          <div className="absolute -inset-1 rounded-2xl border-2 border-indigo-500/20 animate-pulse" />
-        )}
-      </div>
-
-      {/* Content */}
-      <div className="flex-1 min-w-0 pb-8">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-3 gap-1 sm:gap-0">
-          <p className="text-[13px] font-black text-slate-800 dark:text-slate-200 uppercase tracking-tight">{title}</p>
-          {evaluation && (
-            <span className="text-[10px] font-bold text-slate-400 bg-slate-50 dark:bg-slate-800/50 px-2 py-0.5 rounded-md self-start sm:self-auto">
-              {formatDateTime(evaluation.createdAt)}
-            </span>
-          )}
-        </div>
-        
-        {evaluation ? (
-          <div 
-            onClick={onClick}
-            className={cn(
-              "p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 shadow-sm transition-all duration-300 group-hover/card:shadow-md",
-              onClick 
-                ? "cursor-pointer hover:border-indigo-500 hover:ring-4 hover:ring-indigo-500/5" 
-                : "group-hover/card:border-slate-200 dark:group-hover/card:border-slate-700"
-            )}
-          >
+    <TimelineStep
+      title={title}
+      icon={Icon}
+      iconBg={iconBg}
+      iconColor={iconColor}
+      timeLabel={evaluation ? formatDateTime(evaluation.createdAt) : null}
+      lineActive={lineActive}
+      isLast={isLast}
+      onClick={evaluation ? onClick : undefined}
+    >
+      {evaluation ? (
+          <>
             <div className="flex items-center justify-between gap-4 flex-wrap">
               <div className="flex items-center gap-3 min-w-0">
                 <div className={cn("p-2 rounded-xl bg-slate-50 dark:bg-slate-800/50 shrink-0", getScoreColor(evaluation.score).replace('text-', 'text-opacity-20 bg-'))}>
@@ -648,14 +624,9 @@ function EvalLayerCard({ title, icon: Icon, iconBg, iconColor, evaluation, lineA
                 </p>
               </div>
             )}
-          </div>
-        ) : (
-          <div className="p-6 rounded-2xl border border-dashed border-slate-200 dark:border-slate-800 flex items-center justify-center bg-slate-50/30 dark:bg-slate-900/10">
-            <span className="text-xs font-bold text-slate-300 dark:text-slate-700 uppercase tracking-[0.2em]">Chưa có đánh giá</span>
-          </div>
-        )}
-      </div>
-    </div>
+          </>
+      ) : null}
+    </TimelineStep>
   )
 }
 

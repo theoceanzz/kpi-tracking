@@ -1,17 +1,18 @@
-import { useState, useMemo, useEffect } from 'react'
+import { useState, useMemo, useEffect, useRef } from 'react'
 import LoadingSkeleton from '@/components/common/LoadingSkeleton'
 import EmptyState from '@/components/common/EmptyState'
 import ConfirmDialog from '@/components/common/ConfirmDialog'
 import { format, parseISO, addMonths, addYears, subDays, differenceInCalendarDays } from 'date-fns'
 import { useKpiCycles } from '../hooks/useKpiCycles'
+import { useKpiPeriods } from '../hooks/useKpiPeriods'
 import { useOrganization } from '@/features/orgunits/hooks/useOrganization'
 import { useAuthStore } from '@/store/authStore'
 import { formatDateTime, FREQUENCY_MAP, cn } from '@/lib/utils'
-import type { KpiCycle, KpiFrequency, CycleEvaluationMode } from '@/types/kpi'
+import type { KpiCycle, KpiCyclePayload, KpiPeriod, KpiFrequency, CycleEvaluationMode } from '@/types/kpi'
 import {
   CalendarRange, Plus, Pencil, Trash2, Layers,
   ChevronLeft, ChevronRight, Search, Filter, X, Sparkles, Calendar, ArrowRight,
-  List, LayoutGrid
+  List, LayoutGrid, Check, AlertTriangle
 } from 'lucide-react'
 import { useDebounce } from '@/hooks/useDebounce'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -356,7 +357,7 @@ interface CycleFormModalProps {
   onClose: () => void
   editCycle: KpiCycle | null
   organizationId: string
-  onSubmit: (payload: any) => Promise<void>
+  onSubmit: (payload: KpiCyclePayload) => Promise<void>
   isSubmitting: boolean
 }
 
@@ -370,6 +371,65 @@ function CycleFormModal({ onClose, editCycle, organizationId, onSubmit, isSubmit
     return { name: editCycle?.name || '', cycleType: type, startDate: start, endDate: end, description: editCycle?.description || '', evaluationMode: (editCycle?.evaluationMode as CycleEvaluationMode) || 'BOTH' }
   })
   const [showMismatchConfirm, setShowMismatchConfirm] = useState(false)
+
+  // Gom đợt ngay tại đây, không cần sang tab Đợt để gán từng cái.
+  const [selectedPeriodIds, setSelectedPeriodIds] = useState<string[]>([])
+  const { data: periodsData, isLoading: isLoadingPeriods } = useKpiPeriods({
+    organizationId, size: 200, sortBy: 'startDate', direction: 'asc',
+  })
+  const periods = useMemo(() => periodsData?.content || [], [periodsData])
+
+  const cycleStartMs = formData.startDate ? new Date(formData.startDate).getTime() : NaN
+  const cycleEndMs = formData.endDate ? new Date(formData.endDate).getTime() : NaN
+
+  // Đợt hợp lệ khi nằm trọn trong thời gian kỳ (BE cũng chặn tương tự).
+  const fitsCycle = (p: KpiPeriod) => {
+    if (!p.startDate || !p.endDate || Number.isNaN(cycleStartMs) || Number.isNaN(cycleEndMs)) return false
+    return new Date(p.startDate).getTime() >= cycleStartMs && new Date(p.endDate).getTime() <= cycleEndMs
+  }
+
+  // Đợt phù hợp lên trước, phần còn lại vẫn hiển thị (mờ) để biết vì sao không chọn được.
+  const sortedPeriods = useMemo(() => {
+    return [...periods].sort((a, b) => {
+      const diff = Number(fitsCycle(b)) - Number(fitsCycle(a))
+      if (diff !== 0) return diff
+      return (a.startDate || '').localeCompare(b.startDate || '')
+    })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [periods, cycleStartMs, cycleEndMs])
+
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const eligiblePeriods = useMemo(() => sortedPeriods.filter(fitsCycle), [sortedPeriods, cycleStartMs, cycleEndMs])
+
+  // Sửa kỳ: nạp sẵn các đợt đang thuộc kỳ này (chỉ nạp 1 lần khi có dữ liệu).
+  const didInitSelection = useRef(false)
+  useEffect(() => {
+    if (didInitSelection.current || !periodsData) return
+    didInitSelection.current = true
+    if (editCycle) setSelectedPeriodIds(periods.filter(p => p.cycleId === editCycle.id).map(p => p.id))
+  }, [periodsData, periods, editCycle])
+
+  // Đổi thời gian kỳ ⇒ bỏ chọn các đợt vừa rơi ra ngoài khoảng mới.
+  useEffect(() => {
+    if (!didInitSelection.current) return
+    setSelectedPeriodIds(prev => {
+      const next = prev.filter(id => {
+        const p = periods.find(x => x.id === id)
+        return p ? fitsCycle(p) : true
+      })
+      return next.length === prev.length ? prev : next
+    })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cycleStartMs, cycleEndMs, periods])
+
+  const togglePeriod = (id: string) => {
+    setSelectedPeriodIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id])
+  }
+
+  const allEligibleSelected = eligiblePeriods.length > 0 && eligiblePeriods.every(p => selectedPeriodIds.includes(p.id))
+  const toggleAllEligible = () => {
+    setSelectedPeriodIds(allEligibleSelected ? [] : eligiblePeriods.map(p => p.id))
+  }
 
   // Không bật KPI định tính ⇒ chỉ được đánh giá theo Định lượng.
   const { data: org } = useOrganization(organizationId)
@@ -408,6 +468,7 @@ function CycleFormModal({ onClose, editCycle, organizationId, onSubmit, isSubmit
       description: formData.description || null,
       evaluationMode: formData.evaluationMode,
       organizationId,
+      periodIds: selectedPeriodIds,
     })
     onClose()
   }
@@ -437,7 +498,7 @@ function CycleFormModal({ onClose, editCycle, organizationId, onSubmit, isSubmit
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-slate-950/40 backdrop-blur-md animate-in fade-in duration-300" onClick={onClose} />
-      <div className="relative bg-white dark:bg-slate-900 rounded-[40px] shadow-2xl w-full max-w-lg mx-auto animate-in zoom-in-95 fade-in duration-500 overflow-hidden border border-slate-200 dark:border-slate-800">
+      <div className="relative bg-white dark:bg-slate-900 rounded-[40px] shadow-2xl w-full max-w-lg mx-auto animate-in zoom-in-95 fade-in duration-500 overflow-y-auto overflow-x-hidden max-h-[92vh] scrollbar-thin border border-slate-200 dark:border-slate-800">
         <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-500/5 rounded-full -translate-y-1/2 translate-x-1/2 blur-3xl" />
         <div className="p-10 space-y-8 relative">
           <div className="flex items-center gap-5">
@@ -503,6 +564,83 @@ function CycleFormModal({ onClose, editCycle, organizationId, onSubmit, isSubmit
                 <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 ml-1">Kết thúc <span className="text-red-500">*</span></label>
                 <DateTimePicker value={formData.endDate} onChange={val => handleFieldChange('endDate', val)} />
               </div>
+            </div>
+
+            {/* Gom đợt vào kỳ ngay khi tạo — khỏi phải sang tab Đợt chỉnh từng đợt. */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between gap-3 ml-1">
+                <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">
+                  Đợt trong kỳ
+                  {selectedPeriodIds.length > 0 && (
+                    <span className="ml-2 text-emerald-600 dark:text-emerald-400">({selectedPeriodIds.length})</span>
+                  )}
+                </label>
+                {eligiblePeriods.length > 0 && (
+                  <button type="button" onClick={toggleAllEligible}
+                    className="text-[10px] font-black uppercase tracking-widest text-emerald-600 dark:text-emerald-400 hover:underline">
+                    {allEligibleSelected ? 'Bỏ chọn tất cả' : `Chọn tất cả (${eligiblePeriods.length})`}
+                  </button>
+                )}
+              </div>
+
+              <div className="rounded-[20px] border border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50 p-2 max-h-56 overflow-y-auto scrollbar-thin">
+                {isLoadingPeriods ? (
+                  <p className="px-3 py-4 text-xs font-bold text-slate-400 text-center">Đang tải danh sách đợt...</p>
+                ) : !sortedPeriods.length ? (
+                  <p className="px-3 py-4 text-xs font-bold text-slate-400 text-center">Chưa có đợt nào trong tổ chức.</p>
+                ) : !eligiblePeriods.length ? (
+                  <p className="px-3 py-4 text-xs font-bold text-slate-400 text-center">
+                    Không có đợt nào nằm trọn trong thời gian kỳ đã chọn.
+                  </p>
+                ) : sortedPeriods.map(period => {
+                  const eligible = fitsCycle(period)
+                  const selected = selectedPeriodIds.includes(period.id)
+                  const fromOtherCycle = !!period.cycleId && period.cycleId !== editCycle?.id
+                  return (
+                    <button
+                      key={period.id}
+                      type="button"
+                      disabled={!eligible}
+                      onClick={() => togglePeriod(period.id)}
+                      className={cn(
+                        'w-full flex items-center gap-3 px-3 py-2.5 rounded-2xl text-left transition-all',
+                        eligible ? 'hover:bg-white dark:hover:bg-slate-800 cursor-pointer' : 'opacity-40 cursor-not-allowed',
+                        selected && 'bg-white dark:bg-slate-800 shadow-sm'
+                      )}
+                    >
+                      <span className={cn(
+                        'w-5 h-5 rounded-lg border flex items-center justify-center shrink-0 transition-all',
+                        selected ? 'bg-emerald-600 border-emerald-600 text-white' : 'border-slate-300 dark:border-slate-600'
+                      )}>
+                        {selected && <Check size={13} strokeWidth={3} />}
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span className="flex items-center gap-2">
+                          <span className="text-xs font-black text-slate-700 dark:text-slate-200 truncate">{period.name}</span>
+                          <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 shrink-0">
+                            {FREQUENCY_MAP[period.periodType]}
+                          </span>
+                        </span>
+                        <span className="block text-[10px] font-bold text-slate-400 mt-0.5">
+                          {period.startDate ? format(parseISO(period.startDate), 'dd/MM/yyyy') : '—'}
+                          {' – '}
+                          {period.endDate ? format(parseISO(period.endDate), 'dd/MM/yyyy') : '—'}
+                        </span>
+                        {!eligible ? (
+                          <span className="block text-[10px] font-bold text-slate-400 mt-0.5">Ngoài thời gian kỳ</span>
+                        ) : fromOtherCycle && (
+                          <span className="flex items-center gap-1 text-[10px] font-bold text-amber-600 dark:text-amber-500 mt-0.5">
+                            <AlertTriangle size={10} /> Đang thuộc kỳ "{period.cycleName}"{selected && ' — sẽ chuyển sang kỳ này'}
+                          </span>
+                        )}
+                      </span>
+                    </button>
+                  )
+                })}
+              </div>
+              <p className="text-[11px] text-slate-400 font-medium ml-1">
+                Chỉ chọn được đợt nằm trọn trong thời gian kỳ. Đổi thời gian kỳ sẽ tự bỏ các đợt không còn phù hợp.
+              </p>
             </div>
 
             <div className="space-y-2">

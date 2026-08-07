@@ -375,6 +375,8 @@ CREATE TABLE cycle_unit_evaluations (
     status          VARCHAR(20)     NOT NULL DEFAULT 'DRAFT', -- DRAFT | FINALIZED
     finalized_by    UUID            REFERENCES users(id) ON DELETE SET NULL,
     finalized_at    TIMESTAMPTZ,
+    finalized_role_level INT,
+    finalized_role_rank  INT,
     created_at      TIMESTAMPTZ     DEFAULT NOW(),
     updated_at      TIMESTAMPTZ     DEFAULT NOW(),
     deleted_at      TIMESTAMPTZ,
@@ -383,6 +385,28 @@ CREATE TABLE cycle_unit_evaluations (
 
 CREATE INDEX idx_cycle_unit_evals_cycle ON cycle_unit_evaluations(kpi_cycle_id);
 CREATE INDEX idx_cycle_unit_evals_unit  ON cycle_unit_evaluations(org_unit_id);
+
+-- Lịch sử chốt / mở khoá đánh giá kỳ của từng đơn vị (dựng dòng thời gian duyệt).
+-- Bảng audit thuần: KHÔNG soft-delete, chỉ ghi thêm, không sửa. Cần bảng riêng vì
+-- mở khoá sẽ xoá finalized_by/finalized_at trên bản ghi chính -> mất dấu vết.
+CREATE TABLE cycle_unit_eval_events (
+    id               UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    kpi_cycle_id     UUID        NOT NULL REFERENCES kpi_cycles(id) ON DELETE CASCADE,
+    org_unit_id      UUID        NOT NULL REFERENCES org_units(id) ON DELETE CASCADE,
+    action           VARCHAR(20) NOT NULL,  -- FINALIZE | REOPEN
+    actor_id         UUID        REFERENCES users(id) ON DELETE SET NULL,
+    actor_role_name  VARCHAR(255),
+    actor_role_level INT,
+    actor_role_rank  INT,
+    manager_score    DOUBLE PRECISION,      -- điểm tại thời điểm xảy ra sự kiện
+    qual_score       DOUBLE PRECISION,
+    matrix_rating    DOUBLE PRECISION,
+    member_count     INT,
+    comment          TEXT,
+    created_at       TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX idx_cue_events_cycle_unit ON cycle_unit_eval_events (kpi_cycle_id, org_unit_id, created_at);
 
 -- Điểm CHỐT KỲ của từng nhân viên (mặc định = TB điểm QLTT các đợt, cho phép chỉnh tay).
 CREATE TABLE cycle_user_evaluations (
@@ -642,6 +666,30 @@ CREATE TABLE org_notification_configs (
     updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     CONSTRAINT uq_org_event UNIQUE (organization_id, event_code)
 );
+
+-- ====================================================
+-- Email templates per organization
+-- ====================================================
+-- Chỉ chứa phần ĐÃ BỊ GHI ĐÈ. Không có bản ghi ⇒ dùng nội dung mặc định trong
+-- EmailTemplateCatalog; xoá bản ghi = khôi phục mặc định.
+CREATE TABLE email_templates (
+    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    organization_id UUID         NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+    template_code   VARCHAR(64)  NOT NULL,
+    subject         VARCHAR(500) NOT NULL,
+    -- HTML thân email. Các khối đặc thù (nút bấm, ô mã OTP, bảng thông tin, khung nhấn
+    -- mạnh) mang thuộc tính data-email để trình soạn trực quan đọc ngược lại thành node.
+    -- full_html = true: người dùng tự viết cả tài liệu, hệ thống không bọc khung.
+    body            TEXT         NOT NULL,
+    full_html       BOOLEAN      NOT NULL DEFAULT false,
+    enabled         BOOLEAN      NOT NULL DEFAULT true,
+    updated_by      UUID         REFERENCES users(id) ON DELETE SET NULL,
+    created_at      TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+    updated_at      TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+    CONSTRAINT uq_org_template UNIQUE (organization_id, template_code)
+);
+
+CREATE INDEX idx_email_templates_org ON email_templates (organization_id);
 
 -- ====================================================
 -- Refresh Tokens

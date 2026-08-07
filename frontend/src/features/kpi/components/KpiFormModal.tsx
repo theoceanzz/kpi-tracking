@@ -3,14 +3,14 @@ import { useForm, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { kpiSchema, type KpiFormData } from '../schemas/kpiSchema'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { kpiApi } from '../api/kpiApi'
+import { kpiApi, type AiKpiSuggestion } from '../api/kpiApi'
 import { useOrgUnitTree } from '@/features/orgunits/hooks/useOrgUnitTree'
 import { useUsers } from '@/features/users/hooks/useUsers'
 import { useAuthStore } from '@/store/authStore'
 import { usePermission } from '@/hooks/usePermission'
 import { toast } from 'sonner'
 import { FREQUENCY_MAP, cn, formatDateTime } from '@/lib/utils'
-import { Loader2, X, Check, Sparkles, Target, Users, LayoutGrid, SlidersHorizontal, BarChart3 } from 'lucide-react'
+import { Loader2, X, Check, Sparkles, Target, Users, LayoutGrid, SlidersHorizontal, BarChart3, RotateCcw, RefreshCw } from 'lucide-react'
 import type { KpiCriteria } from '@/types/kpi'
 import { useState } from 'react'
 import { useKpiPeriods } from '../hooks/useKpiPeriods'
@@ -146,6 +146,8 @@ export default function KpiFormModal({ open, onClose, editKpi, parentKpi, parent
       setUserSearch('')
       setSelectedRole('ALL')
       setAiSuggestions([])
+      setAppliedIdx(null)
+      setBeforeApply(null)
       return
     }
 
@@ -241,7 +243,9 @@ export default function KpiFormModal({ open, onClose, editKpi, parentKpi, parent
       toast.success('Tạo chỉ tiêu thành công')
       reset()
       setAiSuggestions([])
-      onClose() 
+      setAppliedIdx(null)
+      setBeforeApply(null)
+      onClose()
     },
     onError: (err: any) => {
       const msg = err?.response?.data?.message || 'Tạo chỉ tiêu thất bại'
@@ -432,8 +436,12 @@ export default function KpiFormModal({ open, onClose, editKpi, parentKpi, parent
   }, [formOrgUnitIds, filteredObjectives, setValue, watch])
 
   // AI Suggestion Logic
-  const [aiSuggestions, setAiSuggestions] = useState<any[]>([])
+  const [aiSuggestions, setAiSuggestions] = useState<AiKpiSuggestion[]>([])
   const [isSuggesting, setIsSuggesting] = useState(false)
+  /** Chỉ số gợi ý vừa áp dụng, để đánh dấu và cho phép hoàn tác. */
+  const [appliedIdx, setAppliedIdx] = useState<number | null>(null)
+  /** Giá trị các trường trước khi áp dụng, dùng cho nút Hoàn tác. */
+  const [beforeApply, setBeforeApply] = useState<Partial<KpiFormData> | null>(null)
   const [userSearch, setUserSearch] = useState('')
 
   const displayUsers = useMemo(() => {
@@ -447,6 +455,28 @@ export default function KpiFormModal({ open, onClose, editKpi, parentKpi, parent
     )
   }, [availableUsers, userSearch])
 
+  /**
+   * Gom bối cảnh người dùng đang soạn để AI gợi ý bám sát, thay vì trả về cùng một bộ
+   * chung chung mỗi lần bấm. Rỗng thì backend dùng prompt mặc định.
+   */
+  const buildAiContext = () => {
+    const parts: string[] = []
+    const typedName = (watch('name') || '').trim()
+    if (typedName) parts.push(`Tên chỉ tiêu đang gõ: "${typedName}"`)
+    parts.push(isQualitative ? 'Loại KPI: định tính' : 'Loại KPI: định lượng')
+
+    if (selectedPeriod?.name) parts.push(`Đợt: ${selectedPeriod.name}`)
+
+    // Mục tiêu suy ra từ kết quả then chốt đang chọn — form không có trường objectiveId riêng.
+    if (watchedKeyResultId && watchedKeyResultId !== 'NONE') {
+      const obj = (objectives || []).find((o: any) =>
+        o.keyResults?.some((kr: any) => kr.id === watchedKeyResultId))
+      if (obj?.name) parts.push(`Mục tiêu liên quan: ${obj.name}`)
+    }
+
+    return parts.join('. ')
+  }
+
   const handleAiSuggest = async () => {
     const orgUnitId = formOrgUnitIds[0] || user?.memberships?.[0]?.orgUnitId
     if (!orgUnitId) {
@@ -455,30 +485,67 @@ export default function KpiFormModal({ open, onClose, editKpi, parentKpi, parent
     }
 
     setIsSuggesting(true)
+    // Chỉ số cũ không còn ứng với danh sách mới. Nhưng GIỮ beforeApply để sau khi
+    // xin gợi ý khác, người dùng vẫn hoàn tác được về nội dung tự nhập ban đầu.
+    setAppliedIdx(null)
     try {
-      const suggestions = await kpiApi.getAiSuggestions(orgUnitId)
+      const suggestions = await kpiApi.getAiSuggestions(orgUnitId, buildAiContext())
       setAiSuggestions(suggestions)
       if (suggestions.length === 0) {
         toast.info('AI không tìm thấy gợi ý phù hợp lúc này')
       }
-    } catch (err) {
-      toast.error('Lỗi khi lấy gợi ý từ AI')
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || 'Lỗi khi lấy gợi ý từ AI')
     } finally {
       setIsSuggesting(false)
     }
   }
 
-  const applySuggestion = (sug: any) => {
-    reset({
-      ...watch(),
-      name: sug.name,
-      description: sug.description,
-      unit: sug.unit,
-      targetValue: sug.targetValue,
-      weight: sug.weight,
-      frequency: sug.frequency,
+  /**
+   * Điền gợi ý vào form. Dùng setValue từng trường thay vì reset() cả form:
+   * reset() ghi đè mọi trường khác (người nhận, đơn vị, đợt...) mà người dùng đã chọn.
+   * Danh sách gợi ý vẫn mở để còn đổi sang phương án khác.
+   */
+  const applySuggestion = (sug: AiKpiSuggestion, idx: number) => {
+    if (!beforeApply) {
+      setBeforeApply({
+        name: watch('name'),
+        description: watch('description'),
+        unit: watch('unit'),
+        targetValue: watch('targetValue'),
+        weight: watch('weight'),
+        frequency: watch('frequency'),
+      })
+    }
+
+    const opts = { shouldDirty: true, shouldValidate: true } as const
+    setValue('name', sug.name ?? '', opts)
+    if (sug.description != null) setValue('description', sug.description, opts)
+    // Chỉ tiêu định tính không chấm theo con số nên bỏ qua đơn vị / giá trị mục tiêu.
+    if (!isQualitative) {
+      if (sug.unit != null) setValue('unit', sug.unit, opts)
+      if (sug.targetValue != null) setValue('targetValue', sug.targetValue, opts)
+    }
+    if (sug.weight != null) setValue('weight', sug.weight, opts)
+    if (sug.frequency != null) setValue('frequency', sug.frequency, opts)
+
+    setAppliedIdx(idx)
+  }
+
+  const undoSuggestion = () => {
+    if (!beforeApply) return
+    const opts = { shouldDirty: true, shouldValidate: true } as const
+    Object.entries(beforeApply).forEach(([field, value]) => {
+      setValue(field as keyof KpiFormData, value as never, opts)
     })
+    setBeforeApply(null)
+    setAppliedIdx(null)
+  }
+
+  const closeSuggestions = () => {
     setAiSuggestions([])
+    setAppliedIdx(null)
+    setBeforeApply(null)
   }
 
   const isPending = createMutation.isPending || updateMutation.isPending
@@ -554,7 +621,7 @@ export default function KpiFormModal({ open, onClose, editKpi, parentKpi, parent
   const inputCls = "w-full px-3 py-2.5 rounded-lg border border-[var(--color-border)] bg-[var(--color-background)] text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]/50 transition-all shadow-sm"
 
   return (
-    <div className="fixed inset-0 z-[200] flex items-center justify-center">
+    <div className="fixed inset-x-0 top-0 h-screen z-[200] flex items-center justify-center">
       <div className="absolute inset-0 bg-black/40 backdrop-blur-md transition-opacity" onClick={onClose} />
       <div className="relative bg-[var(--color-card)] rounded-2xl shadow-2xl p-6 max-w-lg w-full mx-4 animate-in zoom-in-95 max-h-[96vh] overflow-y-auto custom-scrollbar border border-[var(--color-border)]/50">
         <div className="flex items-center justify-between mb-5">
@@ -607,14 +674,15 @@ export default function KpiFormModal({ open, onClose, editKpi, parentKpi, parent
               <div className="flex items-center justify-between mb-1.5">
                 <label className="block text-sm font-bold text-[var(--color-foreground)]">Tên chỉ tiêu <span className="text-red-500">*</span></label>
                 {(canManageOrg || canReview) && !isEdit && (
-                  <button 
+                  <button
                     type="button"
                     onClick={handleAiSuggest}
                     disabled={isSuggesting}
-                    className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-gradient-to-r from-blue-600 to-indigo-600 text-[10px] font-black text-white hover:shadow-lg hover:shadow-blue-500/30 transition-all disabled:opacity-50"
+                    title="AI đọc số liệu của đơn vị và bối cảnh bạn đang nhập để đề xuất chỉ tiêu"
+                    className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-gradient-to-r from-blue-600 to-indigo-600 text-[10px] font-black text-white hover:shadow-lg hover:shadow-blue-500/30 transition-all disabled:opacity-60 disabled:cursor-wait"
                   >
                     {isSuggesting ? <Loader2 size={12} className="animate-spin" /> : <Sparkles size={12} />}
-                    GỢI Ý AI
+                    {isSuggesting ? 'ĐANG PHÂN TÍCH...' : 'GỢI Ý AI'}
                   </button>
                 )}
               </div>
@@ -626,30 +694,108 @@ export default function KpiFormModal({ open, onClose, editKpi, parentKpi, parent
               {errors.name && <p className="text-red-500 text-xs mt-1 font-medium">{errors.name.message}</p>}
             </div>
 
+            {/* Đang chờ AI: hiện khung chờ ngay tại chỗ kết quả sẽ xuất hiện.
+                Lời gọi có thể mất hàng chục giây nên chỉ quay vòng trên nút là chưa đủ rõ. */}
+            {isSuggesting && aiSuggestions.length === 0 && (
+              <div className="bg-blue-50/60 dark:bg-blue-900/10 border border-blue-100 dark:border-blue-800 rounded-xl p-3 space-y-2 animate-in fade-in">
+                <span className="text-[11px] font-black text-blue-600 dark:text-blue-400 flex items-center gap-1.5 uppercase tracking-wider">
+                  <Loader2 size={12} className="animate-spin" /> AI đang đọc số liệu đơn vị...
+                </span>
+                {[0, 1, 2].map(i => (
+                  <div key={i} className="h-14 rounded-xl bg-white/70 dark:bg-slate-900/50 animate-pulse" />
+                ))}
+              </div>
+            )}
+
             {aiSuggestions.length > 0 && (
-                <div className="bg-blue-50 dark:bg-blue-900/10 border border-blue-100 dark:border-blue-800 rounded-xl p-3 space-y-2 animate-in fade-in slide-in-from-top-1">
-                <div className="flex items-center justify-between">
-                    <span className="text-[11px] font-black text-blue-600 dark:text-blue-400 flex items-center gap-1 uppercase tracking-wider">
-                    <Sparkles size={12} /> Chiến lược gợi ý:
-                    </span>
-                    <button type="button" onClick={() => setAiSuggestions([])} className="text-[10px] font-bold text-blue-500 hover:underline hover:opacity-80">Đóng</button>
-                </div>
-                <div className="space-y-1.5">
-                    {aiSuggestions.map((s, idx) => (
+              <div className="bg-blue-50 dark:bg-blue-900/10 border border-blue-100 dark:border-blue-800 rounded-xl p-3 space-y-2 animate-in fade-in slide-in-from-top-1">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-[11px] font-black text-blue-600 dark:text-blue-400 flex items-center gap-1 uppercase tracking-wider">
+                    <Sparkles size={12} /> AI đề xuất {aiSuggestions.length} chỉ tiêu
+                  </span>
+                  <span className="ml-auto flex items-center gap-2">
+                    {beforeApply && (
+                      <button
+                        type="button"
+                        onClick={undoSuggestion}
+                        className="flex items-center gap-1 text-[10px] font-bold text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
+                      >
+                        <RotateCcw size={11} /> Hoàn tác
+                      </button>
+                    )}
                     <button
+                      type="button"
+                      onClick={handleAiSuggest}
+                      disabled={isSuggesting}
+                      className="flex items-center gap-1 text-[10px] font-bold text-blue-600 hover:underline disabled:opacity-50"
+                    >
+                      {isSuggesting
+                        ? <Loader2 size={11} className="animate-spin" />
+                        : <RefreshCw size={11} />} Gợi ý khác
+                    </button>
+                    <button
+                      type="button"
+                      onClick={closeSuggestions}
+                      className="text-[10px] font-bold text-slate-400 hover:text-slate-600"
+                    >
+                      Đóng
+                    </button>
+                  </span>
+                </div>
+
+                <p className="text-[10px] text-slate-500 dark:text-slate-400 font-medium">
+                  Bấm để điền vào biểu mẫu. Các trường khác bạn đã chọn (đơn vị, đợt, người nhận) được giữ nguyên.
+                </p>
+
+                <div className="space-y-1.5">
+                  {aiSuggestions.map((s, idx) => {
+                    const applied = appliedIdx === idx
+                    return (
+                      <button
                         key={idx}
                         type="button"
-                        onClick={() => applySuggestion(s)}
-                        className="w-full text-left p-2.5 rounded-xl bg-[var(--color-background)] border border-blue-100 dark:border-blue-900 shadow-sm hover:border-blue-500 hover:shadow-md transition-all group"
-                    >
-                        <div className="font-bold text-xs group-hover:text-blue-600 transition-colors">{s.name}</div>
-                        <div className="text-[10px] text-[var(--color-muted-foreground)] line-clamp-1 mt-0.5">
-                        <span className="text-blue-600 dark:text-blue-400 font-bold">{s.targetValue} {s.unit}</span> • {s.description}
+                        onClick={() => applySuggestion(s, idx)}
+                        className={cn(
+                          'w-full text-left p-3 rounded-xl border shadow-sm transition-all group',
+                          applied
+                            ? 'bg-blue-600/5 border-blue-500 ring-2 ring-blue-500/20'
+                            : 'bg-[var(--color-background)] border-blue-100 dark:border-blue-900 hover:border-blue-500 hover:shadow-md',
+                        )}
+                      >
+                        <div className="flex items-start gap-2">
+                          <span className={cn(
+                            'font-bold text-xs flex-1 min-w-0 transition-colors',
+                            applied ? 'text-blue-600' : 'group-hover:text-blue-600',
+                          )}>
+                            {s.name}
+                          </span>
+                          {applied && (
+                            <span className="flex items-center gap-1 text-[9px] font-black uppercase tracking-widest text-blue-600 shrink-0">
+                              <Check size={11} /> Đã điền
+                            </span>
+                          )}
                         </div>
-                    </button>
-                    ))}
+
+                        {s.description && (
+                          <p className="text-[10px] text-[var(--color-muted-foreground)] line-clamp-2 mt-1">
+                            {s.description}
+                          </p>
+                        )}
+
+                        {/* Hiện đủ các con số để cân nhắc trước khi điền, thay vì
+                            phải áp dụng rồi mới biết AI đề xuất mục tiêu bao nhiêu. */}
+                        <div className="flex flex-wrap items-center gap-1.5 mt-2">
+                          {!isQualitative && s.targetValue != null && (
+                            <SuggestionChip label="Mục tiêu" value={`${s.targetValue}${s.unit ? ` ${s.unit}` : ''}`} />
+                          )}
+                          {s.weight != null && <SuggestionChip label="Trọng số" value={`${s.weight}%`} />}
+                          {s.frequency && <SuggestionChip label="Tần suất" value={FREQUENCY_MAP[s.frequency] ?? s.frequency} />}
+                        </div>
+                      </button>
+                    )
+                  })}
                 </div>
-                </div>
+              </div>
             )}
 
             <div>
@@ -1206,5 +1352,15 @@ export default function KpiFormModal({ open, onClose, editKpi, parentKpi, parent
         </form>
       </div>
     </div>
+  )
+}
+
+/** Thẻ nhỏ hiện một thông số của gợi ý AI (mục tiêu, trọng số, tần suất). */
+function SuggestionChip({ label, value }: { label: string; value: string }) {
+  return (
+    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-800/50 text-[9px] font-bold text-blue-700 dark:text-blue-300">
+      <span className="uppercase tracking-widest opacity-60">{label}</span>
+      {value}
+    </span>
   )
 }
