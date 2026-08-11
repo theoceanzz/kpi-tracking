@@ -31,6 +31,8 @@ public interface UserRepository extends JpaRepository<User, UUID> {
 
     Optional<User> findByVerifyEmailToken(String verifyEmailToken);
 
+    Optional<User> findByLarkOpenIdHash(String larkOpenIdHash);
+
     @Query("SELECT DISTINCT u FROM User u " +
            "LEFT JOIN UserRoleOrgUnit uro ON u.id = uro.user.id " +
            "LEFT JOIN uro.role r " +

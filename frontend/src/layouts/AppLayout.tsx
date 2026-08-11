@@ -6,6 +6,7 @@ import { LogOut, Menu, PanelLeft } from 'lucide-react'
 import NotificationBell from '@/features/notifications/components/NotificationBell'
 import ThemeCustomizer from './components/ThemeCustomizer'
 import OnboardingTour from '@/components/common/OnboardingTour'
+import AiAssistantWidget from '@/features/analytics/components/AiAssistantWidget'
 import { useState, useEffect } from 'react'
 
 export default function AppLayout() {
@@ -31,6 +32,9 @@ export default function AppLayout() {
   return (
     <div className="flex h-screen overflow-hidden bg-[var(--color-background)]">
       <OnboardingTour />
+      {/* Chatbot nổi ở mọi trang. Ẩn trên /ai-assistant vì trang đó đã là trợ lý toàn màn hình.
+          Đặt trong AppLayout nên không bị unmount khi đổi route -> hội thoại giữ nguyên. */}
+      {location.pathname !== '/ai-assistant' && <AiAssistantWidget />}
       <Sidebar isMobileOpen={isMobileMenuOpen} onCloseMobile={() => setIsMobileMenuOpen(false)} />
 
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden md:pl-0">

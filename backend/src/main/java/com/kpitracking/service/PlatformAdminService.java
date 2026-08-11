@@ -3,7 +3,12 @@ package com.kpitracking.service;
 import com.kpitracking.dto.request.admin.UpdateOrgFeaturesRequest;
 import com.kpitracking.dto.request.admin.UpdateOrgStatusRequest;
 import com.kpitracking.dto.response.PageResponse;
+import com.kpitracking.dto.response.admin.OrgAiUsageResponse;
 import com.kpitracking.dto.response.admin.OrganizationAdminResponse;
+import java.time.LocalDate;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.Map;
 import com.kpitracking.dto.response.admin.PlatformAdminStatsResponse;
 import com.kpitracking.entity.Organization;
 import com.kpitracking.exception.ResourceNotFoundException;
@@ -28,6 +33,8 @@ import java.util.UUID;
 @Service
 @RequiredArgsConstructor
 public class PlatformAdminService {
+
+    private final com.kpitracking.repository.AiTokenUsageRepository aiTokenUsageRepository;
 
     private final OrganizationRepository organizationRepository;
 
@@ -142,8 +149,44 @@ public class PlatformAdminService {
                 .enableQualitative(org.getEnableQualitative())
                 .enableBsc(org.getEnableBsc())
                 .userCount(userCount)
+                .aiMonthlyTokenLimit(org.getAiMonthlyTokenLimit())
                 .createdAt(org.getCreatedAt())
                 .updatedAt(org.getUpdatedAt())
                 .build();
+    }
+
+    /** Quản trị nền tảng đặt ngân sách token AI/tháng cho một công ty. */
+    @Transactional
+    public OrganizationAdminResponse updateAiBudget(UUID orgId, Long monthlyTokenLimit) {
+        Organization org = organizationRepository.findById(orgId)
+                .orElseThrow(() -> new ResourceNotFoundException("Tổ chức", "id", orgId));
+        org.setAiMonthlyTokenLimit(monthlyTokenLimit != null ? monthlyTokenLimit : 0L);
+        return toAdminResponse(organizationRepository.save(org));
+    }
+
+    /**
+     * Tiêu thụ token AI của mọi công ty trong một tháng.
+     * Gộp sẵn ở tầng DB rồi ghép với danh sách công ty trong bộ nhớ — tránh N+1.
+     */
+    @Transactional(readOnly = true)
+    public List<OrgAiUsageResponse> getAiUsageByOrganization(LocalDate periodMonth) {
+        Map<UUID, long[]> byOrg = new HashMap<>();
+        for (Object[] row : aiTokenUsageRepository.sumTotalTokensByOrganization(periodMonth)) {
+            byOrg.put((UUID) row[0], new long[]{((Number) row[1]).longValue(), ((Number) row[2]).longValue()});
+        }
+
+        return organizationRepository.findAll().stream().map(org -> {
+            long[] stat = byOrg.getOrDefault(org.getId(), new long[]{0L, 0L});
+            long limit = org.getAiMonthlyTokenLimit() != null ? org.getAiMonthlyTokenLimit() : 0L;
+            return OrgAiUsageResponse.builder()
+                    .organizationId(org.getId())
+                    .organizationName(org.getName())
+                    .organizationCode(org.getCode())
+                    .monthlyLimit(limit)
+                    .usedTokens(stat[0])
+                    .callCount(stat[1])
+                    .usagePercent(limit > 0 ? Math.round(stat[0] * 1000.0 / limit) / 10.0 : null)
+                    .build();
+        }).sorted(Comparator.comparingLong(OrgAiUsageResponse::getUsedTokens).reversed()).toList();
     }
 }

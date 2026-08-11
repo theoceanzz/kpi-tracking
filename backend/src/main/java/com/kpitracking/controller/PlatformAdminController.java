@@ -1,9 +1,11 @@
 package com.kpitracking.controller;
 
+import com.kpitracking.dto.request.admin.UpdateOrgAiBudgetRequest;
 import com.kpitracking.dto.request.admin.UpdateOrgFeaturesRequest;
 import com.kpitracking.dto.request.admin.UpdateOrgStatusRequest;
 import com.kpitracking.dto.response.ApiResponse;
 import com.kpitracking.dto.response.PageResponse;
+import com.kpitracking.dto.response.admin.OrgAiUsageResponse;
 import com.kpitracking.dto.response.admin.OrganizationAdminResponse;
 import com.kpitracking.dto.response.admin.PlatformAdminStatsResponse;
 import com.kpitracking.service.PlatformAdminService;
@@ -15,6 +17,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDate;
+import java.util.List;
 import java.util.UUID;
 
 @RestController
@@ -57,5 +61,27 @@ public class PlatformAdminController {
             @PathVariable UUID orgId,
             @Valid @RequestBody UpdateOrgStatusRequest request) {
         return ResponseEntity.ok(ApiResponse.success(platformAdminService.updateStatus(orgId, request)));
+    }
+
+    @PatchMapping("/organizations/{orgId}/ai-budget")
+    @PreAuthorize("@permissionChecker.isPlatformAdmin(authentication.name)")
+    @Operation(summary = "Đặt ngân sách token AI/tháng cho một công ty")
+    public ResponseEntity<ApiResponse<OrganizationAdminResponse>> updateAiBudget(
+            @PathVariable UUID orgId,
+            @Valid @RequestBody UpdateOrgAiBudgetRequest request) {
+        return ResponseEntity.ok(ApiResponse.success("Đã cập nhật ngân sách token",
+                platformAdminService.updateAiBudget(orgId, request.getAiMonthlyTokenLimit())));
+    }
+
+    @GetMapping("/ai-usage")
+    @PreAuthorize("@permissionChecker.isPlatformAdmin(authentication.name)")
+    @Operation(summary = "Tiêu thụ token AI theo từng công ty trong một tháng")
+    public ResponseEntity<ApiResponse<List<OrgAiUsageResponse>>> getAiUsage(
+            @RequestParam(required = false) String month) {
+        // month dạng YYYY-MM; bỏ trống thì lấy tháng hiện tại
+        LocalDate period = (month == null || month.isBlank())
+                ? LocalDate.now().withDayOfMonth(1)
+                : LocalDate.parse(month + "-01");
+        return ResponseEntity.ok(ApiResponse.success(platformAdminService.getAiUsageByOrganization(period)));
     }
 }

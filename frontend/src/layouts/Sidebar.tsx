@@ -32,7 +32,7 @@ import {
   ShieldCheck,
   Gauge,
   GitBranch,
-  LayoutGrid
+  LayoutGrid, Coins
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useNotificationDots } from '../hooks/useNotificationDots'
@@ -109,6 +109,9 @@ const navItems: NavItem[] = [
   { label: 'Yêu cầu điều chỉnh', path: '/my-adjustments', icon: <History size={20} />, permission: 'KPI:VIEW_MY' },
   { label: 'Thống kê', path: '/analytics', icon: <TrendingUp size={20} />, permission: 'DASHBOARD:VIEW', end: true },
   { label: 'Trợ lý AI', path: '/ai-assistant', icon: <Bot size={20} />, permission: 'DASHBOARD:VIEW', end: true, aiOnly: true },
+  // Chia hạn mức token cho cấp dưới. Gác bằng đúng quyền thực hiện hành động, nhờ đó
+  // trưởng đơn vị vào được mà không cần quyền của trang cấu hình công ty.
+  { label: 'Hạn mức AI', path: '/ai-quota', icon: <Coins size={20} />, permission: 'AI_QUOTA:ALLOCATE', end: true, aiOnly: true },
 ]
 
 // All nav paths flattened — used to detect when a more-specific variant (e.g. /dashboard?view=staff)

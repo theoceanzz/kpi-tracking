@@ -7,8 +7,10 @@ export default function GlobalUploadProgress() {
 
   if (tasks.length === 0) return null
 
+  // bottom-24 chứ không phải bottom-6: chừa chỗ cho nút chatbot AI ở góc phải dưới,
+  // thẻ tiến trình xếp chồng phía trên nút đó thay vì đè lên.
   return (
-    <div className="fixed bottom-6 right-6 z-[9999] w-80 space-y-3 pointer-events-none">
+    <div className="fixed bottom-24 right-6 z-[9999] w-80 space-y-3 pointer-events-none">
       {tasks.map((task) => (
         <div 
           key={task.id}

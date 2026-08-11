@@ -2420,3 +2420,32 @@ JOIN (VALUES
     (5, 100.0::numeric, 4.5::numeric, 125.0::numeric, 'XUẤT SẮC')    -- hàng5(≥4.5)   × cột5(≥120%)      = 5
 ) AS m(g, score, behavior_score, completion, label) ON m.g = x.g
 WHERE e.id = x.id;
+-- ====================================================
+-- Quyền quản lý hạn mức token AI
+-- ====================================================
+INSERT INTO permissions (id, code, resource, action, description) VALUES
+    ('00000000-0000-0000-0000-000000000401', 'AI_QUOTA:MANAGE',   'AI_QUOTA', 'MANAGE',   'Cho phép đặt hạn mức token AI cho toàn công ty và bật/tắt việc uỷ quyền cho quản lý cấp dưới — chỉ quản lý cấp cao nhất'),
+    ('00000000-0000-0000-0000-000000000402', 'AI_QUOTA:ALLOCATE', 'AI_QUOTA', 'ALLOCATE', 'Cho phép chia hạn mức token AI cho nhân sự thuộc đơn vị mình quản lý, trừ vào hạn mức của chính mình')
+ON CONFLICT (code) DO NOTHING;
+
+-- Gán theo thuộc tính vai trò thay vì liệt kê từng role_id: file seed có nhiều bộ role cho
+-- nhiều công ty mẫu, và cách này tự đúng cho mọi công ty được thêm sau.
+
+-- AI_QUOTA:MANAGE -> vai trò cao nhất công ty, nhận diện bằng việc đã có SYSTEM:ADMIN
+INSERT INTO role_permissions (role_id, permission_id)
+SELECT r.id, p.id
+FROM roles r
+CROSS JOIN permissions p
+WHERE p.code = 'AI_QUOTA:MANAGE'
+  AND EXISTS (SELECT 1 FROM role_permissions rp JOIN permissions sp ON sp.id = rp.permission_id
+              WHERE rp.role_id = r.id AND sp.code = 'SYSTEM:ADMIN')
+ON CONFLICT DO NOTHING;
+
+-- AI_QUOTA:ALLOCATE -> mọi vai trò trưởng đơn vị (rank = 0). Cấp dưới chỉ dùng được
+-- khi công ty bật uỷ quyền, điều kiện đó kiểm ở AiQuotaAllocationService.
+INSERT INTO role_permissions (role_id, permission_id)
+SELECT r.id, p.id
+FROM roles r
+CROSS JOIN permissions p
+WHERE p.code = 'AI_QUOTA:ALLOCATE' AND r.rank = 0
+ON CONFLICT DO NOTHING;

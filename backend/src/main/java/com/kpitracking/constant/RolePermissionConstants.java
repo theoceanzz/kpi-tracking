@@ -7,7 +7,9 @@ import java.util.List;
 public class RolePermissionConstants {
 
     public static final List<String> SYSTEM_ONLY = Arrays.asList(
-            "SYSTEM:ADMIN", "COMPANY:DELETE", "ROLE:DELETE", "POLICY:DELETE", "PERMISSION:EDIT"
+            "SYSTEM:ADMIN", "COMPANY:DELETE", "ROLE:DELETE", "POLICY:DELETE", "PERMISSION:EDIT",
+            // Đặt ngân sách token AI cho toàn công ty + bật/tắt uỷ quyền cho cấp dưới
+            "AI_QUOTA:MANAGE"
     );
 
     public static final List<String> PERSONAL_PERMS = Arrays.asList(
@@ -35,7 +37,7 @@ public class RolePermissionConstants {
             "EVALUATION:VIEW", "EVALUATION:CREATE", "EVALUATION:UPDATE", "EVALUATION:DELETE",
             "NOTIF:VIEW", "NOTIF:MANAGE",
             "KPI_PERIOD:VIEW", "KPI_PERIOD:CREATE", "KPI_PERIOD:UPDATE", "KPI_PERIOD:DELETE",
-            "AI:SUGGEST_KPI",
+            "AI:SUGGEST_KPI", "AI_QUOTA:ALLOCATE",
             "POLICY:VIEW", "POLICY:CREATE", "POLICY:UPDATE", "POLICY:ASSIGN",
             "STATS:VIEW_ORG", "STATS:VIEW_EMPLOYEE",
             "USER_ROLE:VIEW", "USER_ROLE:ASSIGN", "USER_ROLE:REVOKE",
@@ -81,7 +83,7 @@ public class RolePermissionConstants {
             "SUBMISSION:VIEW", "SUBMISSION:REVIEW", "SUBMISSION:REVIEW_KPI",
             "EVALUATION:VIEW", "EVALUATION:CREATE",
             "NOTIF:VIEW", "KPI_PERIOD:VIEW",
-            "AI:SUGGEST_KPI",
+            "AI:SUGGEST_KPI", "AI_QUOTA:ALLOCATE",
             "STATS:VIEW_EMPLOYEE",
             "ATTACHMENT:UPLOAD",
             "REMINDER:SEND",
