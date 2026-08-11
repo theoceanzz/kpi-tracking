@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useForm, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import {
@@ -25,6 +25,8 @@ import {
 import LoadingSkeleton from '@/components/common/LoadingSkeleton'
 import { useAuthStore } from '@/store/authStore'
 import { useOrganization } from '@/features/orgunits/hooks/useOrganization'
+import { useScorecards } from '@/features/bsc/hooks/useBsc'
+import { useOrgUnitTree } from '@/features/orgunits/hooks/useOrgUnitTree'
 import type { KpiCriteria } from '@/types/kpi'
 
 function isSubmittableByUser(k: KpiCriteria, userId?: string) {
@@ -109,6 +111,36 @@ export default function NewSubmissionPage() {
 
   const selectedKpiId = watch('kpiCriteriaId')
   const selectedKpi = myKpiData?.content?.find(k => k.id === selectedKpiId)
+
+  // Trọng số THẬT = form × %hạng_mục (từ thẻ điểm của đơn vị KPI).
+  const enableBsc = org?.enableBsc
+  const organizationId = user?.memberships?.[0]?.organizationId
+  const { data: bscScorecards } = useScorecards(enableBsc ? organizationId : undefined)
+  const { data: orgUnitTreeData } = useOrgUnitTree()
+  const realWeight = useMemo(() => {
+    const kpi: any = selectedKpi
+    if (!enableBsc || !bscScorecards || !kpi || kpi.weight == null || !kpi.effectivePerspectiveId || !kpi.kpiPeriodId) return null
+    const periodScs = bscScorecards.filter(s => s.kpiPeriodId === kpi.kpiPeriodId)
+    if (!periodScs.length) return null
+    const parent = new Map<string, string | null>()
+    const walk = (nodes: any[]) => (nodes || []).forEach((n: any) => { parent.set(n.id, n.parentId ?? null); if (n.children) walk(n.children) })
+    walk(orgUnitTreeData || [])
+    const unitId = kpi.orgUnitId || kpi.orgUnitIds?.[0]
+    let sc: any = null
+    if (unitId) {
+      let cur: string | null = unitId, guard = 0
+      while (cur && guard++ < 100) {
+        const found = periodScs.find(s => (s.orgUnits || []).some((u: any) => u.id === cur))
+        if (found) { sc = found; break }
+        cur = parent.get(cur) ?? null
+      }
+    }
+    if (!sc) sc = periodScs.find(s => !s.orgUnits || s.orgUnits.length === 0) || null
+    if (!sc) return null
+    const sp = sc.perspectives.find((p: any) => p.perspectiveId === kpi.effectivePerspectiveId)
+    if (!sp || sp.weightPercentage == null) return null
+    return kpi.weight * sp.weightPercentage / 100
+  }, [enableBsc, bscScorecards, orgUnitTreeData, selectedKpi])
 
   const { addUpload } = useUploadStore()
 
@@ -439,8 +471,11 @@ export default function NewSubmissionPage() {
                     </div>
                     )}
                     <div className="bg-black/20 backdrop-blur-md rounded-2xl p-4 border border-white/10">
-                        <p className="text-[9px] font-black uppercase tracking-widest opacity-60 mb-1">Trọng số</p>
-                        <p className="text-lg font-black">{selectedKpi.weight}%</p>
+                        <p className="text-[9px] font-black uppercase tracking-widest opacity-60 mb-1">{realWeight != null ? 'Trọng số thật' : 'Trọng số'}</p>
+                        <p className="text-lg font-black leading-tight whitespace-nowrap" title={realWeight != null ? `trên ${selectedKpi.weight}% × %hạng mục` : undefined}>
+                          {realWeight != null ? `${realWeight.toFixed(1)}%` : `${selectedKpi.weight}%`}
+                        </p>
+                        {realWeight != null && <p className="text-[10px] font-bold opacity-50 leading-tight whitespace-nowrap">trên {selectedKpi.weight}%</p>}
                     </div>
                   </div>
 

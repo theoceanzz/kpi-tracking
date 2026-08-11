@@ -37,6 +37,8 @@ import NotificationsPage from '@/features/notifications/pages/NotificationsPage'
 import ForceChangePasswordPage from '@/features/auth/pages/ForceChangePasswordPage'
 import MyAdjustmentsPage from '../features/kpi/pages/MyAdjustmentsPage'
 import KpiPeriodsPage from '@/features/kpi/pages/KpiPeriodsPage'
+import KpiCyclesPage from '@/features/kpi/pages/KpiCyclesPage'
+import CycleEvaluationPage from '@/features/kpi/pages/CycleEvaluationPage'
 import DatasourcesPage from '@/features/datasources/pages/DatasourcesPage'
 import DatasourceDetailPage from '@/features/datasources/pages/DatasourceDetailPage'
 import ReportsPage from '@/features/reports/pages/ReportsPage'
@@ -99,11 +101,13 @@ export const router = createBrowserRouter([
 
           // Director & KPI Managers
           {
-            element: <PermissionRoute permission={['KPI:APPROVE_CRITERIA', 'KPI:APPROVE_ADJUSTMENT', 'KPI_PERIOD:CREATE']} />,
+            element: <PermissionRoute permission={['KPI:APPROVE_CRITERIA', 'KPI:APPROVE_ADJUSTMENT', 'KPI_PERIOD:CREATE', 'KPI_CYCLE:CREATE', 'CYCLE_EVAL:VIEW']} />,
             children: [
               { path: '/kpi-criteria/pending', element: <KpiApprovalPage /> },
               { path: '/kpi-adjustments/pending', element: <KpiAdjustmentApprovalPage /> },
               { path: '/kpi-periods', element: <KpiPeriodsPage /> },
+              { path: '/kpi-cycles', element: <KpiCyclesPage /> },
+              { path: '/kpi-cycles/evaluation', element: <CycleEvaluationPage /> },
             ],
           },
 
@@ -128,13 +132,20 @@ export const router = createBrowserRouter([
               { path: '/org-structure', element: <OrganizationStructurePage /> },
               { path: '/org-units/:id', element: <OrgUnitDetailPage /> },
               { path: '/settings', element: <SystemSettingsPage /> },
+            ],
+          },
+
+          // OKR — chỉ Giám đốc/Phó GĐ.
+          {
+            element: <PermissionRoute permission={['OKR:MANAGE']} />,
+            children: [
               { path: '/okr', element: <OkrManagementPage /> },
             ],
           },
 
-          // BSC (Balanced Scorecard)
+          // BSC — chỉ Giám đốc/Phó GĐ.
           {
-            element: <PermissionRoute permission={['BSC:VIEW']} />,
+            element: <PermissionRoute permission={['BSC:MANAGE']} />,
             children: [
               { path: '/bsc', element: <BscManagementPage /> },
               { path: '/bsc/dashboard', element: <BscDashboardPage /> },

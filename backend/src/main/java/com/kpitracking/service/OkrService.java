@@ -90,7 +90,7 @@ public class OkrService {
     private com.kpitracking.entity.BscPerspective resolvePerspective(UUID perspectiveId) {
         if (perspectiveId == null) return null;
         return bscPerspectiveRepository.findById(perspectiveId)
-                .orElseThrow(() -> new ResourceNotFoundException("Viễn cảnh BSC", "id", perspectiveId));
+                .orElseThrow(() -> new ResourceNotFoundException("Hạng mục BSC", "id", perspectiveId));
     }
 
     @Transactional
@@ -271,7 +271,6 @@ public class OkrService {
 
                         String objOrgUnitCode = objOrgUnitCodeIdx != -1 ? getCellValueAsString(row.getCell(objOrgUnitCodeIdx)) : null;
 
-                        // Viễn cảnh BSC (tùy chọn) — resolve theo MÃ trước, rồi TÊN; chỉ set khi tìm được.
                         String objPerspectiveCode = objPerspectiveIdx != -1 ? getCellValueAsString(row.getCell(objPerspectiveIdx)) : null;
                         com.kpitracking.entity.BscPerspective objPerspective = null;
                         if (objPerspectiveCode != null && !objPerspectiveCode.isBlank()) {

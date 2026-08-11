@@ -18,7 +18,7 @@ import { useAuthStore } from '@/store/authStore'
 import { FREQUENCY_MAP } from '@/lib/utils'
 import { kpiApi } from '@/features/kpi/api/kpiApi'
 import { useObjectives } from '@/features/okr/hooks/useOkr'
-import { useBscPerspectives } from '@/features/bsc/hooks/useBsc'
+import { useBscPerspectives, useScorecards } from '@/features/bsc/hooks/useBsc'
 
 interface KpiExcelPreviewModalProps {
   open: boolean
@@ -135,6 +135,47 @@ export default function KpiExcelPreviewModal({ open, file, kpiType, onClose, onI
   const enableOkr = org?.enableOkr || false
   const enableQualitative = org?.enableQualitative || false
   const enableBsc = org?.enableBsc || false
+
+  // Lọc hạng mục theo (đơn vị + đợt) của TỪNG dòng — giống form tạo KPI / task khẩn.
+  const { data: bscScorecards } = useScorecards(enableBsc ? user?.memberships?.[0]?.organizationId : undefined)
+  const unitParent = useMemo(() => {
+    const map = new Map<string, string | null>()
+    const walk = (nodes: any[]) => (nodes || []).forEach((n: any) => { map.set(n.id, n.parentId ?? null); if (n.children) walk(n.children) })
+    walk(orgTree || [])
+    return map
+  }, [orgTree])
+  const unitIdByName = useMemo(() => {
+    const map = new Map<string, string>()
+    const walk = (nodes: any[]) => (nodes || []).forEach((n: any) => { if (n.name) map.set(String(n.name).trim().toLowerCase(), n.id); if (n.children) walk(n.children) })
+    walk(orgTree || [])
+    return map
+  }, [orgTree])
+  const periodIdByName = useMemo(() => {
+    const map = new Map<string, string>()
+    ;(periodsData?.content || []).forEach((p: any) => map.set(String(p.name).trim().toLowerCase(), p.id))
+    return map
+  }, [periodsData])
+  const availablePerspIdsForRow = (row: KpiRow): Set<string> | null => {
+    if (!enableBsc || !bscScorecards) return null
+    const periodId = periodIdByName.get((row.Period || '').trim().toLowerCase())
+    if (!periodId) return null // đợt chưa khớp ⇒ chưa lọc
+    const periodScs = bscScorecards.filter(s => s.kpiPeriodId === periodId)
+    if (!periodScs.length) return new Set<string>() // đợt chưa có thẻ điểm ⇒ rỗng
+    const unitIds = (row.OrgUnit || '').split(',').map(s => unitIdByName.get(s.trim().toLowerCase())).filter(Boolean) as string[]
+    if (!unitIds.length) return null // chưa khớp đơn vị ⇒ chưa lọc
+    const resolve = (uid: string) => {
+      let cur: string | null = uid, guard = 0
+      while (cur && guard++ < 100) {
+        const found = periodScs.find(s => (s.orgUnits || []).some((u: any) => u.id === cur))
+        if (found) return found
+        cur = unitParent.get(cur) ?? null
+      }
+      return periodScs.find(s => !s.orgUnits || s.orgUnits.length === 0) || null
+    }
+    const ids = new Set<string>()
+    unitIds.forEach(uid => (resolve(uid)?.perspectives || []).forEach((p: any) => ids.add(p.perspectiveId)))
+    return ids
+  }
 
   // Seed the local type from the prop each time the modal opens.
   useEffect(() => {
@@ -427,7 +468,13 @@ export default function KpiExcelPreviewModal({ open, file, kpiType, onClose, onI
       const val = row.Perspective.toLowerCase()
       const matched = perspectives.find((p: any) => p.code?.toLowerCase() === val || p.name?.toLowerCase() === val)
       if (!matched) {
-        errors['Perspective'] = `Viễn cảnh không tồn tại`
+        errors['Perspective'] = `Hạng mục không tồn tại`
+      } else {
+        // Hạng mục phải nằm trong thẻ điểm của (đơn vị + đợt) của dòng này.
+        const avail = availablePerspIdsForRow(row)
+        if (avail && !avail.has(matched.id)) {
+          errors['Perspective'] = `Hạng mục không có trong thẻ điểm của đơn vị/đợt này`
+        }
       }
     }
 
@@ -1018,7 +1065,7 @@ export default function KpiExcelPreviewModal({ open, file, kpiType, onClose, onI
                             <th className="px-5 py-4 min-w-[200px]">Mã KR</th>
                           </>
                         )}
-                        {enableBsc && <th className="px-5 py-4 min-w-[200px]">Viễn cảnh BSC</th>}
+                        {enableBsc && <th className="px-5 py-4 min-w-[200px]">Hạng mục BSC</th>}
                         <th className="px-5 py-4 w-16 text-center">Xóa</th>
                       </tr>
                     </thead>
@@ -1355,9 +1402,13 @@ export default function KpiExcelPreviewModal({ open, file, kpiType, onClose, onI
                                 className="w-full px-4 py-2 rounded-xl border border-transparent hover:border-slate-200 focus:border-indigo-500 text-sm font-bold transition-all bg-transparent outline-none"
                               >
                                 <option value="">-- Trống --</option>
-                                {perspectives.map((p: any) => (
-                                  <option key={p.id} value={p.code}>{p.name} ({p.code})</option>
-                                ))}
+                                {(() => {
+                                  const avail = availablePerspIdsForRow(row)
+                                  const list = avail ? perspectives.filter((p: any) => avail.has(p.id)) : perspectives
+                                  return list.map((p: any) => (
+                                    <option key={p.id} value={p.code}>{p.name} ({p.code})</option>
+                                  ))
+                                })()}
                               </select>
                               {row._errors?.Perspective && <p className="text-[9px] text-rose-500 mt-1 font-black uppercase px-2">{row._errors.Perspective}</p>}
                             </td>

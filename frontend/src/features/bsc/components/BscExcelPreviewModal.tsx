@@ -3,6 +3,7 @@ import { read, write, utils } from 'xlsx'
 import { X, Save, AlertCircle, Trash2, Plus, FileSpreadsheet } from 'lucide-react'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
+import { useFixedPerspectives } from '../hooks/useBsc'
 
 interface BscExcelPreviewModalProps {
   open: boolean
@@ -16,6 +17,7 @@ interface BscRow {
   id: string
   Code: string
   Name: string
+  FixedPerspective: string
   Description?: string
   Color?: string
   DisplayOrder?: string
@@ -24,10 +26,20 @@ interface BscRow {
 }
 
 const DEFAULT_COLOR = '#8b5cf6'
+const DEFAULT_FIXED = 'INTERNAL_PROCESS'
+const FIXED_FALLBACK = [
+  { code: 'FINANCIAL', name: 'Tài chính' },
+  { code: 'CUSTOMER', name: 'Khách hàng' },
+  { code: 'INTERNAL_PROCESS', name: 'Quy trình nội bộ' },
+  { code: 'LEARNING_GROWTH', name: 'Học hỏi & phát triển' },
+]
+const FIXED_CODES = FIXED_FALLBACK.map(f => f.code)
 
 export default function BscExcelPreviewModal({ open, file, onClose, onImport, isImporting }: BscExcelPreviewModalProps) {
   const [data, setData] = useState<BscRow[]>([])
   const [loading, setLoading] = useState(false)
+  const { data: fixedPerspectives } = useFixedPerspectives()
+  const fixedOptions = fixedPerspectives?.length ? fixedPerspectives : FIXED_FALLBACK
 
   useEffect(() => {
     if (open && file) parseFile(file)
@@ -49,8 +61,10 @@ export default function BscExcelPreviewModal({ open, file, onClose, onImport, is
       const code = (row.Code || '').trim()
       if (!code) errors['Code'] = 'Mã là bắt buộc'
       else if (!/^[A-Za-z0-9_]+$/.test(code)) errors['Code'] = 'Mã chỉ gồm chữ, số, gạch dưới'
+      else if (FIXED_CODES.includes(code.toUpperCase())) errors['Code'] = 'Trùng mã viễn cảnh cố định'
       else if ((codeCounts.get(code.toLowerCase()) || 0) > 1) errors['Code'] = 'Mã bị trùng trong tệp'
       if (!(row.Name || '').trim()) errors['Name'] = 'Tên là bắt buộc'
+      if (row.FixedPerspective && row.FixedPerspective.trim() && !FIXED_CODES.includes(row.FixedPerspective.trim().toUpperCase())) errors['FixedPerspective'] = 'Viễn cảnh không hợp lệ'
       if (row.Color && row.Color.trim() && !/^#([0-9A-Fa-f]{6})$/.test(row.Color.trim())) errors['Color'] = 'Màu #RRGGBB'
       const order = (row.DisplayOrder || '').toString().trim()
       if (order && isNaN(Number(order))) errors['DisplayOrder'] = 'Phải là số'
@@ -75,6 +89,7 @@ export default function BscExcelPreviewModal({ open, file, onClose, onImport, is
         id: `row-${index}`,
         Code: (row['Code'] || '').toString().trim(),
         Name: (row['Name'] || '').toString().trim(),
+        FixedPerspective: ((row['FixedPerspective'] ?? row['Perspective'] ?? '').toString().trim() || DEFAULT_FIXED).toUpperCase(),
         Description: (row['Description'] || '').toString().trim(),
         Color: (row['Color'] || '').toString().trim() || DEFAULT_COLOR,
         DisplayOrder: (row['DisplayOrder'] ?? '').toString().trim(),
@@ -103,7 +118,7 @@ export default function BscExcelPreviewModal({ open, file, onClose, onImport, is
 
   const handleAddRow = () => {
     setData(prev => validateAllRows([...prev, {
-      id: `new-${Date.now()}`, Code: '', Name: '', Description: '', Color: DEFAULT_COLOR, DisplayOrder: '', Status: 'ACTIVE',
+      id: `new-${Date.now()}`, Code: '', Name: '', FixedPerspective: DEFAULT_FIXED, Description: '', Color: DEFAULT_COLOR, DisplayOrder: '', Status: 'ACTIVE',
     }]))
   }
 
@@ -115,6 +130,7 @@ export default function BscExcelPreviewModal({ open, file, onClose, onImport, is
     try {
       const exportData = data.map(r => {
         const rowData: any = { Code: r.Code, Name: r.Name }
+        rowData.FixedPerspective = (r.FixedPerspective || DEFAULT_FIXED).toUpperCase()
         if (r.Description) rowData.Description = r.Description
         if (r.Color) rowData.Color = r.Color
         if (r.DisplayOrder !== undefined && r.DisplayOrder !== '') rowData.DisplayOrder = r.DisplayOrder
@@ -123,7 +139,7 @@ export default function BscExcelPreviewModal({ open, file, onClose, onImport, is
       })
       const ws = utils.json_to_sheet(exportData)
       const wb = utils.book_new()
-      utils.book_append_sheet(wb, ws, 'Viễn cảnh BSC')
+      utils.book_append_sheet(wb, ws, 'Hạng mục BSC')
       const wbout = write(wb, { type: 'array', bookType: 'xlsx' })
       const blob = new Blob([wbout], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
       const newFile = new File([blob], file?.name || 'import_bsc.xlsx', { type: blob.type })
@@ -151,7 +167,7 @@ export default function BscExcelPreviewModal({ open, file, onClose, onImport, is
               <FileSpreadsheet size={20} />
             </div>
             <div>
-              <h2 className="text-lg font-bold text-slate-900 dark:text-white">Xem trước & Kiểm tra viễn cảnh BSC</h2>
+              <h2 className="text-lg font-bold text-slate-900 dark:text-white">Xem trước & Kiểm tra hạng mục BSC</h2>
               <p className="text-xs text-slate-500">File: {file?.name}</p>
             </div>
           </div>
@@ -186,6 +202,7 @@ export default function BscExcelPreviewModal({ open, file, onClose, onImport, is
                         <th className="px-4 py-3 w-12 text-center">STT</th>
                         <th className="px-4 py-3 min-w-[160px]">Mã <span className="text-rose-500">*</span></th>
                         <th className="px-4 py-3 min-w-[200px]">Tên <span className="text-rose-500">*</span></th>
+                        <th className="px-4 py-3 min-w-[180px]">Viễn cảnh</th>
                         <th className="px-4 py-3 min-w-[260px]">Mô tả</th>
                         <th className="px-4 py-3 min-w-[180px]">Màu</th>
                         <th className="px-4 py-3 min-w-[100px]">Thứ tự</th>
@@ -204,6 +221,18 @@ export default function BscExcelPreviewModal({ open, file, onClose, onImport, is
                           <td className="px-4 py-2">
                             <input value={row.Name} onChange={e => handleCellChange(row.id, 'Name', e.target.value)} className={inputCls(row._errors?.Name)} />
                             {row._errors?.Name && <p className="text-[10px] text-rose-500 mt-1 font-medium px-1">{row._errors.Name}</p>}
+                          </td>
+                          <td className="px-4 py-2">
+                            <select
+                              value={FIXED_CODES.includes((row.FixedPerspective || '').toUpperCase()) ? (row.FixedPerspective || '').toUpperCase() : DEFAULT_FIXED}
+                              onChange={e => handleCellChange(row.id, 'FixedPerspective', e.target.value)}
+                              className={inputCls(row._errors?.FixedPerspective)}
+                            >
+                              {fixedOptions.map(fp => (
+                                <option key={fp.code} value={fp.code}>{fp.name}</option>
+                              ))}
+                            </select>
+                            {row._errors?.FixedPerspective && <p className="text-[10px] text-rose-500 mt-1 font-medium px-1">{row._errors.FixedPerspective}</p>}
                           </td>
                           <td className="px-4 py-2">
                             <input value={row.Description || ''} onChange={e => handleCellChange(row.id, 'Description', e.target.value)} className={inputCls()} />
@@ -257,7 +286,7 @@ export default function BscExcelPreviewModal({ open, file, onClose, onImport, is
 
         <div className="px-6 py-4 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50/50 dark:bg-slate-800/30">
           <p className="text-sm font-bold text-slate-500">
-            Tổng cộng: <span className="text-slate-900 dark:text-white">{data.length}</span> viễn cảnh
+            Tổng cộng: <span className="text-slate-900 dark:text-white">{data.length}</span> hạng mục
           </p>
           <div className="flex gap-3">
             <button onClick={onClose} disabled={isImporting} className="px-6 py-2.5 rounded-xl text-sm font-bold border border-slate-200 dark:border-slate-700 hover:bg-white dark:hover:bg-slate-800 transition-colors text-slate-600 dark:text-slate-300 disabled:opacity-50">

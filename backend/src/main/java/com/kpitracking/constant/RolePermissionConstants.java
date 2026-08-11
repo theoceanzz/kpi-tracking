@@ -38,12 +38,15 @@ public class RolePermissionConstants {
             "NOTIF:VIEW", "NOTIF:MANAGE",
             "KPI_PERIOD:VIEW", "KPI_PERIOD:CREATE", "KPI_PERIOD:UPDATE", "KPI_PERIOD:DELETE",
             "AI:SUGGEST_KPI", "AI_QUOTA:ALLOCATE",
+            "KPI_CYCLE:VIEW", "KPI_CYCLE:CREATE", "KPI_CYCLE:UPDATE", "KPI_CYCLE:DELETE",
+            "CYCLE_EVAL:VIEW", "CYCLE_EVAL:FINALIZE",
             "POLICY:VIEW", "POLICY:CREATE", "POLICY:UPDATE", "POLICY:ASSIGN",
             "STATS:VIEW_ORG", "STATS:VIEW_EMPLOYEE",
             "USER_ROLE:VIEW", "USER_ROLE:ASSIGN", "USER_ROLE:REVOKE",
             "ATTACHMENT:UPLOAD", "ATTACHMENT:DELETE",
             "REMINDER:SEND",
-            "BSC:VIEW", "BSC:MANAGE", "BSC:PUBLISH_SCORE"
+            "BSC:VIEW", "BSC:MANAGE", "BSC:PUBLISH_SCORE",
+            "OKR:VIEW", "OKR:MANAGE"
     );
 
     // ----------------------------------------------------------------
@@ -62,13 +65,16 @@ public class RolePermissionConstants {
             "EVALUATION:VIEW", "EVALUATION:CREATE", "EVALUATION:UPDATE",
             "NOTIF:VIEW", "NOTIF:MANAGE",
             "KPI_PERIOD:VIEW", "KPI_PERIOD:CREATE", "KPI_PERIOD:UPDATE",
+            "KPI_CYCLE:VIEW", "KPI_CYCLE:CREATE", "KPI_CYCLE:UPDATE",
+            "CYCLE_EVAL:VIEW", "CYCLE_EVAL:FINALIZE",
             "AI:SUGGEST_KPI",
             "POLICY:VIEW", "POLICY:CREATE", "POLICY:UPDATE", "POLICY:ASSIGN",
             "STATS:VIEW_ORG", "STATS:VIEW_EMPLOYEE",
             "USER_ROLE:VIEW", "USER_ROLE:ASSIGN",
             "ATTACHMENT:UPLOAD",
             "REMINDER:SEND",
-            "BSC:VIEW", "BSC:MANAGE", "BSC:PUBLISH_SCORE"
+            "BSC:VIEW", "BSC:MANAGE", "BSC:PUBLISH_SCORE",
+            "OKR:VIEW", "OKR:MANAGE"
     );
 
     // ----------------------------------------------------------------
@@ -82,12 +88,13 @@ public class RolePermissionConstants {
             "KPI:IMPORT", "KPI:SUBMIT", "KPI:REJECT",
             "SUBMISSION:VIEW", "SUBMISSION:REVIEW", "SUBMISSION:REVIEW_KPI",
             "EVALUATION:VIEW", "EVALUATION:CREATE",
-            "NOTIF:VIEW", "KPI_PERIOD:VIEW",
+            "NOTIF:VIEW", "KPI_PERIOD:VIEW", "KPI_CYCLE:VIEW",
             "AI:SUGGEST_KPI", "AI_QUOTA:ALLOCATE",
+            "CYCLE_EVAL:VIEW", "CYCLE_EVAL:FINALIZE",
             "STATS:VIEW_EMPLOYEE",
             "ATTACHMENT:UPLOAD",
             "REMINDER:SEND",
-            "BSC:VIEW"
+            "BSC:VIEW", "OKR:VIEW"
     );
 
     // ----------------------------------------------------------------
@@ -100,12 +107,12 @@ public class RolePermissionConstants {
             "KPI:VIEW", "KPI:CREATE","KPI:UPDATE", "KPI:DELETE","KPI:IMPORT", "KPI:SUBMIT", "KPI:REJECT",
             "SUBMISSION:VIEW", "SUBMISSION:REVIEW_KPI",
             "EVALUATION:VIEW", "EVALUATION:CREATE",
-            "NOTIF:VIEW", "KPI_PERIOD:VIEW",
+            "NOTIF:VIEW", "KPI_PERIOD:VIEW", "KPI_CYCLE:VIEW",
             "AI:SUGGEST_KPI",
             "STATS:VIEW_EMPLOYEE",
             "ATTACHMENT:UPLOAD",
             "REMINDER:SEND",
-            "BSC:VIEW"
+            "BSC:VIEW", "OKR:VIEW"
     );
 
     // ----------------------------------------------------------------
@@ -116,9 +123,9 @@ public class RolePermissionConstants {
             "KPI:VIEW", "KPI:CREATE","KPI:UPDATE", "KPI:DELETE", "KPI:IMPORT", "KPI:SUBMIT",
             "SUBMISSION:CREATE",
             "EVALUATION:VIEW","EVALUATION:CREATE",
-            "NOTIF:VIEW", "KPI_PERIOD:VIEW",
+            "NOTIF:VIEW", "KPI_PERIOD:VIEW", "KPI_CYCLE:VIEW",
             "ATTACHMENT:UPLOAD",
-            "BSC:VIEW"
+            "BSC:VIEW", "OKR:VIEW"
     );
 
     // ================================================================

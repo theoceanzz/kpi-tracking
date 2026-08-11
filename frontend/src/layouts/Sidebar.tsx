@@ -32,7 +32,10 @@ import {
   ShieldCheck,
   Gauge,
   GitBranch,
-  LayoutGrid, Coins
+  Coins,
+  LayoutGrid,
+  CalendarRange,
+  Award
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useNotificationDots } from '../hooks/useNotificationDots'
@@ -69,15 +72,15 @@ const navItems: NavItem[] = [
     icon: <Building2 size={20} />,
     children: [
       { label: 'Công ty', path: '/company', icon: <Building2 size={18} />, permission: 'COMPANY:VIEW' },
-      { label: 'Quản lý OKR', path: '/okr', icon: <Target size={18} />, permission: 'COMPANY:VIEW', okrOnly: true },
+      { label: 'Quản lý OKR', path: '/okr', icon: <Target size={18} />, permission: 'OKR:MANAGE', okrOnly: true },
       {
         label: 'Quản lý BSC',
         icon: <LayoutGrid size={18} />,
         bscOnly: true,
         children: [
-          { label: 'Thẻ điểm BSC', path: '/bsc', icon: <Layers size={18} />, permission: 'BSC:VIEW', bscOnly: true, end: true },
-          { label: 'Dashboard BSC', path: '/bsc/dashboard', icon: <Gauge size={18} />, permission: 'BSC:VIEW', bscOnly: true },
-          { label: 'Bản đồ chiến lược', path: '/bsc/strategy-map', icon: <GitBranch size={18} />, permission: 'BSC:VIEW', bscOnly: true },
+          { label: 'Thẻ điểm BSC', path: '/bsc', icon: <Layers size={18} />, permission: 'BSC:MANAGE', bscOnly: true, end: true },
+          { label: 'Dashboard BSC', path: '/bsc/dashboard', icon: <Gauge size={18} />, permission: 'BSC:MANAGE', bscOnly: true },
+          { label: 'Bản đồ chiến lược', path: '/bsc/strategy-map', icon: <GitBranch size={18} />, permission: 'BSC:MANAGE', bscOnly: true },
         ]
       },
       {
@@ -96,12 +99,14 @@ const navItems: NavItem[] = [
     label: 'Quản lý KPI',
     icon: <Target size={20} />,
     children: [
+      { label: 'Quản lý kỳ', path: '/kpi-cycles', icon: <CalendarRange size={18} />, permission: 'KPI_CYCLE:CREATE', end: true },
       { label: 'Quản lý đợt ', path: '/kpi-periods', icon: <Layers size={18} />, permission: 'KPI_PERIOD:CREATE' },
       { label: 'Quản lý chỉ tiêu', path: '/kpi-criteria', icon: <Target size={18} />, permission: 'KPI:VIEW', end: true },
       { label: 'Duyệt chỉ tiêu', path: '/kpi-criteria/pending', icon: <ClipboardCheck size={18} />, permission: 'KPI:APPROVE_CRITERIA' },
       { label: 'Duyệt điều chỉnh', path: '/kpi-adjustments/pending', icon: <MessageSquare size={18} />, permission: 'KPI:APPROVE_ADJUSTMENT' },
       { label: 'Phê duyệt & đánh giá ', path: '/submissions/org-unit', icon: <ClipboardCheck size={18} />, permission: 'SUBMISSION:REVIEW' },
       { label: 'Kết quả đánh giá', path: '/evaluations', icon: <Star size={18} />, permission: 'EVALUATION:VIEW_MY' },
+      { label: 'Đánh giá kỳ', path: '/kpi-cycles/evaluation', icon: <Award size={18} />, permission: 'CYCLE_EVAL:VIEW', end: true },
     ]
   },
   { label: 'KPI của tôi', path: '/my-kpi', icon: <ListChecks size={20} />, permission: 'KPI:VIEW_MY' },

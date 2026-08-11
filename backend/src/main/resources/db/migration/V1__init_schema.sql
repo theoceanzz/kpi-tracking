@@ -49,7 +49,6 @@ CREATE TABLE organizations (
   enable_qualitative BOOLEAN NOT NULL DEFAULT FALSE,
   enable_bsc  BOOLEAN NOT NULL DEFAULT FALSE,
   performance_matrix jsonb,
-  -- Luật xếp loại ĐƠN VỊ theo phân bố % xếp loại thành viên. NULL ⇒ backend dùng preset mặc định.
   unit_classification_rules jsonb,
 
   -- ----- Hạn mức token AI -----
@@ -95,10 +94,12 @@ CREATE INDEX idx_org_lark_enabled ON organizations (lark_enabled)
 -- Đặt sớm ở đây vì objectives/kpi_criteria/scorecards đều tham chiếu tới.
 -- ====================================================
 CREATE TABLE bsc_perspectives (
-    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    organization_id UUID            NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
-    code            VARCHAR(50)     NOT NULL,
-    name            VARCHAR(255)    NOT NULL,
+    id                UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    organization_id   UUID            NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+    code              VARCHAR(50)     NOT NULL,
+    fixed_perspective VARCHAR(20)     NOT NULL
+        CHECK (fixed_perspective IN ('FINANCIAL','CUSTOMER','INTERNAL_PROCESS','LEARNING_GROWTH')),
+    name              VARCHAR(255)    NOT NULL,
     description     TEXT,
     color           VARCHAR(20),
     icon            VARCHAR(50),
@@ -113,6 +114,21 @@ CREATE INDEX idx_bsc_perspectives_organization_id ON bsc_perspectives(organizati
 -- code là duy nhất trong 1 org (chỉ tính bản ghi chưa xoá mềm)
 CREATE UNIQUE INDEX uq_bsc_perspectives_org_code
     ON bsc_perspectives(organization_id, code) WHERE deleted_at IS NULL;
+
+-- ====================================================
+-- 4 viễn cảnh BSC CỐ ĐỊNH theo TỪNG tổ chức (mỗi org 1 bản sao 4 dòng, tự sửa tên/màu/thứ tự;
+-- code cố định khớp enum). Được service khởi tạo lazily khi org lần đầu mở BSC.
+-- ====================================================
+CREATE TABLE bsc_fixed_perspectives (
+    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    organization_id UUID         NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+    code            VARCHAR(20)  NOT NULL,
+    name            VARCHAR(100) NOT NULL,
+    color           VARCHAR(20),
+    display_order   INT          NOT NULL DEFAULT 0,
+    CONSTRAINT uq_bsc_fixed_perspectives_org_code UNIQUE (organization_id, code)
+);
+CREATE INDEX idx_bsc_fixed_perspectives_org ON bsc_fixed_perspectives(organization_id);
 
 -- ====================================================
 -- Sidebar Settings
@@ -361,9 +377,30 @@ CREATE TABLE scopes (
 -- ====================================================
 -- KPI Periods
 -- ====================================================
+-- KỲ đánh giá: gom nhiều "đợt" (kpi_periods) để đánh giá tổng hợp.
+-- VD: đợt = KPI giao hàng tuần; kỳ = 6 tháng. cycle_type chỉ là mẫu gợi ý
+-- (Tháng/Quý/6 Tháng/Năm) — thời gian vẫn chỉnh tự do.
+CREATE TABLE kpi_cycles (
+    id                UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    organization_id   UUID            NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+    name              VARCHAR(255)    NOT NULL,
+    cycle_type        VARCHAR(20)     NOT NULL,
+    start_date        TIMESTAMPTZ,
+    end_date          TIMESTAMPTZ,
+    description       TEXT,
+    evaluation_mode   VARCHAR(20)     NOT NULL DEFAULT 'BOTH', -- QUANTITATIVE | QUALITATIVE | BOTH
+    created_at        TIMESTAMPTZ     DEFAULT NOW(),
+    updated_at        TIMESTAMPTZ     DEFAULT NOW(),
+    deleted_at        TIMESTAMPTZ
+);
+
+CREATE INDEX idx_kpi_cycles_org_id ON kpi_cycles(organization_id);
+
 CREATE TABLE kpi_periods (
     id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     organization_id UUID            NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+    -- Đợt thuộc tối đa 1 kỳ (nullable: đợt có thể không thuộc kỳ nào).
+    kpi_cycle_id    UUID            REFERENCES kpi_cycles(id) ON DELETE SET NULL,
     name            VARCHAR(255)    NOT NULL,
     period_type     VARCHAR(20)     NOT NULL,
     start_date      TIMESTAMPTZ,
@@ -375,6 +412,51 @@ CREATE TABLE kpi_periods (
 );
 
 CREATE INDEX idx_kpi_periods_org_id ON kpi_periods(organization_id);
+CREATE INDEX idx_kpi_periods_cycle_id ON kpi_periods(kpi_cycle_id);
+
+-- Đánh giá tổng hợp của PHÒNG BAN theo kỳ (có lưu + chốt).
+CREATE TABLE cycle_unit_evaluations (
+    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    kpi_cycle_id    UUID            NOT NULL REFERENCES kpi_cycles(id) ON DELETE CASCADE,
+    org_unit_id     UUID            NOT NULL REFERENCES org_units(id) ON DELETE CASCADE,
+    evaluation_mode VARCHAR(20)     NOT NULL,
+    self_score      DOUBLE PRECISION,
+    manager_score   DOUBLE PRECISION,
+    qual_score      DOUBLE PRECISION,  -- TB mức định tính của thành viên (thang 0..5)
+    matrix_rating   DOUBLE PRECISION,  -- TB xếp loại ma trận của thành viên (thang 1..5)
+    member_count    INT             DEFAULT 0,
+    comment         TEXT,
+    status          VARCHAR(20)     NOT NULL DEFAULT 'DRAFT', -- DRAFT | FINALIZED
+    finalized_by    UUID            REFERENCES users(id) ON DELETE SET NULL,
+    finalized_at    TIMESTAMPTZ,
+    created_at      TIMESTAMPTZ     DEFAULT NOW(),
+    updated_at      TIMESTAMPTZ     DEFAULT NOW(),
+    deleted_at      TIMESTAMPTZ,
+    UNIQUE (kpi_cycle_id, org_unit_id)
+);
+
+CREATE INDEX idx_cycle_unit_evals_cycle ON cycle_unit_evaluations(kpi_cycle_id);
+CREATE INDEX idx_cycle_unit_evals_unit  ON cycle_unit_evaluations(org_unit_id);
+
+-- Điểm CHỐT KỲ của từng nhân viên (mặc định = TB điểm QLTT các đợt, cho phép chỉnh tay).
+CREATE TABLE cycle_user_evaluations (
+    id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    kpi_cycle_id  UUID            NOT NULL REFERENCES kpi_cycles(id) ON DELETE CASCADE,
+    user_id       UUID            NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    final_score   DOUBLE PRECISION,
+    qual_score    DOUBLE PRECISION,  -- mức định tính chấm ở cấp kỳ (thang 0..5) — trục hàng ma trận
+    matrix_rating INT,               -- xếp loại 1..5 suy ra từ ma trận hiệu suất của tổ chức
+    comment       TEXT,
+    evaluated_by  UUID            REFERENCES users(id) ON DELETE SET NULL,
+    evaluated_at  TIMESTAMPTZ,
+    created_at    TIMESTAMPTZ     DEFAULT NOW(),
+    updated_at    TIMESTAMPTZ     DEFAULT NOW(),
+    deleted_at    TIMESTAMPTZ,
+    UNIQUE (kpi_cycle_id, user_id)
+);
+
+CREATE INDEX idx_cycle_user_evals_cycle ON cycle_user_evaluations(kpi_cycle_id);
+CREATE INDEX idx_cycle_user_evals_user  ON cycle_user_evaluations(user_id);
 
 -- ====================================================
 -- OKR (Objectives and Key Results)
@@ -830,9 +912,16 @@ CREATE TABLE bsc_scorecards (
 
 CREATE INDEX idx_bsc_scorecards_organization_id ON bsc_scorecards(organization_id);
 CREATE INDEX idx_bsc_scorecards_kpi_period_id ON bsc_scorecards(kpi_period_id);
--- Mỗi org chỉ có 1 thẻ điểm cho một kỳ (bỏ qua bản xoá mềm)
-CREATE UNIQUE INDEX uq_bsc_scorecards_org_period
-    ON bsc_scorecards(organization_id, kpi_period_id) WHERE deleted_at IS NULL;
+-- Tính duy nhất (1 thẻ mặc định/kỳ, mỗi đơn vị ≤1 thẻ/kỳ) được ENFORCE Ở SERVICE
+-- vì thẻ điểm áp dụng cho NHIỀU đơn vị (bảng nối bsc_scorecard_org_units bên dưới).
+
+-- Thẻ điểm áp dụng cho NHIỀU phòng ban (giống OKR objective_org_units). Danh sách RỖNG = mặc định toàn tổ chức.
+CREATE TABLE bsc_scorecard_org_units (
+    scorecard_id UUID NOT NULL REFERENCES bsc_scorecards(id) ON DELETE CASCADE,
+    org_unit_id  UUID NOT NULL REFERENCES org_units(id) ON DELETE CASCADE,
+    PRIMARY KEY (scorecard_id, org_unit_id)
+);
+CREATE INDEX idx_bsc_scorecard_org_units_unit ON bsc_scorecard_org_units(org_unit_id);
 
 -- Viễn cảnh trong thẻ điểm + trọng số (%) — tổng = 100 mỗi scorecard
 CREATE TABLE bsc_scorecard_perspectives (

@@ -4,12 +4,13 @@ import EmptyState from '@/components/common/EmptyState'
 import ConfirmDialog from '@/components/common/ConfirmDialog'
 import { format, addDays, parseISO, addMonths, addYears, subDays, differenceInCalendarDays } from 'date-fns'
 import { useKpiPeriods } from '../hooks/useKpiPeriods'
+import { useKpiCycles } from '../hooks/useKpiCycles'
 import { useAuthStore } from '@/store/authStore'
 import { useSidebarSettings } from '@/features/organization/hooks/useSidebarSettings'
 import { formatDateTime, FREQUENCY_MAP } from '@/lib/utils'
 import type { KpiPeriod, KpiFrequency } from '@/types/kpi'
 import {
-  Calendar, Plus, Pencil, Trash2, Clock, 
+  Calendar, CalendarRange, Plus, Pencil, Trash2, Clock,
   ChevronLeft, ChevronRight,
   Search, Filter, ArrowUpDown, ArrowUp, ArrowDown, X, ArrowRight,
   LayoutGrid, List, Sparkles, Target
@@ -192,10 +193,10 @@ export default function KpiPeriodsPage() {
             <Select value={periodType} onValueChange={val => { setPeriodType(val); setPage(0) }}>
               <SelectTrigger className="w-full md:w-56 h-[52px] rounded-[20px] border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50 font-bold text-sm">
                 <Filter size={16} className="text-slate-400 mr-2" />
-                <SelectValue placeholder="Tất cả loại kỳ" />
+                <SelectValue placeholder="Tất cả loại đợt" />
               </SelectTrigger>
               <SelectContent className="rounded-2xl border-slate-200 dark:border-slate-800 shadow-2xl p-2">
-                <SelectItem value="ALL" className="rounded-xl focus:bg-indigo-50 dark:focus:bg-indigo-900/30 text-xs font-black uppercase">Tất cả loại kỳ</SelectItem>
+                <SelectItem value="ALL" className="rounded-xl focus:bg-indigo-50 dark:focus:bg-indigo-900/30 text-xs font-black uppercase">Tất cả loại đợt</SelectItem>
                 {['DAILY', 'WEEKLY', 'MONTHLY', 'QUARTERLY', 'SEMI_ANNUALLY', 'YEARLY'].map(type => (
                   <SelectItem key={type} value={type} className="rounded-xl focus:bg-indigo-50 dark:focus:bg-indigo-900/30 text-sm font-bold">
                     {FREQUENCY_MAP[type as KpiFrequency]}
@@ -301,8 +302,9 @@ export default function KpiPeriodsPage() {
                     <div className="flex items-center gap-2">Tên Đợt <SortIcon field="name" /></div>
                   </th>
                   <th className="px-4 py-5 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 cursor-pointer group whitespace-nowrap" onClick={() => toggleSort('periodType')}>
-                    <div className="flex items-center gap-2">Loại kỳ <SortIcon field="periodType" /></div>
+                    <div className="flex items-center gap-2">Loại đợt <SortIcon field="periodType" /></div>
                   </th>
+                  <th className="px-4 py-5 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 whitespace-nowrap">Kỳ</th>
                   <th className="px-4 py-5 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 cursor-pointer group whitespace-nowrap" onClick={() => toggleSort('startDate')}>
                     <div className="flex items-center gap-2">Bắt đầu <SortIcon field="startDate" /></div>
                   </th>
@@ -328,6 +330,15 @@ export default function KpiPeriodsPage() {
                         <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-50 dark:bg-slate-800 text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-400 border border-slate-100 dark:border-slate-700 shadow-sm">
                           <Clock size={12} /> {FREQUENCY_MAP[period.periodType as KpiFrequency]}
                         </div>
+                      </td>
+                      <td className="px-4 py-5">
+                        {period.cycleName ? (
+                          <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-50 dark:bg-emerald-900/20 text-[10px] font-black text-emerald-600 dark:text-emerald-400 border border-emerald-100 dark:border-emerald-800/50">
+                            <CalendarRange size={12} /> {period.cycleName}
+                          </span>
+                        ) : (
+                          <span className="text-xs font-bold text-slate-300 dark:text-slate-600">—</span>
+                        )}
                       </td>
                       <td className="px-4 py-5">
                         <span className="text-xs font-bold text-slate-500 dark:text-slate-400">{period.startDate ? formatDateTime(period.startDate) : '—'}</span>
@@ -382,8 +393,15 @@ export default function KpiPeriodsPage() {
                 </div>
 
                 <h3 className="text-lg font-black text-slate-900 dark:text-white mb-2 line-clamp-1">{period.name}</h3>
-                <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-50 dark:bg-slate-800 text-[9px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400 border border-slate-100 dark:border-slate-800 mb-6">
-                  <Clock size={10} /> {FREQUENCY_MAP[period.periodType as KpiFrequency]}
+                <div className="flex flex-wrap items-center gap-1.5 mb-6">
+                  <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-50 dark:bg-slate-800 text-[9px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400 border border-slate-100 dark:border-slate-800">
+                    <Clock size={10} /> {FREQUENCY_MAP[period.periodType as KpiFrequency]}
+                  </div>
+                  {period.cycleName && (
+                    <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-50 dark:bg-emerald-900/20 text-[9px] font-black text-emerald-600 dark:text-emerald-400 border border-emerald-100 dark:border-emerald-800/50">
+                      <CalendarRange size={10} /> {period.cycleName}
+                    </div>
+                  )}
                 </div>
 
                 <div className="space-y-3 pt-4 border-t border-slate-50 dark:border-slate-800">
@@ -523,8 +541,14 @@ function PeriodFormModal({ onClose, editPeriod, organizationId, onSubmit, isSubm
     startDate: editPeriod?.startDate ? format(parseISO(editPeriod.startDate), "yyyy-MM-dd'T'HH:mm") : format(new Date(), "yyyy-MM-dd'T'07:00"),
     endDate: editPeriod?.endDate ? format(parseISO(editPeriod.endDate), "yyyy-MM-dd'T'HH:mm") : '',
     notificationDate: editPeriod?.notificationDate ? format(parseISO(editPeriod.notificationDate), "yyyy-MM-dd'T'HH:mm") : '',
+    cycleId: editPeriod?.cycleId || 'NONE',
   })
   const [showMismatchConfirm, setShowMismatchConfirm] = useState(false)
+
+  // Danh sách kỳ để gán đợt vào (tuỳ chọn).
+  const { data: cyclesData } = useKpiCycles({ organizationId, size: 100, sortBy: 'startDate', direction: 'desc' })
+  const cycles = cyclesData?.content || []
+  const selectedCycle = formData.cycleId !== 'NONE' ? cycles.find(c => c.id === formData.cycleId) : undefined
 
   // Auto calculate end date on mount if creating new
   useState(() => {
@@ -579,6 +603,7 @@ function PeriodFormModal({ onClose, editPeriod, organizationId, onSubmit, isSubm
       startDate: new Date(formData.startDate).toISOString(),
       endDate: new Date(formData.endDate).toISOString(),
       notificationDate: formData.notificationDate ? new Date(formData.notificationDate).toISOString() : null,
+      cycleId: formData.cycleId === 'NONE' ? null : formData.cycleId,
       organizationId
     })
     onClose()
@@ -599,6 +624,19 @@ function PeriodFormModal({ onClose, editPeriod, organizationId, onSubmit, isSubm
     if (notification) {
       if (notification <= start || notification >= end) {
         toast.error('Thời gian thông báo phải nằm trong khoảng thời gian bắt đầu và kết thúc')
+        return
+      }
+    }
+
+    // Đợt thuộc một kỳ ⇒ thời gian đợt phải nằm gọn trong thời gian của kỳ.
+    if (selectedCycle?.startDate && selectedCycle?.endDate) {
+      const cycleStart = new Date(selectedCycle.startDate).getTime()
+      const cycleEnd = new Date(selectedCycle.endDate).getTime()
+      if (start < cycleStart || end > cycleEnd) {
+        toast.error(
+          `Thời gian đợt phải nằm trong kỳ "${selectedCycle.name}" ` +
+          `(${format(new Date(selectedCycle.startDate), 'dd/MM/yyyy')} – ${format(new Date(selectedCycle.endDate), 'dd/MM/yyyy')})`
+        )
         return
       }
     }
@@ -641,7 +679,7 @@ function PeriodFormModal({ onClose, editPeriod, organizationId, onSubmit, isSubm
 
           <form onSubmit={handleSubmit} className="space-y-6">
             <div className="space-y-2">
-              <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 ml-1">Tên đợt KPI</label>
+              <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 ml-1">Tên đợt KPI <span className="text-red-500">*</span></label>
               <input 
                 value={formData.name}
                 onChange={e => handleFieldChange('name', e.target.value)}
@@ -652,7 +690,7 @@ function PeriodFormModal({ onClose, editPeriod, organizationId, onSubmit, isSubm
             </div>
 
             <div className="space-y-2">
-              <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 ml-1">Loại chu kỳ</label>
+              <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 ml-1">Loại chu kỳ <span className="text-red-500">*</span></label>
               <Select value={formData.periodType} onValueChange={val => handleFieldChange('periodType', val)}>
                 <SelectTrigger className="w-full px-5 h-[56px] rounded-[20px] border border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50 text-sm font-bold shadow-sm focus:ring-4 focus:ring-indigo-500/10">
                   <SelectValue placeholder="Chọn loại chu kỳ" />
@@ -667,33 +705,58 @@ function PeriodFormModal({ onClose, editPeriod, organizationId, onSubmit, isSubm
               </Select>
             </div>
 
+            <div className="space-y-2">
+              <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 ml-1">Thuộc kỳ đánh giá (tuỳ chọn)</label>
+              <Select value={formData.cycleId} onValueChange={val => setFormData(prev => ({ ...prev, cycleId: val }))}>
+                <SelectTrigger className="w-full px-5 h-[56px] rounded-[20px] border border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50 text-sm font-bold shadow-sm focus:ring-4 focus:ring-indigo-500/10">
+                  <SelectValue placeholder="Không thuộc kỳ nào" />
+                </SelectTrigger>
+                <SelectContent className="rounded-2xl border-slate-200 dark:border-slate-800 shadow-2xl p-2">
+                  <SelectItem value="NONE" className="rounded-xl text-sm font-bold text-slate-500">Không thuộc kỳ nào</SelectItem>
+                  {cycles.map(cycle => (
+                    <SelectItem key={cycle.id} value={cycle.id} className="rounded-xl text-sm font-bold">{cycle.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {selectedCycle?.startDate && selectedCycle?.endDate && (
+                <p className="text-[11px] text-slate-400 font-medium ml-1">
+                  Đợt phải nằm trong kỳ:{' '}
+                  <span className="font-black text-slate-500">
+                    {format(new Date(selectedCycle.startDate), 'dd/MM/yyyy')} – {format(new Date(selectedCycle.endDate), 'dd/MM/yyyy')}
+                  </span>
+                </p>
+              )}
+            </div>
+
             <div className="space-y-6">
-              <div className="space-y-2">
-                <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 ml-1">Bắt đầu</label>
-                {/* Mobile */}
-                <div className="sm:hidden">
-                  <DateTimePicker value={formData.startDate} onChange={val => handleFieldChange('startDate', val)} />
-                </div>
-                {/* Desktop */}
-                <div className="hidden sm:block relative">
-                  <input type="datetime-local" value={formData.startDate} onChange={e => handleFieldChange('startDate', e.target.value)} required className="w-full px-6 py-4 rounded-[22px] border border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50 focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500/50 outline-none text-sm font-bold transition-all text-transparent" />
-                  <div className="absolute inset-0 left-6 flex items-center pointer-events-none text-sm font-bold text-slate-900 dark:text-white">
-                    {formData.startDate ? format(new Date(formData.startDate), 'dd/MM/yyyy HH:mm') : ''}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 ml-1">Bắt đầu <span className="text-red-500">*</span></label>
+                  {/* Mobile */}
+                  <div className="sm:hidden">
+                    <DateTimePicker value={formData.startDate} onChange={val => handleFieldChange('startDate', val)} />
+                  </div>
+                  {/* Desktop */}
+                  <div className="hidden sm:block relative">
+                    <input type="datetime-local" value={formData.startDate} onChange={e => handleFieldChange('startDate', e.target.value)} required className="w-full px-5 py-4 rounded-[22px] border border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50 focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500/50 outline-none text-sm font-bold transition-all text-transparent" />
+                    <div className="absolute inset-0 left-5 flex items-center pointer-events-none text-sm font-bold text-slate-900 dark:text-white">
+                      {formData.startDate ? format(new Date(formData.startDate), 'dd/MM/yyyy HH:mm') : ''}
+                    </div>
                   </div>
                 </div>
-              </div>
 
-              <div className="space-y-2">
-                <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 ml-1">Kết thúc</label>
-                {/* Mobile */}
-                <div className="sm:hidden">
-                  <DateTimePicker value={formData.endDate} onChange={val => handleFieldChange('endDate', val)} />
-                </div>
-                {/* Desktop */}
-                <div className="hidden sm:block relative">
-                  <input type="datetime-local" value={formData.endDate} onChange={e => handleFieldChange('endDate', e.target.value)} required className="w-full px-6 py-4 rounded-[22px] border border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50 focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500/50 outline-none text-sm font-bold transition-all text-transparent" />
-                  <div className="absolute inset-0 left-6 flex items-center pointer-events-none text-sm font-bold text-slate-900 dark:text-white">
-                    {formData.endDate ? format(new Date(formData.endDate), 'dd/MM/yyyy HH:mm') : ''}
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 ml-1">Kết thúc <span className="text-red-500">*</span></label>
+                  {/* Mobile */}
+                  <div className="sm:hidden">
+                    <DateTimePicker value={formData.endDate} onChange={val => handleFieldChange('endDate', val)} />
+                  </div>
+                  {/* Desktop */}
+                  <div className="hidden sm:block relative">
+                    <input type="datetime-local" value={formData.endDate} onChange={e => handleFieldChange('endDate', e.target.value)} required className="w-full px-5 py-4 rounded-[22px] border border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50 focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500/50 outline-none text-sm font-bold transition-all text-transparent" />
+                    <div className="absolute inset-0 left-5 flex items-center pointer-events-none text-sm font-bold text-slate-900 dark:text-white">
+                      {formData.endDate ? format(new Date(formData.endDate), 'dd/MM/yyyy HH:mm') : ''}
+                    </div>
                   </div>
                 </div>
               </div>

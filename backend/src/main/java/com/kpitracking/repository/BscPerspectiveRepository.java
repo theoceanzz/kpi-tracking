@@ -1,6 +1,7 @@
 package com.kpitracking.repository;
 
 import com.kpitracking.entity.BscPerspective;
+import com.kpitracking.enums.BscFixedPerspective;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
@@ -21,9 +22,12 @@ public interface BscPerspectiveRepository extends JpaRepository<BscPerspective, 
 
     boolean existsByOrganizationIdAndCodeAndIdNot(UUID organizationId, String code, UUID id);
 
-    boolean existsByOrganizationIdAndDisplayOrder(UUID organizationId, Integer displayOrder);
+    // Thứ tự hiển thị duy nhất TRONG TỪNG viễn cảnh (không phải toàn org).
+    boolean existsByOrganizationIdAndFixedPerspectiveAndDisplayOrder(
+            UUID organizationId, BscFixedPerspective fixedPerspective, Integer displayOrder);
 
-    boolean existsByOrganizationIdAndDisplayOrderAndIdNot(UUID organizationId, Integer displayOrder, UUID id);
+    boolean existsByOrganizationIdAndFixedPerspectiveAndDisplayOrderAndIdNot(
+            UUID organizationId, BscFixedPerspective fixedPerspective, Integer displayOrder, UUID id);
 
     long countByOrganizationId(UUID organizationId);
 }

@@ -97,7 +97,7 @@ export default function KpiAdjustmentReviewModal({ open, onClose, request }: Kpi
                   borderColor: `${request.perspectiveColor || '#8b5cf6'}55`,
                   backgroundColor: `${request.perspectiveColor || '#8b5cf6'}1a`,
                 }}
-                title={`Viễn cảnh BSC: ${request.perspectiveName}`}
+                title={`Hạng mục BSC: ${request.perspectiveName}`}
               >
                 <Layers size={12} />
                 {request.perspectiveName}
@@ -126,8 +126,11 @@ export default function KpiAdjustmentReviewModal({ open, onClose, request }: Kpi
                   </div>
                   )}
                   <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800">
-                    <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1">Trọng số</p>
-                    <p className="text-lg font-black text-slate-900 dark:text-white">{request.currentWeight}%</p>
+                    <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1">{request.categoryWeightPercent != null ? 'Trọng số thật' : 'Trọng số'}</p>
+                    <p className="text-lg font-black text-slate-900 dark:text-white" title={request.categoryWeightPercent != null ? `form ${request.currentWeight}% × ${request.categoryWeightPercent}% hạng mục` : undefined}>
+                      {request.categoryWeightPercent != null ? `${(request.currentWeight * request.categoryWeightPercent / 100).toFixed(1)}%` : `${request.currentWeight}%`}
+                      {request.categoryWeightPercent != null && <span className="text-xs font-bold text-slate-400 ml-1">/ {request.currentWeight}%</span>}
+                    </p>
                   </div>
                   {request.kpiType !== 'QUALITATIVE' && (
                   <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800">
@@ -160,9 +163,12 @@ export default function KpiAdjustmentReviewModal({ open, onClose, request }: Kpi
                       </div>
                       )}
                       <div className="p-4 rounded-xl bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-900/30">
-                        <p className="text-[9px] font-black uppercase tracking-widest text-indigo-400 mb-1">Trọng số mới</p>
-                        <p className="text-lg font-black text-indigo-600 dark:text-indigo-300">
-                          {request.requestedWeight != null ? `${request.requestedWeight}%` : 'Không đổi'}
+                        <p className="text-[9px] font-black uppercase tracking-widest text-indigo-400 mb-1">{request.categoryWeightPercent != null && request.requestedWeight != null ? 'Trọng số thật mới' : 'Trọng số mới'}</p>
+                        <p className="text-lg font-black text-indigo-600 dark:text-indigo-300"
+                          title={request.categoryWeightPercent != null && request.requestedWeight != null ? `trên ${request.requestedWeight}% × ${request.categoryWeightPercent}% hạng mục` : undefined}>
+                          {request.requestedWeight != null
+                            ? (request.categoryWeightPercent != null ? `${(request.requestedWeight * request.categoryWeightPercent / 100).toFixed(1)}% / ${request.requestedWeight}%` : `${request.requestedWeight}%`)
+                            : 'Không đổi'}
                         </p>
                       </div>
                       {request.kpiType !== 'QUALITATIVE' && (

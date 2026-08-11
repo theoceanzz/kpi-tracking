@@ -16,7 +16,7 @@ import { useState } from 'react'
 import { useKpiPeriods } from '../hooks/useKpiPeriods'
 import { useOrganization } from '@/features/orgunits/hooks/useOrganization'
 import { useObjectives } from '@/features/okr/hooks/useOkr'
-import { useBscPerspectives, useScorecards } from '@/features/bsc/hooks/useBsc'
+import { useBscPerspectives, useScorecards, useFixedPerspectives } from '@/features/bsc/hooks/useBsc'
 import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Badge } from '@/components/ui/badge'
 import { DateTimePicker } from '@/components/common/DateTimePicker'
@@ -68,7 +68,21 @@ export default function KpiFormModal({ open, onClose, editKpi, parentKpi, parent
 
   const enableBsc = org?.enableBsc
   const { data: perspectives } = useBscPerspectives(enableBsc ? organizationId : undefined)
+  const { data: fixedPerspectives } = useFixedPerspectives()
   const { data: bscScorecards } = useScorecards(enableBsc ? organizationId : undefined)
+
+  const groupedPerspectives = useMemo(() => {
+    const order = (fixedPerspectives || []).map(fp => fp.code)
+    const nameByCode = new Map((fixedPerspectives || []).map(fp => [fp.code, fp.name]))
+    const groups = (perspectives || []).reduce((acc, p) => {
+      const key = p.fixedPerspective || 'INTERNAL_PROCESS'
+      if (!acc[key]) acc[key] = []
+      acc[key].push(p)
+      return acc
+    }, {} as Record<string, typeof perspectives>)
+    const keys = order.length ? order.filter(k => groups[k]) : Object.keys(groups)
+    return keys.map(k => ({ code: k, name: nameByCode.get(k as any) || k, items: groups[k]! }))
+  }, [perspectives, fixedPerspectives])
 
   // Flatten tree for dropdown
   const flattenTree = (nodes: any[], level = 0): any[] => {
@@ -115,7 +129,6 @@ export default function KpiFormModal({ open, onClose, editKpi, parentKpi, parent
   })
 
   const formKpiPeriodId = watch('kpiPeriodId')
-  // Kỳ đang chọn đã có thẻ điểm BSC chưa? Chưa có ⇒ gán viễn cảnh vẫn lưu nhưng chưa sinh điểm BSC.
   const periodHasScorecard = !!formKpiPeriodId && (bscScorecards || []).some(sc => sc.kpiPeriodId === formKpiPeriodId)
   const formOrgUnitIds = watch('orgUnitIds') || []
   const [selectedRole, setSelectedRole] = useState<string>('ALL')
@@ -317,8 +330,6 @@ export default function KpiFormModal({ open, onClose, editKpi, parentKpi, parent
     return objectives.filter((obj: any) => obj.orgUnitIds?.some((id: string) => formOrgUnitIds.includes(id)))
   }, [objectives, formOrgUnitIds])
 
-  // Viễn cảnh KPI này sẽ KẾ THỪA từ Objective cha (qua KeyResult đang chọn) khi chưa gán
-  // trực tiếp. Dùng để hiển thị dòng gợi ý trong khối BSC bên dưới.
   const watchedKeyResultId = watch('keyResultId')
   const watchedPerspectiveId = watch('perspectiveId')
   const inheritedPerspective = useMemo(() => {
@@ -327,6 +338,85 @@ export default function KpiFormModal({ open, onClose, editKpi, parentKpi, parent
     if (obj?.perspectiveId) return { name: obj.perspectiveName as string, color: (obj.perspectiveColor as string) || '#8b5cf6' }
     return null
   }, [watchedKeyResultId, objectives])
+
+  // Bản đồ đơn vị → cha (để resolve thẻ điểm áp dụng: đơn vị → cha → mặc định).
+  const unitParent = useMemo(() => {
+    const map = new Map<string, string | null>()
+    const walk = (nodes: any[]) => (nodes || []).forEach((n: any) => { map.set(n.id, n.parentId ?? null); if (n.children) walk(n.children) })
+    walk(orgUnitTreeData || [])
+    return map
+  }, [orgUnitTreeData])
+
+  // Thẻ điểm HIỆU LỰC cho KPI theo đơn vị đầu tiên được gán (đơn vị → cha → mặc định).
+  const effectiveScorecard = useMemo(() => {
+    if (!formKpiPeriodId) return null
+    const periodScs = (bscScorecards || []).filter(sc => sc.kpiPeriodId === formKpiPeriodId)
+    if (periodScs.length === 0) return null
+    const realUnits = formOrgUnitIds.filter(id => id && id !== '00000000-0000-0000-0000-000000000000')
+    if (realUnits.length === 0) return null // chưa chọn đơn vị ⇒ chưa biết thẻ điểm nào
+    let cur: string | null = realUnits[0]!, guard = 0
+    while (cur && guard++ < 100) {
+      const found = periodScs.find(s => (s.orgUnits || []).some(u => u.id === cur))
+      if (found) return found
+      cur = unitParent.get(cur) ?? null
+    }
+    return periodScs.find(s => !s.orgUnits || s.orgUnits.length === 0) || null
+  }, [bscScorecards, formKpiPeriodId, formOrgUnitIds, unitParent])
+
+  // Trọng số THẬT (chỉ hiển thị) = trọng số form × %hạng_mục (lấy từ thẻ điểm hiệu lực của đơn vị KPI).
+  // Form% chỉ để đủ 100%/hạng mục; trọng số thật mới là phần đóng góp vào 100% của đơn vị.
+  const watchedWeight = watch('weight')
+  const effectivePerspId = useMemo(() => {
+    if (watchedPerspectiveId && watchedPerspectiveId !== 'NONE') return watchedPerspectiveId
+    if (watchedKeyResultId && watchedKeyResultId !== 'NONE') {
+      const obj = (objectives || []).find((o: any) => o.keyResults?.some((kr: any) => kr.id === watchedKeyResultId))
+      return obj?.perspectiveId || null
+    }
+    return null
+  }, [watchedPerspectiveId, watchedKeyResultId, objectives])
+  const categoryWeightPct = useMemo(() => {
+    if (!effectiveScorecard || !effectivePerspId) return null
+    const sp = effectiveScorecard.perspectives.find(p => p.perspectiveId === effectivePerspId)
+    return sp && sp.weightPercentage != null ? sp.weightPercentage : null
+  }, [effectiveScorecard, effectivePerspId])
+  const realWeight = (watchedWeight != null && !Number.isNaN(Number(watchedWeight)) && categoryWeightPct != null)
+    ? (Number(watchedWeight) * categoryWeightPct / 100) : null
+
+  // Lọc hạng mục theo THẺ ĐIỂM của đơn vị KPI được gán: chỉ hiện hạng mục CÓ trong thẻ điểm
+  // áp dụng cho đơn vị đó (union nếu gán nhiều đơn vị). Thiếu ⇒ nhắc thêm vào thẻ điểm.
+  const availablePerspectiveIds = useMemo<Set<string> | null>(() => {
+    if (!enableBsc) return null // không bật BSC ⇒ không liên quan (mục hạng mục cũng ẩn)
+    const ids = new Set<string>()
+    if (!formKpiPeriodId) return ids // chưa chọn kỳ ⇒ rỗng
+    const periodScs = (bscScorecards || []).filter(sc => sc.kpiPeriodId === formKpiPeriodId)
+    if (periodScs.length === 0) return ids // kỳ chưa có thẻ điểm ⇒ rỗng
+    const realUnits = formOrgUnitIds.filter(id => id && id !== '00000000-0000-0000-0000-000000000000')
+    if (realUnits.length === 0) return ids // chưa chọn đơn vị ⇒ rỗng
+    const resolveForUnit = (unitId: string) => {
+      let cur: string | null = unitId, guard = 0
+      while (cur && guard++ < 100) {
+        const found = periodScs.find(s => (s.orgUnits || []).some(u => u.id === cur))
+        if (found) return found
+        cur = unitParent.get(cur) ?? null
+      }
+      return periodScs.find(s => !s.orgUnits || s.orgUnits.length === 0) || null
+    }
+    realUnits.forEach(uid => (resolveForUnit(uid)?.perspectives || []).forEach(p => ids.add(p.perspectiveId)))
+    return ids
+  }, [enableBsc, bscScorecards, formKpiPeriodId, formOrgUnitIds, unitParent])
+
+  const hasRealUnit = formOrgUnitIds.some(id => id && id !== '00000000-0000-0000-0000-000000000000')
+
+  const filteredGroupedPerspectives = useMemo(() => {
+    if (!availablePerspectiveIds) return groupedPerspectives
+    return groupedPerspectives
+      .map(g => ({ ...g, items: g.items.filter(p => availablePerspectiveIds.has(p.id)) }))
+      .filter(g => g.items.length > 0)
+  }, [groupedPerspectives, availablePerspectiveIds])
+
+  // Hạng mục đang gán nhưng KHÔNG có trong thẻ điểm của đơn vị ⇒ cảnh báo (sẽ không tính điểm BSC).
+  // Chỉ cảnh báo khi ĐÃ chọn đơn vị (chưa chọn thì đã có nhắc "chọn đơn vị trước").
+  const selectedPerspMissing = !!availablePerspectiveIds && hasRealUnit && !!effectivePerspId && !availablePerspectiveIds.has(effectivePerspId)
 
   // Clear Key Result if OrgUnit changes to a different one
   useEffect(() => {
@@ -577,7 +667,7 @@ export default function KpiFormModal({ open, onClose, editKpi, parentKpi, parent
               {!isQualitative && (
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-[11px] font-black text-[var(--color-muted-foreground)] uppercase tracking-widest mb-1.5">Mục tiêu đạt được</label>
+                  <label className="block text-[11px] font-black text-[var(--color-muted-foreground)] uppercase tracking-widest mb-1.5">Mục tiêu đạt được <span className="text-red-500">*</span></label>
                   <input
                     {...register('targetValue', { setValueAs: numOrUndef })}
                     type="number"
@@ -589,7 +679,7 @@ export default function KpiFormModal({ open, onClose, editKpi, parentKpi, parent
                   {errors.targetValue && <p className="text-red-500 text-[10px] mt-1 font-bold">{errors.targetValue.message}</p>}
                 </div>
                 <div>
-                  <label className="block text-[11px] font-black text-[var(--color-muted-foreground)] uppercase tracking-widest mb-1.5">Mục tiêu tối thiểu</label>
+                  <label className="block text-[11px] font-black text-[var(--color-muted-foreground)] uppercase tracking-widest mb-1.5">Mục tiêu tối thiểu <span className="text-red-500">*</span></label>
                   <input
                     {...register('minimumValue', { setValueAs: numOrUndef })}
                     type="number"
@@ -611,7 +701,7 @@ export default function KpiFormModal({ open, onClose, editKpi, parentKpi, parent
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-[11px] font-black text-[var(--color-muted-foreground)] uppercase tracking-widest mb-1.5">Trọng số (%)</label>
+                  <label className="block text-[11px] font-black text-[var(--color-muted-foreground)] uppercase tracking-widest mb-1.5">Trọng số (%) <span className="text-red-500">*</span></label>
                   <input
                     {...register('weight', { setValueAs: numOrUndef })}
                     type="number"
@@ -628,15 +718,22 @@ export default function KpiFormModal({ open, onClose, editKpi, parentKpi, parent
                       Trọng số còn lại của KPI cha "{parentKpi.name}": {Math.max(0, (parentKpi.weight ?? 0) - (parentKpi.childrenWeightTotal ?? 0))}%
                     </p>
                   )}
+                  {realWeight != null && (
+                    <p className="text-[10px] mt-1 font-bold text-violet-600 dark:text-violet-400">
+                      Trọng số thật ≈ {realWeight.toFixed(1)}%
+                      <span className="font-medium text-slate-400"> (= {Number(watchedWeight)}% × {categoryWeightPct}% hạng mục — phần đóng góp vào 100% của đơn vị)</span>
+                    </p>
+                  )}
                 </div>
                 {!isQualitative && (
                 <div>
-                  <label className="block text-[11px] font-black text-[var(--color-muted-foreground)] uppercase tracking-widest mb-1.5">Đơn vị tính</label>
+                  <label className="block text-[11px] font-black text-[var(--color-muted-foreground)] uppercase tracking-widest mb-1.5">Đơn vị tính <span className="text-red-500">*</span></label>
                   <input
                     {...register('unit')}
                     className={inputCls}
                     placeholder="VNĐ, %, KPI..."
                   />
+                  {errors.unit && <p className="text-red-500 text-[10px] mt-1 font-bold">{errors.unit.message}</p>}
                 </div>
                 )}
               </div>
@@ -916,7 +1013,7 @@ export default function KpiFormModal({ open, onClose, editKpi, parentKpi, parent
           {!isPendingApproval && (
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-bold mb-1.5">Kỳ đánh giá <span className="text-red-500">*</span></label>
+              <label className="block text-sm font-bold mb-1.5">Đợt đánh giá <span className="text-red-500">*</span></label>
               <Controller name="kpiPeriodId" control={control}
                 render={({ field }) => (
                   <Select value={field.value || ''} onValueChange={field.onChange}>
@@ -932,7 +1029,7 @@ export default function KpiFormModal({ open, onClose, editKpi, parentKpi, parent
               {errors.kpiPeriodId && <p className="text-red-500 text-[10px] mt-1 font-bold">{errors.kpiPeriodId.message}</p>}
             </div>
             <div>
-              <label className="block text-sm font-bold mb-1.5">Tần suất chốt</label>
+              <label className="block text-sm font-bold mb-1.5">Tần suất chốt <span className="text-red-500">*</span></label>
               <Controller name="frequency" control={control}
                 render={({ field }) => (
                   <Select value={field.value || ''} onValueChange={field.onChange}>
@@ -1021,29 +1118,34 @@ export default function KpiFormModal({ open, onClose, editKpi, parentKpi, parent
             <div className="bg-violet-50/50 dark:bg-violet-900/5 p-4 rounded-2xl border border-violet-100 dark:border-violet-900/50 space-y-3">
               <div className="flex items-center gap-2 text-violet-600 dark:text-violet-400">
                 <LayoutGrid size={16} />
-                <span className="text-[11px] font-black uppercase tracking-widest">Viễn cảnh BSC</span>
+                <span className="text-[11px] font-black uppercase tracking-widest">Hạng mục BSC</span>
               </div>
               <div className="space-y-1">
-                <label className="block text-[10px] font-black text-slate-500 uppercase tracking-tight">Gắn chỉ tiêu vào viễn cảnh chiến lược</label>
+                <label className="block text-[10px] font-black text-slate-500 uppercase tracking-tight">Gắn chỉ tiêu vào hạng mục (theo viễn cảnh)</label>
                 <Controller
                   name="perspectiveId"
                   control={control}
                   render={({ field }) => (
-                    // key ép remount khi value được nạp (reset async) hoặc danh sách viễn cảnh
+                    // key ép remount khi value được nạp (reset async) hoặc danh sách hạng mục
                     // load xong → hiện đúng ngay lần mở đầu, không phải mở lần 2.
                     <Select key={`${field.value ?? 'NONE'}-${(perspectives || []).length}`} onValueChange={field.onChange} value={field.value || 'NONE'}>
                       <SelectTrigger className="w-full rounded-xl border-violet-100 dark:border-violet-900 bg-white dark:bg-slate-900 focus:ring-violet-500/30 transition-all h-11 shadow-sm overflow-hidden">
-                        <SelectValue placeholder="-- Chưa gán viễn cảnh --" className="truncate flex-1 min-w-0 text-left" />
+                        <SelectValue placeholder="-- Chưa gán hạng mục --" className="truncate flex-1 min-w-0 text-left" />
                       </SelectTrigger>
                       <SelectContent className="z-[300] rounded-2xl border-violet-50 dark:border-violet-900 shadow-2xl max-h-[350px] overflow-auto">
-                        <SelectItem value="NONE" className="font-bold py-3">-- Chưa gán viễn cảnh --</SelectItem>
-                        {(perspectives || []).map(p => (
-                          <SelectItem key={p.id} value={p.id} className="rounded-xl py-2.5 pl-3 pr-3 focus:bg-violet-50 focus:text-violet-700 transition-colors">
-                            <span className="flex items-center gap-2">
-                              <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: p.color || '#94a3b8' }} />
-                              <span className="font-semibold text-xs truncate">{p.name}</span>
-                            </span>
-                          </SelectItem>
+                        <SelectItem value="NONE" className="font-bold py-3">-- Chưa gán hạng mục --</SelectItem>
+                        {filteredGroupedPerspectives.map(group => (
+                          <div key={group.code}>
+                            <div className="px-3 pt-2 pb-1 text-[10px] font-black uppercase tracking-wider text-slate-400">{group.name}</div>
+                            {group.items.map(p => (
+                              <SelectItem key={p.id} value={p.id} className="rounded-xl py-2.5 pl-3 pr-3 focus:bg-violet-50 focus:text-violet-700 transition-colors">
+                                <span className="flex items-center gap-2">
+                                  <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: p.color || '#94a3b8' }} />
+                                  <span className="font-semibold text-xs truncate">{p.name}</span>
+                                </span>
+                              </SelectItem>
+                            ))}
+                          </div>
                         ))}
                       </SelectContent>
                     </Select>
@@ -1053,14 +1155,41 @@ export default function KpiFormModal({ open, onClose, editKpi, parentKpi, parent
                   <p className="text-[10px] font-medium text-slate-500 dark:text-slate-400 flex items-start gap-1.5 mt-1.5">
                     <span className="w-2.5 h-2.5 rounded-full shrink-0 mt-0.5" style={{ backgroundColor: inheritedPerspective.color }} />
                     <span>
-                      Đang kế thừa viễn cảnh <b className="text-slate-700 dark:text-slate-200">"{inheritedPerspective.name}"</b> từ mục tiêu cha. Chọn ở đây để gán đè trực tiếp.
+                      Đang kế thừa hạng mục <b className="text-slate-700 dark:text-slate-200">"{inheritedPerspective.name}"</b> từ mục tiêu cha. Chọn ở đây để gán đè trực tiếp.
                     </span>
                   </p>
                 )}
-                {formKpiPeriodId && !periodHasScorecard && (
+                <p className="text-[10px] font-medium text-slate-500 dark:text-slate-400 mt-1.5">
+                  Lưu ý: tổng trọng số các chỉ tiêu trong cùng 1 hạng mục phải bằng <b>100%</b>. Hệ thống sẽ <b>chặn phê duyệt</b> nếu chưa đủ 100%.
+                </p>
+                {selectedPerspMissing && (
                   <p className="text-[10px] font-bold text-amber-600 dark:text-amber-400 flex items-start gap-1.5 mt-1.5">
                     <span className="shrink-0">⚠</span>
-                    Kỳ này chưa có thẻ điểm BSC — vẫn gán viễn cảnh được, nhưng sẽ chưa tính ra điểm BSC cho tới khi bạn tạo thẻ điểm cho kỳ.
+                    Hạng mục đang gán <b>chưa có trong thẻ điểm</b> của đơn vị bạn chọn ⇒ KPI sẽ <b>không tính vào điểm BSC</b>. Hãy thêm hạng mục này vào thẻ điểm cho phòng ban đó.
+                  </p>
+                )}
+                {availablePerspectiveIds && !formKpiPeriodId && (
+                  <p className="text-[10px] font-bold text-amber-600 dark:text-amber-400 flex items-start gap-1.5 mt-1.5">
+                    <span className="shrink-0">⚠</span>
+                    Hãy <b>chọn Đợt đánh giá trước</b> — hạng mục hiện theo thẻ điểm của đợt + đơn vị.
+                  </p>
+                )}
+                {availablePerspectiveIds && formKpiPeriodId && !periodHasScorecard && (
+                  <p className="text-[10px] font-bold text-amber-600 dark:text-amber-400 flex items-start gap-1.5 mt-1.5">
+                    <span className="shrink-0">⚠</span>
+                    Đợt này <b>chưa có thẻ điểm BSC</b> — hãy tạo thẻ điểm cho đợt (gồm các hạng mục) thì mới chọn được hạng mục.
+                  </p>
+                )}
+                {availablePerspectiveIds && formKpiPeriodId && periodHasScorecard && !hasRealUnit && (
+                  <p className="text-[10px] font-bold text-amber-600 dark:text-amber-400 flex items-start gap-1.5 mt-1.5">
+                    <span className="shrink-0">⚠</span>
+                    Hãy <b>chọn Đơn vị thực hiện trước</b> — hạng mục hiện theo thẻ điểm của đơn vị đó.
+                  </p>
+                )}
+                {availablePerspectiveIds && periodHasScorecard && hasRealUnit && filteredGroupedPerspectives.length === 0 && (
+                  <p className="text-[10px] font-bold text-amber-600 dark:text-amber-400 flex items-start gap-1.5 mt-1.5">
+                    <span className="shrink-0">⚠</span>
+                    Thẻ điểm của phòng ban bạn chọn <b>chưa có hạng mục nào</b> — hãy thêm hạng mục vào thẻ điểm cho phòng ban đó trước.
                   </p>
                 )}
               </div>

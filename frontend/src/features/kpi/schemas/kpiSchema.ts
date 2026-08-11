@@ -1,6 +1,6 @@
 import { z } from 'zod'
 
-export const kpiSchema = z.object({
+const kpiBaseSchema = z.object({
   kpiType: z.enum(['QUANTITATIVE', 'QUALITATIVE']),
   name: z.string().min(1, 'Vui lòng nhập tên chỉ tiêu'),
   description: z.string().optional(),
@@ -21,9 +21,36 @@ export const kpiSchema = z.object({
   parentId: z.string().optional().nullable(),
   parentRelationType: z.enum(['DELEGATION', 'DECOMPOSITION']).optional().nullable(),
   perspectiveId: z.string().optional().nullable(),
-}).superRefine((data, ctx) => {
+})
+
+// Ràng buộc dùng khi TẠO/SỬA chỉ tiêu trong KpiFormModal — nơi người dùng nhập trực tiếp
+// các trường đo lường, nên bắt buộc đầy đủ với KPI định lượng.
+export const kpiSchema = kpiBaseSchema.superRefine((data, ctx) => {
   if (data.kpiType === 'QUALITATIVE') {
-    // Qualitative KPIs are weighted (they share the 100% pool) but have no numeric target.
+    // KPI định tính chia sẻ pool 100% trọng số nhưng không có mục tiêu số.
+    if (data.weight == null || data.weight <= 0) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['weight'], message: 'KPI định tính cần trọng số lớn hơn 0' })
+    }
+  } else {
+    if (data.targetValue == null) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['targetValue'], message: 'Vui lòng nhập giá trị mục tiêu' })
+    }
+    if (data.minimumValue == null) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['minimumValue'], message: 'Vui lòng nhập mục tiêu tối thiểu' })
+    }
+    if (data.weight == null || data.weight <= 0) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['weight'], message: 'Vui lòng nhập trọng số lớn hơn 0' })
+    }
+    if (!data.unit || !data.unit.trim()) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['unit'], message: 'Vui lòng nhập đơn vị tính' })
+    }
+  }
+})
+
+// Ràng buộc nới lỏng dùng cho luồng KHÔNG chỉnh sửa các trường đo lường (VD: Giao việc/Ủy quyền).
+// Giữ nguyên hành vi cũ để không chặn nhầm các KPI hợp lệ nhưng thiếu tối thiểu/đơn vị.
+export const kpiDelegationSchema = kpiBaseSchema.superRefine((data, ctx) => {
+  if (data.kpiType === 'QUALITATIVE') {
     if (data.weight == null || data.weight <= 0) {
       ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['weight'], message: 'KPI định tính cần trọng số lớn hơn 0' })
     }

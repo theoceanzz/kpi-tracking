@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { bscApi } from '../api/bscApi'
-import { PerspectiveRequest, ScorecardRequest, BscScoringMode, ObjectiveRelationRequest } from '../types'
+import { PerspectiveRequest, ScorecardRequest, BscScoringMode, ObjectiveRelationRequest, FixedPerspectiveUpdateRequest } from '../types'
+import { useAuthStore } from '@/store/authStore'
 import { toast } from 'sonner'
 
 export function useBscPerspectives(organizationId?: string) {
@@ -9,6 +10,35 @@ export function useBscPerspectives(organizationId?: string) {
     queryFn: () => bscApi.getPerspectives(organizationId!),
     enabled: !!organizationId,
   })
+}
+
+export function useFixedPerspectives(organizationId?: string) {
+  const { user } = useAuthStore()
+  const orgId = organizationId ?? user?.memberships?.[0]?.organizationId
+  return useQuery({
+    queryKey: ['bsc-fixed-perspectives', orgId],
+    queryFn: () => bscApi.getFixedPerspectives(orgId!),
+    enabled: !!orgId,
+    staleTime: 5 * 60 * 1000,
+  })
+}
+
+/** Sửa hiển thị (tên/màu/thứ tự) 1 viễn cảnh cố định theo org. */
+export function useFixedPerspectiveMutations() {
+  const queryClient = useQueryClient()
+  const updateFixedPerspective = useMutation({
+    mutationFn: ({ organizationId, code, data }: { organizationId: string; code: string; data: FixedPerspectiveUpdateRequest }) =>
+      bscApi.updateFixedPerspective(organizationId, code, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['bsc-fixed-perspectives'] })
+      queryClient.invalidateQueries({ queryKey: ['bsc-dashboard'] })
+      toast.success('Cập nhật viễn cảnh thành công')
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.message || 'Cập nhật viễn cảnh thất bại')
+    },
+  })
+  return { updateFixedPerspective }
 }
 
 export function useBscMutations() {
@@ -21,10 +51,10 @@ export function useBscMutations() {
       bscApi.createPerspective(organizationId, data),
     onSuccess: () => {
       invalidate()
-      toast.success('Tạo viễn cảnh thành công')
+      toast.success('Tạo hạng mục thành công')
     },
     onError: (error: any) => {
-      toast.error(error.response?.data?.message || 'Tạo viễn cảnh thất bại')
+      toast.error(error.response?.data?.message || 'Tạo hạng mục thất bại')
     },
   })
 
@@ -33,10 +63,10 @@ export function useBscMutations() {
       bscApi.updatePerspective(perspectiveId, data),
     onSuccess: () => {
       invalidate()
-      toast.success('Cập nhật viễn cảnh thành công')
+      toast.success('Cập nhật hạng mục thành công')
     },
     onError: (error: any) => {
-      toast.error(error.response?.data?.message || 'Cập nhật viễn cảnh thất bại')
+      toast.error(error.response?.data?.message || 'Cập nhật hạng mục thất bại')
     },
   })
 
@@ -44,10 +74,10 @@ export function useBscMutations() {
     mutationFn: (perspectiveId: string) => bscApi.deletePerspective(perspectiveId),
     onSuccess: () => {
       invalidate()
-      toast.success('Xóa viễn cảnh thành công')
+      toast.success('Xóa hạng mục thành công')
     },
     onError: (error: any) => {
-      toast.error(error.response?.data?.message || 'Xóa viễn cảnh thất bại')
+      toast.error(error.response?.data?.message || 'Xóa hạng mục thất bại')
     },
   })
 
@@ -56,7 +86,7 @@ export function useBscMutations() {
       bscApi.importPerspectives(organizationId, file),
     onSuccess: (data) => {
       invalidate()
-      toast.success(`Import thành công ${data.successfulImports}/${data.totalRows} viễn cảnh`)
+      toast.success(`Import thành công ${data.successfulImports}/${data.totalRows} hạng mục`)
       if (data.errors && data.errors.length > 0) {
         toast.error(`${data.errors.length} dòng lỗi: ${data.errors.slice(0, 3).join('; ')}`)
       }

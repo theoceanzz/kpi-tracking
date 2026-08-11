@@ -129,6 +129,17 @@ public interface KpiCriteriaRepository extends JpaRepository<KpiCriteria, UUID> 
     @Query("SELECT COUNT(k) FROM KpiCriteria k WHERE k.orgUnit.id IN :orgUnitIds AND k.status = :status AND k.createdBy.id != :excludeUserId")
     long countByOrgUnitIdInAndStatusExcludingUser(@Param("orgUnitIds") Collection<UUID> orgUnitIds, @Param("status") KpiStatus status, @Param("excludeUserId") UUID excludeUserId);
 
+    @Query("SELECT COUNT(k) FROM KpiCriteria k WHERE " +
+           "k.orgUnit.orgHierarchyLevel.organization.id = :organizationId AND " +
+           "k.status = com.kpitracking.enums.KpiStatus.PENDING_APPROVAL AND " +
+           "EXISTS (SELECT 1 FROM OrgUnit su WHERE k.orgUnit.path LIKE CONCAT(su.path, '%') AND su.id IN :sameUnitIds) AND " +
+           "(:excludeUserId IS NULL OR k.createdBy.id != :excludeUserId) AND " +
+           "(:kpiType IS NULL OR k.kpiType = :kpiType)")
+    long countPendingApprovalVisibleTo(@Param("organizationId") UUID organizationId,
+                                       @Param("sameUnitIds") Collection<UUID> sameUnitIds,
+                                       @Param("excludeUserId") UUID excludeUserId,
+                                       @Param("kpiType") com.kpitracking.enums.KpiType kpiType);
+
     @Query("SELECT COALESCE(SUM(k.weight), 0.0) FROM KpiCriteria k WHERE k.orgUnit.id = :orgUnitId AND (:kpiPeriodId IS NULL OR k.kpiPeriod.id = :kpiPeriodId) AND k.status IN :statuses")
     Double sumWeightByOrgUnitIdAndKpiPeriodIdAndStatusIn(@Param("orgUnitId") UUID orgUnitId, @Param("kpiPeriodId") UUID kpiPeriodId, @Param("statuses") List<KpiStatus> statuses);
     

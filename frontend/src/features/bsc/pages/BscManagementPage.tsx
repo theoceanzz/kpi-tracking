@@ -1,13 +1,14 @@
 import { useState, useRef } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuthStore } from '@/store/authStore'
-import { useBscPerspectives, useBscMutations, useScorecards, useScorecardMutations } from '../hooks/useBsc'
+import { useBscPerspectives, useBscMutations, useScorecards, useScorecardMutations, useFixedPerspectives } from '../hooks/useBsc'
 import { useSidebarSettings } from '@/features/organization/hooks/useSidebarSettings'
 import { Plus, Layers, Edit2, Trash2, GripVertical, FileUp, LayoutGrid, Calendar, BarChart3, Target, ShieldCheck, Undo2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { usePermission } from '@/hooks/usePermission'
-import { PerspectiveResponse, BscPerspectiveStatus, ScorecardResponse, BscScorecardStatus, BscScoringMode } from '../types'
+import { PerspectiveResponse, BscPerspectiveStatus, ScorecardResponse, BscScorecardStatus, BscScoringMode, FixedPerspectiveResponse } from '../types'
 import PerspectiveFormModal from '../components/PerspectiveFormModal'
+import FixedPerspectiveFormModal from '../components/FixedPerspectiveFormModal'
 import ScorecardFormModal from '../components/ScorecardFormModal'
 import ImportBscGuideModal from '../components/ImportBscGuideModal'
 import BscExcelPreviewModal from '../components/BscExcelPreviewModal'
@@ -21,11 +22,13 @@ export default function BscManagementPage() {
   const { user } = useAuthStore()
   const organizationId = user?.memberships?.[0]?.organizationId
   const { data: perspectives, isLoading } = useBscPerspectives(organizationId)
+  const { data: fixedPerspectives } = useFixedPerspectives()
   const { data: scorecards } = useScorecards(organizationId)
   const { deletePerspective, importPerspectives } = useBscMutations()
   const { deleteScorecard, importScorecards, updateScoringMode } = useScorecardMutations()
   const { hasPermission } = usePermission()
   const canPublish = hasPermission('BSC:PUBLISH_SCORE')
+  const canManage = hasPermission('BSC:MANAGE')
 
   const { data: customLabels = {} } = useSidebarSettings(organizationId!)
   const pageTitle = (customLabels as Record<string, string>)['/bsc'] || 'Thẻ điểm cân bằng (BSC)'
@@ -33,6 +36,7 @@ export default function BscManagementPage() {
   const [tab, setTab] = useState<Tab>('perspectives')
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [selected, setSelected] = useState<PerspectiveResponse | undefined>()
+  const [editingFixed, setEditingFixed] = useState<FixedPerspectiveResponse | undefined>()
   const [deleteId, setDeleteId] = useState<string | null>(null)
   const [isImportGuideOpen, setIsImportGuideOpen] = useState(false)
   const [previewFile, setPreviewFile] = useState<File | null>(null)
@@ -76,7 +80,7 @@ export default function BscManagementPage() {
             <Layers className="text-indigo-600" size={32} />
             {pageTitle}
           </h1>
-          <p className="text-slate-500 font-medium mt-1">Cấu hình viễn cảnh chiến lược & thẻ điểm cân bằng</p>
+          <p className="text-slate-500 font-medium mt-1">Cấu hình hạng mục theo 4 viễn cảnh cố định & thẻ điểm cân bằng</p>
         </div>
         <div className="flex items-center gap-3">
           {tab === 'perspectives' ? (
@@ -88,7 +92,7 @@ export default function BscManagementPage() {
               </button>
               <button onClick={() => { setSelected(undefined); setIsModalOpen(true) }}
                 className="flex items-center gap-2 px-5 py-3 bg-indigo-600 text-white rounded-2xl font-bold hover:bg-indigo-700 shadow-lg shadow-indigo-500/20 transition-all active:scale-95">
-                <Plus size={20} /> Viễn cảnh mới
+                <Plus size={20} /> Hạng mục mới
               </button>
             </>
           ) : (
@@ -111,7 +115,7 @@ export default function BscManagementPage() {
       <div className="flex items-center gap-1 p-1 rounded-2xl bg-slate-100 dark:bg-slate-800/50 w-fit">
         <button onClick={() => setTab('perspectives')}
           className={cn('flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-black transition-all', tab === 'perspectives' ? 'bg-white dark:bg-slate-900 text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700')}>
-          <Layers size={16} /> Viễn cảnh
+          <Layers size={16} /> Hạng mục
         </button>
         <button onClick={() => setTab('scorecards')}
           className={cn('flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-black transition-all', tab === 'scorecards' ? 'bg-white dark:bg-slate-900 text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700')}>
@@ -120,31 +124,53 @@ export default function BscManagementPage() {
       </div>
 
       {tab === 'perspectives' && (
-        <div className="grid gap-3">
-          {perspectives?.map(p => (
-            <div key={p.id} className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200 dark:border-slate-800 flex items-center gap-4 transition-all hover:shadow-lg hover:shadow-indigo-500/5">
-              <GripVertical size={18} className="text-slate-300 shrink-0" />
-              <div className="w-3 h-10 rounded-full shrink-0" style={{ backgroundColor: p.color || '#94a3b8' }} />
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <span className="text-[10px] font-black text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/20 px-2 py-0.5 rounded-md uppercase">{p.code}</span>
-                  {p.status === BscPerspectiveStatus.INACTIVE && <span className="text-[10px] font-black text-slate-500 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded-md uppercase">Tạm ẩn</span>}
+        <div className="space-y-6">
+          {(fixedPerspectives || []).map(fp => {
+            const items = (perspectives || []).filter(p => p.fixedPerspective === fp.code)
+            return (
+              <div key={fp.code}>
+                <div className="flex items-center gap-2 mb-2 px-1">
+                  <span className="w-3 h-3 rounded-full" style={{ backgroundColor: fp.color }} />
+                  <h2 className="text-sm font-black uppercase tracking-wide text-slate-700 dark:text-slate-300">{fp.name}</h2>
+                  <span className="text-[10px] font-bold text-slate-400">({items.length} hạng mục)</span>
+                  {canManage && (
+                    <button
+                      onClick={() => setEditingFixed(fp)}
+                      title="Chỉnh sửa viễn cảnh (tên, màu, thứ tự)"
+                      className="p-1 rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition-all"
+                    >
+                      <Edit2 size={14} />
+                    </button>
+                  )}
                 </div>
-                <h3 className="text-base font-black text-slate-900 dark:text-white mt-1">{p.name}</h3>
-                {p.description && <p className="text-xs text-slate-500 line-clamp-1 mt-0.5">{p.description}</p>}
+                <div className="grid gap-3">
+                  {items.map(p => (
+                    <div key={p.id} className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200 dark:border-slate-800 flex items-center gap-4 transition-all hover:shadow-lg hover:shadow-indigo-500/5">
+                      <GripVertical size={18} className="text-slate-300 shrink-0" />
+                      <div className="w-3 h-10 rounded-full shrink-0" style={{ backgroundColor: p.color || '#94a3b8' }} />
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="text-[10px] font-black text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/20 px-2 py-0.5 rounded-md uppercase">{p.code}</span>
+                          {p.status === BscPerspectiveStatus.INACTIVE && <span className="text-[10px] font-black text-slate-500 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded-md uppercase">Tạm ẩn</span>}
+                        </div>
+                        <h3 className="text-base font-black text-slate-900 dark:text-white mt-1">{p.name}</h3>
+                        {p.description && <p className="text-xs text-slate-500 line-clamp-1 mt-0.5">{p.description}</p>}
+                      </div>
+                      <div className="flex items-center gap-1 shrink-0">
+                        <button onClick={() => { setSelected(p); setIsModalOpen(true) }} className="p-2 rounded-xl text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition-all"><Edit2 size={18} /></button>
+                        <button onClick={() => setDeleteId(p.id)} className="p-2 rounded-xl text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 transition-all"><Trash2 size={18} /></button>
+                      </div>
+                    </div>
+                  ))}
+                  {items.length === 0 && (
+                    <div className="text-xs text-slate-400 italic px-4 py-3 rounded-xl border border-dashed border-slate-200 dark:border-slate-800">Chưa có hạng mục nào thuộc viễn cảnh này.</div>
+                  )}
+                </div>
               </div>
-              <div className="flex items-center gap-1 shrink-0">
-                <button onClick={() => { setSelected(p); setIsModalOpen(true) }} className="p-2 rounded-xl text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition-all"><Edit2 size={18} /></button>
-                <button onClick={() => setDeleteId(p.id)} className="p-2 rounded-xl text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 transition-all"><Trash2 size={18} /></button>
-              </div>
-            </div>
-          ))}
+            )
+          })}
           {(!perspectives || perspectives.length === 0) && (
-            <div className="flex flex-col items-center justify-center p-20 bg-white dark:bg-slate-900 rounded-3xl border-2 border-dashed border-slate-200 dark:border-slate-800 text-center">
-              <div className="w-16 h-16 bg-indigo-50 dark:bg-indigo-900/30 rounded-2xl flex items-center justify-center text-indigo-600 mb-4"><Layers size={32} /></div>
-              <h3 className="text-xl font-bold text-slate-900 dark:text-white">Chưa có viễn cảnh nào</h3>
-              <p className="text-slate-500 max-w-sm mt-2">Hãy tạo các viễn cảnh BSC (Tài chính, Khách hàng, Quy trình nội bộ, Học hỏi & phát triển) cho tổ chức.</p>
-            </div>
+            <p className="text-slate-500 text-sm font-medium text-center pt-2">Chưa có hạng mục nào — hãy bấm <b>"+ Hạng mục mới"</b> để thêm (VD: Công tác giảng dạy, NCKH…) và gán vào 1 trong 4 viễn cảnh.</p>
           )}
         </div>
       )}
@@ -166,6 +192,15 @@ export default function BscManagementPage() {
                       {sc.scoringMode === BscScoringMode.OFFICIAL ? 'Chính thức' : 'Chạy song song'}
                     </span>
                     <span className="flex items-center gap-1 text-[10px] font-bold text-slate-400 uppercase"><Calendar size={11} /> {sc.kpiPeriodName}</span>
+                    {sc.orgUnits && sc.orgUnits.length > 0 ? (
+                      sc.orgUnits.map(u => (
+                        <span key={u.id} className="text-[10px] font-black px-2 py-0.5 rounded-md uppercase bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-400">
+                          {u.name}
+                        </span>
+                      ))
+                    ) : (
+                      <span className="text-[10px] font-black px-2 py-0.5 rounded-md uppercase bg-slate-100 text-slate-500">Toàn tổ chức</span>
+                    )}
                   </div>
                   <h3 className="text-base font-black text-slate-900 dark:text-white mt-1.5">{sc.name}</h3>
                   {sc.vision && <p className="text-xs text-slate-500 line-clamp-1 mt-0.5 italic">"{sc.vision}"</p>}
@@ -203,13 +238,20 @@ export default function BscManagementPage() {
             <div className="flex flex-col items-center justify-center p-20 bg-white dark:bg-slate-900 rounded-3xl border-2 border-dashed border-slate-200 dark:border-slate-800 text-center">
               <div className="w-16 h-16 bg-indigo-50 dark:bg-indigo-900/30 rounded-2xl flex items-center justify-center text-indigo-600 mb-4"><Target size={32} /></div>
               <h3 className="text-xl font-bold text-slate-900 dark:text-white">Chưa có thẻ điểm nào</h3>
-              <p className="text-slate-500 max-w-sm mt-2">Tạo thẻ điểm cho một kỳ, gán trọng số cho các viễn cảnh (tổng 100%) để theo dõi dashboard cân bằng.</p>
+              <p className="text-slate-500 max-w-sm mt-2">Tạo thẻ điểm cho một kỳ (theo phòng ban hoặc toàn tổ chức), gán trọng số cho các hạng mục (tổng 100%) để theo dõi dashboard cân bằng.</p>
             </div>
           )}
         </div>
       )}
 
       <PerspectiveFormModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} organizationId={organizationId || ''} perspective={selected} />
+      <FixedPerspectiveFormModal
+        isOpen={!!editingFixed}
+        onClose={() => setEditingFixed(undefined)}
+        organizationId={organizationId || ''}
+        fixedPerspective={editingFixed}
+        usedOrders={(fixedPerspectives || []).filter(fp => fp.code !== editingFixed?.code).map(fp => fp.displayOrder)}
+      />
       <ScorecardFormModal isOpen={isScorecardModalOpen} onClose={() => setIsScorecardModalOpen(false)} organizationId={organizationId || ''} scorecard={selectedScorecard} />
 
       <ImportBscGuideModal open={isImportGuideOpen} onClose={() => setIsImportGuideOpen(false)} onSelectFile={() => fileInputRef.current?.click()} />
@@ -220,7 +262,7 @@ export default function BscManagementPage() {
 
       <ConfirmDialog open={!!deleteId} onClose={() => setDeleteId(null)}
         onConfirm={() => { if (deleteId) deletePerspective.mutate(deleteId); setDeleteId(null) }}
-        title="Xóa viễn cảnh" description="Bạn có chắc chắn muốn xóa viễn cảnh này? Các KPI đang gán vào viễn cảnh sẽ được gỡ liên kết."
+        title="Xóa hạng mục" description="Bạn có chắc chắn muốn xóa hạng mục này? Các KPI đang gán vào hạng mục sẽ được gỡ liên kết."
         confirmLabel="Xóa" loading={deletePerspective.isPending} />
 
       <ConfirmDialog open={!!deleteScorecardId} onClose={() => setDeleteScorecardId(null)}
@@ -240,7 +282,7 @@ export default function BscManagementPage() {
         }}
         title={publishTarget?.scoringMode === BscScoringMode.SHADOW ? 'Chuyển sang chấm điểm chính thức' : 'Đưa về chạy song song'}
         description={publishTarget?.scoringMode === BscScoringMode.SHADOW
-          ? 'Từ giờ điểm BSC sẽ là ĐIỂM CHÍNH THỨC (thay điểm hệ thống) cho các đánh giá tính/chốt sau thời điểm này. Điểm BSC đã được tính sẵn từ trước nên KHÔNG có gì phải tính lại; các đánh giá đã chốt trước đó giữ nguyên. Lưu ý: khi ở chế độ chính thức, đánh giá sẽ bị chặn nếu còn KPI chưa gán viễn cảnh.'
+          ? 'Từ giờ điểm BSC sẽ là ĐIỂM CHÍNH THỨC (thay điểm hệ thống) cho các đánh giá tính/chốt sau thời điểm này. Điểm BSC đã được tính sẵn từ trước nên KHÔNG có gì phải tính lại; các đánh giá đã chốt trước đó giữ nguyên. Lưu ý: khi ở chế độ chính thức, đánh giá sẽ bị chặn nếu còn KPI chưa gán hạng mục.'
           : 'Đưa thẻ điểm về chế độ chạy song song: điểm BSC vẫn được tính & lưu để đối chiếu, nhưng điểm chính thức quay lại dùng điểm hệ thống cũ.'}
         confirmLabel={publishTarget?.scoringMode === BscScoringMode.SHADOW ? 'Chuyển chính thức' : 'Đưa về song song'}
         loading={updateScoringMode.isPending}

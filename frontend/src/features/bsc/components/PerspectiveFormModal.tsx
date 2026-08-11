@@ -9,7 +9,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { PerspectiveRequest, PerspectiveResponse, BscPerspectiveStatus } from '../types'
-import { useBscMutations, useBscPerspectives } from '../hooks/useBsc'
+import { useBscMutations, useBscPerspectives, useFixedPerspectives } from '../hooks/useBsc'
 
 interface PerspectiveFormModalProps {
   isOpen: boolean
@@ -29,12 +29,15 @@ export default function PerspectiveFormModal({ isOpen, onClose, organizationId, 
       color: PRESET_COLORS[0],
       displayOrder: 0,
       status: BscPerspectiveStatus.ACTIVE,
+      fixedPerspective: undefined,
     },
   })
 
   const { createPerspective, updatePerspective } = useBscMutations()
   const { data: allPerspectives } = useBscPerspectives(organizationId)
+  const { data: fixedPerspectives } = useFixedPerspectives()
   const selectedColor = watch('color')
+  const selectedFixed = watch('fixedPerspective')
 
   useEffect(() => {
     if (perspective) {
@@ -46,6 +49,7 @@ export default function PerspectiveFormModal({ isOpen, onClose, organizationId, 
         icon: perspective.icon,
         displayOrder: perspective.displayOrder,
         status: perspective.status,
+        fixedPerspective: perspective.fixedPerspective,
       })
     } else {
       reset({
@@ -55,6 +59,7 @@ export default function PerspectiveFormModal({ isOpen, onClose, organizationId, 
         color: PRESET_COLORS[0],
         displayOrder: 0,
         status: BscPerspectiveStatus.ACTIVE,
+        fixedPerspective: undefined,
       })
     }
   }, [perspective, reset, isOpen])
@@ -80,8 +85,8 @@ export default function PerspectiveFormModal({ isOpen, onClose, organizationId, 
               <Layers size={24} />
             </div>
             <div>
-              <h3 className="text-xl font-black text-slate-900 dark:text-white">{perspective ? 'Chỉnh sửa viễn cảnh' : 'Tạo viễn cảnh mới'}</h3>
-              <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">BSC Perspective</p>
+              <h3 className="text-xl font-black text-slate-900 dark:text-white">{perspective ? 'Chỉnh sửa hạng mục' : 'Tạo hạng mục mới'}</h3>
+              <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">BSC · Hạng mục</p>
             </div>
           </div>
           <button onClick={onClose} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-colors">
@@ -93,16 +98,16 @@ export default function PerspectiveFormModal({ isOpen, onClose, organizationId, 
           <div className="p-6 space-y-4 overflow-y-auto custom-scrollbar">
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div className="sm:col-span-2 space-y-1.5">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Tên viễn cảnh</label>
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Tên hạng mục <span className="text-red-500">*</span></label>
                 <input
-                  {...register('name', { required: 'Vui lòng nhập tên viễn cảnh' })}
-                  placeholder="VD: Tài chính"
+                  {...register('name', { required: 'Vui lòng nhập tên hạng mục' })}
+                  placeholder="VD: Công tác giảng dạy"
                   className="w-full px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 text-sm font-bold focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 outline-none transition-all"
                 />
                 {errors.name && <p className="text-[10px] font-bold text-red-500 ml-1">{errors.name.message}</p>}
               </div>
               <div className="space-y-1.5">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Mã</label>
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Mã <span className="text-red-500">*</span></label>
                 <input
                   {...register('code', {
                     required: 'Vui lòng nhập mã',
@@ -112,10 +117,15 @@ export default function PerspectiveFormModal({ isOpen, onClose, organizationId, 
                       message: 'Mã chỉ gồm chữ, số và dấu gạch dưới (không dấu cách, không tiếng Việt)',
                     },
                     validate: {
+                      reserved: v => {
+                        if (!v) return true
+                        const RESERVED = ['FINANCIAL', 'CUSTOMER', 'INTERNAL_PROCESS', 'LEARNING_GROWTH']
+                        return !RESERVED.includes(v.trim().toUpperCase()) || 'Mã này trùng mã viễn cảnh cố định — hãy dùng mã khác'
+                      },
                       duplicate: v => {
                         if (!v) return true
                         const clash = (allPerspectives || []).some(p => p.code?.toLowerCase() === v.trim().toLowerCase() && p.id !== perspective?.id)
-                        return !clash || 'Mã này đã được dùng bởi viễn cảnh khác'
+                        return !clash || 'Mã này đã được dùng bởi hạng mục khác'
                       },
                     },
                   })}
@@ -124,6 +134,34 @@ export default function PerspectiveFormModal({ isOpen, onClose, organizationId, 
                 />
                 {errors.code && <p className="text-[10px] font-bold text-red-500 ml-1">{errors.code.message}</p>}
               </div>
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Viễn cảnh BSC <span className="text-red-500">*</span></label>
+              <Controller
+                name="fixedPerspective"
+                control={control}
+                rules={{ required: 'Vui lòng chọn viễn cảnh cho hạng mục' }}
+                render={({ field }) => (
+                  <Select key={`${field.value ?? 'NONE'}-${(fixedPerspectives || []).length}`} value={field.value ?? ''} onValueChange={field.onChange}>
+                    <SelectTrigger className="w-full h-10 rounded-xl bg-slate-50 dark:bg-slate-800 border-slate-100 dark:border-slate-700 text-sm font-bold outline-none">
+                      <SelectValue placeholder="Chọn 1 trong 4 viễn cảnh cố định" />
+                    </SelectTrigger>
+                    <SelectContent className="rounded-xl border-slate-200 dark:border-slate-800">
+                      {(fixedPerspectives || []).map(fp => (
+                        <SelectItem key={fp.code} value={fp.code} className="text-sm font-bold">
+                          <span className="inline-flex items-center gap-2">
+                            <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: fp.color }} />
+                            {fp.name}
+                          </span>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+              />
+              <p className="text-[10px] font-medium text-slate-400 ml-1">Hạng mục này thuộc viễn cảnh nào trong 4 viễn cảnh cố định của thẻ điểm.</p>
+              {errors.fixedPerspective && <p className="text-[10px] font-bold text-red-500 ml-1">{errors.fixedPerspective.message}</p>}
             </div>
 
             <div className="space-y-1.5">
@@ -138,7 +176,7 @@ export default function PerspectiveFormModal({ isOpen, onClose, organizationId, 
 
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1.5">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Thứ tự hiển thị</label>
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Thứ tự hiển thị <span className="text-red-500">*</span></label>
                 <input
                   type="number"
                   min={0}
@@ -151,8 +189,9 @@ export default function PerspectiveFormModal({ isOpen, onClose, organizationId, 
                       min: v => v == null || v >= 0 || 'Thứ tự không được âm',
                       duplicate: v => {
                         if (v == null || Number.isNaN(v)) return true
-                        const clash = (allPerspectives || []).some(p => p.displayOrder === v && p.id !== perspective?.id)
-                        return !clash || 'Thứ tự này đã được dùng bởi viễn cảnh khác'
+                        // Thứ tự hiển thị chỉ cần duy nhất TRONG CÙNG 1 viễn cảnh.
+                        const clash = (allPerspectives || []).some(p => p.displayOrder === v && p.fixedPerspective === selectedFixed && p.id !== perspective?.id)
+                        return !clash || 'Thứ tự này đã được dùng bởi hạng mục khác trong cùng viễn cảnh'
                       },
                     },
                   })}
@@ -181,7 +220,7 @@ export default function PerspectiveFormModal({ isOpen, onClose, organizationId, 
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Màu sắc</label>
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Màu sắc <span className="text-red-500">*</span></label>
               <input
                 type="hidden"
                 {...register('color', {

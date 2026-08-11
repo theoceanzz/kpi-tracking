@@ -1,5 +1,6 @@
 package com.kpitracking.entity;
 
+import com.kpitracking.enums.BscFixedPerspective;
 import com.kpitracking.enums.BscPerspectiveStatus;
 import jakarta.persistence.*;
 import lombok.*;
@@ -12,9 +13,10 @@ import java.time.Instant;
 import java.util.UUID;
 
 /**
- * Một viễn cảnh BSC (Balanced Scorecard) cấu hình theo tổ chức.
- * Kinh điển có 4 viễn cảnh: Tài chính, Khách hàng, Quy trình nội bộ, Học hỏi & phát triển —
- * nhưng mỗi org có thể tự thêm/đổi tên/sắp xếp. Được tái sử dụng qua nhiều kỳ.
+ * Một HẠNG MỤC BSC (nhãn UI: "Hạng mục"; tên bảng/entity giữ nguyên để tránh churn) cấu hình theo tổ chức.
+ * VD: Công tác giảng dạy, Nghiên cứu khoa học, Cố vấn học tập… Org tự thêm/đổi tên/sắp xếp, tái dùng qua nhiều kỳ.
+ * Mỗi hạng mục PHẢI gán vào đúng 1 trong 4 {@link BscFixedPerspective} cố định (Tài chính, Khách hàng,
+ * Quy trình nội bộ, Học hỏi & phát triển) — đây là tầng phân loại (nhóm cha) để gộp hiển thị.
  */
 @Entity
 @Table(name = "bsc_perspectives")
@@ -33,6 +35,11 @@ public class BscPerspective {
 
     @Column(name = "code", nullable = false, length = 50)
     private String code;
+
+    /** Viễn cảnh CỐ ĐỊNH mà hạng mục này thuộc về (bắt buộc). */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "fixed_perspective", length = 20)
+    private BscFixedPerspective fixedPerspective;
 
     @Column(name = "name", nullable = false)
     private String name;

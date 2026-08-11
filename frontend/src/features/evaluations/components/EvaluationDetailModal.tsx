@@ -593,7 +593,7 @@ function EvalLayerCard({ title, icon: Icon, iconBg, iconColor, evaluation, lineA
                     </div>
                   )}
 
-                  {/* BSC: điểm + breakdown viễn cảnh (chỉ hiện khi kỳ có thẻ điểm) */}
+                  {/* BSC: điểm + breakdown hạng mục (chỉ hiện khi kỳ có thẻ điểm) */}
                   {evaluation.bscScore != null && (
                     <div className="mt-2 space-y-1.5">
                       <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-widest bg-indigo-50 text-indigo-600 dark:bg-indigo-900/20"

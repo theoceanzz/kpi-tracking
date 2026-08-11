@@ -177,13 +177,9 @@ public class OrganizationService {
         }
 
         if (request.getEnableBsc() != null) {
-            boolean turningOn = Boolean.TRUE.equals(request.getEnableBsc())
-                    && !Boolean.TRUE.equals(organization.getEnableBsc());
             organization.setEnableBsc(request.getEnableBsc());
-            // Khi bật BSC lần đầu, tự seed 4 viễn cảnh mặc định nếu tổ chức chưa có viễn cảnh nào.
-            if (turningOn) {
-                bscService.seedDefaultPerspectives(organization);
-            }
+            // Không seed hạng mục mặc định nữa: 4 viễn cảnh cố định nằm ở bảng cha
+            // bsc_fixed_perspectives; org tự tạo hạng mục và gán vào 1 viễn cảnh.
         }
 
         if (request.getEvaluationLevels() != null) {

@@ -35,7 +35,7 @@ export default function AnalyticsPage() {
   const { data: org, isLoading: loadingOrg } = useOrganization(organizationId)
   const isOkr = org?.enableOkr ?? false
   const isBsc = org?.enableBsc ?? false
-  const canBsc = hasPermission(['BSC:VIEW'])
+  const canBsc = hasPermission(['BSC:MANAGE'])
 
   const tabs: { key: TabKey; label: string; icon: any; visible: boolean }[] = [
     { key: 'my-objectives', label: 'Mục tiêu của tôi', icon: Target, visible: isOkr },
@@ -43,7 +43,7 @@ export default function AnalyticsPage() {
     { key: 'my', label: 'KPI của tôi', icon: TrendingUp, visible: !isOkr },
     { key: 'summary', label: 'KPI đơn vị', icon: LayoutDashboard, visible: !isOkr && canSummary },
     { key: 'drilldown', label: 'Phân cấp', icon: Building2, visible: true },
-    { key: 'bsc', label: 'Viễn cảnh (BSC)', icon: Gauge, visible: isBsc && canBsc },
+    { key: 'bsc', label: 'Hạng mục (BSC)', icon: Gauge, visible: isBsc && canBsc },
   ]
 
   const visibleTabs = tabs.filter(t => t.visible)

@@ -1,11 +1,13 @@
 import { useState, useEffect, useMemo } from 'react'
 import { read, write, utils } from 'xlsx'
-import { X, Save, AlertCircle, Trash2, Plus, FileSpreadsheet } from 'lucide-react'
+import { X, Save, AlertCircle, Trash2, Plus, FileSpreadsheet, ChevronDown, Check } from 'lucide-react'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/store/authStore'
 import { useKpiPeriods } from '@/features/kpi/hooks/useKpiPeriods'
+import { useOrgUnitTree } from '@/features/orgunits/hooks/useOrgUnitTree'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 
 interface Props {
   open: boolean
@@ -25,6 +27,8 @@ interface Row {
   Status?: string
   ScoringMode?: string
   EmptyPolicy?: string
+  /** Mã phòng ban áp dụng (phân tách dấu phẩy); rỗng = toàn tổ chức. Đồng bộ theo kỳ. */
+  OrgUnitCodes?: string
   _errors?: Record<string, string>
 }
 
@@ -35,17 +39,66 @@ export default function ScorecardExcelPreviewModal({ open, file, onClose, onImpo
   const periods = periodsData?.content || []
   const periodNames = useMemo(() => periods.map(p => p.name), [periods])
 
+  const { data: orgUnitTreeData } = useOrgUnitTree()
+  const flatOrgUnits = useMemo(() => {
+    const flatten = (nodes: any[], level = 0): { id: string; name: string; code: string; level: number }[] => {
+      let result: { id: string; name: string; code: string; level: number }[] = []
+      for (const node of nodes || []) {
+        result.push({ id: node.id, name: node.name, code: node.code, level })
+        if (node.children?.length) result = result.concat(flatten(node.children, level + 1))
+      }
+      return result
+    }
+    return flatten(orgUnitTreeData || [])
+  }, [orgUnitTreeData])
+
   const [data, setData] = useState<Row[]>([])
   const [loading, setLoading] = useState(false)
+  const [didInitUnits, setDidInitUnits] = useState(false)
+
+  // Mặc định TÍCH HẾT các đơn vị cho dòng nào chưa có phòng ban (chạy 1 lần sau khi nạp cây đơn vị).
+  useEffect(() => {
+    if (didInitUnits || flatOrgUnits.length === 0 || data.length === 0) return
+    const allCodes = flatOrgUnits.map(u => u.code).join(', ')
+    setData(prev => prev.map(r => (r.OrgUnitCodes || '').trim() ? r : { ...r, OrgUnitCodes: allCodes }))
+    setDidInitUnits(true)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [flatOrgUnits, data, didInitUnits])
+
+  // Tick phòng ban trên 1 dòng ⇒ áp cho MỌI dòng cùng kỳ (mỗi kỳ = 1 thẻ điểm). Tick gốc ⇒ chọn/bỏ toàn bộ.
+  const toggleUnitInGroup = (row: Row, unitCode: string) => {
+    const current = (row.OrgUnitCodes || '').split(',').map(c => c.trim()).filter(Boolean)
+    const rootCode = flatOrgUnits[0]?.code
+    let next: string[]
+    if (unitCode === rootCode) {
+      next = current.includes(unitCode) ? [] : flatOrgUnits.map(u => u.code)
+    } else if (current.includes(unitCode)) {
+      next = current.filter(c => c !== unitCode && c !== rootCode)
+    } else {
+      const temp = [...current, unitCode]
+      const allOthers = flatOrgUnits.filter(u => u.code !== rootCode).every(u => temp.includes(u.code))
+      next = allOthers && rootCode ? flatOrgUnits.map(u => u.code) : temp
+    }
+    const joined = next.join(', ')
+    const periodKey = (row.Period || '').trim().toLowerCase()
+    setData(prev => validateAll(prev.map(r => (r.Period || '').trim().toLowerCase() === periodKey ? { ...r, OrgUnitCodes: joined } : r)))
+  }
+  const unitLabel = (row: Row) => {
+    const codes = (row.OrgUnitCodes || '').split(',').map(c => c.trim()).filter(Boolean)
+    if (codes.length === 0) return 'Chọn phòng ban'
+    if (codes.length >= flatOrgUnits.length && flatOrgUnits.length > 0) return 'Tất cả đơn vị'
+    if (codes.length === 1) return flatOrgUnits.find(u => u.code === codes[0])?.name || codes[0]
+    return `Đã chọn ${codes.length} đơn vị`
+  }
 
   useEffect(() => {
+    setDidInitUnits(false)
     if (open && file) parseFile(file)
     else setData([])
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, file])
 
   const validateAll = (rows: Row[]): Row[] => {
-    // Tổng trọng số theo kỳ + đếm số lần xuất hiện mỗi (kỳ + mã viễn cảnh)
     const sums = new Map<string, number>()
     const comboCounts = new Map<string, number>()
     rows.forEach(r => {
@@ -65,7 +118,7 @@ export default function ScorecardExcelPreviewModal({ open, file, onClose, onImpo
       else if (periodNames.length > 0 && !periodNames.some(n => n.toLowerCase() === periodVal.toLowerCase())) errors['Period'] = 'Kỳ không tồn tại'
       if (!codeVal) errors['PerspectiveCode'] = 'Bắt buộc'
       else if (periodVal && (comboCounts.get(`${periodVal.toLowerCase()}##${codeVal.toLowerCase()}`) || 0) > 1) {
-        errors['PerspectiveCode'] = 'Mã viễn cảnh bị trùng trong kỳ'
+        errors['PerspectiveCode'] = 'Mã hạng mục bị trùng trong kỳ'
       }
       if (!(r.Weight || '').toString().trim() || isNaN(Number(r.Weight))) errors['Weight'] = 'Phải là số'
       const key = periodVal.toLowerCase()
@@ -107,6 +160,7 @@ export default function ScorecardExcelPreviewModal({ open, file, onClose, onImpo
           Status: (row['Status'] || '').toString().trim().toUpperCase(),
           ScoringMode: (row['ScoringMode'] || '').toString().trim().toUpperCase(),
           EmptyPolicy: (row['EmptyPolicy'] || '').toString().trim().toUpperCase(),
+          OrgUnitCodes: (row['OrgUnits'] || row['OrgUnitCode'] || row['OrgUnitCodes'] || '').toString().trim(),
         }
       }).filter(r => r.Period || r.PerspectiveCode)
       if (parsed.length === 0) { toast.error('File không có dữ liệu hoặc sai định dạng.'); onClose(); return }
@@ -124,7 +178,7 @@ export default function ScorecardExcelPreviewModal({ open, file, onClose, onImpo
 
   const change = (id: string, field: keyof Row, value: string) => setData(prev => validateAll(prev.map(r => r.id === id ? { ...r, [field]: value } : r)))
   const remove = (id: string) => setData(prev => validateAll(prev.filter(r => r.id !== id)))
-  const add = () => setData(prev => validateAll([...prev, { id: `new-${Date.now()}`, Period: '', ScorecardName: '', PerspectiveCode: '', Weight: '', Status: 'DRAFT' }]))
+  const add = () => setData(prev => validateAll([...prev, { id: `new-${Date.now()}`, Period: '', ScorecardName: '', PerspectiveCode: '', Weight: '', Status: 'DRAFT', OrgUnitCodes: '' }]))
 
   const hasErrors = data.some(r => r._errors && Object.keys(r._errors).length > 0)
   const periodCount = useMemo(() => new Set(data.map(r => (r.Period || '').trim().toLowerCase()).filter(Boolean)).size, [data])
@@ -136,6 +190,7 @@ export default function ScorecardExcelPreviewModal({ open, file, onClose, onImpo
       const exportData = data.map(r => {
         const o: any = { Period: r.Period, ScorecardName: r.ScorecardName, PerspectiveCode: r.PerspectiveCode, Weight: r.Weight }
         if (r.Vision) o.Vision = r.Vision
+        if (r.OrgUnitCodes) o.OrgUnits = r.OrgUnitCodes
         if (r.Status) o.Status = r.Status
         if (r.ScoringMode) o.ScoringMode = r.ScoringMode
         if (r.EmptyPolicy) o.EmptyPolicy = r.EmptyPolicy
@@ -178,6 +233,7 @@ export default function ScorecardExcelPreviewModal({ open, file, onClose, onImpo
                   <div><p className="text-sm font-bold">Phát hiện dữ liệu không hợp lệ</p><p className="text-xs mt-1">Kiểm tra các ô đỏ — đặc biệt tổng trọng số mỗi kỳ phải bằng 100%.</p></div>
                 </div>
               )}
+
               <div className="border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden shadow-sm">
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm text-left">
@@ -187,11 +243,12 @@ export default function ScorecardExcelPreviewModal({ open, file, onClose, onImpo
                         <th className="px-4 py-3 min-w-[180px]">Kỳ <span className="text-rose-500">*</span></th>
                         <th className="px-4 py-3 min-w-[170px]">Tên thẻ điểm <span className="text-rose-500">*</span></th>
                         <th className="px-4 py-3 min-w-[180px]">Vision</th>
-                        <th className="px-4 py-3 min-w-[160px]">Mã viễn cảnh <span className="text-rose-500">*</span></th>
+                        <th className="px-4 py-3 min-w-[200px]">Phòng ban</th>
+                        <th className="px-4 py-3 min-w-[160px]">Mã hạng mục <span className="text-rose-500">*</span></th>
                         <th className="px-4 py-3 min-w-[110px]">Trọng số % <span className="text-rose-500">*</span></th>
                         <th className="px-4 py-3 min-w-[140px]">Trạng thái</th>
                         <th className="px-4 py-3 min-w-[150px]">Chế độ điểm</th>
-                        <th className="px-4 py-3 min-w-[190px]">Viễn cảnh rỗng</th>
+                        <th className="px-4 py-3 min-w-[190px]">Hạng mục rỗng</th>
                         <th className="px-4 py-3 w-16 text-center">Xóa</th>
                       </tr>
                     </thead>
@@ -212,6 +269,35 @@ export default function ScorecardExcelPreviewModal({ open, file, onClose, onImpo
                           </td>
                           <td className="px-4 py-2"><input value={row.ScorecardName} onChange={e => change(row.id, 'ScorecardName', e.target.value)} className={inputCls()} /></td>
                           <td className="px-4 py-2"><input value={row.Vision || ''} onChange={e => change(row.id, 'Vision', e.target.value)} className={inputCls()} /></td>
+                          <td className="px-4 py-2">
+                            <Popover>
+                              <PopoverTrigger asChild>
+                                <button type="button" className="w-full min-h-[36px] px-3 py-1.5 rounded-lg border border-transparent hover:border-slate-300 dark:hover:border-slate-700 bg-transparent hover:bg-white dark:hover:bg-slate-900 text-xs font-bold transition-all flex items-center justify-between group focus:ring-1 focus:ring-indigo-500">
+                                  <span className="truncate max-w-[160px]">{unitLabel(row)}</span>
+                                  <ChevronDown size={14} className="opacity-40 group-hover:opacity-70 ml-2 shrink-0" />
+                                </button>
+                              </PopoverTrigger>
+                              <PopoverContent className="z-[300] p-2 w-[280px] max-h-[300px] overflow-y-auto custom-scrollbar" align="start">
+                                <div className="space-y-1">
+                                  {flatOrgUnits.map(unit => {
+                                    const codes = (row.OrgUnitCodes || '').split(',').map(c => c.trim()).filter(Boolean)
+                                    const isSelected = codes.includes(unit.code)
+                                    return (
+                                      <div key={unit.id} onClick={() => toggleUnitInGroup(row, unit.code)}
+                                        className={cn('flex items-center gap-3 px-3 py-2 rounded-xl cursor-pointer transition-colors group',
+                                          isSelected ? 'bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400' : 'hover:bg-slate-50 dark:hover:bg-slate-800')}>
+                                        <div className={cn('w-4 h-4 rounded border flex items-center justify-center transition-all shrink-0',
+                                          isSelected ? 'bg-indigo-600 border-indigo-600 text-white' : 'border-slate-200 dark:border-slate-700 group-hover:border-indigo-400')}>
+                                          {isSelected && <Check size={10} strokeWidth={4} />}
+                                        </div>
+                                        <span className="text-xs font-bold truncate" style={{ marginLeft: `${unit.level * 12}px` }}>{unit.name}</span>
+                                      </div>
+                                    )
+                                  })}
+                                </div>
+                              </PopoverContent>
+                            </Popover>
+                          </td>
                           <td className="px-4 py-2">
                             <input value={row.PerspectiveCode} onChange={e => change(row.id, 'PerspectiveCode', e.target.value)} className={cn(inputCls(row._errors?.PerspectiveCode), 'font-mono text-xs')} />
                             {row._errors?.PerspectiveCode && <p className="text-[10px] text-rose-500 mt-1 font-medium px-1">{row._errors.PerspectiveCode}</p>}

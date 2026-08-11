@@ -4,6 +4,7 @@ import com.kpitracking.dto.request.bsc.ObjectiveRelationRequest;
 import com.kpitracking.dto.response.bsc.ObjectiveRelationResponse;
 import com.kpitracking.dto.response.bsc.StrategyMapResponse;
 import com.kpitracking.entity.*;
+import com.kpitracking.enums.OkrStatus;
 import com.kpitracking.exception.BusinessException;
 import com.kpitracking.exception.DuplicateResourceException;
 import com.kpitracking.exception.ResourceNotFoundException;
@@ -29,6 +30,7 @@ public class BscStrategyMapService {
     private final KpiCriteriaRepository kpiCriteriaRepository;
     private final BscObjectiveRelationRepository relationRepository;
     private final OrganizationRepository organizationRepository;
+    private final BscFixedPerspectiveRepository fixedPerspectiveRepository;
 
     // ── Strategy map ──────────────────────────────────────────────────────────
 
@@ -37,10 +39,17 @@ public class BscStrategyMapService {
         List<BscPerspective> perspectives = perspectiveRepository.findByOrganizationIdOrderByDisplayOrderAsc(organizationId);
         List<Objective> objectives = objectiveRepository.findByOrganizationId(organizationId);
 
-        // Gom Objective theo viễn cảnh
+        // Tên/màu viễn cảnh cố định tùy chỉnh theo org (fallback enum) để bản đồ khớp dashboard.
+        Map<String, BscFixedPerspectiveEntity> orgFixed = new HashMap<>();
+        for (BscFixedPerspectiveEntity f : fixedPerspectiveRepository.findByOrganizationIdOrderByDisplayOrderAsc(organizationId)) {
+            orgFixed.put(f.getCode(), f);
+        }
+
+        // Gom Objective theo viễn cảnh (bỏ mục tiêu đã huỷ — không còn thuộc chiến lược đang chạy)
         Map<UUID, List<Objective>> objByPerspective = new HashMap<>();
         for (Objective o : objectives) {
             if (o.getPerspective() == null) continue;
+            if (o.getStatus() == OkrStatus.CANCELLED) continue;
             objByPerspective.computeIfAbsent(o.getPerspective().getId(), k -> new ArrayList<>()).add(o);
         }
 
@@ -49,16 +58,23 @@ public class BscStrategyMapService {
             List<StrategyMapResponse.ObjectiveNode> objNodes = objByPerspective.getOrDefault(p.getId(), List.of()).stream()
                     .map(o -> mapObjectiveNode(o, p.getId()))
                     .collect(Collectors.toList());
+            var fixed = p.getFixedPerspective();
+            BscFixedPerspectiveEntity fixedRow = fixed != null ? orgFixed.get(fixed.name()) : null;
             lanes.add(StrategyMapResponse.PerspectiveLane.builder()
                     .perspectiveId(p.getId()).code(p.getCode()).name(p.getName())
                     .color(p.getColor()).displayOrder(p.getDisplayOrder())
+                    .fixedPerspective(fixed != null ? fixed.name() : null)
+                    .fixedPerspectiveName(fixed != null ? (fixedRow != null ? fixedRow.getName() : fixed.getDisplayName()) : null)
+                    .fixedPerspectiveColor(fixed != null ? (fixedRow != null ? fixedRow.getColor() : fixed.getColor()) : null)
                     .objectives(objNodes)
                     .build());
         }
 
         // KPI gán trực tiếp viễn cảnh nhưng KHÔNG thuộc OKR (nối thẳng từ viễn cảnh)
+        // Lọc theo cùng tập trạng thái dashboard chấm ⇒ số KPI trên bản đồ khớp dashboard (không hiện KPI nháp/từ chối/thay thế).
         List<StrategyMapResponse.KpiNode> directKpis = kpiCriteriaRepository
                 .findByOrganizationIdAndPerspectiveNotNullAndKeyResultIsNull(organizationId).stream()
+                .filter(k -> BscScoringService.ACTIVE_STATUSES.contains(k.getStatus()))
                 .map(k -> StrategyMapResponse.KpiNode.builder()
                         .id(k.getId()).name(k.getName())
                         .perspectiveId(k.getPerspective().getId())
@@ -87,7 +103,8 @@ public class BscStrategyMapService {
                 .map(kr -> StrategyMapResponse.KeyResultNode.builder()
                         .id(kr.getId()).code(kr.getCode()).name(kr.getName())
                         .kpis(kr.getKpis().stream()
-                                .filter(k -> k.getDeletedAt() == null)
+                                // deleted_at đã lọc sẵn qua @SQLRestriction; ở đây lọc trạng thái để khớp dashboard.
+                                .filter(k -> BscScoringService.ACTIVE_STATUSES.contains(k.getStatus()))
                                 .map(k -> StrategyMapResponse.KpiNode.builder()
                                         .id(k.getId()).name(k.getName())
                                         .perspectiveId(k.getPerspective() != null ? k.getPerspective().getId() : null)

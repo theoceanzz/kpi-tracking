@@ -24,6 +24,8 @@ import { useKpiPeriods } from '../hooks/useKpiPeriods'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { useOrgUnitTree } from '@/features/orgunits/hooks/useOrgUnitTree'
 import { useOrganization } from '@/features/orgunits/hooks/useOrganization'
+import { useScorecards } from '@/features/bsc/hooks/useBsc'
+import { buildRealWeightById } from '../utils/realWeight'
 import { useObjectives } from '../../okr/hooks/useOkr'
 import { useSidebarSettings } from '@/features/organization/hooks/useSidebarSettings'
 import PageTour from '@/components/common/PageTour'
@@ -141,6 +143,13 @@ export default function KpiApprovalPage() {
   }
 
   const items = (criteriaData?.content ?? []).filter(kpi => canRevertApproval || kpi.createdById !== user?.id || kpi.status !== 'PENDING_APPROVAL')
+
+  const enableBsc = org?.enableBsc
+  const { data: bscScorecards } = useScorecards(enableBsc ? organizationId : undefined)
+  const realWeightById = useMemo(
+    () => buildRealWeightById(items, bscScorecards, orgUnitTreeData, enableBsc),
+    [items, bscScorecards, orgUnitTreeData, enableBsc]
+  )
   const totalPages = criteriaData?.totalPages || 1
   const totalElements = criteriaData?.totalElements || 0
   const { rows: itemRows, childrenByParentId } = buildKpiRows(items, collapsedParents)
@@ -506,7 +515,7 @@ export default function KpiApprovalPage() {
                                   borderColor: `${kpi.effectivePerspectiveColor || '#8b5cf6'}55`,
                                   backgroundColor: `${kpi.effectivePerspectiveColor || '#8b5cf6'}1a`,
                                 }}
-                                title={`Viễn cảnh BSC: ${kpi.effectivePerspectiveName}`}
+                                title={`Hạng mục BSC: ${kpi.effectivePerspectiveName}`}
                               >
                                 <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: kpi.effectivePerspectiveColor || '#8b5cf6' }} />
                                 {kpi.effectivePerspectiveName}
@@ -606,8 +615,10 @@ export default function KpiApprovalPage() {
                           </div>
                         </td>
                         <td className="px-4 py-5 whitespace-nowrap">
-                          <div className="px-3 py-1.5 rounded-xl bg-indigo-50 dark:bg-indigo-900/30 border border-indigo-100/50 dark:border-indigo-800/50 flex items-center justify-center gap-2 w-fit">
-                            <span className="text-xs font-black text-indigo-600 dark:text-indigo-400">{kpi.weight}%</span>
+                          <div className="px-3 py-1.5 rounded-xl bg-indigo-50 dark:bg-indigo-900/30 border border-indigo-100/50 dark:border-indigo-800/50 flex items-center justify-center gap-1.5 w-fit"
+                            title={realWeightById.get(kpi.id) != null ? `Trọng số thật (form ${kpi.weight}% × %hạng mục)` : undefined}>
+                            <span className="text-xs font-black text-indigo-600 dark:text-indigo-400">{realWeightById.get(kpi.id) != null ? `${realWeightById.get(kpi.id)!.toFixed(1)}%` : `${kpi.weight}%`}</span>
+                            {realWeightById.get(kpi.id) != null && <span className="text-[9px] font-bold text-slate-400">/ {kpi.weight}%</span>}
                           </div>
                         </td>
                         <td className="px-4 py-5 text-right">
@@ -695,7 +706,7 @@ export default function KpiApprovalPage() {
                                   borderColor: `${kpi.effectivePerspectiveColor || '#8b5cf6'}55`,
                                   backgroundColor: `${kpi.effectivePerspectiveColor || '#8b5cf6'}1a`,
                                 }}
-                                title={`Viễn cảnh BSC: ${kpi.effectivePerspectiveName}`}
+                                title={`Hạng mục BSC: ${kpi.effectivePerspectiveName}`}
                               >
                                 <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: kpi.effectivePerspectiveColor || '#8b5cf6' }} />
                                 {kpi.effectivePerspectiveName}
@@ -736,7 +747,7 @@ export default function KpiApprovalPage() {
                               <span className="text-base font-black text-slate-900 dark:text-white">{formatNumber(kpi.targetValue || 0)}</span>
                               <span className="text-[10px] font-black uppercase tracking-tighter text-slate-400">{kpi.unit}</span>
                             </div>
-                            <span className="px-2.5 py-1 rounded-xl bg-indigo-50 dark:bg-indigo-900/30 border border-indigo-100/50 dark:border-indigo-800/50 text-xs font-black text-indigo-600 dark:text-indigo-400">{kpi.weight}%</span>
+                            <span className="px-2.5 py-1 rounded-xl bg-indigo-50 dark:bg-indigo-900/30 border border-indigo-100/50 dark:border-indigo-800/50 text-xs font-black text-indigo-600 dark:text-indigo-400" title={realWeightById.get(kpi.id) != null ? `Trọng số thật (form ${kpi.weight}%)` : undefined}>{realWeightById.get(kpi.id) != null ? `${realWeightById.get(kpi.id)!.toFixed(1)}% / ${kpi.weight}%` : `${kpi.weight}%`}</span>
                           </div>
                           <div className="flex items-center gap-1">
                             {!isChildRow && childKpis.length > 0 && (

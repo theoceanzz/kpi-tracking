@@ -5,6 +5,7 @@ export interface OverviewStats {
   totalKpiCriteria: number
   approvedKpi: number
   pendingKpi: number
+  pendingKpiForApproval: number
   rejectedKpi: number
   draftKpi: number
   totalSubmissions: number

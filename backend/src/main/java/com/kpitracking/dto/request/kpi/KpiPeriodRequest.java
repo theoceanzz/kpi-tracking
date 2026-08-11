@@ -26,4 +26,7 @@ public class KpiPeriodRequest {
     private Instant notificationDate;
 
     private UUID organizationId;
+
+    /** Kỳ đánh giá tổng hợp chứa đợt này (tuỳ chọn). */
+    private UUID cycleId;
 }

@@ -15,4 +15,7 @@ public class KpiPeriodResponse {
     private Instant endDate;
     private Instant notificationDate;
     private UUID organizationId;
+    /** Kỳ đánh giá tổng hợp chứa đợt này (null nếu chưa gán). */
+    private UUID cycleId;
+    private String cycleName;
 }

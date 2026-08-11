@@ -1,5 +1,6 @@
 package com.kpitracking.dto.response.bsc;
 
+import com.kpitracking.enums.BscFixedPerspective;
 import com.kpitracking.enums.BscPerspectiveStatus;
 import lombok.*;
 
@@ -15,4 +16,10 @@ public class PerspectiveResponse {
     private String icon;
     private Integer displayOrder;
     private BscPerspectiveStatus status;
+    /** Viễn cảnh cố định mà hạng mục thuộc về. */
+    private BscFixedPerspective fixedPerspective;
+    /** Tên hiển thị của viễn cảnh cố định (VD "Tài chính") — tiện cho FE gộp nhóm. */
+    private String fixedPerspectiveName;
+    /** Màu của viễn cảnh cố định. */
+    private String fixedPerspectiveColor;
 }

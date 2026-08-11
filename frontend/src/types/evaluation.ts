@@ -55,9 +55,7 @@ export interface EvaluationScorePreview {
   bscScoringMode?: BscScoringMode | null
   officialScore?: number | null
   bscPerspectives?: PerspectiveScoreResponse[] | null
-  /** % KPI tính điểm đã gán viễn cảnh (100 = đủ) */
   bscCoveragePercent?: number | null
-  /** Tên các KPI chưa gán viễn cảnh */
   bscUnassignedKpis?: string[] | null
 }
 

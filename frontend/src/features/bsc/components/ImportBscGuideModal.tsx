@@ -7,16 +7,17 @@ interface ImportBscGuideModalProps {
   onSelectFile: () => void
 }
 
-const SAMPLE_CSV_CONTENT = `Code,Name,Description,Color,DisplayOrder,Status
-FINANCIAL,Tài chính,Các chỉ tiêu về hiệu quả tài chính,#2563eb,1,ACTIVE
-CUSTOMER,Khách hàng,Các chỉ tiêu về sự hài lòng khách hàng,#f59e0b,2,ACTIVE
-INTERNAL_PROCESS,Quy trình nội bộ,Các chỉ tiêu về hiệu quả vận hành,#10b981,3,ACTIVE
-LEARNING_GROWTH,Học hỏi & phát triển,Các chỉ tiêu về năng lực và đào tạo,#8b5cf6,4,ACTIVE`
+const SAMPLE_CSV_CONTENT = `Code,Name,FixedPerspective,Description,Color,DisplayOrder,Status
+DOANH_THU,Doanh thu,FINANCIAL,Các chỉ tiêu về doanh thu & lợi nhuận,#2563eb,1,ACTIVE
+HAI_LONG_KH,Sự hài lòng khách hàng,CUSTOMER,Đo lường trải nghiệm & giữ chân khách hàng,#f59e0b,2,ACTIVE
+VAN_HANH,Hiệu quả vận hành,INTERNAL_PROCESS,Tối ưu quy trình nội bộ,#10b981,3,ACTIVE
+DAO_TAO,Đào tạo & phát triển,LEARNING_GROWTH,Nâng cao năng lực nhân sự,#8b5cf6,4,ACTIVE`
 
 const COLUMNS = [
-  { name: 'Code', required: true, desc: 'Mã viễn cảnh (chỉ chữ, số, gạch dưới). Dùng để đối soát & cập nhật.', example: 'FINANCIAL' },
-  { name: 'Name', required: true, desc: 'Tên viễn cảnh', example: 'Tài chính' },
-  { name: 'Description', required: false, desc: 'Mô tả viễn cảnh', example: 'Các chỉ tiêu tài chính' },
+  { name: 'Code', required: true, desc: 'Mã hạng mục (chỉ chữ, số, gạch dưới). Dùng để đối soát & cập nhật.', example: 'DOANH_THU' },
+  { name: 'Name', required: true, desc: 'Tên hạng mục', example: 'Doanh thu' },
+  { name: 'FixedPerspective', required: false, desc: 'Viễn cảnh cố định của hạng mục: FINANCIAL, CUSTOMER, INTERNAL_PROCESS, LEARNING_GROWTH. Bỏ trống mặc định INTERNAL_PROCESS.', example: 'FINANCIAL' },
+  { name: 'Description', required: false, desc: 'Mô tả hạng mục', example: 'Các chỉ tiêu về doanh thu' },
   { name: 'Color', required: false, desc: 'Màu hiển thị dạng hex #RRGGBB', example: '#2563eb' },
   { name: 'DisplayOrder', required: false, desc: 'Thứ tự hiển thị (số). Để trống hệ thống tự đánh số.', example: '1' },
   { name: 'Status', required: false, desc: 'Trạng thái: ACTIVE hoặc INACTIVE (mặc định ACTIVE)', example: 'ACTIVE' },
@@ -35,20 +36,21 @@ async function downloadTemplate(type: 'csv' | 'xlsx') {
   }
 
   const workbook = new ExcelJS.Workbook()
-  const worksheet = workbook.addWorksheet('Viễn cảnh BSC')
+  const worksheet = workbook.addWorksheet('Hạng mục BSC')
   worksheet.columns = [
     { header: 'Code', key: 'Code', width: 22 },
     { header: 'Name', key: 'Name', width: 28 },
+    { header: 'FixedPerspective', key: 'FixedPerspective', width: 20 },
     { header: 'Description', key: 'Description', width: 40 },
     { header: 'Color', key: 'Color', width: 14 },
     { header: 'DisplayOrder', key: 'DisplayOrder', width: 14 },
     { header: 'Status', key: 'Status', width: 14 },
   ]
   worksheet.addRows([
-    ['FINANCIAL', 'Tài chính', 'Các chỉ tiêu về hiệu quả tài chính', '#2563eb', 1, 'ACTIVE'],
-    ['CUSTOMER', 'Khách hàng', 'Các chỉ tiêu về sự hài lòng khách hàng', '#f59e0b', 2, 'ACTIVE'],
-    ['INTERNAL_PROCESS', 'Quy trình nội bộ', 'Các chỉ tiêu về hiệu quả vận hành', '#10b981', 3, 'ACTIVE'],
-    ['LEARNING_GROWTH', 'Học hỏi & phát triển', 'Các chỉ tiêu về năng lực và đào tạo', '#8b5cf6', 4, 'ACTIVE'],
+    ['DOANH_THU', 'Doanh thu', 'FINANCIAL', 'Các chỉ tiêu về doanh thu & lợi nhuận', '#2563eb', 1, 'ACTIVE'],
+    ['HAI_LONG_KH', 'Sự hài lòng khách hàng', 'CUSTOMER', 'Đo lường trải nghiệm & giữ chân khách hàng', '#f59e0b', 2, 'ACTIVE'],
+    ['VAN_HANH', 'Hiệu quả vận hành', 'INTERNAL_PROCESS', 'Tối ưu quy trình nội bộ', '#10b981', 3, 'ACTIVE'],
+    ['DAO_TAO', 'Đào tạo & phát triển', 'LEARNING_GROWTH', 'Nâng cao năng lực nhân sự', '#8b5cf6', 4, 'ACTIVE'],
   ])
 
   const headerRow = worksheet.getRow(1)
@@ -84,11 +86,12 @@ async function downloadTemplate(type: 'csv' | 'xlsx') {
     row.alignment = { vertical: 'middle', horizontal: 'left', wrapText: true }
   })
   guideSheet.addRow([])
-  const noteTitleRow = guideSheet.addRow(['LƯU Ý IMPORT VIỄN CẢNH BSC'])
+  const noteTitleRow = guideSheet.addRow(['LƯU Ý IMPORT HẠNG MỤC BSC'])
   noteTitleRow.font = { bold: true, size: 12, color: { argb: 'FFDC2626' } }
   guideSheet.addRow(['1. File mẫu hỗ trợ định dạng .xlsx.'])
-  guideSheet.addRow(['2. Mã (Code) dùng để cập nhật: nếu mã đã tồn tại, hệ thống sẽ CẬP NHẬT viễn cảnh đó.'])
-  guideSheet.addRow(['3. Để trống DisplayOrder để hệ thống tự đánh số thứ tự tiếp theo.'])
+  guideSheet.addRow(['2. Mã (Code) dùng để cập nhật: nếu mã đã tồn tại, hệ thống sẽ CẬP NHẬT hạng mục đó.'])
+  guideSheet.addRow(['3. Cột FixedPerspective gán hạng mục vào 1 trong 4 viễn cảnh cố định (FINANCIAL, CUSTOMER, INTERNAL_PROCESS, LEARNING_GROWTH). Bỏ trống hoặc sai giá trị ⇒ mặc định INTERNAL_PROCESS.'])
+  guideSheet.addRow(['4. Để trống DisplayOrder để hệ thống tự đánh số thứ tự tiếp theo.'])
 
   const buffer = await workbook.xlsx.writeBuffer()
   const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
@@ -102,7 +105,7 @@ async function downloadTemplate(type: 'csv' | 'xlsx') {
 
 const STEPS = [
   { num: '01', title: 'Tải file mẫu', desc: 'Nhấn nút bên dưới để tải về file mẫu có sẵn cấu trúc chuẩn.' },
-  { num: '02', title: 'Điền thông tin', desc: 'Nhập các viễn cảnh chiến lược (mã, tên, màu, thứ tự...) vào file.' },
+  { num: '02', title: 'Điền thông tin', desc: 'Nhập các hạng mục (mã, tên, viễn cảnh, màu, thứ tự...) vào file.' },
   { num: '03', title: 'Lưu & Upload', desc: 'Lưu file định dạng .xlsx và chọn "Chọn file & Import" bên dưới.' },
 ]
 
@@ -120,7 +123,7 @@ export default function ImportBscGuideModal({ open, onClose, onSelectFile }: Imp
               <FileSpreadsheet size={24} className="text-indigo-600" />
             </div>
             <div>
-              <h2 className="text-xl font-black text-slate-900 dark:text-white">Import Viễn cảnh BSC</h2>
+              <h2 className="text-xl font-black text-slate-900 dark:text-white">Import Hạng mục BSC</h2>
               <p className="text-sm font-medium text-slate-500">Hỗ trợ định dạng .xlsx</p>
             </div>
           </div>

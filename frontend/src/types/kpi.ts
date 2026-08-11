@@ -11,6 +11,87 @@ export interface KpiPeriod {
   endDate: string | null
   notificationDate: string | null
   organizationId: string
+  cycleId?: string | null
+  cycleName?: string | null
+}
+
+export type CycleEvaluationMode = 'QUANTITATIVE' | 'QUALITATIVE' | 'BOTH'
+export type CycleUnitEvalStatus = 'DRAFT' | 'FINALIZED'
+
+// Kỳ đánh giá tổng hợp — gom nhiều đợt (KpiPeriod). Matches BE: KpiCycleResponse
+export interface KpiCycle {
+  id: string
+  name: string
+  cycleType: KpiFrequency
+  startDate: string | null
+  endDate: string | null
+  description: string | null
+  evaluationMode: CycleEvaluationMode
+  organizationId: string
+  periodCount: number
+}
+
+// Đánh giá kỳ của 1 nhân viên (TB các đợt). Matches BE: CycleUserEvaluationResponse
+export interface CyclePeriodBreakdown {
+  periodId: string
+  periodName: string
+  selfScore: number | null
+  managerScore: number | null
+  /** Điểm định lượng thuần (system_score). */
+  quantScore: number | null
+  /** Mức định tính thuần (behavior_score, thang 0-5). */
+  qualScore: number | null
+  /** Xếp loại ma trận hiệu suất (1-5), null nếu thiếu 1 trong 2 trục. */
+  matrixRating: number | null
+  /** % hoàn thành định lượng của đợt. */
+  completionPercent: number | null
+}
+export interface CycleUserEvaluation {
+  userId: string
+  userName: string
+  orgUnitId: string | null
+  orgUnitName: string | null
+  mode: CycleEvaluationMode
+  selfScore: number | null
+  managerScore: number | null
+  /** Điểm chốt kỳ: đã nhập tay nếu có, mặc định = managerScore. */
+  finalScore: number | null
+  finalScoreOverridden: boolean
+  /** Mức định tính chấm ở cấp kỳ (0-5) — trục hàng ma trận. */
+  qualScore: number | null
+  /** Xếp loại 1-5 suy ra từ ma trận hiệu suất. */
+  matrixRating: number | null
+  /** TB % hoàn thành định lượng các đợt — trục cột ma trận. */
+  avgCompletionPercent: number | null
+  comment: string | null
+  evaluatedByName: string | null
+  evaluatedAt: string | null
+  /** Bị khoá do đơn vị (hoặc đơn vị cha) đã chốt ⇒ chỉ xem. */
+  locked: boolean
+  lockedByUnitName: string | null
+  periodBreakdown: CyclePeriodBreakdown[]
+}
+
+// Đánh giá tổng hợp phòng ban theo kỳ. Matches BE: CycleUnitEvaluationResponse
+export interface CycleUnitEvaluation {
+  cycleId: string
+  cycleName: string
+  orgUnitId: string
+  orgUnitName: string
+  mode: CycleEvaluationMode
+  selfScore: number | null
+  managerScore: number | null
+  /** TB mức định tính (0-5) và TB xếp loại ma trận (1-5) của thành viên. */
+  qualScore: number | null
+  matrixRating: number | null
+  memberCount: number
+  /** true khi các con số là snapshot lúc chốt, không phải tính lại. */
+  fromSnapshot: boolean
+  status: CycleUnitEvalStatus
+  comment: string | null
+  finalizedByName: string | null
+  finalizedAt: string | null
+  members: CycleUserEvaluation[]
 }
 
 // Matches BE: KpiCriteriaResponse

@@ -3,6 +3,27 @@ export enum BscPerspectiveStatus {
   INACTIVE = 'INACTIVE',
 }
 
+export enum BscFixedPerspective {
+  FINANCIAL = 'FINANCIAL',
+  CUSTOMER = 'CUSTOMER',
+  INTERNAL_PROCESS = 'INTERNAL_PROCESS',
+  LEARNING_GROWTH = 'LEARNING_GROWTH',
+}
+
+export interface FixedPerspectiveResponse {
+  code: BscFixedPerspective
+  name: string
+  color: string
+  displayOrder: number
+}
+
+export interface FixedPerspectiveUpdateRequest {
+  name: string
+  color?: string
+  displayOrder?: number
+}
+
+/** Một "Hạng mục" BSC (tên API/field vẫn là perspective để tránh churn). */
 export interface PerspectiveResponse {
   id: string
   code: string
@@ -12,6 +33,9 @@ export interface PerspectiveResponse {
   icon?: string
   displayOrder: number
   status: BscPerspectiveStatus
+  fixedPerspective?: BscFixedPerspective
+  fixedPerspectiveName?: string
+  fixedPerspectiveColor?: string
 }
 
 export interface PerspectiveRequest {
@@ -22,6 +46,7 @@ export interface PerspectiveRequest {
   icon?: string
   displayOrder?: number
   status?: BscPerspectiveStatus
+  fixedPerspective?: BscFixedPerspective
 }
 
 export interface ImportBscResponse {
@@ -54,6 +79,14 @@ export interface ScorecardPerspectiveResponse {
   color?: string
   weightPercentage: number
   displayOrder: number
+  fixedPerspective?: BscFixedPerspective
+  fixedPerspectiveName?: string
+  fixedPerspectiveColor?: string
+}
+
+export interface ScorecardOrgUnitResponse {
+  id: string
+  name: string
 }
 
 export interface ScorecardResponse {
@@ -62,6 +95,10 @@ export interface ScorecardResponse {
   vision?: string
   kpiPeriodId: string
   kpiPeriodName?: string
+  /** Các phòng ban áp dụng; rỗng = toàn tổ chức. */
+  orgUnits?: ScorecardOrgUnitResponse[]
+  /** Nhãn gộp tên phòng ban (tiện hiển thị). */
+  orgUnitName?: string | null
   status: BscScorecardStatus
   scoringMode: BscScoringMode
   emptyPerspectivePolicy: BscEmptyPerspectivePolicy
@@ -82,6 +119,8 @@ export interface ScorecardRequest {
   name: string
   vision?: string
   kpiPeriodId: string
+  /** Các phòng ban áp dụng; rỗng/bỏ trống = toàn tổ chức. */
+  orgUnitIds?: string[]
   status?: BscScorecardStatus
   scoringMode?: BscScoringMode
   emptyPerspectivePolicy?: BscEmptyPerspectivePolicy
@@ -93,6 +132,9 @@ export interface PerspectiveScoreResponse {
   code: string
   name: string
   color?: string
+  fixedPerspective?: BscFixedPerspective
+  fixedPerspectiveName?: string
+  fixedPerspectiveColor?: string
   weightPercentage: number
   kpiCount: number
   achievementPercent?: number | null
@@ -105,6 +147,8 @@ export interface BscDashboardResponse {
   vision?: string
   kpiPeriodId: string
   kpiPeriodName?: string
+  orgUnitId?: string | null
+  orgUnitName?: string | null
   scoringMode: BscScoringMode
   overallScore?: number | null
   perspectives: PerspectiveScoreResponse[]
@@ -135,6 +179,9 @@ export interface SmPerspectiveLane {
   name: string
   color?: string
   displayOrder: number
+  fixedPerspective?: string
+  fixedPerspectiveName?: string
+  fixedPerspectiveColor?: string
   objectives: SmObjectiveNode[]
 }
 export interface SmRelationEdge {

@@ -1,8 +1,13 @@
 import { X, Target, Building2, Users, BarChart3, Award, Calendar, Clock, CheckCircle2, ListTree, Layers } from 'lucide-react'
+import { useMemo } from 'react'
 import { formatNumber, formatDateTime, FREQUENCY_MAP, STATUS_CONFIG } from '@/lib/utils'
 import type { KpiCriteria } from '@/types/kpi'
 import { useKpiChildren } from '../hooks/useKpiChildren'
 import { cn } from '@/lib/utils'
+import { useAuthStore } from '@/store/authStore'
+import { useOrganization } from '@/features/orgunits/hooks/useOrganization'
+import { useScorecards } from '@/features/bsc/hooks/useBsc'
+import { useOrgUnitTree } from '@/features/orgunits/hooks/useOrgUnitTree'
 
 
 
@@ -16,6 +21,37 @@ interface KpiDetailModalProps {
 
 export default function KpiDetailModal({ open, onClose, kpi }: KpiDetailModalProps) {
   const { data: children } = useKpiChildren(open && kpi?.hasChildren ? kpi.id : undefined)
+
+  // Trọng số THẬT = form × %hạng_mục (từ thẻ điểm của đơn vị KPI).
+  const { user } = useAuthStore()
+  const organizationId = user?.memberships?.[0]?.organizationId
+  const { data: org } = useOrganization(organizationId)
+  const enableBsc = org?.enableBsc
+  const { data: bscScorecards } = useScorecards(enableBsc ? organizationId : undefined)
+  const { data: orgUnitTreeData } = useOrgUnitTree()
+  const realWeight = useMemo(() => {
+    if (!enableBsc || !bscScorecards || !kpi || kpi.weight == null || !kpi.effectivePerspectiveId || !kpi.kpiPeriodId) return null
+    const periodScs = bscScorecards.filter(s => s.kpiPeriodId === kpi.kpiPeriodId)
+    if (!periodScs.length) return null
+    const parent = new Map<string, string | null>()
+    const walk = (nodes: any[]) => (nodes || []).forEach((n: any) => { parent.set(n.id, n.parentId ?? null); if (n.children) walk(n.children) })
+    walk(orgUnitTreeData || [])
+    const unitId = kpi.orgUnitId || kpi.orgUnitIds?.[0]
+    let sc: any = null
+    if (unitId) {
+      let cur: string | null = unitId, guard = 0
+      while (cur && guard++ < 100) {
+        const found = periodScs.find(s => (s.orgUnits || []).some((u: any) => u.id === cur))
+        if (found) { sc = found; break }
+        cur = parent.get(cur) ?? null
+      }
+    }
+    if (!sc) sc = periodScs.find(s => !s.orgUnits || s.orgUnits.length === 0) || null
+    if (!sc) return null
+    const sp = sc.perspectives.find((p: any) => p.perspectiveId === kpi.effectivePerspectiveId)
+    if (!sp || sp.weightPercentage == null) return null
+    return kpi.weight * sp.weightPercentage / 100
+  }, [enableBsc, bscScorecards, orgUnitTreeData, kpi])
 
   if (!open || !kpi) return null
 
@@ -103,10 +139,10 @@ export default function KpiDetailModal({ open, onClose, kpi }: KpiDetailModalPro
               color="text-rose-600"
             />
             )}
-            <MetricBox 
-              icon={Award} 
-              label="Trọng số (%)" 
-              value={`${kpi.weight ?? '—'}%`}
+            <MetricBox
+              icon={Award}
+              label={realWeight != null ? 'Trọng số thật (%)' : 'Trọng số (%)'}
+              value={realWeight != null ? `${realWeight.toFixed(1)}% / ${kpi.weight}%` : `${kpi.weight ?? '—'}%`}
               color="text-blue-600"
             />
             <MetricBox
@@ -219,7 +255,7 @@ export default function KpiDetailModal({ open, onClose, kpi }: KpiDetailModalPro
           {kpi.effectivePerspectiveName && (
             <div className="space-y-4">
               <h5 className="text-xs font-black uppercase tracking-widest text-slate-400 flex items-center gap-2">
-                <Layers size={14} style={{ color: kpi.effectivePerspectiveColor || '#8b5cf6' }} /> Viễn cảnh BSC
+                <Layers size={14} style={{ color: kpi.effectivePerspectiveColor || '#8b5cf6' }} /> Hạng mục BSC
               </h5>
               <div
                 className="flex items-center gap-3 p-6 rounded-[24px] border"
@@ -230,7 +266,7 @@ export default function KpiDetailModal({ open, onClose, kpi }: KpiDetailModalPro
               >
                 <span className="w-3 h-10 rounded-full shrink-0" style={{ backgroundColor: kpi.effectivePerspectiveColor || '#8b5cf6' }} />
                 <div>
-                  <p className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 mb-1">Thuộc viễn cảnh</p>
+                  <p className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 mb-1">Thuộc hạng mục</p>
                   <p className="text-base font-black leading-tight" style={{ color: kpi.effectivePerspectiveColor || '#8b5cf6' }}>
                     {kpi.effectivePerspectiveName}
                   </p>

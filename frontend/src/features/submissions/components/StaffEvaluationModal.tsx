@@ -27,6 +27,38 @@ interface StaffEvaluationModalProps {
   evaluationComment?: string
   periodEnded?: boolean
 }
+/**
+ * Chỉ số dải cho một giá trị theo nhãn dải tăng dần (VD "<2", "≥2 và <3", "≥120%").
+ * Lấy số lớn nhất trong nhãn làm cận trên, dải cuối bắt hết phần còn lại —
+ * khớp đúng bandIndex() ở EvaluationService phía backend.
+ */
+function bandIndex(value: number, bands: string[]): number {
+  for (let i = 0; i < bands.length; i++) {
+    if (i === bands.length - 1) return i
+    const nums = String(bands[i]).match(/[0-9]+(?:\.[0-9]+)?/g)
+    if (!nums?.length) continue
+    const upper = Math.max(...nums.map(Number))
+    if (value < upper) return i
+  }
+  return bands.length - 1
+}
+
+/** Tra ma trận hiệu suất của tổ chức: (điểm hành vi) × (% hoàn thành định lượng) → xếp loại 1..5. */
+function lookupMatrixRating(
+  behavior: number | null, completion: number | null, matrixJson?: string | null,
+): number | null {
+  if (behavior == null || completion == null || !matrixJson) return null
+  try {
+    const m = JSON.parse(matrixJson)
+    if (!m?.rows || !m?.cols || !m?.cells) return null
+    const r = bandIndex(behavior, m.rows)
+    const c = bandIndex(completion, m.cols)
+    return m.cells?.[r]?.[c] ?? null
+  } catch {
+    return null
+  }
+}
+
 export default function StaffEvaluationModal({
   open, onClose, userId, userName, periodId, periodName, readOnly = false, evaluationComment, periodEnded = false
 }: StaffEvaluationModalProps) {
@@ -86,6 +118,34 @@ export default function StaffEvaluationModal({
   const effectiveFinalScore = isBscOfficial
     ? (scorePreview?.officialScore ?? bscScore!)
     : (isFullQualitative ? maxScore : finalScore)
+
+  // ── Chiều ĐỊNH TÍNH & xếp loại ma trận (để người chấm hiểu điểm cuối từ đâu ra) ──
+  const hasQualitative = submissionList.some(s => s.kpiType === 'QUALITATIVE')
+
+  // Điểm hành vi tính LIVE theo mức đang chọn (trung bình có trọng số),
+  // khớp công thức calculateBehaviorScore() ở backend.
+  const behaviorLive = useMemo(() => {
+    let sum = 0, totalWeight = 0
+    for (const s of submissionList) {
+      if (s.kpiType !== 'QUALITATIVE') continue
+      const weight = s.weight ?? 0
+      if (weight <= 0) continue
+      const level = qualitativeLevels.find(l => l.id === individualLevels[s.id])
+      if (!level || level.value == null) continue
+      sum += level.value * weight
+      totalWeight += weight
+    }
+    return totalWeight > 0 ? Math.round((sum / totalWeight) * 100) / 100 : null
+  }, [submissionList, individualLevels, qualitativeLevels])
+
+  // Trục cột của ma trận: % hoàn thành định lượng (không đổi theo thao tác chấm tay).
+  // Không có KPI định lượng ⇒ mặc định 100%.
+  const completionPercent = scorePreview?.kpiCompletionPercent ?? (isFullQualitative ? 100 : null)
+
+  const matrixLive = useMemo(
+    () => lookupMatrixRating(behaviorLive, completionPercent, org?.performanceMatrix),
+    [behaviorLive, completionPercent, org?.performanceMatrix],
+  )
 
   // Quantitative KPIs share the 0..100 pool. When qualitative takes part of the 100%
   // weight, normalize the quantitative scores over their OWN weight so they still fill
@@ -527,10 +587,31 @@ export default function StaffEvaluationModal({
                       <div className="space-y-1 relative z-10 flex items-start justify-between">
                          <div>
                             <p className="text-[10px] font-black uppercase tracking-widest text-indigo-200">Kết quả đánh giá cuối cùng</p>
-                            <div className="flex items-baseline gap-2">
-                               <h3 className="text-6xl font-black tracking-tighter">{formatNumber(effectiveFinalScore)}</h3>
-                               <span className="text-lg font-bold opacity-60">điểm</span>
-                            </div>
+                            {matrixLive != null ? (
+                              <>
+                                <div className="flex items-baseline gap-2">
+                                   <h3 className="text-6xl font-black tracking-tighter">{matrixLive}</h3>
+                                   <span className="text-lg font-bold opacity-60">/5</span>
+                                </div>
+                                {/* Thanh 5 nấc: nhìn phát biết đang ở mức nào, khỏi phải đoán 4/5 là cao hay thấp */}
+                                <div className="flex items-center gap-1 mt-2">
+                                   {[1, 2, 3, 4, 5].map(i => (
+                                     <span key={i} className={cn(
+                                       "h-1.5 w-6 rounded-full transition-colors",
+                                       i <= matrixLive ? "bg-white" : "bg-white/25"
+                                     )} />
+                                   ))}
+                                </div>
+                                <p className="text-[10px] font-black uppercase tracking-widest text-indigo-200/70 mt-2">
+                                   Xếp loại ma trận hiệu suất
+                                </p>
+                              </>
+                            ) : (
+                              <div className="flex items-baseline gap-2">
+                                 <h3 className="text-6xl font-black tracking-tighter">{formatNumber(effectiveFinalScore)}</h3>
+                                 <span className="text-lg font-bold opacity-60">điểm</span>
+                              </div>
+                            )}
                          </div>
                          {isBscOfficial ? (
                             <span className="text-[10px] font-black text-indigo-100 flex items-center gap-1 shrink-0 whitespace-nowrap"
@@ -548,29 +629,75 @@ export default function StaffEvaluationModal({
                          ))}
                       </div>
 
-                      {!isFullQualitative && (
-                      <div className="pt-6 border-t border-white/10 space-y-3 relative z-10">
-                         <div className="flex justify-between text-xs font-bold text-indigo-100/60">
-                            <span>Tổng điểm hệ thống</span>
-                            <span>{formatNumber(totalAutoScore)}</span>
+                      {/* Xếp loại đến từ đâu — đặt ngay dưới số lớn để đọc theo mạch nhân quả */}
+                      {hasQualitative && (
+                      <div className="pt-5 border-t border-white/10 relative z-10">
+                         <p className="text-[9px] font-black uppercase tracking-widest text-indigo-200/70 mb-3">
+                            Xếp loại này đến từ đâu
+                         </p>
+                         <div className="flex items-stretch gap-1.5">
+                            <div className="flex-1 px-2 py-2.5 rounded-2xl bg-white/10 backdrop-blur-sm text-center">
+                               <p className="text-[8px] font-black uppercase tracking-widest text-indigo-200/70 mb-0.5">Hành vi</p>
+                               <p className="text-xl font-black tracking-tighter whitespace-nowrap">
+                                  {behaviorLive != null ? <>{formatNumber(behaviorLive)}<span className="text-xs opacity-60">/5</span></> : '—'}
+                               </p>
+                            </div>
+                            <div className="flex items-center text-sm font-black text-indigo-200/50">×</div>
+                            <div className="flex-1 px-2 py-2.5 rounded-2xl bg-white/10 backdrop-blur-sm text-center">
+                               <p className="text-[8px] font-black uppercase tracking-widest text-indigo-200/70 mb-0.5">Hoàn thành</p>
+                               <p className="text-xl font-black tracking-tighter whitespace-nowrap">
+                                  {completionPercent != null ? <>{formatNumber(completionPercent)}<span className="text-xs opacity-60">%</span></> : '—'}
+                               </p>
+                            </div>
+                            <div className="flex items-center text-sm font-black text-indigo-200/50">→</div>
+                            <div className="flex-1 px-2 py-2.5 rounded-2xl bg-white/20 backdrop-blur-sm text-center border border-white/25">
+                               <p className="text-[8px] font-black uppercase tracking-widest text-indigo-100 mb-0.5">Xếp loại</p>
+                               <p className="text-xl font-black tracking-tighter whitespace-nowrap">
+                                  {matrixLive != null ? <>{matrixLive}<span className="text-xs opacity-60">/5</span></> : '—'}
+                               </p>
+                            </div>
                          </div>
-                         <div className="flex justify-between text-xs font-bold text-indigo-100/60">
-                            <span>Tổng điểm đã chấm theo chỉ tiêu</span>
-                            <span>{formatNumber(totalManagerScore)}</span>
-                         </div>
-                         {isBscOfficial ? (
-                           <div className="flex justify-between text-xs font-bold text-indigo-100">
-                              <span>Điểm BSC (chính thức)</span>
-                              <span>{formatNumber(bscScore!)}</span>
-                           </div>
-                         ) : (
-                           <div className="flex justify-between text-xs font-bold text-indigo-100/60">
-                              <span>Chênh lệch so với hệ thống</span>
-                              <span>{finalScore - totalAutoScore >= 0 ? '+' : ''}{formatNumber(finalScore - totalAutoScore)}</span>
-                           </div>
-                         )}
+                         <p className="text-[10px] font-medium text-indigo-100/50 leading-relaxed mt-2.5">
+                            Hai chỉ số này tra trên ma trận hiệu suất của tổ chức để ra xếp loại.
+                         </p>
                       </div>
                       )}
+
+                      {/* Điểm cuối — con số thực sự lưu vào hồ sơ nhân sự */}
+                      <div className="pt-5 border-t border-white/10 relative z-10 space-y-2.5">
+                         <div className="flex justify-between items-baseline">
+                            <span className="text-[10px] font-black uppercase tracking-widest text-indigo-100">
+                               Điểm cuối · lưu vào hồ sơ
+                            </span>
+                            <span className="text-2xl font-black tracking-tighter">{formatNumber(effectiveFinalScore)}</span>
+                         </div>
+                         {!isFullQualitative && (
+                         <div className="space-y-1.5 pt-1">
+                            <div className="flex justify-between text-[11px] font-bold text-indigo-100/50">
+                               <span>Tổng điểm hệ thống</span>
+                               <span>{formatNumber(totalAutoScore)}</span>
+                            </div>
+                            <div className="flex justify-between text-[11px] font-bold text-indigo-100/50">
+                               <span>Đã chấm theo chỉ tiêu</span>
+                               <span>{formatNumber(totalManagerScore)}</span>
+                            </div>
+                            {isBscOfficial ? (
+                              <div className="flex justify-between text-[11px] font-bold text-indigo-100">
+                                 <span>Điểm BSC (chính thức)</span>
+                                 <span>{formatNumber(bscScore!)}</span>
+                              </div>
+                            ) : (
+                              <div className="flex justify-between text-[11px] font-bold text-indigo-100/50">
+                                 <span>Chênh lệch so với hệ thống</span>
+                                 <span>{finalScore - totalAutoScore >= 0 ? '+' : ''}{formatNumber(finalScore - totalAutoScore)}</span>
+                              </div>
+                            )}
+                         </div>
+                         )}
+                      </div>
+
+                      {/* Chiều ĐỊNH TÍNH: hiện điểm hành vi + xếp loại ma trận để người chấm
+                          hiểu phần định tính đóng góp gì, thay vì chỉ thấy điểm định lượng. */}
 
                       {/* Final score adjustment slider - starts at the sum of per-KPI scores,
                           can be dragged independently within [0, maxScore].

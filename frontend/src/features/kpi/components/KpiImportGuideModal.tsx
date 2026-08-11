@@ -30,7 +30,7 @@ const SAMPLE_DATA = [
     OrgUnitCode: 'MKT001',
     ObjectiveCode: 'OBJ001',
     KeyResultCode: 'KR001',
-    Perspective: 'FINANCIAL',
+    Perspective: 'DOANH_THU',
   },
   {
     Name: 'Tỉ lệ lỗi sản phẩm',
@@ -107,7 +107,7 @@ export default function KpiImportGuideModal({ open, onClose, onSelectFile }: Kpi
       { name: 'KeyResultCode', required: false, desc: 'Mã KR (OKR)', example: 'KR001' },
     ] : []),
     ...(enableBsc ? [
-      { name: 'Perspective', required: false, desc: 'Viễn cảnh BSC — nhập mã hoặc tên viễn cảnh (VD: FINANCIAL hoặc Tài chính)', example: 'FINANCIAL' },
+      { name: 'Perspective', required: false, desc: 'Hạng mục BSC — nhập mã hoặc tên hạng mục (VD: DOANH_THU). Hạng mục PHẢI có trong thẻ điểm của đơn vị + đợt của dòng đó.', example: 'DOANH_THU' },
     ] : [])
   ]
 
@@ -234,6 +234,7 @@ export default function KpiImportGuideModal({ open, onClose, onSelectFile }: Kpi
     guideSheet.addRow(['6. IsReverseKpi: Đánh dấu KPI Ngược (giá trị càng thấp càng tốt). Nhập true/false hoặc 1/0 hoặc có/không. Để trống = false.'])
     guideSheet.addRow(['7. IsBonusKpi: Đánh dấu KPI Thưởng (tùy chọn, không tính vào tổng 100% trọng số, hoàn thành thì được cộng thêm điểm). Nhập true/false hoặc 1/0 hoặc có/không. Để trống = false.'])
     guideSheet.addRow(['8. Deadline: Hạn chót riêng cho KPI này (sớm hơn ngày kết thúc đợt). Định dạng dd/MM/yyyy hoặc dd/MM/yyyy HH:mm. Để trống = mặc định theo ngày kết thúc đợt.'])
+    guideSheet.addRow(['9. Perspective (Hạng mục BSC): chỉ chọn được hạng mục CÓ trong thẻ điểm của (đơn vị + đợt) ở dòng đó. Nếu hạng mục chưa được thêm vào thẻ điểm của đơn vị này thì KPI sẽ không tính vào điểm BSC — hãy thêm hạng mục vào thẻ điểm trước.'])
 
     const buffer = await workbook.xlsx.writeBuffer()
     const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
@@ -407,6 +408,14 @@ export default function KpiImportGuideModal({ open, onClose, onSelectFile }: Kpi
                   Trọng số (Weight) là số nguyên 1-100. Đảm bảo tổng trọng số của nhân viên trong kỳ đạt 100%.
                 </p>
               </div>
+              {enableBsc && (
+                <div className="flex items-start gap-3 p-4 rounded-2xl bg-violet-50 dark:bg-violet-900/10 border border-violet-200/50 dark:border-violet-900/30 md:col-span-2">
+                  <Info size={18} className="text-violet-600 shrink-0 mt-0.5" />
+                  <p className="text-xs text-violet-800 dark:text-violet-300 leading-relaxed font-medium">
+                    <strong>Hạng mục BSC (Perspective)</strong> chỉ chọn được hạng mục <strong>có trong thẻ điểm của đơn vị + đợt</strong> ở dòng đó. Nếu hạng mục chưa có trong thẻ điểm của đơn vị, hãy thêm vào thẻ điểm trước — nếu không KPI sẽ không tính vào điểm BSC.
+                  </p>
+                </div>
+              )}
             </div>
           </div>
         </div>

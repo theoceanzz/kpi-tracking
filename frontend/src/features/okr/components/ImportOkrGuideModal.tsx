@@ -9,17 +9,17 @@ interface ImportOkrGuideModalProps {
   onSelectFile: () => void
 }
 
-// Cột viễn cảnh BSC chỉ có mặt khi tổ chức bật enable_bsc. Nằm ở cấp Objective — KPI thuộc
-// mục tiêu sẽ kế thừa viễn cảnh này (trừ khi KPI tự gán trực tiếp).
+// Cột hạng mục BSC chỉ có mặt khi tổ chức bật enable_bsc. Nằm ở cấp Objective — KPI thuộc
+// mục tiêu sẽ kế thừa hạng mục này (trừ khi KPI tự gán trực tiếp).
 function buildSampleCsv(enableBsc: boolean): string {
   const header = enableBsc
     ? 'ObjectiveCode,ObjectiveName,ObjectiveDescription,ObjectiveStartDate,ObjectiveEndDate,OrgUnitCode,ObjectivePerspective,KeyResultCode,KeyResultName,KeyResultDescription,KeyResultTarget,KeyResultUnit'
     : 'ObjectiveCode,ObjectiveName,ObjectiveDescription,ObjectiveStartDate,ObjectiveEndDate,OrgUnitCode,KeyResultCode,KeyResultName,KeyResultDescription,KeyResultTarget,KeyResultUnit'
   const rows = enableBsc
     ? [
-        'OBJ001,Tăng trưởng doanh thu 20%,Mục tiêu doanh thu quý 1,2024-01-01,2024-03-31,KD_HN,FINANCIAL,KR001,Ký mới 10 hợp đồng lớn,Hợp đồng giá trị >100tr,10,hợp đồng',
+        'OBJ001,Tăng trưởng doanh thu 20%,Mục tiêu doanh thu quý 1,2024-01-01,2024-03-31,KD_HN,DOANH_THU,KR001,Ký mới 10 hợp đồng lớn,Hợp đồng giá trị >100tr,10,hợp đồng',
         ',,,,,,,KR002,Upsell khách hàng cũ 15%,,15,%',
-        'OBJ002,Nâng cao chất lượng dịch vụ,,2024-01-01,2024-06-30,NS_HN,CUSTOMER,KR003,Giảm tỷ lệ rời bỏ xuống 5%,,5,%',
+        'OBJ002,Nâng cao chất lượng dịch vụ,,2024-01-01,2024-06-30,NS_HN,HAI_LONG_KH,KR003,Giảm tỷ lệ rời bỏ xuống 5%,,5,%',
         ',,,,,,,KR004,Tăng điểm CSAT lên 4.5/5,,4.5,điểm',
       ]
     : [
@@ -40,7 +40,7 @@ function getColumns(enableBsc: boolean) {
     { name: 'ObjectiveEndDate', required: false, desc: 'Ngày kết thúc (YYYY-MM-DD)', example: '2024-03-31' },
     { name: 'OrgUnitCode', required: true, desc: 'Mã phòng ban. Hỗ trợ nhập nhiều mã cách nhau bằng dấu phẩy (PB01,PB02). Nhập mã của Đơn vị gốc để giao cho tất cả đơn vị con.', example: 'KD_HN, NS_HN' },
     ...(enableBsc ? [
-      { name: 'ObjectivePerspective', required: false, desc: 'Viễn cảnh BSC của Mục tiêu — nhập mã hoặc tên viễn cảnh (VD: FINANCIAL hoặc Tài chính). KPI thuộc mục tiêu sẽ kế thừa viễn cảnh này.', example: 'FINANCIAL' },
+      { name: 'ObjectivePerspective', required: false, desc: 'Hạng mục BSC của Mục tiêu — nhập mã hoặc tên hạng mục (VD: DOANH_THU hoặc Doanh thu). KPI thuộc mục tiêu sẽ kế thừa hạng mục này.', example: 'DOANH_THU' },
     ] : []),
     { name: 'KeyResultCode', required: true, desc: 'Mã kết quả then chốt', example: 'KR001' },
     { name: 'KeyResultName', required: true, desc: 'Tên kết quả then chốt', example: 'Đạt 1 tỷ VNĐ' },
@@ -82,11 +82,11 @@ async function downloadTemplate(type: 'csv' | 'xlsx', enableBsc: boolean) {
     { header: 'KeyResultUnit', key: 'KeyResultUnit', width: 15 },
   ]
 
-  // Add data rows (chèn cột viễn cảnh sau OrgUnitCode khi bật BSC)
+  // Add data rows (chèn cột hạng mục sau OrgUnitCode khi bật BSC)
   const data = enableBsc ? [
-    ['OBJ001', 'Tăng trưởng doanh thu 20%', 'Mục tiêu doanh thu quý 1', '2024-01-01', '2024-03-31', 'KD_HN', 'FINANCIAL', 'KR001', 'Ký mới 10 hợp đồng lớn', 'Hợp đồng giá trị >100tr', 10, 'hợp đồng'],
+    ['OBJ001', 'Tăng trưởng doanh thu 20%', 'Mục tiêu doanh thu quý 1', '2024-01-01', '2024-03-31', 'KD_HN', 'DOANH_THU', 'KR001', 'Ký mới 10 hợp đồng lớn', 'Hợp đồng giá trị >100tr', 10, 'hợp đồng'],
     ['', '', '', '', '', '', '', 'KR002', 'Upsell khách hàng cũ 15%', '', 15, '%'],
-    ['OBJ002', 'Nâng cao chất lượng dịch vụ', '', '2024-01-01', '2024-06-30', 'NS_HN', 'CUSTOMER', 'KR003', 'Giảm tỷ lệ rời bỏ xuống 5%', '', 5, '%'],
+    ['OBJ002', 'Nâng cao chất lượng dịch vụ', '', '2024-01-01', '2024-06-30', 'NS_HN', 'HAI_LONG_KH', 'KR003', 'Giảm tỷ lệ rời bỏ xuống 5%', '', 5, '%'],
     ['', '', '', '', '', '', '', 'KR004', 'Tăng điểm CSAT lên 4.5/5', '', 4.5, 'điểm'],
   ] : [
     ['OBJ001', 'Tăng trưởng doanh thu 20%', 'Mục tiêu doanh thu quý 1', '2024-01-01', '2024-03-31', 'KD_HN', 'KR001', 'Ký mới 10 hợp đồng lớn', 'Hợp đồng giá trị >100tr', 10, 'hợp đồng'],
@@ -157,7 +157,7 @@ async function downloadTemplate(type: 'csv' | 'xlsx', enableBsc: boolean) {
   guideSheet.addRow(['3. Mã Objective (ObjectiveCode) và Mã KR (KeyResultCode) dùng để cập nhật dữ liệu. Nếu mã đã tồn tại ở đơn vị tương ứng, hệ thống sẽ update.'])
   guideSheet.addRow(['4. Cột OrgUnitCode hỗ trợ nhập nhiều mã cách nhau bởi dấu phẩy (,), hoặc nhập mã đơn vị gốc để tự động mở rộng ra toàn bộ đơn vị con.'])
   if (enableBsc) {
-    guideSheet.addRow(['5. ObjectivePerspective: Viễn cảnh BSC gán cho Mục tiêu. Nhập MÃ (VD: FINANCIAL) hoặc TÊN (VD: Tài chính) — hệ thống tự đối chiếu. Để trống nếu chưa gán. KPI thuộc mục tiêu sẽ kế thừa viễn cảnh này.'])
+    guideSheet.addRow(['5. ObjectivePerspective: Hạng mục BSC gán cho Mục tiêu. Nhập MÃ (VD: DOANH_THU) hoặc TÊN (VD: Doanh thu) — hệ thống tự đối chiếu. Để trống nếu chưa gán. KPI thuộc mục tiêu sẽ kế thừa hạng mục này.'])
   }
 
   // Generate and download

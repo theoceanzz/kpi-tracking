@@ -17,6 +17,8 @@ public class ScorecardRequest {
     private String vision;
     @NotNull
     private UUID kpiPeriodId;
+    /** Các phòng ban áp dụng thẻ điểm; RỖNG/null = thẻ điểm mặc định toàn tổ chức. */
+    private List<UUID> orgUnitIds;
     private BscScorecardStatus status;
     private BscScoringMode scoringMode;
     private BscEmptyPerspectivePolicy emptyPerspectivePolicy;

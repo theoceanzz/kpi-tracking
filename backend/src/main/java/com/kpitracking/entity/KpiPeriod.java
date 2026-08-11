@@ -26,6 +26,11 @@ public class KpiPeriod {
     @JoinColumn(name = "organization_id", nullable = false)
     private Organization organization;
 
+    /** Kỳ đánh giá tổng hợp chứa đợt này (tuỳ chọn — đợt có thể không thuộc kỳ nào). */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "kpi_cycle_id")
+    private KpiCycle kpiCycle;
+
     @Column(name = "name", nullable = false)
     private String name; // e.g. "Quý 1/2026"
 

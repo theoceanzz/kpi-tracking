@@ -32,7 +32,7 @@ import { useOrgUnitTree } from '@/features/orgunits/hooks/useOrgUnitTree'
 import { usePermission } from '@/hooks/usePermission'
 import { useOrganization } from '@/features/orgunits/hooks/useOrganization'
 import { useObjectives } from '../../okr/hooks/useOkr'
-import { useBscPerspectives } from '../../bsc/hooks/useBsc'
+import { useBscPerspectives, useScorecards } from '../../bsc/hooks/useBsc'
 import KpiExcelPreviewModal from '../components/KpiExcelPreviewModal'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue, SelectGroup, SelectLabel } from '@/components/ui/select'
 import { cn } from '@/lib/utils'
@@ -279,6 +279,40 @@ export default function KpiCriteriaPage() {
 
   const allKpis = data?.content || []
   const flatKpis = data?.content
+
+  // Trọng số THẬT mỗi KPI = form × %hạng_mục (từ thẻ điểm của đơn vị KPI). Hiển thị ngoài danh sách.
+  const { data: bscScorecards } = useScorecards(enableBsc ? organizationId : undefined)
+  const unitParentMap = useMemo(() => {
+    const map = new Map<string, string | null>()
+    const walk = (nodes: any[]) => (nodes || []).forEach((n: any) => { map.set(n.id, n.parentId ?? null); if (n.children) walk(n.children) })
+    walk(orgUnitTreeData || [])
+    return map
+  }, [orgUnitTreeData])
+  const realWeightById = useMemo(() => {
+    const map = new Map<string, number>()
+    if (!enableBsc || !bscScorecards) return map
+    const resolveSc = (unitId: string, periodScs: any[]) => {
+      let cur: string | null = unitId, guard = 0
+      while (cur && guard++ < 100) {
+        const found = periodScs.find(s => (s.orgUnits || []).some((u: any) => u.id === cur))
+        if (found) return found
+        cur = unitParentMap.get(cur) ?? null
+      }
+      return periodScs.find(s => !s.orgUnits || s.orgUnits.length === 0) || null
+    }
+    for (const kpi of allKpis) {
+      if (kpi.weight == null || !kpi.effectivePerspectiveId || !kpi.kpiPeriodId) continue
+      const periodScs = bscScorecards.filter(s => s.kpiPeriodId === kpi.kpiPeriodId)
+      if (periodScs.length === 0) continue
+      const unitId = kpi.orgUnitId || kpi.orgUnitIds?.[0]
+      const sc = unitId ? resolveSc(unitId, periodScs) : (periodScs.find(s => !s.orgUnits || s.orgUnits.length === 0) || null)
+      if (!sc) continue
+      const sp = sc.perspectives.find((p: any) => p.perspectiveId === kpi.effectivePerspectiveId)
+      if (!sp || sp.weightPercentage == null) continue
+      map.set(kpi.id, kpi.weight * sp.weightPercentage / 100)
+    }
+    return map
+  }, [enableBsc, bscScorecards, allKpis, unitParentMap])
 
   // Group child KPIs (parentId pointing to another KPI on the same page) directly under their parent,
   // so the table/card views render a collapsible parent → children hierarchy instead of a flat list.
@@ -670,10 +704,10 @@ export default function KpiCriteriaPage() {
                     <Select value={selectedPerspectiveId} onValueChange={val => { setSelectedPerspectiveId(val); setPage(0) }}>
                       <SelectTrigger className="w-full h-10 rounded-[16px] border-none bg-slate-100/50 dark:bg-slate-800/50 shadow-sm font-bold text-xs ring-offset-transparent focus:ring-2 focus:ring-violet-500/20">
                         <Layers size={14} className="text-violet-500 mr-2 shrink-0" />
-                        <SelectValue placeholder="Viễn cảnh BSC..." />
+                        <SelectValue placeholder="Hạng mục BSC..." />
                       </SelectTrigger>
                       <SelectContent className="rounded-2xl border-slate-200 dark:border-slate-800 shadow-2xl p-2 max-h-[420px]">
-                        <SelectItem value="ALL" className="rounded-xl focus:bg-violet-50 dark:focus:bg-violet-900/30 text-xs font-black uppercase">Tất cả viễn cảnh</SelectItem>
+                        <SelectItem value="ALL" className="rounded-xl focus:bg-violet-50 dark:focus:bg-violet-900/30 text-xs font-black uppercase">Tất cả hạng mục</SelectItem>
                         {(bscPerspectives || []).map(p => (
                           <SelectItem key={p.id} value={p.id} className="rounded-xl focus:bg-violet-50 dark:focus:bg-violet-900/30 text-sm font-bold">
                             <span className="flex items-center gap-2">
@@ -915,6 +949,7 @@ export default function KpiCriteriaPage() {
                         onDecompose={() => { setDecomposeKpi(kpi); setShowForm(true) }}
                         enableOkr={enableOkr}
                         enableWaterfall={enableWaterfall}
+                        realWeight={realWeightById.get(kpi.id) ?? null}
                         selected={selectedKpiIds.includes(kpi.id)}
                         onToggleSelect={() => toggleSelect(kpi.id)}
                         isSelectable={(kpi.status === 'DRAFT' || kpi.status === 'REJECTED') && kpi.createdById === user?.id}
@@ -1050,9 +1085,10 @@ export default function KpiCriteriaPage() {
   )
 }
 
-function KpiTableRow({ kpi, depth = 0, childCount = 0, isCollapsed, onToggleCollapse, onView, onEdit, onDelete, onSubmit, onDelegate, onDecompose, enableOkr, enableWaterfall, selected, onToggleSelect, isSelectable }: {
+function KpiTableRow({ kpi, depth = 0, childCount = 0, isCollapsed, onToggleCollapse, onView, onEdit, onDelete, onSubmit, onDelegate, onDecompose, enableOkr, enableWaterfall, realWeight, selected, onToggleSelect, isSelectable }: {
   kpi: KpiCriteria; depth?: number; childCount?: number; isCollapsed?: boolean; onToggleCollapse?: () => void;
   onView: () => void; onEdit: () => void; onDelete: () => void; onSubmit: () => void; onDelegate: () => void; onDecompose: () => void; enableOkr?: boolean; enableWaterfall?: boolean;
+  realWeight?: number | null;
   selected: boolean; onToggleSelect: () => void; isSelectable: boolean;
 }) {
   const user = useAuthStore(s => s.user)
@@ -1102,7 +1138,7 @@ function KpiTableRow({ kpi, depth = 0, childCount = 0, isCollapsed, onToggleColl
                 borderColor: `${kpi.effectivePerspectiveColor || '#8b5cf6'}55`,
                 backgroundColor: `${kpi.effectivePerspectiveColor || '#8b5cf6'}1a`,
               }}
-              title={`Viễn cảnh BSC: ${kpi.effectivePerspectiveName}`}
+              title={`Hạng mục BSC: ${kpi.effectivePerspectiveName}`}
             >
               <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: kpi.effectivePerspectiveColor || '#8b5cf6' }} />
               {kpi.effectivePerspectiveName}
@@ -1236,8 +1272,14 @@ function KpiTableRow({ kpi, depth = 0, childCount = 0, isCollapsed, onToggleColl
       </td>
       <td className="px-2 py-4 whitespace-nowrap">
         <div className="flex items-center gap-2">
-          <div className="px-2 py-1 rounded-lg bg-indigo-50 dark:bg-indigo-900/30 border border-indigo-100/50 dark:border-indigo-800/50 flex items-center gap-1.5">
-            <span className="text-[11px] font-black text-indigo-600 dark:text-indigo-400">{kpi.weight}%</span>
+          <div
+            className="px-2 py-1 rounded-lg bg-indigo-50 dark:bg-indigo-900/30 border border-indigo-100/50 dark:border-indigo-800/50 flex items-center gap-1.5"
+            title={realWeight != null ? `Trọng số thật: ${realWeight.toFixed(1)}% (form ${kpi.weight}% × %hạng mục)` : undefined}
+          >
+            <span className="text-[11px] font-black text-indigo-600 dark:text-indigo-400">
+              {realWeight != null ? `${realWeight.toFixed(1)}%` : `${kpi.weight}%`}
+            </span>
+            {realWeight != null && <span className="text-[9px] font-bold text-slate-400">/ {kpi.weight}%</span>}
           </div>
           <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest bg-slate-100 dark:bg-slate-800 px-1.5 py-1 rounded-md">
             {FREQUENCY_MAP[kpi.frequency as keyof typeof FREQUENCY_MAP] || kpi.frequency}
@@ -1407,7 +1449,7 @@ function KpiCard({ kpi, depth = 0, childCount = 0, isCollapsed, onToggleCollapse
                 borderColor: `${kpi.effectivePerspectiveColor || '#8b5cf6'}55`,
                 backgroundColor: `${kpi.effectivePerspectiveColor || '#8b5cf6'}1a`,
               }}
-              title={`Viễn cảnh BSC: ${kpi.effectivePerspectiveName}`}
+              title={`Hạng mục BSC: ${kpi.effectivePerspectiveName}`}
             >
               <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: kpi.effectivePerspectiveColor || '#8b5cf6' }} />
               {kpi.effectivePerspectiveName}

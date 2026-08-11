@@ -39,6 +39,7 @@ public class KpiAdjustmentService {
     private final PermissionChecker permissionChecker;
     private final NotificationService notificationService;
     private final com.kpitracking.repository.UserRoleOrgUnitRepository userRoleOrgUnitRepository;
+    private final BscScoringService bscScoringService;
 
     private User getCurrentUser() {
         String email = SecurityContextHolder.getContext().getAuthentication().getName();
@@ -253,15 +254,34 @@ public class KpiAdjustmentService {
     }
 
     private AdjustmentRequestResponse mapToResponse(KpiAdjustmentRequest adj) {
+        com.kpitracking.entity.KpiCriteria kpi = adj.getKpiCriteria();
         com.kpitracking.entity.BscPerspective effectivePerspective =
-                com.kpitracking.util.BscPerspectiveResolver.effectivePerspective(adj.getKpiCriteria());
+                com.kpitracking.util.BscPerspectiveResolver.effectivePerspective(kpi);
+        // %hạng_mục từ thẻ điểm của đơn vị KPI (để FE tính trọng số THẬT).
+        Double categoryPct = null;
+        if (effectivePerspective != null && kpi.getKpiPeriod() != null) {
+            com.kpitracking.entity.Organization org = kpi.getKpiPeriod().getOrganization();
+            if (org != null && Boolean.TRUE.equals(org.getEnableBsc())) {
+                com.kpitracking.entity.BscScorecard sc = bscScoringService.resolveScorecard(
+                        kpi.getOrgUnit(), org.getId(), kpi.getKpiPeriod().getId());
+                if (sc != null && sc.getScorecardPerspectives() != null) {
+                    for (com.kpitracking.entity.BscScorecardPerspective sp : sc.getScorecardPerspectives()) {
+                        if (sp.getPerspective() != null && sp.getPerspective().getId().equals(effectivePerspective.getId())) {
+                            categoryPct = sp.getWeightPercentage();
+                            break;
+                        }
+                    }
+                }
+            }
+        }
         return AdjustmentRequestResponse.builder()
                 .id(adj.getId())
-                .kpiCriteriaId(adj.getKpiCriteria().getId())
-                .kpiCriteriaName(adj.getKpiCriteria().getName())
-                .kpiType(adj.getKpiCriteria().getKpiType())
+                .kpiCriteriaId(kpi.getId())
+                .kpiCriteriaName(kpi.getName())
+                .kpiType(kpi.getKpiType())
                 .perspectiveName(effectivePerspective != null ? effectivePerspective.getName() : null)
                 .perspectiveColor(effectivePerspective != null ? effectivePerspective.getColor() : null)
+                .categoryWeightPercent(categoryPct)
                 .currentTargetValue(adj.getKpiCriteria().getTargetValue())
                 .currentWeight(adj.getKpiCriteria().getWeight())
                 .currentMinimumValue(adj.getKpiCriteria().getMinimumValue())

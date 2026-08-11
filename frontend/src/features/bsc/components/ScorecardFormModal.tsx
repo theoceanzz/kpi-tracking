@@ -1,10 +1,12 @@
 import { useEffect, useMemo, useState } from 'react'
-import { X, Layers, Loader2, Scale } from 'lucide-react'
+import { X, Layers, Loader2, Scale, ChevronDown, Check } from 'lucide-react'
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { cn } from '@/lib/utils'
 import { useKpiPeriods } from '@/features/kpi/hooks/useKpiPeriods'
+import { useOrgUnitTree } from '@/features/orgunits/hooks/useOrgUnitTree'
 import { useBscPerspectives, useScorecardMutations } from '../hooks/useBsc'
 import {
   ScorecardResponse, ScorecardRequest, BscScorecardStatus, BscScoringMode, BscEmptyPerspectivePolicy,
@@ -29,11 +31,27 @@ interface WeightRow {
 export default function ScorecardFormModal({ isOpen, onClose, organizationId, scorecard }: ScorecardFormModalProps) {
   const { data: periodsData } = useKpiPeriods({ organizationId })
   const { data: perspectives } = useBscPerspectives(organizationId)
+  const { data: orgUnitTreeData } = useOrgUnitTree()
   const { createScorecard, updateScorecard } = useScorecardMutations()
+
+  // Cây đơn vị phẳng GỒM cả node gốc (level 0) — mirror OKR để chọn nhiều & tick cha chọn hết con.
+  const flatOrgUnits = useMemo(() => {
+    const flatten = (nodes: any[], level = 0): { id: string; name: string; level: number }[] => {
+      let result: { id: string; name: string; level: number }[] = []
+      for (const node of nodes || []) {
+        result.push({ id: node.id, name: node.name, level })
+        if (node.children?.length) result = result.concat(flatten(node.children, level + 1))
+      }
+      return result
+    }
+    return flatten(orgUnitTreeData || [])
+  }, [orgUnitTreeData])
 
   const [name, setName] = useState('')
   const [vision, setVision] = useState('')
   const [periodId, setPeriodId] = useState('')
+  // Mỗi phần tử là 1 id đơn vị (gồm cả node gốc). Khi TẠO cho phép chọn nhiều → tạo nhiều thẻ điểm.
+  const [scopes, setScopes] = useState<string[]>([])
   const [status, setStatus] = useState<BscScorecardStatus>(BscScorecardStatus.DRAFT)
   const [emptyPolicy, setEmptyPolicy] = useState<BscEmptyPerspectivePolicy>(BscEmptyPerspectivePolicy.RENORMALIZE)
   const [rows, setRows] = useState<WeightRow[]>([])
@@ -45,6 +63,7 @@ export default function ScorecardFormModal({ isOpen, onClose, organizationId, sc
       setName(scorecard.name)
       setVision(scorecard.vision || '')
       setPeriodId(scorecard.kpiPeriodId)
+      setScopes((scorecard.orgUnits || []).map(u => u.id))
       setStatus(scorecard.status)
       setEmptyPolicy(scorecard.emptyPerspectivePolicy)
       setRows(list.map(p => {
@@ -55,6 +74,7 @@ export default function ScorecardFormModal({ isOpen, onClose, organizationId, sc
       setName('')
       setVision('')
       setPeriodId('')
+      setScopes([])
       setStatus(BscScorecardStatus.DRAFT)
       setEmptyPolicy(BscEmptyPerspectivePolicy.RENORMALIZE)
       setRows(list.map(p => ({ perspectiveId: p.id, code: p.code, name: p.name, color: p.color, weight: 0, enabled: true })))
@@ -67,6 +87,24 @@ export default function ScorecardFormModal({ isOpen, onClose, organizationId, sc
 
   const setWeight = (id: string, w: number) => setRows(prev => prev.map(r => r.perspectiveId === id ? { ...r, weight: w } : r))
   const toggle = (id: string) => setRows(prev => prev.map(r => r.perspectiveId === id ? { ...r, enabled: !r.enabled } : r))
+
+  // Tick node gốc ⇒ chọn/bỏ toàn bộ; tick hết các đơn vị con khác ⇒ tự tick luôn gốc (giống OKR).
+  const toggleScope = (unitId: string) => {
+    const rootId = flatOrgUnits[0]?.id
+    const isRoot = rootId === unitId
+    let nextIds: string[]
+    if (isRoot) {
+      nextIds = scopes.includes(unitId) ? [] : flatOrgUnits.map(u => u.id)
+    } else if (scopes.includes(unitId)) {
+      nextIds = scopes.filter(id => id !== unitId && id !== rootId)
+    } else {
+      const tempIds = [...scopes, unitId]
+      const allOthersSelected = flatOrgUnits.filter(u => u.id !== rootId).every(u => tempIds.includes(u.id))
+      nextIds = allOthersSelected && rootId ? flatOrgUnits.map(u => u.id) : tempIds
+    }
+    setScopes(nextIds)
+  }
+  const scopeLabel = (id: string) => flatOrgUnits.find(u => u.id === id)?.name || 'Đơn vị'
 
   const distributeEvenly = () => {
     const en = rows.filter(r => r.enabled)
@@ -90,12 +128,14 @@ export default function ScorecardFormModal({ isOpen, onClose, organizationId, sc
       name: name.trim(),
       vision: vision.trim() || undefined,
       kpiPeriodId: periodId,
+      orgUnitIds: scopes,
       status,
       scoringMode: scorecard?.scoringMode || BscScoringMode.SHADOW,
       emptyPerspectivePolicy: emptyPolicy,
       perspectives: enabledRows.map((r, idx) => ({ perspectiveId: r.perspectiveId, weightPercentage: Number(r.weight) || 0, displayOrder: idx })),
     }
     if (scorecard) {
+      // Sửa: phạm vi khoá, backend không đổi orgUnits nên chỉ gửi cấu hình.
       updateScorecard.mutate({ scorecardId: scorecard.id, data: payload }, { onSuccess: () => onClose() })
     } else {
       createScorecard.mutate({ organizationId, data: payload }, { onSuccess: () => onClose() })
@@ -123,12 +163,12 @@ export default function ScorecardFormModal({ isOpen, onClose, organizationId, sc
         <div className="p-6 space-y-5 overflow-y-auto custom-scrollbar">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-1.5">
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Tên thẻ điểm</label>
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Tên thẻ điểm <span className="text-red-500">*</span></label>
               <input value={name} onChange={e => setName(e.target.value)} placeholder="VD: Chiến lược Quý 3/2026"
                 className="w-full px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 text-sm font-bold focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 outline-none transition-all" />
             </div>
             <div className="space-y-1.5">
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Kỳ áp dụng</label>
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Đợt áp dụng <span className="text-red-500">*</span></label>
               <Select value={periodId} onValueChange={setPeriodId} disabled={!!scorecard}>
                 <SelectTrigger className="w-full h-10 rounded-xl bg-slate-50 dark:bg-slate-800 border-slate-100 dark:border-slate-700 text-sm font-bold outline-none">
                   <SelectValue placeholder="Chọn kỳ" />
@@ -138,6 +178,46 @@ export default function ScorecardFormModal({ isOpen, onClose, organizationId, sc
                 </SelectContent>
               </Select>
             </div>
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Phạm vi áp dụng (phòng ban)</label>
+            <Popover>
+              <PopoverTrigger asChild disabled={!!scorecard}>
+                <button type="button" disabled={!!scorecard}
+                  className="w-full h-10 px-4 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 text-sm font-bold flex items-center justify-between focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 outline-none transition-all disabled:opacity-60 disabled:cursor-not-allowed">
+                  <span className="truncate text-left">
+                    {scopes.length === 0 ? 'Toàn tổ chức (mặc định)'
+                      : scopes.length === 1 ? scopeLabel(scopes[0]!)
+                      : `Đã chọn ${scopes.length} đơn vị`}
+                  </span>
+                  <ChevronDown size={14} className="opacity-50 shrink-0" />
+                </button>
+              </PopoverTrigger>
+              <PopoverContent className="p-2 w-[var(--radix-popover-trigger-width)] max-h-[300px] overflow-y-auto custom-scrollbar" align="start">
+                <div className="space-y-1">
+                  {flatOrgUnits.map(u => {
+                    const isSelected = scopes.includes(u.id)
+                    return (
+                      <div key={u.id} onClick={() => toggleScope(u.id)}
+                        className={cn('flex items-center gap-3 px-3 py-2 rounded-xl cursor-pointer transition-colors group',
+                          isSelected ? 'bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400' : 'hover:bg-slate-50 dark:hover:bg-slate-800')}>
+                        <div className={cn('w-4 h-4 rounded border flex items-center justify-center transition-all shrink-0',
+                          isSelected ? 'bg-indigo-600 border-indigo-600 text-white' : 'border-slate-200 dark:border-slate-700 group-hover:border-indigo-400')}>
+                          {isSelected && <Check size={10} strokeWidth={4} />}
+                        </div>
+                        <span className="text-xs font-bold truncate" style={{ marginLeft: `${u.level * 12}px` }}>{u.name}</span>
+                      </div>
+                    )
+                  })}
+                </div>
+              </PopoverContent>
+            </Popover>
+            <p className="text-[10px] font-medium text-slate-400 ml-1">
+              {scorecard
+                ? 'Không đổi được phạm vi của thẻ điểm đã tạo.'
+                : 'Một thẻ điểm có thể áp dụng cho NHIỀU đơn vị (giống OKR). Bỏ trống = áp dụng toàn tổ chức. Tick đơn vị gốc để chọn toàn bộ. Nhân viên dùng thẻ điểm chứa đơn vị của họ; nếu không có sẽ kế thừa đơn vị cha.'}
+            </p>
           </div>
 
           <div className="space-y-1.5">
@@ -159,7 +239,7 @@ export default function ScorecardFormModal({ isOpen, onClose, organizationId, sc
               </Select>
             </div>
             <div className="space-y-1.5">
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Chính sách viễn cảnh rỗng</label>
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Chính sách hạng mục rỗng</label>
               <Select value={emptyPolicy} onValueChange={v => setEmptyPolicy(v as BscEmptyPerspectivePolicy)}>
                 <SelectTrigger className="w-full h-10 rounded-xl bg-slate-50 dark:bg-slate-800 border-slate-100 dark:border-slate-700 text-sm font-bold outline-none"><SelectValue /></SelectTrigger>
                 <SelectContent className="rounded-xl border-slate-200 dark:border-slate-800">
@@ -174,7 +254,7 @@ export default function ScorecardFormModal({ isOpen, onClose, organizationId, sc
           <div className="space-y-2">
             <div className="flex items-center justify-between">
               <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 flex items-center gap-1.5">
-                <Scale size={12} /> Trọng số viễn cảnh
+                <Scale size={12} /> Trọng số hạng mục
               </label>
               <button type="button" onClick={distributeEvenly} className="text-[10px] font-black text-indigo-600 hover:text-indigo-700 uppercase tracking-wider">Chia đều</button>
             </div>
@@ -195,7 +275,7 @@ export default function ScorecardFormModal({ isOpen, onClose, organizationId, sc
                   </div>
                 </div>
               ))}
-              {rows.length === 0 && <div className="px-4 py-6 text-center text-xs font-bold text-slate-400">Chưa có viễn cảnh nào — hãy tạo viễn cảnh trước.</div>}
+              {rows.length === 0 && <div className="px-4 py-6 text-center text-xs font-bold text-slate-400">Chưa có hạng mục nào — hãy tạo hạng mục trước.</div>}
             </div>
             <div className={cn('flex items-center justify-between px-4 py-2.5 rounded-xl text-sm font-black border',
               isValid ? 'bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-800/50 text-emerald-700 dark:text-emerald-300'
