@@ -67,6 +67,33 @@ public class EmailService {
         }
     }
 
+    /**
+     * Gửi thư do một người dùng trong hệ thống tự soạn (VD: quản lý nhắc tiến độ KPI).
+     * Chạy đồng bộ và ném lỗi ra ngoài để nơi gọi biết mà báo lại cho người vừa bấm "Gửi",
+     * khác với {@link #sendEmail} vốn chạy nền và chỉ ghi log khi hỏng.
+     *
+     * <p>{@code replyTo} là hộp thư của người gửi thật — thư đi từ địa chỉ hệ thống nhưng
+     * người nhận bấm "Trả lời" thì về đúng người đã soạn.
+     */
+    public void sendDirect(String to, String subject, String htmlBody, String replyTo, String replyToName) {
+        try {
+            MimeMessage message = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
+            helper.setFrom(fromEmail, "KeyGo System");
+            helper.setTo(to);
+            helper.setSubject(subject);
+            helper.setText(htmlBody, true);
+            if (replyTo != null && !replyTo.isBlank()) {
+                helper.setReplyTo(replyTo, replyToName == null || replyToName.isBlank() ? replyTo : replyToName);
+            }
+            mailSender.send(message);
+            log.info("Đã gửi thư người dùng soạn tới: {}", to);
+        } catch (Exception e) {
+            log.error("Không gửi được thư tới {}: {}", to, e.getMessage());
+            throw new com.kpitracking.exception.BusinessException("Không gửi được email: " + e.getMessage());
+        }
+    }
+
     private void sendEmailSync(String to, String subject, String htmlBody) throws Exception {
         MimeMessage message = mailSender.createMimeMessage();
         MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");

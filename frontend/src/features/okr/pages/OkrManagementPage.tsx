@@ -116,35 +116,36 @@ export default function OkrManagementPage() {
       
       <div id="tour-okr-header" className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-black tracking-tight text-slate-900 dark:text-white flex items-center gap-3">
-            <Target className="text-indigo-600" size={32} />
+          <h1 className="text-2xl md:text-3xl font-black tracking-tight text-slate-900 dark:text-white flex items-center gap-3">
+            <Target className="text-indigo-600 shrink-0" size={32} />
             {pageTitle}
           </h1>
           <p className="text-slate-500 font-medium mt-1">Thiết lập mục tiêu chiến lược và đo lường kết quả then chốt</p>
         </div>
-        <div className="flex items-center gap-3">
-          <input 
-            type="file" 
-            className="hidden" 
-            id="okr-import" 
+        {/* Mobile: 2 nút chia đôi bề ngang, không tràn/đè; desktop giữ nguyên */}
+        <div className="flex items-center gap-3 shrink-0">
+          <input
+            type="file"
+            className="hidden"
+            id="okr-import"
             ref={fileInputRef}
             accept=".xlsx"
             onChange={handleImport}
           />
-          <button 
+          <button
             onClick={() => setIsImportModalOpen(true)}
-            className="flex items-center gap-2 px-6 py-3 rounded-2xl border border-slate-200 dark:border-slate-800 text-sm font-bold text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all cursor-pointer shadow-sm active:scale-95"
+            className="flex flex-1 md:flex-none items-center justify-center gap-2 px-4 md:px-6 py-3 rounded-2xl border border-slate-200 dark:border-slate-800 text-sm font-bold text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all cursor-pointer shadow-sm active:scale-95"
           >
-            <FileUp size={20} />
-            Import Excel
+            <FileUp size={20} className="shrink-0" />
+            <span className="whitespace-nowrap">Import Excel</span>
           </button>
-          <button 
-            id="tour-okr-add-btn" 
+          <button
+            id="tour-okr-add-btn"
             onClick={handleAddObjective}
-            className="flex items-center gap-2 px-6 py-3 bg-indigo-600 text-white rounded-2xl font-bold hover:bg-indigo-700 shadow-lg shadow-indigo-500/20 transition-all active:scale-95"
+            className="flex flex-1 md:flex-none items-center justify-center gap-2 px-4 md:px-6 py-3 bg-indigo-600 text-white rounded-2xl font-bold hover:bg-indigo-700 shadow-lg shadow-indigo-500/20 transition-all active:scale-95"
           >
-            <Plus size={20} />
-            Mục tiêu mới
+            <Plus size={20} className="shrink-0" />
+            <span className="whitespace-nowrap">Mục tiêu mới</span>
           </button>
         </div>
       </div>
@@ -260,9 +261,9 @@ function ObjectiveCard({ objective, isExpanded, onToggle, onEdit, onDelete, onAd
 
   return (
     <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 overflow-hidden transition-all hover:shadow-xl hover:shadow-indigo-500/5 group">
-      <div className="p-6 cursor-pointer relative" onClick={onToggle}>
-        <div className="flex items-start gap-4">
-          <div className="mt-1">
+      <div className="p-4 md:p-6 cursor-pointer" onClick={onToggle}>
+        <div className="flex items-start gap-3 md:gap-4">
+          <div className="mt-1 shrink-0">
             {isExpanded ? <ChevronDown size={20} className="text-slate-400" /> : <ChevronRight size={20} className="text-slate-400" />}
           </div>
           
@@ -342,13 +343,20 @@ function ObjectiveCard({ objective, isExpanded, onToggle, onEdit, onDelete, onAd
                   </button>
                 </div>
               </div>
-              {/* Buttons — mobile only (top-right) */}
-              <div className="md:hidden absolute top-4 right-4 flex items-center gap-1">
-                <button onClick={(e) => { e.stopPropagation(); onEdit() }} className="p-1.5 rounded-xl text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition-all">
-                  <Edit2 size={15} />
+              {/* Buttons — mobile only: hàng riêng cuối thẻ (trước đây absolute nên đè lên badge/tiêu đề).
+                  Sửa & Xoá có nhãn, cao 44px và cách nhau 12px để không bấm nhầm. */}
+              <div className="md:hidden flex items-center justify-end gap-3 pt-3 border-t border-slate-100 dark:border-slate-800">
+                <button
+                  onClick={(e) => { e.stopPropagation(); onEdit() }}
+                  className="inline-flex items-center justify-center gap-1.5 min-h-11 px-4 rounded-xl text-xs font-bold bg-slate-50 dark:bg-slate-800 text-slate-500 dark:text-slate-300 hover:text-indigo-600 active:scale-95 transition-all"
+                >
+                  <Edit2 size={15} /> Sửa
                 </button>
-                <button onClick={(e) => { e.stopPropagation(); onDelete() }} className="p-1.5 rounded-xl text-slate-400 hover:text-red-600 hover:bg-red-50 transition-all">
-                  <Trash2 size={15} />
+                <button
+                  onClick={(e) => { e.stopPropagation(); onDelete() }}
+                  className="inline-flex items-center justify-center gap-1.5 min-h-11 px-4 rounded-xl text-xs font-bold bg-red-50 dark:bg-red-900/20 text-red-500 hover:text-red-600 active:scale-95 transition-all"
+                >
+                  <Trash2 size={15} /> Xoá
                 </button>
               </div>
             </div>
@@ -357,13 +365,13 @@ function ObjectiveCard({ objective, isExpanded, onToggle, onEdit, onDelete, onAd
       </div>
 
       {isExpanded && (
-        <div className="px-6 pb-6 pt-2 border-t border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/30 animate-in slide-in-from-top-2 duration-300">
-          <div className="ml-9 space-y-4">
+        <div className="px-4 md:px-6 pb-4 md:pb-6 pt-2 border-t border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/30 animate-in slide-in-from-top-2 duration-300">
+          <div className="ml-0 md:ml-9 space-y-4">
             <div className="flex items-center justify-between gap-2">
               <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest leading-tight">Các KQ then chốt <span className="normal-case font-bold">(Key Results)</span></h4>
               <button
                 onClick={onAddKR}
-                className="flex items-center gap-1.5 text-xs font-bold text-indigo-600 hover:text-indigo-700 transition-colors shrink-0"
+                className="flex items-center justify-center gap-1.5 min-h-11 md:min-h-0 px-2 -mr-2 md:mr-0 rounded-xl text-xs font-bold text-indigo-600 hover:text-indigo-700 transition-colors shrink-0"
               >
                 <PlusCircle size={14} />
                 Thêm KR
@@ -430,20 +438,30 @@ function KeyResultRow({ kr, onEdit, onDelete }: KeyResultRowProps) {
               ))}
             </div>
           )}
-          {/* Progress — mobile only */}
+          {/* Progress — mobile only (nút bấm tách sang hàng riêng bên dưới) */}
           <div className="flex items-center gap-2 md:hidden pt-0.5">
             <div className="flex-1 h-1 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
               <div className={cn("h-full rounded-full transition-all duration-1000", getProgressBgColor(kr.progress))} style={{ width: `${kr.progress}%` }} />
             </div>
             <span className={cn("text-xs font-black shrink-0", getProgressColor(kr.progress))}>{Math.round(kr.progress)}%</span>
-            <button onClick={onEdit} className="p-1 text-slate-400 hover:text-indigo-600 transition-colors">
-              <Edit2 size={14} />
-            </button>
-            <button onClick={onDelete} className="p-1 text-slate-400 hover:text-red-600 transition-colors">
-              <Trash2 size={14} />
-            </button>
           </div>
         </div>
+      </div>
+
+      {/* Buttons — mobile only: hàng riêng, 44px và cách nhau 12px */}
+      <div className="md:hidden flex items-center justify-end gap-3 pt-3 border-t border-slate-100 dark:border-slate-800">
+        <button
+          onClick={onEdit}
+          className="inline-flex items-center justify-center gap-1.5 min-h-11 px-4 rounded-xl text-xs font-bold bg-slate-50 dark:bg-slate-800 text-slate-500 dark:text-slate-300 hover:text-indigo-600 active:scale-95 transition-all"
+        >
+          <Edit2 size={14} /> Sửa
+        </button>
+        <button
+          onClick={onDelete}
+          className="inline-flex items-center justify-center gap-1.5 min-h-11 px-4 rounded-xl text-xs font-bold bg-red-50 dark:bg-red-900/20 text-red-500 hover:text-red-600 active:scale-95 transition-all"
+        >
+          <Trash2 size={14} /> Xoá
+        </button>
       </div>
 
       {/* Right side — desktop only */}
@@ -454,11 +472,11 @@ function KeyResultRow({ kr, onEdit, onDelete }: KeyResultRowProps) {
             <div className={cn("h-full rounded-full transition-all duration-1000", getProgressBgColor(kr.progress))} style={{ width: `${kr.progress}%` }} />
           </div>
         </div>
-        <div className="flex items-center">
-          <button onClick={onEdit} className="p-2 text-slate-400 hover:text-indigo-600 transition-colors">
+        <div className="flex items-center gap-1">
+          <button onClick={onEdit} className="p-2 rounded-xl text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition-all">
             <Edit2 size={16} />
           </button>
-          <button onClick={onDelete} className="p-2 text-slate-400 hover:text-red-600 transition-colors">
+          <button onClick={onDelete} className="p-2 rounded-xl text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 transition-all">
             <Trash2 size={16} />
           </button>
         </div>

@@ -558,8 +558,9 @@ export default function KpiCriteriaPage() {
 
             {/* Filters Row 1: Period, Org Unit, Date Range & Sort */}
             {/* Filters Bar: Grouped by logical category */}
-            <div className="flex flex-col xl:flex-row xl:items-center gap-6 pt-6 border-t border-slate-100 dark:border-slate-800/60">
-              <div className="flex flex-wrap items-center gap-4 flex-1">
+            <div className="flex flex-col gap-4 pt-6 border-t border-slate-100 dark:border-slate-800/60">
+              {/* Filters Line 1: Organization Context */}
+              <div className="flex flex-wrap items-center gap-4">
                 {/* Group: Organization Context */}
                 <div className="flex flex-wrap items-center gap-2 p-1.5 bg-slate-100/50 dark:bg-slate-800/50 rounded-[22px] border border-slate-200/50 dark:border-slate-700/50">
                   <Select value={selectedPeriodId} onValueChange={val => { setSelectedPeriodId(val); setPage(0) }}>
@@ -617,11 +618,14 @@ export default function KpiCriteriaPage() {
                     </Select>
                   </div>
                 </div>
+              </div>
 
+              {/* Filters Line 2: KPI Type, Date Range, BSC & Sorting — side by side */}
+              <div className="flex flex-wrap items-center gap-3">
                 {/* Group: KPI Type */}
                 <div className="w-full sm:w-56">
                   <Select value={kpiTypeFilter} onValueChange={val => { setKpiTypeFilter(val as KpiTypeFilterKey); setPage(0) }}>
-                    <SelectTrigger className="w-full h-10 rounded-[16px] border-none bg-slate-100/50 dark:bg-slate-800/50 shadow-sm font-bold text-xs ring-offset-transparent focus:ring-2 focus:ring-indigo-500/20">
+                    <SelectTrigger className="w-full h-11 rounded-[16px] border-none bg-slate-100/50 dark:bg-slate-800/50 shadow-sm font-bold text-xs ring-offset-transparent focus:ring-2 focus:ring-indigo-500/20">
                       <Filter size={14} className="text-violet-500 mr-2" />
                       <SelectValue placeholder="Loại KPI..." />
                     </SelectTrigger>
@@ -670,7 +674,7 @@ export default function KpiCriteriaPage() {
                   />
                 </div>
                 {/* Desktop: original inputs */}
-                <div className="hidden md:flex items-center gap-1 p-1.5 bg-slate-100/50 dark:bg-slate-800/50 rounded-[22px] border border-slate-200/50 dark:border-slate-700/50">
+                <div className="hidden md:flex items-center gap-1 h-11 px-1 bg-slate-100/50 dark:bg-slate-800/50 rounded-[16px] border border-slate-200/50 dark:border-slate-700/50">
                   <div className="relative group/date">
                     <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 z-10" size={12} />
                     <input
@@ -702,7 +706,7 @@ export default function KpiCriteriaPage() {
                 {enableBsc && (
                   <div className="w-full sm:w-56">
                     <Select value={selectedPerspectiveId} onValueChange={val => { setSelectedPerspectiveId(val); setPage(0) }}>
-                      <SelectTrigger className="w-full h-10 rounded-[16px] border-none bg-slate-100/50 dark:bg-slate-800/50 shadow-sm font-bold text-xs ring-offset-transparent focus:ring-2 focus:ring-violet-500/20">
+                      <SelectTrigger className="w-full h-11 rounded-[16px] border-none bg-slate-100/50 dark:bg-slate-800/50 shadow-sm font-bold text-xs ring-offset-transparent focus:ring-2 focus:ring-violet-500/20">
                         <Layers size={14} className="text-violet-500 mr-2 shrink-0" />
                         <SelectValue placeholder="Hạng mục BSC..." />
                       </SelectTrigger>
@@ -720,37 +724,35 @@ export default function KpiCriteriaPage() {
                     </Select>
                   </div>
                 )}
-              </div>
 
-              {/* Group: Sorting */}
-              <div className="xl:ml-auto min-w-[180px]">
-                <Select value={`${sortBy}-${sortDir}`} onValueChange={(val) => {
-                  const [field, dir] = val.split('-')
-                  if (field && dir) {
-                    setSortBy(field)
-                    setSortDir(dir as 'asc' | 'desc')
-                    setPage(0)
-                  }
-                }}>
-                  <SelectTrigger className="w-full h-11 rounded-2xl border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-sm font-black text-xs">
-                    <div className="flex items-center gap-2">
-                      <div className="w-8 h-8 rounded-lg bg-indigo-50 dark:bg-indigo-900/30 flex items-center justify-center">
-                        <ArrowUpDown size={14} className="text-indigo-600 dark:text-indigo-400" />
+                {/* Group: Sorting */}
+                <div className="w-full sm:w-auto sm:min-w-[190px]">
+                  <Select value={`${sortBy}-${sortDir}`} onValueChange={(val) => {
+                    const [field, dir] = val.split('-')
+                    if (field && dir) {
+                      setSortBy(field)
+                      setSortDir(dir as 'asc' | 'desc')
+                      setPage(0)
+                    }
+                  }}>
+                    <SelectTrigger className="w-full h-11 rounded-[16px] border-none bg-slate-100/50 dark:bg-slate-800/50 shadow-sm font-black text-xs ring-offset-transparent focus:ring-2 focus:ring-indigo-500/20">
+                      <div className="flex items-center gap-2">
+                        <ArrowUpDown size={14} className="text-indigo-500 shrink-0" />
+                        <SelectValue placeholder="Sắp xếp..." />
                       </div>
-                      <SelectValue placeholder="Sắp xếp..." />
-                    </div>
-                  </SelectTrigger>
-                  <SelectContent className="rounded-2xl border-slate-200 dark:border-slate-800 shadow-2xl p-2">
-                    <SelectItem value="createdAt-desc" className="rounded-xl focus:bg-indigo-50 dark:focus:bg-indigo-900/30 text-xs font-bold">Mới nhất</SelectItem>
-                    <SelectItem value="createdAt-asc" className="rounded-xl focus:bg-indigo-50 dark:focus:bg-indigo-900/30 text-xs font-bold">Cũ nhất</SelectItem>
-                    <SelectItem value="name-asc" className="rounded-xl focus:bg-indigo-50 dark:focus:bg-indigo-900/30 text-xs font-bold">Tên A-Z</SelectItem>
-                    <SelectItem value="name-desc" className="rounded-xl focus:bg-indigo-50 dark:focus:bg-indigo-900/30 text-xs font-black uppercase">Tên Z-A</SelectItem>
-                    <SelectItem value="weight-desc" className="rounded-xl focus:bg-indigo-50 dark:focus:bg-indigo-900/30 text-xs font-bold">Trọng số cao</SelectItem>
-                    <SelectItem value="weight-asc" className="rounded-xl focus:bg-indigo-50 dark:focus:bg-indigo-900/30 text-xs font-bold">Trọng số thấp</SelectItem>
-                    <SelectItem value="targetValue-desc" className="rounded-xl focus:bg-indigo-50 dark:focus:bg-indigo-900/30 text-xs font-bold">Mục tiêu cao</SelectItem>
-                    <SelectItem value="targetValue-asc" className="rounded-xl focus:bg-indigo-50 dark:focus:bg-indigo-900/30 text-xs font-bold">Mục tiêu thấp</SelectItem>
-                  </SelectContent>
-                </Select>
+                    </SelectTrigger>
+                    <SelectContent className="rounded-2xl border-slate-200 dark:border-slate-800 shadow-2xl p-2">
+                      <SelectItem value="createdAt-desc" className="rounded-xl focus:bg-indigo-50 dark:focus:bg-indigo-900/30 text-xs font-bold">Mới nhất</SelectItem>
+                      <SelectItem value="createdAt-asc" className="rounded-xl focus:bg-indigo-50 dark:focus:bg-indigo-900/30 text-xs font-bold">Cũ nhất</SelectItem>
+                      <SelectItem value="name-asc" className="rounded-xl focus:bg-indigo-50 dark:focus:bg-indigo-900/30 text-xs font-bold">Tên A-Z</SelectItem>
+                      <SelectItem value="name-desc" className="rounded-xl focus:bg-indigo-50 dark:focus:bg-indigo-900/30 text-xs font-black uppercase">Tên Z-A</SelectItem>
+                      <SelectItem value="weight-desc" className="rounded-xl focus:bg-indigo-50 dark:focus:bg-indigo-900/30 text-xs font-bold">Trọng số cao</SelectItem>
+                      <SelectItem value="weight-asc" className="rounded-xl focus:bg-indigo-50 dark:focus:bg-indigo-900/30 text-xs font-bold">Trọng số thấp</SelectItem>
+                      <SelectItem value="targetValue-desc" className="rounded-xl focus:bg-indigo-50 dark:focus:bg-indigo-900/30 text-xs font-bold">Mục tiêu cao</SelectItem>
+                      <SelectItem value="targetValue-asc" className="rounded-xl focus:bg-indigo-50 dark:focus:bg-indigo-900/30 text-xs font-bold">Mục tiêu thấp</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
             </div>
 

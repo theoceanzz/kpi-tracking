@@ -5,25 +5,25 @@ import { useOrganization } from '@/features/orgunits/hooks/useOrganization'
 import { useOverviewStats } from '../hooks/useOverviewStats'
 import { useOrgUnitStats } from '../hooks/useOrgUnitStats'
 import { useEmployeeStats } from '../hooks/useEmployeeStats'
-import { Link } from 'react-router-dom'
-import { cn, getInitials } from '@/lib/utils'
+import { Link, useNavigate } from 'react-router-dom'
+import { cn, getInitials, abbreviateOrgUnitName } from '@/lib/utils'
 import { useAuthStore } from '@/store/authStore'
 import { useKpiPeriods } from '@/features/kpi/hooks/useKpiPeriods'
 import { reportApi } from '@/features/reports/api/reportApi'
+import { evaluationApi } from '@/features/evaluations/api/evaluationApi'
 import { toast } from 'sonner'
 import type { OrgUnitStats, EmployeeKpiStats } from '@/types/stats'
 import { exportDetailedPerformanceToExcel } from '@/utils/performanceExport'
 import { statsApi } from '../api/statsApi'
 import { PinnedWidgetsSection } from '../components/PinnedWidgetsSection'
+import { CriticalAlertsSection } from '../components/CriticalAlertsSection'
+import KpiReminderModal, { type ReminderRecipient } from '../components/KpiReminderModal'
+import { buildDashboardAlerts } from '../utils/dashboardAlerts'
 import {
-  Users, Target, FileText, Clock, BarChart3, ShieldCheck, Building2,
+  Users, Target, FileText, Clock, BarChart3, Building2,
   ChevronRight, Search, ChevronLeft, ArrowUpRight,
-  TriangleAlert, Award
+  Award, Copy, Check, Mail
 } from 'lucide-react'
-import {
-  ResponsiveContainer,
-  PieChart, Pie, Cell, Tooltip
-} from 'recharts'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import StaffPerformanceDetailModal from '@/features/submissions/components/StaffPerformanceDetailModal'
 import { getScoringFunctions } from '@/lib/scoring'
@@ -34,12 +34,10 @@ type TabView = 'overview' | 'orgUnits' | 'employees'
 
 export default function DirectorDashboard() {
   const [empPage, setEmpPage] = useState(0)
-  const [alertPage, setAlertPage] = useState(0)
   const [isExporting, setIsExporting] = useState(false)
   const [activeTab, setActiveTab] = useState<TabView>('overview')
   const [empSearch, setEmpSearch] = useState('')
   const [evaluatingUser, setEvaluatingUser] = useState<{ id: string, name: string } | null>(null)
-  const [hoveredEmpId, setHoveredEmpId] = useState<string | null>(null)
   const [showRadialTooltip, setShowRadialTooltip] = useState(false)
   const { user } = useAuthStore()
   const [orgUnitFilter, setOrgUnitFilter] = useState<string>(user?.memberships?.[0]?.orgUnitId || 'ALL')
@@ -80,6 +78,58 @@ export default function DirectorDashboard() {
     const diff = new Date(activePeriod.endDate).getTime() - new Date().getTime()
     return Math.max(0, Math.ceil(diff / (1000 * 60 * 60 * 24)))
   }, [activePeriod])
+
+  // Số phiếu đánh giá của RIÊNG kỳ đang chạy (stats.totalEvaluations là lũy kế mọi kỳ nên dễ gây hiểu nhầm)
+  const { data: periodEvaluations } = useQuery({
+    queryKey: ['evaluations', 'count', activePeriod?.id, orgUnitFilter],
+    queryFn: () => evaluationApi.getAll({
+      page: 0,
+      size: 1,
+      kpiPeriodId: activePeriod!.id,
+      orgUnitId: orgUnitFilter !== 'ALL' ? orgUnitFilter : undefined,
+    }),
+    enabled: !!activePeriod?.id,
+  })
+
+  // Nhân sự thực sự được giao KPI — mẫu số của tiến độ đánh giá
+  const kpiParticipantCount = useMemo(
+    () => (allEmpStats?.content || []).filter(e => e.assignedKpi > 0).length,
+    [allEmpStats]
+  )
+
+  // Số nhân sự còn thiếu điểm trong kỳ đang chạy — nói thẳng phần việc còn lại thay vì bắt đọc phân số
+  const pendingEvaluationCount = useMemo(() => {
+    if (!activePeriod) return null
+    return Math.max(0, kpiParticipantCount - (periodEvaluations?.totalElements ?? 0))
+  }, [activePeriod, kpiParticipantCount, periodEvaluations])
+
+  // Phiếu lũy kế nằm ở đâu: 1 đợt thì gọi thẳng tên, nhiều đợt thì chỉ đếm cho gọn
+  const cumulativeEvaluations = useMemo(() => {
+    const periods = stats?.evaluationPeriods ?? []
+    const total = stats?.totalEvaluations ?? 0
+    if (total === 0) return null
+
+    const scope = periods.length === 1
+      ? `ở đợt ${periods[0]?.kpiPeriodName}`
+      : periods.length > 1 ? `qua ${periods.length} đợt` : null
+
+    return {
+      label: `Lũy kế: ${total} đánh giá${scope ? ` ${scope}` : ''}`,
+      // Hover ra danh sách chi tiết khi bị gộp thành "N đợt"
+      detail: periods.length > 1
+        ? periods.map(p => `${p.kpiPeriodName}: ${p.count} đánh giá`).join('\n')
+        : null,
+    }
+  }, [stats])
+
+  // Gom mọi tín hiệu tiêu cực thành danh sách cảnh báo đã xếp hạng ưu tiên
+  const criticalAlerts = useMemo(() => buildDashboardAlerts({
+    stats,
+    orgUnits: orgUnitStats,
+    employees: allEmpStats?.content || empStats?.content,
+    daysRemaining,
+    lowScoreThreshold: (organization?.evaluationMaxScore ?? 100) * 0.6,
+  }), [stats, orgUnitStats, allEmpStats, empStats, daysRemaining, organization])
 
   const isLoading = loadingStats || loadingOrgUnits || loadingEmps || loadingPinned
 
@@ -147,6 +197,8 @@ export default function DirectorDashboard() {
     { name: 'Chờ duyệt', value: stats?.pendingSubmissions ?? 0, color: '#f59e0b' },
     { name: 'Từ chối', value: stats?.rejectedSubmissions ?? 0, color: '#ef4444' },
   ]
+
+  const totalSubmissionCount = submissionChartData.reduce((sum, item) => sum + item.value, 0)
 
   const handleExport = async () => {
     if (!activePeriod) {
@@ -247,78 +299,86 @@ export default function DirectorDashboard() {
         <PremiumStatCard icon={<Building2 size={20} />} label="Phòng ban" value={stats?.totalOrgUnits ?? 0} color="emerald" trend="Active" />
         <PremiumStatCard icon={<Users size={20} />} label="Nhân sự" value={empStats?.totalElements ?? 0} color="indigo" />
         <PremiumStatCard icon={<Target size={20} />} label="Chỉ tiêu KPI" value={stats?.totalKpiCriteria ?? 0} sub={`${stats?.approvedKpi ?? 0} đã duyệt`} color="blue" />
-        <PremiumStatCard icon={<Award size={20} />} label="Đánh giá" value={stats?.totalEvaluations ?? 0} color="purple" />
+        <PremiumStatCard
+          icon={<Award size={20} />}
+          label="Nhân sự đã chấm điểm"
+          labelNote={activePeriod ? `kỳ ${activePeriod.name}` : undefined}
+          value={activePeriod ? `${periodEvaluations?.totalElements ?? 0}/${kpiParticipantCount}` : (stats?.totalEvaluations ?? 0)}
+          sub={pendingEvaluationCount == null
+            ? 'Tổng đánh giá đã chấm (mọi đợt)'
+            : pendingEvaluationCount > 0
+              ? `còn ${pendingEvaluationCount} đánh giá chưa hoàn thành`
+              : 'đã chấm đủ nhân sự trong kỳ'}
+          footer={cumulativeEvaluations?.label}
+          footerTitle={cumulativeEvaluations?.detail ?? undefined}
+          hint="Số nhân sự đã được quản lý chấm điểm KPI trong kỳ đang chạy. Bấm để xem chi tiết từng phiếu."
+          to="/evaluations"
+          color="purple"
+        />
       </div>
 
       {activeTab === 'overview' && (
         <>
           <PinnedWidgetsSection widgets={pinnedWidgets} onUnpin={refetchPinned} />
 
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-stretch">
-            {/* Row 1: Key Performance Indicators & Alerts */}
-            <div id="tour-dashboard-completion" className="bg-white dark:bg-slate-900 p-8 rounded-[40px] border border-slate-200/60 dark:border-slate-800 shadow-[0_8px_30px_rgb(0,0,0,0.04)] relative group transition-all hover:shadow-[0_20px_50px_rgba(99,102,241,0.1)] flex flex-col justify-between min-h-[520px] hover:z-50">
-              <div className="absolute top-0 left-0 w-1.5 h-1/2 mt-[25%] bg-gradient-to-b from-indigo-500 to-purple-600 rounded-full opacity-0 group-hover:opacity-100 transition-all duration-500"></div>
-              <div className="flex items-center justify-between mb-6">
-                <div className="space-y-1">
-                  <p className="text-xl font-black tracking-tight text-slate-900 dark:text-white">Tỷ lệ Hoàn thành</p>
+          <div className="grid grid-cols-1 lg:grid-cols-5 gap-5 items-stretch">
+            {/* Row 1: Key Performance Indicators */}
+            <div id="tour-dashboard-completion" className="lg:col-span-2 bg-white dark:bg-slate-900 p-6 rounded-[28px] border border-slate-200/60 dark:border-slate-800 shadow-[0_8px_30px_rgb(0,0,0,0.04)] relative group transition-all hover:shadow-[0_20px_50px_rgba(99,102,241,0.1)] flex flex-col hover:z-50">
+              <div className="flex items-center justify-between mb-5">
+                <p className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-500">Tỷ lệ Hoàn thành</p>
+                <div className="w-9 h-9 rounded-xl bg-indigo-50 dark:bg-indigo-900/40 flex items-center justify-center text-indigo-600 dark:text-indigo-400 border border-indigo-100/50 dark:border-indigo-500/20">
+                  <Target size={16} />
                 </div>
               </div>
 
-              <div className="flex flex-col items-center flex-1 justify-center py-4">
-                <div 
+              <div className="flex items-center gap-5 flex-1">
+                <div
                   onMouseEnter={() => !evaluatingUser && setShowRadialTooltip(true)}
                   onMouseLeave={() => setShowRadialTooltip(false)}
-                  className="relative w-64 h-64 flex items-center justify-center group/radial cursor-pointer"
+                  className="relative w-[104px] h-[104px] shrink-0 flex items-center justify-center cursor-pointer"
                 >
-                  <div className={cn(
-                    "absolute inset-0 bg-indigo-500/5 dark:bg-indigo-500/10 rounded-full blur-3xl scale-75 transition-opacity duration-700",
-                    showRadialTooltip ? "opacity-100" : "opacity-0"
-                  )}></div>
-                  <svg viewBox="0 0 100 100" className="w-full h-full transform -rotate-90 relative z-10">
+                  <svg viewBox="0 0 100 100" className="w-full h-full transform -rotate-90">
                     <defs>
                       <linearGradient id="radialGradientD" x1="0%" y1="0%" x2="100%" y2="0%">
                         <stop offset="0%" stopColor="#6366f1" />
                         <stop offset="100%" stopColor="#8b5cf6" />
                       </linearGradient>
                     </defs>
-                    <circle cx="50" cy="50" r="42" stroke="#f1f5f9" strokeWidth="6" fill="transparent" className="dark:stroke-slate-800/50" />
-                    <circle 
-                      cx="50" cy="50" r="42" 
-                      stroke="url(#radialGradientD)" 
-                      strokeWidth="6" 
-                      fill="transparent" 
+                    <circle cx="50" cy="50" r="42" stroke="#f1f5f9" strokeWidth="9" fill="transparent" className="dark:stroke-slate-800/50" />
+                    <circle
+                      cx="50" cy="50" r="42"
+                      stroke="url(#radialGradientD)"
+                      strokeWidth="9"
+                      fill="transparent"
                       strokeDasharray={263.8}
                       strokeDashoffset={263.8 - (263.8 * companyWeightedAvg) / 100}
                       strokeLinecap="round"
-                      className="transition-all duration-[2000ms] ease-in-out"
+                      className="transition-all duration-[1500ms] ease-in-out"
                     />
                   </svg>
-                  <div className="absolute inset-0 flex flex-col items-center justify-center z-20 transition-all duration-500 group-hover/radial:scale-110">
-                    <div className="relative">
-                      <span className="text-7xl font-black tracking-tighter text-slate-900 dark:text-white leading-none drop-shadow-sm">{companyWeightedAvg}%</span>
-                      <div className="absolute -top-2 -right-4 w-3 h-3 rounded-full bg-emerald-500 animate-ping"></div>
-                    </div>
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <span className="text-2xl font-black tracking-tighter text-slate-900 dark:text-white leading-none">{companyWeightedAvg}%</span>
                   </div>
 
                   <div className={cn(
-                    "absolute top-[80%] left-1/2 -translate-x-1/2 mt-4 w-72 backdrop-blur-xl bg-white/95 dark:bg-slate-900/95 p-5 rounded-[28px] shadow-[0_30px_60px_rgba(0,0,0,0.2)] border border-slate-100 dark:border-slate-800 transition-all duration-300 z-[100]",
+                    "absolute top-full left-0 mt-3 w-72 backdrop-blur-xl bg-white/95 dark:bg-slate-900/95 p-4 rounded-[24px] shadow-[0_30px_60px_rgba(0,0,0,0.2)] border border-slate-100 dark:border-slate-800 transition-all duration-300 z-[100]",
                     showRadialTooltip && !evaluatingUser ? "opacity-100 visible translate-y-0" : "opacity-0 invisible translate-y-2"
                   )}>
-                      <div className="flex items-center gap-2 mb-4 px-2">
+                      <div className="flex items-center gap-2 mb-3 px-1">
                         <div className="w-1 h-4 bg-indigo-500 rounded-full"></div>
                         <span className="text-[10px] font-black text-slate-900 dark:text-white uppercase tracking-widest">Nhân viên đóng góp</span>
                       </div>
-                      <div className="space-y-1.5 max-h-72 overflow-y-auto pr-1 custom-scrollbar">
+                      <div className="space-y-1 max-h-60 overflow-y-auto pr-1 custom-scrollbar">
                         {Object.values(groups).flat().filter(m => m.rate > 0).length > 0 ? (
                           Object.values(groups).flat().filter(m => m.rate > 0).map((m, i) => (
-                            <div 
-                              key={`${m.empName}-${i}`} 
+                            <div
+                              key={`${m.empName}-${i}`}
                               onClick={(e) => {
                                 e.stopPropagation();
                                 setShowRadialTooltip(false);
                                 setEvaluatingUser({ id: m.userId, name: m.empName });
                               }}
-                              className="flex justify-between items-center p-3 rounded-2xl hover:bg-indigo-50/50 dark:hover:bg-indigo-500/10 transition-all group/emp border border-transparent hover:border-indigo-100/50 dark:hover:border-indigo-500/20 cursor-pointer"
+                              className="flex justify-between items-center p-2.5 rounded-2xl hover:bg-indigo-50/50 dark:hover:bg-indigo-500/10 transition-all group/emp border border-transparent hover:border-indigo-100/50 dark:hover:border-indigo-500/20 cursor-pointer"
                             >
                               <div className="flex items-center gap-2">
                                 <div className="w-1.5 h-1.5 rounded-full bg-indigo-400"></div>
@@ -328,228 +388,86 @@ export default function DirectorDashboard() {
                             </div>
                           ))
                         ) : (
-                          <div className="py-8 text-center bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-dashed border-slate-200 dark:border-slate-700">
+                          <div className="py-6 text-center bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-dashed border-slate-200 dark:border-slate-700">
                             <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Chưa có đóng góp</p>
                           </div>
                         )}
                       </div>
                   </div>
                 </div>
-              </div>
 
-              <div className="w-full grid grid-cols-2 gap-0 border-t border-slate-100 dark:border-slate-800 pt-6">
-                <div className="flex flex-col items-center justify-center space-y-1 border-r border-slate-100 dark:border-slate-800 px-4">
-                  <div className="flex items-center gap-1.5 text-slate-400 mb-1">
-                    <Building2 size={12} />
-                    <span className="text-[9px] font-black uppercase tracking-widest">Cơ cấu Đơn vị</span>
+                <div className="flex-1 min-w-0 space-y-2">
+                  <div className="flex items-center justify-between gap-3 p-3 rounded-[18px] bg-slate-50 dark:bg-slate-800/40">
+                    <div className="flex items-center gap-2 text-slate-400 min-w-0">
+                      <Building2 size={13} className="shrink-0" />
+                      <span className="text-[9px] font-black uppercase tracking-widest truncate">Cơ cấu Đơn vị</span>
+                    </div>
+                    <p className="text-sm font-black text-slate-900 dark:text-white shrink-0">{stats?.totalOrgUnits ?? 0}</p>
                   </div>
-                  <p className="text-base font-black text-slate-900 dark:text-white">{stats?.totalOrgUnits ?? 0} Phòng ban</p>
-                </div>
-                <div className="flex flex-col items-center justify-center space-y-1 px-4">
-                  <div className="flex items-center gap-1.5 text-slate-400 mb-1">
-                    <Users size={12} />
-                    <span className="text-[9px] font-black uppercase tracking-widest">Đối tượng KPI</span>
+                  <div className="flex items-center justify-between gap-3 p-3 rounded-[18px] bg-slate-50 dark:bg-slate-800/40">
+                    <div className="flex items-center gap-2 text-slate-400 min-w-0">
+                      <Users size={13} className="shrink-0" />
+                      <span className="text-[9px] font-black uppercase tracking-widest truncate">Đối tượng KPI</span>
+                    </div>
+                    <p className="text-sm font-black text-slate-900 dark:text-white shrink-0">{kpiParticipantCount}</p>
                   </div>
-                  <p className="text-base font-black text-slate-900 dark:text-white">{(allEmpStats?.content || []).filter(e => e.assignedKpi > 0).length} Nhân sự</p>
                 </div>
               </div>
             </div>
 
-            <div className="bg-white dark:bg-slate-900 p-8 rounded-[40px] border border-slate-200/60 dark:border-slate-800 shadow-[0_8px_30px_rgb(0,0,0,0.04)] relative group transition-all hover:shadow-[0_20px_50px_rgba(16,185,129,0.1)] flex flex-col min-h-[520px] hover:z-50">
-              <div className="absolute top-0 left-0 w-1.5 h-1/2 mt-[25%] bg-gradient-to-b from-emerald-500 to-teal-600 rounded-full opacity-0 group-hover:opacity-100 transition-all duration-500"></div>
-              <div className="flex items-center justify-between mb-8">
-                <div className="space-y-1">
-                  <p className="text-xl font-black tracking-tight text-slate-900 dark:text-white">Phân tích Bài nộp</p>
-                </div>
-                <div className="w-10 h-10 rounded-2xl bg-emerald-50 dark:bg-emerald-900/40 flex items-center justify-center text-emerald-600 dark:text-emerald-400 border border-emerald-100/50 dark:border-emerald-500/20">
-                  <FileText size={20} />
-                </div>
-              </div>
-
-              <div className="h-[280px] w-full relative mb-8 flex-1">
-                <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none z-0">
-                  <div className="bg-slate-50 dark:bg-slate-800/50 w-28 h-28 rounded-full flex flex-col items-center justify-center border border-slate-100 dark:border-slate-700 shadow-inner">
-                    <span className="text-4xl font-black text-slate-900 dark:text-white leading-none tracking-tighter">
-                      {(stats?.approvedSubmissions ?? 0) + (stats?.pendingSubmissions ?? 0) + (stats?.rejectedSubmissions ?? 0)}
-                    </span>
-                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-2">Tổng nộp</span>
+            <div className="lg:col-span-3 bg-white dark:bg-slate-900 p-6 rounded-[28px] border border-slate-200/60 dark:border-slate-800 shadow-[0_8px_30px_rgb(0,0,0,0.04)] transition-all hover:shadow-[0_20px_50px_rgba(16,185,129,0.1)] flex flex-col">
+              <div className="flex items-center justify-between mb-5">
+                <p className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-500">Phân tích Bài nộp</p>
+                <div className="flex items-center gap-2">
+                  <span className="text-xl font-black tracking-tighter text-slate-900 dark:text-white leading-none">{totalSubmissionCount}</span>
+                  <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Tổng nộp</span>
+                  <div className="w-9 h-9 ml-1 rounded-xl bg-emerald-50 dark:bg-emerald-900/40 flex items-center justify-center text-emerald-600 dark:text-emerald-400 border border-emerald-100/50 dark:border-emerald-500/20">
+                    <FileText size={16} />
                   </div>
                 </div>
-                <ResponsiveContainer width="100%" height="100%" className="relative z-10">
-                  <PieChart margin={{ top: 10, right: 10, bottom: 10, left: 10 }}>
-                    <Pie
-                      data={submissionChartData}
-                      cx="50%"
-                      cy="50%"
-                      innerRadius="60%"
-                      outerRadius="90%"
-                      paddingAngle={5}
-                      dataKey="value"
-                      stroke="none"
-                      animationBegin={200}
-                      animationDuration={1500}
-                    >
-                      {submissionChartData.map((entry, index) => (
-                        <Cell 
-                          key={`cell-${index}`} 
-                          fill={entry.color} 
-                          className="hover:opacity-80 transition-all duration-300 cursor-pointer"
-                        />
-                      ))}
-                    </Pie>
-                    <Tooltip 
-                      contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 20px 25px -5px rgb(0 0 0 / 0.1)', fontSize: '11px', fontWeight: 'bold' }}
-                      wrapperStyle={{ zIndex: 1000 }}
-                    />
-                  </PieChart>
-                </ResponsiveContainer>
               </div>
 
-              <div className="grid grid-cols-1 gap-2 pt-6 border-t border-slate-100 dark:border-slate-800">
+              {/* Thanh phân bố ngang thay cho donut: đọc tỷ trọng nhanh hơn ở kích thước nhỏ */}
+              <div className="flex h-3 w-full rounded-full overflow-hidden bg-slate-100 dark:bg-slate-800 gap-0.5 mb-5">
                 {submissionChartData.map(item => (
-                  <div key={item.name} className="flex items-center justify-between p-2.5 rounded-[18px] bg-slate-50 dark:bg-slate-800/40 border border-transparent hover:border-slate-200 dark:hover:border-slate-700 transition-all group/item">
-                    <div className="flex items-center gap-3">
-                      <div className="w-2.5 h-2.5 rounded-full shadow-[0_0_8px_rgba(0,0,0,0.1)]" style={{ backgroundColor: item.color }} />
-                      <span className="text-[11px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider">{item.name}</span>
+                  <div
+                    key={item.name}
+                    title={`${item.name}: ${item.value}`}
+                    className="h-full transition-all duration-[1200ms] ease-out first:rounded-l-full last:rounded-r-full"
+                    style={{
+                      width: `${totalSubmissionCount ? (item.value / totalSubmissionCount) * 100 : 0}%`,
+                      backgroundColor: item.color,
+                    }}
+                  />
+                ))}
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 flex-1">
+                {submissionChartData.map(item => (
+                  <div key={item.name} className="flex items-center justify-between sm:flex-col sm:items-start sm:justify-center gap-1 p-3 rounded-[18px] bg-slate-50 dark:bg-slate-800/40 border border-transparent hover:border-slate-200 dark:hover:border-slate-700 transition-all">
+                    <div className="flex items-center gap-2">
+                      <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: item.color }} />
+                      <span className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider">{item.name}</span>
                     </div>
-                    <div className="flex items-center gap-3">
-                      <span className="text-sm font-black text-slate-900 dark:text-white">{item.value}</span>
-                      <div className="px-2 py-0.5 rounded-lg bg-white dark:bg-slate-900 text-[10px] font-black text-slate-400 border border-slate-100 dark:border-slate-800">
-                        {stats?.totalSubmissions ? Math.round((item.value / stats.totalSubmissions) * 100) : 0}%
-                      </div>
+                    <div className="flex items-baseline gap-1.5">
+                      <span className="text-lg font-black text-slate-900 dark:text-white leading-none">{item.value}</span>
+                      <span className="text-[10px] font-black text-slate-400">
+                        {totalSubmissionCount ? Math.round((item.value / totalSubmissionCount) * 100) : 0}%
+                      </span>
                     </div>
                   </div>
                 ))}
               </div>
             </div>
 
-            <div id="tour-dashboard-alerts" className="bg-gradient-to-br from-indigo-700 via-indigo-800 to-violet-900 p-8 rounded-[40px] shadow-2xl relative transition-all hover:shadow-[0_20px_50px_rgba(99,102,241,0.2)] text-white flex flex-col min-h-[520px] hover:z-50">
-              <div className="absolute top-0 right-0 -mr-12 -mt-12 w-48 h-48 bg-white/10 rounded-full blur-3xl"></div>
-              <div className="absolute bottom-0 left-0 -ml-12 -mb-12 w-48 h-48 bg-white/5 rounded-full blur-3xl"></div>
-              
-              <div className="relative flex items-center justify-between mb-8">
-                <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 rounded-2xl bg-white/10 border border-white/20 flex items-center justify-center text-red-300">
-                    <TriangleAlert size={24} />
-                  </div>
-                  <div>
-                    <h3 className="text-sm font-black uppercase tracking-widest text-white">Tiêu điểm Tiêu cực</h3>
-                    <p className="text-[10px] text-white/60 font-bold uppercase tracking-widest mt-1">Cần   can thiệp</p>
-                  </div>
-                </div>
-                <Link 
-                  to="/submissions/org-unit" 
-                  className="w-10 h-10 rounded-xl bg-white/10 border border-white/10 flex items-center justify-center text-white/60 hover:text-white hover:bg-white/20 transition-all active:scale-95 group"
-                  title="Quản lý phê duyệt"
-                >
-                  <ArrowUpRight size={20} className="group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
-                </Link>
-              </div>
-
-              <div className="relative space-y-4 flex-1 overflow-y-auto pr-2 custom-scrollbar">
-                {(() => {
-                  const alerts: React.ReactNode[] = []
-                  
-                  if (stats?.pendingKpi && stats.pendingKpi > 0) {
-                    alerts.push(
-                      <AlertItem 
-                        key="pending-kpi"
-                        icon={<Clock size={18} />}
-                        title={`${stats.pendingKpi} yêu cầu KPI chờ duyệt`}
-                        sub="Ảnh hưởng đến tiến độ toàn công ty"
-                        color="red"
-                        link="/kpi-criteria/pending"
-                      />
-                    )
-                  }
-
-                  const lowProgressUnits = orgUnitStats?.filter(u => (u.totalAssignments > 0 && (u.totalSubmissions / u.totalAssignments) < 0.3)) || []
-                  lowProgressUnits.forEach(unit => {
-                    alerts.push(
-                      <AlertItem 
-                        key={unit.orgUnitId}
-                        icon={<Building2 size={18} />}
-                        title={`${unit.orgUnitName} tiến độ quá thấp`}
-                        sub={`Chỉ mới đạt ${Math.round((unit.totalSubmissions / (unit.totalAssignments || 1)) * 100)}% chỉ tiêu`}
-                        color="amber"
-                        link={`/org-units/${unit.orgUnitId}`}
-                      />
-                    )
-                  })
-
-                  const incompleteEmps = empStats?.content?.filter(e => e.assignedKpi > 0 && e.approvedSubmissions < e.assignedKpi) || []
-                  incompleteEmps.forEach(emp => {
-                    alerts.push(
-                      <AlertItem 
-                        key={emp.userId}
-                        icon={<Users size={18} />}
-                        title={`${emp.fullName} chưa hoàn thành`}
-                        sub={`Giao ${emp.assignedKpi}, còn ${emp.assignedKpi - emp.approvedSubmissions} KPI • ${daysRemaining !== null ? `Còn ${daysRemaining} ngày` : 'N/A'}`}
-                        color="blue"
-                        link={`/employees/${emp.userId}/performance`}
-                      />
-                    )
-                  })
-
-                  if (alerts.length === 0) {
-                    return (
-                      <div className="py-12 text-center h-full flex flex-col items-center justify-center">
-                        <div className="w-16 h-16 rounded-full bg-emerald-500/10 flex items-center justify-center mx-auto mb-4 text-emerald-400 border border-emerald-500/20">
-                          <ShieldCheck size={32} />
-                        </div>
-                        <p className="text-sm font-bold text-slate-300">Hệ thống đang vận hành ổn định</p>
-                        <p className="text-[10px] text-slate-500 uppercase tracking-widest mt-2">Không có cảnh báo mới</p>
-                      </div>
-                    )
-                  }
-
-                  const totalAlertPages = Math.ceil(alerts.length / 5)
-                  const pagedAlerts = alerts.slice(alertPage * 5, (alertPage + 1) * 5)
-
-                  return (
-                    <div className="space-y-4 flex flex-col h-full">
-                      <div className="flex-1 space-y-4">
-                        {pagedAlerts}
-                      </div>
-                      
-                      {totalAlertPages > 1 && (
-                        <div className="flex items-center justify-between pt-6 border-t border-white/10 mt-auto px-2">
-                          <button 
-                            onClick={() => setAlertPage(p => Math.max(0, p - 1))}
-                            disabled={alertPage === 0}
-                            className="w-10 h-10 flex items-center justify-center rounded-2xl bg-white/5 hover:bg-white/10 border border-white/10 disabled:opacity-20 transition-all active:scale-90 shadow-lg"
-                          >
-                            <ChevronLeft size={20} className="text-white" />
-                          </button>
-                          
-                          <div className="flex flex-col items-center gap-1">
-                            <span className="text-[10px] font-black text-white uppercase tracking-[0.3em] opacity-80">
-                              Trang
-                            </span>
-                            <div className="flex items-center gap-2">
-                              <span className="text-sm font-black text-white">{alertPage + 1}</span>
-                              <span className="text-[10px] font-black text-white/30">/</span>
-                              <span className="text-[10px] font-black text-white/40">{totalAlertPages}</span>
-                            </div>
-                          </div>
-
-                          <button 
-                            onClick={() => setAlertPage(p => Math.min(totalAlertPages - 1, p + 1))}
-                            disabled={alertPage >= totalAlertPages - 1}
-                            className="w-10 h-10 flex items-center justify-center rounded-2xl bg-white/5 hover:bg-white/10 border border-white/10 disabled:opacity-20 transition-all active:scale-90 shadow-lg"
-                          >
-                            <ChevronRight size={20} className="text-white" />
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  )
-                })()}
-              </div>
-              
-
-            </div>
           </div>
+
+          <CriticalAlertsSection
+            alerts={criticalAlerts}
+            periodName={activePeriod?.name}
+            daysRemaining={daysRemaining}
+            onSelectEmployee={activePeriod ? (id, name) => setEvaluatingUser({ id, name }) : undefined}
+          />
         </>
       )}
 
@@ -581,11 +499,9 @@ export default function DirectorDashboard() {
         <div className="animate-in slide-in-from-bottom-4 duration-500">
           {activeTab === 'overview' && (
             <div className="grid grid-cols-1 gap-8">
-                <PremiumRankingTable 
-                  employees={allEmpStats?.content || empStats?.content || []} 
+                <PremiumRankingTable
+                  employees={allEmpStats?.content || empStats?.content || []}
                   onSelectUser={(id, name) => setEvaluatingUser({ id, name })}
-                  hoveredUserId={hoveredEmpId}
-                  onHoverUser={setHoveredEmpId}
                 />
             </div>
           )}
@@ -604,6 +520,7 @@ export default function DirectorDashboard() {
                 orgUnitFilter={orgUnitFilter}
                 onOrgUnitFilterChange={setOrgUnitFilter}
                 orgUnits={orgUnitStats || []}
+                periodName={activePeriod?.name}
             />
           )}
         </div>
@@ -623,7 +540,7 @@ export default function DirectorDashboard() {
   )
 }
 
-function PremiumStatCard({ icon, label, value, sub, color, trend, progress }: any) {
+function PremiumStatCard({ icon, label, labelNote, value, sub, footer, footerTitle, color, trend, progress, hint, to }: any) {
   const colors: Record<string, string> = {
     indigo: "from-indigo-500/20 to-indigo-600/20 text-indigo-600 dark:text-indigo-400",
     emerald: "from-emerald-500/20 to-emerald-600/20 text-emerald-600 dark:text-emerald-400",
@@ -640,29 +557,43 @@ function PremiumStatCard({ icon, label, value, sub, color, trend, progress }: an
     purple: "bg-purple-500 shadow-purple-500/40",
   }
 
+  const Wrapper: any = to ? Link : 'div'
+  const wrapperProps = to ? { to } : {}
+
   return (
-    <div className="group relative h-full">
-       <div className="bg-white dark:bg-slate-900 p-4 md:p-6 rounded-[28px] md:rounded-[32px] border border-slate-200/60 dark:border-slate-800 shadow-sm hover:shadow-2xl hover:-translate-y-1 transition-all duration-500 overflow-hidden h-full flex flex-row items-center gap-4 md:flex-col md:items-start md:justify-between md:gap-0">
+    <Wrapper {...wrapperProps} title={hint} className="group relative h-full block">
+       <div className="bg-white dark:bg-slate-900 p-4 md:p-5 rounded-[24px] md:rounded-[28px] border border-slate-200/60 dark:border-slate-800 shadow-sm hover:shadow-2xl hover:-translate-y-1 transition-all duration-500 overflow-hidden h-full flex flex-col gap-3">
           <div className={cn("absolute -top-12 -right-12 w-32 h-32 bg-gradient-to-br opacity-10 rounded-full transition-all duration-700 group-hover:scale-150 group-hover:opacity-20", colors[color])}></div>
 
-          <div className={cn("w-10 h-10 md:w-12 md:h-12 rounded-xl md:rounded-2xl flex items-center justify-center shrink-0 md:mb-6 text-white bg-gradient-to-br shadow-lg transition-transform duration-500 group-hover:rotate-6", iconColors[color])}>
-            {icon}
+          {/* Hàng đầu: icon + nhãn nằm cùng dòng để thẻ thấp lại và các số liệu thẳng hàng nhau */}
+          <div className="flex items-center gap-2.5 relative z-10 min-w-0">
+            <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center shrink-0 text-white bg-gradient-to-br shadow-lg transition-transform duration-500 group-hover:rotate-6", iconColors[color])}>
+              {icon}
+            </div>
+            <p className="text-[10px] font-black uppercase tracking-[0.15em] leading-tight text-slate-400 group-hover:text-slate-600 dark:group-hover:text-slate-300 transition-colors min-w-0" title={label}>
+              {label}
+            </p>
           </div>
-          <div className="flex-1 md:flex-none space-y-0.5 md:space-y-1.5 relative z-10 min-w-0">
-             <p className="text-[9px] md:text-[10px] font-black uppercase tracking-[0.25em] text-slate-400 group-hover:text-slate-600 dark:group-hover:text-slate-300 transition-colors">{label}</p>
-             <div className="flex items-baseline gap-2 md:gap-3">
-                <h4 className="text-2xl md:text-4xl font-black tracking-tighter text-slate-900 dark:text-white transition-all duration-500 group-hover:tracking-normal">{value}</h4>
+
+          <div className="relative z-10 min-w-0 space-y-1">
+             <div className="flex items-baseline gap-2 min-w-0">
+                <h4 className="text-3xl md:text-4xl font-black tracking-tighter text-slate-900 dark:text-white transition-all duration-500 group-hover:tracking-normal shrink-0">{value}</h4>
+                {labelNote && (
+                  <span className="text-[11px] font-bold text-slate-400 dark:text-slate-500 truncate" title={labelNote}>
+                    {labelNote}
+                  </span>
+                )}
                 {trend && (
-                  <span className="text-[10px] font-black text-emerald-600 bg-emerald-50 dark:bg-emerald-500/10 px-2 md:px-2.5 py-0.5 md:py-1 rounded-full border border-emerald-100 dark:border-emerald-500/20">
+                  <span className="text-[10px] font-black text-emerald-600 bg-emerald-50 dark:bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-100 dark:border-emerald-500/20">
                     {trend}
                   </span>
                 )}
              </div>
-             {sub && <p className="text-[11px] md:text-xs font-bold text-slate-500 truncate">{sub}</p>}
+             {sub && <p className="text-[11px] md:text-xs font-bold text-slate-500 truncate" title={sub}>{sub}</p>}
           </div>
 
           {progress != null && (
-            <div className="hidden md:block mt-8 pt-5 border-t border-slate-100 dark:border-slate-800 space-y-2.5 w-full">
+            <div className="hidden md:block mt-auto pt-4 border-t border-slate-100 dark:border-slate-800 space-y-2.5 w-full relative z-10">
               <div className="flex justify-between text-[10px] font-black uppercase tracking-widest text-slate-400">
                 <span>Tiến độ</span>
                 <span className="text-indigo-600 dark:text-indigo-400 font-black">{progress}%</span>
@@ -672,43 +603,26 @@ function PremiumStatCard({ icon, label, value, sub, color, trend, progress }: an
               </div>
             </div>
           )}
+
+          {footer && (
+            <div
+              className="mt-auto pt-2.5 border-t border-slate-100 dark:border-slate-800 flex items-center gap-1.5 text-[11px] md:text-xs font-bold text-slate-500 relative z-10 min-w-0"
+              title={footerTitle || footer}
+            >
+              <Clock size={13} className="shrink-0 text-slate-400" />
+              <span className="truncate">{footer}</span>
+            </div>
+          )}
        </div>
-    </div>
+    </Wrapper>
   )
 }
 
-function AlertItem({ icon, title, sub, color, link }: { icon: any, title: string, sub: string, color: 'red' | 'amber' | 'blue', link?: string }) {
-  const colors = {
-    red: 'bg-red-500/10 text-red-500',
-    amber: 'bg-amber-500/10 text-amber-500',
-    blue: 'bg-blue-500/10 text-blue-500',
-  }
-  const Content = (
-    <div className="flex items-start gap-3 p-3.5 rounded-[20px] bg-white/5 hover:bg-white/10 transition-all border border-white/5 group cursor-pointer">
-      <div className={cn("w-9 h-9 rounded-xl flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform", colors[color])}>
-        {icon}
-      </div>
-      <div className="min-w-0 flex-1">
-        <p className="text-[13px] font-bold text-white truncate">{title}</p>
-        <p className="text-[10px] text-white/50 truncate font-medium">{sub}</p>
-      </div>
-      <ChevronRight size={14} className="text-slate-600 group-hover:text-white transition-colors" />
-    </div>
-  )
-
-  if (link) {
-    return <Link to={link}>{Content}</Link>
-  }
-  return Content
-}
-
-function PremiumRankingTable({ 
-  employees, onSelectUser, hoveredUserId, onHoverUser 
-}: { 
-  employees: EmployeeKpiStats[], 
+function PremiumRankingTable({
+  employees, onSelectUser
+}: {
+  employees: EmployeeKpiStats[],
   onSelectUser: (id: string, name: string) => void,
-  hoveredUserId: string | null,
-  onHoverUser: (id: string | null) => void
 }) {
   const { user } = useAuthStore()
   const orgId = user?.memberships?.[0]?.organizationId
@@ -749,12 +663,11 @@ function PremiumRankingTable({
           </thead>
           <tbody className="divide-y divide-slate-50 dark:divide-slate-800">
             {sorted.map((emp, index) => (
-              <tr 
-                key={emp.userId} 
-                onMouseEnter={() => onHoverUser(emp.userId)}
-                onMouseLeave={() => onHoverUser(null)}
+              <tr
+                key={emp.userId}
                 onClick={() => onSelectUser(emp.userId, emp.fullName)}
-                className="hover:bg-slate-50/80 dark:hover:bg-slate-800/50 transition-all group cursor-pointer relative"
+                title="Nhấn để xem chi tiết bài nộp"
+                className="hover:bg-slate-50/80 dark:hover:bg-slate-800/50 transition-all group cursor-pointer"
               >
                 <td className="px-10 py-6">
                   <div className="flex items-center gap-4">
@@ -771,36 +684,12 @@ function PremiumRankingTable({
                         </div>
                       )}
                     </div>
-                    <div>
+                    <div className="min-w-0">
                       <p className="text-sm font-black text-slate-900 dark:text-white group-hover:text-indigo-600 transition-colors">{emp.fullName}</p>
-                      <p className="text-[11px] text-slate-500 font-bold flex items-center gap-1.5 mt-0.5">
-                        <Building2 size={10} /> {emp.orgUnitName}
+                      <p className="text-[11px] text-slate-500 font-bold flex items-center gap-1.5 mt-0.5" title={emp.orgUnitName}>
+                        <Building2 size={10} className="shrink-0" /> <span className="truncate">{abbreviateOrgUnitName(emp.orgUnitName, 24)}</span>
                       </p>
                     </div>
-                  </div>
-
-                  {/* Hover Detail Tooltip for Ranking Table */}
-                  <div className={cn(
-                    "absolute left-full top-0 ml-4 w-72 backdrop-blur-xl bg-white/95 dark:bg-slate-900/95 p-5 rounded-[28px] shadow-[0_30px_60px_rgba(0,0,0,0.2)] border border-slate-100 dark:border-slate-800 transition-all duration-300 z-[100]",
-                    hoveredUserId === emp.userId ? "opacity-100 visible translate-x-0" : "opacity-0 invisible -translate-x-2"
-                  )}>
-                      <div className="flex items-center gap-2 mb-4 px-2">
-                        <div className="w-1 h-4 bg-emerald-500 rounded-full"></div>
-                        <span className="text-[10px] font-black text-slate-900 dark:text-white uppercase tracking-widest">Đóng góp chi tiết</span>
-                      </div>
-                      <div className="space-y-1.5">
-                        <div className="flex justify-between items-center p-3 rounded-2xl bg-indigo-50/50 dark:bg-indigo-500/10 border border-indigo-100/30">
-                           <span className="text-[11px] font-bold text-slate-600 dark:text-slate-400">KPI Hoàn thành</span>
-                           <span className="text-[11px] font-black text-indigo-600">{emp.approvedSubmissions}/{emp.assignedKpi}</span>
-                        </div>
-                        <div className="flex justify-between items-center p-3 rounded-2xl bg-emerald-50/50 dark:bg-emerald-500/10 border border-emerald-100/30">
-                           <span className="text-[11px] font-bold text-slate-600 dark:text-slate-400">Điểm trung bình</span>
-                           <span className="text-[11px] font-black text-emerald-600">{(emp.averageScore ?? 0).toFixed(1)}</span>
-                        </div>
-                        <div className="p-3 text-center">
-                           <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest italic">* Nhấn để xem chi tiết bài nộp</p>
-                        </div>
-                      </div>
                   </div>
                 </td>
                 <td className="px-6 py-6 text-center">
@@ -857,9 +746,9 @@ function PremiumRankingTable({
                   )}
                 </div>
                 <div className="min-w-0">
-                  <p className="text-sm font-black text-slate-900 dark:text-white truncate">{emp.fullName}</p>
-                  <p className="text-[11px] text-slate-500 font-bold flex items-center gap-1.5 mt-0.5 truncate">
-                    <Building2 size={10} className="shrink-0" /> {emp.orgUnitName}
+                  <p className="text-sm font-black text-slate-900 dark:text-white leading-snug break-words">{emp.fullName}</p>
+                  <p className="text-[11px] text-slate-500 font-bold flex items-center gap-1.5 mt-0.5" title={emp.orgUnitName}>
+                    <Building2 size={10} className="shrink-0" /> <span className="truncate">{abbreviateOrgUnitName(emp.orgUnitName)}</span>
                   </p>
                 </div>
               </div>
@@ -964,11 +853,57 @@ function OrgUnitsGrid({ units, averageScores }: { units: OrgUnitStats[], average
   )
 }
 
-function EmployeesExecutiveTable({ 
+/**
+ * Email + 2 hành động nhanh: chép địa chỉ / mở popup soạn thư nhắc KPI.
+ * Nằm trong hàng bấm được nên phải chặn nổi bọt.
+ */
+function EmailQuickActions({ employee, onCompose, className }: { employee: any, onCompose: (emp: any) => void, className?: string }) {
+  const [copied, setCopied] = useState(false)
+  const email: string | undefined = employee?.email
+  if (!email) return null
+
+  const stop = (e: React.MouseEvent) => e.stopPropagation()
+  const copy = async (e: React.MouseEvent) => {
+    stop(e)
+    try {
+      await navigator.clipboard.writeText(email)
+      setCopied(true)
+      toast.success('Đã sao chép email')
+      setTimeout(() => setCopied(false), 1500)
+    } catch {
+      toast.error('Trình duyệt không cho phép sao chép')
+    }
+  }
+
+  const btn = "p-1 rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-500/10 transition-colors"
+
+  return (
+    <span className={cn("flex items-center gap-0.5 shrink-0", className)}>
+      <button type="button" onClick={copy} title="Sao chép email" aria-label="Sao chép email" className={btn}>
+        {copied ? <Check size={13} className="text-emerald-500" /> : <Copy size={13} />}
+      </button>
+      <button
+        type="button"
+        onClick={e => { stop(e); onCompose(employee) }}
+        title={`Soạn thư nhắc tiến độ KPI gửi ${email}`}
+        aria-label="Soạn thư nhắc tiến độ KPI"
+        className={btn}
+      >
+        <Mail size={13} />
+      </button>
+    </span>
+  )
+}
+
+function EmployeesExecutiveTable({
   employees, loading, search, onSearchChange, 
   page, totalPages, onPageChange, onExport, 
-  isExporting, orgUnitFilter, onOrgUnitFilterChange, orgUnits 
+  isExporting, orgUnitFilter, onOrgUnitFilterChange, orgUnits, periodName
 }: any) {
+  const navigate = useNavigate()
+  const [reminderTarget, setReminderTarget] = useState<ReminderRecipient | null>(null)
+  const detailPath = (userId: string) => `/employees/${userId}/performance`
+
   if (loading) return (
     <div className="space-y-6">
        {[1,2,3,4,5].map(i => (
@@ -1033,29 +968,40 @@ function EmployeesExecutiveTable({
             <thead>
                <tr className="text-[10px] font-black uppercase tracking-[0.25em] text-slate-400 border-b border-slate-50 dark:border-slate-800/50">
                   <th className="px-10 py-6">Nhân viên</th>
-                  <th className="px-6 py-6 text-center">Đơn vị</th>
                   <th className="px-6 py-6 text-center">Tiến độ Hoàn thành</th>
                   <th className="px-10 py-6 text-right">Thao tác</th>
                </tr>
             </thead>
             <tbody className="divide-y divide-slate-50 dark:divide-slate-800">
                {employees.map((emp: any) => (
-                 <tr key={emp.userId} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-all group">
+                 <tr
+                   key={emp.userId}
+                   onClick={() => navigate(detailPath(emp.userId))}
+                   title={`Xem hiệu suất chi tiết của ${emp.fullName}`}
+                   className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-all group cursor-pointer"
+                 >
                     <td className="px-10 py-6">
                       <div className="flex items-center gap-4">
-                        <div className="w-12 h-12 rounded-[18px] bg-slate-100 dark:bg-slate-800 flex items-center justify-center font-black text-sm text-slate-500 group-hover:bg-indigo-600 group-hover:text-white transition-all duration-300">
+                        <div className="w-12 h-12 rounded-[18px] bg-slate-100 dark:bg-slate-800 flex items-center justify-center font-black text-sm text-slate-500 group-hover:bg-indigo-600 group-hover:text-white transition-all duration-300 shrink-0">
                           {getInitials(emp.fullName)}
                         </div>
-                        <div>
-                          <p className="text-sm font-black text-slate-900 dark:text-white group-hover:text-indigo-600 transition-colors">{emp.fullName}</p>
-                          <p className="text-[11px] text-slate-500 font-bold mt-0.5">{emp.email}</p>
+                        {/* Tên là thông tin chính; đơn vị rút gọn thành badge phụ để không đẩy tên/email bị cụt */}
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-2 min-w-0">
+                            <p className="text-sm font-black text-slate-900 dark:text-white group-hover:text-indigo-600 transition-colors truncate">{emp.fullName}</p>
+                            <span
+                              title={emp.orgUnitName}
+                              className="shrink-0 text-[9px] font-black text-slate-500 bg-slate-100 dark:bg-slate-800/80 px-2 py-0.5 rounded-lg border border-slate-200/50 dark:border-slate-700/50 uppercase tracking-widest whitespace-nowrap"
+                            >
+                              {abbreviateOrgUnitName(emp.orgUnitName)}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-1 mt-0.5 min-w-0">
+                            <span className="text-[11px] text-slate-500 font-bold truncate">{emp.email}</span>
+                            <EmailQuickActions employee={emp} onCompose={setReminderTarget} />
+                          </div>
                         </div>
                       </div>
-                    </td>
-                    <td className="px-6 py-6 text-center">
-                       <span className="text-[11px] font-black text-slate-500 bg-slate-100 dark:bg-slate-800/80 px-3 py-1.5 rounded-xl border border-slate-200/50 dark:border-slate-700/50 uppercase tracking-widest">
-                         {emp.orgUnitName}
-                       </span>
                     </td>
                     <td className="px-6 py-6">
                        <div className="flex flex-col items-center gap-2">
@@ -1072,11 +1018,13 @@ function EmployeesExecutiveTable({
                     </td>
                     <td className="px-10 py-6 text-right">
                        <div className="flex items-center justify-end">
-                          <Link 
-                            to={`/employees/${emp.userId}/performance`} 
-                            className="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-slate-900 dark:bg-white text-[10px] font-black uppercase tracking-widest text-white dark:text-slate-900 hover:bg-indigo-600 dark:hover:bg-indigo-600 hover:text-white transition-all shadow-md group/btn"
+                          {/* Tertiary: cả hàng đã bấm được nên nút chỉ đóng vai trò gợi ý, không tranh chú ý với "Xuất báo cáo" */}
+                          <Link
+                            to={detailPath(emp.userId)}
+                            onClick={e => e.stopPropagation()}
+                            className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest text-slate-400 group-hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-500/10 transition-all"
                           >
-                            Chi tiết <ChevronRight size={14} className="group-hover/btn:translate-x-1 transition-transform" />
+                            Chi tiết <ChevronRight size={14} className="group-hover:translate-x-0.5 transition-transform" />
                           </Link>
                        </div>
                     </td>
@@ -1088,18 +1036,29 @@ function EmployeesExecutiveTable({
 
        <div className="md:hidden divide-y divide-slate-50 dark:divide-slate-800">
           {employees.map((emp: any) => (
-            <div key={emp.userId} className="p-5 space-y-3">
-              <div className="flex items-center gap-3">
+            <div
+              key={emp.userId}
+              onClick={() => navigate(detailPath(emp.userId))}
+              className="p-5 space-y-3 active:bg-slate-50 dark:active:bg-slate-800/50 transition-colors cursor-pointer"
+            >
+              <div className="flex items-start gap-3">
                 <div className="w-11 h-11 rounded-[16px] bg-slate-100 dark:bg-slate-800 flex items-center justify-center font-black text-sm text-slate-500 shrink-0">
                   {getInitials(emp.fullName)}
                 </div>
+                {/* Tên hiển thị đủ (xuống dòng thay vì cắt) — mobile cần đọc được tên để tìm đúng người */}
                 <div className="min-w-0 flex-1">
-                  <p className="text-sm font-black text-slate-900 dark:text-white truncate">{emp.fullName}</p>
-                  <p className="text-[11px] text-slate-500 font-bold mt-0.5 truncate">{emp.email}</p>
+                  <p className="text-sm font-black text-slate-900 dark:text-white leading-snug break-words">{emp.fullName}</p>
+                  <div className="flex items-center gap-1 mt-0.5 min-w-0">
+                    <span className="text-[11px] text-slate-500 font-bold truncate">{emp.email}</span>
+                    <EmailQuickActions employee={emp} onCompose={setReminderTarget} />
+                  </div>
+                  <span
+                    title={emp.orgUnitName}
+                    className="inline-block mt-1.5 text-[9px] font-black text-slate-500 bg-slate-100 dark:bg-slate-800/80 px-2 py-0.5 rounded-lg border border-slate-200/50 dark:border-slate-700/50 uppercase tracking-widest whitespace-nowrap"
+                  >
+                    {abbreviateOrgUnitName(emp.orgUnitName)}
+                  </span>
                 </div>
-                <span className="text-[10px] font-black text-slate-500 bg-slate-100 dark:bg-slate-800/80 px-2.5 py-1 rounded-xl border border-slate-200/50 dark:border-slate-700/50 uppercase tracking-widest shrink-0">
-                  {emp.orgUnitName}
-                </span>
               </div>
 
               <div className="flex items-center gap-2">
@@ -1117,8 +1076,9 @@ function EmployeesExecutiveTable({
               <div className="flex items-center justify-between pt-1 border-t border-slate-100 dark:border-slate-800">
                 <span className="text-[11px] font-bold text-slate-500">{emp.approvedSubmissions}/{emp.assignedKpi} KPIs</span>
                 <Link
-                  to={`/employees/${emp.userId}/performance`}
-                  className="flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-900 dark:bg-white text-[10px] font-black uppercase tracking-widest text-white dark:text-slate-900"
+                  to={detailPath(emp.userId)}
+                  onClick={e => e.stopPropagation()}
+                  className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest text-indigo-600 dark:text-indigo-400 active:bg-indigo-50 dark:active:bg-indigo-500/10"
                 >
                   Chi tiết <ChevronRight size={14} />
                 </Link>
@@ -1137,7 +1097,7 @@ function EmployeesExecutiveTable({
              >
                <ChevronLeft size={20} />
              </button>
-             <button 
+             <button
                onClick={() => onPageChange(Math.min(totalPages - 1, page + 1))}
                disabled={page >= totalPages - 1}
                className="p-3 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-600 disabled:opacity-40 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 transition-all shadow-sm"
@@ -1146,6 +1106,13 @@ function EmployeesExecutiveTable({
              </button>
           </div>
        </div>
+
+       <KpiReminderModal
+         open={!!reminderTarget}
+         onClose={() => setReminderTarget(null)}
+         recipient={reminderTarget}
+         periodName={periodName}
+       />
     </div>
   )
 }

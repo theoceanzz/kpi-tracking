@@ -15,7 +15,7 @@ import {
   Calendar, ChevronLeft, Search, CheckCircle,
   ShieldCheck, Target, GitBranch,
   Loader2, ChevronDown, CornerDownRight,
-  LayoutGrid, List
+  LayoutGrid, List, SlidersHorizontal, MousePointerClick
 } from 'lucide-react'
 import { buildKpiRows } from '../utils/kpiTree'
 import { useAuthStore } from '@/store/authStore'
@@ -248,11 +248,16 @@ export default function KpiApprovalPage() {
         </div>
 
         {/* Toolbar */}
-        <div id="tour-pending-toolbar" className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-md p-6 rounded-[28px] border border-slate-200 dark:border-slate-800 shadow-sm space-y-4">
-          {/* Row 1: Primary Filters */}
-          <div className="flex flex-col md:flex-row items-center gap-4 w-full">
-            <div className="flex items-center gap-2 flex-1 w-full">
-              <div className="relative flex-1">
+        <div id="tour-pending-toolbar" className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-md p-5 sm:p-6 rounded-[28px] border border-slate-200 dark:border-slate-800 shadow-sm space-y-6 md:space-y-4">
+          {/* Cluster 1: Filters */}
+          <div className="space-y-3">
+            <div className="flex md:hidden items-center gap-2 px-1 text-slate-400 dark:text-slate-500">
+              <SlidersHorizontal size={14} />
+              <span className="text-[10px] font-black uppercase tracking-[0.2em]">Lọc thông tin</span>
+            </div>
+
+            <div className="flex flex-col md:flex-row md:items-center gap-3 md:gap-4 w-full">
+              <div className="relative flex-1 w-full">
                 <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
                 <input
                   value={search}
@@ -261,30 +266,7 @@ export default function KpiApprovalPage() {
                   className="w-full h-12 pl-12 pr-4 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 text-sm font-medium focus:ring-2 focus:ring-indigo-500/20 outline-none transition-all"
                 />
               </div>
-              <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-[18px] shrink-0">
-                <button
-                  onClick={() => setViewMode('list')}
-                  className={cn(
-                    "p-2.5 rounded-xl transition-all duration-300",
-                    viewMode === 'list' ? 'bg-white dark:bg-slate-700 shadow-md text-indigo-600 scale-105' : 'text-slate-400 hover:text-slate-600'
-                  )}
-                  title="Dạng danh sách"
-                >
-                  <List size={18} />
-                </button>
-                <button
-                  onClick={() => setViewMode('card')}
-                  className={cn(
-                    "p-2.5 rounded-xl transition-all duration-300",
-                    viewMode === 'card' ? 'bg-white dark:bg-slate-700 shadow-md text-indigo-600 scale-105' : 'text-slate-400 hover:text-slate-600'
-                  )}
-                  title="Dạng card"
-                >
-                  <LayoutGrid size={18} />
-                </button>
-              </div>
-            </div>
-            
+
             <div className="w-full md:w-72">
               <Select value={selectedOrgUnitId} onValueChange={(v) => { setSelectedOrgUnitId(v); setPage(0) }}>
                 <SelectTrigger className="h-12 rounded-2xl border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 font-bold text-sm">
@@ -317,12 +299,12 @@ export default function KpiApprovalPage() {
                 </SelectContent>
               </Select>
             </div>
-          </div>
+            </div>
 
-          {/* Row 2: Strategic Filters (OKR) */}
-          {enableOkr && (
-            <div className="flex flex-col md:flex-row items-center gap-4 w-full pt-4 border-t border-slate-100 dark:border-slate-800 animate-in slide-in-from-top-2 duration-500">
-              <div className="flex items-center gap-2 text-indigo-600 dark:text-indigo-400 min-w-[140px] px-2">
+            {/* Sub-group: Strategic Filters (OKR) */}
+            {enableOkr && (
+            <div className="flex flex-col md:flex-row md:items-center gap-3 md:gap-4 w-full pt-4 border-t border-slate-100 dark:border-slate-800 animate-in slide-in-from-top-2 duration-500">
+              <div className="flex items-center gap-2 text-indigo-600 dark:text-indigo-400 md:min-w-[140px] px-1 md:px-2">
                 <Target size={18} className="animate-bounce" />
                 <span className="text-[10px] font-black uppercase tracking-[0.2em] whitespace-nowrap">Bộ lọc OKR</span>
               </div>
@@ -365,11 +347,76 @@ export default function KpiApprovalPage() {
                 </Select>
               </div>
             </div>
-          )}
+            )}
+          </div>
+
+          {/* Cluster 2 + 3: Actions & Sorting */}
+          <div className="flex flex-col sm:flex-row sm:items-end gap-6 sm:gap-4 pt-5 md:pt-4 border-t border-slate-100 dark:border-slate-800">
+            {/* Cluster 2: Actions (display mode) */}
+            <div className="space-y-3 sm:flex-1">
+              <div className="flex md:hidden items-center gap-2 px-1 text-slate-400 dark:text-slate-500">
+                <MousePointerClick size={14} />
+                <span className="text-[10px] font-black uppercase tracking-[0.2em]">Hành động</span>
+              </div>
+              <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-[18px] w-full sm:w-auto sm:inline-flex">
+                <button
+                  onClick={() => setViewMode('list')}
+                  className={cn(
+                    "flex-1 sm:flex-none flex items-center justify-center gap-2 h-10 px-4 rounded-xl transition-all duration-300 text-xs font-black uppercase tracking-wider",
+                    viewMode === 'list' ? 'bg-white dark:bg-slate-700 shadow-md text-indigo-600' : 'text-slate-400 hover:text-slate-600'
+                  )}
+                  title="Dạng danh sách"
+                >
+                  <List size={18} /> <span className="sm:hidden">Danh sách</span>
+                </button>
+                <button
+                  onClick={() => setViewMode('card')}
+                  className={cn(
+                    "flex-1 sm:flex-none flex items-center justify-center gap-2 h-10 px-4 rounded-xl transition-all duration-300 text-xs font-black uppercase tracking-wider",
+                    viewMode === 'card' ? 'bg-white dark:bg-slate-700 shadow-md text-indigo-600' : 'text-slate-400 hover:text-slate-600'
+                  )}
+                  title="Dạng card"
+                >
+                  <LayoutGrid size={18} /> <span className="sm:hidden">Dạng thẻ</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Cluster 3: Sorting */}
+            <div className="space-y-3 w-full sm:w-64">
+              <div className="flex md:hidden items-center gap-2 px-1 text-slate-400 dark:text-slate-500">
+                <ArrowUpDown size={14} />
+                <span className="text-[10px] font-black uppercase tracking-[0.2em]">Sắp xếp</span>
+              </div>
+              <Select value={`${sortBy}-${sortDir}`} onValueChange={(v) => {
+                const [field, dir] = v.split('-')
+                if (field && dir) {
+                  setSortBy(field)
+                  setSortDir(dir as 'asc' | 'desc')
+                  setPage(0)
+                }
+              }}>
+                <SelectTrigger className="h-12 rounded-2xl border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 font-bold text-sm">
+                  <div className="flex items-center gap-2">
+                    <ArrowUpDown size={16} className="text-slate-400 shrink-0" />
+                    <SelectValue placeholder="Sắp xếp" />
+                  </div>
+                </SelectTrigger>
+                <SelectContent className="rounded-2xl border-slate-200 dark:border-slate-800">
+                  <SelectItem value="updatedAt-desc" className="font-medium">Cập nhật mới nhất</SelectItem>
+                  <SelectItem value="updatedAt-asc" className="font-medium">Cập nhật cũ nhất</SelectItem>
+                  <SelectItem value="name-asc" className="font-medium">Tên A-Z</SelectItem>
+                  <SelectItem value="name-desc" className="font-medium">Tên Z-A</SelectItem>
+                  <SelectItem value="weight-desc" className="font-medium">Trọng số cao</SelectItem>
+                  <SelectItem value="weight-asc" className="font-medium">Trọng số thấp</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
         </div>
 
         {/* Status Tabs Row */}
-        <div id="tour-pending-tabs" className="flex flex-wrap items-center gap-3 py-2">
+        <div id="tour-pending-tabs" className="flex flex-wrap items-center gap-2.5 sm:gap-3 py-2">
           {(['PENDING_APPROVAL', 'APPROVED', 'REJECTED', 'ALL'] as const).map((tab) => {
             const labels: Record<string, string> = { 
               PENDING_APPROVAL: 'Đợi duyệt', 

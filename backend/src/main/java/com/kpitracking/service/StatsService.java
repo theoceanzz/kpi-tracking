@@ -143,6 +143,15 @@ public class StatsService {
 
         java.util.List<KpiStatus> activeStatuses = java.util.Arrays.asList(KpiStatus.APPROVED, KpiStatus.EDITED, KpiStatus.EDIT, KpiStatus.PENDING_APPROVAL);
 
+        List<EvaluationPeriodCountResponse> evaluationPeriods = evaluationRepository.countGroupByPeriodForOrgUnits(unitIds)
+                .stream()
+                .map(row -> EvaluationPeriodCountResponse.builder()
+                        .kpiPeriodId((UUID) row[0])
+                        .kpiPeriodName((String) row[1])
+                        .count(((Number) row[2]).longValue())
+                        .build())
+                .toList();
+
         return OverviewStatsResponse.builder()
                 .totalUsers(totalPersonnelCount)
                 .totalOrgUnits((int) kpiCriteriaRepository.countDistinctOrgUnitsOfAssigneesIn(unitIds, activeStatuses))
@@ -157,6 +166,7 @@ public class StatsService {
                 .pendingSubmissions((int) pendingSub)
                 .rejectedSubmissions((int) rejectedSub)
                 .totalEvaluations(evaluationRepository.countByOrgUnitIdIn(unitIds))
+                .evaluationPeriods(evaluationPeriods)
                 .build();
     }
 

@@ -13,6 +13,14 @@ export interface OverviewStats {
   approvedSubmissions: number
   rejectedSubmissions: number
   totalEvaluations: number
+  evaluationPeriods?: EvaluationPeriodCount[]
+}
+
+// Matches BE: EvaluationPeriodCountResponse
+export interface EvaluationPeriodCount {
+  kpiPeriodId: string
+  kpiPeriodName: string
+  count: number
 }
 
 // Matches BE: DeptKpiStatsResponse
