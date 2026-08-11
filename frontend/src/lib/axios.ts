@@ -41,7 +41,13 @@ axiosInstance.interceptors.response.use(
   async (error) => {
     const originalRequest = error.config
 
-    if (error.response?.status === 401 && !originalRequest._retry && !originalRequest.url?.includes('/auth/login')) {
+    // Các endpoint đăng nhập không có access token nên 401 ở đây không được kích hoạt luồng refresh
+    const isLoginEndpoint =
+      originalRequest.url?.includes('/auth/login') ||
+      originalRequest.url?.includes('/auth/lark') ||
+      originalRequest.url?.includes('/public/')
+
+    if (error.response?.status === 401 && !originalRequest._retry && !isLoginEndpoint) {
       if (isRefreshing) {
         return new Promise((resolve, reject) => {
           failedQueue.push({ resolve, reject })

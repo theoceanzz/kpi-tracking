@@ -10,6 +10,8 @@ import LandingPage from '@/features/landing/pages/LandingPage'
 import LoginPage from '@/features/auth/pages/LoginPage'
 import RegisterPage from '@/features/auth/pages/RegisterPage'
 import VerifyEmailPage from '@/features/auth/pages/VerifyEmailPage'
+import LarkCallbackPage from '@/features/auth/pages/LarkCallbackPage'
+import LarkSelectCompanyPage from '@/features/auth/pages/LarkSelectCompanyPage'
 import ForgotPasswordPage from '@/features/auth/pages/ForgotPasswordPage'
 import ResetPasswordPage from '@/features/auth/pages/ResetPasswordPage'
 import RoleManagementPage from '@/features/organization/pages/RoleManagementPage'
@@ -44,6 +46,7 @@ import ReportDetailPage from '@/features/reports/pages/ReportDetailPage'
 import AnalyticsPage from '@/features/analytics/pages/AnalyticsPage'
 import AiAssistantPage from '@/features/analytics/pages/AiAssistantPage'
 import SystemSettingsPage from '@/features/organization/pages/SystemSettingsPage'
+import AiQuotaPage from '@/features/organization/pages/AiQuotaPage'
 import OkrManagementPage from '@/features/okr/pages/OkrManagementPage'
 import BscManagementPage from '@/features/bsc/pages/BscManagementPage'
 import BscDashboardPage from '@/features/bsc/pages/BscDashboardPage'
@@ -66,7 +69,14 @@ export const router = createBrowserRouter([
       { path: '/verify-email', element: <VerifyEmailPage /> },
       { path: '/forgot-password', element: <ForgotPasswordPage /> },
       { path: '/reset-password', element: <ResetPasswordPage /> },
+      { path: '/auth/lark/select-company', element: <LarkSelectCompanyPage /> },
     ],
+  },
+  {
+    // Ngoài AuthLayout: luồng kết nối Lark chạy khi quản trị viên đang đăng nhập,
+    // mà AuthLayout lại đẩy người đã đăng nhập về /dashboard.
+    path: '/auth/lark/callback',
+    element: <LarkCallbackPage />,
   },
   {
     element: <PlatformAdminRoute />,
@@ -98,6 +108,17 @@ export const router = createBrowserRouter([
               { path: '/kpi-periods', element: <KpiPeriodsPage /> },
               { path: '/kpi-cycles', element: <KpiCyclesPage /> },
               { path: '/kpi-cycles/evaluation', element: <CycleEvaluationPage /> },
+            ],
+          },
+
+          // Phân bổ hạn mức token AI — gác đúng bằng quyền thực hiện hành động.
+          // KHÔNG gộp vào khối "Admin / HR Management" bên dưới: khối đó đòi đủ ba quyền
+          // ORG:VIEW + USER:VIEW + ROLE:VIEW mà trưởng đơn vị không có, sẽ khoá nhầm
+          // đúng nhóm người mà tính năng uỷ quyền phục vụ.
+          {
+            element: <PermissionRoute permission="AI_QUOTA:ALLOCATE" />,
+            children: [
+              { path: '/ai-quota', element: <AiQuotaPage /> },
             ],
           },
 

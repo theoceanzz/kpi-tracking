@@ -49,8 +49,16 @@ export interface UnitClassRule {
   color: string
   conditions: UnitClassCondition[]
 }
+/** Một HỒ SƠ luật xếp loại: gán cho (các) đơn vị. Đơn vị con kế thừa hồ sơ của cha. */
+export interface UnitClassProfile {
+  name: string
+  isDefault?: boolean       // đúng 1 hồ sơ mặc định — áp cho đơn vị không được gán
+  orgUnitIds: string[]      // đơn vị áp dụng (rỗng nếu là mặc định)
+  rules: UnitClassRule[]    // cao → thấp (ưu tiên)
+}
 export interface UnitClassificationRules {
-  rules: UnitClassRule[]  // cao → thấp (ưu tiên)
+  profiles?: UnitClassProfile[]  // hình dạng mới
+  rules?: UnitClassRule[]        // hình dạng cũ (tương thích ngược) — 1 bộ luật cho cả org
 }
 
 /** Preset khi KHÔNG dùng matrix (thang XUẤT SẮC/TỐT/KHÁ/TRUNG BÌNH/YẾU). Khớp backend EvaluationConstants. */

@@ -48,6 +48,9 @@ export default function UnitClassificationSection({ overview }: { overview?: Uni
             {overview?.evaluatedMembers ?? 0}/{overview?.totalMembers ?? 0} người có đánh giá
             {overview?.currentPeriodName ? ` · ${overview.currentPeriodName}` : ''}
           </p>
+          {overview?.appliedProfileName && (
+            <p className="text-[10px] font-black text-indigo-500 mt-0.5">Hồ sơ: {overview.appliedProfileName}</p>
+          )}
         </div>
 
         {/* Phân bố người theo mức */}
@@ -107,7 +110,10 @@ export default function UnitClassificationSection({ overview }: { overview?: Uni
               <div key={c.orgUnitId} className="flex items-center justify-between gap-3 rounded-xl border border-slate-100 dark:border-slate-800 px-4 py-3">
                 <div className="min-w-0">
                   <p className="text-[13px] font-bold text-slate-800 dark:text-slate-100 truncate">{c.orgUnitName}</p>
-                  <p className="text-[10px] font-bold text-slate-400">{c.evaluatedMembers} người đánh giá</p>
+                  <p className="text-[10px] font-bold text-slate-400">
+                    {c.evaluatedMembers} người đánh giá
+                    {c.appliedProfileName ? ` · ${c.appliedProfileName}` : ''}
+                  </p>
                 </div>
                 {c.classification ? (
                   <span className="text-[11px] font-black px-2.5 py-1 rounded-lg shrink-0"

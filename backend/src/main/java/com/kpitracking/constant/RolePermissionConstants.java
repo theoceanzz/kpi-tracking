@@ -7,7 +7,9 @@ import java.util.List;
 public class RolePermissionConstants {
 
     public static final List<String> SYSTEM_ONLY = Arrays.asList(
-            "SYSTEM:ADMIN", "COMPANY:DELETE", "ROLE:DELETE", "POLICY:DELETE", "PERMISSION:EDIT"
+            "SYSTEM:ADMIN", "COMPANY:DELETE", "ROLE:DELETE", "POLICY:DELETE", "PERMISSION:EDIT",
+            // Đặt ngân sách token AI cho toàn công ty + bật/tắt uỷ quyền cho cấp dưới
+            "AI_QUOTA:MANAGE"
     );
 
     public static final List<String> PERSONAL_PERMS = Arrays.asList(
@@ -35,9 +37,9 @@ public class RolePermissionConstants {
             "EVALUATION:VIEW", "EVALUATION:CREATE", "EVALUATION:UPDATE", "EVALUATION:DELETE",
             "NOTIF:VIEW", "NOTIF:MANAGE",
             "KPI_PERIOD:VIEW", "KPI_PERIOD:CREATE", "KPI_PERIOD:UPDATE", "KPI_PERIOD:DELETE",
+            "AI:SUGGEST_KPI", "AI_QUOTA:ALLOCATE",
             "KPI_CYCLE:VIEW", "KPI_CYCLE:CREATE", "KPI_CYCLE:UPDATE", "KPI_CYCLE:DELETE",
             "CYCLE_EVAL:VIEW", "CYCLE_EVAL:FINALIZE",
-            "AI:SUGGEST_KPI",
             "POLICY:VIEW", "POLICY:CREATE", "POLICY:UPDATE", "POLICY:ASSIGN",
             "STATS:VIEW_ORG", "STATS:VIEW_EMPLOYEE",
             "USER_ROLE:VIEW", "USER_ROLE:ASSIGN", "USER_ROLE:REVOKE",
@@ -86,9 +88,9 @@ public class RolePermissionConstants {
             "KPI:IMPORT", "KPI:SUBMIT", "KPI:REJECT",
             "SUBMISSION:VIEW", "SUBMISSION:REVIEW", "SUBMISSION:REVIEW_KPI",
             "EVALUATION:VIEW", "EVALUATION:CREATE",
-            "CYCLE_EVAL:VIEW", "CYCLE_EVAL:FINALIZE",
             "NOTIF:VIEW", "KPI_PERIOD:VIEW", "KPI_CYCLE:VIEW",
-            "AI:SUGGEST_KPI",
+            "AI:SUGGEST_KPI", "AI_QUOTA:ALLOCATE",
+            "CYCLE_EVAL:VIEW", "CYCLE_EVAL:FINALIZE",
             "STATS:VIEW_EMPLOYEE",
             "ATTACHMENT:UPLOAD",
             "REMINDER:SEND",

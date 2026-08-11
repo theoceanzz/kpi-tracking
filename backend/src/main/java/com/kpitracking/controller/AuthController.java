@@ -3,8 +3,10 @@ package com.kpitracking.controller;
 import com.kpitracking.dto.request.auth.*;
 import com.kpitracking.dto.response.ApiResponse;
 import com.kpitracking.dto.response.auth.AuthResponse;
+import com.kpitracking.dto.response.auth.LarkAuthorizeUrlResponse;
 import com.kpitracking.dto.response.auth.UserInfoResponse;
 import com.kpitracking.service.AuthService;
+import com.kpitracking.service.LarkAuthService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -21,6 +23,7 @@ import jakarta.servlet.http.HttpServletRequest;
 public class AuthController {
 
     private final AuthService authService;
+    private final LarkAuthService larkAuthService;
 
     @PostMapping("/register")
     @Operation(summary = "Register a new organization and director account")
@@ -44,6 +47,22 @@ public class AuthController {
     public ResponseEntity<ApiResponse<AuthResponse>> refreshToken(@Valid @RequestBody RefreshTokenRequest request) {
         AuthResponse response = authService.refreshToken(request.getRefreshToken());
         return ResponseEntity.ok(ApiResponse.success("Token refreshed", response));
+    }
+
+    @GetMapping("/lark/authorize-url")
+    @Operation(summary = "Get the Lark OAuth authorize URL for a specific organization")
+    public ResponseEntity<ApiResponse<LarkAuthorizeUrlResponse>> larkAuthorizeUrl(
+            @RequestParam java.util.UUID organizationId) {
+        return ResponseEntity.ok(ApiResponse.success("Lark authorize URL generated",
+                larkAuthService.getAuthorizeUrl(organizationId)));
+    }
+
+    @PostMapping("/lark/callback")
+    @Operation(summary = "Exchange a Lark authorization code for KeyGo tokens")
+    public ResponseEntity<ApiResponse<AuthResponse>> larkCallback(@Valid @RequestBody LarkCallbackRequest request, HttpServletRequest httpRequest) {
+        String userAgent = httpRequest.getHeader("User-Agent");
+        AuthResponse response = larkAuthService.loginWithLark(request.getCode(), request.getState(), userAgent);
+        return ResponseEntity.ok(ApiResponse.success("Login successful", response));
     }
 
     @PostMapping("/change-password")

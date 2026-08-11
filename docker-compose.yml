@@ -41,6 +41,16 @@ services:
       - CORS_ORIGINS=${CORS_ORIGINS:-*}
       - APP_FRONTEND_URL=${FRONTEND_URL:-https://keygo.vn}
 
+      # Lark SSO. App ID/Secret của từng công ty lưu trong DB, không cấu hình ở đây.
+      - LARK_REDIRECT_URI=${LARK_REDIRECT_URI:-https://keygo.vn/auth/lark/callback}
+
+      # Khoá mã hoá dữ liệu nhạy cảm trong DB (App Secret Lark, tenant_key).
+      # Cú pháp :? khiến compose dừng ngay nếu biến chưa khai — biến rỗng sẽ làm khoá suy ra được.
+      # ĐỔI KHOÁ = MẤT LIÊN KẾT Lark của mọi công ty, không phục hồi được.
+      # Sinh khoá bằng lệnh: openssl rand -base64 48
+      # Lưu ý: phải bọc nháy kép, nếu không dấu ':' trong thông báo sẽ khiến YAML hiểu nhầm là map.
+      - "DATA_ENCRYPTION_KEY=${DATA_ENCRYPTION_KEY:?chua khai DATA_ENCRYPTION_KEY trong .env - xem huong dan phia tren}"
+
       # Cloudinary
       - CLOUDINARY_CLOUD_NAME=${CLOUDINARY_CLOUD_NAME}
       - CLOUDINARY_API_KEY=${CLOUDINARY_API_KEY}

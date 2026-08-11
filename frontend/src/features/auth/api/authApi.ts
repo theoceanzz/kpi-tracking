@@ -1,6 +1,6 @@
 import axiosInstance from '@/lib/axios'
 import type { ApiResponse } from '@/types/api'
-import type { AuthResponse, LoginRequest, RegisterRequest, ChangePasswordRequest, ForgotPasswordRequest, ResetPasswordRequest, UserInfo } from '@/types/auth'
+import type { AuthResponse, LoginRequest, RegisterRequest, ChangePasswordRequest, ForgotPasswordRequest, ResetPasswordRequest, UserInfo, LarkAuthorizeUrl } from '@/types/auth'
 
 export const authApi = {
   login: (data: LoginRequest) =>
@@ -11,6 +11,14 @@ export const authApi = {
 
   refreshToken: (refreshToken: string) =>
     axiosInstance.post<ApiResponse<AuthResponse>>('/auth/refresh-token', { refreshToken }).then((r) => r.data.data),
+
+  getLarkAuthorizeUrl: (organizationId: string) =>
+    axiosInstance
+      .get<ApiResponse<LarkAuthorizeUrl>>('/auth/lark/authorize-url', { params: { organizationId } })
+      .then((r) => r.data.data),
+
+  larkCallback: (code: string, state: string) =>
+    axiosInstance.post<ApiResponse<AuthResponse>>('/auth/lark/callback', { code, state }).then((r) => r.data.data),
 
   changePassword: (data: ChangePasswordRequest) =>
     axiosInstance.post<ApiResponse<void>>('/auth/change-password', data).then((r) => r.data),

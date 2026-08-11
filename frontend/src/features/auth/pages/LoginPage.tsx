@@ -7,6 +7,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { Loader2, Mail, Lock, Eye, EyeOff, Crown, GraduationCap, PlayCircle } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { authApi } from '../api/authApi'
+import LarkLoginButton from '../components/LarkLoginButton'
 import { toast } from 'sonner'
 import { useEffect } from 'react'
 import { useMutation } from '@tanstack/react-query'
@@ -215,6 +216,19 @@ export default function LoginPage() {
           Đăng nhập hệ thống
         </button>
       </form>
+
+      <div className="relative my-6">
+        <div className="absolute inset-0 flex items-center">
+          <span className="w-full border-t border-[var(--color-border)]" />
+        </div>
+        <div className="relative flex justify-center text-xs uppercase">
+          <span className="bg-slate-50 dark:bg-slate-950 px-2 font-semibold tracking-wider text-[var(--color-muted-foreground)]">
+            Hoặc
+          </span>
+        </div>
+      </div>
+
+      <LarkLoginButton />
 
       <div className="mt-8 text-center bg-[var(--color-muted)]/30 rounded-xl p-4 border border-[var(--color-border)]/50">
         <p className="text-sm text-[var(--color-muted-foreground)]">

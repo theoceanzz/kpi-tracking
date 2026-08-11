@@ -24,6 +24,7 @@ export interface UnitClassChild {
   orgUnitName: string
   classification: string | null
   color: string | null
+  appliedProfileName?: string | null
   evaluatedMembers: number
 }
 
@@ -36,6 +37,7 @@ export interface UnitClassificationOverview {
   currentPeriodName: string | null
   distribution: UnitClassBucket[]
   classification: UnitClassification | null
+  appliedProfileName?: string | null
   trend: UnitClassTrendPoint[]
   children: UnitClassChild[]
 }

@@ -25,7 +25,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import AiAssistantWidget from '../components/AiAssistantWidget'
 import AnalyticsComboChart from '../components/AnalyticsComboChart'
 import UnitComparisonBarChart from '../components/UnitComparisonBarChart'
 import MemberRoleChart from '../components/MemberRoleChart'
@@ -394,7 +393,7 @@ export default function SummaryTab() {
       {/* ── Lưới widget tuỳ chỉnh ─────────────────────────────────────────── */}
       <DashboardCustomizeChrome api={dash} renderWidget={renderWidgetContent} catalog={SUMMARY_CATALOG} ready={!!mainData} />
 
-      <AiAssistantWidget />
+      {/* AiAssistantWidget đã chuyển sang AppLayout để hiện trên mọi trang */}
 
       {selectedKpiId && (
         <OrgUnitKpiDrawer

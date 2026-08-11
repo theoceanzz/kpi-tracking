@@ -1,5 +1,5 @@
 import { useEffect, useState, useMemo } from 'react'
-import { useForm, SubmitHandler } from 'react-hook-form'
+import { useForm, SubmitHandler, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import * as z from 'zod'
 import { X, Upload, Building2, MapPin, Phone, Mail, Image as ImageIcon } from 'lucide-react'
@@ -14,9 +14,23 @@ import {
 import { useRoles } from '../hooks/useUserRoles'
 
 import { cn } from '@/lib/utils'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 
 
 export type DrawerMode = 'create-root' | 'create-child' | 'edit'
+
+/**
+ * Giá trị "chưa chọn". Radix Select cấm SelectItem mang value là chuỗi rỗng, trong khi form
+ * lưu tỉnh/quận rỗng là '' — nên hiển thị bằng sentinel rồi đổi ngược về '' khi ghi vào form.
+ */
+const NONE = '__NONE__'
+
+/** Dropdown phải nổi trên drawer (z-[200]), nếu không sẽ bị lớp phủ che mất. */
+const dropdownCls = 'z-[300]'
+
+const triggerCls =
+  'h-auto w-full px-3 py-2 rounded-lg border-gray-300 bg-white text-sm font-normal transition-all ' +
+  'focus:ring-2 focus:ring-blue-500 focus:ring-offset-0 disabled:bg-gray-50 disabled:text-gray-400'
 
 export interface DrawerState {
   isOpen: boolean
@@ -118,7 +132,7 @@ export function OrgUnitDrawer({ orgId, drawerState, onClose, hierarchyLevels }: 
     }
   })
       
-  const { register, handleSubmit, formState: { errors }, reset, setValue, watch, setError } = useForm<FormData>({
+  const { register, handleSubmit, formState: { errors }, reset, setValue, watch, setError, control } = useForm<FormData>({
     resolver: zodResolver(schema),
     defaultValues: {
       name: '',
@@ -355,15 +369,23 @@ export function OrgUnitDrawer({ orgId, drawerState, onClose, hierarchyLevels }: 
             {drawerState.mode === 'edit' && (
               <div className="space-y-1">
                 <label className="text-sm font-semibold text-gray-700">Trạng thái vận hành</label>
-                <select 
-                  {...register('status')}
-                  className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none border-gray-300 bg-white transition-all text-sm font-bold"
-                >
-                  <option value="ACTIVE">HOẠT ĐỘNG</option>
-                  <option value="TRIAL">DÙNG THỬ (MỚI)</option>
-                  <option value="INACTIVE">TẠM DỪNG / NGƯNG</option>
-                  <option value="SUSPENDED">ĐÌNH CHỈ / KHÓA</option>
-                </select>
+                <Controller
+                  name="status"
+                  control={control}
+                  render={({ field }) => (
+                    <Select value={field.value || 'ACTIVE'} onValueChange={field.onChange}>
+                      <SelectTrigger className={cn(triggerCls, 'font-bold')}>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent className={dropdownCls}>
+                        <SelectItem value="ACTIVE">HOẠT ĐỘNG</SelectItem>
+                        <SelectItem value="TRIAL">DÙNG THỬ (MỚI)</SelectItem>
+                        <SelectItem value="INACTIVE">TẠM DỪNG / NGƯNG</SelectItem>
+                        <SelectItem value="SUSPENDED">ĐÌNH CHỈ / KHÓA</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  )}
+                />
               </div>
             )}
 
@@ -406,24 +428,51 @@ export function OrgUnitDrawer({ orgId, drawerState, onClose, hierarchyLevels }: 
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-1">
                     <label className="text-sm font-semibold text-gray-700">Tỉnh/Thành phố</label>
-                    <select 
-                      {...register('provinceId')}
-                      className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none border-gray-300 bg-white transition-all text-sm"
-                    >
-                      <option value="">Chọn Tỉnh/Thành</option>
-                      {provinces.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-                    </select>
+                    <Controller
+                      name="provinceId"
+                      control={control}
+                      render={({ field }) => (
+                        <Select
+                          value={field.value || NONE}
+                          onValueChange={(v) => {
+                            field.onChange(v === NONE ? '' : v)
+                            // Đổi tỉnh thì quận cũ không còn thuộc tỉnh mới nữa; không xoá thì
+                            // form vẫn giữ districtId cũ và gửi lên một quận lệch tỉnh.
+                            setValue('districtId', '')
+                          }}
+                        >
+                          <SelectTrigger className={triggerCls}>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent className={dropdownCls}>
+                            <SelectItem value={NONE}>Chọn Tỉnh/Thành</SelectItem>
+                            {provinces.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+                          </SelectContent>
+                        </Select>
+                      )}
+                    />
                   </div>
                   <div className="space-y-1">
                     <label className="text-sm font-semibold text-gray-700">Quận/Huyện</label>
-                    <select 
-                      {...register('districtId')}
-                      disabled={!selectedProvinceId}
-                      className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none border-gray-300 bg-white transition-all text-sm disabled:bg-gray-50 disabled:text-gray-400"
-                    >
-                      <option value="">Chọn Quận/Huyện</option>
-                      {districts.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
-                    </select>
+                    <Controller
+                      name="districtId"
+                      control={control}
+                      render={({ field }) => (
+                        <Select
+                          value={field.value || NONE}
+                          onValueChange={(v) => field.onChange(v === NONE ? '' : v)}
+                          disabled={!selectedProvinceId}
+                        >
+                          <SelectTrigger className={triggerCls}>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent className={dropdownCls}>
+                            <SelectItem value={NONE}>Chọn Quận/Huyện</SelectItem>
+                            {districts.map(d => <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>)}
+                          </SelectContent>
+                        </Select>
+                      )}
+                    />
                   </div>
                 </div>
                 <div className="space-y-1">

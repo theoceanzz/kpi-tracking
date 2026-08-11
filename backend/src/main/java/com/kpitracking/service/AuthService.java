@@ -180,25 +180,28 @@ public class AuthService {
             throw new BusinessException("Vui lòng xác thực email của bạn trước khi đăng nhập.");
         }
 
-        List<String> authorities = getUserAuthorities(user.getId());
-        String accessToken = jwtTokenProvider.generateAccessToken(user.getEmail(), authorities);
-        RefreshToken refreshToken = refreshTokenService.createOrUpdateRefreshToken(user.getId(), userAgent);
-
-        return AuthResponse.builder().accessToken(accessToken).refreshToken(refreshToken.getToken()).tokenType("Bearer").user(enrichUserInfo(userMapper.toUserInfoResponse(user))).requirePasswordChange(user.getRequirePasswordChange()).hasSeenOnboarding(Boolean.TRUE.equals(user.getHasSeenOnboarding())).build();
+        return issueAuthResponse(user, userAgent);
     }
 
     @Transactional
     public AuthResponse refreshToken(String refreshTokenStr) {
         RefreshToken refreshToken = refreshTokenService.verifyRefreshToken(refreshTokenStr);
         User user = refreshToken.getUser();
-        String currentDevice = refreshToken.getDeviceInfo();
 
-        RefreshToken newRefreshToken = refreshTokenService.createOrUpdateRefreshToken(user.getId(), currentDevice);
+        return issueAuthResponse(user, refreshToken.getDeviceInfo());
+    }
 
+    /**
+     * Phát access token + refresh token cho một user đã xác thực thành công.
+     * Dùng chung cho đăng nhập mật khẩu, làm mới token và đăng nhập SSO (Lark).
+     */
+    @Transactional
+    public AuthResponse issueAuthResponse(User user, String deviceInfo) {
         List<String> authorities = getUserAuthorities(user.getId());
         String accessToken = jwtTokenProvider.generateAccessToken(user.getEmail(), authorities);
+        RefreshToken refreshToken = refreshTokenService.createOrUpdateRefreshToken(user.getId(), deviceInfo);
 
-        return AuthResponse.builder().accessToken(accessToken).refreshToken(newRefreshToken.getToken()).tokenType("Bearer").user(enrichUserInfo(userMapper.toUserInfoResponse(user))).requirePasswordChange(user.getRequirePasswordChange()).hasSeenOnboarding(Boolean.TRUE.equals(user.getHasSeenOnboarding())).build();
+        return AuthResponse.builder().accessToken(accessToken).refreshToken(refreshToken.getToken()).tokenType("Bearer").user(enrichUserInfo(userMapper.toUserInfoResponse(user))).requirePasswordChange(user.getRequirePasswordChange()).hasSeenOnboarding(Boolean.TRUE.equals(user.getHasSeenOnboarding())).build();
     }
 
     @Transactional

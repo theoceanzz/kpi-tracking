@@ -50,9 +50,44 @@ CREATE TABLE organizations (
   enable_bsc  BOOLEAN NOT NULL DEFAULT FALSE,
   performance_matrix jsonb,
   unit_classification_rules jsonb,
+
+  -- ----- Hạn mức token AI -----
+  -- Ngân sách token/tháng do quản trị nền tảng cấp cho công ty. Tổng hạn mức phân bổ
+  -- cho từng người không được vượt số này (kiểm ở AiQuotaAllocationService).
+  ai_monthly_token_limit  BIGINT NOT NULL DEFAULT 0,
+  -- Cho phép quản lý cấp dưới tự chia hạn mức cho nhân viên trong đơn vị của họ.
+  ai_allow_sub_delegation BOOLEAN NOT NULL DEFAULT FALSE,
+
+  -- ----- Lark SSO: mỗi tổ chức tự kết nối Lark của họ, xác thực bằng tenant_key -----
+  -- Quy ước bảo vệ dữ liệu:
+  --   *_enc  = AES-GCM, đọc lại được, KHÔNG so sánh/đánh index được (IV ngẫu nhiên)
+  --   *_hash = HMAC-SHA256 tất định, chỉ để tra cứu và so sánh
+  lark_enabled            BOOLEAN NOT NULL DEFAULT FALSE,
+  lark_connection_mode    VARCHAR(20) NOT NULL DEFAULT 'CUSTOM_APP',
+  CONSTRAINT chk_org_lark_connection_mode
+      CHECK (lark_connection_mode IN ('CUSTOM_APP','STORE')),
+  lark_app_id             VARCHAR(255),
+  lark_app_secret_enc     TEXT,
+  lark_tenant_key_hash    VARCHAR(64),
+  lark_tenant_key_enc     TEXT,
+  lark_tenant_name        VARCHAR(255),
+  lark_tenant_avatar_url  TEXT,
+  lark_verified_at        TIMESTAMPTZ,
+  -- Đơn vị/vai trò mặc định cho người dùng được tạo tự động khi đăng nhập Lark lần đầu.
+  -- Khoá ngoại thêm ở cuối file vì org_units và roles được tạo sau bảng này.
+  lark_default_org_unit_id UUID,
+  lark_default_role_id     UUID,
+
   created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at  TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+-- Một tổ chức Lark chỉ được gắn với đúng một công ty. Index đặt trên HMAC, không phải giá trị thật.
+CREATE UNIQUE INDEX uk_org_lark_tenant_key_hash ON organizations (lark_tenant_key_hash)
+    WHERE lark_tenant_key_hash IS NOT NULL;
+
+CREATE INDEX idx_org_lark_enabled ON organizations (lark_enabled)
+    WHERE lark_enabled = TRUE;
 
 -- ====================================================
 -- BSC Perspectives (danh mục viễn cảnh cấu hình theo org, tái sử dụng nhiều kỳ)
@@ -211,12 +246,21 @@ CREATE TABLE users (
     employee_code       VARCHAR(50),
     require_password_change BOOLEAN     NOT NULL DEFAULT FALSE,
     has_seen_onboarding BOOLEAN         NOT NULL DEFAULT FALSE,
-    is_platform_admin   BOOLEAN         NOT NULL DEFAULT FALSE
+    is_platform_admin   BOOLEAN         NOT NULL DEFAULT FALSE,
+
+    -- ----- Định danh Lark -----
+    -- Chỉ lưu HMAC của open_id: cột này chỉ dùng để tra cứu user, không chỗ nào cần giá trị thật.
+    lark_open_id_hash   VARCHAR(64),
+    -- union_id không tra cứu nên mã hoá AES-GCM.
+    lark_union_id_enc   TEXT
 );
 
 CREATE INDEX idx_users_email ON users(email);
 CREATE INDEX idx_users_deleted_at ON users(deleted_at);
 CREATE UNIQUE INDEX idx_users_employee_code ON users(employee_code);
+
+CREATE UNIQUE INDEX uk_users_lark_open_id_hash ON users (lark_open_id_hash)
+    WHERE lark_open_id_hash IS NOT NULL AND deleted_at IS NULL;
 
 -- ====================================================
 -- Roles
@@ -234,6 +278,16 @@ CREATE TABLE roles (
   rank            INT,
   UNIQUE (name, organization_id)
 );
+
+-- ====================================================
+-- Khoá ngoại cho đơn vị/vai trò mặc định của luồng đăng nhập Lark.
+-- Đặt ở đây vì organizations được tạo trước org_units và roles.
+-- ====================================================
+ALTER TABLE organizations
+    ADD CONSTRAINT fk_org_lark_default_org_unit
+        FOREIGN KEY (lark_default_org_unit_id) REFERENCES org_units (id),
+    ADD CONSTRAINT fk_org_lark_default_role
+        FOREIGN KEY (lark_default_role_id) REFERENCES roles (id);
 
 -- ====================================================
 -- User Role Org Units
@@ -1014,3 +1068,40 @@ CREATE TRIGGER trg_update_org_subtree
 AFTER UPDATE OF parent_id ON org_units
 FOR EACH ROW
 EXECUTE FUNCTION fn_update_org_subtree();
+-- ====================================================
+-- Hạn mức token AI
+-- ====================================================
+
+-- Sổ cái tiêu thụ token. Chỉ ghi thêm, không sửa — mỗi lượt gọi LLM một dòng.
+-- KHÔNG gắn token vào bảng messages: DatabaseChatMemoryRepository xoá sạch rồi chèn lại
+-- toàn bộ tin nhắn mỗi lượt (PK mới), và suggest-kpi / followups không có hội thoại nào.
+CREATE TABLE ai_token_usage (
+    id                UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id           UUID NOT NULL REFERENCES users(id),
+    organization_id   UUID NOT NULL REFERENCES organizations(id),
+    feature           VARCHAR(40) NOT NULL,   -- CHAT | KPI_SUGGESTION | FOLLOWUP
+    model             VARCHAR(100),
+    prompt_tokens     INT NOT NULL DEFAULT 0,
+    completion_tokens INT NOT NULL DEFAULT 0,
+    total_tokens      INT NOT NULL DEFAULT 0,
+    -- Ngày 1 của tháng. Phi chuẩn hoá có chủ đích: biến phép cộng theo tháng thành
+    -- so sánh bằng có index, chạy trên đường nóng của mọi lượt chat.
+    period_month      DATE NOT NULL,
+    created_at        TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX idx_ai_usage_user_month ON ai_token_usage (user_id, period_month);
+CREATE INDEX idx_ai_usage_org_month  ON ai_token_usage (organization_id, period_month);
+
+-- Hạn mức tháng của từng người. Mỗi người đúng một dòng, do đúng một người cấp.
+--   allocated_by IS NULL  -> cấp từ ngân sách công ty (quản lý cao nhất cấp)
+--   allocated_by = M      -> trừ vào hạn mức của quản lý M
+CREATE TABLE ai_token_quotas (
+    user_id       UUID PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+    monthly_limit BIGINT NOT NULL DEFAULT 0 CHECK (monthly_limit >= 0),
+    allocated_by  UUID REFERENCES users(id),
+    updated_at    TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX idx_ai_quota_allocated_by ON ai_token_quotas (allocated_by)
+    WHERE allocated_by IS NOT NULL;
