@@ -28,6 +28,8 @@ public class UnitClassificationResponses {
         private List<Bucket> distribution;
         /** Xếp loại của đơn vị (áp luật lên phân bố hiện tại); null nếu chưa có dữ liệu. */
         private Classification classification;
+        /** Tên hồ sơ luật đang áp cho đơn vị này (kế thừa từ cha nếu có); null nếu dùng preset. */
+        private String appliedProfileName;
         /** Xu hướng: mỗi kỳ 1 điểm, percents[levelName] = % người ở mức đó. */
         private List<TrendPoint> trend;
         /** Xếp loại nhanh của các đơn vị con trực tiếp (kỳ hiện tại). */
@@ -67,6 +69,8 @@ public class UnitClassificationResponses {
         private String orgUnitName;
         private String classification; // null nếu chưa có đánh giá
         private String color;
+        /** Tên hồ sơ luật đang áp cho đơn vị con này (kế thừa nếu có); null nếu dùng preset. */
+        private String appliedProfileName;
         private int evaluatedMembers;
     }
 }
