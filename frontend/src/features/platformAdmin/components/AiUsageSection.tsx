@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Check, Coins, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
+import NumberInput from '@/components/common/NumberInput'
 import { platformAdminApi, type OrgAiUsage } from '../api/platformAdminApi'
 
 const fmt = (n: number | null | undefined) => (n ?? 0).toLocaleString('vi-VN')
@@ -14,7 +15,7 @@ function currentMonth() {
 }
 
 function BudgetInput({ row, onSaved }: { row: OrgAiUsage; onSaved: () => void }) {
-  const [value, setValue] = useState(String(row.monthlyLimit ?? 0))
+  const [value, setValue] = useState(row.monthlyLimit ?? 0)
   const mutation = useMutation({
     mutationFn: (limit: number) => platformAdminApi.updateAiBudget(row.organizationId, limit),
     onSuccess: () => {
@@ -24,20 +25,19 @@ function BudgetInput({ row, onSaved }: { row: OrgAiUsage; onSaved: () => void })
     onError: (err: any) => toast.error(err.response?.data?.message || 'Không cập nhật được ngân sách'),
   })
 
-  const parsed = Number(value.replace(/\D/g, '')) || 0
-  const dirty = parsed !== (row.monthlyLimit ?? 0)
+  const dirty = value !== (row.monthlyLimit ?? 0)
 
   return (
     <div className="flex items-center justify-end gap-2">
-      <input
+      <NumberInput
         value={value}
-        onChange={(e) => setValue(e.target.value)}
-        inputMode="numeric"
-        className="w-32 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-right text-sm outline-none focus:border-indigo-500 dark:border-slate-700 dark:bg-slate-900"
+        onChange={setValue}
+        disabled={mutation.isPending}
+        className="w-32 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-right text-sm outline-none focus:border-indigo-500 disabled:opacity-50 dark:border-slate-700 dark:bg-slate-900"
       />
       <button
         type="button"
-        onClick={() => mutation.mutate(parsed)}
+        onClick={() => mutation.mutate(value)}
         disabled={!dirty || mutation.isPending}
         className="rounded-lg bg-indigo-600 px-2.5 py-1.5 text-white transition-all hover:bg-indigo-700 disabled:opacity-40"
       >

@@ -4,6 +4,7 @@ import { cn } from '@/lib/utils'
 import { useDebounce } from '@/hooks/useDebounce'
 import Pagination from '@/components/common/Pagination'
 import ConfirmDialog from '@/components/common/ConfirmDialog'
+import NumberInput from '@/components/common/NumberInput'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { useAuthStore } from '@/store/authStore'
 import {
@@ -128,33 +129,31 @@ function LimitEditor({
   onSave: (userId: string, limit: number) => void
   saving: boolean
 }) {
-  const [value, setValue] = useState(String(item.monthlyLimit ?? 0))
+  const [value, setValue] = useState(item.monthlyLimit ?? 0)
   const [confirming, setConfirming] = useState(false)
 
   useEffect(() => {
-    setValue(String(item.monthlyLimit ?? 0))
+    setValue(item.monthlyLimit ?? 0)
   }, [item.monthlyLimit])
 
-  const parsed = Number(value.replace(/\D/g, '')) || 0
   // Giành quyền cấp thì toàn bộ hạn mức mới bị trừ vào túi mình, không phải phần chênh —
   // phải khớp với cách backend tính, nếu không nút Lưu sáng lên rồi mới nhận lỗi từ server.
-  const charge = item.takeover ? parsed : parsed - (item.monthlyLimit ?? 0)
+  const charge = item.takeover ? value : value - (item.monthlyLimit ?? 0)
   const exceeds = charge > remainingToAllocate
-  const dirty = parsed !== (item.monthlyLimit ?? 0)
+  const dirty = value !== (item.monthlyLimit ?? 0)
 
   const commit = () => {
     setConfirming(false)
-    onSave(item.userId, parsed)
+    onSave(item.userId, value)
   }
 
   return (
     <div>
       <div className="flex items-center justify-end gap-2">
-        <input
+        <NumberInput
           value={value}
-          onChange={(e) => setValue(e.target.value)}
+          onChange={setValue}
           disabled={!item.editable || saving}
-          inputMode="numeric"
           className={cn(
             'w-28 rounded-lg border px-3 py-2 text-right text-sm outline-none transition-all',
             exceeds
@@ -200,7 +199,7 @@ function LimitEditor({
         confirmLabel="Giành quyền cấp"
         description={
           `${fmt(item.monthlyLimit)} token đang do ${item.allocatedByName} cấp sẽ được trả về túi của họ, ` +
-          `và họ có thể chia lại cho người khác. Hạn mức mới ${fmt(parsed)} token sẽ trừ vào túi của bạn.`
+          `và họ có thể chia lại cho người khác. Hạn mức mới ${fmt(value)} token sẽ trừ vào túi của bạn.`
         }
       />
     </div>
