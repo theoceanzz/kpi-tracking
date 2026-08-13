@@ -45,6 +45,8 @@ import AnalyticsPage from '@/features/analytics/pages/AnalyticsPage'
 import AiAssistantPage from '@/features/analytics/pages/AiAssistantPage'
 import SystemSettingsPage from '@/features/organization/pages/SystemSettingsPage'
 import OkrManagementPage from '@/features/okr/pages/OkrManagementPage'
+import MyRewardsPage from '@/features/rewards/pages/MyRewardsPage'
+import RewardManagementPage from '@/features/rewards/pages/RewardManagementPage'
 import BscManagementPage from '@/features/bsc/pages/BscManagementPage'
 import BscDashboardPage from '@/features/bsc/pages/BscDashboardPage'
 import BscStrategyMapPage from '@/features/bsc/pages/BscStrategyMapPage'
@@ -119,6 +121,25 @@ export const router = createBrowserRouter([
             element: <PermissionRoute permission={['OKR:MANAGE']} />,
             children: [
               { path: '/okr', element: <OkrManagementPage /> },
+            ],
+          },
+
+          // Thưởng điểm. Ví cá nhân ai cũng xem được; trang quản lý cần một trong
+          // các quyền nghiệp vụ, và từng tab bên trong còn lọc lại theo quyền.
+          {
+            element: <PermissionRoute permission={['REWARD:VIEW_MY']} />,
+            children: [
+              { path: '/rewards/me', element: <MyRewardsPage /> },
+            ],
+          },
+          {
+            element: (
+              <PermissionRoute
+                permission={['REWARD:GRANT', 'REWARD:APPROVE', 'REWARD:CONFIG', 'REWARD:VIEW']}
+              />
+            ),
+            children: [
+              { path: '/rewards', element: <RewardManagementPage /> },
             ],
           },
 

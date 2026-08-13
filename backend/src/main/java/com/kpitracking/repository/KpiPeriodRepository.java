@@ -29,6 +29,9 @@ public interface KpiPeriodRepository extends JpaRepository<KpiPeriod, UUID>, Jpa
     java.util.Optional<KpiPeriod> findByNameIgnoreCaseAndOrganizationId(String name, UUID organizationId);
     Page<KpiPeriod> findByOrganizationId(UUID organizationId, Pageable pageable);
 
+    /** Dùng bởi bộ tự động phát thưởng để quét các đợt đã kết thúc. */
+    java.util.List<KpiPeriod> findByOrganizationId(UUID organizationId);
+
     /** Tất cả id kỳ của tổ chức — dùng khi thống kê không chọn kỳ cụ thể (lọc theo toàn bộ kỳ). */
     @org.springframework.data.jpa.repository.Query("SELECT p.id FROM KpiPeriod p WHERE p.organization.id = :orgId")
     java.util.List<UUID> findIdsByOrganizationId(@org.springframework.data.repository.query.Param("orgId") UUID orgId);

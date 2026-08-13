@@ -15,6 +15,7 @@ import { useOrganization } from '@/features/orgunits/hooks/useOrganization'
 
 import { getScoringFunctions } from '@/lib/scoring'
 import EvaluationFormModal from '@/features/evaluations/components/EvaluationFormModal'
+import RewardPrompt from '@/features/rewards/components/RewardPrompt'
 
 interface StaffEvaluationModalProps {
   open: boolean
@@ -246,7 +247,11 @@ export default function StaffEvaluationModal({
         toast.success('Đã hoàn tất đánh giá và phê duyệt cho nhân viên')
         setShowAllApproved(true)
       } else {
-        onClose()
+        // Chốt xong mới mời thưởng, ngay tại đây — đây là lúc người chấm còn nhớ rõ
+        // nhất vì sao nhân viên xứng đáng. RewardPrompt tự ẩn nếu tổ chức tắt tính năng
+        // hoặc người chấm không có quyền trao, nên không cản luồng của ai.
+        toast.success('Đã chốt đánh giá cho nhân viên')
+        setJustEvaluated(true)
       }
     },
     onError: () => {
@@ -254,6 +259,7 @@ export default function StaffEvaluationModal({
     }
   })
 
+  const [justEvaluated, setJustEvaluated] = useState(false)
   const [showAllApproved, setShowAllApproved] = useState(false)
   const [showEvalForm, setShowEvalForm] = useState(false)
 
@@ -751,6 +757,19 @@ export default function StaffEvaluationModal({
           )}
         </div>
 
+        {/* Chốt đánh giá xong thì mời thưởng ngay tại chỗ, trước khi người dùng đóng
+            modal và quên mất. */}
+        {justEvaluated && (
+          <div className="shrink-0 border-t border-slate-100 px-4 py-4 dark:border-slate-800 sm:px-8">
+            <RewardPrompt
+              userId={userId}
+              fullName={userName}
+              defaultReason={`Kết quả tốt trong đợt${periodName ? ` ${periodName}` : ''}`}
+              onDone={onClose}
+            />
+          </div>
+        )}
+
         {/* Footer */}
         {!readOnly && (
         <div className="px-4 sm:px-8 py-4 sm:py-6 bg-slate-50 dark:bg-slate-800/30 border-t border-slate-100 dark:border-slate-800 shrink-0 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
@@ -768,17 +787,19 @@ export default function StaffEvaluationModal({
                 onClick={onClose}
                 className="flex-1 sm:flex-none px-5 sm:px-8 py-3 sm:py-4 rounded-2xl text-xs font-black uppercase tracking-widest text-slate-400 hover:bg-slate-100 transition-all whitespace-nowrap"
               >
-                Hủy bỏ
+                {justEvaluated ? 'Đóng' : 'Hủy bỏ'}
               </button>
-              <button
-                onClick={() => submitMutation.mutate()}
-                disabled={submitMutation.isPending || (submissionList.length === 0 && !periodEnded)}
-                className="flex-1 sm:flex-none px-5 sm:px-10 py-3 sm:py-4 rounded-2xl bg-slate-900 dark:bg-white text-white dark:text-slate-900 text-xs font-black uppercase tracking-[2px] shadow-xl hover:bg-indigo-600 dark:hover:bg-indigo-50 transition-all flex items-center justify-center gap-2 sm:gap-3 active:scale-95 disabled:opacity-50 disabled:scale-100 whitespace-nowrap"
-              >
-                {submitMutation.isPending ? <Loader2 size={16} className="animate-spin shrink-0" /> : <CheckCircle size={16} className="shrink-0 sm:w-[18px] sm:h-[18px]" />}
-                <span className="sm:hidden">Phê duyệt & Chốt</span>
-                <span className="hidden sm:inline">PHÊ DUYỆT & CHỐT ĐÁNH GIÁ</span>
-              </button>
+              {!justEvaluated && (
+                <button
+                  onClick={() => submitMutation.mutate()}
+                  disabled={submitMutation.isPending || (submissionList.length === 0 && !periodEnded)}
+                  className="flex-1 sm:flex-none px-5 sm:px-10 py-3 sm:py-4 rounded-2xl bg-slate-900 dark:bg-white text-white dark:text-slate-900 text-xs font-black uppercase tracking-[2px] shadow-xl hover:bg-indigo-600 dark:hover:bg-indigo-50 transition-all flex items-center justify-center gap-2 sm:gap-3 active:scale-95 disabled:opacity-50 disabled:scale-100 whitespace-nowrap"
+                >
+                  {submitMutation.isPending ? <Loader2 size={16} className="animate-spin shrink-0" /> : <CheckCircle size={16} className="shrink-0 sm:w-[18px] sm:h-[18px]" />}
+                  <span className="sm:hidden">Phê duyệt & Chốt</span>
+                  <span className="hidden sm:inline">PHÊ DUYỆT & CHỐT ĐÁNH GIÁ</span>
+                </button>
+              )}
            </div>
         </div>
         )}

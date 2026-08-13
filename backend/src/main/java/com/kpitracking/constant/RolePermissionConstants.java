@@ -11,11 +11,13 @@ public class RolePermissionConstants {
     );
 
     public static final List<String> PERSONAL_PERMS = Arrays.asList(
-            "KPI:VIEW_MY", "SUBMISSION:VIEW_MY", "EVALUATION:VIEW_MY", "STATS:VIEW_MY", "ADJUSTMENT:VIEW_MY"
+            "KPI:VIEW_MY", "SUBMISSION:VIEW_MY", "EVALUATION:VIEW_MY", "STATS:VIEW_MY", "ADJUSTMENT:VIEW_MY",
+            "REWARD:VIEW_MY"
     );
 
     public static final List<String> UNIT_HEAD_PERSONAL_PERMS = Arrays.asList(
-            "KPI:VIEW_MY", "SUBMISSION:VIEW_MY", "STATS:VIEW_MY", "ADJUSTMENT:VIEW_MY"
+            "KPI:VIEW_MY", "SUBMISSION:VIEW_MY", "STATS:VIEW_MY", "ADJUSTMENT:VIEW_MY",
+            "REWARD:VIEW_MY"
     );
 
     // ----------------------------------------------------------------
@@ -44,7 +46,13 @@ public class RolePermissionConstants {
             "ATTACHMENT:UPLOAD", "ATTACHMENT:DELETE",
             "REMINDER:SEND",
             "BSC:VIEW", "BSC:MANAGE", "BSC:PUBLISH_SCORE",
-            "OKR:VIEW", "OKR:MANAGE"
+            "OKR:VIEW", "OKR:MANAGE",
+            // Thưởng điểm: giám đốc có đủ, gồm cả quyền cấu hình ngân sách/chương trình.
+            // REWARD:APPROVE_OWN là bắt buộc — giám đốc là người ĐẶT hạn mức cho người
+            // khác nên thường không tự cấp cho mình; thiếu quyền này thì đề nghị thưởng
+            // của họ kẹt ở trạng thái chờ duyệt mà không còn ai cấp trên để duyệt.
+            "REWARD:VIEW_MY", "REWARD:VIEW", "REWARD:GRANT", "REWARD:APPROVE", "REWARD:APPROVE_OWN",
+            "REWARD:CONFIG", "GIFT:MANAGE", "GIFT:REDEEM", "GIFT:FULFILL"
     );
 
     // ----------------------------------------------------------------
@@ -72,7 +80,11 @@ public class RolePermissionConstants {
             "ATTACHMENT:UPLOAD",
             "REMINDER:SEND",
             "BSC:VIEW", "BSC:MANAGE", "BSC:PUBLISH_SCORE",
-            "OKR:VIEW", "OKR:MANAGE"
+            "OKR:VIEW", "OKR:MANAGE",
+            // Thưởng điểm: có duyệt và quản lý quà, KHÔNG có REWARD:CONFIG —
+            // khớp cách repo đang tước quyền cấu hình của cấp phó.
+            "REWARD:VIEW_MY", "REWARD:VIEW", "REWARD:GRANT", "REWARD:APPROVE",
+            "GIFT:MANAGE", "GIFT:REDEEM", "GIFT:FULFILL"
     );
 
     // ----------------------------------------------------------------
@@ -92,7 +104,11 @@ public class RolePermissionConstants {
             "STATS:VIEW_EMPLOYEE",
             "ATTACHMENT:UPLOAD",
             "REMINDER:SEND",
-            "BSC:VIEW", "OKR:VIEW"
+            "BSC:VIEW", "OKR:VIEW",
+            // Trao thưởng KHÔNG phải quyền phê duyệt. Giới hạn thật của trưởng đơn vị
+            // là dòng reward_budgets của họ — không cấp hạn mức thì mọi đề nghị đều
+            // phải qua duyệt.
+            "REWARD:VIEW", "REWARD:GRANT", "GIFT:REDEEM"
     );
 
     // ----------------------------------------------------------------
@@ -110,7 +126,8 @@ public class RolePermissionConstants {
             "STATS:VIEW_EMPLOYEE",
             "ATTACHMENT:UPLOAD",
             "REMINDER:SEND",
-            "BSC:VIEW", "OKR:VIEW"
+            "BSC:VIEW", "OKR:VIEW",
+            "REWARD:VIEW", "REWARD:GRANT", "GIFT:REDEEM"
     );
 
     // ----------------------------------------------------------------
@@ -123,7 +140,9 @@ public class RolePermissionConstants {
             "EVALUATION:VIEW","EVALUATION:CREATE",
             "NOTIF:VIEW", "KPI_PERIOD:VIEW", "KPI_CYCLE:VIEW",
             "ATTACHMENT:UPLOAD",
-            "BSC:VIEW", "OKR:VIEW"
+            "BSC:VIEW", "OKR:VIEW",
+            // REWARD:VIEW_MY vào qua PERSONAL_PERMS
+            "GIFT:REDEEM"
     );
 
     // ================================================================

@@ -16,6 +16,7 @@ import EmptyState from '@/components/common/EmptyState'
 import { cn, getInitials } from '@/lib/utils'
 import { format, parseISO } from 'date-fns'
 import type { CycleEvaluationMode, CycleUserEvaluation, CyclePeriodBreakdown } from '@/types/kpi'
+import RewardPrompt from '@/features/rewards/components/RewardPrompt'
 import {
   CalendarRange, Building2, Search, Award, ChevronRight, CheckCircle2, Lock, LockOpen, MessageSquare,
   ArrowUpDown, ArrowUp, ArrowDown, AlertTriangle, FileSpreadsheet, Download, Loader2, Mail
@@ -575,6 +576,7 @@ export default function CycleEvaluationPage() {
             onSave={async (finalScore, qualScore, cmt) => {
               await saveUserScore({ userId: activeMember.userId, finalScore, qualScore, comment: cmt })
             }}
+            cycleName={summary?.cycleName}
           />
         )}
 
@@ -627,7 +629,7 @@ export default function CycleEvaluationPage() {
 
 /** Modal xem chi tiết & nhập điểm chốt kỳ cho một nhân viên. */
 function UserScoreModal({
-  member, maxScore, canEdit, lockedByUnitName, isSaving, onClose, onSave,
+  member, maxScore, canEdit, lockedByUnitName, isSaving, onClose, onSave, cycleName,
 }: {
   member: CycleUserEvaluation
   maxScore: number
@@ -636,10 +638,13 @@ function UserScoreModal({
   isSaving: boolean
   onClose: () => void
   onSave: (finalScore: number | null, qualScore: number | null, comment: string) => Promise<void>
+  /** Điền sẵn vào lý do thưởng để ghi chú trong sổ điểm có ngữ cảnh. */
+  cycleName?: string
 }) {
   const [score, setScore] = useState<string>(member.finalScore != null ? String(member.finalScore) : '')
   const [qual, setQual] = useState<string>(member.qualScore != null ? String(member.qualScore) : '')
   const [comment, setComment] = useState(member.comment || '')
+  const [saved, setSaved] = useState(false)
 
   const suggested = member.managerScore
   const parsed = score.trim() === '' ? null : Number(score)
@@ -673,10 +678,13 @@ function UserScoreModal({
     return <>{lv}<span className="text-slate-400 text-base font-medium">/5</span></>
   }
 
+  // Lưu xong KHÔNG đóng ngay: hiện lời mời thưởng điểm ngay tại chỗ. Đây là lúc người
+  // chấm còn nhớ rõ nhất vì sao nhân viên xứng đáng — bắt họ sang màn hình khác thưởng
+  // sau thì gần như chắc chắn sẽ quên.
   const handleSave = async () => {
     if (invalid || qualInvalid) return
     await onSave(parsed, parsedQual, comment)
-    onClose()
+    setSaved(true)
   }
 
   return (
@@ -843,11 +851,22 @@ function UserScoreModal({
             </p>
           )}
 
+          {/* Sau khi lưu điểm mới mời thưởng — tự ẩn nếu tổ chức tắt tính năng thưởng
+              hoặc người chấm không có quyền trao. */}
+          {saved && (
+            <RewardPrompt
+              userId={member.userId}
+              fullName={member.userName || ''}
+              defaultReason={`Thành tích nổi bật trong kỳ${cycleName ? ` ${cycleName}` : ''}`}
+              onDone={onClose}
+            />
+          )}
+
           <div className="flex gap-3 pt-2">
             <button onClick={onClose} className="flex-1 px-6 py-3.5 rounded-2xl border border-slate-200 dark:border-slate-800 text-xs font-black uppercase tracking-widest hover:bg-slate-50 dark:hover:bg-slate-800">
               Đóng
             </button>
-            {canEdit && (
+            {canEdit && !saved && (
               <button onClick={handleSave} disabled={isSaving || invalid} className="flex-1 px-6 py-3.5 rounded-2xl bg-emerald-600 text-white text-xs font-black uppercase tracking-widest hover:bg-emerald-700 shadow-lg shadow-emerald-500/25 disabled:opacity-50">
                 {isSaving ? 'Đang lưu...' : 'Lưu điểm chốt'}
               </button>

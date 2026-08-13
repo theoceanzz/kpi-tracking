@@ -87,6 +87,11 @@ public class Organization {
     @Builder.Default
     private Boolean enableBsc = false;
 
+    /** Thưởng điểm & đổi quà. Mặc định TẮT để không tổ chức nào bỗng dưng thấy menu lạ. */
+    @Column(name = "enable_reward")
+    @Builder.Default
+    private Boolean enableReward = false;
+
     @LastModifiedDate
     @Column(name = "updated_at")
     private Instant updatedAt;

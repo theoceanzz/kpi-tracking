@@ -182,6 +182,12 @@ public class OrganizationService {
             // bsc_fixed_perspectives; org tự tạo hạng mục và gán vào 1 viễn cảnh.
         }
 
+        if (request.getEnableReward() != null) {
+            // Tắt tính năng chỉ ẩn giao diện, KHÔNG đụng vào ví hay sổ cái: điểm đã
+            // phát là dữ liệu tài chính, bật lại phải thấy nguyên vẹn.
+            organization.setEnableReward(request.getEnableReward());
+        }
+
         if (request.getEvaluationLevels() != null) {
             organization.getEvaluationLevels().clear();
             organizationRepository.saveAndFlush(organization);

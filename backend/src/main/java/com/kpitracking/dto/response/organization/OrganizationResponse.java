@@ -25,6 +25,7 @@ public class OrganizationResponse {
     private Boolean enableAi;
     private Boolean enableQualitative;
     private Boolean enableBsc;
+    private Boolean enableReward;
     private Instant createdAt;
     private Instant updatedAt;
 }

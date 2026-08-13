@@ -30,4 +30,5 @@ public class UpdateOrganizationRequest {
     private Boolean enableWaterfall;
     private Boolean enableQualitative;
     private Boolean enableBsc;
+    private Boolean enableReward;
 }

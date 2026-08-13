@@ -237,3 +237,109 @@ export function DateTimePicker({ value, onChange, placeholder = 'Chọn ngày gi
     </Popover>
   )
 }
+
+// --- DateField (chỉ ngày, kiểu ô nhập trong form) ---
+//
+// Khác DatePicker ở trên: DatePicker là con chip nhỏ dùng cho thanh lọc, còn cái này
+// là ô nhập đầy đủ cho biểu mẫu — giống ô BẮT ĐẦU/KẾT THÚC ở trang Kỳ.
+//
+// Dùng lại đúng mẹo của DateTimePicker bản desktop: input native nhưng chữ trong suốt,
+// rồi phủ lên trên một lớp hiển thị do date-fns format. Nhờ vậy được cả hai thứ:
+//   - Luôn hiện dd/MM/yyyy, không phụ thuộc locale trình duyệt (input native để mặc
+//     định sẽ ra mm/dd/yyyy trên máy cài tiếng Anh).
+//   - Lịch chọn ngày là của hệ điều hành nên KHÔNG BAO GIỜ bị modal che — popover tự
+//     dựng thì phải canh z-index với từng modal lồng nhau, rất dễ vỡ.
+//
+// Lớp phủ dùng lại y hệt `className` của input (chỉ bỏ viền/nền) để khoảng đệm và cỡ
+// chữ tự khớp, không phải canh tay khi caller đổi style.
+interface DateFieldProps {
+  value: string // "yyyy-MM-dd"
+  onChange: (value: string) => void
+  placeholder?: string
+  className?: string
+  min?: string
+  max?: string
+}
+
+export function DateField({ value, onChange, placeholder = 'Chọn ngày', className, min, max }: DateFieldProps) {
+  const [open, setOpen] = useState(false)
+  const isMobile = useMediaQuery('(max-width: 639px)')
+
+  const parsed = value ? parse(value, 'yyyy-MM-dd', new Date()) : undefined
+  const valid = parsed && isValid(parsed) ? parsed : undefined
+
+  // Mobile: lịch tự dựng, giống hệt nhánh mobile của DateTimePicker ở trên. Ô ngày
+  // native trên điện thoại bung ra bộ chọn của hệ điều hành — mỗi máy một kiểu, và
+  // vùng chạm vào đúng icon lịch nhỏ xíu rất khó bấm.
+  if (isMobile) {
+    return (
+      <Popover open={open} onOpenChange={setOpen}>
+        <PopoverTrigger asChild>
+          <button
+            type="button"
+            className={cn(className, 'flex items-center gap-2 text-left')}
+          >
+            <CalendarIcon size={15} className="text-slate-400 shrink-0" />
+            {valid
+              ? <span className="flex-1">{format(valid, 'dd/MM/yyyy')}</span>
+              : <span className="flex-1 text-[var(--color-muted-foreground)]">{placeholder}</span>
+            }
+          </button>
+        </PopoverTrigger>
+        {/* z-[1100]: DateField chủ yếu dùng trong modal (z-[1000]), để mặc định z-50
+            thì lịch mở ra nằm phía sau modal và không bấm được. */}
+        <PopoverContent
+          className="w-auto p-3 z-[1100] border-slate-200 dark:border-slate-800 shadow-2xl"
+          align="start"
+          collisionPadding={12}
+          sideOffset={6}
+        >
+          <DayPicker
+            mode="single"
+            selected={valid}
+            onSelect={(day) => {
+              if (!day) return
+              onChange(format(day, 'yyyy-MM-dd'))
+              setOpen(false)
+            }}
+            defaultMonth={valid}
+            startMonth={min ? parse(min, 'yyyy-MM-dd', new Date()) : undefined}
+            endMonth={max ? parse(max, 'yyyy-MM-dd', new Date()) : undefined}
+            disabled={[
+              ...(min ? [{ before: parse(min, 'yyyy-MM-dd', new Date()) }] : []),
+              ...(max ? [{ after: parse(max, 'yyyy-MM-dd', new Date()) }] : []),
+            ]}
+            classNames={DAY_PICKER_CLASS_NAMES}
+            components={{ Chevron: DayPickerChevron }}
+          />
+        </PopoverContent>
+      </Popover>
+    )
+  }
+
+  // Desktop: input native (bộ chọn của trình duyệt vẫn tiện hơn trên chuột) nhưng chữ
+  // trong suốt, phủ lên trên lớp hiển thị do date-fns format để luôn ra dd/MM/yyyy.
+  return (
+    <div className="relative">
+      <input
+        type="date"
+        value={value || ''}
+        min={min}
+        max={max}
+        onChange={e => onChange(e.target.value)}
+        className={cn(className, 'text-transparent [color-scheme:light] dark:[color-scheme:dark]')}
+      />
+      <div
+        className={cn(
+          className,
+          'absolute inset-0 flex items-center pointer-events-none border-transparent bg-transparent'
+        )}
+      >
+        {valid
+          ? <span>{format(valid, 'dd/MM/yyyy')}</span>
+          : <span className="text-[var(--color-muted-foreground)]">{placeholder}</span>
+        }
+      </div>
+    </div>
+  )
+}

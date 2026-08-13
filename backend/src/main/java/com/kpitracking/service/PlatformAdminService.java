@@ -141,6 +141,7 @@ public class PlatformAdminService {
                 .enableWaterfall(org.getEnableWaterfall())
                 .enableQualitative(org.getEnableQualitative())
                 .enableBsc(org.getEnableBsc())
+                .enableReward(org.getEnableReward())
                 .userCount(userCount)
                 .createdAt(org.getCreatedAt())
                 .updatedAt(org.getUpdatedAt())

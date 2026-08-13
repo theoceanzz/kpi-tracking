@@ -1,9 +1,23 @@
+import { cn } from '@/lib/utils'
+
 interface DataTableColumn<T> {
   key: string
   header: string
   render: (row: T) => React.ReactNode
+  /**
+   * Áp cho CẢ ô dữ liệu lẫn ô tiêu đề, để cột căn phải thì tiêu đề cũng căn phải —
+   * cột số mà tiêu đề nằm lệch một bên thì mắt không nối được đầu cột với giá trị.
+   * Dùng `cn()` (có tailwind-merge) nên `text-right` đè được `text-left` mặc định.
+   */
   className?: string
 }
+
+/** Lớp căn chỉnh áp cho tiêu đề; bỏ những lớp chỉ có nghĩa với ô dữ liệu. */
+const headerAlignClass = (className?: string) =>
+  (className ?? '')
+    .split(' ')
+    .filter((c) => c.startsWith('text-right') || c.startsWith('text-center') || c.startsWith('text-left'))
+    .join(' ')
 
 interface DataTableProps<T> {
   columns: DataTableColumn<T>[]
@@ -31,7 +45,13 @@ export default function DataTable<T>({ columns, data, keyExtractor, onRowClick, 
           <thead>
             <tr className="bg-[var(--color-muted)]">
               {columns.map((col) => (
-                <th key={col.key} className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-[var(--color-muted-foreground)]">
+                <th
+                  key={col.key}
+                  className={cn(
+                    'px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-[var(--color-muted-foreground)]',
+                    headerAlignClass(col.className)
+                  )}
+                >
                   {col.header}
                 </th>
               ))}

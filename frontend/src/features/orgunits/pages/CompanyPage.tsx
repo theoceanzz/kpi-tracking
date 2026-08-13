@@ -6,7 +6,7 @@ import { useUpdateOrganization } from '../hooks/useUpdateOrganization'
 import { useForm, useFieldArray } from 'react-hook-form'
 import {  Edit3, ShieldCheck, 
   Calendar, Hash, Layers, Trash2,
-  Info, ArrowUp, ArrowDown, Plus, Target, Sparkles, ChevronUp, RotateCcw, GitBranch, SlidersHorizontal, Grid3x3, X, ArrowRight, LayoutGrid
+  Info, ArrowUp, ArrowDown, Plus, Target, Sparkles, ChevronUp, RotateCcw, GitBranch, SlidersHorizontal, Grid3x3, X, ArrowRight, LayoutGrid, Gift
 } from 'lucide-react'
 import type { PerformanceMatrix } from '../api/organizationApi'
 import UnitClassificationConfigSection from '../components/UnitClassificationConfigSection'
@@ -155,6 +155,7 @@ export default function CompanyPage() {
                         <FeatureChip icon={LayoutGrid} label="BSC" enabled={org?.enableBsc} />
                         <FeatureChip icon={Target} label="OKR" enabled={org?.enableOkr} />
                         <FeatureChip icon={GitBranch} label="Waterfall" enabled={org?.enableWaterfall} />
+                        <FeatureChip icon={Gift} label="Thưởng điểm" enabled={org?.enableReward} />
                       </div>
                     </div>
                   </>
@@ -340,6 +341,7 @@ export default function CompanyPage() {
         {org && <QualitativeKpiToggleSection org={org} />}
         {org && <BscConfigSection org={org} />}
         {org && <WaterfallConfigSection org={org} />}
+        {org && <RewardConfigSection org={org} />}
       </div>
       )}
 
@@ -1439,6 +1441,88 @@ function BscConfigSection({ org }: { org: any }) {
             className="w-full py-3 flex items-center justify-center gap-2 bg-slate-900 dark:bg-white text-white dark:text-slate-900 rounded-xl text-[11px] font-black uppercase tracking-widest hover:opacity-90 transition-all shadow-xl shadow-slate-900/10 dark:shadow-white/5"
           >
             Đi đến quản lý BSC
+          </Link>
+        )}
+      </div>
+    </section>
+  )
+}
+
+function RewardConfigSection({ org }: { org: any }) {
+  const updateMutation = useUpdateOrganization(org.id)
+  const [enabled, setEnabled] = useState(org?.enableReward || false)
+
+  useEffect(() => {
+    setEnabled(org?.enableReward || false)
+  }, [org])
+
+  const handleToggle = () => {
+    const newValue = !enabled
+    setEnabled(newValue)
+    updateMutation.mutate({ enableReward: newValue }, {
+      onSuccess: () => {
+        toast.success(`Đã ${newValue ? 'bật' : 'tắt'} tính năng thưởng điểm`)
+      },
+      onError: () => {
+        setEnabled(!newValue)
+        toast.error('Không thể cập nhật cấu hình thưởng điểm')
+      }
+    })
+  }
+
+  return (
+    <section className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden flex flex-col h-full">
+      <div className="px-8 py-6 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          <div className="w-10 h-10 rounded-xl bg-amber-50 dark:bg-amber-900/30 flex items-center justify-center text-amber-600 dark:text-amber-400">
+            <Gift size={20} />
+          </div>
+          <div>
+            <h3 className="text-lg font-bold text-slate-900 dark:text-white uppercase tracking-tight">Thưởng điểm</h3>
+            <p className="text-[10px] font-medium text-slate-400 uppercase tracking-widest">Reward Points</p>
+          </div>
+        </div>
+        <button
+          onClick={handleToggle}
+          disabled={updateMutation.isPending}
+          className={cn(
+            "w-12 h-6 rounded-full relative transition-all duration-300",
+            enabled ? "bg-emerald-500" : "bg-slate-200 dark:bg-slate-700"
+          )}
+        >
+          <div className={cn(
+            "absolute top-1 w-4 h-4 rounded-full bg-white transition-all duration-300 shadow-sm",
+            enabled ? "left-7" : "left-1"
+          )} />
+        </button>
+      </div>
+
+      <div className="p-6 space-y-4">
+        <div className="p-4 rounded-2xl bg-amber-50 dark:bg-amber-900/10 border border-amber-100 dark:border-amber-900/30 flex items-start gap-3">
+          <Info size={18} className="text-amber-600 shrink-0 mt-0.5" />
+          <div className="space-y-1">
+            <p className="text-xs text-amber-800 dark:text-amber-300 font-bold">Ghi nhận và khích lệ bằng điểm thưởng</p>
+            <p className="text-[11px] text-amber-700/70 dark:text-amber-400/70 font-medium leading-relaxed">
+              Khi bật, quản lý có thể trao điểm cho nhân viên trong hạn mức được cấp; vượt hạn mức thì
+              đề nghị chuyển sang chờ duyệt. Điểm thưởng hoàn toàn TÁCH BIỆT với điểm đánh giá KPI —
+              không cộng vào kết quả đánh giá của bất kỳ ai.
+            </p>
+          </div>
+        </div>
+
+        {/* Tắt tính năng chỉ ẩn giao diện. Ví và sổ cái điểm được giữ nguyên vì đó là
+            dữ liệu tài chính — bật lại phải thấy đúng như cũ. */}
+        <p className="text-[11px] text-slate-400 font-medium leading-relaxed">
+          Tắt tính năng chỉ ẩn menu, không xoá điểm đã phát. Bật lại sẽ thấy nguyên vẹn số dư
+          và lịch sử giao dịch.
+        </p>
+
+        {enabled && (
+          <Link
+            to="/rewards"
+            className="w-full py-3 flex items-center justify-center gap-2 bg-slate-900 dark:bg-white text-white dark:text-slate-900 rounded-xl text-[11px] font-black uppercase tracking-widest hover:opacity-90 transition-all shadow-xl shadow-slate-900/10 dark:shadow-white/5"
+          >
+            Đi đến quản lý thưởng
           </Link>
         )}
       </div>

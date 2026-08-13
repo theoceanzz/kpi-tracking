@@ -34,7 +34,9 @@ import {
   GitBranch,
   LayoutGrid,
   CalendarRange,
-  Award
+  Award,
+  Gift,
+  Wallet
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useNotificationDots } from '../hooks/useNotificationDots'
@@ -53,6 +55,7 @@ interface NavItem {
   okrOnly?: boolean
   bscOnly?: boolean
   aiOnly?: boolean
+  rewardOnly?: boolean
   originalLabel?: string
 }
 
@@ -106,6 +109,17 @@ const navItems: NavItem[] = [
       { label: 'Phê duyệt & đánh giá ', path: '/submissions/org-unit', icon: <ClipboardCheck size={18} />, permission: 'SUBMISSION:REVIEW' },
       { label: 'Kết quả đánh giá', path: '/evaluations', icon: <Star size={18} />, permission: 'EVALUATION:VIEW_MY' },
       { label: 'Đánh giá kỳ', path: '/kpi-cycles/evaluation', icon: <Award size={18} />, permission: 'CYCLE_EVAL:VIEW', end: true },
+    ]
+  },
+  // Nhóm cấp cao nhất, đặt ngay sau Quản lý KPI: thưởng điểm là hoạt động thường ngày
+  // của quản lý, không phải việc thiết lập một lần như các mục trong Thiết lập công ty.
+  {
+    label: 'Thưởng điểm',
+    icon: <Gift size={20} />,
+    rewardOnly: true,
+    children: [
+      { label: 'Điểm của tôi', path: '/rewards/me', icon: <Wallet size={18} />, permission: 'REWARD:VIEW_MY', rewardOnly: true },
+      { label: 'Quản lý thưởng', path: '/rewards', icon: <Gift size={18} />, permission: 'REWARD:GRANT', rewardOnly: true, end: true },
     ]
   },
   { label: 'KPI của tôi', path: '/my-kpi', icon: <ListChecks size={20} />, permission: 'KPI:VIEW_MY' },
@@ -194,6 +208,7 @@ export default function Sidebar({ isMobileOpen, onCloseMobile }: { isMobileOpen?
   const enableOkr = org?.enableOkr
   const enableBsc = org?.enableBsc
   const enableAi = org?.enableAi !== false // default true while loading
+  const enableReward = org?.enableReward
 
   const [expandedMenus, setExpandedMenus] = useState<Record<string, boolean>>({})
 
@@ -241,6 +256,14 @@ useEffect(() => {
     const updatedItem = { ...item, label: getLabel(item), originalLabel: item.label }
 
     if (item.children) {
+      // Nhóm CẤP CAO NHẤT cũng phải tôn trọng cờ tính năng. Nhánh kiểm cờ phía dưới
+      // (item.aiOnly/item.rewardOnly) chỉ chạy với mục KHÔNG có children, nên không
+      // đặt ở đây thì nhóm chỉ ẩn nhờ ăn may là mọi mục con đều mang cờ — thêm một
+      // mục con không có cờ là cả nhóm lòi ra với tổ chức đã tắt tính năng.
+      if (item.okrOnly && !enableOkr) return null
+      if (item.bscOnly && !enableBsc) return null
+      if (item.rewardOnly && !enableReward) return null
+
       const filteredChildren = item.children
         .map(child => {
           if (child.children) {
@@ -248,11 +271,13 @@ useEffect(() => {
             // đang tắt vẫn hiện khi user có permission.
             if (child.okrOnly && !enableOkr) return null
             if (child.bscOnly && !enableBsc) return null
+            if (child.rewardOnly && !enableReward) return null
 
             const filteredSubChildren = child.children
               .filter(sub => {
                 if (sub.okrOnly && !enableOkr) return false
                 if (sub.bscOnly && !enableBsc) return false
+                if (sub.rewardOnly && !enableReward) return false
                 return !sub.permission || hasPermission(sub.permission)
               })
               .map(sub => ({ ...sub, label: getLabel(sub), originalLabel: sub.label }))
@@ -264,6 +289,7 @@ useEffect(() => {
           }
           if (child.okrOnly && !enableOkr) return null
           if (child.bscOnly && !enableBsc) return null
+          if (child.rewardOnly && !enableReward) return null
 
           if (child.path === '/evaluations') {
             if (! hasPermission('EVALUATION:VIEW_MY')) {
@@ -290,6 +316,8 @@ useEffect(() => {
     let processedItem: NavItem | null = updatedItem
 
     if (item.aiOnly && !enableAi) {
+      processedItem = null
+    } else if (item.rewardOnly && !enableReward) {
       processedItem = null
     } else if (item.path === '/dashboard?view=staff') {
       const isManager = hasPermission(['KPI:APPROVE', 'SUBMISSION:REVIEW', 'ORG:CREATE', 'USER:VIEW_LIST'])

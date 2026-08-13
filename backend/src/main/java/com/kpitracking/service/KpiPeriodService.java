@@ -68,8 +68,15 @@ public class KpiPeriodService {
             spec = spec.and((root, query, cb) -> cb.equal(root.get("periodType"), periodType));
         }
 
-        if (organizationId != null) {
-            spec = spec.and((root, query, cb) -> cb.equal(root.get("organization").get("id"), organizationId));
+        // Không truyền organizationId thì mặc định lấy tổ chức của người đang đăng nhập.
+        // Trước đây userOrgId được tính rồi bỏ không dùng, nên client nào quên truyền
+        // tham số sẽ nhận về đợt của MỌI tổ chức — rò rỉ dữ liệu giữa các khách hàng.
+        // Platform admin không gắn với đơn vị nào (userOrgId = null) nên vẫn xem được
+        // xuyên tổ chức như cũ.
+        UUID effectiveOrgId = organizationId != null ? organizationId : userOrgId;
+        if (effectiveOrgId != null) {
+            final UUID orgFilter = effectiveOrgId;
+            spec = spec.and((root, query, cb) -> cb.equal(root.get("organization").get("id"), orgFilter));
         }
 
         if (startDate != null) {

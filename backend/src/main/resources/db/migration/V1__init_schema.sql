@@ -8,6 +8,9 @@ CREATE EXTENSION IF NOT EXISTS "pgcrypto";   -- gen_random_uuid()
 -- Enable fuzzy search (LIKE %abc%) extension 
 CREATE EXTENSION IF NOT EXISTS "pg_trgm";
 
+-- Cần cho exclusion constraint "uuid WITH =" ở reward_budgets
+CREATE EXTENSION IF NOT EXISTS "btree_gist";
+
 -- ====================================================
 -- Provinces
 -- ====================================================
@@ -48,6 +51,7 @@ CREATE TABLE organizations (
   enable_ai   BOOLEAN NOT NULL DEFAULT TRUE,
   enable_qualitative BOOLEAN NOT NULL DEFAULT FALSE,
   enable_bsc  BOOLEAN NOT NULL DEFAULT FALSE,
+  enable_reward BOOLEAN NOT NULL DEFAULT FALSE,
   performance_matrix jsonb,
   unit_classification_rules jsonb,
   created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
@@ -980,6 +984,323 @@ CREATE INDEX idx_bsc_objective_relations_org ON bsc_objective_relations(organiza
 -- Một cặp (nguồn, đích) chỉ có một cạnh (bỏ qua bản ghi xoá mềm)
 CREATE UNIQUE INDEX uq_bsc_objective_relations
     ON bsc_objective_relations(source_objective_id, target_objective_id) WHERE deleted_at IS NULL;
+
+-- ====================================================
+-- THƯỞNG ĐIỂM NHÂN VIÊN (Reward Points)
+--
+-- Ví điểm, sổ cái giao dịch, thưởng thủ công có ngân sách, thưởng tự động theo xếp
+-- hạng, danh mục quà và đổi quà.
+--
+-- NGUYÊN TẮC BẤT DI BẤT DỊCH: điểm thưởng TÁCH HOÀN TOÀN khỏi điểm đánh giá KPI.
+-- Không bảng nào ở đây được đọc ngược vào evaluations / cycle_user_evaluations hay
+-- bất kỳ báo cáo điểm nào. Chiều phụ thuộc chỉ đi MỘT hướng: reward đọc evaluation,
+-- không bao giờ ngược lại.
+--
+-- LƯU Ý: spring.jpa.hibernate.ddl-auto=update sẽ tự tạo cột còn thiếu nhưng KHÔNG tạo
+-- CHECK / partial unique index / exclusion constraint. Mọi bảo đảm đúng đắn (chống
+-- phát trùng, chống vượt ngân sách, chống âm tồn kho) chỉ tồn tại nếu file này viết ra.
+-- ====================================================
+
+-- ── Ví điểm ────────────────────────────────────────
+-- Bản materialize để đọc nhanh. Sự thật vẫn là sổ cái reward_transactions; bất biến
+-- phải luôn đúng: balance = SUM(transactions.amount)
+--                        = lifetime_earned - lifetime_spent - lifetime_expired
+CREATE TABLE reward_wallets (
+    id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    organization_id     UUID        NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+    user_id             UUID        NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    -- CỐ Ý không có CHECK (balance >= 0): thu hồi thưởng sau khi người nhận đã tiêu
+    -- điểm được phép đẩy số dư xuống âm. Kẹp về 0 sẽ phá bất biến
+    -- balance_after = balance_trước + amount của sổ cái. Chặn âm chỉ áp ở đường SPEND.
+    balance             INT         NOT NULL DEFAULT 0,
+    lifetime_earned     INT         NOT NULL DEFAULT 0,
+    lifetime_spent      INT         NOT NULL DEFAULT 0,
+    lifetime_expired    INT         NOT NULL DEFAULT 0,
+    external_wallet_ref VARCHAR(255),
+    version             BIGINT      NOT NULL DEFAULT 0,
+    created_at          TIMESTAMPTZ DEFAULT NOW(),
+    updated_at          TIMESTAMPTZ DEFAULT NOW(),
+    deleted_at          TIMESTAMPTZ
+);
+
+CREATE UNIQUE INDEX uq_reward_wallets_org_user
+    ON reward_wallets(organization_id, user_id) WHERE deleted_at IS NULL;
+CREATE INDEX idx_reward_wallets_org ON reward_wallets(organization_id);
+
+-- ── Sổ cái giao dịch: CHỈ GHI THÊM ─────────────────
+-- Theo đúng tiền lệ cycle_unit_eval_events: không updated_at, không deleted_at.
+-- Sửa sai = ghi giao dịch bù trừ mới, không bao giờ sửa hay xoá dòng đã ghi.
+CREATE TABLE reward_transactions (
+    id                          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    wallet_id                   UUID        NOT NULL REFERENCES reward_wallets(id) ON DELETE CASCADE,
+    organization_id             UUID        NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+    user_id                     UUID        NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    amount                      INT         NOT NULL CHECK (amount <> 0),
+    type                        VARCHAR(20) NOT NULL
+        CHECK (type IN ('EARN', 'SPEND', 'REFUND', 'ADJUST', 'EXPIRE')),
+    source_type                 VARCHAR(20) NOT NULL
+        CHECK (source_type IN ('MANUAL_GRANT', 'AUTO_RANKING', 'REDEMPTION', 'SYSTEM', 'EXTERNAL')),
+    source_ref_id               UUID,
+    reversal_of_transaction_id  UUID        REFERENCES reward_transactions(id) ON DELETE SET NULL,
+    external_system             VARCHAR(50),
+    external_ref                VARCHAR(255),
+    -- Chống ghi trùng khi retry / double-click. Suy ra hoàn toàn từ (loại nghiệp vụ,
+    -- id bản ghi, người nhận) — không chứa timestamp hay số ngẫu nhiên, vì lần retry
+    -- sẽ sinh khoá khác và mất tác dụng. Bảng đăng ký khoá ở RewardWalletService.
+    idempotency_key             VARCHAR(120) NOT NULL,
+    balance_after               INT         NOT NULL,
+    note                        TEXT,
+    actor_user_id               UUID        REFERENCES users(id) ON DELETE SET NULL,
+    created_at                  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE UNIQUE INDEX uq_reward_transactions_idem ON reward_transactions(idempotency_key);
+CREATE INDEX idx_reward_transactions_wallet ON reward_transactions(wallet_id, created_at DESC);
+CREATE INDEX idx_reward_transactions_org_user ON reward_transactions(organization_id, user_id, created_at DESC);
+CREATE INDEX idx_reward_transactions_source ON reward_transactions(source_type, source_ref_id);
+-- Chống nạp trùng khi webhook hệ thống ngoài phát lại. Chưa dùng ở v1 nhưng không thể
+-- thêm sạch sau khi dữ liệu trùng đã tồn tại.
+CREATE UNIQUE INDEX uq_reward_transactions_external
+    ON reward_transactions(external_system, external_ref) WHERE external_ref IS NOT NULL;
+
+-- ── Ngân sách điểm của người trao ──────────────────
+-- CỐ Ý KHÔNG có cột used_points. Hạn mức đã dùng suy ra bằng SUM(total_points) của các
+-- đề nghị PENDING_APPROVAL + APPROVED. Cột đếm phải hoàn lại ở ba đường (từ chối, huỷ,
+-- thu hồi); cách suy ra thì chúng tự rơi khỏi tổng.
+--
+-- period_start/period_end LUÔN có giá trị và là khoảng hiệu lực duy nhất. kpi_cycle_id
+-- và kpi_period_id chỉ là nhãn liên kết: khi tạo theo kỳ/đợt, service copy ngày xuống.
+CREATE TABLE reward_budgets (
+    id               UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    organization_id  UUID        NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+    grantor_user_id  UUID        NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    kpi_cycle_id     UUID        REFERENCES kpi_cycles(id) ON DELETE SET NULL,
+    kpi_period_id    UUID        REFERENCES kpi_periods(id) ON DELETE SET NULL,
+    period_start     DATE        NOT NULL,
+    period_end       DATE        NOT NULL,
+    allocated_points INT         NOT NULL CHECK (allocated_points >= 0),
+    max_per_award    INT         CHECK (max_per_award IS NULL OR max_per_award > 0),
+    note             TEXT,
+    created_at       TIMESTAMPTZ DEFAULT NOW(),
+    updated_at       TIMESTAMPTZ DEFAULT NOW(),
+    deleted_at       TIMESTAMPTZ,
+    CONSTRAINT ck_reward_budgets_range CHECK (period_end >= period_start),
+    -- Gắn nhãn vào kỳ HOẶC đợt, không phải cả hai: hai cái lệch ngày thì không rõ nên
+    -- đồng bộ theo cái nào.
+    CONSTRAINT ck_reward_budgets_single_link
+        CHECK (NOT (kpi_cycle_id IS NOT NULL AND kpi_period_id IS NOT NULL))
+);
+
+-- Một grantor tại một thời điểm có TỐI ĐA MỘT ngân sách. Nhờ vậy truy vấn tra ngân
+-- sách luôn trả về đúng 0 hoặc 1 dòng, không cần luật ưu tiên "nhiều ngân sách cùng
+-- khớp thì lấy cái nào".
+ALTER TABLE reward_budgets ADD CONSTRAINT ex_reward_budgets_no_overlap
+    EXCLUDE USING gist (
+        organization_id WITH =,
+        grantor_user_id WITH =,
+        daterange(period_start, period_end, '[]') WITH &&
+    ) WHERE (deleted_at IS NULL);
+
+CREATE INDEX idx_reward_budgets_grantor ON reward_budgets(organization_id, grantor_user_id);
+CREATE INDEX idx_reward_budgets_period ON reward_budgets(kpi_period_id);
+
+-- ── Thưởng thủ công ────────────────────────────────
+-- Trong hạn mức ⇒ APPROVED ngay (approval_mode=AUTO). Vượt hạn mức / vượt mức tối đa
+-- mỗi lần ⇒ PENDING_APPROVAL, chờ người có REWARD:APPROVE. Khoản được duyệt vượt hạn
+-- mức có budget_id = NULL: ngoại lệ do cấp trên cho, không tính vào hạn mức cá nhân.
+CREATE TABLE reward_grants (
+    id                   UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    organization_id      UUID        NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+    org_unit_id          UUID        NOT NULL REFERENCES org_units(id) ON DELETE CASCADE,
+    grantor_user_id      UUID        NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    budget_id            UUID        REFERENCES reward_budgets(id) ON DELETE SET NULL,
+    points_per_recipient INT,
+    total_points         INT         NOT NULL CHECK (total_points > 0),
+    reason               TEXT        NOT NULL,
+    status               VARCHAR(20) NOT NULL DEFAULT 'PENDING_APPROVAL'
+        CHECK (status IN ('PENDING_APPROVAL', 'APPROVED', 'REJECTED', 'CANCELLED', 'REVOKED')),
+    -- Để truy "bao nhiêu lần thưởng đi tắt không qua duyệt" bằng một câu query.
+    approval_mode        VARCHAR(10) NOT NULL DEFAULT 'MANUAL'
+        CHECK (approval_mode IN ('AUTO', 'MANUAL')),
+    approval_reason      TEXT,
+    approver_user_id     UUID        REFERENCES users(id) ON DELETE SET NULL,
+    approved_at          TIMESTAMPTZ,
+    decision_note        TEXT,
+    created_at           TIMESTAMPTZ DEFAULT NOW(),
+    updated_at           TIMESTAMPTZ DEFAULT NOW(),
+    deleted_at           TIMESTAMPTZ
+);
+
+CREATE INDEX idx_reward_grants_org_status ON reward_grants(organization_id, status, created_at DESC);
+CREATE INDEX idx_reward_grants_grantor ON reward_grants(grantor_user_id, created_at DESC);
+-- Cột đỡ cho SUM tính hạn mức đã dùng.
+CREATE INDEX idx_reward_grants_budget_status ON reward_grants(budget_id, status) WHERE deleted_at IS NULL;
+
+CREATE TABLE reward_grant_items (
+    id             UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    grant_id       UUID NOT NULL REFERENCES reward_grants(id) ON DELETE CASCADE,
+    user_id        UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    points         INT  NOT NULL CHECK (points > 0),
+    transaction_id UUID REFERENCES reward_transactions(id) ON DELETE SET NULL,
+    created_at     TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- Lưới an toàn cuối. Kiểm trùng người nhận phải làm ở tầng request với thông báo rõ ràng.
+CREATE UNIQUE INDEX uq_reward_grant_items ON reward_grant_items(grant_id, user_id);
+
+-- ── Chương trình thưởng tự động theo xếp hạng ──────
+-- kpi_periods và kpi_cycles không có cột trạng thái nên không có sự kiện "đóng đợt".
+-- Cơ chế là 2 bước do người dùng chủ động (xem trước, rồi phát), cộng tuỳ chọn tự phát
+-- theo NGÀY KẾT THÚC (auto_trigger) — ngày kết thúc là thứ duy nhất cả đợt lẫn kỳ đều có.
+CREATE TABLE reward_programs (
+    id                 UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    organization_id    UUID         NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+    name               VARCHAR(255) NOT NULL,
+    description        TEXT,
+    scope              VARCHAR(20)  NOT NULL CHECK (scope IN ('PERIOD', 'CYCLE')),
+    org_unit_id        UUID         REFERENCES org_units(id) ON DELETE CASCADE,
+    -- Gắn cứng vào MỘT kỳ/đợt. Cả hai NULL = luật thường trực, mục tiêu chọn lúc chạy.
+    kpi_cycle_id       UUID         REFERENCES kpi_cycles(id)  ON DELETE SET NULL,
+    kpi_period_id      UUID         REFERENCES kpi_periods(id) ON DELETE SET NULL,
+    rank_within        VARCHAR(20)  NOT NULL DEFAULT 'SCOPE'
+        CHECK (rank_within IN ('SCOPE', 'PER_UNIT')),
+    metric             VARCHAR(30)  NOT NULL DEFAULT 'FINAL_SCORE'
+        CHECK (metric IN ('FINAL_SCORE', 'MATRIX_RATING', 'PERFORMANCE')),
+    -- SHARE_ALL: đồng hạng cùng nhận, "Top 3" có thể trả cho 4 người.
+    tie_policy         VARCHAR(10)  NOT NULL DEFAULT 'SHARE_ALL'
+        CHECK (tie_policy IN ('SHARE_ALL', 'STRICT')),
+    min_metric_value   DOUBLE PRECISION,
+    max_points_per_run INT,
+    include_unit_heads BOOLEAN      NOT NULL DEFAULT TRUE,
+    tiers              jsonb        NOT NULL,
+    auto_trigger       BOOLEAN      NOT NULL DEFAULT FALSE,
+    enabled            BOOLEAN      NOT NULL DEFAULT TRUE,
+    created_by         UUID         REFERENCES users(id) ON DELETE SET NULL,
+    created_at         TIMESTAMPTZ  DEFAULT NOW(),
+    updated_at         TIMESTAMPTZ  DEFAULT NOW(),
+    deleted_at         TIMESTAMPTZ,
+    -- Mục tiêu gắn cứng phải KHỚP phạm vi: chương trình theo kỳ không thể gắn vào đợt.
+    CONSTRAINT ck_reward_programs_fixed_target CHECK (
+        (kpi_cycle_id IS NULL AND kpi_period_id IS NULL)
+     OR (scope = 'CYCLE'  AND kpi_cycle_id  IS NOT NULL AND kpi_period_id IS NULL)
+     OR (scope = 'PERIOD' AND kpi_period_id IS NOT NULL AND kpi_cycle_id  IS NULL)
+    )
+);
+
+CREATE INDEX idx_reward_programs_org ON reward_programs(organization_id) WHERE deleted_at IS NULL;
+CREATE INDEX idx_reward_programs_fixed_cycle  ON reward_programs(kpi_cycle_id);
+CREATE INDEX idx_reward_programs_fixed_period ON reward_programs(kpi_period_id);
+
+CREATE TABLE reward_program_runs (
+    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    program_id      UUID        NOT NULL REFERENCES reward_programs(id) ON DELETE CASCADE,
+    organization_id UUID        NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+    kpi_period_id   UUID        REFERENCES kpi_periods(id) ON DELETE CASCADE,
+    kpi_cycle_id    UUID        REFERENCES kpi_cycles(id) ON DELETE CASCADE,
+    status          VARCHAR(20) NOT NULL DEFAULT 'PREVIEW'
+        CHECK (status IN ('PREVIEW', 'ISSUED', 'REVERTED')),
+    total_points    INT         NOT NULL DEFAULT 0,
+    recipient_count INT         NOT NULL DEFAULT 0,
+    -- sha256 của danh sách (userId:points) đã sắp xếp. Khi phát, service tính lại bảng
+    -- xếp hạng và so hash; lệch thì từ chối. Đây là thứ khiến câu "tôi đã duyệt đúng
+    -- danh sách đó" thành sự thật chứ không phải niềm tin.
+    snapshot_hash   VARCHAR(64),
+    -- Bậc thưởng THỰC SỰ dùng cho lần chạy này. Đọc bậc từ chương trình lúc xem lại
+    -- lịch sử thì một lần sửa cấu hình sẽ làm sai toàn bộ các lần phát trước đó.
+    tiers           jsonb,
+    executed_by     UUID        REFERENCES users(id) ON DELETE SET NULL,
+    executed_at     TIMESTAMPTZ,
+    reverted_by     UUID        REFERENCES users(id) ON DELETE SET NULL,
+    reverted_at     TIMESTAMPTZ,
+    note            TEXT,
+    created_at      TIMESTAMPTZ DEFAULT NOW(),
+    updated_at      TIMESTAMPTZ DEFAULT NOW(),
+    CONSTRAINT ck_reward_runs_target CHECK ((kpi_period_id IS NOT NULL) <> (kpi_cycle_id IS NOT NULL))
+);
+
+-- Chống phát trùng. Chỉ chặn bản ISSUED nên thu hồi rồi phát lại vẫn được. Đây là lớp
+-- duy nhất sống sót trước hai cú bấm đồng thời.
+CREATE UNIQUE INDEX uq_reward_runs_issued_cycle ON reward_program_runs(program_id, kpi_cycle_id)
+    WHERE status = 'ISSUED' AND kpi_cycle_id IS NOT NULL;
+CREATE UNIQUE INDEX uq_reward_runs_issued_period ON reward_program_runs(program_id, kpi_period_id)
+    WHERE status = 'ISSUED' AND kpi_period_id IS NOT NULL;
+CREATE INDEX idx_reward_runs_program ON reward_program_runs(program_id, created_at DESC);
+
+CREATE TABLE reward_program_run_items (
+    id             UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    run_id         UUID NOT NULL REFERENCES reward_program_runs(id) ON DELETE CASCADE,
+    user_id        UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    org_unit_id    UUID REFERENCES org_units(id) ON DELETE SET NULL,
+    rank           INT  NOT NULL,   -- hạng thi đấu: đồng điểm dùng chung số
+    order_index    INT  NOT NULL,   -- thứ tự tuyệt đối sau khi phá hoà, để tái lập y hệt
+    metric_value   DOUBLE PRECISION,
+    points         INT  NOT NULL CHECK (points > 0),
+    transaction_id UUID REFERENCES reward_transactions(id) ON DELETE SET NULL,
+    created_at     TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE UNIQUE INDEX uq_reward_run_items ON reward_program_run_items(run_id, user_id);
+
+-- ── Danh mục quà và đổi quà ────────────────────────
+-- Trừ điểm NGAY khi đặt (SPEND), hoàn lại (REFUND) khi từ chối/huỷ. Nếu chỉ giữ chỗ
+-- mềm thì một người có 100 điểm có thể đặt năm yêu cầu 100 điểm cùng lúc.
+CREATE TABLE reward_gift_items (
+    id                UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    organization_id   UUID         NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+    name              VARCHAR(255) NOT NULL,
+    description       TEXT,
+    image_url         TEXT,
+    point_cost        INT          NOT NULL CHECK (point_cost > 0),
+    stock_quantity    INT          NOT NULL DEFAULT 0 CHECK (stock_quantity >= 0),
+    unlimited_stock   BOOLEAN      NOT NULL DEFAULT FALSE,
+    -- TRUE: quà vật lý, phải có người trao tay rồi đánh dấu đã giao.
+    -- FALSE: nhận ngay, yêu cầu đổi tự hoàn tất lúc đặt.
+    -- Mặc định TRUE vì đánh nhầm thành "nhận ngay" sẽ khiến nhân viên tưởng đã nhận
+    -- trong khi chẳng ai gửi gì cho họ.
+    requires_delivery BOOLEAN      NOT NULL DEFAULT TRUE,
+    type              VARCHAR(20)  NOT NULL DEFAULT 'INTERNAL'
+        CHECK (type IN ('INTERNAL', 'EXTERNAL_VOUCHER')),
+    external_provider VARCHAR(50),
+    external_sku      VARCHAR(255),
+    status            VARCHAR(20)  NOT NULL DEFAULT 'ACTIVE'
+        CHECK (status IN ('ACTIVE', 'INACTIVE')),
+    display_order     INT          NOT NULL DEFAULT 0,
+    created_at        TIMESTAMPTZ  DEFAULT NOW(),
+    updated_at        TIMESTAMPTZ  DEFAULT NOW(),
+    deleted_at        TIMESTAMPTZ
+);
+
+CREATE INDEX idx_reward_gift_items_org ON reward_gift_items(organization_id, status) WHERE deleted_at IS NULL;
+
+CREATE TABLE reward_redemptions (
+    id                    UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    organization_id       UUID         NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+    user_id               UUID         NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    gift_item_id          UUID         NOT NULL REFERENCES reward_gift_items(id) ON DELETE RESTRICT,
+    -- Chụp tên VÀ ảnh lúc đổi: quà đổi tên hay thay ảnh sau này không được làm sai
+    -- lịch sử của người đã đổi. Chụp nửa vời (chỉ tên) sẽ cho ra tên cũ kèm ảnh mới.
+    gift_name_snapshot    VARCHAR(255) NOT NULL,
+    gift_image_snapshot   TEXT,
+    quantity              INT          NOT NULL DEFAULT 1 CHECK (quantity > 0),
+    points_spent          INT          NOT NULL CHECK (points_spent > 0),
+    status                VARCHAR(20)  NOT NULL DEFAULT 'PENDING'
+        CHECK (status IN ('PENDING', 'APPROVED', 'REJECTED', 'DELIVERED', 'CANCELLED')),
+    handled_by            UUID         REFERENCES users(id) ON DELETE SET NULL,
+    handled_at            TIMESTAMPTZ,
+    delivered_at          TIMESTAMPTZ,
+    note                  TEXT,
+    transaction_id        UUID         REFERENCES reward_transactions(id) ON DELETE SET NULL,
+    refund_transaction_id UUID         REFERENCES reward_transactions(id) ON DELETE SET NULL,
+    external_order_id     VARCHAR(255),
+    fulfillment_payload   jsonb,
+    created_at            TIMESTAMPTZ  DEFAULT NOW(),
+    updated_at            TIMESTAMPTZ  DEFAULT NOW(),
+    deleted_at            TIMESTAMPTZ
+);
+
+CREATE INDEX idx_reward_redemptions_org_status ON reward_redemptions(organization_id, status, created_at DESC);
+CREATE INDEX idx_reward_redemptions_user ON reward_redemptions(user_id, created_at DESC);
+
 
 -- ====================================================
 -- Create trigger for insert path
