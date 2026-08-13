@@ -3,6 +3,7 @@ import { Bot, Send, X, Loader2, Minimize2, Maximize2, Expand, SquarePen } from '
 import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/store/authStore'
 import { useOrganization } from '@/features/orgunits/hooks/useOrganization'
+import { useMyAiQuota } from '@/features/organization/hooks/useAiQuota'
 import { aiApi, type InsightCard, type FollowupPools, type ClarificationOption } from '../api/aiApi'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
@@ -47,7 +48,13 @@ export default function AiAssistantWidget() {
   const activeInsightRef = useRef<InsightCard | null>(null)
   const navigate = useNavigate()
 
-  if (org && org.enableAi === false) return null
+  // Backend chỉ cấp quyền dùng AI cho vai trò rank <= 1 (trưởng/phó đơn vị) — xem
+  // ManagerContextResolver.resolve(). Người khác gọi sẽ nhận chuỗi từ chối kèm HTTP 200,
+  // vừa khó chịu vừa tốn một lượt rate limit, nên ẩn hẳn nút.
+  const isManager = user?.memberships?.some(m => (m.roleRank ?? 99) <= 1) ?? false
+
+  // Hạn mức token còn lại — chỉ tải khi mở panel, để đóng thì không tốn request nào.
+  const { data: quota } = useMyAiQuota(isOpen && isManager)
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -208,6 +215,11 @@ export default function AiAssistantWidget() {
 
   const lastAssistantId = [...messages].reverse().find(m => m.role === 'assistant')?.id
 
+  // Điều kiện thoát phải nằm SAU toàn bộ hook: useOrganization là React Query nên org ban đầu
+  // undefined rồi mới có dữ liệu — thoát sớm ở lượt render sau sẽ khiến số hook giảm và React
+  // ném "Rendered fewer hooks than expected", làm sập cả cây component.
+  if (!isManager || org?.enableAi === false) return null
+
   if (!isOpen) {
     return (
       <button
@@ -241,7 +253,11 @@ export default function AiAssistantWidget() {
           <div>
             <h3 className="text-white font-bold text-sm">Trợ lý AI</h3>
             <p className="text-indigo-200 text-[10px]">
-              {conversationIdRef.current ? 'Đang trong cuộc trò chuyện' : 'Luôn sẵn sàng hỗ trợ'}
+              {quota
+                ? `Còn ${quota.remaining.toLocaleString('vi-VN')}/${quota.spendable.toLocaleString('vi-VN')} token tháng này`
+                : conversationIdRef.current
+                  ? 'Đang trong cuộc trò chuyện'
+                  : 'Luôn sẵn sàng hỗ trợ'}
             </p>
           </div>
         </div>

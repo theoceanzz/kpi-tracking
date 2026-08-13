@@ -1,6 +1,7 @@
 package com.kpitracking.config;
 
 import com.kpitracking.advisor.TokenUsageAuditAdvisor;
+import com.kpitracking.service.AiTokenUsageRecorder;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.client.advisor.MessageChatMemoryAdvisor;
 import org.springframework.ai.chat.client.advisor.SimpleLoggerAdvisor;
@@ -15,9 +16,10 @@ import org.springframework.context.annotation.Configuration;
 public class ChatModelConfig {
 
     @Bean(name = "openAiChatClient")
-    public ChatClient openAiChatClient(OpenAiChatModel openAiChatModel) {
+    public ChatClient openAiChatClient(OpenAiChatModel openAiChatModel,
+                                       AiTokenUsageRecorder tokenUsageRecorder) {
         Advisor logAdvisor = new SimpleLoggerAdvisor();
-        Advisor tokenUsageAdvisor = new TokenUsageAuditAdvisor();
+        Advisor tokenUsageAdvisor = new TokenUsageAuditAdvisor(tokenUsageRecorder);
         return ChatClient.builder(openAiChatModel)
                 .defaultAdvisors(logAdvisor, tokenUsageAdvisor)
                 .build();
@@ -32,9 +34,10 @@ public class ChatModelConfig {
     }
 
     @Bean(name = "chatClientWithMemory")
-    public ChatClient chatClientWithMemory(OpenAiChatModel openAiChatModel, ChatMemory chatMemory) {
+    public ChatClient chatClientWithMemory(OpenAiChatModel openAiChatModel, ChatMemory chatMemory,
+                                           AiTokenUsageRecorder tokenUsageRecorder) {
         Advisor logAdvisor = new SimpleLoggerAdvisor();
-        Advisor tokenUsageAdvisor = new TokenUsageAuditAdvisor();
+        Advisor tokenUsageAdvisor = new TokenUsageAuditAdvisor(tokenUsageRecorder);
         return ChatClient.builder(openAiChatModel)
                 .defaultAdvisors(
                         logAdvisor,

@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { platformAdminApi } from '../api/platformAdminApi'
 import type { OrganizationAdminItem } from '../api/platformAdminApi'
+import AiUsageSection from '../components/AiUsageSection'
 import {
   Building2, Users, Target, FileText, Bot, TrendingUp,
   ChevronLeft, ChevronRight
@@ -335,6 +336,9 @@ export default function PlatformAdminPage() {
           </div>
         )}
       </div>
+
+      {/* Ngân sách và tiêu thụ token AI theo từng công ty */}
+      <AiUsageSection />
     </div>
   )
 }

@@ -28,6 +28,25 @@ public class GlobalExceptionHandler {
                 .body(ApiResponse.error(ex.getMessage()));
     }
 
+    /** Thiếu hoặc sai kiểu tham số query — trả 400 thay vì để rơi xuống 500. */
+    @ExceptionHandler({
+            org.springframework.web.bind.MissingServletRequestParameterException.class,
+            org.springframework.web.method.annotation.MethodArgumentTypeMismatchException.class
+    })
+    public ResponseEntity<ApiResponse<Void>> handleBadRequestParam(Exception ex) {
+        log.warn("Tham số không hợp lệ: {}", ex.getMessage());
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(ApiResponse.error("Yêu cầu thiếu tham số hoặc tham số không hợp lệ."));
+    }
+
+    /** Người dùng hết hạn mức token AI của tháng — khác với việc nhà cung cấp AI hết credit. */
+    @ExceptionHandler(AiTokenQuotaExceededException.class)
+    public ResponseEntity<ApiResponse<Void>> handleAiTokenQuota(AiTokenQuotaExceededException ex) {
+        log.warn("Hết hạn mức token AI: {}", ex.getMessage());
+        return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+                .body(ApiResponse.error(ex.getMessage()));
+    }
+
     @ExceptionHandler(BusinessException.class)
     public ResponseEntity<ApiResponse<Void>> handleBusinessException(BusinessException ex) {
         log.warn("Business exception: {}", ex.getMessage());

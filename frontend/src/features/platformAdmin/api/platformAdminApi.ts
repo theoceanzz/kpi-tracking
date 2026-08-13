@@ -34,6 +34,16 @@ export interface UpdateOrgFeaturesRequest {
   enableWaterfall?: boolean
 }
 
+export interface OrgAiUsage {
+  organizationId: string
+  organizationName: string
+  organizationCode: string
+  monthlyLimit: number
+  usedTokens: number
+  callCount: number
+  usagePercent: number | null
+}
+
 export interface UpdateOrgStatusRequest {
   status: 'PENDING' | 'ACTIVE' | 'SUSPENDED' | 'ARCHIVED'
 }
@@ -52,4 +62,11 @@ export const platformAdminApi = {
 
   updateStatus: (orgId: string, data: UpdateOrgStatusRequest) =>
     axiosInstance.patch<ApiResponse<OrganizationAdminItem>>(`/admin/organizations/${orgId}/status`, data),
+  updateAiBudget: (orgId: string, aiMonthlyTokenLimit: number) =>
+    axiosInstance.patch<ApiResponse<OrganizationAdminItem>>(
+      `/admin/organizations/${orgId}/ai-budget`, { aiMonthlyTokenLimit }),
+
+  getAiUsage: (month?: string) =>
+    axiosInstance.get<ApiResponse<OrgAiUsage[]>>('/admin/ai-usage', { params: { month } })
+      .then((r) => r.data.data),
 }

@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react'
 import {
   Bell, LayoutPanelLeft, Save,
-  Info, Loader2, Search, Mail
+  Info, Loader2, Search, Mail, Link2
 } from 'lucide-react'
 import EmailTemplateSettingsTab from '../components/EmailTemplateSettingsTab'
+import LarkSettingsTab from '../components/LarkSettingsTab'
+import { LARK_CONNECT_RESULT_KEY } from '@/features/auth/pages/LarkCallbackPage'
 import { cn } from '@/lib/utils'
 import { useSidebarSettings, useUpdateSidebarSettings } from '../hooks/useSidebarSettings'
 import { useAuthStore } from '@/store/authStore'
@@ -15,7 +17,10 @@ import { notificationApi, type NotificationConfigItem } from '@/features/notific
 import { useOrganization } from '@/features/orgunits/hooks/useOrganization'
 
 export default function SystemSettingsPage() {
-  const [activeTab, setActiveTab] = useState<'sidebar' | 'notifications' | 'emailTemplates'>('sidebar')
+  const [activeTab, setActiveTab] = useState<'sidebar' | 'notifications' | 'emailTemplates' | 'lark'>(
+    // Quay về từ Lark sau bước liên kết thì mở thẳng tab Lark để thấy thẻ xác nhận
+    () => (sessionStorage.getItem(LARK_CONNECT_RESULT_KEY) ? 'lark' : 'sidebar')
+  )
   const { user } = useAuthStore()
   const organizationId = user?.memberships?.[0]?.organizationId
   const { data: customLabels = {} } = useSidebarSettings(organizationId!)
@@ -55,6 +60,12 @@ export default function SystemSettingsPage() {
           icon={Mail}
           label="Template email"
         />
+        <TabButton
+          active={activeTab === 'lark'}
+          onClick={() => setActiveTab('lark')}
+          icon={Link2}
+          label="Kết nối Lark"
+        />
       </div>
 
       {/* Content */}
@@ -64,6 +75,7 @@ export default function SystemSettingsPage() {
         {activeTab === 'emailTemplates' && (
           <EmailTemplateSettingsTab onOpenNotificationSettings={() => setActiveTab('notifications')} />
         )}
+        {activeTab === 'lark' && <LarkSettingsTab />}
       </div>
     </div>
   )
@@ -160,6 +172,7 @@ function SidebarSettingsTab() {
     { key: '/my-adjustments', defaultLabel: 'Điều chỉnh của tôi', category: 'Cá nhân' },
     { key: '/submissions', defaultLabel: 'Bài nộp của tôi', category: 'Cá nhân' },
     { key: '/analytics', defaultLabel: 'Thống kê', category: 'Thống kê' },
+    { key: '/ai-quota', defaultLabel: 'Hạn mức AI', category: 'Hệ thống' },
   ]
 
   const filteredItems = menuItems.filter(item => 

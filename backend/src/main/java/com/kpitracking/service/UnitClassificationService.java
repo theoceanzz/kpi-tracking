@@ -39,6 +39,8 @@ public class UnitClassificationService {
     private record LevelDef(String name, String color) {}
     private record Cond(String level, String scope, String op, double percent) {}
     private record Rule(String levelName, String color, List<Cond> conditions) {}
+    /** Hồ sơ luật xếp loại: một bộ rule gán cho (các) đơn vị. Đơn vị con kế thừa hồ sơ của cha. */
+    private record Profile(String name, boolean isDefault, List<UUID> orgUnitIds, List<Rule> rules) {}
 
     @Transactional(readOnly = true)
     public OverviewResponse getOverview(UUID orgUnitId, Collection<UUID> periodIds) {
@@ -50,17 +52,13 @@ public class UnitClassificationService {
 
         List<LevelDef> levels = levelDefs(org, matrix); // cao → thấp
         if (levels.isEmpty()) return empty(unit);
-        // Luật: dùng cấu hình org nếu CÙNG THANG hiện tại; nếu chưa cấu hình / lệch thang (vd rule cũ theo
-        // Xuất sắc/Tốt nhưng org đã bật ma trận → mức là "Loại N") → dùng preset của thang hiện tại.
+        // Nhiều HỒ SƠ luật, mỗi hồ sơ gán cho (các) đơn vị — đơn vị con KẾ THỪA hồ sơ của cha (theo path).
+        // validNames: chỉ nhận rule ĐÚNG THANG hiện tại (matrix "Loại N" vs thang điểm); lệch/không có → preset.
         Set<String> validNames = levels.stream().map(LevelDef::name).collect(Collectors.toSet());
-        List<Rule> rules = null;
-        if (org.getUnitClassificationRules() != null) {
-            List<Rule> saved = parseRules(org.getUnitClassificationRules());
-            if (!saved.isEmpty() && saved.stream().anyMatch(r -> validNames.contains(r.levelName()))) rules = saved;
-        }
-        if (rules == null) {
-            rules = matrix ? defaultMatrixRules(levels) : parseRules(EvaluationConstants.DEFAULT_UNIT_RULES_SCORE);
-        }
+        List<Profile> profiles = parseProfiles(org.getUnitClassificationRules());
+        Map<UUID, String> pathById = loadPaths(profiles);
+        List<Rule> presetRules = matrix ? defaultMatrixRules(levels)
+                                        : parseRules(EvaluationConstants.DEFAULT_UNIT_RULES_SCORE);
         Function<Evaluation, String> classifier = memberClassifier(org, matrix);
 
         List<UUID> subtreeIds = subtreeIds(unit, orgId);
@@ -99,8 +97,11 @@ public class UnitClassificationService {
                         .count(c).percent(lastEvaluated > 0 ? round1(c * 100.0 / lastEvaluated) : 0.0).build());
             }
         }
+        Profile mainProfile = resolveProfile(unit, profiles, pathById);
+        List<Rule> rules = rulesOf(mainProfile, validNames, presetRules);
         Classification classification = (lastCounts != null && lastEvaluated > 0)
                 ? classify(rules, lastCounts, lastEvaluated, levels) : null;
+        String appliedProfileName = mainProfile != null ? mainProfile.name() : null;
 
         // Xếp loại nhanh các đơn vị con trực tiếp (kỳ hiện tại).
         List<ChildClassification> children = new ArrayList<>();
@@ -108,15 +109,17 @@ public class UnitClassificationService {
             List<UUID> cMembers = distinctMemberIds(subtreeIds(child, orgId));
             Classification cc = null;
             int cEval = 0;
+            Profile cProfile = resolveProfile(child, profiles, pathById);
             if (lastPeriodId != null && !cMembers.isEmpty()) {
                 Map<String, Integer> cCounts = countByLevel(cMembers, lastPeriodId, classifier, levels);
                 cEval = cCounts.values().stream().mapToInt(Integer::intValue).sum();
-                if (cEval > 0) cc = classify(rules, cCounts, cEval, levels);
+                if (cEval > 0) cc = classify(rulesOf(cProfile, validNames, presetRules), cCounts, cEval, levels);
             }
             children.add(ChildClassification.builder()
                     .orgUnitId(child.getId()).orgUnitName(child.getName())
                     .classification(cc != null ? cc.getLevel() : null)
                     .color(cc != null ? cc.getColor() : null)
+                    .appliedProfileName(cProfile != null ? cProfile.name() : null)
                     .evaluatedMembers(cEval).build());
         }
 
@@ -124,7 +127,8 @@ public class UnitClassificationService {
                 .orgUnitId(unit.getId()).orgUnitName(unit.getName())
                 .levels(levels.stream().map(l -> LevelInfo.builder().name(l.name()).color(l.color()).build()).collect(Collectors.toList()))
                 .totalMembers(memberIds.size()).evaluatedMembers(lastEvaluated).currentPeriodName(lastPeriodName)
-                .distribution(distribution).classification(classification).trend(trend).children(children)
+                .distribution(distribution).classification(classification).appliedProfileName(appliedProfileName)
+                .trend(trend).children(children)
                 .build();
     }
 
@@ -251,29 +255,102 @@ public class UnitClassificationService {
     }
 
     private List<Rule> parseRules(String json) {
+        try { return parseRulesNode(objectMapper.readTree(json).path("rules")); }
+        catch (Exception ignored) { return new ArrayList<>(); } // JSON hỏng → không luật (đơn vị nhận mức thấp nhất)
+    }
+
+    private List<Rule> parseRulesNode(JsonNode arr) {
         List<Rule> out = new ArrayList<>();
-        try {
-            JsonNode arr = objectMapper.readTree(json).path("rules");
-            if (arr.isArray()) {
-                for (JsonNode r : arr) {
-                    List<Cond> conds = new ArrayList<>();
-                    JsonNode cs = r.path("conditions");
-                    if (cs.isArray()) {
-                        for (JsonNode c : cs) {
-                            conds.add(new Cond(
-                                    c.path("level").asText(null),
-                                    c.path("scope").asText("this"),
-                                    c.path("op").asText("gte"),
-                                    c.path("percent").asDouble(0)));
-                        }
+        if (arr != null && arr.isArray()) {
+            for (JsonNode r : arr) {
+                List<Cond> conds = new ArrayList<>();
+                JsonNode cs = r.path("conditions");
+                if (cs.isArray()) {
+                    for (JsonNode c : cs) {
+                        conds.add(new Cond(
+                                c.path("level").asText(null),
+                                c.path("scope").asText("this"),
+                                c.path("op").asText("gte"),
+                                c.path("percent").asDouble(0)));
                     }
-                    out.add(new Rule(r.path("levelName").asText(null), r.path("color").asText("#64748b"), conds));
                 }
+                out.add(new Rule(r.path("levelName").asText(null), r.path("color").asText("#64748b"), conds));
             }
-        } catch (Exception ignored) {
-            // JSON hỏng → không luật (đơn vị sẽ nhận mức thấp nhất).
         }
         return out;
+    }
+
+    /**
+     * Parse danh sách HỒ SƠ. Hình dạng mới: {@code {"profiles":[{name,isDefault,orgUnitIds,rules}]}}.
+     * Tương thích ngược: {@code {"rules":[...]}} (cũ) → coi như 1 hồ sơ Mặc định áp cho toàn bộ.
+     */
+    private List<Profile> parseProfiles(String json) {
+        List<Profile> out = new ArrayList<>();
+        if (json == null || json.isBlank()) return out;
+        try {
+            JsonNode root = objectMapper.readTree(json);
+            JsonNode profs = root.path("profiles");
+            if (profs.isArray() && profs.size() > 0) {
+                for (JsonNode p : profs) {
+                    out.add(new Profile(
+                            p.path("name").asText(null),
+                            p.path("isDefault").asBoolean(false),
+                            parseIds(p.path("orgUnitIds")),
+                            parseRulesNode(p.path("rules"))));
+                }
+            } else if (root.path("rules").isArray()) {
+                out.add(new Profile("Mặc định", true, List.of(), parseRulesNode(root.path("rules"))));
+            }
+        } catch (Exception ignored) { /* JSON hỏng → rỗng → preset */ }
+        return out;
+    }
+
+    private List<UUID> parseIds(JsonNode arr) {
+        List<UUID> ids = new ArrayList<>();
+        if (arr != null && arr.isArray()) {
+            for (JsonNode n : arr) {
+                try { ids.add(UUID.fromString(n.asText())); } catch (Exception ignored) { /* bỏ id lỗi */ }
+            }
+        }
+        return ids;
+    }
+
+    /** Nạp path của mọi đơn vị được gán (id → path) — dùng để dò tổ tiên gần nhất. */
+    private Map<UUID, String> loadPaths(List<Profile> profiles) {
+        Set<UUID> ids = profiles.stream().flatMap(p -> p.orgUnitIds().stream()).collect(Collectors.toSet());
+        if (ids.isEmpty()) return Map.of();
+        Map<UUID, String> m = new HashMap<>();
+        for (OrgUnit u : orgUnitRepository.findAllById(ids)) m.put(u.getId(), u.getPath());
+        return m;
+    }
+
+    /**
+     * Hồ sơ áp cho đơn vị {@code u}: chọn đơn vị-được-gán có path là TIỀN TỐ DÀI NHẤT của {@code u.path}
+     * (tổ tiên gần nhất, gồm chính nó → con ghi đè cha). Không có → hồ sơ mặc định; vẫn không → null (preset).
+     */
+    private Profile resolveProfile(OrgUnit u, List<Profile> profiles, Map<UUID, String> pathById) {
+        String upath = u.getPath();
+        Profile best = null;
+        int bestLen = -1;
+        if (upath != null) {
+            for (Profile p : profiles) {
+                for (UUID id : p.orgUnitIds()) {
+                    String ap = pathById.get(id);
+                    if (ap != null && upath.startsWith(ap) && ap.length() > bestLen) { bestLen = ap.length(); best = p; }
+                }
+            }
+        }
+        if (best != null) return best;
+        return profiles.stream().filter(Profile::isDefault).findFirst().orElse(null);
+    }
+
+    /** Rule của hồ sơ nếu ĐÚNG thang hiện tại; nếu không (lệch thang / null / rỗng) → preset. */
+    private List<Rule> rulesOf(Profile p, Set<String> validNames, List<Rule> presetRules) {
+        if (p != null && p.rules() != null && !p.rules().isEmpty()
+                && p.rules().stream().anyMatch(r -> validNames.contains(r.levelName()))) {
+            return p.rules();
+        }
+        return presetRules;
     }
 
     private List<UUID> subtreeIds(OrgUnit unit, UUID orgId) {

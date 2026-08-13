@@ -82,12 +82,27 @@ jwt:
   access-token-expiry: ${JWT_ACCESS_EXPIRY:9000000}
   refresh-token-expiry: ${JWT_REFRESH_EXPIRY:604800000}
 
+lark:
+  # App ID / App Secret KHÔNG nằm ở đây: mỗi công ty tự cấu hình trong tab "Kết nối Lark"
+  # và được lưu (đã mã hoá) trên bảng organizations.
+  redirect-uri: ${LARK_REDIRECT_URI:https://keygo.vn/auth/lark/callback}
+  # Feishu (bản Trung Quốc) dùng open.feishu.cn / accounts.feishu.cn
+  open-base-url: ${LARK_OPEN_BASE_URL:https://open.larksuite.com}
+  auth-base-url: ${LARK_AUTH_BASE_URL:https://accounts.larksuite.com}
+
 cloudinary:
   cloud-name: ${CLOUDINARY_CLOUD_NAME:your-cloud-name}
   api-key: ${CLOUDINARY_API_KEY:your-api-key}
   api-secret: ${CLOUDINARY_API_SECRET:your-api-secret}
 
 app:
+  security:
+    # Khoá mã hoá App Secret Lark và tenant_key trong database.
+    # ⚠️ BẮT BUỘC ở production: thiếu hoặc ngắn dưới 32 ký tự thì ứng dụng KHÔNG khởi động
+    #    (xem DataProtection.init) — cố tình như vậy để không bao giờ chạy bằng khoá suy ra được.
+    # ⚠️ ĐỔI KHOÁ NÀY = MẤT LIÊN KẾT Lark của mọi công ty, không phục hồi được.
+    # Sinh khoá: openssl rand -base64 48
+    data-key: ${DATA_ENCRYPTION_KEY:}
   cors:
     allowed-origins: ${CORS_ORIGINS:https://keygo.vn}
   rate-limit:

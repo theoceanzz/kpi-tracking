@@ -107,4 +107,63 @@ public interface UserRoleOrgUnitRepository extends JpaRepository<UserRoleOrgUnit
 
     @Query("SELECT DISTINCT r FROM UserRoleOrgUnit uro JOIN uro.role r WHERE uro.orgUnit.id IN :orgUnitIds")
     List<com.kpitracking.entity.Role> findDistinctRolesByOrgUnitIdIn(@Param("orgUnitIds") java.util.Collection<UUID> orgUnitIds);
+
+    /**
+     * Danh sách nhân sự cho màn phân bổ hạn mức token, có phân trang và lọc.
+     *
+     * <p>{@code paths = null} nghĩa là không giới hạn subtree (quản lý cao nhất, thấy cả công ty);
+     * truyền tập đường dẫn thì chỉ lấy người trong subtree đó.
+     *
+     * <p>Bộ lọc trạng thái phải dùng truy vấn con vô hướng chứ không JOIN được, vì
+     * {@code AiTokenQuota.userId} là cột UUID trần, không khai liên kết tới {@code User}.
+     */
+    @Query(value = "SELECT DISTINCT uro.user FROM UserRoleOrgUnit uro " +
+           "WHERE uro.orgUnit.orgHierarchyLevel.organization.id = :orgId AND uro.user.deletedAt IS NULL " +
+           "AND (:paths IS NULL OR EXISTS (SELECT 1 FROM OrgUnit p " +
+           "     WHERE uro.orgUnit.path LIKE CONCAT(p.path, '%') AND p.path IN :paths)) " +
+           "AND (:keyword IS NULL OR :keyword = '' " +
+           "     OR LOWER(CAST(uro.user.fullName AS string)) LIKE LOWER(CONCAT('%', CAST(:keyword AS string), '%')) " +
+           "     OR LOWER(CAST(uro.user.email AS string)) LIKE LOWER(CONCAT('%', CAST(:keyword AS string), '%'))) " +
+           "AND (:roleName IS NULL OR :roleName = '' OR uro.role.name = :roleName) " +
+           "AND (:status IS NULL OR :status = '' " +
+           "     OR (:status = 'UNALLOCATED' AND COALESCE((SELECT q.monthlyLimit FROM AiTokenQuota q WHERE q.userId = uro.user.id), 0L) = 0L) " +
+           "     OR (:status = 'ALLOCATED' AND COALESCE((SELECT q.monthlyLimit FROM AiTokenQuota q WHERE q.userId = uro.user.id), 0L) > 0L) " +
+           "     OR (:status = 'NEAR_LIMIT' " +
+           "         AND COALESCE((SELECT q.monthlyLimit FROM AiTokenQuota q WHERE q.userId = uro.user.id), 0L) > 0L " +
+           "         AND (SELECT COALESCE(SUM(t.totalTokens), 0) FROM AiTokenUsage t " +
+           "              WHERE t.userId = uro.user.id AND t.periodMonth = :period) " +
+           "             >= 0.8 * COALESCE((SELECT q.monthlyLimit FROM AiTokenQuota q WHERE q.userId = uro.user.id), 0L)))",
+           countQuery = "SELECT COUNT(DISTINCT uro.user) FROM UserRoleOrgUnit uro " +
+           "WHERE uro.orgUnit.orgHierarchyLevel.organization.id = :orgId AND uro.user.deletedAt IS NULL " +
+           "AND (:paths IS NULL OR EXISTS (SELECT 1 FROM OrgUnit p " +
+           "     WHERE uro.orgUnit.path LIKE CONCAT(p.path, '%') AND p.path IN :paths)) " +
+           "AND (:keyword IS NULL OR :keyword = '' " +
+           "     OR LOWER(CAST(uro.user.fullName AS string)) LIKE LOWER(CONCAT('%', CAST(:keyword AS string), '%')) " +
+           "     OR LOWER(CAST(uro.user.email AS string)) LIKE LOWER(CONCAT('%', CAST(:keyword AS string), '%'))) " +
+           "AND (:roleName IS NULL OR :roleName = '' OR uro.role.name = :roleName) " +
+           "AND (:status IS NULL OR :status = '' " +
+           "     OR (:status = 'UNALLOCATED' AND COALESCE((SELECT q.monthlyLimit FROM AiTokenQuota q WHERE q.userId = uro.user.id), 0L) = 0L) " +
+           "     OR (:status = 'ALLOCATED' AND COALESCE((SELECT q.monthlyLimit FROM AiTokenQuota q WHERE q.userId = uro.user.id), 0L) > 0L) " +
+           "     OR (:status = 'NEAR_LIMIT' " +
+           "         AND COALESCE((SELECT q.monthlyLimit FROM AiTokenQuota q WHERE q.userId = uro.user.id), 0L) > 0L " +
+           "         AND (SELECT COALESCE(SUM(t.totalTokens), 0) FROM AiTokenUsage t " +
+           "              WHERE t.userId = uro.user.id AND t.periodMonth = :period) " +
+           "             >= 0.8 * COALESCE((SELECT q.monthlyLimit FROM AiTokenQuota q WHERE q.userId = uro.user.id), 0L)))")
+    org.springframework.data.domain.Page<com.kpitracking.entity.User> searchAllocatableUsers(
+            @Param("orgId") UUID orgId,
+            @Param("paths") java.util.Collection<String> paths,
+            @Param("keyword") String keyword,
+            @Param("roleName") String roleName,
+            @Param("status") String status,
+            @Param("period") java.time.LocalDate period,
+            org.springframework.data.domain.Pageable pageable);
+
+    /** Các vai trò thực sự có mặt trong phạm vi — đổ vào ô lọc, không hiện vai trò rỗng người. */
+    @Query("SELECT DISTINCT uro.role.name FROM UserRoleOrgUnit uro " +
+           "WHERE uro.orgUnit.orgHierarchyLevel.organization.id = :orgId AND uro.user.deletedAt IS NULL " +
+           "AND (:paths IS NULL OR EXISTS (SELECT 1 FROM OrgUnit p " +
+           "     WHERE uro.orgUnit.path LIKE CONCAT(p.path, '%') AND p.path IN :paths)) " +
+           "ORDER BY uro.role.name")
+    List<String> findRoleNamesInScope(@Param("orgId") UUID orgId,
+                                      @Param("paths") java.util.Collection<String> paths);
 }

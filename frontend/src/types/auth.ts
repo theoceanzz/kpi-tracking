@@ -43,6 +43,12 @@ export interface AuthResponse {
   hasSeenOnboarding?: boolean
 }
 
+// Matches BE: LarkAuthorizeUrlResponse
+export interface LarkAuthorizeUrl {
+  authorizeUrl: string
+  state: string
+}
+
 export interface HierarchyLevel {
   unitTypeName: string
   managerRoleLabel?: string

@@ -1,5 +1,6 @@
 package com.kpitracking.entity;
 
+import com.kpitracking.entity.converter.EncryptedStringConverter;
 import com.kpitracking.enums.UserStatus;
 import jakarta.persistence.*;
 import lombok.*;
@@ -39,6 +40,15 @@ public class User {
 
     @Column(name = "avatar_url")
     private String avatarUrl;
+
+    /** HMAC-SHA256 của Lark open_id — chỉ để tra cứu, không lưu giá trị thật. */
+    @Column(name = "lark_open_id_hash")
+    private String larkOpenIdHash;
+
+    /** Lark union_id, mã hoá AES-GCM. Không tra cứu theo cột này. */
+    @Convert(converter = EncryptedStringConverter.class)
+    @Column(name = "lark_union_id_enc")
+    private String larkUnionId;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false)

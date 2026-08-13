@@ -7,7 +7,8 @@ import java.util.List;
 public class RolePermissionConstants {
 
     public static final List<String> SYSTEM_ONLY = Arrays.asList(
-            "SYSTEM:ADMIN", "COMPANY:DELETE", "ROLE:DELETE", "POLICY:DELETE", "PERMISSION:EDIT"
+            "SYSTEM:ADMIN", "COMPANY:DELETE", "ROLE:DELETE", "POLICY:DELETE", "PERMISSION:EDIT",
+            "AI_QUOTA:MANAGE"
     );
 
     public static final List<String> PERSONAL_PERMS = Arrays.asList(
@@ -37,6 +38,7 @@ public class RolePermissionConstants {
             "EVALUATION:VIEW", "EVALUATION:CREATE", "EVALUATION:UPDATE", "EVALUATION:DELETE",
             "NOTIF:VIEW", "NOTIF:MANAGE",
             "KPI_PERIOD:VIEW", "KPI_PERIOD:CREATE", "KPI_PERIOD:UPDATE", "KPI_PERIOD:DELETE",
+            "AI:SUGGEST_KPI", "AI_QUOTA:ALLOCATE",
             "KPI_CYCLE:VIEW", "KPI_CYCLE:CREATE", "KPI_CYCLE:UPDATE", "KPI_CYCLE:DELETE",
             "CYCLE_EVAL:VIEW", "CYCLE_EVAL:FINALIZE", "CYCLE_EVAL:SEND",
             "AI:SUGGEST_KPI",
@@ -100,7 +102,7 @@ public class RolePermissionConstants {
             "EVALUATION:VIEW", "EVALUATION:CREATE",
             "CYCLE_EVAL:VIEW", "CYCLE_EVAL:FINALIZE", "CYCLE_EVAL:SEND",
             "NOTIF:VIEW", "KPI_PERIOD:VIEW", "KPI_CYCLE:VIEW",
-            "AI:SUGGEST_KPI",
+            "AI:SUGGEST_KPI", "AI_QUOTA:ALLOCATE",
             "STATS:VIEW_EMPLOYEE",
             "ATTACHMENT:UPLOAD",
             "REMINDER:SEND",
