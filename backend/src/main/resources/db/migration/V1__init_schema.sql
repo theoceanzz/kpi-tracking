@@ -54,7 +54,6 @@ CREATE TABLE organizations (
   enable_reward BOOLEAN NOT NULL DEFAULT FALSE,
   performance_matrix jsonb,
   unit_classification_rules jsonb,
-
   -- ----- Hạn mức token AI -----
   -- Ngân sách token/tháng do quản trị nền tảng cấp cho công ty. Tổng hạn mức phân bổ
   -- cho từng người không được vượt số này (kiểm ở AiQuotaAllocationService).
@@ -77,8 +76,6 @@ CREATE TABLE organizations (
   lark_tenant_name        VARCHAR(255),
   lark_tenant_avatar_url  TEXT,
   lark_verified_at        TIMESTAMPTZ,
-  -- Đơn vị/vai trò mặc định cho người dùng được tạo tự động khi đăng nhập Lark lần đầu.
-  -- Khoá ngoại thêm ở cuối file vì org_units và roles được tạo sau bảng này.
   lark_default_org_unit_id UUID,
   lark_default_role_id     UUID,
 
@@ -283,10 +280,6 @@ CREATE TABLE roles (
   UNIQUE (name, organization_id)
 );
 
--- ====================================================
--- Khoá ngoại cho đơn vị/vai trò mặc định của luồng đăng nhập Lark.
--- Đặt ở đây vì organizations được tạo trước org_units và roles.
--- ====================================================
 ALTER TABLE organizations
     ADD CONSTRAINT fk_org_lark_default_org_unit
         FOREIGN KEY (lark_default_org_unit_id) REFERENCES org_units (id),
@@ -1357,6 +1350,45 @@ CREATE INDEX idx_reward_redemptions_user ON reward_redemptions(user_id, created_
 
 
 -- ====================================================
+-- Hạn mức token AI
+-- ====================================================
+
+-- Sổ cái tiêu thụ token. Chỉ ghi thêm, không sửa — mỗi lượt gọi LLM một dòng.
+-- KHÔNG gắn token vào bảng messages: DatabaseChatMemoryRepository xoá sạch rồi chèn lại
+-- toàn bộ tin nhắn mỗi lượt (PK mới), và suggest-kpi / followups không có hội thoại nào.
+CREATE TABLE ai_token_usage (
+    id                UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id           UUID NOT NULL REFERENCES users(id),
+    organization_id   UUID NOT NULL REFERENCES organizations(id),
+    feature           VARCHAR(40) NOT NULL,   -- CHAT | KPI_SUGGESTION | FOLLOWUP
+    model             VARCHAR(100),
+    prompt_tokens     INT NOT NULL DEFAULT 0,
+    completion_tokens INT NOT NULL DEFAULT 0,
+    total_tokens      INT NOT NULL DEFAULT 0,
+    -- Ngày 1 của tháng. Phi chuẩn hoá có chủ đích: biến phép cộng theo tháng thành
+    -- so sánh bằng có index, chạy trên đường nóng của mọi lượt chat.
+    period_month      DATE NOT NULL,
+    created_at        TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX idx_ai_usage_user_month ON ai_token_usage (user_id, period_month);
+CREATE INDEX idx_ai_usage_org_month  ON ai_token_usage (organization_id, period_month);
+
+-- Hạn mức tháng của từng người. Mỗi người đúng một dòng, do đúng một người cấp.
+--   allocated_by IS NULL  -> cấp từ ngân sách công ty (quản lý cao nhất cấp)
+--   allocated_by = M      -> trừ vào hạn mức của quản lý M
+CREATE TABLE ai_token_quotas (
+    user_id       UUID PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+    monthly_limit BIGINT NOT NULL DEFAULT 0 CHECK (monthly_limit >= 0),
+    allocated_by  UUID REFERENCES users(id),
+    updated_at    TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX idx_ai_quota_allocated_by ON ai_token_quotas (allocated_by)
+    WHERE allocated_by IS NOT NULL;
+
+
+-- ====================================================
 -- Create trigger for insert path
 -- ====================================================
 CREATE OR REPLACE FUNCTION fn_set_org_path()
@@ -1437,40 +1469,3 @@ CREATE TRIGGER trg_update_org_subtree
 AFTER UPDATE OF parent_id ON org_units
 FOR EACH ROW
 EXECUTE FUNCTION fn_update_org_subtree();
--- ====================================================
--- Hạn mức token AI
--- ====================================================
-
--- Sổ cái tiêu thụ token. Chỉ ghi thêm, không sửa — mỗi lượt gọi LLM một dòng.
--- KHÔNG gắn token vào bảng messages: DatabaseChatMemoryRepository xoá sạch rồi chèn lại
--- toàn bộ tin nhắn mỗi lượt (PK mới), và suggest-kpi / followups không có hội thoại nào.
-CREATE TABLE ai_token_usage (
-    id                UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id           UUID NOT NULL REFERENCES users(id),
-    organization_id   UUID NOT NULL REFERENCES organizations(id),
-    feature           VARCHAR(40) NOT NULL,   -- CHAT | KPI_SUGGESTION | FOLLOWUP
-    model             VARCHAR(100),
-    prompt_tokens     INT NOT NULL DEFAULT 0,
-    completion_tokens INT NOT NULL DEFAULT 0,
-    total_tokens      INT NOT NULL DEFAULT 0,
-    -- Ngày 1 của tháng. Phi chuẩn hoá có chủ đích: biến phép cộng theo tháng thành
-    -- so sánh bằng có index, chạy trên đường nóng của mọi lượt chat.
-    period_month      DATE NOT NULL,
-    created_at        TIMESTAMPTZ NOT NULL DEFAULT now()
-);
-
-CREATE INDEX idx_ai_usage_user_month ON ai_token_usage (user_id, period_month);
-CREATE INDEX idx_ai_usage_org_month  ON ai_token_usage (organization_id, period_month);
-
--- Hạn mức tháng của từng người. Mỗi người đúng một dòng, do đúng một người cấp.
---   allocated_by IS NULL  -> cấp từ ngân sách công ty (quản lý cao nhất cấp)
---   allocated_by = M      -> trừ vào hạn mức của quản lý M
-CREATE TABLE ai_token_quotas (
-    user_id       UUID PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
-    monthly_limit BIGINT NOT NULL DEFAULT 0 CHECK (monthly_limit >= 0),
-    allocated_by  UUID REFERENCES users(id),
-    updated_at    TIMESTAMPTZ NOT NULL DEFAULT now()
-);
-
-CREATE INDEX idx_ai_quota_allocated_by ON ai_token_quotas (allocated_by)
-    WHERE allocated_by IS NOT NULL;
