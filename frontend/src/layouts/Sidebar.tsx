@@ -1,5 +1,6 @@
 import { NavLink, Link, useLocation } from 'react-router-dom'
 import { useAuthStore } from '@/store/authStore'
+import { useAuth } from '@/hooks/useAuth'
 import { useSidebarStore } from '@/store/sidebarStore'
 import { useState, useRef, useEffect } from 'react'
 import { useHasPermission } from '../components/auth/PermissionGate'
@@ -171,7 +172,9 @@ function TourReplayButton({ path }: { path: string }) {
 }
 
 export default function Sidebar({ isMobileOpen, onCloseMobile }: { isMobileOpen?: boolean; onCloseMobile?: () => void }) {
-  const { user, logout } = useAuthStore()
+  const { user } = useAuthStore()
+  // useAuth.logout gọi API để backend xoá cookie phiên; logout của store chỉ dọn state cục bộ.
+  const { logout } = useAuth()
   const { isCollapsed } = useSidebarStore()
   const { hasSeen, startTour, stopTour } = useTourStore()
   const [userMenuOpen, setUserMenuOpen] = useState(false)

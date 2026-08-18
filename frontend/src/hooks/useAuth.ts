@@ -7,7 +7,14 @@ export function useAuth() {
   const { user, isAuthenticated, setAuth, setUser, logout: storeLogout } = useAuthStore()
   const navigate = useNavigate()
 
-  const logout = useCallback(() => {
+  // Phải gọi server: chỉ backend mới xoá được cookie HttpOnly và thu hồi refresh token.
+  // Lỗi mạng không được chặn việc đăng xuất phía client nên nuốt lỗi ở đây.
+  const logout = useCallback(async () => {
+    try {
+      await authApi.logout()
+    } catch {
+      // bỏ qua: dù server không phản hồi, vẫn phải dọn phiên cục bộ
+    }
     storeLogout()
     navigate('/login')
   }, [storeLogout, navigate])

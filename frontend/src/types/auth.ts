@@ -35,9 +35,8 @@ export interface UserInfo {
 }
 
 // Matches BE: AuthResponse
+// accessToken / refreshToken KHÔNG còn trong body — backend trả chúng qua cookie HttpOnly.
 export interface AuthResponse {
-  accessToken: string
-  refreshToken: string
   tokenType: string
   user: UserInfo
   hasSeenOnboarding?: boolean
