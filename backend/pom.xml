@@ -28,6 +28,14 @@
     </scm>
     <properties>
         <java.version>17</java.version>
+        <!--
+          Mã nguồn biên dịch cho Java 17, nhưng JDK chạy Maven trên máy dev có thể mới hơn nhiều.
+          Byte Buddy 1.14.x (bản Spring Boot 3.3.5 quản lý) chỉ hỗ trợ tới Java 23, nên trên JDK 24
+          MỌI test dùng Mockito đều hỏng với "Java 24 (68) is not supported by the current version
+          of Byte Buddy". Nâng lên bản hỗ trợ JDK mới; không ảnh hưởng mã chạy thật vì Byte Buddy
+          chỉ có mặt lúc test.
+        -->
+        <byte-buddy.version>1.15.11</byte-buddy.version>
         <mapstruct.version>1.5.5.Final</mapstruct.version>
         <lombok-mapstruct-binding.version>0.2.0</lombok-mapstruct-binding.version>
         <jjwt.version>0.12.6</jjwt.version>
