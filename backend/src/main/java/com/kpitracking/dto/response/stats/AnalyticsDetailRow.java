@@ -11,6 +11,7 @@ public class AnalyticsDetailRow {
     private UUID userId;
     private String employeeCode;
     private String fullName;
+    private String avatarUrl;
     private String email;
     private String orgUnitName;
     private String roleName;

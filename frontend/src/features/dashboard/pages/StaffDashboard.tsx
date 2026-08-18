@@ -1,11 +1,12 @@
 import { useState, useMemo, useEffect, type ReactNode } from 'react'
 import LoadingSkeleton from '@/components/common/LoadingSkeleton'
 import StatusBadge from '@/components/common/StatusBadge'
+import UserAvatar from '@/components/common/UserAvatar'
 import { useMyKpiProgress } from '../hooks/useMyKpiProgress'
 import { useMySubmissions } from '@/features/submissions/hooks/useMySubmissions'
 import { useAuthStore } from '@/store/authStore'
 import { Link } from 'react-router-dom'
-import { getInitials, formatDateTime, cn } from '@/lib/utils'
+import { formatDateTime, cn } from '@/lib/utils'
 import type { KpiTask } from '@/types/stats'
 import { useMyKpi } from '@/features/kpi/hooks/useMyKpi'
 import {
@@ -147,9 +148,12 @@ export default function StaffDashboard() {
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
         <div className="flex items-center gap-4">
           <div className="relative group">
-            <div className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-indigo-600 to-violet-500 flex items-center justify-center text-xl font-black text-white shadow-lg group-hover:rotate-6 transition-transform">
-              {getInitials(user?.fullName ?? '')}
-            </div>
+            <UserAvatar
+              fullName={user?.fullName}
+              avatarUrl={user?.avatarUrl}
+              className="w-16 h-16 rounded-2xl shadow-lg group-hover:rotate-6 transition-transform"
+              fallbackClassName="bg-gradient-to-tr from-indigo-600 to-violet-500 text-xl font-black text-white"
+            />
             <div className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-emerald-500 border-4 border-white dark:border-slate-900" />
           </div>
           <div>

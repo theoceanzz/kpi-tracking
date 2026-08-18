@@ -10,6 +10,7 @@ import com.kpitracking.enums.CycleUnitEvalAction;
 import com.kpitracking.enums.CycleUnitEvalStatus;
 import com.kpitracking.exception.ResourceNotFoundException;
 import com.kpitracking.repository.*;
+import com.kpitracking.service.kpi.CycleEvaluationExcelWriter;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
@@ -107,6 +108,7 @@ public class KpiCycleEvaluationService {
         return CycleUserEvaluationResponse.builder()
                 .userId(user.getId())
                 .userName(user.getFullName())
+                .userAvatarUrl(user.getAvatarUrl())
                 .orgUnitId(unit != null ? unit.getId() : null)
                 .orgUnitName(unit != null ? unit.getName() : null)
                 .mode(mode)
@@ -484,19 +486,30 @@ public class KpiCycleEvaluationService {
         for (UUID userId : userIds) {
             User user = userRepository.findById(userId).orElse(null);
             if (user == null) {
-                prepared.add(new PreparedCycleEmail(userId.toString(), null, null, Map.of()));
+                prepared.add(new PreparedCycleEmail(userId.toString(), null, null, Map.of(), null, null));
                 continue;
             }
             CycleUserEvaluationResponse eval = computeUser(cycle, user, maxScore, finalized);
+            // Dựng tệp đính kèm ngay tại đây, khi dữ liệu vừa tính xong còn trong tay —
+            // để lớp gửi mail phải hỏi lại thì mỗi email là thêm một lượt truy vấn.
+            byte[] excel = CycleEvaluationExcelWriter.build(
+                    eval, cycle.getName(), eval.getOrgUnitName(), maxScore,
+                    scoreLabel(cycle.getOrganization(), eval.getFinalScore()));
             prepared.add(new PreparedCycleEmail(
                     user.getFullName(), user.getEmail(), orgId,
-                    cycleEvaluationVariables(cycle, user, eval, sender, maxScore)));
+                    cycleEvaluationVariables(cycle, user, eval, sender, maxScore),
+                    CycleEvaluationExcelWriter.fileName(user.getFullName(), cycle.getName()), excel));
         }
         return prepared;
     }
 
-    /** Một email đã sẵn sàng gửi. {@code email} null/rỗng ⇒ người này không có địa chỉ nhận. */
-    public record PreparedCycleEmail(String recipientName, String email, UUID orgId, Map<String, String> variables) {}
+    /**
+     * Một email đã sẵn sàng gửi. {@code email} null/rỗng ⇒ người này không có địa chỉ nhận;
+     * {@code attachment} null/rỗng ⇒ không dựng được tệp, vẫn gửi mail như thường.
+     */
+    public record PreparedCycleEmail(String recipientName, String email, UUID orgId,
+                                     Map<String, String> variables,
+                                     String attachmentName, byte[] attachment) {}
 
     /** Kết quả gửi hàng loạt: số gửi được và tên những người gửi hỏng. */
     public record SendCycleEvaluationResult(int sent, List<String> failed) {}

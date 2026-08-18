@@ -5,7 +5,8 @@ import { useEvaluations } from '../hooks/useEvaluations'
 import { useAuthStore } from '@/store/authStore'
 import { useOrganization } from '@/features/orgunits/hooks/useOrganization'
 import { getScoringFunctions } from '@/lib/scoring'
-import { formatNumber, formatDateTime, getInitials, cn } from '@/lib/utils'
+import { formatNumber, formatDateTime, cn } from '@/lib/utils'
+import UserAvatar from '@/components/common/UserAvatar'
 import type { Evaluation } from '@/types/evaluation'
 import {
   X, Star, User, MessageSquare, TrendingUp,
@@ -347,9 +348,12 @@ export default function EvaluationDetailModal({ open, onClose, evaluation }: Eva
           {/* Subject Info */}
           <div className="p-5 rounded-2xl bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-900/20 dark:to-orange-900/10 border border-amber-200/50 dark:border-amber-900/30">
             <div className="flex items-center gap-4">
-              <div className="w-14 h-14 rounded-2xl bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300 flex items-center justify-center font-black text-lg">
-                {getInitials(evaluation.userName)}
-              </div>
+              <UserAvatar
+                fullName={evaluation.userName}
+                avatarUrl={evaluation.userAvatarUrl}
+                className="w-14 h-14 rounded-2xl"
+                fallbackClassName="bg-amber-100 dark:bg-amber-900/50 font-black text-lg text-amber-700 dark:text-amber-300"
+              />
               <div>
                 <h4 className="text-lg font-black text-slate-900 dark:text-white">{evaluation.userName}</h4>
                 <div className="flex items-center gap-2 mt-0.5 mb-1.5">

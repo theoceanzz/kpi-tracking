@@ -12,6 +12,7 @@ export enum RewardSourceType {
   MANUAL_GRANT = 'MANUAL_GRANT',
   AUTO_RANKING = 'AUTO_RANKING',
   REDEMPTION = 'REDEMPTION',
+  CHECKIN = 'CHECKIN',
   SYSTEM = 'SYSTEM',
   EXTERNAL = 'EXTERNAL',
 }
@@ -137,7 +138,7 @@ export interface RewardBudgetRequest {
 
 export enum GiftItemType {
   INTERNAL = 'INTERNAL',
-  /** Chừa sẵn cho sàn quà tặng ngoài, v1 giao diện chưa cho tạo. */
+  /** Voucher nhập từ kho quà ngoài (UrBox) — mã quà về ngay khi đổi. */
   EXTERNAL_VOUCHER = 'EXTERNAL_VOUCHER',
 }
 
@@ -152,6 +153,8 @@ export enum RedemptionStatus {
   REJECTED = 'REJECTED',
   DELIVERED = 'DELIVERED',
   CANCELLED = 'CANCELLED',
+  /** Nhà cung cấp ngoài không xuất được quà — điểm đã tự hoàn. Khác hẳn REJECTED. */
+  FAILED = 'FAILED',
 }
 
 export interface GiftItem {
@@ -177,6 +180,15 @@ export interface GiftItem {
    * Lớn hơn 0 ⇒ quà đang bị khoá sửa tồn kho và khoá xoá.
    */
   pendingRedemptionCount?: number | null
+  /** 'URBOX' nếu quà nhập từ kho eVoucher UrBox; null với quà nội bộ. */
+  externalProvider?: string | null
+  /** Mệnh giá VNĐ bên nhà cung cấp. */
+  externalValue?: number | null
+  externalBrand?: string | null
+  /** Điều kiện sử dụng (HTML) — UrBox bắt buộc hiển thị TRƯỚC khi đổi. */
+  externalTerms?: string | null
+  /** Nguyên văn "Tối thiểu 30 ngày". */
+  externalExpireText?: string | null
 }
 
 export interface GiftItemRequest {
@@ -211,12 +223,99 @@ export interface Redemption {
   deliveredAt?: string | null
   note?: string | null
   createdAt: string
+  /** 'URBOX' nếu quà do nhà cung cấp ngoài xuất. */
+  externalProvider?: string | null
+  /** Mã đơn bên nhà cung cấp — để đối soát, KHÔNG phải mã dùng quà. */
+  externalOrderId?: string | null
+  /** Mã voucher. Chỉ có ở API "quà của tôi"; danh sách quản trị luôn để trống. */
+  vouchers?: RedemptionVoucher[] | null
+  /** Vì sao chưa lấy được quà. */
+  fulfillmentError?: string | null
+  /** Điều kiện sử dụng (HTML) chụp lại lúc nhập quà. */
+  giftTerms?: string | null
+}
+
+/** Một mã quà đã xuất. UrBox quy định phải hiện đủ các trường có giá trị. */
+export interface RedemptionVoucher {
+  code: string
+  /** Có giá trị thì bắt buộc hiển thị kèm code. */
+  pin?: string | null
+  /** Có giá trị thì bắt buộc hiển thị kèm code. */
+  serial?: string | null
+  link?: string | null
+  /** Ảnh QR/Barcode do UrBox sinh sẵn — dùng ảnh này thay vì tự vẽ. */
+  codeImage?: string | null
+  codeDisplay?: string | null
+  /** 1 QR, 2 Barcode, 3 vật lý, 4 text, 5 cả QR lẫn Barcode. */
+  codeDisplayType?: number | null
+  /** Hạn dùng nguyên văn (dd/MM/yyyy). */
+  expired?: string | null
 }
 
 export interface CreateRedemptionRequest {
   giftItemId: string
   quantity: number
   note?: string
+}
+
+// ── Kho quà eVoucher UrBox ───────────────────────────────────────
+
+/** Tình trạng kết nối UrBox của bản triển khai — quyết định có hiện tab kho quà không. */
+export interface UrboxStatus {
+  enabled: boolean
+  /** Thiếu campaign_code thì xem được kho quà nhưng không đặt được đơn. */
+  canOrder: boolean
+  /** Đang trỏ môi trường thử: mã quà là mã giả, phải nói rõ cho quản trị viên. */
+  sandbox: boolean
+  signed: boolean
+}
+
+export interface UrboxGift {
+  /** Mã quà UrBox — chính là priceId khi đặt đơn. */
+  urboxGiftId: string
+  name: string
+  imageUrl?: string | null
+  brandName?: string | null
+  brandImageUrl?: string | null
+  categoryName?: string | null
+  /** Mệnh giá VNĐ. */
+  value?: number | null
+  expireText?: string | null
+  codeDisplay?: string | null
+  content?: string | null
+  /** Điều kiện sử dụng (HTML). */
+  terms?: string | null
+  inStock: boolean
+  /** Đã có trong danh mục của tổ chức — mỗi món chỉ nhập được một lần. */
+  imported: boolean
+  /** Mệnh giá chia tỉ giá quy đổi của tổ chức, làm tròn lên. */
+  suggestedPointCost?: number | null
+}
+
+export interface UrboxCatalogPage {
+  items: UrboxGift[]
+  page: number
+  totalPages: number
+  /** UrBox trả về dạng chuỗi. */
+  totalResult?: string | null
+}
+
+/** Danh mục và thương hiệu UrBox có cùng hình dạng nên dùng chung một kiểu. */
+export interface UrboxTaxonomy {
+  id: string
+  name: string
+  imageUrl?: string | null
+  giftCount?: number | null
+}
+
+export interface ImportUrboxGiftRequest {
+  urboxGiftId: string
+  /** Bỏ trống = lấy giá gợi ý theo tỉ giá quy đổi của tổ chức. */
+  pointCost?: number
+  /** Bỏ trống = không giới hạn, để tồn kho thật do UrBox quyết. */
+  stockQuantity?: number | null
+  name?: string
+  displayOrder?: number
 }
 
 /** Hậu quả của việc thu hồi một đề nghị thưởng, tính trước khi thực hiện. */
@@ -354,4 +453,103 @@ export interface RewardProgramRun {
   items: RewardRunItem[]
   /** Người bị loại khỏi bảng xếp hạng kèm lý do — để admin không tưởng hệ thống bỏ sót. */
   skipped: RewardRunSkipped[]
+}
+
+// ── Điểm danh hàng ngày ──────────────────────────────────────────
+
+/** Chạm chuỗi đúng `day` ngày thì được cộng thêm `points` điểm. */
+export interface StreakBonus {
+  day: number
+  points: number
+}
+
+export interface CheckinConfig {
+  /** Null khi tổ chức chưa từng lưu cấu hình — form vẫn dựng được từ mặc định. */
+  id?: string | null
+  enabled: boolean
+  pointsPerDay: number
+  /** Null = chuỗi đếm thẳng, mốc chỉ trúng đúng một lần. */
+  streakCycleDays?: number | null
+  skipWeekends: boolean
+  streakBonuses: StreakBonus[]
+  /** Trần điểm một người nhận được trong trọn một chu kỳ. Null khi không đặt chu kỳ. */
+  maxPointsPerCycle?: number | null
+  checkedInToday: number
+  pointsThisMonth: number
+}
+
+export interface CheckinConfigRequest {
+  enabled: boolean
+  pointsPerDay: number
+  streakCycleDays?: number | null
+  skipWeekends: boolean
+  streakBonuses: StreakBonus[]
+}
+
+export interface CheckinDay {
+  date: string
+  checkedIn: boolean
+  /** Ngày nghỉ theo cấu hình — vẽ mờ thay vì vẽ như một ngày bị bỏ lỡ. */
+  restDay: boolean
+  points?: number | null
+}
+
+/**
+ * Toàn bộ dữ liệu để vẽ thẻ điểm danh. Luật chuỗi (bỏ qua cuối tuần, quay vòng theo
+ * chu kỳ) chỉ tồn tại ở backend — không chép sang đây, vì hai bên lệch nhau thì nhân
+ * viên thấy số điểm khác nhau trước và sau khi bấm.
+ */
+export interface CheckinStatus {
+  /** False khi tổ chức chưa bật, hoặc khi người xem được miễn — cả hai đều ẩn thẻ. */
+  enabled: boolean
+  /** Lãnh đạo cao nhất công ty (trưởng/phó đơn vị gốc) được miễn điểm danh. */
+  exempt: boolean
+  /** Hôm nay theo giờ Việt Nam, không theo máy người dùng. */
+  today: string
+  checkedInToday: boolean
+  todayPoints?: number | null
+  canCheckin: boolean
+  blockedReason?: string | null
+  /** Chuỗi ĐÃ đạt, không phải chuỗi sắp đạt. Đứt chuỗi thì bằng 0. */
+  streakLength: number
+  /** Chuỗi mà lần bấm sắp tới đạt được. Null khi hôm nay không còn lần bấm nào. */
+  nextStreakLength?: number | null
+  streakDay: number
+  streakCycleDays?: number | null
+  nextPoints?: number | null
+  nextBonusPoints?: number | null
+  pointsPerDay: number
+  streakBonuses: StreakBonus[]
+  pointsThisMonth: number
+  recentDays: CheckinDay[]
+}
+
+// ── Bảng tin điểm thưởng ─────────────────────────────────────────
+
+export enum RewardActivityType {
+  POINTS_AWARDED = 'POINTS_AWARDED',
+  BUDGET_GRANTED = 'BUDGET_GRANTED',
+  GIFT_REDEEMED = 'GIFT_REDEEMED',
+}
+
+/**
+ * Một dòng trên dải tin chạy ngang. Backend đã trộn sẵn ba nguồn về chung hình dạng
+ * này và sắp theo thời gian — đừng trộn lại ở đây.
+ */
+export interface RewardActivity {
+  /** Chỉ duy nhất trong một loại, nên khoá React phải là `${type}-${id}`. */
+  id: string
+  type: RewardActivityType
+  /** Nhân vật chính: người nhận điểm / được cấp hạn mức / đổi quà. */
+  userId: string
+  userName: string
+  userAvatarUrl?: string | null
+  /** Người trao. Null với thưởng tự động và đổi quà. */
+  actorUserId?: string | null
+  actorName?: string | null
+  points: number
+  giftName?: string | null
+  giftImageUrl?: string | null
+  note?: string | null
+  occurredAt: string
 }

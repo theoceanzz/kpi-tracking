@@ -5,6 +5,7 @@ export interface Evaluation {
   id: string
   userId: string
   userName: string
+  userAvatarUrl: string | null
   kpiPeriodId: string
   kpiPeriodName: string
   evaluatorId: string | null

@@ -54,6 +54,7 @@ public class AnalyticsDrillDownResponse {
     public static class EmployeeSummary {
         private UUID userId;
         private String fullName;
+        private String avatarUrl;
         private String email;
         private String roleName;
         private UUID orgUnitId;      // đơn vị TRỰC THUỘC của thành viên (để hiển thị cột + đánh dấu "đơn vị hiện tại")

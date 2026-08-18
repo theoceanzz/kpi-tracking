@@ -15,5 +15,12 @@ public enum RedemptionStatus {
     REJECTED,
     DELIVERED,
     /** Người đổi tự huỷ khi còn PENDING ⇒ hoàn điểm và trả lại tồn kho. */
-    CANCELLED
+    CANCELLED,
+    /**
+     * Hệ thống ngoài (UrBox) không xuất được quà ⇒ điểm đã tự hoàn, tồn kho đã trả lại.
+     *
+     * <p>Cố ý KHÔNG dùng chung {@link #REJECTED}: nhân viên đọc lịch sử sẽ tưởng công ty
+     * từ chối mình, còn người vận hành mất luôn con số "bao nhiêu đơn hỏng vì nhà cung cấp".
+     */
+    FAILED
 }

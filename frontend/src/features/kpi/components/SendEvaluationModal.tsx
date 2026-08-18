@@ -1,7 +1,8 @@
 import { useState, useMemo } from 'react'
-import { cn, getInitials, formatNumber } from '@/lib/utils'
+import { cn, formatNumber } from '@/lib/utils'
+import UserAvatar from '@/components/common/UserAvatar'
 import type { CycleUserEvaluation } from '@/types/kpi'
-import { X, Search, Mail, Loader2, AlertTriangle, Check } from 'lucide-react'
+import { X, Search, Mail, Loader2, AlertTriangle, Check, FileSpreadsheet } from 'lucide-react'
 
 /**
  * Chọn nhân viên để gửi kết quả đánh giá kỳ qua email.
@@ -150,9 +151,12 @@ export default function SendEvaluationModal({
                     )}>
                       {checked && <Check size={12} className="text-white" strokeWidth={3} />}
                     </span>
-                    <span className="w-9 h-9 rounded-xl bg-gradient-to-br from-indigo-50 to-indigo-100 dark:from-indigo-900/20 dark:to-indigo-900/40 text-indigo-600 dark:text-indigo-400 flex items-center justify-center font-black text-[10px] shrink-0">
-                      {getInitials(m.userName || '')}
-                    </span>
+                    <UserAvatar
+                      fullName={m.userName}
+                      avatarUrl={m.userAvatarUrl}
+                      className="w-9 h-9 rounded-xl"
+                      fallbackClassName="bg-gradient-to-br from-indigo-50 to-indigo-100 dark:from-indigo-900/20 dark:to-indigo-900/40 font-black text-[10px] text-indigo-600 dark:text-indigo-400"
+                    />
                     <span className="flex-1 min-w-0">
                       <span className="block text-sm font-bold text-slate-900 dark:text-white truncate">{m.userName}</span>
                       <span className="block text-[10px] text-slate-400 font-medium truncate">{m.orgUnitName || 'Nhân viên'}</span>
@@ -168,7 +172,12 @@ export default function SendEvaluationModal({
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-end gap-3 p-5 border-t border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950/30">
+        <div className="flex flex-wrap items-center justify-end gap-3 p-5 border-t border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950/30">
+          {/* Người gửi cần biết nhân viên nhận được gì, vì họ không xem được mail đã gửi. */}
+          <p className="mr-auto flex items-center gap-1.5 text-[11px] font-medium text-slate-400">
+            <FileSpreadsheet size={13} className="shrink-0" />
+            Mỗi người nhận kèm một tệp Excel bảng điểm chi tiết của riêng họ.
+          </p>
           <button
             onClick={onClose}
             className="px-5 h-11 rounded-2xl text-[11px] font-black uppercase tracking-widest text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"

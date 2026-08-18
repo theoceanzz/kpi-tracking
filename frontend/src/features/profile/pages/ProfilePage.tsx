@@ -7,7 +7,7 @@ import { useForm, useWatch } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import * as z from 'zod'
 import { cn } from '@/lib/utils'
-import { useMutation } from '@tanstack/react-query'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { authApi } from '@/features/auth/api/authApi'
 import { userApi } from '@/features/users/api/userApi'
 import { toast } from 'sonner'
@@ -20,6 +20,7 @@ import {
 
 export default function ProfilePage() {
   const { user, setUser } = useAuthStore()
+  const queryClient = useQueryClient()
   const [searchParams, setSearchParams] = useSearchParams()
   const currentTab = searchParams.get('tab') || 'info'
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -33,6 +34,12 @@ export default function ProfilePage() {
     onSuccess: (updatedUser) => {
       toast.success('Cập nhật ảnh đại diện thành công')
       setUser(updatedUser)
+      // Ảnh mới nằm trong cả những danh sách đã tải sẵn, không riêng gì store đăng nhập.
+      // Không dọn cache thì sang danh sách nhân viên vẫn thấy ảnh cũ cho tới khi tải lại
+      // trang — đúng cái cảm giác "đổi rồi mà chẳng thấy đổi".
+      queryClient.invalidateQueries({ queryKey: ['users'] })
+      queryClient.invalidateQueries({ queryKey: ['organization-users'] })
+      queryClient.invalidateQueries({ queryKey: ['org-unit-members'] })
     },
     onError: () => toast.error('Lỗi khi tải ảnh lên'),
   })

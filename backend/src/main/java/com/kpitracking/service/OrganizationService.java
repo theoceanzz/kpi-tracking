@@ -188,6 +188,12 @@ public class OrganizationService {
             organization.setEnableReward(request.getEnableReward());
         }
 
+        if (request.getEnableCashWallet() != null) {
+            // Cùng lý do như trên, và còn nặng hơn: đây là tiền thật. Tắt tính năng
+            // chỉ ẩn giao diện và chặn tạo đơn nạp mới, KHÔNG đụng vào số dư hay sổ cái.
+            organization.setEnableCashWallet(request.getEnableCashWallet());
+        }
+
         if (request.getEvaluationLevels() != null) {
             organization.getEvaluationLevels().clear();
             organizationRepository.saveAndFlush(organization);

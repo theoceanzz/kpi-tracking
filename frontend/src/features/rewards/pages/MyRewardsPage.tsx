@@ -5,6 +5,8 @@ import Pagination from '@/components/common/Pagination'
 import EmptyState from '@/components/common/EmptyState'
 import LoadingSkeleton from '@/components/common/LoadingSkeleton'
 import { useHasPermission } from '@/components/auth/PermissionGate'
+import CheckinCard from '../components/CheckinCard'
+import RewardActivityTicker from '../components/RewardActivityTicker'
 import RewardBalanceCard from '../components/RewardBalanceCard'
 import RewardLedgerTable from '../components/RewardLedgerTable'
 import GiftShopGrid from '../components/GiftShopGrid'
@@ -56,7 +58,18 @@ export default function MyRewardsPage() {
         description="Số dư điểm, đổi quà và toàn bộ lịch sử giao dịch điểm"
       />
 
+      {/* Nhân viên thường chỉ vào trang này — bảng tin phải có ở đây, nếu không thì
+          "để mọi người đều biết" chỉ còn đúng với người có quyền quản lý thưởng. */}
+      <RewardActivityTicker className="mb-6" />
+
       <RewardBalanceCard wallet={wallet} loading={walletLoading} />
+
+      {/* Ngay dưới số dư, TRÊN các tab: điểm danh là việc phải làm mỗi ngày, để nó nằm
+          trong một tab thì hôm nào nhân viên không mở tab đó là mất chuỗi. Thẻ tự ẩn
+          khi tổ chức chưa bật, nên không chiếm chỗ vô ích. */}
+      <div className="mt-6">
+        <CheckinCard />
+      </div>
 
       {/* Xuống dòng chứ không cuộn ngang — xem ghi chú ở RewardManagementPage. */}
       <div className="mb-6 mt-8 flex flex-wrap gap-1 sm:border-b sm:border-[var(--color-border)]">

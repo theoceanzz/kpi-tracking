@@ -69,6 +69,17 @@ services:
       - CLAUDE_API_KEY=${CLAUDE_API_KEY}
       - CLAUDE_MODEL=${CLAUDE_MODEL}
 
+      # Kho quà eVoucher UrBox. Credential dùng chung cho cả nền tảng (KeyGo là đối tác
+      # ký hợp đồng), phân biệt tổ chức nào đổi quà bằng site_user_id gửi kèm mỗi đơn.
+      # Bật enabled mà để nguyên base-url sandbox = nhân viên nhận mã không dùng được.
+      - URBOX_ENABLED=${URBOX_ENABLED:-false}
+      - URBOX_BASE_URL=${URBOX_BASE_URL:-https://sandapi.urbox.dev}
+      - URBOX_APP_ID=${URBOX_APP_ID:-}
+      - URBOX_APP_SECRET=${URBOX_APP_SECRET:-}
+      - URBOX_CAMPAIGN_CODE=${URBOX_CAMPAIGN_CODE:-}
+      # PROD bắt buộc: UrBox xác thực chữ ký đơn bằng public key đối tác đã gửi lên.
+      - URBOX_PRIVATE_KEY=${URBOX_PRIVATE_KEY:-}
+
       # Rate limit
       - RATE_LIMIT_LOGIN=${RATE_LIMIT_LOGIN:-5}
       - RATE_LIMIT_EMAIL=${RATE_LIMIT_EMAIL:-3}

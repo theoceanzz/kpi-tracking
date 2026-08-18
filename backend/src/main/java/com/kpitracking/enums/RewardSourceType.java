@@ -11,6 +11,8 @@ public enum RewardSourceType {
     AUTO_RANKING,
     /** Đổi quà: trừ điểm khi đặt, hoàn điểm khi từ chối/huỷ. */
     REDEMPTION,
+    /** Điểm danh hàng ngày: nhân viên tự bấm nhận điểm, gồm cả thưởng chuỗi. */
+    CHECKIN,
     /** Điều chỉnh do quản trị viên thực hiện tay. */
     SYSTEM,
     /** Nạp/trừ từ hệ thống ngoài (HRM, ví điện tử...). Chừa sẵn, chưa dùng ở v1. */

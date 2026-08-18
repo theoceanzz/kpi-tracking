@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Gift, Wallet, Store, PackageCheck, Trophy } from 'lucide-react'
+import { Gift, Wallet, Store, PackageCheck, Trophy, CalendarCheck } from 'lucide-react'
 import PageHeader from '@/components/common/PageHeader'
 import { useHasPermission } from '@/components/auth/PermissionGate'
 import GrantsTab from '../components/GrantsTab'
@@ -7,11 +7,13 @@ import BudgetsTab from '../components/BudgetsTab'
 import GiftsTab from '../components/GiftsTab'
 import RedemptionsTab from '../components/RedemptionsTab'
 import ProgramsTab from '../components/ProgramsTab'
+import CheckinConfigTab from '../components/CheckinConfigTab'
+import RewardActivityTicker from '../components/RewardActivityTicker'
 import { useRewardGrants } from '../hooks/useRewards'
 import { useRedemptions } from '../hooks/useGifts'
 import { RedemptionStatus, RewardGrantStatus } from '../types'
 
-type TabKey = 'grants' | 'budgets' | 'programs' | 'gifts' | 'redemptions'
+type TabKey = 'grants' | 'budgets' | 'programs' | 'checkin' | 'gifts' | 'redemptions'
 
 export default function RewardManagementPage() {
   const { hasPermission } = useHasPermission()
@@ -55,6 +57,12 @@ export default function RewardManagementPage() {
       visible: hasPermission('REWARD:CONFIG'),
     },
     {
+      key: 'checkin',
+      label: 'Điểm danh',
+      icon: <CalendarCheck size={16} />,
+      visible: hasPermission('REWARD:CONFIG'),
+    },
+    {
       key: 'gifts',
       label: 'Quà tặng',
       icon: <Store size={16} />,
@@ -77,6 +85,9 @@ export default function RewardManagementPage() {
         title="Quản lý thưởng điểm"
         description="Trao điểm cho nhân viên, duyệt đề nghị vượt hạn mức và cấp hạn mức cho quản lý"
       />
+
+      {/* TRÊN các tab: bảng tin là chuyện của cả tổ chức, không thuộc riêng tab nào. */}
+      <RewardActivityTicker className="mb-6" />
 
       {/* Xuống dòng chứ KHÔNG cuộn ngang: tab nằm ngoài khung nhìn thì người dùng không
           biết là có. Bỏ đường kẻ dưới của khung ở mobile vì khi tab xuống nhiều hàng,
@@ -106,6 +117,7 @@ export default function RewardManagementPage() {
       {active === 'grants' && <GrantsTab />}
       {active === 'budgets' && <BudgetsTab />}
       {active === 'programs' && <ProgramsTab />}
+      {active === 'checkin' && <CheckinConfigTab />}
       {active === 'gifts' && <GiftsTab />}
       {active === 'redemptions' && <RedemptionsTab />}
     </div>

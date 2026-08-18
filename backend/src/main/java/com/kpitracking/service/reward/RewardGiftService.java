@@ -120,7 +120,12 @@ public class RewardGiftService {
         if (request.getRequiresDelivery() != null) {
             gift.setRequiresDelivery(request.getRequiresDelivery());
         }
-        if (request.getType() != null) gift.setType(request.getType());
+        // Quà nhập từ nhà cung cấp ngoài KHÔNG được đổi loại: đổi thành quà nội bộ là
+        // biến một voucher phải mua thật thành thứ hệ thống tưởng tự trao tay được, và
+        // mọi lượt đổi sau đó sẽ đóng ở "đã giao" mà chẳng có mã quà nào.
+        if (request.getType() != null && gift.getExternalProvider() == null) {
+            gift.setType(request.getType());
+        }
         if (request.getStatus() != null) gift.setStatus(request.getStatus());
         if (request.getDisplayOrder() != null) gift.setDisplayOrder(request.getDisplayOrder());
 
@@ -210,6 +215,11 @@ public class RewardGiftService {
                 .displayOrder(g.getDisplayOrder())
                 .available(available)
                 .affordable(viewerBalance == null ? null : viewerBalance >= g.getPointCost())
+                .externalProvider(g.getExternalProvider())
+                .externalValue(g.getExternalValue())
+                .externalBrand(g.getExternalBrand())
+                .externalTerms(g.getExternalTerms())
+                .externalExpireText(g.getExternalExpireText())
                 .build();
     }
 }

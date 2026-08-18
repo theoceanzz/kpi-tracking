@@ -196,3 +196,31 @@ input[type=number] {
 .animate-float {
   animation: float 3s ease-in-out infinite;
 }
+
+/* Dải tin điểm thưởng chạy ngang (RewardActivityTicker).
+   Chạy hết ĐÚNG một nửa quãng đường vì track chứa hai bản sao giống hệt nhau — lúc
+   bản sao thứ nhất trôi khỏi màn hình thì bản thứ hai đang nằm đúng vị trí xuất phát,
+   nên vòng lặp không có điểm giật. Đổi -50% là mối nối lộ ra ngay. */
+@keyframes reward-marquee {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+
+.animate-reward-marquee {
+  /* Thời lượng do component đặt theo SỐ dòng tin, để tốc độ trôi không đổi khi bảng
+     tin dài ngắn khác nhau. */
+  animation: reward-marquee var(--reward-marquee-duration, 40s) linear infinite;
+}
+
+/* Dừng khi trỏ vào để còn kịp đọc dòng đang quan tâm. */
+.reward-marquee-viewport:hover .animate-reward-marquee {
+  animation-play-state: paused;
+}
+
+/* Người tắt hiệu ứng chuyển động vẫn phải đọc được bảng tin: bỏ animation và trả về
+   một dải cuộn ngang bình thường. */
+@media (prefers-reduced-motion: reduce) {
+  .animate-reward-marquee {
+    animation: none;
+  }
+}

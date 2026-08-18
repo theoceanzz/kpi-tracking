@@ -14,6 +14,7 @@ public class EvaluationResponse {
     private UUID id;
     private UUID userId;
     private String userName;
+    private String userAvatarUrl;
     private UUID orgUnitId;
     private String orgUnitName;
     private UUID kpiPeriodId;

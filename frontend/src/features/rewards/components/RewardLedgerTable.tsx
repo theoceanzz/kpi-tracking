@@ -10,6 +10,7 @@ const SOURCE_LABEL: Record<RewardSourceType, string> = {
   [RewardSourceType.MANUAL_GRANT]: 'Thưởng trực tiếp',
   [RewardSourceType.AUTO_RANKING]: 'Thưởng theo xếp hạng',
   [RewardSourceType.REDEMPTION]: 'Đổi quà',
+  [RewardSourceType.CHECKIN]: 'Điểm danh hàng ngày',
   [RewardSourceType.SYSTEM]: 'Điều chỉnh hệ thống',
   [RewardSourceType.EXTERNAL]: 'Hệ thống ngoài',
 }

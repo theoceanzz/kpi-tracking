@@ -51,6 +51,7 @@ export interface CyclePeriodBreakdown {
 export interface CycleUserEvaluation {
   userId: string
   userName: string
+  userAvatarUrl: string | null
   orgUnitId: string | null
   orgUnitName: string | null
   mode: CycleEvaluationMode

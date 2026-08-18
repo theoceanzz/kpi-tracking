@@ -50,6 +50,8 @@ import AiQuotaPage from '@/features/organization/pages/AiQuotaPage'
 import OkrManagementPage from '@/features/okr/pages/OkrManagementPage'
 import MyRewardsPage from '@/features/rewards/pages/MyRewardsPage'
 import RewardManagementPage from '@/features/rewards/pages/RewardManagementPage'
+import MyWalletPage from '@/features/wallet/pages/MyWalletPage'
+import WalletAdminPage from '@/features/wallet/pages/WalletAdminPage'
 import BscManagementPage from '@/features/bsc/pages/BscManagementPage'
 import BscDashboardPage from '@/features/bsc/pages/BscDashboardPage'
 import BscStrategyMapPage from '@/features/bsc/pages/BscStrategyMapPage'
@@ -161,6 +163,25 @@ export const router = createBrowserRouter([
             ),
             children: [
               { path: '/rewards', element: <RewardManagementPage /> },
+            ],
+          },
+
+          // Ví tiền thật. Cùng khuôn với thưởng điểm: ví cá nhân ai cũng xem được,
+          // trang quản lý cần một trong các quyền nghiệp vụ và từng tab lọc lại.
+          {
+            element: <PermissionRoute permission={['WALLET:VIEW_MY']} />,
+            children: [
+              { path: '/wallet/me', element: <MyWalletPage /> },
+            ],
+          },
+          {
+            element: (
+              <PermissionRoute
+                permission={['WALLET:VIEW', 'WALLET:CONFIG', 'WALLET:RECONCILE']}
+              />
+            ),
+            children: [
+              { path: '/wallet', element: <WalletAdminPage /> },
             ],
           },
 

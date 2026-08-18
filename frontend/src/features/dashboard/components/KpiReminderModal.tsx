@@ -4,11 +4,12 @@ import { toast } from 'sonner'
 import { X, Loader2, Mail, Send, Info } from 'lucide-react'
 import { notificationApi } from '@/features/notifications/api/notificationApi'
 import { useAuthStore } from '@/store/authStore'
-import { getInitials } from '@/lib/utils'
+import UserAvatar from '@/components/common/UserAvatar'
 
 export interface ReminderRecipient {
   userId: string
   fullName: string
+  avatarUrl?: string | null
   email: string
   orgUnitName?: string | null
   assignedKpi?: number
@@ -111,9 +112,12 @@ export default function KpiReminderModal({ open, onClose, recipient, periodName 
 
         <div className="px-7 py-6 space-y-5">
           <div className="flex items-center gap-3 p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800">
-            <div className="w-10 h-10 rounded-2xl bg-indigo-100 dark:bg-indigo-900/40 flex items-center justify-center font-black text-xs text-indigo-600 shrink-0">
-              {getInitials(recipient.fullName)}
-            </div>
+            <UserAvatar
+              fullName={recipient.fullName}
+              avatarUrl={recipient.avatarUrl}
+              className="w-10 h-10 rounded-2xl"
+              fallbackClassName="bg-indigo-100 dark:bg-indigo-900/40 font-black text-xs text-indigo-600"
+            />
             <div className="min-w-0">
               <p className="text-sm font-black text-slate-900 dark:text-white truncate">{recipient.fullName}</p>
               <p className="text-xs font-bold text-slate-500 truncate">{recipient.email}</p>

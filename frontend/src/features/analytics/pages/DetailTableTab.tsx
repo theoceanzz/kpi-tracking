@@ -1,7 +1,8 @@
 import { useState, useMemo, useEffect } from 'react'
 import { useDetailTable } from '../hooks/useAnalytics'
 import { useOrgUnitStats } from '@/features/dashboard/hooks/useOrgUnitStats'
-import { cn, getInitials, formatDateTime } from '@/lib/utils'
+import { cn, formatDateTime } from '@/lib/utils'
+import UserAvatar from '@/components/common/UserAvatar'
 import { Search, ChevronDown, CheckCircle2, Clock, XCircle, Star, ChevronLeft, ChevronRight } from 'lucide-react'
 import LoadingSkeleton from '@/components/common/LoadingSkeleton'
 import {
@@ -111,7 +112,7 @@ export default function DetailTableTab() {
                       <tr key={r.userId} className={cn("hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors", isRisk && "bg-red-50/40 dark:bg-red-900/5", isIdle && "bg-amber-50/40 dark:bg-amber-900/5")}>
                         <td className="px-4 py-3">
                           <div className="flex items-center gap-3">
-                            <div className="w-8 h-8 rounded-full bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center text-[10px] font-black text-indigo-600 shrink-0">{getInitials(r.fullName)}</div>
+                            <UserAvatar fullName={r.fullName} avatarUrl={r.avatarUrl} className="w-8 h-8 rounded-full" fallbackClassName="bg-indigo-100 dark:bg-indigo-900/30 text-[10px] font-black text-indigo-600" />
                             <div className="min-w-0"><p className="font-bold text-slate-900 dark:text-white truncate">{r.fullName}</p><p className="text-[11px] text-slate-500 truncate">{r.email}</p></div>
                           </div>
                         </td>
@@ -148,7 +149,7 @@ export default function DetailTableTab() {
                 return (
                   <div key={r.userId} className={cn("p-4 space-y-3", isRisk && "bg-red-50/40 dark:bg-red-900/5", isIdle && "bg-amber-50/40 dark:bg-amber-900/5")}>
                     <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-full bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center text-[10px] font-black text-indigo-600 shrink-0">{getInitials(r.fullName)}</div>
+                      <UserAvatar fullName={r.fullName} avatarUrl={r.avatarUrl} className="w-8 h-8 rounded-full" fallbackClassName="bg-indigo-100 dark:bg-indigo-900/30 text-[10px] font-black text-indigo-600" />
                       <div className="min-w-0 flex-1">
                         <p className="font-bold text-slate-900 dark:text-white truncate">{r.fullName}</p>
                         <p className="text-[11px] text-slate-500 truncate">{r.email}</p>

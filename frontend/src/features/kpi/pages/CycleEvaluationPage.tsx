@@ -13,7 +13,8 @@ import { toast } from 'sonner'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import LoadingSkeleton from '@/components/common/LoadingSkeleton'
 import EmptyState from '@/components/common/EmptyState'
-import { cn, getInitials } from '@/lib/utils'
+import { cn } from '@/lib/utils'
+import UserAvatar from '@/components/common/UserAvatar'
 import { format, parseISO } from 'date-fns'
 import type { CycleEvaluationMode, CycleUserEvaluation, CyclePeriodBreakdown } from '@/types/kpi'
 import RewardPrompt from '@/features/rewards/components/RewardPrompt'
@@ -455,9 +456,12 @@ export default function CycleEvaluationPage() {
                       >
                         <td className="px-3 py-4">
                           <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-indigo-50 to-indigo-100 dark:from-indigo-900/20 dark:to-indigo-900/40 text-indigo-600 dark:text-indigo-400 flex items-center justify-center font-black text-xs border border-indigo-200/50 dark:border-indigo-800/30 shadow-inner">
-                              {getInitials(m.userName || '')}
-                            </div>
+                            <UserAvatar
+                              fullName={m.userName}
+                              avatarUrl={m.userAvatarUrl}
+                              className="w-10 h-10 rounded-2xl border border-indigo-200/50 dark:border-indigo-800/30 shadow-inner"
+                              fallbackClassName="bg-gradient-to-br from-indigo-50 to-indigo-100 dark:from-indigo-900/20 dark:to-indigo-900/40 font-black text-xs text-indigo-600 dark:text-indigo-400"
+                            />
                             <div>
                               <span className="text-sm font-bold text-slate-900 dark:text-white group-hover:text-emerald-600 transition-colors block whitespace-nowrap">{m.userName}</span>
                               <span className="text-[10px] text-slate-400 font-medium whitespace-nowrap">{m.orgUnitName || 'Nhân viên'}</span>
@@ -525,9 +529,12 @@ export default function CycleEvaluationPage() {
               {members.map((m: CycleUserEvaluation) => (
                 <div key={m.userId} className="p-5 space-y-4" onClick={() => setDetailMember(m)}>
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-indigo-50 to-indigo-100 dark:from-indigo-900/20 dark:to-indigo-900/40 text-indigo-600 dark:text-indigo-400 flex items-center justify-center font-black text-xs border border-indigo-200/50 dark:border-indigo-800/30">
-                      {getInitials(m.userName || '')}
-                    </div>
+                    <UserAvatar
+                      fullName={m.userName}
+                      avatarUrl={m.userAvatarUrl}
+                      className="w-10 h-10 rounded-2xl border border-indigo-200/50 dark:border-indigo-800/30"
+                      fallbackClassName="bg-gradient-to-br from-indigo-50 to-indigo-100 dark:from-indigo-900/20 dark:to-indigo-900/40 font-black text-xs text-indigo-600 dark:text-indigo-400"
+                    />
                     <div className="flex-1 min-w-0">
                       <span className="text-sm font-bold text-slate-900 dark:text-white block truncate">{m.userName}</span>
                       <span className="text-[10px] text-slate-400 font-medium">{m.orgUnitName || 'Nhân viên'}</span>
@@ -569,6 +576,8 @@ export default function CycleEvaluationPage() {
           <UserScoreModal
             member={activeMember}
             maxScore={maxScore}
+            getScoreColor={getScoreColor}
+            getScoreLabel={getScoreLabel}
             canEdit={canFinalize && !activeMember.locked}
             lockedByUnitName={activeMember.locked ? activeMember.lockedByUnitName : null}
             isSaving={isSavingUserScore}
@@ -629,10 +638,12 @@ export default function CycleEvaluationPage() {
 
 /** Modal xem chi tiết & nhập điểm chốt kỳ cho một nhân viên. */
 function UserScoreModal({
-  member, maxScore, canEdit, lockedByUnitName, isSaving, onClose, onSave, cycleName,
+  member, maxScore, getScoreColor, getScoreLabel, canEdit, lockedByUnitName, isSaving, onClose, onSave, cycleName,
 }: {
   member: CycleUserEvaluation
   maxScore: number
+  getScoreColor: (score: number | null) => string
+  getScoreLabel: (score: number | null) => string
   canEdit: boolean
   lockedByUnitName: string | null
   isSaving: boolean
@@ -649,6 +660,11 @@ function UserScoreModal({
   const suggested = member.managerScore
   const parsed = score.trim() === '' ? null : Number(score)
   const invalid = parsed != null && (Number.isNaN(parsed) || parsed < 0 || parsed > maxScore)
+  // Vị trí nút kéo: chưa nhập thì đứng ở điểm TB gợi ý, nhập rồi thì kẹp vào [0, maxScore]
+  // để nút không văng ra ngoài khi gõ số quá thang điểm.
+  const sliderScore = parsed == null || Number.isNaN(parsed)
+    ? (suggested != null ? Math.min(Math.max(suggested, 0), maxScore) : 0)
+    : Math.min(Math.max(parsed, 0), maxScore)
 
   // Trung bình các chiều tham chiếu trên những đợt có dữ liệu (bỏ qua đợt trống).
   const avgOf = (pick: (p: CyclePeriodBreakdown) => number | null): number | null => {
@@ -694,9 +710,12 @@ function UserScoreModal({
         <div className="p-8 space-y-6">
           {/* Header */}
           <div className="flex items-center gap-4">
-            <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-indigo-50 to-indigo-100 dark:from-indigo-900/20 dark:to-indigo-900/40 text-indigo-600 dark:text-indigo-400 flex items-center justify-center font-black text-sm border border-indigo-200/50">
-              {getInitials(member.userName || '')}
-            </div>
+            <UserAvatar
+              fullName={member.userName}
+              avatarUrl={member.userAvatarUrl}
+              className="w-12 h-12 rounded-2xl border border-indigo-200/50"
+              fallbackClassName="bg-gradient-to-br from-indigo-50 to-indigo-100 dark:from-indigo-900/20 dark:to-indigo-900/40 font-black text-sm text-indigo-600 dark:text-indigo-400"
+            />
             <div>
               <h3 className="text-xl font-black text-slate-900 dark:text-white">{member.userName}</h3>
               <p className="text-[11px] font-black text-slate-400 uppercase tracking-widest mt-0.5">
@@ -762,19 +781,66 @@ function UserScoreModal({
                 </button>
               )}
             </div>
-            <input
-              type="number" step="0.01" min={0} max={maxScore}
-              value={score}
-              disabled={!canEdit}
-              onChange={e => setScore(e.target.value)}
-              onWheel={(e) => e.currentTarget.blur()}
-              placeholder={suggested != null ? `Mặc định ${suggested}` : 'Chưa có điểm'}
-              className={cn(
-                'w-full px-5 py-4 rounded-2xl border bg-slate-50/50 dark:bg-slate-800/50 text-lg font-black outline-none transition-all focus:ring-4 focus:ring-emerald-500/10 disabled:opacity-70',
-                invalid ? 'border-rose-300 focus:border-rose-400' : 'border-slate-100 dark:border-slate-800 focus:border-emerald-500/50'
+            <div className={cn(
+              'rounded-[28px] border bg-slate-50/50 dark:bg-slate-800/40 px-6 py-6 space-y-5 text-center',
+              invalid ? 'border-rose-200 dark:border-rose-900/50' : 'border-slate-100 dark:border-slate-800'
+            )}>
+              <div className="space-y-1.5">
+                {/* Điểm hiện tại — mờ đi khi chưa chấm để phân biệt với điểm đã chọn. */}
+                <div className={cn(
+                  'text-6xl font-black tracking-tighter transition-all duration-300',
+                  parsed == null ? 'text-slate-300 dark:text-slate-700' : getScoreColor(invalid ? null : parsed)
+                )}>
+                  {parsed != null ? parsed : sliderScore}
+                </div>
+                <p className={cn(
+                  'text-xs font-black uppercase tracking-[0.2em]',
+                  parsed == null ? 'text-slate-400' : getScoreColor(invalid ? null : parsed)
+                )}>
+                  {getScoreLabel(invalid ? null : parsed)}
+                </p>
+                {/* So sánh với điểm TB các đợt để thấy ngay mình đang nâng hay hạ tay. */}
+                {parsed != null && !invalid && suggested != null && parsed !== suggested && (
+                  <span className={cn(
+                    'inline-flex items-center px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest',
+                    parsed > suggested
+                      ? 'bg-emerald-500/10 text-emerald-600 dark:bg-emerald-500/20'
+                      : 'bg-amber-500/10 text-amber-600 dark:bg-amber-500/20'
+                  )}>
+                    {parsed > suggested ? '+' : ''}{Math.round((parsed - suggested) * 100) / 100} điểm so với TB
+                  </span>
+                )}
+              </div>
+
+              {canEdit && (
+                <div className="relative px-2">
+                  {/* Vạch mốc điểm TB các đợt: canh theo tâm nút kéo (rộng ~16px). */}
+                  {suggested != null && suggested >= 0 && suggested <= maxScore && maxScore > 0 && (
+                    <div
+                      className="absolute top-0 h-2 w-0.5 rounded-full bg-slate-400/70 dark:bg-slate-500 pointer-events-none"
+                      style={{ left: `calc(8px + ${(suggested / maxScore) * 100}% - ${(suggested / maxScore) * 16}px - 1px)` }}
+                      title={`Điểm TB các đợt: ${suggested}`}
+                    />
+                  )}
+                  <input
+                    type="range" min={0} max={maxScore} step={1}
+                    value={sliderScore}
+                    onChange={e => setScore(e.target.value)}
+                    className="w-full accent-emerald-600 h-2 bg-slate-200 dark:bg-slate-700 rounded-full appearance-none cursor-pointer"
+                  />
+                  <div className="flex justify-between mt-3 text-[9px] font-black text-slate-400 uppercase tracking-widest">
+                    <span>0</span>
+                    <span>{Math.round(maxScore / 2)}</span>
+                    <span>{maxScore}</span>
+                  </div>
+                </div>
               )}
-            />
-            {invalid && <p className="text-[11px] font-bold text-rose-500 ml-1">Điểm phải nằm trong khoảng 0 – {maxScore}</p>}
+            </div>
+            {invalid && (
+              <p className="text-[11px] font-bold text-rose-500 ml-1">
+                Điểm cũ ({parsed}) nằm ngoài khoảng 0 – {maxScore}, hãy kéo lại thanh điểm.
+              </p>
+            )}
           </div>
           )}
 

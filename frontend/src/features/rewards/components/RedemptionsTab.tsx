@@ -108,7 +108,10 @@ export default function RedemptionsTab() {
                         disabled={isDelivering}
                         className="flex-1 rounded-lg bg-[var(--color-primary)] py-2 text-sm text-white"
                       >
-                        Đã giao quà
+                        {/* Với quà ngoài, nút này KHÔNG phải là "tôi đã trao tay" mà là
+                            hỏi lại nhà cung cấp bằng đúng mã giao dịch cũ. Gọi nhầm tên
+                            sẽ khiến người quản lý tưởng mình đang xác nhận khống. */}
+                        {row.externalProvider ? 'Lấy lại quà' : 'Đã giao quà'}
                       </button>
                       <button
                         onClick={() => setRejecting(row)}
@@ -178,9 +181,19 @@ export default function RedemptionsTab() {
                 className: 'align-top',
                 header: 'Ghi chú',
                 render: (row) => (
-                  <span className="line-clamp-2 text-[var(--color-muted-foreground)]">
-                    {row.note || '—'}
-                  </span>
+                  <div>
+                    <span className="line-clamp-2 text-[var(--color-muted-foreground)]">
+                      {row.note || '—'}
+                    </span>
+                    {row.fulfillmentError && (
+                      <div className="mt-0.5 text-xs text-orange-700">{row.fulfillmentError}</div>
+                    )}
+                    {row.externalOrderId && (
+                      <div className="mt-0.5 text-xs text-[var(--color-muted-foreground)]">
+                        Đơn UrBox #{row.externalOrderId}
+                      </div>
+                    )}
+                  </div>
                 ),
               },
               {
@@ -222,7 +235,11 @@ export default function RedemptionsTab() {
                         <button
                           onClick={() => deliverRedemption({ id: row.id })}
                           disabled={isDelivering}
-                          title="Đánh dấu đã trao quà"
+                          title={
+                            row.externalProvider
+                              ? 'Hỏi lại nhà cung cấp và lấy mã quà về'
+                              : 'Đánh dấu đã trao quà'
+                          }
                           className="rounded-lg p-1.5 text-[var(--color-primary)] hover:bg-[var(--color-accent)]"
                         >
                           <PackageCheck size={16} />

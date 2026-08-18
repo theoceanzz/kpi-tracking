@@ -89,6 +89,18 @@ export function formatNumber(value: number, maxDecimals: number = 2): string {
   }).format(value)
 }
 
+/**
+ * Tiền Việt. Backend lưu bằng ĐỒNG (số nguyên) nên ở đây không có phần thập phân —
+ * hiện ".00" sau mỗi số tiền chỉ làm bảng khó đọc mà không thêm thông tin gì.
+ */
+export function formatCurrency(value: number | null | undefined): string {
+  return new Intl.NumberFormat('vi-VN', {
+    style: 'currency',
+    currency: 'VND',
+    maximumFractionDigits: 0,
+  }).format(value ?? 0)
+}
+
 export function formatDate(date: string | Date | null | undefined): string {
   if (!date) return '—'
   const d = typeof date === 'string' ? parseISO(date) : new Date(date)

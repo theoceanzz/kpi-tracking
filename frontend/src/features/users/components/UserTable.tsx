@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react'
 import StatusBadge from '@/components/common/StatusBadge'
+import UserAvatar from '@/components/common/UserAvatar'
 import type { User } from '@/types/user'
 import { Pencil, Trash2, MoreVertical, Shield, User as UserIcon, Mail, Phone, Building2 } from 'lucide-react'
-import { getInitials, getHighestRole, cn, formatPhoneNumber } from '@/lib/utils'
+import { getHighestRole, cn, formatPhoneNumber } from '@/lib/utils'
 
 
 
@@ -97,9 +98,12 @@ export default function UserTable({ users, orgUnitMap, rootUnitId, onRowClick, o
                 {/* 1. Identity Col */}
                 <td className="py-4 px-2.5">
                   <div className="flex items-center gap-2.5">
-                     <div className={`w-9 h-9 rounded-[10px] flex items-center justify-center font-bold text-xs shrink-0 border ${roleConf.color.split(' ').slice(0, 3).join(' ')}`}>
-                        {getInitials(u.fullName)}
-                     </div>
+                     <UserAvatar
+                        fullName={u.fullName}
+                        avatarUrl={u.avatarUrl}
+                        className="w-9 h-9 rounded-[10px]"
+                        fallbackClassName={`font-bold text-xs border ${roleConf.color.split(' ').slice(0, 3).join(' ')}`}
+                     />
                      <div className="min-w-0">
                         <p className="font-bold text-[13px] text-slate-900 dark:text-slate-100 truncate flex items-center gap-1.5">
                            {u.fullName}
@@ -249,9 +253,12 @@ export default function UserTable({ users, orgUnitMap, rootUnitId, onRowClick, o
           >
             <div className="flex items-start justify-between gap-2">
               <div className="flex items-center gap-2.5 min-w-0">
-                <div className={`w-9 h-9 rounded-[10px] flex items-center justify-center font-bold text-xs shrink-0 border ${roleConf.color.split(' ').slice(0, 3).join(' ')}`}>
-                  {getInitials(u.fullName)}
-                </div>
+                <UserAvatar
+                  fullName={u.fullName}
+                  avatarUrl={u.avatarUrl}
+                  className="w-9 h-9 rounded-[10px]"
+                  fallbackClassName={`font-bold text-xs border ${roleConf.color.split(' ').slice(0, 3).join(' ')}`}
+                />
                 <div className="min-w-0">
                   <p className="font-bold text-[13px] text-slate-900 dark:text-slate-100 truncate">{u.fullName}</p>
                   <p className="text-xs text-slate-500 font-medium truncate flex items-center gap-1 mt-1">

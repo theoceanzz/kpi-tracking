@@ -60,4 +60,22 @@ public class RewardContext {
                 .min(Comparator.comparing(OrgUnit::getPath))
                 .orElseThrow(() -> new ResourceNotFoundException("Đơn vị của người dùng", "userId", userId));
     }
+
+    /**
+     * Người này có phải lãnh đạo cao nhất của công ty không: giữ vai trò TRƯỞNG (rank 0)
+     * hoặc PHÓ (rank 1) ngay tại ĐƠN VỊ GỐC — giám đốc, phó giám đốc.
+     *
+     * <p>Mốc là đơn vị gốc ({@code parent == null}, cùng cách {@code PermissionChecker
+     * .isGlobalAdmin} nhận diện) chứ không phải rank: trưởng phòng cũng rank 0 nhưng vẫn
+     * là người đi làm bình thường. Dùng để miễn điểm danh — người đứng đầu công ty không
+     * ai chấm công, mời họ bấm nhận điểm mỗi sáng chỉ là tiếng ồn.
+     */
+    public boolean isTopLeadership(UUID userId) {
+        return userRoleOrgUnitRepository.findByUserId(userId).stream()
+                .anyMatch(a -> a.getOrgUnit() != null
+                        && a.getOrgUnit().getParent() == null
+                        && a.getRole() != null
+                        && a.getRole().getRank() != null
+                        && a.getRole().getRank() <= 1);
+    }
 }

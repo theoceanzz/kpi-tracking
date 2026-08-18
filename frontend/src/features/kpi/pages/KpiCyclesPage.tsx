@@ -35,6 +35,53 @@ function computeStandardEndDate(start: Date, type: KpiFrequency): Date {
   return end
 }
 
+/**
+ * Cuối phút chứa {@code date} (giây 59, mili giây 999).
+ *
+ * <p>Ô chọn thời gian chỉ tới PHÚT, trong khi đợt kết thúc ở 23:59:59.999. Gửi thẳng
+ * 23:59:00 lên server thì kỳ ngắn hơn đợt đúng 59 giây và bị chặn với thông báo khó hiểu
+ * "thời gian đợt phải nằm trong thời gian của kỳ". Chọn 23:59 nghĩa là "hết phút đó",
+ * nên quy đổi ở đây chứ không bắt người dùng gõ được giây.
+ */
+function endOfMinute(date: Date): Date {
+  const d = new Date(date)
+  d.setSeconds(59, 999)
+  return d
+}
+
+/**
+ * Loại kỳ khớp nhất với một khoảng thời gian có sẵn — dùng khi thời gian kỳ được suy ra
+ * từ các đợt đã chọn, lúc đó không ai gõ loại kỳ vào trước.
+ *
+ * <p>So theo SỐ NGÀY chứ không theo số tháng: gom 3 đợt tuần thành 21 ngày thì "Tháng"
+ * vẫn là nhãn gần đúng nhất, còn đếm tháng sẽ ra 0 và không chọn được gì.
+ */
+function inferCycleType(start: Date, end: Date): KpiFrequency {
+  const days = differenceInCalendarDays(end, start) + 1
+  return CYCLE_TYPES.reduce((best, type) => {
+    const diffOf = (t: KpiFrequency) =>
+      Math.abs(differenceInCalendarDays(computeStandardEndDate(start, t), start) + 1 - days)
+    return diffOf(type) < diffOf(best) ? type : best
+  }, CYCLE_TYPES[0]!)
+}
+
+/**
+ * Tên kỳ gợi ý theo mốc bắt đầu và loại kỳ. Chỉ ghi đè khi tên đang trống hoặc vẫn là
+ * một tên máy tự đặt trước đó — người dùng đã gõ tên riêng thì không được đụng vào.
+ */
+function suggestCycleName(currentName: string, start: Date, type: KpiFrequency): string {
+  const isAutoName = !currentName || ['Tháng', 'Quý', '6 Tháng', 'Năm'].some(p => currentName.startsWith(p))
+  if (!isAutoName) return currentName
+
+  switch (type) {
+    case 'MONTHLY': return `Tháng ${format(start, 'MM/yyyy')}`
+    case 'QUARTERLY': return `Quý ${Math.floor(start.getMonth() / 3) + 1} / ${format(start, 'yyyy')}`
+    case 'SEMI_ANNUALLY': return `6 Tháng ${Math.floor(start.getMonth() / 6) + 1} / ${format(start, 'yyyy')}`
+    case 'YEARLY': return `Năm ${format(start, 'yyyy')}`
+    default: return currentName
+  }
+}
+
 export default function KpiCyclesPage() {
   const [showForm, setShowForm] = useState(false)
   const [editCycle, setEditCycle] = useState<KpiCycle | null>(null)
@@ -353,6 +400,21 @@ export default function KpiCyclesPage() {
   )
 }
 
+/**
+ * Ô thời gian ở chế độ chọn đợt trước: chỉ đọc, vì giá trị do các đợt đã chọn quyết định.
+ * Dùng ô tĩnh thay vì khoá {@link DateTimePicker} — người dùng bấm vào lịch rồi mới biết
+ * mình không sửa được thì khó chịu hơn là nhìn thấy ngay đây là số máy tự điền.
+ */
+function DerivedDateBox({ value, hasPeriods }: { value: string; hasPeriods: boolean }) {
+  return (
+    <div className="w-full px-6 py-4 rounded-[22px] border border-dashed border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/30 text-sm font-bold">
+      {hasPeriods && value
+        ? <span className="text-slate-900 dark:text-white">{format(new Date(value), 'dd/MM/yyyy HH:mm')}</span>
+        : <span className="text-slate-400 font-medium">Tự điền theo đợt</span>}
+    </div>
+  )
+}
+
 interface CycleFormModalProps {
   onClose: () => void
   editCycle: KpiCycle | null
@@ -372,6 +434,15 @@ function CycleFormModal({ onClose, editCycle, organizationId, onSubmit, isSubmit
   })
   const [showMismatchConfirm, setShowMismatchConfirm] = useState(false)
 
+  /**
+   * Hai đường dựng kỳ, cùng dẫn tới một payload:
+   * - TIME_FIRST: gõ thời gian rồi nhặt đợt nằm trong khoảng đó (đường cũ).
+   * - PERIOD_FIRST: nhặt đợt trước, thời gian kỳ tự ôm trọn các đợt đã chọn. Hợp với
+   *   thực tế "kỳ này gồm mấy đợt kia" — sếp nhớ tên đợt chứ ít khi nhớ ngày.
+   */
+  const [mode, setMode] = useState<'TIME_FIRST' | 'PERIOD_FIRST'>('TIME_FIRST')
+  const isPeriodFirst = mode === 'PERIOD_FIRST'
+
   // Gom đợt ngay tại đây, không cần sang tab Đợt để gán từng cái.
   const [selectedPeriodIds, setSelectedPeriodIds] = useState<string[]>([])
   const { data: periodsData, isLoading: isLoadingPeriods } = useKpiPeriods({
@@ -380,7 +451,8 @@ function CycleFormModal({ onClose, editCycle, organizationId, onSubmit, isSubmit
   const periods = useMemo(() => periodsData?.content || [], [periodsData])
 
   const cycleStartMs = formData.startDate ? new Date(formData.startDate).getTime() : NaN
-  const cycleEndMs = formData.endDate ? new Date(formData.endDate).getTime() : NaN
+  // Cùng quy ước với lúc gửi lên server: kết thúc "23:59" là hết phút 23:59.
+  const cycleEndMs = formData.endDate ? endOfMinute(new Date(formData.endDate)).getTime() : NaN
 
   // Đợt hợp lệ khi nằm trọn trong thời gian kỳ (BE cũng chặn tương tự).
   const fitsCycle = (p: KpiPeriod) => {
@@ -388,18 +460,21 @@ function CycleFormModal({ onClose, editCycle, organizationId, onSubmit, isSubmit
     return new Date(p.startDate).getTime() >= cycleStartMs && new Date(p.endDate).getTime() <= cycleEndMs
   }
 
+  // Chọn đợt trước thì không có khoảng thời gian nào để lọc — mọi đợt có ngày đều chọn được.
+  const canPick = (p: KpiPeriod) => (isPeriodFirst ? !!(p.startDate && p.endDate) : fitsCycle(p))
+
   // Đợt phù hợp lên trước, phần còn lại vẫn hiển thị (mờ) để biết vì sao không chọn được.
   const sortedPeriods = useMemo(() => {
     return [...periods].sort((a, b) => {
-      const diff = Number(fitsCycle(b)) - Number(fitsCycle(a))
+      const diff = Number(canPick(b)) - Number(canPick(a))
       if (diff !== 0) return diff
       return (a.startDate || '').localeCompare(b.startDate || '')
     })
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [periods, cycleStartMs, cycleEndMs])
+  }, [periods, cycleStartMs, cycleEndMs, isPeriodFirst])
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  const eligiblePeriods = useMemo(() => sortedPeriods.filter(fitsCycle), [sortedPeriods, cycleStartMs, cycleEndMs])
+  const eligiblePeriods = useMemo(() => sortedPeriods.filter(canPick), [sortedPeriods, cycleStartMs, cycleEndMs, isPeriodFirst])
 
   // Sửa kỳ: nạp sẵn các đợt đang thuộc kỳ này (chỉ nạp 1 lần khi có dữ liệu).
   const didInitSelection = useRef(false)
@@ -409,9 +484,32 @@ function CycleFormModal({ onClose, editCycle, organizationId, onSubmit, isSubmit
     if (editCycle) setSelectedPeriodIds(periods.filter(p => p.cycleId === editCycle.id).map(p => p.id))
   }, [periodsData, periods, editCycle])
 
+  /**
+   * Chọn đợt trước ⇒ thời gian kỳ ôm trọn các đợt đã chọn, loại kỳ và tên tự suy theo.
+   * Chạy trước effect cắt tỉa bên dưới, và effect đó tự tắt ở chế độ này, nên không có
+   * vòng lặp "ngày đổi → bỏ đợt → ngày đổi".
+   */
+  useEffect(() => {
+    if (!isPeriodFirst) return
+    const picked = periods.filter(p => selectedPeriodIds.includes(p.id) && p.startDate && p.endDate)
+    if (!picked.length) return
+
+    const start = new Date(Math.min(...picked.map(p => new Date(p.startDate!).getTime())))
+    const end = new Date(Math.max(...picked.map(p => new Date(p.endDate!).getTime())))
+    const startStr = format(start, "yyyy-MM-dd'T'HH:mm")
+    const endStr = format(end, "yyyy-MM-dd'T'HH:mm")
+
+    setFormData(prev => {
+      if (prev.startDate === startStr && prev.endDate === endStr) return prev
+      const type = inferCycleType(start, end)
+      return { ...prev, startDate: startStr, endDate: endStr, cycleType: type, name: suggestCycleName(prev.name, start, type) }
+    })
+  }, [isPeriodFirst, selectedPeriodIds, periods])
+
   // Đổi thời gian kỳ ⇒ bỏ chọn các đợt vừa rơi ra ngoài khoảng mới.
   useEffect(() => {
-    if (!didInitSelection.current) return
+    // Ở chế độ chọn đợt trước, thời gian là HỆ QUẢ của lựa chọn nên không được cắt ngược lại.
+    if (!didInitSelection.current || isPeriodFirst) return
     setSelectedPeriodIds(prev => {
       const next = prev.filter(id => {
         const p = periods.find(x => x.id === id)
@@ -420,7 +518,7 @@ function CycleFormModal({ onClose, editCycle, organizationId, onSubmit, isSubmit
       return next.length === prev.length ? prev : next
     })
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [cycleStartMs, cycleEndMs, periods])
+  }, [cycleStartMs, cycleEndMs, periods, isPeriodFirst])
 
   const togglePeriod = (id: string) => {
     setSelectedPeriodIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id])
@@ -447,13 +545,12 @@ function CycleFormModal({ onClose, editCycle, organizationId, onSubmit, isSubmit
         const start = field === 'startDate' ? value : prev.startDate
         const type = field === 'cycleType' ? value as KpiFrequency : prev.cycleType
         const startObj = new Date(start)
-        next.endDate = format(computeStandardEndDate(startObj, type), "yyyy-MM-dd'T'HH:mm")
-        if (!next.name || next.name.startsWith('Tháng') || next.name.startsWith('Quý') || next.name.startsWith('6 Tháng') || next.name.startsWith('Năm')) {
-          if (type === 'MONTHLY') next.name = `Tháng ${format(startObj, 'MM/yyyy')}`
-          else if (type === 'QUARTERLY') next.name = `Quý ${Math.floor(startObj.getMonth() / 3) + 1} / ${format(startObj, 'yyyy')}`
-          else if (type === 'SEMI_ANNUALLY') next.name = `6 Tháng ${Math.floor(startObj.getMonth() / 6) + 1} / ${format(startObj, 'yyyy')}`
-          else if (type === 'YEARLY') next.name = `Năm ${format(startObj, 'yyyy')}`
+        // Chọn đợt trước: thời gian do đợt quyết định. Đổi loại kỳ ở đây chỉ là đổi nhãn,
+        // kéo ngày kết thúc về độ dài tiêu chuẩn sẽ cắt mất chính những đợt vừa chọn.
+        if (!isPeriodFirst) {
+          next.endDate = format(computeStandardEndDate(startObj, type), "yyyy-MM-dd'T'HH:mm")
         }
+        next.name = suggestCycleName(next.name, startObj, type)
       }
       return next
     })
@@ -464,7 +561,7 @@ function CycleFormModal({ onClose, editCycle, organizationId, onSubmit, isSubmit
       name: formData.name,
       cycleType: formData.cycleType,
       startDate: new Date(formData.startDate).toISOString(),
-      endDate: new Date(formData.endDate).toISOString(),
+      endDate: endOfMinute(new Date(formData.endDate)).toISOString(),
       description: formData.description || null,
       evaluationMode: formData.evaluationMode,
       organizationId,
@@ -475,14 +572,21 @@ function CycleFormModal({ onClose, editCycle, organizationId, onSubmit, isSubmit
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (isPeriodFirst && !selectedPeriodIds.length) {
+      toast.error('Hãy chọn ít nhất một đợt để suy ra thời gian kỳ')
+      return
+    }
     const start = new Date(formData.startDate).getTime()
-    const end = new Date(formData.endDate).getTime()
+    const end = endOfMinute(new Date(formData.endDate)).getTime()
     if (end <= start) {
       toast.error('Thời gian kết thúc phải sau thời gian bắt đầu')
       return
     }
+    // Hỏi lại khi độ dài lệch chuẩn — nhưng chỉ ở đường gõ tay. Chọn đợt trước thì lệch
+    // chuẩn là chuyện đương nhiên (đợt hiếm khi phủ kín tròn tháng/quý), hỏi mỗi lần lưu
+    // sẽ thành hộp thoại bấm cho qua.
     const standardEnd = computeStandardEndDate(new Date(formData.startDate), formData.cycleType).getTime()
-    if (Math.abs(end - standardEnd) > 60 * 1000) {
+    if (!isPeriodFirst && Math.abs(end - standardEnd) > 60 * 1000) {
       setShowMismatchConfirm(true)
       return
     }
@@ -509,6 +613,37 @@ function CycleFormModal({ onClose, editCycle, organizationId, onSubmit, isSubmit
               <h3 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">{editCycle ? 'Chỉnh sửa kỳ' : 'Tạo kỳ mới'}</h3>
               <p className="text-xs font-black text-slate-400 uppercase tracking-widest mt-1">Cấu hình kỳ đánh giá tổng hợp</p>
             </div>
+          </div>
+
+          {/* Hai đường dựng kỳ. Đổi qua lại không mất dữ liệu đã nhập. */}
+          <div className="space-y-2">
+            <span className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 ml-1">Cách dựng kỳ</span>
+            <div className="grid grid-cols-2 gap-2 p-1.5 rounded-[22px] bg-slate-100/70 dark:bg-slate-800/70">
+              {([
+                { key: 'TIME_FIRST', icon: <Calendar size={14} />, label: 'Chọn thời gian trước' },
+                { key: 'PERIOD_FIRST', icon: <Layers size={14} />, label: 'Chọn đợt trước' },
+              ] as const).map(opt => (
+                <button
+                  key={opt.key}
+                  type="button"
+                  onClick={() => setMode(opt.key)}
+                  className={cn(
+                    'flex items-center justify-center gap-2 px-3 py-2.5 rounded-[16px] text-[10px] font-black uppercase tracking-widest transition-all',
+                    mode === opt.key
+                      ? 'bg-white dark:bg-slate-900 text-emerald-600 dark:text-emerald-400 shadow-sm'
+                      : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'
+                  )}
+                >
+                  {opt.icon}
+                  <span className="truncate">{opt.label}</span>
+                </button>
+              ))}
+            </div>
+            <p className="text-[11px] text-slate-400 font-medium ml-1 leading-relaxed">
+              {isPeriodFirst
+                ? 'Chọn các đợt cần gom, thời gian kỳ tự ôm trọn từ đợt sớm nhất tới đợt muộn nhất.'
+                : 'Đặt thời gian kỳ trước, sau đó nhặt các đợt nằm trọn trong khoảng đó.'}
+            </p>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-6">
@@ -555,15 +690,35 @@ function CycleFormModal({ onClose, editCycle, organizationId, onSubmit, isSubmit
               )}
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 ml-1">Bắt đầu <span className="text-red-500">*</span></label>
-                <DateTimePicker value={formData.startDate} onChange={val => handleFieldChange('startDate', val)} />
+            {/* Chọn đợt trước thì danh sách đợt phải đứng trên thời gian — thời gian là kết quả. */}
+            <div className={cn('flex flex-col gap-6', isPeriodFirst && 'flex-col-reverse')}>
+
+            <div className="space-y-2">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 ml-1">Bắt đầu <span className="text-red-500">*</span></label>
+                  {isPeriodFirst ? (
+                    <DerivedDateBox value={formData.startDate} hasPeriods={selectedPeriodIds.length > 0} />
+                  ) : (
+                    <DateTimePicker value={formData.startDate} onChange={val => handleFieldChange('startDate', val)} />
+                  )}
+                </div>
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 ml-1">Kết thúc <span className="text-red-500">*</span></label>
+                  {isPeriodFirst ? (
+                    <DerivedDateBox value={formData.endDate} hasPeriods={selectedPeriodIds.length > 0} />
+                  ) : (
+                    <DateTimePicker value={formData.endDate} onChange={val => handleFieldChange('endDate', val)} />
+                  )}
+                </div>
               </div>
-              <div className="space-y-2">
-                <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 ml-1">Kết thúc <span className="text-red-500">*</span></label>
-                <DateTimePicker value={formData.endDate} onChange={val => handleFieldChange('endDate', val)} />
-              </div>
+              {isPeriodFirst && (
+                <p className="text-[11px] text-slate-400 font-medium ml-1 leading-relaxed">
+                  {selectedPeriodIds.length > 0
+                    ? <>Suy ra từ {selectedPeriodIds.length} đợt đã chọn — dài <span className="font-black text-slate-500">{selectedDays} ngày</span>, gần nhất với loại kỳ <span className="font-black text-slate-500">{FREQUENCY_MAP[formData.cycleType]}</span> ({standardDays} ngày). Muốn tự chỉnh giờ/ngày thì đổi sang "Chọn thời gian trước".</>
+                    : 'Chọn đợt ở trên để hệ thống điền thời gian kỳ.'}
+                </p>
+              )}
             </div>
 
             {/* Gom đợt vào kỳ ngay khi tạo — khỏi phải sang tab Đợt chỉnh từng đợt. */}
@@ -590,10 +745,12 @@ function CycleFormModal({ onClose, editCycle, organizationId, onSubmit, isSubmit
                   <p className="px-3 py-4 text-xs font-bold text-slate-400 text-center">Chưa có đợt nào trong tổ chức.</p>
                 ) : !eligiblePeriods.length ? (
                   <p className="px-3 py-4 text-xs font-bold text-slate-400 text-center">
-                    Không có đợt nào nằm trọn trong thời gian kỳ đã chọn.
+                    {isPeriodFirst
+                      ? 'Các đợt hiện có đều thiếu ngày bắt đầu hoặc kết thúc.'
+                      : 'Không có đợt nào nằm trọn trong thời gian kỳ đã chọn.'}
                   </p>
                 ) : sortedPeriods.map(period => {
-                  const eligible = fitsCycle(period)
+                  const eligible = canPick(period)
                   const selected = selectedPeriodIds.includes(period.id)
                   const fromOtherCycle = !!period.cycleId && period.cycleId !== editCycle?.id
                   return (
@@ -627,7 +784,9 @@ function CycleFormModal({ onClose, editCycle, organizationId, onSubmit, isSubmit
                           {period.endDate ? format(parseISO(period.endDate), 'dd/MM/yyyy') : '—'}
                         </span>
                         {!eligible ? (
-                          <span className="block text-[10px] font-bold text-slate-400 mt-0.5">Ngoài thời gian kỳ</span>
+                          <span className="block text-[10px] font-bold text-slate-400 mt-0.5">
+                            {isPeriodFirst ? 'Đợt chưa có ngày bắt đầu/kết thúc' : 'Ngoài thời gian kỳ'}
+                          </span>
                         ) : fromOtherCycle && (
                           <span className="flex items-center gap-1 text-[10px] font-bold text-amber-600 dark:text-amber-500 mt-0.5">
                             <AlertTriangle size={10} /> Đang thuộc kỳ "{period.cycleName}"{selected && ' — sẽ chuyển sang kỳ này'}
@@ -639,8 +798,12 @@ function CycleFormModal({ onClose, editCycle, organizationId, onSubmit, isSubmit
                 })}
               </div>
               <p className="text-[11px] text-slate-400 font-medium ml-1">
-                Chỉ chọn được đợt nằm trọn trong thời gian kỳ. Đổi thời gian kỳ sẽ tự bỏ các đợt không còn phù hợp.
+                {isPeriodFirst
+                  ? 'Chọn đợt nào cũng được, kể cả đợt rời rạc — thời gian kỳ sẽ trải từ đợt sớm nhất tới đợt muộn nhất.'
+                  : 'Chỉ chọn được đợt nằm trọn trong thời gian kỳ. Đổi thời gian kỳ sẽ tự bỏ các đợt không còn phù hợp.'}
               </p>
+            </div>
+
             </div>
 
             <div className="space-y-2">

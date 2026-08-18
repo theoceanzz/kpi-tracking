@@ -63,6 +63,10 @@ public class SecurityConfig {
                         "/api/v1/auth/lark/**"
                 ).permitAll()
                 .requestMatchers("/api/v1/public/**").permitAll()
+                // SePay không có tài khoản trong hệ thống nên không thể mang JWT.
+                // Endpoint này tự xác thực bằng khoá API dùng chung và (tuỳ chọn)
+                // danh sách IP — xem SepayWebhookController.
+                .requestMatchers("/api/v1/webhooks/sepay").permitAll()
                 .requestMatchers("/api/v1/provinces/**").permitAll()
                 .requestMatchers("/actuator/health").permitAll()
                 .requestMatchers("/swagger-ui/**", "/v3/api-docs/**", "/swagger-ui.html").permitAll()

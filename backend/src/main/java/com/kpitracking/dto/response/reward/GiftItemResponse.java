@@ -41,4 +41,23 @@ public class GiftItemResponse {
      * quản lý biết trước lý do, thay vì bấm rồi mới nhận thông báo lỗi.
      */
     private Integer pendingRedemptionCount;
+
+    // ── Quà nhập từ nhà cung cấp ngoài (UrBox) ───────────────────────
+
+    /** {@code "URBOX"} nếu quà nhập từ kho eVoucher UrBox; null với quà nội bộ. */
+    private String externalProvider;
+
+    /** Mệnh giá VNĐ bên nhà cung cấp — để đối chiếu "bao nhiêu điểm cho bao nhiêu tiền". */
+    private Long externalValue;
+
+    private String externalBrand;
+
+    /**
+     * Điều kiện sử dụng (HTML). UrBox BẮT BUỘC hiển thị trước khi người dùng bấm đổi,
+     * nên trường này phải có mặt ngay ở danh sách cửa hàng chứ không đợi gọi thêm.
+     */
+    private String externalTerms;
+
+    /** Nguyên văn "Tối thiểu 30 ngày". */
+    private String externalExpireText;
 }

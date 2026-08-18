@@ -2,9 +2,11 @@ package com.kpitracking.controller;
 
 import com.kpitracking.dto.response.ApiResponse;
 import com.kpitracking.dto.response.PageResponse;
+import com.kpitracking.dto.response.reward.RewardActivityResponse;
 import com.kpitracking.dto.response.reward.RewardTransactionResponse;
 import com.kpitracking.dto.response.reward.RewardWalletResponse;
 import com.kpitracking.service.RewardWalletService;
+import com.kpitracking.service.reward.RewardActivityService;
 import com.kpitracking.service.reward.RewardQueryService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -21,6 +23,7 @@ public class RewardWalletController {
 
     private final RewardQueryService queryService;
     private final RewardWalletService walletService;
+    private final RewardActivityService activityService;
 
     @GetMapping("/me")
     @PreAuthorize("hasAuthority('REWARD:VIEW_MY')")
@@ -34,6 +37,19 @@ public class RewardWalletController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size) {
         return ResponseEntity.ok(ApiResponse.success(queryService.getMyTransactions(page, size)));
+    }
+
+    /**
+     * Bảng tin điểm thưởng của cả tổ chức.
+     *
+     * <p>Quyền chỉ là {@code REWARD:VIEW_MY} — quyền ai cũng có — vì tính năng chỉ có
+     * nghĩa khi mọi người đều thấy. Xem phần "Ai xem được gì" ở {@link RewardActivityService}.
+     */
+    @GetMapping("/activity")
+    @PreAuthorize("hasAuthority('REWARD:VIEW_MY')")
+    public ResponseEntity<ApiResponse<List<RewardActivityResponse>>> getActivityFeed(
+            @RequestParam(required = false) Integer limit) {
+        return ResponseEntity.ok(ApiResponse.success(activityService.getRecentActivity(limit)));
     }
 
     @GetMapping("/wallets")

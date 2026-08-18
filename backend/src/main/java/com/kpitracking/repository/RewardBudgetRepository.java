@@ -2,6 +2,7 @@ package com.kpitracking.repository;
 
 import com.kpitracking.entity.RewardBudget;
 import jakarta.persistence.LockModeType;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
@@ -49,6 +50,22 @@ public interface RewardBudgetRepository extends JpaRepository<RewardBudget, UUID
     Optional<RewardBudget> findActive(@Param("orgId") UUID orgId,
                                       @Param("grantorId") UUID grantorId,
                                       @Param("today") LocalDate today);
+
+    /**
+     * Những lần cấp hạn mức gần nhất, cho bảng tin điểm thưởng.
+     *
+     * <p>Sắp theo {@code createdAt} chứ không phải {@code periodStart}: bảng tin kể việc
+     * "vừa xảy ra", mà một hạn mức cấp hôm nay cho quý sau vẫn là tin của hôm nay.
+     *
+     * <p>Hạn mức đã xoá mềm tự rơi ra nhờ {@code @SQLRestriction} trên entity.
+     */
+    @Query("""
+            SELECT b FROM RewardBudget b
+              JOIN FETCH b.grantor
+             WHERE b.organization.id = :orgId
+             ORDER BY b.createdAt DESC
+            """)
+    List<RewardBudget> findRecentForFeed(@Param("orgId") UUID orgId, Pageable pageable);
 
     List<RewardBudget> findByOrganizationIdOrderByPeriodStartDesc(UUID organizationId);
 

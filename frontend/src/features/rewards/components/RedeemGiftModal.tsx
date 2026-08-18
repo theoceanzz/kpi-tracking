@@ -1,16 +1,27 @@
 import { useEffect, useState } from 'react'
 import { Loader2, X, Gift, Minus, Plus, AlertTriangle } from 'lucide-react'
 import { useMyRedemptions } from '../hooks/useGifts'
-import type { GiftItem } from '../types'
+import { htmlToText } from '../utils/html'
+import type { GiftItem, Redemption } from '../types'
 
 interface RedeemGiftModalProps {
   /** null = đóng. Truyền cả object để modal hiện được ảnh/giá mà không phải fetch lại. */
   gift: GiftItem | null
   balance: number
   onClose: () => void
+  /**
+   * Gọi khi vừa đổi xong một món có mã voucher. Người đổi phải thấy mã NGAY — bắt họ tự
+   * tìm lại trong lịch sử là cách chắc chắn nhất để có một cuộc gọi cho bộ phận hỗ trợ.
+   */
+  onVoucherIssued?: (redemption: Redemption) => void
 }
 
-export default function RedeemGiftModal({ gift, balance, onClose }: RedeemGiftModalProps) {
+export default function RedeemGiftModal({
+  gift,
+  balance,
+  onClose,
+  onVoucherIssued,
+}: RedeemGiftModalProps) {
   const [quantity, setQuantity] = useState(1)
   const [note, setNote] = useState('')
   const { redeem, isRedeeming } = useMyRedemptions()
@@ -33,10 +44,13 @@ export default function RedeemGiftModal({ gift, balance, onClose }: RedeemGiftMo
   const remaining = balance - total
   const notEnough = total > balance
 
+  const isVoucher = !!gift.externalProvider
+
   const handleSubmit = async () => {
     if (notEnough) return
-    await redeem({ giftItemId: gift.id, quantity, note: note.trim() || undefined })
+    const result = await redeem({ giftItemId: gift.id, quantity, note: note.trim() || undefined })
     onClose()
+    if (result.vouchers?.length) onVoucherIssued?.(result)
   }
 
   return (
@@ -66,6 +80,19 @@ export default function RedeemGiftModal({ gift, balance, onClose }: RedeemGiftMo
               <div className="mt-0.5 text-sm text-[var(--color-primary)]">
                 {gift.pointCost.toLocaleString('vi-VN')} điểm / phần
               </div>
+              {/* UrBox yêu cầu hiện tên quà, MỆNH GIÁ và điều kiện sử dụng trước khi
+                  người dùng bấm đổi — thiếu là nguồn khiếu nại lúc mang mã đi dùng. */}
+              {gift.externalValue != null && (
+                <div className="mt-0.5 text-xs text-[var(--color-muted-foreground)]">
+                  Trị giá {gift.externalValue.toLocaleString('vi-VN')} ₫
+                  {gift.externalBrand && ` · ${gift.externalBrand}`}
+                </div>
+              )}
+              {gift.externalExpireText && (
+                <div className="text-xs text-[var(--color-muted-foreground)]">
+                  Hạn sử dụng: {gift.externalExpireText}
+                </div>
+              )}
               {!gift.unlimitedStock && gift.stockQuantity != null && (
                 <div className="mt-0.5 text-xs text-[var(--color-muted-foreground)]">
                   Còn {gift.stockQuantity} phần
@@ -73,6 +100,17 @@ export default function RedeemGiftModal({ gift, balance, onClose }: RedeemGiftMo
               )}
             </div>
           </div>
+
+          {gift.externalTerms && (
+            <details className="rounded-xl border border-[var(--color-border)]">
+              <summary className="cursor-pointer px-4 py-2.5 text-sm font-medium">
+                Điều kiện sử dụng
+              </summary>
+              <p className="max-h-56 overflow-y-auto whitespace-pre-line border-t border-[var(--color-border)] px-4 py-3 text-xs leading-relaxed text-[var(--color-muted-foreground)]">
+                {htmlToText(gift.externalTerms)}
+              </p>
+            </details>
+          )}
 
           <div>
             <label className="mb-1.5 block text-sm font-medium">Số lượng</label>
@@ -139,6 +177,11 @@ export default function RedeemGiftModal({ gift, balance, onClose }: RedeemGiftMo
                   Điểm được trừ ngay khi gửi yêu cầu, và bạn <b>nhận quà trực tiếp tại công ty</b>.
                   Nếu bị từ chối hoặc bạn tự huỷ, điểm sẽ được hoàn lại đầy đủ.
                 </>
+              ) : isVoucher ? (
+                <>
+                  Mã voucher được xuất <b>ngay khi bạn bấm đổi</b> và hiện lên màn hình. Nếu nhà
+                  cung cấp không xuất được quà, điểm sẽ tự động hoàn lại vào ví của bạn.
+                </>
               ) : (
                 <>
                   Quà này <b>hoàn tất ngay khi đổi</b> — điểm bị trừ và quyền lợi được ghi nhận
@@ -162,7 +205,7 @@ export default function RedeemGiftModal({ gift, balance, onClose }: RedeemGiftMo
             className="inline-flex items-center gap-2 rounded-lg bg-[var(--color-primary)] px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
           >
             {isRedeeming && <Loader2 size={15} className="animate-spin" />}
-            {gift.requiresDelivery ? 'Gửi yêu cầu đổi' : 'Đổi ngay'}
+            {gift.requiresDelivery ? 'Gửi yêu cầu đổi' : isVoucher ? 'Đổi & lấy mã' : 'Đổi ngay'}
           </button>
         </div>
       </div>

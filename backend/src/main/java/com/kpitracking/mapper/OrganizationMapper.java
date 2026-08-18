@@ -14,6 +14,8 @@ public interface OrganizationMapper {
     @Mapping(target = "enableQualitative", source = "enableQualitative")
     @Mapping(target = "enableBsc", source = "enableBsc")
     @Mapping(target = "enableReward", source = "enableReward")
+    @Mapping(target = "enableCashWallet", source = "enableCashWallet")
+    @Mapping(target = "pointExchangeRate", source = "pointExchangeRate")
     @Mapping(target = "performanceMatrix", source = "performanceMatrix")
     @Mapping(target = "unitClassificationRules", source = "unitClassificationRules")
     OrganizationResponse toResponse(Organization organization);

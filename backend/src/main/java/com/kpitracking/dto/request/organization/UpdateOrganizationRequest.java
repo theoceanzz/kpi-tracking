@@ -31,4 +31,5 @@ public class UpdateOrganizationRequest {
     private Boolean enableQualitative;
     private Boolean enableBsc;
     private Boolean enableReward;
+    private Boolean enableCashWallet;
 }

@@ -5,6 +5,7 @@ import lombok.Builder;
 import lombok.Data;
 
 import java.time.Instant;
+import java.util.List;
 import java.util.UUID;
 
 @Data
@@ -34,4 +35,27 @@ public class RedemptionResponse {
 
     private String note;
     private Instant createdAt;
+
+    // ── Quà từ nhà cung cấp ngoài (UrBox) ────────────────────────────
+
+    /** {@code "URBOX"} nếu quà do nhà cung cấp ngoài xuất; null với quà nội bộ. */
+    private String externalProvider;
+
+    /** Mã đơn bên nhà cung cấp — cho người vận hành đối soát, không phải mã dùng quà. */
+    private String externalOrderId;
+
+    /**
+     * Mã voucher đã xuất. CHỈ có ở phản hồi cho chính người đã đổi; danh sách của màn
+     * hình quản trị luôn để trống — ai cầm mã là người tiêu được nó.
+     */
+    private List<RedemptionVoucherResponse> vouchers;
+
+    /**
+     * Vì sao chưa lấy được quà. Hiện cho cả người đổi lẫn người xử lý: yêu cầu treo mà
+     * không nói lý do sẽ biến thành một cuộc gọi cho bộ phận hỗ trợ.
+     */
+    private String fulfillmentError;
+
+    /** Điều kiện sử dụng (HTML) chụp lại lúc nhập quà — UrBox bắt buộc hiển thị. */
+    private String giftTerms;
 }

@@ -223,6 +223,12 @@ public final class EmailTemplateCatalog {
         registerNotification("reminder_deadline", "Nhắc hạn nộp",
                 "Nhắc nhở tự động khi sắp tới hạn nộp báo cáo.");
 
+        // ───────────────────────── Ví tiền ─────────────────────────
+        registerNotification("wallet_topup_paid", "Nạp tiền thành công",
+                "Khi tiền chuyển khoản đã về và số dư ví được cộng.");
+        registerNotification("wallet_converted", "Đã quy đổi sang điểm",
+                "Khi người dùng đổi số dư ví tiền lấy điểm thưởng.");
+
         // ───────────────────────── Đánh giá ─────────────────────────
         register(new TemplateDef(
                 "cycle_evaluation_result", "Gửi kết quả đánh giá kỳ",
@@ -241,7 +247,10 @@ public final class EmailTemplateCatalog {
                 + "<h2>Chi tiết điểm từng đợt trong kỳ</h2>"
                 + "<p>{{bang_diem_dot}}</p>"
                 + "<p><strong>Nhận xét:</strong> {{nhan_xet}}</p>"
-                + button("Xem chi tiết trên hệ thống", "{{link_he_thong}}/kpi-cycles/evaluation")
+                // KHÔNG đưa nút vào hệ thống: nhân viên không có quyền xem màn hình đánh giá
+                // kỳ nên bấm vào chỉ nhận được trang từ chối truy cập. Bảng điểm đầy đủ đi
+                // kèm thư dưới dạng tệp Excel — đó là bản chi tiết họ thực sự mở được.
+                + "<p>Bảng điểm chi tiết của bạn được gửi kèm trong tệp Excel đính kèm thư này.</p>"
                 + "<p>Nếu có thắc mắc về kết quả, vui lòng liên hệ trực tiếp cán bộ quản lý của bạn.</p>"
                 + "<p>Trân trọng,<br><strong>{{nguoi_gui}}</strong></p>",
                 vars(

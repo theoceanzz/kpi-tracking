@@ -37,9 +37,11 @@ import {
   CalendarRange,
   Award,
   Gift,
-  Wallet
+  Wallet,
+  Landmark
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import UserAvatar from '@/components/common/UserAvatar'
 import { useNotificationDots } from '../hooks/useNotificationDots'
 import { useSidebarSettings } from '@/features/organization/hooks/useSidebarSettings'
 import { useTourStore } from '@/store/tourStore'
@@ -57,6 +59,7 @@ interface NavItem {
   bscOnly?: boolean
   aiOnly?: boolean
   rewardOnly?: boolean
+  walletOnly?: boolean
   originalLabel?: string
 }
 
@@ -121,6 +124,17 @@ const navItems: NavItem[] = [
     children: [
       { label: 'Điểm của tôi', path: '/rewards/me', icon: <Wallet size={18} />, permission: 'REWARD:VIEW_MY', rewardOnly: true },
       { label: 'Quản lý thưởng', path: '/rewards', icon: <Gift size={18} />, permission: 'REWARD:GRANT', rewardOnly: true, end: true },
+    ]
+  },
+  // Ví tiền tách thành nhóm riêng chứ không nhét vào Thưởng điểm: đây là tiền thật,
+  // gộp chung sẽ khiến người dùng lẫn số dư tiền với số dư điểm.
+  {
+    label: 'Ví tiền',
+    icon: <Wallet size={20} />,
+    walletOnly: true,
+    children: [
+      { label: 'Ví của tôi', path: '/wallet/me', icon: <Wallet size={18} />, permission: 'WALLET:VIEW_MY', walletOnly: true },
+      { label: 'Quản lý ví', path: '/wallet', icon: <Landmark size={18} />, permission: 'WALLET:VIEW', walletOnly: true, end: true },
     ]
   },
   { label: 'KPI của tôi', path: '/my-kpi', icon: <ListChecks size={20} />, permission: 'KPI:VIEW_MY' },
@@ -213,6 +227,7 @@ export default function Sidebar({ isMobileOpen, onCloseMobile }: { isMobileOpen?
   const enableBsc = org?.enableBsc
   const enableAi = org?.enableAi !== false // default true while loading
   const enableReward = org?.enableReward
+  const enableCashWallet = org?.enableCashWallet
 
   const [expandedMenus, setExpandedMenus] = useState<Record<string, boolean>>({})
 
@@ -267,6 +282,7 @@ useEffect(() => {
       if (item.okrOnly && !enableOkr) return null
       if (item.bscOnly && !enableBsc) return null
       if (item.rewardOnly && !enableReward) return null
+      if (item.walletOnly && !enableCashWallet) return null
 
       const filteredChildren = item.children
         .map(child => {
@@ -276,12 +292,14 @@ useEffect(() => {
             if (child.okrOnly && !enableOkr) return null
             if (child.bscOnly && !enableBsc) return null
             if (child.rewardOnly && !enableReward) return null
+            if (child.walletOnly && !enableCashWallet) return null
 
             const filteredSubChildren = child.children
               .filter(sub => {
                 if (sub.okrOnly && !enableOkr) return false
                 if (sub.bscOnly && !enableBsc) return false
                 if (sub.rewardOnly && !enableReward) return false
+                if (sub.walletOnly && !enableCashWallet) return false
                 return !sub.permission || hasPermission(sub.permission)
               })
               .map(sub => ({ ...sub, label: getLabel(sub), originalLabel: sub.label }))
@@ -322,6 +340,8 @@ useEffect(() => {
     if (item.aiOnly && !enableAi) {
       processedItem = null
     } else if (item.rewardOnly && !enableReward) {
+      processedItem = null
+    } else if (item.walletOnly && !enableCashWallet) {
       processedItem = null
     } else if (item.path === '/dashboard?view=staff') {
       const isManager = hasPermission(['KPI:APPROVE', 'SUBMISSION:REVIEW', 'ORG:CREATE', 'USER:VIEW_LIST'])
@@ -649,9 +669,12 @@ useEffect(() => {
             )}
           >
             <div className="flex items-center gap-3 min-w-0">
-              <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[var(--color-primary)] to-indigo-600 flex items-center justify-center text-xs font-black text-white shrink-0 shadow-md">
-                {user?.fullName?.charAt(0) ?? 'U'}
-              </div>
+              <UserAvatar
+                fullName={user?.fullName}
+                avatarUrl={user?.avatarUrl}
+                className="w-9 h-9 rounded-xl shadow-md"
+                fallbackClassName="bg-gradient-to-br from-[var(--color-primary)] to-indigo-600 text-xs font-black text-white"
+              />
               {(!isCollapsed || isMobileOpen) && (
                 <div className="flex-1 min-w-0 text-left">
                   <p className="text-sm font-black truncate text-[var(--color-foreground)]">{user?.fullName}</p>

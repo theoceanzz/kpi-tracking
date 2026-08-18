@@ -3,6 +3,7 @@ import type { ApiResponse, PageResponse } from '@/types/api'
 import type {
   CreateRewardGrantRequest,
   GrantDecisionRequest,
+  RewardActivity,
   RewardBudget,
   RewardBudgetRequest,
   RewardGrant,
@@ -34,6 +35,12 @@ export const rewardApi = {
       .get<ApiResponse<PageResponse<RewardTransaction>>>(`/rewards/users/${userId}/transactions`, {
         params: { page, size },
       })
+      .then((r) => r.data.data),
+
+  /** Bảng tin cả tổ chức: ai được thưởng, ai được cấp hạn mức, ai đổi quà. */
+  getActivityFeed: (limit = 30) =>
+    axiosInstance
+      .get<ApiResponse<RewardActivity[]>>('/rewards/activity', { params: { limit } })
       .then((r) => r.data.data),
 
   // ── Đề nghị thưởng ─────────────────────────────────────────────

@@ -185,8 +185,11 @@ public class KpiCycleService {
             com.kpitracking.entity.KpiPeriod period = kpiPeriodRepository.findById(periodId)
                     .orElseThrow(() -> new ResourceNotFoundException("Đợt KPI", "id", periodId));
 
+            // BusinessException chứ không IllegalArgumentException: đây là lỗi nghiệp vụ
+            // người dùng sửa được, ném IllegalArgument thì rơi vào handler chung và họ chỉ
+            // nhận được "Đã xảy ra lỗi không xác định" trong khi câu giải thích đã có sẵn.
             if (!period.getOrganization().getId().equals(cycle.getOrganization().getId())) {
-                throw new IllegalArgumentException(
+                throw new com.kpitracking.exception.BusinessException(
                         "Đợt \"" + period.getName() + "\" không thuộc tổ chức của kỳ");
             }
 
@@ -195,7 +198,7 @@ public class KpiCycleService {
             if (cycleStart != null && cycleEnd != null
                     && period.getStartDate() != null && period.getEndDate() != null
                     && (period.getStartDate().isBefore(cycleStart) || period.getEndDate().isAfter(cycleEnd))) {
-                throw new IllegalArgumentException(
+                throw new com.kpitracking.exception.BusinessException(
                         "Thời gian đợt \"" + period.getName() + "\" phải nằm trong thời gian của kỳ \"" + cycle.getName() + "\"");
             }
 

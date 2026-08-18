@@ -33,8 +33,9 @@ public interface RewardWalletRepository extends JpaRepository<RewardWallet, UUID
     @Query("""
             SELECT w FROM RewardWallet w
              WHERE w.organization.id = :orgId
-               AND (:keyword IS NULL OR LOWER(w.user.fullName) LIKE LOWER(CONCAT('%', :keyword, '%'))
-                    OR LOWER(w.user.email) LIKE LOWER(CONCAT('%', :keyword, '%')))
+               AND (CAST(:keyword AS string) IS NULL
+                    OR LOWER(CAST(w.user.fullName AS string)) LIKE LOWER(CONCAT('%', CAST(:keyword AS string), '%'))
+                    OR LOWER(CAST(w.user.email AS string)) LIKE LOWER(CONCAT('%', CAST(:keyword AS string), '%')))
             """)
     Page<RewardWallet> searchByOrg(@Param("orgId") UUID orgId,
                                    @Param("keyword") String keyword,

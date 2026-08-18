@@ -44,6 +44,23 @@ export const useWallets = (keyword: string, page = 0, size = 20) =>
     queryFn: () => rewardApi.searchWallets({ keyword, page, size }),
   })
 
+// ── Bảng tin ─────────────────────────────────────────────────────
+
+/**
+ * Dải tin chạy ngang. Tự làm mới mỗi 60 giây thay vì chỉ khi có thao tác: người xem để
+ * màn hình mở cả buổi, mà cái hay của bảng tin là tin mới tự trôi tới.
+ *
+ * <p>KHÔNG nằm trong `invalidateRewardData` — dải tin đang chạy mà bị thay dữ liệu giữa
+ * chừng sẽ nhảy vị trí trước mắt người đọc. Chờ nhịp làm mới kế tiếp là đủ.
+ */
+export const useRewardActivityFeed = (limit = 30) =>
+  useQuery({
+    queryKey: ['rewardActivity', limit],
+    queryFn: () => rewardApi.getActivityFeed(limit),
+    refetchInterval: 60_000,
+    staleTime: 30_000,
+  })
+
 // ── Đề nghị thưởng ───────────────────────────────────────────────
 
 export const useRewardGrants = (params: {

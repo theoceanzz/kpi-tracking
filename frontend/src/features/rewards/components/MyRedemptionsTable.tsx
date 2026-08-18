@@ -1,6 +1,8 @@
 import DataTable from '@/components/common/DataTable'
 import ConfirmDialog from '@/components/common/ConfirmDialog'
 import { useState } from 'react'
+import { Ticket } from 'lucide-react'
+import VoucherModal from './VoucherModal'
 import { RedemptionStatus, type Redemption } from '../types'
 import { useMyRedemptions } from '../hooks/useGifts'
 
@@ -24,6 +26,12 @@ export const REDEMPTION_STATUS_STYLE: Record<
     label: 'Đã huỷ',
     className: 'bg-[var(--color-muted)] text-[var(--color-muted-foreground)]',
   },
+  // Khác hẳn "Từ chối": không ai từ chối cả, nhà cung cấp không xuất được quà và điểm
+  // đã tự hoàn. Gộp nhãn sẽ khiến nhân viên tưởng công ty chặn mình.
+  [RedemptionStatus.FAILED]: {
+    label: 'Không xuất được quà',
+    className: 'bg-orange-500/15 text-orange-700',
+  },
 }
 
 const fmtDate = (iso: string) =>
@@ -35,6 +43,7 @@ interface MyRedemptionsTableProps {
 
 export default function MyRedemptionsTable({ data }: MyRedemptionsTableProps) {
   const [cancelling, setCancelling] = useState<Redemption | null>(null)
+  const [viewing, setViewing] = useState<Redemption | null>(null)
   const { cancelRedemption, isCancelling } = useMyRedemptions()
 
   return (
@@ -60,6 +69,15 @@ export default function MyRedemptionsTable({ data }: MyRedemptionsTableProps) {
               <span className="text-[var(--color-muted-foreground)]">{fmtDate(row.createdAt)}</span>
               <span className="font-semibold">−{row.pointsSpent.toLocaleString('vi-VN')} điểm</span>
             </div>
+            {!!row.vouchers?.length && (
+              <button
+                onClick={() => setViewing(row)}
+                className="inline-flex w-full items-center justify-center gap-1.5 rounded-lg bg-[var(--color-primary)] py-2 text-sm font-medium text-white"
+              >
+                <Ticket size={14} />
+                Xem mã quà
+              </button>
+            )}
             {row.status === RedemptionStatus.PENDING && (
               <button
                 onClick={() => setCancelling(row)}
@@ -110,7 +128,14 @@ export default function MyRedemptionsTable({ data }: MyRedemptionsTableProps) {
             className: 'align-top',
             header: 'Ghi chú',
             render: (row) => (
-              <span className="text-[var(--color-muted-foreground)]">{row.note || '—'}</span>
+              <div>
+                <span className="text-[var(--color-muted-foreground)]">{row.note || '—'}</span>
+                {/* Yêu cầu treo hoặc hỏng mà không nói lý do sẽ biến thành một cuộc gọi
+                    cho bộ phận hỗ trợ. */}
+                {row.fulfillmentError && (
+                  <div className="mt-0.5 text-xs text-orange-700">{row.fulfillmentError}</div>
+                )}
+              </div>
             ),
           },
           {
@@ -137,18 +162,32 @@ export default function MyRedemptionsTable({ data }: MyRedemptionsTableProps) {
             key: 'actions',
             className: 'text-right align-top',
             header: '',
-            render: (row) =>
-              row.status === RedemptionStatus.PENDING ? (
-                <button
-                  onClick={() => setCancelling(row)}
-                  className="rounded-lg border border-[var(--color-border)] px-3 py-1.5 text-sm"
-                >
-                  Huỷ
-                </button>
-              ) : null,
+            render: (row) => (
+              <div className="flex justify-end gap-1.5">
+                {!!row.vouchers?.length && (
+                  <button
+                    onClick={() => setViewing(row)}
+                    className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-lg border border-[var(--color-primary)] px-3 py-1.5 text-sm font-medium text-[var(--color-primary)]"
+                  >
+                    <Ticket size={14} />
+                    Xem mã
+                  </button>
+                )}
+                {row.status === RedemptionStatus.PENDING && (
+                  <button
+                    onClick={() => setCancelling(row)}
+                    className="rounded-lg border border-[var(--color-border)] px-3 py-1.5 text-sm"
+                  >
+                    Huỷ
+                  </button>
+                )}
+              </div>
+            ),
           },
         ]}
       />
+
+      <VoucherModal redemption={viewing} onClose={() => setViewing(null)} />
 
       <ConfirmDialog
         open={!!cancelling}

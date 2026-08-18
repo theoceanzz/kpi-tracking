@@ -6,7 +6,7 @@ import { useUpdateOrganization } from '../hooks/useUpdateOrganization'
 import { useForm, useFieldArray } from 'react-hook-form'
 import {  Edit3, ShieldCheck, 
   Calendar, Hash, Layers, Trash2,
-  Info, ArrowUp, ArrowDown, Plus, Target, Sparkles, ChevronUp, RotateCcw, GitBranch, SlidersHorizontal, Grid3x3, X, ArrowRight, LayoutGrid, Gift
+  Info, ArrowUp, ArrowDown, Plus, Target, Sparkles, ChevronUp, RotateCcw, GitBranch, SlidersHorizontal, Grid3x3, X, ArrowRight, LayoutGrid, Gift, Wallet
 } from 'lucide-react'
 import type { PerformanceMatrix } from '../api/organizationApi'
 import UnitClassificationConfigSection from '../components/UnitClassificationConfigSection'
@@ -156,6 +156,7 @@ export default function CompanyPage() {
                         <FeatureChip icon={Target} label="OKR" enabled={org?.enableOkr} />
                         <FeatureChip icon={GitBranch} label="Waterfall" enabled={org?.enableWaterfall} />
                         <FeatureChip icon={Gift} label="Thưởng điểm" enabled={org?.enableReward} />
+                        <FeatureChip icon={Wallet} label="Ví tiền" enabled={org?.enableCashWallet} />
                       </div>
                     </div>
                   </>
@@ -340,8 +341,11 @@ export default function CompanyPage() {
         {org && <OkrConfigSection org={org} />}
         {org && <QualitativeKpiToggleSection org={org} />}
         {org && <BscConfigSection org={org} />}
-        {org && <WaterfallConfigSection org={org} />}
+        {/* Thưởng điểm và Ví tiền là một cặp — để cạnh nhau trên cùng một hàng của lưới
+            2 cột. KPI Thác nước xuống cuối vì nó đứng một mình cũng đọc được. */}
         {org && <RewardConfigSection org={org} />}
+        {org && <CashWalletConfigSection org={org} />}
+        {org && <WaterfallConfigSection org={org} />}
       </div>
       )}
 
@@ -1523,6 +1527,88 @@ function RewardConfigSection({ org }: { org: any }) {
             className="w-full py-3 flex items-center justify-center gap-2 bg-slate-900 dark:bg-white text-white dark:text-slate-900 rounded-xl text-[11px] font-black uppercase tracking-widest hover:opacity-90 transition-all shadow-xl shadow-slate-900/10 dark:shadow-white/5"
           >
             Đi đến quản lý thưởng
+          </Link>
+        )}
+      </div>
+    </section>
+  )
+}
+
+function CashWalletConfigSection({ org }: { org: any }) {
+  const updateMutation = useUpdateOrganization(org.id)
+  const [enabled, setEnabled] = useState(org?.enableCashWallet || false)
+
+  useEffect(() => {
+    setEnabled(org?.enableCashWallet || false)
+  }, [org])
+
+  const handleToggle = () => {
+    const newValue = !enabled
+    setEnabled(newValue)
+    updateMutation.mutate({ enableCashWallet: newValue }, {
+      onSuccess: () => {
+        toast.success(`Đã ${newValue ? 'bật' : 'tắt'} tính năng ví tiền`)
+      },
+      onError: () => {
+        setEnabled(!newValue)
+        toast.error('Không thể cập nhật cấu hình ví tiền')
+      }
+    })
+  }
+
+  return (
+    <section className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden flex flex-col h-full">
+      <div className="px-8 py-6 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          <div className="w-10 h-10 rounded-xl bg-emerald-50 dark:bg-emerald-900/30 flex items-center justify-center text-emerald-600 dark:text-emerald-400">
+            <Wallet size={20} />
+          </div>
+          <div>
+            <h3 className="text-lg font-bold text-slate-900 dark:text-white uppercase tracking-tight">Ví tiền</h3>
+            <p className="text-[10px] font-medium text-slate-400 uppercase tracking-widest">Cash Wallet</p>
+          </div>
+        </div>
+        <button
+          onClick={handleToggle}
+          disabled={updateMutation.isPending}
+          className={cn(
+            "w-12 h-6 rounded-full relative transition-all duration-300",
+            enabled ? "bg-emerald-500" : "bg-slate-200 dark:bg-slate-700"
+          )}
+        >
+          <div className={cn(
+            "absolute top-1 w-4 h-4 rounded-full bg-white transition-all duration-300 shadow-sm",
+            enabled ? "left-7" : "left-1"
+          )} />
+        </button>
+      </div>
+
+      <div className="p-6 space-y-4">
+        <div className="p-4 rounded-2xl bg-emerald-50 dark:bg-emerald-900/10 border border-emerald-100 dark:border-emerald-900/30 flex items-start gap-3">
+          <Info size={18} className="text-emerald-600 shrink-0 mt-0.5" />
+          <div className="space-y-1">
+            <p className="text-xs text-emerald-800 dark:text-emerald-300 font-bold">Nạp tiền thật để đổi lấy điểm thưởng</p>
+            <p className="text-[11px] text-emerald-700/70 dark:text-emerald-400/70 font-medium leading-relaxed">
+              Khi bật, nhân viên nạp tiền qua mã VietQR và tự đổi số dư sang điểm thưởng theo tỉ giá
+              công ty đặt. Đây là TIỀN THẬT chuyển vào tài khoản ngân hàng của công ty và không có
+              đường rút ra — cân nhắc kỹ trước khi bật.
+            </p>
+          </div>
+        </div>
+
+        {/* Cùng nguyên tắc với thưởng điểm, và còn nặng hơn vì đây là tiền thật:
+            tắt chỉ ẩn giao diện, số dư và sổ cái giữ nguyên. */}
+        <p className="text-[11px] text-slate-400 font-medium leading-relaxed">
+          Tắt tính năng chỉ ẩn menu và chặn tạo đơn nạp mới, không xoá số dư đã có. Cần cấu hình
+          tài khoản ngân hàng ở trang Quản lý ví trước khi nhân viên nạp được.
+        </p>
+
+        {enabled && (
+          <Link
+            to="/wallet"
+            className="w-full py-3 flex items-center justify-center gap-2 bg-slate-900 dark:bg-white text-white dark:text-slate-900 rounded-xl text-[11px] font-black uppercase tracking-widest hover:opacity-90 transition-all shadow-xl shadow-slate-900/10 dark:shadow-white/5"
+          >
+            Đi đến quản lý ví
           </Link>
         )}
       </div>

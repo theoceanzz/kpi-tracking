@@ -2,11 +2,12 @@ import { useMemo, useState } from 'react'
 import LoadingSkeleton from '@/components/common/LoadingSkeleton'
 import SubmissionStatusChart from '@/components/charts/SubmissionStatusChart'
 import Pagination from '@/components/common/Pagination'
+import UserAvatar from '@/components/common/UserAvatar'
 import { useOverviewStats } from '../hooks/useOverviewStats'
 import { useEmployeeStats } from '../hooks/useEmployeeStats'
 import { useOrganization } from '@/features/orgunits/hooks/useOrganization'
 import { useAuthStore } from '@/store/authStore'
-import { getInitials, cn } from '@/lib/utils'
+import { cn } from '@/lib/utils'
 import { Link } from 'react-router-dom'
 import {
   ClipboardCheck, BarChart3, AlertCircle, FileText, Star, Target,
@@ -133,9 +134,12 @@ export default function HeadDashboard() {
             <div className="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-6">
               <div className="flex items-center gap-6">
                 <div className="relative">
-                  <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-blue-600 to-indigo-700 flex items-center justify-center text-2xl font-black text-white shadow-lg">
-                    {getInitials(user?.fullName ?? '')}
-                  </div>
+                  <UserAvatar
+                    fullName={user?.fullName}
+                    avatarUrl={user?.avatarUrl}
+                    className="w-16 h-16 rounded-2xl shadow-lg"
+                    fallbackClassName="bg-gradient-to-br from-blue-600 to-indigo-700 text-2xl font-black text-white"
+                  />
                   <div className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-emerald-500 border-2 border-white dark:border-slate-900 shadow-md" />
                 </div>
                 <div className="space-y-1">
@@ -275,9 +279,12 @@ export default function HeadDashboard() {
                       <tr key={emp.userId} className="group hover:bg-slate-100/30 dark:hover:bg-slate-800/30 transition-all duration-300">
                         <td className="px-8 py-4">
                           <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center font-black text-xs text-slate-500 border border-slate-200 dark:border-slate-700">
-                              {getInitials(emp.fullName)}
-                            </div>
+                            <UserAvatar
+                              fullName={emp.fullName}
+                              avatarUrl={emp.avatarUrl}
+                              className="w-10 h-10 rounded-xl border border-slate-200 dark:border-slate-700"
+                              fallbackClassName="bg-slate-100 dark:bg-slate-800 font-black text-xs text-slate-500"
+                            />
                             <div>
                               <p className="text-[13px] font-black text-slate-900 dark:text-white">{emp.fullName}</p>
                               <p className="text-[9px] font-bold text-slate-400 uppercase tracking-tight">{emp.orgUnitName}</p>
@@ -330,9 +337,12 @@ export default function HeadDashboard() {
                   <div key={emp.userId} className="p-5 space-y-3">
                     <div className="flex items-center justify-between gap-3">
                       <div className="flex items-center gap-3 min-w-0">
-                        <div className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center font-black text-xs text-slate-500 border border-slate-200 dark:border-slate-700 shrink-0">
-                          {getInitials(emp.fullName)}
-                        </div>
+                        <UserAvatar
+                          fullName={emp.fullName}
+                          avatarUrl={emp.avatarUrl}
+                          className="w-10 h-10 rounded-xl border border-slate-200 dark:border-slate-700"
+                          fallbackClassName="bg-slate-100 dark:bg-slate-800 font-black text-xs text-slate-500"
+                        />
                         <div className="min-w-0">
                           <p className="text-[13px] font-black text-slate-900 dark:text-white truncate">{emp.fullName}</p>
                           <p className="text-[9px] font-bold text-slate-400 uppercase tracking-tight truncate">{emp.orgUnitName}</p>

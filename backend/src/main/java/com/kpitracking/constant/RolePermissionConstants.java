@@ -13,12 +13,12 @@ public class RolePermissionConstants {
 
     public static final List<String> PERSONAL_PERMS = Arrays.asList(
             "KPI:VIEW_MY", "SUBMISSION:VIEW_MY", "EVALUATION:VIEW_MY", "STATS:VIEW_MY", "ADJUSTMENT:VIEW_MY",
-            "REWARD:VIEW_MY"
+            "REWARD:VIEW_MY", "WALLET:VIEW_MY"
     );
 
     public static final List<String> UNIT_HEAD_PERSONAL_PERMS = Arrays.asList(
             "KPI:VIEW_MY", "SUBMISSION:VIEW_MY", "STATS:VIEW_MY", "ADJUSTMENT:VIEW_MY",
-            "REWARD:VIEW_MY"
+            "REWARD:VIEW_MY", "WALLET:VIEW_MY"
     );
 
     // ----------------------------------------------------------------
@@ -54,7 +54,11 @@ public class RolePermissionConstants {
             // khác nên thường không tự cấp cho mình; thiếu quyền này thì đề nghị thưởng
             // của họ kẹt ở trạng thái chờ duyệt mà không còn ai cấp trên để duyệt.
             "REWARD:VIEW_MY", "REWARD:VIEW", "REWARD:GRANT", "REWARD:APPROVE", "REWARD:APPROVE_OWN",
-            "REWARD:CONFIG", "GIFT:MANAGE", "GIFT:REDEEM", "GIFT:FULFILL"
+            "REWARD:CONFIG", "GIFT:MANAGE", "GIFT:REDEEM", "GIFT:FULFILL",
+            // Ví tiền: giám đốc có đủ, gồm cả cấu hình tỉ giá/tài khoản ngân hàng và
+            // quyền đối soát. WALLET:RECONCILE là đường duy nhất xử lý được tiền đã
+            // về mà hệ thống chưa quy được về ai — không ai giữ nó thì tiền kẹt lại.
+            "WALLET:VIEW_MY", "WALLET:VIEW", "WALLET:CONFIG", "WALLET:RECONCILE"
     );
 
     // ----------------------------------------------------------------
@@ -86,7 +90,10 @@ public class RolePermissionConstants {
             // Thưởng điểm: có duyệt và quản lý quà, KHÔNG có REWARD:CONFIG —
             // khớp cách repo đang tước quyền cấu hình của cấp phó.
             "REWARD:VIEW_MY", "REWARD:VIEW", "REWARD:GRANT", "REWARD:APPROVE",
-            "GIFT:MANAGE", "GIFT:REDEEM", "GIFT:FULFILL"
+            "GIFT:MANAGE", "GIFT:REDEEM", "GIFT:FULFILL",
+            // Ví tiền: xem được ví nhân sự, KHÔNG có WALLET:CONFIG — khớp cách repo
+            // đang tước quyền cấu hình của cấp phó ở REWARD:CONFIG.
+            "WALLET:VIEW_MY", "WALLET:VIEW", "WALLET:RECONCILE"
     );
 
     // ----------------------------------------------------------------

@@ -73,7 +73,9 @@ KpiCriteria (definition) → KpiCriteriaAssignee (assigned to user/org unit)
 
 ## Environment
 
-Backend reads `backend/.env` locally and `application-prod.yaml` in production (set via `SPRING_PROFILES_ACTIVE=prod`).
+Backend config comes from `application.yaml` (default profile) and `application-prod.yaml` in production (set via `SPRING_PROFILES_ACTIVE=prod`). Every key uses the `${ENV_VAR:default}` form, and the defaults committed in `application.yaml` are what actually runs locally.
+
+`backend/.env` is **not** loaded automatically by anything in this repo — there is no `spring-dotenv` dependency, no IDE EnvFile config, and Docker Compose only reads a `.env` next to `docker-compose.yml` (repo root, where none exists). Treat it as a reference file. So: when adding a new setting, put a working default in `application.yaml`, then wire the env var into `docker-compose.yml` for deployment. Changing only `backend/.env` has no effect.
 
 Frontend reads `frontend/.env`; `VITE_API_BASE_URL` defaults to `/api/v1`.
 

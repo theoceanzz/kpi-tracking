@@ -7,6 +7,7 @@ import NotificationBell from '@/features/notifications/components/NotificationBe
 import ThemeCustomizer from './components/ThemeCustomizer'
 import OnboardingTour from '@/components/common/OnboardingTour'
 import AiAssistantWidget from '@/features/analytics/components/AiAssistantWidget'
+import CheckinReminderBanner from '@/features/rewards/components/CheckinReminderBanner'
 import { useState, useEffect } from 'react'
 
 export default function AppLayout() {
@@ -81,6 +82,10 @@ export default function AppLayout() {
             </button>
           </div>
         </header>
+
+        {/* Nhắc điểm danh: ngoài <main> nên không cuộn mất theo nội dung, và ngay dưới
+            header ở mọi trang. Tự ẩn hoàn toàn khi không có gì để nhắc. */}
+        <CheckinReminderBanner />
 
         {/* Main content — full-page routes opt out of padding */}
         <main className={

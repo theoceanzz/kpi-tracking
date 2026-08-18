@@ -1,19 +1,25 @@
 import { useState } from 'react'
-import { Plus, Pencil, Trash2, ImageOff, EyeOff, PackageCheck, Zap } from 'lucide-react'
+import { Plus, Pencil, Trash2, ImageOff, EyeOff, PackageCheck, Zap, Store } from 'lucide-react'
 import DataTable from '@/components/common/DataTable'
 import ConfirmDialog from '@/components/common/ConfirmDialog'
 import EmptyState from '@/components/common/EmptyState'
 import LoadingSkeleton from '@/components/common/LoadingSkeleton'
 import GiftFormModal from './GiftFormModal'
+import UrboxCatalogModal from './UrboxCatalogModal'
 import { useGiftsManage } from '../hooks/useGifts'
+import { useUrboxStatus } from '../hooks/useUrbox'
 import { GiftItemStatus, type GiftItem } from '../types'
 
 export default function GiftsTab() {
   const [formOpen, setFormOpen] = useState(false)
+  const [urboxOpen, setUrboxOpen] = useState(false)
   const [editing, setEditing] = useState<GiftItem | null>(null)
   const [deleting, setDeleting] = useState<GiftItem | null>(null)
 
   const { data, isLoading, deleteGift, isDeleting } = useGiftsManage()
+  // Ẩn hẳn lối vào kho quà UrBox khi bản triển khai chưa kết nối — hiện một nút lúc nào
+  // bấm cũng báo lỗi thì tệ hơn là không có nút.
+  const { data: urbox } = useUrboxStatus()
 
   const StockCell = ({ row }: { row: GiftItem }) =>
     row.unlimitedStock ? (
@@ -32,16 +38,27 @@ export default function GiftsTab() {
         <span className="text-sm text-[var(--color-muted-foreground)]">
           {(data ?? []).length > 0 && `${(data ?? []).length} món quà trong danh mục`}
         </span>
-        <button
-          onClick={() => {
-            setEditing(null)
-            setFormOpen(true)
-          }}
-          className="inline-flex flex-shrink-0 items-center gap-2 rounded-lg bg-[var(--color-primary)] px-4 py-2 text-sm font-medium text-white shadow-sm transition-opacity hover:opacity-90"
-        >
-          <Plus size={16} />
-          Thêm quà
-        </button>
+        <div className="flex flex-shrink-0 gap-2">
+          {urbox?.enabled && (
+            <button
+              onClick={() => setUrboxOpen(true)}
+              className="inline-flex items-center gap-2 rounded-lg border border-[var(--color-border)] px-4 py-2 text-sm font-medium transition-colors hover:bg-[var(--color-accent)]"
+            >
+              <Store size={16} />
+              Kho quà UrBox
+            </button>
+          )}
+          <button
+            onClick={() => {
+              setEditing(null)
+              setFormOpen(true)
+            }}
+            className="inline-flex items-center gap-2 rounded-lg bg-[var(--color-primary)] px-4 py-2 text-sm font-medium text-white shadow-sm transition-opacity hover:opacity-90"
+          >
+            <Plus size={16} />
+            Thêm quà
+          </button>
+        </div>
       </div>
 
       {isLoading ? (
@@ -143,6 +160,16 @@ export default function GiftsTab() {
                           className="text-[var(--color-muted-foreground)]"
                         >
                           <EyeOff size={13} />
+                        </span>
+                      )}
+                      {/* Quà UrBox tốn tiền thật mỗi lượt đổi, khác hẳn quà nội bộ —
+                          người quản lý cần phân biệt được ngay trên danh sách. */}
+                      {row.externalProvider && (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-violet-500/15 px-2 py-0.5 text-[11px] font-medium text-violet-700">
+                          <Store size={10} />
+                          UrBox
+                          {row.externalValue != null &&
+                            ` · ${row.externalValue.toLocaleString('vi-VN')} ₫`}
                         </span>
                       )}
                     </div>
@@ -247,6 +274,8 @@ export default function GiftsTab() {
       )}
 
       <GiftFormModal open={formOpen} onClose={() => setFormOpen(false)} editGift={editing} />
+
+      <UrboxCatalogModal open={urboxOpen} onClose={() => setUrboxOpen(false)} />
 
       <ConfirmDialog
         open={!!deleting}

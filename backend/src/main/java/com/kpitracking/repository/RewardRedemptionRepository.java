@@ -28,6 +28,24 @@ public interface RewardRedemptionRepository extends JpaRepository<RewardRedempti
                                   @Param("status") RedemptionStatus status,
                                   Pageable pageable);
 
+    /**
+     * Những lần đổi quà gần nhất, cho bảng tin điểm thưởng.
+     *
+     * <p>Bỏ các trạng thái đã hoàn điểm (từ chối, tự huỷ, nhà cung cấp hỏng): người xem
+     * sẽ thấy "A vừa đổi voucher" rồi mai không thấy A cầm voucher nào — dòng tin đó
+     * chưa bao giờ thành sự thật nên không nên loan báo.
+     */
+    @Query("""
+            SELECT r FROM RewardRedemption r
+              JOIN FETCH r.user
+             WHERE r.organization.id = :orgId
+               AND r.status NOT IN (com.kpitracking.enums.RedemptionStatus.REJECTED,
+                                    com.kpitracking.enums.RedemptionStatus.CANCELLED,
+                                    com.kpitracking.enums.RedemptionStatus.FAILED)
+             ORDER BY r.createdAt DESC
+            """)
+    List<RewardRedemption> findRecentForFeed(@Param("orgId") UUID orgId, Pageable pageable);
+
     long countByOrganizationIdAndStatus(UUID organizationId, RedemptionStatus status);
 
     /**

@@ -113,6 +113,9 @@ export interface OrganizationResponse {
   enableQualitative: boolean
   enableBsc: boolean
   enableReward: boolean
+  enableCashWallet: boolean
+  /** Số đồng đổi được 1 điểm thưởng. */
+  pointExchangeRate: number
   createdAt: string
   updatedAt: string
 }
@@ -133,6 +136,7 @@ export interface UpdateOrganizationRequest {
   enableQualitative?: boolean
   enableBsc?: boolean
   enableReward?: boolean
+  enableCashWallet?: boolean
 }
 
 export const organizationApi = {

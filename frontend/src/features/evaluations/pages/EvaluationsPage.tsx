@@ -13,7 +13,8 @@ import { useKpiPeriods } from '@/features/kpi/hooks/useKpiPeriods'
 import { useMyKpi } from '@/features/kpi/hooks/useMyKpi'
 import { useOrganization } from '@/features/orgunits/hooks/useOrganization'
 import { getScoringFunctions } from '@/lib/scoring'
-import { formatDateTime, getInitials, cn } from '@/lib/utils'
+import { formatDateTime, cn } from '@/lib/utils'
+import UserAvatar from '@/components/common/UserAvatar'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import type { Evaluation } from '@/types/evaluation'
 import {
@@ -408,12 +409,20 @@ export default function EvaluationsPage() {
                         </td>
                         <td className="px-6 py-6">
                           <div className="flex items-center gap-3">
-                            <div className={cn(
-                              "w-10 h-10 rounded-2xl flex items-center justify-center font-black text-xs shadow-inner transition-opacity",
-                              isNewGroup ? "bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-800 dark:to-slate-700 text-slate-600 dark:text-slate-300" : "opacity-0"
-                            )}>
-                              {isNewGroup ? getInitials(ev.userName) : ''}
-                            </div>
+                            {/* Chỉ dòng đầu mỗi nhóm mới hiện mặt người; các dòng sau chừa
+                                đúng chỗ trống để cột dưới vẫn thẳng hàng. Trước đây dùng
+                                opacity-0 cho ô chữ cái, nhưng với ảnh thật thì ảnh mờ vẫn
+                                tải về vô ích — thà không dựng phần tử ảnh. */}
+                            {isNewGroup ? (
+                              <UserAvatar
+                                fullName={ev.userName}
+                                avatarUrl={ev.userAvatarUrl}
+                                className="w-10 h-10 rounded-2xl shadow-inner"
+                                fallbackClassName="bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-800 dark:to-slate-700 font-black text-xs text-slate-600 dark:text-slate-300"
+                              />
+                            ) : (
+                              <div className="w-10 h-10 shrink-0" />
+                            )}
                             <div>
                               <p className={cn("text-sm font-black text-slate-900 dark:text-white group-hover:text-indigo-600 transition-all", !isNewGroup && "opacity-40")}>
                                 {ev.userName}
@@ -484,9 +493,12 @@ export default function EvaluationsPage() {
               >
                 <div className="flex items-center justify-between gap-3">
                   <div className="flex items-center gap-3 min-w-0">
-                    <div className="w-10 h-10 rounded-2xl flex items-center justify-center font-black text-xs shadow-inner bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-800 dark:to-slate-700 text-slate-600 dark:text-slate-300 shrink-0">
-                      {getInitials(ev.userName)}
-                    </div>
+                    <UserAvatar
+                      fullName={ev.userName}
+                      avatarUrl={ev.userAvatarUrl}
+                      className="w-10 h-10 rounded-2xl shadow-inner"
+                      fallbackClassName="bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-800 dark:to-slate-700 font-black text-xs text-slate-600 dark:text-slate-300"
+                    />
                     <div className="min-w-0">
                       <p className="text-sm font-black text-slate-900 dark:text-white truncate">{ev.userName}</p>
                       <div className="flex items-center gap-2 mt-0.5">

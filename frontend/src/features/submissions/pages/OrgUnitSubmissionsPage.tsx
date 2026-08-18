@@ -6,7 +6,8 @@ import EvaluationDetailModal from '@/features/evaluations/components/EvaluationD
 import { useOrgUnitSubmissions } from '../hooks/useOrgUnitSubmissions'
 import { useEvaluations } from '@/features/evaluations/hooks/useEvaluations'
 import { useUsers } from '@/features/users/hooks/useUsers'
-import { getInitials, cn } from '@/lib/utils'
+import { cn } from '@/lib/utils'
+import UserAvatar from '@/components/common/UserAvatar'
 import { getScoringFunctions } from '@/lib/scoring'
 import { useAuthStore } from '@/store/authStore'
 import { useOrgUnitTree } from '@/features/orgunits/hooks/useOrgUnitTree'
@@ -380,9 +381,12 @@ export default function OrgUnitSubmissionsPage() {
                       >
                         <td className="px-6 py-5">
                           <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-indigo-50 to-indigo-100 dark:from-indigo-900/20 dark:to-indigo-900/40 text-indigo-600 dark:text-indigo-400 flex items-center justify-center font-black text-xs border border-indigo-200/50 dark:border-indigo-800/30 shadow-inner">
-                              {getInitials(emp.fullName)}
-                            </div>
+                            <UserAvatar
+                              fullName={emp.fullName}
+                              avatarUrl={emp.avatarUrl}
+                              className="w-10 h-10 rounded-2xl border border-indigo-200/50 dark:border-indigo-800/30 shadow-inner"
+                              fallbackClassName="bg-gradient-to-br from-indigo-50 to-indigo-100 dark:from-indigo-900/20 dark:to-indigo-900/40 font-black text-xs text-indigo-600 dark:text-indigo-400"
+                            />
                             <div>
                               <span className="text-sm font-bold text-slate-900 dark:text-white group-hover:text-emerald-600 transition-colors block">
                                 {emp.fullName}
@@ -495,9 +499,12 @@ export default function OrgUnitSubmissionsPage() {
                   >
                     <div className="flex items-center justify-between gap-3">
                       <div className="flex items-center gap-3 min-w-0">
-                        <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-indigo-50 to-indigo-100 dark:from-indigo-900/20 dark:to-indigo-900/40 text-indigo-600 dark:text-indigo-400 flex items-center justify-center font-black text-xs border border-indigo-200/50 dark:border-indigo-800/30 shadow-inner shrink-0">
-                          {getInitials(emp.fullName)}
-                        </div>
+                        <UserAvatar
+                          fullName={emp.fullName}
+                          avatarUrl={emp.avatarUrl}
+                          className="w-10 h-10 rounded-2xl border border-indigo-200/50 dark:border-indigo-800/30 shadow-inner"
+                          fallbackClassName="bg-gradient-to-br from-indigo-50 to-indigo-100 dark:from-indigo-900/20 dark:to-indigo-900/40 font-black text-xs text-indigo-600 dark:text-indigo-400"
+                        />
                         <div className="min-w-0">
                           <span className="text-sm font-bold text-slate-900 dark:text-white block truncate">{emp.fullName}</span>
                           <span className="text-[10px] text-slate-400 font-medium">{evaluation?.userRoleName || 'Nhân viên'}</span>

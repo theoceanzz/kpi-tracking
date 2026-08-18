@@ -18,6 +18,7 @@ public class OrganizationAdminResponse {
     private Boolean enableQualitative;
     private Boolean enableBsc;
     private Boolean enableReward;
+    private Boolean enableCashWallet;
     private long userCount;
     /** Ngân sách token AI/tháng do quản trị nền tảng cấp cho công ty. */
     private Long aiMonthlyTokenLimit;

@@ -48,18 +48,27 @@ public class EmailService {
         }
     }
 
+    /** Một tệp đính kèm. {@code content} rỗng ⇒ bỏ qua, không tạo tệp 0 byte cho người nhận. */
+    public record Attachment(String filename, byte[] content, String contentType) {}
+
     /**
      * Sinh nội dung từ template rồi gửi. Trả về false nếu tổ chức đã tắt loại mail này.
      * Chạy đồng bộ để nơi gọi biết kết quả — nơi gọi tự quyết định có bọc @Async không.
      */
     public boolean sendTemplated(UUID orgId, String templateCode, String to, Map<String, String> variables) {
+        return sendTemplated(orgId, templateCode, to, variables, java.util.List.of());
+    }
+
+    /** Như trên nhưng kèm tệp — VD bảng điểm Excel gửi cùng kết quả đánh giá kỳ. */
+    public boolean sendTemplated(UUID orgId, String templateCode, String to, Map<String, String> variables,
+                                 java.util.List<Attachment> attachments) {
         try {
             EmailTemplateService.RenderedEmail mail = templateService.render(orgId, templateCode, variables);
             if (!mail.enabled()) {
                 log.debug("Template {} đang tắt ở tổ chức {}, bỏ qua gửi tới {}", templateCode, orgId, to);
                 return false;
             }
-            sendEmailSync(to, mail.subject(), mail.html());
+            sendEmailSync(to, mail.subject(), mail.html(), attachments);
             return true;
         } catch (Exception e) {
             log.error("Không sinh/gửi được email {} tới {}: {}", templateCode, to, e.getMessage());
@@ -95,12 +104,22 @@ public class EmailService {
     }
 
     private void sendEmailSync(String to, String subject, String htmlBody) throws Exception {
+        sendEmailSync(to, subject, htmlBody, java.util.List.of());
+    }
+
+    private void sendEmailSync(String to, String subject, String htmlBody,
+                               java.util.List<Attachment> attachments) throws Exception {
         MimeMessage message = mailSender.createMimeMessage();
         MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
         helper.setFrom(fromEmail, "KeyGo System");
         helper.setTo(to);
         helper.setSubject(subject);
         helper.setText(htmlBody, true);
+        for (Attachment a : attachments) {
+            if (a == null || a.content() == null || a.content().length == 0) continue;
+            helper.addAttachment(a.filename(),
+                    new org.springframework.core.io.ByteArrayResource(a.content()), a.contentType());
+        }
         mailSender.send(message);
         log.info("HTML Email sent successfully to: {}", to);
     }

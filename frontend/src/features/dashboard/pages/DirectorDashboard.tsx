@@ -1,6 +1,7 @@
 import { useState, useMemo, useEffect } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import LoadingSkeleton from '@/components/common/LoadingSkeleton'
+import UserAvatar from '@/components/common/UserAvatar'
 import { useOrganization } from '@/features/orgunits/hooks/useOrganization'
 import { useOverviewStats } from '../hooks/useOverviewStats'
 import { useOrgUnitStats } from '../hooks/useOrgUnitStats'
@@ -645,9 +646,13 @@ function PremiumRankingTable({
         </h3>
         <div className="flex -space-x-2">
           {sorted.slice(0, 3).map((emp, i) => (
-            <div key={i} className="w-8 h-8 rounded-full border-2 border-white dark:border-slate-900 bg-slate-200 dark:bg-slate-800 flex items-center justify-center text-[10px] font-black">
-              {getInitials(emp.fullName)}
-            </div>
+            <UserAvatar
+              key={i}
+              fullName={emp.fullName}
+              avatarUrl={emp.avatarUrl}
+              className="w-8 h-8 rounded-full border-2 border-white dark:border-slate-900"
+              fallbackClassName="bg-slate-200 dark:bg-slate-800 text-[10px] font-black"
+            />
           ))}
         </div>
       </div>
@@ -672,9 +677,12 @@ function PremiumRankingTable({
                 <td className="px-10 py-6">
                   <div className="flex items-center gap-4">
                     <div className="relative">
-                      <div className="w-12 h-12 rounded-2xl bg-indigo-100 dark:bg-indigo-900/40 flex items-center justify-center font-black text-sm text-indigo-600 group-hover:scale-110 transition-transform">
-                        {getInitials(emp.fullName)}
-                      </div>
+                      <UserAvatar
+                        fullName={emp.fullName}
+                        avatarUrl={emp.avatarUrl}
+                        className="w-12 h-12 rounded-2xl group-hover:scale-110 transition-transform"
+                        fallbackClassName="bg-indigo-100 dark:bg-indigo-900/40 font-black text-sm text-indigo-600"
+                      />
                       {index < 3 && (
                         <div className={cn(
                           "absolute -top-2 -right-2 w-5 h-5 rounded-full flex items-center justify-center text-[10px] border-2 border-white dark:border-slate-900 shadow-sm",
@@ -733,9 +741,12 @@ function PremiumRankingTable({
             <div className="flex items-center justify-between gap-3">
               <div className="flex items-center gap-3 min-w-0">
                 <div className="relative shrink-0">
-                  <div className="w-11 h-11 rounded-2xl bg-indigo-100 dark:bg-indigo-900/40 flex items-center justify-center font-black text-sm text-indigo-600">
-                    {getInitials(emp.fullName)}
-                  </div>
+                  <UserAvatar
+                    fullName={emp.fullName}
+                    avatarUrl={emp.avatarUrl}
+                    className="w-11 h-11 rounded-2xl"
+                    fallbackClassName="bg-indigo-100 dark:bg-indigo-900/40 font-black text-sm text-indigo-600"
+                  />
                   {index < 3 && (
                     <div className={cn(
                       "absolute -top-2 -right-2 w-5 h-5 rounded-full flex items-center justify-center text-[10px] border-2 border-white dark:border-slate-900 shadow-sm",
@@ -982,9 +993,12 @@ function EmployeesExecutiveTable({
                  >
                     <td className="px-10 py-6">
                       <div className="flex items-center gap-4">
-                        <div className="w-12 h-12 rounded-[18px] bg-slate-100 dark:bg-slate-800 flex items-center justify-center font-black text-sm text-slate-500 group-hover:bg-indigo-600 group-hover:text-white transition-all duration-300 shrink-0">
-                          {getInitials(emp.fullName)}
-                        </div>
+                        <UserAvatar
+                          fullName={emp.fullName}
+                          avatarUrl={emp.avatarUrl}
+                          className="w-12 h-12 rounded-[18px] transition-all duration-300"
+                          fallbackClassName="bg-slate-100 dark:bg-slate-800 font-black text-sm text-slate-500 group-hover:bg-indigo-600 group-hover:text-white"
+                        />
                         {/* Tên là thông tin chính; đơn vị rút gọn thành badge phụ để không đẩy tên/email bị cụt */}
                         <div className="min-w-0">
                           <div className="flex items-center gap-2 min-w-0">
@@ -1042,9 +1056,12 @@ function EmployeesExecutiveTable({
               className="p-5 space-y-3 active:bg-slate-50 dark:active:bg-slate-800/50 transition-colors cursor-pointer"
             >
               <div className="flex items-start gap-3">
-                <div className="w-11 h-11 rounded-[16px] bg-slate-100 dark:bg-slate-800 flex items-center justify-center font-black text-sm text-slate-500 shrink-0">
-                  {getInitials(emp.fullName)}
-                </div>
+                <UserAvatar
+                  fullName={emp.fullName}
+                  avatarUrl={emp.avatarUrl}
+                  className="w-11 h-11 rounded-[16px]"
+                  fallbackClassName="bg-slate-100 dark:bg-slate-800 font-black text-sm text-slate-500"
+                />
                 {/* Tên hiển thị đủ (xuống dòng thay vì cắt) — mobile cần đọc được tên để tìm đúng người */}
                 <div className="min-w-0 flex-1">
                   <p className="text-sm font-black text-slate-900 dark:text-white leading-snug break-words">{emp.fullName}</p>

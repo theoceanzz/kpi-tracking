@@ -43,8 +43,16 @@ public class CycleEvaluationMailer {
                 continue;
             }
             try {
+                // Nhân viên không có quyền vào màn hình đánh giá kỳ, nên bảng điểm chi tiết
+                // phải đi cùng thư dưới dạng tệp — không thể chỉ đưa đường dẫn vào hệ thống.
+                List<EmailService.Attachment> files =
+                        item.attachment() == null || item.attachment().length == 0
+                                ? List.of()
+                                : List.of(new EmailService.Attachment(item.attachmentName(), item.attachment(),
+                                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"));
+
                 boolean ok = emailService.sendTemplated(
-                        item.orgId(), "cycle_evaluation_result", item.email(), item.variables());
+                        item.orgId(), "cycle_evaluation_result", item.email(), item.variables(), files);
                 if (ok) sent++; else failed.add(item.recipientName());
             } catch (Exception e) {
                 log.error("Gửi kết quả đánh giá kỳ tới {} thất bại: {}", item.email(), e.getMessage());

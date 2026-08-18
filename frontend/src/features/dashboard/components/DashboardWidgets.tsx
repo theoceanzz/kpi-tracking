@@ -1,4 +1,5 @@
-import { cn, getInitials } from '@/lib/utils'
+import { cn } from '@/lib/utils'
+import UserAvatar from '@/components/common/UserAvatar'
 import { Link } from 'react-router-dom'
 import { ChevronRight,
   Star,
@@ -155,7 +156,7 @@ export function EmployeeRankingTable({ employees, title, showOrgUnit, page = 0, 
                     </td>
                     <td className="px-3 py-3">
                       <div className="flex items-center gap-2">
-                        <div className="w-8 h-8 rounded-full bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center text-[10px] font-black text-indigo-600 shrink-0">{getInitials(emp.fullName)}</div>
+                        <UserAvatar fullName={emp.fullName} avatarUrl={emp.avatarUrl} className="w-8 h-8 rounded-full" fallbackClassName="bg-indigo-100 dark:bg-indigo-900/30 text-[10px] font-black text-indigo-600" />
                         <div className="min-w-0">
                           <p className="text-sm font-bold text-slate-900 dark:text-white truncate">{emp.fullName}</p>
                           <p className="text-[10px] text-slate-500 truncate">{emp.role}</p>
@@ -241,7 +242,7 @@ export function NeedsImprovementSection({ employees, page = 0, totalPages = 1, o
 
           return (
             <div key={emp.userId} className="px-5 py-4 flex items-start gap-3 hover:bg-red-50/30 dark:hover:bg-red-900/5 transition-colors">
-              <div className="w-9 h-9 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center text-[10px] font-black text-red-600 shrink-0">{getInitials(emp.fullName)}</div>
+              <UserAvatar fullName={emp.fullName} avatarUrl={emp.avatarUrl} className="w-9 h-9 rounded-full" fallbackClassName="bg-red-100 dark:bg-red-900/30 text-[10px] font-black text-red-600" />
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
                   <p className="text-sm font-bold text-slate-900 dark:text-white truncate">{emp.fullName}</p>

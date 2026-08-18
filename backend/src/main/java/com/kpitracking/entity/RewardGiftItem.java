@@ -73,12 +73,41 @@ public class RewardGiftItem {
     @Builder.Default
     private GiftItemType type = GiftItemType.INTERNAL;
 
-    /** Chừa sẵn cho sàn quà tặng ngoài. Chưa dùng ở v1. */
+    /** {@code "URBOX"} với quà nhập từ kho eVoucher UrBox; null với quà nội bộ. */
     @Column(name = "external_provider", length = 50)
     private String externalProvider;
 
+    /** Mã quà bên nhà cung cấp — chính là {@code priceId} khi đặt đơn UrBox. */
     @Column(name = "external_sku")
     private String externalSku;
+
+    /** Mệnh giá VNĐ bên nhà cung cấp. Dùng để đối chiếu điểm ↔ tiền, không phải để tính. */
+    @Column(name = "external_value")
+    private Long externalValue;
+
+    @Column(name = "external_brand")
+    private String externalBrand;
+
+    /**
+     * Điều kiện sử dụng (HTML) chụp lại lúc nhập quà.
+     *
+     * <p>UrBox BẮT BUỘC hiển thị điều kiện này trước khi người dùng bấm đổi. Chụp lại
+     * thay vì gọi API mỗi lần mở cửa hàng: UrBox khuyến nghị đọc kho quà 1 lần/ngày,
+     * còn cửa hàng thì mở liên tục.
+     */
+    @Column(name = "external_terms", columnDefinition = "TEXT")
+    private String externalTerms;
+
+    /** Nguyên văn "Tối thiểu 30 ngày" — KHÔNG parse thành ngày, hạn thật chỉ có sau khi xuất code. */
+    @Column(name = "external_expire_text")
+    private String externalExpireText;
+
+    /** QR code / Barcode 128 / Text — quyết định cách màn hình mã quà hiển thị. */
+    @Column(name = "external_code_display", length = 50)
+    private String externalCodeDisplay;
+
+    @Column(name = "external_synced_at")
+    private Instant externalSyncedAt;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false, length = 20)

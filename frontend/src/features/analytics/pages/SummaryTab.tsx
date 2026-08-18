@@ -1,7 +1,8 @@
 import React, { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useSummaryStats, useSummaryRankings } from '../hooks/useAnalytics'
-import { cn, getInitials } from '@/lib/utils'
+import { cn } from '@/lib/utils'
+import UserAvatar from '@/components/common/UserAvatar'
 import { KpiTypeTags } from '../components/KpiTypeTags'
 import { QualitativeResultChip } from '../components/QualitativeResultChip'
 import { toChildNodes } from '../components/KpiChildList'
@@ -1180,7 +1181,7 @@ export function EmployeeRankingTableSection({ orgUnitId, from, to, onlyApproved,
                     </td>
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-3">
-                        <div className="w-9 h-9 rounded-xl bg-indigo-50 dark:bg-indigo-900/20 flex items-center justify-center font-black text-indigo-600 text-xs">{getInitials(item.name)}</div>
+                        <UserAvatar fullName={item.name} avatarUrl={item.avatar} className="w-9 h-9 rounded-xl" fallbackClassName="bg-indigo-50 dark:bg-indigo-900/20 font-black text-indigo-600 text-xs" />
                         <p className="font-black text-slate-900 dark:text-white group-hover:text-indigo-600 transition-colors">{item.name}</p>
                       </div>
                     </td>
@@ -1233,7 +1234,7 @@ export function EmployeeRankingTableSection({ orgUnitId, from, to, onlyApproved,
                       globalRank === 2 ? "bg-orange-400 text-white" :
                       "bg-slate-100 dark:bg-slate-800 text-slate-400"
                     )}>{globalRank + 1}</div>
-                    <div className="w-9 h-9 rounded-xl bg-indigo-50 dark:bg-indigo-900/20 flex items-center justify-center font-black text-indigo-600 text-xs shrink-0">{getInitials(item.name)}</div>
+                    <UserAvatar fullName={item.name} avatarUrl={item.avatar} className="w-9 h-9 rounded-xl" fallbackClassName="bg-indigo-50 dark:bg-indigo-900/20 font-black text-indigo-600 text-xs" />
                     <div className="min-w-0">
                       <p className="font-black text-slate-900 dark:text-white truncate">{item.name}</p>
                       <p className="text-[11px] font-bold text-slate-400 truncate">{item.subText}</p>

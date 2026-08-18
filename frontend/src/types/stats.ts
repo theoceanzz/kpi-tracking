@@ -45,6 +45,7 @@ export interface EmployeeKpiStats {
   userId: string
   employeeCode: string | null
   fullName: string
+  avatarUrl: string | null
   email: string
   role: string
   rank: number
@@ -148,6 +149,7 @@ export interface OrgUnitDrillSummary {
 export interface EmployeeDrillSummary {
   userId: string
   fullName: string
+  avatarUrl: string | null
   email: string
   roleName: string
   orgUnitId: string | null
@@ -182,6 +184,7 @@ export interface AnalyticsDetailRow {
   userId: string
   employeeCode: string | null
   fullName: string
+  avatarUrl: string | null
   email: string
   orgUnitName: string | null
   roleName: string

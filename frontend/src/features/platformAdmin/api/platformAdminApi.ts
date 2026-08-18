@@ -23,6 +23,8 @@ export interface OrganizationAdminItem {
   enableWaterfall: boolean
   enableQualitative: boolean
   enableBsc: boolean
+  enableReward: boolean
+  enableCashWallet: boolean
   userCount: number
   createdAt: string
   updatedAt: string

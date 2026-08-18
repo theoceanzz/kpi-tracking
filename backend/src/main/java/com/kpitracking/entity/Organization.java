@@ -93,6 +93,44 @@ public class Organization {
     @Column(name = "enable_reward")
     @Builder.Default
     private Boolean enableReward = false;
+
+    // ===== Ví tiền thật =====
+
+    /** Ví tiền & nạp SePay. Mặc định TẮT, giống enable_reward. */
+    @Column(name = "enable_cash_wallet", nullable = false)
+    @Builder.Default
+    private Boolean enableCashWallet = false;
+
+    /**
+     * Số ĐỒNG đổi được 1 điểm thưởng. Mỗi bút toán quy đổi tự chụp lại tỉ giá tại
+     * thời điểm đó, nên đổi tỉ giá không làm sai lệch lịch sử cũ.
+     */
+    @Column(name = "point_exchange_rate", nullable = false)
+    @Builder.Default
+    private Long pointExchangeRate = 1000L;
+
+    @Column(name = "topup_min_amount", nullable = false)
+    @Builder.Default
+    private Long topupMinAmount = 10_000L;
+
+    @Column(name = "topup_max_amount", nullable = false)
+    @Builder.Default
+    private Long topupMaxAmount = 50_000_000L;
+
+    @Column(name = "topup_expire_minutes", nullable = false)
+    @Builder.Default
+    private Integer topupExpireMinutes = 30;
+
+    /** Tài khoản nhận tiền. Webhook đối chiếu, giao diện dựng ảnh VietQR từ đây. */
+    @Column(name = "sepay_account_number", length = 50)
+    private String sepayAccountNumber;
+
+    @Column(name = "sepay_bank_code", length = 20)
+    private String sepayBankCode;
+
+    @Column(name = "sepay_account_holder")
+    private String sepayAccountHolder;
+
     // ===== Hạn mức token AI =====
 
     /** Ngân sách token/tháng do quản trị nền tảng cấp. Tổng phân bổ không được vượt số này. */

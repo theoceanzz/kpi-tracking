@@ -19,6 +19,18 @@ public interface RewardGiftItemRepository extends JpaRepository<RewardGiftItem, 
     List<RewardGiftItem> findByOrganizationIdAndStatusOrderByDisplayOrderAscNameAsc(
             UUID organizationId, GiftItemStatus status);
 
+    /** Quà đã nhập từ một nhà cung cấp ngoài — dùng để đánh dấu "đã nhập" khi duyệt kho. */
+    List<RewardGiftItem> findByOrganizationIdAndExternalProvider(
+            UUID organizationId, String externalProvider);
+
+    /**
+     * Chặn nhập trùng ở tầng nghiệp vụ để báo lỗi cho người dùng bằng tiếng người.
+     * Ràng buộc thật nằm ở partial unique index {@code uq_reward_gift_items_external} —
+     * kiểm tra ở đây không thay thế được nó khi hai người bấm nhập cùng lúc.
+     */
+    boolean existsByOrganizationIdAndExternalProviderAndExternalSku(
+            UUID organizationId, String externalProvider, String externalSku);
+
     /**
      * Giữ tồn kho theo kiểu KIỂM-VÀ-TRỪ TRONG MỘT CÂU LỆNH.
      *

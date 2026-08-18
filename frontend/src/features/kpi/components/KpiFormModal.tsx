@@ -10,6 +10,7 @@ import { useAuthStore } from '@/store/authStore'
 import { usePermission } from '@/hooks/usePermission'
 import { toast } from 'sonner'
 import { FREQUENCY_MAP, cn, formatDateTime } from '@/lib/utils'
+import UserAvatar from '@/components/common/UserAvatar'
 import { Loader2, X, Check, Sparkles, Target, Users, LayoutGrid, SlidersHorizontal, BarChart3, RotateCcw, RefreshCw } from 'lucide-react'
 import type { KpiCriteria } from '@/types/kpi'
 import { useState } from 'react'
@@ -813,7 +814,7 @@ export default function KpiFormModal({ open, onClose, editKpi, parentKpi, parent
               {!isQualitative && (
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-[11px] font-black text-[var(--color-muted-foreground)] uppercase tracking-widest mb-1.5">Mục tiêu đạt được <span className="text-red-500">*</span></label>
+                  <label className="block text-[11px] font-black text-[var(--color-muted-foreground)] uppercase tracking-widest mb-1.5">Mục tiêu mong muốn <span className="text-red-500">*</span></label>
                   <input
                     {...register('targetValue', { setValueAs: numOrUndef })}
                     type="number"
@@ -1042,9 +1043,12 @@ export default function KpiFormModal({ open, onClose, editKpi, parentKpi, parent
             {isStaff ? (
                 <div className="bg-white dark:bg-white/5 border border-[var(--color-primary)]/20 rounded-xl p-4 animate-in fade-in slide-in-from-top-1">
                     <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-full bg-[var(--color-primary)]/10 flex items-center justify-center text-[var(--color-primary)] font-bold text-lg">
-                            {user?.fullName?.charAt(0)}
-                        </div>
+                        <UserAvatar
+                            fullName={user?.fullName}
+                            avatarUrl={user?.avatarUrl}
+                            className="w-10 h-10 rounded-full"
+                            fallbackClassName="bg-[var(--color-primary)]/10 text-[var(--color-primary)] font-bold text-lg"
+                        />
                         <div className="flex-1">
                             <div className="text-sm font-bold">{user?.fullName} <span className="text-[var(--color-primary)]">(Bản thân)</span></div>
                             <div className="text-[10px] text-[var(--color-muted-foreground)] font-medium">{user?.email}</div>

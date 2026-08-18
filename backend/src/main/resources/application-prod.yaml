@@ -90,6 +90,21 @@ lark:
   open-base-url: ${LARK_OPEN_BASE_URL:https://open.larksuite.com}
   auth-base-url: ${LARK_AUTH_BASE_URL:https://accounts.larksuite.com}
 
+urbox:
+  # Kho quà eVoucher UrBox. TẮT mặc định ở prod: bật mà chưa có credential PROD thì mọi
+  # đơn đổi quà sẽ hỏng ngay trước mặt nhân viên.
+  enabled: ${URBOX_ENABLED:false}
+  # ⚠️ URL PROD do UrBox cấp sau khi nghiệm thu kết nối. Để nguyên sandbox mà bật enabled
+  # là nhân viên đổi được mã KHÔNG dùng được ở cửa hàng nào.
+  base-url: ${URBOX_BASE_URL:https://sandapi.urbox.dev}
+  app-id: ${URBOX_APP_ID:}
+  app-secret: ${URBOX_APP_SECRET:}
+  campaign-code: ${URBOX_CAMPAIGN_CODE:}
+  # ⚠️ BẮT BUỘC ở PROD: UrBox xác thực chữ ký đơn bằng public key đối tác đã gửi lên.
+  # Private key PKCS#8, giữ nguyên xuống dòng của PEM.
+  private-key: ${URBOX_PRIVATE_KEY:}
+  send-sms: ${URBOX_SEND_SMS:false}
+
 cloudinary:
   cloud-name: ${CLOUDINARY_CLOUD_NAME:your-cloud-name}
   api-key: ${CLOUDINARY_API_KEY:your-api-key}

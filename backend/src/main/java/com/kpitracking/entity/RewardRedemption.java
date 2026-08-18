@@ -90,13 +90,29 @@ public class RewardRedemption {
     @Column(name = "refund_transaction_id")
     private UUID refundTransactionId;
 
-    /** Chừa sẵn cho hệ thống giao quà ngoài. Chưa dùng ở v1. */
+    /** Mã đơn bên hệ thống ngoài ({@code cartNo} của UrBox). Dùng khi đối soát. */
     @Column(name = "external_order_id")
     private String externalOrderId;
 
+    /**
+     * Kết quả xuất quà từ hệ thống ngoài, dạng JSON — với UrBox là danh sách mã voucher
+     * kèm PIN, serial, ảnh mã và hạn dùng (xem {@code VoucherPayload}).
+     *
+     * <p>Để JSON chứ không tách thành cột riêng vì một yêu cầu đổi số lượng {@code n}
+     * sinh ra {@code n} mã khác nhau — tách cột sẽ phải đẻ thêm một bảng con chỉ để
+     * hiển thị.
+     */
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "fulfillment_payload", columnDefinition = "jsonb")
     private String fulfillmentPayload;
+
+    /** Vì sao đơn ngoài hỏng. Điểm đã tự hoàn, đây là phần cho người vận hành đọc. */
+    @Column(name = "fulfillment_error", columnDefinition = "TEXT")
+    private String fulfillmentError;
+
+    /** Thời điểm hệ thống ngoài xuất quà thành công. */
+    @Column(name = "fulfilled_at")
+    private Instant fulfilledAt;
 
     @CreatedDate
     @Column(name = "created_at", updatable = false)

@@ -5,6 +5,7 @@ import { kpiApi } from '../api/kpiApi'
 import { toast } from 'sonner'
 import { Loader2, X, AlertTriangle, ArrowLeftRight, SlidersHorizontal, Check, ShieldAlert, Target, Users, BarChart3 } from 'lucide-react'
 import { FREQUENCY_MAP, cn, formatNumber, formatDateTime } from '@/lib/utils'
+import UserAvatar from '@/components/common/UserAvatar'
 import type { KpiCriteria, KpiFrequency, KpiType } from '@/types/kpi'
 import { useUsers } from '@/features/users/hooks/useUsers'
 import { useAuthStore } from '@/store/authStore'
@@ -39,7 +40,7 @@ interface AssigneeSelectorProps {
   onChange: (ids: string[]) => void
   hint?: string
   isStaff?: boolean
-  currentUser?: { id: string; fullName: string; email?: string | null }
+  currentUser?: { id: string; fullName: string; email?: string | null; avatarUrl?: string | null }
 }
 
 function AssigneeSelector({ orgUnitId, selectedIds, onChange, hint, isStaff, currentUser }: AssigneeSelectorProps) {
@@ -93,9 +94,12 @@ function AssigneeSelector({ orgUnitId, selectedIds, onChange, hint, isStaff, cur
         </label>
         <div className="bg-[var(--color-background)] border border-[var(--color-primary)]/20 rounded-xl p-4">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-[var(--color-primary)]/10 flex items-center justify-center text-[var(--color-primary)] font-bold text-lg shrink-0">
-              {currentUser.fullName?.charAt(0)}
-            </div>
+            <UserAvatar
+              fullName={currentUser.fullName}
+              avatarUrl={currentUser.avatarUrl}
+              className="w-10 h-10 rounded-full"
+              fallbackClassName="bg-[var(--color-primary)]/10 text-[var(--color-primary)] font-bold text-lg"
+            />
             <div className="flex-1 min-w-0">
               <div className="text-sm font-bold">{currentUser.fullName} <span className="text-[var(--color-primary)]">(Bản thân)</span></div>
               <div className="text-[10px] text-[var(--color-muted-foreground)] font-medium truncate">{currentUser.email}</div>
@@ -429,9 +433,9 @@ function ReplaceTab({ kpiList, orgUnitId, period, enableOkr, enableQualitative, 
           {!isQual && (
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className={labelCls}>Mục tiêu đạt được <span className="text-red-500">*</span></label>
+              <label className={labelCls}>Mục tiêu mong muốn <span className="text-red-500">*</span></label>
               <input type="number" step="any" onWheel={e => (e.target as HTMLInputElement).blur()}
-                {...register('targetValue', { validate: (v, fv) => fv.kpiType === 'QUALITATIVE' || String(v ?? '').trim() !== '' || 'Vui lòng nhập mục tiêu đạt được' })}
+                {...register('targetValue', { validate: (v, fv) => fv.kpiType === 'QUALITATIVE' || String(v ?? '').trim() !== '' || 'Vui lòng nhập mục tiêu mong muốn' })}
                 placeholder="1000" className={cn(inputCls, errors.targetValue && 'ring-2 ring-red-500')} />
             </div>
             <div>
@@ -756,9 +760,9 @@ function AdjustTab({ kpiList, kpiPeriodId, orgUnitId, period, enableOkr, enableQ
           {!isQual && (
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className={labelCls}>Mục tiêu đạt được <span className="text-red-500">*</span></label>
+              <label className={labelCls}>Mục tiêu mong muốn <span className="text-red-500">*</span></label>
               <input type="number" step="any" onWheel={e => (e.target as HTMLInputElement).blur()}
-                {...register('newTargetValue', { validate: (v, fv) => fv.newKpiType === 'QUALITATIVE' || String(v ?? '').trim() !== '' || 'Vui lòng nhập mục tiêu đạt được' })}
+                {...register('newTargetValue', { validate: (v, fv) => fv.newKpiType === 'QUALITATIVE' || String(v ?? '').trim() !== '' || 'Vui lòng nhập mục tiêu mong muốn' })}
                 placeholder="1000" className={cn(inputCls, errors.newTargetValue && 'ring-2 ring-red-500')} />
             </div>
             <div>

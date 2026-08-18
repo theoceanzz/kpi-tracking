@@ -26,6 +26,9 @@ public class OrganizationResponse {
     private Boolean enableQualitative;
     private Boolean enableBsc;
     private Boolean enableReward;
+    private Boolean enableCashWallet;
+    /** Số đồng đổi được 1 điểm. Giao diện dùng để hiện quy đổi mà không phải gọi thêm API cấu hình. */
+    private Long pointExchangeRate;
     private Instant createdAt;
     private Instant updatedAt;
 }

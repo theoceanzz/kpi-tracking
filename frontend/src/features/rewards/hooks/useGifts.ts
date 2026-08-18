@@ -92,6 +92,34 @@ export const useMyRedemptions = (page = 0, size = 20) => {
       invalidateGiftData(qc)
       const points = r.pointsSpent.toLocaleString('vi-VN')
 
+      // Quà ngoài không xuất được: điểm đã tự hoàn, và phải nói rõ là hoàn rồi — nếu
+      // không người dùng sẽ tưởng vừa mất điểm mà chẳng được gì.
+      if (r.status === RedemptionStatus.FAILED) {
+        toast.error(`Chưa lấy được ${r.giftNameSnapshot}`, {
+          description: `${r.fulfillmentError ?? 'Nhà cung cấp không xuất được quà.'} ${points} điểm đã được hoàn lại vào ví của bạn.`,
+          duration: 8000,
+        })
+        return
+      }
+
+      // Đơn treo vì chưa rõ kết quả. KHÔNG nói "thất bại": quà có thể vẫn về.
+      if (r.status === RedemptionStatus.PENDING && r.fulfillmentError) {
+        toast.warning(`Đang chờ xác nhận quà ${r.giftNameSnapshot}`, {
+          description:
+            'Nhà cung cấp chưa phản hồi. Yêu cầu đang được giữ lại và sẽ tự hoàn điểm nếu quà không xuất được.',
+          duration: 8000,
+        })
+        return
+      }
+
+      if (r.vouchers?.length) {
+        toast.success(`Đã đổi ${r.giftNameSnapshot}`, {
+          description: `Đã trừ ${points} điểm. Mã quà đang hiện trên màn hình và luôn xem lại được ở mục "Quà đã đổi".`,
+          duration: 6000,
+        })
+        return
+      }
+
       // Quà nhận ngay đã hoàn tất, không có "yêu cầu" nào đang chờ và cũng chẳng ai
       // từ chối được — nói như luồng chờ giao là nói sai với người dùng.
       if (r.status === RedemptionStatus.DELIVERED) {

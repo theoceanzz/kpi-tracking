@@ -350,6 +350,7 @@ public class StatsService {
                      .userId(u.getId())
                      .employeeCode(u.getEmployeeCode())
                      .fullName(u.getFullName())
+                     .avatarUrl(u.getAvatarUrl())
                      .email(u.getEmail())
                      .role(roleName)
                      .orgUnitName(orgUnitName)
@@ -753,7 +754,8 @@ public class StatsService {
                     : evaluationService.averagePerformance(java.util.Set.of(u.getId()), evalPeriodIds);
             Double performanceRate = evalPerf != null ? Math.round(evalPerf * 10.0) / 10.0 : null;
             return AnalyticsDrillDownResponse.EmployeeSummary.builder()
-                    .userId(u.getId()).fullName(u.getFullName()).email(u.getEmail()).roleName(m.getRole().getName())
+                    .userId(u.getId()).fullName(u.getFullName()).avatarUrl(u.getAvatarUrl())
+                    .email(u.getEmail()).roleName(m.getRole().getName())
                     .orgUnitId(memberUnit != null ? memberUnit.getId() : null)
                     .orgUnitName(memberUnit != null ? memberUnit.getName() : null)
                     .assignedKpi(kpiCriteriaRepository.countByAssigneeId(u.getId()))
@@ -818,7 +820,8 @@ public class StatsService {
 
             long approvedSub = submissionRepository.countBySubmittedByIdAndStatus(u.getId(), SubmissionStatus.APPROVED);
             allRows.add(AnalyticsDetailRow.builder()
-                    .userId(u.getId()).employeeCode(u.getEmployeeCode()).fullName(u.getFullName()).email(u.getEmail())
+                    .userId(u.getId()).employeeCode(u.getEmployeeCode()).fullName(u.getFullName())
+                    .avatarUrl(u.getAvatarUrl()).email(u.getEmail())
                     .orgUnitName(roles.isEmpty() ? null : roles.get(0).getOrgUnit().getName())
                     .roleName(roles.isEmpty() ? "N/A" : roles.get(0).getRole().getName())
                     .assignedKpi(assignedKpi).completedKpi(approvedSub)
@@ -1260,7 +1263,7 @@ public class StatsService {
 
                 return AnalyticsSummaryResponse.RankingItem.builder()
                     .name(u.getFullName())
-                    .avatar(null)
+                    .avatar(u.getAvatarUrl())
                     .score(avgScore != null ? avgScore : 0)
                     .performance(performance)
                     .avgProgress(avgProgress)

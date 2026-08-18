@@ -3,8 +3,9 @@ import { Gift, ImageOff, Coins, PackageX, PackageCheck, Zap } from 'lucide-react
 import EmptyState from '@/components/common/EmptyState'
 import LoadingSkeleton from '@/components/common/LoadingSkeleton'
 import RedeemGiftModal from './RedeemGiftModal'
+import VoucherModal from './VoucherModal'
 import { useGiftShop } from '../hooks/useGifts'
-import type { GiftItem } from '../types'
+import type { GiftItem, Redemption } from '../types'
 
 interface GiftShopGridProps {
   /** Số dư hiện tại, để hiện "thiếu bao nhiêu điểm" ngay trên thẻ quà. */
@@ -13,6 +14,9 @@ interface GiftShopGridProps {
 
 export default function GiftShopGrid({ balance }: GiftShopGridProps) {
   const [redeeming, setRedeeming] = useState<GiftItem | null>(null)
+  // Mã quà phải bật lên NGAY sau khi đổi. Bắt nhân viên tự mở lại lịch sử để tìm mã là
+  // cách chắc chắn nhất để họ tưởng đổi hụt và gọi cho bộ phận hỗ trợ.
+  const [issued, setIssued] = useState<Redemption | null>(null)
   const { data: gifts, isLoading } = useGiftShop()
 
   if (isLoading) return <LoadingSkeleton type="card" rows={3} />
@@ -64,6 +68,17 @@ export default function GiftShopGrid({ balance }: GiftShopGridProps) {
               </div>
 
               <div className="flex flex-1 flex-col p-4">
+                {/* Thương hiệu và mệnh giá của voucher là thứ nhân viên nhìn trước tiên
+                    để biết món này đáng bao nhiêu — UrBox cũng yêu cầu hiện mệnh giá
+                    trước khi đổi. */}
+                {gift.externalProvider && (
+                  <div className="mb-1 flex flex-wrap items-center gap-x-2 text-xs text-[var(--color-muted-foreground)]">
+                    {gift.externalBrand && <span className="font-medium">{gift.externalBrand}</span>}
+                    {gift.externalValue != null && (
+                      <span>Trị giá {gift.externalValue.toLocaleString('vi-VN')} ₫</span>
+                    )}
+                  </div>
+                )}
                 <h3 className="font-semibold">{gift.name}</h3>
                 {gift.description && (
                   <p className="mt-1 line-clamp-2 text-sm text-[var(--color-muted-foreground)]">
@@ -91,6 +106,11 @@ export default function GiftShopGrid({ balance }: GiftShopGridProps) {
                         <PackageCheck size={11} />
                         Nhận trực tiếp tại công ty
                       </>
+                    ) : gift.externalProvider ? (
+                      <>
+                        <Zap size={11} />
+                        Nhận mã voucher ngay
+                      </>
                     ) : (
                       <>
                         <Zap size={11} />
@@ -98,6 +118,7 @@ export default function GiftShopGrid({ balance }: GiftShopGridProps) {
                       </>
                     )}
                   </span>
+                  {gift.externalExpireText && <span>HSD {gift.externalExpireText}</span>}
                 </div>
 
                 <div className="mt-4 flex-1" />
@@ -126,7 +147,10 @@ export default function GiftShopGrid({ balance }: GiftShopGridProps) {
         gift={redeeming}
         balance={balance}
         onClose={() => setRedeeming(null)}
+        onVoucherIssued={setIssued}
       />
+
+      <VoucherModal redemption={issued} onClose={() => setIssued(null)} />
     </>
   )
 }
