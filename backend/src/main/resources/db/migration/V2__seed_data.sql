@@ -2477,3 +2477,32 @@ FROM roles r
 CROSS JOIN permissions p
 WHERE p.code = 'AI_QUOTA:ALLOCATE' AND r.rank = 0
 ON CONFLICT DO NOTHING;
+
+-- ═══════════════════════════════════════════════════════════════════════════
+-- HẠN MỨC TOKEN AI
+-- Không có hạn mức thì mọi lượt chat AI bị chặn ngay ở cổng kiểm
+-- (AiQuotaService.checkAndThrow), nên môi trường mới dựng sẽ tưởng là AI hỏng.
+-- Cấp sẵn hạn mức rộng tay cho dữ liệu mẫu để tính năng dùng được ngay.
+-- ═══════════════════════════════════════════════════════════════════════════
+
+-- Ngân sách công ty. Đặt cho MỌI tổ chức, không lọc theo ngân sách hiện có: phần cấp cho từng
+-- người bên dưới chạy cho mọi người, nên nếu bỏ sót một tổ chức thì tổng hạn mức của tổ chức đó
+-- vượt ngân sách và AiQuotaAllocationService sẽ chặn mọi lần phân bổ về sau.
+UPDATE organizations
+SET ai_monthly_token_limit = 50000000,
+    ai_allow_sub_delegation = TRUE;
+
+-- Hạn mức từng người, cấp thẳng từ ngân sách công ty (allocated_by = NULL).
+--
+-- Con số 1.000.000 chọn theo mức tiêu thật ĐO ĐƯỢC, không phải áng chừng: một câu hỏi chat
+-- tốn khoảng 12.600 token, trong đó ~95% là prompt (định nghĩa tool + prompt hệ thống được
+-- gửi lại ở MỖI vòng gọi tool). Vậy 1.000.000 ≈ 80 câu/tháng cho mỗi người dùng mẫu.
+--
+-- Bất biến phải giữ: TỔNG hạn mức cấp từ ngân sách công ty ≤ ngân sách công ty.
+-- 30 người mẫu × 1.000.000 = 30.000.000 ≤ 50.000.000, còn dư chỗ cho người tạo thêm.
+-- Sửa hai con số này thì phải kiểm lại phép nhân, nếu không AiQuotaAllocationService
+-- sẽ chặn mọi lần phân bổ tiếp theo vì túi đã âm.
+INSERT INTO ai_token_quotas (user_id, monthly_limit, allocated_by)
+SELECT DISTINCT uro.user_id, 1000000, NULL::uuid
+FROM user_role_org_units uro
+ON CONFLICT (user_id) DO NOTHING;
