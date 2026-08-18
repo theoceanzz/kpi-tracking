@@ -1,0 +1,6 @@
+# Tài liệu nội bộ: đánh giá bảo mật, thuyết minh kỹ thuật, phụ lục nội bộ.
+# Không đưa lên remote — một trong số này liệt kê lỗ hổng khai thác được của
+# production, và đã có lần bị `git add .` quét nhầm vào commit.
+# Muốn theo dõi một tài liệu công khai thì thêm ngoại lệ:
+#   !docs/ten-file-cong-khai.md
+docs/
