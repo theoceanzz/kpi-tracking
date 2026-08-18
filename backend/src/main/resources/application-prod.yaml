@@ -104,7 +104,16 @@ app:
     # Sinh khoá: openssl rand -base64 48
     data-key: ${DATA_ENCRYPTION_KEY:}
   cors:
-    allowed-origins: ${CORS_ORIGINS:http://localhost:3000,https://your-frontend-domain.vercel.app}
+    # ⚠️ KHÔNG dùng '*': phiên đăng nhập đi bằng cookie nên allowCredentials=true, một wildcard
+    # ở đây đồng nghĩa mọi website đều gọi được API thay mặt người dùng đang đăng nhập.
+    # Ứng dụng từ chối khởi động nếu giá trị là '*'.
+    allowed-origins: ${CORS_ORIGINS:https://keygo.vn}
+  cookie:
+    # Cookie chứa access token / refresh token — prod luôn phải Secure (chỉ gửi qua HTTPS).
+    secure: ${COOKIE_SECURE:true}
+    same-site: ${COOKIE_SAME_SITE:Lax}
+    # Để trống = host-only, đúng khi frontend và API chung domain keygo.vn qua Traefik.
+    domain: ${COOKIE_DOMAIN:}
   rate-limit:
     login-per-minute: ${RATE_LIMIT_LOGIN:5}
     email-per-hour: ${RATE_LIMIT_EMAIL:3}

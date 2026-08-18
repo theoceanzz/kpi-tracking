@@ -9,8 +9,9 @@ export const authApi = {
   register: (data: RegisterRequest) =>
     axiosInstance.post<ApiResponse<AuthResponse>>('/auth/register', data).then((r) => r.data.data),
 
-  refreshToken: (refreshToken: string) =>
-    axiosInstance.post<ApiResponse<AuthResponse>>('/auth/refresh-token', { refreshToken }).then((r) => r.data.data),
+  // Không truyền token: cookie HttpOnly kg_rt / kg_at mang phiên, backend ghi đè cookie mới.
+  refreshToken: () =>
+    axiosInstance.post<ApiResponse<AuthResponse>>('/auth/refresh-token').then((r) => r.data.data),
 
   getLarkAuthorizeUrl: (organizationId: string) =>
     axiosInstance
@@ -35,8 +36,9 @@ export const authApi = {
   resendVerification: (email: string) =>
     axiosInstance.post<ApiResponse<void>>('/auth/resend-verification', { email }).then((r) => r.data),
 
-  logout: (refreshToken: string) =>
-    axiosInstance.post<ApiResponse<void>>('/auth/logout', { refreshToken }).then((r) => r.data),
+  // Bắt buộc gọi khi đăng xuất: chỉ backend mới xoá được cookie HttpOnly và thu hồi refresh token.
+  logout: () =>
+    axiosInstance.post<ApiResponse<void>>('/auth/logout').then((r) => r.data),
 
   getMe: () =>
     axiosInstance.get<ApiResponse<UserInfo>>('/auth/me').then((r) => r.data.data),

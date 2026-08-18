@@ -38,7 +38,12 @@ services:
       - JWT_REFRESH_EXPIRY=${JWT_REFRESH_EXPIRY:-604800000}
 
       # App
-      - CORS_ORIGINS=${CORS_ORIGINS:-*}
+      # ⚠️ Không được để '*': phiên đăng nhập đi bằng cookie HttpOnly nên CORS chạy với
+      # allowCredentials=true — wildcard đồng nghĩa mọi website gọi được API thay mặt
+      # người dùng đang đăng nhập. Backend từ chối khởi động nếu gặp '*'.
+      - CORS_ORIGINS=${CORS_ORIGINS:-https://keygo.vn}
+      # Cookie xác thực chỉ được gửi qua HTTPS ở production.
+      - COOKIE_SECURE=${COOKIE_SECURE:-true}
       - APP_FRONTEND_URL=${FRONTEND_URL:-https://keygo.vn}
 
       # Lark SSO. App ID/Secret của từng công ty lưu trong DB, không cấu hình ở đây.

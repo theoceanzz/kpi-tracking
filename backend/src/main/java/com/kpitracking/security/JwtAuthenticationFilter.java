@@ -25,28 +25,21 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private final JwtTokenProvider jwtTokenProvider;
     private final UserDetailsService userDetailsService;
+    private final AuthCookieService authCookieService;
 
     @Override
     protected void doFilterInternal(@NonNull HttpServletRequest request,
                                     @NonNull HttpServletResponse response,
                                     @NonNull FilterChain filterChain) throws ServletException, IOException {
 
-        final String authHeader = request.getHeader("Authorization");
+        final String jwt = resolveToken(request);
 
-        if (!StringUtils.hasText(authHeader) || !authHeader.startsWith("Bearer ")) {
+        if (!StringUtils.hasText(jwt)) {
             filterChain.doFilter(request, response);
             return;
         }
 
         try {
-            String jwt = authHeader.substring(7).trim();
-
-            if (jwt.startsWith("Bearer ")) {
-                jwt = jwt.substring(7).trim();
-            }
-
-            jwt = jwt.replaceAll("\\s+", "");
-
             String email = jwtTokenProvider.extractEmail(jwt);
 
             if (StringUtils.hasText(email) && SecurityContextHolder.getContext().getAuthentication() == null) {
@@ -66,6 +59,34 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         }
 
         filterChain.doFilter(request, response);
+    }
+
+    /**
+     * Ưu tiên cookie HttpOnly (luồng chính của trình duyệt); header Authorization giữ lại
+     * để Swagger, Postman và các client không phải trình duyệt vẫn dùng được.
+     */
+    private String resolveToken(HttpServletRequest request) {
+        String fromCookie = authCookieService.readAccessToken(request);
+        if (StringUtils.hasText(fromCookie)) {
+            return normalize(fromCookie);
+        }
+
+        String authHeader = request.getHeader("Authorization");
+        if (StringUtils.hasText(authHeader) && authHeader.startsWith("Bearer ")) {
+            return normalize(authHeader.substring(7));
+        }
+
+        return null;
+    }
+
+    private String normalize(String token) {
+        String jwt = token.trim();
+
+        if (jwt.startsWith("Bearer ")) {
+            jwt = jwt.substring(7).trim();
+        }
+
+        return jwt.replaceAll("\\s+", "");
     }
 
     @Override

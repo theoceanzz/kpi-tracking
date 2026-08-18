@@ -14,7 +14,8 @@ export function useAuthSuccess() {
 
   return useCallback(
     (data: AuthResponse) => {
-      setAuth(data.user, data.accessToken, data.refreshToken)
+      // Token đã được backend đặt vào cookie HttpOnly, ở đây chỉ lưu hồ sơ người dùng.
+      setAuth(data.user)
 
       if (data.user.requirePasswordChange) {
         toast.info('Bạn cần đổi mật khẩu trong lần đăng nhập đầu tiên để bảo mật tài khoản.')

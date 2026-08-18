@@ -5,48 +5,62 @@ import com.kpitracking.dto.response.ApiResponse;
 import com.kpitracking.dto.response.auth.AuthResponse;
 import com.kpitracking.dto.response.auth.LarkAuthorizeUrlResponse;
 import com.kpitracking.dto.response.auth.UserInfoResponse;
+import com.kpitracking.security.AuthCookieService;
 import com.kpitracking.service.AuthService;
 import com.kpitracking.service.LarkAuthService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.*;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 @RestController
 @RequestMapping("/api/v1/auth")
 @RequiredArgsConstructor
+@Slf4j
 @Tag(name = "Authentication", description = "Auth endpoints")
 public class AuthController {
 
     private final AuthService authService;
     private final LarkAuthService larkAuthService;
+    private final AuthCookieService authCookieService;
 
     @PostMapping("/register")
     @Operation(summary = "Register a new organization and director account")
-    public ResponseEntity<ApiResponse<AuthResponse>> register(@Valid @RequestBody RegisterRequest request, HttpServletRequest httpRequest) {
+    public ResponseEntity<ApiResponse<AuthResponse>> register(@Valid @RequestBody RegisterRequest request,
+                                                              HttpServletRequest httpRequest,
+                                                              HttpServletResponse httpResponse) {
         String userAgent = httpRequest.getHeader("User-Agent");
         AuthResponse response = authService.register(request, userAgent);
         return ResponseEntity.status(HttpStatus.CREATED)
-                .body(ApiResponse.success("Registration successful", response));
+                .body(ApiResponse.success("Registration successful", issueSession(response, httpResponse)));
     }
 
     @PostMapping("/login")
     @Operation(summary = "Login with email and password")
-    public ResponseEntity<ApiResponse<AuthResponse>> login(@Valid @RequestBody LoginRequest request, HttpServletRequest httpRequest) {
+    public ResponseEntity<ApiResponse<AuthResponse>> login(@Valid @RequestBody LoginRequest request,
+                                                           HttpServletRequest httpRequest,
+                                                           HttpServletResponse httpResponse) {
         String userAgent = httpRequest.getHeader("User-Agent");
         AuthResponse response = authService.login(request, userAgent);
-        return ResponseEntity.ok(ApiResponse.success("Login successful", response));
+        return ResponseEntity.ok(ApiResponse.success("Login successful", issueSession(response, httpResponse)));
     }
 
     @PostMapping("/refresh-token")
     @Operation(summary = "Refresh access token")
-    public ResponseEntity<ApiResponse<AuthResponse>> refreshToken(@Valid @RequestBody RefreshTokenRequest request) {
-        AuthResponse response = authService.refreshToken(request.getRefreshToken());
-        return ResponseEntity.ok(ApiResponse.success("Token refreshed", response));
+    public ResponseEntity<ApiResponse<AuthResponse>> refreshToken(
+            @RequestBody(required = false) RefreshTokenRequest request,
+            HttpServletRequest httpRequest,
+            HttpServletResponse httpResponse) {
+        String refreshToken = resolveRefreshToken(request, httpRequest);
+        AuthResponse response = authService.refreshToken(refreshToken);
+        return ResponseEntity.ok(ApiResponse.success("Token refreshed", issueSession(response, httpResponse)));
     }
 
     @GetMapping("/lark/authorize-url")
@@ -59,10 +73,12 @@ public class AuthController {
 
     @PostMapping("/lark/callback")
     @Operation(summary = "Exchange a Lark authorization code for KeyGo tokens")
-    public ResponseEntity<ApiResponse<AuthResponse>> larkCallback(@Valid @RequestBody LarkCallbackRequest request, HttpServletRequest httpRequest) {
+    public ResponseEntity<ApiResponse<AuthResponse>> larkCallback(@Valid @RequestBody LarkCallbackRequest request,
+                                                                  HttpServletRequest httpRequest,
+                                                                  HttpServletResponse httpResponse) {
         String userAgent = httpRequest.getHeader("User-Agent");
         AuthResponse response = larkAuthService.loginWithLark(request.getCode(), request.getState(), userAgent);
-        return ResponseEntity.ok(ApiResponse.success("Login successful", response));
+        return ResponseEntity.ok(ApiResponse.success("Login successful", issueSession(response, httpResponse)));
     }
 
     @PostMapping("/change-password")
@@ -102,8 +118,22 @@ public class AuthController {
 
     @PostMapping("/logout")
     @Operation(summary = "Logout and revoke token")
-    public ResponseEntity<ApiResponse<Void>> logout(@Valid @RequestBody RefreshTokenRequest request) {
-        authService.logout(request.getRefreshToken());
+    public ResponseEntity<ApiResponse<Void>> logout(@RequestBody(required = false) RefreshTokenRequest request,
+                                                    HttpServletRequest httpRequest,
+                                                    HttpServletResponse httpResponse) {
+        String refreshToken = resolveRefreshToken(request, httpRequest);
+
+        // Cookie phải được xoá kể cả khi refresh token đã hết hạn/không hợp lệ, nếu không
+        // trình duyệt còn giữ một cookie chết và người dùng kẹt ở trạng thái nửa vời.
+        try {
+            if (StringUtils.hasText(refreshToken)) {
+                authService.logout(refreshToken);
+            }
+        } catch (Exception e) {
+            log.warn("Logout could not revoke refresh token: {}", e.getMessage());
+        }
+
+        authCookieService.clearAuthCookies(httpResponse);
         return ResponseEntity.ok(ApiResponse.success("Logged out successfully"));
     }
 
@@ -126,5 +156,27 @@ public class AuthController {
     public ResponseEntity<ApiResponse<Void>> completeOnboarding() {
         authService.completeOnboarding();
         return ResponseEntity.ok(ApiResponse.success("Onboarding marked as completed"));
+    }
+
+    /**
+     * Đưa token vào cookie HttpOnly và gỡ khỏi body: trình duyệt không được phép nhìn thấy
+     * token ở tầng JavaScript nữa.
+     */
+    private AuthResponse issueSession(AuthResponse response, HttpServletResponse httpResponse) {
+        authCookieService.writeAuthCookies(httpResponse, response);
+        response.setAccessToken(null);
+        response.setRefreshToken(null);
+        return response;
+    }
+
+    /**
+     * Cookie là nguồn chính; body chỉ còn để tương thích với client không phải trình duyệt.
+     */
+    private String resolveRefreshToken(RefreshTokenRequest request, HttpServletRequest httpRequest) {
+        String fromCookie = authCookieService.readRefreshToken(httpRequest);
+        if (StringUtils.hasText(fromCookie)) {
+            return fromCookie;
+        }
+        return request != null ? request.getRefreshToken() : null;
     }
 }
