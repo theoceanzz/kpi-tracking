@@ -1,6 +1,7 @@
-import { useState } from 'react'
 import { Gift, Wallet, Store, PackageCheck, Trophy, CalendarCheck } from 'lucide-react'
-import PageHeader from '@/components/common/PageHeader'
+import { useTabParam } from '@/hooks/useTabParam'
+import { WorkspaceTabsProvider } from '@/components/common/WorkspaceTabs'
+import WorkspaceHeader from '@/components/common/WorkspaceHeader'
 import { useHasPermission } from '@/components/auth/PermissionGate'
 import GrantsTab from '../components/GrantsTab'
 import BudgetsTab from '../components/BudgetsTab'
@@ -34,92 +35,48 @@ export default function RewardManagementPage() {
 
   // Tab chỉ hiện khi người dùng có quyền tương ứng — router đã cho vào trang bằng
   // phép OR nhiều quyền, nên bên trong vẫn phải lọc lại từng tab.
-  const tabs: { key: TabKey; label: string; icon: React.ReactNode; badge?: number; visible: boolean }[] = [
+  const { activeTab, setActiveTab, visibleTabs } = useTabParam<TabKey>([
     {
       key: 'grants',
       label: 'Đề nghị thưởng',
-      icon: <Gift size={16} />,
+      icon: Gift,
       // Số đang chờ duyệt là việc cần làm — đưa lên tab để người duyệt thấy ngay
       // mà không phải bấm vào mới biết.
       badge: pendingCount || undefined,
       visible: hasPermission(['REWARD:GRANT', 'REWARD:APPROVE', 'REWARD:VIEW']),
     },
-    {
-      key: 'budgets',
-      label: 'Hạn mức',
-      icon: <Wallet size={16} />,
-      visible: hasPermission('REWARD:CONFIG'),
-    },
-    {
-      key: 'programs',
-      label: 'Chương trình tự động',
-      icon: <Trophy size={16} />,
-      visible: hasPermission('REWARD:CONFIG'),
-    },
-    {
-      key: 'checkin',
-      label: 'Điểm danh',
-      icon: <CalendarCheck size={16} />,
-      visible: hasPermission('REWARD:CONFIG'),
-    },
-    {
-      key: 'gifts',
-      label: 'Quà tặng',
-      icon: <Store size={16} />,
-      visible: hasPermission('GIFT:MANAGE'),
-    },
+    { key: 'budgets', label: 'Hạn mức', icon: Wallet, visible: hasPermission('REWARD:CONFIG') },
+    { key: 'programs', label: 'Chương trình tự động', icon: Trophy, visible: hasPermission('REWARD:CONFIG') },
+    { key: 'checkin', label: 'Điểm danh', icon: CalendarCheck, visible: hasPermission('REWARD:CONFIG') },
+    { key: 'gifts', label: 'Quà tặng', icon: Store, visible: hasPermission('GIFT:MANAGE') },
     {
       key: 'redemptions',
       label: 'Yêu cầu đổi quà',
-      icon: <PackageCheck size={16} />,
+      icon: PackageCheck,
       badge: pendingRedemptionCount || undefined,
       visible: canFulfill,
     },
-  ]
-  const visibleTabs = tabs.filter((t) => t.visible)
-  const [active, setActive] = useState<TabKey>(visibleTabs[0]?.key ?? 'grants')
+  ])
 
   return (
-    <div className="mx-auto max-w-7xl p-4 sm:p-6">
-      <PageHeader
-        title="Quản lý thưởng điểm"
-        description="Trao điểm cho nhân viên, duyệt đề nghị vượt hạn mức và cấp hạn mức cho quản lý"
-      />
+    <WorkspaceTabsProvider
+      tabs={visibleTabs}
+      activeTab={activeTab}
+      setActiveTab={key => setActiveTab(key as TabKey)}
+    >
+      <div className="space-y-5">
+        {/* TRÊN các tab: bảng tin là chuyện của cả tổ chức, không thuộc riêng tab nào. */}
+        <RewardActivityTicker />
 
-      {/* TRÊN các tab: bảng tin là chuyện của cả tổ chức, không thuộc riêng tab nào. */}
-      <RewardActivityTicker className="mb-6" />
+        <WorkspaceHeader description="Trao điểm cho nhân viên, duyệt đề nghị vượt hạn mức và cấp hạn mức cho quản lý." />
 
-      {/* Xuống dòng chứ KHÔNG cuộn ngang: tab nằm ngoài khung nhìn thì người dùng không
-          biết là có. Bỏ đường kẻ dưới của khung ở mobile vì khi tab xuống nhiều hàng,
-          gạch chân của hàng trên sẽ lệch khỏi đường kẻ đó và nhìn như lỗi. */}
-      <div className="mb-6 flex flex-wrap gap-1 sm:border-b sm:border-[var(--color-border)]">
-        {visibleTabs.map((tab) => (
-          <button
-            key={tab.key}
-            onClick={() => setActive(tab.key)}
-            className={`flex items-center gap-1.5 whitespace-nowrap border-b-2 px-3 py-2.5 text-sm font-medium transition-colors sm:-mb-px sm:gap-2 sm:px-4 sm:py-3 ${
-              active === tab.key
-                ? 'border-[var(--color-primary)] text-[var(--color-primary)]'
-                : 'border-transparent text-[var(--color-muted-foreground)] hover:text-[var(--color-foreground)]'
-            }`}
-          >
-            {tab.icon}
-            {tab.label}
-            {tab.badge != null && (
-              <span className="rounded-full bg-amber-500/15 px-2 py-0.5 text-xs font-bold text-amber-700">
-                {tab.badge}
-              </span>
-            )}
-          </button>
-        ))}
+        {activeTab === 'grants' && <GrantsTab />}
+        {activeTab === 'budgets' && <BudgetsTab />}
+        {activeTab === 'programs' && <ProgramsTab />}
+        {activeTab === 'checkin' && <CheckinConfigTab />}
+        {activeTab === 'gifts' && <GiftsTab />}
+        {activeTab === 'redemptions' && <RedemptionsTab />}
       </div>
-
-      {active === 'grants' && <GrantsTab />}
-      {active === 'budgets' && <BudgetsTab />}
-      {active === 'programs' && <ProgramsTab />}
-      {active === 'checkin' && <CheckinConfigTab />}
-      {active === 'gifts' && <GiftsTab />}
-      {active === 'redemptions' && <RedemptionsTab />}
-    </div>
+    </WorkspaceTabsProvider>
   )
 }

@@ -1,8 +1,10 @@
 import { useState } from 'react'
 import { useAuthStore } from '@/store/authStore'
 import { useObjectives, useOkrMutations } from '../hooks/useOkr'
-import { useSidebarSettings } from '@/features/organization/hooks/useSidebarSettings'
-import { 
+import { useNavLabels } from '@/features/organization/hooks/useNavLabels'
+import { findNavItem } from '@/config/navigation'
+import WorkspaceHeader from '@/components/common/WorkspaceHeader'
+import {
   Plus, Target, ChevronDown, ChevronRight, 
   Edit2, Trash2, Calendar, 
   BarChart3, PlusCircle, CheckCircle2, Clock, FileUp
@@ -28,12 +30,14 @@ export default function OkrManagementPage() {
   const { data: objectives, isLoading } = useObjectives(organizationId)
   const { deleteObjective, deleteKeyResult, importOkrs } = useOkrMutations()
 
-  const { data: customLabels = {} } = useSidebarSettings(organizationId!)
-  const pageTitle = ((customLabels as Record<string, string>)['/okr'] || 'Quản lý OKR')
-    .split(' ')
-    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-    .join(' ')
-  
+  // Lấy nhãn qua `useNavLabels` như breadcrumb và hàng tab cấp 1, thay vì tự tra
+  // `useSidebarSettings` bằng khoá '/okr' — trước đây đổi tên mục trong cấu hình
+  // điều hướng thì ba chỗ này hiện ba tên khác nhau.
+  const { labelOf } = useNavLabels()
+  const okrNavItem = findNavItem('okr')
+  const pageTitle = okrNavItem ? labelOf(okrNavItem) : 'Quản lý OKR'
+
+
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [isImportModalOpen, setIsImportModalOpen] = useState(false)
   const [previewFile, setPreviewFile] = useState<File | null>(null)
@@ -111,44 +115,42 @@ export default function OkrManagementPage() {
   if (isLoading) return <div className="p-8 flex justify-center"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div></div>
 
   return (
-    <div className="max-w-6xl mx-auto space-y-8">
+    <div className="space-y-5">
       <PageTour pageKey="okr-management" steps={okrManagementSteps} />
-      
-      <div id="tour-okr-header" className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl md:text-3xl font-black tracking-tight text-slate-900 dark:text-white flex items-center gap-3">
-            <Target className="text-indigo-600 shrink-0" size={32} />
-            {pageTitle}
-          </h1>
-          <p className="text-slate-500 font-medium mt-1">Thiết lập mục tiêu chiến lược và đo lường kết quả then chốt</p>
-        </div>
-        {/* Mobile: 2 nút chia đôi bề ngang, không tràn/đè; desktop giữ nguyên */}
-        <div className="flex items-center gap-3 shrink-0">
-          <input
-            type="file"
-            className="hidden"
-            id="okr-import"
-            ref={fileInputRef}
-            accept=".xlsx"
-            onChange={handleImport}
-          />
-          <button
-            onClick={() => setIsImportModalOpen(true)}
-            className="flex flex-1 md:flex-none items-center justify-center gap-2 px-4 md:px-6 py-3 rounded-2xl border border-slate-200 dark:border-slate-800 text-sm font-bold text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all cursor-pointer shadow-sm active:scale-95"
-          >
-            <FileUp size={20} className="shrink-0" />
-            <span className="whitespace-nowrap">Import Excel</span>
-          </button>
-          <button
-            id="tour-okr-add-btn"
-            onClick={handleAddObjective}
-            className="flex flex-1 md:flex-none items-center justify-center gap-2 px-4 md:px-6 py-3 bg-indigo-600 text-white rounded-2xl font-bold hover:bg-indigo-700 shadow-lg shadow-indigo-500/20 transition-all active:scale-95"
-          >
-            <Plus size={20} className="shrink-0" />
-            <span className="whitespace-nowrap">Mục tiêu mới</span>
-          </button>
-        </div>
-      </div>
+
+      <WorkspaceHeader
+        id="tour-okr-header"
+        title={pageTitle}
+        description="Thiết lập mục tiêu chiến lược và đo lường kết quả then chốt."
+        actions={
+          /* Mobile: 2 nút chia đôi bề ngang, không tràn/đè; desktop giữ nguyên */
+          <div className="flex flex-1 items-center gap-3">
+            <input
+              type="file"
+              className="hidden"
+              id="okr-import"
+              ref={fileInputRef}
+              accept=".xlsx"
+              onChange={handleImport}
+            />
+            <button
+              onClick={() => setIsImportModalOpen(true)}
+              className="flex flex-1 md:flex-none items-center justify-center gap-2 px-4 h-10 rounded-xl border border-[var(--color-border)] text-sm font-bold text-[var(--color-muted-foreground)] hover:bg-[var(--color-muted)] transition-all cursor-pointer shadow-sm active:scale-95"
+            >
+              <FileUp size={16} className="shrink-0" />
+              <span className="whitespace-nowrap">Import Excel</span>
+            </button>
+            <button
+              id="tour-okr-add-btn"
+              onClick={handleAddObjective}
+              className="flex flex-1 md:flex-none items-center justify-center gap-2 px-5 h-10 bg-[var(--color-primary)] text-white rounded-xl text-sm font-bold hover:opacity-90 shadow-sm transition-all active:scale-95"
+            >
+              <Plus size={16} className="shrink-0" />
+              <span className="whitespace-nowrap">Mục tiêu mới</span>
+            </button>
+          </div>
+        }
+      />
 
       <div id="tour-okr-list" className="grid gap-6">
         {objectives?.map(objective => (

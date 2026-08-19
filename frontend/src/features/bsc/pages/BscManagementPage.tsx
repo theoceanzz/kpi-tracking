@@ -2,9 +2,9 @@ import { useState, useRef } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuthStore } from '@/store/authStore'
 import { useBscPerspectives, useBscMutations, useScorecards, useScorecardMutations, useFixedPerspectives } from '../hooks/useBsc'
-import { useSidebarSettings } from '@/features/organization/hooks/useSidebarSettings'
-import { Plus, Layers, Edit2, Trash2, GripVertical, FileUp, LayoutGrid, Calendar, BarChart3, Target, ShieldCheck, Undo2 } from 'lucide-react'
+import { Plus, Edit2, Trash2, GripVertical, FileUp, Calendar, BarChart3, Target, ShieldCheck, Undo2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import WorkspaceHeader from '@/components/common/WorkspaceHeader'
 import { usePermission } from '@/hooks/usePermission'
 import { PerspectiveResponse, BscPerspectiveStatus, ScorecardResponse, BscScorecardStatus, BscScoringMode, FixedPerspectiveResponse } from '../types'
 import PerspectiveFormModal from '../components/PerspectiveFormModal'
@@ -16,9 +16,15 @@ import ImportScorecardGuideModal from '../components/ImportScorecardGuideModal'
 import ScorecardExcelPreviewModal from '../components/ScorecardExcelPreviewModal'
 import ConfirmDialog from '@/components/common/ConfirmDialog'
 
-type Tab = 'perspectives' | 'scorecards'
+export type BscManagementView = 'perspectives' | 'scorecards'
 
-export default function BscManagementPage() {
+/**
+ * `view` do `BscWorkspace` truyền xuống chứ không còn là state nội bộ: "Hạng mục" và
+ * "Thẻ điểm" đã được nâng lên ngang hàng với Dashboard và Bản đồ chiến lược. Trước đây
+ * chúng là tầng tab thứ ba, và nhãn "Thẻ điểm" xuất hiện ở cả hai tầng nên không đoán
+ * được bấm cái nào ra cái gì.
+ */
+export default function BscManagementPage({ view }: { view: BscManagementView }) {
   const { user } = useAuthStore()
   const organizationId = user?.memberships?.[0]?.organizationId
   const { data: perspectives, isLoading } = useBscPerspectives(organizationId)
@@ -30,10 +36,7 @@ export default function BscManagementPage() {
   const canPublish = hasPermission('BSC:PUBLISH_SCORE')
   const canManage = hasPermission('BSC:MANAGE')
 
-  const { data: customLabels = {} } = useSidebarSettings(organizationId!)
-  const pageTitle = (customLabels as Record<string, string>)['/bsc'] || 'Thẻ điểm cân bằng (BSC)'
-
-  const [tab, setTab] = useState<Tab>('perspectives')
+  const tab = view
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [selected, setSelected] = useState<PerspectiveResponse | undefined>()
   const [editingFixed, setEditingFixed] = useState<FixedPerspectiveResponse | undefined>()
@@ -70,58 +73,55 @@ export default function BscManagementPage() {
     if (organizationId) importPerspectives.mutate({ organizationId, file }, { onSuccess: () => setPreviewFile(null) })
   }
 
-  if (isLoading) return <div className="p-8 flex justify-center"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600" /></div>
+  // Không thoát sớm khi đang tải: hàng tab cấp 2 nằm trên `WorkspaceHeader`, trả về
+  // riêng cái spinner sẽ làm cả hàng tab biến mất và người dùng kẹt ở tab đang mở.
+  if (isLoading) {
+    return (
+      <div className="space-y-5">
+        <WorkspaceHeader />
+        <div className="p-8 flex justify-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[var(--color-primary)]" />
+        </div>
+      </div>
+    )
+  }
 
   return (
-    <div className="max-w-4xl mx-auto space-y-6">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-black tracking-tight text-slate-900 dark:text-white flex items-center gap-3">
-            <Layers className="text-indigo-600" size={32} />
-            {pageTitle}
-          </h1>
-          <p className="text-slate-500 font-medium mt-1">Cấu hình hạng mục theo 4 viễn cảnh cố định & thẻ điểm cân bằng</p>
-        </div>
-        <div className="flex items-center gap-3">
-          {tab === 'perspectives' ? (
+    <div className="space-y-5">
+      <WorkspaceHeader
+        description={
+          tab === 'perspectives'
+            ? 'Cấu hình hạng mục theo 4 viễn cảnh cố định của thẻ điểm cân bằng.'
+            : 'Thẻ điểm cân bằng theo đơn vị và kỳ, gồm cách chấm và trạng thái công bố.'
+        }
+        actions={
+          tab === 'perspectives' ? (
             <>
               <input type="file" className="hidden" ref={fileInputRef} accept=".xlsx" onChange={handleFileSelect} />
               <button onClick={() => setIsImportGuideOpen(true)}
-                className="flex items-center gap-2 px-5 py-3 rounded-2xl border border-slate-200 dark:border-slate-800 text-sm font-bold text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all shadow-sm active:scale-95">
-                <FileUp size={20} /> Import
+                className="flex items-center gap-2 px-4 h-10 rounded-xl border border-[var(--color-border)] text-sm font-bold text-[var(--color-muted-foreground)] hover:bg-[var(--color-muted)] transition-all shadow-sm active:scale-95">
+                <FileUp size={16} /> Import
               </button>
               <button onClick={() => { setSelected(undefined); setIsModalOpen(true) }}
-                className="flex items-center gap-2 px-5 py-3 bg-indigo-600 text-white rounded-2xl font-bold hover:bg-indigo-700 shadow-lg shadow-indigo-500/20 transition-all active:scale-95">
-                <Plus size={20} /> Hạng mục mới
+                className="flex items-center gap-2 px-5 h-10 bg-[var(--color-primary)] text-white rounded-xl text-sm font-bold hover:opacity-90 shadow-sm transition-all active:scale-95">
+                <Plus size={16} /> Hạng mục mới
               </button>
             </>
           ) : (
             <>
               <input type="file" className="hidden" ref={scorecardFileInputRef} accept=".xlsx" onChange={handleScorecardFileSelect} />
               <button onClick={() => setIsScorecardImportGuideOpen(true)}
-                className="flex items-center gap-2 px-5 py-3 rounded-2xl border border-slate-200 dark:border-slate-800 text-sm font-bold text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all shadow-sm active:scale-95">
-                <FileUp size={20} /> Import
+                className="flex items-center gap-2 px-4 h-10 rounded-xl border border-[var(--color-border)] text-sm font-bold text-[var(--color-muted-foreground)] hover:bg-[var(--color-muted)] transition-all shadow-sm active:scale-95">
+                <FileUp size={16} /> Import
               </button>
               <button onClick={() => { setSelectedScorecard(undefined); setIsScorecardModalOpen(true) }}
-                className="flex items-center gap-2 px-5 py-3 bg-indigo-600 text-white rounded-2xl font-bold hover:bg-indigo-700 shadow-lg shadow-indigo-500/20 transition-all active:scale-95">
-                <Plus size={20} /> Thẻ điểm mới
+                className="flex items-center gap-2 px-5 h-10 bg-[var(--color-primary)] text-white rounded-xl text-sm font-bold hover:opacity-90 shadow-sm transition-all active:scale-95">
+                <Plus size={16} /> Thẻ điểm mới
               </button>
             </>
-          )}
-        </div>
-      </div>
-
-      {/* Tabs */}
-      <div className="flex items-center gap-1 p-1 rounded-2xl bg-slate-100 dark:bg-slate-800/50 w-fit">
-        <button onClick={() => setTab('perspectives')}
-          className={cn('flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-black transition-all', tab === 'perspectives' ? 'bg-white dark:bg-slate-900 text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700')}>
-          <Layers size={16} /> Hạng mục
-        </button>
-        <button onClick={() => setTab('scorecards')}
-          className={cn('flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-black transition-all', tab === 'scorecards' ? 'bg-white dark:bg-slate-900 text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700')}>
-          <LayoutGrid size={16} /> Thẻ điểm
-        </button>
-      </div>
+          )
+        }
+      />
 
       {tab === 'perspectives' && (
         <div className="space-y-6">
@@ -227,7 +227,7 @@ export default function BscManagementPage() {
                       {sc.scoringMode === BscScoringMode.SHADOW ? <ShieldCheck size={18} /> : <Undo2 size={18} />}
                     </button>
                   )}
-                  <Link to={`/bsc/dashboard?scorecard=${sc.id}`} className="p-2 rounded-xl text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 transition-all" title="Xem dashboard"><BarChart3 size={18} /></Link>
+                  <Link to={`/settings/tools?section=bsc&bsc=dashboard&scorecard=${sc.id}`} className="p-2 rounded-xl text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 transition-all" title="Xem dashboard"><BarChart3 size={18} /></Link>
                   <button onClick={() => { setSelectedScorecard(sc); setIsScorecardModalOpen(true) }} className="p-2 rounded-xl text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition-all"><Edit2 size={18} /></button>
                   <button onClick={() => setDeleteScorecardId(sc.id)} className="p-2 rounded-xl text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 transition-all"><Trash2 size={18} /></button>
                 </div>

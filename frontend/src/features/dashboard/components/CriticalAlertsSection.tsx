@@ -142,7 +142,7 @@ export function CriticalAlertsSection({ alerts, periodName, daysRemaining, onSel
             />
           </div>
           <Link
-            to="/submissions/org-unit"
+            to="/performance?section=submissions-org-unit"
             className="flex items-center justify-center gap-2 px-5 py-3 rounded-[18px] bg-slate-900 dark:bg-white text-white dark:text-slate-900 text-[10px] font-black uppercase tracking-widest hover:bg-indigo-600 dark:hover:bg-indigo-600 dark:hover:text-white transition-all active:scale-95 shrink-0"
           >
             Trung tâm duyệt <ExternalLink size={14} />

@@ -1,3 +1,4 @@
+import WorkspaceHeader from '@/components/common/WorkspaceHeader'
 import AiQuotaPanel from '../components/AiQuotaPanel'
 
 /**
@@ -9,15 +10,11 @@ import AiQuotaPanel from '../components/AiQuotaPanel'
  */
 export default function AiQuotaPage() {
   return (
-    <div className="max-w-6xl mx-auto space-y-8 animate-in fade-in duration-500">
-      <div>
-        <h1 className="text-3xl font-black tracking-tight text-slate-900 dark:text-white">
-          Hạn mức AI
-        </h1>
-        <p className="text-slate-500 font-medium">
-          Chia hạn mức token AI hằng tháng cho nhân sự thuộc phạm vi quản lý của bạn
-        </p>
-      </div>
+    <div className="space-y-5 animate-in fade-in duration-500">
+      <WorkspaceHeader
+        title="Hạn mức AI"
+        description="Chia hạn mức token AI hằng tháng cho nhân sự thuộc phạm vi quản lý của bạn."
+      />
 
       <AiQuotaPanel />
     </div>

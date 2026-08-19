@@ -4,6 +4,7 @@ import DataTable from '@/components/common/DataTable'
 import ConfirmDialog from '@/components/common/ConfirmDialog'
 import EmptyState from '@/components/common/EmptyState'
 import LoadingSkeleton from '@/components/common/LoadingSkeleton'
+import { WorkspaceHeaderActions } from '@/components/common/WorkspaceTabs'
 import BudgetFormModal from './BudgetFormModal'
 import { useRewardBudgets } from '../hooks/useRewards'
 import type { RewardBudget } from '../types'
@@ -62,16 +63,18 @@ export default function BudgetsTab() {
                 : `${active}/${total} hạn mức đang hiệu lực`
             })()}
         </span>
-        <button
-          onClick={() => {
-            setEditing(null)
-            setFormOpen(true)
-          }}
-          className="inline-flex flex-shrink-0 items-center gap-2 rounded-lg bg-[var(--color-primary)] px-4 py-2 text-sm font-medium text-white shadow-sm transition-opacity hover:opacity-90"
-        >
-          <Plus size={16} />
-          Cấp hạn mức
-        </button>
+        <WorkspaceHeaderActions>
+          <button
+            onClick={() => {
+              setEditing(null)
+              setFormOpen(true)
+            }}
+            className="inline-flex flex-shrink-0 items-center gap-2 rounded-xl bg-[var(--color-primary)] px-5 h-10 text-sm font-bold text-white shadow-sm transition-opacity hover:opacity-90"
+          >
+            <Plus size={16} />
+            Cấp hạn mức
+          </button>
+        </WorkspaceHeaderActions>
       </div>
 
       {isLoading ? (

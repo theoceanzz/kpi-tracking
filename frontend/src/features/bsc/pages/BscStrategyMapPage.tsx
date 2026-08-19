@@ -8,7 +8,8 @@ import '@xyflow/react/dist/style.css'
 import { useAuthStore } from '@/store/authStore'
 import { useStrategyMap, useRelationMutations } from '../hooks/useBsc'
 import { useObjectives } from '@/features/okr/hooks/useOkr'
-import { GitBranch, Layers, Target, AlertTriangle, Lightbulb } from 'lucide-react'
+import { Layers, Target, AlertTriangle, Lightbulb } from 'lucide-react'
+import WorkspaceHeader from '@/components/common/WorkspaceHeader'
 import { toast } from 'sonner'
 import ConfirmDialog from '@/components/common/ConfirmDialog'
 import type { StrategyMapResponse } from '../types'
@@ -193,22 +194,20 @@ export default function BscStrategyMapPage() {
   return (
     // h-full + flex-col: trang lấp đúng chiều cao <main> (đã trừ header & padding của AppLayout)
     // nên không sinh thanh cuộn dọc; canvas bên dưới hút phần cao còn lại.
-    <div className="max-w-full h-full flex flex-col gap-4">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 shrink-0">
-        <div>
-          <h1 className="text-3xl font-black tracking-tight text-slate-900 dark:text-white flex items-center gap-3">
-            <GitBranch className="text-indigo-600" size={30} /> Bản đồ chiến lược
-          </h1>
-          <p className="text-slate-500 font-medium mt-1">Viễn cảnh → Hạng mục → Mục tiêu → Kết quả then chốt → KPI, và quan hệ nhân-quả giữa các mục tiêu</p>
-        </div>
-        <div className="flex items-center gap-3 text-[11px] font-bold text-slate-500">
-          <span className="flex items-center gap-1.5"><span className="w-4 h-0.5 bg-slate-300" /> Phân cấp</span>
-          <span className="flex items-center gap-1.5"><span className="w-4 h-0.5 border-t-2 border-dashed border-rose-500" /> Nhân-quả</span>
-          <span className="flex items-center gap-1.5"><AlertTriangle size={12} className="text-amber-500" /> Lệch hạng mục</span>
-        </div>
-      </div>
+    <div className="max-w-full flex flex-col gap-4">
+      <WorkspaceHeader
+        className="shrink-0"
+        description="Viễn cảnh → Hạng mục → Mục tiêu → Kết quả then chốt → KPI, và quan hệ nhân-quả giữa các mục tiêu."
+        actions={
+          <div className="flex flex-wrap items-center gap-3 text-[11px] font-bold text-[var(--color-muted-foreground)]">
+            <span className="flex items-center gap-1.5"><span className="w-4 h-0.5 bg-slate-300" /> Phân cấp</span>
+            <span className="flex items-center gap-1.5"><span className="w-4 h-0.5 border-t-2 border-dashed border-rose-500" /> Nhân-quả</span>
+            <span className="flex items-center gap-1.5"><AlertTriangle size={12} className="text-amber-500" /> Lệch hạng mục</span>
+          </div>
+        }
+      />
 
-      <div className="rounded-3xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 overflow-hidden flex-1 min-h-[300px]">
+      <div className="rounded-3xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 overflow-hidden h-[calc(100vh-320px)] min-h-[420px]">
         {isLoading ? (
           <div className="h-full flex items-center justify-center"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600" /></div>
         ) : (

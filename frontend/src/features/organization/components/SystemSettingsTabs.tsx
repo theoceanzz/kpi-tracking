@@ -1,105 +1,21 @@
 import { useState, useEffect } from 'react'
-import {
-  Bell, LayoutPanelLeft, Save,
-  Info, Loader2, Search, Mail, Link2
-} from 'lucide-react'
-import EmailTemplateSettingsTab from '../components/EmailTemplateSettingsTab'
-import LarkSettingsTab from '../components/LarkSettingsTab'
-import { LARK_CONNECT_RESULT_KEY } from '@/features/auth/pages/LarkCallbackPage'
+import { LayoutPanelLeft, Save, Info, Loader2, Search, Bell } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useSidebarSettings, useUpdateSidebarSettings } from '../hooks/useSidebarSettings'
 import { useAuthStore } from '@/store/authStore'
 import { toast } from 'sonner'
-import PageTour from '@/components/common/PageTour'
-import { settingsSteps } from '@/components/common/tourSteps'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { notificationApi, type NotificationConfigItem } from '@/features/notifications/api/notificationApi'
 import { useOrganization } from '@/features/orgunits/hooks/useOrganization'
+import { collectMenuEntries } from '@/config/navigation'
 
-export default function SystemSettingsPage() {
-  const [activeTab, setActiveTab] = useState<'sidebar' | 'notifications' | 'emailTemplates' | 'lark'>(
-    // Quay về từ Lark sau bước liên kết thì mở thẳng tab Lark để thấy thẻ xác nhận
-    () => (sessionStorage.getItem(LARK_CONNECT_RESULT_KEY) ? 'lark' : 'sidebar')
-  )
-  const { user } = useAuthStore()
-  const organizationId = user?.memberships?.[0]?.organizationId
-  const { data: customLabels = {} } = useSidebarSettings(organizationId!)
-  const pageTitle = ((customLabels as Record<string, string>)['/settings'] || 'Cấu hình hệ thống')
-    .split(' ')
-    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-    .join(' ')
-
-  return (
-    <div className="max-w-6xl mx-auto space-y-8 animate-in fade-in duration-500">
-      <PageTour pageKey="settings" steps={settingsSteps} />
-      {/* Header */}
-      <div id="tour-settings-header" className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-black tracking-tight text-slate-900 dark:text-white">{pageTitle}</h1>
-          <p className="text-slate-500 font-medium">Quản lý các thiết lập chung cho toàn bộ tổ chức</p>
-        </div>
-      </div>
-
-      {/* Tabs */}
-      <div id="tour-settings-tabs" className="flex items-center gap-2 p-1.5 bg-slate-100 dark:bg-slate-800/50 rounded-2xl w-full sm:w-fit border border-slate-200 dark:border-slate-800">
-        <TabButton 
-          active={activeTab === 'sidebar'} 
-          onClick={() => setActiveTab('sidebar')}
-          icon={LayoutPanelLeft}
-          label="Thiết lập Sidebar"
-        />
-        <TabButton
-          active={activeTab === 'notifications'}
-          onClick={() => setActiveTab('notifications')}
-          icon={Bell}
-          label="Thiết lập thông báo"
-        />
-        <TabButton
-          active={activeTab === 'emailTemplates'}
-          onClick={() => setActiveTab('emailTemplates')}
-          icon={Mail}
-          label="Template email"
-        />
-        <TabButton
-          active={activeTab === 'lark'}
-          onClick={() => setActiveTab('lark')}
-          icon={Link2}
-          label="Kết nối Lark"
-        />
-      </div>
-
-      {/* Content */}
-      <div className="min-h-[500px]">
-        {activeTab === 'sidebar' && <SidebarSettingsTab />}
-        {activeTab === 'notifications' && <NotificationSettingsTab />}
-        {activeTab === 'emailTemplates' && (
-          <EmailTemplateSettingsTab onOpenNotificationSettings={() => setActiveTab('notifications')} />
-        )}
-        {activeTab === 'lark' && <LarkSettingsTab />}
-      </div>
-    </div>
-  )
-}
-
-function TabButton({ active, onClick, icon: Icon, label }: { active: boolean, onClick: () => void, icon: any, label: string }) {
-  return (
-    <button
-      onClick={onClick}
-      className={cn(
-        "flex items-center justify-center gap-2.5 px-3 sm:px-6 py-2.5 rounded-xl text-sm font-bold transition-all whitespace-nowrap flex-1 sm:flex-none",
-        active 
-          ? "bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 shadow-sm" 
-          : "text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
-      )}
-    >
-      <Icon size={18} />
-      {label}
-    </button>
-  )
-}
+/**
+ * Hai khối cấu hình hệ thống, tách khỏi trang cũ để gắn vào menu trong trang
+ * "Thiết lập công ty". Nội dung giữ nguyên.
+ */
 
 /* ========== SIDEBAR SETTINGS TAB ========== */
-function SidebarSettingsTab() {
+export function SidebarSettingsTab() {
   const { user } = useAuthStore()
   const organizationId = user?.memberships?.[0]?.organizationId
   const { data: settings, isLoading, refetch } = useSidebarSettings(organizationId!)
@@ -139,43 +55,18 @@ function SidebarSettingsTab() {
 
   if (isLoading) return <div className="flex items-center justify-center h-64"><Loader2 className="animate-spin text-indigo-600" /></div>
 
-  const menuItems = [
-    { key: '/dashboard', defaultLabel: 'Tổng quan', category: 'Dashboard' },
-    { key: 'Thiết lập công ty', defaultLabel: 'Thiết lập công ty', category: 'Hệ thống' },
-    { key: '/company', defaultLabel: 'Công ty', category: 'Hệ thống' },
-    // Nhãn OKR/BSC chỉ sửa được khi tổ chức bật tính năng tương ứng (khớp cờ okrOnly/bscOnly ở Sidebar).
-    // Nhóm không có path nên key là chính nhãn gốc — trùng quy ước getLabel() bên Sidebar.
-    ...(enableOkr ? [
-      { key: '/okr', defaultLabel: 'Quản lý OKR', category: 'OKR' },
-    ] : []),
-    ...(enableBsc ? [
-      { key: 'Quản lý BSC', defaultLabel: 'Quản lý BSC', category: 'BSC' },
-      { key: '/bsc', defaultLabel: 'Thẻ điểm BSC', category: 'BSC' },
-      { key: '/bsc/dashboard', defaultLabel: 'Dashboard BSC', category: 'BSC' },
-      { key: '/bsc/strategy-map', defaultLabel: 'Bản đồ chiến lược', category: 'BSC' },
-    ] : []),
-    { key: 'Tổ chức', defaultLabel: 'Tổ chức', category: 'Hệ thống' },
-    { key: '/roles', defaultLabel: 'Vai trò', category: 'Hệ thống' },
-    { key: '/org-structure', defaultLabel: 'Sơ đồ tổ chức', category: 'Hệ thống' },
-    { key: '/users', defaultLabel: 'Nhân sự', category: 'Hệ thống' },
-    { key: '/settings', defaultLabel: 'Cấu hình hệ thống', category: 'Hệ thống' },
-    { key: 'Quản lý KPI', defaultLabel: 'Quản lý KPI', category: 'KPI' },
-    { key: '/kpi-cycles', defaultLabel: 'Quản lý kỳ', category: 'KPI' },
-    { key: '/kpi-periods', defaultLabel: 'Quản lý đợt', category: 'KPI' },
-    { key: '/kpi-criteria', defaultLabel: 'Quản lý chỉ tiêu', category: 'KPI' },
-    { key: '/kpi-criteria/pending', defaultLabel: 'Duyệt chỉ tiêu', category: 'KPI' },
-    { key: '/kpi-adjustments/pending', defaultLabel: 'Duyệt điều chỉnh', category: 'KPI' },
-    { key: '/submissions/org-unit', defaultLabel: 'Phê duyệt & Đánh giá', category: 'KPI' },
-    { key: '/evaluations', defaultLabel: 'Kết quả đánh giá', category: 'KPI' },
-    { key: '/kpi-cycles/evaluation', defaultLabel: 'Đánh giá kỳ', category: 'KPI' },
-    { key: '/my-kpi', defaultLabel: 'KPI của tôi', category: 'Cá nhân' },
-    { key: '/my-adjustments', defaultLabel: 'Điều chỉnh của tôi', category: 'Cá nhân' },
-    { key: '/submissions', defaultLabel: 'Bài nộp của tôi', category: 'Cá nhân' },
-    { key: '/analytics', defaultLabel: 'Thống kê', category: 'Thống kê' },
-    { key: '/ai-quota', defaultLabel: 'Hạn mức AI', category: 'Hệ thống' },
-  ]
+  // Dẫn xuất thẳng từ cây nav dùng chung. Trước đây đây là một bản sao viết tay của
+  // navItems và đã lệch: khoá chết '/kpi-criteria/adjustments', vài nhãn mặc định sai,
+  // thiếu hẳn AI/thưởng/ví. Thêm mục nav mới giờ tự hiện ở bảng này.
+  const menuItems = collectMenuEntries({
+    enableOkr,
+    enableBsc,
+    enableReward: org?.enableReward || false,
+    enableCashWallet: org?.enableCashWallet || false,
+    enableAi: org?.enableAi !== false,
+  })
 
-  const filteredItems = menuItems.filter(item => 
+  const filteredItems = menuItems.filter(item =>
     item.defaultLabel.toLowerCase().includes(searchTerm.toLowerCase()) || 
     item.key.toLowerCase().includes(searchTerm.toLowerCase())
   )
@@ -300,7 +191,7 @@ const DEFAULT_SETTINGS: NotificationConfigItem[] = Object.keys(EVENT_LABELS).map
   systemEnabled: true,
 }))
 
-function NotificationSettingsTab() {
+export function NotificationSettingsTab() {
   const queryClient = useQueryClient()
   const [settings, setSettings] = useState<NotificationConfigItem[]>(DEFAULT_SETTINGS)
 

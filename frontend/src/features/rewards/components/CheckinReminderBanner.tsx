@@ -39,7 +39,7 @@ export default function CheckinReminderBanner() {
   if (!status?.canCheckin) return null
   if (dismissedOn === status.today) return null
   // Đang đứng ở đúng trang có nút điểm danh thì banner chỉ là tiếng ồn.
-  if (location.pathname === '/rewards/me') return null
+  if (location.pathname === '/me' && location.search.includes('section=my-rewards')) return null
 
   const dismiss = () => {
     try {
@@ -83,7 +83,7 @@ export default function CheckinReminderBanner() {
         </p>
 
         <Link
-          to="/rewards/me"
+          to="/me?section=my-rewards"
           className="inline-flex flex-shrink-0 items-center gap-1.5 rounded-lg bg-amber-500 px-3 py-1.5 text-sm font-semibold text-white transition-opacity hover:opacity-90"
         >
           {/* Nhãn rút gọn ở mobile — chữ đầy đủ sẽ đẩy nút x ra khỏi màn hình hẹp. */}

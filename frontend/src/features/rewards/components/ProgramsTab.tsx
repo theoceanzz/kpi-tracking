@@ -4,6 +4,7 @@ import DataTable from '@/components/common/DataTable'
 import ConfirmDialog from '@/components/common/ConfirmDialog'
 import EmptyState from '@/components/common/EmptyState'
 import LoadingSkeleton from '@/components/common/LoadingSkeleton'
+import { WorkspaceHeaderActions } from '@/components/common/WorkspaceTabs'
 import ProgramFormModal from './ProgramFormModal'
 import RunPreviewModal from './RunPreviewModal'
 import ProgramRunsModal from './ProgramRunsModal'
@@ -60,16 +61,18 @@ export default function ProgramsTab() {
         <span className="text-sm text-[var(--color-muted-foreground)]">
           {(data ?? []).length > 0 && `${(data ?? []).length} chương trình`}
         </span>
-        <button
-          onClick={() => {
-            setEditing(null)
-            setFormOpen(true)
-          }}
-          className="inline-flex flex-shrink-0 items-center gap-2 rounded-lg bg-[var(--color-primary)] px-4 py-2 text-sm font-medium text-white shadow-sm transition-opacity hover:opacity-90"
-        >
-          <Plus size={16} />
-          Tạo chương trình
-        </button>
+        <WorkspaceHeaderActions>
+          <button
+            onClick={() => {
+              setEditing(null)
+              setFormOpen(true)
+            }}
+            className="inline-flex flex-shrink-0 items-center gap-2 rounded-xl bg-[var(--color-primary)] px-5 h-10 text-sm font-bold text-white shadow-sm transition-opacity hover:opacity-90"
+          >
+            <Plus size={16} />
+            Tạo chương trình
+          </button>
+        </WorkspaceHeaderActions>
       </div>
 
       {isLoading ? (

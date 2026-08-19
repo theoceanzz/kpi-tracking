@@ -387,7 +387,7 @@ export default function KpiCriteriaPage() {
 
 
   return (
-    <div className="min-h-screen bg-slate-50/50 dark:bg-slate-950/50">
+    <div>
       <div className="max-w-[1600px] mx-auto p-4 md:p-8 space-y-8">
         <PageTour pageKey="kpi-criteria" steps={kpiCriteriaSteps} />
         
@@ -435,39 +435,41 @@ export default function KpiCriteriaPage() {
         {/* Header Section with Glass Card */}
         <div className="relative group">
           <div className="absolute -inset-1 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 rounded-[40px] blur opacity-10 group-hover:opacity-20 transition duration-1000"></div>
-          <div className="relative bg-white dark:bg-slate-900 rounded-[32px] p-8 border border-slate-200 dark:border-slate-800 shadow-xl overflow-hidden">
+          {/* Cùng một thang kích thước với đầu trang Phê duyệt chỉ tiêu — hai trang này
+              đứng cạnh nhau trong cùng luồng, lệch cỡ sẽ đọc thành lệch cấp. */}
+          <div className="relative bg-white dark:bg-slate-900 rounded-[28px] p-6 border border-slate-200 dark:border-slate-800 shadow-lg overflow-hidden">
             <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/5 rounded-full -translate-y-1/2 translate-x-1/2 blur-3xl" />
             <div className="absolute bottom-0 left-0 w-48 h-48 bg-purple-500/5 rounded-full translate-y-1/2 -translate-x-1/2 blur-3xl" />
 
-            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-8">
-              <div className="space-y-4">
-                <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 text-xs font-black uppercase tracking-[0.2em] shadow-sm">
-                  <Target size={14} className="animate-pulse" /> Trung tâm Chỉ tiêu
+            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+              <div className="space-y-3">
+                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 text-[10px] font-black uppercase tracking-[0.2em] shadow-sm">
+                  <Target size={12} className="animate-pulse" /> Trung tâm Chỉ tiêu
                 </div>
-                <div className="space-y-1">
-                  <h1 className="text-4xl md:text-5xl font-black tracking-tight text-slate-900 dark:text-white">
+                <div className="space-y-0.5">
+                  <h1 className="text-3xl md:text-4xl font-black tracking-tight text-slate-900 dark:text-white">
                     {mainTitle} <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 to-purple-600">{lastWord}</span>
                   </h1>
-                  <p className="text-slate-500 dark:text-slate-400 font-medium text-lg max-w-xl leading-relaxed">
+                  <p className="text-slate-500 dark:text-slate-400 font-medium text-sm max-w-xl leading-relaxed">
                     Thiết lập chiến lược, phân bổ trọng số và kiến tạo thành công cho đội ngũ của bạn.
                   </p>
                 </div>
               </div>
 
-              <div className="flex items-stretch gap-4">
-                <div className="flex bg-slate-50/50 dark:bg-slate-800/50 backdrop-blur-md rounded-[28px] border border-slate-200/60 dark:border-slate-700/60 p-2 shadow-inner group/stats">
-                  <div className="px-4 sm:px-8 py-3 text-center border-r border-slate-200 dark:border-slate-700 group-hover/stats:scale-105 transition-transform duration-500">
-                    <p className="text-3xl font-black text-slate-900 dark:text-white tracking-tighter">{stats.total}</p>
-                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Tổng chỉ tiêu</p>
+              <div className="flex items-stretch">
+                <div className="flex bg-slate-50/50 dark:bg-slate-800/50 backdrop-blur-md rounded-[20px] border border-slate-200/60 dark:border-slate-700/60 p-1.5 shadow-inner">
+                  <div className="px-6 py-2 text-center border-r border-slate-200 dark:border-slate-700">
+                    <p className="text-2xl font-black text-slate-900 dark:text-white tracking-tighter">{stats.total}</p>
+                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Tổng chỉ tiêu</p>
                   </div>
-                  <div className="px-4 sm:px-8 py-3 text-center group-hover/stats:scale-105 transition-transform duration-500">
-                    <div className={`flex items-center gap-3 justify-center ${
+                  <div className="px-6 py-2 text-center">
+                    <div className={`flex items-center gap-2 justify-center ${
                       displayTotalWeight === 100 ? 'text-emerald-600' : 'text-rose-600'
                     }`}>
-                      <Gauge size={24} className={displayTotalWeight !== 100 ? 'animate-bounce' : ''} />
-                      <p className="text-3xl font-black tracking-tighter">{displayTotalWeight}%</p>
+                      <Gauge size={18} className={displayTotalWeight !== 100 ? 'animate-bounce' : ''} />
+                      <p className="text-2xl font-black tracking-tighter">{displayTotalWeight}%</p>
                     </div>
-                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Trọng số kỳ này</p>
+                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Trọng số kỳ này</p>
                   </div>
                 </div>
               </div>

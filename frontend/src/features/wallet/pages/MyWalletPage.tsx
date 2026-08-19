@@ -67,7 +67,7 @@ export default function MyWalletPage() {
     <div className="mx-auto max-w-7xl p-4 sm:p-6">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <PageHeader
-          title="Ví tiền của tôi"
+          title="Ví của tôi"
           description="Nạp tiền, đổi sang điểm thưởng và xem toàn bộ lịch sử giao dịch"
         />
         <button

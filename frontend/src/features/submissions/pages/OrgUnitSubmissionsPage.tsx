@@ -44,7 +44,7 @@ export default function OrgUnitSubmissionsPage() {
   const isManager = useMemo(() => user?.memberships?.some(m => m.roleRank === 0), [user])
 
   const { data: customLabels = {} } = useSidebarSettings(orgId!)
-  const rawTitle = ((customLabels as Record<string, string>)['/submissions/org-unit'] || 'Đánh giá Nhân viên')
+  const rawTitle = ((customLabels as Record<string, string>)['submissions-org-unit'] || (customLabels as Record<string, string>)['/submissions/org-unit'] || 'Đánh giá Nhân viên')
     .split(' ')
     .map(word => word.charAt(0).toUpperCase() + word.slice(1))
     .join(' ')
@@ -235,7 +235,7 @@ export default function OrgUnitSubmissionsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#f8fafc] dark:bg-[#020617] p-4 md:p-8">
+    <div className="p-4 md:p-8">
       <div className="max-w-[1600px] mx-auto space-y-8">
         <PageTour pageKey="submissions-org" steps={orgUnitSubmissionsSteps} />
         

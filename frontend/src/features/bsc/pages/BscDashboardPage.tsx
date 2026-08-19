@@ -3,8 +3,9 @@ import { useSearchParams } from 'react-router-dom'
 import { RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar, ResponsiveContainer, Tooltip } from 'recharts'
 import { useAuthStore } from '@/store/authStore'
 import { useScorecards, useBscDashboard } from '../hooks/useBsc'
-import { Layers, Target, TrendingUp, Calendar, Gauge } from 'lucide-react'
+import { Layers, Target, TrendingUp, Calendar } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import WorkspaceHeader from '@/components/common/WorkspaceHeader'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { BscScoringMode } from '../types'
 
@@ -83,26 +84,23 @@ export default function BscDashboardPage() {
   }
 
   return (
-    <div className="max-w-6xl mx-auto space-y-6">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-black tracking-tight text-slate-900 dark:text-white flex items-center gap-3">
-            <Gauge className="text-indigo-600" size={32} /> Thẻ điểm cân bằng
-          </h1>
-          <p className="text-slate-500 font-medium mt-1">Tổng hợp kết quả theo các viễn cảnh chiến lược</p>
-        </div>
-        <div className="min-w-[240px]">
-          <Select value={scorecardId} onValueChange={onSelect}>
-            <SelectTrigger className="w-full h-11 rounded-2xl border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-sm font-black text-sm">
-              <Calendar size={16} className="text-indigo-500 mr-2 shrink-0" />
-              <SelectValue placeholder="Chọn thẻ điểm" />
-            </SelectTrigger>
-            <SelectContent className="rounded-2xl border-slate-200 dark:border-slate-800 max-h-[300px]">
-              {scorecards?.map(sc => <SelectItem key={sc.id} value={sc.id} className="text-sm font-bold">{sc.name} · {sc.kpiPeriodName} · {sc.orgUnitName || 'Toàn tổ chức'}</SelectItem>)}
-            </SelectContent>
-          </Select>
-        </div>
-      </div>
+    <div className="space-y-5">
+      <WorkspaceHeader
+        description="Tổng hợp kết quả theo các viễn cảnh chiến lược."
+        actions={
+          <div className="min-w-[240px]">
+            <Select value={scorecardId} onValueChange={onSelect}>
+              <SelectTrigger className="w-full h-10 rounded-xl border-[var(--color-border)] bg-[var(--color-muted)]/40 shadow-sm font-bold text-sm">
+                <Calendar size={16} className="text-[var(--color-primary)] mr-2 shrink-0" />
+                <SelectValue placeholder="Chọn thẻ điểm" />
+              </SelectTrigger>
+              <SelectContent className="rounded-2xl border-slate-200 dark:border-slate-800 max-h-[300px]">
+                {scorecards?.map(sc => <SelectItem key={sc.id} value={sc.id} className="text-sm font-bold">{sc.name} · {sc.kpiPeriodName} · {sc.orgUnitName || 'Toàn tổ chức'}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+        }
+      />
 
       {isLoading && <div className="p-16 flex justify-center"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600" /></div>}
 

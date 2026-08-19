@@ -212,7 +212,7 @@ export default function KpiApprovalPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#f8fafc] dark:bg-[#020617] p-4 md:p-8">
+    <div className="p-4 md:p-8">
       <div className="max-w-[1600px] mx-auto space-y-8 animate-in fade-in duration-700">
         <PageTour pageKey="kpi-pending" steps={kpiPendingSteps} />
         

@@ -13,7 +13,7 @@ import {
 } from 'lucide-react'
 
 import { useAuthStore } from '@/store/authStore'
-import { useSidebarSettings } from '@/features/organization/hooks/useSidebarSettings'
+import { usePageTitle } from '@/features/organization/hooks/usePageTitle'
 import { useKpiPeriods } from '../hooks/useKpiPeriods'
 import { useOrganization } from '@/features/orgunits/hooks/useOrganization'
 import { useObjectives } from '@/features/okr/hooks/useOkr'
@@ -54,8 +54,7 @@ export default function MyKpiPage() {
 
   const { data: periodsData } = useKpiPeriods({ organizationId: user?.memberships?.[0]?.organizationId })
   const organizationId = user?.memberships?.[0]?.organizationId
-  const { data: customLabels = {} } = useSidebarSettings(organizationId!)
-  const pageTitle = `Danh sách ${((customLabels as Record<string, string>)['/my-kpi'] || 'KPI của tôi').trim()}`
+  const pageTitle = `Danh sách ${usePageTitle('my-kpi', 'KPI của tôi')}`
     .split(' ')
     .map(word => word.charAt(0).toUpperCase() + word.slice(1))
     .join(' ')
@@ -311,7 +310,7 @@ export default function MyKpiPage() {
 
                     {isPeriodDone && !hasEvaluation && (
                       <button
-                        onClick={() => navigate(`/evaluations?action=self-eval&periodId=${periodId}`)}
+                        onClick={() => navigate(`/me?section=evaluations&action=self-eval&periodId=${periodId}`)}
                         className="flex items-center justify-center gap-2 px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest transition-all shadow-lg shadow-amber-500/20 shrink-0"
                       >
                         <Star size={14} className="fill-current" /> Tiến hành Tự đánh giá
@@ -399,7 +398,7 @@ export default function MyKpiPage() {
 
                   {isPeriodDone && !hasEvaluation && (
                     <button
-                      onClick={() => navigate(`/evaluations?action=self-eval&periodId=${periodId}`)}
+                      onClick={() => navigate(`/me?section=evaluations&action=self-eval&periodId=${periodId}`)}
                       className="flex items-center justify-center gap-2 px-5 py-2.5 bg-amber-500 hover:bg-amber-600 text-white rounded-2xl text-[10px] font-black uppercase tracking-[1px] transition-all shadow-xl shadow-amber-500/20 shrink-0"
                     >
                       <Star size={16} className="fill-current" /> Tự đánh giá ngay

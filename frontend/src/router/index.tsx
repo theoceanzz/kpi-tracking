@@ -1,4 +1,5 @@
 import { createBrowserRouter } from 'react-router-dom'
+import RedirectToSection from './RedirectToSection'
 import AuthLayout from '@/layouts/AuthLayout'
 import AppLayout from '@/layouts/AppLayout'
 import ProtectedRoute from './ProtectedRoute'
@@ -14,47 +15,26 @@ import LarkCallbackPage from '@/features/auth/pages/LarkCallbackPage'
 import LarkSelectCompanyPage from '@/features/auth/pages/LarkSelectCompanyPage'
 import ForgotPasswordPage from '@/features/auth/pages/ForgotPasswordPage'
 import ResetPasswordPage from '@/features/auth/pages/ResetPasswordPage'
-import RoleManagementPage from '@/features/organization/pages/RoleManagementPage'
 
 // Dashboard pages
 import EmployeePerformancePage from '@/features/dashboard/pages/EmployeePerformancePage'
 
-import { OrganizationStructurePage } from '@/features/organization/pages/OrganizationStructurePage'
 import OrgUnitDetailPage from '@/features/organization/pages/OrgUnitDetailPage'
-import UsersPage from '@/features/users/pages/UsersPage'
-import CompanyPage from '@/features/orgunits/pages/CompanyPage'
-import KpiCriteriaPage from '@/features/kpi/pages/KpiCriteriaPage'
-import KpiApprovalPage from '@/features/kpi/pages/KpiApprovalPage'
-import KpiAdjustmentApprovalPage from '../features/kpi/pages/KpiAdjustmentApprovalPage'
-import MyKpiPage from '@/features/kpi/pages/MyKpiPage'
-import MySubmissionsPage from '@/features/submissions/pages/MySubmissionsPage'
+import CompanySettingsPage from '@/features/orgunits/pages/CompanySettingsPage'
+import PerformancePage from '@/features/kpi/pages/PerformancePage'
+import MySpacePage from '@/features/profile/pages/MySpacePage'
 import NewSubmissionPage from '@/features/submissions/pages/NewSubmissionPage'
 import SubmissionDetailPage from '@/features/submissions/pages/SubmissionDetailPage'
-import OrgUnitSubmissionsPage from '@/features/submissions/pages/OrgUnitSubmissionsPage'
-import EvaluationsPage from '@/features/evaluations/pages/EvaluationsPage'
 import ProfilePage from '@/features/profile/pages/ProfilePage'
 import NotificationsPage from '@/features/notifications/pages/NotificationsPage'
 import ForceChangePasswordPage from '@/features/auth/pages/ForceChangePasswordPage'
-import MyAdjustmentsPage from '../features/kpi/pages/MyAdjustmentsPage'
-import KpiPeriodsPage from '@/features/kpi/pages/KpiPeriodsPage'
-import KpiCyclesPage from '@/features/kpi/pages/KpiCyclesPage'
-import CycleEvaluationPage from '@/features/kpi/pages/CycleEvaluationPage'
 import DatasourcesPage from '@/features/datasources/pages/DatasourcesPage'
 import DatasourceDetailPage from '@/features/datasources/pages/DatasourceDetailPage'
 import ReportsPage from '@/features/reports/pages/ReportsPage'
 import ReportDetailPage from '@/features/reports/pages/ReportDetailPage'
 import AnalyticsPage from '@/features/analytics/pages/AnalyticsPage'
 import AiAssistantPage from '@/features/analytics/pages/AiAssistantPage'
-import SystemSettingsPage from '@/features/organization/pages/SystemSettingsPage'
-import AiQuotaPage from '@/features/organization/pages/AiQuotaPage'
-import OkrManagementPage from '@/features/okr/pages/OkrManagementPage'
-import MyRewardsPage from '@/features/rewards/pages/MyRewardsPage'
-import RewardManagementPage from '@/features/rewards/pages/RewardManagementPage'
-import MyWalletPage from '@/features/wallet/pages/MyWalletPage'
-import WalletAdminPage from '@/features/wallet/pages/WalletAdminPage'
-import BscManagementPage from '@/features/bsc/pages/BscManagementPage'
-import BscDashboardPage from '@/features/bsc/pages/BscDashboardPage'
-import BscStrategyMapPage from '@/features/bsc/pages/BscStrategyMapPage'
+import ToolSettingsPage from '@/features/orgunits/pages/ToolSettingsPage'
 
 import DashboardPage from '@/features/dashboard/pages/DashboardPage'
 import ErrorPage from '@/features/errors/pages/ErrorPage'
@@ -103,15 +83,21 @@ export const router = createBrowserRouter([
           { path: '/dashboard', element: <DashboardPage /> },
           { path: '/profile', element: <ProfilePage /> },
 
-          // Director & KPI Managers
+          // Vận hành KPI gom về một trang; cổng route là phép HOẶC của năm quyền, còn
+          // từng mục bên trong tự lọc lại theo đúng quyền cũ của nó.
           {
-            element: <PermissionRoute permission={['KPI:APPROVE_CRITERIA', 'KPI:APPROVE_ADJUSTMENT', 'KPI_PERIOD:CREATE', 'KPI_CYCLE:CREATE', 'CYCLE_EVAL:VIEW']} />,
+            element: <PermissionRoute permission={['KPI:VIEW', 'KPI:APPROVE_CRITERIA', 'KPI:APPROVE_ADJUSTMENT', 'SUBMISSION:REVIEW', 'CYCLE_EVAL:VIEW']} />,
             children: [
-              { path: '/kpi-criteria/pending', element: <KpiApprovalPage /> },
-              { path: '/kpi-adjustments/pending', element: <KpiAdjustmentApprovalPage /> },
-              { path: '/kpi-periods', element: <KpiPeriodsPage /> },
-              { path: '/kpi-cycles', element: <KpiCyclesPage /> },
-              { path: '/kpi-cycles/evaluation', element: <CycleEvaluationPage /> },
+              { path: '/performance', element: <PerformancePage /> },
+              // Route cũ giữ làm redirect cho link, bookmark và nút tắt trên dashboard.
+              { path: '/kpi-criteria', element: <RedirectToSection to="/performance" params={{ section: 'kpi-criteria' }} /> },
+              { path: '/kpi-criteria/pending', element: <RedirectToSection to="/performance" params={{ section: 'kpi-criteria-pending' }} /> },
+              { path: '/kpi-adjustments/pending', element: <RedirectToSection to="/performance" params={{ section: 'kpi-adjustments-pending' }} /> },
+              { path: '/submissions/org-unit', element: <RedirectToSection to="/performance" params={{ section: 'submissions-org-unit' }} /> },
+              { path: '/kpi-cycles/evaluation', element: <RedirectToSection to="/performance" params={{ section: 'cycle-evaluation' }} /> },
+              // Kỳ và đợt là hai tab của một mục trong trang Thiết lập công cụ.
+              { path: '/kpi-periods', element: <RedirectToSection to="/settings/tools" params={{ section: 'kpi-cycles', tab: 'periods' }} /> },
+              { path: '/kpi-cycles', element: <RedirectToSection to="/settings/tools" params={{ section: 'kpi-cycles' }} /> },
             ],
           },
 
@@ -119,10 +105,32 @@ export const router = createBrowserRouter([
           // KHÔNG gộp vào khối "Admin / HR Management" bên dưới: khối đó đòi đủ ba quyền
           // ORG:VIEW + USER:VIEW + ROLE:VIEW mà trưởng đơn vị không có, sẽ khoá nhầm
           // đúng nhóm người mà tính năng uỷ quyền phục vụ.
+          // Trang Thiết lập công cụ gom cả bảng cấu hình lẫn sáu công cụ quản lý, mỗi
+          // thứ một quyền khác nhau — nên cổng route là phép HOẶC của tất cả, còn từng
+          // mục bên trong tự lọc lại theo đúng quyền cũ của nó. Trưởng đơn vị chỉ có
+          // AI_QUOTA:ALLOCATE vẫn vào được, và chỉ thấy đúng mục hạn mức AI.
           {
-            element: <PermissionRoute permission="AI_QUOTA:ALLOCATE" />,
+            element: (
+              <PermissionRoute
+                permission={[
+                  'ORG:VIEW', 'KPI_CYCLE:CREATE', 'KPI_PERIOD:CREATE', 'OKR:MANAGE', 'BSC:MANAGE',
+                  'REWARD:GRANT', 'REWARD:APPROVE', 'REWARD:CONFIG', 'REWARD:VIEW',
+                  'WALLET:VIEW', 'WALLET:CONFIG', 'WALLET:RECONCILE', 'AI_QUOTA:ALLOCATE',
+                ]}
+              />
+            ),
             children: [
-              { path: '/ai-quota', element: <AiQuotaPage /> },
+              { path: '/settings/tools', element: <ToolSettingsPage /> },
+              // Route cũ của từng công cụ giữ làm redirect cho link và bookmark.
+              { path: '/ai-quota', element: <RedirectToSection to="/settings/tools" params={{ section: 'ai-quota' }} /> },
+              { path: '/okr', element: <RedirectToSection to="/settings/tools" params={{ section: 'okr' }} /> },
+              { path: '/rewards', element: <RedirectToSection to="/settings/tools" params={{ section: 'rewards' }} /> },
+              { path: '/wallet', element: <RedirectToSection to="/settings/tools" params={{ section: 'wallet' }} /> },
+              { path: '/bsc', element: <RedirectToSection to="/settings/tools" params={{ section: 'bsc' }} /> },
+              { path: '/bsc/dashboard', element: <RedirectToSection to="/settings/tools" params={{ section: 'bsc', bsc: 'dashboard' }} /> },
+              { path: '/bsc/strategy-map', element: <RedirectToSection to="/settings/tools" params={{ section: 'bsc', bsc: 'strategy-map' }} /> },
+              { path: '/settings/modules', element: <RedirectToSection to="/settings/tools" params={{ section: 'modules' }} /> },
+              { path: '/settings/scoring', element: <RedirectToSection to="/settings/tools" params={{ section: 'scoring' }} /> },
             ],
           },
 
@@ -130,68 +138,15 @@ export const router = createBrowserRouter([
           {
             element: <PermissionRoute permission={['ORG:VIEW', 'USER:VIEW', 'ROLE:VIEW']} requireAll={true} />,
             children: [
-              { path: '/users', element: <UsersPage /> },
-              { path: '/company', element: <CompanyPage /> },
-              { path: '/roles', element: <RoleManagementPage /> },
-              { path: '/org-structure', element: <OrganizationStructurePage /> },
+              // Mọi thiết lập cấp công ty gom về một trang, chọn khu vực bằng ?section=.
+              { path: '/company', element: <CompanySettingsPage /> },
+              // '/settings/tools' KHÔNG nằm ở đây: xem khối phép HOẶC bên trên.
               { path: '/org-units/:id', element: <OrgUnitDetailPage /> },
-              { path: '/settings', element: <SystemSettingsPage /> },
-            ],
-          },
-
-          // OKR — chỉ Giám đốc/Phó GĐ.
-          {
-            element: <PermissionRoute permission={['OKR:MANAGE']} />,
-            children: [
-              { path: '/okr', element: <OkrManagementPage /> },
-            ],
-          },
-
-          // Thưởng điểm. Ví cá nhân ai cũng xem được; trang quản lý cần một trong
-          // các quyền nghiệp vụ, và từng tab bên trong còn lọc lại theo quyền.
-          {
-            element: <PermissionRoute permission={['REWARD:VIEW_MY']} />,
-            children: [
-              { path: '/rewards/me', element: <MyRewardsPage /> },
-            ],
-          },
-          {
-            element: (
-              <PermissionRoute
-                permission={['REWARD:GRANT', 'REWARD:APPROVE', 'REWARD:CONFIG', 'REWARD:VIEW']}
-              />
-            ),
-            children: [
-              { path: '/rewards', element: <RewardManagementPage /> },
-            ],
-          },
-
-          // Ví tiền thật. Cùng khuôn với thưởng điểm: ví cá nhân ai cũng xem được,
-          // trang quản lý cần một trong các quyền nghiệp vụ và từng tab lọc lại.
-          {
-            element: <PermissionRoute permission={['WALLET:VIEW_MY']} />,
-            children: [
-              { path: '/wallet/me', element: <MyWalletPage /> },
-            ],
-          },
-          {
-            element: (
-              <PermissionRoute
-                permission={['WALLET:VIEW', 'WALLET:CONFIG', 'WALLET:RECONCILE']}
-              />
-            ),
-            children: [
-              { path: '/wallet', element: <WalletAdminPage /> },
-            ],
-          },
-
-          // BSC — chỉ Giám đốc/Phó GĐ.
-          {
-            element: <PermissionRoute permission={['BSC:MANAGE']} />,
-            children: [
-              { path: '/bsc', element: <BscManagementPage /> },
-              { path: '/bsc/dashboard', element: <BscDashboardPage /> },
-              { path: '/bsc/strategy-map', element: <BscStrategyMapPage /> },
+              // Các route cũ giữ làm redirect để link, bookmark và thông báo còn sống.
+              { path: '/users', element: <RedirectToSection to="/company" params={{ section: 'users' }} /> },
+              { path: '/roles', element: <RedirectToSection to="/company" params={{ section: 'roles' }} /> },
+              { path: '/org-structure', element: <RedirectToSection to="/company" params={{ section: 'org-structure' }} /> },
+              { path: '/settings', element: <RedirectToSection to="/company" params={{ section: 'sidebar' }} /> },
             ],
           },
 
@@ -200,8 +155,6 @@ export const router = createBrowserRouter([
             element: <PermissionRoute permission={['KPI:VIEW', 'SUBMISSION:REVIEW', 'USER:VIEW_LIST']} />,
             children: [
               { path: '/org-units/:id', element: <OrgUnitDetailPage /> },
-              { path: '/kpi-criteria', element: <KpiCriteriaPage /> },
-              { path: '/submissions/org-unit', element: <OrgUnitSubmissionsPage /> },
               { path: '/employees/:userId/performance', element: <EmployeePerformancePage /> },
             ],
           },
@@ -214,13 +167,20 @@ export const router = createBrowserRouter([
           { path: '/analytics', element: <AnalyticsPage /> },
           { path: '/ai-assistant', element: <AiAssistantPage /> },
 
-          // All roles — my KPI, submissions & evaluations
-          { path: '/my-kpi', element: <MyKpiPage /> },
-          { path: '/submissions', element: <MySubmissionsPage /> },
+          // Không gian cá nhân gom về một trang. Không gác quyền ở route: bốn mục công
+          // việc vốn mở cho mọi vai trò, còn hai mục ví tự lọc theo quyền và cờ tính năng.
+          { path: '/me', element: <MySpacePage /> },
+          // Route cũ giữ làm redirect; RedirectToSection bê nguyên query nên link
+          // /evaluations?action=self-eval&periodId=… vẫn chạy đúng.
+          { path: '/my-kpi', element: <RedirectToSection to="/me" params={{ section: 'my-kpi' }} /> },
+          { path: '/submissions', element: <RedirectToSection to="/me" params={{ section: 'my-submissions' }} /> },
+          { path: '/evaluations', element: <RedirectToSection to="/me" params={{ section: 'evaluations' }} /> },
+          { path: '/my-adjustments', element: <RedirectToSection to="/me" params={{ section: 'my-adjustments' }} /> },
+          { path: '/rewards/me', element: <RedirectToSection to="/me" params={{ section: 'my-rewards' }} /> },
+          { path: '/wallet/me', element: <RedirectToSection to="/me" params={{ section: 'my-cash-wallet' }} /> },
+          // Các trang chi tiết vẫn đứng riêng: chúng mở từ trong danh sách, không phải mục menu.
           { path: '/submissions/new', element: <NewSubmissionPage /> },
           { path: '/submissions/edit/:id', element: <NewSubmissionPage /> },
-          { path: '/evaluations', element: <EvaluationsPage /> },
-          { path: '/my-adjustments', element: <MyAdjustmentsPage /> },
           { path: '/submissions/:id', element: <SubmissionDetailPage /> },
           { path: '/notifications', element: <NotificationsPage /> },
         ],

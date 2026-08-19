@@ -581,7 +581,7 @@ export default function NewSubmissionPage() {
 
             <div className="flex flex-col gap-4">
               <button
-                onClick={() => navigate(`/evaluations?action=self-eval&periodId=${selectedKpi?.kpiPeriod?.id}`)}
+                onClick={() => navigate(`/me?section=evaluations&action=self-eval&periodId=${selectedKpi?.kpiPeriod?.id}`)}
                 className="w-full py-5 bg-slate-900 dark:bg-white text-white dark:text-slate-900 rounded-2xl font-black text-sm shadow-2xl hover:bg-indigo-600 dark:hover:bg-indigo-50 transition-all flex items-center justify-center gap-3 uppercase tracking-widest active:scale-95"
               >
                 <Sparkles size={20} className="text-amber-400" /> TIẾN HÀNH TỰ ĐÁNH GIÁ

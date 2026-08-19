@@ -326,7 +326,7 @@ export default function StaffDashboard() {
           <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden flex flex-col h-full">
             <div className="px-6 py-5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50/30 dark:bg-slate-800/20">
               <h3 className="font-black text-lg text-slate-900 dark:text-white">Lịch sử cập nhật</h3>
-              <Link to="/submissions" className="p-2 rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-indigo-600">
+              <Link to="/me?section=my-submissions" className="p-2 rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-indigo-600">
                 <ArrowUpRight size={18} />
               </Link>
             </div>
@@ -386,7 +386,7 @@ export default function StaffDashboard() {
             </div>
             
             <div className="p-4 border-t border-slate-100 dark:border-slate-800">
-              <Link to="/submissions" className="block w-full py-3 text-center text-[10px] font-black text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-xl transition-all uppercase tracking-widest border border-dashed border-slate-200 dark:border-slate-800">
+              <Link to="/me?section=my-submissions" className="block w-full py-3 text-center text-[10px] font-black text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-xl transition-all uppercase tracking-widest border border-dashed border-slate-200 dark:border-slate-800">
                 Xem tất cả báo cáo
               </Link>
             </div>

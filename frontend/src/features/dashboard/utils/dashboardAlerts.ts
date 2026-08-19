@@ -109,7 +109,7 @@ export function buildDashboardAlerts({
         { label: 'Từ chối', value: `${stats.rejectedSubmissions ?? 0}` },
       ],
       progress: pct(stats.approvedSubmissions ?? 0, stats.totalSubmissions ?? 0),
-      link: '/submissions/org-unit',
+      link: '/performance?section=submissions-org-unit',
       weight: 9_000 + stats.pendingSubmissions,
     })
   }

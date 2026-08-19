@@ -4,6 +4,7 @@ import DataTable from '@/components/common/DataTable'
 import ConfirmDialog from '@/components/common/ConfirmDialog'
 import EmptyState from '@/components/common/EmptyState'
 import LoadingSkeleton from '@/components/common/LoadingSkeleton'
+import { WorkspaceHeaderActions } from '@/components/common/WorkspaceTabs'
 import GiftFormModal from './GiftFormModal'
 import UrboxCatalogModal from './UrboxCatalogModal'
 import { useGiftsManage } from '../hooks/useGifts'
@@ -38,11 +39,11 @@ export default function GiftsTab() {
         <span className="text-sm text-[var(--color-muted-foreground)]">
           {(data ?? []).length > 0 && `${(data ?? []).length} món quà trong danh mục`}
         </span>
-        <div className="flex flex-shrink-0 gap-2">
+        <WorkspaceHeaderActions>
           {urbox?.enabled && (
             <button
               onClick={() => setUrboxOpen(true)}
-              className="inline-flex items-center gap-2 rounded-lg border border-[var(--color-border)] px-4 py-2 text-sm font-medium transition-colors hover:bg-[var(--color-accent)]"
+              className="inline-flex items-center gap-2 rounded-xl border border-[var(--color-border)] px-4 h-10 text-sm font-bold text-[var(--color-muted-foreground)] transition-colors hover:bg-[var(--color-muted)]"
             >
               <Store size={16} />
               Kho quà UrBox
@@ -53,12 +54,12 @@ export default function GiftsTab() {
               setEditing(null)
               setFormOpen(true)
             }}
-            className="inline-flex items-center gap-2 rounded-lg bg-[var(--color-primary)] px-4 py-2 text-sm font-medium text-white shadow-sm transition-opacity hover:opacity-90"
+            className="inline-flex items-center gap-2 rounded-xl bg-[var(--color-primary)] px-5 h-10 text-sm font-bold text-white shadow-sm transition-opacity hover:opacity-90"
           >
             <Plus size={16} />
             Thêm quà
           </button>
-        </div>
+        </WorkspaceHeaderActions>
       </div>
 
       {isLoading ? (

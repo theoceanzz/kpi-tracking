@@ -1,18 +1,17 @@
 import { Outlet, useLocation, Navigate, Link } from 'react-router-dom'
 import Sidebar from './Sidebar'
 import { useAuth } from '@/hooks/useAuth'
-import { useSidebarStore } from '@/store/sidebarStore'
-import { LogOut, Menu, PanelLeft } from 'lucide-react'
+import { LogOut, Menu } from 'lucide-react'
 import NotificationBell from '@/features/notifications/components/NotificationBell'
 import ThemeCustomizer from './components/ThemeCustomizer'
 import OnboardingTour from '@/components/common/OnboardingTour'
 import AiAssistantWidget from '@/features/analytics/components/AiAssistantWidget'
+import HeaderBreadcrumb from '@/components/common/HeaderBreadcrumb'
 import CheckinReminderBanner from '@/features/rewards/components/CheckinReminderBanner'
 import { useState, useEffect } from 'react'
 
 export default function AppLayout() {
   const { user, logout, refreshUser } = useAuth()
-  const { isCollapsed, toggle: toggleSidebar } = useSidebarStore()
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const location = useLocation()
 
@@ -40,7 +39,7 @@ export default function AppLayout() {
 
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden md:pl-0">
         {/* Header */}
-        <header className="sticky top-0 z-30 flex items-center justify-between h-16 px-4 md:px-6 border-b border-[var(--color-border)] bg-[var(--color-card)]/80 backdrop-blur-md">
+        <header className="sticky top-0 z-30 flex items-center gap-3 h-16 px-4 md:px-6 border-b border-[var(--color-border)] bg-[var(--color-card)]/80 backdrop-blur-md">
           <div className="flex items-center gap-3 lg:hidden">
             <button
               onClick={() => setIsMobileMenuOpen(true)}
@@ -56,17 +55,12 @@ export default function AppLayout() {
             </Link>
           </div>
 
-          <div className="hidden lg:flex items-center gap-4">
-            <button
-              onClick={toggleSidebar}
-              className="p-2 rounded-xl text-[var(--color-muted-foreground)] hover:bg-[var(--color-accent)] hover:text-[var(--color-primary)] transition-all shadow-sm border border-transparent hover:border-[var(--color-border)]"
-              title={isCollapsed ? "Mở rộng menu" : "Thu gọn menu"}
-            >
-              <PanelLeft size={20} className={isCollapsed ? "rotate-180 transition-transform" : "transition-transform"} />
-            </button>
-            <p className="text-sm text-[var(--color-muted-foreground)]">
-              Xin chào, <span className="font-bold text-[var(--color-foreground)]">{user?.fullName}</span>
-            </p>
+          {/* Nút đóng/mở thanh bên đã chuyển vào chính thanh bên — nó điều khiển thanh
+              bên nên phải nằm ở đó, và khi thu gọn thì vẫn với tới được ngay trên rãnh.
+              Chỗ này giờ dành cho đường dẫn phân cấp: nó cho biết đang ở đâu và có nút
+              quay ra, hữu ích hơn hẳn lời chào lặp lại ở mọi trang. */}
+          <div className="flex-1 min-w-0 lg:pl-1">
+            <HeaderBreadcrumb />
           </div>
 
           <div className="flex items-center gap-1.5 md:gap-2 ml-auto">

@@ -10,8 +10,7 @@ import {
 } from 'lucide-react'
 import PageTour from '@/components/common/PageTour'
 import { myAdjustmentsSteps } from '@/components/common/tourSteps'
-import { useAuthStore } from '@/store/authStore'
-import { useSidebarSettings } from '@/features/organization/hooks/useSidebarSettings'
+import { usePageTitle } from '@/features/organization/hooks/usePageTitle'
 
 const CountdownTimer = ({ createdAt, status }: { createdAt: string, status: string }) => {
   const [timeLeft, setTimeLeft] = useState<string>('')
@@ -71,13 +70,7 @@ export default function MyAdjustmentsPage() {
 
   const adjustments = data?.content ?? []
 
-  const { user } = useAuthStore()
-  const orgId = user?.memberships?.[0]?.organizationId
-  const { data: customLabels = {} } = useSidebarSettings(orgId!)
-  const pageTitle = ((customLabels as Record<string, string>)['/my-adjustments'] || 'Yêu cầu điều chỉnh')
-    .split(' ')
-    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-    .join(' ')
+  const pageTitle = usePageTitle('my-adjustments', 'Điều chỉnh của tôi')
 
   return (
     <div className="max-w-[1440px] mx-auto p-4 md:p-6 space-y-6 animate-in fade-in duration-500">

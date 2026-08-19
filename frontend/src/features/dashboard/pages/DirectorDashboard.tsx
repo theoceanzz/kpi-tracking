@@ -283,7 +283,7 @@ export default function DirectorDashboard() {
             </div>
             <Link 
               id="tour-dashboard-approve-btn"
-              to="/kpi-criteria/pending" 
+              to="/performance?section=kpi-criteria-pending" 
               className="flex items-center gap-2 px-6 py-3.5 rounded-[20px] bg-indigo-600 hover:bg-indigo-700 text-white shadow-lg shadow-indigo-500/20 transition-all active:scale-95 group"
             >
               <div className="relative">
@@ -313,7 +313,7 @@ export default function DirectorDashboard() {
           footer={cumulativeEvaluations?.label}
           footerTitle={cumulativeEvaluations?.detail ?? undefined}
           hint="Số nhân sự đã được quản lý chấm điểm KPI trong kỳ đang chạy. Bấm để xem chi tiết từng phiếu."
-          to="/evaluations"
+          to="/me?section=evaluations"
           color="purple"
         />
       </div>

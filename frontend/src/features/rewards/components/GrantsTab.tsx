@@ -4,6 +4,7 @@ import DataTable from '@/components/common/DataTable'
 import Pagination from '@/components/common/Pagination'
 import EmptyState from '@/components/common/EmptyState'
 import LoadingSkeleton from '@/components/common/LoadingSkeleton'
+import { WorkspaceHeaderActions } from '@/components/common/WorkspaceTabs'
 import { useHasPermission } from '@/components/auth/PermissionGate'
 import { useAuthStore } from '@/store/authStore'
 import AwardPointsModal from './AwardPointsModal'
@@ -83,13 +84,15 @@ export default function GrantsTab() {
         </div>
 
         {canGrant && (
-          <button
-            onClick={() => setAwardOpen(true)}
-            className="inline-flex flex-shrink-0 items-center justify-center gap-2 rounded-lg bg-[var(--color-primary)] px-4 py-2.5 text-sm font-medium text-white shadow-sm transition-opacity hover:opacity-90 sm:py-2"
-          >
-            <Gift size={16} />
-            Thưởng điểm
-          </button>
+          <WorkspaceHeaderActions>
+            <button
+              onClick={() => setAwardOpen(true)}
+              className="inline-flex flex-shrink-0 items-center justify-center gap-2 rounded-xl bg-[var(--color-primary)] px-5 h-10 text-sm font-bold text-white shadow-sm transition-opacity hover:opacity-90"
+            >
+              <Gift size={16} />
+              Thưởng điểm
+            </button>
+          </WorkspaceHeaderActions>
         )}
       </div>
 

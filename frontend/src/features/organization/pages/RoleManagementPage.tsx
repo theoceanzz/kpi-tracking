@@ -21,7 +21,7 @@ import { useAuth } from '@/hooks/useAuth'
 import { useRoles, useCreateRole, useUpdateRole, useDeleteRole } from '../hooks/useRoles'
 import { useOrgHierarchyLevels } from '../hooks/useOrganizationStructure'
 import { useAuthStore } from '@/store/authStore'
-import { useSidebarSettings } from '../hooks/useSidebarSettings'
+import { usePageTitle } from '../hooks/usePageTitle'
 import { RoleResponse } from '../api/role.api'
 import RolePermissionDrawer from '../components/RolePermissionDrawer'
 import HierarchyPermissionModal from '../components/HierarchyPermissionModal'
@@ -63,11 +63,7 @@ export default function RoleManagementPage() {
   const orgId = user?.memberships?.[0]?.organizationId
   const { data: hierarchyLevels = [] } = useOrgHierarchyLevels(orgId)
 
-  const { data: customLabels = {} } = useSidebarSettings(orgId!)
-  const rawTitle = ((customLabels as Record<string, string>)['/roles'] || 'Quản lý Vai trò')
-    .split(' ')
-    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-    .join(' ')
+  const rawTitle = usePageTitle('roles', 'Quản lý Vai trò')
   const titleParts = rawTitle.trim().split(' ')
   const lastWord = titleParts.length > 1 ? titleParts.pop() : ''
   const mainTitle = titleParts.join(' ')
@@ -193,49 +189,53 @@ export default function RoleManagementPage() {
   }
 
   return (
-    <div className="max-w-7xl mx-auto space-y-6 pb-12 animate-in fade-in slide-in-from-bottom-4 duration-700">
+    // Không tự bọc `max-w`: trang này nằm trong khung Thiết lập công ty, khung đó đã lo
+    // bề ngang. Bọc thêm ở đây làm cả trang hẹp hơn và lệch mép so với hàng tab bên trên.
+    <div className="space-y-5 pb-12 animate-in fade-in duration-500">
       <PageTour pageKey="roles" steps={rolesSteps} />
-      {/* Header Section */}
-      <div id="tour-roles-header" className="relative overflow-hidden bg-gradient-to-br from-indigo-700 via-indigo-600 to-violet-700 rounded-[2.5rem] p-8 md:p-12 shadow-2xl shadow-indigo-200/50">
+      {/* Header Section — cùng thang kích thước với các đầu trang KPI khác. */}
+      <div id="tour-roles-header" className="relative overflow-hidden bg-gradient-to-br from-indigo-700 via-indigo-600 to-violet-700 rounded-[28px] p-6 shadow-lg">
         <div className="absolute top-0 right-0 -mt-12 -mr-12 w-64 h-64 bg-white/10 rounded-full blur-3xl" />
         <div className="absolute bottom-0 left-0 -mb-12 -ml-12 w-48 h-48 bg-indigo-400/20 rounded-full blur-2xl" />
-        
-        <div className="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-8">
-          <div>
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 backdrop-blur-md border border-white/20 text-white/80 text-[10px] font-bold uppercase tracking-widest mb-4">
+
+        <div className="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+          <div className="space-y-3">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 backdrop-blur-md border border-white/20 text-white/80 text-[10px] font-black uppercase tracking-[0.2em]">
               <Shield size={12} className="text-indigo-200" />
               Bảo mật & Phân quyền
             </div>
-            <h1 className="text-4xl md:text-5xl font-black text-white tracking-tight leading-tight">
-              {mainTitle} <span className="text-indigo-200">{lastWord}</span>
-            </h1>
-            <p className="text-indigo-100/80 font-medium mt-3 max-w-xl text-lg">
-              Thiết lập hệ thống phân cấp và ma trận quyền hạn cho toàn bộ nhân sự trong tổ chức của bạn.
-            </p>
+            <div className="space-y-0.5">
+              <h1 className="text-3xl md:text-4xl font-black text-white tracking-tight">
+                {mainTitle} <span className="text-indigo-200">{lastWord}</span>
+              </h1>
+              <p className="text-indigo-100/80 font-medium text-sm max-w-xl leading-relaxed">
+                Thiết lập hệ thống phân cấp và ma trận quyền hạn cho toàn bộ nhân sự trong tổ chức của bạn.
+              </p>
+            </div>
           </div>
-          
-          <div className="flex flex-col xl:flex-row items-center gap-4 shrink-0">
-            <button 
+
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 shrink-0">
+            <button
               onClick={() => setIsHierarchyModalOpen(true)}
               id="tour-roles-hierarchy-btn"
-              className="group flex items-center justify-center gap-3 px-6 py-4 bg-white/10 text-white border border-white/20 rounded-[1.25rem] hover:bg-white/20 font-black transition-all shadow-xl hover:scale-[1.02] active:scale-95 text-sm whitespace-nowrap backdrop-blur-md"
+              className="group flex items-center justify-center gap-2 px-5 h-10 bg-white/10 text-white border border-white/20 rounded-xl hover:bg-white/20 font-bold transition-all shadow-sm active:scale-95 text-sm whitespace-nowrap backdrop-blur-md"
             >
-              <Zap size={18} className="text-amber-300" fill="currentColor" />
+              <Zap size={16} className="text-amber-300" fill="currentColor" />
               Thiết lập Quyền theo Phân cấp
             </button>
 
-            <button 
+            <button
               onClick={() => handleOpenModal()}
-              className="group flex items-center justify-center gap-3 px-8 py-4 bg-white text-indigo-600 rounded-[1.25rem] hover:bg-indigo-50 font-black transition-all shadow-xl shadow-black/10 hover:scale-[1.02] active:scale-95 text-sm whitespace-nowrap"
+              className="group flex items-center justify-center gap-2 px-5 h-10 bg-white text-indigo-600 rounded-xl hover:bg-indigo-50 font-bold transition-all shadow-sm active:scale-95 text-sm whitespace-nowrap"
             >
-              <Plus className="w-5 h-5" />
+              <Plus size={16} />
               Thêm vai trò mới
             </button>
           </div>
         </div>
 
         {/* Stats Summary Area */}
-        <div id="tour-roles-stats" className="relative z-10 grid grid-cols-2 md:grid-cols-4 gap-4 mt-12 pt-8 border-t border-white/10">
+        <div id="tour-roles-stats" className="relative z-10 grid grid-cols-2 md:grid-cols-4 gap-4 mt-5 pt-4 border-t border-white/10">
           {[
             { label: 'Tổng số vai trò', value: stats.total, icon: Layers },
             { label: 'Vai trò hệ thống', value: stats.system, icon: Lock },
@@ -243,28 +243,28 @@ export default function RoleManagementPage() {
             { label: 'Cấp lãnh đạo', value: stats.highLevel, icon: Key }
           ].map((s, i) => (
             <div key={i} className="flex flex-col">
-              <div className="flex items-center gap-2 text-indigo-100/60 text-xs font-bold uppercase tracking-wider mb-1">
-                <s.icon size={12} />
+              <div className="flex items-center gap-1.5 text-indigo-100/60 text-[9px] font-black uppercase tracking-widest">
+                <s.icon size={11} />
                 {s.label}
               </div>
-              <div className="text-2xl font-black text-white">{s.value}</div>
+              <div className="text-2xl font-black text-white tracking-tighter">{s.value}</div>
             </div>
           ))}
         </div>
       </div>
 
       {/* Main Content Area */}
-      <div id="tour-roles-table" className="bg-white rounded-[2.5rem] shadow-xl shadow-indigo-100/30 border border-indigo-50 overflow-hidden">
+      <div id="tour-roles-table" className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
         {/* Advanced Toolbar */}
-        <div className="p-6 md:p-8 bg-gray-50/50 flex flex-col md:flex-row gap-6 justify-between items-center border-b border-gray-100">
+        <div className="p-4 bg-gray-50/50 flex flex-col md:flex-row gap-4 justify-between items-center border-b border-gray-100">
           <div className="relative w-full md:w-[450px] group">
             <div className="absolute inset-y-0 left-4 flex items-center pointer-events-none">
-              <Search className="w-5 h-5 text-gray-400 group-focus-within:text-indigo-600 transition-colors" />
+              <Search className="w-[18px] h-[18px] text-gray-400 group-focus-within:text-indigo-600 transition-colors" />
             </div>
-            <input 
-              type="text" 
-              placeholder="Tìm kiếm theo tên vai trò hoặc định danh..." 
-              className="w-full pl-12 pr-6 py-4 bg-white border border-gray-200 rounded-2xl outline-none focus:ring-4 focus:ring-indigo-600/10 focus:border-indigo-600 transition-all font-bold text-sm shadow-sm"
+            <input
+              type="text"
+              placeholder="Tìm kiếm theo tên vai trò hoặc định danh..."
+              className="w-full pl-12 pr-6 py-2.5 bg-white border border-gray-200 rounded-xl outline-none focus:ring-4 focus:ring-indigo-600/10 focus:border-indigo-600 transition-all font-bold text-sm shadow-sm"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
             />
@@ -287,11 +287,11 @@ export default function RoleManagementPage() {
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="bg-gray-50/80 text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] whitespace-nowrap">
-                <th className="px-8 py-6 border-b border-gray-100">Thông tin vai trò</th>
-                <th className="px-8 py-6 border-b border-gray-100 text-center">Vị trí</th>
-                <th className="px-8 py-6 border-b border-gray-100">Phân cấp hệ thống</th>
-                <th className="px-8 py-6 border-b border-gray-100">Ngày tạo</th>
-                <th className="px-8 py-6 border-b border-gray-100 text-right">Quản lý</th>
+                <th className="px-6 py-4 border-b border-gray-100">Thông tin vai trò</th>
+                <th className="px-6 py-4 border-b border-gray-100 text-center">Vị trí</th>
+                <th className="px-6 py-4 border-b border-gray-100">Phân cấp hệ thống</th>
+                <th className="px-6 py-4 border-b border-gray-100">Ngày tạo</th>
+                <th className="px-6 py-4 border-b border-gray-100 text-right">Quản lý</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
@@ -322,7 +322,7 @@ export default function RoleManagementPage() {
               ) : (
                 filteredRoles.map((role, index) => (
                   <tr key={role.id} className="group hover:bg-indigo-50/30 transition-all duration-300">
-                    <td className="px-8 py-6">
+                    <td className="px-6 py-4">
                       <div className="flex items-center gap-4">
                         <div className={cn(
                           "w-12 h-12 rounded-2xl flex items-center justify-center transition-all duration-500 shadow-sm",
@@ -345,7 +345,7 @@ export default function RoleManagementPage() {
                         </div>
                       </div>
                     </td>
-                    <td className="px-8 py-6 text-center">
+                    <td className="px-6 py-4 text-center">
                       <div className={cn(
                         "inline-flex px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border whitespace-nowrap",
                         role.rank === 0 ? "bg-blue-50 text-blue-600 border-blue-100" :
@@ -355,7 +355,7 @@ export default function RoleManagementPage() {
                         {role.rank === 0 ? 'Trưởng' : role.rank === 1 ? 'Phó' : 'Thành viên'}
                       </div>
                     </td>
-                    <td className="px-8 py-6">
+                    <td className="px-6 py-4">
                       {(() => {
                         const info = getLevelInfo(role.level);
                         return (
@@ -375,13 +375,13 @@ export default function RoleManagementPage() {
                       })()}
                     </td>
 
-                    <td className="px-8 py-6">
+                    <td className="px-6 py-4">
                        <div className="flex items-center gap-2 text-gray-500 whitespace-nowrap">
                          <History size={14} className="text-gray-300" />
                          <span className="font-bold text-sm">{format(new Date(role.createdAt), 'dd MMM, yyyy', { locale: vi })}</span>
                        </div>
                     </td>
-                    <td className="px-8 py-6 text-right">
+                    <td className="px-6 py-4 text-right">
                       <div className="flex justify-end">
                         <div className="relative">
                           <button 

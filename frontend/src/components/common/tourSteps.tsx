@@ -161,71 +161,66 @@ export const staffDashboardSteps: Step[] = [
   },
 ]
 
-/* ─── Company Page ─── */
+/* ─── Thiết lập công ty (trang gộp, chọn mục từ lưới thẻ) ─── */
 export const companySteps: Step[] = [
   {
-    target: '#tour-company-hero',
-    title: '🏢 Bản sắc Doanh nghiệp',
+    target: '#tour-settings-nav',
+    title: '🗂️ Mọi thiết lập ở một chỗ',
     content: (
       <div className="space-y-2">
-        <p>Nơi thiết lập các thông tin cơ bản nhất như Tên công ty, Slogan và Logo thương hiệu.</p>
-        <p className="text-[11px] text-indigo-600 font-bold">⚠️ Những thông tin này sẽ xuất hiện trên mọi báo cáo PDF và các thông báo tự động gửi cho nhân viên.</p>
+        <p>Thông tin công ty, cấp bậc, cơ cấu tổ chức, nhân viên, vai trò và các thiết lập hệ thống đều nằm ở đây, chia theo cụm <strong>Tổ chức — Con người — Hệ thống</strong>.</p>
+        <p className="text-[11px] text-slate-500">Bấm một thẻ để mở. Lúc đó lưới thu lại thành một hàng tab mảnh để nhường chỗ cho nội dung, và đường dẫn ghi lại mục đang xem nên bạn lưu bookmark được.</p>
       </div>
     ),
-    placement: 'bottom',
+    placement: 'top',
   },
+]
+
+/* ─── Thiết lập công cụ (cấu hình + sáu công cụ quản lý) ─── */
+export const toolConfigSteps: Step[] = [
   {
-    target: '#tour-company-hierarchy',
-    title: '🌳 Phân cấp Tổ chức',
+    target: '#tour-settings-nav',
+    title: '🧩 Công cụ và thang điểm',
     content: (
       <div className="space-y-2">
-        <p>Xác định các <strong>Cấp bậc (Levels)</strong> trong công ty của bạn.</p>
-        <ul className="text-[11px] space-y-1 list-disc pl-4 text-slate-500">
-          <li>Việc phân cấp đúng giúp hệ thống tự động xác định luồng phê duyệt (ai duyệt cho ai).</li>
-          <li><strong>Cấp 0</strong> luôn là cấp cao nhất (ví dụ: Giám đốc/Hội đồng quản trị).</li>
-        </ul>
+        <p>Cụm <strong>Cấu hình</strong> quyết định tổ chức dùng những công cụ nào và quy đổi điểm thành xếp loại ra sao — tắt một module thì các bước liên quan cũng biến mất theo.</p>
+        <p>Cụm <strong>Công cụ</strong> là nơi vận hành: kỳ đánh giá, OKR, BSC, thưởng, ví và hạn mức AI.</p>
+        <p className="text-[11px] text-slate-500">Thang điểm định tính và Ma trận đánh giá chỉ hiện khi tổ chức đã bật <strong>KPI hành vi</strong>.</p>
       </div>
     ),
-    placement: 'bottom',
+    placement: 'top',
   },
+]
+
+/* ─── Quản lý hiệu suất (trang gộp) ─── */
+export const performanceSteps: Step[] = [
   {
-    target: '#tour-company-scoring',
-    title: '🏆 Quy chuẩn Xếp loại',
+    target: '#tour-settings-nav',
+    title: '📈 Vòng đời một chỉ tiêu',
     content: (
       <div className="space-y-2">
-        <p>Định nghĩa các ngưỡng điểm để hệ thống tự động xếp loại hiệu suất cho nhân viên.</p>
-        <p className="text-[11px] bg-amber-50 dark:bg-amber-900/20 p-2 rounded-lg text-amber-700 italic border-l-4 border-amber-400">
-          Ví dụ: Bạn có thể quy định từ 90-100 điểm là hạng A+, 80-89 điểm là hạng A. Hãy thiết lập thật kỹ vì nó ảnh hưởng đến các chính sách khen thưởng sau này.
-        </p>
+        <p>Cụm <strong>Chỉ tiêu</strong> là phần đặt và duyệt: thiết lập chỉ tiêu, phê duyệt chỉ tiêu cấp dưới gửi lên, và xử lý yêu cầu điều chỉnh giữa chừng.</p>
+        <p>Cụm <strong>Đánh giá</strong> là phần chấm điểm: theo từng đợt, rồi tổng hợp thành kết quả cả kỳ.</p>
+        <p className="text-[11px] text-slate-500">Số đỏ trên thẻ là số việc đang chờ bạn xử lý.</p>
       </div>
     ),
-    placement: 'bottom',
+    placement: 'top',
   },
+]
+
+/* ─── Không gian cá nhân (trang gộp) ─── */
+export const mySpaceSteps: Step[] = [
   {
-    target: '#tour-company-okr',
-    title: '🎯 Mô hình OKR',
+    target: '#tour-settings-nav',
+    title: '👤 Mọi thứ của riêng bạn',
     content: (
       <div className="space-y-2">
-        <p>Kích hoạt tính năng **OKR (Objectives and Key Results)** để liên kết chiến lược với vận hành.</p>
-        <p className="text-[11px] text-slate-500">
-          Khi bật, bạn có thể tạo các Mục tiêu định hướng và kết nối chúng trực tiếp với các chỉ số KPI đo lường hàng ngày.
-        </p>
+        <p>Cụm <strong>Công việc</strong> là chỉ tiêu được giao, bài nộp đã gửi, kết quả đánh giá và các yêu cầu điều chỉnh bạn đã tạo.</p>
+        <p>Cụm <strong>Ví</strong> tách riêng vì đó là hai số dư khác nhau: điểm thưởng và tiền thật.</p>
+        <p className="text-[11px] text-slate-500">Chấm đỏ báo có việc đang chờ bạn xử lý.</p>
       </div>
     ),
-    placement: 'right',
-  },
-  {
-    target: '#tour-company-waterfall',
-    title: '🌊 Mô hình Thác nước (Waterfall)',
-    content: (
-      <div className="space-y-2">
-        <p>Bật tính năng này để cho phép <strong>Phân rã mục tiêu</strong> từ trên xuống dưới.</p>
-        <p className="text-[11px] text-slate-500">
-          Khi được bật, Quản lý có thể giao lại chỉ tiêu của mình cho cấp dưới và kết quả của nhân viên sẽ tự động cộng dồn ngược lên cho Quản lý.
-        </p>
-      </div>
-    ),
-    placement: 'right',
+    placement: 'top',
   },
 ]
 
@@ -342,29 +337,6 @@ export const usersSteps: Step[] = [
           <li>Cấp <strong>Vai trò</strong> phù hợp với nhiệm vụ của họ.</li>
         </ul>
         <p className="text-[11px] text-indigo-600 font-bold">⚠️ Bước này là bắt buộc để nhân viên có thể nhận được KPI và tham gia vào hệ thống.</p>
-      </div>
-    ),
-    placement: 'bottom',
-  },
-]
-
-/* ─── System Settings Page ─── */
-export const settingsSteps: Step[] = [
-  {
-    target: '#tour-settings-header',
-    title: '⚙️ Cấu hình Hệ thống',
-    content: <p>Nơi điều chỉnh các thông số kỹ thuật cốt lõi và tùy biến trải nghiệm người dùng cho phù hợp với văn hóa riêng của công ty bạn.</p>,
-    placement: 'bottom',
-  },
-  {
-    target: '#tour-settings-tabs',
-    title: '🎨 Tùy biến Giao diện',
-    content: (
-      <div className="space-y-2">
-        <p>Bạn có thể linh hoạt thay đổi tên các mục menu ở Sidebar.</p>
-        <p className="text-[11px] bg-indigo-50 dark:bg-indigo-900/20 p-2 rounded-lg text-indigo-700 italic">
-          Ví dụ: Nếu công ty bạn dùng thuật ngữ "Mục tiêu OKR", hãy đổi "KPI của tôi" thành "OKR cá nhân" để tạo sự gần gũi và chuyên nghiệp.
-        </p>
       </div>
     ),
     placement: 'bottom',
@@ -752,16 +724,18 @@ export const tourPageLabels: Record<TourPageKey, string> = {
   'roles': 'Vai trò',
   'org-structure': 'Sơ đồ tổ chức',
   'users': 'Nhân sự',
-  'settings': 'Cấu hình hệ thống',
+  'tool-config': 'Thiết lập công cụ',
+  'performance': 'Quản lý hiệu suất',
+  'my-space': 'Của tôi',
   'kpi-criteria': 'Quản lý chỉ tiêu',
   'kpi-periods': 'Quản lý đợt',
   'kpi-pending': 'Duyệt chỉ tiêu',
   'kpi-adjustments': 'Duyệt điều chỉnh',
   'submissions-org': 'Phê duyệt & Đánh giá',
   'my-kpi': 'KPI của tôi',
-  'my-submissions': 'Bài nộp của tôi',
+  'my-submissions': 'Báo cáo của tôi',
   'my-adjustments': 'Điều chỉnh của tôi',
-  'evaluations': 'Kết quả đánh giá',
+  'evaluations': 'Đánh giá của tôi',
   'analytics': 'Thống kê',
   'okr-management': 'Quản lý OKR',
 }
@@ -770,19 +744,8 @@ export const tourPageLabels: Record<TourPageKey, string> = {
 export const pathToTourKey: Record<string, TourPageKey> = {
   '/dashboard': 'dashboard-staff', // Default fallback
   '/company': 'company',
-  '/roles': 'roles',
-  '/org-structure': 'org-structure',
-  '/users': 'users',
-  '/settings': 'settings',
-  '/kpi-criteria': 'kpi-criteria',
-  '/kpi-periods': 'kpi-periods',
-  '/kpi-criteria/pending': 'kpi-pending',
-  '/kpi-adjustments/pending': 'kpi-adjustments',
-  '/submissions/org-unit': 'submissions-org',
-  '/my-kpi': 'my-kpi',
-  '/submissions': 'my-submissions',
-  '/my-adjustments': 'my-adjustments',
-  '/evaluations': 'evaluations',
+  '/settings/tools': 'tool-config',
+  '/performance': 'performance',
+  '/me': 'my-space',
   '/analytics': 'analytics',
-  '/okr': 'okr-management',
 }

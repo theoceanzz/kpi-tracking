@@ -174,7 +174,7 @@ export default function HeadDashboard() {
                   )}
                 </Link>
                 {primaryMembership?.roleRank === 0 && (
-                  <Link to="/kpi-criteria" className="flex-1 lg:flex-none flex items-center justify-center gap-2 px-3 md:px-6 py-2.5 md:py-3 rounded-xl bg-slate-900 dark:bg-white text-white dark:text-slate-900 text-[10px] md:text-[11px] font-black hover:scale-105 transition-all shadow-xl active:scale-95 whitespace-nowrap">
+                  <Link to="/performance?section=kpi-criteria" className="flex-1 lg:flex-none flex items-center justify-center gap-2 px-3 md:px-6 py-2.5 md:py-3 rounded-xl bg-slate-900 dark:bg-white text-white dark:text-slate-900 text-[10px] md:text-[11px] font-black hover:scale-105 transition-all shadow-xl active:scale-95 whitespace-nowrap">
                     <Target size={14} className="text-blue-400 dark:text-blue-600 md:w-4 md:h-4" /> <span className="truncate">QUẢN LÝ KPI</span>
                   </Link>
                 )}

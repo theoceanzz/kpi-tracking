@@ -6,15 +6,15 @@ import { format, addDays, parseISO, addMonths, addYears, subDays, differenceInCa
 import { useKpiPeriods } from '../hooks/useKpiPeriods'
 import { useKpiCycles } from '../hooks/useKpiCycles'
 import { useAuthStore } from '@/store/authStore'
-import { useSidebarSettings } from '@/features/organization/hooks/useSidebarSettings'
 import { formatDateTime, FREQUENCY_MAP } from '@/lib/utils'
 import type { KpiPeriod, KpiFrequency } from '@/types/kpi'
 import {
   Calendar, CalendarRange, Plus, Pencil, Trash2, Clock,
   ChevronLeft, ChevronRight,
   Search, Filter, ArrowUpDown, ArrowUp, ArrowDown, X, ArrowRight,
-  LayoutGrid, List, Sparkles, Target
+  LayoutGrid, List, Target
 } from 'lucide-react'
+import WorkspaceHeader from '@/components/common/WorkspaceHeader'
 import { useDebounce } from '@/hooks/useDebounce'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { DateTimePicker, DatePicker } from '@/components/common/DateTimePicker'
@@ -58,16 +58,8 @@ export default function KpiPeriodsPage() {
     direction
   })
 
-  const { data: customLabels = {} } = useSidebarSettings(organizationId!)
-  const rawTitle = ((customLabels as Record<string, string>)['/kpi-periods'] || 'Quản lý đợt')
-    .split(' ')
-    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-    .join(' ')
-  
-  // Split title to style the last word or keep it as is
-  const titleParts = rawTitle.trim().split(' ')
-  const lastWord = titleParts.length > 1 ? titleParts.pop() : ''
-  const mainTitle = titleParts.join(' ')
+  // Tiêu đề trang không còn tự dựng ở đây: nhãn tuỳ chỉnh của tổ chức đã hiện ở
+  // breadcrumb và ở tab "Đợt đánh giá" ngay trên card, viết lại lần nữa là thừa.
 
   const toggleSort = (field: string) => {
     if (sortBy === field) {
@@ -81,7 +73,7 @@ export default function KpiPeriodsPage() {
 
   const SortIcon = ({ field }: { field: string }) => {
     if (sortBy !== field) return <ArrowUpDown size={14} className="opacity-20 group-hover:opacity-100 transition-opacity" />
-    return direction === 'asc' ? <ArrowUp size={14} className="text-indigo-600 animate-in slide-in-from-bottom-1" /> : <ArrowDown size={14} className="text-indigo-600 animate-in slide-in-from-top-1" />
+    return direction === 'asc' ? <ArrowUp size={14} className="text-[var(--color-primary)] animate-in slide-in-from-bottom-1" /> : <ArrowDown size={14} className="text-[var(--color-primary)] animate-in slide-in-from-top-1" />
   }
 
   const handleDelete = async () => {
@@ -104,71 +96,45 @@ export default function KpiPeriodsPage() {
   }, [data])
 
   return (
-    <div className="min-h-screen bg-slate-50/50 dark:bg-slate-950/50">
-      <div className="max-w-[1600px] mx-auto p-4 md:p-8 space-y-8">
+    // Không tự bọc `max-w`/padding: khung `SettingsSectionLayout` bên ngoài đã lo phần đó.
+    <div className="space-y-5">
         <PageTour pageKey="kpi-periods" steps={kpiPeriodsSteps} />
-        
-        {/* Header Section with Glass Card */}
-        <div className="relative group" id="tour-periods-header">
-          <div className="absolute -inset-1 bg-gradient-to-r from-blue-500 via-indigo-500 to-purple-500 rounded-[40px] blur opacity-10 group-hover:opacity-20 transition duration-1000"></div>
-          <div className="relative bg-white dark:bg-slate-900 rounded-[28px] p-6 border border-slate-200 dark:border-slate-800 shadow-lg overflow-hidden">
-            <div className="absolute top-0 right-0 w-64 h-64 bg-blue-500/5 rounded-full -translate-y-1/2 translate-x-1/2 blur-3xl" />
-            <div className="absolute bottom-0 left-0 w-48 h-48 bg-purple-500/5 rounded-full translate-y-1/2 -translate-x-1/2 blur-3xl" />
 
-            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
-              <div className="space-y-3">
-                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 text-[10px] font-black uppercase tracking-[0.2em] shadow-sm">
-                  <Sparkles size={12} className="animate-pulse" /> Cấu hình Hệ thống
-                </div>
-                <div className="space-y-0.5">
-                  <h1 className="text-3xl md:text-4xl font-black tracking-tight text-slate-900 dark:text-white">
-                    {mainTitle} <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-indigo-600">{lastWord}</span>
-                  </h1>
-                  <p className="text-slate-500 dark:text-slate-400 font-medium text-sm max-w-xl leading-relaxed">
-                    Thiết lập chu kỳ đánh giá (Tháng, Quý, Năm) để triển khai mục tiêu.
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4">
-                <div className="flex justify-center bg-slate-50/50 dark:bg-slate-800/50 backdrop-blur-md rounded-[20px] border border-slate-200/60 dark:border-slate-700/60 p-1.5 shadow-inner group/stats">
-                  <div className="px-6 py-2 text-center border-r border-slate-200 dark:border-slate-700">
-                    <p className="text-2xl font-black text-slate-900 dark:text-white tracking-tighter">{stats.total}</p>
-                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Tổng số đợt</p>
-                  </div>
-                  <div className="px-6 py-2 text-center">
-                    <div className="flex items-center gap-2 justify-center text-indigo-600 dark:text-indigo-400">
-                      <Target size={18} />
-                      <p className="text-2xl font-black tracking-tighter">{stats.monthly + stats.quarterly + stats.semiAnnually}</p>
-                    </div>
-                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Chu kỳ phổ biến</p>
-                  </div>
-                </div>
-
-                <button
-                  onClick={() => { setEditPeriod(null); setShowForm(true) }}
-                  className="cursor-pointer relative z-10 flex items-center justify-center gap-2 px-8 h-12 rounded-[20px] bg-indigo-600 text-white text-[11px] font-black uppercase tracking-widest hover:bg-indigo-700 hover:shadow-indigo-500/40 transition-all shadow-lg shadow-indigo-500/20 active:scale-95 group whitespace-nowrap sm:shrink-0"
-                >
-                  <Plus size={16} className="group-hover:rotate-90 transition-transform duration-500" />
-                  Tạo đợt mới
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
+        {/* Header */}
+        <WorkspaceHeader
+          id="tour-periods-header"
+          description="Thiết lập chu kỳ đánh giá (Tháng, Quý, Năm) để triển khai mục tiêu."
+          stats={[
+            { label: 'Tổng số đợt', value: stats.total },
+            {
+              label: 'Chu kỳ phổ biến',
+              value: stats.monthly + stats.quarterly + stats.semiAnnually,
+              icon: Target,
+            },
+          ]}
+          actions={
+            <button
+              onClick={() => { setEditPeriod(null); setShowForm(true) }}
+              className="cursor-pointer group flex items-center justify-center gap-2 px-5 h-10 rounded-xl bg-[var(--color-primary)] text-white text-sm font-bold hover:opacity-90 transition-all shadow-sm active:scale-95 whitespace-nowrap"
+            >
+              <Plus size={16} className="group-hover:rotate-90 transition-transform duration-500" />
+              Tạo đợt mới
+            </button>
+          }
+        />
 
         {/* Toolbar & Filters */}
-        <div id="tour-periods-toolbar" className="flex flex-col xl:flex-row items-stretch justify-between gap-4 p-4 bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl rounded-[32px] border border-slate-200 dark:border-slate-800 shadow-sm">
+        <div id="tour-periods-toolbar" className="flex flex-col xl:flex-row items-stretch justify-between gap-3 p-3 bg-[var(--color-card)] rounded-2xl border border-[var(--color-border)] shadow-sm">
           <div className="flex flex-col md:flex-row items-center gap-3 flex-1">
             <div className="flex items-center gap-3 w-full md:max-w-md">
               <div className="relative group flex-1">
-                <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-500 transition-colors" size={18} />
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-[var(--color-primary)] transition-colors" size={18} />
                 <input
                   type="text"
                   placeholder="Tìm kiếm tên đợt KPI..."
                   value={keyword}
                   onChange={(e) => { setKeyword(e.target.value); setPage(0) }}
-                  className="w-full pl-12 pr-12 py-3.5 rounded-[20px] border border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50 text-sm font-medium focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500/50 outline-none transition-all placeholder:text-slate-400"
+                  className="w-full pl-12 pr-12 py-2.5 rounded-xl border border-[var(--color-border)] bg-[var(--color-muted)]/40 text-sm font-medium focus:ring-4 focus:ring-[var(--color-primary)]/15 focus:border-[var(--color-primary)]/50 outline-none transition-all placeholder:text-slate-400"
                 />
                 {keyword && (
                   <button
@@ -180,25 +146,25 @@ export default function KpiPeriodsPage() {
                 )}
               </div>
               {/* View toggle - mobile only */}
-              <div className="flex md:hidden bg-slate-100 dark:bg-slate-800 p-1 rounded-[18px] shrink-0">
-                <button onClick={() => setViewMode('TABLE')} className={cn("p-2.5 rounded-xl transition-all duration-300", viewMode === 'TABLE' ? 'bg-white dark:bg-slate-700 shadow-md text-indigo-600 scale-105' : 'text-slate-400 hover:text-slate-600')}>
+              <div className="flex md:hidden bg-[var(--color-muted)] p-1 rounded-xl shrink-0">
+                <button onClick={() => setViewMode('TABLE')} className={cn("p-2.5 rounded-xl transition-all duration-300", viewMode === 'TABLE' ? 'bg-[var(--color-card)] shadow-sm text-[var(--color-primary)]' : 'text-slate-400 hover:text-slate-600')}>
                   <List size={18} />
                 </button>
-                <button onClick={() => setViewMode('CARD')} className={cn("p-2.5 rounded-xl transition-all duration-300", viewMode === 'CARD' ? 'bg-white dark:bg-slate-700 shadow-md text-indigo-600 scale-105' : 'text-slate-400 hover:text-slate-600')}>
+                <button onClick={() => setViewMode('CARD')} className={cn("p-2.5 rounded-xl transition-all duration-300", viewMode === 'CARD' ? 'bg-[var(--color-card)] shadow-sm text-[var(--color-primary)]' : 'text-slate-400 hover:text-slate-600')}>
                   <LayoutGrid size={18} />
                 </button>
               </div>
             </div>
 
             <Select value={periodType} onValueChange={val => { setPeriodType(val); setPage(0) }}>
-              <SelectTrigger className="w-full md:w-56 h-[52px] rounded-[20px] border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50 font-bold text-sm">
+              <SelectTrigger className="w-full md:w-56 h-[42px] rounded-xl border-[var(--color-border)] bg-[var(--color-muted)]/40 font-bold text-sm">
                 <Filter size={16} className="text-slate-400 mr-2" />
                 <SelectValue placeholder="Tất cả loại đợt" />
               </SelectTrigger>
               <SelectContent className="rounded-2xl border-slate-200 dark:border-slate-800 shadow-2xl p-2">
-                <SelectItem value="ALL" className="rounded-xl focus:bg-indigo-50 dark:focus:bg-indigo-900/30 text-xs font-black uppercase">Tất cả loại đợt</SelectItem>
+                <SelectItem value="ALL" className="rounded-xl focus:bg-[var(--color-primary)]/10 text-xs font-black uppercase">Tất cả loại đợt</SelectItem>
                 {['DAILY', 'WEEKLY', 'MONTHLY', 'QUARTERLY', 'SEMI_ANNUALLY', 'YEARLY'].map(type => (
-                  <SelectItem key={type} value={type} className="rounded-xl focus:bg-indigo-50 dark:focus:bg-indigo-900/30 text-sm font-bold">
+                  <SelectItem key={type} value={type} className="rounded-xl focus:bg-[var(--color-primary)]/10 text-sm font-bold">
                     {FREQUENCY_MAP[type as KpiFrequency]}
                   </SelectItem>
                 ))}
@@ -231,7 +197,7 @@ export default function KpiPeriodsPage() {
                   type="date"
                   value={startDateFilter}
                   onChange={(e) => { setStartDateFilter(e.target.value); setPage(0) }}
-                  className="pl-9 pr-3 py-3 rounded-xl border border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50 text-[11px] font-black uppercase outline-none focus:ring-2 focus:ring-indigo-500/20 transition-all text-transparent w-[140px]"
+                  className="pl-9 pr-3 py-2.5 rounded-xl border border-[var(--color-border)] bg-[var(--color-muted)]/40 text-[11px] font-black uppercase outline-none focus:ring-2 focus:ring-[var(--color-primary)]/20 transition-all text-transparent w-[140px]"
                   title="Từ ngày"
                 />
                 <div className="absolute inset-0 left-9 flex items-center pointer-events-none text-[11px] font-black uppercase text-slate-600 dark:text-slate-400">
@@ -245,7 +211,7 @@ export default function KpiPeriodsPage() {
                   type="date"
                   value={endDateFilter}
                   onChange={(e) => { setEndDateFilter(e.target.value); setPage(0) }}
-                  className="pl-9 pr-3 py-3 rounded-xl border border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50 text-[11px] font-black uppercase outline-none focus:ring-2 focus:ring-indigo-500/20 transition-all text-transparent w-[140px]"
+                  className="pl-9 pr-3 py-2.5 rounded-xl border border-[var(--color-border)] bg-[var(--color-muted)]/40 text-[11px] font-black uppercase outline-none focus:ring-2 focus:ring-[var(--color-primary)]/20 transition-all text-transparent w-[140px]"
                   title="Đến ngày"
                 />
                 <div className="absolute inset-0 left-9 flex items-center pointer-events-none text-[11px] font-black uppercase text-slate-600 dark:text-slate-400">
@@ -256,12 +222,12 @@ export default function KpiPeriodsPage() {
           </div>
 
           <div className="hidden md:flex items-center gap-3">
-            <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-[18px]">
+            <div className="flex bg-[var(--color-muted)] p-1 rounded-xl">
               <button 
                 onClick={() => setViewMode('TABLE')}
                 className={cn(
                   "p-2.5 rounded-xl transition-all duration-300",
-                  viewMode === 'TABLE' ? 'bg-white dark:bg-slate-700 shadow-md text-indigo-600 scale-105' : 'text-slate-400 hover:text-slate-600'
+                  viewMode === 'TABLE' ? 'bg-[var(--color-card)] shadow-sm text-[var(--color-primary)]' : 'text-slate-400 hover:text-slate-600'
                 )}
               >
                 <List size={20} />
@@ -270,7 +236,7 @@ export default function KpiPeriodsPage() {
                 onClick={() => setViewMode('CARD')}
                 className={cn(
                   "p-2.5 rounded-xl transition-all duration-300",
-                  viewMode === 'CARD' ? 'bg-white dark:bg-slate-700 shadow-md text-indigo-600 scale-105' : 'text-slate-400 hover:text-slate-600'
+                  viewMode === 'CARD' ? 'bg-[var(--color-card)] shadow-sm text-[var(--color-primary)]' : 'text-slate-400 hover:text-slate-600'
                 )}
               >
                 <LayoutGrid size={20} />
@@ -282,18 +248,18 @@ export default function KpiPeriodsPage() {
         {/* Main Content */}
         <div id="tour-periods-content">
         {isLoading ? (
-          <div className="bg-white dark:bg-slate-900 rounded-[32px] p-8 border border-slate-100 dark:border-slate-800 shadow-sm">
+          <div className="bg-[var(--color-card)] rounded-2xl p-8 border border-[var(--color-border)] shadow-sm">
             <LoadingSkeleton type="table" rows={pageSize} />
           </div>
         ) : !data?.content.length ? (
-          <div className="bg-white/50 dark:bg-slate-900/50 backdrop-blur-md rounded-[40px] border border-dashed border-slate-300 dark:border-slate-700 p-24 shadow-sm text-center">
+          <div className="bg-[var(--color-card)]/50 rounded-2xl border border-dashed border-[var(--color-border)] p-16 shadow-sm text-center">
             <EmptyState 
               title="Chưa có đợt KPI nào" 
               description={keyword || periodType !== 'ALL' ? 'Không tìm thấy đợt KPI phù hợp với bộ lọc hiện tại.' : 'Hãy bắt đầu bằng cách tạo đợt KPI đầu tiên cho hệ thống.'} 
             />
           </div>
         ) : viewMode === 'TABLE' ? (
-          <div className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl rounded-[32px] border border-slate-200 dark:border-slate-800 overflow-hidden shadow-2xl">
+          <div className="bg-[var(--color-card)] rounded-2xl border border-[var(--color-border)] overflow-hidden shadow-sm">
             <div className="overflow-x-auto scrollbar-thin">
               <table className="w-full text-left border-collapse">
                 <thead>
@@ -320,7 +286,7 @@ export default function KpiPeriodsPage() {
                     <tr key={period.id} className="group hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors">
                       <td className="px-4 py-5">
                         <div className="flex items-center gap-4">
-                          <div className="w-12 h-12 rounded-2xl bg-indigo-50 dark:bg-indigo-900/30 flex items-center justify-center text-indigo-600 dark:text-indigo-400 shrink-0 shadow-sm border border-indigo-100/50 dark:border-indigo-800/50 group-hover:scale-110 transition-transform duration-500">
+                          <div className="w-12 h-12 rounded-2xl bg-[var(--color-primary)]/10 flex items-center justify-center text-[var(--color-primary)] shrink-0 shadow-sm border border-[var(--color-primary)]/15 group-hover:scale-110 transition-transform duration-500">
                             <Calendar size={20} />
                           </div>
                           <span className="text-sm font-black text-slate-900 dark:text-white">{period.name}</span>
@@ -355,7 +321,7 @@ export default function KpiPeriodsPage() {
                         <div className="flex items-center justify-end gap-1.5">
                           <button 
                             onClick={() => { setEditPeriod(period); setShowForm(true) }}
-                            className="p-2.5 text-slate-400 hover:text-indigo-600 hover:bg-white dark:hover:bg-slate-800 rounded-xl transition-all shadow-sm border border-transparent hover:border-slate-200 dark:hover:border-slate-700" title="Chỉnh sửa"
+                            className="p-2.5 text-slate-400 hover:text-[var(--color-primary)] hover:bg-white dark:hover:bg-slate-800 rounded-xl transition-all shadow-sm border border-transparent hover:border-slate-200 dark:hover:border-slate-700" title="Chỉnh sửa"
                           >
                             <Pencil size={18} />
                           </button>
@@ -380,14 +346,14 @@ export default function KpiPeriodsPage() {
                 key={period.id} 
                 className="group relative bg-white dark:bg-slate-900 rounded-[32px] border border-slate-200 dark:border-slate-800 p-6 shadow-sm hover:shadow-2xl hover:-translate-y-1 transition-all duration-300"
               >
-                <div className="absolute top-0 right-0 w-20 h-20 bg-indigo-500/5 rounded-full -translate-y-1/2 translate-x-1/2 blur-2xl group-hover:bg-indigo-500/10 transition-colors" />
+                <div className="absolute top-0 right-0 w-20 h-20 bg-[var(--color-primary)]/5 rounded-full -translate-y-1/2 translate-x-1/2 blur-2xl group-hover:bg-[var(--color-primary)]/10 transition-colors" />
                 
                 <div className="flex items-start justify-between mb-6 relative">
-                  <div className="w-12 h-12 rounded-2xl bg-indigo-50 dark:bg-indigo-900/30 flex items-center justify-center text-indigo-600 dark:text-indigo-400 shadow-inner">
+                  <div className="w-12 h-12 rounded-2xl bg-[var(--color-primary)]/10 flex items-center justify-center text-[var(--color-primary)] shadow-inner">
                     <Calendar size={22} />
                   </div>
                   <div className="flex gap-1">
-                    <button onClick={() => { setEditPeriod(period); setShowForm(true) }} className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-xl transition-all"><Pencil size={16} /></button>
+                    <button onClick={() => { setEditPeriod(period); setShowForm(true) }} className="p-2 text-slate-400 hover:text-[var(--color-primary)] hover:bg-slate-50 dark:hover:bg-slate-800 rounded-xl transition-all"><Pencil size={16} /></button>
                     <button onClick={() => setDeleteId(period.id)} className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/30 rounded-xl transition-all"><Trash2 size={16} /></button>
                   </div>
                 </div>
@@ -445,8 +411,8 @@ export default function KpiPeriodsPage() {
                     className={cn(
                       "w-10 h-10 rounded-xl text-xs font-black transition-all duration-300",
                       page === i 
-                        ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/40 scale-110' 
-                        : 'hover:bg-indigo-50 dark:hover:bg-indigo-900/30 text-slate-500 dark:text-slate-400'
+                        ? 'bg-[var(--color-primary)] text-white shadow-sm' 
+                        : 'hover:bg-[var(--color-muted)] text-[var(--color-muted-foreground)]'
                     )}
                   >
                     {i + 1}
@@ -492,7 +458,6 @@ export default function KpiPeriodsPage() {
           loading={isDeleting}
         />
 
-      </div>
     </div>
   )
 }
@@ -662,11 +627,11 @@ function PeriodFormModal({ onClose, editPeriod, organizationId, onSubmit, isSubm
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-slate-950/40 backdrop-blur-md animate-in fade-in duration-300" onClick={onClose} />
       <div className="relative bg-white dark:bg-slate-900 rounded-[40px] shadow-2xl w-full max-w-lg mx-auto animate-in zoom-in-95 fade-in duration-500 overflow-y-auto overflow-x-hidden max-h-[92vh] scrollbar-thin border border-slate-200 dark:border-slate-800">
-        <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-500/5 rounded-full -translate-y-1/2 translate-x-1/2 blur-3xl" />
+        <div className="absolute top-0 right-0 w-32 h-32 bg-[var(--color-primary)]/5 rounded-full -translate-y-1/2 translate-x-1/2 blur-3xl" />
         
         <div className="p-10 space-y-8 relative">
           <div className="flex items-center gap-5">
-            <div className="w-14 h-14 rounded-[22px] bg-indigo-50 dark:bg-indigo-900/30 flex items-center justify-center text-indigo-600 dark:text-indigo-400 shadow-inner border border-indigo-100/50 dark:border-indigo-800/50">
+            <div className="w-14 h-14 rounded-[22px] bg-[var(--color-primary)]/10 flex items-center justify-center text-[var(--color-primary)] shadow-inner border border-[var(--color-primary)]/15">
               {editPeriod ? <Pencil size={28} /> : <Plus size={28} />}
             </div>
             <div>
@@ -685,19 +650,19 @@ function PeriodFormModal({ onClose, editPeriod, organizationId, onSubmit, isSubm
                 onChange={e => handleFieldChange('name', e.target.value)}
                 required
                 placeholder="Ví dụ: Tháng 05/2026"
-                className="w-full px-5 py-4 rounded-[20px] border border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50 focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500/50 outline-none text-sm font-bold transition-all placeholder:text-slate-400"
+                className="w-full px-5 py-4 rounded-[20px] border border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50 focus:ring-4 focus:ring-[var(--color-primary)]/15 focus:border-[var(--color-primary)]/50 outline-none text-sm font-bold transition-all placeholder:text-slate-400"
               />
             </div>
 
             <div className="space-y-2">
               <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 ml-1">Loại chu kỳ <span className="text-red-500">*</span></label>
               <Select value={formData.periodType} onValueChange={val => handleFieldChange('periodType', val)}>
-                <SelectTrigger className="w-full px-5 h-[56px] rounded-[20px] border border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50 text-sm font-bold shadow-sm focus:ring-4 focus:ring-indigo-500/10">
+                <SelectTrigger className="w-full px-5 h-[56px] rounded-[20px] border border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50 text-sm font-bold shadow-sm focus:ring-4 focus:ring-[var(--color-primary)]/15">
                   <SelectValue placeholder="Chọn loại chu kỳ" />
                 </SelectTrigger>
                 <SelectContent className="rounded-2xl border-slate-200 dark:border-slate-800 shadow-2xl p-2">
                   {['DAILY', 'WEEKLY', 'MONTHLY', 'QUARTERLY', 'SEMI_ANNUALLY', 'YEARLY'].map(type => (
-                    <SelectItem key={type} value={type} className="rounded-xl focus:bg-indigo-50 dark:focus:bg-indigo-900/30 text-sm font-bold">
+                    <SelectItem key={type} value={type} className="rounded-xl focus:bg-[var(--color-primary)]/10 text-sm font-bold">
                       {FREQUENCY_MAP[type as KpiFrequency]}
                     </SelectItem>
                   ))}
@@ -708,7 +673,7 @@ function PeriodFormModal({ onClose, editPeriod, organizationId, onSubmit, isSubm
             <div className="space-y-2">
               <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 ml-1">Thuộc kỳ đánh giá (tuỳ chọn)</label>
               <Select value={formData.cycleId} onValueChange={val => setFormData(prev => ({ ...prev, cycleId: val }))}>
-                <SelectTrigger className="w-full px-5 h-[56px] rounded-[20px] border border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50 text-sm font-bold shadow-sm focus:ring-4 focus:ring-indigo-500/10">
+                <SelectTrigger className="w-full px-5 h-[56px] rounded-[20px] border border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50 text-sm font-bold shadow-sm focus:ring-4 focus:ring-[var(--color-primary)]/15">
                   <SelectValue placeholder="Không thuộc kỳ nào" />
                 </SelectTrigger>
                 <SelectContent className="rounded-2xl border-slate-200 dark:border-slate-800 shadow-2xl p-2">
@@ -738,7 +703,7 @@ function PeriodFormModal({ onClose, editPeriod, organizationId, onSubmit, isSubm
                   </div>
                   {/* Desktop */}
                   <div className="hidden sm:block relative">
-                    <input type="datetime-local" value={formData.startDate} onChange={e => handleFieldChange('startDate', e.target.value)} required className="w-full px-5 py-4 rounded-[22px] border border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50 focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500/50 outline-none text-sm font-bold transition-all text-transparent" />
+                    <input type="datetime-local" value={formData.startDate} onChange={e => handleFieldChange('startDate', e.target.value)} required className="w-full px-5 py-4 rounded-[22px] border border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50 focus:ring-4 focus:ring-[var(--color-primary)]/15 focus:border-[var(--color-primary)]/50 outline-none text-sm font-bold transition-all text-transparent" />
                     <div className="absolute inset-0 left-5 flex items-center pointer-events-none text-sm font-bold text-slate-900 dark:text-white">
                       {formData.startDate ? format(new Date(formData.startDate), 'dd/MM/yyyy HH:mm') : ''}
                     </div>
@@ -753,7 +718,7 @@ function PeriodFormModal({ onClose, editPeriod, organizationId, onSubmit, isSubm
                   </div>
                   {/* Desktop */}
                   <div className="hidden sm:block relative">
-                    <input type="datetime-local" value={formData.endDate} onChange={e => handleFieldChange('endDate', e.target.value)} required className="w-full px-5 py-4 rounded-[22px] border border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50 focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500/50 outline-none text-sm font-bold transition-all text-transparent" />
+                    <input type="datetime-local" value={formData.endDate} onChange={e => handleFieldChange('endDate', e.target.value)} required className="w-full px-5 py-4 rounded-[22px] border border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50 focus:ring-4 focus:ring-[var(--color-primary)]/15 focus:border-[var(--color-primary)]/50 outline-none text-sm font-bold transition-all text-transparent" />
                     <div className="absolute inset-0 left-5 flex items-center pointer-events-none text-sm font-bold text-slate-900 dark:text-white">
                       {formData.endDate ? format(new Date(formData.endDate), 'dd/MM/yyyy HH:mm') : ''}
                     </div>
@@ -769,7 +734,7 @@ function PeriodFormModal({ onClose, editPeriod, organizationId, onSubmit, isSubm
                 </div>
                 {/* Desktop */}
                 <div className="hidden sm:block relative">
-                  <input type="datetime-local" value={formData.notificationDate} onChange={e => handleFieldChange('notificationDate', e.target.value)} required className="w-full px-6 py-4 rounded-[22px] border border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50 focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500/50 outline-none text-sm font-bold transition-all text-transparent" />
+                  <input type="datetime-local" value={formData.notificationDate} onChange={e => handleFieldChange('notificationDate', e.target.value)} required className="w-full px-6 py-4 rounded-[22px] border border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50 focus:ring-4 focus:ring-[var(--color-primary)]/15 focus:border-[var(--color-primary)]/50 outline-none text-sm font-bold transition-all text-transparent" />
                   <div className="absolute inset-0 left-6 flex items-center pointer-events-none text-sm font-bold text-slate-900 dark:text-white">
                     {formData.notificationDate ? format(new Date(formData.notificationDate), 'dd/MM/yyyy HH:mm') : ''}
                   </div>
@@ -788,7 +753,7 @@ function PeriodFormModal({ onClose, editPeriod, organizationId, onSubmit, isSubm
               <button 
                 type="submit"
                 disabled={isSubmitting}
-                className="flex-1 px-8 py-4 rounded-[20px] bg-indigo-600 text-white text-xs font-black uppercase tracking-widest hover:bg-indigo-700 transition-all shadow-xl shadow-indigo-500/25 disabled:opacity-50 active:scale-95"
+                className="flex-1 px-8 py-4 rounded-[20px] bg-[var(--color-primary)] text-white text-xs font-black uppercase tracking-widest hover:opacity-90 transition-all shadow-lg disabled:opacity-50 active:scale-95"
               >
                 {isSubmitting ? 'Đang lưu...' : 'Xác nhận'}
               </button>

@@ -1,7 +1,7 @@
 import { useState, useMemo, useCallback } from 'react'
 import { LayoutGrid, List as ListIcon, PlusCircle, Download, Upload, Loader2 } from 'lucide-react'
 import { useAuthStore } from '@/store/authStore'
-import { useSidebarSettings } from '../hooks/useSidebarSettings'
+import { usePageTitle } from '../hooks/usePageTitle'
 import { useOrgUnitTree, useOrgHierarchyLevels, useDeleteOrgUnit, useImportOrgUnits } from '../hooks/useOrganizationStructure'
 import type { OrgUnitTreeResponse } from '../types/org-unit'
 import { OrgMindmapView } from '../components/OrgMindmapView'
@@ -22,12 +22,7 @@ export function OrganizationStructurePage() {
   const { user } = useAuthStore()
   const orgId = user?.memberships?.[0]?.organizationId // Getting organizationId from the first membership for a director
 
-  const { data: customLabels = {} } = useSidebarSettings(orgId!)
-  const sidebarLabel = ((customLabels as Record<string, string>)['/org-structure'] || 'Sơ đồ tổ chức').trim()
-  const pageTitle = `Quản lý ${sidebarLabel}`
-    .split(' ')
-    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-    .join(' ')
+  const pageTitle = usePageTitle('org-structure', 'Sơ đồ tổ chức')
 
   const { data: treeData = [], isLoading: isTreeLoading } = useOrgUnitTree(orgId)
   const { data: hierarchyLevelsData = [], isLoading: isLevelsLoading } = useOrgHierarchyLevels(orgId)
@@ -215,7 +210,10 @@ export function OrganizationStructurePage() {
 
   // Chế độ Sơ đồ: ép trang lấp đúng chiều cao <main> để canvas tự vừa khung, không sinh cuộn.
   // Chế độ Danh sách: giữ luồng cuộn tự nhiên vì danh sách có thể dài.
-  const fitToScreen = viewMode === 'mindmap' && treeData.length > 0
+  // Trước đây trang tự lấp đầy chiều cao <main>. Giờ nó là một mục trong trang
+  // "Thiết lập công ty" nên không còn tầng cha nào có chiều cao xác định để bám vào —
+  // canvas tự đặt chiều cao theo viewport.
+  const fitToScreen = false
 
   return (
     <div className={`container mx-auto px-4 md:px-0 ${fitToScreen ? 'h-full flex flex-col gap-6' : 'space-y-6'}`}>

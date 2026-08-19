@@ -139,9 +139,9 @@ export default function EvaluationFormModal({ open, onClose, readOnly = false, i
         reset(); 
         onClose();
         if (isHead) {
-          navigate('/submissions/org-unit')
+          navigate('/performance?section=submissions-org-unit')
         } else {
-          navigate('/evaluations')
+          navigate('/me?section=evaluations')
         }
       },
     })
