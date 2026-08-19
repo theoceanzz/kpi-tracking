@@ -27,7 +27,8 @@ public class ManagerContextResolver {
     private final UserRepository userRepository;
     private final UserRoleOrgUnitRepository userRoleOrgUnitRepository;
 
-    public record ManagerContext(UUID orgUnitId, String orgUnitPath, UUID orgId, String email) {}
+    /** userId cần cho việc lọc tool theo quyền ở {@code ToolRegistry}. */
+    public record ManagerContext(UUID orgUnitId, String orgUnitPath, UUID orgId, String email, UUID userId) {}
 
     /**
      * @return the manager context for the current user, or {@code null} if the user
@@ -46,7 +47,8 @@ public class ManagerContextResolver {
                             a.getOrgUnit().getId(),
                             a.getOrgUnit().getPath(),
                             a.getOrgUnit().getOrgHierarchyLevel().getOrganization().getId(),
-                            user.getEmail()
+                            user.getEmail(),
+                            user.getId()
                     ))
                     .orElse(null);
         } catch (Exception e) {

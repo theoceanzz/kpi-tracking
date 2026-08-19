@@ -9,18 +9,60 @@ public final class OrgUnitStatisticToolRequests {
     // LƯU Ý: chỉ khai báo tham số mà tool THẬT SỰ dùng. Tham số thừa vẫn được model truyền vào
     // rồi bị lờ đi âm thầm (vd hỏi "nhân viên phòng IT trong tháng 7" -> ngày bị bỏ, model tưởng
     // đã lọc), đồng thời phình schema gửi lại ở MỖI vòng gọi tool.
-    @JsonInclude(JsonInclude.Include.NON_NULL)
-    public record GetOrgHierarchyRequest() {}
+    
 
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    /**
+     * Tham số của tool `rank` gộp. kpiId/positionName/managersOnly/unitTypeName CHỈ dùng với
+     * subject=members — truyền kèm subject=org_units sẽ bị trả lỗi rõ ràng chứ không bị lờ đi.
+     */
     @JsonInclude(JsonInclude.Include.NON_NULL)
-    public record GetOrgUnitDetailRequest(
-            @JsonProperty(required = false) String unitName,  // tên đơn vị đích (vd "Phòng truyền thông"); mặc định = đơn vị hiện tại
-            @JsonProperty(required = false) String unitId
+    public record RankRequest(
+            String subject,                                   // members | org_units
+            @JsonProperty(required = false) String metric,
+            @JsonProperty(required = false) String order,
+            @JsonProperty(required = false) String scope,
+            @JsonProperty(required = false) String unitId,
+            @JsonProperty(required = false) String unitName,  // với org_units: đơn vị CHA cần xếp hạng các đơn vị con
+            @JsonProperty(required = false) String kpiId,
+            @JsonProperty(required = false) Integer limit,
+            @JsonProperty(required = false) String startDate,
+            @JsonProperty(required = false) String endDate,
+            @JsonProperty(required = false) String positionFilter,
+            @JsonProperty(required = false) String positionName,  // bí danh của positionFilter (khớp tên tham số của get_members)
+            @JsonProperty(required = false) Boolean managersOnly,
+            @JsonProperty(required = false) String unitTypeName
     ) {}
 
+    /**
+     * Tham số của tool `get_org_unit` gộp. recursive/page/size/sortBy/sortDirection CHỈ dùng với
+     * view=children.
+     */
     @JsonInclude(JsonInclude.Include.NON_NULL)
-    public record GetChildOrgUnitsRequest(
-            @JsonProperty(required = false) String unitName,  // tên đơn vị cha đích; mặc định = đơn vị hiện tại
+    public record OrgUnitRequest(
+            String view,                                      // detail | hierarchy | children | positions
+            @JsonProperty(required = false) String unitName,  // đơn vị đích; mặc định = đơn vị hiện tại
             @JsonProperty(required = false) String unitId,
             @JsonProperty(required = false) Boolean recursive,
             @JsonProperty(required = false) Integer page,
@@ -29,45 +71,49 @@ public final class OrgUnitStatisticToolRequests {
             @JsonProperty(required = false) String sortDirection
     ) {}
 
+    /**
+     * Tham số của tool `get_people` gộp. userId CHỈ dùng với view=user_summary; view=me không nhận
+     * tham số nhắm đích nào cả.
+     */
     @JsonInclude(JsonInclude.Include.NON_NULL)
-    public record GetMembersRequest(
-            @JsonProperty(required = false) String unitName,  // tên đơn vị đích (vd "phòng IT"); mặc định = đơn vị hiện tại
+    public record PeopleRequest(
+            String view,                                      // list | statistics | by_performance | user_summary | me
+            @JsonProperty(required = false) String unitName,  // đơn vị đích; mặc định = đơn vị hiện tại
             @JsonProperty(required = false) String unitId,
+            @JsonProperty(required = false) String userId,    // chỉ với view=user_summary
             @JsonProperty(required = false) Boolean includeChildUnits,
             @JsonProperty(required = false) String positionId,
-            @JsonProperty(required = false) String positionName,  // tên chức vụ (thay cho positionId — khỏi search_positions)
+            @JsonProperty(required = false) String positionName,  // tên chức vụ, thay cho positionId
+            @JsonProperty(required = false) Double threshold,     // với view=by_performance
+            @JsonProperty(required = false) String direction,     // above | below
+            @JsonProperty(required = false) String metric,
+            @JsonProperty(required = false) String startDate,
+            @JsonProperty(required = false) String endDate,
             @JsonProperty(required = false) Integer page,
             @JsonProperty(required = false) Integer size,
             @JsonProperty(required = false) String sortBy,
-            @JsonProperty(required = false) String sortDirection
+            @JsonProperty(required = false) String sortDirection,
+            @JsonProperty(required = false) Integer limit
     ) {}
 
+    /**
+     * Tham số của tool `get_kpi` gộp. kpiId CHỈ dùng với view=detail|assignees|period_breakdown;
+     * unitName/unitId CHỈ dùng với view=list|summary|periods.
+     */
     @JsonInclude(JsonInclude.Include.NON_NULL)
-    public record GetOrgUnitStatisticsRequest(
-            @JsonProperty(required = false) String unitName,  // tên đơn vị đích (vd "phòng IT"); mặc định = đơn vị hiện tại
+    public record KpiRequest(
+            String view,                                      // list | summary | periods | detail | assignees | period_breakdown
+            @JsonProperty(required = false) String unitName,
             @JsonProperty(required = false) String unitId,
-            @JsonProperty(required = false) Boolean includeChildUnits,
-            @JsonProperty(required = false) String positionName,  // lọc nhóm theo tên chức vụ (khỏi search_positions)
-            @JsonProperty(required = false) String startDate,
-            @JsonProperty(required = false) String endDate
-    ) {}
-
-    @JsonInclude(JsonInclude.Include.NON_NULL)
-    public record GetUserSummaryRequest(
-            @JsonProperty(required = false) String userId,
-            @JsonProperty(required = false) String startDate,
-            @JsonProperty(required = false) String endDate
-    ) {}
-
-    @JsonInclude(JsonInclude.Include.NON_NULL)
-    public record GetKpisRequest(
-            @JsonProperty(required = false) String unitName,   // tên đơn vị đích (vd "phòng IT"); mặc định = đơn vị hiện tại
-            @JsonProperty(required = false) String unitId,     // hoặc UUID đơn vị đích
+            @JsonProperty(required = false) String kpiId,
+            @JsonProperty(required = false) String kpiName,   // với view=assignees: gộp người được giao qua MỌI kỳ trùng tên
             @JsonProperty(required = false) String ownerId,
             @JsonProperty(required = false) String assignedById,
             @JsonProperty(required = false) String assignedToId,
+            @JsonProperty(required = false) String userId,    // với view=period_breakdown: lọc theo một người
             @JsonProperty(required = false) String periodId,
             @JsonProperty(required = false) String status,
+            @JsonProperty(required = false) String granularity,  // MONTH | QUARTER | YEAR
             @JsonProperty(required = false) Integer page,
             @JsonProperty(required = false) Integer size,
             @JsonProperty(required = false) String sortBy,
@@ -76,159 +122,34 @@ public final class OrgUnitStatisticToolRequests {
             @JsonProperty(required = false) String endDate
     ) {}
 
+    /**
+     * Tham số của tool `search` gộp. unitId/positionName CHỈ dùng với entityType=user — truyền
+     * kèm loại khác sẽ bị trả lỗi rõ ràng chứ không bị lờ đi.
+     */
     @JsonInclude(JsonInclude.Include.NON_NULL)
-    public record GetKpiSummaryRequest(
-            @JsonProperty(required = false) String unitName,   // tên đơn vị đích (vd "phòng IT"); mặc định = đơn vị hiện tại
-            @JsonProperty(required = false) String unitId,     // hoặc UUID đơn vị đích
-            @JsonProperty(required = false) String ownerId,
-            @JsonProperty(required = false) String assignedById,
-            @JsonProperty(required = false) String assignedToId,
-            @JsonProperty(required = false) String periodId,
-            @JsonProperty(required = false) String status,
-            @JsonProperty(required = false) String startDate,
-            @JsonProperty(required = false) String endDate
-    ) {}
-
-    @JsonInclude(JsonInclude.Include.NON_NULL)
-    public record GetKpiDetailRequest(
-            @JsonProperty(required = false) String kpiId,
-            @JsonProperty(required = false) String startDate,
-            @JsonProperty(required = false) String endDate
-    ) {}
-
-    @JsonInclude(JsonInclude.Include.NON_NULL)
-    public record GetKpiAssigneesRequest(
-            @JsonProperty(required = false) String kpiId
-    ) {}
-
-    @JsonInclude(JsonInclude.Include.NON_NULL)
-    public record GetKpiPeriodsRequest(
-            @JsonProperty(required = false) String unitName,   // tên đơn vị: chỉ liệt kê kỳ đơn vị đó THAM GIA; mặc định = toàn tổ chức
-            @JsonProperty(required = false) String unitId,     // hoặc UUID đơn vị đích
-            @JsonProperty(required = false) String startDate,
-            @JsonProperty(required = false) String endDate
-    ) {}
-
-    @JsonInclude(JsonInclude.Include.NON_NULL)
-    public record GetPositionsRequest(
-            @JsonProperty(required = false) String unitName,  // tên đơn vị đích; mặc định = đơn vị hiện tại
-            @JsonProperty(required = false) String unitId
-    ) {}
-
-    @JsonInclude(JsonInclude.Include.NON_NULL)
-    public record RankMembersRequest(
-            @JsonProperty(required = false) String metric,
-            @JsonProperty(required = false) String order,
-            @JsonProperty(required = false) String scope,
-            @JsonProperty(required = false) String unitId,
-            @JsonProperty(required = false) String unitName,
-            @JsonProperty(required = false) String kpiId,
-            @JsonProperty(required = false) Integer limit,
-            @JsonProperty(required = false) String startDate,
-            @JsonProperty(required = false) String endDate,
-            @JsonProperty(required = false) String positionFilter,
-            @JsonProperty(required = false) String positionName,  // bí danh của positionFilter (khớp tên tham số của get_members/get_org_unit_statistics)
-            @JsonProperty(required = false) Boolean managersOnly,
-            @JsonProperty(required = false) String unitTypeName
-    ) {}
-
-    @JsonInclude(JsonInclude.Include.NON_NULL)
-    public record RankOrgUnitsRequest(
-            @JsonProperty(required = false) String metric,
-            @JsonProperty(required = false) String order,
-            @JsonProperty(required = false) String unitName,  // đơn vị cha cần xếp hạng các đơn vị con; mặc định = đơn vị hiện tại
-            @JsonProperty(required = false) String unitId,
-            @JsonProperty(required = false) Integer limit,
-            @JsonProperty(required = false) String startDate,
-            @JsonProperty(required = false) String endDate
-    ) {}
-
-    @JsonInclude(JsonInclude.Include.NON_NULL)
-    public record GetKpiRiskAnalysisRequest(
-            @JsonProperty(required = false) String unitName,   // tên đơn vị đích (vd "phòng vận hành"); mặc định = đơn vị hiện tại
-            @JsonProperty(required = false) String unitId,     // hoặc UUID đơn vị đích
-            @JsonProperty(required = false) String startDate,
-            @JsonProperty(required = false) String endDate
-    ) {}
-
-    @JsonInclude(JsonInclude.Include.NON_NULL)
-    public record GetDashboardSummaryRequest(
-            @JsonProperty(required = false) String unitName,  // đơn vị đích; mặc định = đơn vị hiện tại
-            @JsonProperty(required = false) String unitId,
-            @JsonProperty(required = false) String startDate,
-            @JsonProperty(required = false) String endDate
-    ) {}
-
-    @JsonInclude(JsonInclude.Include.NON_NULL)
-    public record SearchUsersRequest(
-            @JsonProperty(required = false) String keyword,
+    public record SearchRequest(
+            String entityType,
+            String keyword,
             @JsonProperty(required = false) String unitId,
             @JsonProperty(required = false) String positionName,
             @JsonProperty(required = false) Integer limit
     ) {}
 
-    @JsonInclude(JsonInclude.Include.NON_NULL)
-    public record SearchOrgUnitsRequest(
-            @JsonProperty(required = false) String keyword,
-            @JsonProperty(required = false) Integer limit
-    ) {}
+    
 
-    @JsonInclude(JsonInclude.Include.NON_NULL)
-    public record SearchKpisRequest(
-            @JsonProperty(required = false) String keyword,
-            @JsonProperty(required = false) Integer limit
-    ) {}
+    
 
-    @JsonInclude(JsonInclude.Include.NON_NULL)
-    public record SearchPositionsRequest(
-            @JsonProperty(required = false) String keyword,
-            @JsonProperty(required = false) Integer limit
-    ) {}
+    
 
-    @JsonInclude(JsonInclude.Include.NON_NULL)
-    public record SearchKpiPeriodsRequest(
-            @JsonProperty(required = false) String keyword,
-            @JsonProperty(required = false) Integer limit
-    ) {}
+    
 
-    @JsonInclude(JsonInclude.Include.NON_NULL)
-    public record GetTimeSeriesRequest(
-            @JsonProperty(required = false) String unitName,     // tên đơn vị đích (vd "phòng IT"); mặc định = đơn vị hiện tại
-            @JsonProperty(required = false) String unitId,
-            @JsonProperty(required = false) String metric,       // completion | avg_performance
-            @JsonProperty(required = false) String granularity,  // MONTH | QUARTER | YEAR
-            @JsonProperty(required = false) Integer lookback      // number of most-recent periods to keep
-    ) {}
+    
 
-    @JsonInclude(JsonInclude.Include.NON_NULL)
-    public record GetSubmissionHistoryRequest(
-            @JsonProperty(required = false) String kpiId,
-            @JsonProperty(required = false) String kpiName,      // tên KPI: gom bài nộp của MỌI bản cùng tên (vd KPI lặp theo tuần)
-            @JsonProperty(required = false) String userId,
-            @JsonProperty(required = false) String status,       // PENDING | APPROVED | REJECTED | DRAFT
-            @JsonProperty(required = false) String startDate,
-            @JsonProperty(required = false) String endDate,
-            @JsonProperty(required = false) Integer limit        // default 20
-    ) {}
+    
 
-    @JsonInclude(JsonInclude.Include.NON_NULL)
-    public record GetKpiPeriodBreakdownRequest(
-            @JsonProperty(required = false) String kpiId,
-            @JsonProperty(required = false) String userId,
-            @JsonProperty(required = false) String granularity,  // MONTH | QUARTER | YEAR
-            @JsonProperty(required = false) String startDate,
-            @JsonProperty(required = false) String endDate
-    ) {}
+    
 
-    @JsonInclude(JsonInclude.Include.NON_NULL)
-    public record GetNonSubmittersRequest(
-            @JsonProperty(required = false) String unitName,   // tên đơn vị đích; mặc định = đơn vị hiện tại
-            @JsonProperty(required = false) String unitId,
-            @JsonProperty(required = false) String periodId,
-            @JsonProperty(required = false) String startDate,
-            @JsonProperty(required = false) String endDate,
-            @JsonProperty(required = false) Integer limit        // default 20
-    ) {}
+    
 
     @JsonInclude(JsonInclude.Include.NON_NULL)
     public record CompareOrgUnitsRequest(
@@ -238,18 +159,43 @@ public final class OrgUnitStatisticToolRequests {
             @JsonProperty(required = false) String endDate
     ) {}
 
-    @JsonInclude(JsonInclude.Include.NON_NULL)
-    public record GetMyInfoRequest() {}
+    
 
+    
+
+    /**
+     * Tham số của tool `get_analytics` gộp. metric/granularity/lookback CHỈ dùng với
+     * view=time_series; startDate/endDate CHỈ dùng với view=dashboard|risk. Truyền lẫn sẽ bị
+     * trả lỗi rõ ràng chứ không bị lờ đi.
+     */
     @JsonInclude(JsonInclude.Include.NON_NULL)
-    public record GetMembersByPerformanceThresholdRequest(
-            @JsonProperty(required = false) String unitName,      // tên đơn vị đích; mặc định = đơn vị hiện tại
+    public record AnalyticsRequest(
+            String view,                                          // dashboard | time_series | risk
+            @JsonProperty(required = false) String unitName,      // đơn vị đích; mặc định = đơn vị hiện tại
             @JsonProperty(required = false) String unitId,
-            @JsonProperty(required = false) Double threshold,     // e.g. 80.0 (%)
-            @JsonProperty(required = false) String direction,     // below (default) | above
-            @JsonProperty(required = false) String metric,        // avg_performance (default) | avg_progress
             @JsonProperty(required = false) String startDate,
             @JsonProperty(required = false) String endDate,
-            @JsonProperty(required = false) Integer limit         // default 20
+            @JsonProperty(required = false) String metric,        // completion | avg_performance
+            @JsonProperty(required = false) String granularity,   // MONTH | QUARTER | YEAR
+            @JsonProperty(required = false) Integer lookback      // số kỳ gần nhất
+    ) {}
+
+    /**
+     * Tham số của tool `get_submissions` gộp. kpiName/kpiId/status CHỈ dùng với view=history;
+     * unitName/unitId/periodId CHỈ dùng với view=non_submitters.
+     */
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    public record SubmissionsRequest(
+            String view,                                          // history | non_submitters
+            @JsonProperty(required = false) String kpiId,
+            @JsonProperty(required = false) String kpiName,       // gom bài nộp của MỌI bản cùng tên
+            @JsonProperty(required = false) String userId,
+            @JsonProperty(required = false) String status,        // PENDING | APPROVED | REJECTED | DRAFT
+            @JsonProperty(required = false) String unitName,
+            @JsonProperty(required = false) String unitId,
+            @JsonProperty(required = false) String periodId,
+            @JsonProperty(required = false) String startDate,
+            @JsonProperty(required = false) String endDate,
+            @JsonProperty(required = false) Integer limit         // mặc định 20
     ) {}
 }

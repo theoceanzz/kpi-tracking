@@ -3,9 +3,13 @@ import { ENV } from '@/config/env'
 import { useAuthStore } from '@/store/authStore'
 
 const axiosInstance = axios.create({
-  baseURL: ENV.API_BASE_URL, 
+  baseURL: ENV.API_BASE_URL,
   timeout: 100000,
   headers: { 'Content-Type': 'application/json' },
+  // Access token và refresh token nằm trong cookie HttpOnly do backend cấp: JavaScript không
+  // đọc được chúng, trình duyệt tự đính kèm. Cũng nhờ đó axios tự gửi header X-XSRF-TOKEN
+  // lấy từ cookie XSRF-TOKEN mà Spring Security phát ra.
+  withCredentials: true,
 })
 
 let isRefreshing = false
@@ -14,36 +18,27 @@ let failedQueue: Array<{
   reject: (reason: unknown) => void
 }> = []
 
-const processQueue = (error: unknown, token: string | null = null) => {
+const processQueue = (error: unknown) => {
   failedQueue.forEach((prom) => {
     if (error) {
       prom.reject(error)
     } else {
-      prom.resolve(token)
+      prom.resolve(null)
     }
   })
   failedQueue = []
 }
-
-axiosInstance.interceptors.request.use(
-  (config) => {
-    const { accessToken } = useAuthStore.getState()
-    if (accessToken) {
-      config.headers.Authorization = `Bearer ${accessToken}`
-    }
-    return config
-  },
-  (error) => Promise.reject(error)
-)
 
 axiosInstance.interceptors.response.use(
   (response) => response,
   async (error) => {
     const originalRequest = error.config
 
-    // Các endpoint đăng nhập không có access token nên 401 ở đây không được kích hoạt luồng refresh
+    // Các endpoint chưa có phiên nên 401 ở đây không được kích hoạt luồng refresh.
+    // /auth/refresh-token nằm trong danh sách để một lần refresh hỏng không tự gọi lại chính nó.
     const isLoginEndpoint =
       originalRequest.url?.includes('/auth/login') ||
+      originalRequest.url?.includes('/auth/refresh-token') ||
       originalRequest.url?.includes('/auth/lark') ||
       originalRequest.url?.includes('/public/')
 
@@ -51,35 +46,23 @@ axiosInstance.interceptors.response.use(
       if (isRefreshing) {
         return new Promise((resolve, reject) => {
           failedQueue.push({ resolve, reject })
-        }).then((token) => {
-          originalRequest.headers.Authorization = `Bearer ${token}`
-          return axiosInstance(originalRequest)
-        })
+        }).then(() => axiosInstance(originalRequest))
       }
 
       originalRequest._retry = true
       isRefreshing = true
 
       try {
-        const refreshToken = useAuthStore.getState().refreshToken
-        if (!refreshToken) {
-          throw new Error('No refresh token')
-        }
+        // Không cần body: refresh token đi kèm trong cookie kg_rt.
+        // Cookie mới do backend ghi đè qua Set-Cookie, phía client không phải lưu gì.
+        await axiosInstance.post('/auth/refresh-token')
 
-        const { data } = await axios.post(`${ENV.API_BASE_URL}/auth/refresh-token`, {
-          refreshToken,
-        })
-
-        const newAccessToken: string = data.data.accessToken
-        const newRefreshToken: string = data.data.refreshToken
-
-        useAuthStore.getState().setTokens(newAccessToken, newRefreshToken)
-        originalRequest.headers.Authorization = `Bearer ${newAccessToken}`
-        processQueue(null, newAccessToken)
+        processQueue(null)
 
         return axiosInstance(originalRequest)
       } catch (refreshError) {
-        processQueue(refreshError, null)
+        processQueue(refreshError)
+        // Chỉ dọn state cục bộ: gọi /auth/logout lúc này cũng vô nghĩa vì phiên đã hỏng.
         useAuthStore.getState().logout()
         window.location.href = '/login'
         return Promise.reject(refreshError)

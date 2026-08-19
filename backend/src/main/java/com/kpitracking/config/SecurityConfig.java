@@ -13,13 +13,17 @@ import org.springframework.security.config.annotation.authentication.configurati
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
-import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
+import org.springframework.security.web.csrf.CsrfFilter;
+import org.springframework.security.web.csrf.CsrfTokenRequestAttributeHandler;
+import org.springframework.security.web.util.matcher.AndRequestMatcher;
+import org.springframework.security.web.util.matcher.RequestMatcher;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
@@ -37,13 +41,44 @@ public class SecurityConfig {
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
     private final UserDetailsService userDetailsService;
 
+    /**
+     * Các endpoint không cần xác thực — dùng chung cho cả authorizeHttpRequests và danh sách
+     * bỏ qua CSRF (chưa có phiên thì không có gì để CSRF lợi dụng).
+     */
+    private static final String[] PUBLIC_ENDPOINTS = {
+            "/api/v1/auth/register",
+            "/api/v1/auth/login",
+            "/api/v1/auth/refresh-token",
+            "/api/v1/auth/logout",
+            "/api/v1/auth/forgot-password",
+            "/api/v1/auth/reset-password",
+            "/api/v1/auth/verify-email",
+            "/api/v1/auth/resend-verification",
+            "/api/v1/auth/lark/**",
+            "/api/v1/public/**",
+            "/api/v1/webhooks/sepay",
+            "/ws/**"
+    };
+
     @Value("${app.cors.allowed-origins}")
     private String allowedOrigins;
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+        // Token nằm trong cookie nên trình duyệt tự gửi kèm mọi request — đó chính là điều kiện
+        // cần của CSRF. Dùng double-submit cookie: Spring ghi XSRF-TOKEN (đọc được bằng JS),
+        // axios tự đọc và gửi lại ở header X-XSRF-TOKEN.
+        CsrfTokenRequestAttributeHandler csrfHandler = new CsrfTokenRequestAttributeHandler();
+        // null = ghi cookie ngay ở mọi response thay vì chờ ai đó đọc token (deferred loading
+        // của Spring Security 6 khiến cookie không bao giờ được phát cho SPA).
+        csrfHandler.setCsrfRequestAttributeName(null);
+
         http
-            .csrf(AbstractHttpConfigurer::disable)
+            .csrf(csrf -> csrf
+                .csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
+                .csrfTokenRequestHandler(csrfHandler)
+                .requireCsrfProtectionMatcher(csrfProtectionMatcher())
+                .ignoringRequestMatchers(PUBLIC_ENDPOINTS))
             .cors(cors -> cors.configurationSource(corsConfigurationSource()))
             .exceptionHandling(exceptions -> exceptions
                 .authenticationEntryPoint((request, response, authException) -> 
@@ -52,26 +87,11 @@ public class SecurityConfig {
             .sessionManagement(session ->
                 session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
-                .requestMatchers(
-                        "/api/v1/auth/register",
-                        "/api/v1/auth/login",
-                        "/api/v1/auth/refresh-token",
-                        "/api/v1/auth/forgot-password",
-                        "/api/v1/auth/reset-password",
-                        "/api/v1/auth/verify-email",
-                        "/api/v1/auth/resend-verification",
-                        "/api/v1/auth/lark/**"
-                ).permitAll()
-                .requestMatchers("/api/v1/public/**").permitAll()
-                // SePay không có tài khoản trong hệ thống nên không thể mang JWT.
-                // Endpoint này tự xác thực bằng khoá API dùng chung và (tuỳ chọn)
-                // danh sách IP — xem SepayWebhookController.
-                .requestMatchers("/api/v1/webhooks/sepay").permitAll()
+                .requestMatchers(PUBLIC_ENDPOINTS).permitAll()
                 .requestMatchers("/api/v1/provinces/**").permitAll()
                 .requestMatchers("/actuator/health").permitAll()
                 .requestMatchers("/swagger-ui/**", "/v3/api-docs/**", "/swagger-ui.html").permitAll()
                 .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-                .requestMatchers("/ws/**").permitAll()
                 .anyRequest().authenticated()
             )
             .authenticationProvider(authenticationProvider())
@@ -80,10 +100,29 @@ public class SecurityConfig {
         return http.build();
     }
 
+    /**
+     * Chỉ bắt buộc CSRF token với request đi bằng cookie.
+     *
+     * Trình duyệt không bao giờ tự gắn header Authorization, và một trang lạ cũng không đặt được
+     * header đó lên request gửi sang đây (CORS preflight chặn). Vì vậy request đã mang Bearer token
+     * theo định nghĩa không phải CSRF — miễn cho nó để Swagger, Postman và client không phải
+     * trình duyệt vẫn gọi được các endpoint POST/PUT/DELETE.
+     */
+    private RequestMatcher csrfProtectionMatcher() {
+        return new AndRequestMatcher(
+                CsrfFilter.DEFAULT_CSRF_MATCHER,
+                request -> {
+                    String authHeader = request.getHeader("Authorization");
+                    return authHeader == null || !authHeader.startsWith("Bearer ");
+                });
+    }
+
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOriginPatterns(Arrays.asList(allowedOrigins.split(",")));
+        // setAllowedOrigins (không phải OriginPatterns): với allowCredentials=true, một pattern
+        // như "*" sẽ phản chiếu lại mọi Origin và cho phép gửi kèm cookie phiên.
+        configuration.setAllowedOrigins(allowedOrigins());
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(List.of("*"));
         configuration.setAllowCredentials(true);
@@ -92,6 +131,21 @@ public class SecurityConfig {
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", configuration);
         return source;
+    }
+
+    private List<String> allowedOrigins() {
+        List<String> origins = Arrays.stream(allowedOrigins.split(","))
+                .map(String::trim)
+                .filter(o -> !o.isEmpty())
+                .toList();
+
+        if (origins.isEmpty() || origins.contains("*")) {
+            throw new IllegalStateException(
+                    "app.cors.allowed-origins phải liệt kê origin cụ thể (ví dụ https://keygo.vn). "
+                            + "Không được dùng '*' vì phiên đăng nhập đi bằng cookie.");
+        }
+
+        return origins;
     }
 
     @Bean

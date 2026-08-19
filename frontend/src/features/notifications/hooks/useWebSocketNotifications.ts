@@ -6,20 +6,20 @@ import type { Notification } from '@/types/notification'
 import type { PageResponse } from '@/types/api'
 
 export function useWebSocketNotifications() {
-  const accessToken = useAuthStore((s) => s.accessToken)
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
   const qc = useQueryClient()
   const clientRef = useRef<Client | null>(null)
 
   useEffect(() => {
-    if (!isAuthenticated || !accessToken) return
+    if (!isAuthenticated) return
 
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
     const brokerURL = `${protocol}//${window.location.host}/ws`
 
+    // Không gửi Authorization: token nằm trong cookie HttpOnly, trình duyệt tự đính kèm vào
+    // handshake (cùng origin) và backend đọc nó ở HandshakeInterceptor.
     const client = new Client({
       brokerURL,
-      connectHeaders: { Authorization: `Bearer ${accessToken}` },
       reconnectDelay: 5000,
       onConnect: () => {
         client.subscribe('/user/queue/notifications', (frame) => {
@@ -57,5 +57,5 @@ export function useWebSocketNotifications() {
       client.deactivate()
       clientRef.current = null
     }
-  }, [isAuthenticated, accessToken, qc])
+  }, [isAuthenticated, qc])
 }

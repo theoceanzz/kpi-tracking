@@ -1,5 +1,6 @@
 import { NavLink, Link, useLocation } from 'react-router-dom'
 import { useAuthStore } from '@/store/authStore'
+import { useAuth } from '@/hooks/useAuth'
 import { useSidebarStore } from '@/store/sidebarStore'
 import { useState, useRef, useEffect } from 'react'
 import { useHasPermission } from '../components/auth/PermissionGate'
@@ -86,7 +87,8 @@ function TourReplayButton({ path }: { path: string }) {
 }
 
 export default function Sidebar({ isMobileOpen, onCloseMobile }: { isMobileOpen?: boolean; onCloseMobile?: () => void }) {
-  const { user, logout } = useAuthStore()
+  const { user } = useAuthStore()
+  const { logout } = useAuth()
   const { isCollapsed, toggle: toggleSidebar } = useSidebarStore()
   const { hasSeen, startTour, stopTour } = useTourStore()
   const [userMenuOpen, setUserMenuOpen] = useState(false)

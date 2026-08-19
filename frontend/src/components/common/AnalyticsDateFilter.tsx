@@ -8,9 +8,13 @@ import {
   eachWeekOfInterval, eachMonthOfInterval, eachQuarterOfInterval,
   getQuarter, format, parse,
 } from 'date-fns'
+import { ChevronDown, Search } from 'lucide-react'
 import { useKpiPeriods } from '@/features/kpi/hooks/useKpiPeriods'
+import { useKpiCycles } from '@/features/kpi/hooks/useKpiCycles'
 import { useAuthStore } from '@/store/authStore'
-import type { KpiFrequency, KpiPeriod } from '@/types/kpi'
+import type { KpiFrequency, KpiPeriod, KpiCycle } from '@/types/kpi'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import { Checkbox } from '@/components/ui/checkbox'
 import { cn } from '@/lib/utils'
 
 export interface AnalyticsDateFilterValue {
@@ -29,7 +33,7 @@ interface Options {
 
 type LegacyMode = 'THIS_WEEK' | 'THIS_MONTH' | 'THIS_QUARTER' | '6_MONTHS' | 'THIS_YEAR' | 'CUSTOM'
 type PeriodMode = 'WHOLE_PERIOD' | 'BY_DAY' | 'BY_WEEK' | 'BY_MONTH' | 'BY_QUARTER' | 'CUSTOM'
-type FilterMode = 'SINGLE' | 'RANGE'
+type FilterMode = 'SINGLE' | 'RANGE' | 'CYCLE'
 
 const LEGACY_OPTIONS: { value: LegacyMode; label: string }[] = [
   { value: 'THIS_WEEK', label: 'Tuần này' },
@@ -88,6 +92,8 @@ export function useAnalyticsDateFilter(opts: Options = {}): AnalyticsDateFilterV
   const organizationId = user?.memberships?.[0]?.organizationId
   const { data } = useKpiPeriods({ organizationId, size: 1000, sortBy: 'startDate', direction: 'desc' })
   const periods = (data?.content ?? []) as KpiPeriod[]
+  const { data: cyclesData } = useKpiCycles({ organizationId, size: 1000, sortBy: 'startDate', direction: 'desc' })
+  const cycles = (cyclesData?.content ?? []) as KpiCycle[]
 
   const [mode, setMode] = useState<FilterMode>('SINGLE')
   const [groupBy, setGroupBy] = useState<'TIME' | 'PERIOD'>('TIME')
@@ -101,6 +107,9 @@ export function useAnalyticsDateFilter(opts: Options = {}): AnalyticsDateFilterV
   // Chế độ "Khoảng đợt"
   const [rangeFromId, setRangeFromId] = useState<string | undefined>(undefined)
   const [rangeToId, setRangeToId] = useState<string | undefined>(undefined)
+
+  // Chế độ "Theo kỳ" (chọn 1 hoặc nhiều kỳ)
+  const [selectedCycleIds, setSelectedCycleIds] = useState<string[]>([])
 
   const selectedPeriod = periodId ? periods.find(p => p.id === periodId) : undefined
   const pStartStr = selectedPeriod?.startDate ?? null
@@ -143,6 +152,9 @@ export function useAnalyticsDateFilter(opts: Options = {}): AnalyticsDateFilterV
       setRangeFromId(newest.id)
       setRangeToId(newest.id)
     }
+    if (m === 'CYCLE' && selectedCycleIds.length === 0 && cycles[0]) {
+      setSelectedCycleIds([cycles[0].id])
+    }
   }
 
   // Đổi "Từ đợt": nếu "Đến đợt" đang trước → kéo "Đến" về bằng "Từ".
@@ -176,6 +188,32 @@ export function useAnalyticsDateFilter(opts: Options = {}): AnalyticsDateFilterV
       to: hi.endDate ? new Date(hi.endDate).toISOString() : undefined,
     }
   }, [periods, rangeFromId, rangeToId])
+
+  // Giá trị "Theo kỳ": gom các đợt thuộc kỳ được chọn → quy về periodId/periodIdTo (biên) + from/to (span).
+  const cycleValue: AnalyticsDateFilterValue = useMemo(() => {
+    if (selectedCycleIds.length === 0) return {}
+    const sel = new Set(selectedCycleIds)
+    const selPeriods = periods
+      .filter(p => p.cycleId && sel.has(p.cycleId) && p.startDate)
+      .sort((a, b) => new Date(a.startDate!).getTime() - new Date(b.startDate!).getTime())
+    const lo = selPeriods[0]
+    const hi = selPeriods[selPeriods.length - 1]
+    const selCycles = cycles.filter(c => sel.has(c.id))
+    const fromMs = [
+      ...selCycles.map(c => c.startDate).filter(Boolean).map(s => new Date(s!).getTime()),
+      ...(lo?.startDate ? [new Date(lo.startDate).getTime()] : []),
+    ]
+    const toMs = [
+      ...selCycles.map(c => c.endDate).filter(Boolean).map(s => new Date(s!).getTime()),
+      ...(hi?.endDate ? [new Date(hi.endDate).getTime()] : []),
+    ]
+    return {
+      periodId: lo?.id,
+      periodIdTo: lo && hi && lo.id !== hi.id ? hi.id : undefined,
+      from: fromMs.length ? new Date(Math.min(...fromMs)).toISOString() : undefined,
+      to: toMs.length ? new Date(Math.max(...toMs)).toISOString() : undefined,
+    }
+  }, [periods, cycles, selectedCycleIds])
 
   // Tính from/to cho chế độ "Một đợt"
   const value: AnalyticsDateFilterValue = useMemo(() => {
@@ -231,7 +269,7 @@ export function useAnalyticsDateFilter(opts: Options = {}): AnalyticsDateFilterV
     }
   }, [periodId, pStartStr, pEndStr, legacyMode, periodMode, subIndex, dayValue, customRange, weeks, months, quarters])
 
-  const active = mode === 'RANGE' ? rangeValue : value
+  const active = mode === 'CYCLE' ? cycleValue : mode === 'RANGE' ? rangeValue : value
 
   const baseTrigger = cn(
     'bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm font-semibold text-slate-700 dark:text-slate-300 outline-none focus:ring-2 focus:ring-violet-500/50 w-full sm:w-auto',
@@ -259,6 +297,7 @@ export function useAnalyticsDateFilter(opts: Options = {}): AnalyticsDateFilterV
       <div className="flex bg-slate-100 dark:bg-slate-800 rounded-lg p-0.5 gap-0.5 shrink-0 self-start sm:self-auto">
         {modeBtn('SINGLE', 'Một đợt')}
         {modeBtn('RANGE', 'Khoảng đợt')}
+        {modeBtn('CYCLE', 'Theo kỳ')}
       </div>
 
       {mode === 'SINGLE' ? (
@@ -373,7 +412,7 @@ export function useAnalyticsDateFilter(opts: Options = {}): AnalyticsDateFilterV
             </div>
           )}
         </>
-      ) : (
+      ) : mode === 'RANGE' ? (
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
           <Select value={rangeFromId} onValueChange={handleRangeFrom}>
             <SelectTrigger className={cn(baseTrigger, "md:w-[240px]")}>
@@ -397,11 +436,18 @@ export function useAnalyticsDateFilter(opts: Options = {}): AnalyticsDateFilterV
             </SelectContent>
           </Select>
         </div>
+      ) : (
+        <CyclePicker
+          cycles={cycles}
+          selected={selectedCycleIds}
+          onChange={setSelectedCycleIds}
+          triggerClass={cn(baseTrigger, 'md:w-[300px]')}
+        />
       )}
 
       {/* Kiểu chia cột biểu đồ xu hướng — chỉ ý nghĩa khi có NHIỀU đợt (tất cả đợt / khoảng đợt).
           Khi chọn đúng 1 đợt cụ thể thì "Theo đợt" = 1 cột (vô nghĩa) nên ẩn đi. */}
-      {(mode === 'RANGE' || !selectedPeriod) && (
+      {(mode === 'RANGE' || mode === 'CYCLE' || !selectedPeriod) && (
         <Select value={groupBy} onValueChange={v => setGroupBy(v as 'TIME' | 'PERIOD')}>
           <SelectTrigger className={cn(baseTrigger, "md:w-[200px]")}>
             <SelectValue />
@@ -419,4 +465,55 @@ export function useAnalyticsDateFilter(opts: Options = {}): AnalyticsDateFilterV
   const effectiveGroupBy = (mode === 'SINGLE' && selectedPeriod) ? 'TIME' : groupBy
 
   return { periodId: active.periodId, periodIdTo: active.periodIdTo, from: active.from, to: active.to, groupBy: effectiveGroupBy, controls }
+}
+
+/** Chọn 1 hoặc NHIỀU kỳ (multi-select) — popover có ô tìm + danh sách checkbox. */
+function CyclePicker({
+  cycles, selected, onChange, triggerClass,
+}: {
+  cycles: KpiCycle[]
+  selected: string[]
+  onChange: (ids: string[]) => void
+  triggerClass?: string
+}) {
+  const [open, setOpen] = useState(false)
+  const [q, setQ] = useState('')
+  const shown = q.trim() ? cycles.filter(c => c.name.toLowerCase().includes(q.trim().toLowerCase())) : cycles
+  const selNames = cycles.filter(c => selected.includes(c.id)).map(c => c.name)
+  const label = selNames.length === 0 ? 'Chọn kỳ...' : selNames.length === 1 ? selNames[0]! : `${selNames.length} kỳ đã chọn`
+  const toggle = (id: string) => onChange(selected.includes(id) ? selected.filter(x => x !== id) : [...selected, id])
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <button type="button" className={cn(triggerClass, 'flex items-center justify-between gap-2 px-3')}>
+          <span className="truncate">{label}</span>
+          <ChevronDown size={14} className="opacity-60 shrink-0" />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent align="start" className="w-[300px] p-0">
+        {cycles.length > 6 && (
+          <div className="p-2 border-b border-slate-100 dark:border-slate-800">
+            <div className="relative">
+              <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
+              <input
+                value={q}
+                onChange={e => setQ(e.target.value)}
+                placeholder="Tìm kỳ…"
+                className="w-full h-8 pl-8 pr-2 rounded-lg bg-slate-50 dark:bg-slate-800 text-xs border-none outline-none focus:ring-2 focus:ring-violet-500"
+              />
+            </div>
+          </div>
+        )}
+        <div className="max-h-64 overflow-auto p-1.5">
+          {shown.length ? shown.map(c => (
+            <label key={c.id} className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800/60 cursor-pointer">
+              <Checkbox checked={selected.includes(c.id)} onCheckedChange={() => toggle(c.id)} />
+              <span className="truncate text-[13px] font-bold text-slate-700 dark:text-slate-200">{c.name}</span>
+            </label>
+          )) : <p className="text-[11px] italic text-slate-400 p-2">Không có kỳ nào.</p>}
+        </div>
+      </PopoverContent>
+    </Popover>
+  )
 }

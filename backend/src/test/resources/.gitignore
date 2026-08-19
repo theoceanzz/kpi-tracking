@@ -1,0 +1,4 @@
+# Kết quả từng lần chạy run-ai-questions.js (--out) là bản nháp để chẩn đoán, không phải fixture:
+# mỗi lần đo lại sinh một file mới và nội dung chỉ có nghĩa với lần chạy đó.
+*.json
+!ai-questions.json

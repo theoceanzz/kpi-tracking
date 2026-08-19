@@ -48,9 +48,9 @@ public class AiController {
 
     @PostMapping("/chat-org-unit")
     public ApiResponse<AiChatResponse> chatOrgUnit(@RequestBody AiChatRequest request) {
-        aiRateLimiter.check(currentUserEmail());
-        aiQuotaService.checkAndThrow(currentUserEmail());
-
+        // Chặn tần suất và kiểm hạn mức đã thành RateLimitStage/QuotaStage trong chuỗi xử lý,
+        // để mọi lối vào tính năng chat đều đi qua chúng chứ không chỉ riêng endpoint này.
+        // Hai endpoint còn lại (gợi ý KPI, câu hỏi tiếp) chưa dùng chuỗi nên vẫn tự gọi.
         String result;
         AiTokenUsageRecorder.setFeature(AiTokenUsage.AiFeature.CHAT);
         try {

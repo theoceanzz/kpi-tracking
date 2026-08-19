@@ -4,6 +4,7 @@ import { useForm, useWatch } from 'react-hook-form'
 import { useMutation } from '@tanstack/react-query'
 import { authApi } from '@/features/auth/api/authApi'
 import { useAuthStore } from '@/store/authStore'
+import { useAuth } from '@/hooks/useAuth'
 import { toast } from 'sonner'
 import { 
   Lock, Eye, EyeOff, Save, Loader2, ShieldCheck, 
@@ -13,7 +14,9 @@ import { cn } from '@/lib/utils'
 
 export default function ForceChangePasswordPage() {
   const navigate = useNavigate()
-  const { user, setUser, logout } = useAuthStore()
+  const { user, setUser } = useAuthStore()
+  // useAuth.logout gọi API để backend xoá cookie phiên; logout của store chỉ dọn state cục bộ.
+  const { logout } = useAuth()
 
   if (user && !user.requirePasswordChange) {
     return <Navigate to="/dashboard" replace />
