@@ -44,6 +44,11 @@ services:
       - CORS_ORIGINS=${CORS_ORIGINS:-https://keygo.vn}
       # Cookie xác thực chỉ được gửi qua HTTPS ở production.
       - COOKIE_SECURE=${COOKIE_SECURE:-true}
+      # Domain gốc dùng chung cho SPA (keygo.vn) và API (api.keygo.vn). Bỏ trống biến này =
+      # cookie host-only: mỗi host giữ một kg_csrf riêng và mọi request đổi trạng thái bị
+      # CsrfFilter chặn (trả về 401 vì filter CSRF chạy trước JwtAuthenticationFilter).
+      - COOKIE_DOMAIN=${COOKIE_DOMAIN:-keygo.vn}
+      - COOKIE_SAME_SITE=${COOKIE_SAME_SITE:-Lax}
       - APP_FRONTEND_URL=${FRONTEND_URL:-https://keygo.vn}
 
       # Lark SSO. App ID/Secret của từng công ty lưu trong DB, không cấu hình ở đây.

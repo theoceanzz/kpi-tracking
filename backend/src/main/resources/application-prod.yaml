@@ -127,8 +127,12 @@ app:
     # Cookie chứa access token / refresh token — prod luôn phải Secure (chỉ gửi qua HTTPS).
     secure: ${COOKIE_SECURE:true}
     same-site: ${COOKIE_SAME_SITE:Lax}
-    # Để trống = host-only, đúng khi frontend và API chung domain keygo.vn qua Traefik.
-    domain: ${COOKIE_DOMAIN:}
+    # BẮT BUỘC có giá trị ở prod: SPA chạy ở keygo.vn còn API ở api.keygo.vn.
+    # Để trống = cookie host-only, mỗi host tự giữ một bản kg_csrf riêng -> JS bên keygo.vn
+    # đọc được token của keygo.vn rồi gửi sang api.keygo.vn, nơi cookie mang giá trị khác
+    # => CsrfFilter chặn mọi POST/PUT/PATCH/DELETE. Đặt domain gốc để hai host dùng chung
+    # đúng một cookie.
+    domain: ${COOKIE_DOMAIN:keygo.vn}
   rate-limit:
     login-per-minute: ${RATE_LIMIT_LOGIN:5}
     email-per-hour: ${RATE_LIMIT_EMAIL:3}
