@@ -157,18 +157,19 @@ D02 lần chạy đầu **hỏng**: `head@demo.com` (Trưởng phòng IT) xếp 
 
 Đã vá trong `RankTool.rankMembers` (kẹp scope về đơn vị hiện tại) và có test chống hồi quy trong `CompositeToolValidationTest`.
 
-### Phát hiện 3 — Còn một chỗ tool chồng lấn
+### Phát hiện 3 — Còn một chỗ tool chồng lấn *(đã xử lý — xem "Gỡ chồng lấn" bên dưới)*
 
 A15 *"tổng quan KPI của đơn vị"* → model gọi `get_kpi(summary)` thay vì `get_analytics(dashboard)`. Hai view này vẫn trả về thứ giống nhau, tức phần gộp composite **chưa xoá hết chồng lấn**. Đáng gộp tiếp hoặc phân định rõ hơn.
 
-### Bốn cái bẫy khi chạy — đều đã gặp thật
+### Năm cái bẫy khi chạy — đều đã gặp thật
 
-Cả bốn đều làm **hỏng hàng loạt trông y hệt lỗi tool**, rất dễ chẩn nhầm:
+Cả năm đều làm **hỏng hàng loạt trông y hệt lỗi tool**, rất dễ chẩn nhầm:
 
 1. **Giới hạn tần suất.** Backend chặn ở 15 lượt AI/phút (`app.rate-limit.ai-per-minute`). Từ câu thứ 16 trở đi hỏng sạch. → Harness tự giãn nhịp 4,5 giây/câu và tự lùi 60 giây khi bị chặn; cả bộ mất khoảng 4 phút.
 2. **Hết hạn mức token.** Chạy cả bộ 40 câu ba lần là tiêu hết 1.000.000 token của một người. → Kiểm `ai_token_usage` trước khi kết luận, hoặc nâng hạn mức cho tài khoản dùng để test.
 3. **Sai đường dẫn log.** Nếu backend khởi động lại và ghi sang file khác, harness đọc log rỗng. Trước đây nó chấm hỏng toàn bộ phép kiểm tool trong khi câu trả lời hoàn toàn đúng. → Giờ nó **bỏ qua** phép kiểm tool và in cảnh báo rõ thay vì báo oan.
 4. **Hết credit của NHÀ CUNG CẤP** — khác hẳn hết hạn mức token trong ứng dụng, dù triệu chứng giống hệt. Backend trả `HTTP 402 — "You have depleted your monthly included credits"` và mọi câu còn lại thành *"Hệ thống AI đã đạt giới hạn sử dụng"*. → Phân biệt bằng chuỗi `depleted` trong log backend: có nó thì phải nạp credit HuggingFace, `UPDATE ai_token_quotas` vô ích. Đã làm hỏng 16 câu cuối của một lần đo.
+5. **Giới hạn TOKEN/PHÚT của nhà cung cấp** — `HTTP 429 — "Tokens per minute limit exceeded"`. Đây là cái bẫy tinh vi nhất vì nó **không** phải giới hạn số lời gọi: mỗi câu tốn ~16.000 token (định tuyến + lập kế hoạch + gọi chính, mỗi lời gọi mang theo toàn bộ định nghĩa tool), nên hạn mức TPM chỉ đủ **3–4 câu/phút**. Nhịp 4,5 giây/câu — vốn tính cho bộ chặn 15 lượt/phút của *backend* thời mỗi câu chỉ gọi model một lần — giờ vượt xa hạn mức. → **Đã chẩn nhầm một lần thành "hồi quy 37/40 → 30/40"**, trong khi 7/10 câu hỏng chỉ là 429. Phân biệt bằng `HTTP 429` trong log; nhịp mặc định của harness nay là 20 giây và phải tính lại nếu token/câu đổi.
 
 ### Phân loại các câu còn hỏng — không phải cái nào cũng là lỗi
 
@@ -274,6 +275,129 @@ Trong lần chạy 1: 21/40 câu có kế hoạch nhiều bước, **9 lần k�
 - **B01 hỏng ở CẢ HAI lần — hồi quy do chính cơ chế này.** Kế hoạch nêu `compare_org_units` cho câu hỏi về *rủi ro*, model làm theo, nhưng tool đó không có chỉ số rủi ro nào (đúng điều `_note` của B01 đã ghi). Kế hoạch giờ đủ sức dắt model, nên **kế hoạch sai thì model sai theo**. Đã sửa bằng cách nói rõ trong prompt lập kế hoạch rằng `compare_org_units` không có chỉ số rủi ro — **chưa đo lại được vì hết credit**.
 - **C05 trả lời đúng cả 3 vế** nhưng trượt vì phép so đòi đúng `get_people`, trong khi mô tả `get_org_unit(view=hierarchy)` ghi rõ nó trả "số nhân sự". Đã sửa phép so kèm `_note`.
 - **C06 là lỗi thật còn lại**: kế hoạch đúng, cả `get_people` lẫn `get_submissions` đều chạy, nhưng model chỉ liệt kê 2 trong 8 người của Phòng Truyền Thông. Mặc định gộp đơn vị con trong `PeopleTool` là đúng, nên muốn kết luận phải **log tham số lời gọi tool** — thứ hiện chưa có.
+
+### Gợi ý điền form đang mở (19/08/2026)
+
+Tính năng mới: người dùng mở form tạo KPI, nhắn cho trợ lý, trợ lý đề xuất giá trị điền vào từng ô. Bộ kiểm riêng — `run-form-fill.js` — vì harness 40 câu chỉ gửi `{ message }` và chấm trên CHỮ, còn ở đây phải gửi kèm `openFormId` + giá trị các ô và chấm trên **`formPatch`** có cấu trúc.
+
+**Kết quả: 9/9, toàn bộ phép so ngược đạt.**
+
+| Ca | Kiểm điều gì | Kết quả |
+|---|---|---|
+| F01 | các ô giá trị đơn | đề xuất 5 ô |
+| F02 | tra tên đơn vị → UUID thật | `orgUnitIds` đúng, còn tự tra thêm người được giao |
+| F03 | tra tên kỳ → UUID thật | đúng |
+| F04 | tên kỳ mơ hồ → id phải CÓ THẬT | đúng |
+| **F05** | trọng số 150 phải bị chặn | **validator chặn** |
+| **F06** | không mở form → tool không được trao | **không có đề xuất** |
+| **F07** | ô đã đúng giá trị → không đề xuất lại | **không có đề xuất** |
+| **F08** | ô không có trong `FormRegistry` | **không có đề xuất** |
+| F09 | vòng lặp đầy đủ: nhiều ô + 2 thực thể | đề xuất 8 ô trong một lượt |
+
+Bốn ca in đậm là **phép so ngược** — chúng quan trọng hơn các ca thuận, vì một tính năng điền form quá sốt sắng sẽ ghi bừa vào form người dùng.
+
+**`ToolSelectionStage` được xác minh chặt:** đối chiếu log cho thấy tool điền form được trao **đúng 8/8 lượt có form mở** và **không** trao ở F06. Đó vừa là tính chất an toàn vừa là lời hứa chi phí — lượt chat không có form không tốn thêm token nào.
+
+**Không hồi quy.** Tính năng này đụng vào `ModelCallStage`, `RoutingStages`, `TurnSetupStage`, `AiTurnPipeline`, `ToolRegistry` — đường đi của MỌI lượt chat — nên bộ 40 câu cũ được chạy lại nguyên trạng:
+
+| | Trước tính năng | Sau |
+|---|---|---|
+| Nhóm A | 20/20 | 20/20 |
+| Nhóm B | 4/5 | 4/5 |
+| Nhóm C | 7/8 | 6/8 |
+| **Nhóm D** | 6/7 | **7/7** |
+| Tổng | 37/40 | **37/40** |
+| **Token/câu (lượt KHÔNG có form)** | ~16.140 | **~14.728** |
+
+Dòng cuối xác minh lời hứa thiết kế: tool điền form chỉ được gửi khi form đang mở, nên lượt chat thường **không** đắt thêm đồng nào.
+
+**B01 đạt** — xác nhận bản vá nói rõ `compare_org_units` không có chỉ số rủi ro (trước đó hỏng cả hai lần đo). **C08 vẫn hỏng**: router bỏ sót INSIGHT và kế hoạch không nới nhóm bù được.
+
+Hai lỗi thật tìm được khi đo, **cả hai sửa xác định ở backend**:
+
+- **Model không nối "Đặt/Sửa &lt;ô&gt;" với form đang mở.** Với *"Đặt kỳ là Tháng 6/2026"* nó trả lời *"Đã ghi nhận kỳ KPI… từ giờ mọi câu hỏi sẽ áp dụng trên kỳ này"* — **báo đã làm xong trong khi không có gì xảy ra**, tệ hơn cả việc từ chối. Với *"Đặt trọng số 150"* thì *"tôi không có công cụ"* dù tool nằm sẵn trong tay. Gốc: nó hiểu ĐẶT là tạo thực thể mới trong hệ thống. → Khối `{form}` nay liệt kê tên các ô và nói thẳng *"ĐẶT/SỬA/CHỌN/ĐIỀN ô bất kỳ ở trên → gọi tool; đó là điền vào form, KHÔNG phải tạo dữ liệu mới"*.
+- **Model trả nhãn tiếng Việt cho ô ENUM** (`frequency="Hàng tháng"` thay vì `MONTHLY`). Validator chặn đúng và thông báo liệt kê đủ giá trị hợp lệ, nhưng model **bỏ cuộc thay vì sửa lại**. → `FormRegistry` nay khai cả nhãn tiếng Việt cho mỗi hằng số (khớp `FREQUENCY_MAP` bên frontend), so khớp sau khi bỏ dấu. Chữa ở backend chứ không dặn thêm model.
+
+### Gỡ chồng lấn `get_kpi(summary)` ↔ `get_analytics(dashboard)` (19/08/2026)
+
+C08 hỏng dai dẳng qua nhiều đợt, luôn cùng lý do *"không gọi `get_analytics`, router thiếu INSIGHT"*. Bóc log cho thấy nguyên nhân khác hẳn giả định:
+
+```
+Bộ lập kế hoạch : get_kpi | get_people | get_submissions   ← không nêu get_analytics
+Router chọn     : LOOKUP, KPI
+Nhóm hiệu lực   : LOOKUP, KPI                              ← không có gì để nới
+Câu trả lời     : ĐÚNG và ĐỦ cả ba vế
+```
+
+Cơ chế nới nhóm theo kế hoạch **chạy đúng** — nó không kích hoạt vì kế hoạch *đồng ý* với router. Và họ đồng ý **đúng**:
+
+| | `get_kpi(view=summary)` | `get_analytics(view=dashboard)` |
+|---|---|---|
+| Chung | `totalKpis`, `averageProgress`, `averagePerformance`, số quá hạn | (như bên trái) |
+| **Riêng** | `completedCount`, `inProgressCount` | `totalEmployees`, `totalUnits`, `totalPeriods`, `lateSubmissionsCount` |
+
+Câu hỏi là *"Tổng quan **KPI**"* — `get_kpi(view=summary)` trả đúng thứ đó; `get_analytics(dashboard)` là bức tranh **toàn đơn vị**, rộng hơn thứ được hỏi. **Phép so sai, không phải model sai** — cùng loại với B01/C02/C05.
+
+Gốc của sự chập chờn nằm ở hai mô tả không phân biệt được gì: *"số liệu tổng hợp của các KPI"* và *"các chỉ số tổng quan"*. Model chọn ngẫu nhiên giữa hai thứ nghe y hệt nhau. Đã viết lại theo đúng thứ mỗi tool thật sự trả về, và đồng bộ cách gọi tên ở `LlmIntentStrategy` (nhóm INSIGHT bỏ chữ "tổng quan") và `PlanningStage`.
+
+**Cạm bẫy khi sửa:** ba câu cùng chứa "tổng quan KPI" nhưng chỉ **hai** cùng bệnh. A15 đang đạt *chỉ vì model tình cờ chọn `get_analytics`*; làm rõ mô tả xong nó chuyển sang `get_kpi` và sẽ hỏng nếu không sửa phép so cùng lúc. B04 thì **đúng** vì có vế *"KPI đang có nguy cơ trễ"* mà chỉ `view=risk` làm được — cố ý không đụng, và giữ nó trong mốc đạt/không đạt để chứng minh bản sửa phân định đúng chứ không nới lỏng cho qua.
+
+Harness được thêm trường `toolsAny`: mỗi nhóm chỉ cần **một** tool khớp, dùng cho những vế có nhiều đường đúng như nhau. C08 do đó thôi đóng vai ca kiểm ba nhóm — vai trò đó chuyển hẳn cho C04 và C05.
+
+**Kết quả, hai lần chạy: 38/40 và 35/40.**
+
+| | Trước | Sau (2 lần) |
+|---|---|---|
+| **A15** | đạt (do may) | **đạt · đạt** |
+| **B04** | đạt | **đạt · đạt** |
+| **Nhóm D** | 7/7 | **7/7 · 7/7** |
+| C08 | hỏng 3/4 lần đo | **đạt · hỏng** |
+| Tổng | 37/40 | 38/40 · 35/40 |
+
+**Nguyên nhân ban đầu của C08 đã biến mất**: không lần nào còn *"router thiếu nhóm INSIGHT"*. Lần hỏng thứ hai là lý do khác (*"không gọi `get_org_unit`"* — bỏ vế chức vụ), tức thuộc nhóm lỗi bỏ vế chứ không phải chọn sai tool.
+
+Hai dòng A15 và B04 mới là bằng chứng đáng giá: bản sửa **phân định đúng** chứ không nới lỏng cho qua — A15 chuyển sang `get_kpi` mà vẫn đạt, còn B04 vẫn buộc phải gọi `get_analytics` cho vế rủi ro.
+
+### Mở tự động điền sang form Nộp báo cáo và Đánh giá (20/08/2026)
+
+Khảo sát cả 21 form dùng `react-hook-form` rồi chọn hai form: **Nộp báo cáo** và **Đánh giá nhân viên**. Lý do chọn chúng thay vì OKR — cả hai dùng `zodResolver`, nên **giữ được chốt chặn lệch schema**; OKR dùng type TypeScript, không có gì để đối chiếu.
+
+Phần khung tách ra `FormFillSupport` (kiểm giá trị, tra tên → ID kèm kiểm quyền, bỏ ô không đổi, ghi bản đề xuất), nên mỗi tool mới chỉ còn một record tham số và vài dòng ánh xạ. Bằng chứng bước tách không đổi hành vi: **12 test của `KpiFormFillTool` qua với toàn bộ phần khẳng định nguyên vẹn** — chỉ dòng khởi tạo đổi vì danh sách tham số đổi.
+
+Chốt chặn lệch schema nay chạy cho **cả ba** form, cộng một test bắt buộc mọi form khai báo phải có file Zod để đối chiếu — không form nào lặng lẽ thoát khỏi phép so.
+
+**Kết quả bộ kiểm form: 15/15, cả 8 phép so ngược đạt.**
+
+| Ca | Kiểm gì | Kết quả |
+|---|---|---|
+| S01 | nộp báo cáo: tra KPI đúng KỲ ra UUID thật | `kpiCriteriaId` đúng, hiện "API hoàn thành (Tháng 6/2026)" |
+| **S02** | không nêu kỳ → phải hỏi lại, không tự chọn | **tool chạy rồi bị chặn** |
+| **S03** | không mở form → không đề xuất | **không có đề xuất** |
+| E01 | đánh giá: tra người + kỳ, hiện TÊN | 4 ô, `userId` và `kpiPeriodId` đúng |
+| **E02** | điểm âm phải bị chặn | **tool chạy rồi bị chặn** |
+| **E03** | ô ngoài `FormRegistry` (mật khẩu, vai trò) | **không có đề xuất** |
+| F01–F09 | 9 ca KPI cũ | **vẫn 9/9** — bước tách không làm hỏng gì |
+
+S02 và E02 hiện `tool bị chặn` chứ không phải "model không gọi" — nghĩa là phép kiểm **thực sự được chạm tới**, chứ không đạt vô hiệu như một lần trước từng gặp.
+
+**Chưa chạy bộ 40 câu hồi quy** ở đợt này. Rủi ro thấp vì tool điền form chỉ được trao khi có form mở, nhưng đó là suy luận chứ không phải số đo.
+
+**Hai thứ chỉ lộ ra khi chạm dữ liệu thật:**
+
+- **Mọi KPI đều lặp qua 3 kỳ.** Không có ngoại lệ nào trong dữ liệu mẫu. Nghĩa là tra chỉ tiêu bằng tên đơn thuần thì *luôn* nhập nhằng và tool không bao giờ dùng được. Đã thêm tham số `periodName` để lọc, và mô tả tool nói thẳng "gần như luôn phải truyền kèm". Nộp nhầm kỳ là ghi số vào sai chỗ nên tuyệt đối không cho tự chọn.
+- **Trợ lý chỉ hiện với vai trò rank ≤ 1** (`ManagerContextResolver`). Nhân viên thường không thấy nút chat, nên phần điền form Nộp báo cáo phục vụ quản lý tự nộp KPI của chính họ chứ không phải toàn bộ nhân viên. Form Đánh giá thì đúng đối tượng.
+
+### Mở tiếp sang 3 form Zod còn lại (20/08/2026)
+
+Thêm **Xin điều chỉnh chỉ tiêu**, **Tạo/sửa đơn vị** và **Drawer sửa đơn vị** — nâng tổng lên 6 form. Chọn theo tiêu chí có schema Zod (giữ được chốt chặn lệch schema); OKR, BSC, Việc gấp, Hồ sơ, Công ty dùng type TypeScript nên chưa làm.
+
+**Hai form đơn vị KHÔNG dùng chung khai báo được** dù nhìn giống nhau: cấp bậc bên là id bên là chữ tự do, `provinceId` bên số bên chuỗi, drawer có thêm `status` còn modal có thêm `parentId`. Gộp lại là mở đường cho đề xuất sai kiểu — nên là hai `Descriptor` và hai tool riêng, kèm test chứng minh mở form này mà gọi tool kia thì bị từ chối.
+
+**Cố ý không khai báo 3 ô:** `provinceId`/`districtId` (huyện chỉ tra được khi biết tỉnh, mà tỉnh không có hàm tìm theo tên — chi phí cao, giá trị thấp) và `roleIds` (gán vai trò là bề mặt liên quan phân quyền, cùng lý do đã loại `role` khỏi form Người dùng).
+
+**Thêm ràng buộc độ dài tối thiểu cho ô chữ.** `adjustmentSchema` đòi lý do từ 10 ký tự; không khai thì một lý do quá ngắn lọt qua backend rồi mới bị form từ chối — đúng cảnh "bấm Điền xong mới thấy báo đỏ" mà tính năng này sinh ra để tránh.
+
+**Một bài học về test:** danh sách phụ thuộc của `FormFillSupport` dài ra đã làm gãy 3 test cùng lúc, và `ToolRegistry` thì gãy 2 lần vì test liệt kê dãy `null` theo hàm dựng. Đã dựng `FormFillTestFixture` gom chỗ khởi tạo, và `ToolRegistryTest` chuyển sang `CALLS_REAL_METHODS`. Giờ thêm phụ thuộc chỉ phải sửa một chỗ.
 
 ### 40/40 không phải mục tiêu thực tế
 
