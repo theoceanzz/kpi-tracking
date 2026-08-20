@@ -58,8 +58,7 @@ public class AuthController {
             @RequestBody(required = false) RefreshTokenRequest request,
             HttpServletRequest httpRequest,
             HttpServletResponse httpResponse) {
-        String refreshToken = resolveRefreshToken(request, httpRequest);
-        AuthResponse response = authService.refreshToken(refreshToken);
+        AuthResponse response = authService.refreshToken(resolveRefreshTokens(request, httpRequest));
         return ResponseEntity.ok(ApiResponse.success("Token refreshed", issueSession(response, httpResponse)));
     }
 
@@ -121,16 +120,15 @@ public class AuthController {
     public ResponseEntity<ApiResponse<Void>> logout(@RequestBody(required = false) RefreshTokenRequest request,
                                                     HttpServletRequest httpRequest,
                                                     HttpServletResponse httpResponse) {
-        String refreshToken = resolveRefreshToken(request, httpRequest);
-
         // Cookie phải được xoá kể cả khi refresh token đã hết hạn/không hợp lệ, nếu không
         // trình duyệt còn giữ một cookie chết và người dùng kẹt ở trạng thái nửa vời.
-        try {
-            if (StringUtils.hasText(refreshToken)) {
+        // Thu hồi mọi ứng viên: khi có cookie kg_rt trùng tên, token thật có thể đứng sau bản cũ.
+        for (String refreshToken : resolveRefreshTokens(request, httpRequest)) {
+            try {
                 authService.logout(refreshToken);
+            } catch (Exception e) {
+                log.warn("Logout could not revoke refresh token: {}", e.getMessage());
             }
-        } catch (Exception e) {
-            log.warn("Logout could not revoke refresh token: {}", e.getMessage());
         }
 
         authCookieService.clearAuthCookies(httpResponse);
@@ -171,12 +169,18 @@ public class AuthController {
 
     /**
      * Cookie là nguồn chính; body chỉ còn để tương thích với client không phải trình duyệt.
+     *
+     * Trả về mọi ứng viên thay vì một giá trị: trình duyệt có thể gửi nhiều cookie kg_rt trùng tên
+     * và cái đứng đầu thường là bản cũ đã bị ghi đè trong DB.
      */
-    private String resolveRefreshToken(RefreshTokenRequest request, HttpServletRequest httpRequest) {
-        String fromCookie = authCookieService.readRefreshToken(httpRequest);
-        if (StringUtils.hasText(fromCookie)) {
-            return fromCookie;
+    private java.util.List<String> resolveRefreshTokens(RefreshTokenRequest request, HttpServletRequest httpRequest) {
+        java.util.List<String> candidates =
+                new java.util.ArrayList<>(authCookieService.readRefreshTokens(httpRequest));
+
+        if (request != null && StringUtils.hasText(request.getRefreshToken())) {
+            candidates.add(request.getRefreshToken());
         }
-        return request != null ? request.getRefreshToken() : null;
+
+        return candidates;
     }
 }

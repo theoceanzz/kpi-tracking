@@ -1,5 +1,6 @@
 package com.kpitracking.config;
 
+import com.kpitracking.security.AuthCookieService;
 import com.kpitracking.security.JwtAuthenticationFilter;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
@@ -42,7 +43,7 @@ public class SecurityConfig {
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
     private final UserDetailsService userDetailsService;
     private final CookieProperties cookieProperties;
-    private static final String CSRF_COOKIE = "kg_csrf";
+    private static final String CSRF_COOKIE = AuthCookieService.CSRF_COOKIE;
 
     /**
      * Các endpoint không cần xác thực — dùng chung cho cả authorizeHttpRequests và danh sách

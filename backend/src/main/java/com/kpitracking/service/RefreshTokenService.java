@@ -12,6 +12,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
+import java.util.List;
 import java.util.UUID;
 
 @Service
@@ -50,6 +51,29 @@ public class RefreshTokenService {
         }
 
         return refreshTokenRepository.save(refreshToken);
+    }
+
+    /**
+     * Duyệt lần lượt các ứng viên và nhận cái đầu tiên còn hiệu lực.
+     *
+     * Trình duyệt có thể gửi nhiều cookie kg_rt trùng tên (một bản host-only cũ, một bản mang
+     * Domain gốc). Mỗi lần đăng nhập hay làm mới, createOrUpdateRefreshToken ghi đè token cũ trên
+     * cùng một dòng DB, nên bản cũ lập tức vô hiệu. Nếu chỉ thử đúng ứng viên đầu tiên thì người
+     * dùng bị đăng xuất vòng lặp: refresh hỏng -> về trang login -> đăng nhập -> lại hỏng.
+     */
+    @Transactional(readOnly = true)
+    public RefreshToken verifyRefreshToken(List<String> candidateTokens) {
+        BusinessException lastError = null;
+
+        for (String token : candidateTokens) {
+            try {
+                return verifyRefreshToken(token);
+            } catch (BusinessException e) {
+                lastError = e;
+            }
+        }
+
+        throw lastError != null ? lastError : new BusinessException("Thiếu mã làm mới.");
     }
 
     @Transactional(readOnly = true)
