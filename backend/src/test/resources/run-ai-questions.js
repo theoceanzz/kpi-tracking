@@ -67,6 +67,18 @@ function readLogSince() {
 
 // ── gọi API ──────────────────────────────────────────────────────────────────
 const tokens = {};
+
+/**
+ * Lấy token từ COOKIE chứ không phải từ body.
+ *
+ * Từ khi đăng nhập chuyển sang cookie HttpOnly, `AuthController.issueSession` gỡ hẳn accessToken
+ * khỏi body (luôn null) — bản cũ của hàm này vì thế ném "Đăng nhập hỏng" ở câu đầu tiên. Cookie
+ * `kg_at` chứa nguyên JWT; HttpOnly chỉ chặn JavaScript trong trình duyệt, script đọc Set-Cookie
+ * vẫn thấy bình thường.
+ *
+ * Dùng nó làm header Bearer thay vì gửi lại cookie: client có `Authorization: Bearer` được MIỄN
+ * CSRF (SecurityConfig.csrfProtectionMatcher), nên không phải xoay xở với XSRF-TOKEN.
+ */
 async function loginAs(key) {
   if (tokens[key]) return tokens[key];
   const acc = BANK.accounts[key];
@@ -74,13 +86,28 @@ async function loginAs(key) {
   const r = await fetch(BASE + '/auth/login', {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ email: acc.email, password: acc.password }),
-  }).then(x => x.json());
-  if (!r.data || !r.data.accessToken) throw new Error('Đăng nhập hỏng: ' + acc.email);
-  tokens[key] = r.data.accessToken;
-  return tokens[key];
+  });
+  const setCookies = typeof r.headers.getSetCookie === 'function' ? r.headers.getSetCookie() : [];
+  for (const c of setCookies) {
+    const m = /^kg_at=([^;]+)/.exec(c);
+    if (m && m[1]) { tokens[key] = m[1]; return tokens[key]; }
+  }
+  throw new Error('Đăng nhập hỏng (không thấy cookie kg_at): ' + acc.email);
 }
 
 const RATE_LIMITED = /quá nhanh|rate limit/i;
+
+/**
+ * Nhà cung cấp model chặn tần suất (HTTP 429) — KHÁC với bộ chặn 15 lượt/phút của backend.
+ *
+ * Backend gói lỗi này thành "Hệ thống AI đã đạt giới hạn sử dụng", trùng chữ với lỗi hết hạn mức
+ * token trong ứng dụng nên rất dễ chẩn nhầm. Đã đo được: một lần chạy tưởng tụt 37/40 -> 30/40,
+ * hoá ra 7/10 câu hỏng là 429 chứ không phải model chọn sai.
+ *
+ * Từ khi có công đoạn lập kế hoạch + định tuyến + hỏi lại, MỖI câu hỏi gọi nhà cung cấp 3-4 lần,
+ * nên nhịp giãn phải tính theo lời gọi nhà cung cấp chứ không phải theo số câu hỏi.
+ */
+const PROVIDER_THROTTLED = /đạt giới hạn sử dụng/i;
 
 async function askOnce(question, accountKey) {
   const token = await loginAs(accountKey);
@@ -101,6 +128,12 @@ async function askOnce(question, accountKey) {
  */
 async function ask(question, accountKey) {
   let answer = await askOnce(question, accountKey);
+  if (PROVIDER_THROTTLED.test(answer)) {
+    process.stdout.write('       (nhà cung cấp chặn 429, chờ 60s rồi thử lại)\n');
+    await new Promise(r => setTimeout(r, 60_000));
+    markLog();
+    answer = await askOnce(question, accountKey);
+  }
   if (RATE_LIMITED.test(answer)) {
     process.stdout.write('       (bị chặn tần suất, chờ 60s rồi thử lại)\n');
     await new Promise(r => setTimeout(r, 60_000));
@@ -130,6 +163,16 @@ function grade(item, answer, trace, isTrapGroup) {
   if (LOG_PATH && traceUsable && item.tools) {
     const missing = item.tools.filter(t => !trace.tools.includes(t));
     if (missing.length) problems.push('không gọi ' + missing.join('+'));
+  }
+  // toolsAny: mỗi nhóm chỉ cần MỘT tool khớp. Dùng khi có nhiều đường đúng như nhau để trả lời
+  // một vế — vd "tổng quan KPI" làm được bằng get_kpi(summary) lẫn get_analytics(dashboard).
+  // Đòi đúng một tool trong những trường hợp đó là chấm hỏng một câu trả lời đúng.
+  if (LOG_PATH && traceUsable && item.toolsAny) {
+    for (const alternatives of item.toolsAny) {
+      if (!alternatives.some(t => trace.tools.includes(t))) {
+        problems.push('không gọi tool nào trong ' + alternatives.join('|'));
+      }
+    }
   }
   if (LOG_PATH && traceUsable && item.groups && trace.groups.length) {
     const missing = item.groups.filter(g => !trace.groups.includes(g));
@@ -167,7 +210,14 @@ const GROUPS = [
       await new Promise(r => setTimeout(r, 300)); // để log kịp ghi xong
       const trace = readLogSince();
       // Giãn nhịp cho dưới ngưỡng 15 lượt/phút của backend (xem ghi chú ở hàm ask).
-      const pace = Number(argOf('--delay', '4500'));
+      // 4500 là nhịp tính cho bộ chặn 15 lượt/phút của BACKEND, hồi mỗi câu chỉ gọi model một lần.
+      //
+      // Giờ ràng buộc chặt hơn nằm ở NHÀ CUNG CẤP, và nó tính theo TOKEN chứ không phải lời gọi:
+      // 429 kèm "Tokens per minute limit exceeded". Mỗi câu tốn ~16.000 token (định tuyến + lập
+      // kế hoạch + gọi chính, mỗi lời gọi mang theo toàn bộ định nghĩa tool), nên với hạn mức TPM
+      // của gói đang dùng chỉ chạy được 3-4 câu/phút. Bắn nhanh hơn là hỏng hàng loạt trông y hệt
+      // model chọn sai — đã đo nhầm một lần thành "tụt 37/40 -> 30/40".
+      const pace = Number(argOf('--delay', '20000'));
       const problems = grade(item, answer, trace, key === 'D');
       const ok = problems.length === 0;
       ok ? pass++ : fail++;
