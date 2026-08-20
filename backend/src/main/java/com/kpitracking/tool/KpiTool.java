@@ -32,7 +32,12 @@ public class KpiTool {
     @Tool(name = "get_kpi", description = "KPI và kỳ đánh giá. "
             + "view=list: danh sách KPI của một đơn vị, mỗi KPI có name, periodName, progress (% đạt mục tiêu); "
             + "KHÔNG trả ID — cần UUID thì dùng search (entityType=kpi). "
-            + "view=summary: số liệu tổng hợp của các KPI khớp bộ lọc. "
+            // Trước đây chỉ ghi "số liệu tổng hợp", nghe y hệt get_analytics(view=dashboard) nên
+            // model chọn ngẫu nhiên giữa hai thứ — đo được: cùng câu "tổng quan KPI" lúc gọi tool
+            // này lúc gọi tool kia. Nói rõ tool nào trả cái gì thì mới hết chập chờn.
+            + "view=summary: số liệu về CHỈ TIÊU của đơn vị — tổng số KPI, tiến độ trung bình, "
+            + "hiệu suất trung bình, số đã hoàn thành / đang làm / quá hạn. "
+            + "Đây là tool cho câu 'tổng quan KPI của đơn vị'. "
             + "view=periods: các kỳ KPI (số người tham gia, số KPI, tiến độ/hiệu suất trung bình); mặc định là "
             + "TOÀN tổ chức, truyền unitName để chỉ lấy kỳ mà đơn vị đó THAM GIA. "
             + "view=detail: chi tiết MỘT KPI (tiến độ, hiệu suất, hạn, người giao, người nhận), cần kpiId. "

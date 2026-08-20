@@ -33,8 +33,9 @@ public class LlmIntentStrategy implements IntentStrategy {
             Phân loại câu hỏi của người dùng vào một hoặc nhiều nhóm công cụ.
 
             LOOKUP  - cơ cấu tổ chức, đơn vị, nhân sự, chức vụ, hồ sơ cá nhân
-            KPI     - chỉ tiêu KPI, kỳ đánh giá, bài nộp, ai chưa nộp
-            INSIGHT - xếp hạng, so sánh đơn vị, xu hướng theo thời gian, cảnh báo rủi ro, tổng quan
+            KPI     - chỉ tiêu KPI, kỳ đánh giá, bài nộp, ai chưa nộp, tổng quan KPI của đơn vị
+            INSIGHT - xếp hạng, so sánh đơn vị, xu hướng theo thời gian, cảnh báo rủi ro,
+                      bức tranh toàn đơn vị (quân số + số đơn vị con + số kỳ)
 
             Chỉ trả về tên nhóm, phân tách bằng dấu phẩy. Không giải thích.
             Câu hỏi cần nhiều loại dữ liệu thì trả nhiều nhóm.

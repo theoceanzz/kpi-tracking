@@ -20,7 +20,7 @@
     { "id": "A12", "q": "Xếp hạng nhân viên theo tiến độ", "tools": ["rank"], "groups": ["INSIGHT"], "expect": ["1"] },
     { "id": "A13", "q": "Xếp hạng các đơn vị con trong đơn vị của tôi theo hiệu suất", "tools": ["rank"], "groups": ["INSIGHT"], "expect": ["Phòng"] },
     { "id": "A14", "q": "So sánh Phòng IT và Phòng Truyền Thông", "tools": ["compare_org_units"], "groups": ["INSIGHT"], "expect": ["Phòng IT", "Truyền Thông"] },
-    { "id": "A15", "q": "Cho tôi tổng quan KPI của đơn vị", "tools": ["get_analytics"], "groups": ["INSIGHT"], "expect": [] },
+    { "id": "A15", "q": "Cho tôi tổng quan KPI của đơn vị", "_note": "Bản đầu đòi get_analytics — SAI: get_kpi(view=summary) trả totalKpis/averageProgress/averagePerformance/completed/overdue, tức đúng thứ 'tổng quan KPI' cần. get_analytics(view=dashboard) rộng hơn (thêm quân số, số đơn vị con, số kỳ) nên hợp với câu hỏi về TOÀN ĐƠN VỊ. Cả hai đều trả lời được câu này.", "tools": [], "toolsAny": [["get_analytics", "get_kpi"]], "groups": [], "expect": [] },
     { "id": "A16", "q": "KPI nào đang có nguy cơ trễ hạn?", "tools": ["get_analytics"], "groups": ["INSIGHT"], "expect": [] },
     { "id": "A17", "q": "Xu hướng hiệu suất 3 kỳ gần nhất của Phòng IT", "tools": ["get_analytics"], "groups": ["INSIGHT"], "expect": [] },
     { "id": "A18", "q": "Tìm nhân viên tên Staff", "tools": ["search"], "groups": [], "_note": "search nằm nhóm CORE nên luôn được gửi, không phụ thuộc router — để groups rỗng", "expect": ["Staff"] },
@@ -44,7 +44,7 @@
     { "id": "C05", "q": "Team Backend có mấy người, đang làm KPI gì, và xu hướng 3 kỳ qua thế nào?", "_note": "Bản đầu đòi get_people — SAI: vế 'có mấy người' hỏi SỐ LƯỢNG, và mô tả của get_org_unit(view=hierarchy) ghi rõ nó trả 'số nhân sự'. Giữ get_kpi + get_analytics vì đó mới là hai vế model hay bỏ.", "tools": ["get_kpi", "get_analytics"], "groups": ["LOOKUP", "KPI", "INSIGHT"], "expect": ["3"] },
     { "id": "C06", "q": "Cho tôi danh sách nhân sự Phòng Truyền Thông kèm tình hình nộp báo cáo của họ", "tools": ["get_people", "get_submissions"], "groups": ["LOOKUP", "KPI"], "expect": ["8"] },
     { "id": "C07", "q": "Ai phụ trách Team Content, và team đó xếp hạng thế nào so với các team khác?", "tools": ["get_org_unit", "rank"], "groups": ["LOOKUP", "INSIGHT"], "expect": ["Cont Lead"] },
-    { "id": "C08", "q": "Tổng quan KPI đơn vị tôi, kèm danh sách các chức vụ đang có và ai chưa nộp báo cáo", "tools": ["get_analytics", "get_org_unit", "get_submissions"], "groups": ["INSIGHT", "LOOKUP", "KPI"], "expect": [] }
+    { "id": "C08", "q": "Tổng quan KPI đơn vị tôi, kèm danh sách các chức vụ đang có và ai chưa nộp báo cáo", "_note": "Bản đầu đòi get_analytics và nhóm INSIGHT — SAI, cùng lý do A15: vế 'tổng quan KPI' làm được bằng get_kpi(view=summary). Vì thế câu này chỉ cần LOOKUP+KPI, không còn là ca kiểm ba nhóm; vai trò đó do C04 và C05 đảm nhiệm.", "tools": ["get_org_unit", "get_submissions"], "toolsAny": [["get_analytics", "get_kpi"]], "groups": ["LOOKUP", "KPI"], "expect": [] }
   ],
 
   "groupD": [
