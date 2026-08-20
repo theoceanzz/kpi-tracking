@@ -3,7 +3,9 @@ package com.kpitracking.controller;
 import com.kpitracking.dto.response.ApiResponse;
 import com.kpitracking.dto.response.kpi.CycleApprovalStepResponse;
 import com.kpitracking.dto.response.kpi.CycleUnitEvaluationResponse;
+import com.kpitracking.dto.response.kpi.CycleUnitStatusResponse;
 import com.kpitracking.dto.response.kpi.CycleUserEvaluationResponse;
+import com.kpitracking.dto.response.kpi.CycleUserRankResponse;
 import com.kpitracking.service.KpiCycleEvaluationService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -44,6 +46,27 @@ public class KpiCycleEvaluationController {
         String comment = rawComment != null ? rawComment.toString() : null;
         return ResponseEntity.ok(ApiResponse.success(
                 kpiCycleEvaluationService.saveUserCycleScore(cycleId, userId, finalScore, qualScore, comment)));
+    }
+
+    /**
+     * Trạng thái chốt kỳ của mọi đơn vị trong phạm vi người gọi — dùng cho bảng theo dõi
+     * "đơn vị nào đã chốt, đơn vị nào đang chặn". Không kèm danh sách thành viên.
+     */
+    @GetMapping("/units")
+    @PreAuthorize("hasAuthority('CYCLE_EVAL:VIEW')")
+    public ResponseEntity<ApiResponse<List<CycleUnitStatusResponse>>> listUnitStatuses(
+            @PathVariable UUID cycleId) {
+        return ResponseEntity.ok(ApiResponse.success(
+                kpiCycleEvaluationService.listUnitStatuses(cycleId)));
+    }
+
+    /** Bảng xếp hạng chốt kỳ của mọi nhân sự trong phạm vi người gọi. */
+    @GetMapping("/users")
+    @PreAuthorize("hasAuthority('CYCLE_EVAL:VIEW')")
+    public ResponseEntity<ApiResponse<List<CycleUserRankResponse>>> listUserRankings(
+            @PathVariable UUID cycleId) {
+        return ResponseEntity.ok(ApiResponse.success(
+                kpiCycleEvaluationService.listUserRankings(cycleId)));
     }
 
     @GetMapping("/units/{orgUnitId}")

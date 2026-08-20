@@ -207,7 +207,27 @@ export const navItems: NavItem[] = [
       { id: 'my-cash-wallet', label: 'Ví của tôi', icon: <Wallet size={18} />, permission: 'WALLET:VIEW_MY', walletOnly: true, legacyKeys: ['/wallet/me'], group: 'Ví', description: 'Số dư tiền, nạp tiền và quy đổi sang điểm' },
     ],
   },
-  { id: 'analytics', label: 'Phân tích', path: '/analytics', icon: <TrendingUp size={20} />, permission: 'DASHBOARD:VIEW', end: true },
+  // Các góc nhìn phân tích cũng là mục trong trang, cùng khuôn với ba nhánh trên —
+  // trước đây là một hàng tab riêng, lệch hẳn với phần còn lại của app.
+  {
+    id: 'analytics',
+    label: 'Phân tích',
+    path: '/analytics',
+    icon: <TrendingUp size={20} />,
+    permission: 'DASHBOARD:VIEW',
+    end: true,
+    sections: [
+      // Cặp OKR và cặp KPI loại trừ nhau theo cờ `enableOkr` của tổ chức, nên cụm này
+      // thực tế chỉ hiện tối đa hai mục. Việc chọn cặp nào do trang quyết định qua
+      // `visible` — cây nav không có cờ "chỉ khi TẮT OKR" để diễn đạt vế còn lại.
+      { id: 'my-objectives', label: 'Mục tiêu của tôi', icon: <Target size={18} />, okrOnly: true, group: 'Kết quả', description: 'Tiến độ mục tiêu và kết quả then chốt của bạn' },
+      { id: 'subordinate', label: 'Mục tiêu đơn vị', icon: <Users size={18} />, okrOnly: true, permission: ['KPI:VIEW', 'SUBMISSION:REVIEW'], group: 'Kết quả', description: 'Tiến độ mục tiêu của đơn vị và từng nhân sự' },
+      { id: 'my', label: 'KPI của tôi', icon: <TrendingUp size={18} />, group: 'Kết quả', description: 'Tiến độ và điểm KPI của riêng bạn' },
+      { id: 'summary', label: 'KPI đơn vị', icon: <LayoutDashboard size={18} />, permission: ['KPI:VIEW', 'SUBMISSION:REVIEW'], group: 'Kết quả', description: 'Tổng hợp KPI của đơn vị bạn phụ trách' },
+      { id: 'drilldown', label: 'Phân cấp', icon: <Building2 size={18} />, group: 'Toàn tổ chức', description: 'So sánh hiệu suất giữa các đơn vị theo từng cấp' },
+      { id: 'bsc', label: 'Hạng mục (BSC)', icon: <Gauge size={18} />, permission: 'BSC:MANAGE', bscOnly: true, group: 'Toàn tổ chức', description: 'Kết quả theo từng hạng mục của thẻ điểm cân bằng' },
+    ],
+  },
   { id: 'ai-assistant', label: 'K.AI', path: '/ai-assistant', icon: <Bot size={20} />, permission: 'DASHBOARD:VIEW', end: true, aiOnly: true },
 ]
 

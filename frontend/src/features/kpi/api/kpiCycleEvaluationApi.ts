@@ -3,6 +3,18 @@ import type { ApiResponse } from '@/types/api'
 import type { CycleUserEvaluation, CycleUnitEvaluation, CycleApprovalStep, SendEvaluationResult } from '@/types/kpi'
 
 export const kpiCycleEvaluationApi = {
+  /** Trạng thái chốt kỳ của mọi đơn vị trong phạm vi — thay cho việc gọi từng đơn vị một. */
+  listUnitStatuses: (cycleId: string) =>
+    axiosInstance
+      .get<ApiResponse<CycleUnitStatus[]>>(`/kpi-cycles/${cycleId}/evaluation/units`)
+      .then(r => r.data.data),
+
+  /** Bảng xếp hạng chốt kỳ của mọi nhân sự trong phạm vi. */
+  listUserRankings: (cycleId: string) =>
+    axiosInstance
+      .get<ApiResponse<CycleUserRank[]>>(`/kpi-cycles/${cycleId}/evaluation/users`)
+      .then(r => r.data.data),
+
   getUserEval: (cycleId: string, userId: string) =>
     axiosInstance
       .get<ApiResponse<CycleUserEvaluation>>(`/kpi-cycles/${cycleId}/evaluation/users/${userId}`)
@@ -44,4 +56,31 @@ export const kpiCycleEvaluationApi = {
       .post<ApiResponse<SendEvaluationResult>>(
         `/kpi-cycles/${cycleId}/evaluation/units/${orgUnitId}/send`, { userIds })
       .then((r) => r.data.data),
+}
+
+/** Khớp BE: CycleUnitStatusResponse. */
+export interface CycleUnitStatus {
+  orgUnitId: string
+  orgUnitName: string
+  levelOrder: number | null
+  status: 'DRAFT' | 'FINALIZED' | string
+  memberCount: number
+  managerScore: number | null
+  qualScore: number | null
+  matrixRating: number | null
+  finalizedByName: string | null
+  finalizedAt: string | null
+}
+
+/** Khớp BE: CycleUserRankResponse. */
+export interface CycleUserRank {
+  userId: string
+  userName: string
+  userAvatarUrl: string | null
+  orgUnitName: string | null
+  finalScore: number | null
+  qualScore: number | null
+  matrixRating: number | null
+  /** null khi chưa có điểm — người này chưa được chấm, không phải hạng chót. */
+  rank: number | null
 }

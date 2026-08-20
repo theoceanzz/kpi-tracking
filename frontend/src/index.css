@@ -126,6 +126,15 @@ input[type=number] {
 .react-grid-item.dropping {
   visibility: hidden;
 }
+
+/* Người dùng tắt hiệu ứng chuyển động: widget nhảy thẳng tới vị trí cuối, không trượt. */
+@media (prefers-reduced-motion: reduce) {
+  .react-grid-layout,
+  .react-grid-item,
+  .react-grid-placeholder {
+    transition: none !important;
+  }
+}
 .react-grid-placeholder {
   background: var(--color-primary) !important;
   opacity: 0.1 !important;

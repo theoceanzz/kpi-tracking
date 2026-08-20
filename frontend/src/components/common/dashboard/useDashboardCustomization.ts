@@ -103,7 +103,8 @@ export function useDashboardCustomization({
   }
 
   const toggleVisibility = (id: string) => setWidgets(prev => prev.map(b => b.i === id ? { ...b, visible: !b.visible } : b))
-  const resetLayout = () => { if (confirm("Bạn có chắc muốn đặt lại giao diện mặc định?")) setWidgets(defaultWidgets) }
+  // Xác nhận do DashboardEditToolbar hiển thị (ConfirmDialog) — không confirm() lần nữa ở đây.
+  const resetLayout = () => setWidgets(defaultWidgets)
   const handleLayoutChange = (newLayout: any[]) => {
     setWidgets(prev => prev.map(item => {
       const updated = newLayout.find(l => l.i === item.i)
@@ -111,11 +112,14 @@ export function useDashboardCustomization({
     }))
   }
   const deleteWidget = (i: string) => setWidgets(prev => prev.filter(w => w.i !== i))
+  // Không đóng thư viện sau mỗi lần thêm — người dùng thường chọn vài cái một lượt.
+  // Chặn trùng và tính `y` làm trong hàm cập nhật để bấm nhanh nhiều thẻ không bị chồng vị trí.
   const addWidget = (template: DashboardWidget) => {
-    if (widgets.some(w => w.type === template.type)) { alert("Biểu đồ này đã có trên trang"); return }
-    const maxY = widgets.length > 0 ? Math.max(...widgets.map(w => w.y + w.h)) : 0
-    setWidgets(prev => [...prev, { ...template, y: maxY, visible: true }])
-    setIsAddModalOpen(false)
+    setWidgets(prev => {
+      if (prev.some(w => w.i === template.i)) return prev
+      const maxY = prev.length > 0 ? Math.max(...prev.map(w => w.y + w.h)) : 0
+      return [...prev, { ...template, y: maxY, visible: true }]
+    })
   }
 
   const handleTogglePin = async (widget: DashboardWidget) => {

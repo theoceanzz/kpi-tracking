@@ -1,6 +1,7 @@
 import { useHasPermission } from '@/components/auth/PermissionGate'
 import DirectorDashboard from './DirectorDashboard'
 import HeadDashboard from './HeadDashboard'
+import DeputyDashboard from './DeputyDashboard'
 import StaffDashboard from './StaffDashboard'
 import { useSearchParams, Navigate } from 'react-router-dom'
 import { useAuthStore } from '@/store/authStore'
@@ -18,6 +19,12 @@ const DashboardPage = () => {
   }
 
   const canViewOwn = hasPermission('KPI:VIEW_MY')
+  /**
+   * Role.rank: 0 = trưởng đơn vị, 1 = phó, 2 = nhân viên. Phó có gần hết quyền của
+   * trưởng nên nếu chỉ xét quyền thì họ rơi vào bảng trưởng đơn vị và thấy dữ liệu
+   * toàn đơn vị — trong khi thực tế họ chỉ phụ trách một mảng.
+   */
+  const isDeputy = (user?.memberships ?? []).some(m => m.roleRank === 1)
   const isManager = hasPermission(['KPI:APPROVE', 'SUBMISSION:REVIEW', 'ORG:CREATE', 'USER:VIEW_LIST'])
   // Quản lý vừa có bảng đơn vị vừa có bảng cá nhân — trước đây là hai dòng riêng trên
   // sidebar, giờ gộp thành một công tắc ngay trong trang để sidebar bớt một mục cấp 1.
@@ -41,10 +48,13 @@ const DashboardPage = () => {
     // 1. Director & Management Level
     if (hasPermission(['ORG:VIEW', 'USER:VIEW', 'ROLE:VIEW'], true)) return <DirectorDashboard />
 
-    // 2. Department Head / Manager Level
+    // 2. Phó đơn vị — xét TRƯỚC trưởng đơn vị vì quyền của hai vai gần như trùng nhau
+    if (isDeputy) return <DeputyDashboard />
+
+    // 3. Department Head / Manager Level
     if (hasPermission(['SUBMISSION:REVIEW', 'USER:VIEW_LIST'])) return <HeadDashboard />
 
-    // 3. Staff Level (Default if no manager perms)
+    // 4. Staff Level (Default if no manager perms)
     if (canViewOwn) return <StaffDashboard />
 
     return null

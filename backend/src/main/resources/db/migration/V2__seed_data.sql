@@ -218,7 +218,13 @@ INSERT INTO permissions (id, code, resource, action, description) VALUES
     ('00000000-0000-0000-0000-000000000329', 'REWARD:APPROVE_OWN',       'REWARD',       'APPROVE_OWN',      'Cho phép đề nghị thưởng do chính mình tạo được duyệt ngay mà không cần chờ người khác — dành cho cấp cao nhất'),
     ('00000000-0000-0000-0000-000000000326', 'GIFT:MANAGE',              'GIFT',         'MANAGE',           'Cho phép quản lý danh mục quà tặng: thêm, sửa, xoá, cập nhật tồn kho và giá điểm'),
     ('00000000-0000-0000-0000-000000000327', 'GIFT:REDEEM',              'GIFT',         'REDEEM',           'Cho phép tạo yêu cầu dùng điểm thưởng để đổi quà'),
-    ('00000000-0000-0000-0000-000000000328', 'GIFT:FULFILL',             'GIFT',         'FULFILL',          'Cho phép đánh dấu đã giao quà và từ chối các yêu cầu đổi quà')
+    ('00000000-0000-0000-0000-000000000328', 'GIFT:FULFILL',             'GIFT',         'FULFILL',          'Cho phép đánh dấu đã giao quà và từ chối các yêu cầu đổi quà'),
+    -- Ví tiền thật. Dải 2xx tới 248, BSC 301-303, OKR 311-312, reward 321-329,
+    -- AI_QUOTA 401-402 => ví tiền dùng 331-334.
+    ('00000000-0000-0000-0000-000000000331', 'WALLET:VIEW_MY',           'WALLET',       'VIEW_MY',          'Cho phép xem ví tiền của chính mình, tạo đơn nạp tiền và quy đổi số dư sang điểm thưởng'),
+    ('00000000-0000-0000-0000-000000000332', 'WALLET:VIEW',              'WALLET',       'VIEW',             'Cho phép xem ví tiền và lịch sử nạp/quy đổi của nhân sự trong phạm vi quản lý'),
+    ('00000000-0000-0000-0000-000000000333', 'WALLET:CONFIG',            'WALLET',       'CONFIG',           'Cho phép cấu hình tỉ giá quy đổi điểm, tài khoản ngân hàng SePay và hạn mức nạp tiền'),
+    ('00000000-0000-0000-0000-000000000334', 'WALLET:RECONCILE',         'WALLET',       'RECONCILE',        'Cho phép xử lý giao dịch SePay chưa khớp đơn, điều chỉnh số dư ví tiền và chạy đối soát sổ cái')
 ON CONFLICT (code) DO NOTHING;
 
 
@@ -279,7 +285,10 @@ WHERE code IN (
     -- ĐẶT hạn mức cho người khác nên thường không tự cấp cho mình; thiếu quyền này
     -- thì đề nghị thưởng của họ kẹt ở chờ duyệt mà không còn ai cấp trên để duyệt.
     'REWARD:VIEW_MY', 'REWARD:VIEW', 'REWARD:GRANT', 'REWARD:APPROVE', 'REWARD:APPROVE_OWN',
-    'REWARD:CONFIG', 'GIFT:MANAGE', 'GIFT:REDEEM', 'GIFT:FULFILL'
+    'REWARD:CONFIG', 'GIFT:MANAGE', 'GIFT:REDEEM', 'GIFT:FULFILL',
+    -- Ví tiền: vai trò nào đã được tin để cấu hình thưởng thì cũng được tin để cấu
+    -- hình ví tiền và xử lý đối soát SePay.
+    'WALLET:VIEW_MY', 'WALLET:VIEW', 'WALLET:CONFIG', 'WALLET:RECONCILE'
 )
 ON CONFLICT DO NOTHING;
 
@@ -319,7 +328,10 @@ WHERE code IN (
     -- Thưởng điểm: có duyệt và quản lý quà, KHÔNG có REWARD:CONFIG — khớp cách hệ
     -- thống đang tước quyền cấu hình của cấp phó.
     'REWARD:VIEW_MY', 'REWARD:VIEW', 'REWARD:GRANT', 'REWARD:APPROVE',
-    'GIFT:MANAGE', 'GIFT:REDEEM', 'GIFT:FULFILL'
+    'GIFT:MANAGE', 'GIFT:REDEEM', 'GIFT:FULFILL',
+    -- Ví tiền: chỉ xem, KHÔNG cấu hình/đối soát — bám theo cách cấp phó bị tước
+    -- REWARD:CONFIG ở trên.
+    'WALLET:VIEW_MY', 'WALLET:VIEW'
 )
 ON CONFLICT DO NOTHING;
 
@@ -354,7 +366,9 @@ WHERE code IN (
     'AI_QUOTA:ALLOCATE',
     -- Trao thưởng KHÔNG phải quyền phê duyệt. Giới hạn thật của trưởng đơn vị là
     -- dòng reward_budgets của họ — không cấp hạn mức thì mọi đề nghị phải qua duyệt.
-    'REWARD:VIEW_MY', 'REWARD:VIEW', 'REWARD:GRANT', 'GIFT:REDEEM'
+    'REWARD:VIEW_MY', 'REWARD:VIEW', 'REWARD:GRANT', 'GIFT:REDEEM',
+    -- Ví tiền: xem ví của mình và của nhân sự trong phạm vi quản lý.
+    'WALLET:VIEW_MY', 'WALLET:VIEW'
 )
 ON CONFLICT DO NOTHING;
 
@@ -383,7 +397,9 @@ WHERE code IN (
     'BSC:VIEW', 'OKR:VIEW',
     -- PERSONAL_PERMS
     'KPI:VIEW_MY', 'SUBMISSION:VIEW_MY', 'EVALUATION:VIEW_MY', 'STATS:VIEW_MY', 'ADJUSTMENT:VIEW_MY',
-    'REWARD:VIEW_MY', 'REWARD:VIEW', 'REWARD:GRANT', 'GIFT:REDEEM'
+    'REWARD:VIEW_MY', 'REWARD:VIEW', 'REWARD:GRANT', 'GIFT:REDEEM',
+    -- Ví tiền: xem ví của mình và của nhân sự trong phạm vi quản lý.
+    'WALLET:VIEW_MY', 'WALLET:VIEW'
 )
 ON CONFLICT DO NOTHING;
 
@@ -414,7 +430,9 @@ WHERE code IN (
     'KPI:VIEW_MY', 'SUBMISSION:VIEW_MY', 'STATS:VIEW_MY', 'ADJUSTMENT:VIEW_MY',
     -- Chia hạn mức token AI cho nhân sự trong nhóm (cần công ty bật uỷ quyền).
     'AI_QUOTA:ALLOCATE',
-    'REWARD:VIEW_MY', 'REWARD:VIEW', 'REWARD:GRANT', 'GIFT:REDEEM'
+    'REWARD:VIEW_MY', 'REWARD:VIEW', 'REWARD:GRANT', 'GIFT:REDEEM',
+    -- Ví tiền: xem ví của mình và của nhân sự trong phạm vi quản lý.
+    'WALLET:VIEW_MY', 'WALLET:VIEW'
 )
 ON CONFLICT DO NOTHING;
 
@@ -442,7 +460,9 @@ WHERE code IN (
     'BSC:VIEW', 'OKR:VIEW',
     -- PERSONAL_PERMS
     'KPI:VIEW_MY', 'SUBMISSION:VIEW_MY', 'EVALUATION:VIEW_MY', 'STATS:VIEW_MY', 'ADJUSTMENT:VIEW_MY',
-    'REWARD:VIEW_MY', 'REWARD:VIEW', 'REWARD:GRANT', 'GIFT:REDEEM'
+    'REWARD:VIEW_MY', 'REWARD:VIEW', 'REWARD:GRANT', 'GIFT:REDEEM',
+    -- Ví tiền: xem ví của mình và của nhân sự trong phạm vi quản lý.
+    'WALLET:VIEW_MY', 'WALLET:VIEW'
 )
 ON CONFLICT DO NOTHING;
 
@@ -465,8 +485,9 @@ WHERE code IN (
     'BSC:VIEW', 'OKR:VIEW',
     -- PERSONAL_PERMS
     'KPI:VIEW_MY', 'SUBMISSION:VIEW_MY', 'EVALUATION:VIEW_MY', 'STATS:VIEW_MY', 'ADJUSTMENT:VIEW_MY',
-    -- Nhân viên: chỉ xem ví của mình và đổi quà.
-    'REWARD:VIEW_MY', 'GIFT:REDEEM'
+    -- Nhân viên: chỉ xem ví của mình và đổi quà. WALLET:VIEW_MY đã bao gồm tạo đơn nạp
+    -- và tự quy đổi số dư sang điểm.
+    'REWARD:VIEW_MY', 'GIFT:REDEEM', 'WALLET:VIEW_MY'
 )
 ON CONFLICT DO NOTHING;
 
@@ -1568,6 +1589,10 @@ VALUES
 -- ============================================================
 -- 10. SIDEBAR CUSTOM LABELS
 -- ============================================================
+-- Nhãn phải khớp sơ đồ điều hướng trong `navigation.tsx`. KHÔNG seed nhãn cho các mục
+-- đã bị gom mất: '/settings' (4 tab thành 4 mục trong "Thiết lập công ty") và nhóm cũ
+-- 'Quản lý KPI' (nay là một dòng sidebar duy nhất, lưu nhãn ở khoá 'performance') —
+-- nhãn không còn mục nào để gắn chỉ làm rác và có thể gán nhầm tên cho mục khác.
 INSERT INTO sidebar_settings (id, organization_id, menu_key, custom_label) VALUES
     (gen_random_uuid(), '11111111-1111-1111-1111-111111111111', '/dashboard', 'Tổng quan'),
     (gen_random_uuid(), '11111111-1111-1111-1111-111111111111', '/dashboard?view=staff', 'Dashboard cá nhân'),
@@ -1575,27 +1600,30 @@ INSERT INTO sidebar_settings (id, organization_id, menu_key, custom_label) VALUE
     (gen_random_uuid(), '11111111-1111-1111-1111-111111111111', '/company', 'Thông tin công ty'),
     (gen_random_uuid(), '11111111-1111-1111-1111-111111111111', '/okr', 'Quản lý OKR'),
     (gen_random_uuid(), '11111111-1111-1111-1111-111111111111', 'Quản lý BSC', 'Quản lý BSC'),
-    (gen_random_uuid(), '11111111-1111-1111-1111-111111111111', '/bsc', 'Thẻ điểm BSC'),
+    -- Thẻ điểm giờ chỉ là một trong bốn tab, cạnh hạng mục, dashboard và bản đồ chiến lược.
+    (gen_random_uuid(), '11111111-1111-1111-1111-111111111111', '/bsc', 'Quản lý BSC'),
     (gen_random_uuid(), '11111111-1111-1111-1111-111111111111', '/bsc/dashboard', 'Dashboard BSC'),
     (gen_random_uuid(), '11111111-1111-1111-1111-111111111111', '/bsc/strategy-map', 'Bản đồ chiến lược'),
     (gen_random_uuid(), '11111111-1111-1111-1111-111111111111', 'Tổ chức', 'Tổ chức'),
     (gen_random_uuid(), '11111111-1111-1111-1111-111111111111', '/roles', 'Phân quyền vai trò'),
-    (gen_random_uuid(), '11111111-1111-1111-1111-111111111111', '/org-structure', 'Cấu trúc tổ chức'),
-    (gen_random_uuid(), '11111111-1111-1111-1111-111111111111', '/users', 'Quản lý nhân sự'),
-    (gen_random_uuid(), '11111111-1111-1111-1111-111111111111', '/settings', 'Cấu hình hệ thống'),
-    (gen_random_uuid(), '11111111-1111-1111-1111-111111111111', 'Quản lý KPI', 'Quản trị KPI'),
-    (gen_random_uuid(), '11111111-1111-1111-1111-111111111111', '/kpi-cycles', 'Danh mục kỳ KPI'),
+    (gen_random_uuid(), '11111111-1111-1111-1111-111111111111', '/org-structure', 'Cơ cấu tổ chức'),
+    (gen_random_uuid(), '11111111-1111-1111-1111-111111111111', '/users', 'Quản lý nhân viên'),
+    -- '/kpi-cycles' và '/kpi-periods' là hai khoá của CÙNG một trang (kỳ và đợt đã gộp).
+    (gen_random_uuid(), '11111111-1111-1111-1111-111111111111', '/kpi-cycles', 'Quản lý kỳ/đợt đánh giá'),
     (gen_random_uuid(), '11111111-1111-1111-1111-111111111111', '/kpi-cycles/evaluation', 'Đánh giá kỳ'),
-    (gen_random_uuid(), '11111111-1111-1111-1111-111111111111', '/kpi-periods', 'Danh mục đợt KPI'),
+    (gen_random_uuid(), '11111111-1111-1111-1111-111111111111', '/kpi-periods', 'Quản lý kỳ/đợt đánh giá'),
     (gen_random_uuid(), '11111111-1111-1111-1111-111111111111', '/kpi-criteria', 'Thiết lập chỉ tiêu'),
     (gen_random_uuid(), '11111111-1111-1111-1111-111111111111', '/kpi-criteria/pending', 'Phê duyệt chỉ tiêu'),
-    (gen_random_uuid(), '11111111-1111-1111-1111-111111111111', '/kpi-adjustments/pending', 'Duyệt điều chỉnh'),
-    (gen_random_uuid(), '11111111-1111-1111-1111-111111111111', '/submissions/org-unit', 'Kiểm soát bài nộp'),
-    (gen_random_uuid(), '11111111-1111-1111-1111-111111111111', '/evaluations', 'Đánh giá xếp loại'),
+    (gen_random_uuid(), '11111111-1111-1111-1111-111111111111', '/kpi-adjustments/pending', 'Điều chỉnh chỉ tiêu'),
+    (gen_random_uuid(), '11111111-1111-1111-1111-111111111111', '/submissions/org-unit', 'Đánh giá đợt'),
+    -- Trang "Của tôi": tất cả một khuôn "<Cái gì> của tôi" để nhìn ra ngay đây là dữ
+    -- liệu của chính người đang đăng nhập. '/rewards/me' và '/wallet/me' không seed,
+    -- nhãn của chúng lấy thẳng từ `navigation.tsx`.
+    (gen_random_uuid(), '11111111-1111-1111-1111-111111111111', '/evaluations', 'Đánh giá của tôi'),
     (gen_random_uuid(), '11111111-1111-1111-1111-111111111111', '/my-kpi', 'KPI của tôi'),
-    (gen_random_uuid(), '11111111-1111-1111-1111-111111111111', '/my-adjustments', 'Yêu cầu điều chỉnh'),
-    (gen_random_uuid(), '11111111-1111-1111-1111-111111111111', '/submissions', 'Lịch sử báo cáo'),
-    (gen_random_uuid(), '11111111-1111-1111-1111-111111111111', '/analytics', 'Phân tích & Thống kê');
+    (gen_random_uuid(), '11111111-1111-1111-1111-111111111111', '/my-adjustments', 'Điều chỉnh của tôi'),
+    (gen_random_uuid(), '11111111-1111-1111-1111-111111111111', '/submissions', 'Báo cáo của tôi'),
+    (gen_random_uuid(), '11111111-1111-1111-1111-111111111111', '/analytics', 'Phân tích');
 
 
 
@@ -1693,19 +1721,19 @@ ON CONFLICT (id) DO NOTHING;
 
 -- 7. ROLE PERMISSIONS
 INSERT INTO role_permissions (role_id, permission_id)
-SELECT 'c3000000-0000-0000-0000-000000000001', id FROM permissions WHERE code IN ('BSC:VIEW', 'BSC:MANAGE', 'BSC:PUBLISH_SCORE', 'OKR:VIEW', 'OKR:MANAGE', 'DASHBOARD:VIEW', 'COMPANY:VIEW', 'COMPANY:UPDATE', 'ORG:VIEW', 'ORG:CREATE', 'ORG:UPDATE', 'ORG:DELETE', 'USER:VIEW', 'USER:CREATE', 'USER:UPDATE', 'USER:DELETE', 'USER:IMPORT', 'ROLE:VIEW', 'ROLE:ASSIGN', 'ROLE:CREATE', 'ROLE:UPDATE', 'PERMISSION:VIEW', 'KPI:VIEW', 'KPI:CREATE', 'KPI:UPDATE', 'KPI:DELETE', 'KPI:APPROVE_CRITERIA', 'KPI:APPROVE_ADJUSTMENT', 'KPI:APPROVE_OWN', 'KPI:REVERT_APPROVAL', 'KPI:IMPORT', 'KPI:SUBMIT', 'KPI:REJECT', 'KPI_PERIOD:VIEW', 'KPI_PERIOD:CREATE', 'KPI_PERIOD:UPDATE', 'KPI_PERIOD:DELETE', 'KPI_CYCLE:VIEW', 'KPI_CYCLE:CREATE', 'KPI_CYCLE:UPDATE', 'KPI_CYCLE:DELETE', 'CYCLE_EVAL:VIEW', 'CYCLE_EVAL:FINALIZE', 'CYCLE_EVAL:SEND', 'SUBMISSION:REVIEW', 'SUBMISSION:VIEW', 'SUBMISSION:DELETE', 'SUBMISSION:UPDATE', 'EVALUATION:VIEW', 'EVALUATION:CREATE', 'EVALUATION:UPDATE', 'EVALUATION:DELETE', 'NOTIF:VIEW', 'NOTIF:MANAGE', 'AI:SUGGEST_KPI', 'POLICY:VIEW', 'POLICY:CREATE', 'POLICY:UPDATE', 'POLICY:ASSIGN', 'STATS:VIEW_ORG', 'STATS:VIEW_EMPLOYEE', 'USER_ROLE:VIEW', 'USER_ROLE:ASSIGN', 'USER_ROLE:REVOKE', 'ATTACHMENT:UPLOAD', 'ATTACHMENT:DELETE', 'REMINDER:SEND', 'SYSTEM:ADMIN', 'COMPANY:DELETE', 'ROLE:DELETE', 'POLICY:DELETE', 'PERMISSION:EDIT', 'AI_QUOTA:MANAGE', 'AI_QUOTA:ALLOCATE', 'REWARD:VIEW_MY', 'REWARD:VIEW', 'REWARD:GRANT', 'REWARD:APPROVE', 'REWARD:APPROVE_OWN', 'REWARD:CONFIG', 'GIFT:MANAGE', 'GIFT:REDEEM', 'GIFT:FULFILL')
+SELECT 'c3000000-0000-0000-0000-000000000001', id FROM permissions WHERE code IN ('BSC:VIEW', 'BSC:MANAGE', 'BSC:PUBLISH_SCORE', 'OKR:VIEW', 'OKR:MANAGE', 'DASHBOARD:VIEW', 'COMPANY:VIEW', 'COMPANY:UPDATE', 'ORG:VIEW', 'ORG:CREATE', 'ORG:UPDATE', 'ORG:DELETE', 'USER:VIEW', 'USER:CREATE', 'USER:UPDATE', 'USER:DELETE', 'USER:IMPORT', 'ROLE:VIEW', 'ROLE:ASSIGN', 'ROLE:CREATE', 'ROLE:UPDATE', 'PERMISSION:VIEW', 'KPI:VIEW', 'KPI:CREATE', 'KPI:UPDATE', 'KPI:DELETE', 'KPI:APPROVE_CRITERIA', 'KPI:APPROVE_ADJUSTMENT', 'KPI:APPROVE_OWN', 'KPI:REVERT_APPROVAL', 'KPI:IMPORT', 'KPI:SUBMIT', 'KPI:REJECT', 'KPI_PERIOD:VIEW', 'KPI_PERIOD:CREATE', 'KPI_PERIOD:UPDATE', 'KPI_PERIOD:DELETE', 'KPI_CYCLE:VIEW', 'KPI_CYCLE:CREATE', 'KPI_CYCLE:UPDATE', 'KPI_CYCLE:DELETE', 'CYCLE_EVAL:VIEW', 'CYCLE_EVAL:FINALIZE', 'CYCLE_EVAL:SEND', 'SUBMISSION:REVIEW', 'SUBMISSION:VIEW', 'SUBMISSION:DELETE', 'SUBMISSION:UPDATE', 'EVALUATION:VIEW', 'EVALUATION:CREATE', 'EVALUATION:UPDATE', 'EVALUATION:DELETE', 'NOTIF:VIEW', 'NOTIF:MANAGE', 'AI:SUGGEST_KPI', 'POLICY:VIEW', 'POLICY:CREATE', 'POLICY:UPDATE', 'POLICY:ASSIGN', 'STATS:VIEW_ORG', 'STATS:VIEW_EMPLOYEE', 'USER_ROLE:VIEW', 'USER_ROLE:ASSIGN', 'USER_ROLE:REVOKE', 'ATTACHMENT:UPLOAD', 'ATTACHMENT:DELETE', 'REMINDER:SEND', 'SYSTEM:ADMIN', 'COMPANY:DELETE', 'ROLE:DELETE', 'POLICY:DELETE', 'PERMISSION:EDIT', 'AI_QUOTA:MANAGE', 'AI_QUOTA:ALLOCATE', 'REWARD:VIEW_MY', 'REWARD:VIEW', 'REWARD:GRANT', 'REWARD:APPROVE', 'REWARD:APPROVE_OWN', 'REWARD:CONFIG', 'GIFT:MANAGE', 'GIFT:REDEEM', 'GIFT:FULFILL', 'WALLET:VIEW_MY', 'WALLET:VIEW', 'WALLET:CONFIG', 'WALLET:RECONCILE')
 ON CONFLICT DO NOTHING;
 INSERT INTO role_permissions (role_id, permission_id)
-SELECT 'c3000000-0000-0000-0000-000000000002', id FROM permissions WHERE code IN ('BSC:VIEW', 'BSC:MANAGE', 'BSC:PUBLISH_SCORE', 'OKR:VIEW', 'OKR:MANAGE', 'DASHBOARD:VIEW', 'COMPANY:VIEW', 'ORG:VIEW', 'ORG:CREATE', 'ORG:UPDATE', 'USER:VIEW', 'USER:CREATE', 'USER:UPDATE', 'USER:IMPORT', 'ROLE:VIEW', 'ROLE:ASSIGN', 'ROLE:CREATE', 'ROLE:UPDATE', 'PERMISSION:VIEW', 'KPI:VIEW', 'KPI:CREATE', 'KPI:UPDATE', 'KPI:APPROVE_CRITERIA', 'KPI:APPROVE_ADJUSTMENT', 'KPI:APPROVE_OWN', 'KPI:IMPORT', 'KPI:SUBMIT', 'KPI:REJECT', 'KPI_PERIOD:VIEW', 'KPI_PERIOD:CREATE', 'KPI_PERIOD:UPDATE', 'KPI_CYCLE:VIEW', 'KPI_CYCLE:CREATE', 'KPI_CYCLE:UPDATE', 'CYCLE_EVAL:VIEW', 'CYCLE_EVAL:FINALIZE', 'CYCLE_EVAL:SEND', 'SUBMISSION:REVIEW', 'SUBMISSION:VIEW', 'SUBMISSION:UPDATE', 'EVALUATION:VIEW', 'EVALUATION:CREATE', 'EVALUATION:UPDATE', 'NOTIF:VIEW', 'NOTIF:MANAGE', 'AI:SUGGEST_KPI', 'POLICY:VIEW', 'POLICY:CREATE', 'POLICY:UPDATE', 'POLICY:ASSIGN', 'STATS:VIEW_ORG', 'STATS:VIEW_EMPLOYEE', 'USER_ROLE:VIEW', 'USER_ROLE:ASSIGN', 'ATTACHMENT:UPLOAD', 'REMINDER:SEND', 'COMPANY:DELETE', 'ROLE:DELETE', 'POLICY:DELETE', 'PERMISSION:EDIT', 'REWARD:VIEW_MY', 'REWARD:VIEW', 'REWARD:GRANT', 'REWARD:APPROVE', 'GIFT:MANAGE', 'GIFT:REDEEM', 'GIFT:FULFILL')
+SELECT 'c3000000-0000-0000-0000-000000000002', id FROM permissions WHERE code IN ('BSC:VIEW', 'BSC:MANAGE', 'BSC:PUBLISH_SCORE', 'OKR:VIEW', 'OKR:MANAGE', 'DASHBOARD:VIEW', 'COMPANY:VIEW', 'ORG:VIEW', 'ORG:CREATE', 'ORG:UPDATE', 'USER:VIEW', 'USER:CREATE', 'USER:UPDATE', 'USER:IMPORT', 'ROLE:VIEW', 'ROLE:ASSIGN', 'ROLE:CREATE', 'ROLE:UPDATE', 'PERMISSION:VIEW', 'KPI:VIEW', 'KPI:CREATE', 'KPI:UPDATE', 'KPI:APPROVE_CRITERIA', 'KPI:APPROVE_ADJUSTMENT', 'KPI:APPROVE_OWN', 'KPI:IMPORT', 'KPI:SUBMIT', 'KPI:REJECT', 'KPI_PERIOD:VIEW', 'KPI_PERIOD:CREATE', 'KPI_PERIOD:UPDATE', 'KPI_CYCLE:VIEW', 'KPI_CYCLE:CREATE', 'KPI_CYCLE:UPDATE', 'CYCLE_EVAL:VIEW', 'CYCLE_EVAL:FINALIZE', 'CYCLE_EVAL:SEND', 'SUBMISSION:REVIEW', 'SUBMISSION:VIEW', 'SUBMISSION:UPDATE', 'EVALUATION:VIEW', 'EVALUATION:CREATE', 'EVALUATION:UPDATE', 'NOTIF:VIEW', 'NOTIF:MANAGE', 'AI:SUGGEST_KPI', 'POLICY:VIEW', 'POLICY:CREATE', 'POLICY:UPDATE', 'POLICY:ASSIGN', 'STATS:VIEW_ORG', 'STATS:VIEW_EMPLOYEE', 'USER_ROLE:VIEW', 'USER_ROLE:ASSIGN', 'ATTACHMENT:UPLOAD', 'REMINDER:SEND', 'COMPANY:DELETE', 'ROLE:DELETE', 'POLICY:DELETE', 'PERMISSION:EDIT', 'REWARD:VIEW_MY', 'REWARD:VIEW', 'REWARD:GRANT', 'REWARD:APPROVE', 'GIFT:MANAGE', 'GIFT:REDEEM', 'GIFT:FULFILL', 'WALLET:VIEW_MY', 'WALLET:VIEW')
 ON CONFLICT DO NOTHING;
 INSERT INTO role_permissions (role_id, permission_id)
-SELECT 'c4000000-0000-0000-0000-000000000001', id FROM permissions WHERE code IN ('BSC:VIEW', 'OKR:VIEW', 'DASHBOARD:VIEW', 'ORG:VIEW_TREE', 'USER:VIEW_LIST', 'KPI:VIEW', 'KPI:CREATE', 'KPI:UPDATE', 'KPI:DELETE', 'KPI:APPROVE_CRITERIA', 'KPI:APPROVE_ADJUSTMENT', 'KPI:APPROVE_OWN', 'KPI:IMPORT', 'KPI:SUBMIT', 'KPI:REJECT', 'KPI_PERIOD:VIEW', 'KPI_CYCLE:VIEW', 'CYCLE_EVAL:VIEW', 'CYCLE_EVAL:FINALIZE', 'CYCLE_EVAL:SEND', 'SUBMISSION:VIEW', 'SUBMISSION:REVIEW', 'SUBMISSION:REVIEW_KPI', 'EVALUATION:VIEW', 'EVALUATION:CREATE', 'NOTIF:VIEW', 'AI:SUGGEST_KPI', 'AI_QUOTA:ALLOCATE', 'STATS:VIEW_EMPLOYEE', 'ATTACHMENT:UPLOAD', 'REMINDER:SEND', 'KPI:VIEW_MY', 'SUBMISSION:VIEW_MY', 'STATS:VIEW_MY', 'ADJUSTMENT:VIEW_MY', 'REWARD:VIEW_MY', 'REWARD:VIEW', 'REWARD:GRANT', 'GIFT:REDEEM')
+SELECT 'c4000000-0000-0000-0000-000000000001', id FROM permissions WHERE code IN ('BSC:VIEW', 'OKR:VIEW', 'DASHBOARD:VIEW', 'ORG:VIEW_TREE', 'USER:VIEW_LIST', 'KPI:VIEW', 'KPI:CREATE', 'KPI:UPDATE', 'KPI:DELETE', 'KPI:APPROVE_CRITERIA', 'KPI:APPROVE_ADJUSTMENT', 'KPI:APPROVE_OWN', 'KPI:IMPORT', 'KPI:SUBMIT', 'KPI:REJECT', 'KPI_PERIOD:VIEW', 'KPI_CYCLE:VIEW', 'CYCLE_EVAL:VIEW', 'CYCLE_EVAL:FINALIZE', 'CYCLE_EVAL:SEND', 'SUBMISSION:VIEW', 'SUBMISSION:REVIEW', 'SUBMISSION:REVIEW_KPI', 'EVALUATION:VIEW', 'EVALUATION:CREATE', 'NOTIF:VIEW', 'AI:SUGGEST_KPI', 'AI_QUOTA:ALLOCATE', 'STATS:VIEW_EMPLOYEE', 'ATTACHMENT:UPLOAD', 'REMINDER:SEND', 'KPI:VIEW_MY', 'SUBMISSION:VIEW_MY', 'STATS:VIEW_MY', 'ADJUSTMENT:VIEW_MY', 'REWARD:VIEW_MY', 'REWARD:VIEW', 'REWARD:GRANT', 'GIFT:REDEEM', 'WALLET:VIEW_MY', 'WALLET:VIEW')
 ON CONFLICT DO NOTHING;
 INSERT INTO role_permissions (role_id, permission_id)
-SELECT 'c4000000-0000-0000-0000-000000000002', id FROM permissions WHERE code IN ('BSC:VIEW', 'OKR:VIEW', 'DASHBOARD:VIEW', 'ORG:VIEW_TREE', 'USER:VIEW_LIST', 'KPI:VIEW', 'KPI:CREATE','KPI:UPDATE', 'KPI:DELETE', 'KPI:IMPORT', 'KPI:SUBMIT', 'KPI:REJECT', 'KPI_PERIOD:VIEW', 'KPI_CYCLE:VIEW', 'SUBMISSION:VIEW', 'SUBMISSION:REVIEW_KPI', 'EVALUATION:VIEW', 'EVALUATION:CREATE', 'NOTIF:VIEW', 'AI:SUGGEST_KPI', 'STATS:VIEW_EMPLOYEE', 'ATTACHMENT:UPLOAD', 'REMINDER:SEND', 'KPI:VIEW_MY', 'SUBMISSION:VIEW_MY', 'EVALUATION:VIEW_MY', 'STATS:VIEW_MY', 'ADJUSTMENT:VIEW_MY', 'REWARD:VIEW_MY', 'REWARD:VIEW', 'REWARD:GRANT', 'GIFT:REDEEM')
+SELECT 'c4000000-0000-0000-0000-000000000002', id FROM permissions WHERE code IN ('BSC:VIEW', 'OKR:VIEW', 'DASHBOARD:VIEW', 'ORG:VIEW_TREE', 'USER:VIEW_LIST', 'KPI:VIEW', 'KPI:CREATE','KPI:UPDATE', 'KPI:DELETE', 'KPI:IMPORT', 'KPI:SUBMIT', 'KPI:REJECT', 'KPI_PERIOD:VIEW', 'KPI_CYCLE:VIEW', 'SUBMISSION:VIEW', 'SUBMISSION:REVIEW_KPI', 'EVALUATION:VIEW', 'EVALUATION:CREATE', 'NOTIF:VIEW', 'AI:SUGGEST_KPI', 'STATS:VIEW_EMPLOYEE', 'ATTACHMENT:UPLOAD', 'REMINDER:SEND', 'KPI:VIEW_MY', 'SUBMISSION:VIEW_MY', 'EVALUATION:VIEW_MY', 'STATS:VIEW_MY', 'ADJUSTMENT:VIEW_MY', 'REWARD:VIEW_MY', 'REWARD:VIEW', 'REWARD:GRANT', 'GIFT:REDEEM', 'WALLET:VIEW_MY', 'WALLET:VIEW')
 ON CONFLICT DO NOTHING;
 INSERT INTO role_permissions (role_id, permission_id)
-SELECT 'c4000000-0000-0000-0000-000000000003', id FROM permissions WHERE code IN ('BSC:VIEW', 'OKR:VIEW', 'DASHBOARD:VIEW', 'KPI:VIEW', 'KPI:CREATE','KPI:UPDATE', 'KPI:DELETE', 'KPI:IMPORT', 'KPI:SUBMIT', 'KPI_PERIOD:VIEW', 'KPI_CYCLE:VIEW', 'SUBMISSION:CREATE', 'EVALUATION:VIEW', 'EVALUATION:CREATE', 'NOTIF:VIEW', 'ATTACHMENT:UPLOAD', 'KPI:VIEW_MY', 'SUBMISSION:VIEW_MY', 'EVALUATION:VIEW_MY', 'STATS:VIEW_MY', 'ADJUSTMENT:VIEW_MY', 'REWARD:VIEW_MY', 'GIFT:REDEEM')
+SELECT 'c4000000-0000-0000-0000-000000000003', id FROM permissions WHERE code IN ('BSC:VIEW', 'OKR:VIEW', 'DASHBOARD:VIEW', 'KPI:VIEW', 'KPI:CREATE','KPI:UPDATE', 'KPI:DELETE', 'KPI:IMPORT', 'KPI:SUBMIT', 'KPI_PERIOD:VIEW', 'KPI_CYCLE:VIEW', 'SUBMISSION:CREATE', 'EVALUATION:VIEW', 'EVALUATION:CREATE', 'NOTIF:VIEW', 'ATTACHMENT:UPLOAD', 'KPI:VIEW_MY', 'SUBMISSION:VIEW_MY', 'EVALUATION:VIEW_MY', 'STATS:VIEW_MY', 'ADJUSTMENT:VIEW_MY', 'REWARD:VIEW_MY', 'GIFT:REDEEM', 'WALLET:VIEW_MY')
 ON CONFLICT DO NOTHING;
 
 -- 8. USERS  (12 users, password = Demo123@)
@@ -2327,27 +2355,26 @@ INSERT INTO sidebar_settings (id, organization_id, menu_key, custom_label) VALUE
     (gen_random_uuid(), '22222222-2222-2222-2222-222222222222', '/company', 'Thông tin trường'),
     (gen_random_uuid(), '22222222-2222-2222-2222-222222222222', '/okr', 'Mục tiêu OKR'),
     (gen_random_uuid(), '22222222-2222-2222-2222-222222222222', 'Quản lý BSC', 'Thẻ điểm cân bằng'),
-    (gen_random_uuid(), '22222222-2222-2222-2222-222222222222', '/bsc', 'Thẻ điểm BSC'),
+    (gen_random_uuid(), '22222222-2222-2222-2222-222222222222', '/bsc', 'Quản lý BSC'),
     (gen_random_uuid(), '22222222-2222-2222-2222-222222222222', '/bsc/dashboard', 'Dashboard BSC'),
     (gen_random_uuid(), '22222222-2222-2222-2222-222222222222', '/bsc/strategy-map', 'Bản đồ chiến lược'),
     (gen_random_uuid(), '22222222-2222-2222-2222-222222222222', 'Tổ chức', 'Tổ chức'),
     (gen_random_uuid(), '22222222-2222-2222-2222-222222222222', '/roles', 'Phân quyền vai trò'),
+    -- Hai nhãn dưới đây CỐ Ý giữ tên riêng theo ngữ cảnh trường học, không gò về khuôn chung.
     (gen_random_uuid(), '22222222-2222-2222-2222-222222222222', '/org-structure', 'Cấu trúc Khoa - Bộ môn'),
     (gen_random_uuid(), '22222222-2222-2222-2222-222222222222', '/users', 'Quản lý sinh viên & GV'),
-    (gen_random_uuid(), '22222222-2222-2222-2222-222222222222', '/settings', 'Cấu hình hệ thống'),
-    (gen_random_uuid(), '22222222-2222-2222-2222-222222222222', 'Quản lý KPI', 'Quản trị KPI học kỳ'),
-    (gen_random_uuid(), '22222222-2222-2222-2222-222222222222', '/kpi-cycles', 'Danh mục kỳ KPI'),
+    (gen_random_uuid(), '22222222-2222-2222-2222-222222222222', '/kpi-cycles', 'Quản lý kỳ/đợt đánh giá'),
     (gen_random_uuid(), '22222222-2222-2222-2222-222222222222', '/kpi-cycles/evaluation', 'Đánh giá kỳ'),
-    (gen_random_uuid(), '22222222-2222-2222-2222-222222222222', '/kpi-periods', 'Danh mục đợt KPI'),
+    (gen_random_uuid(), '22222222-2222-2222-2222-222222222222', '/kpi-periods', 'Quản lý kỳ/đợt đánh giá'),
     (gen_random_uuid(), '22222222-2222-2222-2222-222222222222', '/kpi-criteria', 'Thiết lập chỉ tiêu'),
     (gen_random_uuid(), '22222222-2222-2222-2222-222222222222', '/kpi-criteria/pending', 'Phê duyệt chỉ tiêu'),
-    (gen_random_uuid(), '22222222-2222-2222-2222-222222222222', '/kpi-adjustments/pending', 'Duyệt điều chỉnh'),
-    (gen_random_uuid(), '22222222-2222-2222-2222-222222222222', '/submissions/org-unit', 'Kiểm soát bài nộp'),
-    (gen_random_uuid(), '22222222-2222-2222-2222-222222222222', '/evaluations', 'Đánh giá kết quả'),
+    (gen_random_uuid(), '22222222-2222-2222-2222-222222222222', '/kpi-adjustments/pending', 'Điều chỉnh chỉ tiêu'),
+    (gen_random_uuid(), '22222222-2222-2222-2222-222222222222', '/submissions/org-unit', 'Đánh giá đợt'),
+    (gen_random_uuid(), '22222222-2222-2222-2222-222222222222', '/evaluations', 'Đánh giá của tôi'),
     (gen_random_uuid(), '22222222-2222-2222-2222-222222222222', '/my-kpi', 'KPI của tôi'),
-    (gen_random_uuid(), '22222222-2222-2222-2222-222222222222', '/my-adjustments', 'Yêu cầu điều chỉnh'),
-    (gen_random_uuid(), '22222222-2222-2222-2222-222222222222', '/submissions', 'Lịch sử báo cáo'),
-    (gen_random_uuid(), '22222222-2222-2222-2222-222222222222', '/analytics', 'Phân tích & Thống kê');
+    (gen_random_uuid(), '22222222-2222-2222-2222-222222222222', '/my-adjustments', 'Điều chỉnh của tôi'),
+    (gen_random_uuid(), '22222222-2222-2222-2222-222222222222', '/submissions', 'Báo cáo của tôi'),
+    (gen_random_uuid(), '22222222-2222-2222-2222-222222222222', '/analytics', 'Phân tích');
 
 -- ====================================================
 -- Notification config defaults (all enabled)
@@ -2488,35 +2515,3 @@ JOIN (VALUES
     (5, 100.0::numeric, 4.5::numeric, 125.0::numeric, 'XUẤT SẮC')    -- hàng5(≥4.5)   × cột5(≥120%)      = 5
 ) AS m(g, score, behavior_score, completion, label) ON m.g = x.g
 WHERE e.id = x.id;
--- ═════════════════════════════════════════════════════════════════════════
--- HẠN MỨC TOKEN AI
--- Quyền AI_QUOTA:MANAGE / AI_QUOTA:ALLOCATE đã được khai báo và gán cho các vai trò
--- ở phần PERMISSIONS / ROLE PERMISSIONS bên trên, nên ở đây chỉ cấp hạn mức.
---
--- Không có hạn mức thì mọi lượt chat AI bị chặn ngay ở cổng kiểm
--- (AiQuotaService.checkAndThrow), nên môi trường mới dựng sẽ tưởng là AI hỏng.
--- Cấp sẵn hạn mức rộng tay cho dữ liệu mẫu để tính năng dùng được ngay.
--- ═════════════════════════════════════════════════════════════════════════
-
--- Ngân sách công ty. Đặt cho MỌI tổ chức, không lọc theo ngân sách hiện có: phần cấp cho từng
--- người bên dưới chạy cho mọi người, nên nếu bỏ sót một tổ chức thì tổng hạn mức của tổ chức đó
--- vượt ngân sách và AiQuotaAllocationService sẽ chặn mọi lần phân bổ về sau.
-UPDATE organizations
-SET ai_monthly_token_limit = 50000000,
-    ai_allow_sub_delegation = TRUE;
-
--- Hạn mức từng người, cấp thẳng từ ngân sách công ty (allocated_by = NULL).
---
--- Con số 1.000.000 chọn theo mức tiêu thật ĐO ĐƯỢC, không phải áng chừng: một câu hỏi chat
--- tốn khoảng 12.600 token, trong đó ~95% là prompt (định nghĩa tool + prompt hệ thống được
--- gửi lại ở MỖI vòng gọi tool). Vậy 1.000.000 ≈ 80 câu/tháng cho mỗi người dùng mẫu.
---
--- Bất biến phải giữ: TỔNG hạn mức cấp từ ngân sách công ty ≤ ngân sách công ty, TÍNH RIÊNG
--- từng tổ chức. Công ty mẫu đông người nhất hiện có 36 người × 1.000.000 = 36.000.000
--- ≤ 50.000.000, còn dư chỗ cho người tạo thêm. Thêm nhiều người mẫu hoặc sửa hai con số
--- này thì phải kiểm lại phép nhân, nếu không AiQuotaAllocationService sẽ chặn mọi lần
--- phân bổ tiếp theo vì túi đã âm.
-INSERT INTO ai_token_quotas (user_id, monthly_limit, allocated_by)
-SELECT DISTINCT uro.user_id, 1000000, NULL::uuid
-FROM user_role_org_units uro
-ON CONFLICT (user_id) DO NOTHING;

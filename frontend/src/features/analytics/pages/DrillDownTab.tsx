@@ -98,7 +98,9 @@ export default function DrillDownTab() {
   const [searchParams, setSearchParams] = useSearchParams()
   const selectedUnitId = searchParams.get('unitId') || undefined
 
-  const { periodId, periodIdTo, from, to, controls } = useAnalyticsDateFilter({ selectClassName: 'h-9' })
+  // h-10 như các mục còn lại của trang Phân tích — h-9 làm hàng lọc ở đây thấp hơn
+  // hẳn một bậc so với hai mục kia.
+  const { periodId, periodIdTo, from, to, controls } = useAnalyticsDateFilter({ selectClassName: 'h-10' })
   const perf = usePerformanceScale()
 
   // Cây điều hướng + gốc drill (scope quyền) + chi tiết đơn vị đang chọn.
@@ -266,19 +268,22 @@ export default function DrillDownTab() {
   )
 
   return (
-    <div className="space-y-4 animate-in fade-in duration-300">
-      {/* Bộ lọc thời gian — sticky */}
-      <div className="sticky top-0 z-20 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 shadow-sm">
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4 justify-between">
-          <div className="flex items-center gap-2">
-            <div className="p-2 rounded-lg text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/30">
-              <Target size={18} />
-            </div>
-            <div>
-              <h2 className="font-bold text-slate-900 dark:text-white text-base">Lọc theo thời gian</h2>
-              <p className="text-xs text-slate-500 font-medium mt-0.5">Dữ liệu phân tích đồng bộ cho tất cả biểu đồ</p>
-            </div>
+    <div className="space-y-6 animate-in fade-in duration-300">
+      {/* Bộ lọc thời gian — sticky. Cùng khuôn với bộ lọc của các mục còn lại trong
+          trang Phân tích: `flex-wrap` để hàng điều khiển tự xuống dòng khi hẹp, thay
+          vì ép một hàng rồi bóp tiêu đề thành hai dòng. */}
+      <div className="sticky top-0 z-20 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl flex flex-wrap items-center gap-4 justify-between p-4 shadow-sm">
+        <div className="flex items-center gap-2 min-w-0">
+          <div className="p-2 rounded-lg text-indigo-600 dark:text-indigo-400 shrink-0 bg-indigo-50 dark:bg-indigo-900/30">
+            <Target size={18} />
           </div>
+          <div className="min-w-0">
+            <h2 className="font-bold text-slate-900 dark:text-white leading-tight text-base">Lọc theo thời gian</h2>
+            <p className="text-xs text-slate-500 font-medium mt-0.5">Lọc dữ liệu đồng bộ cho tất cả biểu đồ</p>
+          </div>
+        </div>
+
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4 sm:gap-5 w-full lg:w-auto">
           {controls}
         </div>
       </div>

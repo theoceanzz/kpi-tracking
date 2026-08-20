@@ -650,29 +650,16 @@ export const evaluationsSteps: Step[] = [
 /* ─── Analytics Page ─── */
 export const analyticsSteps: Step[] = [
   {
-    target: '#tour-analytics-header',
-    title: '🧠 Phân tích Dữ liệu Thông minh',
-    content: (
-      <div className="space-y-2">
-        <p>Tính năng giúp biến những con số thô thành các biểu đồ trực quan sinh động.</p>
-        <p className="text-[11px] text-indigo-600 font-bold">💡 Giúp lãnh đạo nhận diện ngay lập tức các "điểm nóng" hoặc vấn đề hệ thống mà không cần đọc những báo cáo văn bản dài dòng.</p>
-      </div>
-    ),
-    placement: 'bottom',
-  },
-  {
-    target: '#tour-analytics-tabs',
+    target: '#tour-settings-nav',
     title: '🔭 Các Góc nhìn Chuyên sâu',
     content: (
-      <div className="space-y-3">
-        <ul className="text-[11px] space-y-2 list-disc pl-4 text-slate-500 font-medium">
-          <li><strong className="text-slate-900">Thống kê tổng:</strong> Tỷ lệ hoàn thành KPI trung bình của toàn doanh nghiệp.</li>
-          <li><strong className="text-slate-900">Phân cấp:</strong> So sánh hiệu suất giữa các đơn vị để tối ưu hóa nguồn lực.</li>
-          <li><strong className="text-slate-900">Bảng chi tiết:</strong> Xuất dữ liệu ra Excel phục vụ báo cáo quản trị chuyên sâu.</li>
-        </ul>
+      <div className="space-y-2">
+        <p>Cụm <strong>Kết quả</strong> là góc nhìn của riêng bạn và của đơn vị bạn phụ trách.</p>
+        <p>Cụm <strong>Toàn tổ chức</strong> là so sánh giữa các đơn vị theo từng cấp, và kết quả theo hạng mục thẻ điểm.</p>
+        <p className="text-[11px] text-indigo-600 font-bold">💡 Giúp lãnh đạo nhận diện ngay các "điểm nóng" mà không cần đọc báo cáo văn bản dài dòng.</p>
       </div>
     ),
-    placement: 'bottom',
+    placement: 'top',
   },
 ]
 

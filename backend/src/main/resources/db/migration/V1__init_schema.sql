@@ -79,6 +79,25 @@ CREATE TABLE organizations (
   lark_default_org_unit_id UUID,
   lark_default_role_id     UUID,
 
+  -- ----- Ví tiền thật (nạp qua SePay, quy đổi sang điểm thưởng) -----
+  -- Mặc định TẮT để không tổ chức nào bỗng dưng thấy menu lạ, giống enable_reward.
+  enable_cash_wallet   BOOLEAN NOT NULL DEFAULT FALSE,
+  -- Số ĐỒNG đổi được 1 điểm. Động theo tổ chức; mỗi giao dịch quy đổi tự chụp lại
+  -- tỉ giá tại thời điểm đó nên đổi tỉ giá không làm sai lịch sử cũ.
+  point_exchange_rate  BIGINT  NOT NULL DEFAULT 1000,
+  topup_min_amount     BIGINT  NOT NULL DEFAULT 10000,
+  topup_max_amount     BIGINT  NOT NULL DEFAULT 50000000,
+  topup_expire_minutes INT     NOT NULL DEFAULT 30,
+  -- Tài khoản nhận tiền. Webhook dùng để đối chiếu, FE dùng để dựng ảnh VietQR.
+  sepay_account_number VARCHAR(50),
+  sepay_bank_code      VARCHAR(20),
+  sepay_account_holder VARCHAR(255),
+  CONSTRAINT ck_organizations_exchange_rate CHECK (point_exchange_rate > 0),
+  CONSTRAINT ck_organizations_topup_range
+      CHECK (topup_min_amount > 0
+         AND topup_max_amount >= topup_min_amount
+         AND topup_expire_minutes > 0),
+
   created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at  TIMESTAMPTZ NOT NULL DEFAULT now()
 );
@@ -1085,8 +1104,11 @@ CREATE TABLE reward_transactions (
     amount                      INT         NOT NULL CHECK (amount <> 0),
     type                        VARCHAR(20) NOT NULL
         CHECK (type IN ('EARN', 'SPEND', 'REFUND', 'ADJUST', 'EXPIRE')),
+    -- 'EXTERNAL' là hook cho ví tiền (external_system = 'CASH_WALLET'), 'CHECKIN' cho
+    -- điểm danh hàng ngày. Đặt tên ràng buộc rõ ràng để sau này còn sửa được.
     source_type                 VARCHAR(20) NOT NULL
-        CHECK (source_type IN ('MANUAL_GRANT', 'AUTO_RANKING', 'REDEMPTION', 'SYSTEM', 'EXTERNAL')),
+        CONSTRAINT reward_transactions_source_type_check
+        CHECK (source_type IN ('MANUAL_GRANT', 'AUTO_RANKING', 'REDEMPTION', 'SYSTEM', 'EXTERNAL', 'CHECKIN')),
     source_ref_id               UUID,
     reversal_of_transaction_id  UUID        REFERENCES reward_transactions(id) ON DELETE SET NULL,
     external_system             VARCHAR(50),
@@ -1309,6 +1331,21 @@ CREATE TABLE reward_gift_items (
         CHECK (type IN ('INTERNAL', 'EXTERNAL_VOUCHER')),
     external_provider VARCHAR(50),
     external_sku      VARCHAR(255),
+    -- ----- Ảnh chụp thông tin quà ngoài (UrBox) tại thời điểm nhập về danh mục -----
+    -- KHÔNG đồng bộ cả kho quà UrBox: giftset của họ hơn 1.000 món và đổi liên tục.
+    -- Chỉ chụp đúng những gì cần để HIỂN THỊ; giá và điều kiện thật luôn được UrBox
+    -- chốt lại lúc đặt đơn.
+    -- Mệnh giá VNĐ bên UrBox, giữ lại để đối chiếu "bao nhiêu điểm cho bao nhiêu tiền".
+    external_value        BIGINT,
+    external_brand        VARCHAR(255),
+    -- Điều kiện sử dụng (HTML của UrBox). BẮT BUỘC hiển thị trước khi đổi.
+    external_terms        TEXT,
+    -- Nguyên văn "Tối thiểu 30 ngày", "90 ngày"… Không parse thành ngày: đây là lời
+    -- hứa của merchant, hạn thật chỉ có sau khi xuất code.
+    external_expire_text  VARCHAR(255),
+    -- QR code / Barcode 128 / Text — quyết định cách màn hình mã quà hiển thị.
+    external_code_display VARCHAR(50),
+    external_synced_at    TIMESTAMPTZ,
     status            VARCHAR(20)  NOT NULL DEFAULT 'ACTIVE'
         CHECK (status IN ('ACTIVE', 'INACTIVE')),
     display_order     INT          NOT NULL DEFAULT 0,
@@ -1318,6 +1355,13 @@ CREATE TABLE reward_gift_items (
 );
 
 CREATE INDEX idx_reward_gift_items_org ON reward_gift_items(organization_id, status) WHERE deleted_at IS NULL;
+
+-- Một món quà ngoài chỉ được nhập MỘT lần cho mỗi tổ chức. Nhập trùng sẽ tạo hai thẻ
+-- giống hệt nhau trong cửa hàng với hai giá điểm khác nhau — nhân viên không có cách
+-- nào biết nên chọn cái nào.
+CREATE UNIQUE INDEX uq_reward_gift_items_external
+    ON reward_gift_items(organization_id, external_provider, external_sku)
+    WHERE deleted_at IS NULL AND external_provider IS NOT NULL;
 
 CREATE TABLE reward_redemptions (
     id                    UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -1330,8 +1374,12 @@ CREATE TABLE reward_redemptions (
     gift_image_snapshot   TEXT,
     quantity              INT          NOT NULL DEFAULT 1 CHECK (quantity > 0),
     points_spent          INT          NOT NULL CHECK (points_spent > 0),
+    -- FAILED khác REJECTED: REJECTED là người quản lý từ chối, FAILED là hệ thống ngoài
+    -- không xuất được quà. Gộp chung sẽ khiến nhân viên đọc lịch sử tưởng công ty từ
+    -- chối mình, và người vận hành mất luôn con số "bao nhiêu đơn hỏng vì nhà cung cấp".
     status                VARCHAR(20)  NOT NULL DEFAULT 'PENDING'
-        CHECK (status IN ('PENDING', 'APPROVED', 'REJECTED', 'DELIVERED', 'CANCELLED')),
+        CONSTRAINT reward_redemptions_status_check
+        CHECK (status IN ('PENDING', 'APPROVED', 'REJECTED', 'DELIVERED', 'CANCELLED', 'FAILED')),
     handled_by            UUID         REFERENCES users(id) ON DELETE SET NULL,
     handled_at            TIMESTAMPTZ,
     delivered_at          TIMESTAMPTZ,
@@ -1340,6 +1388,10 @@ CREATE TABLE reward_redemptions (
     refund_transaction_id UUID         REFERENCES reward_transactions(id) ON DELETE SET NULL,
     external_order_id     VARCHAR(255),
     fulfillment_payload   jsonb,
+    -- Vì sao đơn hỏng, hiện nguyên văn cho người xử lý. Điểm đã được hoàn tự động nhưng
+    -- người vận hành vẫn cần biết là do hết quà, sai cấu hình hay đứt mạng.
+    fulfillment_error     TEXT,
+    fulfilled_at          TIMESTAMPTZ,
     created_at            TIMESTAMPTZ  DEFAULT NOW(),
     updated_at            TIMESTAMPTZ  DEFAULT NOW(),
     deleted_at            TIMESTAMPTZ
@@ -1347,6 +1399,283 @@ CREATE TABLE reward_redemptions (
 
 CREATE INDEX idx_reward_redemptions_org_status ON reward_redemptions(organization_id, status, created_at DESC);
 CREATE INDEX idx_reward_redemptions_user ON reward_redemptions(user_id, created_at DESC);
+-- Truy vết đơn theo mã bên ngoài khi đối soát. Chỉ index dòng thật sự có đơn ngoài.
+CREATE INDEX idx_reward_redemptions_external
+    ON reward_redemptions(external_order_id)
+    WHERE external_order_id IS NOT NULL;
+
+
+-- ── Điểm danh hàng ngày ────────────────────────────
+-- Nhân viên tự bấm nhận điểm mỗi ngày. Quản trị viên cấu hình ở tab "Điểm danh"
+-- trong Quản lý thưởng điểm: bật/tắt, số điểm mỗi ngày, chu kỳ chuỗi và mốc thưởng.
+--
+-- QUAN HỆ VỚI SỔ CÁI: một chiều. Mỗi lần điểm danh ghi ĐÚNG MỘT bút toán EARN qua
+-- RewardWalletService.applyTransaction với source_type = 'CHECKIN' và khoá chống ghi
+-- trùng checkin:{userId}:{date}. Không bảng nào ở đây được sổ cái đọc ngược lại.
+
+-- Mỗi tổ chức tối đa MỘT cấu hình. Mặc định TẮT để không tổ chức nào bỗng dưng thấy
+-- nút lạ trên màn hình nhân viên, giống enable_reward và enable_cash_wallet.
+CREATE TABLE reward_checkin_configs (
+    id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    organization_id     UUID    NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+    enabled             BOOLEAN NOT NULL DEFAULT FALSE,
+
+    -- Điểm cơ bản nhận được mỗi lần điểm danh, chưa tính thưởng chuỗi.
+    points_per_day      INT     NOT NULL DEFAULT 10,
+
+    -- Chuỗi đếm 1..streak_cycle_days rồi quay về 1, nên các mốc thưởng lặp lại theo
+    -- chu kỳ. NULL = chuỗi đếm thẳng không giới hạn (mốc chỉ trúng đúng một lần).
+    streak_cycle_days   INT,
+
+    -- T7/CN không tính vào chuỗi: nghỉ cuối tuần KHÔNG làm đứt chuỗi, và cũng không
+    -- điểm danh được vào hai ngày đó. Đặt FALSE nếu tổ chức muốn điểm danh cả tuần.
+    skip_weekends       BOOLEAN NOT NULL DEFAULT TRUE,
+
+    -- [{"day":3,"points":20},{"day":7,"points":100}] — thưởng thêm khi chuỗi chạm
+    -- đúng ngày đó. Mảng rỗng = chỉ có điểm cơ bản.
+    streak_bonuses      JSONB   NOT NULL DEFAULT '[]',
+
+    created_at          TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at          TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    deleted_at          TIMESTAMPTZ,
+
+    CONSTRAINT ck_reward_checkin_configs_points CHECK (points_per_day > 0),
+    -- Chu kỳ 1 ngày là vô nghĩa (chuỗi luôn bằng 1, mốc nào cũng trúng mỗi ngày).
+    CONSTRAINT ck_reward_checkin_configs_cycle
+        CHECK (streak_cycle_days IS NULL OR (streak_cycle_days >= 2 AND streak_cycle_days <= 366))
+);
+
+CREATE UNIQUE INDEX uq_reward_checkin_configs_org
+    ON reward_checkin_configs(organization_id) WHERE deleted_at IS NULL;
+
+-- Nhật ký điểm danh. CHỈ GHI THÊM, giống reward_transactions: không updated_at, không
+-- deleted_at. Điểm danh nhầm thì ghi bút toán bù trừ ở sổ cái, không sửa hay xoá dòng
+-- đã ghi — nếu xoá thì chuỗi của những ngày sau đó tính lại ra kết quả khác với số
+-- điểm đã thực sự phát.
+--
+-- Các cột streak_*/points_* là ẢNH CHỤP tại thời điểm điểm danh, cố ý không suy lại
+-- lúc đọc: sếp đổi cấu hình hôm nay không được làm sai lịch sử điểm đã phát hôm qua.
+CREATE TABLE reward_checkins (
+    id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    organization_id     UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+    user_id             UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    checkin_date        DATE NOT NULL,
+
+    -- Tổng số ngày liên tiếp đã điểm danh, đếm thẳng không reset theo chu kỳ.
+    streak_length       INT  NOT NULL,
+    -- Vị trí trong chu kỳ (1..streak_cycle_days). Bằng streak_length khi không đặt chu kỳ.
+    streak_day          INT  NOT NULL,
+
+    base_points         INT  NOT NULL,
+    bonus_points        INT  NOT NULL DEFAULT 0,
+    total_points        INT  NOT NULL,
+
+    transaction_id      UUID REFERENCES reward_transactions(id) ON DELETE SET NULL,
+    created_at          TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+
+    CONSTRAINT ck_reward_checkins_points CHECK (total_points = base_points + bonus_points),
+    CONSTRAINT ck_reward_checkins_streak CHECK (streak_length >= 1 AND streak_day >= 1)
+);
+
+-- Lớp bảo vệ CUỐI chống điểm danh hai lần trong một ngày. Khoá chống ghi trùng ở sổ
+-- cái đã chặn phần lớn, nhưng ràng buộc này mới là thứ bảo đảm nhật ký không có hai
+-- dòng cùng ngày khi hai request chạy song song khít nhau.
+CREATE UNIQUE INDEX uq_reward_checkins_user_date
+    ON reward_checkins(organization_id, user_id, checkin_date);
+
+-- Truy vấn nóng nhất: lần điểm danh gần nhất của một người, để tính chuỗi.
+CREATE INDEX idx_reward_checkins_user_date
+    ON reward_checkins(user_id, checkin_date DESC);
+
+
+-- ====================================================
+-- VÍ TIỀN THẬT (Cash Wallet) — nạp qua SePay, quy đổi sang điểm thưởng
+--
+-- Mỗi người dùng có một ví tiền riêng (số dư VND). Nạp bằng chuyển khoản VietQR,
+-- SePay bắn webhook biến động số dư về, hệ thống đối chiếu nội dung chuyển khoản với
+-- mã đơn rồi ghi có. Người dùng tự bấm quy đổi sang điểm; điểm cộng vào ví điểm của
+-- chính họ. KHÔNG có rút tiền.
+--
+-- QUAN HỆ VỚI MODULE ĐIỂM THƯỞNG: chỉ một chiều, ví tiền -> ví điểm, và đi qua đúng
+-- những hook mà khối reward ở trên đã chừa sẵn (reward_transactions.external_system =
+-- 'CASH_WALLET', source_type = 'EXTERNAL', khoá ext:{system}:{ref}). Không bảng nào ở
+-- đây được reward_* đọc ngược lại.
+--
+-- BẤT BIẾN THỨ TỰ KHOÁ: luồng nào chạm cả hai ví thì LUÔN khoá ví TIỀN trước, ví ĐIỂM
+-- sau. Đảo thứ tự ở một luồng mới sẽ gây deadlock với luồng quy đổi.
+--
+-- Cấu hình cấp tổ chức (enable_cash_wallet, point_exchange_rate, hạn mức nạp, tài
+-- khoản SePay) nằm ở bảng organizations bên trên.
+-- ====================================================
+
+-- ── Ví tiền ────────────────────────────────────────
+-- Bản materialize để đọc nhanh. Sự thật nằm ở sổ cái cash_transactions; bất biến phải
+-- luôn đúng: balance = SUM(cash_transactions.amount)
+--                    = lifetime_topup - lifetime_converted
+--
+-- Tiền lưu bằng BIGINT ĐỒNG, không phải NUMERIC: VND không có đơn vị nhỏ hơn đồng nên
+-- số nguyên là biểu diễn chính xác tuyệt đối, không có sai số làm tròn và không cần
+-- chính sách rounding ở bất kỳ đâu.
+CREATE TABLE cash_wallets (
+    id                 UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    organization_id    UUID        NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+    user_id            UUID        NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    -- CÓ CHECK >= 0, khác hẳn reward_wallets. Ví điểm cho phép âm vì có đường thu hồi
+    -- thưởng sau khi người nhận đã tiêu; ví tiền không có đường nào tương tự, mọi lối
+    -- ra đều kiểm số dư trước khi ghi.
+    balance            BIGINT      NOT NULL DEFAULT 0 CHECK (balance >= 0),
+    lifetime_topup     BIGINT      NOT NULL DEFAULT 0,
+    lifetime_converted BIGINT      NOT NULL DEFAULT 0,
+    version            BIGINT      NOT NULL DEFAULT 0,
+    created_at         TIMESTAMPTZ DEFAULT NOW(),
+    updated_at         TIMESTAMPTZ DEFAULT NOW(),
+    deleted_at         TIMESTAMPTZ
+);
+
+CREATE UNIQUE INDEX uq_cash_wallets_org_user
+    ON cash_wallets(organization_id, user_id) WHERE deleted_at IS NULL;
+CREATE INDEX idx_cash_wallets_org ON cash_wallets(organization_id);
+
+
+-- ── Sổ cái tiền: CHỈ GHI THÊM ──────────────────────
+-- Theo đúng tiền lệ reward_transactions / cycle_unit_eval_events: không updated_at,
+-- không deleted_at, không bao giờ sửa dòng đã ghi.
+--
+-- KHÔNG có type 'REFUND' và KHÔNG có cột reversal_of_transaction_id, dù
+-- reward_transactions có cả hai. Ở đây không tồn tại luồng nào ghi vào chúng: không
+-- rút tiền, không huỷ nạp, không đảo bút toán. Cột và giá trị enum không ai tạo được
+-- chỉ gây hiểu nhầm khi đọc — thêm sau bằng một migration mới thì rẻ, còn mang theo
+-- thứ chết ngay từ đầu thì không ai dám dọn.
+--
+-- ADJUST chỉ do một đường sinh ra: người có WALLET:RECONCILE ghi có tay cho một giao
+-- dịch SePay không quy được về đơn nào (xem SepayReconcileService).
+CREATE TABLE cash_transactions (
+    id                          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    wallet_id                   UUID   NOT NULL REFERENCES cash_wallets(id) ON DELETE CASCADE,
+    organization_id             UUID   NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+    user_id                     UUID   NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    amount                      BIGINT NOT NULL CHECK (amount <> 0),
+    type                        VARCHAR(20) NOT NULL
+        CHECK (type IN ('TOPUP', 'CONVERT', 'ADJUST')),
+    source_type                 VARCHAR(20) NOT NULL
+        CHECK (source_type IN ('SEPAY', 'CONVERSION', 'MANUAL', 'SYSTEM')),
+    -- Id bản ghi nghiệp vụ sinh ra bút toán: topup_orders.id hoặc
+    -- sepay_webhook_events.id (khi ghi có tay từ một event).
+    source_ref_id               UUID,
+    -- Chống ghi trùng khi retry / bấm hai lần. Suy ra HOÀN TOÀN từ (loại nghiệp vụ,
+    -- id bản ghi) — không chứa timestamp hay số ngẫu nhiên sinh phía server.
+    -- Bảng đăng ký khoá đầy đủ ở CashWalletService.
+    idempotency_key             VARCHAR(120) NOT NULL,
+    balance_after               BIGINT NOT NULL,
+    -- Chỉ có ở bút toán CONVERT: số điểm đã phát và tỉ giá tại thời điểm đó.
+    points_granted              INT,
+    rate_snapshot               BIGINT,
+    note                        TEXT,
+    actor_user_id               UUID   REFERENCES users(id) ON DELETE SET NULL,
+    created_at                  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE UNIQUE INDEX uq_cash_transactions_idem
+    ON cash_transactions(idempotency_key);
+CREATE INDEX idx_cash_transactions_wallet
+    ON cash_transactions(wallet_id, created_at DESC);
+CREATE INDEX idx_cash_transactions_org_user
+    ON cash_transactions(organization_id, user_id, created_at DESC);
+CREATE INDEX idx_cash_transactions_source
+    ON cash_transactions(source_type, source_ref_id);
+
+
+-- ── Đơn nạp tiền ───────────────────────────────────
+-- amount là số tiền ĐỀ NGHỊ, paid_amount là số tiền THỰC NHẬN. Hai cột tách nhau vì
+-- chính sách là luôn ghi có đúng số tiền thực về, kể cả khi lệch: ví là số dư 1:1 chứ
+-- không phải món hàng giá cố định, và giữ tiền người dùng lại trong hàng đợi đối soát
+-- chỉ vì lệch vài nghìn phí ngân hàng là sai.
+--
+-- CỐ Ý KHÔNG có cột sepay_event_id: ghép cặp đã có ở chiều ngược
+-- (sepay_webhook_events.matched_order_id), và cột xuôi sẽ tạo khoá ngoại vòng giữa hai
+-- bảng. Tệ hơn, một đơn có thể bị nhiều event trỏ vào (một cái ghi có, một cái báo
+-- tiền về lần hai) nên cột đơn trị sẽ nói dối.
+CREATE TABLE topup_orders (
+    id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    organization_id     UUID        NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+    user_id             UUID        NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    code                VARCHAR(32) NOT NULL,
+    amount              BIGINT      NOT NULL CHECK (amount > 0),
+    paid_amount         BIGINT,
+    status              VARCHAR(20) NOT NULL DEFAULT 'PENDING'
+        CHECK (status IN ('PENDING', 'PAID', 'EXPIRED', 'CANCELLED')),
+    qr_url              TEXT,
+    bank_code           VARCHAR(20),
+    bank_account_number VARCHAR(50),
+    expires_at          TIMESTAMPTZ NOT NULL,
+    paid_at             TIMESTAMPTZ,
+    cash_transaction_id UUID        REFERENCES cash_transactions(id) ON DELETE SET NULL,
+    note                TEXT,
+    created_at          TIMESTAMPTZ DEFAULT NOW(),
+    updated_at          TIMESTAMPTZ DEFAULT NOW(),
+    deleted_at          TIMESTAMPTZ
+);
+
+-- UNIQUE TOÀN CỤC, không scope theo tổ chức: webhook chỉ thấy nội dung chuyển khoản,
+-- không biết org nào, nên mã phải tự nó định danh được đơn.
+CREATE UNIQUE INDEX uq_topup_orders_code ON topup_orders(code);
+CREATE INDEX idx_topup_orders_user
+    ON topup_orders(organization_id, user_id, created_at DESC);
+CREATE INDEX idx_topup_orders_expiring
+    ON topup_orders(expires_at) WHERE status = 'PENDING';
+
+
+-- ── Sự kiện webhook SePay ──────────────────────────
+-- Lưu RAW mọi callback, kể cả cái không khớp đơn nào — mất webhook là mất tiền người
+-- dùng, và raw_payload là thứ duy nhất cứu được.
+--
+-- Bảng này KHÔNG phải append-only thuần như cash_transactions, nói rõ ra để không ai
+-- tưởng nhầm. Ba nhóm cột, mỗi nhóm ghi đúng MỘT lần:
+--   1. raw_payload và mọi cột trích từ nó  -> ghi lúc nhận, bất biến tuyệt đối
+--   2. status / matched_order_id / amount_mismatch / error_message
+--                                          -> ghi lúc xử lý tự động
+--   3. resolution_*                        -> ghi khi có người xử lý tay
+CREATE TABLE sepay_webhook_events (
+    id                        UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    -- Id giao dịch phía SePay. Unique để một lần gửi lại không ghi có hai lần.
+    sepay_id                  BIGINT      NOT NULL,
+    gateway                   VARCHAR(100),
+    transaction_date          TIMESTAMPTZ,
+    account_number            VARCHAR(50),
+    sub_account               VARCHAR(50),
+    code                      VARCHAR(64),
+    content                   TEXT,
+    transfer_type             VARCHAR(10),
+    transfer_amount           BIGINT,
+    accumulated               BIGINT,
+    reference_code            VARCHAR(255),
+    raw_payload               jsonb       NOT NULL,
+
+    status                    VARCHAR(20) NOT NULL
+        CHECK (status IN ('MATCHED', 'UNMATCHED', 'DUPLICATE', 'IGNORED')),
+    matched_order_id          UUID        REFERENCES topup_orders(id) ON DELETE SET NULL,
+    -- Tiền về lệch so với số đề nghị. Vẫn ghi có đủ, nhưng cần người xác nhận.
+    amount_mismatch           BOOLEAN     NOT NULL DEFAULT FALSE,
+    error_message             TEXT,
+
+    resolved_at               TIMESTAMPTZ,
+    resolved_by               UUID        REFERENCES users(id) ON DELETE SET NULL,
+    resolution_note           TEXT,
+    resolution_transaction_id UUID        REFERENCES cash_transactions(id) ON DELETE SET NULL,
+
+    received_at               TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE UNIQUE INDEX uq_sepay_webhook_events_sepay_id
+    ON sepay_webhook_events(sepay_id);
+-- Chính là HÀNG ĐỢI ĐỐI SOÁT, index thẳng vào truy vấn đó. Không có nhóm cột
+-- resolution_* thì mọi dòng UNMATCHED sẽ nằm lại vĩnh viễn kể cả sau khi tiền đã được
+-- ghi có bằng tay, và endpoint đối soát không bao giờ trả về sạch.
+CREATE INDEX idx_sepay_events_queue
+    ON sepay_webhook_events(received_at DESC)
+    WHERE resolved_at IS NULL AND (status = 'UNMATCHED' OR amount_mismatch);
+CREATE INDEX idx_sepay_events_order
+    ON sepay_webhook_events(matched_order_id);
 
 
 -- ====================================================
@@ -1386,6 +1715,30 @@ CREATE TABLE ai_token_quotas (
 
 CREATE INDEX idx_ai_quota_allocated_by ON ai_token_quotas (allocated_by)
     WHERE allocated_by IS NOT NULL;
+
+
+-- ====================================================
+-- Bố cục trang chủ do từng người dùng tự sắp xếp
+-- ====================================================
+-- Kéo-thả/ẩn-hiện widget. Mỗi vai trò (scope) có một bố cục riêng vì danh mục widget
+-- khác nhau hoàn toàn. Không có deleted_at: đây là preference cá nhân, "Đặt lại" = xoá
+-- hàng và rơi về preset mặc định.
+--
+-- DEPUTY tách khỏi HEAD: phó đơn vị có bộ widget riêng (phạm vi hẹp theo mảng phụ trách,
+-- phần lớn là theo dõi thay vì hành động). Dùng chung scope HEAD thì hai người đổi bố cục
+-- của nhau.
+CREATE TABLE user_dashboard_layouts (
+    id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id    UUID        NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    scope      VARCHAR(20) NOT NULL CHECK (scope IN ('DIRECTOR', 'HEAD', 'DEPUTY', 'STAFF')),
+    -- Mảng [{i, x, y, w, h, visible}] — server lưu nguyên văn, frontend tự lọc id lạ khi hydrate
+    layout     JSONB       NOT NULL DEFAULT '[]',
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW(),
+    CONSTRAINT uq_user_dashboard_layout UNIQUE (user_id, scope)
+);
+
+CREATE INDEX idx_user_dashboard_layouts_user ON user_dashboard_layouts (user_id);
 
 
 -- ====================================================

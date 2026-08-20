@@ -3,6 +3,8 @@ package com.kpitracking.controller;
 import com.kpitracking.dto.response.ApiResponse;
 import com.kpitracking.dto.response.PageResponse;
 import com.kpitracking.dto.response.reward.RewardActivityResponse;
+import com.kpitracking.dto.response.reward.RewardLeaderboardEntryResponse;
+import com.kpitracking.dto.response.reward.RewardMonthlySummaryResponse;
 import com.kpitracking.dto.response.reward.RewardTransactionResponse;
 import com.kpitracking.dto.response.reward.RewardWalletResponse;
 import com.kpitracking.service.RewardWalletService;
@@ -24,6 +26,7 @@ public class RewardWalletController {
     private final RewardQueryService queryService;
     private final RewardWalletService walletService;
     private final RewardActivityService activityService;
+    private final com.kpitracking.service.reward.RewardStatsService statsService;
 
     @GetMapping("/me")
     @PreAuthorize("hasAuthority('REWARD:VIEW_MY')")
@@ -50,6 +53,29 @@ public class RewardWalletController {
     public ResponseEntity<ApiResponse<List<RewardActivityResponse>>> getActivityFeed(
             @RequestParam(required = false) Integer limit) {
         return ResponseEntity.ok(ApiResponse.success(activityService.getRecentActivity(limit)));
+    }
+
+    /**
+     * Nhận thưởng nhiều điểm nhất trong khoảng thời gian.
+     *
+     * <p>Khác {@code /activity}: bảng tin chỉ trả vài chục việc gần nhất nên không cộng
+     * dồn được; ở đây tổng hợp ngay tại DB trên toàn bộ giao dịch trong khoảng.
+     */
+    @GetMapping("/leaderboard")
+    @PreAuthorize("hasAuthority('REWARD:VIEW')")
+    public ResponseEntity<ApiResponse<List<RewardLeaderboardEntryResponse>>> leaderboard(
+            @RequestParam(required = false) java.time.Instant from,
+            @RequestParam(required = false) java.time.Instant to,
+            @RequestParam(required = false) Integer limit) {
+        return ResponseEntity.ok(ApiResponse.success(statsService.leaderboard(from, to, limit)));
+    }
+
+    /** Điểm phát ra / tiêu đi theo từng tháng, gồm cả tháng không có giao dịch. */
+    @GetMapping("/monthly-summary")
+    @PreAuthorize("hasAuthority('REWARD:VIEW')")
+    public ResponseEntity<ApiResponse<List<RewardMonthlySummaryResponse>>> monthlySummary(
+            @RequestParam(required = false) Integer months) {
+        return ResponseEntity.ok(ApiResponse.success(statsService.monthlySummary(months)));
     }
 
     @GetMapping("/wallets")

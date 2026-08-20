@@ -38,6 +38,21 @@ export const rewardApi = {
       .then((r) => r.data.data),
 
   /** Bảng tin cả tổ chức: ai được thưởng, ai được cấp hạn mức, ai đổi quà. */
+  /**
+   * Nhận thưởng nhiều nhất trong khoảng. Khác `getActivityFeed` — bảng tin bị chặn ở 50
+   * bản ghi gần nhất nên không cộng dồn được; endpoint này tổng hợp ngay tại DB.
+   */
+  getLeaderboard: (params: { from?: string; to?: string; limit?: number } = {}) =>
+    axiosInstance
+      .get<ApiResponse<RewardLeaderboardEntry[]>>('/rewards/leaderboard', { params })
+      .then((r) => r.data.data),
+
+  /** Điểm phát ra / tiêu đi theo từng tháng, gồm cả tháng không có giao dịch. */
+  getMonthlySummary: (months = 6) =>
+    axiosInstance
+      .get<ApiResponse<RewardMonthlySummary[]>>('/rewards/monthly-summary', { params: { months } })
+      .then((r) => r.data.data),
+
   getActivityFeed: (limit = 30) =>
     axiosInstance
       .get<ApiResponse<RewardActivity[]>>('/rewards/activity', { params: { limit } })
@@ -106,4 +121,19 @@ export const rewardApi = {
 
   deleteBudget: (id: string) =>
     axiosInstance.delete<ApiResponse<void>>(`/reward-budgets/${id}`).then((r) => r.data),
+}
+
+/** Khớp BE: RewardLeaderboardEntryResponse. */
+export interface RewardLeaderboardEntry {
+  userId: string
+  userName: string
+  userAvatarUrl: string | null
+  totalPoints: number
+}
+
+/** Khớp BE: RewardMonthlySummaryResponse. Tháng dạng `yyyy-MM`. */
+export interface RewardMonthlySummary {
+  month: string
+  earned: number
+  spent: number
 }

@@ -111,7 +111,7 @@ export function CriticalAlertsSection({ alerts, periodName, daysRemaining, onSel
   return (
     <div
       id="tour-dashboard-alerts"
-      className="bg-white dark:bg-slate-900 rounded-[40px] border border-slate-200/60 dark:border-slate-800 shadow-[0_8px_30px_rgb(0,0,0,0.03)] overflow-hidden"
+      className="bg-white dark:bg-slate-900 rounded-[28px] border border-slate-200/60 dark:border-slate-800 shadow-[0_8px_30px_rgb(0,0,0,0.03)] overflow-hidden"
     >
       {/* Header */}
       <div className="p-6 md:p-8 border-b border-slate-100 dark:border-slate-800 bg-slate-50/40 dark:bg-slate-800/30 flex flex-col lg:flex-row lg:items-center justify-between gap-5">

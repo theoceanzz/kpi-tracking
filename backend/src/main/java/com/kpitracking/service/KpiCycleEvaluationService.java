@@ -3,7 +3,9 @@ package com.kpitracking.service;
 import com.kpitracking.dto.response.kpi.CycleApprovalStepResponse;
 import com.kpitracking.dto.response.kpi.CycleUnitEvalEventResponse;
 import com.kpitracking.dto.response.kpi.CycleUnitEvaluationResponse;
+import com.kpitracking.dto.response.kpi.CycleUnitStatusResponse;
 import com.kpitracking.dto.response.kpi.CycleUserEvaluationResponse;
+import com.kpitracking.dto.response.kpi.CycleUserRankResponse;
 import com.kpitracking.entity.*;
 import com.kpitracking.enums.CycleEvaluationMode;
 import com.kpitracking.enums.CycleUnitEvalAction;
@@ -752,6 +754,120 @@ public class KpiCycleEvaluationService {
     private double maxScore(KpiCycle cycle) {
         Double max = cycle.getOrganization() != null ? cycle.getOrganization().getEvaluationMaxScore() : null;
         return max != null ? max : 100.0;
+    }
+
+
+    // ============================================================
+    // DANH SÁCH TOÀN PHẠM VI (cho bảng theo dõi chốt kỳ & xếp hạng)
+    // ============================================================
+
+    /**
+     * Trạng thái chốt kỳ của MỌI đơn vị trong phạm vi người gọi.
+     *
+     * <p>Trước đây chỉ có bản tra từng đơn vị một, nên muốn biết "còn phòng nào chưa chốt"
+     * thì giao diện phải gọi N request. Ở đây trả một lần, đã giới hạn theo cây đơn vị mà
+     * người gọi phụ trách để không lộ đơn vị ngoài phạm vi.
+     */
+    @Transactional(readOnly = true)
+    public List<CycleUnitStatusResponse> listUnitStatuses(UUID cycleId) {
+        KpiCycle cycle = kpiCycleRepository.findById(cycleId)
+                .orElseThrow(() -> new ResourceNotFoundException("Kỳ đánh giá", "id", cycleId));
+
+        List<OrgUnit> scope = unitsInScope(cycle);
+        if (scope.isEmpty()) return List.of();
+
+        Map<UUID, CycleUnitEvaluation> saved = new HashMap<>();
+        cycleUnitEvaluationRepository.findByKpiCycleId(cycleId)
+                .forEach(e -> saved.put(e.getOrgUnit().getId(), e));
+
+        return scope.stream()
+                .map(unit -> {
+                    CycleUnitEvaluation e = saved.get(unit.getId());
+                    return CycleUnitStatusResponse.builder()
+                            .orgUnitId(unit.getId())
+                            .orgUnitName(unit.getName())
+                            .levelOrder(unit.getOrgHierarchyLevel() != null
+                                    ? unit.getOrgHierarchyLevel().getLevelOrder() : null)
+                            // Chưa có bản ghi nghĩa là chưa ai đụng tới, không phải lỗi dữ liệu
+                            .status(e != null ? e.getStatus() : CycleUnitEvalStatus.DRAFT)
+                            .memberCount(e != null && e.getMemberCount() != null ? e.getMemberCount() : 0)
+                            .managerScore(e != null ? e.getManagerScore() : null)
+                            .qualScore(e != null ? e.getQualScore() : null)
+                            .matrixRating(e != null ? e.getMatrixRating() : null)
+                            .finalizedByName(e != null && e.getFinalizedBy() != null
+                                    ? e.getFinalizedBy().getFullName() : null)
+                            .finalizedAt(e != null ? e.getFinalizedAt() : null)
+                            .build();
+                })
+                .sorted(Comparator
+                        .comparing(CycleUnitStatusResponse::getLevelOrder, Comparator.nullsLast(Comparator.naturalOrder()))
+                        .thenComparing(CycleUnitStatusResponse::getOrgUnitName, Comparator.nullsLast(Comparator.naturalOrder())))
+                .toList();
+    }
+
+    /**
+     * Bảng xếp hạng chốt kỳ trong phạm vi người gọi.
+     *
+     * <p>Người chưa có điểm vẫn được trả về (rank = null) chứ không bị lọc bỏ: quản lý cần
+     * thấy ai còn thiếu điểm, đó mới là việc phải xử lý.
+     */
+    @Transactional(readOnly = true)
+    public List<CycleUserRankResponse> listUserRankings(UUID cycleId) {
+        KpiCycle cycle = kpiCycleRepository.findById(cycleId)
+                .orElseThrow(() -> new ResourceNotFoundException("Kỳ đánh giá", "id", cycleId));
+
+        Set<UUID> scopeUnitIds = new HashSet<>(unitsInScope(cycle).stream().map(OrgUnit::getId).toList());
+        if (scopeUnitIds.isEmpty()) return List.of();
+
+        List<CycleUserRankResponse> rows = cycleUserEvaluationRepository.findAllForCycle(cycleId).stream()
+                .map(e -> {
+                    User u = e.getUser();
+                    OrgUnit unit = primaryUnitOf(u.getId());
+                    if (unit == null || !scopeUnitIds.contains(unit.getId())) return null;
+                    return CycleUserRankResponse.builder()
+                            .userId(u.getId())
+                            .userName(u.getFullName())
+                            .userAvatarUrl(u.getAvatarUrl())
+                            .orgUnitName(unit.getName())
+                            .finalScore(e.getFinalScore())
+                            .qualScore(e.getQualScore())
+                            .matrixRating(e.getMatrixRating())
+                            .build();
+                })
+                .filter(Objects::nonNull)
+                .sorted(Comparator.comparing(CycleUserRankResponse::getFinalScore,
+                        Comparator.nullsLast(Comparator.reverseOrder())))
+                .collect(java.util.stream.Collectors.toList());
+
+        int rank = 0;
+        for (CycleUserRankResponse row : rows) {
+            if (row.getFinalScore() != null) row.setRank(++rank);
+        }
+        return rows;
+    }
+
+    /** Cây đơn vị mà người gọi được xem trong kỳ này. */
+    private List<OrgUnit> unitsInScope(KpiCycle cycle) {
+        User current = getCurrentUser();
+        UUID orgId = cycle.getOrganization() != null ? cycle.getOrganization().getId() : null;
+        if (orgId == null) return List.of();
+
+        List<UUID> myUnitIds = userRoleOrgUnitRepository.findByUserId(current.getId()).stream()
+                .map(a -> a.getOrgUnit() != null ? a.getOrgUnit().getId() : null)
+                .filter(Objects::nonNull)
+                .distinct()
+                .toList();
+        if (myUnitIds.isEmpty()) return List.of();
+
+        return orgUnitRepository.findAllInSubtrees(myUnitIds, orgId);
+    }
+
+    private OrgUnit primaryUnitOf(UUID userId) {
+        return userRoleOrgUnitRepository.findByUserId(userId).stream()
+                .map(UserRoleOrgUnit::getOrgUnit)
+                .filter(Objects::nonNull)
+                .findFirst()
+                .orElse(null);
     }
 
     private Double round(Double v) {
