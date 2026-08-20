@@ -6,10 +6,9 @@ const axiosInstance = axios.create({
   baseURL: ENV.API_BASE_URL,
   timeout: 100000,
   headers: { 'Content-Type': 'application/json' },
-  // Access token và refresh token nằm trong cookie HttpOnly do backend cấp: JavaScript không
-  // đọc được chúng, trình duyệt tự đính kèm. Cũng nhờ đó axios tự gửi header X-XSRF-TOKEN
-  // lấy từ cookie XSRF-TOKEN mà Spring Security phát ra.
   withCredentials: true,
+  withXSRFToken: true,
+  xsrfCookieName: 'kg_csrf',
 })
 
 let isRefreshing = false

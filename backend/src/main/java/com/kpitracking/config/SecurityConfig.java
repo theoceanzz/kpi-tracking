@@ -24,6 +24,7 @@ import org.springframework.security.web.csrf.CsrfFilter;
 import org.springframework.security.web.csrf.CsrfTokenRequestAttributeHandler;
 import org.springframework.security.web.util.matcher.AndRequestMatcher;
 import org.springframework.security.web.util.matcher.RequestMatcher;
+import org.springframework.util.StringUtils;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
@@ -40,6 +41,8 @@ public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
     private final UserDetailsService userDetailsService;
+    private final CookieProperties cookieProperties;
+    private static final String CSRF_COOKIE = "kg_csrf";
 
     /**
      * Các endpoint không cần xác thực — dùng chung cho cả authorizeHttpRequests và danh sách
@@ -73,9 +76,23 @@ public class SecurityConfig {
         // của Spring Security 6 khiến cookie không bao giờ được phát cho SPA).
         csrfHandler.setCsrfRequestAttributeName(null);
 
+        // Cookie CSRF phải đọc được bằng JS từ chính origin của SPA. Prod chạy SPA ở keygo.vn còn
+        // API ở api.keygo.vn: mặc định Spring ghi cookie host-only cho api.keygo.vn, document.cookie
+        // bên keygo.vn không thấy nó nên axios không bao giờ gắn được header X-XSRF-TOKEN.
+        // Dùng chung Domain/Secure/SameSite với cookie phiên để hai bên luôn nhất quán.
+        CookieCsrfTokenRepository csrfTokenRepository = CookieCsrfTokenRepository.withHttpOnlyFalse();
+        csrfTokenRepository.setCookieName(CSRF_COOKIE);
+        csrfTokenRepository.setCookieCustomizer(cookie -> {
+            cookie.secure(cookieProperties.isSecure());
+            cookie.sameSite(cookieProperties.getSameSite());
+            if (StringUtils.hasText(cookieProperties.getDomain())) {
+                cookie.domain(cookieProperties.getDomain());
+            }
+        });
+
         http
             .csrf(csrf -> csrf
-                .csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
+                .csrfTokenRepository(csrfTokenRepository)
                 .csrfTokenRequestHandler(csrfHandler)
                 .requireCsrfProtectionMatcher(csrfProtectionMatcher())
                 .ignoringRequestMatchers(PUBLIC_ENDPOINTS))
