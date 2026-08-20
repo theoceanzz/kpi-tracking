@@ -6,6 +6,9 @@ import com.kpitracking.service.ai.AiStageChain;
 import com.kpitracking.service.ai.AiTurn;
 import com.kpitracking.service.ai.ChatMemoryCleaner;
 import com.kpitracking.service.ai.PlanStep;
+import com.kpitracking.service.ai.form.FormRegistry;
+import com.kpitracking.service.ai.form.FormSpec.Descriptor;
+import com.kpitracking.service.ai.form.FormSpec.Field;
 import com.kpitracking.tool.ToolRegistry;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
@@ -18,7 +21,9 @@ import org.springframework.stereotype.Component;
 import java.lang.reflect.Method;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 /**
  * Điểm CUỐI của chuỗi: gọi model với đúng bộ công cụ đã chọn.
@@ -33,6 +38,7 @@ public class ModelCallStage implements AiStage {
     private final ChatClient chatClient;
     private final ChatClient chatClientWithMemory;
     private final ChatMemoryCleaner chatMemoryCleaner;
+    private final FormRegistry formRegistry;
 
     @Value("classpath:/promptTemplates/orgUnitToolSystemPromptTemplate.st")
     Resource orgUnitSystemPrompt;
@@ -58,10 +64,12 @@ public class ModelCallStage implements AiStage {
 
     public ModelCallStage(@Qualifier("openAiChatClient") ChatClient chatClient,
                           @Qualifier("chatClientWithMemory") ChatClient chatClientWithMemory,
-                          ChatMemoryCleaner chatMemoryCleaner) {
+                          ChatMemoryCleaner chatMemoryCleaner,
+                          FormRegistry formRegistry) {
         this.chatClient = chatClient;
         this.chatClientWithMemory = chatClientWithMemory;
         this.chatMemoryCleaner = chatMemoryCleaner;
+        this.formRegistry = formRegistry;
     }
 
     @Override
@@ -72,7 +80,8 @@ public class ModelCallStage implements AiStage {
                     .user(turn.getQuestion())
                     .system(s -> s.text(orgUnitSystemPrompt)
                             .param("currentDateTime", turn.getCurrentDateTime())
-                            .param("plan", planBlock(turn)))
+                            .param("plan", planBlock(turn))
+                            .param("form", formBlock(turn)))
                     .tools(tools)
                     .toolContext(turn.getToolCtx())
                     .advisors(spec -> spec.param("chat_memory_conversation_id", turn.getConversationId()))
@@ -83,7 +92,8 @@ public class ModelCallStage implements AiStage {
                     .user(turn.getQuestion())
                     .system(s -> s.text(orgUnitSystemPrompt)
                             .param("currentDateTime", turn.getCurrentDateTime())
-                            .param("plan", planBlock(turn)))
+                            .param("plan", planBlock(turn))
+                            .param("form", formBlock(turn)))
                     .tools(tools)
                     .toolContext(turn.getToolCtx())
                     .advisors(new ResponseSanitizingAdvisor(TOOL_NAMES))
@@ -106,6 +116,46 @@ public class ModelCallStage implements AiStage {
      * Khối kế hoạch chèn vào cuối prompt hệ thống. Rỗng khi không có kế hoạch — tức là khi tắt
      * {@code PlanningStage} thì prompt giữ nguyên đúng như trước, không thêm một ký tự nào.
      */
+    /**
+     * Khối mô tả form đang mở. Rỗng khi người dùng không mở form nào — lượt chat bình thường giữ
+     * nguyên prompt đúng như trước, không thêm một ký tự nào.
+     */
+    private String formBlock(AiTurn turn) {
+        String formId = turn.getOpenFormId();
+        if (formId == null || formId.isBlank()) return "";
+        Descriptor form = formRegistry.find(formId);
+        if (form == null) return "";
+
+        StringBuilder sb = new StringBuilder("\n## FORM ĐANG MỞ TRÊN MÀN HÌNH\n")
+                .append("Người dùng đang mở form **").append(form.label()).append("**.\n")
+                .append("Các ô điền được: ")
+                .append(form.fields().stream().map(Field::label).collect(Collectors.joining(", ")))
+                .append(".\n")
+                // Đo được: với câu "Đặt kỳ là Tháng 6/2026", model trả lời "tôi không có công cụ
+                // để tạo hoặc thiết lập kỳ KPI mới" — nó hiểu ĐẶT là tạo thực thể mới trong hệ
+                // thống chứ không phải điền vào ô. Nói thẳng vào đúng chỗ nhầm đó.
+                .append("Người dùng bảo ĐẶT / SỬA / CHỌN / ĐIỀN bất kỳ ô nào ở trên → gọi `")
+                .append(form.toolName()).append("`. Đó là điền vào form đang mở, ")
+                .append("KHÔNG phải tạo dữ liệu mới trong hệ thống.\n")
+                .append("Chỉ điền ô họ thực sự nêu; ô không chắc thì BỎ QUA.\n");
+
+        Map<String, Object> values = turn.getOpenFormValues();
+        if (values != null && !values.isEmpty()) {
+            List<String> filled = values.entrySet().stream()
+                    .filter(e -> e.getValue() != null && !String.valueOf(e.getValue()).isBlank())
+                    .map(e -> {
+                        Field f = form.field(e.getKey());
+                        return (f != null ? f.label() : e.getKey()) + "=" + e.getValue();
+                    })
+                    .toList();
+            if (!filled.isEmpty()) {
+                sb.append("Các ô đã có sẵn giá trị: ").append(String.join("; ", filled))
+                        .append(". Đừng đề xuất lại đúng những giá trị này.\n");
+            }
+        }
+        return sb.toString();
+    }
+
     private String planBlock(AiTurn turn) {
         List<PlanStep> steps = turn.getPlan();
         if (steps == null || steps.isEmpty()) return "";

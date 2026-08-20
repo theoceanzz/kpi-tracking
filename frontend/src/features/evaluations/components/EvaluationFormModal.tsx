@@ -6,6 +6,7 @@ import { useCreateEvaluation } from '../hooks/useCreateEvaluation'
 import { useKpiPeriods } from '@/features/kpi/hooks/useKpiPeriods'
 import { useMyKpi } from '@/features/kpi/hooks/useMyKpi'
 import { useAuthStore } from '@/store/authStore'
+import { useFormAssistStore } from '@/store/formAssistStore'
 import { useOrganization } from '@/features/orgunits/hooks/useOrganization'
 import { getScoringFunctions } from '@/lib/scoring'
 import { X, Loader2, Star, Target, Zap, Trophy, CheckCircle2, MessageSquare, Sparkles, Lock, Layers, AlertTriangle } from 'lucide-react'
@@ -42,7 +43,7 @@ export default function EvaluationFormModal({ open, onClose, readOnly = false, i
     return periodsData.content.filter(p => assignedPeriodIds.has(p.id))
   }, [periodsData, assignedPeriodIds])
 
-  const { register, handleSubmit, reset, watch, setValue } = useForm<EvaluationFormData>({
+  const { register, handleSubmit, reset, watch, setValue, getValues } = useForm<EvaluationFormData>({
     resolver: zodResolver(evaluationSchema),
     defaultValues: { 
       score: 0,
@@ -50,6 +51,21 @@ export default function EvaluationFormModal({ open, onClose, readOnly = false, i
       kpiPeriodId: initialPeriodId || '',
     },
   })
+
+  // Giới thiệu form này với trợ lý AI trong lúc nó đang mở. Truyền HÀM đọc/ghi chứ không truyền
+  // dữ liệu: giá trị chỉ cần đúng tại thời điểm gửi câu hỏi.
+  useEffect(() => {
+    if (!open) return
+    const { register: registerForm, unregister } = useFormAssistStore.getState()
+    registerForm({
+      formId: 'evaluation_form',
+      getValues: () => getValues() as unknown as Record<string, unknown>,
+      setValue: (field, value) =>
+        setValue(field as keyof EvaluationFormData, value as never,
+          { shouldValidate: true, shouldDirty: true }),
+    })
+    return () => unregister('evaluation_form')
+  }, [open, getValues, setValue])
 
   const hasManuallyEditedScore = useRef(false)
 

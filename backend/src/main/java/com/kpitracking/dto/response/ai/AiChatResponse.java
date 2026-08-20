@@ -1,6 +1,7 @@
 package com.kpitracking.dto.response.ai;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
+import com.kpitracking.service.ai.form.FormPatch;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -22,6 +23,15 @@ public class AiChatResponse {
      * gõ lại tên. Rỗng ở các lượt trả lời bình thường.
      */
     private List<ClarificationOption> options;
+
+    /**
+     * Đề xuất điền vào form đang mở, khi người dùng nhờ trợ lý điền hộ. {@code null} ở mọi lượt
+     * bình thường.
+     *
+     * <p>Là ĐỀ XUẤT chứ không phải lệnh: client hiện xem trước từng ô và người dùng tự chọn ô nào
+     * muốn nhận. Không có gì được ghi xuống cơ sở dữ liệu ở bước này.
+     */
+    private FormPatch formPatch;
 
     @Data
     @Builder

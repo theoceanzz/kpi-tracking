@@ -2,6 +2,7 @@ package com.kpitracking.service.ai;
 
 import com.kpitracking.entity.Organization;
 import com.kpitracking.service.ManagerContextResolver.ManagerContext;
+import com.kpitracking.service.ai.form.FormPatch;
 import com.kpitracking.tool.ToolRegistry;
 import lombok.Getter;
 import lombok.Setter;
@@ -31,6 +32,10 @@ public class AiTurn {
     private final String question;
     private final String conversationId;
     private final String focusUnitId;
+    /** Form đang mở trên màn hình người dùng, nếu có. Quyết định trợ lý có được đề xuất điền không. */
+    private String openFormId;
+    /** Giá trị các ô đang có trong form đó — để không đề xuất lại thứ người dùng đã điền. */
+    private Map<String, Object> openFormValues;
 
     // ── dựng dần qua từng stage ──────────────────────────────────────────────
     private ManagerContext manager;
@@ -48,6 +53,13 @@ public class AiTurn {
     // ── chỗ dành sẵn cho các công đoạn sắp thêm ──────────────────────────────
     /** Kế hoạch nhiều bước, khi có PlanningStage. Rỗng/null = lượt này không dùng kế hoạch. */
     private List<PlanStep> plan;
+    /**
+     * Đề xuất điền form mà tool sinh ra trong lượt này.
+     *
+     * <p>Pipeline chuyển nó từ ThreadLocal sang đây TRƯỚC khi dọn, vì khối {@code finally} chạy
+     * xong rồi {@code run()} mới trả về — tầng gọi đọc ThreadLocal thì luôn nhận null.
+     */
+    private FormPatch formPatch;
     /**
      * Các tool đã lên kế hoạch nhưng lượt đầu không gọi — do {@code PlanCompletionStage} đặt trước
      * khi hỏi lại, để khối kế hoạch lần hai chỉ nêu đúng phần còn thiếu thay vì nhắc lại cả kế hoạch.

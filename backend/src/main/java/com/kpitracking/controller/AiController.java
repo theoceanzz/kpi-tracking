@@ -12,6 +12,8 @@ import com.kpitracking.service.AiRateLimiter;
 import com.kpitracking.service.AiTokenUsageRecorder;
 import com.kpitracking.service.FollowupService;
 import com.kpitracking.service.InsightService;
+import com.kpitracking.service.ai.AiTurn;
+import com.kpitracking.service.ai.form.FormPatch;
 import com.kpitracking.tool.FollowupContextStore;
 import org.springframework.security.core.context.SecurityContextHolder;
 import io.swagger.v3.oas.annotations.Operation;
@@ -51,9 +53,15 @@ public class AiController {
         // để mọi lối vào tính năng chat đều đi qua chúng chứ không chỉ riêng endpoint này.
         // Hai endpoint còn lại (gợi ý KPI, câu hỏi tiếp) chưa dùng chuỗi nên vẫn tự gọi.
         String result;
+        FormPatch formPatch;
         AiTokenUsageRecorder.setFeature(AiTokenUsage.AiFeature.CHAT);
         try {
-            result = aiService.processOrgUnitChat(request.getMessage(), request.getConversationId(), request.getFocusUnitId());
+            AiTurn turn = new AiTurn(request.getMessage(), request.getConversationId(), request.getFocusUnitId());
+            turn.setOpenFormId(request.getOpenFormId());
+            turn.setOpenFormValues(request.getOpenFormValues());
+            result = aiService.processOrgUnitChat(turn);
+            // Pipeline đã chuyển bản đề xuất từ ThreadLocal lên turn trước khi dọn.
+            formPatch = turn.getFormPatch();
         } finally {
             AiTokenUsageRecorder.clearFeature();
         }
@@ -71,6 +79,7 @@ public class AiController {
         AiChatResponse response = AiChatResponse.builder()
                 .text(result)
                 .options(options)
+                .formPatch(formPatch != null && !formPatch.isEmpty() ? formPatch : null)
                 .build();
         return ApiResponse.success(response);
     }

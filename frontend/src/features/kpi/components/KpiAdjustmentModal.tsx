@@ -1,5 +1,7 @@
+import { useEffect } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
+import { useFormAssistStore } from '@/store/formAssistStore'
 import { z } from 'zod'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { adjustmentApi } from '../api/adjustmentApi'
@@ -28,7 +30,7 @@ interface KpiAdjustmentModalProps {
 export default function KpiAdjustmentModal({ open, onClose, kpi }: KpiAdjustmentModalProps) {
   const qc = useQueryClient()
 
-  const { register, handleSubmit, formState: { errors }, reset, watch } = useForm<AdjustmentFormData>({
+  const { register, handleSubmit, formState: { errors }, reset, watch, setValue, getValues } = useForm<AdjustmentFormData>({
     resolver: zodResolver(adjustmentSchema),
     defaultValues: {
       deactivationRequest: false,
@@ -37,6 +39,21 @@ export default function KpiAdjustmentModal({ open, onClose, kpi }: KpiAdjustment
   })
 
   const deactivationRequest = watch('deactivationRequest')
+
+  // Giới thiệu form này với trợ lý AI trong lúc nó đang mở. Đặt TRƯỚC lệnh return sớm bên dưới —
+  // hook có điều kiện là vỡ thứ tự hook.
+  useEffect(() => {
+    if (!open) return
+    const { register: registerForm, unregister } = useFormAssistStore.getState()
+    registerForm({
+      formId: 'kpi_adjustment_form',
+      getValues: () => getValues() as unknown as Record<string, unknown>,
+      setValue: (field, value) =>
+        setValue(field as keyof AdjustmentFormData, value as never,
+          { shouldValidate: true, shouldDirty: true }),
+    })
+    return () => unregister('kpi_adjustment_form')
+  }, [open, getValues, setValue])
 
   const mutation = useMutation({
     mutationFn: (data: AdjustmentFormData) => adjustmentApi.create({

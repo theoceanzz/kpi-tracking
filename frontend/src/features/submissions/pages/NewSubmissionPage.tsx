@@ -14,6 +14,7 @@ import { submissionApi } from '../api/submissionApi'
 import { useMyKpi } from '@/features/kpi/hooks/useMyKpi'
 import FileDropzone from '@/components/common/FileDropzone'
 import { useUploadStore } from '@/store/uploadStore'
+import { useFormAssistStore } from '@/store/formAssistStore'
 import { toast } from 'sonner'
 import { useNavigate, useSearchParams, useParams } from 'react-router-dom'
 import { formatNumber, cn } from '@/lib/utils'
@@ -60,10 +61,24 @@ export default function NewSubmissionPage() {
     enabled: isEdit,
   })
 
-  const { register, handleSubmit, watch, setValue, reset, control, formState: { errors } } = useForm<SubmissionFormData>({
+  const { register, handleSubmit, watch, setValue, reset, control, getValues, formState: { errors } } = useForm<SubmissionFormData>({
     resolver: zodResolver(submissionSchema),
     defaultValues: { kpiCriteriaId: preselectedKpiId },
   })
+
+  // Giới thiệu form này với trợ lý AI. Đây là TRANG chứ không phải modal nên vòng đời gắn với
+  // mount/unmount: rời trang là huỷ đăng ký, nếu không trợ lý tưởng form vẫn đang mở.
+  useEffect(() => {
+    const { register: registerForm, unregister } = useFormAssistStore.getState()
+    registerForm({
+      formId: 'submission_form',
+      getValues: () => getValues() as unknown as Record<string, unknown>,
+      setValue: (field, value) =>
+        setValue(field as keyof SubmissionFormData, value as never,
+          { shouldValidate: true, shouldDirty: true }),
+    })
+    return () => unregister('submission_form')
+  }, [getValues, setValue])
 
   const [isInitialSyncDone, setIsInitialSyncDone] = useState(false)
 

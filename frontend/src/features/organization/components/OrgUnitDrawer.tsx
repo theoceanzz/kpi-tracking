@@ -2,6 +2,7 @@ import { useEffect, useState, useMemo } from 'react'
 import { useForm, SubmitHandler, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import * as z from 'zod'
+import { useFormAssistStore } from '@/store/formAssistStore'
 import { X, Upload, Building2, MapPin, Phone, Mail, Image as ImageIcon } from 'lucide-react'
 import { 
   useCreateOrgUnit, 
@@ -132,7 +133,7 @@ export function OrgUnitDrawer({ orgId, drawerState, onClose, hierarchyLevels }: 
     }
   })
       
-  const { register, handleSubmit, formState: { errors }, reset, setValue, watch, setError, control } = useForm<FormData>({
+  const { register, handleSubmit, formState: { errors }, reset, setValue, watch, setError, control, getValues } = useForm<FormData>({
     resolver: zodResolver(schema),
     defaultValues: {
       name: '',
@@ -154,6 +155,21 @@ export function OrgUnitDrawer({ orgId, drawerState, onClose, hierarchyLevels }: 
   useEffect(() => {
     setSelectedProvinceId(formProvinceId)
   }, [formProvinceId])
+
+  // Giới thiệu form này với trợ lý AI. Drawer mở/đóng bằng drawerState.isOpen chứ không có prop
+  // `open` như các modal khác.
+  useEffect(() => {
+    if (!drawerState.isOpen) return
+    const { register: registerForm, unregister } = useFormAssistStore.getState()
+    registerForm({
+      formId: 'org_unit_drawer_form',
+      getValues: () => getValues() as unknown as Record<string, unknown>,
+      setValue: (field, value) =>
+        setValue(field as keyof FormData, value as never,
+          { shouldValidate: true, shouldDirty: true }),
+    })
+    return () => unregister('org_unit_drawer_form')
+  }, [drawerState.isOpen, getValues, setValue])
 
   // Manager/Deputy validation logic
   const selectedRolesDetails = useMemo(() => {

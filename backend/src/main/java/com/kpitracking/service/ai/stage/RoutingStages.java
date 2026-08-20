@@ -4,6 +4,7 @@ import com.kpitracking.service.ai.AiStage;
 import com.kpitracking.service.ai.AiStageChain;
 import com.kpitracking.service.ai.AiTurn;
 import com.kpitracking.service.ai.PlanStep;
+import com.kpitracking.service.ai.form.FormRegistry;
 import com.kpitracking.service.ai.intent.IntentStrategy;
 import com.kpitracking.tool.EscapeHatchTool;
 import com.kpitracking.tool.ToolRegistry;
@@ -13,6 +14,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
 
+import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
@@ -82,12 +84,25 @@ public final class RoutingStages {
     @Component
     @Order(900)
     @RequiredArgsConstructor
+    @Slf4j
     public static class ToolSelectionStage implements AiStage {
         private final ToolRegistry toolRegistry;
+        private final FormRegistry formRegistry;
 
         @Override
         public String handle(AiTurn turn, AiStageChain next) {
-            turn.setTools(toolRegistry.toolsFor(turn.getGroups(), turn.getManager().userId()));
+            List<Object> tools =
+                    new ArrayList<>(toolRegistry.toolsFor(turn.getGroups(), turn.getManager().userId()));
+
+            // Tool điền form chỉ được gửi khi người dùng ĐANG mở đúng form đó. Không mở form thì
+            // model không nhìn thấy nó, nên vừa không thể đề xuất nhầm, vừa không tốn token mô tả
+            // tool cho những lượt chat chẳng liên quan gì tới form.
+            Object formTool = toolRegistry.formTool(formRegistry.toolNameFor(turn.getOpenFormId()));
+            if (formTool != null) {
+                tools.add(formTool);
+                log.debug("Mở tool điền form cho form đang mở: {}", turn.getOpenFormId());
+            }
+            turn.setTools(tools);
             return next.proceed(turn);
         }
 

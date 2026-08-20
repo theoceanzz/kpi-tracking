@@ -57,6 +57,13 @@ public class TurnSetupStage implements AiStage {
         if (turn.isHasMemory()) {
             toolCtx.put("conversationId", turn.getConversationId());
         }
+        // Form đang mở: tool điền form đọc hai khoá này để biết nó được phép đề xuất cho form nào
+        // và ô nào đã có giá trị. Không có form thì không đặt, và tool cũng không được gửi đi.
+        if (turn.getOpenFormId() != null && !turn.getOpenFormId().isBlank()) {
+            toolCtx.put("openFormId", turn.getOpenFormId());
+            toolCtx.put("openFormValues",
+                    turn.getOpenFormValues() == null ? Map.of() : turn.getOpenFormValues());
+        }
         turn.setToolCtx(toolCtx);
 
         // Thời gian thật (Việt Nam, UTC+7) bơm vào prompt hệ thống để model không tự đoán "bây giờ".

@@ -4,6 +4,7 @@ import com.kpitracking.exception.AiQuotaExceededException;
 import com.kpitracking.exception.AiRateLimitException;
 import com.kpitracking.exception.AiTokenQuotaExceededException;
 import com.kpitracking.exception.ForbiddenException;
+import com.kpitracking.service.ai.form.FormPatchStore;
 import com.kpitracking.tool.DisambiguationGuard;
 import com.kpitracking.tool.EscapeHatchTool;
 import com.kpitracking.tool.ToolCallTracker;
@@ -68,9 +69,14 @@ public class AiTurnPipeline {
         } finally {
             // Trạng thái theo lượt sống trong ThreadLocal trên luồng request dùng chung của Tomcat.
             // Quên dọn là rò sang lượt của NGƯỜI KHÁC.
+            // Chuyển bản đề xuất điền form ra khỏi ThreadLocal TRƯỚC khi dọn: khối finally này
+            // chạy xong thì run() mới trả về, nên tầng gọi mà đọc ThreadLocal sẽ luôn nhận null.
+            turn.setFormPatch(FormPatchStore.get());
+
             disambiguationGuard.clear();
             EscapeHatchTool.clear();
             ToolCallTracker.clear();
+            FormPatchStore.clear();
         }
     }
 

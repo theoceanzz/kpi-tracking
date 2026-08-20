@@ -66,7 +66,16 @@ public class AiService {
      * gọi model, phục hồi lỗi — nằm trong chuỗi {@link AiTurnPipeline}.
      */
     public String processOrgUnitChat(String question, String conversationId, String focusUnitId) {
-        return aiTurnPipeline.run(new AiTurn(question, conversationId, focusUnitId));
+        return processOrgUnitChat(new AiTurn(question, conversationId, focusUnitId));
+    }
+
+    /**
+     * Nhận thẳng ngữ cảnh lượt. Dùng khi lời gọi mang thêm thứ gì đó ngoài ba tham số cơ bản —
+     * vd form đang mở trên màn hình. Nhận {@link AiTurn} thay vì nối dài danh sách tham số, đúng
+     * lý do object ngữ cảnh này ra đời.
+     */
+    public String processOrgUnitChat(AiTurn turn) {
+        return aiTurnPipeline.run(turn);
     }
 
     /**

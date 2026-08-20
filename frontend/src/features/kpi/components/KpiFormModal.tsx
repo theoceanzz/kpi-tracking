@@ -7,6 +7,7 @@ import { kpiApi } from '../api/kpiApi'
 import { useOrgUnitTree } from '@/features/orgunits/hooks/useOrgUnitTree'
 import { useUsers } from '@/features/users/hooks/useUsers'
 import { useAuthStore } from '@/store/authStore'
+import { useFormAssistStore } from '@/store/formAssistStore'
 import { usePermission } from '@/hooks/usePermission'
 import { toast } from 'sonner'
 import { FREQUENCY_MAP, cn, formatDateTime } from '@/lib/utils'
@@ -103,7 +104,7 @@ export default function KpiFormModal({ open, onClose, editKpi, parentKpi, parent
     return all.filter(u => u.parentId !== null)
   }, [orgUnitTreeData])
 
-  const { register, handleSubmit, formState: { errors }, reset, watch, setValue, control } = useForm<KpiFormData>({
+  const { register, handleSubmit, formState: { errors }, reset, watch, setValue, control, getValues } = useForm<KpiFormData>({
     resolver: zodResolver(kpiSchema),
     defaultValues: {
       kpiType: 'QUANTITATIVE',
@@ -132,6 +133,21 @@ export default function KpiFormModal({ open, onClose, editKpi, parentKpi, parent
   const periodHasScorecard = !!formKpiPeriodId && (bscScorecards || []).some(sc => sc.kpiPeriodId === formKpiPeriodId)
   const formOrgUnitIds = watch('orgUnitIds') || []
   const [selectedRole, setSelectedRole] = useState<string>('ALL')
+
+  // Giới thiệu form này với trợ lý AI trong lúc nó đang mở, để người dùng nhờ điền hộ được.
+  // Truyền HÀM đọc/ghi chứ không truyền dữ liệu: giá trị chỉ cần đúng tại thời điểm gửi câu hỏi,
+  // đẩy vào store theo từng ký tự sẽ làm mọi thành phần nghe store vẽ lại liên tục.
+  useEffect(() => {
+    if (!open) return
+    const { register: registerForm, unregister } = useFormAssistStore.getState()
+    registerForm({
+      formId: 'kpi_form',
+      getValues: () => getValues() as unknown as Record<string, unknown>,
+      setValue: (field, value) =>
+        setValue(field as keyof KpiFormData, value as never, { shouldValidate: true, shouldDirty: true }),
+    })
+    return () => unregister('kpi_form')
+  }, [open, getValues, setValue])
 
   const kpiType = watch('kpiType')
   const isQualitative = kpiType === 'QUALITATIVE'

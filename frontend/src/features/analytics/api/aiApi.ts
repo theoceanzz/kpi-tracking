@@ -6,6 +6,28 @@ export interface AiChatRequest {
   conversationId?: string
   /** Đơn vị đang xét (khi bấm thẻ Insight): backend đặt làm "đơn vị hiện tại" của lượt. */
   focusUnitId?: string
+  /** Form đang mở trên màn hình, để trợ lý gợi ý điền hộ. Chỉ là định danh — backend tự biết form đó có ô nào. */
+  openFormId?: string
+  /** Giá trị các ô đang có, để trợ lý không đề xuất lại thứ người dùng đã tự điền. */
+  openFormValues?: Record<string, unknown>
+}
+
+/** Một ô trong bản đề xuất điền form. */
+export interface FormPatchEntry {
+  /** Tên trường trong schema form, dùng để gọi setValue. */
+  field: string
+  label: string
+  /** Giá trị sẽ điền — chuỗi, số, boolean, hoặc mảng ID. */
+  value: unknown
+  /** Bản hiển thị cho người đọc: với ô tham chiếu đây là TÊN chứ không phải UUID. */
+  display: string
+  reason: string
+}
+
+/** Đề xuất điền form. Là đề xuất chứ không phải lệnh — người dùng tự chọn ô nào muốn nhận. */
+export interface FormPatch {
+  formId: string
+  entries: FormPatchEntry[]
 }
 
 /** Lựa chọn bấm được khi trợ lý hỏi lại để làm rõ (lấy từ dữ liệu thật của hệ thống). */
@@ -20,6 +42,8 @@ export interface AiChatResponse {
   text: string
   /** Chỉ có ở lượt trợ lý hỏi lại; lượt trả lời bình thường sẽ vắng field này. */
   options?: ClarificationOption[]
+  /** Chỉ có khi người dùng nhờ điền form đang mở; lượt bình thường sẽ vắng field này. */
+  formPatch?: FormPatch
 }
 
 export interface ConversationResponse {

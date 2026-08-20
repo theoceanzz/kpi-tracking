@@ -4,7 +4,9 @@ import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/store/authStore'
 import { useOrganization } from '@/features/orgunits/hooks/useOrganization'
 import { useMyAiQuota } from '@/features/organization/hooks/useAiQuota'
-import { aiApi, type InsightCard, type FollowupPools, type ClarificationOption } from '../api/aiApi'
+import { aiApi, type InsightCard, type FollowupPools, type ClarificationOption, type FormPatch } from '../api/aiApi'
+import { useFormAssistStore } from '@/store/formAssistStore'
+import FormPatchPreview from './FormPatchPreview'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { useNavigate } from 'react-router-dom'
@@ -19,6 +21,8 @@ interface Message {
   followups?: FollowupPools
   /** Lượt trợ lý hỏi lại: hiện nút chọn thay vì gợi ý câu hỏi tiếp theo. */
   options?: ClarificationOption[]
+  /** Lượt trợ lý đề xuất điền form đang mở: hiện bản xem trước để người dùng chọn ô nào muốn nhận. */
+  formPatch?: FormPatch
 }
 
 const WELCOME_MSG: Message = {
@@ -116,10 +120,15 @@ export default function AiAssistantWidget() {
 
       const focusUnitId =
         insight?.context?.entityType === 'ORG_UNIT' ? insight.context.entityId : undefined
+      // Form đang mở (nếu có) đọc NGAY LÚC GỬI — người dùng có thể đã gõ thêm từ lúc mở panel.
+      const activeForm = useFormAssistStore.getState().active
+
       const response = await aiApi.chat({
         message: userText,
         conversationId: conversationIdRef.current,
         focusUnitId,
+        openFormId: activeForm?.formId,
+        openFormValues: activeForm?.getValues(),
       })
 
       const assistantId = (Date.now() + 1).toString()
@@ -131,6 +140,12 @@ export default function AiAssistantWidget() {
           role: 'assistant',
           content: response.text ?? '',
           options: options.length ? options : undefined,
+          // Chỉ giữ đề xuất nếu người dùng VẪN đang mở đúng form đó. Họ có thể đã đóng form trong
+          // lúc chờ trả lời, và điền vào một form đã đóng thì vô nghĩa.
+          formPatch:
+            response.formPatch && response.formPatch.formId === activeForm?.formId
+              ? response.formPatch
+              : undefined,
         },
       ])
 
@@ -237,7 +252,7 @@ export default function AiAssistantWidget() {
   return (
     <div
       className={cn(
-        'fixed right-3 bottom-3 sm:right-6 sm:bottom-6 w-[calc(100vw-1.5rem)] sm:w-[450px] bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 flex flex-col overflow-hidden transition-all duration-300 z-50',
+        'fixed right-3 bottom-3 sm:right-6 sm:bottom-6 w-[calc(100vw-1.5rem)] sm:w-[450px] bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 flex flex-col overflow-hidden transition-all duration-300 z-500',
         isMinimized ? 'h-[60px]' : 'h-[700px] max-h-[85vh]',
       )}
     >
@@ -350,6 +365,11 @@ export default function AiAssistantWidget() {
                       </button>
                     ))}
                   </div>
+                )}
+
+                {/* Đề xuất điền form đang mở — người dùng xem trước rồi mới chấp nhận */}
+                {msg.role === 'assistant' && msg.formPatch && (
+                  <FormPatchPreview patch={msg.formPatch} />
                 )}
 
                 {/* Follow-up suggestions under the latest assistant answer */}
