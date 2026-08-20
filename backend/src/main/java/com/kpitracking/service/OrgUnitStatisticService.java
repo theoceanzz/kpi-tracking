@@ -294,12 +294,34 @@ public class OrgUnitStatisticService {
         detail.put("parentName", parentUnit != null ? parentUnit.getName() : null);
         detail.put("childCount", u.getChildren().size());
         detail.put("memberCount", userRoleOrgUnitRepository.countUsersByOrganizationUnitId(targetId));
+        // Đo được: hỏi "Phòng IT có bao nhiêu người" thì trợ lý AI đọc memberCount (=2, chỉ người
+        // gắn TRỰC TIẾP) trong khi get_people mặc định gộp cả cây (=8). Hai con số cùng nghe hợp
+        // lý nên model chọn hú hoạ -> câu trả lời lúc đúng lúc sai. Trả thêm số CẢ CÂY để nó có
+        // sẵn con số đúng. Thuần cộng thêm, không đổi nghĩa memberCount vì frontend đang dựa vào
+        // đúng ngữ nghĩa "trực tiếp" của nó để tự cộng dồn.
+        detail.put("totalMemberCount", subtreeMemberCount(u, targetId));
         detail.put("managers", managersInfo);
         detail.put("email", u.getEmail());
         detail.put("phone", u.getPhone());
         detail.put("address", u.getAddress());
         detail.put("status", u.getStatus().toString());
         return detail;
+    }
+
+    /**
+     * Số người của đơn vị KỂ CẢ các đơn vị con, đếm theo materialized path.
+     *
+     * <p>Thiếu path thì KHÔNG được đếm theo cây: {@code countUsersInSubtree} khớp
+     * {@code path LIKE prefix%}, nên prefix rỗng sẽ quét toàn bộ tổ chức và trả về một con số
+     * lớn hơn thực tế rất nhiều. Trường hợp đó lùi về số người gắn trực tiếp — thà thiếu còn hơn sai.
+     */
+    private long subtreeMemberCount(OrgUnit u, UUID targetId) {
+        String path = u.getPath();
+        if (path == null || path.isBlank()) {
+            return userRoleOrgUnitRepository.countUsersByOrganizationUnitId(targetId);
+        }
+        return userRoleOrgUnitRepository.countUsersInSubtree(
+                path, u.getOrgHierarchyLevel().getOrganization().getId());
     }
 
     // 3. get_child_org_units
