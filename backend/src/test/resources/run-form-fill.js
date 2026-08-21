@@ -334,7 +334,7 @@ async function askOnce(c) {
     body.openFormId = c.formId;
     body.openFormValues = c.values || {};
   }
-  const r = await fetch(BASE + '/ai/chat-org-unit', {
+  const r = await fetch(BASE + '/ai/chat', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + t },
     body: JSON.stringify(body),

@@ -111,7 +111,7 @@ const PROVIDER_THROTTLED = /đạt giới hạn sử dụng/i;
 
 async function askOnce(question, accountKey) {
   const token = await loginAs(accountKey);
-  const r = await fetch(BASE + '/ai/chat-org-unit', {
+  const r = await fetch(BASE + '/ai/chat', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
     body: JSON.stringify({ message: question }),

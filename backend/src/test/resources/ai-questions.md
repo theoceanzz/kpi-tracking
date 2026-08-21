@@ -399,6 +399,96 @@ Thêm **Xin điều chỉnh chỉ tiêu**, **Tạo/sửa đơn vị** và **Draw
 
 **Một bài học về test:** danh sách phụ thuộc của `FormFillSupport` dài ra đã làm gãy 3 test cùng lúc, và `ToolRegistry` thì gãy 2 lần vì test liệt kê dãy `null` theo hàm dựng. Đã dựng `FormFillTestFixture` gom chỗ khởi tạo, và `ToolRegistryTest` chuyển sang `CALLS_REAL_METHODS`. Giờ thêm phụ thuộc chỉ phải sửa một chỗ.
 
+### Đưa câu hỏi gợi ý vào chuỗi công đoạn (20/08/2026)
+
+Câu hỏi gợi ý từng là endpoint riêng `POST /ai/followups`, và client phải gọi **hai lần** mỗi lượt chat — một lần lấy câu trả lời, một lần nữa lấy gợi ý. Nay là `FollowupStage` **thứ tự 500**, gợi ý về cùng câu trả lời trong MỘT request.
+
+Ba ràng buộc kẹp nó vào đúng thứ tự 500, không phải chỗ nào cũng được:
+
+- **Ngoài `ModelCallStage`** — dữ liệu tool để neo câu gợi ý chỉ có sau vòng gọi tool.
+- **Ngoài `ValidationStage` (600)** — công đoạn đó có thể CHẶN câu trả lời; sinh gợi ý cho câu đã bị chặn vừa tốn một lời gọi model vừa gợi ý sai hướng.
+- **Trong `TurnSetupStage` (400)** — công đoạn đó gọi `followupContextStore.startTurn(...)` xoá dữ liệu tool lượt trước; chạy trước nó là đọc nhầm dữ liệu cũ.
+
+Thăm dò xác nhận giữ nguyên hành vi: câu phân tích ra 5+5 gợi ý trong cùng response; câu bị hỏi lại (*"Team có bao nhiêu người?"*) **không** có gợi ý, đúng như `isDisambiguating` vẫn làm.
+
+**Hai thay đổi hành vi cần biết.** Câu trả lời hiện chậm hơn đúng bằng thời gian sinh gợi ý — trước đây gợi ý tới sau nên câu trả lời hiện ngay; đây là đánh đổi cố hữu của việc bỏ endpoint riêng. Bù lại, một lượt chat nay chỉ tính **một** đơn vị chặn tần suất thay vì hai, vì endpoint cũ tự gọi `aiRateLimiter` riêng.
+
+Dọn kèm: `FollowupRequest.turn` **chưa từng được dùng** ở đâu dù chú thích ghi "0 = fixed templates" — bỏ luôn cùng DTO. Tiền tố `[tên đơn vị]` giữ nguyên mà không tốn truy vấn nào, vì `TurnSetupStage` vốn đã nạp đơn vị để kiểm `focusUnitId`.
+
+### Phát chữ dần + hiện tiến độ qua SSE (20-21/08/2026)
+
+`POST /ai/chat/stream` (SSE) chạy song song với `/ai/chat`; cả hai dùng chung `AiController.runTurn` nên không thể lệch nội dung. Bốn loại sự kiện: `stage`, `token`, `done`, `error`. Tiến độ phát ở **`AiTurnPipeline`**, chỗ vốn đã bọc mọi công đoạn — nên không công đoạn nào phải sửa.
+
+**Chữ phát ra là BẢN XEM TRƯỚC.** `ResponseSanitizingAdvisor` lọc trên TOÀN VĂN (sửa bảng Markdown, xoá tên tool), không thể chạy theo từng mẩu — một tên tool bị cắt đôi qua hai mẩu sẽ lọt lưới. Nên `done` mới là bản chính thức và client phải thay bản xem trước bằng nó.
+
+#### Cái bẫy lớn nhất: bật `.stream()` làm MẤT lời gọi tool
+
+Đo được, tất định 3/3 lần mỗi bên: với câu *"So sánh Team Backend và Team Frontend về số thành viên, rồi cho biết đơn vị nào nhiều KPI hơn"*, `.call()` gọi **3 tool** (`compare_org_units` + 2×`get_org_unit`) còn `.stream()` chỉ gọi **1**. Câu trả lời qua luồng MỎNG HƠN mà không báo lỗi gì — đúng loại hỏng âm thầm mà `ValidationStage` và `PlanCompletionStage` sinh ra để chống. Cũng chính nó khiến đề xuất điền form qua luồng hay trượt: lời gọi tool đầu tiên hỏng thì không còn đủ vòng để model sửa.
+
+Ban đầu tôi kết luận "stream chỉ chạy một vòng" và bỏ luôn phần chữ dần. **Kết luận đó SAI**, và đọc mã Spring AI 1.1.5 mới ra gốc:
+
+| Đọc được gì | Nghĩa là gì |
+|---|---|
+| `OpenAiChatModel.internalStream` **có** tự gọi lại sau khi chạy tool | Khung không thiếu vòng lặp — giả thuyết cũ bị bác |
+| `OpenAiStreamFunctionCallingHelper.merge` phân định tool call **chỉ theo `id`**, bỏ qua `index` | Delta của tool call thứ 2, 3 có thể bị nhập vào tool call đầu |
+| Cùng chỗ đó: `throw new IllegalStateException("Currently only one tool call is supported per message!")` | Khung **tự nhận** là không gộp nổi nhiều tool call trong một message khi stream |
+
+Thủ phạm là **gọi tool SONG SONG**: `.call()` nhận trọn một message có 3 tool call và chạy cả 3; `.stream()` phải ghép từ nhiều chunk và bộ ghép không đủ sức.
+
+**Vá chỗ đó, một dòng:** khi bật streaming thì gửi kèm `parallel_tool_calls=false`, để mỗi vòng chỉ một tool call và nhường phần còn lại cho đoạn đệ quy vốn đã đúng. Đặt ở tầng request nên an toàn: `createRequest` gộp bằng `ModelOptionsUtils.merge(runtime, default)`, trường không đặt rơi về mặc định yaml.
+
+Đo lại — **vá ĂN cho đúng chỗ nó nhắm**: 3/3 lần đủ 3 tool, đủ cả hai vế, câu trả lời dài đúng 737 ký tự cả ba lần. Nhà cung cấp chấp nhận cờ (không 400, không `IllegalStateException`), token hai đường bằng nhau đúng từng đơn vị (9459 vs 9459).
+
+#### Nhưng vẫn phải tắt: bộ 21 ca tụt 21/21 → 17/21
+
+Bật cờ rồi chạy lại bộ điền form: **17/21**. Ba ca không ra đề xuất nào (F01, S01, D01) và — tệ hơn — ca NGƯỢC `A02` lại sinh đề xuất, tức điền bừa vào form người dùng.
+
+Nguyên nhân **khác** với cái vừa vá: model hay gọi tool điền form với tham số rỗng (xem mục dưới). Đường `.call()` cho nó thử lại 5-6 vòng nên cuối cùng trúng; đường `.stream()` dừng sau ~3 vòng nên bỏ cuộc. Đọc log F01 thấy đúng ba lời gọi rỗng liên tiếp rồi thôi.
+
+Kết luận: **giữ `.call()`, gõ chữ ở CLIENT** (`useTypewriter`) trên câu trả lời đã hoàn chỉnh — mượt tương đương, không token thêm, không đụng vòng gọi tool. Cờ `app.ai.streaming.enabled` giữ lại cùng toàn bộ ghi chú đo đạc; bật lại chỉ khi bộ 21 ca đạt lại 21/21.
+
+**Hai bài học về cách đo:**
+
+- Lần đầu tôi dừng ở triệu chứng (1 vs 3 tool) rồi né bằng cách bỏ tính năng. Gốc nằm cách đó đúng một lần đọc mã thư viện. **Đo được triệu chứng chưa phải là hiểu nguyên nhân.**
+- Vá xong, phép đo hẹp (số tool ở một câu) xanh 3/3 và suýt đủ để kết luận "đã xong". Chỉ bộ đo RỘNG mới lộ ra cái giá thật. **Vá đúng một nguyên nhân không có nghĩa là không còn nguyên nhân nào khác.**
+
+Bốn cái bẫy khác gặp trên đường làm, cả bốn đều là lỗi **thật** và đều im lặng:
+
+1. **`TokenUsageAuditAdvisor.adviseStream` không ghi token.** Streaming ghi **0 token**, tức đi vòng qua toàn bộ hạn mức. Đây là lỗ hổng hạn mức chứ không phải chuyện thẩm mỹ. Sau khi vá, đo cùng một câu qua hai đường: **9459 vs 9479 token**.
+2. **`ResponseSanitizingAdvisor.adviseStream` trả `null`.** Bật streaming là NPE ngay.
+3. **SSE + JWT: `Access Denied` lúc lượt kết thúc.** Tomcat chạy LẠI chuỗi filter ở dispatch `ASYNC`, mà `OncePerRequestFilter` mặc định **bỏ qua** dispatch đó → request thành ẩn danh → `AuthorizationFilter` ném, nhưng phản hồi đã gửi đi rồi nên Tomcat cắt kết nối và client thấy `terminated` giữa chừng. Chữa bằng `shouldNotFilterAsyncDispatch() = false` trong `JwtAuthenticationFilter` — vẫn kiểm quyền ở cả hai lần dispatch.
+4. **ThreadLocal không sang được luồng reactor.** Đo được: đường `.call()` chạy tool trên `nio-8081-exec-*`, đường `.stream()` chạy trên `boundedElastic-*`. Bốn kho trạng thái theo lượt (`ToolCallTracker`, `FormPatchStore`, `EscapeHatchTool`, `DisambiguationGuard`) đều ghi trong javadoc giả định *"mọi lời gọi tool chạy đồng bộ trên cùng luồng request"* — streaming phá giả định đó và **không ném ngoại lệ nào**: câu trả lời vẫn đúng (dữ liệu tool đi qua model) nhưng bản đề xuất điền form không tới người dùng, câu hỏi gợi ý biến mất, cửa thoát hiểm ngừng chạy. Chữa ở `TurnStatePropagation`: mỗi kho giữ một **hộp chứa** an toàn nhiều luồng, `context-propagation` mang THAM CHIẾU hộp đó sang luồng reactor. Khoá lại bằng `TurnStatePropagationTest`.
+
+### Lời gọi tool rỗng: gốc nằm ở schema, không nằm ở prompt (20/08/2026)
+
+Đo được **11 lời gọi rỗng trên 4 lượt**: model gọi `suggest_kpi_form` với tham số rỗng, Spring AI truyền thẳng `null` vào tool, tool ném NPE, và model nhận nguyên văn thông báo NPE của Java — thứ nó không sửa được. Đường JSON tình cờ gọi lại vài lần rồi trúng (nên bộ 21 ca vẫn xanh, che mất lỗi này); đường luồng **dừng sau đúng 2 vòng gọi tool** nên bỏ cuộc và người dùng chẳng thấy đề xuất nào.
+
+Gốc rễ nghi ngờ: sáu record điền form để **mọi ô là tuỳ chọn**, nên `{}` là lời gọi HỢP LỆ theo schema; các tool đọc không dính vì đều có một ô bắt buộc (`get_people.view`). Đã cho mỗi form một ô bắt buộc là câu giải thích (`reason` / `suggestionReason`).
+
+**Đo lại: chỉ đỡ chứ không dứt.** `suggest_kpi_form` sau đó không còn lời gọi rỗng nào trên 4 lượt (11 → 0), nhưng `suggest_submission_form` vẫn gọi rỗng ở 2/2 lượt — nhà cung cấp không ép tham số tool theo schema. Vậy nên phần chữa THẬT là lưới chắn `FormFillSupport.requireArgs`: lời gọi rỗng nhận về một lời nhắc sửa được kèm đúng tên các ô (lấy từ chính record, không thể lệch với mã) thay vì một NPE Java, nên model gọi lại đúng ngay thay vì đoán mò.
+
+Bài học lặp lại lần nữa: sửa ở backend cho tất định, đừng thêm lời dặn vào prompt hệ thống.
+
+### Chọn công đoạn đáng hiện + báo từng việc trợ lý đang tra cứu (20/08/2026)
+
+Hiện **tất cả 12 công đoạn** có ba vấn đề: (1) bốn công đoạn bọc ngoài (`FollowupStage`, `ValidationStage`, `EscapeHatchStage`, `PlanCompletionStage`) làm việc SAU `next.proceed(...)` nên nhãn phát lúc vào nói sai — *"Soi câu trả lời"* hiện ngay đầu lượt, 10-15 giây trước khi việc đó xảy ra; (2) các công đoạn còn lại chớp qua trong vài trăm mili-giây rồi một nhãn đứng im suốt vòng gọi tool; (3) `label()` mặc định trả tên lớp nên công đoạn mới quên đặt nhãn sẽ hiện thẳng *"UnlabelledStage"* ra giao diện.
+
+Quy tắc mới, một câu: **`label()` là nhãn hiện khi VÀO công đoạn, mặc định `null` = không hiện; công đoạn làm việc sau `next.proceed(...)` thì tự gọi `turn.progress(this, ...)` đúng lúc bắt đầu làm.**
+
+Còn đúng 5 công đoạn có nhãn (`AuthScopeStage`, `TurnSetupStage`, `PlanningStage`, `ToolSelectionStage`, `ModelCallStage`), cộng 4 công đoạn tự báo khi thật sự chạy. Quan trọng hơn cả: **mỗi lời gọi tool cũng là một nhãn** (`ToolProgress`) — đó mới là thứ lấp quãng chờ dài nhất. Người nghe đi qua `toolCtx` chứ không qua ThreadLocal, nên đúng ở mọi luồng mà không cần `TurnStatePropagation`.
+
+Trình tự đo được của một lượt thật:
+
+```
+Đang xác thực thông tin → Đang chuẩn bị dữ liệu của bạn → Đang lập kế hoạch trả lời
+→ Đang chọn công cụ phù hợp → Đang tra cứu dữ liệu → Đang xem danh sách nhân sự
+→ Đang nghĩ vài câu hỏi tiếp theo
+```
+
+`ToolProgressTest` chốt rằng **mọi `@Tool` đều có nhãn** — thiếu nhãn không làm vỡ gì (rơi về nhãn chung) nên không chốt thì bản đồ sẽ tụt hậu mà không ai biết.
+
+**Bộ 21 ca điền form sau các thay đổi trên: 20/21 qua đường JSON.** Ca hỏng là `S02` — phép so ngược vẫn giữ (không có đề xuất nào), chỉ là lượt đó model trả lời bằng lời mà không gọi tool nên phép kiểm không được chạm tới. Chạy lại riêng `S02` hai lần thì cả hai lần tool đều chạy và bị chặn đúng như mong đợi, nên đây là dao động chứ không phải hồi quy.
+
 ### 40/40 không phải mục tiêu thực tế
 
 Model không tất định. Cùng bộ câu hỏi, cùng cấu hình, các lần chạy dao động **30–34/40**; có lần model trả *"gặp trục trặc"* cho những câu vừa đạt ở lần trước. Vì vậy hãy nhìn **từng câu qua nhiều lần chạy**, đừng nhìn con số tổng của một lần.
