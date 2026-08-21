@@ -2,18 +2,19 @@ import React, { useState, useRef, useEffect, useCallback } from 'react'
 import {
   Bot, Send, Loader2, SquarePen, Trash2,
   MessageSquare, PanelLeftClose, PanelLeftOpen, Sparkles,
-  User, Clock, Database,
+  Clock, Database,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/store/authStore'
 import { useOrganization } from '@/features/orgunits/hooks/useOrganization'
-import { aiApi, type ConversationResponse, type InsightCard, type FollowupPools, type ClarificationOption } from '../api/aiApi'
-import ReactMarkdown from 'react-markdown'
-import remarkGfm from 'remark-gfm'
+import { aiApi, type ConversationResponse, type InsightCard, type FollowupPools, type ClarificationOption, type AiChatResponse } from '../api/aiApi'
 import InsightCards from '../components/InsightCards'
 import AiDisabledPage from '../components/AiDisabledPage'
 import FollowupSuggestions from '../components/FollowupSuggestions'
-import { buildFollowupContext } from '../utils/followupContext'
+import ThinkingSummary from '../components/ThinkingSummary'
+import AnswerMarkdown from '../components/AnswerMarkdown'
+import { useStageProgress } from '../hooks/useStageProgress'
+import { useTypewriter } from '../hooks/useTypewriter'
 import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { ScrollArea } from '@/components/ui/scroll-area'
@@ -34,6 +35,12 @@ interface Message {
   followups?: FollowupPools
   /** Lượt trợ lý hỏi lại: hiện nút chọn thay vì gợi ý câu hỏi tiếp theo. */
   options?: ClarificationOption[]
+  /** Đang được gõ dần ra màn hình. Nội dung đầy đủ đã nằm sẵn ở `content`. */
+  typing?: boolean
+  /** Thời gian trợ lý xử lý lượt này. Vắng ở tin nhắn tải từ lịch sử hội thoại. */
+  thinkingSeconds?: number
+  /** Các bước đã chạy trong lượt, để bấm mở ra xem. */
+  steps?: string[]
 }
 
 const WELCOME_MSG: Message = {
@@ -63,6 +70,12 @@ export default function AiAssistantPage() {
   const [insightsLoading, setInsightsLoading] = useState(false)
   const [showInsights, setShowInsights] = useState(true)
   const [selectedQuestion, setSelectedQuestion] = useState<string>('')
+  // Nhãn "trợ lý đang làm gì". Hook lo phần chống nhấp nháy — các công đoạn đầu lượt xong trong
+  // vài trăm mili-giây nên hiện thẳng thì chớp qua không đọc kịp.
+  const { label: stageLabel, elapsedSec, begin: beginTurn, push: pushStage, end: endTurn } = useStageProgress()
+  // Gõ dần câu trả lời ĐÃ HOÀN CHỈNH. Xem useTypewriter về việc vì sao không stream từ model.
+  const { text: typedText, start: startTyping, finish: finishTyping, isTyping } = useTypewriter()
+  const typingIdRef = useRef<string | null>(null)
 
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
@@ -82,6 +95,15 @@ export default function AiAssistantPage() {
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
+
+  // Gõ xong thì bỏ cờ, để phần gợi ý câu hỏi tiếp theo hiện ra sau chứ không chen ngang lúc đang gõ.
+  useEffect(() => {
+    if (!isTyping && typingIdRef.current) {
+      const id = typingIdRef.current
+      typingIdRef.current = null
+      setMessages(prev => prev.map(m => (m.id === id ? { ...m, typing: false } : m)))
+    }
+  }, [isTyping])
 
   const loadConversations = useCallback(async () => {
     try {
@@ -167,6 +189,9 @@ export default function AiAssistantPage() {
     if (!userMsg || isLoading) return
 
     setShowInsights(false)
+    // Người dùng luôn hơn hiệu ứng: hỏi tiếp thì câu trước hiện trọn ngay.
+    finishTyping()
+    beginTurn()
     setMessages(prev => [
       ...prev.filter(m => m.id !== 'welcome'),
       { id: Date.now().toString(), role: 'user', content: userMsg },
@@ -184,39 +209,50 @@ export default function AiAssistantPage() {
 
       const focusUnitId =
         insight?.context?.entityType === 'ORG_UNIT' ? insight.context.entityId : undefined
-      const response = await aiApi.chat({ message: userMsg, conversationId: activeId, focusUnitId })
-      const assistantId = (Date.now() + 1).toString()
+      // Hộp chứa thay vì biến let: TypeScript không theo dõi được phép gán bên trong callback,
+      // nên với `let` nó thu hẹp kiểu thành never sau phép kiểm null.
+      const box: { value: AiChatResponse | null } = { value: null }
+      await aiApi.chatStream(
+        { message: userMsg, conversationId: activeId, focusUnitId },
+        {
+          onStage: pushStage,
+          onDone: r => { box.value = r },
+          onError: message => { throw new Error(message) },
+        },
+      )
+      const { seconds, steps } = endTurn()
+      const response = box.value
+      if (!response) throw new Error('Luồng kết thúc mà không có câu trả lời')
+
       const options = response.options ?? []
+      const assistantId = (Date.now() + 1).toString()
+      const answer = response.text ?? ''
+      // Nội dung đầy đủ vào thẳng message; phần gõ dần chỉ là cách HIỆN nó, nên nếu hiệu ứng có
+      // hỏng thì người dùng vẫn đọc được đủ.
+      //
+      // Câu trả lời RỖNG thì không bật cờ gõ: `isTyping` khi đó không đổi giá trị nên effect dọn cờ
+      // không chạy, và bong bóng sẽ kẹt ở trạng thái trống.
+      if (answer) {
+        typingIdRef.current = assistantId
+        startTyping(answer)
+      }
       setMessages(prev => [
         ...prev,
         {
           id: assistantId,
           role: 'assistant',
-          content: response.text ?? '',
+          typing: !!answer,
+          thinkingSeconds: seconds,
+          steps,
+          content: answer,
           options: options.length ? options : undefined,
+          // Câu hỏi gợi ý nay về CÙNG câu trả lời — trước đây phải gọi thêm POST /ai/followups.
+          // Backend đã tự bỏ qua ở lượt hỏi lại và lượt không có dữ liệu tool.
+          followups: response.followups,
         },
       ])
 
       turnRef.current += 1
-
-      // Lượt trợ lý hỏi lại đã có sẵn nút chọn -> không gợi ý câu hỏi tiếp theo (backend cũng
-      // trả rỗng cho lượt này), nên bỏ luôn lệnh gọi để khỏi tốn thêm một lượt gọi mô hình.
-      if (options.length) return
-
-      // Generate follow-up suggestions for this exchange (best-effort).
-      const ctxStr = buildFollowupContext(insight ?? null, userMsg, response.text)
-      try {
-        const pools = await aiApi.getFollowups({
-          conversationId: activeId ?? undefined,
-          turn: turnRef.current,
-          context: ctxStr,
-        })
-        if (pools && (pools.technical?.length || pools.management?.length)) {
-          setMessages(prev => prev.map(m => (m.id === assistantId ? { ...m, followups: pools } : m)))
-        }
-      } catch {
-        /* followups are best-effort */
-      }
     } catch (error: any) {
       const status = error?.response?.status
       let errorContent: string
@@ -234,6 +270,8 @@ export default function AiAssistantPage() {
       ])
     } finally {
       setIsLoading(false)
+      // Lượt hỏng cũng phải đóng để dừng đồng hồ; kết quả bỏ đi vì không có gì để khoe.
+      endTurn()
     }
   }
 
@@ -338,7 +376,7 @@ export default function AiAssistantPage() {
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="mx-auto h-9 w-9 text-indigo-600"
+                  className="mx-auto h-9 w-9 text-violet-600"
                   onClick={handleNewChat}
                 >
                   <SquarePen size={16} />
@@ -362,8 +400,8 @@ export default function AiAssistantPage() {
                   </div>
                 ) : conversations.length === 0 ? (
                   <div className="flex flex-col items-center justify-center py-12 text-center gap-3">
-                    <div className="w-12 h-12 rounded-2xl bg-indigo-50 dark:bg-indigo-900/30 flex items-center justify-center">
-                      <MessageSquare size={22} className="text-indigo-400" />
+                    <div className="w-12 h-12 rounded-2xl bg-violet-50 dark:bg-violet-900/30 flex items-center justify-center">
+                      <MessageSquare size={22} className="text-violet-400" />
                     </div>
                     <div>
                       <p className="text-sm font-medium text-[var(--color-foreground)]">Chưa có cuộc trò chuyện</p>
@@ -380,16 +418,16 @@ export default function AiAssistantPage() {
                         className={cn(
                           'w-full text-left px-3 py-2.5 rounded-xl transition-all duration-150 group relative',
                           isActive
-                            ? 'bg-indigo-600 text-white shadow-sm shadow-indigo-200 dark:shadow-none'
+                            ? 'bg-violet-600 text-white shadow-sm shadow-violet-200 dark:shadow-none'
                             : 'hover:bg-[var(--color-muted)] text-[var(--color-foreground)]',
                         )}
                       >
                         <div className="flex items-start gap-2.5 pr-6">
                           <div className={cn(
                             'w-7 h-7 rounded-lg flex items-center justify-center shrink-0 mt-0.5',
-                            isActive ? 'bg-white/20' : 'bg-indigo-50 dark:bg-indigo-900/30',
+                            isActive ? 'bg-white/20' : 'bg-violet-50 dark:bg-violet-900/30',
                           )}>
-                            <MessageSquare size={13} className={isActive ? 'text-white' : 'text-indigo-500'} />
+                            <MessageSquare size={13} className={isActive ? 'text-white' : 'text-violet-500'} />
                           </div>
                           <div className="min-w-0 flex-1">
                             <p className={cn(
@@ -400,7 +438,7 @@ export default function AiAssistantPage() {
                             </p>
                             <p className={cn(
                               'text-[11px] mt-0.5 flex items-center gap-1',
-                              isActive ? 'text-indigo-200' : 'text-[var(--color-muted-foreground)]',
+                              isActive ? 'text-violet-200' : 'text-[var(--color-muted-foreground)]',
                             )}>
                               <Clock size={10} />
                               {formatDistanceToNow(new Date(conv.createdAt), { addSuffix: true, locale: vi })}
@@ -416,7 +454,7 @@ export default function AiAssistantPage() {
                               className={cn(
                                 'absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-lg transition-all opacity-0 group-hover:opacity-100',
                                 isActive
-                                  ? 'hover:bg-white/20 text-indigo-200 hover:text-white'
+                                  ? 'hover:bg-white/20 text-violet-200 hover:text-white'
                                   : 'hover:bg-red-100 dark:hover:bg-red-900/30 text-[var(--color-muted-foreground)] hover:text-red-500',
                               )}
                             >
@@ -448,7 +486,7 @@ export default function AiAssistantPage() {
                         className={cn(
                           'w-9 h-9 rounded-xl flex items-center justify-center transition-colors',
                           conversationId === conv.id
-                            ? 'bg-indigo-600 text-white'
+                            ? 'bg-violet-600 text-white'
                             : 'hover:bg-[var(--color-muted)] text-[var(--color-muted-foreground)]',
                         )}
                       >
@@ -481,7 +519,7 @@ export default function AiAssistantPage() {
                   <MessageSquare size={18} />
                 </Button>
                 <div className="relative shrink-0">
-                  <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shadow-md shadow-indigo-200 dark:shadow-none">
+                  <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center shadow-md shadow-violet-200 dark:shadow-none">
                     <Bot size={20} className="text-white" />
                   </div>
                   <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-emerald-400 rounded-full border-2 border-white dark:border-slate-900" />
@@ -519,55 +557,40 @@ export default function AiAssistantPage() {
                   </div>
                 ) : (
                   messages.map(msg => (
-                    <div
-                      key={msg.id}
-                      className={cn('flex items-end gap-3', msg.role === 'user' && 'flex-row-reverse')}
-                    >
-                      {/* Avatar */}
-                      <div className={cn(
-                        'w-8 h-8 rounded-full flex items-center justify-center shrink-0 shadow-sm',
-                        msg.role === 'assistant'
-                          ? 'bg-gradient-to-br from-indigo-500 to-purple-600'
-                          : 'bg-gradient-to-br from-slate-600 to-slate-800 dark:from-slate-400 dark:to-slate-600',
-                      )}>
-                        {msg.role === 'assistant'
-                          ? <Sparkles size={14} className="text-white" />
-                          : <User size={14} className="text-white" />
-                        }
-                      </div>
-
-                      <div className={cn('flex flex-col gap-1.5 max-w-[82%]', msg.role === 'user' && 'items-end')}>
-                        {/* Bubble */}
-                        <div className={cn(
-                          'rounded-2xl px-4 py-3 shadow-sm',
-                          msg.role === 'user'
-                            ? 'bg-indigo-600 text-white rounded-br-sm'
-                            : 'bg-[var(--color-card)] text-[var(--color-card-foreground)] border border-[var(--color-border)] rounded-bl-sm',
-                        )}>
-                          {msg.role === 'user' ? (
-                            <p className="text-sm whitespace-pre-wrap leading-relaxed">{msg.content}</p>
-                          ) : (
-                            <div className="prose prose-sm dark:prose-invert prose-indigo max-w-none
-                              prose-p:leading-relaxed prose-p:my-1.5
-                              prose-headings:font-semibold prose-headings:mt-3 prose-headings:mb-1
-                              prose-li:my-0.5 prose-ul:my-1.5 prose-ol:my-1.5
-                              prose-code:bg-indigo-50 prose-code:dark:bg-indigo-900/30 prose-code:rounded prose-code:px-1 prose-code:text-indigo-700 prose-code:dark:text-indigo-300
-                              prose-pre:bg-slate-900 prose-pre:text-slate-100 prose-pre:rounded-xl
-                              prose-strong:text-[var(--color-foreground)]">
-                              <ReactMarkdown remarkPlugins={[remarkGfm]}>{msg.content}</ReactMarkdown>
-                            </div>
-                          )}
+                    <div key={msg.id} className="flex flex-col">
+                      {msg.role === 'user' ? (
+                        /* Lượt người dùng: rãnh dọc + nhãn nhỏ thay cho bong bóng và avatar.
+                           Avatar cũ ăn 44px mỗi bên và chính nó tạo cảm giác "chatbot mặc định". */
+                        <div className="border-l-2 border-[var(--color-ai-line)] pl-3 py-0.5">
+                          <div className="text-[10px] font-semibold uppercase tracking-widest text-[var(--color-ai)]">
+                            Bạn hỏi
+                          </div>
+                          <div className="mt-0.5 text-sm whitespace-pre-wrap text-[var(--color-foreground)]">
+                            {msg.content}
+                          </div>
                         </div>
+                      ) : (
+                        /* Lượt trợ lý: trải hết chiều ngang, không nền không viền — bảng và số
+                           liệu có đủ chỗ thở thay vì bị nhét trong bong bóng. */
+                        <div className="text-sm text-[var(--color-foreground)]">
+                          {msg.thinkingSeconds != null && (
+                            <ThinkingSummary seconds={msg.thinkingSeconds} steps={msg.steps} />
+                          )}
+                          {/* Đang gõ thì hiện phần đã gõ; nội dung đầy đủ vẫn nằm ở msg.content
+                              nên hiệu ứng có hỏng cũng không mất chữ. */}
+                          <AnswerMarkdown>{msg.typing ? typedText : msg.content}</AnswerMarkdown>
+                        </div>
+                      )}
 
                         {/* Trợ lý hỏi lại: cho bấm chọn thẳng, khỏi gõ lại tên */}
-                        {msg.role === 'assistant' && msg.options?.length && msg.id === lastAssistantId && !isLoading && (
+                        {msg.role === 'assistant' && msg.options?.length && msg.id === lastAssistantId && !isLoading && !msg.typing && (
                           <div className="mt-2 flex flex-wrap gap-2">
                             {msg.options.map(opt => (
                               <button
                                 key={opt.value + opt.label}
                                 type="button"
                                 onClick={() => sendMessage(opt.value)}
-                                className="px-3 py-1.5 text-sm rounded-full border border-indigo-300 text-indigo-700 bg-indigo-50 hover:bg-indigo-100 dark:border-indigo-700 dark:text-indigo-300 dark:bg-indigo-950 dark:hover:bg-indigo-900 transition-colors"
+                                className="px-3 py-1.5 text-sm rounded-full border border-[var(--color-ai-line)] text-[var(--color-ai)] bg-[var(--color-ai-soft)] hover:brightness-95 dark:hover:brightness-125 transition-[filter]"
                               >
                                 {opt.label}
                               </button>
@@ -576,7 +599,7 @@ export default function AiAssistantPage() {
                         )}
 
                         {/* Follow-up suggestions under the latest assistant answer */}
-                        {msg.role === 'assistant' && msg.followups && msg.id === lastAssistantId && !isLoading && (
+                        {msg.role === 'assistant' && msg.followups && msg.id === lastAssistantId && !isLoading && !msg.typing && (
                           <FollowupSuggestions
                             pools={msg.followups}
                             onSelectQuestion={handleSelectFollowupQuestion}
@@ -584,7 +607,6 @@ export default function AiAssistantPage() {
                             onShowInsights={handleShowInsights}
                           />
                         )}
-                      </div>
                     </div>
                   ))
                 )}
@@ -599,18 +621,28 @@ export default function AiAssistantPage() {
                 {/* Typing indicator */}
                 {isLoading && (
                   <div className="flex items-end gap-3">
-                    <div className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shadow-sm">
+                    <div className="w-8 h-8 rounded-full bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center shadow-sm">
                       <Sparkles size={14} className="text-white" />
                     </div>
                     <div className="bg-[var(--color-card)] border border-[var(--color-border)] rounded-2xl rounded-bl-sm px-5 py-4 shadow-sm">
-                      <div className="flex items-center gap-1.5">
-                        {[0, 1, 2].map(i => (
-                          <span
-                            key={i}
-                            className="w-2 h-2 bg-indigo-400 rounded-full animate-bounce"
-                            style={{ animationDelay: `${i * 150}ms` }}
-                          />
-                        ))}
+                      <div className="flex items-center gap-2.5">
+                        <div className="flex items-center gap-1.5">
+                          {[0, 1, 2].map(i => (
+                            <span
+                              key={i}
+                              className="w-2 h-2 bg-violet-400 rounded-full animate-bounce"
+                              style={{ animationDelay: `${i * 150}ms` }}
+                            />
+                          ))}
+                        </div>
+                        {/* Vòng gọi tool chiếm phần lớn 10-15 giây của một lượt; nói rõ đang làm gì
+                            thì quãng chờ đỡ như treo máy. */}
+                        {stageLabel && (
+                          <span className="text-xs text-[var(--color-muted-foreground)]">{stageLabel}…</span>
+                        )}
+                        {elapsedSec > 0 && (
+                          <span className="text-xs tabular-nums text-[var(--color-muted-foreground)] opacity-70">{elapsedSec}s</span>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -624,7 +656,7 @@ export default function AiAssistantPage() {
           {/* Input area */}
           <div className="shrink-0 px-4 md:px-6 py-3 border-t border-[var(--color-border)] bg-[var(--color-background)]">
             <div className="max-w-3xl mx-auto">
-              <div className="flex items-center gap-2 bg-[var(--color-card)] border border-[var(--color-border)] rounded-2xl shadow-sm hover:shadow-md transition-shadow focus-within:ring-2 focus-within:ring-indigo-500/40 focus-within:border-indigo-300 px-4 py-2.5">
+              <div className="flex items-center gap-2 bg-[var(--color-card)] border border-[var(--color-border)] rounded-2xl shadow-sm hover:shadow-md transition-shadow focus-within:ring-2 focus-within:ring-violet-500/40 focus-within:border-violet-300 px-4 py-2.5">
                 <textarea
                   ref={textareaRef}
                   value={input}

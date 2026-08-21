@@ -5,22 +5,22 @@ export default function AiDisabledPage() {
     <div className="relative min-h-full w-full flex items-center justify-center overflow-hidden bg-white dark:bg-slate-950 font-sans">
       {/* Background blobs */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute -top-[20%] -left-[10%] w-[60%] h-[60%] rounded-full bg-gradient-to-br from-violet-500 to-indigo-500 blur-[120px] opacity-[0.07] animate-pulse" />
-        <div className="absolute -bottom-[20%] -right-[10%] w-[50%] h-[50%] rounded-full bg-gradient-to-tr from-violet-500 to-indigo-500 blur-[100px] opacity-[0.05]" />
+        <div className="absolute -top-[20%] -left-[10%] w-[60%] h-[60%] rounded-full bg-gradient-to-br from-violet-500 to-violet-500 blur-[120px] opacity-[0.07] animate-pulse" />
+        <div className="absolute -bottom-[20%] -right-[10%] w-[50%] h-[50%] rounded-full bg-gradient-to-tr from-violet-500 to-violet-500 blur-[100px] opacity-[0.05]" />
       </div>
 
       <div className="relative z-10 max-w-lg w-full px-6 text-center space-y-10 animate-in fade-in slide-in-from-bottom-8 duration-700">
         {/* Icon */}
         <div className="flex justify-center">
           <div className="relative p-5 rounded-3xl bg-white dark:bg-slate-900 shadow-2xl shadow-slate-200/50 dark:shadow-none border border-slate-100 dark:border-slate-800/50">
-            <div className="absolute inset-0 rounded-3xl bg-gradient-to-br from-violet-500 to-indigo-500 opacity-5 blur-xl" />
+            <div className="absolute inset-0 rounded-3xl bg-gradient-to-br from-violet-500 to-violet-500 opacity-5 blur-xl" />
             <BotOff className="w-12 h-12 text-violet-500" style={{ filter: 'drop-shadow(0 0 8px rgba(139,92,246,0.3))' }} />
           </div>
         </div>
 
         {/* Text */}
         <div className="space-y-3">
-          <span className="inline-block text-sm font-bold tracking-[0.2em] uppercase bg-clip-text text-transparent bg-gradient-to-r from-violet-500 to-indigo-500">
+          <span className="inline-block text-sm font-bold tracking-[0.2em] uppercase bg-clip-text text-transparent bg-gradient-to-r from-violet-500 to-violet-500">
             Tính năng bị tắt
           </span>
           <h1 className="text-4xl md:text-5xl font-black text-slate-900 dark:text-white tracking-tight">

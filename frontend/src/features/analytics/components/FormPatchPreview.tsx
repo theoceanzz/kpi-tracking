@@ -44,8 +44,8 @@ export default function FormPatchPreview({ patch }: Props) {
   }
 
   return (
-    <div className="w-full mt-2 rounded-lg border border-indigo-200 bg-indigo-50/60 p-3 dark:border-indigo-800 dark:bg-indigo-950/40">
-      <div className="mb-2 flex items-center gap-1.5 text-sm font-medium text-indigo-800 dark:text-indigo-200">
+    <div className="w-full mt-2 rounded-lg border border-violet-200 bg-violet-50/60 p-3 dark:border-violet-800 dark:bg-violet-950/40">
+      <div className="mb-2 flex items-center gap-1.5 text-sm font-medium text-violet-800 dark:text-violet-200">
         <PenLine className="h-4 w-4" />
         Đề xuất điền form
       </div>
@@ -61,7 +61,7 @@ export default function FormPatchPreview({ patch }: Props) {
                   checked={!off}
                   disabled={applied}
                   onChange={() => toggle(e.field)}
-                  className="mt-1 h-3.5 w-3.5 shrink-0 accent-indigo-600"
+                  className="mt-1 h-3.5 w-3.5 shrink-0 accent-violet-600"
                 />
                 <span className={off ? 'opacity-40' : undefined}>
                   <span className="text-gray-600 dark:text-gray-400">{e.label}: </span>
@@ -87,7 +87,7 @@ export default function FormPatchPreview({ patch }: Props) {
           type="button"
           onClick={apply}
           disabled={chosen.length === 0}
-          className="mt-2.5 rounded-md bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-40"
+          className="mt-2.5 rounded-md bg-violet-600 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-violet-700 disabled:cursor-not-allowed disabled:opacity-40"
         >
           Điền {chosen.length} ô đã chọn
         </button>

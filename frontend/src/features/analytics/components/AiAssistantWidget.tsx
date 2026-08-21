@@ -4,15 +4,16 @@ import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/store/authStore'
 import { useOrganization } from '@/features/orgunits/hooks/useOrganization'
 import { useMyAiQuota } from '@/features/organization/hooks/useAiQuota'
-import { aiApi, type InsightCard, type FollowupPools, type ClarificationOption, type FormPatch } from '../api/aiApi'
+import { aiApi, type InsightCard, type FollowupPools, type ClarificationOption, type FormPatch, type AiChatResponse } from '../api/aiApi'
 import { useFormAssistStore } from '@/store/formAssistStore'
 import FormPatchPreview from './FormPatchPreview'
-import ReactMarkdown from 'react-markdown'
-import remarkGfm from 'remark-gfm'
+import ThinkingSummary from './ThinkingSummary'
+import AnswerMarkdown from './AnswerMarkdown'
+import { useStageProgress } from '../hooks/useStageProgress'
+import { useTypewriter } from '../hooks/useTypewriter'
 import { useNavigate } from 'react-router-dom'
 import InsightCards from './InsightCards'
 import FollowupSuggestions from './FollowupSuggestions'
-import { buildFollowupContext } from '../utils/followupContext'
 
 interface Message {
   id: string
@@ -23,6 +24,12 @@ interface Message {
   options?: ClarificationOption[]
   /** Lượt trợ lý đề xuất điền form đang mở: hiện bản xem trước để người dùng chọn ô nào muốn nhận. */
   formPatch?: FormPatch
+  /** Đang được gõ dần ra màn hình. Nội dung đầy đủ đã nằm sẵn ở `content`. */
+  typing?: boolean
+  /** Thời gian trợ lý xử lý lượt này. Vắng ở tin nhắn tải từ lịch sử hội thoại. */
+  thinkingSeconds?: number
+  /** Các bước đã chạy trong lượt, để bấm mở ra xem. */
+  steps?: string[]
 }
 
 const WELCOME_MSG: Message = {
@@ -45,6 +52,12 @@ export default function AiAssistantWidget() {
   const [insightsLoading, setInsightsLoading] = useState(false)
   const [showInsights, setShowInsights] = useState(true)
   const [selectedQuestion, setSelectedQuestion] = useState<string>('')
+  // Nhãn "trợ lý đang làm gì". Hook lo phần chống nhấp nháy — các công đoạn đầu lượt xong trong
+  // vài trăm mili-giây nên hiện thẳng thì chớp qua không đọc kịp.
+  const { label: stageLabel, elapsedSec, begin: beginTurn, push: pushStage, end: endTurn } = useStageProgress()
+  // Gõ dần câu trả lời ĐÃ HOÀN CHỈNH. Xem useTypewriter về việc vì sao không stream từ model.
+  const { text: typedText, start: startTyping, finish: finishTyping, isTyping } = useTypewriter()
+  const typingIdRef = useRef<string | null>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
   const conversationIdRef = useRef<string | null>(null)
@@ -59,6 +72,15 @@ export default function AiAssistantWidget() {
 
   // Hạn mức token còn lại — chỉ tải khi mở panel, để đóng thì không tốn request nào.
   const { data: quota } = useMyAiQuota(isOpen && isManager)
+
+  // Gõ xong thì bỏ cờ, để phần gợi ý câu hỏi tiếp theo hiện ra sau chứ không chen ngang lúc đang gõ.
+  useEffect(() => {
+    if (!isTyping && typingIdRef.current) {
+      const id = typingIdRef.current
+      typingIdRef.current = null
+      setMessages(prev => prev.map(m => (m.id === id ? { ...m, typing: false } : m)))
+    }
+  }, [isTyping])
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -105,6 +127,9 @@ export default function AiAssistantWidget() {
     if (!userText || isLoading) return
 
     setShowInsights(false)
+    // Người dùng luôn hơn hiệu ứng: hỏi tiếp thì câu trước hiện trọn ngay.
+    finishTyping()
+    beginTurn()
     const userMsgId = Date.now().toString()
     setMessages(prev => [
       ...prev.filter(m => m.id !== 'welcome'),
@@ -123,22 +148,48 @@ export default function AiAssistantWidget() {
       // Form đang mở (nếu có) đọc NGAY LÚC GỬI — người dùng có thể đã gõ thêm từ lúc mở panel.
       const activeForm = useFormAssistStore.getState().active
 
-      const response = await aiApi.chat({
-        message: userText,
-        conversationId: conversationIdRef.current,
-        focusUnitId,
-        openFormId: activeForm?.formId,
-        openFormValues: activeForm?.getValues(),
-      })
+      // Hộp chứa thay vì biến let: TypeScript không theo dõi được phép gán bên trong callback,
+      // nên với `let` nó thu hẹp kiểu thành never sau phép kiểm null.
+      const box: { value: AiChatResponse | null } = { value: null }
+      await aiApi.chatStream(
+        {
+          message: userText,
+          conversationId: conversationIdRef.current,
+          focusUnitId,
+          openFormId: activeForm?.formId,
+          openFormValues: activeForm?.getValues(),
+        },
+        {
+          onStage: pushStage,
+          onDone: r => { box.value = r },
+          onError: message => { throw new Error(message) },
+        },
+      )
+      const { seconds, steps } = endTurn()
+      const response = box.value
+      if (!response) throw new Error('Luồng kết thúc mà không có câu trả lời')
 
-      const assistantId = (Date.now() + 1).toString()
       const options = response.options ?? []
+      const assistantId = (Date.now() + 1).toString()
+      const answer = response.text ?? ''
+      // Nội dung đầy đủ vào thẳng message; phần gõ dần chỉ là cách HIỆN nó, nên nếu hiệu ứng có
+      // hỏng thì người dùng vẫn đọc được đủ.
+      //
+      // Câu trả lời RỖNG thì không bật cờ gõ: `isTyping` khi đó không đổi giá trị nên effect dọn cờ
+      // không chạy, và bong bóng sẽ kẹt ở trạng thái trống.
+      if (answer) {
+        typingIdRef.current = assistantId
+        startTyping(answer)
+      }
       setMessages(prev => [
         ...prev,
         {
           id: assistantId,
           role: 'assistant',
-          content: response.text ?? '',
+          typing: !!answer,
+          thinkingSeconds: seconds,
+          steps,
+          content: answer,
           options: options.length ? options : undefined,
           // Chỉ giữ đề xuất nếu người dùng VẪN đang mở đúng form đó. Họ có thể đã đóng form trong
           // lúc chờ trả lời, và điền vào một form đã đóng thì vô nghĩa.
@@ -146,29 +197,13 @@ export default function AiAssistantWidget() {
             response.formPatch && response.formPatch.formId === activeForm?.formId
               ? response.formPatch
               : undefined,
+          // Câu hỏi gợi ý nay về CÙNG câu trả lời — trước đây phải gọi thêm POST /ai/followups.
+          // Backend đã tự bỏ qua ở lượt hỏi lại và lượt không có dữ liệu tool.
+          followups: response.followups,
         },
       ])
 
       turnRef.current += 1
-
-      // Lượt trợ lý hỏi lại đã có sẵn nút chọn -> không gợi ý câu hỏi tiếp theo (backend cũng
-      // trả rỗng cho lượt này), nên bỏ luôn lệnh gọi để khỏi tốn thêm một lượt gọi mô hình.
-      if (options.length) return
-
-      // Generate follow-up suggestions for this exchange (non-blocking for UX).
-      const ctxStr = buildFollowupContext(insight ?? null, userText, response.text)
-      try {
-        const pools = await aiApi.getFollowups({
-          conversationId: conversationIdRef.current ?? undefined,
-          turn: turnRef.current,
-          context: ctxStr,
-        })
-        if (pools && (pools.technical?.length || pools.management?.length)) {
-          setMessages(prev => prev.map(m => (m.id === assistantId ? { ...m, followups: pools } : m)))
-        }
-      } catch {
-        /* followups are best-effort */
-      }
     } catch (error: any) {
       const status = error?.response?.status
       let errorContent: string
@@ -190,6 +225,8 @@ export default function AiAssistantWidget() {
       ])
     } finally {
       setIsLoading(false)
+      // Lượt hỏng cũng phải đóng để dừng đồng hồ; kết quả bỏ đi vì không có gì để khoe.
+      endTurn()
     }
   }
 
@@ -239,7 +276,7 @@ export default function AiAssistantWidget() {
     return (
       <button
         onClick={() => setIsOpen(true)}
-        className="fixed bottom-6 right-6 w-14 h-14 bg-indigo-600 hover:bg-indigo-700 text-white rounded-full shadow-lg shadow-indigo-200 dark:shadow-none flex items-center justify-center transition-transform hover:scale-110 z-50 group"
+        className="fixed bottom-6 right-6 w-14 h-14 bg-violet-600 hover:bg-violet-700 text-white rounded-full shadow-lg shadow-violet-200 dark:shadow-none flex items-center justify-center transition-transform hover:scale-110 z-50 group"
       >
         <Bot size={24} />
         <span className="absolute right-full mr-4 bg-slate-800 text-white text-xs px-3 py-1.5 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
@@ -258,7 +295,7 @@ export default function AiAssistantWidget() {
     >
       {/* Header */}
       <div
-        className="h-[60px] bg-indigo-600 px-4 flex items-center justify-between shrink-0 cursor-pointer select-none"
+        className="h-[60px] bg-violet-600 px-4 flex items-center justify-between shrink-0 cursor-pointer select-none"
         onClick={() => setIsMinimized(!isMinimized)}
       >
         <div className="flex items-center gap-3">
@@ -267,7 +304,7 @@ export default function AiAssistantWidget() {
           </div>
           <div>
             <h3 className="text-white font-bold text-sm">Trợ lý AI</h3>
-            <p className="text-indigo-200 text-[10px]">
+            <p className="text-violet-200 text-[10px]">
               {quota
                 ? `Còn ${quota.remaining.toLocaleString('vi-VN')}/${quota.spendable.toLocaleString('vi-VN')} token tháng này`
                 : conversationIdRef.current
@@ -330,36 +367,40 @@ export default function AiAssistantWidget() {
           {/* Chat Area */}
           <div className="flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar bg-slate-50 dark:bg-slate-900/50">
             {messages.map(msg => (
-              <div
-                key={msg.id}
-                className={cn('flex flex-col', msg.role === 'user' ? 'items-end' : 'items-start')}
-              >
-                <div
-                  className={cn(
-                    'max-w-[90%] rounded-2xl px-4 py-3 text-sm',
-                    msg.role === 'user'
-                      ? 'bg-indigo-600 text-white rounded-tr-sm'
-                      : 'bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 border border-slate-100 dark:border-slate-700 rounded-tl-sm shadow-sm',
-                  )}
-                >
-                  {msg.role === 'user' ? (
-                    <div className="whitespace-pre-wrap">{msg.content}</div>
-                  ) : (
-                    <div className="prose prose-sm dark:prose-invert prose-indigo max-w-none">
-                      <ReactMarkdown remarkPlugins={[remarkGfm]}>{msg.content}</ReactMarkdown>
+              <div key={msg.id} className="flex flex-col">
+                {msg.role === 'user' ? (
+                  /* Lượt người dùng: KHÔNG bong bóng đặc. Một rãnh dọc màu AI + nhãn nhỏ là đủ
+                     phân định lượt, mà không ăn mất chiều ngang của câu trả lời bên dưới. */
+                  <div className="border-l-2 border-[var(--color-ai-line)] pl-3 py-0.5">
+                    <div className="text-[10px] font-semibold uppercase tracking-widest text-[var(--color-ai)]">
+                      Bạn hỏi
                     </div>
-                  )}
-                </div>
+                    <div className="mt-0.5 text-sm whitespace-pre-wrap text-[var(--color-foreground)]">
+                      {msg.content}
+                    </div>
+                  </div>
+                ) : (
+                  /* Lượt trợ lý: trải hết chiều ngang, không nền không viền. Ở panel 450px, bỏ
+                     bong bóng trả lại ~17% bề ngang cho bảng và số liệu. */
+                  <div className="text-sm text-[var(--color-foreground)]">
+                    {msg.thinkingSeconds != null && (
+                      <ThinkingSummary seconds={msg.thinkingSeconds} steps={msg.steps} />
+                    )}
+                    {/* Đang gõ thì hiện phần đã gõ; nội dung đầy đủ vẫn nằm ở msg.content nên
+                        hiệu ứng có hỏng cũng không mất chữ. */}
+                    <AnswerMarkdown>{msg.typing ? typedText : msg.content}</AnswerMarkdown>
+                  </div>
+                )}
 
                 {/* Trợ lý hỏi lại: cho bấm chọn thẳng, khỏi gõ lại tên */}
-                {msg.role === 'assistant' && msg.options?.length && msg.id === lastAssistantId && !isLoading && (
+                {msg.role === 'assistant' && msg.options?.length && msg.id === lastAssistantId && !isLoading && !msg.typing && (
                   <div className="w-full mt-2 flex flex-wrap gap-2">
                     {msg.options.map(opt => (
                       <button
                         key={opt.value + opt.label}
                         type="button"
                         onClick={() => sendMessage(opt.value)}
-                        className="px-3 py-1.5 text-sm rounded-full border border-indigo-300 text-indigo-700 bg-indigo-50 hover:bg-indigo-100 dark:border-indigo-700 dark:text-indigo-300 dark:bg-indigo-950 dark:hover:bg-indigo-900 transition-colors"
+                        className="px-3 py-1.5 text-sm rounded-full border border-[var(--color-ai-line)] text-[var(--color-ai)] bg-[var(--color-ai-soft)] hover:brightness-95 dark:hover:brightness-125 transition-[filter]"
                       >
                         {opt.label}
                       </button>
@@ -373,7 +414,7 @@ export default function AiAssistantWidget() {
                 )}
 
                 {/* Follow-up suggestions under the latest assistant answer */}
-                {msg.role === 'assistant' && msg.followups && msg.id === lastAssistantId && !isLoading && (
+                {msg.role === 'assistant' && msg.followups && msg.id === lastAssistantId && !isLoading && !msg.typing && (
                   <div className="w-full mt-2">
                     <FollowupSuggestions
                       pools={msg.followups}
@@ -393,8 +434,16 @@ export default function AiAssistantWidget() {
 
             {isLoading && (
               <div className="flex items-start">
-                <div className="bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl rounded-tl-sm px-4 py-3 shadow-sm">
-                  <Loader2 size={16} className="animate-spin text-indigo-500" />
+                <div className="flex items-center gap-2 bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl rounded-tl-sm px-4 py-3 shadow-sm">
+                  <Loader2 size={16} className="animate-spin text-violet-500" />
+                  {/* Vòng gọi tool chiếm phần lớn 10-15 giây của một lượt; nói rõ đang làm gì
+                      thì quãng chờ đỡ như treo máy. */}
+                  {stageLabel && (
+                    <span className="text-xs text-slate-500 dark:text-slate-400">{stageLabel}…</span>
+                  )}
+                  {elapsedSec > 0 && (
+                    <span className="text-xs tabular-nums text-slate-400 dark:text-slate-500">{elapsedSec}s</span>
+                  )}
                 </div>
               </div>
             )}
@@ -410,14 +459,14 @@ export default function AiAssistantWidget() {
                 onChange={e => setInput(e.target.value)}
                 onKeyDown={handleKeyDown}
                 placeholder="Nhập câu hỏi..."
-                className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-2.5 pr-12 text-sm leading-6 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 resize-none transition-shadow"
+                className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-2.5 pr-12 text-sm leading-6 focus:outline-none focus:ring-2 focus:ring-violet-500/50 resize-none transition-shadow"
                 rows={1}
                 style={{ minHeight: '44px', maxHeight: '120px' }}
               />
               <button
                 onClick={handleSend}
                 disabled={!input.trim() || isLoading}
-                className="absolute right-2 bottom-2 p-1.5 bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-300 dark:disabled:bg-slate-700 text-white rounded-lg transition-colors"
+                className="absolute right-2 bottom-2 p-1.5 bg-violet-600 hover:bg-violet-700 disabled:bg-slate-300 dark:disabled:bg-slate-700 text-white rounded-lg transition-colors"
               >
                 <Send size={16} />
               </button>
