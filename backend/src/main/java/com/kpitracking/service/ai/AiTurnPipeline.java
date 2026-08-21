@@ -90,7 +90,33 @@ public class AiTurnPipeline {
             };
         }
         AiStage stage = stages.get(index);
-        return turn -> stage.handle(turn, chainFrom(index + 1));
+        return turn -> {
+            notifyStarted(turn, stage);
+            return stage.handle(turn, chainFrom(index + 1));
+        };
+    }
+
+    /**
+     * Báo cho client biết đang vào công đoạn nào — chỉ với công đoạn CÓ nhãn.
+     *
+     * <p>Đặt ở ĐÂY chứ không trong từng stage vì chỗ này vốn đã bọc mọi stage: công đoạn chỉ cần
+     * khai một nhãn là được báo tiến độ, không phải biết gì về client hay giao thức truyền.
+     *
+     * <p>Công đoạn không khai nhãn thì im lặng. Xem {@link AiStage#label()} — mặc định là không
+     * hiện, vì nhãn này người dùng cuối đọc chứ không phải nhật ký chẩn đoán.
+     *
+     * <p>Báo tiến độ hỏng KHÔNG được làm hỏng lượt hỏi: nó là phần thêm, còn câu trả lời mới là thứ
+     * người dùng cần.
+     */
+    private void notifyStarted(AiTurn turn, AiStage stage) {
+        String label = stage.label();
+        if (label == null) return;
+        try {
+            turn.getListener().stageStarted(stage.getClass().getSimpleName(), label);
+        } catch (Exception e) {
+            log.warn("Báo tiến độ công đoạn {} lỗi ({}), bỏ qua",
+                    stage.getClass().getSimpleName(), e.getMessage());
+        }
     }
 
     /** Danh sách stage đang chạy — dùng cho test và chẩn đoán. */

@@ -88,6 +88,24 @@ class KpiFormFillToolTest {
     }
 
     @Test
+    @DisplayName("gọi tool mà KHÔNG truyền ô nào -> lời nhắc model sửa được, không phải NPE")
+    void nullRequestIsRecoverable() {
+        // Đo được ở cả hai đường: model gọi tool với tham số rỗng, Spring AI truyền thẳng null vào,
+        // tool ném NPE và model nhận nguyên văn thông báo NPE của Java — thứ nó không sửa được.
+        String out = tool.suggestKpiForm(null, withForm(Map.of()));
+
+        assertThat(out).contains("\"error\"");
+        assertThat(out).as("phải nói model cần làm gì, không phải rò nội bộ Java")
+                .doesNotContain("NullPointerException")
+                .contains("gọi lại")
+                // Nêu đúng tên các ô, lấy từ chính record — không có phần này model đoán mò và
+                // đo được là nó lặp lại lời gọi rỗng nhiều lần trước khi trúng.
+                .contains("weight")
+                .contains("frequency");
+        assertThat(FormPatchStore.get()).isNull();
+    }
+
+    @Test
     @DisplayName("đề xuất hợp lệ được ghi vào kho, kèm nhãn tiếng Việt cho người đọc")
     void validSuggestionIsStored() {
         String out = tool.suggestKpiForm(

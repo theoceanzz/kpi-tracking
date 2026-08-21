@@ -34,7 +34,9 @@ public class EvaluationFormFillTool {
             @JsonProperty(required = false) String periodName,    // tên đợt KPI
             @JsonProperty(required = false) Double score,
             @JsonProperty(required = false) String comment,
-            @JsonProperty(required = false) String reason) {}
+            // BẮT BUỘC — xem ghi chú ở FormFillSupport.requireArgs: mọi ô đều tuỳ chọn thì `{}` là
+            // lời gọi HỢP LỆ, và model gọi rỗng để dò. Các tool đọc đều có một ô bắt buộc.
+            String reason) {}
 
     @Tool(name = "suggest_evaluation_form", description =
             "Đề xuất giá trị điền vào form ĐÁNH GIÁ NHÂN VIÊN đang mở trên màn hình người dùng. "
@@ -45,6 +47,7 @@ public class EvaluationFormFillTool {
             + "reason: một câu ngắn nói vì sao đề xuất như vậy.")
     public String suggestEvaluationForm(EvaluationFormFillRequest request, ToolContext context) {
         try {
+            fill.requireArgs(request, "suggest_evaluation_form", EvaluationFormFillRequest.class);
             fill.requireOpenForm(FormRegistry.EVALUATION_FORM, context);
             Descriptor form = formRegistry.find(FormRegistry.EVALUATION_FORM);
             Map<String, Object> current = fill.currentValues(context);
@@ -66,7 +69,7 @@ public class EvaluationFormFillTool {
                 fill.addIfChanged(entries, current, form.field("kpiPeriodId"), p.single(), p.display(), reason);
             }
 
-            return fill.finish(FormRegistry.EVALUATION_FORM, "suggest_evaluation_form",
+            return fill.finish(context, FormRegistry.EVALUATION_FORM, "suggest_evaluation_form",
                     entries, stillMissing(request, current));
 
         } catch (Exception e) {

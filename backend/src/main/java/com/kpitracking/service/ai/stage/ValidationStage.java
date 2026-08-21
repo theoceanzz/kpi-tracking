@@ -53,6 +53,10 @@ public class ValidationStage implements AiStage {
         String answer = next.proceed(turn);
         if (!enabled || answer == null) return answer;
 
+        // Báo ở ĐÂY chứ không qua label(): công đoạn này vào chuỗi ngay đầu lượt nhưng chỉ soi câu
+        // trả lời sau khi model đã trả lời xong.
+        turn.progress(this, "Đang kiểm tra lại câu trả lời");
+
         // Ghi lại chuỗi tool của lượt để chẩn đoán về sau (trường dành sẵn từ lúc dựng khung).
         turn.setToolCallTrace(ToolCallTracker.calls());
 
@@ -76,7 +80,6 @@ public class ValidationStage implements AiStage {
         String stripped = LIST_MARKERS.matcher(DATES.matcher(answer).replaceAll(" ")).replaceAll(" ");
         return ANY_DIGIT.matcher(stripped).find();
     }
-
     @Override
     public int getOrder() { return 600; }
 }

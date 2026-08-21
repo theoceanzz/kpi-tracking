@@ -38,7 +38,9 @@ public class OrgUnitFormFillTool {
             @JsonProperty(required = false) String address,
             @JsonProperty(required = false) String hierarchyLevelName, // vd "Phòng ban", "Nhóm"
             @JsonProperty(required = false) String parentUnitName,
-            @JsonProperty(required = false) String reason) {}
+            // BẮT BUỘC — xem ghi chú ở FormFillSupport.requireArgs: mọi ô đều tuỳ chọn thì `{}` là
+            // lời gọi HỢP LỆ, và model gọi rỗng để dò. Các tool đọc đều có một ô bắt buộc.
+            String reason) {}
 
     @Tool(name = "suggest_org_unit_form", description =
             "Đề xuất giá trị điền vào form TẠO/SỬA ĐƠN VỊ đang mở trên màn hình người dùng. "
@@ -49,6 +51,7 @@ public class OrgUnitFormFillTool {
             + "reason: một câu ngắn nói vì sao đề xuất như vậy.")
     public String suggestOrgUnitForm(OrgUnitFormFillRequest request, ToolContext context) {
         try {
+            fill.requireArgs(request, "suggest_org_unit_form", OrgUnitFormFillRequest.class);
             fill.requireOpenForm(FormRegistry.ORG_UNIT_FORM, context);
             Descriptor form = formRegistry.find(FormRegistry.ORG_UNIT_FORM);
             Map<String, Object> current = fill.currentValues(context);
@@ -72,7 +75,7 @@ public class OrgUnitFormFillTool {
                 fill.addIfChanged(entries, current, form.field("parentId"), p.single(), p.display(), reason);
             }
 
-            return fill.finish(FormRegistry.ORG_UNIT_FORM, "suggest_org_unit_form",
+            return fill.finish(context, FormRegistry.ORG_UNIT_FORM, "suggest_org_unit_form",
                     entries, stillMissing(request, current));
 
         } catch (Exception e) {

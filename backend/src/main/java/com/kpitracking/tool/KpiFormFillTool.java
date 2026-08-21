@@ -51,7 +51,9 @@ public class KpiFormFillTool {
             @JsonProperty(required = false) String periodName,     // tên kỳ KPI
             @JsonProperty(required = false) List<String> orgUnitNames,
             @JsonProperty(required = false) List<String> assigneeNames,
-            @JsonProperty(required = false) String reason) {}      // vì sao đề xuất như vậy
+            // BẮT BUỘC — xem ghi chú ở FormFillSupport.requireArgs: mọi ô đều tuỳ chọn thì `{}` là
+            // lời gọi HỢP LỆ, và model gọi rỗng để dò. Các tool đọc đều có một ô bắt buộc.
+            String reason) {}      // vì sao đề xuất như vậy
 
     @Tool(name = "suggest_kpi_form", description =
             "Đề xuất giá trị điền vào form TẠO/SỬA CHỈ TIÊU KPI đang mở trên màn hình người dùng. "
@@ -64,6 +66,7 @@ public class KpiFormFillTool {
             + "reason: một câu ngắn nói vì sao đề xuất như vậy, hiện cho người dùng đọc.")
     public String suggestKpiForm(KpiFormFillRequest request, ToolContext context) {
         try {
+            fill.requireArgs(request, "suggest_kpi_form", KpiFormFillRequest.class);
             fill.requireOpenForm(FormRegistry.KPI_FORM, context);
             Descriptor form = formRegistry.find(FormRegistry.KPI_FORM);
             Map<String, Object> current = fill.currentValues(context);
@@ -98,7 +101,7 @@ public class KpiFormFillTool {
                 fill.addIfChanged(entries, current, form.field("assignedToIds"), a.ids(), a.display(), reason);
             }
 
-            return fill.finish(FormRegistry.KPI_FORM, "suggest_kpi_form", entries, stillMissing(request, current));
+            return fill.finish(context, FormRegistry.KPI_FORM, "suggest_kpi_form", entries, stillMissing(request, current));
 
         } catch (Exception e) {
             return fill.toolError("suggest_kpi_form", e);

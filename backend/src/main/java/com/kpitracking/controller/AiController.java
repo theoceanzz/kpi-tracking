@@ -1,7 +1,6 @@
 package com.kpitracking.controller;
 
 import com.kpitracking.dto.request.ai.AiKpiSuggestionRequest;
-import com.kpitracking.dto.request.ai.FollowupRequest;
 import com.kpitracking.dto.response.ApiResponse;
 import com.kpitracking.dto.response.ai.AiKpiSuggestionResponse;
 import com.kpitracking.dto.response.ai.FollowupResponse;
@@ -10,23 +9,28 @@ import com.kpitracking.entity.AiTokenUsage;
 import com.kpitracking.service.AiQuotaService;
 import com.kpitracking.service.AiRateLimiter;
 import com.kpitracking.service.AiTokenUsageRecorder;
-import com.kpitracking.service.FollowupService;
 import com.kpitracking.service.InsightService;
 import com.kpitracking.service.ai.AiTurn;
+import com.kpitracking.service.ai.TurnListener;
 import com.kpitracking.service.ai.form.FormPatch;
 import com.kpitracking.tool.FollowupContextStore;
+import org.springframework.security.concurrent.DelegatingSecurityContextExecutor;
 import org.springframework.security.core.context.SecurityContextHolder;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import com.kpitracking.dto.request.ai.AiChatRequest;
 import com.kpitracking.dto.response.ai.AiChatResponse;
 import com.kpitracking.service.AiService;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.util.List;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 @RestController
 @RequestMapping("/api/v1/ai")
@@ -36,10 +40,23 @@ public class AiController {
 
     private final AiService aiService;
     private final InsightService insightService;
-    private final FollowupService followupService;
     private final AiRateLimiter aiRateLimiter;
     private final AiQuotaService aiQuotaService;
     private final FollowupContextStore followupContextStore;
+
+    /** Trần thời gian một lượt streaming; dài hơn timeout 300s của client một chút. */
+    private static final long SSE_TIMEOUT_MS = 330_000L;
+
+    /**
+     * Luồng chạy pipeline cho các lượt streaming.
+     *
+     * <p>Có TRẦN chứ không dùng {@code newCachedThreadPool}: mỗi lượt chiếm luồng 10–15 giây trong
+     * lúc chờ model, nên pool không giới hạn sẽ đẻ luồng không kiểm soát khi nhiều người hỏi cùng
+     * lúc. Trần 32 là dư so với bộ chặn 15 lượt AI/phút của chính hệ thống.
+     *
+     * <p>(Luồng ảo hợp hơn cho tác vụ chờ I/O như thế này, nhưng dự án biên dịch cho Java 17.)
+     */
+    private final ExecutorService streamExecutor = Executors.newFixedThreadPool(32);
 
     /** Email người dùng đang đăng nhập (JWT subject) — khóa rate-limit theo user. */
     private String currentUserEmail() {
@@ -47,21 +64,63 @@ public class AiController {
         return auth != null ? auth.getName() : null;
     }
 
-    @PostMapping("/chat-org-unit")
+    @PostMapping("/chat")
     public ApiResponse<AiChatResponse> chatOrgUnit(@RequestBody AiChatRequest request) {
         // Chặn tần suất và kiểm hạn mức đã thành RateLimitStage/QuotaStage trong chuỗi xử lý,
         // để mọi lối vào tính năng chat đều đi qua chúng chứ không chỉ riêng endpoint này.
-        // Hai endpoint còn lại (gợi ý KPI, câu hỏi tiếp) chưa dùng chuỗi nên vẫn tự gọi.
+        // Còn mỗi gợi ý KPI chưa dùng chuỗi nên vẫn tự gọi; câu hỏi gợi ý đã thành FollowupStage
+        // trong chuỗi, nên nó cũng đi qua các phép chặn này thay vì tự kiểm.
+        return ApiResponse.success(runTurn(request, TurnListener.NOOP));
+    }
+
+    /**
+     * Bản streaming của {@link #chatOrgUnit}: phát tiến độ từng công đoạn và chữ dần, rồi kết bằng
+     * câu trả lời CHÍNH THỨC.
+     *
+     * <p>Giữ song song endpoint JSON chứ không thay: hai bộ đo của dự án (40 câu và 21 ca điền form)
+     * đều đọc JSON, và client không phải trình duyệt cũng dễ dùng hơn. Phần thân dùng chung
+     * {@link #runTurn} nên hai đường không thể lệch nội dung trả về.
+     */
+    @PostMapping(value = "/chat/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    public SseEmitter chatOrgUnitStream(@RequestBody AiChatRequest request) {
+        SseEmitter emitter = new SseEmitter(SSE_TIMEOUT_MS);
+        SseTurnListener listener = new SseTurnListener(emitter);
+
+        // Pipeline chạy NGOÀI luồng request nên phải mang SecurityContext sang: ManagerContextResolver,
+        // AiRateLimiter và AiTokenUsageRecorder đều đọc SecurityContextHolder. Các ThreadLocal khác
+        // (ToolCallTracker, FormPatchStore, DisambiguationGuard) tự đặt và tự dọn trong
+        // AiTurnPipeline.run() nên chạy ở luồng nào cũng đúng.
+        new DelegatingSecurityContextExecutor(streamExecutor, SecurityContextHolder.getContext())
+                .execute(() -> {
+                    try {
+                        listener.done(runTurn(request, listener));
+                        emitter.complete();
+                    } catch (Exception e) {
+                        listener.failed(e);
+                        emitter.complete();
+                    }
+                });
+        return emitter;
+    }
+
+    /**
+     * Chạy một lượt hỏi và dựng câu trả lời. Là chỗ DUY NHẤT dựng {@link AiChatResponse}, để đường
+     * JSON và đường streaming không thể lệch nhau về options / formPatch / followups.
+     */
+    private AiChatResponse runTurn(AiChatRequest request, TurnListener listener) {
         String result;
         FormPatch formPatch;
+        FollowupResponse followups;
         AiTokenUsageRecorder.setFeature(AiTokenUsage.AiFeature.CHAT);
         try {
             AiTurn turn = new AiTurn(request.getMessage(), request.getConversationId(), request.getFocusUnitId());
             turn.setOpenFormId(request.getOpenFormId());
             turn.setOpenFormValues(request.getOpenFormValues());
+            turn.setListener(listener);
             result = aiService.processOrgUnitChat(turn);
             // Pipeline đã chuyển bản đề xuất từ ThreadLocal lên turn trước khi dọn.
             formPatch = turn.getFormPatch();
+            followups = turn.getFollowups();
         } finally {
             AiTokenUsageRecorder.clearFeature();
         }
@@ -76,12 +135,12 @@ public class AiController {
                                 .build())
                         .toList();
 
-        AiChatResponse response = AiChatResponse.builder()
+        return AiChatResponse.builder()
                 .text(result)
                 .options(options)
                 .formPatch(formPatch != null && !formPatch.isEmpty() ? formPatch : null)
+                .followups(followups)
                 .build();
-        return ApiResponse.success(response);
     }
 
     @PostMapping("/suggest-kpi")
@@ -105,21 +164,5 @@ public class AiController {
     @Operation(summary = "Proactive rule-based KPI insight cards for the current manager (no AI)")
     public ApiResponse<List<InsightCardResponse>> getInsights() {
         return ApiResponse.success(insightService.getInsights());
-    }
-
-    @PostMapping("/followups")
-    @Operation(summary = "Suggested follow-up questions (turn 0 = fixed templates, turn ≥1 = AI-generated pools)")
-    public ApiResponse<FollowupResponse> getFollowups(@RequestBody FollowupRequest request) {
-        // Endpoint này trước đây hoàn toàn không bị chặn dù nó có gọi LLM — để nguyên thì
-        // người đã hết hạn mức vẫn tiêu được token qua đường này.
-        aiRateLimiter.check(currentUserEmail());
-        aiQuotaService.checkAndThrow(currentUserEmail());
-
-        AiTokenUsageRecorder.setFeature(AiTokenUsage.AiFeature.FOLLOWUP);
-        try {
-            return ApiResponse.success(followupService.generate(request));
-        } finally {
-            AiTokenUsageRecorder.clearFeature();
-        }
     }
 }

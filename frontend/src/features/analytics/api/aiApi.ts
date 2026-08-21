@@ -1,4 +1,5 @@
 import axiosInstance from '@/lib/axios'
+import { ENV } from '@/config/env'
 import type { ApiResponse, PageResponse, PageParams } from '@/types/api'
 
 export interface AiChatRequest {
@@ -44,6 +45,11 @@ export interface AiChatResponse {
   options?: ClarificationOption[]
   /** Chỉ có khi người dùng nhờ điền form đang mở; lượt bình thường sẽ vắng field này. */
   formPatch?: FormPatch
+  /**
+   * Câu hỏi gợi ý tiếp theo. Trước đây phải gọi thêm POST /ai/followups để lấy phần này — nay nó
+   * về cùng câu trả lời, nên một lượt chat là MỘT request. Vắng ở lượt không sinh gợi ý.
+   */
+  followups?: FollowupPools
 }
 
 export interface ConversationResponse {
@@ -89,20 +95,110 @@ export interface FollowupPools {
   management: string[]
 }
 
-export interface FollowupRequest {
-  conversationId?: string
-  turn: number
-  context: string
-}
-
 // Các endpoint gọi LLM có thể chạy lâu hơn nhiều so với request thường,
 // nên dùng timeout riêng 300s thay vì timeout global (100s).
 const AI_TIMEOUT = 300000
 
+/** Việc trợ lý đang làm: một công đoạn của chuỗi xử lý, hoặc một lần tra cứu dữ liệu. */
+export interface StageEvent {
+  /** Mã ổn định để đối chiếu: tên lớp công đoạn, hoặc "tool:<tên tool>". */
+  code: string
+  /** Nhãn tiếng Việt để hiện cho người dùng, luôn ở dạng "Đang…". */
+  label: string
+}
+
+export interface ChatStreamHandlers {
+  onStage?: (stage: StageEvent) => void
+  /** Một mẩu chữ. Là BẢN XEM TRƯỚC chưa qua lọc — phải thay bằng nội dung của onDone. */
+  onToken?: (text: string) => void
+  onDone?: (response: AiChatResponse) => void
+  onError?: (message: string) => void
+}
+
+/** Đọc cookie theo tên. Chỉ dùng cho XSRF-TOKEN, vốn cố ý KHÔNG phải HttpOnly. */
+function readCookie(name: string): string | null {
+  const hit = document.cookie.split('; ').find(c => c.startsWith(name + '='))
+  return hit ? decodeURIComponent(hit.slice(name.length + 1)) : null
+}
+
 export const aiApi = {
+  /**
+   * Bản SSE của {@link chat}: báo tiến độ, phát chữ dần, rồi kết bằng câu trả lời CHÍNH THỨC.
+   *
+   * <p>Chữ ở `onToken` là BẢN XEM TRƯỚC chưa qua lọc — luôn phải thay bằng `onDone`.
+   *
+   * <p>Dùng `fetch` chứ không dùng axios vì cần đọc dần thân phản hồi. Đổi lại phải TỰ gắn
+   * `X-XSRF-TOKEN` — axios làm việc đó tự động nhờ `withCredentials`, còn `fetch` thô thì không,
+   * và thiếu nó Spring Security trả 403 mà không nói gì thêm.
+   */
+  chatStream: async (request: AiChatRequest, handlers: ChatStreamHandlers) => {
+    const xsrf = readCookie('XSRF-TOKEN')
+    const res = await fetch(`${ENV.API_BASE_URL}/ai/chat/stream`, {
+      method: 'POST',
+      credentials: 'include',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(xsrf ? { 'X-XSRF-TOKEN': xsrf } : {}),
+      },
+      body: JSON.stringify(request),
+    })
+    if (!res.ok || !res.body) {
+      // Dựng lỗi theo ĐÚNG hình dạng lỗi của axios ({ response: { status, data } }) để chỗ bắt lỗi
+      // ở màn hình dùng chung được một nhánh cho cả hai đường — nhánh 429 đọc data.message.
+      const data = await res.json().catch(() => undefined)
+      throw Object.assign(new Error(data?.message ?? 'Chat stream failed'), {
+        response: { status: res.status, data },
+      })
+    }
+
+    const reader = res.body.getReader()
+    const decoder = new TextDecoder()
+    let buffer = ''
+
+    // Khung SSE: các dòng "event:" / "data:" ngăn cách nhau bằng một dòng trống. Một khung có thể
+    // bị cắt qua nhiều lần đọc, nên chỉ xử lý phần đã đủ và giữ lại phần dở trong buffer.
+    try {
+      for (;;) {
+        const { done, value } = await reader.read()
+        if (done) break
+        buffer += decoder.decode(value, { stream: true })
+
+        let split: number
+        while ((split = buffer.indexOf('\n\n')) >= 0) {
+          const frame = buffer.slice(0, split)
+          buffer = buffer.slice(split + 2)
+
+          let event = 'message'
+          const dataLines: string[] = []
+          for (const line of frame.split('\n')) {
+            if (line.startsWith('event:')) event = line.slice(6).trim()
+            else if (line.startsWith('data:')) dataLines.push(line.slice(5).trimStart())
+          }
+          if (!dataLines.length) continue
+
+          let payload: any
+          try {
+            payload = JSON.parse(dataLines.join('\n'))
+          } catch {
+            continue // khung hỏng thì bỏ, không làm chết cả luồng
+          }
+
+          if (event === 'stage') handlers.onStage?.(payload as StageEvent)
+          else if (event === 'token') handlers.onToken?.(payload.text ?? '')
+          else if (event === 'done') handlers.onDone?.(payload as AiChatResponse)
+          else if (event === 'error') handlers.onError?.(payload.message ?? 'Lỗi không xác định')
+        }
+      }
+    } finally {
+      // Đóng kết nối kể cả khi thoát giữa chừng (onError ném ra ngoài). Bỏ qua thì socket còn treo
+      // tới lúc bộ dọn rác đụng tới, và trình duyệt chỉ cho vài kết nối cùng lúc tới một máy chủ.
+      reader.cancel().catch(() => {})
+    }
+  },
+
   chat: (request: AiChatRequest) =>
     axiosInstance
-      .post<ApiResponse<AiChatResponse>>('/ai/chat-org-unit', request, { timeout: AI_TIMEOUT })
+      .post<ApiResponse<AiChatResponse>>('/ai/chat', request, { timeout: AI_TIMEOUT })
       .then(res => res.data.data),
 
   createConversation: (title?: string) =>
@@ -131,10 +227,5 @@ export const aiApi = {
   getInsights: () =>
     axiosInstance
       .get<ApiResponse<InsightCard[]>>('/ai/insights', { timeout: AI_TIMEOUT })
-      .then(res => res.data.data),
-
-  getFollowups: (request: FollowupRequest) =>
-    axiosInstance
-      .post<ApiResponse<FollowupPools>>('/ai/followups', request, { timeout: AI_TIMEOUT })
       .then(res => res.data.data),
 }

@@ -2,6 +2,7 @@ package com.kpitracking.service.ai;
 
 import com.kpitracking.entity.Organization;
 import com.kpitracking.service.ManagerContextResolver.ManagerContext;
+import com.kpitracking.dto.response.ai.FollowupResponse;
 import com.kpitracking.service.ai.form.FormPatch;
 import com.kpitracking.tool.ToolRegistry;
 import lombok.Getter;
@@ -61,6 +62,19 @@ public class AiTurn {
      */
     private FormPatch formPatch;
     /**
+     * Tên đơn vị của thẻ Insight người dùng bấm, nếu có. {@code TurnSetupStage} gắn khi nó đã nạp
+     * đơn vị để kiểm {@code focusUnitId} — không tốn thêm truy vấn nào.
+     */
+    private String focusUnitName;
+    /** Các câu hỏi gợi ý tiếp theo do {@code FollowupStage} sinh; null ở lượt không có gợi ý. */
+    private FollowupResponse followups;
+
+    /**
+     * Nơi nhận tiến độ của lượt. Mặc định {@link TurnListener#NOOP} nên đường JSON không phải biết
+     * gì về streaming, và pipeline không phải kiểm null ở mỗi chỗ phát.
+     */
+    private TurnListener listener = TurnListener.NOOP;
+    /**
      * Các tool đã lên kế hoạch nhưng lượt đầu không gọi — do {@code PlanCompletionStage} đặt trước
      * khi hỏi lại, để khối kế hoạch lần hai chỉ nêu đúng phần còn thiếu thay vì nhắc lại cả kế hoạch.
      */
@@ -78,5 +92,26 @@ public class AiTurn {
     /** Id hội thoại chỉ khi lượt này thực sự có bộ nhớ; ngược lại null. */
     public String memoryConversationId() {
         return hasMemory ? conversationId : null;
+    }
+
+    /**
+     * Báo cho người dùng biết công đoạn này đang làm gì, NGAY LÚC bắt đầu làm.
+     *
+     * <p>Dành cho công đoạn bọc ngoài — thứ làm việc SAU {@code next.proceed(...)}. Với chúng,
+     * {@code AiStage.label()} nói sai vì chúng vào chuỗi ngay đầu lượt nhưng chỉ làm việc sau khi
+     * model đã trả lời xong.
+     *
+     * <p>Nuốt mọi lỗi: báo tiến độ là phần thêm, còn câu trả lời mới là thứ người dùng cần. Công
+     * đoạn gọi hàm này không phải tự phòng thủ.
+     *
+     * @param stage công đoạn đang báo — truyền {@code this}; tên lớp của nó thành mã sự kiện, giống
+     *              hệt nhánh pipeline tự phát, để client đối chiếu được bằng một cách duy nhất
+     */
+    public void progress(AiStage stage, String label) {
+        try {
+            listener.stageStarted(stage.getClass().getSimpleName(), label);
+        } catch (Exception ignore) {
+            // Client ngắt giữa chừng là chuyện thường; lượt vẫn phải chạy nốt.
+        }
     }
 }

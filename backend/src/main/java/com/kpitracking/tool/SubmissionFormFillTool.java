@@ -39,7 +39,9 @@ public class SubmissionFormFillTool {
             @JsonProperty(required = false) String note,
             @JsonProperty(required = false) String periodStart,          // dd/MM/yyyy hoặc yyyy-MM-dd
             @JsonProperty(required = false) String periodEnd,
-            @JsonProperty(required = false) String reason) {}
+            // BẮT BUỘC — xem ghi chú ở FormFillSupport.requireArgs: mọi ô đều tuỳ chọn thì `{}` là
+            // lời gọi HỢP LỆ, và model gọi rỗng để dò. Các tool đọc đều có một ô bắt buộc.
+            String reason) {}
 
     @Tool(name = "suggest_submission_form", description =
             "Đề xuất giá trị điền vào form NỘP BÁO CÁO KPI đang mở trên màn hình người dùng. "
@@ -54,6 +56,7 @@ public class SubmissionFormFillTool {
             + "reason: một câu ngắn nói vì sao đề xuất như vậy.")
     public String suggestSubmissionForm(SubmissionFormFillRequest request, ToolContext context) {
         try {
+            fill.requireArgs(request, "suggest_submission_form", SubmissionFormFillRequest.class);
             fill.requireOpenForm(FormRegistry.SUBMISSION_FORM, context);
             Descriptor form = formRegistry.find(FormRegistry.SUBMISSION_FORM);
             Map<String, Object> current = fill.currentValues(context);
@@ -77,7 +80,7 @@ public class SubmissionFormFillTool {
                 fill.addIfChanged(entries, current, form.field("qualitativeLevelId"), q.single(), q.display(), reason);
             }
 
-            return fill.finish(FormRegistry.SUBMISSION_FORM, "suggest_submission_form",
+            return fill.finish(context, FormRegistry.SUBMISSION_FORM, "suggest_submission_form",
                     entries, stillMissing(request, current));
 
         } catch (Exception e) {

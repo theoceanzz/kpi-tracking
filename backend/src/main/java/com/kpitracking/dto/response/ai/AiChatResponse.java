@@ -33,6 +33,15 @@ public class AiChatResponse {
      */
     private FormPatch formPatch;
 
+    /**
+     * Câu hỏi gợi ý tiếp theo cho lượt vừa trả lời.
+     *
+     * <p>Trước đây client phải gọi thêm {@code POST /ai/followups} để lấy phần này — nay nó về cùng
+     * câu trả lời, nên một lượt chat là một request. Vắng field ở lượt không sinh gợi ý (chào hỏi,
+     * từ chối, hoặc lượt trợ lý hỏi lại).
+     */
+    private FollowupResponse followups;
+
     @Data
     @Builder
     @NoArgsConstructor

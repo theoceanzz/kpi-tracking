@@ -149,6 +149,8 @@ public class PlanningStage implements AiStage {
         }
         return steps;
     }
+    @Override
+    public String label() { return "Đang lập kế hoạch trả lời"; }
 
     @Override
     public int getOrder() { return 700; }

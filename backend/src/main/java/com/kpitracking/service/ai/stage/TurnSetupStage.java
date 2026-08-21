@@ -4,6 +4,7 @@ import com.kpitracking.entity.OrgUnit;
 import com.kpitracking.repository.OrgUnitRepository;
 import com.kpitracking.service.ManagerContextResolver.ManagerContext;
 import com.kpitracking.service.ai.AiStage;
+import com.kpitracking.service.ai.ToolProgress;
 import com.kpitracking.service.ai.AiStageChain;
 import com.kpitracking.service.ai.AiTurn;
 import com.kpitracking.tool.FollowupContextStore;
@@ -54,6 +55,9 @@ public class TurnSetupStage implements AiStage {
         toolCtx.put("orgUnitPath", ctx.orgUnitPath());
         toolCtx.put("organizationId", ctx.orgId());
         toolCtx.put("userEmail", ctx.email());
+        // Người nghe tiến độ đi qua ĐÂY chứ không qua ThreadLocal: Spring AI đưa cùng một map này
+        // cho mọi lời gọi tool, nên tool báo được tiến độ dù chạy ở luồng nào. Xem ToolProgress.
+        toolCtx.put(ToolProgress.CONTEXT_KEY, turn.getListener());
         if (turn.isHasMemory()) {
             toolCtx.put("conversationId", turn.getConversationId());
         }
@@ -91,6 +95,9 @@ public class TurnSetupStage implements AiStage {
             OrgUnit fu = orgUnitRepository.findById(fid).orElse(null);
             if (fu != null && fu.getPath() != null && ctx.orgUnitPath() != null
                     && fu.getPath().startsWith(ctx.orgUnitPath())) {
+                // Giữ lại TÊN đơn vị cho FollowupStage định hướng chủ đề câu gợi ý. Đơn vị đã nạp
+                // sẵn ở đây rồi nên không tốn thêm truy vấn.
+                turn.setFocusUnitName(fu.getName());
                 return fid;
             }
         } catch (IllegalArgumentException ignored) {
@@ -98,6 +105,8 @@ public class TurnSetupStage implements AiStage {
         }
         return ctx.orgUnitId();
     }
+    @Override
+    public String label() { return "Đang chuẩn bị dữ liệu của bạn"; }
 
     @Override
     public int getOrder() { return 400; }

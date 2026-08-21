@@ -38,7 +38,9 @@ public class OrgUnitDrawerFormFillTool {
             @JsonProperty(required = false) String phone,
             @JsonProperty(required = false) String address,
             @JsonProperty(required = false) String status,       // ACTIVE|TRIAL|INACTIVE|SUSPENDED
-            @JsonProperty(required = false) String reason) {}
+            // BẮT BUỘC — xem ghi chú ở FormFillSupport.requireArgs: mọi ô đều tuỳ chọn thì `{}` là
+            // lời gọi HỢP LỆ, và model gọi rỗng để dò. Các tool đọc đều có một ô bắt buộc.
+            String reason) {}
 
     @Tool(name = "suggest_org_unit_drawer_form", description =
             "Đề xuất giá trị điền vào form SỬA ĐƠN VỊ (drawer ở màn Cơ cấu tổ chức) đang mở. "
@@ -51,6 +53,7 @@ public class OrgUnitDrawerFormFillTool {
             + "reason: một câu ngắn nói vì sao đề xuất như vậy.")
     public String suggestOrgUnitDrawerForm(OrgUnitDrawerFormFillRequest request, ToolContext context) {
         try {
+            fill.requireArgs(request, "suggest_org_unit_drawer_form", OrgUnitDrawerFormFillRequest.class);
             fill.requireOpenForm(FormRegistry.ORG_UNIT_DRAWER_FORM, context);
             Descriptor form = formRegistry.find(FormRegistry.ORG_UNIT_DRAWER_FORM);
             Map<String, Object> current = fill.currentValues(context);
@@ -67,7 +70,7 @@ public class OrgUnitDrawerFormFillTool {
             scalars.put("status", request.status());
             fill.addScalars(entries, form, current, scalars, reason);
 
-            return fill.finish(FormRegistry.ORG_UNIT_DRAWER_FORM, "suggest_org_unit_drawer_form",
+            return fill.finish(context, FormRegistry.ORG_UNIT_DRAWER_FORM, "suggest_org_unit_drawer_form",
                     entries, stillMissing(request, current));
 
         } catch (Exception e) {

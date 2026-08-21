@@ -34,7 +34,9 @@ public class KpiAdjustmentFormFillTool {
             @JsonProperty(required = false) Double requestedMinimumValue,
             @JsonProperty(required = false) Boolean deactivationRequest,
             @JsonProperty(required = false) String reason,
-            @JsonProperty(required = false) String suggestionReason) {}
+            // BẮT BUỘC — xem ghi chú ở FormFillSupport.requireArgs: mọi ô đều tuỳ chọn thì `{}` là
+            // lời gọi HỢP LỆ, và model gọi rỗng để dò. Các tool đọc đều có một ô bắt buộc.
+            String suggestionReason) {}
 
     @Tool(name = "suggest_kpi_adjustment_form", description =
             "Đề xuất giá trị điền vào form XIN ĐIỀU CHỈNH CHỈ TIÊU đang mở trên màn hình người dùng. "
@@ -46,6 +48,7 @@ public class KpiAdjustmentFormFillTool {
             + "suggestionReason: một câu ngắn nói vì sao bạn đề xuất như vậy.")
     public String suggestKpiAdjustmentForm(KpiAdjustmentFormFillRequest request, ToolContext context) {
         try {
+            fill.requireArgs(request, "suggest_kpi_adjustment_form", KpiAdjustmentFormFillRequest.class);
             fill.requireOpenForm(FormRegistry.KPI_ADJUSTMENT_FORM, context);
             Descriptor form = formRegistry.find(FormRegistry.KPI_ADJUSTMENT_FORM);
             Map<String, Object> current = fill.currentValues(context);
@@ -59,7 +62,7 @@ public class KpiAdjustmentFormFillTool {
             scalars.put("reason", request.reason());
             fill.addScalars(entries, form, current, scalars, why);
 
-            return fill.finish(FormRegistry.KPI_ADJUSTMENT_FORM, "suggest_kpi_adjustment_form",
+            return fill.finish(context, FormRegistry.KPI_ADJUSTMENT_FORM, "suggest_kpi_adjustment_form",
                     entries, stillMissing(request, current));
 
         } catch (Exception e) {

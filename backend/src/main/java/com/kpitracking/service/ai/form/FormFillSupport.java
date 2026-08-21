@@ -7,6 +7,7 @@ import com.kpitracking.repository.QualitativeLevelRepository;
 import com.kpitracking.service.OrgUnitStatisticService;
 import com.kpitracking.service.ai.form.FormSpec.Descriptor;
 import com.kpitracking.service.ai.form.FormSpec.Field;
+import com.kpitracking.service.ai.ToolProgress;
 import com.kpitracking.tool.ToolCallTracker;
 import com.kpitracking.tool.ToolSupport;
 import lombok.RequiredArgsConstructor;
@@ -14,10 +15,13 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.model.ToolContext;
 import org.springframework.stereotype.Component;
 
+import java.lang.reflect.RecordComponent;
+import java.util.Arrays;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 /**
  * Phần dùng chung của MỌI tool đề xuất điền form: kiểm giá trị, tra tên → ID, dựng bản đề xuất.
@@ -60,6 +64,39 @@ public class FormFillSupport {
         }
     }
 
+    /**
+     * Chặn lượt mà model gọi tool NHƯNG không truyền ô nào.
+     *
+     * <p>Đo được ở cả hai đường (gọi thường lẫn luồng): model gọi {@code suggest_kpi_form} với tham
+     * số rỗng, và vì tham số là một record nên Spring AI truyền thẳng {@code null} vào — tool ném
+     * {@code NullPointerException}. Model nhận về nguyên văn thông báo NPE của Java, thứ nó không
+     * hiểu và không sửa được: đường gọi thường tình cờ gọi lại lần hai rồi mới trúng, còn đường
+     * luồng thì bỏ cuộc và người dùng chẳng thấy đề xuất nào.
+     *
+     * <p>Ném {@code IllegalArgumentException} để đi đúng đường "lỗi sửa được" như các phép kiểm ô:
+     * model đọc được, gọi lại cho đúng, và log không dính stack trace.
+     *
+     * <p><b>Gốc rễ đã chữa ở chỗ khác, đây là lưới chắn.</b> Sáu record điền form ban đầu để MỌI ô
+     * là tuỳ chọn, nên {@code {}} là lời gọi HỢP LỆ theo schema và model gọi rỗng để dò — đo được
+     * 11 lời gọi rỗng trên 4 lượt. Các tool đọc không dính vì đều có một ô bắt buộc
+     * ({@code get_people.view}). Nay mỗi form cũng có một ô bắt buộc là câu giải thích, nên lời gọi
+     * rỗng không còn hợp lệ. Giữ lưới này lại vì mô hình vẫn có thể gửi tham số sai hình dạng.
+     */
+    public void requireArgs(Object request, String toolName, Class<?> shape) {
+        if (request != null) return;
+        // Kèm ĐÚNG tên các tham số tool nhận. Không có phần này, model thử lại bằng cách đoán và đo
+        // được là nó lặp lại lời gọi rỗng 5-6 lần rồi mới trúng — mỗi lần là một vòng gọi model.
+        // Tên lấy từ chính record khai báo tham số nên không thể lệch với mã.
+        String fields = shape.getRecordComponents() == null ? ""
+                : Arrays.stream(shape.getRecordComponents())
+                        .map(RecordComponent::getName)
+                        .collect(Collectors.joining(", "));
+        throw new IllegalArgumentException("Bạn gọi " + toolName
+                + " mà không truyền ô nào nên chưa đề xuất được gì. "
+                + "Hãy gọi lại và truyền các ô người dùng vừa nêu trong tham số `request`. "
+                + "Các ô nhận được: " + fields + ".");
+    }
+
     /** Giá trị các ô đang có trên form; rỗng nếu client không gửi. */
     @SuppressWarnings("unchecked")
     public Map<String, Object> currentValues(ToolContext context) {
@@ -99,13 +136,16 @@ public class FormFillSupport {
      *
      * <p>Trả {@code null} khi không có ô nào đổi — chỗ gọi tự quyết định nói gì.
      */
-    public String finish(String formId, String toolName, List<FormPatch.Entry> entries, String suffix) {
+    public String finish(ToolContext context, String formId, String toolName,
+                         List<FormPatch.Entry> entries, String suffix) {
         if (entries.isEmpty()) {
             return "Không có ô nào thay đổi so với form hiện tại. Hãy trả lời người dùng bằng lời.";
         }
         FormPatchStore.put(new FormPatch(formId, entries));
         ToolCallTracker.record(toolName);
         log.info("AI-TOOL-CALL {} ({} ô)", toolName, entries.size());
+        // Cùng chỗ với ToolSupport.respond: báo tiến độ ở đúng nơi đang ghi AI-TOOL-CALL.
+        ToolProgress.announce(context, toolName);
 
         return "Đã chuẩn bị đề xuất cho " + entries.size() + " ô: "
                 + entries.stream().map(FormPatch.Entry::label).toList()

@@ -15,6 +15,7 @@ import com.kpitracking.repository.UserRoleOrgUnitRepository;
 import com.kpitracking.service.OrgUnitStatisticService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import com.kpitracking.service.ai.ToolProgress;
 import org.springframework.ai.chat.model.ToolContext;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
@@ -459,6 +460,7 @@ public class ToolSupport {
         // liệu nào rồi chặn nhầm chính câu hỏi làm rõ hợp lệ (đã đo được: 4 câu bị chặn oan).
         log.info("AI-TOOL-CALL {}", toolName);
         ToolCallTracker.record(toolName);
+        ToolProgress.announce(context, toolName);
 
         String convId = getConversationId(context);
         if (convId != null) {
@@ -484,6 +486,9 @@ public class ToolSupport {
         log.info("AI-TOOL-CALL {}", toolName);
         // Ghi lại để ValidationStage biết lượt này có thật sự lấy được dữ liệu hay không.
         ToolCallTracker.record(toolName);
+        // ...và nói cho người dùng biết trợ lý vừa xem cái gì; vòng gọi tool là quãng chờ dài nhất
+        // của một lượt nên im lặng ở đây nhìn không khác gì treo máy.
+        ToolProgress.announce(context, toolName);
         String json = toolMapper.writeValueAsString(payload);
         String conversationId = getConversationId(context);
         if (conversationId != null) {

@@ -107,6 +107,10 @@ public final class RoutingStages {
         }
 
         @Override
+
+        public String label() { return "Đang chọn công cụ phù hợp"; }
+
+        @Override
         public int getOrder() { return 900; }
     }
 
@@ -129,6 +133,9 @@ public final class RoutingStages {
 
             if (EscapeHatchTool.wasRequested()) {
                 log.info("Mở rộng bộ công cụ và hỏi lại. Lý do model nêu: {}", EscapeHatchTool.reason());
+                // Báo ở ĐÂY chứ không qua label(): chỉ những lượt thật sự phải nới bộ công cụ mới
+                // đáng nói, và nó chỉ lộ ra sau khi model đã trả lời lượt đầu.
+                turn.progress(this, "Đang mở thêm công cụ");
                 EscapeHatchTool.clear();
                 turn.setGroups(toolRegistry.readGroups());
                 turn.setTools(toolRegistry.toolsFor(toolRegistry.readGroups(), turn.getManager().userId()));

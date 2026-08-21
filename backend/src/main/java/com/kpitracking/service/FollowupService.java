@@ -2,7 +2,6 @@ package com.kpitracking.service;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.kpitracking.dto.request.ai.FollowupRequest;
 import com.kpitracking.dto.response.ai.FollowupResponse;
 import com.kpitracking.tool.FollowupContextStore;
 import com.kpitracking.tool.FollowupContextStore.ToolResult;
@@ -47,10 +46,13 @@ public class FollowupService {
         this.followupContextStore = followupContextStore;
     }
 
-    public FollowupResponse generate(FollowupRequest request) {
-        String conversationId = request != null ? request.getConversationId() : null;
-        String question = request != null ? request.getContext() : null;
-
+    /**
+     * @param question       câu hỏi của lượt vừa xong, dùng để định hướng chủ đề. Cố ý KHÔNG nhận
+     *                       câu trả lời: số liệu được neo từ dữ liệu tool phía máy chủ, còn đưa
+     *                       văn bản trả lời (đã cắt ngắn) vào từng khiến model bịa số.
+     * @param conversationId khoá tra dữ liệu tool của lượt; {@code null} thì không có gì để neo
+     */
+    public FollowupResponse generate(String question, String conversationId) {
         // If the model is asking user to disambiguate, suppress follow-up questions
         // until they make a selection.
         if (followupContextStore.isDisambiguating(conversationId)) {

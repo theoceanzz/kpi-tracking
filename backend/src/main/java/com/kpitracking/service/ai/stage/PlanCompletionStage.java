@@ -53,6 +53,9 @@ public class PlanCompletionStage implements AiStage {
         if (missing.isEmpty()) return answer;
 
         log.info("Kế hoạch còn thiếu {} — hỏi lại một lần. question='{}'", missing, turn.getQuestion());
+        // Báo ở ĐÂY chứ không qua label(): chỉ những lượt thật sự phải hỏi lại mới đáng nói, và
+        // điều đó chỉ lộ ra sau khi model đã trả lời lượt đầu.
+        turn.progress(this, "Đang bổ sung phần còn thiếu");
 
         // Advisor đã ghi câu hỏi + câu trả lời THIẾU của lượt đầu vào bộ nhớ. Không xoá thì hội
         // thoại đọng lại cùng câu hỏi hai lần kèm câu trả lời hỏng, và mọi lượt sau đều phải trả
@@ -88,7 +91,6 @@ public class PlanCompletionStage implements AiStage {
                 .filter(t -> !called.contains(t))
                 .toList();
     }
-
     @Override
     public int getOrder() { return 1050; }
 }
