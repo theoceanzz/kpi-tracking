@@ -65,6 +65,14 @@ public class FormRegistry {
      *
      * <p>Trợ lý chỉ hiện với vai trò rank ≤ 1 (xem {@code ManagerContextResolver}), nên form này
      * phục vụ quản lý tự nộp KPI của chính họ, không phải toàn bộ nhân viên.
+     *
+     * <p>Cố ý BỎ {@code periodStart}/{@code periodEnd}: schema Zod có khai chúng nhưng
+     * {@code NewSubmissionPage} KHÔNG vẽ ô nhập nào cho chúng. Khai ở đây thì
+     * {@code ModelCallStage.formBlock} liệt kê "Từ ngày, Đến ngày" vào danh sách ô điền được, và
+     * trợ lý đi hỏi người dùng hai cái ngày mà họ không có chỗ nào để nhập.
+     *
+     * <p>Chốt chặn lệch trong {@code FormRegistryTest} chỉ so một chiều (ô khai ⊆ schema Zod) nên
+     * nó không bắt được ca này — ô có trong schema nhưng không có trên màn hình.
      */
     private static final Descriptor SUBMISSION = new Descriptor(
             SUBMISSION_FORM,
@@ -74,20 +82,24 @@ public class FormRegistry {
                     Field.entity("kpiCriteriaId", "Chỉ tiêu"),
                     Field.number("actualValue", "Giá trị thực tế", 0d, null),
                     Field.entity("qualitativeLevelId", "Mức định tính"),
-                    Field.text("note", "Ghi chú"),
-                    Field.date("periodStart", "Từ ngày"),
-                    Field.date("periodEnd", "Đến ngày")));
+                    Field.text("note", "Ghi chú")));
 
     /**
      * Form đánh giá nhân viên. Phản chiếu
      * {@code frontend/src/features/evaluations/schemas/evaluationSchema.ts}.
+     *
+     * <p>Cố ý BỎ {@code userId}: ô đó là {@code <input type="hidden">} trong
+     * {@code EvaluationFormModal}, đặt sẵn bằng id của chính người đang đăng nhập và KHÔNG BAO GIỜ
+     * hiện ra màn hình. Khai nó ở đây nghĩa là một câu tiếng Việt ("đánh giá cho anh B ấy") đổi
+     * được người bị đánh giá, mà {@code onSubmit} thì đẩy thẳng {@code data} đi — người dùng không
+     * có cách nào nhìn thấy để phát hiện. Đây là ô NHẠY CẢM theo đúng nghĩa ghi ở đầu lớp này,
+     * cùng loại với {@code parentId}/{@code keyResultId} của form KPI.
      */
     private static final Descriptor EVALUATION = new Descriptor(
             EVALUATION_FORM,
             "Đánh giá nhân viên",
             "suggest_evaluation_form",
             List.of(
-                    Field.entity("userId", "Nhân viên"),
                     Field.entity("kpiPeriodId", "Đợt KPI"),
                     Field.number("score", "Điểm", 0d, null),
                     Field.text("comment", "Nhận xét")));

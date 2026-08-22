@@ -7,6 +7,8 @@ import com.kpitracking.exception.ForbiddenException;
 import com.kpitracking.service.ai.form.FormPatchStore;
 import com.kpitracking.tool.DisambiguationGuard;
 import com.kpitracking.tool.EscapeHatchTool;
+import com.kpitracking.tool.AttachFilesTool;
+import com.kpitracking.tool.EvidenceRequestTool;
 import com.kpitracking.tool.ToolCallTracker;
 import com.kpitracking.util.AiUtils;
 import lombok.extern.slf4j.Slf4j;
@@ -72,9 +74,13 @@ public class AiTurnPipeline {
             // Chuyển bản đề xuất điền form ra khỏi ThreadLocal TRƯỚC khi dọn: khối finally này
             // chạy xong thì run() mới trả về, nên tầng gọi mà đọc ThreadLocal sẽ luôn nhận null.
             turn.setFormPatch(FormPatchStore.get());
+            turn.setEvidenceRequested(EvidenceRequestTool.wasRequested());
+            turn.setFilesAttached(AttachFilesTool.wasAttached());
 
             disambiguationGuard.clear();
             EscapeHatchTool.clear();
+            EvidenceRequestTool.clear();
+            AttachFilesTool.clear();
             ToolCallTracker.clear();
             FormPatchStore.clear();
         }

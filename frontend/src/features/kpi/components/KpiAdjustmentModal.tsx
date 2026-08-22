@@ -48,12 +48,17 @@ export default function KpiAdjustmentModal({ open, onClose, kpi }: KpiAdjustment
     registerForm({
       formId: 'kpi_adjustment_form',
       getValues: () => getValues() as unknown as Record<string, unknown>,
+      // Tab 'Xin dừng chỉ tiêu' không vẽ hai ô số. deactivationRequest cũng không có mặt: nó là
+      // input ẩn, người dùng chỉ đổi được bằng hai nút chuyển tab.
+      fillableFields: () => (deactivationRequest
+        ? ['reason']
+        : ['requestedTargetValue', 'requestedMinimumValue', 'reason']),
       setValue: (field, value) =>
         setValue(field as keyof AdjustmentFormData, value as never,
           { shouldValidate: true, shouldDirty: true }),
     })
     return () => unregister('kpi_adjustment_form')
-  }, [open, getValues, setValue])
+  }, [open, getValues, setValue, deactivationRequest])
 
   const mutation = useMutation({
     mutationFn: (data: AdjustmentFormData) => adjustmentApi.create({

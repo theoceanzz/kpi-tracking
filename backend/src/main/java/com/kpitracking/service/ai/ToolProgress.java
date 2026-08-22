@@ -48,6 +48,8 @@ public final class ToolProgress {
             Map.entry("compare_org_units", "Đang so sánh các đơn vị"),
             Map.entry("rank", "Đang xếp hạng"),
             Map.entry("need_other_tools", "Đang mở thêm công cụ"),
+            Map.entry("request_evidence_upload", "Đang mở chỗ nhận minh chứng"),
+            Map.entry("attach_pinned_files", "Đang đính tệp vào biểu mẫu"),
             Map.entry("suggest_kpi_form", "Đang chuẩn bị đề xuất điền form"),
             Map.entry("suggest_submission_form", "Đang chuẩn bị đề xuất điền form"),
             Map.entry("suggest_evaluation_form", "Đang chuẩn bị đề xuất điền form"),

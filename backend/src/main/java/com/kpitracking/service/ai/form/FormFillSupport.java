@@ -1,7 +1,10 @@
 package com.kpitracking.service.ai.form;
 
+import com.kpitracking.entity.KpiCriteria;
 import com.kpitracking.entity.OrgHierarchyLevel;
 import com.kpitracking.entity.QualitativeLevel;
+import com.kpitracking.enums.KpiType;
+import com.kpitracking.repository.KpiCriteriaRepository;
 import com.kpitracking.repository.OrgHierarchyLevelRepository;
 import com.kpitracking.repository.QualitativeLevelRepository;
 import com.kpitracking.service.OrgUnitStatisticService;
@@ -18,6 +21,7 @@ import org.springframework.stereotype.Component;
 import java.lang.reflect.RecordComponent;
 import java.util.Arrays;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -43,6 +47,7 @@ public class FormFillSupport {
     private final OrgUnitStatisticService orgUnitStatisticService;
     private final QualitativeLevelRepository qualitativeLevelRepository;
     private final OrgHierarchyLevelRepository orgHierarchyLevelRepository;
+    private final KpiCriteriaRepository kpiCriteriaRepository;
     private final ToolSupport support;
 
     /** Số kết quả tối đa khi tra tên; nhiều hơn nghĩa là tên quá chung, phải hỏi lại. */
@@ -91,9 +96,17 @@ public class FormFillSupport {
                 : Arrays.stream(shape.getRecordComponents())
                         .map(RecordComponent::getName)
                         .collect(Collectors.joining(", "));
+        // `request` null nghĩa là JSON lời gọi KHÔNG có khoá "request" — đo được: model đặt các ô
+        // phẳng ở ngoài ({"actualValue":15,...}) thay vì lồng vào trong. Nêu tên tham số thôi thì
+        // nó thử lại y hệt 4-8 vòng rồi bỏ cuộc, nên phải chỉ thẳng HÌNH DẠNG đúng.
+        String example = shape.getRecordComponents() == null || shape.getRecordComponents().length == 0
+                ? "{\"request\": {...}}"
+                : "{\"request\": {\"" + shape.getRecordComponents()[0].getName()
+                        + "\": ..., \"reason\": \"...\"}}";
         throw new IllegalArgumentException("Bạn gọi " + toolName
                 + " mà không truyền ô nào nên chưa đề xuất được gì. "
-                + "Hãy gọi lại và truyền các ô người dùng vừa nêu trong tham số `request`. "
+                + "Hãy gọi lại và đặt MỌI ô vào TRONG object `request`, đừng để phẳng ở ngoài. "
+                + "Đúng dạng: " + example + ". "
                 + "Các ô nhận được: " + fields + ".");
     }
 
@@ -101,6 +114,53 @@ public class FormFillSupport {
     @SuppressWarnings("unchecked")
     public Map<String, Object> currentValues(ToolContext context) {
         return (Map<String, Object>) context.getContext().getOrDefault("openFormValues", Map.of());
+    }
+
+    /**
+     * Loại của một chỉ tiêu ({@code QUANTITATIVE} / {@code QUALITATIVE}), hoặc {@code null} khi
+     * chưa chọn chỉ tiêu nào hoặc id không tra được.
+     *
+     * <p>Phải đọc thẳng từ kho chứ không lấy từ {@code ToolSupport.kpiMatchPool}: bản chiếu của
+     * {@code searchKpis} không có cột {@code kpiType}. Cũng không lấy từ {@code openFormValues} —
+     * client chỉ gửi id, và đây là lớp cố ý KHÔNG tin client.
+     */
+    public KpiType kpiTypeOf(Object kpiCriteriaId) {
+        if (kpiCriteriaId == null || String.valueOf(kpiCriteriaId).isBlank()) return null;
+        try {
+            return kpiCriteriaRepository.findById(UUID.fromString(String.valueOf(kpiCriteriaId)))
+                    .map(KpiCriteria::getKpiType)
+                    .orElse(null);
+        } catch (IllegalArgumentException e) {
+            return null; // không phải UUID -> coi như chưa biết, để lời gọi đi tiếp như trước
+        }
+    }
+
+    /**
+     * Giữ lại các ô THẬT SỰ có trên màn hình người dùng; ô còn lại rơi vào {@code hidden}.
+     *
+     * <p>Bản khai báo ở {@code FormRegistry} là TĨNH, còn form vẽ ô theo điều kiện chạy: KPI định
+     * lượng không có ô Mức định tính, lượt sửa khoá ô Chỉ tiêu, modal xem lại khoá sạch. Đo được ca
+     * thật: trợ lý đề xuất "Mức định tính: KHÁ" cho một KPI định lượng rồi báo "đã điền vào form",
+     * trong khi ô ấy không hề được vẽ ra — người dùng không có chỗ nào để nhìn thấy hay xoá đi.
+     *
+     * <p>Danh sách do client gửi, nhưng tin được vì nó chỉ THU HẸP: đây là phép giao với những ô
+     * {@code FormRegistry} vốn đã cho phép, nên client bị sửa cùng lắm tự bó tay mình.
+     *
+     * <p>Client cũ không gửi khoá này thì giữ nguyên hành vi trước đây — thà cũ còn hơn chặn sạch
+     * mọi đề xuất trong lúc triển khai dở.
+     */
+    @SuppressWarnings("unchecked")
+    private List<FormPatch.Entry> keepFillable(ToolContext context, List<FormPatch.Entry> entries,
+                                               List<String> hidden) {
+        Object raw = context.getContext().get("openFormFields");
+        if (!(raw instanceof Collection<?> allowed)) return entries;
+
+        List<FormPatch.Entry> kept = new ArrayList<>();
+        for (FormPatch.Entry e : entries) {
+            if (allowed.contains(e.field())) kept.add(e);
+            else hidden.add(e.label());
+        }
+        return kept;
     }
 
     // ── dựng bản đề xuất ─────────────────────────────────────────────────────
@@ -140,6 +200,22 @@ public class FormFillSupport {
                          List<FormPatch.Entry> entries, String suffix) {
         if (entries.isEmpty()) {
             return "Không có ô nào thay đổi so với form hiện tại. Hãy trả lời người dùng bằng lời.";
+        }
+
+        // Lọc ô KHÔNG có trên màn hình. Đặt ở đây vì mọi tool điền form đều đi qua finish() và nó
+        // đã sẵn ToolContext — chặn một chỗ là chặn cả sáu form, không phải sửa sáu chữ ký.
+        int before = entries.size();
+        List<String> hidden = new ArrayList<>();
+        entries = keepFillable(context, entries, hidden);
+        if (entries.isEmpty()) {
+            // Nói rõ vì sao rỗng: câu "không có ô nào thay đổi" ở trên sẽ khiến model tưởng nó đã
+            // đề xuất trùng giá trị cũ, rồi thử lại y hệt.
+            return "Các ô bạn đề xuất (" + hidden + ") KHÔNG có trên màn hình của người dùng với "
+                    + "cấu hình hiện tại, nên không đề xuất được. Hãy nói cho họ biết form này không "
+                    + "có những ô đó, ĐỪNG thử lại.";
+        }
+        if (before != entries.size()) {
+            log.info("Bỏ {} ô không hiện trên màn hình khi điền {}: {}", before - entries.size(), formId, hidden);
         }
         FormPatchStore.put(new FormPatch(formId, entries));
         ToolCallTracker.record(toolName);

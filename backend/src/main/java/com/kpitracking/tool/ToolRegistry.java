@@ -57,6 +57,8 @@ public class ToolRegistry {
     private final RankTool rankTool;
     private final CompareTool compareTool;
     private final EscapeHatchTool escapeHatchTool;
+    private final EvidenceRequestTool evidenceRequestTool;
+    private final AttachFilesTool attachFilesTool;
     private final KpiFormFillTool kpiFormFillTool;
     private final SubmissionFormFillTool submissionFormFillTool;
     private final EvaluationFormFillTool evaluationFormFillTool;
@@ -73,7 +75,10 @@ public class ToolRegistry {
     private Map<Group, List<Object>> groups() {
         Map<Group, List<Object>> m = new EnumMap<>(Group.class);
         // get_people phục vụ cả "tôi là ai" nên nằm ở CORE cùng search — hai thứ này đi với mọi câu hỏi.
-        m.put(Group.CORE, List.of(searchTool, escapeHatchTool));
+        // request_evidence_upload cũng ở CORE: người dùng có thể xin gửi minh chứng ở BẤT KỲ lượt
+        // nào, kể cả khi chưa mở biểu mẫu báo cáo nào. Đặt ở nhóm khác là có lượt model không
+        // được trao nó, và nó quay lại từ chối — đúng lỗi mà tool này sinh ra để chữa.
+        m.put(Group.CORE, List.of(searchTool, escapeHatchTool, evidenceRequestTool, attachFilesTool));
         m.put(Group.LOOKUP, List.of(orgUnitTool, peopleTool));
         m.put(Group.KPI, List.of(kpiTool, submissionTool));
         m.put(Group.INSIGHT, List.of(rankTool, compareTool, analyticsTool));
@@ -121,6 +126,8 @@ public class ToolRegistry {
     private static final Map<String, Group> GROUP_BY_TOOL_NAME = Map.ofEntries(
             Map.entry("search", Group.CORE),
             Map.entry("need_other_tools", Group.CORE),
+            Map.entry("request_evidence_upload", Group.CORE),
+            Map.entry("attach_pinned_files", Group.CORE),
             Map.entry("get_org_unit", Group.LOOKUP),
             Map.entry("get_people", Group.LOOKUP),
             Map.entry("get_kpi", Group.KPI),
@@ -177,7 +184,8 @@ public class ToolRegistry {
         return new Class<?>[]{
                 SearchTool.class, OrgUnitTool.class, PeopleTool.class, KpiTool.class,
                 SubmissionTool.class, AnalyticsTool.class, RankTool.class, CompareTool.class,
-                EscapeHatchTool.class, KpiFormFillTool.class,
+                EscapeHatchTool.class, EvidenceRequestTool.class, AttachFilesTool.class,
+                KpiFormFillTool.class,
                 SubmissionFormFillTool.class, EvaluationFormFillTool.class,
                 KpiAdjustmentFormFillTool.class, OrgUnitFormFillTool.class,
                 OrgUnitDrawerFormFillTool.class

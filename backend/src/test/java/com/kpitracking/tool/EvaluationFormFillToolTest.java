@@ -80,55 +80,55 @@ class EvaluationFormFillToolTest {
                 "organizationId", UUID.randomUUID().toString()));
 
         assertThat(tool.suggestEvaluationForm(
-                new EvaluationFormFillRequest("Nguyễn Văn A", null, 8d, null, null), noForm))
+                new EvaluationFormFillRequest(null, 8d, null, null), noForm))
                 .contains("\"error\"");
         assertThat(FormPatchStore.get()).isNull();
     }
 
     @Test
-    @DisplayName("đề xuất hợp lệ: tra người và kỳ ra UUID thật, hiện TÊN cho người đọc")
+    @DisplayName("đề xuất hợp lệ: tra kỳ ra UUID thật, hiện TÊN cho người đọc")
     void validSuggestionResolvesEntities() {
-        UUID userId = UUID.randomUUID();
         UUID periodId = UUID.randomUUID();
-        givenUser(userId, "Nguyễn Văn A");
         when(service.searchKpiPeriods(any(), anyString(), anyInt()))
                 .thenReturn(List.of(Map.of("id", periodId, "name", "Tháng 6/2026")));
 
         String out = tool.suggestEvaluationForm(new EvaluationFormFillRequest(
-                "Nguyễn Văn A", "Tháng 6/2026", 8d, "làm tốt", "theo yêu cầu"), withForm(Map.of()));
+                "Tháng 6/2026", 8d, "làm tốt", "theo yêu cầu"), withForm(Map.of()));
 
         assertThat(out).doesNotContain("\"error\"");
         FormPatch patch = FormPatchStore.get();
         assertThat(patch.formId()).isEqualTo(FormRegistry.EVALUATION_FORM);
         assertThat(patch.entries()).extracting(FormPatch.Entry::field)
-                .containsExactlyInAnyOrder("score", "comment", "userId", "kpiPeriodId");
+                .containsExactlyInAnyOrder("score", "comment", "kpiPeriodId");
 
         Map<String, FormPatch.Entry> byField = patch.entries().stream()
                 .collect(java.util.stream.Collectors.toMap(FormPatch.Entry::field, e -> e));
-        assertThat(byField.get("userId").value()).isEqualTo(userId.toString());
-        assertThat(byField.get("userId").display())
-                .as("không ai thẩm định được một UUID trong bản xem trước").isEqualTo("Nguyễn Văn A");
-        assertThat(byField.get("kpiPeriodId").display()).isEqualTo("Tháng 6/2026");
+        assertThat(byField.get("kpiPeriodId").display())
+                .as("không ai thẩm định được một UUID trong bản xem trước").isEqualTo("Tháng 6/2026");
     }
 
     @Test
-    @DisplayName("tên nhân viên khớp NHIỀU người thì hỏi lại, không tự chọn giúp")
-    void ambiguousEmployeeAsksBack() {
-        when(service.searchUsers(any(), anyString(), isNull(), isNull(), anyInt())).thenReturn(List.of(
-                Map.of("id", UUID.randomUUID(), "fullName", "Nguyễn Văn A", "email", "a1@demo.com"),
-                Map.of("id", UUID.randomUUID(), "fullName", "Nguyễn Văn An", "email", "a2@demo.com")));
+    @DisplayName("KHÔNG đổi được người bị đánh giá — ô đó ẩn hoàn toàn trên giao diện")
+    void cannotRetargetTheEvaluatedPerson() {
+        // userId là <input type="hidden"> đặt sẵn bằng chính người đang đăng nhập. Khai nó ra là
+        // một câu tiếng Việt chuyển được bài đánh giá sang người khác, mà onSubmit thì đẩy thẳng
+        // data đi — người dùng không có chỗ nào nhìn thấy để phát hiện.
+        assertThat(FormRegistry.EVALUATION_FORM).isNotNull();
+        assertThat(new FormRegistry().find(FormRegistry.EVALUATION_FORM).fields())
+                .extracting(com.kpitracking.service.ai.form.FormSpec.Field::name)
+                .doesNotContain("userId");
 
-        assertThat(tool.suggestEvaluationForm(
-                new EvaluationFormFillRequest("Nguyễn Văn A", null, 8d, null, null), withForm(Map.of())))
-                .contains("\"error\"").contains("a1@demo.com").contains("a2@demo.com");
-        assertThat(FormPatchStore.get()).isNull();
+        // Và tool cũng không còn nhận tên nhân viên: bốn tham số, không tham số nào là người.
+        assertThat(EvaluationFormFillRequest.class.getRecordComponents())
+                .extracting(java.lang.reflect.RecordComponent::getName)
+                .containsExactly("periodName", "score", "comment", "reason");
     }
 
     @Test
     @DisplayName("điểm ÂM bị chặn trước khi thành đề xuất")
     void negativeScoreRejected() {
         assertThat(tool.suggestEvaluationForm(
-                new EvaluationFormFillRequest(null, null, -3d, null, null), withForm(Map.of())))
+                new EvaluationFormFillRequest(null, -3d, null, null), withForm(Map.of())))
                 .contains("\"error\"");
         assertThat(FormPatchStore.get()).isNull();
     }
@@ -137,19 +137,19 @@ class EvaluationFormFillToolTest {
     @DisplayName("ô đã có đúng giá trị đó thì không đề xuất lại")
     void skipsUnchangedFields() {
         assertThat(tool.suggestEvaluationForm(
-                new EvaluationFormFillRequest(null, null, 8d, "làm tốt", null),
+                new EvaluationFormFillRequest(null, 8d, "làm tốt", null),
                 withForm(Map.of("score", 8L, "comment", "làm tốt"))))
                 .contains("Không có ô nào thay đổi");
         assertThat(FormPatchStore.get()).isNull();
     }
 
     @Test
-    @DisplayName("nêu rõ ô bắt buộc còn thiếu: nhân viên, đợt KPI, điểm")
+    @DisplayName("nêu rõ ô bắt buộc còn thiếu: đợt KPI, điểm")
     void reportsStillMissing() {
-        givenUser(UUID.randomUUID(), "Nguyễn Văn A");
-
         assertThat(tool.suggestEvaluationForm(
-                new EvaluationFormFillRequest("Nguyễn Văn A", null, null, null, null), withForm(Map.of())))
+        // Phải có ÍT NHẤT một ô điền được, không thì finish() thoát sớm ở nhánh "không có ô nào
+        // thay đổi" và câu báo thiếu chẳng bao giờ tới tay model.
+                new EvaluationFormFillRequest(null, null, "làm tốt", "theo yêu cầu"), withForm(Map.of())))
                 .contains("Còn thiếu bắt buộc").contains("đợt KPI").contains("điểm");
     }
 }

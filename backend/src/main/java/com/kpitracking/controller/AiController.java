@@ -110,16 +110,24 @@ public class AiController {
     private AiChatResponse runTurn(AiChatRequest request, TurnListener listener) {
         String result;
         FormPatch formPatch;
+        boolean evidenceRequested;
+        boolean filesAttached;
         FollowupResponse followups;
         AiTokenUsageRecorder.setFeature(AiTokenUsage.AiFeature.CHAT);
         try {
             AiTurn turn = new AiTurn(request.getMessage(), request.getConversationId(), request.getFocusUnitId());
             turn.setOpenFormId(request.getOpenFormId());
             turn.setOpenFormValues(request.getOpenFormValues());
+            turn.setOpenFormFields(request.getOpenFormFields());
+            turn.setOpenFormAcceptsFiles(Boolean.TRUE.equals(request.getOpenFormAcceptsFiles()));
+            turn.setAttachmentNames(request.getAttachmentNames());
+            turn.setPinnedFileNames(request.getPinnedFileNames());
             turn.setListener(listener);
             result = aiService.processOrgUnitChat(turn);
             // Pipeline đã chuyển bản đề xuất từ ThreadLocal lên turn trước khi dọn.
             formPatch = turn.getFormPatch();
+            evidenceRequested = turn.isEvidenceRequested();
+            filesAttached = turn.isFilesAttached();
             followups = turn.getFollowups();
         } finally {
             AiTokenUsageRecorder.clearFeature();
@@ -139,6 +147,8 @@ public class AiController {
                 .text(result)
                 .options(options)
                 .formPatch(formPatch != null && !formPatch.isEmpty() ? formPatch : null)
+                .evidenceRequest(evidenceRequested ? Boolean.TRUE : null)
+                .attachFiles(filesAttached ? Boolean.TRUE : null)
                 .followups(followups)
                 .build();
     }

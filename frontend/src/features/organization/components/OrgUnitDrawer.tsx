@@ -164,12 +164,20 @@ export function OrgUnitDrawer({ orgId, drawerState, onClose, hierarchyLevels }: 
     registerForm({
       formId: 'org_unit_drawer_form',
       getValues: () => getValues() as unknown as Record<string, unknown>,
+      // status chỉ vẽ ở chế độ sửa; unitTypeName bị khoá trừ khi tạo đơn vị gốc; code bị khoá
+      // khi tạo gốc (điền sẵn theo mã tổ chức). Cả ba vẫn được gửi lên khi lưu, nên để trợ lý
+      // điền lén là đổi dữ liệu thật mà người dùng không nhìn thấy gì.
+      fillableFields: () => [
+        'name', 'email', 'phone', 'address',
+        ...(drawerState.mode === 'edit' ? ['status'] : []),
+        ...(drawerState.mode === 'create-root' ? ['unitTypeName'] : ['code']),
+      ],
       setValue: (field, value) =>
         setValue(field as keyof FormData, value as never,
           { shouldValidate: true, shouldDirty: true }),
     })
     return () => unregister('org_unit_drawer_form')
-  }, [drawerState.isOpen, getValues, setValue])
+  }, [drawerState.isOpen, drawerState.mode, getValues, setValue])
 
   // Manager/Deputy validation logic
   const selectedRolesDetails = useMemo(() => {

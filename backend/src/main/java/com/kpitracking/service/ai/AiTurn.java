@@ -37,6 +37,17 @@ public class AiTurn {
     private String openFormId;
     /** Giá trị các ô đang có trong form đó — để không đề xuất lại thứ người dùng đã điền. */
     private Map<String, Object> openFormValues;
+    /** Ô đang hiện/sửa được trên màn hình. Chỉ thu hẹp — xem ghi chú ở {@code AiChatRequest}. */
+    private List<String> openFormFields;
+    /** Form đang mở có mục nhận tệp không. Không có thì trợ lý không được mời gửi tệp. */
+    private boolean openFormAcceptsFiles;
+    /**
+     * Tên các tệp minh chứng người dùng kẹp vào ô chat ở lượt này. Chỉ tên: nội dung tệp ở lại
+     * trình duyệt, đi thẳng sang biểu mẫu báo cáo. Trợ lý không đọc được tệp, chỉ biết là có.
+     */
+    private List<String> attachmentNames;
+    /** Tên tệp người dùng đang GHIM ở ô chat — ứng viên để đính. */
+    private List<String> pinnedFileNames;
 
     // ── dựng dần qua từng stage ──────────────────────────────────────────────
     private ManagerContext manager;
@@ -68,6 +79,15 @@ public class AiTurn {
     private String focusUnitName;
     /** Các câu hỏi gợi ý tiếp theo do {@code FollowupStage} sinh; null ở lượt không có gợi ý. */
     private FollowupResponse followups;
+    /**
+     * Lượt này model có xin mở vùng thả minh chứng trong khung chat không.
+     *
+     * <p>Pipeline chuyển nó từ ThreadLocal sang đây TRƯỚC khi dọn, cùng lý do với {@code formPatch}:
+     * khối {@code finally} chạy xong rồi {@code run()} mới trả về.
+     */
+    private boolean evidenceRequested;
+    /** Lượt này model có đính tệp đang ghim vào biểu mẫu không. */
+    private boolean filesAttached;
 
     /**
      * Nơi nhận tiến độ của lượt. Mặc định {@link TurnListener#NOOP} nên đường JSON không phải biết

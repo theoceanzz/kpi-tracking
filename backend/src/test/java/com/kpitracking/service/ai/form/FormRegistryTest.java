@@ -88,6 +88,32 @@ class FormRegistryTest {
     }
 
     @Test
+    @DisplayName("form đánh giá KHÔNG khai người bị đánh giá — ô đó ẩn hoàn toàn")
+    void evaluationFormCannotRetargetThePerson() {
+        // userId là <input type="hidden"> đặt sẵn bằng chính người đang đăng nhập, KHÔNG BAO GIỜ
+        // hiện ra màn hình. Khai nó ra là một câu tiếng Việt chuyển được bài đánh giá sang người
+        // khác, mà onSubmit thì đẩy thẳng data đi — người dùng không có chỗ nào để phát hiện.
+        Descriptor evaluation = registry.find(FormRegistry.EVALUATION_FORM);
+        assertThat(evaluation.fields()).extracting(Field::name)
+                .as("điểm đánh giá của ai là thứ người dùng phải tự quyết bằng chuột")
+                .doesNotContain("userId");
+    }
+
+    @Test
+    @DisplayName("form báo cáo KHÔNG khai hai ô ngày — schema Zod có nhưng màn hình không vẽ ô nào")
+    void submissionFormDoesNotDeclareDeadDateFields() {
+        // Phép đối chiếu ở trên chỉ so MỘT CHIỀU (ô khai ⊆ schema Zod) nên nó không bắt được ca
+        // này: periodStart/periodEnd nằm trong submissionSchema.ts nhưng NewSubmissionPage chưa bao
+        // giờ vẽ ô nhập cho chúng. Khai ở FormRegistry thì ModelCallStage.formBlock liệt kê
+        // "Từ ngày, Đến ngày" vào danh sách ô điền được, và trợ lý đi hỏi người dùng hai cái ngày
+        // họ không có chỗ nào để nhập.
+        Descriptor submission = registry.find(FormRegistry.SUBMISSION_FORM);
+        assertThat(submission.fields()).extracting(Field::name)
+                .as("không có ô nhập nào trên màn hình cho hai trường này")
+                .doesNotContain("periodStart", "periodEnd");
+    }
+
+    @Test
     @DisplayName("ô ENUM phải nêu đủ giá trị hợp lệ, nếu không phép kiểm sẽ chặn nhầm giá trị đúng")
     void enumFieldsDeclareTheirValues() {
         Descriptor kpi = registry.find(FormRegistry.KPI_FORM);

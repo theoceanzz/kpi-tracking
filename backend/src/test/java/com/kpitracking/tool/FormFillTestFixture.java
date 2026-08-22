@@ -28,6 +28,7 @@ final class FormFillTestFixture {
     record Deps(OrgUnitStatisticService service,
                 QualitativeLevelRepository qualitativeLevels,
                 OrgHierarchyLevelRepository hierarchyLevels,
+                KpiCriteriaRepository kpiCriteria,
                 ToolSupport support,
                 FormFillSupport fill) {}
 
@@ -35,6 +36,8 @@ final class FormFillTestFixture {
         OrgUnitStatisticService service = mock(OrgUnitStatisticService.class);
         QualitativeLevelRepository qualitativeLevels = mock(QualitativeLevelRepository.class);
         OrgHierarchyLevelRepository hierarchyLevels = mock(OrgHierarchyLevelRepository.class);
+        // FormFillSupport tra loại chỉ tiêu qua kho này để chặn đề xuất lệch loại KPI.
+        KpiCriteriaRepository kpiCriteria = mock(KpiCriteriaRepository.class);
 
         ToolSupport support = new ToolSupport(
                 mock(OrgUnitRepository.class),
@@ -49,8 +52,9 @@ final class FormFillTestFixture {
         support.initToolMapper();
 
         FormFillSupport fill = new FormFillSupport(
-                new FormFieldValidator(), service, qualitativeLevels, hierarchyLevels, support);
+                new FormFieldValidator(), service, qualitativeLevels, hierarchyLevels,
+                kpiCriteria, support);
 
-        return new Deps(service, qualitativeLevels, hierarchyLevels, support, fill);
+        return new Deps(service, qualitativeLevels, hierarchyLevels, kpiCriteria, support, fill);
     }
 }

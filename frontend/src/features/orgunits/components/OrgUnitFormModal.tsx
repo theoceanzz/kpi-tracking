@@ -86,12 +86,19 @@ export default function OrgUnitFormModal({ open, onClose, editUnit, initialParen
     registerForm({
       formId: 'org_unit_form',
       getValues: () => getValues() as unknown as Record<string, unknown>,
+      // code bị khoá ở đơn vị gốc lúc tạo (và bị effect bên dưới ghi đè bằng mã tổ chức);
+      // parentId chỉ vẽ khi TẠO, mà lượt sửa còn không gửi nó lên máy chủ.
+      fillableFields: () => [
+        'name', 'email', 'phone', 'address', 'orgHierarchyId',
+        ...(isRoot && !isEdit ? [] : ['code']),
+        ...(isEdit ? [] : ['parentId']),
+      ],
       setValue: (field, value) =>
         setValue(field as keyof OrgUnitFormData, value as never,
           { shouldValidate: true, shouldDirty: true }),
     })
     return () => unregister('org_unit_form')
-  }, [open, getValues, setValue])
+  }, [open, getValues, setValue, isEdit, isRoot])
 
   // Update code if it's root and organization data is available
   useEffect(() => {

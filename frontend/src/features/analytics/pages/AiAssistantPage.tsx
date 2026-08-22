@@ -11,6 +11,11 @@ import { aiApi, type ConversationResponse, type InsightCard, type FollowupPools,
 import InsightCards from '../components/InsightCards'
 import AiDisabledPage from '../components/AiDisabledPage'
 import FollowupSuggestions from '../components/FollowupSuggestions'
+import EvidenceAttachBar, { AttachedChips, PinnedChips } from '../components/EvidenceAttachBar'
+import { usePinnedFilesStore, attachPinnedTo } from '@/store/pinnedFilesStore'
+import { useChatFileDrop } from '../hooks/useChatFileDrop'
+import EvidenceDropCard from '../components/EvidenceDropCard'
+import { useFormAssistStore } from '@/store/formAssistStore'
 import ThinkingSummary from '../components/ThinkingSummary'
 import AnswerMarkdown from '../components/AnswerMarkdown'
 import { useStageProgress } from '../hooks/useStageProgress'
@@ -41,6 +46,8 @@ interface Message {
   thinkingSeconds?: number
   /** Các bước đã chạy trong lượt, để bấm mở ra xem. */
   steps?: string[]
+  /** Trợ lý mời gửi minh chứng: vẽ vùng thả ngay dưới câu trả lời này. */
+  evidenceRequest?: boolean
 }
 
 const WELCOME_MSG: Message = {
@@ -55,6 +62,7 @@ export default function AiAssistantPage() {
   const { data: org } = useOrganization(orgId)
 
   const [input, setInput] = useState('')
+  // Tệp KHÔNG còn nằm ở đây: nó đi thẳng vào form qua fileSink ngay lúc kẹp. Xem formAssistStore.
   const [messages, setMessages] = useState<Message[]>([WELCOME_MSG])
   const [isLoading, setIsLoading] = useState(false)
   const [conversationId, setConversationId] = useState<string | null>(null)
@@ -81,6 +89,15 @@ export default function AiAssistantPage() {
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const turnRef = useRef(0)
   const activeInsightRef = useRef<InsightCard | null>(null)
+
+  // Chỗ nhận tệp của form đang mở. Ở TRANG này thực tế luôn vắng — /ai-assistant là route toàn
+  // màn hình nên không biểu mẫu nào mount cùng lúc — và nút kẹp sẽ tắt kèm câu giải thích.
+  // Vẫn nối đầy đủ để hôm nào trang có form nhúng là chạy ngay, không phải sửa lại.
+  const fileSink = useFormAssistStore(s => s.active?.fileSink)
+  // Nền tất định: thả tệp vào BẤT KỲ ĐÂU trong cột chat cũng ghim được, kể cả khi model quên
+  // gọi tool mở vùng thả. Xem useChatFileDrop.
+  const { getRootProps: dropProps, isDragActive } = useChatFileDrop()
+
 
   const autoResize = (el: HTMLTextAreaElement) => {
     el.style.height = 'auto'
@@ -188,6 +205,7 @@ export default function AiAssistantPage() {
     const userMsg = text.trim()
     if (!userMsg || isLoading) return
 
+
     setShowInsights(false)
     // Người dùng luôn hơn hiệu ứng: hỏi tiếp thì câu trước hiện trọn ngay.
     finishTyping()
@@ -197,6 +215,7 @@ export default function AiAssistantPage() {
       { id: Date.now().toString(), role: 'user', content: userMsg },
     ])
     setIsLoading(true)
+
 
     try {
       let activeId = conversationId
@@ -213,7 +232,15 @@ export default function AiAssistantPage() {
       // nên với `let` nó thu hẹp kiểu thành never sau phép kiểm null.
       const box: { value: AiChatResponse | null } = { value: null }
       await aiApi.chatStream(
-        { message: userMsg, conversationId: activeId, focusUnitId },
+        {
+          message: userMsg,
+          conversationId: activeId,
+          focusUnitId,
+          // Đọc từ sink lúc gửi: trợ lý luôn thấy đúng danh sách tệp ĐANG có trên form.
+          attachmentNames: useFormAssistStore.getState().active?.fileSink?.current().map(f => f.name),
+          openFormAcceptsFiles: useFormAssistStore.getState().active?.fileSink ? true : undefined,
+          pinnedFileNames: usePinnedFilesStore.getState().files.map(f => f.name),
+        },
         {
           onStage: pushStage,
           onDone: r => { box.value = r },
@@ -223,6 +250,8 @@ export default function AiAssistantPage() {
       const { seconds, steps } = endTurn()
       const response = box.value
       if (!response) throw new Error('Luồng kết thúc mà không có câu trả lời')
+
+      if (response.attachFiles) attachPinnedTo(useFormAssistStore.getState().active?.fileSink)
 
       const options = response.options ?? []
       const assistantId = (Date.now() + 1).toString()
@@ -249,6 +278,7 @@ export default function AiAssistantPage() {
           // Câu hỏi gợi ý nay về CÙNG câu trả lời — trước đây phải gọi thêm POST /ai/followups.
           // Backend đã tự bỏ qua ở lượt hỏi lại và lượt không có dữ liệu tool.
           followups: response.followups,
+          evidenceRequest: response.evidenceRequest,
         },
       ])
 
@@ -504,7 +534,19 @@ export default function AiAssistantPage() {
         </aside>
 
         {/* ═══ MAIN CHAT ═══ */}
-        <div className="flex flex-col flex-1 min-w-0">
+        <div
+          {...dropProps()}
+          className={cn(
+            'relative flex flex-col flex-1 min-w-0',
+            isDragActive && 'ring-2 ring-inset ring-[var(--color-ai)]',
+          )}
+        >
+          {/* Lớp phủ khi đang kéo tệp qua. pointer-events-none để nó không nuốt mất sự kiện drop. */}
+          {isDragActive && (
+            <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center bg-[var(--color-ai-soft)]/90">
+              <p className="text-sm font-bold text-[var(--color-ai)]">Thả tệp vào đây để ghim</p>
+            </div>
+          )}
 
           {/* Header */}
           <header className="shrink-0 px-4 md:px-6 py-4 border-b border-[var(--color-border)] bg-[var(--color-background)]">
@@ -598,6 +640,11 @@ export default function AiAssistantPage() {
                           </div>
                         )}
 
+                        {/* Vùng thả minh chứng, khi trợ lý vừa mời người dùng gửi tài liệu */}
+                        {msg.role === 'assistant' && msg.evidenceRequest && (
+                          <EvidenceDropCard sink={fileSink} disabled={isLoading} />
+                        )}
+
                         {/* Follow-up suggestions under the latest assistant answer */}
                         {msg.role === 'assistant' && msg.followups && msg.id === lastAssistantId && !isLoading && !msg.typing && (
                           <FollowupSuggestions
@@ -656,7 +703,10 @@ export default function AiAssistantPage() {
           {/* Input area */}
           <div className="shrink-0 px-4 md:px-6 py-3 border-t border-[var(--color-border)] bg-[var(--color-background)]">
             <div className="max-w-3xl mx-auto">
+              <PinnedChips sink={fileSink} />
+              <AttachedChips sink={fileSink} />
               <div className="flex items-center gap-2 bg-[var(--color-card)] border border-[var(--color-border)] rounded-2xl shadow-sm hover:shadow-md transition-shadow focus-within:ring-2 focus-within:ring-violet-500/40 focus-within:border-violet-300 px-4 py-2.5">
+                <EvidenceAttachBar sink={fileSink} disabled={isLoading || loadingMessages} />
                 <textarea
                   ref={textareaRef}
                   value={input}

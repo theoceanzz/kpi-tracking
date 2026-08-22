@@ -11,6 +11,20 @@ export interface AiChatRequest {
   openFormId?: string
   /** Giá trị các ô đang có, để trợ lý không đề xuất lại thứ người dùng đã tự điền. */
   openFormValues?: Record<string, unknown>
+  /**
+   * Các ô ĐANG hiện và sửa được trên màn hình. Máy chủ lấy giao với bản khai báo của nó, nên
+   * đây chỉ THU HẸP — client bị sửa không bịa thêm được ô nào. Vắng field = giữ hành vi cũ.
+   */
+  openFormFields?: string[]
+  /** Form đang mở có mục nhận tệp không. Không có thì trợ lý đừng mời gửi tệp. */
+  openFormAcceptsFiles?: boolean
+  /** Tên tệp người dùng đang GHIM ở ô chat — ứng viên để trợ lý đính vào biểu mẫu. */
+  pinnedFileNames?: string[]
+  /**
+   * Tên các tệp minh chứng vừa kẹp. CHỈ TÊN — nội dung tệp không rời trình duyệt, nó sang thẳng
+   * biểu mẫu báo cáo rồi mới tải lên khi người dùng bấm gửi. Trợ lý chỉ cần biết là có tệp.
+   */
+  attachmentNames?: string[]
 }
 
 /** Một ô trong bản đề xuất điền form. */
@@ -50,6 +64,16 @@ export interface AiChatResponse {
    * về cùng câu trả lời, nên một lượt chat là MỘT request. Vắng ở lượt không sinh gợi ý.
    */
   followups?: FollowupPools
+  /**
+   * Trợ lý mời người dùng gửi tài liệu minh chứng: vẽ một vùng thả tệp ngay trong bong bóng trả
+   * lời. Vắng field ở mọi lượt bình thường.
+   */
+  evidenceRequest?: boolean
+  /**
+   * Trợ lý vừa đính tệp đang ghim vào biểu mẫu: client thực hiện việc chuyển. Vắng ở mọi lượt
+   * bình thường.
+   */
+  attachFiles?: boolean
 }
 
 export interface ConversationResponse {

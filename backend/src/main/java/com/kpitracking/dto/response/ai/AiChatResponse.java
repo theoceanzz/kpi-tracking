@@ -42,6 +42,21 @@ public class AiChatResponse {
      */
     private FollowupResponse followups;
 
+    /**
+     * Bật khi trợ lý mời người dùng gửi tài liệu minh chứng: client vẽ một vùng thả tệp ngay trong
+     * bong bóng trả lời. {@code null} ở mọi lượt bình thường.
+     *
+     * <p>Kiểu bọc chứ không phải {@code boolean} nguyên thuỷ: lớp gắn {@code @JsonInclude(NON_EMPTY)}
+     * nên {@code null} bị lược khỏi JSON, còn {@code false} thì vẫn lọt vào mọi phản hồi.
+     */
+    private Boolean evidenceRequest;
+
+    /**
+     * Bật khi trợ lý vừa đính tệp đang ghim vào biểu mẫu: client thực hiện việc chuyển.
+     * {@code null} ở mọi lượt bình thường — xem ghi chú kiểu bọc ở {@code evidenceRequest}.
+     */
+    private Boolean attachFiles;
+
     @Data
     @Builder
     @NoArgsConstructor

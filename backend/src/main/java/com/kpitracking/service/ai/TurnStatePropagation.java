@@ -2,7 +2,9 @@ package com.kpitracking.service.ai;
 
 import com.kpitracking.service.ai.form.FormPatchStore;
 import com.kpitracking.tool.DisambiguationGuard;
+import com.kpitracking.tool.AttachFilesTool;
 import com.kpitracking.tool.EscapeHatchTool;
+import com.kpitracking.tool.EvidenceRequestTool;
 import com.kpitracking.tool.ToolCallTracker;
 import io.micrometer.context.ContextRegistry;
 import jakarta.annotation.PostConstruct;
@@ -14,7 +16,7 @@ import reactor.core.publisher.Hooks;
 /**
  * Mang trạng thái theo lượt sang luồng mà Spring AI dùng để chạy vòng gọi tool khi phát chữ dần.
  *
- * <p><b>Vấn đề.</b> Bốn kho trạng thái theo lượt ({@link ToolCallTracker}, {@link FormPatchStore},
+ * <p><b>Vấn đề.</b> Sáu kho trạng thái theo lượt ({@link ToolCallTracker}, {@link FormPatchStore},
  * {@link EscapeHatchTool}, {@link DisambiguationGuard}) đều dựa trên một giả định ghi thẳng trong
  * javadoc của chúng: <i>mọi lời gọi tool của một lượt chạy đồng bộ trên cùng luồng request</i>.
  * Đường {@code .call()} đúng như vậy — đo được: tool chạy trên {@code nio-8081-exec-*}. Nhưng đường
@@ -52,10 +54,12 @@ public class TurnStatePropagation {
         registry.registerThreadLocalAccessor(new ToolCallTracker.Accessor());
         registry.registerThreadLocalAccessor(new FormPatchStore.Accessor());
         registry.registerThreadLocalAccessor(new EscapeHatchTool.Accessor());
+        registry.registerThreadLocalAccessor(new EvidenceRequestTool.Accessor());
+        registry.registerThreadLocalAccessor(new AttachFilesTool.Accessor());
         registry.registerThreadLocalAccessor(disambiguationGuard.accessor());
 
         // Phải bật TRƯỚC khi có lượt streaming đầu tiên; @PostConstruct lúc khởi động là đủ sớm.
         Hooks.enableAutomaticContextPropagation();
-        log.info("Đã bật truyền trạng thái theo lượt sang luồng reactor (4 kho)");
+        log.info("Đã bật truyền trạng thái theo lượt sang luồng reactor (6 kho)");
     }
 }

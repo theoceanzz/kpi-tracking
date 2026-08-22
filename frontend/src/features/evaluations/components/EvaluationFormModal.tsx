@@ -24,6 +24,9 @@ interface EvaluationFormModalProps {
 
 export default function EvaluationFormModal({ open, onClose, readOnly = false, initialPeriodId }: EvaluationFormModalProps) {
   const { user } = useAuthStore()
+  /** Ô đang thật sự sửa được, cho trợ lý AI. Cập nhật bằng effect riêng bên dưới — điều kiện
+   *  khoá điểm khai báo SAU chỗ đăng ký nên không đưa thẳng vào deps được. */
+  const fillableRef = useRef<string[]>([])
   
   const orgId = user?.memberships?.[0]?.organizationId
   const { data: org } = useOrganization(orgId)
@@ -60,6 +63,10 @@ export default function EvaluationFormModal({ open, onClose, readOnly = false, i
     registerForm({
       formId: 'evaluation_form',
       getValues: () => getValues() as unknown as Record<string, unknown>,
+      // Chép lại đúng điều kiện vẽ/khoá bên dưới. readOnly = modal đang dùng làm bản xem lại,
+      // không ô nào sửa được; score còn bị khoá thêm khi điểm do BSC chốt hoặc KPI không có
+      // phần định lượng. Người bị đánh giá là ô ẩn nên không bao giờ có mặt ở đây.
+      fillableFields: () => fillableRef.current,
       setValue: (field, value) =>
         setValue(field as keyof EvaluationFormData, value as never,
           { shouldValidate: true, shouldDirty: true }),
@@ -109,6 +116,15 @@ export default function EvaluationFormModal({ open, onClose, readOnly = false, i
   // Kỳ đang chấm CHÍNH THỨC bằng BSC ⇒ điểm bị KHÓA theo bsc_score (backend cũng ép, không chỉ khóa UI).
   const isBscOfficial = bscMode === 'OFFICIAL' && bscScore != null
   const scoreLocked = readOnly || isBscOfficial
+
+  // Chép lại đúng điều kiện vẽ/khoá bên dưới: readOnly = modal đang dùng làm bản xem lại nên
+  // không ô nào sửa được; ô điểm còn bị khoá thêm khi điểm do BSC chốt hoặc KPI không có phần
+  // định lượng. Người bị đánh giá là input ẩn nên không bao giờ có mặt ở đây.
+  useEffect(() => {
+    fillableRef.current = readOnly
+      ? []
+      : ['kpiPeriodId', 'comment', ...(scoreLocked || noQuantScore ? [] : ['score'])]
+  }, [readOnly, scoreLocked, noQuantScore])
 
   // Điểm gợi ý 0..100:
   // - BSC chính thức  -> lấy officialScore (= bsc_score)

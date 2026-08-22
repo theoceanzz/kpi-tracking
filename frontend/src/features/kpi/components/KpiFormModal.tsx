@@ -1,4 +1,4 @@
-import { useMemo, useEffect } from 'react'
+import { useMemo, useEffect, useRef } from 'react'
 import { useForm, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { kpiSchema, type KpiFormData } from '../schemas/kpiSchema'
@@ -133,6 +133,9 @@ export default function KpiFormModal({ open, onClose, editKpi, parentKpi, parent
   const periodHasScorecard = !!formKpiPeriodId && (bscScorecards || []).some(sc => sc.kpiPeriodId === formKpiPeriodId)
   const formOrgUnitIds = watch('orgUnitIds') || []
   const [selectedRole, setSelectedRole] = useState<string>('ALL')
+  /** Ô đang thật sự sửa được, cho trợ lý AI. Cập nhật bằng effect riêng — các điều kiện dưới
+   *  đây khai báo SAU chỗ đăng ký nên không đưa thẳng vào deps được (lỗi vùng chết). */
+  const fillableRef = useRef<string[]>([])
 
   // Giới thiệu form này với trợ lý AI trong lúc nó đang mở, để người dùng nhờ điền hộ được.
   // Truyền HÀM đọc/ghi chứ không truyền dữ liệu: giá trị chỉ cần đúng tại thời điểm gửi câu hỏi,
@@ -143,6 +146,7 @@ export default function KpiFormModal({ open, onClose, editKpi, parentKpi, parent
     registerForm({
       formId: 'kpi_form',
       getValues: () => getValues() as unknown as Record<string, unknown>,
+      fillableFields: () => fillableRef.current,
       setValue: (field, value) =>
         setValue(field as keyof KpiFormData, value as never, { shouldValidate: true, shouldDirty: true }),
     })
@@ -499,6 +503,18 @@ export default function KpiFormModal({ open, onClose, editKpi, parentKpi, parent
 
   const isPending = createMutation.isPending || updateMutation.isPending
   const isPendingApproval = isEdit && editKpi?.status === 'PENDING_APPROVAL'
+
+  // Chép lại ĐÚNG các điều kiện đang dùng để vẽ từng ô bên dưới.
+  useEffect(() => {
+    fillableRef.current = [
+      'name', 'description', 'weight',
+      ...(showTypeTabs ? ['kpiType'] : []),
+      ...(isQualitative ? [] : ['targetValue', 'minimumValue', 'unit', 'isReverseKpi']),
+      ...(parentKpi ? [] : ['isBonusKpi']),
+      ...(isPendingApproval ? [] : ['kpiPeriodId', 'frequency', 'deadline', 'assignedToIds']),
+      ...(!isPendingApproval && flatOrgUnits.length > 0 ? ['orgUnitIds'] : []),
+    ]
+  }, [showTypeTabs, isQualitative, parentKpi, isPendingApproval, flatOrgUnits.length])
 
   const onSubmit = (data: KpiFormData) => {
     const payload = { ...data }

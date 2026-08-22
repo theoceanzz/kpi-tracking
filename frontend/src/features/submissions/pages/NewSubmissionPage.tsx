@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import { useForm, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import {
@@ -15,6 +15,7 @@ import { useMyKpi } from '@/features/kpi/hooks/useMyKpi'
 import FileDropzone from '@/components/common/FileDropzone'
 import { useUploadStore } from '@/store/uploadStore'
 import { useFormAssistStore } from '@/store/formAssistStore'
+import { ATTACHMENT_ACCEPT, ATTACHMENT_HINT, MAX_ATTACHMENT_BYTES, MAX_ATTACHMENT_FILES, screenEvidence } from '@/lib/attachmentPolicy'
 import { toast } from 'sonner'
 import { useNavigate, useSearchParams, useParams } from 'react-router-dom'
 import { formatNumber, cn } from '@/lib/utils'
@@ -50,6 +51,16 @@ export default function NewSubmissionPage() {
   const preselectedKpiId = searchParams.get('kpiId') ?? ''
   const qc = useQueryClient()
   const [files, setFiles] = useState<File[]>([])
+  /** Bản sao `files` cho fileSink đọc — xem ghi chú ở chỗ đăng ký form. */
+  const filesRef = useRef<File[]>([])
+  useEffect(() => {
+    filesRef.current = files
+    // Đẩy ảnh chụp sang store để ô chat vẽ được thẻ tệp và tự cập nhật khi người dùng gỡ tệp NGAY
+    // TRÊN form. Một chiều: form vẫn là nơi giữ sự thật. Xem formAssistStore.attachedFiles.
+    useFormAssistStore.getState().setAttachedFiles(files)
+  }, [files])
+  /** Ô đang thật sự hiện trên màn hình, để trợ lý không điền được ô bị ẩn. Xem formAssistStore. */
+  const fillableRef = useRef<string[]>([])
   const [showConfirm, setShowConfirm] = useState(false)
   const [pendingData, setPendingData] = useState<SubmissionFormData | null>(null)
   const [showSuccess, setShowSuccess] = useState(false)
@@ -73,9 +84,31 @@ export default function NewSubmissionPage() {
     registerForm({
       formId: 'submission_form',
       getValues: () => getValues() as unknown as Record<string, unknown>,
+      // Đọc qua ref chứ không đóng gói thẳng: effect này cố ý chỉ chạy một lần, nên tham chiếu
+      // thẳng tới selectedKpi sẽ đóng băng giá trị của lần render ĐẦU. Cho selectedKpi vào deps
+      // thì mỗi lần đổi chỉ tiêu lại huỷ-rồi-đăng-ký-lại, để hở một nhịp active = null.
+      fillableFields: () => fillableRef.current,
       setValue: (field, value) =>
         setValue(field as keyof SubmissionFormData, value as never,
           { shouldValidate: true, shouldDirty: true }),
+      // Năng lực nhận tệp. Nhờ nó, tệp thả vào ô chat vào thẳng vùng minh chứng NGAY, không phải
+      // chờ người dùng gõ thêm một câu nữa — và ô chat không cần biết gì về form báo cáo.
+      fileSink: {
+        label: 'Tài liệu chứng minh',
+        accept: ATTACHMENT_ACCEPT,
+        maxSize: MAX_ATTACHMENT_BYTES,
+        maxFiles: MAX_ATTACHMENT_FILES,
+        hint: ATTACHMENT_HINT,
+        // Qua ref vì effect này cố ý chỉ chạy một lần; đọc thẳng `files` là đóng băng mảng rỗng
+        // của lần render đầu, rồi tệp thứ hai ghi đè tệp thứ nhất.
+        current: () => filesRef.current,
+        add: incoming => {
+          const result = screenEvidence(incoming, filesRef.current)
+          if (result.accepted.length) setFiles(prev => [...prev, ...result.accepted])
+          return result
+        },
+        remove: file => setFiles(prev => prev.filter(f => f !== file)),
+      },
     })
     return () => unregister('submission_form')
   }, [getValues, setValue])
@@ -90,8 +123,8 @@ export default function NewSubmissionPage() {
         actualValue: existingSubmission.actualValue,
         qualitativeLevelId: existingSubmission.qualitativeLevelId ?? undefined,
         note: existingSubmission.note ?? '',
-        periodStart: existingSubmission.periodStart ? new Date(existingSubmission.periodStart).toISOString().split('T')[0] : undefined,
-        periodEnd: existingSubmission.periodEnd ? new Date(existingSubmission.periodEnd).toISOString().split('T')[0] : undefined,
+        // Không nạp lại periodStart/periodEnd: form không có ô nào cho chúng, mà lượt sửa bỏ trống
+        // thì KpiSubmissionService giữ nguyên giá trị cũ (chốt `!= null` ở updateSubmission).
       })
       setIsInitialSyncDone(true)
     }
@@ -126,6 +159,19 @@ export default function NewSubmissionPage() {
 
   const selectedKpiId = watch('kpiCriteriaId')
   const selectedKpi = myKpiData?.content?.find(k => k.id === selectedKpiId)
+
+  // Chép lại ĐÚNG các điều kiện đang dùng để vẽ ô bên dưới — không viết logic mới, vì hai bên
+  // lệch nhau là quay về đúng lỗi này: trợ lý điền một ô không tồn tại trên màn hình.
+  const isQualitative = selectedKpi?.kpiType === 'QUALITATIVE'
+  useEffect(() => {
+    fillableRef.current = [
+      ...(isEdit ? [] : ['kpiCriteriaId']),                                  // khoá khi sửa
+      ...(isQualitative
+        ? (qualitativeLevels.length ? ['qualitativeLevelId'] : [])           // chưa cấu hình thang thì không vẽ
+        : ['actualValue']),
+      'note',
+    ]
+  }, [isEdit, isQualitative, qualitativeLevels.length])
 
   // Trọng số THẬT = form × %hạng_mục (từ thẻ điểm của đơn vị KPI).
   const enableBsc = org?.enableBsc
@@ -394,6 +440,10 @@ export default function NewSubmissionPage() {
                       onFilesSelected={(acc) => setFiles(prev => [...prev, ...acc])}
                       files={files}
                       onRemove={(idx) => setFiles(files.filter((_, j) => j !== idx))}
+                      accept={ATTACHMENT_ACCEPT}
+                      maxSize={MAX_ATTACHMENT_BYTES}
+                      maxFiles={MAX_ATTACHMENT_FILES}
+                      hint={ATTACHMENT_HINT}
                     />
                   </div>
                </div>

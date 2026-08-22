@@ -42,6 +42,7 @@ class SubmissionFormFillToolTest {
 
     private OrgUnitStatisticService service;
     private QualitativeLevelRepository levels;
+    private KpiCriteriaRepository kpiCriteria;
     private SubmissionFormFillTool tool;
 
     @BeforeEach
@@ -49,6 +50,7 @@ class SubmissionFormFillToolTest {
         var deps = FormFillTestFixture.create();
         service = deps.service();
         levels = deps.qualitativeLevels();
+        kpiCriteria = deps.kpiCriteria();
         tool = new SubmissionFormFillTool(new FormRegistry(), deps.fill());
     }
 
@@ -67,8 +69,26 @@ class SubmissionFormFillToolTest {
                 "openFormValues", current));
     }
 
+    /** Như withForm nhưng client CÓ khai các ô đang hiện trên màn hình. */
+    private ToolContext withFields(Map<String, Object> current, List<String> fields) {
+        return new ToolContext(Map.of(
+                "orgUnitId", UUID.randomUUID().toString(),
+                "organizationId", UUID.randomUUID().toString(),
+                "openFormId", FormRegistry.SUBMISSION_FORM,
+                "openFormValues", current,
+                "openFormFields", fields));
+    }
+
+    /** Dặn kho trả về một chỉ tiêu có đúng loại cần thử. */
+    private UUID givenKpiOfType(com.kpitracking.enums.KpiType type) {
+        UUID id = UUID.randomUUID();
+        when(kpiCriteria.findById(id)).thenReturn(java.util.Optional.of(
+                com.kpitracking.entity.KpiCriteria.builder().id(id).kpiType(type).build()));
+        return id;
+    }
+
     private SubmissionFormFillRequest req(String kpiName, Double actual, String note) {
-        return new SubmissionFormFillRequest(kpiName, null, actual, null, note, null, null, "vì bạn yêu cầu");
+        return new SubmissionFormFillRequest(kpiName, null, actual, null, note, "vì bạn yêu cầu");
     }
 
     // ════════════════════════════════════════════════════════════════════════
@@ -143,7 +163,7 @@ class SubmissionFormFillToolTest {
         // Trong dữ liệu thật MỌI KPI đều lặp qua nhiều kỳ, nên không có lối này thì tool
         // không bao giờ tra được chỉ tiêu nào.
         String out = tool.suggestSubmissionForm(new SubmissionFormFillRequest(
-                "API hoàn thành", "Tháng 6/2026", 12d, null, null, null, null, null), withForm(Map.of()));
+                "API hoàn thành", "Tháng 6/2026", 12d, null, null, null), withForm(Map.of()));
 
         assertThat(out).doesNotContain("\"error\"");
         assertThat(FormPatchStore.get().entries())
@@ -160,7 +180,7 @@ class SubmissionFormFillToolTest {
                 Map.of("id", UUID.randomUUID(), "name", "API hoàn thành", "periodName", "Tháng 5/2026")));
 
         assertThat(tool.suggestSubmissionForm(new SubmissionFormFillRequest(
-                "API hoàn thành", "Tháng 12/2026", 12d, null, null, null, null, null), withForm(Map.of())))
+                "API hoàn thành", "Tháng 12/2026", 12d, null, null, null), withForm(Map.of())))
                 .contains("\"error\"").contains("Tháng 5/2026");
         assertThat(FormPatchStore.get()).isNull();
     }
@@ -192,14 +212,14 @@ class SubmissionFormFillToolTest {
                 QualitativeLevel.builder().id(UUID.randomUUID()).name("Xuất sắc").build()));
 
         SubmissionFormFillRequest ok = new SubmissionFormFillRequest(
-                null, null, null, "tot", null, null, null, null);
+                null, null, null, "tot", null, null);
         tool.suggestSubmissionForm(ok, withForm(Map.of()));
         assertThat(FormPatchStore.get().entries().get(0).value())
                 .as("bỏ dấu vẫn phải khớp").isEqualTo(id.toString());
 
         FormPatchStore.clear();
         SubmissionFormFillRequest bad = new SubmissionFormFillRequest(
-                null, null, null, "Siêu cấp", null, null, null, null);
+                null, null, null, "Siêu cấp", null, null);
         assertThat(tool.suggestSubmissionForm(bad, withForm(Map.of())))
                 .contains("\"error\"").contains("Tốt").contains("Xuất sắc");
     }
@@ -219,5 +239,81 @@ class SubmissionFormFillToolTest {
     void reportsStillMissing() {
         assertThat(tool.suggestSubmissionForm(req(null, null, "ghi chú"), withForm(Map.of())))
                 .contains("Còn thiếu bắt buộc").contains("chỉ tiêu");
+    }
+
+    // ── ô ẩn trên màn hình ───────────────────────────────────────────────
+
+    @Test
+    @DisplayName("ô KHÔNG có trên màn hình thì không thành đề xuất, dù bản khai báo cho phép")
+    void dropsFieldsHiddenOnScreen() {
+        // KPI định lượng: form chỉ vẽ Trị số, không vẽ Mức định tính. Trước đây trợ lý vẫn điền
+        // được rồi báo "đã điền vào form" — người dùng không có chỗ nào để nhìn thấy hay xoá đi.
+        assertThat(tool.suggestSubmissionForm(req(null, 18d, "ghi chú"),
+                withFields(Map.of(), List.of("actualValue"))))
+                .doesNotContain("\"error\"");
+
+        assertThat(FormPatchStore.get().entries()).extracting(FormPatch.Entry::field)
+                .containsExactly("actualValue")
+                .as("Ghi chú bị ẩn thì không được lọt vào bản đề xuất");
+    }
+
+    @Test
+    @DisplayName("client không khai ô nào đang hiện -> giữ nguyên hành vi cũ")
+    void keepsOldBehaviourWhenClientSendsNothing() {
+        // Client cũ chưa gửi openFormFields. Thà cũ còn hơn chặn sạch mọi đề xuất khi triển khai dở.
+        assertThat(tool.suggestSubmissionForm(req(null, 18d, "ghi chú"), withForm(Map.of())))
+                .doesNotContain("\"error\"");
+        assertThat(FormPatchStore.get().entries()).extracting(FormPatch.Entry::field)
+                .containsExactlyInAnyOrder("actualValue", "note");
+    }
+
+    @Test
+    @DisplayName("mọi ô đề xuất đều bị ẩn -> nói rõ vì sao, KHÔNG nói \"không có gì thay đổi\"")
+    void explainsWhenEverythingIsHidden() {
+        String out = tool.suggestSubmissionForm(req(null, 18d, null),
+                withFields(Map.of(), List.of("note")));
+
+        // Câu "không có ô nào thay đổi" sẽ khiến model tưởng nó đề xuất trùng giá trị cũ rồi thử lại.
+        assertThat(out).contains("KHÔNG có trên màn hình").doesNotContain("không có ô nào thay đổi");
+        assertThat(FormPatchStore.get()).isNull();
+    }
+
+    // ── luật máy chủ theo loại chỉ tiêu ──────────────────────────────────
+
+    @Test
+    @DisplayName("mức định tính trên KPI ĐỊNH LƯỢNG bị chặn, kèm câu chỉ cách sửa")
+    void rejectsQualitativeLevelOnQuantitativeKpi() {
+        UUID id = givenKpiOfType(com.kpitracking.enums.KpiType.QUANTITATIVE);
+
+        String out = tool.suggestSubmissionForm(
+                new SubmissionFormFillRequest(null, null, null, "Tốt", null, "vì bạn yêu cầu"),
+                withForm(Map.of("kpiCriteriaId", id.toString())));
+
+        assertThat(out).contains("\"error\"").contains("ĐỊNH LƯỢNG").contains("actualValue");
+        assertThat(FormPatchStore.get()).isNull();
+    }
+
+    @Test
+    @DisplayName("trị số trên KPI ĐỊNH TÍNH cũng bị chặn — chặn cả hai chiều")
+    void rejectsActualValueOnQualitativeKpi() {
+        UUID id = givenKpiOfType(com.kpitracking.enums.KpiType.QUALITATIVE);
+
+        String out = tool.suggestSubmissionForm(req(null, 18d, null),
+                withForm(Map.of("kpiCriteriaId", id.toString())));
+
+        assertThat(out).contains("\"error\"").contains("ĐỊNH TÍNH").contains("qualitativeLevelName");
+    }
+
+    @Test
+    @DisplayName("KPI định lượng: mức định tính KHÔNG thay được trị số khi báo ô còn thiếu")
+    void qualitativeLevelDoesNotSatisfyMissingValue() {
+        // Đây là chỗ sinh ra lời khuyên sai: trợ lý báo "không thiếu gì", người dùng bấm lưu và
+        // ăn lỗi 400 "Vui lòng nhập giá trị thực tế cho chỉ tiêu định lượng".
+        UUID id = givenKpiOfType(com.kpitracking.enums.KpiType.QUANTITATIVE);
+
+        String out = tool.suggestSubmissionForm(req(null, null, "ghi chú"),
+                withForm(Map.of("kpiCriteriaId", id.toString(), "qualitativeLevelId", UUID.randomUUID().toString())));
+
+        assertThat(out).contains("Còn thiếu bắt buộc").contains("giá trị thực tế");
     }
 }

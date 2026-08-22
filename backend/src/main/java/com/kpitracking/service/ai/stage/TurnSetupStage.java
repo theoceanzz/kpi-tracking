@@ -67,6 +67,17 @@ public class TurnSetupStage implements AiStage {
             toolCtx.put("openFormId", turn.getOpenFormId());
             toolCtx.put("openFormValues",
                     turn.getOpenFormValues() == null ? Map.of() : turn.getOpenFormValues());
+            // Chỉ đặt khi client CÓ gửi: vắng khoá = client cũ, và FormFillSupport giữ hành vi
+            // trước đây thay vì tưởng không ô nào điền được rồi chặn sạch.
+            if (turn.getOpenFormFields() != null) {
+                toolCtx.put("openFormFields", turn.getOpenFormFields());
+            }
+            // Tool mở vùng thả tệp đọc khoá này để tự chặn, thay vì chỉ được DẶN là đừng gọi.
+            toolCtx.put("openFormAcceptsFiles", turn.isOpenFormAcceptsFiles());
+        }
+        // Tệp đang ghim KHÔNG phụ thuộc form nào: người dùng ghim được cả khi chưa mở biểu mẫu.
+        if (turn.getPinnedFileNames() != null) {
+            toolCtx.put("pinnedFileNames", turn.getPinnedFileNames());
         }
         turn.setToolCtx(toolCtx);
 

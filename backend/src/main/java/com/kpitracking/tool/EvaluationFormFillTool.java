@@ -19,8 +19,10 @@ import java.util.Map;
  * Đề xuất giá trị điền vào form ĐÁNH GIÁ NHÂN VIÊN đang mở.
  *
  * <p>Chỉ ĐỀ XUẤT — điểm đánh giá là dữ liệu nhân sự nên tuyệt đối không tự ghi; người dùng phải
- * xem trước và tự bấm chấp nhận. Người được đề xuất cũng đi qua
- * {@code ToolSupport.validateUserAccess}, nên không thể đề xuất chấm điểm người ngoài phạm vi quản lý.
+ * xem trước và tự bấm chấp nhận.
+ *
+ * <p>Không đề xuất được NGƯỜI bị đánh giá: ô đó bị gỡ khỏi bản khai báo vì nó ẩn hoàn toàn trên
+ * giao diện. Xem {@code FormRegistry.EVALUATION}.
  */
 @Component
 @RequiredArgsConstructor
@@ -30,7 +32,9 @@ public class EvaluationFormFillTool {
     private final FormFillSupport fill;
 
     public record EvaluationFormFillRequest(
-            @JsonProperty(required = false) String employeeName,  // tên nhân viên được đánh giá
+            // Cố ý KHÔNG có employeeName: người bị đánh giá là ô ẩn, đặt sẵn bằng chính người đang
+            // đăng nhập. Xem ghi chú ở FormRegistry.EVALUATION — đổi được nó là đổi được cả bài
+            // đánh giá sang người khác mà người dùng không nhìn thấy gì.
             @JsonProperty(required = false) String periodName,    // tên đợt KPI
             @JsonProperty(required = false) Double score,
             @JsonProperty(required = false) String comment,
@@ -43,7 +47,9 @@ public class EvaluationFormFillTool {
             + "Chỉ điền ô người dùng thực sự nêu — ô không chắc thì BỎ QUA, đừng đoán. "
             + "TUYỆT ĐỐI không tự nghĩ ra điểm: chỉ điền score khi người dùng nói rõ con số. "
             + "Đây là ĐỀ XUẤT: người dùng xem lại rồi tự chọn ô nào muốn nhận. "
-            + "employeeName và periodName truyền bằng TÊN, KHÔNG truyền UUID. "
+            + "periodName truyền bằng TÊN, KHÔNG truyền UUID. "
+            + "Người bị đánh giá LUÔN là người đang đăng nhập, form tự đặt — bạn không đổi được "
+            + "và cũng đừng hứa đổi. "
             + "reason: một câu ngắn nói vì sao đề xuất như vậy.")
     public String suggestEvaluationForm(EvaluationFormFillRequest request, ToolContext context) {
         try {
@@ -60,10 +66,6 @@ public class EvaluationFormFillTool {
             scalars.put("comment", request.comment());
             fill.addScalars(entries, form, current, scalars, reason);
 
-            if (notBlank(request.employeeName())) {
-                FormFillSupport.Resolved u = fill.user(request.employeeName(), context);
-                fill.addIfChanged(entries, current, form.field("userId"), u.single(), u.display(), reason);
-            }
             if (notBlank(request.periodName())) {
                 FormFillSupport.Resolved p = fill.period(request.periodName(), context);
                 fill.addIfChanged(entries, current, form.field("kpiPeriodId"), p.single(), p.display(), reason);
@@ -77,10 +79,9 @@ public class EvaluationFormFillTool {
         }
     }
 
-    /** Ô bắt buộc còn trống theo evaluationSchema.ts: nhân viên, đợt KPI, điểm. */
+    /** Ô bắt buộc còn trống theo evaluationSchema.ts. Người bị đánh giá do form tự đặt, không kể. */
     private String stillMissing(EvaluationFormFillRequest req, Map<String, Object> current) {
         List<String> missing = new ArrayList<>();
-        if (!notBlank(req.employeeName()) && isBlank(current.get("userId"))) missing.add("nhân viên");
         if (!notBlank(req.periodName()) && isBlank(current.get("kpiPeriodId"))) missing.add("đợt KPI");
         if (req.score() == null && current.get("score") == null) missing.add("điểm");
         return missing.isEmpty() ? "" : "Còn thiếu bắt buộc: " + String.join(", ", missing) + ".";

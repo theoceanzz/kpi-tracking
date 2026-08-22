@@ -6,6 +6,10 @@ import { useOrganization } from '@/features/orgunits/hooks/useOrganization'
 import { useMyAiQuota } from '@/features/organization/hooks/useAiQuota'
 import { aiApi, type InsightCard, type FollowupPools, type ClarificationOption, type FormPatch, type AiChatResponse } from '../api/aiApi'
 import { useFormAssistStore } from '@/store/formAssistStore'
+import EvidenceAttachBar, { AttachedChips, PinnedChips } from './EvidenceAttachBar'
+import { usePinnedFilesStore, attachPinnedTo } from '@/store/pinnedFilesStore'
+import { useChatFileDrop } from '../hooks/useChatFileDrop'
+import EvidenceDropCard from './EvidenceDropCard'
 import FormPatchPreview from './FormPatchPreview'
 import ThinkingSummary from './ThinkingSummary'
 import AnswerMarkdown from './AnswerMarkdown'
@@ -30,6 +34,8 @@ interface Message {
   thinkingSeconds?: number
   /** Các bước đã chạy trong lượt, để bấm mở ra xem. */
   steps?: string[]
+  /** Trợ lý mời gửi minh chứng: vẽ vùng thả ngay dưới câu trả lời này. */
+  evidenceRequest?: boolean
 }
 
 const WELCOME_MSG: Message = {
@@ -46,6 +52,8 @@ export default function AiAssistantWidget() {
   const [isOpen, setIsOpen] = useState(false)
   const [isMinimized, setIsMinimized] = useState(false)
   const [input, setInput] = useState('')
+  // Tệp KHÔNG còn nằm ở đây nữa: nó đi thẳng vào form qua fileSink ngay lúc kẹp. Giữ một bản sao
+  // ở ô chat là dựng danh sách thứ hai của cùng một thứ, mà hai bản thì sẽ lệch.
   const [messages, setMessages] = useState<Message[]>([WELCOME_MSG])
   const [isLoading, setIsLoading] = useState(false)
   const [insights, setInsights] = useState<InsightCard[]>([])
@@ -64,6 +72,14 @@ export default function AiAssistantWidget() {
   const turnRef = useRef(0)
   const activeInsightRef = useRef<InsightCard | null>(null)
   const navigate = useNavigate()
+
+  // Chỗ nhận tệp của form đang mở, nếu form đó biết nhận. Nghe THEO store (chứ không getState)
+  // để nút kẹp tự bật/tắt ngay khi người dùng mở hay đóng biểu mẫu.
+  const fileSink = useFormAssistStore(s => s.active?.fileSink)
+  // Nền tất định: thả tệp vào BẤT KỲ ĐÂU trong khung chat cũng ghim được, kể cả khi model quên
+  // gọi tool mở vùng thả. Xem useChatFileDrop.
+  const { getRootProps: dropProps, isDragActive } = useChatFileDrop(isMinimized)
+
 
   // Backend chỉ cấp quyền dùng AI cho vai trò rank <= 1 (trưởng/phó đơn vị) — xem
   // ManagerContextResolver.resolve(). Người khác gọi sẽ nhận chuỗi từ chối kèm HTTP 200,
@@ -126,6 +142,7 @@ export default function AiAssistantWidget() {
     const userText = text.trim()
     if (!userText || isLoading) return
 
+
     setShowInsights(false)
     // Người dùng luôn hơn hiệu ứng: hỏi tiếp thì câu trước hiện trọn ngay.
     finishTyping()
@@ -136,6 +153,7 @@ export default function AiAssistantWidget() {
       { id: userMsgId, role: 'user', content: userText },
     ])
     setIsLoading(true)
+
 
     try {
       if (!conversationIdRef.current) {
@@ -158,6 +176,13 @@ export default function AiAssistantWidget() {
           focusUnitId,
           openFormId: activeForm?.formId,
           openFormValues: activeForm?.getValues(),
+          openFormFields: activeForm?.fillableFields(),
+          openFormAcceptsFiles: activeForm?.fileSink ? true : undefined,
+          // Tệp đang GHIM — ứng viên để trợ lý đính. Đọc lúc gửi, cùng nếp với openFormValues.
+          pinnedFileNames: usePinnedFilesStore.getState().files.map(f => f.name),
+          // Đọc từ sink lúc gửi, cùng nếp với openFormValues: trợ lý luôn thấy đúng danh sách tệp
+          // ĐANG có trên form, kể cả tệp người dùng tự thả thẳng vào form chứ không qua ô chat.
+          attachmentNames: activeForm?.fileSink?.current().map(f => f.name),
         },
         {
           onStage: pushStage,
@@ -168,6 +193,10 @@ export default function AiAssistantWidget() {
       const { seconds, steps } = endTurn()
       const response = box.value
       if (!response) throw new Error('Luồng kết thúc mà không có câu trả lời')
+
+      // Trợ lý vừa bảo đính: chuyển tệp ghim sang biểu mẫu. Đi qua đúng hàm mà nút bấm dùng, nên
+      // hai đường không thể lệch nhau về phép kiểm hay về việc dọn ghim.
+      if (response.attachFiles) attachPinnedTo(useFormAssistStore.getState().active?.fileSink)
 
       const options = response.options ?? []
       const assistantId = (Date.now() + 1).toString()
@@ -200,6 +229,7 @@ export default function AiAssistantWidget() {
           // Câu hỏi gợi ý nay về CÙNG câu trả lời — trước đây phải gọi thêm POST /ai/followups.
           // Backend đã tự bỏ qua ở lượt hỏi lại và lượt không có dữ liệu tool.
           followups: response.followups,
+          evidenceRequest: response.evidenceRequest,
         },
       ])
 
@@ -288,11 +318,20 @@ export default function AiAssistantWidget() {
 
   return (
     <div
+      {...dropProps()}
       className={cn(
         'fixed right-3 bottom-3 sm:right-6 sm:bottom-6 w-[calc(100vw-1.5rem)] sm:w-[450px] bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 flex flex-col overflow-hidden transition-all duration-300 z-500',
         isMinimized ? 'h-[60px]' : 'h-[700px] max-h-[85vh]',
+        isDragActive && 'ring-2 ring-[var(--color-ai)] ring-offset-2',
       )}
     >
+      {/* Lớp phủ khi đang kéo tệp qua — nói rõ thả vào đâu cũng được. pointer-events-none để nó
+          không nuốt mất sự kiện drop của chính vùng bên dưới. */}
+      {isDragActive && (
+        <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center bg-[var(--color-ai-soft)]/90">
+          <p className="text-sm font-bold text-[var(--color-ai)]">Thả tệp vào đây để ghim</p>
+        </div>
+      )}
       {/* Header */}
       <div
         className="h-[60px] bg-violet-600 px-4 flex items-center justify-between shrink-0 cursor-pointer select-none"
@@ -413,6 +452,11 @@ export default function AiAssistantWidget() {
                   <FormPatchPreview patch={msg.formPatch} />
                 )}
 
+                {/* Vùng thả minh chứng, khi trợ lý vừa mời người dùng gửi tài liệu */}
+                {msg.role === 'assistant' && msg.evidenceRequest && (
+                  <EvidenceDropCard sink={fileSink} disabled={isLoading} />
+                )}
+
                 {/* Follow-up suggestions under the latest assistant answer */}
                 {msg.role === 'assistant' && msg.followups && msg.id === lastAssistantId && !isLoading && !msg.typing && (
                   <div className="w-full mt-2">
@@ -452,6 +496,8 @@ export default function AiAssistantWidget() {
 
           {/* Input Area */}
           <div className="p-4 bg-white dark:bg-slate-900 border-t border-slate-100 dark:border-slate-800 shrink-0">
+            <PinnedChips sink={fileSink} />
+            <AttachedChips sink={fileSink} />
             <div className="relative flex items-center gap-2">
               <textarea
                 ref={inputRef}
@@ -459,17 +505,21 @@ export default function AiAssistantWidget() {
                 onChange={e => setInput(e.target.value)}
                 onKeyDown={handleKeyDown}
                 placeholder="Nhập câu hỏi..."
-                className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-2.5 pr-12 text-sm leading-6 focus:outline-none focus:ring-2 focus:ring-violet-500/50 resize-none transition-shadow"
+                className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-2.5 pr-20 text-sm leading-6 focus:outline-none focus:ring-2 focus:ring-violet-500/50 resize-none transition-shadow"
                 rows={1}
                 style={{ minHeight: '44px', maxHeight: '120px' }}
               />
-              <button
-                onClick={handleSend}
-                disabled={!input.trim() || isLoading}
-                className="absolute right-2 bottom-2 p-1.5 bg-violet-600 hover:bg-violet-700 disabled:bg-slate-300 dark:disabled:bg-slate-700 text-white rounded-lg transition-colors"
-              >
-                <Send size={16} />
-              </button>
+              {/* pr-20 ở textarea chừa chỗ cho CẢ hai nút; pr-12 cũ chỉ đủ cho nút gửi. */}
+              <div className="absolute right-2 bottom-1.5 flex items-center gap-0.5">
+                <EvidenceAttachBar sink={fileSink} disabled={isLoading} />
+                <button
+                  onClick={handleSend}
+                  disabled={!input.trim() || isLoading}
+                  className="p-1.5 bg-violet-600 hover:bg-violet-700 disabled:bg-slate-300 dark:disabled:bg-slate-700 text-white rounded-lg transition-colors"
+                >
+                  <Send size={16} />
+                </button>
+              </div>
             </div>
             <p className="text-[10px] text-center text-slate-400 mt-2">
               AI có thể cung cấp thông tin không chính xác. Hãy kiểm tra lại.
