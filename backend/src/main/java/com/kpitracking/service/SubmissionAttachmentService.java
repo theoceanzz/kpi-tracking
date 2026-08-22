@@ -32,6 +32,7 @@ public class SubmissionAttachmentService {
     private final KpiSubmissionRepository submissionRepository;
     private final UserRepository userRepository;
     private final CloudinaryStorageService cloudinaryStorageService;
+    private final AttachmentPolicy attachmentPolicy;
     private final SubmissionMapper submissionMapper;
     private final PermissionChecker permissionChecker;
 
@@ -58,6 +59,13 @@ public class SubmissionAttachmentService {
             throw new com.kpitracking.exception.BusinessException("Chỉ có thể tải tài liệu cho báo cáo ở trạng thái Chờ duyệt, Nháp hoặc Tự động từ chối");
         }
 
+        // Kiểm TRƯỚC khi đụng tới nơi lưu trữ: một lô có tệp hỏng thì không tệp nào được đẩy lên,
+        // khỏi để lại rác trên Cloudinary rồi phải đi dọn.
+        //
+        // Đếm cả số tệp báo cáo ĐANG có, vì giới hạn là của báo cáo chứ không phải của lần gửi —
+        // chỉ đếm mảng gửi lên thì tải 5 tệp rồi tải tiếp 5 tệp nữa vẫn lọt.
+        attachmentPolicy.validate(files, attachmentRepository.findBySubmissionId(submissionId).size());
+
         List<AttachmentResponse> responses = new ArrayList<>();
 
         for (MultipartFile file : files) {
@@ -66,7 +74,8 @@ public class SubmissionAttachmentService {
 
             SubmissionAttachment attachment = SubmissionAttachment.builder()
                     .submission(submission)
-                    .fileName(file.getOriginalFilename())
+                    // Tên do client gửi, có thể chứa cả đường dẫn — cắt về tên cơ sở trước khi lưu.
+                    .fileName(attachmentPolicy.safeFileName(file.getOriginalFilename()))
                     .fileUrl(uploadInfo.get("url"))
                     .fileSize(file.getSize())
                     .contentType(file.getContentType())
