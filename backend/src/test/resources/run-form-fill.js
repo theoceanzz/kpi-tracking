@@ -17,6 +17,15 @@ const fs = require('fs');
 const BASE = process.env.AI_TEST_BASE || 'http://localhost:8081/api/v1';
 const ACCOUNT = { email: 'director@demo.com', password: 'Demo123@' };
 
+/**
+ * Hạn mức token THÁNG của chính hệ thống đã cạn (429 từ AiTokenQuotaExceededException).
+ *
+ * <p>Khác hẳn `depleted` (nhà cung cấp hết credit) và khác cả chặn tần suất. Không nhận ra nó
+ * thì mọi câu còn lại đỏ hàng loạt trông y hệt model sai — đã xảy ra thật: 12 ca đỏ giả từng bị
+ * đọc nhầm thành một đợt hồi quy.
+ */
+const QUOTA_EXHAUSTED = /hết hạn mức token AI/i;
+
 const args = process.argv.slice(2);
 const argOf = (name, dflt) => {
   const i = args.indexOf(name);
@@ -58,11 +67,15 @@ const TOOL_OF = {
 };
 
 /**
- * Chín ca kiểm.
+ * Các ca kiểm cho sáu form.
  *
- * Bốn ca `mustHavePatch: false` là các PHÉP SO NGƯỢC và chúng quan trọng hơn các ca thuận: một
- * tính năng điền form quá sốt sắng sẽ ghi bừa vào form người dùng, và đó là hỏng nặng hơn nhiều
- * so với việc không điền được.
+ * Ca `mustHavePatch: false` là các PHÉP SO NGƯỢC và chúng quan trọng hơn các ca thuận: một tính
+ * năng điền form quá sốt sắng sẽ ghi bừa vào form người dùng, và đó là hỏng nặng hơn nhiều so
+ * với việc không điền được.
+ *
+ * Nhưng `mustHavePatch: false` là phép đo CÙN — nó gộp "đừng điền ô sai" với "đừng điền gì cả".
+ * Khi người dùng nêu nhiều giá trị mà chỉ MỘT cái sai, phép đo chính xác hơn là `forbidFields`
+ * (ô sai tuyệt đối không được đề xuất) cộng `expectText` (người dùng phải được cảnh báo) — xem A02.
  */
 const CASES = [
   {
@@ -171,13 +184,18 @@ const CASES = [
   },
   {
     id: 'E01',
-    why: 'ĐÁNH GIÁ — tra người và kỳ ra UUID thật, bản xem trước hiện TÊN',
+    why: 'ĐÁNH GIÁ — tra KỲ ra UUID thật, hiện TÊN kỳ; người bị đánh giá KHÔNG được đề xuất',
     message: 'Đánh giá Hoàng Văn TeamLead kỳ Tháng 6/2026, 8 điểm, nhận xét hoàn thành tốt',
     formId: EVALUATION_FORM,
     values: {},
     mustHavePatch: true,
-    expectFields: { userId: USER_TEAMLEAD, score: 8 },
-    expectDisplay: { userId: /TeamLead/i, kpiPeriodId: /Tháng 6\/2026/ },
+    expectFields: { score: 8 },
+    expectDisplay: { kpiPeriodId: /Tháng 6\/2026/ },
+    // userId ĐÃ BỊ GỠ khỏi evaluation_form — người bị đánh giá là <input type="hidden"> đặt theo
+    // người đang đăng nhập. Để trợ lý điền được ô đó nghĩa là một câu tiếng Việt đổi được đối
+    // tượng bị đánh giá mà trên màn hình không có dấu vết gì. Bản đầu của ca này còn ĐÒI điền
+    // userId, nên nó đỏ ở mọi lần đo và làm nhiễu cổng của cả bộ.
+    forbidFields: ['userId'],
   },
   {
     id: 'E02',
@@ -206,11 +224,22 @@ const CASES = [
   },
   {
     id: 'A02',
-    why: 'NGƯỢC — lý do ngắn hơn 10 ký tự phải bị chặn, không để form báo đỏ sau khi Điền',
+    why: 'NGƯỢC — lý do dưới 10 ký tự phải bị validator chặn VÀ người dùng phải được báo',
     message: 'Xin điều chỉnh mục tiêu xuống 40, lý do: bận',
     formId: KPI_ADJUSTMENT_FORM,
     values: {},
-    mustHavePatch: false,
+    // Bản đầu dùng mustHavePatch:false, tức đòi KHÔNG điền gì cả. Đo được hành vi thật của model
+    // và nó đúng chuẩn: validator chặn reason="bận", model TỰ SỬA rồi gọi lại chỉ với ô hợp lệ,
+    // tool trả kèm "Còn thiếu bắt buộc: lý do", trợ lý điền 40 và nói rõ lý do cần >= 10 ký tự.
+    // Phạt nó là phạt đúng thứ mình thiết kế ra. Thay bằng hai phép đo đúng trọng tâm — và như
+    // vậy là SIẾT chứ không nới: bản cũ khẳng định một điều thô, bản mới khẳng định hai điều.
+    //
+    // Điền một phần KHÔNG đẩy người dùng vào lỗi 400: KpiAdjustmentModal.tsx có
+    // z.string().min(10) nên thiếu lý do bị chặn ngay ở client với thông báo rõ ràng.
+    forbidFields: ['reason'],
+    // Phải truyền đạt việc lý do CHƯA ĐẠT, không chỉ nhắc tới chữ "lý do" — chữ đó có trong hầu
+    // hết mọi câu trả lời của ca này nên nhận nó là biến phép kiểm thành vô nghĩa.
+    expectText: /10 ký tự|ít nhất 10|quá ngắn|lý do.{0,40}(ngắn|ít nhất|chi tiết|đầy đủ|bổ sung)/i,
   },
   {
     id: 'U01',
@@ -395,6 +424,19 @@ function grade(c, res, trace) {
     const ok = want instanceof RegExp ? want.test(String(got.value)) : norm(got.value) === norm(want);
     if (!ok) problems.push(`ô "${field}" = ${JSON.stringify(got.value)}, mong ${want}`);
   }
+  // Câu trả lời phải NÓI ra điều cần nói. Dùng cho ca mà trợ lý được phép điền một phần: điền
+  // xong mà im lặng về phần còn thiếu chính là kiểu hứa suông mà dự án này đã phải sửa nhiều lần.
+  if (c.expectText && !c.expectText.test(res.text || String())) {
+    problems.push('câu trả lời không nhắc tới điều bắt buộc phải nhắc (' + c.expectText + ')');
+  }
+
+  // Ô bị CẤM: có mặt trong đề xuất là hỏng, kể cả khi giá trị trông vô hại. Đây là chỗ khẳng
+  // định các bản vá bảo mật ở tầng end-to-end, chứ không chỉ trong test đơn vị.
+  for (const field of (c.forbidFields || [])) {
+    if (byField[field]) {
+      problems.push('ô "' + field + '" KHÔNG được phép đề xuất (đã gỡ khỏi FormRegistry)');
+    }
+  }
   for (const [field, re] of Object.entries(c.expectDisplay || {})) {
     const got = byField[field];
     // Người dùng không thẩm định được một UUID trong bản xem trước, nên display PHẢI là tên.
@@ -410,7 +452,11 @@ function grade(c, res, trace) {
     const ran = formTools.filter(t => trace.tools.includes(t));
     if (ran.length) problems.push('tool điền form ĐƯỢC GỌI dù không mở form: ' + ran.join('+'));
   }
-  if (c.mustCallTool && toolName
+  // Trace rỗng nghĩa là KHÔNG ĐỌC ĐƯỢC log, không phải là không tool nào chạy. Chấm hỏng ở đây
+  // sẽ báo oan hàng loạt — run-ai-questions.js đã có lưới này từ trước, bản form thì thiếu, và
+  // chính chỗ thiếu đó từng cho ra một lần đo 15/21 hoàn toàn vô nghĩa.
+  const traceUsable = trace.tools.length > 0 || trace.rejected.length > 0;
+  if (c.mustCallTool && toolName && traceUsable
       && !trace.tools.includes(toolName)
       && !trace.rejected.includes(toolName)) {
     problems.push('model KHÔNG gọi tool điền form — phép kiểm không được chạm tới, đạt vô hiệu');
@@ -430,6 +476,12 @@ function grade(c, res, trace) {
     markLog();
     const res = await ask(c);
     const trace = readLogSince();
+
+    if (QUOTA_EXHAUSTED.test(res.text || String())) {
+        console.log('\nDỪNG: hạn mức token AI THÁNG của tài khoản đo đã cạn — không phải model sai. '
+          + 'Nâng hạn mức (ai_token_quotas.monthly_limit) hoặc chờ sang tháng rồi chạy lại.');
+      break;
+    }
 
     if (trace.depleted) {
       console.log('\nDỪNG: nhà cung cấp báo hết credit (depleted). Nạp credit rồi chạy lại — '

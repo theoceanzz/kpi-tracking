@@ -35,7 +35,7 @@ Chi nhánh Hà Nội        18 người, 2 đơn vị con      ← phạm vi dir
 | KPI Phòng Truyền Thông | Lượt tương tác, Số bài đăng |
 | KPI Team Backend | API hoàn thành, Code review |
 | KPI Team Content | Số bài viết |
-| Bài nộp | 156, **tất cả đều APPROVED** → câu "ai chưa nộp" phải trả về rỗng |
+| Bài nộp | Ban đầu 156, **tất cả APPROVED** → "ai chưa nộp" trả rỗng. **Đã trôi:** dùng app thật sinh thêm bài DRAFT/REJECTED, nay có lượt giao chưa nộp. Đừng chốt kỳ vọng vào con số này |
 | Đánh giá | 90 |
 
 **Hai điểm quan trọng khi ra đề:**
@@ -51,8 +51,8 @@ Mỗi câu chỉ cần một tool. Dùng để khoanh vùng khi có hồi quy.
 
 | # | Câu hỏi | Tool | Đáp án đúng |
 |---|---|---|---|
-| A01 | Phòng IT có bao nhiêu người? | `get_people` list | **8** |
-| A02 | Team Backend có bao nhiêu nhân sự? | `get_people` list | **3** |
+| A01 | Phòng IT có bao nhiêu người? | `get_people` list **hoặc** `get_org_unit` detail | **8** |
+| A02 | Team Backend có bao nhiêu nhân sự? | `get_people` list **hoặc** `get_org_unit` detail | **3** |
 | A03 | Tôi là ai, giữ chức vụ gì? | `get_people` me | Nguyễn Văn Director — Giám đốc |
 | A04 | Ai phụ trách Phòng Truyền Thông? | `get_org_unit` detail | Trịnh Văn Comm Head |
 | A05 | Đơn vị của tôi có những đơn vị con nào? | `get_org_unit` children | Phòng IT, Phòng Truyền Thông |
@@ -60,7 +60,7 @@ Mỗi câu chỉ cần một tool. Dùng để khoanh vùng khi có hồi quy.
 | A07 | Có những kỳ KPI nào? | `get_kpi` periods | 3 kỳ: Tháng 4, 5, 6/2026 |
 | A08 | Liệt kê các KPI của Team Backend | `get_kpi` list | API hoàn thành, Code review |
 | A09 | Liệt kê các KPI của Phòng Truyền Thông | `get_kpi` list | Lượt tương tác, Số bài đăng |
-| A10 | Ai chưa nộp báo cáo? | `get_submissions` non_submitters | **Rỗng** — mọi bài đều đã nộp |
+| A10 | Ai chưa nộp báo cáo? | `get_submissions` non_submitters | Rỗng HOẶC danh sách — tuỳ trạng thái CSDL lúc chạy, cả hai đều đúng |
 | A11 | Lịch sử nộp của KPI "API hoàn thành" | `get_submissions` history | Gộp cả 3 kỳ, mỗi dòng có tên kỳ |
 | A12 | Xếp hạng nhân viên theo tiến độ | `rank` members | Bảng có cột đơn vị + chức vụ |
 | A13 | Xếp hạng các đơn vị con theo hiệu suất | `rank` org_units | Phòng IT vs Phòng Truyền Thông |
@@ -102,7 +102,7 @@ Nhóm quan trọng nhất: mỗi câu cần tool từ **nhiều nhóm router kh�
 | C04 | Đơn vị con nào đông người nhất, KPI ra sao, so với đơn vị còn lại thế nào? | LOOKUP + KPI + INSIGHT |
 | C05 | Team Backend có mấy người, làm KPI gì, xu hướng 3 kỳ qua thế nào? | LOOKUP + KPI + INSIGHT |
 | C06 | Danh sách nhân sự Phòng Truyền Thông kèm tình hình nộp báo cáo | LOOKUP + KPI |
-| C07 | Ai phụ trách Team Content, và team đó xếp hạng thế nào so với team khác? | LOOKUP + INSIGHT |
+| C07 | Ai phụ trách Team Content, và team đó xếp hạng thế nào so với team khác? | LOOKUP + INSIGHT — vế "ai phụ trách" nhận `get_org_unit` hoặc `get_people` |
 | C08 | Tổng quan KPI, các chức vụ đang có, và ai chưa nộp báo cáo | cả ba nhóm |
 
 **Chấm theo hai mức tách rời:** router có chọn đủ nhóm không, và câu trả lời có đúng không. Tách ra mới biết hỏng ở tầng nào.

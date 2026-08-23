@@ -95,6 +95,15 @@ async function loginAs(key) {
   throw new Error('Đăng nhập hỏng (không thấy cookie kg_at): ' + acc.email);
 }
 
+/**
+ * Hạn mức token THÁNG của chính hệ thống đã cạn (429 từ AiTokenQuotaExceededException).
+ *
+ * <p>Khác hẳn `depleted` (nhà cung cấp hết credit) và khác cả chặn tần suất. Không nhận ra nó
+ * thì mọi câu còn lại đỏ hàng loạt trông y hệt model sai — đã xảy ra thật: 12 ca đỏ giả từng bị
+ * đọc nhầm thành một đợt hồi quy.
+ */
+const QUOTA_EXHAUSTED = /hết hạn mức token AI/i;
+
 const RATE_LIMITED = /quá nhanh|rate limit/i;
 
 /**
@@ -193,8 +202,10 @@ const GROUPS = [
 (async () => {
   const results = [];
   let pass = 0, fail = 0;
+  let quotaOut = false;
 
   for (const [key, title, items] of GROUPS) {
+    if (quotaOut) break;
     if (onlyGroup && onlyGroup !== key) continue;
     console.log(`\n━━ NHÓM ${key} — ${title} ━━`);
 
@@ -209,6 +220,15 @@ const GROUPS = [
       }
       await new Promise(r => setTimeout(r, 300)); // để log kịp ghi xong
       const trace = readLogSince();
+
+      // Hạn mức tháng cạn thì mọi câu sau đều đỏ mà KHÔNG phải model sai. Dừng ngay: đừng đốt
+      // thêm câu, và đừng để lại một bảng kết quả trông như hồi quy.
+      if (QUOTA_EXHAUSTED.test(answer)) {
+        console.log('\nDỪNG: hạn mức token AI THÁNG của tài khoản đo đã cạn — không phải model sai. '
+          + 'Nâng hạn mức (ai_token_quotas.monthly_limit) hoặc chờ sang tháng rồi chạy lại.');
+        quotaOut = true;
+        break;
+      }
       // Giãn nhịp cho dưới ngưỡng 15 lượt/phút của backend (xem ghi chú ở hàm ask).
       // 4500 là nhịp tính cho bộ chặn 15 lượt/phút của BACKEND, hồi mỗi câu chỉ gọi model một lần.
       //
