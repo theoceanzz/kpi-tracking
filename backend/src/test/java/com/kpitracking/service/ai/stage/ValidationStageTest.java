@@ -1,13 +1,15 @@
 package com.kpitracking.service.ai.stage;
 
 import com.kpitracking.service.ai.AiTurn;
-import com.kpitracking.tool.ToolCallTracker;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import com.kpitracking.service.ai.agent.AgentState;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Test cho công đoạn kiểm duyệt câu trả lời.
@@ -20,14 +22,24 @@ class ValidationStageTest {
 
     private static final String BLOCKED = "chưa lấy được dữ liệu";
 
-    @BeforeEach
-    @AfterEach
-    void resetTracker() {
-        ToolCallTracker.clear();
+/**
+     * Tool "đã chạy" của lượt đang dựng.
+     *
+     * <p>Thay {@code ToolCallTracker}: bản cũ là kho ThreadLocal dùng chung nên ghi lúc nào cũng
+     * được, còn {@code AgentState} gắn vào chính {@code AiTurn} nên phải có turn đã. Danh sách này
+     * giữ nguyên được thứ tự viết test cũ — ghi trước, dựng turn sau.
+     */
+    private final List<String> toolsRan = new ArrayList<>();
+
+    private void ran(String toolName) {
+        toolsRan.add(toolName);
     }
 
     private String run(String answer, boolean enabled, boolean hasMemory) {
         AiTurn turn = new AiTurn("câu hỏi", hasMemory ? "conv-1" : null, null);
+        AgentState st = new AgentState(turn);
+        turn.setAgentState(st);
+        toolsRan.forEach(st::recordSuccess);
         return new ValidationStage(enabled).handle(turn, t -> answer);
     }
 
@@ -55,7 +67,7 @@ class ValidationStageTest {
     @Test
     @DisplayName("có gọi tool thì cho qua, dù câu trả lời đầy số")
     void answerWithToolDataPasses() {
-        ToolCallTracker.record("get_people");
+        ran("get_people");
         String answer = "Phòng IT có 8 người, tiến độ trung bình 255,48%.";
         assertThat(runNoMemory(answer)).isEqualTo(answer);
     }
@@ -101,15 +113,21 @@ class ValidationStageTest {
     @DisplayName("câu trả lời null không làm vỡ stage")
     void nullAnswerIsSafe() {
         AiTurn turn = new AiTurn("hỏi", null, null);
+        AgentState st = new AgentState(turn);
+        turn.setAgentState(st);
+        toolsRan.forEach(st::recordSuccess);
         assertThat(new ValidationStage(true).handle(turn, t -> null)).isNull();
     }
 
     @Test
     @DisplayName("ghi lại chuỗi tool đã chạy để chẩn đoán")
     void recordsToolTrace() {
-        ToolCallTracker.record("get_people");
-        ToolCallTracker.record("get_kpi");
+        ran("get_people");
+        ran("get_kpi");
         AiTurn turn = new AiTurn("hỏi", null, null);
+        AgentState st = new AgentState(turn);
+        turn.setAgentState(st);
+        toolsRan.forEach(st::recordSuccess);
 
         new ValidationStage(true).handle(turn, t -> "8 người");
 

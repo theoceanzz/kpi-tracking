@@ -96,10 +96,41 @@ public class ResponseSanitizingAdvisor implements CallAdvisor, StreamAdvisor {
         return Ordered.LOWEST_PRECEDENCE - 1;
     }
 
+    /**
+     * Chuyển tiếp nguyên vẹn — bản trước trả {@code null}, tức bật streaming là nổ NullPointerException.
+     *
+     * <p>Đường này chỉ chạy khi bật {@code app.ai.streaming.enabled}; mặc định tắt.
+     *
+     * <p>Cố ý không lọc ở đây: {@link #sanitize} làm việc trên TOÀN VĂN (sửa bảng Markdown bị vỡ,
+     * xoá tên tool, xoá khoá JSON lọt ra) nên không thể chạy đúng theo từng mẩu chữ — một tên tool
+     * bị cắt đôi qua hai chunk sẽ lọt lưới.
+     */
     @Override
     public Flux<ChatClientResponse> adviseStream(ChatClientRequest request, StreamAdvisorChain chain) {
-        return null;
+        return chain.nextStream(request);
     }
+
+    /**
+     * Lọc toàn văn — dùng cho đường LUỒNG, nơi advisor không lọc được vì chữ về theo từng mẩu.
+     * {@code ModelCallStage} gọi một lần sau khi đã gom đủ văn bản.
+     */
+    public String sanitizeText(String result) {
+        return sanitize(result);
+    }
+
+    /**
+     * Dấu xuống dòng BÊN TRONG một ô bảng Markdown.
+     *
+     * <p>Model viết danh sách gạch đầu dòng trong ô bảng bằng {@code <br>} — cách duy nhất xuống
+     * dòng được trong ô. Nhưng một dấu xuống dòng THẬT sẽ làm VỠ bảng, còn để nguyên {@code <br>}
+     * thì client nuốt mất (không bật HTML thô) khiến hai gạch đầu dòng dính liền.
+     *
+     * <p>Bản trước nối bằng {@code " / "}, và đó chính là chuỗi chạy dài {@code "• A / • B / • C"}
+     * mà người dùng thấy — không đọc nổi. Nay dùng LINE SEPARATOR (U+2028): Markdown coi là ký tự
+     * thường nên bảng không vỡ, client tách ra thành dòng (xem {@code AnswerMarkdown}), và nếu chỗ
+     * nào quên xử lý thì nó cũng chỉ là khoảng trắng chứ không hiện rác ra màn hình.
+     */
+    public static final String CELL_LINE_BREAK = "\u2028";
 
     private String sanitize(String result) {
         if (result == null) return "";
@@ -107,7 +138,7 @@ public class ResponseSanitizingAdvisor implements CallAdvisor, StreamAdvisor {
         String[] lines = result.split("\n", -1);
         for (int i = 0; i < lines.length; i++) {
             if (lines[i].stripLeading().startsWith("|")) {
-                lines[i] = lines[i].replaceAll("(?i)<br\\s*/?>", " / ");
+                lines[i] = lines[i].replaceAll("(?i)<br\\s*/?>", CELL_LINE_BREAK);
             } else {
                 lines[i] = lines[i].replaceAll("(?i)<br\\s*/?>", "\n");
             }

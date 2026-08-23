@@ -35,9 +35,9 @@ const TYPE_STYLES: Record<InsightType, { icon: typeof AlertTriangle; ring: strin
   },
   SUMMARY: {
     icon: BarChart3,
-    ring: 'border-indigo-200 dark:border-indigo-900/50 hover:border-indigo-300',
-    chip: 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300',
-    iconColor: 'text-indigo-500',
+    ring: 'border-violet-200 dark:border-violet-900/50 hover:border-violet-300',
+    chip: 'bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-300',
+    iconColor: 'text-violet-500',
   },
 }
 
@@ -64,7 +64,7 @@ export default function InsightCards({ insights, onSelectQuestion, selectedQuest
   return (
     <div className="space-y-2.5">
       <div className="flex items-center gap-1.5 text-xs font-bold text-slate-500 dark:text-slate-400 px-1">
-        <Sparkles size={13} className="text-indigo-500" />
+        <Sparkles size={13} className="text-violet-500" />
         Phân tích nổi bật từ dữ liệu của bạn
       </div>
 
@@ -77,7 +77,7 @@ export default function InsightCards({ insights, onSelectQuestion, selectedQuest
             className={cn(
               'bg-white dark:bg-slate-800/60 rounded-2xl border p-3.5 shadow-sm hover:shadow-md transition-all cursor-pointer',
               selectedQuestion === insight.questionText
-                ? 'ring-2 ring-indigo-500 shadow-lg'
+                ? 'ring-2 ring-violet-500 shadow-lg'
                 : style.ring,
             )}
           >
@@ -97,8 +97,8 @@ export default function InsightCards({ insights, onSelectQuestion, selectedQuest
                   className={cn(
                     'group mt-2 inline-flex items-center gap-1 text-[13px] font-semibold transition-all text-left',
                     selectedQuestion === insight.questionText
-                      ? 'text-indigo-700 dark:text-indigo-200'
-                      : 'text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300',
+                      ? 'text-violet-700 dark:text-violet-200'
+                      : 'text-violet-600 dark:text-violet-400 hover:text-violet-700 dark:hover:text-violet-300',
                   )}
                 >
                   {insight.questionText}

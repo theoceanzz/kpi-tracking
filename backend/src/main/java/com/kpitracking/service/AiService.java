@@ -6,8 +6,8 @@ import com.kpitracking.exception.ForbiddenException;
 import com.kpitracking.repository.OrganizationRepository;
 import com.kpitracking.service.ManagerContextResolver.ManagerContext;
 import com.kpitracking.service.ai.AiTurn;
+import com.kpitracking.service.ai.agent.AgentState;
 import com.kpitracking.service.ai.AiTurnPipeline;
-import com.kpitracking.tool.DisambiguationGuard;
 import com.kpitracking.tool.EscapeHatchTool;
 import com.kpitracking.tool.ToolRegistry;
 import lombok.extern.slf4j.Slf4j;
@@ -38,7 +38,6 @@ public class AiService {
     private final ManagerContextResolver managerContextResolver;
     private final OrganizationRepository organizationRepository;
     private final ToolRegistry toolRegistry;
-    private final DisambiguationGuard disambiguationGuard;
     private final ChatClient chatClient;
 
     @Value("classpath:/promptTemplates/kpiSuggestionSystemPrompt.st")
@@ -51,13 +50,11 @@ public class AiService {
                      ManagerContextResolver managerContextResolver,
                      OrganizationRepository organizationRepository,
                      ToolRegistry toolRegistry,
-                     DisambiguationGuard disambiguationGuard,
                      @Qualifier("openAiChatClient") ChatClient chatClient) {
         this.aiTurnPipeline = aiTurnPipeline;
         this.managerContextResolver = managerContextResolver;
         this.organizationRepository = organizationRepository;
         this.toolRegistry = toolRegistry;
-        this.disambiguationGuard = disambiguationGuard;
         this.chatClient = chatClient;
     }
 
@@ -66,7 +63,16 @@ public class AiService {
      * gọi model, phục hồi lỗi — nằm trong chuỗi {@link AiTurnPipeline}.
      */
     public String processOrgUnitChat(String question, String conversationId, String focusUnitId) {
-        return aiTurnPipeline.run(new AiTurn(question, conversationId, focusUnitId));
+        return processOrgUnitChat(new AiTurn(question, conversationId, focusUnitId));
+    }
+
+    /**
+     * Nhận thẳng ngữ cảnh lượt. Dùng khi lời gọi mang thêm thứ gì đó ngoài ba tham số cơ bản —
+     * vd form đang mở trên màn hình. Nhận {@link AiTurn} thay vì nối dài danh sách tham số, đúng
+     * lý do object ngữ cảnh này ra đời.
+     */
+    public String processOrgUnitChat(AiTurn turn) {
+        return aiTurnPipeline.run(turn);
     }
 
     /**
@@ -100,16 +106,20 @@ public class AiService {
                     .toolContext(Map.of(
                             "orgUnitId", orgUnitId,
                             "orgUnitPath", ctx.orgUnitPath(),
-                            "organizationId", ctx.orgId()
+                            "organizationId", ctx.orgId(),
+                            // Đường này không có lượt chat nào nhưng vẫn mượn tool, mà tool ghi
+                            // trạng thái vào đây. Thiếu nó thì chốt chặn tên trùng im lặng ngừng
+                            // hoạt động ở riêng đường gợi ý KPI.
+                            AgentState.CONTEXT_KEY, AgentState.forToolsOnly()
                     ))
                     .call()
                     .entity(new ParameterizedTypeReference<>() {});
         } catch (Exception e) {
             log.error("Error suggesting KPIs: {}", e.getMessage(), e);
             return new ArrayList<>();
-        } finally {
-            disambiguationGuard.clear();
-            EscapeHatchTool.clear();
         }
+        // Không còn khối finally dọn ThreadLocal: trạng thái nay sống theo lời gọi (AgentState đặt
+        // trong toolContext ở trên), nên hết lời gọi là nó tự đi — không thể rơi sang lượt của
+        // người khác trên cùng luồng Tomcat.
     }
 }

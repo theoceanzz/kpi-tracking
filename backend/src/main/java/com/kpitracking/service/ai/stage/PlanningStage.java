@@ -54,12 +54,13 @@ public class PlanningStage implements AiStage {
             search           - tìm đơn vị/người/KPI theo tên khi chưa biết chính xác
             get_org_unit     - thông tin đơn vị, cây đơn vị, đơn vị con
             get_people       - danh sách người, chức vụ, hồ sơ cá nhân
-            get_kpi          - chỉ tiêu KPI, kỳ đánh giá, ai được giao
+            get_kpi          - chỉ tiêu KPI, kỳ đánh giá, ai được giao, tổng quan KPI của đơn vị
             get_submissions  - bài nộp, lịch sử nộp, ai chưa nộp
             rank             - xếp hạng người hoặc đơn vị
             compare_org_units- so sánh các đơn vị theo hiệu suất, tiến độ, quân số, tỉ lệ hoàn thành.
                                KHÔNG có chỉ số rủi ro — câu hỏi về rủi ro phải dùng get_analytics
-            get_analytics    - tổng quan, thống kê, xu hướng qua các kỳ, và KPI rủi ro/trễ hạn
+            get_analytics    - bức tranh toàn đơn vị (quân số + số đơn vị con + số kỳ),
+                               xu hướng qua các kỳ, và KPI rủi ro/trễ hạn
 
             Quy tắc:
             - Mỗi VẾ của câu hỏi là MỘT bước. Câu hỏi có 3 vế thì phải có 3 bước.
@@ -148,6 +149,8 @@ public class PlanningStage implements AiStage {
         }
         return steps;
     }
+    @Override
+    public String label() { return "Đang lập kế hoạch trả lời"; }
 
     @Override
     public int getOrder() { return 700; }

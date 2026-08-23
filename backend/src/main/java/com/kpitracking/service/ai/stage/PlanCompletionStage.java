@@ -5,13 +5,13 @@ import com.kpitracking.service.ai.AiStageChain;
 import com.kpitracking.service.ai.AiTurn;
 import com.kpitracking.service.ai.ChatMemoryCleaner;
 import com.kpitracking.service.ai.PlanStep;
-import com.kpitracking.tool.ToolCallTracker;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
+import com.kpitracking.service.ai.agent.AgentState;
 
 /**
  * Đối chiếu tool đã lên KẾ HOẠCH với tool thực sự CHẠY; thiếu thì hỏi lại đúng một lần.
@@ -53,6 +53,9 @@ public class PlanCompletionStage implements AiStage {
         if (missing.isEmpty()) return answer;
 
         log.info("Kế hoạch còn thiếu {} — hỏi lại một lần. question='{}'", missing, turn.getQuestion());
+        // Báo ở ĐÂY chứ không qua label(): chỉ những lượt thật sự phải hỏi lại mới đáng nói, và
+        // điều đó chỉ lộ ra sau khi model đã trả lời lượt đầu.
+        turn.progress(this, "Đang bổ sung phần còn thiếu");
 
         // Advisor đã ghi câu hỏi + câu trả lời THIẾU của lượt đầu vào bộ nhớ. Không xoá thì hội
         // thoại đọng lại cùng câu hỏi hai lần kèm câu trả lời hỏng, và mọi lượt sau đều phải trả
@@ -80,7 +83,8 @@ public class PlanCompletionStage implements AiStage {
         List<PlanStep> plan = turn.getPlan();
         if (plan == null || plan.isEmpty()) return List.of();
 
-        List<String> called = ToolCallTracker.calls();
+        AgentState state = turn.getAgentState();
+        List<String> called = state == null ? List.of() : state.getSucceeded();
         return plan.stream()
                 .filter(PlanStep::hasTool)
                 .map(PlanStep::tool)
@@ -88,7 +92,6 @@ public class PlanCompletionStage implements AiStage {
                 .filter(t -> !called.contains(t))
                 .toList();
     }
-
     @Override
     public int getOrder() { return 1050; }
 }

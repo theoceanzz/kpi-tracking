@@ -47,7 +47,8 @@ spring:
   servlet:
     multipart:
       max-file-size: 10MB
-      max-request-size: 50MB
+      # 5 tệp x 10MB = 50MB chẵn, không chừa chỗ cho phần bao multipart nên lô đầy sẽ trượt.
+      max-request-size: 55MB
 
   ai:
     google:

@@ -72,7 +72,7 @@ public class SubmissionTool {
         List<UUID> kpiIds = new ArrayList<>();
         if (ToolSupport.notBlank(request.kpiId())) {
             UUID id = support.parseId(request.kpiId(), "KPI (kpiId)", "search (entityType=kpi)");
-            support.guardDisambiguation("kpi", id, "KPI");
+            support.guardDisambiguation("kpi", id, "KPI", context);
             support.validateKpiAccess(id, context);
             kpiIds.add(id);
         } else if (ToolSupport.notBlank(request.kpiName())) {

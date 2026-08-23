@@ -38,6 +38,12 @@ public class ToolRegistry {
         KPI,
         /** Xếp hạng, so sánh, xu hướng, rủi ro. */
         INSIGHT,
+        /**
+         * Đề xuất điền form đang mở trên màn hình. KHÔNG chọn theo nhóm như các nhóm khác: chỉ
+         * đúng tool phụ trách form đang mở mới được gửi đi ({@link #formTool}), nên thêm form mới
+         * không làm phình bộ tool của mọi lượt chat khác.
+         */
+        FORM,
         /** Tool GHI (tạo/sửa). Chưa có tool nào; để sẵn ranh giới đọc–ghi. */
         ACTION
     }
@@ -51,6 +57,14 @@ public class ToolRegistry {
     private final RankTool rankTool;
     private final CompareTool compareTool;
     private final EscapeHatchTool escapeHatchTool;
+    private final EvidenceRequestTool evidenceRequestTool;
+    private final AttachFilesTool attachFilesTool;
+    private final KpiFormFillTool kpiFormFillTool;
+    private final SubmissionFormFillTool submissionFormFillTool;
+    private final EvaluationFormFillTool evaluationFormFillTool;
+    private final KpiAdjustmentFormFillTool kpiAdjustmentFormFillTool;
+    private final OrgUnitFormFillTool orgUnitFormFillTool;
+    private final OrgUnitDrawerFormFillTool orgUnitDrawerFormFillTool;
     private final PermissionChecker permissionChecker;
 
     /** Quyền bắt buộc để mở một nhóm; {@code null} = không đòi quyền riêng. */
@@ -61,12 +75,39 @@ public class ToolRegistry {
     private Map<Group, List<Object>> groups() {
         Map<Group, List<Object>> m = new EnumMap<>(Group.class);
         // get_people phục vụ cả "tôi là ai" nên nằm ở CORE cùng search — hai thứ này đi với mọi câu hỏi.
-        m.put(Group.CORE, List.of(searchTool, escapeHatchTool));
+        // request_evidence_upload cũng ở CORE: người dùng có thể xin gửi minh chứng ở BẤT KỲ lượt
+        // nào, kể cả khi chưa mở biểu mẫu báo cáo nào. Đặt ở nhóm khác là có lượt model không
+        // được trao nó, và nó quay lại từ chối — đúng lỗi mà tool này sinh ra để chữa.
+        m.put(Group.CORE, List.of(searchTool, escapeHatchTool, evidenceRequestTool, attachFilesTool));
         m.put(Group.LOOKUP, List.of(orgUnitTool, peopleTool));
         m.put(Group.KPI, List.of(kpiTool, submissionTool));
         m.put(Group.INSIGHT, List.of(rankTool, compareTool, analyticsTool));
+        // FORM cố ý RỖNG: tool điền form chọn theo form đang mở chứ không theo nhóm — xem formTool().
+        m.put(Group.FORM, List.of());
         m.put(Group.ACTION, List.of());
         return m;
+    }
+
+    /** Tên tool -> bean phụ trách form tương ứng. Thêm form mới là thêm một dòng ở đây. */
+    private Map<String, Object> formTools() {
+        return Map.of(
+                "suggest_kpi_form", kpiFormFillTool,
+                "suggest_submission_form", submissionFormFillTool,
+                "suggest_evaluation_form", evaluationFormFillTool,
+                "suggest_kpi_adjustment_form", kpiAdjustmentFormFillTool,
+                "suggest_org_unit_form", orgUnitFormFillTool,
+                "suggest_org_unit_drawer_form", orgUnitDrawerFormFillTool);
+    }
+
+    /**
+     * Tool phụ trách form đang mở, hoặc {@code null} nếu không có form nào khớp.
+     *
+     * <p>Tên tool lấy từ {@code FormRegistry.toolNameFor(formId)} — bản khai báo form nằm ở đó,
+     * còn ở đây chỉ ánh xạ tên sang bean, để hai việc "form nào có ô nào" và "tool nào chạy" không
+     * trộn vào một chỗ.
+     */
+    public Object formTool(String toolName) {
+        return toolName == null ? null : formTools().get(toolName);
     }
 
     /** Mọi nhóm chỉ ĐỌC — dùng khi tắt router hoặc khi router lưỡng lự. */
@@ -85,13 +126,21 @@ public class ToolRegistry {
     private static final Map<String, Group> GROUP_BY_TOOL_NAME = Map.ofEntries(
             Map.entry("search", Group.CORE),
             Map.entry("need_other_tools", Group.CORE),
+            Map.entry("request_evidence_upload", Group.CORE),
+            Map.entry("attach_pinned_files", Group.CORE),
             Map.entry("get_org_unit", Group.LOOKUP),
             Map.entry("get_people", Group.LOOKUP),
             Map.entry("get_kpi", Group.KPI),
             Map.entry("get_submissions", Group.KPI),
             Map.entry("rank", Group.INSIGHT),
             Map.entry("compare_org_units", Group.INSIGHT),
-            Map.entry("get_analytics", Group.INSIGHT));
+            Map.entry("get_analytics", Group.INSIGHT),
+            Map.entry("suggest_kpi_form", Group.FORM),
+            Map.entry("suggest_submission_form", Group.FORM),
+            Map.entry("suggest_evaluation_form", Group.FORM),
+            Map.entry("suggest_kpi_adjustment_form", Group.FORM),
+            Map.entry("suggest_org_unit_form", Group.FORM),
+            Map.entry("suggest_org_unit_drawer_form", Group.FORM));
 
     /** Nhóm cần mở để gọi được các tool này. Tên lạ bị bỏ qua, không làm hỏng lượt hỏi. */
     public static Set<Group> groupsForTools(Collection<String> toolNames) {
@@ -135,7 +184,11 @@ public class ToolRegistry {
         return new Class<?>[]{
                 SearchTool.class, OrgUnitTool.class, PeopleTool.class, KpiTool.class,
                 SubmissionTool.class, AnalyticsTool.class, RankTool.class, CompareTool.class,
-                EscapeHatchTool.class
+                EscapeHatchTool.class, EvidenceRequestTool.class, AttachFilesTool.class,
+                KpiFormFillTool.class,
+                SubmissionFormFillTool.class, EvaluationFormFillTool.class,
+                KpiAdjustmentFormFillTool.class, OrgUnitFormFillTool.class,
+                OrgUnitDrawerFormFillTool.class
         };
     }
 }

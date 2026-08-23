@@ -4,8 +4,8 @@ import com.kpitracking.service.ai.AiStage;
 import com.kpitracking.service.ai.AiStageChain;
 import com.kpitracking.service.ai.AiTurn;
 import com.kpitracking.service.ai.PlanStep;
+import com.kpitracking.service.ai.form.FormRegistry;
 import com.kpitracking.service.ai.intent.IntentStrategy;
-import com.kpitracking.tool.EscapeHatchTool;
 import com.kpitracking.tool.ToolRegistry;
 import com.kpitracking.tool.ToolRegistry.Group;
 import lombok.RequiredArgsConstructor;
@@ -13,9 +13,11 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
 
+import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
+import com.kpitracking.service.ai.agent.AgentState;
 
 /**
  * Ba công đoạn quyết định model được cầm những công cụ nào: chọn nhóm theo ý định, lọc theo quyền,
@@ -82,14 +84,31 @@ public final class RoutingStages {
     @Component
     @Order(900)
     @RequiredArgsConstructor
+    @Slf4j
     public static class ToolSelectionStage implements AiStage {
         private final ToolRegistry toolRegistry;
+        private final FormRegistry formRegistry;
 
         @Override
         public String handle(AiTurn turn, AiStageChain next) {
-            turn.setTools(toolRegistry.toolsFor(turn.getGroups(), turn.getManager().userId()));
+            List<Object> tools =
+                    new ArrayList<>(toolRegistry.toolsFor(turn.getGroups(), turn.getManager().userId()));
+
+            // Tool điền form chỉ được gửi khi người dùng ĐANG mở đúng form đó. Không mở form thì
+            // model không nhìn thấy nó, nên vừa không thể đề xuất nhầm, vừa không tốn token mô tả
+            // tool cho những lượt chat chẳng liên quan gì tới form.
+            Object formTool = toolRegistry.formTool(formRegistry.toolNameFor(turn.getOpenFormId()));
+            if (formTool != null) {
+                tools.add(formTool);
+                log.debug("Mở tool điền form cho form đang mở: {}", turn.getOpenFormId());
+            }
+            turn.setTools(tools);
             return next.proceed(turn);
         }
+
+        @Override
+
+        public String label() { return "Đang chọn công cụ phù hợp"; }
 
         @Override
         public int getOrder() { return 900; }
@@ -112,9 +131,14 @@ public final class RoutingStages {
         public String handle(AiTurn turn, AiStageChain next) {
             String answer = next.proceed(turn);
 
-            if (EscapeHatchTool.wasRequested()) {
-                log.info("Mở rộng bộ công cụ và hỏi lại. Lý do model nêu: {}", EscapeHatchTool.reason());
-                EscapeHatchTool.clear();
+            AgentState state = turn.getAgentState();
+            if (state != null && state.escapeRequested()) {
+                log.info("Mở rộng bộ công cụ và hỏi lại. Lý do model nêu: {}", state.getEscapeReason());
+                // Báo ở ĐÂY chứ không qua label(): chỉ những lượt thật sự phải nới bộ công cụ mới
+                // đáng nói, và nó chỉ lộ ra sau khi model đã trả lời lượt đầu.
+                turn.progress(this, "Đang mở thêm công cụ");
+                // Xoá lý do TRƯỚC khi hỏi lại — đây là thứ giữ cửa thoát hiểm ở đúng một vòng thêm.
+                state.setEscapeReason(null);
                 turn.setGroups(toolRegistry.readGroups());
                 turn.setTools(toolRegistry.toolsFor(toolRegistry.readGroups(), turn.getManager().userId()));
                 answer = next.proceed(turn);

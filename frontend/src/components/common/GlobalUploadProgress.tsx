@@ -70,6 +70,13 @@ export default function GlobalUploadProgress() {
                 </div>
               )}
             </div>
+            {/* Lý do máy chủ từ chối. KHÔNG truncate: thông điệp bị cắt cụt thì cũng bằng không có,
+                mà đây lại đúng là chỗ duy nhất người dùng biết được mình phải sửa gì. */}
+            {task.status === 'error' && task.message && (
+              <p className="text-[10px] font-bold leading-relaxed text-rose-600 dark:text-rose-400">
+                {task.message}
+              </p>
+            )}
           </div>
         </div>
       ))}

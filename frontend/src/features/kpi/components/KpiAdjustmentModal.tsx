@@ -1,5 +1,8 @@
+import { useEffect } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
+import { useFormAssistStore } from '@/store/formAssistStore'
+import { MicButton } from '@/components/common/MicButton'
 import { z } from 'zod'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { adjustmentApi } from '../api/adjustmentApi'
@@ -28,7 +31,7 @@ interface KpiAdjustmentModalProps {
 export default function KpiAdjustmentModal({ open, onClose, kpi }: KpiAdjustmentModalProps) {
   const qc = useQueryClient()
 
-  const { register, handleSubmit, formState: { errors }, reset, watch } = useForm<AdjustmentFormData>({
+  const { register, handleSubmit, formState: { errors }, reset, watch, setValue, getValues } = useForm<AdjustmentFormData>({
     resolver: zodResolver(adjustmentSchema),
     defaultValues: {
       deactivationRequest: false,
@@ -37,6 +40,26 @@ export default function KpiAdjustmentModal({ open, onClose, kpi }: KpiAdjustment
   })
 
   const deactivationRequest = watch('deactivationRequest')
+
+  // Giới thiệu form này với trợ lý AI trong lúc nó đang mở. Đặt TRƯỚC lệnh return sớm bên dưới —
+  // hook có điều kiện là vỡ thứ tự hook.
+  useEffect(() => {
+    if (!open) return
+    const { register: registerForm, unregister } = useFormAssistStore.getState()
+    registerForm({
+      formId: 'kpi_adjustment_form',
+      getValues: () => getValues() as unknown as Record<string, unknown>,
+      // Tab 'Xin dừng chỉ tiêu' không vẽ hai ô số. deactivationRequest cũng không có mặt: nó là
+      // input ẩn, người dùng chỉ đổi được bằng hai nút chuyển tab.
+      fillableFields: () => (deactivationRequest
+        ? ['reason']
+        : ['requestedTargetValue', 'requestedMinimumValue', 'reason']),
+      setValue: (field, value) =>
+        setValue(field as keyof AdjustmentFormData, value as never,
+          { shouldValidate: true, shouldDirty: true }),
+    })
+    return () => unregister('kpi_adjustment_form')
+  }, [open, getValues, setValue, deactivationRequest])
 
   const mutation = useMutation({
     mutationFn: (data: AdjustmentFormData) => adjustmentApi.create({
@@ -166,9 +189,17 @@ export default function KpiAdjustmentModal({ open, onClose, kpi }: KpiAdjustment
           )}
 
           <div className="space-y-2">
-            <label className="flex items-center gap-2 text-xs font-black text-slate-500 uppercase tracking-widest">
-              <MessageSquare size={14} /> Lý do điều chỉnh <span className="text-red-500">*</span>
-            </label>
+            <div className="flex items-center justify-between gap-2">
+              <label className="flex items-center gap-2 text-xs font-black text-slate-500 uppercase tracking-widest">
+                <MessageSquare size={14} /> Lý do điều chỉnh <span className="text-red-500">*</span>
+              </label>
+              {/* Đọc bằng giọng nói VẪN là lời của người dùng, nên chốt chặn guardGroundedText
+                  phía máy chủ không liên quan — nó chỉ soi giá trị do AI tự đề xuất. */}
+              <MicButton
+                getBaseText={() => getValues("reason") ?? ""}
+                onText={text => setValue("reason", text, { shouldValidate: true, shouldDirty: true })}
+              />
+            </div>
             <textarea
               {...register('reason')}
               rows={4}

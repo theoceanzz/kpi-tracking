@@ -29,6 +29,13 @@ public class OrgUnitTool {
             + "view=hierarchy: cây cơ cấu đầy đủ kèm số đơn vị con và số nhân sự. "
             + "view=children: danh sách và số lượng đơn vị con, recursive=true để lấy cả cây con. "
             + "view=positions: các chức vụ trong đơn vị kèm số người giữ mỗi chức vụ. "
+            // Đo được: model đọc memberCount (chỉ người gắn trực tiếp) để trả lời "đơn vị X có bao
+            // nhiêu người" và ra số nhỏ hơn thực tế. Nói rõ khoá nào là gì, vì hai khoá nghe giống
+            // nhau thì model chọn hú hoạ.
+            + "SỐ NGƯỜI: `memberCount` chỉ đếm người gắn TRỰC TIẾP vào đơn vị, KHÔNG gồm các đơn vị "
+            + "con. `totalMemberCount` (chỉ có ở view=detail) mới là tổng gồm cả đơn vị con. "
+            + "Câu hỏi 'đơn vị X có bao nhiêu người' PHẢI dùng totalMemberCount hoặc "
+            + "get_people(view=list) — dùng memberCount là trả thiếu. "
             + "Mặc định là đơn vị hiện tại của bạn, nên khi người dùng nêu tên đơn vị PHẢI truyền unitName.")
     public String getOrgUnit(OrgUnitRequest request, ToolContext context) {
         try {

@@ -6,6 +6,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { orgUnitApi } from '../api/orgUnitApi'
 import { useOrgUnitTree } from '../hooks/useOrgUnitTree'
 import { useAuthStore } from '@/store/authStore'
+import { useFormAssistStore } from '@/store/formAssistStore'
 import { toast } from 'sonner'
 import { Loader2, X, Building2, Shield } from 'lucide-react'
 import type { OrgUnitResponse, OrgHierarchyLevelResponse } from '@/types/orgUnit'
@@ -53,7 +54,7 @@ export default function OrgUnitFormModal({ open, onClose, editUnit, initialParen
   }
   const flatParents = useMemo(() => treeData ? flattenTree(treeData) : [], [treeData])
 
-  const { register, handleSubmit, formState: { errors }, reset, watch } = useForm<OrgUnitFormData>({
+  const { register, handleSubmit, formState: { errors }, reset, watch, setValue, getValues } = useForm<OrgUnitFormData>({
     resolver: zodResolver(orgUnitSchema),
     values: editUnit ? {
       name: editUnit.name,
@@ -77,6 +78,27 @@ export default function OrgUnitFormModal({ open, onClose, editUnit, initialParen
 
   const watchParentId = watch('parentId')
   const isRoot = !watchParentId
+
+  // Giới thiệu form này với trợ lý AI trong lúc nó đang mở.
+  useEffect(() => {
+    if (!open) return
+    const { register: registerForm, unregister } = useFormAssistStore.getState()
+    registerForm({
+      formId: 'org_unit_form',
+      getValues: () => getValues() as unknown as Record<string, unknown>,
+      // code bị khoá ở đơn vị gốc lúc tạo (và bị effect bên dưới ghi đè bằng mã tổ chức);
+      // parentId chỉ vẽ khi TẠO, mà lượt sửa còn không gửi nó lên máy chủ.
+      fillableFields: () => [
+        'name', 'email', 'phone', 'address', 'orgHierarchyId',
+        ...(isRoot && !isEdit ? [] : ['code']),
+        ...(isEdit ? [] : ['parentId']),
+      ],
+      setValue: (field, value) =>
+        setValue(field as keyof OrgUnitFormData, value as never,
+          { shouldValidate: true, shouldDirty: true }),
+    })
+    return () => unregister('org_unit_form')
+  }, [open, getValues, setValue, isEdit, isRoot])
 
   // Update code if it's root and organization data is available
   useEffect(() => {

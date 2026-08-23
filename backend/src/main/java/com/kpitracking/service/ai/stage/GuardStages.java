@@ -91,6 +91,10 @@ public final class GuardStages {
         }
 
         @Override
+
+        public String label() { return "Đang xác thực thông tin"; }
+
+        @Override
         public int getOrder() { return 300; }
     }
 }

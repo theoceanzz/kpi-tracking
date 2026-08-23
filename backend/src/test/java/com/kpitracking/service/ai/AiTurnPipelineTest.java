@@ -1,8 +1,6 @@
 package com.kpitracking.service.ai;
 
 import com.kpitracking.exception.AiQuotaExceededException;
-import com.kpitracking.tool.DisambiguationGuard;
-import com.kpitracking.tool.EscapeHatchTool;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -15,6 +13,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
+import com.kpitracking.service.ai.agent.AgentState;
 
 /**
  * Test cho KHUNG chạy chuỗi công đoạn — không phải cho nghiệp vụ của từng công đoạn.
@@ -26,13 +25,8 @@ import static org.mockito.Mockito.verify;
 class AiTurnPipelineTest {
 
     private final List<String> log = new ArrayList<>();
-    private final DisambiguationGuard guard = new DisambiguationGuard();
     private final ChatMemoryCleaner cleaner = mock(ChatMemoryCleaner.class);
 
-    @AfterEach
-    void tearDown() {
-        EscapeHatchTool.clear();
-    }
 
     private AiTurn turn() {
         return new AiTurn("câu hỏi", null, null);
@@ -63,7 +57,7 @@ class AiTurnPipelineTest {
     }
 
     private AiTurnPipeline pipeline(AiStage... stages) {
-        return new AiTurnPipeline(new ArrayList<>(List.of(stages)), guard, cleaner);
+        return new AiTurnPipeline(new ArrayList<>(List.of(stages)), cleaner);
     }
 
     // ════════════════════════════════════════════════════════════════════════
@@ -202,23 +196,28 @@ class AiTurnPipelineTest {
     }
 
     @Test
-    @DisplayName("ThreadLocal được dọn kể cả khi lượt ném lỗi — nếu không sẽ rò sang lượt người khác")
-    void threadLocalsAlwaysCleared() {
+    @DisplayName("trạng thái sống theo lượt — lượt sau không thể thừa hưởng gì của lượt trước")
+    void turnStateDoesNotLeakBetweenTurns() {
         UUID id = UUID.randomUUID();
         AiStage dirty = new AiStage() {
             @Override public String handle(AiTurn t, AiStageChain next) {
-                guard.arm("user", java.util.Set.of(id));
-                EscapeHatchTool.wasRequested(); // chạm vào ThreadLocal
+                AgentState s = new AgentState(t);
+                t.setAgentState(s);
+                s.arm("user", java.util.Set.of(id));
+                s.setEscapeReason("thiếu công cụ");
                 throw new RuntimeException("hỏng giữa chừng");
             }
             @Override public int getOrder() { return 100; }
         };
         pipeline(dirty).run(turn());
 
-        assertThat(guard.isArmed("user", id))
-                .as("luồng request dùng chung — quên dọn là lượt sau thừa hưởng trạng thái này")
-                .isFalse();
-        assertThat(EscapeHatchTool.wasRequested()).isFalse();
+        // Bản trước phải DỌN sáu kho ThreadLocal ở khối finally, và quên một cái là rò sang lượt
+        // của người khác trên cùng luồng Tomcat. Nay trạng thái gắn vào chính AiTurn, nên lượt mới
+        // bắt đầu rỗng theo CẤU TRÚC chứ không nhờ ai đó nhớ dọn.
+        AiTurn sau = turn();
+        assertThat(sau.getAgentState())
+                .as("lượt mới không dính gì của lượt trước")
+                .isNull();
     }
 
     @Test
@@ -242,5 +241,140 @@ class AiTurnPipelineTest {
         assertThat(pipeline(passthrough("A", 100)).run(turn()))
                 .as("lỗi cấu hình chuỗi bị bắt và dịch thành câu trả lời thân thiện")
                 .contains("Xin lỗi");
+    }
+
+    // ── báo tiến độ công đoạn ────────────────────────────────────────────────
+    //
+    // Hai điều cần chứng minh: tiến độ do PIPELINE phát chứ không do stage tự gọi, và stage KHÔNG
+    // khai nhãn thì im lặng. Vế thứ hai quan trọng ngang vế thứ nhất: nhãn này người dùng cuối đọc,
+    // nên mặc định phải là không hiện chứ không phải hiện tên lớp Java.
+
+    /** Ghi lại các sự kiện tiến độ nhận được, dạng "mã|nhãn". */
+    private static class RecordingListener implements TurnListener {
+        final List<String> events = new ArrayList<>();
+        @Override public void stageStarted(String code, String label) { events.add(code + "|" + label); }
+    }
+
+    /** Stage có tên lớp thật (không ẩn danh) để kiểm được phần "mã" của sự kiện. */
+    private static class NamedStage implements AiStage {
+        private final int order;
+        private final String label;
+        NamedStage(int order, String label) { this.order = order; this.label = label; }
+        @Override public String handle(AiTurn t, AiStageChain next) { return next.proceed(t); }
+        @Override public String label() { return label; }
+        @Override public int getOrder() { return order; }
+    }
+
+    /** Stage KHÔNG ghi đè label() — mô phỏng công đoạn mới thêm mà tác giả không đặt nhãn. */
+    private static class UnlabelledStage implements AiStage {
+        @Override public String handle(AiTurn t, AiStageChain next) { return next.proceed(t); }
+        @Override public int getOrder() { return 150; }
+    }
+
+    private AiTurn turnListenedBy(TurnListener listener) {
+        AiTurn t = turn();
+        t.setListener(listener);
+        return t;
+    }
+
+    @Test
+    @DisplayName("phát đúng một sự kiện mỗi lần VÀO stage, đúng thứ tự chạy")
+    void emitsOneEventPerStageEntry() {
+        RecordingListener listener = new RecordingListener();
+        AiTurnPipeline p = pipeline(
+                new NamedStage(100, "Đang xác thực thông tin"),
+                new NamedStage(200, "Đang chọn công cụ phù hợp"),
+                terminal("xong", 300));
+
+        assertThat(p.run(turnListenedBy(listener))).isEqualTo("xong");
+        assertThat(listener.events)
+                .as("mã là tên lớp, nhãn là chữ tiếng Việt hiện cho người dùng; điểm cuối không "
+                        + "khai nhãn nên không có mặt")
+                .containsExactly("NamedStage|Đang xác thực thông tin",
+                        "NamedStage|Đang chọn công cụ phù hợp");
+    }
+
+    @Test
+    @DisplayName("stage KHÔNG khai nhãn thì KHÔNG phát gì — không rò tên lớp Java ra giao diện")
+    void unlabelledStageStaysSilent() {
+        RecordingListener listener = new RecordingListener();
+        pipeline(new UnlabelledStage(), new NamedStage(200, "Đang chọn công cụ phù hợp"),
+                terminal("xong", 300)).run(turnListenedBy(listener));
+
+        assertThat(listener.events)
+                .as("chỉ công đoạn có nhãn mới hiện; phần lớn công đoạn không đáng cho người dùng đọc")
+                .containsExactly("NamedStage|Đang chọn công cụ phù hợp");
+    }
+
+    @Test
+    @DisplayName("công đoạn bọc ngoài tự báo ĐÚNG LÚC làm việc, không phải lúc vào chuỗi")
+    void wrapperAnnouncesWhenItActuallyWorks() {
+        // Không có chỗ này thì "Đang kiểm tra lại câu trả lời" hiện ngay đầu lượt, tức 10-15 giây
+        // trước khi việc đó thực sự xảy ra.
+        RecordingListener listener = new RecordingListener();
+        AiStage wrapper = new AiStage() {
+            @Override public String handle(AiTurn t, AiStageChain next) {
+                String answer = next.proceed(t);
+                t.progress(this, "Đang kiểm tra lại câu trả lời");
+                return answer;
+            }
+            @Override public int getOrder() { return 100; }
+        };
+        pipeline(wrapper, new NamedStage(200, "Đang tra cứu dữ liệu"), terminal("xong", 300))
+                .run(turnListenedBy(listener));
+
+        assertThat(listener.events)
+                .as("nhãn của công đoạn bọc ngoài phải đến SAU nhãn của công đoạn bên trong")
+                .containsExactly("NamedStage|Đang tra cứu dữ liệu", "|Đang kiểm tra lại câu trả lời");
+    }
+
+    @Test
+    @DisplayName("stage gọi next HAI lần thì các stage sau báo tiến độ lại — đúng sự thật là chạy lại")
+    void reentryEmitsAgain() {
+        RecordingListener listener = new RecordingListener();
+        int[] calls = {0};
+        AiStage retry = new AiStage() {
+            @Override public String handle(AiTurn t, AiStageChain next) {
+                next.proceed(t);
+                return next.proceed(t);
+            }
+            @Override public int getOrder() { return 100; }
+        };
+        AiStage model = new NamedStage(300, "Đang tra cứu dữ liệu") {
+            @Override public String handle(AiTurn t, AiStageChain next) {
+                calls[0]++;
+                return "xong";
+            }
+        };
+        pipeline(retry, new NamedStage(200, "Đang chọn công cụ phù hợp"), model).run(turnListenedBy(listener));
+
+        assertThat(calls[0]).isEqualTo(2);
+        assertThat(listener.events.stream().filter(e -> e.endsWith("|Đang chọn công cụ phù hợp")).count())
+                .as("vào lần hai phải phát lại, không lặng lẽ bỏ qua")
+                .isEqualTo(2);
+    }
+
+    @Test
+    @DisplayName("người nghe NÉM LỖI cũng không được làm hỏng lượt hỏi")
+    void listenerFailureDoesNotBreakTurn() {
+        // Client đóng tab giữa chừng là chuyện thường; lúc đó mọi lời gửi đều ném. Lượt vẫn phải
+        // chạy nốt để ghi token và dọn ThreadLocal cho đúng.
+        TurnListener broken = new TurnListener() {
+            @Override public void stageStarted(String code, String label) {
+                throw new IllegalStateException("client đã ngắt");
+            }
+        };
+
+        assertThat(pipeline(passthrough("A", 100), terminal("xong", 200)).run(turnListenedBy(broken)))
+                .isEqualTo("xong");
+        assertThat(log).containsExactly("vào:A", "điểm cuối", "ra:A");
+    }
+
+    @Test
+    @DisplayName("lượt không truyền người nghe dùng NOOP — đường JSON chạy y như trước")
+    void defaultListenerIsNoop() {
+        AiTurn t = turn();
+        assertThat(t.getListener()).isSameAs(TurnListener.NOOP);
+        assertThat(pipeline(passthrough("A", 100), terminal("xong", 200)).run(t)).isEqualTo("xong");
     }
 }

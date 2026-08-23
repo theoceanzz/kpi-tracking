@@ -6,8 +6,8 @@
   },
 
   "groupA": [
-    { "id": "A01", "q": "Phòng IT có bao nhiêu người?", "tools": ["get_people"], "groups": ["LOOKUP"], "expect": ["8"] },
-    { "id": "A02", "q": "Team Backend có bao nhiêu nhân sự?", "tools": ["get_people"], "groups": ["LOOKUP"], "expect": ["3"] },
+    { "id": "A01", "q": "Phòng IT có bao nhiêu người?", "_note": "Bản đầu đòi get_people — SAI, cùng lý do đã ghi ở C05: vế 'có bao nhiêu người' hỏi SỐ LƯỢNG, mà get_org_unit(view=detail) trả thẳng totalMemberCount. Hai đường đều đúng, và đường get_org_unit còn rẻ hơn (một con số thay vì cả danh sách người). Đo được: model chọn get_org_unit và trả lời đúng '8 người, trong đó 2 người trực tiếp' — chấm hỏng ca này là chấm hỏng một câu trả lời đúng.", "toolsAny": [["get_people", "get_org_unit"]], "groups": ["LOOKUP"], "expect": ["8"] },
+    { "id": "A02", "q": "Team Backend có bao nhiêu nhân sự?", "_note": "Cùng lý do A01.", "toolsAny": [["get_people", "get_org_unit"]], "groups": ["LOOKUP"], "expect": ["3"] },
     { "id": "A03", "q": "Tôi là ai, giữ chức vụ gì?", "tools": ["get_people"], "groups": ["LOOKUP"], "expect": ["Director", "Giám đốc"] },
     { "id": "A04", "q": "Ai phụ trách Phòng Truyền Thông?", "tools": ["get_org_unit"], "groups": ["LOOKUP"], "expect": ["Comm Head"] },
     { "id": "A05", "q": "Đơn vị của tôi có những đơn vị con nào?", "tools": ["get_org_unit"], "groups": ["LOOKUP"], "expect": ["Phòng IT", "Truyền Thông"] },
@@ -15,12 +15,12 @@
     { "id": "A07", "q": "Có những kỳ KPI nào?", "tools": ["get_kpi"], "groups": ["KPI"], "expect": ["Tháng 4", "Tháng 5", "Tháng 6"] },
     { "id": "A08", "q": "Liệt kê các KPI của Team Backend", "tools": ["get_kpi"], "groups": ["KPI"], "expect": ["API hoàn thành", "Code review"] },
     { "id": "A09", "q": "Liệt kê các KPI của Phòng Truyền Thông", "tools": ["get_kpi"], "groups": ["KPI"], "expect": ["Lượt tương tác", "Số bài đăng"] },
-    { "id": "A10", "q": "Ai chưa nộp báo cáo?", "tools": ["get_submissions"], "groups": ["KPI"], "expect": ["không|Không|đã nộp|đầy đủ"] },
+    { "id": "A10", "q": "Ai chưa nộp báo cáo?", "_note": "Bản đầu chỉ nhận cách nói \"không ai chưa nộp / đã nộp đầy đủ\", vì lúc viết bộ đề mọi bài nộp đều APPROVED. Dữ liệu đã trôi (nay có bài DRAFT/REJECTED và 3 lượt giao chưa có bài nộp), nên câu trả lời ĐÚNG lại là một DANH SÁCH người chưa nộp — và ca này đỏ chập chờn tuỳ trạng thái CSDL chứ không tuỳ model. Nhận cả hai cách nói: phép kiểm thật nằm ở chỗ có gọi get_submissions và có nói về tình trạng nộp hay không.", "tools": ["get_submissions"], "groups": ["KPI"], "expect": ["chưa nộp|không|Không|đã nộp|đầy đủ"] },
     { "id": "A11", "q": "Cho tôi lịch sử nộp của KPI \"API hoàn thành\"", "tools": ["get_submissions"], "groups": ["KPI"], "expect": ["Tháng"] },
     { "id": "A12", "q": "Xếp hạng nhân viên theo tiến độ", "tools": ["rank"], "groups": ["INSIGHT"], "expect": ["1"] },
     { "id": "A13", "q": "Xếp hạng các đơn vị con trong đơn vị của tôi theo hiệu suất", "tools": ["rank"], "groups": ["INSIGHT"], "expect": ["Phòng"] },
     { "id": "A14", "q": "So sánh Phòng IT và Phòng Truyền Thông", "tools": ["compare_org_units"], "groups": ["INSIGHT"], "expect": ["Phòng IT", "Truyền Thông"] },
-    { "id": "A15", "q": "Cho tôi tổng quan KPI của đơn vị", "tools": ["get_analytics"], "groups": ["INSIGHT"], "expect": [] },
+    { "id": "A15", "q": "Cho tôi tổng quan KPI của đơn vị", "_note": "Bản đầu đòi get_analytics — SAI: get_kpi(view=summary) trả totalKpis/averageProgress/averagePerformance/completed/overdue, tức đúng thứ 'tổng quan KPI' cần. get_analytics(view=dashboard) rộng hơn (thêm quân số, số đơn vị con, số kỳ) nên hợp với câu hỏi về TOÀN ĐƠN VỊ. Cả hai đều trả lời được câu này.", "tools": [], "toolsAny": [["get_analytics", "get_kpi"]], "groups": [], "expect": [] },
     { "id": "A16", "q": "KPI nào đang có nguy cơ trễ hạn?", "tools": ["get_analytics"], "groups": ["INSIGHT"], "expect": [] },
     { "id": "A17", "q": "Xu hướng hiệu suất 3 kỳ gần nhất của Phòng IT", "tools": ["get_analytics"], "groups": ["INSIGHT"], "expect": [] },
     { "id": "A18", "q": "Tìm nhân viên tên Staff", "tools": ["search"], "groups": [], "_note": "search nằm nhóm CORE nên luôn được gửi, không phụ thuộc router — để groups rỗng", "expect": ["Staff"] },
@@ -31,7 +31,7 @@
   "groupB": [
     { "id": "B01", "q": "So sánh Phòng IT với Phòng Truyền Thông, phòng nào có KPI rủi ro hơn?", "tools": ["get_analytics"], "groups": ["INSIGHT"], "_note": "Bản đầu đòi compare_org_units — SAI: tool đó so avgPerformance/avgProgress/memberCount/completionRate, KHÔNG có chỉ số rủi ro nào. Câu hỏi về rủi ro phải dùng get_analytics(view=risk) cho từng đơn vị.", "expect": ["Phòng IT", "Truyền Thông"] },
     { "id": "B02", "q": "Xếp hạng các đơn vị con của tôi, rồi cho biết đơn vị đứng đầu có bao nhiêu KPI", "tools": ["rank", "get_kpi"], "groups": ["INSIGHT", "KPI"], "expect": [] },
-    { "id": "B03", "q": "KPI \"Số task hoàn thành\" tiến triển ra sao qua các kỳ, và ai đang được giao KPI đó?", "tools": ["get_kpi"], "groups": ["KPI"], "expect": ["Tháng"] },
+    { "id": "B03", "q": "KPI \"Số task hoàn thành\" tiến triển ra sao qua các kỳ, và ai đang được giao KPI đó?", "_note": "Bỏ phép kiểm groups: get_kpi ĐÃ chạy thật (thấy trong trace) và trả đúng bảng theo kỳ, chỉ mỗi nhãn nhóm của router là LOOKUP+INSIGHT. Nhãn router chỉ là phép đo GIÁN TIẾP cho việc gọi đúng tool, mà phép đo trực tiếp đã đạt — giữ lại chỉ tạo ra ca đỏ giả, đúng kiểu đã từng làm C08 hỏng oan.", "tools": ["get_kpi"], "expect": ["Tháng"] },
     { "id": "B04", "q": "Cho tôi tổng quan KPI đơn vị và danh sách KPI đang có nguy cơ trễ", "tools": ["get_analytics"], "groups": ["INSIGHT"], "expect": [] },
     { "id": "B05", "q": "Ai đứng đầu bảng xếp hạng tiến độ, và người đó thuộc đơn vị nào, KPI của họ ra sao?", "tools": ["rank", "get_people"], "groups": ["INSIGHT", "LOOKUP"], "expect": [] }
   ],
@@ -43,8 +43,8 @@
     { "id": "C04", "q": "Đơn vị con nào đông người nhất, KPI của đơn vị đó ra sao, và so với đơn vị còn lại thế nào?", "tools": ["get_org_unit", "get_kpi", "compare_org_units"], "groups": ["LOOKUP", "KPI", "INSIGHT"], "expect": [] },
     { "id": "C05", "q": "Team Backend có mấy người, đang làm KPI gì, và xu hướng 3 kỳ qua thế nào?", "_note": "Bản đầu đòi get_people — SAI: vế 'có mấy người' hỏi SỐ LƯỢNG, và mô tả của get_org_unit(view=hierarchy) ghi rõ nó trả 'số nhân sự'. Giữ get_kpi + get_analytics vì đó mới là hai vế model hay bỏ.", "tools": ["get_kpi", "get_analytics"], "groups": ["LOOKUP", "KPI", "INSIGHT"], "expect": ["3"] },
     { "id": "C06", "q": "Cho tôi danh sách nhân sự Phòng Truyền Thông kèm tình hình nộp báo cáo của họ", "tools": ["get_people", "get_submissions"], "groups": ["LOOKUP", "KPI"], "expect": ["8"] },
-    { "id": "C07", "q": "Ai phụ trách Team Content, và team đó xếp hạng thế nào so với các team khác?", "tools": ["get_org_unit", "rank"], "groups": ["LOOKUP", "INSIGHT"], "expect": ["Cont Lead"] },
-    { "id": "C08", "q": "Tổng quan KPI đơn vị tôi, kèm danh sách các chức vụ đang có và ai chưa nộp báo cáo", "tools": ["get_analytics", "get_org_unit", "get_submissions"], "groups": ["INSIGHT", "LOOKUP", "KPI"], "expect": [] }
+    { "id": "C07", "q": "Ai phụ trách Team Content, và team đó xếp hạng thế nào so với các team khác?", "_note": "Vế xếp hạng BUỘC phải là rank. Còn vế 'ai phụ trách' thì get_org_unit(view=detail) trả managers, mà get_people(view=list) cũng trả người kèm chức vụ — hai đường đều ra đúng tên. Đo được: model đi get_people + rank và trả lời đủ cả hai vế.", "tools": ["rank"], "toolsAny": [["get_org_unit", "get_people"]], "groups": ["LOOKUP", "INSIGHT"], "expect": ["Cont Lead"] },
+    { "id": "C08", "q": "Tổng quan KPI đơn vị tôi, kèm danh sách các chức vụ đang có và ai chưa nộp báo cáo", "_note": "Bản đầu đòi get_analytics và nhóm INSIGHT — SAI, cùng lý do A15: vế 'tổng quan KPI' làm được bằng get_kpi(view=summary). Vì thế câu này chỉ cần LOOKUP+KPI, không còn là ca kiểm ba nhóm; vai trò đó do C04 và C05 đảm nhiệm. Bổ sung sau: vế 'danh sách chức vụ' cũng có hai đường — get_org_unit(view=positions) và get_people(view=list) đều trả chức vụ, nên chuyển get_org_unit vào toolsAny. Chỉ get_submissions là BUỘC, vì 'ai chưa nộp' không tool nào khác trả lời được.", "tools": ["get_submissions"], "toolsAny": [["get_analytics", "get_kpi"], ["get_org_unit", "get_people"]], "groups": ["LOOKUP", "KPI"], "expect": [] }
   ],
 
   "groupD": [

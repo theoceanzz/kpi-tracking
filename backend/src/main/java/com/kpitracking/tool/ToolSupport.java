@@ -15,11 +15,13 @@ import com.kpitracking.repository.UserRoleOrgUnitRepository;
 import com.kpitracking.service.OrgUnitStatisticService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import com.kpitracking.service.ai.ToolProgress;
 import org.springframework.ai.chat.model.ToolContext;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 
 import java.util.*;
+import com.kpitracking.service.ai.agent.AgentState;
 
 /**
  * Phần dùng chung của mọi tool AI: đọc ngữ cảnh, kiểm phạm vi/quyền, resolve tên → ID, hỏi làm rõ
@@ -40,7 +42,6 @@ public class ToolSupport {
     private final KpiCriteriaRepository kpiCriteriaRepository;
     private final ConversationMessageRepository conversationMessageRepository;
     private final OrgUnitStatisticService orgUnitStatisticService;
-    private final DisambiguationGuard disambiguationGuard;
     private final FollowupContextStore followupContextStore;
     private final ObjectMapper objectMapper;
 
@@ -303,7 +304,7 @@ public class ToolSupport {
     public UnitRef resolveUnit(String unitId, String unitName, ToolContext context) {
         if (unitId != null && !unitId.isBlank()) {
             UUID id = parseId(unitId, "đơn vị (unitId)", "search");
-            guardDisambiguation("orgUnit", id, "đơn vị");
+            guardDisambiguation("orgUnit", id, "đơn vị", context);
             validateSubtreeAccess(id, context);
             return new UnitRef(id, null);
         }
@@ -325,8 +326,10 @@ public class ToolSupport {
      * Refuses to act on an ID that was flagged ambiguous (same-named) by a search
      * in the current turn, forcing the assistant to ask the user to choose first.
      */
-    public void guardDisambiguation(String entityType, UUID id, String entityLabel) {
-        if (disambiguationGuard.isArmed(entityType, id)) {
+    public void guardDisambiguation(String entityType, UUID id, String entityLabel,
+                                    ToolContext context) {
+        AgentState state = AgentState.from(context);
+        if (state != null && state.isArmed(entityType, id)) {
             throw new IllegalStateException("Có nhiều " + entityLabel + " trùng tên vừa được tìm thấy. "
                     + "Hãy đưa danh sách cho người dùng chọn rồi mới xem chi tiết, không tự chọn giúp.");
         }
@@ -458,7 +461,8 @@ public class ToolSupport {
         // phải tự ghi nhận. Bỏ sót chỗ này khiến ValidationStage tưởng lượt đó không lấy được dữ
         // liệu nào rồi chặn nhầm chính câu hỏi làm rõ hợp lệ (đã đo được: 4 câu bị chặn oan).
         log.info("AI-TOOL-CALL {}", toolName);
-        ToolCallTracker.record(toolName);
+        recordSuccess(context, toolName);
+        ToolProgress.announce(context, toolName);
 
         String convId = getConversationId(context);
         if (convId != null) {
@@ -467,8 +471,20 @@ public class ToolSupport {
         return ambiguousEnvelope(entityLabel, arrayKey, results, aggregateHint);
     }
 
-    public void armDisambiguation(String entityType, Set<UUID> ids) {
-        disambiguationGuard.arm(entityType, ids);
+    /**
+     * Ghi một tool đã chạy xong vào trạng thái của lượt.
+     *
+     * <p>Chịu được việc vắng trạng thái: tool còn chạy ở test dựng {@code ToolContext} trần, và
+     * ném lỗi giữa một lượt đang chạy chỉ vì không ghi được sổ thì tệ hơn nhiều so với không ghi.
+     */
+    private static void recordSuccess(ToolContext context, String toolName) {
+        AgentState state = AgentState.from(context);
+        if (state != null) state.recordSuccess(toolName);
+    }
+
+    public void armDisambiguation(String entityType, Set<UUID> ids, ToolContext context) {
+        AgentState state = AgentState.from(context);
+        if (state != null) state.arm(entityType, ids);
     }
 
     /**
@@ -483,7 +499,10 @@ public class ToolSupport {
         // tool của từng lượt khi chấm bộ câu hỏi kiểm thử.
         log.info("AI-TOOL-CALL {}", toolName);
         // Ghi lại để ValidationStage biết lượt này có thật sự lấy được dữ liệu hay không.
-        ToolCallTracker.record(toolName);
+        recordSuccess(context, toolName);
+        // ...và nói cho người dùng biết trợ lý vừa xem cái gì; vòng gọi tool là quãng chờ dài nhất
+        // của một lượt nên im lặng ở đây nhìn không khác gì treo máy.
+        ToolProgress.announce(context, toolName);
         String json = toolMapper.writeValueAsString(payload);
         String conversationId = getConversationId(context);
         if (conversationId != null) {

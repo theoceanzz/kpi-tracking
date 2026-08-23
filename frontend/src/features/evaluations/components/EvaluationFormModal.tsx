@@ -6,6 +6,8 @@ import { useCreateEvaluation } from '../hooks/useCreateEvaluation'
 import { useKpiPeriods } from '@/features/kpi/hooks/useKpiPeriods'
 import { useMyKpi } from '@/features/kpi/hooks/useMyKpi'
 import { useAuthStore } from '@/store/authStore'
+import { useFormAssistStore } from '@/store/formAssistStore'
+import { MicButton } from '@/components/common/MicButton'
 import { useOrganization } from '@/features/orgunits/hooks/useOrganization'
 import { getScoringFunctions } from '@/lib/scoring'
 import { X, Loader2, Star, Target, Zap, Trophy, CheckCircle2, MessageSquare, Sparkles, Lock, Layers, AlertTriangle } from 'lucide-react'
@@ -23,6 +25,9 @@ interface EvaluationFormModalProps {
 
 export default function EvaluationFormModal({ open, onClose, readOnly = false, initialPeriodId }: EvaluationFormModalProps) {
   const { user } = useAuthStore()
+  /** Ô đang thật sự sửa được, cho trợ lý AI. Cập nhật bằng effect riêng bên dưới — điều kiện
+   *  khoá điểm khai báo SAU chỗ đăng ký nên không đưa thẳng vào deps được. */
+  const fillableRef = useRef<string[]>([])
   
   const orgId = user?.memberships?.[0]?.organizationId
   const { data: org } = useOrganization(orgId)
@@ -42,7 +47,7 @@ export default function EvaluationFormModal({ open, onClose, readOnly = false, i
     return periodsData.content.filter(p => assignedPeriodIds.has(p.id))
   }, [periodsData, assignedPeriodIds])
 
-  const { register, handleSubmit, reset, watch, setValue } = useForm<EvaluationFormData>({
+  const { register, handleSubmit, reset, watch, setValue, getValues } = useForm<EvaluationFormData>({
     resolver: zodResolver(evaluationSchema),
     defaultValues: { 
       score: 0,
@@ -50,6 +55,25 @@ export default function EvaluationFormModal({ open, onClose, readOnly = false, i
       kpiPeriodId: initialPeriodId || '',
     },
   })
+
+  // Giới thiệu form này với trợ lý AI trong lúc nó đang mở. Truyền HÀM đọc/ghi chứ không truyền
+  // dữ liệu: giá trị chỉ cần đúng tại thời điểm gửi câu hỏi.
+  useEffect(() => {
+    if (!open) return
+    const { register: registerForm, unregister } = useFormAssistStore.getState()
+    registerForm({
+      formId: 'evaluation_form',
+      getValues: () => getValues() as unknown as Record<string, unknown>,
+      // Chép lại đúng điều kiện vẽ/khoá bên dưới. readOnly = modal đang dùng làm bản xem lại,
+      // không ô nào sửa được; score còn bị khoá thêm khi điểm do BSC chốt hoặc KPI không có
+      // phần định lượng. Người bị đánh giá là ô ẩn nên không bao giờ có mặt ở đây.
+      fillableFields: () => fillableRef.current,
+      setValue: (field, value) =>
+        setValue(field as keyof EvaluationFormData, value as never,
+          { shouldValidate: true, shouldDirty: true }),
+    })
+    return () => unregister('evaluation_form')
+  }, [open, getValues, setValue])
 
   const hasManuallyEditedScore = useRef(false)
 
@@ -93,6 +117,15 @@ export default function EvaluationFormModal({ open, onClose, readOnly = false, i
   // Kỳ đang chấm CHÍNH THỨC bằng BSC ⇒ điểm bị KHÓA theo bsc_score (backend cũng ép, không chỉ khóa UI).
   const isBscOfficial = bscMode === 'OFFICIAL' && bscScore != null
   const scoreLocked = readOnly || isBscOfficial
+
+  // Chép lại đúng điều kiện vẽ/khoá bên dưới: readOnly = modal đang dùng làm bản xem lại nên
+  // không ô nào sửa được; ô điểm còn bị khoá thêm khi điểm do BSC chốt hoặc KPI không có phần
+  // định lượng. Người bị đánh giá là input ẩn nên không bao giờ có mặt ở đây.
+  useEffect(() => {
+    fillableRef.current = readOnly
+      ? []
+      : ['kpiPeriodId', 'comment', ...(scoreLocked || noQuantScore ? [] : ['score'])]
+  }, [readOnly, scoreLocked, noQuantScore])
 
   // Điểm gợi ý 0..100:
   // - BSC chính thức  -> lấy officialScore (= bsc_score)
@@ -360,9 +393,16 @@ export default function EvaluationFormModal({ open, onClose, readOnly = false, i
 
                 {/* Comment area */}
                 <div className="space-y-4">
-                   <label className="flex items-center gap-2 text-xs font-black text-slate-400 uppercase tracking-widest">
-                      <MessageSquare size={14} /> Ý kiến cá nhân
-                   </label>
+                   <div className="flex items-center justify-between gap-2">
+                      <label className="flex items-center gap-2 text-xs font-black text-slate-400 uppercase tracking-widest">
+                         <MessageSquare size={14} /> Ý kiến cá nhân
+                      </label>
+                      <MicButton
+                         disabled={readOnly}
+                         getBaseText={() => getValues("comment") ?? ""}
+                         onText={text => setValue("comment", text, { shouldValidate: true, shouldDirty: true })}
+                      />
+                   </div>
                    <textarea 
                     {...register('comment')} 
                     rows={4}
