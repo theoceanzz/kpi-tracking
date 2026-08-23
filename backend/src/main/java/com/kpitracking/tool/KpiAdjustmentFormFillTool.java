@@ -59,6 +59,8 @@ public class KpiAdjustmentFormFillTool {
             scalars.put("requestedTargetValue", request.requestedTargetValue());
             scalars.put("requestedMinimumValue", request.requestedMinimumValue());
             scalars.put("deactivationRequest", request.deactivationRequest());
+            // Chặn model viết hộ lý do — xem FormFillSupport.guardGroundedText.
+            fill.guardGroundedText(request.reason(), "Lý do", context);
             scalars.put("reason", request.reason());
             fill.addScalars(entries, form, current, scalars, why);
 

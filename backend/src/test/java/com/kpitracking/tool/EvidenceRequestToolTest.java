@@ -10,6 +10,8 @@ import org.springframework.ai.chat.model.ToolContext;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import com.kpitracking.service.ai.agent.AgentState;
+import java.util.HashMap;
 
 /**
  * Test cho tool mở vùng thả minh chứng.
@@ -20,30 +22,43 @@ import static org.assertj.core.api.Assertions.assertThat;
  */
 class EvidenceRequestToolTest {
 
+    /**
+     * Trạng thái của lượt, đi cùng {@code ToolContext}. Mỗi test một thực thể mới nên không
+     * phải dọn gì — đó chính là điều đáng giá so với bản ThreadLocal cũ.
+     */
+    private AgentState st = AgentState.forToolsOnly();
+
+    /** Ngữ cảnh tool luôn mang theo trạng thái của lượt, giống hệt lúc chạy thật. */
+    private ToolContext ctxWith(java.util.Map<String, Object> base) {
+        java.util.Map<String, Object> m = new HashMap<>(base);
+        m.put(AgentState.CONTEXT_KEY, st);
+        return new ToolContext(m);
+    }
+
     private final EvidenceRequestTool tool = new EvidenceRequestTool();
 
     /** Form đang mở CÓ mục đính kèm. */
     private ToolContext ctx() {
-        return new ToolContext(Map.of(
+        return ctxWith(Map.of(
                 "openFormId", "submission_form",
                 "openFormAcceptsFiles", Boolean.TRUE));
     }
 
     /** Không form nào nhận tệp — ví dụ đang ở trang trợ lý toàn màn hình. */
     private ToolContext ctxNoSink() {
-        return new ToolContext(Map.of("openFormId", "submission_form"));
+        return ctxWith(Map.of("openFormId", "submission_form"));
     }
 
     @BeforeEach
     @AfterEach
     void reset() {
-        EvidenceRequestTool.clear();
+        st = AgentState.forToolsOnly();
     }
 
     @Test
     @DisplayName("chưa gọi -> chưa có cờ nào")
     void noFlagBeforeCall() {
-        assertThat(EvidenceRequestTool.wasRequested()).isFalse();
+        assertThat(st.isEvidenceRequested()).isFalse();
     }
 
     @Test
@@ -53,7 +68,7 @@ class EvidenceRequestToolTest {
                 new EvidenceRequestTool.RequestEvidenceRequest("người dùng muốn gửi minh chứng"), ctx());
 
         assertThat(out).doesNotContain("\"error\"");
-        assertThat(EvidenceRequestTool.wasRequested()).isTrue();
+        assertThat(st.isEvidenceRequested()).isTrue();
     }
 
     @Test
@@ -64,16 +79,16 @@ class EvidenceRequestToolTest {
         String out = tool.requestEvidenceUpload(null, ctx());
 
         assertThat(out).doesNotContain("\"error\"");
-        assertThat(EvidenceRequestTool.wasRequested()).isTrue();
+        assertThat(st.isEvidenceRequested()).isTrue();
     }
 
     @Test
     @DisplayName("dọn xong thì cờ không rơi sang lượt sau")
     void clearResetsFlag() {
         tool.requestEvidenceUpload(new EvidenceRequestTool.RequestEvidenceRequest("x"), ctx());
-        EvidenceRequestTool.clear();
+        st = AgentState.forToolsOnly();
 
-        assertThat(EvidenceRequestTool.wasRequested()).isFalse();
+        assertThat(st.isEvidenceRequested()).isFalse();
     }
 
     @Test
@@ -90,7 +105,7 @@ class EvidenceRequestToolTest {
                 new EvidenceRequestTool.RequestEvidenceRequest("x"), ctxNoSink());
 
         assertThat(out).contains("\"error\"").contains("Gửi báo cáo KPI");
-        assertThat(EvidenceRequestTool.wasRequested())
+        assertThat(st.isEvidenceRequested())
                 .as("vẽ một vùng thả không dẫn đi đâu là đúng lỗi hứa suông đã phải đi sửa một lần")
                 .isFalse();
     }

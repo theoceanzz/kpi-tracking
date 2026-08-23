@@ -87,9 +87,9 @@ public class AiController {
         SseTurnListener listener = new SseTurnListener(emitter);
 
         // Pipeline chạy NGOÀI luồng request nên phải mang SecurityContext sang: ManagerContextResolver,
-        // AiRateLimiter và AiTokenUsageRecorder đều đọc SecurityContextHolder. Các ThreadLocal khác
-        // (ToolCallTracker, FormPatchStore, DisambiguationGuard) tự đặt và tự dọn trong
-        // AiTurnPipeline.run() nên chạy ở luồng nào cũng đúng.
+        // AiRateLimiter và AiTokenUsageRecorder đều đọc SecurityContextHolder — đó là ThreadLocal
+        // duy nhất còn lại trên đường này. Trạng thái theo lượt nằm trong AgentState và đi cùng
+        // ToolContext, nên nó chạy ở luồng nào cũng đúng và không có gì phải dọn.
         new DelegatingSecurityContextExecutor(streamExecutor, SecurityContextHolder.getContext())
                 .execute(() -> {
                     try {
@@ -124,7 +124,7 @@ public class AiController {
             turn.setPinnedFileNames(request.getPinnedFileNames());
             turn.setListener(listener);
             result = aiService.processOrgUnitChat(turn);
-            // Pipeline đã chuyển bản đề xuất từ ThreadLocal lên turn trước khi dọn.
+            // Pipeline đã chép các kết quả này từ AgentState lên turn ở khối finally.
             formPatch = turn.getFormPatch();
             evidenceRequested = turn.isEvidenceRequested();
             filesAttached = turn.isFilesAttached();

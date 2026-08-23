@@ -3,13 +3,14 @@ package com.kpitracking.service.ai.stage;
 import com.kpitracking.service.ai.AiStage;
 import com.kpitracking.service.ai.AiStageChain;
 import com.kpitracking.service.ai.AiTurn;
-import com.kpitracking.tool.ToolCallTracker;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
 
 import java.util.regex.Pattern;
+import com.kpitracking.service.ai.agent.AgentState;
+import java.util.List;
 
 /**
  * Chặn câu trả lời đưa ra số liệu mà lượt đó KHÔNG lấy được dữ liệu nào từ tool.
@@ -58,9 +59,11 @@ public class ValidationStage implements AiStage {
         turn.progress(this, "Đang kiểm tra lại câu trả lời");
 
         // Ghi lại chuỗi tool của lượt để chẩn đoán về sau (trường dành sẵn từ lúc dựng khung).
-        turn.setToolCallTrace(ToolCallTracker.calls());
+        AgentState state = turn.getAgentState();
+        List<String> called = state == null ? List.of() : state.getSucceeded();
+        turn.setToolCallTrace(called);
 
-        if (ToolCallTracker.anyCalled() || !hasFigures(answer)) return answer;
+        if (!called.isEmpty() || !hasFigures(answer)) return answer;
 
         // Lượt CÓ bộ nhớ: model được phép trả lời từ dữ liệu các lượt trước còn trong ngữ cảnh,
         // nên chặn ở đây là chặn nhầm. Chỉ ghi lại để theo dõi.

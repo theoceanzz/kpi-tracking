@@ -44,7 +44,8 @@ public class KpiTool {
             + "view=assignees: danh sách người được giao. NÊN truyền kpiName — một KPI lặp qua nhiều "
             + "kỳ có nhiều bản trùng tên, truyền tên sẽ GỘP người được giao của tất cả các bản và ghi "
             + "rõ từng người thuộc những kỳ nào; kpiId chỉ nhắm đúng một bản. "
-            + "view=period_breakdown: diễn biến của MỘT KPI theo từng kỳ (dùng cho 'KPI X tiến triển thế nào'), "
+            + "view=period_breakdown: diễn biến của MỘT KPI theo từng kỳ (dùng cho 'KPI X tiến triển thế nào'); "
+            + "nhận kpiId HOẶC kpiName, và với kpiName thì tự gộp mọi kỳ trùng tên nên đừng hỏi lại người dùng chọn kỳ, "
             + "cần kpiId; granularity=MONTH|QUARTER|YEAR. "
             + "Các view theo đơn vị mặc định là đơn vị hiện tại, nên khi người dùng nêu tên đơn vị PHẢI truyền unitName.")
     public String getKpi(KpiRequest request, ToolContext context) {
@@ -85,18 +86,28 @@ public class KpiTool {
         // cách get_submissions(kpiName) đã làm. Không có đường này thì câu "KPI X có những ai
         // được giao?" không trả lời được, vì một KPI lặp qua nhiều kỳ và assignees đòi đúng MỘT
         // kpiId; model chỉ còn cách hỏi lại người dùng chọn kỳ, dù họ hỏi về cả KPI.
-        if ("assignees".equals(view) && !ToolSupport.notBlank(request.kpiId())
+        if (("assignees".equals(view) || "period_breakdown".equals(view))
+                && !ToolSupport.notBlank(request.kpiId())
                 && ToolSupport.notBlank(request.kpiName())) {
-            return support.respond(context, "get_kpi", assigneesByName(request.kpiName(), context));
+            Object byName = "assignees".equals(view)
+                    ? assigneesByName(request.kpiName(), context)
+                    : periodBreakdownByName(request.kpiName(), request, context);
+            return support.respond(context, "get_kpi", byName);
         }
 
         if (!ToolSupport.notBlank(request.kpiId())) {
+            // Câu này phải nói TIẾP phải làm gì, không được là ngõ cụt. Đo được: model search ra ba
+            // KPI trùng tên, không chọn được bản nào, gọi get_kpi không kèm kpiId, bị từ chối ba lần
+            // rồi bỏ cuộc và quay ra hỏi người dùng chọn kỳ — dù câu hỏi là "qua CÁC kỳ".
+            boolean acceptsName = "assignees".equals(view) || "period_breakdown".equals(view);
             throw new IllegalArgumentException("view=" + view + " cần kpiId"
-                    + ("assignees".equals(view) ? " hoặc kpiName" : "")
-                    + ". Dùng search (entityType=kpi) để lấy UUID trước.");
+                    + (acceptsName
+                        ? " hoặc kpiName. Tên khớp nhiều kỳ thì cứ truyền kpiName — tool tự gộp cả "
+                          + "cụm KPI trùng tên đó lại, KHÔNG cần hỏi người dùng chọn kỳ."
+                        : ". Dùng search (entityType=kpi) để lấy UUID trước."));
         }
         UUID kpiId = support.parseId(request.kpiId(), "KPI (kpiId)", "search (entityType=kpi)");
-        support.guardDisambiguation("kpi", kpiId, "KPI");
+        support.guardDisambiguation("kpi", kpiId, "KPI", context);
         support.validateKpiAccess(kpiId, context);
 
         Object response = switch (view) {
@@ -163,6 +174,56 @@ public class KpiTool {
         if (byEmail.isEmpty()) {
             response.put("message", "Không tìm thấy KPI tên '" + kpiName.trim()
                     + "' trong phạm vi của bạn, hoặc KPI đó chưa giao cho ai.");
+        }
+        return response;
+    }
+
+    /**
+     * Diễn biến của MỌI KPI trùng tên, gộp lại theo từng kỳ.
+     *
+     * <p>Sinh ra vì đúng lý do đã ghi ở {@link #assigneesByName}: trong dữ liệu thật một KPI lặp
+     * qua nhiều kỳ dưới cùng một cái tên, mà {@code period_breakdown} lại đòi đúng MỘT {@code kpiId}.
+     * Người dùng hỏi "KPI X tiến triển ra sao QUA CÁC KỲ" thì ý họ là cả cụm đó, nhưng model tra tên
+     * ra ba bản rồi không biết chọn bản nào — nên nó quay ra hỏi lại người dùng chọn kỳ, đúng thứ
+     * câu hỏi vừa bảo là không cần chọn.
+     *
+     * <p>Đo được ở bộ câu hỏi (B03): model gọi {@code get_kpi} ba lần không kèm {@code kpiId}, bị
+     * từ chối cả ba, rồi bỏ cuộc và hỏi lại. Đây là chốt chặn tất định cho ngõ cụt đó — không phải
+     * dặn thêm model.
+     */
+    private Map<String, Object> periodBreakdownByName(String kpiName, KpiRequest request,
+                                                      ToolContext context) {
+        List<Map<String, Object>> pool = support.kpiMatchPool(kpiName, support.getOrgId(context));
+
+        // LinkedHashMap/ArrayList để giữ thứ tự xuất hiện — câu trả lời ổn định giữa các lần gọi.
+        List<Map<String, Object>> perKpiPeriod = new ArrayList<>();
+        List<String> periods = new ArrayList<>();
+
+        for (Map<String, Object> match : pool) {
+            UUID kpiId = UUID.fromString(String.valueOf(match.get("id")));
+            if (!support.hasKpiAccess(kpiId, context)) continue;
+
+            String period = match.get("periodName") != null ? String.valueOf(match.get("periodName")) : null;
+            if (period != null && !periods.contains(period)) periods.add(period);
+
+            Map<String, Object> one = orgUnitStatisticService.getKpiPeriodBreakdown(
+                    kpiId, request.userId(), request.granularity(),
+                    request.startDate(), request.endDate());
+
+            Map<String, Object> entry = new LinkedHashMap<>();
+            entry.put("periodName", period);
+            entry.putAll(one);
+            perKpiPeriod.add(entry);
+        }
+
+        Map<String, Object> response = new LinkedHashMap<>();
+        response.put("kpiName", kpiName.trim());
+        response.put("matchedKpiCount", perKpiPeriod.size());
+        response.put("periods", periods);
+        response.put("breakdown", perKpiPeriod);
+        if (perKpiPeriod.isEmpty()) {
+            response.put("message", "Không tìm thấy KPI tên '" + kpiName.trim()
+                    + "' trong phạm vi của bạn.");
         }
         return response;
     }

@@ -68,8 +68,8 @@ public class AiTurn {
     /**
      * Đề xuất điền form mà tool sinh ra trong lượt này.
      *
-     * <p>Pipeline chuyển nó từ ThreadLocal sang đây TRƯỚC khi dọn, vì khối {@code finally} chạy
-     * xong rồi {@code run()} mới trả về — tầng gọi đọc ThreadLocal thì luôn nhận null.
+     * <p>Pipeline chép nó từ {@code AgentState} sang đây ở khối {@code finally}, để tầng gọi chỉ
+     * cần đọc {@code AiTurn} mà không phải biết gì về trạng thái bên trong vòng lặp.
      */
     private FormPatch formPatch;
     /**
@@ -82,8 +82,7 @@ public class AiTurn {
     /**
      * Lượt này model có xin mở vùng thả minh chứng trong khung chat không.
      *
-     * <p>Pipeline chuyển nó từ ThreadLocal sang đây TRƯỚC khi dọn, cùng lý do với {@code formPatch}:
-     * khối {@code finally} chạy xong rồi {@code run()} mới trả về.
+     * <p>Pipeline chép nó từ {@code AgentState} sang đây, cùng lý do với {@code formPatch}.
      */
     private boolean evidenceRequested;
     /** Lượt này model có đính tệp đang ghim vào biểu mẫu không. */
@@ -101,6 +100,15 @@ public class AiTurn {
     private List<String> missingPlannedTools;
     /** Tên các tool đã chạy trong lượt — để stage kiểm duyệt đối chiếu câu trả lời với dữ liệu thật. */
     private List<String> toolCallTrace;
+
+    /**
+     * Trạng thái của vòng lặp agent trong lượt này — lịch sử hội thoại, các tool đã gọi, bước
+     * thứ mấy. Do {@code ModelCallStage} đặt khi vòng lặp bắt đầu.
+     *
+     * <p>Các công đoạn bọc ngoài đọc trace ở đây thay vì móc từ ThreadLocal: trạng thái đã là giá
+     * trị truyền tường minh nên không còn phụ thuộc vào việc tool chạy trên luồng nào.
+     */
+    private com.kpitracking.service.ai.agent.AgentState agentState;
 
     public AiTurn(String question, String conversationId, String focusUnitId) {
         this.question = question;

@@ -12,7 +12,6 @@ import com.kpitracking.service.OrgUnitStatisticService;
 import com.kpitracking.service.ai.form.FormFieldValidator;
 import com.kpitracking.service.ai.form.FormFillSupport;
 import com.kpitracking.service.ai.form.FormPatch;
-import com.kpitracking.service.ai.form.FormPatchStore;
 import com.kpitracking.service.ai.form.FormRegistry;
 import com.kpitracking.tool.SubmissionFormFillTool.SubmissionFormFillRequest;
 import org.junit.jupiter.api.AfterEach;
@@ -31,6 +30,8 @@ import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
+import com.kpitracking.service.ai.agent.AgentState;
+import java.util.HashMap;
 
 /**
  * Test cho tool đề xuất điền form NỘP BÁO CÁO.
@@ -39,6 +40,19 @@ import static org.mockito.Mockito.when;
  * nặng hơn các form khác: nộp nhầm kỳ là ghi số vào sai chỗ, nên KPI trùng tên PHẢI bắt hỏi lại.
  */
 class SubmissionFormFillToolTest {
+
+    /**
+     * Trạng thái của lượt, đi cùng {@code ToolContext}. Mỗi test một thực thể mới nên không
+     * phải dọn gì — đó chính là điều đáng giá so với bản ThreadLocal cũ.
+     */
+    private AgentState st = AgentState.forToolsOnly();
+
+    /** Ngữ cảnh tool luôn mang theo trạng thái của lượt, giống hệt lúc chạy thật. */
+    private ToolContext ctxWith(java.util.Map<String, Object> base) {
+        java.util.Map<String, Object> m = new HashMap<>(base);
+        m.put(AgentState.CONTEXT_KEY, st);
+        return new ToolContext(m);
+    }
 
     private OrgUnitStatisticService service;
     private QualitativeLevelRepository levels;
@@ -56,13 +70,11 @@ class SubmissionFormFillToolTest {
 
     @AfterEach
     void tearDown() {
-        FormPatchStore.clear();
-        ToolCallTracker.clear();
     }
 
     /** Không có orgUnitPath -> validateKpiAccess bỏ qua phép kiểm phạm vi, test tập trung vào logic tool. */
     private ToolContext withForm(Map<String, Object> current) {
-        return new ToolContext(Map.of(
+        return ctxWith(Map.of(
                 "orgUnitId", UUID.randomUUID().toString(),
                 "organizationId", UUID.randomUUID().toString(),
                 "openFormId", FormRegistry.SUBMISSION_FORM,
@@ -71,7 +83,7 @@ class SubmissionFormFillToolTest {
 
     /** Như withForm nhưng client CÓ khai các ô đang hiện trên màn hình. */
     private ToolContext withFields(Map<String, Object> current, List<String> fields) {
-        return new ToolContext(Map.of(
+        return ctxWith(Map.of(
                 "orgUnitId", UUID.randomUUID().toString(),
                 "organizationId", UUID.randomUUID().toString(),
                 "openFormId", FormRegistry.SUBMISSION_FORM,
@@ -96,24 +108,24 @@ class SubmissionFormFillToolTest {
     @Test
     @DisplayName("KHÔNG mở form thì từ chối")
     void refusesWhenNoFormOpen() {
-        ToolContext noForm = new ToolContext(Map.of(
+        ToolContext noForm = ctxWith(Map.of(
                 "orgUnitId", UUID.randomUUID().toString(),
                 "organizationId", UUID.randomUUID().toString()));
 
         assertThat(tool.suggestSubmissionForm(req("KPI A", 10d, null), noForm)).contains("\"error\"");
-        assertThat(FormPatchStore.get()).isNull();
+        assertThat(st.getFormPatch()).isNull();
     }
 
     @Test
     @DisplayName("mở NHẦM form khác cũng từ chối — đề xuất sẽ rơi vào hư không")
     void refusesWhenAnotherFormIsOpen() {
-        ToolContext kpiForm = new ToolContext(Map.of(
+        ToolContext kpiForm = ctxWith(Map.of(
                 "orgUnitId", UUID.randomUUID().toString(),
                 "organizationId", UUID.randomUUID().toString(),
                 "openFormId", FormRegistry.KPI_FORM));
 
         assertThat(tool.suggestSubmissionForm(req("KPI A", 10d, null), kpiForm)).contains("\"error\"");
-        assertThat(FormPatchStore.get()).isNull();
+        assertThat(st.getFormPatch()).isNull();
     }
 
     @Test
@@ -126,7 +138,7 @@ class SubmissionFormFillToolTest {
         String out = tool.suggestSubmissionForm(req("Số task hoàn thành", 45d, "xong sớm"), withForm(Map.of()));
 
         assertThat(out).doesNotContain("\"error\"");
-        FormPatch patch = FormPatchStore.get();
+        FormPatch patch = st.getFormPatch();
         assertThat(patch.formId()).isEqualTo(FormRegistry.SUBMISSION_FORM);
         assertThat(patch.entries()).extracting(FormPatch.Entry::field)
                 .containsExactlyInAnyOrder("actualValue", "note", "kpiCriteriaId");
@@ -148,7 +160,7 @@ class SubmissionFormFillToolTest {
         String out = tool.suggestSubmissionForm(req("Số task hoàn thành", 45d, null), withForm(Map.of()));
 
         assertThat(out).contains("\"error\"").contains("Tháng 5/2026").contains("Tháng 6/2026");
-        assertThat(FormPatchStore.get())
+        assertThat(st.getFormPatch())
                 .as("một ô hỏng thì bỏ CẢ đề xuất").isNull();
     }
 
@@ -166,7 +178,7 @@ class SubmissionFormFillToolTest {
                 "API hoàn thành", "Tháng 6/2026", 12d, null, null, null), withForm(Map.of()));
 
         assertThat(out).doesNotContain("\"error\"");
-        assertThat(FormPatchStore.get().entries())
+        assertThat(st.getFormPatch().entries())
                 .anySatisfy(e -> {
                     assertThat(e.field()).isEqualTo("kpiCriteriaId");
                     assertThat(e.value()).isEqualTo(thang6.toString());
@@ -182,7 +194,7 @@ class SubmissionFormFillToolTest {
         assertThat(tool.suggestSubmissionForm(new SubmissionFormFillRequest(
                 "API hoàn thành", "Tháng 12/2026", 12d, null, null, null), withForm(Map.of())))
                 .contains("\"error\"").contains("Tháng 5/2026");
-        assertThat(FormPatchStore.get()).isNull();
+        assertThat(st.getFormPatch()).isNull();
     }
 
     @Test
@@ -192,7 +204,7 @@ class SubmissionFormFillToolTest {
 
         assertThat(tool.suggestSubmissionForm(req("KPI không tồn tại", 10d, null), withForm(Map.of())))
                 .contains("\"error\"").contains("search");
-        assertThat(FormPatchStore.get()).isNull();
+        assertThat(st.getFormPatch()).isNull();
     }
 
     @Test
@@ -200,7 +212,7 @@ class SubmissionFormFillToolTest {
     void negativeActualValueRejected() {
         assertThat(tool.suggestSubmissionForm(req(null, -5d, null), withForm(Map.of())))
                 .contains("\"error\"");
-        assertThat(FormPatchStore.get()).isNull();
+        assertThat(st.getFormPatch()).isNull();
     }
 
     @Test
@@ -214,10 +226,9 @@ class SubmissionFormFillToolTest {
         SubmissionFormFillRequest ok = new SubmissionFormFillRequest(
                 null, null, null, "tot", null, null);
         tool.suggestSubmissionForm(ok, withForm(Map.of()));
-        assertThat(FormPatchStore.get().entries().get(0).value())
+        assertThat(st.getFormPatch().entries().get(0).value())
                 .as("bỏ dấu vẫn phải khớp").isEqualTo(id.toString());
 
-        FormPatchStore.clear();
         SubmissionFormFillRequest bad = new SubmissionFormFillRequest(
                 null, null, null, "Siêu cấp", null, null);
         assertThat(tool.suggestSubmissionForm(bad, withForm(Map.of())))
@@ -230,7 +241,7 @@ class SubmissionFormFillToolTest {
         String out = tool.suggestSubmissionForm(req(null, 45d, "xong sớm"),
                 withForm(Map.of("actualValue", 45L, "note", "xong sớm")));
 
-        assertThat(FormPatchStore.get()).isNull();
+        assertThat(st.getFormPatch()).isNull();
         assertThat(out).contains("Không có ô nào thay đổi");
     }
 
@@ -252,7 +263,7 @@ class SubmissionFormFillToolTest {
                 withFields(Map.of(), List.of("actualValue"))))
                 .doesNotContain("\"error\"");
 
-        assertThat(FormPatchStore.get().entries()).extracting(FormPatch.Entry::field)
+        assertThat(st.getFormPatch().entries()).extracting(FormPatch.Entry::field)
                 .containsExactly("actualValue")
                 .as("Ghi chú bị ẩn thì không được lọt vào bản đề xuất");
     }
@@ -263,7 +274,7 @@ class SubmissionFormFillToolTest {
         // Client cũ chưa gửi openFormFields. Thà cũ còn hơn chặn sạch mọi đề xuất khi triển khai dở.
         assertThat(tool.suggestSubmissionForm(req(null, 18d, "ghi chú"), withForm(Map.of())))
                 .doesNotContain("\"error\"");
-        assertThat(FormPatchStore.get().entries()).extracting(FormPatch.Entry::field)
+        assertThat(st.getFormPatch().entries()).extracting(FormPatch.Entry::field)
                 .containsExactlyInAnyOrder("actualValue", "note");
     }
 
@@ -275,7 +286,7 @@ class SubmissionFormFillToolTest {
 
         // Câu "không có ô nào thay đổi" sẽ khiến model tưởng nó đề xuất trùng giá trị cũ rồi thử lại.
         assertThat(out).contains("KHÔNG có trên màn hình").doesNotContain("không có ô nào thay đổi");
-        assertThat(FormPatchStore.get()).isNull();
+        assertThat(st.getFormPatch()).isNull();
     }
 
     // ── luật máy chủ theo loại chỉ tiêu ──────────────────────────────────
@@ -290,7 +301,7 @@ class SubmissionFormFillToolTest {
                 withForm(Map.of("kpiCriteriaId", id.toString())));
 
         assertThat(out).contains("\"error\"").contains("ĐỊNH LƯỢNG").contains("actualValue");
-        assertThat(FormPatchStore.get()).isNull();
+        assertThat(st.getFormPatch()).isNull();
     }
 
     @Test

@@ -4,23 +4,32 @@ import com.kpitracking.advisor.ResponseSanitizingAdvisor;
 import com.kpitracking.service.ai.AiStage;
 import com.kpitracking.service.ai.AiStageChain;
 import com.kpitracking.service.ai.AiTurn;
-import com.kpitracking.service.ai.ChatMemoryCleaner;
 import com.kpitracking.service.ai.PlanStep;
+import com.kpitracking.service.ai.agent.AgentLoop;
+import com.kpitracking.service.ai.agent.AgentState;
 import com.kpitracking.service.ai.form.FormRegistry;
 import com.kpitracking.service.ai.form.FormSpec.Descriptor;
 import com.kpitracking.service.ai.form.FormSpec.Field;
 import com.kpitracking.service.ai.form.FormSpec.Kind;
 import com.kpitracking.tool.ToolRegistry;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.ai.chat.client.ChatClient;
+import org.springframework.ai.chat.memory.ChatMemory;
+import org.springframework.ai.chat.messages.AssistantMessage;
+import org.springframework.ai.chat.messages.Message;
+import org.springframework.ai.chat.messages.SystemMessage;
+import org.springframework.ai.chat.messages.UserMessage;
+import org.springframework.ai.chat.prompt.ChatOptions;
+import org.springframework.ai.chat.prompt.PromptTemplate;
 import org.springframework.ai.openai.OpenAiChatOptions;
-import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.ai.support.ToolCallbacks;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.annotation.Order;
 import org.springframework.core.io.Resource;
 import org.springframework.stereotype.Component;
 
 import java.lang.reflect.Method;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -28,43 +37,43 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
- * Điểm CUỐI của chuỗi: gọi model với đúng bộ công cụ đã chọn.
+ * Điểm CUỐI của chuỗi: chạy vòng lặp agent với đúng bộ công cụ đã chọn.
  *
- * <p>Là stage duy nhất không gọi {@code next} — mọi stage đứng trước nó đều bọc quanh lời gọi này.
+ * <p>Là stage duy nhất không gọi {@code next} — mọi stage đứng trước đều bọc quanh lời gọi này.
  *
- * <p><b>Vì sao mặc định KHÔNG dùng {@code .stream()}.</b> Đo được, tất định 3/3 lần mỗi bên: với câu
- * <i>"So sánh Team Backend và Team Frontend về số thành viên, rồi cho biết đơn vị nào nhiều KPI
- * hơn"</i>, {@code .call()} gọi 3 tool còn {@code .stream()} chỉ gọi 1. Câu trả lời qua luồng vì thế
- * MỎNG HƠN mà không báo lỗi gì — đúng loại hỏng âm thầm mà cả {@code ValidationStage} lẫn
- * {@code PlanCompletionStage} sinh ra để chống. Cũng chính nó khiến đề xuất điền form qua luồng hay
- * trượt: lời gọi tool đầu tiên hỏng thì không còn đủ vòng để model sửa.
+ * <p><b>Vòng lặp giờ thuộc về ứng dụng.</b> Bản trước gói cả lượt trong {@code ChatClient.call()},
+ * nên vòng {@code model → tool → model} nằm trong {@code DefaultToolCallingManager} của Spring AI.
+ * Ba hệ quả đã đo được, tất cả im lặng: số vòng tự sửa lỗi khác nhau giữa {@code .call()} và
+ * {@code .stream()} (5–6 so với ~3) làm bộ 21 ca điền form tụt 21/21 → 17/21; kết quả tool chỉ model
+ * đọc được nên trạng thái phải móc ra bằng sáu ThreadLocal; và không có chỗ chen vào giữa hai bước.
+ * Nay {@link AgentLoop} chạy vòng đó — xem ghi chú ở lớp ấy.
  *
- * <p><b>Nghi phạm: gọi tool SONG SONG.</b> {@code OpenAiChatModel.internalStream} CÓ tự gọi lại sau
- * khi chạy tool, nên khung không thiếu vòng lặp. Nhưng
- * {@code OpenAiStreamFunctionCallingHelper.merge} phân định tool call chỉ dựa vào {@code id} và bỏ
- * qua {@code index}, lại còn ném {@code IllegalStateException} nếu một chunk chứa nhiều tool call —
- * tức nó tự nhận là không gộp nổi nhiều tool call trong một message. Vì vậy khi bật cờ
- * {@code app.ai.streaming.enabled} thì gửi kèm {@code parallel_tool_calls=false} để mỗi vòng chỉ
- * một tool call, nhường phần còn lại cho đoạn đệ quy vốn đã đúng.
+ * <p><b>Bộ nhớ hội thoại thành tường minh.</b> Không còn {@code MessageChatMemoryAdvisor}, vì
+ * advisor ghi câu hỏi vào bộ nhớ TRƯỚC khi gọi model — nguồn gốc của câu hỏi mồ côi mà
+ * {@code ChatMemoryCleaner} sinh ra để dọn. Ở đây chỉ ghi khi đã có câu trả lời, nên trạng thái mồ
+ * côi không tạo ra được nữa.
  *
- * <p>Cờ mặc định TẮT. Chỉ bật khi đo lại thấy số tool đường luồng BẰNG đường {@code .call()}. Đến
- * lúc đó mới nối lại phần phát chữ dần; hiện tại nhánh luồng chỉ gom chữ, để nếu bản vá không ăn
- * thì gỡ đúng một nhánh chứ không phải hoàn tác cả TurnListener / SSE / frontend.
+ * <p><b>Lọc câu trả lời cũng thành tường minh.</b> Đường đi mới không qua {@code ChatClient} nên
+ * {@code ResponseSanitizingAdvisor} không tự chạy; gọi thẳng {@code sanitizeText} trên toàn văn —
+ * đúng cách nhánh streaming vẫn làm từ trước.
  */
 @Component
 @Order(1100)
 @Slf4j
 public class ModelCallStage implements AiStage {
 
-    private final ChatClient chatClient;
-    private final ChatClient chatClientWithMemory;
-    private final ChatMemoryCleaner chatMemoryCleaner;
+    private final AgentLoop agentLoop;
+    private final ChatMemory chatMemory;
     private final FormRegistry formRegistry;
 
     @Value("classpath:/promptTemplates/orgUnitToolSystemPromptTemplate.st")
     Resource orgUnitSystemPrompt;
 
-    /** Xem ghi chú ở đầu lớp: mặc định TẮT cho tới khi đo được số tool hai đường bằng nhau. */
+    /**
+     * Cờ cũ của nhánh streaming. CHƯA nối lại sau khi tự sở hữu vòng lặp — phát chữ dần phải làm ở
+     * lời gọi model CUỐI (lời gọi không sinh tool call), là việc riêng của một pha sau. Cảnh báo
+     * chứ không im lặng bỏ qua, để ai bật cờ còn biết vì sao không thấy gì.
+     */
     @Value("${app.ai.streaming.enabled:false}")
     boolean streamingEnabled;
 
@@ -87,97 +96,119 @@ public class ModelCallStage implements AiStage {
         return names;
     }
 
-    public ModelCallStage(@Qualifier("openAiChatClient") ChatClient chatClient,
-                          @Qualifier("chatClientWithMemory") ChatClient chatClientWithMemory,
-                          ChatMemoryCleaner chatMemoryCleaner,
-                          FormRegistry formRegistry) {
-        this.chatClient = chatClient;
-        this.chatClientWithMemory = chatClientWithMemory;
-        this.chatMemoryCleaner = chatMemoryCleaner;
+    public ModelCallStage(AgentLoop agentLoop, ChatMemory chatMemory, FormRegistry formRegistry) {
+        this.agentLoop = agentLoop;
+        this.chatMemory = chatMemory;
         this.formRegistry = formRegistry;
     }
 
     @Override
     public String handle(AiTurn turn, AiStageChain next) {
-        ResponseSanitizingAdvisor sanitizer = new ResponseSanitizingAdvisor(TOOL_NAMES);
-        ChatClient.ChatClientRequestSpec spec = requestSpec(turn, sanitizer);
-
-        String result = streamingEnabled ? streamContent(spec, turn, sanitizer) : spec.call().content();
-
-        // Model suy luận (gpt-oss) đôi lúc tiêu hết token cho phần suy luận rồi chạm
-        // finishReason=LENGTH trước khi kịp sinh text -> content rỗng. Không để lộ bong bóng
-        // trống ra người dùng.
-        if (result == null || result.isBlank()) {
-            log.warn("AI trả nội dung rỗng (nghi finishReason=LENGTH). question={}", turn.getQuestion());
-            chatMemoryCleaner.dropOrphanUserMessage(turn.memoryConversationId());
-            return "Xin lỗi, mình chưa tạo được câu trả lời cho yêu cầu này (nội dung xử lý quá dài). "
-                    + "Bạn thử hỏi ngắn gọn/cụ thể hơn giúp mình nhé.";
+        if (streamingEnabled) {
+            log.warn("app.ai.streaming.enabled dang BAT nhung nhanh phat chu chua noi lai sau khi "
+                    + "tu so huu vong lap - luot nay van chay khong streaming.");
         }
+
+        // TurnSetupStage đã tạo và gắn vào cả turn lẫn toolCtx. Nhánh dự phòng chỉ dành cho test
+        // dựng AiTurn trần — nhưng vẫn phải GẮN VÀO TURN, nếu không khối finally của pipeline đọc
+        // turn.getAgentState() ra null và bản đề xuất điền form mất trắng.
+        AgentState state = turn.getAgentState();
+        if (state == null) {
+            state = new AgentState(turn);
+            turn.setAgentState(state);
+        }
+
+        String raw = agentLoop.run(state, buildMessages(turn), buildOptions(turn));
+        String result = raw == null
+                ? null
+                : new ResponseSanitizingAdvisor(TOOL_NAMES).sanitizeText(raw);
+
+        if (result == null || result.isBlank()) {
+            return fallbackAnswer(turn, state);
+        }
+        remember(turn, result);
         return result;
     }
 
     /**
-     * Dựng lời gọi model. Tách riêng cho dễ đọc: phần thân {@code handle} chỉ còn việc gọi và xử lý
-     * câu trả lời rỗng.
+     * Dựng danh sách tin nhắn cho vòng lặp: prompt hệ thống, rồi bộ nhớ hội thoại, rồi câu hỏi.
+     *
+     * <p>Thứ tự này khớp thứ tự {@code MessageChatMemoryAdvisor} vẫn dựng, nên prompt gửi đi không
+     * đổi hình dạng so với bản trước.
      */
-    private ChatClient.ChatClientRequestSpec requestSpec(AiTurn turn, ResponseSanitizingAdvisor sanitizer) {
-        ChatClient client = turn.isHasMemory() ? chatClientWithMemory : chatClient;
-        ChatClient.ChatClientRequestSpec spec = client.prompt()
-                .user(turn.getQuestion())
-                .system(s -> s.text(orgUnitSystemPrompt)
-                        .param("currentDateTime", turn.getCurrentDateTime())
-                        .param("plan", planBlock(turn))
-                        .param("form", formBlock(turn))
-                        .param("evidence", evidenceBlock(turn)))
-                .tools(turn.getTools().toArray())
-                .toolContext(turn.getToolCtx())
-                .advisors(sanitizer);
-        if (streamingEnabled) {
-            // CHỈ đặt trên nhánh luồng: đường .call() đã đo kỹ, không đụng tới. An toàn vì
-            // OpenAiChatModel.createRequest gộp bằng ModelOptionsUtils.merge(runtime, default) —
-            // trường không đặt rơi về mặc định yaml, nên model/temperature/max-tokens giữ nguyên.
-            spec = spec.options(OpenAiChatOptions.builder().parallelToolCalls(false).build());
+    private List<Message> buildMessages(AiTurn turn) {
+        List<Message> messages = new ArrayList<>();
+        messages.add(new SystemMessage(renderSystemPrompt(turn)));
+        if (turn.isHasMemory()) {
+            messages.addAll(chatMemory.get(turn.getConversationId()));
         }
-        return turn.isHasMemory()
-                ? spec.advisors(a -> a.param("chat_memory_conversation_id", turn.getConversationId()))
-                : spec;
+        messages.add(new UserMessage(turn.getQuestion()));
+        return messages;
     }
 
     /**
-     * Gom toàn văn trong lúc phát từng mẩu chữ cho client.
+     * Ghép prompt hệ thống. Bốn chỗ thay thế đều có thể rỗng, và rỗng nghĩa là lượt chat thường giữ
+     * nguyên prompt đúng như trước, không thêm một ký tự nào.
      *
-     * <p>Chặn tới khi luồng xong ({@code blockLast}) nên chuỗi công đoạn vẫn đồng bộ — các công đoạn
-     * bọc ngoài không phải biết gì về streaming.
-     *
-     * <p>Phải tự lọc ở đây vì {@code ResponseSanitizingAdvisor} chạy trên TOÀN VĂN (sửa bảng
-     * Markdown, xoá tên tool) nên không thể lọc theo từng mẩu — một tên tool bị cắt đôi qua hai mẩu
-     * sẽ lọt lưới. Hệ quả: chữ đã phát là BẢN XEM TRƯỚC, còn thứ trả về đây mới là bản chính thức.
+     * <p>Dùng {@code HashMap} chứ không {@code Map.of}: {@code currentDateTime} có thể null ở test
+     * dựng {@code AiTurn} trần, mà {@code Map.of} ném NPE với null.
      */
-    private String streamContent(ChatClient.ChatClientRequestSpec spec, AiTurn turn,
-                                 ResponseSanitizingAdvisor sanitizer) {
-        StringBuilder full = new StringBuilder();
-        spec.stream()
-                .content()
-                .doOnNext(chunk -> {
-                    if (chunk == null || chunk.isEmpty()) return;
-                    // Mẩu chữ ĐẦU TIÊN là ranh giới thật giữa "còn tra cứu" và "đang viết".
-                    if (full.isEmpty()) turn.progress(this, "Đang soạn câu trả lời");
-                    full.append(chunk);
-                    emit(turn, chunk);
-                })
-                .blockLast();
-        return sanitizer.sanitizeText(full.toString());
+    private String renderSystemPrompt(AiTurn turn) {
+        Map<String, Object> params = new HashMap<>();
+        params.put("currentDateTime",
+                turn.getCurrentDateTime() == null ? "" : turn.getCurrentDateTime());
+        params.put("plan", planBlock(turn));
+        params.put("form", formBlock(turn));
+        params.put("evidence", evidenceBlock(turn));
+        return new PromptTemplate(orgUnitSystemPrompt).render(params);
     }
 
-    /** Phát chữ hỏng KHÔNG được làm hỏng lượt — câu trả lời mới là thứ người dùng cần. */
-    private void emit(AiTurn turn, String chunk) {
+    /**
+     * Tuỳ chọn cho lời gọi model.
+     *
+     * <p>{@code internalToolExecutionEnabled(false)} là mấu chốt: Spring AI trả về NGUYÊN lời gọi
+     * tool thay vì tự chạy, nhường vòng lặp cho {@link AgentLoop}. Các trường không đặt ở đây
+     * (model, temperature, max-tokens) rơi về mặc định trong yaml — {@code OpenAiChatModel} gộp
+     * bằng {@code ModelOptionsUtils.merge(runtime, default)}.
+     */
+    private ChatOptions buildOptions(AiTurn turn) {
+        List<Object> tools = turn.getTools() == null ? List.of() : turn.getTools();
+        Map<String, Object> ctx = turn.getToolCtx() == null ? Map.of() : turn.getToolCtx();
+        return OpenAiChatOptions.builder()
+                .toolCallbacks(ToolCallbacks.from(tools.toArray()))
+                .toolContext(ctx)
+                .internalToolExecutionEnabled(false)
+                .build();
+    }
+
+    /** Ghi vào bộ nhớ CHỈ KHI đã có câu trả lời — nên không tạo ra được câu hỏi mồ côi. */
+    private void remember(AiTurn turn, String answer) {
+        if (!turn.isHasMemory()) return;
         try {
-            turn.getListener().token(chunk);
+            chatMemory.add(turn.getConversationId(),
+                    List.of(new UserMessage(turn.getQuestion()), new AssistantMessage(answer)));
         } catch (Exception e) {
-            log.warn("Phát mẩu chữ lỗi ({}), bỏ qua", e.getMessage());
+            // Bộ nhớ hỏng không được làm hỏng câu trả lời đã có sẵn cho người dùng.
+            log.warn("Khong ghi duoc bo nho hoi thoai ({}), bo qua", e.getMessage());
         }
     }
 
+    /**
+     * Hai kiểu không có câu trả lời, và chúng cần hai câu KHÁC nhau: nói sai nguyên nhân thì người
+     * dùng đi sửa sai chỗ.
+     */
+    private String fallbackAnswer(AiTurn turn, AgentState state) {
+        if (state.isBudgetExhausted()) {
+            log.warn("Vong lap het ngan sach buoc. question={}", turn.getQuestion());
+            return "Xin lỗi, yêu cầu này cần quá nhiều bước tra cứu nên mình phải dừng giữa chừng. "
+                    + "Bạn tách nhỏ câu hỏi giúp mình nhé — ví dụ hỏi từng đơn vị một.";
+        }
+        // Model suy luận (gpt-oss) đôi lúc tiêu hết token cho phần suy luận rồi chạm
+        // finishReason=LENGTH trước khi kịp sinh text -> content rỗng.
+        log.warn("AI tra noi dung rong (nghi finishReason=LENGTH). question={}", turn.getQuestion());
+        return "Xin lỗi, mình chưa tạo được câu trả lời cho yêu cầu này (nội dung xử lý quá dài). "
+                + "Bạn thử hỏi ngắn gọn/cụ thể hơn giúp mình nhé.";
+    }
     /**
      * Khối mô tả form đang mở. Rỗng khi người dùng không mở form nào — lượt chat bình thường giữ
      * nguyên prompt đúng như trước, không thêm một ký tự nào.

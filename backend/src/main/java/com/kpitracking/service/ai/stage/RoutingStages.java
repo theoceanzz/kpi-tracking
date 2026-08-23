@@ -6,7 +6,6 @@ import com.kpitracking.service.ai.AiTurn;
 import com.kpitracking.service.ai.PlanStep;
 import com.kpitracking.service.ai.form.FormRegistry;
 import com.kpitracking.service.ai.intent.IntentStrategy;
-import com.kpitracking.tool.EscapeHatchTool;
 import com.kpitracking.tool.ToolRegistry;
 import com.kpitracking.tool.ToolRegistry.Group;
 import lombok.RequiredArgsConstructor;
@@ -18,6 +17,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
+import com.kpitracking.service.ai.agent.AgentState;
 
 /**
  * Ba công đoạn quyết định model được cầm những công cụ nào: chọn nhóm theo ý định, lọc theo quyền,
@@ -131,12 +131,14 @@ public final class RoutingStages {
         public String handle(AiTurn turn, AiStageChain next) {
             String answer = next.proceed(turn);
 
-            if (EscapeHatchTool.wasRequested()) {
-                log.info("Mở rộng bộ công cụ và hỏi lại. Lý do model nêu: {}", EscapeHatchTool.reason());
+            AgentState state = turn.getAgentState();
+            if (state != null && state.escapeRequested()) {
+                log.info("Mở rộng bộ công cụ và hỏi lại. Lý do model nêu: {}", state.getEscapeReason());
                 // Báo ở ĐÂY chứ không qua label(): chỉ những lượt thật sự phải nới bộ công cụ mới
                 // đáng nói, và nó chỉ lộ ra sau khi model đã trả lời lượt đầu.
                 turn.progress(this, "Đang mở thêm công cụ");
-                EscapeHatchTool.clear();
+                // Xoá lý do TRƯỚC khi hỏi lại — đây là thứ giữ cửa thoát hiểm ở đúng một vòng thêm.
+                state.setEscapeReason(null);
                 turn.setGroups(toolRegistry.readGroups());
                 turn.setTools(toolRegistry.toolsFor(toolRegistry.readGroups(), turn.getManager().userId()));
                 answer = next.proceed(turn);

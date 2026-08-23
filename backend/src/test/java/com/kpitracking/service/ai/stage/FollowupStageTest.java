@@ -6,8 +6,6 @@ import com.kpitracking.service.AiTokenUsageRecorder;
 import com.kpitracking.service.FollowupService;
 import com.kpitracking.service.ai.AiTurn;
 import com.kpitracking.service.ai.form.FormPatch;
-import com.kpitracking.service.ai.form.FormPatchStore;
-import com.kpitracking.tool.ToolCallTracker;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -22,6 +20,8 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import com.kpitracking.service.ai.agent.AgentState;
+import java.util.ArrayList;
 
 /**
  * Test cho công đoạn sinh câu hỏi gợi ý.
@@ -34,15 +34,38 @@ class FollowupStageTest {
 
     private final FollowupService service = mock(FollowupService.class);
 
+/**
+     * Tool "đã chạy" của lượt đang dựng.
+     *
+     * <p>Thay {@code ToolCallTracker}: bản cũ là kho ThreadLocal dùng chung nên ghi lúc nào cũng
+     * được, còn {@code AgentState} gắn vào chính {@code AiTurn} nên phải có turn đã. Danh sách này
+     * giữ nguyên được thứ tự viết test cũ — ghi trước, dựng turn sau.
+     */
+    private final List<String> toolsRan = new ArrayList<>();
+
+    private void ran(String toolName) {
+        toolsRan.add(toolName);
+    }
+
+    /** Đề xuất điền form của lượt đang dựng — thay {@code FormPatchStore}. */
+    private FormPatch pendingPatch;
+
+    private void patch(FormPatch p) {
+        pendingPatch = p;
+    }
+
     @AfterEach
     void tearDown() {
-        ToolCallTracker.clear();
-        FormPatchStore.clear();
         AiTokenUsageRecorder.clearFeature();
     }
 
     private AiTurn turn() {
-        return new AiTurn("Phòng IT có bao nhiêu người?", "conv-1", null);
+        AiTurn t = new AiTurn("Phòng IT có bao nhiêu người?", "conv-1", null);
+        AgentState st = new AgentState(t);
+        t.setAgentState(st);
+        toolsRan.forEach(st::recordSuccess);
+        st.setFormPatch(pendingPatch);
+        return t;
     }
 
     private FollowupResponse pools() {
@@ -57,7 +80,7 @@ class FollowupStageTest {
     @Test
     @DisplayName("lượt có dữ liệu tool: gắn gợi ý lên turn, câu trả lời giữ nguyên")
     void attachesFollowupsOnAnalysisTurn() {
-        ToolCallTracker.record("get_people");
+        ran("get_people");
         when(service.generate(anyString(), anyString())).thenReturn(pools());
         AiTurn t = turn();
 
@@ -85,9 +108,9 @@ class FollowupStageTest {
         // Đo được thật: lượt điền form vẫn chạy tool tra cứu phụ (resolve tên đơn vị, tên kỳ), nên
         // model sinh gợi ý PHÂN TÍCH lạc đề ngay dưới dòng "Đã điền vào form" — kiểu "Hiệu suất KPI
         // tháng 6 so với tháng 4 giảm bao nhiêu phần trăm?".
-        ToolCallTracker.record("get_kpi");
-        ToolCallTracker.record("suggest_kpi_form");
-        FormPatchStore.put(new FormPatch("kpi_form",
+        ran("get_kpi");
+        ran("suggest_kpi_form");
+        patch(new FormPatch("kpi_form",
                 List.of(new FormPatch.Entry("weight", "Trọng số (%)", 20, "20", "vì bạn yêu cầu"))));
         AiTurn t = turn();
 
@@ -100,7 +123,7 @@ class FollowupStageTest {
     @Test
     @DisplayName("tắt công tắc thì không gọi model và không gắn gì")
     void disabledDoesNothing() {
-        ToolCallTracker.record("get_people");
+        ran("get_people");
         AiTurn t = turn();
 
         assertThat(new FollowupStage(service, false).handle(t, x -> "câu trả lời"))
@@ -112,7 +135,7 @@ class FollowupStageTest {
     @Test
     @DisplayName("LỖI khi sinh gợi ý KHÔNG được làm hỏng lượt")
     void generationFailureNeverBreaksTheTurn() {
-        ToolCallTracker.record("get_people");
+        ran("get_people");
         when(service.generate(anyString(), anyString())).thenThrow(new RuntimeException("provider 500"));
         AiTurn t = turn();
 
@@ -125,7 +148,7 @@ class FollowupStageTest {
     @Test
     @DisplayName("gợi ý rỗng thì không gắn — client khỏi phải tự lọc")
     void emptyPoolsAreNotAttached() {
-        ToolCallTracker.record("get_people");
+        ran("get_people");
         when(service.generate(anyString(), anyString()))
                 .thenReturn(FollowupResponse.builder().technical(List.of()).management(List.of()).build());
         AiTurn t = turn();
@@ -137,7 +160,7 @@ class FollowupStageTest {
     @Test
     @DisplayName("tên đơn vị của thẻ Insight thành tiền tố chủ đề — giữ đúng cách client cũ dựng")
     void prefixesTopicWithFocusUnitName() {
-        ToolCallTracker.record("get_people");
+        ran("get_people");
         when(service.generate(anyString(), anyString())).thenReturn(pools());
         AiTurn t = turn();
         t.setFocusUnitName("Phòng IT");
@@ -154,7 +177,7 @@ class FollowupStageTest {
     void restoresTokenFeatureAfterBorrowing() {
         // Lượt chat đặt CHAT ở controller; nếu công đoạn này không trả lại thì mọi lời gọi model
         // SAU nó trong cùng lượt sẽ bị ghi nhầm là FOLLOWUP.
-        ToolCallTracker.record("get_people");
+        ran("get_people");
         AiTokenUsageRecorder.setFeature(AiTokenUsage.AiFeature.CHAT);
         when(service.generate(anyString(), anyString())).thenAnswer(inv -> {
             assertThat(AiTokenUsageRecorder.currentFeature())
@@ -171,7 +194,7 @@ class FollowupStageTest {
     @Test
     @DisplayName("lỗi giữa chừng vẫn phải trả lại tính năng cũ")
     void restoresTokenFeatureEvenOnFailure() {
-        ToolCallTracker.record("get_people");
+        ran("get_people");
         AiTokenUsageRecorder.setFeature(AiTokenUsage.AiFeature.CHAT);
         when(service.generate(anyString(), anyString())).thenThrow(new RuntimeException("hỏng"));
 

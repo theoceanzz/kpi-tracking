@@ -16,7 +16,8 @@ import java.util.Map;
  * <p><b>Đường đi, và vì sao không cần ThreadLocal.</b> {@code TurnSetupStage} đặt người nghe vào
  * {@code toolCtx}, và Spring AI đưa CÙNG MỘT map đó cho mọi lời gọi tool. Nghĩa là cách này đúng ở
  * bất kỳ luồng nào — miễn nhiễm với chuyện lượt streaming chạy tool trên luồng của reactor, thứ đã
- * làm hỏng bốn kho ThreadLocal khác (xem {@link TurnStatePropagation}).
+ * làm hỏng bốn kho ThreadLocal khác — nay cả sáu kho đã chuyển sang {@code AgentState},
+ * đi cùng ngữ cảnh tool đúng theo cách này.
  *
  * <p><b>Nhãn tới chậm một nhịp.</b> Ba chỗ gọi {@link #announce} đều là chỗ tool TRẢ VỀ, không phải
  * chỗ tool bắt đầu, nên nhãn hiện sau thực tế khoảng một lời gọi tool. Đổi lại, chúng trùng đúng ba

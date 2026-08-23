@@ -11,7 +11,6 @@ import com.kpitracking.service.OrgUnitStatisticService;
 import com.kpitracking.service.ai.form.FormFieldValidator;
 import com.kpitracking.service.ai.form.FormFillSupport;
 import com.kpitracking.service.ai.form.FormPatch;
-import com.kpitracking.service.ai.form.FormPatchStore;
 import com.kpitracking.service.ai.form.FormRegistry;
 import com.kpitracking.tool.EvaluationFormFillTool.EvaluationFormFillRequest;
 import org.junit.jupiter.api.AfterEach;
@@ -31,6 +30,8 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
+import com.kpitracking.service.ai.agent.AgentState;
+import java.util.HashMap;
 
 /**
  * Test cho tool đề xuất điền form ĐÁNH GIÁ NHÂN VIÊN.
@@ -40,6 +41,19 @@ import static org.mockito.Mockito.when;
  * phải UUID để người dùng thẩm định được thứ mình sắp chấp nhận.
  */
 class EvaluationFormFillToolTest {
+
+    /**
+     * Trạng thái của lượt, đi cùng {@code ToolContext}. Mỗi test một thực thể mới nên không
+     * phải dọn gì — đó chính là điều đáng giá so với bản ThreadLocal cũ.
+     */
+    private AgentState st = AgentState.forToolsOnly();
+
+    /** Ngữ cảnh tool luôn mang theo trạng thái của lượt, giống hệt lúc chạy thật. */
+    private ToolContext ctxWith(java.util.Map<String, Object> base) {
+        java.util.Map<String, Object> m = new HashMap<>(base);
+        m.put(AgentState.CONTEXT_KEY, st);
+        return new ToolContext(m);
+    }
 
     private OrgUnitStatisticService service;
     private EvaluationFormFillTool tool;
@@ -53,12 +67,10 @@ class EvaluationFormFillToolTest {
 
     @AfterEach
     void tearDown() {
-        FormPatchStore.clear();
-        ToolCallTracker.clear();
     }
 
     private ToolContext withForm(Map<String, Object> current) {
-        return new ToolContext(Map.of(
+        return ctxWith(Map.of(
                 "orgUnitId", UUID.randomUUID().toString(),
                 "organizationId", UUID.randomUUID().toString(),
                 "openFormId", FormRegistry.EVALUATION_FORM,
@@ -75,14 +87,14 @@ class EvaluationFormFillToolTest {
     @Test
     @DisplayName("KHÔNG mở form thì từ chối")
     void refusesWhenNoFormOpen() {
-        ToolContext noForm = new ToolContext(Map.of(
+        ToolContext noForm = ctxWith(Map.of(
                 "orgUnitId", UUID.randomUUID().toString(),
                 "organizationId", UUID.randomUUID().toString()));
 
         assertThat(tool.suggestEvaluationForm(
                 new EvaluationFormFillRequest(null, 8d, null, null), noForm))
                 .contains("\"error\"");
-        assertThat(FormPatchStore.get()).isNull();
+        assertThat(st.getFormPatch()).isNull();
     }
 
     @Test
@@ -96,7 +108,7 @@ class EvaluationFormFillToolTest {
                 "Tháng 6/2026", 8d, "làm tốt", "theo yêu cầu"), withForm(Map.of()));
 
         assertThat(out).doesNotContain("\"error\"");
-        FormPatch patch = FormPatchStore.get();
+        FormPatch patch = st.getFormPatch();
         assertThat(patch.formId()).isEqualTo(FormRegistry.EVALUATION_FORM);
         assertThat(patch.entries()).extracting(FormPatch.Entry::field)
                 .containsExactlyInAnyOrder("score", "comment", "kpiPeriodId");
@@ -130,7 +142,7 @@ class EvaluationFormFillToolTest {
         assertThat(tool.suggestEvaluationForm(
                 new EvaluationFormFillRequest(null, -3d, null, null), withForm(Map.of())))
                 .contains("\"error\"");
-        assertThat(FormPatchStore.get()).isNull();
+        assertThat(st.getFormPatch()).isNull();
     }
 
     @Test
@@ -140,7 +152,7 @@ class EvaluationFormFillToolTest {
                 new EvaluationFormFillRequest(null, 8d, "làm tốt", null),
                 withForm(Map.of("score", 8L, "comment", "làm tốt"))))
                 .contains("Không có ô nào thay đổi");
-        assertThat(FormPatchStore.get()).isNull();
+        assertThat(st.getFormPatch()).isNull();
     }
 
     @Test

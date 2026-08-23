@@ -1,12 +1,10 @@
 package com.kpitracking.tool;
 
-import io.micrometer.context.ThreadLocalAccessor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.model.ToolContext;
 import org.springframework.ai.tool.annotation.Tool;
 import org.springframework.stereotype.Component;
-
-import java.util.concurrent.atomic.AtomicReference;
+import com.kpitracking.service.ai.agent.AgentState;
 
 /**
  * Mở một vùng thả tệp ngay trong khung chat để người dùng gửi minh chứng.
@@ -20,9 +18,10 @@ import java.util.concurrent.atomic.AtomicReference;
  * Nó chỉ bật một cờ để client vẽ vùng thả; tệp thả vào đi theo đúng đường đã có (kẹp vào ô nhập →
  * gửi kèm tên ở lượt sau → sang biểu mẫu báo cáo).
  *
- * <p>Trạng thái để trong ThreadLocal như {@link EscapeHatchTool}, và vì cùng lý do phải là HỘP CHỨA
- * chứ không giữ thẳng giá trị: ở lượt streaming, tool chạy trên luồng reactor nên chỉ tham chiếu
- * hộp chứa mới đi sang được. PHẢI xoá ở cuối mỗi lượt — {@code AiTurnPipeline} lo việc đó.
+ * <p><b>Trạng thái đi qua {@code ToolContext}, không qua ThreadLocal.</b> Spring AI trao cùng một
+ * map cho mọi lời gọi tool, nên cách này đúng ở bất kỳ luồng nào và không có gì phải dọn cuối lượt.
+ * Bản trước để trong ThreadLocal kèm cả một tầng truyền tham chiếu sang luồng reactor — thứ đã hỏng
+ * âm thầm đúng bốn lần. Xem {@code AgentState}.
  */
 @Component
 @Slf4j
@@ -31,9 +30,6 @@ public class EvidenceRequestTool {
     /** Trả về khi không form nào đang mở nhận tệp. Viết cho MODEL đọc, không phải cho lập trình viên. */
     private static final String NO_SINK = "{\"error\":\"Người dùng chưa mở biểu mẫu nào có mục đính kèm "
             + "nên chưa mở được vùng thả tệp. Hãy bảo họ mở màn hình Gửi báo cáo KPI trước rồi kẹp tệp.\"}";
-
-    private static final ThreadLocal<AtomicReference<Boolean>> REQUESTED =
-            ThreadLocal.withInitial(AtomicReference::new);
 
     @Tool(name = "request_evidence_upload", description =
             "Mở một vùng thả tệp ngay trong khung chat để người dùng gửi TÀI LIỆU MINH CHỨNG cho báo "
@@ -57,7 +53,8 @@ public class EvidenceRequestTool {
             return NO_SINK;
         }
         String reason = request != null && request.reason() != null ? request.reason() : "(không nêu lý do)";
-        REQUESTED.get().set(Boolean.TRUE);
+        AgentState state = AgentState.from(context);
+        if (state != null) state.setEvidenceRequested(true);
         log.info("Mở vùng thả minh chứng: {}", reason);
         return "{\"status\":\"DROPZONE_SHOWN\",\"message\":\"Đã hiện vùng thả tệp trong khung chat. "
                 + "Hãy mời người dùng kéo thả tài liệu minh chứng vào đó.\"}";
@@ -65,21 +62,4 @@ public class EvidenceRequestTool {
 
     public record RequestEvidenceRequest(String reason) {}
 
-    /** Lượt này model có xin mở vùng thả không. */
-    public static boolean wasRequested() {
-        return Boolean.TRUE.equals(REQUESTED.get().get());
-    }
-
-    public static void clear() {
-        REQUESTED.remove();
-    }
-
-    /** Cho phép {@code TurnStatePropagation} mang hộp chứa này sang luồng reactor. */
-    public static final class Accessor implements ThreadLocalAccessor<AtomicReference<Boolean>> {
-        public static final String KEY = "kpi.ai.evidence-request";
-        @Override public Object key() { return KEY; }
-        @Override public AtomicReference<Boolean> getValue() { return REQUESTED.get(); }
-        @Override public void setValue(AtomicReference<Boolean> value) { REQUESTED.set(value); }
-        @Override public void setValue() { REQUESTED.remove(); }
-    }
 }

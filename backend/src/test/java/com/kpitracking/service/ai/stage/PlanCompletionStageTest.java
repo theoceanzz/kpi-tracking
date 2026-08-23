@@ -4,7 +4,6 @@ import com.kpitracking.service.ai.AiStageChain;
 import com.kpitracking.service.ai.AiTurn;
 import com.kpitracking.service.ai.ChatMemoryCleaner;
 import com.kpitracking.service.ai.PlanStep;
-import com.kpitracking.tool.ToolCallTracker;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -17,6 +16,7 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import com.kpitracking.service.ai.agent.AgentState;
 
 /**
  * Test cho lưới an toàn: model bỏ sót bước đã lên kế hoạch thì hỏi lại đúng MỘT lần.
@@ -31,7 +31,6 @@ class PlanCompletionStageTest {
 
     @AfterEach
     void tearDown() {
-        ToolCallTracker.clear();
     }
 
     private AiTurn turnWithPlan(String... tools) {
@@ -43,6 +42,8 @@ class PlanCompletionStageTest {
         List<PlanStep> plan = new ArrayList<>();
         for (String t : tools) plan.add(new PlanStep(t, "việc của " + t));
         turn.setPlan(plan);
+        // Trạng thái gắn sẵn: các test dưới đây ghi tool SAU khi dựng turn nên đọc thẳng từ đây.
+        turn.setAgentState(new AgentState(turn));
         return turn;
     }
 
@@ -61,7 +62,7 @@ class PlanCompletionStageTest {
     @DisplayName("tắt công tắc thì KHÔNG hỏi lại, dù thiếu bước")
     void disabledNeverRetries() {
         AiTurn turn = turnWithPlan("get_people", "get_kpi", "get_analytics");
-        ToolCallTracker.record("get_people");
+        turn.getAgentState().recordSuccess("get_people");
 
         assertThat(new PlanCompletionStage(false, cleaner).handle(turn, modelCall(null)))
                 .isEqualTo("câu trả lời");
@@ -72,8 +73,8 @@ class PlanCompletionStageTest {
     @DisplayName("gọi ĐỦ tool đã lên kế hoạch thì không hỏi lại")
     void completePlanDoesNotRetry() {
         AiTurn turn = turnWithPlan("get_people", "get_kpi");
-        ToolCallTracker.record("get_people");
-        ToolCallTracker.record("get_kpi");
+        turn.getAgentState().recordSuccess("get_people");
+        turn.getAgentState().recordSuccess("get_kpi");
 
         new PlanCompletionStage(true, cleaner).handle(turn, modelCall(null));
 
@@ -84,8 +85,8 @@ class PlanCompletionStageTest {
     @DisplayName("thiếu tool -> hỏi lại đúng MỘT lần, và lượt hai chỉ nêu phần còn thiếu")
     void missingToolTriggersOneRetry() {
         AiTurn turn = turnWithPlan("get_people", "get_kpi", "get_analytics");
-        ToolCallTracker.record("get_people");
-        ToolCallTracker.record("get_kpi");
+        turn.getAgentState().recordSuccess("get_people");
+        turn.getAgentState().recordSuccess("get_kpi");
 
         // Lượt hỏi lại model vẫn bướng, không gọi get_analytics -> vẫn chỉ được hỏi lại một lần.
         new PlanCompletionStage(true, cleaner).handle(turn, modelCall(null));
@@ -110,9 +111,9 @@ class PlanCompletionStageTest {
     @DisplayName("lượt hỏi lại có gọi bù thì cờ 'còn thiếu' vẫn được dọn sau khi xong")
     void flagIsClearedAfterRetry() {
         AiTurn turn = turnWithPlan("get_people", "get_analytics");
-        ToolCallTracker.record("get_people");
+        turn.getAgentState().recordSuccess("get_people");
 
-        new PlanCompletionStage(true, cleaner).handle(turn, modelCall(() -> ToolCallTracker.record("get_analytics")));
+        new PlanCompletionStage(true, cleaner).handle(turn, modelCall(() -> turn.getAgentState().recordSuccess("get_analytics")));
 
         assertThat(turn.getMissingPlannedTools())
                 .as("để sót cờ là nhánh sau của chuỗi hiểu nhầm thành lượt hỏi lại")
@@ -135,7 +136,7 @@ class PlanCompletionStageTest {
         // Không xoá thì hội thoại đọng lại cùng câu hỏi hai lần kèm chính câu trả lời hỏng,
         // và mọi lượt sau đều phải trả tiền cho nó.
         AiTurn turn = turnWithMemoryAndPlan("conv-1","get_people", "get_analytics");
-        ToolCallTracker.record("get_people");
+        turn.getAgentState().recordSuccess("get_people");
 
         new PlanCompletionStage(true, cleaner).handle(turn, modelCall(null));
 
@@ -146,7 +147,7 @@ class PlanCompletionStageTest {
     @DisplayName("gọi đủ tool thì KHÔNG đụng vào bộ nhớ hội thoại")
     void noRetryLeavesMemoryAlone() {
         AiTurn turn = turnWithMemoryAndPlan("conv-1","get_people");
-        ToolCallTracker.record("get_people");
+        turn.getAgentState().recordSuccess("get_people");
 
         new PlanCompletionStage(true, cleaner).handle(turn, modelCall(null));
 
@@ -157,7 +158,7 @@ class PlanCompletionStageTest {
     @DisplayName("hỏi lại NÉM LỖI thì giữ câu trả lời của lượt đầu, không để cả lượt thành xin lỗi")
     void failedRetryKeepsFirstAnswer() {
         AiTurn turn = turnWithPlan("get_people", "get_analytics");
-        ToolCallTracker.record("get_people");
+        turn.getAgentState().recordSuccess("get_people");
         int[] calls = {0};
         AiStageChain chain = t -> {
             if (++calls[0] == 1) return "câu trả lời thiếu một vế";

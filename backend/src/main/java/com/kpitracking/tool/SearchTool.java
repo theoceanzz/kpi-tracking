@@ -32,7 +32,7 @@ public class SearchTool {
      *
      * @param arrayKey  tên mảng trong JSON trả về
      * @param label     nhãn tiếng Việt dùng trong thông báo hỏi làm rõ
-     * @param guardType khoá của DisambiguationGuard; {@code null} = loại này không cần chống trùng tên
+     * @param guardType khoá chống trùng tên trong {@code AgentState}; {@code null} = loại này không cần
      * @param nameKey   trường dùng để phát hiện trùng tên
      * @param labelKeys các trường phân biệt, để biết lượt trước đã hỏi người dùng chọn chưa
      */
@@ -107,7 +107,7 @@ public class SearchTool {
                 if (!dup.isEmpty() && !support.alreadyAskedPriorTurn(
                         support.getConversationId(context),
                         support.collisionName(dup, spec.nameKey()), dup, spec.labelKeys())) {
-                    support.armDisambiguation(spec.guardType(), support.collectIds(dup));
+                    support.armDisambiguation(spec.guardType(), support.collectIds(dup), context);
                     return support.returnAmbiguous("search", spec.label(), spec.arrayKey(), results,
                             spec.aggregateHint(), context);
                 }

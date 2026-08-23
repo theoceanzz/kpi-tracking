@@ -11,7 +11,6 @@ import com.kpitracking.service.OrgUnitStatisticService;
 import com.kpitracking.service.ai.form.FormFieldValidator;
 import com.kpitracking.service.ai.form.FormFillSupport;
 import com.kpitracking.service.ai.form.FormPatch;
-import com.kpitracking.service.ai.form.FormPatchStore;
 import com.kpitracking.service.ai.form.FormRegistry;
 import com.kpitracking.tool.KpiFormFillTool.KpiFormFillRequest;
 import org.junit.jupiter.api.AfterEach;
@@ -30,6 +29,8 @@ import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
+import com.kpitracking.service.ai.agent.AgentState;
+import java.util.HashMap;
 
 /**
  * Test cho tool đề xuất điền form KPI.
@@ -39,6 +40,19 @@ import static org.mockito.Mockito.when;
  * nên thứ lọt tới bản xem trước phải đã đúng.
  */
 class KpiFormFillToolTest {
+
+    /**
+     * Trạng thái của lượt, đi cùng {@code ToolContext}. Mỗi test một thực thể mới nên không
+     * phải dọn gì — đó chính là điều đáng giá so với bản ThreadLocal cũ.
+     */
+    private AgentState st = AgentState.forToolsOnly();
+
+    /** Ngữ cảnh tool luôn mang theo trạng thái của lượt, giống hệt lúc chạy thật. */
+    private ToolContext ctxWith(java.util.Map<String, Object> base) {
+        java.util.Map<String, Object> m = new HashMap<>(base);
+        m.put(AgentState.CONTEXT_KEY, st);
+        return new ToolContext(m);
+    }
 
     private OrgUnitStatisticService service;
     private KpiFormFillTool tool;
@@ -54,13 +68,11 @@ class KpiFormFillToolTest {
 
     @AfterEach
     void tearDown() {
-        FormPatchStore.clear();
-        ToolCallTracker.clear();
     }
 
     /** Ngữ cảnh có form KPI đang mở, kèm các ô đã có sẵn giá trị. */
     private ToolContext withForm(Map<String, Object> currentValues) {
-        return new ToolContext(Map.of(
+        return ctxWith(Map.of(
                 "orgUnitId", UUID.randomUUID().toString(),
                 "organizationId", UUID.randomUUID().toString(),
                 "openFormId", FormRegistry.KPI_FORM,
@@ -77,14 +89,14 @@ class KpiFormFillToolTest {
     @Test
     @DisplayName("KHÔNG mở form thì từ chối — đề xuất sẽ rơi vào hư không")
     void refusesWhenNoFormOpen() {
-        ToolContext noForm = new ToolContext(Map.of(
+        ToolContext noForm = ctxWith(Map.of(
                 "orgUnitId", UUID.randomUUID().toString(),
                 "organizationId", UUID.randomUUID().toString()));
 
         String out = tool.suggestKpiForm(req("Số task", "QUANTITATIVE", 20d, "MONTHLY"), noForm);
 
         assertThat(out).contains("\"error\"");
-        assertThat(FormPatchStore.get()).as("không được tạo đề xuất nào").isNull();
+        assertThat(st.getFormPatch()).as("không được tạo đề xuất nào").isNull();
     }
 
     @Test
@@ -102,7 +114,7 @@ class KpiFormFillToolTest {
                 // đo được là nó lặp lại lời gọi rỗng nhiều lần trước khi trúng.
                 .contains("weight")
                 .contains("frequency");
-        assertThat(FormPatchStore.get()).isNull();
+        assertThat(st.getFormPatch()).isNull();
     }
 
     @Test
@@ -111,7 +123,7 @@ class KpiFormFillToolTest {
         String out = tool.suggestKpiForm(
                 req("Số task hoàn thành", "QUANTITATIVE", 20d, "MONTHLY"), withForm(Map.of()));
 
-        FormPatch patch = FormPatchStore.get();
+        FormPatch patch = st.getFormPatch();
         assertThat(patch).isNotNull();
         assertThat(patch.formId()).isEqualTo(FormRegistry.KPI_FORM);
         assertThat(patch.entries()).extracting(FormPatch.Entry::field)
@@ -129,7 +141,7 @@ class KpiFormFillToolTest {
                 req("Số task", "QUANTITATIVE", 20d, "MONTHLY"),
                 withForm(Map.of("name", "Số task", "kpiType", "QUANTITATIVE")));
 
-        assertThat(FormPatchStore.get().entries()).extracting(FormPatch.Entry::field)
+        assertThat(st.getFormPatch().entries()).extracting(FormPatch.Entry::field)
                 .containsExactlyInAnyOrder("weight", "frequency");
         assertThat(out).doesNotContain("\"error\"");
     }
@@ -142,7 +154,7 @@ class KpiFormFillToolTest {
                 withForm(Map.of("name", "Số task", "kpiType", "QUANTITATIVE",
                         "weight", 20L, "frequency", "MONTHLY")));
 
-        assertThat(FormPatchStore.get()).isNull();
+        assertThat(st.getFormPatch()).isNull();
         assertThat(out).contains("Không có ô nào thay đổi");
     }
 
@@ -153,7 +165,7 @@ class KpiFormFillToolTest {
                 req("Số task", "QUANTITATIVE", 150d, "MONTHLY"), withForm(Map.of()));
 
         assertThat(out).contains("\"error\"").contains("100");
-        assertThat(FormPatchStore.get())
+        assertThat(st.getFormPatch())
                 .as("một ô hỏng thì bỏ CẢ đề xuất — điền nửa vời còn khó hiểu hơn không điền")
                 .isNull();
     }
@@ -173,7 +185,7 @@ class KpiFormFillToolTest {
         // Đo được end-to-end: model trả "Hàng tháng", bị từ chối, rồi bỏ cuộc thay vì sửa lại.
         tool.suggestKpiForm(req("Số task", "Định lượng", 20d, "Hàng tháng"), withForm(Map.of()));
 
-        assertThat(FormPatchStore.get().entries())
+        assertThat(st.getFormPatch().entries())
                 .anySatisfy(e -> {
                     assertThat(e.field()).isEqualTo("frequency");
                     assertThat(e.value()).isEqualTo("MONTHLY");
@@ -196,7 +208,7 @@ class KpiFormFillToolTest {
         String out = tool.suggestKpiForm(r, withForm(Map.of()));
 
         assertThat(out).contains("\"error\"").contains("Tháng 6/2026");
-        assertThat(FormPatchStore.get()).isNull();
+        assertThat(st.getFormPatch()).isNull();
     }
 
     @Test
@@ -209,7 +221,7 @@ class KpiFormFillToolTest {
         String out = tool.suggestKpiForm(r, withForm(Map.of()));
 
         assertThat(out).contains("\"error\"").contains("search");
-        assertThat(FormPatchStore.get()).isNull();
+        assertThat(st.getFormPatch()).isNull();
     }
 
     @Test
@@ -223,7 +235,7 @@ class KpiFormFillToolTest {
                 null, null, null, null, "Tháng 6/2026", null, null, null);
         tool.suggestKpiForm(r, withForm(Map.of()));
 
-        FormPatch.Entry e = FormPatchStore.get().entries().get(0);
+        FormPatch.Entry e = st.getFormPatch().entries().get(0);
         assertThat(e.field()).isEqualTo("kpiPeriodId");
         assertThat(e.value()).isEqualTo(id.toString());
         assertThat(e.display())

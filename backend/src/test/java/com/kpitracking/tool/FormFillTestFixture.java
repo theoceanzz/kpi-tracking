@@ -46,7 +46,6 @@ final class FormFillTestFixture {
                 mock(KpiCriteriaRepository.class),
                 mock(ConversationMessageRepository.class),
                 service,
-                mock(DisambiguationGuard.class),
                 mock(FollowupContextStore.class),
                 new ObjectMapper());
         support.initToolMapper();

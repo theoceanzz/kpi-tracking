@@ -7,6 +7,7 @@ import com.kpitracking.service.ai.AiStage;
 import com.kpitracking.service.ai.ToolProgress;
 import com.kpitracking.service.ai.AiStageChain;
 import com.kpitracking.service.ai.AiTurn;
+import com.kpitracking.service.ai.agent.AgentState;
 import com.kpitracking.tool.FollowupContextStore;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -79,6 +80,16 @@ public class TurnSetupStage implements AiStage {
         if (turn.getPinnedFileNames() != null) {
             toolCtx.put("pinnedFileNames", turn.getPinnedFileNames());
         }
+        // Trạng thái vòng lặp agent đi CÙNG ngữ cảnh tool — vẫn là map mà Spring AI trao cho mọi
+        // lời gọi tool, nên tool đưa được kết quả ra ngoài mà không cần một ThreadLocal nào. Đây
+        // đúng là cách ToolProgress vẫn làm, và là lý do nó miễn nhiễm với cái bẫy luồng reactor.
+        //
+        // Tạo ở ĐÂY chứ không trong ModelCallStage: EscapeHatchStage chạy lại cả phần chuỗi phía
+        // sau, nên state tạo trong đó sẽ bị thay mới và đề xuất điền form của lượt đầu mất trắng.
+        AgentState state = new AgentState(turn);
+        turn.setAgentState(state);
+        toolCtx.put(AgentState.CONTEXT_KEY, state);
+
         turn.setToolCtx(toolCtx);
 
         // Thời gian thật (Việt Nam, UTC+7) bơm vào prompt hệ thống để model không tự đoán "bây giờ".

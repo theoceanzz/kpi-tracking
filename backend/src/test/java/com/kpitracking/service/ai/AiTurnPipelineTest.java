@@ -1,8 +1,6 @@
 package com.kpitracking.service.ai;
 
 import com.kpitracking.exception.AiQuotaExceededException;
-import com.kpitracking.tool.DisambiguationGuard;
-import com.kpitracking.tool.EscapeHatchTool;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -15,6 +13,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
+import com.kpitracking.service.ai.agent.AgentState;
 
 /**
  * Test cho KHUNG chạy chuỗi công đoạn — không phải cho nghiệp vụ của từng công đoạn.
@@ -26,13 +25,8 @@ import static org.mockito.Mockito.verify;
 class AiTurnPipelineTest {
 
     private final List<String> log = new ArrayList<>();
-    private final DisambiguationGuard guard = new DisambiguationGuard();
     private final ChatMemoryCleaner cleaner = mock(ChatMemoryCleaner.class);
 
-    @AfterEach
-    void tearDown() {
-        EscapeHatchTool.clear();
-    }
 
     private AiTurn turn() {
         return new AiTurn("câu hỏi", null, null);
@@ -63,7 +57,7 @@ class AiTurnPipelineTest {
     }
 
     private AiTurnPipeline pipeline(AiStage... stages) {
-        return new AiTurnPipeline(new ArrayList<>(List.of(stages)), guard, cleaner);
+        return new AiTurnPipeline(new ArrayList<>(List.of(stages)), cleaner);
     }
 
     // ════════════════════════════════════════════════════════════════════════
@@ -202,23 +196,28 @@ class AiTurnPipelineTest {
     }
 
     @Test
-    @DisplayName("ThreadLocal được dọn kể cả khi lượt ném lỗi — nếu không sẽ rò sang lượt người khác")
-    void threadLocalsAlwaysCleared() {
+    @DisplayName("trạng thái sống theo lượt — lượt sau không thể thừa hưởng gì của lượt trước")
+    void turnStateDoesNotLeakBetweenTurns() {
         UUID id = UUID.randomUUID();
         AiStage dirty = new AiStage() {
             @Override public String handle(AiTurn t, AiStageChain next) {
-                guard.arm("user", java.util.Set.of(id));
-                EscapeHatchTool.wasRequested(); // chạm vào ThreadLocal
+                AgentState s = new AgentState(t);
+                t.setAgentState(s);
+                s.arm("user", java.util.Set.of(id));
+                s.setEscapeReason("thiếu công cụ");
                 throw new RuntimeException("hỏng giữa chừng");
             }
             @Override public int getOrder() { return 100; }
         };
         pipeline(dirty).run(turn());
 
-        assertThat(guard.isArmed("user", id))
-                .as("luồng request dùng chung — quên dọn là lượt sau thừa hưởng trạng thái này")
-                .isFalse();
-        assertThat(EscapeHatchTool.wasRequested()).isFalse();
+        // Bản trước phải DỌN sáu kho ThreadLocal ở khối finally, và quên một cái là rò sang lượt
+        // của người khác trên cùng luồng Tomcat. Nay trạng thái gắn vào chính AiTurn, nên lượt mới
+        // bắt đầu rỗng theo CẤU TRÚC chứ không nhờ ai đó nhớ dọn.
+        AiTurn sau = turn();
+        assertThat(sau.getAgentState())
+                .as("lượt mới không dính gì của lượt trước")
+                .isNull();
     }
 
     @Test

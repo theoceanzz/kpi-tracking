@@ -1,13 +1,12 @@
 package com.kpitracking.tool;
 
-import io.micrometer.context.ThreadLocalAccessor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.model.ToolContext;
 import org.springframework.ai.tool.annotation.Tool;
 import org.springframework.stereotype.Component;
 
 import java.util.Collection;
-import java.util.concurrent.atomic.AtomicReference;
+import com.kpitracking.service.ai.agent.AgentState;
 
 /**
  * Đính các tệp người dùng đang GHIM ở ô chat vào biểu mẫu đang mở.
@@ -19,9 +18,10 @@ import java.util.concurrent.atomic.AtomicReference;
  * <p>Tool không đụng tới nội dung tệp: tệp không bao giờ rời trình duyệt. Nó chỉ bật một cờ để
  * client chuyển tệp từ chỗ ghim sang chỗ nhận của biểu mẫu.
  *
- * <p>Trạng thái để trong ThreadLocal như {@link EvidenceRequestTool}, và vì cùng lý do phải là HỘP
- * CHỨA chứ không giữ thẳng giá trị: ở lượt streaming, tool chạy trên luồng reactor nên chỉ tham
- * chiếu hộp chứa mới đi sang được. PHẢI xoá cuối mỗi lượt — {@code AiTurnPipeline} lo việc đó.
+ * <p><b>Trạng thái đi qua {@code ToolContext}, không qua ThreadLocal.</b> Spring AI trao cùng một
+ * map cho mọi lời gọi tool, nên cách này đúng ở bất kỳ luồng nào và không có gì phải dọn cuối lượt.
+ * Bản trước để trong ThreadLocal kèm cả một tầng truyền tham chiếu sang luồng reactor — thứ đã hỏng
+ * âm thầm đúng bốn lần. Xem {@code AgentState}.
  */
 @Component
 @Slf4j
@@ -34,9 +34,6 @@ public class AttachFilesTool {
     /** Có chỗ nhận nhưng người dùng chưa ghim tệp nào. */
     private static final String NO_PINNED = "{\"error\":\"Người dùng chưa ghim tệp nào nên không có gì "
             + "để đính. Hãy bảo họ bấm nút kẹp giấy cạnh ô nhập để chọn tệp trước.\"}";
-
-    private static final ThreadLocal<AtomicReference<Boolean>> ATTACHED =
-            ThreadLocal.withInitial(AtomicReference::new);
 
     @Tool(name = "attach_pinned_files", description =
             "Đính các tệp người dùng ĐANG GHIM ở ô chat vào biểu mẫu đang mở. "
@@ -59,7 +56,8 @@ public class AttachFilesTool {
         }
 
         String reason = request != null && request.reason() != null ? request.reason() : "(không nêu lý do)";
-        ATTACHED.get().set(Boolean.TRUE);
+        AgentState state = AgentState.from(context);
+        if (state != null) state.setFilesAttached(true);
         log.info("Đính {} tệp đang ghim vào biểu mẫu: {}", names.size(), reason);
         return "{\"status\":\"FILES_ATTACHED\",\"count\":" + names.size() + ",\"message\":\"Đã đính "
                 + "các tệp đang ghim vào biểu mẫu. Hãy xác nhận ngắn gọn và nêu tên tệp.\"}";
@@ -67,21 +65,4 @@ public class AttachFilesTool {
 
     public record AttachFilesRequest(String reason) {}
 
-    /** Lượt này model có đính tệp không. */
-    public static boolean wasAttached() {
-        return Boolean.TRUE.equals(ATTACHED.get().get());
-    }
-
-    public static void clear() {
-        ATTACHED.remove();
-    }
-
-    /** Cho phép {@code TurnStatePropagation} mang hộp chứa này sang luồng reactor. */
-    public static final class Accessor implements ThreadLocalAccessor<AtomicReference<Boolean>> {
-        public static final String KEY = "kpi.ai.attach-files";
-        @Override public Object key() { return KEY; }
-        @Override public AtomicReference<Boolean> getValue() { return ATTACHED.get(); }
-        @Override public void setValue(AtomicReference<Boolean> value) { ATTACHED.set(value); }
-        @Override public void setValue() { ATTACHED.remove(); }
-    }
 }

@@ -11,7 +11,6 @@ import com.kpitracking.service.OrgUnitStatisticService;
 import com.kpitracking.service.ai.form.FormSpec.Descriptor;
 import com.kpitracking.service.ai.form.FormSpec.Field;
 import com.kpitracking.service.ai.ToolProgress;
-import com.kpitracking.tool.ToolCallTracker;
 import com.kpitracking.tool.ToolSupport;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -26,6 +25,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Collectors;
+import com.kpitracking.service.ai.agent.AgentState;
 
 /**
  * Phần dùng chung của MỌI tool đề xuất điền form: kiểm giá trị, tra tên → ID, dựng bản đề xuất.
@@ -217,8 +217,14 @@ public class FormFillSupport {
         if (before != entries.size()) {
             log.info("Bỏ {} ô không hiện trên màn hình khi điền {}: {}", before - entries.size(), formId, hidden);
         }
-        FormPatchStore.put(new FormPatch(formId, entries));
-        ToolCallTracker.record(toolName);
+        // Ghi thẳng vào trạng thái của lượt. Trước đây phải qua ThreadLocal vì Spring AI sở hữu
+        // vòng lặp và không trả kết quả tool cho ta; nay trạng thái đi cùng ToolContext nên đúng ở
+        // mọi luồng — và không còn gì phải dọn.
+        AgentState state = AgentState.from(context);
+        if (state != null) {
+            state.setFormPatch(new FormPatch(formId, entries));
+            state.recordSuccess(toolName);
+        }
         log.info("AI-TOOL-CALL {} ({} ô)", toolName, entries.size());
         // Cùng chỗ với ToolSupport.respond: báo tiến độ ở đúng nơi đang ghi AI-TOOL-CALL.
         ToolProgress.announce(context, toolName);
@@ -228,6 +234,57 @@ public class FormFillSupport {
                 + ". " + (suffix == null ? "" : suffix)
                 + " Hãy nói ngắn gọn cho người dùng biết bạn đề xuất gì và vì sao; "
                 + "KHÔNG liệt kê lại từng ô vì giao diện đã hiện bản xem trước.";
+    }
+
+    /** Dưới mức này coi như lý do không bắt nguồn từ lời người dùng. */
+    private static final int MIN_GROUNDED_PCT = 60;
+
+    /**
+     * Chốt chặn ô văn xuôi bị model VIẾT HỘ: nội dung phải bắt nguồn từ lời người dùng vừa gõ.
+     *
+     * <p><b>Vì sao phải chặn bằng code.</b> Mô tả tool xin điều chỉnh đã dặn thẳng "đừng tự bịa lý
+     * do", và nó THUA 3/3 lần đo: người dùng nói {@code "lý do: bận"} — 3 ký tự, dưới mức tối thiểu
+     * 10 — model bèn tự viết dài ra cho qua validator ("Do công việc hiện tại bận, không thể tập
+     * trung", "Do công việc bận, cần giảm mục tiêu KPI"...). Đó là đặt chữ vào miệng người dùng
+     * trên một tờ đơn gửi lên quản lý, nặng hơn hẳn việc điền sai một con số.
+     *
+     * <p>Luật: mọi từ có nghĩa trong nội dung đề xuất phải có mặt trong chính câu người dùng vừa
+     * gõ. Trợ lý được TRÍCH và RÚT GỌN lời họ, không được SÁNG TÁC. Ngưỡng
+     * {@value #MIN_GROUNDED_PCT}% chừa chỗ cho vài từ nối model thêm vào.
+     *
+     * <p>Đọc được câu hỏi gốc là nhờ {@code AgentState} mang theo {@code AiTurn}; trước bản refactor
+     * đó tool không có đường nào chạm tới lời người dùng nên chốt chặn này không viết được.
+     *
+     * <p><b>Không so được thì KHÔNG chặn</b> — vắng ngữ cảnh (test dựng {@code ToolContext} trần)
+     * mà chặn thì biến một phép an toàn thành lỗi giả.
+     */
+    public void guardGroundedText(String proposed, String fieldLabel, ToolContext context) {
+        if (proposed == null || proposed.isBlank()) return;
+
+        AgentState state = AgentState.from(context);
+        String question = (state == null || state.getTurn() == null)
+                ? null : state.getTurn().getQuestion();
+        if (question == null || question.isBlank()) return;
+
+        String haystack = FormSpec.Field.normalize(question).replaceAll("[^a-z0-9 ]", " ");
+        String[] words = FormSpec.Field.normalize(proposed).replaceAll("[^a-z0-9 ]", " ").split(" +");
+
+        int counted = 0;
+        int grounded = 0;
+        for (String w : words) {
+            if (w.length() < 2) continue;      // từ một ký tự là nhiễu, không mang nghĩa
+            counted++;
+            if (haystack.contains(w)) grounded++;
+        }
+        if (counted == 0) return;
+
+        if (grounded * 100 / counted < MIN_GROUNDED_PCT) {
+            throw new IllegalArgumentException(
+                    "Ô '" + fieldLabel + "' phải dùng ĐÚNG lời người dùng vừa nêu, không được viết hộ. "
+                            + "Nội dung bạn đưa ra hầu hết không có trong câu của họ. "
+                            + "Nếu điều họ nêu quá ngắn so với mức tối thiểu thì BỎ TRỐNG ô này và bảo "
+                            + "họ tự viết đầy đủ hơn — đừng viết thay.");
+        }
     }
 
     public String reasonOr(String raw) {

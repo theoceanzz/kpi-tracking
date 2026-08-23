@@ -7,12 +7,11 @@ import com.kpitracking.service.FollowupService;
 import com.kpitracking.service.ai.AiStage;
 import com.kpitracking.service.ai.AiStageChain;
 import com.kpitracking.service.ai.AiTurn;
-import com.kpitracking.service.ai.form.FormPatchStore;
-import com.kpitracking.tool.ToolCallTracker;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
+import com.kpitracking.service.ai.agent.AgentState;
 
 /**
  * Sinh các câu hỏi gợi ý tiếp theo cho lượt vừa trả lời.
@@ -61,7 +60,8 @@ public class FollowupStage implements AiStage {
         // Không tool nào chạy thành công nghĩa là lượt này không phải câu phân tích (chào hỏi, từ
         // chối, hỏi lại, hoặc bị ValidationStage chặn). FollowupService cũng tự nhận ra điều đó qua
         // kho dữ liệu tool, nhưng chặn sớm ở đây thì khỏi vào hàm.
-        if (!ToolCallTracker.anyCalled()) return answer;
+        AgentState state = turn.getAgentState();
+        if (state == null || !state.anyToolSucceeded()) return answer;
 
         // Lượt kết thúc bằng một đề xuất ĐIỀN FORM: việc tiếp theo của người dùng là kiểm lại các ô
         // rồi bấm Lưu, không phải hỏi tiếp chuyện khác.
@@ -71,10 +71,10 @@ public class FollowupStage implements AiStage {
         // kỳ nên đẻ ra câu kiểu "Hiệu suất KPI tháng 6 so với tháng 4 giảm bao nhiêu phần trăm?"
         // ngay dưới dòng "Đã điền vào form".
         //
-        // Đọc được FormPatchStore ở đây vì công đoạn này chạy TRƯỚC khối finally dọn ThreadLocal của
+        // Đề xuất điền form nằm trong AgentState của chính lượt này, đọc lúc nào cũng được —
         // AiTurnPipeline.run(). Cùng tinh thần với FollowupService.isDisambiguating: im lặng còn hơn
         // gợi ý sai chỗ — và bớt luôn một lời gọi model.
-        if (FormPatchStore.get() != null) return answer;
+        if (state.getFormPatch() != null) return answer;
 
         // Báo ở ĐÂY chứ không qua label(): công đoạn này vào chuỗi ngay đầu lượt nhưng chỉ làm việc
         // sau khi model đã trả lời xong, nên nhãn phát lúc vào sẽ sớm hơn thực tế 10-15 giây.

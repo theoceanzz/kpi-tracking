@@ -29,6 +29,7 @@ import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
+import com.kpitracking.service.ai.agent.AgentState;
 
 /**
  * Test cho phần QUYẾT ĐỊNH của tầng tool AI: ai được xem dữ liệu của ai.
@@ -56,7 +57,6 @@ class ToolSupportTest {
     private UserRoleOrgUnitRepository userRoleOrgUnitRepository;
     private KpiCriteriaRepository kpiCriteriaRepository;
     private OrgUnitStatisticService orgUnitStatisticService;
-    private DisambiguationGuard disambiguationGuard;
     private FollowupContextStore followupContextStore;
     private ToolSupport support;
 
@@ -66,7 +66,6 @@ class ToolSupportTest {
         userRoleOrgUnitRepository = mock(UserRoleOrgUnitRepository.class);
         kpiCriteriaRepository = mock(KpiCriteriaRepository.class);
         orgUnitStatisticService = mock(OrgUnitStatisticService.class);
-        disambiguationGuard = mock(DisambiguationGuard.class);
         followupContextStore = mock(FollowupContextStore.class);
 
         support = new ToolSupport(
@@ -76,7 +75,6 @@ class ToolSupportTest {
                 kpiCriteriaRepository,
                 mock(ConversationMessageRepository.class),
                 orgUnitStatisticService,
-                disambiguationGuard,
                 followupContextStore,
                 new ObjectMapper());
         support.initToolMapper();
@@ -336,9 +334,13 @@ class ToolSupportTest {
         @DisplayName("ID đã bị đánh dấu trùng tên thì từ chối, buộc hỏi người dùng chọn")
         void refusesArmedId() {
             UUID id = UUID.randomUUID();
-            when(disambiguationGuard.isArmed("user", id)).thenReturn(true);
+            // Dùng trạng thái THẬT chứ không mock: chốt chặn nay nằm trong AgentState đi cùng
+            // ToolContext, nên test đi đúng đường mà lúc chạy thật nó đi.
+            AgentState st = AgentState.forToolsOnly();
+            st.arm("user", java.util.Set.of(id));
+            ToolContext ctx = new ToolContext(java.util.Map.of(AgentState.CONTEXT_KEY, st));
 
-            assertThatThrownBy(() -> support.guardDisambiguation("user", id, "người dùng"))
+            assertThatThrownBy(() -> support.guardDisambiguation("user", id, "người dùng", ctx))
                     .isInstanceOf(IllegalStateException.class)
                     .hasMessageContaining("trùng tên");
         }

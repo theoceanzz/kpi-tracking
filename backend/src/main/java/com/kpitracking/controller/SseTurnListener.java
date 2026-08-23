@@ -24,7 +24,7 @@ import java.util.Map;
  * </ul>
  *
  * <p><b>Gửi hỏng không được làm hỏng lượt.</b> Client đóng tab giữa chừng là chuyện thường; lúc đó
- * mọi lời gửi đều ném, nhưng lượt vẫn phải chạy nốt để ghi mức tiêu thụ token và dọn ThreadLocal cho đúng.
+ * mọi lời gửi đều ném, nhưng lượt vẫn phải chạy nốt để ghi cho đúng mức tiêu thụ token.
  */
 @Slf4j
 class SseTurnListener implements TurnListener {

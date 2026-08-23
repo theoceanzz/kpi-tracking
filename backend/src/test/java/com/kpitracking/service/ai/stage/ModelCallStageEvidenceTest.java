@@ -17,8 +17,8 @@ import static org.assertj.core.api.Assertions.assertThat;
  */
 class ModelCallStageEvidenceTest {
 
-    /** Bốn phụ thuộc chỉ dùng ở đường gọi model; khối minh chứng thuần ghép chuỗi nên để null được. */
-    private final ModelCallStage stage = new ModelCallStage(null, null, null, null);
+    /** Ba phụ thuộc chỉ dùng ở đường gọi model; khối minh chứng thuần ghép chuỗi nên để null được. */
+    private final ModelCallStage stage = new ModelCallStage(null, null, null);
 
     /** Tệp ĐÃ đính vào biểu mẫu. */
     private AiTurn turnWith(List<String> attached) {

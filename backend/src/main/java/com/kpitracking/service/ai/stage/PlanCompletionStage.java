@@ -5,13 +5,13 @@ import com.kpitracking.service.ai.AiStageChain;
 import com.kpitracking.service.ai.AiTurn;
 import com.kpitracking.service.ai.ChatMemoryCleaner;
 import com.kpitracking.service.ai.PlanStep;
-import com.kpitracking.tool.ToolCallTracker;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
+import com.kpitracking.service.ai.agent.AgentState;
 
 /**
  * Đối chiếu tool đã lên KẾ HOẠCH với tool thực sự CHẠY; thiếu thì hỏi lại đúng một lần.
@@ -83,7 +83,8 @@ public class PlanCompletionStage implements AiStage {
         List<PlanStep> plan = turn.getPlan();
         if (plan == null || plan.isEmpty()) return List.of();
 
-        List<String> called = ToolCallTracker.calls();
+        AgentState state = turn.getAgentState();
+        List<String> called = state == null ? List.of() : state.getSucceeded();
         return plan.stream()
                 .filter(PlanStep::hasTool)
                 .map(PlanStep::tool)
