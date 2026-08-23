@@ -2,6 +2,7 @@ import { useEffect } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useFormAssistStore } from '@/store/formAssistStore'
+import { MicButton } from '@/components/common/MicButton'
 import { z } from 'zod'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { adjustmentApi } from '../api/adjustmentApi'
@@ -188,9 +189,17 @@ export default function KpiAdjustmentModal({ open, onClose, kpi }: KpiAdjustment
           )}
 
           <div className="space-y-2">
-            <label className="flex items-center gap-2 text-xs font-black text-slate-500 uppercase tracking-widest">
-              <MessageSquare size={14} /> Lý do điều chỉnh <span className="text-red-500">*</span>
-            </label>
+            <div className="flex items-center justify-between gap-2">
+              <label className="flex items-center gap-2 text-xs font-black text-slate-500 uppercase tracking-widest">
+                <MessageSquare size={14} /> Lý do điều chỉnh <span className="text-red-500">*</span>
+              </label>
+              {/* Đọc bằng giọng nói VẪN là lời của người dùng, nên chốt chặn guardGroundedText
+                  phía máy chủ không liên quan — nó chỉ soi giá trị do AI tự đề xuất. */}
+              <MicButton
+                getBaseText={() => getValues("reason") ?? ""}
+                onText={text => setValue("reason", text, { shouldValidate: true, shouldDirty: true })}
+              />
+            </div>
             <textarea
               {...register('reason')}
               rows={4}

@@ -7,6 +7,7 @@ import { useMyAiQuota } from '@/features/organization/hooks/useAiQuota'
 import { aiApi, type InsightCard, type FollowupPools, type ClarificationOption, type FormPatch, type AiChatResponse } from '../api/aiApi'
 import { useFormAssistStore } from '@/store/formAssistStore'
 import EvidenceAttachBar, { AttachedChips, PinnedChips } from './EvidenceAttachBar'
+import { MicButton } from '@/components/common/MicButton'
 import { usePinnedFilesStore, attachPinnedTo } from '@/store/pinnedFilesStore'
 import { useChatFileDrop } from '../hooks/useChatFileDrop'
 import EvidenceDropCard from './EvidenceDropCard'
@@ -505,12 +506,18 @@ export default function AiAssistantWidget() {
                 onChange={e => setInput(e.target.value)}
                 onKeyDown={handleKeyDown}
                 placeholder="Nhập câu hỏi..."
-                className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-2.5 pr-20 text-sm leading-6 focus:outline-none focus:ring-2 focus:ring-violet-500/50 resize-none transition-shadow"
+                className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-2.5 pr-28 text-sm leading-6 focus:outline-none focus:ring-2 focus:ring-violet-500/50 resize-none transition-shadow"
                 rows={1}
                 style={{ minHeight: '44px', maxHeight: '120px' }}
               />
-              {/* pr-20 ở textarea chừa chỗ cho CẢ hai nút; pr-12 cũ chỉ đủ cho nút gửi. */}
+              {/* pr-28 ở textarea chừa chỗ cho BA nút: micro, kẹp giấy, gửi. */}
               <div className="absolute right-2 bottom-1.5 flex items-center gap-0.5">
+                <MicButton
+                  onText={setInput}
+                  getBaseText={() => input}
+                  disabled={isLoading}
+                  className="p-1.5"
+                />
                 <EvidenceAttachBar sink={fileSink} disabled={isLoading} />
                 <button
                   onClick={handleSend}

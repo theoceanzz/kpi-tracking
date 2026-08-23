@@ -7,6 +7,7 @@ import { useKpiPeriods } from '@/features/kpi/hooks/useKpiPeriods'
 import { useMyKpi } from '@/features/kpi/hooks/useMyKpi'
 import { useAuthStore } from '@/store/authStore'
 import { useFormAssistStore } from '@/store/formAssistStore'
+import { MicButton } from '@/components/common/MicButton'
 import { useOrganization } from '@/features/orgunits/hooks/useOrganization'
 import { getScoringFunctions } from '@/lib/scoring'
 import { X, Loader2, Star, Target, Zap, Trophy, CheckCircle2, MessageSquare, Sparkles, Lock, Layers, AlertTriangle } from 'lucide-react'
@@ -392,9 +393,16 @@ export default function EvaluationFormModal({ open, onClose, readOnly = false, i
 
                 {/* Comment area */}
                 <div className="space-y-4">
-                   <label className="flex items-center gap-2 text-xs font-black text-slate-400 uppercase tracking-widest">
-                      <MessageSquare size={14} /> Ý kiến cá nhân
-                   </label>
+                   <div className="flex items-center justify-between gap-2">
+                      <label className="flex items-center gap-2 text-xs font-black text-slate-400 uppercase tracking-widest">
+                         <MessageSquare size={14} /> Ý kiến cá nhân
+                      </label>
+                      <MicButton
+                         disabled={readOnly}
+                         getBaseText={() => getValues("comment") ?? ""}
+                         onText={text => setValue("comment", text, { shouldValidate: true, shouldDirty: true })}
+                      />
+                   </div>
                    <textarea 
                     {...register('comment')} 
                     rows={4}

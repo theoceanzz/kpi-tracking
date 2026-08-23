@@ -12,6 +12,7 @@ import InsightCards from '../components/InsightCards'
 import AiDisabledPage from '../components/AiDisabledPage'
 import FollowupSuggestions from '../components/FollowupSuggestions'
 import EvidenceAttachBar, { AttachedChips, PinnedChips } from '../components/EvidenceAttachBar'
+import { MicButton } from '@/components/common/MicButton'
 import { usePinnedFilesStore, attachPinnedTo } from '@/store/pinnedFilesStore'
 import { useChatFileDrop } from '../hooks/useChatFileDrop'
 import EvidenceDropCard from '../components/EvidenceDropCard'
@@ -706,6 +707,15 @@ export default function AiAssistantPage() {
               <PinnedChips sink={fileSink} />
               <AttachedChips sink={fileSink} />
               <div className="flex items-center gap-2 bg-[var(--color-card)] border border-[var(--color-border)] rounded-2xl shadow-sm hover:shadow-md transition-shadow focus-within:ring-2 focus-within:ring-violet-500/40 focus-within:border-violet-300 px-4 py-2.5">
+                <MicButton
+                  onText={text => {
+                    setInput(text)
+                    // Giãn ô y như lúc gõ tay, nếu không câu dài đọc xong bị khuất.
+                    if (textareaRef.current) autoResize(textareaRef.current)
+                  }}
+                  getBaseText={() => input}
+                  disabled={isLoading || loadingMessages}
+                />
                 <EvidenceAttachBar sink={fileSink} disabled={isLoading || loadingMessages} />
                 <textarea
                   ref={textareaRef}

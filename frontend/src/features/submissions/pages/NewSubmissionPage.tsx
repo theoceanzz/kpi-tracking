@@ -15,6 +15,7 @@ import { useMyKpi } from '@/features/kpi/hooks/useMyKpi'
 import FileDropzone from '@/components/common/FileDropzone'
 import { useUploadStore } from '@/store/uploadStore'
 import { useFormAssistStore } from '@/store/formAssistStore'
+import { MicButton } from '@/components/common/MicButton'
 import { ATTACHMENT_ACCEPT, ATTACHMENT_HINT, MAX_ATTACHMENT_BYTES, MAX_ATTACHMENT_FILES, screenEvidence } from '@/lib/attachmentPolicy'
 import { toast } from 'sonner'
 import { useNavigate, useSearchParams, useParams } from 'react-router-dom'
@@ -420,9 +421,17 @@ export default function NewSubmissionPage() {
             {/* Explanation & Evidence */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8 pt-4">
                <div className="space-y-4">
-                  <label className="flex items-center gap-2 text-sm font-black text-slate-900 dark:text-white uppercase tracking-widest opacity-70">
-                    <MessageSquare size={18} className="text-indigo-600" /> Báo cáo giải trình
-                  </label>
+                  <div className="flex items-center justify-between gap-2">
+                    <label className="flex items-center gap-2 text-sm font-black text-slate-900 dark:text-white uppercase tracking-widest opacity-70">
+                      <MessageSquare size={18} className="text-indigo-600" /> Báo cáo giải trình
+                    </label>
+                    {/* Ghi qua setValue chứ KHÔNG sửa DOM: sửa DOM thì React Hook Form không
+                        thấy, giá trị không vào handleSubmit và Zod cũng không chạy. */}
+                    <MicButton
+                      getBaseText={() => getValues("note") ?? ""}
+                      onText={text => setValue("note", text, { shouldValidate: true, shouldDirty: true })}
+                    />
+                  </div>
                   <textarea 
                     {...register('note')} 
                     rows={8} 
