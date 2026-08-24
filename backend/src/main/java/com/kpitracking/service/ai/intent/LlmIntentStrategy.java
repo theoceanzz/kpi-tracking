@@ -36,6 +36,9 @@ public class LlmIntentStrategy implements IntentStrategy {
             KPI     - chỉ tiêu KPI, kỳ đánh giá, bài nộp, ai chưa nộp, tổng quan KPI của đơn vị
             INSIGHT - xếp hạng, so sánh đơn vị, xu hướng theo thời gian, cảnh báo rủi ro,
                       bức tranh toàn đơn vị (quân số + số đơn vị con + số kỳ)
+            BSC     - thẻ điểm cân bằng, viễn cảnh (tài chính/khách hàng/quy trình/học hỏi),
+                      cân bằng viễn cảnh, điểm BSC
+            OKR     - mục tiêu (objective), kết quả then chốt (key result), tiến độ mục tiêu
 
             Chỉ trả về tên nhóm, phân tách bằng dấu phẩy. Không giải thích.
             Câu hỏi cần nhiều loại dữ liệu thì trả nhiều nhóm.
@@ -61,7 +64,9 @@ public class LlmIntentStrategy implements IntentStrategy {
     /** Nhóm cần mở cho câu hỏi này. Luôn trả về tập KHÔNG rỗng. */
     @Override
     public Set<Group> route(String question) {
-        Set<Group> all = Set.of(Group.LOOKUP, Group.KPI, Group.INSIGHT);
+        // Lùi về phải gồm CẢ hai nhóm mới. Bỏ sót là router lưỡng lự sẽ im lặng lấy mất công cụ
+        // BSC/OKR của model — đúng kiểu hỏng âm thầm mà cửa thoát hiểm sinh ra để chống.
+        Set<Group> all = Set.of(Group.LOOKUP, Group.KPI, Group.INSIGHT, Group.BSC, Group.OKR);
         if (!enabled || question == null || question.isBlank()) return all;
 
         try {

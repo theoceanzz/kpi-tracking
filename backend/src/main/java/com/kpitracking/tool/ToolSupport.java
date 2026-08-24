@@ -320,6 +320,33 @@ public class ToolSupport {
         return new UnitRef(getOrgUnitId(context), null);
     }
 
+
+    /**
+     * Tên kỳ KPI → id, hoặc {@code null} khi không nêu tên.
+     *
+     * <p>Cùng khuôn với {@code FormFillSupport.period}: không tìm thấy hoặc trùng nhiều thì ném lỗi
+     * viết CHO MODEL đọc, kèm chỉ dẫn cụ thể để nó tự sửa trong lượt.
+     *
+     * <p>Vì sao phải có: các tool thống kê BSC nhận khoảng kỳ. Bỏ qua tham số kỳ mà vẫn trả số của
+     * MỌI kỳ chính là kiểu hỏng âm thầm mà tệp khai báo tham số đã cảnh báo — model tưởng đã lọc
+     * rồi kết luận trên dữ liệu chưa lọc.
+     */
+    public UUID resolvePeriodId(String periodName, ToolContext context) {
+        if (!notBlank(periodName)) return null;
+        List<Map<String, Object>> found =
+                orgUnitStatisticService.searchKpiPeriods(getOrgId(context), periodName.trim(), 5);
+        if (found.isEmpty()) {
+            throw new IllegalArgumentException("Không tìm thấy kỳ KPI nào tên '" + periodName
+                    + "'. Dùng search (entityType=period) để xem các kỳ đang có rồi nêu đúng tên.");
+        }
+        if (found.size() > 1) {
+            throw new IllegalArgumentException("Tên kỳ '" + periodName + "' khớp nhiều kỳ: "
+                    + found.stream().map(m -> String.valueOf(m.get("name"))).toList()
+                    + ". Hãy hỏi người dùng chọn kỳ nào.");
+        }
+        return UUID.fromString(String.valueOf(found.get(0).get("id")));
+    }
+
     // ── hỏi làm rõ khi trùng tên ─────────────────────────────────────────────
 
     /**

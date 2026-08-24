@@ -25,7 +25,9 @@
     { "id": "A17", "q": "Xu hướng hiệu suất 3 kỳ gần nhất của Phòng IT", "tools": ["get_analytics"], "groups": ["INSIGHT"], "expect": [] },
     { "id": "A18", "q": "Tìm nhân viên tên Staff", "tools": ["search"], "groups": [], "_note": "search nằm nhóm CORE nên luôn được gửi, không phụ thuộc router — để groups rỗng", "expect": ["Staff"] },
     { "id": "A19", "q": "Thống kê KPI của nhóm nhân viên trong Phòng IT", "tools": [], "groups": [], "_note": "get_people(statistics) và get_kpi(summary) đều trả lời được câu này; không ràng buộc tool cụ thể", "expect": ["Phòng IT|KPI"] },
-    { "id": "A20", "q": "KPI \"Code review\" có những ai được giao?", "tools": ["get_kpi"], "groups": ["KPI"], "expect": [] }
+    { "id": "A20", "q": "KPI \"Code review\" có những ai được giao?", "tools": ["get_kpi"], "groups": ["KPI"], "expect": [] },
+    { "id": "A21", "q": "Đơn vị tôi cân bằng viễn cảnh thế nào?", "_note": "Chạy bằng director: BSC:MANAGE chỉ giám đốc/phó giám đốc có, trưởng phòng KHÔNG có nên với head tool này không được gửi đi.", "tools": ["get_bsc"], "groups": ["BSC"], "expect": [] },
+    { "id": "A22", "q": "Đơn vị tôi có những mục tiêu nào đang chạy?", "_note": "OKR:VIEW mọi vai trò đều có nên ca này chạy được với cả hai tài khoản.", "tools": ["get_okr"], "groups": ["OKR"], "expect": [] }
   ],
 
   "groupB": [
@@ -91,6 +93,13 @@
       "why": "Hệ thống không có dữ liệu doanh thu. Bẫy này chấm việc KHÔNG BỊA SỐ — nói không có, hoặc hỏi lại đơn vị, đều chấp nhận được; bịa ra một con số doanh thu mới là hỏng.",
       "expect": ["không|Không|chưa|xin lỗi|Xin lỗi|\\?"],
       "reject": ["\\d+[.,]?\\d*\\s*(tỷ|triệu|VNĐ|VND|đồng)"]
+    },
+    {
+      "id": "D08", "as": "head",
+      "q": "Cho tôi xem thẻ điểm cân bằng BSC của đơn vị tôi",
+      "why": "Trưởng phòng KHÔNG có BSC:MANAGE nên get_bsc không bao giờ được gửi cho model. Bịa ra điểm viễn cảnh khi không công cụ nào lấy được số là hỏng NẶNG: câu trả lời trôi chảy mà hoàn toàn bịa, và không có gì báo động.",
+      "reject": ["điểm BSC là \\d", "viễn cảnh.{0,30}\\d+[.,]\\d"],
+      "expect": ["không|Không|quyền|chưa hỗ trợ"]
     }
   ]
 }

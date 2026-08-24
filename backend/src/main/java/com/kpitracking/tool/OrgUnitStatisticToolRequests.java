@@ -198,4 +198,35 @@ public final class OrgUnitStatisticToolRequests {
             @JsonProperty(required = false) String endDate,
             @JsonProperty(required = false) Integer limit         // mặc định 20
     ) {}
+
+    /**
+     * Tham số của tool `get_bsc`.
+     *
+     * <p>KHÔNG phơi ra groupBy: {@code BscAnalyticsService.getTrend} gắn mốc theo KỲ chứ không theo
+     * tham số đó. KHÔNG phơi sortBy/sortDir của bảng xếp hạng vì tập giá trị hợp lệ chưa được nêu ở
+     * đâu — phơi ra là mời model đoán bừa rồi ăn lỗi.
+     */
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    public record BscRequest(
+            String view,                                          // balance | trend | unit_comparison | vs_system | rankings
+            @JsonProperty(required = false) String unitName,      // đơn vị đích; mặc định = đơn vị hiện tại
+            @JsonProperty(required = false) String unitId,
+            @JsonProperty(required = false) String periodName,    // một kỳ, hoặc kỳ ĐẦU của khoảng
+            @JsonProperty(required = false) String periodNameTo,  // kỳ CUỐI của khoảng
+            @JsonProperty(required = false) String level,         // CHỈ view=vs_system: UNIT | MEMBER
+            @JsonProperty(required = false) Integer limit         // CHỈ view=rankings
+    ) {}
+
+    /**
+     * Tham số của tool `get_okr`. Hai bộ lọc dùng được cho cả hai view nên không có phép loại trừ
+     * chéo — khác các tool đọc khác.
+     */
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    public record OkrRequest(
+            String view,                                          // objectives | progress
+            @JsonProperty(required = false) String unitName,
+            @JsonProperty(required = false) String unitId,
+            @JsonProperty(required = false) String perspectiveName, // lọc theo viễn cảnh BSC
+            @JsonProperty(required = false) String status           // ACTIVE | COMPLETED | CANCELLED
+    ) {}
 }

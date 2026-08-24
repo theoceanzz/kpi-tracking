@@ -79,7 +79,9 @@ class ToolRegistryTest {
         // readGroups() không đụng vào field nào, nên dựng bằng CALLS_REAL_METHODS thay vì liệt kê
         // một dãy null — dãy đó gãy mỗi lần thêm một tool vào registry, và đã gãy hai lần.
         assertThat(mock(ToolRegistry.class, CALLS_REAL_METHODS).readGroups())
-                .containsExactlyInAnyOrder(Group.CORE, Group.LOOKUP, Group.KPI, Group.INSIGHT)
-                .doesNotContain(Group.ACTION);
+                .containsExactlyInAnyOrder(Group.CORE, Group.LOOKUP, Group.KPI, Group.INSIGHT,
+                        Group.BSC, Group.OKR)
+                // FORM không nằm đây vì tool điền form chọn theo form đang mở, không theo nhóm.
+                .doesNotContain(Group.ACTION, Group.FORM);
     }
 }

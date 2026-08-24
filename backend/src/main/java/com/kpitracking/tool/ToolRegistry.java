@@ -39,6 +39,14 @@ public class ToolRegistry {
         /** Xếp hạng, so sánh, xu hướng, rủi ro. */
         INSIGHT,
         /**
+         * Thẻ điểm cân bằng. Đòi {@code BSC:MANAGE} — đúng bằng mức năm endpoint REST tương
+         * ứng đòi. Trưởng/phó phòng KHÔNG có quyền đó nên không thấy tool này; hạ xuống
+         * {@code BSC:VIEW} là biến trợ lý thành đường vòng qua phân quyền.
+         */
+        BSC,
+        /** Mục tiêu và kết quả then chốt. Đòi {@code OKR:VIEW} — mọi vai trò đều có. */
+        OKR,
+        /**
          * Đề xuất điền form đang mở trên màn hình. KHÔNG chọn theo nhóm như các nhóm khác: chỉ
          * đúng tool phụ trách form đang mở mới được gửi đi ({@link #formTool}), nên thêm form mới
          * không làm phình bộ tool của mọi lượt chat khác.
@@ -56,6 +64,8 @@ public class ToolRegistry {
     private final AnalyticsTool analyticsTool;
     private final RankTool rankTool;
     private final CompareTool compareTool;
+    private final BscTool bscTool;
+    private final OkrTool okrTool;
     private final EscapeHatchTool escapeHatchTool;
     private final EvidenceRequestTool evidenceRequestTool;
     private final AttachFilesTool attachFilesTool;
@@ -69,6 +79,10 @@ public class ToolRegistry {
 
     /** Quyền bắt buộc để mở một nhóm; {@code null} = không đòi quyền riêng. */
     private static final Map<Group, String> REQUIRED_PERMISSION = new EnumMap<>(Map.of(
+                    // Đúng bằng mức các endpoint REST tương ứng đòi. Lỏng hơn ở đây là mở một
+                    // đường vòng: trợ lý trả về đúng thứ REST API vừa từ chối.
+                    Group.BSC, "BSC:MANAGE",
+                    Group.OKR, "OKR:VIEW",
                     Group.ACTION, "KPI:CREATE"
             ));
 
@@ -82,6 +96,8 @@ public class ToolRegistry {
         m.put(Group.LOOKUP, List.of(orgUnitTool, peopleTool));
         m.put(Group.KPI, List.of(kpiTool, submissionTool));
         m.put(Group.INSIGHT, List.of(rankTool, compareTool, analyticsTool));
+        m.put(Group.BSC, List.of(bscTool));
+        m.put(Group.OKR, List.of(okrTool));
         // FORM cố ý RỖNG: tool điền form chọn theo form đang mở chứ không theo nhóm — xem formTool().
         m.put(Group.FORM, List.of());
         m.put(Group.ACTION, List.of());
@@ -112,7 +128,7 @@ public class ToolRegistry {
 
     /** Mọi nhóm chỉ ĐỌC — dùng khi tắt router hoặc khi router lưỡng lự. */
     public Set<Group> readGroups() {
-        return Set.of(Group.CORE, Group.LOOKUP, Group.KPI, Group.INSIGHT);
+        return Set.of(Group.CORE, Group.LOOKUP, Group.KPI, Group.INSIGHT, Group.BSC, Group.OKR);
     }
 
     /**
@@ -135,6 +151,8 @@ public class ToolRegistry {
             Map.entry("rank", Group.INSIGHT),
             Map.entry("compare_org_units", Group.INSIGHT),
             Map.entry("get_analytics", Group.INSIGHT),
+            Map.entry("get_bsc", Group.BSC),
+            Map.entry("get_okr", Group.OKR),
             Map.entry("suggest_kpi_form", Group.FORM),
             Map.entry("suggest_submission_form", Group.FORM),
             Map.entry("suggest_evaluation_form", Group.FORM),
@@ -184,6 +202,7 @@ public class ToolRegistry {
         return new Class<?>[]{
                 SearchTool.class, OrgUnitTool.class, PeopleTool.class, KpiTool.class,
                 SubmissionTool.class, AnalyticsTool.class, RankTool.class, CompareTool.class,
+                BscTool.class, OkrTool.class,
                 EscapeHatchTool.class, EvidenceRequestTool.class, AttachFilesTool.class,
                 KpiFormFillTool.class,
                 SubmissionFormFillTool.class, EvaluationFormFillTool.class,
