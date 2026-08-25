@@ -78,7 +78,7 @@ public class ActionSupport {
                     new IllegalStateException("Chưa mở được lời mời xác nhận cho thao tác này."));
         }
         state.setPendingAction(action);
-        store.put(action, userIdOf(context));
+        store.put(action, userIdOf(context), support.getConversationId(context));
 
         log.info("Đã dựng lời mời xác nhận {} gồm {} mục (chưa ghi gì)", kind, items.size());
         return support.respond(context, toolName, previewForModel(action));
@@ -103,8 +103,9 @@ public class ActionSupport {
         if (action.note() != null && !action.note().isBlank()) out.put("note", action.note());
         // Hai câu này là phần chống model tường thuật sai. Nói cả điều PHẢI làm lẫn điều CẤM nói.
         out.put("guidance", "CHƯA có gì được thay đổi trong hệ thống. Hãy tóm tắt cho người dùng "
-                + "biết sắp làm gì với bao nhiêu mục, rồi bảo họ bấm nút xác nhận ngay dưới câu trả "
-                + "lời của bạn.");
+                + "biết sắp làm gì với bao nhiêu mục, rồi nêu RÕ HAI cách xác nhận: bấm nút xác "
+                + "nhận ngay dưới câu trả lời, HOẶC nhắn \"xác nhận\" vào khung chat. Nêu cả hai "
+                + "vì người dùng hay rời trang rồi quay lại — lúc đó nhắn tiện hơn tìm lại cái nút.");
         out.put("forbidden", "TUYỆT ĐỐI không nói 'đã duyệt', 'đã gửi', 'đã xong' hay bất kỳ câu nào "
                 + "hàm ý việc đã hoàn tất — nó chỉ chạy SAU khi người dùng bấm xác nhận.");
         return out;

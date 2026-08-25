@@ -65,7 +65,9 @@ public final class ToolProgress {
             Map.entry("review_submissions", "Đang chuẩn bị danh sách bản nộp cần duyệt"),
             Map.entry("review_kpi_criteria", "Đang chuẩn bị danh sách chỉ tiêu cần duyệt"),
             Map.entry("review_kpi_adjustments", "Đang chuẩn bị danh sách yêu cầu điều chỉnh"),
-            Map.entry("send_reminders", "Đang chuẩn bị danh sách người cần nhắc"));
+            Map.entry("send_reminders", "Đang chuẩn bị danh sách người cần nhắc"),
+            // Tool này CHẠY THẬT chứ không chuẩn bị, nên nhãn phải nói đúng như vậy.
+            Map.entry("confirm_pending_action", "Đang thực hiện thao tác bạn vừa xác nhận"));
 
     /** Nhãn của một tool; tool lạ rơi về nhãn chung thay vì lộ tên hàm ra giao diện. */
     public static String label(String toolName) {

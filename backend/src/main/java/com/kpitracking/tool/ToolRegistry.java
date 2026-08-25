@@ -182,6 +182,7 @@ public class ToolRegistry {
             Map.entry("review_kpi_criteria", Group.ACTION),
             Map.entry("review_kpi_adjustments", Group.ACTION),
             Map.entry("send_reminders", Group.ACTION),
+            Map.entry("confirm_pending_action", Group.ACTION),
             Map.entry("suggest_kpi_form", Group.FORM),
             Map.entry("suggest_submission_form", Group.FORM),
             Map.entry("suggest_evaluation_form", Group.FORM),
@@ -276,7 +277,7 @@ public class ToolRegistry {
         return new Class<?>[]{
                 SearchTool.class, OrgUnitTool.class, PeopleTool.class, KpiTool.class,
                 SubmissionTool.class, AnalyticsTool.class, RankTool.class, CompareTool.class,
-                BscTool.class, OkrTool.class, SubmissionReviewTool.class, KpiCriteriaReviewTool.class,
+                BscTool.class, OkrTool.class, SubmissionReviewTool.class, KpiCriteriaReviewTool.class, ConfirmActionTool.class,
                 KpiAdjustmentReviewTool.class, ReminderTool.class,
                 EscapeHatchTool.class, EvidenceRequestTool.class, AttachFilesTool.class,
                 KpiFormFillTool.class,

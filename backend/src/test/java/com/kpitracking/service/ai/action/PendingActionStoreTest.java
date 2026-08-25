@@ -26,6 +26,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 class PendingActionStoreTest {
 
     private final PendingActionStore store = new PendingActionStore();
+    private static final String CONV = "conv-1";
+
     private final UUID owner = UUID.randomUUID();
     private final UUID someoneElse = UUID.randomUUID();
 
@@ -43,14 +45,14 @@ class PendingActionStoreTest {
     @Test
     @DisplayName("chủ nhân lấy được")
     void ownerCanTake() {
-        PendingAction a = store.put(action(), owner);
+        PendingAction a = store.put(action(), owner, CONV);
         assertThat(store.take(a.id(), owner)).isNotNull();
     }
 
     @Test
     @DisplayName("người KHÁC không lấy được, và mục vẫn còn nguyên cho chủ nhân")
     void otherUserCannotTake() {
-        PendingAction a = store.put(action(), owner);
+        PendingAction a = store.put(action(), owner, CONV);
 
         assertThat(store.take(a.id(), someoneElse))
                 .as("biết được id cũng không chạy được việc của người khác")
@@ -63,7 +65,7 @@ class PendingActionStoreTest {
     @Test
     @DisplayName("lấy ra là XOÁ — bấm hai lần chỉ chạy một lần")
     void takeConsumes() {
-        PendingAction a = store.put(action(), owner);
+        PendingAction a = store.put(action(), owner, CONV);
 
         assertThat(store.take(a.id(), owner)).isNotNull();
         assertThat(store.take(a.id(), owner))
@@ -76,7 +78,7 @@ class PendingActionStoreTest {
     void expiredIsGone() {
         // Dữ liệu có thể đã đổi trong lúc chờ — bản nộp có khi đã được người khác duyệt rồi.
         PendingAction old = action(Instant.now().minus(PendingActionStore.TTL).minusSeconds(1));
-        store.put(old, owner);
+        store.put(old, owner, CONV);
 
         assertThat(store.take(old.id(), owner)).isNull();
     }
@@ -89,11 +91,77 @@ class PendingActionStoreTest {
         assertThat(store.take("x", null)).isNull();
     }
 
+    // ── xác nhận bằng CHAT ───────────────────────────────────────────────────
+    //
+    // Người dùng quên bấm nút, quay lại gõ "xác nhận". Client không cầm id nào nên phải tra theo
+    // chủ sở hữu — và đó chính là chỗ cần canh: một chữ "xác nhận" gõ nhầm chỗ không được phép
+    // chạy việc mà người dùng đã quên mình chuẩn bị.
+
+    @Test
+    @DisplayName("CHAT: lấy được lời mời MỚI NHẤT của đúng người, đúng cuộc trò chuyện")
+    void takesLatestInSameConversation() {
+        store.put(action(Instant.now().minusSeconds(60)), owner, CONV);
+        PendingAction newest = store.put(action(), owner, CONV);
+
+        assertThat(store.takeLatestFor(owner, CONV)).isNotNull()
+                .extracting(PendingAction::id).isEqualTo(newest.id());
+    }
+
+    @Test
+    @DisplayName("CHAT: cuộc trò chuyện KHÁC thì KHÔNG lấy được")
+    void otherConversationCannotTake() {
+        // Mở hai tab, hoặc quay lại bằng một chat mới: gõ "xác nhận" ở đó không được chạy việc
+        // đang treo ở chỗ khác.
+        store.put(action(), owner, CONV);
+
+        assertThat(store.takeLatestFor(owner, "conv-khac")).isNull();
+        assertThat(store.takeLatestFor(owner, CONV))
+                .as("lần thử ở hội thoại khác KHÔNG được tiêu mất lời mời")
+                .isNotNull();
+    }
+
+    @Test
+    @DisplayName("CHAT: người KHÁC không lấy được")
+    void otherUserCannotTakeLatest() {
+        store.put(action(), owner, CONV);
+
+        assertThat(store.takeLatestFor(someoneElse, CONV)).isNull();
+    }
+
+    @Test
+    @DisplayName("CHAT: lấy ra là XOÁ — nhắn 'xác nhận' hai lần chỉ chạy một lần")
+    void takeLatestConsumes() {
+        store.put(action(), owner, CONV);
+
+        assertThat(store.takeLatestFor(owner, CONV)).isNotNull();
+        assertThat(store.takeLatestFor(owner, CONV)).isNull();
+    }
+
+    @Test
+    @DisplayName("CHAT: quá hạn thì không lấy được")
+    void expiredIsNotTakenByChat() {
+        store.put(action(Instant.now().minus(PendingActionStore.TTL).minusSeconds(1)), owner, CONV);
+
+        assertThat(store.takeLatestFor(owner, CONV)).isNull();
+    }
+
+    @Test
+    @DisplayName("hasPending: đúng người + đúng hội thoại mới là có")
+    void hasPendingIsScoped() {
+        store.put(action(), owner, CONV);
+
+        assertThat(store.hasPending(owner, CONV)).isTrue();
+        assertThat(store.hasPending(owner, "conv-khac")).isFalse();
+        assertThat(store.hasPending(someoneElse, CONV)).isFalse();
+        // Lượt không có bộ nhớ hội thoại thì không có chỗ nào để xác nhận bằng chat.
+        assertThat(store.hasPending(owner, null)).isFalse();
+    }
+
     @Test
     @DisplayName("mục quá hạn bị dọn khỏi kho, không tích lại")
     void expiredEntriesAreEvicted() {
-        store.put(action(Instant.now().minus(PendingActionStore.TTL).minusSeconds(1)), owner);
-        store.put(action(), owner);
+        store.put(action(Instant.now().minus(PendingActionStore.TTL).minusSeconds(1)), owner, CONV);
+        store.put(action(), owner, CONV);
 
         assertThat(store.size()).isEqualTo(1);
     }

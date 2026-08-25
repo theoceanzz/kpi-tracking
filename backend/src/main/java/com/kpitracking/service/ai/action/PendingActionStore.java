@@ -42,12 +42,16 @@ public class PendingActionStore {
     /** Trần số mục, chặn kho phình vô hạn nếu có ai bắn liên tục. */
     private static final int MAX_ENTRIES = 500;
 
-    private record Entry(PendingAction action, UUID ownerId) {}
+    /**
+     * @param conversationId cuộc trò chuyện đã sinh ra lời mời; {@code null} với lượt không có bộ
+     *                       nhớ. Chỉ dùng cho đường xác nhận BẰNG CHAT — xem {@link #takeLatestFor}.
+     */
+    private record Entry(PendingAction action, UUID ownerId, String conversationId) {}
 
     private final Map<String, Entry> entries = new ConcurrentHashMap<>();
 
     /** Cất một hành động và trả về chính nó (đã có id) để tầng trên gửi cho client. */
-    public PendingAction put(PendingAction action, UUID ownerId) {
+    public PendingAction put(PendingAction action, UUID ownerId, String conversationId) {
         evictExpired();
         if (entries.size() >= MAX_ENTRIES) {
             log.warn("Kho hành động chờ đã đầy ({}), bỏ mục cũ nhất", MAX_ENTRIES);
@@ -57,8 +61,50 @@ public class PendingActionStore {
                     .map(Map.Entry::getKey)
                     .ifPresent(entries::remove);
         }
-        entries.put(action.id(), new Entry(action, ownerId));
+        entries.put(action.id(), new Entry(action, ownerId, conversationId));
         return action;
+    }
+
+    /**
+     * Có lời mời nào đang treo cho người này, trong chính cuộc trò chuyện này không.
+     *
+     * <p>Dùng để {@code RouteNode} quyết định có gửi tool xác nhận cho model hay không — không có
+     * lời mời thì model không nhìn thấy tool, nên không thể gọi nhầm và cũng không tốn token mô tả
+     * nó ở mọi lượt chat khác. Cùng khuôn với tool điền form.
+     */
+    public boolean hasPending(UUID ownerId, String conversationId) {
+        return latestEntry(ownerId, conversationId) != null;
+    }
+
+    /**
+     * Lấy lời mời MỚI NHẤT của người này trong cuộc trò chuyện này, và XOÁ nó đi.
+     *
+     * <p>Đây là đường xác nhận bằng CHAT: người dùng quên bấm nút, quay lại gõ "xác nhận". Client
+     * không cầm id nào cả nên phải tra theo chủ sở hữu.
+     *
+     * <p><b>Buộc CÙNG cuộc trò chuyện.</b> Mở hai tab, hoặc quay lại bằng một chat mới, thì một chữ
+     * "xác nhận" gõ nhầm chỗ sẽ chạy một việc người dùng không còn nhớ đã chuẩn bị. Đường bấm nút
+     * không có rủi ro đó vì nút nằm ngay cạnh danh sách.
+     *
+     * <p>Lấy ra là XOÁ, giống {@link #take}: nhắn "xác nhận" hai lần chỉ chạy một lần.
+     */
+    public PendingAction takeLatestFor(UUID ownerId, String conversationId) {
+        Map.Entry<String, Entry> found = latestEntry(ownerId, conversationId);
+        if (found == null) return null;
+        entries.remove(found.getKey());
+        return found.getValue().action();
+    }
+
+    /** Mục còn hạn, mới nhất, của đúng người và đúng cuộc trò chuyện. */
+    private Map.Entry<String, Entry> latestEntry(UUID ownerId, String conversationId) {
+        evictExpired();
+        if (ownerId == null || conversationId == null || conversationId.isBlank()) return null;
+        return entries.entrySet().stream()
+                .filter(e -> ownerId.equals(e.getValue().ownerId()))
+                .filter(e -> conversationId.equals(e.getValue().conversationId()))
+                .max((a, b) -> a.getValue().action().createdAt()
+                        .compareTo(b.getValue().action().createdAt()))
+                .orElse(null);
     }
 
     /**

@@ -803,6 +803,7 @@ public class OrgUnitStatisticService {
         detail.put("description", k.getDescription());
         detail.put("weight", k.getWeight());
         detail.put("targetValue", k.getTargetValue());
+        detail.put("minimumValue", k.getMinimumValue());
         boolean detailReverse = Boolean.TRUE.equals(k.getIsReverseKpi());
         detail.put("isReverseKpi", detailReverse);
         detail.put("targetComparator", detailReverse ? "≤" : "≥");

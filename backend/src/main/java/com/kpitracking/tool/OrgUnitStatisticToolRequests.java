@@ -236,6 +236,16 @@ public final class OrgUnitStatisticToolRequests {
     // Điểm chung: `decision` không có mặc định. Đoán giúp là chuyện không được phép ở đây — hai
     // chiều cho kết quả ngược nhau, và một trong hai chiều không có nút hoàn tác.
 
+    /**
+     * Tham số của tool `confirm_pending_action` — CỐ Ý không có trường nào.
+     *
+     * <p>Thao tác cần chạy đã được chốt từ lượt trước và nằm trong kho; để model truyền lại id hay
+     * danh sách mục là mở đúng cánh cửa mà cả pha P5 dựng ra để đóng — một endpoint nhận danh sách
+     * tuỳ ý rồi ghi. Model chỉ được nói "người dùng đồng ý", không được nói đồng ý với CÁI GÌ.
+     */
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    public record ConfirmActionRequest() {}
+
     /** Tham số của tool `review_kpi_criteria`. */
     @JsonInclude(JsonInclude.Include.NON_NULL)
     public record ReviewKpiCriteriaRequest(

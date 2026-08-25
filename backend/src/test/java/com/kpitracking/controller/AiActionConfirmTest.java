@@ -83,7 +83,7 @@ class AiActionConfirmTest {
                 List.of(new Item(itemA, null, "Staff A — KPI X", "kỳ Tháng 6/2026"),
                         new Item(itemB, null, "Staff B — KPI Y", "kỳ Tháng 6/2026")),
                 Instant.now());
-        return store.put(a, me.getId());
+        return store.put(a, me.getId(), "conv-1");
     }
 
     private AiActionController.ConfirmResponse confirm(String id, List<UUID> itemIds) {
@@ -170,7 +170,7 @@ class AiActionConfirmTest {
         PendingAction a = new PendingAction(UUID.randomUUID().toString(), Kind.SUBMISSION_REVIEW,
                 "Từ chối 1 bản nộp", Decision.REJECT, "số liệu chưa khớp minh chứng",
                 List.of(new Item(itemA, null, "Staff A — KPI X", "")), Instant.now());
-        store.put(a, me.getId());
+        store.put(a, me.getId(), "conv-1");
 
         confirm(a.id(), null);
 

@@ -102,7 +102,7 @@ public class AiActionController {
 
         PendingActionExecutor.Outcome outcome = executor.execute(toRun);
         return ResponseEntity.ok(ApiResponse.success(ConfirmResponse.builder()
-                .text(summarize(toRun, outcome))
+                .text(executor.summarize(toRun, outcome))
                 .succeeded(outcome.succeeded().size())
                 .failed(outcome.failed().size())
                 .failures(outcome.failed())
@@ -117,50 +117,6 @@ public class AiActionController {
                 .toList();
         return new PendingAction(action.id(), action.kind(), action.title(), action.decision(),
                 action.note(), items, action.createdAt());
-    }
-
-    /**
-     * Báo cáo trung thực cả hai phía.
-     *
-     * <p>Nêu số hỏng và LÝ DO chứ không gộp thành "đã xử lý xong": người dùng cần biết bản nộp nào
-     * chưa được duyệt để còn xử lý tiếp. Im lặng bỏ qua phần hỏng là loại báo cáo sai tệ nhất, vì
-     * nó trông y hệt thành công.
-     */
-    private static String summarize(PendingAction action, PendingActionExecutor.Outcome outcome) {
-        int ok = outcome.succeeded().size();
-        int bad = outcome.failed().size();
-
-        if (bad == 0) {
-            return "Đã " + verbOf(action) + " " + ok + " " + unitOf(action) + ".";
-        }
-        StringBuilder sb = new StringBuilder();
-        if (ok > 0) sb.append("Đã ").append(verbOf(action)).append(' ').append(ok)
-                .append(' ').append(unitOf(action)).append(". ");
-        sb.append(bad).append(" mục không thực hiện được:\n");
-        outcome.failed().forEach(f -> sb.append("- ").append(f).append('\n'));
-        return sb.toString().trim();
-    }
-
-    /**
-     * Động từ đúng với việc vừa làm.
-     *
-     * <p>KHÔNG dùng lại {@code action.title()}: tiêu đề đó mô tả LỜI MỜI ban đầu, mà người dùng có
-     * thể đã bỏ chọn bớt. Ghép thẳng vào sẽ ra câu tự mâu thuẫn kiểu "duyệt 3 bản nộp (1 mục)" —
-     * đo được ở lần thử đầu. Tiêu đề cũng chứa tên riêng, nên hạ chữ thường nó làm hỏng luôn
-     * "Team Backend".
-     */
-    private static String verbOf(PendingAction action) {
-        if (action.kind() == PendingAction.Kind.SEND_REMINDER) return "gửi nhắc nhở cho";
-        return action.decision() == PendingAction.Decision.REJECT ? "từ chối" : "duyệt";
-    }
-
-    private static String unitOf(PendingAction action) {
-        return switch (action.kind()) {
-            case SUBMISSION_REVIEW -> "bản nộp";
-            case KPI_CRITERIA_REVIEW -> "chỉ tiêu KPI";
-            case KPI_ADJUSTMENT_REVIEW -> "yêu cầu điều chỉnh";
-            case SEND_REMINDER -> "lượt chưa nộp";
-        };
     }
 
     private UUID currentUserId() {

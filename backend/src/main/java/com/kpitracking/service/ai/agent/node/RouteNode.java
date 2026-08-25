@@ -5,8 +5,10 @@ import com.kpitracking.service.ai.PlanStep;
 import com.kpitracking.service.ai.agent.AgentNode;
 import com.kpitracking.service.ai.agent.AgentState;
 import com.kpitracking.service.ai.agent.Node;
+import com.kpitracking.service.ai.action.PendingActionStore;
 import com.kpitracking.service.ai.form.FormRegistry;
 import com.kpitracking.service.ai.intent.IntentStrategy;
+import com.kpitracking.tool.ConfirmActionTool;
 import com.kpitracking.tool.ToolRegistry;
 import com.kpitracking.tool.ToolRegistry.Group;
 import lombok.RequiredArgsConstructor;
@@ -39,6 +41,8 @@ public class RouteNode implements Node {
     private final IntentStrategy intentStrategy;
     private final ToolRegistry toolRegistry;
     private final FormRegistry formRegistry;
+    private final PendingActionStore pendingActionStore;
+    private final ConfirmActionTool confirmActionTool;
 
     @Override
     public AgentNode id() {
@@ -80,6 +84,15 @@ public class RouteNode implements Node {
             tools.add(formTool);
             log.debug("Mở tool điền form cho form đang mở: {}", turn.getOpenFormId());
         }
+        // Tool xác nhận chỉ xuất hiện khi CÓ lời mời đang treo trong chính cuộc trò chuyện này —
+        // cùng lý lẽ với tool điền form ngay trên. Không có lời mời thì model không nhìn thấy nó,
+        // nên không thể gọi nhầm, và cũng không tốn token mô tả nó ở mọi lượt chat khác.
+        if (pendingActionStore.hasPending(turn.getManager().userId(), turn.getConversationId())) {
+            tools.add(confirmActionTool);
+            log.debug("Mở tool xác nhận: có thao tác đang chờ trong hội thoại {}",
+                    turn.getConversationId());
+        }
+
         turn.setTools(tools);
         return AgentNode.MODEL;
     }
