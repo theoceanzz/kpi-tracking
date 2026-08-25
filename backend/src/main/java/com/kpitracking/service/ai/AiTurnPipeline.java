@@ -70,6 +70,7 @@ public class AiTurnPipeline {
             AgentState state = turn.getAgentState();
             if (state != null) {
                 turn.setFormPatch(state.getFormPatch());
+                turn.setPendingAction(state.getPendingAction());
                 turn.setEvidenceRequested(state.isEvidenceRequested());
                 turn.setFilesAttached(state.isFilesAttached());
             }

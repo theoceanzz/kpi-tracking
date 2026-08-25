@@ -211,6 +211,23 @@ public interface KpiCriteriaRepository extends JpaRepository<KpiCriteria, UUID> 
             "GROUP BY u.id, u.full_name, u.email " +
             "ORDER BY missing_count DESC LIMIT :limit", nativeQuery = true)
     java.util.List<Object[]> findTopNonSubmittersInSubtree(@Param("pathPrefix") String pathPrefix, @Param("periodIds") java.util.Collection<UUID> periodIds, @Param("limit") int limit);
+
+    // Bản theo CẶP (chỉ tiêu, người) của truy vấn ngay trên: cùng định nghĩa "chưa nộp", chỉ khác ở
+    // chỗ KHÔNG gộp. Cần vì việc nhắc nhở gửi theo từng chỉ tiêu một
+    // (ReminderService.sendReminder(kpiCriteriaId, userId)), nên bản gộp theo người không đủ dữ liệu.
+    // Giữ y nguyên mệnh đề WHERE để hai bên không thể trôi lệch định nghĩa.
+    @Query(value = "SELECT k.id, k.name, u.id, u.full_name " +
+            "FROM kpi_criteria_assignees ka " +
+            "JOIN users u ON ka.user_id = u.id " +
+            "JOIN kpi_criteria k ON ka.kpi_criteria_id = k.id " +
+            "JOIN org_units ou ON k.org_unit_id = ou.id " +
+            "LEFT JOIN kpi_submissions s ON s.kpi_criteria_id = k.id AND s.submitted_by = u.id AND s.deleted_at IS NULL " +
+            "WHERE ou.path LIKE CONCAT(:pathPrefix, '%') AND k.deleted_at IS NULL AND u.deleted_at IS NULL " +
+            "AND k.status = 'APPROVED' " +
+            "AND k.kpi_period_id IN (:periodIds) " +
+            "AND s.id IS NULL " +
+            "ORDER BY u.full_name, k.name LIMIT :limit", nativeQuery = true)
+    java.util.List<Object[]> findMissingSubmissionPairsInSubtree(@Param("pathPrefix") String pathPrefix, @Param("periodIds") java.util.Collection<UUID> periodIds, @Param("limit") int limit);
     @Query("SELECT COALESCE(SUM(k.weight), 0.0) FROM KpiCriteria k JOIN k.assignees a WHERE a.id = :userId AND (:kpiPeriodId IS NULL OR k.kpiPeriod.id = :kpiPeriodId) AND k.status IN :statuses AND k.isBonusKpi = false " +
            "AND NOT EXISTS (SELECT 1 FROM KpiCriteria c WHERE c.parent = k AND c.parentRelationType = com.kpitracking.enums.KpiParentRelationType.DECOMPOSITION)")
     Double sumWeightByUserIdAndKpiPeriodIdAndStatusIn(@Param("userId") UUID userId, @Param("kpiPeriodId") UUID kpiPeriodId, @Param("statuses") List<KpiStatus> statuses);

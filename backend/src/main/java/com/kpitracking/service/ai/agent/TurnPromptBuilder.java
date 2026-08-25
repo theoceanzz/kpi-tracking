@@ -1,20 +1,13 @@
-package com.kpitracking.service.ai.stage;
+package com.kpitracking.service.ai.agent;
 
-import com.kpitracking.advisor.ResponseSanitizingAdvisor;
-import com.kpitracking.service.ai.AiStage;
-import com.kpitracking.service.ai.AiStageChain;
 import com.kpitracking.service.ai.AiTurn;
 import com.kpitracking.service.ai.PlanStep;
-import com.kpitracking.service.ai.agent.AgentLoop;
-import com.kpitracking.service.ai.agent.AgentState;
 import com.kpitracking.service.ai.form.FormRegistry;
 import com.kpitracking.service.ai.form.FormSpec.Descriptor;
 import com.kpitracking.service.ai.form.FormSpec.Field;
 import com.kpitracking.service.ai.form.FormSpec.Kind;
 import com.kpitracking.tool.ToolRegistry;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.memory.ChatMemory;
-import org.springframework.ai.chat.messages.AssistantMessage;
 import org.springframework.ai.chat.messages.Message;
 import org.springframework.ai.chat.messages.SystemMessage;
 import org.springframework.ai.chat.messages.UserMessage;
@@ -23,46 +16,34 @@ import org.springframework.ai.chat.prompt.PromptTemplate;
 import org.springframework.ai.openai.OpenAiChatOptions;
 import org.springframework.ai.support.ToolCallbacks;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.core.annotation.Order;
 import org.springframework.core.io.Resource;
 import org.springframework.stereotype.Component;
 
-import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
- * Điểm CUỐI của chuỗi: chạy vòng lặp agent với đúng bộ công cụ đã chọn.
+ * Dựng prompt cho một lời gọi model: prompt hệ thống kèm bốn khối thay thế, bộ nhớ hội thoại, câu
+ * hỏi, và bộ tuỳ chọn mang theo công cụ.
  *
- * <p>Là stage duy nhất không gọi {@code next} — mọi stage đứng trước đều bọc quanh lời gọi này.
+ * <p><b>Đây là phần tách ra từ {@code ModelCallStage}, không phải viết lại.</b> Ba khối
+ * {@link #formBlock}, {@link #evidenceBlock} và {@link #planBlock} giữ nguyên từng câu chữ: mỗi
+ * đoạn trong đó vá một lỗi có thật đã đo được — UUID hiện thành {@code ĐÃ CHỌN} vì model đọc chuỗi
+ * hex ra không nhận là ô đã chọn rồi đi hỏi lại người dùng; tách bạch GHIM với ĐÍNH vì nói lẫn thì
+ * hỏng theo cả hai chiều; làm sạch tên tệp vì tên do người dùng đặt ghép thẳng vào prompt hệ thống
+ * là mở đúng cánh cửa mà mục chống tiêm nhiễm đang đóng.
  *
- * <p><b>Vòng lặp giờ thuộc về ứng dụng.</b> Bản trước gói cả lượt trong {@code ChatClient.call()},
- * nên vòng {@code model → tool → model} nằm trong {@code DefaultToolCallingManager} của Spring AI.
- * Ba hệ quả đã đo được, tất cả im lặng: số vòng tự sửa lỗi khác nhau giữa {@code .call()} và
- * {@code .stream()} (5–6 so với ~3) làm bộ 21 ca điền form tụt 21/21 → 17/21; kết quả tool chỉ model
- * đọc được nên trạng thái phải móc ra bằng sáu ThreadLocal; và không có chỗ chen vào giữa hai bước.
- * Nay {@link AgentLoop} chạy vòng đó — xem ghi chú ở lớp ấy.
- *
- * <p><b>Bộ nhớ hội thoại thành tường minh.</b> Không còn {@code MessageChatMemoryAdvisor}, vì
- * advisor ghi câu hỏi vào bộ nhớ TRƯỚC khi gọi model — nguồn gốc của câu hỏi mồ côi mà
- * {@code ChatMemoryCleaner} sinh ra để dọn. Ở đây chỉ ghi khi đã có câu trả lời, nên trạng thái mồ
- * côi không tạo ra được nữa.
- *
- * <p><b>Lọc câu trả lời cũng thành tường minh.</b> Đường đi mới không qua {@code ChatClient} nên
- * {@code ResponseSanitizingAdvisor} không tự chạy; gọi thẳng {@code sanitizeText} trên toàn văn —
- * đúng cách nhánh streaming vẫn làm từ trước.
+ * <p>Tách thành bean riêng vì nay có hai chỗ dựng prompt: lời gọi đầu của một lần hỏi, và lời gọi
+ * sau khi {@code ObserveNode} bảo hỏi lại với bộ công cụ khác hoặc với khối "CÒN THIẾU".
  */
 @Component
-@Order(1100)
-@Slf4j
-public class ModelCallStage implements AiStage {
+public class TurnPromptBuilder {
 
-    private final AgentLoop agentLoop;
     private final ChatMemory chatMemory;
     private final FormRegistry formRegistry;
 
@@ -70,64 +51,17 @@ public class ModelCallStage implements AiStage {
     Resource orgUnitSystemPrompt;
 
     /**
-     * Cờ cũ của nhánh streaming. CHƯA nối lại sau khi tự sở hữu vòng lặp — phát chữ dần phải làm ở
-     * lời gọi model CUỐI (lời gọi không sinh tool call), là việc riêng của một pha sau. Cảnh báo
-     * chứ không im lặng bỏ qua, để ai bật cờ còn biết vì sao không thấy gì.
+     * Bật streaming thì phải TẮT tool call song song — xem {@code ModelGateway.stream}.
+     * Đọc cùng một cờ ở hai lớp là có chủ ý: streaming đổi cả CÁCH gọi model (ở gateway) lẫn thứ
+     * nhà cung cấp được phép trả về (ở đây). Đặt cứng {@code parallelToolCalls(false)} cho cả hai
+     * đường sẽ làm đường không-streaming chạy khác nền đã đo (42/43, 21/21).
      */
     @Value("${app.ai.streaming.enabled:false}")
     boolean streamingEnabled;
 
-    /**
-     * Tên mọi @Tool có thể gửi cho model, gom một lần bằng reflection để bộ lọc câu trả lời xoá
-     * được tên tool bị lọt ra ngoài mà không phải duy trì danh sách trùng lặp.
-     */
-    private static final Set<String> TOOL_NAMES = collectToolNames();
-
-    private static Set<String> collectToolNames() {
-        Set<String> names = new LinkedHashSet<>();
-        for (Class<?> toolClass : ToolRegistry.toolClasses()) {
-            for (Method m : toolClass.getDeclaredMethods()) {
-                org.springframework.ai.tool.annotation.Tool tool =
-                        m.getAnnotation(org.springframework.ai.tool.annotation.Tool.class);
-                if (tool == null) continue;
-                names.add(tool.name() != null && !tool.name().isBlank() ? tool.name() : m.getName());
-            }
-        }
-        return names;
-    }
-
-    public ModelCallStage(AgentLoop agentLoop, ChatMemory chatMemory, FormRegistry formRegistry) {
-        this.agentLoop = agentLoop;
+    public TurnPromptBuilder(ChatMemory chatMemory, FormRegistry formRegistry) {
         this.chatMemory = chatMemory;
         this.formRegistry = formRegistry;
-    }
-
-    @Override
-    public String handle(AiTurn turn, AiStageChain next) {
-        if (streamingEnabled) {
-            log.warn("app.ai.streaming.enabled dang BAT nhung nhanh phat chu chua noi lai sau khi "
-                    + "tu so huu vong lap - luot nay van chay khong streaming.");
-        }
-
-        // TurnSetupStage đã tạo và gắn vào cả turn lẫn toolCtx. Nhánh dự phòng chỉ dành cho test
-        // dựng AiTurn trần — nhưng vẫn phải GẮN VÀO TURN, nếu không khối finally của pipeline đọc
-        // turn.getAgentState() ra null và bản đề xuất điền form mất trắng.
-        AgentState state = turn.getAgentState();
-        if (state == null) {
-            state = new AgentState(turn);
-            turn.setAgentState(state);
-        }
-
-        String raw = agentLoop.run(state, buildMessages(turn), buildOptions(turn));
-        String result = raw == null
-                ? null
-                : new ResponseSanitizingAdvisor(TOOL_NAMES).sanitizeText(raw);
-
-        if (result == null || result.isBlank()) {
-            return fallbackAnswer(turn, state);
-        }
-        remember(turn, result);
-        return result;
     }
 
     /**
@@ -136,7 +70,7 @@ public class ModelCallStage implements AiStage {
      * <p>Thứ tự này khớp thứ tự {@code MessageChatMemoryAdvisor} vẫn dựng, nên prompt gửi đi không
      * đổi hình dạng so với bản trước.
      */
-    private List<Message> buildMessages(AiTurn turn) {
+    public List<Message> buildMessages(AiTurn turn) {
         List<Message> messages = new ArrayList<>();
         messages.add(new SystemMessage(renderSystemPrompt(turn)));
         if (turn.isHasMemory()) {
@@ -160,6 +94,7 @@ public class ModelCallStage implements AiStage {
         params.put("plan", planBlock(turn));
         params.put("form", formBlock(turn));
         params.put("evidence", evidenceBlock(turn));
+        params.put("denied", deniedBlock(turn));
         return new PromptTemplate(orgUnitSystemPrompt).render(params);
     }
 
@@ -167,48 +102,26 @@ public class ModelCallStage implements AiStage {
      * Tuỳ chọn cho lời gọi model.
      *
      * <p>{@code internalToolExecutionEnabled(false)} là mấu chốt: Spring AI trả về NGUYÊN lời gọi
-     * tool thay vì tự chạy, nhường vòng lặp cho {@link AgentLoop}. Các trường không đặt ở đây
+     * tool thay vì tự chạy, nhường vòng lặp cho {@code ModelNode}/{@code ActNode}. Các trường không đặt ở đây
      * (model, temperature, max-tokens) rơi về mặc định trong yaml — {@code OpenAiChatModel} gộp
      * bằng {@code ModelOptionsUtils.merge(runtime, default)}.
      */
-    private ChatOptions buildOptions(AiTurn turn) {
+    public ChatOptions buildOptions(AiTurn turn) {
         List<Object> tools = turn.getTools() == null ? List.of() : turn.getTools();
         Map<String, Object> ctx = turn.getToolCtx() == null ? Map.of() : turn.getToolCtx();
-        return OpenAiChatOptions.builder()
+        OpenAiChatOptions.Builder builder = OpenAiChatOptions.builder()
                 .toolCallbacks(ToolCallbacks.from(tools.toArray()))
                 .toolContext(ctx)
-                .internalToolExecutionEnabled(false)
-                .build();
+                .internalToolExecutionEnabled(false);
+        if (streamingEnabled) {
+            // OpenAiStreamFunctionCallingHelper phân định tool call theo id và bỏ qua index, nên nó
+            // không gộp nổi nhiều tool call SONG SONG — đo được: câu ba vế chỉ gọi 1 tool ở nhánh
+            // stream còn nhánh call gọi đủ 3, tất định 3/3 lần mỗi bên.
+            builder.parallelToolCalls(false);
+        }
+        return builder.build();
     }
 
-    /** Ghi vào bộ nhớ CHỈ KHI đã có câu trả lời — nên không tạo ra được câu hỏi mồ côi. */
-    private void remember(AiTurn turn, String answer) {
-        if (!turn.isHasMemory()) return;
-        try {
-            chatMemory.add(turn.getConversationId(),
-                    List.of(new UserMessage(turn.getQuestion()), new AssistantMessage(answer)));
-        } catch (Exception e) {
-            // Bộ nhớ hỏng không được làm hỏng câu trả lời đã có sẵn cho người dùng.
-            log.warn("Khong ghi duoc bo nho hoi thoai ({}), bo qua", e.getMessage());
-        }
-    }
-
-    /**
-     * Hai kiểu không có câu trả lời, và chúng cần hai câu KHÁC nhau: nói sai nguyên nhân thì người
-     * dùng đi sửa sai chỗ.
-     */
-    private String fallbackAnswer(AiTurn turn, AgentState state) {
-        if (state.isBudgetExhausted()) {
-            log.warn("Vong lap het ngan sach buoc. question={}", turn.getQuestion());
-            return "Xin lỗi, yêu cầu này cần quá nhiều bước tra cứu nên mình phải dừng giữa chừng. "
-                    + "Bạn tách nhỏ câu hỏi giúp mình nhé — ví dụ hỏi từng đơn vị một.";
-        }
-        // Model suy luận (gpt-oss) đôi lúc tiêu hết token cho phần suy luận rồi chạm
-        // finishReason=LENGTH trước khi kịp sinh text -> content rỗng.
-        log.warn("AI tra noi dung rong (nghi finishReason=LENGTH). question={}", turn.getQuestion());
-        return "Xin lỗi, mình chưa tạo được câu trả lời cho yêu cầu này (nội dung xử lý quá dài). "
-                + "Bạn thử hỏi ngắn gọn/cụ thể hơn giúp mình nhé.";
-    }
     /**
      * Khối mô tả form đang mở. Rỗng khi người dùng không mở form nào — lượt chat bình thường giữ
      * nguyên prompt đúng như trước, không thêm một ký tự nào.
@@ -283,6 +196,43 @@ public class ModelCallStage implements AiStage {
         return sb.toString();
     }
 
+    /** Tên gọi người dùng hiểu được của từng nhóm bị chặn. */
+    private static final Map<ToolRegistry.Group, String> DENIED_LABEL = Map.of(
+            ToolRegistry.Group.BSC, "thẻ điểm cân bằng (BSC): viễn cảnh, trọng số viễn cảnh, điểm BSC",
+            ToolRegistry.Group.OKR, "mục tiêu và kết quả then chốt (OKR)",
+            ToolRegistry.Group.ACTION, "tạo hoặc sửa dữ liệu");
+
+    /**
+     * Khối nêu khả năng người dùng KHÔNG được phép dùng ở lượt này. Rỗng ở gần như mọi lượt.
+     *
+     * <p><b>Vì sao cần.</b> Bộ tool được lọc theo quyền một cách im lặng, và im lặng sinh ra một
+     * kiểu hỏng đã đo được (ca D08): trưởng phòng hỏi "cho tôi xem thẻ điểm cân bằng BSC" trong khi
+     * không có {@code BSC:MANAGE}. Chặn hoạt động đúng — {@code get_bsc} không hề được gửi — nhưng
+     * model chỉ thấy mình thiếu công cụ chứ không biết vì sao, nên nó gọi {@code get_okr}, lấy dữ
+     * liệu mục tiêu ra và <b>đặt tiêu đề "Thẻ điểm cân bằng BSC của đơn vị bạn"</b>. Không con số
+     * nào bị bịa, nhưng gọi tập dữ liệu này bằng tên của tập dữ liệu kia thì người đọc vẫn tin nhầm.
+     *
+     * <p>Nên khối này KHÔNG dạy model cách cư xử chung chung; nó nêu một DỮ KIỆN hẹp của đúng lượt
+     * đó — thiếu khả năng nào — rồi cấm đúng một hành vi: lấy thứ khác thế vào mà vẫn gọi bằng tên
+     * cũ. Cùng lối với khối tệp minh chứng: nói sự thật rồi chặn đúng suy diễn sai đã xảy ra.
+     */
+    String deniedBlock(AiTurn turn) {
+        Set<ToolRegistry.Group> denied = turn.getDeniedGroups();
+        if (denied == null || denied.isEmpty()) return "";
+
+        List<String> labels = denied.stream().map(DENIED_LABEL::get).filter(Objects::nonNull).toList();
+        if (labels.isEmpty()) return "";
+
+        return "\n## NGOÀI QUYỀN CỦA NGƯỜI DÙNG NÀY\n"
+                + "Tài khoản đang hỏi KHÔNG được phép xem: " + String.join("; ", labels) + ".\n"
+                + "Bạn không có công cụ nào lấy được những dữ liệu đó ở lượt này. Người dùng hỏi tới "
+                + "chúng thì NÓI THẲNG là bạn không xem được phần này, và bảo họ liên hệ quản trị nếu "
+                + "cần quyền.\n"
+                + "TUYỆT ĐỐI không lấy dữ liệu khác ra thay thế rồi gọi bằng tên thứ họ vừa hỏi. "
+                + "Trình bày số liệu OKR dưới tiêu đề \"thẻ điểm cân bằng BSC\" là SAI, kể cả khi mọi "
+                + "con số đều lấy từ tool thật.\n";
+    }
+
     /** Số tên tệp tối đa ghép vào prompt, khớp trần mỗi báo cáo của {@code AttachmentPolicy}. */
     private static final int MAX_EVIDENCE_NAMES = 5;
     /** Cắt bằng đúng {@code AttachmentPolicy.MAX_FILE_NAME_LENGTH}. */
@@ -328,7 +278,7 @@ public class ModelCallStage implements AiStage {
         if (names == null) return List.of();
         return names.stream()
                 .filter(n -> n != null && !n.isBlank())
-                .map(ModelCallStage::sanitizeEvidenceName)
+                .map(TurnPromptBuilder::sanitizeEvidenceName)
                 .limit(MAX_EVIDENCE_NAMES)
                 .toList();
     }
@@ -386,9 +336,4 @@ public class ModelCallStage implements AiStage {
         sb.append("Trả lời mà thiếu vế cuối (bước ").append(steps.size()).append(") là SAI.\n");
         return sb.toString();
     }
-    @Override
-    public String label() { return "Đang tra cứu dữ liệu"; }
-
-    @Override
-    public int getOrder() { return 1100; }
 }

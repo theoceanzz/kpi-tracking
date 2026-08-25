@@ -8,7 +8,6 @@ import com.kpitracking.service.ManagerContextResolver.ManagerContext;
 import com.kpitracking.service.ai.AiTurn;
 import com.kpitracking.service.ai.agent.AgentState;
 import com.kpitracking.service.ai.AiTurnPipeline;
-import com.kpitracking.tool.EscapeHatchTool;
 import com.kpitracking.tool.ToolRegistry;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
@@ -44,8 +43,9 @@ public class AiService {
     private Resource kpiSuggestionSystemPrompt;
 
     // Constructor viết tay chứ KHÔNG dùng @RequiredArgsConstructor: dự án không có lombok.config
-    // khai báo @Qualifier là annotation được sao chép, nên Lombok sẽ bỏ qua nó và Spring gặp hai
-    // bean ChatClient (openAiChatClient, chatClientWithMemory) rồi báo mơ hồ lúc khởi động.
+    // khai báo @Qualifier là annotation được sao chép, nên Lombok sẽ bỏ qua nó. Nay chỉ còn MỘT
+    // bean ChatClient nên bỏ qualifier vẫn chạy, nhưng giữ lại để chỗ tiêm nói rõ nó cần bean nào —
+    // thêm bean thứ hai sau này sẽ không âm thầm đổi thứ lớp này nhận được.
     public AiService(AiTurnPipeline aiTurnPipeline,
                      ManagerContextResolver managerContextResolver,
                      OrganizationRepository organizationRepository,

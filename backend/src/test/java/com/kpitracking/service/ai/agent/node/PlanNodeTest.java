@@ -1,6 +1,8 @@
-package com.kpitracking.service.ai.stage;
+package com.kpitracking.service.ai.agent.node;
 
 import com.kpitracking.service.ai.AiTurn;
+import com.kpitracking.service.ai.agent.AgentNode;
+import com.kpitracking.service.ai.agent.AgentState;
 import com.kpitracking.service.ai.PlanStep;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -15,13 +17,17 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 /**
- * Test cho công đoạn lập kế hoạch.
+ * Test cho đỉnh lập kế hoạch.
  *
  * <p>Điều quan trọng nhất cần chứng minh KHÔNG phải là nó lập kế hoạch giỏi — chất lượng kế hoạch
  * là chuyện của model, đo bằng bộ 40 câu hỏi. Ở đây chỉ chứng minh hai điều: <b>nó không bao giờ
  * làm hỏng lượt hỏi</b>, và <b>nó bóc được tên tool</b> mà không bịa ra tool không có thật.
+ *
+ * <p>"Không làm hỏng lượt hỏi" nay đọc được thẳng ở KẾT QUẢ của node: mọi đưỡng đều phải trả về
+ * {@link AgentNode#ROUTE}. Bản trước phải kiểm gián tiếp qua chuỏi — công đoạn có gọi tiếp phần
+ * còn lại và trả về đúng câu trả lời của nó hay không.
  */
-class PlanningStageTest {
+class PlanNodeTest {
 
     private final AiTurn turn = new AiTurn("Phòng IT có mấy người và KPI gì?", null, null);
 
@@ -43,8 +49,8 @@ class PlanningStageTest {
         return c;
     }
 
-    private String run(ChatClient client, boolean enabled) {
-        return new PlanningStage(client, enabled).handle(turn, t -> "câu trả lời");
+    private AgentNode run(ChatClient client, boolean enabled) {
+        return new PlanNode(client, enabled).run(new AgentState(turn));
     }
 
     // ── không bao giờ làm hỏng lượt ──────────────────────────────────────────
@@ -54,7 +60,7 @@ class PlanningStageTest {
     void disabledDoesNothing() {
         ChatClient client = mock(ChatClient.class, RETURNS_DEEP_STUBS);
 
-        assertThat(run(client, false)).isEqualTo("câu trả lời");
+        assertThat(run(client, false)).isEqualTo(AgentNode.ROUTE);
         assertThat(turn.getPlan()).as("tắt thì prompt phải giữ nguyên như cũ").isNull();
     }
 
@@ -78,7 +84,7 @@ class PlanningStageTest {
     @Test
     @DisplayName("model trả rỗng thì bỏ qua kế hoạch, lượt vẫn chạy")
     void emptyResponseFallsBack() {
-        assertThat(run(clientReturning("   "), true)).isEqualTo("câu trả lời");
+        assertThat(run(clientReturning("   "), true)).isEqualTo(AgentNode.ROUTE);
         assertThat(turn.getPlan()).isNull();
     }
 
@@ -86,8 +92,8 @@ class PlanningStageTest {
     @DisplayName("LỖI khi lập kế hoạch KHÔNG được làm hỏng lượt hỏi")
     void planningFailureNeverBreaksTheTurn() {
         assertThat(run(clientThrowing(), true))
-                .as("lập kế hoạch chỉ là phần thêm; hỏng thì phải chạy tiếp như khi tắt")
-                .isEqualTo("câu trả lời");
+                .as("lập kế hoạch chỉ là phần thêm; hỏng thì phải đi tiếp y như khi tắt")
+                .isEqualTo(AgentNode.ROUTE);
         assertThat(turn.getPlan()).isNull();
     }
 

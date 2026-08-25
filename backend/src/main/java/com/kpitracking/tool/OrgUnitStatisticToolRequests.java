@@ -229,4 +229,54 @@ public final class OrgUnitStatisticToolRequests {
             @JsonProperty(required = false) String perspectiveName, // lọc theo viễn cảnh BSC
             @JsonProperty(required = false) String status           // ACTIVE | COMPLETED | CANCELLED
     ) {}
+
+    // ── tool GHI ────────────────────────────────────────────────────────────
+    //
+    // Các record dưới đây thuộc nhóm ACTION: tool chuẩn bị việc rồi CHỜ người dùng xác nhận.
+    // Điểm chung: `decision` không có mặc định. Đoán giúp là chuyện không được phép ở đây — hai
+    // chiều cho kết quả ngược nhau, và một trong hai chiều không có nút hoàn tác.
+
+    /** Tham số của tool `review_kpi_criteria`. */
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    public record ReviewKpiCriteriaRequest(
+            String decision,                                      // APPROVE | REJECT
+            @JsonProperty(required = false) String note,          // bắt buộc khi REJECT
+            @JsonProperty(required = false) String unitName,
+            @JsonProperty(required = false) String unitId,
+            @JsonProperty(required = false) String periodName
+    ) {}
+
+    /** Tham số của tool `review_kpi_adjustments`. */
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    public record ReviewAdjustmentsRequest(
+            String decision,                                      // APPROVE | REJECT
+            @JsonProperty(required = false) String note,          // bắt buộc khi REJECT
+            @JsonProperty(required = false) String unitName,
+            @JsonProperty(required = false) String unitId,
+            @JsonProperty(required = false) String periodName
+    ) {}
+
+    /**
+     * Tham số của tool `send_reminders`.
+     *
+     * <p>KHÔNG có decision: nhắc thì chỉ có một chiều.
+     */
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    public record SendRemindersRequest(
+            @JsonProperty(required = false) String unitName,
+            @JsonProperty(required = false) String unitId,
+            @JsonProperty(required = false) String periodName,
+            @JsonProperty(required = false) String note
+    ) {}
+
+    /** Tham số của tool `review_submissions`. */
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    public record ReviewSubmissionsRequest(
+            String decision,                                      // APPROVE | REJECT
+            @JsonProperty(required = false) String note,          // bắt buộc khi REJECT
+            @JsonProperty(required = false) String unitName,
+            @JsonProperty(required = false) String unitId,
+            @JsonProperty(required = false) String periodName,    // vd "Tháng 6/2026"
+            @JsonProperty(required = false) String personName     // tên người NỘP, vd "Vũ Thị"
+    ) {}
 }

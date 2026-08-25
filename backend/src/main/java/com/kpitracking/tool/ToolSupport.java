@@ -248,6 +248,90 @@ public class ToolSupport {
         return !exact.isEmpty() ? exact : matches;
     }
 
+    /** Kết quả resolve NGƯỜI theo id/tên: hoặc ra 1 UUID, hoặc cần hỏi làm rõ. */
+    public record UserRef(UUID id, Map<String, Object> clarification) {}
+
+    /**
+     * Người trong tổ chức khớp TÊN, ưu tiên khớp CHÍNH XÁC.
+     *
+     * <p>Cùng luật với {@link #unitMatchPool}: có người tên đúng hệt thì chỉ lấy những người đó,
+     * để "Vũ Thị" không bị coi là mơ hồ chỉ vì còn "Vũ Thị Deputy Lead" ở đâu đó. Giữ chung một luật
+     * là có chủ đích — hai luật khớp tên song song sẽ trôi lệch rồi trả lời khác nhau cho cùng câu hỏi.
+     */
+    public List<Map<String, Object>> userMatchPool(String name, UUID orgId) {
+        List<Map<String, Object>> matches =
+                orgUnitStatisticService.searchUsers(orgId, name.trim(), null, null, 10);
+        List<Map<String, Object>> exact = matches.stream()
+                .filter(m -> name.trim().equalsIgnoreCase(String.valueOf(m.get("fullName"))))
+                .collect(java.util.stream.Collectors.toList());
+        return !exact.isEmpty() ? exact : matches;
+    }
+
+    /** Nhãn kèm đơn vị/chức vụ để phân biệt người trùng tên; giá trị gửi lại là TÊN đầy đủ. */
+    public List<FollowupContextStore.ClarificationOption> userOptions(List<Map<String, Object>> pool) {
+        List<FollowupContextStore.ClarificationOption> options = new ArrayList<>();
+        for (Map<String, Object> user : pool) {
+            String name = user.get("fullName") != null ? String.valueOf(user.get("fullName")) : null;
+            if (name == null || name.isBlank()) continue;
+            Object unitName = user.get("orgUnitName");
+            Object position = user.get("positionName");
+            StringBuilder label = new StringBuilder(name);
+            if (unitName != null || position != null) {
+                label.append(" (");
+                if (position != null) label.append(position);
+                if (position != null && unitName != null) label.append(" — ");
+                if (unitName != null) label.append(unitName);
+                label.append(')');
+            }
+            options.add(new FollowupContextStore.ClarificationOption(label.toString(), name));
+        }
+        return options;
+    }
+
+    /** Envelope hỏi làm rõ khi một tên người khớp nhiều/không thấy. */
+    public Map<String, Object> userClarification(String query, List<Map<String, Object>> pool,
+                                                 ToolContext context) {
+        String convId = getConversationId(context);
+        if (convId != null) followupContextStore.markDisambiguating(convId, userOptions(pool));
+        Map<String, Object> group = new LinkedHashMap<>();
+        group.put("query", query);
+        group.put("reason", pool.isEmpty() ? "not_found" : "ambiguous");
+        group.put("options", pool);
+        Map<String, Object> out = new LinkedHashMap<>();
+        out.put("needsClarification", true);
+        out.put("ambiguous", java.util.List.of(group));
+        out.put("message", "Tên '" + query + "' khớp NHIỀU người (hoặc không tìm thấy). Hãy hỏi người "
+                + "dùng chọn RÕ người nào (nêu đơn vị/chức vụ để phân biệt) rồi gọi lại. "
+                + "TUYỆT ĐỐI không tự chọn giúp.");
+        return out;
+    }
+
+    /**
+     * Resolve người theo id hoặc theo tên.
+     *
+     * <p>Khác {@link #resolveUnit} ở một chỗ: KHÔNG có giá trị mặc định. Không nêu ai thì trả
+     * {@code null} để nơi gọi hiểu là "mọi người", chứ không tự hiểu thành chính người đang hỏi —
+     * "duyệt bài nộp" mà mặc định thành "bài nộp của tôi" là hiểu sai hoàn toàn ý người dùng.
+     */
+    public UserRef resolveUser(String userId, String userName, ToolContext context) {
+        if (notBlank(userId)) {
+            UUID id = parseId(userId, "người dùng (userId)", "search");
+            guardDisambiguation("user", id, "người", context);
+            validateUserAccess(id, context);
+            return new UserRef(id, null);
+        }
+        if (notBlank(userName)) {
+            List<Map<String, Object>> pool = userMatchPool(userName, getOrgId(context));
+            if (pool.size() == 1) {
+                UUID id = UUID.fromString(String.valueOf(pool.get(0).get("id")));
+                validateUserAccess(id, context);
+                return new UserRef(id, null);
+            }
+            return new UserRef(null, userClarification(userName.trim(), pool, context));
+        }
+        return new UserRef(null, null);
+    }
+
     /** Các KPI khớp TÊN trong tổ chức, ưu tiên khớp CHÍNH XÁC (gom mọi bản cùng tên, vd theo tuần). */
     public List<Map<String, Object>> kpiMatchPool(String name, UUID orgId) {
         List<Map<String, Object>> matches = orgUnitStatisticService.searchKpis(orgId, name.trim(), 50);

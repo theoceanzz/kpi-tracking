@@ -4,7 +4,7 @@ import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/store/authStore'
 import { useOrganization } from '@/features/orgunits/hooks/useOrganization'
 import { useMyAiQuota } from '@/features/organization/hooks/useAiQuota'
-import { aiApi, type InsightCard, type FollowupPools, type ClarificationOption, type FormPatch, type AiChatResponse } from '../api/aiApi'
+import { aiApi, type InsightCard, type FollowupPools, type ClarificationOption, type FormPatch, type PendingAction, type AiChatResponse } from '../api/aiApi'
 import { useFormAssistStore } from '@/store/formAssistStore'
 import EvidenceAttachBar, { AttachedChips, PinnedChips } from './EvidenceAttachBar'
 import { MicButton } from '@/components/common/MicButton'
@@ -12,6 +12,7 @@ import { usePinnedFilesStore, attachPinnedTo } from '@/store/pinnedFilesStore'
 import { useChatFileDrop } from '../hooks/useChatFileDrop'
 import EvidenceDropCard from './EvidenceDropCard'
 import FormPatchPreview from './FormPatchPreview'
+import PendingActionCard from './PendingActionCard'
 import ThinkingSummary from './ThinkingSummary'
 import AnswerMarkdown from './AnswerMarkdown'
 import { useStageProgress } from '../hooks/useStageProgress'
@@ -37,6 +38,13 @@ interface Message {
   steps?: string[]
   /** Trợ lý mời gửi minh chứng: vẽ vùng thả ngay dưới câu trả lời này. */
   evidenceRequest?: boolean
+  /**
+   * Trợ lý đề nghị một thao tác GHI và chờ xác nhận.
+   *
+   * <p>KHÔNG lọc theo form đang mở như `formPatch`: mấy việc này (duyệt bài nộp, nhắc nhở) không
+   * gắn với form nào, nên đóng form không làm lời mời mất nghĩa.
+   */
+  pendingAction?: PendingAction
 }
 
 const WELCOME_MSG: Message = {
@@ -231,6 +239,7 @@ export default function AiAssistantWidget() {
           // Backend đã tự bỏ qua ở lượt hỏi lại và lượt không có dữ liệu tool.
           followups: response.followups,
           evidenceRequest: response.evidenceRequest,
+          pendingAction: response.pendingAction,
         },
       ])
 
@@ -451,6 +460,19 @@ export default function AiAssistantWidget() {
                 {/* Đề xuất điền form đang mở — người dùng xem trước rồi mới chấp nhận */}
                 {msg.role === 'assistant' && msg.formPatch && (
                   <FormPatchPreview patch={msg.formPatch} />
+                )}
+
+                {/* Thao tác GHI chờ xác nhận — bấm là ghi thật, nên thẻ tự cảnh báo và tự khoá */}
+                {msg.role === 'assistant' && msg.pendingAction && (
+                  <PendingActionCard
+                    action={msg.pendingAction}
+                    onDone={text =>
+                      setMessages(prev => [
+                        ...prev,
+                        { id: `act-${Date.now()}`, role: 'assistant', content: text },
+                      ])
+                    }
+                  />
                 )}
 
                 {/* Vùng thả minh chứng, khi trợ lý vừa mời người dùng gửi tài liệu */}

@@ -104,7 +104,7 @@ class FormRegistryTest {
     void submissionFormDoesNotDeclareDeadDateFields() {
         // Phép đối chiếu ở trên chỉ so MỘT CHIỀU (ô khai ⊆ schema Zod) nên nó không bắt được ca
         // này: periodStart/periodEnd nằm trong submissionSchema.ts nhưng NewSubmissionPage chưa bao
-        // giờ vẽ ô nhập cho chúng. Khai ở FormRegistry thì ModelCallStage.formBlock liệt kê
+        // giờ vẽ ô nhập cho chúng. Khai ở FormRegistry thì TurnPromptBuilder.formBlock liệt kê
         // "Từ ngày, Đến ngày" vào danh sách ô điền được, và trợ lý đi hỏi người dùng hai cái ngày
         // họ không có chỗ nào để nhập.
         Descriptor submission = registry.find(FormRegistry.SUBMISSION_FORM);

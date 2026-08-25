@@ -7,7 +7,7 @@ import {
 import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/store/authStore'
 import { useOrganization } from '@/features/orgunits/hooks/useOrganization'
-import { aiApi, type ConversationResponse, type InsightCard, type FollowupPools, type ClarificationOption, type AiChatResponse } from '../api/aiApi'
+import { aiApi, type ConversationResponse, type InsightCard, type FollowupPools, type ClarificationOption, type PendingAction, type AiChatResponse } from '../api/aiApi'
 import InsightCards from '../components/InsightCards'
 import AiDisabledPage from '../components/AiDisabledPage'
 import FollowupSuggestions from '../components/FollowupSuggestions'
@@ -16,6 +16,7 @@ import { MicButton } from '@/components/common/MicButton'
 import { usePinnedFilesStore, attachPinnedTo } from '@/store/pinnedFilesStore'
 import { useChatFileDrop } from '../hooks/useChatFileDrop'
 import EvidenceDropCard from '../components/EvidenceDropCard'
+import PendingActionCard from '../components/PendingActionCard'
 import { useFormAssistStore } from '@/store/formAssistStore'
 import ThinkingSummary from '../components/ThinkingSummary'
 import AnswerMarkdown from '../components/AnswerMarkdown'
@@ -49,6 +50,8 @@ interface Message {
   steps?: string[]
   /** Trợ lý mời gửi minh chứng: vẽ vùng thả ngay dưới câu trả lời này. */
   evidenceRequest?: boolean
+  /** Trợ lý đề nghị một thao tác GHI và chờ xác nhận. */
+  pendingAction?: PendingAction
 }
 
 const WELCOME_MSG: Message = {
@@ -280,6 +283,7 @@ export default function AiAssistantPage() {
           // Backend đã tự bỏ qua ở lượt hỏi lại và lượt không có dữ liệu tool.
           followups: response.followups,
           evidenceRequest: response.evidenceRequest,
+          pendingAction: response.pendingAction,
         },
       ])
 
@@ -642,6 +646,18 @@ export default function AiAssistantPage() {
                         )}
 
                         {/* Vùng thả minh chứng, khi trợ lý vừa mời người dùng gửi tài liệu */}
+                        {msg.role === 'assistant' && msg.pendingAction && (
+                          <PendingActionCard
+                            action={msg.pendingAction}
+                            onDone={text =>
+                              setMessages(prev => [
+                                ...prev,
+                                { id: `act-${Date.now()}`, role: 'assistant', content: text },
+                              ])
+                            }
+                          />
+                        )}
+
                         {msg.role === 'assistant' && msg.evidenceRequest && (
                           <EvidenceDropCard sink={fileSink} disabled={isLoading} />
                         )}

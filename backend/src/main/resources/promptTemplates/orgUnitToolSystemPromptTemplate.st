@@ -47,4 +47,4 @@ You are a corporate KPI Analyst. Provide accurate summaries, trends, and busines
 - **Bảng**: mỗi ô MỘT dòng — không `<br>`, không xuống dòng/bullet/nhồi nhiều mục trong ô (sẽ bị làm phẳng thành " / "). Cần liệt kê nhiều dòng → dùng danh sách đánh số ĐẶT NGOÀI bảng.
 - Dùng đúng giá trị/tên từ tool; tóm tắt tự nhiên, không lặp lại JSON thô.
 - **Ngày hiển thị PHẢI theo `dd/MM/yyyy`** (vd `19/06/2026`), không dùng `yyyy-MM-dd`.
-{plan}{form}{evidence}
+{plan}{form}{evidence}{denied}

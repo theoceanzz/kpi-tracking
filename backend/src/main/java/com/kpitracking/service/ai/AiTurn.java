@@ -1,6 +1,5 @@
 package com.kpitracking.service.ai;
 
-import com.kpitracking.entity.Organization;
 import com.kpitracking.service.ManagerContextResolver.ManagerContext;
 import com.kpitracking.dto.response.ai.FollowupResponse;
 import com.kpitracking.service.ai.form.FormPatch;
@@ -51,19 +50,24 @@ public class AiTurn {
 
     // ── dựng dần qua từng stage ──────────────────────────────────────────────
     private ManagerContext manager;
-    private Organization org;
     private UUID effectiveUnitId;
     private Map<String, Object> toolCtx = new HashMap<>();
     private String currentDateTime;
     private boolean hasMemory;
 
-    /** Nhóm tool do tầng định tuyến chọn. */
-    private Set<ToolRegistry.Group> groups;
     /** Bộ tool thực sự trao cho model = nhóm ∩ quyền của người dùng. */
     private List<Object> tools;
+    /**
+     * Nhóm câu hỏi cần tới nhưng người dùng KHÔNG có quyền, do {@code RouteNode} ghi.
+     *
+     * <p>Rỗng ở gần như mọi lượt. Có giá trị thì {@code TurnPromptBuilder} nói thẳng cho model biết
+     * nó thiếu đúng khả năng nào — thiếu vế đó, model đi tìm dữ liệu gần giống để thế vào và gắn
+     * nhãn của thứ nó không lấy được.
+     */
+    private Set<ToolRegistry.Group> deniedGroups;
 
     // ── chỗ dành sẵn cho các công đoạn sắp thêm ──────────────────────────────
-    /** Kế hoạch nhiều bước, khi có PlanningStage. Rỗng/null = lượt này không dùng kế hoạch. */
+    /** Kế hoạch nhiều bước, do {@code PlanNode} lập. Rỗng/null = lượt này không dùng kế hoạch. */
     private List<PlanStep> plan;
     /**
      * Đề xuất điền form mà tool sinh ra trong lượt này.
@@ -72,6 +76,11 @@ public class AiTurn {
      * cần đọc {@code AiTurn} mà không phải biết gì về trạng thái bên trong vòng lặp.
      */
     private FormPatch formPatch;
+    /**
+     * Hành động GHI chờ xác nhận mà tool sinh ra trong lượt này. Pipeline chép từ {@code AgentState}
+     * sang đây ở khối {@code finally}, cùng lý do với {@link #formPatch}.
+     */
+    private com.kpitracking.service.ai.action.PendingAction pendingAction;
     /**
      * Tên đơn vị của thẻ Insight người dùng bấm, nếu có. {@code TurnSetupStage} gắn khi nó đã nạp
      * đơn vị để kiểm {@code focusUnitId} — không tốn thêm truy vấn nào.
@@ -94,16 +103,15 @@ public class AiTurn {
      */
     private TurnListener listener = TurnListener.NOOP;
     /**
-     * Các tool đã lên kế hoạch nhưng lượt đầu không gọi — do {@code PlanCompletionStage} đặt trước
-     * khi hỏi lại, để khối kế hoạch lần hai chỉ nêu đúng phần còn thiếu thay vì nhắc lại cả kế hoạch.
+     * Các tool đã lên kế hoạch nhưng lần hỏi đầu không gọi — do {@code ObserveNode} đặt trước khi
+     * cho quay lại đỉnh MODEL, để khối kế hoạch lần hai chỉ nêu đúng phần còn thiếu thay vì nhắc
+     * lại cả kế hoạch.
      */
     private List<String> missingPlannedTools;
-    /** Tên các tool đã chạy trong lượt — để stage kiểm duyệt đối chiếu câu trả lời với dữ liệu thật. */
-    private List<String> toolCallTrace;
 
     /**
      * Trạng thái của vòng lặp agent trong lượt này — lịch sử hội thoại, các tool đã gọi, bước
-     * thứ mấy. Do {@code ModelCallStage} đặt khi vòng lặp bắt đầu.
+     * thứ mấy. Do {@code TurnSetupStage} tạo, {@code AgentStage} chạy đồ thị trên đó.
      *
      * <p>Các công đoạn bọc ngoài đọc trace ở đây thay vì móc từ ThreadLocal: trạng thái đã là giá
      * trị truyền tường minh nên không còn phụ thuộc vào việc tool chạy trên luồng nào.
@@ -136,8 +144,18 @@ public class AiTurn {
      *              hệt nhánh pipeline tự phát, để client đối chiếu được bằng một cách duy nhất
      */
     public void progress(AiStage stage, String label) {
+        progress(stage.getClass().getSimpleName(), label);
+    }
+
+    /**
+     * Cùng việc như trên, cho những thứ KHÔNG phải {@link AiStage} — các đỉnh của đồ thị agent.
+     *
+     * <p>Node không có tên lớp nào đáng đưa ra client (chúng là chi tiết bên trong một công đoạn
+     * duy nhất), nên chúng tự khai mã. Client vốn chỉ đọc nhãn; mã dành cho việc đối chiếu nhật ký.
+     */
+    public void progress(String code, String label) {
         try {
-            listener.stageStarted(stage.getClass().getSimpleName(), label);
+            listener.stageStarted(code, label);
         } catch (Exception ignore) {
             // Client ngắt giữa chừng là chuyện thường; lượt vẫn phải chạy nốt.
         }

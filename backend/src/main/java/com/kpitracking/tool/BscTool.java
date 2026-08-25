@@ -1,5 +1,7 @@
 package com.kpitracking.tool;
 
+import com.kpitracking.dto.response.stats.BscAnalyticsResponses.BalanceResponse;
+import com.kpitracking.dto.response.stats.BscAnalyticsResponses.PerspectivePoint;
 import com.kpitracking.service.BscAnalyticsService;
 import com.kpitracking.service.analytics.AnalyticsPeriodHelper;
 import com.kpitracking.tool.OrgUnitStatisticToolRequests.BscRequest;
@@ -61,7 +63,8 @@ public class BscTool {
             List<UUID> periodIds = periodHelper.resolvePeriodIds(from, to);
 
             Object response = switch (view) {
-                case "balance" -> bscAnalyticsService.getBalance(u.id(), periodIds);
+                case "balance" -> perEvaluationContribution(
+                        bscAnalyticsService.getBalance(u.id(), periodIds));
                 case "trend" -> bscAnalyticsService.getTrend(u.id(), periodIds, "PERIOD");
                 case "unit_comparison" -> bscAnalyticsService.getUnitComparison(u.id(), periodIds);
                 case "vs_system" -> bscAnalyticsService.getBscVsSystem(
@@ -75,6 +78,35 @@ public class BscTool {
         } catch (Exception e) {
             return support.toolError("get_bsc", e);
         }
+    }
+
+    /**
+     * Đổi {@code weightedScore} của mỗi viễn cảnh từ TỔNG CỘNG DỒN sang đóng góp trên MỘT đánh giá.
+     *
+     * <p>Truy vấn phía dưới trả {@code SUM(weightedScore)} — cộng qua mọi đánh giá trong phạm vi.
+     * Con số đó lớn theo SỐ LƯỢT ĐÁNH GIÁ chứ không theo chất lượng, nên viễn cảnh nào nhiều người
+     * được giao chỉ tiêu sẽ luôn "cao nhất". Đo được đúng cái bẫy đó ngay câu hỏi đầu tiên trên dữ
+     * liệu thật: model đọc bảng rồi kết luận "Quy trình nội bộ đóng góp lớn nhất nhờ điểm có trọng
+     * số cao nhất (976,5)", trong khi 976,5 chỉ lớn vì viễn cảnh đó có 42 lượt còn Khách hàng có 24.
+     *
+     * <p>Thay bằng {@code trọng số% × điểm trung bình}, tức đóng góp của viễn cảnh vào điểm BSC của
+     * một người — đại lượng SO SÁNH ĐƯỢC giữa các viễn cảnh và cùng thang với các số còn lại trong
+     * bảng. Giữ nguyên tên trường và hình dạng JSON, nên không đụng gì tới giao diện: giao diện gọi
+     * service qua REST chứ không qua tool này.
+     *
+     * <p>Không xoá hẳn trường đi vì model cần một cách để nói viễn cảnh nào kéo điểm tổng; bỏ trống
+     * là mời nó tự nhân tay rồi nhân sai.
+     */
+    private static BalanceResponse perEvaluationContribution(BalanceResponse response) {
+        if (response == null || response.getPerspectives() == null) return response;
+        for (PerspectivePoint p : response.getPerspectives()) {
+            Double weight = p.getWeightPercentage();
+            Double avg = p.getAverageScore();
+            p.setWeightedScore(weight == null || avg == null
+                    ? null
+                    : Math.round(weight / 100.0 * avg * 10.0) / 10.0);
+        }
+        return response;
     }
 
     private static String normalizeView(String raw) {

@@ -53,6 +53,37 @@ export interface ClarificationOption {
   value: string
 }
 
+export interface PendingActionItem {
+  id: string
+  /** Tên đọc được, vd "Nguyễn Văn Staff — Số task hoàn thành". */
+  label: string
+  /** Thông tin phụ để thẩm định, vd "kỳ Tháng 6/2026, đạt 12/10 task". */
+  detail?: string
+}
+
+/**
+ * Lời mời xác nhận một thao tác GHI do trợ lý chuẩn bị.
+ *
+ * <p>CHƯA có gì được thay đổi khi field này xuất hiện — nó mô tả việc SẼ làm nếu người dùng bấm
+ * xác nhận. Cùng kỷ luật với {@link FormPatch}: trợ lý đề nghị, người dùng quyết.
+ */
+export interface PendingAction {
+  id: string
+  kind: 'SUBMISSION_REVIEW' | 'KPI_CRITERIA_REVIEW' | 'KPI_ADJUSTMENT_REVIEW' | 'SEND_REMINDER'
+  decision?: 'APPROVE' | 'REJECT'
+  title: string
+  note?: string
+  items: PendingActionItem[]
+}
+
+export interface ConfirmActionResult {
+  /** Câu để chèn vào khung chat như một lời của trợ lý. */
+  text: string
+  succeeded: number
+  failed: number
+  failures: string[]
+}
+
 export interface AiChatResponse {
   text: string
   /** Chỉ có ở lượt trợ lý hỏi lại; lượt trả lời bình thường sẽ vắng field này. */
@@ -74,6 +105,11 @@ export interface AiChatResponse {
    * bình thường.
    */
   attachFiles?: boolean
+  /**
+   * Trợ lý đề nghị một thao tác GHI (duyệt bài nộp, duyệt chỉ tiêu, nhắc nhở...) và chờ xác nhận.
+   * Vắng ở mọi lượt bình thường.
+   */
+  pendingAction?: PendingAction
 }
 
 export interface ConversationResponse {
@@ -219,6 +255,17 @@ export const aiApi = {
       reader.cancel().catch(() => {})
     }
   },
+
+  /**
+   * Xác nhận và chạy một thao tác trợ lý đã chuẩn bị.
+   *
+   * <p>`itemIds` chỉ để THU HẸP — backend loại mọi id không có trong lời mời gốc, nên không gửi
+   * thêm được mục lạ. Bỏ trống = làm hết.
+   */
+  confirmAction: (actionId: string, itemIds?: string[]) =>
+    axiosInstance
+      .post<ApiResponse<ConfirmActionResult>>(`/ai/actions/${actionId}/confirm`, { itemIds })
+      .then(res => res.data.data),
 
   chat: (request: AiChatRequest) =>
     axiosInstance

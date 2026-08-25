@@ -20,8 +20,12 @@ import static org.mockito.Mockito.when;
 /**
  * Test cho việc dọn bộ nhớ hội thoại.
  *
- * <p>Bất biến: bộ nhớ phải luôn kết thúc bằng CÂU TRẢ LỜI, và không được đọng lại câu hỏi trùng
- * kèm câu trả lời hỏng — người dùng trả tiền token cho mọi thứ còn nằm trong đó.
+ * <p>Bất biến: bộ nhớ phải luôn kết thúc bằng CÂU TRẢ LỜI — người dùng trả tiền token cho mọi thứ
+ * còn nằm trong đó, và một câu hỏi mồ côi làm mọi lượt sau đọc lại chính nó.
+ *
+ * <p><b>Chỉ còn một hàm để kiểm.</b> {@code dropLastExchange} đã bỏ cùng lúc với
+ * {@code PlanCompletionStage}: nó tồn tại chỉ để dọn hộ khâu hỏi lại, mà khâu đó nay là một cạnh
+ * của đồ thị agent và bộ nhớ chỉ được ghi ở đỉnh cuối, đúng một lần — không còn gì để dọn.
  */
 class ChatMemoryCleanerTest {
 
@@ -33,35 +37,33 @@ class ChatMemoryCleanerTest {
     }
 
     @Test
-    @DisplayName("xoá đúng cặp hỏi-đáp cuối, giữ nguyên phần trước")
-    void dropsLastExchange() {
-        given(new UserMessage("hỏi 1"), new AssistantMessage("đáp 1"),
-              new UserMessage("hỏi 2"), new AssistantMessage("đáp 2 thiếu sót"));
+    @DisplayName("bộ nhớ kết thúc bằng CÂU HỎI mồ côi thì xoá đúng câu hỏi đó")
+    void dropsOrphanUserMessage() {
+        given(new UserMessage("hỏi 1"), new AssistantMessage("đáp 1"), new UserMessage("hỏi 2"));
 
-        cleaner.dropLastExchange("conv-1");
+        cleaner.dropOrphanUserMessage("conv-1");
 
         verify(repo).saveAll(eq("conv-1"), eq(List.of(
                 new UserMessage("hỏi 1"), new AssistantMessage("đáp 1"))));
     }
 
     @Test
-    @DisplayName("bộ nhớ kết thúc bằng CÂU HỎI mồ côi thì cũng xoá được câu hỏi đó")
-    void dropsOrphanUserWhenNoAnswerYet() {
-        given(new UserMessage("hỏi 1"), new AssistantMessage("đáp 1"), new UserMessage("hỏi 2"));
+    @DisplayName("bộ nhớ đã kết thúc bằng câu TRẢ LỜI thì không đụng vào — đó là trạng thái đúng")
+    void leavesHealthyMemoryAlone() {
+        given(new UserMessage("hỏi 1"), new AssistantMessage("đáp 1"));
 
-        cleaner.dropLastExchange("conv-1");
+        cleaner.dropOrphanUserMessage("conv-1");
 
-        verify(repo).saveAll(eq("conv-1"), eq(List.of(
-                new UserMessage("hỏi 1"), new AssistantMessage("đáp 1"))));
+        verify(repo, never()).saveAll(anyString(), anyList());
     }
 
     @Test
     @DisplayName("bộ nhớ rỗng hoặc không có id thì không đụng vào kho")
     void noopOnEmptyOrMissingConversation() {
         when(repo.findByConversationId("conv-1")).thenReturn(List.of());
-        cleaner.dropLastExchange("conv-1");
-        cleaner.dropLastExchange(null);
-        cleaner.dropLastExchange("  ");
+        cleaner.dropOrphanUserMessage("conv-1");
+        cleaner.dropOrphanUserMessage(null);
+        cleaner.dropOrphanUserMessage("  ");
 
         verify(repo, never()).saveAll(anyString(), anyList());
     }
@@ -71,7 +73,6 @@ class ChatMemoryCleanerTest {
     void repositoryFailureIsSwallowed() {
         when(repo.findByConversationId("conv-1")).thenThrow(new RuntimeException("mất kết nối"));
 
-        cleaner.dropLastExchange("conv-1");   // không được ném
-        cleaner.dropOrphanUserMessage("conv-1");
+        cleaner.dropOrphanUserMessage("conv-1");   // không được ném
     }
 }

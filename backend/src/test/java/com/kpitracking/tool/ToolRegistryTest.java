@@ -19,7 +19,7 @@ import static org.mockito.Mockito.mock;
  */
 class ToolRegistryTest {
 
-    /** Tên mọi @Tool thật, lấy bằng reflection giống hệt cách ModelCallStage gom. */
+    /** Tên mọi @Tool thật, lấy bằng reflection giống hệt cách FinishNode gom. */
     private static Set<String> realToolNames() {
         Set<String> names = new LinkedHashSet<>();
         for (Class<?> toolClass : ToolRegistry.toolClasses()) {

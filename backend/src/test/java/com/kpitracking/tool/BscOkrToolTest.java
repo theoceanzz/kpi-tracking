@@ -2,6 +2,8 @@ package com.kpitracking.tool;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.kpitracking.dto.response.okr.KeyResultResponse;
+import com.kpitracking.dto.response.stats.BscAnalyticsResponses.BalanceResponse;
+import com.kpitracking.dto.response.stats.BscAnalyticsResponses.PerspectivePoint;
 import com.kpitracking.dto.response.okr.ObjectiveResponse;
 import com.kpitracking.entity.OrgUnit;
 import com.kpitracking.enums.OkrStatus;
@@ -165,6 +167,33 @@ class BscOkrToolTest {
 
             assertRejected(out, "quyền");
             verify(bscService, never()).getBalance(any(), anyCollection());
+        }
+
+        @Test
+        @DisplayName("điểm có trọng số phải là đóng góp trên MỘT đánh giá, không phải tổng cộng dồn")
+        void weightedScoreIsPerEvaluationNotASum() {
+            // Truy vấn phía dưới trả SUM(weightedScore) qua mọi đánh giá, nên viễn cảnh nào nhiều
+            // lượt sẽ luôn "cao nhất". Đo được trên dữ liệu thật: model đọc 976,5 của Quy trình nội
+            // bộ (42 lượt) rồi kết luận nó đóng góp lớn nhất, trong khi Khách hàng chỉ có 24 lượt.
+            when(bscService.getBalance(any(), any())).thenReturn(BalanceResponse.builder()
+                    .perspectives(List.of(
+                            // 30% × 77,5 = 23,25 -> 23,3 ; tổng cộng dồn cũ là 976,5
+                            PerspectivePoint.builder().code("INTERNAL_PROCESS")
+                                    .weightPercentage(30.0).averageScore(77.5).weightedScore(976.5).build(),
+                            // 25% × 67,0 = 16,75 -> 16,8 ; tổng cộng dồn cũ là 402,0
+                            PerspectivePoint.builder().code("CUSTOMER")
+                                    .weightPercentage(25.0).averageScore(67.0).weightedScore(402.0).build(),
+                            // Viễn cảnh RỖNG: không có điểm thì không có đóng góp nào để nói.
+                            PerspectivePoint.builder().code("FINANCIAL")
+                                    .weightPercentage(30.0).averageScore(null).weightedScore(0.0).build()))
+                    .build());
+
+            String out = bscTool.getBsc(
+                    new BscRequest("balance", null, null, null, null, null, null), ctx());
+
+            assertThat(out).contains("23.3").contains("16.8");
+            assertThat(out).as("con số cộng dồn không được lọt ra cho model")
+                    .doesNotContain("976.5").doesNotContain("402.0");
         }
 
         @Test

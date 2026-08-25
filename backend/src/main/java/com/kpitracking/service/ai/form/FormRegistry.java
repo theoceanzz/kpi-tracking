@@ -68,7 +68,7 @@ public class FormRegistry {
      *
      * <p>Cố ý BỎ {@code periodStart}/{@code periodEnd}: schema Zod có khai chúng nhưng
      * {@code NewSubmissionPage} KHÔNG vẽ ô nhập nào cho chúng. Khai ở đây thì
-     * {@code ModelCallStage.formBlock} liệt kê "Từ ngày, Đến ngày" vào danh sách ô điền được, và
+     * {@code TurnPromptBuilder.formBlock} liệt kê "Từ ngày, Đến ngày" vào danh sách ô điền được, và
      * trợ lý đi hỏi người dùng hai cái ngày mà họ không có chỗ nào để nhập.
      *
      * <p>Chốt chặn lệch trong {@code FormRegistryTest} chỉ so một chiều (ô khai ⊆ schema Zod) nên

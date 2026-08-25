@@ -18,8 +18,11 @@ import java.util.List;
  * mà không có câu trả lời đi kèm. Người dùng hỏi lại y hệt thì câu đó xuất hiện HAI lần trong
  * prompt — tốn token và model dễ hiểu nhầm.
  *
- * <p>Tách thành bean riêng vì có hai chỗ cần: {@code ModelCallStage} khi model trả nội dung rỗng,
- * và {@link AiTurnPipeline} khi cả lượt ném lỗi.
+ * <p><b>Chỉ còn một chỗ cần: {@link AiTurnPipeline} khi cả lượt ném lỗi.</b> Hai nguồn sinh ra
+ * trạng thái bẩn kia đã bị bịt ở gốc — không còn advisor ghi câu hỏi trước khi gọi model, và bộ nhớ
+ * chỉ được ghi ở đỉnh cuối của đồ thị agent, đúng một lần, sau khi đã có câu trả lời. Hàm
+ * {@code dropLastExchange} từng dọn hộ khâu hỏi lại cũng đã bỏ theo: khâu đó nay là một cạnh của đồ
+ * thị nên không làm bẩn gì để phải dọn.
  */
 @Component
 @RequiredArgsConstructor
@@ -27,31 +30,6 @@ import java.util.List;
 public class ChatMemoryCleaner {
 
     private final ChatMemoryRepository chatMemoryRepository;
-
-    /**
-     * Xoá cặp (câu hỏi, câu trả lời) CUỐI CÙNG khỏi bộ nhớ hội thoại.
-     *
-     * <p>Dùng khi một lượt được hỏi LẠI: advisor đã kịp ghi câu hỏi và câu trả lời thiếu sót của
-     * lần đầu, nên nếu không xoá thì hội thoại giữ lại cùng một câu hỏi hai lần cùng một câu trả
-     * lời sai — vừa tốn token cho mọi lượt sau, vừa để model đọc lại chính câu trả lời hỏng của nó.
-     */
-    public void dropLastExchange(String conversationId) {
-        if (conversationId == null || conversationId.isBlank()) return;
-        try {
-            List<Message> messages = chatMemoryRepository.findByConversationId(conversationId);
-            if (messages.isEmpty()) return;
-
-            int end = messages.size();
-            if (messages.get(end - 1).getMessageType() == MessageType.ASSISTANT) end--;
-            if (end > 0 && messages.get(end - 1).getMessageType() == MessageType.USER) end--;
-            if (end == messages.size()) return; // không khớp hình dạng mong đợi -> không đụng vào
-
-            chatMemoryRepository.saveAll(conversationId, new ArrayList<>(messages.subList(0, end)));
-        } catch (Exception e) {
-            log.warn("Không xoá được cặp hỏi-đáp cuối trong bộ nhớ hội thoại {}: {}",
-                    conversationId, e.getMessage());
-        }
-    }
 
     public void dropOrphanUserMessage(String conversationId) {
         if (conversationId == null || conversationId.isBlank()) return;
