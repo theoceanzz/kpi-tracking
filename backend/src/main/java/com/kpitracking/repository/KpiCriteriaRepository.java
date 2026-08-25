@@ -275,6 +275,11 @@ public interface KpiCriteriaRepository extends JpaRepository<KpiCriteria, UUID> 
     List<KpiCriteria> findApprovedByOrgUnitIds(@Param("orgUnitIds") List<UUID> orgUnitIds);
 
     @Query("SELECT k FROM KpiCriteria k WHERE k.orgUnit.orgHierarchyLevel.organization.id = :orgId " +
-           "AND (:keyword IS NULL OR :keyword = '' OR LOWER(CAST(k.name AS string)) LIKE LOWER(CONCAT('%', CAST(:keyword AS string), '%')))")
+           "AND (:keyword IS NULL OR :keyword = '' OR LOWER(CAST(k.name AS string)) LIKE LOWER(CONCAT('%', CAST(:keyword AS string), '%'))) " +
+           // Khớp CHÍNH XÁC lên đầu. Truy vấn này có LIMIT, mà khớp mờ "%tu khoa%" kéo về rất
+           // nhiều dòng — không sắp thứ tự thì đúng cái tên người dùng gõ có thể bị cắt mất khỏi
+           // trang đầu. Đo được: search(kpi, "a") trả 10 dòng KHÔNG có KPI nào tên "a", nên trợ lý
+           // đi hỏi làm rõ về một KPI khác hẳn, còn tên người dùng vừa nêu thì biến mất.
+           "ORDER BY CASE WHEN LOWER(CAST(k.name AS string)) = LOWER(CAST(:keyword AS string)) THEN 0 ELSE 1 END, k.name")
     List<KpiCriteria> searchByKeyword(@Param("orgId") UUID orgId, @Param("keyword") String keyword, Pageable pageable);
 }
