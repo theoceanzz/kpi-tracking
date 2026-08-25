@@ -1,16 +1,14 @@
 package com.kpitracking.service.ai;
 
+import com.kpitracking.entity.ConversationMessage;
+import com.kpitracking.repository.ConversationMessageRepository;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.springframework.ai.chat.memory.ChatMemoryRepository;
-import org.springframework.ai.chat.messages.AssistantMessage;
-import org.springframework.ai.chat.messages.Message;
-import org.springframework.ai.chat.messages.UserMessage;
 
 import java.util.List;
+import java.util.UUID;
 
-import static org.mockito.ArgumentMatchers.anyList;
-import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -23,56 +21,82 @@ import static org.mockito.Mockito.when;
  * <p>Bất biến: bộ nhớ phải luôn kết thúc bằng CÂU TRẢ LỜI — người dùng trả tiền token cho mọi thứ
  * còn nằm trong đó, và một câu hỏi mồ côi làm mọi lượt sau đọc lại chính nó.
  *
- * <p><b>Chỉ còn một hàm để kiểm.</b> {@code dropLastExchange} đã bỏ cùng lúc với
- * {@code PlanCompletionStage}: nó tồn tại chỉ để dọn hộ khâu hỏi lại, mà khâu đó nay là một cạnh
- * của đồ thị agent và bộ nhớ chỉ được ghi ở đỉnh cuối, đúng một lần — không còn gì để dọn.
+ * <p><b>Điều quan trọng nhất lớp này chốt: xoá đúng MỘT dòng.</b> Bản trước gọi
+ * {@code saveAll(id, toànBộTrừDòngCuối)} — một hàm có ngữ nghĩa THAY THẾ, tức xoá sạch rồi chèn
+ * lại cả hội thoại. Hồi lịch sử còn bị chặn ở 5 tin thì rẻ; từ khi lịch sử giữ đầy đủ, đó là một
+ * lần ghi lại toàn bộ hội thoại ngay trên ĐƯỜNG LỖI.
  */
 class ChatMemoryCleanerTest {
 
-    private final ChatMemoryRepository repo = mock(ChatMemoryRepository.class);
+    private static final String CONV = "11111111-2222-3333-4444-555555555555";
+
+    private final ConversationMessageRepository repo = mock(ConversationMessageRepository.class);
     private final ChatMemoryCleaner cleaner = new ChatMemoryCleaner(repo);
 
-    private void given(Message... messages) {
-        when(repo.findByConversationId("conv-1")).thenReturn(List.of(messages));
+    private static ConversationMessage msg(String role, String content) {
+        return ConversationMessage.builder()
+                .id(UUID.randomUUID())
+                .conversationId(UUID.fromString(CONV))
+                .role(role)
+                .content(content)
+                .build();
+    }
+
+    private void given(ConversationMessage... messages) {
+        when(repo.findByConversationIdOrderByMsgIndex(UUID.fromString(CONV)))
+                .thenReturn(List.of(messages));
     }
 
     @Test
-    @DisplayName("bộ nhớ kết thúc bằng CÂU HỎI mồ côi thì xoá đúng câu hỏi đó")
+    @DisplayName("kết thúc bằng CÂU HỎI mồ côi -> xoá đúng dòng đó, KHÔNG đụng dòng nào khác")
     void dropsOrphanUserMessage() {
-        given(new UserMessage("hỏi 1"), new AssistantMessage("đáp 1"), new UserMessage("hỏi 2"));
+        ConversationMessage orphan = msg("user", "hỏi 2");
+        given(msg("user", "hỏi 1"), msg("assistant", "đáp 1"), orphan);
 
-        cleaner.dropOrphanUserMessage("conv-1");
+        cleaner.dropOrphanUserMessage(CONV);
 
-        verify(repo).saveAll(eq("conv-1"), eq(List.of(
-                new UserMessage("hỏi 1"), new AssistantMessage("đáp 1"))));
+        verify(repo).deleteById(orphan.getId());
+        // Xoá cả hội thoại rồi chèn lại là cách bản trước làm — đắt, và đắt đúng lúc đang có sự cố.
+        verify(repo, never()).deleteByConversationId(any());
+        verify(repo, never()).saveAll(any());
     }
 
     @Test
-    @DisplayName("bộ nhớ đã kết thúc bằng câu TRẢ LỜI thì không đụng vào — đó là trạng thái đúng")
+    @DisplayName("đã kết thúc bằng câu TRẢ LỜI -> không đụng vào, đó là trạng thái đúng")
     void leavesHealthyMemoryAlone() {
-        given(new UserMessage("hỏi 1"), new AssistantMessage("đáp 1"));
+        given(msg("user", "hỏi 1"), msg("assistant", "đáp 1"));
 
-        cleaner.dropOrphanUserMessage("conv-1");
+        cleaner.dropOrphanUserMessage(CONV);
 
-        verify(repo, never()).saveAll(anyString(), anyList());
+        verify(repo, never()).deleteById(any());
     }
 
     @Test
-    @DisplayName("bộ nhớ rỗng hoặc không có id thì không đụng vào kho")
+    @DisplayName("hội thoại rỗng hoặc không có id -> không đụng vào kho")
     void noopOnEmptyOrMissingConversation() {
-        when(repo.findByConversationId("conv-1")).thenReturn(List.of());
-        cleaner.dropOrphanUserMessage("conv-1");
+        when(repo.findByConversationIdOrderByMsgIndex(any())).thenReturn(List.of());
+
+        cleaner.dropOrphanUserMessage(CONV);
         cleaner.dropOrphanUserMessage(null);
         cleaner.dropOrphanUserMessage("  ");
 
-        verify(repo, never()).saveAll(anyString(), anyList());
+        verify(repo, never()).deleteById(any());
     }
 
     @Test
     @DisplayName("lỗi kho KHÔNG được ném ra ngoài — dọn dẹp hỏng không được làm hỏng lượt hỏi")
     void repositoryFailureIsSwallowed() {
-        when(repo.findByConversationId("conv-1")).thenThrow(new RuntimeException("mất kết nối"));
+        when(repo.findByConversationIdOrderByMsgIndex(any()))
+                .thenThrow(new RuntimeException("mất kết nối"));
 
-        cleaner.dropOrphanUserMessage("conv-1");   // không được ném
+        cleaner.dropOrphanUserMessage(CONV);   // không được ném
+    }
+
+    @Test
+    @DisplayName("id hội thoại KHÔNG phải UUID -> nuốt lỗi, không nổ giữa lượt")
+    void malformedIdIsSwallowed() {
+        cleaner.dropOrphanUserMessage("khong-phai-uuid");
+
+        verify(repo, never()).deleteById(any());
     }
 }
