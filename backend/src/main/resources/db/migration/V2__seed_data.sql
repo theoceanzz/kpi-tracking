@@ -2139,117 +2139,123 @@ INSERT INTO kpi_reminders (id, kpi_criteria_id, user_id, batch_number, sent_at) 
 -- 15. EVALUATIONS  (12 users × 3 periods = 36 rows)
 -- Khoa-level users: điểm cố định (không có KPI)
 -- BM-level users  : điểm tính từ tổng auto_score 2 KPI
+--
+-- ⚠️ KỲ phải là kỳ CỦA CHÍNH tổ chức này (1_01/1_02/1_03), không phải kỳ của Demo Company
+-- (1_04/1_05/1_06). Bản trước dùng nhầm kỳ của tổ chức kia, và nó hỏng ÂM THẦM: mọi thống kê theo
+-- kỳ vẫn ra số, chỉ có phần nối chỉ tiêu với đánh giá là không khớp gì cả — nên cả bốn viễn cảnh BSC
+-- của Demo Education đều rỗng dù 12 chỉ tiêu đã được gán viễn cảnh đầy đủ. Đây cũng là một tham
+-- chiếu XUYÊN tổ chức, đúng thứ mà mọi truy vấn khác trong hệ thống đều tránh.
 INSERT INTO evaluations
     (id, org_unit_id, user_id, kpi_period_id,
      evaluator_id, score, comment, system_score,
      period_start, period_end)
 VALUES
-    ('fa513cad-5e43-4801-acec-befac4727de8', 'a0000000-0000-0000-0000-000000000001', '22222222-0000-0000-0000-000000001001', '33333333-0000-0000-0000-000000000104',
+    ('fa513cad-5e43-4801-acec-befac4727de8', 'a0000000-0000-0000-0000-000000000001', '22222222-0000-0000-0000-000000001001', '33333333-0000-0000-0000-000000000101',
      '22222222-0000-0000-0000-000000001002', 87.5, 'Tốt', 88.0,
      '2026-04-01 00:00:00+07', '2026-04-30 23:59:59+07'),
-    ('9f07a170-3f65-49c3-bebd-945b9a964434', 'a0000000-0000-0000-0000-000000000001', '22222222-0000-0000-0000-000000001001', '33333333-0000-0000-0000-000000000105',
+    ('9f07a170-3f65-49c3-bebd-945b9a964434', 'a0000000-0000-0000-0000-000000000001', '22222222-0000-0000-0000-000000001001', '33333333-0000-0000-0000-000000000102',
      '22222222-0000-0000-0000-000000001002', 90.5, 'Xuất sắc', 91.0,
      '2026-05-01 00:00:00+07', '2026-05-31 23:59:59+07'),
-    ('7351c264-b3ef-436d-8c73-fd84fc6518e7', 'a0000000-0000-0000-0000-000000000001', '22222222-0000-0000-0000-000000001001', '33333333-0000-0000-0000-000000000106',
+    ('7351c264-b3ef-436d-8c73-fd84fc6518e7', 'a0000000-0000-0000-0000-000000000001', '22222222-0000-0000-0000-000000001001', '33333333-0000-0000-0000-000000000103',
      '22222222-0000-0000-0000-000000001002', 93.5, 'Xuất sắc', 94.0,
      '2026-06-01 00:00:00+07', '2026-06-30 23:59:59+07'),
-    ('d30f8510-4b4b-4ba3-b83e-adce9351529b', 'a0000000-0000-0000-0000-000000000001', '22222222-0000-0000-0000-000000001002', '33333333-0000-0000-0000-000000000104',
+    ('d30f8510-4b4b-4ba3-b83e-adce9351529b', 'a0000000-0000-0000-0000-000000000001', '22222222-0000-0000-0000-000000001002', '33333333-0000-0000-0000-000000000101',
      '22222222-0000-0000-0000-000000001001', 83.5, 'Tốt', 84.0,
      '2026-04-01 00:00:00+07', '2026-04-30 23:59:59+07'),
-    ('8c5266d8-4b01-4ad7-9573-70961d160dc8', 'a0000000-0000-0000-0000-000000000001', '22222222-0000-0000-0000-000000001002', '33333333-0000-0000-0000-000000000105',
+    ('8c5266d8-4b01-4ad7-9573-70961d160dc8', 'a0000000-0000-0000-0000-000000000001', '22222222-0000-0000-0000-000000001002', '33333333-0000-0000-0000-000000000102',
      '22222222-0000-0000-0000-000000001001', 87.5, 'Tốt', 88.0,
      '2026-05-01 00:00:00+07', '2026-05-31 23:59:59+07'),
-    ('3e44b9bc-34f7-464a-a98f-36f287be2223', 'a0000000-0000-0000-0000-000000000001', '22222222-0000-0000-0000-000000001002', '33333333-0000-0000-0000-000000000106',
+    ('3e44b9bc-34f7-464a-a98f-36f287be2223', 'a0000000-0000-0000-0000-000000000001', '22222222-0000-0000-0000-000000001002', '33333333-0000-0000-0000-000000000103',
      '22222222-0000-0000-0000-000000001001', 91.5, 'Xuất sắc', 92.0,
      '2026-06-01 00:00:00+07', '2026-06-30 23:59:59+07'),
-    ('a2f42569-851c-4174-bcf0-97a1011e3a51', 'b0000000-0000-0000-0000-000000000001', '22222222-0000-0000-0000-000000001101', '33333333-0000-0000-0000-000000000104',
+    ('a2f42569-851c-4174-bcf0-97a1011e3a51', 'b0000000-0000-0000-0000-000000000001', '22222222-0000-0000-0000-000000001101', '33333333-0000-0000-0000-000000000101',
      '22222222-0000-0000-0000-000000001001', 96.3, 'Xuất sắc', 96.8,
      '2026-04-01 00:00:00+07', '2026-04-30 23:59:59+07'),
-    ('357e60a0-bb48-4880-af54-acfd0115e94b', 'b0000000-0000-0000-0000-000000000001', '22222222-0000-0000-0000-000000001101', '33333333-0000-0000-0000-000000000105',
+    ('357e60a0-bb48-4880-af54-acfd0115e94b', 'b0000000-0000-0000-0000-000000000001', '22222222-0000-0000-0000-000000001101', '33333333-0000-0000-0000-000000000102',
      '22222222-0000-0000-0000-000000001001', 99.5, 'Xuất sắc', 100.0,
      '2026-05-01 00:00:00+07', '2026-05-31 23:59:59+07'),
-    ('2d3dc201-c8ad-425b-b16f-f53c4412bc45', 'b0000000-0000-0000-0000-000000000001', '22222222-0000-0000-0000-000000001101', '33333333-0000-0000-0000-000000000106',
+    ('2d3dc201-c8ad-425b-b16f-f53c4412bc45', 'b0000000-0000-0000-0000-000000000001', '22222222-0000-0000-0000-000000001101', '33333333-0000-0000-0000-000000000103',
      '22222222-0000-0000-0000-000000001001', 99.5, 'Xuất sắc', 100.0,
      '2026-06-01 00:00:00+07', '2026-06-30 23:59:59+07'),
-    ('49af126a-764c-466f-86f2-ff93f4b3fcf5', 'b0000000-0000-0000-0000-000000000001', '22222222-0000-0000-0000-000000001102', '33333333-0000-0000-0000-000000000104',
+    ('49af126a-764c-466f-86f2-ff93f4b3fcf5', 'b0000000-0000-0000-0000-000000000001', '22222222-0000-0000-0000-000000001102', '33333333-0000-0000-0000-000000000101',
      '22222222-0000-0000-0000-000000001001', 89.8, 'Xuất sắc', 90.3,
      '2026-04-01 00:00:00+07', '2026-04-30 23:59:59+07'),
-    ('2245b70c-94f9-470a-a7e4-d7f2df14e031', 'b0000000-0000-0000-0000-000000000001', '22222222-0000-0000-0000-000000001102', '33333333-0000-0000-0000-000000000105',
+    ('2245b70c-94f9-470a-a7e4-d7f2df14e031', 'b0000000-0000-0000-0000-000000000001', '22222222-0000-0000-0000-000000001102', '33333333-0000-0000-0000-000000000102',
      '22222222-0000-0000-0000-000000001001', 95.0, 'Xuất sắc', 95.5,
      '2026-05-01 00:00:00+07', '2026-05-31 23:59:59+07'),
-    ('cd12f917-cbcb-4af2-ac47-4af8eb502168', 'b0000000-0000-0000-0000-000000000001', '22222222-0000-0000-0000-000000001102', '33333333-0000-0000-0000-000000000106',
+    ('cd12f917-cbcb-4af2-ac47-4af8eb502168', 'b0000000-0000-0000-0000-000000000001', '22222222-0000-0000-0000-000000001102', '33333333-0000-0000-0000-000000000103',
      '22222222-0000-0000-0000-000000001001', 99.5, 'Xuất sắc', 100.0,
      '2026-06-01 00:00:00+07', '2026-06-30 23:59:59+07'),
-    ('ab7e22e8-5cb2-41c3-ae42-e5b315c3e9f0', 'b0000000-0000-0000-0000-000000000001', '22222222-0000-0000-0000-000000001103', '33333333-0000-0000-0000-000000000104',
+    ('ab7e22e8-5cb2-41c3-ae42-e5b315c3e9f0', 'b0000000-0000-0000-0000-000000000001', '22222222-0000-0000-0000-000000001103', '33333333-0000-0000-0000-000000000101',
      '22222222-0000-0000-0000-000000001101', 85.3, 'Tốt', 85.8,
      '2026-04-01 00:00:00+07', '2026-04-30 23:59:59+07'),
-    ('5655f5a1-3744-4f33-b12d-5b2031f1f72a', 'b0000000-0000-0000-0000-000000000001', '22222222-0000-0000-0000-000000001103', '33333333-0000-0000-0000-000000000105',
+    ('5655f5a1-3744-4f33-b12d-5b2031f1f72a', 'b0000000-0000-0000-0000-000000000001', '22222222-0000-0000-0000-000000001103', '33333333-0000-0000-0000-000000000102',
      '22222222-0000-0000-0000-000000001101', 92.4, 'Xuất sắc', 92.9,
      '2026-05-01 00:00:00+07', '2026-05-31 23:59:59+07'),
-    ('bd4aa6f6-1c2b-415c-8c65-cc7b565bf2fd', 'b0000000-0000-0000-0000-000000000001', '22222222-0000-0000-0000-000000001103', '33333333-0000-0000-0000-000000000106',
+    ('bd4aa6f6-1c2b-415c-8c65-cc7b565bf2fd', 'b0000000-0000-0000-0000-000000000001', '22222222-0000-0000-0000-000000001103', '33333333-0000-0000-0000-000000000103',
      '22222222-0000-0000-0000-000000001101', 99.5, 'Xuất sắc', 100.0,
      '2026-06-01 00:00:00+07', '2026-06-30 23:59:59+07'),
-    ('57a57da3-f427-4d35-a97a-3552b0f81bee', 'b0000000-0000-0000-0000-000000000001', '22222222-0000-0000-0000-000000001104', '33333333-0000-0000-0000-000000000104',
+    ('57a57da3-f427-4d35-a97a-3552b0f81bee', 'b0000000-0000-0000-0000-000000000001', '22222222-0000-0000-0000-000000001104', '33333333-0000-0000-0000-000000000101',
      '22222222-0000-0000-0000-000000001101', 93.1, 'Xuất sắc', 93.6,
      '2026-04-01 00:00:00+07', '2026-04-30 23:59:59+07'),
-    ('87f46d5e-75be-4101-a5e9-a2d29954af0b', 'b0000000-0000-0000-0000-000000000001', '22222222-0000-0000-0000-000000001104', '33333333-0000-0000-0000-000000000105',
+    ('87f46d5e-75be-4101-a5e9-a2d29954af0b', 'b0000000-0000-0000-0000-000000000001', '22222222-0000-0000-0000-000000001104', '33333333-0000-0000-0000-000000000102',
      '22222222-0000-0000-0000-000000001101', 99.5, 'Xuất sắc', 100.0,
      '2026-05-01 00:00:00+07', '2026-05-31 23:59:59+07'),
-    ('c039106c-ae01-4470-93f2-609c2c509df5', 'b0000000-0000-0000-0000-000000000001', '22222222-0000-0000-0000-000000001104', '33333333-0000-0000-0000-000000000106',
+    ('c039106c-ae01-4470-93f2-609c2c509df5', 'b0000000-0000-0000-0000-000000000001', '22222222-0000-0000-0000-000000001104', '33333333-0000-0000-0000-000000000103',
      '22222222-0000-0000-0000-000000001101', 99.5, 'Xuất sắc', 100.0,
      '2026-06-01 00:00:00+07', '2026-06-30 23:59:59+07'),
-    ('3d1ebaa7-a22f-4c40-9db6-27c791e84b51', 'b0000000-0000-0000-0000-000000000001', '22222222-0000-0000-0000-000000001105', '33333333-0000-0000-0000-000000000104',
+    ('3d1ebaa7-a22f-4c40-9db6-27c791e84b51', 'b0000000-0000-0000-0000-000000000001', '22222222-0000-0000-0000-000000001105', '33333333-0000-0000-0000-000000000101',
      '22222222-0000-0000-0000-000000001101', 75.7, 'Khá', 76.2,
      '2026-04-01 00:00:00+07', '2026-04-30 23:59:59+07'),
-    ('f4d765ab-fb4f-4053-b3a0-76f9339350c1', 'b0000000-0000-0000-0000-000000000001', '22222222-0000-0000-0000-000000001105', '33333333-0000-0000-0000-000000000105',
+    ('f4d765ab-fb4f-4053-b3a0-76f9339350c1', 'b0000000-0000-0000-0000-000000000001', '22222222-0000-0000-0000-000000001105', '33333333-0000-0000-0000-000000000102',
      '22222222-0000-0000-0000-000000001101', 85.3, 'Tốt', 85.8,
      '2026-05-01 00:00:00+07', '2026-05-31 23:59:59+07'),
-    ('d713f0bd-162d-4870-ae22-a0e7c7c7ac25', 'b0000000-0000-0000-0000-000000000001', '22222222-0000-0000-0000-000000001105', '33333333-0000-0000-0000-000000000106',
+    ('d713f0bd-162d-4870-ae22-a0e7c7c7ac25', 'b0000000-0000-0000-0000-000000000001', '22222222-0000-0000-0000-000000001105', '33333333-0000-0000-0000-000000000103',
      '22222222-0000-0000-0000-000000001101', 94.4, 'Xuất sắc', 94.9,
      '2026-06-01 00:00:00+07', '2026-06-30 23:59:59+07'),
-    ('60970afa-f5d8-4cc0-be3f-0e2b3ea3b020', 'b0000000-0000-0000-0000-000000000002', '22222222-0000-0000-0000-000000001201', '33333333-0000-0000-0000-000000000104',
+    ('60970afa-f5d8-4cc0-be3f-0e2b3ea3b020', 'b0000000-0000-0000-0000-000000000002', '22222222-0000-0000-0000-000000001201', '33333333-0000-0000-0000-000000000101',
      '22222222-0000-0000-0000-000000001001', 99.5, 'Xuất sắc', 100.0,
      '2026-04-01 00:00:00+07', '2026-04-30 23:59:59+07'),
-    ('9aa3ff96-d44f-4c21-a124-f10f3225e23e', 'b0000000-0000-0000-0000-000000000002', '22222222-0000-0000-0000-000000001201', '33333333-0000-0000-0000-000000000105',
+    ('9aa3ff96-d44f-4c21-a124-f10f3225e23e', 'b0000000-0000-0000-0000-000000000002', '22222222-0000-0000-0000-000000001201', '33333333-0000-0000-0000-000000000102',
      '22222222-0000-0000-0000-000000001001', 99.5, 'Xuất sắc', 100.0,
      '2026-05-01 00:00:00+07', '2026-05-31 23:59:59+07'),
-    ('7b9c0aeb-3c2b-46a9-abe9-c83b928c5af3', 'b0000000-0000-0000-0000-000000000002', '22222222-0000-0000-0000-000000001201', '33333333-0000-0000-0000-000000000106',
+    ('7b9c0aeb-3c2b-46a9-abe9-c83b928c5af3', 'b0000000-0000-0000-0000-000000000002', '22222222-0000-0000-0000-000000001201', '33333333-0000-0000-0000-000000000103',
      '22222222-0000-0000-0000-000000001001', 99.5, 'Xuất sắc', 100.0,
      '2026-06-01 00:00:00+07', '2026-06-30 23:59:59+07'),
-    ('3ba5010d-50ef-4d1f-aa24-4cf07a2e16fc', 'b0000000-0000-0000-0000-000000000002', '22222222-0000-0000-0000-000000001202', '33333333-0000-0000-0000-000000000104',
+    ('3ba5010d-50ef-4d1f-aa24-4cf07a2e16fc', 'b0000000-0000-0000-0000-000000000002', '22222222-0000-0000-0000-000000001202', '33333333-0000-0000-0000-000000000101',
      '22222222-0000-0000-0000-000000001001', 92.4, 'Xuất sắc', 92.9,
      '2026-04-01 00:00:00+07', '2026-04-30 23:59:59+07'),
-    ('b95d4baf-9c73-4496-8a84-b5f17b80f806', 'b0000000-0000-0000-0000-000000000002', '22222222-0000-0000-0000-000000001202', '33333333-0000-0000-0000-000000000105',
+    ('b95d4baf-9c73-4496-8a84-b5f17b80f806', 'b0000000-0000-0000-0000-000000000002', '22222222-0000-0000-0000-000000001202', '33333333-0000-0000-0000-000000000102',
      '22222222-0000-0000-0000-000000001001', 98.2, 'Xuất sắc', 98.7,
      '2026-05-01 00:00:00+07', '2026-05-31 23:59:59+07'),
-    ('4ef1c5c3-b458-49b6-8913-2da425c44113', 'b0000000-0000-0000-0000-000000000002', '22222222-0000-0000-0000-000000001202', '33333333-0000-0000-0000-000000000106',
+    ('4ef1c5c3-b458-49b6-8913-2da425c44113', 'b0000000-0000-0000-0000-000000000002', '22222222-0000-0000-0000-000000001202', '33333333-0000-0000-0000-000000000103',
      '22222222-0000-0000-0000-000000001001', 99.5, 'Xuất sắc', 100.0,
      '2026-06-01 00:00:00+07', '2026-06-30 23:59:59+07'),
-    ('50148f0a-d87e-4a9d-a403-7014a39912d2', 'b0000000-0000-0000-0000-000000000002', '22222222-0000-0000-0000-000000001203', '33333333-0000-0000-0000-000000000104',
+    ('50148f0a-d87e-4a9d-a403-7014a39912d2', 'b0000000-0000-0000-0000-000000000002', '22222222-0000-0000-0000-000000001203', '33333333-0000-0000-0000-000000000101',
      '22222222-0000-0000-0000-000000001201', 81.4, 'Tốt', 81.9,
      '2026-04-01 00:00:00+07', '2026-04-30 23:59:59+07'),
-    ('e1631540-f7bb-4b90-8951-8279e1ca017f', 'b0000000-0000-0000-0000-000000000002', '22222222-0000-0000-0000-000000001203', '33333333-0000-0000-0000-000000000105',
+    ('e1631540-f7bb-4b90-8951-8279e1ca017f', 'b0000000-0000-0000-0000-000000000002', '22222222-0000-0000-0000-000000001203', '33333333-0000-0000-0000-000000000102',
      '22222222-0000-0000-0000-000000001201', 89.2, 'Tốt', 89.7,
      '2026-05-01 00:00:00+07', '2026-05-31 23:59:59+07'),
-    ('71b5e43c-8320-42ad-9cdf-59e1fe492f39', 'b0000000-0000-0000-0000-000000000002', '22222222-0000-0000-0000-000000001203', '33333333-0000-0000-0000-000000000106',
+    ('71b5e43c-8320-42ad-9cdf-59e1fe492f39', 'b0000000-0000-0000-0000-000000000002', '22222222-0000-0000-0000-000000001203', '33333333-0000-0000-0000-000000000103',
      '22222222-0000-0000-0000-000000001201', 97.0, 'Xuất sắc', 97.5,
      '2026-06-01 00:00:00+07', '2026-06-30 23:59:59+07'),
-    ('94a0d888-8c12-4de2-b960-cd0614e170ab', 'b0000000-0000-0000-0000-000000000002', '22222222-0000-0000-0000-000000001204', '33333333-0000-0000-0000-000000000104',
+    ('94a0d888-8c12-4de2-b960-cd0614e170ab', 'b0000000-0000-0000-0000-000000000002', '22222222-0000-0000-0000-000000001204', '33333333-0000-0000-0000-000000000101',
      '22222222-0000-0000-0000-000000001201', 96.3, 'Xuất sắc', 96.8,
      '2026-04-01 00:00:00+07', '2026-04-30 23:59:59+07'),
-    ('414e6cc8-992c-433a-ae27-5e3f3365d71f', 'b0000000-0000-0000-0000-000000000002', '22222222-0000-0000-0000-000000001204', '33333333-0000-0000-0000-000000000105',
+    ('414e6cc8-992c-433a-ae27-5e3f3365d71f', 'b0000000-0000-0000-0000-000000000002', '22222222-0000-0000-0000-000000001204', '33333333-0000-0000-0000-000000000102',
      '22222222-0000-0000-0000-000000001201', 99.5, 'Xuất sắc', 100.0,
      '2026-05-01 00:00:00+07', '2026-05-31 23:59:59+07'),
-    ('c7212086-1a05-46bf-8c06-6b69c5668b4f', 'b0000000-0000-0000-0000-000000000002', '22222222-0000-0000-0000-000000001204', '33333333-0000-0000-0000-000000000106',
+    ('c7212086-1a05-46bf-8c06-6b69c5668b4f', 'b0000000-0000-0000-0000-000000000002', '22222222-0000-0000-0000-000000001204', '33333333-0000-0000-0000-000000000103',
      '22222222-0000-0000-0000-000000001201', 99.5, 'Xuất sắc', 100.0,
      '2026-06-01 00:00:00+07', '2026-06-30 23:59:59+07'),
-    ('2943d893-ce94-437d-ad96-e533b025f1e1', 'b0000000-0000-0000-0000-000000000002', '22222222-0000-0000-0000-000000001205', '33333333-0000-0000-0000-000000000104',
+    ('2943d893-ce94-437d-ad96-e533b025f1e1', 'b0000000-0000-0000-0000-000000000002', '22222222-0000-0000-0000-000000001205', '33333333-0000-0000-0000-000000000101',
      '22222222-0000-0000-0000-000000001201', 72.4, 'Khá', 72.9,
      '2026-04-01 00:00:00+07', '2026-04-30 23:59:59+07'),
-    ('197b9a96-8bc0-4be9-ab8d-d0cbb90cb5a7', 'b0000000-0000-0000-0000-000000000002', '22222222-0000-0000-0000-000000001205', '33333333-0000-0000-0000-000000000105',
+    ('197b9a96-8bc0-4be9-ab8d-d0cbb90cb5a7', 'b0000000-0000-0000-0000-000000000002', '22222222-0000-0000-0000-000000001205', '33333333-0000-0000-0000-000000000102',
      '22222222-0000-0000-0000-000000001201', 81.4, 'Tốt', 81.9,
      '2026-05-01 00:00:00+07', '2026-05-31 23:59:59+07'),
-    ('10fdcc2d-b772-4894-bbf4-91616d16c900', 'b0000000-0000-0000-0000-000000000002', '22222222-0000-0000-0000-000000001205', '33333333-0000-0000-0000-000000000106',
+    ('10fdcc2d-b772-4894-bbf4-91616d16c900', 'b0000000-0000-0000-0000-000000000002', '22222222-0000-0000-0000-000000001205', '33333333-0000-0000-0000-000000000103',
      '22222222-0000-0000-0000-000000001201', 91.8, 'Xuất sắc', 92.3,
      '2026-06-01 00:00:00+07', '2026-06-30 23:59:59+07');
 
@@ -2506,3 +2512,229 @@ INSERT INTO ai_token_quotas (user_id, monthly_limit, allocated_by)
 SELECT DISTINCT uro.user_id, 1000000, NULL::uuid
 FROM user_role_org_units uro
 ON CONFLICT (user_id) DO NOTHING;
+
+-- ═══════════════════════════════════════════════════════════════════════════
+-- 18. THẺ ĐIỂM CÂN BẰNG (BSC)
+--
+-- Vì sao phần này cần có: bốn bảng BSC trước đây RỖNG hoàn toàn, nên mọi thống kê viễn cảnh — tab
+-- "Viễn cảnh" trên giao diện và tool `get_bsc` của trợ lý — đều trả về danh sách trống. Không phải
+-- lỗi, chỉ là chưa có dữ liệu, nhưng người dựng môi trường mới không phân biệt được hai thứ đó.
+--
+-- Nguyên tắc của cả khối: SINH TỪ dữ liệu đã có, không bịa số rời rạc. Điểm từng viễn cảnh phái
+-- sinh từ `evaluations.system_score` (đã có đủ ở mọi đánh giá) cộng một độ lệch TẤT ĐỊNH theo viễn
+-- cảnh và theo người. Viết tay vài trăm con số rời sẽ cho ra dữ liệu mâu thuẫn với điểm tổng, và
+-- mọi câu hỏi đối chiếu sẽ ra kết quả vô lý.
+--
+-- Mọi câu lệnh ở đây CHẠY LẠI ĐƯỢC: file này đã áp dụng cho các cơ sở dữ liệu đang chạy, nên cùng
+-- đoạn mã còn phải chạy tay được trên chúng mà không nhân đôi dữ liệu.
+-- ═══════════════════════════════════════════════════════════════════════════
+
+-- 18.1 Nhãn bốn viễn cảnh cố định cho từng tổ chức.
+-- Bảng này cho phép mỗi công ty tự đặt lại tên/màu bốn viễn cảnh gốc. Thiếu nó thì
+-- BscScoringService phải lùi về nhãn mặc định của enum.
+INSERT INTO bsc_fixed_perspectives (organization_id, code, name, color, display_order)
+SELECT o.id, v.code, v.name, v.color, v.ord
+FROM organizations o
+CROSS JOIN (VALUES
+    ('FINANCIAL',        'Tài chính',            '#2563eb', 1),
+    ('CUSTOMER',         'Khách hàng',           '#f59e0b', 2),
+    ('INTERNAL_PROCESS', 'Quy trình nội bộ',     '#10b981', 3),
+    ('LEARNING_GROWTH',  'Học hỏi & phát triển', '#8b5cf6', 4)
+) AS v(code, name, color, ord)
+ON CONFLICT (organization_id, code) DO NOTHING;
+
+-- 18.2 Hạng mục viễn cảnh — thứ mà KPI và mục tiêu thực sự trỏ vào.
+-- Mỗi tổ chức một hạng mục cho mỗi viễn cảnh cố định. Đây là cấu hình tối giản: công ty thật có thể
+-- tách "Tài chính" thành nhiều hạng mục con, nhưng dữ liệu mẫu không nên dựng sẵn thứ phức tạp hơn
+-- mức cần để thống kê chạy được.
+INSERT INTO bsc_perspectives
+    (organization_id, code, fixed_perspective, name, description, color, icon, display_order, status)
+SELECT o.id, v.code, v.code, v.name, v.descr, v.color, v.icon, v.ord, 'ACTIVE'
+FROM organizations o
+CROSS JOIN (VALUES
+    ('FINANCIAL',        'Tài chính',            'Doanh thu, chi phí và hiệu quả sử dụng nguồn lực',    '#2563eb', 'trending-up',    1),
+    ('CUSTOMER',         'Khách hàng',           'Giá trị và trải nghiệm mang lại cho khách hàng',      '#f59e0b', 'users',          2),
+    ('INTERNAL_PROCESS', 'Quy trình nội bộ',     'Năng suất, chất lượng và tiến độ của quy trình',      '#10b981', 'settings',       3),
+    ('LEARNING_GROWTH',  'Học hỏi & phát triển', 'Năng lực con người và khả năng cải tiến của tổ chức', '#8b5cf6', 'graduation-cap', 4)
+) AS v(code, name, descr, color, icon, ord)
+WHERE NOT EXISTS (
+    SELECT 1 FROM bsc_perspectives p
+    WHERE p.organization_id = o.id AND p.code = v.code AND p.deleted_at IS NULL);
+
+-- 18.3 Thẻ điểm: một thẻ cho mỗi (tổ chức, kỳ).
+-- KHÔNG có thẻ điểm thì BscScoringService.computeUserScore trả null ngay từ dòng đầu, nên chấm lại
+-- điểm sẽ không sinh ra gì và chế độ chấm hiện ra là rỗng. Danh sách bsc_scorecard_org_units để
+-- TRỐNG = thẻ mặc định của toàn tổ chức.
+--
+-- SHADOW là mặc định đúng cho dữ liệu mẫu: điểm BSC được tính và lưu để xem, nhưng KHÔNG thay điểm
+-- chính thức của nhân viên.
+INSERT INTO bsc_scorecards
+    (organization_id, kpi_period_id, name, vision, status, scoring_mode, empty_perspective_policy)
+SELECT p.organization_id, p.id,
+       'Thẻ điểm cân bằng — ' || p.name,
+       'Cân bằng bốn viễn cảnh: tài chính, khách hàng, quy trình nội bộ, học hỏi và phát triển.',
+       'ACTIVE', 'SHADOW', 'RENORMALIZE'
+FROM kpi_periods p
+WHERE NOT EXISTS (
+    SELECT 1 FROM bsc_scorecards s
+    WHERE s.organization_id = p.organization_id AND s.kpi_period_id = p.id AND s.deleted_at IS NULL);
+
+-- 18.4 Trọng số bốn viễn cảnh trong mỗi thẻ điểm. Tổng PHẢI bằng 100 — BscScoringService chia cho
+-- tổng trọng số của các viễn cảnh CÓ dữ liệu (chính sách RENORMALIZE), nên tổng lệch 100 làm điểm
+-- BSC lệch theo.
+INSERT INTO bsc_scorecard_perspectives (scorecard_id, perspective_id, weight_percentage, display_order)
+SELECT s.id, p.id, w.weight, p.display_order
+FROM bsc_scorecards s
+JOIN bsc_perspectives p ON p.organization_id = s.organization_id AND p.deleted_at IS NULL
+JOIN (VALUES
+    ('FINANCIAL', 30.0), ('CUSTOMER', 25.0), ('INTERNAL_PROCESS', 30.0), ('LEARNING_GROWTH', 15.0)
+) AS w(code, weight) ON w.code = p.code
+WHERE s.deleted_at IS NULL
+ON CONFLICT (scorecard_id, perspective_id) DO NOTHING;
+
+-- 18.5 Gắn từng chỉ tiêu KPI vào một viễn cảnh.
+--
+-- Đây là thứ quyết định con số "% KPI đã gán viễn cảnh" mà BscAnalyticsService.computeCoverage báo
+-- ra. Bỏ trống thì thống kê vẫn chạy nhưng báo 0% và trông như hệ thống hỏng.
+--
+-- Ánh xạ theo TÊN chỉ tiêu, và cố ý giữ đúng nghĩa BSC thay vì rải đều cho bảng nào cũng có số.
+--
+-- Kết quả thật của bộ dữ liệu này, nói trước để đừng ai tưởng là lỗi:
+--   Quy trình nội bộ  21 chỉ tiêu   (đội phát triển: task, bug, API, màn hình, asset)
+--   Khách hàng        18            (truyền thông + điểm môn học)
+--   Học hỏi & phát triển  9         (code review, điểm rèn luyện)
+--   Tài chính          0            <- RỖNG, xem dưới
+--
+-- Tài chính rỗng vì dữ liệu mẫu KHÔNG có chỉ tiêu tài chính nào: hai tổ chức mẫu là một đội phát
+-- triển phần mềm và một khoa của trường, và không đơn vị nào trong đó được giao chỉ tiêu doanh thu
+-- hay chi phí. Đó là đặc điểm của dữ liệu, không phải khuyết điểm của phần gán này — và chính
+-- `evaluation_perspective_scores` đã khai NULL nghĩa là "không có chỉ tiêu trong viễn cảnh", khác
+-- hẳn "đạt 0 điểm", nên tab "Viễn cảnh" và tool `get_bsc` báo đúng là còn trống.
+--
+-- Muốn radar đủ bốn trục thì phải THÊM chỉ tiêu tài chính thật cho một đơn vị có người và có kỳ
+-- đánh giá — hai đơn vị `Chi nhánh Hà Nội` và `Khoa Công nghệ thông tin` hiện chưa có chỉ tiêu nào
+-- nên là chỗ đặt sạch nhất (trọng số của chúng bắt đầu từ 0, không phá tổng 100 của đơn vị khác).
+-- Nhồi chỉ tiêu năng suất vào Tài chính cho đẹp biểu đồ thì làm sai lệch đúng cái mà công cụ này
+-- dùng để đo.
+UPDATE kpi_criteria k
+SET perspective_id = p.id
+-- Liệt kê phẳng rồi nối trong WHERE, KHÔNG dùng JOIN ... ON: điều kiện của JOIN trong mệnh đề FROM
+-- của UPDATE không nhìn thấy được bảng đích (k), PostgreSQL từ chối thẳng.
+FROM org_units ou, org_hierarchy_levels l, bsc_perspectives p,
+     (VALUES
+    ('Lượt tương tác',                'CUSTOMER'),
+    ('Số bài đăng',                   'CUSTOMER'),
+    ('Số bài viết',                   'CUSTOMER'),
+    ('Điểm Lighthouse',               'CUSTOMER'),
+    ('Điểm trung bình môn học',       'CUSTOMER'),
+    ('API hoàn thành',                'INTERNAL_PROCESS'),
+    ('Số màn hình hoàn thành',        'INTERNAL_PROCESS'),
+    ('Số task hoàn thành',            'INTERNAL_PROCESS'),
+    ('Tỉ lệ bug',                     'INTERNAL_PROCESS'),
+    ('Tỉ lệ bài đúng hạn',            'INTERNAL_PROCESS'),
+    ('Tỉ lệ revise ≤ 2 lần',          'INTERNAL_PROCESS'),
+    ('Số asset thiết kế',             'INTERNAL_PROCESS'),
+    ('Code review',                   'LEARNING_GROWTH'),
+    ('Điểm rèn luyện',                'LEARNING_GROWTH')
+     ) AS m(nm, code)
+WHERE ou.id = k.org_unit_id
+  AND l.id = ou.org_hierarchy_id
+  AND p.organization_id = l.organization_id
+  AND p.deleted_at IS NULL
+  AND m.nm = k.name
+  AND m.code = p.code
+  AND k.deleted_at IS NULL
+  AND k.perspective_id IS NULL;
+
+-- 18.6 Gắn mục tiêu OKR vào viễn cảnh.
+-- BscPerspectiveResolver cho KPI thừa hưởng viễn cảnh của mục tiêu cha, nên phần này vừa làm biểu
+-- đồ chiến lược có dữ liệu, vừa nâng độ phủ của những KPI treo dưới một kết quả then chốt.
+UPDATE objectives o
+SET perspective_id = p.id
+FROM bsc_perspectives p
+WHERE p.organization_id = o.organization_id
+  AND p.deleted_at IS NULL
+  AND o.deleted_at IS NULL
+  AND o.perspective_id IS NULL
+  AND p.code = CASE
+        WHEN o.name ILIKE '%doanh thu%' OR o.name ILIKE '%chi phí%' OR o.name ILIKE '%lợi nhuận%'
+            THEN 'FINANCIAL'
+        WHEN o.name ILIKE '%khách hàng%' OR o.name ILIKE '%hài lòng%' OR o.name ILIKE '%thương hiệu%'
+             OR o.name ILIKE '%học sinh%' OR o.name ILIKE '%người học%'
+            THEN 'CUSTOMER'
+        WHEN o.name ILIKE '%đào tạo%' OR o.name ILIKE '%năng lực%' OR o.name ILIKE '%nhân sự%'
+             OR o.name ILIKE '%văn hoá%' OR o.name ILIKE '%văn hóa%'
+            THEN 'LEARNING_GROWTH'
+        ELSE 'INTERNAL_PROCESS'
+      END;
+
+-- 18.7 Điểm từng viễn cảnh của từng đánh giá — bảng mà thống kê BSC thực sự đọc.
+--
+-- `kpi_count` đếm SỐ THẬT: số chỉ tiêu người đó được giao trong kỳ đó thuộc viễn cảnh đó. Nhờ vậy
+-- "viễn cảnh rỗng" là rỗng thật chứ không phải do bịa.
+--
+-- `raw_score` để NULL khi kpi_count = 0, đúng như chú thích của bảng trong V1: NULL nghĩa là người
+-- đó không có chỉ tiêu nào trong viễn cảnh, KHÁC hẳn "đạt 0 điểm". Ghi 0 vào đó là kéo điểm BSC của
+-- họ xuống vì một việc họ không được giao.
+--
+-- Độ lệch theo viễn cảnh cộng một chút xê dịch theo người, tất cả TẤT ĐỊNH (băm từ id) chứ không
+-- dùng random(): chạy lại file này phải ra đúng cùng bộ số, nếu không thì ảnh chụp màn hình và tài
+-- liệu hướng dẫn sẽ lệch với dữ liệu.
+INSERT INTO evaluation_perspective_scores
+    (evaluation_id, perspective_id, weight_percentage, raw_score, weighted_score, kpi_count)
+SELECT e.id,
+       p.id,
+       w.weight,
+       calc.raw,
+       CASE WHEN calc.raw IS NULL THEN NULL
+            ELSE round((w.weight / 100.0 * calc.raw)::numeric, 2) END,
+       calc.kpi_count
+FROM evaluations e
+JOIN org_units ou ON ou.id = e.org_unit_id
+JOIN org_hierarchy_levels l ON l.id = ou.org_hierarchy_id
+JOIN bsc_perspectives p ON p.organization_id = l.organization_id AND p.deleted_at IS NULL
+JOIN (VALUES
+    ('FINANCIAL', 30.0, 5), ('CUSTOMER', 25.0, -3),
+    ('INTERNAL_PROCESS', 30.0, 2), ('LEARNING_GROWTH', 15.0, -6)
+) AS w(code, weight, offset_pt) ON w.code = p.code
+CROSS JOIN LATERAL (
+    SELECT n.cnt AS kpi_count,
+           CASE WHEN n.cnt = 0 OR e.system_score IS NULL THEN NULL
+                -- Kẹp vào 0..150, đúng khoảng mà V1 khai cho cột này. KHÔNG đặt sàn cao hơn 0:
+                -- dữ liệu mẫu có người điểm hệ thống 0 và 33, một cái sàn 45 sẽ NÂNG họ lên thành
+                -- điểm khá — tức bịa ra kết quả tốt hơn sự thật ở đúng chỗ dễ bị tin nhất.
+                ELSE round(least(150.0, greatest(0.0,
+                        e.system_score + w.offset_pt
+                        -- Xê dịch -3..+3, băm từ (người, viễn cảnh) nên cùng một người vẫn giữ
+                        -- hình dạng radar giống nhau qua các kỳ.
+                        + (abs(('x' || substr(md5(e.user_id::text || p.code), 1, 8))::bit(32)::int) % 7) - 3
+                     ))::numeric, 1)
+           END AS raw
+    FROM (SELECT count(*) AS cnt
+          FROM kpi_criteria_assignees a
+          JOIN kpi_criteria k ON k.id = a.kpi_criteria_id
+          WHERE a.user_id = e.user_id
+            AND k.kpi_period_id = e.kpi_period_id
+            AND k.perspective_id = p.id
+            AND k.deleted_at IS NULL) n
+) AS calc
+WHERE e.deleted_at IS NULL
+ON CONFLICT (evaluation_id, perspective_id) DO NOTHING;
+
+-- 18.8 Điểm BSC tổng của mỗi đánh giá, tính LẠI từ chính các dòng vừa sinh.
+--
+-- Công thức khớp đúng BscScoringService với chính sách RENORMALIZE: chia cho tổng trọng số của các
+-- viễn cảnh CÓ điểm, không phải cho 100. Lệch công thức ở đây thì lần chấm điểm lại đầu tiên sẽ đổi
+-- hết số, và bản demo trông như vừa hỏng.
+UPDATE evaluations e
+SET bsc_score = agg.bsc
+FROM (
+    SELECT eps.evaluation_id,
+           round((SUM(eps.weight_percentage * eps.raw_score)
+                  / NULLIF(SUM(eps.weight_percentage), 0))::numeric, 1) AS bsc
+    FROM evaluation_perspective_scores eps
+    WHERE eps.raw_score IS NOT NULL
+    GROUP BY eps.evaluation_id
+) AS agg
+WHERE agg.evaluation_id = e.id
+  AND e.bsc_score IS NULL;
