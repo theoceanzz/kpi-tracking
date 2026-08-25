@@ -3,6 +3,7 @@ package com.kpitracking.tool;
 import com.kpitracking.service.ai.action.PendingAction;
 import com.kpitracking.service.ai.action.PendingActionExecutor;
 import com.kpitracking.service.ai.action.PendingActionStore;
+import com.kpitracking.service.ai.agent.AgentState;
 import com.kpitracking.tool.OrgUnitStatisticToolRequests.ConfirmActionRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -69,6 +70,12 @@ public class ConfirmActionTool {
             }
 
             PendingActionExecutor.Outcome outcome = executor.execute(action);
+
+            // Báo cho client biết lời mời NÀO vừa chạy, để nó tắt cái thẻ xác nhận cũ vẫn đang
+            // nằm trên màn hình. Thiếu tín hiệu này thì người dùng xác nhận bằng chat xong vẫn
+            // thấy nút, bấm vào lại nhận "không còn hiệu lực" — đúng nhưng nhìn như hỏng.
+            AgentState state = AgentState.from(context);
+            if (state != null) state.setConsumedActionId(action.id());
             log.info("Xác nhận bằng chat: {} — {} xong, {} hỏng",
                     action.kind(), outcome.succeeded().size(), outcome.failed().size());
 

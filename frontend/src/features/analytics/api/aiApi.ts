@@ -110,6 +110,11 @@ export interface AiChatResponse {
    * Vắng ở mọi lượt bình thường.
    */
   pendingAction?: PendingAction
+  /**
+   * Id của lời mời vừa được chạy XONG ở lượt này — người dùng xác nhận bằng cách nhắn "xác nhận"
+   * thay vì bấm nút. Client dùng nó để tắt thẻ xác nhận cũ còn nằm trên màn hình.
+   */
+  consumedActionId?: string
 }
 
 export interface ConversationResponse {

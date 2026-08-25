@@ -71,6 +71,7 @@ public class AiTurnPipeline {
             if (state != null) {
                 turn.setFormPatch(state.getFormPatch());
                 turn.setPendingAction(state.getPendingAction());
+                turn.setConsumedActionId(state.getConsumedActionId());
                 turn.setEvidenceRequested(state.isEvidenceRequested());
                 turn.setFilesAttached(state.isFilesAttached());
             }

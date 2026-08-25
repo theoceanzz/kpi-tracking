@@ -149,6 +149,7 @@ public class AiController {
         boolean filesAttached;
         FollowupResponse followups;
         com.kpitracking.service.ai.action.PendingAction pendingAction;
+        String consumedActionId;
         AiTokenUsageRecorder.setFeature(AiTokenUsage.AiFeature.CHAT);
         try {
             AiTurn turn = new AiTurn(request.getMessage(), request.getConversationId(), request.getFocusUnitId());
@@ -166,6 +167,7 @@ public class AiController {
             filesAttached = turn.isFilesAttached();
             followups = turn.getFollowups();
             pendingAction = turn.getPendingAction();
+            consumedActionId = turn.getConsumedActionId();
         } finally {
             AiTokenUsageRecorder.clearFeature();
         }
@@ -188,6 +190,7 @@ public class AiController {
                 .attachFiles(filesAttached ? Boolean.TRUE : null)
                 .followups(followups)
                 .pendingAction(com.kpitracking.dto.response.ai.PendingActionResponse.from(pendingAction))
+                .consumedActionId(consumedActionId)
                 .build();
     }
 

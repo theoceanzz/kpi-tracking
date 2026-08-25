@@ -94,6 +94,16 @@ public class AgentState {
     @Setter
     private com.kpitracking.service.ai.action.PendingAction pendingAction;
 
+    /**
+     * Id của lời mời vừa được CHẠY trong lượt này (xác nhận bằng chat).
+     *
+     * <p>Client cần biết để tắt cái thẻ xác nhận cũ vẫn còn nằm trên màn hình. Không có tín hiệu
+     * này thì người dùng xác nhận bằng chat xong vẫn thấy nút, bấm vào lại nhận "lời mời không còn
+     * hiệu lực" — đúng về mặt an toàn nhưng nhìn như hỏng.
+     */
+    @Setter
+    private String consumedActionId;
+
     /** Model có xin mở vùng thả minh chứng không — thay ThreadLocal của {@code EvidenceRequestTool}. */
     @Setter
     private boolean evidenceRequested;

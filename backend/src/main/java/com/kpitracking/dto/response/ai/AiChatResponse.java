@@ -66,6 +66,12 @@ public class AiChatResponse {
      */
     private PendingActionResponse pendingAction;
 
+    /**
+     * Id của lời mời vừa được chạy XONG trong lượt này (người dùng xác nhận bằng chat thay vì bấm
+     * nút). Client dùng để tắt thẻ xác nhận cũ còn nằm trên màn hình.
+     */
+    private String consumedActionId;
+
     @Data
     @Builder
     @NoArgsConstructor

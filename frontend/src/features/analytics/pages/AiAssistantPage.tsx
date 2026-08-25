@@ -68,6 +68,11 @@ export default function AiAssistantPage() {
   const [input, setInput] = useState('')
   // Tệp KHÔNG còn nằm ở đây: nó đi thẳng vào form qua fileSink ngay lúc kẹp. Xem formAssistStore.
   const [messages, setMessages] = useState<Message[]>([WELCOME_MSG])
+  /**
+   * Id các lời mời đã được chạy bằng cách NHẮN "xác nhận" thay vì bấm nút. Thẻ tương ứng phải tự
+   * khoá lại — không có tập này thì người dùng vẫn thấy nút, bấm vào lại nhận "không còn hiệu lực".
+   */
+  const [consumedActionIds, setConsumedActionIds] = useState<Set<string>>(new Set())
   const [isLoading, setIsLoading] = useState(false)
   const [conversationId, setConversationId] = useState<string | null>(null)
 
@@ -284,8 +289,15 @@ export default function AiAssistantPage() {
           followups: response.followups,
           evidenceRequest: response.evidenceRequest,
           pendingAction: response.pendingAction,
+
         },
       ])
+
+      // Lượt này người dùng xác nhận bằng tin nhắn -> tắt thẻ xác nhận cũ ở phía trên.
+      if (response.consumedActionId) {
+        const doneId = response.consumedActionId
+        setConsumedActionIds(prev => new Set(prev).add(doneId))
+      }
 
       turnRef.current += 1
     } catch (error: any) {
@@ -649,6 +661,7 @@ export default function AiAssistantPage() {
                         {msg.role === 'assistant' && msg.pendingAction && (
                           <PendingActionCard
                             action={msg.pendingAction}
+                    consumed={consumedActionIds.has(msg.pendingAction.id)}
                             onDone={text =>
                               setMessages(prev => [
                                 ...prev,

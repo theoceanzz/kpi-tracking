@@ -7,6 +7,11 @@ interface Props {
   action: PendingAction
   /** Báo lại kết quả để khung chat chèn thành một lời của trợ lý. */
   onDone?: (text: string) => void
+  /**
+   * Lời mời này đã được chạy ở NƠI KHÁC — người dùng nhắn "xác nhận" vào khung chat thay vì bấm
+   * nút. Thẻ tự khoá lại thay vì mời bấm một cái nút chắc chắn sẽ trả về "không còn hiệu lực".
+   */
+  consumed?: boolean
 }
 
 /** Nhãn tiếng Việt của từng loại việc, dùng cho câu cảnh báo. */
@@ -32,7 +37,7 @@ const KIND_LABEL: Record<PendingAction['kind'], string> = {
  * <p>Bấm một lần là xong: backend tiêu mất lời mời sau lần xác nhận đầu, nên thẻ tự khoá lại thay
  * vì để người dùng bấm lần hai rồi nhận câu "không còn hiệu lực".
  */
-export default function PendingActionCard({ action, onDone }: Props) {
+export default function PendingActionCard({ action, onDone, consumed }: Props) {
   const [skipped, setSkipped] = useState<Set<string>>(new Set())
   const [busy, setBusy] = useState(false)
   const [result, setResult] = useState<string | null>(null)
@@ -74,6 +79,18 @@ export default function PendingActionCard({ action, onDone }: Props) {
     } finally {
       setBusy(false)
     }
+  }
+
+  // Đã chạy ở lượt sau bằng cách nhắn "xác nhận": nói rõ là xong rồi, và KHÔNG còn nút để bấm.
+  if (consumed && !result) {
+    return (
+      <div className="mt-2 w-full rounded-lg border border-gray-200 bg-gray-50/70 p-3 text-sm dark:border-gray-700 dark:bg-gray-900/40">
+        <div className="flex items-start gap-1.5 text-gray-600 dark:text-gray-400">
+          <Check className="mt-0.5 h-4 w-4 shrink-0" />
+          <span>Đã xác nhận qua tin nhắn — xem kết quả ở câu trả lời bên dưới.</span>
+        </div>
+      </div>
+    )
   }
 
   if (result) {

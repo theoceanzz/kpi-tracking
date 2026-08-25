@@ -81,6 +81,8 @@ public class AiTurn {
      * sang đây ở khối {@code finally}, cùng lý do với {@link #formPatch}.
      */
     private com.kpitracking.service.ai.action.PendingAction pendingAction;
+    /** Lời mời vừa được chạy trong lượt này — để client tắt thẻ xác nhận cũ. */
+    private String consumedActionId;
     /**
      * Tên đơn vị của thẻ Insight người dùng bấm, nếu có. {@code TurnSetupStage} gắn khi nó đã nạp
      * đơn vị để kiểm {@code focusUnitId} — không tốn thêm truy vấn nào.
