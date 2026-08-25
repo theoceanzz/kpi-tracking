@@ -15,8 +15,12 @@ import java.util.List;
 /**
  * Chặn câu trả lời đưa ra số liệu mà lượt đó KHÔNG lấy được dữ liệu nào từ tool.
  *
- * <p>Đứng trước {@code PlanningStage} nên nó bọc toàn bộ phần còn lại: gọi {@code next}, nhận câu
- * trả lời, rồi mới soi. Đây chính là dạng "chạy sau" mà khung được thiết kế để chèn.
+ * <p>Đứng trước {@code AgentStage} nên nó bọc toàn bộ đồ thị agent: gọi {@code next}, nhận câu trả
+ * lời cuối, rồi mới soi. Đây chính là dạng "chạy sau" mà khung được thiết kế để chèn.
+ *
+ * <p><b>Vẫn ở NGOÀI đồ thị, và đó là lựa chọn.</b> Đưa vào thành một đỉnh trước FINISH sẽ mạnh hơn
+ * — chặn được cả quỹ đạo hỏng giữa chừng chứ không chỉ văn bản cuối — nhưng làm đồ thị gánh thêm
+ * câu hỏi "câu trả lời này có chấp nhận được không", thứ chẳng liên quan gì tới việc điều hướng.
  *
  * <p><b>Luật cố ý viết HẸP.</b> Không đối chiếu từng con số với JSON của tool, vì model tính ra số
  * dẫn xuất một cách chính đáng — phần trăm, tổng, trung bình, thứ hạng — và những số đó không xuất
@@ -61,9 +65,27 @@ public class ValidationStage implements AiStage {
         // Ghi lại chuỗi tool của lượt để chẩn đoán về sau (trường dành sẵn từ lúc dựng khung).
         AgentState state = turn.getAgentState();
         List<String> called = state == null ? List.of() : state.getSucceeded();
-        turn.setToolCallTrace(called);
 
         if (!called.isEmpty() || !hasFigures(answer)) return answer;
+
+        // Lượt ĐANG MỞ FORM không phải lượt báo số liệu. Ở đó model nhắc lại chính thứ người dùng
+        // vừa gõ (mục tiêu 40, "lý do phải từ 10 ký tự"), nên luật "có số mà không tool nào chạy"
+        // đọc nhầm hoàn toàn: nó thấy tool điền form BỊ CHẶN nên succeeded rỗng, thấy chữ số, rồi
+        // thay một lời giải thích đúng bằng câu "mình chưa lấy được dữ liệu".
+        //
+        // Đo được ở ca A02 của bộ 21 ca: validator chặn đúng, model nói đúng "lý do cần ít nhất 10
+        // ký tự", và công đoạn này xoá mất câu đó — người dùng nhận một câu vừa sai nguyên nhân vừa
+        // bảo họ đi sửa nhầm chỗ. Đây là đúng loại báo động giả mà phần ghi chú ở đầu lớp nói phải
+        // tránh, chỉ khác là nó không báo thừa mà báo SAI.
+        //
+        // Thu hẹp thế này an toàn theo cấu trúc: openFormId chỉ khác null khi client thật sự đang
+        // mở biểu mẫu, tức nhánh chat hỏi-đáp thường (và cả bốn nhóm câu hỏi đo được) không đi qua
+        // đây.
+        if (turn.getOpenFormId() != null && !turn.getOpenFormId().isBlank()) {
+            log.warn("Câu trả lời có số liệu và không tool nào chạy, nhưng lượt đang mở form '{}' "
+                    + "nên KHÔNG chặn. question={}", turn.getOpenFormId(), turn.getQuestion());
+            return answer;
+        }
 
         // Lượt CÓ bộ nhớ: model được phép trả lời từ dữ liệu các lượt trước còn trong ngữ cảnh,
         // nên chặn ở đây là chặn nhầm. Chỉ ghi lại để theo dõi.

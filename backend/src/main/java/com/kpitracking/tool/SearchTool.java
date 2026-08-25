@@ -7,6 +7,7 @@ import org.springframework.ai.chat.model.ToolContext;
 import org.springframework.ai.tool.annotation.Tool;
 import org.springframework.stereotype.Component;
 
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -22,6 +23,7 @@ import java.util.UUID;
  */
 @Component
 @RequiredArgsConstructor
+@lombok.extern.slf4j.Slf4j
 public class SearchTool {
 
     private final OrgUnitStatisticService orgUnitStatisticService;
@@ -102,24 +104,77 @@ public class SearchTool {
 
             List<Map<String, Object>> results = fetch(entityType, orgId, request, maxResults);
 
+            Map<String, Object> result = new LinkedHashMap<>();
+
             if (spec.guardType() != null) {
-                List<Map<String, Object>> dup = support.findDuplicateNameGroup(results, spec.nameKey());
-                if (!dup.isEmpty() && !support.alreadyAskedPriorTurn(
-                        support.getConversationId(context),
-                        support.collisionName(dup, spec.nameKey()), dup, spec.labelKeys())) {
-                    support.armDisambiguation(spec.guardType(), support.collectIds(dup), context);
-                    return support.returnAmbiguous("search", spec.label(), spec.arrayKey(), results,
+                // Xét TỪNG nhóm trùng tên riêng. Gộp mọi nhóm thành một khối phẳng là cách bản
+                // trước làm, và nó khiến chốt chặn arm nhầm nhóm — xem ToolSupport.duplicateNameGroups.
+                List<List<Map<String, Object>>> groups = support.focusGroups(
+                        support.duplicateNameGroups(results, spec.nameKey()),
+                        request.keyword(), spec.nameKey());
+
+                log.debug("search(entityType={}, keyword='{}') -> {} nhóm trùng tên: {}",
+                        entityType, request.keyword(), groups.size(),
+                        groups.stream().map(g -> support.collisionName(g, spec.nameKey())).toList());
+
+                List<Map<String, Object>> mustAsk = new ArrayList<>();
+                List<String> hints = new ArrayList<>();
+
+                for (List<Map<String, Object>> group : groups) {
+                    List<Map<String, Object>> named = support.namedInPriorTurn(
+                            support.getConversationId(context),
+                            support.collisionName(group, spec.nameKey()), group, spec.labelKeys());
+
+                    if (named.size() == 1) {
+                        // Lượt trước chỉ nói tới MỘT bản → đó là bản đang được nhắc đến. Chặn các
+                        // bản còn lại và nói thẳng bản nào đúng, thay vì hỏi lại một câu mà chính
+                        // trợ lý vừa trả lời xong.
+                        Map<String, Object> chosen = named.get(0);
+                        support.armDisambiguation(spec.guardType(),
+                                support.collectIds(group.stream().filter(c -> c != chosen).toList()),
+                                context);
+                        hints.add(contextHint(spec, chosen));
+                    } else if (named.isEmpty()) {
+                        // Không có căn cứ nào -> phải hỏi. (named >= 2 nghĩa là lượt trước đã bày ra
+                        // lựa chọn và người dùng đã chọn — cứ chạy tiếp.)
+                        mustAsk.addAll(group);
+                    }
+                }
+
+                if (!mustAsk.isEmpty()) {
+                    support.armDisambiguation(spec.guardType(), support.collectIds(mustAsk), context);
+                    return support.returnAmbiguous("search", spec.label(), spec.arrayKey(), mustAsk,
                             spec.aggregateHint(), context);
                 }
+                if (!hints.isEmpty()) result.put("contextualChoice", String.join(" ", hints));
             }
 
-            Map<String, Object> result = new LinkedHashMap<>();
             result.put("count", results.size());
             result.put(spec.arrayKey(), results);
             return support.respond(context, "search", result);
         } catch (Exception e) {
             return support.toolError("search", e);
         }
+    }
+
+    /**
+     * Câu chỉ đường khi ngữ cảnh đã xác định được bản nào.
+     *
+     * <p>Nêu ĐÍCH DANH bản đúng chứ không chỉ nói "có nhiều bản": model đọc danh sách kết quả thấy
+     * mấy dòng trùng tên thì vẫn có thể chọn nhầm, và các bản kia đang bị chặn nên nó sẽ ăn lỗi
+     * rồi đi hỏi lại người dùng — an toàn, nhưng phiền vô ích khi câu trả lời đã nằm sẵn ở lượt
+     * trước.
+     */
+    private static String contextHint(EntitySpec spec, Map<String, Object> chosen) {
+        StringBuilder sb = new StringBuilder("Có nhiều ").append(spec.label())
+                .append(" trùng tên, nhưng câu trả lời TRƯỚC của bạn đang nói về bản");
+        for (String key : spec.labelKeys()) {
+            Object v = chosen.get(key);
+            if (v != null && !v.toString().isBlank()) sb.append(' ').append(v);
+        }
+        sb.append(". Dùng ĐÚNG bản đó (các bản còn lại đã bị chặn). ")
+          .append("Người dùng thật sự muốn bản khác thì họ sẽ nói rõ.");
+        return sb.toString();
     }
 
     /** Chấp nhận vài cách viết model hay dùng, để một lỗi chính tả nhỏ không thành lỗi cứng. */

@@ -14,6 +14,11 @@ import com.kpitracking.service.ai.AiTurn;
 import com.kpitracking.service.ai.TurnListener;
 import com.kpitracking.service.ai.form.FormPatch;
 import com.kpitracking.tool.FollowupContextStore;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.EntityManagerFactory;
+import org.springframework.orm.jpa.EntityManagerFactoryUtils;
+import org.springframework.orm.jpa.EntityManagerHolder;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.security.concurrent.DelegatingSecurityContextExecutor;
 import org.springframework.security.core.context.SecurityContextHolder;
 import io.swagger.v3.oas.annotations.Operation;
@@ -43,6 +48,8 @@ public class AiController {
     private final AiRateLimiter aiRateLimiter;
     private final AiQuotaService aiQuotaService;
     private final FollowupContextStore followupContextStore;
+    /** Để mở phạm vi Session trên luồng chạy nền — xem {@link #withEntityManager}. */
+    private final EntityManagerFactory entityManagerFactory;
 
     /** Trần thời gian một lượt streaming; dài hơn timeout 300s của client một chút. */
     private static final long SSE_TIMEOUT_MS = 330_000L;
@@ -91,7 +98,7 @@ public class AiController {
         // duy nhất còn lại trên đường này. Trạng thái theo lượt nằm trong AgentState và đi cùng
         // ToolContext, nên nó chạy ở luồng nào cũng đúng và không có gì phải dọn.
         new DelegatingSecurityContextExecutor(streamExecutor, SecurityContextHolder.getContext())
-                .execute(() -> {
+                .execute(() -> withEntityManager(() -> {
                     try {
                         listener.done(runTurn(request, listener));
                         emitter.complete();
@@ -99,8 +106,36 @@ public class AiController {
                         listener.failed(e);
                         emitter.complete();
                     }
-                });
+                }));
         return emitter;
+    }
+
+    /**
+     * Mở một {@code EntityManager} cho luồng chạy nền, y như {@code OpenEntityManagerInViewFilter}
+     * vẫn làm cho luồng request.
+     *
+     * <p><b>Vì sao bắt buộc.</b> {@code spring.jpa.open-in-view} gắn Session vào LUỒNG REQUEST. Lượt
+     * streaming lại chạy trên {@link #streamExecutor}, nên mọi lời gọi nạp lười trên đường đó ném
+     * {@code LazyInitializationException: no Session} — và tool nuốt ngoại lệ rồi trả lỗi cho model,
+     * nên nó hỏng ÂM THẦM: người dùng chỉ thấy trợ lý "không điền được form", không thấy lỗi nào.
+     *
+     * <p>Đo được: ca S01 (nộp báo cáo có đủ kỳ + giá trị + ghi chú) hỏng 5/5 lần qua SSE trong khi
+     * đạt 5/5 qua JSON, và log chỉ đúng vào {@code could not initialize proxy [OrgUnit#...]}. Đây là
+     * lỗi TẦNG BỀN VỮNG chứ không phải model kém — điều mà ba lần đo trước đều quy nhầm cho streaming
+     * làm model bớt vòng tự sửa.
+     *
+     * <p>KHÔNG mở giao dịch, chỉ mở phạm vi Session — đúng bằng thứ đường JSON vẫn có. Mở giao dịch
+     * ở đây sẽ giữ một kết nối suốt 10–30 giây chờ model, và đó mới là thứ làm cạn pool.
+     */
+    private void withEntityManager(Runnable body) {
+        EntityManager em = entityManagerFactory.createEntityManager();
+        TransactionSynchronizationManager.bindResource(entityManagerFactory, new EntityManagerHolder(em));
+        try {
+            body.run();
+        } finally {
+            TransactionSynchronizationManager.unbindResource(entityManagerFactory);
+            EntityManagerFactoryUtils.closeEntityManager(em);
+        }
     }
 
     /**
@@ -113,6 +148,8 @@ public class AiController {
         boolean evidenceRequested;
         boolean filesAttached;
         FollowupResponse followups;
+        com.kpitracking.service.ai.action.PendingAction pendingAction;
+        String consumedActionId;
         AiTokenUsageRecorder.setFeature(AiTokenUsage.AiFeature.CHAT);
         try {
             AiTurn turn = new AiTurn(request.getMessage(), request.getConversationId(), request.getFocusUnitId());
@@ -129,6 +166,8 @@ public class AiController {
             evidenceRequested = turn.isEvidenceRequested();
             filesAttached = turn.isFilesAttached();
             followups = turn.getFollowups();
+            pendingAction = turn.getPendingAction();
+            consumedActionId = turn.getConsumedActionId();
         } finally {
             AiTokenUsageRecorder.clearFeature();
         }
@@ -150,6 +189,8 @@ public class AiController {
                 .evidenceRequest(evidenceRequested ? Boolean.TRUE : null)
                 .attachFiles(filesAttached ? Boolean.TRUE : null)
                 .followups(followups)
+                .pendingAction(com.kpitracking.dto.response.ai.PendingActionResponse.from(pendingAction))
+                .consumedActionId(consumedActionId)
                 .build();
     }
 

@@ -56,6 +56,8 @@ public class TurnSetupStage implements AiStage {
         toolCtx.put("orgUnitPath", ctx.orgUnitPath());
         toolCtx.put("organizationId", ctx.orgId());
         toolCtx.put("userEmail", ctx.email());
+        // Tool hành động cần biết CHỦ của lời mời xác nhận, để người khác không xác nhận hộ được.
+        toolCtx.put("userId", ctx.userId());
         // Người nghe tiến độ đi qua ĐÂY chứ không qua ThreadLocal: Spring AI đưa cùng một map này
         // cho mọi lời gọi tool, nên tool báo được tiến độ dù chạy ở luồng nào. Xem ToolProgress.
         toolCtx.put(ToolProgress.CONTEXT_KEY, turn.getListener());

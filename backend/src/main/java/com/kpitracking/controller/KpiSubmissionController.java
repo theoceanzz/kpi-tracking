@@ -132,6 +132,12 @@ public class KpiSubmissionController {
     }
 
     @PostMapping("/bulk-review")
+    // Cùng mức với /{submissionId}/review ngay trên. Thiếu dòng này thì bản HÀNG LOẠT là một đường
+    // vòng qua chính phép kiểm mà bản ĐƠN LẺ đang đòi — và nó từng thiếu thật.
+    // Đây mới là cổng thô; phép kiểm theo đơn vị và theo cấp bậc nằm trong
+    // KpiSubmissionService.requireCanReview, chạy cho TỪNG bản nộp.
+    @PreAuthorize("hasAuthority('SUBMISSION:REVIEW')")
+    @Operation(summary = "Review multiple submissions at once")
     public ResponseEntity<ApiResponse<List<SubmissionResponse>>> bulkReview(@RequestBody BulkReviewRequest request) {
         List<SubmissionResponse> response = submissionService.bulkReview(request);
         return ResponseEntity.ok(ApiResponse.success(response));

@@ -23,8 +23,8 @@ public interface TurnListener {
     /**
      * Bắt đầu chạy một công đoạn.
      *
-     * <p>Chỉ phát khi VÀO, không phát khi ra. Hai công đoạn ({@code EscapeHatchStage},
-     * {@code PlanCompletionStage}) gọi phần còn lại của chuỗi HAI lần, nên phát cả lúc ra sẽ ra thứ
+     * <p>Chỉ phát khi VÀO, không phát khi ra. Đồ thị agent có hai cạnh quay lui, nên một đỉnh chạy
+     * được nhiều lần trong cùng một lượt; phát cả lúc ra sẽ ra thứ
      * tự lồng nhau khó hiểu. Vào lần hai thì client thấy công đoạn lặp lại — đúng sự thật là nó
      * đang chạy lại.
      *

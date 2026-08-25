@@ -1,23 +1,23 @@
 package com.kpitracking.advisor;
 
-import org.springframework.ai.chat.client.advisor.api.CallAdvisor;
-import org.springframework.ai.chat.client.advisor.api.CallAdvisorChain;
-import org.springframework.ai.chat.client.advisor.api.StreamAdvisor;
-import org.springframework.ai.chat.client.advisor.api.StreamAdvisorChain;
-import org.springframework.ai.chat.model.ChatResponse;
-import org.springframework.ai.chat.model.Generation;
-import org.springframework.ai.chat.messages.AssistantMessage;
-import org.springframework.ai.chat.client.ChatClientRequest;
-import org.springframework.ai.chat.client.ChatClientResponse;
-import org.springframework.core.Ordered;
-import reactor.core.publisher.Flux;
 
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.regex.Pattern;
 
-public class ResponseSanitizingAdvisor implements CallAdvisor, StreamAdvisor {
+/**
+ * Lọc câu trả lời trước khi đưa cho người dùng: vá bảng Markdown bị vỡ, xoá tên tool nội bộ lọt ra.
+ *
+ * <p><b>KHÔNG còn là advisor của Spring AI</b>, dù tên lớp vẫn giữ. Từ khi ứng dụng tự sở hữu vòng
+ * lặp agent, đường trả lời không đi qua {@code ChatClient} nên không advisor nào chạy được; phần
+ * {@code adviseCall}/{@code adviseStream} vì thế đã bỏ. Nay {@code FinishNode} gọi thẳng
+ * {@link #sanitizeText} một lần trên TOÀN VĂN.
+ *
+ * <p>Lọc trên toàn văn chứ không theo từng mẩu là bắt buộc: một tên tool bị cắt đôi qua hai mẩu
+ * chữ sẽ lọt lưới nếu lọc theo mẩu.
+ */
+public class ResponseSanitizingAdvisor {
 
     /**
      * Pre-compiled matcher for internal tool-name leaks. Matches an (optional) lead-in verb and an
@@ -32,11 +32,6 @@ public class ResponseSanitizingAdvisor implements CallAdvisor, StreamAdvisor {
 
     public ResponseSanitizingAdvisor(Collection<String> toolNames) {
         this.toolLeakPattern = buildToolLeakPattern(toolNames);
-    }
-
-    /** No-arg fallback: keeps existing behavior (formatting only, no tool-name redaction). */
-    public ResponseSanitizingAdvisor() {
-        this(List.of());
     }
 
     private static Pattern buildToolLeakPattern(Collection<String> toolNames) {
@@ -61,58 +56,9 @@ public class ResponseSanitizingAdvisor implements CallAdvisor, StreamAdvisor {
         return Pattern.compile(regex);
     }
 
-    @Override
-    public ChatClientResponse adviseCall(ChatClientRequest request, CallAdvisorChain chain) {
-        ChatClientResponse response = chain.nextCall(request);
-        if (response.chatResponse() == null || response.chatResponse().getResult() == null) {
-            return response;
-        }
-
-        String raw = response.chatResponse().getResult().getOutput().getText();
-        if (raw == null) {
-            return response;
-        }
-
-        String sanitized = sanitize(raw);
-        if (sanitized.equals(raw)) {
-            return response;
-        }
-
-        AssistantMessage sanitizedMsg = new AssistantMessage(sanitized);
-        Generation gen = new Generation(sanitizedMsg,
-                response.chatResponse().getResult().getMetadata());
-        ChatResponse chatResp = new ChatResponse(java.util.List.of(gen),
-                response.chatResponse().getMetadata());
-        return new ChatClientResponse(chatResp, response.context());
-    }
-
-    @Override
-    public String getName() {
-        return this.getClass().getName();
-    }
-
-    @Override
-    public int getOrder() {
-        return Ordered.LOWEST_PRECEDENCE - 1;
-    }
-
-    /**
-     * Chuyển tiếp nguyên vẹn — bản trước trả {@code null}, tức bật streaming là nổ NullPointerException.
-     *
-     * <p>Đường này chỉ chạy khi bật {@code app.ai.streaming.enabled}; mặc định tắt.
-     *
-     * <p>Cố ý không lọc ở đây: {@link #sanitize} làm việc trên TOÀN VĂN (sửa bảng Markdown bị vỡ,
-     * xoá tên tool, xoá khoá JSON lọt ra) nên không thể chạy đúng theo từng mẩu chữ — một tên tool
-     * bị cắt đôi qua hai chunk sẽ lọt lưới.
-     */
-    @Override
-    public Flux<ChatClientResponse> adviseStream(ChatClientRequest request, StreamAdvisorChain chain) {
-        return chain.nextStream(request);
-    }
-
     /**
      * Lọc toàn văn — dùng cho đường LUỒNG, nơi advisor không lọc được vì chữ về theo từng mẩu.
-     * {@code ModelCallStage} gọi một lần sau khi đã gom đủ văn bản.
+     * {@code FinishNode} gọi một lần sau khi đã gom đủ văn bản.
      */
     public String sanitizeText(String result) {
         return sanitize(result);

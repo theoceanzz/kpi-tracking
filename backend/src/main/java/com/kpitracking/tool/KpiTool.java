@@ -47,6 +47,12 @@ public class KpiTool {
             + "view=period_breakdown: diễn biến của MỘT KPI theo từng kỳ (dùng cho 'KPI X tiến triển thế nào'); "
             + "nhận kpiId HOẶC kpiName, và với kpiName thì tự gộp mọi kỳ trùng tên nên đừng hỏi lại người dùng chọn kỳ, "
             + "cần kpiId; granularity=MONTH|QUARTER|YEAR. "
+            + "Lọc theo TRẠNG THÁI DUYỆT bằng status (dùng với view=list và view=summary): "
+            + "DRAFT | PENDING_APPROVAL | APPROVED | REJECTED | INACTIVE | EDIT | EDITED | REPLACED. "
+            + "Người dùng hỏi KPI 'cần phê duyệt' / 'chờ duyệt' / 'chờ phê duyệt' -> "
+            + "view=list, status=PENDING_APPROVAL. Mỗi KPI trả về có kèm periodName, nên muốn biết "
+            + "KỲ NÀO có KPI chờ duyệt thì lấy danh sách đó rồi gom theo periodName — "
+            + "view=periods KHÔNG lọc được theo trạng thái. "
             + "Các view theo đơn vị mặc định là đơn vị hiện tại, nên khi người dùng nêu tên đơn vị PHẢI truyền unitName.")
     public String getKpi(KpiRequest request, ToolContext context) {
         try {
@@ -55,11 +61,31 @@ public class KpiTool {
                 throw new IllegalArgumentException("Thiếu hoặc sai view. Chỉ nhận: "
                         + "list, summary, periods, detail, assignees, period_breakdown.");
             }
+            requireKnownStatus(request.status());
             boolean perKpi = "detail".equals(view) || "assignees".equals(view) || "period_breakdown".equals(view);
             return perKpi ? perKpi(view, request, context) : byUnit(view, request, context);
         } catch (Exception e) {
             return support.toolError("get_kpi", e);
         }
+    }
+
+    /**
+     * Trạng thái lạ thì báo lỗi kèm ĐỦ giá trị hợp lệ để model tự sửa trong lượt.
+     *
+     * <p>Không lờ đi tham số sai: {@code getKpis} ghép thẳng {@code AND k.status = :status} nên một
+     * giá trị không có thật sẽ trả về DANH SÁCH RỖNG, và model kết luận "không có KPI nào" — sai mà
+     * nghe rất thuyết phục. Cùng lối với {@code BscTool}: nêu giá trị hợp lệ chứ đừng để model đoán.
+     */
+    private static void requireKnownStatus(String raw) {
+        if (!ToolSupport.notBlank(raw)) return;
+        String v = raw.trim().toUpperCase(java.util.Locale.ROOT);
+        for (com.kpitracking.enums.KpiStatus known : com.kpitracking.enums.KpiStatus.values()) {
+            if (known.name().equals(v)) return;
+        }
+        throw new IllegalArgumentException("status không hợp lệ: '" + raw + "'. Chỉ nhận: "
+                + java.util.Arrays.stream(com.kpitracking.enums.KpiStatus.values())
+                        .map(Enum::name).collect(java.util.stream.Collectors.joining(", "))
+                + ". KPI 'cần phê duyệt' là PENDING_APPROVAL.");
     }
 
     private static String normalizeView(String raw) {

@@ -1,14 +1,14 @@
-package com.kpitracking.service.ai.stage;
+package com.kpitracking.service.ai.agent.node;
 
-import com.kpitracking.service.ai.AiStage;
-import com.kpitracking.service.ai.AiStageChain;
 import com.kpitracking.service.ai.AiTurn;
 import com.kpitracking.service.ai.PlanStep;
+import com.kpitracking.service.ai.agent.AgentNode;
+import com.kpitracking.service.ai.agent.AgentState;
+import com.kpitracking.service.ai.agent.Node;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
@@ -19,26 +19,28 @@ import java.util.Set;
 /**
  * Chia câu hỏi thành các bước con TRƯỚC khi định tuyến và gọi model.
  *
- * <p><b>Vì sao có công đoạn này.</b> Đo trên bộ 40 câu hỏi: ở nhóm câu cần nhiều tool, model được
- * trao đủ công cụ nhưng <b>bỏ sót lời gọi ở 11/15 câu hỏng</b> — nó hiểu việc nhưng nhảy cóc,
- * trả lời sau bước đầu tiên. Chỉ 2/15 là lỗi sinh JSON, thứ mà lập kế hoạch không chữa được.
- * Viết ra các bước tường minh nhắm đúng loại lỗi chiếm đa số đó.
+ * <p><b>Vì sao có đỉnh này.</b> Đo trên bộ 40 câu hỏi: ở nhóm câu cần nhiều tool, model được trao
+ * đủ công cụ nhưng <b>bỏ sót lời gọi ở 11/15 câu hỏng</b> — nó hiểu việc nhưng nhảy cóc, trả lời
+ * sau bước đầu tiên. Chỉ 2/15 là lỗi sinh JSON, thứ mà lập kế hoạch không chữa được. Viết ra các
+ * bước tường minh nhắm đúng loại lỗi chiếm đa số đó.
  *
- * <p><b>Không bao giờ được làm hỏng lượt.</b> Lập kế hoạch lỗi, trả rác, hay chỉ ra một bước thì
- * bỏ qua kế hoạch và chạy y như khi tắt — cùng kỷ luật với
+ * <p><b>Không bao giờ được làm hỏng lượt.</b> Lập kế hoạch lỗi, trả rác, hay chỉ ra một bước thì bỏ
+ * qua kế hoạch và chạy y như khi tắt — cùng kỷ luật với
  * {@link com.kpitracking.service.ai.intent.IntentStrategy}: mọi trường hợp không chắc đều lùi về
  * hành vi cũ.
  *
- * <p>Mặc định TẮT. Nó tốn thêm một lần gọi model cho mỗi câu hỏi, nên phải đo thấy nhóm B/C tăng
- * tương xứng rồi mới bật.
+ * <p><b>Đứng trước {@code RouteNode}</b> vì kế hoạch nêu đích danh tool, và đỉnh định tuyến HỢP các
+ * nhóm đó vào nhóm router tự chọn. Đảo thứ tự là mất phần hợp ấy — xem {@link AgentNode}.
+ *
+ * <p>Tốn thêm một lần gọi model cho mỗi câu hỏi, nên phải đo thấy nhóm B/C tăng tương xứng rồi mới
+ * bật ({@code app.ai.planning.enabled}).
  */
 @Component
-@Order(700)
 @Slf4j
-public class PlanningStage implements AiStage {
+public class PlanNode implements Node {
 
     /**
-     * Vốn từ của công đoạn lập kế hoạch. KHÔNG có {@code need_other_tools} — đó là cửa thoát hiểm,
+     * Vốn từ của khâu lập kế hoạch. KHÔNG có {@code need_other_tools} — đó là cửa thoát hiểm,
      * không phải một bước lấy dữ liệu, nêu nó vào kế hoạch chỉ tổ dụ model gọi lung tung.
      */
     private static final Set<String> KNOWN_TOOLS = Set.of(
@@ -77,27 +79,39 @@ public class PlanningStage implements AiStage {
     private final ChatClient chatClient;
     private final boolean enabled;
 
-    public PlanningStage(@Qualifier("openAiChatClient") ChatClient chatClient,
-                         @Value("${app.ai.planning.enabled:false}") boolean enabled) {
+    public PlanNode(@Qualifier("openAiChatClient") ChatClient chatClient,
+                    @Value("${app.ai.planning.enabled:false}") boolean enabled) {
         this.chatClient = chatClient;
         this.enabled = enabled;
     }
 
     @Override
-    public String handle(AiTurn turn, AiStageChain next) {
-        if (enabled) {
-            List<PlanStep> steps = plan(turn.getQuestion());
-            // Một bước nghĩa là câu hỏi đơn giản — viết kế hoạch ra chỉ tốn token mà không thêm
-            // thông tin gì cho model.
-            if (steps.size() > 1) {
-                turn.setPlan(steps);
-                // Ghi cả NỘI DUNG bước, không chỉ số lượng: thiếu nó thì không thể biết kế hoạch
-                // sai ở đâu khi đo, và đó chính là chỗ đã mù khi truy nguyên nhóm C.
-                log.debug("Kế hoạch {} bước cho '{}': {}", steps.size(), turn.getQuestion(),
-                        steps.stream().map(PlanStep::describe).toList());
-            }
+    public AgentNode id() {
+        return AgentNode.PLAN;
+    }
+
+    @Override
+    public AgentNode run(AgentState state) {
+        AiTurn turn = state.getTurn();
+        if (!enabled) {
+            // Báo nhãn CHỈ KHI thật sự lập kế hoạch. Bản trước để pipeline phát nhãn lúc vào công
+            // đoạn, nên tắt kế hoạch mà người dùng vẫn đọc thấy "Đang lập kế hoạch trả lời" —
+            // một câu không đúng sự thật.
+            return AgentNode.ROUTE;
         }
-        return next.proceed(turn);
+        turn.progress(id().name(), "Đang lập kế hoạch trả lời");
+
+        List<PlanStep> steps = plan(turn.getQuestion());
+        // Một bước nghĩa là câu hỏi đơn giản — viết kế hoạch ra chỉ tốn token mà không thêm thông
+        // tin gì cho model.
+        if (steps.size() > 1) {
+            turn.setPlan(steps);
+            // Ghi cả NỘI DUNG bước, không chỉ số lượng: thiếu nó thì không thể biết kế hoạch sai ở
+            // đâu khi đo, và đó chính là chỗ đã mù khi truy nguyên nhóm C.
+            log.debug("Kế hoạch {} bước cho '{}': {}", steps.size(), turn.getQuestion(),
+                    steps.stream().map(PlanStep::describe).toList());
+        }
+        return AgentNode.ROUTE;
     }
 
     /** Trả danh sách bước; danh sách rỗng nghĩa là không dùng kế hoạch cho lượt này. */
@@ -120,10 +134,10 @@ public class PlanningStage implements AiStage {
      *
      * <p>Rộng rãi có chủ đích: model hay quên dấu {@code |}, thêm số thứ tự, hoặc nêu tên tool
      * không có thật. Mọi lệch lạc đó đều giữ lại bước (model vẫn đọc được việc cần làm), chỉ là
-     * bước không có tool hợp lệ thì không tham gia định tuyến — bịa ra một tool gần giống còn
-     * tệ hơn nhiều so với việc không biết.
+     * bước không có tool hợp lệ thì không tham gia định tuyến — bịa ra một tool gần giống còn tệ
+     * hơn nhiều so với việc không biết.
      */
-    static List<PlanStep> parse(String raw) {
+    public static List<PlanStep> parse(String raw) {
         if (raw == null || raw.isBlank()) return List.of();
 
         List<PlanStep> steps = new ArrayList<>();
@@ -149,9 +163,4 @@ public class PlanningStage implements AiStage {
         }
         return steps;
     }
-    @Override
-    public String label() { return "Đang lập kế hoạch trả lời"; }
-
-    @Override
-    public int getOrder() { return 700; }
 }

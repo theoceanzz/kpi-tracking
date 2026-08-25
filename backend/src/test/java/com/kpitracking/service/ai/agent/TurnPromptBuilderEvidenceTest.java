@@ -1,4 +1,4 @@
-package com.kpitracking.service.ai.stage;
+package com.kpitracking.service.ai.agent;
 
 import com.kpitracking.service.ai.AiTurn;
 import org.junit.jupiter.api.DisplayName;
@@ -15,10 +15,10 @@ import static org.assertj.core.api.Assertions.assertThat;
  * không đổi một ký tự</b>, và <b>tên tệp — chuỗi do người dùng tự đặt — không thể tự dựng thêm mục
  * mới trong prompt</b>.
  */
-class ModelCallStageEvidenceTest {
+class TurnPromptBuilderEvidenceTest {
 
-    /** Ba phụ thuộc chỉ dùng ở đường gọi model; khối minh chứng thuần ghép chuỗi nên để null được. */
-    private final ModelCallStage stage = new ModelCallStage(null, null, null);
+    /** Hai phụ thuộc chỉ dùng ở đường dựng prompt đầy đủ; khối minh chứng thuần ghép chuỗi nên để null được. */
+    private final TurnPromptBuilder stage = new TurnPromptBuilder(null, null);
 
     /** Tệp ĐÃ đính vào biểu mẫu. */
     private AiTurn turnWith(List<String> attached) {

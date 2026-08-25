@@ -7,7 +7,7 @@ import {
 import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/store/authStore'
 import { useOrganization } from '@/features/orgunits/hooks/useOrganization'
-import { aiApi, type ConversationResponse, type InsightCard, type FollowupPools, type ClarificationOption, type AiChatResponse } from '../api/aiApi'
+import { aiApi, type ConversationResponse, type InsightCard, type FollowupPools, type ClarificationOption, type PendingAction, type AiChatResponse } from '../api/aiApi'
 import InsightCards from '../components/InsightCards'
 import AiDisabledPage from '../components/AiDisabledPage'
 import FollowupSuggestions from '../components/FollowupSuggestions'
@@ -16,6 +16,7 @@ import { MicButton } from '@/components/common/MicButton'
 import { usePinnedFilesStore, attachPinnedTo } from '@/store/pinnedFilesStore'
 import { useChatFileDrop } from '../hooks/useChatFileDrop'
 import EvidenceDropCard from '../components/EvidenceDropCard'
+import PendingActionCard from '../components/PendingActionCard'
 import { useFormAssistStore } from '@/store/formAssistStore'
 import ThinkingSummary from '../components/ThinkingSummary'
 import AnswerMarkdown from '../components/AnswerMarkdown'
@@ -49,6 +50,8 @@ interface Message {
   steps?: string[]
   /** Trợ lý mời gửi minh chứng: vẽ vùng thả ngay dưới câu trả lời này. */
   evidenceRequest?: boolean
+  /** Trợ lý đề nghị một thao tác GHI và chờ xác nhận. */
+  pendingAction?: PendingAction
 }
 
 const WELCOME_MSG: Message = {
@@ -65,6 +68,11 @@ export default function AiAssistantPage() {
   const [input, setInput] = useState('')
   // Tệp KHÔNG còn nằm ở đây: nó đi thẳng vào form qua fileSink ngay lúc kẹp. Xem formAssistStore.
   const [messages, setMessages] = useState<Message[]>([WELCOME_MSG])
+  /**
+   * Id các lời mời đã được chạy bằng cách NHẮN "xác nhận" thay vì bấm nút. Thẻ tương ứng phải tự
+   * khoá lại — không có tập này thì người dùng vẫn thấy nút, bấm vào lại nhận "không còn hiệu lực".
+   */
+  const [consumedActionIds, setConsumedActionIds] = useState<Set<string>>(new Set())
   const [isLoading, setIsLoading] = useState(false)
   const [conversationId, setConversationId] = useState<string | null>(null)
 
@@ -280,8 +288,16 @@ export default function AiAssistantPage() {
           // Backend đã tự bỏ qua ở lượt hỏi lại và lượt không có dữ liệu tool.
           followups: response.followups,
           evidenceRequest: response.evidenceRequest,
+          pendingAction: response.pendingAction,
+
         },
       ])
+
+      // Lượt này người dùng xác nhận bằng tin nhắn -> tắt thẻ xác nhận cũ ở phía trên.
+      if (response.consumedActionId) {
+        const doneId = response.consumedActionId
+        setConsumedActionIds(prev => new Set(prev).add(doneId))
+      }
 
       turnRef.current += 1
     } catch (error: any) {
@@ -642,6 +658,19 @@ export default function AiAssistantPage() {
                         )}
 
                         {/* Vùng thả minh chứng, khi trợ lý vừa mời người dùng gửi tài liệu */}
+                        {msg.role === 'assistant' && msg.pendingAction && (
+                          <PendingActionCard
+                            action={msg.pendingAction}
+                    consumed={consumedActionIds.has(msg.pendingAction.id)}
+                            onDone={text =>
+                              setMessages(prev => [
+                                ...prev,
+                                { id: `act-${Date.now()}`, role: 'assistant', content: text },
+                              ])
+                            }
+                          />
+                        )}
+
                         {msg.role === 'assistant' && msg.evidenceRequest && (
                           <EvidenceDropCard sink={fileSink} disabled={isLoading} />
                         )}

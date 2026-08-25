@@ -10,7 +10,6 @@ import org.springframework.stereotype.Component;
 
 import java.util.List;
 import java.util.Map;
-import java.util.UUID;
 
 /**
  * Phân tích tổng hợp theo đơn vị — gộp từ get_dashboard_summary, get_time_series và

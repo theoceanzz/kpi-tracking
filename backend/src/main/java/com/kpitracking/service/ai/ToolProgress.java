@@ -46,6 +46,8 @@ public final class ToolProgress {
             Map.entry("get_kpi", "Đang tra cứu chỉ tiêu KPI"),
             Map.entry("get_submissions", "Đang xem các báo cáo đã nộp"),
             Map.entry("get_analytics", "Đang tổng hợp số liệu"),
+            Map.entry("get_bsc", "Đang xem thẻ điểm cân bằng"),
+            Map.entry("get_okr", "Đang xem mục tiêu và kết quả then chốt"),
             Map.entry("compare_org_units", "Đang so sánh các đơn vị"),
             Map.entry("rank", "Đang xếp hạng"),
             Map.entry("need_other_tools", "Đang mở thêm công cụ"),
@@ -56,7 +58,16 @@ public final class ToolProgress {
             Map.entry("suggest_evaluation_form", "Đang chuẩn bị đề xuất điền form"),
             Map.entry("suggest_kpi_adjustment_form", "Đang chuẩn bị đề xuất điền form"),
             Map.entry("suggest_org_unit_form", "Đang chuẩn bị đề xuất điền form"),
-            Map.entry("suggest_org_unit_drawer_form", "Đang chuẩn bị đề xuất điền form"));
+            Map.entry("suggest_org_unit_drawer_form", "Đang chuẩn bị đề xuất điền form"),
+            // Tool GHI. Nhãn nói rõ là ĐANG CHUẨN BỊ chứ không phải đang làm: người dùng đọc dòng
+            // này lúc chờ, và "đang duyệt bài nộp" sẽ khiến họ tưởng việc đã chạy trong khi thực
+            // ra còn phải bấm xác nhận.
+            Map.entry("review_submissions", "Đang chuẩn bị danh sách bản nộp cần duyệt"),
+            Map.entry("review_kpi_criteria", "Đang chuẩn bị danh sách chỉ tiêu cần duyệt"),
+            Map.entry("review_kpi_adjustments", "Đang chuẩn bị danh sách yêu cầu điều chỉnh"),
+            Map.entry("send_reminders", "Đang chuẩn bị danh sách người cần nhắc"),
+            // Tool này CHẠY THẬT chứ không chuẩn bị, nên nhãn phải nói đúng như vậy.
+            Map.entry("confirm_pending_action", "Đang thực hiện thao tác bạn vừa xác nhận"));
 
     /** Nhãn của một tool; tool lạ rơi về nhãn chung thay vì lộ tên hàm ra giao diện. */
     public static String label(String toolName) {

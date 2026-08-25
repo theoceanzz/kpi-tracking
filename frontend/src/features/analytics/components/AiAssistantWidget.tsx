@@ -4,7 +4,7 @@ import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/store/authStore'
 import { useOrganization } from '@/features/orgunits/hooks/useOrganization'
 import { useMyAiQuota } from '@/features/organization/hooks/useAiQuota'
-import { aiApi, type InsightCard, type FollowupPools, type ClarificationOption, type FormPatch, type AiChatResponse } from '../api/aiApi'
+import { aiApi, type InsightCard, type FollowupPools, type ClarificationOption, type FormPatch, type PendingAction, type AiChatResponse } from '../api/aiApi'
 import { useFormAssistStore } from '@/store/formAssistStore'
 import EvidenceAttachBar, { AttachedChips, PinnedChips } from './EvidenceAttachBar'
 import { MicButton } from '@/components/common/MicButton'
@@ -12,6 +12,7 @@ import { usePinnedFilesStore, attachPinnedTo } from '@/store/pinnedFilesStore'
 import { useChatFileDrop } from '../hooks/useChatFileDrop'
 import EvidenceDropCard from './EvidenceDropCard'
 import FormPatchPreview from './FormPatchPreview'
+import PendingActionCard from './PendingActionCard'
 import ThinkingSummary from './ThinkingSummary'
 import AnswerMarkdown from './AnswerMarkdown'
 import { useStageProgress } from '../hooks/useStageProgress'
@@ -37,6 +38,13 @@ interface Message {
   steps?: string[]
   /** Trợ lý mời gửi minh chứng: vẽ vùng thả ngay dưới câu trả lời này. */
   evidenceRequest?: boolean
+  /**
+   * Trợ lý đề nghị một thao tác GHI và chờ xác nhận.
+   *
+   * <p>KHÔNG lọc theo form đang mở như `formPatch`: mấy việc này (duyệt bài nộp, nhắc nhở) không
+   * gắn với form nào, nên đóng form không làm lời mời mất nghĩa.
+   */
+  pendingAction?: PendingAction
 }
 
 const WELCOME_MSG: Message = {
@@ -56,6 +64,11 @@ export default function AiAssistantWidget() {
   // Tệp KHÔNG còn nằm ở đây nữa: nó đi thẳng vào form qua fileSink ngay lúc kẹp. Giữ một bản sao
   // ở ô chat là dựng danh sách thứ hai của cùng một thứ, mà hai bản thì sẽ lệch.
   const [messages, setMessages] = useState<Message[]>([WELCOME_MSG])
+  /**
+   * Id các lời mời đã được chạy bằng cách NHẮN "xác nhận" thay vì bấm nút. Thẻ tương ứng phải tự
+   * khoá lại — không có tập này thì người dùng vẫn thấy nút, bấm vào lại nhận "không còn hiệu lực".
+   */
+  const [consumedActionIds, setConsumedActionIds] = useState<Set<string>>(new Set())
   const [isLoading, setIsLoading] = useState(false)
   const [insights, setInsights] = useState<InsightCard[]>([])
   const [insightsLoading, setInsightsLoading] = useState(false)
@@ -231,8 +244,16 @@ export default function AiAssistantWidget() {
           // Backend đã tự bỏ qua ở lượt hỏi lại và lượt không có dữ liệu tool.
           followups: response.followups,
           evidenceRequest: response.evidenceRequest,
+          pendingAction: response.pendingAction,
+
         },
       ])
+
+      // Lượt này người dùng xác nhận bằng tin nhắn -> tắt thẻ xác nhận cũ ở phía trên.
+      if (response.consumedActionId) {
+        const doneId = response.consumedActionId
+        setConsumedActionIds(prev => new Set(prev).add(doneId))
+      }
 
       turnRef.current += 1
     } catch (error: any) {
@@ -451,6 +472,20 @@ export default function AiAssistantWidget() {
                 {/* Đề xuất điền form đang mở — người dùng xem trước rồi mới chấp nhận */}
                 {msg.role === 'assistant' && msg.formPatch && (
                   <FormPatchPreview patch={msg.formPatch} />
+                )}
+
+                {/* Thao tác GHI chờ xác nhận — bấm là ghi thật, nên thẻ tự cảnh báo và tự khoá */}
+                {msg.role === 'assistant' && msg.pendingAction && (
+                  <PendingActionCard
+                    action={msg.pendingAction}
+                    consumed={consumedActionIds.has(msg.pendingAction.id)}
+                    onDone={text =>
+                      setMessages(prev => [
+                        ...prev,
+                        { id: `act-${Date.now()}`, role: 'assistant', content: text },
+                      ])
+                    }
+                  />
                 )}
 
                 {/* Vùng thả minh chứng, khi trợ lý vừa mời người dùng gửi tài liệu */}

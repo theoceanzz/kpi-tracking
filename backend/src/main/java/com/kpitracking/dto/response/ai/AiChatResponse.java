@@ -57,6 +57,21 @@ public class AiChatResponse {
      */
     private Boolean attachFiles;
 
+    /**
+     * Lời mời xác nhận một thao tác GHI (duyệt bài nộp, duyệt chỉ tiêu, nhắc nhở...).
+     * {@code null} ở mọi lượt bình thường.
+     *
+     * <p>CHƯA có gì được thay đổi khi field này xuất hiện — nó chỉ mô tả việc SẼ làm nếu người dùng
+     * bấm xác nhận. Cùng kỷ luật với {@link #formPatch}: trợ lý đề nghị, người dùng quyết.
+     */
+    private PendingActionResponse pendingAction;
+
+    /**
+     * Id của lời mời vừa được chạy XONG trong lượt này (người dùng xác nhận bằng chat thay vì bấm
+     * nút). Client dùng để tắt thẻ xác nhận cũ còn nằm trên màn hình.
+     */
+    private String consumedActionId;
+
     @Data
     @Builder
     @NoArgsConstructor

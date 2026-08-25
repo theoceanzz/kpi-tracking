@@ -22,9 +22,14 @@ import java.util.concurrent.atomic.AtomicReference;
 /**
  * Ghi nhận token đã tiêu của mỗi lượt gọi LLM.
  *
- * <p>Advisor này là default advisor của <b>cả hai</b> ChatClient bean trong {@code ChatModelConfig},
- * mà mọi điểm gọi LLM đều dùng một trong hai bean đó — nên chỉ cần ở đây là bao trọn 100% lượt gọi,
- * không phải sửa chỗ gọi nào.
+ * <p>Advisor này là default advisor của bean {@code openAiChatClient} trong
+ * {@code ChatModelConfig} — bean DUY NHẤT còn lại, và là bean mà mọi lời gọi LLM đi qua
+ * {@code ChatClient} đều dùng (lập kế hoạch, định tuyến ý định, sinh câu gợi ý, gợi ý KPI).
+ *
+ * <p><b>Nó KHÔNG bao được vòng lặp agent.</b> Từ khi ứng dụng tự sở hữu vòng lặp, đường đó gọi
+ * thẳng {@code OpenAiChatModel} chứ không qua {@code ChatClient}, nên không advisor nào chạy —
+ * việc ghi token ở đó nằm trong {@code ModelGateway.recordUsage}. Sửa một bên mà quên bên kia là
+ * để lọt một nửa số lượt tiêu token, tức đi vòng qua toàn bộ hạn mức.
  *
  * <p>{@code getOrder() == 1} đặt nó ngoài cùng chuỗi advisor nên nó thấy phản hồi cuối cùng, sau khi
  * vòng lặp gọi tool đã xong. Spring AI cộng dồn {@code Usage} qua tất cả vòng gọi tool của một lượt

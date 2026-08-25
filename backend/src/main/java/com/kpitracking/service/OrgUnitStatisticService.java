@@ -803,6 +803,7 @@ public class OrgUnitStatisticService {
         detail.put("description", k.getDescription());
         detail.put("weight", k.getWeight());
         detail.put("targetValue", k.getTargetValue());
+        detail.put("minimumValue", k.getMinimumValue());
         boolean detailReverse = Boolean.TRUE.equals(k.getIsReverseKpi());
         detail.put("isReverseKpi", detailReverse);
         detail.put("targetComparator", detailReverse ? "≤" : "≥");
@@ -1685,6 +1686,33 @@ public class OrgUnitStatisticService {
         result.put("trend", trend);
         result.put("series", series);
         return result;
+    }
+
+    /**
+     * Các cặp (chỉ tiêu, người) chưa nộp — bản KHÔNG gộp của {@link #getNonSubmitters}.
+     *
+     * <p>Việc nhắc nhở gửi theo từng chỉ tiêu một, nên bản gộp theo người không đủ dữ liệu. Dùng
+     * chung đúng phép giải ĐỢT và đúng mệnh đề WHERE với bản gộp, để hai bên không thể lệch nhau về
+     * định nghĩa "chưa nộp".
+     *
+     * @return danh sách {@code [kpiId, kpiName, userId, userFullName]}, rỗng khi không đợt nào phủ
+     */
+    @Transactional(readOnly = true)
+    public List<Object[]> getMissingSubmissionPairs(UUID orgUnitId, String periodId, int limit) {
+        String pathPrefix = getPathPrefix(orgUnitId);
+        UUID orgId = orgUnitRepository.findById(orgUnitId)
+                .map(ou -> ou.getOrgHierarchyLevel().getOrganization().getId())
+                .orElse(null);
+
+        Set<UUID> periodIds = (periodId != null && !periodId.isBlank())
+                ? Set.of(UUID.fromString(periodId.trim()))
+                : (orgId != null ? overlappingPeriodIds(orgId, Instant.EPOCH, Instant.now()) : Set.of());
+
+        // Không đợt nào phủ ⇒ không ai tới hạn (và tránh sinh câu IN () không hợp lệ).
+        if (periodIds.isEmpty()) return List.of();
+
+        return kpiCriteriaRepository.findMissingSubmissionPairsInSubtree(
+                pathPrefix, periodIds, limit > 0 ? limit : 50);
     }
 
     @Transactional(readOnly = true)

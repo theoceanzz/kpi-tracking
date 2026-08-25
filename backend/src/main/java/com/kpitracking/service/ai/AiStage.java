@@ -20,13 +20,15 @@ import org.springframework.core.Ordered;
  *   400 TurnSetupStage      dựng ngữ cảnh cho tool
  *   500 FollowupStage       sinh câu hỏi gợi ý sau khi đã có câu trả lời
  *   600 ValidationStage     soi câu trả lời trước khi trả về
- *   700 PlanningStage       lập kế hoạch trước khi định tuyến
- *   800 IntentStage         chọn nhóm tool
- *   900 ToolSelectionStage  nhóm ∩ quyền -> bộ tool
- *  1000 EscapeHatchStage    model xin thêm tool thì nới rồi gọi lại
- *  1050 PlanCompletionStage thiếu bước đã lên kế hoạch thì hỏi lại một lần
- *  1100 ModelCallStage      điểm cuối, gọi model
+ *   700 AgentStage          điểm cuối, chạy đồ thị agent
  * </pre>
+ *
+ * <p><b>Chu trình KHÔNG còn thuộc về khung này.</b> Trước đây có hai công đoạn gọi {@code next}
+ * nhiều lần để quay lui — cửa thoát hiểm và khâu bổ sung bước thiếu — và cách đó chạy lại toàn bộ
+ * phần chuỗi phía sau chỉ để đổi một đầu vào. Nay chúng là hai CẠNH của
+ * {@link com.kpitracking.service.ai.agent.AgentGraph}, cùng ba công đoạn định tuyến/lập kế hoạch đã
+ * thành các ĐỈNH. Chuỗi công đoạn ở lại đúng với phần thật sự tuyến tính: mỗi công đoạn chạy một
+ * lần, theo một thứ tự, và mỗi cái đều có thể cắt ngắn cả lượt.
  */
 public interface AiStage extends Ordered {
 
@@ -48,11 +50,11 @@ public interface AiStage extends Ordered {
      *
      * <p><b>Mặc định là không hiện</b>, và đó là chủ đích. Nhãn này người dùng cuối đọc, nên phần
      * lớn công đoạn không đáng hiện: {@code RateLimitStage} và {@code QuotaStage} xong trong vài
-     * mili-giây, {@code IntentStage} thuần nội bộ. Bản trước lấy tên lớp làm nhãn mặc định, hệ quả
+     * mili-giây, {@code AuthScopeStage} thuần nội bộ. Bản trước lấy tên lớp làm nhãn mặc định, hệ quả
      * là công đoạn mới quên đặt nhãn sẽ hiện thẳng tên lớp Java ra giao diện.
      *
      * <p><b>Công đoạn làm việc SAU {@code next.proceed(...)} thì để {@code null} ở đây</b> và tự gọi
-     * {@link AiTurn#progress(String)} đúng lúc bắt đầu làm. Nhãn phát lúc vào sẽ nói sai: chúng vào
+     * {@link AiTurn#progress(AiStage, String)} đúng lúc bắt đầu làm. Nhãn phát lúc vào sẽ nói sai: chúng vào
      * chuỗi ngay đầu lượt nhưng chỉ làm việc sau khi model đã trả lời, tức 10-15 giây sau đó.
      */
     default String label() {

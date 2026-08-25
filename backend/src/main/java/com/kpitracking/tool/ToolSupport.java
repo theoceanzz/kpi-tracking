@@ -21,6 +21,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 
 import java.util.*;
+import java.util.regex.Pattern;
 import com.kpitracking.service.ai.agent.AgentState;
 
 /**
@@ -248,6 +249,90 @@ public class ToolSupport {
         return !exact.isEmpty() ? exact : matches;
     }
 
+    /** Kết quả resolve NGƯỜI theo id/tên: hoặc ra 1 UUID, hoặc cần hỏi làm rõ. */
+    public record UserRef(UUID id, Map<String, Object> clarification) {}
+
+    /**
+     * Người trong tổ chức khớp TÊN, ưu tiên khớp CHÍNH XÁC.
+     *
+     * <p>Cùng luật với {@link #unitMatchPool}: có người tên đúng hệt thì chỉ lấy những người đó,
+     * để "Vũ Thị" không bị coi là mơ hồ chỉ vì còn "Vũ Thị Deputy Lead" ở đâu đó. Giữ chung một luật
+     * là có chủ đích — hai luật khớp tên song song sẽ trôi lệch rồi trả lời khác nhau cho cùng câu hỏi.
+     */
+    public List<Map<String, Object>> userMatchPool(String name, UUID orgId) {
+        List<Map<String, Object>> matches =
+                orgUnitStatisticService.searchUsers(orgId, name.trim(), null, null, 10);
+        List<Map<String, Object>> exact = matches.stream()
+                .filter(m -> name.trim().equalsIgnoreCase(String.valueOf(m.get("fullName"))))
+                .collect(java.util.stream.Collectors.toList());
+        return !exact.isEmpty() ? exact : matches;
+    }
+
+    /** Nhãn kèm đơn vị/chức vụ để phân biệt người trùng tên; giá trị gửi lại là TÊN đầy đủ. */
+    public List<FollowupContextStore.ClarificationOption> userOptions(List<Map<String, Object>> pool) {
+        List<FollowupContextStore.ClarificationOption> options = new ArrayList<>();
+        for (Map<String, Object> user : pool) {
+            String name = user.get("fullName") != null ? String.valueOf(user.get("fullName")) : null;
+            if (name == null || name.isBlank()) continue;
+            Object unitName = user.get("orgUnitName");
+            Object position = user.get("positionName");
+            StringBuilder label = new StringBuilder(name);
+            if (unitName != null || position != null) {
+                label.append(" (");
+                if (position != null) label.append(position);
+                if (position != null && unitName != null) label.append(" — ");
+                if (unitName != null) label.append(unitName);
+                label.append(')');
+            }
+            options.add(new FollowupContextStore.ClarificationOption(label.toString(), name));
+        }
+        return options;
+    }
+
+    /** Envelope hỏi làm rõ khi một tên người khớp nhiều/không thấy. */
+    public Map<String, Object> userClarification(String query, List<Map<String, Object>> pool,
+                                                 ToolContext context) {
+        String convId = getConversationId(context);
+        if (convId != null) followupContextStore.markDisambiguating(convId, userOptions(pool));
+        Map<String, Object> group = new LinkedHashMap<>();
+        group.put("query", query);
+        group.put("reason", pool.isEmpty() ? "not_found" : "ambiguous");
+        group.put("options", pool);
+        Map<String, Object> out = new LinkedHashMap<>();
+        out.put("needsClarification", true);
+        out.put("ambiguous", java.util.List.of(group));
+        out.put("message", "Tên '" + query + "' khớp NHIỀU người (hoặc không tìm thấy). Hãy hỏi người "
+                + "dùng chọn RÕ người nào (nêu đơn vị/chức vụ để phân biệt) rồi gọi lại. "
+                + "TUYỆT ĐỐI không tự chọn giúp.");
+        return out;
+    }
+
+    /**
+     * Resolve người theo id hoặc theo tên.
+     *
+     * <p>Khác {@link #resolveUnit} ở một chỗ: KHÔNG có giá trị mặc định. Không nêu ai thì trả
+     * {@code null} để nơi gọi hiểu là "mọi người", chứ không tự hiểu thành chính người đang hỏi —
+     * "duyệt bài nộp" mà mặc định thành "bài nộp của tôi" là hiểu sai hoàn toàn ý người dùng.
+     */
+    public UserRef resolveUser(String userId, String userName, ToolContext context) {
+        if (notBlank(userId)) {
+            UUID id = parseId(userId, "người dùng (userId)", "search");
+            guardDisambiguation("user", id, "người", context);
+            validateUserAccess(id, context);
+            return new UserRef(id, null);
+        }
+        if (notBlank(userName)) {
+            List<Map<String, Object>> pool = userMatchPool(userName, getOrgId(context));
+            if (pool.size() == 1) {
+                UUID id = UUID.fromString(String.valueOf(pool.get(0).get("id")));
+                validateUserAccess(id, context);
+                return new UserRef(id, null);
+            }
+            return new UserRef(null, userClarification(userName.trim(), pool, context));
+        }
+        return new UserRef(null, null);
+    }
+
     /** Các KPI khớp TÊN trong tổ chức, ưu tiên khớp CHÍNH XÁC (gom mọi bản cùng tên, vd theo tuần). */
     public List<Map<String, Object>> kpiMatchPool(String name, UUID orgId) {
         List<Map<String, Object>> matches = orgUnitStatisticService.searchKpis(orgId, name.trim(), 50);
@@ -320,6 +405,33 @@ public class ToolSupport {
         return new UnitRef(getOrgUnitId(context), null);
     }
 
+
+    /**
+     * Tên kỳ KPI → id, hoặc {@code null} khi không nêu tên.
+     *
+     * <p>Cùng khuôn với {@code FormFillSupport.period}: không tìm thấy hoặc trùng nhiều thì ném lỗi
+     * viết CHO MODEL đọc, kèm chỉ dẫn cụ thể để nó tự sửa trong lượt.
+     *
+     * <p>Vì sao phải có: các tool thống kê BSC nhận khoảng kỳ. Bỏ qua tham số kỳ mà vẫn trả số của
+     * MỌI kỳ chính là kiểu hỏng âm thầm mà tệp khai báo tham số đã cảnh báo — model tưởng đã lọc
+     * rồi kết luận trên dữ liệu chưa lọc.
+     */
+    public UUID resolvePeriodId(String periodName, ToolContext context) {
+        if (!notBlank(periodName)) return null;
+        List<Map<String, Object>> found =
+                orgUnitStatisticService.searchKpiPeriods(getOrgId(context), periodName.trim(), 5);
+        if (found.isEmpty()) {
+            throw new IllegalArgumentException("Không tìm thấy kỳ KPI nào tên '" + periodName
+                    + "'. Dùng search (entityType=period) để xem các kỳ đang có rồi nêu đúng tên.");
+        }
+        if (found.size() > 1) {
+            throw new IllegalArgumentException("Tên kỳ '" + periodName + "' khớp nhiều kỳ: "
+                    + found.stream().map(m -> String.valueOf(m.get("name"))).toList()
+                    + ". Hãy hỏi người dùng chọn kỳ nào.");
+        }
+        return UUID.fromString(String.valueOf(found.get(0).get("id")));
+    }
+
     // ── hỏi làm rõ khi trùng tên ─────────────────────────────────────────────
 
     /**
@@ -360,14 +472,27 @@ public class ToolSupport {
     }
 
     /**
-     * Detects whether we already presented these candidates to the user in a
-     * previous turn. Reads the most recent assistant message from chat memory and
-     * checks whether it already mentions the distinguishing labels of ≥2 candidates.
-     * If so we are in the "answering" phase and must let the detail tool proceed.
+     * Những ứng viên mà câu trả lời TRƯỚC đã nêu ĐÍCH DANH.
+     *
+     * <p>Đọc câu trả lời gần nhất của trợ lý rồi xem nó đã chỉ ra được ứng viên nào. Kết quả quyết
+     * định ba đường đi ở {@code SearchTool}: nêu từ hai ứng viên trở lên nghĩa là người dùng đã
+     * thấy lựa chọn (trợ lý vừa hỏi, họ vừa trả lời) nên tool cứ chạy tiếp; nêu đúng một thì đó là
+     * bản đang được nói tới; không nêu được ai thì phải hỏi lại.
+     *
+     * <p><b>Chỉ tính nhãn RIÊNG của từng ứng viên.</b> Đây là chỗ bản trước sai và sai âm thầm:
+     * nó tính một ứng viên là "đã nêu" nếu BẤT KỲ nhãn nào của nó xuất hiện trong câu trả lời. Hai
+     * KPI cùng tên `a` đều thuộc `Team Backend`, nên câu trả lời nhắc "Team Backend" một lần là cả
+     * hai được tính → tưởng đã đưa lựa chọn → tắt chốt chặn → model tự chọn và chọn nhầm kỳ. Một
+     * nhãn mà mọi ứng viên đều có thì không nhận diện được ai cả.
+     *
+     * <p><b>Khớp theo TỪ, không theo chuỗi con.</b> Cổng "câu trả lời trước có nhắc cái tên này
+     * không" trước đây dùng {@code contains}, nên một KPI tên `a` khớp với chữ `a` nằm trong
+     * "Backend" — đúng cái cổng sinh ra để chống báo nhầm lại vô hiệu đầu tiên.
      */
-    public boolean alreadyAskedPriorTurn(String conversationId, String collisionName,
-                                         List<Map<String, Object>> candidates, String... labelKeys) {
-        if (conversationId == null) return false;
+    public List<Map<String, Object>> namedInPriorTurn(String conversationId, String collisionName,
+                                                      List<Map<String, Object>> candidates,
+                                                      String... labelKeys) {
+        if (conversationId == null || candidates == null || candidates.isEmpty()) return List.of();
         String lastAssistant;
         try {
             lastAssistant = conversationMessageRepository
@@ -378,32 +503,111 @@ public class ToolSupport {
                     .orElse(null);
         } catch (Exception e) {
             log.warn("Could not load conversation history for disambiguation check: {}", e.getMessage());
-            return false;
+            return List.of();
         }
-        if (lastAssistant == null || lastAssistant.isBlank()) return false;
-        String haystack = lastAssistant.toLowerCase();
+        if (lastAssistant == null || lastAssistant.isBlank()) return List.of();
 
-        // Tie the check to THIS specific collision: the previous assistant turn must
-        // mention the colliding name itself. Otherwise the user asked about something
-        // else, and a label overlap (e.g. same org units) must NOT be treated as a
-        // pending choice — we re-ask instead of silently picking.
+        // Buộc phép kiểm gắn với ĐÚNG vụ trùng tên này: câu trả lời trước phải nhắc chính cái tên
+        // đang trùng. Không thì người dùng đang hỏi chuyện khác, và việc nhãn tình cờ trùng nhau
+        // (vd cùng đơn vị) KHÔNG được coi là một lựa chọn đang treo.
         if (collisionName == null || collisionName.isBlank()
-                || !haystack.contains(collisionName.trim().toLowerCase())) {
-            return false;
+                || !mentionsWord(lastAssistant, collisionName)) {
+            return List.of();
         }
 
-        int mentioned = 0;
+        List<Map<String, Object>> named = new ArrayList<>();
         for (Map<String, Object> c : candidates) {
-            for (String key : labelKeys) {
-                Object label = c.get(key);
-                if (label != null && !label.toString().isBlank()
-                        && haystack.contains(label.toString().toLowerCase())) {
-                    mentioned++;
-                    break; // count each candidate at most once
+            for (String value : distinguishingValues(c, candidates, labelKeys)) {
+                if (mentionsWord(lastAssistant, value)) {
+                    named.add(c);
+                    break;  // mỗi ứng viên chỉ tính một lần
                 }
             }
         }
-        return mentioned >= 2;
+        return named;
+    }
+
+    /**
+     * Các giá trị nhãn CHỈ RIÊNG ứng viên này có, trong phạm vi nhóm trùng tên.
+     *
+     * <p>Giá trị mà ứng viên khác cũng mang thì bỏ: nhắc tới nó không chứng minh được câu trả lời
+     * trước nói về ai.
+     */
+    private static List<String> distinguishingValues(Map<String, Object> candidate,
+                                                     List<Map<String, Object>> all,
+                                                     String... labelKeys) {
+        List<String> unique = new ArrayList<>();
+        for (String key : labelKeys) {
+            Object raw = candidate.get(key);
+            if (raw == null || raw.toString().isBlank()) continue;
+            String value = raw.toString();
+
+            boolean sharedWithAnother = all.stream()
+                    .filter(other -> other != candidate)
+                    .anyMatch(other -> {
+                        Object v = other.get(key);
+                        return v != null && value.equalsIgnoreCase(v.toString());
+                    });
+            if (!sharedWithAnother) unique.add(value);
+        }
+        return unique;
+    }
+
+    /**
+     * Chuỗi có xuất hiện như một TỪ trọn vẹn không.
+     *
+     * <p>Dùng lookaround chữ cái Unicode thay vì {@code \b}: tiếng Việt có dấu, mà {@code \b} mặc
+     * định của Java chỉ hiểu chữ cái ASCII nên coi "ộ" là ranh giới từ.
+     */
+    private static boolean mentionsWord(String haystack, String needle) {
+        if (haystack == null || needle == null || needle.isBlank()) return false;
+        Pattern p = Pattern.compile("(?<!\\p{L})" + Pattern.quote(needle.trim()) + "(?!\\p{L})",
+                Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE | Pattern.UNICODE_CHARACTER_CLASS);
+        return p.matcher(haystack).find();
+    }
+
+    /**
+     * Các nhóm trùng tên, TÁCH RIÊNG từng tên một.
+     *
+     * <p><b>Vì sao không dùng {@link #findDuplicateNameGroup} cho việc hỏi làm rõ.</b> Hàm đó trả
+     * về một danh sách PHẲNG gồm mọi dòng thuộc bất kỳ tên nào bị trùng — nhiều vụ trùng tên khác
+     * nhau bị gộp thành một khối. Tìm KPI với từ khoá {@code "a"} khớp mờ ra bốn nhóm cùng lúc
+     * ({@code a}, {@code API hoàn thành}, {@code Số asset thiết kế}, {@code Số task hoàn thành}),
+     * và khối phẳng đó khiến {@code collisionName} lấy đại tên của dòng đầu. Hệ quả đo được: chốt
+     * chặn arm nhầm nhóm, để lọt đúng nhóm cần chặn, model tự chọn và chọn nhầm kỳ.
+     *
+     * <p>Giữ thứ tự xuất hiện để nhóm nào lên trước trong kết quả tìm kiếm thì xét trước.
+     */
+    public List<List<Map<String, Object>>> duplicateNameGroups(List<Map<String, Object>> results,
+                                                               String nameKey) {
+        Map<String, List<Map<String, Object>>> byName = new LinkedHashMap<>();
+        for (Map<String, Object> r : results) {
+            String name = normalizeName(r.get(nameKey));
+            if (name != null) byName.computeIfAbsent(name, k -> new ArrayList<>()).add(r);
+        }
+        List<List<Map<String, Object>>> groups = new ArrayList<>();
+        for (List<Map<String, Object>> group : byName.values()) {
+            if (group.size() >= 2) groups.add(group);
+        }
+        return groups;
+    }
+
+    /**
+     * Nhóm mà người dùng THẬT SỰ đang hỏi tới.
+     *
+     * <p>Tìm kiếm khớp mờ nên một từ khoá ngắn kéo theo cả những tên chỉ tình cờ chứa nó. Nhóm nào
+     * có tên TRÙNG KHỚP HẲN với từ khoá thì đó là thứ người dùng nêu; những nhóm còn lại là nhiễu,
+     * và hỏi lại về chúng chỉ làm phiền. Không nhóm nào khớp hẳn thì trả về tất cả — lùi về đúng
+     * hành vi cũ, tức thà hỏi thừa còn hơn tự chọn.
+     */
+    public List<List<Map<String, Object>>> focusGroups(List<List<Map<String, Object>>> groups,
+                                                       String keyword, String nameKey) {
+        String kw = normalizeName(keyword);
+        if (kw == null) return groups;
+        for (List<Map<String, Object>> group : groups) {
+            if (kw.equals(normalizeName(group.get(0).get(nameKey)))) return List.of(group);
+        }
+        return groups;
     }
 
     public String collisionName(List<Map<String, Object>> dup, String nameKey) {

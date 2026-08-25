@@ -7,6 +7,7 @@ import org.springframework.stereotype.Component;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.EnumMap;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
@@ -39,6 +40,14 @@ public class ToolRegistry {
         /** Xếp hạng, so sánh, xu hướng, rủi ro. */
         INSIGHT,
         /**
+         * Thẻ điểm cân bằng. Đòi {@code BSC:MANAGE} — đúng bằng mức năm endpoint REST tương
+         * ứng đòi. Trưởng/phó phòng KHÔNG có quyền đó nên không thấy tool này; hạ xuống
+         * {@code BSC:VIEW} là biến trợ lý thành đường vòng qua phân quyền.
+         */
+        BSC,
+        /** Mục tiêu và kết quả then chốt. Đòi {@code OKR:VIEW} — mọi vai trò đều có. */
+        OKR,
+        /**
          * Đề xuất điền form đang mở trên màn hình. KHÔNG chọn theo nhóm như các nhóm khác: chỉ
          * đúng tool phụ trách form đang mở mới được gửi đi ({@link #formTool}), nên thêm form mới
          * không làm phình bộ tool của mọi lượt chat khác.
@@ -56,6 +65,12 @@ public class ToolRegistry {
     private final AnalyticsTool analyticsTool;
     private final RankTool rankTool;
     private final CompareTool compareTool;
+    private final BscTool bscTool;
+    private final OkrTool okrTool;
+    private final SubmissionReviewTool submissionReviewTool;
+    private final KpiCriteriaReviewTool kpiCriteriaReviewTool;
+    private final KpiAdjustmentReviewTool kpiAdjustmentReviewTool;
+    private final ReminderTool reminderTool;
     private final EscapeHatchTool escapeHatchTool;
     private final EvidenceRequestTool evidenceRequestTool;
     private final AttachFilesTool attachFilesTool;
@@ -69,7 +84,14 @@ public class ToolRegistry {
 
     /** Quyền bắt buộc để mở một nhóm; {@code null} = không đòi quyền riêng. */
     private static final Map<Group, String> REQUIRED_PERMISSION = new EnumMap<>(Map.of(
-                    Group.ACTION, "KPI:CREATE"
+                    // Đúng bằng mức các endpoint REST tương ứng đòi. Lỏng hơn ở đây là mở một
+                    // đường vòng: trợ lý trả về đúng thứ REST API vừa từ chối.
+                    Group.BSC, "BSC:MANAGE",
+                    Group.OKR, "OKR:VIEW"
+                    // ACTION KHÔNG có mặt ở đây: bốn tool ghi đòi bốn quyền khác nhau nên phải lọc
+                    // theo TỪNG TOOL — xem actionTools(). Gán một quyền chung cho cả nhóm (bản
+                    // trước để Group.ACTION -> "KPI:CREATE") là trao nhầm: người chỉ có quyền TẠO
+                    // chỉ tiêu sẽ nhận được cả tool DUYỆT bài nộp.
             ));
 
     private Map<Group, List<Object>> groups() {
@@ -82,9 +104,28 @@ public class ToolRegistry {
         m.put(Group.LOOKUP, List.of(orgUnitTool, peopleTool));
         m.put(Group.KPI, List.of(kpiTool, submissionTool));
         m.put(Group.INSIGHT, List.of(rankTool, compareTool, analyticsTool));
+        m.put(Group.BSC, List.of(bscTool));
+        m.put(Group.OKR, List.of(okrTool));
         // FORM cố ý RỖNG: tool điền form chọn theo form đang mở chứ không theo nhóm — xem formTool().
         m.put(Group.FORM, List.of());
-        m.put(Group.ACTION, List.of());
+        // ACTION dựng từ actionTools(); lọc quyền theo từng tool nên không đi qua bảng nhóm.
+        m.put(Group.ACTION, List.copyOf(actionTools().keySet()));
+        return m;
+    }
+
+    /**
+     * Tool GHI, mỗi tool kèm quyền RIÊNG của nó.
+     *
+     * <p>Quyền lấy đúng bằng mức endpoint REST tương ứng đòi, vì trợ lý gọi thẳng chính các dịch vụ
+     * đó. Lỏng hơn ở đây là biến trợ lý thành đường vòng qua phân quyền — thứ mà cả
+     * {@code BscOkrToolTest} lẫn lần vá {@code bulk-review} đều dựng ra để chặn.
+     */
+    private Map<Object, String> actionTools() {
+        Map<Object, String> m = new LinkedHashMap<>();
+        m.put(submissionReviewTool, "SUBMISSION:REVIEW");
+        m.put(kpiCriteriaReviewTool, "KPI:APPROVE_CRITERIA");
+        m.put(kpiAdjustmentReviewTool, "KPI:APPROVE_ADJUSTMENT");
+        m.put(reminderTool, "REMINDER:SEND");
         return m;
     }
 
@@ -112,7 +153,7 @@ public class ToolRegistry {
 
     /** Mọi nhóm chỉ ĐỌC — dùng khi tắt router hoặc khi router lưỡng lự. */
     public Set<Group> readGroups() {
-        return Set.of(Group.CORE, Group.LOOKUP, Group.KPI, Group.INSIGHT);
+        return Set.of(Group.CORE, Group.LOOKUP, Group.KPI, Group.INSIGHT, Group.BSC, Group.OKR);
     }
 
     /**
@@ -135,6 +176,13 @@ public class ToolRegistry {
             Map.entry("rank", Group.INSIGHT),
             Map.entry("compare_org_units", Group.INSIGHT),
             Map.entry("get_analytics", Group.INSIGHT),
+            Map.entry("get_bsc", Group.BSC),
+            Map.entry("get_okr", Group.OKR),
+            Map.entry("review_submissions", Group.ACTION),
+            Map.entry("review_kpi_criteria", Group.ACTION),
+            Map.entry("review_kpi_adjustments", Group.ACTION),
+            Map.entry("send_reminders", Group.ACTION),
+            Map.entry("confirm_pending_action", Group.ACTION),
             Map.entry("suggest_kpi_form", Group.FORM),
             Map.entry("suggest_submission_form", Group.FORM),
             Map.entry("suggest_evaluation_form", Group.FORM),
@@ -170,6 +218,17 @@ public class ToolRegistry {
         List<Object> tools = new ArrayList<>();
         for (Group g : Group.values()) {
             if (!effective.contains(g)) continue;
+
+            // Nhóm GHI lọc theo TỪNG tool, vì mỗi việc đòi một quyền khác nhau.
+            if (g == Group.ACTION) {
+                actionTools().forEach((tool, permission) -> {
+                    if (userId != null && permissionChecker.hasPermission(userId, permission)) {
+                        tools.add(tool);
+                    }
+                });
+                continue;
+            }
+
             String permission = REQUIRED_PERMISSION.get(g);
             if (permission != null && (userId == null || !permissionChecker.hasPermission(userId, permission))) {
                 continue;
@@ -179,11 +238,47 @@ public class ToolRegistry {
         return tools;
     }
 
+    /**
+     * Nhóm người dùng có HỎI tới nhưng bị lọc mất vì thiếu quyền.
+     *
+     * <p><b>Vì sao cần biết.</b> {@link #toolsFor} lọc im lặng, và im lặng ở đây sinh ra một kiểu
+     * hỏng đã đo được: hỏi "cho tôi xem thẻ điểm cân bằng BSC" bằng tài khoản trưởng phòng (không
+     * có {@code BSC:MANAGE}) thì {@code get_bsc} không được gửi đi — đúng như thiết kế — nhưng model
+     * không biết vì sao mình thiếu công cụ, nên nó lấy dữ liệu OKR ra rồi <b>gắn nhãn "Thẻ điểm cân
+     * bằng BSC"</b>. Không bịa số, nhưng đổi tên một tập dữ liệu thành tập khác thì người đọc vẫn
+     * bị dẫn sai.
+     *
+     * <p>Biết được nhóm nào bị chặn thì nói thẳng cho model, và nó từ chối đúng chỗ thay vì đi tìm
+     * thứ gần giống để thế vào.
+     */
+    public Set<Group> deniedGroups(Set<Group> requested, UUID userId) {
+        if (requested == null) return Set.of();
+        Set<Group> denied = new LinkedHashSet<>();
+        for (Group g : requested) {
+            // Nhóm GHI chỉ tính là bị chặn khi người dùng không có quyền nào TRONG SỐ các việc ghi;
+            // có một quyền là còn làm được việc, nói "bạn không được sửa gì" sẽ sai.
+            if (g == Group.ACTION) {
+                boolean anyAllowed = userId != null && actionTools().values().stream()
+                        .anyMatch(perm -> permissionChecker.hasPermission(userId, perm));
+                if (!anyAllowed) denied.add(g);
+                continue;
+            }
+            String permission = REQUIRED_PERMISSION.get(g);
+            if (permission != null
+                    && (userId == null || !permissionChecker.hasPermission(userId, permission))) {
+                denied.add(g);
+            }
+        }
+        return denied;
+    }
+
     /** Mọi lớp tool, để thu thập tên tool cho bộ lọc câu trả lời. */
     public static Class<?>[] toolClasses() {
         return new Class<?>[]{
                 SearchTool.class, OrgUnitTool.class, PeopleTool.class, KpiTool.class,
                 SubmissionTool.class, AnalyticsTool.class, RankTool.class, CompareTool.class,
+                BscTool.class, OkrTool.class, SubmissionReviewTool.class, KpiCriteriaReviewTool.class, ConfirmActionTool.class,
+                KpiAdjustmentReviewTool.class, ReminderTool.class,
                 EscapeHatchTool.class, EvidenceRequestTool.class, AttachFilesTool.class,
                 KpiFormFillTool.class,
                 SubmissionFormFillTool.class, EvaluationFormFillTool.class,

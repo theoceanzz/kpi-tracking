@@ -18,9 +18,14 @@ import com.kpitracking.service.ai.agent.AgentState;
 /**
  * Test cho KHUNG chạy chuỗi công đoạn — không phải cho nghiệp vụ của từng công đoạn.
  *
- * <p>Điều cần chứng minh: khung cho phép chèn ba dạng công đoạn mà thiết kế hứa hẹn —
- * cắt ngắn (bộ nhớ đệm), bọc ngoài để soi kết quả (kiểm duyệt), và gọi lại nhiều lần
- * (cửa thoát hiểm). Nếu ba điều này không đúng thì khung vô dụng, dù nghiệp vụ vẫn chạy.
+ * <p>Điều cần chứng minh: khung cho phép chèn các dạng công đoạn mà thiết kế hứa hẹn — cắt
+ * ngắn (bộ nhớ đệm) và bọc ngoài để soi kết quả (kiểm duyệt). Nếu chúng không đúng thì khung vô
+ * dụng, dù nghiệp vụ vẫn chạy.
+ *
+ * <p>Hai ca "gọi next nhiều lần" ở dưới nay chỉ ghìm độ BỀN của khung, không còn ghìm một tính năng
+ * đang dùng: việc quay lui đã chuyển sang
+ * {@link com.kpitracking.service.ai.agent.AgentGraph}, nơi nó là một cạnh có điều kiện chứ không phải
+ * một lần chạy lại cả chuỗi.
  */
 class AiTurnPipelineTest {
 
@@ -106,7 +111,7 @@ class AiTurnPipelineTest {
     }
 
     @Test
-    @DisplayName("stage gọi next NHIỀU LẦN — nền tảng của cửa thoát hiểm")
+    @DisplayName("stage gọi next NHIỀU LẦN thì khung vẫn chạy đúng")
     void stageMayProceedTwice() {
         AiStage retry = new AiStage() {
             @Override public String handle(AiTurn t, AiStageChain next) {
@@ -329,7 +334,7 @@ class AiTurnPipelineTest {
     }
 
     @Test
-    @DisplayName("stage gọi next HAI lần thì các stage sau báo tiến độ lại — đúng sự thật là chạy lại")
+    @DisplayName("stage gọi next HAI lần thì các stage sau báo tiến độ lại — không lặng lẽ bỏ qua")
     void reentryEmitsAgain() {
         RecordingListener listener = new RecordingListener();
         int[] calls = {0};

@@ -23,6 +23,8 @@ const argOf = (name, dflt) => {
 };
 const onlyGroup = (argOf('--group', '') || '').toUpperCase();
 const LOG_PATH = argOf('--log', process.env.AI_TEST_LOG || '');
+/** Đo trên đường SSE thay vì đường JSON — xem askOverSse. */
+const USE_STREAM = args.includes('--stream');
 const OUT_PATH = argOf('--out', 'ai-questions-result.json');
 
 /** Câu trả lời "chịu thua" của chính hệ thống — đếm là hỏng, trừ nhóm D nơi từ chối là ĐÚNG. */
@@ -118,8 +120,68 @@ const RATE_LIMITED = /quá nhanh|rate limit/i;
  */
 const PROVIDER_THROTTLED = /đạt giới hạn sử dụng/i;
 
+/**
+ * Đọc một luồng SSE và trả về sự kiện `done` (hoặc `error`).
+ *
+ * <p>Chỉ đọc `done` chứ không ghép các mẩu `token`: `token` là BẢN XEM TRƯỚC chưa qua bộ lọc, còn
+ * `done` mới là câu trả lời chính thức — đúng thứ client thật hiển thị.
+ *
+ * <p><b>Tách khung theo DÒNG, tuyệt đối không dùng regex có dấu chấm.</b> Bản đầu dùng
+ * `/^data:\s?(.*)$/gm` và nó CẮT CỤT payload: trong regex JavaScript, dấu chấm không khớp
+ * U+2028 LINE SEPARATOR, mà model sinh ký tự đó khá thường (đo được 12 lần trong MỘT câu trả lời).
+ * Payload đứt giữa chừng -> JSON.parse hỏng -> bộ đo báo "luồng SSE không có sự kiện done", và cổng
+ * P4 bị chặn bởi đúng lỗi này của BỘ ĐO chứ không phải bởi sản phẩm — chạy riêng cùng câu hỏi đó
+ * thì server trả `done` đầy đủ 3/3 lần.
+ *
+ * <p>Trình duyệt thật không dính: EventSource chỉ coi CR, LF, CRLF là hết dòng, đúng chuẩn SSE.
+ */
+function parseSse(raw) {
+  let done = null;
+  let failed = null;
+  for (const block of raw.split(/\r?\n\r?\n/)) {
+    const lines = block.split(/\r\n|\r|\n/);
+    const nameLine = lines.find(l => l.startsWith('event:'));
+    if (!nameLine) continue;
+    const name = nameLine.slice('event:'.length).trim();
+    const payload = lines
+      .filter(l => l.startsWith('data:'))
+      .map(l => l.slice('data:'.length).replace(/^ /, ''))
+      .join('\n');
+    if (!payload) continue;
+    try {
+      if (name === 'done') done = JSON.parse(payload);
+      else if (name === 'error') failed = JSON.parse(payload);
+    } catch { /* mẩu vỡ thì bỏ; phần gọi sẽ báo thiếu done */ }
+  }
+  return { done, failed };
+}
+
+/**
+ * Hỏi qua `/ai/chat/stream`.
+ *
+ * <p>Cần cờ này vì hai đường KHÔNG chạy cùng mã: lượt streaming chạy trên luồng nền, và đã có lần
+ * lỗi ở đúng chỗ đó (LazyInitializationException "no Session") mà đường JSON không hề thấy. Đo
+ * đường JSON rồi kết luận cho streaming là điều đã làm sai một lần.
+ */
+async function askOverSse(token, body) {
+  const r = await fetch(BASE + '/ai/chat/stream', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Accept: 'text/event-stream',
+      Authorization: 'Bearer ' + token,
+    },
+    body: JSON.stringify(body),
+  });
+  const { done, failed } = parseSse(await r.text());
+  if (done && done.text) return done.text.replace(/\s+/g, ' ').trim();
+  return '[LỖI] ' + String(failed ? failed.message : 'luồng SSE không có sự kiện done').slice(0, 160);
+}
+
 async function askOnce(question, accountKey) {
   const token = await loginAs(accountKey);
+  if (USE_STREAM) return askOverSse(token, { message: question });
+
   const r = await fetch(BASE + '/ai/chat', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },

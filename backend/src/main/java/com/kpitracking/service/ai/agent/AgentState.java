@@ -5,7 +5,9 @@ import com.kpitracking.service.ai.form.FormPatch;
 import lombok.Getter;
 import lombok.Setter;
 import org.springframework.ai.chat.messages.Message;
+import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.chat.model.ToolContext;
+import org.springframework.ai.chat.prompt.Prompt;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -80,6 +82,28 @@ public class AgentState {
     @Setter
     private FormPatch formPatch;
 
+    /**
+     * Hành động GHI đang chờ người dùng xác nhận.
+     *
+     * <p>Cùng vai trò với {@link #formPatch}, khác ở chỗ sau khi xác nhận thì BACKEND thực thi chứ
+     * không phải giao diện điền vào form — mấy việc này (duyệt bài nộp, duyệt chỉ tiêu, nhắc nhở)
+     * không có form nào trên màn hình.
+     *
+     * <p>Có giá trị ở đây nghĩa là vòng lặp phải DỪNG: xem {@code ObserveNode}.
+     */
+    @Setter
+    private com.kpitracking.service.ai.action.PendingAction pendingAction;
+
+    /**
+     * Id của lời mời vừa được CHẠY trong lượt này (xác nhận bằng chat).
+     *
+     * <p>Client cần biết để tắt cái thẻ xác nhận cũ vẫn còn nằm trên màn hình. Không có tín hiệu
+     * này thì người dùng xác nhận bằng chat xong vẫn thấy nút, bấm vào lại nhận "lời mời không còn
+     * hiệu lực" — đúng về mặt an toàn nhưng nhìn như hỏng.
+     */
+    @Setter
+    private String consumedActionId;
+
     /** Model có xin mở vùng thả minh chứng không — thay ThreadLocal của {@code EvidenceRequestTool}. */
     @Setter
     private boolean evidenceRequested;
@@ -91,6 +115,40 @@ public class AgentState {
     /** Lý do model xin mở thêm công cụ; null nghĩa là không xin — thay {@code EscapeHatchTool}. */
     @Setter
     private String escapeReason;
+
+    // ── phần dành riêng cho graph ────────────────────────────────────────────
+    //
+    // Bốn trường dưới đây là thứ thay cho việc CHẠY LẠI cả phần chuỗi phía sau. Bản trước, cửa
+    // thoát hiểm và khâu bổ sung bước thiếu đều gọi {@code next.proceed} thêm một lần, nên "đã nới
+    // rồi" và "đã nhắc rồi" không có chỗ nào ghi — chúng chỉ đúng nhờ mỗi công đoạn viết một câu
+    // {@code if} chạy đúng một lần. Nay hai việc đó là CẠNH của graph, và cạnh thì phải nhớ được
+    // mình đã đi qua chưa, nếu không đồ thị có chu trình sẽ quay vòng vô hạn.
+
+    /** Đã nới bộ công cụ một lần rồi. Model xin lần hai thì thôi — xem {@code ObserveNode}. */
+    @Setter
+    private boolean escapeUsed;
+
+    /** Đã nhắc bổ sung bước thiếu một lần rồi. */
+    @Setter
+    private boolean planNudgeUsed;
+
+    /** {@code RouteNode} phải lấy TOÀN BỘ nhóm đọc thay vì hỏi lại router. */
+    @Setter
+    private boolean widenTools;
+
+    /**
+     * Lời gọi model gần nhất và câu hỏi sinh ra nó.
+     *
+     * <p>{@code ToolCallingManager.executeToolCalls} đòi ĐÚNG cặp prompt–response đó để dựng lại
+     * lịch sử hội thoại; dựng lại prompt từ {@link #messages} sẽ ra một danh sách khác (thiếu
+     * chính tin nhắn chứa lời gọi tool) và tool trả về sai chỗ. Hai trường này sống trong đúng
+     * một vòng {@code MODEL → ACT}, không ai ngoài hai node đó đọc.
+     */
+    @Setter
+    private Prompt lastPrompt;
+
+    @Setter
+    private ChatResponse lastResponse;
 
     public AgentState(AiTurn turn) {
         this.turn = turn;
@@ -117,6 +175,24 @@ public class AgentState {
     public void setMessages(List<Message> replacement) {
         messages.clear();
         messages.addAll(replacement);
+    }
+
+    /**
+     * Bỏ hết hội thoại của lần hỏi vừa rồi để bắt đầu một lần hỏi MỚI.
+     *
+     * <p>Dùng ở hai cạnh quay lui của graph. Cả hai đều muốn hỏi lại từ đầu chứ không nói tiếp:
+     * cửa thoát hiểm vì bộ công cụ đã khác, khâu bổ sung vì prompt lần này chỉ nêu phần còn thiếu.
+     * Nối tiếp vào hội thoại cũ là bắt model đọc lại chính câu trả lời hỏng của nó.
+     *
+     * <p>Ngân sách bước cũng về 0: mỗi lần hỏi được trọn số vòng tự sửa lỗi của nó, đúng như bản
+     * trước — ở đó mỗi lần {@code next.proceed} dựng một {@code AgentLoop.run} mới.
+     */
+    public void resetConversation() {
+        messages.clear();
+        answer = null;
+        step = 0;
+        lastPrompt = null;
+        lastResponse = null;
     }
 
     public void recordRequest(ToolCallRecord call) {

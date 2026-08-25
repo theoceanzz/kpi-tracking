@@ -24,7 +24,7 @@ import static org.assertj.core.api.Assertions.assertThat;
  */
 class ToolProgressTest {
 
-    /** Tên mọi @Tool, gom bằng reflection giống {@code ModelCallStage.collectToolNames()}. */
+    /** Tên mọi @Tool, gom bằng reflection giống {@code FinishNode.collectToolNames()}. */
     private static Set<String> allToolNames() {
         Set<String> names = new LinkedHashSet<>();
         for (Class<?> toolClass : ToolRegistry.toolClasses()) {
