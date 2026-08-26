@@ -1,7 +1,5 @@
 import { UserCircle } from 'lucide-react'
 import SettingsSectionLayout from '@/components/common/SettingsSectionLayout'
-import PageTour from '@/components/common/PageTour'
-import { mySpaceSteps } from '@/components/common/tourSteps'
 import { usePageTitle } from '@/features/organization/hooks/usePageTitle'
 import { useNotificationDots } from '@/hooks/useNotificationDots'
 import { useOrganization } from '@/features/orgunits/hooks/useOrganization'
@@ -12,6 +10,7 @@ import MySubmissionsPage from '@/features/submissions/pages/MySubmissionsPage'
 import EvaluationsPage from '@/features/evaluations/pages/EvaluationsPage'
 import MyRewardsPage from '@/features/rewards/pages/MyRewardsPage'
 import MyWalletPage from '@/features/wallet/pages/MyWalletPage'
+import MyConductPage from '@/features/conduct/pages/MyConductPage'
 
 /**
  * Không gian cá nhân: công việc của chính mình và ví của chính mình. Trước đây là hai
@@ -28,7 +27,6 @@ export default function MySpacePage() {
 
   return (
     <>
-      <PageTour pageKey="my-space" steps={mySpaceSteps} />
       <SettingsSectionLayout
         navId="my-space"
         title={pageTitle}
@@ -47,6 +45,7 @@ export default function MySpacePage() {
           { id: 'my-submissions', render: () => <MySubmissionsPage /> },
           { id: 'evaluations', render: () => <EvaluationsPage /> },
           { id: 'my-adjustments', render: () => <MyAdjustmentsPage /> },
+          { id: 'my-conduct', visible: org?.enableConduct ?? false, render: () => <MyConductPage /> },
           { id: 'my-rewards', visible: org?.enableReward ?? false, render: () => <MyRewardsPage /> },
           { id: 'my-cash-wallet', visible: org?.enableCashWallet ?? false, render: () => <MyWalletPage /> },
         ]}

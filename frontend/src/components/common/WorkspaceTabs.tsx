@@ -9,6 +9,7 @@ import {
 } from 'react'
 import { createPortal } from 'react-dom'
 import type { TabDef } from '@/hooks/useTabParam'
+import { useTourTabScope } from '@/hooks/useTourScope'
 
 export interface WorkspaceTabsValue {
   tabs: TabDef<string>[]
@@ -44,6 +45,11 @@ export function WorkspaceTabsProvider({
 }: Omit<WorkspaceTabsValue, 'claim' | 'actionSlot' | 'setActionSlot'> & { children: ReactNode }) {
   const claimCount = useRef(0)
   const [actionSlot, setActionSlot] = useState<HTMLElement | null>(null)
+
+  // Hàng tab này là tầng thứ ba của điều hướng, nên hệ hướng dẫn cần biết tab nào đang
+  // mở. Báo từ đây chứ không đọc URL: mỗi màn dùng một tên tham số khác nhau
+  // (`?tab=`, `?scoring=`) và tab mặc định thì chưa kịp có mặt trong URL.
+  useTourTabScope(activeTab)
 
   // Ổn định qua các lần render để effect đăng ký bên `WorkspaceHeader` không chạy lại.
   const claim = useCallback(() => {

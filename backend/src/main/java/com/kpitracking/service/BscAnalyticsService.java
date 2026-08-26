@@ -24,7 +24,7 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 
 /**
- * Thống kê BSC scope theo cây đơn vị + kỳ — cung cấp cho tab "Viễn cảnh (BSC)" ở trang Thống kê.
+ * Thống kê BSC scope theo cây đơn vị + kỳ — cung cấp cho tab "Lĩnh vực (BSC)" ở trang Thống kê.
  *
  * <p>Nguyên tắc: GỘP điểm ĐÃ LƯU ({@code evaluations.bsc_score} + {@code evaluation_perspective_scores}),
  * KHÔNG tính lại. Vì trọng số BSC đóng băng theo kỳ và {@code weighted_score} đã cố định lúc chấm,
@@ -50,7 +50,7 @@ public class BscAnalyticsService {
             KpiStatus.APPROVED, KpiStatus.EDITED, KpiStatus.EDIT, KpiStatus.INACTIVE);
 
     // ============================================================
-    // 1) Cân bằng viễn cảnh (radar + thẻ chỉ số)
+    // 1) Cân bằng lĩnh vực (radar + thẻ chỉ số)
     // ============================================================
 
     @Transactional(readOnly = true)
@@ -115,7 +115,7 @@ public class BscAnalyticsService {
     }
 
     // ============================================================
-    // 2) Xu hướng theo kỳ (mỗi viễn cảnh một series + đường tổng BSC)
+    // 2) Xu hướng theo kỳ (mỗi lĩnh vực một series + đường tổng BSC)
     // ============================================================
 
     @Transactional(readOnly = true)
@@ -157,7 +157,7 @@ public class BscAnalyticsService {
     }
 
     // ============================================================
-    // 3) So sánh viễn cảnh giữa các đơn vị
+    // 3) So sánh lĩnh vực giữa các đơn vị
     // ============================================================
 
     @Transactional(readOnly = true)
@@ -248,7 +248,7 @@ public class BscAnalyticsService {
     }
 
     // ============================================================
-    // 5) Xếp hạng nhân sự theo điểm BSC + breakdown viễn cảnh
+    // 5) Xếp hạng nhân sự theo điểm BSC + breakdown lĩnh vực
     // ============================================================
 
     @Transactional(readOnly = true)
@@ -257,7 +257,7 @@ public class BscAnalyticsService {
         var s = scopeResolver.resolve(orgUnitId, periodIds);
         if (s.isEmpty()) return emptyRanking(page, size);
 
-        // breakdown viễn cảnh theo nhân sự
+        // breakdown lĩnh vực theo nhân sự
         Map<UUID, Map<String, Double>> breakdown = new LinkedHashMap<>();
         Map<UUID, PerspectiveMeta> metas = new LinkedHashMap<>();
         for (Object[] r : perspectiveScoreRepository.aggregateByUserAndPerspective(s.unitIds(), s.periodIds())) {
@@ -316,15 +316,15 @@ public class BscAnalyticsService {
     }
 
     // ============================================================
-    // Coverage (KPI đã gán viễn cảnh) — data-quality guard
+    // Coverage (KPI đã gán lĩnh vực) — data-quality guard
     // ============================================================
 
     private record Coverage(Double percent, int mapped, int unmapped, List<String> names) {}
 
     /**
-     * % KPI tính điểm BSC đã được gán viễn cảnh (hiệu lực: trực tiếp hoặc suy từ Objective cha).
+     * % KPI tính điểm BSC đã được gán lĩnh vực (hiệu lực: trực tiếp hoặc suy từ Objective cha).
      * Dùng CÙNG tập KPI & quy tắc "đủ điều kiện tính điểm" như {@link BscScoringService} — chỉ ĐẾM,
-     * không tính lại điểm. Ở mức tổ chức + kỳ (viễn cảnh vốn là cấu hình org-wide).
+     * không tính lại điểm. Ở mức tổ chức + kỳ (lĩnh vực vốn là cấu hình org-wide).
      */
     private Coverage computeCoverage(Collection<UUID> periodIds) {
         int total = 0, unmapped = 0;
@@ -343,12 +343,12 @@ public class BscAnalyticsService {
         return new Coverage(percent, total - unmapped, unmapped, names);
     }
 
-    /** SHADOW nếu bất kỳ kỳ nào đang chạy song song; OFFICIAL nếu có kỳ chính thức; null nếu không kỳ nào có thẻ điểm. */
+    /** SHADOW nếu bất kỳ kỳ nào đang chạy song song; OFFICIAL nếu có kỳ chính thức; null nếu không kỳ nào có bộ tiêu chí. */
     private String resolveScoringMode(UUID orgId, Collection<UUID> periodIds) {
         if (orgId == null) return null;
         boolean shadow = false, official = false;
         for (UUID pid : periodIds) {
-            // Analytics mức org: lấy chế độ của thẻ điểm MẶC ĐỊNH toàn org (org_unit = NULL).
+            // Analytics mức org: lấy chế độ của bộ tiêu chí MẶC ĐỊNH toàn org (org_unit = NULL).
             BscScoringMode mode = bscScoringService.getScoringMode(null, orgId, pid);
             if (mode == BscScoringMode.SHADOW) shadow = true;
             else if (mode == BscScoringMode.OFFICIAL) official = true;

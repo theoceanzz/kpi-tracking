@@ -58,16 +58,6 @@ export default function MyObjectivesTab() {
   const onlyApproved = false
   const { periodId, periodIdTo, from, to, groupBy, controls } = useAnalyticsDateFilter({ selectClassName: 'h-10' })
   const perf = usePerformanceScale()
-  const [selectedKpiId, setSelectedKpiId] = useState<string | null>(null)
-
-  // Table controls
-  const [filterObjective, setFilterObjective] = useState('')
-  const [filterKr, setFilterKr] = useState('')
-  const [filterShared, setFilterShared] = useState<SharedFilter>('ALL')
-  const [sortField, setSortField] = useState<SortField | null>('period') // ưu tiên đợt/ngày gần nhất
-  const [sortDir, setSortDir] = useState<SortDir>('desc')
-  const [page, setPage] = useState(0)
-
   const { data: metrics, isLoading: isMetricsLoading } = useQuery({
     queryKey: ['personalObjective', 'metrics', from, to, onlyApproved, periodId, periodIdTo],
     queryFn: () => personalObjectiveApi.getMetrics({ from, to, onlyApproved, periodId, periodIdTo }),
@@ -76,6 +66,126 @@ export default function MyObjectivesTab() {
     queryKey: ['personalObjective', 'chart', from, to, onlyApproved, periodId, periodIdTo, groupBy],
     queryFn: () => personalObjectiveApi.getComboChart({ from, to, onlyApproved, periodId, periodIdTo, groupBy }),
   })
+  // ── Tuỳ chỉnh giao diện (lưới widget dùng chung) ──────────────────────────
+  const dash = useDashboardCustomization({
+    configReportName: CONFIG_REPORT_NAME,
+    reportDescription: 'Cấu hình giao diện Mục tiêu của tôi',
+    defaultWidgets: DEFAULT_WIDGETS,
+    toBackendWidgetType,
+  })
+  const { isEditMode, handleTogglePin } = dash
+
+  const renderWidget = (w: DashboardWidget) => {
+    switch (w.type) {
+      case 'MYOBJ_TREND': return (
+        <ChartWrapper chromeless title="Xu hướng KPI theo thời gian" icon={<TrendingUp size={20} className="text-indigo-500" />} widget={w} onTogglePin={handleTogglePin} isEditMode={isEditMode}>
+          <AnalyticsComboChart data={chartData?.points || []} isLoading={isChartLoading} itemName="KPI đảm nhiệm" fillHeight />
+        </ChartWrapper>
+      )
+      case 'MYOBJ_DETAIL': return <MyObjectiveDetailSection from={from} to={to} onlyApproved={onlyApproved} periodId={periodId} periodIdTo={periodIdTo} isEditMode={isEditMode} widget={w} onTogglePin={handleTogglePin} />
+      default: return null
+    }
+  }
+
+  if (isMetricsLoading || isChartLoading)
+    return <AnalyticsTabSkeleton variant="objectives" className="p-6" />
+
+  return (
+    <div className="space-y-6">
+      {/* Tiêu đề + nút Tuỳ chỉnh */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <h2 className="text-xl font-black text-slate-900 dark:text-white">Mục tiêu của tôi</h2>
+        <DashboardEditToolbar api={dash} />
+      </div>
+
+      {/* Global Filter Toolbar */}
+      <div className="sticky top-0 z-20 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl flex flex-wrap items-center gap-4 justify-between p-4 shadow-sm">
+        <div className="flex items-center gap-2 min-w-0">
+          <div className="p-2 rounded-lg text-indigo-600 dark:text-indigo-400 shrink-0 bg-indigo-50 dark:bg-indigo-900/30">
+            <Target size={18} />
+          </div>
+          <div className="min-w-0">
+            <h2 className="font-bold text-slate-900 dark:text-white leading-tight text-base">Bộ lọc mục tiêu của tôi</h2>
+            <p className="text-xs text-slate-500 font-medium mt-0.5">Lọc dữ liệu đồng bộ cho tất cả biểu đồ</p>
+          </div>
+        </div>
+
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-5 w-full lg:w-auto lg:shrink-0">
+          <div className="w-full sm:w-auto">
+            {controls}
+          </div>
+        </div>
+      </div>
+
+      {/* Metrics Row */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="bg-white dark:bg-slate-900 rounded-2xl p-5 border border-slate-200 dark:border-slate-800 flex items-center gap-4">
+          <div className="w-12 h-12 rounded-full bg-indigo-100 dark:bg-indigo-900/40 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0">
+            <TrendingUp size={24} />
+          </div>
+          <div>
+            <p className="text-xs font-bold text-slate-500">Tiến độ trung bình</p>
+            <p className="text-2xl font-black">{metrics?.averageProgress?.toFixed(1) ?? 0}%</p>
+          </div>
+        </div>
+        <div className="bg-white dark:bg-slate-900 rounded-2xl p-5 border border-slate-200 dark:border-slate-800 flex items-center gap-4">
+          <div className="w-12 h-12 rounded-full bg-emerald-100 dark:bg-emerald-900/40 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
+            <Target size={24} />
+          </div>
+          <div>
+            <p className="text-xs font-bold text-slate-500">Hiệu suất trung bình (đánh giá)</p>
+            <p className="text-2xl font-black">{perf.format(metrics?.averagePerformance ?? 0)}</p>
+          </div>
+        </div>
+        <div className="bg-white dark:bg-slate-900 rounded-2xl p-5 border border-slate-200 dark:border-slate-800 flex items-center gap-4">
+          <div className="w-12 h-12 rounded-full bg-amber-100 dark:bg-amber-900/40 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0">
+            <CheckCircle size={24} />
+          </div>
+          <div>
+            <p className="text-xs font-bold text-slate-500">Trạng thái KPI</p>
+            <p className="text-sm font-black">{metrics?.runningKpis ?? 0} Đang chạy</p>
+            <p className="text-sm font-black text-emerald-600">{metrics?.completedKpis ?? 0} Hoàn thành</p>
+          </div>
+        </div>
+        <div className="bg-white dark:bg-slate-900 rounded-2xl p-5 border border-slate-200 dark:border-slate-800 flex items-center gap-4">
+          <div className="w-12 h-12 rounded-full bg-red-100 dark:bg-red-900/40 text-red-600 dark:text-red-400 flex items-center justify-center shrink-0">
+            <AlertTriangle size={24} />
+          </div>
+          <div>
+            <p className="text-xs font-bold text-slate-500">KPI Rủi ro / Chậm</p>
+            <p className="text-2xl font-black">{metrics?.riskKpis ?? 0}</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Lưới widget tuỳ chỉnh: Xu hướng + Bảng chi tiết */}
+      <DashboardCustomizeChrome api={dash} renderWidget={renderWidget} catalog={CATALOG} />
+    </div>
+  )
+}
+
+
+/**
+ * Bảng chi tiết mục tiêu cá nhân — tự quản bộ lọc/sắp xếp/phân trang/drawer.
+ *
+ * <p>Tách khỏi thân tab để trang chủ dùng lại được nguyên vẹn (`bare`); xem
+ * `OrgUnitKpiDetailSection` bên SummaryTab cho cùng lý do.
+ */
+export function MyObjectiveDetailSection({
+  from, to, onlyApproved = false, periodId, periodIdTo, isEditMode, widget, onTogglePin, bare,
+}: {
+  from?: string; to?: string; onlyApproved?: boolean; periodId?: string; periodIdTo?: string
+  isEditMode?: boolean; widget?: DashboardWidget; onTogglePin?: (w: DashboardWidget) => void; bare?: boolean
+}) {
+  const [selectedKpiId, setSelectedKpiId] = useState<string | null>(null)
+  // Table controls
+  const [filterObjective, setFilterObjective] = useState('')
+  const [filterKr, setFilterKr] = useState('')
+  const [filterShared, setFilterShared] = useState<SharedFilter>('ALL')
+  const [sortField, setSortField] = useState<SortField | null>('period') // ưu tiên đợt/ngày gần nhất
+  const [sortDir, setSortDir] = useState<SortDir>('desc')
+  const [page, setPage] = useState(0)
+
   const { data: kpiPage, isLoading: isKpisLoading } = useQuery({
     queryKey: ['personalObjective', 'details', from, to, onlyApproved, periodId, periodIdTo, sortField, sortDir, filterObjective, filterKr, filterShared, page],
     queryFn: () => personalObjectiveApi.getDetailedKpis({
@@ -120,18 +230,8 @@ export default function MyObjectivesTab() {
     return kpiPage.availableKeyResults
   }, [kpiPage?.availableKeyResults, filterObjective])
 
-  // ── Tuỳ chỉnh giao diện (lưới widget dùng chung) ──────────────────────────
-  const dash = useDashboardCustomization({
-    configReportName: CONFIG_REPORT_NAME,
-    reportDescription: 'Cấu hình giao diện Mục tiêu của tôi',
-    defaultWidgets: DEFAULT_WIDGETS,
-    toBackendWidgetType,
-  })
-  const { isEditMode, handleTogglePin } = dash
-
-  // Nội dung bảng chi tiết (không bọc card/tiêu đề — ChartWrapper lo phần đó).
-  const renderDetailBody = () => (
-    <div className="flex-1 flex flex-col min-h-0 -mx-6 -mb-6">
+  const body = (
+    <div className={cn("flex-1 flex flex-col min-h-0", bare ? "-mx-5 sm:-mx-6 -mb-5 sm:-mb-6" : "-mx-6 -mb-6")}>
       <div className="px-6 pb-4 border-b border-slate-100 dark:border-slate-800 flex flex-wrap items-center gap-3">
         <Select value={filterObjective || 'ALL'} onValueChange={v => handleObjectiveChange(v === 'ALL' ? '' : v)}>
           <SelectTrigger className="h-9 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-semibold w-full sm:w-[300px]">
@@ -236,110 +336,30 @@ export default function MyObjectivesTab() {
     </div>
   )
 
-  const renderWidget = (w: DashboardWidget) => {
-    switch (w.type) {
-      case 'MYOBJ_TREND': return (
-        <ChartWrapper chromeless title="Xu hướng KPI theo thời gian" icon={<TrendingUp size={20} className="text-indigo-500" />} widget={w} onTogglePin={handleTogglePin} isEditMode={isEditMode}>
-          <AnalyticsComboChart data={chartData?.points || []} isLoading={isChartLoading} itemName="KPI đảm nhiệm" fillHeight />
-        </ChartWrapper>
-      )
-      case 'MYOBJ_DETAIL': return (
-        <ChartWrapper title="Bảng chi tiết KPI đang đảm nhiệm" icon={<Target size={20} className="text-indigo-600" />} widget={w} onTogglePin={handleTogglePin} isEditMode={isEditMode}
-          extraHeaderContent={<span className="text-xs font-bold text-slate-400">{kpiPage?.totalElements ?? 0} KPI</span>}>
-          {renderDetailBody()}
-        </ChartWrapper>
-      )
-      default: return null
-    }
-  }
+  const drawer = selectedKpiId ? (
+    <MyObjectiveDrawer
+      kpiId={selectedKpiId}
+      onClose={() => setSelectedKpiId(null)}
+      globalFrom={from}
+      globalTo={to}
+      globalPeriodId={periodId}
+      globalPeriodIdTo={periodIdTo}
+    />
+  ) : null
 
-  if (isMetricsLoading || isChartLoading)
-    return <AnalyticsTabSkeleton variant="objectives" className="p-6" />
+  if (bare) return <>{body}{drawer}</>
 
   return (
-    <div className="space-y-6">
-      {/* Tiêu đề + nút Tuỳ chỉnh */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <h2 className="text-xl font-black text-slate-900 dark:text-white">Mục tiêu của tôi</h2>
-        <DashboardEditToolbar api={dash} />
-      </div>
-
-      {/* Global Filter Toolbar */}
-      <div className="sticky top-0 z-20 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl flex flex-wrap items-center gap-4 justify-between p-4 shadow-sm">
-        <div className="flex items-center gap-2 min-w-0">
-          <div className="p-2 rounded-lg text-indigo-600 dark:text-indigo-400 shrink-0 bg-indigo-50 dark:bg-indigo-900/30">
-            <Target size={18} />
-          </div>
-          <div className="min-w-0">
-            <h2 className="font-bold text-slate-900 dark:text-white leading-tight text-base">Bộ lọc mục tiêu của tôi</h2>
-            <p className="text-xs text-slate-500 font-medium mt-0.5">Lọc dữ liệu đồng bộ cho tất cả biểu đồ</p>
-          </div>
-        </div>
-
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-5 w-full lg:w-auto lg:shrink-0">
-          <div className="w-full sm:w-auto">
-            {controls}
-          </div>
-        </div>
-      </div>
-
-      {/* Metrics Row */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bg-white dark:bg-slate-900 rounded-2xl p-5 border border-slate-200 dark:border-slate-800 flex items-center gap-4">
-          <div className="w-12 h-12 rounded-full bg-indigo-100 dark:bg-indigo-900/40 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0">
-            <TrendingUp size={24} />
-          </div>
-          <div>
-            <p className="text-xs font-bold text-slate-500">Tiến độ trung bình</p>
-            <p className="text-2xl font-black">{metrics?.averageProgress?.toFixed(1) ?? 0}%</p>
-          </div>
-        </div>
-        <div className="bg-white dark:bg-slate-900 rounded-2xl p-5 border border-slate-200 dark:border-slate-800 flex items-center gap-4">
-          <div className="w-12 h-12 rounded-full bg-emerald-100 dark:bg-emerald-900/40 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
-            <Target size={24} />
-          </div>
-          <div>
-            <p className="text-xs font-bold text-slate-500">Hiệu suất trung bình (đánh giá)</p>
-            <p className="text-2xl font-black">{perf.format(metrics?.averagePerformance ?? 0)}</p>
-          </div>
-        </div>
-        <div className="bg-white dark:bg-slate-900 rounded-2xl p-5 border border-slate-200 dark:border-slate-800 flex items-center gap-4">
-          <div className="w-12 h-12 rounded-full bg-amber-100 dark:bg-amber-900/40 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0">
-            <CheckCircle size={24} />
-          </div>
-          <div>
-            <p className="text-xs font-bold text-slate-500">Trạng thái KPI</p>
-            <p className="text-sm font-black">{metrics?.runningKpis ?? 0} Đang chạy</p>
-            <p className="text-sm font-black text-emerald-600">{metrics?.completedKpis ?? 0} Hoàn thành</p>
-          </div>
-        </div>
-        <div className="bg-white dark:bg-slate-900 rounded-2xl p-5 border border-slate-200 dark:border-slate-800 flex items-center gap-4">
-          <div className="w-12 h-12 rounded-full bg-red-100 dark:bg-red-900/40 text-red-600 dark:text-red-400 flex items-center justify-center shrink-0">
-            <AlertTriangle size={24} />
-          </div>
-          <div>
-            <p className="text-xs font-bold text-slate-500">KPI Rủi ro / Chậm</p>
-            <p className="text-2xl font-black">{metrics?.riskKpis ?? 0}</p>
-          </div>
-        </div>
-      </div>
-
-      {/* Lưới widget tuỳ chỉnh: Xu hướng + Bảng chi tiết */}
-      <DashboardCustomizeChrome api={dash} renderWidget={renderWidget} catalog={CATALOG} />
-
-      {selectedKpiId && (
-        <MyObjectiveDrawer
-          kpiId={selectedKpiId}
-          onClose={() => setSelectedKpiId(null)}
-          globalFrom={from}
-          globalTo={to}
-          globalPeriodId={periodId}
-          globalPeriodIdTo={periodIdTo}
-        />
-      )}
-    </div>
+    <>
+      <ChartWrapper title="Bảng chi tiết KPI đang đảm nhiệm" icon={<Target size={20} className="text-indigo-600" />} widget={widget!} onTogglePin={onTogglePin!} isEditMode={!!isEditMode}
+        extraHeaderContent={<span className="text-xs font-bold text-slate-400">{kpiPage?.totalElements ?? 0} KPI</span>}>
+        {body}
+      </ChartWrapper>
+      {drawer}
+    </>
   )
 }
+
 
 
 

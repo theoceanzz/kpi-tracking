@@ -160,7 +160,7 @@ export default function KpiExcelPreviewModal({ open, file, kpiType, onClose, onI
     const periodId = periodIdByName.get((row.Period || '').trim().toLowerCase())
     if (!periodId) return null // đợt chưa khớp ⇒ chưa lọc
     const periodScs = bscScorecards.filter(s => s.kpiPeriodId === periodId)
-    if (!periodScs.length) return new Set<string>() // đợt chưa có thẻ điểm ⇒ rỗng
+    if (!periodScs.length) return new Set<string>() // đợt chưa có bộ tiêu chí ⇒ rỗng
     const unitIds = (row.OrgUnit || '').split(',').map(s => unitIdByName.get(s.trim().toLowerCase())).filter(Boolean) as string[]
     if (!unitIds.length) return null // chưa khớp đơn vị ⇒ chưa lọc
     const resolve = (uid: string) => {
@@ -470,10 +470,10 @@ export default function KpiExcelPreviewModal({ open, file, kpiType, onClose, onI
       if (!matched) {
         errors['Perspective'] = `Hạng mục không tồn tại`
       } else {
-        // Hạng mục phải nằm trong thẻ điểm của (đơn vị + đợt) của dòng này.
+        // Hạng mục phải nằm trong bộ tiêu chí của (đơn vị + đợt) của dòng này.
         const avail = availablePerspIdsForRow(row)
         if (avail && !avail.has(matched.id)) {
-          errors['Perspective'] = `Hạng mục không có trong thẻ điểm của đơn vị/đợt này`
+          errors['Perspective'] = `Hạng mục không có trong bộ tiêu chí của đơn vị/đợt này`
         }
       }
     }

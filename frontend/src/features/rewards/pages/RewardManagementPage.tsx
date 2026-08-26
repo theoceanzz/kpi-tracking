@@ -1,4 +1,4 @@
-import { Gift, Wallet, Store, PackageCheck, Trophy, CalendarCheck } from 'lucide-react'
+import { Gift, Wallet, Store, PackageCheck, Trophy, CalendarCheck, Award } from 'lucide-react'
 import { useTabParam } from '@/hooks/useTabParam'
 import { WorkspaceTabsProvider } from '@/components/common/WorkspaceTabs'
 import WorkspaceHeader from '@/components/common/WorkspaceHeader'
@@ -9,12 +9,13 @@ import GiftsTab from '../components/GiftsTab'
 import RedemptionsTab from '../components/RedemptionsTab'
 import ProgramsTab from '../components/ProgramsTab'
 import CheckinConfigTab from '../components/CheckinConfigTab'
+import CertificatesTab from '../components/CertificatesTab'
 import RewardActivityTicker from '../components/RewardActivityTicker'
 import { useRewardGrants } from '../hooks/useRewards'
 import { useRedemptions } from '../hooks/useGifts'
 import { RedemptionStatus, RewardGrantStatus } from '../types'
 
-type TabKey = 'grants' | 'budgets' | 'programs' | 'checkin' | 'gifts' | 'redemptions'
+type TabKey = 'grants' | 'budgets' | 'programs' | 'checkin' | 'certificates' | 'gifts' | 'redemptions'
 
 export default function RewardManagementPage() {
   const { hasPermission } = useHasPermission()
@@ -48,6 +49,12 @@ export default function RewardManagementPage() {
     { key: 'budgets', label: 'Hạn mức', icon: Wallet, visible: hasPermission('REWARD:CONFIG') },
     { key: 'programs', label: 'Chương trình tự động', icon: Trophy, visible: hasPermission('REWARD:CONFIG') },
     { key: 'checkin', label: 'Điểm danh', icon: CalendarCheck, visible: hasPermission('REWARD:CONFIG') },
+    {
+      key: 'certificates',
+      label: 'Mẫu chứng nhận',
+      icon: Award,
+      visible: hasPermission('REWARD:CONFIG'),
+    },
     { key: 'gifts', label: 'Quà tặng', icon: Store, visible: hasPermission('GIFT:MANAGE') },
     {
       key: 'redemptions',
@@ -74,6 +81,7 @@ export default function RewardManagementPage() {
         {activeTab === 'budgets' && <BudgetsTab />}
         {activeTab === 'programs' && <ProgramsTab />}
         {activeTab === 'checkin' && <CheckinConfigTab />}
+        {activeTab === 'certificates' && <CertificatesTab />}
         {activeTab === 'gifts' && <GiftsTab />}
         {activeTab === 'redemptions' && <RedemptionsTab />}
       </div>

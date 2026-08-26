@@ -3,6 +3,7 @@ import { Loader2, X, Trophy, Info } from 'lucide-react'
 import TierEditor, { maxTierCost, tierError } from './TierEditor'
 import { useQuery } from '@tanstack/react-query'
 import { useOrgUnitTree } from '@/features/orgunits/hooks/useOrgUnitTree'
+import { usesPerformanceMatrix } from '@/lib/scoring'
 import { useOrganization } from '@/features/orgunits/hooks/useOrganization'
 import { kpiCycleApi } from '@/features/kpi/api/kpiCycleApi'
 import { kpiPeriodApi } from '@/features/kpi/api/kpiPeriodApi'
@@ -75,8 +76,8 @@ export default function ProgramFormModal({ open, onClose, editProgram }: Program
   const { data: organization } = useOrganization(orgId ?? '')
   const { createProgram, updateProgram, isCreating, isUpdating } = useRewardPrograms()
 
-  // Xếp loại ma trận chỉ có dữ liệu khi tổ chức bật KPI định tính. Hiện nó lúc tắt sẽ
-  // dẫn tới một chương trình luôn xếp hạng ra danh sách rỗng.
+  // Xếp loại ma trận chỉ có dữ liệu khi tổ chức ra được xếp loại (KPI định tính hoặc chấm
+  // hạnh kiểm). Hiện nó lúc tắt cả hai sẽ dẫn tới chương trình luôn xếp hạng ra danh sách rỗng.
   const isCycle = scope === RewardProgramScope.CYCLE
   const scopeWord = isCycle ? 'kỳ' : 'đợt'
 
@@ -99,13 +100,15 @@ export default function ProgramFormModal({ open, onClose, editProgram }: Program
   })
   const targetOptions = ((isCycle ? cycles?.content : periods?.content) ?? []) as any[]
 
-  const enableQualitative = organization?.enableQualitative === true
+  // Xếp hạng theo ma trận chỉ có nghĩa khi org thực sự ra được xếp loại ma trận — KPI
+  // định tính hoặc chấm hạnh kiểm (điểm hạnh kiểm lấp trục còn trống của ma trận).
+  const hasMatrix = usesPerformanceMatrix(organization)
   const availableMetrics = useMemo(
     () =>
       METRICS_BY_SCOPE[scope].filter(
-        (m) => m.value !== RewardRankingMetric.MATRIX_RATING || enableQualitative,
+        (m) => m.value !== RewardRankingMetric.MATRIX_RATING || hasMatrix,
       ),
-    [scope, enableQualitative],
+    [scope, hasMatrix],
   )
 
   const flatUnits = useMemo(() => {
@@ -316,9 +319,9 @@ export default function ProgramFormModal({ open, onClose, editProgram }: Program
                   ))}
                 </SelectContent>
               </Select>
-              {!enableQualitative && (
+              {!hasMatrix && (
                 <p className="mt-1 text-xs text-[var(--color-muted-foreground)]">
-                  Bật KPI định tính ở Thiết lập công ty để xếp hạng theo Xếp loại (ma trận).
+                  Bật KPI định tính hoặc Chấm hạnh kiểm ở Thiết lập công cụ để xếp hạng theo Xếp loại (ma trận).
                 </p>
               )}
             </div>

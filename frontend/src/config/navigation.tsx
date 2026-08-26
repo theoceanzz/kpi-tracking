@@ -33,6 +33,7 @@ import {
   Link2,
   Grid3x3,
   UserCircle,
+  HeartHandshake,
 } from 'lucide-react'
 
 /**
@@ -137,7 +138,7 @@ export const navItems: NavItem[] = [
           { id: 'users', label: 'Quản lý nhân viên', icon: <Users size={18} />, permission: 'USER:VIEW', legacyKeys: ['/users'], group: 'Con người' , description: 'Danh sách nhân viên, thêm mới và phân công đơn vị' },
           // KHÔNG kế thừa khoá '/settings': nhãn cũ ở đó đặt tên cho CẢ trang cấu hình
           // bốn tab, gán vào riêng mục Sidebar là sai nghĩa.
-          { id: 'sidebar', label: 'Quản lý Sidebar', icon: <LayoutPanelLeft size={18} />, permission: 'COMPANY:UPDATE', group: 'Hệ thống' , description: 'Đổi tên các mục trên menu cho hợp thuật ngữ công ty' },
+          { id: 'sidebar', label: 'Quản lý Sidebar', icon: <LayoutPanelLeft size={18} />, permission: 'COMPANY:UPDATE', group: 'Hệ thống' , description: 'Đổi tên mục trên sidebar và mục bên trong từng trang' },
           { id: 'notifications', label: 'Thiết lập thông báo', icon: <Bell size={18} />, permission: 'COMPANY:UPDATE', group: 'Hệ thống' , description: 'Sự kiện nào gửi thông báo, và gửi qua kênh nào' },
           { id: 'email', label: 'Thiết lập email', icon: <Mail size={18} />, permission: 'COMPANY:UPDATE', group: 'Hệ thống' , description: 'Nội dung mẫu của các email hệ thống gửi đi' },
           { id: 'api', label: 'Thiết lập API', icon: <Link2 size={18} />, permission: 'COMPANY:UPDATE', group: 'Hệ thống' , description: 'Kết nối Lark và các tích hợp bên ngoài' },
@@ -165,7 +166,7 @@ export const navItems: NavItem[] = [
           // Sáu công cụ quản lý. Quyền lấy đúng theo cổng route cũ của từng cái.
           { id: 'kpi-cycles', label: 'Quản lý kỳ/đợt đánh giá', icon: <CalendarRange size={18} />, permission: ['KPI_CYCLE:CREATE', 'KPI_PERIOD:CREATE'], legacyKeys: ['/kpi-cycles', '/kpi-periods'], group: 'Công cụ', description: 'Kỳ đánh giá tổng hợp và các đợt bên trong mỗi kỳ' },
           { id: 'okr', label: 'Quản lý OKR', icon: <Target size={18} />, permission: 'OKR:MANAGE', okrOnly: true, legacyKeys: ['/okr'], group: 'Công cụ', description: 'Mục tiêu và kết quả then chốt của toàn tổ chức' },
-          { id: 'bsc', label: 'Quản lý BSC', icon: <LayoutGrid size={18} />, permission: 'BSC:MANAGE', bscOnly: true, legacyKeys: ['/bsc', 'Quản lý BSC'], group: 'Công cụ', description: 'Thẻ điểm cân bằng, dashboard và bản đồ chiến lược' },
+          { id: 'bsc', label: 'Quản lý BSC', icon: <LayoutGrid size={18} />, permission: 'BSC:MANAGE', bscOnly: true, legacyKeys: ['/bsc', 'Quản lý BSC'], group: 'Công cụ', description: 'Dựng bộ tiêu chí từng kỳ: hạng mục theo 4 lĩnh vực và trọng số' },
           { id: 'rewards', label: 'Quản lý thưởng', icon: <Gift size={18} />, permission: ['REWARD:GRANT', 'REWARD:APPROVE', 'REWARD:CONFIG', 'REWARD:VIEW'], rewardOnly: true, legacyKeys: ['/rewards'], group: 'Công cụ', description: 'Đề nghị thưởng, hạn mức, điểm danh và quà tặng' },
           { id: 'wallet', label: 'Quản lý ví', icon: <Landmark size={18} />, permission: ['WALLET:VIEW', 'WALLET:CONFIG', 'WALLET:RECONCILE'], walletOnly: true, legacyKeys: ['/wallet'], group: 'Công cụ', description: 'Số dư nhân sự, cấu hình nạp tiền và đối soát' },
           { id: 'ai-quota', label: 'Quản lý token AI', icon: <Coins size={18} />, permission: 'AI_QUOTA:ALLOCATE', aiOnly: true, legacyKeys: ['/ai-quota'], group: 'Công cụ', description: 'Chia hạn mức token AI cho các đơn vị cấp dưới' },
@@ -187,6 +188,7 @@ export const navItems: NavItem[] = [
       { id: 'kpi-adjustments-pending', label: 'Điều chỉnh chỉ tiêu', icon: <MessageSquare size={18} />, permission: 'KPI:APPROVE_ADJUSTMENT', legacyKeys: ['/kpi-adjustments/pending', '/kpi-criteria/adjustments'], group: 'Chỉ tiêu', description: 'Yêu cầu sửa chỉ tiêu giữa chừng chờ xử lý' },
       { id: 'submissions-org-unit', label: 'Đánh giá đợt', icon: <ClipboardCheck size={18} />, permission: 'SUBMISSION:REVIEW', legacyKeys: ['/submissions/org-unit'], group: 'Đánh giá', description: 'Duyệt bài nộp và chấm điểm từng đợt' },
       { id: 'cycle-evaluation', label: 'Đánh giá kỳ', icon: <Award size={18} />, permission: 'CYCLE_EVAL:VIEW', legacyKeys: ['/kpi-cycles/evaluation'], group: 'Đánh giá', description: 'Tổng hợp nhiều đợt thành kết quả của cả kỳ' },
+      { id: 'conduct', label: 'Chấm hạnh kiểm', icon: <HeartHandshake size={18} />, permission: 'EVALUATION:VIEW', group: 'Đánh giá', description: 'Điểm hành vi theo bộ tiêu chí có trọng số, chấm theo đợt hoặc theo kỳ' },
     ],
   },
   // Không gian cá nhân: công việc và ví của chính mình, gộp về MỘT dòng như ba nhánh
@@ -203,6 +205,7 @@ export const navItems: NavItem[] = [
       { id: 'my-submissions', label: 'Báo cáo của tôi', icon: <FileText size={18} />, permission: 'SUBMISSION:VIEW_MY', legacyKeys: ['/submissions'], group: 'Công việc', description: 'Các bài nộp đã gửi và trạng thái duyệt' },
       { id: 'evaluations', label: 'Đánh giá của tôi', icon: <Star size={18} />, permission: 'EVALUATION:VIEW_MY', legacyKeys: ['/evaluations'], group: 'Công việc', description: 'Điểm và xếp loại bạn nhận được qua từng đợt' },
       { id: 'my-adjustments', label: 'Điều chỉnh của tôi', icon: <History size={18} />, permission: 'KPI:VIEW_MY', legacyKeys: ['/my-adjustments'], group: 'Công việc', description: 'Đề nghị sửa chỉ tiêu bạn đã gửi và kết quả xử lý' },
+      { id: 'my-conduct', label: 'Hạnh kiểm của tôi', icon: <HeartHandshake size={18} />, group: 'Công việc', description: 'Tự chấm điểm hành vi và nêu dẫn chứng theo từng đợt, từng kỳ' },
       { id: 'my-rewards', label: 'Điểm của tôi', icon: <Gift size={18} />, permission: 'REWARD:VIEW_MY', rewardOnly: true, legacyKeys: ['/rewards/me'], group: 'Ví', description: 'Số dư điểm thưởng, cửa hàng quà và lịch sử đổi' },
       { id: 'my-cash-wallet', label: 'Ví của tôi', icon: <Wallet size={18} />, permission: 'WALLET:VIEW_MY', walletOnly: true, legacyKeys: ['/wallet/me'], group: 'Ví', description: 'Số dư tiền, nạp tiền và quy đổi sang điểm' },
     ],
@@ -225,7 +228,10 @@ export const navItems: NavItem[] = [
       { id: 'my', label: 'KPI của tôi', icon: <TrendingUp size={18} />, group: 'Kết quả', description: 'Tiến độ và điểm KPI của riêng bạn' },
       { id: 'summary', label: 'KPI đơn vị', icon: <LayoutDashboard size={18} />, permission: ['KPI:VIEW', 'SUBMISSION:REVIEW'], group: 'Kết quả', description: 'Tổng hợp KPI của đơn vị bạn phụ trách' },
       { id: 'drilldown', label: 'Phân cấp', icon: <Building2 size={18} />, group: 'Toàn tổ chức', description: 'So sánh hiệu suất giữa các đơn vị theo từng cấp' },
-      { id: 'bsc', label: 'Hạng mục (BSC)', icon: <Gauge size={18} />, permission: 'BSC:MANAGE', bscOnly: true, group: 'Toàn tổ chức', description: 'Kết quả theo từng hạng mục của thẻ điểm cân bằng' },
+      // `labelKey` riêng vì `id: 'bsc'` trùng với mục "Quản lý BSC" bên Thiết lập công cụ.
+      // Khoá lưu nhãn mặc định lấy theo id ⇒ hai mục dùng CHUNG một nhãn tuỳ chỉnh, đổi
+      // tên mục này là đổi luôn mục kia. Giữ nguyên id để `?section=bsc` không đổi.
+      { id: 'bsc', labelKey: 'analytics-bsc', label: 'Hạng mục (BSC)', icon: <Gauge size={18} />, permission: 'BSC:MANAGE', bscOnly: true, group: 'Toàn tổ chức', description: 'Kết quả theo từng hạng mục trong bộ tiêu chí (BSC)' },
     ],
   },
   { id: 'ai-assistant', label: 'K.AI', path: '/ai-assistant', icon: <Bot size={20} />, permission: 'DASHBOARD:VIEW', end: true, aiOnly: true },
@@ -264,29 +270,93 @@ export function findNavItem(id: string, items: NavItem[] = navItems): NavItem | 
   return undefined
 }
 
-export interface NavMenuEntry {
+export interface NavLabelEntry {
+  /** Khoá lưu ở `sidebar_settings.menu_key`. */
   key: string
   defaultLabel: string
-  category: string
+  /** Cụm bên trong trang (`NavItem.group`) — chỉ mục trong trang mới có. */
+  group?: string
+  legacyKeys?: string[]
+}
+
+/** Một NƠI các mục xuất hiện: thanh sidebar, hoặc bên trong một trang cụ thể. */
+export interface NavLabelScope {
+  id: string
+  title: string
+  hint: string
+  entries: NavLabelEntry[]
+}
+
+const toEntry = (item: NavItem): NavLabelEntry => ({
+  key: navItemKey(item),
+  defaultLabel: item.label,
+  group: item.group,
+  legacyKeys: item.legacyKeys,
+})
+
+/**
+ * Các mục có thể đổi nhãn, gom theo NƠI chúng hiện ra, cho mục "Quản lý Sidebar".
+ *
+ * Trước đây hàm này trả một danh sách phẳng kèm cột "phân loại" lấy theo nhóm cấp 1.
+ * Từ khi phần lớn màn hình chuyển thành mục trong trang, cách đó hết tác dụng: hơn hai
+ * mươi dòng cùng mang phân loại "Thiết lập" mà không cho biết dòng nào nằm trên sidebar,
+ * dòng nào nằm trong trang nào. Nay mỗi nơi là một khối riêng.
+ *
+ * Vẫn dẫn xuất từ chính `navItems` nên thêm/bớt mục là bảng tự cập nhật.
+ */
+export function collectNavLabelScopes(flags: NavFeatureFlags): NavLabelScope[] {
+  const sidebar: NavLabelEntry[] = []
+  const pages: NavLabelScope[] = []
+
+  const walk = (items: NavItem[]) => {
+    for (const item of items) {
+      if (!isFeatureEnabled(item, flags)) continue
+      // `children` hiện thẳng trên sidebar; `sections` thì không — chúng là khu vực bên
+      // trong trang, chọn bằng `?section=`.
+      sidebar.push(toEntry(item))
+      if (item.children?.length) walk(item.children)
+
+      const sections = (item.sections ?? []).filter(s => isFeatureEnabled(s, flags))
+      if (sections.length) {
+        pages.push({
+          id: navItemKey(item),
+          title: item.label,
+          hint: `Hiện trên lưới thẻ và hàng tab bên trong trang "${item.label}", không nằm trên sidebar.`,
+          entries: sections.map(toEntry),
+        })
+      }
+    }
+  }
+  walk(navItems)
+
+  const scopes: NavLabelScope[] = [
+    {
+      id: '__sidebar__',
+      title: 'Thanh điều hướng',
+      hint: 'Các dòng hiện trực tiếp trên sidebar bên trái.',
+      entries: sidebar,
+    },
+    ...pages,
+  ]
+
+  if (import.meta.env.DEV) warnDuplicateLabelKeys(scopes)
+  return scopes
 }
 
 /**
- * Danh sách mục có thể đổi nhãn, cho tab "Thiết lập Sidebar". Dẫn xuất từ chính
- * `navItems` nên không bao giờ lệch nữa. `category` lấy theo nhóm cấp 1.
+ * Hai mục cùng khoá sẽ DÙNG CHUNG một nhãn tuỳ chỉnh — sửa mục này là sửa luôn mục kia.
+ * Rất dễ dính khi chuyển một tab sidebar thành mục trong trang mà `id` trùng với mục sẵn
+ * có ở trang khác (đã xảy ra với `bsc`). Cách chữa: đặt `labelKey` riêng cho một trong hai.
  */
-export function collectMenuEntries(flags: NavFeatureFlags, items: NavItem[] = navItems, category?: string): NavMenuEntry[] {
-  return items.flatMap(item => {
-    if (!isFeatureEnabled(item, flags)) return []
-    const isGroup = !!(item.children || item.sections)
-    const own: NavMenuEntry = {
-      key: navItemKey(item),
-      defaultLabel: item.label,
-      category: category ?? (isGroup ? item.label : 'Chung'),
+function warnDuplicateLabelKeys(scopes: NavLabelScope[]) {
+  const owners = new Map<string, string[]>()
+  for (const scope of scopes) {
+    for (const entry of scope.entries) {
+      owners.set(entry.key, [...(owners.get(entry.key) ?? []), `${scope.title} › ${entry.defaultLabel}`])
     }
-    // Mục trong trang cũng đổi tên được như mục trên sidebar — nhãn của chúng hiện ở
-    // menu bên trong trang thiết lập.
-    const nested = [...(item.children ?? []), ...(item.sections ?? [])]
-    const childCategory = category ?? (isGroup ? item.label : 'Chung')
-    return [own, ...(nested.length ? collectMenuEntries(flags, nested, childCategory) : [])]
-  })
+  }
+  const dups = [...owners].filter(([, list]) => list.length > 1)
+  if (dups.length) {
+    console.warn('[navigation] Khoá nhãn bị trùng, hãy đặt labelKey riêng:', Object.fromEntries(dups))
+  }
 }

@@ -22,7 +22,7 @@ public interface BscPerspectiveRepository extends JpaRepository<BscPerspective, 
 
     boolean existsByOrganizationIdAndCodeAndIdNot(UUID organizationId, String code, UUID id);
 
-    // Thứ tự hiển thị duy nhất TRONG TỪNG viễn cảnh (không phải toàn org).
+    // Thứ tự hiển thị duy nhất TRONG TỪNG lĩnh vực (không phải toàn org).
     boolean existsByOrganizationIdAndFixedPerspectiveAndDisplayOrder(
             UUID organizationId, BscFixedPerspective fixedPerspective, Integer displayOrder);
 

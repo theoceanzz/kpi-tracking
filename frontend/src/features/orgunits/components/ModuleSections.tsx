@@ -1,6 +1,6 @@
 import { useState, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
-import { Layers, Target, GitBranch, SlidersHorizontal, Gift, Wallet, ChevronDown, ArrowRight, AlertTriangle } from 'lucide-react'
+import { Layers, Target, GitBranch, SlidersHorizontal, Gift, Wallet, ChevronDown, ArrowRight, AlertTriangle, HeartHandshake } from 'lucide-react'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import { useUpdateOrganization } from '../hooks/useUpdateOrganization'
@@ -21,6 +21,7 @@ import { useUpdateOrganization } from '../hooks/useUpdateOrganization'
 type OrgFlagField =
   | 'enableOkr'
   | 'enableQualitative'
+  | 'enableConduct'
   | 'enableBsc'
   | 'enableWaterfall'
   | 'enableReward'
@@ -101,24 +102,51 @@ const MODULES: ModuleDef[] = [
       <p>
         Dành cho KPI không đo được bằng con số. Loại này không chấm tự động — quản lý chọn một
         mức trong <span className="font-bold">Thang điểm định tính</span>. Khi tắt, hệ thống chỉ
-        hiển thị và tính điểm KPI định lượng, đồng thời ẩn luôn Ma trận đánh giá.
+        hiển thị và tính điểm KPI định lượng; Ma trận đánh giá cũng ẩn theo, trừ khi bạn bật
+        <span className="font-bold"> Chấm hạnh kiểm</span> để bù trục còn thiếu.
       </p>
+    ),
+  },
+  {
+    field: 'enableConduct',
+    icon: <HeartHandshake size={18} />,
+    tone: 'bg-rose-50 dark:bg-rose-900/30 text-rose-600 dark:text-rose-400',
+    title: 'Chấm hạnh kiểm',
+    subtitle: 'Điểm hành vi theo bộ tiêu chí có trọng số',
+    toastName: 'chấm hạnh kiểm',
+    manageTo: '/settings/tools?section=scoring&scoring=conduct',
+    manageLabel: 'Bộ tiêu chí hạnh kiểm',
+    detail: (
+      <div className="space-y-3">
+        <p>
+          Mỗi đợt hoặc mỗi kỳ, nhân sự tự chấm và nêu dẫn chứng cho từng tiêu chí hành vi, cán bộ
+          quản lý trực tiếp chấm lại và nhận xét. Điểm hạnh kiểm ={' '}
+          <span className="font-bold">Σ(điểm tiêu chí × trọng số)</span>. Mặc định là 4 tiêu chí —
+          Trung thực, Nhân ái, Trách nhiệm, Học tập suốt đời — mỗi tiêu chí 25%, sửa được tuỳ ý.
+        </p>
+        <p>
+          Điểm này còn <span className="font-bold">lấp trục còn thiếu của Ma trận đánh giá</span>:
+          tổ chức chỉ có KPI định lượng thì hạnh kiểm thành trục điểm hành vi; chỉ có KPI định tính
+          thì hạnh kiểm thành trục % hoàn thành. Có đủ cả hai loại KPI thì ma trận giữ nguyên hai
+          trục cũ, hạnh kiểm vẫn được chấm và lưu riêng.
+        </p>
+      </div>
     ),
   },
   {
     field: 'enableBsc',
     icon: <Layers size={18} />,
     tone: 'bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400',
-    title: 'Thẻ điểm cân bằng (BSC)',
-    subtitle: 'Quản trị chiến lược theo 4 viễn cảnh',
-    toastName: 'thẻ điểm cân bằng (BSC)',
+    title: 'Bộ tiêu chí (BSC)',
+    subtitle: 'Quản trị chiến lược theo 4 lĩnh vực',
+    toastName: 'bộ tiêu chí (BSC)',
     manageTo: '/settings/tools?section=bsc',
     manageLabel: 'Quản lý BSC',
     detail: (
       <p>
-        Cấu hình hạng mục theo 4 viễn cảnh cố định — Tài chính, Khách hàng, Quy trình nội bộ,
-        Học hỏi &amp; phát triển — rồi nhóm KPI theo hạng mục và theo dõi thẻ điểm cân bằng
-        của tổ chức.
+        Mỗi kỳ dựng một bộ tiêu chí gồm các hạng mục kèm trọng số, xếp theo 4 lĩnh vực cố định —
+        Tài chính, Khách hàng, Quy trình nội bộ, Học hỏi &amp; phát triển — rồi nhóm KPI theo
+        hạng mục để chấm điểm cân bằng giữa các lĩnh vực.
       </p>
     ),
   },

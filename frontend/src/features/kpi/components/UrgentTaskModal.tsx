@@ -244,7 +244,7 @@ interface TabSharedProps {
   enableBsc: boolean
   objectives: any[]
   perspectives: any[]
-  /** Hạng mục CÓ trong thẻ điểm của đơn vị (null = không lọc). Lọc dropdown giống form tạo KPI. */
+  /** Hạng mục CÓ trong bộ tiêu chí của đơn vị (null = không lọc). Lọc dropdown giống form tạo KPI. */
   availablePerspectiveIds?: Set<string> | null
 }
 
@@ -303,7 +303,7 @@ function PerspectiveSelect({ control, name, perspectives, availablePerspectiveId
       {noCategory && (
         <p className="text-[10px] font-bold text-amber-600 dark:text-amber-400 flex items-start gap-1.5">
           <span className="shrink-0">⚠</span>
-          Thẻ điểm của đơn vị này <b>chưa có hạng mục nào</b> — hãy thêm hạng mục vào thẻ điểm cho đơn vị đó trước.
+          Bộ tiêu chí của đơn vị này <b>chưa có hạng mục nào</b> — hãy thêm hạng mục vào bộ tiêu chí cho đơn vị đó trước.
         </p>
       )}
     </div>
@@ -630,8 +630,8 @@ function AdjustTab({ kpiList, kpiPeriodId, orgUnitId, period, enableOkr, enableQ
   const watchedNewWeight = watch('newWeight')
   const watchedNewPerspId = watch('newPerspectiveId')
 
-  // Trọng số THẬT = form × %hạng_mục. Không BSC/chưa có thẻ điểm ⇒ giữ form; chưa gán hạng mục ⇒ giữ form;
-  // hạng mục không có trong thẻ điểm đơn vị ⇒ 0 (không tính). Nhờ vậy tổng ≈ 100% thay vì cộng dồn form.
+  // Trọng số THẬT = form × %hạng_mục. Không BSC/chưa có bộ tiêu chí ⇒ giữ form; chưa gán hạng mục ⇒ giữ form;
+  // hạng mục không có trong bộ tiêu chí đơn vị ⇒ 0 (không tính). Nhờ vậy tổng ≈ 100% thay vì cộng dồn form.
   const usePct = enableBsc && !!perspectiveWeightPct && perspectiveWeightPct.size > 0
   const realOf = (effPerspId: string | null | undefined, formWeight: number) => {
     if (!usePct) return formWeight
@@ -1005,7 +1005,7 @@ export default function UrgentTaskModal({ open, onClose, kpiPeriodId: initPeriod
     return objectives.filter((obj: any) => obj.orgUnitIds?.includes(selectedOrgUnitId))
   }, [objectives, selectedOrgUnitId])
 
-  // Lọc hạng mục theo THẺ ĐIỂM của đơn vị đã chọn (giống form tạo KPI). null = không lọc.
+  // Lọc hạng mục theo BỘ TIÊU CHÍ của đơn vị đã chọn (giống form tạo KPI). null = không lọc.
   const { data: bscScorecards } = useScorecards(enableBsc ? organizationId : undefined)
   const unitParentMap = useMemo(() => {
     const map = new Map<string, string | null>()
@@ -1013,7 +1013,7 @@ export default function UrgentTaskModal({ open, onClose, kpiPeriodId: initPeriod
     walk(orgUnitTreeData || [])
     return map
   }, [orgUnitTreeData])
-  // Thẻ điểm HIỆU LỰC cho đơn vị đã chọn (đơn vị → cha → mặc định).
+  // Bộ tiêu chí HIỆU LỰC cho đơn vị đã chọn (đơn vị → cha → mặc định).
   const effectiveScorecard = useMemo<any>(() => {
     if (!enableBsc || !selectedPeriodId || !selectedOrgUnitId) return null
     const periodScs = (bscScorecards || []).filter(s => s.kpiPeriodId === selectedPeriodId)
@@ -1037,7 +1037,7 @@ export default function UrgentTaskModal({ open, onClose, kpiPeriodId: initPeriod
     return ids
   }, [enableBsc, bscScorecards, selectedPeriodId, selectedOrgUnitId, effectiveScorecard])
 
-  // %hạng_mục theo perspectiveId (từ thẻ điểm đơn vị) → để tính trọng số THẬT = form × %hạng_mục.
+  // %hạng_mục theo perspectiveId (từ bộ tiêu chí đơn vị) → để tính trọng số THẬT = form × %hạng_mục.
   const perspectiveWeightPct = useMemo(() => {
     const map = new Map<string, number>()
     ;(effectiveScorecard?.perspectives || []).forEach((p: any) => { if (p.weightPercentage != null) map.set(p.perspectiveId, p.weightPercentage) })

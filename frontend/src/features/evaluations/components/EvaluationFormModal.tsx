@@ -6,6 +6,7 @@ import { useCreateEvaluation } from '../hooks/useCreateEvaluation'
 import { useKpiPeriods } from '@/features/kpi/hooks/useKpiPeriods'
 import { useMyKpi } from '@/features/kpi/hooks/useMyKpi'
 import { useAuthStore } from '@/store/authStore'
+import { usePermission } from '@/hooks/usePermission'
 import { useOrganization } from '@/features/orgunits/hooks/useOrganization'
 import { getScoringFunctions } from '@/lib/scoring'
 import { X, Loader2, Star, Target, Zap, Trophy, CheckCircle2, MessageSquare, Sparkles, Lock, Layers, AlertTriangle } from 'lucide-react'
@@ -23,6 +24,7 @@ interface EvaluationFormModalProps {
 
 export default function EvaluationFormModal({ open, onClose, readOnly = false, initialPeriodId }: EvaluationFormModalProps) {
   const { user } = useAuthStore()
+  const { hasPermission } = usePermission()
   
   const orgId = user?.memberships?.[0]?.organizationId
   const { data: org } = useOrganization(orgId)
@@ -81,7 +83,7 @@ export default function EvaluationFormModal({ open, onClose, readOnly = false, i
   const matrixRating = scorePreview?.matrixRating ?? null
   const behaviorScore = scorePreview?.behaviorScore ?? null
 
-  // BSC (chỉ có khi org bật BSC & kỳ đã có thẻ điểm)
+  // BSC (chỉ có khi org bật BSC & kỳ đã có bộ tiêu chí)
   const bscScore = scorePreview?.bscScore ?? null
   const bscMode = scorePreview?.bscScoringMode ?? null
   const bscPerspectives = scorePreview?.bscPerspectives ?? []
@@ -124,13 +126,18 @@ export default function EvaluationFormModal({ open, onClose, readOnly = false, i
 
   const navigate = useNavigate()
 
-  const primaryMembership = useMemo(() => {
-    const ms = user?.memberships || [];
-    if (ms.length <= 1) return ms[0];
-    return ms.find(m => (m.levelOrder ?? 0) > 0) || ms[0];
-  }, [user?.memberships]);
-
-  const isHead = primaryMembership?.roleRank === 0;
+  // Lưu xong đưa người dùng tới nơi họ XEM được kết quả. Điều kiện là QUYỀN chứ không
+  // phải roleRank: hai mục đến đều bị gác bằng quyền, còn roleRank thì suy ra từ một
+  // membership đoán trong danh sách — dựa vào nó là có ngày đẩy người dùng vào đúng
+  // mục họ không mở được, và màn hình đó im lặng rơi về lưới thẻ chứ không báo gì.
+  //
+  //   - Có EVALUATION:VIEW_MY (nhân viên, cấp phó) → mục "Đánh giá của tôi".
+  //   - Không có, nhưng có SUBMISSION:REVIEW (trưởng đơn vị) → "Đánh giá đợt" ở trang
+  //     Quản lý hiệu suất, đúng chỗ họ đang theo dõi đánh giá.
+  //   - Không có cả hai → ở nguyên tại chỗ, danh sách phía sau tự làm mới nhờ
+  //     invalidate ['evaluations'] trong useCreateEvaluation.
+  const canOpenMyEvaluations = hasPermission('EVALUATION:VIEW_MY')
+  const canOpenUnitReview = hasPermission('SUBMISSION:REVIEW')
 
   const onSubmit = (data: EvaluationFormData) => {
     if (readOnly) return
@@ -138,11 +145,8 @@ export default function EvaluationFormModal({ open, onClose, readOnly = false, i
       onSuccess: () => { 
         reset(); 
         onClose();
-        if (isHead) {
-          navigate('/performance?section=submissions-org-unit')
-        } else {
-          navigate('/me?section=evaluations')
-        }
+        if (canOpenMyEvaluations) navigate('/me?section=evaluations')
+        else if (canOpenUnitReview) navigate('/performance?section=submissions-org-unit')
       },
     })
   }

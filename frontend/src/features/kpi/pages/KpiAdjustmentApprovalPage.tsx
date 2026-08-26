@@ -9,7 +9,7 @@ import { cn } from '@/lib/utils'
 import type { KpiAdjustmentRequest, AdjustmentStatus } from '@/types/adjustment'
 import {
   Clock, CheckCircle2, XCircle,
-  Users, ChevronRight, Calendar,
+  Users, ChevronRight, ChevronDown, Calendar,
   Search, MessageSquare, Target, GitBranch,
   LayoutGrid, List
 } from 'lucide-react'
@@ -18,13 +18,22 @@ import { useKpiPeriods } from '../hooks/useKpiPeriods'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Checkbox } from '@/components/ui/checkbox'
 import { useOrgUnitTree } from '@/features/orgunits/hooks/useOrgUnitTree'
-import { Building2 } from 'lucide-react'
 import { useOrganization } from '@/features/orgunits/hooks/useOrganization'
 import { useObjectives } from '../../okr/hooks/useOkr'
 import { useSidebarSettings } from '@/features/organization/hooks/useSidebarSettings'
-import PageTour from '@/components/common/PageTour'
-import { kpiAdjustmentsSteps } from '@/components/common/tourSteps'
 import { ObjectiveResponse } from '@/features/okr/types'
+import Pagination from '@/components/common/Pagination'
+import {
+  PersonGroupBadge, PersonGroupHeaderCard, PersonGroupHeaderRow,
+  UnitGroupHeaderCard, UnitGroupHeaderRow,
+} from '@/components/common/PersonGroupHeader'
+import { groupByPerson, groupByUnitThenPerson, personGroupKey, type UnitGroup } from '@/lib/personGrouping'
+import { usePersonGroupCollapse } from '@/hooks/usePersonGroupCollapse'
+
+/** Số nhóm (đơn vị, hoặc người khi chỉ có một đơn vị) hiển thị mỗi trang. */
+const GROUP_PAGE_SIZE = 10
+/** Trần số yêu cầu tải về một lần để gom nhóm. */
+const GROUPING_FETCH_SIZE = 1000
 
 const statusConfig: Record<string, { label: string; color: string; bgColor: string; icon: any }> = {
   PENDING: { label: 'Đợi xử lý', color: 'text-amber-600 dark:text-amber-400', bgColor: 'bg-amber-50/50 border-amber-200/50 dark:bg-amber-900/20 dark:border-amber-900/30', icon: Clock },
@@ -79,17 +88,22 @@ const CountdownTimer = ({ createdAt, status }: { createdAt: string, status: stri
   )
 }
 
+type AdjustmentTab = AdjustmentStatus | 'ALL'
+const ADJUSTMENT_TABS: AdjustmentTab[] = ['PENDING', 'APPROVED', 'REJECTED', 'ALL']
+
+// `?tab=` dùng chung query string với các mục khác của /performance, nên phải lọc:
+// tab của trang duyệt chỉ tiêu lọt sang đây sẽ thành bộ lọc rỗng.
+const readTab = (raw: string | null): AdjustmentTab =>
+  ADJUSTMENT_TABS.includes(raw as AdjustmentTab) ? (raw as AdjustmentTab) : 'PENDING'
+
 export default function KpiAdjustmentApprovalPage() {
   const [searchParams, setSearchParams] = useSearchParams()
-  const initialTab = (searchParams.get('tab') as AdjustmentStatus | 'ALL') || 'PENDING'
-  
-  const [activeTab, setActiveTab] = useState<AdjustmentStatus | 'ALL'>(initialTab)
+
+  const [activeTab, setActiveTab] = useState<AdjustmentTab>(() => readTab(searchParams.get('tab')))
   
   const [selectedPeriodId, setSelectedPeriodId] = useState('ALL')
-  const [selectedOrgUnitId, setSelectedOrgUnitId] = useState<string>('ALL')
   const [search, setSearch] = useState('')
   const [page, setPage] = useState(0)
-  const [pageSize] = useState(10)
   const [selectedObjectiveId, setSelectedObjectiveId] = useState<string>('ALL')
   const [selectedKeyResultId, setSelectedKeyResultId] = useState<string>('ALL')
   const [selectedIds, setSelectedIds] = useState<string[]>([])
@@ -118,46 +132,178 @@ export default function KpiAdjustmentApprovalPage() {
   }
   const flatOrgUnits = useMemo(() => orgUnitTreeData ? flattenTree(orgUnitTreeData) : [], [orgUnitTreeData])
 
-  // Default to Root unit
-  useEffect(() => {
-    if (flatOrgUnits.length > 0 && selectedOrgUnitId === 'ALL') {
-      setSelectedOrgUnitId(flatOrgUnits[0].id)
-    }
-  }, [flatOrgUnits])
+  // Thứ tự đơn vị trong cây tổ chức, để các nhóm đơn vị hiện theo đúng trật tự cây.
+  const unitOrder = useMemo(
+    () => new Map<string, number>(flatOrgUnits.map((u: any, i: number) => [u.id, i])),
+    [flatOrgUnits]
+  )
 
   const bulkReviewMutation = useBulkReviewAdjustments()
 
   useEffect(() => {
-    const tab = searchParams.get('tab')
-    if (tab && tab !== activeTab) {
-      setActiveTab(tab as any)
+    const tab = readTab(searchParams.get('tab'))
+    if (tab !== activeTab) {
+      setActiveTab(tab)
       setSelectedIds([])
     }
   }, [searchParams])
 
-  const handleTabChange = (tab: typeof activeTab) => {
+  const handleTabChange = (tab: AdjustmentTab) => {
     setActiveTab(tab)
-    setSearchParams({ tab })
+    // Giữ nguyên các param khác — ghi đè cả query string sẽ xoá mất `?section=`
+    // của SettingsSectionLayout và đá người dùng về lưới thẻ /performance.
+    setSearchParams(prev => {
+      const p = new URLSearchParams(prev)
+      p.set('tab', tab)
+      return p
+    }, { replace: true })
     setPage(0)
     setSelectedIds([])
   }
 
-  // Data for Adjustment Requests
+  // Data for Adjustment Requests — tải trọn phạm vi đang lọc (không phân trang ở server) để
+  // gom nhóm theo người yêu cầu cho đủ; phân trang lại theo NGƯỜI ở phía dưới.
   const { data: adjustmentData, isLoading } = useKpiAdjustments(
     {
-      page,
-      size: pageSize,
+      page: 0,
+      size: GROUPING_FETCH_SIZE,
       status: activeTab === 'ALL' ? undefined : activeTab,
       kpiPeriodId: selectedPeriodId === 'ALL' ? undefined : selectedPeriodId,
-      orgUnitId: selectedOrgUnitId === 'ALL' ? undefined : selectedOrgUnitId,
       objectiveId: selectedObjectiveId === 'ALL' ? undefined : selectedObjectiveId,
       keyResultId: selectedKeyResultId === 'ALL' ? undefined : selectedKeyResultId,
     }
   )
 
   const items = adjustmentData?.content ?? []
-  const totalPages = adjustmentData?.totalPages || 1
-  const totalElements = adjustmentData?.totalElements || 0
+  const totalElements = items.length
+  const hitFetchCap = items.length >= GROUPING_FETCH_SIZE
+
+  // Gom ĐƠN VỊ → NGƯỜI YÊU CẦU → yêu cầu, thay cho danh sách phẳng trộn lẫn.
+  // Đơn vị lấy theo KPI bị điều chỉnh (backend trả kèm trong AdjustmentRequestResponse).
+  const extractRequester = (req: KpiAdjustmentRequest) =>
+    [{ id: req.requesterId, name: req.requesterName }]
+
+  const unitGroups = useMemo(
+    () => groupByUnitThenPerson(
+      items,
+      req => req.orgUnitId ? { id: req.orgUnitId, name: req.orgUnitName || 'Đơn vị không tên' } : null,
+      extractRequester,
+      unitOrder,
+    ),
+    [items, unitOrder]
+  )
+  const personGroups = useMemo(() => groupByPerson(items, extractRequester), [items])
+
+  // Chỉ thêm cấp nào thực sự có nhiều mục: ≥2 đơn vị mới gom theo đơn vị, ≥2 người mới gom
+  // theo người; một người duy nhất thì giữ danh sách phẳng như cũ.
+  const unitMode = unitGroups.length >= 2
+  const personMode = personGroups.length >= 2
+
+  const myUnitId = user?.memberships?.[0]?.orgUnitId
+  const unitCollapse = usePersonGroupCollapse(myUnitId)
+  // Nhóm người đánh khoá kèm đơn vị ở chế độ ba cấp, chỉ bằng id người khi rơi về hai cấp.
+  const personCollapse = usePersonGroupCollapse(
+    user?.id ? [user.id, myUnitId ? personGroupKey(myUnitId, user.id) : null] : null
+  )
+  const resetGroups = () => { unitCollapse.reset(); personCollapse.reset() }
+
+  // Phân trang theo ĐƠN VỊ khi gom ba cấp, theo NGƯỜI khi chỉ có một đơn vị.
+  const pagedGroups: { id: string }[] = unitMode ? unitGroups : personGroups
+  const totalGroups = pagedGroups.length
+  const totalPages = unitMode || personMode ? Math.max(1, Math.ceil(totalGroups / GROUP_PAGE_SIZE)) : 1
+  // Đổi bộ lọc có thể làm số trang co lại — kẹp ngay lúc render để không kẹt ở trang trống.
+  const groupPage = Math.min(page, totalPages - 1)
+  const pageSlice = <T,>(list: T[]) =>
+    list.slice(groupPage * GROUP_PAGE_SIZE, groupPage * GROUP_PAGE_SIZE + GROUP_PAGE_SIZE)
+  const visibleUnits = unitMode ? pageSlice(unitGroups) : []
+  const visibleGroups = !unitMode && personMode ? pageSlice(personGroups) : []
+
+  /**
+   * Danh sách dòng để render: ở chế độ gom nhóm, chèn dòng header đơn vị rồi header người
+   * ngay trước các yêu cầu tương ứng; ở chế độ phẳng thì y như cũ.
+   */
+  type AdjustmentRow =
+    | { kind: 'unit'; unit: UnitGroup<KpiAdjustmentRequest> }
+    | { kind: 'person'; group: (typeof personGroups)[number]; key: string }
+    | { kind: 'request'; request: KpiAdjustmentRequest }
+
+  const pushPerson = (out: AdjustmentRow[], group: (typeof personGroups)[number], key: string) => {
+    out.push({ kind: 'person', group, key })
+    if (!personCollapse.isExpanded(key)) return
+    group.items.forEach(request => out.push({ kind: 'request', request }))
+  }
+
+  const buildDisplayRows = (): AdjustmentRow[] => {
+    const out: AdjustmentRow[] = []
+    if (unitMode) {
+      visibleUnits.forEach(unit => {
+        out.push({ kind: 'unit', unit })
+        if (!unitCollapse.isExpanded(unit.id)) return
+        unit.people.forEach(group => pushPerson(out, group, personGroupKey(unit.id, group.id)))
+      })
+      return out
+    }
+    if (personMode) {
+      visibleGroups.forEach(group => pushPerson(out, group, group.id))
+      return out
+    }
+    return items.map(request => ({ kind: 'request' as const, request }))
+  }
+  const displayRows = buildDisplayRows()
+
+  /** Số cột của bảng — header nhóm phải trải hết chiều ngang. */
+  const tableColSpan = 6 + (activeTab === 'PENDING' ? 0 : 1) - (personMode ? 1 : 0)
+
+  /** Số liệu tóm tắt của một đơn vị. */
+  const renderUnitBadges = (unit: UnitGroup<KpiAdjustmentRequest>) => {
+    const pending = unit.items.filter(r => r.status === 'PENDING').length
+    return (
+      <>
+        <PersonGroupBadge label="nhân sự" value={unit.people.length} tone="indigo" />
+        <PersonGroupBadge label="yêu cầu" value={unit.items.length} />
+        {pending > 0 && <PersonGroupBadge label="đợi xử lý" value={pending} tone="amber" />}
+      </>
+    )
+  }
+
+  /** Số liệu tóm tắt của một người yêu cầu. */
+  const renderPersonBadges = (list: KpiAdjustmentRequest[]) => {
+    const pending = list.filter(r => r.status === 'PENDING').length
+    const approved = list.filter(r => r.status === 'APPROVED').length
+    const rejected = list.filter(r => r.status === 'REJECTED').length
+    return (
+      <>
+        <PersonGroupBadge label="yêu cầu" value={list.length} />
+        {pending > 0 && <PersonGroupBadge label="đợi xử lý" value={pending} tone="amber" />}
+        {approved > 0 && <PersonGroupBadge label="chấp thuận" value={approved} tone="emerald" />}
+        {rejected > 0 && <PersonGroupBadge label="từ chối" value={rejected} tone="rose" />}
+      </>
+    )
+  }
+
+  /** Chọn nhanh toàn bộ yêu cầu đang chờ (duyệt hàng loạt được) của riêng một người. */
+  const renderPersonSelectAction = (list: KpiAdjustmentRequest[]) => {
+    const ids = list.filter(r => r.status === 'PENDING' && !r.deactivationRequest).map(r => r.id)
+    if (ids.length === 0) return null
+    const allSelected = ids.every(id => selectedIds.includes(id))
+    return (
+      <button
+        onClick={() => setSelectedIds(prev => allSelected
+          ? prev.filter(id => !ids.includes(id))
+          : Array.from(new Set([...prev, ...ids]))
+        )}
+        title={`Chọn ${ids.length} yêu cầu đang chờ của người này`}
+        className={cn(
+          'flex items-center gap-2 px-3 h-8 rounded-xl border text-[9px] font-black uppercase tracking-widest transition-all active:scale-95',
+          allSelected
+            ? 'bg-amber-500 border-amber-500 text-white'
+            : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-500 hover:text-amber-600 hover:border-amber-300'
+        )}
+      >
+        <CheckCircle2 size={12} /> {allSelected ? 'Bỏ chọn' : `Chọn ${ids.length}`}
+      </button>
+    )
+  }
 
   const { data: objectivesData } = useObjectives(organizationId)
   const selectedObjective = objectivesData?.find((o: ObjectiveResponse) => o.id === selectedObjectiveId)
@@ -211,7 +357,6 @@ export default function KpiAdjustmentApprovalPage() {
   const { data: allAdjustmentsData } = useKpiAdjustments({
     size: 1000,
     kpiPeriodId: selectedPeriodId === 'ALL' ? undefined : selectedPeriodId,
-    orgUnitId: selectedOrgUnitId === 'ALL' ? undefined : selectedOrgUnitId,
     objectiveId: selectedObjectiveId === 'ALL' ? undefined : selectedObjectiveId,
     keyResultId: selectedKeyResultId === 'ALL' ? undefined : selectedKeyResultId,
   })
@@ -228,7 +373,6 @@ export default function KpiAdjustmentApprovalPage() {
   return (
     <div className="p-4 md:p-8">
       <div className="max-w-[1600px] mx-auto space-y-8 animate-in fade-in duration-700">
-        <PageTour pageKey="kpi-adjustments" steps={kpiAdjustmentsSteps} />
         
         {/* Header Section with Glass Card */}
         <div className="relative group" id="tour-adj-header">
@@ -264,63 +408,72 @@ export default function KpiAdjustmentApprovalPage() {
         {/* Toolbar */}
         <div id="tour-adj-toolbar" className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-md p-6 rounded-[28px] border border-slate-200 dark:border-slate-800 shadow-sm space-y-4">
           {/* Row 1: Primary Filters */}
-          <div className="flex flex-col md:flex-row items-center gap-4 w-full">
-            <div className="flex items-center gap-2 flex-1 w-full">
-              <div className="relative flex-1">
-                <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-                <input
-                  value={search}
-                  onChange={e => { setSearch(e.target.value); setPage(0) }}
-                  placeholder="Tìm tên chỉ tiêu, người yêu cầu..."
-                  className="w-full h-12 pl-12 pr-4 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 text-sm font-medium focus:ring-2 focus:ring-amber-500/20 outline-none transition-all"
-                />
-              </div>
-              <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-[18px] shrink-0">
-                <button
-                  onClick={() => setViewMode('list')}
-                  className={cn(
-                    "p-2.5 rounded-xl transition-all duration-300",
-                    viewMode === 'list' ? 'bg-white dark:bg-slate-700 shadow-md text-amber-600 scale-105' : 'text-slate-400 hover:text-slate-600'
-                  )}
-                  title="Dạng danh sách"
-                >
-                  <List size={18} />
-                </button>
-                <button
-                  onClick={() => setViewMode('card')}
-                  className={cn(
-                    "p-2.5 rounded-xl transition-all duration-300",
-                    viewMode === 'card' ? 'bg-white dark:bg-slate-700 shadow-md text-amber-600 scale-105' : 'text-slate-400 hover:text-slate-600'
-                  )}
-                  title="Dạng card"
-                >
-                  <LayoutGrid size={18} />
-                </button>
-              </div>
+          <div className="flex flex-col md:flex-row md:items-center gap-3 w-full">
+            <div className="relative group flex-1 w-full">
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-amber-500 transition-colors" size={18} />
+              <input
+                value={search}
+                onChange={e => { setSearch(e.target.value); setPage(0) }}
+                placeholder="Tìm tên chỉ tiêu, người yêu cầu..."
+                className="w-full h-11 pl-12 pr-4 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 text-sm font-medium focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500/50 outline-none transition-all placeholder:text-slate-400"
+              />
             </div>
 
-            <div className="w-full md:w-72">
-              <Select value={selectedOrgUnitId} onValueChange={(v) => { setSelectedOrgUnitId(v); setPage(0) }}>
-                <SelectTrigger className="h-12 rounded-2xl border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 font-bold text-sm">
-                  <div className="flex items-center gap-2">
-                    <Building2 size={16} className="text-slate-400" />
-                    <SelectValue placeholder="Chọn đơn vị" />
-                  </div>
-                </SelectTrigger>
-                <SelectContent className="rounded-2xl border-slate-200 dark:border-slate-800">
-                  {flatOrgUnits.map(unit => (
-                    <SelectItem key={unit.id} value={unit.id} className="font-medium">{unit.levelLabel}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+            {/* Mở/đóng nhanh mọi nhóm đang hiển thị — đặt cạnh nút đổi chế độ xem vì
+                cùng là thao tác lên cách hiển thị danh sách, không phải bộ lọc. */}
+            {(unitMode || personMode) && (
+              <div className="flex items-center gap-1 p-1 rounded-2xl bg-slate-100 dark:bg-slate-800 self-start md:self-auto shrink-0">
+                <button
+                  onClick={() => {
+                    if (unitMode) unitCollapse.expandAll(visibleUnits.map(u => u.id))
+                    else personCollapse.expandAll(visibleGroups.map(g => g.id))
+                  }}
+                  title="Mở tất cả nhóm"
+                  className="flex items-center gap-1.5 h-9 px-3 rounded-xl text-[10px] font-black uppercase tracking-widest text-slate-500 hover:text-amber-600 hover:bg-white dark:hover:bg-slate-700 transition-all active:scale-95"
+                >
+                  <ChevronDown size={14} /> Mở
+                </button>
+                <button
+                  onClick={() => { unitCollapse.collapseAll(); personCollapse.collapseAll() }}
+                  title="Đóng tất cả nhóm"
+                  className="flex items-center gap-1.5 h-9 px-3 rounded-xl text-[10px] font-black uppercase tracking-widest text-slate-500 hover:text-amber-600 hover:bg-white dark:hover:bg-slate-700 transition-all active:scale-95"
+                >
+                  <ChevronRight size={14} /> Đóng
+                </button>
+              </div>
+            )}
+
+            <div className="flex items-center gap-1 p-1 rounded-2xl bg-slate-100 dark:bg-slate-800 self-start md:self-auto shrink-0">
+              <button
+                onClick={() => setViewMode('list')}
+                title="Dạng danh sách"
+                className={cn(
+                  "w-9 h-9 flex items-center justify-center rounded-xl transition-all",
+                  viewMode === 'list' ? 'bg-white dark:bg-slate-700 shadow-sm text-amber-600' : 'text-slate-400 hover:text-slate-600'
+                )}
+              >
+                <List size={18} />
+              </button>
+              <button
+                onClick={() => setViewMode('card')}
+                title="Dạng thẻ"
+                className={cn(
+                  "w-9 h-9 flex items-center justify-center rounded-xl transition-all",
+                  viewMode === 'card' ? 'bg-white dark:bg-slate-700 shadow-sm text-amber-600' : 'text-slate-400 hover:text-slate-600'
+                )}
+              >
+                <LayoutGrid size={18} />
+              </button>
             </div>
 
-            <div className="w-full md:w-64">
-              <Select value={selectedPeriodId} onValueChange={(v) => { setSelectedPeriodId(v); setPage(0) }}>
-                <SelectTrigger className="h-12 rounded-2xl border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 font-bold text-sm">
+            {/* Danh sách đã gom theo Đơn vị → Người nên bỏ hẳn bộ lọc "Chọn đơn vị". */}
+
+            <div className="w-full md:w-52">
+              <Select value={selectedPeriodId} onValueChange={(v) => { setSelectedPeriodId(v); setPage(0); resetGroups() }}>
+                <SelectTrigger className="h-11 rounded-2xl border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 font-bold text-xs focus:ring-2 focus:ring-amber-500/20">
                   <div className="flex items-center gap-2">
-                    <Calendar size={16} className="text-slate-400" />
-                    <SelectValue placeholder="Chọn đợt KPI" />
+                    <Calendar size={14} className="text-amber-500 shrink-0" />
+                    <SelectValue placeholder="Đợt KPI..." />
                   </div>
                 </SelectTrigger>
                 <SelectContent className="rounded-2xl border-slate-200 dark:border-slate-800">
@@ -409,6 +562,15 @@ export default function KpiAdjustmentApprovalPage() {
           })}
         </div>
 
+        {hitFetchCap && (
+          <div className="flex items-center gap-3 px-6 py-4 rounded-[20px] bg-amber-50 dark:bg-amber-900/20 border border-amber-100 dark:border-amber-900/40">
+            <Clock size={18} className="text-amber-500 shrink-0" />
+            <p className="text-xs font-bold text-amber-700 dark:text-amber-400">
+              Dữ liệu quá lớn nên chỉ hiển thị {GROUPING_FETCH_SIZE} yêu cầu gần nhất — hãy lọc thêm theo đợt hoặc phòng ban để xem đầy đủ.
+            </p>
+          </div>
+        )}
+
         {/* Content Section */}
         {isLoading ? (
           <div className="bg-white dark:bg-slate-900 rounded-[32px] p-8 border border-slate-100 dark:border-slate-800 shadow-sm">
@@ -438,7 +600,8 @@ export default function KpiAdjustmentApprovalPage() {
                     </th>
                     <th className="px-6 py-5 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 whitespace-nowrap">Trạng thái</th>
                     <th className="px-6 py-5 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 whitespace-nowrap">Chỉ tiêu đề xuất</th>
-                    <th className="px-6 py-5 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 whitespace-nowrap">Người yêu cầu</th>
+                    {/* Gom theo người rồi thì tên người yêu cầu đã nằm ở header nhóm. */}
+                    {!personMode && <th className="px-6 py-5 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 whitespace-nowrap">Người yêu cầu</th>}
                     <th className="px-6 py-5 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 whitespace-nowrap">Hạn xử lý (24h)</th>
                     <th className="px-6 py-5 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 whitespace-nowrap">Lý do điều chỉnh</th>
                     {(activeTab === 'APPROVED' || activeTab === 'REJECTED' || activeTab === 'ALL') && (
@@ -448,7 +611,36 @@ export default function KpiAdjustmentApprovalPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-50 dark:divide-slate-800/50">
-                  {items.map((request, i) => {
+                  {displayRows.map((row, i) => {
+                    if (row.kind === 'unit') {
+                      return (
+                        <UnitGroupHeaderRow
+                          key={`unit-${row.unit.id}`}
+                          colSpan={tableColSpan}
+                          unit={row.unit}
+                          expanded={unitCollapse.isExpanded(row.unit.id)}
+                          onToggle={() => unitCollapse.toggle(row.unit.id)}
+                          isCurrentUnit={row.unit.id === myUnitId}
+                          badges={renderUnitBadges(row.unit)}
+                        />
+                      )
+                    }
+                    if (row.kind === 'person') {
+                      return (
+                        <PersonGroupHeaderRow
+                          key={`person-${row.key}`}
+                          colSpan={tableColSpan}
+                          indent={unitMode}
+                          person={row.group}
+                          expanded={personCollapse.isExpanded(row.key)}
+                          onToggle={() => personCollapse.toggle(row.key)}
+                          isCurrentUser={row.group.id === user?.id}
+                          badges={renderPersonBadges(row.group.items)}
+                          actions={renderPersonSelectAction(row.group.items)}
+                        />
+                      )
+                    }
+                    const { request } = row
                     const status = statusConfig[request.status] ?? statusConfig['PENDING']!
                     const StatusIcon = status.icon
                     const isSelected = selectedIds.includes(request.id)
@@ -507,12 +699,14 @@ export default function KpiAdjustmentApprovalPage() {
                             </div>
                           </button>
                         </td>
-                        <td className="px-6 py-5">
-                           <div className="flex items-center gap-2">
-                             <Users size={12} className="text-slate-400" />
-                             <span className="text-xs font-bold text-slate-700 dark:text-slate-300">{request.requesterName}</span>
-                           </div>
-                        </td>
+                        {!personMode && (
+                          <td className="px-6 py-5">
+                            <div className="flex items-center gap-2">
+                              <Users size={12} className="text-slate-400" />
+                              <span className="text-xs font-bold text-slate-700 dark:text-slate-300">{request.requesterName}</span>
+                            </div>
+                          </td>
+                        )}
                         <td className="px-6 py-5">
                            <CountdownTimer createdAt={request.createdAt} status={request.status} />
                         </td>
@@ -546,7 +740,36 @@ export default function KpiAdjustmentApprovalPage() {
             {/* Card View */}
             {viewMode === 'card' && (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 p-3">
-                {items.map((request) => {
+                {displayRows.map((row) => {
+                  // Header đơn vị/người chiếm trọn hàng để ngắt lưới thẻ thành từng khối.
+                  if (row.kind === 'unit') {
+                    return (
+                      <div key={`unit-${row.unit.id}`} className="col-span-full">
+                        <UnitGroupHeaderCard
+                          unit={row.unit}
+                          expanded={unitCollapse.isExpanded(row.unit.id)}
+                          onToggle={() => unitCollapse.toggle(row.unit.id)}
+                          isCurrentUnit={row.unit.id === myUnitId}
+                          badges={renderUnitBadges(row.unit)}
+                        />
+                      </div>
+                    )
+                  }
+                  if (row.kind === 'person') {
+                    return (
+                      <div key={`person-${row.key}`} className={cn("col-span-full", unitMode && "pl-4 sm:pl-8")}>
+                        <PersonGroupHeaderCard
+                          person={row.group}
+                          expanded={personCollapse.isExpanded(row.key)}
+                          onToggle={() => personCollapse.toggle(row.key)}
+                          isCurrentUser={row.group.id === user?.id}
+                          badges={renderPersonBadges(row.group.items)}
+                          actions={renderPersonSelectAction(row.group.items)}
+                        />
+                      </div>
+                    )
+                  }
+                  const { request } = row
                   const status = statusConfig[request.status] ?? statusConfig['PENDING']!
                   const StatusIcon = status.icon
                   const isSelected = selectedIds.includes(request.id)
@@ -604,11 +827,13 @@ export default function KpiAdjustmentApprovalPage() {
                         </div>
 
                         {/* Requester + Timer */}
-                        <div className="flex items-center justify-between gap-2">
-                          <div className="flex items-center gap-1.5 text-[11px] font-bold text-slate-600 dark:text-slate-400">
-                            <Users size={11} className="text-slate-400 shrink-0" />
-                            <span className="truncate">{request.requesterName}</span>
-                          </div>
+                        <div className={cn("flex items-center gap-2", personMode ? "justify-end" : "justify-between")}>
+                          {!personMode && (
+                            <div className="flex items-center gap-1.5 text-[11px] font-bold text-slate-600 dark:text-slate-400">
+                              <Users size={11} className="text-slate-400 shrink-0" />
+                              <span className="truncate">{request.requesterName}</span>
+                            </div>
+                          )}
                           <CountdownTimer createdAt={request.createdAt} status={request.status} />
                         </div>
 
@@ -683,18 +908,25 @@ export default function KpiAdjustmentApprovalPage() {
           </div>
         )}
 
-        {/* Pagination Section */}
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-6 pt-4">
-          <div className="flex items-center gap-4 text-sm">
-            <p className="font-bold text-slate-400 uppercase tracking-widest text-[10px]">
-              Trang <span className="text-slate-900 dark:text-white">{page + 1}</span> / {totalPages}
-            </p>
-            <div className="h-4 w-px bg-slate-200 dark:bg-slate-800" />
-            <p className="font-bold text-slate-400 uppercase tracking-widest text-[10px]">
-              Tổng <span className="text-slate-900 dark:text-white">{totalElements}</span> mục
-            </p>
+        {/* Phân trang theo ĐƠN VỊ (hoặc theo NGƯỜI khi chỉ có một đơn vị); danh sách phẳng chỉ cần dòng đếm. */}
+        {items.length > 0 && (
+          <div className="bg-white/60 dark:bg-slate-900/60 backdrop-blur-md rounded-[28px] border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
+            {unitMode || personMode ? (
+              <Pagination
+                currentPage={groupPage}
+                totalPages={totalPages}
+                onPageChange={setPage}
+                totalElements={totalGroups}
+                size={GROUP_PAGE_SIZE}
+                itemLabel={unitMode ? 'đơn vị' : 'nhân sự'}
+              />
+            ) : (
+              <p className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                Tổng <span className="text-slate-900 dark:text-white">{totalElements}</span> mục
+              </p>
+            )}
           </div>
-        </div>
+        )}
 
         <KpiAdjustmentReviewModal 
           open={!!reviewAdjustment} 

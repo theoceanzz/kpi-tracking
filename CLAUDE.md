@@ -87,3 +87,6 @@ Database defaults: PostgreSQL on `localhost:5432`, user `postgres`, password `12
 - Permission checks use `@PreAuthorize` or explicit `PermissionChecker` calls — don't bypass these in new endpoints
 - New REST endpoints follow `/api/v1/{resource}` naming and return standard response wrappers
 - Frontend feature folders follow the pattern: `features/{name}/{Name}Page.tsx` as entry point, with co-located API hooks and types
+- **Dropdowns use the shadcn `Select` from `src/components/ui/select.tsx`, never a native `<select>`.** The native element can't be styled consistently across browsers and ignores the theme tokens, so a page mixing both looks broken in dark mode. Compose it as `Select > SelectTrigger > SelectValue` + `SelectContent > SelectItem`; group with `SelectGroup` + `SelectLabel` instead of `<optgroup>`.
+  - `SelectItem` **cannot** take `value=""` — Radix reserves the empty string for "no selection". For an "all"/"default" choice use a sentinel constant (e.g. `'__default__'`) and map it back to `null` when submitting.
+  - `SelectContent` renders in a portal at `z-50`. Inside the app's modals (`z-[1000]`) it opens *behind* the dialog and can't be clicked — pass `className="z-[1100]"`, the way `features/rewards/components/EmployeePicker.tsx` does.

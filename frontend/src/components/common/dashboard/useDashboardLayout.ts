@@ -43,7 +43,7 @@ export function useDashboardLayout({ scope, defaultWidgets, availableWidgets }: 
   /**
    * Ghép bố cục đã lưu với catalog hiện tại:
    * - bỏ `i` không còn trong catalog (widget bị gỡ ở bản deploy mới, hoặc cờ tổ chức vừa tắt)
-   * - nối widget mặc định CHƯA TỪNG xuất hiện trong bố cục, để người dùng cũ vẫn nhận tính năng mới
+   * - chèn widget mặc định CHƯA TỪNG xuất hiện trong bố cục, để người dùng cũ vẫn nhận tính năng mới
    *
    * <p>Mấu chốt là "chưa từng xuất hiện", không phải "hiện không có mặt": widget người dùng
    * đã chủ động gỡ vẫn nằm trong bố cục lưu dưới dạng `removed`, nên không bị chèn lại.
@@ -51,7 +51,7 @@ export function useDashboardLayout({ scope, defaultWidgets, availableWidgets }: 
    */
   const hydrate = useCallback((saved: DashboardLayoutItem[]) => {
     const byId = new Map(availableWidgets.map(w => [w.i, w]))
-    const merged: DashboardWidget[] = []
+    let merged: DashboardWidget[] = []
 
     saved.forEach(item => {
       if (item.removed) return
@@ -60,13 +60,22 @@ export function useDashboardLayout({ scope, defaultWidgets, availableWidgets }: 
       merged.push({ ...def, x: item.x, y: item.y, w: item.w, h: item.h, visible: item.visible !== false })
     })
 
-    // Đã biết = mọi id từng có mặt trong bố cục lưu, kể cả bản ghi đánh dấu đã gỡ
+    /*
+      Widget mặc định MỚI được chèn đúng chỗ mà bố cục mặc định dành cho nó (`def.y`), đẩy các
+      ô nằm từ đó trở xuống thấp hơn — KHÔNG thả xuống đáy lưới. Người dùng cũ có bố cục dài
+      (biểu đồ xu hướng + bảng chi tiết cao hàng chục dòng) mà nhận tính năng mới ở tận cuối
+      trang thì coi như không nhận: họ chẳng bao giờ cuộn tới đó.
+
+      "Đã biết" = mọi id từng có mặt trong bố cục lưu, kể cả bản ghi đánh dấu đã gỡ.
+    */
     const known = new Set(saved.map(item => item.i))
-    defaultWidgets.forEach(def => {
-      if (known.has(def.i)) return
-      const maxY = merged.length ? Math.max(...merged.map(w => w.y + w.h)) : 0
-      merged.push({ ...def, y: maxY })
-    })
+    defaultWidgets
+      .filter(def => !known.has(def.i))
+      .sort((a, b) => a.y - b.y)
+      .forEach(def => {
+        merged = merged.map(w => (w.y >= def.y ? { ...w, y: w.y + def.h } : w))
+        merged.push({ ...def })
+      })
 
     const removed = saved
       .filter(item => item.removed && byId.has(item.i))

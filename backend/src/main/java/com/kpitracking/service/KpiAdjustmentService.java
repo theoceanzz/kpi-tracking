@@ -257,7 +257,7 @@ public class KpiAdjustmentService {
         com.kpitracking.entity.KpiCriteria kpi = adj.getKpiCriteria();
         com.kpitracking.entity.BscPerspective effectivePerspective =
                 com.kpitracking.util.BscPerspectiveResolver.effectivePerspective(kpi);
-        // %hạng_mục từ thẻ điểm của đơn vị KPI (để FE tính trọng số THẬT).
+        // %hạng_mục từ bộ tiêu chí của đơn vị KPI (để FE tính trọng số THẬT).
         Double categoryPct = null;
         if (effectivePerspective != null && kpi.getKpiPeriod() != null) {
             com.kpitracking.entity.Organization org = kpi.getKpiPeriod().getOrganization();
@@ -291,6 +291,8 @@ public class KpiAdjustmentService {
                 .compensationPercentage(adj.getKpiCriteria().getCompensatedAchievementPercent())
                 .reason(adj.getReason())
                 .status(adj.getStatus())
+                .orgUnitId(kpi.getOrgUnit() != null ? kpi.getOrgUnit().getId() : null)
+                .orgUnitName(kpi.getOrgUnit() != null ? kpi.getOrgUnit().getName() : null)
                 .requesterId(adj.getRequester().getId())
                 .requesterName(adj.getRequester().getFullName())
                 .reviewerId(adj.getReviewer() != null ? adj.getReviewer().getId() : null)

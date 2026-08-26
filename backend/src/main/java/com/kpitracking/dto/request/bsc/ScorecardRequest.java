@@ -17,11 +17,11 @@ public class ScorecardRequest {
     private String vision;
     @NotNull
     private UUID kpiPeriodId;
-    /** Các phòng ban áp dụng thẻ điểm; RỖNG/null = thẻ điểm mặc định toàn tổ chức. */
+    /** Các phòng ban áp dụng bộ tiêu chí; RỖNG/null = bộ tiêu chí mặc định toàn tổ chức. */
     private List<UUID> orgUnitIds;
     private BscScorecardStatus status;
     private BscScoringMode scoringMode;
     private BscEmptyPerspectivePolicy emptyPerspectivePolicy;
-    /** Danh sách viễn cảnh + trọng số (%). Tổng phải = 100 nếu có ít nhất 1 viễn cảnh. */
+    /** Danh sách lĩnh vực + trọng số (%). Tổng phải = 100 nếu có ít nhất 1 lĩnh vực. */
     private List<ScorecardPerspectiveWeightRequest> perspectives;
 }

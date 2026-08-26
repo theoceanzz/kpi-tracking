@@ -3,7 +3,7 @@ import LoadingSkeleton from '@/components/common/LoadingSkeleton'
 import EmptyState from '@/components/common/EmptyState'
 import StatusBadge from '@/components/common/StatusBadge'
 import { useMySubmissions } from '../hooks/useMySubmissions'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link } from 'react-router-dom'
 import { formatDateTime, formatNumber, cn } from '@/lib/utils'
 import type { SubmissionStatus } from '@/types/submission'
 import {
@@ -17,6 +17,7 @@ import { useMyKpi } from '@/features/kpi/hooks/useMyKpi'
 import { useKpiPeriods } from '@/features/kpi/hooks/useKpiPeriods'
 import { useAuthStore } from '@/store/authStore'
 import { usePageTitle } from '@/features/organization/hooks/usePageTitle'
+import EvaluationFormModal from '@/features/evaluations/components/EvaluationFormModal'
 import {
   Select,
   SelectContent,
@@ -24,8 +25,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import PageTour from '@/components/common/PageTour'
-import { mySubmissionsSteps } from '@/components/common/tourSteps'
 
 type TabKey = SubmissionStatus | ''
 
@@ -47,6 +46,9 @@ export default function MySubmissionsPage() {
   const [pendingId, setPendingId] = useState<string | null>(null)
   const [showSuccess, setShowSuccess] = useState(false)
   const [finishedPeriodId, setFinishedPeriodId] = useState<string | null>(null)
+  // Mở form tự đánh giá tại chỗ. Không điều hướng sang mục "Đánh giá của tôi": mục đó
+  // gác bằng EVALUATION:VIEW_MY nên trưởng đơn vị đi sang là rơi về lưới thẻ của /me.
+  const [selfEvalPeriodId, setSelfEvalPeriodId] = useState<string | null>(null)
   const [selectedPeriodId, setSelectedPeriodId] = useState('ALL')
   
   const { user } = useAuthStore()
@@ -57,7 +59,6 @@ export default function MySubmissionsPage() {
     .join(' ')
   const { data: periodsData } = useKpiPeriods({ organizationId: orgId })
   
-  const navigate = useNavigate()
   const qc = useQueryClient()
   
   const { data: myKpiData } = useMyKpi({ page: 0, size: 500 })
@@ -140,7 +141,6 @@ export default function MySubmissionsPage() {
 
   return (
     <div className="max-w-[1440px] mx-auto p-4 md:p-6 space-y-6 animate-in fade-in duration-500 transition-all duration-500 ease-in-out">
-      <PageTour pageKey="my-submissions" steps={mySubmissionsSteps} />
       
       {/* Header Section */}
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm transition-all">
@@ -525,7 +525,7 @@ export default function MySubmissionsPage() {
 
             <div className="flex flex-col gap-4">
               <button
-                onClick={() => navigate(`/me?section=evaluations&action=self-eval&periodId=${finishedPeriodId}`)}
+                onClick={() => { setShowSuccess(false); setSelfEvalPeriodId(finishedPeriodId) }}
                 className="w-full py-5 bg-slate-900 dark:bg-white text-white dark:text-slate-900 rounded-2xl font-black text-sm shadow-2xl hover:bg-indigo-600 dark:hover:bg-indigo-50 transition-all flex items-center justify-center gap-3 uppercase tracking-widest active:scale-95"
               >
                 <Sparkles size={20} className="text-amber-400" /> TIẾN HÀNH TỰ ĐÁNH GIÁ
@@ -540,6 +540,12 @@ export default function MySubmissionsPage() {
           </div>
         </div>
       )}
+
+      <EvaluationFormModal
+        open={!!selfEvalPeriodId}
+        onClose={() => setSelfEvalPeriodId(null)}
+        initialPeriodId={selfEvalPeriodId ?? undefined}
+      />
     </div>
   )
 }

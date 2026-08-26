@@ -114,14 +114,14 @@ public class RewardProgramService {
     private void apply(RewardProgram program, RewardProgramRequest request) {
         validateTiers(request.getTiers());
 
-        // Xếp loại ma trận chỉ tồn tại khi tổ chức bật KPI định tính: cột matrix_rating
-        // do luồng đó điền, và getEffectivePerformanceScore cũng chỉ trả về nó khi
-        // enableQualitative bật. Cho chọn lúc tắt sẽ ra bảng xếp hạng rỗng mà không rõ
-        // vì sao — chặn ngay lúc lưu cấu hình.
+        // Xếp loại ma trận chỉ tồn tại khi tổ chức có trục hàng cho ma trận — KPI định tính
+        // hoặc chấm hạnh kiểm (điểm hạnh kiểm lấp trục còn trống). Cột matrix_rating do các
+        // luồng đó điền, và getEffectivePerformanceScore cũng chỉ trả về nó khi ấy. Cho chọn
+        // lúc tắt cả hai sẽ ra bảng xếp hạng rỗng mà không rõ vì sao — chặn ngay lúc lưu.
         if (request.getMetric() == RewardRankingMetric.MATRIX_RATING
-                && !Boolean.TRUE.equals(program.getOrganization().getEnableQualitative())) {
-            throw new BusinessException("Chỉ số \"Xếp loại (ma trận)\" cần bật KPI định tính cho tổ chức. "
-                    + "Hãy bật ở Thiết lập công ty, hoặc chọn chỉ số khác.");
+                && !com.kpitracking.util.PerformanceMatrixResolver.usesMatrix(program.getOrganization())) {
+            throw new BusinessException("Chỉ số \"Xếp loại (ma trận)\" cần bật KPI định tính hoặc Chấm hạnh kiểm "
+                    + "cho tổ chức. Hãy bật ở Thiết lập công cụ, hoặc chọn chỉ số khác.");
         }
 
         program.setName(request.getName());

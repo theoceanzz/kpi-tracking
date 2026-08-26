@@ -23,6 +23,17 @@ public class CreateRewardGrantRequest {
     /** Chỉ để giao diện điền nhanh; số điểm có thẩm quyền nằm ở từng người nhận. */
     private Integer pointsPerRecipient;
 
+    /**
+     * Kèm giấy khen cho lần thưởng này. Mặc định KHÔNG.
+     *
+     * <p>Fail closed có chủ đích: một client cũ quên gửi trường này thì kết quả là "không
+     * có giấy khen", chứ không phải phát giấy khen cho một lượt thưởng vặt.
+     */
+    private Boolean withCertificate;
+
+    /** Mẫu chứng nhận. Để trống = dùng mẫu mặc định của công ty lúc in. */
+    private UUID certificateTemplateId;
+
     @Data
     public static class Recipient {
 

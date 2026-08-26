@@ -16,7 +16,7 @@ DAO_TAO,Đào tạo & phát triển,LEARNING_GROWTH,Nâng cao năng lực nhân 
 const COLUMNS = [
   { name: 'Code', required: true, desc: 'Mã hạng mục (chỉ chữ, số, gạch dưới). Dùng để đối soát & cập nhật.', example: 'DOANH_THU' },
   { name: 'Name', required: true, desc: 'Tên hạng mục', example: 'Doanh thu' },
-  { name: 'FixedPerspective', required: false, desc: 'Viễn cảnh cố định của hạng mục: FINANCIAL, CUSTOMER, INTERNAL_PROCESS, LEARNING_GROWTH. Bỏ trống mặc định INTERNAL_PROCESS.', example: 'FINANCIAL' },
+  { name: 'FixedPerspective', required: false, desc: 'Lĩnh vực cố định của hạng mục: FINANCIAL, CUSTOMER, INTERNAL_PROCESS, LEARNING_GROWTH. Bỏ trống mặc định INTERNAL_PROCESS.', example: 'FINANCIAL' },
   { name: 'Description', required: false, desc: 'Mô tả hạng mục', example: 'Các chỉ tiêu về doanh thu' },
   { name: 'Color', required: false, desc: 'Màu hiển thị dạng hex #RRGGBB', example: '#2563eb' },
   { name: 'DisplayOrder', required: false, desc: 'Thứ tự hiển thị (số). Để trống hệ thống tự đánh số.', example: '1' },
@@ -90,7 +90,7 @@ async function downloadTemplate(type: 'csv' | 'xlsx') {
   noteTitleRow.font = { bold: true, size: 12, color: { argb: 'FFDC2626' } }
   guideSheet.addRow(['1. File mẫu hỗ trợ định dạng .xlsx.'])
   guideSheet.addRow(['2. Mã (Code) dùng để cập nhật: nếu mã đã tồn tại, hệ thống sẽ CẬP NHẬT hạng mục đó.'])
-  guideSheet.addRow(['3. Cột FixedPerspective gán hạng mục vào 1 trong 4 viễn cảnh cố định (FINANCIAL, CUSTOMER, INTERNAL_PROCESS, LEARNING_GROWTH). Bỏ trống hoặc sai giá trị ⇒ mặc định INTERNAL_PROCESS.'])
+  guideSheet.addRow(['3. Cột FixedPerspective gán hạng mục vào 1 trong 4 lĩnh vực cố định (FINANCIAL, CUSTOMER, INTERNAL_PROCESS, LEARNING_GROWTH). Bỏ trống hoặc sai giá trị ⇒ mặc định INTERNAL_PROCESS.'])
   guideSheet.addRow(['4. Để trống DisplayOrder để hệ thống tự đánh số thứ tự tiếp theo.'])
 
   const buffer = await workbook.xlsx.writeBuffer()
@@ -105,7 +105,7 @@ async function downloadTemplate(type: 'csv' | 'xlsx') {
 
 const STEPS = [
   { num: '01', title: 'Tải file mẫu', desc: 'Nhấn nút bên dưới để tải về file mẫu có sẵn cấu trúc chuẩn.' },
-  { num: '02', title: 'Điền thông tin', desc: 'Nhập các hạng mục (mã, tên, viễn cảnh, màu, thứ tự...) vào file.' },
+  { num: '02', title: 'Điền thông tin', desc: 'Nhập các hạng mục (mã, tên, lĩnh vực, màu, thứ tự...) vào file.' },
   { num: '03', title: 'Lưu & Upload', desc: 'Lưu file định dạng .xlsx và chọn "Chọn file & Import" bên dưới.' },
 ]
 

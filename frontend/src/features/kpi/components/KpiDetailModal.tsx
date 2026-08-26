@@ -22,7 +22,7 @@ interface KpiDetailModalProps {
 export default function KpiDetailModal({ open, onClose, kpi }: KpiDetailModalProps) {
   const { data: children } = useKpiChildren(open && kpi?.hasChildren ? kpi.id : undefined)
 
-  // Trọng số THẬT = form × %hạng_mục (từ thẻ điểm của đơn vị KPI).
+  // Trọng số THẬT = form × %hạng_mục (từ bộ tiêu chí của đơn vị KPI).
   const { user } = useAuthStore()
   const organizationId = user?.memberships?.[0]?.organizationId
   const { data: org } = useOrganization(organizationId)

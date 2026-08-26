@@ -13,8 +13,6 @@ import {
   LogOut,
   ChevronDown,
   ChevronUp,
-  Lightbulb,
-  CircleHelp,
   ShieldCheck,
   PanelLeft,
 } from 'lucide-react'
@@ -22,8 +20,6 @@ import { cn } from '@/lib/utils'
 import UserAvatar from '@/components/common/UserAvatar'
 import { useNotificationDots } from '../hooks/useNotificationDots'
 import { useSidebarSettings } from '@/features/organization/hooks/useSidebarSettings'
-import { useTourStore } from '@/store/tourStore'
-import { pathToTourKey } from '@/components/common/tourSteps'
 import { useOrganization } from '@/features/orgunits/hooks/useOrganization'
 import {
   navItems,
@@ -39,74 +35,18 @@ import {
 // vì đã có mục nav khác khớp chính xác.
 const ALL_NAV_PATHS = flatNavPaths()
 
-/* ─── Tour Replay Button ─── */
-function TourReplayButton({ path }: { path: string }) {
-  const { user } = useAuthStore()
-  const { hasPermission } = useHasPermission()
-  
-  let tourKey = pathToTourKey[path]
-  
-  // Handle dynamic dashboard tour keys
-  if (path === '/dashboard') {
-    if (hasPermission(['ORG:VIEW', 'USER:VIEW', 'ROLE:VIEW'], true)) {
-      tourKey = 'dashboard-director'
-    } else if (hasPermission(['KPI:VIEW', 'SUBMISSION:REVIEW', 'USER:VIEW_LIST'])) {
-      tourKey = 'dashboard-head'
-    } else {
-      tourKey = 'dashboard-staff'
-    }
-  }
-
-  const { startTour, activeTour, hasSeen } = useTourStore()
-  
-  if (!tourKey || !user?.id) return null
-  
-  const seen = hasSeen(tourKey, user.id)
-  const isActive = activeTour === tourKey
-  
-  return (
-    <button
-      onClick={(e) => {
-        e.preventDefault()
-        e.stopPropagation()
-        if (!isActive) startTour(tourKey)
-      }}
-      className={cn(
-        'shrink-0 p-1 rounded-full transition-all border',
-        isActive
-          ? 'text-indigo-500 bg-indigo-50 border-indigo-200 dark:bg-indigo-900/30 dark:border-indigo-800'
-          : seen 
-            ? 'text-slate-400 border-transparent opacity-40 group-hover:opacity-100 hover:text-indigo-500 hover:bg-indigo-50 hover:border-indigo-100 dark:hover:bg-indigo-900/20'
-            : 'text-amber-500 border-amber-200 bg-amber-50 animate-pulse opacity-100 dark:bg-amber-900/20 dark:border-amber-800'
-      )}
-      title={seen ? "Xem lại hướng dẫn" : "Trang này có hướng dẫn mới"}
-    >
-      {seen ? <CircleHelp size={13} /> : <Lightbulb size={13} />}
-    </button>
-  )
-}
-
 export default function Sidebar({ isMobileOpen, onCloseMobile }: { isMobileOpen?: boolean; onCloseMobile?: () => void }) {
   const { user } = useAuthStore()
   const { logout } = useAuth()
   const { isCollapsed, toggle: toggleSidebar } = useSidebarStore()
-  const { hasSeen, startTour, stopTour } = useTourStore()
   const [userMenuOpen, setUserMenuOpen] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
 
   const { hasPermission } = useHasPermission()
   const location = useLocation()
 
-  const handleNavClick = (path?: string) => {
-    if (!path) return
+  const handleNavClick = () => {
     onCloseMobile?.()
-    
-    const tourKey = pathToTourKey[path]
-    if (tourKey && user?.id && !hasSeen(tourKey, user.id)) {
-      // Force stop any existing tour and restart the specific one
-      stopTour()
-      setTimeout(() => startTour(tourKey), 10)
-    }
   }
   
   const organizationId = user?.memberships?.[0]?.organizationId
@@ -410,7 +350,7 @@ export default function Sidebar({ isMobileOpen, onCloseMobile }: { isMobileOpen?
                                         key={subChild.path}
                                         to={subChild.path!}
                                         end={subChild.end}
-                                        onClick={() => handleNavClick(subChild.path)}
+                                        onClick={handleNavClick}
                                         className={cn(
                                           'flex items-center gap-3 px-3 py-1.5 rounded-lg text-[12px] font-bold transition-all group',
                                           isNavPathActive(subChild.path!, subChild.matchPrefix)
@@ -422,7 +362,6 @@ export default function Sidebar({ isMobileOpen, onCloseMobile }: { isMobileOpen?
                                           {subChild.icon}
                                         </div>
                                         <span className="truncate flex-1">{subChild.label}</span>
-                                        {subChild.path && <TourReplayButton path={subChild.path} />}
                                         {typeof subBadgeValue === 'number' && (
                                           <span className="px-1.5 py-0.5 rounded-full bg-red-500 text-[9px] text-white font-black shadow-lg shadow-red-500/20">
                                             {subBadgeValue}
@@ -446,7 +385,7 @@ export default function Sidebar({ isMobileOpen, onCloseMobile }: { isMobileOpen?
                             key={child.path}
                             to={child.path!}
                             end={child.end} 
-                            onClick={() => handleNavClick(child.path)}
+                            onClick={handleNavClick}
                             className={cn(
                               'flex items-center gap-3 px-3 py-2 rounded-lg text-[13px] font-bold transition-all group relative',
                               isNavPathActive(child.path!, child.matchPrefix)
@@ -458,7 +397,6 @@ export default function Sidebar({ isMobileOpen, onCloseMobile }: { isMobileOpen?
                               {child.icon}
                             </div>
                             <span className="truncate flex-1">{child.label}</span>
-                            {child.path && <TourReplayButton path={child.path} />}
                             {typeof childBadgeValue === 'number' && (
                               <span className="px-1.5 py-0.5 rounded-full bg-red-500 text-[9px] text-white font-black shadow-lg shadow-red-500/20">
                                 {childBadgeValue}
@@ -484,7 +422,7 @@ export default function Sidebar({ isMobileOpen, onCloseMobile }: { isMobileOpen?
                 key={item.id}
                 to={item.path!}
                 end={item.end} 
-                onClick={() => handleNavClick(item.path)}
+                onClick={handleNavClick}
                 className={cn(
                   'flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-bold transition-all group relative',
                   isCollapsed && !isMobileOpen ? 'justify-center px-0 mx-2' : '',
@@ -503,7 +441,6 @@ export default function Sidebar({ isMobileOpen, onCloseMobile }: { isMobileOpen?
                 {(!isCollapsed || isMobileOpen) && (
                   <>
                     <span className="truncate flex-1">{item.label}</span>
-                    {item.path && <TourReplayButton path={item.path} />}
                     {typeof badgeValue === 'number' && (
                       <span className="px-2 py-0.5 rounded-full bg-red-500 text-[10px] text-white font-black shadow-lg shadow-red-500/20 animate-pulse">
                         {badgeValue}

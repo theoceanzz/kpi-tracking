@@ -6,9 +6,7 @@ import com.kpitracking.entity.User;
 import com.kpitracking.event.WalletEvents.CashConvertedEvent;
 import com.kpitracking.event.WalletEvents.TopupPaidEvent;
 import com.kpitracking.service.CashWalletService;
-import com.kpitracking.service.EmailService;
-import com.kpitracking.service.NotificationService;
-import com.kpitracking.service.OrgNotificationConfigService;
+import com.kpitracking.service.notification.NotificationDispatcher;
 import com.kpitracking.service.reward.RewardContext;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -34,9 +32,7 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class WalletNotificationEventListener {
 
-    private final NotificationService notificationService;
-    private final EmailService emailService;
-    private final OrgNotificationConfigService configService;
+    private final NotificationDispatcher dispatcher;
     private final RewardContext context;
 
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
@@ -80,19 +76,19 @@ public class WalletNotificationEventListener {
         send(orgId, "wallet_converted", user, "Đã quy đổi sang điểm thưởng", message, null);
     }
 
+    /**
+     * Gửi NGAY, không xếp vào hàng đợi gom email như bên KPI.
+     *
+     * <p>Người vừa chuyển khoản đang ngồi nhìn màn hình chờ xác nhận tiền đã về; giữ lá thư
+     * lại vài phút để gộp với thông báo khác thì họ đọc thành "giao dịch chưa chạy" và đi
+     * chuyển thêm lần nữa. Thông báo tiền bạc cũng thưa, không phải nguồn gây ngập hộp thư.
+     */
     private void send(UUID orgId, String eventCode, User recipient,
                       String title, String message, UUID referenceId) {
         try {
             OrgUnit orgUnit = context.getPrimaryOrgUnit(recipient.getId());
-
-            if (configService.isSystemEnabled(orgId, eventCode)) {
-                notificationService.createNotification(
-                        orgUnit, recipient, title, message, eventCode, referenceId);
-            }
-            if (configService.isEmailEnabled(orgId, eventCode)) {
-                emailService.sendEventNotificationEmail(orgId, eventCode,
-                        recipient.getEmail(), recipient.getFullName(), title, message);
-            }
+            dispatcher.dispatchImmediate(orgId, eventCode, recipient, orgUnit,
+                    title, message, eventCode, referenceId);
         } catch (Exception e) {
             // Thông báo hỏng không được kéo theo gì cả: tiền đã ghi xong và commit
             // từ trước, đây chỉ là lớp báo tin.

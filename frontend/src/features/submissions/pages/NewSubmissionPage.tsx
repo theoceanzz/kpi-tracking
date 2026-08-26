@@ -28,6 +28,7 @@ import { useOrganization } from '@/features/orgunits/hooks/useOrganization'
 import { useScorecards } from '@/features/bsc/hooks/useBsc'
 import { useOrgUnitTree } from '@/features/orgunits/hooks/useOrgUnitTree'
 import type { KpiCriteria } from '@/types/kpi'
+import EvaluationFormModal from '@/features/evaluations/components/EvaluationFormModal'
 
 function isSubmittableByUser(k: KpiCriteria, userId?: string) {
   const now = new Date()
@@ -52,6 +53,9 @@ export default function NewSubmissionPage() {
   const [showConfirm, setShowConfirm] = useState(false)
   const [pendingData, setPendingData] = useState<SubmissionFormData | null>(null)
   const [showSuccess, setShowSuccess] = useState(false)
+  // Mở form tự đánh giá tại chỗ. Không điều hướng sang mục "Đánh giá của tôi": mục đó
+  // gác bằng EVALUATION:VIEW_MY nên trưởng đơn vị đi sang là rơi về lưới thẻ của /me.
+  const [selfEvalPeriodId, setSelfEvalPeriodId] = useState<string | null>(null)
   const { data: myKpiData, isLoading: loadingKpis } = useMyKpi({ page: 0, size: 100 })
 
   const { data: existingSubmission, isLoading: loadingExisting } = useQuery({
@@ -112,7 +116,7 @@ export default function NewSubmissionPage() {
   const selectedKpiId = watch('kpiCriteriaId')
   const selectedKpi = myKpiData?.content?.find(k => k.id === selectedKpiId)
 
-  // Trọng số THẬT = form × %hạng_mục (từ thẻ điểm của đơn vị KPI).
+  // Trọng số THẬT = form × %hạng_mục (từ bộ tiêu chí của đơn vị KPI).
   const enableBsc = org?.enableBsc
   const organizationId = user?.memberships?.[0]?.organizationId
   const { data: bscScorecards } = useScorecards(enableBsc ? organizationId : undefined)
@@ -581,7 +585,7 @@ export default function NewSubmissionPage() {
 
             <div className="flex flex-col gap-4">
               <button
-                onClick={() => navigate(`/me?section=evaluations&action=self-eval&periodId=${selectedKpi?.kpiPeriod?.id}`)}
+                onClick={() => { setShowSuccess(false); setSelfEvalPeriodId(selectedKpi?.kpiPeriod?.id ?? null) }}
                 className="w-full py-5 bg-slate-900 dark:bg-white text-white dark:text-slate-900 rounded-2xl font-black text-sm shadow-2xl hover:bg-indigo-600 dark:hover:bg-indigo-50 transition-all flex items-center justify-center gap-3 uppercase tracking-widest active:scale-95"
               >
                 <Sparkles size={20} className="text-amber-400" /> TIẾN HÀNH TỰ ĐÁNH GIÁ
@@ -596,6 +600,12 @@ export default function NewSubmissionPage() {
           </div>
         </div>
       )}
+
+      <EvaluationFormModal
+        open={!!selfEvalPeriodId}
+        onClose={() => setSelfEvalPeriodId(null)}
+        initialPeriodId={selfEvalPeriodId ?? undefined}
+      />
     </div>
   )
 }

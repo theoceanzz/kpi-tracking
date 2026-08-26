@@ -36,7 +36,7 @@ public class BscPerspective {
     @Column(name = "code", nullable = false, length = 50)
     private String code;
 
-    /** Viễn cảnh CỐ ĐỊNH mà hạng mục này thuộc về (bắt buộc). */
+    /** Lĩnh vực CỐ ĐỊNH mà hạng mục này thuộc về (bắt buộc). */
     @Enumerated(EnumType.STRING)
     @Column(name = "fixed_perspective", length = 20)
     private BscFixedPerspective fixedPerspective;

@@ -28,8 +28,19 @@ public class SidebarSettingService {
                 .collect(Collectors.toMap(SidebarSetting::getMenuKey, SidebarSetting::getCustomLabel));
     }
 
+    /**
+     * Đặt nhãn tuỳ chỉnh cho một mục điều hướng. Nhãn RỖNG nghĩa là "về tên mặc định" nên
+     * XOÁ hẳn bản ghi, không lưu chuỗi rỗng: để lại bản ghi rỗng thì bảng đầy rác, và
+     * `getCustomLabels` vẫn trả về khoá đó khiến phía client tưởng mục đang được đổi tên.
+     */
     @Transactional
     public void updateCustomLabel(UUID organizationId, String menuKey, String customLabel) {
+        if (customLabel == null || customLabel.isBlank()) {
+            sidebarSettingRepository.findByOrganizationIdAndMenuKey(organizationId, menuKey)
+                    .ifPresent(sidebarSettingRepository::delete);
+            return;
+        }
+
         SidebarSetting setting = sidebarSettingRepository
                 .findByOrganizationIdAndMenuKey(organizationId, menuKey)
                 .orElseGet(() -> {
@@ -40,8 +51,8 @@ public class SidebarSettingService {
                             .menuKey(menuKey)
                             .build();
                 });
-        
-        setting.setCustomLabel(customLabel);
+
+        setting.setCustomLabel(customLabel.trim());
         sidebarSettingRepository.save(setting);
     }
 }

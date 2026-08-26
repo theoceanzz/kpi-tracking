@@ -56,7 +56,7 @@ function WelcomeTooltip({
 
 /**
  * Welcome onboarding — only shows a welcome message on FIRST login.
- * Per-page tutorials are now handled by PageTour components on each page.
+ * Hướng dẫn của từng màn hình do TourHost lo, chạy tập trung ở AppLayout.
  */
 export default function OnboardingTour() {
   const { user } = useAuthStore()
@@ -70,7 +70,7 @@ export default function OnboardingTour() {
         <div className="space-y-4">
           <div className="w-16 h-16 bg-indigo-50 dark:bg-indigo-900/30 rounded-2xl flex items-center justify-center text-3xl mb-2 animate-bounce">👋</div>
           <p>Chào mừng bạn đến với <strong>Hệ thống Quản trị KPI</strong>.</p>
-          <p className="text-sm">Mỗi trang sẽ có hướng dẫn riêng khi bạn truy cập lần đầu. Bạn cũng có thể xem lại hướng dẫn bất kỳ lúc nào bằng cách nhấn nút <strong>💡</strong> trên thanh sidebar.</p>
+          <p className="text-sm">Mỗi trang sẽ có hướng dẫn riêng khi bạn truy cập lần đầu. Bạn cũng có thể xem lại hướng dẫn bất kỳ lúc nào bằng nút <strong>💡</strong> trên thanh tiêu đề.</p>
         </div>
       ),
       placement: 'center',

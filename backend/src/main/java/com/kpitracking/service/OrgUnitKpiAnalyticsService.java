@@ -135,6 +135,23 @@ public class OrgUnitKpiAnalyticsService {
                 .collect(Collectors.toList());
     }
 
+    /**
+     * KPI làm cơ sở cho các bảng rủi ro THEO NGƯỜI.
+     *
+     * <p>{@code everyKpi = false} (mặc định, dành cho bảng "Rủi ro thành viên" bên tab KPI đơn vị):
+     * chỉ KPI đơn lẻ — giữ nguyên hành vi cũ.
+     *
+     * <p>{@code everyKpi = true}: mọi KPI approved của phạm vi, kể cả KPI gắn KeyResult. Ô
+     * "Nhân sự cần can thiệp" ở trang chủ cần bản này: nó trả lời "ai đang có vấn đề", mà vấn
+     * đề của một người thì không phân biệt KPI đó thuộc mục tiêu hay đứng riêng. Tổ chức BẬT
+     * OKR gần như toàn bộ KPI đều nằm dưới KeyResult, lọc theo bản đơn lẻ sẽ ra bảng rỗng.
+     */
+    private List<KpiCriteria> memberRiskSource(List<UUID> unitIds, boolean everyKpi) {
+        return everyKpi
+                ? kpiCriteriaRepository.findApprovedByOrgUnitIds(unitIds)
+                : kpiCriteriaRepository.findApprovedWithoutKeyResultByOrgUnitIds(unitIds);
+    }
+
     /** Khi người dùng chọn (các) đợt cụ thể, chỉ giữ các KPI thuộc những đợt đó. */
     private List<KpiCriteria> applyPeriodFilter(List<KpiCriteria> kpis, java.util.Collection<UUID> periodIds) {
         if (periodIds == null || periodIds.isEmpty()) return kpis;
@@ -1013,7 +1030,7 @@ public class OrgUnitKpiAnalyticsService {
     }
 
     @Transactional(readOnly = true)
-    public MemberRiskPagedResponse getMemberRisks(UUID orgUnitId, UUID filterOrgUnitId, Instant from, Instant to, Boolean onlyApproved, int page, int size, String sortBy, String sortDir, java.util.Collection<UUID> periodIds) {
+    public MemberRiskPagedResponse getMemberRisks(UUID orgUnitId, UUID filterOrgUnitId, Instant from, Instant to, Boolean onlyApproved, int page, int size, String sortBy, String sortDir, java.util.Collection<UUID> periodIds, boolean everyKpi) {
         List<OrgUnit> subtree = orgUnitId != null ? resolveOrgUnitSubtree(orgUnitId) : resolveManagedSubtree();
         if (subtree.isEmpty()) return MemberRiskPagedResponse.builder()
             .content(Collections.emptyList()).page(page).size(size)
@@ -1021,8 +1038,7 @@ public class OrgUnitKpiAnalyticsService {
             .availableOrgUnits(Collections.emptyList()).build();
 
         List<UUID> allUnitIds = subtree.stream().map(OrgUnit::getId).toList();
-        List<KpiCriteria> allKpis = applyPeriodFilter(
-                kpiCriteriaRepository.findApprovedWithoutKeyResultByOrgUnitIds(allUnitIds), periodIds);
+        List<KpiCriteria> allKpis = applyPeriodFilter(memberRiskSource(allUnitIds, everyKpi), periodIds);
 
         Set<UUID> unitsWithKpis = allKpis.stream()
             .filter(k -> k.getOrgUnit() != null && k.getAssignees() != null && !k.getAssignees().isEmpty())
@@ -1117,11 +1133,13 @@ public class OrgUnitKpiAnalyticsService {
     }
 
     @Transactional(readOnly = true)
-    public List<OverdueKpiForMember> getMemberOverdueKpis(UUID userId, UUID orgUnitId) {
+    public List<OverdueKpiForMember> getMemberOverdueKpis(UUID userId, UUID orgUnitId, java.util.Collection<UUID> periodIds, boolean everyKpi) {
         List<OrgUnit> subtree = resolveOrgUnitSubtree(orgUnitId);
         if (subtree.isEmpty()) return Collections.emptyList();
         List<UUID> unitIds = subtree.stream().map(OrgUnit::getId).toList();
-        List<KpiCriteria> allKpis = kpiCriteriaRepository.findApprovedWithoutKeyResultByOrgUnitIds(unitIds);
+        // `periodIds` = lựa chọn đợt/kỳ của người xem; null (không lọc) giữ nguyên hành vi cũ.
+        // `everyKpi` phải khớp với bảng gọi nó, nếu không chi tiết bung ra sẽ lệch dòng tổng.
+        List<KpiCriteria> allKpis = applyPeriodFilter(memberRiskSource(unitIds, everyKpi), periodIds);
         List<OverdueKpiForMember> result = new ArrayList<>();
         for (KpiCriteria kpi : allKpis) {
             if (kpi.getAssignees() == null) continue;

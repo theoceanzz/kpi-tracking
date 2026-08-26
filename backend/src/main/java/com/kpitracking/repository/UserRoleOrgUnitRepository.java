@@ -99,8 +99,26 @@ public interface UserRoleOrgUnitRepository extends JpaRepository<UserRoleOrgUnit
     @Query("SELECT DISTINCT uro.user FROM UserRoleOrgUnit uro JOIN com.kpitracking.entity.RolePermission rp ON rp.role = uro.role JOIN rp.permission perm WHERE uro.orgUnit.id = :orgUnitId AND perm.code = :permissionCode")
     List<com.kpitracking.entity.User> findUsersWithPermissionInOrgUnit(@Param("orgUnitId") UUID orgUnitId, @Param("permissionCode") String permissionCode);
 
-    @Query("SELECT DISTINCT uro.user FROM UserRoleOrgUnit uro JOIN com.kpitracking.entity.RolePermission rp ON rp.role = uro.role JOIN rp.permission perm WHERE LOCATE(uro.orgUnit.path, :targetPath) = 1 AND perm.code = :permissionCode")
-    List<com.kpitracking.entity.User> findUsersWithPermissionOverOrgUnit(@Param("targetPath") String targetPath, @Param("permissionCode") String permissionCode);
+    /**
+     * Người có quyền {@code permissionCode} ĐƯỢC GẮN ĐÚNG TẠI các đơn vị này, kèm đường dẫn
+     * của đơn vị đó.
+     *
+     * <p>Có đường dẫn đi kèm thì bên gọi mới chọn được ĐÚNG MỘT cấp gần nhất để báo, thay vì
+     * gửi thư cho toàn bộ cấp trên từ trưởng nhóm lên tới tổng giám đốc.
+     *
+     * @return mỗi dòng là {@code [String path, User user]}
+     */
+    @Query("SELECT uro.orgUnit.path, uro.user FROM UserRoleOrgUnit uro " +
+           "JOIN com.kpitracking.entity.RolePermission rp ON rp.role = uro.role JOIN rp.permission perm " +
+           "WHERE uro.orgUnit.path IN :paths AND perm.code = :permissionCode")
+    List<Object[]> findUsersWithPermissionAtOrgUnitPaths(@Param("paths") java.util.Collection<String> paths,
+                                                         @Param("permissionCode") String permissionCode);
+
+    /** Các đường dẫn đơn vị mà một người đang giữ vai trò, giới hạn trong tập đường dẫn cho trước. */
+    @Query("SELECT DISTINCT uro.orgUnit.path FROM UserRoleOrgUnit uro " +
+           "WHERE uro.user.id = :userId AND uro.orgUnit.path IN :paths")
+    List<String> findOrgUnitPathsOfUserWithin(@Param("userId") UUID userId,
+                                              @Param("paths") java.util.Collection<String> paths);
 
     @Query("SELECT uro.orgUnit.id, COUNT(DISTINCT uro.user.id) FROM UserRoleOrgUnit uro WHERE uro.orgUnit.id IN :orgUnitIds GROUP BY uro.orgUnit.id")
     List<Object[]> countUsersByOrgUnitIdMap(@Param("orgUnitIds") java.util.Collection<UUID> orgUnitIds);

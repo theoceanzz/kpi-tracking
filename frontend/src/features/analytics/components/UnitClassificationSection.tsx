@@ -16,6 +16,9 @@ function DistDot(props: any) {
 export default function UnitClassificationSection({ overview }: { overview?: UnitClassificationOverview }) {
   const dist = overview?.distribution ?? []
   const cls = overview?.classification
+  // Xem theo kỳ thì phân bố lấy từ số chốt kỳ, không phải một đợt nào cả — nhãn phải nói đúng
+  // nguồn số, nếu không người đọc sẽ tưởng đang nhìn đợt gần nhất.
+  const scopeLabel = overview?.cycleName ? `Kỳ ${overview.cycleName}` : overview?.currentPeriodName
 
   // Đường phân phối: x = mức (thấp→cao), y = % người ở mức đó (kỳ hiện tại).
   const curve = useMemo(
@@ -26,7 +29,7 @@ export default function UnitClassificationSection({ overview }: { overview?: Uni
   if (overview && overview.evaluatedMembers === 0) {
     return (
       <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-6 text-center text-sm text-slate-400 font-medium">
-        Chưa có đánh giá nào để xếp loại đơn vị cho phạm vi/kỳ đang chọn.
+        Chưa có đánh giá nào để xếp loại đơn vị cho phạm vi/đợt/kỳ đang chọn.
       </div>
     )
   }
@@ -46,7 +49,7 @@ export default function UnitClassificationSection({ overview }: { overview?: Uni
           <p className="text-2xl font-black" style={{ color: cls?.color ?? '#64748b' }}>{cls?.level ?? '—'}</p>
           <p className="text-[11px] font-bold text-slate-400">
             {overview?.evaluatedMembers ?? 0}/{overview?.totalMembers ?? 0} người có đánh giá
-            {overview?.currentPeriodName ? ` · ${overview.currentPeriodName}` : ''}
+            {scopeLabel ? ` · ${scopeLabel}` : ''}
           </p>
           {overview?.appliedProfileName && (
             <p className="text-[10px] font-black text-indigo-500 mt-0.5">Hồ sơ: {overview.appliedProfileName}</p>
@@ -79,7 +82,7 @@ export default function UnitClassificationSection({ overview }: { overview?: Uni
       <div className="rounded-2xl border border-slate-200 dark:border-slate-800 p-5 bg-white dark:bg-slate-900">
         <h4 className="text-sm font-black flex items-center gap-2 mb-4">
           <Activity size={16} className="text-indigo-600" /> Phân phối % người theo mức xếp hạng
-          {overview?.currentPeriodName && <span className="text-[11px] font-bold text-slate-400">· {overview.currentPeriodName}</span>}
+          {scopeLabel && <span className="text-[11px] font-bold text-slate-400">· {scopeLabel}</span>}
         </h4>
         {curve.length > 0 ? (
           <div className="h-[300px] w-full">

@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react'
+import { useState, useMemo, useEffect, Fragment } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import LoadingSkeleton from '@/components/common/LoadingSkeleton'
 import EmptyState from '@/components/common/EmptyState'
@@ -7,7 +7,6 @@ import EvaluationDetailModal from '../components/EvaluationDetailModal'
 import { useEvaluations } from '../hooks/useEvaluations'
 import { useAuthStore } from '@/store/authStore'
 import { usePermission } from '@/hooks/usePermission'
-import { useUsers } from '@/features/users/hooks/useUsers'
 import { useOrgUnitTree } from '@/features/orgunits/hooks/useOrgUnitTree'
 import { useKpiPeriods } from '@/features/kpi/hooks/useKpiPeriods'
 import { useMyKpi } from '@/features/kpi/hooks/useMyKpi'
@@ -18,11 +17,21 @@ import UserAvatar from '@/components/common/UserAvatar'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import type { Evaluation } from '@/types/evaluation'
 import {
-  Star, Plus, ChevronRight, User, Calendar,
-  Building2, ArrowUpDown, ChevronLeft, Award, TrendingUp, Activity, X, Loader2
+  Star, Plus, ChevronRight, Calendar,
+  ArrowUpDown, Award, TrendingUp, Activity, X, Loader2, AlertCircle
 } from 'lucide-react'
-import PageTour from '@/components/common/PageTour'
-import { evaluationsSteps } from '@/components/common/tourSteps'
+import Pagination from '@/components/common/Pagination'
+import {
+  PersonGroupBadge, PersonGroupHeaderCard, PersonGroupHeaderRow,
+  UnitGroupHeaderCard, UnitGroupHeaderRow,
+} from '@/components/common/PersonGroupHeader'
+import { groupByPerson, groupByUnitThenPerson, personGroupKey, type UnitGroup } from '@/lib/personGrouping'
+import { usePersonGroupCollapse } from '@/hooks/usePersonGroupCollapse'
+
+/** Số nhóm (đơn vị, hoặc người khi chỉ có một đơn vị) hiển thị mỗi trang. */
+const GROUP_PAGE_SIZE = 10
+/** Trần số bản đánh giá tải về một lần để gom nhóm. */
+const GROUPING_FETCH_SIZE = 1000
 
 
 
@@ -37,28 +46,24 @@ export default function EvaluationsPage() {
   const isGlobalAdmin = hasPermission('SYSTEM:ADMIN')
   const canCreate = hasPermission('EVALUATION:CREATE') && !isGlobalAdmin
   const canViewAll = hasPermission('EVALUATION:VIEW') || hasPermission('SUBMISSION:REVIEW')
-  const canManageOrg = hasPermission('ROLE:ASSIGN')
 
   // Control states
   const [page, setPage] = useState(0)
-  const [pageSize] = useState(10)
   const [sortBy, setSortBy] = useState('createdAt')
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc')
-  
+
   // Filter states
   const [selectedKpiPeriodId, setSelectedKpiPeriodId] = useState('ALL')
-  const [selectedUserId, setSelectedUserId] = useState('ALL')
-  const [selectedOrgUnitId, setSelectedOrgUnitId] = useState('')
 
 
+  // Tải trọn phạm vi đang lọc để gom nhóm theo người cho đủ — phân trang 10 bản ghi/trang
+  // sẽ cắt ngang một người thành hai trang. Phân trang lại theo NGƯỜI ở phía dưới.
   const { data, isLoading } = useEvaluations({
-    page,
-    size: pageSize,
+    page: 0,
+    size: GROUPING_FETCH_SIZE,
     sortBy,
     sortDir,
-    userId: selectedUserId === 'ALL' ? undefined : selectedUserId,
     kpiPeriodId: selectedKpiPeriodId === 'ALL' ? undefined : selectedKpiPeriodId,
-    orgUnitId: selectedOrgUnitId === 'ALL' ? undefined : selectedOrgUnitId,
     organizationId: user?.memberships?.[0]?.organizationId,
   })
 
@@ -86,15 +91,8 @@ export default function EvaluationsPage() {
   // Fetch reference data for filters
   const { data: periodsData } = useKpiPeriods({ organizationId: user?.memberships?.[0]?.organizationId })
   const { data: orgUnitTreeData } = useOrgUnitTree()
-  const { data: usersData } = useUsers({ 
-    page: 0, 
-    size: 500, 
-    orgUnitId: selectedOrgUnitId === 'ALL' ? undefined : selectedOrgUnitId,
-    organizationId: user?.memberships?.[0]?.organizationId
-  })
 
   const periods = periodsData?.content ?? []
-  const employees = usersData?.content ?? []
 
   // Logic for reminders and single evaluation
   const now = new Date()
@@ -124,14 +122,12 @@ export default function EvaluationsPage() {
     return result
   }
   const flatOrgUnits = useMemo(() => orgUnitTreeData ? flattenTree(orgUnitTreeData) : [], [orgUnitTreeData])
-  
-  // Set default org unit to root
-  // Set default org unit to root only if none selected
-  useEffect(() => {
-    if (flatOrgUnits.length > 0 && selectedOrgUnitId === '') {
-      setSelectedOrgUnitId('ALL')
-    }
-  }, [flatOrgUnits, selectedOrgUnitId])
+
+  // Thứ tự đơn vị trong cây tổ chức, để các nhóm đơn vị hiện theo đúng trật tự cây.
+  const unitOrder = useMemo(
+    () => new Map<string, number>(flatOrgUnits.map((u: any, i: number) => [u.id, i])),
+    [flatOrgUnits]
+  )
 
   const handleSort = (field: string) => {
     if (sortBy === field) {
@@ -181,9 +177,226 @@ export default function EvaluationsPage() {
     }
   }, [data, user])
 
+  const evaluations = data?.content ?? []
+  const hitFetchCap = evaluations.length >= GROUPING_FETCH_SIZE
+
+  // Gom ĐƠN VỊ → NGƯỜI → lượt đánh giá (một người có nhiều lượt: nhiều kỳ × nhiều vai trò
+  // người chấm), thay cho hai bộ lọc "Phòng ban" và "Nhân viên" trước đây.
+  const extractPerson = (ev: Evaluation) => [{
+    id: ev.userId,
+    name: ev.userName,
+    avatarUrl: ev.userAvatarUrl,
+  }]
+
+  const unitGroups = useMemo(
+    () => groupByUnitThenPerson(
+      evaluations,
+      ev => ev.orgUnitId ? { id: ev.orgUnitId, name: ev.orgUnitName || 'Đơn vị không tên' } : null,
+      extractPerson,
+      unitOrder,
+    ),
+    [evaluations, unitOrder]
+  )
+  const personGroups = useMemo(() => groupByPerson(evaluations, extractPerson), [evaluations])
+
+  // Chỉ thêm cấp nào thực sự có nhiều mục: ≥2 đơn vị mới gom theo đơn vị, ≥2 người mới gom
+  // theo người; một người duy nhất thì giữ danh sách phẳng như cũ.
+  const unitMode = unitGroups.length >= 2
+  const personMode = personGroups.length >= 2
+
+  const myUnitId = user?.memberships?.[0]?.orgUnitId
+  const unitCollapse = usePersonGroupCollapse(myUnitId)
+  // Nhóm người đánh khoá kèm đơn vị ở chế độ ba cấp, chỉ bằng id người khi rơi về hai cấp.
+  const personCollapse = usePersonGroupCollapse(
+    user?.id ? [user.id, myUnitId ? personGroupKey(myUnitId, user.id) : null] : null
+  )
+  const resetGroups = () => { unitCollapse.reset(); personCollapse.reset() }
+
+  // Phân trang theo ĐƠN VỊ khi gom ba cấp, theo NGƯỜI khi chỉ có một đơn vị.
+  const pagedGroups: { id: string }[] = unitMode ? unitGroups : personGroups
+  const totalGroups = pagedGroups.length
+  const totalGroupPages = Math.max(1, Math.ceil(totalGroups / GROUP_PAGE_SIZE))
+  // Đổi bộ lọc có thể làm số trang co lại — kẹp ngay lúc render để không kẹt ở trang trống.
+  const groupPage = Math.min(page, totalGroupPages - 1)
+  const pageSlice = <T,>(list: T[]) =>
+    list.slice(groupPage * GROUP_PAGE_SIZE, groupPage * GROUP_PAGE_SIZE + GROUP_PAGE_SIZE)
+  const visibleUnits = unitMode ? pageSlice(unitGroups) : []
+  const visibleGroups = !unitMode && personMode ? pageSlice(personGroups) : []
+
+  /** Số liệu tóm tắt của một đơn vị. */
+  const renderUnitBadges = (unit: UnitGroup<Evaluation>) => (
+    <>
+      <PersonGroupBadge label="nhân sự" value={unit.people.length} tone="indigo" />
+      <PersonGroupBadge label="lượt đánh giá" value={unit.items.length} />
+    </>
+  )
+
+  /** Trong một nhóm: kỳ mới nhất lên trước, rồi tới lượt tự đánh giá / quản lý chấm. */
+  const sortWithinPerson = (list: Evaluation[]) =>
+    [...list].sort((a, b) => {
+      if (a.kpiPeriodName !== b.kpiPeriodName) return b.kpiPeriodName.localeCompare(a.kpiPeriodName)
+      return (a.evaluatorRole ?? '').localeCompare(b.evaluatorRole ?? '')
+    })
+
+  /** Nhãn vai trò người chấm — dùng chung cho bảng và bản mobile. */
+  const evaluatorLabel = (ev: Evaluation) =>
+    ev.evaluatorRole === 'SELF' ? 'Tự đánh giá' :
+    ev.evaluatorRoleName ? (
+      (ev.evaluatorRole === 'CEO' || ev.evaluatorRole === 'DIRECTOR' || ev.evaluatorRole === 'REGIONAL_DIRECTOR')
+        ? `${ev.evaluatorRoleName} chốt`
+        : `${ev.evaluatorRoleName} chấm`
+    ) : 'Quản lý chấm'
+
+  /** Một dòng đánh giá. Cột "Nhân viên" chỉ hiện ở chế độ phẳng — gom nhóm rồi thì tên
+   *  người đã nằm ở header nhóm nên lặp lại chỉ tổ rối. */
+  const renderEvaluationRow = (ev: Evaluation) => (
+    <tr
+      key={ev.id}
+      onClick={() => setDetailEval(ev)}
+      className="group hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors cursor-pointer"
+    >
+      <td className="px-8 py-6 whitespace-nowrap">
+        <div className={cn("inline-flex items-center gap-3 px-4 py-2 rounded-2xl border shadow-sm", getScoreBg(ev.score))}>
+          <span className={cn("text-lg font-black", getScoreColor(ev.score))}>{ev.score ?? '—'}</span>
+          <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 border-l border-slate-200 dark:border-slate-700 pl-3 leading-none">
+            {getScoreLabel(ev.score)}
+          </span>
+        </div>
+      </td>
+      {!personMode && (
+        <td className="px-6 py-6">
+          <div className="flex items-center gap-3">
+            <UserAvatar
+              fullName={ev.userName}
+              avatarUrl={ev.userAvatarUrl}
+              className="w-10 h-10 rounded-2xl shadow-inner"
+              fallbackClassName="bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-800 dark:to-slate-700 font-black text-xs text-slate-600 dark:text-slate-300"
+            />
+            <div>
+              <p className="text-sm font-black text-slate-900 dark:text-white group-hover:text-indigo-600 transition-all">
+                {ev.userName}
+              </p>
+              <div className="flex items-center gap-2 mt-0.5">
+                <span className="px-1.5 py-0.5 rounded-md bg-blue-50 dark:bg-blue-900/30 text-[8px] font-black text-blue-600 dark:text-blue-400 uppercase tracking-widest border border-blue-100 dark:border-blue-800/50">
+                  {ev.userRoleName || 'NHÂN VIÊN'}
+                </span>
+                <span className="text-[9px] text-slate-400 font-bold uppercase tracking-tighter">{ev.orgUnitName}</span>
+              </div>
+            </div>
+          </div>
+        </td>
+      )}
+      <td className="px-6 py-6">
+        <div className="flex items-center gap-2">
+          <Calendar size={14} className="text-slate-400" />
+          <p className="text-sm font-bold text-slate-700 dark:text-slate-300">
+            {ev.kpiPeriodName}
+          </p>
+        </div>
+      </td>
+      <td className="px-6 py-6 text-center">
+        <span className={cn(
+          "inline-block text-[9px] font-black uppercase tracking-widest px-3 py-1.5 rounded-xl border",
+          ev.evaluatorRole === 'SELF'
+            ? 'bg-blue-50 text-blue-600 border-blue-100 dark:bg-blue-900/20'
+            : (ev.evaluatorRole === 'CEO' || ev.evaluatorRole === 'DIRECTOR')
+            ? 'bg-amber-50 text-amber-600 border-amber-100 dark:bg-amber-900/20'
+            : 'bg-emerald-50 text-emerald-600 border-emerald-100 dark:bg-emerald-900/20'
+        )}>
+          {evaluatorLabel(ev)}
+        </span>
+      </td>
+      <td className="px-6 py-6 whitespace-nowrap text-center">
+        <span className="text-xs font-bold text-slate-500">
+          {formatDateTime(ev.createdAt).split(' ')[0]}
+        </span>
+      </td>
+      <td className="px-8 py-6 text-right">
+        <button className="w-10 h-10 flex items-center justify-center rounded-2xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-800 text-slate-400 group-hover:text-indigo-600 group-hover:border-indigo-200 shadow-sm transition-all active:scale-90">
+          <ChevronRight size={20} />
+        </button>
+      </td>
+    </tr>
+  )
+
+  /** Bản mobile của một lượt đánh giá. `showPerson` tắt khi đã có header nhóm phía trên. */
+  const renderEvaluationCard = (ev: Evaluation, showPerson: boolean) => (
+    <div
+      key={ev.id}
+      onClick={() => setDetailEval(ev)}
+      className="p-4 space-y-3 active:bg-slate-50 dark:active:bg-slate-800/30 transition-colors cursor-pointer"
+    >
+      <div className="flex items-center justify-between gap-3">
+        {showPerson ? (
+          <div className="flex items-center gap-3 min-w-0">
+            <UserAvatar
+              fullName={ev.userName}
+              avatarUrl={ev.userAvatarUrl}
+              className="w-10 h-10 rounded-2xl shadow-inner"
+              fallbackClassName="bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-800 dark:to-slate-700 font-black text-xs text-slate-600 dark:text-slate-300"
+            />
+            <div className="min-w-0">
+              <p className="text-sm font-black text-slate-900 dark:text-white truncate">{ev.userName}</p>
+              <div className="flex items-center gap-2 mt-0.5">
+                <span className="px-1.5 py-0.5 rounded-md bg-blue-50 dark:bg-blue-900/30 text-[8px] font-black text-blue-600 dark:text-blue-400 uppercase tracking-widest border border-blue-100 dark:border-blue-800/50">
+                  {ev.userRoleName || 'NHÂN VIÊN'}
+                </span>
+                <span className="text-[9px] text-slate-400 font-bold uppercase tracking-tighter truncate">{ev.orgUnitName}</span>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div className="flex items-center gap-2 min-w-0 text-slate-500 dark:text-slate-400">
+            <Calendar size={12} className="shrink-0" />
+            <span className="text-xs font-bold truncate">{ev.kpiPeriodName}</span>
+          </div>
+        )}
+        <div className={cn("inline-flex items-center gap-2 px-3 py-1.5 rounded-xl border shadow-sm shrink-0", getScoreBg(ev.score))}>
+          <span className={cn("text-base font-black", getScoreColor(ev.score))}>{ev.score ?? '—'}</span>
+        </div>
+      </div>
+
+      <div className="flex items-center justify-between gap-2 pt-1 border-t border-slate-100 dark:border-slate-800 text-xs">
+        {showPerson ? (
+          <div className="flex items-center gap-2 text-slate-500 dark:text-slate-400">
+            <Calendar size={12} />
+            <span className="font-bold">{ev.kpiPeriodName}</span>
+          </div>
+        ) : <span />}
+        <span className="font-bold text-slate-400">{formatDateTime(ev.createdAt).split(' ')[0]}</span>
+      </div>
+
+      <span className={cn(
+        "inline-block text-[9px] font-black uppercase tracking-widest px-3 py-1.5 rounded-xl border",
+        ev.evaluatorRole === 'SELF'
+          ? 'bg-blue-50 text-blue-600 border-blue-100 dark:bg-blue-900/20'
+          : (ev.evaluatorRole === 'CEO' || ev.evaluatorRole === 'DIRECTOR')
+          ? 'bg-amber-50 text-amber-600 border-amber-100 dark:bg-amber-900/20'
+          : 'bg-emerald-50 text-emerald-600 border-emerald-100 dark:bg-emerald-900/20'
+      )}>
+        {evaluatorLabel(ev)}
+      </span>
+    </div>
+  )
+
+  /** Số liệu tóm tắt của một người: số lượt đánh giá và điểm chốt gần nhất. */
+  const renderPersonBadges = (list: Evaluation[]) => {
+    const scored = sortWithinPerson(list).find(e => e.score != null)
+    return (
+      <>
+        <PersonGroupBadge label="lượt đánh giá" value={list.length} />
+        {scored?.score != null && (
+          <span className={cn('inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border shadow-sm', getScoreBg(scored.score))}>
+            <span className={cn('text-[11px] font-black leading-none', getScoreColor(scored.score))}>{scored.score}</span>
+            <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">{getScoreLabel(scored.score)}</span>
+          </span>
+        )}
+      </>
+    )
+  }
+
   return (
     <div className="max-w-[1440px] mx-auto p-4 md:p-6 space-y-6">
-      <PageTour pageKey="evaluations" steps={evaluationsSteps} />
       
       {/* Dynamic Header */}
       <div id="tour-eval-header" className="flex flex-col items-center text-center lg:flex-row lg:text-left lg:items-center justify-between gap-6 bg-white dark:bg-slate-900 p-8 rounded-[40px] border border-slate-200 dark:border-slate-800 shadow-sm relative overflow-hidden">
@@ -260,54 +473,15 @@ export default function EvaluationsPage() {
             </Select>
           </div>
 
-          {canViewAll && (
-            <>
-              {canManageOrg && (
-                <div className="relative w-full md:w-64">
-                  <Select value={selectedOrgUnitId} onValueChange={val => { setSelectedOrgUnitId(val); setPage(0); setSelectedUserId('ALL') }}>
-                    <SelectTrigger className="w-full pl-11 pr-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-xs font-bold shadow-sm h-10">
-                      <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                        <Building2 size={16} className="text-slate-400" />
-                      </div>
-                      <SelectValue placeholder="Chọn phòng ban..." />
-                    </SelectTrigger>
-                    <SelectContent className="rounded-xl border-[var(--color-border)] shadow-lg max-h-[300px]">
-                      {flatOrgUnits.map(unit => (
-                        <SelectItem key={unit.id} value={unit.id} className="font-medium cursor-pointer rounded-lg text-xs">{unit.levelLabel}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              )}
-
-              <div className="relative w-full md:w-64">
-                <Select value={selectedUserId} onValueChange={val => { setSelectedUserId(val); setPage(0) }}>
-                  <SelectTrigger className="w-full pl-11 pr-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-xs font-bold shadow-sm h-10">
-                    <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                      <User size={16} className="text-slate-400" />
-                    </div>
-                    <SelectValue placeholder="Tất cả nhân viên..." />
-                  </SelectTrigger>
-                  <SelectContent className="rounded-xl border-[var(--color-border)] shadow-lg max-h-[300px]">
-                    <SelectItem value="ALL" className="font-medium cursor-pointer rounded-lg text-xs">Tất cả nhân viên...</SelectItem>
-                    {employees.map(emp => (
-                      <SelectItem key={emp.id} value={emp.id} className="font-medium cursor-pointer rounded-lg text-xs">{emp.fullName}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </>
-          )}
-
+          {/* Danh sách đã gom theo Đơn vị → Người nên bỏ hẳn hai bộ lọc "Phòng ban" và "Nhân viên". */}
 
           <div className="flex items-center gap-2">
-            {(selectedKpiPeriodId !== 'ALL' || selectedUserId !== 'ALL' || (selectedOrgUnitId !== 'ALL' && selectedOrgUnitId !== '')) && (
-              <button 
+            {selectedKpiPeriodId !== 'ALL' && (
+              <button
                 onClick={() => {
                   setSelectedKpiPeriodId('ALL');
-                  setSelectedUserId('ALL');
-                  setSelectedOrgUnitId('ALL');
                   setPage(0);
+                  resetGroups();
                 }}
                 className="p-2 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/20 rounded-xl transition-all border border-transparent hover:border-rose-100"
                 title="Xóa bộ lọc"
@@ -341,6 +515,15 @@ export default function EvaluationsPage() {
         </div>
       </div>
 
+      {hitFetchCap && (
+        <div className="flex items-center gap-3 px-6 py-4 rounded-[20px] bg-amber-50 dark:bg-amber-900/20 border border-amber-100 dark:border-amber-900/40">
+          <AlertCircle size={18} className="text-amber-500 shrink-0" />
+          <p className="text-xs font-bold text-amber-700 dark:text-amber-400">
+            Dữ liệu quá lớn nên chỉ hiển thị {GROUPING_FETCH_SIZE} bản đánh giá gần nhất — hãy lọc thêm theo đợt hoặc phòng ban để xem đầy đủ.
+          </p>
+        </div>
+      )}
+
       {/* Table Content */}
       {isLoading ? (
         <LoadingSkeleton type="table" rows={10} />
@@ -361,11 +544,14 @@ export default function EvaluationsPage() {
               <thead>
                 <tr className="bg-slate-50/50 dark:bg-slate-800/40 border-b border-slate-100 dark:border-slate-800">
                   <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-slate-400">Kết quả</th>
-                  <th className="px-6 py-5 text-[10px] font-black uppercase tracking-widest text-slate-400">
-                    <button onClick={() => handleSort('userName')} className="flex items-center gap-1 hover:text-indigo-600 transition-colors">
-                      Nhân viên <ArrowUpDown size={12} />
-                    </button>
-                  </th>
+                  {/* Gom theo người rồi thì tên nhân viên đã nằm ở header nhóm. */}
+                  {!personMode && (
+                    <th className="px-6 py-5 text-[10px] font-black uppercase tracking-widest text-slate-400">
+                      <button onClick={() => handleSort('userName')} className="flex items-center gap-1 hover:text-indigo-600 transition-colors">
+                        Nhân viên <ArrowUpDown size={12} />
+                      </button>
+                    </th>
+                  )}
                   <th className="px-6 py-5 text-[10px] font-black uppercase tracking-widest text-slate-400">
                     <button onClick={() => handleSort('kpiPeriodName')} className="flex items-center gap-1 hover:text-indigo-600 transition-colors">
                       Kỳ đánh giá <ArrowUpDown size={12} />
@@ -381,193 +567,127 @@ export default function EvaluationsPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                {(() => {
-                  const list = [...(data?.content ?? [])].sort((a, b) => {
-                    if (a.userName !== b.userName) return a.userName.localeCompare(b.userName)
-                    return b.kpiPeriodName.localeCompare(a.kpiPeriodName)
-                  })
-
-                  return list.map((ev, idx) => {
-                    const isNewGroup = idx === 0 || ev.userId !== list[idx - 1]?.userId || ev.kpiPeriodId !== list[idx - 1]?.kpiPeriodId
-
-                    return (
-                      <tr
-                        key={ev.id}
-                        onClick={() => setDetailEval(ev)}
-                        className={cn(
-                          "group hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors cursor-pointer",
-                          isNewGroup && idx > 0 && "border-t-4 border-slate-100/50 dark:border-slate-800/50"
-                        )}
-                      >
-                        <td className="px-8 py-6 whitespace-nowrap">
-                          <div className={cn("inline-flex items-center gap-3 px-4 py-2 rounded-2xl border shadow-sm", getScoreBg(ev.score))}>
-                            <span className={cn("text-lg font-black", getScoreColor(ev.score))}>{ev.score ?? '—'}</span>
-                            <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 border-l border-slate-200 dark:border-slate-700 pl-3 leading-none">
-                              {getScoreLabel(ev.score)}
-                            </span>
-                          </div>
-                        </td>
-                        <td className="px-6 py-6">
-                          <div className="flex items-center gap-3">
-                            {/* Chỉ dòng đầu mỗi nhóm mới hiện mặt người; các dòng sau chừa
-                                đúng chỗ trống để cột dưới vẫn thẳng hàng. Trước đây dùng
-                                opacity-0 cho ô chữ cái, nhưng với ảnh thật thì ảnh mờ vẫn
-                                tải về vô ích — thà không dựng phần tử ảnh. */}
-                            {isNewGroup ? (
-                              <UserAvatar
-                                fullName={ev.userName}
-                                avatarUrl={ev.userAvatarUrl}
-                                className="w-10 h-10 rounded-2xl shadow-inner"
-                                fallbackClassName="bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-800 dark:to-slate-700 font-black text-xs text-slate-600 dark:text-slate-300"
+                {unitMode
+                  ? visibleUnits.map(unit => (
+                      <Fragment key={unit.id}>
+                        <UnitGroupHeaderRow
+                          colSpan={5}
+                          unit={unit}
+                          expanded={unitCollapse.isExpanded(unit.id)}
+                          onToggle={() => unitCollapse.toggle(unit.id)}
+                          isCurrentUnit={unit.id === myUnitId}
+                          badges={renderUnitBadges(unit)}
+                        />
+                        {unitCollapse.isExpanded(unit.id) && unit.people.map(group => {
+                          const key = personGroupKey(unit.id, group.id)
+                          return (
+                            <Fragment key={key}>
+                              <PersonGroupHeaderRow
+                                colSpan={5}
+                                indent
+                                person={group}
+                                expanded={personCollapse.isExpanded(key)}
+                                onToggle={() => personCollapse.toggle(key)}
+                                isCurrentUser={group.id === user?.id}
+                                badges={renderPersonBadges(group.items)}
                               />
-                            ) : (
-                              <div className="w-10 h-10 shrink-0" />
-                            )}
-                            <div>
-                              <p className={cn("text-sm font-black text-slate-900 dark:text-white group-hover:text-indigo-600 transition-all", !isNewGroup && "opacity-40")}>
-                                {ev.userName}
-                              </p>
-                              {isNewGroup && (
-                                <div className="flex items-center gap-2 mt-0.5">
-                                  <span className="px-1.5 py-0.5 rounded-md bg-blue-50 dark:bg-blue-900/30 text-[8px] font-black text-blue-600 dark:text-blue-400 uppercase tracking-widest border border-blue-100 dark:border-blue-800/50">
-                                    {ev.userRoleName || 'NHÂN VIÊN'}
-                                  </span>
-                                  <span className="text-[9px] text-slate-400 font-bold uppercase tracking-tighter">{ev.orgUnitName}</span>
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                        </td>
-                        <td className="px-6 py-6">
-                          <div className={cn("flex items-center gap-2 transition-opacity", !isNewGroup && "opacity-40")}>
-                            <Calendar size={14} className="text-slate-400" />
-                            <p className="text-sm font-bold text-slate-700 dark:text-slate-300">
-                              {ev.kpiPeriodName}
-                            </p>
-                          </div>
-                        </td>
-                        <td className="px-6 py-6 text-center">
-                          <span className={cn(
-                            "inline-block text-[9px] font-black uppercase tracking-widest px-3 py-1.5 rounded-xl border",
-                            ev.evaluatorRole === 'SELF'
-                              ? 'bg-blue-50 text-blue-600 border-blue-100 dark:bg-blue-900/20' 
-                              : (ev.evaluatorRole === 'CEO' || ev.evaluatorRole === 'DIRECTOR')
-                              ? 'bg-amber-50 text-amber-600 border-amber-100 dark:bg-amber-900/20'
-                              : 'bg-emerald-50 text-emerald-600 border-emerald-100 dark:bg-emerald-900/20'
-                          )}>
-                            {ev.evaluatorRole === 'SELF' ? 'Tự đánh giá' : 
-                             ev.evaluatorRoleName ? (
-                               (ev.evaluatorRole === 'CEO' || ev.evaluatorRole === 'DIRECTOR' || ev.evaluatorRole === 'REGIONAL_DIRECTOR') 
-                                 ? `${ev.evaluatorRoleName} chốt` 
-                                 : `${ev.evaluatorRoleName} chấm`
-                             ) : 'Quản lý chấm'}
-                          </span>
-                        </td>
-                        <td className="px-6 py-6 whitespace-nowrap text-center">
-                          <span className="text-xs font-bold text-slate-500">
-                            {formatDateTime(ev.createdAt).split(' ')[0]}
-                          </span>
-                        </td>
-                        <td className="px-8 py-6 text-right">
-                          <button className="w-10 h-10 flex items-center justify-center rounded-2xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-800 text-slate-400 group-hover:text-indigo-600 group-hover:border-indigo-200 shadow-sm transition-all active:scale-90">
-                            <ChevronRight size={20} />
-                          </button>
-                        </td>
-                      </tr>
-                    )
-                  })
-                })()}
+                              {personCollapse.isExpanded(key) && sortWithinPerson(group.items).map(renderEvaluationRow)}
+                            </Fragment>
+                          )
+                        })}
+                      </Fragment>
+                    ))
+                  : personMode
+                  ? visibleGroups.map(group => (
+                      <Fragment key={group.id}>
+                        <PersonGroupHeaderRow
+                          colSpan={5}
+                          person={group}
+                          expanded={personCollapse.isExpanded(group.id)}
+                          onToggle={() => personCollapse.toggle(group.id)}
+                          isCurrentUser={group.id === user?.id}
+                          badges={renderPersonBadges(group.items)}
+                        />
+                        {personCollapse.isExpanded(group.id) && sortWithinPerson(group.items).map(renderEvaluationRow)}
+                      </Fragment>
+                    ))
+                  : sortWithinPerson(evaluations).map(renderEvaluationRow)}
               </tbody>
             </table>
           </div>
 
           <div className="md:hidden divide-y divide-slate-100 dark:divide-slate-800">
-            {[...(data?.content ?? [])].sort((a, b) => {
-              if (a.userName !== b.userName) return a.userName.localeCompare(b.userName)
-              return b.kpiPeriodName.localeCompare(a.kpiPeriodName)
-            }).map((ev) => (
-              <div
-                key={ev.id}
-                onClick={() => setDetailEval(ev)}
-                className="p-4 space-y-3 active:bg-slate-50 dark:active:bg-slate-800/30 transition-colors cursor-pointer"
-              >
-                <div className="flex items-center justify-between gap-3">
-                  <div className="flex items-center gap-3 min-w-0">
-                    <UserAvatar
-                      fullName={ev.userName}
-                      avatarUrl={ev.userAvatarUrl}
-                      className="w-10 h-10 rounded-2xl shadow-inner"
-                      fallbackClassName="bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-800 dark:to-slate-700 font-black text-xs text-slate-600 dark:text-slate-300"
+            {unitMode
+              ? visibleUnits.map(unit => (
+                  <div key={unit.id} className="p-3 space-y-3">
+                    <UnitGroupHeaderCard
+                      unit={unit}
+                      expanded={unitCollapse.isExpanded(unit.id)}
+                      onToggle={() => unitCollapse.toggle(unit.id)}
+                      isCurrentUnit={unit.id === myUnitId}
+                      badges={renderUnitBadges(unit)}
                     />
-                    <div className="min-w-0">
-                      <p className="text-sm font-black text-slate-900 dark:text-white truncate">{ev.userName}</p>
-                      <div className="flex items-center gap-2 mt-0.5">
-                        <span className="px-1.5 py-0.5 rounded-md bg-blue-50 dark:bg-blue-900/30 text-[8px] font-black text-blue-600 dark:text-blue-400 uppercase tracking-widest border border-blue-100 dark:border-blue-800/50">
-                          {ev.userRoleName || 'NHÂN VIÊN'}
-                        </span>
-                        <span className="text-[9px] text-slate-400 font-bold uppercase tracking-tighter truncate">{ev.orgUnitName}</span>
+                    {unitCollapse.isExpanded(unit.id) && (
+                      <div className="pl-3 space-y-3">
+                        {unit.people.map(group => {
+                          const key = personGroupKey(unit.id, group.id)
+                          return (
+                            <div key={key} className="space-y-3">
+                              <PersonGroupHeaderCard
+                                person={group}
+                                expanded={personCollapse.isExpanded(key)}
+                                onToggle={() => personCollapse.toggle(key)}
+                                isCurrentUser={group.id === user?.id}
+                                badges={renderPersonBadges(group.items)}
+                              />
+                              {personCollapse.isExpanded(key) && (
+                                <div className="divide-y divide-slate-100 dark:divide-slate-800">
+                                  {sortWithinPerson(group.items).map(ev => renderEvaluationCard(ev, false))}
+                                </div>
+                              )}
+                            </div>
+                          )
+                        })}
                       </div>
-                    </div>
+                    )}
                   </div>
-                  <div className={cn("inline-flex items-center gap-2 px-3 py-1.5 rounded-xl border shadow-sm shrink-0", getScoreBg(ev.score))}>
-                    <span className={cn("text-base font-black", getScoreColor(ev.score))}>{ev.score ?? '—'}</span>
+                ))
+              : personMode
+              ? visibleGroups.map(group => (
+                  <div key={group.id} className="p-3 space-y-3">
+                    <PersonGroupHeaderCard
+                      person={group}
+                      expanded={personCollapse.isExpanded(group.id)}
+                      onToggle={() => personCollapse.toggle(group.id)}
+                      isCurrentUser={group.id === user?.id}
+                      badges={renderPersonBadges(group.items)}
+                    />
+                    {personCollapse.isExpanded(group.id) && (
+                      <div className="divide-y divide-slate-100 dark:divide-slate-800">
+                        {sortWithinPerson(group.items).map(ev => renderEvaluationCard(ev, false))}
+                      </div>
+                    )}
                   </div>
-                </div>
-
-                <div className="flex items-center justify-between gap-2 pt-1 border-t border-slate-100 dark:border-slate-800 text-xs">
-                  <div className="flex items-center gap-2 text-slate-500 dark:text-slate-400">
-                    <Calendar size={12} />
-                    <span className="font-bold">{ev.kpiPeriodName}</span>
-                  </div>
-                  <span className="font-bold text-slate-400">{formatDateTime(ev.createdAt).split(' ')[0]}</span>
-                </div>
-
-                <span className={cn(
-                  "inline-block text-[9px] font-black uppercase tracking-widest px-3 py-1.5 rounded-xl border",
-                  ev.evaluatorRole === 'SELF'
-                    ? 'bg-blue-50 text-blue-600 border-blue-100 dark:bg-blue-900/20'
-                    : (ev.evaluatorRole === 'CEO' || ev.evaluatorRole === 'DIRECTOR')
-                    ? 'bg-amber-50 text-amber-600 border-amber-100 dark:bg-amber-900/20'
-                    : 'bg-emerald-50 text-emerald-600 border-emerald-100 dark:bg-emerald-900/20'
-                )}>
-                  {ev.evaluatorRole === 'SELF' ? 'Tự đánh giá' :
-                   ev.evaluatorRoleName ? (
-                     (ev.evaluatorRole === 'CEO' || ev.evaluatorRole === 'DIRECTOR' || ev.evaluatorRole === 'REGIONAL_DIRECTOR')
-                       ? `${ev.evaluatorRoleName} chốt`
-                       : `${ev.evaluatorRoleName} chấm`
-                   ) : 'Quản lý chấm'}
-                </span>
-              </div>
-            ))}
+                ))
+              : sortWithinPerson(evaluations).map(ev => renderEvaluationCard(ev, true))}
           </div>
 
-          {/* Table Footer */}
-          <div className="px-8 py-5 bg-slate-50/50 dark:bg-slate-800/30 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
-            <div className="flex items-center gap-4">
-               <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                Trang {page + 1} / {data?.totalPages || 1}
+          {/* Phân trang theo ĐƠN VỊ (hoặc theo NGƯỜI khi chỉ có một đơn vị); danh sách phẳng chỉ cần dòng đếm. */}
+          <div className="bg-slate-50/50 dark:bg-slate-800/30 border-t border-slate-100 dark:border-slate-800">
+            {unitMode || personMode ? (
+              <Pagination
+                currentPage={groupPage}
+                totalPages={totalGroupPages}
+                onPageChange={setPage}
+                totalElements={totalGroups}
+                size={GROUP_PAGE_SIZE}
+                itemLabel={unitMode ? 'đơn vị' : 'nhân sự'}
+              />
+            ) : (
+              <p className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                {evaluations.length} Kết quả
               </p>
-              <div className="h-4 w-px bg-slate-200 dark:bg-slate-700" />
-              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                {data?.totalElements || 0} Kết quả
-              </p>
-            </div>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => setPage(p => Math.max(0, p - 1))}
-                disabled={page === 0}
-                className="p-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 disabled:opacity-30 hover:bg-slate-50 transition-all"
-              >
-                <ChevronLeft size={18} />
-              </button>
-              <button
-                onClick={() => setPage(p => p + 1)}
-                disabled={page >= (data?.totalPages || 1) - 1}
-                className="p-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 disabled:opacity-30 hover:bg-slate-50 transition-all"
-              >
-                <ChevronRight size={18} />
-              </button>
-            </div>
+            )}
           </div>
         </div>
       )}

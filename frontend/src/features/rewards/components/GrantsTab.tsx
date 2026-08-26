@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Gift, Check, X as XIcon, Undo2, Ban } from 'lucide-react'
+import { Gift, Check, X as XIcon, Undo2, Ban, Award } from 'lucide-react'
 import DataTable from '@/components/common/DataTable'
 import Pagination from '@/components/common/Pagination'
 import EmptyState from '@/components/common/EmptyState'
@@ -9,6 +9,7 @@ import { useHasPermission } from '@/components/auth/PermissionGate'
 import { useAuthStore } from '@/store/authStore'
 import AwardPointsModal from './AwardPointsModal'
 import RevokeGrantModal from './RevokeGrantModal'
+import CertificateModal from './certificate/CertificateModal'
 import { useRewardGrants } from '../hooks/useRewards'
 import { RewardApprovalMode, RewardGrantStatus, type RewardGrant } from '../types'
 
@@ -37,6 +38,7 @@ export default function GrantsTab() {
   const [status, setStatus] = useState<RewardGrantStatus | ''>('')
   const [awardOpen, setAwardOpen] = useState(false)
   const [revoking, setRevoking] = useState<RewardGrant | null>(null)
+  const [certifying, setCertifying] = useState<RewardGrant | null>(null)
   const size = 20
 
   const { user } = useAuthStore()
@@ -194,6 +196,14 @@ export default function GrantsTab() {
                           Huỷ
                         </button>
                       )}
+                    {row.status === RewardGrantStatus.APPROVED && row.certificateEnabled && (
+                      <button
+                        onClick={() => setCertifying(row)}
+                        className="rounded-lg border border-[var(--color-border)] px-3 py-1.5 text-sm"
+                      >
+                        Chứng nhận
+                      </button>
+                    )}
                     {row.status === RewardGrantStatus.APPROVED && canApprove && (
                       <button
                         onClick={() => setRevoking(row)}
@@ -326,6 +336,18 @@ export default function GrantsTab() {
                           <Ban size={16} />
                         </button>
                       )}
+                    {/* Hai điều kiện: ĐÃ DUYỆT (giấy khen cho việc chưa được công nhận
+                        là vô nghĩa) và người trao đã tick kèm giấy khen lúc thưởng.
+                        Không gắn quyền riêng — ai xem được lượt thưởng thì in được. */}
+                    {row.status === RewardGrantStatus.APPROVED && row.certificateEnabled && (
+                      <button
+                        onClick={() => setCertifying(row)}
+                        title="In chứng nhận"
+                        className="rounded-lg p-1.5 text-[var(--color-muted-foreground)] hover:bg-[var(--color-accent)]"
+                      >
+                        <Award size={16} />
+                      </button>
+                    )}
                     {row.status === RewardGrantStatus.APPROVED && canApprove && (
                       <button
                         onClick={() => setRevoking(row)}
@@ -361,6 +383,9 @@ export default function GrantsTab() {
       {/* Modal riêng thay cho ConfirmDialog chung: cần hiện bảng ai bị trừ bao nhiêu
           và số dư sau đó, vì thu hồi không hoàn tác được. */}
       <RevokeGrantModal grant={revoking} onClose={() => setRevoking(null)} />
+
+      {/* Chỉ mở được từ lượt thưởng ĐÃ DUYỆT — xem ghi chú ở nút "In chứng nhận". */}
+      <CertificateModal grant={certifying} onClose={() => setCertifying(null)} />
     </div>
   )
 }

@@ -65,7 +65,7 @@ export default function ScorecardExcelPreviewModal({ open, file, onClose, onImpo
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [flatOrgUnits, data, didInitUnits])
 
-  // Tick phòng ban trên 1 dòng ⇒ áp cho MỌI dòng cùng kỳ (mỗi kỳ = 1 thẻ điểm). Tick gốc ⇒ chọn/bỏ toàn bộ.
+  // Tick phòng ban trên 1 dòng ⇒ áp cho MỌI dòng cùng kỳ (mỗi kỳ = 1 bộ tiêu chí). Tick gốc ⇒ chọn/bỏ toàn bộ.
   const toggleUnitInGroup = (row: Row, unitCode: string) => {
     const current = (row.OrgUnitCodes || '').split(',').map(c => c.trim()).filter(Boolean)
     const rootCode = flatOrgUnits[0]?.code
@@ -198,7 +198,7 @@ export default function ScorecardExcelPreviewModal({ open, file, onClose, onImpo
       })
       const ws = utils.json_to_sheet(exportData)
       const wb = utils.book_new()
-      utils.book_append_sheet(wb, ws, 'Thẻ điểm BSC')
+      utils.book_append_sheet(wb, ws, 'Bộ tiêu chí BSC')
       const wbout = write(wb, { type: 'array', bookType: 'xlsx' })
       const blob = new Blob([wbout], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
       onImport(new File([blob], file?.name || 'import_scorecards.xlsx', { type: blob.type }))
@@ -217,7 +217,7 @@ export default function ScorecardExcelPreviewModal({ open, file, onClose, onImpo
         <div className="px-6 py-4 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50/50 dark:bg-slate-800/30">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center text-indigo-600 dark:text-indigo-400"><FileSpreadsheet size={20} /></div>
-            <div><h2 className="text-lg font-bold text-slate-900 dark:text-white">Xem trước & Kiểm tra thẻ điểm BSC</h2><p className="text-xs text-slate-500">File: {file?.name}</p></div>
+            <div><h2 className="text-lg font-bold text-slate-900 dark:text-white">Xem trước & Kiểm tra bộ tiêu chí BSC</h2><p className="text-xs text-slate-500">File: {file?.name}</p></div>
           </div>
           <button onClick={onClose} className="p-2 rounded-xl hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors text-slate-500"><X size={20} /></button>
         </div>
@@ -241,7 +241,7 @@ export default function ScorecardExcelPreviewModal({ open, file, onClose, onImpo
                       <tr>
                         <th className="px-4 py-3 w-12 text-center">STT</th>
                         <th className="px-4 py-3 min-w-[180px]">Kỳ <span className="text-rose-500">*</span></th>
-                        <th className="px-4 py-3 min-w-[170px]">Tên thẻ điểm <span className="text-rose-500">*</span></th>
+                        <th className="px-4 py-3 min-w-[170px]">Tên bộ tiêu chí <span className="text-rose-500">*</span></th>
                         <th className="px-4 py-3 min-w-[180px]">Vision</th>
                         <th className="px-4 py-3 min-w-[200px]">Phòng ban</th>
                         <th className="px-4 py-3 min-w-[160px]">Mã hạng mục <span className="text-rose-500">*</span></th>
@@ -341,7 +341,7 @@ export default function ScorecardExcelPreviewModal({ open, file, onClose, onImpo
         </div>
 
         <div className="px-6 py-4 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50/50 dark:bg-slate-800/30">
-          <p className="text-sm font-bold text-slate-500">Tổng cộng: <span className="text-slate-900 dark:text-white">{periodCount}</span> thẻ điểm ({data.length} dòng)</p>
+          <p className="text-sm font-bold text-slate-500">Tổng cộng: <span className="text-slate-900 dark:text-white">{periodCount}</span> bộ tiêu chí ({data.length} dòng)</p>
           <div className="flex gap-3">
             <button onClick={onClose} disabled={isImporting} className="px-6 py-2.5 rounded-xl text-sm font-bold border border-slate-200 dark:border-slate-700 hover:bg-white dark:hover:bg-slate-800 transition-colors text-slate-600 dark:text-slate-300 disabled:opacity-50">Hủy bỏ</button>
             <button onClick={save} disabled={isImporting || hasErrors || data.length === 0} className="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-indigo-600 text-white text-sm font-bold hover:bg-indigo-700 shadow-lg shadow-indigo-500/30 disabled:opacity-50 transition-all active:scale-95">

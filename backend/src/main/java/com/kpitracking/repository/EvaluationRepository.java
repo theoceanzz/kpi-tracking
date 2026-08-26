@@ -201,7 +201,7 @@ public interface EvaluationRepository extends JpaRepository<Evaluation, UUID> {
     long countByUserId(@Param("userId") UUID userId);
 
     // ============================================================
-    // Thống kê BSC (tab "Viễn cảnh"): gộp điểm bsc_score / system_score ĐÃ LƯU.
+    // Thống kê BSC (tab "Lĩnh vực"): gộp điểm bsc_score / system_score ĐÃ LƯU.
     // Evaluation có @SQLRestriction(deleted_at IS NULL) nên tự loại bản xoá mềm.
     // AVG bỏ NULL; COUNT(e.bscScore) = số đánh giá đã có điểm BSC.
     // ============================================================

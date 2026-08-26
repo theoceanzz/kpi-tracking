@@ -32,8 +32,6 @@ import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import PageTour from '@/components/common/PageTour'
-import { rolesSteps } from '@/components/common/tourSteps'
 
 export default function RoleManagementPage() {
   const { refreshUser } = useAuth()
@@ -192,7 +190,6 @@ export default function RoleManagementPage() {
     // Không tự bọc `max-w`: trang này nằm trong khung Thiết lập công ty, khung đó đã lo
     // bề ngang. Bọc thêm ở đây làm cả trang hẹp hơn và lệch mép so với hàng tab bên trên.
     <div className="space-y-5 pb-12 animate-in fade-in duration-500">
-      <PageTour pageKey="roles" steps={rolesSteps} />
       {/* Header Section — cùng thang kích thước với các đầu trang KPI khác. */}
       <div id="tour-roles-header" className="relative overflow-hidden bg-gradient-to-br from-indigo-700 via-indigo-600 to-violet-700 rounded-[28px] p-6 shadow-lg">
         <div className="absolute top-0 right-0 -mt-12 -mr-12 w-64 h-64 bg-white/10 rounded-full blur-3xl" />

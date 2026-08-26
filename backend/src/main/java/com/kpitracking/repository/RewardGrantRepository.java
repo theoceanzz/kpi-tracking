@@ -50,6 +50,33 @@ public interface RewardGrantRepository extends JpaRepository<RewardGrant, UUID> 
     List<RewardGrant> findByOrganizationIdAndStatus(UUID organizationId, RewardGrantStatus status);
 
     /**
+     * Những giấy khen một người ĐÃ THỰC SỰ được trao — nguồn của "Chứng nhận của tôi".
+     *
+     * <p>Hai điều kiện lọc, mỗi cái đóng một lỗ khác nhau:
+     * <ul>
+     *   <li>{@code APPROVED} — đề nghị đang chờ duyệt thì chưa phát điểm, bản đã thu hồi
+     *       thì phần thưởng đã bị lấy lại. In giấy khen cho hai trạng thái đó là khen một
+     *       việc chưa được công nhận, hoặc đã bị rút lại.</li>
+     *   <li>{@code certificateEnabled} — người trao phải chủ động kèm giấy khen. Bỏ điều
+     *       kiện này thì mọi lượt thưởng vặt đều thành một tờ "Cống hiến xuất sắc".</li>
+     * </ul>
+     *
+     * <p>Sắp theo {@code approvedAt} chứ không phải {@code createdAt}: cái người nhận nhớ
+     * là ngày được trao, không phải ngày sếp gõ đề nghị.
+     */
+    @Query("""
+            SELECT g FROM RewardGrant g JOIN g.items i
+             WHERE g.organization.id = :orgId
+               AND i.user.id = :userId
+               AND g.status = com.kpitracking.enums.RewardGrantStatus.APPROVED
+               AND g.certificateEnabled = true
+             ORDER BY g.approvedAt DESC, g.createdAt DESC
+            """)
+    Page<RewardGrant> findApprovedForRecipient(@Param("orgId") UUID orgId,
+                                               @Param("userId") UUID userId,
+                                               Pageable pageable);
+
+    /**
      * Có đề nghị nào từng tính vào hạn mức này không — dùng để CHẶN xoá.
      *
      * <p>Khác {@link #sumUsedPointsByBudgetId}: hàm kia chỉ đếm đề nghị đang chờ và đã

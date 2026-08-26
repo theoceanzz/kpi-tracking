@@ -19,8 +19,6 @@ import { useDebounce } from '@/hooks/useDebounce'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { DateTimePicker, DatePicker } from '@/components/common/DateTimePicker'
 import { cn } from '@/lib/utils'
-import PageTour from '@/components/common/PageTour'
-import { kpiPeriodsSteps } from '@/components/common/tourSteps'
 import { toast } from 'sonner'
 
 export default function KpiPeriodsPage() {
@@ -98,7 +96,6 @@ export default function KpiPeriodsPage() {
   return (
     // Không tự bọc `max-w`/padding: khung `SettingsSectionLayout` bên ngoài đã lo phần đó.
     <div className="space-y-5">
-        <PageTour pageKey="kpi-periods" steps={kpiPeriodsSteps} />
 
         {/* Header */}
         <WorkspaceHeader

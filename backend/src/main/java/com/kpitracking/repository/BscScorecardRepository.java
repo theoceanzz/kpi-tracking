@@ -16,25 +16,25 @@ public interface BscScorecardRepository extends JpaRepository<BscScorecard, UUID
 
     List<BscScorecard> findByOrganizationIdOrderByCreatedAtDesc(UUID organizationId);
 
-    /** Thẻ điểm CHỨA một phòng ban cụ thể trong 1 kỳ. */
+    /** Bộ tiêu chí CHỨA một phòng ban cụ thể trong 1 kỳ. */
     @Query("SELECT s FROM BscScorecard s JOIN s.orgUnits u "
             + "WHERE s.organization.id = :orgId AND s.kpiPeriod.id = :periodId AND u.id = :unitId")
     Optional<BscScorecard> findByOrgUnitAndPeriod(@Param("orgId") UUID orgId,
                                                   @Param("unitId") UUID unitId,
                                                   @Param("periodId") UUID periodId);
 
-    /** Các thẻ điểm CHỨA bất kỳ phòng ban nào trong danh sách (dùng để kiểm tra chồng lấn). */
+    /** Các bộ tiêu chí CHỨA bất kỳ phòng ban nào trong danh sách (dùng để kiểm tra chồng lấn). */
     @Query("SELECT DISTINCT s FROM BscScorecard s JOIN s.orgUnits u "
             + "WHERE s.organization.id = :orgId AND s.kpiPeriod.id = :periodId AND u.id IN :unitIds")
     List<BscScorecard> findByOrgUnitsAndPeriod(@Param("orgId") UUID orgId,
                                                @Param("unitIds") Collection<UUID> unitIds,
                                                @Param("periodId") UUID periodId);
 
-    /** Thẻ điểm MẶC ĐỊNH toàn org (không gắn phòng ban nào) trong 1 kỳ. */
+    /** Bộ tiêu chí MẶC ĐỊNH toàn org (không gắn phòng ban nào) trong 1 kỳ. */
     @Query("SELECT s FROM BscScorecard s "
             + "WHERE s.organization.id = :orgId AND s.kpiPeriod.id = :periodId AND s.orgUnits IS EMPTY")
     Optional<BscScorecard> findDefaultByPeriod(@Param("orgId") UUID orgId, @Param("periodId") UUID periodId);
 
-    /** Có BẤT KỲ thẻ điểm nào (theo phòng ban hoặc mặc định) cho org+kỳ không. */
+    /** Có BẤT KỲ bộ tiêu chí nào (theo phòng ban hoặc mặc định) cho org+kỳ không. */
     boolean existsByOrganizationIdAndKpiPeriodId(UUID organizationId, UUID kpiPeriodId);
 }

@@ -49,11 +49,13 @@ export interface UnitClassRule {
   color: string
   conditions: UnitClassCondition[]
 }
-/** Một HỒ SƠ luật xếp loại: gán cho (các) đơn vị. Đơn vị con kế thừa hồ sơ của cha. */
+/** Một HỒ SƠ luật xếp loại: gán cho (các) đơn vị và (tuỳ chọn) (các) kỳ. Đơn vị con kế thừa hồ sơ của cha. */
 export interface UnitClassProfile {
   name: string
-  isDefault?: boolean       // đúng 1 hồ sơ mặc định — áp cho đơn vị không được gán
+  isDefault?: boolean       // hồ sơ mặc định — áp cho đơn vị không được gán
   orgUnitIds: string[]      // đơn vị áp dụng (rỗng nếu là mặc định)
+  /** Kỳ áp dụng — RỖNG nghĩa là áp cho mọi kỳ. Hồ sơ riêng cho kỳ thắng hồ sơ chung ở cùng đơn vị. */
+  kpiCycleIds?: string[]
   rules: UnitClassRule[]    // cao → thấp (ưu tiên)
 }
 export interface UnitClassificationRules {
@@ -100,6 +102,13 @@ export interface OrganizationResponse {
   name: string
   code: string
   status: string
+  /** ── Hồ sơ doanh nghiệp ── (đều tuỳ chọn: tổ chức cũ chưa từng khai) */
+  logoUrl?: string | null
+  coverUrl?: string | null
+  industry?: string | null
+  taxCode?: string | null
+  employeeCount?: number | null
+  description?: string | null
   hierarchyLevels: HierarchyLevel[]
   evaluationMaxScore: number
   evaluationLevels?: EvaluationLevel[]
@@ -112,6 +121,8 @@ export interface OrganizationResponse {
   enableAi: boolean
   enableQualitative: boolean
   enableBsc: boolean
+  /** Chấm hạnh kiểm theo bộ tiêu chí có trọng số. Thang điểm nằm ở TỪNG bộ (/conduct/config). */
+  enableConduct?: boolean
   enableReward: boolean
   enableCashWallet: boolean
   /** Số đồng đổi được 1 điểm thưởng. */
@@ -124,6 +135,11 @@ export interface UpdateOrganizationRequest {
   name?: string
   code?: string
   status?: string
+  /** ── Hồ sơ doanh nghiệp ── Gửi chuỗi rỗng để xoá trắng ô; bỏ trường đi để giữ nguyên. */
+  industry?: string
+  taxCode?: string
+  employeeCount?: number | null
+  description?: string
   hierarchyLevels?: Omit<HierarchyLevel, 'id' | 'levelOrder'>[]
   evaluationMaxScore?: number
   evaluationLevels?: EvaluationLevel[]
@@ -135,6 +151,7 @@ export interface UpdateOrganizationRequest {
   enableWaterfall?: boolean
   enableQualitative?: boolean
   enableBsc?: boolean
+  enableConduct?: boolean
   enableReward?: boolean
   enableCashWallet?: boolean
 }
@@ -144,5 +161,16 @@ export const organizationApi = {
     axiosInstance.get<ApiResponse<OrganizationResponse>>(`/organizations/${id}`).then(r => r.data.data),
   
   update: (id: string, data: UpdateOrganizationRequest) =>
-    axiosInstance.put<ApiResponse<OrganizationResponse>>(`/organizations/${id}`, data).then(r => r.data.data)
+    axiosInstance.put<ApiResponse<OrganizationResponse>>(`/organizations/${id}`, data).then(r => r.data.data),
+
+  /** Ảnh đi qua endpoint multipart riêng — body update không nhận URL do client tự đặt. */
+  uploadBranding: (id: string, kind: 'logo' | 'cover', file: File) => {
+    const formData = new FormData()
+    formData.append('file', file)
+    return axiosInstance
+      .post<ApiResponse<OrganizationResponse>>(`/organizations/${id}/branding/${kind}`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      })
+      .then(r => r.data.data)
+  },
 }

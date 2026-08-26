@@ -73,6 +73,15 @@ services:
       - MAIL_PASSWORD=${MAIL_PASSWORD}
       - MAIL_FROM=${MAIL_FROM}
 
+      # Gom email thông báo theo người nhận: chờ luồng sự kiện của một người lắng xuống
+      # (QUIET_PERIOD) rồi gộp tất cả thành MỘT thư, nhưng không bao giờ chờ quá MAX_DELAY.
+      # Đặt ENABLED=false để quay về gửi rời từng sự kiện như trước.
+      - NOTIFICATION_DIGEST_ENABLED=${NOTIFICATION_DIGEST_ENABLED:-true}
+      - NOTIFICATION_DIGEST_QUIET_PERIOD=${NOTIFICATION_DIGEST_QUIET_PERIOD:-PT3M}
+      - NOTIFICATION_DIGEST_MAX_DELAY=${NOTIFICATION_DIGEST_MAX_DELAY:-PT20M}
+      - NOTIFICATION_DIGEST_SCAN_INTERVAL=${NOTIFICATION_DIGEST_SCAN_INTERVAL:-PT1M}
+      - NOTIFICATION_DIGEST_RETENTION=${NOTIFICATION_DIGEST_RETENTION:-P7D}
+
       # AI
       - GEMINI_API_KEY=${GEMINI_API_KEY}
       - GEMINI_MODEL=${GEMINI_MODEL}

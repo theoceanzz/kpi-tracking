@@ -46,6 +46,7 @@ public class EvaluationService {
     private final PermissionChecker permissionChecker;
     private final KpiAchievementCalculator achievementCalculator;
     private final BscScoringService bscScoringService;
+    private final ConductService conductService;
 
     private User getCurrentUser() {
         String email = SecurityContextHolder.getContext().getAuthentication().getName();
@@ -131,15 +132,19 @@ public class EvaluationService {
         evaluation.setComment(request.getComment());
         evaluation.setSystemScore(calculateSystemScore(evaluatedUser.getId(), kpiPeriod.getId(), (double) org.getEvaluationMaxScore()));
 
-        // Performance-matrix rating (only when qualitative KPIs are enabled & scored)
+        // Ma trận CHỈ ra kết quả khi có ĐỦ HAI TRỤC THẬT — xem resolveMatrixAxes.
         Double completion = calculateKpiCompletionPercent(evaluatedUser.getId(), kpiPeriod.getId());
         Double behavior = Boolean.TRUE.equals(org.getEnableQualitative())
                 ? calculateBehaviorScore(evaluatedUser.getId(), kpiPeriod.getId()) : null;
-        // No quantitative KPI -> completion axis N/A, treat as on-target (100%) for the matrix.
-        double colCompletion = completion != null ? completion : 100.0;
-        evaluation.setKpiCompletionPercent(completion);
-        evaluation.setBehaviorScore(behavior);
-        evaluation.setMatrixRating(behavior != null ? lookupMatrixRating(behavior, colCompletion, org.getPerformanceMatrix()) : null);
+        // Điểm hạnh kiểm lấp trục còn thiếu (chỉ định lượng ⇒ thành trục hàng; chỉ định tính ⇒ thành trục cột).
+        MatrixAxes axes = resolveMatrixAxes(evaluatedUser.getId(), kpiPeriod.getId(), org, behavior, completion);
+        // LƯU trục đã quy đổi chứ không phải số gốc: thống kê ma trận đọc lại đúng ba cột này
+        // để vẽ heatmap, lưu số khác thì ô trên heatmap lệch với xếp loại đã chấm.
+        evaluation.setKpiCompletionPercent(axes.completion());
+        evaluation.setBehaviorScore(axes.behavior());
+        // Thiếu trục nào thì lookup trả null — không xếp loại, thay vì bịa một trục.
+        evaluation.setMatrixRating(
+                lookupMatrixRating(axes.behavior(), axes.completion(), org.getPerformanceMatrix()));
 
         evaluation.setPeriodStart(kpiPeriod.getStartDate());
         evaluation.setPeriodEnd(kpiPeriod.getEndDate());
@@ -212,12 +217,14 @@ public class EvaluationService {
         }
         com.kpitracking.entity.Organization org = assignments.get(0).getOrgUnit().getOrgHierarchyLevel().getOrganization();
 
-        Double completion = calculateKpiCompletionPercent(targetUserId, kpiPeriodId);
-        Double behavior = Boolean.TRUE.equals(org.getEnableQualitative())
+        Double rawCompletion = calculateKpiCompletionPercent(targetUserId, kpiPeriodId);
+        Double rawBehavior = Boolean.TRUE.equals(org.getEnableQualitative())
                 ? calculateBehaviorScore(targetUserId, kpiPeriodId) : null;
-        // No quantitative KPI -> completion axis N/A, treat as on-target (100%) for the matrix.
-        double colCompletion = completion != null ? completion : 100.0;
-        Integer rating = behavior != null ? lookupMatrixRating(behavior, colCompletion, org.getPerformanceMatrix()) : null;
+        MatrixAxes axes = resolveMatrixAxes(targetUserId, kpiPeriodId, org, rawBehavior, rawCompletion);
+        Double completion = axes.completion();
+        Double behavior = axes.behavior();
+        // Thiếu một trục ⇒ không xếp loại (lookup trả null), không bịa trục thay thế.
+        Integer rating = lookupMatrixRating(behavior, completion, org.getPerformanceMatrix());
 
         Double systemScore = calculateSystemScore(targetUserId, kpiPeriodId, (double) org.getEvaluationMaxScore());
 
@@ -228,7 +235,7 @@ public class EvaluationService {
                 .matrixRating(rating)
                 .officialScore(systemScore);
 
-        // BSC preview (chỉ khi org bật BSC & kỳ đã có thẻ điểm)
+        // BSC preview (chỉ khi org bật BSC & kỳ đã có bộ tiêu chí)
         if (Boolean.TRUE.equals(org.getEnableBsc())) {
             var bsc = bscScoringService.computeForUser(targetUserId, kpiPeriodId, org.getId(),
                     Boolean.TRUE.equals(org.getEnableWaterfall()));
@@ -329,6 +336,34 @@ public class EvaluationService {
         return totalWeight > 0 ? weightedSum / totalWeight : null;
     }
 
+    /** Hai trục của ma trận sau khi đã để điểm hạnh kiểm lấp chỗ trống. */
+    public record MatrixAxes(Double behavior, Double completion) {}
+
+    /**
+     * Hai trục của ma trận cho một ĐỢT. Ma trận chỉ xếp loại được khi có ĐỦ HAI TRỤC THẬT:
+     *
+     * <ol>
+     *   <li>người này có CẢ HAI loại KPI — định lượng cho trục cột, định tính cho trục hàng;</li>
+     *   <li>hoặc tổ chức bật chấm hạnh kiểm — điểm hạnh kiểm bù đúng trục còn trống.</li>
+     * </ol>
+     *
+     * Một loại KPI chỉ nằm ở MỘT trục, nên chỉ có định lượng (hoặc chỉ có định tính) mà không
+     * chấm hạnh kiểm thì thiếu trục ⇒ {@code null} ở trục đó và không ra xếp loại. KHÔNG lấy
+     * 100% làm trục cột mặc định nữa: đó là bịa ra một trục không có thật, làm người chỉ chấm
+     * định tính vẫn nhận xếp loại như thể đã hoàn thành đủ chỉ tiêu định lượng.
+     */
+    public MatrixAxes resolveMatrixAxes(UUID userId, UUID kpiPeriodId,
+                                        com.kpitracking.entity.Organization org,
+                                        Double behavior, Double completion) {
+        if (!Boolean.TRUE.equals(org.getEnableConduct())) return new MatrixAxes(behavior, completion);
+        Double conduct = conductService.effectiveScore(
+                userId, com.kpitracking.enums.ConductScope.PERIOD, kpiPeriodId, org);
+        Double conductMax = conductService.effectiveMaxScore(
+                userId, com.kpitracking.enums.ConductScope.PERIOD, kpiPeriodId, org);
+        var axes = com.kpitracking.util.ConductAxisResolver.resolve(behavior, completion, conduct, conductMax);
+        return new MatrixAxes(axes.behaviorScore(), axes.completionPercent());
+    }
+
     /**
      * Looks up the org's performance_matrix: (behaviorScore rows) × (completion% cols) -> rating 1..5.
      * Logic dải tách về {@link com.kpitracking.util.PerformanceMatrixResolver} để dùng chung với thống kê.
@@ -382,7 +417,7 @@ public class EvaluationService {
         com.kpitracking.entity.Organization org =
                 eff.getOrgUnit() != null && eff.getOrgUnit().getOrgHierarchyLevel() != null
                         ? eff.getOrgUnit().getOrgHierarchyLevel().getOrganization() : null;
-        if (org != null && Boolean.TRUE.equals(org.getEnableQualitative())) {
+        if (com.kpitracking.util.PerformanceMatrixResolver.usesMatrix(org)) {
             return eff.getMatrixRating() != null ? eff.getMatrixRating().doubleValue() : null;
         }
         return eff.getScore();

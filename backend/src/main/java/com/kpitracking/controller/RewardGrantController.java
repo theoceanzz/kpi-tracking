@@ -34,6 +34,21 @@ public class RewardGrantController {
                 grantService.search(status, grantorId, page, size)));
     }
 
+    /**
+     * Các lần chính mình được thưởng, để tự in chứng nhận.
+     *
+     * <p>Mở ở {@code REWARD:VIEW_MY} — nhân viên thường không có quyền xem danh sách đề
+     * nghị của tổ chức, nhưng phần thưởng của chính họ thì phải xem và in được. Service
+     * chỉ trả về phần của người gọi, không kèm người nhận khác.
+     */
+    @GetMapping("/my-awards")
+    @PreAuthorize("hasAuthority('REWARD:VIEW_MY')")
+    public ResponseEntity<ApiResponse<PageResponse<RewardGrantResponse>>> myAwards(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        return ResponseEntity.ok(ApiResponse.success(grantService.searchMyAwards(page, size)));
+    }
+
     @GetMapping("/{id}")
     @PreAuthorize("hasAnyAuthority('REWARD:GRANT','REWARD:APPROVE','REWARD:VIEW')")
     public ResponseEntity<ApiResponse<RewardGrantResponse>> getById(@PathVariable UUID id) {

@@ -718,9 +718,18 @@ export function PerformanceMatrixSection({ org }: { org: any }) {
       <div className="p-8 space-y-6">
         <div className="p-4 rounded-2xl bg-fuchsia-50 dark:bg-fuchsia-900/10 border border-fuchsia-100 dark:border-fuchsia-900/30 flex items-start gap-3">
           <Info size={18} className="text-fuchsia-600 shrink-0 mt-0.5" />
-          <p className="text-[11px] text-fuchsia-700/80 dark:text-fuchsia-400/80 font-medium leading-relaxed">
-            Ánh xạ <span className="font-bold">Điểm hành vi</span> (hàng) và <span className="font-bold">% hoàn thành KPI</span> (cột) sang mức xếp loại cuối cùng. Chỉnh nhãn dải, giá trị ô, thêm/bớt hàng-cột tùy ý.
-          </p>
+          <div className="space-y-2">
+            <p className="text-[11px] text-fuchsia-700/80 dark:text-fuchsia-400/80 font-medium leading-relaxed">
+              Ánh xạ <span className="font-bold">Điểm hành vi</span> (hàng) và <span className="font-bold">% hoàn thành KPI</span> (cột) sang mức xếp loại cuối cùng. Chỉnh nhãn dải, giá trị ô, thêm/bớt hàng-cột tùy ý.
+            </p>
+            {/* Luật hai trục hay bị hiểu nhầm nhất: người chỉ có một loại KPI vẫn tưởng sẽ ra
+                xếp loại. Nói thẳng ở đây, cạnh chính cái bảng, thay vì để họ tự đoán khi thấy "—". */}
+            <p className="text-[11px] text-fuchsia-700/80 dark:text-fuchsia-400/80 font-medium leading-relaxed">
+              Ma trận chỉ xếp loại khi có <span className="font-bold">đủ hai trục</span>: người được chấm có
+              cả KPI định lượng lẫn định tính, hoặc tổ chức bật <span className="font-bold">Chấm hạnh kiểm</span> để
+              bù trục còn trống. Chỉ một loại KPI thì chỉ có một trục — khi đó không ra xếp loại.
+            </p>
+          </div>
         </div>
 
         {isEditing && (

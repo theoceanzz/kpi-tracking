@@ -12,10 +12,10 @@ import { kpiApi } from '../api/kpiApi'
 import { toast } from 'sonner'
 import {
   Users, Building2, ChevronRight, ArrowUpDown,
-  Calendar, ChevronLeft, Search, CheckCircle,
+  Calendar, Search, CheckCircle, AlertCircle,
   ShieldCheck, Target, GitBranch,
   Loader2, ChevronDown, CornerDownRight,
-  LayoutGrid, List, SlidersHorizontal, MousePointerClick
+  LayoutGrid, List
 } from 'lucide-react'
 import { buildKpiRows } from '../utils/kpiTree'
 import { useAuthStore } from '@/store/authStore'
@@ -25,30 +25,45 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useOrgUnitTree } from '@/features/orgunits/hooks/useOrgUnitTree'
 import { useOrganization } from '@/features/orgunits/hooks/useOrganization'
 import { useScorecards } from '@/features/bsc/hooks/useBsc'
-import { buildRealWeightById } from '../utils/realWeight'
+import { buildRealWeightById, findDecompositionParentIds, sumWeightForPerson, totalWeightForUnit } from '../utils/realWeight'
 import { useObjectives } from '../../okr/hooks/useOkr'
 import { useSidebarSettings } from '@/features/organization/hooks/useSidebarSettings'
-import PageTour from '@/components/common/PageTour'
-import { kpiPendingSteps } from '@/components/common/tourSteps'
 import { ObjectiveResponse } from '@/features/okr/types'
+import Pagination from '@/components/common/Pagination'
+import {
+  PersonGroupBadge, PersonGroupHeaderCard, PersonGroupHeaderRow,
+  UnitGroupHeaderCard, UnitGroupHeaderRow,
+} from '@/components/common/PersonGroupHeader'
+import { groupByPerson, groupByUnitThenPerson, personGroupKey, type UnitGroup } from '@/lib/personGrouping'
+import { usePersonGroupCollapse } from '@/hooks/usePersonGroupCollapse'
+
+/** Số nhóm (đơn vị, hoặc người khi chỉ có một đơn vị) hiển thị mỗi trang. */
+const GROUP_PAGE_SIZE = 10
+/** Trần số KPI tải về một lần để gom nhóm — chạm trần thì nhắc người dùng lọc hẹp lại. */
+const GROUPING_FETCH_SIZE = 1000
 
 
 
 
+
+type ApprovalTab = 'PENDING_APPROVAL' | 'APPROVED' | 'REJECTED' | 'ALL'
+const APPROVAL_TABS: ApprovalTab[] = ['PENDING_APPROVAL', 'APPROVED', 'REJECTED', 'ALL']
+
+// `?tab=` dùng chung query string với các mục khác của /performance, nên phải lọc:
+// tab của trang điều chỉnh lọt sang đây sẽ thành bộ lọc rỗng.
+const readTab = (raw: string | null): ApprovalTab =>
+  APPROVAL_TABS.includes(raw as ApprovalTab) ? (raw as ApprovalTab) : 'PENDING_APPROVAL'
 
 export default function KpiApprovalPage() {
   const [searchParams, setSearchParams] = useSearchParams()
-  const initialTab = (searchParams.get('tab') as any) || 'PENDING_APPROVAL'
-  
-  const [activeTab, setActiveTab] = useState<'PENDING_APPROVAL' | 'APPROVED' | 'REJECTED' | 'ALL'>(initialTab)
+
+  const [activeTab, setActiveTab] = useState<ApprovalTab>(() => readTab(searchParams.get('tab')))
   
   const [selectedPeriodId, setSelectedPeriodId] = useState('ALL')
   const [search, setSearch] = useState('')
   const [page, setPage] = useState(0)
-  const [pageSize] = useState(10)
   const [sortBy, setSortBy] = useState('updatedAt')
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc')
-  const [selectedOrgUnitId, setSelectedOrgUnitId] = useState<string>('ALL')
   const [selectedObjectiveId, setSelectedObjectiveId] = useState<string>('ALL')
   const [selectedKeyResultId, setSelectedKeyResultId] = useState<string>('ALL')
   
@@ -81,36 +96,41 @@ export default function KpiApprovalPage() {
   }
   const flatOrgUnits = useMemo(() => orgUnitTreeData ? flattenTree(orgUnitTreeData) : [], [orgUnitTreeData])
 
-  // Default to Root unit
-  useEffect(() => {
-    if (flatOrgUnits.length > 0 && selectedOrgUnitId === 'ALL') {
-      setSelectedOrgUnitId(flatOrgUnits[0].id)
-    }
-  }, [flatOrgUnits])
+  // Thứ tự đơn vị trong cây tổ chức, để các nhóm đơn vị hiện theo đúng trật tự cây.
+  const unitOrder = useMemo(
+    () => new Map<string, number>(flatOrgUnits.map((u: any, i: number) => [u.id, i])),
+    [flatOrgUnits]
+  )
 
   useEffect(() => {
-    const tab = searchParams.get('tab')
-    if (tab && tab !== activeTab) {
-      setActiveTab(tab as any)
+    const tab = readTab(searchParams.get('tab'))
+    if (tab !== activeTab) {
+      setActiveTab(tab)
     }
   }, [searchParams])
 
-  const handleTabChange = (tab: typeof activeTab) => {
+  const handleTabChange = (tab: ApprovalTab) => {
     setActiveTab(tab)
-    setSearchParams({ tab })
+    // Giữ nguyên các param khác — ghi đè cả query string sẽ xoá mất `?section=`
+    // của SettingsSectionLayout và đá người dùng về lưới thẻ /performance.
+    setSearchParams(prev => {
+      const p = new URLSearchParams(prev)
+      p.set('tab', tab)
+      return p
+    }, { replace: true })
     setPage(0)
     setSelectedKpis([])
   }
 
-  // Data for KPI Criteria
+  // Data for KPI Criteria — tải trọn phạm vi đang lọc (không phân trang ở server) để gom
+  // nhóm theo người cho đủ; phân trang 10 KPI/trang sẽ cắt ngang một người thành hai trang.
   const { data: criteriaData, isLoading } = useKpiCriteria(
     {
       status: activeTab === 'ALL' ? undefined : activeTab,
       kpiPeriodId: selectedPeriodId === 'ALL' ? undefined : selectedPeriodId,
-      orgUnitId: selectedOrgUnitId === 'ALL' ? undefined : selectedOrgUnitId,
       organizationId: user?.memberships?.[0]?.organizationId,
-      page,
-      size: pageSize,
+      page: 0,
+      size: GROUPING_FETCH_SIZE,
       sortBy,
       sortDir,
       objectiveId: selectedObjectiveId === 'ALL' ? undefined : selectedObjectiveId,
@@ -150,9 +170,157 @@ export default function KpiApprovalPage() {
     () => buildRealWeightById(items, bscScorecards, orgUnitTreeData, enableBsc),
     [items, bscScorecards, orgUnitTreeData, enableBsc]
   )
-  const totalPages = criteriaData?.totalPages || 1
-  const totalElements = criteriaData?.totalElements || 0
+  const totalElements = items.length
+  const hitFetchCap = (criteriaData?.content?.length ?? 0) >= GROUPING_FETCH_SIZE
+
+  // Gom ĐƠN VỊ → NGƯỜI → KPI, thay cho danh sách phẳng trộn lẫn nhiều đơn vị lẫn nhiều người.
+  // Một KPI thuộc đúng một đơn vị, nhưng giao cho nhiều người thì nằm ở nhóm của từng người.
+  const extractAssignees = (kpi: KpiCriteria) =>
+    (kpi.assignees ?? []).map(a => ({ id: a.id, name: a.fullName, avatarUrl: a.avatarUrl }))
+
+  const unitGroups = useMemo(
+    () => groupByUnitThenPerson(
+      items,
+      kpi => {
+        const id = kpi.orgUnitId || kpi.orgUnitIds?.[0]
+        return id ? { id, name: kpi.orgUnitName || 'Đơn vị không tên' } : null
+      },
+      extractAssignees,
+      unitOrder,
+    ),
+    [items, unitOrder]
+  )
+  const personGroups = useMemo(() => groupByPerson(items, extractAssignees), [items])
+
+  // Chỉ thêm cấp nào thực sự có nhiều mục: ≥2 đơn vị mới gom theo đơn vị, ≥2 người mới gom
+  // theo người; một người duy nhất thì giữ danh sách phẳng như cũ.
+  const unitMode = unitGroups.length >= 2
+  const personMode = personGroups.length >= 2
+
+  const myUnitId = user?.memberships?.[0]?.orgUnitId
+  const unitCollapse = usePersonGroupCollapse(myUnitId)
+  // Nhóm người đánh khoá kèm đơn vị ở chế độ ba cấp, chỉ bằng id người khi rơi về hai cấp.
+  const personCollapse = usePersonGroupCollapse(
+    user?.id ? [user.id, myUnitId ? personGroupKey(myUnitId, user.id) : null] : null
+  )
+  const resetGroups = () => { unitCollapse.reset(); personCollapse.reset() }
+
+  // Phân trang theo ĐƠN VỊ khi gom ba cấp, theo NGƯỜI khi chỉ có một đơn vị.
+  const pagedGroups: { id: string }[] = unitMode ? unitGroups : personGroups
+  const totalGroups = pagedGroups.length
+  const totalPages = unitMode || personMode ? Math.max(1, Math.ceil(totalGroups / GROUP_PAGE_SIZE)) : 1
+  // Đổi bộ lọc có thể làm số trang co lại — kẹp ngay lúc render để không kẹt ở trang trống.
+  const groupPage = Math.min(page, totalPages - 1)
+  const pageSlice = <T,>(list: T[]) =>
+    list.slice(groupPage * GROUP_PAGE_SIZE, groupPage * GROUP_PAGE_SIZE + GROUP_PAGE_SIZE)
+  const visibleUnits = unitMode ? pageSlice(unitGroups) : []
+  const visibleGroups = !unitMode && personMode ? pageSlice(personGroups) : []
+
   const { rows: itemRows, childrenByParentId } = buildKpiRows(items, collapsedParents)
+
+  /**
+   * Danh sách dòng để render: ở chế độ gom nhóm, chèn dòng header đơn vị rồi header người
+   * ngay trước các KPI tương ứng; ở chế độ phẳng thì y như cũ.
+   */
+  type ApprovalRow =
+    | { kind: 'unit'; unit: UnitGroup<KpiCriteria> }
+    | { kind: 'person'; group: (typeof personGroups)[number]; key: string }
+    | { kind: 'kpi'; kpi: KpiCriteria; depth: number }
+
+  const pushPerson = (out: ApprovalRow[], group: (typeof personGroups)[number], key: string) => {
+    out.push({ kind: 'person', group, key })
+    if (!personCollapse.isExpanded(key)) return
+    buildKpiRows(group.items, collapsedParents).rows.forEach(r => out.push({ kind: 'kpi', ...r }))
+  }
+
+  const buildDisplayRows = (): ApprovalRow[] => {
+    const out: ApprovalRow[] = []
+    if (unitMode) {
+      visibleUnits.forEach(unit => {
+        out.push({ kind: 'unit', unit })
+        if (!unitCollapse.isExpanded(unit.id)) return
+        unit.people.forEach(group => pushPerson(out, group, personGroupKey(unit.id, group.id)))
+      })
+      return out
+    }
+    if (personMode) {
+      visibleGroups.forEach(group => pushPerson(out, group, group.id))
+      return out
+    }
+    return itemRows.map(r => ({ kind: 'kpi' as const, ...r }))
+  }
+  const displayRows = buildDisplayRows()
+
+  /** Số cột của bảng — header nhóm phải trải hết chiều ngang. */
+  const tableColSpan = 7 + (enableOkr ? 2 : 0) - (unitMode ? 1 : 0)
+
+  // Nhận diện KPI cha phân rã trên toàn danh sách đã tải, không tính lại trong từng nhóm.
+  const decompositionParentIds = useMemo(() => findDecompositionParentIds(items), [items])
+
+  /** Tổng trọng số của một người, dựng theo đúng công thức backend (bỏ KPI thưởng và KPI cha phân rã). */
+  const sumWeight = (list: KpiCriteria[]) => sumWeightForPerson(list, realWeightById, decompositionParentIds)
+
+  /**
+   * Số liệu tóm tắt của một đơn vị. "Tổng trọng số" dùng đúng công thức backend
+   * (KPI chưa giao + người cao nhất), nên đơn vị cấu hình xong luôn ra tròn 100%
+   * dù có bao nhiêu nhân sự — cùng con số backend chặn khi gửi duyệt.
+   */
+  const renderUnitBadges = (unit: UnitGroup<KpiCriteria>) => {
+    const pending = unit.items.filter(k => k.status === 'PENDING_APPROVAL').length
+    const offTarget = unit.people.filter(p => Math.round(sumWeight(p.items)) !== 100).length
+    const unitWeight = totalWeightForUnit(unit.items, realWeightById, decompositionParentIds)
+    return (
+      <>
+        <PersonGroupBadge label="nhân sự" value={unit.people.length} tone="indigo" />
+        <PersonGroupBadge label="chỉ tiêu" value={unit.items.length} />
+        {pending > 0 && <PersonGroupBadge label="đợi duyệt" value={pending} tone="amber" />}
+        <PersonGroupBadge
+          label="tổng trọng số"
+          value={`${formatNumber(unitWeight)}%`}
+          tone={Math.round(unitWeight) === 100 ? 'emerald' : 'rose'}
+        />
+        {offTarget > 0 && <PersonGroupBadge label="chưa đủ 100%" value={offTarget} tone="rose" />}
+      </>
+    )
+  }
+
+  /** Số liệu tóm tắt của một người, đọc từ chính các KPI đang lọc. */
+  const renderPersonBadges = (list: KpiCriteria[]) => {
+    const pending = list.filter(k => k.status === 'PENDING_APPROVAL').length
+    const approved = list.filter(k => k.status === 'APPROVED').length
+    const rejected = list.filter(k => k.status === 'REJECTED').length
+    const weight = sumWeight(list)
+    return (
+      <>
+        <PersonGroupBadge label="chỉ tiêu" value={list.length} />
+        {pending > 0 && <PersonGroupBadge label="đợi duyệt" value={pending} tone="amber" />}
+        {approved > 0 && <PersonGroupBadge label="đã duyệt" value={approved} tone="emerald" />}
+        {rejected > 0 && <PersonGroupBadge label="từ chối" value={rejected} tone="rose" />}
+        <PersonGroupBadge
+          label="trọng số"
+          value={`${formatNumber(weight)}%`}
+          tone={Math.round(weight) === 100 ? 'emerald' : 'indigo'}
+        />
+      </>
+    )
+  }
+
+  /** Duyệt nhanh toàn bộ chỉ tiêu đang chờ của riêng một người. */
+  const renderPersonApproveAction = (list: KpiCriteria[]) => {
+    const pendingIds = list.filter(k => k.status === 'PENDING_APPROVAL').map(k => k.id)
+    if (pendingIds.length === 0) return null
+    return (
+      <button
+        onClick={() => bulkApproveMutation.mutate(pendingIds)}
+        disabled={bulkApproveMutation.isPending}
+        title={`Phê duyệt ${pendingIds.length} chỉ tiêu đang chờ của người này`}
+        className="flex items-center gap-2 px-3 h-8 rounded-xl border border-emerald-200 dark:border-emerald-900/50 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400 text-[9px] font-black uppercase tracking-widest hover:bg-emerald-100 dark:hover:bg-emerald-900/40 transition-all active:scale-95 disabled:opacity-50"
+      >
+        {bulkApproveMutation.isPending ? <Loader2 size={12} className="animate-spin" /> : <CheckCircle size={12} />}
+        Duyệt {pendingIds.length}
+      </button>
+    )
+  }
 
   const toggleParentCollapse = (parentId: string) => {
     setCollapsedParents(prev => {
@@ -166,7 +334,6 @@ export default function KpiApprovalPage() {
   const { data: statsData } = useKpiCriteria({
     size: 1000,
     organizationId: user?.memberships?.[0]?.organizationId,
-    orgUnitId: selectedOrgUnitId === 'ALL' ? undefined : selectedOrgUnitId,
     kpiPeriodId: selectedPeriodId === 'ALL' ? undefined : selectedPeriodId,
     objectiveId: selectedObjectiveId === 'ALL' ? undefined : selectedObjectiveId,
     keyResultId: selectedKeyResultId === 'ALL' ? undefined : selectedKeyResultId,
@@ -214,7 +381,6 @@ export default function KpiApprovalPage() {
   return (
     <div className="p-4 md:p-8">
       <div className="max-w-[1600px] mx-auto space-y-8 animate-in fade-in duration-700">
-        <PageTour pageKey="kpi-pending" steps={kpiPendingSteps} />
         
         {/* Header Section with Glass Card */}
         <div className="relative group" id="tour-pending-header">
@@ -248,72 +414,126 @@ export default function KpiApprovalPage() {
         </div>
 
         {/* Toolbar */}
-        <div id="tour-pending-toolbar" className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-md p-5 sm:p-6 rounded-[28px] border border-slate-200 dark:border-slate-800 shadow-sm space-y-6 md:space-y-4">
-          {/* Cluster 1: Filters */}
-          <div className="space-y-3">
-            <div className="flex md:hidden items-center gap-2 px-1 text-slate-400 dark:text-slate-500">
-              <SlidersHorizontal size={14} />
-              <span className="text-[10px] font-black uppercase tracking-[0.2em]">Lọc thông tin</span>
+        <div id="tour-pending-toolbar" className="flex flex-col gap-4 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md p-5 rounded-[28px] border border-slate-200 dark:border-slate-800 shadow-sm">
+          {/* Hàng 1 — Tìm kiếm & chế độ xem. Mọi control cùng chiều cao h-11, bo rounded-2xl. */}
+          <div className="flex flex-col lg:flex-row lg:items-center gap-3">
+            <div className="relative group flex-1 w-full">
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-500 transition-colors" size={18} />
+              <input
+                value={search}
+                onChange={e => { setSearch(e.target.value); setPage(0) }}
+                placeholder="Tìm tên chỉ tiêu, phòng ban, nhân sự..."
+                className="w-full h-11 pl-12 pr-4 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 text-sm font-medium focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500/50 outline-none transition-all placeholder:text-slate-400"
+              />
             </div>
 
-            <div className="flex flex-col md:flex-row md:items-center gap-3 md:gap-4 w-full">
-              <div className="relative flex-1 w-full">
-                <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-                <input
-                  value={search}
-                  onChange={e => { setSearch(e.target.value); setPage(0) }}
-                  placeholder="Tìm tên chỉ tiêu, phòng ban, nhân sự..."
-                  className="w-full h-12 pl-12 pr-4 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 text-sm font-medium focus:ring-2 focus:ring-indigo-500/20 outline-none transition-all"
-                />
+            {/* Mở/đóng nhanh mọi nhóm đang hiển thị — đặt cạnh nút đổi chế độ xem vì
+                cùng là thao tác lên cách hiển thị danh sách, không phải bộ lọc. */}
+            {(unitMode || personMode) && (
+              <div className="flex items-center gap-1 p-1 rounded-2xl bg-slate-100 dark:bg-slate-800 self-start lg:self-auto shrink-0">
+                <button
+                  onClick={() => {
+                    if (unitMode) unitCollapse.expandAll(visibleUnits.map(u => u.id))
+                    else personCollapse.expandAll(visibleGroups.map(g => g.id))
+                  }}
+                  title="Mở tất cả nhóm"
+                  className="flex items-center gap-1.5 h-9 px-3 rounded-xl text-[10px] font-black uppercase tracking-widest text-slate-500 hover:text-indigo-600 hover:bg-white dark:hover:bg-slate-700 transition-all active:scale-95"
+                >
+                  <ChevronDown size={14} /> Mở
+                </button>
+                <button
+                  onClick={() => { unitCollapse.collapseAll(); personCollapse.collapseAll() }}
+                  title="Đóng tất cả nhóm"
+                  className="flex items-center gap-1.5 h-9 px-3 rounded-xl text-[10px] font-black uppercase tracking-widest text-slate-500 hover:text-indigo-600 hover:bg-white dark:hover:bg-slate-700 transition-all active:scale-95"
+                >
+                  <ChevronRight size={14} /> Đóng
+                </button>
               </div>
+            )}
 
-            <div className="w-full md:w-72">
-              <Select value={selectedOrgUnitId} onValueChange={(v) => { setSelectedOrgUnitId(v); setPage(0) }}>
-                <SelectTrigger className="h-12 rounded-2xl border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 font-bold text-sm">
-                  <div className="flex items-center gap-2">
-                    <Building2 size={16} className="text-slate-400" />
-                    <SelectValue placeholder="Chọn đơn vị" />
-                  </div>
-                </SelectTrigger>
-                <SelectContent className="rounded-2xl border-slate-200 dark:border-slate-800">
-                  {flatOrgUnits.map(unit => (
-                    <SelectItem key={unit.id} value={unit.id} className="font-medium">{unit.levelLabel}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+            <div className="flex items-center gap-1 p-1 rounded-2xl bg-slate-100 dark:bg-slate-800 self-start lg:self-auto shrink-0">
+              <button
+                onClick={() => setViewMode('list')}
+                title="Dạng danh sách"
+                className={cn(
+                  "w-9 h-9 flex items-center justify-center rounded-xl transition-all",
+                  viewMode === 'list' ? 'bg-white dark:bg-slate-700 shadow-sm text-indigo-600' : 'text-slate-400 hover:text-slate-600'
+                )}
+              >
+                <List size={18} />
+              </button>
+              <button
+                onClick={() => setViewMode('card')}
+                title="Dạng thẻ"
+                className={cn(
+                  "w-9 h-9 flex items-center justify-center rounded-xl transition-all",
+                  viewMode === 'card' ? 'bg-white dark:bg-slate-700 shadow-sm text-indigo-600' : 'text-slate-400 hover:text-slate-600'
+                )}
+              >
+                <LayoutGrid size={18} />
+              </button>
             </div>
+          </div>
 
-            <div className="w-full md:w-72">
-              <Select value={selectedPeriodId} onValueChange={(v) => { setSelectedPeriodId(v); setPage(0) }}>
-                <SelectTrigger className="h-12 rounded-2xl border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 font-bold text-sm">
-                  <div className="flex items-center gap-2">
-                    <Calendar size={16} className="text-slate-400" />
-                    <SelectValue placeholder="Chọn đợt KPI" />
-                  </div>
+          {/* Hàng 2 — Bộ lọc. Danh sách đã gom theo Đơn vị → Người nên bỏ hẳn bộ lọc "Chọn đơn vị";
+              chỗ đó dành cho nút mở/đóng nhanh các nhóm, đẩy về mép phải. */}
+          <div className="flex flex-wrap items-center gap-2.5 pt-4 border-t border-slate-100 dark:border-slate-800/60">
+            <div className="w-full sm:w-52">
+              <Select value={selectedPeriodId} onValueChange={(v) => { setSelectedPeriodId(v); setPage(0); resetGroups() }}>
+                <SelectTrigger className="w-full h-11 rounded-2xl border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 font-bold text-xs focus:ring-2 focus:ring-indigo-500/20">
+                  <Calendar size={14} className="text-indigo-500 mr-2 shrink-0" />
+                  <SelectValue placeholder="Đợt KPI..." />
                 </SelectTrigger>
-                <SelectContent className="rounded-2xl border-slate-200 dark:border-slate-800">
-                  <SelectItem value="ALL" className="font-bold">Tất cả đợt KPI</SelectItem>
+                <SelectContent className="rounded-2xl border-slate-200 dark:border-slate-800 shadow-2xl p-2">
+                  <SelectItem value="ALL" className="rounded-xl text-sm font-bold">Tất cả đợt KPI</SelectItem>
                   {periodsData?.content.map(p => (
-                    <SelectItem key={p.id} value={p.id} className="font-medium">{p.name}</SelectItem>
+                    <SelectItem key={p.id} value={p.id} className="rounded-xl text-sm font-bold">{p.name}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
+
+            <div className="w-full sm:w-52">
+              <Select value={`${sortBy}-${sortDir}`} onValueChange={(v) => {
+                const [field, dir] = v.split('-')
+                if (field && dir) {
+                  setSortBy(field)
+                  setSortDir(dir as 'asc' | 'desc')
+                  setPage(0)
+                }
+              }}>
+                <SelectTrigger className="w-full h-11 rounded-2xl border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 font-bold text-xs focus:ring-2 focus:ring-indigo-500/20">
+                  <div className="flex items-center gap-2">
+                    <ArrowUpDown size={14} className="text-indigo-500 shrink-0" />
+                    <SelectValue placeholder="Sắp xếp..." />
+                  </div>
+                </SelectTrigger>
+                <SelectContent className="rounded-2xl border-slate-200 dark:border-slate-800 shadow-2xl p-2">
+                  <SelectItem value="updatedAt-desc" className="rounded-xl text-xs font-bold">Cập nhật mới nhất</SelectItem>
+                  <SelectItem value="updatedAt-asc" className="rounded-xl text-xs font-bold">Cập nhật cũ nhất</SelectItem>
+                  <SelectItem value="name-asc" className="rounded-xl text-xs font-bold">Tên A-Z</SelectItem>
+                  <SelectItem value="name-desc" className="rounded-xl text-xs font-bold">Tên Z-A</SelectItem>
+                  <SelectItem value="weight-desc" className="rounded-xl text-xs font-bold">Trọng số cao</SelectItem>
+                  <SelectItem value="weight-asc" className="rounded-xl text-xs font-bold">Trọng số thấp</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
 
-            {/* Sub-group: Strategic Filters (OKR) */}
-            {enableOkr && (
-            <div className="flex flex-col md:flex-row md:items-center gap-3 md:gap-4 w-full pt-4 border-t border-slate-100 dark:border-slate-800 animate-in slide-in-from-top-2 duration-500">
-              <div className="flex items-center gap-2 text-indigo-600 dark:text-indigo-400 md:min-w-[140px] px-1 md:px-2">
-                <Target size={18} className="animate-bounce" />
+          </div>
+
+          {/* Hàng 3 — Bộ lọc OKR, giữ nguyên một dòng riêng dưới cùng. */}
+          {enableOkr && (
+            <div className="flex flex-col md:flex-row md:items-center gap-2.5 pt-4 border-t border-slate-100 dark:border-slate-800/60">
+              <div className="flex items-center gap-2 text-indigo-600 dark:text-indigo-400 md:min-w-[128px] shrink-0">
+                <Target size={16} />
                 <span className="text-[10px] font-black uppercase tracking-[0.2em] whitespace-nowrap">Bộ lọc OKR</span>
               </div>
-              
-              <div className="w-full md:flex-1 md:max-w-[480px]">
+
+              <div className="w-full md:flex-1">
                 <Select value={selectedObjectiveId} onValueChange={(v) => { setSelectedObjectiveId(v); setSelectedKeyResultId('ALL'); setPage(0) }}>
-                  <SelectTrigger className="h-12 rounded-2xl border-indigo-100 dark:border-indigo-900/50 bg-indigo-50/30 dark:bg-indigo-900/10 font-bold text-sm text-indigo-900 dark:text-indigo-100">
+                  <SelectTrigger className="h-11 rounded-2xl border-indigo-100 dark:border-indigo-900/50 bg-indigo-50/30 dark:bg-indigo-900/10 font-bold text-xs text-indigo-900 dark:text-indigo-100">
                     <div className="flex items-center gap-2 overflow-hidden">
-                      <Target size={16} className="text-indigo-400 shrink-0" />
+                      <Target size={14} className="text-indigo-400 shrink-0" />
                       <div className="truncate">
                         <SelectValue placeholder="Chọn Mục tiêu chiến lược" />
                       </div>
@@ -328,11 +548,11 @@ export default function KpiApprovalPage() {
                 </Select>
               </div>
 
-              <div className="w-full md:flex-1 md:max-w-[480px]">
+              <div className="w-full md:flex-1">
                 <Select value={selectedKeyResultId} onValueChange={(v) => { setSelectedKeyResultId(v); setPage(0) }} disabled={selectedObjectiveId === 'ALL'}>
-                  <SelectTrigger className="h-12 rounded-2xl border-indigo-100 dark:border-indigo-900/50 bg-indigo-50/30 dark:bg-indigo-900/10 font-bold text-sm text-indigo-900 dark:text-indigo-100 disabled:opacity-50 transition-all">
+                  <SelectTrigger className="h-11 rounded-2xl border-indigo-100 dark:border-indigo-900/50 bg-indigo-50/30 dark:bg-indigo-900/10 font-bold text-xs text-indigo-900 dark:text-indigo-100 disabled:opacity-50 transition-all">
                     <div className="flex items-center gap-2 overflow-hidden">
-                      <GitBranch size={16} className="text-indigo-400 shrink-0" />
+                      <GitBranch size={14} className="text-indigo-400 shrink-0" />
                       <div className="truncate">
                         <SelectValue placeholder="Chọn Kết quả then chốt" />
                       </div>
@@ -347,72 +567,7 @@ export default function KpiApprovalPage() {
                 </Select>
               </div>
             </div>
-            )}
-          </div>
-
-          {/* Cluster 2 + 3: Actions & Sorting */}
-          <div className="flex flex-col sm:flex-row sm:items-end gap-6 sm:gap-4 pt-5 md:pt-4 border-t border-slate-100 dark:border-slate-800">
-            {/* Cluster 2: Actions (display mode) */}
-            <div className="space-y-3 sm:flex-1">
-              <div className="flex md:hidden items-center gap-2 px-1 text-slate-400 dark:text-slate-500">
-                <MousePointerClick size={14} />
-                <span className="text-[10px] font-black uppercase tracking-[0.2em]">Hành động</span>
-              </div>
-              <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-[18px] w-full sm:w-auto sm:inline-flex">
-                <button
-                  onClick={() => setViewMode('list')}
-                  className={cn(
-                    "flex-1 sm:flex-none flex items-center justify-center gap-2 h-10 px-4 rounded-xl transition-all duration-300 text-xs font-black uppercase tracking-wider",
-                    viewMode === 'list' ? 'bg-white dark:bg-slate-700 shadow-md text-indigo-600' : 'text-slate-400 hover:text-slate-600'
-                  )}
-                  title="Dạng danh sách"
-                >
-                  <List size={18} /> <span className="sm:hidden">Danh sách</span>
-                </button>
-                <button
-                  onClick={() => setViewMode('card')}
-                  className={cn(
-                    "flex-1 sm:flex-none flex items-center justify-center gap-2 h-10 px-4 rounded-xl transition-all duration-300 text-xs font-black uppercase tracking-wider",
-                    viewMode === 'card' ? 'bg-white dark:bg-slate-700 shadow-md text-indigo-600' : 'text-slate-400 hover:text-slate-600'
-                  )}
-                  title="Dạng card"
-                >
-                  <LayoutGrid size={18} /> <span className="sm:hidden">Dạng thẻ</span>
-                </button>
-              </div>
-            </div>
-
-            {/* Cluster 3: Sorting */}
-            <div className="space-y-3 w-full sm:w-64">
-              <div className="flex md:hidden items-center gap-2 px-1 text-slate-400 dark:text-slate-500">
-                <ArrowUpDown size={14} />
-                <span className="text-[10px] font-black uppercase tracking-[0.2em]">Sắp xếp</span>
-              </div>
-              <Select value={`${sortBy}-${sortDir}`} onValueChange={(v) => {
-                const [field, dir] = v.split('-')
-                if (field && dir) {
-                  setSortBy(field)
-                  setSortDir(dir as 'asc' | 'desc')
-                  setPage(0)
-                }
-              }}>
-                <SelectTrigger className="h-12 rounded-2xl border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 font-bold text-sm">
-                  <div className="flex items-center gap-2">
-                    <ArrowUpDown size={16} className="text-slate-400 shrink-0" />
-                    <SelectValue placeholder="Sắp xếp" />
-                  </div>
-                </SelectTrigger>
-                <SelectContent className="rounded-2xl border-slate-200 dark:border-slate-800">
-                  <SelectItem value="updatedAt-desc" className="font-medium">Cập nhật mới nhất</SelectItem>
-                  <SelectItem value="updatedAt-asc" className="font-medium">Cập nhật cũ nhất</SelectItem>
-                  <SelectItem value="name-asc" className="font-medium">Tên A-Z</SelectItem>
-                  <SelectItem value="name-desc" className="font-medium">Tên Z-A</SelectItem>
-                  <SelectItem value="weight-desc" className="font-medium">Trọng số cao</SelectItem>
-                  <SelectItem value="weight-asc" className="font-medium">Trọng số thấp</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
+          )}
         </div>
 
         {/* Status Tabs Row */}
@@ -471,6 +626,15 @@ export default function KpiApprovalPage() {
           </div>
         )}
 
+        {hitFetchCap && (
+          <div className="flex items-center gap-3 px-6 py-4 rounded-[20px] bg-amber-50 dark:bg-amber-900/20 border border-amber-100 dark:border-amber-900/40">
+            <AlertCircle size={18} className="text-amber-500 shrink-0" />
+            <p className="text-xs font-bold text-amber-700 dark:text-amber-400">
+              Dữ liệu quá lớn nên chỉ hiển thị {GROUPING_FETCH_SIZE} chỉ tiêu gần nhất — hãy lọc thêm theo đợt hoặc phòng ban để xem đầy đủ.
+            </p>
+          </div>
+        )}
+
         {/* Content Section */}
         {isLoading ? (
           <div className="bg-white dark:bg-slate-900 rounded-[32px] p-8 border border-slate-100 dark:border-slate-800 shadow-sm">
@@ -511,16 +675,49 @@ export default function KpiApprovalPage() {
                         <th className="px-4 py-5 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 whitespace-nowrap">Kết quả (KR)</th>
                       </>
                     )}
-                    <th className="px-4 py-5 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 whitespace-nowrap">
-                      Phòng ban / Nhân sự
-                    </th>
+                    {/* Gom nhóm rồi thì đơn vị và tên nhân sự đã nằm ở header nhóm — bỏ hẳn
+                        cột này khi gom ba cấp, bỏ nửa "nhân sự" khi gom hai cấp. */}
+                    {!unitMode && (
+                      <th className="px-4 py-5 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 whitespace-nowrap">
+                        {personMode ? 'Phòng ban' : 'Phòng ban / Nhân sự'}
+                      </th>
+                    )}
                     <th className="px-4 py-5 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 text-right whitespace-nowrap">Mục tiêu</th>
                     <th className="px-4 py-5 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 whitespace-nowrap">Trọng số</th>
                     <th className="px-4 py-5 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 text-right whitespace-nowrap">Thao tác</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-50 dark:divide-slate-800/50">
-                  {itemRows.map(({ kpi, depth }, i: number) => {
+                  {displayRows.map((row, i: number) => {
+                    if (row.kind === 'unit') {
+                      return (
+                        <UnitGroupHeaderRow
+                          key={`unit-${row.unit.id}`}
+                          colSpan={tableColSpan}
+                          unit={row.unit}
+                          expanded={unitCollapse.isExpanded(row.unit.id)}
+                          onToggle={() => unitCollapse.toggle(row.unit.id)}
+                          isCurrentUnit={row.unit.id === myUnitId}
+                          badges={renderUnitBadges(row.unit)}
+                        />
+                      )
+                    }
+                    if (row.kind === 'person') {
+                      return (
+                        <PersonGroupHeaderRow
+                          key={`person-${row.key}`}
+                          colSpan={tableColSpan}
+                          indent={unitMode}
+                          person={row.group}
+                          expanded={personCollapse.isExpanded(row.key)}
+                          onToggle={() => personCollapse.toggle(row.key)}
+                          isCurrentUser={row.group.id === user?.id}
+                          badges={renderPersonBadges(row.group.items)}
+                          actions={renderPersonApproveAction(row.group.items)}
+                        />
+                      )
+                    }
+                    const { kpi, depth } = row
                     const status = STATUS_CONFIG[kpi.status as keyof typeof STATUS_CONFIG] ?? STATUS_CONFIG['PENDING_APPROVAL']!
                     const StatusIcon = status.icon
                     const isSelected = selectedKpis.includes(kpi.id)
@@ -642,17 +839,21 @@ export default function KpiApprovalPage() {
                             </td>
                           </>
                         )}
-                        <td className="px-4 py-5">
-                          <div className="space-y-1.5 max-w-[200px]">
-                            <div className="flex items-center gap-2 bg-slate-50 dark:bg-slate-800/50 px-2.5 py-1 rounded-lg w-fit border border-slate-100 dark:border-slate-800 shadow-sm">
-                              <Building2 size={12} className="text-slate-400 shrink-0" />
-                              <span className="text-[10px] font-bold text-slate-700 dark:text-slate-200 truncate">{kpi.orgUnitName || 'N/A'}</span>
+                        {!unitMode && (
+                          <td className="px-4 py-5">
+                            <div className="space-y-1.5 max-w-[200px]">
+                              <div className="flex items-center gap-2 bg-slate-50 dark:bg-slate-800/50 px-2.5 py-1 rounded-lg w-fit border border-slate-100 dark:border-slate-800 shadow-sm">
+                                <Building2 size={12} className="text-slate-400 shrink-0" />
+                                <span className="text-[10px] font-bold text-slate-700 dark:text-slate-200 truncate">{kpi.orgUnitName || 'N/A'}</span>
+                              </div>
+                              {!personMode && (
+                                <div className="flex items-center gap-2 px-2.5 text-[10px] font-medium text-slate-500" title={formatAssigneeNames(kpi.assigneeNames)}>
+                                  <Users size={12} className="text-slate-400 shrink-0" /> <span className="truncate">{formatAssigneeNames(kpi.assigneeNames)}</span>
+                                </div>
+                              )}
                             </div>
-                            <div className="flex items-center gap-2 px-2.5 text-[10px] font-medium text-slate-500" title={formatAssigneeNames(kpi.assigneeNames)}>
-                              <Users size={12} className="text-slate-400 shrink-0" /> <span className="truncate">{formatAssigneeNames(kpi.assigneeNames)}</span>
-                            </div>
-                          </div>
-                        </td>
+                          </td>
+                        )}
                         <td className="px-4 py-5 text-right whitespace-nowrap">
                           <div className="flex items-baseline justify-end gap-1">
                             <span className="text-sm font-black text-slate-900 dark:text-white">
@@ -686,7 +887,36 @@ export default function KpiApprovalPage() {
             {/* Card View */}
             {viewMode === 'card' && (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 p-3">
-                {itemRows.map(({ kpi, depth }) => {
+                {displayRows.map((row) => {
+                  // Header đơn vị/người chiếm trọn hàng để ngắt lưới thẻ thành từng khối.
+                  if (row.kind === 'unit') {
+                    return (
+                      <div key={`unit-${row.unit.id}`} className="col-span-full">
+                        <UnitGroupHeaderCard
+                          unit={row.unit}
+                          expanded={unitCollapse.isExpanded(row.unit.id)}
+                          onToggle={() => unitCollapse.toggle(row.unit.id)}
+                          isCurrentUnit={row.unit.id === myUnitId}
+                          badges={renderUnitBadges(row.unit)}
+                        />
+                      </div>
+                    )
+                  }
+                  if (row.kind === 'person') {
+                    return (
+                      <div key={`person-${row.key}`} className={cn("col-span-full", unitMode && "pl-4 sm:pl-8")}>
+                        <PersonGroupHeaderCard
+                          person={row.group}
+                          expanded={personCollapse.isExpanded(row.key)}
+                          onToggle={() => personCollapse.toggle(row.key)}
+                          isCurrentUser={row.group.id === user?.id}
+                          badges={renderPersonBadges(row.group.items)}
+                          actions={renderPersonApproveAction(row.group.items)}
+                        />
+                      </div>
+                    )
+                  }
+                  const { kpi, depth } = row
                   const status = STATUS_CONFIG[kpi.status as keyof typeof STATUS_CONFIG] ?? STATUS_CONFIG['PENDING_APPROVAL']!
                   const StatusIcon = status.icon
                   const isSelected = selectedKpis.includes(kpi.id)
@@ -775,17 +1005,21 @@ export default function KpiApprovalPage() {
                           </div>
                         )}
 
-                        {/* Org + Assignees */}
-                        <div className="flex items-center gap-3 text-[10px] font-medium text-slate-500">
-                          <div className="flex items-center gap-1.5 min-w-0 flex-1">
-                            <Building2 size={11} className="text-slate-400 shrink-0" />
-                            <span className="truncate">{kpi.orgUnitName || 'N/A'}</span>
+                        {/* Org + Assignees — đã nằm ở header nhóm thì không lặp lại trên thẻ. */}
+                        {!unitMode && (
+                          <div className="flex items-center gap-3 text-[10px] font-medium text-slate-500">
+                            <div className="flex items-center gap-1.5 min-w-0 flex-1">
+                              <Building2 size={11} className="text-slate-400 shrink-0" />
+                              <span className="truncate">{kpi.orgUnitName || 'N/A'}</span>
+                            </div>
+                            {!personMode && (
+                              <div className="flex items-center gap-1.5 min-w-0 flex-1">
+                                <Users size={11} className="text-slate-400 shrink-0" />
+                                <span className="truncate">{formatAssigneeNames(kpi.assigneeNames)}</span>
+                              </div>
+                            )}
                           </div>
-                          <div className="flex items-center gap-1.5 min-w-0 flex-1">
-                            <Users size={11} className="text-slate-400 shrink-0" />
-                            <span className="truncate">{formatAssigneeNames(kpi.assigneeNames)}</span>
-                          </div>
-                        </div>
+                        )}
 
                         {/* Footer */}
                         <div className="flex items-center justify-between gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
@@ -819,56 +1053,25 @@ export default function KpiApprovalPage() {
           </div>
         )}
 
-        {/* Pagination Section */}
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-6 pt-4">
-          <div className="flex items-center gap-4 text-sm">
-            <p className="font-bold text-slate-400 uppercase tracking-widest text-[10px]">
-              Trang <span className="text-slate-900 dark:text-white">{page + 1}</span> / {totalPages}
-            </p>
-            <div className="h-4 w-px bg-slate-200 dark:bg-slate-800" />
-            <p className="font-bold text-slate-400 uppercase tracking-widest text-[10px]">
-              Tổng <span className="text-slate-900 dark:text-white">{totalElements}</span> mục
-            </p>
+        {/* Phân trang theo ĐƠN VỊ (hoặc theo NGƯỜI khi chỉ có một đơn vị); danh sách phẳng chỉ cần dòng đếm. */}
+        {items.length > 0 && (
+          <div className="bg-white/60 dark:bg-slate-900/60 backdrop-blur-md rounded-[28px] border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
+            {unitMode || personMode ? (
+              <Pagination
+                currentPage={groupPage}
+                totalPages={totalPages}
+                onPageChange={setPage}
+                totalElements={totalGroups}
+                size={GROUP_PAGE_SIZE}
+                itemLabel={unitMode ? 'đơn vị' : 'nhân sự'}
+              />
+            ) : (
+              <p className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                Tổng <span className="text-slate-900 dark:text-white">{totalElements}</span> mục
+              </p>
+            )}
           </div>
-
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => setPage(p => Math.max(0, p - 1))}
-              disabled={page === 0}
-              className="p-3 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 disabled:opacity-30 hover:border-indigo-500 hover:text-indigo-600 transition-all shadow-sm"
-            >
-              <ChevronLeft size={18} />
-            </button>
-            
-            <div className="flex items-center gap-1.5">
-              {Array.from({ length: Math.min(5, totalPages) }).map((_, i) => {
-                const pageNum = i
-                return (
-                  <button
-                    key={i}
-                    onClick={() => setPage(pageNum)}
-                    className={cn(
-                      "w-11 h-11 rounded-2xl text-xs font-black transition-all duration-300 shadow-sm border",
-                      page === pageNum 
-                        ? 'bg-indigo-600 border-indigo-600 text-white shadow-lg shadow-indigo-500/20 scale-110' 
-                        : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 hover:border-indigo-400'
-                    )}
-                  >
-                    {pageNum + 1}
-                  </button>
-                )
-              })}
-            </div>
-
-            <button
-              onClick={() => setPage(p => Math.min(totalPages - 1, p + 1))}
-              disabled={page >= totalPages - 1}
-              className="p-3 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 disabled:opacity-30 hover:border-indigo-500 hover:text-indigo-600 transition-all shadow-sm"
-            >
-              <ChevronRight size={18} />
-            </button>
-          </div>
-        </div>
+        )}
 
         <KpiReviewModal 
           open={!!reviewKpi} 

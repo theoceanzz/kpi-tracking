@@ -88,7 +88,16 @@ export const useRewardGrants = (params: {
           duration: 6000,
         })
       } else {
-        toast.success(`Đã thưởng ${grant.totalPoints} điểm cho ${grant.recipients.length} nhân viên`)
+        toast.success(
+          `Đã thưởng ${grant.totalPoints} điểm cho ${grant.recipients.length} nhân viên`,
+          {
+            // Nói rõ giấy khen đã tới tay nhân viên chưa: người trao vừa tick "kèm giấy
+            // khen" và cần biết việc đó có hiệu lực, thay vì phải mở lại đề nghị để kiểm.
+            description: grant.certificateEnabled
+              ? 'Giấy khen đã sẵn sàng — bấm nút chứng nhận trên dòng vừa tạo để in.'
+              : undefined,
+          }
+        )
       }
     },
     onError: (error: any) => toast.error(errMsg(error, 'Thưởng điểm thất bại')),

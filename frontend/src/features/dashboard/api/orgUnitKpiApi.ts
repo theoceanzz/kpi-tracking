@@ -234,7 +234,12 @@ export const orgUnitKpiApi = {
     return res.data.data
   },
 
-  getMemberRisks: async (params?: { orgUnitId?: string; filterOrgUnitId?: string; from?: string; to?: string; onlyApproved?: boolean; page?: number; size?: number; sortBy?: string; sortDir?: string; periodId?: string; periodIdTo?: string }) => {
+  /**
+   * Rủi ro theo thành viên. `everyKpi` = tính cả KPI gắn key result — bắt buộc với tổ chức bật
+   * OKR (gần như mọi KPI đều nằm dưới key result, bỏ qua chúng là ra bảng rỗng). Mặc định
+   * `false` giữ nguyên phạm vi cũ của bảng "Rủi ro thành viên" bên Phân tích.
+   */
+  getMemberRisks: async (params?: { orgUnitId?: string; filterOrgUnitId?: string; from?: string; to?: string; onlyApproved?: boolean; page?: number; size?: number; sortBy?: string; sortDir?: string; periodId?: string; periodIdTo?: string; everyKpi?: boolean }) => {
     const res = await axiosClient.get<{ data: MemberRiskPagedResponse }>('/stats/org-unit/kpis/risks/members', { params })
     return res.data.data
   },
@@ -244,8 +249,9 @@ export const orgUnitKpiApi = {
     return res.data.data
   },
 
-  getMemberOverdueKpis: async (userId: string, orgUnitId?: string) => {
-    const res = await axiosClient.get<{ data: OverdueKpiForMember[] }>(`/stats/org-unit/kpis/risks/members/${userId}/overdue-kpis`, { params: { orgUnitId } })
+  /** Chi tiết KPI trễ hạn của một thành viên — truyền cùng đợt/kỳ VÀ cùng `everyKpi` với bảng gọi nó để hai bên khớp số. */
+  getMemberOverdueKpis: async (userId: string, params?: { orgUnitId?: string; periodId?: string; periodIdTo?: string; everyKpi?: boolean }) => {
+    const res = await axiosClient.get<{ data: OverdueKpiForMember[] }>(`/stats/org-unit/kpis/risks/members/${userId}/overdue-kpis`, { params })
     return res.data.data
   },
 }

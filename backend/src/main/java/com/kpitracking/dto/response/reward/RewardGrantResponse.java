@@ -35,6 +35,18 @@ public class RewardGrantResponse {
     private Instant approvedAt;
     private String decisionNote;
 
+    /** Lần thưởng này có kèm giấy khen không — quyết định nút "In chứng nhận" có hiện. */
+    private Boolean certificateEnabled;
+
+    /**
+     * Null = dùng mẫu mặc định của công ty lúc in.
+     *
+     * <p>Chỉ trả id, không kèm tên mẫu: màn hình in vốn đã tải sẵn cả danh mục mẫu để
+     * vẽ, tra tên ở đó là tra trong bộ nhớ. Ghép tên ở đây sẽ thành một truy vấn phụ cho
+     * mỗi dòng trong danh sách đề nghị thưởng.
+     */
+    private UUID certificateTemplateId;
+
     private List<Recipient> recipients;
 
     private Instant createdAt;

@@ -140,6 +140,15 @@ app:
     ai-per-day: ${RATE_LIMIT_AI_DAY:200}
   mail:
     from: ${MAIL_FROM:noreply@keygo.com}
+  notification:
+    # Gom email thông báo theo người nhận. Cùng ý nghĩa với khối trong application.yaml,
+    # nhắc lại ở đây để người vận hành thấy được các núm điều chỉnh của production.
+    digest:
+      enabled: ${NOTIFICATION_DIGEST_ENABLED:true}
+      quiet-period: ${NOTIFICATION_DIGEST_QUIET_PERIOD:PT3M}
+      max-delay: ${NOTIFICATION_DIGEST_MAX_DELAY:PT20M}
+      scan-interval: ${NOTIFICATION_DIGEST_SCAN_INTERVAL:PT1M}
+      retention: ${NOTIFICATION_DIGEST_RETENTION:P7D}
 
 gemini:
   api:

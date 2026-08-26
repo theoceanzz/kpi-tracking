@@ -1,9 +1,32 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Loader2, X, Gift, AlertTriangle, Info, ShieldCheck } from 'lucide-react'
+import { Link } from 'react-router-dom'
+import { Loader2, X, Gift, AlertTriangle, Info, ShieldCheck, Award, ExternalLink } from 'lucide-react'
 import { useHasPermission } from '@/components/auth/PermissionGate'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import EmployeePicker, { type PickedEmployee } from './EmployeePicker'
 import { useMyBudget, useRewardGrants } from '../hooks/useRewards'
+import { useCertificateCatalog } from '../hooks/useCertificates'
 import type { RewardGrant } from '../types'
+
+/** Xem ghi chú z-index của `SelectContent` ở EmployeePicker — modal này cũng là z-[1000]. */
+const SELECT_CONTENT_Z = 'z-[1100]'
+
+/**
+ * "Để hệ thống chọn mẫu mặc định lúc in".
+ *
+ * <p>Phải là một chuỗi thật chứ không phải `''`: Radix giữ riêng chuỗi rỗng cho trạng
+ * thái "chưa chọn gì" và sẽ ném lỗi nếu `SelectItem` mang `value=""`.
+ */
+const USE_ORG_DEFAULT = '__default__'
+
+/** Tab soạn mẫu chứng nhận, để chỉ đường khi công ty chưa có mẫu nào. */
+const CERTIFICATE_TAB_URL = '/settings/tools?section=rewards&tab=certificates'
 
 interface AwardPointsModalProps {
   open: boolean
@@ -22,20 +45,46 @@ export default function AwardPointsModal({
   const [picked, setPicked] = useState<PickedEmployee[]>([])
   const [points, setPoints] = useState<number | ''>('')
   const [reason, setReason] = useState('')
+  const [withCertificate, setWithCertificate] = useState(false)
+  const [certificateTemplateId, setCertificateTemplateId] = useState('')
 
   const { data: budget } = useMyBudget(open)
   const { createGrant, isCreating } = useRewardGrants({ size: 1 })
+  const { data: certificateCatalog } = useCertificateCatalog(open)
+  const certificateTemplates = certificateCatalog?.templates ?? []
+  const orgDefaultTemplate = certificateTemplates.find((t) => t.isDefault)
+
+  /**
+   * Mẫu thực sự sẽ dùng khi người trao chưa động vào ô chọn.
+   *
+   * <p>Tính suy ra thay vì nhồi vào state bằng một effect: danh mục mẫu về sau lúc mở
+   * modal, mà effect đặt state theo dữ liệu vừa về thì ô chọn nhấp nháy một nhịp từ rỗng
+   * sang có giá trị.
+   *
+   * <p>Không có mẫu mặc định thì chọn sẵn mẫu ĐẦU TIÊN chứ không để trống: để trống nghĩa
+   * là lặng lẽ rơi về thiết kế dựng sẵn, trong khi công ty rõ ràng đã có mẫu riêng.
+   */
+  const effectiveTemplateId =
+    certificateTemplateId ||
+    (orgDefaultTemplate ? USE_ORG_DEFAULT : (certificateTemplates[0]?.id ?? ''))
 
   // Người có quyền này (cấp cao nhất) được duyệt thẳng, bỏ qua hạn mức — phải khớp
   // đúng luật ở RewardGrantService, nếu không giao diện sẽ hứa một đằng backend làm một nẻo.
   const { hasPermission } = useHasPermission()
   const canApproveOwn = hasPermission('REWARD:APPROVE_OWN')
+  // Chỉ người có quyền cấu hình thưởng mới soạn được mẫu — chỉ đường cho người không có
+  // quyền là dẫn họ tới một trang họ mở không nổi.
+  const canConfigureCertificates = hasPermission('REWARD:CONFIG')
 
   useEffect(() => {
     if (!open) return
     setPicked(presetUsers ?? [])
     setPoints('')
     setReason('')
+    // Mặc định TẮT ở mỗi lần mở: giấy khen phải là một quyết định có ý thức, nhớ lại
+    // lựa chọn của lần trước sẽ biến nó thành thứ phát ra theo quán tính.
+    setWithCertificate(false)
+    setCertificateTemplateId('')
   }, [open, presetUsers])
 
   const total = useMemo(
@@ -97,6 +146,14 @@ export default function AwardPointsModal({
       recipients: picked.map((p) => ({ userId: p.id, points: points as number })),
       reason: reason.trim(),
       pointsPerRecipient: points as number,
+      withCertificate,
+      // Không kèm giấy khen thì mẫu phải là null — backend có ràng buộc cấm lưu mẫu cho
+      // tờ giấy không tồn tại. Sentinel "dùng mẫu mặc định" cũng quy về null: mẫu mặc
+      // định được tra lại lúc IN, nên công ty đổi mẫu thì lượt chưa in đi theo mẫu mới.
+      certificateTemplateId:
+        withCertificate && effectiveTemplateId !== USE_ORG_DEFAULT
+          ? effectiveTemplateId || null
+          : null,
     })
     onSuccess?.(grant)
     onClose()
@@ -199,8 +256,89 @@ export default function AwardPointsModal({
               className="w-full rounded-lg border border-[var(--color-border)] bg-transparent px-3 py-2 text-sm"
             />
             <p className="mt-1 text-xs text-[var(--color-muted-foreground)]">
-              Lý do được hiện trong lịch sử điểm của nhân viên, nên viết cụ thể.
+              Lý do được hiện trong lịch sử điểm của nhân viên, nên viết cụ thể. Nếu kèm giấy
+              khen, lý do này cũng được in lên đó.
             </p>
+          </div>
+
+          {/*
+            Giấy khen là quyết định RIÊNG, không phải hệ quả của việc thưởng điểm: thưởng
+            10 điểm vì đi họp đúng giờ mà cũng phát ra tờ "Cống hiến xuất sắc" thì giấy
+            khen mất hết giá trị. Mặc định tắt, người trao phải chủ động bật.
+          */}
+          <div className="rounded-xl border border-[var(--color-border)] p-4">
+            <label className="flex cursor-pointer items-start gap-2.5">
+              <input
+                type="checkbox"
+                checked={withCertificate}
+                onChange={(e) => setWithCertificate(e.target.checked)}
+                className="mt-0.5 h-4 w-4 flex-shrink-0 accent-[var(--color-primary)]"
+              />
+              <span className="min-w-0">
+                <span className="flex items-center gap-1.5 text-sm font-medium">
+                  <Award size={15} className="text-amber-600" />
+                  Kèm giấy khen
+                </span>
+                <span className="mt-0.5 block text-xs text-[var(--color-muted-foreground)]">
+                  Nhân viên sẽ có một chứng nhận in được ở mục "Điểm thưởng của tôi". Không
+                  bật thì lần thưởng này chỉ cộng điểm.
+                </span>
+              </span>
+            </label>
+
+            {withCertificate && (
+              <div className="mt-3 border-t border-[var(--color-border)] pt-3">
+                <label className="mb-1.5 block text-sm font-medium">Mẫu chứng nhận</label>
+
+                {certificateTemplates.length === 0 ? (
+                  // Không dựng ô chọn rỗng: một dropdown chẳng có gì bên trong chỉ khiến
+                  // người dùng bấm vào rồi tự hỏi mình làm sai chỗ nào.
+                  <div className="rounded-lg bg-[var(--color-muted)] px-3 py-2.5 text-xs">
+                    <p className="text-[var(--color-muted-foreground)]">
+                      Công ty chưa có mẫu riêng nào — giấy khen sẽ in bằng thiết kế dựng sẵn.
+                    </p>
+                    {canConfigureCertificates && (
+                      <Link
+                        to={CERTIFICATE_TAB_URL}
+                        className="mt-1.5 inline-flex items-center gap-1 font-medium text-[var(--color-primary)] hover:underline"
+                      >
+                        Tạo mẫu riêng có logo và chữ ký
+                        <ExternalLink size={12} />
+                      </Link>
+                    )}
+                  </div>
+                ) : (
+                  <Select
+                    value={effectiveTemplateId}
+                    onValueChange={setCertificateTemplateId}
+                  >
+                    <SelectTrigger className="w-full rounded-lg border-[var(--color-border)] bg-[var(--color-background)]">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent className={SELECT_CONTENT_Z}>
+                      {/* Chỉ hiện khi công ty THỰC SỰ có mẫu mặc định — bằng không đây là
+                          một lựa chọn hứa hẹn thứ không tồn tại. */}
+                      {orgDefaultTemplate && (
+                        <SelectItem value={USE_ORG_DEFAULT}>
+                          Mẫu mặc định của công ty ({orgDefaultTemplate.name})
+                        </SelectItem>
+                      )}
+                      {certificateTemplates.map((t) => (
+                        <SelectItem key={t.id} value={t.id}>
+                          {t.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+
+                {certificateTemplates.length > 0 && (
+                  <p className="mt-1 text-xs text-[var(--color-muted-foreground)]">
+                    Bạn vẫn đổi được mẫu và khổ giấy ở màn hình in.
+                  </p>
+                )}
+              </div>
+            )}
           </div>
 
           {notice && (

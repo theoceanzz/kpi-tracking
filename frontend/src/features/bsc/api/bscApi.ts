@@ -2,8 +2,7 @@ import axiosInstance from '@/lib/axios'
 import type { ApiResponse } from '@/types/api'
 import {
   PerspectiveResponse, PerspectiveRequest, ImportBscResponse, FixedPerspectiveResponse, FixedPerspectiveUpdateRequest,
-  ScorecardResponse, ScorecardRequest, BscDashboardResponse, BscScoringMode,
-  StrategyMapResponse, ObjectiveRelationRequest, ObjectiveRelationResponse,
+  ScorecardResponse, ScorecardRequest, BscScoringMode,
 } from '../types'
 
 export const bscApi = {
@@ -66,9 +65,6 @@ export const bscApi = {
   updateScoringMode: (scorecardId: string, mode: BscScoringMode) =>
     axiosInstance.patch<ApiResponse<ScorecardResponse>>(`/bsc/scorecards/${scorecardId}/scoring-mode`, null, { params: { mode } }).then(r => r.data.data),
 
-  getDashboard: (scorecardId: string) =>
-    axiosInstance.get<ApiResponse<BscDashboardResponse>>(`/bsc/scorecards/${scorecardId}/dashboard`).then(r => r.data.data),
-
   importScorecards: (organizationId: string, file: File) => {
     const formData = new FormData()
     formData.append('file', file)
@@ -78,14 +74,4 @@ export const bscApi = {
       })
       .then(r => r.data.data)
   },
-
-  // ── Strategy Map (GĐ4b) ─────────────────────────────────────
-  getStrategyMap: (organizationId: string) =>
-    axiosInstance.get<ApiResponse<StrategyMapResponse>>(`/bsc/organization/${organizationId}/strategy-map`).then(r => r.data.data),
-
-  createRelation: (organizationId: string, data: ObjectiveRelationRequest) =>
-    axiosInstance.post<ApiResponse<ObjectiveRelationResponse>>(`/bsc/organization/${organizationId}/objective-relations`, data).then(r => r.data.data),
-
-  deleteRelation: (relationId: string) =>
-    axiosInstance.delete<ApiResponse<void>>(`/bsc/objective-relations/${relationId}`).then(r => r.data.data),
 }

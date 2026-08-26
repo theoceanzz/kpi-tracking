@@ -13,8 +13,6 @@ import { cn } from '@/lib/utils'
 import { OkrStatus, ObjectiveResponse, KeyResultResponse } from '../types'
 import { format } from 'date-fns'
 import { vi } from 'date-fns/locale'
-import PageTour from '@/components/common/PageTour'
-import { okrManagementSteps } from '@/components/common/tourSteps'
 import ObjectiveFormModal from '../components/ObjectiveFormModal'
 import KeyResultFormModal from '../components/KeyResultFormModal'
 import ImportOkrGuideModal from '../components/ImportOkrGuideModal'
@@ -116,7 +114,6 @@ export default function OkrManagementPage() {
 
   return (
     <div className="space-y-5">
-      <PageTour pageKey="okr-management" steps={okrManagementSteps} />
 
       <WorkspaceHeader
         id="tour-okr-header"

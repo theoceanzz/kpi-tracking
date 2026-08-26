@@ -16,7 +16,7 @@ import java.util.List;
 import java.util.UUID;
 
 /**
- * Thẻ điểm cân bằng (Scorecard) — "Chiến lược" gốc của một tổ chức trong một kỳ.
+ * Bộ tiêu chí cân bằng (Scorecard) — "Chiến lược" gốc của một tổ chức trong một kỳ.
  * Giữ các tham số chấm điểm theo kỳ (scoring_mode, empty_perspective_policy) để tái lập điểm lịch sử.
  */
 @Entity
@@ -35,9 +35,9 @@ public class BscScorecard {
     private Organization organization;
 
     /**
-     * Các phòng ban (org-unit) mà thẻ điểm này áp dụng. Danh sách RỖNG = thẻ điểm MẶC ĐỊNH toàn tổ chức.
-     * Khi tính điểm cho 1 nhân viên: dùng thẻ điểm chứa phòng ban họ → nếu không có thì đi ngược
-     * lên phòng ban cha → cuối cùng fallback thẻ điểm mặc định org (danh sách rỗng).
+     * Các phòng ban (org-unit) mà bộ tiêu chí này áp dụng. Danh sách RỖNG = bộ tiêu chí MẶC ĐỊNH toàn tổ chức.
+     * Khi tính điểm cho 1 nhân viên: dùng bộ tiêu chí chứa phòng ban họ → nếu không có thì đi ngược
+     * lên phòng ban cha → cuối cùng fallback bộ tiêu chí mặc định org (danh sách rỗng).
      */
     @ManyToMany(fetch = FetchType.LAZY)
     @JoinTable(

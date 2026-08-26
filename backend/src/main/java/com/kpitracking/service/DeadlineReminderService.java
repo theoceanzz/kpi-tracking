@@ -7,6 +7,7 @@ import com.kpitracking.enums.KpiStatus;
 import com.kpitracking.repository.KpiCriteriaRepository;
 import com.kpitracking.repository.KpiReminderRepository;
 import com.kpitracking.repository.KpiSubmissionRepository;
+import com.kpitracking.service.notification.NotificationDispatcher;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -24,9 +25,7 @@ public class DeadlineReminderService {
     private final KpiCriteriaRepository kpiCriteriaRepository;
     private final KpiSubmissionRepository kpiSubmissionRepository;
     private final KpiReminderRepository kpiReminderRepository;
-    private final NotificationService notificationService;
-    private final EmailService emailService;
-    private final OrgNotificationConfigService orgNotificationConfigService;
+    private final NotificationDispatcher dispatcher;
 
     // Run every hour: 0 0 * * * *
     // For testing/demo purposes, we could run it more often, but once an hour is reasonable for deadlines.
@@ -103,13 +102,11 @@ public class DeadlineReminderService {
 
         java.util.UUID orgId = kpi.getOrgUnit().getOrgHierarchyLevel().getOrganization().getId();
 
-        if (orgNotificationConfigService.isSystemEnabled(orgId, "reminder_deadline")) {
-            notificationService.createNotification(kpi.getOrgUnit(), user, title, message, "DEADLINE_REMINDER", kpi.getId());
-        }
-        if (orgNotificationConfigService.isEmailEnabled(orgId, "reminder_deadline")) {
-            emailService.sendEventNotificationEmail(orgId, "reminder_deadline", user.getEmail(),
-                    user.getFullName(), title, message);
-        }
+        // Lượt quét chạy mỗi giờ và duyệt qua TOÀN BỘ chỉ tiêu: một người đang trễ 8 chỉ
+        // tiêu từng nhận đúng 8 lá thư trong cùng một phút. Qua dispatcher thì cả 8 gộp
+        // thành một thư "8 chỉ tiêu sắp tới hạn".
+        dispatcher.dispatch(orgId, "reminder_deadline", user, kpi.getOrgUnit(),
+                title, message, "DEADLINE_REMINDER", kpi.getId());
 
         // 3. Record that we sent it
         KpiReminder reminder = KpiReminder.builder()

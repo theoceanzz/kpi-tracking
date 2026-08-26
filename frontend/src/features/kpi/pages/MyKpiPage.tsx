@@ -18,15 +18,13 @@ import { useKpiPeriods } from '../hooks/useKpiPeriods'
 import { useOrganization } from '@/features/orgunits/hooks/useOrganization'
 import { useObjectives } from '@/features/okr/hooks/useOkr'
 import { useEvaluations } from '@/features/evaluations/hooks/useEvaluations'
-import { useNavigate } from 'react-router-dom'
 import KpiDetailModal from '../components/KpiDetailModal'
 
 import KpiAdjustmentModal from '../components/KpiAdjustmentModal'
 import KpiDelegationModal from '../components/KpiDelegationModal'
+import EvaluationFormModal from '@/features/evaluations/components/EvaluationFormModal'
 import type { KpiCriteria } from '@/types/kpi'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import PageTour from '@/components/common/PageTour'
-import { myKpiSteps } from '@/components/common/tourSteps'
 import { ObjectiveResponse } from '@/features/okr/types'
 import { buildKpiRows } from '../utils/kpiTree'
 import { useScorecards } from '@/features/bsc/hooks/useBsc'
@@ -35,7 +33,6 @@ import { useOrgUnitTree } from '@/features/orgunits/hooks/useOrgUnitTree'
 
 
 export default function MyKpiPage() {
-  const navigate = useNavigate()
   const user = useAuthStore(s => s.user)
 
   const [search, setSearch] = useState('')
@@ -51,6 +48,10 @@ export default function MyKpiPage() {
   const [selectedObjectiveId, setSelectedObjectiveId] = useState<string>('ALL')
   const [selectedKeyResultId, setSelectedKeyResultId] = useState<string>('ALL')
   const [collapsedParents, setCollapsedParents] = useState<Set<string>>(new Set())
+  // Form tự đánh giá mở NGAY TẠI ĐÂY chứ không điều hướng sang mục "Đánh giá của tôi":
+  // mục đó gác bằng EVALUATION:VIEW_MY mà trưởng đơn vị không có, đi sang là rơi về
+  // lưới thẻ của trang Của tôi và form không bao giờ mở.
+  const [selfEvalPeriodId, setSelfEvalPeriodId] = useState<string | null>(null)
 
   const { data: periodsData } = useKpiPeriods({ organizationId: user?.memberships?.[0]?.organizationId })
   const organizationId = user?.memberships?.[0]?.organizationId
@@ -91,7 +92,7 @@ export default function MyKpiPage() {
     k.name.toLowerCase().includes(search.toLowerCase())
   )
 
-  // Trọng số THẬT mỗi KPI = form × %hạng_mục (từ thẻ điểm của đơn vị KPI) — như trang Quản lý KPI.
+  // Trọng số THẬT mỗi KPI = form × %hạng_mục (từ bộ tiêu chí của đơn vị KPI) — như trang Quản lý KPI.
   const enableBsc = org?.enableBsc
   const { data: bscScorecards } = useScorecards(enableBsc ? organizationId : undefined)
   const { data: orgUnitTreeData } = useOrgUnitTree()
@@ -157,7 +158,6 @@ export default function MyKpiPage() {
 
   return (
     <div className="max-w-[1440px] mx-auto p-4 md:p-6 space-y-6 animate-in fade-in duration-500 transition-all duration-500 ease-in-out">
-      <PageTour pageKey="my-kpi" steps={myKpiSteps} />
       
       {/* Refined Header */}
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm transition-all">
@@ -310,7 +310,7 @@ export default function MyKpiPage() {
 
                     {isPeriodDone && !hasEvaluation && (
                       <button
-                        onClick={() => navigate(`/me?section=evaluations&action=self-eval&periodId=${periodId}`)}
+                        onClick={() => setSelfEvalPeriodId(periodId)}
                         className="flex items-center justify-center gap-2 px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest transition-all shadow-lg shadow-amber-500/20 shrink-0"
                       >
                         <Star size={14} className="fill-current" /> Tiến hành Tự đánh giá
@@ -398,7 +398,7 @@ export default function MyKpiPage() {
 
                   {isPeriodDone && !hasEvaluation && (
                     <button
-                      onClick={() => navigate(`/me?section=evaluations&action=self-eval&periodId=${periodId}`)}
+                      onClick={() => setSelfEvalPeriodId(periodId)}
                       className="flex items-center justify-center gap-2 px-5 py-2.5 bg-amber-500 hover:bg-amber-600 text-white rounded-2xl text-[10px] font-black uppercase tracking-[1px] transition-all shadow-xl shadow-amber-500/20 shrink-0"
                     >
                       <Star size={16} className="fill-current" /> Tự đánh giá ngay
@@ -437,6 +437,11 @@ export default function MyKpiPage() {
       <KpiDetailModal open={!!viewKpi} onClose={() => setViewKpi(null)} kpi={viewKpi} />
       <KpiAdjustmentModal open={!!adjustKpi} onClose={() => setAdjustKpi(null)} kpi={adjustKpi} />
       {editKpi && <KpiDelegationModal open={!!editKpi} onClose={() => setEditKpi(null)} kpi={editKpi} />}
+      <EvaluationFormModal
+        open={!!selfEvalPeriodId}
+        onClose={() => setSelfEvalPeriodId(null)}
+        initialPeriodId={selfEvalPeriodId ?? undefined}
+      />
 
       {data && data.totalElements > 0 && (
         <div className="flex items-center justify-between pt-4 transition-all">

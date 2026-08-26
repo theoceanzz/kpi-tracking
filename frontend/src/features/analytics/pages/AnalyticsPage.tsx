@@ -1,7 +1,5 @@
 import { TrendingUp } from 'lucide-react'
 import SettingsSectionLayout from '@/components/common/SettingsSectionLayout'
-import PageTour from '@/components/common/PageTour'
-import { analyticsSteps } from '@/components/common/tourSteps'
 import { usePageTitle } from '@/features/organization/hooks/usePageTitle'
 import { useAuthStore } from '@/store/authStore'
 import { useOrganization } from '@/features/orgunits/hooks/useOrganization'
@@ -36,11 +34,13 @@ export default function AnalyticsPage() {
         <div className="space-y-3">
           <div className="h-6 w-44 bg-[var(--color-muted)] rounded-full" />
           <div className="h-9 w-36 bg-[var(--color-muted)] rounded-xl" />
-          <div className="h-4 w-80 bg-[var(--color-muted)] rounded-lg" />
+          <div className="h-4 w-full max-w-80 bg-[var(--color-muted)] rounded-lg" />
         </div>
-        <div className="space-y-3">
+        {/* Cùng ngưỡng cột với lưới thật trong SettingsSectionLayout — khung xương nhảy
+            khác số cột rồi mới đổ nội dung thì thấy rõ một nhịp giật. */}
+        <div className="@container space-y-3">
           <div className="h-3 w-24 bg-[var(--color-muted)] rounded-full" />
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+          <div className="grid gap-4 grid-cols-1 @lg:grid-cols-2 @3xl:grid-cols-3 @5xl:grid-cols-4">
             {[1, 2, 3].map(i => (
               <div key={i} className="h-36 bg-[var(--color-muted)] rounded-2xl" />
             ))}
@@ -52,7 +52,6 @@ export default function AnalyticsPage() {
 
   return (
     <>
-      <PageTour pageKey="analytics" steps={analyticsSteps} />
       <SettingsSectionLayout
         navId="analytics"
         title={pageTitle}

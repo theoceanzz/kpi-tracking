@@ -69,7 +69,11 @@ public final class EmailTemplateCatalog {
     public static final String CONTROL_LOCKED = "locked";
 
     private static final java.util.Set<String> LOCKED_CODES = java.util.Set.of(
-            "auth_reset_password", "auth_verify_email", "auth_account_details");
+            "auth_reset_password", "auth_verify_email", "auth_account_details",
+            // Thư gộp không phải một LOẠI thông báo mà là cái vỏ chở nhiều thông báo. Tắt nó
+            // sẽ chặn im lặng mọi email của người đang có từ 2 thông báo trở lên, trong khi
+            // công tắc của từng sự kiện vẫn báo "đang bật" — không lần ra được.
+            "notification_digest");
 
     public static final String GROUP_ACCOUNT = "Tài khoản & bảo mật";
     public static final String GROUP_KPI = "Thông báo KPI";
@@ -220,8 +224,12 @@ public final class EmailTemplateCatalog {
                 "Khi nhân viên nộp báo cáo kết quả cho một chỉ tiêu.");
         registerNotification("submission_reviewed", "Báo cáo KPI đã được duyệt",
                 "Khi báo cáo kết quả được cán bộ quản lý xem xét.");
+        registerNotification("submission_escalated", "Cấp dưới đã duyệt báo cáo",
+                "Báo lên cấp trên kế tiếp SAU KHI cấp duyệt trực tiếp đã chấp nhận báo cáo.");
         registerNotification("reminder_deadline", "Nhắc hạn nộp",
                 "Nhắc nhở tự động khi sắp tới hạn nộp báo cáo.");
+
+        registerDigest();
 
         // ───────────────────────── Ví tiền ─────────────────────────
         registerNotification("wallet_topup_paid", "Nạp tiền thành công",
@@ -268,6 +276,31 @@ public final class EmailTemplateCatalog {
                         "nguoi_gui", "Họ tên người gửi email",
                         "link_he_thong", "Đường dẫn tới hệ thống"),
                 List.of("ten_nhan_vien")));
+    }
+
+    /**
+     * Thư gộp: nhiều thông báo của cùng một người được dồn vào MỘT lá thư thay vì gửi rời
+     * từng cái. {@code danh_sach_thong_bao} là khối HTML do hệ thống dựng sẵn — tổ chức đổi
+     * được lời chào, lời kết và nút bấm quanh nó, nhưng không đổi được cách liệt kê.
+     */
+    private static void registerDigest() {
+        register(new TemplateDef(
+                "notification_digest", "Thư gộp thông báo",
+                "Gửi khi một người có nhiều thông báo cùng lúc — tất cả gộp trong một thư.",
+                GROUP_KPI, "Tổng hợp Thông báo",
+                "Bạn có {{so_thong_bao}} thông báo mới từ KeyGo",
+                "<p>Xin chào <strong>{{ten_nguoi_nhan}}</strong>,</p>"
+                + "<p>Bạn có <strong>{{so_thong_bao}}</strong> thông báo mới trong khoảng "
+                + "{{khoang_thoi_gian}}:</p>"
+                + "{{danh_sach_thong_bao}}"
+                + button("Mở hệ thống", "{{link_he_thong}}"),
+                vars(
+                        "ten_nguoi_nhan", "Họ tên người nhận",
+                        "so_thong_bao", "Tổng số thông báo được gộp",
+                        "khoang_thoi_gian", "Khoảng thời gian phát sinh các thông báo",
+                        "danh_sach_thong_bao", "Danh sách thông báo, nhóm theo loại sự kiện",
+                        "link_he_thong", "Đường dẫn tới hệ thống"),
+                List.of("danh_sach_thong_bao")));
     }
 
     /** Mail thông báo sự kiện: nội dung do hệ thống sinh, template chỉ bọc thêm lời chào/kết. */

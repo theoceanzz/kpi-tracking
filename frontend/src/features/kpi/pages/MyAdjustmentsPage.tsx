@@ -5,12 +5,13 @@ import StatusBadge from '@/components/common/StatusBadge'
 import { useMyAdjustments } from '../hooks/useMyAdjustments'
 import { cn, formatDateTime, formatNumber } from '@/lib/utils'
 import {
-  AlertCircle, ChevronRight, ChevronLeft, 
-  Target, Award, Clock, History
+  AlertCircle, ChevronRight, ChevronLeft,
+  Target, Award, Clock, History, Settings2
 } from 'lucide-react'
-import PageTour from '@/components/common/PageTour'
-import { myAdjustmentsSteps } from '@/components/common/tourSteps'
 import { usePageTitle } from '@/features/organization/hooks/usePageTitle'
+import AdjustmentKpiPickerModal from '../components/AdjustmentKpiPickerModal'
+import KpiAdjustmentModal from '../components/KpiAdjustmentModal'
+import type { KpiCriteria } from '@/types/kpi'
 
 const CountdownTimer = ({ createdAt, status }: { createdAt: string, status: string }) => {
   const [timeLeft, setTimeLeft] = useState<string>('')
@@ -62,6 +63,8 @@ const CountdownTimer = ({ createdAt, status }: { createdAt: string, status: stri
 export default function MyAdjustmentsPage() {
   const [page, setPage] = useState(0)
   const [pageSize] = useState(10)
+  const [pickerOpen, setPickerOpen] = useState(false)
+  const [adjustKpi, setAdjustKpi] = useState<KpiCriteria | null>(null)
 
   const { data, isLoading } = useMyAdjustments({
     page,
@@ -74,19 +77,28 @@ export default function MyAdjustmentsPage() {
 
   return (
     <div className="max-w-[1440px] mx-auto p-4 md:p-6 space-y-6 animate-in fade-in duration-500">
-      <PageTour pageKey="my-adjustments" steps={myAdjustmentsSteps} />
       
       {/* Header Section */}
       <div id="tour-myadj-header" className="bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm transition-all">
-        <div className="space-y-1">
-          <div className="flex items-center gap-2 text-indigo-600 dark:text-indigo-400">
-            <History size={20} />
-            <span className="text-xs font-black uppercase tracking-[2px]">Lịch sử điều chỉnh</span>
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2 text-indigo-600 dark:text-indigo-400">
+              <History size={20} />
+              <span className="text-xs font-black uppercase tracking-[2px]">Lịch sử điều chỉnh</span>
+            </div>
+            <h1 className="text-2xl md:text-3xl font-black tracking-tight text-slate-900 dark:text-white">
+              {pageTitle}
+            </h1>
+            <p className="text-sm text-slate-500 font-medium">Theo dõi trạng thái các yêu cầu thay đổi mục tiêu hoặc trọng số của bạn.</p>
           </div>
-          <h1 className="text-2xl md:text-3xl font-black tracking-tight text-slate-900 dark:text-white">
-            {pageTitle}
-          </h1>
-          <p className="text-sm text-slate-500 font-medium">Theo dõi trạng thái các yêu cầu thay đổi mục tiêu hoặc trọng số của bạn.</p>
+
+          <button
+            onClick={() => setPickerOpen(true)}
+            className="shrink-0 px-5 py-3 rounded-2xl text-sm font-black text-white bg-indigo-600 hover:bg-indigo-700 shadow-lg shadow-indigo-500/20 transition-all flex items-center justify-center gap-2"
+          >
+            <Settings2 size={18} />
+            Tạo yêu cầu điều chỉnh
+          </button>
         </div>
       </div>
 
@@ -97,7 +109,16 @@ export default function MyAdjustmentsPage() {
         <div id="tour-myadj-table" className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 p-20 shadow-sm">
           <EmptyState
             title="Chưa có yêu cầu nào"
-            description="Bạn chưa gửi yêu cầu điều chỉnh KPI nào. Các yêu cầu sẽ xuất hiện tại đây sau khi bạn thực hiện điều chỉnh từ danh sách KPI."
+            description="Bạn chưa gửi yêu cầu điều chỉnh KPI nào. Chọn một chỉ tiêu ngay tại đây để gửi yêu cầu đầu tiên."
+            action={
+              <button
+                onClick={() => setPickerOpen(true)}
+                className="px-5 py-3 rounded-2xl text-sm font-black text-white bg-indigo-600 hover:bg-indigo-700 shadow-lg shadow-indigo-500/20 transition-all flex items-center gap-2"
+              >
+                <Settings2 size={18} />
+                Chọn KPI để điều chỉnh
+              </button>
+            }
           />
         </div>
       ) : (
@@ -269,6 +290,17 @@ export default function MyAdjustmentsPage() {
           </div>
         </div>
       )}
+
+      {pickerOpen && (
+        <AdjustmentKpiPickerModal
+          onClose={() => setPickerOpen(false)}
+          onSelect={(kpi) => {
+            setPickerOpen(false)
+            setAdjustKpi(kpi)
+          }}
+        />
+      )}
+      <KpiAdjustmentModal open={!!adjustKpi} onClose={() => setAdjustKpi(null)} kpi={adjustKpi} />
     </div>
   )
 }

@@ -28,6 +28,10 @@ public class CycleUnitStatusResponse {
     private Double qualScore;
     private Double matrixRating;
 
+    /** Xếp loại đơn vị đã chốt trong kỳ (null khi chưa chốt) — bảng theo dõi không tính live. */
+    private String classification;
+    private String classificationColor;
+
     private String finalizedByName;
     private Instant finalizedAt;
 }

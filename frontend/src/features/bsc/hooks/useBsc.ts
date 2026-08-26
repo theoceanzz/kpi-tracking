@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { bscApi } from '../api/bscApi'
-import { PerspectiveRequest, ScorecardRequest, BscScoringMode, ObjectiveRelationRequest, FixedPerspectiveUpdateRequest } from '../types'
+import { PerspectiveRequest, ScorecardRequest, BscScoringMode, FixedPerspectiveUpdateRequest } from '../types'
 import { useAuthStore } from '@/store/authStore'
 import { toast } from 'sonner'
 
@@ -23,7 +23,7 @@ export function useFixedPerspectives(organizationId?: string) {
   })
 }
 
-/** Sửa hiển thị (tên/màu/thứ tự) 1 viễn cảnh cố định theo org. */
+/** Sửa hiển thị (tên/màu/thứ tự) 1 lĩnh vực cố định theo org. */
 export function useFixedPerspectiveMutations() {
   const queryClient = useQueryClient()
   const updateFixedPerspective = useMutation({
@@ -31,11 +31,10 @@ export function useFixedPerspectiveMutations() {
       bscApi.updateFixedPerspective(organizationId, code, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['bsc-fixed-perspectives'] })
-      queryClient.invalidateQueries({ queryKey: ['bsc-dashboard'] })
-      toast.success('Cập nhật viễn cảnh thành công')
+      toast.success('Cập nhật lĩnh vực thành công')
     },
     onError: (error: any) => {
-      toast.error(error.response?.data?.message || 'Cập nhật viễn cảnh thất bại')
+      toast.error(error.response?.data?.message || 'Cập nhật lĩnh vực thất bại')
     },
   })
   return { updateFixedPerspective }
@@ -109,67 +108,28 @@ export function useScorecards(organizationId?: string) {
   })
 }
 
-export function useBscDashboard(scorecardId?: string) {
-  return useQuery({
-    queryKey: ['bsc-dashboard', scorecardId],
-    queryFn: () => bscApi.getDashboard(scorecardId!),
-    enabled: !!scorecardId,
-  })
-}
-
-export function useStrategyMap(organizationId?: string) {
-  return useQuery({
-    queryKey: ['bsc-strategy-map', organizationId],
-    queryFn: () => bscApi.getStrategyMap(organizationId!),
-    enabled: !!organizationId,
-  })
-}
-
-export function useRelationMutations() {
-  const queryClient = useQueryClient()
-  const invalidate = () => queryClient.invalidateQueries({ queryKey: ['bsc-strategy-map'] })
-
-  const createRelation = useMutation({
-    mutationFn: ({ organizationId, data }: { organizationId: string; data: ObjectiveRelationRequest }) =>
-      bscApi.createRelation(organizationId, data),
-    onSuccess: () => { invalidate(); toast.success('Đã tạo quan hệ nhân-quả') },
-    onError: (e: any) => toast.error(e.response?.data?.message || 'Tạo quan hệ thất bại'),
-  })
-
-  const deleteRelation = useMutation({
-    mutationFn: (relationId: string) => bscApi.deleteRelation(relationId),
-    onSuccess: () => { invalidate(); toast.success('Đã xóa quan hệ') },
-    onError: (e: any) => toast.error(e.response?.data?.message || 'Xóa quan hệ thất bại'),
-  })
-
-  return { createRelation, deleteRelation }
-}
-
 export function useScorecardMutations() {
   const queryClient = useQueryClient()
-  const invalidate = () => {
-    queryClient.invalidateQueries({ queryKey: ['bsc-scorecards'] })
-    queryClient.invalidateQueries({ queryKey: ['bsc-dashboard'] })
-  }
+  const invalidate = () => queryClient.invalidateQueries({ queryKey: ['bsc-scorecards'] })
 
   const createScorecard = useMutation({
     mutationFn: ({ organizationId, data }: { organizationId: string; data: ScorecardRequest }) =>
       bscApi.createScorecard(organizationId, data),
-    onSuccess: () => { invalidate(); toast.success('Tạo thẻ điểm thành công') },
-    onError: (e: any) => toast.error(e.response?.data?.message || 'Tạo thẻ điểm thất bại'),
+    onSuccess: () => { invalidate(); toast.success('Tạo bộ tiêu chí thành công') },
+    onError: (e: any) => toast.error(e.response?.data?.message || 'Tạo bộ tiêu chí thất bại'),
   })
 
   const updateScorecard = useMutation({
     mutationFn: ({ scorecardId, data }: { scorecardId: string; data: ScorecardRequest }) =>
       bscApi.updateScorecard(scorecardId, data),
-    onSuccess: () => { invalidate(); toast.success('Cập nhật thẻ điểm thành công') },
-    onError: (e: any) => toast.error(e.response?.data?.message || 'Cập nhật thẻ điểm thất bại'),
+    onSuccess: () => { invalidate(); toast.success('Cập nhật bộ tiêu chí thành công') },
+    onError: (e: any) => toast.error(e.response?.data?.message || 'Cập nhật bộ tiêu chí thất bại'),
   })
 
   const deleteScorecard = useMutation({
     mutationFn: (scorecardId: string) => bscApi.deleteScorecard(scorecardId),
-    onSuccess: () => { invalidate(); toast.success('Xóa thẻ điểm thành công') },
-    onError: (e: any) => toast.error(e.response?.data?.message || 'Xóa thẻ điểm thất bại'),
+    onSuccess: () => { invalidate(); toast.success('Xóa bộ tiêu chí thành công') },
+    onError: (e: any) => toast.error(e.response?.data?.message || 'Xóa bộ tiêu chí thất bại'),
   })
 
   const updateScoringMode = useMutation({
@@ -184,7 +144,7 @@ export function useScorecardMutations() {
       bscApi.importScorecards(organizationId, file),
     onSuccess: (data) => {
       invalidate()
-      toast.success(`Import thành công ${data.successfulImports} thẻ điểm`)
+      toast.success(`Import thành công ${data.successfulImports} bộ tiêu chí`)
       if (data.errors && data.errors.length > 0) {
         toast.error(`${data.errors.length} lỗi: ${data.errors.slice(0, 3).join('; ')}`)
       }

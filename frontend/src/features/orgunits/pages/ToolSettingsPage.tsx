@@ -1,18 +1,17 @@
 import { Wrench } from 'lucide-react'
 import SettingsSectionLayout from '@/components/common/SettingsSectionLayout'
-import PageTour from '@/components/common/PageTour'
-import { toolConfigSteps } from '@/components/common/tourSteps'
 import { usePageTitle } from '@/features/organization/hooks/usePageTitle'
 import { useAuthStore } from '@/store/authStore'
 import { useOrganization } from '../hooks/useOrganization'
 import LoadingSkeleton from '@/components/common/LoadingSkeleton'
+import { usesPerformanceMatrix } from '@/lib/scoring'
 import { ModuleTogglesSection } from '../components/ModuleSections'
 import { PerformanceMatrixSection } from '../components/ScoringSections'
 import ScoringSettingsPage from './ScoringSettingsPage'
 import UnitClassificationConfigSection from '../components/UnitClassificationConfigSection'
 import KpiCyclePeriodPage from '@/features/kpi/pages/KpiCyclePeriodPage'
 import OkrManagementPage from '@/features/okr/pages/OkrManagementPage'
-import BscWorkspace from '@/features/bsc/components/BscWorkspace'
+import BscManagementPage from '@/features/bsc/pages/BscManagementPage'
 import RewardManagementPage from '@/features/rewards/pages/RewardManagementPage'
 import WalletAdminPage from '@/features/wallet/pages/WalletAdminPage'
 import AiQuotaPage from '@/features/organization/pages/AiQuotaPage'
@@ -28,7 +27,7 @@ export default function ToolSettingsPage() {
   const { data: org, isLoading } = useOrganization(orgId)
   const pageTitle = usePageTitle('setup-tools', 'Thiết lập công cụ')
 
-  // Thang định tính và ma trận chỉ có nghĩa khi tổ chức bật KPI hành vi.
+  // Thang định tính chỉ có nghĩa khi tổ chức bật KPI hành vi.
   const enableQualitative = org?.enableQualitative ?? false
 
   if (isLoading) return <div className="p-8 max-w-6xl mx-auto"><LoadingSkeleton rows={8} /></div>
@@ -36,7 +35,6 @@ export default function ToolSettingsPage() {
 
   return (
     <>
-      <PageTour pageKey="tool-config" steps={toolConfigSteps} />
       <SettingsSectionLayout
         navId="setup-tools"
         title={pageTitle}
@@ -59,16 +57,24 @@ export default function ToolSettingsPage() {
           },
           {
             id: 'scoring',
-            render: () => <ScoringSettingsPage org={org} enableQualitative={enableQualitative} />,
+            render: () => (
+              <ScoringSettingsPage
+                org={org}
+                enableQualitative={enableQualitative}
+                enableConduct={org.enableConduct ?? false}
+              />
+            ),
           },
-          { id: 'matrix', visible: enableQualitative, render: () => <PerformanceMatrixSection org={org} /> },
+          // Ma trận hiện khi tổ chức có ít nhất một trục: KPI định tính, hoặc chấm hạnh kiểm
+          // (điểm hạnh kiểm lấp trục còn trống nên tổ chức toàn KPI định lượng vẫn xếp loại được).
+          { id: 'matrix', visible: usesPerformanceMatrix(org), render: () => <PerformanceMatrixSection org={org} /> },
           { id: 'unit-class', render: () => <UnitClassificationConfigSection org={org} /> },
 
           // Sáu công cụ quản lý. Cờ tính năng lấy từ chính tổ chức, khớp với cách
           // sidebar vẫn ẩn/hiện chúng trước đây.
           { id: 'kpi-cycles', render: () => <KpiCyclePeriodPage /> },
           { id: 'okr', visible: org.enableOkr ?? false, render: () => <OkrManagementPage /> },
-          { id: 'bsc', visible: org.enableBsc ?? false, render: () => <BscWorkspace /> },
+          { id: 'bsc', visible: org.enableBsc ?? false, render: () => <BscManagementPage /> },
           { id: 'rewards', visible: org.enableReward ?? false, render: () => <RewardManagementPage /> },
           { id: 'wallet', visible: org.enableCashWallet ?? false, render: () => <WalletAdminPage /> },
           { id: 'ai-quota', visible: org.enableAi !== false, render: () => <AiQuotaPage /> },

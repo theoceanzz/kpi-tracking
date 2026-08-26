@@ -65,3 +65,21 @@ export function getScoringFunctions(org?: OrganizationResponse | null) {
 
   return { getScoreColor, getScoreBg, getScoreLabel, maxScore, levels }
 }
+
+/**
+ * Tổ chức có dùng MA TRẬN xếp loại hay không.
+ *
+ * Ma trận cần ĐỦ HAI TRỤC — điểm hành vi (hàng) và % hoàn thành KPI (cột) — mà một loại
+ * KPI chỉ cấp được MỘT trục. Tổ chức đủ hai trục khi:
+ * 1. bật KPI định tính ⇒ có cả hai loại KPI (định lượng ở cột, định tính ở hàng); hoặc
+ * 2. bật chấm hạnh kiểm ⇒ điểm hạnh kiểm bù đúng trục còn trống.
+ *
+ * Đây là cờ cấp TỔ CHỨC để mở/ẩn màn hình. Từng người trong từng đợt vẫn có thể thiếu
+ * trục (vd chỉ có KPI định tính mà tổ chức không chấm hạnh kiểm) — khi đó người đó không
+ * có xếp loại, chứ hệ thống không bịa trục để ép ra hạng.
+ */
+export function usesPerformanceMatrix(
+  org?: { enableQualitative?: boolean; enableConduct?: boolean } | null
+): boolean {
+  return !!(org?.enableQualitative || org?.enableConduct)
+}

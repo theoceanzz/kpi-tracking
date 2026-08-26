@@ -16,6 +16,7 @@ import com.kpitracking.repository.UserRepository;
 import com.kpitracking.repository.UserRoleOrgUnitRepository;
 import com.kpitracking.security.PermissionChecker;
 import com.kpitracking.service.email.EmailLayout;
+import com.kpitracking.service.notification.NotificationDispatcher;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
@@ -40,6 +41,7 @@ public class ReminderService {
     private final PermissionChecker permissionChecker;
     private final NotificationService notificationService;
     private final EmailService emailService;
+    private final NotificationDispatcher dispatcher;
 
     @Transactional
     public void sendReminder(UUID kpiCriteriaId, UUID userId) {
@@ -49,20 +51,17 @@ public class ReminderService {
         User employee = userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("Nhân viên", "id", userId));
 
-        // 1. Create In-app Notification
+        // Chuông hiện ngay, email xếp hàng chờ gộp: quản lý thường bấm nhắc lần lượt cho
+        // vài chỉ tiêu của cùng một người, gửi rời thì nhân viên nhận liền mấy lá thư
+        // trong một phút.
         String title = "Nhắc nhở nộp báo cáo KPI";
-        String message = String.format("Bạn có lời nhắc nộp báo cáo cho KPI: %s. Vui lòng hoàn thành sớm.", criteria.getName());
-        notificationService.createNotification(criteria.getOrgUnit(), employee, title, message, "KPI_REMINDER", kpiCriteriaId);
-
-        // 2. Send Email — qua template reminder_deadline để tổ chức tự chỉnh được nội dung.
-        String emailContent = String.format(
-                "Bạn nhận được lời nhắc nộp báo cáo cho chỉ tiêu KPI: <b>%s</b> thuộc đợt <b>%s</b>. " +
+        String message = String.format(
+                "Bạn nhận được lời nhắc nộp báo cáo cho chỉ tiêu KPI: %s thuộc đợt %s. " +
                 "Vui lòng đăng nhập hệ thống để cập nhật kết quả thực hiện.",
-                criteria.getName(), criteria.getKpiPeriod().getName()
-        );
+                criteria.getName(), criteria.getKpiPeriod().getName());
         java.util.UUID orgId = criteria.getOrgUnit().getOrgHierarchyLevel().getOrganization().getId();
-        emailService.sendEventNotificationEmail(orgId, "reminder_deadline", employee.getEmail(),
-                employee.getFullName(), "[KeyGo] Nhắc nhở nộp báo cáo KPI: " + criteria.getName(), emailContent);
+        dispatcher.dispatch(orgId, "reminder_deadline", employee, criteria.getOrgUnit(),
+                title, message, "KPI_REMINDER", kpiCriteriaId);
 
         // 3. Log Reminder
         KpiReminder reminder = KpiReminder.builder()

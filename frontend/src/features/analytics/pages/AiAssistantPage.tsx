@@ -21,6 +21,7 @@ import { Separator } from '@/components/ui/separator'
 import { Badge } from '@/components/ui/badge'
 import { formatDistanceToNow } from 'date-fns'
 import { vi } from 'date-fns/locale'
+import { useTourScope } from '@/hooks/useTourScope'
 
 function truncateWords(text: string, max = 15): string {
   const words = text.trim().split(/\s+/)
@@ -43,6 +44,8 @@ const WELCOME_MSG: Message = {
 }
 
 export default function AiAssistantPage() {
+  useTourScope('ai-assistant')
+
   const { user } = useAuthStore()
   const orgId = user?.memberships?.[0]?.organizationId
   const { data: org } = useOrganization(orgId)

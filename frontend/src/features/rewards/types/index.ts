@@ -83,6 +83,13 @@ export interface RewardGrant {
   approverName?: string | null
   approvedAt?: string | null
   decisionNote?: string | null
+  /**
+   * Lần thưởng này có kèm giấy khen không — do người trao quyết định lúc thưởng, KHÔNG
+   * suy ra từ số điểm. Nhân viên chỉ thấy chứng nhận của những lượt bật cờ này.
+   */
+  certificateEnabled: boolean
+  /** Null = dùng mẫu mặc định của công ty lúc in. */
+  certificateTemplateId?: string | null
   recipients: RewardGrantRecipient[]
   createdAt: string
   /** Chỉ có ở phản hồi lúc tạo — cho biết nên báo "đã thưởng" hay "chờ duyệt". */
@@ -93,6 +100,10 @@ export interface CreateRewardGrantRequest {
   recipients: { userId: string; points: number }[]
   reason: string
   pointsPerRecipient?: number
+  /** Kèm giấy khen. Không gửi = không kèm (backend fail closed). */
+  withCertificate?: boolean
+  /** Bỏ trống = dùng mẫu mặc định của công ty lúc in. */
+  certificateTemplateId?: string | null
 }
 
 export interface GrantDecisionRequest {
@@ -552,4 +563,90 @@ export interface RewardActivity {
   giftImageUrl?: string | null
   note?: string | null
   occurredAt: string
+}
+
+// ── Chứng nhận khen thưởng ───────────────────────────────────────
+
+export enum CertificateOrientation {
+  LANDSCAPE = 'LANDSCAPE',
+  PORTRAIT = 'PORTRAIT',
+}
+
+export enum CertificateTemplateStatus {
+  ACTIVE = 'ACTIVE',
+  INACTIVE = 'INACTIVE',
+}
+
+/**
+ * Một mẫu chứng nhận đã lưu của tổ chức.
+ *
+ * Ba trường màu để null nghĩa là "giữ màu gốc của kiểu thiết kế" — KHÔNG phải màu đen.
+ * Chỗ nào vẽ cũng phải đi qua `resolveDesign()` để hợp nhất với preset, đừng đọc thẳng.
+ */
+export interface CertificateTemplate {
+  id: string
+  name: string
+  /** Khoá kiểu thiết kế bên `components/certificate/presets.ts`. */
+  preset: string
+  orientation: CertificateOrientation
+  eyebrow?: string | null
+  title: string
+  subtitle?: string | null
+  body?: string | null
+  footnote?: string | null
+  signerName?: string | null
+  signerTitle?: string | null
+  signatureUrl?: string | null
+  /** Để trống = dùng logo tổ chức. */
+  logoUrl?: string | null
+  backgroundUrl?: string | null
+  accentColor?: string | null
+  inkColor?: string | null
+  surfaceColor?: string | null
+  showLogo: boolean
+  showPoints: boolean
+  showReason: boolean
+  isDefault: boolean
+  status: CertificateTemplateStatus
+  displayOrder: number
+  createdByName?: string | null
+  createdAt?: string
+  updatedAt?: string
+}
+
+export interface CertificateTemplateRequest {
+  name: string
+  preset: string
+  orientation?: CertificateOrientation
+  eyebrow?: string | null
+  title: string
+  subtitle?: string | null
+  body?: string | null
+  footnote?: string | null
+  signerName?: string | null
+  signerTitle?: string | null
+  signatureUrl?: string | null
+  logoUrl?: string | null
+  backgroundUrl?: string | null
+  accentColor?: string | null
+  inkColor?: string | null
+  surfaceColor?: string | null
+  showLogo?: boolean
+  showPoints?: boolean
+  showReason?: boolean
+  isDefault?: boolean
+  status?: CertificateTemplateStatus
+  displayOrder?: number
+}
+
+/**
+ * Mẫu + nhận diện tổ chức trong một lần gọi.
+ *
+ * Tên và logo công ty đi kèm ở đây vì nhân viên thường không có quyền đọc hồ sơ công ty,
+ * mà chứng nhận của họ vẫn phải in ra được với đầy đủ nhận diện.
+ */
+export interface CertificateCatalog {
+  organizationName: string
+  organizationLogoUrl?: string | null
+  templates: CertificateTemplate[]
 }

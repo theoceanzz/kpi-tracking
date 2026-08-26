@@ -14,14 +14,14 @@ import org.springframework.web.bind.annotation.*;
 import java.util.UUID;
 
 /**
- * Thống kê BSC scope theo cây đơn vị + kỳ — phục vụ tab "Viễn cảnh (BSC)" ở trang Thống kê.
+ * Thống kê BSC scope theo cây đơn vị + kỳ — phục vụ tab "Lĩnh vực (BSC)" ở trang Thống kê.
  * Chữ ký tham số theo cùng mẫu {@code OrgUnitKpiAnalyticsController}: dùng {@code AnalyticsPeriodHelper}
  * để giải nghĩa lựa chọn kỳ (một đợt / khoảng đợt) và xác thực đợt thuộc tổ chức của người dùng.
  */
 @RestController
 @RequestMapping("/api/v1/stats/bsc")
 @RequiredArgsConstructor
-@Tag(name = "BSC Analytics", description = "Thống kê BSC theo viễn cảnh (tab Viễn cảnh)")
+@Tag(name = "BSC Analytics", description = "Thống kê BSC theo lĩnh vực (tab Lĩnh vực)")
 public class BscAnalyticsController {
 
     private final BscAnalyticsService service;
@@ -29,7 +29,7 @@ public class BscAnalyticsController {
 
     @GetMapping("/balance")
     @PreAuthorize("hasAuthority('BSC:MANAGE')")
-    @Operation(summary = "Cân bằng viễn cảnh: thẻ chỉ số + radar theo phạm vi/kỳ")
+    @Operation(summary = "Cân bằng lĩnh vực: thẻ chỉ số + radar theo phạm vi/kỳ")
     public ResponseEntity<ApiResponse<BalanceResponse>> getBalance(
             @RequestParam(required = false) UUID orgUnitId,
             @RequestParam(required = false) UUID periodId,
@@ -40,7 +40,7 @@ public class BscAnalyticsController {
 
     @GetMapping("/trend")
     @PreAuthorize("hasAuthority('BSC:MANAGE')")
-    @Operation(summary = "Xu hướng điểm viễn cảnh theo kỳ (mỗi viễn cảnh một series)")
+    @Operation(summary = "Xu hướng điểm lĩnh vực theo kỳ (mỗi lĩnh vực một series)")
     public ResponseEntity<ApiResponse<TrendResponse>> getTrend(
             @RequestParam(required = false) UUID orgUnitId,
             @RequestParam(required = false) UUID periodId,
@@ -52,7 +52,7 @@ public class BscAnalyticsController {
 
     @GetMapping("/unit-comparison")
     @PreAuthorize("hasAuthority('BSC:MANAGE')")
-    @Operation(summary = "So sánh viễn cảnh giữa các đơn vị")
+    @Operation(summary = "So sánh lĩnh vực giữa các đơn vị")
     public ResponseEntity<ApiResponse<UnitComparisonResponse>> getUnitComparison(
             @RequestParam(required = false) UUID orgUnitId,
             @RequestParam(required = false) UUID periodId,
@@ -75,7 +75,7 @@ public class BscAnalyticsController {
 
     @GetMapping("/rankings")
     @PreAuthorize("hasAuthority('BSC:MANAGE')")
-    @Operation(summary = "Xếp hạng nhân sự theo điểm BSC + breakdown viễn cảnh")
+    @Operation(summary = "Xếp hạng nhân sự theo điểm BSC + breakdown lĩnh vực")
     public ResponseEntity<ApiResponse<RankingResponse>> getRankings(
             @RequestParam(required = false) UUID orgUnitId,
             @RequestParam(required = false) UUID periodId,

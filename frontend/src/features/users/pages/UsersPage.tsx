@@ -21,8 +21,6 @@ import { useAuthStore } from '@/store/authStore'
 import { usePageTitle } from '@/features/organization/hooks/usePageTitle'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { useRoles } from '@/features/organization/hooks/useRoles'
-import PageTour from '@/components/common/PageTour'
-import { usersSteps } from '@/components/common/tourSteps'
 
 export default function UsersPage() {
   const [keyword, setKeyword] = useState('')
@@ -228,7 +226,6 @@ export default function UsersPage() {
 
   return (
     <div className="space-y-6">
-      <PageTour pageKey="users" steps={usersSteps} />
       <div id="tour-users-header">
         <PageHeader
           title={pageTitle}

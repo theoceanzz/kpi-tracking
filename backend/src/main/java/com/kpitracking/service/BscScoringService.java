@@ -1,6 +1,5 @@
 package com.kpitracking.service;
 
-import com.kpitracking.dto.response.bsc.BscDashboardResponse;
 import com.kpitracking.dto.response.bsc.PerspectiveScoreResponse;
 import com.kpitracking.entity.BscPerspective;
 import com.kpitracking.entity.BscScorecard;
@@ -9,23 +8,18 @@ import com.kpitracking.entity.Evaluation;
 import com.kpitracking.entity.EvaluationPerspectiveScore;
 import com.kpitracking.entity.KpiCriteria;
 import com.kpitracking.entity.OrgUnit;
-import com.kpitracking.entity.User;
 import com.kpitracking.entity.UserRoleOrgUnit;
 import com.kpitracking.enums.BscEmptyPerspectivePolicy;
 import com.kpitracking.enums.BscScoringMode;
 import com.kpitracking.enums.KpiStatus;
-import com.kpitracking.exception.BusinessException;
-import com.kpitracking.exception.ResourceNotFoundException;
 import com.kpitracking.repository.BscPerspectiveRepository;
 import com.kpitracking.repository.BscScorecardRepository;
 import com.kpitracking.repository.EvaluationPerspectiveScoreRepository;
 import com.kpitracking.repository.KpiCriteriaRepository;
-import com.kpitracking.repository.UserRepository;
 import com.kpitracking.repository.UserRoleOrgUnitRepository;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Pageable;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -38,14 +32,14 @@ import java.util.UUID;
  * Tính điểm BSC.
  *
  * CÔNG THỨC 2 TẦNG (xem plan "Quy tắc chấm điểm"):
- *   Tầng trong  — điểm 1 viễn cảnh P của nhân viên E (trung bình có trọng số, chuẩn hóa trong viễn cảnh):
+ *   Tầng trong  — điểm 1 lĩnh vực P của nhân viên E (trung bình có trọng số, chuẩn hóa trong lĩnh vực):
  *                 raw_P(E) = Σ(kpi_ratio_i × weight_i) / Σ(weight_i) × 100, với i ∈ KPI của E thuộc P
- *                 = null nếu E không có KPI nào trong P (viễn cảnh rỗng)
+ *                 = null nếu E không có KPI nào trong P (lĩnh vực rỗng)
  *   Tầng ngoài  — điểm BSC cuối:
- *                 RENORMALIZE: bsc = Σ(W_P × raw_P) / Σ(W_P) chỉ tính viễn cảnh raw_P ≠ null
- *                 ZERO_FILL  : bsc = Σ(W_P × (raw_P ?? 0)) / Σ(W_P) toàn bộ viễn cảnh
+ *                 RENORMALIZE: bsc = Σ(W_P × raw_P) / Σ(W_P) chỉ tính lĩnh vực raw_P ≠ null
+ *                 ZERO_FILL  : bsc = Σ(W_P × (raw_P ?? 0)) / Σ(W_P) toàn bộ lĩnh vực
  *
- * Trọng số viễn cảnh (W_P) dùng chung toàn tổ chức mỗi kỳ (lấy từ scorecard);
+ * Trọng số lĩnh vực (W_P) dùng chung toàn tổ chức mỗi kỳ (lấy từ scorecard);
  * raw_P tính RIÊNG cho từng nhân viên từ KPI cá nhân của họ.
  *
  * kpi_ratio dùng KpiAchievementCalculator — CÙNG công thức với system_score để hai điểm so sánh được.
@@ -58,14 +52,12 @@ public class BscScoringService {
     private final KpiCriteriaRepository kpiCriteriaRepository;
     private final KpiAchievementCalculator achievementCalculator;
     private final BscPerspectiveRepository perspectiveRepository;
-    private final com.kpitracking.repository.BscFixedPerspectiveRepository fixedPerspectiveRepository;
     private final EvaluationPerspectiveScoreRepository perspectiveScoreRepository;
-    private final UserRepository userRepository;
     private final UserRoleOrgUnitRepository userRoleOrgUnitRepository;
 
     /**
-     * Trạng thái KPI được tính vào thẻ điểm/dashboard. CŨNG dùng bởi BscStrategyMapService
-     * để bản đồ chiến lược hiển thị đúng tập KPI mà dashboard chấm ⇒ số KPI hai nơi khớp nhau.
+     * Trạng thái KPI được tính vào bộ tiêu chí. CŨNG dùng bởi KpiCriteriaService ⇒ số KPI
+     * "được tính điểm" ở hai nơi khớp nhau.
      */
     public static final List<KpiStatus> ACTIVE_STATUSES = Arrays.asList(
             KpiStatus.APPROVED, KpiStatus.EDITED, KpiStatus.EDIT, KpiStatus.INACTIVE);
@@ -76,7 +68,7 @@ public class BscScoringService {
         private final Double bscScore;
         private final List<PerspectiveScoreResponse> perspectives;
         private final List<String> unassignedKpiNames;
-        /** Chế độ chấm điểm của thẻ điểm ĐÃ ÁP DỤNG cho nhân viên này (theo phòng ban). */
+        /** Chế độ chấm điểm của bộ tiêu chí ĐÃ ÁP DỤNG cho nhân viên này (theo phòng ban). */
         private final BscScoringMode scoringMode;
 
         BscUserScore(Double bscScore, List<PerspectiveScoreResponse> perspectives, List<String> unassignedKpiNames, BscScoringMode scoringMode) {
@@ -88,7 +80,7 @@ public class BscScoringService {
 
         public int getUnassignedKpiCount() { return unassignedKpiNames.size(); }
 
-        /** % KPI tính điểm đã được gán viễn cảnh (100 = đủ, < 100 = còn KPI chưa gán). */
+        /** % KPI tính điểm đã được gán lĩnh vực (100 = đủ, < 100 = còn KPI chưa gán). */
         public Double getCoveragePercent() {
             int assigned = perspectives.stream().mapToInt(p -> p.getKpiCount() != null ? p.getKpiCount() : 0).sum();
             int total = assigned + unassignedKpiNames.size();
@@ -102,11 +94,11 @@ public class BscScoringService {
 
     /**
      * Tính điểm BSC cho 1 nhân viên trong 1 kỳ.
-     * Trả về null nếu kỳ đó chưa có thẻ điểm (không có trọng số ⇒ không tính được điểm BSC).
+     * Trả về null nếu kỳ đó chưa có bộ tiêu chí (không có trọng số ⇒ không tính được điểm BSC).
      */
     @Transactional(readOnly = true)
     public BscUserScore computeForUser(UUID userId, UUID kpiPeriodId, UUID organizationId, boolean enableWaterfall) {
-        // Thẻ điểm áp dụng cho nhân viên = thẻ điểm phòng ban của họ → cha gần nhất → mặc định org.
+        // Bộ tiêu chí áp dụng cho nhân viên = bộ tiêu chí phòng ban của họ → cha gần nhất → mặc định org.
         BscScorecard scorecard = resolveScorecard(userOrgUnit(userId), organizationId, kpiPeriodId);
         if (scorecard == null) return null;
 
@@ -166,7 +158,7 @@ public class BscScoringService {
             bsc = presentWeight > 0 ? weightedSum / presentWeight : null;
         }
 
-        // KPI tính điểm BSC (cả định lượng lẫn định tính) nhưng CHƯA gán viễn cảnh → cảnh báo coverage
+        // KPI tính điểm BSC (cả định lượng lẫn định tính) nhưng CHƯA gán lĩnh vực → cảnh báo coverage
         List<String> unassigned = kpis.stream()
                 .filter(achievementCalculator::countsTowardBscScore)
                 .filter(k -> effectivePerspectiveId(k) == null)
@@ -176,7 +168,7 @@ public class BscScoringService {
         return new BscUserScore(bsc, breakdown, unassigned, scorecard.getScoringMode());
     }
 
-    /** Lưu breakdown điểm từng viễn cảnh của một đánh giá (ghi đè bản cũ). */
+    /** Lưu breakdown điểm từng lĩnh vực của một đánh giá (ghi đè bản cũ). */
     @Transactional
     public void persistBreakdown(Evaluation evaluation, BscUserScore score) {
         perspectiveScoreRepository.deleteByEvaluationId(evaluation.getId());
@@ -195,7 +187,7 @@ public class BscScoringService {
         }
     }
 
-    /** Đọc breakdown điểm viễn cảnh đã lưu của một đánh giá. */
+    /** Đọc breakdown điểm lĩnh vực đã lưu của một đánh giá. */
     @Transactional(readOnly = true)
     public List<PerspectiveScoreResponse> getBreakdown(UUID evaluationId) {
         return perspectiveScoreRepository.findByEvaluationId(evaluationId).stream()
@@ -216,8 +208,8 @@ public class BscScoringService {
     }
 
     /**
-     * Chế độ chấm điểm áp dụng cho MỘT phòng ban trong kỳ (null nếu không có thẻ điểm nào áp dụng).
-     * Dùng thẻ điểm của phòng ban → cha gần nhất → mặc định org (org_unit = NULL).
+     * Chế độ chấm điểm áp dụng cho MỘT phòng ban trong kỳ (null nếu không có bộ tiêu chí nào áp dụng).
+     * Dùng bộ tiêu chí của phòng ban → cha gần nhất → mặc định org (org_unit = NULL).
      */
     @Transactional(readOnly = true)
     public BscScoringMode getScoringMode(OrgUnit orgUnit, UUID organizationId, UUID kpiPeriodId) {
@@ -226,8 +218,8 @@ public class BscScoringService {
     }
 
     /**
-     * Tìm thẻ điểm HIỆU LỰC: bắt đầu từ phòng ban {@code orgUnit}, đi ngược lên các phòng ban cha
-     * lấy thẻ điểm gần nhất; nếu không có ⇒ dùng thẻ điểm MẶC ĐỊNH toàn org (org_unit = NULL).
+     * Tìm bộ tiêu chí HIỆU LỰC: bắt đầu từ phòng ban {@code orgUnit}, đi ngược lên các phòng ban cha
+     * lấy bộ tiêu chí gần nhất; nếu không có ⇒ dùng bộ tiêu chí MẶC ĐỊNH toàn org (org_unit = NULL).
      */
     @Transactional(readOnly = true)
     public BscScorecard resolveScorecard(OrgUnit orgUnit, UUID organizationId, UUID kpiPeriodId) {
@@ -262,31 +254,6 @@ public class BscScoringService {
         return p != null && p.getFixedPerspective() != null ? p.getFixedPerspective().getColor() : null;
     }
 
-    /** Map mã viễn cảnh cố định → cấu hình hiển thị (tên/màu) TÙY CHỈNH theo org. */
-    private java.util.Map<String, com.kpitracking.entity.BscFixedPerspectiveEntity> orgFixedMap(UUID organizationId) {
-        if (organizationId == null) return java.util.Map.of();
-        java.util.Map<String, com.kpitracking.entity.BscFixedPerspectiveEntity> map = new java.util.HashMap<>();
-        for (com.kpitracking.entity.BscFixedPerspectiveEntity f :
-                fixedPerspectiveRepository.findByOrganizationIdOrderByDisplayOrderAsc(organizationId)) {
-            map.put(f.getCode(), f);
-        }
-        return map;
-    }
-
-    /** Tên viễn cảnh cố định: ưu tiên bản tùy chỉnh của org, thiếu thì lấy mặc định từ enum. */
-    private static String fixedName(BscPerspective p,
-            java.util.Map<String, com.kpitracking.entity.BscFixedPerspectiveEntity> orgFixed) {
-        if (p == null || p.getFixedPerspective() == null) return null;
-        com.kpitracking.entity.BscFixedPerspectiveEntity o = orgFixed.get(p.getFixedPerspective().name());
-        return o != null ? o.getName() : p.getFixedPerspective().getDisplayName();
-    }
-    private static String fixedColor(BscPerspective p,
-            java.util.Map<String, com.kpitracking.entity.BscFixedPerspectiveEntity> orgFixed) {
-        if (p == null || p.getFixedPerspective() == null) return null;
-        com.kpitracking.entity.BscFixedPerspectiveEntity o = orgFixed.get(p.getFixedPerspective().name());
-        return o != null ? o.getColor() : p.getFixedPerspective().getColor();
-    }
-
     /**
      * Điểm chính thức = bsc_score khi kỳ ở chế độ OFFICIAL và có điểm BSC; ngược lại giữ system_score.
      * Thuần chọn field — KHÔNG tính lại gì, nên đổi SHADOW↔OFFICIAL không cần recompute.
@@ -296,110 +263,11 @@ public class BscScoringService {
         return systemScore;
     }
 
-    // ============================================================
-    // Dashboard mức tổ chức (GĐ2)
-    // ============================================================
-
-    @Transactional(readOnly = true)
-    public BscDashboardResponse getDashboard(UUID scorecardId) {
-        BscScorecard scorecard = scorecardRepository.findById(scorecardId)
-                .orElseThrow(() -> new ResourceNotFoundException("Scorecard not found"));
-
-        // Chặn xem chéo tổ chức: BSC:VIEW chỉ cấp quyền loại, không ràng buộc scorecardId thuộc org nào.
-        UUID currentOrgId = currentUserOrgId();
-        if (currentOrgId != null && scorecard.getOrganization() != null
-                && !currentOrgId.equals(scorecard.getOrganization().getId())) {
-            throw new BusinessException("Thẻ điểm không thuộc tổ chức của bạn");
-        }
-
-        UUID periodId = scorecard.getKpiPeriod().getId();
-        List<KpiCriteria> kpis = kpiCriteriaRepository.findByKpiPeriodIdAndStatusIn(periodId, ACTIVE_STATUSES);
-        boolean enableWaterfall = Boolean.TRUE.equals(scorecard.getOrganization().getEnableWaterfall());
-        java.util.Map<String, com.kpitracking.entity.BscFixedPerspectiveEntity> orgFixed =
-                orgFixedMap(scorecard.getOrganization() != null ? scorecard.getOrganization().getId() : null);
-
-        List<PerspectiveScoreResponse> perspectiveScores = new ArrayList<>();
-        double weightedSum = 0.0, presentWeight = 0.0, totalWeight = 0.0;
-        boolean zeroFill = scorecard.getEmptyPerspectivePolicy() == BscEmptyPerspectivePolicy.ZERO_FILL;
-
-        for (BscScorecardPerspective sp : scorecard.getScorecardPerspectives()) {
-            UUID pid = sp.getPerspective().getId();
-            double weight = sp.getWeightPercentage() != null ? sp.getWeightPercentage() : 0.0;
-            totalWeight += weight;
-
-            double ratioWeightSum = 0.0, weightSum = 0.0;
-            int kpiCount = 0;
-            for (KpiCriteria kpi : kpis) {
-                if (!achievementCalculator.countsTowardBscScore(kpi)) continue;
-                UUID eff = effectivePerspectiveId(kpi);
-                if (eff == null || !eff.equals(pid)) continue;
-                kpiCount++;
-                // targetUserId = null ⇒ tính toàn bộ submission của KPI (mức tổ chức)
-                Double ratio = achievementCalculator.bscRatio(kpi, null, enableWaterfall);
-                if (ratio == null) continue;
-                ratioWeightSum += ratio * kpi.getWeight();
-                weightSum += kpi.getWeight();
-            }
-
-            Double achievement = weightSum > 0 ? (ratioWeightSum / weightSum) * 100.0 : null;
-            Double weightedScore = achievement != null ? (weight / 100.0) * achievement : null;
-            if (achievement != null) {
-                weightedSum += weight * achievement;
-                presentWeight += weight;
-            }
-
-            perspectiveScores.add(PerspectiveScoreResponse.builder()
-                    .perspectiveId(pid)
-                    .code(sp.getPerspective().getCode())
-                    .name(sp.getPerspective().getName())
-                    .color(sp.getPerspective().getColor())
-                    .fixedPerspective(fixedCode(sp.getPerspective()))
-                    .fixedPerspectiveName(fixedName(sp.getPerspective(), orgFixed))
-                    .fixedPerspectiveColor(fixedColor(sp.getPerspective(), orgFixed))
-                    .weightPercentage(weight)
-                    .kpiCount(kpiCount)
-                    .achievementPercent(achievement)
-                    .weightedScore(weightedScore)
-                    .build());
-        }
-
-        Double overall = zeroFill
-                ? (totalWeight > 0 ? weightedSum / totalWeight : null)
-                : (presentWeight > 0 ? weightedSum / presentWeight : null);
-
-        return BscDashboardResponse.builder()
-                .scorecardId(scorecard.getId())
-                .name(scorecard.getName())
-                .vision(scorecard.getVision())
-                .kpiPeriodId(periodId)
-                .kpiPeriodName(scorecard.getKpiPeriod().getName())
-                .orgUnitName(scorecard.getOrgUnits() == null || scorecard.getOrgUnits().isEmpty() ? null
-                        : scorecard.getOrgUnits().stream().map(OrgUnit::getName).collect(java.util.stream.Collectors.joining(", ")))
-                .scoringMode(scorecard.getScoringMode())
-                .overallScore(overall)
-                .perspectives(perspectiveScores)
-                .build();
-    }
-
     /**
-     * Viễn cảnh hiệu lực của KPI: ưu tiên gán TRỰC TIẾP trên KPI; nếu chưa có thì SUY từ
-     * viễn cảnh của Objective cha (qua KeyResult) — dùng chung logic với KpiCriteriaMapper.
+     * Lĩnh vực hiệu lực của KPI: ưu tiên gán TRỰC TIẾP trên KPI; nếu chưa có thì SUY từ
+     * lĩnh vực của Objective cha (qua KeyResult) — dùng chung logic với KpiCriteriaMapper.
      */
     private UUID effectivePerspectiveId(KpiCriteria kpi) {
         return com.kpitracking.util.BscPerspectiveResolver.effectivePerspectiveId(kpi);
-    }
-
-    /** Org của người dùng hiện tại (null nếu không xác định được — khi đó bỏ qua kiểm tra). */
-    private UUID currentUserOrgId() {
-        try {
-            String email = SecurityContextHolder.getContext().getAuthentication().getName();
-            User user = userRepository.findByEmail(email).orElse(null);
-            if (user == null) return null;
-            List<UserRoleOrgUnit> roles = userRoleOrgUnitRepository.findByUserId(user.getId());
-            if (roles.isEmpty()) return null;
-            return roles.get(0).getOrgUnit().getOrgHierarchyLevel().getOrganization().getId();
-        } catch (Exception e) {
-            return null;
-        }
     }
 }

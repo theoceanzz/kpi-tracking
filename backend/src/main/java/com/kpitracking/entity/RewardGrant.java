@@ -90,6 +90,28 @@ public class RewardGrant {
     @Column(name = "decision_note", columnDefinition = "TEXT")
     private String decisionNote;
 
+    /**
+     * Người trao có kèm giấy khen cho lần thưởng này không.
+     *
+     * <p>Là quyết định riêng, không suy ra từ số điểm hay trạng thái: thưởng 10 điểm vì
+     * đi họp đúng giờ mà cũng sinh ra tờ "Cống hiến xuất sắc" thì giấy khen mất giá trị.
+     * Nhân viên chỉ thấy chứng nhận của những lượt được bật cờ này.
+     */
+    @Column(name = "certificate_enabled", nullable = false)
+    @Builder.Default
+    private Boolean certificateEnabled = false;
+
+    /**
+     * Mẫu chứng nhận người trao đã chọn. Null = để hệ thống dùng mẫu mặc định của công ty
+     * lúc in — công ty đổi mẫu mặc định thì các lượt chưa in đi theo mẫu mới.
+     *
+     * <p>Giữ id thay vì đối tượng: mẫu bị xoá mềm vẫn còn dòng trong bảng nên
+     * {@code @ManyToOne} sẽ nạp ra một thực thể bị {@code @SQLRestriction} chặn và ném lỗi
+     * giữa lúc dựng phản hồi. Tầng hiển thị tra không ra mẫu thì tự lùi về mẫu mặc định.
+     */
+    @Column(name = "certificate_template_id")
+    private UUID certificateTemplateId;
+
     @OneToMany(mappedBy = "grant", cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default
     private List<RewardGrantItem> items = new ArrayList<>();

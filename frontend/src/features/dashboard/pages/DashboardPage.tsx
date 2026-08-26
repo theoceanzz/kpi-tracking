@@ -1,12 +1,10 @@
 import { useHasPermission } from '@/components/auth/PermissionGate'
-import DirectorDashboard from './DirectorDashboard'
-import HeadDashboard from './HeadDashboard'
-import DeputyDashboard from './DeputyDashboard'
-import StaffDashboard from './StaffDashboard'
 import { useSearchParams, Navigate } from 'react-router-dom'
 import { useAuthStore } from '@/store/authStore'
 import { cn } from '@/lib/utils'
 import { Building2, UserCircle } from 'lucide-react'
+import type { DashboardScope } from '../api/dashboardLayoutApi'
+import RoleDashboard from './RoleDashboard'
 
 const DashboardPage = () => {
   const { hasPermission } = useHasPermission()
@@ -41,27 +39,34 @@ const DashboardPage = () => {
 
   const isStaffView = view === 'staff' && canViewOwn
 
-  const dashboard = (() => {
-    // If explicitly requested 'staff' view and has staff permissions
-    if (isStaffView) return <StaffDashboard />
+  /**
+   * Vai trò chỉ còn quyết định BỐ CỤC nào được nạp (mỗi vai một bản ghi riêng ở
+   * `user_dashboard_layouts`) và widget cấp đơn vị có hiện hay không — cả bốn dùng chung
+   * một trang, xem {@link RoleDashboard}.
+   */
+  const scope = ((): DashboardScope | null => {
+    // Đang bật công tắc "Dashboard cá nhân" và có quyền xem KPI của mình
+    if (isStaffView) return 'STAFF'
 
-    // 1. Director & Management Level
-    if (hasPermission(['ORG:VIEW', 'USER:VIEW', 'ROLE:VIEW'], true)) return <DirectorDashboard />
+    // 1. Giám đốc & cấp điều hành
+    if (hasPermission(['ORG:VIEW', 'USER:VIEW', 'ROLE:VIEW'], true)) return 'DIRECTOR'
 
     // 2. Phó đơn vị — xét TRƯỚC trưởng đơn vị vì quyền của hai vai gần như trùng nhau
-    if (isDeputy) return <DeputyDashboard />
+    if (isDeputy) return 'DEPUTY'
 
-    // 3. Department Head / Manager Level
-    if (hasPermission(['SUBMISSION:REVIEW', 'USER:VIEW_LIST'])) return <HeadDashboard />
+    // 3. Trưởng đơn vị / quản lý
+    if (hasPermission(['SUBMISSION:REVIEW', 'USER:VIEW_LIST'])) return 'HEAD'
 
-    // 4. Staff Level (Default if no manager perms)
-    if (canViewOwn) return <StaffDashboard />
+    // 4. Nhân viên (mặc định khi không có quyền quản lý nào)
+    if (canViewOwn) return 'STAFF'
 
     return null
   })()
 
-  // Fallback to profile if no specific dashboard permission
-  if (!dashboard) return <Navigate to="/profile" replace />
+  // Không có quyền vào bảng nào thì về trang cá nhân
+  if (!scope) return <Navigate to="/profile" replace />
+
+  const dashboard = <RoleDashboard key={scope} scope={scope} />
 
   if (!showViewSwitch) return dashboard
 

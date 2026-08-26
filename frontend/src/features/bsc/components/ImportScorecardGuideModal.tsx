@@ -14,8 +14,8 @@ Quý 3/2026,,,,VAN_HANH,20,,,
 Quý 3/2026,,,,DAO_TAO,10,,,`
 
 const COLUMNS = [
-  { name: 'Period', required: true, desc: 'Tên kỳ KPI (dùng để tìm kỳ & gom nhóm thẻ điểm)', example: 'Quý 3/2026' },
-  { name: 'ScorecardName', required: true, desc: 'Tên thẻ điểm (ghi ở dòng đầu của mỗi kỳ)', example: 'Chiến lược Quý 3' },
+  { name: 'Period', required: true, desc: 'Tên kỳ KPI (dùng để tìm kỳ & gom nhóm bộ tiêu chí)', example: 'Quý 3/2026' },
+  { name: 'ScorecardName', required: true, desc: 'Tên bộ tiêu chí (ghi ở dòng đầu của mỗi kỳ)', example: 'Chiến lược Quý 3' },
   { name: 'Vision', required: false, desc: 'Tuyên bố chiến lược', example: 'Dẫn đầu thị phần' },
   { name: 'OrgUnits', required: false, desc: 'Mã phòng ban áp dụng (nhiều mã cách nhau dấu phẩy, ghi ở dòng đầu của mỗi kỳ). Bỏ trống = toàn tổ chức. Có thể chọn ở bảng xem trước.', example: 'IT, MKT' },
   { name: 'PerspectiveCode', required: true, desc: 'Mã hạng mục (phải đã tạo trong tổ chức)', example: 'DOANH_THU' },
@@ -34,7 +34,7 @@ async function downloadTemplate(type: 'csv' | 'xlsx') {
     return
   }
   const workbook = new ExcelJS.Workbook()
-  const worksheet = workbook.addWorksheet('Thẻ điểm BSC')
+  const worksheet = workbook.addWorksheet('Bộ tiêu chí BSC')
   worksheet.columns = [
     { header: 'Period', key: 'Period', width: 18 },
     { header: 'ScorecardName', key: 'ScorecardName', width: 24 },
@@ -86,7 +86,7 @@ export default function ImportScorecardGuideModal({ open, onClose, onSelectFile 
           <div className="flex items-center gap-3">
             <div className="w-12 h-12 rounded-2xl bg-indigo-50 dark:bg-indigo-900/30 flex items-center justify-center"><FileSpreadsheet size={24} className="text-indigo-600" /></div>
             <div>
-              <h2 className="text-xl font-black text-slate-900 dark:text-white">Import Thẻ điểm BSC</h2>
+              <h2 className="text-xl font-black text-slate-900 dark:text-white">Import Bộ tiêu chí BSC</h2>
               <p className="text-sm font-medium text-slate-500">Hỗ trợ định dạng .xlsx</p>
             </div>
           </div>
@@ -157,7 +157,7 @@ export default function ImportScorecardGuideModal({ open, onClose, onSelectFile 
             <div className="space-y-2">
               <div className="flex items-start gap-3 p-3 rounded-xl bg-amber-50 dark:bg-amber-900/10 border border-amber-200/50 dark:border-amber-900/30">
                 <Info size={16} className="text-amber-600 mt-0.5 shrink-0" />
-                <p className="text-xs text-amber-800 dark:text-amber-300 leading-relaxed">Các dòng cùng một <strong>Period</strong> được gom thành một thẻ điểm; <strong>tổng trọng số mỗi kỳ phải = 100%</strong>. Kỳ đã có thẻ điểm sẽ được <strong>cập nhật</strong>.</p>
+                <p className="text-xs text-amber-800 dark:text-amber-300 leading-relaxed">Các dòng cùng một <strong>Period</strong> được gom thành một bộ tiêu chí; <strong>tổng trọng số mỗi kỳ phải = 100%</strong>. Kỳ đã có bộ tiêu chí sẽ được <strong>cập nhật</strong>.</p>
               </div>
               <div className="flex items-start gap-3 p-3 rounded-xl bg-emerald-50 dark:bg-emerald-900/10 border border-emerald-200/50 dark:border-emerald-900/30">
                 <CheckCircle2 size={16} className="text-emerald-600 mt-0.5 shrink-0" />

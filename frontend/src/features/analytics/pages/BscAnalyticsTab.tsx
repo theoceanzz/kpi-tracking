@@ -71,7 +71,7 @@ function EmptyState({ children }: { children: React.ReactNode }) {
 }
 
 export default function BscAnalyticsTab() {
-  const { periodId, periodIdTo, groupBy, controls } = useAnalyticsDateFilter({ selectClassName: 'h-9' })
+  const { periodId, periodIdTo, groupBy, controls } = useAnalyticsDateFilter({ selectClassName: 'h-10' })
   const [selectedUnitId, setSelectedUnitId] = useState<string | undefined>(undefined)
   const [vsLevel, setVsLevel] = useState<'UNIT' | 'MEMBER'>('UNIT')
   const [rankPage, setRankPage] = useState(0)
@@ -130,33 +130,35 @@ export default function BscAnalyticsTab() {
         </div>
       </div>
 
-      {/* Filter bar */}
-      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 shadow-sm">
-        <div className="flex flex-col lg:flex-row lg:items-center gap-4 justify-between">
-          <div className="flex items-center gap-2 text-slate-500">
-            <div className="p-2 rounded-lg bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400"><Filter size={18} /></div>
-            <div>
-              <p className="font-bold text-slate-900 dark:text-white text-base">Bộ lọc hạng mục</p>
-              <p className="text-xs text-slate-500 font-medium mt-0.5">Điểm lấy từ đánh giá đã lưu, đồng bộ mọi biểu đồ bên dưới</p>
-            </div>
+      {/* Bộ lọc — cùng khuôn với bộ lọc của tab Phân cấp: sticky, `flex-wrap` để hàng
+          điều khiển tự xuống dòng khi hẹp thay vì bóp tiêu đề. */}
+      <div className="sticky top-0 z-20 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl flex flex-wrap items-center gap-4 justify-between p-4 shadow-sm">
+        <div className="flex items-center gap-2 min-w-0">
+          <div className="p-2 rounded-lg text-indigo-600 dark:text-indigo-400 shrink-0 bg-indigo-50 dark:bg-indigo-900/30">
+            <Filter size={18} />
           </div>
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
-            <Select value={selectedUnitId ?? ALL_UNITS} onValueChange={v => setSelectedUnitId(v === ALL_UNITS ? undefined : v)}>
-              <SelectTrigger className="h-9 max-w-[240px] bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 rounded-lg text-xs font-semibold">
-                <Building2 size={14} className="text-indigo-500 mr-1 shrink-0" />
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={ALL_UNITS}>Tất cả đơn vị (mình quản lý)</SelectItem>
-                {flatUnits.map(u => (
-                  <SelectItem key={u.id} value={u.id}>
-                    <span style={{ paddingLeft: u.depth * 12 }}>{u.name}</span>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            {controls}
+          <div className="min-w-0">
+            <h2 className="font-bold text-slate-900 dark:text-white leading-tight text-base">Bộ lọc hạng mục</h2>
+            <p className="text-xs text-slate-500 font-medium mt-0.5">Lọc dữ liệu đồng bộ cho tất cả biểu đồ</p>
           </div>
+        </div>
+
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4 sm:gap-5 w-full lg:w-auto">
+          <Select value={selectedUnitId ?? ALL_UNITS} onValueChange={v => setSelectedUnitId(v === ALL_UNITS ? undefined : v)}>
+            <SelectTrigger className="h-10 sm:max-w-[240px] bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 rounded-lg text-xs font-semibold">
+              <Building2 size={14} className="text-indigo-500 mr-1 shrink-0" />
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={ALL_UNITS}>Tất cả đơn vị (mình quản lý)</SelectItem>
+              {flatUnits.map(u => (
+                <SelectItem key={u.id} value={u.id}>
+                  <span style={{ paddingLeft: u.depth * 12 }}>{u.name}</span>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          {controls}
         </div>
       </div>
 
@@ -164,7 +166,7 @@ export default function BscAnalyticsTab() {
         <Card>
           <EmptyState>
             Chưa có dữ liệu BSC cho phạm vi/kỳ đang chọn.<br />
-            Hãy tạo thẻ điểm cho kỳ và thực hiện đánh giá để sinh điểm hạng mục.
+            Hãy tạo bộ tiêu chí cho kỳ và thực hiện đánh giá để sinh điểm hạng mục.
           </EmptyState>
         </Card>
       )}

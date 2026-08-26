@@ -13,7 +13,7 @@ export default function RedirectToSection({
 }: {
   /** Đường dẫn đích, ví dụ `/settings/tools`. */
   to: string
-  /** Param cần đặt thêm, ví dụ `{ section: 'bsc', bsc: 'dashboard' }`. */
+  /** Param cần đặt thêm, ví dụ `{ section: 'kpi-cycles', tab: 'periods' }`. */
   params: Record<string, string>
 }) {
   const { search } = useLocation()

@@ -61,10 +61,10 @@ export default function BscExcelPreviewModal({ open, file, onClose, onImport, is
       const code = (row.Code || '').trim()
       if (!code) errors['Code'] = 'Mã là bắt buộc'
       else if (!/^[A-Za-z0-9_]+$/.test(code)) errors['Code'] = 'Mã chỉ gồm chữ, số, gạch dưới'
-      else if (FIXED_CODES.includes(code.toUpperCase())) errors['Code'] = 'Trùng mã viễn cảnh cố định'
+      else if (FIXED_CODES.includes(code.toUpperCase())) errors['Code'] = 'Trùng mã lĩnh vực cố định'
       else if ((codeCounts.get(code.toLowerCase()) || 0) > 1) errors['Code'] = 'Mã bị trùng trong tệp'
       if (!(row.Name || '').trim()) errors['Name'] = 'Tên là bắt buộc'
-      if (row.FixedPerspective && row.FixedPerspective.trim() && !FIXED_CODES.includes(row.FixedPerspective.trim().toUpperCase())) errors['FixedPerspective'] = 'Viễn cảnh không hợp lệ'
+      if (row.FixedPerspective && row.FixedPerspective.trim() && !FIXED_CODES.includes(row.FixedPerspective.trim().toUpperCase())) errors['FixedPerspective'] = 'Lĩnh vực không hợp lệ'
       if (row.Color && row.Color.trim() && !/^#([0-9A-Fa-f]{6})$/.test(row.Color.trim())) errors['Color'] = 'Màu #RRGGBB'
       const order = (row.DisplayOrder || '').toString().trim()
       if (order && isNaN(Number(order))) errors['DisplayOrder'] = 'Phải là số'
@@ -202,7 +202,7 @@ export default function BscExcelPreviewModal({ open, file, onClose, onImport, is
                         <th className="px-4 py-3 w-12 text-center">STT</th>
                         <th className="px-4 py-3 min-w-[160px]">Mã <span className="text-rose-500">*</span></th>
                         <th className="px-4 py-3 min-w-[200px]">Tên <span className="text-rose-500">*</span></th>
-                        <th className="px-4 py-3 min-w-[180px]">Viễn cảnh</th>
+                        <th className="px-4 py-3 min-w-[180px]">Lĩnh vực</th>
                         <th className="px-4 py-3 min-w-[260px]">Mô tả</th>
                         <th className="px-4 py-3 min-w-[180px]">Màu</th>
                         <th className="px-4 py-3 min-w-[100px]">Thứ tự</th>

@@ -137,45 +137,8 @@ export default function SummaryTab() {
     queryFn: () => orgUnitKpiApi.getComboChart({ from, to, onlyApproved, periodId, periodIdTo, groupBy }),
   })
 
-  // ── Detail table state ────────────────────────────────────────────────────
-  const [filterOrgUnitId, setFilterOrgUnitId] = useState<string | undefined>(undefined)
-  const [filterShared, setFilterShared] = useState<SharedFilter>('ALL')
-  const [sortField, setSortField] = useState<SortField | null>('period') // ưu tiên đợt/ngày gần nhất
-  const [sortDir, setSortDir] = useState<SortDir>('desc')
-  const [tablePage, setTablePage] = useState(0)
-
-  const { data: kpiPage, isLoading: isKpisLoading } = useQuery({
-    queryKey: ['orgUnitKpi', 'details', from, to, onlyApproved, periodId, periodIdTo, filterOrgUnitId, sortField, sortDir, filterShared, tablePage],
-    queryFn: () => orgUnitKpiApi.getDetailedKpis({
-      from, to, onlyApproved, periodId, periodIdTo,
-      filterOrgUnitId,
-      sortBy: sortField ?? undefined,
-      sortDir,
-      sharedType: filterShared === 'ALL' ? undefined : filterShared,
-      page: tablePage,
-      size: PAGE_SIZE,
-    }),
-  })
-
-  const toggleSort = (field: SortField) => {
-    if (sortField === field) setSortDir(d => d === 'asc' ? 'desc' : 'asc')
-    else { setSortField(field); setSortDir('desc') }
-    setTablePage(0)
-  }
-
-  const clearTableFilters = () => {
-    setFilterOrgUnitId(undefined)
-    setFilterShared('ALL')
-    setTablePage(0)
-  }
-
-  const hasTableFilters = !!(filterOrgUnitId || filterShared !== 'ALL')
-
   // ── Shared chart hover state (Top 5 sync) ────────────────────────────────
   const [hoveredUnit, setHoveredUnit] = useState<string | null>(null)
-
-  // ── Drawer state ──────────────────────────────────────────────────────────
-  const [selectedKpiId, setSelectedKpiId] = useState<string | null>(null)
 
   // ── Existing summary data (unchanged widgets) ─────────────────────────────
   const { data: mainData, isLoading: isMainLoading } = useSummaryStats(selectedUnitId)
@@ -189,92 +152,6 @@ export default function SummaryTab() {
   })
   const { isEditMode, handleTogglePin } = dash
 
-  // Nội dung bảng chi tiết KPI (không bọc card/tiêu đề — ChartWrapper lo phần đó).
-  const renderKpiDetailBody = () => (
-    <div className="flex-1 flex flex-col min-h-0 -mx-6 -mb-6">
-      {/* Bộ lọc */}
-      <div className="px-6 pb-4 border-b border-slate-100 dark:border-slate-800 flex flex-wrap items-center gap-3">
-        <Select
-          value={filterOrgUnitId ?? ALL_UNITS}
-          onValueChange={v => { setFilterOrgUnitId(v === ALL_UNITS ? undefined : v); setTablePage(0) }}
-        >
-          <SelectTrigger className="h-9 max-w-[220px] bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 rounded-lg text-xs font-semibold text-slate-700 dark:text-slate-300">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value={ALL_UNITS}>Tất cả đơn vị</SelectItem>
-            {kpiPage?.availableOrgUnits?.map(o => (
-              <UnitSelectItem key={o.code} o={o} />
-            ))}
-          </SelectContent>
-        </Select>
-
-        {hasTableFilters && (
-          <button onClick={clearTableFilters} className="flex items-center gap-1 h-9 px-3 rounded-lg text-xs font-bold text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors">
-            <X size={13} /> Xóa bộ lọc
-          </button>
-        )}
-      </div>
-
-      <div className="flex-1 overflow-auto custom-scrollbar min-h-0 flex flex-col">
-        <div className="hidden md:block overflow-x-auto custom-scrollbar">
-          <table className="w-full text-left">
-            <thead className="bg-slate-50 dark:bg-slate-800/50">
-              <tr className="text-xs font-black uppercase text-slate-500">
-                <th className="px-6 py-4">Tên KPI</th>
-                <th className="px-6 py-4">Đơn vị</th>
-                <th className="px-6 py-4 whitespace-nowrap">
-                  <SortHeader field="period" active={sortField} dir={sortDir} onToggle={toggleSort}>Đợt</SortHeader>
-                </th>
-                <th className="px-6 py-4 min-w-[220px]">
-                  <SortHeader field="progress" active={sortField} dir={sortDir} onToggle={toggleSort}>Tiến độ</SortHeader>
-                </th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-              {isKpisLoading
-                ? <TableLoadingRows cols={6} count={2} />
-                : kpiPage?.content?.map(kpi => (
-                    <OrgUnitKpiRow key={kpi.kpiId} kpi={kpi} onClick={() => setSelectedKpiId(kpi.kpiId)} onSelectKpi={setSelectedKpiId} />
-                  ))}
-              {!isKpisLoading && (kpiPage?.totalElements ?? 0) === 0 && (
-                <tr><td colSpan={6} className="text-center py-8 text-slate-400">Không có dữ liệu</td></tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-
-        <div className="md:hidden divide-y divide-slate-100 dark:divide-slate-800">
-          {isKpisLoading ? (
-            <div className="p-6 text-sm text-slate-400">Đang tải...</div>
-          ) : kpiPage?.content?.length ? (
-            kpiPage.content.map(kpi => (
-              <MobileOrgUnitKpiCard key={kpi.kpiId} kpi={kpi} onClick={() => setSelectedKpiId(kpi.kpiId)} />
-            ))
-          ) : (
-            <div className="text-center py-8 text-slate-400">Không có dữ liệu</div>
-          )}
-        </div>
-
-        <SparseTableFiller
-          message={!isKpisLoading && (kpiPage?.content?.length ?? 0) > 0 && (kpiPage?.content?.length ?? 0) < PAGE_SIZE
-            ? `Đã hiển thị tất cả ${kpiPage?.totalElements ?? 0} KPI`
-            : null}
-        />
-      </div>
-
-      {(kpiPage?.totalElements ?? 0) > 0 && (
-        <Pagination
-          currentPage={tablePage}
-          totalPages={kpiPage?.totalPages ?? 1}
-          onPageChange={setTablePage}
-          totalElements={kpiPage?.totalElements ?? 0}
-          size={PAGE_SIZE}
-          itemLabel="KPI"
-        />
-      )}
-    </div>
-  )
 
   const renderWidgetContent = (widget: SummaryWidget) => {
     switch (widget.type) {
@@ -283,16 +160,7 @@ export default function SummaryTab() {
           <AnalyticsComboChart data={chartData?.points || []} isLoading={isChartLoading} itemName="KPI đơn vị" fillHeight />
         </ChartWrapper>
       )
-      case 'KPI_DETAIL': return (
-        <ChartWrapper
-          title="Bảng chi tiết KPI đơn vị"
-          icon={<Target size={20} className="text-indigo-600" />}
-          widget={widget} onTogglePin={handleTogglePin} isEditMode={isEditMode}
-          extraHeaderContent={<span className="text-xs font-bold text-slate-400">{kpiPage?.totalElements ?? 0} KPI</span>}
-        >
-          {renderKpiDetailBody()}
-        </ChartWrapper>
-      )
+      case 'KPI_DETAIL': return <OrgUnitKpiDetailSection from={from} to={to} onlyApproved={onlyApproved} periodId={periodId} periodIdTo={periodIdTo} isEditMode={isEditMode} widget={widget} onTogglePin={handleTogglePin} />
       case 'UNIT_PERFORMANCE': return (
         <ChartWrapper title="Hiệu suất, tiến độ & tình hình nộp theo đơn vị" icon={<TrendingUp size={20} className="text-emerald-500" />} widget={widget} onTogglePin={handleTogglePin} isEditMode={isEditMode}>
           <UnitComparisonBarChart orgUnitId={selectedUnitId} from={from} to={to} onlyApproved={onlyApproved} periodId={periodId} periodIdTo={periodIdTo} hoveredUnit={hoveredUnit} onHoverUnit={setHoveredUnit} />
@@ -395,19 +263,173 @@ export default function SummaryTab() {
       <DashboardCustomizeChrome api={dash} renderWidget={renderWidgetContent} catalog={SUMMARY_CATALOG} ready={!!mainData} />
 
       {/* AiAssistantWidget đã chuyển sang AppLayout để hiện trên mọi trang */}
+    </div>
+  )
+}
 
-      {selectedKpiId && (
-        <OrgUnitKpiDrawer
-          kpiId={selectedKpiId}
-          onClose={() => setSelectedKpiId(null)}
-          globalFrom={from}
-          globalTo={to}
-          globalOnlyApproved={onlyApproved}
-          globalPeriodId={periodId}
-          globalPeriodIdTo={periodIdTo}
+
+/**
+ * Bảng chi tiết KPI đơn vị — tự quản bộ lọc/sắp xếp/phân trang/drawer.
+ *
+ * <p>Tách khỏi thân tab để trang chủ dùng lại được nguyên vẹn (`bare`): trước đây bảng này
+ * sống trong state của SummaryTab nên ở ngoài chỉ hiện được một lời nhắc "mở trang Thống kê".
+ * `from/to/...` không truyền thì mặc định là toàn bộ dữ liệu — trang chủ không có thanh lọc
+ * thời gian chung như tab thống kê.
+ */
+export function OrgUnitKpiDetailSection({
+  from, to, onlyApproved, periodId, periodIdTo, isEditMode, widget, onTogglePin, bare,
+}: {
+  from?: string; to?: string; onlyApproved?: boolean; periodId?: string; periodIdTo?: string
+  isEditMode?: boolean; widget?: SummaryWidget; onTogglePin?: (w: SummaryWidget) => void; bare?: boolean
+}) {
+  const [selectedKpiId, setSelectedKpiId] = useState<string | null>(null)
+  // ── Detail table state ────────────────────────────────────────────────────
+  const [filterOrgUnitId, setFilterOrgUnitId] = useState<string | undefined>(undefined)
+  const [filterShared, setFilterShared] = useState<SharedFilter>('ALL')
+  const [sortField, setSortField] = useState<SortField | null>('period') // ưu tiên đợt/ngày gần nhất
+  const [sortDir, setSortDir] = useState<SortDir>('desc')
+  const [tablePage, setTablePage] = useState(0)
+
+  const { data: kpiPage, isLoading: isKpisLoading } = useQuery({
+    queryKey: ['orgUnitKpi', 'details', from, to, onlyApproved, periodId, periodIdTo, filterOrgUnitId, sortField, sortDir, filterShared, tablePage],
+    queryFn: () => orgUnitKpiApi.getDetailedKpis({
+      from, to, onlyApproved, periodId, periodIdTo,
+      filterOrgUnitId,
+      sortBy: sortField ?? undefined,
+      sortDir,
+      sharedType: filterShared === 'ALL' ? undefined : filterShared,
+      page: tablePage,
+      size: PAGE_SIZE,
+    }),
+  })
+
+  const toggleSort = (field: SortField) => {
+    if (sortField === field) setSortDir(d => d === 'asc' ? 'desc' : 'asc')
+    else { setSortField(field); setSortDir('desc') }
+    setTablePage(0)
+  }
+
+  const clearTableFilters = () => {
+    setFilterOrgUnitId(undefined)
+    setFilterShared('ALL')
+    setTablePage(0)
+  }
+
+  const hasTableFilters = !!(filterOrgUnitId || filterShared !== 'ALL')
+
+  // Nội dung bảng chi tiết KPI (không bọc card/tiêu đề — ChartWrapper lo phần đó).
+  const body = (
+    <div className={cn("flex-1 flex flex-col min-h-0", bare ? "-mx-5 sm:-mx-6 -mb-5 sm:-mb-6" : "-mx-6 -mb-6")}>
+      {/* Bộ lọc */}
+      <div className="px-6 pb-4 border-b border-slate-100 dark:border-slate-800 flex flex-wrap items-center gap-3">
+        <Select
+          value={filterOrgUnitId ?? ALL_UNITS}
+          onValueChange={v => { setFilterOrgUnitId(v === ALL_UNITS ? undefined : v); setTablePage(0) }}
+        >
+          <SelectTrigger className="h-9 max-w-[220px] bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 rounded-lg text-xs font-semibold text-slate-700 dark:text-slate-300">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value={ALL_UNITS}>Tất cả đơn vị</SelectItem>
+            {kpiPage?.availableOrgUnits?.map(o => (
+              <UnitSelectItem key={o.code} o={o} />
+            ))}
+          </SelectContent>
+        </Select>
+
+        {hasTableFilters && (
+          <button onClick={clearTableFilters} className="flex items-center gap-1 h-9 px-3 rounded-lg text-xs font-bold text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors">
+            <X size={13} /> Xóa bộ lọc
+          </button>
+        )}
+      </div>
+
+      <div className="flex-1 overflow-auto custom-scrollbar min-h-0 flex flex-col">
+        <div className="hidden md:block overflow-x-auto custom-scrollbar">
+          <table className="w-full text-left">
+            <thead className="bg-slate-50 dark:bg-slate-800/50">
+              <tr className="text-xs font-black uppercase text-slate-500">
+                <th className="px-6 py-4">Tên KPI</th>
+                <th className="px-6 py-4">Đơn vị</th>
+                <th className="px-6 py-4 whitespace-nowrap">
+                  <SortHeader field="period" active={sortField} dir={sortDir} onToggle={toggleSort}>Đợt</SortHeader>
+                </th>
+                <th className="px-6 py-4 min-w-[220px]">
+                  <SortHeader field="progress" active={sortField} dir={sortDir} onToggle={toggleSort}>Tiến độ</SortHeader>
+                </th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+              {isKpisLoading
+                ? <TableLoadingRows cols={6} count={2} />
+                : kpiPage?.content?.map(kpi => (
+                    <OrgUnitKpiRow key={kpi.kpiId} kpi={kpi} onClick={() => setSelectedKpiId(kpi.kpiId)} onSelectKpi={setSelectedKpiId} />
+                  ))}
+              {!isKpisLoading && (kpiPage?.totalElements ?? 0) === 0 && (
+                <tr><td colSpan={6} className="text-center py-8 text-slate-400">Không có dữ liệu</td></tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+
+        <div className="md:hidden divide-y divide-slate-100 dark:divide-slate-800">
+          {isKpisLoading ? (
+            <div className="p-6 text-sm text-slate-400">Đang tải...</div>
+          ) : kpiPage?.content?.length ? (
+            kpiPage.content.map(kpi => (
+              <MobileOrgUnitKpiCard key={kpi.kpiId} kpi={kpi} onClick={() => setSelectedKpiId(kpi.kpiId)} />
+            ))
+          ) : (
+            <div className="text-center py-8 text-slate-400">Không có dữ liệu</div>
+          )}
+        </div>
+
+        <SparseTableFiller
+          message={!isKpisLoading && (kpiPage?.content?.length ?? 0) > 0 && (kpiPage?.content?.length ?? 0) < PAGE_SIZE
+            ? `Đã hiển thị tất cả ${kpiPage?.totalElements ?? 0} KPI`
+            : null}
+        />
+      </div>
+
+      {(kpiPage?.totalElements ?? 0) > 0 && (
+        <Pagination
+          currentPage={tablePage}
+          totalPages={kpiPage?.totalPages ?? 1}
+          onPageChange={setTablePage}
+          totalElements={kpiPage?.totalElements ?? 0}
+          size={PAGE_SIZE}
+          itemLabel="KPI"
         />
       )}
     </div>
+  )
+
+  const drawer = selectedKpiId ? (
+    <OrgUnitKpiDrawer
+      kpiId={selectedKpiId}
+      onClose={() => setSelectedKpiId(null)}
+      globalFrom={from}
+      globalTo={to}
+      globalOnlyApproved={onlyApproved}
+      globalPeriodId={periodId}
+      globalPeriodIdTo={periodIdTo}
+    />
+  ) : null
+
+  if (bare) return <>{body}{drawer}</>
+
+  return (
+    <>
+      <ChartWrapper
+        title="Bảng chi tiết KPI đơn vị"
+        icon={<Target size={20} className="text-indigo-600" />}
+        widget={widget!} onTogglePin={onTogglePin!} isEditMode={!!isEditMode}
+        extraHeaderContent={<span className="text-xs font-bold text-slate-400">{kpiPage?.totalElements ?? 0} KPI</span>}
+      >
+        {body}
+      </ChartWrapper>
+      {drawer}
+    </>
   )
 }
 
@@ -962,10 +984,11 @@ function MemberOverdueKpiRow({ kpi, colSpan }: { kpi: OverdueKpiForMember; colSp
   )
 }
 
-function MemberRiskExpandedRow({ userId, orgUnitId, colSpan }: { userId: string; orgUnitId?: string; colSpan: number }) {
+function MemberRiskExpandedRow({ userId, orgUnitId, periodId, periodIdTo, colSpan }: { userId: string; orgUnitId?: string; periodId?: string; periodIdTo?: string; colSpan: number }) {
+  // Cùng đợt/kỳ với dòng tổng phía trên, nếu không số KPI trễ bung ra sẽ không khớp con số đã đếm.
   const { data, isFetching } = useQuery({
-    queryKey: ['orgUnitKpi', 'risks', 'memberOverdue', userId, orgUnitId],
-    queryFn: () => orgUnitKpiApi.getMemberOverdueKpis(userId, orgUnitId),
+    queryKey: ['orgUnitKpi', 'risks', 'memberOverdue', userId, orgUnitId, periodId, periodIdTo],
+    queryFn: () => orgUnitKpiApi.getMemberOverdueKpis(userId, { orgUnitId, periodId, periodIdTo }),
   })
   const kpis = (data || []) as OverdueKpiForMember[]
   return (
@@ -1083,7 +1106,7 @@ export function WarningListSection({ orgUnitId, from, to, onlyApproved, periodId
                       </div>
                     </td>
                   </tr>
-                  {expandedMember === r.userId && <MemberRiskExpandedRow userId={r.userId} orgUnitId={orgUnitId} colSpan={6} />}
+                  {expandedMember === r.userId && <MemberRiskExpandedRow userId={r.userId} orgUnitId={orgUnitId} periodId={periodId} periodIdTo={periodIdTo} colSpan={6} />}
                 </React.Fragment>
               ))}
             </tbody>

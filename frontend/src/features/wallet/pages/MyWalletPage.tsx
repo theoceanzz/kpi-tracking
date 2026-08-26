@@ -1,5 +1,7 @@
 import { useState } from 'react'
 import { Coins, History, Plus, Receipt } from 'lucide-react'
+import { useTabParam } from '@/hooks/useTabParam'
+import { useTourTabScope } from '@/hooks/useTourScope'
 import PageHeader from '@/components/common/PageHeader'
 import Pagination from '@/components/common/Pagination'
 import EmptyState from '@/components/common/EmptyState'
@@ -20,7 +22,6 @@ import type { WalletConfig } from '../types'
 type TabKey = 'convert' | 'topups' | 'history'
 
 export default function MyWalletPage() {
-  const [tab, setTab] = useState<TabKey>('convert')
   const [page, setPage] = useState(0)
   const [topupOpen, setTopupOpen] = useState(false)
   const size = 20
@@ -47,21 +48,27 @@ export default function MyWalletPage() {
     bankConfigured: true,
   }
 
-  const tabs: { key: TabKey; label: string; icon: React.ReactNode; badge?: number }[] = [
-    { key: 'convert', label: 'Đổi sang điểm', icon: <Coins size={16} /> },
-    {
-      key: 'topups',
-      label: 'Đơn nạp tiền',
-      icon: <Receipt size={16} />,
-      badge: topupPage?.totalElements || undefined,
-    },
-    {
-      key: 'history',
-      label: 'Lịch sử ví',
-      icon: <History size={16} />,
-      badge: txPage?.totalElements || undefined,
-    },
-  ]
+  // Tab lưu ở URL (`?wallet=`) chứ không phải state cục bộ — xem ghi chú cùng loại ở
+  // MyRewardsPage. Tên tham số riêng để không đụng các mục khác trong trang "Của tôi".
+  const { activeTab, setActiveTab, visibleTabs } = useTabParam<TabKey>(
+    [
+      { key: 'convert', label: 'Đổi sang điểm', icon: Coins },
+      {
+        key: 'topups',
+        label: 'Đơn nạp tiền',
+        icon: Receipt,
+        badge: topupPage?.totalElements || undefined,
+      },
+      {
+        key: 'history',
+        label: 'Lịch sử ví',
+        icon: History,
+        badge: txPage?.totalElements || undefined,
+      },
+    ],
+    { param: 'wallet' }
+  )
+  useTourTabScope(activeTab)
 
   return (
     <div className="mx-auto max-w-7xl p-4 sm:p-6">
@@ -82,18 +89,19 @@ export default function MyWalletPage() {
 
       <CashBalanceCard wallet={wallet} loading={walletLoading} />
 
-      <div className="mb-6 mt-8 flex flex-wrap gap-1 sm:border-b sm:border-[var(--color-border)]">
-        {tabs.map((t) => (
+      {/* Neo cho hướng dẫn: hàng tab này tự vẽ chứ không đi qua WorkspaceHeader. */}
+      <div id="tour-local-tabs" className="mb-6 mt-8 flex flex-wrap gap-1 sm:border-b sm:border-[var(--color-border)]">
+        {visibleTabs.map((t) => (
           <button
             key={t.key}
-            onClick={() => setTab(t.key)}
+            onClick={() => setActiveTab(t.key)}
             className={`flex items-center gap-1.5 whitespace-nowrap border-b-2 px-3 py-2.5 text-sm font-medium transition-colors sm:-mb-px sm:gap-2 sm:px-4 sm:py-3 ${
-              tab === t.key
+              activeTab === t.key
                 ? 'border-[var(--color-primary)] text-[var(--color-primary)]'
                 : 'border-transparent text-[var(--color-muted-foreground)] hover:text-[var(--color-foreground)]'
             }`}
           >
-            {t.icon}
+            <t.icon size={16} />
             {t.label}
             {t.badge != null && (
               <span className="rounded-full bg-[var(--color-muted)] px-2 py-0.5 text-xs font-medium text-[var(--color-muted-foreground)]">
@@ -104,9 +112,9 @@ export default function MyWalletPage() {
         ))}
       </div>
 
-      {tab === 'convert' && <ConvertPointsCard wallet={wallet} />}
+      {activeTab === 'convert' && <ConvertPointsCard wallet={wallet} />}
 
-      {tab === 'topups' &&
+      {activeTab === 'topups' &&
         (topupsLoading ? (
           <LoadingSkeleton type="table" rows={3} />
         ) : topups.length === 0 ? (
@@ -120,7 +128,7 @@ export default function MyWalletPage() {
           <TopupHistoryTable data={topups} />
         ))}
 
-      {tab === 'history' &&
+      {activeTab === 'history' &&
         (txLoading ? (
           <LoadingSkeleton type="table" rows={4} />
         ) : transactions.length === 0 ? (

@@ -68,6 +68,9 @@ export interface CycleUnitStatus {
   managerScore: number | null
   qualScore: number | null
   matrixRating: number | null
+  /** Xếp loại đơn vị đã chốt trong kỳ — null khi đơn vị chưa chốt. */
+  classification: string | null
+  classificationColor: string | null
   finalizedByName: string | null
   finalizedAt: string | null
 }

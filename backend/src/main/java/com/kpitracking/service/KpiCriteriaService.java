@@ -684,11 +684,11 @@ public class KpiCriteriaService {
 
     /**
      * Khi tổ chức bật BSC: KPI có tham gia tính điểm BSC (cả định lượng lẫn định tính) BẮT BUỘC
-     * phải được gán viễn cảnh trước khi duyệt — để tới kỳ đánh giá mọi KPI đã duyệt đều có viễn cảnh
+     * phải được gán lĩnh vực trước khi duyệt — để tới kỳ đánh giá mọi KPI đã duyệt đều có lĩnh vực
      * (coverage = 100%). KPI thưởng / KPI cha phân rã / KPI huỷ không tính điểm nên không bắt buộc.
      *
-     * CHỈ áp dụng khi KỲ của KPI đã có thẻ điểm — kỳ chưa có thẻ điểm thì không có trọng số viễn cảnh
-     * ⇒ không sinh điểm BSC ⇒ đòi gán viễn cảnh là ép vô ích, chặn duyệt KPI vô cớ.
+     * CHỈ áp dụng khi KỲ của KPI đã có bộ tiêu chí — kỳ chưa có bộ tiêu chí thì không có trọng số lĩnh vực
+     * ⇒ không sinh điểm BSC ⇒ đòi gán lĩnh vực là ép vô ích, chặn duyệt KPI vô cớ.
      */
     /**
      * KPI ngược (càng thấp càng tốt): {@code minimumValue} là NGƯỠNG TỆ NHẤT chấp nhận được
@@ -718,16 +718,16 @@ public class KpiCriteriaService {
         if (kpi.getKpiPeriod() == null) return;
         if (!bscScorecardRepository.existsByOrganizationIdAndKpiPeriodId(org.getId(), kpi.getKpiPeriod().getId())) return;
         if (!achievementCalculator.countsTowardBscScore(kpi)) return;
-        // KPI có thể suy viễn cảnh từ Objective cha (OKR) ⇒ dùng viễn cảnh HIỆU LỰC, không đòi gán trực tiếp.
+        // KPI có thể suy lĩnh vực từ Objective cha (OKR) ⇒ dùng lĩnh vực HIỆU LỰC, không đòi gán trực tiếp.
         if (com.kpitracking.util.BscPerspectiveResolver.effectivePerspective(kpi) == null) {
-            throw new BusinessException("Kỳ '" + kpi.getKpiPeriod().getName() + "' đang áp dụng thẻ điểm BSC: "
+            throw new BusinessException("Kỳ '" + kpi.getKpiPeriod().getName() + "' đang áp dụng bộ tiêu chí BSC: "
                     + "vui lòng gán hạng mục cho chỉ tiêu '" + kpi.getName() + "' (hoặc gán cho Mục tiêu OKR cha) trước khi phê duyệt");
         }
     }
 
     /**
-     * Khi org bật BSC & kỳ có thẻ điểm: tổng trọng số các KPI (tính điểm) trong CÙNG một HẠNG MỤC
-     * — cùng phòng ban + cùng kỳ + cùng viễn cảnh hiệu lực — phải = 100% trước khi duyệt (xem ảnh 3).
+     * Khi org bật BSC & kỳ có bộ tiêu chí: tổng trọng số các KPI (tính điểm) trong CÙNG một HẠNG MỤC
+     * — cùng phòng ban + cùng kỳ + cùng lĩnh vực hiệu lực — phải = 100% trước khi duyệt (xem ảnh 3).
      * Đây là ràng buộc chặn CỨNG lúc duyệt; lúc tạo/sửa chỉ cảnh báo mềm (phía FE) để user xây dần.
      */
     private void requireCategoryWeightSum100OnApprove(KpiCriteria kpi) {
@@ -933,7 +933,7 @@ public class KpiCriteriaService {
             if (Boolean.TRUE.equals(kpi.getIsBonusKpi())) continue; // Bonus KPIs don't count toward the 100% requirement
             if (hasDecompositionChildren(kpi)) continue; // Parent is just a grouping label; its children carry the real weight
 
-            double weight = effectiveWeight(kpi); // trọng số THẬT = form × %hạng_mục (nếu có BSC + thẻ điểm)
+            double weight = effectiveWeight(kpi); // trọng số THẬT = form × %hạng_mục (nếu có BSC + bộ tiêu chí)
             if (kpi.getAssignees() == null || kpi.getAssignees().isEmpty()) {
                 unassignedWeight += weight;
             } else {
@@ -952,9 +952,9 @@ public class KpiCriteriaService {
     }
 
     /**
-     * Trọng số THẬT của 1 KPI = form × (%hạng_mục / 100), với %hạng_mục lấy từ thẻ điểm áp dụng cho
-     * đơn vị của KPI (resolve đơn vị → cha → mặc định). Không bật BSC / chưa gán hạng mục / chưa có thẻ điểm
-     * ⇒ giữ nguyên trọng số form (mô hình cũ). Hạng mục KHÔNG có trong thẻ điểm ⇒ 0 (không tính).
+     * Trọng số THẬT của 1 KPI = form × (%hạng_mục / 100), với %hạng_mục lấy từ bộ tiêu chí áp dụng cho
+     * đơn vị của KPI (resolve đơn vị → cha → mặc định). Không bật BSC / chưa gán hạng mục / chưa có bộ tiêu chí
+     * ⇒ giữ nguyên trọng số form (mô hình cũ). Hạng mục KHÔNG có trong bộ tiêu chí ⇒ 0 (không tính).
      */
     private double effectiveWeight(KpiCriteria kpi) {
         double raw = kpi.getWeight() != null ? kpi.getWeight() : 0.0;
@@ -974,7 +974,7 @@ public class KpiCriteriaService {
                 }
             }
         }
-        if (pct == null) return 0.0; // hạng mục không nằm trong thẻ điểm đơn vị ⇒ không tính
+        if (pct == null) return 0.0; // hạng mục không nằm trong bộ tiêu chí đơn vị ⇒ không tính
         return raw * pct / 100.0;
     }
 

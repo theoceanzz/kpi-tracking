@@ -1,6 +1,5 @@
 import { useMemo, type ComponentType } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { ListChecks } from 'lucide-react'
 import { startOfYear, endOfDay } from 'date-fns'
 import { statsApi } from '@/features/dashboard/api/statsApi'
 import { personalKpiApi } from '@/features/dashboard/api/personalKpiApi'
@@ -11,7 +10,26 @@ import AnalyticsComboChart from '../AnalyticsComboChart'
 import UnitComparisonBarChart from '../UnitComparisonBarChart'
 import MemberRoleChart from '../MemberRoleChart'
 import ObjectiveDetailsWidget from '../ObjectiveDetailsWidget'
-import { UnitRiskSection, WarningListSection, EmployeeRankingTableSection } from '../../pages/SummaryTab'
+import { UnitRiskSection, WarningListSection, EmployeeRankingTableSection, OrgUnitKpiDetailSection } from '../../pages/SummaryTab'
+import { MyKpiDetailSection } from '../../pages/MyStatsTab'
+import {
+  MyObjectiveDetailSection,
+} from '../../pages/MyObjectivesTab'
+import {
+  MyKpiSubmissionPieSection, MyKpiStatusDistSection,
+  MyKpiEvaluationHistorySection, MyKpiScoreTrendSection,
+} from '../../pages/MyStatsTab'
+import {
+  UnitKpiMetrics, MyKpiMetrics, MyObjectiveMetrics, SubordinateMetrics,
+} from './metricWidgets'
+import {
+  DrillUnitTreeWidget, DrillUnitSummaryWidget, DrillEmployeeTableWidget,
+  DrillUnitCompareWidget, DrillHeatmapWidget, DrillClassificationWidget, DrillMatrixWidget,
+} from './drillWidgets'
+import {
+  BscBalanceMetrics, BscRadarWidget, BscPerspectiveCards, BscTrendWidget,
+  BscUnitComparisonWidget, BscVsSystemWidget, BscCoverageWidget, BscRankingWidget,
+} from './bscWidgets'
 
 /**
  * Registry render biểu đồ ĐÃ GHIM ở trang chủ bằng ĐÚNG component + dữ liệu như trong tab thống kê,
@@ -123,18 +141,51 @@ function PinnedRankTable({ filter }: { filter?: PinnedFilter }) {
   return <Fill><EmployeeRankingTableSection bare from={from} to={to} onlyApproved={onlyApproved} periodId={periodId} periodIdTo={periodIdTo} /></Fill>
 }
 
-/**
- * Bảng chi tiết KPI đầy đủ (lọc/sắp xếp/phân trang/drawer) gắn chặt state của từng tab, không hợp
- * để nhồi vào thẻ ghim nhỏ. Hiển thị gợi ý mở trang Thống kê thay vì render trống.
- */
-function PinnedDetailPlaceholder() {
-  return (
-    <div className="h-full w-full flex flex-col items-center justify-center gap-2 text-center px-4 text-slate-400 dark:text-slate-500 select-none">
-      <ListChecks className="w-9 h-9 opacity-40" strokeWidth={1.5} />
-      <p className="text-xs font-semibold">Mở trang Thống kê để xem bảng chi tiết đầy đủ</p>
-    </div>
-  )
+/*
+  Ba bảng chi tiết dưới đây từng là một placeholder "mở trang Thống kê": chúng sống trong state
+  của từng tab nên không dựng lại được ở nơi khác. Nay mỗi bảng là một section tự quản
+  bộ lọc/sắp xếp/phân trang/drawer nên ghim ra ngoài là dùng được thật.
+*/
+function PinnedKpiDetail({ filter }: { filter?: PinnedFilter }) {
+  const { from, to, onlyApproved, periodId, periodIdTo } = useResolved(filter)
+  return <Fill><OrgUnitKpiDetailSection bare from={from} to={to} onlyApproved={onlyApproved} periodId={periodId} periodIdTo={periodIdTo} /></Fill>
 }
+
+function PinnedMyKpiDetail({ filter }: { filter?: PinnedFilter }) {
+  const { from, to, onlyApproved, periodId, periodIdTo } = useResolved(filter)
+  return <Fill><MyKpiDetailSection bare from={from} to={to} onlyApproved={onlyApproved} periodId={periodId} periodIdTo={periodIdTo} /></Fill>
+}
+
+function PinnedMyObjDetail({ filter }: { filter?: PinnedFilter }) {
+  const { from, to, onlyApproved, periodId, periodIdTo } = useResolved(filter)
+  return <Fill><MyObjectiveDetailSection bare from={from} to={to} onlyApproved={onlyApproved} periodId={periodId} periodIdTo={periodIdTo} /></Fill>
+}
+
+
+/* ── Bốn khối còn lại của tab "KPI của tôi" ─────────────────────────────── */
+function PinnedMyKpiSubmissions({ filter }: { filter?: PinnedFilter }) {
+  const { from, to, periodId, periodIdTo } = useResolved(filter)
+  return <Fill><MyKpiSubmissionPieSection bare from={from} to={to} periodId={periodId} periodIdTo={periodIdTo} /></Fill>
+}
+function PinnedMyKpiStatusDist({ filter }: { filter?: PinnedFilter }) {
+  const { from, to, periodId, periodIdTo } = useResolved(filter)
+  return <Fill><MyKpiStatusDistSection bare from={from} to={to} periodId={periodId} periodIdTo={periodIdTo} /></Fill>
+}
+function PinnedMyKpiEvalHistory({ filter }: { filter?: PinnedFilter }) {
+  const { from, to, periodId, periodIdTo } = useResolved(filter)
+  return <Fill><MyKpiEvaluationHistorySection bare from={from} to={to} periodId={periodId} periodIdTo={periodIdTo} /></Fill>
+}
+function PinnedMyKpiScoreTrend({ filter }: { filter?: PinnedFilter }) {
+  const { from, to, periodId, periodIdTo } = useResolved(filter)
+  return <Fill><MyKpiScoreTrendSection bare from={from} to={to} periodId={periodId} periodIdTo={periodIdTo} /></Fill>
+}
+
+/* ── Hàng thẻ chỉ số của bốn tab ────────────────────────────────────────── */
+const wrap = (C: ComponentType<{ filter?: PinnedFilter }>) =>
+  function Wrapped({ filter }: { filter?: PinnedFilter }) {
+    const resolved = useResolved(filter)
+    return <Fill><C filter={resolved} /></Fill>
+  }
 
 /**
  * `chartConfig.i` → component ghim (tự fetch). Chỉ chứa các widget của tab analytics; widget của
@@ -158,8 +209,39 @@ export const PINNED_REGISTRY: Record<string, ComponentType<{ filter?: PinnedFilt
   'unit-risk': PinnedUnitRisk,
   'warning-list': PinnedWarningList,
   'rank-table': PinnedRankTable,
-  // Bảng chi tiết KPI (Tổng quan / KPI của tôi / Mục tiêu của tôi) — placeholder gọn thay vì render trống
-  'kpi-detail': PinnedDetailPlaceholder,
-  'mykpi-detail': PinnedDetailPlaceholder,
-  'myobj-detail': PinnedDetailPlaceholder,
+  // Bảng chi tiết KPI (Tổng quan / KPI của tôi / Mục tiêu của tôi)
+  'kpi-detail': PinnedKpiDetail,
+  'mykpi-detail': PinnedMyKpiDetail,
+  'myobj-detail': PinnedMyObjDetail,
+
+  // Hàng thẻ chỉ số đứng đầu mỗi tab
+  'unit-kpi-metrics': wrap(UnitKpiMetrics),
+  'sub-metrics': wrap(SubordinateMetrics),
+  'mykpi-metrics': wrap(MyKpiMetrics),
+  'myobj-metrics': wrap(MyObjectiveMetrics),
+
+  // Phần còn lại của tab "KPI của tôi"
+  'mykpi-submissions': PinnedMyKpiSubmissions,
+  'mykpi-status-dist': PinnedMyKpiStatusDist,
+  'mykpi-eval-history': PinnedMyKpiEvalHistory,
+  'mykpi-eval-trend': PinnedMyKpiScoreTrend,
+
+  // Tab "Phân cấp"
+  'drill-tree': wrap(DrillUnitTreeWidget),
+  'drill-summary': wrap(DrillUnitSummaryWidget),
+  'drill-employees': wrap(DrillEmployeeTableWidget),
+  'drill-compare': wrap(DrillUnitCompareWidget),
+  'drill-heatmap': wrap(DrillHeatmapWidget),
+  'drill-classification': wrap(DrillClassificationWidget),
+  'drill-matrix': wrap(DrillMatrixWidget),
+
+  // Tab "Hạng mục (BSC)"
+  'bsc-metrics': wrap(BscBalanceMetrics),
+  'bsc-radar': wrap(BscRadarWidget),
+  'bsc-perspectives': wrap(BscPerspectiveCards),
+  'bsc-trend': wrap(BscTrendWidget),
+  'bsc-unit-comparison': wrap(BscUnitComparisonWidget),
+  'bsc-vs-system': wrap(BscVsSystemWidget),
+  'bsc-coverage': wrap(BscCoverageWidget),
+  'bsc-ranking': wrap(BscRankingWidget),
 }

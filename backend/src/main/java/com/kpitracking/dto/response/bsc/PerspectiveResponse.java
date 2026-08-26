@@ -16,10 +16,10 @@ public class PerspectiveResponse {
     private String icon;
     private Integer displayOrder;
     private BscPerspectiveStatus status;
-    /** Viễn cảnh cố định mà hạng mục thuộc về. */
+    /** Lĩnh vực cố định mà hạng mục thuộc về. */
     private BscFixedPerspective fixedPerspective;
-    /** Tên hiển thị của viễn cảnh cố định (VD "Tài chính") — tiện cho FE gộp nhóm. */
+    /** Tên hiển thị của lĩnh vực cố định (VD "Tài chính") — tiện cho FE gộp nhóm. */
     private String fixedPerspectiveName;
-    /** Màu của viễn cảnh cố định. */
+    /** Màu của lĩnh vực cố định. */
     private String fixedPerspectiveColor;
 }

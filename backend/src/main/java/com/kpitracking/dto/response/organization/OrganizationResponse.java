@@ -25,10 +25,20 @@ public class OrganizationResponse {
     private Boolean enableAi;
     private Boolean enableQualitative;
     private Boolean enableBsc;
+    /** Chấm hạnh kiểm theo bộ tiêu chí có trọng số. */
+    private Boolean enableConduct;
     private Boolean enableReward;
     private Boolean enableCashWallet;
     /** Số đồng đổi được 1 điểm. Giao diện dùng để hiện quy đổi mà không phải gọi thêm API cấu hình. */
     private Long pointExchangeRate;
     private Instant createdAt;
     private Instant updatedAt;
+
+    // ===== Hồ sơ doanh nghiệp =====
+    private String logoUrl;
+    private String coverUrl;
+    private String industry;
+    private String taxCode;
+    private Integer employeeCount;
+    private String description;
 }

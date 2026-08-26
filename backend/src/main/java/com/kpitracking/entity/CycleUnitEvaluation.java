@@ -56,6 +56,21 @@ public class CycleUnitEvaluation {
     @Column(name = "member_count")
     private Integer memberCount;
 
+    /**
+     * Xếp loại ĐƠN VỊ (áp luật xếp loại lên phân bố mức của thành viên trong kỳ), CHỤP LẠI lúc chốt.
+     * Không tính lại live vì luật xếp loại và đánh giá các đợt cũ đều có thể bị sửa sau khi chốt,
+     * làm đổi kết quả đã công bố.
+     */
+    @Column(name = "classification")
+    private String classification;
+
+    @Column(name = "classification_color")
+    private String classificationColor;
+
+    /** Tên hồ sơ luật đã áp lúc chốt (null = dùng preset). */
+    @Column(name = "classification_profile")
+    private String classificationProfile;
+
     @Column(name = "comment")
     private String comment;
 

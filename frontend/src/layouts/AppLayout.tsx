@@ -5,9 +5,12 @@ import { LogOut, Menu } from 'lucide-react'
 import NotificationBell from '@/features/notifications/components/NotificationBell'
 import ThemeCustomizer from './components/ThemeCustomizer'
 import OnboardingTour from '@/components/common/OnboardingTour'
+import TourHost from '@/components/common/TourHost'
+import TourHelpButton from '@/components/common/TourHelpButton'
 import AiAssistantWidget from '@/features/analytics/components/AiAssistantWidget'
 import HeaderBreadcrumb from '@/components/common/HeaderBreadcrumb'
 import CheckinReminderBanner from '@/features/rewards/components/CheckinReminderBanner'
+import { DashboardToolbarSlot } from '@/components/common/dashboard/DashboardToolbarSlot'
 import { useState, useEffect } from 'react'
 
 export default function AppLayout() {
@@ -30,8 +33,18 @@ export default function AppLayout() {
   }
 
   return (
-    <div className="flex h-screen overflow-hidden bg-[var(--color-background)]">
+    // `fixed inset-0` chứ không phải `h-screen`: khung app phải đúng bằng khung nhìn VÀ
+    // không đóng góp chiều cao nào cho tài liệu. `h-screen` là 100vh — trị số bỏ qua
+    // thanh cuộn ngang, nên chỉ cần một thứ bên trong làm tràn ngang là tài liệu cao hơn
+    // phần nhìn thấy được và trình duyệt vẽ THÊM một thanh cuộn nữa ở mép phải, chồng lên
+    // thanh cuộn thật của <main>. Ra khỏi luồng thì body không còn gì để cuộn, chỉ <main>
+    // cuộn — đúng một thanh.
+    // Không khoá `overflow` trên body để chữa: trang giới thiệu ở `/` nằm ngoài layout này
+    // và vẫn cần cuộn tài liệu bình thường.
+    <div className="fixed inset-0 flex overflow-hidden bg-[var(--color-background)]">
       <OnboardingTour />
+      {/* Một chỗ duy nhất chạy hướng dẫn cho mọi màn hình — xem TourHost. */}
+      <TourHost />
       {/* Chatbot nổi ở mọi trang. Ẩn trên /ai-assistant vì trang đó đã là trợ lý toàn màn hình.
           Đặt trong AppLayout nên không bị unmount khi đổi route -> hội thoại giữ nguyên. */}
       {location.pathname !== '/ai-assistant' && <AiAssistantWidget />}
@@ -64,6 +77,9 @@ export default function AppLayout() {
           </div>
 
           <div className="flex items-center gap-1.5 md:gap-2 ml-auto">
+            {/* Cụm tuỳ chỉnh widget của trang chủ bắn vào đây — xem DashboardToolbarSlot. */}
+            <DashboardToolbarSlot />
+            <TourHelpButton />
             <NotificationBell />
             <ThemeCustomizer />
 
@@ -82,10 +98,13 @@ export default function AppLayout() {
         <CheckinReminderBanner />
 
         {/* Main content — full-page routes opt out of padding */}
+        {/* `max-w-full` chứ không phải `max-w-[100vw]`: 100vw tính cả bề rộng thanh cuộn
+            dọc, nên trần đó luôn rộng hơn chỗ thật sự có — đúng cái sinh ra tràn ngang mà
+            `overflow-x:clip` bên cạnh đang phải chặn. Trần theo phần tử cha thì khít. */}
         <main className={
           location.pathname === '/ai-assistant'
-            ? 'flex-1 overflow-hidden w-full max-w-[100vw] [overflow-x:clip]'
-            : 'flex-1 overflow-y-auto p-4 md:p-6 w-full max-w-[100vw] [overflow-x:clip]'
+            ? 'flex-1 overflow-hidden w-full max-w-full [overflow-x:clip]'
+            : 'flex-1 overflow-y-auto p-4 md:p-6 w-full max-w-full [overflow-x:clip]'
         }>
           <Outlet />
         </main>

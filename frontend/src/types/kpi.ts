@@ -90,6 +90,14 @@ export interface CycleUnitEvaluation {
   memberCount: number
   /** true khi các con số là snapshot lúc chốt, không phải tính lại. */
   fromSnapshot: boolean
+  /**
+   * Xếp loại ĐƠN VỊ trong kỳ (áp luật xếp loại lên phân bố mức của thành viên).
+   * Bản nháp tính live; đã chốt thì lấy bản chụp lúc chốt. Null khi chưa ai có điểm kỳ.
+   */
+  classification: string | null
+  classificationColor: string | null
+  /** Hồ sơ luật đã áp (theo đơn vị + hiệu lực theo kỳ); null = dùng preset. */
+  classificationProfileName: string | null
   status: CycleUnitEvalStatus
   comment: string | null
   finalizedByName: string | null

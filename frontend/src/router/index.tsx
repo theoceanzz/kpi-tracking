@@ -127,8 +127,9 @@ export const router = createBrowserRouter([
               { path: '/rewards', element: <RedirectToSection to="/settings/tools" params={{ section: 'rewards' }} /> },
               { path: '/wallet', element: <RedirectToSection to="/settings/tools" params={{ section: 'wallet' }} /> },
               { path: '/bsc', element: <RedirectToSection to="/settings/tools" params={{ section: 'bsc' }} /> },
-              { path: '/bsc/dashboard', element: <RedirectToSection to="/settings/tools" params={{ section: 'bsc', bsc: 'dashboard' }} /> },
-              { path: '/bsc/strategy-map', element: <RedirectToSection to="/settings/tools" params={{ section: 'bsc', bsc: 'strategy-map' }} /> },
+              // Hai màn Dashboard và Bản đồ chiến lược đã bỏ; link cũ về thẳng mục BSC.
+              { path: '/bsc/dashboard', element: <RedirectToSection to="/settings/tools" params={{ section: 'bsc' }} /> },
+              { path: '/bsc/strategy-map', element: <RedirectToSection to="/settings/tools" params={{ section: 'bsc' }} /> },
               { path: '/settings/modules', element: <RedirectToSection to="/settings/tools" params={{ section: 'modules' }} /> },
               { path: '/settings/scoring', element: <RedirectToSection to="/settings/tools" params={{ section: 'scoring' }} /> },
             ],

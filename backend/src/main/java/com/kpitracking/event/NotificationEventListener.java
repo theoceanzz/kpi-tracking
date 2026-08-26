@@ -3,16 +3,15 @@ package com.kpitracking.event;
 import com.kpitracking.entity.KpiCriteria;
 import com.kpitracking.entity.KpiSubmission;
 import com.kpitracking.entity.User;
+import com.kpitracking.enums.SubmissionStatus;
 import com.kpitracking.event.KpiEvents.KpiCriteriaApprovedEvent;
 import com.kpitracking.event.KpiEvents.KpiCriteriaRejectedEvent;
 import com.kpitracking.event.KpiEvents.KpiCriteriaApprovalRevertedEvent;
 import com.kpitracking.event.KpiEvents.KpiCriteriaSubmittedForApprovalEvent;
 import com.kpitracking.event.KpiEvents.KpiSubmittedEvent;
 import com.kpitracking.event.KpiEvents.SubmissionReviewedEvent;
-import com.kpitracking.repository.UserRoleOrgUnitRepository;
-import com.kpitracking.service.EmailService;
-import com.kpitracking.service.NotificationService;
-import com.kpitracking.service.OrgNotificationConfigService;
+import com.kpitracking.service.notification.NotificationDispatcher;
+import com.kpitracking.service.notification.NotificationRoutingService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Async;
@@ -27,15 +26,24 @@ import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 
+/**
+ * Thông báo của luồng KPI.
+ *
+ * <p>Người nhận được chọn theo PHÂN CẤP ({@link NotificationRoutingService}) chứ không phải
+ * "mọi người có quyền ở mọi cấp cha ông" như trước: nhân viên nộp thì chỉ trưởng đơn vị của
+ * họ nhận, trưởng đơn vị nộp thì thư leo thẳng lên sếp, và chỉ khi trưởng đơn vị đã DUYỆT
+ * xong thì cấp trên kế tiếp mới được báo.
+ *
+ * <p>Email đi qua {@link NotificationDispatcher} nên được gom theo người nhận trước khi gửi;
+ * chuông trong hệ thống vẫn hiện tức thời.
+ */
 @Component
 @RequiredArgsConstructor
 @Slf4j
 public class NotificationEventListener {
 
-    private final NotificationService notificationService;
-    private final EmailService emailService;
-    private final UserRoleOrgUnitRepository userRoleOrgUnitRepository;
-    private final OrgNotificationConfigService configService;
+    private final NotificationDispatcher dispatcher;
+    private final NotificationRoutingService routing;
 
     private UUID getOrgId(KpiSubmission submission) {
         return submission.getOrgUnit().getOrgHierarchyLevel().getOrganization().getId();
@@ -43,21 +51,6 @@ public class NotificationEventListener {
 
     private UUID getOrgId(KpiCriteria kpi) {
         return kpi.getOrgUnit().getOrgHierarchyLevel().getOrganization().getId();
-    }
-
-    private void sendIfEnabled(UUID orgId, String eventCode, User recipient, com.kpitracking.entity.OrgUnit orgUnit,
-                               String title, String message, String type, UUID referenceId) {
-        boolean sendSystem = configService.isSystemEnabled(orgId, eventCode);
-        boolean sendEmail = configService.isEmailEnabled(orgId, eventCode);
-
-        if (sendSystem) {
-            notificationService.createNotification(orgUnit, recipient, title, message, type, referenceId);
-        }
-        if (sendEmail) {
-            // Gửi theo đúng mã sự kiện để dùng template mà tổ chức đã tuỳ chỉnh cho sự kiện đó.
-            emailService.sendEventNotificationEmail(orgId, eventCode, recipient.getEmail(),
-                    recipient.getFullName(), title, message);
-        }
     }
 
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
@@ -76,20 +69,22 @@ public class NotificationEventListener {
 
         UUID orgId = getOrgId(submission);
         Set<UUID> notifiedIds = new HashSet<>();
+        notifiedIds.add(submitter.getId());
 
-        List<User> reviewers =
-                userRoleOrgUnitRepository.findUsersWithPermissionOverOrgUnit(submission.getOrgUnit().getPath(), "SUBMISSION:REVIEW");
+        // CHỈ cấp duyệt gần nhất — không ai khác. Người nộp là trưởng đơn vị thì chính họ bị
+        // loại và thang leo tiếp một cấp: "trưởng đơn vị nộp thì báo thẳng cho sếp".
+        //
+        // Người TẠO chỉ tiêu cố tình không có trong danh sách này: tổ chức nào để một người
+        // nhân sự dựng KPI cho cả công ty thì người đó nhận thông báo của từng báo cáo trong
+        // toàn bộ công ty, trong khi họ không phải người duyệt và không có việc gì để làm với
+        // nó. Ai cần theo dõi thì mở màn hình chỉ tiêu, ở đó vốn đã thấy đủ.
+        List<User> reviewers = routing.nearestWithPermission(
+                submission.getOrgUnit(), "SUBMISSION:REVIEW", notifiedIds);
         for (User reviewer : reviewers) {
-            if (!reviewer.getId().equals(submitter.getId()) && notifiedIds.add(reviewer.getId())) {
-                sendIfEnabled(orgId, "submission_submitted", reviewer, submission.getOrgUnit(),
+            if (notifiedIds.add(reviewer.getId())) {
+                dispatcher.dispatch(orgId, "submission_submitted", reviewer, submission.getOrgUnit(),
                         title, message, "SUBMISSION", submission.getId());
             }
-        }
-
-        User creator = kpi.getCreatedBy();
-        if (!creator.getId().equals(submitter.getId()) && notifiedIds.add(creator.getId())) {
-            sendIfEnabled(orgId, "submission_submitted", creator, submission.getOrgUnit(),
-                    title, message, "SUBMISSION", submission.getId());
         }
     }
 
@@ -102,18 +97,59 @@ public class NotificationEventListener {
 
         UUID orgId = getOrgId(submission);
         User submitter = submission.getSubmittedBy();
-        String statusText = submission.getStatus().name().equals("APPROVED") ? "chấp nhận" : "từ chối";
+        User reviewer = submission.getReviewedBy();
+        boolean approved = submission.getStatus() == SubmissionStatus.APPROVED;
+        String statusText = approved ? "chấp nhận" : "từ chối";
 
         String title = "Báo cáo KPI đã được " + statusText;
         String message = String.format("Báo cáo cho chỉ tiêu '%s' của bạn đã được %s bởi %s.",
-                submission.getKpiCriteria().getName(), statusText, submission.getReviewedBy().getFullName());
+                submission.getKpiCriteria().getName(), statusText,
+                reviewer != null ? reviewer.getFullName() : "hệ thống");
 
         if (submission.getReviewNote() != null) {
             message += " Ghi chú: " + submission.getReviewNote();
         }
 
-        sendIfEnabled(orgId, "submission_reviewed", submitter, submission.getOrgUnit(),
+        dispatcher.dispatch(orgId, "submission_reviewed", submitter, submission.getOrgUnit(),
                 title, message, "REVIEW", submission.getId());
+
+        escalateApprovedSubmission(submission, orgId, submitter, reviewer, approved);
+    }
+
+    /**
+     * Báo lên cấp trên SAU KHI cấp dưới đã duyệt.
+     *
+     * <p>Đây là điểm khác căn bản so với trước: cấp trên không còn nhận thư ngay lúc nhân
+     * viên bấm nộp — lúc đó việc chưa qua tay ai và chẳng có gì để họ xử lý. Chỉ khi cấp
+     * duyệt trực tiếp đã chấp nhận thì kết quả mới nổi lên một bậc.
+     *
+     * <p>Bản nộp bị TỪ CHỐI thì dừng tại chỗ: nó quay lại cho người nộp làm lại chứ không
+     * đi lên đâu cả.
+     */
+    private void escalateApprovedSubmission(KpiSubmission submission, UUID orgId,
+                                            User submitter, User reviewer, boolean approved) {
+        if (!approved || reviewer == null) return;
+
+        Set<UUID> exclude = new HashSet<>();
+        exclude.add(reviewer.getId());
+        if (submitter != null) exclude.add(submitter.getId());
+
+        List<User> superiors = routing.nearestAbove(
+                submission.getOrgUnit(), reviewer.getId(), "SUBMISSION:REVIEW", exclude);
+        if (superiors.isEmpty()) return;
+
+        String title = "Báo cáo KPI đã được duyệt ở cấp dưới";
+        String message = String.format(
+                "%s đã duyệt báo cáo chỉ tiêu '%s' của %s. Giá trị đạt được: %s.",
+                reviewer.getFullName(),
+                submission.getKpiCriteria().getName(),
+                submitter != null ? submitter.getFullName() : "nhân viên",
+                submission.getActualValue());
+
+        for (User superior : superiors) {
+            dispatcher.dispatch(orgId, "submission_escalated", superior, submission.getOrgUnit(),
+                    title, message, "SUBMISSION", submission.getId());
+        }
     }
 
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
@@ -131,7 +167,7 @@ public class NotificationEventListener {
         String approvedMessage = String.format("Chỉ tiêu KPI '%s' do bạn tạo đã được phê duyệt bởi %s.",
                 kpi.getName(), kpi.getApprovedBy().getFullName());
 
-        sendIfEnabled(orgId, "kpi_approved", creator, kpi.getOrgUnit(),
+        dispatcher.dispatch(orgId, "kpi_approved", creator, kpi.getOrgUnit(),
                 approvedTitle, approvedMessage, "KPI_APPROVED", kpi.getId());
 
         // Toggle: kpi_assigned — thông báo cho từng người được giao
@@ -140,7 +176,7 @@ public class NotificationEventListener {
             for (User assignee : kpi.getAssignees()) {
                 if (!assignee.getId().equals(creator.getId())) {
                     String assignedMessage = String.format("Bạn vừa được giao một chỉ tiêu KPI mới: '%s'.", kpi.getName());
-                    sendIfEnabled(orgId, "kpi_assigned", assignee, kpi.getOrgUnit(),
+                    dispatcher.dispatch(orgId, "kpi_assigned", assignee, kpi.getOrgUnit(),
                             assignedTitle, assignedMessage, "KPI_ASSIGNED", kpi.getId());
                 }
             }
@@ -165,7 +201,7 @@ public class NotificationEventListener {
             message += " Lý do: " + kpi.getRejectReason();
         }
 
-        sendIfEnabled(orgId, "kpi_rejected", creator, kpi.getOrgUnit(),
+        dispatcher.dispatch(orgId, "kpi_rejected", creator, kpi.getOrgUnit(),
                 title, message, "KPI_REJECTED", kpi.getId());
     }
 
@@ -183,13 +219,14 @@ public class NotificationEventListener {
         String message = String.format("%s vừa gửi chỉ tiêu KPI '%s' để chờ phê duyệt. Vui lòng vào hệ thống để xem xét.",
                 submitter.getFullName(), kpi.getName());
 
+        // Cùng quy tắc một cấp như bản nộp: chỉ người duyệt gần nhất nhận, không rải lên
+        // toàn bộ cây quản lý.
         Set<UUID> notifiedIds = new HashSet<>();
-        List<com.kpitracking.entity.User> approvers =
-                userRoleOrgUnitRepository.findUsersWithPermissionOverOrgUnit(kpi.getOrgUnit().getPath(), "KPI:APPROVE_CRITERIA");
+        notifiedIds.add(submitter.getId());
 
-        for (com.kpitracking.entity.User approver : approvers) {
-            if (!approver.getId().equals(submitter.getId()) && notifiedIds.add(approver.getId())) {
-                sendIfEnabled(orgId, "kpi_submitted", approver, kpi.getOrgUnit(),
+        for (User approver : routing.nearestWithPermission(kpi.getOrgUnit(), "KPI:APPROVE_CRITERIA", notifiedIds)) {
+            if (notifiedIds.add(approver.getId())) {
+                dispatcher.dispatch(orgId, "kpi_submitted", approver, kpi.getOrgUnit(),
                         title, message, "KPI_SUBMITTED", kpi.getId());
             }
         }
@@ -209,7 +246,7 @@ public class NotificationEventListener {
         String message = String.format("Chỉ tiêu KPI '%s' do bạn tạo đã bị hoàn duyệt (huỷ phê duyệt) bởi %s và cần được xem xét lại.",
                 kpi.getName(), event.getRevertedBy().getFullName());
 
-        sendIfEnabled(orgId, "kpi_approval_reverted", creator, kpi.getOrgUnit(),
+        dispatcher.dispatch(orgId, "kpi_approval_reverted", creator, kpi.getOrgUnit(),
                 title, message, "KPI_APPROVAL_REVERTED", kpi.getId());
     }
 }

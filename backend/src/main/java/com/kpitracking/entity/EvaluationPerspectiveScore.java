@@ -9,7 +9,7 @@ import java.time.Instant;
 import java.util.UUID;
 
 /**
- * Breakdown điểm BSC của một đánh giá theo từng viễn cảnh.
+ * Breakdown điểm BSC của một đánh giá theo từng lĩnh vực.
  * Lưu để HR đối chiếu/giải thích điểm và truy vết khi tranh chấp.
  */
 @Entity
@@ -33,7 +33,7 @@ public class EvaluationPerspectiveScore {
     @Column(name = "weight_percentage")
     private Double weightPercentage;
 
-    /** Điểm thô viễn cảnh (0..150). NULL = nhân viên không có KPI nào trong viễn cảnh. */
+    /** Điểm thô lĩnh vực (0..150). NULL = nhân viên không có KPI nào trong lĩnh vực. */
     @Column(name = "raw_score")
     private Double rawScore;
 

@@ -16,7 +16,7 @@ public class PerspectiveRequest {
     @Pattern(regexp = "^[A-Za-z0-9_]+$", message = "Mã chỉ gồm chữ, số và dấu gạch dưới")
     private String code;
 
-    @NotBlank(message = "Vui lòng nhập tên viễn cảnh")
+    @NotBlank(message = "Vui lòng nhập tên lĩnh vực")
     private String name;
 
     private String description;
@@ -31,6 +31,6 @@ public class PerspectiveRequest {
 
     private BscPerspectiveStatus status;
 
-    @NotNull(message = "Vui lòng chọn viễn cảnh cho hạng mục")
+    @NotNull(message = "Vui lòng chọn lĩnh vực cho hạng mục")
     private BscFixedPerspective fixedPerspective;
 }

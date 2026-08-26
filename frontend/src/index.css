@@ -233,3 +233,50 @@ input[type=number] {
     animation: none;
   }
 }
+/* ── In chứng nhận khen thưởng ─────────────────────────────────────
+   Khu vực chứng nhận luôn tồn tại trong DOM ở kích thước in thật nhưng nằm ngoài màn
+   hình. In thẳng cây DOM này (thay vì in một ảnh PNG) để chữ giữ nguyên dạng vector:
+   người dùng chọn "Lưu thành PDF" sẽ ra tệp PDF chữ chọn/tìm kiếm được.
+
+   Đẩy ra ngoài bằng toạ độ chứ KHÔNG dùng display:none — phần tử ẩn hẳn thì không có
+   kích thước, và html-to-image sẽ chụp ra một ảnh rỗng. */
+.certificate-print-root {
+  position: fixed;
+  left: -20000px;
+  top: 0;
+  z-index: -1;
+  pointer-events: none;
+}
+
+@media print {
+  /* Chỉ giấu phần còn lại KHI đang in chứng nhận, để lệnh in thường (Ctrl+P) ở các
+     trang khác không bị ảnh hưởng. */
+  body.certificate-printing > *:not(.certificate-print-root) {
+    display: none !important;
+  }
+
+  body.certificate-printing .certificate-print-root {
+    position: static !important;
+    left: auto !important;
+    z-index: auto !important;
+  }
+
+  .certificate-print-page {
+    break-after: page;
+    page-break-after: always;
+    /* Chặn cứng: nửa pixel thừa do trình duyệt làm tròn cũng đủ đẩy ra một trang trắng. */
+    overflow: hidden;
+  }
+
+  /* Trang cuối không ngắt, nếu không máy in nhả thêm một tờ trắng. */
+  .certificate-print-page:last-child {
+    break-after: auto;
+    page-break-after: auto;
+  }
+
+  /* Nền màu là toàn bộ thiết kế của mấy mẫu tối — trình duyệt mặc định bỏ nền khi in. */
+  body.certificate-printing * {
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+}

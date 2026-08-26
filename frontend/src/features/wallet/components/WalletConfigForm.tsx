@@ -17,6 +17,8 @@ import NumberInput from '@/components/common/NumberInput'
 import LoadingSkeleton from '@/components/common/LoadingSkeleton'
 import { formatCurrency } from '@/lib/utils'
 import { useWalletConfig } from '../hooks/useWallet'
+import BankSelect from './BankSelect'
+import { findBank } from '../constants/banks'
 import type { WalletConfig, WalletConfigRequest } from '../types'
 
 const EMPTY: WalletConfigRequest = {
@@ -299,12 +301,13 @@ export default function WalletConfigForm() {
                   className={`${inputCls} font-mono`}
                 />
               </Field>
-              <Field label="Mã ngân hàng" hint="Mã viết tắt theo chuẩn VietQR.">
-                <input
-                  value={form.sepayBankCode ?? ''}
-                  onChange={(e) => set('sepayBankCode', e.target.value)}
-                  placeholder="MBBank"
-                  className={inputCls}
+              <Field
+                label="Ngân hàng"
+                hint="Chọn trong danh sách chuẩn VietQR — gõ tay dễ sai tên viết tắt khiến mã QR trỏ nhầm ngân hàng."
+              >
+                <BankSelect
+                  value={form.sepayBankCode}
+                  onChange={(code) => set('sepayBankCode', code)}
                 />
               </Field>
               <div className="sm:col-span-2">
@@ -353,7 +356,12 @@ export default function WalletConfigForm() {
             </h3>
             <dl className="space-y-2.5 text-sm">
               {[
-                { label: 'Ngân hàng', value: form.sepayBankCode?.trim(), mono: false },
+                {
+                  label: 'Ngân hàng',
+                  // Giá trị lưu có thể là mã BIN cũ; đổi về tên viết tắt cho dễ đối chiếu.
+                  value: findBank(form.sepayBankCode)?.code ?? form.sepayBankCode?.trim(),
+                  mono: false,
+                },
                 { label: 'Số tài khoản', value: form.sepayAccountNumber?.trim(), mono: true },
                 { label: 'Chủ tài khoản', value: form.sepayAccountHolder?.trim(), mono: false },
                 { label: 'Nội dung', value: 'NAPK7F3QA2X', mono: true },
@@ -416,10 +424,7 @@ export default function WalletConfigForm() {
           xong phải cuộn xuống cuối mới lưu được. */}
       {dirty && (
         <div className="fixed inset-x-0 bottom-0 z-40 border-t border-[var(--color-border)] bg-[var(--color-card)]/95 px-4 py-3 backdrop-blur sm:px-6">
-          <div className="mx-auto flex max-w-7xl items-center justify-between gap-3">
-            <span className="truncate text-sm text-[var(--color-muted-foreground)]">
-              Có thay đổi chưa lưu
-            </span>
+          <div className="mx-auto flex max-w-7xl items-center justify-end gap-3">
             <div className="flex flex-shrink-0 gap-2">
               <button
                 type="button"

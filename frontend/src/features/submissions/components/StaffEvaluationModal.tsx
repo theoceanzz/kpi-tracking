@@ -125,7 +125,12 @@ export default function StaffEvaluationModal({
 
   // Điểm hành vi tính LIVE theo mức đang chọn (trung bình có trọng số),
   // khớp công thức calculateBehaviorScore() ở backend.
+  //
+  // Không có KPI định tính nào để chấm tay ⇒ lấy đúng con số server đã tính trong
+  // scorePreview: khi tổ chức bật chấm hạnh kiểm, đó chính là điểm hạnh kiểm đã quy về
+  // thang hành vi 0..5 để lấp trục hàng của ma trận.
   const behaviorLive = useMemo(() => {
+    if (!hasQualitative) return scorePreview?.behaviorScore ?? null
     let sum = 0, totalWeight = 0
     for (const s of submissionList) {
       if (s.kpiType !== 'QUALITATIVE') continue
@@ -137,11 +142,13 @@ export default function StaffEvaluationModal({
       totalWeight += weight
     }
     return totalWeight > 0 ? Math.round((sum / totalWeight) * 100) / 100 : null
-  }, [submissionList, individualLevels, qualitativeLevels])
+  }, [submissionList, individualLevels, qualitativeLevels, hasQualitative, scorePreview?.behaviorScore])
 
   // Trục cột của ma trận: % hoàn thành định lượng (không đổi theo thao tác chấm tay).
-  // Không có KPI định lượng ⇒ mặc định 100%.
-  const completionPercent = scorePreview?.kpiCompletionPercent ?? (isFullQualitative ? 100 : null)
+  // Không có KPI định lượng ⇒ TRỐNG, và ma trận không xếp loại. Một loại KPI chỉ cấp được
+  // một trục; muốn đủ hai trục thì tổ chức phải bật chấm hạnh kiểm — khi đó server đã trả
+  // sẵn trục cột đã quy đổi trong kpiCompletionPercent.
+  const completionPercent = scorePreview?.kpiCompletionPercent ?? null
 
   const matrixLive = useMemo(
     () => lookupMatrixRating(behaviorLive, completionPercent, org?.performanceMatrix),

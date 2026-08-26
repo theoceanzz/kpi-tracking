@@ -5,6 +5,7 @@ import { cn } from '@/lib/utils'
 import { useHasPermission } from '@/components/auth/PermissionGate'
 import { useNavLabels } from '@/features/organization/hooks/useNavLabels'
 import { findNavItem, type NavItem } from '@/config/navigation'
+import { useTourScope } from '@/hooks/useTourScope'
 
 export interface SectionRenderer {
   /** Trùng với `id` của mục trong `sections` của cây nav. */
@@ -75,6 +76,10 @@ export default function SettingsSectionLayout({
 
   const active = visible.find(s => s.id === searchParams.get('section'))
 
+  // Hai tầng đầu của điều hướng — dòng sidebar và mục trong trang — báo lên cho hệ
+  // hướng dẫn từ đúng chỗ biết chúng, thay vì để layout đoán lại từ URL.
+  useTourScope(navId, active?.id ?? null)
+
   const setSection = (id: string | null) => {
     setSearchParams(prev => {
       const p = new URLSearchParams(prev)
@@ -99,11 +104,11 @@ export default function SettingsSectionLayout({
       <div className="max-w-[1600px] mx-auto px-4 md:px-0 pb-20 space-y-8 animate-in fade-in duration-500">
         <div>
           {eyebrow}
-          <h1 className="text-3xl font-black tracking-tight text-slate-900 dark:text-white">{title}</h1>
+          <h1 className="text-2xl xl:text-3xl font-black tracking-tight text-slate-900 dark:text-white">{title}</h1>
           {subtitle && <p className="text-slate-500 font-medium mt-1">{subtitle}</p>}
         </div>
 
-        <div id="tour-settings-nav" className="space-y-8">
+        <div id="tour-settings-nav" className="@container space-y-8">
           {groups.map(group => (
             <div key={group.name} className="space-y-3">
               {group.name && (
@@ -112,12 +117,19 @@ export default function SettingsSectionLayout({
                   <div className="flex-1 h-px bg-slate-200 dark:bg-slate-800" />
                 </div>
               )}
-              {/* Lưới 4 cột cố định cho MỌI cụm, không co theo số thẻ — nhờ vậy thẻ ở
-                  mọi hàng rộng bằng nhau và thẳng mép trái. */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+              {/* Số cột đếm theo bề ngang THẬT của vùng nội dung (`@container` ở trên), không
+                  theo bề ngang khung nhìn: thanh bên chiếm ~285px và còn đóng/mở được, nên cùng
+                  một màn 1280px lúc thì còn ~950px lúc lại ~1200px cho lưới. Bám khung nhìn thì
+                  màn nhỏ đã nhảy sang 4 cột khi mỗi thẻ chỉ còn ~225px — mô tả vỡ 4-5 dòng.
+                  Ngưỡng (32rem / 48rem / 64rem) đặt sao cho thẻ không bao giờ hẹp hơn ~245px.
+
+                  Mọi cụm dùng CHUNG bộ ngưỡng, không co theo số thẻ — nhờ vậy thẻ ở mọi hàng
+                  rộng bằng nhau và thẳng mép trái. */}
+              <div className="grid gap-4 grid-cols-1 @lg:grid-cols-2 @3xl:grid-cols-3 @5xl:grid-cols-4">
                 {group.items.map(def => (
                   <button
                     key={def.id}
+                    id={`tour-card-${def.id}`}
                     onClick={() => setSection(def.id)}
                     className="group text-left p-5 rounded-2xl bg-[var(--color-card)] border border-[var(--color-border)] shadow-sm hover:border-[var(--color-primary)]/50 hover:shadow-lg hover:shadow-[var(--color-primary)]/5 hover:-translate-y-0.5 transition-all"
                   >
@@ -163,12 +175,13 @@ export default function SettingsSectionLayout({
 
       {/* Cụm chỉ có một mục thì hàng tab không nói thêm được gì — bỏ hẳn cho gọn. */}
       {siblings.length > 1 && (
-        <div className="flex items-stretch border-b border-[var(--color-border)] overflow-x-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+        <div id="tour-section-tabs" className="flex items-stretch border-b border-[var(--color-border)] overflow-x-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
           {siblings.map(def => {
             const isActive = def.id === active.id
             return (
               <button
                 key={def.id}
+                id={`tour-tab-${def.id}`}
                 onClick={() => setSection(def.id)}
                 aria-current={isActive ? 'page' : undefined}
                 className={cn(
@@ -190,7 +203,11 @@ export default function SettingsSectionLayout({
         </div>
       )}
 
-      <div className="min-w-0">{sections.find(s => s.id === active.id)?.render()}</div>
+      {/* `id` cố định để hướng dẫn của BẤT KỲ mục nào cũng luôn có ít nhất một điểm
+          bám, kể cả những mục dựng bảng riêng chứ không dùng `WorkspaceHeader`. */}
+      <div id="tour-section-root" className="min-w-0">
+        {sections.find(s => s.id === active.id)?.render()}
+      </div>
     </div>
   )
 }

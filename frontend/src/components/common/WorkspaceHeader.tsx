@@ -71,7 +71,10 @@ export default function WorkspaceHeader({
 
   return (
     <section
-      id={id}
+      // Neo mặc định cho hướng dẫn. Mọi mục trong "Thiết lập công cụ" đều mở đầu bằng
+      // khối này, nên có một id ổn định ở đây là mỗi mục tự có điểm bám mà không phải
+      // sửa từng file. Trang nào cần neo riêng thì truyền `id` như cũ và ghi đè.
+      id={id ?? 'tour-workspace-card'}
       className={cn(
         'rounded-2xl border border-[var(--color-border)] bg-[var(--color-card)] shadow-sm overflow-hidden',
         className
@@ -79,6 +82,7 @@ export default function WorkspaceHeader({
     >
       {showTabs && (
         <nav
+          id="tour-workspace-tabs"
           aria-label="Mục con"
           className="flex items-stretch px-2 border-b border-[var(--color-border)] overflow-x-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
         >
@@ -135,7 +139,7 @@ export default function WorkspaceHeader({
             {(ctx || stats?.length || actions) && (
               <div className="flex flex-wrap items-center gap-3 lg:ml-auto lg:justify-end">
                 {!!stats?.length && (
-                  <dl className="flex items-stretch divide-x divide-[var(--color-border)] rounded-xl border border-[var(--color-border)] bg-[var(--color-muted)]/40">
+                  <dl id="tour-workspace-stats" className="flex items-stretch divide-x divide-[var(--color-border)] rounded-xl border border-[var(--color-border)] bg-[var(--color-muted)]/40">
                     {stats.map(stat => {
                       const Icon = stat.icon
                       return (

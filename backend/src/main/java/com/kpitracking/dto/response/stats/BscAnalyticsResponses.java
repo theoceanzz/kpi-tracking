@@ -10,13 +10,13 @@ import java.util.Map;
 import java.util.UUID;
 
 /**
- * DTO cho thống kê BSC (tab "Viễn cảnh" ở trang Thống kê).
+ * DTO cho thống kê BSC (tab "Lĩnh vực" ở trang Thống kê).
  * Mọi điểm đều lấy từ dữ liệu ĐÃ LƯU (evaluations.bsc_score + evaluation_perspective_scores),
  * không tính lại — nhất quán với chỉ số "hiệu suất theo đánh giá".
  */
 public class BscAnalyticsResponses {
 
-    /** Metadata một viễn cảnh (dùng để FE tô màu / dựng series). */
+    /** Metadata một lĩnh vực (dùng để FE tô màu / dựng series). */
     @Data @Builder @NoArgsConstructor @AllArgsConstructor
     public static class PerspectiveMeta {
         private UUID id;
@@ -26,7 +26,7 @@ public class BscAnalyticsResponses {
         private Integer displayOrder;
     }
 
-    /** Một viễn cảnh trong biểu đồ cân bằng (radar) của phạm vi đang chọn. */
+    /** Một lĩnh vực trong biểu đồ cân bằng (radar) của phạm vi đang chọn. */
     @Data @Builder @NoArgsConstructor @AllArgsConstructor
     public static class PerspectivePoint {
         private UUID perspectiveId;
@@ -35,19 +35,19 @@ public class BscAnalyticsResponses {
         private String color;
         private Integer displayOrder;
         private Double weightPercentage;
-        /** Điểm đạt trung bình có trọng số của viễn cảnh (0..150), null nếu không có dữ liệu. */
+        /** Điểm đạt trung bình có trọng số của lĩnh vực (0..150), null nếu không có dữ liệu. */
         private Double averageScore;
         private Double weightedScore;
         private Integer kpiCount;
     }
 
-    /** GĐ "Cân bằng viễn cảnh": thẻ chỉ số + dữ liệu radar. */
+    /** GĐ "Cân bằng lĩnh vực": thẻ chỉ số + dữ liệu radar. */
     @Data @Builder @NoArgsConstructor @AllArgsConstructor
     public static class BalanceResponse {
         private Double averageBscScore;
         private Double averageSystemScore;
         private Integer evaluationCount;
-        /** SHADOW / OFFICIAL / null (kỳ chưa có thẻ điểm). */
+        /** SHADOW / OFFICIAL / null (kỳ chưa có bộ tiêu chí). */
         private String scoringMode;
 
         private String strongestPerspective;
@@ -55,7 +55,7 @@ public class BscAnalyticsResponses {
         private String weakestPerspective;
         private Double weakestScore;
 
-        /** % KPI tính điểm BSC đã được gán viễn cảnh (0..100). */
+        /** % KPI tính điểm BSC đã được gán lĩnh vực (0..100). */
         private Double coveragePercent;
         private Integer mappedKpiCount;
         private Integer unmappedKpiCount;
@@ -64,7 +64,7 @@ public class BscAnalyticsResponses {
         private List<PerspectivePoint> perspectives;
     }
 
-    /** GĐ "Xu hướng": mỗi cột là một mốc (kỳ), mỗi viễn cảnh một series + đường tổng BSC. */
+    /** GĐ "Xu hướng": mỗi cột là một mốc (kỳ), mỗi lĩnh vực một series + đường tổng BSC. */
     @Data @Builder @NoArgsConstructor @AllArgsConstructor
     public static class TrendResponse {
         private List<PerspectiveMeta> perspectives;
@@ -79,7 +79,7 @@ public class BscAnalyticsResponses {
         private Map<String, Double> values;
     }
 
-    /** GĐ "So sánh giữa đơn vị": mỗi đơn vị × điểm từng viễn cảnh + điểm BSC/hệ thống tổng. */
+    /** GĐ "So sánh giữa đơn vị": mỗi đơn vị × điểm từng lĩnh vực + điểm BSC/hệ thống tổng. */
     @Data @Builder @NoArgsConstructor @AllArgsConstructor
     public static class UnitComparisonResponse {
         private List<PerspectiveMeta> perspectives;
@@ -114,7 +114,7 @@ public class BscAnalyticsResponses {
         private Integer evaluationCount;
     }
 
-    /** GĐ "Xếp hạng theo BSC": bảng nhân sự phân trang + breakdown viễn cảnh. */
+    /** GĐ "Xếp hạng theo BSC": bảng nhân sự phân trang + breakdown lĩnh vực. */
     @Data @Builder @NoArgsConstructor @AllArgsConstructor
     public static class RankingResponse {
         private List<PerspectiveMeta> perspectives;
@@ -135,7 +135,7 @@ public class BscAnalyticsResponses {
         private Double bscScore;
         private Double systemScore;
         private Integer evaluationCount;
-        /** perspectiveId (string) → điểm đạt trung bình của nhân sự ở viễn cảnh. */
+        /** perspectiveId (string) → điểm đạt trung bình của nhân sự ở lĩnh vực. */
         private Map<String, Double> perspectiveScores;
     }
 }

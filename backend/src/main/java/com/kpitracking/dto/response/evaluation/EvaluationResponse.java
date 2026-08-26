@@ -46,6 +46,6 @@ public class EvaluationResponse {
     private BscScoringMode bscScoringMode;
     /** Điểm chính thức: = bscScore khi OFFICIAL, ngược lại = systemScore. */
     private Double officialScore;
-    /** Breakdown điểm từng viễn cảnh (giải thích điểm cho HR). */
+    /** Breakdown điểm từng lĩnh vực (giải thích điểm cho HR). */
     private List<PerspectiveScoreResponse> bscPerspectives;
 }

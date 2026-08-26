@@ -111,10 +111,14 @@ public class OrgUnitKpiAnalyticsController {
             @RequestParam(required = false, defaultValue = "progress") String sortBy,
             @RequestParam(required = false, defaultValue = "asc") String sortDir,
             @RequestParam(required = false) UUID periodId,
-            @RequestParam(required = false) UUID periodIdTo) {
+            @RequestParam(required = false) UUID periodIdTo,
+            // Mặc định false = chỉ KPI đơn lẻ (giữ nguyên bảng "Rủi ro thành viên" bên Phân tích).
+            // true = tính cả KPI gắn KeyResult — bắt buộc với tổ chức bật OKR, xem `memberRiskSource`.
+            @RequestParam(required = false, defaultValue = "false") boolean everyKpi) {
         AnalyticsPeriodHelper.Window w = periodHelper.window(from, to, periodId, periodIdTo);
         return ResponseEntity.ok(ApiResponse.success(
-                service.getMemberRisks(orgUnitId, filterOrgUnitId, w.from(), w.to(), onlyApproved, page, size, sortBy, sortDir, periodHelper.resolvePeriodIds(periodId, periodIdTo))));
+                service.getMemberRisks(orgUnitId, filterOrgUnitId, w.from(), w.to(), onlyApproved, page, size, sortBy, sortDir,
+                        periodHelper.resolvePeriodIds(periodId, periodIdTo), everyKpi)));
     }
 
     @GetMapping("/{kpiId}/drawer")
@@ -145,7 +149,13 @@ public class OrgUnitKpiAnalyticsController {
     @Operation(summary = "List of overdue KPIs for a specific member")
     public ResponseEntity<ApiResponse<List<OrgUnitKpiAnalyticsService.OverdueKpiForMember>>> getMemberOverdueKpis(
             @PathVariable UUID userId,
-            @RequestParam(required = false) UUID orgUnitId) {
-        return ResponseEntity.ok(ApiResponse.success(service.getMemberOverdueKpis(userId, orgUnitId)));
+            @RequestParam(required = false) UUID orgUnitId,
+            @RequestParam(required = false) UUID periodId,
+            @RequestParam(required = false) UUID periodIdTo,
+            @RequestParam(required = false, defaultValue = "false") boolean everyKpi) {
+        // Cùng bộ lọc đợt/kỳ VÀ cùng phạm vi KPI với bảng rủi ro thành viên: bung chi tiết ra
+        // phải là ĐÚNG những KPI đã được đếm ở dòng tổng, không phải toàn bộ lịch sử trễ hạn.
+        return ResponseEntity.ok(ApiResponse.success(
+                service.getMemberOverdueKpis(userId, orgUnitId, periodHelper.resolvePeriodIds(periodId, periodIdTo), everyKpi)));
     }
 }

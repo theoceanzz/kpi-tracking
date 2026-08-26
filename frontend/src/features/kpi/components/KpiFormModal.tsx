@@ -344,7 +344,7 @@ export default function KpiFormModal({ open, onClose, editKpi, parentKpi, parent
     return null
   }, [watchedKeyResultId, objectives])
 
-  // Bản đồ đơn vị → cha (để resolve thẻ điểm áp dụng: đơn vị → cha → mặc định).
+  // Bản đồ đơn vị → cha (để resolve bộ tiêu chí áp dụng: đơn vị → cha → mặc định).
   const unitParent = useMemo(() => {
     const map = new Map<string, string | null>()
     const walk = (nodes: any[]) => (nodes || []).forEach((n: any) => { map.set(n.id, n.parentId ?? null); if (n.children) walk(n.children) })
@@ -352,13 +352,13 @@ export default function KpiFormModal({ open, onClose, editKpi, parentKpi, parent
     return map
   }, [orgUnitTreeData])
 
-  // Thẻ điểm HIỆU LỰC cho KPI theo đơn vị đầu tiên được gán (đơn vị → cha → mặc định).
+  // Bộ tiêu chí HIỆU LỰC cho KPI theo đơn vị đầu tiên được gán (đơn vị → cha → mặc định).
   const effectiveScorecard = useMemo(() => {
     if (!formKpiPeriodId) return null
     const periodScs = (bscScorecards || []).filter(sc => sc.kpiPeriodId === formKpiPeriodId)
     if (periodScs.length === 0) return null
     const realUnits = formOrgUnitIds.filter(id => id && id !== '00000000-0000-0000-0000-000000000000')
-    if (realUnits.length === 0) return null // chưa chọn đơn vị ⇒ chưa biết thẻ điểm nào
+    if (realUnits.length === 0) return null // chưa chọn đơn vị ⇒ chưa biết bộ tiêu chí nào
     let cur: string | null = realUnits[0]!, guard = 0
     while (cur && guard++ < 100) {
       const found = periodScs.find(s => (s.orgUnits || []).some(u => u.id === cur))
@@ -368,7 +368,7 @@ export default function KpiFormModal({ open, onClose, editKpi, parentKpi, parent
     return periodScs.find(s => !s.orgUnits || s.orgUnits.length === 0) || null
   }, [bscScorecards, formKpiPeriodId, formOrgUnitIds, unitParent])
 
-  // Trọng số THẬT (chỉ hiển thị) = trọng số form × %hạng_mục (lấy từ thẻ điểm hiệu lực của đơn vị KPI).
+  // Trọng số THẬT (chỉ hiển thị) = trọng số form × %hạng_mục (lấy từ bộ tiêu chí hiệu lực của đơn vị KPI).
   // Form% chỉ để đủ 100%/hạng mục; trọng số thật mới là phần đóng góp vào 100% của đơn vị.
   const watchedWeight = watch('weight')
   const effectivePerspId = useMemo(() => {
@@ -387,14 +387,14 @@ export default function KpiFormModal({ open, onClose, editKpi, parentKpi, parent
   const realWeight = (watchedWeight != null && !Number.isNaN(Number(watchedWeight)) && categoryWeightPct != null)
     ? (Number(watchedWeight) * categoryWeightPct / 100) : null
 
-  // Lọc hạng mục theo THẺ ĐIỂM của đơn vị KPI được gán: chỉ hiện hạng mục CÓ trong thẻ điểm
-  // áp dụng cho đơn vị đó (union nếu gán nhiều đơn vị). Thiếu ⇒ nhắc thêm vào thẻ điểm.
+  // Lọc hạng mục theo BỘ TIÊU CHÍ của đơn vị KPI được gán: chỉ hiện hạng mục CÓ trong bộ tiêu chí
+  // áp dụng cho đơn vị đó (union nếu gán nhiều đơn vị). Thiếu ⇒ nhắc thêm vào bộ tiêu chí.
   const availablePerspectiveIds = useMemo<Set<string> | null>(() => {
     if (!enableBsc) return null // không bật BSC ⇒ không liên quan (mục hạng mục cũng ẩn)
     const ids = new Set<string>()
     if (!formKpiPeriodId) return ids // chưa chọn kỳ ⇒ rỗng
     const periodScs = (bscScorecards || []).filter(sc => sc.kpiPeriodId === formKpiPeriodId)
-    if (periodScs.length === 0) return ids // kỳ chưa có thẻ điểm ⇒ rỗng
+    if (periodScs.length === 0) return ids // kỳ chưa có bộ tiêu chí ⇒ rỗng
     const realUnits = formOrgUnitIds.filter(id => id && id !== '00000000-0000-0000-0000-000000000000')
     if (realUnits.length === 0) return ids // chưa chọn đơn vị ⇒ rỗng
     const resolveForUnit = (unitId: string) => {
@@ -419,7 +419,7 @@ export default function KpiFormModal({ open, onClose, editKpi, parentKpi, parent
       .filter(g => g.items.length > 0)
   }, [groupedPerspectives, availablePerspectiveIds])
 
-  // Hạng mục đang gán nhưng KHÔNG có trong thẻ điểm của đơn vị ⇒ cảnh báo (sẽ không tính điểm BSC).
+  // Hạng mục đang gán nhưng KHÔNG có trong bộ tiêu chí của đơn vị ⇒ cảnh báo (sẽ không tính điểm BSC).
   // Chỉ cảnh báo khi ĐÃ chọn đơn vị (chưa chọn thì đã có nhắc "chọn đơn vị trước").
   const selectedPerspMissing = !!availablePerspectiveIds && hasRealUnit && !!effectivePerspId && !availablePerspectiveIds.has(effectivePerspId)
 
@@ -1271,7 +1271,7 @@ export default function KpiFormModal({ open, onClose, editKpi, parentKpi, parent
                 <span className="text-[11px] font-black uppercase tracking-widest">Hạng mục BSC</span>
               </div>
               <div className="space-y-1">
-                <label className="block text-[10px] font-black text-slate-500 uppercase tracking-tight">Gắn chỉ tiêu vào hạng mục (theo viễn cảnh)</label>
+                <label className="block text-[10px] font-black text-slate-500 uppercase tracking-tight">Gắn chỉ tiêu vào hạng mục (theo lĩnh vực)</label>
                 <Controller
                   name="perspectiveId"
                   control={control}
@@ -1315,31 +1315,31 @@ export default function KpiFormModal({ open, onClose, editKpi, parentKpi, parent
                 {selectedPerspMissing && (
                   <p className="text-[10px] font-bold text-amber-600 dark:text-amber-400 flex items-start gap-1.5 mt-1.5">
                     <span className="shrink-0">⚠</span>
-                    Hạng mục đang gán <b>chưa có trong thẻ điểm</b> của đơn vị bạn chọn ⇒ KPI sẽ <b>không tính vào điểm BSC</b>. Hãy thêm hạng mục này vào thẻ điểm cho phòng ban đó.
+                    Hạng mục đang gán <b>chưa có trong bộ tiêu chí</b> của đơn vị bạn chọn ⇒ KPI sẽ <b>không tính vào điểm BSC</b>. Hãy thêm hạng mục này vào bộ tiêu chí cho phòng ban đó.
                   </p>
                 )}
                 {availablePerspectiveIds && !formKpiPeriodId && (
                   <p className="text-[10px] font-bold text-amber-600 dark:text-amber-400 flex items-start gap-1.5 mt-1.5">
                     <span className="shrink-0">⚠</span>
-                    Hãy <b>chọn Đợt đánh giá trước</b> — hạng mục hiện theo thẻ điểm của đợt + đơn vị.
+                    Hãy <b>chọn Đợt đánh giá trước</b> — hạng mục hiện theo bộ tiêu chí của đợt + đơn vị.
                   </p>
                 )}
                 {availablePerspectiveIds && formKpiPeriodId && !periodHasScorecard && (
                   <p className="text-[10px] font-bold text-amber-600 dark:text-amber-400 flex items-start gap-1.5 mt-1.5">
                     <span className="shrink-0">⚠</span>
-                    Đợt này <b>chưa có thẻ điểm BSC</b> — hãy tạo thẻ điểm cho đợt (gồm các hạng mục) thì mới chọn được hạng mục.
+                    Đợt này <b>chưa có bộ tiêu chí BSC</b> — hãy tạo bộ tiêu chí cho đợt (gồm các hạng mục) thì mới chọn được hạng mục.
                   </p>
                 )}
                 {availablePerspectiveIds && formKpiPeriodId && periodHasScorecard && !hasRealUnit && (
                   <p className="text-[10px] font-bold text-amber-600 dark:text-amber-400 flex items-start gap-1.5 mt-1.5">
                     <span className="shrink-0">⚠</span>
-                    Hãy <b>chọn Đơn vị thực hiện trước</b> — hạng mục hiện theo thẻ điểm của đơn vị đó.
+                    Hãy <b>chọn Đơn vị thực hiện trước</b> — hạng mục hiện theo bộ tiêu chí của đơn vị đó.
                   </p>
                 )}
                 {availablePerspectiveIds && periodHasScorecard && hasRealUnit && filteredGroupedPerspectives.length === 0 && (
                   <p className="text-[10px] font-bold text-amber-600 dark:text-amber-400 flex items-start gap-1.5 mt-1.5">
                     <span className="shrink-0">⚠</span>
-                    Thẻ điểm của phòng ban bạn chọn <b>chưa có hạng mục nào</b> — hãy thêm hạng mục vào thẻ điểm cho phòng ban đó trước.
+                    Bộ tiêu chí của phòng ban bạn chọn <b>chưa có hạng mục nào</b> — hãy thêm hạng mục vào bộ tiêu chí cho phòng ban đó trước.
                   </p>
                 )}
               </div>

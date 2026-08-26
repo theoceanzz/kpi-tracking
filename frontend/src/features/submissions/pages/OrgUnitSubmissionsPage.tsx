@@ -20,8 +20,6 @@ import {
   FileCheck, Search, Building2, Calendar, Clock, ChevronRight, ChevronLeft,
   ArrowUpDown, ArrowUp, ArrowDown
 } from 'lucide-react'
-import PageTour from '@/components/common/PageTour'
-import { orgUnitSubmissionsSteps } from '@/components/common/tourSteps'
 
 export default function OrgUnitSubmissionsPage() {
   const [search, setSearch] = useState('')
@@ -237,7 +235,6 @@ export default function OrgUnitSubmissionsPage() {
   return (
     <div className="p-4 md:p-8">
       <div className="max-w-[1600px] mx-auto space-y-8">
-        <PageTour pageKey="submissions-org" steps={orgUnitSubmissionsSteps} />
         
         {/* Header Section */}
         <div className="relative group">

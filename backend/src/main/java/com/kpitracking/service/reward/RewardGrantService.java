@@ -6,6 +6,7 @@ import com.kpitracking.dto.response.PageResponse;
 import com.kpitracking.dto.response.reward.RewardGrantResponse;
 import com.kpitracking.dto.response.reward.RevokePreviewResponse;
 import com.kpitracking.entity.*;
+import com.kpitracking.enums.CertificateTemplateStatus;
 import com.kpitracking.enums.RewardApprovalMode;
 import com.kpitracking.enums.RewardGrantStatus;
 import com.kpitracking.enums.RewardSourceType;
@@ -59,6 +60,7 @@ public class RewardGrantService {
     private final RewardGrantRepository grantRepository;
     private final RewardGrantItemRepository grantItemRepository;
     private final RewardBudgetRepository budgetRepository;
+    private final RewardCertificateTemplateRepository certificateTemplateRepository;
     private final RewardBudgetService budgetService;
     private final RewardWalletService walletService;
     private final OrganizationRepository organizationRepository;
@@ -113,6 +115,8 @@ public class RewardGrantService {
                 .approvalMode(autoApproved ? RewardApprovalMode.AUTO : RewardApprovalMode.MANUAL)
                 .approvalReason(approvalReason)
                 .approvedAt(autoApproved ? Instant.now() : null)
+                .certificateEnabled(Boolean.TRUE.equals(request.getWithCertificate()))
+                .certificateTemplateId(resolveCertificateTemplate(request, orgId))
                 .build();
         grantRepository.save(grant);
 
@@ -462,6 +466,35 @@ public class RewardGrantService {
         }
     }
 
+    /**
+     * Chốt mẫu chứng nhận cho đề nghị đang tạo.
+     *
+     * <p>Không bật giấy khen thì mẫu phải là null — ràng buộc {@code ck_reward_grants_certificate}
+     * ở DB cấm lưu mẫu cho tờ giấy không tồn tại, và để lại dữ liệu rác kiểu đó sẽ gây
+     * nhầm cho người đọc lại lịch sử sau này.
+     *
+     * <p>Mẫu phải thuộc CHÍNH tổ chức của người trao và đang bật. Không kiểm thì một id
+     * đoán được sẽ kéo lời văn và chữ ký của công ty khác lên tờ giấy khen.
+     */
+    private UUID resolveCertificateTemplate(CreateRewardGrantRequest request, UUID orgId) {
+        if (!Boolean.TRUE.equals(request.getWithCertificate())
+                || request.getCertificateTemplateId() == null) {
+            return null;
+        }
+
+        RewardCertificateTemplate template = certificateTemplateRepository
+                .findByIdAndOrganizationId(request.getCertificateTemplateId(), orgId)
+                .orElseThrow(() -> new BusinessException(
+                        "Mẫu chứng nhận đã chọn không còn tồn tại. Hãy chọn lại mẫu khác."));
+
+        if (template.getStatus() != CertificateTemplateStatus.ACTIVE) {
+            throw new BusinessException("Mẫu chứng nhận \"" + template.getName()
+                    + "\" đang tắt nên không dùng để trao được. Hãy bật lại mẫu hoặc chọn mẫu khác.");
+        }
+
+        return template.getId();
+    }
+
     // ──────────────────────────── ĐỌC ────────────────────────────
 
     @Transactional(readOnly = true)
@@ -474,6 +507,44 @@ public class RewardGrantService {
         Map<UUID, List<RewardGrantItem>> itemsByGrant = grantItemRepository
                 .findByGrantIdIn(result.getContent().stream().map(RewardGrant::getId).toList())
                 .stream().collect(Collectors.groupingBy(i -> i.getGrant().getId()));
+
+        List<RewardGrantResponse> content = result.getContent().stream()
+                .map(g -> toResponse(g, itemsByGrant.getOrDefault(g.getId(), List.of())))
+                .toList();
+
+        return PageResponse.<RewardGrantResponse>builder()
+                .content(content)
+                .page(result.getNumber())
+                .size(result.getSize())
+                .totalElements(result.getTotalElements())
+                .totalPages(result.getTotalPages())
+                .last(result.isLast())
+                .build();
+    }
+
+    /**
+     * Những lần chính người đang đăng nhập được thưởng — nguồn của mục "Chứng nhận của tôi".
+     *
+     * <p>Tồn tại riêng thay vì dùng {@link #search}: nhân viên thường KHÔNG có
+     * {@code REWARD:VIEW}, mà chứng nhận của họ thì họ phải tự in được.
+     *
+     * <p>Mỗi bản trả về CHỈ chứa phần của người xem, kể cả khi lượt thưởng đó có nhiều
+     * người nhận. Người xem không có quyền quản lý thưởng, nên số điểm của đồng nghiệp
+     * không phải thứ họ được đọc — và tờ chứng nhận cũng chỉ cần đúng tên họ.
+     */
+    @Transactional(readOnly = true)
+    public PageResponse<RewardGrantResponse> searchMyAwards(int page, int size) {
+        User me = context.getCurrentUser();
+        UUID orgId = context.getOrgIdOf(me.getId());
+
+        Page<RewardGrant> result = grantRepository.findApprovedForRecipient(
+                orgId, me.getId(), PageRequest.of(page, size));
+
+        Map<UUID, List<RewardGrantItem>> itemsByGrant = grantItemRepository
+                .findByGrantIdIn(result.getContent().stream().map(RewardGrant::getId).toList())
+                .stream()
+                .filter(i -> i.getUser().getId().equals(me.getId()))
+                .collect(Collectors.groupingBy(i -> i.getGrant().getId()));
 
         List<RewardGrantResponse> content = result.getContent().stream()
                 .map(g -> toResponse(g, itemsByGrant.getOrDefault(g.getId(), List.of())))
@@ -513,6 +584,8 @@ public class RewardGrantService {
                 .approverName(grant.getApprover() != null ? grant.getApprover().getFullName() : null)
                 .approvedAt(grant.getApprovedAt())
                 .decisionNote(grant.getDecisionNote())
+                .certificateEnabled(grant.getCertificateEnabled())
+                .certificateTemplateId(grant.getCertificateTemplateId())
                 .createdAt(grant.getCreatedAt())
                 .recipients(items.stream().map(i -> RewardGrantResponse.Recipient.builder()
                         .userId(i.getUser().getId())

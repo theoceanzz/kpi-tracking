@@ -10,6 +10,7 @@ import com.kpitracking.entity.*;
 import com.kpitracking.enums.CycleEvaluationMode;
 import com.kpitracking.enums.CycleUnitEvalAction;
 import com.kpitracking.enums.CycleUnitEvalStatus;
+import com.kpitracking.enums.ConductScope;
 import com.kpitracking.exception.ResourceNotFoundException;
 import com.kpitracking.repository.*;
 import com.kpitracking.service.kpi.CycleEvaluationExcelWriter;
@@ -41,6 +42,9 @@ public class KpiCycleEvaluationService {
     private final CycleUnitEvalEventRepository cycleUnitEvalEventRepository;
     private final CycleUserEvaluationRepository cycleUserEvaluationRepository;
     private final EvaluationService evaluationService;
+    private final UnitClassificationService unitClassificationService;
+    private final ConductService conductService;
+    private final com.kpitracking.service.kpi.CycleLockChecker cycleLockChecker;
     private final com.kpitracking.security.PermissionChecker permissionChecker;
 
     // ─────────────────────────────── Per-user ───────────────────────────────
@@ -89,12 +93,13 @@ public class KpiCycleEvaluationService {
         }
 
         // Trục cột của ma trận ở cấp kỳ = TB % hoàn thành định lượng các đợt có dữ liệu.
-        // Kỳ không có KPI định lượng nào ⇒ mặc định 100% (giống cách đánh giá theo đợt xử lý).
+        // Kỳ không có KPI định lượng nào ⇒ TRỐNG (null), KHÔNG lấy 100% làm mặc định: một
+        // loại KPI chỉ cấp được một trục, muốn đủ hai trục thì phải bật chấm hạnh kiểm.
         double cpSum = 0; int cpN = 0;
         for (CycleUserEvaluationResponse.PeriodBreakdown b : breakdown) {
             if (b.getCompletionPercent() != null) { cpSum += b.getCompletionPercent(); cpN++; }
         }
-        Double avgCompletionPercent = cpN > 0 ? round(cpSum / cpN) : 100.0;
+        Double avgCompletionPercent = cpN > 0 ? round(cpSum / cpN) : null;
 
         OrgUnit unit = primaryUnit(user.getId());
         Double managerScore = mgrN > 0 ? round(mgrSum / mgrN) : null;
@@ -177,15 +182,27 @@ public class KpiCycleEvaluationService {
         }
 
         // Tra ma trận hiệu suất của tổ chức: (mức định tính) × (TB % hoàn thành định lượng).
-        // Dùng lại đúng hàm mà đánh giá theo đợt đang dùng. Chỉ có nghĩa khi có trục định tính.
-        Integer matrixRating = null;
-        if (qualScore != null) {
-            Double avgCompletion = computeUser(cycle, user, maxScore, finalizedUnits(cycleId))
-                    .getAvgCompletionPercent();
-            String matrixJson = cycle.getOrganization() != null
-                    ? cycle.getOrganization().getPerformanceMatrix() : null;
-            matrixRating = evaluationService.lookupMatrixRating(qualScore, avgCompletion, matrixJson);
+        // Dùng lại đúng hàm mà đánh giá theo đợt đang dùng.
+        //
+        // Ma trận cần ĐỦ HAI TRỤC THẬT. Một loại KPI chỉ cấp được một trục, nên kỳ chỉ chấm
+        // định lượng (hoặc chỉ định tính) sẽ thiếu trục — trừ khi tổ chức bật chấm HẠNH KIỂM,
+        // khi đó điểm hạnh kiểm bù đúng trục còn trống và kỳ mới ra được xếp loại 1..5.
+        CycleUserEvaluationResponse computed = computeUser(cycle, user, maxScore, finalizedUnits(cycleId));
+        Organization org = cycle.getOrganization();
+        Double rowScore = qualScore;
+        // null = kỳ không có KPI định lượng nào ⇒ trục cột đang TRỐNG, chờ hạnh kiểm bù.
+        Double colPercent = computed.getAvgCompletionPercent();
+        if (org != null && Boolean.TRUE.equals(org.getEnableConduct())) {
+            Double conduct = conductService.effectiveScore(userId, ConductScope.CYCLE, cycleId, org);
+            Double conductMax = conductService.effectiveMaxScore(userId, ConductScope.CYCLE, cycleId, org);
+            var axes = com.kpitracking.util.ConductAxisResolver.resolve(rowScore, colPercent, conduct, conductMax);
+            rowScore = axes.behaviorScore();
+            colPercent = axes.completionPercent();
         }
+        // Thiếu trục nào (kể cả sau khi hạnh kiểm bù) ⇒ lookup trả null: kỳ không có xếp loại
+        // ma trận, thay vì bịa một trục để ép ra hạng.
+        String matrixJson = org != null ? org.getPerformanceMatrix() : null;
+        Integer matrixRating = evaluationService.lookupMatrixRating(rowScore, colPercent, matrixJson);
 
         entity.setFinalScore(finalScore);
         entity.setQualScore(qualScore);
@@ -224,6 +241,13 @@ public class KpiCycleEvaluationService {
             live.setMatrixRating(saved.getMatrixRating());
             live.setMemberCount(saved.getMemberCount() != null ? saved.getMemberCount() : live.getMemberCount());
             live.setFromSnapshot(true);
+            // Bản ghi chốt TRƯỚC khi có tính năng xếp loại theo kỳ chưa có snapshot xếp loại —
+            // giữ số live để đơn vị không bị hiện "—" thay vì mất dữ liệu.
+            if (saved.getClassification() != null) {
+                live.setClassification(saved.getClassification());
+                live.setClassificationColor(saved.getClassificationColor());
+                live.setClassificationProfileName(saved.getClassificationProfile());
+            }
         }
         return live;
     }
@@ -253,6 +277,11 @@ public class KpiCycleEvaluationService {
             if (m.getMatrixRating() != null) { matrixSum += m.getMatrixRating(); matrixN++; }
         }
 
+        // Xếp loại đơn vị theo phân bố mức của thành viên TRONG KỲ. Truyền thẳng điểm kỳ vừa tính
+        // để con số trên huy hiệu luôn khớp bảng bên dưới, thay vì để service kia tính lại từ DB.
+        UnitClassificationService.UnitClassResult cls = unitClassificationService.classifyCycleUnit(
+                cycle.getId(), unit, members.stream().map(this::cycleMemberScore).toList());
+
         return CycleUnitEvaluationResponse.builder()
                 .cycleId(cycle.getId()).cycleName(cycle.getName())
                 .orgUnitId(unit.getId()).orgUnitName(unit.getName())
@@ -262,9 +291,31 @@ public class KpiCycleEvaluationService {
                 .qualScore(qualN > 0 ? round(qualSum / qualN) : null)
                 .matrixRating(matrixN > 0 ? round(matrixSum / matrixN) : null)
                 .memberCount(members.size())
+                .classification(cls != null ? cls.level() : null)
+                .classificationColor(cls != null ? cls.color() : null)
+                .classificationProfileName(cls != null ? cls.profileName() : null)
                 .status(CycleUnitEvalStatus.DRAFT)
                 .members(members)
                 .build();
+    }
+
+    /**
+     * Điểm kỳ của một người dưới dạng đầu vào xếp loại đơn vị.
+     *
+     * <p>Xếp loại ma trận ở cấp kỳ chỉ có khi người đó đã được CHẤM ĐỊNH TÍNH cuối kỳ. Chưa chấm
+     * thì lấy trung bình xếp loại ma trận các đợt — nếu không, đơn vị mới đánh giá được vài người
+     * sẽ xếp loại trên một mẫu quá nhỏ.
+     */
+    private UnitClassificationService.CycleMemberScore cycleMemberScore(CycleUserEvaluationResponse m) {
+        Double rating = m.getMatrixRating() != null ? m.getMatrixRating().doubleValue() : null;
+        if (rating == null && m.getPeriodBreakdown() != null) {
+            double sum = 0; int n = 0;
+            for (CycleUserEvaluationResponse.PeriodBreakdown b : m.getPeriodBreakdown()) {
+                if (b.getMatrixRating() != null) { sum += b.getMatrixRating(); n++; }
+            }
+            if (n > 0) rating = sum / n;
+        }
+        return new UnitClassificationService.CycleMemberScore(m.getFinalScore(), rating);
     }
 
     @Transactional
@@ -304,6 +355,9 @@ public class KpiCycleEvaluationService {
         entity.setQualScore(summary.getQualScore());
         entity.setMatrixRating(summary.getMatrixRating());
         entity.setMemberCount(summary.getMemberCount());
+        entity.setClassification(summary.getClassification());
+        entity.setClassificationColor(summary.getClassificationColor());
+        entity.setClassificationProfile(summary.getClassificationProfileName());
         entity.setComment(comment);
         entity.setStatus(CycleUnitEvalStatus.FINALIZED);
         entity.setFinalizedBy(current);
@@ -418,41 +472,19 @@ public class KpiCycleEvaluationService {
     }
 
     /** Các bản tổng hợp phòng ban ĐÃ CHỐT của kỳ (nạp 1 lần cho cả request). */
+    // Luật khoá theo kỳ nằm ở CycleLockChecker để ConductService dùng chung mà không tạo
+    // vòng phụ thuộc bean. Ba hàm dưới đây chỉ là lối tắt cho các chỗ gọi sẵn có.
+
     private List<CycleUnitEvaluation> finalizedUnits(UUID cycleId) {
-        return cycleUnitEvaluationRepository.findByKpiCycleId(cycleId).stream()
-                .filter(e -> e.getStatus() == CycleUnitEvalStatus.FINALIZED)
-                .toList();
+        return cycleLockChecker.finalizedUnits(cycleId);
     }
 
-    /**
-     * Đơn vị đã chốt đang khoá nhân viên thuộc {@code userUnit} (null nếu không bị khoá).
-     * Khoá kế thừa xuống dưới: OrgUnit dùng materialized path nên đơn vị con
-     * có path bắt đầu bằng path của cha — chốt ở cha thì con cũng bị khoá.
-     */
     private OrgUnit lockingUnit(OrgUnit userUnit, List<CycleUnitEvaluation> finalizedUnits) {
-        if (userUnit == null || userUnit.getPath() == null) return null;
-        for (CycleUnitEvaluation e : finalizedUnits) {
-            OrgUnit unit = e.getOrgUnit();
-            if (unit != null && unit.getPath() != null && userUnit.getPath().startsWith(unit.getPath())) {
-                return unit;
-            }
-        }
-        return null;
+        return cycleLockChecker.lockingUnit(userUnit, finalizedUnits);
     }
 
-    /**
-     * Như {@link #lockingUnit} nhưng BỎ QUA chính đơn vị đó — chỉ trả về đơn vị
-     * cấp trên đang khoá. Dùng khi cần biết "có phải mở khoá từ trên xuống không".
-     */
     private OrgUnit lockingAncestor(OrgUnit unit, List<CycleUnitEvaluation> finalizedUnits) {
-        if (unit == null || unit.getPath() == null) return null;
-        for (CycleUnitEvaluation e : finalizedUnits) {
-            OrgUnit other = e.getOrgUnit();
-            if (other == null || other.getPath() == null) continue;
-            if (other.getId().equals(unit.getId())) continue;
-            if (unit.getPath().startsWith(other.getPath())) return other;
-        }
-        return null;
+        return cycleLockChecker.lockingAncestor(unit, finalizedUnits);
     }
 
     // ─────────────────────── Gửi kết quả đánh giá cho nhân viên ───────────────────────
@@ -783,6 +815,7 @@ public class KpiCycleEvaluationService {
         return scope.stream()
                 .map(unit -> {
                     CycleUnitEvaluation e = saved.get(unit.getId());
+                    boolean finalized = e != null && e.getStatus() == CycleUnitEvalStatus.FINALIZED;
                     return CycleUnitStatusResponse.builder()
                             .orgUnitId(unit.getId())
                             .orgUnitName(unit.getName())
@@ -794,6 +827,10 @@ public class KpiCycleEvaluationService {
                             .managerScore(e != null ? e.getManagerScore() : null)
                             .qualScore(e != null ? e.getQualScore() : null)
                             .matrixRating(e != null ? e.getMatrixRating() : null)
+                            // Chỉ hiện xếp loại của bản ĐÃ CHỐT: đơn vị mở khoá chỉnh lại điểm
+                            // vẫn còn snapshot cũ, hiện lên sẽ thành con số đã hết hiệu lực.
+                            .classification(finalized ? e.getClassification() : null)
+                            .classificationColor(finalized ? e.getClassificationColor() : null)
                             .finalizedByName(e != null && e.getFinalizedBy() != null
                                     ? e.getFinalizedBy().getFullName() : null)
                             .finalizedAt(e != null ? e.getFinalizedAt() : null)

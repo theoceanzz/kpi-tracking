@@ -6,7 +6,7 @@ import lombok.*;
 import java.util.UUID;
 
 /**
- * Một viễn cảnh trong thẻ điểm + trọng số (%). Tổng trọng số = 100 mỗi scorecard.
+ * Một lĩnh vực trong bộ tiêu chí + trọng số (%). Tổng trọng số = 100 mỗi scorecard.
  * Đây là nơi trọng số "sống" và tham gia vào công thức chấm điểm BSC.
  */
 @Entity

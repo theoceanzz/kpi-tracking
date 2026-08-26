@@ -1,5 +1,6 @@
 import { X, Target, TrendingUp } from 'lucide-react'
 import React, { useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 
 interface DrawerProps {
   isOpen: boolean
@@ -95,7 +96,12 @@ export default function ObjectiveDrawer({
       </span>
     ) : null
 
-  return (
+  /*
+    Portal ra <body>: drawer dùng `position: fixed`, mà ô của react-grid-layout ở trang chủ
+    có `transform` — đủ để tạo containing block mới, khiến drawer mở từ widget bị căn theo
+    ô và bị `overflow-hidden` của ô cắt mất thay vì phủ toàn màn hình.
+  */
+  return createPortal((
     <div className="fixed inset-0 z-50 flex justify-end">
       {/* Backdrop */}
       <div
@@ -138,5 +144,5 @@ export default function ObjectiveDrawer({
         </div>
       </div>
     </div>
-  )
+  ), document.body)
 }

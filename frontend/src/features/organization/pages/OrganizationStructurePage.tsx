@@ -10,8 +10,6 @@ import { OrgUnitDrawer, DrawerState } from '../components/OrgUnitDrawer'
 import OrgImportGuideModal from '../components/OrgImportGuideModal'
 import OrgExcelPreviewModal from '../components/OrgExcelPreviewModal'
 import ConfirmDialog from '@/components/common/ConfirmDialog'
-import PageTour from '@/components/common/PageTour'
-import { orgStructureSteps } from '@/components/common/tourSteps'
 import { } from 'xlsx'
 import ExcelJS from 'exceljs'
 import { toast } from 'sonner'
@@ -217,7 +215,6 @@ export function OrganizationStructurePage() {
 
   return (
     <div className={`container mx-auto px-4 md:px-0 ${fitToScreen ? 'h-full flex flex-col gap-6' : 'space-y-6'}`}>
-      <PageTour pageKey="org-structure" steps={orgStructureSteps} />
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 shrink-0">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">{pageTitle}</h1>

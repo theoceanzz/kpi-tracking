@@ -228,6 +228,36 @@ export default function CycleEvaluationPage() {
                 </div>
               </div>
 
+              {/* Xếp loại đơn vị của kỳ: kết quả cuối cùng mà cấp trên đọc, nên đứng tách khỏi
+                  dãy điểm trung bình chứ không lẫn vào một ô chỉ số nữa. */}
+              {summary?.classification && (
+                <div
+                  className="flex items-center gap-3 px-4 py-3 rounded-2xl border shrink-0"
+                  style={{
+                    backgroundColor: `${summary.classificationColor ?? '#64748b'}14`,
+                    borderColor: `${summary.classificationColor ?? '#64748b'}33`,
+                  }}
+                  title={summary.status === 'FINALIZED'
+                    ? 'Xếp loại chụp lúc chốt kỳ'
+                    : 'Xếp loại tạm tính theo điểm kỳ hiện tại — sẽ được chốt cùng đánh giá phòng ban'}
+                >
+                  <Award size={22} style={{ color: summary.classificationColor ?? '#64748b' }} />
+                  <div className="min-w-0">
+                    <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 leading-none mb-1">
+                      Xếp loại đơn vị {summary.status === 'FINALIZED' ? '· đã chốt' : '· tạm tính'}
+                    </p>
+                    <p className="text-lg font-black leading-none truncate" style={{ color: summary.classificationColor ?? '#64748b' }}>
+                      {summary.classification}
+                    </p>
+                    {summary.classificationProfileName && (
+                      <p className="text-[10px] font-bold text-slate-400 mt-1 truncate">
+                        Hồ sơ: {summary.classificationProfileName}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              )}
+
               <div className={cn(
                 'grid grid-cols-3 gap-2 sm:gap-3 w-full sm:w-auto',
                 summary && summary.mode !== 'QUANTITATIVE' && 'sm:grid-cols-5'
@@ -603,6 +633,22 @@ export default function CycleEvaluationPage() {
                   <p className="text-[11px] font-black text-slate-400 uppercase tracking-widest mt-0.5">Điểm sẽ được lưu snapshot</p>
                 </div>
               </div>
+              {/* Xếp loại cũng bị khoá theo, nên phải nói trước khi bấm chứ không để người dùng
+                  phát hiện sau lúc sửa luật mà con số không đổi. */}
+              {summary?.classification && (
+                <div className="flex items-center gap-2.5 mb-5 px-4 py-3 rounded-2xl border"
+                  style={{
+                    backgroundColor: `${summary.classificationColor ?? '#64748b'}14`,
+                    borderColor: `${summary.classificationColor ?? '#64748b'}33`,
+                  }}>
+                  <Award size={16} style={{ color: summary.classificationColor ?? '#64748b' }} />
+                  <p className="text-[11px] font-bold text-slate-500 dark:text-slate-400">
+                    Xếp loại đơn vị{' '}
+                    <b style={{ color: summary.classificationColor ?? '#64748b' }}>{summary.classification}</b>
+                    {' '}sẽ được chụp lại cùng điểm.
+                  </p>
+                </div>
+              )}
               <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 ml-1">Nhận xét (tuỳ chọn)</label>
               <textarea
                 value={comment} onChange={e => setComment(e.target.value)} rows={3}

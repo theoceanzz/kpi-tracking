@@ -1,7 +1,5 @@
 import { Building2 } from 'lucide-react'
 import SettingsSectionLayout from '@/components/common/SettingsSectionLayout'
-import PageTour from '@/components/common/PageTour'
-import { companySteps } from '@/components/common/tourSteps'
 import { usePageTitle } from '@/features/organization/hooks/usePageTitle'
 import { CompanyInfoSection, CompanyHierarchySection } from '../components/CompanySections'
 import { OrganizationStructurePage } from '@/features/organization/pages/OrganizationStructurePage'
@@ -30,7 +28,6 @@ export default function CompanySettingsPage() {
 
   return (
     <>
-      <PageTour pageKey="company" steps={companySteps} />
       <SettingsSectionLayout
         navId="setup-company"
         title={pageTitle}

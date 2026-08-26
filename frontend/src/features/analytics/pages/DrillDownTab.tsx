@@ -6,8 +6,10 @@ import { cn } from '@/lib/utils'
 import UserAvatar from '@/components/common/UserAvatar'
 import {
   Users, X, BarChart3, LayoutGrid, Search, Maximize2, Building2, Target,
-  ChevronDown, ChevronRight, Network, Grid3x3, Award,
+  ChevronDown, ChevronRight, Network, Grid3x3, Award, CalendarRange,
 } from 'lucide-react'
+import { useAuthStore } from '@/store/authStore'
+import { useKpiCycles } from '@/features/kpi/hooks/useKpiCycles'
 import AnalyticsTabSkeleton from '@/components/common/AnalyticsTabSkeleton'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts'
 import { CopyButton } from '@/components/common/CopyButton'
@@ -54,8 +56,9 @@ function DrillBarTooltip({ active, payload, perf }: any) {
   )
 }
 
-/** Khối "Ma trận xếp loại" cho đơn vị đang chọn (chỉ render khi org bật đánh giá định tính):
- *  thẻ chỉ số LUÔN hiển thị; phân bố + heatmap nằm trong mục thu gọn. */
+/** Khối "Ma trận xếp loại" cho đơn vị đang chọn (chỉ render khi org đủ hai trục ma trận —
+ *  KPI định tính hoặc chấm hạnh kiểm): thẻ chỉ số LUÔN hiển thị; phân bố + heatmap nằm
+ *  trong mục thu gọn. */
 function DrillMatrixSection({ orgUnitId, periodId, periodIdTo }: { orgUnitId?: string; periodId?: string; periodIdTo?: string }) {
   const [open, setOpen] = useState(false)
   const { data: overview } = useMatrixOverview({ orgUnitId, periodId, periodIdTo })
@@ -81,14 +84,43 @@ function DrillMatrixSection({ orgUnitId, periodId, periodIdTo }: { orgUnitId?: s
   )
 }
 
-/** Khối "Xếp loại đơn vị" cho đơn vị đang chọn: badge + phân bố + biểu đồ đường + đơn vị con. */
+/**
+ * Khối "Xếp loại đơn vị" cho đơn vị đang chọn: badge + phân bố + biểu đồ đường + đơn vị con.
+ *
+ * Hai phạm vi: theo ĐỢT (bám bộ lọc thời gian của trang) hoặc theo KỲ (lấy số chốt kỳ của
+ * thành viên — đúng con số mà màn Đánh giá kỳ đang dùng để chốt).
+ */
 function DrillClassificationSection({ orgUnitId, periodId, periodIdTo }: { orgUnitId?: string; periodId?: string; periodIdTo?: string }) {
-  const { data: overview } = useUnitClassification({ orgUnitId, periodId, periodIdTo })
+  const orgId = useAuthStore(s => s.user)?.memberships?.[0]?.organizationId
+  const [cycleId, setCycleId] = useState<string>('')
+  const { data: cyclesData } = useKpiCycles({ organizationId: orgId, size: 100, sortBy: 'startDate', direction: 'desc' })
+  const cycles = cyclesData?.content ?? []
+
+  const { data: overview } = useUnitClassification(
+    cycleId ? { orgUnitId, cycleId } : { orgUnitId, periodId, periodIdTo }
+  )
+
   return (
     <div className="space-y-4">
-      <h3 className="text-[10px] font-black uppercase tracking-widest text-slate-400 flex items-center gap-1.5 ml-1">
-        <Award size={12} className="text-emerald-500" /> Xếp loại đơn vị (theo phân bố)
-      </h3>
+      <div className="flex flex-wrap items-center justify-between gap-2 ml-1">
+        <h3 className="text-[10px] font-black uppercase tracking-widest text-slate-400 flex items-center gap-1.5">
+          <Award size={12} className="text-emerald-500" /> Xếp loại đơn vị (theo phân bố)
+        </h3>
+        {cycles.length > 0 && (
+          <div className="flex items-center gap-1.5">
+            <CalendarRange size={13} className="text-slate-400" />
+            <select
+              value={cycleId}
+              onChange={e => setCycleId(e.target.value)}
+              className="h-8 px-2 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-[11px] font-bold text-slate-600 dark:text-slate-300 outline-none focus:ring-2 focus:ring-emerald-500/30"
+              title="Xếp loại theo kỳ dùng điểm chốt kỳ, bỏ qua bộ lọc đợt phía trên"
+            >
+              <option value="">Theo đợt (bộ lọc trên)</option>
+              {cycles.map(c => <option key={c.id} value={c.id}>Kỳ: {c.name}</option>)}
+            </select>
+          </div>
+        )}
+      </div>
       <UnitClassificationSection overview={overview} />
     </div>
   )
@@ -528,7 +560,7 @@ export default function DrillDownTab() {
               {/* Xếp loại đơn vị theo phân bố % xếp loại thành viên (mọi org) */}
               <DrillClassificationSection orgUnitId={selectedUnitId} periodId={periodId} periodIdTo={periodIdTo} />
 
-              {/* Ma trận xếp loại (chỉ khi org bật đánh giá định tính) */}
+              {/* Ma trận xếp loại (chỉ khi org đủ hai trục: KPI định tính hoặc chấm hạnh kiểm) */}
               {perf.isMatrix && (
                 <DrillMatrixSection orgUnitId={selectedUnitId} periodId={periodId} periodIdTo={periodIdTo} />
               )}
