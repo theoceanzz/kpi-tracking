@@ -1,3 +1,4 @@
+import { useRef } from 'react'
 import { useNotifications, useMarkAllRead, useMarkAsRead } from '../hooks/useNotifications'
 import { formatDateTime } from '@/lib/utils'
 import { cn } from '@/lib/utils'
@@ -23,10 +24,25 @@ export default function NotificationDropdown({ onClose }: NotificationDropdownPr
   const notifications = data?.content || []
   const unreadCount = notifications.filter(n => !n.isRead).length
 
-  // Simple grouping: Today vs Older
+  // Chưa đọc lên đầu, phần đã đọc mới chia Hôm nay / Trước đó. Con số đỏ trên chuông đếm
+  // đúng nhóm đầu tiên này — xếp lẫn theo ngày là người dùng phải tự dò xem cái nào chưa đọc.
+  //
+  // Chốt nhóm "chưa đọc" ở lần tải đầu của mỗi lần mở: bấm vào một thông báo là nó thành
+  // đã đọc, xếp lại ngay thì dòng vừa bấm nhảy xuống dưới ngay dưới con trỏ.
+  const firstUnreadIds = useRef<Set<string> | null>(null)
+  if (firstUnreadIds.current === null && !isLoading && data) {
+    firstUnreadIds.current = new Set(notifications.filter(n => !n.isRead).map(n => n.id))
+  }
+  // Thông báo mới đến qua websocket khi đang mở cũng thuộc nhóm đầu, dù không có trong
+  // ảnh chụp lúc mở.
+  const isTopGroup = (n: { id: string; isRead: boolean }) =>
+    (firstUnreadIds.current?.has(n.id) ?? false) || !n.isRead
+
   const today = new Date().setHours(0, 0, 0, 0)
-  const todayNotifs = notifications.filter(n => new Date(n.createdAt).getTime() >= today)
-  const olderNotifs = notifications.filter(n => new Date(n.createdAt).getTime() < today)
+  const unreadNotifs = notifications.filter(isTopGroup)
+  const readNotifs = notifications.filter(n => !isTopGroup(n))
+  const todayNotifs = readNotifs.filter(n => new Date(n.createdAt).getTime() >= today)
+  const olderNotifs = readNotifs.filter(n => new Date(n.createdAt).getTime() < today)
 
   const renderSection = (title: string, list: typeof notifications) => {
     if (list.length === 0) return null
@@ -123,6 +139,7 @@ export default function NotificationDropdown({ onClose }: NotificationDropdownPr
             </div>
           ) : (
             <>
+              {renderSection('Chưa đọc', unreadNotifs)}
               {renderSection('Hôm nay', todayNotifs)}
               {renderSection('Trước đó', olderNotifs)}
               <div className="p-4 border-t border-slate-50 dark:border-slate-800 text-center">

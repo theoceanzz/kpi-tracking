@@ -31,6 +31,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
+import com.kpitracking.service.ai.agent.AgentState;
 
 /**
  * Test cho luật quan trọng nhất của thiết kế composite: <b>tham số không thuộc view/subject đã chọn
@@ -50,6 +51,9 @@ class CompositeToolValidationTest {
     private ToolSupport support;
     private ToolContext context;
 
+    /** Trạng thái của lượt, đi cùng ToolContext — thay cho ToolCallTracker trước đây. */
+    private AgentState st = AgentState.forToolsOnly();
+
     @BeforeEach
     void setUp() {
         service = mock(OrgUnitStatisticService.class);
@@ -60,7 +64,6 @@ class CompositeToolValidationTest {
                 mock(KpiCriteriaRepository.class),
                 mock(ConversationMessageRepository.class),
                 service,
-                mock(DisambiguationGuard.class),
                 mock(FollowupContextStore.class),
                 new ObjectMapper());
         support.initToolMapper();
@@ -77,7 +80,8 @@ class CompositeToolValidationTest {
     private ToolContext noScopeContext() {
         return new ToolContext(Map.of(
                 "orgUnitId", UUID.randomUUID().toString(),
-                "organizationId", UUID.randomUUID().toString()));
+                "organizationId", UUID.randomUUID().toString(),
+                AgentState.CONTEXT_KEY, st));
     }
 
     /** Kết quả tool là JSON; lỗi nằm ở khoá "error". */
@@ -318,16 +322,14 @@ class CompositeToolValidationTest {
         when(service.searchKpis(any(), anyString(), anyInt())).thenReturn(List.of(
                 Map.of("id", UUID.randomUUID().toString(), "name", dup, "periodName", "Tháng 4/2026"),
                 Map.of("id", UUID.randomUUID().toString(), "name", dup, "periodName", "Tháng 5/2026")));
-        ToolCallTracker.clear();
         SearchTool tool = new SearchTool(service, support);
 
         String json = tool.search(new SearchRequest("kpi", dup, null, null, null), noScopeContext());
 
         assertThat(json).contains("NEEDS_DISAMBIGUATION");
-        assertThat(ToolCallTracker.anyCalled())
+        assertThat(st.anyToolSucceeded())
                 .as("hỏi làm rõ vẫn là tool đã lấy được dữ liệu thật")
                 .isTrue();
-        ToolCallTracker.clear();
     }
 
     @Test

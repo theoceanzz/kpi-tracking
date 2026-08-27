@@ -1,9 +1,11 @@
 import { useEffect, useMemo } from 'react'
 import { CalendarRange, CalendarDays } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Select, SelectContent, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { useKpiCycles } from '@/features/kpi/hooks/useKpiCycles'
 import { useKpiPeriods } from '@/features/kpi/hooks/useKpiPeriods'
+import ScopeSelectItems from '@/components/common/ScopeSelectItems'
+import { pickCurrentOrNearest } from '@/components/common/dateScope'
 import type { ConductScope, ConductTarget } from '../api/conductApi'
 
 /**
@@ -32,24 +34,27 @@ export default function ConductTargetPicker({
   const cycles = useMemo(() => cyclesData?.content ?? [], [cyclesData])
   const periods = useMemo(() => periodsData?.content ?? [], [periodsData])
 
-  // Vào trang là có sẵn đợt/kỳ gần nhất, khỏi bắt người dùng chọn thêm một bước mới thấy bảng.
+  // Đợt/kỳ chọn sẵn là cái đang chạy, không có thì cái gần hiện tại nhất — cái mới nhất
+  // theo ngày bắt đầu có thể là một đợt tương lai còn xa, chấm hạnh kiểm ở đó là vô nghĩa.
+  const defaultPeriod = useMemo(() => pickCurrentOrNearest(periods), [periods])
+  const defaultCycle = useMemo(() => pickCurrentOrNearest(cycles), [cycles])
+
+  // Vào trang là có sẵn đợt/kỳ, khỏi bắt người dùng chọn thêm một bước mới thấy bảng.
   useEffect(() => {
-    const firstPeriod = periods[0]
-    const firstCycle = cycles[0]
-    if (value.scope === 'PERIOD' && !value.periodId && firstPeriod) {
-      onChange({ scope: 'PERIOD', periodId: firstPeriod.id, cycleId: null })
+    if (value.scope === 'PERIOD' && !value.periodId && defaultPeriod) {
+      onChange({ scope: 'PERIOD', periodId: defaultPeriod.id, cycleId: null })
     }
-    if (value.scope === 'CYCLE' && !value.cycleId && firstCycle) {
-      onChange({ scope: 'CYCLE', cycleId: firstCycle.id, periodId: null })
+    if (value.scope === 'CYCLE' && !value.cycleId && defaultCycle) {
+      onChange({ scope: 'CYCLE', cycleId: defaultCycle.id, periodId: null })
     }
-  }, [value, periods, cycles, onChange])
+  }, [value, defaultPeriod, defaultCycle, onChange])
 
   const setScope = (scope: ConductScope) => {
-    // Đổi phạm vi thì chọn sẵn mục mới nhất — người dùng gần như luôn chấm đợt/kỳ gần nhất.
+    // Đổi phạm vi thì chọn sẵn mục gần hiện tại nhất — người dùng gần như luôn chấm đợt/kỳ đang chạy.
     if (scope === value.scope) return
     onChange(scope === 'PERIOD'
-      ? { scope, periodId: periods[0]?.id ?? null, cycleId: null }
-      : { scope, cycleId: cycles[0]?.id ?? null, periodId: null })
+      ? { scope, periodId: defaultPeriod?.id ?? null, cycleId: null }
+      : { scope, cycleId: defaultCycle?.id ?? null, periodId: null })
   }
 
   const tab = (scope: ConductScope, label: string, Icon: typeof CalendarDays) => (
@@ -79,11 +84,11 @@ export default function ConductTargetPicker({
             <SelectValue placeholder="Chọn đợt đánh giá" />
           </SelectTrigger>
           <SelectContent className="z-[1100]">
-            {periods.map(p => (
-              <SelectItem key={p.id} value={p.id}>
-                {p.name}{p.cycleName ? ` — ${p.cycleName}` : ''}
-              </SelectItem>
-            ))}
+            <ScopeSelectItems
+              items={periods}
+              selectedId={value.periodId ?? undefined}
+              renderLabel={p => `${p.name}${p.cycleName ? ` — ${p.cycleName}` : ''}`}
+            />
           </SelectContent>
         </Select>
       ) : (
@@ -92,9 +97,7 @@ export default function ConductTargetPicker({
             <SelectValue placeholder="Chọn kỳ đánh giá" />
           </SelectTrigger>
           <SelectContent className="z-[1100]">
-            {cycles.map(c => (
-              <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
-            ))}
+            <ScopeSelectItems items={cycles} selectedId={value.cycleId ?? undefined} noun="kỳ" />
           </SelectContent>
         </Select>
       )}

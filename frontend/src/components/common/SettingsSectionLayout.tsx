@@ -76,6 +76,9 @@ export default function SettingsSectionLayout({
 
   const active = visible.find(s => s.id === searchParams.get('section'))
 
+  /** Mục đang có việc chờ (số hoặc chấm) đứng trước mục không có. */
+  const pendingWeight = (id: string) => (sections.find(s => s.id === id)?.badge ? 1 : 0)
+
   // Hai tầng đầu của điều hướng — dòng sidebar và mục trong trang — báo lên cho hệ
   // hướng dẫn từ đúng chỗ biết chúng, thay vì để layout đoán lại từ URL.
   useTourScope(navId, active?.id ?? null)
@@ -126,7 +129,12 @@ export default function SettingsSectionLayout({
                   Mọi cụm dùng CHUNG bộ ngưỡng, không co theo số thẻ — nhờ vậy thẻ ở mọi hàng
                   rộng bằng nhau và thẳng mép trái. */}
               <div className="grid gap-4 grid-cols-1 @lg:grid-cols-2 @3xl:grid-cols-3 @5xl:grid-cols-4">
-                {group.items.map(def => (
+                {/* Thẻ đang có việc chờ nổi lên đầu cụm: số đỏ là chỗ cần vào trước, để nó
+                    nằm lẫn giữa lưới là người dùng phải quét cả lưới mới thấy. Sort ổn định
+                    nên các thẻ còn lại giữ nguyên thứ tự khai báo trong cây nav. */}
+                {[...group.items]
+                  .sort((a, b) => pendingWeight(b.id) - pendingWeight(a.id))
+                  .map(def => (
                   <button
                     key={def.id}
                     id={`tour-card-${def.id}`}

@@ -1,5 +1,5 @@
 import { useCallback, useState, useEffect } from 'react'
-import { useDropzone, type Accept } from 'react-dropzone'
+import { useDropzone, type Accept, type FileRejection } from 'react-dropzone'
 import { Upload, X, FileIcon, Eye } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
@@ -11,23 +11,49 @@ interface FileDropzoneProps {
   onRemove: (index: number) => void
   accept?: Accept
   maxFiles?: number
+  /** Giới hạn dung lượng mỗi tệp, tính bằng byte. Không đặt thì không chặn. */
+  maxSize?: number
+  /** Dòng mô tả loại tệp nhận được. Không đặt thì dùng câu chung chung, không nhắc dung lượng. */
+  hint?: string
   className?: string
 }
 
-export default function FileDropzone({ onFilesSelected, files, onRemove, accept, maxFiles = 5, className }: FileDropzoneProps) {
+/** Đổi mã lỗi của react-dropzone thành câu người dùng đọc được, có nêu cách sửa. */
+function rejectionReason(rejection: FileRejection, maxSize?: number): string {
+  const code = rejection.errors[0]?.code
+  if (code === 'file-too-large') {
+    const mb = maxSize ? (maxSize / 1024 / 1024).toFixed(0) : '?'
+    const actual = (rejection.file.size / 1024 / 1024).toFixed(1)
+    return `"${rejection.file.name}" nặng ${actual}MB, vượt quá ${mb}MB`
+  }
+  if (code === 'file-invalid-type') {
+    return `"${rejection.file.name}" không đúng định dạng được hỗ trợ`
+  }
+  if (code === 'too-many-files') {
+    return `"${rejection.file.name}" vượt quá số tệp cho phép`
+  }
+  return `Không nhận được "${rejection.file.name}"`
+}
+
+export default function FileDropzone({ onFilesSelected, files, onRemove, accept, maxFiles = 5, maxSize, hint, className }: FileDropzoneProps) {
   const [previewFile, setPreviewFile] = useState<{ url: string, name: string, type: string } | null>(null)
   
-  const onDrop = useCallback((accepted: File[]) => {
+  const onDrop = useCallback((accepted: File[], rejected: FileRejection[]) => {
+    // Nói RÕ tệp nào hỏng và vì sao. Bản trước im lặng bỏ qua tệp bị từ chối, nên người dùng kéo
+    // thả xong thấy thiếu tệp mà không hiểu tại sao.
+    rejected.forEach(r => toast.error(rejectionReason(r, maxSize)))
+
     if (files.length + accepted.length > maxFiles) {
        toast.error(`Chỉ được phép tải lên tối đa ${maxFiles} tệp`);
        return;
     }
-    onFilesSelected(accepted)
-  }, [onFilesSelected, files, maxFiles])
+    if (accepted.length) onFilesSelected(accepted)
+  }, [onFilesSelected, files, maxFiles, maxSize])
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
     accept,
+    maxSize,
     maxFiles: maxFiles - files.length,
     disabled: files.length >= maxFiles
   })
@@ -58,7 +84,7 @@ export default function FileDropzone({ onFilesSelected, files, onRemove, accept,
               {isDragActive ? 'Thả để tải lên' : files.length >= maxFiles ? 'Đã đạt giới hạn tệp' : 'Chọn tài liệu minh chứng'}
             </p>
             <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">
-              Ảnh, PDF, Word, Excel (Tối đa {maxFiles} tệp)
+              {hint ?? `Ảnh, PDF, Word, Excel (Tối đa ${maxFiles} tệp)`}
             </p>
           </div>
         </div>

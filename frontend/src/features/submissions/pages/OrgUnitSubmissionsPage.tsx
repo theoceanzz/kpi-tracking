@@ -12,6 +12,8 @@ import { getScoringFunctions } from '@/lib/scoring'
 import { useAuthStore } from '@/store/authStore'
 import { useOrgUnitTree } from '@/features/orgunits/hooks/useOrgUnitTree'
 import { useKpiPeriods } from '@/features/kpi/hooks/useKpiPeriods'
+import ScopeSelectItems from '@/components/common/ScopeSelectItems'
+import { pickCurrentOrNearest } from '@/components/common/dateScope'
 import { useOrganization } from '@/features/orgunits/hooks/useOrganization'
 import { useSidebarSettings } from '@/features/organization/hooks/useSidebarSettings'
 import { usePermission } from '@/hooks/usePermission'
@@ -31,9 +33,12 @@ export default function OrgUnitSubmissionsPage() {
   const { hasPermission } = usePermission()
   const canManageOrg = hasPermission('ROLE:ASSIGN')
 
+  // Mặc định đẩy người còn bài chờ duyệt lên đầu. Dòng sidebar chỉ mang TỔNG số bài
+  // chờ, nên vào trang mà xếp theo tên là người duyệt lại phải tự dò xem con số đỏ đó
+  // đến từ ai — đúng việc mà badge lẽ ra phải chỉ thẳng.
   const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' | null }>({
-    key: 'fullName',
-    direction: null
+    key: 'pending',
+    direction: 'desc'
   })
 
   const orgId = user?.memberships?.[0]?.organizationId
@@ -75,13 +80,12 @@ export default function OrgUnitSubmissionsPage() {
     }
   }, [flatOrgUnits, selectedOrgUnitId, canManageOrg, user])
 
-  const activePeriod = useMemo(() => {
-    if (!periodsData?.content) return undefined
-    const now = new Date()
-    return periodsData.content.find((p: any) =>
-      p.startDate && p.endDate && now >= new Date(p.startDate) && now <= new Date(p.endDate)
-    )
-  }, [periodsData])
+  // Đợt đang chạy; nếu hôm nay không rơi vào đợt nào thì lấy đợt gần hiện tại nhất
+  // (trước đây để trống, người duyệt vào trang thấy ô đợt rỗng và bảng không có gì).
+  const activePeriod = useMemo(
+    () => pickCurrentOrNearest(periodsData?.content),
+    [periodsData]
+  )
 
   useEffect(() => {
     if (!selectedPeriodId && activePeriod?.id) {
@@ -98,10 +102,12 @@ export default function OrgUnitSubmissionsPage() {
     return new Date() > new Date(selectedPeriod.endDate)
   }, [selectedPeriod])
 
-  // Fetch employees
-  const { data: usersData, isLoading: isLoadingUsers } = useUsers({ 
-    page, 
-    size: pageSize, 
+  // Tải trọn danh sách nhân sự của đơn vị rồi mới cắt trang ở client. Xếp "chờ duyệt lên
+  // đầu" trên từng trang 10 người do server cắt sẵn chỉ sắp lại đúng trang đang xem —
+  // người còn bài chờ ở trang 3 vẫn nằm im ở trang 3.
+  const { data: usersData, isLoading: isLoadingUsers } = useUsers({
+    page: 0,
+    size: 1000,
     orgUnitId: selectedOrgUnitId === 'ALL' ? undefined : selectedOrgUnitId,
     keyword: search || undefined,
     organizationId: orgId
@@ -170,7 +176,7 @@ export default function OrgUnitSubmissionsPage() {
     return set
   }, [submissionsData])
 
-  const employees = useMemo(() => {
+  const sortedEmployees = useMemo(() => {
     const items = [...(usersData?.content ?? [])]
     if (!sortConfig.key || !sortConfig.direction) return items
 
@@ -197,9 +203,21 @@ export default function OrgUnitSubmissionsPage() {
 
       if (aValue < bValue) return sortConfig.direction === 'asc' ? -1 : 1
       if (aValue > bValue) return sortConfig.direction === 'asc' ? 1 : -1
-      return 0
+      // Bằng điểm/bằng số bài chờ thì xếp theo tên, để thứ tự không nhảy giữa hai lần tải.
+      return (a.fullName ?? '').localeCompare(b.fullName ?? '')
     })
   }, [usersData?.content, sortConfig, pendingByUserId, evaluationsByUserId])
+
+  const totalPages = Math.max(1, Math.ceil(sortedEmployees.length / pageSize))
+
+  // Lọc hẹp lại (đổi đơn vị, gõ tìm kiếm) có thể làm danh sách ngắn hơn trang đang đứng —
+  // kẹp lại ngay khi dựng chứ không đợi một effect gọi setState rồi vẽ lần hai.
+  const safePage = Math.min(page, totalPages - 1)
+
+  const employees = useMemo(
+    () => sortedEmployees.slice(safePage * pageSize, (safePage + 1) * pageSize),
+    [sortedEmployees, safePage, pageSize]
+  )
 
   const isLoading = isLoadingUsers || isLoadingEvals || isLoadingSubs
 
@@ -230,6 +248,7 @@ export default function OrgUnitSubmissionsPage() {
       key,
       direction: prev.key === key && prev.direction === 'asc' ? 'desc' : 'asc'
     }))
+    setPage(0)
   }
 
   return (
@@ -306,9 +325,11 @@ export default function OrgUnitSubmissionsPage() {
                     </div>
                   </SelectTrigger>
                   <SelectContent className="rounded-2xl border-slate-200 dark:border-slate-800 shadow-2xl p-2">
-                    {periodsData?.content.map((p: any) => (
-                      <SelectItem key={p.id} value={p.id} className="font-medium rounded-xl focus:bg-emerald-50">{p.name}</SelectItem>
-                    ))}
+                    <ScopeSelectItems
+                      items={periodsData?.content}
+                      selectedId={selectedPeriodId}
+                      itemClassName="font-medium rounded-xl focus:bg-emerald-50"
+                    />
                   </SelectContent>
                 </Select>
               </div>
@@ -552,22 +573,22 @@ export default function OrgUnitSubmissionsPage() {
         <div className="flex flex-col sm:flex-row items-center justify-between gap-6 pt-4">
           <div className="flex items-center gap-4 text-sm">
             <p className="font-bold text-slate-400 uppercase tracking-widest text-[10px]">
-              Trang <span className="text-slate-900 dark:text-white">{page + 1}</span> / {usersData?.totalPages || 1}
+              Trang <span className="text-slate-900 dark:text-white">{safePage + 1}</span> / {totalPages}
             </p>
           </div>
 
           <div className="flex items-center gap-2">
             <button
-              onClick={(e) => { e.stopPropagation(); setPage(p => Math.max(0, p - 1)) }}
-              disabled={page === 0}
+              onClick={(e) => { e.stopPropagation(); setPage(Math.max(0, safePage - 1)) }}
+              disabled={safePage === 0}
               className="p-3 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 disabled:opacity-30 hover:border-emerald-500 hover:text-emerald-600 transition-all shadow-sm"
             >
               <ChevronLeft size={18} />
             </button>
             
             <button
-              onClick={(e) => { e.stopPropagation(); setPage(p => p + 1) }}
-              disabled={page >= (usersData?.totalPages || 1) - 1}
+              onClick={(e) => { e.stopPropagation(); setPage(safePage + 1) }}
+              disabled={safePage >= totalPages - 1}
               className="p-3 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 disabled:opacity-30 hover:border-emerald-500 hover:text-emerald-600 transition-all shadow-sm"
             >
               <ChevronRight size={18} />

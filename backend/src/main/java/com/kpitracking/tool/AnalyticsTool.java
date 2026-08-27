@@ -10,7 +10,6 @@ import org.springframework.stereotype.Component;
 
 import java.util.List;
 import java.util.Map;
-import java.util.UUID;
 
 /**
  * Phân tích tổng hợp theo đơn vị — gộp từ get_dashboard_summary, get_time_series và
@@ -27,7 +26,12 @@ public class AnalyticsTool {
     private final ToolSupport support;
 
     @Tool(name = "get_analytics", description = "Phân tích tổng hợp cho một đơn vị và các đơn vị con. "
-            + "view=dashboard: các chỉ số tổng quan. "
+            // "các chỉ số tổng quan" không phân biệt được với get_kpi(view=summary); nêu đúng
+            // phần RIÊNG của nó — bối cảnh tổ chức — và chỉ thẳng sang tool kia khi câu hỏi chỉ
+            // xoay quanh chỉ tiêu.
+            + "view=dashboard: bức tranh TOÀN ĐƠN VỊ — ngoài số liệu KPI còn có quân số, "
+            + "số đơn vị con, số kỳ, số lần nộp trễ. Dùng khi câu hỏi cần cả bối cảnh tổ chức; "
+            + "hỏi riêng về KPI thì dùng get_kpi(view=summary). "
             + "view=time_series: diễn biến theo thời gian kèm điểm bất thường — dùng cho câu hỏi về xu hướng "
             + "(vd 'xu hướng hiệu suất 6 tháng qua'); metric=completion (tổng thực tế/tổng mục tiêu %) hoặc "
             + "avg_performance; granularity=MONTH (mặc định)|QUARTER|YEAR; lookback=số kỳ gần nhất (mặc định 6); "

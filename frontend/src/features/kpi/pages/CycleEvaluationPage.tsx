@@ -1,6 +1,8 @@
 import { useState, useMemo, useEffect, Fragment } from 'react'
 import { useAuthStore } from '@/store/authStore'
 import { useKpiCycles } from '../hooks/useKpiCycles'
+import ScopeSelectItems from '@/components/common/ScopeSelectItems'
+import { pickCurrentOrNearest } from '@/components/common/dateScope'
 import { useUnitCycleSummary, useCycleApprovalChain } from '../hooks/useCycleEvaluation'
 import CycleApprovalTimeline from '../components/CycleApprovalTimeline'
 import SendEvaluationModal from '../components/SendEvaluationModal'
@@ -51,7 +53,9 @@ export default function CycleEvaluationPage() {
   const { getScoreColor, getScoreBg, getScoreLabel, maxScore } = getScoringFunctions(org)
 
   const { data: cyclesData } = useKpiCycles({ organizationId: orgId, size: 100, sortBy: 'startDate', direction: 'desc' })
-  const cycles = cyclesData?.content || []
+  // Memo hoá vì effect chọn sẵn kỳ mặc định phụ thuộc mảng này — không memo thì mảng đổi
+  // tham chiếu mỗi lần render và effect chạy lại vô ích sau mỗi phím gõ ở ô tìm kiếm.
+  const cycles = useMemo(() => cyclesData?.content ?? [], [cyclesData])
 
   const { data: orgUnitTreeData } = useOrgUnitTree()
   const flatOrgUnits = useMemo(() => orgUnitTreeData ? flattenTree(orgUnitTreeData) : [], [orgUnitTreeData])
@@ -65,7 +69,9 @@ export default function CycleEvaluationPage() {
   const [comment, setComment] = useState('')
   const [sortConfig, setSortConfig] = useState<{ key: SortKey; direction: 'asc' | 'desc' }>({ key: 'userName', direction: 'asc' })
 
-  useEffect(() => { const first = cycles[0]; if (!cycleId && first) setCycleId(first.id) }, [cycles, cycleId])
+  // Chọn sẵn kỳ đang chạy; không kỳ nào khớp hôm nay thì lấy kỳ gần hiện tại nhất.
+  const defaultCycle = useMemo(() => pickCurrentOrNearest(cycles), [cycles])
+  useEffect(() => { if (!cycleId && defaultCycle) setCycleId(defaultCycle.id) }, [defaultCycle, cycleId])
   useEffect(() => { if (!orgUnitId && flatOrgUnits.length) setOrgUnitId(flatOrgUnits[0].id) }, [flatOrgUnits, orgUnitId])
 
   const {
@@ -315,9 +321,12 @@ export default function CycleEvaluationPage() {
                     </div>
                   </SelectTrigger>
                   <SelectContent className="rounded-2xl border-slate-200 dark:border-slate-800 shadow-2xl p-2 max-h-72">
-                    {cycles.map(c => (
-                      <SelectItem key={c.id} value={c.id} className="font-medium rounded-xl focus:bg-emerald-50">{c.name}</SelectItem>
-                    ))}
+                    <ScopeSelectItems
+                      items={cycles}
+                      selectedId={cycleId}
+                      noun="kỳ"
+                      itemClassName="font-medium rounded-xl focus:bg-emerald-50"
+                    />
                   </SelectContent>
                 </Select>
               </div>

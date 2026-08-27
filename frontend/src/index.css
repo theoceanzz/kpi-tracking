@@ -24,6 +24,19 @@
   --color-secondary: #f1f5f9;
   --color-secondary-foreground: #0f172a;
   --radius: 0.5rem;
+
+  /* ── Nhận diện riêng cho trợ lý AI ────────────────────────────────────────
+     Cả app dùng đúng một màu indigo cho mọi thứ, nên khu vực AI chìm nghỉm
+     giữa các module khác. Cặp tím→lam này CHỈ dùng ở điểm nhấn của AI (rãnh
+     dọc, icon, nhãn, viền) — không đổ nền lớn, để không chỏi phần còn lại.
+     --color-ai dùng cho CHỮ nên phải đạt tương phản >= 4.5:1 trên nền nội dung;
+     --color-ai-accent chỉ cho icon/viền (>= 3:1). */
+  --color-ai: #7c3aed;          /* violet-600 trên nền trắng: 5.7:1 */
+  --color-ai-accent: #0891b2;   /* cyan-600 */
+  --color-ai-soft: #f5f3ff;     /* violet-50 — nền rất nhạt cho rãnh/đầu bảng */
+  --color-ai-line: #a78bfa;     /* violet-400 — rãnh dọc; 2.7:1 trên nền trắng: thấy rõ
+                                   mà vẫn nhẹ. Rãnh là TRANG TRÍ, ý nghĩa do nhãn chữ
+                                   mang, nên không cần ngưỡng 3:1 của thành phần mang nghĩa. */
 }
 
 .dark {
@@ -46,6 +59,13 @@
   --color-popover-foreground: #f8fafc;
   --color-secondary: #334155;
   --color-secondary-foreground: #f8fafc;
+
+  /* Bản tối KHÔNG đảo màu mà dùng biến thể nhạt hơn, đúng cách làm dark mode:
+     tím/lam đậm trên nền slate-900 sẽ tụt dưới ngưỡng đọc được. */
+  --color-ai: #c4b5fd;          /* violet-300 trên #0f172a: 9.7:1 */
+  --color-ai-accent: #67e8f9;   /* cyan-300 */
+  --color-ai-soft: #2e1065;     /* violet-950 */
+  --color-ai-line: #7c3aed;     /* violet-600 — 3.1:1 trên nền tối */
 }
 
 body {

@@ -191,6 +191,30 @@ export default function Sidebar({ isMobileOpen, onCloseMobile }: { isMobileOpen?
 
   const hasBadgeDeep = (item: NavItem): boolean => !!aggregateBadge(item)
 
+  /**
+   * Đích của một dòng sidebar. Trang gộp đang có việc chờ thì trỏ THẲNG vào mục con
+   * mang số đỏ, thay vì đổ ra lưới thẻ rồi bắt người dùng tự dò xem con số đó đến từ
+   * thẻ nào. Không mục con nào có badge (hoặc dòng không phải trang gộp) thì giữ path.
+   */
+  const navTo = (item: NavItem): string => {
+    const path = item.path!
+    if (!item.sections?.length) return path
+
+    let bestId: string | null = null
+    let bestScore = 0
+    for (const sec of item.sections) {
+      const b = aggregateBadge(sec)
+      if (!b) continue
+      // Chấm đỏ (boolean) xếp sau mọi con số: đếm được việc thì cụ thể hơn.
+      const score = typeof b === 'number' ? b : 0.5
+      if (score > bestScore) {
+        bestScore = score
+        bestId = sec.id
+      }
+    }
+    return bestId ? `${path}?section=${bestId}` : path
+  }
+
   return (
     <>
       {/* Mobile overlay */}
@@ -348,7 +372,7 @@ export default function Sidebar({ isMobileOpen, onCloseMobile }: { isMobileOpen?
                                       <NavLink
                                         id={`nav-item-${subChild.path?.replace(/\//g, '-')}`}
                                         key={subChild.path}
-                                        to={subChild.path!}
+                                        to={navTo(subChild)}
                                         end={subChild.end}
                                         onClick={handleNavClick}
                                         className={cn(
@@ -383,7 +407,7 @@ export default function Sidebar({ isMobileOpen, onCloseMobile }: { isMobileOpen?
                           <NavLink
                             id={`nav-item-${child.path?.replace(/\//g, '-')}`}
                             key={child.path}
-                            to={child.path!}
+                            to={navTo(child)}
                             end={child.end} 
                             onClick={handleNavClick}
                             className={cn(
@@ -420,7 +444,7 @@ export default function Sidebar({ isMobileOpen, onCloseMobile }: { isMobileOpen?
               <NavLink
                 id={item.id === 'dashboard' ? 'tour-dashboard-nav' : `nav-item-${item.path?.replace(/\//g, '-')}`}
                 key={item.id}
-                to={item.path!}
+                to={navTo(item)}
                 end={item.end} 
                 onClick={handleNavClick}
                 className={cn(

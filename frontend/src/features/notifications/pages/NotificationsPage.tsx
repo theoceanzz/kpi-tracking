@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { useNotifications, useMarkAllRead, useMarkAsRead } from '../hooks/useNotifications'
 import { useWebSocketNotifications } from '../hooks/useWebSocketNotifications'
 import { formatDateTime } from '@/lib/utils'
@@ -30,6 +30,20 @@ export default function NotificationsPage() {
   const notifications = data?.content || []
   const filteredNotifs = filter === 'UNREAD' ? notifications.filter(n => !n.isRead) : notifications
   const unreadCount = notifications.filter(n => !n.isRead).length
+
+  // Chưa đọc lên đầu — đúng thứ mà con số đỏ trên chuông đang đếm, khỏi phải cuộn đi tìm.
+  // Chốt danh sách chưa đọc ở LẦN TẢI ĐẦU chứ không bám `isRead` hiện tại: bấm vào một
+  // thông báo là nó thành đã đọc, xếp lại ngay thì dòng vừa bấm rơi xuống cuối và cả danh
+  // sách trượt đi dưới con trỏ. Sort ổn định nên trong từng nhóm vẫn là mới nhất trước.
+  const firstUnreadIds = useRef<Set<string> | null>(null)
+  if (firstUnreadIds.current === null && !isLoading && data) {
+    firstUnreadIds.current = new Set(notifications.filter(n => !n.isRead).map(n => n.id))
+  }
+  // Thông báo mới đến qua websocket khi đang mở trang cũng lên đầu, dù không có trong
+  // ảnh chụp lúc vào trang.
+  const isTopGroup = (n: { id: string; isRead: boolean }) =>
+    (firstUnreadIds.current?.has(n.id) ?? false) || !n.isRead
+  const orderedNotifs = [...filteredNotifs].sort((a, b) => Number(isTopGroup(b)) - Number(isTopGroup(a)))
 
   return (
     <div className="max-w-4xl mx-auto p-4 md:p-8 space-y-8 animate-in fade-in duration-500">
@@ -100,7 +114,7 @@ export default function NotificationsPage() {
           </div>
         ) : (
           <div className="bg-white dark:bg-slate-900 rounded-[32px] border border-slate-200 dark:border-slate-800 divide-y divide-slate-100 dark:divide-slate-800 overflow-hidden shadow-sm">
-            {filteredNotifs.map((n) => {
+            {orderedNotifs.map((n) => {
               const config = typeConfig[n.type] || { icon: Bell, color: 'text-slate-500 bg-slate-50', label: 'Thông báo' }
               const Icon = config.icon
               

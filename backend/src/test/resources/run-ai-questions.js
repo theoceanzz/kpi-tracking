@@ -23,6 +23,8 @@ const argOf = (name, dflt) => {
 };
 const onlyGroup = (argOf('--group', '') || '').toUpperCase();
 const LOG_PATH = argOf('--log', process.env.AI_TEST_LOG || '');
+/** Đo trên đường SSE thay vì đường JSON — xem askOverSse. */
+const USE_STREAM = args.includes('--stream');
 const OUT_PATH = argOf('--out', 'ai-questions-result.json');
 
 /** Câu trả lời "chịu thua" của chính hệ thống — đếm là hỏng, trừ nhóm D nơi từ chối là ĐÚNG. */
@@ -67,6 +69,18 @@ function readLogSince() {
 
 // ── gọi API ──────────────────────────────────────────────────────────────────
 const tokens = {};
+
+/**
+ * Lấy token từ COOKIE chứ không phải từ body.
+ *
+ * Từ khi đăng nhập chuyển sang cookie HttpOnly, `AuthController.issueSession` gỡ hẳn accessToken
+ * khỏi body (luôn null) — bản cũ của hàm này vì thế ném "Đăng nhập hỏng" ở câu đầu tiên. Cookie
+ * `kg_at` chứa nguyên JWT; HttpOnly chỉ chặn JavaScript trong trình duyệt, script đọc Set-Cookie
+ * vẫn thấy bình thường.
+ *
+ * Dùng nó làm header Bearer thay vì gửi lại cookie: client có `Authorization: Bearer` được MIỄN
+ * CSRF (SecurityConfig.csrfProtectionMatcher), nên không phải xoay xở với XSRF-TOKEN.
+ */
 async function loginAs(key) {
   if (tokens[key]) return tokens[key];
   const acc = BANK.accounts[key];
@@ -74,17 +88,101 @@ async function loginAs(key) {
   const r = await fetch(BASE + '/auth/login', {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ email: acc.email, password: acc.password }),
-  }).then(x => x.json());
-  if (!r.data || !r.data.accessToken) throw new Error('Đăng nhập hỏng: ' + acc.email);
-  tokens[key] = r.data.accessToken;
-  return tokens[key];
+  });
+  const setCookies = typeof r.headers.getSetCookie === 'function' ? r.headers.getSetCookie() : [];
+  for (const c of setCookies) {
+    const m = /^kg_at=([^;]+)/.exec(c);
+    if (m && m[1]) { tokens[key] = m[1]; return tokens[key]; }
+  }
+  throw new Error('Đăng nhập hỏng (không thấy cookie kg_at): ' + acc.email);
 }
+
+/**
+ * Hạn mức token THÁNG của chính hệ thống đã cạn (429 từ AiTokenQuotaExceededException).
+ *
+ * <p>Khác hẳn `depleted` (nhà cung cấp hết credit) và khác cả chặn tần suất. Không nhận ra nó
+ * thì mọi câu còn lại đỏ hàng loạt trông y hệt model sai — đã xảy ra thật: 12 ca đỏ giả từng bị
+ * đọc nhầm thành một đợt hồi quy.
+ */
+const QUOTA_EXHAUSTED = /hết hạn mức token AI/i;
 
 const RATE_LIMITED = /quá nhanh|rate limit/i;
 
+/**
+ * Nhà cung cấp model chặn tần suất (HTTP 429) — KHÁC với bộ chặn 15 lượt/phút của backend.
+ *
+ * Backend gói lỗi này thành "Hệ thống AI đã đạt giới hạn sử dụng", trùng chữ với lỗi hết hạn mức
+ * token trong ứng dụng nên rất dễ chẩn nhầm. Đã đo được: một lần chạy tưởng tụt 37/40 -> 30/40,
+ * hoá ra 7/10 câu hỏng là 429 chứ không phải model chọn sai.
+ *
+ * Từ khi có công đoạn lập kế hoạch + định tuyến + hỏi lại, MỖI câu hỏi gọi nhà cung cấp 3-4 lần,
+ * nên nhịp giãn phải tính theo lời gọi nhà cung cấp chứ không phải theo số câu hỏi.
+ */
+const PROVIDER_THROTTLED = /đạt giới hạn sử dụng/i;
+
+/**
+ * Đọc một luồng SSE và trả về sự kiện `done` (hoặc `error`).
+ *
+ * <p>Chỉ đọc `done` chứ không ghép các mẩu `token`: `token` là BẢN XEM TRƯỚC chưa qua bộ lọc, còn
+ * `done` mới là câu trả lời chính thức — đúng thứ client thật hiển thị.
+ *
+ * <p><b>Tách khung theo DÒNG, tuyệt đối không dùng regex có dấu chấm.</b> Bản đầu dùng
+ * `/^data:\s?(.*)$/gm` và nó CẮT CỤT payload: trong regex JavaScript, dấu chấm không khớp
+ * U+2028 LINE SEPARATOR, mà model sinh ký tự đó khá thường (đo được 12 lần trong MỘT câu trả lời).
+ * Payload đứt giữa chừng -> JSON.parse hỏng -> bộ đo báo "luồng SSE không có sự kiện done", và cổng
+ * P4 bị chặn bởi đúng lỗi này của BỘ ĐO chứ không phải bởi sản phẩm — chạy riêng cùng câu hỏi đó
+ * thì server trả `done` đầy đủ 3/3 lần.
+ *
+ * <p>Trình duyệt thật không dính: EventSource chỉ coi CR, LF, CRLF là hết dòng, đúng chuẩn SSE.
+ */
+function parseSse(raw) {
+  let done = null;
+  let failed = null;
+  for (const block of raw.split(/\r?\n\r?\n/)) {
+    const lines = block.split(/\r\n|\r|\n/);
+    const nameLine = lines.find(l => l.startsWith('event:'));
+    if (!nameLine) continue;
+    const name = nameLine.slice('event:'.length).trim();
+    const payload = lines
+      .filter(l => l.startsWith('data:'))
+      .map(l => l.slice('data:'.length).replace(/^ /, ''))
+      .join('\n');
+    if (!payload) continue;
+    try {
+      if (name === 'done') done = JSON.parse(payload);
+      else if (name === 'error') failed = JSON.parse(payload);
+    } catch { /* mẩu vỡ thì bỏ; phần gọi sẽ báo thiếu done */ }
+  }
+  return { done, failed };
+}
+
+/**
+ * Hỏi qua `/ai/chat/stream`.
+ *
+ * <p>Cần cờ này vì hai đường KHÔNG chạy cùng mã: lượt streaming chạy trên luồng nền, và đã có lần
+ * lỗi ở đúng chỗ đó (LazyInitializationException "no Session") mà đường JSON không hề thấy. Đo
+ * đường JSON rồi kết luận cho streaming là điều đã làm sai một lần.
+ */
+async function askOverSse(token, body) {
+  const r = await fetch(BASE + '/ai/chat/stream', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Accept: 'text/event-stream',
+      Authorization: 'Bearer ' + token,
+    },
+    body: JSON.stringify(body),
+  });
+  const { done, failed } = parseSse(await r.text());
+  if (done && done.text) return done.text.replace(/\s+/g, ' ').trim();
+  return '[LỖI] ' + String(failed ? failed.message : 'luồng SSE không có sự kiện done').slice(0, 160);
+}
+
 async function askOnce(question, accountKey) {
   const token = await loginAs(accountKey);
-  const r = await fetch(BASE + '/ai/chat-org-unit', {
+  if (USE_STREAM) return askOverSse(token, { message: question });
+
+  const r = await fetch(BASE + '/ai/chat', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
     body: JSON.stringify({ message: question }),
@@ -101,6 +199,12 @@ async function askOnce(question, accountKey) {
  */
 async function ask(question, accountKey) {
   let answer = await askOnce(question, accountKey);
+  if (PROVIDER_THROTTLED.test(answer)) {
+    process.stdout.write('       (nhà cung cấp chặn 429, chờ 60s rồi thử lại)\n');
+    await new Promise(r => setTimeout(r, 60_000));
+    markLog();
+    answer = await askOnce(question, accountKey);
+  }
   if (RATE_LIMITED.test(answer)) {
     process.stdout.write('       (bị chặn tần suất, chờ 60s rồi thử lại)\n');
     await new Promise(r => setTimeout(r, 60_000));
@@ -131,6 +235,16 @@ function grade(item, answer, trace, isTrapGroup) {
     const missing = item.tools.filter(t => !trace.tools.includes(t));
     if (missing.length) problems.push('không gọi ' + missing.join('+'));
   }
+  // toolsAny: mỗi nhóm chỉ cần MỘT tool khớp. Dùng khi có nhiều đường đúng như nhau để trả lời
+  // một vế — vd "tổng quan KPI" làm được bằng get_kpi(summary) lẫn get_analytics(dashboard).
+  // Đòi đúng một tool trong những trường hợp đó là chấm hỏng một câu trả lời đúng.
+  if (LOG_PATH && traceUsable && item.toolsAny) {
+    for (const alternatives of item.toolsAny) {
+      if (!alternatives.some(t => trace.tools.includes(t))) {
+        problems.push('không gọi tool nào trong ' + alternatives.join('|'));
+      }
+    }
+  }
   if (LOG_PATH && traceUsable && item.groups && trace.groups.length) {
     const missing = item.groups.filter(g => !trace.groups.includes(g));
     // Router trả đủ nhóm đọc là hành vi lùi an toàn, không tính là thiếu.
@@ -150,8 +264,10 @@ const GROUPS = [
 (async () => {
   const results = [];
   let pass = 0, fail = 0;
+  let quotaOut = false;
 
   for (const [key, title, items] of GROUPS) {
+    if (quotaOut) break;
     if (onlyGroup && onlyGroup !== key) continue;
     console.log(`\n━━ NHÓM ${key} — ${title} ━━`);
 
@@ -166,8 +282,24 @@ const GROUPS = [
       }
       await new Promise(r => setTimeout(r, 300)); // để log kịp ghi xong
       const trace = readLogSince();
+
+      // Hạn mức tháng cạn thì mọi câu sau đều đỏ mà KHÔNG phải model sai. Dừng ngay: đừng đốt
+      // thêm câu, và đừng để lại một bảng kết quả trông như hồi quy.
+      if (QUOTA_EXHAUSTED.test(answer)) {
+        console.log('\nDỪNG: hạn mức token AI THÁNG của tài khoản đo đã cạn — không phải model sai. '
+          + 'Nâng hạn mức (ai_token_quotas.monthly_limit) hoặc chờ sang tháng rồi chạy lại.');
+        quotaOut = true;
+        break;
+      }
       // Giãn nhịp cho dưới ngưỡng 15 lượt/phút của backend (xem ghi chú ở hàm ask).
-      const pace = Number(argOf('--delay', '4500'));
+      // 4500 là nhịp tính cho bộ chặn 15 lượt/phút của BACKEND, hồi mỗi câu chỉ gọi model một lần.
+      //
+      // Giờ ràng buộc chặt hơn nằm ở NHÀ CUNG CẤP, và nó tính theo TOKEN chứ không phải lời gọi:
+      // 429 kèm "Tokens per minute limit exceeded". Mỗi câu tốn ~16.000 token (định tuyến + lập
+      // kế hoạch + gọi chính, mỗi lời gọi mang theo toàn bộ định nghĩa tool), nên với hạn mức TPM
+      // của gói đang dùng chỉ chạy được 3-4 câu/phút. Bắn nhanh hơn là hỏng hàng loạt trông y hệt
+      // model chọn sai — đã đo nhầm một lần thành "tụt 37/40 -> 30/40".
+      const pace = Number(argOf('--delay', '20000'));
       const problems = grade(item, answer, trace, key === 'D');
       const ok = problems.length === 0;
       ok ? pass++ : fail++;

@@ -11,13 +11,15 @@ import java.util.List;
 import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.CALLS_REAL_METHODS;
+import static org.mockito.Mockito.mock;
 
 /**
  * Test cho bảng tra tên tool → nhóm, thứ mà tầng định tuyến dựa vào để nới nhóm theo kế hoạch.
  */
 class ToolRegistryTest {
 
-    /** Tên mọi @Tool thật, lấy bằng reflection giống hệt cách ModelCallStage gom. */
+    /** Tên mọi @Tool thật, lấy bằng reflection giống hệt cách FinishNode gom. */
     private static Set<String> realToolNames() {
         Set<String> names = new LinkedHashSet<>();
         for (Class<?> toolClass : ToolRegistry.toolClasses()) {
@@ -74,9 +76,12 @@ class ToolRegistryTest {
     @Test
     @DisplayName("readGroups gồm đủ mọi nhóm ĐỌC và không lẫn nhóm GHI")
     void readGroupsExcludeWriteGroup() {
-        assertThat(new ToolRegistry(null, null, null, null, null, null, null, null, null, null)
-                .readGroups())
-                .containsExactlyInAnyOrder(Group.CORE, Group.LOOKUP, Group.KPI, Group.INSIGHT)
-                .doesNotContain(Group.ACTION);
+        // readGroups() không đụng vào field nào, nên dựng bằng CALLS_REAL_METHODS thay vì liệt kê
+        // một dãy null — dãy đó gãy mỗi lần thêm một tool vào registry, và đã gãy hai lần.
+        assertThat(mock(ToolRegistry.class, CALLS_REAL_METHODS).readGroups())
+                .containsExactlyInAnyOrder(Group.CORE, Group.LOOKUP, Group.KPI, Group.INSIGHT,
+                        Group.BSC, Group.OKR)
+                // FORM không nằm đây vì tool điền form chọn theo form đang mở, không theo nhóm.
+                .doesNotContain(Group.ACTION, Group.FORM);
     }
 }

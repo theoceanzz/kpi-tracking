@@ -48,6 +48,17 @@ public class AiTokenUsageRecorder {
     }
 
     /**
+     * Tính năng đang được ghi nhận, hoặc {@code null} nếu chưa đặt.
+     *
+     * <p>Dùng khi một công đoạn cần đổi tính năng cho ĐÚNG một lời gọi model rồi trả lại như cũ —
+     * vd {@code FollowupStage} nằm trong lượt CHAT nhưng lời gọi sinh gợi ý phải tính là FOLLOWUP.
+     * Đọc rồi khôi phục thay vì đoán "chắc là CHAT", để chỗ gọi khác không âm thầm bị ghi sai.
+     */
+    public static AiTokenUsage.AiFeature currentFeature() {
+        return CURRENT_FEATURE.get();
+    }
+
+    /**
      * Ghi ở giao dịch riêng: token đã tiêu thật rồi, không được cuốn theo khi giao dịch bên ngoài
      * bị rollback vì lỗi xảy ra sau đó.
      */

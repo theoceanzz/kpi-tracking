@@ -44,6 +44,19 @@ CREATE TABLE organizations (
   name        TEXT NOT NULL,
   code        TEXT NOT NULL UNIQUE,
   status      TEXT NOT NULL DEFAULT 'ACTIVE' CHECK (status IN ('ACTIVE','SUSPENDED','ARCHIVED','PENDING')),
+
+  -- ----- Hồ sơ doanh nghiệp -----
+  -- Tất cả NULL-able: tổ chức chưa khai gì thì trang "Thông tin công ty" tự lùi về phần
+  -- tối thiểu (tên + mã), không buộc ai nhập lại thứ họ chưa từng có.
+  logo_url       TEXT,
+  cover_url      TEXT,
+  -- Lĩnh vực hoạt động lưu dạng chuỗi tự do thay vì enum: danh mục ngành nghề thay đổi
+  -- theo thị trường, đổi danh mục không nên kéo theo migration.
+  industry       VARCHAR(120),
+  tax_code       VARCHAR(50),
+  employee_count INT,
+  description    TEXT,
+
   evaluation_max_score DOUBLE PRECISION DEFAULT 100.0,
   kpi_reminder_percentage INT DEFAULT 50,
   enable_okr BOOLEAN DEFAULT FALSE,
@@ -52,6 +65,12 @@ CREATE TABLE organizations (
   enable_qualitative BOOLEAN NOT NULL DEFAULT FALSE,
   enable_bsc  BOOLEAN NOT NULL DEFAULT FALSE,
   enable_reward BOOLEAN NOT NULL DEFAULT FALSE,
+  -- ----- Hạnh kiểm -----
+  -- Điểm hạnh kiểm LẤP TRỤC CÒN THIẾU của ma trận xếp loại: tổ chức chỉ có KPI định lượng
+  -- (trục cột) thì hạnh kiểm quy về trục hàng 0..5; chỉ có KPI định tính (trục hàng) thì
+  -- quy về trục cột %. Xem ConductAxisResolver.
+  enable_conduct    BOOLEAN          NOT NULL DEFAULT FALSE,
+  conduct_max_score DOUBLE PRECISION NOT NULL DEFAULT 4,
   performance_matrix jsonb,
   unit_classification_rules jsonb,
   -- ----- Hạn mức token AI -----
@@ -92,6 +111,8 @@ CREATE TABLE organizations (
   sepay_account_number VARCHAR(50),
   sepay_bank_code      VARCHAR(20),
   sepay_account_holder VARCHAR(255),
+  CONSTRAINT ck_organizations_employee_count
+      CHECK (employee_count IS NULL OR employee_count >= 0),
   CONSTRAINT ck_organizations_exchange_rate CHECK (point_exchange_rate > 0),
   CONSTRAINT ck_organizations_topup_range
       CHECK (topup_min_amount > 0
@@ -101,6 +122,9 @@ CREATE TABLE organizations (
   created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at  TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+COMMENT ON COLUMN organizations.conduct_max_score IS
+    'Thang điểm nền khi tổ chức chưa có bộ tiêu chí nào. Thang thật nằm ở conduct_criteria_sets.max_score của từng bộ.';
 
 -- Một tổ chức Lark chỉ được gắn với đúng một công ty. Index đặt trên HMAC, không phải giá trị thật.
 CREATE UNIQUE INDEX uk_org_lark_tenant_key_hash ON organizations (lark_tenant_key_hash)
@@ -441,6 +465,12 @@ CREATE TABLE cycle_unit_evaluations (
     qual_score      DOUBLE PRECISION,  -- TB mức định tính của thành viên (thang 0..5)
     matrix_rating   DOUBLE PRECISION,  -- TB xếp loại ma trận của thành viên (thang 1..5)
     member_count    INT             DEFAULT 0,
+    -- Xếp loại đơn vị CHỤP LẠI lúc chốt kỳ, không tính lại live: luật xếp loại
+    -- (organizations.unit_classification_rules) và đánh giá của các đợt cũ đều còn sửa được
+    -- sau khi kỳ đã chốt, tính lại sẽ làm đổi kết quả đã công bố. Bản DRAFT vẫn hiện số live.
+    classification         VARCHAR(255),  -- tên mức, VD "XUẤT SẮC" / "Loại 4"
+    classification_color   VARCHAR(20),   -- màu hiển thị của mức (hex)
+    classification_profile VARCHAR(255),  -- hồ sơ luật đã áp (null = preset)
     comment         TEXT,
     status          VARCHAR(20)     NOT NULL DEFAULT 'DRAFT', -- DRAFT | FINALIZED
     finalized_by    UUID            REFERENCES users(id) ON DELETE SET NULL,
@@ -452,6 +482,9 @@ CREATE TABLE cycle_unit_evaluations (
     deleted_at      TIMESTAMPTZ,
     UNIQUE (kpi_cycle_id, org_unit_id)
 );
+
+COMMENT ON COLUMN cycle_unit_evaluations.classification IS
+    'Xếp loại đơn vị chụp lúc chốt kỳ — áp luật xếp loại lên phân bố mức của thành viên trong kỳ';
 
 CREATE INDEX idx_cycle_unit_evals_cycle ON cycle_unit_evaluations(kpi_cycle_id);
 CREATE INDEX idx_cycle_unit_evals_unit  ON cycle_unit_evaluations(org_unit_id);
@@ -761,6 +794,56 @@ CREATE TABLE email_templates (
 
 CREATE INDEX idx_email_templates_org ON email_templates (organization_id);
 
+-- ── Hàng đợi gom email thông báo ───────────────────
+-- Trước đây mỗi sự kiện gửi thẳng một email: nhân viên nộp 12 báo cáo trong một buổi sáng
+-- là trưởng đơn vị nhận đúng 12 lá thư gần như y hệt nhau, và một lượt bulkReview 30 bài
+-- nộp sinh ra 30 lá nữa cho nhân viên. Người nhận ngừng đọc, rồi ngừng để ý tới cả những
+-- thư thật sự quan trọng.
+--
+-- Từ đây email đi qua hàng đợi này: sự kiện được xếp hàng, một scheduler chờ cho luồng sự
+-- kiện của người đó lắng xuống rồi mới gộp tất cả thành MỘT thư. Thông báo trong hệ thống
+-- (chuông + WebSocket) vẫn tức thời như cũ — chỉ có kênh email bị gom lại.
+CREATE TABLE notification_email_digest_items (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+
+    -- Tổ chức cần cho việc render template: mỗi tổ chức có thể tự sửa nội dung email.
+    organization_id UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+
+    -- Người NHẬN thư. ON DELETE CASCADE vì thư chưa gửi của một tài khoản đã bị xoá cứng
+    -- thì không còn ai để gửi tới.
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+
+    -- Địa chỉ và tên được chốt lại NGAY LÚC XẾP HÀNG chứ không đọc từ users lúc gửi:
+    -- người nhận có thể đổi email giữa lúc sự kiện xảy ra và lúc thư đi.
+    recipient_email VARCHAR(255) NOT NULL,
+    recipient_name VARCHAR(255),
+
+    -- Mã sự kiện (submission_submitted, kpi_approved…). Dùng để nhóm các mục cùng loại
+    -- trong thư gộp, và để chọn template khi người nhận chỉ có đúng MỘT mục chờ gửi.
+    event_code VARCHAR(100) NOT NULL,
+
+    title TEXT NOT NULL,
+    message TEXT NOT NULL,
+    reference_id UUID,
+
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+
+    -- NULL = còn chờ gửi. Ghi thời điểm gửi thay vì xoá bản ghi để còn lần được vì sao một
+    -- người nhận thư vào lúc đó với đúng những nội dung đó.
+    sent_at TIMESTAMPTZ
+);
+
+-- Scheduler quét đúng phần chưa gửi. Partial index để bảng có phình theo lịch sử thì chi
+-- phí mỗi lượt quét vẫn chỉ theo số mục đang chờ.
+CREATE INDEX idx_notif_digest_pending
+    ON notification_email_digest_items(user_id, created_at)
+    WHERE sent_at IS NULL;
+
+-- Dọn lịch sử theo thời gian.
+CREATE INDEX idx_notif_digest_sent_at
+    ON notification_email_digest_items(sent_at)
+    WHERE sent_at IS NOT NULL;
+
 -- ====================================================
 -- Refresh Tokens
 -- ====================================================
@@ -1032,25 +1115,6 @@ CREATE INDEX idx_evaluation_perspective_scores_evaluation_id ON evaluation_persp
 CREATE UNIQUE INDEX uq_evaluation_perspective_scores
     ON evaluation_perspective_scores(evaluation_id, perspective_id);
 
--- Quan hệ nhân-quả có hướng giữa các Objective (triết lý BSC: Học hỏi → Quy trình → Khách hàng → Tài chính)
-CREATE TABLE bsc_objective_relations (
-    id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    organization_id     UUID            NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
-    source_objective_id UUID            NOT NULL REFERENCES objectives(id) ON DELETE CASCADE,
-    target_objective_id UUID            NOT NULL REFERENCES objectives(id) ON DELETE CASCADE,
-    label               VARCHAR(255),
-    created_at          TIMESTAMPTZ     DEFAULT NOW(),
-    updated_at          TIMESTAMPTZ     DEFAULT NOW(),
-    deleted_at          TIMESTAMPTZ,
-    -- Không cho tự nối chính nó
-    CHECK (source_objective_id <> target_objective_id)
-);
-
-CREATE INDEX idx_bsc_objective_relations_org ON bsc_objective_relations(organization_id);
--- Một cặp (nguồn, đích) chỉ có một cạnh (bỏ qua bản ghi xoá mềm)
-CREATE UNIQUE INDEX uq_bsc_objective_relations
-    ON bsc_objective_relations(source_objective_id, target_objective_id) WHERE deleted_at IS NULL;
-
 -- ====================================================
 -- THƯỞNG ĐIỂM NHÂN VIÊN (Reward Points)
 --
@@ -1173,6 +1237,81 @@ ALTER TABLE reward_budgets ADD CONSTRAINT ex_reward_budgets_no_overlap
 CREATE INDEX idx_reward_budgets_grantor ON reward_budgets(organization_id, grantor_user_id);
 CREATE INDEX idx_reward_budgets_period ON reward_budgets(kpi_period_id);
 
+-- ── Mẫu chứng nhận khen thưởng ─────────────────────
+-- Bản THIẾT KẾ (khung viền, hoa văn, cách xếp chữ) nằm ở frontend dưới dạng "preset";
+-- bảng này chỉ lưu phần tổ chức tự đặt: chọn preset nào, viết lời gì, ký tên ai, màu
+-- thương hiệu ra sao. Vẽ chứng nhận là việc của trình duyệt — nhồi cả layout xuống DB
+-- thì mỗi lần chỉnh một khoảng cách lại phải chạy migration.
+--
+-- Vì vậy `preset` KHÔNG có CHECK liệt kê giá trị: danh mục thiết kế thuộc về frontend
+-- và sẽ dài thêm theo thời gian. Frontend tự lùi về preset đầu tiên khi gặp khoá lạ.
+CREATE TABLE reward_certificate_templates (
+    id                UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    organization_id   UUID         NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+
+    name              VARCHAR(120) NOT NULL,
+    preset            VARCHAR(40)  NOT NULL,
+    orientation       VARCHAR(10)  NOT NULL DEFAULT 'LANDSCAPE'
+        CHECK (orientation IN ('LANDSCAPE', 'PORTRAIT')),
+
+    -- ----- Nội dung in trên chứng nhận -----
+    -- Đều cho phép chỗ giữ {{ten}}, {{diem}}, {{lyDo}}, {{ngay}}, {{nguoiThuong}},
+    -- {{donVi}}, {{congTy}} — frontend thay lúc vẽ. Không thay ở backend: cùng một mẫu
+    -- phải xem trước được với dữ liệu giả trước khi có lượt thưởng nào.
+    eyebrow           VARCHAR(120),
+    title             VARCHAR(160) NOT NULL,
+    subtitle          VARCHAR(255),
+    body              TEXT,
+    footnote          VARCHAR(255),
+
+    signer_name       VARCHAR(120),
+    signer_title      VARCHAR(120),
+    signature_url     TEXT,
+
+    -- NULL = dùng logo của tổ chức. Cột riêng để phòng công ty muốn con dấu khác cho
+    -- chứng nhận nội bộ, không bắt họ đổi logo chung.
+    logo_url          TEXT,
+    background_url    TEXT,
+
+    -- NULL = giữ màu gốc của preset. Lưu rỗng thay vì chép màu preset xuống: sau này
+    -- chỉnh lại bảng màu của preset thì mẫu chưa tuỳ biến được hưởng luôn.
+    accent_color      VARCHAR(9) CHECK (accent_color  IS NULL OR accent_color  ~ '^#[0-9A-Fa-f]{6}$'),
+    ink_color         VARCHAR(9) CHECK (ink_color     IS NULL OR ink_color     ~ '^#[0-9A-Fa-f]{6}$'),
+    surface_color     VARCHAR(9) CHECK (surface_color IS NULL OR surface_color ~ '^#[0-9A-Fa-f]{6}$'),
+
+    show_logo         BOOLEAN      NOT NULL DEFAULT TRUE,
+    show_points       BOOLEAN      NOT NULL DEFAULT TRUE,
+    show_reason       BOOLEAN      NOT NULL DEFAULT TRUE,
+
+    -- Mẫu được chọn sẵn khi mở màn hình in. Ràng buộc "mỗi tổ chức nhiều nhất một mẫu"
+    -- nằm ở unique index bên dưới.
+    is_default        BOOLEAN      NOT NULL DEFAULT FALSE,
+
+    status            VARCHAR(20)  NOT NULL DEFAULT 'ACTIVE'
+        CHECK (status IN ('ACTIVE', 'INACTIVE')),
+    display_order     INT          NOT NULL DEFAULT 0,
+
+    created_by_user_id UUID REFERENCES users(id) ON DELETE SET NULL,
+    created_at        TIMESTAMPTZ  DEFAULT NOW(),
+    updated_at        TIMESTAMPTZ  DEFAULT NOW(),
+    deleted_at        TIMESTAMPTZ
+);
+
+CREATE INDEX idx_reward_cert_templates_org
+    ON reward_certificate_templates(organization_id, status, display_order)
+    WHERE deleted_at IS NULL;
+
+-- Hai mẫu cùng nhận là "mặc định" thì màn hình in chọn cái nào là do thứ tự truy vấn —
+-- người dùng thấy mẫu nhảy lung tung giữa các lần mở mà không hiểu vì sao.
+CREATE UNIQUE INDEX uq_reward_cert_templates_default
+    ON reward_certificate_templates(organization_id)
+    WHERE deleted_at IS NULL AND is_default;
+
+-- Trùng tên mẫu trong cùng tổ chức làm danh sách chọn thành một dãy chữ giống hệt nhau.
+CREATE UNIQUE INDEX uq_reward_cert_templates_name
+    ON reward_certificate_templates(organization_id, LOWER(name))
+    WHERE deleted_at IS NULL;
+
 -- ── Thưởng thủ công ────────────────────────────────
 -- Trong hạn mức ⇒ APPROVED ngay (approval_mode=AUTO). Vượt hạn mức / vượt mức tối đa
 -- mỗi lần ⇒ PENDING_APPROVAL, chờ người có REWARD:APPROVE. Khoản được duyệt vượt hạn
@@ -1195,12 +1334,35 @@ CREATE TABLE reward_grants (
     approver_user_id     UUID        REFERENCES users(id) ON DELETE SET NULL,
     approved_at          TIMESTAMPTZ,
     decision_note        TEXT,
+
+    -- ----- Chứng nhận khen thưởng -----
+    -- Là quyết định RIÊNG của người trao, không phải hệ quả tự động của việc thưởng điểm:
+    -- thưởng 10 điểm vì "đi họp đúng giờ" mà cũng sinh tờ "CỐNG HIẾN XUẤT SẮC" y hệt lượt
+    -- thưởng 5.000 điểm cho một dự án lớn thì giấy khen mất hết giá trị.
+    certificate_enabled  BOOLEAN     NOT NULL DEFAULT FALSE,
+    -- NULL = "để hệ thống chọn mẫu mặc định của công ty lúc in". KHÔNG chốt cứng mẫu vào
+    -- đây lúc thưởng: công ty đổi mẫu mặc định thì các lượt chưa in nên theo mẫu mới.
+    --
+    -- ON DELETE SET NULL chỉ là lưới an toàn cuối — mẫu bị xoá là xoá MỀM (deleted_at), FK
+    -- không nổ, nên tầng hiển thị vẫn phải tự lùi về mẫu mặc định khi tra không ra mẫu.
+    certificate_template_id UUID
+        REFERENCES reward_certificate_templates(id) ON DELETE SET NULL,
+
     created_at           TIMESTAMPTZ DEFAULT NOW(),
     updated_at           TIMESTAMPTZ DEFAULT NOW(),
-    deleted_at           TIMESTAMPTZ
+    deleted_at           TIMESTAMPTZ,
+
+    -- Chọn mẫu mà quên bật cờ (hoặc ngược lại) là hai trạng thái vô nghĩa: một bên chỉ định
+    -- mẫu cho tờ giấy không tồn tại, một bên là rác dữ liệu gây nhầm khi đọc lại sau này.
+    CONSTRAINT ck_reward_grants_certificate
+        CHECK (certificate_enabled OR certificate_template_id IS NULL)
 );
 
 CREATE INDEX idx_reward_grants_org_status ON reward_grants(organization_id, status, created_at DESC);
+-- Trang "Chứng nhận của tôi" lọc đúng theo hai điều kiện này.
+CREATE INDEX idx_reward_grants_certificate
+    ON reward_grants(organization_id, status)
+    WHERE deleted_at IS NULL AND certificate_enabled;
 CREATE INDEX idx_reward_grants_grantor ON reward_grants(grantor_user_id, created_at DESC);
 -- Cột đỡ cho SUM tính hạn mức đã dùng.
 CREATE INDEX idx_reward_grants_budget_status ON reward_grants(budget_id, status) WHERE deleted_at IS NULL;
@@ -1739,6 +1901,126 @@ CREATE TABLE user_dashboard_layouts (
 );
 
 CREATE INDEX idx_user_dashboard_layouts_user ON user_dashboard_layouts (user_id);
+
+
+-- ====================================================
+-- ĐÁNH GIÁ XẾP LOẠI HÀNH VI ("hạnh kiểm")
+-- ====================================================
+-- Bảng tiêu chí định tính chấm theo ĐỢT hoặc theo KỲ: mỗi tiêu chí một trọng số %, người
+-- được đánh giá tự chấm + nêu dẫn chứng, cán bộ quản lý trực tiếp chấm + nhận xét.
+-- Điểm tổng = Σ(điểm tiêu chí × trọng số).
+--
+-- Điểm hạnh kiểm LẤP TRỤC CÒN THIẾU của ma trận xếp loại hiệu quả:
+--   - tổ chức chỉ có KPI định lượng (trục cột) ⇒ hạnh kiểm quy về trục hàng (thang 0..5);
+--   - tổ chức chỉ có KPI định tính  (trục hàng) ⇒ hạnh kiểm quy về trục cột (thang %).
+-- Xem ConductAxisResolver.
+
+-- ── Bộ tiêu chí, gán theo KỲ ─────────────────────
+-- Nhiều BỘ chứ không phải mỗi tổ chức một bộ: kỳ không được gán bộ riêng thì rơi về bộ
+-- MẶC ĐỊNH, nhờ vậy sửa tiêu chí cho kỳ mới không viết lại tiêu chí của kỳ cũ.
+--
+-- Thang điểm nằm ở TẮNG BỘ: đổi thang giữa hai kỳ là chuyện bình thường, để ở cấp tổ chức
+-- thì một lần sửa làm lệch mọi kỳ. organizations.conduct_max_score chỉ còn là giá trị nền
+-- cho bộ mặc định.
+CREATE TABLE conduct_criteria_sets (
+    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    organization_id UUID             NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+    name            TEXT             NOT NULL,
+    -- Bộ áp cho mọi kỳ chưa được gán bộ riêng. Mỗi tổ chức đúng một bộ như vậy.
+    is_default      BOOLEAN          NOT NULL DEFAULT FALSE,
+    max_score       DOUBLE PRECISION NOT NULL DEFAULT 4,
+    created_at      TIMESTAMPTZ      DEFAULT NOW(),
+    updated_at      TIMESTAMPTZ      DEFAULT NOW(),
+    deleted_at      TIMESTAMPTZ
+);
+
+CREATE INDEX idx_conduct_set_org ON conduct_criteria_sets(organization_id);
+
+-- Một tổ chức chỉ được MỘT bộ mặc định còn sống — nếu không, kỳ chưa gán sẽ bốc bộ ngẫu nhiên.
+CREATE UNIQUE INDEX uq_conduct_set_default
+    ON conduct_criteria_sets(organization_id) WHERE is_default AND deleted_at IS NULL;
+
+-- Một kỳ chỉ thuộc MỘT bộ (khoá chính trên kpi_cycle_id): gán kỳ cho bộ khác thì bộ cũ tự
+-- mất kỳ đó, không có chuyện hai bộ cùng tranh một kỳ.
+CREATE TABLE conduct_criteria_set_cycles (
+    kpi_cycle_id            UUID PRIMARY KEY REFERENCES kpi_cycles(id) ON DELETE CASCADE,
+    conduct_criteria_set_id UUID NOT NULL    REFERENCES conduct_criteria_sets(id) ON DELETE CASCADE
+);
+
+CREATE INDEX idx_conduct_set_cycles_set ON conduct_criteria_set_cycles(conduct_criteria_set_id);
+
+-- ── Tiêu chí thuộc về một bộ ─────────────────────
+CREATE TABLE conduct_criteria (
+    id                      UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    organization_id         UUID             NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+    conduct_criteria_set_id UUID             NOT NULL REFERENCES conduct_criteria_sets(id) ON DELETE CASCADE,
+    name                    TEXT             NOT NULL,
+    description             TEXT,
+    weight                  DOUBLE PRECISION NOT NULL,   -- % trong tổng 100
+    position_index          INT              NOT NULL,
+    created_at              TIMESTAMPTZ      DEFAULT NOW(),
+    updated_at              TIMESTAMPTZ      DEFAULT NOW(),
+    deleted_at              TIMESTAMPTZ
+);
+
+CREATE INDEX idx_conduct_criteria_org ON conduct_criteria(organization_id);
+CREATE INDEX idx_conduct_criteria_set ON conduct_criteria(conduct_criteria_set_id);
+
+-- ── Phiếu chấm của một người trong một đợt HOẶC một kỳ ──
+CREATE TABLE conduct_evaluations (
+    id                UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    organization_id   UUID             NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+    user_id           UUID             NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    kpi_period_id     UUID             REFERENCES kpi_periods(id) ON DELETE CASCADE,
+    kpi_cycle_id      UUID             REFERENCES kpi_cycles(id) ON DELETE CASCADE,
+    -- Chỉ để truy vết "phiếu này chấm theo bộ nào"; điểm vẫn tính từ bản chụp tiêu chí trong
+    -- phiếu, nên xoá bộ đi không làm sai điểm đã chấm (vì vậy SET NULL chứ không CASCADE).
+    conduct_criteria_set_id UUID       REFERENCES conduct_criteria_sets(id) ON DELETE SET NULL,
+    scope             VARCHAR(20)      NOT NULL,   -- PERIOD | CYCLE
+    status            VARCHAR(20)      NOT NULL DEFAULT 'DRAFT',  -- DRAFT | SELF_SUBMITTED | REVIEWED
+    self_score        DOUBLE PRECISION,            -- Σ(điểm tự chấm × trọng số)
+    manager_score     DOUBLE PRECISION,            -- Σ(điểm CBQLTT × trọng số)
+    -- Chụp lại thang điểm lúc chấm: đổi thang ở cấu hình KHÔNG được làm đổi phiếu đã chấm.
+    max_score         DOUBLE PRECISION NOT NULL DEFAULT 4,
+    comment           TEXT,
+    self_submitted_at TIMESTAMPTZ,
+    evaluator_id      UUID             REFERENCES users(id) ON DELETE SET NULL,
+    evaluated_at      TIMESTAMPTZ,
+    created_at        TIMESTAMPTZ      DEFAULT NOW(),
+    updated_at        TIMESTAMPTZ      DEFAULT NOW(),
+    deleted_at        TIMESTAMPTZ,
+    CONSTRAINT chk_conduct_scope_target CHECK (
+        (scope = 'PERIOD' AND kpi_period_id IS NOT NULL AND kpi_cycle_id IS NULL) OR
+        (scope = 'CYCLE'  AND kpi_cycle_id  IS NOT NULL AND kpi_period_id IS NULL)
+    )
+);
+
+-- Mỗi người chỉ có MỘT phiếu còn sống cho mỗi đợt/kỳ (unique một phần vì bảng có xoá mềm).
+CREATE UNIQUE INDEX uq_conduct_eval_user_period
+    ON conduct_evaluations(user_id, kpi_period_id) WHERE deleted_at IS NULL AND kpi_period_id IS NOT NULL;
+CREATE UNIQUE INDEX uq_conduct_eval_user_cycle
+    ON conduct_evaluations(user_id, kpi_cycle_id)  WHERE deleted_at IS NULL AND kpi_cycle_id IS NOT NULL;
+CREATE INDEX idx_conduct_eval_org  ON conduct_evaluations(organization_id);
+CREATE INDEX idx_conduct_eval_user ON conduct_evaluations(user_id);
+
+-- ── Từng dòng tiêu chí trong phiếu ─────────────────
+-- Tên/mô tả/trọng số CHỤP LẠI từ conduct_criteria: sửa bộ tiêu chí về sau không được viết
+-- lại phiếu đã chấm (điểm đã cộng theo trọng số cũ).
+CREATE TABLE conduct_evaluation_items (
+    id                    UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    conduct_evaluation_id UUID             NOT NULL REFERENCES conduct_evaluations(id) ON DELETE CASCADE,
+    criteria_id           UUID             REFERENCES conduct_criteria(id) ON DELETE SET NULL,
+    criteria_name         TEXT             NOT NULL,
+    criteria_description  TEXT,
+    weight                DOUBLE PRECISION NOT NULL,
+    position_index        INT              NOT NULL,
+    self_score            DOUBLE PRECISION,
+    self_evidence         TEXT,   -- "Dẫn chứng"
+    manager_score         DOUBLE PRECISION,
+    manager_comment       TEXT    -- "Nhận xét của Cán bộ quản lý"
+);
+
+CREATE INDEX idx_conduct_eval_items_eval ON conduct_evaluation_items(conduct_evaluation_id);
 
 
 -- ====================================================

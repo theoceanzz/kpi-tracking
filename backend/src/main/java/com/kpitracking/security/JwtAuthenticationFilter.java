@@ -104,6 +104,23 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         return jwt.replaceAll("\\s+", "");
     }
 
+    /**
+     * Xác thực LẠI ở dispatch ASYNC (mặc định của {@link OncePerRequestFilter} là bỏ qua).
+     *
+     * <p>Cần cho các endpoint trả {@code SseEmitter} (hiện là {@code POST /ai/chat/stream}): khi lượt
+     * bất đồng bộ kết thúc, Tomcat chạy LẠI chuỗi filter một lần nữa ở dispatch ASYNC. Bỏ qua ở đây
+     * thì lần chạy đó không có ai xác thực, {@code AuthorizationFilter} coi là ẩn danh và ném
+     * {@code AccessDeniedException} — nhưng phản hồi đã gửi đi rồi nên Spring Security không xử lý
+     * được, kết cục là Tomcat cắt phăng kết nối và client thấy "terminated" giữa chừng.
+     *
+     * <p>Chọn cách này thay vì gỡ ASYNC khỏi chuỗi filter bảo mật: phép kiểm quyền vẫn chạy đủ ở cả
+     * hai lần dispatch. Giá phải trả là một lần đọc người dùng nữa cho mỗi lượt streaming.
+     */
+    @Override
+    protected boolean shouldNotFilterAsyncDispatch() {
+        return false;
+    }
+
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
         String path = request.getServletPath();

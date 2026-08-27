@@ -86,9 +86,12 @@ public final class GuardStages {
                 throw new ForbiddenException("Tính năng AI đã bị tắt cho tổ chức của bạn.");
             }
             turn.setManager(ctx);
-            turn.setOrg(org);
             return next.proceed(turn);
         }
+
+        @Override
+
+        public String label() { return "Đang xác thực thông tin"; }
 
         @Override
         public int getOrder() { return 300; }

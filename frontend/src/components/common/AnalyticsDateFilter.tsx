@@ -8,9 +8,11 @@ import {
   eachWeekOfInterval, eachMonthOfInterval, eachQuarterOfInterval,
   getQuarter, format, parse,
 } from 'date-fns'
-import { ChevronDown, Search } from 'lucide-react'
+import { ChevronDown, ChevronUp, History, Search } from 'lucide-react'
 import { useKpiPeriods } from '@/features/kpi/hooks/useKpiPeriods'
 import { useKpiCycles } from '@/features/kpi/hooks/useKpiCycles'
+import ScopeSelectItems from './ScopeSelectItems'
+import { pickCurrentOrNearest, splitByTime } from './dateScope'
 import { useAuthStore } from '@/store/authStore'
 import type { KpiFrequency, KpiPeriod, KpiCycle } from '@/types/kpi'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
@@ -144,16 +146,18 @@ export function useAnalyticsDateFilter(opts: Options = {}): AnalyticsDateFilterV
     ? ['WHOLE_PERIOD', ...(PERIOD_GRANULARITY[selectedPeriod.periodType] ?? []), 'CUSTOM']
     : []
 
-  // Chuyển chế độ; khi vào "Khoảng đợt" lần đầu, mặc định chọn đợt mới nhất cho cả hai biên.
+  // Chuyển chế độ; khi vào "Khoảng đợt" lần đầu, mặc định chọn đợt đang chạy (không có
+  // thì đợt gần hiện tại nhất) cho cả hai biên.
   const switchMode = (m: FilterMode) => {
     setMode(m)
-    const newest = periods[0]
-    if (m === 'RANGE' && !rangeFromId && !rangeToId && newest) {
-      setRangeFromId(newest.id)
-      setRangeToId(newest.id)
+    const current = pickCurrentOrNearest(periods)
+    if (m === 'RANGE' && !rangeFromId && !rangeToId && current) {
+      setRangeFromId(current.id)
+      setRangeToId(current.id)
     }
-    if (m === 'CYCLE' && selectedCycleIds.length === 0 && cycles[0]) {
-      setSelectedCycleIds([cycles[0].id])
+    const currentCycle = pickCurrentOrNearest(cycles)
+    if (m === 'CYCLE' && selectedCycleIds.length === 0 && currentCycle) {
+      setSelectedCycleIds([currentCycle.id])
     }
   }
 
@@ -419,9 +423,7 @@ export function useAnalyticsDateFilter(opts: Options = {}): AnalyticsDateFilterV
               <SelectValue placeholder="Từ đợt..." />
             </SelectTrigger>
             <SelectContent className="w-[var(--radix-select-trigger-width)]">
-              {periods.map(p => (
-                <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
-              ))}
+              <ScopeSelectItems items={periods} selectedId={rangeFromId} />
             </SelectContent>
           </Select>
           <span className="hidden sm:inline text-slate-400 self-center">→</span>
@@ -430,9 +432,7 @@ export function useAnalyticsDateFilter(opts: Options = {}): AnalyticsDateFilterV
               <SelectValue placeholder="Đến đợt..." />
             </SelectTrigger>
             <SelectContent className="w-[var(--radix-select-trigger-width)]">
-              {toOptions.map(p => (
-                <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
-              ))}
+              <ScopeSelectItems items={toOptions} selectedId={rangeToId} />
             </SelectContent>
           </Select>
         </div>
@@ -477,8 +477,20 @@ function CyclePicker({
   triggerClass?: string
 }) {
   const [open, setOpen] = useState(false)
+  const [showPast, setShowPast] = useState(false)
   const [q, setQ] = useState('')
-  const shown = q.trim() ? cycles.filter(c => c.name.toLowerCase().includes(q.trim().toLowerCase())) : cycles
+  const { upcoming, past } = useMemo(() => splitByTime(cycles), [cycles])
+
+  // Mặc định chỉ liệt kê kỳ đang chạy và kỳ tương lai; kỳ đã qua nằm sau nút bung ra.
+  // Kỳ đã qua mà đang được chọn thì vẫn hiện, không thì người dùng không bỏ chọn được nó.
+  // Đang gõ tìm kiếm thì bỏ qua luật này — gõ tên ra là đang cố tìm một kỳ cụ thể.
+  const searching = q.trim().length > 0
+  const visible = searching || showPast
+    ? [...upcoming, ...past]
+    : [...upcoming, ...past.filter(c => selected.includes(c.id))]
+  const hiddenPastCount = searching || showPast ? 0 : past.filter(c => !selected.includes(c.id)).length
+
+  const shown = searching ? visible.filter(c => c.name.toLowerCase().includes(q.trim().toLowerCase())) : visible
   const selNames = cycles.filter(c => selected.includes(c.id)).map(c => c.name)
   const label = selNames.length === 0 ? 'Chọn kỳ...' : selNames.length === 1 ? selNames[0]! : `${selNames.length} kỳ đã chọn`
   const toggle = (id: string) => onChange(selected.includes(id) ? selected.filter(x => x !== id) : [...selected, id])
@@ -511,7 +523,28 @@ function CyclePicker({
               <Checkbox checked={selected.includes(c.id)} onCheckedChange={() => toggle(c.id)} />
               <span className="truncate text-[13px] font-bold text-slate-700 dark:text-slate-200">{c.name}</span>
             </label>
-          )) : <p className="text-[11px] italic text-slate-400 p-2">Không có kỳ nào.</p>}
+          )) : hiddenPastCount === 0 && (
+            <p className="text-[11px] italic text-slate-400 p-2">Không có kỳ nào.</p>
+          )}
+
+          {hiddenPastCount > 0 && (
+            <button
+              type="button"
+              onClick={() => setShowPast(true)}
+              className="mt-1 flex w-full items-center justify-center gap-1.5 rounded-lg px-2 py-1.5 text-[11px] font-bold uppercase tracking-wider text-slate-500 hover:bg-slate-50 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800/60 dark:hover:text-slate-100"
+            >
+              <History size={13} /> Xem {hiddenPastCount} kỳ đã qua
+            </button>
+          )}
+          {showPast && !searching && past.length > 0 && (
+            <button
+              type="button"
+              onClick={() => setShowPast(false)}
+              className="mt-1 flex w-full items-center justify-center gap-1.5 rounded-lg px-2 py-1.5 text-[11px] font-bold uppercase tracking-wider text-slate-500 hover:bg-slate-50 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800/60 dark:hover:text-slate-100"
+            >
+              <ChevronUp size={13} /> Ẩn kỳ đã qua
+            </button>
+          )}
         </div>
       </PopoverContent>
     </Popover>

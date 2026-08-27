@@ -26,6 +26,8 @@ import { toast } from 'sonner'
 import KpiImportGuideModal from '../components/KpiImportGuideModal'
 import UrgentTaskModal from '../components/UrgentTaskModal'
 import { useKpiPeriods } from '../hooks/useKpiPeriods'
+import ScopeSelectItems from '@/components/common/ScopeSelectItems'
+import { pickCurrentOrNearest } from '@/components/common/dateScope'
 import { useKpiTotalWeight } from '../hooks/useKpiTotalWeight'
 import { useOrgUnitTree } from '@/features/orgunits/hooks/useOrgUnitTree'
 import { usePermission } from '@/hooks/usePermission'
@@ -171,20 +173,11 @@ export default function KpiCriteriaPage() {
     }
   }, [flatOrgUnits, user, selectedOrgUnitId])
   
+  // Chọn sẵn đợt đang chạy; không đợt nào khớp hôm nay thì lấy đợt gần hiện tại nhất.
   useEffect(() => {
     if (periodsData?.content && !selectedPeriodId) {
-      const now = new Date()
-      const currentPeriod = periodsData.content.find(p => {
-        const start = p.startDate ? new Date(p.startDate) : null
-        const end = p.endDate ? new Date(p.endDate) : null
-        return start && end && now >= start && now <= end
-      })
-      
-      if (currentPeriod) {
-        setSelectedPeriodId(currentPeriod.id)
-      } else if (periodsData?.content && periodsData.content.length > 0) {
-        setSelectedPeriodId(periodsData.content[0]?.id || '')
-      }
+      const period = pickCurrentOrNearest(periodsData.content)
+      if (period) setSelectedPeriodId(period.id)
     }
   }, [periodsData, selectedPeriodId])
 
@@ -734,9 +727,11 @@ export default function KpiCriteriaPage() {
                     <SelectValue placeholder="Đợt KPI..." />
                   </SelectTrigger>
                   <SelectContent className="rounded-2xl border-slate-200 dark:border-slate-800 shadow-2xl p-2">
-                    {periodsData?.content.map(p => (
-                      <SelectItem key={p.id} value={p.id} className="rounded-xl focus:bg-indigo-50 dark:focus:bg-indigo-900/30 text-sm font-bold">{p.name}</SelectItem>
-                    ))}
+                    <ScopeSelectItems
+                      items={periodsData?.content}
+                      selectedId={selectedPeriodId}
+                      itemClassName="rounded-xl focus:bg-indigo-50 dark:focus:bg-indigo-900/30 text-sm font-bold"
+                    />
                   </SelectContent>
                 </Select>
               </div>

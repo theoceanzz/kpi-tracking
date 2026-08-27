@@ -6,6 +6,8 @@ import UserAvatar from '@/components/common/UserAvatar'
 import Pagination from '@/components/common/Pagination'
 import { useAuthStore } from '@/store/authStore'
 import { useKpiCycles } from '@/features/kpi/hooks/useKpiCycles'
+import ScopeSelectItems from '@/components/common/ScopeSelectItems'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { useOrgUnitTree } from '@/features/orgunits/hooks/useOrgUnitTree'
 import { useDashboardUnit } from '@/features/dashboard/context/DashboardFilterContext'
 import { useDrillDown, useMatrixOverview, useUnitClassification } from '../../hooks/useAnalytics'
@@ -347,6 +349,10 @@ export function DrillHeatmapWidget({ filter }: { filter?: PinnedFilter }) {
   )
 }
 
+// Radix cấm SelectItem mang value rỗng, nên lựa chọn "theo đợt" (= không lọc theo kỳ)
+// đi qua một giá trị canh riêng rồi quy về '' khi lưu vào state.
+const BY_PERIOD = '__by_period__'
+
 /** Xếp loại đơn vị theo phân bố xếp loại thành viên — theo đợt hoặc theo kỳ. */
 export function DrillClassificationWidget({ filter }: { filter?: PinnedFilter }) {
   const { unitId } = useDashboardUnit()
@@ -365,16 +371,25 @@ export function DrillClassificationWidget({ filter }: { filter?: PinnedFilter })
       {cycles.length > 0 && (
         <div className="flex items-center gap-1.5 shrink-0">
           <CalendarRange size={13} className="text-slate-400" />
-          <select
-            value={cycleId}
-            onChange={e => setCycleId(e.target.value)}
-            aria-label="Phạm vi xếp loại"
-            className="h-8 px-2 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-[11px] font-bold text-slate-600 dark:text-slate-300 outline-none focus:ring-2 focus:ring-emerald-500/30"
-            title="Xếp loại theo kỳ dùng điểm chốt kỳ, bỏ qua bộ lọc đợt"
-          >
-            <option value="">Theo đợt (bộ lọc đơn vị)</option>
-            {cycles.map(c => <option key={c.id} value={c.id}>Kỳ: {c.name}</option>)}
-          </select>
+          <Select value={cycleId || BY_PERIOD} onValueChange={v => setCycleId(v === BY_PERIOD ? '' : v)}>
+            <SelectTrigger
+              aria-label="Phạm vi xếp loại"
+              className="h-8 w-auto gap-1.5 px-2 rounded-lg bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-[11px] font-bold text-slate-600 dark:text-slate-300 focus:ring-2 focus:ring-emerald-500/30 focus:ring-offset-0"
+              title="Xếp loại theo kỳ dùng điểm chốt kỳ, bỏ qua bộ lọc đợt"
+            >
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent className="text-[11px]">
+              <SelectItem value={BY_PERIOD} className="text-[11px] font-bold">Theo đợt (bộ lọc đơn vị)</SelectItem>
+              <ScopeSelectItems
+                items={cycles}
+                selectedId={cycleId}
+                noun="kỳ"
+                itemClassName="text-[11px] font-bold"
+                renderLabel={c => `Kỳ: ${c.name}`}
+              />
+            </SelectContent>
+          </Select>
         </div>
       )}
       <div className="flex-1 min-h-0 overflow-auto custom-scrollbar">

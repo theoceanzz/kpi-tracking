@@ -47,7 +47,8 @@ spring:
   servlet:
     multipart:
       max-file-size: 10MB
-      max-request-size: 50MB
+      # 5 tệp x 10MB = 50MB chẵn, không chừa chỗ cho phần bao multipart nên lô đầy sẽ trượt.
+      max-request-size: 55MB
 
   ai:
     google:
@@ -60,13 +61,17 @@ spring:
             include-thoughts: false
       retry:
         max-attempts: 1
+        on-http-codes-to-retry:
     openai:
       api-key: ${huggingface.api.key:your-hf-key}
       base-url: ${huggingface.api.url:https://router.huggingface.co}
 
       chat:
         options:
-          model: ${huggingface.api.model:openai/gpt-oss-20b:groq}
+          # Hau to sau dau ':' la nha cung cap chay model (cerebras / groq / deepinfra) —
+          # doi model la doi ca noi phuc vu. 120b:cerebras la bo da do o dev; 20b:groq la bo cu,
+          # re hon nhung chon tool kem hon o cau nhieu buoc.
+          model: ${huggingface.api.model:openai/gpt-oss-120b:cerebras}
           temperature: 0
           # gpt-oss là reasoning model: nếu trần output thấp (mặc định ~2048) thì reasoning
           # ăn hết token -> finishReason=LENGTH, trả text rỗng. Nới trần cho đủ reasoning + output.
@@ -76,6 +81,7 @@ spring:
           reasoning-effort: ${AI_REASONING_EFFORT:medium}
     retry:
       max-attempts: 2
+      on-http-codes-to-retry:
 
 jwt:
   secret: ${JWT_SECRET:your-256-bit-secret-your-256-bit-secret}
@@ -89,6 +95,17 @@ lark:
   # Feishu (bản Trung Quốc) dùng open.feishu.cn / accounts.feishu.cn
   open-base-url: ${LARK_OPEN_BASE_URL:https://open.larksuite.com}
   auth-base-url: ${LARK_AUTH_BASE_URL:https://accounts.larksuite.com}
+
+sepay:
+  # Khoá gửi kèm header "Authorization: Apikey <key>" của webhook SePay.
+  # ⚠️ ĐỂ TRỐNG Ở PROD LÀ TẮT TÍNH NĂNG NẠP TIỀN: mọi webhook bị chặn, tiền vào tài khoản
+  #    nhưng ví KeyGo không được cộng. Để trống là có chủ đích — thà không cộng còn hơn
+  #    để người lạ cộng tiền bằng request ẩn danh.
+  webhook-api-key: ${SEPAY_WEBHOOK_API_KEY:}
+  # Danh sách IP được phép gọi webhook, phân tách bằng dấu phẩy. Để trống là tắt
+  # lớp kiểm tra này. Chỉ bật khi SePay công bố dải IP cố định: họ đổi IP mà cấu
+  # hình chưa cập nhật thì toàn bộ giao dịch nạp chết lặng.
+  webhook-allowed-ips: ${SEPAY_WEBHOOK_ALLOWED_IPS:}
 
 urbox:
   # Kho quà eVoucher UrBox. TẮT mặc định ở prod: bật mà chưa có credential PROD thì mọi
@@ -104,6 +121,7 @@ urbox:
   # Private key PKCS#8, giữ nguyên xuống dòng của PEM.
   private-key: ${URBOX_PRIVATE_KEY:}
   send-sms: ${URBOX_SEND_SMS:false}
+  read-timeout: ${URBOX_READ_TIMEOUT:60s}
 
 cloudinary:
   cloud-name: ${CLOUDINARY_CLOUD_NAME:your-cloud-name}
@@ -111,6 +129,32 @@ cloudinary:
   api-secret: ${CLOUDINARY_API_SECRET:your-api-secret}
 
 app:
+  ai:
+    # Sáu công tắc của chuỗi công đoạn AI. MẶC ĐỊNH TRONG MÃ NGUỒN CỦA BỐN CÁI ĐẦU LÀ
+    # false — không khai báo ở đây là production chạy THIẾU router / planning / validation /
+    # streaming dù mã đã có đủ. Khối này để prod bật đúng bộ đã đo ở dev.
+    # Lý do từng cái, kèm số đo và lịch sử bật/tắt: xem application.yaml.
+    tool-routing:
+      # Phân loại câu hỏi rồi chỉ gửi nhóm tool liên quan. Không chắc thì lùi về toàn bộ nhóm đọc.
+      enabled: ${AI_TOOL_ROUTING_ENABLED:true}
+    planning:
+      # Chia câu hỏi thành các bước con để model không dừng sau bước đầu.
+      enabled: ${AI_PLANNING_ENABLED:true}
+      # Đối chiếu tool đã lên kế hoạch với tool thực sự chạy, thiếu thì hỏi lại ĐÚNG một lần.
+      # Chỉ có tác dụng khi planning.enabled=true.
+      enforce: ${AI_PLANNING_ENFORCE:true}
+    followups:
+      # Câu hỏi gợi ý sau mỗi câu trả lời. Tắt đi là MẤT tính năng, không phải "về trạng thái cũ".
+      enabled: ${AI_FOLLOWUPS_ENABLED:true}
+    validation:
+      # CHẶN câu trả lời đưa ra số liệu mà lượt đó không tool nào chạy thành công.
+      # Đây là cơ chế CHẶN: tắt đi thì model bịa số sẽ đến được người dùng.
+      enabled: ${AI_VALIDATION_ENABLED:true}
+    streaming:
+      # Phát chữ gõ dần qua SSE thay vì chờ trọn câu trả lời.
+      # ⚠️ Bật cờ này là tắt parallel_tool_calls (TurnPromptBuilder) — bắt buộc, vì bộ ghép
+      #    stream của Spring AI không gộp nổi nhiều tool call song song.
+      enabled: ${AI_STREAMING_ENABLED:true}
   security:
     # Khoá mã hoá App Secret Lark và tenant_key trong database.
     # ⚠️ BẮT BUỘC ở production: thiếu hoặc ngắn dưới 32 ký tự thì ứng dụng KHÔNG khởi động

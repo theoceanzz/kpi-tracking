@@ -10,6 +10,8 @@ import {
 } from 'lucide-react'
 import { useAuthStore } from '@/store/authStore'
 import { useKpiCycles } from '@/features/kpi/hooks/useKpiCycles'
+import ScopeSelectItems from '@/components/common/ScopeSelectItems'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import AnalyticsTabSkeleton from '@/components/common/AnalyticsTabSkeleton'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts'
 import { CopyButton } from '@/components/common/CopyButton'
@@ -90,6 +92,10 @@ function DrillMatrixSection({ orgUnitId, periodId, periodIdTo }: { orgUnitId?: s
  * Hai phạm vi: theo ĐỢT (bám bộ lọc thời gian của trang) hoặc theo KỲ (lấy số chốt kỳ của
  * thành viên — đúng con số mà màn Đánh giá kỳ đang dùng để chốt).
  */
+// Radix cấm SelectItem mang value rỗng, nên lựa chọn "theo đợt" (= không lọc theo kỳ)
+// đi qua một giá trị canh riêng rồi quy về '' khi lưu vào state.
+const BY_PERIOD = '__by_period__'
+
 function DrillClassificationSection({ orgUnitId, periodId, periodIdTo }: { orgUnitId?: string; periodId?: string; periodIdTo?: string }) {
   const orgId = useAuthStore(s => s.user)?.memberships?.[0]?.organizationId
   const [cycleId, setCycleId] = useState<string>('')
@@ -109,15 +115,24 @@ function DrillClassificationSection({ orgUnitId, periodId, periodIdTo }: { orgUn
         {cycles.length > 0 && (
           <div className="flex items-center gap-1.5">
             <CalendarRange size={13} className="text-slate-400" />
-            <select
-              value={cycleId}
-              onChange={e => setCycleId(e.target.value)}
-              className="h-8 px-2 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-[11px] font-bold text-slate-600 dark:text-slate-300 outline-none focus:ring-2 focus:ring-emerald-500/30"
-              title="Xếp loại theo kỳ dùng điểm chốt kỳ, bỏ qua bộ lọc đợt phía trên"
-            >
-              <option value="">Theo đợt (bộ lọc trên)</option>
-              {cycles.map(c => <option key={c.id} value={c.id}>Kỳ: {c.name}</option>)}
-            </select>
+            <Select value={cycleId || BY_PERIOD} onValueChange={v => setCycleId(v === BY_PERIOD ? '' : v)}>
+              <SelectTrigger
+                className="h-8 w-auto gap-1.5 px-2 rounded-lg bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-[11px] font-bold text-slate-600 dark:text-slate-300 focus:ring-2 focus:ring-emerald-500/30 focus:ring-offset-0"
+                title="Xếp loại theo kỳ dùng điểm chốt kỳ, bỏ qua bộ lọc đợt phía trên"
+              >
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent className="text-[11px]">
+                <SelectItem value={BY_PERIOD} className="text-[11px] font-bold">Theo đợt (bộ lọc trên)</SelectItem>
+                <ScopeSelectItems
+                  items={cycles}
+                  selectedId={cycleId}
+                  noun="kỳ"
+                  itemClassName="text-[11px] font-bold"
+                  renderLabel={c => `Kỳ: ${c.name}`}
+                />
+              </SelectContent>
+            </Select>
           </div>
         )}
       </div>

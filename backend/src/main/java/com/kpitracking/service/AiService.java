@@ -8,9 +8,8 @@ import com.kpitracking.exception.ForbiddenException;
 import com.kpitracking.repository.OrganizationRepository;
 import com.kpitracking.service.ManagerContextResolver.ManagerContext;
 import com.kpitracking.service.ai.AiTurn;
+import com.kpitracking.service.ai.agent.AgentState;
 import com.kpitracking.service.ai.AiTurnPipeline;
-import com.kpitracking.tool.DisambiguationGuard;
-import com.kpitracking.tool.EscapeHatchTool;
 import com.kpitracking.tool.ToolRegistry;
 import com.kpitracking.util.AiUtils;
 import lombok.extern.slf4j.Slf4j;
@@ -41,26 +40,24 @@ public class AiService {
     private final ManagerContextResolver managerContextResolver;
     private final OrganizationRepository organizationRepository;
     private final ToolRegistry toolRegistry;
-    private final DisambiguationGuard disambiguationGuard;
     private final ChatClient chatClient;
 
     @Value("classpath:/promptTemplates/kpiSuggestionSystemPrompt.st")
     private Resource kpiSuggestionSystemPrompt;
 
     // Constructor viết tay chứ KHÔNG dùng @RequiredArgsConstructor: dự án không có lombok.config
-    // khai báo @Qualifier là annotation được sao chép, nên Lombok sẽ bỏ qua nó và Spring gặp hai
-    // bean ChatClient (openAiChatClient, chatClientWithMemory) rồi báo mơ hồ lúc khởi động.
+    // khai báo @Qualifier là annotation được sao chép, nên Lombok sẽ bỏ qua nó. Nay chỉ còn MỘT
+    // bean ChatClient nên bỏ qualifier vẫn chạy, nhưng giữ lại để chỗ tiêm nói rõ nó cần bean nào —
+    // thêm bean thứ hai sau này sẽ không âm thầm đổi thứ lớp này nhận được.
     public AiService(AiTurnPipeline aiTurnPipeline,
                      ManagerContextResolver managerContextResolver,
                      OrganizationRepository organizationRepository,
                      ToolRegistry toolRegistry,
-                     DisambiguationGuard disambiguationGuard,
                      @Qualifier("openAiChatClient") ChatClient chatClient) {
         this.aiTurnPipeline = aiTurnPipeline;
         this.managerContextResolver = managerContextResolver;
         this.organizationRepository = organizationRepository;
         this.toolRegistry = toolRegistry;
-        this.disambiguationGuard = disambiguationGuard;
         this.chatClient = chatClient;
     }
 
@@ -69,7 +66,16 @@ public class AiService {
      * gọi model, phục hồi lỗi — nằm trong chuỗi {@link AiTurnPipeline}.
      */
     public String processOrgUnitChat(String question, String conversationId, String focusUnitId) {
-        return aiTurnPipeline.run(new AiTurn(question, conversationId, focusUnitId));
+        return processOrgUnitChat(new AiTurn(question, conversationId, focusUnitId));
+    }
+
+    /**
+     * Nhận thẳng ngữ cảnh lượt. Dùng khi lời gọi mang thêm thứ gì đó ngoài ba tham số cơ bản —
+     * vd form đang mở trên màn hình. Nhận {@link AiTurn} thay vì nối dài danh sách tham số, đúng
+     * lý do object ngữ cảnh này ra đời.
+     */
+    public String processOrgUnitChat(AiTurn turn) {
+        return aiTurnPipeline.run(turn);
     }
 
     /**
@@ -124,7 +130,11 @@ public class AiService {
                     .toolContext(Map.of(
                             "orgUnitId", orgUnitId,
                             "orgUnitPath", ctx.orgUnitPath(),
-                            "organizationId", ctx.orgId()
+                            "organizationId", ctx.orgId(),
+                            // Đường này không có lượt chat nào nhưng vẫn mượn tool, mà tool ghi
+                            // trạng thái vào đây. Thiếu nó thì chốt chặn tên trùng im lặng ngừng
+                            // hoạt động ở riêng đường gợi ý KPI.
+                            AgentState.CONTEXT_KEY, AgentState.forToolsOnly()
                     ))
                     .call()
                     .entity(new ParameterizedTypeReference<>() {});
@@ -138,9 +148,9 @@ public class AiService {
             }
             throw new BusinessException(
                     "Không lấy được gợi ý từ AI lúc này. Vui lòng thử lại sau ít phút.");
-        } finally {
-            disambiguationGuard.clear();
-            EscapeHatchTool.clear();
         }
+        // Không còn khối finally dọn ThreadLocal: trạng thái nay sống theo lời gọi (AgentState đặt
+        // trong toolContext ở trên), nên hết lời gọi là nó tự đi — không thể rơi sang lượt của
+        // người khác trên cùng luồng Tomcat.
     }
 }

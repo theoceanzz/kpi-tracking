@@ -1,23 +1,23 @@
 package com.kpitracking.advisor;
 
-import org.springframework.ai.chat.client.advisor.api.CallAdvisor;
-import org.springframework.ai.chat.client.advisor.api.CallAdvisorChain;
-import org.springframework.ai.chat.client.advisor.api.StreamAdvisor;
-import org.springframework.ai.chat.client.advisor.api.StreamAdvisorChain;
-import org.springframework.ai.chat.model.ChatResponse;
-import org.springframework.ai.chat.model.Generation;
-import org.springframework.ai.chat.messages.AssistantMessage;
-import org.springframework.ai.chat.client.ChatClientRequest;
-import org.springframework.ai.chat.client.ChatClientResponse;
-import org.springframework.core.Ordered;
-import reactor.core.publisher.Flux;
 
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.regex.Pattern;
 
-public class ResponseSanitizingAdvisor implements CallAdvisor, StreamAdvisor {
+/**
+ * Lọc câu trả lời trước khi đưa cho người dùng: vá bảng Markdown bị vỡ, xoá tên tool nội bộ lọt ra.
+ *
+ * <p><b>KHÔNG còn là advisor của Spring AI</b>, dù tên lớp vẫn giữ. Từ khi ứng dụng tự sở hữu vòng
+ * lặp agent, đường trả lời không đi qua {@code ChatClient} nên không advisor nào chạy được; phần
+ * {@code adviseCall}/{@code adviseStream} vì thế đã bỏ. Nay {@code FinishNode} gọi thẳng
+ * {@link #sanitizeText} một lần trên TOÀN VĂN.
+ *
+ * <p>Lọc trên toàn văn chứ không theo từng mẩu là bắt buộc: một tên tool bị cắt đôi qua hai mẩu
+ * chữ sẽ lọt lưới nếu lọc theo mẩu.
+ */
+public class ResponseSanitizingAdvisor {
 
     /**
      * Pre-compiled matcher for internal tool-name leaks. Matches an (optional) lead-in verb and an
@@ -32,11 +32,6 @@ public class ResponseSanitizingAdvisor implements CallAdvisor, StreamAdvisor {
 
     public ResponseSanitizingAdvisor(Collection<String> toolNames) {
         this.toolLeakPattern = buildToolLeakPattern(toolNames);
-    }
-
-    /** No-arg fallback: keeps existing behavior (formatting only, no tool-name redaction). */
-    public ResponseSanitizingAdvisor() {
-        this(List.of());
     }
 
     private static Pattern buildToolLeakPattern(Collection<String> toolNames) {
@@ -61,45 +56,27 @@ public class ResponseSanitizingAdvisor implements CallAdvisor, StreamAdvisor {
         return Pattern.compile(regex);
     }
 
-    @Override
-    public ChatClientResponse adviseCall(ChatClientRequest request, CallAdvisorChain chain) {
-        ChatClientResponse response = chain.nextCall(request);
-        if (response.chatResponse() == null || response.chatResponse().getResult() == null) {
-            return response;
-        }
-
-        String raw = response.chatResponse().getResult().getOutput().getText();
-        if (raw == null) {
-            return response;
-        }
-
-        String sanitized = sanitize(raw);
-        if (sanitized.equals(raw)) {
-            return response;
-        }
-
-        AssistantMessage sanitizedMsg = new AssistantMessage(sanitized);
-        Generation gen = new Generation(sanitizedMsg,
-                response.chatResponse().getResult().getMetadata());
-        ChatResponse chatResp = new ChatResponse(java.util.List.of(gen),
-                response.chatResponse().getMetadata());
-        return new ChatClientResponse(chatResp, response.context());
+    /**
+     * Lọc toàn văn — dùng cho đường LUỒNG, nơi advisor không lọc được vì chữ về theo từng mẩu.
+     * {@code FinishNode} gọi một lần sau khi đã gom đủ văn bản.
+     */
+    public String sanitizeText(String result) {
+        return sanitize(result);
     }
 
-    @Override
-    public String getName() {
-        return this.getClass().getName();
-    }
-
-    @Override
-    public int getOrder() {
-        return Ordered.LOWEST_PRECEDENCE - 1;
-    }
-
-    @Override
-    public Flux<ChatClientResponse> adviseStream(ChatClientRequest request, StreamAdvisorChain chain) {
-        return null;
-    }
+    /**
+     * Dấu xuống dòng BÊN TRONG một ô bảng Markdown.
+     *
+     * <p>Model viết danh sách gạch đầu dòng trong ô bảng bằng {@code <br>} — cách duy nhất xuống
+     * dòng được trong ô. Nhưng một dấu xuống dòng THẬT sẽ làm VỠ bảng, còn để nguyên {@code <br>}
+     * thì client nuốt mất (không bật HTML thô) khiến hai gạch đầu dòng dính liền.
+     *
+     * <p>Bản trước nối bằng {@code " / "}, và đó chính là chuỗi chạy dài {@code "• A / • B / • C"}
+     * mà người dùng thấy — không đọc nổi. Nay dùng LINE SEPARATOR (U+2028): Markdown coi là ký tự
+     * thường nên bảng không vỡ, client tách ra thành dòng (xem {@code AnswerMarkdown}), và nếu chỗ
+     * nào quên xử lý thì nó cũng chỉ là khoảng trắng chứ không hiện rác ra màn hình.
+     */
+    public static final String CELL_LINE_BREAK = "\u2028";
 
     private String sanitize(String result) {
         if (result == null) return "";
@@ -107,7 +84,7 @@ public class ResponseSanitizingAdvisor implements CallAdvisor, StreamAdvisor {
         String[] lines = result.split("\n", -1);
         for (int i = 0; i < lines.length; i++) {
             if (lines[i].stripLeading().startsWith("|")) {
-                lines[i] = lines[i].replaceAll("(?i)<br\\s*/?>", " / ");
+                lines[i] = lines[i].replaceAll("(?i)<br\\s*/?>", CELL_LINE_BREAK);
             } else {
                 lines[i] = lines[i].replaceAll("(?i)<br\\s*/?>", "\n");
             }

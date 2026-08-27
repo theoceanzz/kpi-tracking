@@ -1,6 +1,5 @@
 package com.kpitracking.service.ai.intent;
 
-import com.kpitracking.tool.ToolRegistry;
 import com.kpitracking.tool.ToolRegistry.Group;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
@@ -33,8 +32,15 @@ public class LlmIntentStrategy implements IntentStrategy {
             Phân loại câu hỏi của người dùng vào một hoặc nhiều nhóm công cụ.
 
             LOOKUP  - cơ cấu tổ chức, đơn vị, nhân sự, chức vụ, hồ sơ cá nhân
-            KPI     - chỉ tiêu KPI, kỳ đánh giá, bài nộp, ai chưa nộp
-            INSIGHT - xếp hạng, so sánh đơn vị, xu hướng theo thời gian, cảnh báo rủi ro, tổng quan
+            KPI     - chỉ tiêu KPI, kỳ đánh giá, bài nộp, ai chưa nộp, tổng quan KPI của đơn vị
+            INSIGHT - xếp hạng, so sánh đơn vị, xu hướng theo thời gian, cảnh báo rủi ro,
+                      bức tranh toàn đơn vị (quân số + số đơn vị con + số kỳ)
+            BSC     - thẻ điểm cân bằng, viễn cảnh (tài chính/khách hàng/quy trình/học hỏi),
+                      cân bằng viễn cảnh, điểm BSC
+            OKR     - mục tiêu (objective), kết quả then chốt (key result), tiến độ mục tiêu
+            ACTION  - người dùng RA LỆNH thay đổi dữ liệu: duyệt / phê duyệt / từ chối bài nộp,
+                      duyệt chỉ tiêu, duyệt yêu cầu điều chỉnh, nhắc người chưa nộp.
+                      CHỈ chọn khi họ bảo LÀM, không chọn khi họ chỉ HỎI về những thứ đó.
 
             Chỉ trả về tên nhóm, phân tách bằng dấu phẩy. Không giải thích.
             Câu hỏi cần nhiều loại dữ liệu thì trả nhiều nhóm.
@@ -60,7 +66,11 @@ public class LlmIntentStrategy implements IntentStrategy {
     /** Nhóm cần mở cho câu hỏi này. Luôn trả về tập KHÔNG rỗng. */
     @Override
     public Set<Group> route(String question) {
-        Set<Group> all = Set.of(Group.LOOKUP, Group.KPI, Group.INSIGHT);
+        // Lùi về phải gồm CẢ hai nhóm mới. Bỏ sót là router lưỡng lự sẽ im lặng lấy mất công cụ
+        // BSC/OKR của model — đúng kiểu hỏng âm thầm mà cửa thoát hiểm sinh ra để chống.
+        // Tập lùi về CHỈ gồm nhóm ĐỌC. Không bao giờ có ACTION ở đây: lùi về nghĩa là router không
+        // chắc, mà "không chắc" thì tuyệt đối không phải lúc trao tool GHI cho model.
+        Set<Group> all = Set.of(Group.LOOKUP, Group.KPI, Group.INSIGHT, Group.BSC, Group.OKR);
         if (!enabled || question == null || question.isBlank()) return all;
 
         try {
@@ -72,7 +82,11 @@ public class LlmIntentStrategy implements IntentStrategy {
 
             Set<Group> picked = new LinkedHashSet<>();
             String upper = raw.toUpperCase(Locale.ROOT);
-            for (Group g : new Group[]{Group.LOOKUP, Group.KPI, Group.INSIGHT}) {
+            // Phải quét ĐỦ mọi nhóm nêu trong prompt. Bản trước chỉ quét ba nhóm đầu, nên router
+            // trả đúng "BSC" vẫn bị coi là không nhận ra và lùi về toàn bộ nhóm đọc — định tuyến
+            // thành vô dụng đúng ở những câu nó đoán trúng.
+            for (Group g : new Group[]{Group.LOOKUP, Group.KPI, Group.INSIGHT,
+                    Group.BSC, Group.OKR, Group.ACTION}) {
                 if (upper.contains(g.name())) picked.add(g);
             }
             if (picked.isEmpty()) {

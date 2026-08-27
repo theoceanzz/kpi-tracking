@@ -294,12 +294,34 @@ public class OrgUnitStatisticService {
         detail.put("parentName", parentUnit != null ? parentUnit.getName() : null);
         detail.put("childCount", u.getChildren().size());
         detail.put("memberCount", userRoleOrgUnitRepository.countUsersByOrganizationUnitId(targetId));
+        // Đo được: hỏi "Phòng IT có bao nhiêu người" thì trợ lý AI đọc memberCount (=2, chỉ người
+        // gắn TRỰC TIẾP) trong khi get_people mặc định gộp cả cây (=8). Hai con số cùng nghe hợp
+        // lý nên model chọn hú hoạ -> câu trả lời lúc đúng lúc sai. Trả thêm số CẢ CÂY để nó có
+        // sẵn con số đúng. Thuần cộng thêm, không đổi nghĩa memberCount vì frontend đang dựa vào
+        // đúng ngữ nghĩa "trực tiếp" của nó để tự cộng dồn.
+        detail.put("totalMemberCount", subtreeMemberCount(u, targetId));
         detail.put("managers", managersInfo);
         detail.put("email", u.getEmail());
         detail.put("phone", u.getPhone());
         detail.put("address", u.getAddress());
         detail.put("status", u.getStatus().toString());
         return detail;
+    }
+
+    /**
+     * Số người của đơn vị KỂ CẢ các đơn vị con, đếm theo materialized path.
+     *
+     * <p>Thiếu path thì KHÔNG được đếm theo cây: {@code countUsersInSubtree} khớp
+     * {@code path LIKE prefix%}, nên prefix rỗng sẽ quét toàn bộ tổ chức và trả về một con số
+     * lớn hơn thực tế rất nhiều. Trường hợp đó lùi về số người gắn trực tiếp — thà thiếu còn hơn sai.
+     */
+    private long subtreeMemberCount(OrgUnit u, UUID targetId) {
+        String path = u.getPath();
+        if (path == null || path.isBlank()) {
+            return userRoleOrgUnitRepository.countUsersByOrganizationUnitId(targetId);
+        }
+        return userRoleOrgUnitRepository.countUsersInSubtree(
+                path, u.getOrgHierarchyLevel().getOrganization().getId());
     }
 
     // 3. get_child_org_units
@@ -781,6 +803,7 @@ public class OrgUnitStatisticService {
         detail.put("description", k.getDescription());
         detail.put("weight", k.getWeight());
         detail.put("targetValue", k.getTargetValue());
+        detail.put("minimumValue", k.getMinimumValue());
         boolean detailReverse = Boolean.TRUE.equals(k.getIsReverseKpi());
         detail.put("isReverseKpi", detailReverse);
         detail.put("targetComparator", detailReverse ? "≤" : "≥");
@@ -1663,6 +1686,33 @@ public class OrgUnitStatisticService {
         result.put("trend", trend);
         result.put("series", series);
         return result;
+    }
+
+    /**
+     * Các cặp (chỉ tiêu, người) chưa nộp — bản KHÔNG gộp của {@link #getNonSubmitters}.
+     *
+     * <p>Việc nhắc nhở gửi theo từng chỉ tiêu một, nên bản gộp theo người không đủ dữ liệu. Dùng
+     * chung đúng phép giải ĐỢT và đúng mệnh đề WHERE với bản gộp, để hai bên không thể lệch nhau về
+     * định nghĩa "chưa nộp".
+     *
+     * @return danh sách {@code [kpiId, kpiName, userId, userFullName]}, rỗng khi không đợt nào phủ
+     */
+    @Transactional(readOnly = true)
+    public List<Object[]> getMissingSubmissionPairs(UUID orgUnitId, String periodId, int limit) {
+        String pathPrefix = getPathPrefix(orgUnitId);
+        UUID orgId = orgUnitRepository.findById(orgUnitId)
+                .map(ou -> ou.getOrgHierarchyLevel().getOrganization().getId())
+                .orElse(null);
+
+        Set<UUID> periodIds = (periodId != null && !periodId.isBlank())
+                ? Set.of(UUID.fromString(periodId.trim()))
+                : (orgId != null ? overlappingPeriodIds(orgId, Instant.EPOCH, Instant.now()) : Set.of());
+
+        // Không đợt nào phủ ⇒ không ai tới hạn (và tránh sinh câu IN () không hợp lệ).
+        if (periodIds.isEmpty()) return List.of();
+
+        return kpiCriteriaRepository.findMissingSubmissionPairsInSubtree(
+                pathPrefix, periodIds, limit > 0 ? limit : 50);
     }
 
     @Transactional(readOnly = true)

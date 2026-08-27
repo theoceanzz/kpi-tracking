@@ -86,7 +86,7 @@ public class PeopleTool {
                     + "để lấy UUID trước.");
         }
         UUID targetUserId = support.parseId(request.userId(), "người dùng (userId)", "search (entityType=user)");
-        support.guardDisambiguation("user", targetUserId, "người dùng");
+        support.guardDisambiguation("user", targetUserId, "người dùng", context);
         support.validateUserAccess(targetUserId, context);
         Map<String, Object> response = orgUnitStatisticService.getUserSummary(
                 targetUserId, request.startDate(), request.endDate());

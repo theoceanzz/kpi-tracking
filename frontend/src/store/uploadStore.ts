@@ -6,6 +6,8 @@ interface UploadTask {
   fileName: string
   progress: number
   status: 'uploading' | 'completed' | 'error'
+  /** Lý do thất bại, lấy nguyên văn từ máy chủ. */
+  message?: string
 }
 
 interface UploadStore {
@@ -53,8 +55,13 @@ export const useUploadStore = create<UploadStore>((set, get) => ({
       }, 10000)
 
     } catch (error) {
+      // Máy chủ nói RÕ vì sao: quá nặng, sai định dạng, hay quá số tệp. Bản trước nuốt sạch, người
+      // dùng chỉ thấy "Lỗi tải lên" nên không biết phải sửa gì để thử lại.
+      const message =
+        (error as { response?: { data?: { message?: string } } })?.response?.data?.message
+        || 'Tải lên thất bại'
       set(state => ({
-        tasks: state.tasks.map(t => t.id === taskId ? { ...t, status: 'error' } : t)
+        tasks: state.tasks.map(t => t.id === taskId ? { ...t, status: 'error', message } : t)
       }))
     }
   },
