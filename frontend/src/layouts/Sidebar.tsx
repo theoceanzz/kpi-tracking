@@ -57,8 +57,9 @@ export default function Sidebar({ isMobileOpen, onCloseMobile }: { isMobileOpen?
   const enableAi = org?.enableAi !== false // default true while loading
   const enableReward = org?.enableReward
   const enableCashWallet = org?.enableCashWallet
+  const enableConduct = org?.enableConduct
 
-  const flags: NavFeatureFlags = { enableOkr, enableBsc, enableReward, enableCashWallet, enableAi }
+  const flags: NavFeatureFlags = { enableOkr, enableBsc, enableReward, enableCashWallet, enableAi, enableConduct }
 
   const [expandedMenus, setExpandedMenus] = useState<Record<string, boolean>>({})
 

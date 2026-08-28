@@ -90,6 +90,7 @@ export interface NavItem {
   aiOnly?: boolean
   rewardOnly?: boolean
   walletOnly?: boolean
+  conductOnly?: boolean
   /** Nhãn gốc trước khi bị ghi đè — Sidebar gán khi lọc cây. */
   originalLabel?: string
 }
@@ -100,6 +101,7 @@ export interface NavFeatureFlags {
   enableReward?: boolean
   enableCashWallet?: boolean
   enableAi?: boolean
+  enableConduct?: boolean
 }
 
 /** Bộ ba quyền quản trị mà các route thiết lập cũ đòi ĐỦ cả ba. */
@@ -188,7 +190,7 @@ export const navItems: NavItem[] = [
       { id: 'kpi-adjustments-pending', label: 'Điều chỉnh chỉ tiêu', icon: <MessageSquare size={18} />, permission: 'KPI:APPROVE_ADJUSTMENT', legacyKeys: ['/kpi-adjustments/pending', '/kpi-criteria/adjustments'], group: 'Chỉ tiêu', description: 'Yêu cầu sửa chỉ tiêu giữa chừng chờ xử lý' },
       { id: 'submissions-org-unit', label: 'Đánh giá đợt', icon: <ClipboardCheck size={18} />, permission: 'SUBMISSION:REVIEW', legacyKeys: ['/submissions/org-unit'], group: 'Đánh giá', description: 'Duyệt bài nộp và chấm điểm từng đợt' },
       { id: 'cycle-evaluation', label: 'Đánh giá kỳ', icon: <Award size={18} />, permission: 'CYCLE_EVAL:VIEW', legacyKeys: ['/kpi-cycles/evaluation'], group: 'Đánh giá', description: 'Tổng hợp nhiều đợt thành kết quả của cả kỳ' },
-      { id: 'conduct', label: 'Chấm hạnh kiểm', icon: <HeartHandshake size={18} />, permission: 'EVALUATION:VIEW', group: 'Đánh giá', description: 'Điểm hành vi theo bộ tiêu chí có trọng số, chấm theo đợt hoặc theo kỳ' },
+      { id: 'conduct', label: 'Chấm hạnh kiểm', icon: <HeartHandshake size={18} />, permission: 'EVALUATION:VIEW', conductOnly: true, group: 'Đánh giá', description: 'Điểm hành vi theo bộ tiêu chí có trọng số, chấm theo đợt hoặc theo kỳ' },
     ],
   },
   // Không gian cá nhân: công việc và ví của chính mình, gộp về MỘT dòng như ba nhánh
@@ -205,7 +207,9 @@ export const navItems: NavItem[] = [
       { id: 'my-submissions', label: 'Báo cáo của tôi', icon: <FileText size={18} />, permission: 'SUBMISSION:VIEW_MY', legacyKeys: ['/submissions'], group: 'Công việc', description: 'Các bài nộp đã gửi và trạng thái duyệt' },
       { id: 'evaluations', label: 'Đánh giá của tôi', icon: <Star size={18} />, permission: 'EVALUATION:VIEW_MY', legacyKeys: ['/evaluations'], group: 'Công việc', description: 'Điểm và xếp loại bạn nhận được qua từng đợt' },
       { id: 'my-adjustments', label: 'Điều chỉnh của tôi', icon: <History size={18} />, permission: 'KPI:VIEW_MY', legacyKeys: ['/my-adjustments'], group: 'Công việc', description: 'Đề nghị sửa chỉ tiêu bạn đã gửi và kết quả xử lý' },
-      { id: 'my-conduct', label: 'Hạnh kiểm của tôi', icon: <HeartHandshake size={18} />, group: 'Công việc', description: 'Tự chấm điểm hành vi và nêu dẫn chứng theo từng đợt, từng kỳ' },
+      // `KPI:VIEW_MY` chứ không phải `EVALUATION:VIEW_MY`: trưởng đơn vị KHÔNG có quyền
+      // sau (xem UNIT_HEAD_PERSONAL_PERMS ở backend) nhưng vẫn phải tự chấm hạnh kiểm.
+      { id: 'my-conduct', label: 'Hạnh kiểm của tôi', icon: <HeartHandshake size={18} />, permission: 'KPI:VIEW_MY', conductOnly: true, group: 'Công việc', description: 'Tự chấm điểm hành vi và nêu dẫn chứng theo từng đợt, từng kỳ' },
       { id: 'my-rewards', label: 'Điểm của tôi', icon: <Gift size={18} />, permission: 'REWARD:VIEW_MY', rewardOnly: true, legacyKeys: ['/rewards/me'], group: 'Ví', description: 'Số dư điểm thưởng, cửa hàng quà và lịch sử đổi' },
       { id: 'my-cash-wallet', label: 'Ví của tôi', icon: <Wallet size={18} />, permission: 'WALLET:VIEW_MY', walletOnly: true, legacyKeys: ['/wallet/me'], group: 'Ví', description: 'Số dư tiền, nạp tiền và quy đổi sang điểm' },
     ],
@@ -244,6 +248,7 @@ export function isFeatureEnabled(item: NavItem, flags: NavFeatureFlags): boolean
   if (item.rewardOnly && !flags.enableReward) return false
   if (item.walletOnly && !flags.enableCashWallet) return false
   if (item.aiOnly && !flags.enableAi) return false
+  if (item.conductOnly && !flags.enableConduct) return false
   return true
 }
 

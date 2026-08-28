@@ -111,6 +111,16 @@ export default function SettingsSectionLayout({
           {subtitle && <p className="text-slate-500 font-medium mt-1">{subtitle}</p>}
         </div>
 
+        {/* Không mục nào mở được (thiếu quyền, hoặc tổ chức tắt hết tính năng liên quan).
+            Sidebar đã ẩn dòng dẫn tới đây, nhưng route vẫn vào thẳng được bằng URL —
+            nói rõ lý do còn hơn để người dùng nhìn một trang trắng. */}
+        {visible.length === 0 && (
+          <div className="rounded-2xl border border-dashed border-slate-200 dark:border-slate-800 p-10 text-center">
+            <p className="text-slate-500 font-medium">Không có mục nào khả dụng với tài khoản của bạn ở trang này.</p>
+            <p className="text-slate-400 text-sm mt-1">Vai trò hiện tại chưa được cấp quyền, hoặc các tính năng liên quan đang tắt.</p>
+          </div>
+        )}
+
         <div id="tour-settings-nav" className="@container space-y-8">
           {groups.map(group => (
             <div key={group.name} className="space-y-3">

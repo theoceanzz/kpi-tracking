@@ -50,6 +50,7 @@ export function SidebarSettingsTab() {
     enableReward: org?.enableReward || false,
     enableCashWallet: org?.enableCashWallet || false,
     enableAi: org?.enableAi !== false,
+    enableConduct: org?.enableConduct || false,
   }), [org])
 
   const saved = useMemo(() => settings ?? {}, [settings])
