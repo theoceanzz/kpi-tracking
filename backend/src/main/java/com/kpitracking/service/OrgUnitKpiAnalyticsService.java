@@ -3,6 +3,7 @@ package com.kpitracking.service;
 import com.kpitracking.dto.response.stats.PersonalObjectiveResponses.*;
 import com.kpitracking.entity.*;
 import com.kpitracking.enums.SubmissionStatus;
+import com.kpitracking.enums.UserStatus;
 import com.kpitracking.repository.*;
 import com.kpitracking.security.PermissionChecker;
 import com.kpitracking.service.analytics.KpiMetricsCalculator;
@@ -978,6 +979,19 @@ public class OrgUnitKpiAnalyticsService {
 
     // ── Risk methods ──────────────────────────────────────────────────────────
 
+    /**
+     * Người còn đang làm việc — chỉ những người này mới được đưa vào các bảng cảnh báo.
+     *
+     * <p>Nhân sự đã tạm dừng (INACTIVE) hoặc bị tạm khóa (SUSPENDED) không thể nộp kết quả nữa,
+     * nên tiến độ đứng yên và hạn nộp trôi qua là hệ quả tất yếu của việc dừng, không phải vấn đề
+     * cần quản lý can thiệp. Giữ họ lại chỉ tạo báo động giả và đẩy người thật sự cần giúp xuống
+     * dưới. Người PENDING thì vẫn giữ: họ đang được giao chỉ tiêu và việc tài khoản chưa kích hoạt
+     * chính là thứ cần can thiệp.
+     */
+    private boolean isActiveMember(User u) {
+        return u != null && u.getStatus() != UserStatus.INACTIVE && u.getStatus() != UserStatus.SUSPENDED;
+    }
+
     @Transactional(readOnly = true)
     public UnitRiskPagedResponse getUnitRisks(UUID orgUnitId, Instant from, Instant to, Boolean onlyApproved, int page, int size, String sortBy, String sortDir, java.util.Collection<UUID> periodIds) {
         List<OrgUnit> subtree = orgUnitId != null ? resolveOrgUnitSubtree(orgUnitId) : resolveManagedSubtree();
@@ -1041,7 +1055,10 @@ public class OrgUnitKpiAnalyticsService {
         List<KpiCriteria> allKpis = applyPeriodFilter(memberRiskSource(allUnitIds, everyKpi), periodIds);
 
         Set<UUID> unitsWithKpis = allKpis.stream()
-            .filter(k -> k.getOrgUnit() != null && k.getAssignees() != null && !k.getAssignees().isEmpty())
+            // Cùng điều kiện với vòng gộp bên dưới, nếu không đơn vị chỉ còn người đã nghỉ/khóa vẫn
+            // nằm trong ô lọc rồi chọn vào lại ra rỗng.
+            .filter(k -> k.getOrgUnit() != null && k.getAssignees() != null
+                    && k.getAssignees().stream().anyMatch(this::isActiveMember))
             .map(k -> k.getOrgUnit().getId()).collect(Collectors.toSet());
         Set<UUID> currentUserUnitIds = getCurrentUserUnitIds();
         List<FilterOption> availableOrgUnits = buildHierarchicalFilterOptions(subtree, unitsWithKpis, currentUserUnitIds);
@@ -1059,6 +1076,7 @@ public class OrgUnitKpiAnalyticsService {
 
             boolean reverse = Boolean.TRUE.equals(kpi.getIsReverseKpi());
             for (User assignee : kpi.getAssignees()) {
+                if (!isActiveMember(assignee)) continue;
                 List<KpiSubmission> assigneeSubs = kpi.getSubmissions() == null ? Collections.emptyList() : kpi.getSubmissions().stream()
                     .filter(s -> Boolean.TRUE.equals(onlyApproved) ? s.getStatus() == SubmissionStatus.APPROVED
                         : (s.getStatus() == SubmissionStatus.APPROVED || s.getStatus() == SubmissionStatus.PENDING || s.getStatus() == SubmissionStatus.REJECTED))

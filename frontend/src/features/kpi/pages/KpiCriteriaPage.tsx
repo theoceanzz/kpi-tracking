@@ -51,6 +51,7 @@ import { groupByPerson, groupByUnitThenPerson, personGroupKey } from '@/lib/pers
 import { usePersonGroupCollapse } from '@/hooks/usePersonGroupCollapse'
 import { buildKpiRows } from '../utils/kpiTree'
 import { findDecompositionParentIds, sumWeightForPerson, totalWeightForUnit } from '../utils/realWeight'
+import { scorecardsForPeriod } from '@/features/bsc/utils/scorecardScope'
 
 /** Số nhóm (đơn vị, hoặc người khi chỉ có một đơn vị) hiển thị mỗi trang. */
 const GROUP_PAGE_SIZE = 10
@@ -291,7 +292,7 @@ export default function KpiCriteriaPage() {
     }
     for (const kpi of allKpis) {
       if (kpi.weight == null || !kpi.effectivePerspectiveId || !kpi.kpiPeriodId) continue
-      const periodScs = bscScorecards.filter(s => s.kpiPeriodId === kpi.kpiPeriodId)
+      const periodScs = scorecardsForPeriod(bscScorecards, kpi.kpiPeriodId)
       if (periodScs.length === 0) continue
       const unitId = kpi.orgUnitId || kpi.orgUnitIds?.[0]
       const sc = unitId ? resolveSc(unitId, periodScs) : (periodScs.find(s => !s.orgUnits || s.orgUnits.length === 0) || null)

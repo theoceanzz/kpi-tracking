@@ -328,7 +328,7 @@ export default function AiAssistantWidget() {
     return (
       <button
         onClick={() => setIsOpen(true)}
-        className="fixed bottom-6 right-6 w-14 h-14 bg-violet-600 hover:bg-violet-700 text-white rounded-full shadow-lg shadow-violet-200 dark:shadow-none flex items-center justify-center transition-transform hover:scale-110 z-50 group"
+        className="fixed bottom-6 right-6 w-14 h-14 bg-violet-600 hover:bg-violet-700 text-white rounded-full shadow-lg shadow-violet-200 dark:shadow-none flex items-center justify-center transition-transform hover:scale-110 z-[1200] group"
       >
         <Bot size={24} />
         <span className="absolute right-full mr-4 bg-slate-800 text-white text-xs px-3 py-1.5 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
@@ -345,7 +345,7 @@ export default function AiAssistantWidget() {
         // Bề ngang tăng theo cỡ màn: 450px trên laptop 13-14" là vừa, nhưng trên màn 27"
         // thì đúng khối đó đọc thành một cái tem dán góc, trong khi bảng số liệu AI trả về
         // lại là thứ cần bề ngang nhất.
-        'fixed right-3 bottom-3 sm:right-6 sm:bottom-6 w-[calc(100vw-1.5rem)] sm:w-[420px] xl:w-[460px] 2xl:w-[520px] bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 flex flex-col overflow-hidden transition-all duration-300 z-500',
+        'fixed right-3 bottom-3 sm:right-6 sm:bottom-6 w-[calc(100vw-1.5rem)] sm:w-[420px] xl:w-[460px] 2xl:w-[520px] bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 flex flex-col overflow-hidden transition-all duration-300 z-[1200]',
         // Chiều cao lấy theo chỗ CÒN LẠI trước, rồi mới chặn trần theo cỡ màn. Cách cũ
         // (`h-[700px] max-h-[85vh]`) tính 85% của cả khung nhìn nên trên màn 768px cao,
         // panel trùm lên tận header: 85vh = 653px + 24px lề dưới, chỉ chừa 91px.

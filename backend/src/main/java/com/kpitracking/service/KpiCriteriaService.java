@@ -295,12 +295,10 @@ public class KpiCriteriaService {
         User currentUser = getCurrentUser();
         UUID organizationId = getCurrentUserOrganizationId(currentUser);
 
-        // User's own units: colleagues' KPIs are visible only when APPROVED
-        List<UserRoleOrgUnit> assignments = userRoleOrgUnitRepository.findByUserId(currentUser.getId());
-        List<UUID> sameUnitIds = assignments.stream()
-                .map(a -> a.getOrgUnit().getId())
-                .distinct()
-                .collect(java.util.stream.Collectors.toList());
+        // User's own units: colleagues' KPIs are visible only when APPROVED.
+        // Quản lý thấy cả cây con của đơn vị mình, nhân viên chỉ thấy đúng đơn vị mình.
+        com.kpitracking.security.PermissionChecker.KpiVisibilityScope scope =
+                permissionChecker.getKpiVisibilityScope(currentUser.getId());
 
         // When qualitative KPIs are disabled for the org, hide them entirely by
         // forcing the type filter to QUANTITATIVE (ignoring any incoming qualitative filter).
@@ -321,7 +319,8 @@ public class KpiCriteriaService {
         Page<KpiCriteria> kpiPage = kpiCriteriaRepository.findAllWithFilters(
                 organizationId,
                 currentUser.getId(),
-                sameUnitIds,
+                scope.managerUnitIdsForQuery(),
+                scope.memberUnitIdsForQuery(),
                 approvalMode,
                 createdById,
                 assigneeId,
@@ -716,7 +715,7 @@ public class KpiCriteriaService {
         Organization org = kpi.getOrgUnit().getOrgHierarchyLevel().getOrganization();
         if (org == null || !Boolean.TRUE.equals(org.getEnableBsc())) return;
         if (kpi.getKpiPeriod() == null) return;
-        if (!bscScorecardRepository.existsByOrganizationIdAndKpiPeriodId(org.getId(), kpi.getKpiPeriod().getId())) return;
+        if (bscScorecardRepository.countAppliedToPeriod(org.getId(), kpi.getKpiPeriod().getId()) == 0) return;
         if (!achievementCalculator.countsTowardBscScore(kpi)) return;
         // KPI có thể suy lĩnh vực từ Objective cha (OKR) ⇒ dùng lĩnh vực HIỆU LỰC, không đòi gán trực tiếp.
         if (com.kpitracking.util.BscPerspectiveResolver.effectivePerspective(kpi) == null) {
@@ -734,7 +733,7 @@ public class KpiCriteriaService {
         Organization org = kpi.getOrgUnit().getOrgHierarchyLevel().getOrganization();
         if (org == null || !Boolean.TRUE.equals(org.getEnableBsc())) return;
         if (kpi.getKpiPeriod() == null) return;
-        if (!bscScorecardRepository.existsByOrganizationIdAndKpiPeriodId(org.getId(), kpi.getKpiPeriod().getId())) return;
+        if (bscScorecardRepository.countAppliedToPeriod(org.getId(), kpi.getKpiPeriod().getId()) == 0) return;
         if (!achievementCalculator.countsTowardBscScore(kpi)) return;
 
         com.kpitracking.entity.BscPerspective category =

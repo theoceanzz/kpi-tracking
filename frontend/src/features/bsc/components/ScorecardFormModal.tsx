@@ -6,6 +6,7 @@ import {
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { cn } from '@/lib/utils'
 import { useKpiPeriods } from '@/features/kpi/hooks/useKpiPeriods'
+import { useKpiCycles } from '@/features/kpi/hooks/useKpiCycles'
 import { useOrgUnitTree } from '@/features/orgunits/hooks/useOrgUnitTree'
 import { usePermission } from '@/hooks/usePermission'
 import ConfirmDialog from '@/components/common/ConfirmDialog'
@@ -14,7 +15,7 @@ import PerspectiveFormModal from './PerspectiveFormModal'
 import FixedPerspectiveFormModal from './FixedPerspectiveFormModal'
 import {
   ScorecardResponse, ScorecardRequest, BscScorecardStatus, BscScoringMode, BscEmptyPerspectivePolicy,
-  BscFixedPerspective, PerspectiveResponse, FixedPerspectiveResponse,
+  BscFixedPerspective, PerspectiveResponse, FixedPerspectiveResponse, BscScorecardApplyScope,
 } from '../types'
 
 interface ScorecardFormModalProps {
@@ -49,7 +50,8 @@ const toRow = (p: PerspectiveResponse, weight: number, enabled: boolean): Weight
 })
 
 export default function ScorecardFormModal({ isOpen, onClose, organizationId, scorecard, autoCreateFixed }: ScorecardFormModalProps) {
-  const { data: periodsData } = useKpiPeriods({ organizationId })
+  const { data: periodsData } = useKpiPeriods({ organizationId, size: 200, sortBy: 'startDate', direction: 'desc' })
+  const { data: cyclesData } = useKpiCycles({ organizationId, size: 200, sortBy: 'startDate', direction: 'desc' })
   const { data: perspectives } = useBscPerspectives(organizationId)
   const { data: fixedPerspectives } = useFixedPerspectives(organizationId)
   const { data: orgUnitTreeData } = useOrgUnitTree()
@@ -73,12 +75,30 @@ export default function ScorecardFormModal({ isOpen, onClose, organizationId, sc
 
   const [name, setName] = useState('')
   const [vision, setVision] = useState('')
-  const [periodId, setPeriodId] = useState('')
+  // Gắn thời gian: theo ĐỢT (tick nhiều đợt) hoặc theo KỲ (1 kỳ ⇒ mọi đợt trong kỳ tự áp dụng).
+  const [applyScope, setApplyScope] = useState<BscScorecardApplyScope>(BscScorecardApplyScope.PERIOD)
+  const [periodIds, setPeriodIds] = useState<string[]>([])
+  const [cycleId, setCycleId] = useState('')
   // Mỗi phần tử là 1 id đơn vị (gồm cả node gốc). Khi TẠO cho phép chọn nhiều → tạo nhiều bộ tiêu chí.
   const [scopes, setScopes] = useState<string[]>([])
   const [status, setStatus] = useState<BscScorecardStatus>(BscScorecardStatus.DRAFT)
   const [emptyPolicy, setEmptyPolicy] = useState<BscEmptyPerspectivePolicy>(BscEmptyPerspectivePolicy.RENORMALIZE)
   const [rows, setRows] = useState<WeightRow[]>([])
+
+  const allPeriods = useMemo(() => periodsData?.content || [], [periodsData])
+  const allCycles = useMemo(() => cyclesData?.content || [], [cyclesData])
+  // Đợt xếp theo kỳ để tick nhanh cả cụm; đợt không thuộc kỳ nào dồn xuống cuối.
+  const periodGroups = useMemo(() => {
+    const groups = new Map<string, { label: string; items: typeof allPeriods }>()
+    for (const p of allPeriods) {
+      const key = p.cycleId || '__none__'
+      if (!groups.has(key)) groups.set(key, { label: p.cycleName || 'Không thuộc kỳ nào', items: [] })
+      groups.get(key)!.items.push(p)
+    }
+    return [...groups.entries()].sort((a, b) => (a[0] === '__none__' ? 1 : b[0] === '__none__' ? -1 : 0)).map(([, g]) => g)
+  }, [allPeriods])
+  const cyclePeriods = useMemo(() => allPeriods.filter(p => p.cycleId === cycleId), [allPeriods, cycleId])
+
 
   // Hạng mục tạo/sửa/xoá ngay trong modal này, nên `perspectives` đổi giữa chừng là
   // chuyện thường. Chỉ nạp lại toàn bộ form đúng một lần cho mỗi bộ tiêu chí; những lần
@@ -103,7 +123,9 @@ export default function ScorecardFormModal({ isOpen, onClose, organizationId, sc
       if (scorecard) {
         setName(scorecard.name)
         setVision(scorecard.vision || '')
-        setPeriodId(scorecard.kpiPeriodId)
+        setApplyScope(scorecard.applyScope || BscScorecardApplyScope.PERIOD)
+        setPeriodIds(scorecard.applyScope === BscScorecardApplyScope.CYCLE ? [] : (scorecard.periods || []).map(p => p.id))
+        setCycleId(scorecard.kpiCycleId || '')
         setScopes((scorecard.orgUnits || []).map(u => u.id))
         setStatus(scorecard.status)
         setEmptyPolicy(scorecard.emptyPerspectivePolicy)
@@ -114,7 +136,9 @@ export default function ScorecardFormModal({ isOpen, onClose, organizationId, sc
       } else {
         setName('')
         setVision('')
-        setPeriodId('')
+        setApplyScope(BscScorecardApplyScope.PERIOD)
+        setPeriodIds([])
+        setCycleId('')
         setScopes([])
         setStatus(BscScorecardStatus.DRAFT)
         setEmptyPolicy(BscEmptyPerspectivePolicy.RENORMALIZE)
@@ -167,6 +191,22 @@ export default function ScorecardFormModal({ isOpen, onClose, organizationId, sc
   }
   const scopeLabel = (id: string) => flatOrgUnits.find(u => u.id === id)?.name || 'Đơn vị'
 
+  const isCycleMode = applyScope === BscScorecardApplyScope.CYCLE
+  // Hợp lệ khi: theo kỳ ⇒ đã chọn 1 kỳ; theo đợt ⇒ đã tick ít nhất 1 đợt.
+  const timeScopeValid = isCycleMode ? !!cycleId : periodIds.length > 0
+
+  const togglePeriod = (id: string) =>
+    setPeriodIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id])
+  const togglePeriodGroup = (ids: string[]) => {
+    const allOn = ids.every(id => periodIds.includes(id))
+    setPeriodIds(prev => allOn ? prev.filter(id => !ids.includes(id)) : [...new Set([...prev, ...ids])])
+  }
+  const periodTriggerLabel = periodIds.length === 0
+    ? 'Chọn đợt áp dụng'
+    : periodIds.length === 1
+      ? (allPeriods.find(p => p.id === periodIds[0])?.name || '1 đợt')
+      : `Đã chọn ${periodIds.length} đợt`
+
   const distributeEvenly = () => {
     const en = rows.filter(r => r.enabled)
     if (en.length === 0) return
@@ -184,11 +224,13 @@ export default function ScorecardFormModal({ isOpen, onClose, organizationId, sc
 
   const handleSubmit = () => {
     if (!name.trim()) return
-    if (!periodId) return
+    if (!timeScopeValid) return
     const payload: ScorecardRequest = {
       name: name.trim(),
       vision: vision.trim() || undefined,
-      kpiPeriodId: periodId,
+      applyScope,
+      kpiPeriodIds: isCycleMode ? undefined : periodIds,
+      kpiCycleId: isCycleMode ? cycleId : undefined,
       orgUnitIds: scopes,
       status,
       scoringMode: scorecard?.scoringMode || BscScoringMode.SHADOW,
@@ -196,7 +238,7 @@ export default function ScorecardFormModal({ isOpen, onClose, organizationId, sc
       perspectives: enabledRows.map((r, idx) => ({ perspectiveId: r.perspectiveId, weightPercentage: Number(r.weight) || 0, displayOrder: idx })),
     }
     if (scorecard) {
-      // Sửa: phạm vi khoá, backend không đổi orgUnits nên chỉ gửi cấu hình.
+      // Sửa: phạm vi phòng ban khoá (backend bỏ qua orgUnits), nhưng đợt/kỳ áp dụng thì đổi được.
       updateScorecard.mutate({ scorecardId: scorecard.id, data: payload }, { onSuccess: () => onClose() })
     } else {
       createScorecard.mutate({ organizationId, data: payload }, { onSuccess: () => onClose() })
@@ -271,16 +313,94 @@ export default function ScorecardFormModal({ isOpen, onClose, organizationId, sc
                   className="w-full px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 text-sm font-bold focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 outline-none transition-all" />
               </div>
               <div className="space-y-1.5">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Đợt áp dụng <span className="text-red-500">*</span></label>
-                <Select value={periodId} onValueChange={setPeriodId} disabled={!!scorecard}>
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Áp dụng theo <span className="text-red-500">*</span></label>
+                <div className="grid grid-cols-2 gap-2">
+                  {[
+                    { value: BscScorecardApplyScope.PERIOD, label: 'Đợt' },
+                    { value: BscScorecardApplyScope.CYCLE, label: 'Kỳ' },
+                  ].map(opt => (
+                    <button key={opt.value} type="button" onClick={() => setApplyScope(opt.value)}
+                      className={cn('h-10 rounded-xl border text-xs font-black uppercase tracking-wider transition-all',
+                        applyScope === opt.value
+                          ? 'bg-indigo-600 border-indigo-600 text-white shadow-lg shadow-indigo-500/20'
+                          : 'bg-slate-50 dark:bg-slate-800 border-slate-100 dark:border-slate-700 text-slate-500 hover:border-indigo-300')}>
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Theo KỲ: chọn đúng 1 kỳ, mọi đợt trong kỳ tự áp dụng. Theo ĐỢT: tick nhiều đợt. */}
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">
+                {isCycleMode ? 'Kỳ áp dụng' : 'Đợt áp dụng (chọn nhiều)'} <span className="text-red-500">*</span>
+              </label>
+
+              {isCycleMode ? (
+                <Select value={cycleId} onValueChange={setCycleId}>
                   <SelectTrigger className="w-full h-10 rounded-xl bg-slate-50 dark:bg-slate-800 border-slate-100 dark:border-slate-700 text-sm font-bold outline-none">
-                    <SelectValue placeholder="Chọn đợt" />
+                    <SelectValue placeholder="Chọn kỳ đánh giá" />
                   </SelectTrigger>
                   <SelectContent className="rounded-xl border-slate-200 dark:border-slate-800 max-h-[280px]">
-                    {periodsData?.content.map(p => <SelectItem key={p.id} value={p.id} className="text-sm font-bold">{p.name}</SelectItem>)}
+                    {allCycles.map(c => <SelectItem key={c.id} value={c.id} className="text-sm font-bold">{c.name}</SelectItem>)}
                   </SelectContent>
                 </Select>
-              </div>
+              ) : (
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <button type="button"
+                      className="w-full h-10 px-4 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 text-sm font-bold flex items-center justify-between focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 outline-none transition-all">
+                      <span className={cn('truncate text-left', periodIds.length === 0 && 'text-slate-400')}>{periodTriggerLabel}</span>
+                      <ChevronDown size={14} className="opacity-50 shrink-0" />
+                    </button>
+                  </PopoverTrigger>
+                  <PopoverContent className="p-2 w-[var(--radix-popover-trigger-width)] max-h-[300px] overflow-y-auto custom-scrollbar" align="start">
+                    {allPeriods.length === 0 && (
+                      <p className="px-3 py-2 text-xs font-bold text-slate-400">Chưa có đợt KPI nào</p>
+                    )}
+                    {periodGroups.map(g => {
+                      const ids = g.items.map(p => p.id)
+                      const allOn = ids.every(id => periodIds.includes(id))
+                      return (
+                        <div key={g.label} className="mb-1 last:mb-0">
+                          <div className="flex items-center justify-between px-3 py-1">
+                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest truncate">{g.label}</span>
+                            <button type="button" onClick={() => togglePeriodGroup(ids)}
+                              className="text-[10px] font-black text-indigo-600 hover:text-indigo-700 uppercase tracking-wider shrink-0">
+                              {allOn ? 'Bỏ chọn' : 'Chọn hết'}
+                            </button>
+                          </div>
+                          <div className="space-y-1">
+                            {g.items.map(p => {
+                              const isSelected = periodIds.includes(p.id)
+                              return (
+                                <div key={p.id} onClick={() => togglePeriod(p.id)}
+                                  className={cn('flex items-center gap-3 px-3 py-2 rounded-xl cursor-pointer transition-colors group',
+                                    isSelected ? 'bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400' : 'hover:bg-slate-50 dark:hover:bg-slate-800')}>
+                                  <div className={cn('w-4 h-4 rounded border flex items-center justify-center transition-all shrink-0',
+                                    isSelected ? 'bg-indigo-600 border-indigo-600 text-white' : 'border-slate-200 dark:border-slate-700 group-hover:border-indigo-400')}>
+                                    {isSelected && <Check size={10} strokeWidth={4} />}
+                                  </div>
+                                  <span className="text-xs font-bold truncate">{p.name}</span>
+                                </div>
+                              )
+                            })}
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </PopoverContent>
+                </Popover>
+              )}
+
+              <p className="text-[10px] font-medium text-slate-400 ml-1">
+                {isCycleMode
+                  ? cycleId
+                    ? `Áp dụng cho ${cyclePeriods.length} đợt thuộc kỳ này${cyclePeriods.length > 0 ? ': ' + cyclePeriods.map(p => p.name).join(', ') : ''}. Đợt thêm vào kỳ sau này cũng tự áp dụng.`
+                    : 'Chọn 1 kỳ — mọi đợt thuộc kỳ (kể cả đợt thêm sau) đều dùng bộ tiêu chí này.'
+                  : 'Tick nhiều đợt để dùng chung một bộ tiêu chí. Cần áp dụng cho cả kỳ thì chuyển sang "Kỳ".'}
+              </p>
             </div>
 
             <div className="space-y-1.5">
@@ -414,7 +534,7 @@ export default function ScorecardFormModal({ isOpen, onClose, organizationId, sc
 
           <div className="p-6 border-t border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900 flex gap-4">
             <button type="button" onClick={onClose} className="flex-1 px-6 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 text-sm font-bold text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all">Hủy</button>
-            <button type="button" onClick={handleSubmit} disabled={isPending || !isValid || !name.trim() || !periodId}
+            <button type="button" onClick={handleSubmit} disabled={isPending || !isValid || !name.trim() || !timeScopeValid}
               className="flex-[2] px-6 py-2.5 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 shadow-lg shadow-indigo-500/20 disabled:opacity-50 transition-all flex items-center justify-center gap-2">
               {isPending && <Loader2 className="animate-spin" size={18} />}
               {scorecard ? 'Lưu thay đổi' : 'Xác nhận tạo'}

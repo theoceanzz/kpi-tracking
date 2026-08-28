@@ -29,6 +29,7 @@ import { ObjectiveResponse } from '@/features/okr/types'
 import { buildKpiRows } from '../utils/kpiTree'
 import { useScorecards } from '@/features/bsc/hooks/useBsc'
 import { useOrgUnitTree } from '@/features/orgunits/hooks/useOrgUnitTree'
+import { scorecardsForPeriod } from '@/features/bsc/utils/scorecardScope'
 
 
 
@@ -116,7 +117,7 @@ export default function MyKpiPage() {
     }
     for (const kpi of allKpis) {
       if (kpi.weight == null || !kpi.effectivePerspectiveId || !kpi.kpiPeriodId) continue
-      const periodScs = bscScorecards.filter(s => s.kpiPeriodId === kpi.kpiPeriodId)
+      const periodScs = scorecardsForPeriod(bscScorecards, kpi.kpiPeriodId)
       if (periodScs.length === 0) continue
       const unitId = kpi.orgUnitId || kpi.orgUnitIds?.[0]
       const sc = unitId ? resolveSc(unitId, periodScs) : (periodScs.find(s => !s.orgUnits || s.orgUnits.length === 0) || null)

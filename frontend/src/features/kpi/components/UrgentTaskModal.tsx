@@ -18,6 +18,7 @@ import { useKpiTotalWeight } from '../hooks/useKpiTotalWeight'
 import { Select, SelectContent, SelectItem, SelectGroup, SelectLabel, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { LayoutGrid } from 'lucide-react'
 import { DateTimePicker } from '@/components/common/DateTimePicker'
+import { scorecardsForPeriod } from '@/features/bsc/utils/scorecardScope'
 
 
 const inputCls = "w-full px-3 py-2.5 rounded-lg border border-[var(--color-border)] bg-[var(--color-background)] text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]/50 transition-all shadow-sm"
@@ -1016,7 +1017,7 @@ export default function UrgentTaskModal({ open, onClose, kpiPeriodId: initPeriod
   // Bộ tiêu chí HIỆU LỰC cho đơn vị đã chọn (đơn vị → cha → mặc định).
   const effectiveScorecard = useMemo<any>(() => {
     if (!enableBsc || !selectedPeriodId || !selectedOrgUnitId) return null
-    const periodScs = (bscScorecards || []).filter(s => s.kpiPeriodId === selectedPeriodId)
+    const periodScs = scorecardsForPeriod(bscScorecards, selectedPeriodId)
     if (periodScs.length === 0) return null
     let cur: string | null = selectedOrgUnitId, guard = 0, sc: any = null
     while (cur && guard++ < 100) {
@@ -1030,7 +1031,7 @@ export default function UrgentTaskModal({ open, onClose, kpiPeriodId: initPeriod
 
   const availablePerspectiveIds = useMemo<Set<string> | null>(() => {
     if (!enableBsc || !selectedPeriodId || !selectedOrgUnitId) return null
-    const periodScs = (bscScorecards || []).filter(s => s.kpiPeriodId === selectedPeriodId)
+    const periodScs = scorecardsForPeriod(bscScorecards, selectedPeriodId)
     if (periodScs.length === 0) return new Set<string>()
     const ids = new Set<string>()
     ;(effectiveScorecard?.perspectives || []).forEach((p: any) => ids.add(p.perspectiveId))

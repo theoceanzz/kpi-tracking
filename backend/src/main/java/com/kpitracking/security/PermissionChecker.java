@@ -189,6 +189,61 @@ public class PermissionChecker {
     }
 
     /**
+     * Phạm vi xem KPI suy ra từ membership của một user, tách theo rank.
+     * <p>
+     * Vai trò quản lý (rank 0/1) nhìn được cả cây con của đơn vị được gán; nhân viên
+     * (rank 2 hoặc chưa đặt) chỉ nhìn đúng đơn vị đó. Việc tách này là cần thiết vì
+     * {@code UserService.assignToUnitAndImmediateParent} tự sinh thêm một membership
+     * nhân viên ở đơn vị CHA — với tổ chức hai cấp, đơn vị cha chính là gốc công ty,
+     * nên nếu mở rộng cây con cho cả membership nhân viên thì mọi người sẽ thấy KPI
+     * của tất cả đơn vị anh em.
+     */
+    public record KpiVisibilityScope(List<UUID> managerUnitIds, List<UUID> memberUnitIds) {
+
+        /** UUID không trỏ tới bản ghi nào, dùng để giữ mệnh đề IN hợp lệ khi danh sách rỗng. */
+        private static final UUID NO_MATCH = new UUID(0L, 0L);
+
+        public boolean isEmpty() {
+            return managerUnitIds.isEmpty() && memberUnitIds.isEmpty();
+        }
+
+        /** JPQL không nhận {@code IN ()} rỗng — thay bằng UUID không khớp gì. */
+        public List<UUID> managerUnitIdsForQuery() {
+            return managerUnitIds.isEmpty() ? List.of(NO_MATCH) : managerUnitIds;
+        }
+
+        public List<UUID> memberUnitIdsForQuery() {
+            return memberUnitIds.isEmpty() ? List.of(NO_MATCH) : memberUnitIds;
+        }
+    }
+
+    /**
+     * Split a user's memberships into manager scope (subtree-wide) and member scope (exact unit).
+     */
+    public KpiVisibilityScope getKpiVisibilityScope(UUID userId) {
+        List<UserRoleOrgUnit> assignments = userRoleOrgUnitRepository.findByUserId(userId);
+
+        List<UUID> managerUnitIds = assignments.stream()
+                .filter(a -> isManagerRank(a.getRole().getRank()))
+                .map(a -> a.getOrgUnit().getId())
+                .distinct()
+                .toList();
+
+        List<UUID> memberUnitIds = assignments.stream()
+                .filter(a -> !isManagerRank(a.getRole().getRank()))
+                .map(a -> a.getOrgUnit().getId())
+                .distinct()
+                .toList();
+
+        return new KpiVisibilityScope(managerUnitIds, memberUnitIds);
+    }
+
+    /** Rank rỗng được coi là nhân viên, khớp mặc định của {@link #getMinRankInOrgUnit}. */
+    private static boolean isManagerRank(Integer rank) {
+        return rank != null && rank <= 1;
+    }
+
+    /**
      * Get the minimum (best/highest) rank of a user in a specific OrgUnit.
      * Considers inheritance: rank in a parent unit applies to all child units.
      * Ranks: 0 (Head), 1 (Deputy), 2 (Staff).

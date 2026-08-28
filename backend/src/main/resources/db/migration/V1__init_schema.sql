@@ -1037,13 +1037,18 @@ CREATE INDEX idx_messages_conversation_id ON messages(conversation_id);
 -- (bsc_perspectives đã khai báo sớm ở trên, ngay sau organizations.)
 -- ====================================================
 
--- Thẻ điểm — mỗi tổ chức + kỳ một bản.
--- Tham số chấm điểm đặt Ở ĐÂY (theo kỳ) chứ không ở organizations: mỗi kỳ "đóng băng" chính sách
+-- Thẻ điểm — gắn với NHIỀU đợt (bảng nối bsc_scorecard_periods) hoặc với MỘT kỳ.
+-- apply_scope = 'PERIOD': chỉ áp dụng đúng các đợt được chọn.
+-- apply_scope = 'CYCLE' : áp dụng cho MỌI đợt thuộc kpi_cycle_id — suy ra động, nên đợt được thêm
+--                         vào kỳ sau này cũng tự dùng thẻ điểm mà không phải sửa lại thẻ.
+-- Tham số chấm điểm đặt Ở ĐÂY (theo thẻ) chứ không ở organizations: mỗi kỳ "đóng băng" chính sách
 -- của chính nó ⇒ tính lại điểm kỳ cũ luôn ra đúng số cũ, dù kỳ sau HR đổi chính sách.
 CREATE TABLE bsc_scorecards (
     id                        UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     organization_id           UUID            NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
-    kpi_period_id             UUID            NOT NULL REFERENCES kpi_periods(id) ON DELETE CASCADE,
+    apply_scope               VARCHAR(20)     NOT NULL DEFAULT 'PERIOD'
+                                  CHECK (apply_scope IN ('PERIOD','CYCLE')),
+    kpi_cycle_id              UUID            REFERENCES kpi_cycles(id) ON DELETE SET NULL,
     name                      VARCHAR(255)    NOT NULL,
     vision                    TEXT,
     status                    VARCHAR(20)     NOT NULL DEFAULT 'DRAFT'
@@ -1058,9 +1063,19 @@ CREATE TABLE bsc_scorecards (
 );
 
 CREATE INDEX idx_bsc_scorecards_organization_id ON bsc_scorecards(organization_id);
-CREATE INDEX idx_bsc_scorecards_kpi_period_id ON bsc_scorecards(kpi_period_id);
--- Tính duy nhất (1 thẻ mặc định/kỳ, mỗi đơn vị ≤1 thẻ/kỳ) được ENFORCE Ở SERVICE
--- vì thẻ điểm áp dụng cho NHIỀU đơn vị (bảng nối bsc_scorecard_org_units bên dưới).
+CREATE INDEX idx_bsc_scorecards_kpi_cycle_id ON bsc_scorecards(kpi_cycle_id);
+-- Tính duy nhất (1 thẻ mặc định/đợt, mỗi đơn vị ≤1 thẻ/đợt) được ENFORCE Ở SERVICE
+-- vì thẻ điểm áp dụng cho NHIỀU đơn vị (bảng nối bsc_scorecard_org_units bên dưới)
+-- và cho NHIỀU đợt (bảng nối bsc_scorecard_periods bên dưới).
+
+-- Thẻ điểm áp dụng cho NHIỀU đợt. Chỉ dùng khi apply_scope = 'PERIOD'; gắn theo kỳ thì để trống
+-- và danh sách đợt được suy từ kpi_cycle_id lúc truy vấn.
+CREATE TABLE bsc_scorecard_periods (
+    scorecard_id  UUID NOT NULL REFERENCES bsc_scorecards(id) ON DELETE CASCADE,
+    kpi_period_id UUID NOT NULL REFERENCES kpi_periods(id) ON DELETE CASCADE,
+    PRIMARY KEY (scorecard_id, kpi_period_id)
+);
+CREATE INDEX idx_bsc_scorecard_periods_period ON bsc_scorecard_periods(kpi_period_id);
 
 -- Thẻ điểm áp dụng cho NHIỀU phòng ban (giống OKR objective_org_units). Danh sách RỖNG = mặc định toàn tổ chức.
 CREATE TABLE bsc_scorecard_org_units (

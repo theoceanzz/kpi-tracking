@@ -81,11 +81,9 @@ public class StatsService {
     private long countPendingKpiForApproval(User currentUser, UUID organizationId) {
         if (organizationId == null) return 0L;
 
-        List<UUID> sameUnitIds = userRoleOrgUnitRepository.findByUserId(currentUser.getId()).stream()
-                .map(a -> a.getOrgUnit().getId())
-                .distinct()
-                .toList();
-        if (sameUnitIds.isEmpty()) return 0L;
+        com.kpitracking.security.PermissionChecker.KpiVisibilityScope scope =
+                permissionChecker.getKpiVisibilityScope(currentUser.getId());
+        if (scope.isEmpty()) return 0L;
 
         UUID excludeUserId = permissionChecker.hasPermission(currentUser.getId(), "KPI:REVERT_APPROVAL")
                 ? null
@@ -94,7 +92,8 @@ public class StatsService {
                 ? null
                 : com.kpitracking.enums.KpiType.QUANTITATIVE;
 
-        return kpiCriteriaRepository.countPendingApprovalVisibleTo(organizationId, sameUnitIds, excludeUserId, kpiTypeFilter);
+        return kpiCriteriaRepository.countPendingApprovalVisibleTo(organizationId,
+                scope.managerUnitIdsForQuery(), scope.memberUnitIdsForQuery(), excludeUserId, kpiTypeFilter);
     }
 
     @Transactional(readOnly = true)

@@ -19,6 +19,7 @@ import { FREQUENCY_MAP } from '@/lib/utils'
 import { kpiApi } from '@/features/kpi/api/kpiApi'
 import { useObjectives } from '@/features/okr/hooks/useOkr'
 import { useBscPerspectives, useScorecards } from '@/features/bsc/hooks/useBsc'
+import { scorecardsForPeriod } from '@/features/bsc/utils/scorecardScope'
 
 interface KpiExcelPreviewModalProps {
   open: boolean
@@ -159,7 +160,7 @@ export default function KpiExcelPreviewModal({ open, file, kpiType, onClose, onI
     if (!enableBsc || !bscScorecards) return null
     const periodId = periodIdByName.get((row.Period || '').trim().toLowerCase())
     if (!periodId) return null // đợt chưa khớp ⇒ chưa lọc
-    const periodScs = bscScorecards.filter(s => s.kpiPeriodId === periodId)
+    const periodScs = scorecardsForPeriod(bscScorecards, periodId)
     if (!periodScs.length) return new Set<string>() // đợt chưa có bộ tiêu chí ⇒ rỗng
     const unitIds = (row.OrgUnit || '').split(',').map(s => unitIdByName.get(s.trim().toLowerCase())).filter(Boolean) as string[]
     if (!unitIds.length) return null // chưa khớp đơn vị ⇒ chưa lọc

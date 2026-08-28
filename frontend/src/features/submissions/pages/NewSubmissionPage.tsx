@@ -32,6 +32,7 @@ import { useScorecards } from '@/features/bsc/hooks/useBsc'
 import { useOrgUnitTree } from '@/features/orgunits/hooks/useOrgUnitTree'
 import type { KpiCriteria } from '@/types/kpi'
 import EvaluationFormModal from '@/features/evaluations/components/EvaluationFormModal'
+import { scorecardsForPeriod } from '@/features/bsc/utils/scorecardScope'
 
 function isSubmittableByUser(k: KpiCriteria, userId?: string) {
   const now = new Date()
@@ -186,7 +187,7 @@ export default function NewSubmissionPage() {
   const realWeight = useMemo(() => {
     const kpi: any = selectedKpi
     if (!enableBsc || !bscScorecards || !kpi || kpi.weight == null || !kpi.effectivePerspectiveId || !kpi.kpiPeriodId) return null
-    const periodScs = bscScorecards.filter(s => s.kpiPeriodId === kpi.kpiPeriodId)
+    const periodScs = scorecardsForPeriod(bscScorecards, kpi.kpiPeriodId)
     if (!periodScs.length) return null
     const parent = new Map<string, string | null>()
     const walk = (nodes: any[]) => (nodes || []).forEach((n: any) => { parent.set(n.id, n.parentId ?? null); if (n.children) walk(n.children) })

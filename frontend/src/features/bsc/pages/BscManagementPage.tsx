@@ -12,7 +12,7 @@ import { usePermission } from '@/hooks/usePermission'
 import { useNavLabels } from '@/features/organization/hooks/useNavLabels'
 import { findNavItem } from '@/config/navigation'
 import {
-  ScorecardResponse, BscScorecardStatus, BscScoringMode, BscFixedPerspective, FixedPerspectiveResponse,
+  ScorecardResponse, BscScorecardStatus, BscScoringMode, BscFixedPerspective, FixedPerspectiveResponse, BscScorecardApplyScope,
 } from '../types'
 import ScorecardFormModal from '../components/ScorecardFormModal'
 import ImportBscGuideModal from '../components/ImportBscGuideModal'
@@ -242,7 +242,10 @@ function ScorecardCard({
                 sc.scoringMode === BscScoringMode.OFFICIAL ? 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400' : 'bg-slate-100 text-slate-500')}>
                 {sc.scoringMode === BscScoringMode.OFFICIAL ? 'Chính thức' : 'Chạy song song'}
               </span>
-              <span className="flex items-center gap-1 text-[10px] font-bold text-slate-400 uppercase"><Calendar size={11} /> {sc.kpiPeriodName}</span>
+              <span className="flex items-center gap-1 text-[10px] font-bold text-slate-400 uppercase" title={sc.periodLabel}>
+                <Calendar size={11} />
+                {sc.applyScope === BscScorecardApplyScope.CYCLE ? `Kỳ: ${sc.kpiCycleName || '—'}` : (sc.periodLabel || '—')}
+              </span>
               {sc.orgUnits && sc.orgUnits.length > 0 ? (
                 sc.orgUnits.map(u => (
                   <span key={u.id} className="text-[10px] font-black px-2 py-0.5 rounded-md uppercase bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-400">

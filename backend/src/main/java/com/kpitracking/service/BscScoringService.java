@@ -226,15 +226,25 @@ public class BscScoringService {
         OrgUnit cur = orgUnit;
         int guard = 0; // chặn vòng lặp vô hạn nếu dữ liệu cây bị lỗi
         while (cur != null && guard++ < 100) {
-            BscScorecard sc = scorecardRepository
-                    .findByOrgUnitAndPeriod(organizationId, cur.getId(), kpiPeriodId)
-                    .orElse(null);
+            BscScorecard sc = mostSpecific(
+                    scorecardRepository.findByOrgUnitAndPeriod(organizationId, cur.getId(), kpiPeriodId));
             if (sc != null) return sc;
             cur = cur.getParent();
         }
-        return scorecardRepository
-                .findDefaultByPeriod(organizationId, kpiPeriodId)
-                .orElse(null);
+        return mostSpecific(scorecardRepository.findDefaultByPeriod(organizationId, kpiPeriodId));
+    }
+
+    /**
+     * Một đợt có thể khớp nhiều bộ tiêu chí nếu vừa có thẻ gắn thẳng đợt vừa có thẻ gắn cả kỳ chứa đợt
+     * (dịch vụ chặn trùng lúc tạo, nhưng đợt thêm vào kỳ SAU đó vẫn có thể sinh ra chồng lấn).
+     * Ưu tiên thẻ gắn TRỰC TIẾP đợt vì cụ thể hơn.
+     */
+    private static BscScorecard mostSpecific(List<BscScorecard> matches) {
+        if (matches == null || matches.isEmpty()) return null;
+        return matches.stream()
+                .filter(sc -> sc.getApplyScope() == com.kpitracking.enums.BscScorecardApplyScope.PERIOD)
+                .findFirst()
+                .orElse(matches.get(0));
     }
 
     /** Phòng ban của một nhân viên (lấy role đầu tiên) — null nếu không xác định được. */

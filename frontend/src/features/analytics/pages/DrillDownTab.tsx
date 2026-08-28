@@ -176,7 +176,17 @@ export default function DrillDownTab() {
   }, [searchInput])
 
   // Đổi đơn vị đang chọn (đồng bộ URL để back/forward + chia sẻ link).
-  const select = (id: string) => { setSearchParams({ unitId: id }); setEmpPage(0); setSearchInput('') }
+  // Ghi ĐÈ LÊN query hiện có chứ không thay cả cụm: `?section=` của khung trang cũng
+  // nằm ở đây, mất nó là khung tưởng chưa chọn mục nào và nhảy về lưới thẻ.
+  const select = (id: string) => {
+    setSearchParams(prev => {
+      const p = new URLSearchParams(prev)
+      p.set('unitId', id)
+      return p
+    })
+    setEmpPage(0)
+    setSearchInput('')
+  }
 
   const rootUnitId = rootData?.orgUnitId || undefined
   const treeNodes = useMemo(() => subtreeOf(tree || [], rootUnitId), [tree, rootUnitId])

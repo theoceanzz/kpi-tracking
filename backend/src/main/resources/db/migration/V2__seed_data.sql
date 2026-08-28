@@ -2644,7 +2644,7 @@ WHERE NOT EXISTS (
     SELECT 1 FROM bsc_perspectives p
     WHERE p.organization_id = o.id AND p.code = v.code AND p.deleted_at IS NULL);
 
--- 18.3 Thẻ điểm: một thẻ cho mỗi (tổ chức, kỳ).
+-- 18.3 Thẻ điểm: một thẻ cho mỗi (tổ chức, đợt), gắn theo ĐỢT (apply_scope = 'PERIOD').
 -- KHÔNG có thẻ điểm thì BscScoringService.computeUserScore trả null ngay từ dòng đầu, nên chấm lại
 -- điểm sẽ không sinh ra gì và chế độ chấm hiện ra là rỗng. Danh sách bsc_scorecard_org_units để
 -- TRỐNG = thẻ mặc định của toàn tổ chức.
@@ -2652,15 +2652,26 @@ WHERE NOT EXISTS (
 -- SHADOW là mặc định đúng cho dữ liệu mẫu: điểm BSC được tính và lưu để xem, nhưng KHÔNG thay điểm
 -- chính thức của nhân viên.
 INSERT INTO bsc_scorecards
-    (organization_id, kpi_period_id, name, vision, status, scoring_mode, empty_perspective_policy)
-SELECT p.organization_id, p.id,
+    (organization_id, apply_scope, name, vision, status, scoring_mode, empty_perspective_policy)
+SELECT p.organization_id, 'PERIOD',
        'Thẻ điểm cân bằng — ' || p.name,
        'Cân bằng bốn viễn cảnh: tài chính, khách hàng, quy trình nội bộ, học hỏi và phát triển.',
        'ACTIVE', 'SHADOW', 'RENORMALIZE'
 FROM kpi_periods p
 WHERE NOT EXISTS (
     SELECT 1 FROM bsc_scorecards s
-    WHERE s.organization_id = p.organization_id AND s.kpi_period_id = p.id AND s.deleted_at IS NULL);
+    WHERE s.organization_id = p.organization_id AND s.deleted_at IS NULL
+      AND s.name = 'Thẻ điểm cân bằng — ' || p.name);
+
+-- Gắn đợt cho thẻ vừa tạo. Ghép theo tên vì tên thẻ được sinh từ chính tên đợt ở câu trên
+-- (INSERT ... SELECT không trả về được cột nguồn để nối trực tiếp).
+INSERT INTO bsc_scorecard_periods (scorecard_id, kpi_period_id)
+SELECT s.id, p.id
+FROM bsc_scorecards s
+JOIN kpi_periods p ON p.organization_id = s.organization_id
+                  AND s.name = 'Thẻ điểm cân bằng — ' || p.name
+WHERE s.deleted_at IS NULL
+ON CONFLICT DO NOTHING;
 
 -- 18.4 Trọng số bốn viễn cảnh trong mỗi thẻ điểm. Tổng PHẢI bằng 100 — BscScoringService chia cho
 -- tổng trọng số của các viễn cảnh CÓ dữ liệu (chính sách RENORMALIZE), nên tổng lệch 100 làm điểm

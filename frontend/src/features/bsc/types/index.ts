@@ -89,12 +89,28 @@ export interface ScorecardOrgUnitResponse {
   name: string
 }
 
+/** Cách bộ tiêu chí gắn với thời gian: nhiều ĐỢT cụ thể, hay MỘT KỲ (mọi đợt thuộc kỳ). */
+export enum BscScorecardApplyScope {
+  PERIOD = 'PERIOD',
+  CYCLE = 'CYCLE',
+}
+
+export interface ScorecardPeriodResponse {
+  id: string
+  name: string
+}
+
 export interface ScorecardResponse {
   id: string
   name: string
   vision?: string
-  kpiPeriodId: string
-  kpiPeriodName?: string
+  applyScope: BscScorecardApplyScope
+  /** Các đợt áp dụng — với CYCLE là các đợt đang thuộc kỳ. */
+  periods?: ScorecardPeriodResponse[]
+  kpiCycleId?: string | null
+  kpiCycleName?: string | null
+  /** Nhãn gộp để hiển thị: tên kỳ (CYCLE) hoặc danh sách tên đợt (PERIOD). */
+  periodLabel?: string
   /** Các phòng ban áp dụng; rỗng = toàn tổ chức. */
   orgUnits?: ScorecardOrgUnitResponse[]
   /** Nhãn gộp tên phòng ban (tiện hiển thị). */
@@ -118,7 +134,11 @@ export interface ScorecardPerspectiveWeightRequest {
 export interface ScorecardRequest {
   name: string
   vision?: string
-  kpiPeriodId: string
+  applyScope: BscScorecardApplyScope
+  /** Các đợt áp dụng khi applyScope = PERIOD (chọn được nhiều). */
+  kpiPeriodIds?: string[]
+  /** Kỳ áp dụng khi applyScope = CYCLE (chỉ 1). */
+  kpiCycleId?: string
   /** Các phòng ban áp dụng; rỗng/bỏ trống = toàn tổ chức. */
   orgUnitIds?: string[]
   status?: BscScorecardStatus

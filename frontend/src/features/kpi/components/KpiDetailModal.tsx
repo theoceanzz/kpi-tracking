@@ -8,6 +8,7 @@ import { useAuthStore } from '@/store/authStore'
 import { useOrganization } from '@/features/orgunits/hooks/useOrganization'
 import { useScorecards } from '@/features/bsc/hooks/useBsc'
 import { useOrgUnitTree } from '@/features/orgunits/hooks/useOrgUnitTree'
+import { scorecardsForPeriod } from '@/features/bsc/utils/scorecardScope'
 
 
 
@@ -31,7 +32,7 @@ export default function KpiDetailModal({ open, onClose, kpi }: KpiDetailModalPro
   const { data: orgUnitTreeData } = useOrgUnitTree()
   const realWeight = useMemo(() => {
     if (!enableBsc || !bscScorecards || !kpi || kpi.weight == null || !kpi.effectivePerspectiveId || !kpi.kpiPeriodId) return null
-    const periodScs = bscScorecards.filter(s => s.kpiPeriodId === kpi.kpiPeriodId)
+    const periodScs = scorecardsForPeriod(bscScorecards, kpi.kpiPeriodId)
     if (!periodScs.length) return null
     const parent = new Map<string, string | null>()
     const walk = (nodes: any[]) => (nodes || []).forEach((n: any) => { parent.set(n.id, n.parentId ?? null); if (n.children) walk(n.children) })

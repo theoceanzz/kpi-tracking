@@ -6,18 +6,21 @@ import com.kpitracking.dto.request.bsc.ScorecardRequest;
 import com.kpitracking.dto.response.bsc.ImportBscResponse;
 import com.kpitracking.dto.response.bsc.PerspectiveResponse;
 import com.kpitracking.dto.response.bsc.ScorecardOrgUnitResponse;
+import com.kpitracking.dto.response.bsc.ScorecardPeriodResponse;
 import com.kpitracking.dto.response.bsc.ScorecardPerspectiveResponse;
 import com.kpitracking.dto.response.bsc.ScorecardResponse;
 import com.kpitracking.entity.BscPerspective;
 import com.kpitracking.entity.BscScorecard;
 import com.kpitracking.entity.BscScorecardPerspective;
 import com.kpitracking.entity.BscWeightHistory;
+import com.kpitracking.entity.KpiCycle;
 import com.kpitracking.entity.KpiPeriod;
 import com.kpitracking.entity.Organization;
 import com.kpitracking.entity.OrgUnit;
 import com.kpitracking.entity.User;
 import com.kpitracking.enums.BscFixedPerspective;
 import com.kpitracking.enums.BscPerspectiveStatus;
+import com.kpitracking.enums.BscScorecardApplyScope;
 import com.kpitracking.enums.BscScorecardStatus;
 import com.kpitracking.enums.BscScoringMode;
 import com.kpitracking.exception.BusinessException;
@@ -27,6 +30,7 @@ import com.kpitracking.repository.BscPerspectiveRepository;
 import com.kpitracking.repository.BscScorecardPerspectiveRepository;
 import com.kpitracking.repository.BscScorecardRepository;
 import com.kpitracking.repository.BscWeightHistoryRepository;
+import com.kpitracking.repository.KpiCycleRepository;
 import com.kpitracking.repository.KpiPeriodRepository;
 import com.kpitracking.repository.OrganizationRepository;
 import com.kpitracking.repository.UserRepository;
@@ -54,6 +58,7 @@ public class BscService {
     private final BscScorecardPerspectiveRepository scorecardPerspectiveRepository;
     private final BscWeightHistoryRepository weightHistoryRepository;
     private final KpiPeriodRepository kpiPeriodRepository;
+    private final KpiCycleRepository kpiCycleRepository;
     private final UserRepository userRepository;
     private final com.kpitracking.repository.OrgUnitRepository orgUnitRepository;
     private final com.kpitracking.repository.BscFixedPerspectiveRepository fixedPerspectiveRepository;
@@ -237,33 +242,17 @@ public class BscService {
     public ScorecardResponse createScorecard(UUID organizationId, ScorecardRequest request) {
         Organization organization = organizationRepository.findById(organizationId)
                 .orElseThrow(() -> new ResourceNotFoundException("Organization not found"));
-        KpiPeriod period = kpiPeriodRepository.findById(request.getKpiPeriodId())
-                .orElseThrow(() -> new ResourceNotFoundException("Kỳ KPI", "id", request.getKpiPeriodId()));
-        if (period.getOrganization() == null || !period.getOrganization().getId().equals(organizationId)) {
-            throw new BusinessException("Kỳ KPI không thuộc tổ chức này");
-        }
+        ScopeSelection scope = resolveScopeSelection(organizationId, request);
         List<OrgUnit> orgUnits = resolveRequestOrgUnits(organizationId, request.getOrgUnitIds());
-        if (orgUnits.isEmpty()) {
-            if (scorecardRepository.findDefaultByPeriod(organizationId, request.getKpiPeriodId()).isPresent()) {
-                throw new DuplicateResourceException("Đã tồn tại bộ tiêu chí mặc định cho kỳ này");
-            }
-        } else {
-            List<UUID> unitIds = orgUnits.stream().map(OrgUnit::getId).collect(Collectors.toList());
-            List<BscScorecard> clashing = scorecardRepository.findByOrgUnitsAndPeriod(organizationId, unitIds, request.getKpiPeriodId());
-            if (!clashing.isEmpty()) {
-                java.util.Set<UUID> taken = clashing.stream()
-                        .flatMap(sc -> sc.getOrgUnits().stream()).map(OrgUnit::getId).collect(Collectors.toSet());
-                String names = orgUnits.stream().filter(u -> taken.contains(u.getId()))
-                        .map(OrgUnit::getName).distinct().collect(Collectors.joining(", "));
-                throw new DuplicateResourceException("Phòng ban đã có bộ tiêu chí trong kỳ này: " + names);
-            }
-        }
+        validateNoScopeClash(organizationId, orgUnits, scope, null);
         validateWeights(request.getPerspectives());
 
         BscScorecard scorecard = BscScorecard.builder()
                 .organization(organization)
                 .orgUnits(orgUnits)
-                .kpiPeriod(period)
+                .applyScope(scope.applyScope())
+                .kpiPeriods(new ArrayList<>(scope.periods()))
+                .kpiCycle(scope.cycle())
                 .name(request.getName())
                 .vision(request.getVision())
                 .status(request.getStatus() != null ? request.getStatus() : BscScorecardStatus.DRAFT)
@@ -297,6 +286,20 @@ public class BscService {
         BscScorecard scorecard = scorecardRepository.findById(scorecardId)
                 .orElseThrow(() -> new ResourceNotFoundException("Scorecard not found"));
         validateWeights(request.getPerspectives());
+
+        // Phạm vi thời gian (đợt/kỳ) sửa được; phạm vi phòng ban thì không. Bỏ qua nếu client
+        // không gửi gì về thời gian để các client cũ chỉ sửa trọng số vẫn chạy.
+        if (request.getApplyScope() != null
+                || request.getKpiCycleId() != null
+                || (request.getKpiPeriodIds() != null && !request.getKpiPeriodIds().isEmpty())) {
+            UUID orgId = scorecard.getOrganization().getId();
+            ScopeSelection scope = resolveScopeSelection(orgId, request);
+            validateNoScopeClash(orgId, scorecard.getOrgUnits(), scope, scorecardId);
+            scorecard.setApplyScope(scope.applyScope());
+            scorecard.setKpiCycle(scope.cycle());
+            scorecard.getKpiPeriods().clear();
+            scorecard.getKpiPeriods().addAll(scope.periods());
+        }
 
         scorecard.setName(request.getName());
         scorecard.setVision(request.getVision());
@@ -365,6 +368,101 @@ public class BscService {
         return mapToScorecardResponse(scorecard);
     }
 
+    /**
+     * Phạm vi thời gian đã nạp & kiểm tra của một bộ tiêu chí.
+     *
+     * @param periods            danh sách đợt LƯU vào bảng nối (rỗng khi gắn theo kỳ)
+     * @param cycle              kỳ gắn kèm (null khi gắn theo đợt)
+     * @param effectivePeriodIds các đợt THỰC TẾ đang chịu ảnh hưởng — dùng để kiểm tra chồng lấn
+     */
+    private record ScopeSelection(BscScorecardApplyScope applyScope,
+                                  List<KpiPeriod> periods,
+                                  KpiCycle cycle,
+                                  List<UUID> effectivePeriodIds) {}
+
+    /** Đọc phạm vi thời gian từ request: 1 kỳ (mọi đợt trong kỳ) hoặc nhiều đợt cụ thể. */
+    private ScopeSelection resolveScopeSelection(UUID organizationId, ScorecardRequest request) {
+        BscScorecardApplyScope mode = request.getApplyScope() != null
+                ? request.getApplyScope() : BscScorecardApplyScope.PERIOD;
+
+        if (mode == BscScorecardApplyScope.CYCLE) {
+            if (request.getKpiCycleId() == null) {
+                throw new BusinessException("Chọn kỳ đánh giá áp dụng cho bộ tiêu chí");
+            }
+            KpiCycle cycle = kpiCycleRepository.findById(request.getKpiCycleId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Kỳ đánh giá", "id", request.getKpiCycleId()));
+            if (cycle.getOrganization() == null || !cycle.getOrganization().getId().equals(organizationId)) {
+                throw new BusinessException("Kỳ đánh giá không thuộc tổ chức này");
+            }
+            // Không lưu danh sách đợt: gắn theo kỳ được suy động nên đợt thêm vào kỳ sau này cũng tự áp dụng.
+            List<UUID> periodIds = kpiPeriodRepository.findByKpiCycleIdOrderByStartDateAsc(cycle.getId())
+                    .stream().map(KpiPeriod::getId).collect(Collectors.toList());
+            return new ScopeSelection(mode, List.of(), cycle, periodIds);
+        }
+
+        List<UUID> requested = request.getKpiPeriodIds() == null ? List.of()
+                : request.getKpiPeriodIds().stream().filter(java.util.Objects::nonNull).distinct().collect(Collectors.toList());
+        if (requested.isEmpty()) {
+            throw new BusinessException("Chọn ít nhất một đợt áp dụng cho bộ tiêu chí");
+        }
+        List<KpiPeriod> periods = new ArrayList<>();
+        for (UUID id : requested) {
+            KpiPeriod period = kpiPeriodRepository.findById(id)
+                    .orElseThrow(() -> new ResourceNotFoundException("Đợt KPI", "id", id));
+            if (period.getOrganization() == null || !period.getOrganization().getId().equals(organizationId)) {
+                throw new BusinessException("Đợt KPI không thuộc tổ chức này");
+            }
+            periods.add(period);
+        }
+        return new ScopeSelection(mode, periods, null, requested);
+    }
+
+    /**
+     * Mỗi đợt chỉ được có 1 bộ tiêu chí mặc định và mỗi phòng ban ≤1 bộ tiêu chí — kiểm tra trên
+     * TỪNG đợt chịu ảnh hưởng (gắn theo kỳ ⇒ mọi đợt trong kỳ).
+     */
+    private void validateNoScopeClash(UUID organizationId, List<OrgUnit> orgUnits,
+                                      ScopeSelection scope, UUID ignoreScorecardId) {
+        List<UUID> unitIds = orgUnits == null ? List.of()
+                : orgUnits.stream().map(OrgUnit::getId).collect(Collectors.toList());
+        for (UUID periodId : scope.effectivePeriodIds()) {
+            if (unitIds.isEmpty()) {
+                boolean taken = scorecardRepository.findDefaultByPeriod(organizationId, periodId).stream()
+                        .anyMatch(sc -> !sc.getId().equals(ignoreScorecardId));
+                if (taken) {
+                    throw new DuplicateResourceException(
+                            "Đã tồn tại bộ tiêu chí mặc định cho đợt \"" + periodNameOf(periodId) + "\"");
+                }
+            } else {
+                List<BscScorecard> clashing = scorecardRepository
+                        .findByOrgUnitsAndPeriod(organizationId, unitIds, periodId).stream()
+                        .filter(sc -> !sc.getId().equals(ignoreScorecardId))
+                        .collect(Collectors.toList());
+                if (!clashing.isEmpty()) {
+                    java.util.Set<UUID> taken = clashing.stream()
+                            .flatMap(sc -> sc.getOrgUnits().stream()).map(OrgUnit::getId)
+                            .collect(Collectors.toSet());
+                    String names = orgUnits.stream().filter(u -> taken.contains(u.getId()))
+                            .map(OrgUnit::getName).distinct().collect(Collectors.joining(", "));
+                    throw new DuplicateResourceException(
+                            "Phòng ban đã có bộ tiêu chí trong đợt \"" + periodNameOf(periodId) + "\": " + names);
+                }
+            }
+        }
+    }
+
+    private String periodNameOf(UUID periodId) {
+        return kpiPeriodRepository.findById(periodId).map(KpiPeriod::getName).orElse("?");
+    }
+
+    /** Các đợt bộ tiêu chí đang áp dụng: gắn theo kỳ ⇒ đọc động từ kỳ; gắn theo đợt ⇒ danh sách đã lưu. */
+    private List<KpiPeriod> effectivePeriodsOf(BscScorecard s) {
+        if (s.getApplyScope() == BscScorecardApplyScope.CYCLE && s.getKpiCycle() != null) {
+            return kpiPeriodRepository.findByKpiCycleIdOrderByStartDateAsc(s.getKpiCycle().getId());
+        }
+        return s.getKpiPeriods() == null ? List.of() : s.getKpiPeriods();
+    }
+
     /** Nạp + kiểm tra danh sách phòng ban thuộc đúng tổ chức. RỖNG/null ⇒ bộ tiêu chí mặc định toàn org. */
     private List<OrgUnit> resolveRequestOrgUnits(UUID organizationId, List<UUID> orgUnitIds) {
         if (orgUnitIds == null || orgUnitIds.isEmpty()) return new ArrayList<>();
@@ -411,6 +509,9 @@ public class BscService {
     }
 
     private ScorecardResponse mapToScorecardResponse(BscScorecard s) {
+        List<ScorecardPeriodResponse> periods = effectivePeriodsOf(s).stream()
+                .map(p -> ScorecardPeriodResponse.builder().id(p.getId()).name(p.getName()).build())
+                .collect(Collectors.toList());
         List<ScorecardOrgUnitResponse> orgUnits = s.getOrgUnits() == null ? List.of()
                 : s.getOrgUnits().stream()
                     .map(u -> ScorecardOrgUnitResponse.builder().id(u.getId()).name(u.getName()).build())
@@ -435,8 +536,13 @@ public class BscService {
                 .id(s.getId())
                 .name(s.getName())
                 .vision(s.getVision())
-                .kpiPeriodId(s.getKpiPeriod() != null ? s.getKpiPeriod().getId() : null)
-                .kpiPeriodName(s.getKpiPeriod() != null ? s.getKpiPeriod().getName() : null)
+                .applyScope(s.getApplyScope())
+                .periods(periods)
+                .kpiCycleId(s.getKpiCycle() != null ? s.getKpiCycle().getId() : null)
+                .kpiCycleName(s.getKpiCycle() != null ? s.getKpiCycle().getName() : null)
+                .periodLabel(s.getApplyScope() == BscScorecardApplyScope.CYCLE && s.getKpiCycle() != null
+                        ? s.getKpiCycle().getName()
+                        : periods.stream().map(ScorecardPeriodResponse::getName).collect(Collectors.joining(", ")))
                 .orgUnits(orgUnits)
                 .orgUnitName(orgUnits.isEmpty() ? null
                         : orgUnits.stream().map(ScorecardOrgUnitResponse::getName).collect(Collectors.joining(", ")))
@@ -705,7 +811,8 @@ public class BscService {
                 // hoặc thẻ MẶC ĐỊNH toàn org nếu không chọn phòng ban nào.
                 BscScorecard scorecard;
                 if (targetUnits.isEmpty()) {
-                    scorecard = scorecardRepository.findDefaultByPeriod(organizationId, period.getId()).orElse(null);
+                    List<BscScorecard> defaults = scorecardRepository.findDefaultByPeriod(organizationId, period.getId());
+                    scorecard = defaults.isEmpty() ? null : defaults.get(0);
                 } else {
                     List<UUID> unitIds = targetUnits.stream().map(OrgUnit::getId).collect(Collectors.toList());
                     List<BscScorecard> overlap = scorecardRepository.findByOrgUnitsAndPeriod(organizationId, unitIds, period.getId());
@@ -716,7 +823,10 @@ public class BscService {
                 }
                 boolean isNew = scorecard == null;
                 if (isNew) {
-                    scorecard = BscScorecard.builder().organization(organization).kpiPeriod(period).name(g.name).build();
+                    scorecard = BscScorecard.builder().organization(organization).name(g.name)
+                            .applyScope(BscScorecardApplyScope.PERIOD)
+                            .kpiPeriods(new ArrayList<>(List.of(period)))
+                            .build();
                 }
                 scorecard.setOrgUnits(new ArrayList<>(targetUnits));
                 scorecard.setName(g.name);

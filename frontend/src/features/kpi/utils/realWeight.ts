@@ -1,9 +1,11 @@
 // Trọng số THẬT của KPI = trọng số form × %hạng_mục, với %hạng_mục lấy từ bộ tiêu chí áp dụng cho
 // đơn vị của KPI (resolve đơn vị → cha → bộ tiêu chí mặc định), khớp cơ chế chấm điểm của backend.
-// Không bật BSC / KPI chưa gán hạng mục / kỳ chưa có bộ tiêu chí ⇒ trả null (hiển thị trọng số form như cũ).
+// Không bật BSC / KPI chưa gán hạng mục / đợt chưa có bộ tiêu chí ⇒ trả null (hiển thị trọng số form như cũ).
+import { scorecardsForPeriod } from '@/features/bsc/utils/scorecardScope'
 
 type Scorecard = {
-  kpiPeriodId: string
+  /** Các đợt bộ tiêu chí áp dụng (gắn theo kỳ đã được backend quy đổi sẵn ra đợt). */
+  periods?: { id: string }[] | null
   orgUnits?: { id: string }[] | null
   perspectives: { perspectiveId: string; weightPercentage?: number | null }[]
 }
@@ -30,7 +32,7 @@ function resolveScorecard(unitId: string | undefined | null, periodScs: Scorecar
 
 function realWeightOf(kpi: any, scorecards: Scorecard[], parent: Map<string, string | null>): number | null {
   if (!kpi || kpi.weight == null || !kpi.effectivePerspectiveId || !kpi.kpiPeriodId) return null
-  const periodScs = scorecards.filter(s => s.kpiPeriodId === kpi.kpiPeriodId)
+  const periodScs = scorecardsForPeriod(scorecards, kpi.kpiPeriodId)
   if (!periodScs.length) return null
   const sc = resolveScorecard(kpi.orgUnitId || kpi.orgUnitIds?.[0], periodScs, parent)
   if (!sc) return null

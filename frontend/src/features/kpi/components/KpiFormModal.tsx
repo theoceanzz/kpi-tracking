@@ -22,6 +22,7 @@ import { useBscPerspectives, useScorecards, useFixedPerspectives } from '@/featu
 import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Badge } from '@/components/ui/badge'
 import { DateTimePicker } from '@/components/common/DateTimePicker'
+import { scorecardsForPeriod } from '@/features/bsc/utils/scorecardScope'
 
 interface KpiFormModalProps {
   open: boolean
@@ -131,7 +132,7 @@ export default function KpiFormModal({ open, onClose, editKpi, parentKpi, parent
   })
 
   const formKpiPeriodId = watch('kpiPeriodId')
-  const periodHasScorecard = !!formKpiPeriodId && (bscScorecards || []).some(sc => sc.kpiPeriodId === formKpiPeriodId)
+  const periodHasScorecard = scorecardsForPeriod(bscScorecards, formKpiPeriodId).length > 0
   const formOrgUnitIds = watch('orgUnitIds') || []
   const [selectedRole, setSelectedRole] = useState<string>('ALL')
   /** Ô đang thật sự sửa được, cho trợ lý AI. Cập nhật bằng effect riêng — các điều kiện dưới
@@ -375,7 +376,7 @@ export default function KpiFormModal({ open, onClose, editKpi, parentKpi, parent
   // Bộ tiêu chí HIỆU LỰC cho KPI theo đơn vị đầu tiên được gán (đơn vị → cha → mặc định).
   const effectiveScorecard = useMemo(() => {
     if (!formKpiPeriodId) return null
-    const periodScs = (bscScorecards || []).filter(sc => sc.kpiPeriodId === formKpiPeriodId)
+    const periodScs = scorecardsForPeriod(bscScorecards, formKpiPeriodId)
     if (periodScs.length === 0) return null
     const realUnits = formOrgUnitIds.filter(id => id && id !== '00000000-0000-0000-0000-000000000000')
     if (realUnits.length === 0) return null // chưa chọn đơn vị ⇒ chưa biết bộ tiêu chí nào
@@ -413,7 +414,7 @@ export default function KpiFormModal({ open, onClose, editKpi, parentKpi, parent
     if (!enableBsc) return null // không bật BSC ⇒ không liên quan (mục hạng mục cũng ẩn)
     const ids = new Set<string>()
     if (!formKpiPeriodId) return ids // chưa chọn kỳ ⇒ rỗng
-    const periodScs = (bscScorecards || []).filter(sc => sc.kpiPeriodId === formKpiPeriodId)
+    const periodScs = scorecardsForPeriod(bscScorecards, formKpiPeriodId)
     if (periodScs.length === 0) return ids // kỳ chưa có bộ tiêu chí ⇒ rỗng
     const realUnits = formOrgUnitIds.filter(id => id && id !== '00000000-0000-0000-0000-000000000000')
     if (realUnits.length === 0) return ids // chưa chọn đơn vị ⇒ rỗng
