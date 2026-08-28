@@ -2,13 +2,19 @@ import axios from 'axios'
 import { ENV } from '@/config/env'
 import { useAuthStore } from '@/store/authStore'
 
+/**
+ * Tên cookie CSRF do backend phát (SecurityConfig đổi khỏi tên mặc định XSRF-TOKEN).
+ * Xuất ra để chỗ nào gọi bằng `fetch` thô cũng đọc đúng một tên.
+ */
+export const XSRF_COOKIE_NAME = 'kg_csrf'
+
 const axiosInstance = axios.create({
   baseURL: ENV.API_BASE_URL,
   timeout: 100000,
   headers: { 'Content-Type': 'application/json' },
   withCredentials: true,
   withXSRFToken: true,
-  xsrfCookieName: 'kg_csrf',
+  xsrfCookieName: XSRF_COOKIE_NAME,
 })
 
 let isRefreshing = false
