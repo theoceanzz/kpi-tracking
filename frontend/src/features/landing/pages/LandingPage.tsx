@@ -1,10 +1,13 @@
 import { useState, useEffect } from 'react'
 import { Link, Navigate } from 'react-router-dom'
 import {
-  Target, ShieldCheck, Users, ArrowRight, CheckCircle2,
-  BarChart3, Zap, LayoutDashboard, Database, Key, Check, X,
-  Sparkles, Building2, Globe, Server, Search, Phone
+  Target, ShieldCheck, ArrowRight, CheckCircle2,
+  BarChart3, LayoutDashboard, Database, Key, Check, X,
+  Sparkles, Building2, Globe, Server, Search, Phone,
+  Bot, Gauge, HeartHandshake, Gift, Wallet, Link2, Mic,
+  FileSpreadsheet, GitBranch, Bell, Coins, ListChecks, ToggleRight
 } from 'lucide-react'
+import type { LucideIcon } from 'lucide-react'
 import { useAuthStore } from '@/store/authStore'
 import { cn } from '@/lib/utils'
 
@@ -44,8 +47,10 @@ export default function LandingPage() {
             </span>
           </div>
 
-          <div className="hidden md:flex items-center gap-8 font-bold text-sm text-slate-600 dark:text-slate-300">
+          <div className="hidden md:flex items-center gap-5 lg:gap-8 font-bold text-sm text-slate-600 dark:text-slate-300">
             <a href="#features" className="hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors">Tính năng</a>
+            <a href="#ai" className="hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors">Trợ lý K.AI</a>
+            <a href="#modules" className="hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors">Module</a>
             <a href="#benefits" className="hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors">Ưu điểm</a>
             <a href="#pricing" className="hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors">Bảng giá</a>
           </div>
@@ -139,7 +144,7 @@ export default function LandingPage() {
           </h1>
 
           <p className="text-sm sm:text-lg md:text-xl text-slate-600 dark:text-slate-400 max-w-3xl mx-auto mb-8 sm:mb-12 font-medium leading-relaxed">
-            KeyGo là giải pháp phần mềm quản trị doanh nghiệp toàn diện giúp bạn thiết lập OKR, theo dõi KPI, đánh giá hiệu suất 360 độ và xây dựng một đội ngũ gắn kết, minh bạch.
+            KeyGo là giải pháp quản trị doanh nghiệp toàn diện: thiết lập OKR &amp; KPI, dựng thẻ điểm cân bằng BSC, chấm hạnh kiểm, ghi nhận &amp; thưởng cho nhân viên — tất cả có trợ lý AI đi kèm để hỏi số liệu và điền hộ biểu mẫu.
           </p>
 
           <div className="flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-4">
@@ -208,18 +213,18 @@ export default function LandingPage() {
 
                       <div className="grid grid-cols-3 gap-2 sm:gap-6 shrink-0">
                         {[
-                          { c: 'indigo', w: 'w-10 sm:w-16' },
-                          { c: 'emerald', w: 'w-10 sm:w-24' },
-                          { c: 'amber', w: 'w-10 sm:w-20' }
+                          { blob: 'bg-indigo-500/10', bar: 'bg-indigo-500', fill: 'w-[60%]', w: 'w-10 sm:w-16' },
+                          { blob: 'bg-emerald-500/10', bar: 'bg-emerald-500', fill: 'w-[75%]', w: 'w-10 sm:w-24' },
+                          { blob: 'bg-amber-500/10', bar: 'bg-amber-500', fill: 'w-[90%]', w: 'w-10 sm:w-20' }
                         ].map((stat, i) => (
                           <div key={i} className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-xl sm:rounded-2xl p-2.5 sm:p-6 shadow-sm flex flex-col gap-2 sm:gap-4 relative overflow-hidden group">
-                            <div className={`absolute right-0 top-0 w-24 h-24 bg-${stat.c}-500/10 rounded-bl-full -mr-4 -mt-4 transition-transform group-hover:scale-110`} />
+                            <div className={cn("absolute right-0 top-0 w-24 h-24 rounded-bl-full -mr-4 -mt-4 transition-transform group-hover:scale-110", stat.blob)} />
                             <div className="h-2 w-10 sm:h-3 sm:w-20 bg-slate-100 dark:bg-slate-800 rounded" />
                             <div className="flex items-end gap-2">
                               <div className={cn("h-5 sm:h-8 bg-slate-200 dark:bg-slate-700 rounded-lg", stat.w)} />
                             </div>
                             <div className="w-full bg-slate-100 dark:bg-slate-800 h-1.5 sm:h-2 rounded-full mt-1 sm:mt-2 overflow-hidden">
-                              <div className={`bg-${stat.c}-500 h-full w-[${60 + i*15}%]`} />
+                              <div className={cn("h-full", stat.bar, stat.fill)} />
                             </div>
                           </div>
                         ))}
@@ -264,7 +269,7 @@ export default function LandingPage() {
 
 
       {/* Features Matrix Section */}
-      <section id="features" className="py-16 sm:py-24 lg:py-32 bg-white dark:bg-slate-900 relative">
+      <section id="features" className="scroll-mt-24 py-16 sm:py-24 lg:py-32 bg-white dark:bg-slate-900 relative">
         <div className="max-w-[1200px] mx-auto px-5 sm:px-6">
           <div className="text-center mb-10 sm:mb-20 max-w-3xl mx-auto">
             <div className="inline-flex items-center gap-2 px-3 sm:px-4 py-1.5 sm:py-2 rounded-full bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 text-[10px] sm:text-xs font-black uppercase tracking-widest mb-4 sm:mb-6">
@@ -278,49 +283,234 @@ export default function LandingPage() {
             </p>
           </div>
 
-          <div className="grid md:grid-cols-3 gap-4 sm:gap-8">
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-8">
             <FeatureCard 
               icon={Target}
               title="Quản lý OKR & KPI"
-              description="Kết hợp mục tiêu khát vọng (OKR) và chỉ số đo lường (KPI) giúp đội ngũ đi đúng hướng và đo lường chính xác hiệu quả."
+              description="Mục tiêu khát vọng (OKR) và chỉ tiêu đo lường (KPI) trên cùng một trục. Phân rã chỉ tiêu theo thác nước từ công ty xuống từng đơn vị và cá nhân."
               color="indigo"
             />
             <FeatureCard 
-              icon={Users}
-              title="Đánh giá 360 Độ"
-              description="Quy trình đánh giá minh bạch: Tự đánh giá, Quản lý đánh giá và Chốt kết quả theo luồng phân quyền chặt chẽ."
+              icon={ListChecks}
+              title="Đánh giá theo đợt & theo kỳ"
+              description="Nhân viên tự chấm và nộp minh chứng, quản lý duyệt từng đợt, hệ thống tổng hợp nhiều đợt thành kết quả của cả kỳ. Có luồng xin điều chỉnh chỉ tiêu giữa kỳ."
               color="purple"
             />
             <FeatureCard 
-              icon={BarChart3}
-              title="Báo Cáo Thời Gian Thực"
-              description="Dashboard động với số liệu trực quan, xuất báo cáo Excel/PDF nhanh chóng. Giúp ra quyết định dựa trên dữ liệu."
+              icon={HeartHandshake}
+              title="Chấm hạnh kiểm"
+              description="Bộ tiêu chí hành vi có trọng số riêng, nhân viên tự chấm kèm dẫn chứng. Ma trận đánh giá ánh xạ điểm hành vi và % KPI ra xếp loại cuối cùng."
               color="emerald"
             />
             <FeatureCard 
-              icon={ShieldCheck}
-              title="Phân Quyền Đa Tầng"
-              description="Thiết lập cơ cấu tổ chức sâu rộng, phân quyền theo vai trò (Role-based) và theo đơn vị (Unit-based)."
-              color="amber"
+              icon={Gauge}
+              title="Thẻ điểm cân bằng (BSC)"
+              description="Dựng bộ tiêu chí từng kỳ theo bốn lĩnh vực, gán trọng số cho từng hạng mục, nhập nhanh từ Excel và theo dõi kết quả theo từng hạng mục."
+              color="rose"
             />
             <FeatureCard 
-              icon={Zap}
-              title="Tự Động Hóa & Nhắc Nhở"
-              description="Hệ thống thông báo thông minh, theo dõi trạng thái Pending/Approved tự động, tiết kiệm 50% thời gian HR."
+              icon={Bot}
+              title="Trợ lý AI K.AI"
+              description="Hỏi số liệu KPI, OKR, BSC bằng tiếng Việt và nhận trả lời theo đúng quyền của bạn. Trợ lý điền hộ biểu mẫu đang mở, mọi thao tác ghi đều chờ bạn xác nhận."
               color="blue"
             />
             <FeatureCard 
+              icon={BarChart3}
+              title="Phân tích & báo cáo tự tạo"
+              description="Dashboard widget kéo thả và ghim, khoan sâu theo từng cấp đơn vị. Tự tạo nguồn dữ liệu dạng bảng rồi dựng báo cáo riêng, xuất Excel."
+              color="cyan"
+            />
+            <FeatureCard 
+              icon={Gift}
+              title="Thưởng, điểm danh & quà tặng"
+              description="Đề nghị thưởng theo ngân sách, chương trình thưởng chạy tự động, điểm danh hằng ngày, cửa hàng quà và giấy chứng nhận cho nhân viên."
+              color="amber"
+            />
+            <FeatureCard 
+              icon={Wallet}
+              title="Ví điểm & ví tiền"
+              description="Số dư điểm và tiền của từng nhân sự, nạp tiền qua SePay, quy đổi tiền trong ví sang điểm thưởng theo tỉ giá, sổ cái giao dịch và công cụ đối soát."
+              color="teal"
+            />
+            <FeatureCard 
+              icon={Bell}
+              title="Tự động hóa & nhắc nhở"
+              description="Thông báo trong ứng dụng theo thời gian thực và email tóm tắt định kỳ, gửi đúng cấp quản lý cần xử lý thay vì cả cây tổ chức. Nhắc hạn nộp, nhắc duyệt và lịch chạy thưởng tự động."
+              color="sky"
+            />
+            <FeatureCard 
+              icon={ShieldCheck}
+              title="Phân quyền đa tầng"
+              description="Cây đơn vị nhiều cấp tùy cấu hình, phân quyền theo vai trò (role-based) và theo đơn vị (unit-based) tới từng thao tác."
+              color="purple"
+            />
+            <FeatureCard 
+              icon={FileSpreadsheet}
+              title="Nhập liệu & tích hợp"
+              description="Đăng nhập qua Lark, mẫu email tự biên soạn, nhập cơ cấu tổ chức / OKR / BSC từ Excel với bước xem trước trước khi ghi vào hệ thống."
+              color="indigo"
+            />
+            <FeatureCard 
               icon={Server}
-              title="SaaS & Triển khai riêng"
-              description="Hỗ trợ cả mô hình SaaS Multi-tenant linh hoạt và Dedicated Environment / On-site cho các tập đoàn lớn."
-              color="rose"
+              title="SaaS & triển khai riêng"
+              description="Hỗ trợ cả mô hình SaaS multi-tenant linh hoạt và Dedicated Environment / On-site cho các tập đoàn lớn."
+              color="slate"
             />
           </div>
         </div>
       </section>
 
+      {/* AI Assistant Spotlight */}
+      <section id="ai" className="scroll-mt-24 py-16 sm:py-24 lg:py-32 relative overflow-hidden border-t border-slate-200 dark:border-slate-800">
+        <div className="absolute top-1/2 left-1/4 -translate-y-1/2 w-[500px] h-[500px] bg-indigo-500/10 blur-[120px] rounded-full pointer-events-none -z-10" />
+        <div className="absolute top-1/3 right-0 w-96 h-96 bg-purple-500/10 blur-[100px] rounded-full pointer-events-none -z-10" />
+
+        <div className="max-w-[1200px] mx-auto px-5 sm:px-6">
+          <div className="flex flex-col lg:flex-row items-center gap-10 lg:gap-16">
+            <div className="flex-1 space-y-6 sm:space-y-8 w-full">
+              <div className="inline-flex items-center gap-2 px-3 sm:px-4 py-1.5 sm:py-2 rounded-full bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 text-[10px] sm:text-xs font-black uppercase tracking-widest">
+                <Bot size={14} className="shrink-0" /> Mới &middot; Trợ lý K.AI
+              </div>
+              <h2 className="text-2xl sm:text-3xl md:text-5xl font-black tracking-tight text-slate-900 dark:text-white text-balance">
+                Hỏi bằng tiếng Việt, <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-indigo-600">trả lời bằng số liệu thật</span>
+              </h2>
+              <p className="text-sm sm:text-lg text-slate-500 dark:text-slate-400 font-medium leading-relaxed">
+                K.AI đọc đúng dữ liệu bạn được phép xem, tự mở biểu mẫu và điền hộ những ô bạn đang nhìn thấy. Bạn vẫn là người bấm nút cuối cùng.
+              </p>
+
+              <div className="space-y-4 sm:space-y-5">
+                <AiCapability
+                  icon={Database}
+                  title="Đọc số liệu theo đúng quyền của bạn"
+                  description="KPI, bài nộp, đánh giá, OKR, BSC, nhân sự và cơ cấu đơn vị — trợ lý chỉ thấy phần bạn được xem."
+                />
+                <AiCapability
+                  icon={ListChecks}
+                  title="Điền hộ biểu mẫu đang mở"
+                  description="Chỉ những ô đang hiển thị trên màn hình, kèm bản xem trước từng ô trước khi áp vào form."
+                />
+                <AiCapability
+                  icon={ShieldCheck}
+                  title="Mọi thao tác ghi đều chờ xác nhận"
+                  description="Tạo chỉ tiêu, duyệt bài nộp, chấm điểm… đều hiện thẻ xác nhận. Bạn đồng ý bằng nút hoặc bằng chính câu chat."
+                />
+                <AiCapability
+                  icon={Mic}
+                  title="Trả lời theo dòng, nhập bằng giọng nói"
+                  description="Câu trả lời hiện dần theo luồng, và bạn có thể đọc câu hỏi thay vì gõ."
+                />
+                <AiCapability
+                  icon={Coins}
+                  title="Hạn mức token chia theo đơn vị"
+                  description="Quản trị viên phân bổ token AI cho từng đơn vị cấp dưới và theo dõi mức tiêu thụ."
+                />
+              </div>
+            </div>
+
+            {/* Chat mock */}
+            <div className="flex-1 w-full">
+              <div className="rounded-[24px] sm:rounded-[32px] border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-2xl overflow-hidden">
+                <div className="flex items-center gap-3 px-4 sm:px-6 py-3 sm:py-4 border-b border-slate-100 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-900/60">
+                  <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shrink-0">
+                    <Bot size={16} className="text-white" />
+                  </div>
+                  <span className="font-black text-sm text-slate-900 dark:text-white">K.AI</span>
+                  <span className="ml-auto flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-emerald-500">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" /> Trực tuyến
+                  </span>
+                </div>
+
+                <div className="p-4 sm:p-6 space-y-4 bg-slate-50/30 dark:bg-[#020617]/40">
+                  <div className="flex justify-end">
+                    <div className="max-w-[85%] px-4 py-2.5 rounded-2xl rounded-br-md bg-indigo-600 text-white text-xs sm:text-sm font-bold leading-relaxed">
+                      Phòng Kinh doanh quý này đạt bao nhiêu %?
+                    </div>
+                  </div>
+
+                  <div className="flex justify-start">
+                    <div className="max-w-[90%] px-4 py-3 rounded-2xl rounded-bl-md bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs sm:text-sm font-medium text-slate-700 dark:text-slate-200 leading-relaxed space-y-2.5">
+                      <div className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-slate-400">
+                        <Database size={11} className="shrink-0" /> Đã đọc dữ liệu KPI
+                      </div>
+                      <p>Phòng Kinh doanh đạt <span className="font-black text-emerald-600 dark:text-emerald-400">92%</span> kế hoạch quý, xếp loại <span className="font-black">Tốt</span>. Còn 3 bài nộp chờ bạn duyệt.</p>
+                      <div className="h-1.5 rounded-full bg-slate-100 dark:bg-slate-700 overflow-hidden">
+                        <div className="h-full w-[92%] bg-gradient-to-r from-emerald-500 to-teal-500" />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex justify-end">
+                    <div className="max-w-[85%] px-4 py-2.5 rounded-2xl rounded-br-md bg-indigo-600 text-white text-xs sm:text-sm font-bold leading-relaxed">
+                      Duyệt giúp mình 3 bài đó
+                    </div>
+                  </div>
+
+                  <div className="rounded-2xl border border-amber-200 dark:border-amber-900/60 bg-amber-50 dark:bg-amber-900/20 p-3.5 sm:p-4 space-y-3">
+                    <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-amber-600 dark:text-amber-400">
+                      <ShieldCheck size={12} className="shrink-0" /> Cần bạn xác nhận
+                    </div>
+                    <p className="text-xs sm:text-sm font-bold text-slate-700 dark:text-slate-200 leading-relaxed">
+                      Duyệt 3 bài nộp của Phòng Kinh doanh, đợt Tháng 9.
+                    </p>
+                    <div className="flex gap-2">
+                      <div className="px-3.5 py-1.5 rounded-lg bg-slate-900 dark:bg-white text-white dark:text-slate-900 text-[11px] font-black">Xác nhận</div>
+                      <div className="px-3.5 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 text-slate-600 dark:text-slate-300 text-[11px] font-black">Hủy</div>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2 px-3.5 py-2.5 rounded-full border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800">
+                    <span className="flex-1 text-[11px] sm:text-xs font-bold text-slate-400">Hỏi K.AI về số liệu của bạn…</span>
+                    <Mic size={14} className="text-slate-400 shrink-0" />
+                    <div className="w-6 h-6 rounded-full bg-indigo-600 flex items-center justify-center shrink-0">
+                      <ArrowRight size={12} className="text-white" />
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <p className="mt-3 text-center text-[10px] sm:text-xs font-bold text-slate-400 dark:text-slate-500">
+                Hình minh họa giao diện trợ lý K.AI
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Modules Section */}
+      <section id="modules" className="scroll-mt-24 py-16 sm:py-24 lg:py-32 bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800">
+        <div className="max-w-[1200px] mx-auto px-5 sm:px-6">
+          <div className="text-center mb-10 sm:mb-16 max-w-3xl mx-auto">
+            <div className="inline-flex items-center gap-2 px-3 sm:px-4 py-1.5 sm:py-2 rounded-full bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 text-[10px] sm:text-xs font-black uppercase tracking-widest mb-4 sm:mb-6">
+              <ToggleRight size={14} className="shrink-0" /> Bật/tắt theo nhu cầu
+            </div>
+            <h2 className="text-2xl sm:text-4xl md:text-5xl font-black tracking-tight mb-4 sm:mb-6 text-slate-900 dark:text-white text-balance">
+              Dùng đến đâu, <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-600 to-teal-600">bật đến đó</span>
+            </h2>
+            <p className="text-sm sm:text-lg text-slate-500 dark:text-slate-400 font-medium leading-relaxed">
+              Mỗi module là một công tắc riêng cho từng tổ chức. Module chưa bật sẽ không xuất hiện trên menu, nên nhân viên không bao giờ thấy màn hình mình không dùng đến.
+            </p>
+          </div>
+
+          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-5">
+            <ModuleCard icon={Target} name="OKR" description="Mục tiêu và kết quả then chốt của toàn tổ chức" />
+            <ModuleCard icon={Gauge} name="BSC" description="Thẻ điểm cân bằng theo bốn lĩnh vực, có trọng số" />
+            <ModuleCard icon={HeartHandshake} name="Hạnh kiểm" description="Chấm điểm hành vi theo bộ tiêu chí có trọng số" />
+            <ModuleCard icon={GitBranch} name="Thác nước" description="Phân rã chỉ tiêu từ cấp trên xuống cấp dưới" />
+            <ModuleCard icon={Sparkles} name="Đánh giá định tính" description="Xếp loại theo mức, không chỉ theo điểm số" />
+            <ModuleCard icon={Gift} name="Thưởng & quà" description="Điểm thưởng, điểm danh, quà tặng và chứng nhận" />
+            <ModuleCard icon={Wallet} name="Ví tiền" description="Số dư tiền, nạp qua SePay và đổi sang điểm thưởng" />
+            <ModuleCard icon={Bot} name="Trợ lý AI" description="K.AI hỏi đáp số liệu và điền hộ biểu mẫu" />
+          </div>
+
+          <div className="mt-8 sm:mt-12 grid sm:grid-cols-3 gap-3 sm:gap-5">
+            <SupportCard icon={Link2} title="Đăng nhập Lark" description="Nhân viên đăng nhập bằng tài khoản Lark sẵn có, cấu hình trong Thiết lập API." />
+            <SupportCard icon={FileSpreadsheet} title="Nhập từ Excel" description="Cơ cấu tổ chức, OKR, BSC — xem trước rồi mới ghi vào hệ thống." />
+            <SupportCard icon={LayoutDashboard} title="Dashboard tùy biến" description="Widget kéo thả, ghim thẻ quan trọng lên đầu trang." />
+          </div>
+        </div>
+      </section>
+
       {/* Benefits Section */}
-      <section id="benefits" className="py-16 sm:py-24">
+      <section id="benefits" className="scroll-mt-24 py-16 sm:py-24">
         <div className="max-w-[1200px] mx-auto px-5 sm:px-6">
           <div className="flex flex-col lg:flex-row items-center gap-10 lg:gap-16">
             <div className="flex-1 space-y-6 sm:space-y-8">
@@ -331,8 +521,9 @@ export default function LandingPage() {
                 {[
                   "Minh bạch hóa mục tiêu công ty đến từng cá nhân",
                   "Gắn kết đội ngũ bằng các mục tiêu chung",
-                  "Đo lường chính xác hiệu quả công việc",
-                  "Tạo động lực phát triển cho nhân viên",
+                  "Đo lường chính xác cả kết quả lẫn hành vi",
+                  "Ghi nhận và thưởng kịp thời cho nỗ lực của nhân viên",
+                  "Hỏi trợ lý AI thay vì chờ báo cáo thủ công",
                   "Ra quyết định dựa trên dữ liệu thực tế"
                 ].map((benefit, idx) => (
                   <div key={idx} className="flex items-center gap-3 sm:gap-4">
@@ -362,7 +553,7 @@ export default function LandingPage() {
       </section>
 
       {/* Pricing Section (From Image) */}
-      <section id="pricing" className="py-16 sm:py-24 lg:py-32 bg-slate-50 dark:bg-[#020617] relative border-t border-slate-200 dark:border-slate-800">
+      <section id="pricing" className="scroll-mt-24 py-16 sm:py-24 lg:py-32 bg-slate-50 dark:bg-[#020617] relative border-t border-slate-200 dark:border-slate-800">
         <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-indigo-500/50 to-transparent" />
 
         <div className="max-w-[1200px] mx-auto px-5 sm:px-6">
@@ -385,10 +576,11 @@ export default function LandingPage() {
               features={[
                 { text: "SaaS Multi-tenant, dùng chung Domain", included: true },
                 { text: "Quản trị người dùng & Phân quyền", included: true },
-                { text: "Hệ thống đánh giá KPI", included: true },
+                { text: "Đánh giá KPI theo đợt & theo kỳ", included: true },
+                { text: "Chấm hạnh kiểm & ma trận xếp loại", included: true },
                 { text: "Báo cáo & Export tiêu chuẩn", included: true },
                 { text: "Dashboard mặc định", included: true },
-                { text: "Quản lý mục tiêu OKR", included: false },
+                { text: "OKR, BSC, Thưởng & Ví", included: false },
                 { text: "White Label (Logo riêng)", included: false },
               ]}
               buttonText="Bắt đầu dùng thử"
@@ -405,11 +597,13 @@ export default function LandingPage() {
               features={[
                 { text: "SaaS Multi-tenant, dùng chung Domain", included: true },
                 { text: "Quản lý mục tiêu OKR & KPI", included: true },
-                { text: "Dashboard động tùy chỉnh", included: true },
+                { text: "Thẻ điểm cân bằng (BSC)", included: true },
+                { text: "Thưởng, điểm danh & quà tặng", included: true },
+                { text: "Dashboard động & báo cáo tự tạo", included: true },
                 { text: "White Label (Logo + Powered by KeyGo)", included: true },
-                { text: "Báo cáo chuyên sâu", included: true },
                 { text: "Hỗ trợ SLA 24h", included: true },
-                { text: "API Integration / SSO", included: "Tính phí riêng" },
+                { text: "Trợ lý AI K.AI", included: "Tính phí riêng" },
+                { text: "API Integration / SSO (Lark)", included: "Tính phí riêng" },
               ]}
               buttonText="Đăng ký ngay"
               buttonVariant="primary"
@@ -424,6 +618,8 @@ export default function LandingPage() {
               features={[
                 { text: "Subdomain riêng hoặc Onsite triển khai", included: true },
                 { text: "Tenant & Database riêng biệt", included: true },
+                { text: "Trọn bộ module: OKR, BSC, Hạnh kiểm, Thưởng", included: true },
+                { text: "Ví tiền & đối soát nạp tiền (SePay)", included: true },
                 { text: "Tùy chỉnh Dashboard không giới hạn", included: true },
                 { text: "White Label toàn diện (Màu sắc, Login page)", included: true },
                 { text: "SLA hỗ trợ Online 12h / Online-meeting", included: true },
@@ -489,10 +685,12 @@ export default function LandingPage() {
           <div>
             <h4 className="font-black text-slate-900 dark:text-white mb-4 sm:mb-6 uppercase tracking-widest text-xs sm:text-sm">Sản phẩm</h4>
             <ul className="space-y-3 sm:space-y-4 text-sm sm:text-base font-medium text-slate-500 dark:text-slate-400">
-              <li><a href="#" className="hover:text-indigo-600 transition-colors">Quản lý OKR</a></li>
-              <li><a href="#" className="hover:text-indigo-600 transition-colors">Đánh giá KPI</a></li>
-              <li><a href="#" className="hover:text-indigo-600 transition-colors">Báo cáo & Phân tích</a></li>
-              <li><a href="#" className="hover:text-indigo-600 transition-colors">Tích hợp hệ thống</a></li>
+              <li><a href="#features" className="hover:text-indigo-600 transition-colors">Quản lý OKR &amp; KPI</a></li>
+              <li><a href="#features" className="hover:text-indigo-600 transition-colors">Thẻ điểm cân bằng (BSC)</a></li>
+              <li><a href="#features" className="hover:text-indigo-600 transition-colors">Chấm hạnh kiểm</a></li>
+              <li><a href="#features" className="hover:text-indigo-600 transition-colors">Thưởng, quà tặng &amp; Ví</a></li>
+              <li><a href="#ai" className="hover:text-indigo-600 transition-colors">Trợ lý AI K.AI</a></li>
+              <li><a href="#modules" className="hover:text-indigo-600 transition-colors">Module &amp; Tích hợp</a></li>
             </ul>
           </div>
           <div>
@@ -522,7 +720,52 @@ export default function LandingPage() {
 }
 
 
-function FeatureCard({ icon: Icon, title, description, color }: { icon: any, title: string, description: string, color: string }) {
+function AiCapability({ icon: Icon, title, description }: { icon: LucideIcon, title: string, description: string }) {
+  return (
+    <div className="flex items-start gap-3 sm:gap-4">
+      <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0 shadow-sm">
+        <Icon className="w-4 h-4 sm:w-[18px] sm:h-[18px]" />
+      </div>
+      <div className="flex-1">
+        <h3 className="text-sm sm:text-base font-black text-slate-900 dark:text-white mb-0.5 sm:mb-1">{title}</h3>
+        <p className="text-xs sm:text-sm font-medium text-slate-500 dark:text-slate-400 leading-relaxed">{description}</p>
+      </div>
+    </div>
+  )
+}
+
+function ModuleCard({ icon: Icon, name, description }: { icon: LucideIcon, name: string, description: string }) {
+  return (
+    <div className="group p-4 sm:p-5 rounded-[20px] sm:rounded-[24px] border border-slate-200 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-800/30 hover:border-emerald-300 dark:hover:border-emerald-800 hover:-translate-y-1 transition-all duration-300 cursor-default">
+      <div className="flex items-center justify-between mb-3">
+        <div className="w-10 h-10 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-300 flex items-center justify-center group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">
+          <Icon className="w-[18px] h-[18px]" />
+        </div>
+        <div className="w-9 h-5 rounded-full bg-emerald-500/20 border border-emerald-500/40 flex items-center px-0.5 justify-end">
+          <div className="w-4 h-4 rounded-full bg-emerald-500 shadow-sm" />
+        </div>
+      </div>
+      <h3 className="text-sm sm:text-base font-black text-slate-900 dark:text-white mb-1">{name}</h3>
+      <p className="text-xs sm:text-sm font-medium text-slate-500 dark:text-slate-400 leading-relaxed">{description}</p>
+    </div>
+  )
+}
+
+function SupportCard({ icon: Icon, title, description }: { icon: LucideIcon, title: string, description: string }) {
+  return (
+    <div className="flex items-start gap-3 p-4 sm:p-5 rounded-[20px] border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
+      <div className="w-9 h-9 rounded-xl bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0">
+        <Icon className="w-4 h-4" />
+      </div>
+      <div className="flex-1">
+        <h3 className="text-sm font-black text-slate-900 dark:text-white mb-0.5">{title}</h3>
+        <p className="text-xs font-medium text-slate-500 dark:text-slate-400 leading-relaxed">{description}</p>
+      </div>
+    </div>
+  )
+}
+
+function FeatureCard({ icon: Icon, title, description, color }: { icon: LucideIcon, title: string, description: string, color: string }) {
   const colorStyles: Record<string, string> = {
     indigo: "bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400 group-hover:bg-indigo-600 group-hover:text-white dark:group-hover:bg-indigo-500",
     purple: "bg-purple-50 dark:bg-purple-900/20 text-purple-600 dark:text-purple-400 group-hover:bg-purple-600 group-hover:text-white dark:group-hover:bg-purple-500",
@@ -530,6 +773,10 @@ function FeatureCard({ icon: Icon, title, description, color }: { icon: any, tit
     amber: "bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400 group-hover:bg-amber-600 group-hover:text-white dark:group-hover:bg-amber-500",
     blue: "bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 group-hover:bg-blue-600 group-hover:text-white dark:group-hover:bg-blue-500",
     rose: "bg-rose-50 dark:bg-rose-900/20 text-rose-600 dark:text-rose-400 group-hover:bg-rose-600 group-hover:text-white dark:group-hover:bg-rose-500",
+    cyan: "bg-cyan-50 dark:bg-cyan-900/20 text-cyan-600 dark:text-cyan-400 group-hover:bg-cyan-600 group-hover:text-white dark:group-hover:bg-cyan-500",
+    teal: "bg-teal-50 dark:bg-teal-900/20 text-teal-600 dark:text-teal-400 group-hover:bg-teal-600 group-hover:text-white dark:group-hover:bg-teal-500",
+    sky: "bg-sky-50 dark:bg-sky-900/20 text-sky-600 dark:text-sky-400 group-hover:bg-sky-600 group-hover:text-white dark:group-hover:bg-sky-500",
+    slate: "bg-slate-100 dark:bg-slate-800/60 text-slate-600 dark:text-slate-300 group-hover:bg-slate-700 group-hover:text-white dark:group-hover:bg-slate-600",
   }
 
   return (
@@ -566,7 +813,7 @@ function PricingCard({
       {/* Background Glow */}
       <div className={cn(
         "absolute top-0 right-0 w-32 h-32 rounded-bl-full opacity-10 pointer-events-none transition-transform group-hover:scale-150",
-        `bg-${glowColor}-500`
+        glowColor === 'purple' ? "bg-purple-500" : "bg-indigo-500"
       )} />
 
       <div className="mb-5 sm:mb-8">
