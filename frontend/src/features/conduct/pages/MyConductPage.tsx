@@ -48,7 +48,9 @@ export default function MyConductPage() {
             : undefined
         }
       >
-        <ConductTargetPicker organizationId={orgId} value={target} onChange={setTarget} />
+        <div id="tour-my-conduct-target" className="flex flex-wrap items-center gap-3">
+          <ConductTargetPicker organizationId={orgId} value={target} onChange={setTarget} />
+        </div>
       </WorkspaceHeader>
 
       {isLoading && <LoadingSkeleton rows={6} />}

@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { useForm } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
 import { X, Layers, Loader2, Scale, ChevronDown, Check, PlusCircle, Edit2, Trash2 } from 'lucide-react'
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
@@ -12,6 +14,8 @@ import { usePermission } from '@/hooks/usePermission'
 import ConfirmDialog from '@/components/common/ConfirmDialog'
 import { useBscMutations, useBscPerspectives, useFixedPerspectives, useScorecardMutations } from '../hooks/useBsc'
 import PerspectiveFormModal from './PerspectiveFormModal'
+import { scorecardSchema, type ScorecardFormData, type WeightRow } from '../schemas/scorecardSchema'
+import { toastFirstError } from '@/lib/formErrors'
 import FixedPerspectiveFormModal from './FixedPerspectiveFormModal'
 import {
   ScorecardResponse, ScorecardRequest, BscScorecardStatus, BscScoringMode, BscEmptyPerspectivePolicy,
@@ -27,17 +31,6 @@ interface ScorecardFormModalProps {
   autoCreateFixed?: BscFixedPerspective
 }
 
-interface WeightRow {
-  perspectiveId: string
-  code: string
-  name: string
-  color?: string
-  fixedPerspective?: BscFixedPerspective
-  displayOrder: number
-  weight: number
-  enabled: boolean
-}
-
 const toRow = (p: PerspectiveResponse, weight: number, enabled: boolean): WeightRow => ({
   perspectiveId: p.id,
   code: p.code,
@@ -45,6 +38,9 @@ const toRow = (p: PerspectiveResponse, weight: number, enabled: boolean): Weight
   color: p.color,
   fixedPerspective: p.fixedPerspective,
   displayOrder: p.displayOrder,
+  targetValue: p.targetValue,
+  minimumValue: p.minimumValue,
+  unit: p.unit,
   weight,
   enabled,
 })
@@ -73,17 +69,31 @@ export default function ScorecardFormModal({ isOpen, onClose, organizationId, sc
     return flatten(orgUnitTreeData || [])
   }, [orgUnitTreeData])
 
-  const [name, setName] = useState('')
-  const [vision, setVision] = useState('')
-  // Gắn thời gian: theo ĐỢT (tick nhiều đợt) hoặc theo KỲ (1 kỳ ⇒ mọi đợt trong kỳ tự áp dụng).
-  const [applyScope, setApplyScope] = useState<BscScorecardApplyScope>(BscScorecardApplyScope.PERIOD)
-  const [periodIds, setPeriodIds] = useState<string[]>([])
-  const [cycleId, setCycleId] = useState('')
-  // Mỗi phần tử là 1 id đơn vị (gồm cả node gốc). Khi TẠO cho phép chọn nhiều → tạo nhiều bộ tiêu chí.
-  const [scopes, setScopes] = useState<string[]>([])
-  const [status, setStatus] = useState<BscScorecardStatus>(BscScorecardStatus.DRAFT)
-  const [emptyPolicy, setEmptyPolicy] = useState<BscEmptyPerspectivePolicy>(BscEmptyPerspectivePolicy.RENORMALIZE)
-  const [rows, setRows] = useState<WeightRow[]>([])
+  const { register, handleSubmit: rhfHandleSubmit, reset, watch, setValue, getValues } = useForm<ScorecardFormData>({
+    resolver: zodResolver(scorecardSchema),
+    defaultValues: {
+      name: '', vision: '',
+      applyScope: BscScorecardApplyScope.PERIOD,
+      periodIds: [], cycleId: '', scopes: [],
+      status: BscScorecardStatus.DRAFT,
+      emptyPolicy: BscEmptyPerspectivePolicy.RENORMALIZE,
+      rows: [],
+    },
+  })
+
+  // Bảng trọng số và các ô tick đợt/đơn vị đều là điều khiển tự vẽ, còn tổng trọng số
+  // phải cập nhật theo từng lần gõ, nên đọc qua watch thay vì đăng ký từng ô.
+  const applyScope = watch('applyScope')
+  const periodIds = watch('periodIds')
+  const cycleId = watch('cycleId')
+  const scopes = watch('scopes')
+  const status = watch('status')
+  const emptyPolicy = watch('emptyPolicy')
+  const rows = watch('rows')
+
+  /** Thay danh sách dòng dựa trên danh sách hiện tại — thay cho `setRows(prev => …)`. */
+  const updateRows = (fn: (prev: WeightRow[]) => WeightRow[]) =>
+    setValue('rows', fn(getValues('rows')), { shouldValidate: true })
 
   const allPeriods = useMemo(() => periodsData?.content || [], [periodsData])
   const allCycles = useMemo(() => cyclesData?.content || [], [cyclesData])
@@ -121,35 +131,36 @@ export default function ScorecardFormModal({ isOpen, onClose, organizationId, sc
     if (initializedFor.current !== key) {
       initializedFor.current = key
       if (scorecard) {
-        setName(scorecard.name)
-        setVision(scorecard.vision || '')
-        setApplyScope(scorecard.applyScope || BscScorecardApplyScope.PERIOD)
-        setPeriodIds(scorecard.applyScope === BscScorecardApplyScope.CYCLE ? [] : (scorecard.periods || []).map(p => p.id))
-        setCycleId(scorecard.kpiCycleId || '')
-        setScopes((scorecard.orgUnits || []).map(u => u.id))
-        setStatus(scorecard.status)
-        setEmptyPolicy(scorecard.emptyPerspectivePolicy)
-        setRows(perspectives.map(p => {
-          const existing = scorecard.perspectives.find(sp => sp.perspectiveId === p.id)
-          return toRow(p, existing?.weightPercentage ?? 0, !!existing)
-        }))
+        reset({
+          name: scorecard.name,
+          vision: scorecard.vision || '',
+          applyScope: scorecard.applyScope || BscScorecardApplyScope.PERIOD,
+          periodIds: scorecard.applyScope === BscScorecardApplyScope.CYCLE ? [] : (scorecard.periods || []).map(p => p.id),
+          cycleId: scorecard.kpiCycleId || '',
+          scopes: (scorecard.orgUnits || []).map(u => u.id),
+          status: scorecard.status,
+          emptyPolicy: scorecard.emptyPerspectivePolicy,
+          rows: perspectives.map(p => {
+            const existing = scorecard.perspectives.find(sp => sp.perspectiveId === p.id)
+            return toRow(p, existing?.weightPercentage ?? 0, !!existing)
+          }),
+        })
       } else {
-        setName('')
-        setVision('')
-        setApplyScope(BscScorecardApplyScope.PERIOD)
-        setPeriodIds([])
-        setCycleId('')
-        setScopes([])
-        setStatus(BscScorecardStatus.DRAFT)
-        setEmptyPolicy(BscEmptyPerspectivePolicy.RENORMALIZE)
-        setRows(perspectives.map(p => toRow(p, 0, true)))
+        reset({
+          name: '', vision: '',
+          applyScope: BscScorecardApplyScope.PERIOD,
+          periodIds: [], cycleId: '', scopes: [],
+          status: BscScorecardStatus.DRAFT,
+          emptyPolicy: BscEmptyPerspectivePolicy.RENORMALIZE,
+          rows: perspectives.map(p => toRow(p, 0, true)),
+        })
       }
       return
     }
 
     // Hạng mục vừa tạo thêm ⇒ vào bộ tiêu chí ngay (đang bật, 0%) để người dùng chỉ còn
     // việc chia trọng số; hạng mục vừa xoá thì rời khỏi danh sách.
-    setRows(prev => {
+    updateRows(prev => {
       const byId = new Map(prev.map(r => [r.perspectiveId, r]))
       return perspectives.map(p => {
         const old = byId.get(p.id)
@@ -164,14 +175,14 @@ export default function ScorecardFormModal({ isOpen, onClose, organizationId, sc
   const total = useMemo(() => enabledRows.reduce((s, r) => s + (Number(r.weight) || 0), 0), [enabledRows])
   const isValid = Math.abs(total - 100) <= 0.01 && enabledRows.length > 0
 
-  const setWeight = (id: string, w: number) => setRows(prev => prev.map(r => r.perspectiveId === id ? { ...r, weight: w } : r))
+  const setWeight = (id: string, w: number) => updateRows(prev => prev.map(r => r.perspectiveId === id ? { ...r, weight: w } : r))
 
   // Trọng số vừa nhập trong modal hạng mục (tạo mới hoặc sửa) → áp thẳng vào dòng tương ứng.
   const applyPerspectiveWeight = (perspectiveId: string, weight: number) => {
     pendingWeights.current[perspectiveId] = weight
-    setRows(prev => prev.map(r => r.perspectiveId === perspectiveId ? { ...r, weight, enabled: true } : r))
+    updateRows(prev => prev.map(r => r.perspectiveId === perspectiveId ? { ...r, weight, enabled: true } : r))
   }
-  const toggle = (id: string) => setRows(prev => prev.map(r => r.perspectiveId === id ? { ...r, enabled: !r.enabled } : r))
+  const toggle = (id: string) => updateRows(prev => prev.map(r => r.perspectiveId === id ? { ...r, enabled: !r.enabled } : r))
 
   // Tick node gốc ⇒ chọn/bỏ toàn bộ; tick hết các đơn vị con khác ⇒ tự tick luôn gốc (giống OKR).
   const toggleScope = (unitId: string) => {
@@ -187,19 +198,18 @@ export default function ScorecardFormModal({ isOpen, onClose, organizationId, sc
       const allOthersSelected = flatOrgUnits.filter(u => u.id !== rootId).every(u => tempIds.includes(u.id))
       nextIds = allOthersSelected && rootId ? flatOrgUnits.map(u => u.id) : tempIds
     }
-    setScopes(nextIds)
+    setValue('scopes', nextIds, { shouldValidate: true })
   }
   const scopeLabel = (id: string) => flatOrgUnits.find(u => u.id === id)?.name || 'Đơn vị'
 
   const isCycleMode = applyScope === BscScorecardApplyScope.CYCLE
-  // Hợp lệ khi: theo kỳ ⇒ đã chọn 1 kỳ; theo đợt ⇒ đã tick ít nhất 1 đợt.
-  const timeScopeValid = isCycleMode ? !!cycleId : periodIds.length > 0
 
+  const setPeriodIds = (next: string[]) => setValue('periodIds', next, { shouldValidate: true })
   const togglePeriod = (id: string) =>
-    setPeriodIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id])
+    setPeriodIds(periodIds.includes(id) ? periodIds.filter(x => x !== id) : [...periodIds, id])
   const togglePeriodGroup = (ids: string[]) => {
     const allOn = ids.every(id => periodIds.includes(id))
-    setPeriodIds(prev => allOn ? prev.filter(id => !ids.includes(id)) : [...new Set([...prev, ...ids])])
+    setPeriodIds(allOn ? periodIds.filter(id => !ids.includes(id)) : [...new Set([...periodIds, ...ids])])
   }
   const periodTriggerLabel = periodIds.length === 0
     ? 'Chọn đợt áp dụng'
@@ -212,7 +222,7 @@ export default function ScorecardFormModal({ isOpen, onClose, organizationId, sc
     if (en.length === 0) return
     const base = Math.floor((100 / en.length) * 10) / 10
     let remainder = Math.round((100 - base * en.length) * 10) / 10
-    setRows(prev => prev.map(r => {
+    updateRows(prev => prev.map(r => {
       if (!r.enabled) return r
       let w = base
       if (remainder > 0) { w = Math.round((base + 0.1) * 10) / 10; remainder = Math.round((remainder - 0.1) * 10) / 10 }
@@ -222,20 +232,20 @@ export default function ScorecardFormModal({ isOpen, onClose, organizationId, sc
 
   const isPending = createScorecard.isPending || updateScorecard.isPending
 
-  const handleSubmit = () => {
-    if (!name.trim()) return
-    if (!timeScopeValid) return
+  const onSubmit = (data: ScorecardFormData) => {
+    const cycleMode = data.applyScope === BscScorecardApplyScope.CYCLE
     const payload: ScorecardRequest = {
-      name: name.trim(),
-      vision: vision.trim() || undefined,
-      applyScope,
-      kpiPeriodIds: isCycleMode ? undefined : periodIds,
-      kpiCycleId: isCycleMode ? cycleId : undefined,
-      orgUnitIds: scopes,
-      status,
+      name: data.name.trim(),
+      vision: data.vision.trim() || undefined,
+      applyScope: data.applyScope,
+      kpiPeriodIds: cycleMode ? undefined : data.periodIds,
+      kpiCycleId: cycleMode ? data.cycleId : undefined,
+      orgUnitIds: data.scopes,
+      status: data.status,
       scoringMode: scorecard?.scoringMode || BscScoringMode.SHADOW,
-      emptyPerspectivePolicy: emptyPolicy,
-      perspectives: enabledRows.map((r, idx) => ({ perspectiveId: r.perspectiveId, weightPercentage: Number(r.weight) || 0, displayOrder: idx })),
+      emptyPerspectivePolicy: data.emptyPolicy,
+      perspectives: data.rows.filter(r => r.enabled)
+        .map((r, idx) => ({ perspectiveId: r.perspectiveId, weightPercentage: Number(r.weight) || 0, displayOrder: idx })),
     }
     if (scorecard) {
       // Sửa: phạm vi phòng ban khoá (backend bỏ qua orgUnits), nhưng đợt/kỳ áp dụng thì đổi được.
@@ -268,7 +278,19 @@ export default function ScorecardFormModal({ isOpen, onClose, organizationId, sc
         {r.enabled && <span className="text-[9px] font-black">✓</span>}
       </button>
       <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: r.color || '#8b5cf6' }} />
-      <span className="flex-1 text-sm font-bold text-slate-800 dark:text-slate-200 truncate">{r.name}</span>
+      <div className="flex-1 min-w-0">
+        <p className="text-sm font-bold text-slate-800 dark:text-slate-200 truncate">{r.name}</p>
+        {(r.targetValue != null || r.minimumValue != null) && (
+          <p className="text-[10px] font-bold text-slate-400 truncate">
+            {r.targetValue != null && <>Mục tiêu {r.targetValue}{r.unit ? ` ${r.unit}` : ''}</>}
+            {r.targetValue != null && r.minimumValue != null && ' · '}
+            {r.minimumValue != null && <>Tối thiểu {r.minimumValue}{r.unit ? ` ${r.unit}` : ''}</>}
+            {r.targetValue != null && r.targetValue > 0 && (
+              <span className="ml-1.5 text-indigo-500" title="Hạng mục tự chấm theo mục tiêu của chính nó (kiểu OKR)">· tự chấm</span>
+            )}
+          </p>
+        )}
+      </div>
       <div className="flex items-center gap-0.5 shrink-0 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
         <button type="button" onClick={() => setPerspectiveModal({ perspective: perspectives?.find(p => p.id === r.perspectiveId) })}
           title="Sửa hạng mục" className="p-1.5 rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition-all">
@@ -309,7 +331,7 @@ export default function ScorecardFormModal({ isOpen, onClose, organizationId, sc
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-1.5">
                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Tên bộ tiêu chí <span className="text-red-500">*</span></label>
-                <input value={name} onChange={e => setName(e.target.value)} placeholder="VD: Chiến lược Quý 3/2026"
+                <input {...register('name')} placeholder="VD: Chiến lược Quý 3/2026"
                   className="w-full px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 text-sm font-bold focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 outline-none transition-all" />
               </div>
               <div className="space-y-1.5">
@@ -319,7 +341,7 @@ export default function ScorecardFormModal({ isOpen, onClose, organizationId, sc
                     { value: BscScorecardApplyScope.PERIOD, label: 'Đợt' },
                     { value: BscScorecardApplyScope.CYCLE, label: 'Kỳ' },
                   ].map(opt => (
-                    <button key={opt.value} type="button" onClick={() => setApplyScope(opt.value)}
+                    <button key={opt.value} type="button" onClick={() => setValue('applyScope', opt.value, { shouldValidate: true })}
                       className={cn('h-10 rounded-xl border text-xs font-black uppercase tracking-wider transition-all',
                         applyScope === opt.value
                           ? 'bg-indigo-600 border-indigo-600 text-white shadow-lg shadow-indigo-500/20'
@@ -338,7 +360,7 @@ export default function ScorecardFormModal({ isOpen, onClose, organizationId, sc
               </label>
 
               {isCycleMode ? (
-                <Select value={cycleId} onValueChange={setCycleId}>
+                <Select value={cycleId} onValueChange={v => setValue('cycleId', v, { shouldValidate: true })}>
                   <SelectTrigger className="w-full h-10 rounded-xl bg-slate-50 dark:bg-slate-800 border-slate-100 dark:border-slate-700 text-sm font-bold outline-none">
                     <SelectValue placeholder="Chọn kỳ đánh giá" />
                   </SelectTrigger>
@@ -445,14 +467,14 @@ export default function ScorecardFormModal({ isOpen, onClose, organizationId, sc
 
             <div className="space-y-1.5">
               <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Tuyên bố chiến lược (Vision)</label>
-              <textarea value={vision} onChange={e => setVision(e.target.value)} rows={2} placeholder="Câu tuyên bố chiến lược trung tâm..."
+              <textarea {...register('vision')} rows={2} placeholder="Câu tuyên bố chiến lược trung tâm..."
                 className="w-full px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 text-sm font-medium focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 outline-none transition-all resize-none" />
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-1.5">
                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Trạng thái</label>
-                <Select value={status} onValueChange={v => setStatus(v as BscScorecardStatus)}>
+                <Select value={status} onValueChange={v => setValue('status', v as BscScorecardStatus)}>
                   <SelectTrigger className="w-full h-10 rounded-xl bg-slate-50 dark:bg-slate-800 border-slate-100 dark:border-slate-700 text-sm font-bold outline-none"><SelectValue /></SelectTrigger>
                   <SelectContent className="rounded-xl border-slate-200 dark:border-slate-800">
                     <SelectItem value={BscScorecardStatus.DRAFT} className="text-sm font-bold text-slate-500">Nháp</SelectItem>
@@ -463,7 +485,7 @@ export default function ScorecardFormModal({ isOpen, onClose, organizationId, sc
               </div>
               <div className="space-y-1.5">
                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Chính sách hạng mục rỗng</label>
-                <Select value={emptyPolicy} onValueChange={v => setEmptyPolicy(v as BscEmptyPerspectivePolicy)}>
+                <Select value={emptyPolicy} onValueChange={v => setValue('emptyPolicy', v as BscEmptyPerspectivePolicy)}>
                   <SelectTrigger className="w-full h-10 rounded-xl bg-slate-50 dark:bg-slate-800 border-slate-100 dark:border-slate-700 text-sm font-bold outline-none"><SelectValue /></SelectTrigger>
                   <SelectContent className="rounded-xl border-slate-200 dark:border-slate-800">
                     <SelectItem value={BscEmptyPerspectivePolicy.RENORMALIZE} className="text-sm font-bold">Chuẩn hóa lại (khuyên dùng)</SelectItem>
@@ -534,7 +556,7 @@ export default function ScorecardFormModal({ isOpen, onClose, organizationId, sc
 
           <div className="p-6 border-t border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900 flex gap-4">
             <button type="button" onClick={onClose} className="flex-1 px-6 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 text-sm font-bold text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all">Hủy</button>
-            <button type="button" onClick={handleSubmit} disabled={isPending || !isValid || !name.trim() || !timeScopeValid}
+            <button type="button" onClick={rhfHandleSubmit(onSubmit, toastFirstError)} disabled={isPending}
               className="flex-[2] px-6 py-2.5 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 shadow-lg shadow-indigo-500/20 disabled:opacity-50 transition-all flex items-center justify-center gap-2">
               {isPending && <Loader2 className="animate-spin" size={18} />}
               {scorecard ? 'Lưu thay đổi' : 'Xác nhận tạo'}

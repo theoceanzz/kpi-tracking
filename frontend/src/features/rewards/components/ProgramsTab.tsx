@@ -46,8 +46,8 @@ export default function ProgramsTab() {
   const { data, isLoading, deleteProgram, isDeleting } = useRewardPrograms()
 
   return (
-    <div>
-      <div className="mb-4 flex items-start gap-2.5 rounded-xl border border-[var(--color-border)] bg-[var(--color-muted)]/40 px-4 py-3 text-sm">
+    <div id="tour-programs-root">
+      <div id="tour-programs-note" className="mb-4 flex items-start gap-2.5 rounded-xl border border-[var(--color-border)] bg-[var(--color-muted)]/40 px-4 py-3 text-sm">
         <Info size={16} className="mt-0.5 flex-shrink-0 text-[var(--color-muted-foreground)]" />
         <p className="text-[var(--color-muted-foreground)]">
           Chương trình <b>không tự chạy</b>. Bấm <b>▷ Chạy</b> để chọn một đợt/kỳ, sửa bậc thưởng
@@ -57,7 +57,7 @@ export default function ProgramsTab() {
         </p>
       </div>
 
-      <div className="mb-4 flex items-center justify-between gap-3">
+      <div id="tour-programs-actions" className="mb-4 flex items-center justify-between gap-3">
         <span className="text-sm text-[var(--color-muted-foreground)]">
           {(data ?? []).length > 0 && `${(data ?? []).length} chương trình`}
         </span>

@@ -1,16 +1,17 @@
 import { useState } from 'react'
+import { useForm } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
 import { useNavigate } from 'react-router-dom'
 import { Database, Plus, Search, MoreVertical, Trash2, Edit, Table2, BarChart3 } from 'lucide-react'
 import { useDatasources } from '../hooks/useDatasources'
 import { useCreateDatasource, useDeleteDatasource } from '../hooks/useDatasourceMutations'
+import { createDatasourceSchema, type CreateDatasourceFormData } from '../schemas/datasourceSchema'
 import type { Datasource } from '@/types/datasource'
 
 export default function DatasourcesPage() {
   const navigate = useNavigate()
   const [page, setPage] = useState(0)
   const [showCreate, setShowCreate] = useState(false)
-  const [newName, setNewName] = useState('')
-  const [newDesc, setNewDesc] = useState('')
   const [search, setSearch] = useState('')
   const [menuOpen, setMenuOpen] = useState<string | null>(null)
 
@@ -22,12 +23,16 @@ export default function DatasourcesPage() {
     ds.name.toLowerCase().includes(search.toLowerCase())
   ) || []
 
-  const handleCreate = () => {
-    if (!newName.trim()) return
-    createMutation.mutate({ name: newName, description: newDesc || undefined }, {
-      onSuccess: () => { setShowCreate(false); setNewName(''); setNewDesc('') }
+  const { register, handleSubmit, reset, formState: { errors } } = useForm<CreateDatasourceFormData>({
+    resolver: zodResolver(createDatasourceSchema),
+    defaultValues: { name: '', description: '' },
+  })
+
+  const handleCreate = handleSubmit((data) => {
+    createMutation.mutate({ name: data.name, description: data.description || undefined }, {
+      onSuccess: () => { setShowCreate(false); reset({ name: '', description: '' }) }
     })
-  }
+  })
 
   const handleDelete = (id: string) => {
     if (confirm('Bạn có chắc muốn xóa datasource này?')) {
@@ -184,18 +189,17 @@ export default function DatasourcesPage() {
                 <label className="block text-sm font-medium mb-1.5">Tên datasource <span className="text-red-500">*</span></label>
                 <input
                   type="text"
-                  value={newName}
-                  onChange={e => setNewName(e.target.value)}
+                  {...register('name')}
                   placeholder="VD: Doanh thu Q1 2026"
                   className="w-full px-3 py-2.5 rounded-lg border border-[var(--color-border)] bg-[var(--color-card)] text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]/30"
                   autoFocus
                 />
+                {errors.name && <p className="mt-1 text-xs text-red-500">{errors.name.message}</p>}
               </div>
               <div>
                 <label className="block text-sm font-medium mb-1.5">Mô tả</label>
                 <textarea
-                  value={newDesc}
-                  onChange={e => setNewDesc(e.target.value)}
+                  {...register('description')}
                   placeholder="Mô tả ngắn gọn..."
                   rows={3}
                   className="w-full px-3 py-2.5 rounded-lg border border-[var(--color-border)] bg-[var(--color-card)] text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]/30 resize-none"
@@ -206,7 +210,7 @@ export default function DatasourcesPage() {
               <button onClick={() => setShowCreate(false)} className="px-4 py-2 text-sm rounded-lg border border-[var(--color-border)] hover:bg-[var(--color-accent)] transition-colors">Hủy</button>
               <button
                 onClick={handleCreate}
-                disabled={!newName.trim() || createMutation.isPending}
+                disabled={createMutation.isPending}
                 className="px-4 py-2 text-sm rounded-lg bg-[var(--color-primary)] text-white hover:opacity-90 disabled:opacity-50 transition-all font-medium"
               >
                 {createMutation.isPending ? 'Đang tạo...' : 'Tạo'}

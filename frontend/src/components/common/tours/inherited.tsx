@@ -55,17 +55,26 @@ export const kpiCriteriaSteps: Step[] = [
     placement: 'bottom',
   },
   {
-    target: '#tour-kpi-delegate-btn',
+    // Trước đây bước này trỏ vào `#tour-kpi-delegate-btn` — nút nằm TRONG menu "..." của
+    // từng dòng, nên chỉ tồn tại lúc menu đang mở. Ngoài đời không bao giờ có neo đó và
+    // TourHost lặng lẽ bỏ luôn bước này. Trỏ vào chính danh sách rồi chỉ đường tới menu.
+    target: '#tour-kpi-list',
     title: '🌿 Phân rã Mục tiêu (Delegate)',
     content: (
       <div className="space-y-2">
-        <p>Đây là phím tắt nhanh để <strong>ủy quyền/giao việc</strong> cho cấp dưới.</p>
+        <p>
+          Mỗi dòng có menu <strong>“…”</strong> ở cuối. Trong đó, <strong>Phân rã chỉ tiêu</strong> là
+          phím tắt để <strong>ủy quyền/giao việc</strong> cho cấp dưới.
+        </p>
         <p className="text-[11px] bg-cyan-50 dark:bg-cyan-900/20 p-2 rounded-lg text-cyan-700 italic border-l-4 border-cyan-400">
           Mẹo: Hệ thống sẽ tự động tạo một chỉ tiêu con liên kết với chỉ tiêu này, giúp việc theo dõi dòng chảy chỉ tiêu trở nên minh bạch và tự động hoàn toàn.
         </p>
+        <p className="text-[11px] text-slate-500">
+          Chỉ hiện khi tổ chức bật <strong>thác nước</strong> và chỉ tiêu đã ở trạng thái <strong>Đã duyệt</strong>.
+        </p>
       </div>
     ),
-    placement: 'left',
+    placement: 'top',
   },
 ]
 

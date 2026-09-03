@@ -1,6 +1,8 @@
 import { useForm } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
 import { X, CheckCircle2, Loader2, AlertCircle } from 'lucide-react'
 import { KeyResultRequest, KeyResultResponse, ObjectiveResponse, UnitWeight } from '../types'
+import { keyResultSchema, type KeyResultFormData } from '../schemas/okrSchema'
 import { useOkrMutations } from '../hooks/useOkr'
 import { useEffect, useState } from 'react'
 import { cn } from '@/lib/utils'
@@ -13,7 +15,9 @@ interface KeyResultFormModalProps {
 }
 
 export default function KeyResultFormModal({ isOpen, onClose, objective, keyResult }: KeyResultFormModalProps) {
-  const { register, handleSubmit, reset, formState: { errors } } = useForm<KeyResultRequest>()
+  const { register, handleSubmit, reset, formState: { errors } } = useForm<KeyResultFormData>({
+    resolver: zodResolver(keyResultSchema),
+  })
   const { createKeyResult, updateKeyResult } = useOkrMutations()
 
   const hasMultipleUnits = (objective.orgUnitIds?.length ?? 0) > 1
@@ -62,7 +66,7 @@ export default function KeyResultFormModal({ isOpen, onClose, objective, keyResu
 
   const totalWeight = unitWeights.reduce((sum, w) => sum + (w.weightPercentage || 0), 0)
 
-  const onSubmit = (data: KeyResultRequest) => {
+  const onSubmit = (data: KeyResultFormData) => {
     if (hasMultipleUnits) {
       const total = Math.round(totalWeight)
       if (total !== 100) {
@@ -116,7 +120,7 @@ export default function KeyResultFormModal({ isOpen, onClose, objective, keyResu
               <div className="space-y-1.5">
                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Tên kết quả then chốt <span className="text-red-500">*</span></label>
                 <input
-                  {...register('name', { required: 'Vui lòng nhập tên KR' })}
+                  {...register('name')}
                   placeholder="VD: Đạt 1 tỷ doanh số miền Nam"
                   className="w-full px-4 py-3 rounded-2xl bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 text-sm font-bold focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 outline-none transition-all"
                 />
@@ -126,7 +130,7 @@ export default function KeyResultFormModal({ isOpen, onClose, objective, keyResu
               <div className="space-y-1.5">
                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Mã kết quả then chốt <span className="text-red-500">*</span></label>
                 <input
-                  {...register('code', { required: 'Vui lòng nhập mã KR' })}
+                  {...register('code')}
                   placeholder="VD: KR001"
                   className="w-full px-4 py-3 rounded-2xl bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 text-sm font-bold focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 outline-none transition-all"
                 />
@@ -154,9 +158,10 @@ export default function KeyResultFormModal({ isOpen, onClose, objective, keyResu
                 </div>
                 <div className="space-y-1.5 col-span-1">
                   <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Hiện tại</label>
+                  {/* Xoá trắng ô ⇒ undefined để schema cho qua, thay vì NaN chặn nút Lưu mà không báo gì. */}
                   <input
                     type="number"
-                    {...register('currentValue', { valueAsNumber: true })}
+                    {...register('currentValue', { setValueAs: v => (v === '' || v == null ? undefined : Number(v)) })}
                     onWheel={e => e.currentTarget.blur()}
                     className="w-full px-4 py-3 rounded-2xl bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 text-sm font-bold focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 outline-none transition-all"
                   />
@@ -165,10 +170,11 @@ export default function KeyResultFormModal({ isOpen, onClose, objective, keyResu
                   <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Mục tiêu <span className="text-red-500">*</span></label>
                   <input
                     type="number"
-                    {...register('targetValue', { required: true, valueAsNumber: true })}
+                    {...register('targetValue', { valueAsNumber: true })}
                     onWheel={e => e.currentTarget.blur()}
                     className="w-full px-4 py-3 rounded-2xl bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 text-sm font-bold focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 outline-none transition-all"
                   />
+                  {errors.targetValue && <p className="text-[10px] font-bold text-red-500 ml-1">{errors.targetValue.message}</p>}
                 </div>
               </div>
             </div>

@@ -1,12 +1,19 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useForm, Controller, useFieldArray } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
+import {
+  adjustKpiSchema,
+  replaceKpiSchema,
+  type AdjustFormData,
+  type ReplaceFormData,
+} from '../schemas/urgentTaskSchema'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { kpiApi } from '../api/kpiApi'
 import { toast } from 'sonner'
 import { Loader2, X, AlertTriangle, ArrowLeftRight, SlidersHorizontal, Check, ShieldAlert, Target, Users, BarChart3 } from 'lucide-react'
 import { FREQUENCY_MAP, cn, formatNumber, formatDateTime } from '@/lib/utils'
 import UserAvatar from '@/components/common/UserAvatar'
-import type { KpiCriteria, KpiFrequency, KpiType } from '@/types/kpi'
+import type { KpiCriteria, KpiType } from '@/types/kpi'
 import { useUsers } from '@/features/users/hooks/useUsers'
 import { useAuthStore } from '@/store/authStore'
 import { useKpiPeriods } from '../hooks/useKpiPeriods'
@@ -19,6 +26,7 @@ import { Select, SelectContent, SelectItem, SelectGroup, SelectLabel, SelectTrig
 import { LayoutGrid } from 'lucide-react'
 import { DateTimePicker } from '@/components/common/DateTimePicker'
 import { scorecardsForPeriod } from '@/features/bsc/utils/scorecardScope'
+import { toastFirstError } from '@/lib/formErrors'
 
 
 const inputCls = "w-full px-3 py-2.5 rounded-lg border border-[var(--color-border)] bg-[var(--color-background)] text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]/50 transition-all shadow-sm"
@@ -220,24 +228,6 @@ function KpiTypeTabs({ value, onChange }: { value: KpiType; onChange: (t: KpiTyp
 
 // ─── Tab 1: Replace KPI ──────────────────────────────────────────────────────
 
-interface ReplaceFormData {
-  replacedKpiId: string
-  replacementReason: string
-  kpiType: KpiType
-  name: string
-  description: string
-  frequency: KpiFrequency
-  targetValue: string
-  minimumValue: string
-  unit: string
-  isReverseKpi: boolean
-  isBonusKpi: boolean
-  deadline: string
-  keyResultId: string
-  perspectiveId: string
-  assignedToIds: string[]
-}
-
 interface TabSharedProps {
   period?: { id: string; name: string; startDate: string | null; endDate: string | null }
   enableOkr: boolean
@@ -317,6 +307,7 @@ function ReplaceTab({ kpiList, orgUnitId, period, enableOkr, enableQualitative, 
   const isStaff = currentUser?.memberships?.[0]?.roleRank === 2
 
   const { register, handleSubmit, watch, setValue, control, reset, formState: { errors } } = useForm<ReplaceFormData>({
+    resolver: zodResolver(replaceKpiSchema),
     defaultValues: { replacedKpiId: '', replacementReason: '', kpiType: 'QUANTITATIVE', name: '', description: '', frequency: 'MONTHLY', targetValue: '', minimumValue: '', unit: '', isReverseKpi: false, isBonusKpi: false, deadline: '', keyResultId: 'NONE', perspectiveId: 'NONE', assignedToIds: [] }
   })
 
@@ -366,7 +357,7 @@ function ReplaceTab({ kpiList, orgUnitId, period, enableOkr, enableQualitative, 
   const activeKpis = kpiList.filter(k => k.status !== 'REPLACED' && k.status !== 'INACTIVE')
 
   return (
-    <form onSubmit={handleSubmit(d => mutate(d))} className="space-y-5">
+    <form onSubmit={handleSubmit(d => mutate(d), toastFirstError)} className="space-y-5">
       <div className="rounded-xl border border-amber-200 bg-amber-50 dark:bg-amber-900/20 dark:border-amber-800/50 p-3 flex gap-2.5">
         <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0 text-amber-600 dark:text-amber-400" />
         <p className="text-xs font-medium text-amber-800 dark:text-amber-300">
@@ -376,7 +367,7 @@ function ReplaceTab({ kpiList, orgUnitId, period, enableOkr, enableQualitative, 
 
       <div>
         <label className={labelCls}>KPI cần thay thế <span className="text-red-500">*</span></label>
-        <Controller name="replacedKpiId" control={control} rules={{ required: true }}
+        <Controller name="replacedKpiId" control={control}
           render={({ field }) => (
             <Select value={field.value} onValueChange={field.onChange}>
               <SelectTrigger className={cn(inputCls, 'h-auto truncate', errors.replacedKpiId && 'ring-2 ring-red-500')}>
@@ -419,7 +410,7 @@ function ReplaceTab({ kpiList, orgUnitId, period, enableOkr, enableQualitative, 
 
         <div>
           <label className={labelCls}>Tên KPI mới <span className="text-red-500">*</span></label>
-          <input {...register('name', { required: true })} placeholder="VD: Xử lý yêu cầu khẩn khách hàng Q3"
+          <input {...register('name')} placeholder="VD: Xử lý yêu cầu khẩn khách hàng Q3"
             className={cn(inputCls, errors.name && 'ring-2 ring-red-500')} />
         </div>
 
@@ -436,13 +427,13 @@ function ReplaceTab({ kpiList, orgUnitId, period, enableOkr, enableQualitative, 
             <div>
               <label className={labelCls}>Mục tiêu mong muốn <span className="text-red-500">*</span></label>
               <input type="number" step="any" onWheel={e => (e.target as HTMLInputElement).blur()}
-                {...register('targetValue', { validate: (v, fv) => fv.kpiType === 'QUALITATIVE' || String(v ?? '').trim() !== '' || 'Vui lòng nhập mục tiêu mong muốn' })}
+                {...register('targetValue')}
                 placeholder="1000" className={cn(inputCls, errors.targetValue && 'ring-2 ring-red-500')} />
             </div>
             <div>
               <label className={labelCls}>Mục tiêu tối thiểu <span className="text-red-500">*</span></label>
               <input type="number" step="any" onWheel={e => (e.target as HTMLInputElement).blur()}
-                {...register('minimumValue', { validate: (v, fv) => fv.kpiType === 'QUALITATIVE' || String(v ?? '').trim() !== '' || 'Vui lòng nhập mục tiêu tối thiểu' })}
+                {...register('minimumValue')}
                 placeholder="800" className={cn(inputCls, errors.minimumValue && 'ring-2 ring-red-500')} />
             </div>
           </div>
@@ -465,7 +456,7 @@ function ReplaceTab({ kpiList, orgUnitId, period, enableOkr, enableQualitative, 
             {!isQual && (
             <div>
               <label className={labelCls}>Đơn vị tính <span className="text-red-500">*</span></label>
-              <input {...register('unit', { validate: (v, fv) => fv.kpiType === 'QUALITATIVE' || String(v ?? '').trim() !== '' || 'Vui lòng nhập đơn vị tính' })}
+              <input {...register('unit')}
                 placeholder="VNĐ, %, KPI..." className={cn(inputCls, errors.unit && 'ring-2 ring-red-500')} />
             </div>
             )}
@@ -591,24 +582,6 @@ function ReplaceTab({ kpiList, orgUnitId, period, enableOkr, enableQualitative, 
 
 // ─── Tab 2: Reduce weights + Add new KPI ────────────────────────────────────
 
-interface AdjustFormData {
-  weights: { kpiId: string; name: string; currentWeight: number; newWeight: number }[]
-  newKpiType: KpiType
-  newName: string
-  newWeight: number | string
-  newFrequency: KpiFrequency
-  newTargetValue: string
-  newMinimumValue: string
-  newUnit: string
-  newIsReverseKpi: boolean
-  newIsBonusKpi: boolean
-  newDeadline: string
-  newKeyResultId: string
-  newPerspectiveId: string
-  newAssignedToIds: string[]
-  newDescription: string
-}
-
 function AdjustTab({ kpiList, kpiPeriodId, orgUnitId, period, enableOkr, enableQualitative, enableBsc, objectives, perspectives, availablePerspectiveIds, perspectiveWeightPct, onSuccess }: { kpiList: KpiCriteria[]; kpiPeriodId: string; orgUnitId: string; onSuccess: () => void; perspectiveWeightPct?: Map<string, number> } & TabSharedProps) {
   const qc = useQueryClient()
   const { user: currentUser } = useAuthStore()
@@ -617,6 +590,7 @@ function AdjustTab({ kpiList, kpiPeriodId, orgUnitId, period, enableOkr, enableQ
   const adjustableKpis = kpiList.filter(k => k.status !== 'REPLACED' && k.status !== 'INACTIVE')
 
   const { register, handleSubmit, watch, control, formState: { errors } } = useForm<AdjustFormData>({
+    resolver: zodResolver(adjustKpiSchema),
     defaultValues: {
       weights: adjustableKpis.map(k => ({ kpiId: k.id, name: k.name, currentWeight: k.weight ?? 0, newWeight: k.weight ?? 0 })),
       newKpiType: 'QUANTITATIVE', newName: '', newWeight: '', newFrequency: 'MONTHLY', newTargetValue: '', newMinimumValue: '', newUnit: '', newIsReverseKpi: false, newIsBonusKpi: false, newDeadline: '', newKeyResultId: 'NONE', newPerspectiveId: 'NONE', newAssignedToIds: [], newDescription: ''
@@ -681,7 +655,6 @@ function AdjustTab({ kpiList, kpiPeriodId, orgUnitId, period, enableOkr, enableQ
 
   const onSubmit = async (data: AdjustFormData) => {
     if (!isValid) { toast.error(`Tổng trọng số phải đúng 100% (hiện tại: ${formatNumber(totalAll)}%)`); return }
-    if (!data.newName.trim()) { toast.error('Vui lòng nhập tên KPI mới'); return }
     try {
       if (adjustableKpis.length > 0) await batchMutation.mutateAsync(data)
       await createMutation.mutateAsync(data)
@@ -695,7 +668,7 @@ function AdjustTab({ kpiList, kpiPeriodId, orgUnitId, period, enableOkr, enableQ
   }
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
+    <form onSubmit={handleSubmit(onSubmit, toastFirstError)} className="space-y-5">
       {adjustableKpis.length > 0 && (
         <div className="space-y-2">
           <p className="text-[11px] font-black text-[var(--color-muted-foreground)] uppercase tracking-widest">Điều chỉnh trọng số KPI hiện có</p>
@@ -763,13 +736,13 @@ function AdjustTab({ kpiList, kpiPeriodId, orgUnitId, period, enableOkr, enableQ
             <div>
               <label className={labelCls}>Mục tiêu mong muốn <span className="text-red-500">*</span></label>
               <input type="number" step="any" onWheel={e => (e.target as HTMLInputElement).blur()}
-                {...register('newTargetValue', { validate: (v, fv) => fv.newKpiType === 'QUALITATIVE' || String(v ?? '').trim() !== '' || 'Vui lòng nhập mục tiêu mong muốn' })}
+                {...register('newTargetValue')}
                 placeholder="1000" className={cn(inputCls, errors.newTargetValue && 'ring-2 ring-red-500')} />
             </div>
             <div>
               <label className={labelCls}>Mục tiêu tối thiểu <span className="text-red-500">*</span></label>
               <input type="number" step="any" onWheel={e => (e.target as HTMLInputElement).blur()}
-                {...register('newMinimumValue', { validate: (v, fv) => fv.newKpiType === 'QUALITATIVE' || String(v ?? '').trim() !== '' || 'Vui lòng nhập mục tiêu tối thiểu' })}
+                {...register('newMinimumValue')}
                 placeholder="800" className={cn(inputCls, errors.newMinimumValue && 'ring-2 ring-red-500')} />
             </div>
           </div>
@@ -780,13 +753,13 @@ function AdjustTab({ kpiList, kpiPeriodId, orgUnitId, period, enableOkr, enableQ
               <label className={labelCls}>Trọng số (%) <span className="text-red-500">*</span></label>
               <input type="number" step="0.1" min="0" max="100"
                 onWheel={e => (e.target as HTMLInputElement).blur()}
-                {...register('newWeight', { validate: v => parseFloat(String(v)) > 0 || 'Vui lòng nhập trọng số lớn hơn 0' })}
+                {...register('newWeight')}
                 placeholder="20" className={cn(inputCls, errors.newWeight && 'ring-2 ring-red-500')} />
             </div>
             {!isQual && (
             <div>
               <label className={labelCls}>Đơn vị tính <span className="text-red-500">*</span></label>
-              <input {...register('newUnit', { validate: (v, fv) => fv.newKpiType === 'QUALITATIVE' || String(v ?? '').trim() !== '' || 'Vui lòng nhập đơn vị tính' })}
+              <input {...register('newUnit')}
                 placeholder="VNĐ, %, KPI..." className={cn(inputCls, errors.newUnit && 'ring-2 ring-red-500')} />
             </div>
             )}

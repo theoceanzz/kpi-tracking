@@ -5,6 +5,16 @@ import { useOrganization } from '../hooks/useOrganization'
 import { useUpdateOrganization } from '../hooks/useUpdateOrganization'
 import { useUploadOrgBranding } from '../hooks/useUploadOrgBranding'
 import { useForm, useFieldArray, Controller, useWatch } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
+import { toastFirstError } from '@/lib/formErrors'
+import {
+  INDUSTRY_NONE,
+  INDUSTRY_OTHER,
+  companyProfileSchema,
+  hierarchyLevelsSchema,
+  type CompanyProfileFormData,
+  type HierarchyLevelsFormData,
+} from '../schemas/organizationSchema'
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select'
@@ -18,6 +28,7 @@ import { formatDateTime, cn } from '@/lib/utils'
 import { toast } from 'sonner'
 import { useAuth } from '@/hooks/useAuth'
 import type { AxiosError } from 'axios'
+import type { UpdateOrganizationRequest } from '../api/organizationApi'
 
 /** Thông báo lỗi do backend trả về, lùi về câu mặc định nếu phản hồi không nói gì. */
 function apiErrorMessage(error: unknown, fallback: string) {
@@ -49,24 +60,7 @@ const INDUSTRY_PRESETS = [
   'Dịch vụ chuyên nghiệp',
 ] as const
 
-// Hai giá trị canh gác của ô chọn. Radix không nhận chuỗi rỗng làm value nên "chưa chọn"
-// cũng phải có mã riêng; cả hai đều được quy đổi lại trước khi gửi lên server.
-const INDUSTRY_NONE = '__none__'
-const INDUSTRY_OTHER = '__other__'
-
 const isPresetIndustry = (value: string) => (INDUSTRY_PRESETS as readonly string[]).includes(value)
-
-type ProfileForm = {
-  name: string
-  code: string
-  /** Mục đang chọn trong ô chọn: một preset, hoặc một trong hai giá trị canh gác. */
-  industryChoice: string
-  /** Chỉ dùng khi chọn "Khác" — ngành nghề người dùng tự gõ. */
-  industryCustom: string
-  taxCode: string
-  employeeCount: string
-  description: string
-}
 
 const inputCls =
   'w-full bg-white dark:bg-slate-900 px-3.5 py-2.5 rounded-xl text-sm font-semibold text-slate-900 dark:text-white border border-slate-200 dark:border-slate-700 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/5 outline-none transition-all placeholder:font-medium placeholder:text-slate-300 dark:placeholder:text-slate-600'
@@ -91,7 +85,8 @@ export function CompanyInfoSection() {
   const logoInputRef = useRef<HTMLInputElement>(null)
   const coverInputRef = useRef<HTMLInputElement>(null)
 
-  const { register, handleSubmit, reset, control, formState: { errors } } = useForm<ProfileForm>({
+  const { register, handleSubmit, reset, control, formState: { errors } } = useForm<CompanyProfileFormData>({
+    resolver: zodResolver(companyProfileSchema),
     defaultValues: {
       name: '', code: '', industryChoice: INDUSTRY_NONE, industryCustom: '',
       taxCode: '', employeeCount: '', description: '',
@@ -122,7 +117,7 @@ export function CompanyInfoSection() {
     })
   }, [org, reset])
 
-  const onSave = (data: ProfileForm) => {
+  const onSave = (data: CompanyProfileFormData) => {
     // Gộp hai ô lại thành một chuỗi trước khi gửi: server không biết gì về "Khác".
     const industry =
       data.industryChoice === INDUSTRY_NONE ? ''
@@ -307,7 +302,7 @@ export function CompanyInfoSection() {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-5 gap-y-4">
             <Field label="Tên công ty" editing={isEditing} value={org?.name}>
               <input
-                {...register('name', { required: 'Tên công ty không được để trống' })}
+                {...register('name')}
                 className={inputCls}
                 placeholder="Tên công ty"
               />
@@ -338,11 +333,7 @@ export function CompanyInfoSection() {
                   thêm một ô trống chỉ khiến người dùng phân vân phải điền cả hai. */}
               {industryChoice === INDUSTRY_OTHER && (
                 <input
-                  {...register('industryCustom', {
-                    validate: v =>
-                      industryChoice !== INDUSTRY_OTHER || v.trim() !== '' ||
-                      'Nhập lĩnh vực hoạt động của công ty',
-                  })}
+                  {...register('industryCustom')}
                   autoFocus
                   className={cn(inputCls, 'mt-2')}
                   placeholder="Nhập lĩnh vực hoạt động"
@@ -357,7 +348,7 @@ export function CompanyInfoSection() {
             {isEditing && (
               <Field label="Mã doanh nghiệp" editing value={org?.code}>
                 <input
-                  {...register('code', { required: 'Mã doanh nghiệp không được để trống' })}
+                  {...register('code')}
                   className={inputCls}
                   placeholder="VD: DEMO1"
                 />
@@ -377,9 +368,7 @@ export function CompanyInfoSection() {
               <input
                 type="number"
                 min={0}
-                {...register('employeeCount', {
-                  min: { value: 0, message: 'Quy mô nhân sự không được âm' },
-                })}
+                {...register('employeeCount')}
                 className={inputCls}
                 placeholder="VD: 187"
               />
@@ -494,10 +483,9 @@ export function CompanyHierarchySection() {
 
   const [isEditingHierarchy, setIsEditingHierarchy] = useState(false)
 
-  const { register, control, handleSubmit, reset } = useForm({
-    defaultValues: {
-      hierarchyLevels: [] as { id?: string; unitTypeName: string; managerRoleLabel: string }[]
-    }
+  const { register, control, handleSubmit, reset } = useForm<HierarchyLevelsFormData>({
+    resolver: zodResolver(hierarchyLevelsSchema),
+    defaultValues: { hierarchyLevels: [] },
   })
 
   const { fields, append, remove, move } = useFieldArray({
@@ -517,12 +505,10 @@ export function CompanyHierarchySection() {
     }
   }, [org, reset])
 
-  const onSaveHierarchy = (data: any) => {
-    if (data.hierarchyLevels.length < 2) {
-      toast.error('Cơ cấu tổ chức phải có ít nhất 2 cấp.')
-      return
-    }
-    updateMutation.mutate({ hierarchyLevels: data.hierarchyLevels }, {
+  const onSaveHierarchy = (data: HierarchyLevelsFormData) => {
+    // Form chỉ thu tên cấp bậc và nhãn quản lý; `levelOrder`/`roleLevel` do backend suy ra
+    // từ thứ tự mảng nên payload không mang hai trường đó.
+    updateMutation.mutate({ hierarchyLevels: data.hierarchyLevels as UpdateOrganizationRequest['hierarchyLevels'] }, {
       onSuccess: () => {
         setIsEditingHierarchy(false)
         refreshUser()
@@ -562,7 +548,7 @@ export function CompanyHierarchySection() {
        <div className="p-8 relative">
          {isEditingHierarchy ? (
            // Cùng bề ngang với chế độ xem, để bấm "sửa" không làm cả khối nhảy rộng ra.
-           <form onSubmit={handleSubmit(onSaveHierarchy)} className="max-w-2xl space-y-6">
+           <form onSubmit={handleSubmit(onSaveHierarchy, toastFirstError)} className="max-w-2xl space-y-6">
               <div className="flex items-start gap-3 p-4 bg-amber-50 dark:bg-amber-900/10 border border-amber-200/50 dark:border-amber-800/30 rounded-2xl text-amber-700 dark:text-amber-400 text-[11px] font-medium leading-relaxed">
                 <Info size={16} className="shrink-0 mt-0.5" />
                 Việc thay đổi cấu trúc ảnh hưởng đến danh mục đơn vị hiện có.
@@ -585,7 +571,7 @@ export function CompanyHierarchySection() {
                            <div className="flex-1 w-full space-y-1">
                              <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Đơn vị</label>
                              <input
-                               {...register(`hierarchyLevels.${index}.unitTypeName` as const, { required: true })}
+                               {...register(`hierarchyLevels.${index}.unitTypeName` as const)}
                                className="w-full bg-white dark:bg-slate-900 px-3 py-2 rounded-xl text-sm font-bold text-slate-900 dark:text-white border border-slate-100 dark:border-slate-800 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/5 outline-none transition-all"
                                placeholder="VD: Chi nhánh"
                               />

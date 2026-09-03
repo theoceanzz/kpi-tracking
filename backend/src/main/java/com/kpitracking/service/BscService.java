@@ -158,11 +158,16 @@ public class BscService {
             throw new DuplicateResourceException("Hạng mục", "thứ tự hiển thị (trong lĩnh vực)", displayOrder);
         }
 
+        validatePerspectiveTargets(request.getTargetValue(), request.getMinimumValue(), request.getName());
+
         BscPerspective perspective = BscPerspective.builder()
                 .organization(organization)
                 .code(request.getCode())
                 .name(request.getName())
                 .description(request.getDescription())
+                .targetValue(request.getTargetValue())
+                .minimumValue(request.getMinimumValue())
+                .unit(trimToNull(request.getUnit()))
                 .color(request.getColor())
                 .icon(request.getIcon())
                 .displayOrder(displayOrder)
@@ -193,9 +198,14 @@ public class BscService {
             throw new DuplicateResourceException("Hạng mục", "thứ tự hiển thị (trong lĩnh vực)", request.getDisplayOrder());
         }
 
+        validatePerspectiveTargets(request.getTargetValue(), request.getMinimumValue(), request.getName());
+
         perspective.setCode(request.getCode());
         perspective.setName(request.getName());
         perspective.setDescription(request.getDescription());
+        perspective.setTargetValue(request.getTargetValue());
+        perspective.setMinimumValue(request.getMinimumValue());
+        perspective.setUnit(trimToNull(request.getUnit()));
         perspective.setColor(request.getColor());
         perspective.setIcon(request.getIcon());
         if (request.getFixedPerspective() != null) {
@@ -524,6 +534,9 @@ public class BscService {
                             .code(sp.getPerspective().getCode())
                             .name(sp.getPerspective().getName())
                             .color(sp.getPerspective().getColor())
+                            .targetValue(sp.getPerspective().getTargetValue())
+                            .minimumValue(sp.getPerspective().getMinimumValue())
+                            .unit(sp.getPerspective().getUnit())
                             .weightPercentage(sp.getWeightPercentage())
                             .displayOrder(sp.getDisplayOrder())
                             .fixedPerspective(sp.getPerspective().getFixedPerspective() != null ? sp.getPerspective().getFixedPerspective().name() : null)
@@ -558,7 +571,7 @@ public class BscService {
 
     // ============================================================
     // Import Excel (.xlsx) — upsert lĩnh vực theo mã
-    // Cột: Code (bắt buộc), Name (bắt buộc), Description, Color, DisplayOrder, Status
+    // Cột: Code (bắt buộc), Name (bắt buộc), Description, TargetValue, MinimumValue, Unit, Color, DisplayOrder, Status
     // ============================================================
 
     @Transactional
@@ -580,11 +593,15 @@ public class BscService {
             if (headerRow == null) throw new BusinessException("Tập tin Excel trống");
 
             int codeIdx = -1, nameIdx = -1, descIdx = -1, colorIdx = -1, orderIdx = -1, statusIdx = -1, fixedIdx = -1;
+            int targetIdx = -1, minimumIdx = -1, unitIdx = -1;
             for (int i = 0; i < headerRow.getLastCellNum(); i++) {
                 String header = getCellString(headerRow.getCell(i));
                 if (header.equalsIgnoreCase("Code")) codeIdx = i;
                 else if (header.equalsIgnoreCase("Name")) nameIdx = i;
                 else if (header.equalsIgnoreCase("Description")) descIdx = i;
+                else if (header.equalsIgnoreCase("TargetValue")) targetIdx = i;
+                else if (header.equalsIgnoreCase("MinimumValue")) minimumIdx = i;
+                else if (header.equalsIgnoreCase("Unit")) unitIdx = i;
                 else if (header.equalsIgnoreCase("Color")) colorIdx = i;
                 else if (header.equalsIgnoreCase("DisplayOrder")) orderIdx = i;
                 else if (header.equalsIgnoreCase("Status")) statusIdx = i;
@@ -611,6 +628,11 @@ public class BscService {
                     if (isReservedFixedCode(code)) throw new BusinessException("Mã '" + code + "' trùng mã lĩnh vực cố định — vui lòng dùng mã khác cho hạng mục");
 
                     String desc = descIdx != -1 ? getCellString(row.getCell(descIdx)) : null;
+                    Double target = readOptionalNumber(row, targetIdx, "Mục tiêu mong muốn");
+                    Double minimum = readOptionalNumber(row, minimumIdx, "Kết quả tối thiểu");
+                    String unit = unitIdx != -1 ? trimToNull(getCellString(row.getCell(unitIdx))) : null;
+                    validatePerspectiveTargets(target, minimum, name);
+
                     String color = colorIdx != -1 ? getCellString(row.getCell(colorIdx)) : null;
                     if (color != null && !color.isBlank() && !color.matches("^#([0-9A-Fa-f]{6})$")) {
                         throw new BusinessException("Màu '" + color + "' không hợp lệ (định dạng #RRGGBB)");
@@ -652,6 +674,10 @@ public class BscService {
                     if (existing != null) {
                         existing.setName(name);
                         existing.setDescription(desc);
+                        // Cột vắng mặt ⇒ giữ nguyên giá trị cũ; cột có mà ô trống ⇒ xoá mục tiêu.
+                        if (targetIdx != -1) existing.setTargetValue(target);
+                        if (minimumIdx != -1) existing.setMinimumValue(minimum);
+                        if (unitIdx != -1) existing.setUnit(unit);
                         if (color != null && !color.isBlank()) existing.setColor(color);
                         existing.setDisplayOrder(order);
                         existing.setStatus(status);
@@ -663,6 +689,9 @@ public class BscService {
                                 .code(code)
                                 .name(name)
                                 .description(desc)
+                                .targetValue(target)
+                                .minimumValue(minimum)
+                                .unit(unit)
                                 .color(color != null && !color.isBlank() ? color : "#8b5cf6")
                                 .displayOrder(order)
                                 .status(status)
@@ -685,6 +714,24 @@ public class BscService {
                 .successfulImports(successfulImports)
                 .errors(errors)
                 .build();
+    }
+
+    /**
+     * Đọc một ô số không bắt buộc: cột vắng mặt hoặc ô trống ⇒ null.
+     * Không dùng {@link #getCellString} vì hàm đó ép ô số về long — mục tiêu 95.5 sẽ bị cắt còn 95.
+     */
+    private Double readOptionalNumber(Row row, int colIdx, String label) {
+        if (colIdx == -1) return null;
+        Cell cell = row.getCell(colIdx);
+        if (cell == null) return null;
+        if (cell.getCellType() == CellType.NUMERIC) return cell.getNumericCellValue();
+        String raw = getCellString(cell);
+        if (raw.isBlank()) return null;
+        try {
+            return Double.parseDouble(raw.replace(",", "."));
+        } catch (NumberFormatException e) {
+            throw new BusinessException(label + " '" + raw + "' phải là số");
+        }
     }
 
     private String getCellString(Cell cell) {
@@ -913,6 +960,29 @@ public class BscService {
         }
     }
 
+    private static String trimToNull(String v) {
+        return v == null || v.isBlank() ? null : v.trim();
+    }
+
+    /**
+     * Hạng mục không có cờ "KPI ngược" nên chỉ có một chiều hợp lệ: kết quả tối thiểu là SÀN,
+     * phải nhỏ hơn hoặc bằng mục tiêu mong muốn. Đặt ngược lại thì hạng mục không bao giờ đạt sàn.
+     * Chỉ kiểm khi cả hai cùng được điền — để trống nghĩa là hạng mục chưa đặt con số.
+     */
+    private void validatePerspectiveTargets(Double target, Double minimum, String name) {
+        String label = name != null && !name.isBlank() ? " '" + name + "'" : "";
+        if (target != null && target < 0) {
+            throw new BusinessException("Hạng mục" + label + ": Mục tiêu mong muốn không được âm.");
+        }
+        if (minimum != null && minimum < 0) {
+            throw new BusinessException("Hạng mục" + label + ": Kết quả tối thiểu không được âm.");
+        }
+        if (target != null && minimum != null && minimum > target) {
+            throw new BusinessException("Hạng mục" + label + ": Kết quả tối thiểu (" + minimum
+                    + ") không được lớn hơn mục tiêu mong muốn (" + target + ").");
+        }
+    }
+
     private void validateNotReservedCode(String code) {
         if (isReservedFixedCode(code)) {
             throw new BusinessException("Mã hạng mục không được trùng mã lĩnh vực cố định "
@@ -926,6 +996,9 @@ public class BscService {
                 .code(p.getCode())
                 .name(p.getName())
                 .description(p.getDescription())
+                .targetValue(p.getTargetValue())
+                .minimumValue(p.getMinimumValue())
+                .unit(p.getUnit())
                 .color(p.getColor())
                 .icon(p.getIcon())
                 .displayOrder(p.getDisplayOrder())

@@ -408,8 +408,8 @@ public class ConductService {
         }
         User target = userRepository.findById(request.getUserId())
                 .orElseThrow(() -> new ResourceNotFoundException("Người dùng", "id", request.getUserId()));
-        if (!canEvaluate(current, target)) {
-            throw new ForbiddenException("Bạn không có quyền chấm hạnh kiểm cho nhân sự này");
+        if (!canScoreConduct(current, target)) {
+            throw new ForbiddenException("Chỉ trưởng đơn vị mới được chấm hạnh kiểm cho nhân sự này");
         }
         Target t = resolveTarget(request.getScope(), request.getKpiPeriodId(), request.getKpiCycleId());
         assertNotLocked(target, t);
@@ -672,14 +672,27 @@ public class ConductService {
     }
 
     /**
-     * Người chấm phải có quyền EVALUATION:CREATE tại một đơn vị của người được chấm —
-     * cùng luật với đánh giá KPI theo đợt, không nới thêm.
+     * XEM phiếu của người khác: có quyền EVALUATION:CREATE tại một đơn vị của người được
+     * chấm — cùng luật với đánh giá KPI theo đợt, không nới thêm.
      */
     private boolean canEvaluate(User evaluator, User target) {
         return userRoleOrgUnitRepository.findByUserId(target.getId()).stream()
                 .map(UserRoleOrgUnit::getOrgUnit)
                 .filter(Objects::nonNull)
                 .anyMatch(u -> permissionChecker.hasPermissionInOrgUnit(
+                        evaluator.getId(), "EVALUATION:CREATE", u.getId()));
+    }
+
+    /**
+     * CHẤM cho người khác thì chặt hơn xem: phải là TRƯỞNG đơn vị (rank 0). Phó xem được
+     * phiếu nhưng không ký thay — hạnh kiểm là chữ ký của người đứng đầu đơn vị, khác với
+     * điểm KPI vốn chia được cho cấp phó.
+     */
+    private boolean canScoreConduct(User evaluator, User target) {
+        return userRoleOrgUnitRepository.findByUserId(target.getId()).stream()
+                .map(UserRoleOrgUnit::getOrgUnit)
+                .filter(Objects::nonNull)
+                .anyMatch(u -> permissionChecker.hasLeaderPermissionInOrgUnit(
                         evaluator.getId(), "EVALUATION:CREATE", u.getId()));
     }
 
@@ -724,7 +737,7 @@ public class ConductService {
                 .items(items)
                 .canScoreSelf(locking == null && target.getId().equals(viewer.getId()))
                 .canScoreManager(locking == null && !target.getId().equals(viewer.getId())
-                        && canEvaluate(viewer, target))
+                        && canScoreConduct(viewer, target))
                 .locked(locking != null)
                 .lockedByUnitName(locking != null ? locking.getName() : null)
                 .build();
@@ -782,7 +795,7 @@ public class ConductService {
                 .items(items)
                 .canScoreSelf(locking == null && target.getId().equals(viewer.getId()))
                 .canScoreManager(locking == null && !target.getId().equals(viewer.getId())
-                        && canEvaluate(viewer, target))
+                        && canScoreConduct(viewer, target))
                 .locked(locking != null)
                 .lockedByUnitName(locking != null ? locking.getName() : null)
                 .build();

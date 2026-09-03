@@ -7,17 +7,20 @@ interface ImportBscGuideModalProps {
   onSelectFile: () => void
 }
 
-const SAMPLE_CSV_CONTENT = `Code,Name,FixedPerspective,Description,Color,DisplayOrder,Status
-DOANH_THU,Doanh thu,FINANCIAL,Các chỉ tiêu về doanh thu & lợi nhuận,#2563eb,1,ACTIVE
-HAI_LONG_KH,Sự hài lòng khách hàng,CUSTOMER,Đo lường trải nghiệm & giữ chân khách hàng,#f59e0b,2,ACTIVE
-VAN_HANH,Hiệu quả vận hành,INTERNAL_PROCESS,Tối ưu quy trình nội bộ,#10b981,3,ACTIVE
-DAO_TAO,Đào tạo & phát triển,LEARNING_GROWTH,Nâng cao năng lực nhân sự,#8b5cf6,4,ACTIVE`
+const SAMPLE_CSV_CONTENT = `Code,Name,FixedPerspective,Description,TargetValue,MinimumValue,Unit,Color,DisplayOrder,Status
+DOANH_THU,Doanh thu,FINANCIAL,Các chỉ tiêu về doanh thu & lợi nhuận,100,80,tỷ VNĐ,#2563eb,1,ACTIVE
+HAI_LONG_KH,Sự hài lòng khách hàng,CUSTOMER,Đo lường trải nghiệm & giữ chân khách hàng,95,85,%,#f59e0b,2,ACTIVE
+VAN_HANH,Hiệu quả vận hành,INTERNAL_PROCESS,Tối ưu quy trình nội bộ,90,70,%,#10b981,3,ACTIVE
+DAO_TAO,Đào tạo & phát triển,LEARNING_GROWTH,Nâng cao năng lực nhân sự,100,60,buổi,#8b5cf6,4,ACTIVE`
 
 const COLUMNS = [
   { name: 'Code', required: true, desc: 'Mã hạng mục (chỉ chữ, số, gạch dưới). Dùng để đối soát & cập nhật.', example: 'DOANH_THU' },
   { name: 'Name', required: true, desc: 'Tên hạng mục', example: 'Doanh thu' },
   { name: 'FixedPerspective', required: false, desc: 'Lĩnh vực cố định của hạng mục: FINANCIAL, CUSTOMER, INTERNAL_PROCESS, LEARNING_GROWTH. Bỏ trống mặc định INTERNAL_PROCESS.', example: 'FINANCIAL' },
   { name: 'Description', required: false, desc: 'Mô tả hạng mục', example: 'Các chỉ tiêu về doanh thu' },
+  { name: 'TargetValue', required: false, desc: 'Mục tiêu mong muốn của hạng mục (số). Bỏ trống nếu chưa chốt con số.', example: '100' },
+  { name: 'MinimumValue', required: false, desc: 'Kết quả tối thiểu — ngưỡng sàn, không được lớn hơn TargetValue.', example: '80' },
+  { name: 'Unit', required: false, desc: 'Đơn vị tính của mục tiêu/tối thiểu.', example: 'tỷ VNĐ' },
   { name: 'Color', required: false, desc: 'Màu hiển thị dạng hex #RRGGBB', example: '#2563eb' },
   { name: 'DisplayOrder', required: false, desc: 'Thứ tự hiển thị (số). Để trống hệ thống tự đánh số.', example: '1' },
   { name: 'Status', required: false, desc: 'Trạng thái: ACTIVE hoặc INACTIVE (mặc định ACTIVE)', example: 'ACTIVE' },
@@ -42,15 +45,18 @@ async function downloadTemplate(type: 'csv' | 'xlsx') {
     { header: 'Name', key: 'Name', width: 28 },
     { header: 'FixedPerspective', key: 'FixedPerspective', width: 20 },
     { header: 'Description', key: 'Description', width: 40 },
+    { header: 'TargetValue', key: 'TargetValue', width: 16 },
+    { header: 'MinimumValue', key: 'MinimumValue', width: 16 },
+    { header: 'Unit', key: 'Unit', width: 14 },
     { header: 'Color', key: 'Color', width: 14 },
     { header: 'DisplayOrder', key: 'DisplayOrder', width: 14 },
     { header: 'Status', key: 'Status', width: 14 },
   ]
   worksheet.addRows([
-    ['DOANH_THU', 'Doanh thu', 'FINANCIAL', 'Các chỉ tiêu về doanh thu & lợi nhuận', '#2563eb', 1, 'ACTIVE'],
-    ['HAI_LONG_KH', 'Sự hài lòng khách hàng', 'CUSTOMER', 'Đo lường trải nghiệm & giữ chân khách hàng', '#f59e0b', 2, 'ACTIVE'],
-    ['VAN_HANH', 'Hiệu quả vận hành', 'INTERNAL_PROCESS', 'Tối ưu quy trình nội bộ', '#10b981', 3, 'ACTIVE'],
-    ['DAO_TAO', 'Đào tạo & phát triển', 'LEARNING_GROWTH', 'Nâng cao năng lực nhân sự', '#8b5cf6', 4, 'ACTIVE'],
+    ['DOANH_THU', 'Doanh thu', 'FINANCIAL', 'Các chỉ tiêu về doanh thu & lợi nhuận', 100, 80, 'tỷ VNĐ', '#2563eb', 1, 'ACTIVE'],
+    ['HAI_LONG_KH', 'Sự hài lòng khách hàng', 'CUSTOMER', 'Đo lường trải nghiệm & giữ chân khách hàng', 95, 85, '%', '#f59e0b', 2, 'ACTIVE'],
+    ['VAN_HANH', 'Hiệu quả vận hành', 'INTERNAL_PROCESS', 'Tối ưu quy trình nội bộ', 90, 70, '%', '#10b981', 3, 'ACTIVE'],
+    ['DAO_TAO', 'Đào tạo & phát triển', 'LEARNING_GROWTH', 'Nâng cao năng lực nhân sự', 100, 60, 'buổi', '#8b5cf6', 4, 'ACTIVE'],
   ])
 
   const headerRow = worksheet.getRow(1)
@@ -92,6 +98,8 @@ async function downloadTemplate(type: 'csv' | 'xlsx') {
   guideSheet.addRow(['2. Mã (Code) dùng để cập nhật: nếu mã đã tồn tại, hệ thống sẽ CẬP NHẬT hạng mục đó.'])
   guideSheet.addRow(['3. Cột FixedPerspective gán hạng mục vào 1 trong 4 lĩnh vực cố định (FINANCIAL, CUSTOMER, INTERNAL_PROCESS, LEARNING_GROWTH). Bỏ trống hoặc sai giá trị ⇒ mặc định INTERNAL_PROCESS.'])
   guideSheet.addRow(['4. Để trống DisplayOrder để hệ thống tự đánh số thứ tự tiếp theo.'])
+  guideSheet.addRow(['5. TargetValue là mục tiêu mong muốn, MinimumValue là kết quả tối thiểu (ngưỡng sàn) — MinimumValue không được lớn hơn TargetValue. Bỏ trống cả hai nếu hạng mục chưa chốt con số.'])
+  guideSheet.addRow(['6. Điền TargetValue ⇒ hạng mục TỰ CHẤM theo mục tiêu của chính nó (kiểu OKR): tổng thực đạt của các KPI định lượng trong hạng mục ÷ TargetValue. Bỏ trống ⇒ giữ cách chấm cũ (trung bình có trọng số các KPI con).'])
 
   const buffer = await workbook.xlsx.writeBuffer()
   const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })

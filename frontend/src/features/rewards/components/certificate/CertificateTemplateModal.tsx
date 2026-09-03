@@ -1,6 +1,9 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { useForm } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
 import { Loader2, Upload, X, Trash2, RotateCcw } from 'lucide-react'
 import { toast } from 'sonner'
+import { certificateTemplateSchema, type CertificateTemplateFormData } from '../../schemas/certificateTemplateSchema'
 import { certificateApi } from '../../api/certificateApi'
 import { useCertificateTemplates } from '../../hooks/useCertificates'
 import {
@@ -60,82 +63,76 @@ export default function CertificateTemplateModal({
   const isEdit = !!editTemplate
   const { createTemplate, updateTemplate, isCreating, isUpdating } = useCertificateTemplates()
 
-  const [name, setName] = useState('')
-  const [preset, setPreset] = useState(DEFAULT_PRESET.key)
-  const [orientation, setOrientation] = useState(CertificateOrientation.LANDSCAPE)
-  const [eyebrow, setEyebrow] = useState('')
-  const [title, setTitle] = useState('')
-  const [subtitle, setSubtitle] = useState('')
-  const [body, setBody] = useState('')
-  const [footnote, setFootnote] = useState('')
-  const [signerName, setSignerName] = useState('')
-  const [signerTitle, setSignerTitle] = useState('')
-  const [signatureUrl, setSignatureUrl] = useState('')
-  const [logoUrl, setLogoUrl] = useState('')
-  const [backgroundUrl, setBackgroundUrl] = useState('')
-  const [accentColor, setAccentColor] = useState('')
-  const [inkColor, setInkColor] = useState('')
-  const [surfaceColor, setSurfaceColor] = useState('')
-  const [showLogo, setShowLogo] = useState(true)
-  const [showPoints, setShowPoints] = useState(true)
-  const [showReason, setShowReason] = useState(true)
-  const [isDefault, setIsDefault] = useState(false)
-  const [active, setActive] = useState(true)
+  const { handleSubmit, reset, watch, setValue, formState: { errors } } = useForm<CertificateTemplateFormData>({
+    resolver: zodResolver(certificateTemplateSchema),
+    defaultValues: {
+      name: '', preset: DEFAULT_PRESET.key, orientation: CertificateOrientation.LANDSCAPE,
+      eyebrow: '', title: '', subtitle: '', body: '', footnote: '',
+      signerName: '', signerTitle: '', signatureUrl: '', logoUrl: '', backgroundUrl: '',
+      accentColor: '', inkColor: '', surfaceColor: '',
+      showLogo: true, showPoints: true, showReason: true, isDefault: false, active: true,
+    },
+  })
+
+  // Bản xem trước bên phải vẽ lại theo TỪNG ký tự vừa gõ, và mọi ô ở đây là thành phần
+  // tự vẽ (Toggle / ColorField / ImageField) chứ không phải input thuần, nên theo dõi cả
+  // form rồi rải giá trị xuống thay vì đăng ký từng ô.
+  const {
+    name, preset, orientation, eyebrow, title, subtitle, body, footnote,
+    signerName, signerTitle, signatureUrl, logoUrl, backgroundUrl,
+    accentColor, inkColor, surfaceColor,
+    showLogo, showPoints, showReason, isDefault, active,
+  } = watch()
+
   const [uploading, setUploading] = useState<ImageSlot | null>(null)
 
   useEffect(() => {
     if (!open) return
 
     if (editTemplate) {
-      setName(editTemplate.name)
-      setPreset(editTemplate.preset)
-      setOrientation(editTemplate.orientation)
-      setEyebrow(editTemplate.eyebrow ?? '')
-      setTitle(editTemplate.title)
-      setSubtitle(editTemplate.subtitle ?? '')
-      setBody(editTemplate.body ?? '')
-      setFootnote(editTemplate.footnote ?? '')
-      setSignerName(editTemplate.signerName ?? '')
-      setSignerTitle(editTemplate.signerTitle ?? '')
-      setSignatureUrl(editTemplate.signatureUrl ?? '')
-      setLogoUrl(editTemplate.logoUrl ?? '')
-      setBackgroundUrl(editTemplate.backgroundUrl ?? '')
-      setAccentColor(editTemplate.accentColor ?? '')
-      setInkColor(editTemplate.inkColor ?? '')
-      setSurfaceColor(editTemplate.surfaceColor ?? '')
-      setShowLogo(editTemplate.showLogo)
-      setShowPoints(editTemplate.showPoints)
-      setShowReason(editTemplate.showReason)
-      setIsDefault(editTemplate.isDefault)
-      setActive(editTemplate.status === CertificateTemplateStatus.ACTIVE)
+      reset({
+        name: editTemplate.name,
+        preset: editTemplate.preset,
+        orientation: editTemplate.orientation,
+        eyebrow: editTemplate.eyebrow ?? '',
+        title: editTemplate.title,
+        subtitle: editTemplate.subtitle ?? '',
+        body: editTemplate.body ?? '',
+        footnote: editTemplate.footnote ?? '',
+        signerName: editTemplate.signerName ?? '',
+        signerTitle: editTemplate.signerTitle ?? '',
+        signatureUrl: editTemplate.signatureUrl ?? '',
+        logoUrl: editTemplate.logoUrl ?? '',
+        backgroundUrl: editTemplate.backgroundUrl ?? '',
+        accentColor: editTemplate.accentColor ?? '',
+        inkColor: editTemplate.inkColor ?? '',
+        surfaceColor: editTemplate.surfaceColor ?? '',
+        showLogo: editTemplate.showLogo,
+        showPoints: editTemplate.showPoints,
+        showReason: editTemplate.showReason,
+        isDefault: editTemplate.isDefault,
+        active: editTemplate.status === CertificateTemplateStatus.ACTIVE,
+      })
       return
     }
 
     // Mẫu mới bắt đầu từ nguyên văn của thiết kế dựng sẵn, không phải từ ô trống: người
     // soạn sửa vài chữ là xong, thay vì phải tự nghĩ ra toàn bộ lời chứng nhận.
     const base = DEFAULT_PRESET
-    setName('')
-    setPreset(base.key)
-    setOrientation(CertificateOrientation.LANDSCAPE)
-    setEyebrow(base.content.eyebrow)
-    setTitle(base.content.title)
-    setSubtitle(base.content.subtitle)
-    setBody(base.content.body)
-    setFootnote(base.content.footnote)
-    setSignerName('')
-    setSignerTitle('')
-    setSignatureUrl('')
-    setLogoUrl('')
-    setBackgroundUrl('')
-    setAccentColor('')
-    setInkColor('')
-    setSurfaceColor('')
-    setShowLogo(true)
-    setShowPoints(true)
-    setShowReason(true)
-    setIsDefault(false)
-    setActive(true)
-  }, [open, editTemplate])
+    reset({
+      name: '',
+      preset: base.key,
+      orientation: CertificateOrientation.LANDSCAPE,
+      eyebrow: base.content.eyebrow,
+      title: base.content.title,
+      subtitle: base.content.subtitle,
+      body: base.content.body,
+      footnote: base.content.footnote,
+      signerName: '', signerTitle: '', signatureUrl: '', logoUrl: '', backgroundUrl: '',
+      accentColor: '', inkColor: '', surfaceColor: '',
+      showLogo: true, showPoints: true, showReason: true, isDefault: false, active: true,
+    })
+  }, [open, editTemplate, reset])
 
   const design = useMemo(
     () =>
@@ -207,9 +204,9 @@ export default function CertificateTemplateModal({
     setUploading(slot)
     try {
       const url = await certificateApi.uploadImage(file)
-      if (slot === 'signature') setSignatureUrl(url)
-      if (slot === 'logo') setLogoUrl(url)
-      if (slot === 'background') setBackgroundUrl(url)
+      if (slot === 'signature') setValue('signatureUrl', url)
+      if (slot === 'logo') setValue('logoUrl', url)
+      if (slot === 'background') setValue('backgroundUrl', url)
     } catch (e: any) {
       toast.error(e?.response?.data?.message || 'Tải ảnh thất bại')
     } finally {
@@ -232,47 +229,44 @@ export default function CertificateTemplateModal({
       subtitle === current.content.subtitle &&
       body === current.content.body
 
-    setPreset(nextKey)
+    setValue('preset', nextKey)
     if (untouched) {
-      setEyebrow(next.content.eyebrow)
-      setTitle(next.content.title)
-      setSubtitle(next.content.subtitle)
-      setBody(next.content.body)
+      setValue('eyebrow', next.content.eyebrow)
+      setValue('title', next.content.title, { shouldValidate: true })
+      setValue('subtitle', next.content.subtitle)
+      setValue('body', next.content.body)
     }
     // Màu tuỳ biến vốn được chọn cho bảng màu cũ; giữ lại thường ra một mẫu chỏi màu.
-    setAccentColor('')
-    setInkColor('')
-    setSurfaceColor('')
+    setValue('accentColor', '')
+    setValue('inkColor', '')
+    setValue('surfaceColor', '')
   }
 
-  const canSubmit = name.trim().length > 0 && title.trim().length > 0
   const saving = isCreating || isUpdating
 
-  const handleSubmit = async () => {
-    if (!canSubmit) return
-
+  const onSubmit = async (data: CertificateTemplateFormData) => {
     const payload = {
-      name: name.trim(),
-      preset,
-      orientation,
-      eyebrow: eyebrow.trim() || null,
-      title: title.trim(),
-      subtitle: subtitle.trim() || null,
-      body: body.trim() || null,
-      footnote: footnote.trim() || null,
-      signerName: signerName.trim() || null,
-      signerTitle: signerTitle.trim() || null,
-      signatureUrl: signatureUrl || null,
-      logoUrl: logoUrl || null,
-      backgroundUrl: backgroundUrl || null,
-      accentColor: accentColor || null,
-      inkColor: inkColor || null,
-      surfaceColor: surfaceColor || null,
-      showLogo,
-      showPoints,
-      showReason,
-      isDefault,
-      status: active ? CertificateTemplateStatus.ACTIVE : CertificateTemplateStatus.INACTIVE,
+      name: data.name.trim(),
+      preset: data.preset,
+      orientation: data.orientation,
+      eyebrow: data.eyebrow.trim() || null,
+      title: data.title.trim(),
+      subtitle: data.subtitle.trim() || null,
+      body: data.body.trim() || null,
+      footnote: data.footnote.trim() || null,
+      signerName: data.signerName.trim() || null,
+      signerTitle: data.signerTitle.trim() || null,
+      signatureUrl: data.signatureUrl || null,
+      logoUrl: data.logoUrl || null,
+      backgroundUrl: data.backgroundUrl || null,
+      accentColor: data.accentColor || null,
+      inkColor: data.inkColor || null,
+      surfaceColor: data.surfaceColor || null,
+      showLogo: data.showLogo,
+      showPoints: data.showPoints,
+      showReason: data.showReason,
+      isDefault: data.isDefault,
+      status: data.active ? CertificateTemplateStatus.ACTIVE : CertificateTemplateStatus.INACTIVE,
     }
 
     try {
@@ -305,10 +299,11 @@ export default function CertificateTemplateModal({
             <Field label="Tên mẫu" hint="Chỉ hiện trong danh sách chọn, không in lên giấy">
               <input
                 value={name}
-                onChange={(e) => setName(e.target.value)}
+                onChange={(e) => setValue('name', e.target.value, { shouldValidate: true })}
                 placeholder="VD: Nhân viên của tuần"
                 className="w-full rounded-lg border border-[var(--color-input)] bg-[var(--color-background)] px-3 py-2 text-sm"
               />
+              {errors.name && <p className="mt-1 text-xs text-rose-600">{errors.name.message}</p>}
             </Field>
 
             <div>
@@ -342,7 +337,7 @@ export default function CertificateTemplateModal({
                 ].map((o) => (
                   <button
                     key={o.key}
-                    onClick={() => setOrientation(o.key)}
+                    onClick={() => setValue('orientation', o.key)}
                     className={`flex-1 rounded-lg border px-3 py-2 text-sm transition-colors ${orientation === o.key
                         ? 'border-[var(--color-primary)] bg-[var(--color-primary)]/10 font-medium text-[var(--color-primary)]'
                         : 'border-[var(--color-border)] text-[var(--color-muted-foreground)] hover:bg-[var(--color-accent)]'
@@ -362,7 +357,7 @@ export default function CertificateTemplateModal({
               <Field label="Dòng dẫn" hint="Chữ nhỏ phía trên tiêu đề">
                 <input
                   value={eyebrow}
-                  onChange={(e) => setEyebrow(e.target.value)}
+                  onChange={(e) => setValue('eyebrow', e.target.value)}
                   className="w-full rounded-lg border border-[var(--color-input)] bg-[var(--color-background)] px-3 py-2 text-sm"
                 />
               </Field>
@@ -370,15 +365,16 @@ export default function CertificateTemplateModal({
               <Field label="Tiêu đề">
                 <input
                   value={title}
-                  onChange={(e) => setTitle(e.target.value)}
+                  onChange={(e) => setValue('title', e.target.value, { shouldValidate: true })}
                   className="w-full rounded-lg border border-[var(--color-input)] bg-[var(--color-background)] px-3 py-2 text-sm font-medium"
                 />
+                {errors.title && <p className="mt-1 text-xs text-rose-600">{errors.title.message}</p>}
               </Field>
 
               <Field label="Phụ đề" hint="Dòng ngay trên tên người nhận">
                 <input
                   value={subtitle}
-                  onChange={(e) => setSubtitle(e.target.value)}
+                  onChange={(e) => setValue('subtitle', e.target.value)}
                   className="w-full rounded-lg border border-[var(--color-input)] bg-[var(--color-background)] px-3 py-2 text-sm"
                 />
               </Field>
@@ -386,7 +382,7 @@ export default function CertificateTemplateModal({
               <Field label="Đoạn nội dung">
                 <textarea
                   value={body}
-                  onChange={(e) => setBody(e.target.value)}
+                  onChange={(e) => setValue('body', e.target.value)}
                   rows={3}
                   className="w-full resize-none rounded-lg border border-[var(--color-input)] bg-[var(--color-background)] px-3 py-2 text-sm"
                 />
@@ -395,7 +391,7 @@ export default function CertificateTemplateModal({
               <Field label="Dòng chân trang" hint="Để trống nếu không cần, VD: số quyết định">
                 <input
                   value={footnote}
-                  onChange={(e) => setFootnote(e.target.value)}
+                  onChange={(e) => setValue('footnote', e.target.value)}
                   className="w-full rounded-lg border border-[var(--color-input)] bg-[var(--color-background)] px-3 py-2 text-sm"
                 />
               </Field>
@@ -403,17 +399,17 @@ export default function CertificateTemplateModal({
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
                 <Toggle
                   checked={showLogo}
-                  onChange={setShowLogo}
+                  onChange={v => setValue('showLogo', v)}
                   label="Hiện logo"
                 />
                 <Toggle
                   checked={showPoints}
-                  onChange={setShowPoints}
+                  onChange={v => setValue('showPoints', v)}
                   label="Hiện số điểm"
                 />
                 <Toggle
                   checked={showReason}
-                  onChange={setShowReason}
+                  onChange={v => setValue('showReason', v)}
                   label="Hiện lý do"
                 />
               </div>
@@ -425,7 +421,7 @@ export default function CertificateTemplateModal({
                 <Field label="Tên người ký" hint="Để trống = tên người trao thưởng">
                   <input
                     value={signerName}
-                    onChange={(e) => setSignerName(e.target.value)}
+                    onChange={(e) => setValue('signerName', e.target.value)}
                     placeholder="VD: Trần Quốc Hưng"
                     className="w-full rounded-lg border border-[var(--color-input)] bg-[var(--color-background)] px-3 py-2 text-sm"
                   />
@@ -433,7 +429,7 @@ export default function CertificateTemplateModal({
                 <Field label="Chức danh">
                   <input
                     value={signerTitle}
-                    onChange={(e) => setSignerTitle(e.target.value)}
+                    onChange={(e) => setValue('signerTitle', e.target.value)}
                     placeholder="VD: Giám đốc điều hành"
                     className="w-full rounded-lg border border-[var(--color-input)] bg-[var(--color-background)] px-3 py-2 text-sm"
                   />
@@ -444,7 +440,7 @@ export default function CertificateTemplateModal({
                 <ImageField
                   label="Chữ ký / con dấu"
                   value={signatureUrl}
-                  onChange={setSignatureUrl}
+                  onChange={v => setValue('signatureUrl', v)}
                   onUpload={(f) => handleUpload('signature', f)}
                   uploading={uploading === 'signature'}
                 />
@@ -452,14 +448,14 @@ export default function CertificateTemplateModal({
                   label="Logo riêng"
                   hint="Trống = logo công ty"
                   value={logoUrl}
-                  onChange={setLogoUrl}
+                  onChange={v => setValue('logoUrl', v)}
                   onUpload={(f) => handleUpload('logo', f)}
                   uploading={uploading === 'logo'}
                 />
                 <ImageField
                   label="Ảnh nền"
                   value={backgroundUrl}
-                  onChange={setBackgroundUrl}
+                  onChange={v => setValue('backgroundUrl', v)}
                   onUpload={(f) => handleUpload('background', f)}
                   uploading={uploading === 'background'}
                 />
@@ -472,9 +468,9 @@ export default function CertificateTemplateModal({
                 {(accentColor || inkColor || surfaceColor) && (
                   <button
                     onClick={() => {
-                      setAccentColor('')
-                      setInkColor('')
-                      setSurfaceColor('')
+                      setValue('accentColor', '')
+                      setValue('inkColor', '')
+                      setValue('surfaceColor', '')
                     }}
                     className="flex items-center gap-1 text-xs text-[var(--color-primary)] hover:underline"
                   >
@@ -488,19 +484,19 @@ export default function CertificateTemplateModal({
                   label="Màu nhấn"
                   value={accentColor}
                   fallback={getPreset(preset).colors.accent}
-                  onChange={setAccentColor}
+                  onChange={v => setValue('accentColor', v)}
                 />
                 <ColorField
                   label="Màu chữ"
                   value={inkColor}
                   fallback={getPreset(preset).colors.ink}
-                  onChange={setInkColor}
+                  onChange={v => setValue('inkColor', v)}
                 />
                 <ColorField
                   label="Màu nền"
                   value={surfaceColor}
                   fallback={getPreset(preset).colors.surface}
-                  onChange={setSurfaceColor}
+                  onChange={v => setValue('surfaceColor', v)}
                 />
               </div>
             </div>
@@ -508,13 +504,13 @@ export default function CertificateTemplateModal({
             <div className="space-y-3 border-t border-[var(--color-border)] pt-5">
               <Toggle
                 checked={isDefault}
-                onChange={setIsDefault}
+                onChange={v => setValue('isDefault', v)}
                 label="Đặt làm mẫu mặc định"
                 hint="Được chọn sẵn khi mở màn hình in. Mỗi công ty chỉ một mẫu."
               />
               <Toggle
                 checked={active}
-                onChange={setActive}
+                onChange={v => setValue('active', v)}
                 label="Đang dùng"
                 hint="Tắt để giữ lại mẫu nhưng không cho chọn khi in."
               />
@@ -541,8 +537,8 @@ export default function CertificateTemplateModal({
             Huỷ
           </button>
           <button
-            onClick={handleSubmit}
-            disabled={!canSubmit || saving}
+            onClick={handleSubmit(onSubmit)}
+            disabled={saving}
             className="flex items-center gap-2 rounded-xl bg-[var(--color-primary)] px-5 py-2 text-sm font-bold text-white transition-opacity hover:opacity-90 disabled:opacity-50"
           >
             {saving && <Loader2 size={15} className="animate-spin" />}

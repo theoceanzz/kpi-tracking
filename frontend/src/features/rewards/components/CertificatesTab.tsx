@@ -44,8 +44,8 @@ export default function CertificatesTab() {
   }
 
   return (
-    <div>
-      <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+    <div id="tour-certificates-root">
+      <div id="tour-certificates-intro" className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <p className="max-w-2xl text-sm text-[var(--color-muted-foreground)]">
           Mẫu giấy khen dùng khi in chứng nhận cho nhân viên được thưởng. Chưa tạo mẫu nào thì
           màn hình in vẫn có sẵn sáu thiết kế đẹp để chọn — mẫu ở đây là bản riêng của công ty

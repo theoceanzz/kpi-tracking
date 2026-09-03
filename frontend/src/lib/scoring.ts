@@ -1,4 +1,14 @@
 import { OrganizationResponse } from '@/features/orgunits/api/organizationApi'
+import type { PerspectiveScoreResponse } from '@/features/bsc/types'
+
+/**
+ * Pool điểm khi CHẤM: trọng số chính là điểm — KPI 25% đạt đủ ⇒ 25đ, đủ 100% ⇒ 100đ.
+ * Khớp EvaluationService.SCORING_POOL ở backend.
+ *
+ * `maxScore` của tổ chức KHÔNG phải thang chấm mà là MẪU SỐ xếp loại (thang 150 ⇒ người
+ * đạt đủ KPI được 100/150), đồng thời là trần cho KPI thưởng + phần chỉnh tay.
+ */
+export const SCORING_POOL = 100
 
 export function getScoringFunctions(org?: OrganizationResponse | null) {
   const maxScore = org?.evaluationMaxScore ?? 100
@@ -82,4 +92,24 @@ export function usesPerformanceMatrix(
   org?: { enableQualitative?: boolean; enableConduct?: boolean } | null
 ): boolean {
   return !!(org?.enableQualitative || org?.enableConduct)
+}
+
+/**
+ * Tooltip giải thích điểm một hạng mục BSC.
+ * Hạng mục đặt "mục tiêu mong muốn" tự chấm theo mục tiêu của chính nó (kiểu OKR) nên cần nói rõ
+ * con số thực đạt/mục tiêu; hạng mục còn lại vẫn là trung bình có trọng số các KPI con.
+ */
+export function describePerspectiveScore(p: PerspectiveScoreResponse): string {
+  const unit = p.unit ? ` ${p.unit}` : ''
+  const achieved = p.achievementPercent != null ? `${p.achievementPercent.toFixed(1)}%` : null
+  if (p.scoredByTarget) {
+    const progress = p.actualValue != null && p.targetValue != null
+      ? `${p.actualValue}${unit} / ${p.targetValue}${unit}`
+      : 'chưa có KPI định lượng'
+    const floor = p.minimumValue != null ? ` · tối thiểu ${p.minimumValue}${unit}` : ''
+    return `${p.name} (tự chấm theo mục tiêu hạng mục): ${progress}${floor}`
+      + ` ⇒ đạt ${achieved ?? '—'} × trọng số ${p.weightPercentage}%`
+  }
+  return `${p.name}: trung bình có trọng số các KPI con — đạt ${achieved ?? 'chưa có KPI'}`
+    + ` × trọng số ${p.weightPercentage}%`
 }

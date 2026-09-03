@@ -2,14 +2,11 @@ import { Gauge } from 'lucide-react'
 import SettingsSectionLayout from '@/components/common/SettingsSectionLayout'
 import { usePageTitle } from '@/features/organization/hooks/usePageTitle'
 import { useNotificationDots } from '@/hooks/useNotificationDots'
-import { useAuthStore } from '@/store/authStore'
-import { useOrganization } from '@/features/orgunits/hooks/useOrganization'
 import KpiCriteriaPage from './KpiCriteriaPage'
 import KpiApprovalPage from './KpiApprovalPage'
 import KpiAdjustmentApprovalPage from './KpiAdjustmentApprovalPage'
 import CycleEvaluationPage from './CycleEvaluationPage'
 import OrgUnitSubmissionsPage from '@/features/submissions/pages/OrgUnitSubmissionsPage'
-import ConductEvaluationPage from '@/features/conduct/pages/ConductEvaluationPage'
 
 /**
  * Vận hành KPI trong một trang: đặt chỉ tiêu, duyệt chỉ tiêu, xử lý điều chỉnh, rồi
@@ -21,8 +18,6 @@ import ConductEvaluationPage from '@/features/conduct/pages/ConductEvaluationPag
 export default function PerformancePage() {
   const pageTitle = usePageTitle('performance', 'Quản lý hiệu suất')
   const { counts } = useNotificationDots()
-  const { user } = useAuthStore()
-  const { data: org } = useOrganization(user?.memberships?.[0]?.organizationId)
 
   return (
     <>
@@ -53,8 +48,6 @@ export default function PerformancePage() {
             render: () => <OrgUnitSubmissionsPage />,
           },
           { id: 'cycle-evaluation', render: () => <CycleEvaluationPage /> },
-          // Chấm hạnh kiểm chỉ hiện khi tổ chức bật module, giống cách các mục khác ẩn theo cờ.
-          { id: 'conduct', visible: org?.enableConduct ?? false, render: () => <ConductEvaluationPage /> },
         ]}
       />
     </>

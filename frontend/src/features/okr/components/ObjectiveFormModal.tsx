@@ -1,8 +1,10 @@
 import { useEffect, useMemo } from 'react'
 import { useForm, Controller } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
 import { X, Target, Loader2, ChevronDown, Check } from 'lucide-react'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
-import { ObjectiveRequest, OkrStatus, ObjectiveResponse } from '../types'
+import { OkrStatus, ObjectiveResponse } from '../types'
+import { objectiveSchema, type ObjectiveFormData } from '../schemas/okrSchema'
 import { useOkrMutations } from '../hooks/useOkr'
 import { format } from 'date-fns'
 import { cn } from '@/lib/utils'
@@ -28,8 +30,12 @@ interface ObjectiveFormModalProps {
 export default function ObjectiveFormModal({ isOpen, onClose, organizationId, objective }: ObjectiveFormModalProps) {
   const today = format(new Date(), 'yyyy-MM-dd')
 
-  const { register, handleSubmit, reset, control, watch, setValue, formState: { errors } } = useForm<ObjectiveRequest>({
+  const { register, handleSubmit, reset, control, watch, setValue, formState: { errors } } = useForm<ObjectiveFormData>({
+    resolver: zodResolver(objectiveSchema),
     defaultValues: {
+      code: '',
+      name: '',
+      description: '',
       startDate: today,
       endDate: today,
       status: OkrStatus.ACTIVE,
@@ -121,7 +127,7 @@ export default function ObjectiveFormModal({ isOpen, onClose, organizationId, ob
     setValue('orgUnitIds', nextIds)
   }
 
-  const onSubmit = (data: ObjectiveRequest) => {
+  const onSubmit = (data: ObjectiveFormData) => {
     if (data.perspectiveId === 'NONE' || data.perspectiveId === '') data.perspectiveId = null
     if (objective) {
       updateObjective.mutate({ objectiveId: objective.id, data }, {
@@ -162,7 +168,7 @@ export default function ObjectiveFormModal({ isOpen, onClose, organizationId, ob
               <div className="sm:col-span-2 space-y-1.5">
                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Tên mục tiêu <span className="text-red-500">*</span></label>
                 <input
-                  {...register('name', { required: 'Vui lòng nhập tên mục tiêu' })}
+                  {...register('name')}
                   placeholder="VD: Mở rộng thị trường..."
                   className="w-full px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 text-sm font-bold focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 outline-none transition-all"
                 />
@@ -172,7 +178,7 @@ export default function ObjectiveFormModal({ isOpen, onClose, organizationId, ob
               <div className="space-y-1.5">
                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Mã <span className="text-red-500">*</span></label>
                 <input
-                  {...register('code', { required: 'Vui lòng nhập mã' })}
+                  {...register('code')}
                   placeholder="OBJ001"
                   className="w-full px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 text-sm font-bold focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 outline-none transition-all"
                 />
@@ -196,7 +202,7 @@ export default function ObjectiveFormModal({ isOpen, onClose, organizationId, ob
                 <div className="relative">
                   <input
                     type="date"
-                    {...register('startDate', { required: 'Vui lòng chọn ngày bắt đầu' })}
+                    {...register('startDate')}
                     className="w-full px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 text-sm font-bold focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 outline-none transition-all text-transparent"
                   />
                   <div className="absolute inset-0 left-4 flex items-center pointer-events-none text-sm font-bold text-slate-900 dark:text-white">
@@ -210,13 +216,7 @@ export default function ObjectiveFormModal({ isOpen, onClose, organizationId, ob
                 <div className="relative">
                   <input
                     type="date"
-                    {...register('endDate', {
-                      required: 'Vui lòng chọn ngày kết thúc',
-                      validate: value => {
-                        if (!startDate || !value) return true
-                        return new Date(value) >= new Date(startDate) || 'Ngày kết thúc không được trước ngày bắt đầu'
-                      }
-                    })}
+                    {...register('endDate')}
                     className="w-full px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 text-sm font-bold focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 outline-none transition-all text-transparent"
                   />
                   <div className="absolute inset-0 left-4 flex items-center pointer-events-none text-sm font-bold text-slate-900 dark:text-white">

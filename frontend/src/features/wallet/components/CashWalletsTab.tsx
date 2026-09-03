@@ -113,7 +113,7 @@ export default function CashWalletsTab() {
     <div>
       {/* Tổng số dư là con số duy nhất chỉ màn hình này tính được: sổ đối soát chỉ
           thấy tiền vào, không biết đã đổi ra điểm bao nhiêu. */}
-      <div className="mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div id="tour-cashwallets-stats" className="mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard
           icon={<Wallet size={13} />}
           label="Đang giữ"
@@ -159,7 +159,7 @@ export default function CashWalletsTab() {
         </button>
       )}
 
-      <div className="mb-4 flex flex-wrap items-center gap-3">
+      <div id="tour-cashwallets-filters" className="mb-4 flex flex-wrap items-center gap-3">
         <div className="relative min-w-[220px] flex-1">
           <Search
             size={16}

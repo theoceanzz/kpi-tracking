@@ -21,6 +21,16 @@ public class PerspectiveRequest {
 
     private String description;
 
+    /** Mục tiêu mong muốn — mức cần đạt của hạng mục. Bỏ trống nếu chưa đặt con số. */
+    private Double targetValue;
+
+    /** Kết quả tối thiểu — ngưỡng sàn chấp nhận được, không được lớn hơn mục tiêu mong muốn. */
+    private Double minimumValue;
+
+    /** Đơn vị tính của mục tiêu/tối thiểu. */
+    @Size(max = 50, message = "Đơn vị tính tối đa 50 ký tự")
+    private String unit;
+
     @Pattern(regexp = "^#([0-9A-Fa-f]{6})$", message = "Màu không hợp lệ")
     private String color;
 

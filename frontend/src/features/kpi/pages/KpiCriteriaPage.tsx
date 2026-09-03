@@ -174,7 +174,7 @@ export default function KpiCriteriaPage() {
     }
   }, [flatOrgUnits, user, selectedOrgUnitId])
   
-  // Chọn sẵn đợt đang chạy; không đợt nào khớp hôm nay thì lấy đợt gần hiện tại nhất.
+  // Chọn sẵn đợt đang chạy; đang ở kẽ giữa hai đợt thì giữ nguyên đợt vừa kết thúc.
   useEffect(() => {
     if (periodsData?.content && !selectedPeriodId) {
       const period = pickCurrentOrNearest(periodsData.content)
@@ -1007,7 +1007,7 @@ export default function KpiCriteriaPage() {
               />
             </div>
           ) : viewMode === 'TABLE' ? (
-            <div className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl rounded-[32px] border border-slate-200 dark:border-slate-800 overflow-hidden shadow-2xl">
+            <div id="tour-kpi-list" className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl rounded-[32px] border border-slate-200 dark:border-slate-800 overflow-hidden shadow-2xl">
               <div className="overflow-x-auto scrollbar-thin">
                 <table className="w-full text-left border-collapse">
                   <thead>

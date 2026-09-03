@@ -80,7 +80,7 @@ export default function OrgUnitSubmissionsPage() {
     }
   }, [flatOrgUnits, selectedOrgUnitId, canManageOrg, user])
 
-  // Đợt đang chạy; nếu hôm nay không rơi vào đợt nào thì lấy đợt gần hiện tại nhất
+  // Đợt đang chạy; nếu hôm nay rơi vào kẽ giữa hai đợt thì lấy đợt vừa kết thúc
   // (trước đây để trống, người duyệt vào trang thấy ô đợt rỗng và bảng không có gì).
   const activePeriod = useMemo(
     () => pickCurrentOrNearest(periodsData?.content),

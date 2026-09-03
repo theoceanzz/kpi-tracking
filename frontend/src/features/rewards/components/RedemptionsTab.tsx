@@ -30,8 +30,8 @@ export default function RedemptionsTab() {
   const rows = data?.content ?? []
 
   return (
-    <div>
-      <div className="mb-4 flex flex-wrap gap-1.5">
+    <div id="tour-redemptions-root">
+      <div id="tour-redemptions-filters" className="mb-4 flex flex-wrap gap-1.5">
         {([['', 'Tất cả'], ...Object.entries(REDEMPTION_STATUS_STYLE).map(([k, v]) => [k, v.label])] as [
           string,
           string,

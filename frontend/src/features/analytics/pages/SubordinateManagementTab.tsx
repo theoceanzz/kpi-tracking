@@ -115,11 +115,13 @@ export default function SubordinateManagementTab() {
       {/* Tiêu đề + nút Tuỳ chỉnh */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <h2 className="text-xl font-black text-slate-900 dark:text-white">Tổng quan mục tiêu cấp dưới</h2>
-        <DashboardEditToolbar api={dash} />
+        <div id="tour-analytics-customize">
+          <DashboardEditToolbar api={dash} />
+        </div>
       </div>
 
       {/* Global Filter Toolbar */}
-      <div className="sticky top-0 z-20 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl flex flex-wrap items-center gap-4 justify-between p-4 shadow-sm">
+      <div id="tour-analytics-filter" className="sticky top-0 z-20 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl flex flex-wrap items-center gap-4 justify-between p-4 shadow-sm">
         <div className="flex items-center gap-2 min-w-0">
           <div className="p-2 rounded-lg text-indigo-600 dark:text-indigo-400 shrink-0 bg-indigo-50 dark:bg-indigo-900/30">
             <Target size={18} />
@@ -136,7 +138,7 @@ export default function SubordinateManagementTab() {
       </div>
 
       {/* Metrics Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4">
+      <div id="tour-analytics-metrics" className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4">
         <ObjectiveMetricCard
           title="Tiến độ tổng quan"
           value={completionQuery.data?.value !== undefined ? `${completionQuery.data.value.toFixed(1)}%` : '0%'}
@@ -172,7 +174,9 @@ export default function SubordinateManagementTab() {
       </div>
 
       {/* Lưới widget tuỳ chỉnh: Xu hướng + Chi tiết + Nhân sự/vai trò + Hiệu suất đơn vị */}
-      <DashboardCustomizeChrome api={dash} renderWidget={renderWidget} catalog={CATALOG} />
+      <div id="tour-analytics-widgets">
+        <DashboardCustomizeChrome api={dash} renderWidget={renderWidget} catalog={CATALOG} />
+      </div>
     </div>
   )
 }

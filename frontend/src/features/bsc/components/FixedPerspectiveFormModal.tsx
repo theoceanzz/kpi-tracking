@@ -1,9 +1,11 @@
-import { useEffect } from 'react'
+import { useEffect, useMemo } from 'react'
 import { useForm } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
 import { X, Compass, Loader2, Plus, Lock } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { FixedPerspectiveResponse, FixedPerspectiveUpdateRequest } from '../types'
+import { FixedPerspectiveResponse } from '../types'
 import { useFixedPerspectiveMutations } from '../hooks/useBsc'
+import { createFixedPerspectiveSchema, type FixedPerspectiveFormValues } from '../schemas/perspectiveSchema'
 
 interface FixedPerspectiveFormModalProps {
   isOpen: boolean
@@ -20,7 +22,11 @@ const PRESET_COLORS = ['#2563eb', '#f59e0b', '#10b981', '#8b5cf6', '#ef4444', '#
 export default function FixedPerspectiveFormModal({
   isOpen, onClose, organizationId, fixedPerspective, usedOrders = [], overlayClassName,
 }: FixedPerspectiveFormModalProps) {
-  const { register, handleSubmit, reset, watch, setValue, formState: { errors } } = useForm<FixedPerspectiveUpdateRequest>({
+  // Thứ tự đã bị lĩnh vực khác chiếm là dữ liệu động, nên schema dựng theo ngữ cảnh.
+  const schema = useMemo(() => createFixedPerspectiveSchema(usedOrders), [usedOrders])
+
+  const { register, handleSubmit, reset, watch, setValue, formState: { errors } } = useForm<FixedPerspectiveFormValues>({
+    resolver: zodResolver(schema),
     defaultValues: { name: '', color: PRESET_COLORS[0], displayOrder: 0 },
   })
 
@@ -37,7 +43,7 @@ export default function FixedPerspectiveFormModal({
     }
   }, [fixedPerspective, reset, isOpen])
 
-  const onSubmit = (data: FixedPerspectiveUpdateRequest) => {
+  const onSubmit = (data: FixedPerspectiveFormValues) => {
     if (!fixedPerspective) return
     updateFixedPerspective.mutate(
       { organizationId, code: fixedPerspective.code, data },
@@ -73,10 +79,7 @@ export default function FixedPerspectiveFormModal({
               <div className="sm:col-span-2 space-y-1.5">
                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Tên lĩnh vực <span className="text-red-500">*</span></label>
                 <input
-                  {...register('name', {
-                    required: 'Vui lòng nhập tên lĩnh vực',
-                    maxLength: { value: 100, message: 'Tên tối đa 100 ký tự' },
-                  })}
+                  {...register('name')}
                   placeholder="VD: Tài chính"
                   className="w-full px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 text-sm font-bold focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 outline-none transition-all"
                 />
@@ -102,18 +105,7 @@ export default function FixedPerspectiveFormModal({
                 type="number"
                 min={0}
                 step={1}
-                {...register('displayOrder', {
-                  valueAsNumber: true,
-                  validate: {
-                    required: v => (v !== undefined && v !== null && !Number.isNaN(v)) || 'Vui lòng nhập thứ tự hiển thị',
-                    integer: v => v == null || Number.isInteger(v) || 'Thứ tự phải là số nguyên',
-                    min: v => v == null || v >= 0 || 'Thứ tự không được âm',
-                    duplicate: v => {
-                      if (v == null || Number.isNaN(v)) return true
-                      return !usedOrders.includes(v) || 'Thứ tự này đã được dùng bởi lĩnh vực khác'
-                    },
-                  },
-                })}
+                {...register('displayOrder', { valueAsNumber: true })}
                 className="w-full px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 text-sm font-bold focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 outline-none transition-all"
               />
               {errors.displayOrder && <p className="text-[10px] font-bold text-red-500 ml-1">{errors.displayOrder.message}</p>}
@@ -123,10 +115,7 @@ export default function FixedPerspectiveFormModal({
               <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Màu sắc <span className="text-red-500">*</span></label>
               <input
                 type="hidden"
-                {...register('color', {
-                  required: 'Vui lòng chọn màu sắc',
-                  pattern: { value: /^#([0-9A-Fa-f]{6})$/, message: 'Màu không hợp lệ' },
-                })}
+                {...register('color')}
               />
               <div className="flex flex-wrap gap-2 items-center">
                 {PRESET_COLORS.map(color => (

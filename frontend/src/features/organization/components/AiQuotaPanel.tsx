@@ -1,4 +1,7 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import { useForm } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
+import { createAiQuotaSchema, type AiQuotaFormData } from '../schemas/integrationSchema'
 import { AlertCircle, Check, Coins, Loader2, Search, UserCircle2, Users } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useDebounce } from '@/hooks/useDebounce'
@@ -129,30 +132,45 @@ function LimitEditor({
   onSave: (userId: string, limit: number) => void
   saving: boolean
 }) {
-  const [value, setValue] = useState(item.monthlyLimit ?? 0)
+  // Giành quyền cấp thì toàn bộ hạn mức mới bị trừ vào túi mình, không phải phần chênh —
+  // schema giữ đúng luật đó để nút Lưu không sáng lên rồi mới nhận lỗi từ server.
+  const schema = useMemo(
+    () => createAiQuotaSchema({
+      remainingToAllocate,
+      currentLimit: item.monthlyLimit ?? 0,
+      takeover: item.takeover,
+    }),
+    [remainingToAllocate, item.monthlyLimit, item.takeover],
+  )
+
+  const { handleSubmit, reset, watch, setValue: setField } = useForm<AiQuotaFormData>({
+    resolver: zodResolver(schema),
+    defaultValues: { value: item.monthlyLimit ?? 0 },
+  })
+
+  // NumberInput là ô nhập tự vẽ (nhận/trả number) nên nối bằng watch + setValue.
+  const value = watch('value')
   const [confirming, setConfirming] = useState(false)
 
   useEffect(() => {
-    setValue(item.monthlyLimit ?? 0)
-  }, [item.monthlyLimit])
+    reset({ value: item.monthlyLimit ?? 0 })
+  }, [item.monthlyLimit, reset])
 
-  // Giành quyền cấp thì toàn bộ hạn mức mới bị trừ vào túi mình, không phải phần chênh —
-  // phải khớp với cách backend tính, nếu không nút Lưu sáng lên rồi mới nhận lỗi từ server.
   const charge = item.takeover ? value : value - (item.monthlyLimit ?? 0)
   const exceeds = charge > remainingToAllocate
   const dirty = value !== (item.monthlyLimit ?? 0)
 
-  const commit = () => {
+  const commit = handleSubmit((data) => {
     setConfirming(false)
-    onSave(item.userId, value)
-  }
+    onSave(item.userId, data.value)
+  })
 
   return (
     <div>
       <div className="flex items-center justify-end gap-2">
         <NumberInput
           value={value}
-          onChange={setValue}
+          onChange={v => setField('value', v, { shouldValidate: true })}
           disabled={!item.editable || saving}
           className={cn(
             'w-28 rounded-lg border px-3 py-2 text-right text-sm outline-none transition-all',
@@ -165,7 +183,7 @@ function LimitEditor({
         <button
           type="button"
           onClick={() => (item.takeover ? setConfirming(true) : commit())}
-          disabled={!item.editable || !dirty || exceeds || saving}
+          disabled={!item.editable || !dirty || saving}
           className="rounded-lg bg-[var(--color-primary)] px-3 py-2 text-xs font-bold text-white transition-all hover:shadow-md disabled:opacity-40"
         >
           {saving ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}
@@ -286,10 +304,12 @@ export default function AiQuotaPanel() {
   return (
     <div className="space-y-4">
       {/* Hạn mức cá nhân — tách hẳn khỏi túi dùng để phân bổ bên dưới */}
-      <MyQuotaCard />
+      <div id="tour-aiquota-mine">
+        <MyQuotaCard />
+      </div>
 
       {/* Túi token dùng để phân bổ cho người khác */}
-      <div className="grid gap-3 sm:grid-cols-3">
+      <div id="tour-aiquota-pool" className="grid gap-3 sm:grid-cols-3">
         <StatBox
           label={overview.isTopManager ? 'Ngân sách công ty' : 'Túi để phân bổ'}
           value={fmt(overview.allocatablePool)}
@@ -316,7 +336,7 @@ export default function AiQuotaPanel() {
 
       {/* Công tắc uỷ quyền — chỉ quản lý cao nhất */}
       {overview.isTopManager && (
-        <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-[var(--color-border)] bg-[var(--color-card)] p-4">
+        <div id="tour-aiquota-delegation" className="flex flex-wrap items-center gap-3 rounded-2xl border border-[var(--color-border)] bg-[var(--color-card)] p-4">
           <Users size={18} className="shrink-0 text-[var(--color-primary)]" />
           <div className="min-w-0 flex-1">
             <p className="text-sm font-bold text-[var(--color-foreground)]">
@@ -343,7 +363,7 @@ export default function AiQuotaPanel() {
         </div>
       )}
 
-      <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-card)]">
+      <div id="tour-aiquota-people" className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-card)]">
         {/* Thanh lọc */}
         <div className="flex flex-col gap-2 border-b border-[var(--color-border)] p-4 sm:flex-row">
           <div className="relative flex-1">

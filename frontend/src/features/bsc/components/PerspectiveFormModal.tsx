@@ -1,6 +1,7 @@
-import { useEffect } from 'react'
+import { useEffect, useMemo } from 'react'
 import { useForm, Controller } from 'react-hook-form'
-import { X, Layers, Loader2, Plus, Scale } from 'lucide-react'
+import { zodResolver } from '@hookform/resolvers/zod'
+import { X, Layers, Loader2, Plus, Scale, Target } from 'lucide-react'
 import {
   Select,
   SelectContent,
@@ -9,8 +10,14 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { cn } from '@/lib/utils'
-import { PerspectiveRequest, PerspectiveResponse, BscPerspectiveStatus, BscFixedPerspective } from '../types'
+import { PerspectiveResponse, BscPerspectiveStatus, BscFixedPerspective } from '../types'
 import { useBscMutations, useBscPerspectives, useFixedPerspectives } from '../hooks/useBsc'
+import {
+  createPerspectiveSchema,
+  numOrNull,
+  numOrUndefined,
+  type PerspectiveFormValues,
+} from '../schemas/perspectiveSchema'
 
 interface PerspectiveFormModalProps {
   isOpen: boolean
@@ -31,21 +38,31 @@ interface PerspectiveFormModalProps {
   onWeightSubmit?: (perspectiveId: string, weight: number) => void
 }
 
-/** Trọng số không thuộc hạng mục mà thuộc bộ tiêu chí, nên tách khỏi payload khi gửi. */
-type PerspectiveFormValues = PerspectiveRequest & { weightPercentage?: number }
-
 const PRESET_COLORS = ['#2563eb', '#f59e0b', '#10b981', '#8b5cf6', '#ef4444', '#6366f1', '#0ea5e9', '#ec4899']
 
 export default function PerspectiveFormModal({
   isOpen, onClose, organizationId, perspective, defaultFixedPerspective, overlayClassName,
   showWeight, defaultWeight = 0, otherWeightTotal = 0, onWeightSubmit,
 }: PerspectiveFormModalProps) {
+  const { data: allPerspectives } = useBscPerspectives(organizationId)
+
+  // Ràng buộc trùng mã / trùng thứ tự phải đối chiếu danh sách hiện có, nên schema dựng lại
+  // mỗi khi danh sách đổi (react-hook-form đọc resolver mới ở mỗi lần render).
+  const schema = useMemo(
+    () => createPerspectiveSchema({ existing: allPerspectives || [], currentId: perspective?.id }),
+    [allPerspectives, perspective?.id],
+  )
+
   const { register, handleSubmit, reset, control, watch, setValue, formState: { errors } } = useForm<PerspectiveFormValues>({
+    resolver: zodResolver(schema),
     defaultValues: {
       code: '',
       name: '',
       description: '',
       color: PRESET_COLORS[0],
+      targetValue: undefined,
+      minimumValue: undefined,
+      unit: '',
       displayOrder: 0,
       status: BscPerspectiveStatus.ACTIVE,
       fixedPerspective: undefined,
@@ -54,11 +71,19 @@ export default function PerspectiveFormModal({
   })
 
   const { createPerspective, updatePerspective } = useBscMutations()
-  const { data: allPerspectives } = useBscPerspectives(organizationId)
   const { data: fixedPerspectives } = useFixedPerspectives()
   const selectedColor = watch('color')
-  const selectedFixed = watch('fixedPerspective')
   const weightValue = watch('weightPercentage')
+
+  const targetValue = watch('targetValue')
+  const minimumValue = watch('minimumValue')
+  const unitValue = watch('unit')
+  // Có mục tiêu > 0 ⇒ backend chuyển hạng mục sang cách chấm kiểu OKR; giữ đúng một điều kiện ở hai phía.
+  const hasOwnTarget = numOrNull(targetValue) != null && Number(targetValue) > 0
+  const unitLabel = unitValue ? ` ${unitValue}` : ''
+  const minimumLabel = numOrNull(minimumValue) != null
+    ? `, và = 0 nếu tổng thực đạt dưới ${minimumValue}${unitLabel}`
+    : ''
 
   // Phần còn thiếu để bộ tiêu chí đủ 100% (đã trừ các hạng mục khác đang bật).
   const round1 = (n: number) => Math.round(n * 10) / 10
@@ -83,6 +108,9 @@ export default function PerspectiveFormModal({
         code: perspective.code,
         name: perspective.name,
         description: perspective.description,
+        targetValue: perspective.targetValue ?? undefined,
+        minimumValue: perspective.minimumValue ?? undefined,
+        unit: perspective.unit ?? '',
         color: perspective.color || PRESET_COLORS[0],
         icon: perspective.icon,
         displayOrder: perspective.displayOrder,
@@ -95,6 +123,9 @@ export default function PerspectiveFormModal({
         code: '',
         name: '',
         description: '',
+        targetValue: undefined,
+        minimumValue: undefined,
+        unit: '',
         color: PRESET_COLORS[0],
         displayOrder: nextOrderIn(defaultFixedPerspective),
         status: BscPerspectiveStatus.ACTIVE,
@@ -153,7 +184,7 @@ export default function PerspectiveFormModal({
               <div className="sm:col-span-2 space-y-1.5">
                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Tên hạng mục <span className="text-red-500">*</span></label>
                 <input
-                  {...register('name', { required: 'Vui lòng nhập tên hạng mục' })}
+                  {...register('name')}
                   placeholder="VD: Công tác giảng dạy"
                   className="w-full px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 text-sm font-bold focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 outline-none transition-all"
                 />
@@ -162,26 +193,7 @@ export default function PerspectiveFormModal({
               <div className="space-y-1.5">
                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Mã <span className="text-red-500">*</span></label>
                 <input
-                  {...register('code', {
-                    required: 'Vui lòng nhập mã',
-                    maxLength: { value: 50, message: 'Mã tối đa 50 ký tự' },
-                    pattern: {
-                      value: /^[A-Za-z0-9_]+$/,
-                      message: 'Mã chỉ gồm chữ, số và dấu gạch dưới (không dấu cách, không tiếng Việt)',
-                    },
-                    validate: {
-                      reserved: v => {
-                        if (!v) return true
-                        const RESERVED = ['FINANCIAL', 'CUSTOMER', 'INTERNAL_PROCESS', 'LEARNING_GROWTH']
-                        return !RESERVED.includes(v.trim().toUpperCase()) || 'Mã này trùng mã lĩnh vực cố định — hãy dùng mã khác'
-                      },
-                      duplicate: v => {
-                        if (!v) return true
-                        const clash = (allPerspectives || []).some(p => p.code?.toLowerCase() === v.trim().toLowerCase() && p.id !== perspective?.id)
-                        return !clash || 'Mã này đã được dùng bởi hạng mục khác'
-                      },
-                    },
-                  })}
+                  {...register('code')}
                   placeholder="FINANCIAL"
                   className="w-full px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 text-sm font-bold focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 outline-none transition-all"
                 />
@@ -194,7 +206,6 @@ export default function PerspectiveFormModal({
               <Controller
                 name="fixedPerspective"
                 control={control}
-                rules={{ required: 'Vui lòng chọn lĩnh vực cho hạng mục' }}
                 render={({ field }) => (
                   <Select
                     key={`${field.value ?? 'NONE'}-${(fixedPerspectives || []).length}`}
@@ -235,6 +246,64 @@ export default function PerspectiveFormModal({
               />
             </div>
 
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 flex items-center gap-1">
+                  <Target size={11} /> Mục tiêu mong muốn
+                </label>
+                <input
+                  type="number"
+                  step="any"
+                  min={0}
+                  onWheel={e => (e.target as HTMLInputElement).blur()}
+                  {...register('targetValue', { setValueAs: numOrNull })}
+                  placeholder="VD: 100"
+                  className="w-full px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 text-sm font-bold focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 outline-none transition-all"
+                />
+                {errors.targetValue && <p className="text-[10px] font-bold text-red-500 ml-1">{errors.targetValue.message}</p>}
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 flex items-center gap-1">
+                  <Target size={11} /> Kết quả tối thiểu
+                </label>
+                <input
+                  type="number"
+                  step="any"
+                  min={0}
+                  onWheel={e => (e.target as HTMLInputElement).blur()}
+                  {...register('minimumValue', { setValueAs: numOrNull })}
+                  placeholder="VD: 80"
+                  className="w-full px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 text-sm font-bold focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 outline-none transition-all"
+                />
+                {errors.minimumValue && <p className="text-[10px] font-bold text-red-500 ml-1">{errors.minimumValue.message}</p>}
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Đơn vị tính</label>
+                <input
+                  {...register('unit')}
+                  placeholder="VNĐ, %, buổi..."
+                  className="w-full px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 text-sm font-bold focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 outline-none transition-all"
+                />
+                {errors.unit && <p className="text-[10px] font-bold text-red-500 ml-1">{errors.unit.message}</p>}
+              </div>
+            </div>
+            <div className={cn('p-3 rounded-xl border text-[10px] font-medium leading-relaxed',
+              hasOwnTarget
+                ? 'bg-indigo-50 dark:bg-indigo-900/10 border-indigo-100 dark:border-indigo-900/30 text-indigo-700 dark:text-indigo-300'
+                : 'bg-slate-50 dark:bg-slate-800/50 border-slate-100 dark:border-slate-800 text-slate-500')}>
+              {hasOwnTarget ? (
+                <>
+                  <b>Hạng mục này tự chấm theo mục tiêu của chính nó (kiểu OKR).</b> Điểm hạng mục ={' '}
+                  tổng giá trị thực đạt của các KPI <b>định lượng</b> trong hạng mục ÷ {targetValue}
+                  {unitLabel} × 100 (trần 150%){minimumLabel}. KPI định tính trong hạng mục không tham gia phép cộng này —
+                  hãy đảm bảo các KPI cùng đơn vị tính.
+                </>
+              ) : (
+                <>Bỏ trống mục tiêu ⇒ hạng mục chấm như cũ: trung bình có trọng số tỉ lệ đạt của các KPI con.
+                  Điền mục tiêu ⇒ hạng mục tự chấm theo mục tiêu của chính nó giống OKR.</>
+              )}
+            </div>
+
             <div className={cn('grid gap-4', showWeight ? 'grid-cols-2 sm:grid-cols-3' : 'grid-cols-2')}>
               <div className="space-y-1.5">
                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Thứ tự hiển thị <span className="text-red-500">*</span></label>
@@ -242,20 +311,7 @@ export default function PerspectiveFormModal({
                   type="number"
                   min={0}
                   step={1}
-                  {...register('displayOrder', {
-                    valueAsNumber: true,
-                    validate: {
-                      required: v => (v !== undefined && v !== null && !Number.isNaN(v)) || 'Vui lòng nhập thứ tự hiển thị',
-                      integer: v => v == null || Number.isInteger(v) || 'Thứ tự phải là số nguyên',
-                      min: v => v == null || v >= 0 || 'Thứ tự không được âm',
-                      duplicate: v => {
-                        if (v == null || Number.isNaN(v)) return true
-                        // Thứ tự hiển thị chỉ cần duy nhất TRONG CÙNG 1 lĩnh vực.
-                        const clash = (allPerspectives || []).some(p => p.displayOrder === v && p.fixedPerspective === selectedFixed && p.id !== perspective?.id)
-                        return !clash || 'Thứ tự này đã được dùng bởi hạng mục khác trong cùng lĩnh vực'
-                      },
-                    },
-                  })}
+                  {...register('displayOrder', { valueAsNumber: true })}
                   className="w-full px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 text-sm font-bold focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 outline-none transition-all"
                 />
                 {errors.displayOrder && <p className="text-[10px] font-bold text-red-500 ml-1">{errors.displayOrder.message}</p>}
@@ -283,18 +339,13 @@ export default function PerspectiveFormModal({
                   <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 flex items-center gap-1">
                     <Scale size={11} /> Trọng số (%)
                   </label>
+                  {/* Bỏ trống = 0 khi gửi, nên map về undefined để schema cho qua thay vì báo NaN. */}
                   <input
                     type="number"
                     min={0}
                     max={100}
                     step={0.1}
-                    {...register('weightPercentage', {
-                      valueAsNumber: true,
-                      // Bỏ trống = 0 (react-hook-form trả NaN), chỉ chặn số ngoài khoảng.
-                      validate: {
-                        range: v => v == null || Number.isNaN(v) || (v >= 0 && v <= 100) || 'Trọng số phải trong khoảng 0 – 100',
-                      },
-                    })}
+                    {...register('weightPercentage', { setValueAs: numOrUndefined })}
                     className="w-full px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 text-sm font-black text-right focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 outline-none transition-all"
                   />
                   {errors.weightPercentage && <p className="text-[10px] font-bold text-red-500 ml-1">{errors.weightPercentage.message}</p>}
@@ -322,10 +373,7 @@ export default function PerspectiveFormModal({
               <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Màu sắc <span className="text-red-500">*</span></label>
               <input
                 type="hidden"
-                {...register('color', {
-                  required: 'Vui lòng chọn màu sắc',
-                  pattern: { value: /^#([0-9A-Fa-f]{6})$/, message: 'Màu không hợp lệ' },
-                })}
+                {...register('color')}
               />
               <div className="flex flex-wrap gap-2 items-center">
                 {PRESET_COLORS.map(color => (

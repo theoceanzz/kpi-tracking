@@ -95,11 +95,13 @@ export default function MyObjectivesTab() {
       {/* Tiêu đề + nút Tuỳ chỉnh */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <h2 className="text-xl font-black text-slate-900 dark:text-white">Mục tiêu của tôi</h2>
-        <DashboardEditToolbar api={dash} />
+        <div id="tour-analytics-customize">
+          <DashboardEditToolbar api={dash} />
+        </div>
       </div>
 
       {/* Global Filter Toolbar */}
-      <div className="sticky top-0 z-20 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl flex flex-wrap items-center gap-4 justify-between p-4 shadow-sm">
+      <div id="tour-analytics-filter" className="sticky top-0 z-20 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl flex flex-wrap items-center gap-4 justify-between p-4 shadow-sm">
         <div className="flex items-center gap-2 min-w-0">
           <div className="p-2 rounded-lg text-indigo-600 dark:text-indigo-400 shrink-0 bg-indigo-50 dark:bg-indigo-900/30">
             <Target size={18} />
@@ -118,7 +120,7 @@ export default function MyObjectivesTab() {
       </div>
 
       {/* Metrics Row */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div id="tour-analytics-metrics" className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="bg-white dark:bg-slate-900 rounded-2xl p-5 border border-slate-200 dark:border-slate-800 flex items-center gap-4">
           <div className="w-12 h-12 rounded-full bg-indigo-100 dark:bg-indigo-900/40 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0">
             <TrendingUp size={24} />
@@ -159,7 +161,9 @@ export default function MyObjectivesTab() {
       </div>
 
       {/* Lưới widget tuỳ chỉnh: Xu hướng + Bảng chi tiết */}
-      <DashboardCustomizeChrome api={dash} renderWidget={renderWidget} catalog={CATALOG} />
+      <div id="tour-analytics-widgets">
+        <DashboardCustomizeChrome api={dash} renderWidget={renderWidget} catalog={CATALOG} />
+      </div>
     </div>
   )
 }

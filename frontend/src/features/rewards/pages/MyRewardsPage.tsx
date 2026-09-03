@@ -83,12 +83,14 @@ export default function MyRewardsPage() {
           "để mọi người đều biết" chỉ còn đúng với người có quyền quản lý thưởng. */}
       <RewardActivityTicker className="mb-6" />
 
-      <RewardBalanceCard wallet={wallet} loading={walletLoading} />
+      <div id="tour-my-rewards-balance">
+        <RewardBalanceCard wallet={wallet} loading={walletLoading} />
+      </div>
 
       {/* Ngay dưới số dư, TRÊN các tab: điểm danh là việc phải làm mỗi ngày, để nó nằm
           trong một tab thì hôm nào nhân viên không mở tab đó là mất chuỗi. Thẻ tự ẩn
           khi tổ chức chưa bật, nên không chiếm chỗ vô ích. */}
-      <div className="mt-6">
+      <div id="tour-my-rewards-checkin" className="mt-6">
         <CheckinCard />
       </div>
 
@@ -120,49 +122,55 @@ export default function MyRewardsPage() {
           thay vì để nhân viên tự nhẩm. */}
       {activeTab === 'shop' && <GiftShopGrid balance={wallet?.balance ?? 0} />}
 
-      {activeTab === 'history' &&
-        (txLoading ? (
-          <LoadingSkeleton type="table" rows={4} />
-        ) : transactions.length === 0 ? (
-          <div className="rounded-2xl border border-dashed border-[var(--color-border)]">
-            <EmptyState
-              title="Chưa có giao dịch nào"
-              description="Mọi lần bạn được thưởng điểm hoặc dùng điểm đổi quà đều được ghi lại đầy đủ ở đây."
-            />
-          </div>
-        ) : (
-          <>
-            <RewardLedgerTable data={transactions} />
-            {(txPage?.totalPages ?? 0) > 1 && (
-              <div className="mt-4">
-                <Pagination
-                  currentPage={page}
-                  totalPages={txPage?.totalPages ?? 0}
-                  totalElements={txPage?.totalElements ?? 0}
-                  size={size}
-                  onPageChange={setPage}
-                  itemLabel="giao dịch"
-                />
-              </div>
-            )}
-          </>
-        ))}
+      {activeTab === 'history' && (
+        <div id="tour-my-rewards-history">
+          {txLoading ? (
+            <LoadingSkeleton type="table" rows={4} />
+          ) : transactions.length === 0 ? (
+            <div className="rounded-2xl border border-dashed border-[var(--color-border)]">
+              <EmptyState
+                title="Chưa có giao dịch nào"
+                description="Mọi lần bạn được thưởng điểm hoặc dùng điểm đổi quà đều được ghi lại đầy đủ ở đây."
+              />
+            </div>
+          ) : (
+            <>
+              <RewardLedgerTable data={transactions} />
+              {(txPage?.totalPages ?? 0) > 1 && (
+                <div className="mt-4">
+                  <Pagination
+                    currentPage={page}
+                    totalPages={txPage?.totalPages ?? 0}
+                    totalElements={txPage?.totalElements ?? 0}
+                    size={size}
+                    onPageChange={setPage}
+                    itemLabel="giao dịch"
+                  />
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      )}
 
       {activeTab === 'certificates' && <MyCertificatesTab />}
 
-      {activeTab === 'redemptions' &&
-        (redemptionsLoading ? (
-          <LoadingSkeleton type="table" rows={3} />
-        ) : redemptions.length === 0 ? (
-          <div className="rounded-2xl border border-dashed border-[var(--color-border)]">
-            <EmptyState
-              title="Bạn chưa đổi quà nào"
-              description="Sang tab Cửa hàng quà để xem những gì bạn có thể đổi bằng số điểm đang có."
-            />
-          </div>
-        ) : (
-          <MyRedemptionsTable data={redemptions} />
-        ))}
+      {activeTab === 'redemptions' && (
+        <div id="tour-my-rewards-redemptions">
+          {redemptionsLoading ? (
+            <LoadingSkeleton type="table" rows={3} />
+          ) : redemptions.length === 0 ? (
+            <div className="rounded-2xl border border-dashed border-[var(--color-border)]">
+              <EmptyState
+                title="Bạn chưa đổi quà nào"
+                description="Sang tab Cửa hàng quà để xem những gì bạn có thể đổi bằng số điểm đang có."
+              />
+            </div>
+          ) : (
+            <MyRedemptionsTable data={redemptions} />
+          )}
+        </div>
+      )}
     </div>
   )
 }

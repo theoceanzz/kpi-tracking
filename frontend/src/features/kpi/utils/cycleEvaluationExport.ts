@@ -1,6 +1,7 @@
 import ExcelJS from 'exceljs'
 import { format, parseISO } from 'date-fns'
 import type { CycleUnitEvaluation, CycleUserEvaluation, CycleEvaluationMode } from '@/types/kpi'
+import { SCORING_POOL } from '@/lib/scoring'
 
 const MODE_LABEL: Record<CycleEvaluationMode, string> = {
   QUANTITATIVE: 'Định lượng',
@@ -28,17 +29,17 @@ async function download(wb: ExcelJS.Workbook, fileName: string) {
  */
 export async function exportCycleEvaluationToExcel(
   summary: CycleUnitEvaluation,
-  opts: { maxScore: number; getScoreLabel: (n: number) => string },
+  opts: { getScoreLabel: (n: number) => string },
 ) {
-  const { maxScore, getScoreLabel } = opts
+  const { getScoreLabel } = opts
   const isQual = summary.mode === 'QUALITATIVE'
   const showDim = summary.mode !== 'QUANTITATIVE' // có cột định tính + xếp loại
 
-  // Ở chế độ Định tính, số lưu trên thang điểm → hiện lại mức gốc 0-5.
+  // Ở chế độ Định tính, số lưu trên pool chấm → hiện lại mức gốc 0-5.
   const side = (v: number | null): string => {
     if (v == null) return '—'
     if (!isQual) return String(v)
-    return `${Math.round((v / maxScore) * 5 * 100) / 100}/5`
+    return `${Math.round((v / SCORING_POOL) * 5 * 100) / 100}/5`
   }
 
   const wb = new ExcelJS.Workbook()
@@ -150,9 +151,9 @@ export async function exportCycleEvaluationToExcel(
 export async function exportCycleMemberDetailToExcel(
   member: CycleUserEvaluation,
   summary: Pick<CycleUnitEvaluation, 'cycleName' | 'orgUnitName'>,
-  opts: { maxScore: number; getScoreLabel: (n: number) => string },
+  opts: { getScoreLabel: (n: number) => string },
 ) {
-  const { maxScore, getScoreLabel } = opts
+  const { getScoreLabel } = opts
   const isQual = member.mode === 'QUALITATIVE'
   // Chỉ chế độ "Cả hai" mới tách được 2 trục định lượng/định tính theo từng đợt.
   const showDim = member.mode === 'BOTH'
@@ -160,7 +161,7 @@ export async function exportCycleMemberDetailToExcel(
   const side = (v: number | null): string => {
     if (v == null) return '—'
     if (!isQual) return String(v)
-    return `${Math.round((v / maxScore) * 5 * 100) / 100}/5`
+    return `${Math.round((v / SCORING_POOL) * 5 * 100) / 100}/5`
   }
 
   const wb = new ExcelJS.Workbook()

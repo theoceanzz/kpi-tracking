@@ -1,4 +1,7 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import { useForm } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
+import { createTopupSchema, type TopupFormData } from '../schemas/topupSchema'
 import { Check, Copy, Loader2, QrCode, X } from 'lucide-react'
 import { toast } from 'sonner'
 import NumberInput from '@/components/common/NumberInput'
@@ -80,9 +83,21 @@ function Countdown({ expiresAt }: { expiresAt: string }) {
 }
 
 export default function TopupModal({ open, onClose, config }: TopupModalProps) {
-  const [amount, setAmount] = useState(0)
   const [orderId, setOrderId] = useState<string | null>(null)
   const [created, setCreated] = useState<TopupOrder | null>(null)
+
+  const min = config?.topupMinAmount ?? 0
+  const max = config?.topupMaxAmount ?? 0
+
+  const schema = useMemo(() => createTopupSchema({ min, max }), [min, max])
+
+  const { handleSubmit, reset, watch, setValue, formState: { errors } } = useForm<TopupFormData>({
+    resolver: zodResolver(schema),
+    defaultValues: { amount: 0 },
+  })
+
+  // NumberInput là ô nhập tự vẽ (nhận number, trả number) nên nối bằng watch + setValue.
+  const amount = watch('amount')
 
   const { createTopup, isCreating, cancelTopup, isCancelling } = useTopupActions()
   const { data: polled } = useTopupOrder(orderId ?? undefined)
@@ -92,11 +107,11 @@ export default function TopupModal({ open, onClose, config }: TopupModalProps) {
 
   useEffect(() => {
     if (!open) {
-      setAmount(0)
+      reset({ amount: 0 })
       setOrderId(null)
       setCreated(null)
     }
-  }, [open])
+  }, [open, reset])
 
   useEffect(() => {
     if (paid) toast.success('Đã nhận được tiền, số dư ví của bạn đã được cộng')
@@ -104,8 +119,8 @@ export default function TopupModal({ open, onClose, config }: TopupModalProps) {
 
   if (!open) return null
 
-  const submit = async () => {
-    const result = await createTopup({ amount })
+  const onSubmit = async (data: TopupFormData) => {
+    const result = await createTopup({ amount: data.amount })
     setCreated(result)
     setOrderId(result.id)
   }
@@ -114,10 +129,6 @@ export default function TopupModal({ open, onClose, config }: TopupModalProps) {
     if (orderId) await cancelTopup(orderId)
     onClose()
   }
-
-  const min = config?.topupMinAmount ?? 0
-  const max = config?.topupMaxAmount ?? 0
-  const invalid = amount < min || amount > max
 
   return (
     <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/50 p-4">
@@ -145,13 +156,17 @@ export default function TopupModal({ open, onClose, config }: TopupModalProps) {
             <label className="mb-1.5 block text-sm font-medium">Số tiền</label>
             <NumberInput
               value={amount}
-              onChange={setAmount}
+              onChange={v => setValue('amount', v, { shouldValidate: true })}
               placeholder="0"
               className="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-background)] px-4 py-3 text-right text-xl font-bold tabular-nums outline-none focus:border-[var(--color-primary)]"
             />
-            <p className="mt-2 text-xs text-[var(--color-muted-foreground)]">
-              Từ {formatCurrency(min)} đến {formatCurrency(max)}
-            </p>
+            {errors.amount ? (
+              <p className="mt-2 text-xs text-rose-600">{errors.amount.message}</p>
+            ) : (
+              <p className="mt-2 text-xs text-[var(--color-muted-foreground)]">
+                Từ {formatCurrency(min)} đến {formatCurrency(max)}
+              </p>
+            )}
 
             <div className="mt-3 flex flex-wrap gap-2">
               {[50_000, 100_000, 200_000, 500_000]
@@ -160,7 +175,7 @@ export default function TopupModal({ open, onClose, config }: TopupModalProps) {
                   <button
                     key={v}
                     type="button"
-                    onClick={() => setAmount(v)}
+                    onClick={() => setValue('amount', v, { shouldValidate: true })}
                     className="rounded-full border border-[var(--color-border)] px-3 py-1.5 text-xs font-semibold transition-colors hover:border-[var(--color-primary)] hover:text-[var(--color-primary)]"
                   >
                     {formatCurrency(v)}
@@ -170,8 +185,8 @@ export default function TopupModal({ open, onClose, config }: TopupModalProps) {
 
             <button
               type="button"
-              onClick={submit}
-              disabled={invalid || isCreating}
+              onClick={handleSubmit(onSubmit)}
+              disabled={isCreating}
               className="mt-6 flex w-full items-center justify-center gap-2 rounded-xl bg-[var(--color-primary)] px-4 py-3 font-semibold text-white transition-opacity disabled:opacity-50"
             >
               {isCreating ? <Loader2 size={18} className="animate-spin" /> : <QrCode size={18} />}

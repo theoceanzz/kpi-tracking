@@ -329,7 +329,7 @@ export default function DrillDownTab() {
       {/* Bộ lọc thời gian — sticky. Cùng khuôn với bộ lọc của các mục còn lại trong
           trang Phân tích: `flex-wrap` để hàng điều khiển tự xuống dòng khi hẹp, thay
           vì ép một hàng rồi bóp tiêu đề thành hai dòng. */}
-      <div className="sticky top-0 z-20 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl flex flex-wrap items-center gap-4 justify-between p-4 shadow-sm">
+      <div id="tour-analytics-filter" className="sticky top-0 z-20 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl flex flex-wrap items-center gap-4 justify-between p-4 shadow-sm">
         <div className="flex items-center gap-2 min-w-0">
           <div className="p-2 rounded-lg text-indigo-600 dark:text-indigo-400 shrink-0 bg-indigo-50 dark:bg-indigo-900/30">
             <Target size={18} />
@@ -348,7 +348,7 @@ export default function DrillDownTab() {
       {/* Master–detail: cây trái · chi tiết phải */}
       <div className="grid grid-cols-1 lg:grid-cols-[300px_minmax(0,1fr)] gap-6 items-start">
         {/* Cây đơn vị (desktop) */}
-        <aside className="hidden lg:block lg:sticky lg:top-4 h-[calc(100vh-2rem)]">
+        <aside id="tour-drilldown-tree" className="hidden lg:block lg:sticky lg:top-4 h-[calc(100vh-2rem)]">
           <OrgUnitTreeSidebar nodes={treeNodes} selectedId={treeSelectedId} onSelect={select} />
         </aside>
 
@@ -364,7 +364,7 @@ export default function DrillDownTab() {
 
           {/* Banner đơn vị đang chọn */}
           {data && (
-            <div className="bg-gradient-to-r from-indigo-500 to-purple-600 rounded-[24px] p-5 text-white shadow-xl">
+            <div id="tour-drilldown-banner" className="bg-gradient-to-r from-indigo-500 to-purple-600 rounded-[24px] p-5 text-white shadow-xl">
               <div className="flex items-center justify-between gap-4">
                 <div className="min-w-0">
                   <p className="text-white/70 text-[10px] font-black uppercase tracking-widest">{data.levelName || 'Cấp đơn vị'}</p>
@@ -390,7 +390,7 @@ export default function DrillDownTab() {
             <>
               {/* Bảng thành viên (ưu tiên) */}
               {data.employees.length > 0 ? (
-                <section ref={employeeTableRef} className="bg-white dark:bg-slate-900 rounded-[28px] border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
+                <section id="tour-drilldown-members" ref={employeeTableRef} className="bg-white dark:bg-slate-900 rounded-[28px] border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
                   <div className="p-5 border-b border-slate-100 dark:border-slate-800 flex flex-col md:flex-row md:items-center justify-between gap-4">
                     <div className="flex items-center gap-2">
                       <h3 className="font-black text-sm flex items-center gap-2">

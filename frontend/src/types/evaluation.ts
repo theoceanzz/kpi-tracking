@@ -51,6 +51,10 @@ export interface EvaluationScorePreview {
   behaviorScore: number | null
   kpiCompletionPercent: number | null
   matrixRating: number | null
+  /** Điểm KPI thưởng đã quy về thang điểm — cộng THÊM lên trên thang điểm. */
+  bonusScore?: number | null
+  /** Trần điểm được phép lưu = thang điểm + bonusScore (backend chặn theo con số này). */
+  maxAllowedScore?: number | null
   // ── BSC ──
   bscScore?: number | null
   bscScoringMode?: BscScoringMode | null

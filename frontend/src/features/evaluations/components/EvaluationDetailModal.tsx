@@ -1,10 +1,13 @@
-import { useState, useMemo, useEffect } from 'react'
+import { useState, useMemo, useEffect, useRef } from 'react'
+import { useForm } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
 import { useQuery } from '@tanstack/react-query'
+import { createInlineEvaluationSchema, type InlineEvaluationFormData } from '../schemas/evaluationSchema'
 import { useSubmissions } from '@/features/submissions/hooks/useSubmissions'
 import { useEvaluations } from '../hooks/useEvaluations'
 import { useAuthStore } from '@/store/authStore'
 import { useOrganization } from '@/features/orgunits/hooks/useOrganization'
-import { getScoringFunctions } from '@/lib/scoring'
+import { getScoringFunctions, SCORING_POOL, describePerspectiveScore } from '@/lib/scoring'
 import { formatNumber, formatDateTime, cn } from '@/lib/utils'
 import UserAvatar from '@/components/common/UserAvatar'
 import type { Evaluation } from '@/types/evaluation'
@@ -17,6 +20,7 @@ import StaffEvaluationModal from '@/features/submissions/components/StaffEvaluat
 import StaffPerformanceDetailModal from '@/features/submissions/components/StaffPerformanceDetailModal'
 import { usePermission } from '@/hooks/usePermission'
 import TimelineStep from '@/components/common/TimelineStep'
+import ConductInlineSheet from '@/features/conduct/components/ConductInlineSheet'
 
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { evaluationApi } from '../api/evaluationApi'
@@ -47,17 +51,33 @@ export default function EvaluationDetailModal({ open, onClose, evaluation }: Eva
   const [showPerfDetail, setShowPerfDetail] = useState(false)
   const [inlineScoreInitialized, setInlineScoreInitialized] = useState(false)
 
-  const [inlineScore, setInlineScore] = useState<number>(0)
-  const [inlineComment, setInlineComment] = useState('')
+  // Trần điểm chỉ có sau khi score-preview trả về, tức là sau khi form đã dựng — giữ trong
+  // ref và để schema đọc lúc kiểm tra, thay vì dựng lại schema mỗi lần con số đổi.
+  const scoreCeilingRef = useRef(0)
+  const inlineSchema = useMemo(() => createInlineEvaluationSchema(() => scoreCeilingRef.current), [])
+
+  const {
+    register: registerInline,
+    handleSubmit: handleInlineSubmit,
+    reset: resetInline,
+    watch: watchInline,
+    setValue: setInlineValue,
+    formState: { errors: inlineErrors },
+  } = useForm<InlineEvaluationFormData>({
+    resolver: zodResolver(inlineSchema),
+    defaultValues: { score: 0, comment: '' },
+  })
+
+  // Thanh kéo điểm hiển thị lại theo từng nấc nên phải theo dõi giá trị.
+  const inlineScore = watchInline('score')
 
   // Reset internal form state when evaluation changes to avoid data leakage between users
   useEffect(() => {
     if (evaluation?.id) {
-      setInlineScore(0)
-      setInlineComment('')
+      resetInline({ score: 0, comment: '' })
       setInlineScoreInitialized(false)
     }
-  }, [evaluation?.id])
+  }, [evaluation?.id, resetInline])
 
   // Determine if current user already evaluated at their level  
   const myEvalAtLevel = useMemo(() => {
@@ -68,11 +88,11 @@ export default function EvaluationDetailModal({ open, onClose, evaluation }: Eva
   }, [relatedData, user, evaluation])
 
   const inlineSubmitMutation = useMutation({
-    mutationFn: () => evaluationApi.create({
+    mutationFn: (data: InlineEvaluationFormData) => evaluationApi.create({
       userId: evaluation!.userId,
       kpiPeriodId: evaluation!.kpiPeriodId,
-      score: inlineScore,
-      comment: inlineComment || undefined
+      score: data.score,
+      comment: data.comment || undefined
     }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['evaluations'] })
@@ -295,15 +315,16 @@ export default function EvaluationDetailModal({ open, onClose, evaluation }: Eva
   // Initialize inline score from self-evaluation
   useEffect(() => {
     if (!inlineScoreInitialized && layers.selfEval?.score != null) {
-      setInlineScore(layers.selfEval.score)
+      setInlineValue('score', layers.selfEval.score, { shouldValidate: true })
       setInlineScoreInitialized(true)
     }
-  }, [layers.selfEval, inlineScoreInitialized])
+  }, [layers.selfEval, inlineScoreInitialized, setInlineValue])
 
-  // System Score Calculation
-  const { data: systemScoreData } = useQuery({
-    queryKey: ['system-score', evaluation?.kpiPeriodId, evaluation?.userId],
-    queryFn: () => evaluationApi.getSystemScore(evaluation!.kpiPeriodId, evaluation!.userId),
+  // System Score Calculation — dùng score-preview thay cho system-score vì còn cần TRẦN điểm
+  // (thang điểm + điểm KPI thưởng) cho thanh kéo; cũng dùng chung cache với các modal chấm điểm.
+  const { data: scorePreview } = useQuery({
+    queryKey: ['score-preview', evaluation?.kpiPeriodId, evaluation?.userId],
+    queryFn: () => evaluationApi.getScorePreview(evaluation!.kpiPeriodId, evaluation!.userId),
     enabled: !!evaluation?.kpiPeriodId && !!evaluation?.userId,
   })
 
@@ -313,7 +334,10 @@ export default function EvaluationDetailModal({ open, onClose, evaluation }: Eva
     kpiPeriodId: evaluation?.kpiPeriodId
   })
 
-  const calculatedScore = systemScoreData ?? null
+  const calculatedScore = scorePreview?.systemScore ?? null
+  const scoreCeiling = scorePreview?.maxAllowedScore ?? maxScore
+  scoreCeilingRef.current = scoreCeiling
+  const bonusScore = scorePreview?.bonusScore ?? 0
 
   const [selectedSubmission, setSelectedSubmission] = useState<any>(null)
 
@@ -394,6 +418,18 @@ export default function EvaluationDetailModal({ open, onClose, evaluation }: Eva
 
 
 
+          {/* Phiếu hạnh kiểm của đúng đợt này. Đặt ở đây chứ không chỉ nằm trong modal chấm
+              đợt: nút xuống modal đó đòi phải có bài nộp, nên người không nộp gì mà đã bị
+              chốt đánh giá sẽ không còn đường nào mở phiếu ra. */}
+          {org?.enableConduct && evaluation?.kpiPeriodId && (
+            <div className="pt-4 border-t border-slate-100 dark:border-slate-800">
+              <ConductInlineSheet
+                target={{ scope: 'PERIOD', periodId: evaluation.kpiPeriodId, cycleId: null }}
+                userId={evaluation.userId}
+              />
+            </div>
+          )}
+
           {/* === Director: Drill-down to StaffEvaluationModal === */}
           {canReviewSubmission && isManager && evaluation?.userId !== user?.id && mySubmissions && mySubmissions.content.length > 0 && (
             <div className="pt-4 border-t border-slate-100 dark:border-slate-800">
@@ -452,16 +488,26 @@ export default function EvaluationDetailModal({ open, onClose, evaluation }: Eva
 
                     <div className="w-full max-w-md mx-auto space-y-4">
                       <input
-                        type="range" min={0} max={maxScore} step={1}
+                        type="range" min={0} max={scoreCeiling} step={1}
                         value={inlineScore}
-                        onChange={e => setInlineScore(Number(e.target.value))}
+                        onChange={e => setInlineValue('score', Number(e.target.value), { shouldValidate: true })}
                         className="w-full accent-indigo-600 h-2.5 bg-slate-200 dark:bg-slate-700 rounded-full appearance-none cursor-pointer transition-all hover:h-3"
                       />
+                      {inlineErrors.score && (
+                        <p className="text-center text-[10px] font-black text-red-500 uppercase tracking-widest">
+                          {inlineErrors.score.message}
+                        </p>
+                      )}
                       <div className="flex justify-between px-1">
                         <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">0</span>
-                        <span className="text-[10px] font-black text-slate-300 uppercase tracking-widest opacity-50">{Math.round(maxScore / 2)}</span>
-                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{maxScore}</span>
+                        <span className="text-[10px] font-black text-slate-300 uppercase tracking-widest opacity-50">{Math.round(scoreCeiling / 2)}</span>
+                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{scoreCeiling}</span>
                       </div>
+                      {bonusScore > 0 && (
+                        <p className="text-center text-[9px] font-black text-emerald-600 uppercase tracking-widest">
+                          Đạt đủ KPI = {SCORING_POOL} điểm · thưởng thêm {bonusScore}
+                        </p>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -472,8 +518,7 @@ export default function EvaluationDetailModal({ open, onClose, evaluation }: Eva
                     <MessageSquare size={14} className="text-indigo-400" /> Nhận xét đánh giá
                   </label>
                   <textarea
-                    value={inlineComment}
-                    onChange={e => setInlineComment(e.target.value)}
+                    {...registerInline('comment')}
                     rows={3}
                     placeholder="Ghi lại nhận xét chi tiết về nỗ lực và kết quả của nhân viên..."
                     className="w-full px-6 py-5 rounded-[28px] border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-sm font-medium focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500/50 outline-none resize-none transition-all shadow-sm placeholder:text-slate-400"
@@ -483,8 +528,8 @@ export default function EvaluationDetailModal({ open, onClose, evaluation }: Eva
                 <div className="relative group">
                   <div className="absolute -inset-1 bg-gradient-to-r from-indigo-600 to-purple-600 rounded-2xl blur opacity-25 group-hover:opacity-40 transition duration-500"></div>
                   <button
-                    onClick={() => inlineSubmitMutation.mutate()}
-                    disabled={inlineSubmitMutation.isPending || inlineScore <= 0}
+                    onClick={handleInlineSubmit(data => inlineSubmitMutation.mutate(data))}
+                    disabled={inlineSubmitMutation.isPending}
                     className="relative w-full py-5 rounded-2xl bg-slate-900 dark:bg-white text-white dark:text-slate-900 text-xs font-black uppercase tracking-[3px] shadow-2xl hover:bg-indigo-600 dark:hover:bg-indigo-50 transition-all flex items-center justify-center gap-3 disabled:opacity-50 active:scale-[0.98]"
                   >
                     {inlineSubmitMutation.isPending ? <Loader2 size={16} className="animate-spin" /> : <Award size={16} />}
@@ -590,9 +635,12 @@ function EvalLayerCard({ title, icon: Icon, iconBg, iconColor, evaluation, lineA
                             <span key={p.perspectiveId}
                               className="inline-flex items-center gap-1 text-[9px] font-bold px-1.5 py-0.5 rounded-md"
                               style={{ color: p.color || '#8b5cf6', backgroundColor: `${p.color || '#8b5cf6'}14` }}
-                              title={`${p.name}: đạt ${p.achievementPercent != null ? p.achievementPercent.toFixed(1) + '%' : 'không có KPI'} × trọng số ${p.weightPercentage}%`}>
+                              title={describePerspectiveScore(p)}>
                               <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: p.color || '#8b5cf6' }} />
                               {p.name} <b>{p.achievementPercent != null ? `${p.achievementPercent.toFixed(0)}%` : '—'}</b>
+                              {p.scoredByTarget && p.actualValue != null && p.targetValue != null && (
+                                <span className="opacity-60">{p.actualValue}/{p.targetValue}{p.unit ? ` ${p.unit}` : ''}</span>
+                              )}
                             </span>
                           ))}
                         </div>

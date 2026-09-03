@@ -239,7 +239,7 @@ export default function ConductConfigSection({ org }: { org: OrganizationRespons
 
       {/* Không bọc thêm một card ngoài: mỗi bộ đã là một card có viền, lồng card trong
           card chỉ thêm một tầng khung mà không nhóm thêm được thông tin gì. */}
-      <div className="space-y-2.5">
+      <div id="tour-conduct-sets" className="space-y-2.5">
         {drafts.map(d => (
           <SetCard
             key={d.id}
@@ -263,6 +263,7 @@ export default function ConductConfigSection({ org }: { org: OrganizationRespons
       </div>
 
       <button
+        id="tour-conduct-add-set"
         type="button"
         onClick={handleAdd}
         disabled={isCreating}

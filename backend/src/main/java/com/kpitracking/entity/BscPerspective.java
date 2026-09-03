@@ -47,6 +47,18 @@ public class BscPerspective {
     @Column(name = "description", columnDefinition = "TEXT")
     private String description;
 
+    /** Mức cần đạt của hạng mục (giống KPI). Để trống nếu hạng mục chưa đặt con số cụ thể. */
+    @Column(name = "target_value")
+    private Double targetValue;
+
+    /** Ngưỡng sàn chấp nhận được; phải nhỏ hơn hoặc bằng {@link #targetValue} khi cả hai được đặt. */
+    @Column(name = "minimum_value")
+    private Double minimumValue;
+
+    /** Đơn vị tính của {@link #targetValue}/{@link #minimumValue} (VD: VNĐ, %, buổi). */
+    @Column(name = "unit", length = 50)
+    private String unit;
+
     @Column(name = "color", length = 20)
     private String color;
 

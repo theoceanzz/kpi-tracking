@@ -53,10 +53,11 @@ public class SepayReconcileService {
     /** Mặc định trả về đúng hàng đợi; {@code all = true} để xem toàn bộ lịch sử. */
     @Transactional(readOnly = true)
     public PageResponse<SepayEventResponse> list(boolean all, int page, int size) {
+        UUID orgId = context.getCurrentOrgId();
         var pageable = PageRequest.of(page, size);
         Page<SepayWebhookEvent> result = all
-                ? eventRepository.findAllByOrderByReceivedAtDesc(pageable)
-                : eventRepository.findReconcileQueue(pageable);
+                ? eventRepository.findHistory(orgId, pageable)
+                : eventRepository.findReconcileQueue(orgId, pageable);
 
         return PageResponse.<SepayEventResponse>builder()
                 .content(result.getContent().stream().map(this::toResponse).toList())
@@ -70,9 +71,10 @@ public class SepayReconcileService {
 
     @Transactional(readOnly = true)
     public WalletReconcileResponse reconcile() {
-        var inconsistent = cashWalletService.findInconsistentWallets(context.getCurrentOrgId());
-        long unresolved = eventRepository.countUnresolved();
-        long mismatch = eventRepository.countAmountMismatch();
+        UUID orgId = context.getCurrentOrgId();
+        var inconsistent = cashWalletService.findInconsistentWallets(orgId);
+        long unresolved = eventRepository.countUnresolved(orgId);
+        long mismatch = eventRepository.countAmountMismatch(orgId);
 
         return WalletReconcileResponse.builder()
                 .inconsistentWalletIds(inconsistent)
@@ -98,6 +100,13 @@ public class SepayReconcileService {
 
         SepayWebhookEvent event = eventRepository.findByIdForUpdate(eventId)
                 .orElseThrow(() -> new ResourceNotFoundException("Sự kiện SePay", "id", eventId));
+
+        // Sự kiện của tổ chức khác thì coi như không tồn tại: id là UUID nên không
+        // đoán được, nhưng nó vẫn đi qua đây được nếu ai đó chép lại từ nơi khác.
+        UUID orgId = context.getCurrentOrgId();
+        if (event.getOrganization() != null && !event.getOrganization().getId().equals(orgId)) {
+            throw new ResourceNotFoundException("Sự kiện SePay", "id", eventId);
+        }
 
         if (event.getResolvedAt() != null) {
             throw new BusinessException("Sự kiện này đã được "
@@ -140,6 +149,12 @@ public class SepayReconcileService {
         TopupOrder order = orderRepository.findByIdForUpdate(request.getOrderId())
                 .orElseThrow(() -> new ResourceNotFoundException("Đơn nạp tiền", "id", request.getOrderId()));
 
+        // Mã đơn là duy nhất TOÀN CỤC nên id đơn của tổ chức khác vẫn tra ra được ở
+        // đây. Không có dòng này thì gán tay là một đường ghi có xuyên tổ chức.
+        if (!order.getOrganization().getId().equals(context.getCurrentOrgId())) {
+            throw new ResourceNotFoundException("Đơn nạp tiền", "id", request.getOrderId());
+        }
+
         if (!order.isCreditable()) {
             throw new BusinessException("Đơn " + order.getCode() + " đã được thanh toán. "
                     + "Nếu đây là khoản tiền thứ hai thì hãy chọn 'Ghi có cho người dùng'.");
@@ -166,6 +181,9 @@ public class SepayReconcileService {
         orderRepository.save(order);
 
         event.setMatchedOrder(order);
+        // Gán tay cũng là lúc xác định được chủ sở hữu của một sự kiện trước đó chưa
+        // quy được về tổ chức nào.
+        event.setOrganization(order.getOrganization());
         event.setAmountMismatch(received != order.getAmount());
         eventPublisher.publishEvent(new WalletEvents.TopupPaidEvent(this, order, received));
         return tx;
@@ -184,8 +202,27 @@ public class SepayReconcileService {
         if (request.getUserId() == null) {
             throw new BusinessException("Vui lòng chọn người được ghi có.");
         }
+
+        // Chưa quy được giao dịch về tổ chức nào nghĩa là tiền về một tài khoản
+        // KHÔNG tổ chức nào khai. Cho ghi có ở đây là mở đúng đường để tự cộng tiền
+        // cho nhân viên mình từ một khoản tiền chưa chắc là của mình. Đường ra là
+        // sửa cấu hình ví: lưu đúng số tài khoản sẽ tự gán lại các sự kiện cũ.
+        if (event.getOrganization() == null) {
+            throw new BusinessException("Chưa xác định được giao dịch này về tài khoản của tổ chức "
+                    + "nào nên không ghi có thẳng được. Hãy kiểm tra số tài khoản trong Cấu hình ví "
+                    + "có đúng tài khoản đã liên kết trên SePay không rồi lưu lại — các giao dịch cũ "
+                    + "của tài khoản đó sẽ tự được gán về tổ chức. Nếu xác định được đơn nạp tương "
+                    + "ứng thì dùng cách 'Gán vào đơn nạp'.");
+        }
+
         long received = requireReceivedAmount(event);
         UUID orgId = context.getOrgIdOf(request.getUserId());
+
+        // Người nhận phải cùng tổ chức với khoản tiền: EmployeePicker chỉ hiện người
+        // trong tổ chức, nhưng userId đi thẳng từ request nên không tin được.
+        if (!orgId.equals(context.getCurrentOrgId())) {
+            throw new BusinessException("Người được ghi có không thuộc tổ chức của bạn.");
+        }
 
         return cashWalletService.applyTransaction(
                 CashWalletService.CashLedgerEntry.builder()
@@ -243,6 +280,7 @@ public class SepayReconcileService {
                 .resolutionNote(e.getResolutionNote())
                 .resolutionTransactionId(e.getResolutionTransactionId())
                 .inQueue(e.isInReconcileQueue())
+                .unattributed(e.getOrganization() == null)
                 .receivedAt(e.getReceivedAt())
                 .build();
     }

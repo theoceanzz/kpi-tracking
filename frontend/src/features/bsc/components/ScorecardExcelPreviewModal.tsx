@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
+import { z } from 'zod'
 import { read, write, utils } from 'xlsx'
 import { X, Save, AlertCircle, Trash2, Plus, FileSpreadsheet, ChevronDown, Check } from 'lucide-react'
 import { toast } from 'sonner'
@@ -16,6 +17,17 @@ interface Props {
   onImport: (modifiedFile: File) => void
   isImporting: boolean
 }
+
+/**
+ * Ràng buộc từng dòng. Trùng mã trong kỳ và tổng trọng số của kỳ phải nhìn cả tệp mới
+ * biết, nên nằm ở `validateAll` bên dưới chứ không ở đây.
+ */
+const rowSchema = z.object({
+  Period: z.string().trim().min(1, 'Bắt buộc'),
+  PerspectiveCode: z.string().trim().min(1, 'Bắt buộc'),
+  Weight: z.union([z.string(), z.number()])
+    .refine(v => String(v ?? '').trim() !== '' && !isNaN(Number(v)), 'Phải là số'),
+})
 
 interface Row {
   id: string
@@ -112,15 +124,22 @@ export default function ScorecardExcelPreviewModal({ open, file, onClose, onImpo
     })
     return rows.map(r => {
       const errors: Record<string, string> = {}
+      const parsed = rowSchema.safeParse(r)
+      if (!parsed.success) {
+        parsed.error.issues.forEach(issue => {
+          const field = issue.path[0]
+          if (typeof field === 'string') errors[field] = issue.message
+        })
+      }
       const periodVal = (r.Period || '').trim()
       const codeVal = (r.PerspectiveCode || '').trim()
-      if (!periodVal) errors['Period'] = 'Bắt buộc'
-      else if (periodNames.length > 0 && !periodNames.some(n => n.toLowerCase() === periodVal.toLowerCase())) errors['Period'] = 'Kỳ không tồn tại'
-      if (!codeVal) errors['PerspectiveCode'] = 'Bắt buộc'
-      else if (periodVal && (comboCounts.get(`${periodVal.toLowerCase()}##${codeVal.toLowerCase()}`) || 0) > 1) {
+      // Hai luật dưới đây phải nhìn cả tệp / danh sách kỳ trên server nên không nằm trong schema.
+      if (periodVal && periodNames.length > 0 && !periodNames.some(n => n.toLowerCase() === periodVal.toLowerCase())) {
+        errors['Period'] = 'Kỳ không tồn tại'
+      }
+      if (codeVal && periodVal && (comboCounts.get(`${periodVal.toLowerCase()}##${codeVal.toLowerCase()}`) || 0) > 1) {
         errors['PerspectiveCode'] = 'Mã hạng mục bị trùng trong kỳ'
       }
-      if (!(r.Weight || '').toString().trim() || isNaN(Number(r.Weight))) errors['Weight'] = 'Phải là số'
       const key = periodVal.toLowerCase()
       if (key) {
         const total = sums.get(key) || 0

@@ -57,7 +57,7 @@ const setupCompanyTours: Record<TourKey, TourDef> = {
         content: (
           <div className="space-y-2">
             <p>
-              Tên, mã doanh nghiệp, rồi <strong>Cấp bậc</strong> — công ty có mấy tầng và mỗi tầng gọi là
+              Tên, mã doanh nghiệp, rồi <strong>Cấp bậc công ty</strong> — công ty có mấy tầng và mỗi tầng gọi là
               gì (Khối, Phòng, Tổ...).
             </p>
             {warn('Cấp bậc quyết định hình dạng của cây đơn vị. Đặt trước khi dựng cơ cấu, đổi sau sẽ ảnh hưởng tới các đơn vị đã tạo.')}
@@ -250,7 +250,7 @@ const setupCompanyTours: Record<TourKey, TourDef> = {
           <div className="space-y-2">
             <p>
               Tạo đơn vị, đặt nó dưới đơn vị cha, rồi gán <strong>người phụ trách</strong>. Số tầng bạn
-              được phép tạo lấy theo cấu trúc đã khai ở mục "Cấp bậc".
+              được phép tạo lấy theo cấu trúc đã khai ở mục "Cấp bậc công ty".
             </p>
             {warn('Đơn vị không có người phụ trách sẽ làm tắc chuỗi duyệt KPI của cả đơn vị đó — không ai nhận được việc cần duyệt.')}
           </div>
@@ -334,20 +334,35 @@ const setupCompanyTours: Record<TourKey, TourDef> = {
   'setup-company/sidebar': {
     steps: [
       {
-        target: '#tour-section-root',
+        target: '#tour-sidebar-header',
         title: '🏷️ Gọi mọi thứ theo tên của bạn',
         content: (
           <div className="space-y-2">
             <p>
-              Đổi nhãn của bất kỳ mục nào trên menu và bên trong từng trang — "Chỉ tiêu" thành "Định
-              mức", "Đợt" thành "Tháng", tuỳ tổ chức bạn quen gọi thế nào.
+              Đổi nhãn của bất kỳ mục nào trên menu và bên trong từng trang — "Chỉ tiêu" thành "Định mức",
+              "Đợt" thành "Tháng", tuỳ tổ chức bạn quen gọi thế nào.
             </p>
+            {note('Dòng phụ ngay dưới nhan đề đếm số mục đang được đổi tên — nhìn đó là biết công ty đã tuỳ biến tới đâu.')}
           </div>
         ),
-        placement: 'top',
+        placement: 'bottom',
       },
       {
-        target: '#tour-section-root',
+        target: '#tour-sidebar-header',
+        title: '🔍 Tìm rồi mới sửa, và nhớ Lưu',
+        content: (
+          <div className="space-y-2">
+            <p>
+              Ô <strong>Tìm mục</strong> lọc theo cả nhãn mặc định lẫn nhãn bạn đã đặt. Sửa xong phải bấm
+              <strong> Lưu thay đổi</strong> ở ngay cạnh — mọi ô nhập được ghi cùng một lần.
+            </p>
+            {warn('Rời màn hình khi chưa lưu là mất hết những gì vừa gõ, không có hộp thoại nhắc lại.')}
+          </div>
+        ),
+        placement: 'bottom',
+      },
+      {
+        target: '#tour-sidebar-note',
         title: '📍 Chia theo NƠI mục hiện ra',
         content: (
           <div className="space-y-2">
@@ -358,17 +373,18 @@ const setupCompanyTours: Record<TourKey, TourDef> = {
             {note('Chia như vậy vì phần lớn màn hình giờ là mục trong trang — danh sách phẳng sẽ có hơn hai mươi dòng mà không biết dòng nào ở đâu.')}
           </div>
         ),
-        placement: 'top',
+        placement: 'bottom',
       },
       {
-        target: '#tour-section-root',
+        target: '#tour-sidebar-scope-sidebar',
         title: '↩️ Đổi tên không đổi chức năng',
         content: (
           <div className="space-y-2">
             <p>
-              Nhãn chỉ là cách hiển thị. Đổi tên không làm mất dữ liệu, không đổi quyền, và xoá trống ô
-              nhập là quay về nhãn mặc định.
+              Mỗi dòng hiện nhãn mặc định, cụm của nó, và khoá kỹ thuật in mờ bên dưới. Nhãn chỉ là cách
+              hiển thị: đổi tên không mất dữ liệu, không đổi quyền.
             </p>
+            {note('Xoá trống ô nhập là mục đó quay về nhãn mặc định — không cần nhớ tên gốc là gì.')}
           </div>
         ),
         placement: 'top',
@@ -379,34 +395,35 @@ const setupCompanyTours: Record<TourKey, TourDef> = {
   'setup-company/notifications': {
     steps: [
       {
-        target: '#tour-section-root',
-        title: '🔔 Sự kiện nào thì báo',
+        target: '#tour-notif-header',
+        title: '🔔 Mặc định cho cả tổ chức',
         content: (
           <div className="space-y-2">
             <p>
-              Mỗi dòng là một sự kiện trong hệ thống — có chỉ tiêu cần duyệt, có bài nộp mới, sắp tới hạn
-              nộp. Bạn quyết định sự kiện nào đáng làm phiền người dùng.
+              Thiết lập ở đây áp làm <strong>mặc định</strong> cho mọi nhân viên. Sửa xong nhớ bấm
+              <strong> Lưu cấu hình</strong> ở góc phải card này.
             </p>
           </div>
         ),
-        placement: 'top',
+        placement: 'bottom',
       },
       {
-        target: '#tour-section-root',
+        target: '#tour-notif-events',
         title: '📨 Hai kênh, bật độc lập',
         content: (
           <div className="space-y-2">
             <p>
-              <strong>Trong hệ thống</strong> là chuông thông báo trên app. <strong>Email</strong> là thư
-              gửi tới hộp thư. Một sự kiện có thể bật kênh này, tắt kênh kia.
+              Mỗi dòng là một sự kiện — có chỉ tiêu cần duyệt, có bài nộp mới, sắp tới hạn nộp. Hai công
+              tắc bên phải là <strong>Email</strong> (thư vào hộp thư) và <strong>Hệ thống</strong> (chuông
+              trong app), bật tắt riêng từng cái.
             </p>
-            {note('Việc gấp thì bật cả hai; việc thường xuyên thì chỉ để chuông, kẻo hộp thư nhân viên đầy thư hệ thống và họ bỏ qua luôn cả thư quan trọng.')}
+            {note('Việc gấp thì bật cả hai; việc lặp lại thường xuyên thì chỉ để chuông, kẻo hộp thư nhân viên đầy thư hệ thống rồi họ bỏ qua luôn thư quan trọng.')}
           </div>
         ),
         placement: 'top',
       },
       {
-        target: '#tour-section-root',
+        target: '#tour-notif-events',
         title: '✉️ Nội dung thư ở mục khác',
         content: (
           <p>
@@ -422,34 +439,34 @@ const setupCompanyTours: Record<TourKey, TourDef> = {
   'setup-company/email': {
     steps: [
       {
-        target: '#tour-section-root',
-        title: '✉️ Thư hệ thống nói bằng giọng của bạn',
+        target: '#tour-email-list',
+        title: '✉️ Danh mục thư, chia theo nhóm',
         content: (
           <div className="space-y-2">
             <p>
-              Mọi loại thư app gửi đi đều sửa được tiêu đề và nội dung ở đây. Danh mục loại thư chia theo
-              nhóm ở cột bên trái.
+              Cột trái liệt kê mọi loại thư hệ thống gửi đi. Chấm tròn xanh nghĩa là mẫu đã được tuỳ chỉnh;
+              dấu ✕ nghĩa là loại thư đó đang tắt, hệ thống sẽ không gửi.
             </p>
+          </div>
+        ),
+        placement: 'right',
+      },
+      {
+        target: '#tour-email-subject',
+        title: '🧩 Biến được điền tự động',
+        content: (
+          <div className="space-y-2">
+            <p>
+              Tiêu đề và nội dung dùng các <strong>biến</strong> được thay lúc gửi — tên người nhận, tên
+              đợt, đường dẫn tới việc cần xử lý. Danh sách biến dùng được hiện ngay cạnh ô soạn.
+            </p>
+            {warn('Vài biến là bắt buộc: thiếu chúng thì hệ thống từ chối lưu và báo đỏ ngay dưới ô soạn. Bỏ liên kết đặt lại mật khẩu đi là người nhận không còn cách nào làm xong việc thư đang yêu cầu.')}
           </div>
         ),
         placement: 'top',
       },
       {
-        target: '#tour-section-root',
-        title: '🧩 Biến trong nội dung',
-        content: (
-          <div className="space-y-2">
-            <p>
-              Nội dung dùng các <strong>biến</strong> được điền tự động lúc gửi — tên người nhận, tên đợt,
-              đường dẫn tới việc cần xử lý. Danh sách biến dùng được hiện ngay cạnh ô soạn.
-            </p>
-            {warn('Một số biến là bắt buộc và không xoá được — ví dụ liên kết đặt lại mật khẩu. Bỏ chúng đi là người nhận không còn cách nào hoàn tất việc mà thư đang yêu cầu.')}
-          </div>
-        ),
-        placement: 'top',
-      },
-      {
-        target: '#tour-section-root',
+        target: '#tour-email-editor',
         title: '🖊️ Soạn trực quan hoặc soạn HTML',
         content: (
           <div className="space-y-2">
@@ -457,19 +474,22 @@ const setupCompanyTours: Record<TourKey, TourDef> = {
               Chuyển qua lại giữa trình soạn trực quan và chế độ HTML đầy đủ mà không mất nội dung — hai
               chế độ dùng chung một chuỗi HTML.
             </p>
-            {note('Luôn bấm xem trước trước khi lưu: thư gửi rồi thì không rút lại được.')}
+            {note('Ở chế độ HTML, thẻ script, iframe và các handler onclick bị loại bỏ khi lưu — đây là thư gửi ra ngoài nên không cho chạy mã.')}
           </div>
         ),
         placement: 'top',
       },
       {
-        target: '#tour-section-root',
-        title: '↩️ Về lại mặc định',
+        target: '#tour-email-actions',
+        title: '👁️ Xem trước, lưu, hoặc về mặc định',
         content: (
-          <p>
-            Mỗi mẫu thư đều có nút khôi phục mẫu gốc. Sửa hỏng thì đưa về mặc định rồi làm lại, không cần
-            gọi hỗ trợ.
-          </p>
+          <div className="space-y-2">
+            <p>
+              <strong>Xem trước</strong> dựng thử thư với dữ liệu mẫu. <strong>Khôi phục mặc định</strong>
+              đưa mẫu về bản gốc — nút này mờ đi khi mẫu chưa từng bị sửa.
+            </p>
+            {warn('Luôn xem trước trước khi lưu: thư đã gửi thì không rút lại được.')}
+          </div>
         ),
         placement: 'top',
       },
@@ -479,42 +499,56 @@ const setupCompanyTours: Record<TourKey, TourDef> = {
   'setup-company/api': {
     steps: [
       {
-        target: '#tour-section-root',
+        target: '#tour-lark-status',
         title: '🔗 Nối với Lark',
         content: (
           <div className="space-y-2">
             <p>
-              Kết nối để nhân viên đăng nhập bằng tài khoản Lark và nhận thông báo ngay trong Lark, thay
-              vì phải nhớ thêm một mật khẩu nữa.
+              Dải trên cùng nói ngay trạng thái: đã bật đăng nhập bằng Lark chưa, và đang liên kết với tổ
+              chức Lark nào. Nối rồi thì nhân viên đăng nhập bằng tài khoản Lark, khỏi nhớ thêm mật khẩu.
             </p>
           </div>
         ),
-        placement: 'top',
+        placement: 'bottom',
       },
       {
-        target: '#tour-section-root',
+        target: '#tour-lark-credentials',
         title: '🪜 Làm theo thứ tự các bước',
         content: (
           <div className="space-y-2">
             <p>
-              Màn hình chia thành từng bước đánh số và mở khoá dần: khai ứng dụng bên Lark, dán khoá vào
-              đây, kiểm tra kết nối, rồi mới tới bước ánh xạ.
+              Các bước đánh số và mở khoá dần: khai ứng dụng bên Lark → dán <strong>App ID</strong> và
+              <strong> App Secret</strong> vào đây → bấm <strong>Kiểm tra kết nối</strong>.
             </p>
-            {note('Có nút mở thẳng trang quản trị của Lark — làm song song hai cửa sổ sẽ nhanh hơn.')}
+            {note('Có nút mở thẳng trang quản trị của Lark ở bước trước — làm song song hai cửa sổ sẽ nhanh hơn.')}
           </div>
         ),
         placement: 'top',
       },
       {
-        target: '#tour-section-root',
-        title: '🗺️ Ánh xạ đơn vị và vai trò',
+        target: '#tour-lark-connect',
+        title: '👤 Liên kết bằng chính tài khoản của bạn',
         content: (
           <div className="space-y-2">
             <p>
-              Bước cuối quyết định người từ Lark vào sẽ rơi vào đơn vị nào và mang vai trò gì khi tài
-              khoản được tạo tự động.
+              Bấm <strong>Kết nối với Lark</strong>, đăng nhập một lần, hệ thống tự nhận diện công ty của
+              bạn rồi ghi nhớ — không phải nhập tay tên hay mã tổ chức.
             </p>
-            {warn('Đặt mặc định quá rộng ở đây là người lạ đăng nhập một phát có ngay quyền xem dữ liệu của cả đơn vị. Chọn vai trò hẹp nhất rồi nâng sau.')}
+            {warn('Quyền vừa thêm bên Lark chỉ có hiệu lực sau khi phiên bản ứng dụng được duyệt. Thấy trạng thái "Added" là chưa đủ.')}
+          </div>
+        ),
+        placement: 'top',
+      },
+      {
+        target: '#tour-lark-defaults',
+        title: '🗺️ Đơn vị và vai trò cho người mới',
+        content: (
+          <div className="space-y-2">
+            <p>
+              Người từ Lark đăng nhập lần đầu sẽ được tạo tài khoản tự động và xếp vào đơn vị, vai trò khai
+              ở bước này. Từng người vẫn chỉnh lại được sau.
+            </p>
+            {warn('Đặt mặc định quá rộng là người lạ đăng nhập một phát có ngay quyền xem dữ liệu cả đơn vị. Chọn vai trò hẹp nhất rồi nâng sau.')}
           </div>
         ),
         placement: 'top',

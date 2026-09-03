@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from 'react'
+import { z } from 'zod'
 import { read, write, utils } from 'xlsx'
 import { X, Save, Trash2, FileSpreadsheet, Check, CheckSquare, AlertCircle } from 'lucide-react'
 import { toast } from 'sonner'
@@ -15,6 +16,16 @@ interface OrgExcelPreviewModalProps {
   orgId: string
   hierarchyLevels: Record<number, string>
 }
+
+/**
+ * Ràng buộc từng dòng. Trùng mã trong tệp và mã cha có tồn tại hay không phải nhìn cả tệp
+ * lẫn dữ liệu hệ thống, nên nằm ở `validateBatch` bên dưới chứ không ở đây.
+ */
+const rowSchema = z.object({
+  Name: z.string().trim().min(1, 'Tên đơn vị là bắt buộc'),
+  Code: z.string().trim().min(1, 'Mã đơn vị là bắt buộc'),
+  Email: z.string().email('Email không hợp lệ').or(z.literal('')).optional(),
+})
 
 interface OrgUnitRow {
   id: string
@@ -71,9 +82,14 @@ export default function OrgExcelPreviewModal({
     
     return rows.map(row => {
       const errors: Record<string, string> = {}
-      
-      if (!row.Name) errors.Name = 'Tên đơn vị là bắt buộc'
-      if (!row.Code) errors.Code = 'Mã đơn vị là bắt buộc'
+
+      const parsed = rowSchema.safeParse(row)
+      if (!parsed.success) {
+        parsed.error.issues.forEach(issue => {
+          const field = issue.path[0]
+          if (typeof field === 'string') errors[field] = issue.message
+        })
+      }
       
       // Duplicated code in batch
       if (row.Code && rows.filter(r => r.Code === row.Code).length > 1) {
@@ -440,9 +456,13 @@ export default function OrgExcelPreviewModal({
                               <input
                                 value={row.Email}
                                 onChange={e => handleCellChange(row.id, 'Email', e.target.value)}
-                                className="w-full px-2 py-0.5 rounded text-[10px] border border-transparent hover:border-slate-200 bg-transparent"
+                                className={cn(
+                                  "w-full px-2 py-0.5 rounded text-[10px] border bg-transparent",
+                                  row._errors?.Email ? "border-red-300 bg-red-50" : "border-transparent hover:border-slate-200"
+                                )}
                                 placeholder="Email..."
                               />
+                              {row._errors?.Email && <p className="text-[10px] text-red-500 font-medium">{row._errors.Email}</p>}
                               <input
                                 value={row.Phone}
                                 onChange={e => handleCellChange(row.id, 'Phone', e.target.value)}

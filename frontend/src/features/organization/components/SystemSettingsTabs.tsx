@@ -116,7 +116,7 @@ export function SidebarSettingsTab() {
 
   return (
     <div className="space-y-4">
-      <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm p-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div id="tour-sidebar-header" className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm p-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="flex items-center gap-3 min-w-0">
           <div className="w-10 h-10 rounded-xl bg-indigo-50 dark:bg-indigo-900/30 flex items-center justify-center text-indigo-600 shrink-0">
             <LayoutPanelLeft size={20} />
@@ -152,7 +152,7 @@ export function SidebarSettingsTab() {
         </div>
       </div>
 
-      <div className="p-4 rounded-2xl bg-blue-50 dark:bg-blue-900/10 border border-blue-100 dark:border-blue-900/30 flex items-start gap-3">
+      <div id="tour-sidebar-note" className="p-4 rounded-2xl bg-blue-50 dark:bg-blue-900/10 border border-blue-100 dark:border-blue-900/30 flex items-start gap-3">
         <Info size={18} className="text-blue-600 shrink-0 mt-0.5" />
         <p className="text-xs text-blue-800 dark:text-blue-300 font-medium leading-relaxed">
           Phần lớn màn hình nay là <b>mục bên trong một trang</b> chứ không còn là dòng riêng trên sidebar —
@@ -163,7 +163,11 @@ export function SidebarSettingsTab() {
       {visibleScopes.map(scope => {
         const isSidebar = scope.id === '__sidebar__'
         return (
-          <div key={scope.id} className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
+          <div
+            key={scope.id}
+            id={isSidebar ? 'tour-sidebar-scope-sidebar' : undefined}
+            className="tour-sidebar-scope bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden"
+          >
             <div className="px-6 py-4 border-b border-slate-100 dark:border-slate-800 flex items-center gap-3">
               <div className={cn(
                 'w-9 h-9 rounded-xl flex items-center justify-center shrink-0',
@@ -291,7 +295,7 @@ export function NotificationSettingsTab() {
   return (
     <div className="space-y-6">
       <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
-        <div className="p-6 border-b border-slate-100 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div id="tour-notif-header" className="p-6 border-b border-slate-100 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-amber-50 dark:bg-amber-900/30 flex items-center justify-center text-amber-600 shrink-0">
               <Bell size={20} />
@@ -325,7 +329,7 @@ export function NotificationSettingsTab() {
               <Loader2 size={24} className="animate-spin text-indigo-500" />
             </div>
           ) : (
-            <div className="divide-y divide-slate-100 dark:divide-slate-800">
+            <div id="tour-notif-events" className="divide-y divide-slate-100 dark:divide-slate-800">
               {settings.map((item) => (
                 <div key={item.eventCode} className="py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                   <div>

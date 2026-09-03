@@ -48,6 +48,15 @@ public class EvaluationService {
     private final BscScoringService bscScoringService;
     private final ConductService conductService;
 
+    /**
+     * Pool điểm khi CHẤM: trọng số chính là điểm — KPI 25% đạt đủ ⇒ 25đ, đủ 100% ⇒ 100đ.
+     *
+     * <p>evaluation_max_score KHÔNG còn là hệ số nhân lúc chấm. Nó là MẪU SỐ để xếp loại
+     * (thang 150 ⇒ người đạt đủ KPI được 100/150) và là khoảng trống trên 100 dành cho
+     * KPI thưởng + phần chỉnh tay của người chấm.
+     */
+    public static final double SCORING_POOL = 100.0;
+
     private User getCurrentUser() {
         String email = SecurityContextHolder.getContext().getAuthentication().getName();
         return userRepository.findByEmail(email)
@@ -79,8 +88,11 @@ public class EvaluationService {
                 .orElse(evaluatedUserAssignments.get(0).getOrgUnit());
         com.kpitracking.entity.Organization org = targetOrgUnit.getOrgHierarchyLevel().getOrganization();
 
-        if (request.getScore() > org.getEvaluationMaxScore()) {
-            throw new BusinessException("Điểm số không được vượt quá " + org.getEvaluationMaxScore());
+        double maxScore = org.getEvaluationMaxScore();
+        double ceiling = scoreCeiling(evaluatedUser.getId(), kpiPeriod.getId(), maxScore);
+        if (request.getScore() > ceiling) {
+            throw new BusinessException("Điểm số không được vượt quá " + fmt(ceiling)
+                    + (ceiling > maxScore ? " (thang điểm " + fmt(maxScore) + " + " + fmt(ceiling - maxScore) + " điểm KPI thưởng)" : ""));
         }
 
         boolean isSelfEval = currentUser.getId().equals(evaluatedUser.getId());
@@ -130,7 +142,7 @@ public class EvaluationService {
         evaluation.setOrgUnit(targetOrgUnit);
         evaluation.setScore(request.getScore());
         evaluation.setComment(request.getComment());
-        evaluation.setSystemScore(calculateSystemScore(evaluatedUser.getId(), kpiPeriod.getId(), (double) org.getEvaluationMaxScore()));
+        evaluation.setSystemScore(calculateSystemScore(evaluatedUser.getId(), kpiPeriod.getId()));
 
         // Ma trận CHỈ ra kết quả khi có ĐỦ HAI TRỤC THẬT — xem resolveMatrixAxes.
         Double completion = calculateKpiCompletionPercent(evaluatedUser.getId(), kpiPeriod.getId());
@@ -192,14 +204,13 @@ public class EvaluationService {
         com.kpitracking.entity.KpiPeriod kpiPeriod = kpiPeriodRepository.findById(kpiPeriodId)
                 .orElseThrow(() -> new ResourceNotFoundException("Kỳ đánh giá (Đợt)", "id", kpiPeriodId));
 
-        java.util.List<com.kpitracking.entity.UserRoleOrgUnit> evaluatedUserAssignments = userRoleOrgUnitRepository.findByUserId(targetUserId);
-        if (evaluatedUserAssignments.isEmpty()) {
+        // Chỉ cần biết người này có thuộc đơn vị nào không — điểm chấm trên pool 100 chung,
+        // không còn phụ thuộc thang điểm của tổ chức.
+        if (userRoleOrgUnitRepository.findByUserId(targetUserId).isEmpty()) {
             return 0.0;
         }
-        OrgUnit targetOrgUnit = evaluatedUserAssignments.get(0).getOrgUnit();
-        com.kpitracking.entity.Organization org = targetOrgUnit.getOrgHierarchyLevel().getOrganization();
 
-        return calculateSystemScore(targetUserId, kpiPeriodId, (double) org.getEvaluationMaxScore());
+        return calculateSystemScore(targetUserId, kpiPeriodId);
     }
 
     @Transactional(readOnly = true)
@@ -226,13 +237,19 @@ public class EvaluationService {
         // Thiếu một trục ⇒ không xếp loại (lookup trả null), không bịa trục thay thế.
         Integer rating = lookupMatrixRating(behavior, completion, org.getPerformanceMatrix());
 
-        Double systemScore = calculateSystemScore(targetUserId, kpiPeriodId, (double) org.getEvaluationMaxScore());
+        double maxScore = org.getEvaluationMaxScore();
+        double[] parts = quantitativeParts(targetUserId, kpiPeriodId);
+        Double systemScore = systemScoreOf(parts);
+        // Trần điểm gửi kèm để thanh kéo ở giao diện dùng đúng giới hạn mà createEvaluation kiểm tra.
+        double bonus = bonusPoints(parts);
 
         var builder = com.kpitracking.dto.response.evaluation.EvaluationScorePreview.builder()
                 .systemScore(systemScore)
                 .behaviorScore(behavior)
                 .kpiCompletionPercent(completion)
                 .matrixRating(rating)
+                .bonusScore(bonus)
+                .maxAllowedScore(Math.max(maxScore, SCORING_POOL + bonus))
                 .officialScore(systemScore);
 
         // BSC preview (chỉ khi org bật BSC & kỳ đã có bộ tiêu chí)
@@ -253,14 +270,39 @@ public class EvaluationService {
         return builder.build();
     }
 
-    private Double calculateSystemScore(UUID userId, UUID kpiPeriodId, Double maxScore) {
-        // system_score (0..100) is QUANTITATIVE-ONLY, normalized over the non-bonus
-        // quantitative weight pool so it still reaches maxScore at full completion even
-        // when part of the 100% pool is taken by qualitative KPIs (which feed the matrix).
-        double[] p = quantitativeParts(userId, kpiPeriodId); // [0]=Σ(ratio·weight) non-bonus, [1]=Σweight non-bonus, [2]=Σ(ratio·weight) bonus
-        double regular = p[1] > 0 ? (p[0] / p[1]) * maxScore : 0.0;
-        double bonus = p[2] * (maxScore / 100.0);
-        return Math.min(maxScore, (double) Math.round(regular)) + (double) Math.round(bonus);
+    private Double calculateSystemScore(UUID userId, UUID kpiPeriodId) {
+        return systemScoreOf(quantitativeParts(userId, kpiPeriodId));
+    }
+
+    private Double systemScoreOf(double[] p) {
+        // system_score (0..SCORING_POOL) is QUANTITATIVE-ONLY, normalized over the non-bonus
+        // quantitative weight pool so it still reaches 100 at full completion even when part
+        // of the 100% pool is taken by qualitative KPIs (which feed the matrix).
+        // p = [0]=Σ(ratio·weight) non-bonus, [1]=Σweight non-bonus, [2]=Σ(ratio·weight) bonus
+        double regular = p[1] > 0 ? (p[0] / p[1]) * SCORING_POOL : 0.0;
+        return Math.min(SCORING_POOL, (double) Math.round(regular)) + bonusPoints(p);
+    }
+
+    /** Điểm KPI THƯỞNG — trọng số cũng là điểm, cộng THÊM lên trên pool 100. */
+    private double bonusPoints(double[] p) {
+        return Math.round(p[2]);
+    }
+
+    /** 120.0 -> "120", 82.5 -> "82.5" — tránh in "120.0" trong thông báo lỗi. */
+    private static String fmt(double v) {
+        return v == Math.rint(v) ? String.valueOf((long) v) : String.valueOf(Math.round(v * 10) / 10.0);
+    }
+
+    /**
+     * Trần điểm được phép lưu cho MỘT người ở MỘT đợt.
+     *
+     * <p>Thường là thang điểm của tổ chức — khoảng trên 100 chính là chỗ cho KPI thưởng và
+     * phần chỉnh tay. Nhưng KPI thưởng nằm NGOÀI pool 100% nên tổng của nó vẫn có thể vượt
+     * thang (tổ chức để thang 100 mà giao 10% KPI thưởng); khi đó lấy chính điểm tối đa có
+     * thể đạt, nếu không thì điểm hệ thống gợi ý ra lại không lưu được.
+     */
+    private double scoreCeiling(UUID userId, UUID kpiPeriodId, Double maxScore) {
+        return Math.max(maxScore, SCORING_POOL + bonusPoints(quantitativeParts(userId, kpiPeriodId)));
     }
 
     /**

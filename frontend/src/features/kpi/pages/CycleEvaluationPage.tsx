@@ -9,7 +9,7 @@ import SendEvaluationModal from '../components/SendEvaluationModal'
 import { useOrgUnitTree } from '@/features/orgunits/hooks/useOrgUnitTree'
 import { useOrganization } from '@/features/orgunits/hooks/useOrganization'
 import { useHasPermission } from '@/components/auth/PermissionGate'
-import { getScoringFunctions } from '@/lib/scoring'
+import { getScoringFunctions, SCORING_POOL } from '@/lib/scoring'
 import { exportCycleEvaluationToExcel, exportCycleMemberDetailToExcel } from '../utils/cycleEvaluationExport'
 import { toast } from 'sonner'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -20,6 +20,7 @@ import UserAvatar from '@/components/common/UserAvatar'
 import { format, parseISO } from 'date-fns'
 import type { CycleEvaluationMode, CycleUserEvaluation, CyclePeriodBreakdown } from '@/types/kpi'
 import RewardPrompt from '@/features/rewards/components/RewardPrompt'
+import ConductInlineSheet from '@/features/conduct/components/ConductInlineSheet'
 import {
   CalendarRange, Building2, Search, Award, ChevronRight, CheckCircle2, Lock, LockOpen, MessageSquare,
   ArrowUpDown, ArrowUp, ArrowDown, AlertTriangle, FileSpreadsheet, Download, Loader2, Mail
@@ -69,7 +70,7 @@ export default function CycleEvaluationPage() {
   const [comment, setComment] = useState('')
   const [sortConfig, setSortConfig] = useState<{ key: SortKey; direction: 'asc' | 'desc' }>({ key: 'userName', direction: 'asc' })
 
-  // Chọn sẵn kỳ đang chạy; không kỳ nào khớp hôm nay thì lấy kỳ gần hiện tại nhất.
+  // Chọn sẵn kỳ đang chạy; đang ở kẽ giữa hai kỳ thì giữ nguyên kỳ vừa kết thúc.
   const defaultCycle = useMemo(() => pickCurrentOrNearest(cycles), [cycles])
   useEffect(() => { if (!cycleId && defaultCycle) setCycleId(defaultCycle.id) }, [defaultCycle, cycleId])
   useEffect(() => { if (!orgUnitId && flatOrgUnits.length) setOrgUnitId(flatOrgUnits[0].id) }, [flatOrgUnits, orgUnitId])
@@ -124,7 +125,7 @@ export default function CycleEvaluationPage() {
     if (!summary) return
     setIsExporting(true)
     try {
-      await exportCycleEvaluationToExcel(summary, { maxScore, getScoreLabel })
+      await exportCycleEvaluationToExcel(summary, { getScoreLabel })
       toast.success('Đã xuất file Excel')
     } catch {
       toast.error('Xuất Excel thất bại')
@@ -139,7 +140,7 @@ export default function CycleEvaluationPage() {
     if (!summary) return
     setExportingUserId(member.userId)
     try {
-      await exportCycleMemberDetailToExcel(member, summary, { maxScore, getScoreLabel })
+      await exportCycleMemberDetailToExcel(member, summary, { getScoreLabel })
       toast.success(`Đã xuất chi tiết của ${member.userName}`)
     } catch {
       toast.error('Xuất Excel thất bại')
@@ -158,11 +159,11 @@ export default function CycleEvaluationPage() {
     && (summary.members?.length ?? 0) > 0
     && summary.members.every(m => m.selfScore == null && m.managerScore == null)
 
-  // Chế độ Định tính: điểm hiển thị vốn là mức 0-5 đã quy đổi sang thang điểm.
+  // Chế độ Định tính: điểm hiển thị vốn là mức 0-5 đã quy đổi sang pool chấm.
   // Đảo ngược để hiện đúng mức gốc (VD 90 → 4.5/5) cho khỏi nhầm.
   const isQualMode = summary?.mode === 'QUALITATIVE'
   const toLevel = (v: number | null): number | null =>
-    v == null || !maxScore ? null : Math.round((v / maxScore) * 5 * 100) / 100
+    v == null ? null : Math.round((v / SCORING_POOL) * 5 * 100) / 100
 
   const LevelChip = ({ score }: { score: number | null }) => {
     const lv = toLevel(score)
@@ -217,7 +218,7 @@ export default function CycleEvaluationPage() {
         {/* Header Section */}
         <div className="relative group">
           <div className="absolute -inset-1 bg-gradient-to-r from-emerald-500 via-teal-500 to-cyan-500 rounded-[40px] blur opacity-10 group-hover:opacity-20 transition duration-1000"></div>
-          <div className="relative bg-white dark:bg-slate-900 rounded-[28px] p-6 border border-slate-200 dark:border-slate-800 shadow-lg overflow-hidden">
+          <div id="tour-cycleeval-header" className="relative bg-white dark:bg-slate-900 rounded-[28px] p-6 border border-slate-200 dark:border-slate-800 shadow-lg overflow-hidden">
             <div className="absolute top-0 right-0 w-64 h-64 bg-emerald-500/5 rounded-full -translate-y-1/2 translate-x-1/2 blur-3xl" />
             <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
               <div className="space-y-3">
@@ -283,7 +284,7 @@ export default function CycleEvaluationPage() {
         </div>
 
         {/* Toolbar */}
-        <div className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-md p-5 rounded-[32px] border border-slate-200 dark:border-slate-800 shadow-sm space-y-5">
+        <div id="tour-cycleeval-toolbar" className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-md p-5 rounded-[32px] border border-slate-200 dark:border-slate-800 shadow-sm space-y-5">
           <div className="flex flex-col lg:flex-row items-center gap-4 w-full">
             <div className="relative flex-1 w-full lg:max-w-md group">
               <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-emerald-500 transition-colors" size={18} />
@@ -378,7 +379,7 @@ export default function CycleEvaluationPage() {
               </div>
 
               {/* Nhóm nút: không cho co, luôn nằm trên một hàng riêng khi hẹp. */}
-              <div className="flex flex-wrap items-center gap-2 lg:ml-auto shrink-0">
+              <div id="tour-cycleeval-actions" className="flex flex-wrap items-center gap-2 lg:ml-auto shrink-0">
                 <button
                   onClick={handleExport}
                   disabled={isExporting || !summary?.members?.length}
@@ -423,6 +424,7 @@ export default function CycleEvaluationPage() {
         </div>
 
         {/* Luồng duyệt theo cấp: Trưởng đơn vị → các cấp trên → Giám đốc */}
+        <div id="tour-cycleeval-chain">
         <CycleApprovalTimeline
           steps={chain || []}
           isLoading={isChainLoading}
@@ -430,6 +432,7 @@ export default function CycleEvaluationPage() {
           getScoreLabel={getScoreLabel}
           onSelectUnit={setOrgUnitId}
         />
+        </div>
 
         {/* Cảnh báo: chế độ Định tính nhưng chưa có KPI định tính nào được chấm */}
         {noQualitativeData && (
@@ -463,7 +466,7 @@ export default function CycleEvaluationPage() {
             />
           </div>
         ) : (
-          <div className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl rounded-[32px] border border-slate-200 dark:border-slate-800 overflow-hidden shadow-2xl">
+          <div id="tour-cycleeval-table" className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl rounded-[32px] border border-slate-200 dark:border-slate-800 overflow-hidden shadow-2xl">
             {/* Desktop table */}
             <div className="hidden md:block overflow-x-auto scrollbar-thin">
               <table className="w-full text-left border-collapse">
@@ -625,6 +628,8 @@ export default function CycleEvaluationPage() {
               await saveUserScore({ userId: activeMember.userId, finalScore, qualScore, comment: cmt })
             }}
             cycleName={summary?.cycleName}
+            cycleId={cycleId}
+            showConduct={org?.enableConduct ?? false}
           />
         )}
 
@@ -693,7 +698,8 @@ export default function CycleEvaluationPage() {
 
 /** Modal xem chi tiết & nhập điểm chốt kỳ cho một nhân viên. */
 function UserScoreModal({
-  member, maxScore, getScoreColor, getScoreLabel, canEdit, lockedByUnitName, isSaving, onClose, onSave, cycleName,
+  member, maxScore, getScoreColor, getScoreLabel, canEdit, lockedByUnitName, isSaving, onClose, onSave,
+  cycleName, cycleId, showConduct,
 }: {
   member: CycleUserEvaluation
   maxScore: number
@@ -706,6 +712,9 @@ function UserScoreModal({
   onSave: (finalScore: number | null, qualScore: number | null, comment: string) => Promise<void>
   /** Điền sẵn vào lý do thưởng để ghi chú trong sổ điểm có ngữ cảnh. */
   cycleName?: string
+  /** Kỳ đang xem — phiếu hạnh kiểm cấp kỳ bám theo đúng kỳ này. */
+  cycleId: string
+  showConduct: boolean
 }) {
   const [score, setScore] = useState<string>(member.finalScore != null ? String(member.finalScore) : '')
   const [qual, setQual] = useState<string>(member.qualScore != null ? String(member.qualScore) : '')
@@ -745,7 +754,7 @@ function UserScoreModal({
   const sideDisplay = (v: number | null) => {
     if (v == null) return '—'
     if (!isQualMode) return v
-    const lv = Math.round((v / maxScore) * 5 * 100) / 100
+    const lv = Math.round((v / SCORING_POOL) * 5 * 100) / 100
     return <>{lv}<span className="text-slate-400 text-base font-medium">/5</span></>
   }
 
@@ -820,8 +829,17 @@ function UserScoreModal({
           {/* Chi tiết từng đợt */}
           <div className="space-y-2">
             <span className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 ml-1">Chi tiết từng đợt</span>
-            <PeriodBreakdownTable member={member} maxScore={maxScore} />
+            <PeriodBreakdownTable member={member} />
           </div>
+
+          {/* Hạnh kiểm cấp KỲ chấm ngay tại đây — nó là trục hành vi của xếp loại ma trận
+              bên dưới, nên phải chấm trước khi chốt điểm kỳ. */}
+          {showConduct && (
+            <ConductInlineSheet
+              target={{ scope: 'CYCLE', cycleId, periodId: null }}
+              userId={member.userId}
+            />
+          )}
 
           {/* Nhập điểm chốt — chỉ ở chế độ có chiều định lượng */}
           {showQuant && (
@@ -1000,18 +1018,18 @@ function UserScoreModal({
 }
 
 /** Chi tiết điểm từng đợt trong kỳ của một nhân viên. */
-function PeriodBreakdownTable({ member, maxScore }: { member: CycleUserEvaluation; maxScore: number }) {
+function PeriodBreakdownTable({ member }: { member: CycleUserEvaluation }) {
   if (!member.periodBreakdown?.length) {
     return <p className="text-xs text-slate-400 italic px-1 py-2">Kỳ này chưa có đợt nào được gán.</p>
   }
   // Chế độ "Cả hai": tách riêng 2 chiều để thấy rõ phần định lượng và định tính.
   const showDimensions = member.mode === 'BOTH'
-  // Chế độ Định tính: hiện lại mức gốc 0-5 thay vì số đã quy đổi sang thang điểm.
+  // Chế độ Định tính: hiện lại mức gốc 0-5 thay vì số đã quy đổi sang pool chấm.
   const isQualMode = member.mode === 'QUALITATIVE'
   const side = (v: number | null) => {
     if (v == null) return '—'
     if (!isQualMode) return v
-    return `${Math.round((v / maxScore) * 5 * 100) / 100}/5`
+    return `${Math.round((v / SCORING_POOL) * 5 * 100) / 100}/5`
   }
 
   return (

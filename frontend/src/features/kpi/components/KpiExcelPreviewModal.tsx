@@ -88,6 +88,9 @@ const qualitativeKpiRowSchema = z.object({
 const QUANTITATIVE_CRITICAL_FIELDS = ['Name', 'Weight', 'TargetValue', 'Unit', 'Frequency', 'EmployeeCode', 'Period']
 const QUALITATIVE_CRITICAL_FIELDS = ['Name', 'Weight', 'Frequency', 'EmployeeCode', 'Period']
 
+/** KPI thưởng nằm ngoài 100% trọng số (backend cũng loại nó khỏi tổng), nên không cộng vào cột "Excel". */
+const countsTowardWeight = (row: KpiRow) => row.IsBonusKpi !== 'true'
+
 export default function KpiExcelPreviewModal({ open, file, kpiType, onClose, onImport, isImporting }: KpiExcelPreviewModalProps) {
   const [data, setData] = useState<KpiRow[]>([])
   const [loading, setLoading] = useState(false)
@@ -593,7 +596,7 @@ export default function KpiExcelPreviewModal({ open, file, kpiType, onClose, onI
         .filter(r => {
           const codes = r.EmployeeCode.split(',').map((s: string) => s.trim())
           const orgNames = r.OrgUnit.split(',').map((s: string) => s.trim())
-          return codes.includes(empCode) && orgNames.includes(orgName) && r.Period === periodName && r.IsBonusKpi !== 'true'
+          return codes.includes(empCode) && orgNames.includes(orgName) && r.Period === periodName && countsTowardWeight(r)
         })
         .reduce((sum, r) => sum + (parseFloat(r.Weight) || 0), 0)
 
@@ -726,7 +729,7 @@ export default function KpiExcelPreviewModal({ open, file, kpiType, onClose, onI
                       // Compute per-person weight totals, then take the max as the unit's representative weight
                       const filteredRows = data.filter(r => {
                         const orgNames = r.OrgUnit.split(',').map((s: string) => s.trim())
-                        return orgNames.includes(unitName) && r.Period === periodName
+                        return orgNames.includes(unitName) && r.Period === periodName && countsTowardWeight(r)
                       })
                       const perEmpWeights: Record<string, number> = {}
                       filteredRows.forEach(r => {
@@ -799,7 +802,7 @@ export default function KpiExcelPreviewModal({ open, file, kpiType, onClose, onI
                                   .filter(r => {
                                     const codes = r.EmployeeCode.split(',').map((s: string) => s.trim())
                                     const orgNames = r.OrgUnit.split(',').map((s: string) => s.trim())
-                                    return codes.includes(empCode) && orgNames.includes(unitName) && r.Period === periodName
+                                    return codes.includes(empCode) && orgNames.includes(unitName) && r.Period === periodName && countsTowardWeight(r)
                                   })
                                   .reduce((sum, r) => sum + (parseFloat(r.Weight) || 0), 0)
 

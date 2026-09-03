@@ -186,11 +186,13 @@ export default function SummaryTab() {
     <div className="space-y-8 animate-in fade-in duration-500 pb-12">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <h2 className="text-xl font-black text-slate-900 dark:text-white">Thống kê tổng hợp</h2>
-        <DashboardEditToolbar api={dash} />
+        <div id="tour-analytics-customize">
+          <DashboardEditToolbar api={dash} />
+        </div>
       </div>
 
       {/* ── Global Filter (sticky) ────────────────────────────────────────── */}
-      <div className="sticky top-0 z-20 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 shadow-sm">
+      <div id="tour-analytics-filter" className="sticky top-0 z-20 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 shadow-sm">
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4 justify-between">
           <div className="flex items-center gap-2">
             <div className="p-2 rounded-lg text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/30">
@@ -217,7 +219,7 @@ export default function SummaryTab() {
           ))}
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+        <div id="tour-analytics-metrics" className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
           <div className="bg-white dark:bg-slate-900 rounded-2xl p-5 border border-slate-200 dark:border-slate-800 flex items-center gap-4">
             <div className="w-12 h-12 rounded-full bg-indigo-100 dark:bg-indigo-900/40 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0"><TrendingUp size={24} /></div>
             <div>
@@ -260,7 +262,9 @@ export default function SummaryTab() {
       {/* Biểu đồ xu hướng & bảng chi tiết KPI giờ là widget trong lưới tuỳ chỉnh bên dưới. */}
 
       {/* ── Lưới widget tuỳ chỉnh ─────────────────────────────────────────── */}
-      <DashboardCustomizeChrome api={dash} renderWidget={renderWidgetContent} catalog={SUMMARY_CATALOG} ready={!!mainData} />
+      <div id="tour-analytics-widgets">
+        <DashboardCustomizeChrome api={dash} renderWidget={renderWidgetContent} catalog={SUMMARY_CATALOG} ready={!!mainData} />
+      </div>
 
       {/* AiAssistantWidget đã chuyển sang AppLayout để hiện trên mọi trang */}
     </div>

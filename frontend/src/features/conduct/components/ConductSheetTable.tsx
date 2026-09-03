@@ -1,9 +1,9 @@
-import { useEffect, useMemo, useState } from 'react'
 import { Save, Loader2, Info, Lock, FileSpreadsheet } from 'lucide-react'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import type { ConductScoreInput, ConductSheet } from '../api/conductApi'
-import { exportConductSheetToExcel, type ConductExportRow } from '../utils/conductSheetExport'
+import { exportConductSheetToExcel } from '../utils/conductSheetExport'
+import { EMPTY_DRAFT, fmt, num, useConductDraft, weighted } from '../hooks/useConductDraft'
 
 /**
  * Phiếu "Đánh giá xếp loại hành vi theo triết lý giáo dục", dựng đúng theo bảng giấy:
@@ -13,41 +13,6 @@ import { exportConductSheetToExcel, type ConductExportRow } from '../utils/condu
  * Bảng rộng nên cuộn ngang TRONG khung của nó (`overflow-x-auto`) — trang không bao giờ
  * bị đẩy ngang theo.
  */
-
-interface Draft {
-  selfScore: string
-  selfEvidence: string
-  managerScore: string
-  managerComment: string
-}
-
-const toDraft = (sheet: ConductSheet): Record<number, Draft> =>
-  Object.fromEntries(
-    sheet.items.map(i => [
-      i.position,
-      {
-        selfScore: i.selfScore != null ? String(i.selfScore) : '',
-        selfEvidence: i.selfEvidence ?? '',
-        managerScore: i.managerScore != null ? String(i.managerScore) : '',
-        managerComment: i.managerComment ?? '',
-      },
-    ])
-  )
-
-const EMPTY_DRAFT: Draft = { selfScore: '', selfEvidence: '', managerScore: '', managerComment: '' }
-
-const num = (v: string): number | null => {
-  if (v.trim() === '') return null
-  const n = Number(v)
-  return Number.isFinite(n) ? n : null
-}
-
-/** Điểm đã tính trọng số của MỘT dòng, hoặc null khi dòng chưa chấm. */
-const weighted = (score: number | null, weight: number) =>
-  score == null ? null : Math.round((score * weight) / 100 * 100) / 100
-
-const fmt = (v: number | null | undefined) =>
-  v == null ? '—' : Number(v.toFixed(2)).toString()
 
 export default function ConductSheetTable({
   sheet,
@@ -62,71 +27,14 @@ export default function ConductSheetTable({
   isSavingSelf?: boolean
   isSavingManager?: boolean
 }) {
-  const [draft, setDraft] = useState<Record<number, Draft>>(() => toDraft(sheet))
-  const [comment, setComment] = useState(sheet.comment ?? '')
-
-  // Phiếu đổi (chọn người khác, đổi đợt, hoặc vừa lưu xong) ⇒ nạp lại nháp từ server.
-  useEffect(() => {
-    setDraft(toDraft(sheet))
-    setComment(sheet.comment ?? '')
-  }, [sheet])
+  const { draft, set, comment, setComment, totals, totalWeight, collect, exportRows } =
+    useConductDraft(sheet)
 
   const max = sheet.maxScore
-  const set = (position: number, patch: Partial<Draft>) =>
-    setDraft(prev => ({ ...prev, [position]: { ...(prev[position] ?? EMPTY_DRAFT), ...patch } }))
 
-  const totals = useMemo(() => {
-    let self = 0
-    let manager = 0
-    let hasSelf = false
-    let hasManager = false
-    sheet.items.forEach(i => {
-      const d = draft[i.position]
-      if (!d) return
-      const s = weighted(num(d.selfScore), i.weight)
-      const m = weighted(num(d.managerScore), i.weight)
-      if (s != null) { self += s; hasSelf = true }
-      if (m != null) { manager += m; hasManager = true }
-    })
-    return {
-      self: hasSelf ? Math.round(self * 100) / 100 : null,
-      manager: hasManager ? Math.round(manager * 100) / 100 : null,
-    }
-  }, [draft, sheet.items])
-
-  const totalWeight = sheet.items.reduce((s, i) => s + (i.weight || 0), 0)
-
-  const collect = (side: 'self' | 'manager'): ConductScoreInput[] =>
-    sheet.items.map(i => {
-      const d = draft[i.position]
-      return {
-        criteriaId: i.criteriaId ?? null,
-        position: i.position,
-        score: side === 'self' ? num(d?.selfScore ?? '') : num(d?.managerScore ?? ''),
-        note: side === 'self' ? (d?.selfEvidence ?? '') : (d?.managerComment ?? ''),
-      }
-    })
-
-  // Xuất đúng thứ đang hiển thị (kể cả điểm vừa gõ chưa lưu) — file phải khớp với màn hình.
   const handleExport = async () => {
-    const rows: ConductExportRow[] = sheet.items.map(i => {
-      const d = draft[i.position] ?? EMPTY_DRAFT
-      const selfScore = num(d.selfScore)
-      const managerScore = num(d.managerScore)
-      return {
-        name: i.name,
-        description: i.description,
-        weight: i.weight,
-        selfScore,
-        selfEvidence: d.selfEvidence,
-        managerScore,
-        managerComment: d.managerComment,
-        selfWeighted: weighted(selfScore, i.weight),
-        managerWeighted: weighted(managerScore, i.weight),
-      }
-    })
     try {
-      await exportConductSheetToExcel(sheet, rows, totals, comment)
+      await exportConductSheetToExcel(sheet, exportRows(), totals, comment)
     } catch {
       toast.error('Không thể xuất phiếu hạnh kiểm ra Excel')
     }
@@ -175,7 +83,7 @@ export default function ConductSheetTable({
         </div>
       )}
 
-      <div className="rounded-3xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-sm">
+      <div id="tour-conduct-sheet" className="rounded-3xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-sm">
         <div className="overflow-x-auto">
           <table className="w-full min-w-[1100px] border-collapse">
             <thead>
@@ -315,7 +223,7 @@ export default function ConductSheetTable({
         </div>
       )}
 
-      <div className="flex flex-wrap items-center justify-end gap-3">
+      <div id="tour-conduct-sheet-actions" className="flex flex-wrap items-center justify-end gap-3">
         <button
           onClick={handleExport}
           className="mr-auto flex items-center gap-2 px-4 h-10 rounded-xl bg-[var(--color-muted)] text-[var(--color-muted-foreground)] text-sm font-bold hover:text-[var(--color-primary)] border border-[var(--color-border)] transition-all active:scale-95"

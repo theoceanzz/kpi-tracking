@@ -29,6 +29,12 @@ export interface PerspectiveResponse {
   code: string
   name: string
   description?: string
+  /** Mục tiêu mong muốn — null khi hạng mục chưa đặt con số. */
+  targetValue?: number | null
+  /** Kết quả tối thiểu — null khi hạng mục chưa đặt con số. */
+  minimumValue?: number | null
+  /** Đơn vị tính của mục tiêu/tối thiểu (VD: VNĐ, %, buổi). */
+  unit?: string | null
   color?: string
   icon?: string
   displayOrder: number
@@ -42,6 +48,9 @@ export interface PerspectiveRequest {
   code: string
   name: string
   description?: string
+  targetValue?: number | null
+  minimumValue?: number | null
+  unit?: string | null
   color?: string
   icon?: string
   displayOrder?: number
@@ -76,6 +85,9 @@ export interface ScorecardPerspectiveResponse {
   perspectiveId: string
   code: string
   name: string
+  targetValue?: number | null
+  minimumValue?: number | null
+  unit?: string | null
   color?: string
   weightPercentage: number
   displayOrder: number
@@ -159,6 +171,13 @@ export interface PerspectiveScoreResponse {
   kpiCount: number
   achievementPercent?: number | null
   weightedScore?: number | null
+  /** true = hạng mục tự chấm theo mục tiêu của chính nó (kiểu OKR) thay vì trung bình KPI con. */
+  scoredByTarget?: boolean | null
+  targetValue?: number | null
+  minimumValue?: number | null
+  unit?: string | null
+  /** Tổng thực đạt của các KPI định lượng trong hạng mục — chỉ có khi chấm theo mục tiêu. */
+  actualValue?: number | null
 }
 
 // `PerspectiveScoreResponse` ở trên vẫn dùng: điểm hạng mục đính kèm trong Evaluation

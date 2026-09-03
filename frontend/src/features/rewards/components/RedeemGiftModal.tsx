@@ -1,4 +1,7 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo } from 'react'
+import { useForm } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
+import { createRedeemGiftSchema, type RedeemGiftFormData } from '../schemas/redeemGiftSchema'
 import { Loader2, X, Gift, Minus, Plus, AlertTriangle } from 'lucide-react'
 import { useMyRedemptions } from '../hooks/useGifts'
 import { htmlToText } from '../utils/html'
@@ -22,23 +25,33 @@ export default function RedeemGiftModal({
   onClose,
   onVoucherIssued,
 }: RedeemGiftModalProps) {
-  const [quantity, setQuantity] = useState(1)
-  const [note, setNote] = useState('')
   const { redeem, isRedeeming } = useMyRedemptions()
-
-  useEffect(() => {
-    if (!gift) return
-    setQuantity(1)
-    setNote('')
-  }, [gift])
-
-  if (!gift) return null
 
   // Trần số lượng là giá trị nhỏ hơn giữa "tồn kho còn" và "số điểm mua nổi" — chặn ở
   // đây để người dùng không bấm gửi rồi mới nhận lỗi từ backend.
-  const maxByStock = gift.unlimitedStock ? Infinity : (gift.stockQuantity ?? 0)
-  const maxByBalance = Math.floor(balance / gift.pointCost)
+  const maxByStock = gift?.unlimitedStock ? Infinity : (gift?.stockQuantity ?? 0)
+  const maxByBalance = gift ? Math.floor(balance / gift.pointCost) : 0
   const maxQty = Math.max(1, Math.min(maxByStock, maxByBalance))
+
+  const schema = useMemo(
+    () => createRedeemGiftSchema({ maxQty, maxAffordable: maxByBalance }),
+    [maxQty, maxByBalance],
+  )
+
+  const { register, handleSubmit, reset, watch, setValue, formState: { errors } } = useForm<RedeemGiftFormData>({
+    resolver: zodResolver(schema),
+    defaultValues: { quantity: 1, note: '' },
+  })
+
+  // Số lượng chỉnh bằng hai nút +/- chứ không phải ô nhập.
+  const quantity = watch('quantity')
+
+  useEffect(() => {
+    if (!gift) return
+    reset({ quantity: 1, note: '' })
+  }, [gift, reset])
+
+  if (!gift) return null
 
   const total = gift.pointCost * quantity
   const remaining = balance - total
@@ -46,9 +59,12 @@ export default function RedeemGiftModal({
 
   const isVoucher = !!gift.externalProvider
 
-  const handleSubmit = async () => {
-    if (notEnough) return
-    const result = await redeem({ giftItemId: gift.id, quantity, note: note.trim() || undefined })
+  const onSubmit = async (data: RedeemGiftFormData) => {
+    const result = await redeem({
+      giftItemId: gift.id,
+      quantity: data.quantity,
+      note: data.note.trim() || undefined,
+    })
     onClose()
     if (result.vouchers?.length) onVoucherIssued?.(result)
   }
@@ -117,7 +133,7 @@ export default function RedeemGiftModal({
             <div className="flex items-center gap-3">
               <button
                 type="button"
-                onClick={() => setQuantity((q) => Math.max(1, q - 1))}
+                onClick={() => setValue('quantity', Math.max(1, quantity - 1), { shouldValidate: true })}
                 disabled={quantity <= 1}
                 className="rounded-lg border border-[var(--color-border)] p-2 disabled:opacity-40"
               >
@@ -126,7 +142,7 @@ export default function RedeemGiftModal({
               <span className="w-10 text-center text-lg font-semibold tabular-nums">{quantity}</span>
               <button
                 type="button"
-                onClick={() => setQuantity((q) => Math.min(maxQty, q + 1))}
+                onClick={() => setValue('quantity', Math.min(maxQty, quantity + 1), { shouldValidate: true })}
                 disabled={quantity >= maxQty}
                 className="rounded-lg border border-[var(--color-border)] p-2 disabled:opacity-40"
               >
@@ -138,6 +154,9 @@ export default function RedeemGiftModal({
                 </span>
               )}
             </div>
+            {errors.quantity && (
+              <p className="mt-1 text-xs text-rose-600">{errors.quantity.message}</p>
+            )}
           </div>
 
           <div className="space-y-1 rounded-xl bg-[var(--color-muted)] px-4 py-3 text-sm">
@@ -160,8 +179,7 @@ export default function RedeemGiftModal({
               Ghi chú <span className="font-normal text-[var(--color-muted-foreground)]">(tuỳ chọn)</span>
             </label>
             <input
-              value={note}
-              onChange={(e) => setNote(e.target.value)}
+              {...register('note')}
               placeholder="Ví dụ: cỡ áo L, giao tại văn phòng Hà Nội"
               className="w-full rounded-lg border border-[var(--color-border)] bg-transparent px-3 py-2 text-sm"
             />
@@ -200,7 +218,7 @@ export default function RedeemGiftModal({
             Huỷ
           </button>
           <button
-            onClick={handleSubmit}
+            onClick={handleSubmit(onSubmit)}
             disabled={notEnough || isRedeeming}
             className="inline-flex items-center gap-2 rounded-lg bg-[var(--color-primary)] px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
           >

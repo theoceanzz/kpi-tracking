@@ -19,6 +19,9 @@ interface BscRow {
   Name: string
   FixedPerspective: string
   Description?: string
+  TargetValue?: string
+  MinimumValue?: string
+  Unit?: string
   Color?: string
   DisplayOrder?: string
   Status?: string
@@ -65,6 +68,16 @@ export default function BscExcelPreviewModal({ open, file, onClose, onImport, is
       else if ((codeCounts.get(code.toLowerCase()) || 0) > 1) errors['Code'] = 'Mã bị trùng trong tệp'
       if (!(row.Name || '').trim()) errors['Name'] = 'Tên là bắt buộc'
       if (row.FixedPerspective && row.FixedPerspective.trim() && !FIXED_CODES.includes(row.FixedPerspective.trim().toUpperCase())) errors['FixedPerspective'] = 'Lĩnh vực không hợp lệ'
+      // Mục tiêu/tối thiểu là tuỳ chọn; nếu điền thì phải là số không âm và tối thiểu không vượt mục tiêu.
+      const target = (row.TargetValue || '').toString().trim()
+      const minimum = (row.MinimumValue || '').toString().trim()
+      if (target && isNaN(Number(target))) errors['TargetValue'] = 'Phải là số'
+      else if (target && Number(target) < 0) errors['TargetValue'] = 'Không được âm'
+      if (minimum && isNaN(Number(minimum))) errors['MinimumValue'] = 'Phải là số'
+      else if (minimum && Number(minimum) < 0) errors['MinimumValue'] = 'Không được âm'
+      else if (minimum && target && !isNaN(Number(target)) && Number(minimum) > Number(target)) {
+        errors['MinimumValue'] = 'Không được lớn hơn mục tiêu'
+      }
       if (row.Color && row.Color.trim() && !/^#([0-9A-Fa-f]{6})$/.test(row.Color.trim())) errors['Color'] = 'Màu #RRGGBB'
       const order = (row.DisplayOrder || '').toString().trim()
       if (order && isNaN(Number(order))) errors['DisplayOrder'] = 'Phải là số'
@@ -91,6 +104,9 @@ export default function BscExcelPreviewModal({ open, file, onClose, onImport, is
         Name: (row['Name'] || '').toString().trim(),
         FixedPerspective: ((row['FixedPerspective'] ?? row['Perspective'] ?? '').toString().trim() || DEFAULT_FIXED).toUpperCase(),
         Description: (row['Description'] || '').toString().trim(),
+        TargetValue: (row['TargetValue'] ?? '').toString().trim(),
+        MinimumValue: (row['MinimumValue'] ?? '').toString().trim(),
+        Unit: (row['Unit'] ?? '').toString().trim(),
         Color: (row['Color'] || '').toString().trim() || DEFAULT_COLOR,
         DisplayOrder: (row['DisplayOrder'] ?? '').toString().trim(),
         Status: ((row['Status'] || '').toString().trim() || 'ACTIVE').toUpperCase(),
@@ -118,7 +134,8 @@ export default function BscExcelPreviewModal({ open, file, onClose, onImport, is
 
   const handleAddRow = () => {
     setData(prev => validateAllRows([...prev, {
-      id: `new-${Date.now()}`, Code: '', Name: '', FixedPerspective: DEFAULT_FIXED, Description: '', Color: DEFAULT_COLOR, DisplayOrder: '', Status: 'ACTIVE',
+      id: `new-${Date.now()}`, Code: '', Name: '', FixedPerspective: DEFAULT_FIXED, Description: '',
+      TargetValue: '', MinimumValue: '', Unit: '', Color: DEFAULT_COLOR, DisplayOrder: '', Status: 'ACTIVE',
     }]))
   }
 
@@ -132,6 +149,9 @@ export default function BscExcelPreviewModal({ open, file, onClose, onImport, is
         const rowData: any = { Code: r.Code, Name: r.Name }
         rowData.FixedPerspective = (r.FixedPerspective || DEFAULT_FIXED).toUpperCase()
         if (r.Description) rowData.Description = r.Description
+        if (r.TargetValue !== undefined && r.TargetValue !== '') rowData.TargetValue = Number(r.TargetValue)
+        if (r.MinimumValue !== undefined && r.MinimumValue !== '') rowData.MinimumValue = Number(r.MinimumValue)
+        if (r.Unit) rowData.Unit = r.Unit
         if (r.Color) rowData.Color = r.Color
         if (r.DisplayOrder !== undefined && r.DisplayOrder !== '') rowData.DisplayOrder = r.DisplayOrder
         if (r.Status) rowData.Status = r.Status
@@ -204,6 +224,9 @@ export default function BscExcelPreviewModal({ open, file, onClose, onImport, is
                         <th className="px-4 py-3 min-w-[200px]">Tên <span className="text-rose-500">*</span></th>
                         <th className="px-4 py-3 min-w-[180px]">Lĩnh vực</th>
                         <th className="px-4 py-3 min-w-[260px]">Mô tả</th>
+                        <th className="px-4 py-3 min-w-[120px]">Mục tiêu</th>
+                        <th className="px-4 py-3 min-w-[120px]">Tối thiểu</th>
+                        <th className="px-4 py-3 min-w-[120px]">Đơn vị</th>
                         <th className="px-4 py-3 min-w-[180px]">Màu</th>
                         <th className="px-4 py-3 min-w-[100px]">Thứ tự</th>
                         <th className="px-4 py-3 min-w-[140px]">Trạng thái</th>
@@ -236,6 +259,17 @@ export default function BscExcelPreviewModal({ open, file, onClose, onImport, is
                           </td>
                           <td className="px-4 py-2">
                             <input value={row.Description || ''} onChange={e => handleCellChange(row.id, 'Description', e.target.value)} className={inputCls()} />
+                          </td>
+                          <td className="px-4 py-2">
+                            <input value={row.TargetValue || ''} onChange={e => handleCellChange(row.id, 'TargetValue', e.target.value)} placeholder="—" className={inputCls(row._errors?.TargetValue)} />
+                            {row._errors?.TargetValue && <p className="text-[10px] text-rose-500 mt-1 font-medium px-1">{row._errors.TargetValue}</p>}
+                          </td>
+                          <td className="px-4 py-2">
+                            <input value={row.MinimumValue || ''} onChange={e => handleCellChange(row.id, 'MinimumValue', e.target.value)} placeholder="—" className={inputCls(row._errors?.MinimumValue)} />
+                            {row._errors?.MinimumValue && <p className="text-[10px] text-rose-500 mt-1 font-medium px-1">{row._errors.MinimumValue}</p>}
+                          </td>
+                          <td className="px-4 py-2">
+                            <input value={row.Unit || ''} onChange={e => handleCellChange(row.id, 'Unit', e.target.value)} placeholder="—" className={inputCls()} />
                           </td>
                           <td className="px-4 py-2">
                             <div className="flex items-center gap-2">

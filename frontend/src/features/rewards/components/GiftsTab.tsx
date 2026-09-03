@@ -34,8 +34,8 @@ export default function GiftsTab() {
     )
 
   return (
-    <div>
-      <div className="mb-4 flex items-center justify-between gap-3">
+    <div id="tour-gifts-root">
+      <div id="tour-gifts-actions" className="mb-4 flex items-center justify-between gap-3">
         <span className="text-sm text-[var(--color-muted-foreground)]">
           {(data ?? []).length > 0 && `${(data ?? []).length} món quà trong danh mục`}
         </span>

@@ -34,8 +34,8 @@ export default function ConductTargetPicker({
   const cycles = useMemo(() => cyclesData?.content ?? [], [cyclesData])
   const periods = useMemo(() => periodsData?.content ?? [], [periodsData])
 
-  // Đợt/kỳ chọn sẵn là cái đang chạy, không có thì cái gần hiện tại nhất — cái mới nhất
-  // theo ngày bắt đầu có thể là một đợt tương lai còn xa, chấm hạnh kiểm ở đó là vô nghĩa.
+  // Đợt/kỳ chọn sẵn là cái đang chạy, ở kẽ giữa hai đợt thì là cái vừa kết thúc — cái mới
+  // nhất theo ngày bắt đầu có thể là một đợt tương lai còn xa, chấm hạnh kiểm ở đó là vô nghĩa.
   const defaultPeriod = useMemo(() => pickCurrentOrNearest(periods), [periods])
   const defaultCycle = useMemo(() => pickCurrentOrNearest(cycles), [cycles])
 
@@ -50,7 +50,7 @@ export default function ConductTargetPicker({
   }, [value, defaultPeriod, defaultCycle, onChange])
 
   const setScope = (scope: ConductScope) => {
-    // Đổi phạm vi thì chọn sẵn mục gần hiện tại nhất — người dùng gần như luôn chấm đợt/kỳ đang chạy.
+    // Đổi phạm vi thì chọn sẵn mục hiện tại — người dùng gần như luôn chấm đợt/kỳ đang chạy.
     if (scope === value.scope) return
     onChange(scope === 'PERIOD'
       ? { scope, periodId: defaultPeriod?.id ?? null, cycleId: null }

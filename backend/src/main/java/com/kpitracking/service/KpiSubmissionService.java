@@ -187,9 +187,9 @@ public class KpiSubmissionService {
             }
 
             // autoScore luôn tính bằng công thức chung (vi phạm ngưỡng ⇒ ratio = 0).
-            com.kpitracking.entity.Organization org = kpi.getOrgUnit().getOrgHierarchyLevel().getOrganization();
-            double multiplier = org.getEvaluationMaxScore() / 100.0;
-            autoScore = achievementCalculator.ratioFromActual(kpi, request.getActualValue()) * kpi.getWeight() * multiplier;
+            // Trọng số CHÍNH LÀ điểm: đạt đủ KPI 25% ⇒ 25đ. Thang điểm của tổ chức không
+            // nhân vào đây nữa — nó chỉ là mẫu số xếp loại (xem EvaluationService.SCORING_POOL).
+            autoScore = achievementCalculator.ratioFromActual(kpi, request.getActualValue()) * kpi.getWeight();
         }
         
         // If it's a draft, don't trigger auto-rejection yet
@@ -348,10 +348,8 @@ public class KpiSubmissionService {
                     submission.setReviewedAt(Instant.now());
                 }
 
-                com.kpitracking.entity.Organization org = kpi.getOrgUnit().getOrgHierarchyLevel().getOrganization();
-                double multiplier = org.getEvaluationMaxScore() / 100.0;
                 submission.setAutoScore(
-                        achievementCalculator.ratioFromActual(kpi, submission.getActualValue()) * kpi.getWeight() * multiplier);
+                        achievementCalculator.ratioFromActual(kpi, submission.getActualValue()) * kpi.getWeight());
             }
         } else if (Boolean.TRUE.equals(request.getIsDraft())) {
             submission.setStatus(SubmissionStatus.DRAFT);
@@ -540,12 +538,10 @@ public class KpiSubmissionService {
 
         parentSub.setActualValue(totalActual);
         
-        com.kpitracking.entity.Organization org = parentKpi.getOrgUnit().getOrgHierarchyLevel().getOrganization();
         Double autoScore = 0.0;
         if (parentKpi.getTargetValue() != null && parentKpi.getWeight() != null && parentKpi.getTargetValue() != 0) {
-            double multiplier = org.getEvaluationMaxScore() / 100.0;
             // Dùng chung công thức với KpiAchievementCalculator (đã gồm bù trừ, ngưỡng, KPI ngược, trần).
-            autoScore = achievementCalculator.ratioFromActual(parentKpi, totalActual) * parentKpi.getWeight() * multiplier;
+            autoScore = achievementCalculator.ratioFromActual(parentKpi, totalActual) * parentKpi.getWeight();
         }
         parentSub.setAutoScore(autoScore);
 
@@ -570,10 +566,9 @@ public class KpiSubmissionService {
                 .mapToDouble(l -> l.getValue() != null ? l.getValue() : 0.0)
                 .max().orElse(0.0);
         double weight = kpi.getWeight() != null ? kpi.getWeight() : 0.0;
-        double multiplier = org.getEvaluationMaxScore() / 100.0;
         double ratio = maxLevelValue > 0 ? (level.getValue() / maxLevelValue) : 0.0;
         submission.setQualitativeLevel(level);
-        submission.setManagerScore(ratio * weight * multiplier);
+        submission.setManagerScore(ratio * weight);
     }
 
     @Transactional

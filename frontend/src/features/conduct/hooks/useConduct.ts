@@ -106,9 +106,12 @@ export function useConductSheet(target: ConductTarget, userId?: string) {
 
   const invalidate = () => {
     qc.invalidateQueries({ queryKey: ['conduct'] })
-    // Điểm hạnh kiểm lấp trục ma trận nên xếp loại của đợt/kỳ đổi theo.
+    // Điểm hạnh kiểm lấp trục ma trận nên xếp loại của đợt/kỳ đổi theo. Phiếu nằm ngay
+    // trong modal chấm đợt nên score-preview phải làm mới cùng lúc — nếu không, ô "Hành vi"
+    // ngay bên cạnh vẫn hiện số cũ dù vừa lưu.
     qc.invalidateQueries({ queryKey: ['evaluations'] })
     qc.invalidateQueries({ queryKey: ['cycleEvaluation'] })
+    qc.invalidateQueries({ queryKey: ['score-preview'] })
   }
 
   const saveSelf = useMutation({

@@ -97,6 +97,33 @@ public class PermissionChecker {
     }
 
     /**
+     * Như {@link #hasPermissionInOrgUnit} nhưng đòi thêm người đó phải là TRƯỞNG (rank 0)
+     * của đơn vị đó hoặc của một đơn vị cha — phó (rank 1) không tính.
+     *
+     * Dành cho những việc mà quyền thôi chưa đủ, phải đúng người đứng đầu ký: chấm hạnh
+     * kiểm là một. SYSTEM:ADMIN vẫn đi qua như mọi chỗ khác, nếu không thì quản trị viên
+     * không có vai trò trong cây tổ chức sẽ tự khoá mình ra ngoài.
+     */
+    public boolean hasLeaderPermissionInOrgUnit(UUID userId, String permissionCode, UUID orgUnitId) {
+        List<UserRoleOrgUnit> assignments = userRoleOrgUnitRepository.findByUserId(userId);
+        if (assignments.isEmpty()) return false;
+
+        OrgUnit targetUnit = orgUnitRepository.findById(orgUnitId).orElse(null);
+        if (targetUnit == null) return false;
+
+        Map<UUID, Set<String>> rolePerms = getPermissionsByRole(assignments);
+
+        return assignments.stream()
+                .filter(a -> targetUnit.getPath().startsWith(a.getOrgUnit().getPath()))
+                .anyMatch(a -> {
+                    Set<String> perms = rolePerms.getOrDefault(a.getRole().getId(), Collections.emptySet());
+                    if (perms.contains("SYSTEM:ADMIN")) return true;
+                    Integer rank = a.getRole().getRank();
+                    return rank != null && rank == 0 && perms.contains(permissionCode);
+                });
+    }
+
+    /**
      * Check if a user has any of the specific permission codes for a specific OrgUnit.
      */
     public boolean hasAnyPermissionInOrgUnit(UUID userId, UUID orgUnitId, String... permissionCodes) {

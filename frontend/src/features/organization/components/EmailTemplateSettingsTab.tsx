@@ -1,5 +1,8 @@
-import { useState, useMemo } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { useForm } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { createEmailTemplateSchema, type EmailTemplateFormData } from '../schemas/integrationSchema'
 import type { AxiosError } from 'axios'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
@@ -27,10 +30,6 @@ export default function EmailTemplateSettingsTab({ onOpenNotificationSettings }:
   })
 
   const [activeCode, setActiveCode] = useState<string | null>(null)
-  const [subject, setSubject] = useState('')
-  const [body, setBody] = useState('')
-  const [fullHtml, setFullHtml] = useState(false)
-  const [enabled, setEnabled] = useState(true)
   const [preview, setPreview] = useState<string | null>(null)
 
   const active = useMemo(
@@ -38,19 +37,37 @@ export default function EmailTemplateSettingsTab({ onOpenNotificationSettings }:
     [templates, activeCode],
   )
 
-  // Nạp nội dung của template đang chọn vào form ngay trong lúc render — đây là
-  // pattern React khuyến nghị cho "reset state khi prop đổi", tránh một vòng
-  // render thừa so với useEffect. Mốc là `code` chứ không phải cả object, nếu
+  // Mỗi loại email đòi bộ biến bắt buộc riêng nên schema dựng theo template đang mở.
+  const schema = useMemo(
+    () => createEmailTemplateSchema(active?.requiredVariables ?? []),
+    [active?.requiredVariables],
+  )
+
+  const { register, handleSubmit, reset, watch, setValue, formState: { errors } } = useForm<EmailTemplateFormData>({
+    resolver: zodResolver(schema),
+    defaultValues: { subject: '', body: '', fullHtml: false, enabled: true },
+  })
+
+  // Trình soạn trực quan và bản xem trước đọc theo từng ký tự vừa gõ.
+  const subject = watch('subject')
+  const body = watch('body')
+  const fullHtml = watch('fullHtml')
+  const enabled = watch('enabled')
+
+  // Nạp nội dung của template đang chọn. Mốc là `code` chứ không phải cả object, nếu
   // không mỗi lần refetch sẽ ghi đè những gì người dùng đang gõ dở.
-  const [loadedCode, setLoadedCode] = useState<string | null>(null)
-  if (active && active.code !== loadedCode) {
-    setLoadedCode(active.code)
-    setSubject(active.subject)
-    setBody(active.body)
-    setFullHtml(active.fullHtml)
-    setEnabled(active.enabled)
+  const loadedCode = useRef<string | null>(null)
+  useEffect(() => {
+    if (!active || active.code === loadedCode.current) return
+    loadedCode.current = active.code
+    reset({
+      subject: active.subject,
+      body: active.body,
+      fullHtml: active.fullHtml,
+      enabled: active.enabled,
+    })
     setPreview(null)
-  }
+  }, [active, reset])
 
   const payload = () => ({ subject, body, fullHtml, enabled })
 
@@ -59,7 +76,7 @@ export default function EmailTemplateSettingsTab({ onOpenNotificationSettings }:
    * trình soạn trực quan đọc lại được HTML nhờ các thuộc tính data-email.
    */
   const toggleAdvanced = () => {
-    setFullHtml(v => !v)
+    setValue('fullHtml', !fullHtml)
     setPreview(null)
   }
 
@@ -73,7 +90,7 @@ export default function EmailTemplateSettingsTab({ onOpenNotificationSettings }:
   }, [templates])
 
   const saveMutation = useMutation({
-    mutationFn: () => emailTemplateApi.save(active!.code, payload()),
+    mutationFn: (data: EmailTemplateFormData) => emailTemplateApi.save(active!.code, data),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['emailTemplates'] })
       toast.success('Đã lưu template email')
@@ -85,10 +102,12 @@ export default function EmailTemplateSettingsTab({ onOpenNotificationSettings }:
     mutationFn: () => emailTemplateApi.reset(active!.code),
     onSuccess: (fresh) => {
       qc.invalidateQueries({ queryKey: ['emailTemplates'] })
-      setSubject(fresh.subject)
-      setBody(fresh.body)
-      setFullHtml(fresh.fullHtml)
-      setEnabled(fresh.enabled)
+      reset({
+        subject: fresh.subject,
+        body: fresh.body,
+        fullHtml: fresh.fullHtml,
+        enabled: fresh.enabled,
+      })
       setPreview(null)
       toast.success('Đã khôi phục nội dung mặc định')
     },
@@ -101,7 +120,8 @@ export default function EmailTemplateSettingsTab({ onOpenNotificationSettings }:
     onError: (e) => toast.error(serverMessage(e, 'Không tạo được bản xem trước')),
   })
 
-  // Biến bắt buộc phải xuất hiện trong tiêu đề hoặc nội dung đang soạn.
+  // Biến bắt buộc phải xuất hiện trong tiêu đề hoặc nội dung đang soạn. Cảnh báo hiện
+  // ngay khi gõ chứ không đợi bấm Lưu; schema chặn lần cuối bằng đúng luật này.
   const missingRequired = active
     ? active.requiredVariables.filter(v => !`${subject} ${body}`.includes(`{{${v}}}`))
     : []
@@ -117,7 +137,7 @@ export default function EmailTemplateSettingsTab({ onOpenNotificationSettings }:
   return (
     <div className="grid grid-cols-1 lg:grid-cols-[280px_1fr] gap-6">
       {/* Danh sách loại mail */}
-      <div className="bg-white dark:bg-slate-900 rounded-[28px] border border-slate-200 dark:border-slate-800 p-4 h-fit lg:sticky lg:top-4">
+      <div id="tour-email-list" className="bg-white dark:bg-slate-900 rounded-[28px] border border-slate-200 dark:border-slate-800 p-4 h-fit lg:sticky lg:top-4">
         {groups.map(([group, items]) => (
           <div key={group} className="mb-4 last:mb-0">
             <p className="px-2 py-1.5 text-[10px] font-black uppercase tracking-[0.15em] text-slate-400">{group}</p>
@@ -153,7 +173,7 @@ export default function EmailTemplateSettingsTab({ onOpenNotificationSettings }:
 
       {/* Trình soạn thảo */}
       {active && (
-        <div className="bg-white dark:bg-slate-900 rounded-[28px] border border-slate-200 dark:border-slate-800 p-6 space-y-5">
+        <div id="tour-email-editor" className="bg-white dark:bg-slate-900 rounded-[28px] border border-slate-200 dark:border-slate-800 p-6 space-y-5">
           <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
             <div className="flex items-start gap-3 min-w-0">
               <div className="w-10 h-10 rounded-2xl bg-indigo-50 dark:bg-indigo-900/20 flex items-center justify-center shrink-0">
@@ -171,7 +191,7 @@ export default function EmailTemplateSettingsTab({ onOpenNotificationSettings }:
               <label className="flex items-center gap-2 shrink-0 cursor-pointer">
                 <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">Bật gửi</span>
                 <button
-                  onClick={() => setEnabled(v => !v)}
+                  onClick={() => setValue('enabled', !enabled)}
                   className={cn(
                     'w-11 h-6 rounded-full transition-colors relative',
                     enabled ? 'bg-emerald-500' : 'bg-slate-300 dark:bg-slate-700',
@@ -233,13 +253,13 @@ export default function EmailTemplateSettingsTab({ onOpenNotificationSettings }:
           )}
 
           {/* Tiêu đề */}
-          <div>
+          <div id="tour-email-subject">
             <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Tiêu đề email</label>
             <input
-              value={subject}
-              onChange={e => setSubject(e.target.value)}
+              {...register('subject')}
               className="w-full mt-2 px-4 py-3 rounded-2xl border border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950/50 text-sm font-medium outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500/50 transition-all"
             />
+            {errors.subject && <p className="mt-1 text-xs font-bold text-red-500">{errors.subject.message}</p>}
           </div>
 
           {/* Nội dung */}
@@ -265,8 +285,7 @@ export default function EmailTemplateSettingsTab({ onOpenNotificationSettings }:
             {fullHtml ? (
               <>
                 <textarea
-                  value={body}
-                  onChange={e => setBody(e.target.value)}
+                  {...register('body')}
                   rows={16}
                   spellCheck={false}
                   className="w-full px-4 py-3 rounded-2xl border border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950/50 text-[13px] font-mono leading-relaxed outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500/50 transition-all resize-y"
@@ -277,7 +296,7 @@ export default function EmailTemplateSettingsTab({ onOpenNotificationSettings }:
                 </p>
               </>
             ) : (
-              <EmailEditor value={body} onChange={setBody} variables={active.variables} />
+              <EmailEditor value={body} onChange={v => setValue('body', v, { shouldValidate: true })} variables={active.variables} />
             )}
           </div>
 
@@ -292,7 +311,7 @@ export default function EmailTemplateSettingsTab({ onOpenNotificationSettings }:
           )}
 
           {/* Hành động */}
-          <div className="flex flex-wrap items-center gap-3 pt-2 border-t border-slate-100 dark:border-slate-800">
+          <div id="tour-email-actions" className="flex flex-wrap items-center gap-3 pt-2 border-t border-slate-100 dark:border-slate-800">
             <button
               onClick={() => previewMutation.mutate()}
               disabled={previewMutation.isPending}
@@ -310,8 +329,8 @@ export default function EmailTemplateSettingsTab({ onOpenNotificationSettings }:
               <RotateCcw size={14} /> Khôi phục mặc định
             </button>
             <button
-              onClick={() => saveMutation.mutate()}
-              disabled={saveMutation.isPending || missingRequired.length > 0}
+              onClick={handleSubmit(data => saveMutation.mutate(data))}
+              disabled={saveMutation.isPending}
               className="flex items-center gap-2 px-6 h-11 rounded-2xl bg-indigo-600 text-white text-[11px] font-black uppercase tracking-widest hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-500/20 active:scale-95 ml-auto disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none"
             >
               {saveMutation.isPending ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}

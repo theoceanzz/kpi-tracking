@@ -78,6 +78,7 @@ export default function MyWalletPage() {
           description="Nạp tiền, đổi sang điểm thưởng và xem toàn bộ lịch sử giao dịch"
         />
         <button
+          id="tour-my-wallet-topup"
           type="button"
           onClick={() => setTopupOpen(true)}
           className="flex items-center gap-2 rounded-xl bg-[var(--color-primary)] px-4 py-2.5 font-semibold text-white"
@@ -87,7 +88,9 @@ export default function MyWalletPage() {
         </button>
       </div>
 
-      <CashBalanceCard wallet={wallet} loading={walletLoading} />
+      <div id="tour-my-wallet-balance">
+        <CashBalanceCard wallet={wallet} loading={walletLoading} />
+      </div>
 
       {/* Neo cho hướng dẫn: hàng tab này tự vẽ chứ không đi qua WorkspaceHeader. */}
       <div id="tour-local-tabs" className="mb-6 mt-8 flex flex-wrap gap-1 sm:border-b sm:border-[var(--color-border)]">
@@ -112,49 +115,59 @@ export default function MyWalletPage() {
         ))}
       </div>
 
-      {activeTab === 'convert' && <ConvertPointsCard wallet={wallet} />}
+      {activeTab === 'convert' && (
+        <div id="tour-my-wallet-convert">
+          <ConvertPointsCard wallet={wallet} />
+        </div>
+      )}
 
-      {activeTab === 'topups' &&
-        (topupsLoading ? (
-          <LoadingSkeleton type="table" rows={3} />
-        ) : topups.length === 0 ? (
-          <div className="rounded-2xl border border-dashed border-[var(--color-border)]">
-            <EmptyState
-              title="Chưa có đơn nạp nào"
-              description="Bấm Nạp tiền ở góc trên để tạo mã QR chuyển khoản."
-            />
-          </div>
-        ) : (
-          <TopupHistoryTable data={topups} />
-        ))}
+      {activeTab === 'topups' && (
+        <div id="tour-my-wallet-topups">
+          {topupsLoading ? (
+            <LoadingSkeleton type="table" rows={3} />
+          ) : topups.length === 0 ? (
+            <div className="rounded-2xl border border-dashed border-[var(--color-border)]">
+              <EmptyState
+                title="Chưa có đơn nạp nào"
+                description="Bấm Nạp tiền ở góc trên để tạo mã QR chuyển khoản."
+              />
+            </div>
+          ) : (
+            <TopupHistoryTable data={topups} />
+          )}
+        </div>
+      )}
 
-      {activeTab === 'history' &&
-        (txLoading ? (
-          <LoadingSkeleton type="table" rows={4} />
-        ) : transactions.length === 0 ? (
-          <div className="rounded-2xl border border-dashed border-[var(--color-border)]">
-            <EmptyState
-              title="Chưa có giao dịch nào"
-              description="Mọi lần nạp tiền hoặc đổi điểm đều được ghi lại đầy đủ ở đây."
-            />
-          </div>
-        ) : (
-          <>
-            <CashLedgerTable data={transactions} />
-            {(txPage?.totalPages ?? 0) > 1 && (
-              <div className="mt-4">
-                <Pagination
-                  currentPage={page}
-                  totalPages={txPage?.totalPages ?? 0}
-                  totalElements={txPage?.totalElements ?? 0}
-                  size={size}
-                  onPageChange={setPage}
-                  itemLabel="giao dịch"
-                />
-              </div>
-            )}
-          </>
-        ))}
+      {activeTab === 'history' && (
+        <div id="tour-my-wallet-history">
+          {txLoading ? (
+            <LoadingSkeleton type="table" rows={4} />
+          ) : transactions.length === 0 ? (
+            <div className="rounded-2xl border border-dashed border-[var(--color-border)]">
+              <EmptyState
+                title="Chưa có giao dịch nào"
+                description="Mọi lần nạp tiền hoặc đổi điểm đều được ghi lại đầy đủ ở đây."
+              />
+            </div>
+          ) : (
+            <>
+              <CashLedgerTable data={transactions} />
+              {(txPage?.totalPages ?? 0) > 1 && (
+                <div className="mt-4">
+                  <Pagination
+                    currentPage={page}
+                    totalPages={txPage?.totalPages ?? 0}
+                    totalElements={txPage?.totalElements ?? 0}
+                    size={size}
+                    onPageChange={setPage}
+                    itemLabel="giao dịch"
+                  />
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      )}
 
       <TopupModal open={topupOpen} onClose={() => setTopupOpen(false)} config={modalConfig} />
     </div>

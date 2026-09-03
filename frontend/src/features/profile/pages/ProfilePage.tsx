@@ -5,7 +5,12 @@ import { getInitials, formatPhoneNumber } from '@/lib/utils'
 
 import { useForm, useWatch } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import * as z from 'zod'
+import {
+  profileInfoSchema,
+  securityPasswordSchema,
+  type ProfileInfoFormData,
+  type SecurityPasswordFormData,
+} from '../schemas/profileSchema'
 import { cn } from '@/lib/utils'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { authApi } from '@/features/auth/api/authApi'
@@ -178,11 +183,8 @@ function NavTab({ active, onClick, icon: Icon, label, description }: {
 /* ========== Profile Info Tab ========== */
 function ProfileInfoTab({ user, onUserUpdate }: { user: any; onUserUpdate: (u: any) => void }) {
   const [editing, setEditing] = useState(false)
-  const { register, handleSubmit, reset, formState: { errors } } = useForm({
-    resolver: zodResolver(z.object({
-      fullName: z.string().min(1, 'Vui lòng nhập họ tên'),
-      phone: z.string().regex(/^0\d{9}$/, 'Số điện thoại phải gồm 10 chữ số và bắt đầu bằng số 0 (VD: 0912345678)').optional().or(z.literal('')),
-    })),
+  const { register, handleSubmit, reset, formState: { errors } } = useForm<ProfileInfoFormData>({
+    resolver: zodResolver(profileInfoSchema),
     defaultValues: {
       fullName: user.fullName ?? '',
       phone: user.phone ?? '',
@@ -313,9 +315,10 @@ function InfoField({ icon: Icon, iconColor, iconBg, label, value }: {
 /* ========== Security Tab ========== */
 function SecurityTab() {
   const { user, setUser } = useAuthStore()
-  const { register, handleSubmit, formState: { errors }, watch, control, setValue, reset, setError } = useForm<{
-    currentPassword: string; newPassword: string; confirmPassword: string
-  }>()
+  const { register, handleSubmit, formState: { errors }, watch, control, setValue, reset, setError } = useForm<SecurityPasswordFormData>({
+    resolver: zodResolver(securityPasswordSchema),
+    defaultValues: { currentPassword: '', newPassword: '', confirmPassword: '' },
+  })
 
   const [showCurrent, setShowCurrent] = useState(false)
   const [showNew, setShowNew] = useState(false)
@@ -420,7 +423,7 @@ function SecurityTab() {
               </label>
               <div className="relative">
                 <input
-                  {...register('currentPassword', { required: 'Vui lòng nhập mật khẩu hiện tại' })}
+                  {...register('currentPassword')}
                   type={showCurrent ? 'text' : 'password'}
                   className={inputCls + " pr-12"}
                   placeholder="••••••••"
@@ -443,11 +446,7 @@ function SecurityTab() {
               </label>
               <div className="relative">
                 <input
-                  {...register('newPassword', {
-                    required: 'Vui lòng nhập mật khẩu mới',
-                    minLength: { value: 8, message: 'Tối thiểu 8 ký tự' },
-                    validate: (v) => v !== watch('currentPassword') || 'Mật khẩu mới phải khác mật khẩu hiện tại',
-                  })}
+                  {...register('newPassword')}
                   type={showNew ? 'text' : 'password'}
                   className={inputCls + " pr-24"}
                   placeholder="Nhập ít nhất 8 ký tự an toàn"
@@ -513,10 +512,7 @@ function SecurityTab() {
               </label>
               <div className="relative">
                 <input
-                  {...register('confirmPassword', {
-                    required: 'Vui lòng xác nhận mật khẩu',
-                    validate: (v) => v === watch('newPassword') || 'Mật khẩu không khớp',
-                  })}
+                  {...register('confirmPassword')}
                   type={showConfirm ? 'text' : 'password'}
                   className={inputCls + " pr-12"}
                   placeholder="Nhập lại mật khẩu khớp chính xác"

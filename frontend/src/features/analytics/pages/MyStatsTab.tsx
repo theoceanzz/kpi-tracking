@@ -98,11 +98,13 @@ export default function MyStatsTab() {
       {/* Tiêu đề + nút Tuỳ chỉnh */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <h2 className="text-xl font-black text-slate-900 dark:text-white">KPI của tôi</h2>
-        <DashboardEditToolbar api={dash} />
+        <div id="tour-analytics-customize">
+          <DashboardEditToolbar api={dash} />
+        </div>
       </div>
 
       {/* ── Global Filter Toolbar ──────────────────────────────────────────── */}
-      <div className="sticky top-0 z-20 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl flex flex-wrap items-center gap-4 justify-between p-4 shadow-sm">
+      <div id="tour-analytics-filter" className="sticky top-0 z-20 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl flex flex-wrap items-center gap-4 justify-between p-4 shadow-sm">
         <div className="flex items-center gap-2">
           <div className="p-2 bg-violet-50 dark:bg-violet-900/30 rounded-lg text-violet-600 dark:text-violet-400">
             <Target size={18} />
@@ -119,7 +121,7 @@ export default function MyStatsTab() {
       </div>
 
       {/* ── New Metric Cards ────────────────────────────────────────────────── */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+      <div id="tour-analytics-metrics" className="grid grid-cols-2 md:grid-cols-5 gap-4">
         <div className="bg-white dark:bg-slate-900 rounded-2xl p-5 border border-slate-200 dark:border-slate-800 flex items-center gap-4">
           <div className="w-11 h-11 rounded-full bg-violet-100 dark:bg-violet-900/40 text-violet-600 dark:text-violet-400 flex items-center justify-center shrink-0">
             <Target size={20} />
@@ -168,7 +170,9 @@ export default function MyStatsTab() {
       </div>
 
       {/* Lưới widget tuỳ chỉnh: Xu hướng + Bảng chi tiết */}
-      <DashboardCustomizeChrome api={dash} renderWidget={renderWidget} catalog={CATALOG} />
+      <div id="tour-analytics-widgets">
+        <DashboardCustomizeChrome api={dash} renderWidget={renderWidget} catalog={CATALOG} />
+      </div>
 
       {/* Bốn khối còn lại của tab — cũng là widget dùng được ở trang chủ */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

@@ -1,4 +1,6 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo } from 'react'
+import { useForm } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
 import {
   AlertTriangle,
   ArrowRight,
@@ -15,10 +17,11 @@ import {
 } from 'lucide-react'
 import NumberInput from '@/components/common/NumberInput'
 import LoadingSkeleton from '@/components/common/LoadingSkeleton'
-import { formatCurrency } from '@/lib/utils'
+import { formatCurrency, formatDateTime } from '@/lib/utils'
 import { useWalletConfig } from '../hooks/useWallet'
 import BankSelect from './BankSelect'
 import { findBank } from '../constants/banks'
+import { walletConfigSchema, type WalletConfigFormData } from '../schemas/walletConfigSchema'
 import type { WalletConfig, WalletConfigRequest } from '../types'
 
 const EMPTY: WalletConfigRequest = {
@@ -49,18 +52,21 @@ const inputCls =
   'w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-background)] px-4 py-2.5 text-sm outline-none transition-colors focus:border-[var(--color-primary)]'
 
 function Card({
+  id,
   icon,
   title,
   subtitle,
   children,
 }: {
+  /** Neo cho hướng dẫn — mỗi thẻ cấu hình là một bước riêng trong bài. */
+  id?: string
   icon: React.ReactNode
   title: string
   subtitle?: string
   children: React.ReactNode
 }) {
   return (
-    <section className="rounded-3xl border border-[var(--color-border)] bg-[var(--color-card)]">
+    <section id={id} className="rounded-3xl border border-[var(--color-border)] bg-[var(--color-card)]">
       <header className="flex items-center gap-3 border-b border-[var(--color-border)] px-6 py-4">
         <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl bg-[var(--color-primary)]/10 text-[var(--color-primary)]">
           {icon}
@@ -148,11 +154,19 @@ function ChecklistRow({ done, label, hint }: { done: boolean; label: string; hin
 
 export default function WalletConfigForm() {
   const { data, isLoading, updateConfig, isUpdating } = useWalletConfig()
-  const [form, setForm] = useState<WalletConfigRequest>(EMPTY)
+
+  const { handleSubmit, reset, watch, setValue, formState: { errors } } = useForm<WalletConfigFormData>({
+    resolver: zodResolver(walletConfigSchema),
+    defaultValues: EMPTY,
+  })
+
+  // Toàn bộ ô ở đây là NumberField / BankSelect tự vẽ, và bảng xem trước bên phải đọc
+  // từng giá trị ngay khi gõ, nên theo dõi cả form thay vì đăng ký từng ô.
+  const form = watch()
 
   useEffect(() => {
-    if (data) setForm(toForm(data))
-  }, [data])
+    if (data) reset(toForm(data))
+  }, [data, reset])
 
   const dirty = useMemo(
     () => (data ? JSON.stringify(form) !== JSON.stringify(toForm(data)) : false),
@@ -164,8 +178,7 @@ export default function WalletConfigForm() {
 
   if (isLoading) return <LoadingSkeleton type="table" rows={4} />
 
-  const set = <K extends keyof WalletConfigRequest>(k: K, v: WalletConfigRequest[K]) =>
-    setForm((f) => ({ ...f, [k]: v }))
+
 
   return (
     <div className="pb-24">
@@ -182,6 +195,24 @@ export default function WalletConfigForm() {
         </div>
       )}
 
+      {/* Điền xong tài khoản mà chưa giao dịch nào về là dấu hiệu điển hình của gõ
+          nhầm số tài khoản, hoặc chưa liên kết bên SePay. Cả hai đều im lặng: nhân
+          viên vẫn quét được QR, tiền vẫn đi, chỉ là không bao giờ được ghi có. */}
+      {data?.bankConfigured && !data?.lastWebhookAt && (
+        <div className="mb-6 flex items-start gap-3 rounded-2xl border border-sky-500/40 bg-sky-500/10 px-5 py-4 text-sm">
+          <Info size={18} className="mt-0.5 flex-shrink-0 text-sky-600" />
+          <div>
+            <p className="font-semibold">Chưa nhận được giao dịch nào từ tài khoản này</p>
+            <p className="mt-0.5 text-[var(--color-muted-foreground)]">
+              Kiểm tra lại bên dashboard SePay: tài khoản{' '}
+              <span className="font-mono">{data.sepayAccountNumber}</span> đã được liên kết chưa, và
+              webhook đã trỏ về hệ thống chưa. Chuyển thử một khoản nhỏ là cách nhanh nhất để biết
+              cả chuỗi đã thông.
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Hai cột trên màn hình rộng: cột trái là thứ phải điền, cột phải là thứ
           giúp điền đúng. Xếp dọc một cột hẹp sẽ bỏ trống nửa màn hình mà vẫn bắt
           người dùng cuộn. */}
@@ -189,6 +220,7 @@ export default function WalletConfigForm() {
         <div className="min-w-0 space-y-6">
           <Card
             icon={<Coins size={18} />}
+            id="tour-wallet-rate"
             title="Tỉ giá quy đổi"
             subtitle="Số tiền nhân viên phải bỏ ra cho mỗi điểm thưởng"
           >
@@ -199,7 +231,7 @@ export default function WalletConfigForm() {
               >
                 <NumberField
                   value={form.pointExchangeRate}
-                  onChange={(v) => set('pointExchangeRate', v)}
+                  onChange={(v) => setValue('pointExchangeRate', v, { shouldValidate: true })}
                   suffix="đ"
                   maxDigits={9}
                 />
@@ -208,7 +240,7 @@ export default function WalletConfigForm() {
                     <button
                       key={v}
                       type="button"
-                      onClick={() => set('pointExchangeRate', v)}
+                      onClick={() => setValue('pointExchangeRate', v, { shouldValidate: true })}
                       className={`rounded-full border px-2.5 py-1 text-xs font-semibold transition-colors ${
                         form.pointExchangeRate === v
                           ? 'border-[var(--color-primary)] bg-[var(--color-primary)]/10 text-[var(--color-primary)]'
@@ -246,6 +278,7 @@ export default function WalletConfigForm() {
 
           <Card
             icon={<Timer size={18} />}
+            id="tour-wallet-limits"
             title="Hạn mức nạp"
             subtitle="Giới hạn mỗi lần nạp và thời gian hiệu lực của mã QR"
           >
@@ -253,21 +286,21 @@ export default function WalletConfigForm() {
               <Field label="Tối thiểu mỗi lần">
                 <NumberField
                   value={form.topupMinAmount}
-                  onChange={(v) => set('topupMinAmount', v)}
+                  onChange={(v) => setValue('topupMinAmount', v, { shouldValidate: true })}
                   suffix="đ"
                 />
               </Field>
               <Field label="Tối đa mỗi lần">
                 <NumberField
                   value={form.topupMaxAmount}
-                  onChange={(v) => set('topupMaxAmount', v)}
+                  onChange={(v) => setValue('topupMaxAmount', v, { shouldValidate: true })}
                   suffix="đ"
                 />
               </Field>
               <Field label="Hiệu lực của đơn">
                 <NumberField
                   value={form.topupExpireMinutes}
-                  onChange={(v) => set('topupExpireMinutes', v)}
+                  onChange={(v) => setValue('topupExpireMinutes', v, { shouldValidate: true })}
                   suffix="phút"
                   maxDigits={4}
                 />
@@ -277,6 +310,13 @@ export default function WalletConfigForm() {
             {rangeInvalid && (
               <p className="mt-4 rounded-xl bg-rose-500/10 px-4 py-2.5 text-sm text-rose-700 dark:text-rose-400">
                 Số tiền tối đa đang nhỏ hơn tối thiểu.
+              </p>
+            )}
+            {(errors.pointExchangeRate || errors.topupMinAmount || errors.topupExpireMinutes) && (
+              <p className="mt-2 text-xs text-rose-600">
+                {errors.pointExchangeRate?.message
+                  ?? errors.topupMinAmount?.message
+                  ?? errors.topupExpireMinutes?.message}
               </p>
             )}
 
@@ -289,6 +329,7 @@ export default function WalletConfigForm() {
 
           <Card
             icon={<Building2 size={18} />}
+            id="tour-wallet-bank"
             title="Tài khoản nhận tiền"
             subtitle="Dùng để dựng mã VietQR và đối chiếu giao dịch"
           >
@@ -296,7 +337,7 @@ export default function WalletConfigForm() {
               <Field label="Số tài khoản">
                 <input
                   value={form.sepayAccountNumber ?? ''}
-                  onChange={(e) => set('sepayAccountNumber', e.target.value)}
+                  onChange={(e) => setValue('sepayAccountNumber', e.target.value, { shouldValidate: true })}
                   placeholder="0123456789"
                   className={`${inputCls} font-mono`}
                 />
@@ -307,14 +348,14 @@ export default function WalletConfigForm() {
               >
                 <BankSelect
                   value={form.sepayBankCode}
-                  onChange={(code) => set('sepayBankCode', code)}
+                  onChange={(code) => setValue('sepayBankCode', code, { shouldValidate: true })}
                 />
               </Field>
               <div className="sm:col-span-2">
                 <Field label="Tên chủ tài khoản">
                   <input
                     value={form.sepayAccountHolder ?? ''}
-                    onChange={(e) => set('sepayAccountHolder', e.target.value)}
+                    onChange={(e) => setValue('sepayAccountHolder', e.target.value, { shouldValidate: true })}
                     placeholder="CONG TY ABC"
                     className={`${inputCls} uppercase`}
                   />
@@ -339,6 +380,19 @@ export default function WalletConfigForm() {
                 done={bankReady}
                 label="Đã có tài khoản nhận tiền"
                 hint="Thiếu thì nhân viên không tạo được đơn nạp."
+              />
+              {/* Ô duy nhất KHÔNG suy được từ dữ liệu trong KeyGo. Không có API nào của
+                  SePay để hỏi xem tài khoản đã liên kết bên đó chưa, nên chỉ một giao
+                  dịch về thật mới chứng minh được cả chuỗi webhook → khoá API → số tài
+                  khoản đều đúng. */}
+              <ChecklistRow
+                done={!!data?.lastWebhookAt}
+                label="Đã nhận giao dịch từ tài khoản này"
+                hint={
+                  data?.lastWebhookAt
+                    ? `Gần nhất lúc ${formatDateTime(data.lastWebhookAt)}.`
+                    : 'Chưa có giao dịch nào của tài khoản này về hệ thống. Nếu đã liên kết bên SePay mà ô này vẫn trống, nhiều khả năng số tài khoản gõ ở đây khác số đã liên kết.'
+                }
               />
               <ChecklistRow
                 done={form.pointExchangeRate > 0}
@@ -393,6 +447,11 @@ export default function WalletConfigForm() {
             <ol className="space-y-3">
               {[
                 <>
+                  Liên kết đúng tài khoản{' '}
+                  <strong className="font-mono">{form.sepayAccountNumber?.trim() || '…'}</strong>{' '}
+                  ở mục <strong>Ngân hàng</strong> trên dashboard SePay
+                </>,
+                <>
                   Trỏ webhook về <code className="rounded bg-[var(--color-muted)] px-1 py-0.5 text-[11px]">/api/v1/webhooks/sepay</code>
                 </>,
                 <>
@@ -413,6 +472,11 @@ export default function WalletConfigForm() {
               ))}
             </ol>
             <p className="mt-4 text-xs leading-relaxed text-[var(--color-muted-foreground)]">
+              Bước 1 chỉ làm được trên SePay, KeyGo không có API để tự liên kết hộ. Số tài khoản ở
+              đây phải trùng số đã liên kết bên đó: lệch nhau thì mã QR trỏ vào một tài khoản SePay
+              không theo dõi — tiền đi thật mà không giao dịch nào về hệ thống.
+            </p>
+            <p className="mt-3 text-xs leading-relaxed text-[var(--color-muted-foreground)]">
               Khoá API cố ý không cấu hình ở đây: nó nằm ở máy chủ nên không lọt vào giao diện hay
               nhật ký truy cập.
             </p>
@@ -428,7 +492,7 @@ export default function WalletConfigForm() {
             <div className="flex flex-shrink-0 gap-2">
               <button
                 type="button"
-                onClick={() => data && setForm(toForm(data))}
+                onClick={() => data && reset(toForm(data))}
                 className="flex items-center gap-2 rounded-xl border border-[var(--color-border)] px-4 py-2.5 text-sm font-semibold transition-colors hover:bg-[var(--color-muted)]"
               >
                 <RotateCcw size={16} />
@@ -436,8 +500,8 @@ export default function WalletConfigForm() {
               </button>
               <button
                 type="button"
-                onClick={() => updateConfig(form)}
-                disabled={isUpdating || rangeInvalid}
+                onClick={handleSubmit(d => updateConfig(d as WalletConfigRequest))}
+                disabled={isUpdating}
                 className="flex items-center gap-2 rounded-xl bg-[var(--color-primary)] px-5 py-2.5 text-sm font-semibold text-white transition-opacity disabled:opacity-50"
               >
                 {isUpdating ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}

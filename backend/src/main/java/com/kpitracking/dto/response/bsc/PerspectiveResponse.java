@@ -12,6 +12,12 @@ public class PerspectiveResponse {
     private String code;
     private String name;
     private String description;
+    /** Mục tiêu mong muốn của hạng mục (null = chưa đặt). */
+    private Double targetValue;
+    /** Kết quả tối thiểu của hạng mục (null = chưa đặt). */
+    private Double minimumValue;
+    /** Đơn vị tính của mục tiêu/tối thiểu. */
+    private String unit;
     private String color;
     private String icon;
     private Integer displayOrder;

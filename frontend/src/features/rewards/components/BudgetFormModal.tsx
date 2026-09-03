@@ -1,4 +1,6 @@
-import { useEffect, useState } from 'react'
+import { useEffect } from 'react'
+import { useForm } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
 import { useQuery } from '@tanstack/react-query'
 import { Loader2, X, Wallet, AlertTriangle } from 'lucide-react'
 import { DateField } from '@/components/common/DateTimePicker'
@@ -14,6 +16,8 @@ import { kpiPeriodApi } from '@/features/kpi/api/kpiPeriodApi'
 import { useAuthStore } from '@/store/authStore'
 import EmployeePicker from './EmployeePicker'
 import { useRewardBudgets } from '../hooks/useRewards'
+import { budgetSchema, type BudgetFormData, type ScopeMode } from '../schemas/budgetSchema'
+import { numOrUndefined } from '../schemas/giftSchema'
 import type { RewardBudget } from '../types'
 
 interface BudgetFormModalProps {
@@ -22,22 +26,26 @@ interface BudgetFormModalProps {
   editBudget?: RewardBudget | null
 }
 
-/** Ba cách khoanh thời gian, chọn đúng một. Backend từ chối nếu gửi cả kỳ lẫn đợt. */
-type ScopeMode = 'CYCLE' | 'PERIOD' | 'DATES'
-
 export default function BudgetFormModal({ open, onClose, editBudget }: BudgetFormModalProps) {
   const isEdit = !!editBudget
 
-  const [grantorUserId, setGrantorUserId] = useState('')
-  const [grantorLabel, setGrantorLabel] = useState('')
-  const [scopeMode, setScopeMode] = useState<ScopeMode>('CYCLE')
-  const [kpiCycleId, setKpiCycleId] = useState('')
-  const [kpiPeriodId, setKpiPeriodId] = useState('')
-  const [periodStart, setPeriodStart] = useState('')
-  const [periodEnd, setPeriodEnd] = useState('')
-  const [allocatedPoints, setAllocatedPoints] = useState<number | ''>('')
-  const [maxPerAward, setMaxPerAward] = useState<number | ''>('')
-  const [note, setNote] = useState('')
+  const { register, handleSubmit, reset, watch, setValue, formState: { errors } } = useForm<BudgetFormData>({
+    resolver: zodResolver(budgetSchema),
+    defaultValues: {
+      grantorUserId: '', grantorLabel: '', scopeMode: 'CYCLE', kpiCycleId: '', kpiPeriodId: '',
+      periodStart: '', periodEnd: '', allocatedPoints: undefined, maxPerAward: undefined, note: '',
+    },
+  })
+
+  // Người được cấp, cách khoanh thời gian và hai ô ngày không phải ô nhập thường
+  // (picker / thẻ bấm) nên đọc bằng watch và ghi bằng setValue.
+  const grantorUserId = watch('grantorUserId')
+  const grantorLabel = watch('grantorLabel')
+  const scopeMode = watch('scopeMode')
+  const kpiCycleId = watch('kpiCycleId')
+  const kpiPeriodId = watch('kpiPeriodId')
+  const periodStart = watch('periodStart')
+  const periodEnd = watch('periodEnd')
 
   const { user } = useAuthStore()
   const orgId = user?.memberships?.[0]?.organizationId
@@ -67,55 +75,40 @@ export default function BudgetFormModal({ open, onClose, editBudget }: BudgetFor
   useEffect(() => {
     if (!open) return
     if (editBudget) {
-      setGrantorUserId(editBudget.grantorUserId)
-      setGrantorLabel(editBudget.grantorName)
-      setScopeMode(
-        editBudget.kpiCycleId ? 'CYCLE' : editBudget.kpiPeriodId ? 'PERIOD' : 'DATES',
-      )
-      setKpiCycleId(editBudget.kpiCycleId ?? '')
-      setKpiPeriodId(editBudget.kpiPeriodId ?? '')
-      setPeriodStart(editBudget.periodStart)
-      setPeriodEnd(editBudget.periodEnd)
-      setAllocatedPoints(editBudget.allocatedPoints)
-      setMaxPerAward(editBudget.maxPerAward ?? '')
-      setNote(editBudget.note ?? '')
+      reset({
+        grantorUserId: editBudget.grantorUserId,
+        grantorLabel: editBudget.grantorName,
+        scopeMode: editBudget.kpiCycleId ? 'CYCLE' : editBudget.kpiPeriodId ? 'PERIOD' : 'DATES',
+        kpiCycleId: editBudget.kpiCycleId ?? '',
+        kpiPeriodId: editBudget.kpiPeriodId ?? '',
+        periodStart: editBudget.periodStart,
+        periodEnd: editBudget.periodEnd,
+        allocatedPoints: editBudget.allocatedPoints,
+        maxPerAward: editBudget.maxPerAward ?? undefined,
+        note: editBudget.note ?? '',
+      })
     } else {
-      setGrantorUserId('')
-      setGrantorLabel('')
-      setScopeMode('CYCLE')
-      setKpiCycleId('')
-      setKpiPeriodId('')
-      setPeriodStart('')
-      setPeriodEnd('')
-      setAllocatedPoints('')
-      setMaxPerAward('')
-      setNote('')
+      reset({
+        grantorUserId: '', grantorLabel: '', scopeMode: 'CYCLE', kpiCycleId: '', kpiPeriodId: '',
+        periodStart: '', periodEnd: '', allocatedPoints: undefined, maxPerAward: undefined, note: '',
+      })
     }
-  }, [open, editBudget])
+  }, [open, editBudget, reset])
 
   if (!open) return null
 
-  const scopeReady =
-    scopeMode === 'CYCLE' ? !!kpiCycleId
-    : scopeMode === 'PERIOD' ? !!kpiPeriodId
-    : !!periodStart && !!periodEnd
-
-  const canSubmit =
-    !!grantorUserId && typeof allocatedPoints === 'number' && allocatedPoints >= 0 && scopeReady
-
-  const handleSubmit = async () => {
-    if (!canSubmit) return
+  const onSubmit = async (data: BudgetFormData) => {
     const payload = {
-      grantorUserId,
+      grantorUserId: data.grantorUserId,
       // Chỉ gửi ĐÚNG MỘT cách khoanh thời gian. Gửi kèm cái thừa sẽ bị backend từ chối
       // (không rõ nên đồng bộ ngày theo kỳ hay theo đợt khi hai cái lệch nhau).
-      kpiCycleId: scopeMode === 'CYCLE' ? kpiCycleId : null,
-      kpiPeriodId: scopeMode === 'PERIOD' ? kpiPeriodId : null,
-      periodStart: scopeMode === 'DATES' ? periodStart : null,
-      periodEnd: scopeMode === 'DATES' ? periodEnd : null,
-      allocatedPoints: allocatedPoints as number,
-      maxPerAward: maxPerAward === '' ? null : (maxPerAward as number),
-      note,
+      kpiCycleId: data.scopeMode === 'CYCLE' ? data.kpiCycleId : null,
+      kpiPeriodId: data.scopeMode === 'PERIOD' ? data.kpiPeriodId : null,
+      periodStart: data.scopeMode === 'DATES' ? data.periodStart : null,
+      periodEnd: data.scopeMode === 'DATES' ? data.periodEnd : null,
+      allocatedPoints: data.allocatedPoints,
+      maxPerAward: data.maxPerAward ?? null,
+      note: data.note,
     }
     if (isEdit && editBudget) {
       await updateBudget({ id: editBudget.id, data: payload })
@@ -167,7 +160,7 @@ export default function BudgetFormModal({ open, onClose, editBudget }: BudgetFor
             ) : grantorUserId ? (
               <div className="flex items-center justify-between rounded-lg bg-[var(--color-muted)] px-3 py-2 text-sm">
                 {grantorLabel}
-                <button onClick={() => setGrantorUserId('')} className="text-xs underline">
+                <button onClick={() => setValue('grantorUserId', '')} className="text-xs underline">
                   Đổi
                 </button>
               </div>
@@ -175,12 +168,15 @@ export default function BudgetFormModal({ open, onClose, editBudget }: BudgetFor
               <EmployeePicker
                 selectedIds={[]}
                 onPick={(u) => {
-                  setGrantorUserId(u.id)
-                  setGrantorLabel(u.fullName)
+                  setValue('grantorUserId', u.id, { shouldValidate: true })
+                  setValue('grantorLabel', u.fullName)
                 }}
                 enabled={open && !isEdit}
                 listClassName="max-h-40"
               />
+            )}
+            {errors.grantorUserId && (
+              <p className="mt-1 text-xs text-rose-600">{errors.grantorUserId.message}</p>
             )}
           </div>
 
@@ -197,7 +193,7 @@ export default function BudgetFormModal({ open, onClose, editBudget }: BudgetFor
                 <button
                   key={mode}
                   type="button"
-                  onClick={() => setScopeMode(mode)}
+                  onClick={() => setValue('scopeMode', mode, { shouldValidate: true })}
                   className={`rounded-lg border px-3 py-1.5 ${scopeMode === mode ? 'border-[var(--color-primary)] bg-[var(--color-primary)]/10' : 'border-[var(--color-border)]'}`}
                 >
                   {label}
@@ -206,7 +202,7 @@ export default function BudgetFormModal({ open, onClose, editBudget }: BudgetFor
             </div>
 
             {scopeMode === 'CYCLE' && (
-              <Select value={kpiCycleId} onValueChange={setKpiCycleId}>
+              <Select value={kpiCycleId} onValueChange={v => setValue('kpiCycleId', v, { shouldValidate: true })}>
                 <SelectTrigger className={inputCls}>
                   <SelectValue placeholder="Chọn kỳ đánh giá" />
                 </SelectTrigger>
@@ -222,7 +218,7 @@ export default function BudgetFormModal({ open, onClose, editBudget }: BudgetFor
             )}
 
             {scopeMode === 'PERIOD' && (
-              <Select value={kpiPeriodId} onValueChange={setKpiPeriodId}>
+              <Select value={kpiPeriodId} onValueChange={v => setValue('kpiPeriodId', v, { shouldValidate: true })}>
                 <SelectTrigger className={inputCls}>
                   <SelectValue placeholder="Chọn đợt đánh giá" />
                 </SelectTrigger>
@@ -246,11 +242,14 @@ export default function BudgetFormModal({ open, onClose, editBudget }: BudgetFor
                   </label>
                   <DateField
                     value={periodStart}
-                    onChange={setPeriodStart}
+                    onChange={v => setValue('periodStart', v, { shouldValidate: true })}
                     placeholder="Chọn ngày"
                     className={inputCls}
                     max={periodEnd || undefined}
                   />
+                  {errors.periodStart && (
+                    <p className="mt-1 text-xs text-rose-600">{errors.periodStart.message}</p>
+                  )}
                 </div>
                 <div>
                   <label className="mb-1 block text-xs text-[var(--color-muted-foreground)]">
@@ -258,15 +257,23 @@ export default function BudgetFormModal({ open, onClose, editBudget }: BudgetFor
                   </label>
                   <DateField
                     value={periodEnd}
-                    onChange={setPeriodEnd}
+                    onChange={v => setValue('periodEnd', v, { shouldValidate: true })}
                     placeholder="Chọn ngày"
                     className={inputCls}
                     min={periodStart || undefined}
                   />
+                  {errors.periodEnd && (
+                    <p className="mt-1 text-xs text-rose-600">{errors.periodEnd.message}</p>
+                  )}
                 </div>
               </div>
             )}
 
+            {(errors.kpiCycleId || errors.kpiPeriodId) && (
+              <p className="mt-1 text-xs text-rose-600">
+                {errors.kpiCycleId?.message ?? errors.kpiPeriodId?.message}
+              </p>
+            )}
             <p className="mt-1 text-xs text-[var(--color-muted-foreground)]">
               Chọn kỳ hoặc đợt thì hệ thống tự lấy ngày bắt đầu/kết thúc của nó. Mỗi người tại
               một thời điểm chỉ được có một hạn mức, nên khoảng này không được đè lên hạn mức
@@ -280,12 +287,12 @@ export default function BudgetFormModal({ open, onClose, editBudget }: BudgetFor
               <input
                 type="number"
                 min={0}
-                value={allocatedPoints}
-                onChange={(e) =>
-                  setAllocatedPoints(e.target.value === '' ? '' : Number(e.target.value))
-                }
+                {...register('allocatedPoints', { setValueAs: numOrUndefined })}
                 className={inputCls}
               />
+              {errors.allocatedPoints && (
+                <p className="mt-1 text-xs text-rose-600">{errors.allocatedPoints.message}</p>
+              )}
             </div>
             <div>
               <label className="mb-1.5 block text-sm font-medium">Tối đa mỗi người/lần</label>
@@ -293,16 +300,18 @@ export default function BudgetFormModal({ open, onClose, editBudget }: BudgetFor
                 type="number"
                 min={1}
                 placeholder="Không giới hạn"
-                value={maxPerAward}
-                onChange={(e) => setMaxPerAward(e.target.value === '' ? '' : Number(e.target.value))}
+                {...register('maxPerAward', { setValueAs: numOrUndefined })}
                 className={inputCls}
               />
+              {errors.maxPerAward && (
+                <p className="mt-1 text-xs text-rose-600">{errors.maxPerAward.message}</p>
+              )}
             </div>
           </div>
 
           <div>
             <label className="mb-1.5 block text-sm font-medium">Ghi chú</label>
-            <input value={note} onChange={(e) => setNote(e.target.value)} className={inputCls} />
+            <input {...register('note')} className={inputCls} />
           </div>
         </div>
 
@@ -314,8 +323,8 @@ export default function BudgetFormModal({ open, onClose, editBudget }: BudgetFor
             Huỷ
           </button>
           <button
-            onClick={handleSubmit}
-            disabled={!canSubmit || isCreating || isUpdating}
+            onClick={handleSubmit(onSubmit)}
+            disabled={isCreating || isUpdating}
             className="inline-flex items-center gap-2 rounded-lg bg-[var(--color-primary)] px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
           >
             {(isCreating || isUpdating) && <Loader2 size={15} className="animate-spin" />}

@@ -145,6 +145,14 @@ CREATE TABLE bsc_perspectives (
         CHECK (fixed_perspective IN ('FINANCIAL','CUSTOMER','INTERNAL_PROCESS','LEARNING_GROWTH')),
     name              VARCHAR(255)    NOT NULL,
     description     TEXT,
+    -- Mục tiêu của CHÍNH hạng mục (giống KPI). Đặt target_value > 0 ⇒ hạng mục TỰ CHẤM theo mục tiêu
+    -- này (kiểu OKR): tổng thực đạt của các KPI định lượng trong hạng mục ÷ target_value. Để NULL ⇒
+    -- hạng mục chấm theo cách mặc định: trung bình có trọng số tỉ lệ đạt của các KPI con.
+    -- Không có cờ "ngược" như KPI, nên minimum_value luôn là SÀN: dưới sàn ⇒ điểm hạng mục = 0.
+    target_value    DOUBLE PRECISION,
+    minimum_value   DOUBLE PRECISION,
+    -- Đơn vị tính của target_value/minimum_value (VD: tỷ VNĐ, %, buổi).
+    unit            VARCHAR(50),
     color           VARCHAR(20),
     icon            VARCHAR(50),
     display_order   INT             NOT NULL DEFAULT 0,
@@ -1117,12 +1125,19 @@ CREATE TABLE evaluation_perspective_scores (
     evaluation_id     UUID             NOT NULL REFERENCES evaluations(id) ON DELETE CASCADE,
     perspective_id    UUID             NOT NULL REFERENCES bsc_perspectives(id) ON DELETE CASCADE,
     weight_percentage DOUBLE PRECISION,
-    -- Điểm thô của viễn cảnh (0..150): trung bình có trọng số các KPI của NV trong viễn cảnh.
-    -- NULL = nhân viên không có KPI nào trong viễn cảnh (viễn cảnh rỗng).
+    -- Điểm thô của viễn cảnh (0..150): trung bình có trọng số các KPI của NV trong viễn cảnh, hoặc
+    -- tổng thực đạt ÷ mục tiêu hạng mục khi scored_by_target = TRUE.
+    -- NULL = nhân viên không có KPI nào đóng góp được trong viễn cảnh (viễn cảnh rỗng).
     raw_score         DOUBLE PRECISION,
     -- Đóng góp = weight_percentage% × raw_score
     weighted_score    DOUBLE PRECISION,
     kpi_count         INT              NOT NULL DEFAULT 0,
+    -- Tổng thực đạt của các KPI định lượng trong hạng mục. Chỉ có nghĩa khi scored_by_target = TRUE;
+    -- ngược lại để NULL vì cách chấm mặc định không đi qua một con số thực đạt chung nào.
+    actual_value      DOUBLE PRECISION,
+    -- Cách ĐÃ dùng để chấm hạng mục này. Lưu lại vì hạng mục có thể được đặt/xoá mục tiêu về sau —
+    -- không có cột này thì đọc lại breakdown cũ sẽ diễn giải sai con số đã chốt.
+    scored_by_target  BOOLEAN          NOT NULL DEFAULT FALSE,
     created_at        TIMESTAMPTZ      DEFAULT NOW()
 );
 
@@ -1814,6 +1829,16 @@ CREATE INDEX idx_topup_orders_expiring
 --   3. resolution_*                        -> ghi khi có người xử lý tay
 CREATE TABLE sepay_webhook_events (
     id                        UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    -- Tổ chức nhận khoản tiền này, suy từ đơn đã khớp hoặc từ số tài khoản nhận. Hàng
+    -- đợi đối soát LUÔN lọc theo cột này: không có nó thì chairman của tổ chức nào cũng
+    -- nhìn thấy — và xử lý được — giao dịch chuyển khoản của tổ chức khác.
+    --
+    -- NULL nghĩa là CHƯA XÁC ĐỊNH ĐƯỢC: tiền về một tài khoản chưa tổ chức nào khai
+    -- trong cấu hình ví (tiền lãi ngân hàng, hoặc webhook về trước khi kịp cấu hình —
+    -- SePay bắn mọi biến động số dư của tài khoản đã liên kết bên đó, không chờ KeyGo).
+    -- Cố ý KHÔNG đặt NOT NULL: sự kiện không quy được về đâu vẫn phải lưu lại được, vì
+    -- tiền đã thật sự vào tài khoản rồi.
+    organization_id           UUID        REFERENCES organizations(id) ON DELETE SET NULL,
     -- Id giao dịch phía SePay. Unique để một lần gửi lại không ghi có hai lần.
     sepay_id                  BIGINT      NOT NULL,
     gateway                   VARCHAR(100),
@@ -1853,6 +1878,11 @@ CREATE INDEX idx_sepay_events_queue
     WHERE resolved_at IS NULL AND (status = 'UNMATCHED' OR amount_mismatch);
 CREATE INDEX idx_sepay_events_order
     ON sepay_webhook_events(matched_order_id);
+-- Hàng đợi đối soát lọc theo tổ chức trước, rồi mới tới điều kiện chưa xử lý. Giữ cả
+-- idx_sepay_events_queue ở trên vì nó phục vụ nhánh "chưa xác định tổ chức" của cùng
+-- truy vấn đó (organization_id IS NULL).
+CREATE INDEX idx_sepay_events_org
+    ON sepay_webhook_events(organization_id, received_at DESC);
 
 
 -- ====================================================

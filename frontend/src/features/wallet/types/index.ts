@@ -116,6 +116,12 @@ export interface SepayEvent {
   resolutionNote?: string | null
   resolutionTransactionId?: string | null
   inQueue: boolean
+  /**
+   * Chưa quy được về tổ chức nào — tiền về một tài khoản chưa ai khai trong cấu
+   * hình ví. Nhóm này hiện trong hàng đợi của mọi tổ chức và KHÔNG ghi có thẳng
+   * cho người dùng được.
+   */
+  unattributed: boolean
   receivedAt: string
 }
 
@@ -139,6 +145,8 @@ export interface WalletConfig {
   sepayBankCode?: string | null
   sepayAccountHolder?: string | null
   bankConfigured: boolean
+  /** Lần cuối nhận webhook SePay về tài khoản này. Null nghĩa là chưa nối xong. */
+  lastWebhookAt?: string | null
 }
 
 export interface WalletReconcile {

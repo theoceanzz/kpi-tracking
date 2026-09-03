@@ -134,7 +134,7 @@ export const navItems: NavItem[] = [
         permission: 'COMPANY:VIEW',
         sections: [
           { id: 'info', label: 'Thông tin công ty', icon: <Building2 size={18} />, permission: 'COMPANY:VIEW', legacyKeys: ['/company'], group: 'Tổ chức' , description: 'Tên, mã doanh nghiệp và các tính năng đang bật' },
-          { id: 'ranks', label: 'Cấp bậc', icon: <Layers size={18} />, permission: 'COMPANY:VIEW', group: 'Tổ chức' , description: 'Các cấp trong công ty và chức danh quản lý tương ứng' },
+          { id: 'ranks', label: 'Cấp bậc công ty', icon: <Layers size={18} />, permission: 'COMPANY:VIEW', group: 'Tổ chức' , description: 'Các cấp trong công ty và chức danh quản lý tương ứng' },
           { id: 'roles', label: 'Phân quyền vai trò', icon: <Shield size={18} />, permission: 'ROLE:VIEW', legacyKeys: ['/roles'], group: 'Con người' , description: 'Vai trò và quyền hạn kèm theo từng vai trò' },
           { id: 'org-structure', label: 'Cơ cấu tổ chức', icon: <Network size={18} />, permission: 'ORG:VIEW', legacyKeys: ['/org-structure'], group: 'Con người' , description: 'Cây đơn vị, phòng ban và người phụ trách' },
           { id: 'users', label: 'Quản lý nhân viên', icon: <Users size={18} />, permission: 'USER:VIEW', legacyKeys: ['/users'], group: 'Con người' , description: 'Danh sách nhân viên, thêm mới và phân công đơn vị' },
@@ -190,7 +190,6 @@ export const navItems: NavItem[] = [
       { id: 'kpi-adjustments-pending', label: 'Điều chỉnh chỉ tiêu', icon: <MessageSquare size={18} />, permission: 'KPI:APPROVE_ADJUSTMENT', legacyKeys: ['/kpi-adjustments/pending', '/kpi-criteria/adjustments'], group: 'Chỉ tiêu', description: 'Yêu cầu sửa chỉ tiêu giữa chừng chờ xử lý' },
       { id: 'submissions-org-unit', label: 'Đánh giá đợt', icon: <ClipboardCheck size={18} />, permission: 'SUBMISSION:REVIEW', legacyKeys: ['/submissions/org-unit'], group: 'Đánh giá', description: 'Duyệt bài nộp và chấm điểm từng đợt' },
       { id: 'cycle-evaluation', label: 'Đánh giá kỳ', icon: <Award size={18} />, permission: 'CYCLE_EVAL:VIEW', legacyKeys: ['/kpi-cycles/evaluation'], group: 'Đánh giá', description: 'Tổng hợp nhiều đợt thành kết quả của cả kỳ' },
-      { id: 'conduct', label: 'Chấm hạnh kiểm', icon: <HeartHandshake size={18} />, permission: 'EVALUATION:VIEW', conductOnly: true, group: 'Đánh giá', description: 'Điểm hành vi theo bộ tiêu chí có trọng số, chấm theo đợt hoặc theo kỳ' },
     ],
   },
   // Không gian cá nhân: công việc và ví của chính mình, gộp về MỘT dòng như ba nhánh

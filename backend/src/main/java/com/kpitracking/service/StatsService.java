@@ -488,19 +488,10 @@ public class StatsService {
                 mScore = bestSubmission.getManagerScore();
                 mName = bestSubmission.getReviewedBy() != null ? bestSubmission.getReviewedBy().getFullName() : null;
                 
-                // Calculate achievement rate based on manager score, weight and organization multiplier
+                // % đạt = điểm chấm / trọng số: trọng số chính là điểm tối đa của KPI đó,
+                // không còn nhân theo thang điểm tổ chức (xem EvaluationService.SCORING_POOL).
                 if (criteria.getWeight() != null && criteria.getWeight() > 0) {
-                    double multiplier = 1.0;
-                    try {
-                        Organization org = criteria.getOrgUnit().getOrgHierarchyLevel().getOrganization();
-                        if (org.getEvaluationMaxScore() != null) {
-                            multiplier = org.getEvaluationMaxScore() / 100.0;
-                        }
-                    } catch (Exception e) {
-                        // Fallback to 1.0 if any association is missing
-                    }
-                    
-                    achievementForCircle = Math.min(100.0, (mScore / (criteria.getWeight() * multiplier)) * 100.0);
+                    achievementForCircle = Math.min(100.0, (mScore / criteria.getWeight()) * 100.0);
                 } else {
                     achievementForCircle = mScore;
                 }

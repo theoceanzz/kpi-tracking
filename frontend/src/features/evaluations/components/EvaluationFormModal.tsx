@@ -10,12 +10,13 @@ import { usePermission } from '@/hooks/usePermission'
 import { useFormAssistStore } from '@/store/formAssistStore'
 import { MicButton } from '@/components/common/MicButton'
 import { useOrganization } from '@/features/orgunits/hooks/useOrganization'
-import { getScoringFunctions } from '@/lib/scoring'
+import { getScoringFunctions, SCORING_POOL, describePerspectiveScore } from '@/lib/scoring'
 import { X, Loader2, Star, Target, Zap, Trophy, CheckCircle2, MessageSquare, Sparkles, Lock, Layers, AlertTriangle } from 'lucide-react'
 import { useMemo, useEffect, useRef } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { evaluationApi } from '../api/evaluationApi'
 import { cn } from '@/lib/utils'
+import ConductInlineSheet from '@/features/conduct/components/ConductInlineSheet'
 
 interface EvaluationFormModalProps {
   open: boolean
@@ -111,6 +112,11 @@ export default function EvaluationFormModal({ open, onClose, readOnly = false, i
   const bscScore = scorePreview?.bscScore ?? null
   const bscMode = scorePreview?.bscScoringMode ?? null
   const bscPerspectives = scorePreview?.bscPerspectives ?? []
+  // KPI thưởng nằm ngoài pool 100% nên điểm của nó được cộng THÊM lên trên thang điểm:
+  // trần thật = thang điểm + điểm thưởng, lấy từ backend để thanh kéo không chặn thấp hơn
+  // giới hạn mà createEvaluation kiểm tra (nếu kẹp ở maxScore thì chính điểm hệ thống lại không lưu được).
+  const scoreCeiling = scorePreview?.maxAllowedScore ?? maxScore
+  const bonusScore = scorePreview?.bonusScore ?? 0
   const bscUnassigned = scorePreview?.bscUnassignedKpis ?? []
   const completionPct = scorePreview?.kpiCompletionPercent ?? null
   // Full-qualitative: no quantitative KPI -> the 0..100 system score is N/A.
@@ -131,13 +137,13 @@ export default function EvaluationFormModal({ open, onClose, readOnly = false, i
 
   // Điểm gợi ý 0..100:
   // - BSC chính thức  -> lấy officialScore (= bsc_score)
-  // - Toàn định tính  -> completion mặc định 100% nên khóa ở maxScore
+  // - Toàn định tính  -> completion mặc định 100% nên khóa ở trọn pool chấm
   // - Còn lại         -> điểm hệ thống định lượng
   // KHÔNG làm tròn khi khóa theo BSC: backend lưu đúng bsc_score (vd 82.5) nên UI phải khớp.
   const calculatedScore = isBscOfficial
     ? (scorePreview?.officialScore ?? bscScore!)
     : noQuantScore
-      ? maxScore
+      ? SCORING_POOL
       : rawSystemScore
 
   const handleApplyCalculatedScore = () => {
@@ -291,10 +297,13 @@ export default function EvaluationFormModal({ open, onClose, readOnly = false, i
                               <span key={p.perspectiveId}
                                 className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full border"
                                 style={{ color: p.color || '#8b5cf6', borderColor: `${p.color || '#8b5cf6'}44`, backgroundColor: `${p.color || '#8b5cf6'}12` }}
-                                title={`${p.name}: đạt ${p.achievementPercent != null ? p.achievementPercent.toFixed(1) + '%' : 'chưa có KPI'} × trọng số ${p.weightPercentage}%`}
+                                title={describePerspectiveScore(p)}
                               >
                                 <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: p.color || '#8b5cf6' }} />
                                 {p.name} <b>{p.achievementPercent != null ? `${p.achievementPercent.toFixed(0)}%` : '—'}</b>
+                                {p.scoredByTarget && p.actualValue != null && p.targetValue != null && (
+                                  <span className="opacity-60">{p.actualValue}/{p.targetValue}{p.unit ? ` ${p.unit}` : ''}</span>
+                                )}
                                 <span className="opacity-60">×{p.weightPercentage}%</span>
                               </span>
                             ))}
@@ -369,7 +378,7 @@ export default function EvaluationFormModal({ open, onClose, readOnly = false, i
                       {!scoreLocked && !noQuantScore && (
                          <div className="px-10">
                            <input
-                             type="range" min={0} max={maxScore} step={1}
+                             type="range" min={0} max={scoreCeiling} step={1}
                              value={currentScore}
                             onChange={(e) => {
                               hasManuallyEditedScore.current = true
@@ -379,21 +388,34 @@ export default function EvaluationFormModal({ open, onClose, readOnly = false, i
                           />
                            <div className="flex justify-between mt-3 text-[9px] font-black text-slate-400 uppercase tracking-widest">
                               <span>0</span>
-                              <span>{Math.round(maxScore / 2)}</span>
-                              <span>{maxScore}</span>
+                              <span>{Math.round(scoreCeiling / 2)}</span>
+                              <span>{scoreCeiling}</span>
                            </div>
+                           {bonusScore > 0 && (
+                             <p className="mt-2 text-center text-[9px] font-black text-emerald-600 uppercase tracking-widest">
+                               Đạt đủ KPI = {SCORING_POOL} điểm · thưởng thêm {bonusScore}
+                             </p>
+                           )}
                         </div>
                       )}
 
                       {!readOnly && !isBscOfficial && noQuantScore && (
                          <div className="px-10 flex justify-center">
                             <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-indigo-500/10 text-indigo-600 dark:text-indigo-300 text-[10px] font-black uppercase tracking-widest whitespace-nowrap">
-                               <Lock size={12} className="shrink-0" /> Full định tính · Cố định điểm {maxScore}
+                               <Lock size={12} className="shrink-0" /> Full định tính · Cố định điểm {SCORING_POOL}
                             </div>
                          </div>
                       )}
                    </div>
                 </div>
+
+                {/* Tự chấm hạnh kiểm của chính đợt này, ngay trong luồng tự đánh giá —
+                    không phải sang "Hạnh kiểm của tôi" làm một lượt nữa. */}
+                {org?.enableConduct && selectedPeriodId && (
+                  <ConductInlineSheet
+                    target={{ scope: 'PERIOD', periodId: selectedPeriodId, cycleId: null }}
+                  />
+                )}
 
                 {/* Comment area */}
                 <div className="space-y-4">

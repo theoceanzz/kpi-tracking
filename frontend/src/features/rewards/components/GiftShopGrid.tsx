@@ -34,7 +34,7 @@ export default function GiftShopGrid({ balance }: GiftShopGridProps) {
 
   return (
     <>
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      <div id="tour-gift-shop-grid" className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {gifts.map((gift) => {
           const shortBy = gift.pointCost - balance
           // Hai lý do KHÔNG đổi được rất khác nhau — hết hàng thì chờ cũng vô ích, còn

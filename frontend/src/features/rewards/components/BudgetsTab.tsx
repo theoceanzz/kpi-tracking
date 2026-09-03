@@ -40,10 +40,10 @@ export default function BudgetsTab() {
   const { data, isLoading, deleteBudget, isDeleting } = useRewardBudgets()
 
   return (
-    <div>
+    <div id="tour-budgets-root">
       {/* Câu giải thích tách thành khối riêng, không chen cùng hàng với nút — đặt cạnh
           nhau thì chữ dài bị ép sát vào nút, đọc rất khó chịu. */}
-      <div className="mb-4 flex items-start gap-2.5 rounded-xl border border-[var(--color-border)] bg-[var(--color-muted)]/40 px-4 py-3 text-sm">
+      <div id="tour-budgets-note" className="mb-4 flex items-start gap-2.5 rounded-xl border border-[var(--color-border)] bg-[var(--color-muted)]/40 px-4 py-3 text-sm">
         <Info size={16} className="mt-0.5 flex-shrink-0 text-[var(--color-muted-foreground)]" />
         <p className="text-[var(--color-muted-foreground)]">
           Người có hạn mức được tự thưởng mà không cần duyệt. Vượt hạn mức hoặc vượt mức tối đa

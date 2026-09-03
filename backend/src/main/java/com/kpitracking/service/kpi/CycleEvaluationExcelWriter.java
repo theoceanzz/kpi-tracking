@@ -37,7 +37,7 @@ public final class CycleEvaluationExcelWriter {
      *                   tổ chức — lớp này không truy cập DB.
      */
     public static byte[] build(CycleUserEvaluationResponse eval, String cycleName, String unitName,
-                               double maxScore, String scoreLabel) {
+                               double scorePool, String scoreLabel) {
         boolean isQual = eval.getMode() == CycleEvaluationMode.QUALITATIVE;
         // Chỉ chế độ "Cả hai" mới tách được hai trục định lượng/định tính theo từng đợt.
         boolean showDimensions = eval.getMode() == CycleEvaluationMode.BOTH;
@@ -59,7 +59,7 @@ public final class CycleEvaluationExcelWriter {
             r++;
 
             // Thông tin tổng hợp
-            for (String[] line : infoLines(eval, cycleName, unitName, maxScore, scoreLabel, isQual)) {
+            for (String[] line : infoLines(eval, cycleName, unitName, scorePool, scoreLabel, isQual)) {
                 Row row = sheet.createRow(r);
                 Cell label = row.createCell(0);
                 label.setCellValue(line[0]);
@@ -114,8 +114,8 @@ public final class CycleEvaluationExcelWriter {
                         cell(row, c++, p.getMatrixRating() == null ? "—" : p.getMatrixRating() + "/5", styles.cellCenter);
                     }
                     cell(row, c++, percent(p.getCompletionPercent()), styles.cellCenter);
-                    cell(row, c++, score(p.getSelfScore(), isQual, maxScore), styles.cellCenter);
-                    cell(row, c, score(p.getManagerScore(), isQual, maxScore), styles.cellCenter);
+                    cell(row, c++, score(p.getSelfScore(), isQual, scorePool), styles.cellCenter);
+                    cell(row, c, score(p.getManagerScore(), isQual, scorePool), styles.cellCenter);
                     r++;
                 }
             }
@@ -140,18 +140,18 @@ public final class CycleEvaluationExcelWriter {
     }
 
     private static List<String[]> infoLines(CycleUserEvaluationResponse eval, String cycleName, String unitName,
-                                            double maxScore, String scoreLabel, boolean isQual) {
+                                            double scorePool, String scoreLabel, boolean isQual) {
         List<String[]> info = new ArrayList<>();
         info.add(new String[]{"Nhân viên", nullSafe(eval.getUserName())});
         info.add(new String[]{"Đơn vị", nullSafe(eval.getOrgUnitName() != null ? eval.getOrgUnitName() : unitName)});
         info.add(new String[]{"Kỳ đánh giá", nullSafe(cycleName)});
         info.add(new String[]{"Chế độ đánh giá", modeLabel(eval.getMode())});
         info.add(new String[]{isQual ? "Mức tự đánh giá" : "Nhân viên tự đánh giá",
-                score(eval.getSelfScore(), isQual, maxScore)});
+                score(eval.getSelfScore(), isQual, scorePool)});
         info.add(new String[]{isQual ? "Mức QLTT" : "Cán bộ QLTT đánh giá",
-                score(eval.getManagerScore(), isQual, maxScore)});
+                score(eval.getManagerScore(), isQual, scorePool)});
 
-        String finalText = score(eval.getFinalScore(), isQual, maxScore);
+        String finalText = score(eval.getFinalScore(), isQual, scorePool);
         if (eval.getFinalScore() != null && !isQual && scoreLabel != null && !scoreLabel.isBlank()) {
             finalText = finalText + " (" + scoreLabel + ")";
         }
@@ -185,10 +185,10 @@ public final class CycleEvaluationExcelWriter {
     }
 
     /** Chế độ Định tính hiển thị lại mức gốc 0–5 thay vì số đã quy đổi sang thang điểm. */
-    private static String score(Double v, boolean isQual, double maxScore) {
+    private static String score(Double v, boolean isQual, double scorePool) {
         if (v == null) return "—";
-        if (!isQual || maxScore <= 0) return trimZero(v);
-        return trimZero(Math.round(v / maxScore * 5 * 100) / 100.0) + "/5";
+        if (!isQual || scorePool <= 0) return trimZero(v);
+        return trimZero(Math.round(v / scorePool * 5 * 100) / 100.0) + "/5";
     }
 
     private static String number(Double v) {

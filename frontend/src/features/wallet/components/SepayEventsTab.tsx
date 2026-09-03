@@ -41,6 +41,7 @@ export default function SepayEventsTab() {
           người dùng tự suy từ một bảng rỗng. */}
       {reconcile && (
         <div
+          id="tour-sepay-status"
           className={`mb-5 flex flex-wrap items-center gap-3 rounded-2xl border px-5 py-4 text-sm ${
             reconcile.clean
               ? 'border-emerald-500/40 bg-emerald-500/10'
@@ -72,7 +73,7 @@ export default function SepayEventsTab() {
         </div>
       )}
 
-      <div className="mb-4 flex gap-2">
+      <div id="tour-sepay-scope" className="mb-4 flex gap-2">
         {(['queue', 'all'] as const).map((s) => (
           <button
             key={s}
@@ -144,6 +145,14 @@ export default function SepayEventsTab() {
                       </span>
                       {e.amountMismatch && (
                         <div className="mt-1 text-xs text-amber-600">Lệch số tiền</div>
+                      )}
+                      {/* Tiền về một tài khoản chưa ai khai. Phải nói ra ở bảng chứ
+                          không đợi tới lúc bấm xử lý mới báo, vì nó là dấu hiệu của
+                          cấu hình sai chứ không phải của một giao dịch cá biệt. */}
+                      {e.unattributed && (
+                        <div className="mt-1 text-xs text-[var(--color-muted-foreground)]">
+                          Chưa xác định tổ chức
+                        </div>
                       )}
                     </td>
                     <td className="px-4 py-3 text-xs">

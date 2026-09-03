@@ -8,9 +8,11 @@ import type { TourDef } from './registry'
  * cái nào có hướng dẫn — trong khi đây lại là phần khách hàng hay hỏi "số này lấy ở
  * đâu ra" nhất.
  *
- * Các màn bên trong đều KHÔNG có neo riêng, nên mọi bước cấp mục bám vào neo chung
- * `#tour-section-root` (thân mục đang mở) và `#tour-section-tabs` (hàng tab cùng cụm).
- * Đổi lại, thêm hướng dẫn ở đây không phải đụng vào sáu file biểu đồ dài hàng trăm dòng.
+ * Sáu góc nhìn dựng theo cùng một khuôn — thanh lọc dính đầu trang, dãy ô chỉ số, rồi
+ * lưới widget — nên chúng dùng CHUNG một bộ neo: `#tour-analytics-filter`,
+ * `#tour-analytics-metrics`, `#tour-analytics-customize`, `#tour-analytics-widgets`.
+ * Dùng chung được vì mỗi lúc chỉ có đúng một mục được vẽ ra, không bao giờ hai mục cùng
+ * tồn tại để đụng id. Hai mục lệch khuôn (Phân cấp, Hạng mục BSC) có neo riêng.
  */
 
 const note = (text: string) => (
@@ -83,20 +85,34 @@ const analyticsTours: Record<TourKey, TourDef> = {
   'analytics/my-objectives': {
     steps: [
       {
-        target: '#tour-section-root',
+        target: '#tour-analytics-filter',
+        title: '🗓️ Chọn khoảng thời gian trước',
+        content: (
+          <div className="space-y-2">
+            <p>
+              Thanh lọc này dính ở đầu trang và áp cho <strong>tất cả</strong> biểu đồ bên dưới — không
+              có biểu đồ nào lọc riêng. Chọn theo đợt, theo kỳ, hoặc theo khoảng ngày tự do.
+            </p>
+            {note('Thanh lọc dính lại khi cuộn, nên đang xem biểu đồ ở cuối trang vẫn đổi kỳ được mà không phải cuộn ngược lên.')}
+          </div>
+        ),
+        placement: 'bottom',
+      },
+      {
+        target: '#tour-analytics-metrics',
         title: '🎯 Mục tiêu của bạn đang tới đâu',
         content: (
           <div className="space-y-2">
             <p>
-              Toàn bộ mục tiêu bạn đang nắm cùng các kết quả then chốt của chúng. Tiến độ của một mục
-              tiêu là tổng hợp từ các kết quả then chốt bên dưới, không nhập tay.
+              Dãy ô này tóm tắt toàn bộ mục tiêu bạn đang nắm. Tiến độ của một mục tiêu là tổng hợp từ
+              các kết quả then chốt bên dưới nó, không nhập tay.
             </p>
           </div>
         ),
-        placement: 'top',
+        placement: 'bottom',
       },
       {
-        target: '#tour-section-root',
+        target: '#tour-analytics-widgets',
         title: '📈 Xu hướng quan trọng hơn con số hôm nay',
         content: (
           <div className="space-y-2">
@@ -104,10 +120,24 @@ const analyticsTours: Record<TourKey, TourDef> = {
               Biểu đồ xu hướng cho biết bạn đang tăng tốc hay chững lại. Đạt 60% ở giữa kỳ mà đường đi
               ngang thì đáng lo hơn là 40% mà đang dốc lên.
             </p>
-            {note('Bảng "KPI đang đảm nhiệm" bên dưới nối mục tiêu với các chỉ tiêu cụ thể đẩy nó đi.')}
+            {note('Bảng "Chi tiết mục tiêu" bên dưới nối mục tiêu với các chỉ tiêu cụ thể đang đẩy nó đi.')}
           </div>
         ),
         placement: 'top',
+      },
+      {
+        target: '#tour-analytics-customize',
+        title: '🧱 Màn hình này sắp xếp lại được',
+        content: (
+          <div className="space-y-2">
+            <p>
+              Bấm <strong>Tuỳ chỉnh</strong> để kéo thả đổi vị trí, đổi bề rộng, ẩn khối không dùng hoặc
+              thêm biểu đồ mới từ thư viện.
+            </p>
+            {note('Bố cục nhớ riêng cho tài khoản của bạn, không ảnh hưởng tới ai khác. Lỡ tay thì có nút đặt lại mặc định.')}
+          </div>
+        ),
+        placement: 'bottom',
       },
     ],
   },
@@ -115,42 +145,54 @@ const analyticsTours: Record<TourKey, TourDef> = {
   'analytics/subordinate': {
     steps: [
       {
-        target: '#tour-section-root',
+        target: '#tour-analytics-metrics',
         title: '👥 Mục tiêu của cả đơn vị',
         content: (
           <div className="space-y-2">
             <p>
-              Tiến độ tổng quan của đơn vị, số mục tiêu đã hoàn thành, và số mục tiêu đang ở diện rủi ro
-              — tất cả trên một màn.
+              Năm ô: tiến độ tổng quan, hiệu suất tổng quan, số mục tiêu đã hoàn thành, số mục tiêu đang
+              ở diện rủi ro, và tổng nhân sự thuộc phạm vi bạn quản lý.
             </p>
           </div>
         ),
-        placement: 'top',
+        placement: 'bottom',
       },
       {
-        target: '#tour-section-root',
-        title: '🚨 Nhìn vào phần rủi ro trước',
+        target: '#tour-analytics-metrics',
+        title: '🚨 Nhìn vào ô rủi ro trước',
         content: (
           <div className="space-y-2">
             <p>
-              Khối <strong>Tiến độ thấp &amp; sắp hết hạn</strong> là thứ đáng xem đầu tiên mỗi tuần: nó
-              đã lọc sẵn những mục tiêu cần bạn can thiệp.
+              Ô <strong>Mục tiêu rủi ro</strong> đã lọc sẵn phần tiến độ thấp và sắp hết hạn — đó là thứ
+              đáng xem đầu tiên mỗi tuần.
             </p>
-            {warn('Mục tiêu vào diện rủi ro thường không tự thoát ra. Xử lý lúc còn nửa kỳ thì kịp, để tới cuối kỳ thì chỉ còn cách giải thích.')}
+            {warn('Mục tiêu vào diện rủi ro thường không tự thoát ra. Xử lý lúc còn nửa kỳ thì kịp; để tới cuối kỳ thì chỉ còn cách giải thích.')}
           </div>
+        ),
+        placement: 'bottom',
+      },
+      {
+        target: '#tour-analytics-widgets',
+        title: '🧑‍🤝‍🧑 Xuống tới từng người',
+        content: (
+          <p>
+            Khối <strong>Nhân sự &amp; vai trò theo đơn vị</strong> cho biết ai đang gánh mục tiêu nào, để
+            nhận ra người quá tải và người chưa được giao gì. Khối{' '}
+            <strong>Hiệu suất &amp; Tiến độ đơn vị</strong> so các đơn vị con với nhau.
+          </p>
         ),
         placement: 'top',
       },
       {
-        target: '#tour-section-root',
-        title: '🧑‍🤝‍🧑 Xuống tới từng người',
+        target: '#tour-analytics-filter',
+        title: '⏱️ Đổi kỳ là đổi cả trang',
         content: (
           <p>
-            Bảng <strong>Nhân sự &amp; vai trò theo đơn vị</strong> cho biết ai đang gánh mục tiêu nào,
-            để nhận ra người quá tải và người chưa được giao gì.
+            Mọi con số ở trên đều tính theo khoảng thời gian chọn ở đây. So sánh hai kỳ thì đổi bộ lọc rồi
+            đọc lại cùng một ô, đừng so ô của kỳ này với ô của kỳ khác.
           </p>
         ),
-        placement: 'top',
+        placement: 'bottom',
       },
     ],
   },
@@ -159,25 +201,26 @@ const analyticsTours: Record<TourKey, TourDef> = {
   'analytics/my': {
     steps: [
       {
-        target: '#tour-section-root',
+        target: '#tour-analytics-metrics',
         title: '📊 Kết quả của riêng bạn',
         content: (
           <div className="space-y-2">
             <p>
-              Chỉ tiêu bạn đang đảm nhiệm, trạng thái từng bài nộp, và điểm số qua các đợt đã chấm.
+              Năm ô tóm tắt: chỉ tiêu đang đảm nhiệm, tiến độ, điểm số và tình trạng bài nộp qua các đợt
+              đã chấm.
             </p>
           </div>
         ),
-        placement: 'top',
+        placement: 'bottom',
       },
       {
-        target: '#tour-section-root',
+        target: '#tour-analytics-widgets',
         title: '🥧 Ba khối trả lời ba câu hỏi',
         content: (
           <div className="space-y-2">
             <ul className="text-[11px] space-y-1.5 list-disc pl-4 text-slate-500 font-medium">
               <li><strong className="text-slate-900 dark:text-white">Phân bổ trạng thái KPI:</strong> việc của tôi đang đọng ở khâu nào.</li>
-              <li><strong className="text-slate-900 dark:text-white">Trạng thái bài nộp:</strong> tôi có đang bị trễ bài nào không.</li>
+              <li><strong className="text-slate-900 dark:text-white">Trạng thái bài nộp:</strong> tôi có đang trễ bài nào không.</li>
               <li><strong className="text-slate-900 dark:text-white">Xu hướng điểm số:</strong> tôi đang tiến bộ hay đi xuống qua các đợt.</li>
             </ul>
           </div>
@@ -185,18 +228,28 @@ const analyticsTours: Record<TourKey, TourDef> = {
         placement: 'top',
       },
       {
-        target: '#tour-section-root',
+        target: '#tour-analytics-widgets',
         title: '🧾 Đối chiếu trước khi thắc mắc',
         content: (
           <div className="space-y-2">
             <p>
-              Bảng <strong>Lịch sử đánh giá</strong> ghi lại điểm và nhận xét của từng đợt. Thấy điểm
-              không như mong đợi thì xem ở đây trước khi hỏi quản lý — thường lý do đã nằm sẵn trong
-              nhận xét.
+              Bảng <strong>Lịch sử đánh giá</strong> ghi lại điểm và nhận xét của từng đợt. Thấy điểm không
+              như mong đợi thì xem ở đây trước khi hỏi quản lý — thường lý do đã nằm sẵn trong nhận xét.
             </p>
           </div>
         ),
         placement: 'top',
+      },
+      {
+        target: '#tour-analytics-filter',
+        title: '🗓️ Một bộ lọc cho cả trang',
+        content: (
+          <p>
+            Đợt, kỳ hoặc khoảng ngày chọn ở đây áp cho mọi khối bên dưới. Muốn xem lại một đợt cũ thì đổi
+            ở đây, không phải tìm bộ lọc riêng trong từng biểu đồ.
+          </p>
+        ),
+        placement: 'bottom',
       },
     ],
   },
@@ -204,20 +257,20 @@ const analyticsTours: Record<TourKey, TourDef> = {
   'analytics/summary': {
     steps: [
       {
-        target: '#tour-section-root',
+        target: '#tour-analytics-metrics',
         title: '🏛️ Bức tranh của đơn vị bạn',
         content: (
           <div className="space-y-2">
             <p>
-              Tổng hợp KPI của đơn vị bạn phụ trách: tiến độ chung, tỉ lệ trễ hạn, xếp hạng nhân sự và
-              các điểm rủi ro.
+              Tổng hợp KPI của đơn vị bạn phụ trách: tiến độ chung, tỉ lệ trễ hạn, xếp hạng nhân sự và các
+              điểm rủi ro — tất cả theo khoảng thời gian đang lọc.
             </p>
           </div>
         ),
-        placement: 'top',
+        placement: 'bottom',
       },
       {
-        target: '#tour-section-root',
+        target: '#tour-analytics-widgets',
         title: '⚠️ Hai loại rủi ro, đừng nhầm',
         content: (
           <div className="space-y-2">
@@ -231,18 +284,29 @@ const analyticsTours: Record<TourKey, TourDef> = {
         placement: 'top',
       },
       {
-        target: '#tour-section-root',
+        target: '#tour-analytics-customize',
         title: '🧱 Tự chọn biểu đồ muốn xem',
         content: (
           <div className="space-y-2">
             <p>
-              Nút <strong>Thêm biểu đồ</strong> cho phép bạn tự dựng màn hình theo dõi của riêng mình —
-              kéo thả sắp xếp, bỏ đi những khối không dùng tới.
+              <strong>Tuỳ chỉnh</strong> mở chế độ sửa bố cục: kéo thả sắp xếp, đổi bề rộng, ẩn khối không
+              dùng, hoặc <strong>Thêm biểu đồ</strong> từ thư viện.
             </p>
-            {note('Bố cục được nhớ lại cho riêng tài khoản bạn, không ảnh hưởng tới người khác.')}
+            {note('Bố cục nhớ riêng cho tài khoản bạn, không ảnh hưởng tới người khác. Có cả bố cục gợi ý để bắt đầu nhanh.')}
           </div>
         ),
-        placement: 'top',
+        placement: 'bottom',
+      },
+      {
+        target: '#tour-analytics-filter',
+        title: '🗓️ Đổi kỳ ở một chỗ duy nhất',
+        content: (
+          <p>
+            Thanh lọc dính đầu trang áp cho toàn bộ khối bên dưới. Cuộn xuống bao xa cũng đổi kỳ được mà
+            không phải quay lên.
+          </p>
+        ),
+        placement: 'bottom',
       },
     ],
   },
@@ -251,27 +315,39 @@ const analyticsTours: Record<TourKey, TourDef> = {
   'analytics/drilldown': {
     steps: [
       {
-        target: '#tour-section-root',
-        title: '🏢 So sánh giữa các đơn vị',
+        target: '#tour-drilldown-tree',
+        title: '🌳 Cây đơn vị bên trái',
         content: (
           <div className="space-y-2">
             <p>
               Bắt đầu ở cấp cao nhất rồi bấm vào một đơn vị để đi xuống cấp dưới của nó — cứ thế tới tận
               từng nhân sự.
             </p>
+            {note('Trên màn hình hẹp, cây nằm sau nút "Chọn đơn vị" ở đầu phần nội dung.')}
           </div>
         ),
-        placement: 'top',
+        placement: 'right',
       },
       {
-        target: '#tour-section-root',
-        title: '🔲 Ma trận xếp loại',
+        target: '#tour-drilldown-banner',
+        title: '📍 Bạn đang đứng ở đâu',
+        content: (
+          <p>
+            Dải màu ghi tên đơn vị đang chọn, cấp của nó, số nhân sự và tổng số KPI. Đây là mốc để biết
+            mọi con số bên dưới đang nói về phạm vi nào.
+          </p>
+        ),
+        placement: 'bottom',
+      },
+      {
+        target: '#tour-drilldown-members',
+        title: '🔲 Phân bố quan trọng hơn trung bình',
         content: (
           <div className="space-y-2">
             <p>
-              Ma trận cho thấy nhân sự phân bố ra sao giữa các hạng. Một đơn vị có điểm trung bình đẹp
-              nhưng dồn hết vào hạng giữa là chuyện khác hẳn với đơn vị có cả người xuất sắc lẫn người
-              yếu.
+              Bảng thành viên và ma trận xếp loại cho thấy nhân sự phân bố ra sao giữa các hạng. Một đơn vị
+              điểm trung bình đẹp nhưng dồn hết vào hạng giữa là chuyện khác hẳn với đơn vị có cả người
+              xuất sắc lẫn người yếu.
             </p>
             {warn('Đừng xếp hạng đơn vị chỉ bằng một con số trung bình — hình dạng của phân bố mới nói lên điều cần xử lý.')}
           </div>
@@ -279,11 +355,11 @@ const analyticsTours: Record<TourKey, TourDef> = {
         placement: 'top',
       },
       {
-        target: '#tour-section-root',
+        target: '#tour-drilldown-members',
         title: '📋 Mang số liệu ra khỏi màn hình',
         content: (
           <p>
-            Nút <strong>Sao chép ảnh</strong> chụp lại biểu đồ đang xem để dán thẳng vào email hay slide
+            Nút sao chép cạnh nhan đề bảng chụp lại đúng bảng đang xem để dán thẳng vào email hay slide
             họp, khỏi phải chụp màn hình rồi cắt.
           </p>
         ),
@@ -295,42 +371,57 @@ const analyticsTours: Record<TourKey, TourDef> = {
   'analytics/bsc': {
     steps: [
       {
-        target: '#tour-section-root',
-        title: '🧭 Kết quả theo từng hạng mục',
+        target: '#tour-analytics-metrics',
+        title: '🧭 Bốn con số của bộ tiêu chí',
         content: (
           <div className="space-y-2">
             <p>
-              Góc nhìn này mở bộ tiêu chí BSC ra: mỗi hạng mục đạt bao nhiêu, và các hạng mục ghép lại
-              thành điểm chung như thế nào.
+              Điểm BSC trung bình, hạng mục <strong>mạnh nhất</strong>, hạng mục <strong>yếu nhất</strong>,
+              và <strong>độ phủ</strong> — tỉ lệ KPI đã được gán vào một hạng mục.
+            </p>
+            {warn('Độ phủ chưa đạt 100% nghĩa là còn KPI nằm ngoài bộ tiêu chí. Ở chế độ chấm chính thức, phần chưa gán sẽ chặn việc chốt đánh giá.')}
+          </div>
+        ),
+        placement: 'bottom',
+      },
+      {
+        target: '#tour-bsc-balance',
+        title: '🕸️ Radar cân bằng',
+        content: (
+          <div className="space-y-2">
+            <p>
+              Radar cho thấy bộ tiêu chí có <strong>cân</strong> không: hình càng đều thì các lĩnh vực càng
+              phát triển đồng đều. Các thẻ bên phải là chi tiết từng hạng mục kèm trọng số và số KPI.
             </p>
           </div>
         ),
         placement: 'top',
       },
       {
-        target: '#tour-section-root',
+        target: '#tour-analytics-filter',
         title: '⚖️ Điểm BSC so với điểm hệ thống',
         content: (
           <div className="space-y-2">
             <p>
-              Hai đường trên biểu đồ có ý nghĩa khác nhau: <strong>Điểm hệ thống</strong> là kết quả KPI
-              thông thường, <strong>Điểm BSC</strong> là kết quả quy đổi qua bộ tiêu chí.
+              Phần đối chiếu ở cuối trang đặt cạnh nhau <strong>điểm hệ thống</strong> (kết quả KPI thông
+              thường) và <strong>điểm BSC</strong> (kết quả quy đổi qua bộ tiêu chí), xem được theo đơn vị
+              hoặc theo từng nhân sự.
             </p>
-            {note('Hai đường lệch nhau nhiều nghĩa là trọng số trong bộ tiêu chí đang nhấn vào thứ khác với những gì KPI đang đo. Đó là tín hiệu để xem lại trọng số, không phải lỗi số liệu.')}
+            {note('Hai bên lệch nhau nhiều nghĩa là trọng số trong bộ tiêu chí đang nhấn vào thứ khác với những gì KPI đang đo. Đó là tín hiệu để xem lại trọng số, không phải lỗi số liệu.')}
           </div>
         ),
-        placement: 'top',
+        placement: 'bottom',
       },
       {
-        target: '#tour-section-root',
+        target: '#tour-analytics-metrics',
         title: '🔧 Sửa bộ tiêu chí ở đâu',
         content: (
           <p>
-            Ở đây chỉ xem kết quả. Muốn thêm bớt hạng mục hay đổi trọng số thì sang "Thiết lập công cụ ›
-            Quản lý BSC".
+            Ở đây chỉ xem kết quả. Muốn thêm bớt hạng mục, đổi trọng số hay chuyển chế độ chấm thì sang
+            "Thiết lập công cụ › Quản lý BSC".
           </p>
         ),
-        placement: 'top',
+        placement: 'bottom',
       },
     ],
   },

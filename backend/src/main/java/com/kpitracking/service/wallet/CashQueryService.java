@@ -18,9 +18,11 @@ import com.kpitracking.repository.CashTransactionRepository;
 import com.kpitracking.repository.CashWalletRepository;
 import com.kpitracking.repository.OrgUnitRepository;
 import com.kpitracking.repository.OrganizationRepository;
+import com.kpitracking.repository.SepayWebhookEventRepository;
 import com.kpitracking.security.PermissionChecker;
 import com.kpitracking.service.reward.RewardContext;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
@@ -33,6 +35,7 @@ import java.util.UUID;
  * Đọc ví tiền, lịch sử bút toán và cấu hình. Tách khỏi
  * {@code CashWalletService} để lớp đó chỉ còn đúng một việc: ghi sổ cái.
  */
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class CashQueryService {
@@ -41,6 +44,7 @@ public class CashQueryService {
     private final CashTransactionRepository transactionRepository;
     private final OrganizationRepository organizationRepository;
     private final OrgUnitRepository orgUnitRepository;
+    private final SepayWebhookEventRepository sepayEventRepository;
     private final PermissionChecker permissionChecker;
     private final RewardContext context;
 
@@ -154,7 +158,23 @@ public class CashQueryService {
         org.setSepayBankCode(trimToNull(request.getSepayBankCode()));
         org.setSepayAccountHolder(trimToNull(request.getSepayAccountHolder()));
 
-        return toConfigResponse(organizationRepository.save(org));
+        Organization saved = organizationRepository.save(org);
+
+        // Gán lại những webhook cũ về đúng số tài khoản vừa khai. Webhook thường về
+        // TRƯỚC khi ai đó kịp điền cấu hình — SePay bắn mọi biến động số dư của tài
+        // khoản đã liên kết bên đó, không chờ KeyGo — nên không có bước này thì đúng
+        // nhóm giao dịch đầu tiên của hệ thống sẽ kẹt vĩnh viễn ở trạng thái chưa
+        // xác định tổ chức và không ghi có cho ai được.
+        String account = SepayAccountMatch.normalize(saved.getSepayAccountNumber());
+        if (account != null) {
+            int attached = sepayEventRepository.attachOrganizationByAccount(saved.getId(), account);
+            if (attached > 0) {
+                log.info("Gán {} sự kiện SePay cũ của tài khoản {} về tổ chức {}",
+                        attached, saved.getSepayAccountNumber(), saved.getId());
+            }
+        }
+
+        return toConfigResponse(saved);
     }
 
     /**
@@ -216,6 +236,7 @@ public class CashQueryService {
                 .sepayBankCode(org.getSepayBankCode())
                 .sepayAccountHolder(org.getSepayAccountHolder())
                 .bankConfigured(bankOk)
+                .lastWebhookAt(sepayEventRepository.findLastReceivedAt(org.getId()))
                 .build();
     }
 

@@ -1,4 +1,6 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo } from 'react'
+import { useForm } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
 import { Link } from 'react-router-dom'
 import { Loader2, X, Gift, AlertTriangle, Info, ShieldCheck, Award, ExternalLink } from 'lucide-react'
 import { useHasPermission } from '@/components/auth/PermissionGate'
@@ -9,7 +11,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import EmployeePicker, { type PickedEmployee } from './EmployeePicker'
+import EmployeePicker from './EmployeePicker'
+import { awardPointsSchema, type AwardPointsFormData } from '../schemas/awardPointsSchema'
+import { numOrUndefined } from '../schemas/giftSchema'
 import { useMyBudget, useRewardGrants } from '../hooks/useRewards'
 import { useCertificateCatalog } from '../hooks/useCertificates'
 import type { RewardGrant } from '../types'
@@ -42,11 +46,18 @@ export default function AwardPointsModal({
   presetUsers,
   onSuccess,
 }: AwardPointsModalProps) {
-  const [picked, setPicked] = useState<PickedEmployee[]>([])
-  const [points, setPoints] = useState<number | ''>('')
-  const [reason, setReason] = useState('')
-  const [withCertificate, setWithCertificate] = useState(false)
-  const [certificateTemplateId, setCertificateTemplateId] = useState('')
+  const { register, handleSubmit, reset, watch, setValue, formState: { errors } } = useForm<AwardPointsFormData>({
+    resolver: zodResolver(awardPointsSchema),
+    defaultValues: {
+      picked: [], points: undefined, reason: '', withCertificate: false, certificateTemplateId: '',
+    },
+  })
+
+  // Danh sách người nhận và ô chọn mẫu giấy khen không phải ô nhập thường.
+  const picked = watch('picked')
+  const points = watch('points')
+  const withCertificate = watch('withCertificate')
+  const certificateTemplateId = watch('certificateTemplateId')
 
   const { data: budget } = useMyBudget(open)
   const { createGrant, isCreating } = useRewardGrants({ size: 1 })
@@ -78,14 +89,16 @@ export default function AwardPointsModal({
 
   useEffect(() => {
     if (!open) return
-    setPicked(presetUsers ?? [])
-    setPoints('')
-    setReason('')
-    // Mặc định TẮT ở mỗi lần mở: giấy khen phải là một quyết định có ý thức, nhớ lại
-    // lựa chọn của lần trước sẽ biến nó thành thứ phát ra theo quán tính.
-    setWithCertificate(false)
-    setCertificateTemplateId('')
-  }, [open, presetUsers])
+    reset({
+      picked: presetUsers ?? [],
+      points: undefined,
+      reason: '',
+      // Mặc định TẮT ở mỗi lần mở: giấy khen phải là một quyết định có ý thức, nhớ lại
+      // lựa chọn của lần trước sẽ biến nó thành thứ phát ra theo quán tính.
+      withCertificate: false,
+      certificateTemplateId: '',
+    })
+  }, [open, presetUsers, reset])
 
   const total = useMemo(
     () => (typeof points === 'number' ? points * picked.length : 0),
@@ -137,21 +150,17 @@ export default function AwardPointsModal({
 
   if (!open) return null
 
-  const canSubmit =
-    picked.length > 0 && typeof points === 'number' && points > 0 && reason.trim().length > 0
-
-  const handleSubmit = async () => {
-    if (!canSubmit) return
+  const onSubmit = async (data: AwardPointsFormData) => {
     const grant = await createGrant({
-      recipients: picked.map((p) => ({ userId: p.id, points: points as number })),
-      reason: reason.trim(),
-      pointsPerRecipient: points as number,
-      withCertificate,
+      recipients: data.picked.map((p) => ({ userId: p.id, points: data.points })),
+      reason: data.reason.trim(),
+      pointsPerRecipient: data.points,
+      withCertificate: data.withCertificate,
       // Không kèm giấy khen thì mẫu phải là null — backend có ràng buộc cấm lưu mẫu cho
       // tờ giấy không tồn tại. Sentinel "dùng mẫu mặc định" cũng quy về null: mẫu mặc
       // định được tra lại lúc IN, nên công ty đổi mẫu thì lượt chưa in đi theo mẫu mới.
       certificateTemplateId:
-        withCertificate && effectiveTemplateId !== USE_ORG_DEFAULT
+        data.withCertificate && effectiveTemplateId !== USE_ORG_DEFAULT
           ? effectiveTemplateId || null
           : null,
     })
@@ -208,7 +217,7 @@ export default function AwardPointsModal({
                     {p.fullName}
                     <button
                       type="button"
-                      onClick={() => setPicked((prev) => prev.filter((x) => x.id !== p.id))}
+                      onClick={() => setValue('picked', picked.filter((x) => x.id !== p.id), { shouldValidate: true })}
                       className="rounded-full hover:bg-[var(--color-primary)]/20"
                     >
                       <X size={13} />
@@ -220,9 +229,10 @@ export default function AwardPointsModal({
 
             <EmployeePicker
               selectedIds={picked.map((p) => p.id)}
-              onPick={(u) => setPicked((prev) => [...prev, u])}
+              onPick={(u) => setValue('picked', [...picked, u], { shouldValidate: true })}
               enabled={open}
             />
+            {errors.picked && <p className="mt-1 text-xs text-rose-600">{errors.picked.message}</p>}
           </div>
 
           <div className="grid gap-4 sm:grid-cols-2">
@@ -231,10 +241,10 @@ export default function AwardPointsModal({
               <input
                 type="number"
                 min={1}
-                value={points}
-                onChange={(e) => setPoints(e.target.value === '' ? '' : Number(e.target.value))}
+                {...register('points', { setValueAs: numOrUndefined })}
                 className="w-full rounded-lg border border-[var(--color-border)] bg-transparent px-3 py-2 text-sm"
               />
+              {errors.points && <p className="mt-1 text-xs text-rose-600">{errors.points.message}</p>}
             </div>
             <div className="flex flex-col justify-end">
               <div className="rounded-lg bg-[var(--color-muted)] px-3 py-2 text-sm">
@@ -249,12 +259,12 @@ export default function AwardPointsModal({
           <div>
             <label className="mb-1.5 block text-sm font-medium">Lý do thưởng</label>
             <textarea
-              value={reason}
-              onChange={(e) => setReason(e.target.value)}
+              {...register('reason')}
               rows={3}
               placeholder="Ví dụ: Hoàn thành xuất sắc dự án ra mắt sản phẩm quý này"
               className="w-full rounded-lg border border-[var(--color-border)] bg-transparent px-3 py-2 text-sm"
             />
+            {errors.reason && <p className="mt-1 text-xs text-rose-600">{errors.reason.message}</p>}
             <p className="mt-1 text-xs text-[var(--color-muted-foreground)]">
               Lý do được hiện trong lịch sử điểm của nhân viên, nên viết cụ thể. Nếu kèm giấy
               khen, lý do này cũng được in lên đó.
@@ -270,8 +280,7 @@ export default function AwardPointsModal({
             <label className="flex cursor-pointer items-start gap-2.5">
               <input
                 type="checkbox"
-                checked={withCertificate}
-                onChange={(e) => setWithCertificate(e.target.checked)}
+                {...register('withCertificate')}
                 className="mt-0.5 h-4 w-4 flex-shrink-0 accent-[var(--color-primary)]"
               />
               <span className="min-w-0">
@@ -310,7 +319,7 @@ export default function AwardPointsModal({
                 ) : (
                   <Select
                     value={effectiveTemplateId}
-                    onValueChange={setCertificateTemplateId}
+                    onValueChange={v => setValue('certificateTemplateId', v)}
                   >
                     <SelectTrigger className="w-full rounded-lg border-[var(--color-border)] bg-[var(--color-background)]">
                       <SelectValue />
@@ -367,8 +376,8 @@ export default function AwardPointsModal({
             Huỷ
           </button>
           <button
-            onClick={handleSubmit}
-            disabled={!canSubmit || isCreating}
+            onClick={handleSubmit(onSubmit)}
+            disabled={isCreating}
             className="inline-flex items-center gap-2 rounded-lg bg-[var(--color-primary)] px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
           >
             {isCreating && <Loader2 size={15} className="animate-spin" />}

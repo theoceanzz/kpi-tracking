@@ -98,6 +98,7 @@ export default function BscManagementPage() {
   return (
     <div className="space-y-5">
       <WorkspaceHeader
+        id="tour-bsc-header"
         title={pageTitle}
         description="Mỗi bộ tiêu chí gắn với một kỳ và một phạm vi đơn vị; hạng mục cùng trọng số được thêm ngay bên trong bộ tiêu chí."
         actions={
@@ -135,7 +136,7 @@ export default function BscManagementPage() {
         }
       />
 
-      <div className="grid gap-4">
+      <div id="tour-bsc-scorecards" className="grid gap-4">
         {scorecards?.map(sc => (
           <ScorecardCard
             key={sc.id}
@@ -225,7 +226,7 @@ function ScorecardCard({
   const weightOk = Math.abs(totalWeight - 100) <= 0.01
 
   return (
-    <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 overflow-hidden transition-all hover:shadow-xl hover:shadow-indigo-500/5">
+    <div className="tour-bsc-scorecard-card bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 overflow-hidden transition-all hover:shadow-xl hover:shadow-indigo-500/5">
       <div className="p-5 cursor-pointer" onClick={onToggle}>
         <div className="flex items-start gap-3">
           <div className="mt-1 shrink-0">
@@ -322,6 +323,16 @@ function ScorecardCard({
                         <div className="min-w-0 flex-1">
                           <p className="text-sm font-bold text-slate-800 dark:text-slate-200 truncate">{p.name}</p>
                           <span className="text-[10px] font-black text-slate-400 uppercase">{p.code}</span>
+                          {(p.targetValue != null || p.minimumValue != null) && (
+                            <span className="text-[10px] font-bold text-slate-400 ml-2">
+                              {p.targetValue != null && <>Mục tiêu {p.targetValue}{p.unit ? ` ${p.unit}` : ''}</>}
+                              {p.targetValue != null && p.minimumValue != null && ' · '}
+                              {p.minimumValue != null && <>Tối thiểu {p.minimumValue}{p.unit ? ` ${p.unit}` : ''}</>}
+                              {p.targetValue != null && p.targetValue > 0 && (
+                                <span className="ml-1.5 text-indigo-500" title="Hạng mục tự chấm theo mục tiêu của chính nó (kiểu OKR)">· tự chấm</span>
+                              )}
+                            </span>
+                          )}
                         </div>
                         <span className="text-sm font-black text-slate-700 dark:text-slate-300 shrink-0">{p.weightPercentage}%</span>
                       </div>

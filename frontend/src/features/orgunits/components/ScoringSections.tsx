@@ -1,5 +1,13 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useForm, useFieldArray } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
+import {
+  createEvaluationLevelsSchema,
+  qualitativeLevelsSchema,
+  type EvaluationLevelsFormData,
+  type QualitativeLevelsFormData,
+} from '../schemas/organizationSchema'
+import { toastFirstError } from '@/lib/formErrors'
 import {
   Edit3, Trash2, Info, Plus, Sparkles, RotateCcw,
   Grid3x3, X, ArrowRight
@@ -9,6 +17,7 @@ import { cn } from '@/lib/utils'
 import WorkspaceHeader from '@/components/common/WorkspaceHeader'
 import type { PerformanceMatrix } from '../api/organizationApi'
 import { useUpdateOrganization } from '../hooks/useUpdateOrganization'
+import { SCORING_POOL } from '@/lib/scoring'
 
 /**
  * Các khối cấu hình thang điểm & xếp loại, tách khỏi CompanyPage để dùng cho trang
@@ -34,10 +43,12 @@ export function ScoringConfigSection({ org }: { org: any }) {
         color: l.color || FALLBACK_LEVEL_COLOR
       }))
 
-  const { register, control, handleSubmit, reset, watch } = useForm({
-    defaultValues: {
-      evaluationLevels: mapLevels(org?.evaluationLevels)
-    }
+  // Trần điểm mức phụ thuộc thang tối đa — state riêng ngoài form — nên schema dựng theo nó.
+  const schema = useMemo(() => createEvaluationLevelsSchema(maxScore), [maxScore])
+
+  const { register, control, handleSubmit, reset, watch } = useForm<EvaluationLevelsFormData>({
+    resolver: zodResolver(schema),
+    defaultValues: { evaluationLevels: mapLevels(org?.evaluationLevels) },
   })
 
   const { fields, append, remove } = useFieldArray({
@@ -54,22 +65,18 @@ export function ScoringConfigSection({ org }: { org: any }) {
     }
   }, [org, reset])
 
-  const handleSave = (data: any) => {
-    // Validation
-    if (maxScore <= 0) {
-      toast.error('Thang điểm tối đa phải lớn hơn 0')
+  const handleSave = (data: EvaluationLevelsFormData) => {
+    // Thang tối đa không nằm trong form (state riêng): chấm luôn tối đa SCORING_POOL
+    // (trọng số = điểm), nên thang thấp hơn sẽ khiến ai hoàn thành đủ KPI cũng kịch trần,
+    // xếp loại mất ý nghĩa. Backend chặn cùng luật.
+    if (maxScore < SCORING_POOL) {
+      toast.error(`Thang điểm tối đa phải từ ${SCORING_POOL} trở lên, vì hoàn thành đủ 100% KPI đã là ${SCORING_POOL} điểm`)
       return
     }
 
-    const invalidLevel = data.evaluationLevels.find((l: any) => l.threshold > maxScore)
-    if (invalidLevel) {
-      toast.error(`Điểm mức "${invalidLevel.name}" không được vượt quá Thang điểm tối đa (${maxScore})`)
-      return
-    }
-
-    updateMutation.mutate({ 
+    updateMutation.mutate({
       evaluationMaxScore: maxScore,
-      evaluationLevels: data.evaluationLevels.map((l: any) => ({
+      evaluationLevels: data.evaluationLevels.map(l => ({
         name: l.name,
         threshold: Number(l.threshold),
         color: l.color
@@ -133,12 +140,20 @@ export function ScoringConfigSection({ org }: { org: any }) {
 
       <section className="bg-[var(--color-card)] rounded-2xl border border-[var(--color-border)] shadow-sm overflow-hidden">
         <div className="p-8 space-y-8">
-            <div className="relative p-6 rounded-2xl bg-gradient-to-r from-indigo-600 to-violet-700 text-white overflow-hidden shadow-xl shadow-indigo-500/10">
+            <div id="tour-scoring-max" className="relative p-6 rounded-2xl bg-gradient-to-r from-indigo-600 to-violet-700 text-white overflow-hidden shadow-xl shadow-indigo-500/10">
                <div className="absolute top-0 right-0 w-24 h-24 bg-amber-500/10 rounded-full blur-2xl" />
                <div className="flex justify-between items-center relative z-10">
                  <div className="space-y-0.5">
                    <p className="text-[9px] font-bold text-amber-500 uppercase tracking-widest">Hệ số tối đa</p>
                    <h4 className="text-xl font-black">Thang {maxScore} điểm</h4>
+                   {/* Thang điểm là MẪU SỐ xếp loại, không phải hệ số nhân lúc chấm — nói rõ ở đây
+                       để HR không tưởng đặt 150 là nhân điểm mọi người lên 1.5 lần. */}
+                   <p className="text-[10px] font-medium text-indigo-100/70 max-w-md leading-relaxed">
+                     Hoàn thành đủ 100% KPI luôn được {SCORING_POOL} điểm (trọng số 25% ⇒ 25 điểm).
+                     {maxScore > SCORING_POOL
+                       ? ` Thang ${maxScore} là mẫu số xếp loại (đạt đủ ⇒ ${SCORING_POOL}/${maxScore}); phần trên ${SCORING_POOL} dành cho KPI thưởng và điểm chỉnh tay.`
+                       : ' Các mức xếp loại bên dưới đặt theo thang này.'}
+                   </p>
                  </div>
                  <div className="flex items-center">
                    {isEditing ? (
@@ -158,7 +173,7 @@ export function ScoringConfigSection({ org }: { org: any }) {
                </div>
             </div>
 
-            <div className="space-y-4">
+            <div id="tour-scoring-levels" className="space-y-4">
                 <div className="flex items-center justify-between px-2">
                   <h4 className="text-[11px] font-black text-slate-400 uppercase tracking-widest">Các mức xếp loại</h4>
                   {isEditing && (
@@ -190,7 +205,7 @@ export function ScoringConfigSection({ org }: { org: any }) {
                                 <label className="text-[9px] font-bold text-slate-400 uppercase">Điểm ≥</label>
                                 <input
                                   type="number"
-                                  {...register(`evaluationLevels.${index}.threshold` as const)}
+                                  {...register(`evaluationLevels.${index}.threshold` as const, { valueAsNumber: true })}
                                   className="w-full bg-white dark:bg-slate-900 px-3 py-2 rounded-lg text-xs font-bold border border-slate-100 dark:border-slate-800 outline-none focus:border-indigo-500"
                                 />
                               </div>
@@ -246,7 +261,7 @@ export function ScoringConfigSection({ org }: { org: any }) {
                 </button>
                 <button 
                   type="button" 
-                  onClick={handleSubmit(handleSave)}
+                  onClick={handleSubmit(handleSave, toastFirstError)}
                   disabled={updateMutation.isPending}
                   className="flex-[2] py-2.5 bg-indigo-600 text-white rounded-xl text-[11px] font-bold uppercase tracking-wider shadow-lg hover:bg-indigo-700 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
                 >
@@ -285,7 +300,8 @@ export function QualitativeConfigSection({ org }: { org: any }) {
         color: l.color || FALLBACK_LEVEL_COLOR,
       }))
 
-  const { register, control, handleSubmit, reset, watch } = useForm({
+  const { register, control, handleSubmit, reset, watch } = useForm<QualitativeLevelsFormData>({
+    resolver: zodResolver(qualitativeLevelsSchema),
     defaultValues: { qualitativeLevels: mapLevels(org?.qualitativeLevels) },
   })
 
@@ -296,43 +312,10 @@ export function QualitativeConfigSection({ org }: { org: any }) {
     reset({ qualitativeLevels: mapLevels(org?.qualitativeLevels) })
   }, [org, reset])
 
-  const handleSave = (data: any) => {
-    if (!data.qualitativeLevels.length) {
-      toast.error('Cần ít nhất 1 mức đánh giá')
-      return
-    }
-    const invalid = data.qualitativeLevels.find((l: any) => !l.name?.trim())
-    if (invalid) {
-      toast.error('Tên mức không được để trống')
-      return
-    }
-
-    const positions = data.qualitativeLevels.map((l: any) => Number(l.position))
-    const invalidPos = positions.find((p: number) => !Number.isInteger(p) || p < 1)
-    if (invalidPos !== undefined) {
-      toast.error('Vị trí phải là số nguyên lớn hơn hoặc bằng 1')
-      return
-    }
-    // Vị trí phải liên tục từ 1: 1, 2, 3, ..., n (không trùng, không nhảy cóc)
-    const sorted = [...positions].sort((a, b) => a - b)
-    const isSequential = sorted.every((p, i) => p === i + 1)
-    if (!isSequential) {
-      toast.error('Vị trí phải liên tục từ 1 (ví dụ: 1, 2, 3, 4, 5)')
-      return
-    }
-
-    const invalidPct = data.qualitativeLevels.find((l: any) => {
-      const p = Number(l.scorePercent)
-      return isNaN(p) || p < 0 || p > 100
-    })
-    if (invalidPct) {
-      toast.error('% quy đổi BSC phải nằm trong khoảng 0–100')
-      return
-    }
-
+  const handleSave = (data: QualitativeLevelsFormData) => {
     updateMutation.mutate(
       {
-        qualitativeLevels: data.qualitativeLevels.map((l: any) => ({
+        qualitativeLevels: data.qualitativeLevels.map(l => ({
           name: l.name.trim(),
           value: Number(l.value),
           position: Number(l.position),
@@ -390,7 +373,7 @@ export function QualitativeConfigSection({ org }: { org: any }) {
 
       <section className="bg-[var(--color-card)] rounded-2xl border border-[var(--color-border)] shadow-sm overflow-hidden">
         <div className="p-8 space-y-8">
-        <div className="p-4 rounded-2xl bg-emerald-50 dark:bg-emerald-900/10 border border-emerald-100 dark:border-emerald-900/30 flex items-start gap-3">
+        <div id="tour-qualitative-guide" className="p-4 rounded-2xl bg-emerald-50 dark:bg-emerald-900/10 border border-emerald-100 dark:border-emerald-900/30 flex items-start gap-3">
           <Info size={18} className="text-emerald-600 shrink-0 mt-0.5" />
           <p className="text-[11px] text-emerald-700/80 dark:text-emerald-400/80 font-medium leading-relaxed">
             Quy đổi mỗi mức đánh giá định tính sang một giá trị điểm để tham chiếu. <span className="font-bold">Vị trí</span> là thứ tự cột trong bảng tính, <span className="font-bold">Giá trị</span> là điểm quy đổi tương ứng (dùng cho ma trận hiệu suất).
@@ -398,7 +381,7 @@ export function QualitativeConfigSection({ org }: { org: any }) {
           </p>
         </div>
 
-        <div className="space-y-4">
+        <div id="tour-qualitative-levels" className="space-y-4">
           <div className="flex items-center justify-between px-2">
             <h4 className="text-[11px] font-black text-slate-400 uppercase tracking-widest">Các mức đánh giá</h4>
             {isEditing && (
@@ -422,7 +405,7 @@ export function QualitativeConfigSection({ org }: { org: any }) {
                         <label className="text-[9px] font-bold text-slate-400 uppercase">Vị trí</label>
                         <input
                           type="number"
-                          {...register(`qualitativeLevels.${index}.position` as const)}
+                          {...register(`qualitativeLevels.${index}.position` as const, { valueAsNumber: true })}
                           className="w-full bg-white dark:bg-slate-900 px-3 py-2 rounded-lg text-xs font-bold border border-slate-100 dark:border-slate-800 outline-none focus:border-emerald-500"
                           onWheel={(e) => (e.target as HTMLInputElement).blur()}
                         />
@@ -440,7 +423,7 @@ export function QualitativeConfigSection({ org }: { org: any }) {
                           <input
                             type="number"
                             step="0.5"
-                            {...register(`qualitativeLevels.${index}.value` as const)}
+                            {...register(`qualitativeLevels.${index}.value` as const, { valueAsNumber: true })}
                             className="w-full bg-white dark:bg-slate-900 px-3 py-2 rounded-lg text-xs font-bold border border-slate-100 dark:border-slate-800 outline-none focus:border-emerald-500"
                             onWheel={(e) => (e.target as HTMLInputElement).blur()}
                           />
@@ -452,7 +435,7 @@ export function QualitativeConfigSection({ org }: { org: any }) {
                             step="1"
                             min="0"
                             max="100"
-                            {...register(`qualitativeLevels.${index}.scorePercent` as const)}
+                            {...register(`qualitativeLevels.${index}.scorePercent` as const, { valueAsNumber: true })}
                             className="w-full bg-white dark:bg-slate-900 px-3 py-2 rounded-lg text-xs font-bold border border-indigo-100 dark:border-indigo-900/50 outline-none focus:border-indigo-500"
                             onWheel={(e) => (e.target as HTMLInputElement).blur()}
                           />
@@ -517,7 +500,7 @@ export function QualitativeConfigSection({ org }: { org: any }) {
             </button>
             <button
               type="button"
-              onClick={handleSubmit(handleSave)}
+              onClick={handleSubmit(handleSave, toastFirstError)}
               disabled={updateMutation.isPending}
               className="flex-[2] py-2.5 bg-emerald-600 text-white rounded-xl text-[11px] font-bold uppercase tracking-wider shadow-lg hover:bg-emerald-700 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
             >
@@ -686,7 +669,7 @@ export function PerformanceMatrixSection({ org }: { org: any }) {
 
   return (
     <section className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
-      <div className="px-8 py-6 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
+      <div id="tour-matrix-header" className="px-8 py-6 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
         <div className="flex items-center gap-4">
           <div className="w-10 h-10 rounded-xl bg-fuchsia-50 dark:bg-fuchsia-900/30 flex items-center justify-center text-fuchsia-600 dark:text-fuchsia-400">
             <Grid3x3 size={20} />
@@ -716,7 +699,7 @@ export function PerformanceMatrixSection({ org }: { org: any }) {
       </div>
 
       <div className="p-8 space-y-6">
-        <div className="p-4 rounded-2xl bg-fuchsia-50 dark:bg-fuchsia-900/10 border border-fuchsia-100 dark:border-fuchsia-900/30 flex items-start gap-3">
+        <div id="tour-matrix-guide" className="p-4 rounded-2xl bg-fuchsia-50 dark:bg-fuchsia-900/10 border border-fuchsia-100 dark:border-fuchsia-900/30 flex items-start gap-3">
           <Info size={18} className="text-fuchsia-600 shrink-0 mt-0.5" />
           <div className="space-y-2">
             <p className="text-[11px] text-fuchsia-700/80 dark:text-fuchsia-400/80 font-medium leading-relaxed">
@@ -759,7 +742,7 @@ export function PerformanceMatrixSection({ org }: { org: any }) {
           </p>
         )}
 
-        <div className="overflow-x-auto -mx-2 px-2">
+        <div id="tour-matrix-table" className="overflow-x-auto -mx-2 px-2">
           <table className="border-separate border-spacing-1 min-w-full">
             <thead>
               <tr>

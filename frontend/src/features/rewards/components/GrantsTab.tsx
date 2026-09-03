@@ -57,13 +57,13 @@ export default function GrantsTab() {
   } = useRewardGrants({ status: status || undefined, page, size })
 
   return (
-    <div>
+    <div id="tour-grants-root">
       {/* Lọc bằng chip thay vì thẻ select: chỉ có 6 trạng thái, hiện hết ra thì thấy
           ngay đang lọc cái gì mà không phải mở dropdown. */}
       <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         {/* Xuống dòng chứ KHÔNG cuộn ngang: chip nằm ngoài khung nhìn thì người dùng
             không biết là có, tệ hơn hẳn so với việc vùng lọc cao thêm một dòng. */}
-        <div className="flex flex-wrap gap-1.5">
+        <div id="tour-grants-filters" className="flex flex-wrap gap-1.5">
           {([['', 'Tất cả'], ...Object.entries(STATUS_STYLE).map(([k, v]) => [k, v.label])] as [
             string,
             string,

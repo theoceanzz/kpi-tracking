@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
+import { useForm } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
 import { toast } from 'sonner'
 import {
   Award, Plus, Trash2, ArrowUp, ArrowDown, Save, RotateCcw, Wand2,
@@ -12,6 +14,12 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Badge } from '@/components/ui/badge'
 import { Checkbox } from '@/components/ui/checkbox'
 import { usesPerformanceMatrix } from '@/lib/scoring'
+import {
+  unitClassificationSchema,
+  type UnitClassificationFormData,
+  type UnitClassProfileForm,
+} from '../schemas/organizationSchema'
+import { toastFirstError } from '@/lib/formErrors'
 import { cn } from '@/lib/utils'
 import type { OrgUnitTreeResponse } from '@/types/orgUnit'
 import {
@@ -77,15 +85,7 @@ function rulesForScale(org: OrganizationResponse, rules: UnitClassRule[] | undef
   return presetFor(org)
 }
 
-interface EditProfile {
-  _key: string
-  name: string
-  isDefault: boolean
-  orgUnitIds: string[]
-  /** Kỳ áp dụng — rỗng = áp cho mọi kỳ. */
-  kpiCycleIds: string[]
-  rules: UnitClassRule[]
-}
+type EditProfile = UnitClassProfileForm
 
 let _seq = 0
 const newKey = () => `p${Date.now()}_${_seq++}`
@@ -238,14 +238,25 @@ export default function UnitClassificationConfigSection({ org }: { org: Organiza
     return m
   }, [tree])
 
-  const [profiles, setProfiles] = useState<EditProfile[]>(() => initialProfiles(org))
-  const [expanded, setExpanded] = useState<Set<string>>(() => new Set(profiles[0] ? [profiles[0]._key] : []))
+  const { handleSubmit, reset: resetForm, watch, setValue } = useForm<UnitClassificationFormData>({
+    resolver: zodResolver(unitClassificationSchema),
+    defaultValues: { profiles: initialProfiles(org) },
+  })
+
+  // Cả màn hình vẽ lại theo từng lần sửa luật, nên theo dõi thay vì đăng ký từng ô.
+  const profiles = watch('profiles')
+  const setProfiles = (fn: (prev: EditProfile[]) => EditProfile[]) =>
+    setValue('profiles', fn(profiles), { shouldValidate: true })
+
+  const [expanded, setExpanded] = useState<Set<string>>(
+    () => new Set(initialProfiles(org)[0] ? [initialProfiles(org)[0]!._key] : []),
+  )
 
   // Đổi THANG (bật/tắt ma trận, sửa mức/ma trận) → nạp lại hồ sơ cho đúng thang hiện tại.
   const levelsKey = levelNames.join('|')
   useEffect(() => {
     const next = initialProfiles(org)
-    setProfiles(next)
+    resetForm({ profiles: next })
     setExpanded(new Set(next[0] ? [next[0]._key] : []))
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [levelsKey])
@@ -299,32 +310,13 @@ export default function UnitClassificationConfigSection({ org }: { org: Organiza
   const applyPreset = (key: string) => { patchProfile(key, { rules: presetFor(org) }); toast.success('Đã nạp mẫu gợi ý') }
   const reset = () => {
     const next = initialProfiles(org)
-    setProfiles(next)
+    resetForm({ profiles: next })
     setExpanded(new Set(next[0] ? [next[0]._key] : []))
     toast.success('Đã đặt lại')
   }
 
-  const save = () => {
-    if (!profiles.length) { toast.error('Cần ít nhất một hồ sơ'); return }
-    // Đúng MỘT hồ sơ mặc định, áp cho mọi kỳ — cùng luật với bộ tiêu chí hạnh kiểm. Giao
-    // diện đã giữ bất biến này, kiểm lại ở đây chỉ để dữ liệu cũ không lọt qua.
-    const defaults = profiles.filter(p => p.isDefault)
-    if (defaults.length !== 1) {
-      toast.error(defaults.length ? 'Chỉ được một hồ sơ mặc định' : 'Cần một hồ sơ mặc định')
-      return
-    }
-    const names = profiles.map(p => p.name.trim())
-    if (names.some(n => !n)) { toast.error('Tên hồ sơ không được để trống'); return }
-    if (new Set(names).size !== names.length) { toast.error('Tên hồ sơ bị trùng'); return }
-    for (const p of profiles) {
-      if (!p.isDefault && p.orgUnitIds.length === 0) { toast.error(`Hồ sơ "${p.name}" chưa gán đơn vị nào`); return }
-      if (!p.rules.length) { toast.error(`Hồ sơ "${p.name}" cần ít nhất một mức xếp loại`); return }
-      if (p.rules.some(r => !r.levelName.trim())) { toast.error(`Hồ sơ "${p.name}": tên mức không được để trống`); return }
-      if (p.rules.some(r => r.conditions.some(c => !c.level || c.percent < 0 || c.percent > 100))) {
-        toast.error(`Hồ sơ "${p.name}": điều kiện chưa hợp lệ (% phải 0–100 và chọn mức)`); return
-      }
-    }
-    const payload: UnitClassProfile[] = profiles.map(p => ({
+  const save = handleSubmit((data) => {
+    const payload: UnitClassProfile[] = data.profiles.map(p => ({
       name: p.name.trim(), isDefault: p.isDefault,
       // Hồ sơ mặc định là chỗ rơi về của phần chưa gán nên không mang theo đơn vị lẫn kỳ.
       orgUnitIds: p.isDefault ? [] : p.orgUnitIds,
@@ -335,13 +327,13 @@ export default function UnitClassificationConfigSection({ org }: { org: Organiza
       onSuccess: () => toast.success('Đã lưu luật xếp loại đơn vị'),
       onError: () => toast.error('Không thể lưu luật xếp loại đơn vị'),
     })
-  }
+  }, toastFirstError)
 
   return (
     <section className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
       {/* Đầu trang gọn một hàng. Phần giải thích dài chuyển vào nút "?" — trước đây nó
           chiếm hai dòng chữ nằm chắn ngay giữa nhan đề và danh sách hồ sơ. */}
-      <div className="px-5 py-4 max-sm:px-4 border-b border-slate-100 dark:border-slate-800 flex flex-wrap items-center gap-3">
+      <div id="tour-unitclass-header" className="px-5 py-4 max-sm:px-4 border-b border-slate-100 dark:border-slate-800 flex flex-wrap items-center gap-3">
         <div className="w-9 h-9 shrink-0 rounded-xl bg-emerald-100 dark:bg-emerald-900/40 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
           <Award size={18} aria-hidden="true" />
         </div>
@@ -373,7 +365,7 @@ export default function UnitClassificationConfigSection({ org }: { org: Organiza
 
       {/* Chú thích thang mức: hàng mảnh riêng, dính ngay dưới nhan đề vì nó là bảng tra
           dùng suốt lúc soạn điều kiện bên dưới. */}
-      <div className="px-5 max-sm:px-4 py-2 border-b border-slate-100 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-800/20 flex flex-wrap items-center gap-x-3 gap-y-1">
+      <div id="tour-unitclass-levels" className="px-5 max-sm:px-4 py-2 border-b border-slate-100 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-800/20 flex flex-wrap items-center gap-x-3 gap-y-1">
         <span className="text-[10px] font-black uppercase tracking-wider text-slate-400">Thang mức</span>
         {levels.map(l => (
           <span key={l.name} className="inline-flex items-center gap-1 text-[11px] font-bold text-slate-600 dark:text-slate-300">
@@ -383,7 +375,7 @@ export default function UnitClassificationConfigSection({ org }: { org: Organiza
       </div>
 
       <div className="p-5 max-sm:p-4 space-y-2.5">
-        <div className="space-y-2.5">
+        <div id="tour-unitclass-profiles" className="space-y-2.5">
           {profiles.map(p => (
             <ProfileCard
               key={p._key}
@@ -407,6 +399,7 @@ export default function UnitClassificationConfigSection({ org }: { org: Organiza
         </div>
 
         <button
+          id="tour-unitclass-add"
           type="button"
           onClick={addProfile}
           className="w-full h-10 max-sm:h-12 rounded-xl border border-dashed border-slate-300 dark:border-slate-700 text-xs font-bold text-slate-500 hover:border-indigo-400 hover:text-indigo-600 inline-flex items-center justify-center gap-1.5 cursor-pointer"

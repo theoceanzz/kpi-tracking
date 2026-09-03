@@ -44,7 +44,7 @@ export default function MyCertificatesTab() {
 
   return (
     <div>
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
+      <div id="tour-my-certificates-grid" className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
         {awards.map((award) => {
           const mine = award.recipients[0]
           return (

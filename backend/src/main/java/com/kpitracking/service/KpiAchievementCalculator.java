@@ -91,6 +91,19 @@ public class KpiAchievementCalculator {
         return Math.min(ratio, MAX_RATIO);
     }
 
+    /**
+     * Tỉ lệ đạt (0..1.5) của MỘT HẠNG MỤC BSC tự chấm theo mục tiêu của chính nó (kiểu OKR):
+     * cộng dồn giá trị thực đạt của các KPI định lượng trong hạng mục rồi so với mục tiêu hạng mục.
+     *
+     * Hạng mục không có cờ "ngược" nên {@code minimum} luôn là SÀN: dưới sàn ⇒ 0, giống KPI thường.
+     * Trần vẫn là {@link #MAX_RATIO} để một hạng mục vượt mức không kéo lệch toàn bộ điểm BSC.
+     */
+    public double perspectiveRatioFromActual(Double target, Double minimum, double actual) {
+        if (target == null || target == 0) return 0.0;
+        if (minimum != null && actual < minimum) return 0.0;
+        return Math.min(actual / target, MAX_RATIO);
+    }
+
     /** Tỉ lệ đạt của KPI (0..1.5) tính từ các submission của user. */
     public double ratio(KpiCriteria kpi, UUID targetUserId, boolean enableWaterfall) {
         return ratioFromActual(kpi, actualValue(kpi, targetUserId, enableWaterfall));

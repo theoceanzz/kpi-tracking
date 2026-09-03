@@ -1,8 +1,11 @@
 import { useEffect, useRef, useState } from 'react'
+import { useForm } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
 import { Loader2, X, Gift, Upload, ImageOff, Trash2, AlertTriangle } from 'lucide-react'
 import { toast } from 'sonner'
 import { giftApi } from '../api/giftApi'
 import { useGiftsManage } from '../hooks/useGifts'
+import { giftSchema, numOrUndefined, type GiftFormData } from '../schemas/giftSchema'
 import { GiftItemStatus, type GiftItem } from '../types'
 
 interface GiftFormModalProps {
@@ -15,29 +18,36 @@ export default function GiftFormModal({ open, onClose, editGift }: GiftFormModal
   const isEdit = !!editGift
   const fileRef = useRef<HTMLInputElement>(null)
 
-  const [name, setName] = useState('')
-  const [description, setDescription] = useState('')
-  const [imageUrl, setImageUrl] = useState('')
-  const [pointCost, setPointCost] = useState<number | ''>('')
-  const [unlimitedStock, setUnlimitedStock] = useState(false)
-  const [stockQuantity, setStockQuantity] = useState<number | ''>('')
-  const [active, setActive] = useState(true)
-  const [requiresDelivery, setRequiresDelivery] = useState(true)
   const [uploading, setUploading] = useState(false)
+
+  const { register, handleSubmit, reset, watch, setValue, formState: { errors } } = useForm<GiftFormData>({
+    resolver: zodResolver(giftSchema),
+    defaultValues: {
+      name: '', description: '', imageUrl: '', pointCost: undefined,
+      unlimitedStock: false, stockQuantity: undefined, active: true, requiresDelivery: true,
+    },
+  })
+
+  // Ảnh và hai lựa chọn dạng thẻ không phải ô nhập nên đọc/ghi qua watch + setValue.
+  const imageUrl = watch('imageUrl')
+  const unlimitedStock = watch('unlimitedStock')
+  const requiresDelivery = watch('requiresDelivery')
 
   const { createGift, updateGift, isCreating, isUpdating } = useGiftsManage()
 
   useEffect(() => {
     if (!open) return
-    setName(editGift?.name ?? '')
-    setDescription(editGift?.description ?? '')
-    setImageUrl(editGift?.imageUrl ?? '')
-    setPointCost(editGift?.pointCost ?? '')
-    setUnlimitedStock(editGift?.unlimitedStock ?? false)
-    setStockQuantity(editGift?.stockQuantity ?? '')
-    setActive((editGift?.status ?? GiftItemStatus.ACTIVE) === GiftItemStatus.ACTIVE)
-    setRequiresDelivery(editGift?.requiresDelivery ?? true)
-  }, [open, editGift])
+    reset({
+      name: editGift?.name ?? '',
+      description: editGift?.description ?? '',
+      imageUrl: editGift?.imageUrl ?? '',
+      pointCost: editGift?.pointCost ?? undefined,
+      unlimitedStock: editGift?.unlimitedStock ?? false,
+      stockQuantity: editGift?.stockQuantity ?? undefined,
+      active: (editGift?.status ?? GiftItemStatus.ACTIVE) === GiftItemStatus.ACTIVE,
+      requiresDelivery: editGift?.requiresDelivery ?? true,
+    })
+  }, [open, editGift, reset])
 
   if (!open) return null
 
@@ -54,7 +64,7 @@ export default function GiftFormModal({ open, onClose, editGift }: GiftFormModal
     }
     setUploading(true)
     try {
-      setImageUrl(await giftApi.uploadImage(file))
+      setValue('imageUrl', await giftApi.uploadImage(file), { shouldValidate: true })
     } catch (e: any) {
       toast.error(e?.response?.data?.message || 'Tải ảnh thất bại')
     } finally {
@@ -62,19 +72,16 @@ export default function GiftFormModal({ open, onClose, editGift }: GiftFormModal
     }
   }
 
-  const canSubmit = name.trim().length > 0 && typeof pointCost === 'number' && pointCost > 0
-
-  const handleSubmit = async () => {
-    if (!canSubmit) return
+  const onSubmit = async (data: GiftFormData) => {
     const payload = {
-      name: name.trim(),
-      description: description.trim() || undefined,
-      imageUrl: imageUrl || undefined,
-      pointCost: pointCost as number,
-      unlimitedStock,
-      requiresDelivery,
-      stockQuantity: unlimitedStock ? null : (stockQuantity === '' ? 0 : (stockQuantity as number)),
-      status: active ? GiftItemStatus.ACTIVE : GiftItemStatus.INACTIVE,
+      name: data.name.trim(),
+      description: data.description.trim() || undefined,
+      imageUrl: data.imageUrl || undefined,
+      pointCost: data.pointCost,
+      unlimitedStock: data.unlimitedStock,
+      requiresDelivery: data.requiresDelivery,
+      stockQuantity: data.unlimitedStock ? null : (data.stockQuantity ?? 0),
+      status: data.active ? GiftItemStatus.ACTIVE : GiftItemStatus.INACTIVE,
     }
     if (isEdit && editGift) {
       await updateGift({ id: editGift.id, data: payload })
@@ -144,7 +151,7 @@ export default function GiftFormModal({ open, onClose, editGift }: GiftFormModal
                 {imageUrl && (
                   <button
                     type="button"
-                    onClick={() => setImageUrl('')}
+                    onClick={() => setValue('imageUrl', '')}
                     className="rounded-lg border border-[var(--color-border)] px-2 py-1.5 text-rose-600"
                   >
                     <Trash2 size={13} />
@@ -168,20 +175,15 @@ export default function GiftFormModal({ open, onClose, editGift }: GiftFormModal
               <div>
                 <label className="mb-1.5 block text-sm font-medium">Tên quà</label>
                 <input
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
+                  {...register('name')}
                   placeholder="Ví dụ: Voucher cà phê 100.000đ"
                   className={inputCls}
                 />
+                {errors.name && <p className="mt-1 text-xs text-rose-600">{errors.name.message}</p>}
               </div>
               <div>
                 <label className="mb-1.5 block text-sm font-medium">Mô tả</label>
-                <textarea
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  rows={2}
-                  className={inputCls}
-                />
+                <textarea {...register('description')} rows={2} className={inputCls} />
               </div>
             </div>
           </div>
@@ -192,32 +194,29 @@ export default function GiftFormModal({ open, onClose, editGift }: GiftFormModal
               <input
                 type="number"
                 min={1}
-                value={pointCost}
-                onChange={(e) => setPointCost(e.target.value === '' ? '' : Number(e.target.value))}
+                {...register('pointCost', { setValueAs: numOrUndefined })}
                 className={inputCls}
               />
+              {errors.pointCost && <p className="mt-1 text-xs text-rose-600">{errors.pointCost.message}</p>}
             </div>
             <div>
               <label className="mb-1.5 block text-sm font-medium">Tồn kho</label>
               <input
                 type="number"
                 min={0}
-                value={unlimitedStock ? '' : stockQuantity}
                 disabled={unlimitedStock || !!editGift?.pendingRedemptionCount}
                 placeholder={unlimitedStock ? 'Không giới hạn' : '0'}
-                onChange={(e) =>
-                  setStockQuantity(e.target.value === '' ? '' : Number(e.target.value))
-                }
+                {...register('stockQuantity', { setValueAs: numOrUndefined })}
                 className={`${inputCls} disabled:opacity-50`}
               />
+              {errors.stockQuantity && <p className="mt-1 text-xs text-rose-600">{errors.stockQuantity.message}</p>}
             </div>
           </div>
 
           <label className="flex cursor-pointer items-center gap-2 text-sm">
             <input
               type="checkbox"
-              checked={unlimitedStock}
-              onChange={(e) => setUnlimitedStock(e.target.checked)}
+              {...register('unlimitedStock')}
               className="rounded border-[var(--color-border)]"
             />
             Không giới hạn số lượng
@@ -233,7 +232,7 @@ export default function GiftFormModal({ open, onClose, editGift }: GiftFormModal
             <div className="grid gap-2 sm:grid-cols-2">
               <button
                 type="button"
-                onClick={() => setRequiresDelivery(true)}
+                onClick={() => setValue('requiresDelivery', true)}
                 className={`rounded-xl border px-4 py-3 text-left text-sm transition-colors ${
                   requiresDelivery
                     ? 'border-[var(--color-primary)] bg-[var(--color-primary)]/5'
@@ -248,7 +247,7 @@ export default function GiftFormModal({ open, onClose, editGift }: GiftFormModal
               </button>
               <button
                 type="button"
-                onClick={() => setRequiresDelivery(false)}
+                onClick={() => setValue('requiresDelivery', false)}
                 className={`rounded-xl border px-4 py-3 text-left text-sm transition-colors ${
                   !requiresDelivery
                     ? 'border-[var(--color-primary)] bg-[var(--color-primary)]/5'
@@ -272,8 +271,7 @@ export default function GiftFormModal({ open, onClose, editGift }: GiftFormModal
           <label className="flex cursor-pointer items-center gap-2 text-sm">
             <input
               type="checkbox"
-              checked={active}
-              onChange={(e) => setActive(e.target.checked)}
+              {...register('active')}
               className="rounded border-[var(--color-border)]"
             />
             Đang bày bán
@@ -291,8 +289,8 @@ export default function GiftFormModal({ open, onClose, editGift }: GiftFormModal
             Huỷ
           </button>
           <button
-            onClick={handleSubmit}
-            disabled={!canSubmit || isCreating || isUpdating || uploading}
+            onClick={handleSubmit(onSubmit)}
+            disabled={isCreating || isUpdating || uploading}
             className="inline-flex items-center gap-2 rounded-lg bg-[var(--color-primary)] px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
           >
             {(isCreating || isUpdating) && <Loader2 size={15} className="animate-spin" />}

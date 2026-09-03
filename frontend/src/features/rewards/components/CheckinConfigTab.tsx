@@ -149,8 +149,8 @@ export default function CheckinConfigTab() {
     .map((x) => x.idx)
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-start gap-2.5 rounded-xl border border-[var(--color-border)] bg-[var(--color-muted)]/40 px-4 py-3 text-sm">
+    <div id="tour-checkin-root" className="space-y-6">
+      <div id="tour-checkin-note" className="flex items-start gap-2.5 rounded-xl border border-[var(--color-border)] bg-[var(--color-muted)]/40 px-4 py-3 text-sm">
         <Info size={16} className="mt-0.5 flex-shrink-0 text-[var(--color-muted-foreground)]" />
         <p className="text-[var(--color-muted-foreground)]">
           Nhân viên tự bấm điểm danh mỗi ngày ở trang “Điểm thưởng của tôi” để nhận điểm. Điểm
@@ -159,7 +159,7 @@ export default function CheckinConfigTab() {
         </p>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2">
+      <div id="tour-checkin-stats" className="grid gap-4 sm:grid-cols-2">
         <StatTile
           icon={<Users size={17} />}
           label="Đã điểm danh hôm nay"
@@ -172,7 +172,7 @@ export default function CheckinConfigTab() {
         />
       </div>
 
-      <div className="space-y-5 rounded-2xl border border-[var(--color-border)] p-5">
+      <div id="tour-checkin-form" className="space-y-5 rounded-2xl border border-[var(--color-border)] p-5">
         <Toggle
           checked={form.enabled}
           onChange={(v) => set({ enabled: v })}

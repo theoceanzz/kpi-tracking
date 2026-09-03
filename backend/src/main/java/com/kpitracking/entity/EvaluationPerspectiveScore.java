@@ -45,6 +45,15 @@ public class EvaluationPerspectiveScore {
     @Builder.Default
     private Integer kpiCount = 0;
 
+    /** Tổng thực đạt của các KPI định lượng trong hạng mục — chỉ ghi khi chấm theo mục tiêu hạng mục. */
+    @Column(name = "actual_value")
+    private Double actualValue;
+
+    /** Cách đã dùng để chấm hạng mục này: theo mục tiêu của chính nó hay trung bình các KPI con. */
+    @Column(name = "scored_by_target", nullable = false)
+    @Builder.Default
+    private Boolean scoredByTarget = false;
+
     @CreatedDate
     @Column(name = "created_at", updatable = false)
     private Instant createdAt;

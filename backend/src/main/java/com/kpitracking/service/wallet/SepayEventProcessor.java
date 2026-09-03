@@ -2,6 +2,7 @@ package com.kpitracking.service.wallet;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.kpitracking.dto.request.wallet.SepayWebhookPayload;
+import com.kpitracking.entity.Organization;
 import com.kpitracking.entity.SepayWebhookEvent;
 import com.kpitracking.entity.TopupOrder;
 import com.kpitracking.enums.CashSourceType;
@@ -9,6 +10,7 @@ import com.kpitracking.enums.CashTransactionType;
 import com.kpitracking.enums.SepayEventStatus;
 import com.kpitracking.enums.TopupOrderStatus;
 import com.kpitracking.event.WalletEvents;
+import com.kpitracking.repository.OrganizationRepository;
 import com.kpitracking.repository.SepayWebhookEventRepository;
 import com.kpitracking.repository.TopupOrderRepository;
 import com.kpitracking.service.CashWalletService;
@@ -23,6 +25,7 @@ import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
+import java.util.List;
 import java.util.Optional;
 
 /**
@@ -41,6 +44,7 @@ public class SepayEventProcessor {
 
     private final SepayWebhookEventRepository eventRepository;
     private final TopupOrderRepository orderRepository;
+    private final OrganizationRepository organizationRepository;
     private final CashWalletService cashWalletService;
     private final ApplicationEventPublisher eventPublisher;
     private final ObjectMapper objectMapper;
@@ -57,6 +61,8 @@ public class SepayEventProcessor {
      *   <li>Không phải tiền vào ⇒ {@code IGNORED}, dừng.</li>
      *   <li>Không trích được mã đơn, hoặc không tìm thấy đơn ⇒ {@code UNMATCHED},
      *       KHÔNG ghi có.</li>
+     *   <li>Tiền về một tài khoản KHÁC tài khoản tổ chức chủ đơn đã khai ⇒
+     *       {@code UNMATCHED}, KHÔNG ghi có.</li>
      *   <li>Đơn đã {@code PAID} ⇒ {@code UNMATCHED}, KHÔNG ghi có. Im lặng bỏ qua
      *       là nuốt tiền, mà ghi có tự động là trả hai lần.</li>
      *   <li>Ghi có ĐÚNG số tiền thực nhận, kể cả khi lệch so với số đề nghị.</li>
@@ -65,6 +71,7 @@ public class SepayEventProcessor {
     @Transactional
     public SepayEventStatus process(SepayWebhookPayload payload) {
         SepayWebhookEvent event = newEvent(payload);
+        event.setOrganization(resolveOrganization(payload));
 
         // (2) SePay gửi lại một giao dịch đã nhận trước đó.
         if (payload.getId() != null && eventRepository.existsBySepayId(payload.getId())) {
@@ -102,8 +109,41 @@ public class SepayEventProcessor {
         // đúng lúc này, và cả hai đường đều phải thấy cùng một trạng thái.
         TopupOrder order = orderRepository.findByIdForUpdate(found.get().getId()).orElseThrow();
         event.setMatchedOrder(order);
+        // Đơn là căn cứ chắc chắn nhất về chủ sở hữu khoản tiền, chắc hơn cả suy từ
+        // số tài khoản: mã đơn là duy nhất toàn cục còn số tài khoản thì hai tổ chức
+        // có thể khai trùng.
+        event.setOrganization(order.getOrganization());
 
-        // (5) Tiền về cho một đơn đã thanh toán. Hai khả năng, người đối soát
+        // (5) Tiền về ĐÚNG mã đơn nhưng SAI tài khoản. Mã NAPxxxxxxxx là duy nhất
+        // toàn cục nên nếu chỉ tin vào mã thì một giao dịch về bất kỳ tài khoản nào
+        // SePay đang theo dõi cũng ghi có được cho đơn của bất kỳ tổ chức nào. Đây
+        // cũng là lưới bắt lỗi gõ nhầm số tài khoản trong cấu hình.
+        //
+        // Đối chiếu với số tài khoản CHỤP TRÊN CHÍNH ĐƠN, không phải cấu hình hiện
+        // tại của tổ chức: đó mới là số đã in trên mã QR mà người dùng quét. Tổ chức
+        // đổi tài khoản sau khi đơn được tạo là chuyện bình thường, và so với cấu
+        // hình mới sẽ báo lệch cho đúng những giao dịch hợp lệ.
+        String expected = order.getBankAccountNumber() != null && !order.getBankAccountNumber().isBlank()
+                ? order.getBankAccountNumber()
+                : order.getOrganization().getSepayAccountNumber();
+
+        var verdict = SepayAccountMatch.verify(
+                expected, payload.getAccountNumber(), payload.getSubAccount());
+        if (verdict == SepayAccountMatch.Verdict.MISMATCHED) {
+            return unmatched(event, "Tiền về tài khoản " + payload.getAccountNumber()
+                    + " nhưng đơn " + order.getCode() + " nhận tiền ở tài khoản " + expected
+                    + ". Không ghi có tự động. Kiểm tra lại số tài khoản trong Cấu hình ví có đúng "
+                    + "tài khoản đã liên kết trên SePay không; nếu đúng là tiền của người này thì "
+                    + "ghi có tay.");
+        }
+        if (verdict == SepayAccountMatch.Verdict.UNVERIFIABLE) {
+            // Vẫn ghi có: giữ tiền lại chỉ vì thiếu một trường đối chiếu là phạt
+            // người dùng vì lỗi cấu hình của tổ chức.
+            log.warn("Không đối chiếu được tài khoản nhận tiền cho đơn {} (payload={}, đơn={})",
+                    order.getCode(), payload.getAccountNumber(), expected);
+        }
+
+        // (6) Tiền về cho một đơn đã thanh toán. Hai khả năng, người đối soát
         // không tự phân biệt được nên thông điệp phải nêu cả hai và cách xử lý.
         if (!order.isCreditable()) {
             return unmatched(event, "Đơn " + order.getCode() + " đã ở trạng thái đã thanh toán từ "
@@ -112,7 +152,7 @@ public class SepayEventProcessor {
                     + "sau khi đơn đã được gán tay ⇒ chọn 'Bỏ qua'.");
         }
 
-        // (6) Ghi có ĐÚNG SỐ TIỀN THỰC NHẬN. Ví là số dư 1:1 chứ không phải món
+        // (7) Ghi có ĐÚNG SỐ TIỀN THỰC NHẬN. Ví là số dư 1:1 chứ không phải món
         // hàng giá cố định, nên số đề nghị chỉ là số đề nghị. Giữ tiền người dùng
         // lại trong hàng đợi chỉ vì lệch vài nghìn phí ngân hàng là sai.
         long received = payload.getTransferAmount() == null ? 0L : payload.getTransferAmount();
@@ -166,6 +206,7 @@ public class SepayEventProcessor {
                 return;
             }
             SepayWebhookEvent event = newEvent(payload);
+            event.setOrganization(resolveOrganization(payload));
             event.setStatus(SepayEventStatus.UNMATCHED);
             event.setErrorMessage("Xử lý tự động thất bại: " + cause.getMessage()
                     + ". Tiền có thể đã về tài khoản — cần kiểm tra sao kê rồi xử lý tay.");
@@ -182,6 +223,33 @@ public class SepayEventProcessor {
         eventRepository.save(event);
         log.warn("Sự kiện SePay chưa khớp đơn: {}", message);
         return SepayEventStatus.UNMATCHED;
+    }
+
+    /**
+     * Quy giao dịch về một tổ chức dựa trên số tài khoản nhận tiền.
+     *
+     * <p>Trả {@code null} khi không tổ chức nào khai số tài khoản đó, hoặc khi có
+     * NHIỀU tổ chức cùng khai — đoán bừa một tổ chức tệ hơn hẳn việc nói thẳng là
+     * chưa xác định được, vì người đối soát sẽ tin vào con số hiện ra trước mắt.
+     * Sự kiện không quy được về đâu vẫn nằm trong hàng đợi của mọi tổ chức nhưng
+     * không cho ghi có thẳng, xem {@code SepayReconcileService}.
+     */
+    private Organization resolveOrganization(SepayWebhookPayload p) {
+        for (String candidate : new String[]{p.getSubAccount(), p.getAccountNumber()}) {
+            String normalized = SepayAccountMatch.normalize(candidate);
+            if (normalized == null) continue;
+
+            List<Organization> orgs = organizationRepository.findBySepayAccountNumber(normalized);
+            if (orgs.size() == 1) {
+                return orgs.get(0);
+            }
+            if (orgs.size() > 1) {
+                log.error("Số tài khoản {} đang được {} tổ chức cùng khai — không quy được giao "
+                        + "dịch về tổ chức nào, cần sửa cấu hình ví", candidate, orgs.size());
+                return null;
+            }
+        }
+        return null;
     }
 
     private SepayWebhookEvent newEvent(SepayWebhookPayload p) {

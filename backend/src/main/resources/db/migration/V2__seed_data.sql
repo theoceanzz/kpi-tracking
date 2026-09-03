@@ -1586,64 +1586,6 @@ VALUES
      '22222222-0000-0000-0000-000000000500', 96.3, 'Xuất sắc', 96.8,
      '2026-06-01 00:00:00+07', '2026-06-30 23:59:59+07');
 
--- ============================================================
--- 10. SIDEBAR CUSTOM LABELS
--- ============================================================
--- Khoá lấy đúng theo `navItemKey()` trong `frontend/src/config/navigation.tsx`:
--- `labelKey` ?? `path` ?? `id`. Phần lớn màn hình nay là mục BÊN TRONG một trang nên khoá
--- là `id` của mục, chỉ những dòng còn đứng riêng trên sidebar mới giữ khoá dạng path.
---
--- Seed ĐỦ 44 mục chứ không chỉ vài mục: màn "Quản lý Sidebar" liệt kê tất cả, thiếu thì
--- dòng đó chỉ hiện chỗ giữ và demo không cho thấy được là mục nào cũng đổi tên được. Có
--- cả mục thuộc tính năng đang tắt (OKR/BSC/thưởng/ví/AI) — `collectNavLabelScopes` lọc
--- theo cờ tính năng trước khi hiện, mà khi bật lên thì nhãn có sẵn ngay.
-INSERT INTO sidebar_settings (id, organization_id, menu_key, custom_label) VALUES
-    (gen_random_uuid(), '11111111-1111-1111-1111-111111111111', '/dashboard', 'Tổng quan'),
-    (gen_random_uuid(), '11111111-1111-1111-1111-111111111111', 'setup-company', 'Thiết lập công ty'),
-    (gen_random_uuid(), '11111111-1111-1111-1111-111111111111', 'info', 'Thông tin công ty'),
-    (gen_random_uuid(), '11111111-1111-1111-1111-111111111111', 'roles', 'Phân quyền vai trò'),
-    (gen_random_uuid(), '11111111-1111-1111-1111-111111111111', 'org-structure', 'Cơ cấu tổ chức'),
-    (gen_random_uuid(), '11111111-1111-1111-1111-111111111111', 'users', 'Quản lý nhân viên'),
-    (gen_random_uuid(), '11111111-1111-1111-1111-111111111111', 'kpi-cycles', 'Quản lý kỳ/đợt đánh giá'),
-    (gen_random_uuid(), '11111111-1111-1111-1111-111111111111', 'okr', 'Quản lý OKR'),
-    (gen_random_uuid(), '11111111-1111-1111-1111-111111111111', 'bsc', 'Quản lý BSC'),
-    (gen_random_uuid(), '11111111-1111-1111-1111-111111111111', 'kpi-criteria', 'Thiết lập chỉ tiêu'),
-    (gen_random_uuid(), '11111111-1111-1111-1111-111111111111', 'kpi-criteria-pending', 'Phê duyệt chỉ tiêu'),
-    (gen_random_uuid(), '11111111-1111-1111-1111-111111111111', 'kpi-adjustments-pending', 'Điều chỉnh chỉ tiêu'),
-    (gen_random_uuid(), '11111111-1111-1111-1111-111111111111', 'submissions-org-unit', 'Đánh giá đợt'),
-    (gen_random_uuid(), '11111111-1111-1111-1111-111111111111', 'cycle-evaluation', 'Đánh giá kỳ'),
-    (gen_random_uuid(), '11111111-1111-1111-1111-111111111111', 'my-kpi', 'KPI của tôi'),
-    (gen_random_uuid(), '11111111-1111-1111-1111-111111111111', 'my-submissions', 'Báo cáo của tôi'),
-    (gen_random_uuid(), '11111111-1111-1111-1111-111111111111', 'evaluations', 'Đánh giá của tôi'),
-    (gen_random_uuid(), '11111111-1111-1111-1111-111111111111', 'my-adjustments', 'Điều chỉnh của tôi'),
-    (gen_random_uuid(), '11111111-1111-1111-1111-111111111111', '/analytics', 'Phân tích'),
-    (gen_random_uuid(), '11111111-1111-1111-1111-111111111111', 'setup', 'Thiết lập'),
-    (gen_random_uuid(), '11111111-1111-1111-1111-111111111111', 'setup-tools', 'Thiết lập công cụ'),
-    (gen_random_uuid(), '11111111-1111-1111-1111-111111111111', 'performance', 'Quản lý hiệu suất'),
-    (gen_random_uuid(), '11111111-1111-1111-1111-111111111111', '/me', 'Của tôi'),
-    (gen_random_uuid(), '11111111-1111-1111-1111-111111111111', '/ai-assistant', 'K.AI'),
-    (gen_random_uuid(), '11111111-1111-1111-1111-111111111111', 'ranks', 'Cấp bậc'),
-    (gen_random_uuid(), '11111111-1111-1111-1111-111111111111', 'sidebar', 'Quản lý Sidebar'),
-    (gen_random_uuid(), '11111111-1111-1111-1111-111111111111', 'notifications', 'Thiết lập thông báo'),
-    (gen_random_uuid(), '11111111-1111-1111-1111-111111111111', 'email', 'Thiết lập email'),
-    (gen_random_uuid(), '11111111-1111-1111-1111-111111111111', 'api', 'Thiết lập API'),
-    (gen_random_uuid(), '11111111-1111-1111-1111-111111111111', 'modules', 'Module & tính năng'),
-    (gen_random_uuid(), '11111111-1111-1111-1111-111111111111', 'scoring', 'Thang điểm'),
-    (gen_random_uuid(), '11111111-1111-1111-1111-111111111111', 'matrix', 'Ma trận đánh giá'),
-    (gen_random_uuid(), '11111111-1111-1111-1111-111111111111', 'unit-class', 'Xếp loại đơn vị'),
-    (gen_random_uuid(), '11111111-1111-1111-1111-111111111111', 'rewards', 'Quản lý thưởng'),
-    (gen_random_uuid(), '11111111-1111-1111-1111-111111111111', 'wallet', 'Quản lý ví'),
-    (gen_random_uuid(), '11111111-1111-1111-1111-111111111111', 'ai-quota', 'Quản lý token AI'),
-    (gen_random_uuid(), '11111111-1111-1111-1111-111111111111', 'my-rewards', 'Điểm của tôi'),
-    (gen_random_uuid(), '11111111-1111-1111-1111-111111111111', 'my-cash-wallet', 'Ví của tôi'),
-    (gen_random_uuid(), '11111111-1111-1111-1111-111111111111', 'my-objectives', 'Mục tiêu của tôi'),
-    (gen_random_uuid(), '11111111-1111-1111-1111-111111111111', 'subordinate', 'Mục tiêu đơn vị'),
-    (gen_random_uuid(), '11111111-1111-1111-1111-111111111111', 'my', 'KPI của tôi'),
-    (gen_random_uuid(), '11111111-1111-1111-1111-111111111111', 'summary', 'KPI đơn vị'),
-    (gen_random_uuid(), '11111111-1111-1111-1111-111111111111', 'drilldown', 'Phân cấp'),
-    (gen_random_uuid(), '11111111-1111-1111-1111-111111111111', 'analytics-bsc', 'Hạng mục (BSC)');
-
-
 
 -- ===========================================================
 -- Demo Education
@@ -2371,52 +2313,15 @@ INSERT INTO role_policies (role_id, policy_id) VALUES
     ('c4000000-0000-0000-0000-000000000003', 'd1000000-0000-0000-0000-000000000002')
 ON CONFLICT DO NOTHING;
 
--- 17. SIDEBAR CUSTOM LABELS (xem chú thích ở mục 10 của Demo Company)
+-- 17. SIDEBAR CUSTOM LABELS
+-- Chỉ đổi tên những mục mà trường học gọi khác doanh nghiệp, để thấy được là nhãn đổi
+-- theo từng tổ chức. Các mục còn lại KHÔNG seed — không có dòng trong `sidebar_settings`
+-- thì `useNavLabels` lấy thẳng nhãn mặc định trong `frontend/src/config/navigation.tsx`.
 INSERT INTO sidebar_settings (id, organization_id, menu_key, custom_label) VALUES
-    (gen_random_uuid(), '22222222-2222-2222-2222-222222222222', '/dashboard', 'Tổng quan'),
-    (gen_random_uuid(), '22222222-2222-2222-2222-222222222222', 'setup-company', 'Thiệt lập tổ chức'),
+    (gen_random_uuid(), '22222222-2222-2222-2222-222222222222', 'setup-company', 'Thiết lập tổ chức'),
     (gen_random_uuid(), '22222222-2222-2222-2222-222222222222', 'info', 'Thông tin trường'),
-    (gen_random_uuid(), '22222222-2222-2222-2222-222222222222', 'roles', 'Phân quyền vai trò'),
     (gen_random_uuid(), '22222222-2222-2222-2222-222222222222', 'org-structure', 'Cấu trúc Khoa - Bộ môn'),
-    (gen_random_uuid(), '22222222-2222-2222-2222-222222222222', 'users', 'Quản lý sinh viên & GV'),
-    (gen_random_uuid(), '22222222-2222-2222-2222-222222222222', 'kpi-cycles', 'Quản lý kỳ/đợt đánh giá'),
-    (gen_random_uuid(), '22222222-2222-2222-2222-222222222222', 'okr', 'Mục tiêu OKR'),
-    (gen_random_uuid(), '22222222-2222-2222-2222-222222222222', 'bsc', 'Quản lý BSC'),
-    (gen_random_uuid(), '22222222-2222-2222-2222-222222222222', 'kpi-criteria', 'Thiết lập chỉ tiêu'),
-    (gen_random_uuid(), '22222222-2222-2222-2222-222222222222', 'kpi-criteria-pending', 'Phê duyệt chỉ tiêu'),
-    (gen_random_uuid(), '22222222-2222-2222-2222-222222222222', 'kpi-adjustments-pending', 'Điều chỉnh chỉ tiêu'),
-    (gen_random_uuid(), '22222222-2222-2222-2222-222222222222', 'submissions-org-unit', 'Đánh giá đợt'),
-    (gen_random_uuid(), '22222222-2222-2222-2222-222222222222', 'cycle-evaluation', 'Đánh giá kỳ'),
-    (gen_random_uuid(), '22222222-2222-2222-2222-222222222222', 'my-kpi', 'KPI của tôi'),
-    (gen_random_uuid(), '22222222-2222-2222-2222-222222222222', 'my-submissions', 'Báo cáo của tôi'),
-    (gen_random_uuid(), '22222222-2222-2222-2222-222222222222', 'evaluations', 'Đánh giá của tôi'),
-    (gen_random_uuid(), '22222222-2222-2222-2222-222222222222', 'my-adjustments', 'Điều chỉnh của tôi'),
-    (gen_random_uuid(), '22222222-2222-2222-2222-222222222222', '/analytics', 'Phân tích'),
-    (gen_random_uuid(), '22222222-2222-2222-2222-222222222222', 'setup', 'Thiết lập'),
-    (gen_random_uuid(), '22222222-2222-2222-2222-222222222222', 'setup-tools', 'Thiết lập công cụ'),
-    (gen_random_uuid(), '22222222-2222-2222-2222-222222222222', 'performance', 'Quản lý hiệu suất'),
-    (gen_random_uuid(), '22222222-2222-2222-2222-222222222222', '/me', 'Của tôi'),
-    (gen_random_uuid(), '22222222-2222-2222-2222-222222222222', '/ai-assistant', 'K.AI'),
-    (gen_random_uuid(), '22222222-2222-2222-2222-222222222222', 'ranks', 'Cấp bậc'),
-    (gen_random_uuid(), '22222222-2222-2222-2222-222222222222', 'sidebar', 'Quản lý Sidebar'),
-    (gen_random_uuid(), '22222222-2222-2222-2222-222222222222', 'notifications', 'Thiết lập thông báo'),
-    (gen_random_uuid(), '22222222-2222-2222-2222-222222222222', 'email', 'Thiết lập email'),
-    (gen_random_uuid(), '22222222-2222-2222-2222-222222222222', 'api', 'Thiết lập API'),
-    (gen_random_uuid(), '22222222-2222-2222-2222-222222222222', 'modules', 'Module & tính năng'),
-    (gen_random_uuid(), '22222222-2222-2222-2222-222222222222', 'scoring', 'Thang điểm'),
-    (gen_random_uuid(), '22222222-2222-2222-2222-222222222222', 'matrix', 'Ma trận đánh giá'),
-    (gen_random_uuid(), '22222222-2222-2222-2222-222222222222', 'unit-class', 'Xếp loại đơn vị'),
-    (gen_random_uuid(), '22222222-2222-2222-2222-222222222222', 'rewards', 'Quản lý thưởng'),
-    (gen_random_uuid(), '22222222-2222-2222-2222-222222222222', 'wallet', 'Quản lý ví'),
-    (gen_random_uuid(), '22222222-2222-2222-2222-222222222222', 'ai-quota', 'Quản lý token AI'),
-    (gen_random_uuid(), '22222222-2222-2222-2222-222222222222', 'my-rewards', 'Điểm của tôi'),
-    (gen_random_uuid(), '22222222-2222-2222-2222-222222222222', 'my-cash-wallet', 'Ví của tôi'),
-    (gen_random_uuid(), '22222222-2222-2222-2222-222222222222', 'my-objectives', 'Mục tiêu của tôi'),
-    (gen_random_uuid(), '22222222-2222-2222-2222-222222222222', 'subordinate', 'Mục tiêu đơn vị'),
-    (gen_random_uuid(), '22222222-2222-2222-2222-222222222222', 'my', 'KPI của tôi'),
-    (gen_random_uuid(), '22222222-2222-2222-2222-222222222222', 'summary', 'KPI đơn vị'),
-    (gen_random_uuid(), '22222222-2222-2222-2222-222222222222', 'drilldown', 'Phân cấp'),
-    (gen_random_uuid(), '22222222-2222-2222-2222-222222222222', 'analytics-bsc', 'Hạng mục (BSC)');
+    (gen_random_uuid(), '22222222-2222-2222-2222-222222222222', 'users', 'Quản lý sinh viên & GV');
 
 -- ====================================================
 -- Notification config defaults (all enabled)
@@ -2630,6 +2535,11 @@ ON CONFLICT (organization_id, code) DO NOTHING;
 -- Mỗi tổ chức một hạng mục cho mỗi viễn cảnh cố định. Đây là cấu hình tối giản: công ty thật có thể
 -- tách "Tài chính" thành nhiều hạng mục con, nhưng dữ liệu mẫu không nên dựng sẵn thứ phức tạp hơn
 -- mức cần để thống kê chạy được.
+--
+-- target_value/minimum_value/unit để TRỐNG có chủ đích: đặt mục tiêu riêng sẽ chuyển hạng mục sang
+-- cách chấm kiểu OKR (tổng thực đạt ÷ mục tiêu hạng mục), trong khi evaluation_perspective_scores
+-- bên dưới lại sinh raw_score theo cách chấm mặc định. Hai thứ đó lệch nhau thì màn hình đánh giá
+-- sẽ hiện tiến độ "x/y" không khớp với điểm đã lưu — tức dữ liệu mẫu tự mâu thuẫn.
 INSERT INTO bsc_perspectives
     (organization_id, code, fixed_perspective, name, description, color, icon, display_order, status)
 SELECT o.id, v.code, v.code, v.name, v.descr, v.color, v.icon, v.ord, 'ACTIVE'
@@ -2774,15 +2684,21 @@ WHERE p.organization_id = o.organization_id
 -- Độ lệch theo viễn cảnh cộng một chút xê dịch theo người, tất cả TẤT ĐỊNH (băm từ id) chứ không
 -- dùng random(): chạy lại file này phải ra đúng cùng bộ số, nếu không thì ảnh chụp màn hình và tài
 -- liệu hướng dẫn sẽ lệch với dữ liệu.
+--
+-- scored_by_target = FALSE và actual_value = NULL: raw_score dưới đây mô phỏng cách chấm MẶC ĐỊNH
+-- (trung bình có trọng số các KPI con), khớp với việc 18.2 không đặt mục tiêu cho hạng mục nào.
 INSERT INTO evaluation_perspective_scores
-    (evaluation_id, perspective_id, weight_percentage, raw_score, weighted_score, kpi_count)
+    (evaluation_id, perspective_id, weight_percentage, raw_score, weighted_score, kpi_count,
+     actual_value, scored_by_target)
 SELECT e.id,
        p.id,
        w.weight,
        calc.raw,
        CASE WHEN calc.raw IS NULL THEN NULL
             ELSE round((w.weight / 100.0 * calc.raw)::numeric, 2) END,
-       calc.kpi_count
+       calc.kpi_count,
+       NULL::double precision,
+       FALSE
 FROM evaluations e
 JOIN org_units ou ON ou.id = e.org_unit_id
 JOIN org_hierarchy_levels l ON l.id = ou.org_hierarchy_id

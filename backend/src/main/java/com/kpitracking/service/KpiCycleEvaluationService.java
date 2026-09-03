@@ -55,11 +55,10 @@ public class KpiCycleEvaluationService {
                 .orElseThrow(() -> new ResourceNotFoundException("Kỳ đánh giá", "id", cycleId));
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("Người dùng", "id", userId));
-        double maxScore = maxScore(cycle);
-        return computeUser(cycle, user, maxScore, finalizedUnits(cycle.getId()));
+        return computeUser(cycle, user, finalizedUnits(cycle.getId()));
     }
 
-    private CycleUserEvaluationResponse computeUser(KpiCycle cycle, User user, double maxScore,
+    private CycleUserEvaluationResponse computeUser(KpiCycle cycle, User user,
                                                     List<CycleUnitEvaluation> finalizedUnits) {
         CycleEvaluationMode mode = cycle.getEvaluationMode() != null ? cycle.getEvaluationMode() : CycleEvaluationMode.BOTH;
         List<KpiPeriod> periods = kpiPeriodRepository.findByKpiCycleIdOrderByStartDateAsc(cycle.getId());
@@ -72,8 +71,8 @@ public class KpiCycleEvaluationService {
             Evaluation selfEval = selfEvaluation(user.getId(), p.getId());
             Evaluation mgrEval = managerEvaluation(user.getId(), p.getId());
 
-            Double selfScore = pickDimension(selfEval, mode, maxScore);
-            Double mgrScore = pickDimension(mgrEval, mode, maxScore);
+            Double selfScore = pickDimension(selfEval, mode);
+            Double mgrScore = pickDimension(mgrEval, mode);
             if (selfScore != null) { selfSum += selfScore; selfN++; }
             if (mgrScore != null) { mgrSum += mgrScore; mgrN++; }
 
@@ -175,10 +174,10 @@ public class KpiCycleEvaluationService {
         if (mode == CycleEvaluationMode.QUANTITATIVE) {
             qualScore = null;
         }
-        // Chế độ Định tính: điểm chốt suy ra từ mức định tính (0..5 → 0..maxScore),
+        // Chế độ Định tính: điểm chốt suy ra từ mức định tính (0..5 → pool chấm 0..100),
         // không nhận điểm định lượng nhập tay.
         if (mode == CycleEvaluationMode.QUALITATIVE) {
-            finalScore = qualScore != null ? round(qualScore / 5.0 * maxScore) : null;
+            finalScore = qualScore != null ? round(qualScore / 5.0 * EvaluationService.SCORING_POOL) : null;
         }
 
         // Tra ma trận hiệu suất của tổ chức: (mức định tính) × (TB % hoàn thành định lượng).
@@ -187,7 +186,7 @@ public class KpiCycleEvaluationService {
         // Ma trận cần ĐỦ HAI TRỤC THẬT. Một loại KPI chỉ cấp được một trục, nên kỳ chỉ chấm
         // định lượng (hoặc chỉ định tính) sẽ thiếu trục — trừ khi tổ chức bật chấm HẠNH KIỂM,
         // khi đó điểm hạnh kiểm bù đúng trục còn trống và kỳ mới ra được xếp loại 1..5.
-        CycleUserEvaluationResponse computed = computeUser(cycle, user, maxScore, finalizedUnits(cycleId));
+        CycleUserEvaluationResponse computed = computeUser(cycle, user, finalizedUnits(cycleId));
         Organization org = cycle.getOrganization();
         Double rowScore = qualScore;
         // null = kỳ không có KPI định lượng nào ⇒ trục cột đang TRỐNG, chờ hạnh kiểm bù.
@@ -212,7 +211,7 @@ public class KpiCycleEvaluationService {
         entity.setEvaluatedAt(Instant.now());
         cycleUserEvaluationRepository.save(entity);
 
-        return computeUser(cycle, user, maxScore, finalizedUnits(cycleId));
+        return computeUser(cycle, user, finalizedUnits(cycleId));
     }
 
     // ─────────────────────────────── Per-unit ───────────────────────────────
@@ -258,7 +257,6 @@ public class KpiCycleEvaluationService {
                 .orElseThrow(() -> new ResourceNotFoundException("Kỳ đánh giá", "id", cycleId));
         OrgUnit unit = orgUnitRepository.findById(orgUnitId)
                 .orElseThrow(() -> new ResourceNotFoundException("Đơn vị", "id", orgUnitId));
-        double maxScore = maxScore(cycle);
         CycleEvaluationMode mode = cycle.getEvaluationMode() != null ? cycle.getEvaluationMode() : CycleEvaluationMode.BOTH;
 
         List<CycleUserEvaluationResponse> members = new ArrayList<>();
@@ -269,7 +267,7 @@ public class KpiCycleEvaluationService {
         List<CycleUnitEvaluation> finalizedUnits = finalizedUnits(cycle.getId());
         // Điểm phòng ban gộp từ ĐIỂM CHỐT của từng nhân viên (đã tính cả phần chỉnh tay).
         for (User u : subtreeMembers(unit)) {
-            CycleUserEvaluationResponse m = computeUser(cycle, u, maxScore, finalizedUnits);
+            CycleUserEvaluationResponse m = computeUser(cycle, u, finalizedUnits);
             members.add(m);
             if (m.getSelfScore() != null) { selfSum += m.getSelfScore(); selfN++; }
             if (m.getFinalScore() != null) { mgrSum += m.getFinalScore(); mgrN++; }
@@ -513,7 +511,6 @@ public class KpiCycleEvaluationService {
         }
 
         UUID orgId = cycle.getOrganization() != null ? cycle.getOrganization().getId() : null;
-        double maxScore = maxScore(cycle);
         List<CycleUnitEvaluation> finalized = finalizedUnits(cycleId);
 
         List<PreparedCycleEmail> prepared = new ArrayList<>();
@@ -523,15 +520,15 @@ public class KpiCycleEvaluationService {
                 prepared.add(new PreparedCycleEmail(userId.toString(), null, null, Map.of(), null, null));
                 continue;
             }
-            CycleUserEvaluationResponse eval = computeUser(cycle, user, maxScore, finalized);
+            CycleUserEvaluationResponse eval = computeUser(cycle, user, finalized);
             // Dựng tệp đính kèm ngay tại đây, khi dữ liệu vừa tính xong còn trong tay —
             // để lớp gửi mail phải hỏi lại thì mỗi email là thêm một lượt truy vấn.
             byte[] excel = CycleEvaluationExcelWriter.build(
-                    eval, cycle.getName(), eval.getOrgUnitName(), maxScore,
+                    eval, cycle.getName(), eval.getOrgUnitName(), EvaluationService.SCORING_POOL,
                     scoreLabel(cycle.getOrganization(), eval.getFinalScore()));
             prepared.add(new PreparedCycleEmail(
                     user.getFullName(), user.getEmail(), orgId,
-                    cycleEvaluationVariables(cycle, user, eval, sender, maxScore),
+                    cycleEvaluationVariables(cycle, user, eval, sender),
                     CycleEvaluationExcelWriter.fileName(user.getFullName(), cycle.getName()), excel));
         }
         return prepared;
@@ -550,27 +547,27 @@ public class KpiCycleEvaluationService {
 
     private Map<String, String> cycleEvaluationVariables(KpiCycle cycle, User user,
                                                          CycleUserEvaluationResponse eval,
-                                                         User sender, double maxScore) {
+                                                         User sender) {
         boolean isQual = eval.getMode() == CycleEvaluationMode.QUALITATIVE;
         Map<String, String> vars = new LinkedHashMap<>();
         vars.put("ten_nhan_vien", nullSafe(user.getFullName()));
         vars.put("don_vi", nullSafe(eval.getOrgUnitName()));
         vars.put("ky_danh_gia", nullSafe(cycle.getName()));
-        vars.put("diem_tu_danh_gia", scoreText(eval.getSelfScore(), isQual, maxScore));
-        vars.put("diem_qltt", scoreText(eval.getManagerScore(), isQual, maxScore));
-        vars.put("diem_chot", scoreText(eval.getFinalScore(), isQual, maxScore));
+        vars.put("diem_tu_danh_gia", scoreText(eval.getSelfScore(), isQual));
+        vars.put("diem_qltt", scoreText(eval.getManagerScore(), isQual));
+        vars.put("diem_chot", scoreText(eval.getFinalScore(), isQual));
         vars.put("xep_loai", scoreLabel(cycle.getOrganization(), eval.getFinalScore()));
         vars.put("muc_dinh_tinh", eval.getQualScore() != null ? eval.getQualScore() + "/5" : "—");
         vars.put("xep_loai_ma_tran", eval.getMatrixRating() != null ? eval.getMatrixRating() + "/5" : "—");
         vars.put("nhan_xet", eval.getComment() != null && !eval.getComment().isBlank()
                 ? eval.getComment() : "Không có nhận xét thêm.");
-        vars.put("bang_diem_dot", periodTableHtml(eval, isQual, maxScore));
+        vars.put("bang_diem_dot", periodTableHtml(eval, isQual));
         vars.put("nguoi_gui", nullSafe(sender.getFullName()));
         return vars;
     }
 
     /** Bảng HTML điểm từng đợt, chèn vào biến {{bang_diem_dot}} của template. */
-    private String periodTableHtml(CycleUserEvaluationResponse eval, boolean isQual, double maxScore) {
+    private String periodTableHtml(CycleUserEvaluationResponse eval, boolean isQual) {
         List<CycleUserEvaluationResponse.PeriodBreakdown> rows = eval.getPeriodBreakdown();
         if (rows == null || rows.isEmpty()) {
             return "<p style='color:#94a3b8;font-style:italic;'>Kỳ này chưa có đợt nào được gán.</p>";
@@ -579,8 +576,8 @@ public class KpiCycleEvaluationService {
                 + "<th>Tự đánh giá</th><th>QLTT đánh giá</th></tr>");
         for (CycleUserEvaluationResponse.PeriodBreakdown p : rows) {
             sb.append("<tr><td>").append(escapeHtml(p.getPeriodName())).append("</td>")
-              .append("<td>").append(scoreText(p.getSelfScore(), isQual, maxScore)).append("</td>")
-              .append("<td>").append(scoreText(p.getManagerScore(), isQual, maxScore)).append("</td></tr>");
+              .append("<td>").append(scoreText(p.getSelfScore(), isQual)).append("</td>")
+              .append("<td>").append(scoreText(p.getManagerScore(), isQual)).append("</td></tr>");
         }
         return sb.append("</table>").toString();
     }
@@ -602,10 +599,10 @@ public class KpiCycleEvaluationService {
     }
 
     /** Chế độ Định tính hiển thị lại mức gốc 0–5 thay vì số đã quy đổi sang thang điểm. */
-    private String scoreText(Double v, boolean isQual, double maxScore) {
+    private String scoreText(Double v, boolean isQual) {
         if (v == null) return "—";
         if (!isQual) return String.valueOf(v);
-        return (Math.round(v / maxScore * 5 * 100) / 100.0) + "/5";
+        return (Math.round(v / EvaluationService.SCORING_POOL * 5 * 100) / 100.0) + "/5";
     }
 
     private String nullSafe(String s) {
@@ -736,15 +733,15 @@ public class KpiCycleEvaluationService {
 
     // ─────────────────────────────── Helpers ───────────────────────────────
 
-    /** Điểm theo chiều được chọn, quy về thang 0..maxScore. Null nếu chưa có dữ liệu. */
-    private Double pickDimension(Evaluation e, CycleEvaluationMode mode, double maxScore) {
+    /** Điểm theo chiều được chọn, quy về pool chấm 0..100. Null nếu chưa có dữ liệu. */
+    private Double pickDimension(Evaluation e, CycleEvaluationMode mode) {
         if (e == null) return null;
         switch (mode) {
             case QUANTITATIVE:
                 return e.getSystemScore();
             case QUALITATIVE:
-                // behaviorScore thang 0..5 → quy về 0..maxScore cho đồng nhất hiển thị.
-                return e.getBehaviorScore() != null ? e.getBehaviorScore() / 5.0 * maxScore : null;
+                // behaviorScore thang 0..5 → quy về pool chấm 0..100 cho đồng nhất hiển thị.
+                return e.getBehaviorScore() != null ? e.getBehaviorScore() / 5.0 * EvaluationService.SCORING_POOL : null;
             case BOTH:
             default:
                 return e.getScore();

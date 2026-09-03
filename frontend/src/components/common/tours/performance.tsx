@@ -100,28 +100,42 @@ const performanceTours: Record<TourKey, TourDef> = {
   'performance/cycle-evaluation': {
     steps: [
       {
-        target: '#tour-section-root',
-        title: '🏅 Nhiều đợt thành một kết quả',
+        target: '#tour-cycleeval-toolbar',
+        title: '🎯 Chọn kỳ và đơn vị trước',
         content: (
           <div className="space-y-2">
             <p>
-              Đánh giá đợt chấm từng lần nộp. Màn này gom các đợt trong một <strong>kỳ</strong> lại thành
-              kết quả tổng hợp và xếp loại chính thức cho từng nhân sự.
+              Chưa chọn <strong>kỳ</strong> và <strong>đơn vị</strong> thì cả màn hình trống. Hai bộ chọn
+              này quyết định mọi con số bên dưới; ô tìm kiếm bên trái lọc trong danh sách đã chọn.
             </p>
-            {note('Chưa chọn kỳ và đơn vị thì chưa có gì hiện ra — đó là hai bộ chọn đầu tiên trên màn.')}
+            {note('Đánh giá đợt chấm từng lần nộp. Màn này gom các đợt trong một kỳ lại thành kết quả tổng hợp và xếp loại chính thức.')}
           </div>
         ),
-        placement: 'top',
+        placement: 'bottom',
       },
       {
-        target: '#tour-section-root',
+        target: '#tour-cycleeval-header',
+        title: '📊 Dãy chỉ số và xếp loại đơn vị',
+        content: (
+          <div className="space-y-2">
+            <p>
+              Các ô chỉ số là điểm trung bình của cả đơn vị trong kỳ. Khối <strong>Xếp loại đơn vị</strong>
+              bên cạnh là kết quả cuối cùng cấp trên đọc — ghi rõ "tạm tính" hay "đã chốt".
+            </p>
+            {note('TB xếp loại và TB định tính là đầu vào để xếp loại cả đơn vị theo tiêu chuẩn đặt ở "Thiết lập công cụ › Xếp loại đơn vị".')}
+          </div>
+        ),
+        placement: 'bottom',
+      },
+      {
+        target: '#tour-cycleeval-table',
         title: '👤 Ba cột điểm, ba người chấm',
         content: (
           <div className="space-y-2">
             <ul className="text-[11px] space-y-1.5 list-disc pl-4 text-slate-500 font-medium">
-              <li><strong className="text-slate-900 dark:text-white">Tự chấm:</strong> nhân viên tự đánh giá mình.</li>
-              <li><strong className="text-slate-900 dark:text-white">Quản lý chấm:</strong> điểm bạn cho.</li>
-              <li><strong className="text-slate-900 dark:text-white">Điểm cuối:</strong> kết quả được chốt cho kỳ.</li>
+              <li><strong className="text-slate-900 dark:text-white">Nhân viên tự đánh giá:</strong> điểm họ tự chấm.</li>
+              <li><strong className="text-slate-900 dark:text-white">Cán bộ QLTT đánh giá:</strong> điểm bạn cho.</li>
+              <li><strong className="text-slate-900 dark:text-white">Điểm chốt:</strong> kết quả được ghi nhận cho kỳ.</li>
             </ul>
             {note('Để hai cột đầu lệch nhau nhiều mà không có nhận xét là nguồn khiếu nại phổ biến nhất. Ghi lý do vào ô nhận xét.')}
           </div>
@@ -129,30 +143,34 @@ const performanceTours: Record<TourKey, TourDef> = {
         placement: 'top',
       },
       {
-        target: '#tour-section-root',
+        target: '#tour-cycleeval-chain',
         title: '🔒 Khoá theo cấp',
         content: (
           <div className="space-y-2">
             <p>
-              Cấp dưới chốt xong thì kết quả bị <strong>khoá</strong>, cấp trên mới duyệt tiếp. Dòng bị
-              khoá ghi rõ đơn vị nào đã khoá nó.
+              Dải này là chuỗi duyệt: trưởng đơn vị → các cấp trên → giám đốc. Cấp dưới chốt xong thì kết
+              quả bị <strong>khoá</strong>, cấp trên mới duyệt tiếp. Bấm vào một cấp để nhảy thẳng sang
+              đơn vị đó.
+            </p>
+            {warn('Dòng bị khoá ghi rõ đơn vị nào đã khoá nó. Muốn sửa thì phải chọn đúng đơn vị đó rồi mở khoá — không sửa vòng qua được.')}
+          </div>
+        ),
+        placement: 'bottom',
+      },
+      {
+        target: '#tour-cycleeval-actions',
+        title: '📤 Xuất, gửi, và chốt',
+        content: (
+          <div className="space-y-2">
+            <p>
+              <strong>Xuất Excel</strong> lấy nguyên bảng ra tệp. <strong>Gửi đánh giá</strong> email kết
+              quả cho từng nhân viên. <strong>Chốt đánh giá phòng ban</strong> khoá kỳ lại và chụp luôn
+              xếp loại đơn vị.
             </p>
             {warn('Mở khoá để sửa là ghi đè lên thứ cấp dưới đã ký. Chỉ làm khi thực sự có sai sót, và nên báo lại cho họ.')}
           </div>
         ),
-        placement: 'top',
-      },
-      {
-        target: '#tour-section-root',
-        title: '📊 Hai con số trung bình',
-        content: (
-          <p>
-            <strong>TB xếp loại</strong> là hạng trung bình của đơn vị, <strong>TB định tính</strong> là
-            điểm hành vi trung bình. Chúng là đầu vào để xếp loại cả đơn vị theo tiêu chuẩn đã đặt ở
-            "Thiết lập công cụ › Xếp loại đơn vị".
-          </p>
-        ),
-        placement: 'top',
+        placement: 'bottom',
       },
     ],
   },

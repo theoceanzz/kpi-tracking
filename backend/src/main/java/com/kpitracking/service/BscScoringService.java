@@ -12,6 +12,7 @@ import com.kpitracking.entity.UserRoleOrgUnit;
 import com.kpitracking.enums.BscEmptyPerspectivePolicy;
 import com.kpitracking.enums.BscScoringMode;
 import com.kpitracking.enums.KpiStatus;
+import com.kpitracking.enums.KpiType;
 import com.kpitracking.repository.BscPerspectiveRepository;
 import com.kpitracking.repository.BscScorecardRepository;
 import com.kpitracking.repository.EvaluationPerspectiveScoreRepository;
@@ -32,9 +33,13 @@ import java.util.UUID;
  * Tính điểm BSC.
  *
  * CÔNG THỨC 2 TẦNG (xem plan "Quy tắc chấm điểm"):
- *   Tầng trong  — điểm 1 lĩnh vực P của nhân viên E (trung bình có trọng số, chuẩn hóa trong lĩnh vực):
- *                 raw_P(E) = Σ(kpi_ratio_i × weight_i) / Σ(weight_i) × 100, với i ∈ KPI của E thuộc P
- *                 = null nếu E không có KPI nào trong P (lĩnh vực rỗng)
+ *   Tầng trong  — điểm 1 lĩnh vực P của nhân viên E, theo MỘT TRONG HAI cách:
+ *                 (a) Hạng mục KHÔNG đặt mục tiêu riêng (mặc định) — trung bình có trọng số các KPI con:
+ *                     raw_P(E) = Σ(kpi_ratio_i × weight_i) / Σ(weight_i) × 100, với i ∈ KPI của E thuộc P
+ *                 (b) Hạng mục CÓ đặt "mục tiêu mong muốn" — tự chấm theo mục tiêu của chính nó (kiểu OKR):
+ *                     raw_P(E) = min(Σ actual_i / target_P, 1.5) × 100, với i ∈ KPI ĐỊNH LƯỢNG của E thuộc P;
+ *                     = 0 nếu Σ actual_i dưới "kết quả tối thiểu" của hạng mục.
+ *                 Cả hai cách = null nếu E không có KPI nào đóng góp được trong P (lĩnh vực rỗng)
  *   Tầng ngoài  — điểm BSC cuối:
  *                 RENORMALIZE: bsc = Σ(W_P × raw_P) / Σ(W_P) chỉ tính lĩnh vực raw_P ≠ null
  *                 ZERO_FILL  : bsc = Σ(W_P × (raw_P ?? 0)) / Σ(W_P) toàn bộ lĩnh vực
@@ -111,25 +116,54 @@ public class BscScoringService {
         boolean zeroFill = scorecard.getEmptyPerspectivePolicy() == BscEmptyPerspectivePolicy.ZERO_FILL;
 
         for (BscScorecardPerspective sp : scorecard.getScorecardPerspectives()) {
-            UUID pid = sp.getPerspective().getId();
+            BscPerspective perspective = sp.getPerspective();
+            UUID pid = perspective.getId();
             double weight = sp.getWeightPercentage() != null ? sp.getWeightPercentage() : 0.0;
             totalWeight += weight;
 
-            double ratioWeightSum = 0.0, weightSum = 0.0;
-            int kpiCount = 0;
+            // KPI của nhân viên thuộc hạng mục này. Lọc CHUNG cho cả hai cách chấm ⇒ kpiCount
+            // (và coverage suy ra từ nó) không đổi nghĩa khi hạng mục bật/tắt mục tiêu riêng.
+            List<KpiCriteria> ownKpis = new ArrayList<>();
             for (KpiCriteria kpi : kpis) {
                 // BSC tính CẢ KPI định lượng lẫn định tính (định tính quy ra % theo score_percent do HR cấu hình).
                 if (!achievementCalculator.countsTowardBscScore(kpi)) continue;
                 UUID eff = effectivePerspectiveId(kpi);
-                if (eff == null || !eff.equals(pid)) continue;
-                kpiCount++;
-                Double ratio = achievementCalculator.bscRatio(kpi, userId, enableWaterfall);
-                if (ratio == null) continue; // định tính chưa chấm / chưa cấu hình % ⇒ loại khỏi điểm
-                ratioWeightSum += ratio * kpi.getWeight();
-                weightSum += kpi.getWeight();
+                if (eff != null && eff.equals(pid)) ownKpis.add(kpi);
+            }
+            int kpiCount = ownKpis.size();
+
+            boolean byTarget = scoresByOwnTarget(perspective);
+            Double raw, actual = null;
+            if (byTarget) {
+                // Kiểu OKR: cộng dồn giá trị thực đạt rồi so với mục tiêu của chính hạng mục.
+                // KPI định tính không có giá trị số để cộng nên đứng ngoài phép tính này.
+                double actualSum = 0.0;
+                int contributing = 0;
+                for (KpiCriteria kpi : ownKpis) {
+                    if (kpi.getKpiType() == KpiType.QUALITATIVE) continue;
+                    actualSum += achievementCalculator.actualValue(kpi, userId, enableWaterfall);
+                    contributing++;
+                }
+                if (contributing > 0) {
+                    actual = actualSum;
+                    raw = achievementCalculator.perspectiveRatioFromActual(
+                            perspective.getTargetValue(), perspective.getMinimumValue(), actualSum) * 100.0;
+                } else {
+                    // Hạng mục có mục tiêu nhưng không có KPI định lượng nào ⇒ coi như rỗng,
+                    // để chính sách hạng mục rỗng quyết định, thay vì ép 0 điểm oan.
+                    raw = null;
+                }
+            } else {
+                double ratioWeightSum = 0.0, weightSum = 0.0;
+                for (KpiCriteria kpi : ownKpis) {
+                    Double ratio = achievementCalculator.bscRatio(kpi, userId, enableWaterfall);
+                    if (ratio == null) continue; // định tính chưa chấm / chưa cấu hình % ⇒ loại khỏi điểm
+                    ratioWeightSum += ratio * kpi.getWeight();
+                    weightSum += kpi.getWeight();
+                }
+                raw = weightSum > 0 ? (ratioWeightSum / weightSum) * 100.0 : null;
             }
 
-            Double raw = weightSum > 0 ? (ratioWeightSum / weightSum) * 100.0 : null;
             Double weighted = raw != null ? (weight / 100.0) * raw : null;
             if (raw != null) {
                 weightedSum += weight * raw;
@@ -138,16 +172,21 @@ public class BscScoringService {
 
             breakdown.add(PerspectiveScoreResponse.builder()
                     .perspectiveId(pid)
-                    .code(sp.getPerspective().getCode())
-                    .name(sp.getPerspective().getName())
-                    .color(sp.getPerspective().getColor())
-                    .fixedPerspective(fixedCode(sp.getPerspective()))
-                    .fixedPerspectiveName(fixedName(sp.getPerspective()))
-                    .fixedPerspectiveColor(fixedColor(sp.getPerspective()))
+                    .code(perspective.getCode())
+                    .name(perspective.getName())
+                    .color(perspective.getColor())
+                    .fixedPerspective(fixedCode(perspective))
+                    .fixedPerspectiveName(fixedName(perspective))
+                    .fixedPerspectiveColor(fixedColor(perspective))
                     .weightPercentage(weight)
                     .kpiCount(kpiCount)
                     .achievementPercent(raw)
                     .weightedScore(weighted)
+                    .scoredByTarget(byTarget)
+                    .targetValue(perspective.getTargetValue())
+                    .minimumValue(perspective.getMinimumValue())
+                    .unit(perspective.getUnit())
+                    .actualValue(actual)
                     .build());
         }
 
@@ -168,6 +207,15 @@ public class BscScoringService {
         return new BscUserScore(bsc, breakdown, unassigned, scorecard.getScoringMode());
     }
 
+    /**
+     * Hạng mục có tự chấm theo mục tiêu của chính nó không?
+     * Suy ra từ dữ liệu (có "mục tiêu mong muốn" > 0) chứ không phải một cờ riêng — hạng mục
+     * chưa đặt mục tiêu giữ nguyên cách chấm cũ, nên bật/tắt chỉ bằng việc điền hay xoá con số.
+     */
+    private static boolean scoresByOwnTarget(BscPerspective p) {
+        return p.getTargetValue() != null && p.getTargetValue() > 0;
+    }
+
     /** Lưu breakdown điểm từng lĩnh vực của một đánh giá (ghi đè bản cũ). */
     @Transactional
     public void persistBreakdown(Evaluation evaluation, BscUserScore score) {
@@ -183,6 +231,8 @@ public class BscScoringService {
                     .rawScore(p.getAchievementPercent())
                     .weightedScore(p.getWeightedScore())
                     .kpiCount(p.getKpiCount() != null ? p.getKpiCount() : 0)
+                    .actualValue(p.getActualValue())
+                    .scoredByTarget(Boolean.TRUE.equals(p.getScoredByTarget()))
                     .build());
         }
     }
@@ -203,6 +253,13 @@ public class BscScoringService {
                         .kpiCount(s.getKpiCount())
                         .achievementPercent(s.getRawScore())
                         .weightedScore(s.getWeightedScore())
+                        .scoredByTarget(s.getScoredByTarget())
+                        // Mục tiêu/đơn vị đọc từ hạng mục HIỆN TẠI (có thể đã đổi sau khi chấm);
+                        // con số đã dùng lúc chấm nằm ở actualValue/rawScore đã lưu.
+                        .targetValue(s.getPerspective().getTargetValue())
+                        .minimumValue(s.getPerspective().getMinimumValue())
+                        .unit(s.getPerspective().getUnit())
+                        .actualValue(s.getActualValue())
                         .build())
                 .toList();
     }

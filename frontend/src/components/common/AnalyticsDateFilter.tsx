@@ -146,8 +146,8 @@ export function useAnalyticsDateFilter(opts: Options = {}): AnalyticsDateFilterV
     ? ['WHOLE_PERIOD', ...(PERIOD_GRANULARITY[selectedPeriod.periodType] ?? []), 'CUSTOM']
     : []
 
-  // Chuyển chế độ; khi vào "Khoảng đợt" lần đầu, mặc định chọn đợt đang chạy (không có
-  // thì đợt gần hiện tại nhất) cho cả hai biên.
+  // Chuyển chế độ; khi vào "Khoảng đợt" lần đầu, mặc định chọn đợt đang chạy (giữa hai
+  // đợt thì vẫn là đợt vừa kết thúc) cho cả hai biên.
   const switchMode = (m: FilterMode) => {
     setMode(m)
     const current = pickCurrentOrNearest(periods)

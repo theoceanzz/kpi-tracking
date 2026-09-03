@@ -37,5 +37,12 @@ public class SepayEventResponse {
     /** Còn nằm trong hàng đợi đối soát hay không. */
     private Boolean inQueue;
 
+    /**
+     * Chưa quy được về tổ chức nào — tiền về một tài khoản chưa ai khai trong cấu
+     * hình ví. Giao diện phải nói rõ điều này: nhóm sự kiện đó hiện trong hàng đợi
+     * của mọi tổ chức và KHÔNG cho ghi có thẳng cho người dùng.
+     */
+    private Boolean unattributed;
+
     private Instant receivedAt;
 }

@@ -1,5 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
+import { useForm } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
 import { useMutation } from '@tanstack/react-query'
+import { larkCredentialsSchema, type LarkCredentialsFormData } from '../schemas/integrationSchema'
 import {
   AlertCircle,
   Building2,
@@ -35,6 +38,7 @@ import { LARK_PURPOSE_KEY, LARK_STATE_KEY } from '@/features/auth/hooks/useLarkL
 const LARK_CONSOLE_URL = 'https://open.larksuite.com/app'
 
 function StepCard({
+  id,
   step,
   title,
   description,
@@ -42,6 +46,8 @@ function StepCard({
   disabled,
   children,
 }: {
+  /** Neo cho hướng dẫn — mỗi bước cấu hình là một bước riêng trong bài. */
+  id?: string
   step: number
   title: string
   description?: string
@@ -51,6 +57,7 @@ function StepCard({
 }) {
   return (
     <div
+      id={id}
       className={cn(
         'rounded-2xl border p-5 transition-all',
         disabled
@@ -161,13 +168,16 @@ export default function LarkSettingsTab() {
   const { data: orgTree } = useOrgUnitTree(organizationId)
   const { data: roles } = useRoles()
 
-  const [appId, setAppId] = useState('')
-  const [appSecret, setAppSecret] = useState('')
+  const { register, handleSubmit: handleCredentialsSubmit, setValue, formState: { errors } } = useForm<LarkCredentialsFormData>({
+    resolver: zodResolver(larkCredentialsSchema),
+    defaultValues: { appId: '', appSecret: '' },
+  })
   const [pendingConnect, setPendingConnect] = useState<LarkConnectResult | null>(null)
 
   useEffect(() => {
-    if (settings) setAppId(settings.appId ?? '')
-  }, [settings])
+    // Chỉ nạp lại App ID: App Secret không bao giờ được trả về, ô để trống = giữ nguyên.
+    if (settings) setValue('appId', settings.appId ?? '', { shouldValidate: true })
+  }, [settings, setValue])
 
   // Quản trị viên vừa đăng nhập Lark xong và được chuyển về đây
   useEffect(() => {
@@ -223,6 +233,7 @@ export default function LarkSettingsTab() {
     <div className="space-y-4">
       {/* Trạng thái tổng quan */}
       <div
+        id="tour-lark-status"
         className={cn(
           'flex flex-wrap items-center gap-3 rounded-2xl border p-4',
           settings.larkEnabled
@@ -401,6 +412,7 @@ export default function LarkSettingsTab() {
           </StepCard>
 
           <StepCard
+            id="tour-lark-credentials"
             step={3}
             title="Nhập App ID và App Secret"
             description="Lấy ở trang Credentials & Basic Info của ứng dụng vừa tạo."
@@ -412,11 +424,11 @@ export default function LarkSettingsTab() {
                   App ID
                 </label>
                 <input
-                  value={appId}
-                  onChange={(e) => setAppId(e.target.value)}
+                  {...register('appId')}
                   placeholder="cli_xxxxxxxxxxxxxxxx"
                   className={inputCls}
                 />
+                {errors.appId && <p className="mt-1 text-xs text-rose-600">{errors.appId.message}</p>}
               </div>
               <div>
                 <label className="mb-1.5 block text-xs font-bold text-[var(--color-foreground)]">
@@ -424,8 +436,7 @@ export default function LarkSettingsTab() {
                 </label>
                 <input
                   type="password"
-                  value={appSecret}
-                  onChange={(e) => setAppSecret(e.target.value)}
+                  {...register('appSecret')}
                   placeholder={settings.hasAppSecret ? '•••••• (đã lưu, để trống nếu giữ nguyên)' : ''}
                   className={inputCls}
                 />
@@ -435,13 +446,13 @@ export default function LarkSettingsTab() {
             <div className="mt-3 flex flex-wrap items-center gap-2">
               <button
                 type="button"
-                onClick={() =>
+                onClick={handleCredentialsSubmit((data) =>
                   updateSettings.mutate({
-                    appId: appId.trim(),
-                    appSecret: appSecret.trim() || undefined,
-                  }, { onSuccess: () => setAppSecret('') })
-                }
-                disabled={updateSettings.isPending || !appId.trim()}
+                    appId: data.appId.trim(),
+                    appSecret: data.appSecret.trim() || undefined,
+                  }, { onSuccess: () => setValue('appSecret', '') })
+                )}
+                disabled={updateSettings.isPending}
                 className="inline-flex items-center gap-2 rounded-xl bg-[var(--color-primary)] px-4 py-2.5 text-sm font-bold text-white transition-all hover:shadow-md disabled:opacity-50"
               >
                 {updateSettings.isPending && <Loader2 size={15} className="animate-spin" />}
@@ -481,6 +492,7 @@ export default function LarkSettingsTab() {
       )}
 
       <StepCard
+        id="tour-lark-connect"
         step={isCustomApp ? 4 : 1}
         title="Liên kết công ty của bạn trên Lark"
         description="Bạn sẽ đăng nhập Lark một lần. KeyGo tự nhận diện công ty của bạn và ghi nhớ, không cần nhập thủ công."
@@ -513,6 +525,7 @@ export default function LarkSettingsTab() {
       </StepCard>
 
       <StepCard
+        id="tour-lark-defaults"
         step={isCustomApp ? 5 : 2}
         title="Đơn vị và vai trò cho người mới"
         description="Nhân viên đăng nhập lần đầu bằng Lark sẽ được tạo tài khoản tự động và xếp vào đây. Bạn có thể điều chỉnh lại từng người sau."

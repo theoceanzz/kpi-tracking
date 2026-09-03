@@ -43,6 +43,18 @@ public class SepayWebhookEvent {
     @Column(name = "sepay_id", nullable = false)
     private Long sepayId;
 
+    /**
+     * Tổ chức nhận khoản tiền này, suy từ đơn đã khớp hoặc từ số tài khoản nhận.
+     *
+     * <p>{@code null} nghĩa là CHƯA XÁC ĐỊNH ĐƯỢC — tiền về một tài khoản chưa tổ
+     * chức nào khai trong cấu hình ví. Vẫn phải lưu được sự kiện như vậy, vì tiền
+     * đã thật sự vào tài khoản; nhưng nó không cho phép ghi có thẳng cho ai, xem
+     * {@code SepayReconcileService}.
+     */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "organization_id")
+    private Organization organization;
+
     @Column(name = "gateway", length = 100)
     private String gateway;
 

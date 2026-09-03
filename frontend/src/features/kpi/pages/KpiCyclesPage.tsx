@@ -135,6 +135,7 @@ export default function KpiCyclesPage() {
 
         {/* Header */}
         <WorkspaceHeader
+          id="tour-cycles-header"
           description="Một kỳ (Tháng/Quý/6 Tháng/Năm) gom nhiều đợt để đánh giá tổng thể."
           stats={[
             { label: 'Tổng số kỳ', value: stats.total },
@@ -152,7 +153,7 @@ export default function KpiCyclesPage() {
         />
 
         {/* Toolbar */}
-        <div className="flex flex-col md:flex-row items-stretch gap-3 p-3 bg-[var(--color-card)] rounded-2xl border border-[var(--color-border)] shadow-sm">
+        <div id="tour-cycles-toolbar" className="flex flex-col md:flex-row items-stretch gap-3 p-3 bg-[var(--color-card)] rounded-2xl border border-[var(--color-border)] shadow-sm">
           <div className="relative group flex-1">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-[var(--color-primary)] transition-colors" size={18} />
             <input
@@ -220,6 +221,7 @@ export default function KpiCyclesPage() {
         </div>
 
         {/* Content */}
+        <div id="tour-cycles-content" className="min-w-0">
         {isLoading ? (
           <div className="bg-[var(--color-card)] rounded-2xl p-8 border border-[var(--color-border)] shadow-sm">
             <LoadingSkeleton type="table" rows={pageSize} />
@@ -326,6 +328,7 @@ export default function KpiCyclesPage() {
             ))}
           </div>
         )}
+        </div>
 
         {/* Pagination */}
         {data && data.totalPages > 1 && (

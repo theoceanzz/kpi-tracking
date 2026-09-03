@@ -1,4 +1,6 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo } from 'react'
+import { useForm } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
 import { Loader2, X, Trophy, Info } from 'lucide-react'
 import TierEditor, { maxTierCost, tierError } from './TierEditor'
 import { useQuery } from '@tanstack/react-query'
@@ -16,13 +18,19 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { useRewardPrograms } from '../hooks/usePrograms'
+import { programSchema, type ProgramFormData } from '../schemas/programSchema'
+import { numOrUndefined } from '../schemas/giftSchema'
 import {
   RewardProgramScope,
   RewardRankingMetric,
   RewardTiePolicy,
   type RewardProgram,
-  type RewardTier,
 } from '../types'
+
+const DEFAULT_TIERS = [
+  { fromRank: 1, toRank: 1, points: 500 },
+  { fromRank: 2, toRank: 3, points: 300 },
+]
 
 interface ProgramFormModalProps {
   open: boolean
@@ -52,23 +60,25 @@ export default function ProgramFormModal({ open, onClose, editProgram }: Program
   const isEdit = !!editProgram
   const hasIssued = (editProgram?.issuedRunCount ?? 0) > 0
 
-  const [name, setName] = useState('')
-  const [description, setDescription] = useState('')
-  const [scope, setScope] = useState<RewardProgramScope>(RewardProgramScope.CYCLE)
-  const [orgUnitId, setOrgUnitId] = useState('')
-  /** Rỗng = dùng cho mọi kỳ/đợt. */
-  const [fixedTargetId, setFixedTargetId] = useState('')
-  const [metric, setMetric] = useState<RewardRankingMetric>(RewardRankingMetric.FINAL_SCORE)
-  const [tiePolicy, setTiePolicy] = useState<RewardTiePolicy>(RewardTiePolicy.SHARE_ALL)
-  const [minMetricValue, setMinMetricValue] = useState<number | ''>('')
-  const [maxPointsPerRun, setMaxPointsPerRun] = useState<number | ''>('')
-  const [includeUnitHeads, setIncludeUnitHeads] = useState(true)
-  const [enabled, setEnabled] = useState(true)
-  const [autoTrigger, setAutoTrigger] = useState(false)
-  const [tiers, setTiers] = useState<RewardTier[]>([
-    { fromRank: 1, toRank: 1, points: 500 },
-    { fromRank: 2, toRank: 3, points: 300 },
-  ])
+  const { register, handleSubmit, reset, watch, setValue, formState: { errors } } = useForm<ProgramFormData>({
+    resolver: zodResolver(programSchema),
+    defaultValues: {
+      name: '', description: '', scope: RewardProgramScope.CYCLE, orgUnitId: '', fixedTargetId: '',
+      metric: RewardRankingMetric.FINAL_SCORE, tiePolicy: RewardTiePolicy.SHARE_ALL,
+      minMetricValue: undefined, maxPointsPerRun: undefined,
+      includeUnitHeads: true, enabled: true, autoTrigger: false, tiers: DEFAULT_TIERS,
+    },
+  })
+
+  // Toàn bộ phần dưới là Select / thẻ bấm / TierEditor chứ không phải ô nhập, nên đọc
+  // bằng watch và ghi bằng setValue.
+  const scope = watch('scope')
+  const orgUnitId = watch('orgUnitId')
+  const fixedTargetId = watch('fixedTargetId')
+  const metric = watch('metric')
+  const tiePolicy = watch('tiePolicy')
+  const autoTrigger = watch('autoTrigger')
+  const tiers = watch('tiers')
 
   const { data: treeData } = useOrgUnitTree()
   const { user } = useAuthStore()
@@ -125,66 +135,61 @@ export default function ProgramFormModal({ open, onClose, editProgram }: Program
 
   useEffect(() => {
     if (!open) return
-    setName(editProgram?.name ?? '')
-    setDescription(editProgram?.description ?? '')
-    setScope(editProgram?.scope ?? RewardProgramScope.CYCLE)
-    // Chương trình cũ lưu null = toàn tổ chức; effect bên dưới sẽ tự chọn đơn vị gốc,
-    // vốn bao trọn cây con nên cùng phạm vi.
-    setOrgUnitId(editProgram?.orgUnitId ?? '')
-    setFixedTargetId(editProgram?.fixedTargetId ?? '')
-    setMetric(editProgram?.metric ?? RewardRankingMetric.FINAL_SCORE)
-    setTiePolicy(editProgram?.tiePolicy ?? RewardTiePolicy.SHARE_ALL)
-    setMinMetricValue(editProgram?.minMetricValue ?? '')
-    setMaxPointsPerRun(editProgram?.maxPointsPerRun ?? '')
-    setIncludeUnitHeads(editProgram?.includeUnitHeads ?? true)
-    setEnabled(editProgram?.enabled ?? true)
-    setAutoTrigger(editProgram?.autoTrigger ?? false)
-    setTiers(
-      editProgram?.tiers?.length
-        ? [...editProgram.tiers]
-        : [
-            { fromRank: 1, toRank: 1, points: 500 },
-            { fromRank: 2, toRank: 3, points: 300 },
-          ],
-    )
-  }, [open, editProgram])
+    reset({
+      name: editProgram?.name ?? '',
+      description: editProgram?.description ?? '',
+      scope: editProgram?.scope ?? RewardProgramScope.CYCLE,
+      // Chương trình cũ lưu null = toàn tổ chức; effect bên dưới sẽ tự chọn đơn vị gốc,
+      // vốn bao trọn cây con nên cùng phạm vi.
+      orgUnitId: editProgram?.orgUnitId ?? '',
+      fixedTargetId: editProgram?.fixedTargetId ?? '',
+      metric: editProgram?.metric ?? RewardRankingMetric.FINAL_SCORE,
+      tiePolicy: editProgram?.tiePolicy ?? RewardTiePolicy.SHARE_ALL,
+      minMetricValue: editProgram?.minMetricValue ?? undefined,
+      maxPointsPerRun: editProgram?.maxPointsPerRun ?? undefined,
+      includeUnitHeads: editProgram?.includeUnitHeads ?? true,
+      enabled: editProgram?.enabled ?? true,
+      autoTrigger: editProgram?.autoTrigger ?? false,
+      tiers: editProgram?.tiers?.length ? [...editProgram.tiers] : DEFAULT_TIERS,
+    })
+  }, [open, editProgram, reset])
 
   // Đổi phạm vi có thể làm chỉ số hiện tại thành không hợp lệ — tự chuyển sang chỉ số
   // đầu tiên của phạm vi mới thay vì để người dùng gửi đi rồi nhận lỗi.
   useEffect(() => {
     const allowed = availableMetrics.map((m) => m.value)
     const fallback = allowed[0]
-    if (fallback && !allowed.includes(metric)) setMetric(fallback)
-  }, [availableMetrics, metric])
+    if (fallback && !allowed.includes(metric)) setValue('metric', fallback)
+  }, [availableMetrics, metric, setValue])
 
   // Mặc định là đơn vị gốc — nó bao trọn cây con nên tương đương toàn tổ chức, nhưng
   // hiện tên cụ thể để người dùng biết chương trình đang xếp hạng trong phạm vi nào.
   useEffect(() => {
     const root = flatUnits[0]
-    if (!orgUnitId && root) setOrgUnitId(root.id)
-  }, [flatUnits, orgUnitId])
+    if (!orgUnitId && root) setValue('orgUnitId', root.id)
+  }, [flatUnits, orgUnitId, setValue])
 
   if (!open) return null
 
+  // Cảnh báo bậc thưởng phải hiện NGAY khi sửa chứ không đợi bấm Lưu, nên vẫn tính tại
+  // chỗ; schema gọi cùng hàm này để chặn lúc gửi, hai bên không thể lệch luật.
   const tierMsg = tierError(tiers)
-  const canSubmit = name.trim().length > 0 && !tierMsg
 
-  const handleSubmit = async () => {
-    if (!canSubmit) return
+  const onSubmit = async (data: ProgramFormData) => {
     const payload = {
-      name: name.trim(),
-      description: description.trim() || undefined,
-      scope,
-      orgUnitId: orgUnitId || null,
-      fixedTargetId: fixedTargetId || null,
-      metric,
-      tiePolicy,
-      minMetricValue: minMetricValue === '' ? null : (minMetricValue as number),
-      maxPointsPerRun: maxPointsPerRun === '' ? null : (maxPointsPerRun as number),
-      includeUnitHeads,
-      enabled,
-      autoTrigger,
-      tiers: [...tiers].sort((a, b) => a.fromRank - b.fromRank),
+      name: data.name.trim(),
+      description: data.description.trim() || undefined,
+      scope: data.scope,
+      orgUnitId: data.orgUnitId || null,
+      fixedTargetId: data.fixedTargetId || null,
+      metric: data.metric,
+      tiePolicy: data.tiePolicy,
+      minMetricValue: data.minMetricValue ?? null,
+      maxPointsPerRun: data.maxPointsPerRun ?? null,
+      includeUnitHeads: data.includeUnitHeads,
+      enabled: data.enabled,
+      autoTrigger: data.autoTrigger,
+      tiers: [...data.tiers].sort((a, b) => a.fromRank - b.fromRank),
     }
     if (isEdit && editProgram) {
       await updateProgram({ id: editProgram.id, data: payload })
@@ -217,11 +222,11 @@ export default function ProgramFormModal({ open, onClose, editProgram }: Program
           <div>
             <label className="mb-1.5 block text-sm font-medium">Tên chương trình</label>
             <input
-              value={name}
-              onChange={(e) => setName(e.target.value)}
+              {...register('name')}
               placeholder="Ví dụ: Vinh danh Top 3 mỗi quý"
               className={inputCls}
             />
+            {errors.name && <p className="mt-1 text-xs text-rose-600">{errors.name.message}</p>}
           </div>
 
           {/* Quyết định NGAY TỪ ĐẦU: luật thường trực hay chỉ cho một kỳ. Trước đây phải
@@ -232,7 +237,7 @@ export default function ProgramFormModal({ open, onClose, editProgram }: Program
             <div className="grid gap-2 sm:grid-cols-2">
               <button
                 type="button"
-                onClick={() => setFixedTargetId('')}
+                onClick={() => setValue('fixedTargetId', '')}
                 className={`rounded-xl border px-4 py-3 text-left text-sm transition-colors ${
                   !fixedTargetId
                     ? 'border-[var(--color-primary)] bg-[var(--color-primary)]/5'
@@ -248,7 +253,7 @@ export default function ProgramFormModal({ open, onClose, editProgram }: Program
                 type="button"
                 onClick={() => {
                   const first = targetOptions[0]
-                  if (first) setFixedTargetId(first.id)
+                  if (first) setValue('fixedTargetId', first.id)
                 }}
                 disabled={targetOptions.length === 0}
                 className={`rounded-xl border px-4 py-3 text-left text-sm transition-colors disabled:opacity-40 ${
@@ -266,7 +271,7 @@ export default function ProgramFormModal({ open, onClose, editProgram }: Program
 
             {fixedTargetId && (
               <div className="mt-2">
-                <Select value={fixedTargetId} onValueChange={setFixedTargetId}>
+                <Select value={fixedTargetId} onValueChange={v => setValue('fixedTargetId', v)}>
                   <SelectTrigger className={inputCls}>
                     <SelectValue placeholder={`Chọn ${scopeWord}`} />
                   </SelectTrigger>
@@ -287,7 +292,7 @@ export default function ProgramFormModal({ open, onClose, editProgram }: Program
               <label className="mb-1.5 block text-sm font-medium">Xếp hạng theo</label>
               <Select
                 value={scope}
-                onValueChange={(v) => setScope(v as RewardProgramScope)}
+                onValueChange={(v) => setValue('scope', v as RewardProgramScope)}
                 disabled={hasIssued}
               >
                 <SelectTrigger className={inputCls}>
@@ -307,7 +312,7 @@ export default function ProgramFormModal({ open, onClose, editProgram }: Program
 
             <div>
               <label className="mb-1.5 block text-sm font-medium">Chỉ số xếp hạng</label>
-              <Select value={metric} onValueChange={(v) => setMetric(v as RewardRankingMetric)}>
+              <Select value={metric} onValueChange={(v) => setValue('metric', v as RewardRankingMetric)}>
                 <SelectTrigger className={inputCls}>
                   <SelectValue />
                 </SelectTrigger>
@@ -329,7 +334,7 @@ export default function ProgramFormModal({ open, onClose, editProgram }: Program
 
           <div>
             <label className="mb-1.5 block text-sm font-medium">Phạm vi đơn vị</label>
-            <Select value={orgUnitId} onValueChange={setOrgUnitId}>
+            <Select value={orgUnitId} onValueChange={v => setValue('orgUnitId', v)}>
               <SelectTrigger className={inputCls}>
                 <SelectValue />
               </SelectTrigger>
@@ -348,7 +353,7 @@ export default function ProgramFormModal({ open, onClose, editProgram }: Program
           {/* ── Bậc thưởng ── */}
           <div>
             <label className="mb-2 block text-sm font-medium">Bậc thưởng mặc định</label>
-            <TierEditor tiers={tiers} onChange={setTiers} />
+            <TierEditor tiers={tiers} onChange={t => setValue('tiers', t, { shouldValidate: true })} />
 
             {tierMsg ? (
               <p className="mt-2 text-xs text-rose-600">{tierMsg}</p>
@@ -368,10 +373,7 @@ export default function ProgramFormModal({ open, onClose, editProgram }: Program
               </label>
               <input
                 type="number"
-                value={minMetricValue}
-                onChange={(e) =>
-                  setMinMetricValue(e.target.value === '' ? '' : Number(e.target.value))
-                }
+                {...register('minMetricValue', { setValueAs: numOrUndefined })}
                 placeholder="Không yêu cầu"
                 className={inputCls}
               />
@@ -387,13 +389,13 @@ export default function ProgramFormModal({ open, onClose, editProgram }: Program
               <input
                 type="number"
                 min={1}
-                value={maxPointsPerRun}
-                onChange={(e) =>
-                  setMaxPointsPerRun(e.target.value === '' ? '' : Number(e.target.value))
-                }
+                {...register('maxPointsPerRun', { setValueAs: numOrUndefined })}
                 placeholder="Không giới hạn"
                 className={inputCls}
               />
+              {errors.maxPointsPerRun && (
+                <p className="mt-1 text-xs text-rose-600">{errors.maxPointsPerRun.message}</p>
+              )}
               <p className="mt-1 text-xs text-[var(--color-muted-foreground)]">
                 Chặn cấu hình sai làm phát ra lượng điểm khổng lồ.
               </p>
@@ -402,7 +404,7 @@ export default function ProgramFormModal({ open, onClose, editProgram }: Program
 
           <div>
             <label className="mb-1.5 block text-sm font-medium">Khi có người đồng hạng</label>
-            <Select value={tiePolicy} onValueChange={(v) => setTiePolicy(v as RewardTiePolicy)}>
+            <Select value={tiePolicy} onValueChange={(v) => setValue('tiePolicy', v as RewardTiePolicy)}>
               <SelectTrigger className={inputCls}>
                 <SelectValue />
               </SelectTrigger>
@@ -420,8 +422,7 @@ export default function ProgramFormModal({ open, onClose, editProgram }: Program
           <label className="flex cursor-pointer items-center gap-2 text-sm">
             <input
               type="checkbox"
-              checked={includeUnitHeads}
-              onChange={(e) => setIncludeUnitHeads(e.target.checked)}
+              {...register('includeUnitHeads')}
               className="rounded border-[var(--color-border)]"
             />
             Tính cả trưởng/phó đơn vị vào bảng xếp hạng
@@ -430,8 +431,7 @@ export default function ProgramFormModal({ open, onClose, editProgram }: Program
           <label className="flex cursor-pointer items-center gap-2 text-sm">
             <input
               type="checkbox"
-              checked={enabled}
-              onChange={(e) => setEnabled(e.target.checked)}
+              {...register('enabled')}
               className="rounded border-[var(--color-border)]"
             />
             Đang bật
@@ -441,8 +441,7 @@ export default function ProgramFormModal({ open, onClose, editProgram }: Program
             <label className="flex cursor-pointer items-start gap-2 text-sm">
               <input
                 type="checkbox"
-                checked={autoTrigger}
-                onChange={(e) => setAutoTrigger(e.target.checked)}
+                {...register('autoTrigger')}
                 className="mt-0.5 rounded border-[var(--color-border)]"
               />
               <span>
@@ -487,8 +486,8 @@ export default function ProgramFormModal({ open, onClose, editProgram }: Program
             Huỷ
           </button>
           <button
-            onClick={handleSubmit}
-            disabled={!canSubmit || isCreating || isUpdating}
+            onClick={handleSubmit(onSubmit)}
+            disabled={isCreating || isUpdating}
             className="inline-flex items-center gap-2 rounded-lg bg-[var(--color-primary)] px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
           >
             {(isCreating || isUpdating) && <Loader2 size={15} className="animate-spin" />}

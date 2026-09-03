@@ -180,6 +180,13 @@ public class OrganizationService {
         }
 
         if (request.getEvaluationMaxScore() != null) {
+            // Chấm luôn tối đa 100 (trọng số = điểm), thang điểm chỉ là mẫu số xếp loại — đặt
+            // thấp hơn 100 thì ai hoàn thành đủ KPI cũng kịch/vượt trần, xếp loại mất ý nghĩa.
+            if (request.getEvaluationMaxScore() < EvaluationService.SCORING_POOL) {
+                throw new BusinessException("Thang điểm tối đa phải từ "
+                        + (long) EvaluationService.SCORING_POOL + " trở lên, vì hoàn thành đủ 100% KPI đã là "
+                        + (long) EvaluationService.SCORING_POOL + " điểm.");
+            }
             organization.setEvaluationMaxScore(request.getEvaluationMaxScore());
         }
 
