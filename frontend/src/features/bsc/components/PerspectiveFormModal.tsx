@@ -18,6 +18,8 @@ import {
   numOrUndefined,
   type PerspectiveFormValues,
 } from '../schemas/perspectiveSchema'
+import { useCodeRule } from '@/features/orgunits/hooks/useCodeRules'
+import CodeField from '@/components/common/CodeField'
 
 interface PerspectiveFormModalProps {
   isOpen: boolean
@@ -48,9 +50,16 @@ export default function PerspectiveFormModal({
 
   // Ràng buộc trùng mã / trùng thứ tự phải đối chiếu danh sách hiện có, nên schema dựng lại
   // mỗi khi danh sách đổi (react-hook-form đọc resolver mới ở mỗi lần render).
+  // Mã hạng mục do tổ chức quyết định: tự sinh (ô mã khoá lại) hay nhập tay như trước.
+  const codeRule = useCodeRule('BSC_PERSPECTIVE', organizationId)
+
   const schema = useMemo(
-    () => createPerspectiveSchema({ existing: allPerspectives || [], currentId: perspective?.id }),
-    [allPerspectives, perspective?.id],
+    () => createPerspectiveSchema({
+      existing: allPerspectives || [],
+      currentId: perspective?.id,
+      requireCode: !codeRule.optional,
+    }),
+    [allPerspectives, perspective?.id, codeRule.optional],
   )
 
   const { register, handleSubmit, reset, control, watch, setValue, formState: { errors } } = useForm<PerspectiveFormValues>({
@@ -138,6 +147,8 @@ export default function PerspectiveFormModal({
 
   const onSubmit = ({ weightPercentage, ...data }: PerspectiveFormValues) => {
     const weight = Number.isFinite(Number(weightPercentage)) ? Number(weightPercentage) : 0
+    // Ô mã bị khoá ⇒ không gửi mã lên: backend giữ mã cũ khi sửa, tự cấp mã khi tạo.
+    if (codeRule.locked) data.code = undefined
     if (perspective) {
       updatePerspective.mutate({ perspectiveId: perspective.id, data }, {
         onSuccess: () => {
@@ -190,15 +201,14 @@ export default function PerspectiveFormModal({
                 />
                 {errors.name && <p className="text-[10px] font-bold text-red-500 ml-1">{errors.name.message}</p>}
               </div>
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Mã <span className="text-red-500">*</span></label>
-                <input
-                  {...register('code')}
-                  placeholder="FINANCIAL"
-                  className="w-full px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 text-sm font-bold focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 outline-none transition-all"
-                />
-                {errors.code && <p className="text-[10px] font-bold text-red-500 ml-1">{errors.code.message}</p>}
-              </div>
+              <CodeField
+                rule={codeRule}
+                currentCode={perspective?.code}
+                error={errors.code?.message}
+                register={register('code')}
+                fallbackPlaceholder="GIANG_DAY"
+                tone="indigo"
+              />
             </div>
 
             <div className="space-y-1.5">
@@ -248,8 +258,8 @@ export default function PerspectiveFormModal({
 
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
               <div className="space-y-1.5">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 flex items-center gap-1">
-                  <Target size={11} /> Mục tiêu mong muốn
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 flex items-end gap-1 min-h-[26px] leading-tight">
+                  <Target size={11} className="mb-[1px] shrink-0" /> Mục tiêu mong muốn
                 </label>
                 <input
                   type="number"
@@ -263,8 +273,8 @@ export default function PerspectiveFormModal({
                 {errors.targetValue && <p className="text-[10px] font-bold text-red-500 ml-1">{errors.targetValue.message}</p>}
               </div>
               <div className="space-y-1.5">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 flex items-center gap-1">
-                  <Target size={11} /> Kết quả tối thiểu
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 flex items-end gap-1 min-h-[26px] leading-tight">
+                  <Target size={11} className="mb-[1px] shrink-0" /> Kết quả tối thiểu
                 </label>
                 <input
                   type="number"
@@ -278,7 +288,7 @@ export default function PerspectiveFormModal({
                 {errors.minimumValue && <p className="text-[10px] font-bold text-red-500 ml-1">{errors.minimumValue.message}</p>}
               </div>
               <div className="space-y-1.5">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Đơn vị tính</label>
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 flex items-end gap-1 min-h-[26px] leading-tight">Đơn vị tính</label>
                 <input
                   {...register('unit')}
                   placeholder="VNĐ, %, buổi..."

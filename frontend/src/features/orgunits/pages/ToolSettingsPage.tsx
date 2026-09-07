@@ -9,6 +9,7 @@ import { ModuleTogglesSection } from '../components/ModuleSections'
 import { PerformanceMatrixSection } from '../components/ScoringSections'
 import ScoringSettingsPage from './ScoringSettingsPage'
 import UnitClassificationConfigSection from '../components/UnitClassificationConfigSection'
+import CodeRuleSection from '../components/CodeRuleSection'
 import KpiCyclePeriodPage from '@/features/kpi/pages/KpiCyclePeriodPage'
 import OkrManagementPage from '@/features/okr/pages/OkrManagementPage'
 import BscManagementPage from '@/features/bsc/pages/BscManagementPage'
@@ -69,6 +70,17 @@ export default function ToolSettingsPage() {
           // (điểm hạnh kiểm lấp trục còn trống nên tổ chức toàn KPI định lượng vẫn xếp loại được).
           { id: 'matrix', visible: usesPerformanceMatrix(org), render: () => <PerformanceMatrixSection org={org} /> },
           { id: 'unit-class', render: () => <UnitClassificationConfigSection org={org} /> },
+          // Quy tắc sinh mã chỉ chi phối mã của OKR và BSC, nên tắt cả hai module thì mục
+          // này không có gì để cấu hình.
+          {
+            id: 'code-rules',
+            visible: (org.enableOkr ?? false) || (org.enableBsc ?? false),
+            render: () => (
+              <div className="max-w-4xl">
+                <CodeRuleSection organizationId={org.id} />
+              </div>
+            ),
+          },
 
           // Sáu công cụ quản lý. Cờ tính năng lấy từ chính tổ chức, khớp với cách
           // sidebar vẫn ẩn/hiện chúng trước đây.

@@ -80,7 +80,8 @@ export default function KpiDelegationModal({ open, onClose, kpi }: KpiDelegation
   const { data: usersData, isLoading: isLoadingUsers } = useUsers({ 
     page: 0, 
     size: 200, 
-    orgUnitId: kpi.orgUnitId ?? undefined
+    // BE nhận orgUnitIds (List) — xem chú thích ở OrgUnitSubmissionsPage.
+    orgUnitIds: kpi.orgUnitId ? [kpi.orgUnitId] : undefined,
   })
 
   const displayUsers = useMemo(() => {

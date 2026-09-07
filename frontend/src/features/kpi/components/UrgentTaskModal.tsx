@@ -26,6 +26,8 @@ import { Select, SelectContent, SelectItem, SelectGroup, SelectLabel, SelectTrig
 import { LayoutGrid } from 'lucide-react'
 import { DateTimePicker } from '@/components/common/DateTimePicker'
 import { scorecardsForPeriod } from '@/features/bsc/utils/scorecardScope'
+import { perspectiveHint } from '@/features/bsc/utils/perspectiveHint'
+import type { ScorecardPerspectiveResponse } from '@/features/bsc/types'
 import { toastFirstError } from '@/lib/formErrors'
 
 
@@ -237,11 +239,17 @@ interface TabSharedProps {
   perspectives: any[]
   /** Hạng mục CÓ trong bộ tiêu chí của đơn vị (null = không lọc). Lọc dropdown giống form tạo KPI. */
   availablePerspectiveIds?: Set<string> | null
+  /**
+   * Dòng phụ "MT … · sàn … · …%" của từng hạng mục, dựng sẵn ở component cha từ BỘ TIÊU CHÍ
+   * HIỆU LỰC. Không lấy từ danh mục hạng mục: cùng một hạng mục nhưng mỗi đơn vị đặt mục tiêu
+   * khác nhau, hiện số danh mục là hiện nhầm con số của đơn vị khác.
+   */
+  perspectiveHints?: Map<string, string | null>
 }
 
 // ─── Shared BSC perspective selector ─────────────────────────────────────────
 
-function PerspectiveSelect({ control, name, perspectives, availablePerspectiveIds }: { control: any; name: string; perspectives: any[]; availablePerspectiveIds?: Set<string> | null }) {
+function PerspectiveSelect({ control, name, perspectives, availablePerspectiveIds, perspectiveHints }: { control: any; name: string; perspectives: any[]; availablePerspectiveIds?: Set<string> | null; perspectiveHints?: Map<string, string | null> }) {
   const { data: fixedPerspectives } = useFixedPerspectives()
   const grouped = useMemo(() => {
     const order = (fixedPerspectives || []).map((fp: any) => fp.code)
@@ -277,7 +285,12 @@ function PerspectiveSelect({ control, name, perspectives, availablePerspectiveId
                 <div key={group.code}>
                   <div className="px-3 pt-2 pb-1 text-[10px] font-black uppercase tracking-wider text-slate-400">{group.name}</div>
                   {group.items.map((p: any) => (
-                    <SelectItem key={p.id} value={p.id} className="rounded-xl py-2.5">
+                    <SelectItem key={p.id} value={p.id} className="rounded-xl py-2.5"
+                      extra={perspectiveHints?.get(p.id) && (
+                        <span className="ml-auto pl-3 text-[10px] font-bold text-slate-400 whitespace-nowrap">
+                          {perspectiveHints.get(p.id)}
+                        </span>
+                      )}>
                       <span className="flex items-center gap-2">
                         <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: p.color || '#94a3b8' }} />
                         <span className="font-semibold text-xs">{p.name}</span>
@@ -301,7 +314,7 @@ function PerspectiveSelect({ control, name, perspectives, availablePerspectiveId
   )
 }
 
-function ReplaceTab({ kpiList, orgUnitId, period, enableOkr, enableQualitative, enableBsc, objectives, perspectives, availablePerspectiveIds, onSuccess }: { kpiList: KpiCriteria[]; orgUnitId: string; onSuccess: () => void } & TabSharedProps) {
+function ReplaceTab({ kpiList, orgUnitId, period, enableOkr, enableQualitative, enableBsc, objectives, perspectives, availablePerspectiveIds, perspectiveHints, onSuccess }: { kpiList: KpiCriteria[]; orgUnitId: string; onSuccess: () => void } & TabSharedProps) {
   const qc = useQueryClient()
   const { user: currentUser } = useAuthStore()
   const isStaff = currentUser?.memberships?.[0]?.roleRank === 2
@@ -563,7 +576,7 @@ function ReplaceTab({ kpiList, orgUnitId, period, enableOkr, enableQualitative, 
       )}
 
       {/* BSC perspective */}
-      {enableBsc && <PerspectiveSelect control={control} name="perspectiveId" perspectives={perspectives} availablePerspectiveIds={availablePerspectiveIds} />}
+      {enableBsc && <PerspectiveSelect control={control} name="perspectiveId" perspectives={perspectives} availablePerspectiveIds={availablePerspectiveIds} perspectiveHints={perspectiveHints} />}
 
       <div className="flex gap-4 pt-2 border-t border-[var(--color-border)]/50">
         <button type="button" onClick={onSuccess}
@@ -582,7 +595,7 @@ function ReplaceTab({ kpiList, orgUnitId, period, enableOkr, enableQualitative, 
 
 // ─── Tab 2: Reduce weights + Add new KPI ────────────────────────────────────
 
-function AdjustTab({ kpiList, kpiPeriodId, orgUnitId, period, enableOkr, enableQualitative, enableBsc, objectives, perspectives, availablePerspectiveIds, perspectiveWeightPct, onSuccess }: { kpiList: KpiCriteria[]; kpiPeriodId: string; orgUnitId: string; onSuccess: () => void; perspectiveWeightPct?: Map<string, number> } & TabSharedProps) {
+function AdjustTab({ kpiList, kpiPeriodId, orgUnitId, period, enableOkr, enableQualitative, enableBsc, objectives, perspectives, availablePerspectiveIds, perspectiveHints, perspectiveWeightPct, onSuccess }: { kpiList: KpiCriteria[]; kpiPeriodId: string; orgUnitId: string; onSuccess: () => void; perspectiveWeightPct?: Map<string, number> } & TabSharedProps) {
   const qc = useQueryClient()
   const { user: currentUser } = useAuthStore()
   const isStaff = currentUser?.memberships?.[0]?.roleRank === 2
@@ -883,7 +896,7 @@ function AdjustTab({ kpiList, kpiPeriodId, orgUnitId, period, enableOkr, enableQ
       )}
 
       {/* BSC perspective */}
-      {enableBsc && <PerspectiveSelect control={control} name="newPerspectiveId" perspectives={perspectives} availablePerspectiveIds={availablePerspectiveIds} />}
+      {enableBsc && <PerspectiveSelect control={control} name="newPerspectiveId" perspectives={perspectives} availablePerspectiveIds={availablePerspectiveIds} perspectiveHints={perspectiveHints} />}
 
       <div className={cn('rounded-xl px-4 py-3 flex items-center justify-between border',
         isValid
@@ -1010,6 +1023,26 @@ export default function UrgentTaskModal({ open, onClose, kpiPeriodId: initPeriod
     ;(effectiveScorecard?.perspectives || []).forEach((p: any) => ids.add(p.perspectiveId))
     return ids
   }, [enableBsc, bscScorecards, selectedPeriodId, selectedOrgUnitId, effectiveScorecard])
+
+  // Con số của từng hạng mục để hiện ngay trong dropdown — lấy từ dòng của bộ tiêu chí hiệu lực,
+  // rơi về danh mục khi bộ tiêu chí chưa đặt riêng (đúng thứ tự backend đang dùng để chấm điểm).
+  const perspectiveHints = useMemo(() => {
+    const map = new Map<string, string | null>()
+    const rows = new Map<string, ScorecardPerspectiveResponse>()
+    for (const row of (effectiveScorecard?.perspectives || []) as ScorecardPerspectiveResponse[]) {
+      rows.set(row.perspectiveId, row)
+    }
+    for (const p of perspectives || []) {
+      const row = rows.get(p.id)
+      map.set(p.id, perspectiveHint({
+        targetValue: row?.targetValue ?? p.targetValue,
+        minimumValue: row?.minimumValue ?? p.minimumValue,
+        unit: row?.unit ?? p.unit,
+        weightPercentage: row?.weightPercentage ?? null,
+      }))
+    }
+    return map
+  }, [perspectives, effectiveScorecard])
 
   // %hạng_mục theo perspectiveId (từ bộ tiêu chí đơn vị) → để tính trọng số THẬT = form × %hạng_mục.
   const perspectiveWeightPct = useMemo(() => {
@@ -1156,9 +1189,9 @@ export default function UrgentTaskModal({ open, onClose, kpiPeriodId: initPeriod
           ) : kpiList.length === 0 ? (
             <p className="text-center text-sm font-medium text-[var(--color-muted-foreground)] py-16 italic">Chưa có KPI nào trong kỳ này</p>
           ) : tab === 'replace' ? (
-            <ReplaceTab kpiList={kpiList} orgUnitId={selectedOrgUnitId} period={selectedPeriod} enableOkr={enableOkr} enableQualitative={enableQualitative} enableBsc={enableBsc} objectives={filteredObjectives} perspectives={perspectives ?? []} availablePerspectiveIds={availablePerspectiveIds} onSuccess={onClose} />
+            <ReplaceTab kpiList={kpiList} orgUnitId={selectedOrgUnitId} period={selectedPeriod} enableOkr={enableOkr} enableQualitative={enableQualitative} enableBsc={enableBsc} objectives={filteredObjectives} perspectives={perspectives ?? []} availablePerspectiveIds={availablePerspectiveIds} perspectiveHints={perspectiveHints} onSuccess={onClose} />
           ) : (
-            <AdjustTab kpiList={kpiList} kpiPeriodId={selectedPeriodId} orgUnitId={selectedOrgUnitId} period={selectedPeriod} enableOkr={enableOkr} enableQualitative={enableQualitative} enableBsc={enableBsc} objectives={filteredObjectives} perspectives={perspectives ?? []} availablePerspectiveIds={availablePerspectiveIds} perspectiveWeightPct={perspectiveWeightPct} onSuccess={onClose} />
+            <AdjustTab kpiList={kpiList} kpiPeriodId={selectedPeriodId} orgUnitId={selectedOrgUnitId} period={selectedPeriod} enableOkr={enableOkr} enableQualitative={enableQualitative} enableBsc={enableBsc} objectives={filteredObjectives} perspectives={perspectives ?? []} availablePerspectiveIds={availablePerspectiveIds} perspectiveHints={perspectiveHints} perspectiveWeightPct={perspectiveWeightPct} onSuccess={onClose} />
           )}
         </div>
       </div>

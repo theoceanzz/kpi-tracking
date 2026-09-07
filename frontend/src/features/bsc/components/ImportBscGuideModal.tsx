@@ -14,7 +14,7 @@ VAN_HANH,Hiệu quả vận hành,INTERNAL_PROCESS,Tối ưu quy trình nội b�
 DAO_TAO,Đào tạo & phát triển,LEARNING_GROWTH,Nâng cao năng lực nhân sự,100,60,buổi,#8b5cf6,4,ACTIVE`
 
 const COLUMNS = [
-  { name: 'Code', required: true, desc: 'Mã hạng mục (chỉ chữ, số, gạch dưới). Dùng để đối soát & cập nhật.', example: 'DOANH_THU' },
+  { name: 'Code', required: true, desc: 'Mã hạng mục (chỉ chữ, số, gạch dưới). Dùng để đối soát & cập nhật. Để trống ô này thì hệ thống tự cấp mã theo mẫu của công ty (nếu công ty bật sinh mã tự động).', example: 'DOANH_THU' },
   { name: 'Name', required: true, desc: 'Tên hạng mục', example: 'Doanh thu' },
   { name: 'FixedPerspective', required: false, desc: 'Lĩnh vực cố định của hạng mục: FINANCIAL, CUSTOMER, INTERNAL_PROCESS, LEARNING_GROWTH. Bỏ trống mặc định INTERNAL_PROCESS.', example: 'FINANCIAL' },
   { name: 'Description', required: false, desc: 'Mô tả hạng mục', example: 'Các chỉ tiêu về doanh thu' },

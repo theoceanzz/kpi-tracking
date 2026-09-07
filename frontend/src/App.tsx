@@ -6,9 +6,12 @@ import { router } from '@/router'
 import { useEffect } from 'react'
 import GlobalUploadProgress from '@/components/common/GlobalUploadProgress'
 import { useThemeStore } from '@/store/themeStore'
+import { useClearNumberInputOnFocus } from '@/hooks/useClearNumberInputOnFocus'
 
 export default function App() {
   const { isDark, primaryColor } = useThemeStore()
+
+  useClearNumberInputOnFocus()
 
   useEffect(() => {
     document.documentElement.classList.toggle('dark', isDark)

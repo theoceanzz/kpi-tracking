@@ -201,9 +201,12 @@ INSERT INTO permissions (id, code, resource, action, description) VALUES
     -- Adjustment (used in PERSONAL_PERMS / UNIT_HEAD_PERSONAL_PERMS)
     ('00000000-0000-0000-0000-000000000239', 'ADJUSTMENT:VIEW_MY',       'ADJUSTMENT',   'VIEW_MY',          'Cho phép xem các yêu cầu điều chỉnh chỉ tiêu KPI do chính bản thân gửi lên'),
     -- BSC (Balanced Scorecard). Việc GÁN 3 quyền này cho role làm ở cuối file theo cách data-driven.
-    ('00000000-0000-0000-0000-000000000301', 'BSC:VIEW',                 'BSC',          'VIEW',             'Cho phép xem thẻ điểm cân bằng (BSC): viễn cảnh, thẻ điểm, dashboard và bản đồ chiến lược'),
-    ('00000000-0000-0000-0000-000000000302', 'BSC:MANAGE',               'BSC',          'MANAGE',           'Cho phép cấu hình viễn cảnh, dựng thẻ điểm, đặt trọng số và quản lý liên kết BSC'),
-    ('00000000-0000-0000-0000-000000000303', 'BSC:PUBLISH_SCORE',        'BSC',          'PUBLISH_SCORE',    'Cho phép chuyển thẻ điểm sang chế độ chính thức (điểm BSC thay điểm hệ thống) — quyền cấp cao/HR trưởng'),
+    ('00000000-0000-0000-0000-000000000301', 'BSC:VIEW',                 'BSC',          'VIEW',             'Cho phép xem BSC: hạng mục, bộ tiêu chí, dashboard và bản đồ chiến lược'),
+    ('00000000-0000-0000-0000-000000000302', 'BSC:MANAGE',               'BSC',          'MANAGE',           'Cho phép cấu hình hạng mục, dựng bộ tiêu chí, đặt trọng số và quản lý liên kết BSC'),
+    ('00000000-0000-0000-0000-000000000303', 'BSC:PUBLISH_SCORE',        'BSC',          'PUBLISH_SCORE',    'Cho phép chuyển bộ tiêu chí sang chế độ chính thức (điểm BSC thay điểm hệ thống) — quyền cấp cao/HR trưởng'),
+    ('00000000-0000-0000-0000-000000000304', 'BSC:MANAGE_UNIT',          'BSC',          'MANAGE_UNIT',      'Cho phép trưởng đơn vị lập và sửa BSC của chính đơn vị mình — chỉ các chỉ tiêu đơn vị tự thêm, không sửa được chỉ tiêu cấp trên giao'),
+    ('00000000-0000-0000-0000-000000000305', 'BSC:APPROVE',              'BSC',          'APPROVE',          'Cho phép duyệt hoặc trả lại BSC do đơn vị cấp dưới trình, và khoá bộ tiêu chí sau khi duyệt'),
+    ('00000000-0000-0000-0000-000000000306', 'BSC:OVERRIDE_SCORE',       'BSC',          'OVERRIDE_SCORE',   'Cho phép ghi đè điểm công nhận của cá nhân sau khi đã áp hệ số — bắt buộc kèm lý do và lưu vết người thao tác'),
     -- OKR. Tách VIEW/MANAGE giống BSC: mọi archetype cần VIEW để đọc mục tiêu ở form gắn chỉ tiêu KPI,
     ('00000000-0000-0000-0000-000000000311', 'OKR:VIEW',                 'OKR',          'VIEW',             'Cho phép xem danh sách mục tiêu OKR và kết quả then chốt (dùng cả ở form gắn chỉ tiêu KPI)'),
     ('00000000-0000-0000-0000-000000000312', 'OKR:MANAGE',               'OKR',          'MANAGE',           'Cho phép tạo/sửa/xoá/import mục tiêu OKR và kết quả then chốt'),
@@ -1681,16 +1684,16 @@ ON CONFLICT (id) DO NOTHING;
 
 -- 7. ROLE PERMISSIONS
 INSERT INTO role_permissions (role_id, permission_id)
-SELECT 'c3000000-0000-0000-0000-000000000001', id FROM permissions WHERE code IN ('BSC:VIEW', 'BSC:MANAGE', 'BSC:PUBLISH_SCORE', 'OKR:VIEW', 'OKR:MANAGE', 'DASHBOARD:VIEW', 'COMPANY:VIEW', 'COMPANY:UPDATE', 'ORG:VIEW', 'ORG:CREATE', 'ORG:UPDATE', 'ORG:DELETE', 'USER:VIEW', 'USER:CREATE', 'USER:UPDATE', 'USER:DELETE', 'USER:IMPORT', 'ROLE:VIEW', 'ROLE:ASSIGN', 'ROLE:CREATE', 'ROLE:UPDATE', 'PERMISSION:VIEW', 'KPI:VIEW', 'KPI:CREATE', 'KPI:UPDATE', 'KPI:DELETE', 'KPI:APPROVE_CRITERIA', 'KPI:APPROVE_ADJUSTMENT', 'KPI:APPROVE_OWN', 'KPI:REVERT_APPROVAL', 'KPI:IMPORT', 'KPI:SUBMIT', 'KPI:REJECT', 'KPI_PERIOD:VIEW', 'KPI_PERIOD:CREATE', 'KPI_PERIOD:UPDATE', 'KPI_PERIOD:DELETE', 'KPI_CYCLE:VIEW', 'KPI_CYCLE:CREATE', 'KPI_CYCLE:UPDATE', 'KPI_CYCLE:DELETE', 'CYCLE_EVAL:VIEW', 'CYCLE_EVAL:FINALIZE', 'CYCLE_EVAL:SEND', 'SUBMISSION:REVIEW', 'SUBMISSION:VIEW', 'SUBMISSION:DELETE', 'SUBMISSION:UPDATE', 'EVALUATION:VIEW', 'EVALUATION:CREATE', 'EVALUATION:UPDATE', 'EVALUATION:DELETE', 'NOTIF:VIEW', 'NOTIF:MANAGE', 'AI:SUGGEST_KPI', 'POLICY:VIEW', 'POLICY:CREATE', 'POLICY:UPDATE', 'POLICY:ASSIGN', 'STATS:VIEW_ORG', 'STATS:VIEW_EMPLOYEE', 'USER_ROLE:VIEW', 'USER_ROLE:ASSIGN', 'USER_ROLE:REVOKE', 'ATTACHMENT:UPLOAD', 'ATTACHMENT:DELETE', 'REMINDER:SEND', 'SYSTEM:ADMIN', 'COMPANY:DELETE', 'ROLE:DELETE', 'POLICY:DELETE', 'PERMISSION:EDIT', 'AI_QUOTA:MANAGE', 'AI_QUOTA:ALLOCATE', 'REWARD:VIEW_MY', 'REWARD:VIEW', 'REWARD:GRANT', 'REWARD:APPROVE', 'REWARD:APPROVE_OWN', 'REWARD:CONFIG', 'GIFT:MANAGE', 'GIFT:REDEEM', 'GIFT:FULFILL', 'WALLET:VIEW_MY', 'WALLET:VIEW', 'WALLET:CONFIG', 'WALLET:RECONCILE')
+SELECT 'c3000000-0000-0000-0000-000000000001', id FROM permissions WHERE code IN ('BSC:VIEW', 'BSC:MANAGE_UNIT', 'BSC:APPROVE', 'BSC:OVERRIDE_SCORE', 'BSC:MANAGE', 'BSC:PUBLISH_SCORE', 'OKR:VIEW', 'OKR:MANAGE', 'DASHBOARD:VIEW', 'COMPANY:VIEW', 'COMPANY:UPDATE', 'ORG:VIEW', 'ORG:CREATE', 'ORG:UPDATE', 'ORG:DELETE', 'USER:VIEW', 'USER:CREATE', 'USER:UPDATE', 'USER:DELETE', 'USER:IMPORT', 'ROLE:VIEW', 'ROLE:ASSIGN', 'ROLE:CREATE', 'ROLE:UPDATE', 'PERMISSION:VIEW', 'KPI:VIEW', 'KPI:CREATE', 'KPI:UPDATE', 'KPI:DELETE', 'KPI:APPROVE_CRITERIA', 'KPI:APPROVE_ADJUSTMENT', 'KPI:APPROVE_OWN', 'KPI:REVERT_APPROVAL', 'KPI:IMPORT', 'KPI:SUBMIT', 'KPI:REJECT', 'KPI_PERIOD:VIEW', 'KPI_PERIOD:CREATE', 'KPI_PERIOD:UPDATE', 'KPI_PERIOD:DELETE', 'KPI_CYCLE:VIEW', 'KPI_CYCLE:CREATE', 'KPI_CYCLE:UPDATE', 'KPI_CYCLE:DELETE', 'CYCLE_EVAL:VIEW', 'CYCLE_EVAL:FINALIZE', 'CYCLE_EVAL:SEND', 'SUBMISSION:REVIEW', 'SUBMISSION:VIEW', 'SUBMISSION:DELETE', 'SUBMISSION:UPDATE', 'EVALUATION:VIEW', 'EVALUATION:CREATE', 'EVALUATION:UPDATE', 'EVALUATION:DELETE', 'NOTIF:VIEW', 'NOTIF:MANAGE', 'AI:SUGGEST_KPI', 'POLICY:VIEW', 'POLICY:CREATE', 'POLICY:UPDATE', 'POLICY:ASSIGN', 'STATS:VIEW_ORG', 'STATS:VIEW_EMPLOYEE', 'USER_ROLE:VIEW', 'USER_ROLE:ASSIGN', 'USER_ROLE:REVOKE', 'ATTACHMENT:UPLOAD', 'ATTACHMENT:DELETE', 'REMINDER:SEND', 'SYSTEM:ADMIN', 'COMPANY:DELETE', 'ROLE:DELETE', 'POLICY:DELETE', 'PERMISSION:EDIT', 'AI_QUOTA:MANAGE', 'AI_QUOTA:ALLOCATE', 'REWARD:VIEW_MY', 'REWARD:VIEW', 'REWARD:GRANT', 'REWARD:APPROVE', 'REWARD:APPROVE_OWN', 'REWARD:CONFIG', 'GIFT:MANAGE', 'GIFT:REDEEM', 'GIFT:FULFILL', 'WALLET:VIEW_MY', 'WALLET:VIEW', 'WALLET:CONFIG', 'WALLET:RECONCILE')
 ON CONFLICT DO NOTHING;
 INSERT INTO role_permissions (role_id, permission_id)
-SELECT 'c3000000-0000-0000-0000-000000000002', id FROM permissions WHERE code IN ('BSC:VIEW', 'BSC:MANAGE', 'BSC:PUBLISH_SCORE', 'OKR:VIEW', 'OKR:MANAGE', 'DASHBOARD:VIEW', 'COMPANY:VIEW', 'ORG:VIEW', 'ORG:CREATE', 'ORG:UPDATE', 'USER:VIEW', 'USER:CREATE', 'USER:UPDATE', 'USER:IMPORT', 'ROLE:VIEW', 'ROLE:ASSIGN', 'ROLE:CREATE', 'ROLE:UPDATE', 'PERMISSION:VIEW', 'KPI:VIEW', 'KPI:CREATE', 'KPI:UPDATE', 'KPI:APPROVE_CRITERIA', 'KPI:APPROVE_ADJUSTMENT', 'KPI:APPROVE_OWN', 'KPI:IMPORT', 'KPI:SUBMIT', 'KPI:REJECT', 'KPI_PERIOD:VIEW', 'KPI_PERIOD:CREATE', 'KPI_PERIOD:UPDATE', 'KPI_CYCLE:VIEW', 'KPI_CYCLE:CREATE', 'KPI_CYCLE:UPDATE', 'CYCLE_EVAL:VIEW', 'CYCLE_EVAL:FINALIZE', 'CYCLE_EVAL:SEND', 'SUBMISSION:REVIEW', 'SUBMISSION:VIEW', 'SUBMISSION:UPDATE', 'EVALUATION:VIEW', 'EVALUATION:CREATE', 'EVALUATION:UPDATE', 'NOTIF:VIEW', 'NOTIF:MANAGE', 'AI:SUGGEST_KPI', 'POLICY:VIEW', 'POLICY:CREATE', 'POLICY:UPDATE', 'POLICY:ASSIGN', 'STATS:VIEW_ORG', 'STATS:VIEW_EMPLOYEE', 'USER_ROLE:VIEW', 'USER_ROLE:ASSIGN', 'ATTACHMENT:UPLOAD', 'REMINDER:SEND', 'COMPANY:DELETE', 'ROLE:DELETE', 'POLICY:DELETE', 'PERMISSION:EDIT', 'REWARD:VIEW_MY', 'REWARD:VIEW', 'REWARD:GRANT', 'REWARD:APPROVE', 'GIFT:MANAGE', 'GIFT:REDEEM', 'GIFT:FULFILL', 'WALLET:VIEW_MY', 'WALLET:VIEW')
+SELECT 'c3000000-0000-0000-0000-000000000002', id FROM permissions WHERE code IN ('BSC:VIEW', 'BSC:MANAGE_UNIT', 'BSC:APPROVE', 'BSC:OVERRIDE_SCORE', 'BSC:MANAGE', 'BSC:PUBLISH_SCORE', 'OKR:VIEW', 'OKR:MANAGE', 'DASHBOARD:VIEW', 'COMPANY:VIEW', 'ORG:VIEW', 'ORG:CREATE', 'ORG:UPDATE', 'USER:VIEW', 'USER:CREATE', 'USER:UPDATE', 'USER:IMPORT', 'ROLE:VIEW', 'ROLE:ASSIGN', 'ROLE:CREATE', 'ROLE:UPDATE', 'PERMISSION:VIEW', 'KPI:VIEW', 'KPI:CREATE', 'KPI:UPDATE', 'KPI:APPROVE_CRITERIA', 'KPI:APPROVE_ADJUSTMENT', 'KPI:APPROVE_OWN', 'KPI:IMPORT', 'KPI:SUBMIT', 'KPI:REJECT', 'KPI_PERIOD:VIEW', 'KPI_PERIOD:CREATE', 'KPI_PERIOD:UPDATE', 'KPI_CYCLE:VIEW', 'KPI_CYCLE:CREATE', 'KPI_CYCLE:UPDATE', 'CYCLE_EVAL:VIEW', 'CYCLE_EVAL:FINALIZE', 'CYCLE_EVAL:SEND', 'SUBMISSION:REVIEW', 'SUBMISSION:VIEW', 'SUBMISSION:UPDATE', 'EVALUATION:VIEW', 'EVALUATION:CREATE', 'EVALUATION:UPDATE', 'NOTIF:VIEW', 'NOTIF:MANAGE', 'AI:SUGGEST_KPI', 'POLICY:VIEW', 'POLICY:CREATE', 'POLICY:UPDATE', 'POLICY:ASSIGN', 'STATS:VIEW_ORG', 'STATS:VIEW_EMPLOYEE', 'USER_ROLE:VIEW', 'USER_ROLE:ASSIGN', 'ATTACHMENT:UPLOAD', 'REMINDER:SEND', 'COMPANY:DELETE', 'ROLE:DELETE', 'POLICY:DELETE', 'PERMISSION:EDIT', 'REWARD:VIEW_MY', 'REWARD:VIEW', 'REWARD:GRANT', 'REWARD:APPROVE', 'GIFT:MANAGE', 'GIFT:REDEEM', 'GIFT:FULFILL', 'WALLET:VIEW_MY', 'WALLET:VIEW')
 ON CONFLICT DO NOTHING;
 INSERT INTO role_permissions (role_id, permission_id)
-SELECT 'c4000000-0000-0000-0000-000000000001', id FROM permissions WHERE code IN ('BSC:VIEW', 'OKR:VIEW', 'DASHBOARD:VIEW', 'ORG:VIEW_TREE', 'USER:VIEW_LIST', 'KPI:VIEW', 'KPI:CREATE', 'KPI:UPDATE', 'KPI:DELETE', 'KPI:APPROVE_CRITERIA', 'KPI:APPROVE_ADJUSTMENT', 'KPI:APPROVE_OWN', 'KPI:IMPORT', 'KPI:SUBMIT', 'KPI:REJECT', 'KPI_PERIOD:VIEW', 'KPI_CYCLE:VIEW', 'CYCLE_EVAL:VIEW', 'CYCLE_EVAL:FINALIZE', 'CYCLE_EVAL:SEND', 'SUBMISSION:VIEW', 'SUBMISSION:REVIEW', 'SUBMISSION:REVIEW_KPI', 'EVALUATION:VIEW', 'EVALUATION:CREATE', 'NOTIF:VIEW', 'AI:SUGGEST_KPI', 'AI_QUOTA:ALLOCATE', 'STATS:VIEW_EMPLOYEE', 'ATTACHMENT:UPLOAD', 'REMINDER:SEND', 'KPI:VIEW_MY', 'SUBMISSION:VIEW_MY', 'STATS:VIEW_MY', 'ADJUSTMENT:VIEW_MY', 'REWARD:VIEW_MY', 'REWARD:VIEW', 'REWARD:GRANT', 'GIFT:REDEEM', 'WALLET:VIEW_MY', 'WALLET:VIEW')
+SELECT 'c4000000-0000-0000-0000-000000000001', id FROM permissions WHERE code IN ('BSC:VIEW', 'BSC:MANAGE_UNIT', 'OKR:VIEW', 'DASHBOARD:VIEW', 'ORG:VIEW_TREE', 'USER:VIEW_LIST', 'KPI:VIEW', 'KPI:CREATE', 'KPI:UPDATE', 'KPI:DELETE', 'KPI:APPROVE_CRITERIA', 'KPI:APPROVE_ADJUSTMENT', 'KPI:APPROVE_OWN', 'KPI:IMPORT', 'KPI:SUBMIT', 'KPI:REJECT', 'KPI_PERIOD:VIEW', 'KPI_CYCLE:VIEW', 'CYCLE_EVAL:VIEW', 'CYCLE_EVAL:FINALIZE', 'CYCLE_EVAL:SEND', 'SUBMISSION:VIEW', 'SUBMISSION:REVIEW', 'SUBMISSION:REVIEW_KPI', 'EVALUATION:VIEW', 'EVALUATION:CREATE', 'NOTIF:VIEW', 'AI:SUGGEST_KPI', 'AI_QUOTA:ALLOCATE', 'STATS:VIEW_EMPLOYEE', 'ATTACHMENT:UPLOAD', 'REMINDER:SEND', 'KPI:VIEW_MY', 'SUBMISSION:VIEW_MY', 'STATS:VIEW_MY', 'ADJUSTMENT:VIEW_MY', 'REWARD:VIEW_MY', 'REWARD:VIEW', 'REWARD:GRANT', 'GIFT:REDEEM', 'WALLET:VIEW_MY', 'WALLET:VIEW')
 ON CONFLICT DO NOTHING;
 INSERT INTO role_permissions (role_id, permission_id)
-SELECT 'c4000000-0000-0000-0000-000000000002', id FROM permissions WHERE code IN ('BSC:VIEW', 'OKR:VIEW', 'DASHBOARD:VIEW', 'ORG:VIEW_TREE', 'USER:VIEW_LIST', 'KPI:VIEW', 'KPI:CREATE','KPI:UPDATE', 'KPI:DELETE', 'KPI:IMPORT', 'KPI:SUBMIT', 'KPI:REJECT', 'KPI_PERIOD:VIEW', 'KPI_CYCLE:VIEW', 'SUBMISSION:VIEW', 'SUBMISSION:REVIEW_KPI', 'EVALUATION:VIEW', 'EVALUATION:CREATE', 'NOTIF:VIEW', 'AI:SUGGEST_KPI', 'STATS:VIEW_EMPLOYEE', 'ATTACHMENT:UPLOAD', 'REMINDER:SEND', 'KPI:VIEW_MY', 'SUBMISSION:VIEW_MY', 'EVALUATION:VIEW_MY', 'STATS:VIEW_MY', 'ADJUSTMENT:VIEW_MY', 'REWARD:VIEW_MY', 'REWARD:VIEW', 'REWARD:GRANT', 'GIFT:REDEEM', 'WALLET:VIEW_MY', 'WALLET:VIEW')
+SELECT 'c4000000-0000-0000-0000-000000000002', id FROM permissions WHERE code IN ('BSC:VIEW', 'BSC:MANAGE_UNIT', 'OKR:VIEW', 'DASHBOARD:VIEW', 'ORG:VIEW_TREE', 'USER:VIEW_LIST', 'KPI:VIEW', 'KPI:CREATE','KPI:UPDATE', 'KPI:DELETE', 'KPI:IMPORT', 'KPI:SUBMIT', 'KPI:REJECT', 'KPI_PERIOD:VIEW', 'KPI_CYCLE:VIEW', 'SUBMISSION:VIEW', 'SUBMISSION:REVIEW_KPI', 'EVALUATION:VIEW', 'EVALUATION:CREATE', 'NOTIF:VIEW', 'AI:SUGGEST_KPI', 'STATS:VIEW_EMPLOYEE', 'ATTACHMENT:UPLOAD', 'REMINDER:SEND', 'KPI:VIEW_MY', 'SUBMISSION:VIEW_MY', 'EVALUATION:VIEW_MY', 'STATS:VIEW_MY', 'ADJUSTMENT:VIEW_MY', 'REWARD:VIEW_MY', 'REWARD:VIEW', 'REWARD:GRANT', 'GIFT:REDEEM', 'WALLET:VIEW_MY', 'WALLET:VIEW')
 ON CONFLICT DO NOTHING;
 INSERT INTO role_permissions (role_id, permission_id)
 SELECT 'c4000000-0000-0000-0000-000000000003', id FROM permissions WHERE code IN ('BSC:VIEW', 'OKR:VIEW', 'DASHBOARD:VIEW', 'KPI:VIEW', 'KPI:CREATE','KPI:UPDATE', 'KPI:DELETE', 'KPI:IMPORT', 'KPI:SUBMIT', 'KPI_PERIOD:VIEW', 'KPI_CYCLE:VIEW', 'SUBMISSION:CREATE', 'EVALUATION:VIEW', 'EVALUATION:CREATE', 'NOTIF:VIEW', 'ATTACHMENT:UPLOAD', 'KPI:VIEW_MY', 'SUBMISSION:VIEW_MY', 'EVALUATION:VIEW_MY', 'STATS:VIEW_MY', 'ADJUSTMENT:VIEW_MY', 'REWARD:VIEW_MY', 'GIFT:REDEEM', 'WALLET:VIEW_MY')
@@ -2554,24 +2557,24 @@ WHERE NOT EXISTS (
     SELECT 1 FROM bsc_perspectives p
     WHERE p.organization_id = o.id AND p.code = v.code AND p.deleted_at IS NULL);
 
--- 18.3 Thẻ điểm: một thẻ cho mỗi (tổ chức, đợt), gắn theo ĐỢT (apply_scope = 'PERIOD').
--- KHÔNG có thẻ điểm thì BscScoringService.computeUserScore trả null ngay từ dòng đầu, nên chấm lại
--- điểm sẽ không sinh ra gì và chế độ chấm hiện ra là rỗng. Danh sách bsc_scorecard_org_units để
--- TRỐNG = thẻ mặc định của toàn tổ chức.
+-- 18.3 Bộ tiêu chí: một bộ cho mỗi (tổ chức, đợt), gắn theo ĐỢT (apply_scope = 'PERIOD').
+-- KHÔNG có bộ tiêu chí thì BscScoringService.computeUserScore trả null ngay từ dòng đầu, nên chấm
+-- lại điểm sẽ không sinh ra gì và chế độ chấm hiện ra là rỗng. Danh sách bsc_scorecard_org_units
+-- để TRỐNG = bộ tiêu chí mặc định toàn tổ chức, và cũng chính là điều kiện để level = 'COMPANY'.
 --
 -- SHADOW là mặc định đúng cho dữ liệu mẫu: điểm BSC được tính và lưu để xem, nhưng KHÔNG thay điểm
 -- chính thức của nhân viên.
 INSERT INTO bsc_scorecards
     (organization_id, apply_scope, name, vision, status, scoring_mode, empty_perspective_policy)
 SELECT p.organization_id, 'PERIOD',
-       'Thẻ điểm cân bằng — ' || p.name,
-       'Cân bằng bốn viễn cảnh: tài chính, khách hàng, quy trình nội bộ, học hỏi và phát triển.',
+       'Bộ tiêu chí — ' || p.name,
+       'Cân bằng bốn lĩnh vực: tài chính, khách hàng, quy trình nội bộ, học hỏi và phát triển.',
        'ACTIVE', 'SHADOW', 'RENORMALIZE'
 FROM kpi_periods p
 WHERE NOT EXISTS (
     SELECT 1 FROM bsc_scorecards s
     WHERE s.organization_id = p.organization_id AND s.deleted_at IS NULL
-      AND s.name = 'Thẻ điểm cân bằng — ' || p.name);
+      AND s.name = 'Bộ tiêu chí — ' || p.name);
 
 -- Gắn đợt cho thẻ vừa tạo. Ghép theo tên vì tên thẻ được sinh từ chính tên đợt ở câu trên
 -- (INSERT ... SELECT không trả về được cột nguồn để nối trực tiếp).
@@ -2579,15 +2582,19 @@ INSERT INTO bsc_scorecard_periods (scorecard_id, kpi_period_id)
 SELECT s.id, p.id
 FROM bsc_scorecards s
 JOIN kpi_periods p ON p.organization_id = s.organization_id
-                  AND s.name = 'Thẻ điểm cân bằng — ' || p.name
+                  AND s.name = 'Bộ tiêu chí — ' || p.name
 WHERE s.deleted_at IS NULL
 ON CONFLICT DO NOTHING;
 
 -- 18.4 Trọng số bốn viễn cảnh trong mỗi thẻ điểm. Tổng PHẢI bằng 100 — BscScoringService chia cho
 -- tổng trọng số của các viễn cảnh CÓ dữ liệu (chính sách RENORMALIZE), nên tổng lệch 100 làm điểm
 -- BSC lệch theo.
-INSERT INTO bsc_scorecard_perspectives (scorecard_id, perspective_id, weight_percentage, display_order)
-SELECT s.id, p.id, w.weight, p.display_order
+-- Chép luôn mục tiêu của hạng mục xuống dòng: từ đây mục tiêu "sống" ở dòng bộ tiêu chí, con số
+-- trên hạng mục chỉ còn là mặc định gợi ý. Chép sẵn để sửa hạng mục về sau không âm thầm làm đổi
+-- điểm của bộ tiêu chí đã dùng.
+INSERT INTO bsc_scorecard_perspectives (scorecard_id, perspective_id, weight_percentage, display_order,
+                                        target_value, minimum_value, unit)
+SELECT s.id, p.id, w.weight, p.display_order, p.target_value, p.minimum_value, p.unit
 FROM bsc_scorecards s
 JOIN bsc_perspectives p ON p.organization_id = s.organization_id AND p.deleted_at IS NULL
 JOIN (VALUES
@@ -2792,3 +2799,28 @@ WHERE s.is_default
       SELECT 1 FROM conduct_criteria x
       WHERE x.conduct_criteria_set_id = s.id AND x.deleted_at IS NULL
   );
+
+-- ====================================================
+-- 19. CHÍNH SÁCH HỆ SỐ CASCADE — một bản mặc định cho mỗi tổ chức
+--
+-- Seed để tính năng chạy được ngay sau khi deploy thay vì im lặng bỏ qua tầng hệ số. Các dải đúng
+-- bằng ví dụ trong docs/bsc-cascade-design.md: phòng đạt 92% ⇒ 0.95, công ty 97% ⇒ 1.00.
+--
+-- organizations không xoá mềm bằng deleted_at mà đánh dấu qua status, nên lọc theo status.
+-- ====================================================
+
+INSERT INTO bsc_cascade_policies (id, organization_id, name)
+SELECT gen_random_uuid(), o.id, 'Chính sách hệ số mặc định'
+FROM organizations o
+WHERE o.status <> 'ARCHIVED';
+
+INSERT INTO bsc_factor_bands (policy_id, scope, from_percent, to_percent, factor, label, color, display_order)
+SELECT p.id, s.scope, b.from_percent, b.to_percent, b.factor, b.label, b.color, b.display_order
+FROM bsc_cascade_policies p
+CROSS JOIN (VALUES ('UNIT'), ('COMPANY')) AS s(scope)
+CROSS JOIN (VALUES
+    (105.0, NULL::DOUBLE PRECISION, 1.10, 'Vượt trội',     '#10b981', 0),
+    ( 95.0, 105.0,                  1.00, 'Đạt',           '#3b82f6', 1),
+    ( 80.0,  95.0,                  0.95, 'Cần cải thiện', '#f59e0b', 2),
+    (NULL,   80.0,                  0.90, 'Không đạt',     '#ef4444', 3)
+) AS b(from_percent, to_percent, factor, label, color, display_order);

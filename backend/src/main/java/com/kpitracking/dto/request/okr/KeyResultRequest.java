@@ -1,6 +1,5 @@
 package com.kpitracking.dto.request.okr;
 
-import jakarta.validation.constraints.NotBlank;
 import lombok.*;
 
 import java.util.List;
@@ -8,7 +7,7 @@ import java.util.UUID;
 
 @Getter @Setter @Builder @NoArgsConstructor @AllArgsConstructor
 public class KeyResultRequest {
-    @NotBlank
+    /** Bỏ trống nếu tổ chức bật sinh mã tự động — backend cấp mã theo mẫu của tổ chức. */
     private String code;
     private String name;
     private String description;

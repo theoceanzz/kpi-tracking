@@ -46,6 +46,7 @@ public class EvaluationService {
     private final PermissionChecker permissionChecker;
     private final KpiAchievementCalculator achievementCalculator;
     private final BscScoringService bscScoringService;
+    private final BscCascadeService bscCascadeService;
     private final ConductService conductService;
 
     /**
@@ -182,13 +183,45 @@ public class EvaluationService {
                         + String.join(", ", bscResult.getUnassignedKpiNames()) + ")");
             }
 
-            // CHÍNH THỨC ⇒ điểm bị KHÓA theo bsc_score: bỏ qua điểm người đánh giá gửi lên.
+            // CASCADE (docs/bsc-cascade-design.md — QĐ-4): quy kết quả BSC của phòng và của công ty
+            // thành hệ số rồi nhân vào điểm gốc. Áp ĐÚNG MỘT LẦN, ở đây, trên điểm gốc — không được
+            // nhúng vào computeForUser, nếu không phần KPI đã roll-up lên BSC phòng bị đếm hai lượt.
+            var cascade = bscResult == null ? null : bscCascadeService.applyForUser(
+                    bscResult.getScorecard(), org.getId(), kpiPeriod.getId(), bscResult.getBscScore());
+            // Hạng mục chặn (QĐ-7) chạy SAU khi có điểm công nhận và KHÔNG đụng vào điểm.
+            var gate = bscCascadeService.evaluateGates(bscResult, BscCascadeService.DEFAULT_MAX_RATING);
+
+            // CHÍNH THỨC ⇒ điểm bị KHÓA theo BSC: bỏ qua điểm người đánh giá gửi lên.
             // Ép ở server (không chỉ khóa UI) để gọi thẳng API cũng không sửa được điểm.
+            // Điểm khoá là điểm CÔNG NHẬN (sau hệ số), không phải điểm gốc.
             if (isOfficial && bscResult.getBscScore() != null) {
-                evaluation.setScore(bscResult.getBscScore());
+                Double official = cascade != null && cascade.recognized() != null
+                        ? cascade.recognized() : bscResult.getBscScore();
+                evaluation.setScore(official);
             }
 
             evaluation.setBscScore(bscResult != null ? bscResult.getBscScore() : null);
+            if (cascade != null) {
+                evaluation.setRawBscScore(cascade.rawScore());
+                evaluation.setUnitFactor(cascade.unitFactor());
+                evaluation.setCompanyFactor(cascade.companyFactor());
+                evaluation.setRecognizedScore(cascade.recognized());
+                evaluation.setCascadePolicy(cascade.policy());
+            }
+            evaluation.setGatePassed(gate.passed());
+            evaluation.setGateCapRating(gate.capRating());
+            evaluation.setGateFailedItems(gate.failedItems());
+            // Chặn tác động lên XẾP LOẠI, không lên điểm: 104 điểm vẫn là 104 điểm, chỉ trần hạ xuống.
+            if (gate.capRating() != null && evaluation.getMatrixRating() != null) {
+                evaluation.setMatrixRating(Math.min(evaluation.getMatrixRating(), gate.capRating()));
+            }
+
+            // Ghi đè thủ công là quyết định của con người (QĐ-6) — tính lại KHÔNG được xoá nó,
+            // nếu không mỗi lần chấm lại là một lần âm thầm huỷ quyết định đã phê duyệt.
+            if (evaluation.getOverrideScore() != null) {
+                evaluation.setScore(evaluation.getOverrideScore());
+            }
+
             bscScoringService.persistBreakdown(evaluation, bscResult);
             evaluation = evaluationRepository.save(evaluation);
         }

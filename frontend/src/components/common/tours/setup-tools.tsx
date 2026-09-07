@@ -604,7 +604,7 @@ const setupToolsTours: Record<TourKey, TourDef> = {
           <div className="space-y-2">
             <p>
               Mỗi <strong>bộ tiêu chí</strong> gắn với một kỳ và một phạm vi đơn vị. Bên trong là các hạng
-              mục chia theo bốn lĩnh vực của Thẻ điểm cân bằng, mỗi hạng mục một trọng số.
+              mục chia theo bốn lĩnh vực cố định của BSC, mỗi hạng mục một trọng số.
             </p>
             {note('Nút "Import" ở đây nhập được cả bộ tiêu chí kèm trọng số, hoặc chỉ danh mục hạng mục — chọn đúng loại tệp trong menu đổ xuống.')}
           </div>

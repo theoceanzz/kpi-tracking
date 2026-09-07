@@ -23,6 +23,11 @@ public class ScorecardRequest {
     private UUID kpiCycleId;
     /** Các phòng ban áp dụng bộ tiêu chí; RỖNG/null = bộ tiêu chí mặc định toàn tổ chức. */
     private List<UUID> orgUnitIds;
+    /**
+     * Bộ tiêu chí cấp trên trong cây BSC (QĐ-1). Chỉ hợp lệ với thẻ cấp đơn vị — thẻ toàn tổ chức
+     * là gốc nên không nhận cha. Cấp (COMPANY/UNIT) KHÔNG nhận từ client mà suy từ orgUnitIds.
+     */
+    private UUID parentScorecardId;
     private BscScorecardStatus status;
     private BscScoringMode scoringMode;
     private BscEmptyPerspectivePolicy emptyPerspectivePolicy;

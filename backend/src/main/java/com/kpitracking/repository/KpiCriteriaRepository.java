@@ -117,6 +117,26 @@ public interface KpiCriteriaRepository extends JpaRepository<KpiCriteria, UUID> 
     Page<KpiCriteria> findByUserIdInAssigneesAndKpiPeriodIdWithDate(@Param("userId") UUID userId, @Param("kpiPeriodId") UUID kpiPeriodId, @Param("statuses") List<KpiStatus> statuses, 
                                                                    @Param("startDate") Instant startDate, @Param("endDate") Instant endDate, Pageable pageable);
 
+    /**
+     * Toàn bộ KPI của một nhóm đơn vị trong một đợt — nguồn số liệu của cách đo ROLLUP.
+     *
+     * <p>Không lọc theo người: kết quả của đơn vị là tổng đóng góp của mọi người trong đơn vị đó.
+     * Cũng KHÔNG lọc theo dòng chỉ tiêu BSC ngay trong câu truy vấn: việc khớp KPI với dòng nào
+     * được làm ở service, vì còn phải xử lý KPI mới chỉ gắn hạng mục chứ chưa gắn dòng cụ thể.
+     */
+    @Query("SELECT DISTINCT k FROM KpiCriteria k WHERE k.orgUnit.id IN :unitIds "
+            + "AND k.kpiPeriod.id = :periodId AND k.status IN :statuses")
+    List<KpiCriteria> findByOrgUnitsAndPeriod(@Param("unitIds") Collection<UUID> unitIds,
+                                              @Param("periodId") UUID periodId,
+                                              @Param("statuses") List<KpiStatus> statuses);
+
+    /** Mọi KPI của một người trong một đợt, không phân trang — dùng để đo tỉ lệ trọng số liên kết BSC. */
+    @Query("SELECT DISTINCT k FROM KpiCriteria k JOIN k.assignees a WHERE a.id = :userId "
+            + "AND k.kpiPeriod.id = :periodId AND k.status IN :statuses")
+    List<KpiCriteria> findAllByAssigneeAndPeriod(@Param("userId") UUID userId,
+                                                 @Param("periodId") UUID periodId,
+                                                 @Param("statuses") List<KpiStatus> statuses);
+
     long countByOrgUnitId(UUID orgUnitId);
 
     long countByOrgUnitIdAndStatus(UUID orgUnitId, KpiStatus status);

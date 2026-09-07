@@ -23,6 +23,7 @@ import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrig
 import { Badge } from '@/components/ui/badge'
 import { DateTimePicker } from '@/components/common/DateTimePicker'
 import { scorecardsForPeriod } from '@/features/bsc/utils/scorecardScope'
+import { perspectiveHint } from '@/features/bsc/utils/perspectiveHint'
 
 interface KpiFormModalProps {
   open: boolean
@@ -388,6 +389,27 @@ export default function KpiFormModal({ open, onClose, editKpi, parentKpi, parent
     }
     return periodScs.find(s => !s.orgUnits || s.orgUnits.length === 0) || null
   }, [bscScorecards, formKpiPeriodId, formOrgUnitIds, unitParent])
+
+  /**
+   * Con số của từng hạng mục để hiện ngay trong dropdown.
+   *
+   * Lấy từ DÒNG của bộ tiêu chí hiệu lực chứ không từ danh mục hạng mục: cùng một hạng mục
+   * "Doanh thu" nhưng mỗi đơn vị đặt một mục tiêu khác nhau, hiện số của danh mục là hiện nhầm
+   * con số của đơn vị khác. Chưa chọn đủ kỳ/đơn vị để biết bộ tiêu chí nào thì rơi về danh mục.
+   */
+  const perspectiveNumbers = useMemo(() => {
+    const map = new Map<string, string | null>()
+    for (const p of perspectives || []) {
+      const row = effectiveScorecard?.perspectives.find(sp => sp.perspectiveId === p.id)
+      map.set(p.id, perspectiveHint({
+        targetValue: row?.targetValue ?? p.targetValue,
+        minimumValue: row?.minimumValue ?? p.minimumValue,
+        unit: row?.unit ?? p.unit,
+        weightPercentage: row?.weightPercentage ?? null,
+      }))
+    }
+    return map
+  }, [perspectives, effectiveScorecard])
 
   // Trọng số THẬT (chỉ hiển thị) = trọng số form × %hạng_mục (lấy từ bộ tiêu chí hiệu lực của đơn vị KPI).
   // Form% chỉ để đủ 100%/hạng mục; trọng số thật mới là phần đóng góp vào 100% của đơn vị.
@@ -1321,7 +1343,12 @@ export default function KpiFormModal({ open, onClose, editKpi, parentKpi, parent
                           <div key={group.code}>
                             <div className="px-3 pt-2 pb-1 text-[10px] font-black uppercase tracking-wider text-slate-400">{group.name}</div>
                             {group.items.map(p => (
-                              <SelectItem key={p.id} value={p.id} className="rounded-xl py-2.5 pl-3 pr-3 focus:bg-violet-50 focus:text-violet-700 transition-colors">
+                              <SelectItem key={p.id} value={p.id} className="rounded-xl py-2.5 pl-3 pr-3 focus:bg-violet-50 focus:text-violet-700 transition-colors"
+                                extra={perspectiveNumbers.get(p.id) && (
+                                  <span className="ml-auto pl-3 text-[10px] font-bold text-slate-400 whitespace-nowrap">
+                                    {perspectiveNumbers.get(p.id)}
+                                  </span>
+                                )}>
                                 <span className="flex items-center gap-2">
                                   <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: p.color || '#94a3b8' }} />
                                   <span className="font-semibold text-xs truncate">{p.name}</span>

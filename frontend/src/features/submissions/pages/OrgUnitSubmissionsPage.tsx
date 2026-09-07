@@ -105,10 +105,43 @@ export default function OrgUnitSubmissionsPage() {
   // Tải trọn danh sách nhân sự của đơn vị rồi mới cắt trang ở client. Xếp "chờ duyệt lên
   // đầu" trên từng trang 10 người do server cắt sẵn chỉ sắp lại đúng trang đang xem —
   // người còn bài chờ ở trang 3 vẫn nằm im ở trang 3.
+  /**
+   * Chọn một đơn vị = xem cả nhánh dưới nó, giống trang Đánh giá kỳ — chọn đơn vị gốc là thấy
+   * toàn tổ chức.
+   *
+   * Phải tự gom ở client vì ba API trên trang này không nhất quán: `/evaluations` và `/submissions`
+   * tự mở rộng theo `path` của đơn vị ở backend, còn `/users` lọc KHỚP CHÍNH XÁC theo danh sách id.
+   * Không gom thì chọn đơn vị cha ra danh sách rỗng, trong khi hai khối số liệu kia vẫn có dữ liệu
+   * của cả nhánh — lệch nhau ngay trên cùng một màn hình.
+   */
+  const subtreeUnitIds = useMemo<string[] | undefined>(() => {
+    if (selectedOrgUnitId === 'ALL') return undefined
+    type Node = { id: string; children?: Node[] }
+    const findNode = (nodes: Node[]): Node | null => {
+      for (const n of nodes) {
+        if (n.id === selectedOrgUnitId) return n
+        const hit = findNode(n.children ?? [])
+        if (hit) return hit
+      }
+      return null
+    }
+    const collect = (n: Node, out: string[]) => {
+      out.push(n.id)
+      ;(n.children ?? []).forEach(c => collect(c, out))
+    }
+    const node = findNode((orgUnitTreeData as Node[]) || [])
+    if (!node) return [selectedOrgUnitId] // cây chưa tải xong ⇒ tạm lọc đúng đơn vị đang chọn
+    const out: string[] = []
+    collect(node, out)
+    return out
+  }, [orgUnitTreeData, selectedOrgUnitId])
+
   const { data: usersData, isLoading: isLoadingUsers } = useUsers({
     page: 0,
     size: 1000,
-    orgUnitId: selectedOrgUnitId === 'ALL' ? undefined : selectedOrgUnitId,
+    // BE nhận orgUnitIds (List). Gửi orgUnitId số ít thì Spring bỏ qua tham số lạ, API trả về
+    // TOÀN BỘ nhân sự của tổ chức mà không báo lỗi gì — bộ lọc đơn vị trông như không hoạt động.
+    orgUnitIds: subtreeUnitIds,
     keyword: search || undefined,
     organizationId: orgId
   })

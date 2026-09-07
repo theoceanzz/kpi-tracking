@@ -1,5 +1,6 @@
 import {
   LayoutDashboard,
+  Hash,
   Building2,
   Users,
   Target,
@@ -164,11 +165,17 @@ export const navItems: NavItem[] = [
           { id: 'scoring', label: 'Thang điểm', icon: <SlidersHorizontal size={18} />, permission: ADMIN_ALL, requireAllPermissions: true, legacyKeys: ['/settings/scoring', 'quantitative'], group: 'Cấu hình', description: 'Thang điểm định lượng và các mức đánh giá định tính' },
           { id: 'matrix', label: 'Ma trận đánh giá', icon: <Grid3x3 size={18} />, permission: ADMIN_ALL, requireAllPermissions: true, group: 'Cấu hình', description: 'Ánh xạ điểm hành vi và % KPI sang xếp loại cuối cùng' },
           { id: 'unit-class', label: 'Xếp loại đơn vị', icon: <Scale size={18} />, permission: ADMIN_ALL, requireAllPermissions: true, group: 'Cấu hình', description: 'Tiêu chuẩn xếp loại áp cho từng đơn vị' },
+          // Chỉ hiện khi tổ chức bật OKR hoặc BSC — xem `visible` ở ToolSettingsPage. Cây nav
+          // không có cờ "bật A HOẶC B" nên vế đó do trang quyết định.
+          { id: 'code-rules', label: 'Quy tắc sinh mã', icon: <Hash size={18} />, permission: ADMIN_ALL, requireAllPermissions: true, group: 'Cấu hình', description: 'Mẫu mã tự sinh cho Mục tiêu, Kết quả then chốt và hạng mục BSC' },
 
           // Sáu công cụ quản lý. Quyền lấy đúng theo cổng route cũ của từng cái.
           { id: 'kpi-cycles', label: 'Quản lý kỳ/đợt đánh giá', icon: <CalendarRange size={18} />, permission: ['KPI_CYCLE:CREATE', 'KPI_PERIOD:CREATE'], legacyKeys: ['/kpi-cycles', '/kpi-periods'], group: 'Công cụ', description: 'Kỳ đánh giá tổng hợp và các đợt bên trong mỗi kỳ' },
           { id: 'okr', label: 'Quản lý OKR', icon: <Target size={18} />, permission: 'OKR:MANAGE', okrOnly: true, legacyKeys: ['/okr'], group: 'Công cụ', description: 'Mục tiêu và kết quả then chốt của toàn tổ chức' },
-          { id: 'bsc', label: 'Quản lý BSC', icon: <LayoutGrid size={18} />, permission: 'BSC:MANAGE', bscOnly: true, legacyKeys: ['/bsc', 'Quản lý BSC'], group: 'Công cụ', description: 'Dựng bộ tiêu chí từng kỳ: hạng mục theo 4 lĩnh vực và trọng số' },
+          // Trưởng đơn vị cũng vào đây — họ phải tự lập được BSC của phòng mình (kịch bản (b) và (c)
+          // của mô hình phân rã). Vào rồi thì mỗi nút bên trong tự gác quyền của nó, và backend
+          // chặn tiếp: người chỉ có MANAGE_UNIT không đụng được bộ tiêu chí của đơn vị khác.
+          { id: 'bsc', label: 'Quản lý BSC', icon: <LayoutGrid size={18} />, permission: ['BSC:MANAGE', 'BSC:MANAGE_UNIT'], bscOnly: true, legacyKeys: ['/bsc', 'Quản lý BSC'], group: 'Công cụ', description: 'Dựng bộ tiêu chí từng kỳ: hạng mục theo 4 lĩnh vực và trọng số' },
           { id: 'rewards', label: 'Quản lý thưởng', icon: <Gift size={18} />, permission: ['REWARD:GRANT', 'REWARD:APPROVE', 'REWARD:CONFIG', 'REWARD:VIEW'], rewardOnly: true, legacyKeys: ['/rewards'], group: 'Công cụ', description: 'Đề nghị thưởng, hạn mức, điểm danh và quà tặng' },
           { id: 'wallet', label: 'Quản lý ví', icon: <Landmark size={18} />, permission: ['WALLET:VIEW', 'WALLET:CONFIG', 'WALLET:RECONCILE'], walletOnly: true, legacyKeys: ['/wallet'], group: 'Công cụ', description: 'Số dư nhân sự, cấu hình nạp tiền và đối soát' },
           { id: 'ai-quota', label: 'Quản lý token AI', icon: <Coins size={18} />, permission: 'AI_QUOTA:ALLOCATE', aiOnly: true, legacyKeys: ['/ai-quota'], group: 'Công cụ', description: 'Chia hạn mức token AI cho các đơn vị cấp dưới' },

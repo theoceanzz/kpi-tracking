@@ -51,6 +51,13 @@ public class KpiCriteriaResponse {
     private String objectiveCode;
     // Lĩnh vực gán TRỰC TIẾP trên KPI (dùng cho form sửa — chỉ phần gán trực tiếp).
     private UUID perspectiveId;
+
+    /** Dòng chỉ tiêu của bộ tiêu chí BSC mà KPI này bám vào (null = KPI tự do, không liên kết BSC). */
+    private UUID scorecardPerspectiveId;
+    private String scorecardPerspectiveName;
+    private String scorecardName;
+    /** ASSIGNED = quản lý giao xuống, SELF = nhân viên tự khai (QĐ-3). */
+    private com.kpitracking.enums.BscItemOrigin origin;
     private String perspectiveName;
     private String perspectiveColor;
     // Lĩnh vực HIỆU LỰC (gồm cả kế thừa từ Objective cha) — dùng để hiển thị tag.

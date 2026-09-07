@@ -32,6 +32,9 @@ export const kpiApi = {
   delete: (id: string) =>
     axiosInstance.delete<ApiResponse<void>>(`/kpi-criteria/${id}`).then((r) => r.data),
 
+  bulkDelete: (ids: string[]) =>
+    axiosInstance.post<ApiResponse<number>>('/kpi-criteria/bulk-delete', ids).then((r) => r.data.data),
+
   submit: (id: string) =>
     axiosInstance.post<ApiResponse<KpiCriteria>>(`/kpi-criteria/${id}/submit`).then((r) => r.data.data),
 

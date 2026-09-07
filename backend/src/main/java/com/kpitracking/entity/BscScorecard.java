@@ -2,6 +2,7 @@ package com.kpitracking.entity;
 
 import com.kpitracking.enums.BscEmptyPerspectivePolicy;
 import com.kpitracking.enums.BscScorecardApplyScope;
+import com.kpitracking.enums.BscScorecardLevel;
 import com.kpitracking.enums.BscScorecardStatus;
 import com.kpitracking.enums.BscScoringMode;
 import jakarta.persistence.*;
@@ -77,6 +78,28 @@ public class BscScorecard {
     @JoinColumn(name = "kpi_cycle_id")
     private KpiCycle kpiCycle;
 
+    /**
+     * Cấp trong cây BSC. SUY RA từ {@link #orgUnits} (rỗng = COMPANY, có = UNIT) chứ không nhận
+     * từ client — xem {@code BscService.resolveLevel}.
+     */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "level", nullable = false, length = 20)
+    @Builder.Default
+    private BscScorecardLevel level = BscScorecardLevel.COMPANY;
+
+    /**
+     * Bộ tiêu chí cấp trên mà thẻ này nhận phân rã. Null với BSC công ty (gốc của cây) và với
+     * BSC đơn vị chưa gắn cha. Việc phân rã TỪNG CHỈ TIÊU nằm ở P2; ở đây mới chỉ có quan hệ cây.
+     */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "parent_scorecard_id")
+    private BscScorecard parentScorecard;
+
+    /** Người chịu trách nhiệm bộ tiêu chí này (trưởng đơn vị với BSC phòng). */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "owner_id")
+    private User owner;
+
     @Column(name = "name", nullable = false)
     private String name;
 
@@ -102,6 +125,30 @@ public class BscScorecard {
     @OrderBy("displayOrder ASC")
     @Builder.Default
     private List<BscScorecardPerspective> scorecardPerspectives = new ArrayList<>();
+
+    // ── Vòng đời trình–duyệt (mục 4.2) ─────────────────
+    // Lưu cả người lẫn thời điểm vì đây là dữ liệu phải giải trình được về sau: ai đã trình,
+    // ai đã duyệt, trả lại vì lý do gì.
+
+    @Column(name = "submitted_at")
+    private Instant submittedAt;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "submitted_by")
+    private User submittedBy;
+
+    @Column(name = "approved_at")
+    private Instant approvedAt;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "approved_by")
+    private User approvedBy;
+
+    @Column(name = "reject_reason", columnDefinition = "TEXT")
+    private String rejectReason;
+
+    @Column(name = "locked_at")
+    private Instant lockedAt;
 
     @CreatedDate
     @Column(name = "created_at", updatable = false)

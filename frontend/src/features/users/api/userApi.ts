@@ -3,7 +3,14 @@ import type { User, ImportUserResult, CreateUserRequest, UpdateUserRequest } fro
 import axiosInstance from '@/lib/axios'
 
 export const userApi = {
- getAll: (params: PageParams & { keyword?: string; orgUnitId?: string; orgUnitIds?: string[]; organizationId?: string; role?: string; sortBy?: string; direction?: string }) =>
+ /**
+  * Danh sách người dùng.
+  *
+  * Lọc theo đơn vị CHỈ có `orgUnitIds` (số nhiều) — đúng tên tham số của backend. Cố tình không
+  * nhận `orgUnitId` số ít: Spring bỏ qua tham số lạ nên gửi nhầm sẽ trả về toàn bộ nhân sự của
+  * tổ chức mà không báo lỗi, và lỗi đó đã lọt ra giao diện hai lần.
+  */
+ getAll: (params: PageParams & { keyword?: string; orgUnitIds?: string[]; organizationId?: string; role?: string; sortBy?: string; direction?: string }) =>
     axiosInstance.get<ApiResponse<PageResponse<User>>>('/users', { 
       params,
       paramsSerializer: {

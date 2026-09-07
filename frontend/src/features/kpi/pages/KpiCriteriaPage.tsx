@@ -40,6 +40,7 @@ import { cn } from '@/lib/utils'
 import { ObjectiveResponse } from '@/features/okr/types'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { useBulkSubmitKpi } from '../hooks/useBulkSubmitKpi'
+import { useBulkDeleteKpi } from '../hooks/useBulkDeleteKpi'
 import { Check, CheckSquare, Zap, Layers } from 'lucide-react'
 import type { KpiType } from '@/types/kpi'
 import Pagination from '@/components/common/Pagination'
@@ -95,6 +96,7 @@ export default function KpiCriteriaPage() {
   const [decomposeKpi, setDecomposeKpi] = useState<KpiCriteria | null>(null)
   const [selectedKpiIds, setSelectedKpiIds] = useState<string[]>([])
   const [showBulkConfirm, setShowBulkConfirm] = useState(false)
+  const [showBulkDeleteConfirm, setShowBulkDeleteConfirm] = useState(false)
   const [showUrgentModal, setShowUrgentModal] = useState(false)
   const [collapsedParents, setCollapsedParents] = useState<Set<string>>(new Set())
   
@@ -230,6 +232,7 @@ export default function KpiCriteriaPage() {
   const deleteMutation = useDeleteKpi()
   const submitMutation = useSubmitKpi()
   const bulkSubmitMutation = useBulkSubmitKpi()
+  const bulkDeleteMutation = useBulkDeleteKpi()
 
   const { data: customLabels = {} } = useSidebarSettings(organizationId!)
   const rawTitle = ((customLabels as Record<string, string>)['/kpi-criteria'] || 'Quản lý chỉ tiêu')
@@ -325,10 +328,14 @@ export default function KpiCriteriaPage() {
   )
   const personGroups = useMemo(() => groupByPerson(filteredKpis, extractAssignees), [filteredKpis])
 
-  // Chỉ thêm cấp nào thực sự có nhiều mục: ≥2 đơn vị mới gom theo đơn vị, ≥2 người mới gom
-  // theo người; một người duy nhất thì giữ danh sách phẳng như cũ.
-  const unitMode = unitGroups.length >= 2
-  const personMode = personGroups.length >= 2
+  // Gom nhóm ngay từ MỘT đơn vị / MỘT người.
+  //
+  // Trước đây phải có ≥2 mới gom, với lập luận "một mục thì danh sách phẳng gọn hơn". Nhưng phần
+  // gọn đi lại là thứ quan trọng nhất: dòng tiêu đề nhóm chính là nơi hiện tổng trọng số và cảnh
+  // báo "chưa đủ 100%". Lọc về đúng một đơn vị — thao tác thường xuyên nhất — là mất luôn con số
+  // dùng để biết đã cấu hình xong hay chưa, đúng lúc cần nó nhất.
+  const unitMode = unitGroups.length >= 1
+  const personMode = personGroups.length >= 1
 
   const myUnitId = user?.memberships?.[0]?.orgUnitId
   const unitCollapse = usePersonGroupCollapse(myUnitId)
@@ -390,6 +397,22 @@ export default function KpiCriteriaPage() {
       ? prev.filter(id => !ids.includes(id))
       : Array.from(new Set([...prev, ...ids]))
     )
+  }
+
+  /** Chỉ cho xoá hàng loạt khi mọi chỉ tiêu đang chọn đều còn là bản nháp. */
+  const selectedKpis = filteredKpis.filter(k => selectedKpiIds.includes(k.id))
+  const allSelectedAreDraft = selectedKpiIds.length > 0
+    && selectedKpis.length === selectedKpiIds.length
+    && selectedKpis.every(k => k.status === 'DRAFT')
+
+  const handleBulkDelete = () => {
+    if (selectedKpiIds.length === 0) return
+    bulkDeleteMutation.mutate(selectedKpiIds, {
+      onSuccess: () => {
+        setSelectedKpiIds([])
+        setShowBulkDeleteConfirm(false)
+      }
+    })
   }
 
   const handleBulkSubmit = () => {
@@ -568,6 +591,15 @@ export default function KpiCriteriaPage() {
                 >
                   {bulkSubmitMutation.isPending ? 'Đang xử lý...' : 'Gửi duyệt toàn bộ'} <Send size={14} />
                 </button>
+                {allSelectedAreDraft && (
+                  <button
+                    onClick={() => setShowBulkDeleteConfirm(true)}
+                    disabled={bulkDeleteMutation.isPending}
+                    className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-6 py-2.5 rounded-2xl bg-red-600 text-white text-xs font-black uppercase tracking-widest hover:bg-red-700 active:scale-95 transition-all shadow-lg whitespace-nowrap"
+                  >
+                    {bulkDeleteMutation.isPending ? 'Đang xoá...' : 'Xoá tất cả'} <Trash2 size={14} />
+                  </button>
+                )}
                 <button
                   onClick={() => setSelectedKpiIds([])}
                   className="hidden sm:inline text-xs font-black uppercase tracking-widest opacity-60 hover:opacity-100 transition-opacity"
@@ -1236,6 +1268,15 @@ export default function KpiCriteriaPage() {
           description={`Bạn đang gửi ${selectedKpiIds.length} chỉ tiêu lên hệ thống để phê duyệt. Hãy đảm bảo tổng trọng số của nhân sự đã đạt 100%. Tiếp tục?`} 
           confirmLabel="Gửi phê duyệt tất cả" 
           loading={bulkSubmitMutation.isPending} 
+        />
+        <ConfirmDialog
+          open={showBulkDeleteConfirm}
+          onClose={() => setShowBulkDeleteConfirm(false)}
+          onConfirm={handleBulkDelete}
+          title="Xoá hàng loạt"
+          description={`Bạn có chắc chắn muốn xoá ${selectedKpiIds.length} chỉ tiêu nháp đang chọn không? Hành động này không thể hoàn tác.`}
+          confirmLabel="Xoá tất cả"
+          loading={bulkDeleteMutation.isPending}
         />
         <input ref={fileRef} type="file" accept=".xlsx,.xls,.csv" className="hidden" onChange={handleImport} />
         <UrgentTaskModal

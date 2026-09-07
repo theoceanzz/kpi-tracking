@@ -42,7 +42,7 @@ function getColumns(enableBsc: boolean) {
     ...(enableBsc ? [
       { name: 'ObjectivePerspective', required: false, desc: 'Hạng mục BSC của Mục tiêu — nhập mã hoặc tên hạng mục (VD: DOANH_THU hoặc Doanh thu). KPI thuộc mục tiêu sẽ kế thừa hạng mục này.', example: 'DOANH_THU' },
     ] : []),
-    { name: 'KeyResultCode', required: true, desc: 'Mã kết quả then chốt', example: 'KR001' },
+    { name: 'KeyResultCode', required: true, desc: 'Mã kết quả then chốt. Để trống ô này thì hệ thống tự cấp mã theo mẫu của công ty (nếu công ty bật sinh mã tự động)', example: 'KR001' },
     { name: 'KeyResultName', required: true, desc: 'Tên kết quả then chốt', example: 'Đạt 1 tỷ VNĐ' },
     { name: 'KeyResultDescription', required: false, desc: 'Mô tả KR', example: 'Doanh thu từ mảng A' },
     { name: 'KeyResultTarget', required: false, desc: 'Chỉ tiêu (số)', example: '1000000000' },

@@ -1,9 +1,9 @@
-import { useRef, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { useAuthStore } from '@/store/authStore'
 import { useBscMutations, useFixedPerspectives, useScorecards, useScorecardMutations } from '../hooks/useBsc'
 import {
   Plus, Edit2, Trash2, FileUp, Calendar, Target, ShieldCheck, Undo2,
-  ChevronDown, ChevronRight, PlusCircle, Layers,
+  ChevronDown, ChevronRight, PlusCircle, Layers, GitBranch, Sliders, List, Lock,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import WorkspaceHeader from '@/components/common/WorkspaceHeader'
@@ -20,6 +20,9 @@ import BscExcelPreviewModal from '../components/BscExcelPreviewModal'
 import ImportScorecardGuideModal from '../components/ImportScorecardGuideModal'
 import ScorecardExcelPreviewModal from '../components/ScorecardExcelPreviewModal'
 import ConfirmDialog from '@/components/common/ConfirmDialog'
+import BscTreePanel from '../components/BscTreePanel'
+import CascadeModal from '../components/CascadeModal'
+import CascadePolicyModal from '../components/CascadePolicyModal'
 
 /**
  * BSC chỉ còn MỘT luồng: bộ tiêu chí. Hạng mục không còn màn riêng mà được tạo/sửa ngay
@@ -56,6 +59,37 @@ export default function BscManagementPage() {
   >(null)
   const [deleteScorecardId, setDeleteScorecardId] = useState<string | null>(null)
   const [publishTarget, setPublishTarget] = useState<ScorecardResponse | null>(null)
+
+  // Hai cách nhìn cùng một dữ liệu: DANH SÁCH để dựng từng bộ tiêu chí, CÂY để thấy mục tiêu công ty
+  // đã xuống tới đâu. Tách tab thay vì nhồi cả hai vào một trang vì hai việc này làm ở hai thời điểm
+  // khác nhau — dựng đầu kỳ, theo dõi phân rã trong kỳ.
+  const [view, setView] = useState<'list' | 'tree'>('list')
+  const [cascadeTarget, setCascadeTarget] = useState<ScorecardResponse | null>(null)
+  const [isPolicyOpen, setIsPolicyOpen] = useState(false)
+  const canManageBsc = hasPermission('BSC:MANAGE')
+
+  /**
+   * Người này sửa/xoá được bộ tiêu chí nào.
+   *
+   * <p>Soi gương đúng luật của {@code BscService.assertCanEditScorecard}: quản trị BSC toàn tổ chức
+   * làm được tất; trưởng đơn vị chỉ đụng được thẻ mà MỌI đơn vị của nó nằm trong phạm vi mình phụ
+   * trách; thẻ không gắn đơn vị nào (BSC toàn tổ chức) thì phải là quản trị.
+   *
+   * <p>Backend vẫn là nơi chặn thật — đây chỉ để không bày ra nút bấm vào là báo lỗi. Cũng vì thế
+   * chỗ này được phép xấp xỉ: nó lấy mọi đơn vị người dùng được gán, trong khi backend lọc theo
+   * đúng vai trò nào mang quyền BSC:MANAGE_UNIT.
+   */
+  const canManageUnitBsc = hasPermission('BSC:MANAGE_UNIT')
+  const myUnitIds = useMemo(
+    () => new Set((user?.memberships ?? []).map(m => m.orgUnitId)),
+    [user],
+  )
+  const canEditScorecard = (sc: ScorecardResponse) => {
+    if (canManageBsc) return true
+    if (!canManageUnitBsc) return false
+    const units = sc.orgUnits ?? []
+    return units.length > 0 && units.every(u => myUnitIds.has(u.id))
+  }
 
   const [isScorecardImportGuideOpen, setIsScorecardImportGuideOpen] = useState(false)
   const [scorecardPreviewFile, setScorecardPreviewFile] = useState<File | null>(null)
@@ -105,6 +139,9 @@ export default function BscManagementPage() {
           <>
             <input type="file" className="hidden" ref={scorecardFileInputRef} accept=".xlsx" onChange={handleScorecardFileSelect} />
             <input type="file" className="hidden" ref={perspectiveFileInputRef} accept=".xlsx" onChange={handlePerspectiveFileSelect} />
+            {/* Import ghi đè bộ tiêu chí của NHIỀU đơn vị theo mã trong tệp, không gác theo phạm vi
+                từng dòng được — nên chỉ người quản trị BSC toàn tổ chức mới thấy nút này. */}
+            {canManageBsc && (
             <Popover>
               <PopoverTrigger asChild>
                 <button className="flex items-center gap-2 px-4 h-10 rounded-xl border border-[var(--color-border)] text-sm font-bold text-[var(--color-muted-foreground)] hover:bg-[var(--color-muted)] transition-all shadow-sm active:scale-95">
@@ -128,6 +165,14 @@ export default function BscManagementPage() {
                 </button>
               </PopoverContent>
             </Popover>
+            )}
+            {canManageBsc && (
+              <button onClick={() => setIsPolicyOpen(true)}
+                title="Kết quả của phòng và công ty ảnh hưởng tới điểm cá nhân bao nhiêu"
+                className="flex items-center gap-2 px-4 h-10 rounded-xl border border-[var(--color-border)] text-sm font-bold text-[var(--color-muted-foreground)] hover:bg-[var(--color-muted)] transition-all shadow-sm active:scale-95">
+                <Sliders size={16} /> Hệ số
+              </button>
+            )}
             <button onClick={() => setScorecardModal({})}
               className="flex items-center gap-2 px-5 h-10 bg-[var(--color-primary)] text-white rounded-xl text-sm font-bold hover:opacity-90 shadow-sm transition-all active:scale-95">
               <Plus size={16} /> Bộ tiêu chí mới
@@ -136,13 +181,38 @@ export default function BscManagementPage() {
         }
       />
 
-      <div id="tour-bsc-scorecards" className="grid gap-4">
+      <div className="flex gap-1 p-1 rounded-2xl bg-slate-100 dark:bg-slate-800/60 w-fit">
+        {([
+          { key: 'list' as const, label: 'Danh sách bộ tiêu chí', icon: <List size={14} /> },
+          { key: 'tree' as const, label: 'Cây phân rã', icon: <GitBranch size={14} /> },
+        ]).map(tab => (
+          <button key={tab.key} onClick={() => setView(tab.key)}
+            className={cn('inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-black transition-colors',
+              view === tab.key
+                ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-sm'
+                : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300')}>
+            {tab.icon} {tab.label}
+          </button>
+        ))}
+      </div>
+
+      {view === 'tree' && (
+        <BscTreePanel
+          organizationId={organizationId}
+          scorecards={scorecards}
+          onCascade={setCascadeTarget}
+          canEditScorecard={canEditScorecard}
+        />
+      )}
+
+      <div id="tour-bsc-scorecards" className={cn('grid gap-4', view !== 'list' && 'hidden')}>
         {scorecards?.map(sc => (
           <ScorecardCard
             key={sc.id}
             scorecard={sc}
             fixedPerspectives={fixedPerspectives || []}
             canPublish={canPublish}
+            canEdit={canEditScorecard(sc)}
             isExpanded={!!expanded[sc.id]}
             onToggle={() => setExpanded(prev => ({ ...prev, [sc.id]: !prev[sc.id] }))}
             onEdit={() => setScorecardModal({ scorecard: sc })}
@@ -173,6 +243,13 @@ export default function BscManagementPage() {
           autoCreateFixed={scorecardModal.createFixed}
         />
       )}
+
+      {/* Chỉ dựng khi thực sự mở: để component sống mãi thì state trong nó (đơn vị đã tick, số
+          đang gõ dở) còn nguyên từ lần mở trước, lần sau mở ra thấy tick sẵn mà ô thì trống. */}
+      {cascadeTarget && (
+        <CascadeModal open onClose={() => setCascadeTarget(null)} scorecard={cascadeTarget} />
+      )}
+      <CascadePolicyModal open={isPolicyOpen} onClose={() => setIsPolicyOpen(false)} organizationId={organizationId} />
 
       <ImportScorecardGuideModal open={isScorecardImportGuideOpen} onClose={() => setIsScorecardImportGuideOpen(false)} onSelectFile={() => scorecardFileInputRef.current?.click()} />
       <ScorecardExcelPreviewModal open={!!scorecardPreviewFile} file={scorecardPreviewFile} onClose={() => setScorecardPreviewFile(null)} onImport={handleConfirmScorecardImport} isImporting={importScorecards.isPending} />
@@ -210,6 +287,8 @@ interface ScorecardCardProps {
   scorecard: ScorecardResponse
   fixedPerspectives: FixedPerspectiveResponse[]
   canPublish: boolean
+  /** Ẩn nút sửa/xoá khi bộ tiêu chí nằm ngoài phạm vi của người đang xem. */
+  canEdit: boolean
   isExpanded: boolean
   onToggle: () => void
   onEdit: () => void
@@ -219,7 +298,7 @@ interface ScorecardCardProps {
 }
 
 function ScorecardCard({
-  scorecard: sc, fixedPerspectives, canPublish, isExpanded,
+  scorecard: sc, fixedPerspectives, canPublish, canEdit, isExpanded,
   onToggle, onEdit, onDelete, onTogglePublish, onAddPerspective,
 }: ScorecardCardProps) {
   const totalWeight = sc.perspectives.reduce((s, p) => s + (p.weightPercentage || 0), 0)
@@ -283,10 +362,19 @@ function ScorecardCard({
                 {sc.scoringMode === BscScoringMode.SHADOW ? <ShieldCheck size={18} /> : <Undo2 size={18} />}
               </button>
             )}
-            <button onClick={e => { e.stopPropagation(); onEdit() }} title="Sửa bộ tiêu chí & hạng mục"
-              className="p-2 rounded-xl text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition-all"><Edit2 size={18} /></button>
-            <button onClick={e => { e.stopPropagation(); onDelete() }} title="Xoá bộ tiêu chí"
-              className="p-2 rounded-xl text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 transition-all"><Trash2 size={18} /></button>
+            {canEdit ? (
+              <>
+                <button onClick={e => { e.stopPropagation(); onEdit() }} title="Sửa bộ tiêu chí & hạng mục"
+                  className="p-2 rounded-xl text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition-all"><Edit2 size={18} /></button>
+                <button onClick={e => { e.stopPropagation(); onDelete() }} title="Xoá bộ tiêu chí"
+                  className="p-2 rounded-xl text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 transition-all"><Trash2 size={18} /></button>
+              </>
+            ) : (
+              // Vẫn xem được nội dung, chỉ không sửa. Nói lý do ngay ở đây để người dùng khỏi đi
+              // tìm nút đã bị ẩn.
+              <span title="Bộ tiêu chí của đơn vị khác — bạn xem được nhưng không sửa"
+                className="p-2 text-slate-300 dark:text-slate-600"><Lock size={16} /></span>
+            )}
           </div>
         </div>
       </div>
@@ -305,12 +393,16 @@ function ScorecardCard({
                     <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: fp.color }} />
                     <h4 className="text-xs font-black uppercase tracking-widest text-slate-500 dark:text-slate-400">{fp.name}</h4>
                     <span className="text-[10px] font-bold text-slate-400">{groupWeight.toFixed(1)}%</span>
-                    <button
-                      onClick={() => onAddPerspective(fp.code)}
-                      className="ml-auto flex items-center gap-1.5 px-2 py-1 rounded-xl text-[11px] font-bold text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition-colors shrink-0"
-                    >
-                      <PlusCircle size={13} /> Thêm hạng mục
-                    </button>
+                    {/* Thêm hạng mục là SỬA bộ tiêu chí — cùng một quyền với nút bút chì ở đầu thẻ,
+                        nên phải ẩn theo cùng điều kiện, không thì mở thẻ đơn vị khác ra vẫn thêm được. */}
+                    {canEdit && (
+                      <button
+                        onClick={() => onAddPerspective(fp.code)}
+                        className="ml-auto flex items-center gap-1.5 px-2 py-1 rounded-xl text-[11px] font-bold text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition-colors shrink-0"
+                      >
+                        <PlusCircle size={13} /> Thêm hạng mục
+                      </button>
+                    )}
                   </div>
 
                   <div className="grid gap-2">

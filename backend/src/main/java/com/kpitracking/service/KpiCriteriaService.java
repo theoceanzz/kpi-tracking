@@ -68,6 +68,7 @@ public class KpiCriteriaService {
     private final com.kpitracking.repository.KeyResultRepository keyResultRepository;
     private final com.kpitracking.repository.BscPerspectiveRepository bscPerspectiveRepository;
     private final com.kpitracking.repository.BscScorecardRepository bscScorecardRepository;
+    private final com.kpitracking.repository.BscScorecardPerspectiveRepository bscScorecardPerspectiveRepository;
     private final KpiAchievementCalculator achievementCalculator;
     private final OrganizationService organizationService;
     private final BscScoringService bscScoringService;
@@ -263,6 +264,8 @@ public class KpiCriteriaService {
             kpi.setPerspective(perspective);
         }
 
+        applyScorecardLink(kpi, request.getScorecardPerspectiveId());
+
         if (status == KpiStatus.APPROVED) {
             kpi.setApprovedBy(creator);
             kpi.setApprovedAt(Instant.now());
@@ -291,6 +294,23 @@ public class KpiCriteriaService {
     }
 
     @Transactional(readOnly = true)
+    /**
+     * Gắn KPI vào một DÒNG chỉ tiêu của bộ tiêu chí BSC (docs/bsc-cascade-design.md — QĐ-8).
+     *
+     * <p>Gắn xong thì đồng bộ luôn {@code perspective} theo dòng đó: báo cáo và thống kê cũ vẫn
+     * gom theo hạng mục, để lệch nhau thì cùng một KPI xuất hiện ở hai nhóm khác nhau tuỳ màn hình.
+     *
+     * <p>{@code null} = gỡ liên kết, KPI trở lại chỉ tiêu tự do.
+     */
+    private void applyScorecardLink(KpiCriteria kpi, java.util.UUID scorecardPerspectiveId) {
+        if (scorecardPerspectiveId == null) return;
+        com.kpitracking.entity.BscScorecardPerspective row = bscScorecardPerspectiveRepository
+                .findById(scorecardPerspectiveId)
+                .orElseThrow(() -> new ResourceNotFoundException("Chỉ tiêu BSC", "id", scorecardPerspectiveId));
+        kpi.setScorecardPerspective(row);
+        kpi.setPerspective(row.getPerspective());
+    }
+
     public PageResponse<KpiCriteriaResponse> getKpiCriteria(int page, int size, KpiStatus status, UUID orgUnitId, UUID createdById, UUID assigneeId, UUID kpiPeriodId, String keyword, Instant startDate, Instant endDate, String sortBy, String sortDir, UUID objectiveId, UUID keyResultId, UUID perspectiveId, boolean approvalMode, String kpiNature, Boolean isBonusKpi, Boolean isReverseKpi, com.kpitracking.enums.KpiType kpiType) {
         User currentUser = getCurrentUser();
         UUID organizationId = getCurrentUserOrganizationId(currentUser);
@@ -553,6 +573,8 @@ public class KpiCriteriaService {
                     .orElseThrow(() -> new ResourceNotFoundException("Hạng mục BSC", "id", request.getPerspectiveId()));
             kpi.setPerspective(perspective);
         }
+
+        applyScorecardLink(kpi, request.getScorecardPerspectiveId());
 
         if (request.getParentId() != null) {
             KpiCriteria parent = kpiCriteriaRepository.findById(request.getParentId())
@@ -872,6 +894,31 @@ public class KpiCriteriaService {
         }
         kpi.setDeletedAt(Instant.now());
         kpiCriteriaRepository.save(kpi);
+    }
+
+    /** Xoá mềm nhiều chỉ tiêu trong một lượt; bỏ qua chỉ tiêu không còn tồn tại. */
+    @Transactional
+    public int bulkDeleteKpiCriteria(List<UUID> kpiIds) {
+        if (kpiIds == null || kpiIds.isEmpty()) return 0;
+        User currentUser = getCurrentUser();
+        int deleted = 0;
+
+        for (UUID kpiId : kpiIds) {
+            KpiCriteria kpi = kpiCriteriaRepository.findById(kpiId).orElse(null);
+            if (kpi == null) continue;
+
+            boolean canDelete = permissionChecker.hasPermissionInOrgUnit(currentUser.getId(), "KPI:DELETE", kpi.getOrgUnit().getId());
+            boolean isCreator = kpi.getCreatedBy().getId().equals(currentUser.getId());
+            if (!isCreator && !canDelete) {
+                throw new ForbiddenException("Bạn không có quyền xoá KPI này");
+            }
+
+            kpi.setDeletedAt(Instant.now());
+            kpiCriteriaRepository.save(kpi);
+            deleted++;
+        }
+
+        return deleted;
     }
 
     @Transactional(readOnly = true)

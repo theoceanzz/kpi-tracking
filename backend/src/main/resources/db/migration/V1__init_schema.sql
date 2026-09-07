@@ -527,6 +527,29 @@ CREATE TABLE cycle_user_evaluations (
     final_score   DOUBLE PRECISION,
     qual_score    DOUBLE PRECISION,  -- mức định tính chấm ở cấp kỳ (thang 0..5) — trục hàng ma trận
     matrix_rating INT,               -- xếp loại 1..5 suy ra từ ma trận hiệu suất của tổ chức
+    -- ── Cascade BSC: hệ số phòng/công ty, ghi đè và hạng mục chặn ──
+    -- Toàn bộ nhóm này là SNAPSHOT lúc chốt. Sửa chính sách hệ số về sau KHÔNG được làm đổi kết
+    -- quả đã công bố; muốn đổi thì mở khoá và tái tính có phiên bản.
+    --
+    -- CÔNG THỨC: recognized = MIN(raw_bsc_score, trần) × unit_factor × company_factor.
+    -- Hai hệ số TRA TỪ BẢNG DẢI chứ không phải tỉ lệ đạt nhân thẳng — xem bsc_cascade_policies.
+    raw_bsc_score        DOUBLE PRECISION,
+    unit_factor          DOUBLE PRECISION,
+    company_factor       DOUBLE PRECISION,
+    recognized_score     DOUBLE PRECISION,
+    -- Ghi đè thủ công: hành vi ngoại lệ nên bắt buộc có lý do và dấu vết người thao tác.
+    override_score       DOUBLE PRECISION,
+    override_reason_code VARCHAR(50),
+    override_comment     TEXT,
+    overridden_by        UUID REFERENCES users(id),
+    overridden_at        TIMESTAMPTZ,
+    -- FK khai ở cuối phần BSC: bảng bsc_cascade_policies được tạo sau bảng này.
+    cascade_policy_id    UUID,
+    -- Hạng mục chặn áp TRẦN XẾP LOẠI, KHÔNG trừ điểm: xếp loại cuối = MIN(xếp loại theo điểm,
+    -- gate_cap_rating). Không cột điểm nào bị sửa vì chặn.
+    gate_passed          BOOLEAN,
+    gate_cap_rating      INTEGER,
+    gate_failed_items    TEXT,
     comment       TEXT,
     evaluated_by  UUID            REFERENCES users(id) ON DELETE SET NULL,
     evaluated_at  TIMESTAMPTZ,
@@ -610,6 +633,13 @@ CREATE TABLE kpi_criteria (
     frequency       VARCHAR(20)     NOT NULL,
     key_result_id   UUID            REFERENCES key_results(id) ON DELETE SET NULL,
     perspective_id  UUID            REFERENCES bsc_perspectives(id) ON DELETE SET NULL,
+    -- Dòng chỉ tiêu CỤ THỂ của một bộ tiêu chí mà KPI này bám vào — cụ thể hơn perspective_id vì
+    -- cùng một hạng mục xuất hiện ở nhiều bộ tiêu chí với mục tiêu khác nhau. Khoá ngoại khai ở
+    -- CUỐI phần BSC vì bảng bsc_scorecard_perspectives được tạo sau bảng này.
+    scorecard_perspective_id UUID,
+    -- ASSIGNED = quản lý giao xuống, SELF = nhân viên tự khai.
+    origin          VARCHAR(20)     NOT NULL DEFAULT 'SELF'
+                        CHECK (origin IN ('ASSIGNED', 'SELF')),
     parent_id       UUID            REFERENCES kpi_criteria(id) ON DELETE SET NULL,
     parent_relation_type VARCHAR(20),
     is_bonus_kpi    BOOLEAN         NOT NULL DEFAULT FALSE,
@@ -733,6 +763,29 @@ CREATE TABLE evaluations (
     behavior_score          DOUBLE PRECISION,
     kpi_completion_percent  DOUBLE PRECISION,
     matrix_rating           INTEGER,
+    -- ── Cascade BSC: hệ số phòng/công ty, ghi đè và hạng mục chặn ──
+    -- Toàn bộ nhóm này là SNAPSHOT lúc chốt. Sửa chính sách hệ số về sau KHÔNG được làm đổi kết
+    -- quả đã công bố; muốn đổi thì mở khoá và tái tính có phiên bản.
+    --
+    -- CÔNG THỨC: recognized = MIN(raw_bsc_score, trần) × unit_factor × company_factor.
+    -- Hai hệ số TRA TỪ BẢNG DẢI chứ không phải tỉ lệ đạt nhân thẳng — xem bsc_cascade_policies.
+    raw_bsc_score        DOUBLE PRECISION,
+    unit_factor          DOUBLE PRECISION,
+    company_factor       DOUBLE PRECISION,
+    recognized_score     DOUBLE PRECISION,
+    -- Ghi đè thủ công: hành vi ngoại lệ nên bắt buộc có lý do và dấu vết người thao tác.
+    override_score       DOUBLE PRECISION,
+    override_reason_code VARCHAR(50),
+    override_comment     TEXT,
+    overridden_by        UUID REFERENCES users(id),
+    overridden_at        TIMESTAMPTZ,
+    -- FK khai ở cuối phần BSC: bảng bsc_cascade_policies được tạo sau bảng này.
+    cascade_policy_id    UUID,
+    -- Hạng mục chặn áp TRẦN XẾP LOẠI, KHÔNG trừ điểm: xếp loại cuối = MIN(xếp loại theo điểm,
+    -- gate_cap_rating). Không cột điểm nào bị sửa vì chặn.
+    gate_passed          BOOLEAN,
+    gate_cap_rating      INTEGER,
+    gate_failed_items    TEXT,
     period_start        TIMESTAMPTZ,
     period_end          TIMESTAMPTZ,
     created_at          TIMESTAMPTZ     DEFAULT NOW(),
@@ -1059,8 +1112,26 @@ CREATE TABLE bsc_scorecards (
     kpi_cycle_id              UUID            REFERENCES kpi_cycles(id) ON DELETE SET NULL,
     name                      VARCHAR(255)    NOT NULL,
     vision                    TEXT,
+    -- Cấp trong cây BSC. SUY RA từ phạm vi phòng ban chứ không nhận từ client: không gắn phòng
+    -- ban nào, hoặc có gắn ĐƠN VỊ GỐC ⇒ COMPANY; ngược lại ⇒ UNIT. Nhờ vậy không tồn tại trạng
+    -- thái mâu thuẫn kiểu "cấp công ty nhưng lại thuộc một phòng".
+    level                     VARCHAR(20)     NOT NULL DEFAULT 'COMPANY'
+                                  CHECK (level IN ('COMPANY', 'UNIT')),
+    -- Bộ tiêu chí cấp trên mà thẻ này nhận phân rã. NULL với BSC công ty (gốc của cây).
+    parent_scorecard_id       UUID            REFERENCES bsc_scorecards(id) ON DELETE SET NULL,
+    CONSTRAINT chk_bsc_scorecards_parent_not_self CHECK (parent_scorecard_id <> id),
+    -- Người chịu trách nhiệm bộ tiêu chí (trưởng đơn vị với BSC phòng).
+    owner_id                  UUID            REFERENCES users(id),
+    -- ARCHIVED là trạng thái CŨ, giữ để dữ liệu tạo trước đây không vỡ; bản ghi mới dùng CLOSED.
     status                    VARCHAR(20)     NOT NULL DEFAULT 'DRAFT'
-                                  CHECK (status IN ('DRAFT','ACTIVE','ARCHIVED')),
+                                  CHECK (status IN ('DRAFT','SUBMITTED','APPROVED','ACTIVE','CLOSED','LOCKED','ARCHIVED')),
+    -- Vòng đời trình–duyệt: lưu cả người lẫn thời điểm vì đây là dữ liệu phải giải trình được.
+    submitted_at              TIMESTAMPTZ,
+    submitted_by              UUID            REFERENCES users(id),
+    approved_at               TIMESTAMPTZ,
+    approved_by               UUID            REFERENCES users(id),
+    reject_reason             TEXT,
+    locked_at                 TIMESTAMPTZ,
     scoring_mode              VARCHAR(20)     NOT NULL DEFAULT 'SHADOW'
                                   CHECK (scoring_mode IN ('SHADOW','OFFICIAL')),
     empty_perspective_policy  VARCHAR(20)     NOT NULL DEFAULT 'RENORMALIZE'
@@ -1072,6 +1143,7 @@ CREATE TABLE bsc_scorecards (
 
 CREATE INDEX idx_bsc_scorecards_organization_id ON bsc_scorecards(organization_id);
 CREATE INDEX idx_bsc_scorecards_kpi_cycle_id ON bsc_scorecards(kpi_cycle_id);
+CREATE INDEX idx_bsc_scorecards_parent ON bsc_scorecards(parent_scorecard_id);
 -- Tính duy nhất (1 thẻ mặc định/đợt, mỗi đơn vị ≤1 thẻ/đợt) được ENFORCE Ở SERVICE
 -- vì thẻ điểm áp dụng cho NHIỀU đơn vị (bảng nối bsc_scorecard_org_units bên dưới)
 -- và cho NHIỀU đợt (bảng nối bsc_scorecard_periods bên dưới).
@@ -1094,16 +1166,79 @@ CREATE TABLE bsc_scorecard_org_units (
 CREATE INDEX idx_bsc_scorecard_org_units_unit ON bsc_scorecard_org_units(org_unit_id);
 
 -- Viễn cảnh trong thẻ điểm + trọng số (%) — tổng = 100 mỗi scorecard
+-- Một DÒNG CHỈ TIÊU của bộ tiêu chí: hạng mục + trọng số + mục tiêu riêng của cấp này.
+--
+-- MỤC TIÊU NẰM Ở ĐÂY chứ không ở bsc_perspectives: "Doanh thu" là hạng mục dùng chung, nhưng
+-- công ty đặt 100 tỷ còn phòng Kinh doanh 60 tỷ và phòng Dự án 40 tỷ. Con số trên hạng mục chỉ
+-- còn là mặc định gợi ý lúc thêm vào bộ tiêu chí (đọc dòng trước, thiếu mới rơi về hạng mục).
 CREATE TABLE bsc_scorecard_perspectives (
     id                UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     scorecard_id      UUID            NOT NULL REFERENCES bsc_scorecards(id) ON DELETE CASCADE,
     perspective_id    UUID            NOT NULL REFERENCES bsc_perspectives(id) ON DELETE CASCADE,
     weight_percentage DOUBLE PRECISION NOT NULL DEFAULT 0,
     display_order     INT             NOT NULL DEFAULT 0,
-    UNIQUE (scorecard_id, perspective_id)
+
+    -- Mục tiêu riêng theo cấp
+    target_value      DOUBLE PRECISION,
+    minimum_value     DOUBLE PRECISION,
+    stretch_value     DOUBLE PRECISION,
+    unit              VARCHAR(50),
+    direction         VARCHAR(20) DEFAULT 'HIGHER_BETTER',
+
+    -- Nguồn lấy kết quả thực đạt ở cấp đơn vị:
+    -- ROLLUP = cộng từ KPI cá nhân gắn vào dòng này; MANUAL = người phụ trách tự nhập;
+    -- DATASOURCE = lấy từ bảng dữ liệu đã kết nối (để dành, chưa nối).
+    measurement_source VARCHAR(20) NOT NULL DEFAULT 'ROLLUP'
+                        CHECK (measurement_source IN ('ROLLUP', 'MANUAL', 'DATASOURCE')),
+
+    -- Liên kết lên dòng của bộ tiêu chí CHA. Chỉ SUM tham gia phép cộng khi đo độ phủ:
+    -- SHARED = nhiều đơn vị cùng chịu trách nhiệm MỘT chỉ tiêu (cộng vào là đếm nhiều lần cùng
+    -- một kết quả), SUPPORT = vai trò hỗ trợ, CUSTOM = công thức riêng do người dùng chịu trách nhiệm.
+    parent_item_id       UUID REFERENCES bsc_scorecard_perspectives(id) ON DELETE SET NULL,
+    link_type            VARCHAR(20)
+                            CHECK (link_type IS NULL OR link_type IN ('SUM', 'SHARED', 'SUPPORT', 'CUSTOM')),
+    contribution_value   DOUBLE PRECISION,
+    contribution_percent DOUBLE PRECISION,
+
+    -- Quyền biên tập: ASSIGNED = cấp trên giao xuống (khoá mục tiêu/trọng số), SELF = đơn vị tự thêm.
+    -- Đây là thứ quyết định ai sửa được gì, thay cho việc gắn cứng vào vai trò người dùng.
+    origin               VARCHAR(20) NOT NULL DEFAULT 'SELF'
+                            CHECK (origin IN ('ASSIGNED', 'SELF')),
+    locked               BOOLEAN     NOT NULL DEFAULT FALSE,
+    created_by           UUID REFERENCES users(id),
+
+    -- Hạng mục chặn ("câu chặn 10"): không đạt ngưỡng thì áp TRẦN XẾP LOẠI, KHÔNG trừ điểm.
+    is_gate          BOOLEAN NOT NULL DEFAULT FALSE,
+    gate_min_percent DOUBLE PRECISION,
+    gate_effect      VARCHAR(24)
+                        CHECK (gate_effect IS NULL OR gate_effect IN ('BLOCK_EXCELLENT', 'CAP_AT_RATING', 'WARN_ONLY')),
+    gate_cap_rating  INT,
+    gate_applies_to  VARCHAR(16) NOT NULL DEFAULT 'BOTH'
+                        CHECK (gate_applies_to IN ('INDIVIDUAL', 'UNIT', 'BOTH')),
+
+    created_at        TIMESTAMPTZ DEFAULT NOW(),
+    updated_at        TIMESTAMPTZ DEFAULT NOW(),
+
+    UNIQUE (scorecard_id, perspective_id),
+    -- Dòng ASSIGNED bắt buộc biết mình nhận phân rã từ đâu, nếu không "khoá" thành khoá vô chủ:
+    -- không ai sửa được mà cũng không truy được về chỉ tiêu gốc.
+    CONSTRAINT chk_bsc_sp_assigned_has_parent
+        CHECK (origin <> 'ASSIGNED' OR parent_item_id IS NOT NULL),
+    -- Bật chặn thì phải nói rõ ngưỡng và hệ quả, nếu không dòng đó im lặng không có tác dụng gì
+    -- mà người cấu hình vẫn tưởng đã chặn.
+    CONSTRAINT chk_bsc_sp_gate_complete
+        CHECK (is_gate = FALSE OR (gate_min_percent IS NOT NULL AND gate_effect IS NOT NULL)),
+    CONSTRAINT chk_bsc_sp_gate_cap
+        CHECK (gate_effect <> 'CAP_AT_RATING' OR gate_cap_rating IS NOT NULL)
 );
 
 CREATE INDEX idx_bsc_scorecard_perspectives_scorecard_id ON bsc_scorecard_perspectives(scorecard_id);
+CREATE INDEX idx_bsc_sp_parent_item ON bsc_scorecard_perspectives(parent_item_id);
+
+-- Khoá ngoại từ kpi_criteria: khai muộn vì bảng KPI được tạo trước bảng này.
+ALTER TABLE kpi_criteria ADD CONSTRAINT fk_kpi_criteria_scorecard_perspective
+    FOREIGN KEY (scorecard_perspective_id) REFERENCES bsc_scorecard_perspectives(id) ON DELETE SET NULL;
+CREATE INDEX idx_kpi_criteria_scorecard_perspective ON kpi_criteria(scorecard_perspective_id);
 
 -- Lịch sử đổi trọng số (audit thông thường không lưu giá trị cũ + người đổi)
 CREATE TABLE bsc_weight_history (
@@ -1138,12 +1273,181 @@ CREATE TABLE evaluation_perspective_scores (
     -- Cách ĐÃ dùng để chấm hạng mục này. Lưu lại vì hạng mục có thể được đặt/xoá mục tiêu về sau —
     -- không có cột này thì đọc lại breakdown cũ sẽ diễn giải sai con số đã chốt.
     scored_by_target  BOOLEAN          NOT NULL DEFAULT FALSE,
+    -- Mục tiêu ĐÃ dùng lúc chấm. Không đọc lại từ hạng mục khi hiển thị: mỗi bộ tiêu chí có con
+    -- số riêng nên đọc lại sẽ hiện mục tiêu của phòng khác.
+    target_value      DOUBLE PRECISION,
+    minimum_value     DOUBLE PRECISION,
+    unit              VARCHAR(50),
     created_at        TIMESTAMPTZ      DEFAULT NOW()
 );
 
 CREATE INDEX idx_evaluation_perspective_scores_evaluation_id ON evaluation_perspective_scores(evaluation_id);
 CREATE UNIQUE INDEX uq_evaluation_perspective_scores
     ON evaluation_perspective_scores(evaluation_id, perspective_id);
+
+-- ====================================================
+-- BSC PHÂN CẤP — hệ số cascade & kết quả BSC của đơn vị
+--
+-- ĐIỂM MẤU CHỐT: "nhân viên × phòng × công ty" KHÔNG phải nhân thẳng tỉ lệ đạt. Tỉ lệ đạt của
+-- phòng/công ty được TRA vào bảng dải để ra một hệ số gần 1, rồi mới nhân:
+--     recognized = MIN(điểm gốc, 120) × hệ_số_phòng × hệ_số_công_ty
+-- Ví dụ: gốc 112, phòng 92% (⇒0.95), công ty 97% (⇒1.00) = 106.4 — KHÔNG phải 99.96.
+-- Nhân thẳng phạt quá nặng và lệch của hai cấp cộng dồn theo cấp số nhân.
+-- ====================================================
+
+CREATE TABLE bsc_cascade_policies (
+    id                     UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    organization_id        UUID         NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+    name                   VARCHAR(255) NOT NULL,
+    -- Kỳ áp dụng. NULL = chính sách MẶC ĐỊNH của tổ chức, dùng cho mọi kỳ chưa có chính sách riêng.
+    kpi_cycle_id           UUID         REFERENCES kpi_cycles(id) ON DELETE SET NULL,
+
+    -- BAND_TABLE = tra bảng dải (MẶC ĐỊNH); DIRECT_RATIO = nhân thẳng tỉ lệ đạt (đúng chữ BRD
+    -- nhưng phạt nặng hơn nhiều, chỉ dùng khi tổ chức thực sự muốn); NONE = bỏ hẳn tầng hệ số.
+    unit_factor_mode       VARCHAR(20)  NOT NULL DEFAULT 'BAND_TABLE',
+    company_factor_mode    VARCHAR(20)  NOT NULL DEFAULT 'BAND_TABLE',
+    -- OVERALL = tra theo BSC TỔNG của đơn vị; LINKED_ITEM = theo %đạt của chính chỉ tiêu cha.
+    factor_basis           VARCHAR(20)  NOT NULL DEFAULT 'OVERALL',
+
+    factor_floor           DOUBLE PRECISION NOT NULL DEFAULT 0.85,
+    factor_cap             DOUBLE PRECISION NOT NULL DEFAULT 1.15,
+    recognized_cap_percent DOUBLE PRECISION NOT NULL DEFAULT 120,
+
+    -- Tối thiểu bao nhiêu % tổng trọng số KPI của một người phải liên kết BSC. Mặc định chỉ CẢNH
+    -- BÁO: bật chặn cứng ngay kỳ đầu sẽ kẹt hàng loạt nhân viên chưa kịp gắn KPI vào BSC.
+    min_bsc_linked_weight  DOUBLE PRECISION NOT NULL DEFAULT 60,
+    linked_weight_enforce  VARCHAR(10)  NOT NULL DEFAULT 'WARN',
+
+    status                 VARCHAR(20)  NOT NULL DEFAULT 'ACTIVE',
+    version                INT          NOT NULL DEFAULT 1,
+    created_at             TIMESTAMPTZ  DEFAULT NOW(),
+    updated_at             TIMESTAMPTZ  DEFAULT NOW(),
+    deleted_at             TIMESTAMPTZ,
+
+    CONSTRAINT chk_bsc_policy_unit_mode    CHECK (unit_factor_mode    IN ('NONE', 'DIRECT_RATIO', 'BAND_TABLE')),
+    CONSTRAINT chk_bsc_policy_company_mode CHECK (company_factor_mode IN ('NONE', 'DIRECT_RATIO', 'BAND_TABLE')),
+    CONSTRAINT chk_bsc_policy_basis        CHECK (factor_basis        IN ('OVERALL', 'LINKED_ITEM')),
+    CONSTRAINT chk_bsc_policy_enforce      CHECK (linked_weight_enforce IN ('WARN', 'BLOCK')),
+    CONSTRAINT chk_bsc_policy_status       CHECK (status IN ('ACTIVE', 'ARCHIVED')),
+    -- Sàn phải ≤ trần, nếu không mọi phép kẹp hệ số đều vô nghĩa.
+    CONSTRAINT chk_bsc_policy_floor_cap    CHECK (factor_floor <= factor_cap)
+);
+
+CREATE INDEX idx_bsc_cascade_policies_org ON bsc_cascade_policies(organization_id);
+CREATE INDEX idx_bsc_cascade_policies_cycle ON bsc_cascade_policies(kpi_cycle_id);
+
+-- Một dải kết quả BSC → một hệ số. Khoảng NỬA MỞ [from, to): ranh giới thuộc về dải TRÊN, nên
+-- đúng 95% rơi vào dải 95–105 chứ không phải 80–95. NULL ở hai đầu = vô cùng, nhờ vậy hai dải
+-- đầu/cuối phủ hết mọi giá trị mà không cần con số ma.
+CREATE TABLE bsc_factor_bands (
+    id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    policy_id     UUID        NOT NULL REFERENCES bsc_cascade_policies(id) ON DELETE CASCADE,
+    scope         VARCHAR(10) NOT NULL,
+    from_percent  DOUBLE PRECISION,
+    to_percent    DOUBLE PRECISION,
+    factor        DOUBLE PRECISION NOT NULL,
+    label         VARCHAR(100),
+    color         VARCHAR(20),
+    display_order INT NOT NULL DEFAULT 0,
+
+    CONSTRAINT chk_bsc_band_scope CHECK (scope IN ('UNIT', 'COMPANY')),
+    CONSTRAINT chk_bsc_band_range CHECK (from_percent IS NULL OR to_percent IS NULL OR from_percent < to_percent)
+);
+
+CREATE INDEX idx_bsc_factor_bands_policy ON bsc_factor_bands(policy_id);
+
+-- Kết quả BSC của MỘT ĐƠN VỊ trong MỘT ĐỢT — con số "BSC phòng đạt 92%" dùng để tra hệ số.
+--
+-- Khác cycle_unit_evaluations: bảng kia gộp NGƯỢC LÊN từ điểm của nhân sự trong phòng, bảng này
+-- đo chỉ tiêu của chính đơn vị theo hướng TỪ TRÊN XUỐNG. Hai con số song song, lệch nhau nhiều
+-- là tín hiệu chỉ tiêu chưa phân rã đúng.
+CREATE TABLE bsc_unit_results (
+    id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    scorecard_id        UUID NOT NULL REFERENCES bsc_scorecards(id) ON DELETE CASCADE,
+    kpi_period_id       UUID REFERENCES kpi_periods(id) ON DELETE CASCADE,
+    kpi_cycle_id        UUID REFERENCES kpi_cycles(id) ON DELETE SET NULL,
+
+    achievement_percent DOUBLE PRECISION,
+    -- Dải và hệ số CHỤP LẠI lúc chốt: sửa chính sách về sau không được làm đổi kết quả đã công bố.
+    band_code           VARCHAR(100),
+    factor              DOUBLE PRECISION,
+    gate_passed         BOOLEAN,
+    gate_failed_items   TEXT,
+
+    status              VARCHAR(20) NOT NULL DEFAULT 'DRAFT',
+    finalized_by        UUID REFERENCES users(id),
+    finalized_at        TIMESTAMPTZ,
+    created_at          TIMESTAMPTZ DEFAULT NOW(),
+    updated_at          TIMESTAMPTZ DEFAULT NOW(),
+    deleted_at          TIMESTAMPTZ,
+
+    CONSTRAINT chk_bsc_unit_result_status CHECK (status IN ('DRAFT', 'FINALIZED', 'LOCKED'))
+);
+
+CREATE INDEX idx_bsc_unit_results_scorecard ON bsc_unit_results(scorecard_id);
+CREATE INDEX idx_bsc_unit_results_period ON bsc_unit_results(kpi_period_id);
+-- Mỗi (bộ tiêu chí, đợt) chỉ có MỘT kết quả sống. Partial index vì xoá mềm.
+CREATE UNIQUE INDEX uq_bsc_unit_results_scorecard_period
+    ON bsc_unit_results(scorecard_id, kpi_period_id) WHERE deleted_at IS NULL;
+
+-- Breakdown từng dòng — bắt buộc phải có để giải thích được con số tổng. Không có nó thì
+-- "phòng đạt 92%" là con số không ai kiểm chứng được.
+CREATE TABLE bsc_unit_result_items (
+    id                       UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    unit_result_id           UUID NOT NULL REFERENCES bsc_unit_results(id) ON DELETE CASCADE,
+    scorecard_perspective_id UUID NOT NULL REFERENCES bsc_scorecard_perspectives(id) ON DELETE CASCADE,
+
+    actual_value        DOUBLE PRECISION,
+    target_value        DOUBLE PRECISION,
+    achievement_percent DOUBLE PRECISION,
+    weight_percentage   DOUBLE PRECISION,
+    weighted_score      DOUBLE PRECISION,
+    kpi_count           INT NOT NULL DEFAULT 0,
+    gate_passed         BOOLEAN,
+    -- Nguồn số liệu ĐÃ dùng, chụp lại vì cấu hình dòng có thể đổi sau khi chốt.
+    measurement_source  VARCHAR(20),
+
+    created_at          TIMESTAMPTZ DEFAULT NOW(),
+    updated_at          TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX idx_bsc_unit_result_items_result ON bsc_unit_result_items(unit_result_id);
+CREATE UNIQUE INDEX uq_bsc_unit_result_items ON bsc_unit_result_items(unit_result_id, scorecard_perspective_id);
+
+-- Khoá ngoại từ hai bảng đánh giá: khai muộn vì chúng được tạo trước bảng chính sách.
+ALTER TABLE evaluations ADD CONSTRAINT fk_evaluations_cascade_policy
+    FOREIGN KEY (cascade_policy_id) REFERENCES bsc_cascade_policies(id) ON DELETE SET NULL;
+ALTER TABLE cycle_user_evaluations ADD CONSTRAINT fk_cycle_user_evals_cascade_policy
+    FOREIGN KEY (cascade_policy_id) REFERENCES bsc_cascade_policies(id) ON DELETE SET NULL;
+
+-- ====================================================
+-- QUY TẮC SINH MÃ theo từng tổ chức (Mục tiêu OKR, Kết quả then chốt, Hạng mục BSC)
+--
+-- KHÔNG có cột "số kế tiếp": số thứ tự được suy ra từ các mã đã tồn tại cùng tiền tố, nên mẫu
+-- chứa {YYYY} tự đánh số lại mỗi năm và sửa mẫu giữa kỳ không để lại bộ đếm lệch.
+--
+-- Cũng KHÔNG seed sẵn dòng nào: tổ chức chưa cấu hình sẽ dùng mẫu mặc định khai trong enum
+-- CodeType, dòng chỉ được ghi khi có người sửa thật.
+-- ====================================================
+
+CREATE TABLE org_code_rules (
+    id                    UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    organization_id       UUID         NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+    code_type             VARCHAR(40)  NOT NULL,
+    auto_generate         BOOLEAN      NOT NULL DEFAULT TRUE,
+    allow_manual_override BOOLEAN      NOT NULL DEFAULT FALSE,
+    pattern               VARCHAR(100) NOT NULL,
+    created_at            TIMESTAMPTZ  DEFAULT NOW(),
+    updated_at            TIMESTAMPTZ  DEFAULT NOW()
+);
+
+CREATE UNIQUE INDEX uq_org_code_rules_org_type ON org_code_rules(organization_id, code_type);
+
+COMMENT ON COLUMN org_code_rules.pattern IS
+    'Mẫu mã, ví dụ OBJ-{YYYY}-{###}. Token: {YYYY} {YY} {MM} {ORG} {UNIT} {PARENT} và một ô số {###}.';
+COMMENT ON COLUMN org_code_rules.allow_manual_override IS
+    'TRUE cho phép người dùng gõ mã riêng thay mã sinh sẵn; FALSE thì ô mã bị khoá.';
+
 
 -- ====================================================
 -- THƯỞNG ĐIỂM NHÂN VIÊN (Reward Points)

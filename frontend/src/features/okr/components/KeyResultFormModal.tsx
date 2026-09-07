@@ -2,10 +2,12 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { X, CheckCircle2, Loader2, AlertCircle } from 'lucide-react'
 import { KeyResultRequest, KeyResultResponse, ObjectiveResponse, UnitWeight } from '../types'
-import { keyResultSchema, type KeyResultFormData } from '../schemas/okrSchema'
+import { createKeyResultSchema, type KeyResultFormData } from '../schemas/okrSchema'
 import { useOkrMutations } from '../hooks/useOkr'
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { cn } from '@/lib/utils'
+import { useCodeRule } from '@/features/orgunits/hooks/useCodeRules'
+import CodeField from '@/components/common/CodeField'
 
 interface KeyResultFormModalProps {
   isOpen: boolean
@@ -15,8 +17,12 @@ interface KeyResultFormModalProps {
 }
 
 export default function KeyResultFormModal({ isOpen, onClose, objective, keyResult }: KeyResultFormModalProps) {
+  // Mã KR do tổ chức quyết định: tự sinh (ô mã khoá lại) hay nhập tay như trước.
+  const codeRule = useCodeRule('KEY_RESULT')
+  const schema = useMemo(() => createKeyResultSchema({ requireCode: !codeRule.optional }), [codeRule.optional])
+
   const { register, handleSubmit, reset, formState: { errors } } = useForm<KeyResultFormData>({
-    resolver: zodResolver(keyResultSchema),
+    resolver: zodResolver(schema),
   })
   const { createKeyResult, updateKeyResult } = useOkrMutations()
 
@@ -77,6 +83,8 @@ export default function KeyResultFormModal({ isOpen, onClose, objective, keyResu
 
     const requestData: KeyResultRequest = {
       ...data,
+      // Ô mã bị khoá ⇒ không gửi mã lên: backend giữ mã cũ khi sửa, tự cấp mã khi tạo.
+      code: codeRule.locked ? undefined : data.code,
       objectiveId: objective.id,
       unitWeights: hasMultipleUnits ? unitWeights : undefined
     }
@@ -127,15 +135,16 @@ export default function KeyResultFormModal({ isOpen, onClose, objective, keyResu
                 {errors.name && <p className="text-[10px] font-bold text-red-500 ml-1">{errors.name.message}</p>}
               </div>
 
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Mã kết quả then chốt <span className="text-red-500">*</span></label>
-                <input
-                  {...register('code')}
-                  placeholder="VD: KR001"
-                  className="w-full px-4 py-3 rounded-2xl bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 text-sm font-bold focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 outline-none transition-all"
-                />
-                {errors.code && <p className="text-[10px] font-bold text-red-500 ml-1">{errors.code.message}</p>}
-              </div>
+              <CodeField
+                rule={codeRule}
+                currentCode={keyResult?.code}
+                error={errors.code?.message}
+                register={register('code')}
+                label="Mã kết quả then chốt"
+                fallbackPlaceholder="VD: KR001"
+                tone="emerald"
+                inputClassName="rounded-2xl py-3"
+              />
 
               <div className="space-y-1.5">
                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Mô tả chi tiết</label>

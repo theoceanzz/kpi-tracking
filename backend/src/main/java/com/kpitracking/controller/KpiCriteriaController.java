@@ -136,6 +136,14 @@ public class KpiCriteriaController {
         return ResponseEntity.ok(ApiResponse.success("KPI criteria deleted successfully"));
     }
 
+    @PostMapping("/bulk-delete")
+    @PreAuthorize("hasAuthority('KPI:DELETE')")
+    @Operation(summary = "Bulk soft delete KPI criteria")
+    public ResponseEntity<ApiResponse<Integer>> bulkDeleteKpiCriteria(@RequestBody java.util.List<UUID> kpiIds) {
+        int deleted = kpiCriteriaService.bulkDeleteKpiCriteria(kpiIds);
+        return ResponseEntity.ok(ApiResponse.success(deleted + " KPIs deleted successfully", deleted));
+    }
+
     @GetMapping("/my")
     @PreAuthorize("hasAuthority('KPI:VIEW_MY')")
     @Operation(summary = "Get KPI assigned to current user")

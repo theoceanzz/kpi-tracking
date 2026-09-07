@@ -47,7 +47,7 @@ public class RolePermissionConstants {
             "USER_ROLE:VIEW", "USER_ROLE:ASSIGN", "USER_ROLE:REVOKE",
             "ATTACHMENT:UPLOAD", "ATTACHMENT:DELETE",
             "REMINDER:SEND",
-            "BSC:VIEW", "BSC:MANAGE", "BSC:PUBLISH_SCORE",
+            "BSC:VIEW", "BSC:MANAGE", "BSC:MANAGE_UNIT", "BSC:PUBLISH_SCORE", "BSC:APPROVE", "BSC:OVERRIDE_SCORE",
             "OKR:VIEW", "OKR:MANAGE",
             // Thưởng điểm: giám đốc có đủ, gồm cả quyền cấu hình ngân sách/chương trình.
             // REWARD:APPROVE_OWN là bắt buộc — giám đốc là người ĐẶT hạn mức cho người
@@ -85,7 +85,7 @@ public class RolePermissionConstants {
             "USER_ROLE:VIEW", "USER_ROLE:ASSIGN",
             "ATTACHMENT:UPLOAD",
             "REMINDER:SEND",
-            "BSC:VIEW", "BSC:MANAGE", "BSC:PUBLISH_SCORE",
+            "BSC:VIEW", "BSC:MANAGE", "BSC:MANAGE_UNIT", "BSC:PUBLISH_SCORE", "BSC:APPROVE", "BSC:OVERRIDE_SCORE",
             "OKR:VIEW", "OKR:MANAGE",
             // Thưởng điểm: có duyệt và quản lý quà, KHÔNG có REWARD:CONFIG —
             // khớp cách repo đang tước quyền cấu hình của cấp phó.
@@ -113,7 +113,9 @@ public class RolePermissionConstants {
             "STATS:VIEW_EMPLOYEE",
             "ATTACHMENT:UPLOAD",
             "REMINDER:SEND",
-            "BSC:VIEW", "OKR:VIEW",
+            // Trưởng đơn vị phải tự lập được BSC phòng — đây là kịch bản (b) và (c) của mô hình
+            // phân rã; trước đây họ chỉ có BSC:VIEW nên không làm gì được.
+            "BSC:VIEW", "BSC:MANAGE_UNIT", "OKR:VIEW",
             // Trao thưởng KHÔNG phải quyền phê duyệt. Giới hạn thật của trưởng đơn vị
             // là dòng reward_budgets của họ — không cấp hạn mức thì mọi đề nghị đều
             // phải qua duyệt.
@@ -135,7 +137,7 @@ public class RolePermissionConstants {
             "STATS:VIEW_EMPLOYEE",
             "ATTACHMENT:UPLOAD",
             "REMINDER:SEND",
-            "BSC:VIEW", "OKR:VIEW",
+            "BSC:VIEW", "BSC:MANAGE_UNIT", "OKR:VIEW",
             "REWARD:VIEW", "REWARD:GRANT", "GIFT:REDEEM"
     );
 

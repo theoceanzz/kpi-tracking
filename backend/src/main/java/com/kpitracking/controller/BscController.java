@@ -101,7 +101,7 @@ public class BscController {
     }
 
     @PostMapping("/organization/{organizationId}/scorecards")
-    @PreAuthorize("hasAuthority('BSC:MANAGE')")
+    @PreAuthorize("hasAnyAuthority('BSC:MANAGE', 'BSC:MANAGE_UNIT')")
     public ResponseEntity<ApiResponse<ScorecardResponse>> createScorecard(
             @PathVariable UUID organizationId,
             @Valid @RequestBody ScorecardRequest request) {
@@ -109,7 +109,7 @@ public class BscController {
     }
 
     @PutMapping("/scorecards/{scorecardId}")
-    @PreAuthorize("hasAuthority('BSC:MANAGE')")
+    @PreAuthorize("hasAnyAuthority('BSC:MANAGE', 'BSC:MANAGE_UNIT')")
     public ResponseEntity<ApiResponse<ScorecardResponse>> updateScorecard(
             @PathVariable UUID scorecardId,
             @Valid @RequestBody ScorecardRequest request) {
@@ -117,7 +117,7 @@ public class BscController {
     }
 
     @DeleteMapping("/scorecards/{scorecardId}")
-    @PreAuthorize("hasAuthority('BSC:MANAGE')")
+    @PreAuthorize("hasAnyAuthority('BSC:MANAGE', 'BSC:MANAGE_UNIT')")
     public ResponseEntity<ApiResponse<Void>> deleteScorecard(@PathVariable UUID scorecardId) {
         bscService.deleteScorecard(scorecardId);
         return ResponseEntity.ok(ApiResponse.success(null));

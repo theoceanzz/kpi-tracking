@@ -21,6 +21,7 @@ import StaffPerformanceDetailModal from '@/features/submissions/components/Staff
 import { usePermission } from '@/hooks/usePermission'
 import TimelineStep from '@/components/common/TimelineStep'
 import ConductInlineSheet from '@/features/conduct/components/ConductInlineSheet'
+import BscWaterfallModal from '@/features/bsc/components/BscWaterfallModal'
 
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { evaluationApi } from '../api/evaluationApi'
@@ -35,6 +36,8 @@ interface EvaluationDetailModalProps {
 
 
 export default function EvaluationDetailModal({ open, onClose, evaluation }: EvaluationDetailModalProps) {
+  // Id đánh giá đang mở màn hình diễn giải điểm (waterfall + ghi đè).
+  const [waterfallId, setWaterfallId] = useState<string | null>(null)
   const { user } = useAuthStore()
   const { data: org } = useOrganization(user?.memberships?.[0]?.organizationId)
   const { getScoreColor, getScoreLabel, maxScore } = getScoringFunctions(org)
@@ -410,6 +413,7 @@ export default function EvaluationDetailModal({ open, onClose, evaluation }: Eva
                 getScoreColor={getScoreColor}
                 getScoreLabel={getScoreLabel}
                 onClick={step.role === 'SELF' && isDeputy ? () => setShowPerfDetail(true) : undefined}
+                onExplainBsc={setWaterfallId}
               />
 
 
@@ -571,6 +575,12 @@ export default function EvaluationDetailModal({ open, onClose, evaluation }: Eva
         onClose={() => setSelectedSubmission(null)} 
         submission={selectedSubmission} 
       />
+
+      <BscWaterfallModal
+        open={!!waterfallId}
+        onClose={() => setWaterfallId(null)}
+        evaluationId={waterfallId}
+      />
     </div>
   )
 }
@@ -578,13 +588,15 @@ export default function EvaluationDetailModal({ open, onClose, evaluation }: Eva
 
 // --- Sub Components ---
 
-function EvalLayerCard({ title, icon: Icon, iconBg, iconColor, evaluation, lineActive, isLast, calculatedScore, getScoreColor, getScoreLabel, onClick }: {
+function EvalLayerCard({ title, icon: Icon, iconBg, iconColor, evaluation, lineActive, isLast, calculatedScore, getScoreColor, getScoreLabel, onClick, onExplainBsc }: {
   title: string; icon: any; iconBg: string; iconColor: string; 
   evaluation: Evaluation | null; lineActive?: boolean; isLast?: boolean;
   calculatedScore?: number | null;
   getScoreColor: (s: number | null) => string;
   getScoreLabel: (s: number | null) => string;
   onClick?: () => void;
+  /** Mở màn hình diễn giải điểm BSC (hệ số phòng/công ty, hạng mục chặn, ghi đè). */
+  onExplainBsc?: (evaluationId: string) => void;
 }) {
 
   return (
@@ -621,13 +633,21 @@ function EvalLayerCard({ title, icon: Icon, iconBg, iconColor, evaluation, lineA
                   {/* BSC: điểm + breakdown hạng mục (chỉ hiện khi kỳ có bộ tiêu chí) */}
                   {evaluation.bscScore != null && (
                     <div className="mt-2 space-y-1.5">
-                      <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-widest bg-indigo-50 text-indigo-600 dark:bg-indigo-900/20"
-                        title={evaluation.bscScoringMode === 'OFFICIAL'
-                          ? 'Điểm BSC đang là điểm chính thức'
-                          : 'Điểm BSC đang chạy song song để đối chiếu, chưa thay điểm hệ thống'}>
-                        <Layers size={10} />
-                        Điểm BSC: {evaluation.bscScore.toFixed(1)}
-                        <span className="opacity-60">· {evaluation.bscScoringMode === 'OFFICIAL' ? 'Chính thức' : 'Song song'}</span>
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-widest bg-indigo-50 text-indigo-600 dark:bg-indigo-900/20"
+                          title={evaluation.bscScoringMode === 'OFFICIAL'
+                            ? 'Điểm BSC đang là điểm chính thức'
+                            : 'Điểm BSC đang chạy song song để đối chiếu, chưa thay điểm hệ thống'}>
+                          <Layers size={10} />
+                          Điểm BSC: {evaluation.bscScore.toFixed(1)}
+                          <span className="opacity-60">· {evaluation.bscScoringMode === 'OFFICIAL' ? 'Chính thức' : 'Song song'}</span>
+                        </div>
+                        {/* Điểm BSC đứng một mình không giải thích được vì sao ra con số đó —
+                            hệ số phòng/công ty và hạng mục chặn nằm ở màn hình diễn giải. */}
+                        <button type="button" onClick={() => onExplainBsc?.(evaluation.id)}
+                          className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-widest text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/30">
+                          Diễn giải điểm
+                        </button>
                       </div>
                       {evaluation.bscPerspectives && evaluation.bscPerspectives.length > 0 && (
                         <div className="flex flex-wrap gap-1">
