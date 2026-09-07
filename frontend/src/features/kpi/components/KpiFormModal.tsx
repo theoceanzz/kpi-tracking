@@ -535,7 +535,7 @@ export default function KpiFormModal({
   const [userSearch, setUserSearch] = useState('')
 
   const displayUsers = useMemo(() => {
-    let filtered = availableUsers
+    const filtered = availableUsers
 
     if (!userSearch.trim()) return filtered
     const search = userSearch.toLowerCase()

@@ -166,7 +166,7 @@ export default function ExcelPreviewModal({ open, file, onClose, onImport, isImp
       }
 
       setData(validated)
-    } catch (error) {
+    } catch {
       toast.error('Lỗi khi đọc file Excel')
       onClose()
     } finally {
@@ -413,7 +413,7 @@ export default function ExcelPreviewModal({ open, file, onClose, onImport, isImp
       const newFile = new File([blob], file?.name || 'import_users.xlsx', { type: blob.type })
       
       onImport(newFile)
-    } catch (e) {
+    } catch {
       toast.error('Lỗi khi tạo file import')
     }
   }

@@ -20,7 +20,7 @@ export function PinnedWidgetCard({ widget, onUnpin, filter }: { widget: ReportWi
       toast.success('Đã bỏ ghim')
       queryClient.invalidateQueries({ queryKey: ['reports', 'widgets', 'pinned'] })
       onUnpin()
-    } catch (err) {
+    } catch {
       toast.error('Không thể bỏ ghim')
     }
   }

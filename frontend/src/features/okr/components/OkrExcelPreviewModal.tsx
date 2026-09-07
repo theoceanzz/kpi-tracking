@@ -154,7 +154,7 @@ export default function OkrExcelPreviewModal({ open, file, onClose, onImport, is
       }
 
       setData(validated)
-    } catch (error) {
+    } catch {
       toast.error('Lỗi khi đọc file Excel')
       onClose()
     } finally {
@@ -300,7 +300,7 @@ export default function OkrExcelPreviewModal({ open, file, onClose, onImport, is
       const newFile = new File([blob], file?.name || 'import_okrs.xlsx', { type: blob.type })
       
       onImport(newFile)
-    } catch (e) {
+    } catch {
       toast.error('Lỗi khi tạo file import')
     }
   }

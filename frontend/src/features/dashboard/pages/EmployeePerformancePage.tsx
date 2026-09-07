@@ -69,7 +69,7 @@ export default function EmployeePerformancePage() {
     try {
       await reminderApi.sendReminder(taskId, userId)
       toast.success('Đã gửi thông báo nhắc nhở nộp KPI')
-    } catch (error) {
+    } catch {
       toast.error('Gửi nhắc nhở thất bại')
     } finally {
       setRemindingId(null)
@@ -87,7 +87,7 @@ export default function EmployeePerformancePage() {
     try {
       await Promise.all(unfinishedTasks.map(t => reminderApi.sendReminder(t.id, userId!)))
       toast.success(`Đã gửi nhắc nhở cho ${unfinishedTasks.length} nhiệm vụ`)
-    } catch (error) {
+    } catch {
       toast.error('Gửi nhắc nhở hàng loạt thất bại')
     } finally {
       setRemindingAll(false)
