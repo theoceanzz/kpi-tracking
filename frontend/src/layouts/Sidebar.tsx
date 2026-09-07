@@ -55,6 +55,8 @@ interface NavItem {
   icon: React.ReactNode
   permission?: string
   end?: boolean
+  /** Sáng cả khi URL nằm SÂU hơn `path` (vd. /analytics/summary). Xem chỗ tính `isMatch`. */
+  matchPrefix?: boolean
   children?: NavItem[]
   okrOnly?: boolean
   bscOnly?: boolean
@@ -120,7 +122,7 @@ const navItems: NavItem[] = [
   { label: 'KPI của tôi', path: '/my-kpi', icon: <ListChecks size={20} />, permission: 'KPI:VIEW_MY' },
   { label: 'Tiến độ của tôi', path: '/submissions', icon: <FileText size={20} />, permission: 'SUBMISSION:VIEW_MY', end: true },
   { label: 'Yêu cầu điều chỉnh', path: '/my-adjustments', icon: <History size={20} />, permission: 'KPI:VIEW_MY' },
-  { label: 'Thống kê', path: '/analytics', icon: <TrendingUp size={20} />, permission: 'DASHBOARD:VIEW', end: true },
+  { label: 'Thống kê', path: '/analytics', icon: <TrendingUp size={20} />, permission: 'DASHBOARD:VIEW', matchPrefix: true },
   // Không gắn permission: phần "Hiển thị của tôi" trong trang này dành cho mọi người, giống cách
   // Hạn mức AI được đưa thẳng ra sidebar thay vì chôn trong Cấu hình hệ thống.
   { label: 'Luồng KPI', path: '/kpi-workflow', icon: <Workflow size={20} />, end: true },
@@ -553,11 +555,16 @@ useEffect(() => {
                 className={() => {
                   const currentPath = location.pathname + location.search
                   const targetPath = item.path || ''
-                  
+
                   // Custom matching logic for dashboard views with search params
-                  const isMatch = targetPath.includes('?') 
-                    ? currentPath === targetPath 
-                    : location.pathname === targetPath && !ALL_NAV_PATHS.some(p => p !== targetPath && p === currentPath)
+                  // `matchPrefix`: trang mang tab trong đường dẫn (/analytics/summary) vẫn phải làm sáng mục
+                  // cha. KHÔNG bật đại trà — /bsc sẽ sáng cùng lúc với /bsc/dashboard và /bsc/strategy-map,
+                  // vốn là ba mục nav riêng.
+                  const isMatch = targetPath.includes('?')
+                    ? currentPath === targetPath
+                    : (location.pathname === targetPath
+                        || (!!item.matchPrefix && location.pathname.startsWith(`${targetPath}/`)))
+                      && !ALL_NAV_PATHS.some(p => p !== targetPath && p === currentPath)
 
                   return cn(
                     'flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-bold transition-all group relative',

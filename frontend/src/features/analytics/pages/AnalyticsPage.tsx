@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { useEffect } from 'react'
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useHasPermission } from '@/components/auth/PermissionGate'
 import { cn } from '@/lib/utils'
 import { TrendingUp, Building2, LayoutDashboard, Users, Target, Gauge } from 'lucide-react'
@@ -46,31 +46,34 @@ export default function AnalyticsPage() {
 
   const visibleTabs = tabs.filter(t => t.visible)
 
-  // Persist active tab in URL so it survives page reloads
-  const [searchParams, setSearchParams] = useSearchParams()
-  const tabFromUrl = searchParams.get('tab') as TabKey | null
-  const [activeTab, setActiveTabState] = useState<TabKey>(tabFromUrl ?? 'my-objectives')
+  // Tab nằm ở đoạn đường dẫn (`/analytics/summary`) chứ KHÔNG giữ bản sao trong state: mọi thay đổi
+  // URL — kể cả Back/Forward của trình duyệt — phải đổi được tab đang hiện. Bản cũ đọc URL một lần
+  // làm giá trị khởi tạo useState nên lịch sử duyệt chỉ đổi thanh địa chỉ mà không đổi nội dung.
+  const { tab: tabParam } = useParams<{ tab?: string }>()
+  const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
+  const legacyTab = searchParams.get('tab')
 
-  const setActiveTab = (key: TabKey) => {
-    setActiveTabState(key)
-    setSearchParams(prev => {
-      const p = new URLSearchParams(prev)
-      p.set('tab', key)
-      return p
-    }, { replace: true })
-  }
+  const activeTab = visibleTabs.some(t => t.key === tabParam) ? (tabParam as TabKey) : undefined
+  const firstVisibleKey = visibleTabs[0]?.key
 
-  // Auto-switch to first visible tab if current tab becomes invisible after org loads
+  // Push chứ không replace: Back phải quay về tab trước đó, không văng ra khỏi trang Thống kê.
+  const goToTab = (key: TabKey) => navigate(`/analytics/${key}`)
+
+  // Chuẩn hoá URL sau khi biết cờ tổ chức — `visibleTabs` phụ thuộc OKR/BSC nên chạy sớm hơn sẽ
+  // chuyển hướng nhầm. Chỉ dùng giá trị nguyên thuỷ làm phụ thuộc: `visibleTabs` dựng lại mỗi lần
+  // render nên đưa nguyên mảng vào đây sẽ cho effect chạy liên tục.
   useEffect(() => {
-    if (loadingOrg) return
-    const isCurrentTabVisible = visibleTabs.some(t => t.key === activeTab)
-    if (!isCurrentTabVisible && visibleTabs.length > 0) {
-      const firstTab = visibleTabs[0]
-      if (firstTab) setActiveTab(firstTab.key)
-    }
-  }, [isOkr, activeTab, visibleTabs, loadingOrg])
+    if (loadingOrg || activeTab) return
+    // Link cũ dạng `?tab=bsc`: xét TRƯỚC nhánh dưới, không thì bị nuốt thành tab đầu. Điều hướng bỏ
+    // luôn query string nên khoá rác cũng hội tụ sau một vòng nữa — không lặp vô hạn.
+    if (legacyTab) { navigate(`/analytics/${legacyTab}`, { replace: true }); return }
+    if (firstVisibleKey) navigate(`/analytics/${firstVisibleKey}`, { replace: true })
+    // Cả hai nhánh đều `replace`: push thì Back nảy ngược vào chính chỗ vừa nhảy đến.
+  }, [loadingOrg, activeTab, legacyTab, firstVisibleKey, navigate])
 
-  if (loadingOrg) {
+  // Giữ skeleton thêm một nhịp khi URL chưa chuẩn hoá, thay vì nháy một khung trống.
+  if (loadingOrg || (!activeTab && !!firstVisibleKey)) {
     return (
       <div className="max-w-[1600px] mx-auto p-4 md:p-8 space-y-6 animate-pulse">
         {/* Header skeleton */}
@@ -111,7 +114,7 @@ export default function AnalyticsPage() {
         {visibleTabs.map(t => {
           const Icon = t.icon
           return (
-            <button key={t.key} onClick={() => setActiveTab(t.key)} className={cn(
+            <button key={t.key} onClick={() => goToTab(t.key)} className={cn(
               "flex-1 sm:flex-none min-w-0 flex items-center justify-center gap-1.5 sm:gap-2 px-1.5 sm:px-5 py-3 text-xs sm:text-sm font-bold border-b-2 transition-all -mb-px",
               activeTab === t.key ? "border-indigo-600 text-indigo-600 dark:text-indigo-400" : "border-transparent text-slate-500 hover:text-slate-700"
             )}>

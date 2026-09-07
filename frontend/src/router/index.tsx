@@ -209,7 +209,10 @@ export const router = createBrowserRouter([
           { path: '/datasources/:id', element: <DatasourceDetailPage /> },
           { path: '/reports', element: <ReportsPage /> },
           { path: '/reports/:id', element: <ReportDetailPage /> },
-          { path: '/analytics', element: <AnalyticsPage /> },
+          // Tab nằm ở đoạn đường dẫn chứ không ở query param: nhờ vậy Back/Forward đi qua lại giữa
+          // các tab thay vì văng thẳng ra khỏi trang. Đoạn tuỳ chọn `?` cho phép `/analytics` trống
+          // khớp cùng một route — tách thành hai mục sẽ làm trang gắn lại ở lần chuyển hướng đầu.
+          { path: '/analytics/:tab?', element: <AnalyticsPage /> },
           { path: '/ai-assistant', element: <AiAssistantPage /> },
 
           // All roles — my KPI, submissions & evaluations
