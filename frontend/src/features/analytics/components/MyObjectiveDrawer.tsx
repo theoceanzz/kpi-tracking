@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react'
+import { yAxisLabel } from '@/components/charts/axisLabel'
 
 import { personalObjectiveApi } from '@/features/dashboard/api/personalObjectiveApi'
 import { useQuery } from '@tanstack/react-query'
@@ -248,6 +249,7 @@ export default function MyObjectiveDrawer({ kpiId, onClose, globalFrom, globalTo
                   <YAxis 
                     yAxisId="left" 
                     orientation="left" 
+                    label={yAxisLabel('Giá trị đạt')}
                     axisLine={false} 
                     tickLine={false} 
                     tick={{fontSize: 11, fill: '#64748b'}}

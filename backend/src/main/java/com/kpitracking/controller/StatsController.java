@@ -140,8 +140,9 @@ public class StatsController {
     public ResponseEntity<ApiResponse<AnalyticsSummaryResponse>> getSummary(
             @RequestParam(required = false) UUID orgUnitId,
             @RequestParam(required = false) UUID rankingUnitId,
-            @RequestParam(defaultValue = "DESC") String direction) {
-        AnalyticsSummaryResponse response = statsService.getSummary(orgUnitId, rankingUnitId, direction);
+            @RequestParam(defaultValue = "DESC") String direction,
+            @RequestParam(defaultValue = "false") boolean lite) {
+        AnalyticsSummaryResponse response = statsService.getSummary(orgUnitId, rankingUnitId, direction, lite);
         return ResponseEntity.ok(ApiResponse.success(response));
     }
 

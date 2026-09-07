@@ -28,6 +28,30 @@ interface KpiFormModalProps {
   editKpi?: KpiCriteria | null
   parentKpi?: KpiCriteria | null
   parentRelationType?: 'DELEGATION' | 'DECOMPOSITION'
+  /**
+   * `modal` (mặc định) giữ nguyên lớp phủ + tiêu đề + nút Hủy như hai trang đang dùng.
+   * `inline` bỏ khung đó để nhúng thẳng vào một bước của trình thiết lập, nơi khung wizard đã lo
+   * phần tiêu đề và điều hướng.
+   *
+   * Cố ý chỉ gỡ KHUNG chứ không tách file: 624 dòng trường nhập và 535 dòng logic chuẩn hoá
+   * payload, cảnh báo BSC/OKR, gợi ý AI đều dùng chung cho cả hai biến thể — chép ra bản thứ hai
+   * là chấp nhận chúng sẽ lệch nhau.
+   */
+  variant?: 'modal' | 'inline'
+  /** Gọi kèm chỉ tiêu vừa tạo. Trước đây thực thể này bị `onSuccess: ()` vứt đi. */
+  onCreated?: (kpi: KpiCriteria) => void
+  /** Tạo xong thì dọn form và Ở LẠI để thêm cái tiếp theo, thay vì đóng. */
+  keepOpenAfterCreate?: boolean
+  /** Nhãn nút xác nhận. Trong wizard là "Thêm chỉ tiêu". */
+  submitLabel?: string
+  /**
+   * Báo ra ngoài đợt và đơn vị đang chọn, ngay khi người dùng vừa chọn.
+   *
+   * Trình thiết lập cần biết điều này TRƯỚC khi lưu chỉ tiêu đầu tiên: thẻ tổng trọng số bên phải
+   * phải nói được "đơn vị này, đợt này còn thiếu bao nhiêu %". Trước khi có nó, thẻ chỉ hiện 0%
+   * kèm "còn thiếu 100%" mà không nói của ai — đọc lên không hiểu đang nói về cái gì.
+   */
+  onContextChange?: (ctx: { kpiPeriodId?: string; orgUnitIds: string[] }) => void
 }
 
 const frequencyOptions = (['DAILY', 'WEEKLY', 'MONTHLY', 'QUARTERLY', 'SEMI_ANNUALLY', 'YEARLY', 'UNLIMITED'] as const).map(value => ({
@@ -49,7 +73,11 @@ function toDatetimeLocal(value?: string | null): string | undefined {
 }
 
 
-export default function KpiFormModal({ open, onClose, editKpi, parentKpi, parentRelationType }: KpiFormModalProps) {
+export default function KpiFormModal({
+  open, onClose, editKpi, parentKpi, parentRelationType,
+  variant = 'modal', onCreated, keepOpenAfterCreate = false, submitLabel, onContextChange,
+}: KpiFormModalProps) {
+  const isInline = variant === 'inline'
   const isEdit = !!editKpi
   const qc = useQueryClient()
   const { user } = useAuthStore()
@@ -133,6 +161,18 @@ export default function KpiFormModal({ open, onClose, editKpi, parentKpi, parent
   const periodHasScorecard = !!formKpiPeriodId && (bscScorecards || []).some(sc => sc.kpiPeriodId === formKpiPeriodId)
   const formOrgUnitIds = watch('orgUnitIds') || []
   const [selectedRole, setSelectedRole] = useState<string>('ALL')
+
+  // Đẩy bối cảnh đang chọn ra ngoài. Nối chuỗi id để so sánh: `watch('orgUnitIds')` trả về mảng
+  // MỚI mỗi lần render, đưa thẳng vào deps thì effect chạy vô hạn.
+  const contextKey = `${formKpiPeriodId ?? ''}|${formOrgUnitIds.join(',')}`
+  useEffect(() => {
+    const [periodPart, unitsPart] = contextKey.split('|')
+    onContextChange?.({
+      kpiPeriodId: periodPart || undefined,
+      orgUnitIds: unitsPart ? unitsPart.split(',') : [],
+    })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [contextKey])
   /** Ô đang thật sự sửa được, cho trợ lý AI. Cập nhật bằng effect riêng — các điều kiện dưới
    *  đây khai báo SAU chỗ đăng ký nên không đưa thẳng vào deps được (lỗi vùng chết). */
   const fillableRef = useRef<string[]>([])
@@ -256,12 +296,17 @@ export default function KpiFormModal({ open, onClose, editKpi, parentKpi, parent
 
   const createMutation = useMutation({
     mutationFn: (data: KpiFormData) => kpiApi.create(data),
-    onSuccess: () => { 
+    // Nhận `created`: mutation vốn vẫn trả về chỉ tiêu vừa tạo, chỉ là chữ ký cũ khai `()` nên
+    // vứt đi. Trình thiết lập cần nó để dựng danh sách "giỏ hàng" bên phải.
+    onSuccess: (created) => {
       qc.invalidateQueries({ queryKey: ['kpi-criteria'] })
       toast.success('Tạo chỉ tiêu thành công')
       reset()
       setAiSuggestions([])
-      onClose() 
+      onCreated?.(created)
+      // Ở chế độ thêm liên tục thì giữ form mở để nhập tiếp cái sau — đóng lại rồi bắt mở lại
+      // cho mỗi chỉ tiêu chính là thao tác mà trình thiết lập sinh ra để xoá bỏ.
+      if (!keepOpenAfterCreate) onClose()
     },
     onError: (err: any) => {
       const msg = err?.response?.data?.message || 'Tạo chỉ tiêu thất bại'
@@ -585,26 +630,20 @@ export default function KpiFormModal({ open, onClose, editKpi, parentKpi, parent
 
   const inputCls = "w-full px-3 py-2.5 rounded-lg border border-[var(--color-border)] bg-[var(--color-background)] text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]/50 transition-all shadow-sm"
 
-  return (
-    <div className="fixed inset-0 z-[200] flex items-center justify-center">
-      <div className="absolute inset-0 bg-black/40 backdrop-blur-md transition-opacity" onClick={onClose} />
-      <div className="relative bg-[var(--color-card)] rounded-2xl shadow-2xl p-6 max-w-lg w-full mx-4 animate-in zoom-in-95 max-h-[96vh] overflow-y-auto custom-scrollbar border border-[var(--color-border)]/50">
-        <div className="flex items-center justify-between mb-5">
-          <div className="space-y-1">
-            <h3 className="text-lg font-extrabold tracking-tight text-[var(--color-foreground)]">{isEdit ? 'Chỉnh sửa chỉ tiêu' : 'Tạo mới KPI'}</h3>
-            <p className="text-xs text-[var(--color-muted-foreground)] font-medium">Phát triển mục tiêu kinh doanh & vận hành</p>
-          </div>
-          <button onClick={onClose} className="text-[var(--color-muted-foreground)] hover:text-[var(--color-foreground)] transition-all p-1.5 hover:bg-[var(--color-accent)] rounded-full">
-            <X size={20} />
-          </button>
-        </div>
-
+  const formBody = (
+    <>
         <form
           onSubmit={handleSubmit(onSubmit, (err) => console.error('KPI Form Errors:', err))}
-          className="space-y-5"
+          // Trong modal thì xếp dọc như cũ (bề ngang chỉ 512px). Nhúng vào trình thiết lập thì có
+          // cả trang để dùng, nên dàn hai cột: form này có mười khối, xếp dọc hết thì người dùng
+          // phải cuộn qua ba màn hình mới tới được nút thêm.
+          className={isInline ? 'grid gap-5 xl:grid-cols-2 xl:items-start' : 'space-y-5'}
         >
           {showTypeTabs && (
-            <div className="grid grid-cols-2 gap-2 p-1 rounded-2xl bg-[var(--color-accent)]/30 border border-[var(--color-border)]/40">
+            <div className={cn(
+              'grid grid-cols-2 gap-2 p-1 rounded-2xl bg-[var(--color-accent)]/30 border border-[var(--color-border)]/40',
+              isInline && 'xl:col-span-2',
+            )}>
               <button
                 type="button"
                 onClick={() => setValue('kpiType', 'QUANTITATIVE')}
@@ -629,12 +668,17 @@ export default function KpiFormModal({ open, onClose, editKpi, parentKpi, parent
           )}
 
           {isEdit && isQualitative && (
-            <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-emerald-50 dark:bg-emerald-900/10 border border-emerald-100 dark:border-emerald-900/30 text-emerald-700 dark:text-emerald-400 text-[11px] font-bold">
+            <div className={cn(
+              'flex items-center gap-2 px-3 py-2 rounded-xl bg-emerald-50 dark:bg-emerald-900/10 border border-emerald-100 dark:border-emerald-900/30 text-emerald-700 dark:text-emerald-400 text-[11px] font-bold',
+              isInline && 'xl:col-span-2',
+            )}>
               <SlidersHorizontal size={14} /> KPI Định tính — chấm điểm theo thang định tính khi duyệt
             </div>
           )}
 
-          <div className="space-y-4">
+          {/* Tên + mô tả trải hết bề ngang: đây là ô người dùng gõ nhiều nhất, bó hẹp một nửa
+              khiến tên chỉ tiêu dài bị cắt ngay lúc nhập. */}
+          <div className={cn('space-y-4', isInline && 'xl:col-span-2')}>
             <div>
               <div className="flex items-center justify-between mb-1.5">
                 <label className="block text-sm font-bold text-[var(--color-foreground)]">Tên chỉ tiêu <span className="text-red-500">*</span></label>
@@ -1228,14 +1272,39 @@ export default function KpiFormModal({ open, onClose, editKpi, parentKpi, parent
             </div>
           )}
 
-          <div className="flex gap-4 pt-6 border-t border-[var(--color-border)]/50">
-            <button type="button" onClick={onClose} className="flex-1 px-4 py-3 rounded-2xl text-xs font-black uppercase tracking-widest hover:bg-[var(--color-accent)] transition-all">Hủy</button>
-            <button type="submit" disabled={isPending} className="flex-1 px-4 py-3 rounded-2xl text-xs font-black uppercase tracking-widest bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-xl shadow-blue-500/20 hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 transition-all flex items-center justify-center gap-2">
+          <div className={cn(
+            'flex gap-4 pt-6 border-t border-[var(--color-border)]/50',
+            isInline && 'xl:col-span-2',
+          )}>
+            {!isInline && (
+              <button type="button" onClick={onClose} className="flex-1 px-4 py-3 rounded-2xl text-xs font-black uppercase tracking-widest hover:bg-[var(--color-accent)] transition-all">Hủy</button>
+            )}
+            <button type="submit" disabled={isPending} className="flex-1 w-full px-4 py-3 rounded-2xl text-xs font-black uppercase tracking-widest bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-xl shadow-blue-500/20 hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 transition-all flex items-center justify-center gap-2">
               {isPending && <Loader2 size={16} className="animate-spin" />}
-              {isEdit ? 'Xác nhận' : 'Khởi tạo ngay'}
+              {submitLabel ?? (isEdit ? 'Xác nhận' : 'Khởi tạo ngay')}
             </button>
           </div>
         </form>
+    </>
+  )
+
+  if (isInline) return formBody
+
+  return (
+    <div className="fixed inset-0 z-[200] flex items-center justify-center">
+      <div className="absolute inset-0 bg-black/40 backdrop-blur-md transition-opacity" onClick={onClose} />
+      <div className="relative bg-[var(--color-card)] rounded-2xl shadow-2xl p-6 max-w-lg w-full mx-4 animate-in zoom-in-95 max-h-[96vh] overflow-y-auto custom-scrollbar border border-[var(--color-border)]/50">
+        <div className="flex items-center justify-between mb-5">
+          <div className="space-y-1">
+            <h3 className="text-lg font-extrabold tracking-tight text-[var(--color-foreground)]">{isEdit ? 'Chỉnh sửa chỉ tiêu' : 'Tạo mới KPI'}</h3>
+            <p className="text-xs text-[var(--color-muted-foreground)] font-medium">Phát triển mục tiêu kinh doanh &amp; vận hành</p>
+          </div>
+          <button onClick={onClose} className="text-[var(--color-muted-foreground)] hover:text-[var(--color-foreground)] transition-all p-1.5 hover:bg-[var(--color-accent)] rounded-full">
+            <X size={20} />
+          </button>
+        </div>
+
+        {formBody}
       </div>
     </div>
   )

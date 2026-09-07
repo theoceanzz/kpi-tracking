@@ -166,4 +166,17 @@ public interface UserRoleOrgUnitRepository extends JpaRepository<UserRoleOrgUnit
            "ORDER BY uro.role.name")
     List<String> findRoleNamesInScope(@Param("orgId") UUID orgId,
                                       @Param("paths") java.util.Collection<String> paths);
+
+    /**
+     * Cơ cấu nhân sự theo cấp × chức vụ — cho tháp dân số tổ chức.
+     * → [levelOrder, unitTypeName, roleRank, soNguoi].
+     *
+     * <p>Đếm DISTINCT theo người vì một người có thể giữ nhiều vai trò trong cùng một đơn vị;
+     * đếm dòng gán sẽ thổi phồng số nhân sự.
+     */
+    @Query("SELECT ohl.levelOrder, ohl.unitTypeName, r.rank, COUNT(DISTINCT uro.user.id) " +
+           "FROM UserRoleOrgUnit uro JOIN uro.role r JOIN uro.orgUnit ou JOIN ou.orgHierarchyLevel ohl " +
+           "WHERE ou.id IN :unitIds AND uro.user.deletedAt IS NULL AND r.rank IS NOT NULL " +
+           "GROUP BY ohl.levelOrder, ohl.unitTypeName, r.rank ORDER BY ohl.levelOrder, r.rank")
+    java.util.List<Object[]> headcountByLevelAndRank(@Param("unitIds") java.util.Collection<java.util.UUID> unitIds);
 }

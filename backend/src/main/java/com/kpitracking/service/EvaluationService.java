@@ -46,11 +46,28 @@ public class EvaluationService {
     private final PermissionChecker permissionChecker;
     private final KpiAchievementCalculator achievementCalculator;
     private final BscScoringService bscScoringService;
+    private final com.kpitracking.workflow.KpiWorkflowConfigService workflowConfigService;
 
     private User getCurrentUser() {
         String email = SecurityContextHolder.getContext().getAuthentication().getName();
         return userRepository.findByEmail(email)
                 .orElseThrow(() -> new ResourceNotFoundException("Người dùng", "email", email));
+    }
+
+    /**
+     * Nhánh tự đánh giá và nhánh quản lý chấm điểm là hai BƯỚC riêng trong luồng, nên tổ chức tắt
+     * được từng cái một: có nơi bỏ hẳn tự đánh giá, có nơi chỉ dùng tự đánh giá.
+     */
+    private void requireEvaluationStageEnabled(UUID organizationId, boolean isSelfEval) {
+        com.kpitracking.workflow.WorkflowStage stage = isSelfEval
+                ? com.kpitracking.workflow.WorkflowStage.SELF_EVALUATION
+                : com.kpitracking.workflow.WorkflowStage.MANAGER_EVALUATION;
+
+        if (!workflowConfigService.definitionFor(organizationId).isStageEnabled(stage)) {
+            throw new BusinessException(isSelfEval
+                    ? "Tổ chức đã tắt bước tự đánh giá trong cấu hình luồng KPI"
+                    : "Tổ chức đã tắt bước đánh giá nhân viên trong cấu hình luồng KPI");
+        }
     }
 
     @Transactional
@@ -84,6 +101,10 @@ public class EvaluationService {
 
         boolean isSelfEval = currentUser.getId().equals(evaluatedUser.getId());
         boolean canEvaluateOthers = permissionChecker.hasPermissionInOrgUnit(currentUser.getId(), "EVALUATION:CREATE", targetOrgUnit.getId());
+
+        // Tổ chức có thể tắt riêng từng nhánh đánh giá. Chặn ở đây chứ không chỉ ẩn nút, nếu không
+        // thì bước đã tắt vẫn gọi được thẳng qua API và dữ liệu vẫn sinh ra như thường.
+        requireEvaluationStageEnabled(org.getId(), isSelfEval);
 
         if (!isSelfEval) {
             if (!canEvaluateOthers) {

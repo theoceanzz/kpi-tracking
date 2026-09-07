@@ -1,6 +1,9 @@
 import { useState, useMemo } from 'react'
 import { personalObjectiveApi } from '@/features/dashboard/api/personalObjectiveApi'
 import { useQuery } from '@tanstack/react-query'
+import DumbbellDotPlot from '@/components/charts/primitives/DumbbellDotPlot'
+import { useChartTableView } from '@/components/common/dashboard/useChartTableView'
+import { ViewToggleButtons } from '@/components/common/dashboard/ViewToggleButtons'
 import {
   Target, TrendingUp, AlertTriangle, CheckCircle,
   ChevronDown, ChevronRight,
@@ -42,6 +45,10 @@ type SharedFilter = 'ALL' | 'SHARED' | 'PERSONAL'
 
 const PAGE_SIZE = 10
 
+// Chế độ biểu đồ lấy trọn danh sách thay vì phân trang. Trần này chỉ để chặn trường hợp bất
+// thường; chạm trần thì biểu đồ báo rõ chứ không cắt cụt im lặng.
+const CHART_FETCH_SIZE = 200
+
 const CONFIG_REPORT_NAME = '__MY_OBJECTIVES_DASHBOARD_CONFIG__'
 const DEFAULT_WIDGETS: DashboardWidget[] = [
   { i: 'myobj-trend', type: 'MYOBJ_TREND', title: 'Xu hướng KPI theo thời gian', x: 0, y: 0, w: 12, h: 15, visible: true },
@@ -59,6 +66,7 @@ export default function MyObjectivesTab() {
   const { periodId, periodIdTo, from, to, groupBy, controls } = useAnalyticsDateFilter({ selectClassName: 'h-10' })
   const perf = usePerformanceScale()
   const [selectedKpiId, setSelectedKpiId] = useState<string | null>(null)
+  const { view: detailView, setView: setDetailView } = useChartTableView('myobj-detail')
 
   // Table controls
   const [filterObjective, setFilterObjective] = useState('')
@@ -76,8 +84,14 @@ export default function MyObjectivesTab() {
     queryKey: ['personalObjective', 'chart', from, to, onlyApproved, periodId, periodIdTo, groupBy],
     queryFn: () => personalObjectiveApi.getComboChart({ from, to, onlyApproved, periodId, periodIdTo, groupBy }),
   })
+  // Chế độ biểu đồ lấy TRỌN danh sách, chế độ bảng phân trang như cũ — phân trang là affordance của
+  // bảng, đưa vào biểu đồ thì mỗi trang chỉ còn là một mảnh vụn không so được với nhau.
+  const chartMode = detailView === 'chart'
+  const effectivePage = chartMode ? 0 : page
+  const effectiveSize = chartMode ? CHART_FETCH_SIZE : PAGE_SIZE
+
   const { data: kpiPage, isLoading: isKpisLoading } = useQuery({
-    queryKey: ['personalObjective', 'details', from, to, onlyApproved, periodId, periodIdTo, sortField, sortDir, filterObjective, filterKr, filterShared, page],
+    queryKey: ['personalObjective', 'details', from, to, onlyApproved, periodId, periodIdTo, sortField, sortDir, filterObjective, filterKr, filterShared, effectivePage, effectiveSize],
     queryFn: () => personalObjectiveApi.getDetailedKpis({
       from, to, onlyApproved, periodId, periodIdTo,
       sortBy: sortField ?? undefined,
@@ -85,8 +99,8 @@ export default function MyObjectivesTab() {
       objectiveCode: filterObjective || undefined,
       keyResultCode: filterKr || undefined,
       sharedType: filterShared === 'ALL' ? undefined : filterShared,
-      page,
-      size: PAGE_SIZE,
+      page: effectivePage,
+      size: effectiveSize,
     }),
   })
 
@@ -200,7 +214,7 @@ export default function MyObjectivesTab() {
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
               {isKpisLoading
-                ? <TableLoadingRows cols={7} count={2} />
+                ? <TableLoadingRows cols={6} count={2} />
                 : kpiPage?.content?.map(kpi => (
                     <ExpandableKpiRow key={kpi.kpiId} kpi={kpi} onExpand={() => setSelectedKpiId(kpi.kpiId)} onSelectKpi={setSelectedKpiId} />
                   ))}
@@ -236,6 +250,46 @@ export default function MyObjectivesTab() {
     </div>
   )
 
+  // Mỗi KPI một đoạn nối thực tế → mục tiêu: chiều dài đoạn CHÍNH LÀ phần còn phải làm.
+  // Thanh tiến độ trong bảng nói cùng nội dung nhưng phải đọc từng dòng mới xếp hạng được mức độ gấp.
+  const renderGapBody = () => {
+    const rows = (kpiPage?.content ?? []).filter(k => k.kpiType !== 'QUALITATIVE' && k.targetValue > 0)
+    const qualitativeCount = (kpiPage?.content ?? []).length - rows.length
+    return (
+      <div className="flex-1 flex flex-col gap-3 min-h-0">
+        {isKpisLoading ? (
+          <div className="py-16 text-center text-slate-400 font-bold">Đang tải...</div>
+        ) : rows.length === 0 ? (
+          <div className="py-16 text-center text-slate-400 font-bold italic">Không có KPI định lượng nào trong kỳ này</div>
+        ) : (
+          <DumbbellDotPlot
+            xLabel="Tiến độ (%)"
+            data={rows.map(k => ({
+              id: k.kpiId,
+              name: k.kpiName,
+              subText: [k.keyResultName, k.periodName].filter(Boolean).join(' · '),
+              from: k.actualValue,
+              to: k.targetValue,
+              unit: k.unit,
+            }))}
+            fromLabel="Thực tế" toLabel="Mục tiêu"
+            onSelect={d => { if (d.id) setSelectedKpiId(d.id) }}
+          />
+        )}
+        {qualitativeCount > 0 && (
+          <p className="text-[11px] text-slate-400 font-medium text-center">
+            {qualitativeCount} KPI định tính không hiện ở đây — xem trong chế độ bảng.
+          </p>
+        )}
+        {(kpiPage?.totalElements ?? 0) > CHART_FETCH_SIZE && (
+          <p className="text-[11px] text-amber-600 font-bold text-center">
+            Có {kpiPage?.totalElements} KPI, biểu đồ chỉ vẽ {CHART_FETCH_SIZE} mục đầu — xem đủ ở chế độ bảng.
+          </p>
+        )}
+      </div>
+    )
+  }
+
   const renderWidget = (w: DashboardWidget) => {
     switch (w.type) {
       case 'MYOBJ_TREND': return (
@@ -244,9 +298,14 @@ export default function MyObjectivesTab() {
         </ChartWrapper>
       )
       case 'MYOBJ_DETAIL': return (
-        <ChartWrapper title="Bảng chi tiết KPI đang đảm nhiệm" icon={<Target size={20} className="text-indigo-600" />} widget={w} onTogglePin={handleTogglePin} isEditMode={isEditMode}
-          extraHeaderContent={<span className="text-xs font-bold text-slate-400">{kpiPage?.totalElements ?? 0} KPI</span>}>
-          {renderDetailBody()}
+        <ChartWrapper title="KPI đang đảm nhiệm" icon={<Target size={20} className="text-indigo-600" />} widget={w} onTogglePin={handleTogglePin} isEditMode={isEditMode}
+          extraHeaderContent={
+            <>
+              <span className="text-xs font-bold text-slate-400">{kpiPage?.totalElements ?? 0} KPI</span>
+              <ViewToggleButtons view={detailView} onChange={setDetailView} />
+            </>
+          }>
+          {detailView === 'chart' ? renderGapBody() : renderDetailBody()}
         </ChartWrapper>
       )
       default: return null

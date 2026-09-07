@@ -137,7 +137,9 @@ export default function KpiAdjustmentApprovalPage() {
 
   const handleTabChange = (tab: typeof activeTab) => {
     setActiveTab(tab)
-    setSearchParams({ tab })
+    // Cập nhật riêng khoá tab. Truyền object literal sẽ ghi đè TOÀN BỘ query string và
+    // nuốt mất ?periodId= mà thanh tiến trình đang mang theo.
+    setSearchParams(prev => { prev.set('tab', tab); return prev }, { replace: true })
     setPage(0)
     setSelectedIds([])
   }

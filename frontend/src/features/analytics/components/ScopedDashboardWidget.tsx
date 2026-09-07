@@ -16,6 +16,7 @@ import {
 } from 'lucide-react'
 import ObjectiveMetricCard from './ObjectiveMetricCard'
 import AnalyticsComboChart from './AnalyticsComboChart'
+import ChartTooltip from '@/components/charts/ChartTooltip'
 import { QualitativeDistributionChart } from './QualitativeDistributionChart'
 import { QualitativeResultChip } from './QualitativeResultChip'
 import {
@@ -40,6 +41,7 @@ import {
   ComposedChart,
   Line,
 } from 'recharts'
+import { METRIC_COLORS } from '@/components/charts/chartPalette'
 import type { ScopedDashboardResponse } from '@/types/stats'
 
 // Re-use the TopUnit shape from ScopedDashboardResponse directly
@@ -61,24 +63,16 @@ type DateFilterType = 'GLOBAL' | 'THIS_WEEK' | 'THIS_MONTH' | 'THIS_QUARTER' | '
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const COMPLETION_COLORS = { normal: '#10b981', dim: '#10b98140' }
-const PERFORMANCE_COLORS = { normal: '#3b82f6', dim: '#3b82f640' }
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
 function DualTooltip({ active, payload, label }: any) {
   if (!active || !payload || payload.length === 0) return null
-  const item = payload[0]?.payload
   return (
-    <div className="bg-slate-900 text-white px-3 py-2 rounded-lg text-xs shadow-xl border border-white/10 max-w-[280px] break-words">
-      <p className="font-bold mb-1">{item?.name || label}</p>
-      {payload.map((p: any, i: number) => (
-        <p key={i} className="flex items-center gap-1.5">
-          <span className="w-2 h-2 rounded-full" style={{ backgroundColor: p.color }} />
-          {p.name}: <span className="font-bold">{Math.round(p.value)}%</span>
-        </p>
-      ))}
-    </div>
+    <ChartTooltip
+      title={payload[0]?.payload?.name || label}
+      rows={payload.map((p: any) => ({ color: p.color, label: p.name, value: `${Math.round(p.value)}%` }))}
+    />
   )
 }
 
@@ -209,7 +203,7 @@ function TopItemsDualChart({
                 <Bar
                   name="Tiến độ"
                   dataKey="completionRate"
-                  fill={COMPLETION_COLORS.normal}
+                  fill={METRIC_COLORS.completion.normal}
                   radius={[0, 6, 6, 0]}
                   barSize={14}
                   isAnimationActive={false}
@@ -226,8 +220,8 @@ function TopItemsDualChart({
                       key={idx}
                       fill={
                         hoverIndex !== null && hoverIndex !== idx
-                          ? COMPLETION_COLORS.dim
-                          : COMPLETION_COLORS.normal
+                          ? METRIC_COLORS.completion.dim
+                          : METRIC_COLORS.completion.normal
                       }
                       onMouseEnter={(e: any) => onCellEnter(e, idx)}
                     />
@@ -290,7 +284,7 @@ function TopItemsDualChart({
                 <Bar
                   name="Hiệu suất"
                   dataKey="performanceRate"
-                  fill={PERFORMANCE_COLORS.normal}
+                  fill={METRIC_COLORS.performance.normal}
                   radius={[0, 6, 6, 0]}
                   barSize={14}
                   isAnimationActive={false}
@@ -307,8 +301,8 @@ function TopItemsDualChart({
                       key={idx}
                       fill={
                         hoverIndex !== null && hoverIndex !== idx
-                          ? PERFORMANCE_COLORS.dim
-                          : PERFORMANCE_COLORS.normal
+                          ? METRIC_COLORS.performance.dim
+                          : METRIC_COLORS.performance.normal
                       }
                       onMouseEnter={(e: any) => onCellEnter(e, idx)}
                     />
@@ -437,7 +431,7 @@ function TopUnitsDualChartScoped({
                 <Bar
                   name="Tiến độ"
                   dataKey="completionRate"
-                  fill={COMPLETION_COLORS.normal}
+                  fill={METRIC_COLORS.completion.normal}
                   radius={[0, 6, 6, 0]}
                   barSize={14}
                   isAnimationActive={false}
@@ -454,8 +448,8 @@ function TopUnitsDualChartScoped({
                       key={idx}
                       fill={
                         hoverIndex !== null && hoverIndex !== idx
-                          ? COMPLETION_COLORS.dim
-                          : COMPLETION_COLORS.normal
+                          ? METRIC_COLORS.completion.dim
+                          : METRIC_COLORS.completion.normal
                       }
                       onMouseEnter={(e: any) => onCellEnter(e, idx)}
                     />
@@ -518,7 +512,7 @@ function TopUnitsDualChartScoped({
                 <Bar
                   name="Hiệu suất"
                   dataKey="performanceRate"
-                  fill={PERFORMANCE_COLORS.normal}
+                  fill={METRIC_COLORS.performance.normal}
                   radius={[0, 6, 6, 0]}
                   barSize={14}
                   isAnimationActive={false}
@@ -535,8 +529,8 @@ function TopUnitsDualChartScoped({
                       key={idx}
                       fill={
                         hoverIndex !== null && hoverIndex !== idx
-                          ? PERFORMANCE_COLORS.dim
-                          : PERFORMANCE_COLORS.normal
+                          ? METRIC_COLORS.performance.dim
+                          : METRIC_COLORS.performance.normal
                       }
                       onMouseEnter={(e: any) => onCellEnter(e, idx)}
                     />

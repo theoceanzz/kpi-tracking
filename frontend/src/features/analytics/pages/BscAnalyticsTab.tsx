@@ -1,11 +1,12 @@
 import { useMemo, useState } from 'react'
+import { yAxisLabel } from '@/components/charts/axisLabel'
 import {
   LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
   ResponsiveContainer,
 } from 'recharts'
 import {
   Gauge, TrendingUp, Layers, Scale, AlertTriangle, Award, ShieldCheck, Medal,
-  Building2, Filter,
+  Building2, Filter, History,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import {
@@ -15,13 +16,25 @@ import Pagination from '@/components/common/Pagination'
 import AnalyticsTabSkeleton from '@/components/common/AnalyticsTabSkeleton'
 import { useAnalyticsDateFilter } from '@/components/common/AnalyticsDateFilter'
 import { useOrgUnitTree } from '@/features/orgunits/hooks/useOrgUnitTree'
-import PerspectiveRadar from '../components/PerspectiveRadar'
+import Lollipop from '@/components/charts/primitives/Lollipop'
+import { useChartTableView } from '@/components/common/dashboard/useChartTableView'
+import { ViewToggleButtons } from '@/components/common/dashboard/ViewToggleButtons'
+import {
+  BscVsSystemScatterSection, PerspectiveBubbleSection, BscWaterfallSection, WeightHistorySection,
+} from '../components/advanced/BscAdvanced'
 import {
   useBscBalance, useBscTrend, useBscUnitComparison, useBscVsSystem, useBscRankings,
 } from '../hooks/useAnalytics'
+import StackedComposition from '@/components/charts/primitives/StackedComposition'
+import { SeriesTooltip } from '@/components/charts/ChartTooltip'
+import { TrendModeToggle } from '@/components/common/dashboard/TrendModeToggle'
+import { useTrendMode } from '@/components/common/dashboard/useTrendMode'
 
 const ALL_UNITS = '__ALL__'
 const RANK_PAGE_SIZE = 10
+
+// Số nhân sự biểu đồ xếp hạng BSC vẽ (không phân trang).
+const RANK_CHART_TOP_N = 15
 const DEFAULT_COLOR = '#8b5cf6'
 
 const fmt = (v?: number | null) => (v == null ? '—' : (Math.round(v * 10) / 10).toString())
@@ -75,6 +88,9 @@ export default function BscAnalyticsTab() {
   const [selectedUnitId, setSelectedUnitId] = useState<string | undefined>(undefined)
   const [vsLevel, setVsLevel] = useState<'UNIT' | 'MEMBER'>('UNIT')
   const [rankPage, setRankPage] = useState(0)
+  const { view: rankView, setView: setRankView } = useChartTableView('bsc-rank')
+  const [vsShape, setVsShape] = useState<'BAR' | 'SCATTER'>('BAR')
+  const advancedFilter = { orgUnitId: selectedUnitId, periodId, periodIdTo }
   const [rankSort, setRankSort] = useState<'bscScore' | 'systemScore'>('bscScore')
 
   const scope = { orgUnitId: selectedUnitId, periodId, periodIdTo }
@@ -92,17 +108,29 @@ export default function BscAnalyticsTab() {
   const { data: trend } = useBscTrend({ ...scope, groupBy })
   const { data: comparison } = useBscUnitComparison(scope)
   const { data: vsSystem } = useBscVsSystem({ ...scope, level: vsLevel })
-  const { data: ranking } = useBscRankings({ ...scope, sortBy: rankSort, sortDir: 'desc', page: rankPage, size: RANK_PAGE_SIZE })
+  // Chế độ biểu đồ lấy một lần Top N, chế độ bảng phân trang như cũ: bảng xếp hạng sinh ra để xem
+  // đầu bảng, còn "trang 4/9 của một bảng xếp hạng" thì không trả lời được câu hỏi nào.
+  const rankChartMode = rankView === 'chart'
+  const { data: ranking } = useBscRankings({
+    ...scope, sortBy: rankSort, sortDir: 'desc',
+    page: rankChartMode ? 0 : rankPage,
+    size: rankChartMode ? RANK_CHART_TOP_N : RANK_PAGE_SIZE,
+  })
 
-  const radarData = useMemo(
-    () => (balance?.perspectives || []).map(p => ({ name: p.name, value: p.averageScore != null ? Math.round(p.averageScore * 10) / 10 : 0 })),
-    [balance]
-  )
+  const { mode: trendMode, setMode: setTrendMode, isShare: isTrendShare } = useTrendMode('bsc:perspective-trend')
 
   const trendData = useMemo(
     () => (trend?.points || []).map(pt => ({ label: pt.label, overall: pt.overall ?? null, ...pt.values })),
     [trend]
   )
+
+  // Cơ cấu 100% phải dựng trên điểm ĐÃ NHÂN TRỌNG SỐ: chỉ đại lượng đó mới cộng thành điểm BSC.
+  // Dữ liệu cũ chưa có `weighted` sẽ cho tổng 0 — bắt lấy để hiện thông báo thay vì vẽ biểu đồ rỗng.
+  const trendShare = useMemo(() => {
+    const points = (trend?.points || []).map(pt => ({ label: pt.label, values: pt.weighted ?? {} }))
+    const hasData = points.some(p => Object.values(p.values).some(v => (v ?? 0) > 0))
+    return { points, hasData }
+  }, [trend])
 
   const comparisonData = useMemo(
     () => (comparison?.units || []).map(u => ({ name: u.orgUnitName, overallBsc: u.overallBsc ?? null, ...u.values })),
@@ -205,13 +233,13 @@ export default function BscAnalyticsTab() {
         </div>
       </div>
 
-      {/* ── Cân bằng: radar + card hạng mục ─────────────────────────────── */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <Card className="lg:col-span-1">
-          <SectionTitle icon={<TrendingUp size={14} className="text-indigo-500" />}>Radar cân bằng</SectionTitle>
-          {radarData.length ? <PerspectiveRadar data={radarData} /> : <EmptyState>Chưa có điểm hạng mục</EmptyState>}
-        </Card>
-        <div className="lg:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-4">
+      {/* ── Cân bằng: card từng hạng mục ────────────────────────────────── */}
+      {/* Trước đây có thêm một radar 4 trục cạnh khối này. Đã bỏ: bốn thẻ dưới đây đã hiện đủ
+          mọi con số radar vẽ (trọng số, số KPI, điểm đạt, đóng góp), mà diện tích radar 4 trục
+          lại đổi theo THỨ TỰ trục chứ không theo dữ liệu — nên "hình càng đầy càng cân bằng" là
+          một cách đọc sai. Câu hỏi cân bằng nay do biểu đồ bong bóng bên dưới trả lời. */}
+      <div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {(balance?.perspectives || []).map(p => {
             const ach = p.averageScore
             const color = p.color || DEFAULT_COLOR
@@ -238,20 +266,46 @@ export default function BscAnalyticsTab() {
               </div>
             )
           })}
-          {!(balance?.perspectives?.length) && <div className="sm:col-span-2"><Card><EmptyState>Chưa có hạng mục nào có dữ liệu</EmptyState></Card></div>}
+          {!(balance?.perspectives?.length) && <div className="sm:col-span-2 lg:col-span-4"><Card><EmptyState>Chưa có hạng mục nào có dữ liệu</EmptyState></Card></div>}
         </div>
       </div>
 
       {/* ── Xu hướng điểm hạng mục theo kỳ ──────────────────────────────── */}
       <Card>
-        <SectionTitle icon={<TrendingUp size={14} className="text-indigo-500" />}>Xu hướng điểm hạng mục theo kỳ</SectionTitle>
-        {trendData.length ? (
+        <SectionTitle
+          icon={<TrendingUp size={14} className="text-indigo-500" />}
+          extra={<TrendModeToggle mode={trendMode} onChange={setTrendMode} />}
+        >
+          Xu hướng điểm hạng mục theo kỳ
+        </SectionTitle>
+        {isTrendShare ? (
+          trendShare.hasData ? (
+            <>
+              <p className="text-[11px] text-slate-500 font-medium mb-2">
+                Tỉ trọng đóng góp vào điểm BSC — tính trên điểm đã nhân trọng số, nên bốn hạng mục cộng lại đúng bằng điểm tổng.
+              </p>
+              <StackedComposition
+                yLabel="Tỉ trọng đóng góp (%)"
+                series={(trend?.perspectives || []).map(p => ({
+                  code: p.id, label: p.name, color: p.color || DEFAULT_COLOR,
+                }))}
+                points={trendShare.points}
+                variant="area"
+                normalize
+                unit="điểm"
+                height={320}
+              />
+            </>
+          ) : (
+            <EmptyState>Chưa có điểm đã nhân trọng số để tính tỉ trọng đóng góp</EmptyState>
+          )
+        ) : trendData.length ? (
           <ResponsiveContainer width="100%" height={320}>
             <LineChart data={trendData} margin={{ top: 8, right: 16, bottom: 8, left: -8 }}>
               <CartesianGrid strokeDasharray="3 3" strokeOpacity={0.2} />
               <XAxis dataKey="label" tick={{ fontSize: 11 }} />
-              <YAxis domain={[0, 'auto']} tick={{ fontSize: 11 }} />
-              <Tooltip formatter={(v: any, n: any) => [`${v == null ? '—' : Math.round(Number(v) * 10) / 10}%`, n]} />
+              <YAxis label={yAxisLabel('\u0110i\u1ec3m')} domain={[0, 'auto']} tick={{ fontSize: 11 }} />
+              <Tooltip content={<SeriesTooltip unit="%" />} />
               <Legend wrapperStyle={{ fontSize: 12 }} />
               {(trend?.perspectives || []).map(p => (
                 <Line key={p.id} type="monotone" dataKey={p.id} name={p.name} stroke={p.color || DEFAULT_COLOR} strokeWidth={2} dot={{ r: 3 }} connectNulls />
@@ -271,7 +325,7 @@ export default function BscAnalyticsTab() {
               <CartesianGrid strokeDasharray="3 3" strokeOpacity={0.2} horizontal={false} />
               <XAxis type="number" domain={[0, 'auto']} tick={{ fontSize: 11 }} />
               <YAxis type="category" dataKey="name" width={140} tick={{ fontSize: 11 }} />
-              <Tooltip formatter={(v: any, n: any) => [`${v == null ? '—' : Math.round(Number(v) * 10) / 10}%`, n]} />
+              <Tooltip content={<SeriesTooltip unit="%" />} />
               <Legend wrapperStyle={{ fontSize: 12 }} />
               {(comparison?.perspectives || []).map(p => (
                 <Bar key={p.id} dataKey={p.id} name={p.name} fill={p.color || DEFAULT_COLOR} radius={[0, 3, 3, 0]} />
@@ -294,16 +348,25 @@ export default function BscAnalyticsTab() {
                     vsLevel === l ? 'bg-white dark:bg-slate-700 text-indigo-600 shadow-sm' : 'text-slate-500'
                   )}>{l === 'UNIT' ? 'Theo đơn vị' : 'Theo nhân sự'}</button>
                 ))}
+                <span className="w-px h-4 bg-slate-200 dark:bg-slate-700 mx-1" />
+                {([['BAR', 'Cột'], ['SCATTER', 'Phân tán']] as const).map(([v, lb]) => (
+                  <button key={v} onClick={() => setVsShape(v)} className={cn(
+                    'text-[11px] font-bold px-2.5 py-1 rounded-md transition-colors',
+                    vsShape === v ? 'bg-white dark:bg-slate-700 text-indigo-600 shadow-sm' : 'text-slate-500'
+                  )}>{lb}</button>
+                ))}
               </div>
             }
           >Đối chiếu BSC vs điểm hệ thống</SectionTitle>
-          {vsData.length ? (
+          {vsShape === 'SCATTER' ? (
+            <BscVsSystemScatterSection filter={advancedFilter} />
+          ) : vsData.length ? (
             <ResponsiveContainer width="100%" height={Math.max(280, vsData.length * 44)}>
               <BarChart data={vsData} layout="vertical" margin={{ top: 8, right: 16, bottom: 8, left: 8 }}>
                 <CartesianGrid strokeDasharray="3 3" strokeOpacity={0.2} horizontal={false} />
                 <XAxis type="number" domain={[0, 'auto']} tick={{ fontSize: 11 }} />
                 <YAxis type="category" dataKey="name" width={140} tick={{ fontSize: 11 }} />
-                <Tooltip formatter={(v: any, n: any) => [`${v == null ? '—' : Math.round(Number(v) * 10) / 10}`, n]} />
+                <Tooltip content={<SeriesTooltip />} />
                 <Legend wrapperStyle={{ fontSize: 12 }} />
                 <Bar dataKey="bscScore" name="Điểm BSC" fill="#6366f1" radius={[0, 3, 3, 0]} />
                 <Bar dataKey="systemScore" name="Điểm hệ thống" fill="#94a3b8" radius={[0, 3, 3, 0]} />
@@ -331,21 +394,64 @@ export default function BscAnalyticsTab() {
         </Card>
       </div>
 
+      {/* ── Bong bóng hạng mục & cấu thành điểm ──────────────────────────── */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <Card>
+          <SectionTitle icon={<Layers size={14} className="text-violet-500" />}>
+            Trọng số × Kết quả theo hạng mục
+          </SectionTitle>
+          <PerspectiveBubbleSection filter={advancedFilter} />
+        </Card>
+        <Card>
+          <SectionTitle icon={<TrendingUp size={14} className="text-emerald-500" />}>
+            Cấu thành điểm BSC
+          </SectionTitle>
+          <BscWaterfallSection filter={advancedFilter} />
+        </Card>
+      </div>
+
+      {/* ── Lịch sử thay đổi trọng số (chỉ cấp tổ chức) ──────────────────── */}
+      <Card>
+        <SectionTitle icon={<History size={14} className="text-amber-500" />}>
+          Lịch sử thay đổi trọng số hạng mục
+        </SectionTitle>
+        <WeightHistorySection filter={advancedFilter} />
+      </Card>
+
       {/* ── Xếp hạng nhân sự theo điểm BSC ───────────────────────────────── */}
       <Card>
         <SectionTitle
           icon={<Medal size={14} className="text-amber-500" />}
           extra={
-            <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 rounded-lg p-0.5">
-              {([['bscScore', 'Điểm BSC'], ['systemScore', 'Điểm hệ thống']] as const).map(([k, lb]) => (
-                <button key={k} onClick={() => { setRankSort(k); setRankPage(0) }} className={cn(
-                  'text-[11px] font-bold px-2.5 py-1 rounded-md transition-colors',
-                  rankSort === k ? 'bg-white dark:bg-slate-700 text-indigo-600 shadow-sm' : 'text-slate-500'
-                )}>{lb}</button>
-              ))}
+            <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 rounded-lg p-0.5">
+                {([['bscScore', 'Điểm BSC'], ['systemScore', 'Điểm hệ thống']] as const).map(([k, lb]) => (
+                  <button key={k} onClick={() => { setRankSort(k); setRankPage(0) }} className={cn(
+                    'text-[11px] font-bold px-2.5 py-1 rounded-md transition-colors',
+                    rankSort === k ? 'bg-white dark:bg-slate-700 text-indigo-600 shadow-sm' : 'text-slate-500'
+                  )}>{lb}</button>
+                ))}
+              </div>
+              <ViewToggleButtons view={rankView} onChange={setRankView} />
             </div>
           }
         >Xếp hạng nhân sự theo điểm BSC</SectionTitle>
+        {rankView === 'chart' ? (
+          (ranking?.content?.length ?? 0) === 0 ? (
+            <div className="py-16 text-center text-slate-400 text-sm">Không có dữ liệu xếp hạng</div>
+          ) : (
+            <Lollipop
+              data={(ranking?.content || []).map(row => ({
+                id: row.userId,
+                name: row.fullName,
+                subText: row.email ?? undefined,
+                value: (rankSort === 'bscScore' ? row.bscScore : row.systemScore) ?? 0,
+              }))}
+              unit=" điểm"
+              domainMax={100}
+            />
+          )
+        ) : (
         <div className="overflow-x-auto custom-scrollbar">
           <table className="w-full text-left">
             <thead className="bg-slate-50 dark:bg-slate-800/50">
@@ -390,7 +496,13 @@ export default function BscAnalyticsTab() {
             </tbody>
           </table>
         </div>
-        {(ranking?.totalElements ?? 0) > RANK_PAGE_SIZE && (
+        )}
+        {rankChartMode && (ranking?.totalElements ?? 0) > RANK_CHART_TOP_N && (
+          <p className="text-[11px] text-slate-400 font-medium text-center mt-2">
+            {RANK_CHART_TOP_N} người dẫn đầu trong {ranking?.totalElements} nhân sự — xem đủ ở chế độ bảng.
+          </p>
+        )}
+        {!rankChartMode && (ranking?.totalElements ?? 0) > RANK_PAGE_SIZE && (
           <Pagination
             currentPage={rankPage}
             totalPages={ranking?.totalPages ?? 1}

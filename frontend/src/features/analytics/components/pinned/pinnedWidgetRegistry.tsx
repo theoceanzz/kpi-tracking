@@ -11,7 +11,11 @@ import AnalyticsComboChart from '../AnalyticsComboChart'
 import UnitComparisonBarChart from '../UnitComparisonBarChart'
 import MemberRoleChart from '../MemberRoleChart'
 import ObjectiveDetailsWidget from '../ObjectiveDetailsWidget'
-import { UnitRiskSection, WarningListSection, EmployeeRankingTableSection } from '../../pages/SummaryTab'
+import { EmployeeRankingTableSection } from '../../pages/SummaryTab'
+import {
+  SubmissionTrendWidget, SubmissionShareWidget, ScoreHistogramWidget, ScoreDeviationWidget,
+  SelfVsManagerWidget, RankDeltaWidget, KpiLifecycleWidget,
+} from '../advanced/SummaryAdvanced'
 
 /**
  * Registry render biểu đồ ĐÃ GHIM ở trang chủ bằng ĐÚNG component + dữ liệu như trong tab thống kê,
@@ -28,6 +32,19 @@ export interface PinnedFilter {
   periodId?: string
   periodIdTo?: string
   groupBy?: 'TIME' | 'PERIOD'
+}
+
+/**
+ * Widget chuyên sâu đều tự fetch qua hook riêng và tự thu hẹp phạm vi theo cấp người xem, nên bản
+ * ghim chỉ cần truyền bộ lọc xuống và bọc `Fill` cho vừa ô.
+ */
+function pinnedAdvanced(
+  Component: ComponentType<{ filter: { orgUnitId?: string; periodId?: string; periodIdTo?: string; from?: string; to?: string }; bare?: boolean }>,
+) {
+  return function Pinned({ filter }: { filter?: PinnedFilter }) {
+    const { from, to, periodId, periodIdTo } = useResolved(filter)
+    return <Fill><Component filter={{ periodId, periodIdTo, from, to }} bare /></Fill>
+  }
 }
 
 /** Bộ lọc mặc định của tab thống kê (useAnalyticsDateFilter: SINGLE + legacyMode THIS_YEAR). */
@@ -108,16 +125,6 @@ function PinnedSubDetail({ filter }: { filter?: PinnedFilter }) {
   return <Fill><ObjectiveDetailsWidget dateRange={{ from, to }} onlyApproved={onlyApproved} periodId={periodId} periodIdTo={periodIdTo} /></Fill>
 }
 
-function PinnedUnitRisk({ filter }: { filter?: PinnedFilter }) {
-  const { from, to, onlyApproved, periodId, periodIdTo } = useResolved(filter)
-  return <Fill><UnitRiskSection bare from={from} to={to} onlyApproved={onlyApproved} periodId={periodId} periodIdTo={periodIdTo} /></Fill>
-}
-
-function PinnedWarningList({ filter }: { filter?: PinnedFilter }) {
-  const { from, to, onlyApproved, periodId, periodIdTo } = useResolved(filter)
-  return <Fill><WarningListSection bare from={from} to={to} onlyApproved={onlyApproved} periodId={periodId} periodIdTo={periodIdTo} /></Fill>
-}
-
 function PinnedRankTable({ filter }: { filter?: PinnedFilter }) {
   const { from, to, onlyApproved, periodId, periodIdTo } = useResolved(filter)
   return <Fill><EmployeeRankingTableSection bare from={from} to={to} onlyApproved={onlyApproved} periodId={periodId} periodIdTo={periodIdTo} /></Fill>
@@ -155,11 +162,18 @@ export const PINNED_REGISTRY: Record<string, ComponentType<{ filter?: PinnedFilt
   // Chi tiết mục tiêu cấp dưới (đã self-contained)
   'sub-detail': PinnedSubDetail,
   // Rủi ro / xếp hạng (Tổng quan đơn vị) — render bản `bare` của section trong tab
-  'unit-risk': PinnedUnitRisk,
-  'warning-list': PinnedWarningList,
   'rank-table': PinnedRankTable,
   // Bảng chi tiết KPI (Tổng quan / KPI của tôi / Mục tiêu của tôi) — placeholder gọn thay vì render trống
   'kpi-detail': PinnedDetailPlaceholder,
   'mykpi-detail': PinnedDetailPlaceholder,
   'myobj-detail': PinnedDetailPlaceholder,
+  // Biểu đồ chuyên sâu (KPI đơn vị) — phải có mặt ở đây, nếu không thẻ ghim chỉ hiện một dòng chữ.
+  'submission-trend': pinnedAdvanced(SubmissionTrendWidget),
+  'submission-share': pinnedAdvanced(SubmissionShareWidget),
+  'score-histogram': pinnedAdvanced(ScoreHistogramWidget),
+  'score-deviation': pinnedAdvanced(ScoreDeviationWidget),
+  'self-vs-manager': pinnedAdvanced(SelfVsManagerWidget),
+  'rank-delta': pinnedAdvanced(RankDeltaWidget),
+  'kpi-lifecycle': pinnedAdvanced(KpiLifecycleWidget),
+  'mykpi-histogram': pinnedAdvanced(ScoreHistogramWidget),
 }

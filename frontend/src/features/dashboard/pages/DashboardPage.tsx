@@ -4,6 +4,7 @@ import HeadDashboard from './HeadDashboard'
 import StaffDashboard from './StaffDashboard'
 import { useSearchParams, Navigate } from 'react-router-dom'
 import { useAuthStore } from '@/store/authStore'
+import WorkflowStartCard from '@/features/kpi/workflow/components/WorkflowStartCard'
 
 const DashboardPage = () => {
   const { hasPermission } = useHasPermission()
@@ -15,28 +16,45 @@ const DashboardPage = () => {
     return <Navigate to="/admin" replace />
   }
 
-  // If explicitly requested 'staff' view and has staff permissions
-  if (view === 'staff' && hasPermission('KPI:VIEW_MY')) {
-    return <StaffDashboard />
+  const dashboard = pickDashboard()
+
+  if (!dashboard) {
+    // Fallback to profile if no specific dashboard permission
+    return <Navigate to="/profile" replace />
   }
 
-  // 1. Director & Management Level
-  if (hasPermission(['ORG:VIEW', 'USER:VIEW', 'ROLE:VIEW'], true)) {
-    return <DirectorDashboard />
-  }
+  // Thẻ khởi động đứng trên mọi biến thể dashboard: nó tự ẩn với người không có quyền ở bước đầu
+  // của luồng, nên không cần lặp lại phép kiểm vai trò ở đây.
+  return (
+    <div className="space-y-6">
+      <WorkflowStartCard />
+      {dashboard}
+    </div>
+  )
 
-  // 2. Department Head / Manager Level
-  if (hasPermission(['SUBMISSION:REVIEW', 'USER:VIEW_LIST'])) {
-    return <HeadDashboard />
-  }
+  function pickDashboard() {
+    // If explicitly requested 'staff' view and has staff permissions
+    if (view === 'staff' && hasPermission('KPI:VIEW_MY')) {
+      return <StaffDashboard />
+    }
 
-  // 3. Staff Level (Default if no manager perms)
-  if (hasPermission('KPI:VIEW_MY')) {
-    return <StaffDashboard />
-  }
+    // 1. Director & Management Level
+    if (hasPermission(['ORG:VIEW', 'USER:VIEW', 'ROLE:VIEW'], true)) {
+      return <DirectorDashboard />
+    }
 
-  // Fallback to profile if no specific dashboard permission
-  return <Navigate to="/profile" replace />
+    // 2. Department Head / Manager Level
+    if (hasPermission(['SUBMISSION:REVIEW', 'USER:VIEW_LIST'])) {
+      return <HeadDashboard />
+    }
+
+    // 3. Staff Level (Default if no manager perms)
+    if (hasPermission('KPI:VIEW_MY')) {
+      return <StaffDashboard />
+    }
+
+    return null
+  }
 }
 
 export default DashboardPage

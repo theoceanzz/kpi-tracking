@@ -20,6 +20,12 @@ export interface OrgUnitKpiComboChartData {
 
 export type KpiParentRelationType = 'DELEGATION' | 'DECOMPOSITION'
 
+export interface KpiAssigneeBrief {
+  userId: string
+  fullName: string
+  avatarUrl: string | null
+}
+
 export interface OrgUnitKpiDetail {
   kpiId: string
   kpiName: string
@@ -35,6 +41,8 @@ export interface OrgUnitKpiDetail {
   periodName?: string | null
   weight?: number | null
   assigneeName?: string | null
+  /** Người đảm nhiệm kèm ảnh — biểu đồ vẽ avatar, không tách được từ chuỗi `assigneeName`. */
+  assignees?: KpiAssigneeBrief[]
   shared: boolean
   participantCount: number
   // Nhận diện loại KPI + KPI con (cho tag & expand)

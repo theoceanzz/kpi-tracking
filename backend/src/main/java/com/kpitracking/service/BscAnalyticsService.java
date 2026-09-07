@@ -140,10 +140,13 @@ public class BscAnalyticsService {
             if (acc == null) { acc = new TrendPointAcc((String) r[1], null); byPeriod.put(periodId, acc); }
             Double avg = dbl(r[7]);
             if (avg != null) acc.values.put(persId.toString(), round1(avg));
+            Double avgWeighted = dbl(r[8]);
+            if (avgWeighted != null) acc.weighted.put(persId.toString(), round1(avgWeighted));
         }
 
         List<TrendPoint> points = byPeriod.values().stream()
-                .map(a -> TrendPoint.builder().label(a.label).overall(round1(a.overall)).values(a.values).build())
+                .map(a -> TrendPoint.builder().label(a.label).overall(round1(a.overall))
+                        .values(a.values).weighted(a.weighted).build())
                 .collect(Collectors.toList());
         List<PerspectiveMeta> orderedMetas = metas.values().stream()
                 .sorted(java.util.Comparator.comparing(m -> m.getDisplayOrder() == null ? 0 : m.getDisplayOrder()))
@@ -153,6 +156,7 @@ public class BscAnalyticsService {
 
     private static class TrendPointAcc {
         final String label; final Double overall; final Map<String, Double> values = new LinkedHashMap<>();
+        final Map<String, Double> weighted = new LinkedHashMap<>();
         TrendPointAcc(String label, Double overall) { this.label = label; this.overall = overall; }
     }
 
@@ -343,8 +347,14 @@ public class BscAnalyticsService {
         return new Coverage(percent, total - unmapped, unmapped, names);
     }
 
-    /** SHADOW nếu bất kỳ kỳ nào đang chạy song song; OFFICIAL nếu có kỳ chính thức; null nếu không kỳ nào có thẻ điểm. */
-    private String resolveScoringMode(UUID orgId, Collection<UUID> periodIds) {
+    /**
+     * SHADOW nếu bất kỳ kỳ nào đang chạy song song; OFFICIAL nếu có kỳ chính thức; null nếu không
+     * kỳ nào có thẻ điểm.
+     *
+     * <p>Để public vì {@code CorrelationAnalyticsService} cũng cần nhãn này cho biểu đồ đối chiếu
+     * BSC — chép lại vòng lặp sang đó là mở đường cho hai nơi trả lời khác nhau về cùng một kỳ.
+     */
+    public String resolveScoringMode(UUID orgId, Collection<UUID> periodIds) {
         if (orgId == null) return null;
         boolean shadow = false, official = false;
         for (UUID pid : periodIds) {

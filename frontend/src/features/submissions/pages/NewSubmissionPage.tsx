@@ -18,6 +18,7 @@ import { useFormAssistStore } from '@/store/formAssistStore'
 import { MicButton } from '@/components/common/MicButton'
 import { ATTACHMENT_ACCEPT, ATTACHMENT_HINT, MAX_ATTACHMENT_BYTES, MAX_ATTACHMENT_FILES, screenEvidence } from '@/lib/attachmentPolicy'
 import { toast } from 'sonner'
+import { useWorkflowNavigator, WORKFLOW_PARAMS } from '@/features/kpi/workflow/hooks/useWorkflowNavigator'
 import { useNavigate, useSearchParams, useParams } from 'react-router-dom'
 import { formatNumber, cn } from '@/lib/utils'
 import { 
@@ -43,6 +44,8 @@ function isSubmittableByUser(k: KpiCriteria, userId?: string) {
 
 export default function NewSubmissionPage() {
   const navigate = useNavigate()
+  const { goToNext, nextReachableStage } = useWorkflowNavigator()
+  const nextAfterSubmission = nextReachableStage('SUBMISSION')
   const user = useAuthStore(s => s.user)
   const { data: org } = useOrganization(user?.memberships?.[0]?.organizationId)
   const qualitativeLevels = [...(org?.qualitativeLevels ?? [])].sort((a, b) => a.position - b.position)
@@ -242,7 +245,9 @@ export default function NewSubmissionPage() {
           setShowSuccess(true)
         } else {
           toast.success('Gửi báo cáo thành công!')
-          navigate('/submissions')
+          // Về đúng nơi CÒN VIỆC để làm. Trước đây luôn về /submissions — danh sách những gì đã
+          // nộp xong — nên người dùng phải tự tìm đường quay lại /my-kpi để nộp chỉ tiêu tiếp theo.
+          navigate(`/my-kpi${periodId ? `?${WORKFLOW_PARAMS.period}=${periodId}` : ''}`)
         }
       } else {
         toast.success('Đã lưu bản nháp!')
@@ -649,17 +654,25 @@ export default function NewSubmissionPage() {
             <div className="space-y-4">
               <h3 className="text-3xl font-black text-slate-900 dark:text-white tracking-tight uppercase">Ghi nhận hiệu suất</h3>
               <p className="text-slate-500 dark:text-slate-400 font-medium leading-relaxed">
-                Dữ liệu báo cáo của bạn đã được hệ thống ghi nhận thành công. Để hoàn tất quy trình, mời bạn thực hiện bước <strong>"Tự đánh giá"</strong> cho chu kỳ này.
+                Dữ liệu báo cáo của bạn đã được hệ thống ghi nhận thành công.
+                {nextAfterSubmission && (
+                  <> Để hoàn tất quy trình, mời bạn sang bước <strong>"{nextAfterSubmission.label}"</strong> cho chu kỳ này.</>
+                )}
               </p>
             </div>
 
             <div className="flex flex-col gap-4">
-              <button
-                onClick={() => navigate(`/evaluations?action=self-eval&periodId=${selectedKpi?.kpiPeriod?.id}`)}
-                className="w-full py-5 bg-slate-900 dark:bg-white text-white dark:text-slate-900 rounded-2xl font-black text-sm shadow-2xl hover:bg-indigo-600 dark:hover:bg-indigo-50 transition-all flex items-center justify-center gap-3 uppercase tracking-widest active:scale-95"
-              >
-                <Sparkles size={20} className="text-amber-400" /> TIẾN HÀNH TỰ ĐÁNH GIÁ
-              </button>
+              {/* Đích lấy từ cấu hình luồng chứ không viết cứng vào /evaluations: tổ chức tắt bước
+                  tự đánh giá thì nút này phải trỏ sang bước kế tiếp còn bật, không dẫn người dùng
+                  tới một màn hình mà backend đã từ chối phục vụ. */}
+              {nextAfterSubmission && (
+                <button
+                  onClick={() => goToNext('SUBMISSION', { periodId: selectedKpi?.kpiPeriod?.id }, { openCreate: false })}
+                  className="w-full py-5 bg-slate-900 dark:bg-white text-white dark:text-slate-900 rounded-2xl font-black text-sm shadow-2xl hover:bg-indigo-600 dark:hover:bg-indigo-50 transition-all flex items-center justify-center gap-3 uppercase tracking-widest active:scale-95"
+                >
+                  <Sparkles size={20} className="text-amber-400" /> {nextAfterSubmission.label}
+                </button>
+              )}
               <button
                 onClick={() => navigate('/submissions')}
                 className="w-full py-5 bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 rounded-2xl font-black text-sm hover:bg-slate-200 dark:hover:bg-slate-700 transition-all uppercase tracking-widest"

@@ -34,6 +34,8 @@ import {
   Gauge,
   GitBranch,
   Coins,
+  Workflow,
+  Rocket,
   LayoutGrid,
   CalendarRange,
   Award
@@ -44,6 +46,8 @@ import { useSidebarSettings } from '@/features/organization/hooks/useSidebarSett
 import { useTourStore } from '@/store/tourStore'
 import { pathToTourKey } from '@/components/common/tourSteps'
 import { useOrganization } from '@/features/orgunits/hooks/useOrganization'
+import { useKpiWorkflow } from '@/features/kpi/workflow/hooks/useKpiWorkflow'
+import { useWorkflowPrefsStore } from '@/store/workflowPrefsStore'
 
 interface NavItem {
   label: string
@@ -100,6 +104,9 @@ const navItems: NavItem[] = [
     label: 'Quản lý KPI',
     icon: <Target size={20} />,
     children: [
+      // Đứng đầu nhóm vì đây là đường đi từ số không: kỳ → đợt → chỉ tiêu → gửi duyệt trong một
+      // mạch. Các mục bên dưới là màn hình quản lý, dùng khi đã có dữ liệu để sửa/lọc/xoá.
+      { label: 'Thiết lập nhanh', path: '/kpi-setup', icon: <Rocket size={18} />, permission: 'KPI:CREATE' },
       { label: 'Quản lý kỳ', path: '/kpi-cycles', icon: <CalendarRange size={18} />, permission: 'KPI_CYCLE:CREATE', end: true },
       { label: 'Quản lý đợt ', path: '/kpi-periods', icon: <Layers size={18} />, permission: 'KPI_PERIOD:CREATE' },
       { label: 'Quản lý chỉ tiêu', path: '/kpi-criteria', icon: <Target size={18} />, permission: 'KPI:VIEW', end: true },
@@ -114,6 +121,9 @@ const navItems: NavItem[] = [
   { label: 'Tiến độ của tôi', path: '/submissions', icon: <FileText size={20} />, permission: 'SUBMISSION:VIEW_MY', end: true },
   { label: 'Yêu cầu điều chỉnh', path: '/my-adjustments', icon: <History size={20} />, permission: 'KPI:VIEW_MY' },
   { label: 'Thống kê', path: '/analytics', icon: <TrendingUp size={20} />, permission: 'DASHBOARD:VIEW', end: true },
+  // Không gắn permission: phần "Hiển thị của tôi" trong trang này dành cho mọi người, giống cách
+  // Hạn mức AI được đưa thẳng ra sidebar thay vì chôn trong Cấu hình hệ thống.
+  { label: 'Luồng KPI', path: '/kpi-workflow', icon: <Workflow size={20} />, end: true },
   { label: 'Trợ lý AI', path: '/ai-assistant', icon: <Bot size={20} />, permission: 'DASHBOARD:VIEW', end: true, aiOnly: true },
   // Chia hạn mức token cho cấp dưới. Gác bằng đúng quyền thực hiện hành động, nhờ đó
   // trưởng đơn vị vào được mà không cần quyền của trang cấu hình công ty.
@@ -201,6 +211,8 @@ export default function Sidebar({ isMobileOpen, onCloseMobile }: { isMobileOpen?
   const enableOkr = org?.enableOkr
   const enableBsc = org?.enableBsc
   const enableAi = org?.enableAi !== false // default true while loading
+  const { stageForPath, isEnabled } = useKpiWorkflow()
+  const isStageHiddenByMe = useWorkflowPrefsStore(s => s.isHidden)
 
   const [expandedMenus, setExpandedMenus] = useState<Record<string, boolean>>({})
 
@@ -243,6 +255,22 @@ useEffect(() => {
     return (customLabels as Record<string, string>)[key] || item.label
   }
 
+  /**
+   * Bước bị tổ chức tắt thì mục menu của nó biến mất.
+   *
+   * Cùng một cấu hình điều khiển cả nghiệp vụ lẫn điều hướng, nên không xảy ra cảnh menu vẫn dẫn
+   * tới một trang mà backend đã từ chối phục vụ. Đường dẫn không thuộc luồng KPI thì không bị ảnh
+   * hưởng, và khi cấu hình chưa tải xong thì mặc định là BẬT để menu không chớp mất lúc đầu.
+   */
+  const isStageOn = (path?: string) => {
+    if (!path) return true
+    const stage = stageForPath(path)
+    if (!stage) return true
+    // Hai tầng lọc khác hẳn nhau: tổ chức TẮT bước (luật nghiệp vụ, backend cưỡng chế) hoặc chính
+    // người dùng ẨN bước khỏi màn hình của họ (thuần hiển thị, sửa ở trang Luồng KPI).
+    return isEnabled(stage.code) && !isStageHiddenByMe(user?.id, stage.code)
+  }
+
   const filteredItems = navItems.map((item) => {
     // Override main item label
     const updatedItem = { ...item, label: getLabel(item), originalLabel: item.label }
@@ -260,6 +288,7 @@ useEffect(() => {
               .filter(sub => {
                 if (sub.okrOnly && !enableOkr) return false
                 if (sub.bscOnly && !enableBsc) return false
+                if (!isStageOn(sub.path)) return false
                 return !sub.permission || hasPermission(sub.permission)
               })
               .map(sub => ({ ...sub, label: getLabel(sub), originalLabel: sub.label }))
@@ -271,6 +300,7 @@ useEffect(() => {
           }
           if (child.okrOnly && !enableOkr) return null
           if (child.bscOnly && !enableBsc) return null
+          if (!isStageOn(child.path)) return null
 
           if (child.path === '/evaluations') {
             if (! hasPermission('EVALUATION:VIEW_MY')) {
@@ -297,6 +327,8 @@ useEffect(() => {
     let processedItem: NavItem | null = updatedItem
 
     if (item.aiOnly && !enableAi) {
+      processedItem = null
+    } else if (!isStageOn(item.path)) {
       processedItem = null
     } else if (item.path === '/dashboard?view=staff') {
       const isManager = hasPermission(['KPI:APPROVE', 'SUBMISSION:REVIEW', 'ORG:CREATE', 'USER:VIEW_LIST'])

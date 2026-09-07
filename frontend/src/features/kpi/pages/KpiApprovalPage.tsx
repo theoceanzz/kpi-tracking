@@ -1,5 +1,6 @@
 import { useState, useMemo, useEffect } from 'react'
 import { useSearchParams } from 'react-router-dom'
+import { WORKFLOW_PARAMS } from '../workflow/hooks/useWorkflowNavigator'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import LoadingSkeleton from '@/components/common/LoadingSkeleton'
 import EmptyState from '@/components/common/EmptyState'
@@ -42,7 +43,9 @@ export default function KpiApprovalPage() {
   
   const [activeTab, setActiveTab] = useState<'PENDING_APPROVAL' | 'APPROVED' | 'REJECTED' | 'ALL'>(initialTab)
   
-  const [selectedPeriodId, setSelectedPeriodId] = useState('ALL')
+  // Đợt do bước soạn chỉ tiêu bàn giao qua ?periodId= — lọc sẵn đúng lô vừa gửi duyệt, thay vì
+  // bắt người duyệt tự tìm lại trong danh sách tất cả các đợt.
+  const [selectedPeriodId, setSelectedPeriodId] = useState(searchParams.get(WORKFLOW_PARAMS.period) ?? 'ALL')
   const [search, setSearch] = useState('')
   const [page, setPage] = useState(0)
   const [pageSize] = useState(10)
@@ -97,7 +100,9 @@ export default function KpiApprovalPage() {
 
   const handleTabChange = (tab: typeof activeTab) => {
     setActiveTab(tab)
-    setSearchParams({ tab })
+    // Cập nhật riêng khoá tab. Truyền object literal sẽ ghi đè TOÀN BỘ query string và
+    // nuốt mất ?periodId= mà thanh tiến trình đang mang theo.
+    setSearchParams(prev => { prev.set('tab', tab); return prev }, { replace: true })
     setPage(0)
     setSelectedKpis([])
   }

@@ -162,6 +162,8 @@ function SidebarSettingsTab() {
     { key: '/my-adjustments', defaultLabel: 'Điều chỉnh của tôi', category: 'Cá nhân' },
     { key: '/submissions', defaultLabel: 'Bài nộp của tôi', category: 'Cá nhân' },
     { key: '/analytics', defaultLabel: 'Thống kê', category: 'Thống kê' },
+    { key: '/kpi-setup', defaultLabel: 'Thiết lập nhanh', category: 'KPI' },
+    { key: '/kpi-workflow', defaultLabel: 'Luồng KPI', category: 'KPI' },
     { key: '/ai-quota', defaultLabel: 'Hạn mức AI', category: 'Hệ thống' },
   ]
 

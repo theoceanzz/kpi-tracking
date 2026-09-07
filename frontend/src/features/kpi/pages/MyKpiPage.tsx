@@ -18,7 +18,8 @@ import { useKpiPeriods } from '../hooks/useKpiPeriods'
 import { useOrganization } from '@/features/orgunits/hooks/useOrganization'
 import { useObjectives } from '@/features/okr/hooks/useOkr'
 import { useEvaluations } from '@/features/evaluations/hooks/useEvaluations'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
+import { WORKFLOW_PARAMS } from '../workflow/hooks/useWorkflowNavigator'
 import KpiDetailModal from '../components/KpiDetailModal'
 
 import KpiAdjustmentModal from '../components/KpiAdjustmentModal'
@@ -39,7 +40,9 @@ export default function MyKpiPage() {
   const user = useAuthStore(s => s.user)
 
   const [search, setSearch] = useState('')
-  const [selectedPeriodId, setSelectedPeriodId] = useState('ALL')
+  // Quay về đây sau khi nộp một báo cáo thì giữ nguyên đợt đang làm dở, không nhảy về 'ALL'.
+  const [searchParams] = useSearchParams()
+  const [selectedPeriodId, setSelectedPeriodId] = useState(searchParams.get(WORKFLOW_PARAMS.period) ?? 'ALL')
   const [viewMode, setViewMode] = useState<'TABLE' | 'CARD'>(() => window.matchMedia('(max-width: 767px)').matches ? 'CARD' : 'TABLE')
   const [page, setPage] = useState(0)
   const [pageSize] = useState(10)

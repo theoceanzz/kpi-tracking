@@ -24,6 +24,9 @@ import KpiDetailModal from '../components/KpiDetailModal'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { kpiApi } from '../api/kpiApi'
 import { toast } from 'sonner'
+import WizardEntryButton from '../setup/WizardEntryButton'
+import { useSearchParams } from 'react-router-dom'
+import { useWorkflowNavigator, WORKFLOW_PARAMS } from '../workflow/hooks/useWorkflowNavigator'
 import KpiImportGuideModal from '../components/KpiImportGuideModal'
 import UrgentTaskModal from '../components/UrgentTaskModal'
 import { useKpiPeriods } from '../hooks/useKpiPeriods'
@@ -72,7 +75,15 @@ const KPI_TYPE_FILTERS: Record<KpiTypeFilterKey, KpiTypeFilterParams> = {
 }
 
 export default function KpiCriteriaPage() {
-  const [showForm, setShowForm] = useState(false)
+  const [searchParams] = useSearchParams()
+  const { goToNext, nextReachableStage } = useWorkflowNavigator()
+
+  // Bối cảnh do bước tạo đợt bàn giao. Trước đây trang này không đọc URL một chút nào, nên
+  // ?periodId= mà thanh tiến trình mang tới bị bỏ qua hoàn toàn.
+  const incomingPeriodId = searchParams.get(WORKFLOW_PARAMS.period)
+  const openCreateOnArrival = searchParams.get(WORKFLOW_PARAMS.openCreate) === '1'
+
+  const [showForm, setShowForm] = useState(openCreateOnArrival)
   const [editKpi, setEditKpi] = useState<KpiCriteria | null>(null)
   const [deleteKpi, setDeleteKpi] = useState<KpiCriteria | null>(null)
   const [submitKpiId, setSubmitKpiId] = useState<string | null>(null)
@@ -87,7 +98,9 @@ export default function KpiCriteriaPage() {
   const [activeTab, setActiveTab] = useState<'ALL' | 'DRAFT' | 'PENDING_APPROVAL' | 'APPROVED' | 'REJECTED'>('ALL')
   const [search, setSearch] = useState('')
   const [showImportGuide, setShowImportGuide] = useState(false)
-  const [selectedPeriodId, setSelectedPeriodId] = useState<string>('')
+  // Đợt đến từ URL thắng phép tự đoán bên dưới: người dùng vừa chủ động tạo đúng đợt này ở bước
+  // trước, nên đoán lại theo ngày hiện tại sẽ chọn nhầm sang đợt khác.
+  const [selectedPeriodId, setSelectedPeriodId] = useState<string>(incomingPeriodId ?? '')
   const [selectedOrgUnitId, setSelectedOrgUnitId] = useState<string>('')
   const [viewMode, setViewMode] = useState<'TABLE' | 'CARD'>(() => window.matchMedia('(max-width: 767px)').matches ? 'CARD' : 'TABLE')
   const [page, setPage] = useState(0)
@@ -373,6 +386,16 @@ export default function KpiCriteriaPage() {
       onSuccess: () => {
         setSelectedKpiIds([])
         setShowBulkConfirm(false)
+        // Điểm bàn giao của bước soạn chỉ tiêu là GỬI DUYỆT, không phải TẠO MỚI: tổng trọng số
+        // đơn vị phải đúng 100% mới gửi được, nên sau khi tạo một chỉ tiêu người dùng gần như
+        // luôn phải tạo tiếp — nhảy đi ngay sau mỗi lần tạo là phá đúng thao tác thường gặp nhất.
+        //
+        // Chỉ nhảy khi đích ĐÚNG LÀ màn duyệt chỉ tiêu. goToNext vốn bỏ qua những bước người dùng
+        // không có quyền mở, nên người gửi duyệt mà không có quyền duyệt sẽ bị đẩy tới một bước
+        // chẳng liên quan gì tới việc vừa làm; ở lại chỗ cũ đúng hơn.
+        if (nextReachableStage('CRITERIA_DRAFT')?.code === 'CRITERIA_APPROVAL') {
+          goToNext('CRITERIA_DRAFT', { periodId: selectedPeriodId }, { openCreate: false })
+        }
       }
     })
   }
@@ -544,6 +567,8 @@ export default function KpiCriteriaPage() {
                       <Zap size={16} /> <span className="hidden sm:inline">Task khẩn</span>
                     </button>
                   )}
+
+                  <WizardEntryButton className="hidden h-11 px-4 sm:flex sm:h-[52px]" />
 
                   <button
                     id="tour-kpi-add-btn"

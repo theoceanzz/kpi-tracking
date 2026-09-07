@@ -54,6 +54,10 @@ import BscStrategyMapPage from '@/features/bsc/pages/BscStrategyMapPage'
 
 import DashboardPage from '@/features/dashboard/pages/DashboardPage'
 import ErrorPage from '@/features/errors/pages/ErrorPage'
+import KpiSetupLayout from '@/features/kpi/setup/KpiSetupLayout'
+import FlowPicker from '@/features/kpi/setup/FlowPicker'
+import StepRouter from '@/features/kpi/setup/StepRouter'
+import KpiWorkflowPage from '@/features/kpi/workflow/pages/KpiWorkflowPage'
 import PlatformAdminPage from '@/features/platformAdmin/pages/PlatformAdminPage'
 
 export const router = createBrowserRouter([
@@ -93,11 +97,47 @@ export const router = createBrowserRouter([
     element: <ProtectedRoute />,
     children: [
       { path: '/force-password-change', element: <ForceChangePasswordPage /> },
+
+      // Trình thiết lập KPI: trang toàn màn hình, cố ý đặt NGOÀI AppLayout để không có sidebar,
+      // header, thanh tiến trình hay bong bóng chat — giống một trang thanh toán.
+      // Path con phải TƯƠNG ĐỐI: đây là chỗ duy nhất trong file có cha mang path, và React Router
+      // ném lỗi nếu con dùng đường dẫn tuyệt đối dưới một cha như vậy.
+      {
+        // Hợp của `requiresAny` trên mọi luồng trong `setup/flows.ts`. Chỉ chặn người không có
+        // phần nào trong quy trình KPI; ai vào được thì màn chọn luồng tự lọc tiếp theo quyền.
+        element: (
+          <PermissionRoute
+            permission={[
+              'KPI_PERIOD:CREATE', 'KPI:CREATE', 'KPI:APPROVE_CRITERIA', 'KPI:APPROVE_ADJUSTMENT',
+              'SUBMISSION:CREATE', 'KPI:VIEW_MY', 'SUBMISSION:REVIEW', 'EVALUATION:CREATE', 'CYCLE_EVAL:FINALIZE',
+            ]}
+          />
+        ),
+        children: [
+          {
+            path: '/kpi-setup',
+            element: <KpiSetupLayout />,
+            children: [
+              // Danh sách bước suy ra từ quyền + cấu hình tổ chức lúc chạy, nên router không thể
+              // khai sẵn từng bước. Một route động, `StepRouter` chọn component.
+              { index: true, element: <FlowPicker /> },
+              { path: ':flowId/:stepId', element: <StepRouter /> },
+            ],
+          },
+        ],
+      },
       {
         element: <AppLayout />,
         children: [
           { path: '/dashboard', element: <DashboardPage /> },
           { path: '/profile', element: <ProfilePage /> },
+
+          // Không gác quyền: phần "Hiển thị của tôi" dành cho mọi người, còn phần cấu hình của tổ
+          // chức thì chính trang tự chuyển sang chế độ chỉ-xem khi thiếu WORKFLOW:MANAGE.
+          // Cố ý KHÔNG đặt trong /settings — khối đó đòi đủ ORG:VIEW + USER:VIEW + ROLE:VIEW nên
+          // trưởng đơn vị có quyền cấu hình luồng vẫn không vào được, đúng lý do trang Hạn mức AI
+          // đã phải tách ra.
+          { path: '/kpi-workflow', element: <KpiWorkflowPage /> },
 
           // Director & KPI Managers
           {

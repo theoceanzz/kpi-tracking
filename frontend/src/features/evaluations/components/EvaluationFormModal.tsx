@@ -1,4 +1,5 @@
 import { useNavigate } from 'react-router-dom'
+import { useWorkflowNavigator } from '@/features/kpi/workflow/hooks/useWorkflowNavigator'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { evaluationSchema, type EvaluationFormData } from '../schemas/evaluationSchema'
@@ -156,26 +157,21 @@ export default function EvaluationFormModal({ open, onClose, readOnly = false, i
   }, [calculatedScore, setValue, readOnly, isBscOfficial])
 
   const navigate = useNavigate()
-
-  const primaryMembership = useMemo(() => {
-    const ms = user?.memberships || [];
-    if (ms.length <= 1) return ms[0];
-    return ms.find(m => (m.levelOrder ?? 0) > 0) || ms[0];
-  }, [user?.memberships]);
-
-  const isHead = primaryMembership?.roleRank === 0;
+  const { goToNext } = useWorkflowNavigator()
 
   const onSubmit = (data: EvaluationFormData) => {
     if (readOnly) return
     createMutation.mutate(data, {
-      onSuccess: () => { 
-        reset(); 
-        onClose();
-        if (isHead) {
-          navigate('/submissions/org-unit')
-        } else {
-          navigate('/evaluations')
-        }
+      onSuccess: () => {
+        reset()
+        onClose()
+
+        // Đích lấy từ cấu hình luồng thay vì đoán qua roleRank rồi điều hướng cứng. Hai cái lợi:
+        // quản lý chấm điểm xong được dẫn tiếp sang bước đánh giá kỳ thay vì quay về chỗ cũ, và
+        // tổ chức tắt bước nào thì nút tự bỏ qua bước đó.
+        const stage = data.userId === user?.id ? 'SELF_EVALUATION' : 'MANAGER_EVALUATION'
+        const movedOn = goToNext(stage, { periodId: data.kpiPeriodId }, { openCreate: false })
+        if (!movedOn) navigate('/evaluations')
       },
     })
   }

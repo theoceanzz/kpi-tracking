@@ -83,9 +83,19 @@ class KpiSubmissionReviewGuardTest {
 
         // Chỉ tiêm những phụ thuộc mà đường HÀNG LOẠT thật sự chạm tới; phần còn lại để null nên
         // nếu bản vá vô tình đi lạc sang nhánh khác thì test nổ ngay thay vì âm thầm xanh.
+        //
+        // Máy trạng thái là thật, không mock: đường hàng loạt giờ hỏi nó trạng thái đích thay vì
+        // ghi thẳng thứ client gửi lên, và ta muốn kiểm đúng luật thật chứ không phải luật giả.
+        com.kpitracking.workflow.StageRegistry registry = new com.kpitracking.workflow.StageRegistry();
+        com.kpitracking.workflow.KpiWorkflowConfigService workflowConfig =
+                mock(com.kpitracking.workflow.KpiWorkflowConfigService.class);
+        when(workflowConfig.definitionFor(any()))
+                .thenReturn(new com.kpitracking.workflow.def.WorkflowDefinitionFactory(registry).buildDefault());
+
         service = new KpiSubmissionService(
                 submissionRepository, null, null, userRepository, null, submissionMapper, events,
-                permissionChecker, null);
+                permissionChecker, null,
+                workflowConfig, new com.kpitracking.workflow.engine.WorkflowEngine(registry));
 
         // Đủ để một bản nộp HỢP LỆ chạy trọn vòng lặp, nhờ đó kiểm được rằng bản THỨ HAI cũng bị soi.
         when(submissionRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
@@ -104,6 +114,21 @@ class KpiSubmissionReviewGuardTest {
         when(permissionChecker.getMinRankInOrgUnit(reviewer.getId(), unitId)).thenReturn(RANK_TRUONG);
         when(permissionChecker.getMinLevelInOrgUnit(submitter.getId(), unitId)).thenReturn(LEVEL_TEAM);
         when(permissionChecker.getMinRankInOrgUnit(submitter.getId(), unitId)).thenReturn(RANK_NHAN_VIEN);
+
+        // Phép so cấp bậc đã dời vào PermissionChecker.isSuperiorTo (trước đây service tự viết lại
+        // ở đây và ở bốn chỗ khác). Vì PermissionChecker là mock, phải cho nó tính đúng luật ấy từ
+        // chính các giá trị cấp/chức vụ đã stub ở trên — nếu để Mockito trả false mặc định thì
+        // test sẽ xanh/đỏ vì lý do giả, chứ không vì luật thật.
+        when(permissionChecker.isSuperiorTo(any(), any(), any())).thenAnswer(inv -> {
+            UUID actorId = inv.getArgument(0);
+            UUID targetId = inv.getArgument(1);
+            UUID unit = inv.getArgument(2);
+            int actorLevel = permissionChecker.getMinLevelInOrgUnit(actorId, unit);
+            int actorRank = permissionChecker.getMinRankInOrgUnit(actorId, unit);
+            int targetLevel = permissionChecker.getMinLevelInOrgUnit(targetId, unit);
+            int targetRank = permissionChecker.getMinRankInOrgUnit(targetId, unit);
+            return actorLevel < targetLevel || (actorLevel == targetLevel && actorRank < targetRank);
+        });
     }
 
     @AfterEach

@@ -133,6 +133,8 @@ public class AnalyticsSummaryResponse {
     @NoArgsConstructor
     @AllArgsConstructor
     public static class RankingItem {
+        /** Cần cho biểu đồ xếp hạng: bấm vào một người là mở được trang hiệu suất của họ. */
+        private java.util.UUID userId;
         private String name;
         private String avatar;
         private double score;

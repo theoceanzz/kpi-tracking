@@ -75,6 +75,26 @@ public final class PerformanceMatrixResolver {
     }
 
     /**
+     * Cận trên dạng SỐ của từng dải, trừ dải cuối (dải cuối là +∞ nên không có vạch).
+     * Kết quả chính là các vạch chia trên biểu đồ phân tán — dùng chung cách đọc nhãn với
+     * {@link #bandIndex} để vạch vẽ ra luôn trùng với ô mà điểm rơi vào.
+     *
+     * <p>Nhãn không chứa số nào (ví dụ "Còn lại") được bỏ qua thay vì trả về 0 — vẽ vạch ở 0 sẽ
+     * nói dối về vị trí ranh giới.
+     */
+    public static List<Double> bandUpperBounds(List<String> bands) {
+        List<Double> bounds = new ArrayList<>();
+        if (bands == null || bands.size() < 2) return bounds;
+        for (int i = 0; i < bands.size() - 1; i++) {
+            Matcher mt = NUM.matcher(bands.get(i));
+            double upper = Double.NEGATIVE_INFINITY;
+            while (mt.find()) upper = Math.max(upper, Double.parseDouble(mt.group()));
+            if (upper != Double.NEGATIVE_INFINITY) bounds.add(upper);
+        }
+        return bounds;
+    }
+
+    /**
      * Chỉ số dải cho một giá trị theo nhãn dải tăng dần (vd "&lt;2", "≥2 và &lt;3", "≥120%").
      * Lấy số LỚN nhất trong nhãn làm cận trên; dải cuối là +∞.
      */

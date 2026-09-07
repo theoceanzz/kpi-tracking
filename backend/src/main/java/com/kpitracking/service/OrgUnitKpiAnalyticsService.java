@@ -256,6 +256,7 @@ public class OrgUnitKpiAnalyticsService {
                     .periodName(child.getKpiPeriod() != null ? child.getKpiPeriod().getName() : null)
                     .weight(child.getWeight())
                     .assigneeName(KpiMetricsCalculator.assigneeNames(child))
+                    .assignees(assigneeBriefs(child))
                     .isShared(child.getAssignees() != null && child.getAssignees().size() > 1)
                     .participantCount(child.getAssignees() != null ? child.getAssignees().size() : 1)
                     .isReverseKpi(Boolean.TRUE.equals(child.getIsReverseKpi()))
@@ -463,6 +464,7 @@ public class OrgUnitKpiAnalyticsService {
                     .periodName(kpi.getKpiPeriod() != null ? kpi.getKpiPeriod().getName() : null)
                     .weight(kpi.getWeight())
                     .assigneeName(KpiMetricsCalculator.assigneeNames(kpi))
+                    .assignees(assigneeBriefs(kpi))
                     .isShared(isShared)
                     .participantCount(kpi.getAssignees() != null ? kpi.getAssignees().size() : 1)
                     .isReverseKpi(Boolean.TRUE.equals(kpi.getIsReverseKpi()))
@@ -729,6 +731,21 @@ public class OrgUnitKpiAnalyticsService {
                 .build();
     }
 
+    /**
+     * Người đảm nhiệm của một KPI. Quan hệ `assignees` đã được nạp sẵn ở chỗ gọi (đang dùng cho
+     * `isShared`/`participantCount`) nên đây không phát sinh truy vấn mới.
+     */
+    private static List<OrgUnitKpiDetail.AssigneeBrief> assigneeBriefs(KpiCriteria kpi) {
+        if (kpi.getAssignees() == null || kpi.getAssignees().isEmpty()) return List.of();
+        return kpi.getAssignees().stream()
+                .map(u -> OrgUnitKpiDetail.AssigneeBrief.builder()
+                        .userId(u.getId())
+                        .fullName(u.getFullName())
+                        .avatarUrl(u.getAvatarUrl())
+                        .build())
+                .collect(Collectors.toList());
+    }
+
     // ── Response DTOs ─────────────────────────────────────────────────────────
 
     @lombok.Data
@@ -749,7 +766,12 @@ public class OrgUnitKpiAnalyticsService {
         private Instant periodEnd;
         private String periodName;   // tên đợt, vd "Tháng 6/2026"
         private Double weight;        // trọng số KPI
-        private String assigneeName;  // người đảm nhiệm
+        private String assigneeName;  // người đảm nhiệm (ghép tên, dùng cho chế độ bảng)
+        /**
+         * Danh sách người đảm nhiệm kèm ảnh — biểu đồ cần vẽ avatar chứ không tách được từ chuỗi
+         * {@code assigneeName}. Rỗng khi KPI chưa gán ai.
+         */
+        private List<AssigneeBrief> assignees;
         private boolean isShared;
         private int participantCount;
 
@@ -763,6 +785,17 @@ public class OrgUnitKpiAnalyticsService {
         private com.kpitracking.enums.KpiParentRelationType parentRelationType;
         private com.kpitracking.enums.KpiParentRelationType childRelationType;
         private List<OrgUnitKpiDetail> children;
+
+        /** Người đảm nhiệm ở mức tối thiểu để vẽ avatar — không kèm gì thêm vì đây là dữ liệu biểu đồ. */
+        @lombok.Data
+        @lombok.Builder
+        @lombok.NoArgsConstructor
+        @lombok.AllArgsConstructor
+        public static class AssigneeBrief {
+            private UUID userId;
+            private String fullName;
+            private String avatarUrl;
+        }
     }
 
     @lombok.Data

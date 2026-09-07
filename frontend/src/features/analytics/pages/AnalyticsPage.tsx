@@ -5,7 +5,6 @@ import { cn } from '@/lib/utils'
 import { TrendingUp, Building2, LayoutDashboard, Users, Target, Gauge } from 'lucide-react'
 import MyStatsTab from './MyStatsTab'
 import DrillDownTab from './DrillDownTab'
-import DetailTableTab from './DetailTableTab'
 import SummaryTab from './SummaryTab'
 import MyObjectivesTab from './MyObjectivesTab'
 import BscAnalyticsTab from './BscAnalyticsTab'
@@ -17,13 +16,12 @@ import { useOrganization } from '@/features/orgunits/hooks/useOrganization'
 import { useSidebarSettings } from '@/features/organization/hooks/useSidebarSettings'
 import AnalyticsTabSkeleton from '@/components/common/AnalyticsTabSkeleton'
 
-type TabKey = 'my-objectives' | 'my' | 'summary' | 'drilldown' | 'detail' | 'subordinate' | 'bsc'
+type TabKey = 'my-objectives' | 'my' | 'summary' | 'drilldown' | 'subordinate' | 'bsc'
 
 export default function AnalyticsPage() {
   const { user } = useAuthStore()
   const { hasPermission } = useHasPermission()
   const canDrillDown = hasPermission(['KPI:VIEW']) || hasPermission(['SUBMISSION:REVIEW'])
-  const canDetailTable = hasPermission(['ORG:VIEW']) && hasPermission(['USER:VIEW'])
   const canSummary = canDrillDown
 
   const organizationId = user?.memberships?.[0]?.organizationId
@@ -131,7 +129,6 @@ export default function AnalyticsPage() {
         {activeTab === 'drilldown' && <DrillDownTab />}
         {activeTab === 'subordinate' && canDrillDown && <SubordinateManagementTab />}
         {activeTab === 'bsc' && isBsc && canBsc && <BscAnalyticsTab />}
-        {activeTab === 'detail' && canDetailTable && <DetailTableTab />}
       </div>
     </div>
   )

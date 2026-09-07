@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react'
+import ChartTooltip from '@/components/charts/ChartTooltip'
 import { useQuery } from '@tanstack/react-query'
 import { Users, Activity, Trophy, TrendingDown, ClipboardList } from 'lucide-react'
 import {
@@ -15,6 +16,7 @@ import {
   Cell,
   Label,
 } from 'recharts'
+import { METRIC_COLORS } from '@/components/charts/chartPalette'
 import {
   Select,
   SelectContent,
@@ -36,7 +38,6 @@ type DateFilterType = 'GLOBAL' | 'THIS_WEEK' | 'THIS_MONTH' | 'THIS_QUARTER' | '
 type RankFilter = 'BEST' | 'WORST'
 
 const ASSIGNEE_COLORS = ['#f59e0b', '#8b5cf6', '#ec4899', '#0ea5e9', '#14b8a6', '#f97316', '#a855f7']
-const COMPLETION_COLORS = { normal: '#10b981', dim: '#10b98140' }
 
 // ── Trend chart tooltip ───────────────────────────────────────────────────────
 function TrendTooltip({ active, payload, label }: any) {
@@ -62,17 +63,11 @@ function TrendTooltip({ active, payload, label }: any) {
 // ── Generic bar tooltip ───────────────────────────────────────────────────────
 function BarTooltip({ active, payload, label }: any) {
   if (!active || !payload?.length) return null
-  const displayName = payload[0]?.payload?.tooltipName || label
   return (
-    <div className="bg-slate-900 text-white px-3 py-2 rounded-lg text-xs shadow-xl border border-white/10 max-w-[220px]">
-      <p className="font-bold mb-1 break-words">{displayName}</p>
-      {payload.map((p: any, i: number) => (
-        <p key={i} className="flex items-center gap-1.5">
-          <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: p.color }} />
-          {p.name}: <span className="font-bold">{Math.round(p.value)}%</span>
-        </p>
-      ))}
-    </div>
+    <ChartTooltip
+      title={payload[0]?.payload?.tooltipName || label}
+      rows={payload.map((p: any) => ({ color: p.color, label: p.name, value: `${Math.round(p.value)}%` }))}
+    />
   )
 }
 
@@ -568,7 +563,7 @@ export default function OrgUnitKpiDrawer({
                   data={data.assigneeStats}
                   filter={assigneeCompFilter}
                   onFilterChange={setAssigneeCompFilter}
-                  colors={COMPLETION_COLORS}
+                  colors={METRIC_COLORS.completion}
                   hoveredId={hoveredAssigneeId}
                   onHoverChange={setHoveredAssigneeId}
                 />
@@ -595,7 +590,7 @@ export default function OrgUnitKpiDrawer({
                   data={data.topSubmissions}
                   filter={subCompFilter}
                   onFilterChange={setSubCompFilter}
-                  colors={COMPLETION_COLORS}
+                  colors={METRIC_COLORS.completion}
                   hoveredId={hoveredSubmissionId}
                   onHoverChange={setHoveredSubmissionId}
                 />
